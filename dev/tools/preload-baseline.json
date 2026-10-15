@@ -567,8 +567,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "D6BD708FF01D7FC4FCBC8D494D568DB18F5614A4A9CC7A0EA3C8460CE9C38CF1",
-    "Assert-DomeniaWorkerRegistry": "B9B76FBAA18E6A770B80E33F52DC216F58DD3F30F689B6E43A2D26493D708F8F",
+    "Get-DomeniaWorkerOperationHashes": "A928392EEECB8753F9571141C86F4E7CDC8CAA221989103BB4F8AC2C34449B5A",
+    "Assert-DomeniaWorkerRegistry": "235152CC381A3C336DBEB4B0F0A5ADEB6561DE7304C1B1E5E130058883A54851",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -3984,6 +3984,18 @@
         "Start-DomeniaAccountRelogin",
         "Start-DomeniaSelectedIndexScopeBuild",
         "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot W09 (points 61 a 70) : bibliotheque preparee hors du fil d interface, correspondances expliquees en francais, couverture avant execution, parametres types, conditions imbriquees, unites, bibliotheque personnelle paginee et versionnee, packs QueryPack/2 (partiel), requete vers collection ou widget (partiel). Un seul planificateur de collecte du manquant partage avec les widgets (W01). Synchronise avec W10 dans l atelier. Workers LocalStore, LocalQuery, QueryExport, QueryLibrary re-epingles apres relecture.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

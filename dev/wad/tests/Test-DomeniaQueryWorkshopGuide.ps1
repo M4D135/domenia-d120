@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
 if($QuerySource){Add-Type -Path (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'vendor/m4d-admin-common/src/Query/QueryEngine.cs')}else{Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')}
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','Boards.Model','WidgetCollect.Model','Probes.Model','Query.Model','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','WidgetCollect.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Good,[string]$Name)$checks.Add([pscustomobject]@{Name=$Name;Passed=$Good});if(-not $Good){throw $Name}}
 [xml]$xaml=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Query.xaml'))

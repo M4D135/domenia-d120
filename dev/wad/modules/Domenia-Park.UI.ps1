@@ -343,7 +343,8 @@ function Start-DomeniaOnlinePark {
     # -Slot (FI-18): 'List' or 'Computer'; without it the scope follows the request (Get-DomeniaParkRunSlot).
     # Widget collections (decision David 2026-10-14): -NoConsole reads no console user, -ReuseMaxAgeDays collects only
     # what is missing (the stored measurements of each workstation are checked before any read by
-    # Invoke-DomeniaParkPlanStep and an answered workstation is never contacted), -WidgetBoard/-WidgetIds name the
+    # Invoke-DomeniaParkPlanStep and an answered workstation is never contacted; the workshop's collection of the
+    # missing information of a recipe uses it too), -WidgetBoard/-WidgetIds name the
     # widgets that show the progress of the run and -Preapproved (an added widget: the add click is the gesture)
     # starts without the confirmation up to the limit of Get-DomeniaWidgetCollectAdmission. Every widget collection
     # keeps the ceiling of a survey (SE-05), counted on the workstations left to read.
@@ -459,8 +460,9 @@ function Complete-DomeniaParkTargets {
         $r.Loading=$false;$r.Targets=@($packet.Rows|Where-Object{$null -ne $_})
         foreach($target in $r.Targets){$r.TargetsByKey[([string]$target.Key).ToLowerInvariant()]=$target}
         if($r.Stopping -or -not $r.Targets.Count){$r.Completed=$true;Update-DomeniaParkRunStatus -Run $r;return}
-        # A widget collection that reads only what is missing first checks the stored measurements of each
-        # workstation, without any network read; its admission then counts the workstations left to read.
+        # A collection that reads only what is missing (a widget, or the workshop for a recipe) first checks the
+        # stored measurements of each workstation, without any network read; its admission then counts the
+        # workstations left to read.
         if([int](Get-DomeniaMember $r 'ReuseMaxAgeDays' 0) -gt 0){$r.Planning=$true;Start-DomeniaParkRunTimer -RunId $r.Id -Planning;return}
         Request-DomeniaParkAdmission -Run $r
     }catch{Fail-DomeniaParkTargets $_.Exception.Message $State}
@@ -642,7 +644,9 @@ function Invoke-DomeniaParkRunTick {
     }catch{$r.Stopping=$true;$r.FailureMessage='Relevé interrompu : '+$_.Exception.Message+' Les résultats précédents sont conservés.';[void](Set-DomeniaControlText 'LblParkStatus' $r.FailureMessage)}
 }
 function Invoke-DomeniaParkPlanStep {
-    # Widget collections (decision David 2026-10-14, collect only what is missing). The stored observation of each
+    # The single "collect only what is missing" planner (decision David 2026-10-14): widget collections and the
+    # workshop's collection of the missing information of a recipe (New-DomeniaMissingCollectionPlan proposes the
+    # workstations and counts the estimate with the same reuse age). The stored observation of each
     # workstation, read by ParkTargets with the observation families of this run, is checked against what the run
     # reads: a workstation already answered is counted apart and never contacted. A slice per tick, bounded in count
     # and in time, keeps the Dispatcher responsive whatever the size of the OU, and nothing is read on the network
@@ -672,7 +676,8 @@ function Invoke-DomeniaParkPlanStep {
         # Every workstation already answers: the run ends without contacting any of them and without approval.
         $r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()}
         Update-DomeniaParkRunStatus -Run $r
-        Set-Status ('Widget à jour : '+[int]$r.AlreadyFresh+' poste(s)'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})+' ont déjà une mesure exploitable de moins de '+$days+' jours ; aucun poste contacté.') 'INFO'
+        $subject=if([string](Get-DomeniaMember $r 'WidgetBoard' '')){'Widget à jour : '+[int]$r.AlreadyFresh+' poste(s)'+$(if($r.ScopeLabel){' de '+$r.ScopeLabel}else{''})}else{'Rien à relire : les '+[int]$r.AlreadyFresh+' poste(s) proposés'}
+        Set-Status ($subject+' ont déjà une mesure exploitable de moins de '+$days+' jours ; aucun poste contacté.') 'INFO'
         return
     }
     Update-DomeniaParkRunStatus -Run $r

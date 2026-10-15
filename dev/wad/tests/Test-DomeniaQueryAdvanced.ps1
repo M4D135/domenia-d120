@@ -246,7 +246,8 @@ function Set-DomeniaControlText([string]$Name,[string]$Text){$script:Labels[$Nam
 function Get-DomeniaBoardLayout([string]$Board){if($Board -eq 'Fleet'){return $fleetLayout};return $computerLayout}
 function Get-DomeniaSearchQueryFavorites{return @('local:personal.a')}
 function Get-DomeniaQueryDraft{return (Copy-DomeniaQueryRecipe $script:CurrentDraft)}
-function Save-DomeniaQueryRecipe{param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[switch]$ImpactConfirmed)$script:Saves.Add([pscustomobject]@{Recipe=$Recipe;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState;Archive=[bool]$Archive;ImpactConfirmed=[bool]$ImpactConfirmed;AdditionalDependencies=@($AdditionalDependencies)});return [pscustomobject]@{Accepted=$true}}
+# Same parameters as the store (point 68 adds -Category: the category typed in the workshop goes with the save).
+function Save-DomeniaQueryRecipe{param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='',[switch]$ImpactConfirmed)$script:Saves.Add([pscustomobject]@{Recipe=$Recipe;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState;Archive=[bool]$Archive;ImpactConfirmed=[bool]$ImpactConfirmed;AdditionalDependencies=@($AdditionalDependencies);Category=$Category});return [pscustomobject]@{Accepted=$true}}
 $script:Labels=@{};$script:Saves=[Collections.Generic.List[object]]::new()
 $script:DomeniaQueryState=[pscustomobject]@{Generation=5;Recipe=$saved;ImpactPending=$null}
 $script:CurrentDraft=$saved
@@ -260,6 +261,14 @@ Invoke-DomeniaQueryImpactAction 'Migrate'
 Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $script:Saves[0].Recipe.Id -ceq 'personal.a' -and @($script:Saves[0].Recipe.Clauses).Count -eq 2 -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'migration saves the new definition after the explicit choice'
 $script:Saves.Clear();Request-DomeniaQueryRecipeSave;Invoke-DomeniaQueryImpactAction 'Keep'
 Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].Recipe.Id -cne 'personal.a' -and $script:Saves[0].SuccessHandler -ceq 'Complete-DomeniaQueryRecipeVersionUi' -and $script:Saves[0].CallbackState.KeptRevision -eq 3) 'keeping the old version saves a copy and leaves the saved recipe untouched'
+# Point 68 with the review: the category typed when Enregistrer was clicked goes with the choice, copy included.
+$script:Fake['CmbQuerySaveCategory']=[pscustomobject]@{Text='Audit 2026'}
+foreach($choice in @('Migrate','Keep')){
+    $script:Saves.Clear();Request-DomeniaQueryRecipeSave;$script:Fake['CmbQuerySaveCategory'].Text='Changée après la revue';Invoke-DomeniaQueryImpactAction $choice
+    Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].Category -ceq 'Audit 2026') ('the category typed for the save is kept by the choice '+$choice)
+    $script:Fake['CmbQuerySaveCategory'].Text='Audit 2026'
+}
+[void]$script:Fake.Remove('CmbQuerySaveCategory')
 $script:Saves.Clear();Request-DomeniaQueryRecipeSave
 $script:CurrentDraft=Copy-DomeniaQueryRecipe $modified;$script:CurrentDraft.Name='Renommée après la revue'
 Invoke-DomeniaQueryImpactAction 'Migrate'
