@@ -277,6 +277,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaWorkstationDurationText',
             'Get-DomeniaDiagStatusLabel',
             'Get-DomeniaDiagSeverity',
+            'Get-DomeniaNetworkLayerDiagnosis',
             'ConvertTo-DomeniaDiagVerdict',
             'ConvertTo-DomeniaSoftwareFromInventory',
             'Get-DomeniaSoftwareColumnVisibility',
