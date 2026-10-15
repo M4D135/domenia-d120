@@ -9,6 +9,9 @@ pwdold|Mot de passe du compte machine ancien
 laps.none|Expiration LAPS non visible
 laps.expired|Expiration LAPS dépassée
 bitlocker.none|Protection ou clé BitLocker non visible
+bitlocker.suspended|Protection BitLocker suspendue
+secureboot|Secure Boot désactivé (UEFI)
+certificates|Certificats machine expirés ou proches de lʼéchéance
 lowdisk|Disque presque plein
 disk.tight|Espace disque à surveiller
 uptime|Redémarrage ancien
@@ -210,7 +213,7 @@ function Get-DomeniaComputerRuleEvidence {
     # Point 75: whether the workstation board read the data one rule needs. A missing tile or a tile in an unknown
     # state (Off) is not measured; rules that only make sense on a fleet do not apply to one workstation.
     param($Data,[string]$RuleId,[string]$Measure='')
-    $keys=@{'eos.ended'='computer.os';'eos.soon'='computer.os';'stale'='computer.ad.lastlogon';'pwdold'='computer.ad.password';'laps.expired'='computer.ad.laps';'bitlocker.none'='computer.bitlocker';'lowdisk'='computer.disk.system';'disk.tight'='computer.disk.system';'uptime'='computer.uptime';'memory'='computer.memory.usage';'battery'='computer.battery';'ad.disabled'='computer.ad.account';'clock'='computer.ad.clock';'firewall'='computer.firewall';'reboot'='computer.reboot';'services'='computer.services.stopped';'devices'='computer.devices';'drivers'='computer.drivers';'hotfix'='computer.hotfix';'events'='computer.events'}
+    $keys=@{'eos.ended'='computer.os';'eos.soon'='computer.os';'stale'='computer.ad.lastlogon';'pwdold'='computer.ad.password';'laps.expired'='computer.ad.laps';'bitlocker.none'='computer.bitlocker';'bitlocker.suspended'='computer.bitlocker';'secureboot'='computer.secureboot';'certificates'='computer.certificates';'lowdisk'='computer.disk.system';'disk.tight'='computer.disk.system';'uptime'='computer.uptime';'memory'='computer.memory.usage';'battery'='computer.battery';'ad.disabled'='computer.ad.account';'clock'='computer.ad.clock';'firewall'='computer.firewall';'reboot'='computer.reboot';'services'='computer.services.stopped';'devices'='computer.devices';'drivers'='computer.drivers';'hotfix'='computer.hotfix';'events'='computer.events'}
     $measures=@{DiskFree='computer.disk.system';UptimeDays='computer.uptime';MemoryUsed='computer.memory.usage'}
     $key=if($RuleId.StartsWith('custom.',[StringComparison]::Ordinal)){[string]$measures[$Measure]}else{[string]$keys[$RuleId]}
     if(-not $key){return 'NotApplicable'}

@@ -34,6 +34,8 @@ computer.events|Activite|Erreurs systeme par source|Distribution|Bar|M|Journal S
 computer.antivirus|Securite et etat|Antivirus|Value|Kpi|S|Produit antivirus declare a Windows
 computer.firewall|Securite et etat|Pare-feu|Value|Kpi|S|Profils du pare-feu actifs
 computer.bitlocker|Securite et etat|BitLocker|Value|Kpi|S|Protection du volume systeme
+computer.secureboot|Securite et etat|Démarrage sécurisé|Value|Kpi|S|Secure Boot lu dans le registre du poste par lʼinventaire
+computer.updates|Securite et etat|Mises à jour|Value|Kpi|S|Build, révision et source des mises à jour, sans verdict de conformité
 computer.wsus|Securite et etat|Windows Update|Value|Kpi|S|Serveur WSUS configure
 computer.reboot|Securite et etat|Redemarrage en attente|Value|Kpi|S|Redemarrage demande par une installation
 computer.services.stopped|Securite et etat|Services automatiques arretes|Value|Kpi|S|Services automatiques a l arret
@@ -90,6 +92,7 @@ software.count|Synthese|Logiciels|Value|Kpi|S|Nombre de logiciels et d editeurs
 software.size|Synthese|Taille declaree|Value|Kpi|S|Somme des tailles connues
 software.recent|Synthese|Installés ces 30 derniers jours|Value|Kpi|S|Date dʼinstallation déclarée par le logiciel, lue dans la liste
 software.multiversion|Synthese|Installes en plusieurs versions|Value|Kpi|S|Logiciels presents en plusieurs versions
+software.duplicates|Synthese|Installés en double|Value|Kpi|S|Même nom et même version présents dans plusieurs architectures, portées ou profils
 software.nopublisher|Synthese|Sans editeur declare|Value|Kpi|S|Logiciels sans editeur renseigne
 software.runtime|Synthese|Composants dʼexécution|Value|Kpi|S|Socles Visual C++, .NET et WebView2 déclarés dans la liste
 software.browsers|Synthese|Navigateurs et versions|Value|Kpi|S|Navigateurs détectés dans la liste, avec leur version
@@ -997,20 +1000,22 @@ function Compare-DomeniaHealthSnapshots {
 function Get-DomeniaFleetPivots {
     # Every non-empty cell owns the complete set of GUIDs; unread dimensions remain explicit categories.
     param($Data)
-    $dimensions=@{};foreach($name in @('fleet.ou','fleet.versions','fleet.models','fleet.ram','fleet.presence')){$dimensions[$name]=@{}}
+    $dimensions=@{};foreach($name in @('fleet.ou','fleet.versions','fleet.models','fleet.ram','fleet.presence','fleet.bios')){$dimensions[$name]=@{}}
     foreach($key in $Data.Last.WidgetTargets.Keys){foreach($name in $dimensions.Keys){$prefix=$name+'|';if(-not ([string]$key).StartsWith($prefix,[StringComparison]::Ordinal)){continue};$label=([string]$key).Substring($prefix.Length);foreach($target in $Data.Last.WidgetTargets[$key]){$dimensions[$name][[string]$target.object_guid]=$label}}}
-    $tables=@{OuWindows=@{};ModelRam=@{};SiteCoverage=@{}};$seen=@{}
+    $tables=@{OuWindows=@{};ModelRam=@{};SiteCoverage=@{};ModelBios=@{}};$seen=@{}
     foreach($target in $Data.Last.Targets){
         $guid=[string]$target.object_guid;if(-not $guid -or $seen.ContainsKey($guid)){continue};$seen[$guid]=$true
         $site=[string]$dimensions['fleet.ou'][$guid];if(-not $site){$site='OU non renseignée'}
         $windows=[string]$dimensions['fleet.versions'][$guid];if(-not $windows){$windows='Version non lue'}
         $model=[string]$dimensions['fleet.models'][$guid];if(-not $model){$model='Modèle non lu'}
         $ram=[string]$dimensions['fleet.ram'][$guid];if(-not $ram){$ram='RAM non lue'}
+        # Point 85: a workstation without a dated BIOS reading stays in its own explicit column.
+        $bios=[string]$dimensions['fleet.bios'][$guid];if(-not $bios){$bios='BIOS non relevé'}
         # Coverage of the data the health rules use: ping read (answer or not) and light WMI inventory read. A console-only
         # CIM answer counts in fleet.wmi but not here, so the labels name the inventory (point 72 keeps both apart).
         $ping=([string]$dimensions['fleet.presence'][$guid] -in @('En ligne','Sans réponse'));$wmi=$Data.HealthInventoryKnown.ContainsKey($guid)
         $coverage=if($ping -and $wmi){'Ping et inventaire WMI'}elseif($ping){'Ping sans inventaire WMI'}elseif($wmi){'Inventaire WMI sans ping'}else{'Ni ping ni inventaire WMI'}
-        foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage))){
+        foreach($pair in @(@('OuWindows',$site,$windows),@('ModelRam',$model,$ram),@('SiteCoverage',$site,$coverage),@('ModelBios',$model,$bios))){
             $row=[string]$pair[1];$col=[string]$pair[2];$key=$row.Length.ToString()+':'+$row+$col.Length.ToString()+':'+$col;$table=$tables[$pair[0]]
             if(-not $table.ContainsKey($key)){$table[$key]=[pscustomobject]@{Row=$row;Column=$col;Count=0;Targets=[Collections.Generic.List[object]]::new()}}
             $cell=$table[$key];$cell.Count++;$cell.Targets.Add($target)
@@ -1018,8 +1023,8 @@ function Get-DomeniaFleetPivots {
     }
     # Natural column order where one exists (memory buckets, coverage levels); otherwise by size (point 79).
     $ramOrder=@(@(Get-DomeniaHealthValue (Get-DomeniaHealthValue $Data.Entries 'fleet.ram') 'Items' @())|ForEach-Object{[string]$_.Label})+@('RAM non lue')
-    $orders=@{OuWindows=@();ModelRam=$ramOrder;SiteCoverage=@('Ping et inventaire WMI','Ping sans inventaire WMI','Inventaire WMI sans ping','Ni ping ni inventaire WMI')}
-    $titles=@{OuWindows=@('OU','Version de Windows');ModelRam=@('Modèle','RAM');SiteCoverage=@('OU / site','Couverture')}
+    $orders=@{OuWindows=@();ModelRam=$ramOrder;SiteCoverage=@('Ping et inventaire WMI','Ping sans inventaire WMI','Inventaire WMI sans ping','Ni ping ni inventaire WMI');ModelBios=@()}
+    $titles=@{OuWindows=@('OU','Version de Windows');ModelRam=@('Modèle','RAM');SiteCoverage=@('OU / site','Couverture');ModelBios=@('Modèle','Version du BIOS')}
     $result=@{};foreach($name in $tables.Keys){$rows=@($tables[$name].Values|Sort-Object Row,Column);foreach($cell in $rows){$cell.Targets=$cell.Targets.ToArray()};$result[$name]=[pscustomobject]@{Rows=$rows;Total=$seen.Count;Cells=$rows.Count;Scope=[string]$Data.Last.Scope;ColumnOrder=@($orders[$name]);RowTitle=[string]$titles[$name][0];ColumnTitle=[string]$titles[$name][1]}}
     return $result
 }

@@ -1884,9 +1884,9 @@ function Get-DomeniaWidgetExplanationData {
     if ([string]$Item.Source -eq 'Probe') {
         $probe = Get-DomeniaProbe -Id $key
         if ($null -ne $probe) {
-            $formula = $(if ($Board -eq 'Fleet') { 'Répartition des postes analysés selon la valeur relevée par « ' + [string]$probe.Name + ' ».' } else { 'Valeur relevée par « ' + [string]$probe.Name + ' » sur ce poste.' })
-            $criteria = 'Requête WMI en lecture seule : classe ' + [string]$probe.Class + ', propriété(s) ' + (@($probe.Properties) -join ', ') + '.'
-            $exclusions = 'Postes sans relevé exploitable (non lu, en erreur ou expiré) ; comptes désactivés.'
+            # Documented catalog entry: class, namespace, properties and the limitations of the projection.
+            $probeSource = Get-DomeniaProbeWidgetSource -Probe $probe -Board $Board
+            $formula = [string]$probeSource.Formula; $criteria = [string]$probeSource.Criteria; $exclusions = [string]$probeSource.Exclusions
             if ($Board -eq 'Fleet') {
                 # The coverage computed by the query worker with this very figure: the fleet is never aggregated
                 # again on the interface thread to explain it.

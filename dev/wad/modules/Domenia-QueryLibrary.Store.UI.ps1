@@ -104,7 +104,7 @@ function Submit-DomeniaQueryLibraryMigrationBatch {
     $state=$migration.Batch
     try{
         $admission=Submit-DomeniaStoreBatch -Context $store.Context -BatchId $state.BatchId -Sequence $migration.Index -Changes $state.Changes -SuccessHandler 'Complete-DomeniaQueryLibraryMigrationBatch' -ErrorHandler 'Fail-DomeniaQueryLibraryStoreRead' -CallbackState $state
-        if(-not $admission.Accepted){throw 'Base occupée pendant la migration. Revenez dans lʼatelier pour la reprendre ; le JSON original est conservé.'}
+        if(-not $admission.Accepted){if([string]$admission.Reason -ceq 'StorageMaintenance'){throw 'Maintenance de la base locale en cours : migration différée. Revenez dans lʼatelier à la fin de lʼassistant pour la reprendre ; le JSON original est conservé.'};throw 'Base occupée pendant la migration. Revenez dans lʼatelier pour la reprendre ; le JSON original est conservé.'}
     }catch{Fail-DomeniaQueryLibraryStoreRead $_.Exception.Message $state}
 }
 function Complete-DomeniaQueryLibraryMigrationBatch {
@@ -201,7 +201,7 @@ function Save-DomeniaQueryRecipe {
     $store.Saving=$true
     try{
         $admission=Submit-DomeniaStoreBatch -Context $store.Context -BatchId $state.BatchId -Sequence 0 -Changes $changes.ToArray() -SuccessHandler 'Complete-DomeniaQueryRecipeStore' -ErrorHandler 'Fail-DomeniaQueryRecipeStore' -CallbackState $state
-        if(-not $admission.Accepted){throw 'Base occupée : la recette nʼa pas été enregistrée, réessayez.'}
+        if(-not $admission.Accepted){if([string]$admission.Reason -ceq 'StorageMaintenance'){throw (Get-DomeniaStorageInputRefusal -Maintenance $script:StorageMaintenance)};throw 'Base occupée : la recette nʼa pas été enregistrée, réessayez.'}
         return $admission
     }catch{$store.Saving=$false;throw}
 }

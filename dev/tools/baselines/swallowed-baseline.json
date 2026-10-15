@@ -1,13 +1,14 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
  "Source": "reference initiale",
- "Total": 1248,
+ "Total": 1265,
  "Kinds": {
-  "empty": 1248
+  "empty": 1264,
+  "null": 1
  },
  "Places": {
-  "code": 1027,
-  "here-string": 221
+  "code": 1031,
+  "here-string": 234
  },
  "Findings": {
   "Add-AssociationsToRows": 1,
@@ -70,6 +71,7 @@
   "Complete-DomeniaLogonHarvestUi": 2,
   "Complete-DomeniaMembershipTypes": 1,
   "Complete-DomeniaOperationStatsUi": 1,
+  "Complete-DomeniaOuRefreshRunsStored": 1,
   "Complete-DomeniaParkSharedSyncUi": 1,
   "Complete-DomeniaParkSweepUi": 4,
   "Complete-DomeniaReceiptRefresh": 1,
@@ -163,11 +165,11 @@
   "Get-DomeniaGroupPathWorkerCode [here-string]": 4,
   "Get-DomeniaIndexOuListWorkerCode [here-string]": 3,
   "Get-DomeniaIndexWorkerCode [here-string]": 11,
-  "Get-DomeniaInventoryWorkerCode [here-string]": 41,
+  "Get-DomeniaInventoryWorkerCode [here-string]": 50,
   "Get-DomeniaIsolatedReadWorkerCode [here-string]": 4,
   "Get-DomeniaLiveCacheCode [here-string]": 3,
   "Get-DomeniaLiveProbeCode [here-string]": 3,
-  "Get-DomeniaLocalIndexReadWorkerCode [here-string]": 5,
+  "Get-DomeniaLocalIndexReadWorkerCode [here-string]": 7,
   "Get-DomeniaLoginWindowMode": 4,
   "Get-DomeniaMigrationWorkerCode [here-string]": 2,
   "Get-DomeniaNavSnapshot": 7,
@@ -190,12 +192,14 @@
   "Get-DomeniaReadTimeoutState": 2,
   "Get-DomeniaRelationsRestorableEntry": 1,
   "Get-DomeniaRemotePostconditionText": 1,
+  "Get-DomeniaResponseTimeSummaries": 1,
   "Get-DomeniaRimotteWorkerCode [here-string]": 2,
   "Get-DomeniaSearchExportSubject": 1,
   "Get-DomeniaSecretButtonExplanation": 1,
   "Get-DomeniaSelectedPresenceWorkerCode [here-string]": 1,
   "Get-DomeniaSoftwareWorkerCode [here-string]": 24,
   "Get-DomeniaStorageBackupWorkerCode [here-string]": 2,
+  "Get-DomeniaStorageIntegrityWorkerCode [here-string]": 2,
   "Get-DomeniaStoragePurgeWorkerCode [here-string]": 3,
   "Get-DomeniaStorageRetentionWorkerCode [here-string]": 1,
   "Get-DomeniaStorageUsageWorkerCode [here-string]": 3,
@@ -392,6 +396,7 @@
   "Start-DomeniaAppLogFlushTimer": 6,
   "Start-DomeniaFastLoginAttempt": 1,
   "Start-DomeniaIndexRefresh": 4,
+  "Start-DomeniaIndexScopeBuild": 1,
   "Start-DomeniaLoginAuthRunspace": 2,
   "Start-DomeniaRemoteCredentialSession": 2,
   "Start-DomeniaResultPresenceScan": 3,
@@ -400,7 +405,7 @@
   "Start-DomeniaSecretReveal": 1,
   "Start-DomeniaSecretRevealExpiry": 1,
   "Start-DomeniaSoftwareInventory": 3,
-  "Start-DomeniaStorageWork": 1,
+  "Start-DomeniaStorageWork": 2,
   "Start-DomeniaTimer": 1,
   "Start-DomeniaWmiQuery": 1,
   "Start-DomeniaWriteTask": 1,

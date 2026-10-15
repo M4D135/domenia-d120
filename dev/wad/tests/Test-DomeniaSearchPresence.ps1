@@ -71,8 +71,11 @@ function New-CimSession {param($ComputerName,$SessionOption,$OperationTimeoutSec
     return [pscustomobject]@{Computer=$ComputerName}
 }
 function Get-CimInstance {param($CimSession,$ClassName,$Property,$OperationTimeoutSec,$ErrorAction)
-    if($ClassName -ne 'Win32_ComputerSystem' -or $Property -ne 'UserName'){throw 'Unexpected CIM read'}
-    return [pscustomobject]@{UserName=$script:CimUser}
+    # The console read also names the workstation that answered (point 127), in the same Win32_ComputerSystem read.
+    $requested=@(@($Property)|ForEach-Object{[string]$_})
+    $extra=@($requested|Where-Object{$_ -notin @('UserName','Name','DNSHostName')})
+    if(($ClassName -ne 'Win32_ComputerSystem') -or ($requested -notcontains 'UserName') -or ($extra.Count -gt 0)){throw 'Unexpected CIM read'}
+    return [pscustomobject]@{UserName=$script:CimUser;Name=$script:CimName;DNSHostName=$script:CimDns}
 }
 function Remove-CimSession {param($CimSession,$ErrorAction);$script:CimDisposed++}
 function New-WSearcher {throw 'No LDAP request is permitted in these probe fixtures.'}
@@ -96,7 +99,7 @@ function Reset-Fixture {
     }
     $script:Invalidations=0;$script:Tasks=0;$script:StreamStarts=0;$script:LastState=$null;$script:LastPayload=$null;$script:Page='';$script:LastStatus=''
     $script:PingCalls=0;$script:PingDisposed=0;$script:PingThrows=$false;$script:PingStatus='Success';$script:PingTarget='';$script:PingTimeout=0
-    $script:CimCalls=0;$script:CimDisposed=0;$script:CimFails=$false;$script:CimUser='PC-TEST\alex';$script:CredentialCalls=0
+    $script:CimCalls=0;$script:CimDisposed=0;$script:CimFails=$false;$script:CimUser='PC-TEST\alex';$script:CimName='PC-TEST';$script:CimDns='pc-test';$script:CredentialCalls=0
     $script:ProbeEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();$script:Live=$null;$script:SessionEpoch=3L
 }
 function Probe {param([bool]$User=$true,[bool]$UseCim=$true,[string]$Target='PC-TEST')
@@ -170,6 +173,8 @@ Case 'Ping exception is a separate state and resource is disposed' {$script:Ping
 Case 'Positive ping survives denied CIM' {$script:CimFails=$true;$r=Probe;Expect ($r.Outcome -eq 'Denied' -and $r.Presence -eq 'En ligne' -and $script:PingCalls -eq 1)}
 Case 'Negative ping does not prevent requested CIM' {$script:PingStatus='TimedOut';$r=Probe;Expect ($r.Outcome -eq 'Observed' -and $r.Presence -eq 'En ligne' -and $r.PresenceDetail.Contains('CIM/DCOM'))}
 Case 'Empty console is not a statement about RDP sessions' {$script:CimUser='';$r=Probe;Expect ($r.Outcome -eq 'NoConsole' -and $r.Detail.Contains('RDP'))}
+Case 'Console of another workstation answering the name is not attributed' {$script:CimName='PC-AUTRE';$script:CimDns='pc-autre';$script:CimUser='PC-AUTRE\bob';$r=Probe;Expect (($r.Outcome -eq 'Unavailable') -and (-not $r.User) -and $r.Detail.Contains('se nomme pc-autre') -and ($script:CimCalls -eq 1) -and ($script:CimDisposed -eq 1))}
+Case 'Workstation answering with its full DNS name is the requested one' {$script:CimDns='pc-test.example.invalid';$r=Probe;Expect ($r.Outcome -eq 'Observed')}
 Case 'Invalid target produces no network call' {$thrown=$false;try{Probe -Target 'PC;evil'}catch{$thrown=$true};Expect ($thrown -and $script:PingCalls -eq 0 -and $script:CimCalls -eq 0)}
 Case 'Early event contains network fields only' {$r=Probe -User $false;$p=$null;[void]$script:ProbeEvents.TryDequeue([ref]$p);Expect ($p.Result.Outcome -eq 'PresenceOnly' -and $null -eq $p.Result.PSObject.Properties['Credential'] -and $null -eq $p.State.PSObject.Properties['Row'])}
 Case 'No observation starts as Non verified' {$v=Get-DomeniaLivePresenceView $null;Expect ($v.State -eq 'Non vérifié' -and $v.Display -eq 'Non vérifié')}

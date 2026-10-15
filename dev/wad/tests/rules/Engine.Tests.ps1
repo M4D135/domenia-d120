@@ -359,3 +359,68 @@ Test-Case 'D029' 'Mesure et purge locales ne recoivent aucun compte annuaire' {
         Assert-Equal 'Storage' (Get-DomeniaOperationProvider $operation)
     }
 }
+
+# Point 122 : temps de reponse mesures (mediane, 95e centile) par categorie, sans mesure inventee.
+Test-Case 'P122' 'Percentiles : la recherche locale garde sa propre serie' {
+    Assert-Equal 'LocalIndexRead:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Search'}))
+    Assert-Equal 'LocalIndexRead:FleetStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' @{Action='FleetStats'})
+    Assert-Equal 'LocalIndexRead:OperationStats' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='OperationStats'}))
+    # W05 (points 22, 24, 30): the Contrôles tab read and the comparison of two snapshots keep their own series.
+    Assert-Equal 'LocalIndexRead:DirectorySync' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='DirectorySync'}))
+    Assert-Equal 'LocalIndexRead:SnapshotCompare' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='SnapshotCompare'}))
+    Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' ([pscustomobject]@{Action='Inconnue'})) 'Action hors liste fermee'
+    Assert-Equal 'LocalIndexRead' (Get-DomeniaRuntimeMetricOperationKey 'LocalIndexRead' $null) 'Charge absente'
+    Assert-Equal 'LocalQuery:Search' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$true}))
+    Assert-Equal 'LocalQuery' (Get-DomeniaRuntimeMetricOperationKey 'LocalQuery' ([pscustomobject]@{SearchOutput=$false}))
+    Assert-Equal 'OpenAdObject' (Get-DomeniaRuntimeMetricOperationKey 'OpenAdObject' ([pscustomobject]@{Action='Search'})) 'Autre operation inchangee'
+}
+Test-Case 'P122' 'Percentiles : categories disjointes, aucune mesure comptee deux fois' {
+    $series=@{}
+    $series['Sqlite|LocalIndexRead:Search']=[double[]]@(10,20)
+    $series['Sqlite|LocalQuery:Search']=[double[]]@(30)
+    $series['Sqlite|LocalIndexRead:FleetStats']=[double[]]@(400)
+    $series['Sqlite|LocalStore']=[double[]]@(50)
+    $series['Dispatcher|Callback:LocalQuery']=[double[]]@(5)
+    $series['Dispatcher|Pulse']=[double[]]@(2)
+    $series['Dispatcher|RunspaceOpen:LocalQuery']=[double[]]@(3)
+    $series['Ldap|OpenAdObject']=[double[]]@(120)
+    $series['Cim|ComputerInventory']=[double[]]@(900,-4,[double]::NaN)
+    $series['Queue|Wait:Explicit']=[double[]]@(1)
+    $series['Ldap|Write:ResetPassword']=[double[]]@(300)
+    $series['Cim|Write:ComputerRestart']=[double[]]@(2000,[double]::PositiveInfinity)
+    $queue=New-Object 'System.Collections.Generic.Queue[double]'
+    foreach($value in @(15,[double]::NaN,-2,[double]::NegativeInfinity)){$queue.Enqueue([double]$value)}
+    $series['Ldap|SearchUsers']=$queue
+    $series['Ldap|Legacy']=@('25','x')
+    $counts=@{}
+    foreach($category in @(Get-DomeniaResponseTimeCategories)){$samples=Select-DomeniaResponseTimeSamples $series $category;$counts[[string]$category.Id]=$samples.Count}
+    Assert-Equal 3 $counts['LocalSearch'] 'Recherche locale : index et atelier'
+    Assert-Equal 2 $counts['Sqlite'] 'Vue du parc et ecriture locale, recherche exclue'
+    Assert-Equal 1 $counts['Render'] 'Battement et ouverture de runspace exclus'
+    Assert-Equal 3 $counts['Directory'] 'Lectures seulement : file typee filtree, texte invariant lu, ecriture exclue'
+    Assert-Equal 1 $counts['Computers'] 'Valeur negative et NaN ecartees, redemarrage exclu'
+    Assert-Equal 2 $counts['Writes'] 'Ecriture et action distante dans leur propre categorie, infini ecarte'
+    $total=0;foreach($value in $counts.Values){$total+=[int]$value}
+    Assert-Equal 12 $total 'Aucune mesure comptee deux fois'
+    $empty=Select-DomeniaResponseTimeSamples $null (@(Get-DomeniaResponseTimeCategories)[0])
+    Assert-Equal 0 $empty.Count 'Aucune serie : tableau vide'
+    $labels=@(Get-DomeniaResponseTimeCategories|ForEach-Object{[string]$_.Label})
+    Assert-True ($labels -contains 'Traitement des résultats dans lʼinterface') 'Libelle du traitement dans l interface'
+}
+Test-Case 'P122' 'Percentiles : rang le plus proche, 95e centile seulement a partir de 20 mesures' {
+    $s=Get-DomeniaLatencySummary -Samples ([double[]](1..20))
+    Assert-Equal 20 ([int]$s.Count);Assert-Equal 10 ([int]$s.P50);Assert-Equal 19 ([int]$s.P95);Assert-Equal 20 ([int]$s.Max);Assert-True $s.P95Stated
+    $few=Get-DomeniaLatencySummary -Samples ([double[]]@(551,100))
+    Assert-False $few.P95Stated;Assert-True ($null -eq $few.P95) '95e centile invente sur deux mesures'
+    Assert-Equal 100 ([int]$few.P50);Assert-Equal 551 ([int]$few.Max)
+    $none=Get-DomeniaLatencySummary -Samples ([double[]]@())
+    Assert-Equal 0 ([int]$none.Count);Assert-True (($null -eq $none.P50) -and ($null -eq $none.Max)) 'Zero invente sans mesure'
+    $dirty=Get-DomeniaLatencySummary -Samples ([double[]]@(5,[double]::NaN,-1,[double]::PositiveInfinity))
+    Assert-Equal 1 ([int]$dirty.Count) 'Valeurs non mesurees ecartees'
+}
+Test-Case 'P122' 'Percentiles : texte honnete, aucune mesure ne devient 0 ms' {
+    Assert-Equal 'Recherche locale : aucune mesure dans cette session.' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@())))
+    Assert-Equal 'Recherche locale : médiane 100 ms ; maximum 551 ms (2 mesures, trop peu pour un 95e centile).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@(100,551))))
+    Assert-Equal 'Recherche locale : médiane 7 ms ; maximum 7 ms (1 mesure, trop peu pour un 95e centile).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]]@(7))))
+    Assert-Equal 'Recherche locale : médiane 10 ms ; 95 % sous 19 ms ; maximum 20 ms (20 mesures).' (Format-DomeniaLatencySummaryText 'Recherche locale' (Get-DomeniaLatencySummary -Samples ([double[]](1..20))))
+}
