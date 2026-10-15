@@ -5,6 +5,22 @@
 [CmdletBinding()]
 param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
+# PF-24 (lot Z04): a catalogued control carries its help in Domenia-UX.help.json only (the XAML keeps it for the
+# other controls); this reads the effective tool tip or help text of a node of the main XAML.
+$script:TestHelpCatalogue=$null
+function Get-TestCatalogueHelp {
+    param($Node,[string]$Attribute)
+    $value=[string]$Node.GetAttribute($Attribute)
+    if($value){return $value}
+    if($null -eq $script:TestHelpCatalogue){
+        $script:TestHelpCatalogue=@{}
+        $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
+        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+    }
+    $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+    if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
+    return ''
+}
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
 $script:Checks=New-Object 'System.Collections.Generic.List[object]'
@@ -205,8 +221,8 @@ Check-Suite 'P118 : vue du panneau : controles nommes, info-bulle egale au texte
     foreach($name in @('DgOperationsRecent','LblOperationsTrace','BtnOperationsCopyTrace','BtnOperationsJournal','BtnOperationsDiagnostic','LblOperationsHealth','BtnOperationsReceipts')){
         $node=@($view.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
         if($node.Count -ne 1){throw ($name+' : '+$node.Count+' occurrence(s)')}
-        $tip=[string]$node[0].GetAttribute('ToolTip')
-        if((-not $tip) -or ($tip -cne [string]$node[0].GetAttribute('AutomationProperties.HelpText'))){throw ($name+' : info-bulle et texte d aide differents')}
+        $tip=[string](Get-TestCatalogueHelp $node[0] 'ToolTip')
+        if((-not $tip) -or ($tip -cne [string](Get-TestCatalogueHelp $node[0] 'AutomationProperties.HelpText'))){throw ($name+' : info-bulle et texte d aide differents')}
         if(-not [string]$node[0].GetAttribute('AutomationProperties.Name')){throw ($name+' : nom accessible absent')}
         if((-not $byName.ContainsKey($name)) -or ([string]$byName[$name].Text -cne $tip)){throw ($name+' : catalogue d aide absent ou different')}
     }

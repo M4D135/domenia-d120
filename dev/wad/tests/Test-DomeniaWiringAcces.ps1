@@ -798,7 +798,8 @@ Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par un
     $help=@(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)
     foreach($node in @($bl,$lp)){
         $entry=@($help|ForEach-Object{$_}|Where-Object{$_.Name -eq $node.GetAttribute('Name',$x)})
-        Assert-True ($entry.Count -eq 1 -and [string]$entry[0].Title -ceq $node.GetAttribute('AutomationProperties.Name') -and [string]$entry[0].Text -ceq $node.GetAttribute('ToolTip')) ('Aide divergente : '+$node.GetAttribute('Name',$x))
+        # PF-24: the catalogue is the only source of the tool tip; the XAML keeps the accessible name only.
+        Assert-True (($entry.Count -eq 1) -and ([string]$entry[0].Title -ceq $node.GetAttribute('AutomationProperties.Name')) -and ([bool][string]$entry[0].Text) -and (-not $node.GetAttribute('ToolTip'))) ('Aide divergente : '+$node.GetAttribute('Name',$x))
     }
     $script:SelectedObject=$null;Update-DomeniaSecretActionUi
     Assert-True ([string]$script:Ctrl.BtnLoadLaps.ToolTip -match '^Lire le mot de passe LAPS : ') ([string]$script:Ctrl.BtnLoadLaps.ToolTip)
@@ -948,6 +949,8 @@ Test-Case 'UI-18 Recus en clair dans la vraie grille : etat, operation, objet, D
     Assert-True (($paths -notcontains 'Stage') -and ($paths -notcontains 'DN') -and ($paths -notcontains 'Operation')) ('Colonne brute : '+($paths -join ','))
     # The chip of the real template: the stage in words on a pastel background chosen by its tone.
     $chip=$columns[0].CellTemplate.LoadContent();$chip.DataContext=$bound[0]
+    # CD-05: the pill colours are theme tokens; a chip loaded outside the window reads them from the window resources.
+    foreach($key in @($script:MainWindow.Resources.Keys)){if([string]$key -like 'Pill*'){$chip.Resources[$key]=$script:MainWindow.Resources[$key]}}
     $chip.Measure([Windows.Size]::new(300,40));[Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{},[Windows.Threading.DispatcherPriority]::DataBind)
     Assert-True ($chip -is [Windows.Controls.Border] -and [string]$chip.Child.Text -eq 'Envoyée, à vérifier') 'Puce sans libelle'
     Assert-True ([string]$chip.Background.Color -eq '#FFFEF3C7') ('Couleur de la puce a verifier : '+[string]$chip.Background.Color)

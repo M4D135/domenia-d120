@@ -176,3 +176,15 @@ Test-Case 'UI-11' 'Pastille sur « ? » : premier lancement seulement, jamais qu
     $next = Get-DomeniaHelpBadgeState -IntroSeen $true -HelpShown $false
     Assert-False $next.Show;Assert-False $next.MarkSeen;Assert-Equal '' $next.ItemStatus
 }
+Test-Case 'PF-24' 'Aide du catalogue : aucune infobulle sur un conteneur, une ligne pour un bouton-icone (UI-10)' {
+    $text = 'Affiche ou masque les explications à droite. Sur une fenêtre étroite, lʼaide sʼouvre au-dessus du contenu.'
+    $c = Get-DomeniaHelpPresentation -Text $text -Role Container
+    Assert-Equal '' $c.ToolTip 'Conteneur sans infobulle';Assert-Equal $text $c.HelpText 'Texte d aide entier';Assert-False $c.HoverHelp 'Pas d aide au survol d un conteneur'
+    $i = Get-DomeniaHelpPresentation -Text $text -Role IconButton
+    Assert-Equal 'Affiche ou masque les explications à droite.' $i.ToolTip;Assert-Equal $text $i.HelpText;Assert-True $i.HoverHelp
+    Assert-Equal 'Bascule entre clair et sombre.' (Get-DomeniaHelpPresentation -Text 'Bascule entre clair et sombre ; le choix est gardé.' -Role IconButton).ToolTip 'Point-virgule : premiere proposition'
+    Assert-Equal 'Revenir à 100 %' (Get-DomeniaHelpPresentation -Text 'Revenir à 100 %' -Role IconButton).ToolTip 'Une seule phrase gardee entiere'
+    $n = Get-DomeniaHelpPresentation -Text $text
+    Assert-Equal $text $n.ToolTip 'Controle ordinaire : texte entier';Assert-Equal 'Control' $n.Role
+    Assert-Equal '' (Get-DomeniaHelpPresentation -Text '   ' -Role IconButton).ToolTip 'Texte vide'
+}

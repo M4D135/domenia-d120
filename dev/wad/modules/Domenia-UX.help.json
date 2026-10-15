@@ -2157,7 +2157,7 @@
   {
     "Name": "ChkSoftwarePerUser",
     "Title": "Par utilisateur",
-    "Text": "Ajoute les logiciels installes dans le profil de chaque utilisateur.",
+    "Text": "Ajoute les logiciels installés dans le profil des utilisateurs connectés.",
     "Kind": "CheckBox",
     "Source": "existing-help"
   },
@@ -3821,14 +3821,14 @@
   {
     "Name": "BtnNavBack",
     "Title": "Précédent",
-    "Text": "Revient à lʼétape précédente : page, recherche, OU, sélection et défilement restitués depuis la mémoire, avec leur fraîcheur, sans nouvelle lecture ni sonde. Refusé tant quʼune saisie non enregistrée attend une décision.",
+    "Text": "Revient à lʼétape précédente (Alt+Gauche) : page, recherche, OU, sélection et défilement restitués depuis la mémoire, avec leur fraîcheur, sans nouvelle lecture ni sonde. Refusé tant quʼune saisie non enregistrée attend une décision.",
     "Kind": "Button",
     "Source": "d120-recherche"
   },
   {
     "Name": "BtnNavForward",
     "Title": "Suivant",
-    "Text": "Revient à lʼétape suivante, sans nouvelle lecture ni sonde des postes.",
+    "Text": "Revient à lʼétape suivante (Alt+Droite), sans nouvelle lecture ni sonde des postes.",
     "Kind": "Button",
     "Source": "d120-recherche"
   },
@@ -3984,7 +3984,7 @@
     "Kind": "Button",
     "Source": "lot-L01",
     "Title": "Analyser ces postes dans Rechercher",
-    "Text": "Affiche dans Rechercher les postes actifs de lʼOU de lʼaccueil, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
+    "Text": "Affiche dans Rechercher tous les postes recensés de lʼOU de lʼaccueil, y compris les comptes désactivés, depuis la base locale et sans requête. Pinger, détecter ou analyser se lancent ensuite depuis la liste, à votre clic."
   },
   {
     "Name": "BtnFirstStepOu",
@@ -5551,6 +5551,174 @@
     "Name": "BtnUxHelpGuide",
     "Title": "Ouvrir le guide",
     "Text": "Ouvre le guide PDF placé dans le dossier DOC à côté de Domenia ; le chapitre de la page est indiqué au-dessus. Aucun accès réseau.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnFleetShowMachines",
+    "Title": "Ouvrir lʼatelier de requêtes",
+    "Text": "Ouvrir lʼatelier de requêtes et les postes du périmètre.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnFleetScope",
+    "Title": "Choisir lʼOU du tableau de bord",
+    "Text": "Choisit le périmètre local du tableau de bord. La recherche reste indépendante.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnSearchQueryOptions",
+    "Title": "Options de requête",
+    "Text": "Afficher ou replier les options : recherche de modèle, favoris, source et état des résultats.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkAccountRemoteRemember",
+    "Title": "Mémoriser sur ce PC",
+    "Text": "Après validation, conserve ce mot de passe dans le coffre de votre profil Windows sur ce PC. Aucune copie dans la base Domenia.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnAccountRemoteVault",
+    "Title": "Utiliser le coffre",
+    "Text": "Lire ce compte dans le coffre Windows et lancer une seule validation à votre demande.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnAccountRemoteForgetVault",
+    "Title": "Oublier le mot de passe",
+    "Text": "Supprimer du coffre Windows le mot de passe de l’identifiant affiché, pour cet usage.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkAccountSecretsRemember",
+    "Title": "Mémoriser sur ce PC",
+    "Text": "Après validation, conserve ce mot de passe dans le coffre de votre profil Windows sur ce PC. Aucune copie dans la base Domenia.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnAccountSecretsVault",
+    "Title": "Utiliser le coffre",
+    "Text": "Lire ce compte dans le coffre Windows et lancer une seule validation à votre demande.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnAccountSecretsForgetVault",
+    "Title": "Oublier le mot de passe",
+    "Text": "Supprimer du coffre Windows le mot de passe de l’identifiant affiché, pour cet usage.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnSoftwareColumns",
+    "Title": "Colonnes",
+    "Text": "Affiche les colonnes techniques : emplacement, commande de désinstallation, source. Masquées par défaut car elles débordent de lʼécran.",
+    "Kind": "ToggleButton",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "CmbSoftwareView",
+    "Title": "Affichage des logiciels",
+    "Text": "Choisit ce que lʼonglet montre : la liste des logiciels, ou la synthèse en graphiques.",
+    "Kind": "ComboBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnSoftwareFilterClear",
+    "Title": "Retirer le filtre",
+    "Text": "Retire le filtre appliqué à la liste.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ExpSoftwareAccess",
+    "Title": "Détail par portée",
+    "Text": "Ce qui a pu être lu pour chaque portée, ligne par ligne.",
+    "Kind": "Expander",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnGuardReadFallback",
+    "Title": "Lire ce poste par tache planifiee",
+    "Text": "A demander quand CIM ne répond pas : autorise une seule lecture par PsExec ou tâche planifiée, pour la machine sélectionnée.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnIndexScopePick",
+    "Title": "Choisir lʼOU de mise à jour",
+    "Text": "Choisit précisément lʼOU et ses sous-OU à relire. Recherche nʼest pas modifiée.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnIndexResetSort",
+    "Title": "Tri par pertinence",
+    "Text": "Rétablit le tri par pertinence puis nom sur tous les résultats.",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkStoragePurgeObservations",
+    "Title": "Purger les observations",
+    "Text": "Données reconstructibles ; associations conservées.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkStoragePurgeSnapshots",
+    "Title": "Purger les instantanés",
+    "Text": "Résultats déjà lus ; aucune suppression dans AD.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkStoragePurgeIndex",
+    "Title": "Purger lʼindex local",
+    "Text": "La prochaine mise à jour explicite reconstruira lʼindex. Le domaine reste identifié.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "ChkStoragePurgeHistory",
+    "Title": "Purger lʼhistorique ancien",
+    "Text": "Conserve les associations déclarées et leur historique, ainsi que les dates illisibles.",
+    "Kind": "CheckBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "TxtStorageHistoryDays",
+    "Title": "Âge minimal en jours",
+    "Text": "De 1 à 36500 jours.",
+    "Kind": "TextBox",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnUiZoomOut",
+    "Title": "Réduire le zoom",
+    "Text": "Réduire lʼinterface de 10 %",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnUiZoomReset",
+    "Title": "Réinitialiser le zoom à 100 %",
+    "Text": "Revenir à 100 %",
+    "Kind": "Button",
+    "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnUiZoomIn",
+    "Title": "Agrandir le zoom",
+    "Text": "Agrandir lʼinterface de 10 %",
     "Kind": "Button",
     "Source": "Z04-theme"
   }

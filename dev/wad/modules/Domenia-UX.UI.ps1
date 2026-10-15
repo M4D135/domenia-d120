@@ -79,6 +79,28 @@ function Show-DomeniaUxControlHelp {
     } catch { }
 }
 
+function Get-DomeniaUxHelpRole {
+    # UI-10: role of a control for its help (Get-DomeniaHelpPresentation). A container is a page host, a grid, a tree,
+    # a list view, a layout panel, a border around such a panel or a read-only multi-line text (journal, report).
+    param($Control)
+    if ($null -eq $Control) { return 'Control' }
+    foreach ($type in @([Windows.Controls.TabControl],[Windows.Controls.DataGrid],[Windows.Controls.TreeView],[Windows.Controls.ListView],[Windows.Controls.ScrollViewer],[Windows.Controls.Panel])) {
+        if ($Control -is $type) { return 'Container' }
+    }
+    if (($Control -is [Windows.Controls.Border]) -and ($Control.Child -is [Windows.Controls.Panel])) { return 'Container' }
+    if (($Control -is [Windows.Controls.TextBox]) -and $Control.IsReadOnly -and $Control.AcceptsReturn) { return 'Container' }
+    if (($Control -is [Windows.Controls.Button]) -and (-not ($Control.Content -is [string]))) { return 'IconButton' }
+    return 'Control'
+}
+
+function Set-DomeniaUxCatalogueToolTip {
+    # PF-24: tool tip of a catalogued control from Domenia-UX.help.json only, shown as its role allows (UI-10).
+    param($Control,$Entry)
+    $presentation = Get-DomeniaHelpPresentation -Text ([string]$Entry.Text) -Role (Get-DomeniaUxHelpRole -Control $Control)
+    if ($presentation.ToolTip) { $Control.ToolTip = [string]$presentation.ToolTip } else { $Control.ClearValue([Windows.FrameworkElement]::ToolTipProperty) }
+    return $presentation
+}
+
 function Initialize-DomeniaUxControlHelp {
     param($Control)
     if ($null -eq $Control -or $Control -isnot [Windows.FrameworkElement]) { return }
@@ -87,21 +109,25 @@ function Initialize-DomeniaUxControlHelp {
     if (-not $script:UxHelpCatalogue.ContainsKey($name)) { return }
     if ($Control.Resources.Contains('Domenia.UxHelpAttached')) { return }
     $entry = $script:UxHelpCatalogue[$name]
-    $Control.ToolTip = [string]$entry.Text
+    # PF-24: the main XAML carries no ToolTip, HelpText nor ShowOnDisabled for a catalogued control; they are set here.
+    $presentation = Set-DomeniaUxCatalogueToolTip -Control $Control -Entry $entry
     [Windows.Controls.ToolTipService]::SetShowOnDisabled($Control,$true)
     [Windows.Controls.ToolTipService]::SetInitialShowDelay($Control,350)
     [Windows.Controls.ToolTipService]::SetBetweenShowDelay($Control,100)
     [Windows.Controls.ToolTipService]::SetShowDuration($Control,20000)
     [Windows.Automation.AutomationProperties]::SetName($Control,[string]$entry.Title)
-    [Windows.Automation.AutomationProperties]::SetHelpText($Control,[string]$entry.Text)
+    [Windows.Automation.AutomationProperties]::SetHelpText($Control,[string]$presentation.HelpText)
     $Control.Resources['Domenia.UxHelpAttached'] = $true
-    $Control.Add_MouseEnter({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+    # UI-10: hovering a container (a page, a grid, a journal) does not rewrite the help panel; its keyboard focus does.
+    if ([bool]$presentation.HoverHelp) {
+        $Control.Add_MouseEnter({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+        $Control.Add_ToolTipOpening({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+    }
     $Control.Add_GotKeyboardFocus({
         param($sender,$eventArgs)
         # A routed child focus must not let a parent overwrite the specific help.
         if ($sender -eq $eventArgs.OriginalSource) { Show-DomeniaUxControlHelp -Control $sender }
     })
-    $Control.Add_ToolTipOpening({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
 }
 
 function Initialize-DomeniaUxWindowHelp {
@@ -120,7 +146,7 @@ function Restore-DomeniaUxBaseToolTip {
     param([string]$Name)
     if ($null -eq $script:UxHelpCatalogue -or -not $script:UxHelpCatalogue.ContainsKey($Name)) { return }
     $control = Get-DomeniaControl -Name $Name
-    if ($null -ne $control) { $control.ToolTip = [string]$script:UxHelpCatalogue[$Name].Text }
+    if ($null -ne $control) { [void](Set-DomeniaUxCatalogueToolTip -Control $control -Entry $script:UxHelpCatalogue[$Name]) }
 }
 
 function Get-DomeniaUxRouteNames {

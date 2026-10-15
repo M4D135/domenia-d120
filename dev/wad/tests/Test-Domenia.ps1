@@ -6,6 +6,22 @@
 [CmdletBinding()]
 param([switch]$WpfSmoke,[switch]$SkipNativeCache,[string]$ReportPath='')
 $ErrorActionPreference='Stop'
+# PF-24 (lot Z04): a catalogued control carries its help in Domenia-UX.help.json only (the XAML keeps it for the
+# other controls); this reads the effective tool tip or help text of a node of the main XAML.
+$script:TestHelpCatalogue=$null
+function Get-TestCatalogueHelp {
+    param($Node,[string]$Attribute)
+    $value=[string]$Node.GetAttribute($Attribute)
+    if($value){return $value}
+    if($null -eq $script:TestHelpCatalogue){
+        $script:TestHelpCatalogue=@{}
+        $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
+        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+    }
+    $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+    if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
+    return ''
+}
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $core=Join-Path $root 'wad\Domenia-Core.ps1'
 if ($PSVersionTable.PSEdition -eq 'Core' -or -not [Environment]::Is64BitProcess) {
@@ -631,7 +647,7 @@ try {
         $entree = @($aide | Where-Object { $_.Name -eq 'TxtNewOuParent' })
         Assert-True ($entree.Count -eq 1) 'Entree d aide TxtNewOuParent absente ou dupliquee'
         Assert-True (([string]$entree[0].Title) -ceq [string]$champ[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
-        Assert-True (([string]$entree[0].Text) -ceq [string]$champ[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $champ[0] 'ToolTip')) 'Texte de l aide different de l infobulle'
     }
     Test-Case 'CO-23 : la date du mot de passe est nommee et expliquee' {
         # Le champ portait le nom d automation et l infobulle des vraies saisies de mot de passe :
@@ -644,9 +660,9 @@ try {
         $nom = [string]$champ[0].GetAttribute('AutomationProperties.Name')
         Assert-True ($nom.Length -gt 0) 'Le champ a perdu son nom d automation'
         Assert-True ($nom -cne 'Mot de passe') 'Le nom d automation est encore celui d une saisie de mot de passe'
-        $bulle = [string]$champ[0].GetAttribute('ToolTip')
+        $bulle = [string](Get-TestCatalogueHelp $champ[0] 'ToolTip')
         Assert-True (-not $bulle.StartsWith('Saisie')) 'L infobulle parle encore de saisie protegee'
-        Assert-True ($bulle -ceq [string]$champ[0].GetAttribute('AutomationProperties.HelpText')) 'Infobulle et aide d automation divergent'
+        Assert-True ($bulle -ceq [string](Get-TestCatalogueHelp $champ[0] 'AutomationProperties.HelpText')) 'Infobulle et aide d automation divergent'
         $texteXaml = Get-MainXaml
         Assert-True (-not $texteXaml.Contains('Pwd last set')) 'Le libelle anglais est reste dans le XAML'
         Assert-True ($texteXaml.Contains('Content="Mot de passe changé le"')) 'Le libelle en francais est absent du XAML'
@@ -773,9 +789,9 @@ try {
             $entree = @($aide | Where-Object { $_.Name -eq $nom })
             Assert-True ($entree.Count -eq 1) ('Entree d aide ' + $nom + ' : ' + $entree.Count + ' occurrence(s)')
             Assert-True (([string]$entree[0].Title) -ceq [string]$noeud.GetAttribute('AutomationProperties.Name')) ('Titre de l aide ' + $nom + ' different du nom d automation')
-            Assert-True (([string]$entree[0].Text) -ceq [string]$noeud.GetAttribute('ToolTip')) ('Texte de l aide ' + $nom + ' different de l infobulle')
+            Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $noeud 'ToolTip')) ('Texte de l aide ' + $nom + ' different de l infobulle')
             Assert-True (([string]$entree[0].Kind) -ceq [string]$noeud.LocalName) ('Nature de l aide ' + $nom + ' differente de l element XAML')
-            Assert-True (([string]$noeud.GetAttribute('AutomationProperties.HelpText')) -ceq [string]$noeud.GetAttribute('ToolTip')) ("L aide d automation ne reprend pas l infobulle pour " + $nom)
+            Assert-True (([string](Get-TestCatalogueHelp $noeud 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $noeud 'ToolTip')) ("L aide d automation ne reprend pas l infobulle pour " + $nom)
         }
         # Les deux nouveaux noms sont declares en Default : la politique ne force pas leur visibilite.
         $texteCore = Get-Content $core -Raw -Encoding UTF8
@@ -854,7 +870,7 @@ try {
         Assert-True ($entree.Count -eq 1) ('Entree d aide BtnObjectMore : ' + $entree.Count + ' occurrence(s)')
         Assert-True (@($aide | Where-Object { $_.Name -eq 'BtnDeleteObject' }).Count -eq 0) "L aide connait encore le bouton supprime"
         Assert-True (([string]$entree[0].Title) -ceq [string]$bouton[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
-        Assert-True (([string]$entree[0].Text) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $bouton[0] 'ToolTip')) 'Texte de l aide different de l infobulle'
         Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnObjectMore differente de l element XAML'
     }
 
@@ -871,7 +887,7 @@ try {
         Assert-True ($bouton.Count -eq 1) ('BtnUserMove : ' + $bouton.Count + ' occurrence(s)')
         Assert-True (([string]$bouton[0].GetAttribute('Content')) -ceq 'Choisir l' + [string][char]0x02BC + 'OU de destination…') ('Contenu du bouton : ' + [string]$bouton[0].GetAttribute('Content'))
         Assert-True (-not ([string]$bouton[0].GetAttribute('Style')).Contains('DangerButton')) 'Le bouton de deplacement est un bouton rouge'
-        Assert-True (([string]$bouton[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'L aide d automation ne reprend pas l infobulle'
+        Assert-True (([string](Get-TestCatalogueHelp $bouton[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $bouton[0] 'ToolTip')) 'L aide d automation ne reprend pas l infobulle'
         $texteCore = Get-Content $core -Raw -Encoding UTF8
         Assert-True (-not $texteCore.Contains('"TxtUserMoveTarget" = "Default"')) 'La politique des controles connait encore le champ supprime'
         Assert-True ($texteCore.Contains('"BtnUserMove" = "Default"')) 'Le bouton a quitte la politique des controles'
@@ -899,7 +915,7 @@ try {
         $entree = @($aide | Where-Object { $_.Name -eq 'BtnUserMove' })
         Assert-True ($entree.Count -eq 1) ('Entree d aide BtnUserMove : ' + $entree.Count + ' occurrence(s)')
         Assert-True (([string]$entree[0].Title) -ceq [string]$bouton[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide different du nom d automation'
-        Assert-True (([string]$entree[0].Text) -ceq [string]$bouton[0].GetAttribute('ToolTip')) 'Texte de l aide different de l infobulle'
+        Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $bouton[0] 'ToolTip')) 'Texte de l aide different de l infobulle'
         Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnUserMove differente de l element XAML'
     }
 
@@ -920,24 +936,24 @@ try {
             $champs = @($xaml.SelectNodes('//*[local-name()="TextBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $nomChamp })
             Assert-True ($champs.Count -eq 1) ($nomChamp + ' : ' + $champs.Count + ' occurrence(s)')
             Assert-True (([string]$champs[0].GetAttribute('IsReadOnly')) -ceq 'True') ($nomChamp + ' reste modifiable au clavier')
-            Assert-True (([string]$champs[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$champs[0].GetAttribute('ToolTip')) ($nomChamp + ' : l aide d automation ne reprend pas l infobulle')
-            Assert-True (-not ([string]$champs[0].GetAttribute('ToolTip')).Contains('Chemin complet')) ($nomChamp + ' annonce encore un chemin a recopier')
+            Assert-True (([string](Get-TestCatalogueHelp $champs[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $champs[0] 'ToolTip')) ($nomChamp + ' : l aide d automation ne reprend pas l infobulle')
+            Assert-True (-not ([string](Get-TestCatalogueHelp $champs[0] 'ToolTip')).Contains('Chemin complet')) ($nomChamp + ' annonce encore un chemin a recopier')
             Assert-True (-not $texteCore.Contains('([string]$script:Ctrl["' + $nomChamp + '"].Text)')) ($nomChamp + ' est encore relu a l ecriture')
             foreach ($bouton in @($couple[1], $couple[2], $couple[3])) {
                 $btns = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq $bouton })
                 Assert-True ($btns.Count -eq 1) ($bouton + ' : ' + $btns.Count + ' occurrence(s)')
                 Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) ($bouton + ' est un bouton rouge')
-                Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) ($bouton + ' : l aide d automation ne reprend pas l infobulle')
+                Assert-True (([string](Get-TestCatalogueHelp $btns[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) ($bouton + ' : l aide d automation ne reprend pas l infobulle')
                 Assert-True ($texteCore.Contains($bouton + '"].Add_Click({')) ($bouton + ' n est pas cable')
                 $entree = @($aide | Where-Object { $_.Name -eq $bouton })
                 Assert-True ($entree.Count -eq 1) ('Entree d aide ' + $bouton + ' : ' + $entree.Count + ' occurrence(s)')
                 Assert-True (([string]$entree[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) ('Titre de l aide ' + $bouton + ' different du nom d automation')
-                Assert-True (([string]$entree[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) ('Texte de l aide ' + $bouton + ' different de l infobulle')
+                Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) ('Texte de l aide ' + $bouton + ' different de l infobulle')
                 Assert-True (([string]$entree[0].Kind) -ceq 'Button') ('Nature de l aide ' + $bouton + ' differente de l element XAML')
             }
             $entreeChamp = @($aide | Where-Object { $_.Name -eq $nomChamp })
             Assert-True ($entreeChamp.Count -eq 1) ('Entree d aide ' + $nomChamp + ' : ' + $entreeChamp.Count + ' occurrence(s)')
-            Assert-True (([string]$entreeChamp[0].Text) -ceq [string]$champs[0].GetAttribute('ToolTip')) ('Texte de l aide ' + $nomChamp + ' different de l infobulle')
+            Assert-True (([string]$entreeChamp[0].Text) -ceq [string](Get-TestCatalogueHelp $champs[0] 'ToolTip')) ('Texte de l aide ' + $nomChamp + ' different de l infobulle')
             Assert-True (([string]$entreeChamp[0].Kind) -ceq 'TextBox') ('Nature de l aide ' + $nomChamp + ' differente de l element XAML')
         }
         # Le nom affiche vient de l annuaire, le DN reste interne : c est la tout l ecart avec avant.
@@ -985,21 +1001,21 @@ try {
         $cases = @($xaml.SelectNodes('//*[local-name()="CheckBox"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'ChkMustChangeAtLogon' })
         Assert-True ($cases.Count -eq 1) ('ChkMustChangeAtLogon : ' + $cases.Count + ' occurrence(s)')
         Assert-True (([string]$cases[0].GetAttribute('IsChecked')) -ceq 'True') 'Changement obligatoire arrive decoche'
-        Assert-True (([string]$cases[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$cases[0].GetAttribute('ToolTip')) 'ChkMustChangeAtLogon : l aide d automation ne reprend pas l infobulle'
+        Assert-True (([string](Get-TestCatalogueHelp $cases[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $cases[0] 'ToolTip')) 'ChkMustChangeAtLogon : l aide d automation ne reprend pas l infobulle'
         $btns = @($xaml.SelectNodes('//*[local-name()="Button"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'BtnUserGenPassword' })
         Assert-True ($btns.Count -eq 1) ('BtnUserGenPassword : ' + $btns.Count + ' occurrence(s)')
         Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) 'Generer un mot de passe est un bouton rouge'
-        Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'BtnUserGenPassword : l aide d automation ne reprend pas l infobulle'
+        Assert-True (([string](Get-TestCatalogueHelp $btns[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) 'BtnUserGenPassword : l aide d automation ne reprend pas l infobulle'
         Assert-True ($texteCore.Contains('BtnUserGenPassword"].Add_Click({')) 'Generer n est pas cable'
         Assert-True ($texteCore.Contains('Password = @("BtnUserResetPwd","BtnUserGenPassword")')) 'Generer reste cliquable quand la capacite Mot de passe est refusee'
         $entree = @($aide | Where-Object { $_.Name -eq 'BtnUserGenPassword' })
         Assert-True ($entree.Count -eq 1) ('Entree d aide BtnUserGenPassword : ' + $entree.Count + ' occurrence(s)')
         Assert-True (([string]$entree[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide BtnUserGenPassword different du nom d automation'
-        Assert-True (([string]$entree[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'Texte de l aide BtnUserGenPassword different de l infobulle'
+        Assert-True (([string]$entree[0].Text) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) 'Texte de l aide BtnUserGenPassword different de l infobulle'
         Assert-True (([string]$entree[0].Kind) -ceq 'Button') 'Nature de l aide BtnUserGenPassword differente de l element XAML'
         $entreeCase = @($aide | Where-Object { $_.Name -eq 'ChkMustChangeAtLogon' })
         Assert-True ($entreeCase.Count -eq 1) ('Entree d aide ChkMustChangeAtLogon : ' + $entreeCase.Count + ' occurrence(s)')
-        Assert-True (([string]$entreeCase[0].Text) -ceq [string]$cases[0].GetAttribute('ToolTip')) 'Texte de l aide ChkMustChangeAtLogon different de l infobulle'
+        Assert-True (([string]$entreeCase[0].Text) -ceq [string](Get-TestCatalogueHelp $cases[0] 'ToolTip')) 'Texte de l aide ChkMustChangeAtLogon different de l infobulle'
         # Le generateur : quatre octets forts, quatre classes, aucun caractere ambigu, et un plancher.
         $gen = @($nodes | Where-Object { $_.Name -eq 'New-DomeniaTemporaryPassword' })
         Assert-True ($gen.Count -eq 1) 'New-DomeniaTemporaryPassword introuvable dans le coeur'
@@ -1155,12 +1171,12 @@ try {
         }
         foreach ($nom in @('BtnUserEdit','BtnUserCancelEdit','BtnCompEdit','BtnCompCancelEdit')) {
             $entrees = @($aide | Where-Object { $_.Name -eq $nom })
-            $attendu = [string]$nommes[$nom].GetAttribute('ToolTip')
+            $attendu = [string](Get-TestCatalogueHelp $nommes[$nom] 'ToolTip')
             Assert-True (([string]$entrees[0].Text) -ceq $attendu) ('Texte de l aide ' + $nom + ' different de l infobulle')
         }
         foreach ($nom in @('LblUserEditState','LblCompEditState')) {
             $entrees = @($aide | Where-Object { $_.Name -eq $nom })
-            $attendu = [string]$nommes[$nom].GetAttribute('AutomationProperties.HelpText')
+            $attendu = [string](Get-TestCatalogueHelp $nommes[$nom] 'AutomationProperties.HelpText')
             Assert-True (([string]$entrees[0].Text) -ceq $attendu) ('Texte de l aide ' + $nom + ' different de laide du controle')
         }
     }
@@ -1231,11 +1247,11 @@ try {
         $bandes = @($xaml.SelectNodes('//*[local-name()="Border"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'PnlUserSupportBand' })
         Assert-True ($bandes.Count -eq 1) ('PnlUserSupportBand : ' + $bandes.Count + ' occurrence(s)')
         Assert-True (([string]$bandes[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Le bandeau parait avant meme la lecture du compte'
-        Assert-True (([string]$bandes[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$bandes[0].GetAttribute('ToolTip')) 'PnlUserSupportBand : l aide d automation ne reprend pas l infobulle'
+        Assert-True (([string](Get-TestCatalogueHelp $bandes[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $bandes[0] 'ToolTip')) 'PnlUserSupportBand : l aide d automation ne reprend pas l infobulle'
         $titres = @($xaml.SelectNodes('//*[local-name()="TextBlock"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserSupportBand' })
         Assert-True ($titres.Count -eq 1) ('TxtUserSupportBand : ' + $titres.Count + ' occurrence(s)')
         Assert-True (([string]$titres[0].GetAttribute('TextWrapping')) -ceq 'Wrap') 'Le bandeau tronque ce que le controleur a repondu'
-        Assert-True (([string]$titres[0].GetAttribute('AutomationProperties.HelpText')).Length -gt 40) 'TxtUserSupportBand : aucune aide d automation'
+        Assert-True (([string](Get-TestCatalogueHelp $titres[0] 'AutomationProperties.HelpText')).Length -gt 40) 'TxtUserSupportBand : aucune aide d automation'
         $details = @($xaml.SelectNodes('//*[local-name()="TextBlock"]') | Where-Object { $_.GetAttribute('Name',$XNS) -eq 'TxtUserSupportDetail' })
         Assert-True ($details.Count -eq 1) ('TxtUserSupportDetail : ' + $details.Count + ' occurrence(s)')
         Assert-True (([string]$details[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Les limites s affichent sans rien a limiter'
@@ -1243,7 +1259,7 @@ try {
         Assert-True ($btns.Count -eq 1) ('BtnUserSupportUnlock : ' + $btns.Count + ' occurrence(s)')
         Assert-True (([string]$btns[0].GetAttribute('Visibility')) -ceq 'Collapsed') 'Le bouton de deverrouillage parait sur un compte qui ne lest pas'
         Assert-True (-not ([string]$btns[0].GetAttribute('Style')).Contains('DangerButton')) 'Deverrouiller depuis le bandeau est un bouton rouge'
-        Assert-True (([string]$btns[0].GetAttribute('AutomationProperties.HelpText')) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'BtnUserSupportUnlock : l aide d automation ne reprend pas l infobulle'
+        Assert-True (([string](Get-TestCatalogueHelp $btns[0] 'AutomationProperties.HelpText')) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) 'BtnUserSupportUnlock : l aide d automation ne reprend pas l infobulle'
         Assert-True ($texteCore.Contains('BtnUserSupportUnlock"].Add_Click({ Unlock-UserAccount })')) 'Le bouton du bandeau ne mene a aucune action'
         Assert-True ($texteCore.Contains('Account = @("BtnUserUnlock","BtnUserSupportUnlock"')) 'Le bouton du bandeau reste cliquable en lecture seule'
         # L echeance et les echecs ne se lisent que si la fiche les demande au controleur.
@@ -1272,12 +1288,12 @@ try {
         }
         $entreeBtn = @($aide | Where-Object { $_.Name -eq 'BtnUserSupportUnlock' })
         Assert-True (([string]$entreeBtn[0].Title) -ceq [string]$btns[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide BtnUserSupportUnlock different du nom d automation'
-        Assert-True (([string]$entreeBtn[0].Text) -ceq [string]$btns[0].GetAttribute('ToolTip')) 'Texte de l aide BtnUserSupportUnlock different de l infobulle'
+        Assert-True (([string]$entreeBtn[0].Text) -ceq [string](Get-TestCatalogueHelp $btns[0] 'ToolTip')) 'Texte de l aide BtnUserSupportUnlock different de l infobulle'
         $entreeBand = @($aide | Where-Object { $_.Name -eq 'PnlUserSupportBand' })
-        Assert-True (([string]$entreeBand[0].Text) -ceq [string]$bandes[0].GetAttribute('ToolTip')) 'Texte de l aide PnlUserSupportBand different de l infobulle'
+        Assert-True (([string]$entreeBand[0].Text) -ceq [string](Get-TestCatalogueHelp $bandes[0] 'ToolTip')) 'Texte de l aide PnlUserSupportBand different de l infobulle'
         $entreeTitre = @($aide | Where-Object { $_.Name -eq 'TxtUserSupportBand' })
         Assert-True (([string]$entreeTitre[0].Title) -ceq [string]$titres[0].GetAttribute('AutomationProperties.Name')) 'Titre de l aide TxtUserSupportBand different du nom d automation'
-        Assert-True (([string]$entreeTitre[0].Text) -ceq [string]$titres[0].GetAttribute('AutomationProperties.HelpText')) 'Texte de l aide TxtUserSupportBand different de son aide d automation'
+        Assert-True (([string]$entreeTitre[0].Text) -ceq [string](Get-TestCatalogueHelp $titres[0] 'AutomationProperties.HelpText')) 'Texte de l aide TxtUserSupportBand different de son aide d automation'
     }
 
     Test-Case 'SP-06 : les boutons de l inventaire annoncent la duree que le code paie' {
@@ -1297,8 +1313,11 @@ try {
         Assert-True ($texteCore.Contains('$budget = 55000')) 'Budget de l inventaire rapide (55 s) introuvable dans le collecteur'
         Assert-True ($texteCore.Contains('if ($Deep) { $budget = 150000')) 'Budget de l inventaire complet (150 s) introuvable dans le collecteur'
         # Les correctifs se lisent deja dans le rapide : le complet ne peut plus les promettre.
-        foreach ($tip in @([regex]::Matches($xaml, 'ToolTip="([^"]*[Ii]nventaire complet[^"]*)"'))) {
-            Assert-True (([string]$tip.Groups[1].Value) -notlike '*correctif*') ('Infobulle du complet : ' + $tip.Groups[1].Value)
+        # PF-24: the tool tips of catalogued controls are in Domenia-UX.help.json; both sources are read.
+        $aideComplet = Get-Content -LiteralPath (Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        $textesComplet = @(@([regex]::Matches($xaml, 'ToolTip="([^"]*[Ii]nventaire complet[^"]*)"') | ForEach-Object { [string]$_.Groups[1].Value }) + @($aideComplet | Where-Object { ([string]$_.Text) -match '[Ii]nventaire complet' } | ForEach-Object { [string]$_.Text }))
+        foreach ($tip in $textesComplet) {
+            Assert-True ($tip -notlike '*correctif*') ('Infobulle du complet : ' + $tip)
         }
     }
     Test-Case 'UX-37 : la grille d inventaire affiche le libelle calcule, la valeur brute reste relisible' {
@@ -1436,8 +1455,11 @@ try {
         Assert-True (-not ($code.Contains("Get-ChildItem 'Registry::HKEY_USERS'"))) 'La portee utilisateur parcourt encore les ruches a distance par WinRM'
         Assert-True (-not ($code.Contains('$includePerUser -and @($rows'))) 'Une portee utilisateur vide declenche encore la collecte locale SYSTEM'
         $xaml = Get-MainXaml
-        Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
-        Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
+        # PF-24: the tool tip of ChkSoftwarePerUser comes from the help catalogue.
+        $parUtilisateur = @(([xml]$xaml).SelectNodes("//*[@*[local-name()='Name']='ChkSoftwarePerUser']"))
+        Assert-True (($parUtilisateur.Count -eq 1) -and ((Get-TestCatalogueHelp $parUtilisateur[0] 'ToolTip') -ceq 'Ajoute les logiciels installés dans le profil des utilisateurs connectés.')) 'L infobulle promet toujours le profil de chaque utilisateur'
+        $catalogueTexte = [IO.File]::ReadAllText((Join-Path (Split-Path $core -Parent) 'modules/Domenia-UX.help.json'),[Text.Encoding]::UTF8)
+        Assert-True ((-not ($xaml.Contains('dans le profil de chaque utilisateur'))) -and (-not $catalogueTexte.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
     }
 
     Test-Case 'Points 91 a 100 : les workers d inventaire lisent registre et CIM sans effet de bord' {

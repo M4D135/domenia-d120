@@ -354,6 +354,34 @@ try{
    Expect ((Get-DomeniaControl 'LblContextHint').Text.Contains('Domenia-1.0-Guide-technicien.pdf')) 'Emplacement du guide non indique'
   }finally{$script:RootDir=$oldRoot;Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue}
  }
+
+ # PF-24 / UI-10: the catalogue is the only source of the help of its controls, a container has no tool tip and an
+ # icon button a one-line tool tip; the help text stays the whole catalogue text.
+ Case 'PF-24 : aides du catalogue seulement, aucune infobulle de conteneur, une ligne pour un bouton-icone' {
+  [xml]$doc=Get-MainXaml;$x='http://schemas.microsoft.com/winfx/2006/xaml'
+  $catalogue=@{};foreach($entry in @([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-UX.help.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json)){$catalogue[[string]$entry.Name]=$entry}
+  $carriers=@($doc.SelectNodes('//*')|Where-Object{$catalogue.ContainsKey([string]$_.GetAttribute('Name',$x)) -and ($_.HasAttribute('ToolTip') -or $_.HasAttribute('AutomationProperties.HelpText') -or $_.HasAttribute('ToolTipService.ShowOnDisabled'))}|ForEach-Object{$_.GetAttribute('Name',$x)})
+  Expect ($carriers.Count -eq 0) ('Aides encore dans le XAML : '+(($carriers|Select-Object -First 8) -join ', '))
+  foreach($style in @('DataGridColumnHeader','DataGridRow','TreeViewItem','MenuItem')){
+   $setters=@($doc.SelectNodes("//*[local-name()='Window.Resources']/*[local-name()='Style'][@TargetType='$style']/*[local-name()='Setter'][@Property='ToolTip']"))
+   Expect ($setters.Count -eq 0) ('Infobulle generique dans le style '+$style)
+  }
+  Initialize-DomeniaUxWindowHelp -Window $script:Window -XamlText (Get-MainXaml)
+  foreach($name in @('WorkspaceTabs','TxtUiLog','DgObjects','TvDirectory')){
+   $c=Get-DomeniaControl $name
+   Expect ($null -eq $c.ToolTip) ($name+' : infobulle sur un conteneur')
+   Expect ([string][Windows.Automation.AutomationProperties]::GetHelpText($c) -ceq [string]$catalogue[$name].Text) ($name+' : aide du lecteur d ecran absente')
+  }
+  $help=Get-DomeniaControl 'BtnUxHelpToggle'
+  Expect ([string]$help.ToolTip -ceq [string](Get-DomeniaHelpPresentation -Text ([string]$catalogue['BtnUxHelpToggle'].Text) -Role IconButton).ToolTip) ('Bouton-icone : '+[string]$help.ToolTip)
+  Expect (-not ([string]$help.ToolTip).Contains('. ')) 'Infobulle du bouton-icone sur plusieurs phrases'
+  Expect ([string][Windows.Automation.AutomationProperties]::GetHelpText($help) -ceq [string]$catalogue['BtnUxHelpToggle'].Text) 'Aide entiere du bouton-icone perdue'
+  $subtree=Get-DomeniaControl 'ChkSubtree'
+  Expect ([string]$subtree.ToolTip -ceq [string]$catalogue['ChkSubtree'].Text) 'Controle ordinaire : texte du catalogue'
+  Expect ([Windows.Controls.ToolTipService]::GetShowOnDisabled($subtree)) 'ShowOnDisabled non pose par le catalogue'
+  Restore-DomeniaUxBaseToolTip -Name 'DgObjects'
+  Expect ($null -eq (Get-DomeniaControl 'DgObjects').ToolTip) 'La restauration redonne une infobulle au conteneur'
+ }
 }finally{if($null -ne $script:DomeniaQueryState -and $null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()};$script:Window.Close()}
 $failed=@($script:Results|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{PowerShell=$PSVersionTable.PSVersion.ToString();Apartment=[Threading.Thread]::CurrentThread.ApartmentState.ToString();Synthetic=$true;ADAccessed=$false;Passed=($script:Results.Count-$failed);Failed=$failed;Assertions=$script:Checks;Results=$script:Results.ToArray()}

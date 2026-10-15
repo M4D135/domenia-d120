@@ -1074,7 +1074,8 @@ try {
             $container=$grid.ItemContainerGenerator.ContainerFromItem($row);Expect ($null -ne $container) 'Ligne non generee'
             $presenter=$column.GetCellContent($container);Pump $w
             $chip=[Windows.Media.VisualTreeHelper]::GetChild($presenter,0)
-            Expect ($chip -is [Windows.Controls.Border] -and ([string]$chip.Background).ToUpperInvariant() -eq '#FFDCFCE7' -and [string]$chip.ToolTip -match 'Provenance') ('Puce : '+[string]$chip.Background)
+            # CD-05: the pill takes the green pill token of the painted theme (dark here), no fixed colour.
+            Expect (($chip -is [Windows.Controls.Border]) -and (([string]$chip.Background).ToUpperInvariant() -eq ('#FF'+([string]$palette.PillGreenBg).Substring(1).ToUpperInvariant())) -and ([string]$chip.ToolTip -match 'Provenance')) ('Puce : '+[string]$chip.Background)
         }
     }finally{$w.Close();$script:Window=$null}
 }catch{$script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})}

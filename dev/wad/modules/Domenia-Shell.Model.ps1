@@ -1291,6 +1291,31 @@ function Get-DomeniaThemeToggleIcon {
     return [pscustomobject]@{Current='Light';Target='Dark';Glyph='Moon';Data=$moon;SunData=$sun;MoonData=$moon;Name='Passer au thème sombre';ToolTip=$tip;Auto=$auto}
 }
 
+function Get-DomeniaHelpPresentation {
+    # PF-24 / UI-10: how the catalogued help of a control (Domenia-UX.help.json, the only source) is shown.
+    #   Container   a page host, a grid, a tree, a panel, a read-only journal: no tool tip, WPF would raise it over the
+    #               whole surface; the text stays the help text of screen readers and the keyboard help of the panel.
+    #   IconButton  a button without a text label: its first sentence only, on one line.
+    #   Control     the whole text.
+    # The help text (AutomationProperties.HelpText and the help panel) is always the whole catalogue text.
+    param([AllowEmptyString()][AllowNull()][string]$Text='',[ValidateSet('Control','Container','IconButton')][string]$Role='Control')
+    $full = ([string]$Text).Trim()
+    $tip = $full
+    if ($Role -eq 'Container') { $tip = '' }
+    elseif ($Role -eq 'IconButton') {
+        $cut = -1
+        foreach ($mark in @('. ',' ; ','? ','! ')) {
+            $at = $full.IndexOf($mark,[StringComparison]::Ordinal)
+            if (($at -gt 0) -and (($cut -lt 0) -or ($at -lt $cut))) { $cut = $at }
+        }
+        if ($cut -gt 0) {
+            $tip = $full.Substring(0,$cut).TrimEnd()
+            if ($tip -notmatch '[.?!]$') { $tip += '.' }
+        }
+    }
+    return [pscustomobject]@{ToolTip=$tip;HelpText=$full;HoverHelp=($Role -ne 'Container');Role=$Role}
+}
+
 function Get-DomeniaHelpGuideChapter {
     # UI-11: the chapter of the user guides (guides/technicien.md, guides/administrateur.md, delivered as PDF in DOC)
     # that describes a page of the menu. An unknown page points to « Repères », the map of the window.

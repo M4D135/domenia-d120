@@ -323,6 +323,21 @@ def main():
         return '%d pages reliees (guides non disponibles ici)' % len(shell_chapters)
     check('UI-11 : aide fermee au depart, carte utile en tete, chapitres reels des guides', help_panel)
 
+    # ------------------------------------------------------------------ PF-24 / UI-10
+    def single_help_source():
+        sys.path.insert(0, str(root / 'tools'))
+        import strip_xaml_help
+        summary = strip_xaml_help.run(root, False)
+        require(summary['Status'] == 'PASS', 'Aides revenues dans le XAML : ' + ', '.join(summary['Controls'][:8]))
+        for style in ('DataGridColumnHeader', 'DataGridRow', 'TreeViewItem', 'MenuItem'):
+            body = re.search(r'\n    <Style TargetType="%s">.*?\n    </Style>' % style, main_xaml, re.S)
+            require(body and 'Property="ToolTip"' not in body[0], 'Infobulle generique dans le style ' + style)
+        ux = (root / 'wad/modules/Domenia-UX.UI.ps1').read_text(encoding='utf-8-sig')
+        init = fn('Initialize-DomeniaUxControlHelp', ux, functions(ux))
+        require('Set-DomeniaUxCatalogueToolTip' in init and '$entry.Text' not in init.split('Set-DomeniaUxCatalogueToolTip')[0], 'Infobulle posee hors de la regle de presentation')
+        return 'XAML principal %d octets ; %d controles dynamiques gardent leur infobulle' % (summary['XamlBytesAfter'], len(summary['UncataloguedWithToolTip']))
+    check('PF-24 / UI-10 : aides en source unique, aucune infobulle generique de style', single_help_source)
+
     # ------------------------------------------------------------------ boot windows
     roles = dict(re.findall(r"(\w+)='(\w+)'", re.search(r'\$roles = \[ordered\]@\{(.*?)\}', fn('Get-DomeniaBootThemePalette'), re.S)[1]))
     styles = re.search(r"\$styles = @'\n(.*?)\n'@", fn('Get-DomeniaBootThemeResources'), re.S)[1]

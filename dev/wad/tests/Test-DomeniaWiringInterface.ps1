@@ -902,7 +902,10 @@ try{
             foreach($n in @('LstMemberOf','LstGroupMembers')){Expect ($null -eq $main.FindName($n)) ('Liste de DN revenue : '+$n)}
             foreach($n in @('DgMemberOf','DgGroupMembers','TxtMemberOfFilter','TxtGroupMembersFilter','BtnMemberOfNested','LblMembershipWhy')){
                 $c=$script:Ctrl[$n];Expect ($null -ne $c) ('Controle absent : '+$n)
-                Expect ([string]$c.ToolTip -ceq [string][Windows.Automation.AutomationProperties]::GetHelpText($c)) ('Infobulle et aide divergent : '+$n)
+                # PF-24 / UI-10: the help text is the catalogue text; a grid shows no tool tip, an icon button one line.
+                $helpText=[string][Windows.Automation.AutomationProperties]::GetHelpText($c)
+                $expectedTip=[string](Get-DomeniaHelpPresentation -Text $helpText -Role (Get-DomeniaUxHelpRole -Control $c)).ToolTip
+                Expect (([bool]$helpText) -and ([string]$c.ToolTip -ceq $expectedTip)) ('Infobulle et aide divergent : '+$n)
             }
             foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
             foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}

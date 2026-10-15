@@ -8,6 +8,22 @@
 [CmdletBinding()]
 param([string]$ReportPath='',[switch]$Quiet)
 $ErrorActionPreference='Stop'
+# PF-24 (lot Z04): a catalogued control carries its help in Domenia-UX.help.json only (the XAML keeps it for the
+# other controls); this reads the effective tool tip or help text of a node of the main XAML.
+$script:TestHelpCatalogue=$null
+function Get-TestCatalogueHelp {
+    param($Node,[string]$Attribute)
+    $value=[string]$Node.GetAttribute($Attribute)
+    if($value){return $value}
+    if($null -eq $script:TestHelpCatalogue){
+        $script:TestHelpCatalogue=@{}
+        $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
+        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+    }
+    $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
+    if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
+    return ''
+}
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
 $script:Checks=[Collections.Generic.List[object]]::new()
@@ -177,8 +193,8 @@ if($infrastructure){
         [xml]$main=Get-MainXaml
         $tab=@($main.SelectNodes('//*[local-name()="TabItem"]')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'WsAdAudit'})
         Expect ($tab.Count -eq 1) 'Onglet WsAdAudit absent'
-        $tip=[string]$tab[0].GetAttribute('ToolTip')
-        Expect ($tip -and ($tip -ceq [string]$tab[0].GetAttribute('AutomationProperties.HelpText')) -and [string]$tab[0].GetAttribute('AutomationProperties.Name'))
+        $tip=[string](Get-TestCatalogueHelp $tab[0] 'ToolTip')
+        Expect ($tip -and ($tip -ceq [string](Get-TestCatalogueHelp $tab[0] 'AutomationProperties.HelpText')) -and [string]$tab[0].GetAttribute('AutomationProperties.Name'))
         Expect ([string]$tab[0].ParentNode.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'ApplicationToolTabs') 'Onglet hors des outils'
         $help=@($script:Help|Where-Object{$_.Name -eq 'WsAdAudit'})
         Expect ($help.Count -eq 1 -and ([string]$help[0].Text -ceq $tip)) 'Aide de l onglet'
@@ -199,9 +215,9 @@ if($infrastructure){
             $name=$element.GetAttribute('Name',$x)
             if(-not $name){continue}
             Expect ($script:Ctrl.ContainsKey($name)) ('Controle non enregistre : '+$name)
-            $tip=$element.GetAttribute('ToolTip')
+            $tip=(Get-TestCatalogueHelp $element 'ToolTip')
             if($tip){
-                Expect ($tip -ceq $element.GetAttribute('AutomationProperties.HelpText')) ('Infobulle et aide divergent : '+$name)
+                Expect ($tip -ceq (Get-TestCatalogueHelp $element 'AutomationProperties.HelpText')) ('Infobulle et aide divergent : '+$name)
                 $entry=@($script:Help|Where-Object{$_.Name -eq $name})
                 Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip)) ('Aide absente ou differente : '+$name)
             }
@@ -405,8 +421,8 @@ if($infrastructure){
         foreach($name in @('ChkAllLinksHistory','LblLinkOverview')){
             $node=@($main.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq $name})
             Expect ($node.Count -eq 1) ('Controle absent : '+$name)
-            $tip=[string]$node[0].GetAttribute('ToolTip')
-            Expect ($tip -and ($tip -ceq [string]$node[0].GetAttribute('AutomationProperties.HelpText'))) ('Infobulle : '+$name)
+            $tip=[string](Get-TestCatalogueHelp $node[0] 'ToolTip')
+            Expect ($tip -and ($tip -ceq [string](Get-TestCatalogueHelp $node[0] 'AutomationProperties.HelpText'))) ('Infobulle : '+$name)
             $entry=@($script:Help|Where-Object{$_.Name -eq $name});Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip)) ('Aide : '+$name)
             Expect ($script:CoreText.Contains('"'+$name+'" = "Default"')) ('Politique GUI : '+$name)
         }
@@ -429,8 +445,8 @@ if($infrastructure){
         [xml]$main=Get-MainXaml
         $x='http://schemas.microsoft.com/winfx/2006/xaml'
         $tab=@($main.SelectNodes('//*[local-name()="TabItem"]')|Where-Object{$_.GetAttribute('Name',$x) -eq 'WsAssistance'})
-        Expect ($tab.Count -eq 1 -and ([string]$tab[0].GetAttribute('ToolTip') -ceq [string]$tab[0].GetAttribute('AutomationProperties.HelpText'))) 'Onglet Assistance'
-        Expect (@($script:Help|Where-Object{($_.Name -eq 'WsAssistance') -and ([string]$_.Text -ceq [string]$tab[0].GetAttribute('ToolTip'))}).Count -eq 1) 'Aide de l onglet Assistance'
+        Expect ($tab.Count -eq 1 -and ([string](Get-TestCatalogueHelp $tab[0] 'ToolTip') -ceq [string](Get-TestCatalogueHelp $tab[0] 'AutomationProperties.HelpText'))) 'Onglet Assistance'
+        Expect (@($script:Help|Where-Object{($_.Name -eq 'WsAssistance') -and ([string]$_.Text -ceq [string](Get-TestCatalogueHelp $tab[0] 'ToolTip'))}).Count -eq 1) 'Aide de l onglet Assistance'
         Expect ($script:CoreText.Contains('"WsAssistance" = "Default"') -and ((Get-FunctionText $script:CoreAst 'Wire-Events') -match 'Register-DomeniaAssistanceTool')) 'Assistance non raccordee'
         $script:Ctrl=@{};$script:AssistanceView=$null;$script:AssistanceLaunched=@{};$script:SelectedObject=$null
         $tabItem=New-Object Windows.Controls.TabItem;$tabItem.Name='WsAssistance';$script:Ctrl['WsAssistance']=$tabItem
@@ -442,8 +458,8 @@ if($infrastructure){
         foreach($element in $document.SelectNodes('//*')){
             $name=$element.GetAttribute('Name',$x);if(-not $name){continue}
             Expect ($script:Ctrl.ContainsKey($name)) ('Controle non enregistre : '+$name)
-            $tip=$element.GetAttribute('ToolTip')
-            if($tip){$entry=@($script:Help|Where-Object{$_.Name -eq $name});Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip) -and ($tip -ceq $element.GetAttribute('AutomationProperties.HelpText'))) ('Aide : '+$name)}
+            $tip=(Get-TestCatalogueHelp $element 'ToolTip')
+            if($tip){$entry=@($script:Help|Where-Object{$_.Name -eq $name});Expect ($entry.Count -eq 1 -and ([string]$entry[0].Text -ceq $tip) -and ($tip -ceq (Get-TestCatalogueHelp $element 'AutomationProperties.HelpText'))) ('Aide : '+$name)}
         }
     }
     Case 'Assistance : une etape, un clic, une seule lecture, pour le bon sujet' {
