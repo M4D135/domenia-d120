@@ -10427,17 +10427,19 @@ function New-WEntry {
     $path = Get-WLdapPath $Context $Dn
     Set-WCredentialAttemptIdentity -Context $Context -Credential $Context.Credential -Channel Directory -UserName $(if($Context.UseCredential){Get-WDirectoryBindUser $Context}else{[string]$Context.ProcessIdentity})
     $lease=Enter-WCredentialAttempt -Context $Context -Channel Directory
-    $entry=$null;$plainPassword=''
+    $entry=$null
     try {
         Assert-WCredentialAllowed -Context $Context -Channel Directory
         if (-not [bool]$Context.UseCredential) {
             $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path)
         }else{
             if ($null -eq $Context.Credential) { throw "Credential AD explicite absent du contexte worker." }
-            $plainPassword=[string]$Context.Credential.GetNetworkCredential().Password
             $bindUser=Get-WDirectoryBindUser $Context
             if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser=[string]$Context.Credential.UserName }
-            $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path,$bindUser,$plainPassword,[System.DirectoryServices.AuthenticationTypes]::Secure)
+            # SE-16: DirectoryEntry only accepts the session password as a String, an immutable copy that stays in memory
+            # until the garbage collector reclaims it (no assignment can erase it). It is made here, at the last moment,
+            # handed to the Windows API at once and never kept in a variable, logged or returned.
+            $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path,$bindUser,$Context.Credential.GetNetworkCredential().Password,[System.DirectoryServices.AuthenticationTypes]::Secure)
         }
         # DirectoryEntry is lazy. Force its first bind before releasing this account's authentication lease.
         [void]$entry.psbase.get_NativeObject()
@@ -10446,7 +10448,7 @@ function New-WEntry {
         [void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory)
         if($null -ne $entry){try{$entry.Dispose()}catch{}}
         throw
-    }finally{$plainPassword='';Exit-WCredentialAttempt -Lease $lease}
+    }finally{Exit-WCredentialAttempt -Lease $lease}
 }
 function Get-WDirectoryVersionSource {
     param($Context)
@@ -10470,17 +10472,19 @@ function New-WRootDse {
     $path = if ([string]::IsNullOrWhiteSpace([string]$Context.Server)) { "LDAP://RootDSE" } else { "LDAP://$($Context.Server)/RootDSE" }
     Set-WCredentialAttemptIdentity -Context $Context -Credential $Context.Credential -Channel Directory -UserName $(if($Context.UseCredential){Get-WDirectoryBindUser $Context}else{[string]$Context.ProcessIdentity})
     $lease=Enter-WCredentialAttempt -Context $Context -Channel Directory
-    $entry=$null;$plainPassword=''
+    $entry=$null
     try {
         Assert-WCredentialAllowed -Context $Context -Channel Directory
         if (-not [bool]$Context.UseCredential) {
             $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path)
         }else{
             if ($null -eq $Context.Credential) { throw "Credential AD explicite absent du contexte worker." }
-            $plainPassword=[string]$Context.Credential.GetNetworkCredential().Password
             $bindUser=Get-WDirectoryBindUser $Context
             if ([string]::IsNullOrWhiteSpace($bindUser)) { $bindUser=[string]$Context.Credential.UserName }
-            $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path,$bindUser,$plainPassword,[System.DirectoryServices.AuthenticationTypes]::Secure)
+            # SE-16: DirectoryEntry only accepts the session password as a String, an immutable copy that stays in memory
+            # until the garbage collector reclaims it (no assignment can erase it). It is made here, at the last moment,
+            # handed to the Windows API at once and never kept in a variable, logged or returned.
+            $entry=New-Object System.DirectoryServices.DirectoryEntry -ArgumentList @($path,$bindUser,$Context.Credential.GetNetworkCredential().Password,[System.DirectoryServices.AuthenticationTypes]::Secure)
         }
         # DirectoryEntry is lazy. Force its first bind before releasing this account's authentication lease.
         [void]$entry.psbase.get_NativeObject()
@@ -10489,7 +10493,7 @@ function New-WRootDse {
         [void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Directory)
         if($null -ne $entry){try{$entry.Dispose()}catch{}}
         throw
-    }finally{$plainPassword='';Exit-WCredentialAttempt -Lease $lease}
+    }finally{Exit-WCredentialAttempt -Lease $lease}
 }
 function New-WSearcher {
     param($Context, [string]$BaseDn, [string]$Filter, [string[]]$Properties, [string]$Scope = "OneLevel", [int]$Limit = 0)
@@ -21707,7 +21711,10 @@ function Invoke-DomeniaInProcessAuthProbe {
                         continue
                     }
                     finally {
-                        $plainPassword = ""
+                        # SE-16: only drops this reference. The String handed to DirectoryEntry (and kept for masking
+                        # the error text) is immutable and stays in memory until the garbage collector reclaims it;
+                        # no assignment erases it. It is created just before the single bind and never logged.
+                        $plainPassword = $null
                         try { if ($null -ne $baseAdsi) { $baseAdsi.psbase.Dispose() } } catch { }
                         try { if ($null -ne $discoveryRoot) { $discoveryRoot.psbase.Dispose() } } catch { }
                     }
@@ -27506,7 +27513,6 @@ function Invoke-WConditionalModify {
     $conn = $null
     $netCred = $null
     $secure = $null
-    $pass = ''
     $net = $null
     $mods = $null
     $identifier = $null
@@ -27563,9 +27569,8 @@ function Invoke-WConditionalModify {
             if ($secure -is [Security.SecureString]) {
                 $netCred = New-Object System.Net.NetworkCredential -ArgumentList @($user, $secure, $domain)
             } else {
-                $pass = [string]$net.Password
-                $netCred = New-Object System.Net.NetworkCredential -ArgumentList @($user, $pass, $domain)
-                $pass = ''
+                # SE-16: a credential without SecureString only gives a String; it goes straight to NetworkCredential.
+                $netCred = New-Object System.Net.NetworkCredential -ArgumentList @($user, [string]$net.Password, $domain)
             }
             $net = $null
             $secure = $null
@@ -27614,7 +27619,6 @@ function Invoke-WConditionalModify {
         $netCred = $null
         $net = $null
         $secure = $null
-        $pass = ''
         $mods = $null
         $identifier = $null
         $request = $null
