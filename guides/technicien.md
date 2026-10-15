@@ -101,14 +101,16 @@ Quand : un utilisateur signale un problème sur son poste et vous devez l'examin
 Avant de commencer :
 
 - Le poste est trouvé dans « Rechercher » (chapitre 1).
-- Pour C$ et les consoles, le compte utilisé a des droits d'administration sur le poste.
+- Pour le disque C et les consoles, le compte utilisé a des droits d'administration sur le poste.
 
 ## Ouvrir la fiche du poste
 
 1. **Ouvrir le poste.** Double-cliquez sur le poste dans les résultats. La page « Fiche » s'ouvre.
 2. **Passer à l'assistance.** Cliquez sur « Poste » dans le menu de gauche. Sans poste sélectionné, la page « Aucun poste ouvert » propose un champ de recherche et les derniers postes consultés.
-3. **Lire la fiche.** L'onglet « Machine » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat », « Derniere connexion » et « Utilisateur associe ».
-4. **Trouver l'utilisateur.** Cliquez sur « Detecter l utilisateur » pour chercher le dernier utilisateur connu du poste, puis sur « Ouvrir l utilisateur » pour ouvrir sa fiche.
+3. **Lire l'en-tête.** L'en-tête du poste reste en haut de la page, quelle que soit la vue : nom, système, pastille de présence (« Répond au ping », « Ne répond pas au ping » ou « Présence non vérifiée », avec l'heure du dernier test), utilisateur associé et âge du dernier inventaire. Ses boutons « Bureau à distance », « Ouvrir le disque C » et « Tester la réponse » agissent au clic.
+4. **Choisir la vue.** Cinq vues se partagent la page : « Vue d'ensemble » (fiche et tableau de bord), « Intervenir » (actions, sessions et services), « Détails » (inventaire et logiciels), « Diagnostic » et « Secrets ».
+5. **Lire la fiche.** « Vue d'ensemble » affiche la carte « Fiche du poste » : « Nom », « DNS », « Presence », « OS », « Etat » et « Derniere connexion ».
+6. **Trouver l'utilisateur.** La ligne « Utilisateur associé » donne le badge de l'association et une phrase comme « Camille Martin · console observée le 08/10 à 08:15 ». « Ouvrir la fiche » ouvre sa fiche ; « Détecter à nouveau » interroge le poste. Le nom de l'utilisateur, dans l'en-tête, ouvre aussi sa fiche.
 
 ![Onglet « Machine » de PC-COMPTA-014 : système, présence en ligne et utilisateur associé Camille Martin](fig:fiche-poste)
 
@@ -118,12 +120,13 @@ Avant de commencer :
 
 Quand : vous voulez tester le poste, ouvrir son disque, une console d'administration ou une session à distance.
 
-1. **Ouvrir l'onglet.** Cliquez sur l'onglet « Actions ». La carte « Actions sur le poste » regroupe les outils.
-2. **Tester le réseau.** Cliquez sur « Ping ». Le résultat (état, temps de réponse, adresse) s'inscrit dans le « Journal de session », en bas de la fenêtre.
-3. **Ouvrir le disque.** Cliquez sur « Ouvrir C$ ». L'Explorateur Windows s'ouvre sur le disque C du poste. Si vous vous êtes connecté avec un mot de passe, ou si vous avez saisi un compte pour les postes, le « Journal de session » indique le compte utilisé : « C$ de … ouvert avec … ».
-4. **Ouvrir une console.** Cliquez sur « Gestion de l ordinateur » ou sur « Journaux » : la console Windows s'ouvre sur ce poste. Si « Services » montre votre propre ordinateur, connectez la console au poste par son menu Action.
+1. **Ouvrir la vue.** Cliquez sur « Intervenir ». Quatre cartes regroupent les outils : « Se connecter », « Vérifier », « Intervenir » et « Compte AD ».
+2. **Tester la réponse.** Cliquez sur « Tester la réponse ». La pastille de présence de l'en-tête se met à jour, avec l'heure du test.
+3. **Ouvrir le disque.** Cliquez sur « Ouvrir le disque C ». L'Explorateur Windows s'ouvre sur le disque C du poste (partage C$). Sous les boutons de la carte « Se connecter », la ligne « Opérations poste : … » indique, avant le clic, le compte utilisé.
+4. **Ouvrir une console.** Cliquez sur « Gestion de lʼordinateur » ou sur « Observateur dʼévénements » : la console Windows s'ouvre sur ce poste.
 5. **Prendre la main.** Cliquez sur « Bureau à distance ». La connexion Bureau à distance de Windows s'ouvre vers ce poste ; saisissez votre compte si Windows le demande.
-6. **Préparer PowerShell.** « Commande PowerShell » copie la commande de connexion à distance : collez-la dans votre console PowerShell.
+6. **Préparer PowerShell.** « Copier la commande PowerShell » copie la commande de connexion à distance et l'annonce dans la page. Si un compte est saisi pour les postes, la commande le nomme : Windows demandera son mot de passe, qui n'est jamais copié.
+7. **Lire les sessions et les services.** Plus bas dans « Intervenir », « Lire les sessions » liste les sessions ouvertes et « Lire les services » liste les services du poste. « Automatiques arrêtés seulement » ne garde que les services qui devraient tourner.
 
 ![Actions du poste : état du compte, Ping, Bureau à distance, Ouvrir C$, consoles, journaux et services ; données fictives](fig:actions-poste)
 
@@ -131,45 +134,57 @@ Quand : vous voulez tester le poste, ouvrir son disque, une console d'administra
 
 > [!RESULTAT] L'outil choisi est ouvert sur le poste, sans rien modifier sur le poste ni dans l'annuaire.
 
-> [!ATTENTION] Les actions qui modifient le poste ou l'annuaire, comme « Redemarrer » ou « Renommer dans AD », restent bloquées en « Lecture seule ». Si votre intervention en a besoin, prévenez l'administrateur.
+> [!ATTENTION] Les actions qui modifient le poste ou l'annuaire, comme « Redémarrer… », « Démarrer… » un service ou « Renommer dans AD », restent bloquées en « Lecture seule ». Si votre intervention en a besoin, prévenez l'administrateur.
+
+## Redémarrer un poste en prévenant l'utilisateur
+
+Quand : un redémarrage est nécessaire et l'utilisateur travaille peut-être encore sur le poste.
+
+1. **Préparer.** Dans « Intervenir », cliquez sur « Redémarrer… ». Le panneau du redémarrage s'ouvre dans la page et lit d'abord les sessions ouvertes du poste.
+2. **Lire les sessions.** Le panneau indique qui est connecté. Si la lecture est refusée, il le dit : une session peut quand même être ouverte.
+3. **Choisir.** « Dans 5 min avec message à lʼutilisateur » est proposé par défaut ; modifiez le message si besoin. « Maintenant, sans délai ni message » fait perdre le travail non enregistré.
+4. **Confirmer.** Cliquez sur « Redémarrer dans 5 min… », relisez la demande dans la page, puis confirmez. La demande part une seule fois.
+
+> [!RESULTAT] L'utilisateur voit le message et dispose du délai pour enregistrer son travail. Si le poste refuse la commande à distance, Domenia l'indique (« Non envoyé : le poste nʼaccepte pas la commande à distance ») et rien n'est relancé.
 
 ## Utiliser le compte fourni pour les postes
 
-Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir C$ » est refusé avec votre compte habituel.
+Quand : l'administrateur vous a donné un compte réservé aux postes, ou « Ouvrir le disque C » est refusé avec votre compte habituel.
 
-1. **Saisir le compte.** Dans l'onglet « Diagnostic », carte « Diagnostic du poste », remplissez « Compte poste » et « Mot de passe ».
-2. **Valider.** Cliquez sur « Utiliser ce compte ». La ligne sous les champs commence par « Operations poste : compte saisi ».
-3. **Relancer l'outil.** Revenez à l'onglet « Actions » et cliquez de nouveau sur l'outil voulu.
+1. **Saisir le compte.** Dans la vue « Diagnostic », carte « Diagnostic du poste », remplissez « Compte poste » et « Mot de passe ».
+2. **Valider.** Cliquez sur « Utiliser ce compte ». La ligne sous les champs commence par « Opérations poste : compte saisi ».
+3. **Relancer l'outil.** Revenez à la vue « Intervenir » et cliquez de nouveau sur l'outil voulu.
 
-> [!RESULTAT] « Ouvrir C$ » et les consoles utilisent ce compte, jamais enregistré sur le disque. « Compte de connexion » revient au compte de départ.
+> [!RESULTAT] « Ouvrir le disque C » et les consoles utilisent ce compte, jamais enregistré sur le disque. « Compte de connexion » revient au compte de départ.
 
 ## Lancer un inventaire
 
 Quand : vous avez besoin du matériel, du système, des disques ou de la configuration du poste.
 
-1. **Ouvrir l'onglet.** Cliquez sur l'onglet « Inventaire ». La carte « Inventaire du poste » s'affiche.
+1. **Ouvrir la vue.** Cliquez sur « Détails », puis sur l'onglet « Inventaire ». La carte « Inventaire du poste » s'affiche.
 2. **Choisir l'inventaire.** Cliquez sur « Rapide » (matériel, système, disques, réseau, sécurité, logiciels, services) ou sur « Complet », plus long, qui ajoute les processus, les tâches planifiées, les certificats et les erreurs récentes.
 3. **Attendre la fin.** Sur la ligne de « Categorie », un résumé donne ensuite le nombre d'éléments lus et le nombre de sources accessibles ou refusées.
 4. **Lire le résultat.** Chaque ligne donne la « Categorie », l'« Element », la « Valeur » et la « Source ». Choisissez une catégorie dans « Categorie » pour n'afficher qu'elle.
 5. **Transmettre.** Cliquez sur « Copier » ou sur « Exporter CSV » pour joindre l'inventaire au ticket. « Exporter CSV » enregistre le fichier sans rien demander : son chemin s'affiche dans une fenêtre et dans le « Journal de session » (« Inventaire exporte : … »). Le volet « Detail par source » indique ce qui a été lu ou refusé.
 
-> [!RESULTAT] L'inventaire est affiché, et l'onglet « Tableau de bord » se remplit avec les mêmes données (chapitre 3).
+> [!RESULTAT] L'inventaire est affiché, le tableau de bord de « Vue d'ensemble » se remplit avec les mêmes données (chapitre 3) et l'en-tête du poste en donne l'âge.
 
 ## Si ça ne se passe pas comme prévu
 
 | Vous voyez | Que faire |
 |---|---|
 | « Poste » affiche « Aucun poste ouvert » | L'objet sélectionné n'est pas un poste. Sélectionnez un poste dans « Rechercher » ou dans « Derniers postes consultés ». |
-| Une erreur qui commence par « Ouvrir C$ de » | Lisez le motif. Poste injoignable : vérifiez-le avec « Ping ». Accès refusé : utilisez le compte fourni pour les postes. Sinon, prévenez l'administrateur. |
+| Une erreur qui commence par « Ouvrir le disque C de » | Lisez le motif. Poste injoignable : vérifiez-le avec « Tester la réponse ». Accès refusé : utilisez le compte fourni pour les postes. Sinon, prévenez l'administrateur. |
 | « Console ouverte avec la session Windows : » suivi d'un motif | La console utilise votre session Windows et peut être refusée par le poste. Saisissez le compte fourni pour les postes, puis rouvrez la console. |
-| « Inventaire impossible : » suivi d'un motif | Lancez « Ping ». Si le poste répond, prévenez l'administrateur (chapitre 8). |
+| « Non envoyé : le poste nʼaccepte pas la commande à distance » | Rien n'est parti vers le poste. Vérifiez qu'il répond, puis prévenez l'administrateur : la commande à distance n'est pas ouverte sur ce poste. |
+| « Inventaire impossible : » suivi d'un motif | Lancez « Tester la réponse ». Si le poste répond, prévenez l'administrateur (chapitre 8). |
 
 # 3 Lire le tableau de bord du poste
 
 Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à vérifier.
 
-1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Tableau de bord ». La carte « Tableau de bord du poste » s'affiche.
-2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire de l'onglet « Inventaire » remplit aussi ce tableau.
+1. **Ouvrir la vue.** Dans « Poste », cliquez sur « Vue d'ensemble » : la carte « Tableau de bord du poste » suit la fiche du poste.
+2. **Remplir le tableau.** Cliquez sur « Inventaire rapide ». Pour les processus les plus gourmands et les erreurs du journal Système, cliquez sur « Inventaire complet », plus long. Un inventaire lancé dans « Détails », onglet « Inventaire », remplit aussi ce tableau.
 3. **Lire l'état général.** En haut, « Etat general » donne un score sur 100 et un verdict : « Bon etat », « A surveiller », « Degrade » ou « Critique ».
 4. **Lire les points d'attention.** « Points d attention » liste les problèmes trouvés, du plus grave au moins grave. « Rien a signaler » : aucun point à vérifier.
 5. **Parcourir les sections.** Descendez dans la page pour lire chaque section.
@@ -190,8 +205,8 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 
 | Point d'attention | Que faire |
 |---|---|
-| Pas de redémarrage depuis plus de 30 jours, ou redémarrage en attente | Convenez d'un redémarrage avec l'utilisateur. |
-| Disque système presque plein | Libérez de la place avec l'utilisateur (« Ouvrir C$ », chapitre 2). Sinon, prévenez l'administrateur. |
+| Pas de redémarrage depuis plus de 30 jours, ou redémarrage en attente | Convenez d'un redémarrage avec l'utilisateur, puis utilisez « Redémarrer… » avec un message (chapitre 2). |
+| Disque système presque plein | Libérez de la place avec l'utilisateur (« Ouvrir le disque C », chapitre 2). Sinon, prévenez l'administrateur. |
 | Horloge décalée, mot de passe machine ancien, compte ordinateur désactivé | Prévenez l'administrateur. |
 | Version de Windows signalée | Faites vérifier l’édition, son cycle de support et les dispositions de maintenance du parc par l’administrateur. |
 
@@ -204,7 +219,7 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 | « Pas encore de donnees » | Cliquez sur « Inventaire rapide ». |
 | Une section indique « Inventaire complet requis : » | Cliquez sur « Inventaire complet ». |
 | Un widget affiche « Non lu » | L'information n'a pas pu être lue. Relancez l'inventaire. Si elle reste absente, prévenez l'administrateur. |
-| Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans l’onglet « Inventaire » avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
+| Le tableau se vide quand vous choisissez un autre objet | Le tableau suit le poste sélectionné. Un ancien inventaire peut réapparaître dans « Détails », onglet « Inventaire », avec sa date ; relancez l’inventaire pour remplir le tableau du poste. |
 
 # 4 Savoir qui est connecté sur une liste de postes
 
@@ -222,7 +237,7 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 > [!ASTUCE] Pour un seul poste, cliquez sur sa ligne, ou sur « Revérifier ce poste » pour recommencer. Décochez « Utilisateur au clic » pour un ping seul.
 
-> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : utilisez l'onglet « Sessions Windows » de « Poste », bouton « Lire les sessions ».
+> [!NOTE] Les sessions Bureau à distance ne sont pas recensées : dans « Poste », vue « Intervenir », utilisez « Lire les sessions ».
 
 > [!RESULTAT] Pour chaque poste affiché, vous savez s'il répond et qui est connecté sur son écran.
 
@@ -478,7 +493,7 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 
 Quand : vous devez savoir si un logiciel est installé sur un poste, dans quelle version et pour qui.
 
-1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
+1. **Ouvrir l'onglet.** Dans « Poste », cliquez sur « Détails », puis sur l'onglet « Logiciels ». La carte « Logiciels installes » s'affiche.
 2. **Choisir l'étendue.** « Par utilisateur », cochée par défaut, ajoute les logiciels de chaque profil. Cochez « Applications Store » pour le Microsoft Store (plus long), « Mises a jour » pour les correctifs et composants système.
 3. **Charger.** Cliquez sur « Charger les logiciels ». Chaque ligne donne le « Nom », la « Version », l'« Editeur », « Installe le », la « Taille » et la « Portee ».
 4. **Chercher un logiciel.** Tapez une partie du nom, de l'éditeur ou de la version dans « Filtre ». « Portee » limite la liste à « Machine », « Utilisateur » ou « Store ».
@@ -529,7 +544,7 @@ Donnez-lui ces éléments :
 
 - le message exact, copié avec « Copier » dans le « Journal de session » ;
 - pour un problème de connexion, le texte obtenu avec « Copier le diagnostic » dans la fenêtre de connexion ;
-- pour un poste, le rapport de l'onglet « Diagnostic » : « Lancer le diagnostic », puis « Copier le rapport » ;
+- pour un poste, le rapport de la vue « Diagnostic » : « Lancer le diagnostic », puis « Copier le rapport » ;
 - le nom du poste ou de l'utilisateur, l'heure et ce que vous avez fait juste avant.
 
 > [!ATTENTION] Ne relancez pas en boucle une action qui échoue. Ne collez jamais de mot de passe dans un ticket, et relisez le texte copié : il contient les noms des postes et des comptes.
@@ -563,7 +578,7 @@ Donnez-lui ces éléments :
 
 - Notez le nom du poste, l'utilisateur concerné et la référence du ticket.
 - Vérifiez le badge « Connecté à … » : c'est le bon domaine.
-- Vérifiez que le poste répond (« Ping ») avant d'ouvrir C$ ou une console.
+- Vérifiez que le poste répond (« Tester la réponse ») avant d'ouvrir le disque C ou une console.
 - Prévenez l'utilisateur avant de prendre la main en Bureau à distance.
 
 # 10 Mots à connaître
