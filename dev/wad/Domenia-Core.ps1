@@ -19177,7 +19177,11 @@ if ([bool]$Payload.UseSecurityLog) {
     try {
         Test-ProbeBudget
         Set-ProbeStep 'Journal Security 4624 optionnel'
-        $sw=[System.Diagnostics.Stopwatch]::StartNew();$events=@(Get-WinEvent -ComputerName $computer -FilterHashtable @{LogName="Security";Id=4624} -MaxEvents 40 -ErrorAction Stop);$sw.Stop()
+        # Point 41: this read goes out with the Windows session of Domenia, not the workstation account: its lease and
+        # any refusal belong to the session identity, never to the account of the previous CIM step.
+        Set-WCredentialAttemptIdentity -Context $Context -Credential $null -Channel Remote -Target $computer
+        $eventLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
+        $sw=[System.Diagnostics.Stopwatch]::StartNew();try{$events=@(Get-WinEvent -ComputerName $computer -FilterHashtable @{LogName="Security";Id=4624} -MaxEvents 40 -ErrorAction Stop)}finally{Exit-WCredentialAttempt $eventLease};$sw.Stop()
         foreach($ev in $events){try{$lt=[string]$ev.Properties[8].Value;if($lt -notin @("2","10","11")){continue};$raw=[string]$ev.Properties[5].Value;$hit=Return-Candidate "Security 4624" $raw 80 "LogonType=$lt, Time=$($ev.TimeCreated)" ([int]$sw.ElapsedMilliseconds);if($null -ne $hit){$hit;return}}catch{}}
     } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};Add-Attempt "Security 4624" "KO" "" 0 0 $_.Exception.Message }
 }

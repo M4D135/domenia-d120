@@ -306,6 +306,20 @@ Case 'Point 41: index pass, park sweep and query schema reads get the lease thro
     Assert ($schema -match 'New-WDomeniaCimSession') 'Schema de requete sans la fabrique CIM commune'
     Assert ($schema -notmatch 'New-CimSession\s+@') 'Schema de requete avec une session hors bail'
 }
+Case 'Point 41: a read sent with the Windows session is attributed to it, never to the workstation account of the job' {
+    # The optional 4624 read of the last-user probe sends no explicit account: it selects the session identity first.
+    $text=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+    $read=[regex]::Match($text,'Set-WCredentialAttemptIdentity -Context \$Context -Credential \$null -Channel Remote -Target \$computer\r?\n[^\r\n]*Enter-WCredentialAttempt -Context \$Context -Channel Remote\r?\n[^\r\n]*Get-WinEvent -ComputerName \$computer -FilterHashtable @\{LogName="Security";Id=4624\}')
+    Assert $read.Success 'Lecture 4624 sans identite de session ni bail'
+    $c=New-Fixture 'directory@example.invalid'
+    $c|Add-Member -NotePropertyName Domain -NotePropertyValue 'example.invalid';$c|Add-Member -NotePropertyName Netbios -NotePropertyValue 'EXAMPLE';$c|Add-Member -NotePropertyName ProcessIdentity -NotePropertyValue 'EXAMPLE\session'
+    Set-WCredentialAttemptIdentity -Context $c -Credential ([pscustomobject]@{UserName='EXAMPLE\postes'}) -Channel Remote -Target 'PC-01'
+    Set-WCredentialAttemptIdentity -Context $c -Credential $null -Channel Remote -Target 'PC-01'
+    Assert ((@(Get-WCredentialGuardKeys $c Remote) -join ',') -eq 'session@example.invalid') ('Cle retenue : '+(@(Get-WCredentialGuardKeys $c Remote) -join ','))
+    Assert (Register-WCredentialFailure $c ([ComponentModel.Win32Exception]::new(1326)) Remote)
+    Assert ($c.CredentialGuard.Faults.ContainsKey('session@example.invalid')) 'Refus non attribue a la session'
+    Assert (-not $c.CredentialGuard.Faults.ContainsKey('postes@example.invalid')) 'Compte poste suspendu a tort'
+}
 Case 'Point 41: local consultation never carries an account key, whatever the guard state' {
     $script:SessionEpoch=11L;$script:DomeniaCredentialGuard=$null
     foreach($op in @('LocalStore','LocalIndexRead','LocalQuery','QueryLibrary','QueryExport','StorageUsage','DocumentStore','LiveCache','LiveSelectedPing','ComputerPing','SelectedPresence','PresenceScan')){

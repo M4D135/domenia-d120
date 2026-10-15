@@ -281,7 +281,7 @@ try {
     }
 }catch{$script:Cases.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Passed=$false;Error=$_.Exception.ToString()})}
 finally{if($null -ne $script:Window){$script:Window.Close()}}
-$expected=65
+$expected=68
 $failed=@($script:Cases|Where-Object{-not $_.Passed}).Count
 $report=[ordered]@{Build='RC1.8';Suite='Relations et alignements';Expected=$expected;Passed=@($script:Cases|Where-Object{$_.Passed}).Count;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $script:Cases.Count -eq $expected);WindowsPowerShellExecuted=$script:WindowsExecuted;LiveNetworkExecuted=$false;Cases=$script:Cases.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-RC1.8-relations-'+[guid]::NewGuid().ToString('N')+'.json')}
