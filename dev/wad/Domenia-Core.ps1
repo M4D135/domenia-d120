@@ -603,6 +603,9 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnLoginOtherAccount" = "Default"
     "BtnAccountRemoteTry" = "Default"
     "BtnCompAccountPill" = "Default"
+    "DgAccountsInUse" = "Default"
+    "LblAccountsInMemory" = "Default"
+    "DgAccountsInMemory" = "Default"
     "LblAccountRemoteTry" = "Default"
     "LblStatus" = "Default"
     "LblPrivilegeTop" = "Default"
@@ -5994,6 +5997,48 @@ function Get-MainXaml {
                           <TextBlock x:Name="LblAccountAdStatus" Text="Aucune connexion à lʼannuaire." Foreground="{DynamicResource MutedColor}" Margin="0,0,0,0" TextWrapping="Wrap" AutomationProperties.Name="Connexion à lʼannuaire"/>
                         </StackPanel>
                       </Border>
+                      <!-- UI-27: accounts really used now, per resource, and the accounts kept in memory with their remaining time. -->
+                      <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
+                        <StackPanel>
+                          <TextBlock Text="EN CE MOMENT" FontWeight="SemiBold"/>
+                          <TextBlock Text="Compte réellement utilisé par chaque ressource pour sa prochaine opération. Aucun mot de passe nʼest affiché." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                          <DataGrid x:Name="DgAccountsInUse" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="28" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes utilisés en ce moment" AutomationProperties.HelpText="Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.">
+                            <DataGrid.Columns>
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
+                              <DataGridTemplateColumn Header="Origine" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding Origin}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                          </DataGrid>
+                          <TextBlock Text="Gardés en mémoire" FontWeight="SemiBold" Margin="0,14,0,4"/>
+                          <TextBlock x:Name="LblAccountsInMemory" Text="Aucun compte temporaire ni compte poste saisi en mémoire." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,0,0,6" ToolTip="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Comptes gardés en mémoire" AutomationProperties.LiveSetting="Polite" AutomationProperties.HelpText="Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque."/>
+                          <DataGrid x:Name="DgAccountsInMemory" Visibility="Collapsed" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column" SelectionMode="Single" MinRowHeight="30" CanUserAddRows="False" CanUserDeleteRows="False" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ToolTip="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Liste des comptes gardés en mémoire" AutomationProperties.HelpText="Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.">
+                            <DataGrid.Columns>
+                              <DataGridTextColumn Header="Ressource" Binding="{Binding Resource}" Width="200"/>
+                              <DataGridTextColumn Header="Compte" Binding="{Binding Account}" Width="240"/>
+                              <DataGridTemplateColumn Header="Durée restante" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <TextBlock Text="{Binding Remaining}" Style="{StaticResource WrappedCellText}"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                              <DataGridTemplateColumn Header="" Width="96">
+                                <DataGridTemplateColumn.CellTemplate>
+                                  <DataTemplate>
+                                    <Button Content="Oublier" Tag="{Binding Key}" MinHeight="26" Padding="8,0" Margin="2" ToolTip="Oublie ce compte maintenant. Le compte configuré reprend sa place ; une opération déjà envoyée garde sa copie." ToolTipService.ShowOnDisabled="True" AutomationProperties.Name="Oublier ce compte"/>
+                                  </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                          </DataGrid>
+                        </StackPanel>
+                      </Border>
                       <Expander Header="Comptes secondaires (facultatif)" IsExpanded="False" Margin="0,0,0,14"><StackPanel Margin="0,12,0,0">
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
                         <StackPanel>
@@ -6065,8 +6110,8 @@ function Get-MainXaml {
                       <Border Background="{DynamicResource InfoBg}" BorderBrush="{DynamicResource InfoBorder}" BorderThickness="1" CornerRadius="10" Padding="10">
                         <StackPanel>
                           <TextBlock Text="Règle dʼexécution" FontWeight="SemiBold"/>
-                          <TextBlock x:Name="LblAccountRule" Text="Annuaire : compte AD courant. Postes : compte distant sʼil existe, sinon compte AD. Secrets : compte secrets sʼil existe, sinon compte AD. Les trois scopes sont indépendants." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                          <TextBlock Text="Un compte temporaire accepté après un refus ne sert quʼà sa ressource et à son poste ; il est oublié après une période sans utilisation, à la fin de la session ou sur demande." Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblAccountRule" Text="Annuaire : compte de connexion. Postes : compte poste saisi dans Assistance poste sʼil existe, sinon compte Postes, sinon compte de connexion. Secrets : compte Secrets sʼil existe, sinon compte de connexion. Les trois ressources sont indépendantes." Foreground="{DynamicResource InfoFg}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <TextBlock Text="Un compte temporaire accepté après un refus passe avant, pour sa seule ressource et son poste ; il est oublié après une période sans utilisation, à la fin de la session ou par « Oublier » dans « En ce moment »." Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                       </Border>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,14,0,0">
@@ -21613,6 +21658,7 @@ function Update-DomeniaAccountUi {
         if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
         Update-DomeniaRemoteTrialUi
+        Update-DomeniaAccountsInUse -Force
         try {
             $remoteClear = Get-DomeniaControl -Name "BtnAccountRemoteClear"
             $secretClear = Get-DomeniaControl -Name "BtnAccountSecretsClear"

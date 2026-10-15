@@ -678,6 +678,55 @@ Test-Case 'UX-15 Panneau lateral dans la page : compte saisi en memoire, retour 
     $script:Window=$null
 }
 
+# ================================================================ UI-27 (lot X03) Comptes, section « En ce moment »
+Test-Case 'UI-27 En ce moment : compte reellement utilise par ressource, comptes en memoire avec duree, aucun secret' {
+    $script:Conn.BindUser='EXAMPLE\lecteur';$script:Conn.AuthMode='Windows'
+    $script:RemoteAdminCredential=New-TestCredential 'EXAMPLE\postes';$script:SecretsCredential=New-TestCredential 'EXAMPLE\secrets'
+    $typed=New-TestCredential 'EXAMPLE\adm-poste';$script:MachineCredential=$typed
+    $laps=New-TestCredential 'EXAMPLE\laps-temp';$script:AccessState.Credentials['ReadLaps']=$laps;$script:AccessState.Leases['ReadLaps']=New-AccessLease 'ReadLaps' 'EXAMPLE\laps-temp'
+    $script:Clock=$script:Clock.AddMinutes(4)
+    Update-DomeniaAccountsInUse -Force
+    $now=@($script:Ctrl.DgAccountsInUse.ItemsSource);$memory=@($script:Ctrl.DgAccountsInMemory.ItemsSource)
+    $lines=@($now|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin})
+    Assert-True ($lines -contains 'Annuaire|EXAMPLE\lecteur|session Windows') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Postes (WMI, C$, consoles)|EXAMPLE\adm-poste|compte poste saisi, en mémoire seulement') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Secrets : LAPS|EXAMPLE\laps-temp|compte temporaire accepté après un refus') ($lines -join ' ; ')
+    Assert-True ($lines -contains 'Secrets : BitLocker|EXAMPLE\secrets|compte Secrets de la page Comptes') ($lines -join ' ; ')
+    $kept=@($memory|ForEach-Object{$_.Key+'|'+$_.Account+'|'+$_.Remaining})
+    Assert-True ($kept -contains 'ReadLaps|EXAMPLE\laps-temp|encore 26 min sans utilisation') ($kept -join ' ; ')
+    Assert-True (@($memory|Where-Object{$_.Key -ceq 'Typed:Machine' -and $_.Account -ceq 'EXAMPLE\adm-poste'}).Count -eq 1) 'Compte poste saisi absent de la memoire'
+    Assert-True ($script:Ctrl.DgAccountsInMemory.Visibility -eq [Windows.Visibility]::Visible) 'Liste des comptes en memoire masquee'
+    $secretsText=@($typed,$laps,$script:SecretsCredential,$script:RemoteAdminCredential|ForEach-Object{$_.GetNetworkCredential().Password})
+    foreach($row in @($now)+@($memory)){foreach($p in $row.PSObject.Properties){
+        Assert-True ($p.Value -is [string]) ('Valeur non textuelle dans la section : '+$p.Name)
+        Assert-True ($secretsText -notcontains [string]$p.Value) 'Un mot de passe atteint la section En ce moment'
+    }}
+    # A display never extends a lease: only a worker departure does.
+    Assert-True ([datetime]$script:AccessState.Leases['ReadLaps'].LastUsedUtc -lt $script:Clock) 'L affichage a prolonge le bail'
+}
+Test-Case 'UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ecriture, section actualisee' {
+    $script:Conn.BindUser='EXAMPLE\lecteur';$script:SecretsCredential=New-TestCredential 'EXAMPLE\secrets'
+    $script:AccessState.Credentials['ReadLaps']=New-TestCredential 'EXAMPLE\laps-temp';$script:AccessState.Leases['ReadLaps']=New-AccessLease 'ReadLaps' 'EXAMPLE\laps-temp'
+    $script:MachineCredential=New-TestCredential 'EXAMPLE\adm-poste'
+    Initialize-DomeniaAccountsUi
+    $generation=[long]$script:DomeniaAccountGeneration
+    $click={param([string]$Key) $b=[Windows.Controls.Button]::new();$b.Tag=$Key;$script:Ctrl.DgAccountsInMemory.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent,$b))}
+    $script:WriteState='Running'
+    & $click 'ReadLaps'
+    Assert-True ($script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte oublie pendant une ecriture'
+    Assert-True (@($script:Popups|Where-Object{$_ -match 'écriture'}).Count -eq 1) 'Refus non explique'
+    $script:WriteState='Idle'
+    & $click 'ReadLaps'
+    Assert-True (-not $script:AccessState.Credentials.ContainsKey('ReadLaps')) 'Compte temporaire non oublie'
+    Assert-True ([long]$script:DomeniaAccountGeneration -gt $generation) 'Generation des comptes inchangee'
+    $lines=@(@($script:Ctrl.DgAccountsInUse.ItemsSource)|ForEach-Object{$_.Resource+'|'+$_.Account})
+    Assert-True ($lines -contains 'Secrets : LAPS|EXAMPLE\secrets') ('Section non actualisee : '+($lines -join ' ; '))
+    & $click 'Typed:Machine'
+    Assert-True ($null -eq $script:MachineCredential) 'Compte poste saisi non oublie'
+    Assert-True ($script:Ctrl.DgAccountsInMemory.Visibility -eq [Windows.Visibility]::Collapsed -and [string]$script:Ctrl.LblAccountsInMemory.Text -match '^Aucun compte') 'Etat vide non affiche'
+    Assert-True ((Get-CoreFunctionText 'Update-DomeniaAccountUi').Contains('Update-DomeniaAccountsInUse -Force')) 'Page Comptes sans actualisation de la section'
+}
+
 if($null -ne $script:SecretRevealTimer){try{$script:SecretRevealTimer.Stop()}catch{}}
 if($null -ne $script:MainWindow){try{$script:MainWindow.Close()}catch{}}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count

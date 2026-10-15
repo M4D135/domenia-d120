@@ -157,3 +157,46 @@ Test-Case 'X03-FO19' 'Refus classes : droit administrateur, identifiants, etat d
     $unknown=Get-DomeniaRemoteAccessTrialVerdict -Outcome 'Unavailable' -ErrorText ('x'*400) -Computer 'PC-01'
     Assert-True ($unknown.Verdict -eq 'Unknown' -and $unknown.Text.Length -lt 220) 'Motif inconnu non borne'
 }
+
+# ---------------------------------------------------------------- UI-27 comptes utilises en ce moment
+Test-Case 'X03-UI27' 'Ressource d un compte temporaire nommee en clair, jamais par sa cle interne' {
+    Assert-Equal 'Postes' (Get-DomeniaAccessScopeLabel 'Remote')
+    Assert-Equal 'Poste PC-01 (compte local)' (Get-DomeniaAccessScopeLabel 'RemoteLocal|PC-01')
+    Assert-Equal 'Secrets : LAPS' (Get-DomeniaAccessScopeLabel 'ReadLaps')
+    Assert-Equal 'Secrets : BitLocker' (Get-DomeniaAccessScopeLabel 'ReadBitLocker')
+    Assert-Equal 'Annuaire : recherche' (Get-DomeniaAccessScopeLabel 'AD:GlobalSearch')
+    Assert-Equal 'Annuaire : opération WriteRenameComputer' (Get-DomeniaAccessScopeLabel 'AD:WriteRenameComputer')
+    Assert-Equal 'Autre ressource' (Get-DomeniaAccessScopeLabel 'remote')
+}
+Test-Case 'X03-UI27' 'Duree restante en minutes entieres, alignee sur la regle du bail' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $lease=New-DomeniaCredentialLease -Scope 'Remote' -Account 'EXAMPLE\temp' -Mode Inactivity -InactivityMinutes 30 -Epoch 7 -NowUtc $t0
+    Assert-Equal 'encore 30 min sans utilisation' (Get-DomeniaLeaseRemainingText -Lease $lease -Epoch 7 -NowUtc $t0).Text
+    Assert-Equal 'encore 21 min sans utilisation' (Get-DomeniaLeaseRemainingText -Lease $lease -Epoch 7 -NowUtc $t0.AddMinutes(9).AddSeconds(30)).Text
+    Assert-Equal 'encore 1 min sans utilisation' (Get-DomeniaLeaseRemainingText -Lease $lease -Epoch 7 -NowUtc $t0.AddMinutes(30)).Text
+    $spent=Get-DomeniaLeaseRemainingText -Lease $lease -Epoch 7 -NowUtc $t0.AddMinutes(31)
+    Assert-False $spent.Usable 'Bail expire encore utilisable'
+    Assert-False (Get-DomeniaLeaseRemainingText -Lease $lease -Epoch 8 -NowUtc $t0).Usable 'Bail d une autre session encore utilisable'
+    Assert-Equal 'jusquʼà la fin de la session' (Get-DomeniaLeaseRemainingText -Lease $null -Epoch 7 -NowUtc $t0).Text
+    $once=New-DomeniaCredentialLease -Scope 'ReadLaps' -Account 'EXAMPLE\laps' -Mode OneShot -Epoch 7 -NowUtc $t0
+    Assert-Equal 'une seule utilisation' (Get-DomeniaLeaseRemainingText -Lease $once -Epoch 7 -NowUtc $t0).Text
+}
+Test-Case 'X03-UI27' 'En ce moment : compte par ressource, comptes en memoire avec duree, aucun secret' {
+    $t0=[datetime]::SpecifyKind([datetime]'2026-10-02T08:00:00',[DateTimeKind]::Utc)
+    $machine=Get-DomeniaMachineAccountLabel -Source 'Typed' -Account 'EXAMPLE\adm-poste'
+    $laps=[pscustomobject]@{Key='ReadLaps';UserName='EXAMPLE\laps-temp';Lease=(New-DomeniaCredentialLease -Scope 'ReadLaps' -Account 'EXAMPLE\laps-temp' -Mode Inactivity -InactivityMinutes 30 -Epoch 7 -NowUtc $t0)}
+    $r=Get-DomeniaAccountsInUseRows -DirectoryAccount 'EXAMPLE\jdupont' -DirectoryMode 'Windows' -Machine $machine -SecretsAccount 'EXAMPLE\secrets' -TypedMachineAccount 'EXAMPLE\adm-poste' -Temporary @($laps) -Epoch 7 -NowUtc $t0.AddMinutes(4)
+    Assert-Equal 4 @($r.Now).Count
+    Assert-Equal 'Annuaire|EXAMPLE\jdupont|session Windows' (@($r.Now)[0].Resource+'|'+@($r.Now)[0].Account+'|'+@($r.Now)[0].Origin)
+    Assert-Equal 'EXAMPLE\adm-poste|compte poste saisi, en mémoire seulement' (@($r.Now)[1].Account+'|'+@($r.Now)[1].Origin)
+    Assert-Equal 'Secrets : LAPS|EXAMPLE\laps-temp|compte temporaire accepté après un refus' (@($r.Now)[2].Resource+'|'+@($r.Now)[2].Account+'|'+@($r.Now)[2].Origin)
+    Assert-Equal 'Secrets : BitLocker|EXAMPLE\secrets|compte Secrets de la page Comptes' (@($r.Now)[3].Resource+'|'+@($r.Now)[3].Account+'|'+@($r.Now)[3].Origin)
+    Assert-Equal 2 @($r.Memory).Count
+    Assert-Equal 'Typed:Machine|Compte poste saisi' (@($r.Memory)[0].Key+'|'+@($r.Memory)[0].Resource)
+    Assert-Equal 'ReadLaps|Secrets : LAPS|encore 26 min sans utilisation' (@($r.Memory)[1].Key+'|'+@($r.Memory)[1].Resource+'|'+@($r.Memory)[1].Remaining)
+    foreach($row in @($r.Now)+@($r.Memory)){foreach($p in $row.PSObject.Properties){Assert-True ($p.Value -is [string]) ('Valeur non textuelle : '+$p.Name)}}
+    $none=Get-DomeniaAccountsInUseRows -Machine (Get-DomeniaMachineAccountLabel -Source 'Windows' -Account '')
+    Assert-Equal 'Aucune identité active|aucune connexion' (@($none.Now)[0].Account+'|'+@($none.Now)[0].Origin)
+    Assert-Equal 'même compte que lʼannuaire' @($none.Now)[2].Origin
+    Assert-Equal 0 @($none.Memory).Count
+}

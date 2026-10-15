@@ -153,3 +153,74 @@ function Get-DomeniaRemoteAccessTrialVerdict {
     }
     return [pscustomobject]@{Verdict=$verdict;Success=($verdict -eq 'AdminOk');Text=[string]$text}
 }
+
+# ---------------------------------------------------------------- UI-27 accounts in use now
+function Get-DomeniaAccessScopeLabel {
+    # UI-27: plain name of the resource a temporary account serves (key of the access state), never the internal key.
+    param([AllowNull()][AllowEmptyString()][string]$Key='')
+    $k=([string]$Key).Trim()
+    if($k.StartsWith('RemoteLocal|',[StringComparison]::Ordinal)){return ('Poste '+$k.Substring(12)+' (compte local)')}
+    $known=@{'Remote'='Postes';'ReadLaps'='Secrets : LAPS';'ReadBitLocker'='Secrets : BitLocker';'Directory'='Annuaire';'AD:GlobalSearch'='Annuaire : recherche';'AD:UserComputerProbe'='Annuaire : postes dʼun utilisateur';'AD:OpenAdObject'='Annuaire : lecture des fiches';'AD:TreeChildren'='Annuaire : arborescence';'Presence'='Présence des postes';'LocalFile'='Fichiers locaux'}
+    foreach($name in @($known.Keys)){if($k -ceq $name){return [string]$known[$name]}}
+    if($k.StartsWith('AD:',[StringComparison]::Ordinal)){return ('Annuaire : opération '+$k.Substring(3))}
+    return 'Autre ressource'
+}
+
+function Get-DomeniaLeaseRemainingText {
+    # UI-27: how long a temporary account stays usable, in whole minutes rounded up, so that the text changes once a
+    # minute. Same verdict as Test-DomeniaCredentialLease for a new use: another session or a forgotten lease is spent.
+    param($Lease,[long]$Epoch=0,[datetime]$NowUtc=[datetime]::UtcNow)
+    if($null -eq $Lease){return [pscustomobject]@{Usable=$true;Minutes=-1;Text='jusquʼà la fin de la session'}}
+    $check=Test-DomeniaCredentialLease -Lease $Lease -Epoch $Epoch -NowUtc $NowUtc -ForNewCall $true
+    if(-not [bool]$check.Usable){return [pscustomobject]@{Usable=$false;Minutes=0;Text='expiré : oublié au prochain contrôle'}}
+    if([string]$Lease.Mode -eq 'OneShot'){return [pscustomobject]@{Usable=$true;Minutes=-1;Text='une seule utilisation'}}
+    if([string]$Lease.Mode -eq 'Session'){return [pscustomobject]@{Usable=$true;Minutes=-1;Text='jusquʼà la fin de la session'}}
+    $left=[double]$Lease.InactivityMinutes-($NowUtc-[datetime]$Lease.LastUsedUtc).TotalMinutes
+    $minutes=[int][Math]::Ceiling([Math]::Max(0.0,$left))
+    if($minutes -lt 1){$minutes=1}
+    return [pscustomobject]@{Usable=$true;Minutes=$minutes;Text=('encore '+$minutes+' min sans utilisation')}
+}
+
+function Get-DomeniaAccountsInUseRows {
+    # UI-27: « En ce moment » of the Comptes page. Now: the account each resource takes for its next operation
+    # (directory, workstations, LAPS, BitLocker). Memory: what can be forgotten (account typed for the workstations,
+    # temporary accounts accepted after a refusal) with the remaining time. The UI layer passes names and leases
+    # only: no credential, no secret, no clock read here. $Machine is a Get-DomeniaMachineAccountLabel object;
+    # $Temporary holds the usable temporary accounts as @{Key;UserName;Lease}.
+    param(
+        [AllowNull()][AllowEmptyString()][string]$DirectoryAccount='',
+        [AllowNull()][AllowEmptyString()][string]$DirectoryMode='',
+        $Machine=$null,
+        [AllowNull()][AllowEmptyString()][string]$SecretsAccount='',
+        [AllowNull()][AllowEmptyString()][string]$TypedMachineAccount='',
+        [object[]]$Temporary=@(),
+        [long]$Epoch=0,
+        [datetime]$NowUtc=[datetime]::UtcNow
+    )
+    $temporaryOrigin='compte temporaire accepté après un refus'
+    $byKey=@{}
+    foreach($item in @($Temporary)){if($null -ne $item){$byKey[[string]$item.Key]=$item}}
+    $directory=([string]$DirectoryAccount).Trim()
+    $directoryOrigin=switch(([string]$DirectoryMode).Trim()){'Windows'{'session Windows'}'Demo'{'démonstration, annuaire fictif'}''{'aucune connexion'}default{'compte de connexion'}}
+    if(-not $directory){$directoryOrigin='aucune connexion'}
+    $now=[Collections.Generic.List[object]]::new()
+    $now.Add([pscustomobject]@{Resource='Annuaire';Account=$(if($directory){$directory}else{'Aucune identité active'});Origin=$directoryOrigin})
+    if($null -ne $Machine){
+        $machineAccount=[string]$Machine.Account;if(-not $machineAccount){$machineAccount=[string]$Machine.Short}
+        $now.Add([pscustomobject]@{Resource='Postes (WMI, C$, consoles)';Account=$machineAccount;Origin=[string]$Machine.Origin})
+    }
+    $secrets=([string]$SecretsAccount).Trim()
+    foreach($pair in @(@('Secrets : LAPS','ReadLaps'),@('Secrets : BitLocker','ReadBitLocker'))){
+        if($byKey.ContainsKey($pair[1])){$now.Add([pscustomobject]@{Resource=$pair[0];Account=[string]$byKey[$pair[1]].UserName;Origin=$temporaryOrigin})}
+        elseif($secrets){$now.Add([pscustomobject]@{Resource=$pair[0];Account=$secrets;Origin='compte Secrets de la page Comptes'})}
+        else{$now.Add([pscustomobject]@{Resource=$pair[0];Account=$(if($directory){$directory}else{'Aucune identité active'});Origin='même compte que lʼannuaire'})}
+    }
+    $memory=[Collections.Generic.List[object]]::new()
+    $typed=([string]$TypedMachineAccount).Trim()
+    if($typed){$memory.Add([pscustomobject]@{Key='Typed:Machine';Resource='Compte poste saisi';Account=$typed;Remaining='jusquʼà « Revenir au compte de connexion » ou la fin de la session'})}
+    foreach($key in @($byKey.Keys|Sort-Object)){
+        $item=$byKey[$key]
+        $memory.Add([pscustomobject]@{Key=[string]$key;Resource=(Get-DomeniaAccessScopeLabel $key);Account=[string]$item.UserName;Remaining=[string](Get-DomeniaLeaseRemainingText -Lease $item.Lease -Epoch $Epoch -NowUtc $NowUtc).Text})
+    }
+    return [pscustomobject]@{Now=$now.ToArray();Memory=$memory.ToArray()}
+}

@@ -234,21 +234,90 @@ function Fail-DomeniaRemoteAccountTrial {
     Update-DomeniaRemoteTrialUi
 }
 
-# ---------------------------------------------------------------- UX-15 account used for the workstations
+# ---------------------------------------------------------------- UX-15 / UI-27 accounts used now
 function Initialize-DomeniaAccountsUi {
-    # UX-15: wires the « Compte poste » pill of Assistance poste and keeps it current with one protected heartbeat
-    # timer (FI-05). The timer only reads session facts: nothing is tested or read on the network.
+    # UX-15 / UI-27: wires the « Compte poste » pill of Assistance poste and the « Oublier » buttons of « En ce
+    # moment », then keeps both current with one protected heartbeat timer (FI-05). The timer only reads session
+    # facts: nothing is tested or read on the network, and a lease is never extended by a display.
     if($null -ne $script:DomeniaAccountsUi){return}
     $pill=Get-DomeniaControl 'BtnCompAccountPill'
     if($null -ne $pill){$pill.Add_Click({Switch-DomeniaMachineAccountPanel})}
-    $script:DomeniaAccountsUi=[pscustomobject]@{Timer=$null}
+    $memory=Get-DomeniaControl 'DgAccountsInMemory'
+    if($null -ne $memory){
+        # One handler for the « Oublier » buttons of every row (bubbling Click); the key is checked again on click.
+        $memory.AddHandler([Windows.Controls.Primitives.ButtonBase]::ClickEvent,[Windows.RoutedEventHandler]{
+            param($sender,$eventArgs)
+            $button=$eventArgs.OriginalSource
+            if(($button -is [Windows.Controls.Button]) -and (-not [string]::IsNullOrWhiteSpace([string]$button.Tag))){$eventArgs.Handled=$true;Invoke-DomeniaAccountInMemoryForget -Key ([string]$button.Tag)}
+        })
+    }
+    $script:DomeniaAccountsUi=[pscustomobject]@{Timer=$null;InUseSignature=''}
     $script:DomeniaAccountsUi.Timer=New-DomeniaTimer -Owner 'Timer:Accounts' -IntervalMs 1000 -IdleIntervalMs 1000 -Tick {
         if($script:AsyncEngineClosing -or ($null -eq $script:DomeniaAccountsUi)){return}
         Update-DomeniaMachineAccountUi
+        Update-DomeniaAccountsInUse
     }
     $script:DomeniaAccountsUi.Timer.Start()
     if($null -ne $script:Window){$script:Window.Add_Closed({if(($null -ne $script:DomeniaAccountsUi) -and ($null -ne $script:DomeniaAccountsUi.Timer)){$script:DomeniaAccountsUi.Timer.Stop()}})}
     Update-DomeniaMachineAccountUi -Force
+    Update-DomeniaAccountsInUse -Force
+}
+
+function Get-DomeniaUsableTemporaryAccounts {
+    # UI-27: the temporary accounts a new operation may still take (live lease, current session and domain), as
+    # names and leases only. Read only: no lease is used, extended or removed here.
+    $access=$script:AccessState
+    $result=[Collections.Generic.List[object]]::new()
+    if(($null -eq $access) -or ([long]$access.Epoch -ne [long]$script:SessionEpoch) -or ([string]$access.BaseDn -ine [string]$script:Conn.BaseDn)){return $result.ToArray()}
+    $leases=Get-DomeniaMember $access 'Leases' $null
+    foreach($key in @($access.Credentials.Keys)){
+        $k=[string]$key;$credential=$access.Credentials[$key]
+        if(($null -eq $credential) -or (-not (Test-DomeniaAccessLeaseUsable -Key $k))){continue}
+        $lease=$null;if(($null -ne $leases) -and $leases.ContainsKey($k)){$lease=$leases[$k]}
+        $result.Add([pscustomobject]@{Key=$k;UserName=[string]$credential.UserName;Lease=$lease})
+    }
+    return $result.ToArray()
+}
+
+function Update-DomeniaAccountsInUse {
+    # UI-27: fills « En ce moment » of the Comptes page from the session facts (Get-DomeniaAccountsInUseRows). While
+    # the page is hidden nothing is built; the grids change only when a text changes (account generation, a lease
+    # minute, a session change), so the timer never reloads them for nothing.
+    param([switch]$Force)
+    $now=Get-DomeniaControl 'DgAccountsInUse';$memory=Get-DomeniaControl 'DgAccountsInMemory'
+    if(($null -eq $now) -or ($null -eq $memory)){return}
+    if((-not $Force) -and (-not [bool]$now.IsVisible)){return}
+    $directory=[string]$script:Conn.BindUser
+    if([string]::IsNullOrWhiteSpace($directory)){$directory=[string]$script:Conn.User}
+    $typed='';if($null -ne $script:MachineCredential){$typed=[string]$script:MachineCredential.UserName}
+    $secrets='';if($null -ne $script:SecretsCredential){$secrets=[string]$script:SecretsCredential.UserName}
+    $rows=Get-DomeniaAccountsInUseRows -DirectoryAccount $directory -DirectoryMode $(if($directory){[string]$script:Conn.AuthMode}else{''}) -Machine (Get-DomeniaMachineAccountInUse) -SecretsAccount $secrets -TypedMachineAccount $typed -Temporary @(Get-DomeniaUsableTemporaryAccounts) -Epoch ([long]$script:SessionEpoch) -NowUtc (Get-DomeniaAccessNow)
+    $signature=((@($rows.Now)|ForEach-Object{$_.Resource+'|'+$_.Account+'|'+$_.Origin}) -join "`n")+"`n--`n"+((@($rows.Memory)|ForEach-Object{$_.Key+'|'+$_.Account+'|'+$_.Remaining}) -join "`n")
+    $state=$script:DomeniaAccountsUi
+    if((-not $Force) -and ($null -ne $state) -and ([string]$state.InUseSignature -ceq $signature)){return}
+    if($null -ne $state){$state.InUseSignature=$signature}
+    [void](Set-DomeniaItemsSource -Name 'DgAccountsInUse' -Rows @($rows.Now))
+    [void](Set-DomeniaItemsSource -Name 'DgAccountsInMemory' -Rows @($rows.Memory))
+    $hasMemory=(@($rows.Memory).Count -gt 0)
+    $memory.Visibility=if($hasMemory){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
+    $count=@($rows.Memory).Count
+    [void](Set-DomeniaControlText 'LblAccountsInMemory' $(if($hasMemory){[string]$count+' compte'+$(if($count -gt 1){'s'}else{''})+' gardé'+$(if($count -gt 1){'s'}else{''})+' en mémoire pour cette session. « Oublier » rend la main au compte configuré.'}else{'Aucun compte temporaire ni compte poste saisi en mémoire.'}))
+}
+
+function Invoke-DomeniaAccountInMemoryForget {
+    # UI-27: « Oublier » on one line, with the rule of the Accès window: refused while a write is running or must be
+    # verified; a job already sent keeps its own copy of the account and is never interrupted.
+    param([string]$Key)
+    if([string]::IsNullOrWhiteSpace($Key)){return}
+    if(Test-DomeniaAccessBusyWrite){Show-InfoBox 'Une écriture reste active ou à vérifier : les comptes ne changent pas avant sa vérification.';return}
+    if($Key -ceq 'Typed:Machine'){Clear-MachineCredential}
+    elseif(($null -ne $script:AccessState) -and $script:AccessState.Credentials.ContainsKey($Key)){
+        $label=Get-DomeniaAccessScopeLabel $Key
+        Remove-DomeniaAccessCredential -Key $Key
+        Set-Status ('Compte temporaire oublié pour '+$label+'. Le compte configuré reprend sa place.')
+    }
+    Update-DomeniaMachineAccountUi -Force
+    Update-DomeniaAccountsInUse -Force
 }
 
 function Update-DomeniaMachineAccountUi {

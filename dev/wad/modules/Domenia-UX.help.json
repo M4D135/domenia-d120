@@ -3507,6 +3507,27 @@
     "Source": "d120-acces"
   },
   {
+    "Name": "DgAccountsInUse",
+    "Title": "Comptes utilisés en ce moment",
+    "Text": "Compte que chaque ressource prendra pour sa prochaine opération : annuaire, postes, LAPS et BitLocker, avec son origine. Lecture seule ; aucun mot de passe nʼest affiché.",
+    "Kind": "DataGrid",
+    "Source": "X03"
+  },
+  {
+    "Name": "LblAccountsInMemory",
+    "Title": "Comptes gardés en mémoire",
+    "Text": "Comptes gardés en mémoire pour cette session : compte poste saisi et comptes temporaires acceptés après un refus. Rien nʼest enregistré sur le disque.",
+    "Kind": "TextBlock",
+    "Source": "X03"
+  },
+  {
+    "Name": "DgAccountsInMemory",
+    "Title": "Liste des comptes gardés en mémoire",
+    "Text": "Comptes gardés en mémoire, avec leur durée restante. « Oublier » retire le compte de la ligne ; une opération déjà envoyée garde sa copie et se termine.",
+    "Kind": "DataGrid",
+    "Source": "X03"
+  },
+  {
     "Name": "InlineRequestPanel",
     "Title": "Demande dans la page",
     "Text": "Confirmation intégrée à la page : aucune fenêtre, la navigation et les lectures restent disponibles. Échap choisit la réponse sûre.",
