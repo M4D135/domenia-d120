@@ -34,6 +34,8 @@ computer.events|Activite|Erreurs systeme par source|Distribution|Bar|M|Journal S
 computer.antivirus|Securite et etat|Antivirus|Value|Kpi|S|Produit antivirus declare a Windows
 computer.firewall|Securite et etat|Pare-feu|Value|Kpi|S|Profils du pare-feu actifs
 computer.bitlocker|Securite et etat|BitLocker|Value|Kpi|S|Protection du volume systeme
+computer.secureboot|Securite et etat|Démarrage sécurisé|Value|Kpi|S|Secure Boot lu dans le registre du poste par lʼinventaire
+computer.updates|Securite et etat|Mises à jour|Value|Kpi|S|Build, révision et source des mises à jour, sans verdict de conformité
 computer.wsus|Securite et etat|Windows Update|Value|Kpi|S|Serveur WSUS configure
 computer.reboot|Securite et etat|Redemarrage en attente|Value|Kpi|S|Redemarrage demande par une installation
 computer.services.stopped|Securite et etat|Services automatiques arretes|Value|Kpi|S|Services automatiques a l arret

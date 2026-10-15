@@ -192,6 +192,7 @@ Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition per
 # ---------------------------------------------------------------------------------------------------------------------
 . (Join-Path $modules 'Domenia-BoardComputer.UI.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
+. (Join-Path $modules 'Domenia-Readings.Model.ps1')
 # The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
 $script:DomeniaProbeCatalog = $null
 $script:BrdDashboardAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $modules 'Domenia-Dashboard.UI.ps1'), [ref]$null, [ref]$null)
@@ -390,4 +391,44 @@ Test-Case 'BRD-024' 'CO-24 : une section vide dit ce qui n a pas ete lu, sans pr
     # Ce que chaque section attend vraiment du complet, et rien d autre.
     Assert-True ([string]$data.Hints['Activite'] -like '*processus*') ('Activite : ' + [string]$data.Hints['Activite'])
     Assert-True ([string]$data.Hints['Securite et etat'] -like '*certificats*') ('Securite et etat : ' + [string]$data.Hints['Securite et etat'])
+}
+Test-Case 'BRD-081' 'Points 81, 92, 93, 95, 98, 99 et 100 : le tableau du poste lit les nouvelles lignes de l inventaire' {
+    $rows = @(Get-BrdSecureRows) + @(
+        (New-BrdRow 'Memoire' 'Barrette 1' '8 Go a 3200 MHz, emplacement DIMM A'),
+        (New-BrdRow 'Redemarrage en attente' 'Renommages de fichiers en attente' 'Present (indice partiel) : 2 operation(s)'),
+        (New-BrdRow 'Redemarrage en attente' 'Windows Update' 'Absent'),
+        (New-BrdRow 'Redemarrage en attente' 'Etat' 'Indices partiels seulement : Renommages de fichiers en attente'),
+        (New-BrdRow 'Pare-feu' 'Profil applique a Ethernet' 'Domaine (reseau contoso.test)'),
+        (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'),
+        (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Active'),
+        (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'),
+        (New-BrdRow 'Systeme d exploitation' 'Build' '22631'),
+        (New-BrdRow 'Systeme d exploitation' 'Revision de build' '4317'))
+    $result = New-BrdInventory -Rows $rows
+    $result.Metrics | Add-Member -NotePropertyName MemorySlots -NotePropertyValue 4
+    $result.Metrics | Add-Member -NotePropertyName MemorySource -NotePropertyValue 'Barrettes'
+    $result.Metrics | Add-Member -NotePropertyName ProcessSample -NotePropertyValue ([pscustomobject]@{ IntervalMs = 2000; SampledUtc = '2026-10-14T10:00:00Z'; LogicalProcessors = 4; Items = @([pscustomobject]@{ Pid = 10; Name = 'calc.exe'; FirstTime = 10000000; SecondTime = 50000000; WorkingSet = 1048576 }) })
+    $result.Metrics | Add-Member -NotePropertyName Certificates -NotePropertyValue ([pscustomobject]@{ Source = 'Registre'; Items = @([pscustomobject]@{ Subject = 'CN=old'; Issuer = 'CN=CA'; NotAfterUtc = '2020-01-01T12:00:00Z'; Thumbprint = 'AA'; Usages = @(); KeyDeclared = $false }, [pscustomobject]@{ Subject = 'CN=new'; Issuer = 'CN=CA'; NotAfterUtc = '2099-01-01T12:00:00Z'; Thumbprint = 'BB'; Usages = @(); KeyDeclared = $false }) })
+    $data = Get-DomeniaComputerBoardData -Result $result
+    $texts = Get-BrdTexts $data
+    Assert-Equal '1 barrette(s) sur 4 emplacement(s)' ([string]$data.Entries['computer.memory'].Detail)
+    Assert-Equal 'Indices partiels' ([string]$data.Entries['computer.reboot'].Value)
+    Assert-Equal '' ([string]$data.Entries['computer.reboot'].State) 'indice partiel : aucun point'
+    Assert-Equal 0 @($texts | Where-Object { $_ -like '*marrage en attente*' }).Count ($texts -join ' | ')
+    Assert-True ([string]$data.Entries['computer.firewall'].Detail -like '*appliqué à Ethernet*') ([string]$data.Entries['computer.firewall'].Detail)
+    Assert-Equal ('Prot' + [char]0x00E9 + 'g' + [char]0x00E9) ([string]$data.Entries['computer.bitlocker'].Value)
+    Assert-Equal 'Ok' ([string]$data.Entries['computer.secureboot'].State)
+    Assert-Equal 'Build 22631.4317' ([string]$data.Entries['computer.updates'].Value)
+    Assert-Equal 'calc.exe' ([string]$data.Entries['computer.processes'].Value)
+    Assert-True ([string]$data.Entries['computer.processes'].Detail -like '50 % du processeur sur 2 s*') ([string]$data.Entries['computer.processes'].Detail)
+    Assert-Equal '2' ([string]$data.Entries['computer.certificates'].Value)
+    Assert-Equal 'Warn' ([string]$data.Entries['computer.certificates'].State)
+    Assert-True (@($texts | Where-Object { $_ -like 'Warn:1 certificat(s) machine expir*CN=old.' }).Count -eq 1) ($texts -join ' | ')
+    $suspended = @((New-BrdRow 'Pare-feu' 'Profil domaine' 'Active (strategie)'), (New-BrdRow 'Antivirus' 'Defender' 'Actif, A jour'), (New-BrdRow 'BitLocker' 'Volume C:' 'Protection Desactive'), (New-BrdRow 'BitLocker' 'Volume C: chiffrement' 'Entierement chiffre'), (New-BrdRow 'Redemarrage en attente' 'Windows Update' 'Present (obligation confirmee)'), (New-BrdRow 'BIOS et firmware' 'Secure Boot' 'Desactive'), (New-BrdRow 'BIOS et firmware' 'Type de firmware' 'UEFI'))
+    $other = Get-DomeniaComputerBoardData -Result (New-BrdInventory -Rows $suspended)
+    $otherTexts = Get-BrdTexts $other
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:BitLocker : protection suspendue sur C:*' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:Red*marrage en attente, confirm* par : Windows Update.' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-True (@($otherTexts | Where-Object { $_ -like 'Warn:Secure Boot d*sactiv* sur un micrologiciel UEFI.' }).Count -eq 1) ($otherTexts -join ' | ')
+    Assert-Equal 'Warn' ([string]$other.Entries['computer.secureboot'].State)
 }

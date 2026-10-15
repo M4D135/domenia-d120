@@ -756,3 +756,14 @@ Test-Case 'D090' 'Point 90 : diagnostic par couche, premiere etape bloquante, pi
     Assert-False $quiet.Reachable
     Assert-True ([string]$quiet.Sentence -like 'Étape bloquante inconnue*') ([string]$quiet.Sentence)
 }
+Test-Case 'D096' 'Point 96 : resultat de tache lu, etats du planificateur distincts d un echec' {
+    $e=[string][char]0x00E9
+    Assert-Equal ('succ'+[char]0x00E8+'s') ([string](ConvertFrom-DomeniaTaskResultCode '0x0').Text)
+    Assert-False (ConvertFrom-DomeniaTaskResultCode '0x41303').Failure 'jamais executee : etat du planificateur'
+    Assert-Equal ('jamais ex'+$e+'cut'+$e+'e') ([string](ConvertFrom-DomeniaTaskResultCode '0x41303').Text)
+    Assert-True (ConvertFrom-DomeniaTaskResultCode '0x80070005').Failure 'code d erreur a verifier'
+    Assert-True ($null -eq (ConvertFrom-DomeniaTaskResultCode 'non lu').Failure) 'code non lu : ni succes ni echec'
+    $value = Get-DomeniaInventoryValueText 'Taches planifiees' 'Sauvegarde' '\Contoso\ etat Ready ; auteur CONTOSO\admin ; derniere execution 14/10/2026 08:00 ; resultat 0x1'
+    Assert-Equal ('\Contoso\ etat Ready ; auteur CONTOSO\admin ; derniere execution 14/10/2026 08:00 ; r'+$e+'sultat 0x1 (code de sortie ou erreur '+[char]0x00E0+' v'+$e+'rifier)') $value
+    Assert-Equal '\Contoso\ etat Ready' (Get-DomeniaInventoryValueText 'Taches planifiees' 'Ancien' '\Contoso\ etat Ready') 'ancien inventaire sans resultat'
+}

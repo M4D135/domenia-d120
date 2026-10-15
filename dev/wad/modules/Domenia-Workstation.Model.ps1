@@ -507,6 +507,29 @@ function Get-DomeniaInventoryMapText {
     return $Fallback
 }
 
+function ConvertFrom-DomeniaTaskResultCode {
+    # Point 96: last result of a scheduled task. The SCHED_S_* codes are states of the task scheduler, not failures;
+    # any other value is the exit code of the action or an error, shown as it is and to be checked.
+    param([AllowEmptyString()][AllowNull()][string]$Code)
+    $text = ([string]$Code).Trim()
+    $value = [uint32]0
+    if (($text -notmatch '^(?i)0x[0-9a-f]{1,8}$') -or (-not [uint32]::TryParse($text.Substring(2),[Globalization.NumberStyles]::HexNumber,[Globalization.CultureInfo]::InvariantCulture,[ref]$value))) {
+        return [pscustomobject]@{ Code = $text; Text = 'non lu'; Failure = $null }
+    }
+    $label = switch ([long]$value) {
+        0 { 'succès' }
+        267008 { 'tâche prête' }
+        267009 { 'en cours dʼexécution' }
+        267010 { 'tâche désactivée' }
+        267011 { 'jamais exécutée' }
+        267012 { 'plus aucune exécution planifiée' }
+        267014 { 'arrêtée par un utilisateur' }
+        default { '' }
+    }
+    if ($label) { return [pscustomobject]@{ Code = $text; Text = [string]$label; Failure = $false } }
+    return [pscustomobject]@{ Code = $text; Text = 'code de sortie ou erreur à vérifier'; Failure = $true }
+}
+
 function Get-DomeniaInventoryValueText {
     <#
         UX-37 : le libelle que l operateur doit lire dans la colonne Valeur de l inventaire du poste, a
@@ -537,6 +560,12 @@ function Get-DomeniaInventoryValueText {
     }
     if ($cat -eq 'disques physiques' -and $nom.EndsWith('etat smart')) {
         return Get-DomeniaInventoryMapText -Table $script:DomeniaInventorySmartText -Key $brut.ToUpperInvariant() -Fallback $brut
+    }
+    if (($cat -eq 'taches planifiees') -and ($brut -match 'resultat (0x[0-9A-Fa-f]{1,8})')) {
+        # Point 96: the raw code stays, followed by what the task scheduler means by it.
+        $code = [string]$matches[1]
+        $resultat = ConvertFrom-DomeniaTaskResultCode $code
+        return ($brut -replace ('resultat ' + [regex]::Escape($code)), ('résultat ' + $code + ' (' + [string]$resultat.Text + ')'))
     }
     if ($cat -eq 'cartes reseau') {
         # Le collecteur colle le statut et la vitesse dans la meme valeur : « 2, 1000 Mb/s ».

@@ -283,6 +283,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSoftwareColumnVisibility',
             'Get-DomeniaSoftwareAccessSummary',
             'Get-DomeniaInventoryMapText',
+            'ConvertFrom-DomeniaTaskResultCode',
             'Get-DomeniaInventoryValueText',
             'Get-DomeniaQuickDiagPlan',
             'Test-DomeniaQuickDiagAllowed',
@@ -1575,7 +1576,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSoftwareFamily',
             'Get-DomeniaSoftwareBoardData'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Readings.Model.ps1'); File='Domenia-BoardComputer.UI.ps1'; DotSource=$true; Functions=@(
             'Add-DomeniaComputerBoardAdEntries',
             'Get-DomeniaComputerBoardData'
         ) }

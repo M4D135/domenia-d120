@@ -12838,7 +12838,7 @@ $DomeniaCollectedResult = & {
 $rows = New-Object Collections.ArrayList
 $access = New-Object Collections.ArrayList
 # Numbers for the workstation dashboard (decision David 2026-10-07); the rows stay the textual inventory.
-$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; ClockReference=''; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); Services=@{} }
+$metrics = [pscustomobject]@{ MemoryTotal=0.0; MemoryFree=0.0; MemorySource=''; MemorySlots=-1; MemoryModules=-1; LastBoot=''; CpuLoad=-1.0; Battery=-1.0; ClockSkewSeconds=$null; ClockReference=''; LogicalProcessors=0; Disks=(New-Object Collections.ArrayList); Hotfixes=(New-Object Collections.ArrayList); Processes=(New-Object Collections.ArrayList); ProcessSample=$null; Certificates=$null; Services=@{} }
 $computer = [string]$Payload.Computer
 $deep = [bool]$Payload.Deep
 $cred = Get-WMachineCredential $Context
@@ -13089,6 +13089,25 @@ function Get-RegSubKeys {
     if ([int]$r.ReturnValue -ne 0) { return @() }
     return @($r.sNames)
 }
+function Get-RegMultiString {
+    # REG_MULTI_SZ read by StdRegProv; $null when the value is absent or not readable.
+    param([uint32]$Hive,[string]$Key,[string]$Name)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'GetMultiStringValue' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key; sValueName=$Name } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    if ([int]$r.ReturnValue -ne 0) { return $null }
+    $values = @(@($r.sValue) | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
+    return ,([string[]]$values)
+}
+function Get-RegBinary {
+    # REG_BINARY read by StdRegProv; $null when the value is absent or not readable.
+    param([uint32]$Hive,[string]$Key,[string]$Name)
+    Assert-WCredentialAllowed -Context $Context -Channel Remote
+    $session = $script:PrimarySession
+    try{$r = Invoke-CimMethod -CimSession $session -Namespace 'root\cimv2' -ClassName 'StdRegProv' -MethodName 'GetBinaryValue' -Arguments @{ hDefKey=$Hive; sSubKeyName=$Key; sValueName=$Name } -ErrorAction Stop}catch{[void](Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote);throw}
+    if (([int]$r.ReturnValue -ne 0) -or ($null -eq $r.uValue)) { return $null }
+    return ,([byte[]]@($r.uValue))
+}
 function Test-RegKey {
     param([uint32]$Hive,[string]$Key)
     try {
@@ -13170,6 +13189,7 @@ try {
             Add-Item 'Systeme' 'Modele' $cs.Model 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Memoire physique totale' (Format-Size $cs.TotalPhysicalMemory) 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Processeurs logiques' $cs.NumberOfLogicalProcessors 'Win32_ComputerSystem'
+            try { if ([int]$cs.NumberOfLogicalProcessors -gt 0) { $metrics.LogicalProcessors = [int]$cs.NumberOfLogicalProcessors } } catch { }
             Add-Item 'Systeme' 'Utilisateur connecte' $cs.UserName 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Role dans le domaine' $cs.DomainRole 'Win32_ComputerSystem'
             Add-Item 'Systeme' 'Type de systeme' $cs.SystemType 'Win32_ComputerSystem'
@@ -13193,18 +13213,19 @@ try {
             Add-Item 'BIOS et firmware' 'Date' (Get-CimDate $b.ReleaseDate) 'Win32_BIOS'
             Add-Item 'BIOS et firmware' 'Numero de serie' $b.SerialNumber 'Win32_BIOS'
         }
-        $secureBoot = ''
-        try { $secureBoot = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled' } catch { }
-        if ([string]::IsNullOrWhiteSpace($secureBoot)) {
+        # Point 99: UEFISecureBootEnabled is a DWORD written by Windows at boot; it is read, never inferred.
+        $secureBoot = $null
+        try { $secureBoot = Get-RegDword $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled' } catch { }
+        if ($null -eq $secureBoot) {
             $present = Test-RegKey $HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State'
-            $label = 'Non expose'
+            $label = 'Non expose (BIOS herite ou systeme sans Secure Boot)'
             if ($present) { $label = 'Cle presente, valeur non lisible' }
-            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot'
+            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot\State'
         }
         else {
             $label = 'Desactive'
-            if ($secureBoot -eq '1') { $label = 'Active' }
-            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot'
+            if ([int]$secureBoot -eq 1) { $label = 'Active' }
+            Add-Item 'BIOS et firmware' 'Secure Boot' $label 'Registre SecureBoot\State'
         }
         $firmware = 'BIOS herite'
         try {
@@ -13251,12 +13272,25 @@ try {
             $value = $size + ' a ' + $speed + ' MHz, emplacement ' + $slot
             Add-Item 'Memoire' $label $value 'Win32_PhysicalMemory'
         }
-        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total }
+        if ($index -gt 0) { Add-Item 'Memoire' 'Total installe' (Format-Size $total) 'Win32_PhysicalMemory'; $metrics.MemoryTotal = [double]$total; $metrics.MemorySource = 'Barrettes' }
+        $metrics.MemoryModules = $index
+        # Point 81: slots and firmware maximum from the SMBIOS memory arrays; a missing table leaves them unknown.
+        try {
+            $slots = 0; $maximum = 0.0; $slotsKnown = $true; $maximumKnown = $true; $arrays = 0
+            foreach ($array in (Get-Cim 'Win32_PhysicalMemoryArray')) {
+                $arrays++
+                if (($null -eq $array.MemoryDevices) -or ([int]$array.MemoryDevices -le 0)) { $slotsKnown = $false } else { $slots += [int]$array.MemoryDevices }
+                if (($null -eq $array.MaxCapacityEx) -or ([double]$array.MaxCapacityEx -le 0)) { $maximumKnown = $false } else { $maximum += [double]$array.MaxCapacityEx * 1024 }
+            }
+            if (($arrays -gt 0) -and $slotsKnown) { Add-Item 'Memoire' 'Emplacements' ([string]$slots + ' emplacement(s), ' + [string]$index + ' occupe(s)') 'Win32_PhysicalMemoryArray'; $metrics.MemorySlots = $slots }
+            if (($arrays -gt 0) -and $maximumKnown) { Add-Item 'Memoire' 'Capacite maximale declaree' (Format-Size $maximum) 'Win32_PhysicalMemoryArray' }
+        } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
         foreach ($os in (Get-Cim 'Win32_OperatingSystem')) {
             Add-Item 'Memoire' 'Memoire libre' (Format-Size ([double]$os.FreePhysicalMemory * 1024)) 'Win32_OperatingSystem'
+            Add-Item 'Memoire' 'Memoire visible par Windows' (Format-Size ([double]$os.TotalVisibleMemorySize * 1024)) 'Win32_OperatingSystem'
             try { $metrics.MemoryFree = [double]$os.FreePhysicalMemory * 1024 } catch { }
-            # Virtual machines expose no memory module: the visible memory of the system gives the total.
-            if ($metrics.MemoryTotal -le 0) { try { $metrics.MemoryTotal = [double]$os.TotalVisibleMemorySize * 1024 } catch { } }
+            # Virtual machines expose no memory module: the visible memory of the system gives the total, and says so.
+            if ($metrics.MemoryTotal -le 0) { try { $metrics.MemoryTotal = [double]$os.TotalVisibleMemorySize * 1024; $metrics.MemorySource = 'Visible' } catch { } }
         }
         foreach ($pf in (Get-Cim 'Win32_PageFileUsage')) {
             $value = 'taille ' + [string]$pf.AllocatedBaseSize + ' Mo, pic ' + [string]$pf.PeakUsage + ' Mo'
@@ -13348,13 +13382,18 @@ try {
         }
         try {
             foreach ($pd in (Get-Cim 'MSFT_PhysicalDisk' 'root\Microsoft\Windows\Storage')) {
-                $media = 'Inconnu'
+                $media = 'Type non precise'
                 if ([int]$pd.MediaType -eq 3) { $media = 'HDD' }
                 elseif ([int]$pd.MediaType -eq 4) { $media = 'SSD' }
-                $health = 'Sain'
-                if ([int]$pd.HealthStatus -eq 1) { $health = 'Avertissement' }
-                elseif ([int]$pd.HealthStatus -eq 2) { $health = 'Defaillant' }
-                Add-Item 'Disques physiques' ('Support ' + [string]$pd.DeviceId) ($media + ', etat ' + $health) 'MSFT_PhysicalDisk'
+                # Point 83: only the codes 0, 1 and 2 are states; an absent or unknown code is never 'Sain'.
+                $health = 'inconnu'
+                if ($null -ne $pd.HealthStatus) {
+                    if ([int]$pd.HealthStatus -eq 0) { $health = 'Sain' }
+                    elseif ([int]$pd.HealthStatus -eq 1) { $health = 'Avertissement' }
+                    elseif ([int]$pd.HealthStatus -eq 2) { $health = 'Defaillant' }
+                    else { $health = 'inconnu (code ' + [string]$pd.HealthStatus + ')' }
+                }
+                Add-Item 'Disques physiques' ('Support ' + [string]$pd.DeviceId) ($media + ', etat ' + $health + ' selon le pilote') 'MSFT_PhysicalDisk'
             }
         }
         catch { }
@@ -13368,6 +13407,12 @@ try {
             $label = 'Volume ' + [string]$v.DriveLetter
             Add-Item 'BitLocker' $label ('Protection ' + $protection) 'Win32_EncryptableVolume'
             Add-Item 'BitLocker' ($label + ' methode') $v.EncryptionMethod 'Win32_EncryptableVolume'
+            # Point 99: encrypted and protected are two facts; an encrypted volume may have its protection suspended.
+            $conversion = 'Non renseigne'
+            if ($null -ne $v.ConversionStatus) {
+                switch ([int]$v.ConversionStatus) { 0 { $conversion = 'Non chiffre' } 1 { $conversion = 'Entierement chiffre' } 2 { $conversion = 'Chiffrement en cours' } 3 { $conversion = 'Dechiffrement en cours' } 4 { $conversion = 'Chiffrement en pause' } 5 { $conversion = 'Dechiffrement en pause' } default { $conversion = 'Code ' + [string]$v.ConversionStatus } }
+            }
+            Add-Item 'BitLocker' ($label + ' chiffrement') $conversion 'Win32_EncryptableVolume'
         }
     }
 
@@ -13428,7 +13473,22 @@ try {
             $state = 'Desactive'
             if ([int]$value -eq 1) { $state = 'Active' }
             Add-Item 'Pare-feu' ([string]$profile.Label) ($state + ' (' + $origin + ')') 'Registre FirewallPolicy'
+            if (($null -ne $policyValue) -and ($null -ne $localValue) -and ([int]$policyValue -ne [int]$localValue)) {
+                $localText = 'desactive'
+                if ([int]$localValue -eq 1) { $localText = 'active' }
+                Add-Item 'Pare-feu' ([string]$profile.Label + ' reglage local') ('Reglage local ' + $localText + ', remplace par la strategie') 'Registre SharedAccess FirewallPolicy'
+            }
         }
+        # Point 98: the category of each active connection names the profile Windows applies to it.
+        try {
+            foreach ($connection in (Get-Cim 'MSFT_NetConnectionProfile' 'root\StandardCimv2')) {
+                $category = 'Categorie ' + [string]$connection.NetworkCategory
+                if (([string]$connection.NetworkCategory -eq '2') -or ([string]$connection.NetworkCategory -eq 'DomainAuthenticated')) { $category = 'Domaine' }
+                elseif (([string]$connection.NetworkCategory -eq '1') -or ([string]$connection.NetworkCategory -eq 'Private')) { $category = 'Prive' }
+                elseif (([string]$connection.NetworkCategory -eq '0') -or ([string]$connection.NetworkCategory -eq 'Public')) { $category = 'Public' }
+                Add-Item 'Pare-feu' ('Profil applique a ' + [string]$connection.InterfaceAlias) ($category + ' (reseau ' + [string]$connection.Name + ')') 'MSFT_NetConnectionProfile'
+            }
+        } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
     }
 
     Invoke-Collector 'Antivirus' {
@@ -13474,6 +13534,10 @@ try {
         $wsus = ''
         try { $wsus = Get-RegString $HKLM 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate' 'WUServer' } catch { }
         if (-not [string]::IsNullOrWhiteSpace($wsus)) { Add-Item 'Windows Update' 'Serveur WSUS' $wsus 'Registre WindowsUpdate' }
+        # Point 92: a WSUS address without UseWUServer=1 is not used by the update client.
+        $useWsus = $null
+        try { $useWsus = Get-RegDword $HKLM 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' 'UseWUServer' } catch { }
+        if ($null -ne $useWsus) { Add-Item 'Windows Update' 'Strategie WSUS appliquee' $(if ([int]$useWsus -eq 1) { 'Oui' } else { 'Non' }) 'Registre WindowsUpdate\AU' }
     }
 
     Invoke-Collector 'Logiciels installes' {
@@ -13559,13 +13623,25 @@ try {
     }
 
     Invoke-Collector 'Services en defaut' {
-        $stopped = @(Get-Cim 'Win32_Service' 'root\cimv2' 'StartMode="Auto" AND State="Stopped"')
+        $allServices = @(Get-Cim 'Win32_Service')
+        $stateByName = @{}
+        foreach ($service in $allServices) { $stateByName[([string]$service.Name).ToLowerInvariant()] = [string]$service.State }
+        $stopped = @($allServices | Where-Object { ([string]$_.StartMode -eq 'Auto') -and ([string]$_.State -eq 'Stopped') })
         foreach ($s in (@($stopped) | Select-Object -First 40)) {
-            Add-Item 'Services en defaut' $s.DisplayName ('Demarrage automatique mais arrete. Nom : ' + [string]$s.Name) 'Win32_Service'
+            # Point 94: declared dependencies (registry DependOnService) and their state, read only.
+            $dependencies = ''
+            try {
+                $depends = Get-RegMultiString $HKLM ('SYSTEM\CurrentControlSet\Services\' + [string]$s.Name) 'DependOnService'
+                $parts = @(foreach ($name in @($depends | Select-Object -First 8)) { if ([string]::IsNullOrWhiteSpace($name)) { continue }; $state = $stateByName[([string]$name).ToLowerInvariant()]; if (-not $state) { $state = 'pilote ou groupe' }; [string]$name + ' (' + $state + ')' })
+                if ($parts.Count) { $dependencies = ' Depend de : ' + ($parts -join ', ') + '.' }
+            } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
+            $exit = ''
+            if (($null -ne $s.ExitCode) -and ([int]$s.ExitCode -ne 0) -and ([int]$s.ExitCode -ne 1077)) { $exit = ' Code de sortie ' + [string]$s.ExitCode + '.' }
+            Add-Item 'Services en defaut' $s.DisplayName ('Demarrage automatique mais arrete.' + $exit + $dependencies + ' Nom : ' + [string]$s.Name) 'Win32_Service'
         }
         if (@($stopped).Count -eq 0) { Add-Item 'Services en defaut' 'Etat' 'Aucun service automatique arrete' 'Win32_Service' }
-        # Distribution of all services for the dashboard ring (one more CIM read of the same class).
-        foreach ($service in @(Get-Cim 'Win32_Service')) {
+        # Distribution of all services for the dashboard ring, from the same read.
+        foreach ($service in $allServices) {
             $key = if ([string]$service.StartMode -eq 'Disabled') { 'Desactives' } elseif ([string]$service.State -eq 'Running') { 'En cours' } elseif ([string]$service.StartMode -eq 'Auto') { 'Arretes (automatiques)' } else { 'Arretes (manuels)' }
             $metrics.Services[$key] = 1 + [int]$metrics.Services[$key]
         }
@@ -13668,28 +13744,74 @@ try {
     }
 
     Invoke-Collector 'Redemarrage en attente' {
-        $reasons = New-Object Collections.ArrayList
+        # Point 93: one row per indicator with its source. Confirmed: servicing, Windows Update or a computer rename
+        # waits for a restart. Partial: hints often left by installers, not an obligation on their own.
+        $confirmed = New-Object Collections.ArrayList
+        $partial = New-Object Collections.ArrayList
+        $unread = 0
         foreach ($c in @(
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Label='Maintenance de composants' },
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Label='Windows Update' },
-            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Label='Maintenance en cours' }
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'; Label='Maintenance des composants (CBS)'; Kind='Confirme' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'; Label='Windows Update'; Kind='Confirme' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'; Label='Maintenance CBS en cours'; Kind='Partiel' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'; Label='Paquets CBS en attente'; Kind='Partiel' },
+            @{ Key='SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'; Label='Rapport Windows Update apres redemarrage'; Kind='Partiel' },
+            @{ Key='SYSTEM\CurrentControlSet\Services\Netlogon\JoinDomain'; Label='Jonction au domaine en attente'; Kind='Partiel' }
         )) {
-            if (Test-RegKey $HKLM ([string]$c.Key)) { [void]$reasons.Add([string]$c.Label) }
+            $present = Test-RegKey $HKLM ([string]$c.Key)
+            if ($present) { if ([string]$c.Kind -eq 'Confirme') { [void]$confirmed.Add([string]$c.Label) } else { [void]$partial.Add([string]$c.Label) } }
+            Add-Item 'Redemarrage en attente' ([string]$c.Label) $(if ($present) { 'Present (' + $(if ([string]$c.Kind -eq 'Confirme') { 'obligation confirmee' } else { 'indice partiel' }) + ')' } else { 'Absent' }) ('Registre HKLM\' + [string]$c.Key)
         }
-        $pendingRename = ''
-        try { $pendingRename = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations' } catch { }
-        if (-not [string]::IsNullOrWhiteSpace($pendingRename)) { [void]$reasons.Add('Renommage de fichiers en attente') }
-        if (@($reasons).Count -eq 0) { Add-Item 'Redemarrage en attente' 'Etat' 'Aucun redemarrage en attente' 'Registre' }
-        else { Add-Item 'Redemarrage en attente' 'Etat' ('Redemarrage requis : ' + (@($reasons) -join ', ')) 'Registre' }
+        $renames = $null
+        try { $renames = Get-RegMultiString $HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations' } catch { $unread++ }
+        $operations = @(@($renames) | Where-Object { [string]$_ -like '\??\*' }).Count
+        if ($operations -gt 0) { [void]$partial.Add('Renommages de fichiers en attente') }
+        Add-Item 'Redemarrage en attente' 'Renommages de fichiers en attente' $(if ($operations -gt 0) { 'Present (indice partiel) : ' + [string]$operations + ' operation(s)' } elseif (($null -eq $renames) -and ($unread -gt 0)) { 'Non lu' } else { 'Absent' }) 'Registre Session Manager\PendingFileRenameOperations'
+        $active = ''; $pendingName = ''
+        try { $active = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName' 'ComputerName' } catch { }
+        try { $pendingName = Get-RegString $HKLM 'SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' 'ComputerName' } catch { }
+        if (($active) -and ($pendingName)) {
+            $renamed = ($active -ine $pendingName)
+            if ($renamed) { [void]$confirmed.Add('Renommage du poste') }
+            Add-Item 'Redemarrage en attente' 'Renommage du poste' $(if ($renamed) { 'Present (obligation confirmee) : ' + $active + ' deviendra ' + $pendingName } else { 'Absent' }) 'Registre ComputerName'
+        }
+        else { Add-Item 'Redemarrage en attente' 'Renommage du poste' 'Non lu' 'Registre ComputerName' }
+        $volatile = $null
+        try { $volatile = Get-RegDword $HKLM 'SOFTWARE\Microsoft\Updates' 'UpdateExeVolatile' } catch { }
+        if (($null -ne $volatile) -and ([int]$volatile -ne 0)) { [void]$partial.Add('Mise a jour en cours (UpdateExeVolatile)') }
+        Add-Item 'Redemarrage en attente' 'Mise a jour en cours (UpdateExeVolatile)' $(if (($null -ne $volatile) -and ([int]$volatile -ne 0)) { 'Present (indice partiel)' } else { 'Absent' }) 'Registre Updates\UpdateExeVolatile'
+        if (@($confirmed).Count -gt 0) { Add-Item 'Redemarrage en attente' 'Etat' ('Redemarrage requis : ' + (@($confirmed) -join ', ') + $(if (@($partial).Count) { ' ; indices partiels : ' + (@($partial) -join ', ') } else { '' })) 'Registre' }
+        elseif (@($partial).Count -gt 0) { Add-Item 'Redemarrage en attente' 'Etat' ('Indices partiels seulement : ' + (@($partial) -join ', ')) 'Registre' }
+        else { Add-Item 'Redemarrage en attente' 'Etat' 'Aucun redemarrage en attente' 'Registre' }
     }
 
     if ($deep) {
         Invoke-Collector 'Processus' {
-            foreach ($p in (@(Get-Cim 'Win32_Process') | Sort-Object WorkingSetSize -Descending | Select-Object -First 12)) {
+            # Point 95: two reads of the same class over a bounded interval give the processor time used meanwhile.
+            # Only times, sizes and names are kept: no command line or argument leaves the workstation.
+            $sampleWatch = [System.Diagnostics.Stopwatch]::StartNew()
+            $firstRead = @(Get-Cim 'Win32_Process')
+            $firstMs = [long]$sampleWatch.ElapsedMilliseconds
+            $intervalMs = 2000
+            if ($null -ne $Payload.PSObject.Properties['ProcessSampleMs']) { $intervalMs = [Math]::Max(1000,[Math]::Min(5000,[int]$Payload.ProcessSampleMs)) }
+            Start-Sleep -Milliseconds $intervalMs
+            $secondRead = @(Get-Cim 'Win32_Process')
+            $secondMs = [long]$sampleWatch.ElapsedMilliseconds
+            $sampledUtc = [datetime]::UtcNow.ToString('o')
+            $before = @{}
+            foreach ($p in $firstRead) { try { $before[[string]$p.ProcessId] = [pscustomobject]@{ Time=([double]$p.KernelModeTime + [double]$p.UserModeTime); Created=[string]$p.CreationDate } } catch { } }
+            $items = New-Object Collections.ArrayList
+            foreach ($p in @($secondRead | Select-Object -First 600)) {
+                $previous = $before[[string]$p.ProcessId]
+                $time = $null; try { $time = [double]$p.KernelModeTime + [double]$p.UserModeTime } catch { }
+                [void]$items.Add([pscustomobject]@{ Pid=[long]$p.ProcessId; Name=[string]$p.Name; FirstTime=$(if (($null -ne $previous) -and ([string]$previous.Created -eq [string]$p.CreationDate)) { $previous.Time } else { $null }); SecondTime=$time; WorkingSet=$(try { [double]$p.WorkingSetSize } catch { $null }) })
+            }
+            $metrics.ProcessSample = [pscustomobject]@{ IntervalMs=($secondMs - $firstMs); SampledUtc=$sampledUtc; LogicalProcessors=[int]$metrics.LogicalProcessors; FirstCount=$firstRead.Count; SecondCount=$secondRead.Count; Truncated=($secondRead.Count -gt 600); Items=@($items) }
+            Add-Item 'Processus' 'Mesure de charge' ('Deux lectures a ' + [string]($secondMs - $firstMs) + ' ms d intervalle, terminees le ' + (Get-CimDate ([datetime]::Now))) 'Win32_Process'
+            foreach ($p in (@($secondRead) | Sort-Object WorkingSetSize -Descending | Select-Object -First 12)) {
                 Add-Item 'Processus' ([string]$p.Name + ' (PID ' + [string]$p.ProcessId + ')') (Format-Size $p.WorkingSetSize) 'Win32_Process'
                 try { [void]$metrics.Processes.Add([pscustomobject]@{ Name=[string]$p.Name; Mb=[Math]::Round([double]$p.WorkingSetSize / 1MB) }) } catch { }
             }
-        } 12000
+        } 20000
 
         Invoke-Collector 'Evenements systeme' {
             $since = (Get-Date).AddDays(-3)
@@ -13705,18 +13827,72 @@ try {
         } 30000
 
         Invoke-Collector 'Taches planifiees' {
+            # Point 96: author, last run, last result and missed runs of the non-Microsoft tasks, by the read-only
+            # Get-ScheduledTaskInfo in the same WinRM round trip. Actions, arguments and principals are never read.
             $tasks = Invoke-Remote -TimeoutSeconds 30 -ScriptBlock {
                 Get-ScheduledTask -ErrorAction SilentlyContinue |
-                    Where-Object { $_.State -ne 'Disabled' -and $_.TaskPath -notlike '\Microsoft\*' } |
-                    Select-Object TaskName,TaskPath,State
+                    Where-Object { ($_.State -ne 'Disabled') -and ($_.TaskPath -notlike '\Microsoft\*') } |
+                    Select-Object -First 40 |
+                    ForEach-Object {
+                        $info = $null
+                        try { $info = $_ | Get-ScheduledTaskInfo -ErrorAction Stop } catch { $info = $null }
+                        [pscustomobject]@{ TaskName = [string]$_.TaskName; TaskPath = [string]$_.TaskPath; State = [string]$_.State; Author = [string]$_.Author; InfoRead = ($null -ne $info); LastRunTime = $(if ($null -ne $info) { $info.LastRunTime } else { $null }); LastTaskResult = $(if ($null -ne $info) { $info.LastTaskResult } else { $null }); MissedRuns = $(if ($null -ne $info) { $info.NumberOfMissedRuns } else { $null }) }
+                    }
             }
             foreach ($t in (@($tasks) | Select-Object -First 40)) {
-                Add-Item 'Taches planifiees' ([string]$t.TaskName) ([string]$t.TaskPath + ' etat ' + [string]$t.State) 'Get-ScheduledTask via WinRM'
+                $author = [string]$t.Author; if ([string]::IsNullOrWhiteSpace($author)) { $author = 'non declare' }
+                $run = 'non lue'; $result = 'non lu'; $missed = ''
+                if ([bool]$t.InfoRead) {
+                    $run = 'jamais'
+                    try { $last = [datetime]$t.LastRunTime; if ($last.Year -ge 2000) { $run = $last.ToString('dd/MM/yyyy HH:mm') } } catch { $run = 'illisible' }
+                    try { if ($null -ne $t.LastTaskResult) { $result = '0x' + ([uint32]([int64]$t.LastTaskResult -band 0xFFFFFFFFL)).ToString('X') } } catch { $result = 'illisible' }
+                    try { if ([int]$t.MissedRuns -gt 0) { $missed = ' ; executions manquees ' + [string][int]$t.MissedRuns } } catch { }
+                }
+                Add-Item 'Taches planifiees' ([string]$t.TaskName) ([string]$t.TaskPath + ' etat ' + [string]$t.State + ' ; auteur ' + $author + ' ; derniere execution ' + $run + ' ; resultat ' + $result + $missed) 'Get-ScheduledTask et Get-ScheduledTaskInfo via WinRM'
             }
             if (@($tasks).Count -eq 0) { Add-Item 'Taches planifiees' 'Etat' 'Aucune tache hors Microsoft active' 'Get-ScheduledTask via WinRM' }
         } 35000
 
         Invoke-Collector 'Certificats machine' {
+            # Point 100: the Personal store of the computer only, read in the registry by StdRegProv. Each Blob holds the
+            # certificate (property 32) and its properties; private keys are stored elsewhere and are never read.
+            $storeKey = 'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'
+            $registryRead = $false
+            $found = New-Object Collections.ArrayList
+            try {
+                $thumbprints = @(Get-RegSubKeys $HKLM $storeKey)
+                $registryRead = $true
+                foreach ($thumbprint in @($thumbprints | Select-Object -First 50)) {
+                    if (-not (Test-CollectorBudget)) { Set-CollectorTruncated 'Lecture arretee : budget de la source atteint.'; break }
+                    $blob = $null
+                    try { $blob = Get-RegBinary $HKLM ($storeKey + '\' + [string]$thumbprint) 'Blob' } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw} }
+                    if ($null -eq $blob) { continue }
+                    $der = $null; $keyDeclared = $false; $offset = 0
+                    while ($offset + 12 -le $blob.Length) {
+                        $propertyId = [BitConverter]::ToUInt32($blob,$offset); $length = [BitConverter]::ToUInt32($blob,$offset + 8)
+                        if ($length -gt ($blob.Length - $offset - 12)) { break }
+                        if ($propertyId -eq 2) { $keyDeclared = $true }
+                        if ($propertyId -eq 32) { $der = New-Object byte[] $length; [Array]::Copy($blob,$offset + 12,$der,0,$length) }
+                        $offset = $offset + 12 + [int]$length
+                    }
+                    if ($null -eq $der) { continue }
+                    try {
+                        $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 (,$der)
+                        $usages = @()
+                        foreach ($extension in @($certificate.Extensions)) { if ($extension.Oid.Value -eq '2.5.29.37') { $usages = @($extension.EnhancedKeyUsages | ForEach-Object { if ($_.FriendlyName) { [string]$_.FriendlyName } else { [string]$_.Value } }) } }
+                        [void]$found.Add([pscustomobject]@{ Subject=[string]$certificate.Subject; Issuer=[string]$certificate.Issuer; NotBeforeUtc=$certificate.NotBefore.ToUniversalTime().ToString('o'); NotAfterUtc=$certificate.NotAfter.ToUniversalTime().ToString('o'); Thumbprint=[string]$certificate.Thumbprint; Usages=@($usages | Select-Object -First 6); KeyDeclared=$keyDeclared; Store='Ordinateur local\Personnel' })
+                        $days = [int][Math]::Floor(($certificate.NotAfter.ToUniversalTime() - [datetime]::UtcNow).TotalDays)
+                        Add-Item 'Certificats machine' ([string]$certificate.Subject) ('expire le ' + $certificate.NotAfter.ToString('dd/MM/yyyy') + ' (' + [string]$days + ' jour(s)) ; emetteur ' + [string]$certificate.Issuer + ' ; empreinte ' + [string]$certificate.Thumbprint) 'Registre SystemCertificates\MY'
+                        $certificate.Dispose()
+                    } catch { }
+                }
+                if (@($thumbprints).Count -gt 50) { Set-CollectorTruncated ([string]@($thumbprints).Count + ' certificats, 50 lus.') }
+            } catch { if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw}; $registryRead = $false }
+            if ($registryRead) {
+                $metrics.Certificates = [pscustomobject]@{ Source='Registre SystemCertificates\MY'; Items=@($found); ReadUtc=[datetime]::UtcNow.ToString('o') }
+                if ($found.Count -eq 0) { Add-Item 'Certificats machine' 'Etat' 'Aucun certificat machine' 'Registre SystemCertificates\MY' }
+                return
+            }
             $certs = Invoke-Remote -TimeoutSeconds 25 -ScriptBlock {
                 Get-ChildItem -Path 'Cert:\LocalMachine\My' -ErrorAction SilentlyContinue |
                     Select-Object Subject,NotAfter,Thumbprint,Issuer

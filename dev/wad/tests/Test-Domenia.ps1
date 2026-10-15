@@ -53,7 +53,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Invoke-DomeniaAppLogRotation','Flush-DomeniaAppLog','Invoke-DomeniaAppLogFlush','Set-DomeniaAppLogAvailability','Set-Status',
     'Get-DomeniaGridExportColumns','ConvertTo-DomeniaExportRows','Get-DomeniaExportFileName','Export-DomeniaCsv','Get-DomeniaCsvDelimiter',
     # CO-03 : cles de tri des colonnes datees, et le XAML ou elles sont designees.
-    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-MainXaml',
+    'Get-DomeniaGridDateSortKey','Get-DomeniaGridDateShortText','Add-DomeniaGridDateKeys','Get-DomeniaInventoryAgeLabel','Get-DomeniaInventorySummaryText','Get-DomeniaSoftwareWorkerCode','Get-DomeniaInventoryWorkerCode','Get-MainXaml',
     # CO-22 : decodage des options du compte affiche dans la fiche.
     'Get-UacFlagsLabel','Convert-FileTimeLabel','Convert-ADLargeIntegerToInt64',
     # UX-27 : vue d atterrissage de la fiche selon le type d objet.
@@ -1406,6 +1406,32 @@ try {
         $xaml = Get-MainXaml
         Assert-True ($xaml.Contains('ToolTip="Ajoute les logiciels installés dans le profil des utilisateurs connectés."')) 'L infobulle promet toujours le profil de chaque utilisateur'
         Assert-True (-not ($xaml.Contains('dans le profil de chaque utilisateur'))) 'L infobulle promet encore tous les utilisateurs'
+    }
+
+    Test-Case 'Points 91 a 100 : les workers d inventaire lisent registre et CIM sans effet de bord' {
+        $software = [string](Get-DomeniaSoftwareWorkerCode)
+        # Point 91 : architecture et profil utilisateur font partie de la cle ; un doublon reste une ligne.
+        Assert-True ($software.Contains("`$key = (`$Scope + '|' + `$owner + '|' + [string]`$Architecture + '|' + `$clean + '|' + [string]`$Version)")) 'Les doublons par architecture ou profil sont encore fusionnes'
+        $code = [string](Get-DomeniaInventoryWorkerCode)
+        [void]([scriptblock]::Create($code))
+        # Point 93 : REG_MULTI_SZ lu comme tel ; chaque indice ecrit avec sa source.
+        Assert-True ($code.Contains("Get-RegMultiString `$HKLM 'SYSTEM\CurrentControlSet\Control\Session Manager' 'PendingFileRenameOperations'")) 'PendingFileRenameOperations lu comme une chaine simple'
+        Assert-True ($code.Contains("'obligation confirmee'") -and $code.Contains("'indice partiel'")) 'Obligation confirmee et indice partiel confondus'
+        # Point 99 : UEFISecureBootEnabled est un DWORD ; le chiffrement est lu a cote de la protection.
+        Assert-True ($code.Contains("Get-RegDword `$HKLM 'SYSTEM\CurrentControlSet\Control\SecureBoot\State' 'UEFISecureBootEnabled'")) 'Secure Boot encore lu comme une chaine'
+        Assert-True ($code.Contains("(`$label + ' chiffrement')")) 'Chiffrement BitLocker non distingue de la protection'
+        # Point 83 : un etat de sante absent ou inconnu ne devient jamais Sain.
+        Assert-True (-not $code.Contains("`$health = 'Sain'`n")) 'Sante du disque initialisee a Sain'
+        # Point 100 : magasin Personnel lu dans le registre, propriete 32 seulement, aucune cle privee.
+        Assert-True ($code.Contains("'SOFTWARE\Microsoft\SystemCertificates\MY\Certificates'") -and $code.Contains('$propertyId -eq 32')) 'Certificats machine non lus dans le registre'
+        Assert-True (-not ($code -match '(?i)PrivateKey|Export\(|ExportCspBlob')) 'Une cle privee peut etre lue ou exportee'
+        # Point 95 : deux lectures bornees pour la charge, sans ligne de commande.
+        Assert-True ($code.Contains('Start-Sleep -Milliseconds $intervalMs') -and $code.Contains('[Math]::Min(5000,')) 'Intervalle de mesure non borne'
+        Assert-True (-not $code.Contains('CommandLine')) 'Ligne de commande collectee'
+        # Point 96 : derniere execution et resultat, jamais les actions ni le principal.
+        Assert-True ($code.Contains('Get-ScheduledTaskInfo') -and -not ($code -match '\.Actions\b|\.Principal\b')) 'Taches : execution non lue ou parametres exposes'
+        # Point 94 : dependances lues, aucune action sur les services.
+        Assert-True ($code.Contains("'DependOnService'") -and -not ($code -match '(?i)Start-Service|Stop-Service|StartService|StopService')) 'Dependances absentes ou action sur un service'
     }
 
     Test-Case 'PF-22 : l onglet Logiciels reprend la liste deja lue par l inventaire' {
