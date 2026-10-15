@@ -19965,6 +19965,47 @@ function Write-AppLog {
     try { Write-DomeniaAppLogFile -Text $Text -Level $Level -Time $now -Source 'AppLog' } catch { }
 }
 
+function Write-DomeniaSwallowed {
+    # P-CD-09: trace of an error that a catch block deliberately does not rethrow, for example
+    #   catch { Write-DomeniaSwallowed 'Theme' 'Set-DomeniaTheme' $_ }
+    # The ring, the masking and the sampling are the pure Add-DomeniaSwallowedEntry (Domenia-Common.Model.ps1), given
+    # Protect-DomeniaLogText as its masking rule. This wrapper adds the side effect: at most once a minute per category
+    # and operation, the line due goes to the technical journal (Write-AppLog, level DEBUG, area Technique: Domenia.log
+    # and the Expert view, never the readable journal) and its entry is marked Logged.
+    # Never throws and writes nothing to the pipeline, so it is safe in any catch block. A trace emitted while the line
+    # is being written (a journal failure traced from inside Write-AppLog) is kept in the ring as a reentry, without
+    # masking or journal call. Worker code, without this core, calls Add-DomeniaSwallowedEntry (ring only).
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Category='',
+        [AllowNull()][AllowEmptyString()][string]$Operation='',
+        [AllowNull()]$ErrorRecord=$null,
+        [AllowNull()]$Now=$null
+    )
+    try {
+        $writing = $false
+        try { $writing = [bool]$script:DomeniaSwallowedWriting } catch { $writing = $false }
+        if ($writing) {
+            $null = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Reentry
+            return
+        }
+        $mask = $null
+        try { $mask = ${function:Protect-DomeniaLogText} } catch { $mask = $null }
+        $script:DomeniaSwallowedWriting = $true
+        try {
+            $due = Add-DomeniaSwallowedEntry -Category $Category -Operation $Operation -ErrorRecord $ErrorRecord -Now $Now -Mask $mask
+            if ($null -ne $due) {
+                try { $null = Write-AppLog -Text ([string]$due.Line) -Level 'DEBUG' -Area 'Technique'; $due.Entry.Journal = 'Logged' }
+                catch { $due.Entry.Journal = 'Unavailable' }
+            }
+        }
+        finally { $script:DomeniaSwallowedWriting = $false }
+    }
+    catch {
+        # Exempt from tools/audit_swallowed.py: the trace of a swallowed error cannot trace its own failure.
+        $null = $_
+    }
+}
+
 function Open-DomeniaAuditLog {
     try {
         try { Flush-DomeniaAppLog -Force } catch { }
@@ -23912,7 +23953,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "AF37C7660D4E06A857209CD4E171F215A24A8E7BC3126F11DD532D4AFF49449F"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "367323BD4DB55DB33FF67526485920454A2F3725D99D78C493CFFA1C9BDF0662"
+        LocalStore           = "278527908DF7E07811AE947D98417FB548E1E5D27E2544B5F09CD805A8FFDB18"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -23929,7 +23970,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "147A78AD2DC6E8463AD8696E39DD48145FB2329586F056092B720C146539B9CB"
+    $expectedFingerprint = "1210789E72DDBC4587E106FA86B39FA611F1BDFC0D93441430E4E611ADE7FC88"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

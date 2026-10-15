@@ -361,7 +361,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "367323BD4DB55DB33FF67526485920454A2F3725D99D78C493CFFA1C9BDF0662"
+    "Sha256": "278527908DF7E07811AE947D98417FB548E1E5D27E2544B5F09CD805A8FFDB18"
   },
   {
     "Operation": "ScopeReconcile",

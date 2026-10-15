@@ -937,6 +937,13 @@
       "PreserveExisting": false
     },
     {
+      "Path": "tools/audit_dead_functions.py",
+      "Sha256": "7A094D6146EEA00801F43550882C665A4912F20A13BAE6D0D4FEC0DAD6687D9C",
+      "Bytes": 18181,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
       "Path": "tools/audit_function_names.py",
       "Sha256": "DBFC276803D6198241225377A6DA35FD3B1D5DBAC094140FBB6F95229162779D",
       "Bytes": 4688,
@@ -947,6 +954,13 @@
       "Path": "tools/audit_preload.py",
       "Sha256": "CF17570DE9E8C917EEC732A268513ADB07B6988E105CE12EDF237606A00C0297",
       "Bytes": 16265,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/audit_swallowed.py",
+      "Sha256": "8504F61F28E61581E77ADDF7B27AB78BA892158371E2DF971083FD14E7B42FFE",
+      "Bytes": 9170,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -965,9 +979,23 @@
       "PreserveExisting": false
     },
     {
+      "Path": "tools/baselines/dead-functions-baseline.json",
+      "Sha256": "19D76048D71029E82972775F1461DF98F6C37C7435F2F32741634AF371CD3A30",
+      "Bytes": 11871,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/baselines/swallowed-baseline.json",
+      "Sha256": "0CAA2FA5B482164796C4838FD6075853E60B208DD97D569DDB4779AFF2BA30DF",
+      "Bytes": 16312,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
       "Path": "tools/baselines/wording-baseline.json",
-      "Sha256": "8DF8B15A4028FFD3426F0C0BCF0CF5A6643E6AEBB2F9EB7C38AEBBCC590F211E",
-      "Bytes": 29425,
+      "Sha256": "4A9A3351C5FC0C68C72B062E96A7C65AA5864F9BCC034D4986933AE4BDDA13D8",
+      "Bytes": 26565,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1029,15 +1057,15 @@
     },
     {
       "Path": "tools/operation-contracts.json",
-      "Sha256": "D1EFFEAC0E64584F322A6D8FA914B4828F162D3C850C7B734261703C191349D5",
+      "Sha256": "4AFDDB3E84802C90D3B035D890D7DC828735E0EF9D3B5B61900EF4572949CC66",
       "Bytes": 17848,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "FF9DB9B8BFA34F66CE62CCF9525E0D78D463BA09837A972C7389DCB74F8D5414",
-      "Bytes": 227369,
+      "Sha256": "B5A37314D9A14BE97625256B4D3827E8747CB8AA5E0D87FC649A90A1187DA97B",
+      "Bytes": 228050,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1050,8 +1078,15 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "527FA96E09C7A9DE79E84AE742D83828B37EC9CB8707D087157678EFDBB1BDBF",
+      "Sha256": "6F2BEDE5AAA2C70BF03B08005C309E9498375F2A18CDFE38CB2342B9F98C9C52",
       "Bytes": 27649,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/ps_sources.py",
+      "Sha256": "436DC2B150338BC311FD63883294DE15DF53D833BB2F03CF19E5B914426B5BBF",
+      "Bytes": 5255,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1070,9 +1105,30 @@
       "PreserveExisting": false
     },
     {
+      "Path": "tools/tests/test_audit_dead_functions.py",
+      "Sha256": "847A25FED3DB2A86C3FB6B91BD8B7C4B12D6E2C8B6EC2ABB1337524D6D9D8522",
+      "Bytes": 13900,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/tests/test_audit_swallowed.py",
+      "Sha256": "3BF097EA9C814E93CCB27AA7077D20249066575804E7EA278B0AE86D5C15B9C3",
+      "Bytes": 7265,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
       "Path": "tools/tests/test_classic_packaging.py",
       "Sha256": "FB68CD023CDC04F1D0D27BA4663F12CEFF9002DA7F432B8D4C9AA5E4951A54AE",
       "Bytes": 18865,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "tools/tests/test_ps_sources.py",
+      "Sha256": "B868EFF7FCE4D868612AEF80E99EDD178E61747567DD09460AB79174BE8DDDFE",
+      "Bytes": 3227,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1169,15 +1225,15 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "5C76ECCA873E39B296F417F42349D56A56C3C4FF091A521A615DC50AA9E662C4",
-      "Bytes": 2093525,
+      "Sha256": "D60D48BBF87615C8FE76AFB45F21F4827A2D8FC6A6BA97E8ED98E59338479003",
+      "Bytes": 2095819,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Modules.ps1",
-      "Sha256": "57AD2534C8C507C2ED326C5AC8506CD15F33F739C0C08DC3EBCFBCE668E9F247",
-      "Bytes": 98285,
+      "Sha256": "F455C5CBC31597ADAF5AC22CD4FBE84363D73B769956EDAF81F1C59C50D323CA",
+      "Bytes": 98369,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -1778,8 +1834,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Common.Model.ps1",
-      "Sha256": "DB17C532A83A2F17D0218D4544B890431A3D1EBCD2E114DC0050A1D52626B3C7",
-      "Bytes": 15504,
+      "Sha256": "873BF0551A3A89F2E8CC5928946F932AECD3874805F83D41608728D325BD53D5",
+      "Bytes": 22087,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2562,8 +2618,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaFaults.ps1",
-      "Sha256": "C22F42D32494C7FAB2E44684D8B4D93FABFA1122A81B5979A395728E532A977B",
-      "Bytes": 50805,
+      "Sha256": "FF2E919E7049D867C25C57B3429F973FA6B743E4C0C64FB65D51A2091AA2452A",
+      "Bytes": 55395,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3157,8 +3213,8 @@
     },
     {
       "Path": "wad/tests/powershell_lex.py",
-      "Sha256": "BC5C7DD9DF98A74A3F69B615F474202598302D8F5DAB680AF95E66F54BEEF78A",
-      "Bytes": 2844,
+      "Sha256": "DABA5E6A2AACC357677CAE55D2668AB9164C9FADD5A5DFD5E9BFC42E4F92EFC5",
+      "Bytes": 3375,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3194,6 +3250,13 @@
       "Path": "wad/tests/rules/Cache.Tests.ps1",
       "Sha256": "82BC2EA1B50526E0A67C3FF491FCC1996A9D1BF6C263D172D9E82273A370884A",
       "Bytes": 23840,
+      "Runtime": false,
+      "PreserveExisting": false
+    },
+    {
+      "Path": "wad/tests/rules/Common.Tests.ps1",
+      "Sha256": "D3F39D934352A2D60DF20812C3899889ED4F393CCB796AEC40A68F030C91A538",
+      "Bytes": 9469,
       "Runtime": false,
       "PreserveExisting": false
     },

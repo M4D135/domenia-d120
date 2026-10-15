@@ -486,6 +486,7 @@
     "Invoke-DomeniaAppLogFlush": "4FAD40EB8F82A15A666B706294F179041EE9EFBC479F2C55ADE5F685E2D80CE7",
     "Set-DomeniaAppLogAvailability": "3A5DAC6209589F0AAB3D92A2B5A5794A80E76CC79F9467CC9A31B258E29D2FE4",
     "Write-AppLog": "581D386A6CE330EB94881C14CA729CFEBDE64DB94BED0B6C5A9F376943F39341",
+    "Write-DomeniaSwallowed": "BF1B247EAF77A036D32BAC90DEB2416B9DBB8638A73D1719FEDA41C2EA287396",
     "Open-DomeniaAuditLog": "FD987363890DA8E901F4D9210A5F87D1BED385AE5C1D95A2FD659C8715B696DD",
     "Get-DomeniaCriticalControlNames": "45DED617A9225F883C64D5643A3E633FE6E6AEA498842965A0CB252E16DD5708",
     "Get-DomeniaIntegritySnapshot": "F9EBCE1487E2933C317E800DD4B48DD7F6AABD0BF00ECC814A29B45E96156162",
@@ -574,8 +575,8 @@
     "Load-UserMachineLinks": "D588E9FAB3DB852FD760624C2A463CDEA8A5B97BAF550C273F8C7C1B2CB7776D",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "9223DF96EBF405AAB39F8D732FB6967B64636837393D615AD7FD8FEB204282AE",
-    "Assert-DomeniaWorkerRegistry": "FDF1B89A88AC9FDC272751B86570B6CE9D5FDFE8FD9AE2C9C219BCC22DCADAB5",
+    "Get-DomeniaWorkerOperationHashes": "FCB0EDEEB5A3F18119FBD47C076389AB7279DCFA69A097528F3C4D986F0492D1",
+    "Assert-DomeniaWorkerRegistry": "6B500B7ED38FC2CE2536FE96D708B60CAC094EFB08F5F931E63C7970E984966A",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "C39E92B423D3B448B91B25EE502B6AD3D8C382E6AB63F231965C20B2AC3D5775",
@@ -3550,6 +3551,21 @@
         "Update-SecretsGrid"
       ],
       "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot Z02 (pistes CD-02, CD-09, outillage) : audit_dead_functions.py et audit_swallowed.py avec cliquets, Write-DomeniaSwallowed dans Common.Model (pas encore applique au code). Aucune operation de worker modifiee.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes",
+        "Write-DomeniaSwallowed"
+      ],
+      "AddedCoreFunctions": [
+        "Write-DomeniaSwallowed"
+      ],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
     }
