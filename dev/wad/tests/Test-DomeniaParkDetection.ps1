@@ -109,6 +109,8 @@ Case 'Point 48 : diagnostic reseau groupe, liste exacte de la selection, exclusi
   [pscustomobject]@{Type='Machine';Name='';DN='CN=SANSNOM,DC=example,DC=invalid';Guid=(New-Target 3).Guid},
   [pscustomobject]@{Type='Utilisateur';Name='alice';DN='CN=alice,DC=example,DC=invalid';Guid=(New-Target 4).Guid}
  )
+ Show-DomeniaBatchNetworkReport -Rows @()
+ Assert (($script:Calls.Count -eq 0) -and ($null -eq $script:Preview) -and ($script:Status -match 'Aucun poste')) 'Selection vide mal traitee'
  Show-DomeniaBatchNetworkReport -Rows $rows
  Assert ($script:Calls.Count -eq 0) 'Diagnostic lance avant confirmation'
  $p=$script:Preview;Assert ($null -ne $p) 'Aucun apercu transmis a la confirmation'

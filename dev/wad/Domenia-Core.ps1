@@ -14575,7 +14575,8 @@ function Copy-DomeniaSelectedObjectDns {
 function Show-DomeniaBatchNetworkReport {
     # Point 48: $Rows is the whole selection. The exact machines, the rows left out and why, and the impact are shown
     # in the page; nothing leaves before the operator confirms there.
-    param([Parameter(Mandatory=$true)]$Rows,[ValidateRange(1,200)][int]$Limit=50)
+    # An empty selection is a normal answer (status line), never a binding error in the palette handler.
+    param([Parameter(Mandatory=$true)][AllowEmptyCollection()][AllowNull()]$Rows,[ValidateRange(1,200)][int]$Limit=50)
     $items = @($Rows | Where-Object { $null -ne $_ })
     if ($items.Count -eq 0) { Set-Status "Aucun poste selectionne." "WARN"; return }
 
