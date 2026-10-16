@@ -57,7 +57,7 @@ La barre du haut cherche dans tout le domaine, tous types d'objets, sans filtre 
 - Minimum de caractères : Browser.GlobalSearchMinChars (2), étoiles non comptées. En dessous, Domenia affiche « Saisissez au moins N caractères… » (N : ce minimum) et nʼenvoie rien. Une saisie faite seulement dʼétoiles est refusée dans la barre du haut (« Saisissez au moins un caractère en plus de * ») ; dans une OU, elle liste lʼOU comme un simple parcours. Plusieurs étoiles consécutives sont fusionnées en une seule avant lʼenvoi du filtre LDAP.
 - Limite : celle du champ « lignes max » (100 par défaut), retenue d'une session à l'autre dans la préférence SearchLimit. « Charger la suite » lit seulement les lignes suivantes de la même recherche (la liste double, jusqu'à 20 000 lignes) : l'annuaire reprend après le dernier nom lu, trié par nom, et les lignes déjà chargées ne sont ni relues ni affichées deux fois. « Charger jusqu'à 1 000 » (puis 5 000, puis 20 000) porte la liste à ce palier en un seul geste.
 - Recherche globale : 120 s sans nouvel objet AD, 900 s au total ; annulation possible. Délais LDAP : 60/90 s, pages de 250 objets. Réglages et bornes au chapitre 17.
-- Recherche « contient » : après une recherche globale complète de texte simple qui renvoie 5 noms ou moins, la puce « Chercher aussi les noms qui contiennent… » relance, au clic seulement, la même recherche avec le filtre *mot* sur name, displayName, sAMAccountName et dNSHostName (chaque mot doit figurer, quatre mots au plus). Ce filtre n’utilise pas d’index : l’annuaire parcourt tous les noms du périmètre, avec la même limite.
+- Recherche « contient » : après une recherche globale complète de texte simple qui renvoie 5 noms ou moins, la puce « Chercher aussi les noms qui contiennent… » relance, au clic seulement, la même recherche avec chaque mot entouré d’étoiles sur name, displayName, sAMAccountName et dNSHostName (chaque mot doit figurer, quatre mots au plus). Ce filtre n’utilise pas d’index : l’annuaire parcourt tous les noms du périmètre, avec la même limite.
 - Recherche à la frappe : désactivée par défaut (Browser.LiveGlobalSearch et Browser.AllowLiveGlobalSearch à faux).
 - Pendant une écriture, la recherche attend : « Recherche différée : écriture active ou à vérifier. ».
 
@@ -1641,7 +1641,7 @@ Hors de l'application, le paquet DEV fournit wad\maintenance\Sauvegarder-Cache.p
 powershell -NoProfile -STA -File wad\maintenance\Sauvegarder-Cache.ps1 -DatabasePath "C:\CHEMIN\Domenia.db"
 ~~~
 
-### Sauvegarde avant les gestes qui modifient la base
+**Sauvegarde avant les gestes qui modifient la base**
 
 Quatre gestes passent d'abord par une sauvegarde vérifiée de la base, faite par le worker StorageBackup dans le dossier Backups sous le nom Geste-DATE.db. Elles suivent la même vérification que les autres sauvegardes (contrôle SQLite et empreinte SHA-256) et deviennent la dernière sauvegarde vérifiée de la base. Ces copies tournent à part : les plus récentes sont gardées, autant que « Copies à conserver » (7 par défaut), et elles ne retirent jamais les copies automatiques ou manuelles (Domenia-DATE.db) :
 

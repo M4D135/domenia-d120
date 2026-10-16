@@ -205,7 +205,8 @@ namespace Domenia.EmbeddedTests {
         foreach($fn in @('Start-DomeniaRimotteRun','Complete-DomeniaRimotteUi','Fail-DomeniaRimotteUi','Get-DomeniaRimotteWorkerCode')){
             $found=@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $fn))},$true))
             Expect ($found.Count -eq 1) ('Fonction absente : '+$fn)
-            $shown=(($found[0].Extent.Text -replace 'RimotteRun','') -replace 'DomeniaRimotte','')
+            # Retained control and operation IDs are internal contracts, not displayed captions.
+            $shown=((($found[0].Extent.Text -replace 'RimotteRun','') -replace 'DomeniaRimotte','') -replace 'BtnCompRimotte','')
             Expect (-not $shown.Contains('Rimotte')) ($fn+' affiche encore le nom Rimotte.')
         }
         Expect (([regex]::Matches((@($ast.FindAll({param($n)(($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq 'Start-DomeniaRimotteRun'))},$true))[0].Extent.Text),'-OperationId "RimotteRun"')).Count -eq 1) 'L operation epinglee RimotteRun a change de nom.'

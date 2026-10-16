@@ -130,7 +130,7 @@
     "Register-DomeniaSettingsWatchers": "506E663D0FC16605B16A89D47E83A42ACDDDD041F5A2854A7361364D009A05FF",
     "Get-DomeniaThemePreference": "50B2254E92572479E32C2020462F2A77821E81D7BA8409E55A3F0C578480C7DB",
     "Get-DomeniaWindowsAppTheme": "BD4E086286E62599C1BFD50E0216524F69008D27E3A5E09B68255E791A28FCE8",
-    "Get-DomeniaStoredTheme": "21A66518B5480E3F0D55DB42A1C94A8E2BF37B9C37F41681947563765CDE6F89",
+    "Get-DomeniaStoredTheme": "953B1172A348CE99C40D8A00CDD7ED01767858E0E62E67BF55B84CD64F418A70",
     "Get-DomeniaBootThemePalette": "04241E92BD46D0B098E9A34977E8C4E9DC9B9EE654749E7CB2BEB9CF72210102",
     "Get-DomeniaBootStatusColor": "62BC17E0C93C61821C2B77E2D58969CEE740E882F1BE6BCCB501B6E85823C2F4",
     "Get-DomeniaBootThemeResources": "A79AA5436DCB210136DC007FFD644D7A17A9BB6AB606C99A83A43C716C4174D6",
@@ -521,8 +521,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "4B8517B01D7E927A0BA20C13EA3B589AA8CDF8A794A70937FB45C7A767BAA864",
-    "Assert-DomeniaWorkerRegistry": "AFA6AC11B018C8127B8875DEAC6655367451A14343542CA27A7D3DAD40A5EA02",
+    "Get-DomeniaWorkerOperationHashes": "DEA6B18A25DEB5DF63F60BF62AD8AA3F72E90F8CF17D72A092B561ACC5C2E777",
+    "Assert-DomeniaWorkerRegistry": "664B94A0284B9C28CA84192BE761A40CC937607A310ADA81C2B8A8C65226DCF9",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -615,7 +615,7 @@
     "Update-Dashboard": "0AB2AE00D3155879C84C6D141AC7558FFB53BF319D8E89B38EC30E587B6C87D8",
     "Invoke-DomeniaStartupCacheWarmup": "43DE9BBE4C483D2C404E2EA4E6772A1F08C36F66444A6C634F4D11C1A58AC9EA",
     "Assert-DomeniaStartupReadiness": "264321BCAC10F6788485C0671A8A39C29B6FE88D825E6170F2569B7627643F4B",
-    "Initialize-Window": "1C5293EFE5D1D4D66B585CC0AC525111988D89A4B2E527469F3E800C4ECC5FB5",
+    "Initialize-Window": "50BD9411916A98CFD81AA15A9FFC9DCAD8B4B61326F1B8701B5545A0A63D8768",
     "Get-DomeniaFastLoginLogPath": "64580B336CA490D94D739FC9DB10E805F767602A881DCD07A371A6C6F852F001",
     "Write-DomeniaFastLoginLog": "C9AC669E685708E4CAD14C1EC9E52CD7288A73411ACD1F95AE9A07DD6CBBC0BC",
     "New-DomeniaFastLoginSession": "A54B3BCF7D880559A020CB587C86CC56D0E31D5FA6EBCD99BFFF27420EB2235C",
@@ -636,7 +636,7 @@
     "Get-DomeniaLoginWindowMode": "503AD112A8EDC5406CE05F867E580DCFDA4754ACB7442699D109BE100576A2D4",
     "Get-DomeniaStandardLoginXaml": "C9C137FD8522D4C6CED64659704447D693380BB4E10EC6A27E3E8C81E0BA1000",
     "Show-LoginWindow": "09F4871B56AC8FEF933FEE15E5E9DE4D2FF2B860B079DF339B7C8E0E089F2ED2",
-    "Invoke-DomeniaSelfTest": "9880C076CE419410843CCA62A93DEA4EFB1D51A227B707029FE899C772D2A674",
+    "Invoke-DomeniaSelfTest": "2E53F5C04FF4EE13236338345E085F7AB83808F4FA1999AD96DFD350C6AED899",
     "Get-DomeniaFatalMessage": "2EC37B616FCA85C2A04F50104512B55BC64FCE68458D84456F25AC5A7D37CB10",
     "Register-DomeniaSessionShownHook": "6F56D0A3253F2E2D145BA91E64B152BEAB1FE306AA91F640F06AAA8FF976180C"
   },
@@ -4650,6 +4650,45 @@
       "Source": ".",
       "Decision": "Candidat RC1.17.8 du 16 octobre : estampillage du contrat unique apres les corrections F01 et extraction 131. Version produit 1.0 conservee ; statut CandidateRequiresWindowsValidation conserve.",
       "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": "f21aab6-fix8",
+      "Decision": "Revue Codex 2026-10-16 : LocalStore compose uniquement le correctif de lecture IDictionary (Common/BoardFleet), aucune opération réseau ni autorisation modifiée ; registre et empreinte recalculés par update_worker_contracts.py. Les autres corrections Core sont examinées et couvertes par les suites Windows Main et Theme.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaStoredTheme",
+        "Get-DomeniaWorkerOperationHashes",
+        "Initialize-Window",
+        "Invoke-DomeniaSelfTest"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "f21aab6-fix8",
+      "Source": ".",
+      "Decision": "2026-10-16: revue du correctif Dictionary Common, reproduction identique dans LegacyMigration; seuls LegacyMigration et RegistryFingerprint repinnes, gardes de registre conservees.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "2026-10-16: revue Get-DomeniaMemberValue get_Value pour propager les getters illisibles aux gardes; ReadOnly ferme; Test-DomeniaDictionaryKey pour observations et sante, LocalStore et RegistryFingerprint repinnes, fixtures natives ajoutees.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []

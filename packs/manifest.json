@@ -2,37 +2,36 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.13-DOMENIA-1.0-RC1.17.6-D120",
-  "source_base_commit": "ea3a543621eb1038f8dd9354454cfcbb0d4b4d4b",
+  "build": "2026.10.16-DOMENIA-1.0-RC1.17.9-D120",
+  "source_base_commit": "f21aab6d16fa7a37db1b6ebd3a4c4c24744890e6",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 2100479,
-      "sha256": "9cc5dfc58614456cfcb328e139ee4d5e01d0b214bb31dad31f89629e20bc4517",
-      "files": 94,
-      "archive_files_including_manifest": 95,
+      "bytes": 3049259,
+      "sha256": "0a2099d795b65c060bab95363d2d5dee58c2cdc9cfac0e27aace7623514aaae2",
+      "files": 172,
+      "archive_files_including_manifest": 173,
       "archive_root": "prod/"
     },
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 4403845,
-      "sha256": "fcb09dfc3fca21c7dd626db826050d625a8ca08c77fa83b539b4943d33369481",
-      "files": 396,
-      "archive_files_including_manifest": 397,
+      "bytes": 6471575,
+      "sha256": "a12028514ea88e581f4780156e8fe71658cd730e7014b63faa2773d6a5b0f8a8",
+      "files": 633,
+      "archive_files_including_manifest": 634,
       "archive_root": "dev/"
     }
   ],
-  "runtime_files_identical": 94,
+  "runtime_files_identical": 172,
   "qualification": {
-    "status": "LOCAL_CHECKS_PASSED_WINDOWS_NOT_RUN",
-    "proof": "validation/2026-10-13/search-progress/qualification.json",
-    "windows_executed": false,
-    "delivery_decision": "User accepts delivery with local checks and will perform Windows tests.",
-    "formal_windows_qualification": "NOT_EVALUATED",
+    "status": "TARGETED_WINDOWS_CHECKS_PASSED_FULL_QUALIFICATION_OPEN",
+    "proof": "validation/2026-10-16/windows-recovery/README.md",
+    "windows_executed": true,
+    "formal_windows_qualification": "NOT_EVALUATED_ON_FINAL_ARCHIVES",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-13/search-progress/documentation-qa.json",
-    "interactive_gui": "NOT_RUN"
+    "documentation_proof": "validation/2026-10-16/windows-recovery/documentation-qa.json",
+    "interactive_gui": "NOT_QUALIFIED"
   }
 }

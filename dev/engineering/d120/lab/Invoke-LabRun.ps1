@@ -21,13 +21,16 @@ $suites=@(Get-ChildItem -LiteralPath (Join-Path $dev 'wad\tests') -Filter 'Test-
 if($Filter){$suites=@($suites|Where-Object{$_.Name -like ('*'+$Filter+'*')})}
 foreach($suite in $suites){
     $report=Join-Path $out ($suite.Name+'.json');$stdout=Join-Path $out ($suite.Name+'.stdout.txt');$stderr=Join-Path $out ($suite.Name+'.stderr.txt')
-    $header=[IO.File]::ReadAllText($suite.FullName)
-    if($header.Length -gt 4000){$header=$header.Substring(0,4000)}
-    $bindsReport=$header -match '\$ReportPath'
+    # Inspect only public script parameters: a nested fixture's switch is not a suite option.
+    $tokens=$null;$parseErrors=$null
+    $suiteAst=[Management.Automation.Language.Parser]::ParseFile($suite.FullName,[ref]$tokens,[ref]$parseErrors)
+    if($parseErrors.Count){throw ('Suite invalide : '+$suite.FullName+' : '+$parseErrors[0].Message)}
+    $parameterNames=@($suiteAst.ParamBlock.Parameters|ForEach-Object{$_.Name.VariablePath.UserPath})
+    $bindsReport=$parameterNames -contains 'ReportPath'
     $arguments=@('-NoLogo','-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',('"'+$suite.FullName+'"'))
     if($bindsReport){$arguments+=@('-ReportPath',('"'+$report+'"'))}
     if($extra.ContainsKey($suite.Name)){$arguments+=$extra[$suite.Name]}
-    elseif($header -match '\[switch\]\s*\$Quiet'){$arguments+='-Quiet'}
+    elseif($parameterNames -contains 'Quiet'){$arguments+='-Quiet'}
     $watch=[Diagnostics.Stopwatch]::StartNew();$timedOut=$false;$code=$null
     $process=Start-Process -FilePath $shell -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     # Windows PowerShell 5.1 only exposes ExitCode when the process handle was read before the exit.

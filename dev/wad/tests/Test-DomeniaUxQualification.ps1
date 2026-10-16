@@ -111,7 +111,7 @@ Check-Suite 'P115 : focus visible, ordre de tabulation naturel, arbre au clavier
     $focus -and ($tabIndex -eq 0) -and ($keys -eq 0) -and $debounce
 }
 Check-Suite 'P116 : chaque controle interactif affiche a un nom accessible (XAML ou catalogue d aide)' {
-    $help=@(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+    $help=(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
     $catalogue=@{};foreach($entry in $help){$catalogue[[string]$entry.Name]=$entry}
     $interactive=@('Button','TextBox','PasswordBox','ComboBox','CheckBox','RadioButton','DataGrid','ListBox','TreeView','Slider','ToggleButton','Expander','TabItem')
     $missing=@(foreach($item in $elements){

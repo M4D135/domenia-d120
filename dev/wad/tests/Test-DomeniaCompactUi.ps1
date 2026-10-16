@@ -18,6 +18,12 @@ foreach($name in $names){
     if($found.Count -ne 1){throw ('Helper absent : '+$name)}
     Invoke-Expression $found[0].Extent.Text
 }
+# The scope renderer delegates its optional breadcrumb to Search.UI; the fixture has no breadcrumb panel.
+$searchAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Search.UI.ps1'),[ref]$tokens,[ref]$errors)
+if(@($errors).Count){throw $errors[0].Message}
+$breadcrumb=@($searchAst.EndBlock.Statements|Where-Object{$_ -is [Management.Automation.Language.FunctionDefinitionAst] -and $_.Name -eq 'Update-DomeniaOuBreadcrumb'})
+if($breadcrumb.Count -ne 1){throw 'Helper de fil d Ariane absent ou ambigu.'}
+. ([scriptblock]::Create($breadcrumb[0].Extent.Text))
 function Assert-Ui {param([bool]$Value) if(-not $Value){throw 'Condition non verifiee'}}
 function Get-DomeniaControl {param($Name) if($script:Controls.ContainsKey($Name)){return $script:Controls[$Name]};return $null}
 function Set-DomeniaSetting {param($Name,$Value) $script:Saved[$Name]=$Value}

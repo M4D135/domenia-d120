@@ -18,7 +18,9 @@ function Get-TestCatalogueHelp {
     if($null -eq $script:TestHelpCatalogue){
         $script:TestHelpCatalogue=@{}
         $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
-        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+        # PowerShell 5.1 emits a JSON array as one pipeline object: assign it before enumeration.
+        $entries=[IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        foreach($entry in $entries){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
     }
     $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
     if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
@@ -39,12 +41,14 @@ function Get-SuiteFunctionText {param([string]$Path,[string]$Name)
     if($nodes.Count -ne 1){throw ('Definition absente : '+$Name)}
     return [string]$nodes[0].Extent.Text
 }
-function Import-SuiteFunction {param([string]$Path,[string]$Name) . ([scriptblock]::Create((Get-SuiteFunctionText $Path $Name) -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name)))}
+function Import-SuiteFunction {param([string]$Path,[string]$Name) . ([scriptblock]::Create(((Get-SuiteFunctionText $Path $Name) -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name))))}
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-Commands.Model.ps1','Domenia-Commands.UI.ps1')){. (Join-Path $modules $file)}
 Import-SuiteFunction (Join-Path $modules 'Domenia-Continuity.UI.ps1') 'Get-DomeniaGridColumnKey'
 Import-SuiteFunction (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Get-DomeniaResultPresentation'
 Import-SuiteFunction (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') 'Restore-DomeniaResultPresentation'
 Import-SuiteFunction (Join-Path $modules 'Domenia-UX.UI.ps1') 'Set-DomeniaLiveText'
+. (Join-Path $modules 'Domenia-Search.Model.ps1')
+foreach($name in @('Get-DomeniaGridSort','Set-DomeniaGridSort')){Import-SuiteFunction (Join-Path $modules 'Domenia-Search.UI.ps1') $name}
 
 # ---------------------------------------------------------------- inert doubles of the core
 function Get-DomeniaControl {param([string]$Name);if($null -eq $script:Ctrl){return $null};return $script:Ctrl[$Name]}
@@ -93,7 +97,7 @@ Check-Suite 'P116 : la palette annonce ses changements (etat, detail, motif d un
 }
 Check-Suite 'P117/P116 : vue de la palette : noms accessibles, info-bulle egale au texte d aide et au catalogue' {
     [xml]$view=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-CommandPalette.xaml'),[Text.Encoding]::UTF8)
-    $help=@(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+    $help=(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
     $byName=@{};foreach($entry in $help){$byName[[string]$entry.Name]=$entry}
     $x='http://schemas.microsoft.com/winfx/2006/xaml'
     foreach($name in @('BtnPaletteClose','TxtPaletteSearch','LstPaletteCommands','LblPaletteDetail','LblPaletteStatus')){

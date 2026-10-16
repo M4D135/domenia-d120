@@ -42,7 +42,7 @@ function Get-DomeniaHealthThresholdCatalog {
 function Get-DomeniaHealthValue {
     param($Object,[string]$Name,$Default=$null,[switch]$NoEnumerate)
     if($null -eq $Object){return $Default}
-    if($Object -is [Collections.IDictionary]){if($Object.Contains($Name)){if($NoEnumerate){return ,$Object[$Name]};return $Object[$Name]};return $Default}
+    if($Object -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $Object $Name)){if($NoEnumerate){return ,$Object[$Name]};return $Object[$Name]};return $Default}
     $p=$Object.PSObject.Properties[$Name];if($null -ne $p){if($NoEnumerate){return ,$p.Value};return $p.Value};return $Default
 }
 function ConvertTo-DomeniaHealthPolicy {
@@ -218,7 +218,7 @@ function Get-DomeniaComputerRuleEvidence {
     $key=if($RuleId.StartsWith('custom.',[StringComparison]::Ordinal)){[string]$measures[$Measure]}else{[string]$keys[$RuleId]}
     if(-not $key){return 'NotApplicable'}
     $entries=Get-DomeniaHealthValue $Data 'Entries'
-    $entry=$null;if(($entries -is [Collections.IDictionary]) -and $entries.Contains($key)){$entry=$entries[$key]}
+    $entry=$null;if(($entries -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $entries $key)){$entry=$entries[$key]}
     if(($null -eq $entry) -or ([string](Get-DomeniaHealthValue $entry 'State' '') -eq 'Off')){return 'NotMeasured'}
     # The system tile exists without an end date when the lifecycle table has no line for this build.
     if(($RuleId -in @('eos.ended','eos.soon')) -and ([string]$entry.State -notin @('Alert','Warn')) -and ([string](Get-DomeniaHealthValue $entry 'Detail' '') -notmatch '(?i)fin de service')){return 'NotMeasured'}
@@ -278,8 +278,8 @@ function Get-DomeniaHealthExplanation {
         $eligibleCount=$null
         if($fleet){
             $counts=Get-DomeniaHealthValue $eligibility 'Counts'
-            if($catalog.ContainsKey($id)){if(($counts -is [Collections.IDictionary]) -and $counts.Contains($id)){$eligibleCount=[int]$counts[$id]}}
-            elseif($measureOf.ContainsKey($id)){$measureCounts=Get-DomeniaHealthValue $eligibility 'Measures';if(($measureCounts -is [Collections.IDictionary]) -and $measureCounts.Contains($measureOf[$id])){$eligibleCount=[int]$measureCounts[$measureOf[$id]]}}
+            if($catalog.ContainsKey($id)){if(($counts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $counts $id)){$eligibleCount=[int]$counts[$id]}}
+            elseif($measureOf.ContainsKey($id)){$measureCounts=Get-DomeniaHealthValue $eligibility 'Measures';if(($measureCounts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $measureCounts $measureOf[$id])){$eligibleCount=[int]$measureCounts[$measureOf[$id]]}}
             $eligibleText=if(-not ($catalog.ContainsKey($id) -or $measureOf.ContainsKey($id))){'Diagnostic de la vue'}elseif($null -eq $eligibility){'Non calculé'}elseif($null -ne $eligibleCount){[string]$eligibleCount+' / '+$eligibleTotal}else{'Non mesuré sur le parc'}
         }else{
             $evidence=if($catalog.ContainsKey($id) -or $measureOf.ContainsKey($id)){Get-DomeniaComputerRuleEvidence -Data $Data -RuleId $id -Measure ([string]$measureOf[$id])}else{''}

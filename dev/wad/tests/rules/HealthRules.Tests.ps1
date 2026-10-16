@@ -220,3 +220,15 @@ Test-Case -Id 'HR-009' -Name 'Point 77 : la purge des suspensions terminees ne c
     Assert-True ($null -eq (Get-DomeniaHealthSuspension (Resolve-DomeniaHealthPolicy $book $ou) 'stale' -NowUtc $script:HrNow)) 'Le controle compte de nouveau dans l OU'
     Assert-True ($null -ne (Get-DomeniaHealthSuspension (Resolve-DomeniaHealthPolicy $book '') 'stale' -NowUtc $script:HrNow)) 'Le domaine garde sa suspension'
 }
+
+Test-Case -Id 'HR-DICT' -Name 'Les observations SQLite en dictionnaire generique gardent leurs valeurs et tableaux' -Body {
+    $values=New-Object 'System.Collections.Generic.Dictionary[string,object]'
+    $values['Count']=0
+    $values['Inventory']=[pscustomobject]@{Build='26100'}
+    $items=[object[]]@(1,2,3);$values['Items']=$items
+    Assert-Equal 0 (Get-DomeniaHealthValue $values 'Count' 99)
+    Assert-Equal '26100' (Get-DomeniaHealthValue $values 'Inventory').Build
+    Assert-Equal 'absent' (Get-DomeniaHealthValue $values 'Missing' 'absent')
+    $actual=Get-DomeniaHealthValue $values 'Items' -NoEnumerate
+    Assert-True ([object]::ReferenceEquals($items,$actual)) 'Le tableau doit rester le meme objet'
+}

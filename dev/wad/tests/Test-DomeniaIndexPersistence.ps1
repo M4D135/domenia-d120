@@ -23,8 +23,11 @@ function Import-CoreFunction {
 }
 $script:checks=0
 function Expect {param([bool]$Good,[string]$Name);$script:checks++;if(-not $Good){throw $Name}}
+Import-CoreFunction Get-DomeniaSqliteSchemaText
 Import-CoreFunction Initialize-DomeniaWinSqliteNative -Native
 [void](Initialize-DomeniaWinSqliteNative)
+. (Join-Path $wad 'modules/Domenia-Common.Model.ps1');. (Join-Path $wad 'modules/Domenia-Probes.Model.ps1')
+. (Join-Path $wad 'modules/Domenia-QueryLibrary.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Storage.Worker.ps1')
 $worker=Get-DomeniaStorageWorkerCode
 $workerAst=[Management.Automation.Language.Parser]::ParseInput($worker,[ref]$tokens,[ref]$errors)
@@ -39,9 +42,9 @@ function Write-Batch {param([object[]]$Rows,[string]$At,[string]$Scope='director
     Expect ([bool]$answer.Saved) 'commit receipt'
 }
 try{
-    $schema=@($core.FindAll({param($node)$node -is [Management.Automation.Language.StringConstantExpressionAst] -or $node -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
-    if($schema.Count -ne 1){throw ('Schema literal count '+$schema.Count)}
-    $db=Open-DomeniaDatabase -Path $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    # Invoke the production generator: AST.Value does not expand its shared schema call.
+    $schema=Get-DomeniaSqliteSchemaText
+    $db=Open-DomeniaDatabase -Path $path;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
     Write-Batch @((New-IndexRow 'g1' 'PC-1'),(New-IndexRow 'g2' 'PC-2')) '2026-10-01T00:00:00Z' -Replace $true
     Write-Batch @((New-IndexRow 'g3' 'PC-3')) '2026-10-02T00:00:00Z' -Scope 'ou:ou=a,dc=test' -Usn 30
     $sync=Read-TestDb "SELECT * FROM sync_state WHERE scope='directory';"
@@ -189,7 +192,7 @@ try{
     $script:VisitCache.a.Expires=(Get-Date).AddSeconds(-1);Expect ($null -eq (Get-VisitCacheValue a)) 'expired value never returned'
     # Reconciliation uses the real SQLite worker in a separate disposable database.
     $originalPath=$path;$path=Join-Path $folder 'reconcile.sqlite'
-    $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
     function New-ReconcileRow {
         param([int]$Number,[string]$Dn,[string]$State='Actif')
         $r=New-IndexRow ('00000000-0000-0000-0000-'+$Number.ToString('000000000000')) ('PC-'+$Number)
@@ -352,7 +355,7 @@ try{
         [IO.File]::Delete($spoolFile);[IO.Directory]::Delete($spool)
         # Points 22, 23, 24 and 30: absences, census gap, verification results and snapshots with the real workers.
         $reconcilePath=$path;$path=Join-Path $folder 'directory-sync.sqlite'
-        $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+        $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
         try{
             $kept=New-ReconcileRow 31 'CN=PC-31,OU=A,DC=test';$lost=New-ReconcileRow 32 'CN=PC-32,OU=A,DC=test';$away=New-ReconcileRow 33 'CN=PC-33,OU=A,DC=test'
             Write-Batch @($kept,$lost,$away) '2026-10-01T00:00:00Z' -Replace $true
@@ -493,7 +496,7 @@ try{
         # Point 30: a domain-wide snapshot of 50 000 objects runs in its own storage batch, copied by SQLite and hashed in
         # one streamed read. Its time is measured; escaped commas never fake an RDN boundary.
         $benchPath=Join-Path $folder 'snapshot-bench.sqlite'
-        $db=Open-DomeniaDatabase $benchPath;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+        $db=Open-DomeniaDatabase $benchPath;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
         try{
             $columns='object_key,object_guid,object_type,name,login,upn,display_name,description,extra,state,distinguished_name,when_changed,usn_changed,last_logon,search_key,source_dc,synced_at'
             $generated="WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<50000) SELECT printf('50000000-0000-4000-8000-%012d',i),printf('50000000-0000-4000-8000-%012d',i),'Machine','PC-'||i,'PC-'||i||'$','pc-'||i||'.test','','Poste '||i,'Windows 11','Actif','CN=PC-'||i||',OU=Site-'||(i%50)||',OU=Bench,DC=test','',i,'','pc-'||i,'dc.test','2026-10-01T00:00:00Z' FROM n;"
@@ -591,7 +594,7 @@ try{
     # PF-07 (lot X06): the prepared statements write exactly the values of the former text SQL (quotes, Unicode, empty
     # text, 64-bit numbers), keep the search key formula, and the reconciliation keeps a row made newer than the read.
     $parityPath=Join-Path $folder 'parity.sqlite'
-    $db=Open-DomeniaDatabase -Path $parityPath;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db)}finally{Close-DomeniaDatabase $db}
+    $db=Open-DomeniaDatabase -Path $parityPath;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
     function Read-ParityDb {param([string]$Sql);$db=Open-DomeniaDatabase -Path $parityPath;try{return @(Invoke-DomeniaDbQuery $Sql $db)}finally{Close-DomeniaDatabase $db}}
     function Write-ParityItem {param($Item);$Payload=[pscustomobject]@{Path=$parityPath;Items=@($Item)};return & ([scriptblock]::Create($worker))}
     try{

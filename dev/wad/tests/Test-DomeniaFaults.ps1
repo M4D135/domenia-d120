@@ -73,15 +73,13 @@ try {
     # Pinned bodies located through the reviewed DEV contract, never by position guess.
     $contractsJson=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
     $script:Contracts=@($contractsJson)
+    # Use the complete reviewed build recipe, including composed worker preludes.
+    . (Join-Path $root 'tools\Production.Source.ps1')
+    $script:BuildWorkerCache=@{}
     function Get-PinnedBody {param([string]$Operation)
-        # Same literal indexing as tools/update_worker_contracts.py: every here-string of the function, in order.
         $c=@($script:Contracts|Where-Object{$_.Operation -eq $Operation})
         if($c.Count -ne 1){throw ('Contrat absent : '+$Operation)}
-        $fileAst=Read-SourceAst (Join-Path $root ([string]$c[0].File))
-        $fn=Get-FunctionAst $fileAst ([string]$c[0].Function)
-        $here=@($fn.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]) -and $n.Extent.Text.StartsWith('@')},$true)|Sort-Object {$_.Extent.StartOffset})
-        $raw=$here[[int]$c[0].LiteralIndex].Extent.Text -replace "`r`n","`n"
-        $body=$raw.Substring(3,$raw.Length-6)
+        $body=Get-DomeniaBuildWorkerBody $wad $c[0] $script:BuildWorkerCache
         [void](Assert-DomeniaWorkerOperationCode -OperationId $Operation -Code $body)
         return $body
     }
@@ -590,7 +588,7 @@ try {
             Assert-True (@($lines|Where-Object{($_ -split "`t")[1] -eq 'DEBUG'}).Count -eq 2) ('Niveau : '+($lines -join ' | '))
             Assert-True ($lines[1].EndsWith('(+1 occurrence(s) depuis la ligne précédente)',[StringComparison]::Ordinal)) ('Regroupement : '+$lines[1])
             Assert-True (@($lines|Where-Object{$_.Contains('Valeur-Affichee-0101') -or $_.Contains('MARQUEUR-SECRET-0102')}).Count -eq 0) 'Secret dans Domenia.log.'
-            Assert-True (@($script:UiLogReadableItems).Count -eq 0) 'Ligne technique dans le journal lisible.'
+            Assert-True (($null -eq $script:UiLogReadableItems) -or ($script:UiLogReadableItems.Count -eq 0)) 'Ligne technique dans le journal lisible.'
             # Journal in failure that traces its own failure: nothing is thrown, the inner trace is a reentry.
             function Write-AppLog {param([string]$Text,[string]$Level,[string]$Area) Write-DomeniaSwallowed 'Journal' 'Write-AppLog' ([InvalidOperationException]::new('token=MARQUEUR-SECRET-0103'));throw 'journal indisponible'}
             $out=@(Write-DomeniaSwallowed 'Stockage' 'Save' ([InvalidOperationException]::new('disque plein')) -Now $t0)

@@ -1,0 +1,270 @@
+{
+    "Build":  "2026.09.30-1.0 RC1-PROGRESSIVE",
+    "Environment":  "Windows PowerShell/WPF, local-only",
+    "Executed":  "2026-10-16T09:02:01.6791770+02:00",
+    "Passed":  52,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Analyse native de tous les scripts du paquet",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Chargement WPF de la vraie fenêtre",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Navigation latérale et ancienne liste de fonctions présentes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Partie nommée du TextBox conservée",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Partie popup de la liste déroulante conservée",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Profil Essentiel | Expert au pied du menu, plus dans l en-tête",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Aide statique et accessible sur les contrôles catalogués",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Le titre ne collisionne pas avec la variable du contrôle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "La saisie et le mot de passe révélé ne remontent pas dans l aide",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Enregistrement de l aide idempotent",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sans objet, Fiche et Poste restent ouvertes avec leur page vide",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ancien raccourci Annuaire redirige vers Recherche",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche accessible depuis le bandeau",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Arbre et resultats dans la meme page, colonnes distinctes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "OU Marseille filtre deux objets fictifs",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Enfants directs exclut la sous-OU fictive",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Retour explicite a la racine de l arbre conserve le texte de recherche",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Route inconnue rejetée",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mode Essentiel masque WMI même après ouverture de machine",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mode Expert rétablit WMI pour une machine",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Mode Expert ne montre pas WMI sur un utilisateur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Assistance poste : cinq vues, en-tête du poste visible au-dessus de chacune",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Intervenir : quatre cartes, Redémarrer à part, un seul bouton de compte selon son état",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Un onglet technique masqué ne reste pas sélectionné",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Choisir le profil Expert ne désactive pas la lecture seule",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Réduire le journal conserve son contenu",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Thèmes clair et sombre changent les ressources effectives",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Zone de travail fixe : contrôles mesurés à 1600 px dans la fenêtre réelle",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Panneau latéral en grande largeur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Petite largeur sans colonne d aide imposée",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Aide en superposition accessible en petite largeur",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Noms de parties autorisés dans deux modèles distincts",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Vrai doublon de nom de contrôle rejeté",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Sous 1280 de large, le menu se replie sans changer la préférence",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rail icones : largeur et libelles replies",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Rail icones : centrage du pictogramme",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Repli conserve la destination et les droits",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Choix du rail enregistre",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Repli de l aide libere aussi la gouttiere",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Redimensionner ne reouvre pas une aide fermee",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bouton du bandeau rouvre l aide",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "OU lisible sans DN coupe dans une hauteur fixe",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Deplier le DN ne lance aucune recherche",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre local respecte le verrouillage de la grille",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Contrat partage importe avant affichage",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Filtre local reduit la grille sans changer le perimetre",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Export suit les lignes visibles seulement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Operation de mutation jamais annulable dans le suivi",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Densite compacte ne change pas le jeu de donnees",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Journal reduit masque ses outils sans effacer le texte",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Recherche journal suspend seulement le defilement",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Activite vide ne fabrique pas de reussite",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ],
+    "NoADAccess":  true
+}

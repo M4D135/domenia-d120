@@ -1,0 +1,81 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  10,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "P-CD-09"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Erreur ignoree : entree masquee et bornee, ligne due rendue, aucune exception",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Ligne due : une par categorie et operation et par minute, la regle n appelle jamais le journal",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Repetition echantillonnee : ni masquage ni message, categorie et operation de la ligne due",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Anneau borne a 200 entrees, les plus anciennes sortent en premier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Masquage : regle fournie d abord, repli sur Protect-DomeniaSecretText, message abandonne sans regle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Reentree : la trace emise pendant une trace ne garde que categorie, operation et type",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Regle pure : trace du coeur quand elle est chargee, jamais d exception",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Regle pure hors du coeur : anneau seul dans un worker, garde sans Common.Model",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Interrupteur de lecture seule : choix de l operateur, repli connu, lecture impossible = lecture seule",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Objet selectionne : DN illisible bloque, protection illisible = objet protege, membre absent sans effet",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

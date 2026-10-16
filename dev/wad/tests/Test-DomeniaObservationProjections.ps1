@@ -10,7 +10,8 @@ $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules';$dev=Split-Path 
 . (Join-Path $modules 'Domenia-Storage.Worker.ps1')
 . (Join-Path $modules 'Domenia-Engine.Worker.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
-if($null -eq ('Domenia.Native.ObservationReader' -as [type])){Add-Type -Path (Join-Path $dev 'native/ObservationReader.cs')}
+. (Join-Path $modules 'Domenia-QueryLibrary.Model.ps1')
+if($null -eq ('Domenia.Native.ObservationReader' -as [type])){Add-Type -Path (Join-Path $dev 'native/ObservationReader.cs') -ReferencedAssemblies @('System.dll','System.Core.dll','System.Xml.dll','System.Runtime.Serialization.dll')}
 $tokens=$null;$errors=$null;$code=Get-DomeniaLocalIndexReadWorkerCode
 $ast=[Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors|Out-String)}

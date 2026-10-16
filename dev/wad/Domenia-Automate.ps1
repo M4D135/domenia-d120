@@ -179,9 +179,9 @@ if($request.Command -eq 'version'){
         if($tables -contains 'domenia_store_state'){$store=@(Get-DomeniaAutomationRows (Get-DomeniaAutomationQuery -Kind StoreState))|Select-Object -First 1}
         $source=[pscustomobject]@{Base=$databaseFile;Magasin=$(if($null -ne $store){[string]$store.store_id}else{''});Domaine=$(if($null -ne $store){[string]$store.domain_dn}else{''});Revision=$(if($null -ne $store){[long]$store.revision}else{$null});LectureSeule=$true}
         if($request.Command -eq 'dossier'){
-            $sections=[ordered]@{}
-            foreach($name in @($request.Sections)){$sections[$name]=Get-DomeniaAutomationSection -Name $name -Request $request -Source $source -Tables $tables}
-            try{$dossier=New-DomeniaOfflineDossier -Sections $sections -Request $request -Source $source -Build $Build}catch{Stop-DomeniaAutomation 4 $_.Exception.Message $request.Command}
+            $dossierSections=[ordered]@{}
+            foreach($name in @($request.Sections)){$dossierSections[$name]=Get-DomeniaAutomationSection -Name $name -Request $request -Source $source -Tables $tables}
+            try{$dossier=New-DomeniaOfflineDossier -Sections $dossierSections -Request $request -Source $source -Build $Build}catch{Stop-DomeniaAutomation 4 $_.Exception.Message $request.Command}
         }else{
             $envelope=Get-DomeniaAutomationSection -Name $request.Command -Request $request -Source $source -Tables $tables
         }

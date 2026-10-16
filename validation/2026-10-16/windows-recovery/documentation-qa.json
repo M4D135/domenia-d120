@@ -1,0 +1,235 @@
+{
+  "schema": 1,
+  "product": "Domenia",
+  "version": "1.0",
+  "internalBuild": "RC1.17.9",
+  "scope": "Documentation only; no Windows or AD qualification",
+  "generatedUtc": "2026-10-16T08:12:57.283486+00:00",
+  "status": "PASS",
+  "rendering": {
+    "docxGenerator": "guides/build_guide.js --no-pdf, bundled Node.js",
+    "pdfConverter": "Canonical documents render_docx.py with bundled Python and LibreOffice",
+    "visualInspection": "All 110 pages inspected on contact sheets; full-size checks of cover, screenshot-heavy and dense backup pages. All pages passed text-boundary and empty-page checks.",
+    "pages": {
+      "technicien": 30,
+      "administrateur": 80
+    }
+  },
+  "sourceScreenshots": {
+    "captureRuntimeBuild": "RC1.17.3",
+    "newCapturesForCurrentBuild": false,
+    "retentionPolicy": "Existing 28 native >=1080p illustrations retained with matching SHA-256; fresh capture attempt is reported separately. No interactive journey qualification.",
+    "removedFigureIds": [
+      "recherche",
+      "accueil",
+      "base-details",
+      "base-progression"
+    ],
+    "provenance": "validation/2026-10-13/query-navigation/r5/capture-provenance.json",
+    "provenanceSha256": "1705e4f1b675c6b547ce2443777249c8065beedcbf37ab08b3288896eff3f4d1",
+    "checks": {
+      "path": "validation/2026-10-13/query-navigation/r5/capture-checks.json",
+      "sha256": "9fef71978669c6ac97da103d76dc95154be43b91fe771f65c63f1dfb9b35549b",
+      "passed": 37
+    },
+    "sourceManifestSha256": "ceb9cbe8740930b21528937d4915148c3735c17ecab0b3862d909900206ab063",
+    "rendering": "Native WPF RenderTargetBitmap; off-screen host, no image upscaling",
+    "fixture": "example.local, synthetic directory and observations, no AD access",
+    "toolTipsEnabled": false,
+    "deliveredNativeImages": 28,
+    "minimumWidth": 1920,
+    "minimumHeight": 1080,
+    "images": [
+      {
+        "file": "guides/images/selecteur-ou.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "09036f1255bb65eaf3bba09097f699a5a00601352b69097348dffd04401fa599"
+      },
+      {
+        "file": "guides/images/atelier-requetes.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "005075eae8340a42b2be6ce567a88906f54f630436e1d338849dc48df1d13b34"
+      },
+      {
+        "file": "guides/images/atelier-catalogue.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "e658011036062aadfa6258691f1f2d4b4f2c21a641a965ff69511b4bf384c5e8"
+      },
+      {
+        "file": "guides/images/atelier-modeles.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "fa1c4299c22ea562f93c405f771c7cb468f7dc807b6c5ba4049e9763931564a3"
+      },
+      {
+        "file": "guides/images/alerte-selection.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "e1c35814c7c3d7048c3c675054b331cb283edbe7a8f1500b20183ca3b9ed4062"
+      },
+      {
+        "file": "guides/images/atelier-condition.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "d854e1c672963ec34f18a1e25a9dfb5ecfb4547c0b958236ae4f1e05076b41a7"
+      },
+      {
+        "file": "guides/images/atelier-collecte.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "ecac2b6c77b1c629ad45b6d5ea7e5c13d573747fa7abade0083b93aa03367baa"
+      },
+      {
+        "file": "guides/images/atelier-fiche-locale.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "14919288e57044134fe85199db3618824860d0c0c6c8b3db70d5b71beb840307"
+      },
+      {
+        "file": "guides/images/atelier-bibliotheque.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3346e1abc7cc5e096e0116d0e99cde299da6aa56569e60071a366cb7f08147d9"
+      },
+      {
+        "file": "guides/images/accueil-sonde-requete.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "39f698cdd2b4fb888d0df72c59d8ffb71910df7519bde92061e361aa54dfec4b"
+      },
+      {
+        "file": "guides/images/recherche-requete.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "1cb179e88e04fd47058a7a18d26786a32224290d9a8df3ba3385b44fb5ba284e"
+      },
+      {
+        "file": "guides/images/recherche-requetes.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "1c6d46cd61701d935cef29c608b5e32559d227555244e248c666dc679f8a7cf1"
+      },
+      {
+        "file": "guides/images/recherche-inconnus.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3f7951fc6b0f5a3c5d0eb114bc24ad30fd626e8c2270e868daa67696331825df"
+      },
+      {
+        "file": "guides/images/atelier-desactives.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "4d5a9fb85498810c45aa0da22d4c5d9761d15d8b257b0682efafba2c81ee05c4"
+      },
+      {
+        "file": "guides/images/recherche-actions.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "83b4c0fccc00728cc2bd1e949d9485c64b0587a688725c3709dc3e31766ba6a7"
+      },
+      {
+        "file": "guides/images/fiche-poste.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "3615429c1cd4d0b7c4766c24615281ed02ed8c596408a373d1cb4420e1f00f37"
+      },
+      {
+        "file": "guides/images/actions-poste.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "a6f3413b8eda5041482ac5eff50150addeb10a82cead021c9227afe19c141406"
+      },
+      {
+        "file": "guides/images/tableau-poste.png",
+        "width": 1920,
+        "height": 1840,
+        "sha256": "39e95f7b492f494848b4ab999a4c6c7ed8d39bb4162d2fca419883fdb3085df8"
+      },
+      {
+        "file": "guides/images/personnaliser.png",
+        "width": 1920,
+        "height": 1100,
+        "sha256": "f14b9e8ff038034c0ab21b0c3d8177547f586b13dc681959935b862f701e8884"
+      },
+      {
+        "file": "guides/images/atelier-poste.png",
+        "width": 1920,
+        "height": 1240,
+        "sha256": "60c8f604303136d43b7ec9fe50e1f72d61350ff6cb6d15e4e24281a661add7c6"
+      },
+      {
+        "file": "guides/images/poste-sonde-requete.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "8667169e03e2a301aee99465d2e04eff69433b3d897813422285f1c6a8e4be5d"
+      },
+      {
+        "file": "guides/images/editeur-widget.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "289f51ffacae9f08ea8e1765a7a9ee875962723ecdbda2cd98e177bc1bef9ac2"
+      },
+      {
+        "file": "guides/images/logiciels.png",
+        "width": 1920,
+        "height": 1560,
+        "sha256": "47e76eb33892dbcfe28341ad30a8ca3a556d5523030acf9231593c33786bd37a"
+      },
+      {
+        "file": "guides/images/base-autonome.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "0cb032bafa4ab4917ffabf639857b5e74ed8ce02015864901b556583c4a8840a"
+      },
+      {
+        "file": "guides/images/base-mise-a-jour.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "bbf5dcabe47366e0a4f0b4fb10707d3689946416f0ff346b277acb4f58c8de1e"
+      },
+      {
+        "file": "guides/images/base-stockage.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "10ba2ec6e3c54d927a645c8fa587dca7f7272162375fc46092a64ed36bf28110"
+      },
+      {
+        "file": "guides/images/etat-moteur.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "9746505bb3fc918f457ace0709584f504130e7cf00c893a54c22a36293c0ecb0"
+      },
+      {
+        "file": "guides/images/connexion.png",
+        "width": 1920,
+        "height": 1080,
+        "sha256": "9c573914c9d8b985679cd286cdc8ca7321878c012390dcb63fd3aecbfd8c5d45"
+      }
+    ]
+  },
+  "outputs": [
+    {
+      "path": "DOC/Domenia-1.0-Guide-technicien.docx",
+      "bytes": 4875912,
+      "sha256": "4725256d021c1909ffc11bf1e4b82b846c2ef82551d68da5f3df88387189d617"
+    },
+    {
+      "path": "DOC/Domenia-1.0-Guide-technicien.pdf",
+      "bytes": 4758157,
+      "sha256": "67d55ab6975ed366240334950b3b9dbbed1bfb76e903debfd944beff62b1e2fb"
+    },
+    {
+      "path": "DOC/Domenia-1.0-Guide-administrateur.docx",
+      "bytes": 4951418,
+      "sha256": "9f65c45826f6e99b6828e3aaf8d532213ef7277b1887e3ff7ab458c911f1fca9"
+    },
+    {
+      "path": "DOC/Domenia-1.0-Guide-administrateur.pdf",
+      "bytes": 5808445,
+      "sha256": "133f560e1ffdf3cb5f7221274182b2b61d2364d91cb9f6a4922413bb649433cd"
+    }
+  ]
+}

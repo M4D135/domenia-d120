@@ -44,7 +44,7 @@ function Get-CoreFunctionAst {
 if ($null -eq ('Domenia.SelectionIdentity' -as [type])) { Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs') -ErrorAction Stop }
 foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Search.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Access.Model.ps1','Domenia-Safety.Model.ps1',
     'Domenia-Experience.Model.ps1','Domenia-Demo.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Engine.Worker.ps1','Domenia-Demo.Worker.ps1',
-    'Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1','Domenia-Release.Model.ps1','Domenia-Cache.Model.ps1')) {
+    'Domenia-Isolation.Worker.ps1','Domenia-Receipts.Worker.ps1','Domenia-Release.Model.ps1','Domenia-Cache.Model.ps1','Domenia-DirectoryStore.Model.ps1')) {
     . (Join-Path $modules $file)
 }
 foreach ($name in @('Start-UiTask','Complete-UiTasks','Request-UiTaskStop','Stop-LatestUiTask','Detach-DomeniaReadUiTask','Complete-DomeniaDetachedReadJobs',

@@ -19,7 +19,10 @@ function Import-Core {param([string]$Name,[switch]$Native)
  }
  . ([scriptblock]::Create(($text -replace ('^function '+[regex]::Escape($Name)),('function script:'+$Name))))
 }
+Import-Core Get-DomeniaSqliteSchemaText
 Import-Core Initialize-DomeniaWinSqliteNative -Native;[void](Initialize-DomeniaWinSqliteNative)
+. (Join-Path $modules 'Domenia-Common.Model.ps1');. (Join-Path $modules 'Domenia-Probes.Model.ps1')
+. (Join-Path $modules 'Domenia-QueryLibrary.Model.ps1')
 . (Join-Path $modules 'Domenia-Storage.Worker.ps1');. (Join-Path $modules 'Domenia-Engine.Worker.ps1')
 $storageAst=[Management.Automation.Language.Parser]::ParseInput((Get-DomeniaStorageWorkerCode),[ref]$tokens,[ref]$errors)
 foreach($f in $storageAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){. ([scriptblock]::Create($f.Extent.Text))}
@@ -52,7 +55,8 @@ $fixture=@(
  @('disabled','CN=Disabled,OU=A,DC=test','OU=A,DC=test','A','A')
 )
 try{
- $schema=@($core.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]) -and $n.Value -match '^PRAGMA journal_mode=WAL;' -and $n.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'},$true))[0].Value
+ # Invoke the production schema generator, including its shared schema call.
+ $schema=Get-DomeniaSqliteSchemaText
  $db=Open-DomeniaDatabase $path
  try{
   [void](Invoke-DomeniaDbExec $schema $db);$sql=[Text.StringBuilder]::new();[void]$sql.Append('BEGIN;');$i=0

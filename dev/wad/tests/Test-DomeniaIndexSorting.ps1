@@ -19,7 +19,10 @@ function Import-Core {param([string]$Name,[switch]$Native)
  }
  . ([scriptblock]::Create(($text -replace ('^function '+[regex]::Escape($Name)),('function script:'+$Name))))
 }
+Import-Core Get-DomeniaSqliteSchemaText
 Import-Core Initialize-DomeniaWinSqliteNative -Native;[void](Initialize-DomeniaWinSqliteNative)
+. (Join-Path $modules 'Domenia-Common.Model.ps1');. (Join-Path $modules 'Domenia-Probes.Model.ps1')
+. (Join-Path $modules 'Domenia-QueryLibrary.Model.ps1')
 . (Join-Path $modules 'Domenia-Storage.Worker.ps1');. (Join-Path $modules 'Domenia-Engine.Worker.ps1')
 $storageAst=[Management.Automation.Language.Parser]::ParseInput((Get-DomeniaStorageWorkerCode),[ref]$tokens,[ref]$errors)
 foreach($f in $storageAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){. ([scriptblock]::Create($f.Extent.Text))}
@@ -27,7 +30,8 @@ $worker=Get-DomeniaLocalIndexReadWorkerCode
 $folder=Join-Path ([Environment]::GetFolderPath('UserProfile')) ('.domenia-sort-test-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder)
 $path=Join-Path $folder 'sort.sqlite'
 try{
- $schema=@($core.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]) -and $n.Value -match '^PRAGMA journal_mode=WAL;' -and $n.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'},$true))[0].Value
+ # Invoke the production schema generator, including its shared schema call.
+ $schema=Get-DomeniaSqliteSchemaText
  $db=Open-DomeniaDatabase $path
  try{
   [void](Invoke-DomeniaDbExec $schema $db);$sql=[Text.StringBuilder]::new();[void]$sql.Append('BEGIN;')
@@ -115,7 +119,7 @@ try{
  $script:IndexProgressTimer=$null;$progress=New-DomeniaIndexProgressChannel;$progress.Phase='Recensement GUID';$progress.Count=42
  & $script:IndexProgressTimer.Tick
  Expect ($script:ProgressMode -eq 'Busy' -and $script:ProgressText -like '*42 GUID*') 'real timer displays census phase without a fabricated total'
- $source=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'))
+ $source=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml'))
  $start=$source.IndexOf('<DataGrid x:Name="DgIndex"');$end=$source.IndexOf('</DataGrid>',$start);$gridSource=$source.Substring($start,$end-$start)
  Expect ($gridSource -match 'CanUserSortColumns="True"' -and $gridSource -match 'Binding="\{Binding Association\}" CanUserSort="False"') 'real grid enables global sorting except computed association'
  # The compact Base grid uses a single-line 28px cell; assert its own attributes, not another column.

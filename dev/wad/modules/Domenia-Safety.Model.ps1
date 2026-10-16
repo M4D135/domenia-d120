@@ -1504,7 +1504,7 @@ function Get-DomeniaReadOnlyState {
         $control = $null
         if (($Controls -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $Controls 'ChkReadOnlyMode')) { $control = $Controls['ChkReadOnlyMode'] }
         if ($null -eq $control) { return [pscustomobject]@{ReadOnly=[bool]$Fallback;Unreadable=$false;Error=$null} }
-        $checked = $control.IsChecked
+        $checked = Get-DomeniaMemberValue $control 'IsChecked' $null
         return [pscustomobject]@{ReadOnly=(($null -eq $checked) -or [bool]$checked);Unreadable=$false;Error=$null}
     }
     catch { return [pscustomobject]@{ReadOnly=$true;Unreadable=$true;Error=$_} }

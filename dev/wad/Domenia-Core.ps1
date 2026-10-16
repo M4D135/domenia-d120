@@ -3842,10 +3842,10 @@ function Get-DomeniaStoredTheme {
     # Light when Windows says nothing (Test-DomeniaTheme compares both).
     if ($Preference) { return (Get-DomeniaThemePreference) }
     if ($script:BootTheme -in @("Light","Dark")) { return [string]$script:BootTheme }
-    $preference = Get-DomeniaThemePreference
+    $storedPreference = Get-DomeniaThemePreference
     $theme = "Light"
-    if ($preference -eq "Dark") { $theme = "Dark" }
-    elseif (($preference -eq "Auto") -and ((Get-DomeniaWindowsAppTheme) -eq "Dark")) { $theme = "Dark" }
+    if ($storedPreference -eq "Dark") { $theme = "Dark" }
+    elseif (($storedPreference -eq "Auto") -and ((Get-DomeniaWindowsAppTheme) -eq "Dark")) { $theme = "Dark" }
     $script:BootTheme = $theme
     return [string]$script:BootTheme
 }
@@ -19000,7 +19000,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.8-D120"
+$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.9-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20238,7 +20238,7 @@ function Get-DomeniaWorkerOperationHashes {
         StorageBackup         = "83ECFC725301BEDECC8C64D6C0C9F9B7875D092DA463E4CBA4ADB55A8BD84732"
         ComputerAdminShare    = "43EB4F830D0B312D6AD7EC8B49876F92E0B62A693AF27BFCD111BD6BC983A5F2"
         StorageUsage          = "4C1DE3C70A0A4E973D6D39785BFB44C281D388AD62A305F4C99B8490F4C2811B"
-        LegacyMigration       = "F5266BE6E4E28D0D177E643330705A9D4FDF944128294701F8DF390949E811B1"
+        LegacyMigration       = "90D5AAB12192741A9389B72403687EC2BE141DE2E46EA2B15A93E47818C851BA"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
@@ -20299,7 +20299,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "D97234AC239FC11351A6E93289FD89967D7E1EC72D78F5D2FD412C89AF4DE4BD"
+        LocalStore           = "23C975AB49E0A7E947DB2B26353246570C3731E6CA5C46185536130767D20981"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20335,7 +20335,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "2A3B146435E2AA262F26379B69BD5A55908A5D624A2D97E3163B50F194EDA289"
+    $expectedFingerprint = "CD884422D4FCB3F02E75DA049E9E4F1226E8ABF094BF042B69915B4ACD5E6A05"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24446,7 +24446,12 @@ function Initialize-Window {
         $script:Window.Add_Closing({param($s,$e)
             $writeJobStillAlive = $false
             $writeJobsUnreadable = $false
-            try { $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0) } catch { $writeJobsUnreadable = $true; Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+            try {
+                # PowerShell can turn a failing adapted property getter into null. Reject an invalid registry
+                # before reading Values, so an unreadable task list is never mistaken for an empty one.
+                if ($script:AsyncJobs -isnot [Collections.IDictionary]) { throw 'Registre des tâches indisponible.' }
+                $writeJobStillAlive = (@($script:AsyncJobs.Values | Where-Object { $null -ne $_ -and [bool]$_.IsWrite }).Count -gt 0)
+            } catch { $writeJobsUnreadable = $true; Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
             # P-CD-09: when the running tasks cannot be read, closing could interrupt a write still being confirmed:
             # the operator decides, as when the engine stopped.
             if($writeJobsUnreadable -and [string]::IsNullOrWhiteSpace($script:ActiveWriteTaskId)){
@@ -25794,7 +25799,7 @@ function Invoke-DomeniaSelfTest {
         $searchRequest = [pscustomobject]@{BaseDn=[string]$demoDirectory.BaseDn;Scope='Subtree';PrefixFilter='(&(|(&(objectCategory=person)(objectClass=user))(objectCategory=computer))(|(name=Jean*)(sAMAccountName=Jean*)))';FastFilter='';ExactFilter='';AnrFilter='';BroadFilter='';Limit=50;Properties=@('name');Progress=$progress;StopToken=$stop.Token;StreamPageSize=25}
         $search = Get-DomeniaEffectiveWorkerResult -Result (& $demoInvoke 'GlobalSearch' $searchRequest $demoContext) -RequiredProperties @('Rows','BaseDn','Scope')
         $events = 0; $demoEvent = $null
-        while ($progress.TryDequeue([ref]$demoEvent)) { if ([string]$demoEvent.Kind -eq 'Row') { $events++ } }
+        while ($progress.TryDequeue([ref]$demoEvent)) { if (([string]$demoEvent.Kind -eq 'DirectoryRead') -and ($null -ne $demoEvent.Properties) -and ([string]$demoEvent.Source -eq 'Demonstration')) { $events++ } }
         $searchOk = ($null -ne $search -and @($search.Rows).Count -ge 1 -and $events -eq @($search.Rows).Count -and [string]$search.BaseDn -ieq [string]$demoDirectory.BaseDn -and [string]$search.Scope -ceq 'Subtree')
         $jean = @($search.Rows | Where-Object { [string]$_.Name -eq 'Jean Dupont' } | Select-Object -First 1)
         $openOk = $false
@@ -25927,7 +25932,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.8-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.9-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -1,0 +1,10 @@
+{
+    "Kind":  "IndexSorting",
+    "Passed":  545,
+    "Failed":  0,
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "NetworkAccessed":  false,
+    "Objects":  503,
+    "Summary":  "Real SQLite all-page sorting, mixed typed dates, scope, whitelist, production callbacks, retry/generation and census UI timer."
+}

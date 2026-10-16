@@ -61,6 +61,9 @@ function Get-DomeniaActiveFreshnessTable {
 function Set-DomeniaFreshnessOverride {
     # -Seconds -1 removes the override of the family: the profile value applies again.
     param([Parameter(Mandatory=$true)][string]$Family,[int]$Seconds=-1)
+    # Validate before serializing: the canonical serializer deliberately drops unknown families.
+    $knownFamilies=@(Get-DomeniaFreshnessFamilies | ForEach-Object { [string]$_.Id })
+    if($knownFamilies -notcontains $Family){throw ('Famille de fraîcheur inconnue ou sans lecteur : '+$Family)}
     $profile = Get-DomeniaCollectionProfileId
     $text = [string](Get-DomeniaSetting 'Collection.FreshnessJson' '')
     $current = ConvertFrom-DomeniaFreshnessOverrides (Get-DomeniaProfileSetting -Text $text -Profile $profile)

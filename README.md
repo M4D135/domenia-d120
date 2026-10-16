@@ -5,6 +5,10 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
+Révision **RC1.17.9**, candidate : corrections vérifiées par des essais Windows ciblés.
+La qualification complète des ZIP et les parcours GUI sur AD restent ouverts.
+Voir le [bilan de validation du 16 octobre](validation/2026-10-16/windows-recovery/README.md).
+
 | Pack | Téléchargement direct |
 |---|---|
 | **PROD** — utilisation | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) |

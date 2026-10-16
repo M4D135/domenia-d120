@@ -404,8 +404,12 @@ if($Wpf){
             Initialize-DomeniaSupportUi
             Assert-SupportTest ([object]::ReferenceEquals($tab,$script:Ctrl.TabSupport)) 'Duplicate shell.'
             Assert-SupportTest ($script:Ctrl.ApplicationToolTabs.Items.Contains($tab)) 'Diagnostic must be in Tools.'
+            # The native TabControl selection alone must load the view (no navigation helper fallback).
+            $script:Ctrl.ApplicationToolTabs.SelectedItem=$tab
+            Assert-SupportTest ($null -ne $script:SupportView) 'Native diagnostic selection did not load content.'
+            $loadedView=$script:SupportView
             Select-DomeniaWorkspace -Workspace 'TabSupport' -Inner 'SupportTabs' -Tab 'SupportCompareTab'
-            Assert-SupportTest ($null -ne $script:SupportView) 'Diagnostic content not loaded.'
+            Assert-SupportTest ([object]::ReferenceEquals($loadedView,$script:SupportView)) 'Navigation rebuilt the loaded view.'
             Assert-SupportTest ($script:Ctrl.SupportTabs.SelectedItem -eq $script:Ctrl.SupportCompareTab) 'Nested route lost.'
             Assert-SupportTest ($null -ne $script:Ctrl.BtnSupportOfflineDossier) 'Offline dossier missing.'
             $script:SupportTimer.Stop()

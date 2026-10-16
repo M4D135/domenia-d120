@@ -76,7 +76,7 @@ $script:Texts=@{};$script:Logs=[Collections.Generic.List[string]]::new()
 function Set-DomeniaControlText {param($Name,$Text);$script:Texts[[string]$Name]=[string]$Text;return $true}
 function Add-DomeniaUiLog {param($Area,$Text,$Level);$script:Logs.Add([string]$Text)}
 function Write-AppLog {param($Text,$Level);$script:Logs.Add([string]$Text)}
-function Load-DomeniaIndexMetadata {return 0}
+function Request-DomeniaIndexMetadata {}
 function Update-DomeniaIndexLocation {}
 function Get-DomeniaIndexPartialText {return ''}
 function Format-DomeniaAge {param($FromUtc,$NowUtc);return 'il y a 1 h'}

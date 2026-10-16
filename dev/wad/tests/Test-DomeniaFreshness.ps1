@@ -18,6 +18,21 @@ function Coverage($States,[string]$Scope=$script:Ou,[bool]$Subtree=$true){Get-Do
 function Observation([string]$Key,[string]$Ping='2026-10-13T11:50:00Z',[string]$Inventory='2026-10-13T11:00:00Z',[bool]$InScope=$true){
  [pscustomobject]@{object_key=$Key;checked_utc='2026-10-13T11:59:00Z';in_scope=$InScope;observation=[pscustomobject]@{CheckedUtc=$Ping;PresenceCheckedUtc=$Ping;Presence='En ligne';Inventory=[pscustomobject]@{CheckedUtc=$Inventory}}}
 }
+Case 'Generic dictionaries retain WMI dates, failures and trend thresholds under PowerShell 5.1' {
+ $o=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+ Expect ((Get-DomeniaFleetWmiResponse $o -NowUtc $Now -ToleranceMinutes 15).State -eq 'Absent') 'Empty dictionary is not an absent measure'
+ $inv=[Collections.Generic.Dictionary[string,object]]::new();$inv['CheckedUtc']='2026-10-13T11:50:00Z';$o['Inventory']=$inv
+ Expect ((Get-DomeniaFleetWmiResponse $o -NowUtc $Now -ToleranceMinutes 15).State -eq 'Known') 'Legacy inventory dictionary date lost'
+ $time=[Collections.Generic.Dictionary[string,object]]::new();$time['ObservedUtc']='2026-10-13T10:00:00Z';$time['LastAttemptUtc']='2026-10-13T11:50:00Z';$time['Succeeded']=$false
+ $times=[Collections.Generic.Dictionary[string,object]]::new();$times['Probe:disk']=$time;$o['Times']=$times
+ $probe=[Collections.Generic.Dictionary[string,object]]::new();$probe['Error']='Access denied'
+ $probes=[Collections.Generic.Dictionary[string,object]]::new();$probes['disk']=$probe;$o['Probes']=$probes
+ $response=Get-DomeniaFleetWmiResponse $o -NowUtc $Now -ToleranceMinutes 15
+ Expect ($response.State -eq 'Refused' -and $response.LastSuccessUtc.Hour -eq 10) 'Failure or last successful measure lost'
+ $figure=[Collections.Generic.Dictionary[string,object]]::new();$figure['StaleDays']=90
+ Expect ((Get-DomeniaStaleTrendNote -Figures @($figure) -StaleDays 90) -eq '') 'Matching threshold reported unknown'
+ Expect ((Get-DomeniaStaleTrendNote -Figures @($figure) -StaleDays 60) -ne '') 'Changed threshold not reported'
+}
 Case 'Successful OU date survives a later calculation and no global date fallback is invented' {
  $states=@{directory=(Sync directory $Domain '2026-10-13T09:00:00Z');ou=(Sync ('ou:'+$Ou) $Ou '2026-10-13T11:48:00Z')}
  $first=Coverage $states;$later=Get-DomeniaFleetFreshness -ScopeDn $Ou -DomainDn $Domain -SyncStates $states -NowUtc $Now.AddMinutes(5)
@@ -209,14 +224,18 @@ if(-not $SkipStorage){
   $native=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Initialize-DomeniaWinSqliteNative'},$true))
   if($native.Count -ne 1){throw 'Native bootstrap is ambiguous'}
   . ([scriptblock]::Create($native[0].Extent.Text));[void](Initialize-DomeniaWinSqliteNative)
+  $schemaFunction=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaSqliteSchemaText'},$true))
+  if($schemaFunction.Count -ne 1){throw 'Schema generator is ambiguous'}
+  . ([scriptblock]::Create($schemaFunction[0].Extent.Text))
   Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-  foreach($name in @('Storage.Worker','Engine.Worker','Probes.Model')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+  foreach($name in @('QueryLibrary.Model','Storage.Worker','Engine.Worker','Probes.Model')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
   $storage=Get-DomeniaStorageWorkerCode;$read=Get-DomeniaLocalIndexReadWorkerCode
   $ast=[Management.Automation.Language.Parser]::ParseInput($storage,[ref]$tokens,[ref]$errors)
   foreach($f in $ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){. ([scriptblock]::Create($f.Extent.Text))}
   $folder=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-Freshness-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder);$path=Join-Path $folder 'freshness.sqlite'
   try{
-   $schema=@($core.FindAll({param($n)($n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]) -and $n.Value -match '^PRAGMA journal_mode=WAL;' -and $n.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'},$true))[0].Value
+   # Invoke the production schema generator, including its shared schema call.
+   $schema=Get-DomeniaSqliteSchemaText
    $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema $db)}finally{Close-DomeniaDatabase $db}
    function Read-States {
     $db=Open-DomeniaDatabase $path

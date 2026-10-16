@@ -20,7 +20,9 @@ function Get-TestCatalogueHelp {
     if($null -eq $script:TestHelpCatalogue){
         $script:TestHelpCatalogue=@{}
         $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
-        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+        # PowerShell 5.1 emits a JSON array as one pipeline object: assign it before enumeration.
+        $entries=[IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        foreach($entry in $entries){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
     }
     $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
     if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
@@ -66,7 +68,7 @@ $wanted=@('Write-DomeniaAtomicText','Read-DomeniaPreference','Write-DomeniaPrefe
     'Get-DomeniaScopeKey','Assert-DomeniaWmiReadQuery','Update-SecretsGrid','Get-DomeniaSelectedSecretSource',
     'Complete-DomeniaDetachedReadJobs','Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr',
     'Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral',
-    'Get-DomeniaDatabasePath','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase','Search-DomeniaDatabaseRows',
+    'Get-DomeniaSetting','Get-DomeniaDatabasePath','Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase','Search-DomeniaDatabaseRows',
     'Get-DomeniaWorkerOperationHashes','Assert-DomeniaWorkerRegistry','Get-DomeniaWorkerCodeHash','ConvertTo-DomeniaCanonicalWorkerCode','Assert-DomeniaWorkerOperationCode',
     # L02: Domenia.log writer (FI-08, FI-09, FI-10, PF-09) and the common CSV export (CO-04, UX-02).
     'ConvertTo-DomeniaLogFileLines','Get-DomeniaAppLogFallbackPaths','Write-DomeniaAppLogFile','Start-DomeniaAppLogFlushTimer','Stop-DomeniaAppLogQueue',
@@ -95,7 +97,7 @@ foreach($name in $wanted) {
 # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
 # Point 50: Export-DomeniaCsv masks secrets through Protect-DomeniaExportRows (Access.Model, with the secret attribute
 # rule of Safety.Model), exactly as the application loads them.
-foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Safety.Model.ps1','Domenia-Access.Model.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
+foreach($engineModule in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Safety.Model.ps1','Domenia-Access.Model.ps1','Domenia-Store.Model.ps1','Domenia-StorageLease.Model.ps1','Domenia-StorageContext.UI.ps1')){. (Join-Path (Split-Path -Parent $PSScriptRoot) ('modules\'+$engineModule))}
 # SE-03 : les regles MSI et le catalogue ne sont pas recopies dans les gardes. Le banc les charge par AST, comme
 # les fonctions du coeur, pour juger les gardes avec la liste reelle du produit.
 $guardAst=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Workstation.Model.ps1'),[ref]$null,[ref]$null)
@@ -1520,14 +1522,15 @@ try {
     }
     Test-Case 'UI-08 : la liste des logiciels passe avant la synthese en graphiques' {
         $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $texteXaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         # En chaine simple : en chaine double, $script: et $sender seraient interpoles avant la recherche.
-        Assert-True ($texteCore.Contains('<ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0"')) 'Aucun selecteur Liste | Synthese sur la liste'
-        Assert-True ($texteCore.Contains('<StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed"')) 'La synthese s affiche avant que l operateur la demande'
-        Assert-True (-not $texteCore.Contains('x:Name="ExpSoftwareDashboard"')) 'L expander de synthese reste ouvert par defaut'
-        Assert-True ($texteCore.Contains('<ToggleButton x:Name="BtnSoftwareColumns"')) 'Les colonnes techniques n ont pas de bouton'
-        Assert-True ($texteCore.Contains('<TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary"')) 'Le detail par portee ne tient pas en une ligne'
-        Assert-True (-not $texteCore.Contains('x:Name="UxSplitter1"')) 'Le detail par portee occupe encore une rangee de 150 pixels'
-        Assert-True ($texteCore.Contains('IsReadOnly="True" MaxHeight="180"')) 'Le detail replie peut avaler l onglet'
+        Assert-True ($texteXaml.Contains('<ComboBox x:Name="CmbSoftwareView" Width="130" SelectedIndex="0"')) 'Aucun selecteur Liste | Synthese sur la liste'
+        Assert-True ($texteXaml.Contains('<StackPanel x:Name="PnlSoftwareSynthese" Visibility="Collapsed"')) 'La synthese s affiche avant que l operateur la demande'
+        Assert-True (-not $texteXaml.Contains('x:Name="ExpSoftwareDashboard"')) 'L expander de synthese reste ouvert par defaut'
+        Assert-True ($texteXaml.Contains('<ToggleButton x:Name="BtnSoftwareColumns"')) 'Les colonnes techniques n ont pas de bouton'
+        Assert-True ($texteXaml.Contains('<TextBlock Grid.Row="1" x:Name="LblSoftwareAccessSummary"')) 'Le detail par portee ne tient pas en une ligne'
+        Assert-True (-not $texteXaml.Contains('x:Name="UxSplitter1"')) 'Le detail par portee occupe encore une rangee de 150 pixels'
+        Assert-True ($texteXaml.Contains('IsReadOnly="True" MaxHeight="180"')) 'Le detail replie peut avaler l onglet'
         Assert-True ($texteCore.Contains('$script:Ctrl["CmbSoftwareView"].Add_SelectionChanged({')) 'Le selecteur Liste | Synthese ne declenche rien'
         Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareColumns"].Add_Checked({')) 'Le bouton Colonnes ne declenche rien'
         Assert-True (-not $texteCore.Contains('Update-DomeniaSoftwareColumnProvenance')) 'Deux regles distinctes commandent encore les colonnes'
@@ -1536,10 +1539,11 @@ try {
 
     Test-Case 'FO-09 : un clic sur une part ou une barre filtre la liste et la pastille le dit' {
         $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $texteXaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
-        Assert-True ($texteCore.Contains('<Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed"')) 'La pastille du filtre se montre avant qu un clic la demande'
-        Assert-True ($texteCore.Contains('<TextBlock x:Name="LblSoftwareFilterChip" Text=""')) 'La pastille n a pas de texte a remplir'
-        Assert-True ($texteCore.Contains('<Button x:Name="BtnSoftwareFilterClear"')) 'La pastille n a pas de bouton pour la retirer'
+        Assert-True ($texteXaml.Contains('<Border x:Name="UxSoftwareFilterChip" Visibility="Collapsed"')) 'La pastille du filtre se montre avant qu un clic la demande'
+        Assert-True ($texteXaml.Contains('<TextBlock x:Name="LblSoftwareFilterChip" Text=""')) 'La pastille n a pas de texte a remplir'
+        Assert-True ($texteXaml.Contains('<Button x:Name="BtnSoftwareFilterClear"')) 'La pastille n a pas de bouton pour la retirer'
         Assert-True ($texteCore.Contains('$script:Ctrl["BtnSoftwareFilterClear"].Add_Click({ Clear-DomeniaSoftwareChartFilter })')) 'Le bouton de la pastille ne declenche rien'
         Assert-True ($texteCore.Contains('"UxSoftwareFilterChip" = "Default"')) 'La pastille echappe a la politique des elements graphiques'
         Assert-True ($texteCore.Contains('Test-DomeniaSoftwareRowMatchesSelect -Row $_ -Select $select')) 'Le critere venu d un graphique ne filtre pas la liste'
@@ -1549,7 +1553,7 @@ try {
         Assert-True ($texteCore.Contains('$script:SoftwareChartSelect = $null')) 'Le filtre venu d un graphique survit a une nouvelle lecture'
     }
 
-    Test-Case 'FO-07 : la derniere lecture du poste est reprise de la session avec son age' {
+    Test-Case 'FO-07 : la derniere lecture du poste est reprise de la base avec son age' {
         # Horloge figee, comme CO-03 : l'ecart mesure doit rester deterministe.
         $now = [datetime]::new(2026,10,10,12,0,0)
         $ages = @(
@@ -1568,16 +1572,20 @@ try {
         $resume = Get-DomeniaInventorySummaryText -Computer 'POSTE-01' -Rows @([pscustomobject]@{Name='a'},[pscustomobject]@{Name='b'}) -Access @([pscustomobject]@{Status='OK'},[pscustomobject]@{Status='OK'},[pscustomobject]@{Status='REFUSE'},[pscustomobject]@{Status='INDISPONIBLE'},[pscustomobject]@{Status='AUTRE'}) -DurationMs 4210
         Assert-True ($resume -ceq 'POSTE-01 : 2 element(s) sur 2 source(s) accessibles, 1 refusee(s), 1 indisponible(s), 1 autre(s), en 4210 ms.') ('Phrase de resume : ' + $resume)
         $texteCore = Get-Content $core -Raw -Encoding UTF8
+        $texteXaml = Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)
         # En chaine simple : en chaine double, $script: serait interpole avant la recherche.
-        Assert-True ($texteCore.Contains('<StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed"')) 'La ligne d age se montre avant qu une lecture la remplisse'
-        Assert-True ($texteCore.Contains('<Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink>')) 'La ligne d age n a pas de quoi relancer la lecture'
+        Assert-True ($texteXaml.Contains('<StackPanel x:Name="TxtInventoryAge" Orientation="Horizontal" Visibility="Collapsed"')) 'La ligne d age se montre avant qu une lecture la remplisse'
+        Assert-True ($texteXaml.Contains('<Hyperlink x:Name="LnkInventoryRefresh">Actualiser</Hyperlink>')) 'La ligne d age n a pas de quoi relancer la lecture'
         Assert-True ($texteCore.Contains('$script:Ctrl["LnkInventoryRefresh"].Add_Click({ Start-DomeniaComputerInventory })')) 'Le lien Actualiser ne relance rien'
         Assert-True ($texteCore.Contains('"TxtInventoryAge" = "Default"')) 'La ligne d age tombe sous la politique des elements graphiques'
         Assert-True ($texteCore.Contains('$script:InventoryCacheByComputer = @{}')) 'Le cache de session n est jamais remis a zero'
         Assert-True ($texteCore.Contains('Normalize-LinkComputer ([string]$State.Computer)')) 'La cle du cache invente sa propre regle de nom de poste'
-        $corps = ($texteCore -split 'function Show-DomeniaCachedInventory')[1]
-        Assert-True ($corps.Contains('Update-DomeniaInventoryAgeLine')) 'La liste reprise ne dit pas son age'
-        Assert-True (-not $corps.Contains('Update-DomeniaComputerDashboard')) 'La reprise rejoue le tableau de bord d une lecture fraiche'
+        $corps = [string](@($nodes | Where-Object {$_.Name -eq 'Show-DomeniaCachedInventory'})[0].Extent.Text)
+        $publication = [string](@($nodes | Where-Object {$_.Name -eq 'Complete-DomeniaInventoryUi'})[0].Extent.Text)
+        Assert-True ($corps.Contains('Request-DomeniaStoreRead') -and $corps.Contains('Complete-DomeniaCachedInventoryRead')) 'La reprise ne relit pas la base locale'
+        Assert-True (-not $corps.Contains('Start-UiTask') -and -not $corps.Contains('Get-Date')) 'La reprise relance une collecte ou invente sa date'
+        Assert-True ($publication.Contains('$script:InventoryCompletedAt = ConvertTo-DomeniaUtcDate $effective.SourceCompletedUtc')) 'La date de collecte enregistree est perdue'
+        Assert-True ($publication.Contains('Update-DomeniaInventoryAgeLine')) 'La publication ne rafraichit pas l age affiche'
     }
 
     Test-Case 'MO-09 : les logiciels par utilisateur se lisent par StdRegProv sur HKU, sans WinRM' {

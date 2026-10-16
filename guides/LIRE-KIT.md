@@ -32,7 +32,7 @@ La syntaxe du texte, les champs de la fiche et la méthode complète sont dans `
 
 Les sources `technicien.md` et `administrateur.md` décrivent Domenia **1.0**. Leur fiche JSON associe
 les figures à des PNG natifs ; les livrables finaux sont copiés dans `../DOC/`. La référence interne
-de la passe est RC1.17.6, datée du 13 octobre 2026 ; les guides destinés aux utilisateurs conservent
+de la passe est RC1.17.9, datée du 16 octobre 2026 ; les guides destinés aux utilisateurs conservent
 la version produit 1.0, sans journal des changements.
 
     node build_guide.js technicien.json --no-pdf
@@ -60,5 +60,6 @@ La logique d’actualisation de l’OU est décrite par des tableaux natifs dans
 générales montrant un ancien parcours de boutons ou de dates sont exclues de cette édition.
 Les captures conservées illustrent uniquement les contrôles encore applicables ; leurs PNG
 originaux et leur provenance sont préservés. Aucun nouveau rendu Windows n’est revendiqué pour
-cette passe. Le harnais préparé et son plan restent dans
-`../validation/2026-10-13/ou-refresh/r1/` pour une future exécution Windows.
+cette édition tant que les nouveaux rendus ne sont pas retenus. Le résultat de la tentative
+Windows et le contrôle des quatre documents sont décrits dans
+`../validation/2026-10-16/windows-recovery/` ; les anciens originaux et leur provenance restent conservés.

@@ -230,7 +230,7 @@ Case 'Point 20 : la zone de reprise suit les relevés : fermée pendant, propos�
  foreach($name in @('BtnCollectionResume','BtnCollectionResumeDiscard')){$script:Ctrl[$name]=[Windows.Controls.Button]::new()}
  $script:Ctrl['LblCollectionResume']=[Windows.Controls.TextBlock]::new()
  $targets=@(for($i=1;$i -le 2;$i++){[pscustomobject]@{Computer=('PC-'+$i);Key=('CN=PC-'+$i+',DC=example,DC=test');Guid=('00000000-0000-0000-0000-'+$i.ToString('d12'))}})
- $run=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$true;WmiOnly=$false;Inventory=$false;Probes=@();ScopeLabel='OU=Postes';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
+ $run=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Slot='List';Targets=$targets;Path=$script:DatabaseScopedPath;PingOnly=$true;WmiOnly=$false;Inventory=$false;Probes=@();ScopeLabel='OU=Postes';Completed=$false;Stopping=$false;FailureMessage='';StopReason=''}
  $script:ParkRuns=@{List=$run};Update-DomeniaParkControls
  Assert ($script:Ctrl.LblCollectionResume.Text -match 'Relevé en cours' -and -not $script:Ctrl.BtnCollectionResume.IsEnabled) 'Reprise proposée pendant le relevé'
  Assert (Save-DomeniaCampaignPlan -Run $run) 'Plan non enregistré'

@@ -1,0 +1,34 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  2,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "COMMON-GETTER",
+                       "P-CD-09"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "P-CD-09",
+                      "Name":  "Regle pure hors du coeur : anneau seul dans un worker, garde sans Common.Model",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "COMMON-GETTER",
+                      "Name":  "Une propriete existante illisible ne devient pas une valeur absente",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

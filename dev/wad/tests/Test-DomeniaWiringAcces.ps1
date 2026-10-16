@@ -799,7 +799,7 @@ Test-Case 'UI-31 Copier tout absent en mode valeur unique, libelles poses par un
     $xaml=[xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot));$x='http://schemas.microsoft.com/winfx/2006/xaml'
     $bl=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadBitLocker'})[0];$lp=@($xaml.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name',$x) -eq 'BtnLoadLaps'})[0]
     Assert-True ($bl.GetAttribute('Content') -eq 'Lister les clés BitLocker' -and $lp.GetAttribute('Content') -eq 'Lire le mot de passe LAPS') 'Boutons non renommes'
-    $help=@(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)
+    $help=(Get-Content -LiteralPath (Join-Path $wad 'modules\Domenia-UX.help.json') -Raw -Encoding UTF8|ConvertFrom-Json)
     foreach($node in @($bl,$lp)){
         $entry=@($help|ForEach-Object{$_}|Where-Object{$_.Name -eq $node.GetAttribute('Name',$x)})
         # PF-24: the catalogue is the only source of the tool tip; the XAML keeps the accessible name only.

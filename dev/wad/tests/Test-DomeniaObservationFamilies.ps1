@@ -2,7 +2,7 @@
 param([string]$ReportPath='')
 $ErrorActionPreference='Stop';$wad=Split-Path -Parent $PSScriptRoot
 Add-Type -Path (Join-Path $wad 'modules/Domenia.Native.dll')
-foreach($name in @('QueryLibrary.Model','Storage.Worker')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
+foreach($name in @('Probes.Model','QueryLibrary.Model','Storage.Worker')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $t=$null;$e=$null;$worker=Get-DomeniaStorageWorkerCode;$ast=[Management.Automation.Language.Parser]::ParseInput($worker,[ref]$t,[ref]$e)
 if($e.Count){throw 'Worker parse failed'}
 foreach($name in @('Get-StoreWMap','Get-StoreWProjection')){$fn=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0];. ([scriptblock]::Create($fn.Extent.Text))}

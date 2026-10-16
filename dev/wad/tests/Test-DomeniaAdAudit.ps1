@@ -22,7 +22,9 @@ function Get-TestCatalogueHelp {
     if($null -eq $script:TestHelpCatalogue){
         $script:TestHelpCatalogue=@{}
         $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
-        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+        # PowerShell 5.1 emits a JSON array as one pipeline object: assign it before enumeration.
+        $entries=[IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        foreach($entry in $entries){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
     }
     $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
     if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
@@ -157,13 +159,17 @@ if($infrastructure){
         }
     }
     Case 'Corps epingles : analyses, sans attribut secret ni verbe d ecriture' {
+        # Match complete AD attribute names, not the public msDS-UserPasswordExpiryTimeComputed metadata.
+        $secretPattern='(?i)(?<![a-z0-9-])(?:unicodePwd|userPassword|ms-Mcs-AdmPwd|msLAPS-Password|msLAPS-Encrypted[a-z0-9-]*|msFVE-RecoveryPassword|supplementalCredentials)(?![a-z0-9-])'
+        foreach($secret in @('unicodePwd','userPassword','ms-Mcs-AdmPwd','msLAPS-Password','msLAPS-EncryptedPassword','msFVE-RecoveryPassword','supplementalCredentials')){Expect ($secret -match $secretPattern) ('Garde secrete invalide : '+$secret)}
+        Expect (-not ('msDS-UserPasswordExpiryTimeComputed' -match $secretPattern)) 'Metadonnee publique classee comme mot de passe.'
         foreach($pair in $script:WorkerFunctions.GetEnumerator()){
             $code=& $pair.Value
             $tokens=$null;$errors=$null;[void][Management.Automation.Language.Parser]::ParseInput($code,[ref]$tokens,[ref]$errors)
             Expect (@($errors).Count -eq 0) ($pair.Key+' : '+$(if(@($errors).Count){$errors[0].Message}else{''}))
             # Comments may name what is NOT done (no gpresult...): only the executable lines are inspected.
             $body=(@($code -split "`n"|Where-Object{$_.TrimStart() -notmatch '^#'}) -join "`n")
-            Expect (-not ($body -match '(?i)unicodePwd|userPassword|ms-Mcs-AdmPwd|msLAPS-Password|msLAPS-Encrypted|msFVE-RecoveryPassword|supplementalCredentials')) ('Attribut secret : '+$pair.Key)
+            Expect (-not ($body -match $secretPattern)) ('Attribut secret : '+$pair.Key)
             Expect (-not ($body -match '(?i)CommitChanges|\.Put\(|\.Invoke\(|Invoke-CimMethod|Set-CimInstance|Remove-(?!WDomeniaCimSession)|Set-AD|New-AD|Start-Service|Stop-Service|Restart-|gpupdate|gpresult|repadmin|dcdiag')) ('Verbe d ecriture ou commande : '+$pair.Key)
         }
     }

@@ -19,7 +19,9 @@ function Get-TestCatalogueHelp {
     if($null -eq $script:TestHelpCatalogue){
         $script:TestHelpCatalogue=@{}
         $catalogue=Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules') 'Domenia-UX.help.json'
-        foreach($entry in @([IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json)){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
+        # PowerShell 5.1 emits a JSON array as one pipeline object: assign it before enumeration.
+        $entries=[IO.File]::ReadAllText($catalogue,[Text.Encoding]::UTF8)|ConvertFrom-Json
+        foreach($entry in $entries){$script:TestHelpCatalogue[[string]$entry.Name]=$entry}
     }
     $name=[string]$Node.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml')
     if($script:TestHelpCatalogue.ContainsKey($name)){return [string]$script:TestHelpCatalogue[$name].Text}
@@ -219,7 +221,7 @@ Check-Suite 'P124 : export du diagnostic : apercu complet, confirmation, puis fi
 }
 Check-Suite 'P118 : vue du panneau : controles nommes, info-bulle egale au texte d aide et au catalogue' {
     [xml]$view=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Operations.xaml'),[Text.Encoding]::UTF8)
-    $help=@(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+    $help=(Get-Content -LiteralPath (Join-Path $modules 'Domenia-UX.help.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
     $byName=@{};foreach($entry in $help){$byName[[string]$entry.Name]=$entry}
     $x='http://schemas.microsoft.com/winfx/2006/xaml'
     foreach($name in @('DgOperationsRecent','LblOperationsTrace','BtnOperationsCopyTrace','BtnOperationsJournal','BtnOperationsDiagnostic','LblOperationsHealth','BtnOperationsReceipts')){

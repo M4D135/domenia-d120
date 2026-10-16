@@ -178,3 +178,24 @@ $entries=@(Get-DomeniaSwallowedEntries)
         Assert-Equal '[message non conservé : aucune règle de masquage chargée]' $out[0].Message 'Sans regle de masquage le message n est pas garde'
     } finally { $ps.Dispose() }
 }
+
+Test-Case 'P-DICT-01' 'Cles de dictionnaires : formes natives et comparateurs conserves' {
+    $maps=@(@{Name=$null},[ordered]@{Name=$null},[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal),[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase))
+    $maps[2]['Name']=$null;$maps[3]['Name']=$null
+    foreach($map in $maps){
+        Assert-True (Test-DomeniaDictionaryKey $map 'Name') 'Une valeur null reste une cle presente'
+        Assert-False (Test-DomeniaDictionaryKey $map 'Absent') 'Cle absente'
+    }
+    Assert-False (Test-DomeniaDictionaryKey $maps[2] 'name') 'Comparateur sensible conserve'
+    Assert-True (Test-DomeniaDictionaryKey $maps[3] 'name') 'Comparateur insensible conserve'
+    Assert-False (Test-DomeniaDictionaryKey $null 'Name') 'Dictionnaire absent'
+}
+
+Test-Case -Id 'COMMON-GETTER' -Name 'Une propriete existante illisible ne devient pas une valeur absente' -Body {
+    $value=[pscustomobject]@{}
+    $value|Add-Member -MemberType ScriptProperty -Name 'Broken' -Value {throw 'unreadable member'}
+    $caught=$false
+    try { $ignored=Get-DomeniaMemberValue $value 'Broken' } catch { $caught=$true }
+    Assert-True $caught 'Le getter doit signaler son echec aux gardes appelantes'
+    Assert-Equal 'missing' (Get-DomeniaMemberValue $value 'Absent' 'missing')
+}

@@ -226,11 +226,14 @@ function Stop-DomeniaSupportUi {
     if ($null -ne $script:SupportTimer) { $script:SupportTimer.Stop(); $script:SupportTimer=$null }
     if ($null -ne $script:Ctrl -and $script:Ctrl.ContainsKey('TabSupport')) {
         $tab=$script:Ctrl['TabSupport']; $tab.IsEnabled=$false
+        if ($null -ne $script:SupportSelectedHandler) {
+            [Windows.Controls.Primitives.Selector]::RemoveSelectedHandler($tab,$script:SupportSelectedHandler)
+        }
         $tabs=Get-DomeniaControl 'ApplicationToolTabs'
         if ($null -ne $tabs) { [void]$tabs.Items.Remove($tab) }
         foreach ($key in @($script:Ctrl.Keys)) { if ($key -eq 'TabSupport' -or $key -match '^(DomeniaSupport|Support|BtnSupport|DgSupport|TxtSupport|LblSupport|ChkSupport|CmbSupport)') { $script:Ctrl.Remove($key) } }
     }
-    $script:SupportState=$null; $script:SupportView=$null; $script:SupportLoadPanel=$null; $script:SupportLoading=$false
+    $script:SupportState=$null; $script:SupportView=$null; $script:SupportLoadPanel=$null; $script:SupportLoading=$false; $script:SupportSelectedHandler=$null
 }
 
 function Initialize-DomeniaSupportContent {
@@ -332,7 +335,9 @@ function Initialize-DomeniaSupportUi {
     $script:Ctrl['SupportLoadStatus']=$status
     $script:Ctrl['SupportLoadRetry']=$retry
     $script:SupportLoadPanel=$panel
-    $tab.Add_Selected({param($sender,$e) if ($e.OriginalSource -eq $sender) { Invoke-DomeniaSupportLoad }})
+    # TabItem raises Selector.Selected as an attached routed event, without a CLR Selected event.
+    $script:SupportSelectedHandler=[Windows.RoutedEventHandler]{param($sender,$e) if ($e.OriginalSource -eq $sender) { Invoke-DomeniaSupportLoad }}
+    [Windows.Controls.Primitives.Selector]::AddSelectedHandler($tab,$script:SupportSelectedHandler)
     $retry.Add_Click({Invoke-DomeniaSupportLoad})
     [void]$toolsTabs.Items.Add($tab)
     $script:Window.Add_Closed({Stop-DomeniaSupportUi})

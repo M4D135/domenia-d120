@@ -43,6 +43,7 @@ $tokens = $null; $parseErrors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Core.ps1'),[ref]$tokens,[ref]$parseErrors)
 if (@($parseErrors).Count) { throw ('Coeur illisible : ' + $parseErrors[0].Message) }
 $coreNames = @(
+    'Write-DomeniaSwallowed',
     'Set-DomeniaControlText','Get-MainXaml','Assert-DomeniaXamlPreflight','Get-DomeniaXamlControlNames',
     'Get-CfgValue','Get-DomeniaControl','Set-DomeniaContextHint','Get-DomeniaFriendlyControlLabel',
     'Get-DomeniaDefaultToolTip','Save-DomeniaUiProfile','Apply-DomeniaUiProfile',

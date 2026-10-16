@@ -28,14 +28,20 @@ function Get-DomeniaMemberValue {
     }
     $property = $InputObject.PSObject.Properties[$Name]
     if ($null -eq $property) { return ,$Default }
-    return ,$property.Value
+    # Invoke the getter directly: PS 5.1 property syntax silently turns a throwing getter into null.
+    return ,$property.get_Value()
 }
 
 function Test-DomeniaDictionaryKey {
     # IDictionary.Contains is explicit on generic dictionaries: it throws under Windows PowerShell 5.1.
     param([Collections.IDictionary]$Dictionary,[string]$Name)
-    try { return [bool]$Dictionary.Contains($Name) }
-    catch { try { return [bool]$Dictionary.ContainsKey($Name) } catch { return $false } }
+    if ($null -eq $Dictionary) { return $false }
+    # The common collection shapes avoid an exception per property in fleet loops.
+    if (($Dictionary -is [Collections.Hashtable]) -or ($Dictionary -is [Collections.Specialized.OrderedDictionary])) {
+        return [bool]$Dictionary.Contains($Name)
+    }
+    try { return [bool]$Dictionary.ContainsKey($Name) }
+    catch { try { return [bool]$Dictionary.Contains($Name) } catch { return $false } }
 }
 
 function Get-DomeniaCollectionItems {

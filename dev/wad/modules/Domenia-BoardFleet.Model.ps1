@@ -840,7 +840,7 @@ function Get-DomeniaFleetWmiResponse {
     if($ToleranceMinutes -lt 0){$ToleranceMinutes=[int](Get-DomeniaCollectionLimits).ClockToleranceMinutes}
     $v=@{}
     $names=@('Times','Inventory','InventoryCheckedUtc','InventoryError','InventoryAttemptUtc','Outcome','ConsoleCheckedUtc','UserCheckedUtc','ConsoleAttemptUtc','ConsoleError','Probes')
-    if($Observation -is [Collections.IDictionary]){foreach($name in $names){if($Observation.Contains($name)){$v[$name]=$Observation[$name]}}}
+    if($Observation -is [Collections.IDictionary]){foreach($name in $names){if((Test-DomeniaDictionaryKey $Observation $name)){$v[$name]=$Observation[$name]}}}
     else{$properties=$Observation.PSObject.Properties;foreach($name in $names){$property=$properties[$name];if($null -ne $property){$v[$name]=$property.Value}}}
     # Each event: source date, success or failure, family (the cause of the latest failure is read from its family).
     $events=[Collections.Generic.List[object]]::new()
@@ -853,14 +853,14 @@ function Get-DomeniaFleetWmiResponse {
         foreach($family in $families){
             $time=if($times -is [Collections.IDictionary]){$times[$family]}else{$times.PSObject.Properties[[string]$family].Value}
             if($null -eq $time){continue}
-            $read=@{};foreach($name in @('ObservedUtc','LastAttemptUtc','Succeeded')){if($time -is [Collections.IDictionary]){if($time.Contains($name)){$read[$name]=$time[$name]}}else{$property=$time.PSObject.Properties[$name];if($null -ne $property){$read[$name]=$property.Value}}}
+            $read=@{};foreach($name in @('ObservedUtc','LastAttemptUtc','Succeeded')){if($time -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $time $name)){$read[$name]=$time[$name]}}else{$property=$time.PSObject.Properties[$name];if($null -ne $property){$read[$name]=$property.Value}}}
             $events.Add(@([string]$read['ObservedUtc'],$true,[string]$family))
             if(-not [bool]$read['Succeeded']){$events.Add(@([string]$read['LastAttemptUtc'],$false,[string]$family))}
         }
     }else{
         # Older local observations: inventory dates and the console outcome carry the same facts.
         $inventory=$v['Inventory'];$inventoryAt=[string]$v['InventoryCheckedUtc']
-        if((-not $inventoryAt) -and ($inventory -is [Collections.IDictionary])){if($inventory.Contains('CheckedUtc')){$inventoryAt=[string]$inventory['CheckedUtc']}}
+        if((-not $inventoryAt) -and ($inventory -is [Collections.IDictionary])){if((Test-DomeniaDictionaryKey $inventory 'CheckedUtc')){$inventoryAt=[string]$inventory['CheckedUtc']}}
         elseif((-not $inventoryAt) -and ($null -ne $inventory)){$property=$inventory.PSObject.Properties['CheckedUtc'];if($null -ne $property){$inventoryAt=[string]$property.Value}}
         if($null -ne $inventory){$events.Add(@($inventoryAt,$true,'Inventory'));$recorded=$true}
         if([string]$v['InventoryError']){$events.Add(@([string]$v['InventoryAttemptUtc'],$false,'Inventory'));$recorded=$true}
@@ -889,9 +889,9 @@ function Get-DomeniaFleetWmiResponse {
         elseif($failureFamily -ceq 'Inventory'){$errorText=[string]$v['InventoryError']}
         elseif($failureFamily.StartsWith('Probe:',[StringComparison]::Ordinal)){
             $probes=$v['Probes'];$probeId=$failureFamily.Substring(6);$probe=$null
-            if($probes -is [Collections.IDictionary]){if($probes.Contains($probeId)){$probe=$probes[$probeId]}}
+            if($probes -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $probes $probeId)){$probe=$probes[$probeId]}}
             elseif($null -ne $probes){$property=$probes.PSObject.Properties[$probeId];if($null -ne $property){$probe=$property.Value}}
-            if($probe -is [Collections.IDictionary]){if($probe.Contains('Error')){$errorText=[string]$probe['Error']}}
+            if($probe -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $probe 'Error')){$errorText=[string]$probe['Error']}}
             elseif($null -ne $probe){$property=$probe.PSObject.Properties['Error'];if($null -ne $property){$errorText=[string]$property.Value}}
         }
         $state=if(Test-DomeniaMeasureRefusal -Outcome $outcome -ErrorText $errorText){'Refused'}else{'Error'}
@@ -927,7 +927,7 @@ function Get-DomeniaStaleTrendNote {
     foreach($item in @($Figures)){
         if($null -eq $item){continue}
         $raw=$null
-        if($item -is [Collections.IDictionary]){if($item.Contains('StaleDays')){$raw=$item['StaleDays']}}
+        if($item -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $item 'StaleDays')){$raw=$item['StaleDays']}}
         else{$property=$item.PSObject.Properties['StaleDays'];if($null -ne $property){$raw=$property.Value}}
         $value=0
         if(($null -eq $raw) -or (-not [int]::TryParse([string]$raw,[Globalization.NumberStyles]::Integer,$invariant,[ref]$value))){$unknown++}

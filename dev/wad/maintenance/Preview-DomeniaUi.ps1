@@ -41,8 +41,20 @@ foreach ($name in $presentationNames) {
     if ($nodes.Count -ne 1) { throw ('Fonction UI introuvable ou ambigue : ' + $name) }
     Invoke-Expression $nodes[0].Extent.Text
 }
+# The scope header also renders the OU breadcrumb, extracted without importing network handlers.
+$searchAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Search.UI.ps1'),[ref]$tokens,[ref]$parseErrors)
+if($parseErrors.Count){throw $parseErrors[0].Message}
+$breadcrumb=@($searchAst.FindAll({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Update-DomeniaOuBreadcrumb'},$false))
+if($breadcrumb.Count -ne 1){throw 'Fonction de fil dʼAriane absente ou ambiguë.'}
+. ([scriptblock]::Create($breadcrumb[0].Extent.Text))
 # D082/D085: counters and selection preview come from the shell rules (and their dependencies).
 . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Continuity.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Park.Model.ps1')
+$parkAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules\Domenia-Park.UI.ps1'),[ref]$tokens,[ref]$parseErrors)
+$guard=@($parkAst.FindAll({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-DomeniaClassicResultCurrent'},$false))
+if($guard.Count -ne 1){throw 'Garde de contexte de fiche absente ou ambiguë.'}
+. ([scriptblock]::Create($guard[0].Extent.Text))
 . (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Relations.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Access.Model.ps1')
@@ -438,7 +450,10 @@ try {
         Test-PreviewAssertion 'Intervenir : quatre cartes, Redémarrer à part, un seul bouton de compte selon son état' {
             Open-PreviewObject -Kind 'Machine'
             Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabComputerAdmin';Update-PreviewLayout
-            $cards=@((Get-DomeniaControl 'TabComputerAdmin').Content.Content.Children[0].Children)
+            # The intervention consent banner precedes the four action cards.
+            $cardPanel=@((Get-DomeniaControl 'TabComputerAdmin').Content.Content.Children|Where-Object{$_ -is [Windows.Controls.WrapPanel]})
+            if($cardPanel.Count -ne 1){throw 'Action card panel absent or ambiguous'}
+            $cards=@($cardPanel[0].Children)
             $restart=Get-DomeniaControl 'BtnCompRestart';$siblings=@($restart.Parent.Children)
             $enable=Get-DomeniaControl 'BtnCompEnable';$disable=Get-DomeniaControl 'BtnCompDisable'
             Update-DomeniaComputerAccountCard -Uac 4098

@@ -349,10 +349,10 @@ try{
         }
         [GC]::Collect();[GC]::WaitForPendingFinalizers();[GC]::Collect()
         $managed=[GC]::GetTotalMemory($true)/1MB
-        $current=[Diagnostics.Process]::GetCurrentProcess();$privateMb=0.0
-        try{$privateMb=$current.PrivateMemorySize64/1MB}finally{$current.Dispose()}
-        $script:ManagedMB.Add([Math]::Round($managed,1));$script:PrivateMB.Add([Math]::Round($privateMb,1))
-        $script:CycleRows.Add([pscustomobject]@{Cycle=$cycle;ManagedMB=[Math]::Round($managed,1);PrivateMB=[Math]::Round($privateMb,1);ElapsedS=[Math]::Round($script:ProcessWatch.Elapsed.TotalSeconds,1)})
+        $current=[Diagnostics.Process]::GetCurrentProcess();$measuredPrivateMb=0.0
+        try{$measuredPrivateMb=$current.PrivateMemorySize64/1MB}finally{$current.Dispose()}
+        $script:ManagedMB.Add([Math]::Round($managed,1));$script:PrivateMB.Add([Math]::Round($measuredPrivateMb,1))
+        $script:CycleRows.Add([pscustomobject]@{Cycle=$cycle;ManagedMB=[Math]::Round($managed,1);PrivateMB=[Math]::Round($measuredPrivateMb,1);ElapsedS=[Math]::Round($script:ProcessWatch.Elapsed.TotalSeconds,1)})
     }
 
     Case 'Memoire stabilisee apres le premier cycle' {

@@ -148,7 +148,7 @@ try{
         Expect ($tomb.Count -eq 2 -and @($tomb|Where-Object{$_.BaseDn -ne $domain}).Count -eq 0) 'Deleted objects read from the domain head, never by binding CN=Deleted Objects'
         Expect (@($tomb|Where-Object{$_.Filter -notmatch 'isDeleted=TRUE'}).Count -eq 0) 'Every show-deleted search keeps isDeleted=TRUE'
         $lookup=@($tomb|Where-Object{$_.Filter -match 'objectGUID'})[0]
-        Expect ($lookup.Scope -eq 'Subtree' -and @(ConvertFrom-TestGuidFilter $lookup.Filter).Count -eq 2) 'Only the two objects absent from the domain are looked up among deleted objects'
+        Expect ($lookup.Scope -eq 'Subtree' -and (ConvertFrom-TestGuidFilter $lookup.Filter).Count -eq 2) 'Only the two objects absent from the domain are looked up among deleted objects'
         Expect (@($script:Searches|Where-Object{-not $_.Tombstone}).Count -eq 1) 'One domain lookup for three identities'
     }
     Case 'P24 without visible deleted objects, absence is never a deletion' {

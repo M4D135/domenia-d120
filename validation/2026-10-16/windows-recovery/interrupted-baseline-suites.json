@@ -1,0 +1,368 @@
+[
+  {
+    "suite": "Test-DomeniaDashboardScale.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaInterfaceTelemetry.ps1.json",
+    "passed": 10,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaAccounts.ps1.json",
+    "passed": 30,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaLiveSearchView.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRemoteStore.ps1.json",
+    "passed": false,
+    "failed": null,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaEngineResilience.ps1.json",
+    "passed": 35,
+    "failed": 17,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaSearchPresence.ps1.json",
+    "passed": 33,
+    "failed": 35,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaOperationTrace.ps1.json",
+    "passed": 11,
+    "failed": 10,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaDirectoryStore.ps1.json",
+    "passed": null,
+    "failed": 0,
+    "status": "PASS"
+  },
+  {
+    "suite": "Test-DomeniaAdAudit.ps1.json",
+    "passed": 13,
+    "failed": 4,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRegressions.ps1.json",
+    "passed": 18,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaFaults.ps1.json",
+    "passed": 19,
+    "failed": 6,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaModules.ps1.json",
+    "passed": 182,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCompactUi.ps1.json",
+    "passed": 21,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaHealthAdvanced.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCredentialGuard.ps1.json",
+    "passed": true,
+    "failed": null,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaLoginForeground.ps1.json",
+    "passed": 8,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaAcl.ps1.json",
+    "passed": 38,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCollectCircuit.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaProbeDetails.ps1.json",
+    "passed": 14,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRelease.ps1.json",
+    "passed": 49,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaQueryWorkshopGuide.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": "PASS"
+  },
+  {
+    "suite": "Test-DomeniaEmbeddedUi.ps1.json",
+    "passed": 100,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaActivityLayout.ps1.json",
+    "passed": 52,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaHealthRules.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaDirectoryReads.ps1.json",
+    "passed": 8,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCandidate.ps1.json",
+    "passed": 283,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-Domenia.ps1.json",
+    "passed": 370,
+    "failed": 18,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaSearchProgressWiring.ps1.json",
+    "passed": null,
+    "failed": 1,
+    "status": "FAIL"
+  },
+  {
+    "suite": "Test-DomeniaQueryTargets.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaSearchCounter.ps1.json",
+    "passed": null,
+    "failed": 10,
+    "status": "FAIL"
+  },
+  {
+    "suite": "Test-DomeniaLogin.ps1.json",
+    "passed": 59,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRemote.ps1.json",
+    "passed": 45,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaQueryTemplates.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaExperience.ps1.json",
+    "passed": 63,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaHotspots.ps1.json",
+    "passed": 5,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaNetworkFaults.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaHealthPolicies.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRules.ps1.json",
+    "passed": 1033,
+    "failed": 38,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaBoards.ps1.json",
+    "passed": 0,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaEngineLoad.ps1.json",
+    "passed": 2,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaFavouriteReveal.ps1.json",
+    "passed": 20,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaProbeCatalog.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaLoginVault.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaDirectoryStatus.ps1.json",
+    "passed": 14,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCollectionWiring.ps1.json",
+    "passed": 14,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaGeometry.ps1.json",
+    "passed": 62,
+    "failed": 17,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaLastUser.ps1.json",
+    "passed": 13,
+    "failed": 8,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaNavigation.ps1.json",
+    "passed": 18,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaLapsQualification.ps1.json",
+    "passed": 4,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaParkDetection.ps1.json",
+    "passed": 76,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaQueryExpression.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": "PASS"
+  },
+  {
+    "suite": "Test-DomeniaAutomation.ps1.json",
+    "passed": false,
+    "failed": 2,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaAccountPreferences.ps1.json",
+    "passed": 15,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaDelivery.ps1.json",
+    "passed": 13,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaQueryScale.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": "PASS"
+  },
+  {
+    "suite": "Test-DomeniaPreload.ps1.json",
+    "passed": 159,
+    "failed": 26,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaCredentialVault.ps1.json",
+    "passed": true,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaFreshness.ps1.json",
+    "passed": false,
+    "failed": 1,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaRelationsAlignment.ps1.json",
+    "passed": 68,
+    "failed": 0,
+    "status": null
+  },
+  {
+    "suite": "Test-DomeniaOuRefresh.ps1.json",
+    "passed": null,
+    "failed": null,
+    "status": null
+  }
+]

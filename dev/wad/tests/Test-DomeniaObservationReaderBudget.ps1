@@ -2,7 +2,8 @@
 param([string]$ReportPath='',[ValidateSet(10000,20000)][int]$Count=20000)
 $ErrorActionPreference='Stop'
 $source=Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'native/ObservationReader.cs'
-Add-Type -Path $source -CompilerOptions '/langversion:5'
+# Windows PowerShell 5.1 uses the .NET Framework compiler; CompilerOptions is a PowerShell 7 parameter.
+Add-Type -Path $source -ReferencedAssemblies @('System.dll','System.Core.dll','System.Xml.dll','System.Runtime.Serialization.dll')
 $cases=[Collections.Generic.List[object]]::new();$script:assertions=0
 function Expect {param([bool]$Value,[string]$Message);$script:assertions++;if(-not $Value){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Code);try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}

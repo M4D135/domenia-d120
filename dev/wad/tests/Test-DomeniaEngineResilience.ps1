@@ -8,7 +8,7 @@ $ErrorActionPreference='Stop'
 function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
-foreach($name in @('Common.Model','Store.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','Store.Model','Probes.Model','Live.Model','Live.UI','Storage.UI','Engine.UI','Park.Model','Park.UI','ProbeDetails.Model','Guard.Model','DirectoryStore.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 if(-not ('Domenia.Native.ProbeResult' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')}
 $checks=[Collections.Generic.List[object]]::new()
 function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
@@ -20,6 +20,12 @@ function Reset-DomeniaLiveIdentity {}
 function Write-AppLog {param($Message,$Level)}
 function Set-Status {param($Text,$Level)$script:Status=$Text}
 function Add-DomeniaUiLog {param($Area,$Text,$Level)}
+function Show-DomeniaRouteNotice {param($Kind,$Text,$RouteText,$Route,$Key)}
+# Closed transport boundary: capture a central-store read; no worker or disk access.
+function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState)
+ $script:Dispatched=[pscustomobject]@{Payload=$Query;State=$CallbackState;Operation='StoreRead';Context=$Context}
+ return $script:Admission
+}
 function Get-DomeniaLiveWorkerCount {param($Operation='')return 0}
 function Get-CfgValue {param($Section,$Name,$Default)return $Default}
 function Test-DomeniaLiveBackgroundAllowed {param($Source)return $true}
@@ -45,40 +51,46 @@ function Reset-Fixture {
  $script:Texts=@{};$script:Status='';$script:Admission='';$script:SearchActive=$false;$script:Dispatched=$null
  $script:SessionEpoch=7L;$script:AsyncEngineClosing=$false;$script:DemoMode=$false;$script:ActiveWriteTaskId='';$script:WriteState='Idle'
  $script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:IndexWalk=$null;$script:IndexProgressTimer=$null
- $script:DatabaseScopedPath='/synthetic/domain.db';$script:Conn=[pscustomobject]@{Server='example.invalid'}
+ $script:DatabaseScopedPath=[IO.Path]::GetFullPath('/synthetic/domain.db');$script:Conn=[pscustomobject]@{Server='example.invalid';BaseDn='DC=example,DC=invalid'}
+ $script:DomeniaRemoteStoreQueue=$null;$script:DomeniaAccountGeneration=3L;$script:GlobalSearchGeneration=2L
  $script:Live=[pscustomobject]@{NextStart=[datetime]::MinValue;CacheReady=$true;Identity='reader';Scope='scope';Search=$null;SaveQueue=@{};QueryToSave=$null;SaveAfter=[datetime]::MinValue;SaveInFlight=0;SaveJob='';SaveBatch=$null;SaveFault='';Busy=@{};Deferred=[Collections.Generic.Queue[object]]::new();Refresh=[Collections.Generic.Queue[object]]::new();IdentityRows=[Collections.Generic.Queue[object]]::new();PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PendingKeys=@{};Pending=[Collections.Generic.Queue[object]]::new();ProbeSelection=$null;ObservationsLoaded=$false}
  $script:Persistence=[pscustomobject]@{Pending=[ordered]@{};Timer=(New-FixtureTimer);Failures=0;Conflicts=@{};InFlight=0;LinkRequestTimer=$null;LinkPersistenceMore=$false;LinkBusy=$false;Job='';Next=[datetime]::MinValue;Fault='';LegacyImportJob='';InFlightItems=@()}
 }
-Case 'LiveCache refused write keeps observations and query queued' {
+Case 'Legacy cache rows never bypass the central store on an idle heartbeat' {
  Reset-Fixture;$row=[pscustomobject]@{Key='pc1'};$query=[pscustomobject]@{QueryKey='q1'};$script:Live.SaveQueue.pc1=$row;$script:Live.QueryToSave=$query
- $thrown=$false;try{Start-DomeniaLiveBackgroundWork}catch{$thrown=$true}
- Assert $thrown;Assert ($script:Live.SaveQueue.Count -eq 1);Assert ([object]::ReferenceEquals($script:Live.QueryToSave,$query));Assert ($script:Live.SaveInFlight -eq 0)
-}
-Case 'LiveCache admitted write moves exact items into the in-flight batch' {
- Reset-Fixture;$script:Admission='job1';$row=[pscustomobject]@{Key='pc1'};$script:Live.SaveQueue.pc1=$row;$script:Live.QueryToSave=[pscustomobject]@{QueryKey='q1'}
  Start-DomeniaLiveBackgroundWork
- Assert ($script:Live.SaveQueue.Count -eq 0 -and $null -eq $script:Live.QueryToSave);Assert ($script:Live.SaveInFlight -eq 2);Assert ([object]::ReferenceEquals($script:Dispatched.State.Observations[0],$row))
+ Assert ($null -eq $script:Dispatched);Assert ([object]::ReferenceEquals($script:Live.SaveQueue.pc1,$row));Assert ([object]::ReferenceEquals($script:Live.QueryToSave,$query));Assert ($script:Live.SaveInFlight -eq 0)
 }
-Case 'LiveCache refused read remains eligible for later admission' {
+Case 'Available worker capacity never resurrects the retired LiveCache writer' {
+ Reset-Fixture;$script:Admission='job1';$row=[pscustomobject]@{Key='pc1'};$script:Live.SaveQueue.pc1=$row
+ Start-DomeniaLiveBackgroundWork
+ Assert ($null -eq $script:Dispatched -and $script:Live.SaveInFlight -eq 0);Assert ([object]::ReferenceEquals($script:Live.SaveQueue.pc1,$row))
+}
+Case 'Central-store refused read remains eligible for later admission' {
  Reset-Fixture;$script:SearchActive=$true
- $script:Live.Search=[pscustomobject]@{CacheRequested=$false;Identity='reader';Epoch=7L;QueryKey='q';State=[pscustomobject]@{Limit=200};CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
- $thrown=$false;try{Start-DomeniaLiveBackgroundWork}catch{$thrown=$true}
- Assert $thrown;Assert (-not $script:Live.Search.CacheRequested)
- $script:Admission='job2';Start-DomeniaLiveBackgroundWork;Assert $script:Live.Search.CacheRequested
+ $script:Live.Search=[pscustomobject]@{State=[pscustomobject]@{Limit=200;BaseDn=$script:Conn.BaseDn;Scope='Subtree'}}
+ Start-DomeniaLiveBackgroundWork
+ Assert (-not (Get-DomeniaMemberValue $script:Live 'ObservationReadKey'));Assert ($script:Dispatched.Operation -eq 'StoreRead')
+ $script:Admission='job2';Start-DomeniaLiveBackgroundWork
+ Assert ([string]$script:Live.ObservationReadKey -eq ('2|'+$script:Conn.BaseDn+'|Subtree'));Assert ($script:Dispatched.Payload.Kind -eq 'Observation' -and $script:Dispatched.Payload.Limit -eq 250)
 }
-Case 'AD success detaches stale cache queue and allows the idle heartbeat' {
+Case 'AD success detaches stale cache rows but waits for the final commit' {
  Reset-Fixture;$script:SearchActive=$true;$old=[Collections.Concurrent.ConcurrentQueue[object]]::new();$old.Enqueue('old')
- $s=[pscustomobject]@{Final=$null;Ended=$false;Error='';CacheProgress=$old;Progress=[Collections.Concurrent.ConcurrentQueue[object]]::new();Finalized=$true;Prune=$null;CacheRequested=$true};$script:Live.Search=$s
- $state=[pscustomobject]@{LiveState=$s;BaseDn='DC=example,DC=invalid';Scope='Subtree'}
- Complete-DomeniaLiveSearch ([pscustomobject]@{Rows=@();BaseDn=$state.BaseDn;Scope=$state.Scope;Partial=$false}) $state
+ $pipe=[pscustomobject]@{Closed=$false;Completed=$false;Final=$null;Error=''}
+ $s=[pscustomobject]@{Final=$null;Ended=$false;Error='';CacheProgress=$old;DirectoryPipe=$pipe};$script:Live.Search=$s
+ $state=[pscustomobject]@{LiveState=$s;BaseDn=$script:Conn.BaseDn;Scope='Subtree'}
+ $final=[pscustomobject]@{Rows=@();BaseDn=$state.BaseDn;Scope=$state.Scope;Partial=$false}
+ Complete-DomeniaLiveSearch $final $state
  Assert (-not [object]::ReferenceEquals($old,$s.CacheProgress));Assert $s.CacheProgress.IsEmpty
- $old.Enqueue('late');Assert $s.CacheProgress.IsEmpty;Assert (-not (Test-DomeniaLiveTickNeeded))
+ $old.Enqueue('late');Assert $s.CacheProgress.IsEmpty
+ Assert ($pipe.Completed -and [object]::ReferenceEquals($pipe.Final,$final) -and -not $s.Ended) 'AD completion must still wait for SQLite readback'
 }
-Case 'AD partial result keeps cached fallback rows' {
+Case 'AD partial result keeps cached fallback rows and records the pipeline error' {
  Reset-Fixture;$script:SearchActive=$true;$old=[Collections.Concurrent.ConcurrentQueue[object]]::new();$old.Enqueue('old')
- $s=[pscustomobject]@{Final=$null;Ended=$false;Error='';CacheProgress=$old};$script:Live.Search=$s;$state=[pscustomobject]@{LiveState=$s;BaseDn='DC=x';Scope='Subtree'}
+ $pipe=[pscustomobject]@{Closed=$false;Completed=$false;Final=$null;Error=''}
+ $s=[pscustomobject]@{Final=$null;Ended=$false;Error='';CacheProgress=$old;DirectoryPipe=$pipe};$script:Live.Search=$s;$state=[pscustomobject]@{LiveState=$s;BaseDn='DC=x';Scope='Subtree'}
  Complete-DomeniaLiveSearch ([pscustomobject]@{Rows=@();BaseDn='DC=x';Scope='Subtree';Partial=$true;Failure='interrupted'}) $state
- Assert ([object]::ReferenceEquals($old,$s.CacheProgress));Assert ($s.Error -eq 'interrupted')
+ Assert ([object]::ReferenceEquals($old,$s.CacheProgress));Assert ($pipe.Completed -and $pipe.Error -eq 'interrupted' -and -not $s.Ended)
 }
 Case 'Full index queue accepts replacement and refuses a new identity' {
  Reset-Fixture;$row=[pscustomobject]@{Guid='g';DN='CN=one'};Assert (Add-DomeniaIndexPersistence $row)
@@ -135,7 +147,7 @@ Case 'Memory query cache retains at most twenty small queries' {
  Assert ($cache.Count -eq 20 -and $cache.ContainsKey('q30') -and -not $cache.ContainsKey('q1'))
 }
 function Invoke-CollectionFixture {
- param([switch]$FailStream,[object[]]$Probes=$null,[int]$Rows=10000,[switch]$LongDetail,[switch]$LongAfterFirst,[int]$ProductType=1)
+ param([switch]$FailStream,[object[]]$Probes=$null,[int]$Rows=10000,[switch]$LongDetail,[switch]$LongAfterFirst,[int]$ProductType=1,[ValidateRange(1,20000)][int]$LongDetailLength=300)
  $script:ProductTypeReads=0;$script:FixtureProductType=$ProductType;$script:ReadCount=0;$script:Union=@();$script:Closed=0;$script:Opened=0;$script:GroupCalls=[Collections.Generic.List[object]]::new()
  $Context=[pscustomobject]@{UseCim=$true;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid'}
  $Payload=[pscustomobject]@{Computer='127.0.0.1';Key='cn=fixture';Guid='g';MethodSeconds=4;ProbeUser=$true;Inventory=$true;AllowedClasses=@('Fixture_Class');Probes=@([pscustomobject]@{Id='count';Class='Fixture_Class';Namespace='root\cimv2';Properties=@('Name');Filter='';Mode='Count';Skip=''},[pscustomobject]@{Id='all';Class='Fixture_Class';Namespace='root\cimv2';Properties=@('Value');Filter='';Mode='All';Skip=''})}
@@ -152,15 +164,20 @@ function Invoke-CollectionFixture {
   if($ClassName -eq 'Win32_LogicalDisk'){return $null}
   if($ClassName -ne 'Fixture_Class'){throw 'Unexpected provider'}
   $script:ReadCount++;$script:Union=@($Property);$script:GroupCalls.Add([pscustomobject]@{Filter=$Filter;Properties=@($Property);Session=$CimSession})
-  foreach($i in 1..$Rows){[pscustomobject]@{Name=$(if($LongDetail -and (-not $LongAfterFirst -or $i -gt 1)){'x'*300}else{'n'+$i});Value=$(if($LongDetail){@(1,2)}else{$i});DNSServerSearchOrder=@('192.0.2.10','192.0.2.20')};if($FailStream -and $i -eq 100){throw 'Synthetic interrupted enumeration'}}
+  foreach($i in 1..$Rows){[pscustomobject]@{Name=$(if($LongDetail -and (-not $LongAfterFirst -or $i -gt 1)){'x'*$LongDetailLength}else{'n'+$i});Value=$(if($LongDetail){@(1,2)}else{$i});DNSServerSearchOrder=@('192.0.2.10','192.0.2.20')};if($FailStream -and $i -eq 100){throw 'Synthetic interrupted enumeration'}}
  }
  return (& ([scriptblock]::Create((Get-DomeniaLiveProbeCode))))
 }
-Case 'Shared CIM stream counts 10000 instances and retains twenty detail rows' {
+Case 'Shared CIM stream counts 10000 instances while keeping details within budget' {
  $result=Invoke-CollectionFixture
  Assert ($result.Probes.count.Error -eq '' -and $result.Probes.all.Error -eq '')
- Assert ($result.Probes.count.Count -eq 10000 -and $result.Probes.count.Rows.Count -eq 20 -and -not $result.Probes.count.Truncated)
- Assert ($result.Probes.all.Count -eq 10000 -and $result.Probes.all.Rows.Count -eq 20 -and $result.Probes.all.Truncated)
+ foreach($entry in @($result.Probes.count,$result.Probes.all)){
+  Assert ($entry.Count -eq 10000 -and $entry.CountComplete -and $entry.Truncated)
+  Assert ($entry.StoredCount -gt 20 -and $entry.StoredCount -le 2000 -and $entry.StoredCount -eq $entry.Instances.Count -and $entry.StoredCount -eq $entry.Rows.Count)
+  Assert ($entry.DetailBudgetBytes -eq 98304 -and $entry.DetailBytes -le $entry.DetailBudgetBytes -and $entry.LimitReason)
+ }
+ Assert (@(Get-DomeniaProbeValues ([pscustomobject]@{Mode='Count'}) $result.Probes.count)[0] -eq '10000')
+ Assert (@(Get-DomeniaProbeValues ([pscustomobject]@{Mode='All'}) $result.Probes.all).Count -eq 0)
  Assert ($script:ReadCount -eq 1 -and $script:Union.Count -eq 2 -and $script:Closed -eq 1 -and $script:Opened -eq 1)
  Assert ($null -eq $result.Inventory.RamBytes -and $null -eq $result.Inventory.DiskSize -and $null -eq $result.Inventory.DiskFree)
 }
@@ -188,11 +205,14 @@ Case 'Shared stream errors are recorded once with one session and no successful 
  Assert ($r.Probes.count.Error -eq $r.Probes.all.Error -and $r.Probes.count.CheckedUtc -eq $r.Probes.all.CheckedUtc)
  Assert ($r.Probes.count.Count -eq 0 -and $r.Probes.all.Count -eq 0)
 }
-Case 'Complete Count is not marked truncated by clipped text or array details' {
+Case 'Complete Count and typed details preserve text and array values within budget' {
  $p=@((New-CollectionProbe count @('Name','Value') -Mode Count),(New-CollectionProbe all @('Name','Value')))
  $r=Invoke-CollectionFixture -Probes $p -Rows 2 -LongDetail
- Assert ($r.Probes.count.Count -eq 2 -and -not $r.Probes.count.Truncated -and $r.Probes.all.Truncated)
- Assert ($r.Probes.count.Rows[0][0].Length -eq 200 -and $r.Probes.count.Rows[0][1] -eq '1')
+ foreach($entry in @($r.Probes.count,$r.Probes.all)){
+  Assert ($entry.Count -eq 2 -and $entry.CountComplete -and -not $entry.Truncated -and $entry.StoredCount -eq 2)
+  Assert ($entry.Instances[0].Values.Name.Length -eq 300 -and (@($entry.Instances[0].Values.Value) -join ',') -eq '1,2')
+  Assert ($entry.Rows[0][0].Length -eq 300 -and $entry.Rows[0][1] -eq '1')
+ }
 }
 Case 'First DNS selects the first array value without losing a valid observation' {
  $first=New-CollectionProbe first @('DNSServerSearchOrder') -Mode First
@@ -202,15 +222,20 @@ Case 'First DNS selects the first array value without losing a valid observation
  Assert (-not $r.Probes.first.Truncated -and -not $r.Probes.first.Error)
  $values=@(Get-DomeniaProbeValues $first $r.Probes.first)
  Assert ($values.Count -eq 1 -and $values[0] -eq '192.0.2.10')
- Assert ($r.Probes.all.Truncated -and @(Get-DomeniaProbeValues $all $r.Probes.all).Count -eq 0)
+ Assert (-not $r.Probes.all.Truncated -and $r.Probes.all.CountComplete -and @(Get-DomeniaProbeValues $all $r.Probes.all).Count -eq 2)
+ Assert ((@($r.Probes.first.Instances[0].Values.DNSServerSearchOrder) -join ',') -eq '192.0.2.10,192.0.2.20')
 }
 Case 'First ignores later instances but keeps the selected text length guard' {
  $first=New-CollectionProbe first @('Name') -Mode First
- $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail -LongAfterFirst
+ $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail -LongAfterFirst -LongDetailLength 16385
  Assert ($r.Probes.first.Count -eq 2 -and $r.Probes.first.Rows.Count -eq 1 -and -not $r.Probes.first.Truncated)
  Assert (@(Get-DomeniaProbeValues $first $r.Probes.first)[0] -eq 'n1')
- $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail
- Assert ($r.Probes.first.Truncated -and $r.Probes.first.Rows[0][0].Length -eq 200)
+ $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail -LongDetailLength 16384
+ Assert (-not $r.Probes.first.Truncated -and $r.Probes.first.Instances[0].Values.Name.Length -eq 16384)
+ Assert (@(Get-DomeniaProbeValues $first $r.Probes.first)[0].Length -eq 16384)
+ $r=Invoke-CollectionFixture -Probes @($first) -Rows 2 -LongDetail -LongDetailLength 16385
+ Assert ($r.Probes.first.Truncated -and $r.Probes.first.CountComplete -and $r.Probes.first.Count -eq 2)
+ Assert ($null -eq $r.Probes.first.Instances[0].Values.Name -and $r.Probes.first.Instances[0].IncompleteProperties -contains 'Name')
  Assert (@(Get-DomeniaProbeValues $first $r.Probes.first).Count -eq 0)
 }
 Case 'Rejected and controller-skipped probes never widen the property union' {
@@ -270,14 +295,13 @@ Case 'Detached save still owns its slot and is never replayed' {
  Start-DomeniaStorageWork
  Assert ($script:Persistence.Job -eq 'detached' -and $script:Persistence.InFlight -eq 1 -and $script:Persistence.Pending.Count -eq 0)
 }
-Case 'Lost LiveCache callback requeues the exact batch without false saved state' {
- Reset-Fixture;$entry=[pscustomobject]@{Key='pc1'}
- $script:Live.SaveJob='vanished';$script:Live.SaveInFlight=1;$script:Live.SaveBatch=[pscustomobject]@{Mode='Write';Identity='reader';Epoch=7L;Observations=@($entry);Query=$null}
- Start-DomeniaLiveBackgroundWork
- Assert ($script:Live.SaveInFlight -eq 0 -and $null -eq $script:Live.SaveBatch -and $script:Live.SaveJob -eq '')
- Assert ($script:Live.SaveQueue.Count -eq 1 -and [object]::ReferenceEquals($entry,$script:Live.SaveQueue.pc1))
- Assert ($script:Live.SaveAfter -gt [datetime]::UtcNow -and $script:Live.SaveFault -like '*non reçu*')
- Assert ($null -eq $script:Dispatched)
+Case 'A new search generation requests fresh central-store observations' {
+ Reset-Fixture;$script:SearchActive=$true;$script:Admission='stored-read'
+ $script:Live.Search=[pscustomobject]@{State=[pscustomobject]@{BaseDn=$script:Conn.BaseDn;Scope='Subtree'}}
+ Start-DomeniaLiveBackgroundWork;$first=$script:Dispatched
+ $script:Dispatched=$null;Start-DomeniaLiveBackgroundWork;Assert ($null -eq $script:Dispatched) 'Same generation must not duplicate its read'
+ $script:GlobalSearchGeneration++;Start-DomeniaLiveBackgroundWork
+ Assert ($script:Dispatched.State.Generation -eq 3 -and $script:Dispatched.State.ReadKey -cne $first.State.ReadKey)
 }
 # Exercise the core retry dispatcher itself: a matching term alone cannot carry an old page
 # into another OU or another connection epoch.
@@ -339,23 +363,33 @@ Case 'Park without a search map scans once and retains DN and GUID identity guar
  Assert ($script:ParkGridReads -eq 1 -and $script:ParkUpdated.Count -eq 1)
  Assert ($script:ParkUpdated[0] -eq '00000000-0000-0000-0000-000000000001')
 }
-Case 'Park partial measurements count as failed while complete observations are queued' {
+Case 'Park publishes counters only after committed readback, preserving partial facts' {
  foreach($kind in @('InventoryError','ProbeError','Truncated','Success')){
   Reset-Fixture;$script:SelectedObject=$null;$script:FleetLast=$null;$script:FleetObservations=@{};$script:QueuedObservation=$null
-  $target=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Previous=$null;PreviousJson=''}
-  $run=[pscustomobject]@{Id='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Pending=@{j=$true};StorePending=@{};PingOnly=$false;WmiOnly=$false;CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Failed=0;Stopping=$false;Reused=0;Changed=0;PendingRows=@{}};$script:ParkRuns=@{List=$run}
-  $state=[pscustomobject]@{RunId='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Job='j';Target=$target}
-  $probe=[pscustomobject]@{Error=$(if($kind -eq 'ProbeError'){'failed'}else{''});Truncated=($kind -eq 'Truncated');Rows=@(,@('raw'));CheckedUtc=[datetime]::UtcNow.ToString('o')}
-  $packet=[pscustomobject]@{Key='dn';Guid='g';Computer='PC';Outcome='NoConsole';Presence='En ligne';InventoryError=$(if($kind -eq 'InventoryError'){'denied'}else{''});Probes=[pscustomobject]@{fixture=$probe}}
-  function Queue-DomeniaMetadata {param($Kind,$Key,$Row)$script:QueuedObservation=$Row;return $true}
-  function Get-ExistingLinkForComputer {param($Computer)return $null}
-  function Update-DomeniaParkResultRows {param($Packet,$Observation)}
+  $guid='00000000-0000-0000-0000-000000000001';$dn='CN=PC,'+$script:Conn.BaseDn
+  $target=[pscustomobject]@{Key=$dn;Guid=$guid;Computer='PC';Previous=$null;PreviousJson=''}
+  $run=[pscustomobject]@{Id='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Generation=2L;Pending=@{j=$true};StorePending=@{};PingOnly=$false;WmiOnly=$false;CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Failed=0;Stopping=$false;Reused=0;Changed=0;PendingRows=@{};FailureMessage=''};$script:ParkRuns=@{List=$run}
+  $state=[pscustomobject]@{RunId='r';Slot='List';Epoch=7L;Path=$script:DatabaseScopedPath;Job='j';Target=$target;Plan=[pscustomobject]@{Reused=0}}
+  [void](Initialize-DomeniaRemoteStoreState -State $state -Guid $guid -DN $dn -Generation 2)
+  $at=[datetime]::UtcNow.ToString('o')
+  $probe=[pscustomobject]@{Error=$(if($kind -eq 'ProbeError'){'failed'}else{''});Truncated=($kind -eq 'Truncated');Rows=@(,@('raw'));CheckedUtc=$at}
+  $packet=[pscustomobject]@{Key=$dn;Guid=$guid;Computer='PC';Outcome='NoConsole';Presence='En ligne';PresenceCheckedUtc=$at;Inventory=[pscustomobject]@{Build='26100'};InventoryAttempted=$true;InventoryCheckedUtc=$at;InventoryError=$(if($kind -eq 'InventoryError'){'denied'}else{''});Probes=[pscustomobject]@{fixture=$probe}}
+  # Capture the persistence boundary; the production converter and publication callback remain real.
+  function Submit-DomeniaRemoteObservations {param($Result,$State,$SuccessHandler,$ErrorHandler)
+   $script:QueuedObservation=$Result;$script:QueuedChanges=@(ConvertTo-DomeniaRemoteObservationChanges -Result $Result -Guid $State.StoreGuid -DN $State.StoreDn);return $true
+  }
+  function Update-DomeniaParkResultRows {param($Observation,$Run)}
   function Update-DomeniaParkRunStatus {}
   Complete-DomeniaParkSession $packet $state
-  Assert ($run.Done -eq 1 -and $run.Online -eq 1 -and $run.Pending.Count -eq 0) $kind
+  Assert ($run.Done -eq 0 -and $run.Online -eq 0 -and $run.Pending.Count -eq 0 -and $run.StorePending.ContainsKey('j')) 'Raw measurement was published before COMMIT'
+  Assert ([object]::ReferenceEquals($packet,$script:QueuedObservation)) 'Raw packet lost before persistence'
+  $result=[pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$state.StoreContext.StoreId;RequestId=$state.StoreContext.RequestId;ObservationRows=@($packet);Observations=$script:QueuedChanges}
+  Complete-DomeniaParkStored $result $state
+  Assert ($run.Done -eq 1 -and $run.Online -eq 1 -and $run.StorePending.Count -eq 0) $kind
   Assert ($run.Failed -eq $(if($kind -eq 'Success'){0}else{1})) ('failure count '+$kind)
-  Assert ($null -ne $script:QueuedObservation -and $script:QueuedObservation.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
-  if($kind -eq 'InventoryError'){Assert ($script:QueuedObservation.InventoryError -eq 'denied' -and $script:QueuedObservation.InventoryAttemptUtc)}
+  $savedProbe=@($script:QueuedChanges|Where-Object Family -eq 'Probe:fixture')[0]
+  Assert ($savedProbe.Data.Probes.fixture.Rows[0][0] -eq 'raw') ('full persisted observation '+$kind)
+  if($kind -eq 'InventoryError'){$savedInventory=@($script:QueuedChanges|Where-Object Family -eq 'Inventory')[0];Assert ($savedInventory.Error -eq 'denied' -and $savedInventory.AttemptedAtUtc)}
  }
 }
 # Points 31, 32 and 34: storage assistant state, synthetic only (no worker body runs, no file is opened).
