@@ -397,7 +397,9 @@ if($infrastructure){
             Assert-True (([Windows.Controls.Grid]::GetRow($parkState) -eq [Windows.Controls.Grid]::GetRow($live)) -and ([Windows.Controls.Grid]::GetColumn($parkState) -eq 1)) 'Le relevé de la liste ne prend pas la place de lʼétat de la liste.'
             Assert-True (([Windows.Controls.Grid]::GetRow($selectionBar) -eq [Windows.Controls.Grid]::GetRow($selection)) -and ([Windows.Controls.Grid]::GetColumn($selectionBar) -eq 0)) 'La barre de sélection ne prend pas la place de lʼétat de la sélection.'
             $a=Get-ClientRect $window 'LblSelectionReadState';$b=Get-ClientRect $window 'LblLiveState'
-            Assert-True ([Math]::Abs($a.Y-$b.Y) -le 0.5 -and $a.W -ge 100 -and $b.W -ge 100) ('États sur deux lignes : '+$a.Y+' / '+$b.Y)
+            # Les deux etats partagent une seule rangee (DS-06) ; l etat de selection mesure 20 px et l etat de liste
+            # 18 px, centres dans la meme rangee : un pixel d ecart arrondi haut/bas n est pas une seconde ligne.
+            Assert-True ([Math]::Abs($a.Y-$b.Y) -le 1.5 -and $a.W -ge 100 -and $b.W -ge 100) ('États sur deux lignes : '+$a.Y+' / '+$b.Y)
             # A GuiElementPolicy that greys or shows the two actions never brings their buttons back beside « ⋯ »: the menu
             # carries the state (greyed entry), the hidden mode removes the entry.
             $policyNodes=@($coreAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Apply-DomeniaGuiElementPolicy'},$true))

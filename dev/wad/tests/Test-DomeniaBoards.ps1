@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=59
+$script:ExpectedCases=64
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -177,7 +177,7 @@ try{
     $parkModelAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.Model.ps1')));foreach($n in @('Get-DomeniaParkPlural','Get-DomeniaParkProgressText')){Import-Function $parkModelAst $n}
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-QueryLibrary.Model.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.UI.ps1','Domenia-QueryTransfer.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryDetails.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-QueryLibrary.Model.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.UI.ps1','Domenia-QueryTransfer.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -785,6 +785,7 @@ try{
         Update-DomeniaFirstSteps
         $card=Get-DomeniaControl 'CardFirstSteps'
         Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte Premiers pas masquee au premier lancement'
+        Expect ($card.Parent.Children.IndexOf($card) -lt $card.Parent.Children.IndexOf((Get-DomeniaControl 'PnlFleetDashboard'))) 'Assistant de premiere configuration apres les widgets'
         Expect ([string](Get-DomeniaControl 'LblFirstStepConnectionMark').Text -eq [string][char]0x2713) 'Connexion de la session non reconnue'
         Expect ([string](Get-DomeniaControl 'LblFirstStepConnection').Text -ceq ('Connecté à example.invalid avec EXAMPLE\agent.')) ([string](Get-DomeniaControl 'LblFirstStepConnection').Text)
         Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant la premiere lecture'
@@ -916,7 +917,8 @@ try{
         $script:DeepClicks=0;$deep.Add_Click({$script:DeepClicks++})
         Update-DomeniaComputerDashboard -Result (New-InventoryResult)
         $panel=Get-DomeniaControl 'PnlComputerDashboard'
-        $badge='Partiel : s'+[char]0x00E9+'curit'+[char]0x00E9+' non v'+[char]0x00E9+'rifi'+[char]0x00E9+'e'
+        # UX-23 au 14/10 (896368c) : l omission de l une des trois lectures suffit, la condition exige les trois.
+        $badge='Partiel : antivirus, pare-feu ou BitLocker non lu'
         Expect (@(Get-Texts $panel|Where-Object{[string]$_.Text -eq $badge}).Count -eq 1) 'Badge Partiel absent'
         $button=@(Get-DomeniaLogicalControls $panel|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Tag -is [hashtable] -and [string]$_.Tag['Value'] -eq 'InventoryFull' -and [string]$_.Content -eq 'Inventaire complet'})
         Expect ($button.Count -ge 1) 'Bouton Inventaire complet absent de la carte'
@@ -1521,7 +1523,7 @@ try{
     # (FO-13), disposition d equipe (FO-17), editeur sans jargon, filtres et synonymes (UI-14, SP-07, SP-19).
     function script:Get-DomeniaEntryFirstString {param($Entry,[string]$Name) if(($Entry -is [hashtable]) -and $Entry.ContainsKey($Name)){return [string]$Entry[$Name]};return ''}
     function Get-Z03Object {return [pscustomobject]@{Type='Machine';Name='PC-A';DN='CN=PC-A,OU=Postes,DC=example,DC=invalid';Entry=@{userAccountControl='4096';whenCreated='2020-01-15T10:00:00Z'};Safety=[pscustomobject]@{Guid='00000000-0000-4000-8000-0000000000aa'}}}
-    Case 'Grille fluide : 4, 3 ou 2 colonnes selon la largeur, rangees pleines et hauteurs alignees (DS-04)' {
+    Case 'Grille fluide : 4, 3 ou 2 colonnes selon la largeur, tailles fixes et hauteurs alignees (DS-04)' {
         $tabs=Get-DomeniaControl 'WorkspaceTabs';$oldTab=$tabs.SelectedItem;$oldWidth=$w.Width;$saved=[string](Get-DomeniaSetting 'Dashboard.Fleet.Layout' '')
         try{
             $tabs.SelectedItem=Get-DomeniaControl 'TabDashboard'
@@ -1542,7 +1544,9 @@ try{
                     Expect ($grid.ColumnDefinitions.Count -eq $columns -and [int]$grid.Tag['Columns'] -eq $columns) ('Grille de '+$grid.ColumnDefinitions.Count+' colonnes au lieu de '+$columns)
                     foreach($row in @($grid.Children|Group-Object {[Windows.Controls.Grid]::GetRow($_)})){
                         $span=0;foreach($child in $row.Group){$span+=[Windows.Controls.Grid]::GetColumnSpan($child)}
-                        Expect ($span -eq $columns) ('Rangee incomplete a '+$width+' : '+$span+' sur '+$columns)
+                        # DS-04 (decision RC1.17.11): les tailles S/M/L sont fixes, la derniere rangee d'une section
+                        # peut rester incomplete ; seule une rangee vide ou plus large que la grille reste un defaut.
+                        Expect ($span -gt 0 -and $span -le $columns) ('Rangee hors grille a '+$width+' : '+$span+' sur '+$columns)
                         # Two stacked compact tiles end on the bottom of their row, like the tall card beside them.
                         $bottoms=@(foreach($child in $row.Group){
                             $last=if(($child.Tag -is [hashtable]) -and ($child.Tag.ContainsKey('Chrome'))){$child}else{@(Get-Holders $child)|Select-Object -Last 1}

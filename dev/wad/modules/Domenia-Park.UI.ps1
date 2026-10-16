@@ -1432,7 +1432,13 @@ function Sync-DomeniaParkGrid {
     $Run.GridStale=$false
     if($Run.Generation -ne [long]$script:GlobalSearchGeneration){return}
     $grid=Get-DomeniaControl 'DgObjects'
-    if($null -ne $grid -and $null -ne $grid.ItemsSource){try{$grid.Items.Refresh()}catch{try{Write-AppLog ('Liste non actualisée après le relevé : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Sync-DomeniaParkGrid' $_}}}
+    if($null -ne $grid -and $null -ne $grid.ItemsSource){
+        try{
+            # Refresh the source view: ItemCollection.Refresh can leave its cached filter unchanged.
+            $view=[Windows.Data.CollectionViewSource]::GetDefaultView($grid.ItemsSource)
+            if($null -ne $view){$view.Refresh()}
+        }catch{try{Write-AppLog ('Liste non actualisée après le relevé : '+$_.Exception.Message) 'WARN'}catch{Write-DomeniaSwallowed 'Park' 'Sync-DomeniaParkGrid' $_}}
+    }
 }
 
 function Initialize-DomeniaRemoteStoreState {

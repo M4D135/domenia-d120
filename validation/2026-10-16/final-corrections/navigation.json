@@ -1,0 +1,39 @@
+{
+    "Kind":  "Wiring",
+    "Lot":  "W08-navigation",
+    "Filter":  "P57 Vues personnelles|P60 Export",
+    "Points":  [
+                   "52",
+                   "53",
+                   "54",
+                   "55",
+                   "56",
+                   "57",
+                   "58",
+                   "59",
+                   "60"
+               ],
+    "Host":  "5.1.26100.6584",
+    "NativeWindowsPowerShell51":  true,
+    "Wpf":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "LivePing":  false,
+    "SQLite":  false,
+    "Passed":  2,
+    "Failed":  0,
+    "Complete":  true,
+    "Limitation":  "Raccordement prouve par les vraies fonctions et de vrais controles WPF ; annuaire, postes, base SQLite, presse-papiers et fenetres sont des doubles. Ne prouve ni un acces a un domaine reel ni le rendu final a lʼecran.",
+    "Tests":  [
+                  {
+                      "Name":  "P57 Vues personnelles : enregistrer, retrouver, ouvrir sans lecture, retirer et annuler",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P60 Export et relevés nomment la portée choisie : infobulle, aide dʼautomation et aide de la page identiques",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

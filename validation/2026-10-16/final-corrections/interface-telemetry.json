@@ -1,0 +1,59 @@
+{
+    "Passed":  10,
+    "Failed":  0,
+    "Assertions":  37,
+    "PowerShell":  "5.1.26100.6584",
+    "Data":  "Controlled clock, actual Core finally block and real in-memory metric functions; no AD/WPF",
+    "Cases":  [
+                  {
+                      "Name":  "551 ms is recorded in diagnostics without a session warning",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Modal waits are subtracted and negative effective durations are clamped",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The warning threshold is preserved, with strict greater-than semantics",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Callback, worker and heartbeat samples stay isolated and bounded",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Operations health exposes measured callback percentiles without claiming network performance",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Operations health reports local search, interface, base, directory and workstations separately",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A finished local search is recorded apart from the other actions of the same reader",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A write or remote action never enters the reads of its provider",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Response-time summaries are recomputed only when one of their series moved",
+                      "Pass":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "W13/W14: the percentiles and the explained slowness read one measure of the worker",
+                      "Pass":  true,
+                      "Error":  ""
+                  }
+              ]
+}

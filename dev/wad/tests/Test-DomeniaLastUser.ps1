@@ -33,7 +33,7 @@ foreach($name in $names) {
 # (Domenia-Access.UI.ps1). Import the real closed plan; the UI boundaries are replaced below.
 . (Join-Path $root 'wad\Domenia-Modules.ps1')
 $script:Results=New-Object 'System.Collections.Generic.List[object]'
-function Assert-Test {param([bool]$Value,[string]$Message='Assertion fausse'); if(-not $Value){throw $Message}}
+function Assert-Test {param([bool]$Value,[string]$Message='Assertion fausse'); if(-not $Value){throw ($Message+' | '+($script:Messages -join ' ; '))}}
 function Test-Case {
  param([string]$Name,[scriptblock]$Action)
  try {Reset-TestState;& $Action | Out-Null;$status='PASS';$detail=''}catch{$status='FAIL';$detail=$_.Exception.Message}
@@ -44,8 +44,9 @@ function Reset-TestState {
  $script:Live=$null
  $script:AsyncJobs=[ordered]@{};$script:SessionEpoch=[long]7;$script:ActiveLinkProbeId='';$script:ActiveLinkProbeComputer=''
  $script:LinkProbeDone=@{};$script:Starts=0;$script:Clears=0;$script:PendingInvokes=0;$script:AssociationRefreshes=0
+ $script:DatabaseScopedPath='C:\fixture\domain.db'
  $script:SelectedComputer='PC-A';$script:MasterBuild='TEST-R1.3';$script:Messages=New-Object 'System.Collections.Generic.List[string]'
- $script:UiTexts=@{};$script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-A,DC=example,DC=test';Name='PC-A'}
+ $script:UiTexts=@{};$script:SelectedObject=[pscustomobject]@{Type='Machine';DN='CN=PC-A,DC=example,DC=test';Name='PC-A';Guid='00000000-0000-4000-8000-000000000001'}
  $script:Row=[pscustomobject]@{Type='Machine';DN=$script:SelectedObject.DN;Name='PC-A'}
  $script:SelectionResetDn=$script:SelectedObject.DN;$script:SuppressGridSelectionEvents=$false
  $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:PendingObjectSelection=$null
@@ -88,7 +89,7 @@ function Clear-Secrets {}
 function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties);return $Result}
 function Set-DomeniaItemsSource {param($Name,$Rows);return $true}
-function Add-UserMachineLinkIfMissing {param($UserLogin,$Computer,$Source,$Details,$Confidence,$VerifiedInAD);$script:AddedLinks++;return $true}
+function Add-DomeniaRelation {param($Relation,[switch]$NoSave,[switch]$Quiet);$script:AddedLinks++;return $true}
 function Register-DomeniaOperationSample {param($Operation,$Mode,$ItemCount,$DurationMs,$BytesEstimated,$RemoteAttempts,$FallbackTasks,$SuccessCount)}
 function New-TestJob {
  param([string]$Id='job-1',[string]$Probe='probe-1',[string]$Computer='PC-A')
@@ -200,7 +201,7 @@ Test-Case 'Succes tardif pour un autre poste : aucun lien ecrit' {
 }
 Test-Case 'Succes courant : lien enregistre et marqueur libere' {
  $script:ActiveLinkProbeId='probe-a';$script:ActiveLinkProbeComputer='PC-A'
- $result=[pscustomobject]@{Computer='PC-A';UserLogin='alice';Success=$true;VerifiedInAD=$true;Confidence=97;Source='CIM';Details='Test';Attempts=@();FallbackTasks=0;TaskBytes=0}
+ $result=[pscustomobject]@{DataSource='SQLite';Computer='PC-A';UserLogin='alice';Success=$true;VerifiedInAD=$true;Confidence=97;Source='CIM';Details='Test';Attempts=@();FallbackTasks=0;TaskBytes=0}
  Complete-DomeniaComputerUserProbeUi $result ([pscustomobject]@{Computer='PC-A';ProbeId='probe-a'})
  Assert-Test ($script:AddedLinks -eq 1 -and $script:ActiveLinkProbeId -eq '' -and ($script:Messages -join ' ') -match 'Utilisateur detecte')
 }

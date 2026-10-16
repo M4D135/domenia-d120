@@ -1,0 +1,354 @@
+{
+    "Build":  "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH",
+    "HostVersion":  "5.1.26100.6584",
+    "OS":  "Microsoft Windows NT 10.0.26200.0",
+    "Passed":  68,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "LivePing":  false,
+    "Tests":  [
+                  {
+                      "Name":  "Global scope ignores selected OU",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global scope always includes descendants",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU scope retains selected branch",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU children-only remains available",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU subtree remains available",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global type includes users despite Machines selection",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU type remains restricted to machines",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Upper text and OU text are independent",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Missing domain is refused without default domain",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Default entry point searches globally",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global request preserves OU selection and depth",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global request keeps the OU type and starts with an empty filter of the list (CO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A refresh, a continuation or a favourite keep the filter of the list (CO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A refused search keeps the filter of the list (CO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global request tags layout to disable local filters",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU request ignores header search and uses scope",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU request retains selected object type",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU saved term is honored without changing header",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Display name and surname are in first global pass",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Given name and mail are in first global pass",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "ANR is part of global first pass",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Mail query uses mail and UPN in whole domain",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "LDAP metacharacters remain escaped",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global limit remains capped",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Write lock blocks both search modes",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Draft decision blocks a new search without changing mode",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Cache key separates global from OU even at domain root",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global result remains valid despite an unchanged hidden OU setting",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old mode results are rejected",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Old generation results are rejected",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changed global text rejects old results",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A search does not ping or read CIM",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping-only sends exactly one echo to selected target",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping-only touches no credentials or CIM",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Disabled CIM preserves ping and leaves console unconfirmed",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Combined probe publishes ping before CIM",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping and CIM resources are disposed",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "No ICMP reply is not declared powered off",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping exception is a separate state and resource is disposed",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Positive ping survives denied CIM",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Negative ping does not prevent requested CIM",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Empty console is not a statement about RDP sessions",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Console of another workstation answering the name is not attributed",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Workstation answering with its full DNS name is the requested one",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Invalid target produces no network call",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Early event contains network fields only",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "No observation starts as Non verified",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Historic presence stays visibly cached",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Legacy offline wording becomes no ping response",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "FI-16 presence colour reads the state key, not the label",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Presence filtering accepts historical online",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Presence filtering separates network error from no reply",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping update does not erase known console user",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping update does not rejuvenate user observation or attempt",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping update retains confirmed AD identity",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping updates its own timestamp and status",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping without earlier user does not invent one",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "CIM timeout retains early positive ping",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Older network packet cannot overwrite newer status",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Fractional UTC seconds are compared as dates, not strings",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Recreated object cannot inherit old user",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global repaint applies the filter of the list too (CO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Global contract refuses an inherited OU perimeter",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Persistent observation round-trip retains separate times",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "WPF global ancestor hides OU filters, keeps the filter of the list and the result grid (CO-05, FO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DS-03 Les filtres disent leur sens : Tous les types, Toute presence, lignes max",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "CO-03 DgObjects : la grille recoit des cles de tri, pas seulement du texte affiche",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Actual live filter applies the list controls in Global and OU (CO-05)",
+                      "Status":  "Passed",
+                      "Error":  ""
+                  }
+              ]
+}

@@ -1,0 +1,43 @@
+{
+  "build": "RC1.17.12",
+  "scope": "Documentation; not Windows qualification",
+  "visualReview": "111 pages on seven contact sheets; changed sections technician p12 and administrator p20 inspected at full resolution. Existing screenshots retained.",
+  "documents": [
+    {
+      "role": "technicien",
+      "pages": 31,
+      "issues": [],
+      "outputs": [
+        {
+          "path": "DOC/Domenia-1.0-Guide-technicien.docx",
+          "sha256": "b9012a3449809040290af111cb2b6107b5bd5dc8ebf7a8514855476fe2026350",
+          "bytes": 4876844
+        },
+        {
+          "path": "DOC/Domenia-1.0-Guide-technicien.pdf",
+          "sha256": "6cb019acd033ea4a1301d2666561447f30e0eddc7e038c965e1f7ca9c5c6bc05",
+          "bytes": 4765780
+        }
+      ],
+      "finalRenderComparison": "All page text equal except simplified footer edition; body unchanged."
+    },
+    {
+      "role": "administrateur",
+      "pages": 80,
+      "issues": [],
+      "outputs": [
+        {
+          "path": "DOC/Domenia-1.0-Guide-administrateur.docx",
+          "sha256": "4c7ae25876863a489f20f1f96a78a6a0931d6b101e6da5ff2b928b1ad33b3f75",
+          "bytes": 4952207
+        },
+        {
+          "path": "DOC/Domenia-1.0-Guide-administrateur.pdf",
+          "sha256": "390e4ee3bfed5c2439e52dc026980c3133a02459ffdbf70a86b3754ceacb9016",
+          "bytes": 5815719
+        }
+      ],
+      "finalRenderComparison": "All page text equal except simplified footer edition; body unchanged."
+    }
+  ]
+}

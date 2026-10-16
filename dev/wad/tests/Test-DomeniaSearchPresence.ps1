@@ -29,6 +29,9 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Set-DomeniaControlText',
 # DS-20: the result columns follow the column rules of Shell.Model (choice of the operator, relevance).
 . (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
 . (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
+. (Join-Path $wad 'modules\Domenia-Store.Model.ps1')
+. (Join-Path $wad 'modules\Domenia-Storage.UI.ps1')
+. (Join-Path $wad 'modules\Domenia-ProbeDetails.Model.ps1')
 # Explicit dependencies; none can issue a network call, launch a process or read the real database.
 function Get-CfgValue {param($Section,$Name,$Default);return $Default}
 # UI-23 / FO-18: the survey buttons of the list belong to Park.UI, not loaded here (inert boundary).
@@ -66,6 +69,12 @@ function New-Object {
     $obj|Add-Member -MemberType ScriptMethod -Name Dispose -Value {$script:PingDisposed++}
     return $obj
 }
+# Authentication is an inert boundary here; refusal/circuit behaviour has its own native suites.
+function Assert-WCredentialAllowed {param($Context,$Channel)}
+function Register-WCredentialFailure {param($Context,$Channel,$ErrorValue);return $false}
+function Enter-WCredentialAttempt {param($Context,$Channel);return $null}
+function Exit-WCredentialAttempt {param($Lease)}
+function Step-WReadProgress {}
 function Get-WMachineCredential {param($Context);$script:CredentialCalls++;return $null}
 function New-CimSessionOption {param($Protocol,$ErrorAction);if($Protocol -ne 'Dcom'){throw 'Unexpected transport'};return [pscustomobject]@{Protocol=$Protocol}}
 function New-CimSession {param($ComputerName,$SessionOption,$OperationTimeoutSec,$Credential,$ErrorAction)
@@ -84,6 +93,7 @@ function Get-CimInstance {param($CimSession,$ClassName,$Property,$OperationTimeo
 function Remove-CimSession {param($CimSession,$ErrorAction);$script:CimDisposed++}
 function New-WSearcher {throw 'No LDAP request is permitted in these probe fixtures.'}
 function Reset-Fixture {
+    $script:DatabaseScopedPath='C:\fixture\domain.db'
     $script:CurrentPresenceFilter='Sans réponse au ping';$script:SearchMode='OU';$script:WriteBlocked=$false;$script:DraftBlocked=$false
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid';Server='dc.example.invalid';Connected=$true}
     $script:SelectedBranchDn='OU=Postes,DC=example,DC=invalid';$script:GlobalSearchGeneration=9
@@ -169,13 +179,13 @@ Case 'Changed global text rejects old results' {Invoke-GlobalSearch;$script:Ctrl
 Case 'A search does not ping or read CIM' {Invoke-GlobalSearch;Expect ($script:PingCalls -eq 0 -and $script:CimCalls -eq 0)}
 Case 'Ping-only sends exactly one echo to selected target' {$r=Probe -User $false;Expect ($script:PingCalls -eq 1 -and $script:PingTarget -eq 'PC-TEST' -and $script:PingTimeout -eq 900 -and $r.Presence -eq 'En ligne')}
 Case 'Ping-only touches no credentials or CIM' {$r=Probe -User $false;Expect ($r.Outcome -eq 'PresenceOnly' -and $script:CredentialCalls -eq 0 -and $script:CimCalls -eq 0)}
-Case 'Disabled CIM still allows single ping' {$r=Probe -UseCim $false;Expect ($r.Outcome -eq 'PresenceOnly' -and $script:PingCalls -eq 1 -and $script:CimCalls -eq 0)}
+Case 'Disabled CIM preserves ping and leaves console unconfirmed' {$r=Probe -UseCim $false;Expect ($r.Outcome -eq 'Unavailable' -and $r.Presence -eq 'En ligne' -and $script:PingCalls -eq 1 -and $script:CimCalls -eq 0) ($r|ConvertTo-Json -Compress)}
 Case 'Combined probe publishes ping before CIM' {$r=Probe;Expect ($script:ProbeEvents.Count -eq 1 -and $script:CimCalls -eq 1 -and $r.Outcome -eq 'Observed')}
 Case 'Ping and CIM resources are disposed' {$r=Probe;Expect ($script:PingDisposed -eq 1 -and $script:CimDisposed -eq 1)}
 Case 'No ICMP reply is not declared powered off' {$script:PingStatus='TimedOut';$r=Probe -User $false;Expect ($r.Presence -eq 'Sans réponse au ping' -and $r.Presence -ne 'Hors ligne')}
 Case 'Ping exception is a separate state and resource is disposed' {$script:PingThrows=$true;$r=Probe -User $false;Expect ($r.Presence -eq 'Erreur de ping' -and $script:PingDisposed -eq 1)}
 Case 'Positive ping survives denied CIM' {$script:CimFails=$true;$r=Probe;Expect ($r.Outcome -eq 'Denied' -and $r.Presence -eq 'En ligne' -and $script:PingCalls -eq 1)}
-Case 'Negative ping does not prevent requested CIM' {$script:PingStatus='TimedOut';$r=Probe;Expect ($r.Outcome -eq 'Observed' -and $r.Presence -eq 'En ligne' -and $r.PresenceDetail.Contains('CIM/DCOM'))}
+Case 'Negative ping does not prevent requested CIM' {$script:PingStatus='TimedOut';$r=Probe;Expect ($r.Outcome -eq 'Observed' -and $r.Presence -eq 'Sans réponse au ping' -and $script:CimCalls -eq 1)}
 Case 'Empty console is not a statement about RDP sessions' {$script:CimUser='';$r=Probe;Expect ($r.Outcome -eq 'NoConsole' -and $r.Detail.Contains('RDP'))}
 Case 'Console of another workstation answering the name is not attributed' {$script:CimName='PC-AUTRE';$script:CimDns='pc-autre';$script:CimUser='PC-AUTRE\bob';$r=Probe;Expect (($r.Outcome -eq 'Unavailable') -and (-not $r.User) -and $r.Detail.Contains('se nomme pc-autre') -and ($script:CimCalls -eq 1) -and ($script:CimDisposed -eq 1))}
 Case 'Workstation answering with its full DNS name is the requested one' {$script:CimDns='pc-test.example.invalid';$r=Probe;Expect ($r.Outcome -eq 'Observed')}
@@ -294,7 +304,7 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         Expect ($a.ChangedSort -eq [datetime]::new(2026,5,9,8,0,0)) 'La cle Modifie ne convertit pas l heure affichee'
         Expect ($a.LastLogonSort -eq [datetime]::MinValue) 'Jamais ne tombe pas au plus ancien'
     }
-    Case 'Actual live filter ignores local controls in Global but applies them in OU' {
+    Case 'Actual live filter applies the list controls in Global and OU (CO-05)' {
         Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
         $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
         foreach($d in @(@{Type='Utilisateur';Name='Alex';DN='CN=Alex';Presence='Sans objet';SessionDisplay='';SessionState='';Login='alex';UPN='alex@example.invalid';Association=''},@{Type='Machine';Name='PC-ONLY';DN='CN=PC';Presence='Sans réponse au ping (cache)';SessionDisplay='';SessionState='';Login='pc';UPN='pc.example.invalid';Association=''})){[void]$rows.Add([pscustomobject]$d)}
@@ -305,7 +315,7 @@ if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){
         Set-DomeniaSearchMode Global;Update-DomeniaLiveFilter
         Expect (-not $script:Live.Search.FilterPending) 'The applied filter remained pending.'
         $names=@($grid.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})
-        Expect ($names -contains 'Alex' -and $names -contains 'PC-ONLY' -and $names.Count -eq 2) 'A global user was hidden by a local filter.'
+        Expect ($names.Count -eq 1 -and $names[0] -eq 'PC-ONLY') 'The global list filter was ignored.'
         $state.SearchMode='OU';$state.BaseDn=$script:SelectedBranchDn;$state.Scope='OneLevel';$state.Search='';$state.TypeFilter=Get-TypeLdapFilter 'Machines';Set-DomeniaSearchMode OU
         Update-DomeniaLiveFilter
         $names=@($grid.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})

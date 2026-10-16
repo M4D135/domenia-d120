@@ -19000,7 +19000,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.11-D120"
+$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.12-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -21139,7 +21139,8 @@ function Complete-UiTasks {
                 try { $traceSlowText = [string](Register-DomeniaJobPublication -Job $job -PublishMs ([double]$effectiveMs) -Volume $traceVolume -ThresholdMs ([double]$callbackWarningMs) -ValidateMs $traceValidateMs -WorkerEnd $traceWorkerEnd) } catch { $traceSlowText = '' }
                 if ($effectiveMs -gt $callbackWarningMs) {
                     if (-not $traceSlowText) { $traceSlowText = "Callback UI lent : $($job.Name), $effectiveMs ms (seuil $callbackWarningMs ms ; operation $($job.OperationId) ; traitement $($job.SuccessHandler))." }
-                    Write-AppLog "[$($job.CorrelationId)] $traceSlowText Hors $modalMs ms d'attente modale." "WARN"
+                    # Passive timing diagnostics must not flood the session journal with warnings.
+                    Write-DomeniaTrace -Area 'Lenteur' -Text "[$($job.CorrelationId)] $traceSlowText Hors $modalMs ms d'attente modale."
                 }
             }
             # D015: each subscriber of a shared read gets its own callback (access inspection ran once above).
@@ -25932,7 +25933,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.11-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.12-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

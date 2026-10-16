@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
-param([string]$ReportPath='', [switch]$Quiet)
+param([string]$ReportPath='', [switch]$Quiet,[string]$Filter='')
 # W08, navigation lot (points 52 to 60): breadcrumb, OU labels, tree filter, exact history, search workspace (saved
 # views, filter chips, collective scope, side preview, comparison) and the shared OU picker. Real modules are
 # dot-sourced, core functions are extracted by AST and real WPF controls are used. Directory, workstations, SQLite,
@@ -39,6 +39,7 @@ $modules=Join-Path $wad 'modules'
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Ok,[string]$Reason='Assertion fausse');if(-not $Ok){throw $Reason}}
 function Case {param([string]$Name,[scriptblock]$Body)
+    if($Filter -and $Name -notmatch $Filter){return}
     try{Reset-Fixture;& $Body|Out-Null;$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Passed';Detail=''})}
     catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Failed';Detail=($_.Exception.Message+' @ '+$_.ScriptStackTrace)})}
 }
@@ -153,6 +154,8 @@ function New-TestControls {
     $c.DgSearchPreview=[Windows.Controls.DataGrid]::new()
     $grid=[Windows.Controls.DataGrid]::new();$grid.IsReadOnly=$true;$grid.CanUserAddRows=$false;$grid.AutoGenerateColumns=$false;$grid.SelectionMode='Extended'
     foreach($spec in @(@('Type','Type'),@('Nom','Name'),@('Etat','State'),@('Chemin complet','DN'))){$col=[Windows.Controls.DataGridTextColumn]::new();$col.Header=$spec[0];$col.Binding=[Windows.Data.Binding]::new($spec[1]);$col.SortMemberPath=$spec[1];[void]$grid.Columns.Add($col)}
+    # Unshown WPF columns keep DisplayIndex=-1 until layout; provide the visible-grid order.
+    for($columnIndex=0;$columnIndex -lt $grid.Columns.Count;$columnIndex++){$grid.Columns[$columnIndex].DisplayIndex=$columnIndex}
     $c.DgObjects=$grid
     $tabs=[Windows.Controls.TabControl]::new()
     foreach($n in @('WsSearch','WsObject')){$t=[Windows.Controls.TabItem]::new();$t.Name=$n;$t.Header=$n;[void]$tabs.Items.Add($t);$c[$n]=$t}
@@ -339,7 +342,7 @@ Case 'P57 Vues personnelles : enregistrer, retrouver, ouvrir sans lecture, retir
     Expect ($script:Ctrl.BtnSearchWorkspaceOpen.IsEnabled -and $script:Ctrl.BtnSearchWorkspaceRemove.IsEnabled) 'Ouvrir et Retirer restent grisés pour une vue choisie.'
     Open-DomeniaSearchWorkspace
     Expect ($script:SelectedBranchDn -eq 'OU=Postes,OU=Lyon,DC=example,DC=invalid' -and [string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Machines' -and [string]$script:Ctrl.CmbPresenceFilter.SelectedItem.Content -eq 'En ligne') 'Périmètre ou filtres non rendus.'
-    Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'pc' -and $script:Ctrl.TxtGlobalLimit.Text -eq '500' -and -not [bool]$script:Ctrl.ChkSubtree.IsChecked -and [int]$script:Ctrl.DgObjects.Columns[1].Width.Value -eq 310) 'Filtre, limite, profondeur ou largeur non rendus.'
+    Expect ($script:Ctrl.TxtSuiteResultFilter.Text -eq 'pc' -and $script:Ctrl.TxtGlobalLimit.Text -eq '500' -and -not [bool]$script:Ctrl.ChkSubtree.IsChecked -and [int]$script:Ctrl.DgObjects.Columns[1].Width.Value -eq 310) ('Filtre/limite/profondeur/largeur : '+$script:Ctrl.TxtSuiteResultFilter.Text+' / '+$script:Ctrl.TxtGlobalLimit.Text+' / '+$script:Ctrl.ChkSubtree.IsChecked+' / '+$script:Ctrl.DgObjects.Columns[1].Width.Value)
     Expect ($script:Searches.Count -eq 0 -and @($script:Ctrl.DgObjects.ItemsSource).Count -eq 0) 'Ouvrir une vue a lu lʼannuaire ou gardé lʼancienne liste.'
     # The next list receives the sort of the view.
     Set-FixtureList @((New-FixtureRow 'PC-01'),(New-FixtureRow 'PC-03'))
@@ -704,7 +707,7 @@ $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-navigation-'+[guid]::NewGuid().ToString('N')+'.json')}
 $report=[ordered]@{
-    Kind='Wiring';Lot='W08-navigation';Points=@('52','53','54','55','56','57','58','59','60')
+    Kind='Wiring';Lot='W08-navigation';Filter=$Filter;Points=@('52','53','54','55','56','57','58','59','60')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false;SQLite=$false
     Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF ; annuaire, postes, base SQLite, presse-papiers et fenetres sont des doubles. Ne prouve ni un acces a un domaine reel ni le rendu final a lʼecran.'

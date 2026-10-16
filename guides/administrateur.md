@@ -414,6 +414,22 @@ Un autre build s'affiche « Build » suivi du numéro. Le serveur est reconnu 
 
 Les dates viennent du fichier livré Domenia-WindowsLifecycle.json, selon le build et la famille (Pro, Entreprise, LTSC, LTSB, IoT ou Serveur). Sans date correspondante, la fin de service reste inconnue et ne crée pas d’alerte critique. Gardez cette table à jour et vérifiez les dispositions de maintenance applicables à votre parc.
 
+## Suivre un lot
+
+Le bouton Opérations de lʼen-tête affiche le type de lot et les postes traités sur le total.
+Son panneau place le lot avant les lectures individuelles, avec les erreurs et les enregistrements en attente.
+Le lot reste visible entre deux postes ; son bouton Arrêter agit sur lʼensemble du lot choisi.
+Un délai WMI concerne le poste en erreur. Si le moteur est encore occupé à nettoyer les lectures,
+le prochain poste attend une place avant de partir ; les limites du moteur restent appliquées.
+
+## Dates et actualisation des widgets
+
+Chaque widget présente sa source (AD, ping, WMI ou registre) et les dates des relevés conservés. Une plage indique des relevés réalisés à plusieurs moments ; une source sans date reste « non daté ». Le petit ↻ toujours visible relit la source, puis recalcule le widget. Les données confirmées gardent leur date si une tentative échoue. La synthèse du parc enchaîne AD puis ses mesures ping/WMI ; les historiques restent conservés. Un widget suspendu doit être repris avant actualisation. Les confirmations de collecte et les limites de périmètre restent applicables.
+
+L’assistant de première configuration reste en haut de l’Accueil tant que ses étapes ne sont pas terminées. Au dernier pas, un premier calcul local démarre automatiquement après la lecture de la base. Le bouton attend la vue prête ; en cas d’échec ou d’OU vide, il propose de réessayer. Aucun scan WMI supplémentaire ne part à cette étape.
+
+Les lenteurs passagères sont consultables dans le diagnostic des opérations. Elles ne produisent plus un avertissement répété dans le journal de session ; les échecs et les actions nécessaires restent signalés.
+
 # 8 Tableau de bord et Atelier de requêtes
 
 La vue du parc se calcule depuis la base SQLite et les observations enregistrées. Elle ne nécessite pas une recherche préalable dans l'annuaire. Le sélecteur de l'Accueil, celui de Rechercher et celui de la Base autonome sont indépendants : chacun conserve son usage et son périmètre explicite.
@@ -1911,17 +1927,3 @@ Ce chapitre donne les sources utiles pour maintenir Domenia 1.0 et reconstruire 
 | Profil Essentiel, Expert | Niveau de détail de l'interface ; aucun effet sur les droits. |
 | Démonstration | Mode de formation sans AD, avec des données fictives ; désactivé en service. |
 | Poste Windows de test autorisé | Machine réservée aux essais, avec des données et des objets de test. |
-
-### Suivre un lot (RC1.17.11)
-
-Le bouton Opérations de lʼen-tête affiche le type de lot et les postes traités sur le total.
-Son panneau place le lot avant les lectures individuelles, avec les erreurs et les enregistrements en attente.
-Le lot reste visible entre deux postes ; son bouton Arrêter agit sur lʼensemble du lot choisi.
-Un délai WMI concerne le poste en erreur. Si le moteur est encore occupé à nettoyer les lectures,
-le prochain poste attend une place avant de partir ; les limites du moteur restent appliquées.
-
-### RC1.17.11 : dates et actualisation des widgets
-
-Chaque widget présente sa source (AD, ping, WMI ou registre) et les dates des relevés conservés. Une plage indique des relevés réalisés à plusieurs moments ; une source sans date reste « non daté ». Le petit ↻ toujours visible relit la source, puis recalcule le widget. Les données confirmées gardent leur date si une tentative échoue. La synthèse du parc enchaîne AD puis ses mesures ping/WMI ; les historiques restent conservés. Un widget suspendu doit être repris avant actualisation. Les confirmations de collecte et les limites de périmètre restent applicables.
-
-Au dernier pas de la première configuration, un premier calcul local démarre automatiquement après la lecture de la base. Le bouton attend la vue prête ; en cas d’échec ou d’OU vide, il propose de réessayer. Aucun scan WMI supplémentaire ne part à cette étape.

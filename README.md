@@ -5,13 +5,14 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.11**, candidate : accueil recentré sur les données, sections déplaçables,
+Révision **RC1.17.12**, candidate : accueil recentré sur les données, sections déplaçables,
 Santé en dernier par défaut, tailles de widgets conservées, progression globale des lots en haut.
 Après un délai WMI, une saturation temporaire du moteur attend la libération des lectures en nettoyage
 au lieu dʼarrêter le lot et de perdre le poste suivant.
 La connexion corrigée dans RC1.17.10 a été confirmée par David sur son poste.
 La qualification complète des ZIP et les parcours GUI sur AD restent ouverts.
-Voir les [corrections et contrôles ciblés du 16 octobre](validation/2026-10-16/dashboard-batch/README.md).
+L’assistant de première configuration reste en haut jusqu’à sa fin. Les mesures de lenteur restent dans le diagnostic, sans avertissements répétitifs dans le journal de session. Guides Word/PDF actualisés.
+Voir les [corrections finales du 16 octobre](validation/2026-10-16/final-corrections/README.md).
 
 | Pack | Téléchargement direct |
 |---|---|

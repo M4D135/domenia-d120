@@ -537,7 +537,7 @@
     "Stop-UiTask": "6BD22A4243ACAB963B3ACEF20CA060A529FD3F58F869D7BC40542C29F65CDC1B",
     "Stop-LatestUiTask": "16563D21B5093E9C32A80351DBE2056EF2020AC2D5C8DA01D38BB9AA93A6BAF5",
     "Detach-DomeniaReadUiTask": "D560A62FF6FBC83F4D41AC6DC58106BDE818F995A8DA20E02640E016FD0043AE",
-    "Complete-UiTasks": "3DB200D8949DC2F5B9D3E99913EC745A530ED0498D06FB5DDAA0450A2975D099",
+    "Complete-UiTasks": "1A154CB58A98A9F8A432BDA88B020AE44C85233DF80843DEB023F5156C965BCF",
     "Dispose-AsyncEngine": "E21F5E30687CC9EC252EDC52FB51ACC30F0171A5FE4F513A02F6844C552A05A3",
     "Initialize-DomeniaWorkerContextCache": "8872C031C18B66835299AD08F54B9B7E1109482CA7C7AC470DADC59320AAE649",
     "Get-WorkerContext": "2A5AD1D327592D17AB8839B75AA741EDB6D8AB62EA4DAC5B5D2E1C5D0763E6E1",
@@ -4725,6 +4725,17 @@
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "RC1.17.12 : Complete-UiTasks conserve les metriques de lenteur et ecrit leur texte au niveau Trace hors journal visible; aucune erreur operationnelle masquee. Relecture du diff.",
+      "ChangedCoreFunctions": [
+        "Complete-UiTasks"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

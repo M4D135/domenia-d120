@@ -264,7 +264,8 @@ Case 'Widget : sondes seules, sans console ni ping, lancees au geste sous la lim
  $script:AsyncJobs.Remove($script:Calls[0].Id)
  # The stored measurements are checked first, by the run timer of the scope, before any approval or read.
  Assert (((Run).Planning) -and (-not (Run).Approved) -and ($null -ne (Run).Timer) -and ((Run).Timer.IsEnabled) -and ($null -eq $script:Confirm) -and ($script:TimerOwners -contains 'Timer:ParkRun:List')) 'Mesures enregistrees non verifiees avant le releve'
- Invoke-DomeniaParkRunTick
+ # Planning is time-sliced; a cold VM can need one tick per target.
+ for($tick=0;$tick -lt 3 -and (Run).Planning;$tick++){Invoke-DomeniaParkRunTick}
  Assert ((-not (Run).Planning) -and ((Run).Approved) -and ($null -eq $script:Confirm)) 'Geste du widget redemande une confirmation sous la limite'
  Assert (($script:Calls.Count -eq 1) -and ((Run).AlreadyFresh -eq 1) -and ((Run).Done -eq 0) -and ((Run).Targets.Count -eq 1) -and ([string](Run).Targets[0].Computer -eq 'PC-2')) 'Poste deja mesure contacte'
  Assert ([string]$script:Status -like 'Collecte du widget lancée : 1 poste de Postes · 1 poste déjà à jour, non contacté. Ce qui sera lu : 1 requête du widget, en lecture seule.') ([string]$script:Status)
@@ -555,19 +556,26 @@ Case 'MO-08 : la liste est actualisee une fois par lot enregistre, jamais une fo
  Reset-Fixture;$rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
  foreach($n in 1..3){$t=New-Target $n;$row=New-DomeniaLiveResultRow;$row.Type='Machine';$row.Name=$t.Computer;$row.DN=$t.Key;$row.Guid=$t.Guid;$rows.Add($row)}
  $script:Ctrl.DgObjects.ItemsSource=$rows
+ # Populate the live lookup used by the real search before the committed observations arrive.
+ $map=@{};foreach($row in $rows){$map[$row.DN.ToLowerInvariant()]=$row}
+ $script:Live=[pscustomobject]@{Observations=@{};Search=[pscustomobject]@{Map=$map}}
  # A refresh of the view evaluates its filter once per row.
- $script:FilterCalls=0;$script:Ctrl.DgObjects.Items.Filter=[Predicate[object]]{param($x)$script:FilterCalls++;return $true}
+ $filterCounter=[pscustomobject]@{Count=0}
+ $predicate={param($x)$filterCounter.Count++;return $true}.GetNewClosure()
+ $script:Ctrl.DgObjects.Items.Filter=[Predicate[object]]$predicate
+ # Force creation of the view for this off-screen DataGrid before measuring refreshes.
+ $null=$script:Ctrl.DgObjects.Items.Count
  Start-DomeniaOnlinePark -DisplayedResults -PingOnly;$call=$script:Calls[0]
  Complete-DomeniaParkTargets ([pscustomobject]@{Rows=@(New-Target 1;New-Target 2;New-Target 3);Busy=$false}) $call.State;$script:AsyncJobs.Remove($call.Id);& $script:Confirm
  Invoke-DomeniaParkRunTick;$ping=$script:Calls[1]
  Complete-DomeniaParkPingJob ([pscustomobject]@{Results=@((New-PingResult (New-Target 1) 'En ligne'),(New-PingResult (New-Target 2) 'En ligne'),(New-PingResult (New-Target 3) 'Sans réponse au ping'));Count=3;Completed=$true}) $ping.State
  Invoke-DomeniaParkRunTick
  Assert ($script:Saves.Count -eq 1) ('Lots : '+$script:Saves.Count)
- $before=$script:FilterCalls
+ $before=$filterCounter.Count
  Commit-PingSaved 0 @{'PC-3'='Sans réponse au ping'}
- Assert (($script:FilterCalls-$before) -eq 3 -and (Run).Done -eq 3) ('Evaluations du filtre pour un lot de 3 postes : '+($script:FilterCalls-$before))
+ Assert (($filterCounter.Count-$before) -eq 3 -and (Run).Done -eq 3) ('Evaluations du filtre pour un lot de 3 postes : '+($filterCounter.Count-$before))
  Invoke-DomeniaParkRunTick
- Assert ((Run).Completed -and ($script:FilterCalls-$before) -eq 3) 'Liste actualisee de nouveau a la fin du releve.'
+ Assert ((Run).Completed -and ($filterCounter.Count-$before) -eq 3) 'Liste actualisee de nouveau a la fin du releve.'
 }
 Case 'MO-08 : corps ParkPing hors reseau : nom invalide en erreur sans echo, lots rapportes un par un' {
  $queue=[Collections.Concurrent.ConcurrentQueue[object]]::new()

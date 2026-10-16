@@ -31,6 +31,7 @@ $body=$tries[0].Finally.Extent.Text
 $script:CompleteMetric=[scriptblock]::Create($body.Substring(1,$body.Length-2))
 $script:Results=[Collections.Generic.List[object]]::new();$script:Assertions=0;$script:Logs=[Collections.Generic.List[object]]::new()
 function Write-AppLog {param($Text,$Level)$script:Logs.Add([pscustomobject]@{Text=[string]$Text;Level=[string]$Level})}
+function Write-DomeniaTrace {param($Area,$Text)$script:Logs.Add([pscustomobject]@{Text=[string]$Text;Level='TRACE';Area=$Area})}
 function Get-DomeniaPersistenceState {return [pscustomobject]@{Label=''}}
 function Expect([bool]$Value,[string]$Message){$script:Assertions++;if(-not $Value){throw $Message}}
 function Case([string]$Name,[scriptblock]$Body){try{&$Body;$script:Results.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}catch{$script:Results.Add([pscustomobject]@{Name=$Name;Pass=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
@@ -40,13 +41,13 @@ function Invoke-TimedCompletion([long]$Elapsed,[long]$Modal=0,[int]$Threshold=12
     $job=[pscustomobject]@{CorrelationId='synthetic';Name='Traitement fictif';OperationId=$Operation;SuccessHandler='Complete-Test'}
     & $script:CompleteMetric
 }
-Case '551 ms is recorded separately and warns with threshold and handler' {
+Case '551 ms is recorded in diagnostics without a session warning' {
     $script:DomeniaRuntimeMetrics=@{};$script:Logs.Clear()
     Invoke-TimedCompletion 551
     $metric=Get-DomeniaRuntimeMetricSummary Dispatcher 'Callback:LocalQuery'
     Expect ($metric.Count -eq 1 -and $metric.Max -eq 551) 'Callback duration missing'
-    Expect ($script:Logs.Count -eq 1 -and $script:Logs[0].Level -eq 'WARN') 'Expected warning missing'
-    Expect ($script:Logs[0].Text -match '551 ms' -and $script:Logs[0].Text -match 'seuil 120 ms' -and $script:Logs[0].Text -match 'LocalQuery' -and $script:Logs[0].Text -match 'Complete-Test') 'Warning lacks actionable context'
+    Expect ($script:Logs.Count -eq 1 -and $script:Logs[0].Level -eq 'TRACE' -and $script:Logs[0].Area -eq 'Lenteur') 'Passive slowness leaked into warnings or lost its diagnostic'
+    Expect ($script:Logs[0].Text -match '551 ms' -and $script:Logs[0].Text -match 'seuil 120 ms' -and $script:Logs[0].Text -match 'LocalQuery' -and $script:Logs[0].Text -match 'Complete-Test') 'Diagnostic lacks timing context'
 }
 Case 'Modal waits are subtracted and negative effective durations are clamped' {
     $script:DomeniaRuntimeMetrics=@{};$script:Logs.Clear()

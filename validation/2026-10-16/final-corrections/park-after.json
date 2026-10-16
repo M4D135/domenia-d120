@@ -1,0 +1,23 @@
+{
+    "Kind":  "ParkDetection",
+    "Expected":  2,
+    "Filter":  "Widget : sondes seules|MO-08 : la liste",
+    "Complete":  true,
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "MockedNetwork":  true,
+    "Passed":  2,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Widget : sondes seules, sans console ni ping, lancees au geste sous la limite ; poste deja mesure non contacte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "MO-08 : la liste est actualisee une fois par lot enregistre, jamais une fois par poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

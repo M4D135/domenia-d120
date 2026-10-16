@@ -8,6 +8,7 @@ $ErrorActionPreference='Stop'
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
 # the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
 function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
+. (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Domenia-DirectoryStore.UI.ps1')
 $source=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules/Domenia-Live.UI.ps1'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($source,[ref]$tokens,[ref]$errors)
@@ -28,6 +29,7 @@ foreach($name in @('Complete-DomeniaLiveSearch','Fail-DomeniaLiveSearch','Stop-D
     if($functions.Count -ne 1){throw ('Missing or ambiguous function: '+$name)}
     . ([scriptblock]::Create($functions[0].Extent.Text))
 }
+function New-DomeniaTimer {param($Owner,$IntervalMs,[switch]$RunWhenHidden,$Tick);$t=[pscustomobject]@{};$t|Add-Member ScriptMethod Start {};$t|Add-Member ScriptMethod Stop {};return $t}
 function Test-DomeniaLiveSearchActive {return $true}
 function Get-DomeniaEffectiveWorkerResult {param($Result,$RequiredProperties)return $Result}
 function Write-AppLog {param($Text,$Level)}
@@ -36,10 +38,13 @@ function Set-DomeniaControlText {param($Name,$Text)$script:Label=[string]$Text;r
 $script:Checks=[Collections.Generic.List[object]]::new();$script:Assertions=0
 function Expect {param([bool]$Condition,[string]$Message)$script:Assertions++;if(-not $Condition){throw $Message}}
 function Reset-Fixture {
+    $script:DomeniaDirectoryReads=@{};$script:DomeniaDirectoryStoreTimer=$null
     $script:Mode='OU';$script:Label=''
     # Collections are represented only by their Count property, preserving the exact production reads.
     $script:grid=[pscustomobject]@{Items=[pscustomobject]@{Count=746}}
     $script:s=[pscustomobject]@{Rows=[pscustomobject]@{Count=746};Error='';Ended=$false;Finalized=$false;Final=$null;Stop=[Threading.CancellationTokenSource]::new();CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()}
+    $pipe=New-DomeniaDirectoryReadPipe -Context ([pscustomobject]@{RequestId='fixture'}) -Search $script:s
+    $script:s|Add-Member NoteProperty DirectoryPipe $pipe
     $script:Live=[pscustomobject]@{Search=$script:s}
     $script:State=[pscustomobject]@{BaseDn='OU=Site,DC=example,DC=invalid';Scope='Subtree';LiveState=$script:s}
 }
@@ -50,6 +55,7 @@ function Case {param([string]$Name,[scriptblock]$Body)
     finally{$script:s.Stop.Dispose()}
 }
 function Check-Counters {param([string]$Prefix,[int]$Visible=746,[int]$Loaded=746)
+    Invoke-DomeniaDirectoryStoreTick
     $script:grid.Items.Count=$Visible;$script:s.Rows.Count=$Loaded
     # CO-05: one wording for every list, the filter of the list applies to global searches too.
     $expected=$Prefix+"$Visible / $Loaded lignes visibles · filtre de la liste"
@@ -65,6 +71,7 @@ Case 'Running search never presents its loaded fraction as a complete list' {Che
 Case 'Empty cache preview remains loading' {Check-Counters 'Chargement… · ' 0 0}
 Case 'Timeout marks both counters partial before UI queue finalization' {
     Fail-DomeniaLiveSearch 'Timeout apres 45s : Recherche dans l annuaire' $script:State
+    Invoke-DomeniaDirectoryStoreTick
     Expect ($script:s.Stop.IsCancellationRequested -and $script:s.Ended) 'Actual failure callback did not end/cancel the read'
     Check-Counters 'Liste partielle · '
 }
@@ -78,11 +85,13 @@ Case 'Local filtering cannot hide that the source list is partial' {
 }
 Case 'Explicit cancellation uses the existing live stop marker' {
     Stop-DomeniaLiveJob ([pscustomobject]@{OperationId='GlobalSearch';CallbackState=$script:State;Superseded=$false})
+    Invoke-DomeniaDirectoryStoreTick
     Expect ($script:s.Error -like 'Lecture interrompue*') 'Actual cancellation callback lost its partial marker'
     Check-Counters 'Liste partielle · '
 }
 Case 'Partial LDAP result is visibly partial even without a supplied reason' {
     Complete-Fixture -Partial $true
+    Invoke-DomeniaDirectoryStoreTick
     Expect ($script:s.Error -ceq 'Résultat LDAP partiel.') 'Fallback partial-result reason missing'
     $script:s.Finalized=$true;Check-Counters 'Liste partielle · '
 }
