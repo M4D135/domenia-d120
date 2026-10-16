@@ -690,17 +690,18 @@ function Get-DomeniaQueryMatchIds {
 }
 function Measure-DomeniaQueryWidget {
     param($Records,$Recipe)
+    $dataSources=@((Measure-DomeniaQueryCoverage -Records $Records -Recipe $Recipe -DatesOnly).Sources)
     $groupBy=[string](Get-DomeniaMember $Recipe 'GroupBy')
     if(-not $groupBy){
         $population=Select-DomeniaQueryPopulation $Records $Recipe
         $query=ConvertTo-DomeniaCompiledQuery $Recipe
         $counts=$query.Execute($population,[M4D.Admin.Common.Query.QueryOptions]@{Limit=0})
-        return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy='';Items=@();Error='';CategoryCount=0L}
+        return [pscustomobject]@{Total=$counts.Total;Matched=$counts.Matched;Unknown=$counts.Unknown;NotMatched=$counts.NotMatched;GroupBy='';Items=@();Error='';CategoryCount=0L;DataSources=$dataSources}
     }
     # The widget and the complete distribution share one exact summary: same order, same top ten, same totals.
     $summary=Get-DomeniaQueryGroupSummary -Records $Records -Recipe $Recipe
     $items=@(ConvertTo-DomeniaQueryGroupItems -Summary $summary -Top 10)
-    return [pscustomobject]@{Total=$summary.Total;Matched=$summary.Matched;Unknown=$summary.Unknown;NotMatched=$summary.NotMatched;GroupBy=$groupBy;Items=$items;Error='';CategoryCount=[long]$summary.CategoryCount}
+    return [pscustomobject]@{Total=$summary.Total;Matched=$summary.Matched;Unknown=$summary.Unknown;NotMatched=$summary.NotMatched;GroupBy=$groupBy;Items=$items;Error='';CategoryCount=[long]$summary.CategoryCount;DataSources=$dataSources}
 }
 function ConvertTo-DomeniaQueryGroupLabel {
     # Display text of one typed category. The typed value itself is kept separately for exact drill-down.
@@ -923,7 +924,7 @@ function Get-DomeniaQueryCoherenceProposal {
 function Measure-DomeniaQueryCoverage {
     # Availability and dates of every requested information. The spread is compared with the recipe window, or with
     # a 24 h reference when the recipe has none (WindowSource tells which); nothing is collected or rejuvenated.
-    param($Records,$Recipe,$CoherenceHours=$null)
+    param($Records,$Recipe,$CoherenceHours=$null,[switch]$DatesOnly)
     $windowSource='Recette'
     if($null -eq $CoherenceHours){$CoherenceHours=Get-DomeniaMemberValue $Recipe 'CoherenceHours'}
     if($null -eq $CoherenceHours){$CoherenceHours=24.0;$windowSource='Référence'}
@@ -947,7 +948,7 @@ function Measure-DomeniaQueryCoverage {
     foreach($record in $Records){
         if($null -ne $identities -and -not $identities.Contains($record.Id.Trim().Trim('{','}'))){continue}
         $total++;$all=$true;$earliest=$null;$latest=$null;$missingDate=$false;$v=$record.Values
-        foreach($field in $fields){
+        if(-not $DatesOnly){foreach($field in $fields){
             $id=[string]$field.Id;$known=$v.ContainsKey($id);$partial=$false;$qualityKey=$id
             if($id -like 'instance:*'){
                 $probeId=($id.Split(':'))[1];$qualityKey='probe:'+$probeId;$key='_instances:probe:'+$probeId
@@ -960,6 +961,7 @@ function Measure-DomeniaQueryCoverage {
                 $all=$false;$quality=if($v.ContainsKey('_quality:'+$qualityKey)){[string]$v['_quality:'+$qualityKey]}else{''}
                 if($partial){$field.Partial++}else{switch($quality){'Expiré'{$field.Expired++};'Erreur de lecture'{$field.Error++};'Lecture incomplète'{$field.Partial++};default{$field.Unread++}}}
             }
+        }
         }
         # Each clock is parsed once per workstation, even when several conditions share it.
         $missingSources=@{}
@@ -977,8 +979,9 @@ function Measure-DomeniaQueryCoverage {
     }
     $volatile=$false;foreach($entry in $sources.Values){if($entry.Volatile){$volatile=$true}}
     $sourceRows=@(foreach($entry in $sources.Values){
-        [pscustomobject]@{Source=$entry.Source;Informations=($entry.Names.ToArray() -join ', ');Dated=$entry.Dated;Missing=$entry.Missing;Oldest=$(if($null -ne $entry.Oldest){$entry.Oldest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Newest=$(if($null -ne $entry.Newest){$entry.Newest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Volatile=$entry.Volatile}
+        [pscustomobject]@{Source=$entry.Source;OldestUtc=$entry.Oldest;NewestUtc=$entry.Newest;Informations=($entry.Names.ToArray() -join ', ');Dated=$entry.Dated;Missing=$entry.Missing;Oldest=$(if($null -ne $entry.Oldest){$entry.Oldest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Newest=$(if($null -ne $entry.Newest){$entry.Newest.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}else{'Aucune date'});Volatile=$entry.Volatile}
     })
+    if($DatesOnly){return [pscustomobject]@{Sources=$sourceRows}}
     $proposal=Get-DomeniaQueryCoherenceProposal -Spreads $spreads.ToArray() -SourceCount $sources.Count -Volatile $volatile -Undated $undated
     [pscustomobject]@{Rows=$fields;Total=$total;Complete=$complete;Incomplete=($total-$complete);MixedPeriod=$mixed;Undated=$undated;CoherenceHours=$CoherenceHours;WindowSource=$windowSource;FieldCount=$fields.Count;Sources=$sourceRows;SourceCount=$sources.Count;Proposal=$proposal}
 }

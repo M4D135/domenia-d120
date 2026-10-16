@@ -870,8 +870,7 @@ function Test-DomeniaBoardShortWidget {
 function Get-DomeniaBoardGridPlacement {
     # Places the widgets of one section in a grid of $Columns columns, in reading order. $Units: one {Span; Short} per
     # widget. Rows fill from left to right; in a row that holds a tall card, compact tiles of the same span stack two by
-    # two in one cell so that heights line up; the columns a row leaves free are shared out, tall cells first, so that
-    # every row is full. Returns one cell per grid element: {Row; Column; Span; Items (indexes in $Units); Stacked}.
+    # two in one cell so that heights line up. Unused columns stay empty: the requested size never grows to fill a row. Returns one cell per grid element: {Row; Column; Span; Items (indexes in $Units); Stacked}.
     param([object[]]$Units = @(),[int]$Columns = 4)
     $n = [int][Math]::Max(1, [Math]::Min(4, $Columns))
     $list = @($Units)
@@ -908,11 +907,6 @@ function Get-DomeniaBoardGridPlacement {
                 }
             }
         }
-        $left = $n - $used
-        # Free columns go to the tall cards first, then to the stacked pairs, then to the single compact tiles.
-        $order = @(@($row | Where-Object { (-not $_.Short) -and ($_.Items.Count -eq 1) }) + @($row | Where-Object { $_.Items.Count -gt 1 }) + @($row | Where-Object { ($_.Short) -and ($_.Items.Count -eq 1) }))
-        $k = 0
-        while (($left -gt 0) -and ($order.Count -gt 0)) { $target = $order[$k % $order.Count]; $target.Span = [int]$target.Span + 1; $left--; $k++ }
         $column = 0
         foreach ($cell in $row) {
             [void]$cells.Add([pscustomobject]@{ Row = $rowIndex; Column = $column; Span = [int]$cell.Span; Items = @($cell.Items | ForEach-Object { [int]$_ }); Stacked = ($cell.Items.Count -gt 1) })
@@ -929,7 +923,9 @@ function Get-DomeniaBoardGridPlacement {
 function Get-DomeniaBoardCatalogLayout {
     # The catalog in its order, without the widgets marked catalog only (eighth cell N).
     param([Parameter(Mandatory=$true)][ValidateSet('Computer','Fleet','Software')][string]$Board)
-    return @(Get-DomeniaBoardCatalog -Board $Board | Where-Object { [bool]$_.Default } | ForEach-Object { New-DomeniaBoardItem -Source Builtin -Key $_.Key -Visual $_.Visual -Size $_.Size -Group $_.Group -Id ('b-' + $_.Key) })
+    $layout = @(Get-DomeniaBoardCatalog -Board $Board | Where-Object { [bool]$_.Default } | ForEach-Object { New-DomeniaBoardItem -Source Builtin -Key $_.Key -Visual $_.Visual -Size $_.Size -Group $_.Group -Id ('b-' + $_.Key) })
+    # Keep health after the inventory in the delivered layout; personal/team orders remain authoritative.
+    return @(@($layout | Where-Object { $_.Group -ne 'Santé' }) + @($layout | Where-Object { $_.Group -eq 'Santé' }))
 }
 function Get-DomeniaBoardDefaultLayout {
     # Delivered layout. FO-17: the team layout set by the administrator (Dashboard.DefaultLayout<Board> of the deployed
@@ -1151,6 +1147,19 @@ function Get-DomeniaBoardLayoutFileName {
     param([ValidateSet('Computer','Fleet','Software')][string]$Board,[datetime]$Time = (Get-Date))
     $name = switch ($Board) { 'Computer' { 'poste' } 'Fleet' { 'accueil' } default { 'logiciels' } }
     return ('Domenia-disposition-' + $name + '-' + $Time.ToString('yyyyMMdd-HHmm', [Globalization.CultureInfo]::InvariantCulture) + '.json')
+}
+function Move-DomeniaBoardGroup {
+    # Reorder complete sections, retaining widget identities and their relative order within each section.
+    param([object[]]$Layout = @(),[string]$Group,[ValidateSet('Up','Down')][string]$Direction)
+    $groups = @(Get-DomeniaBoardGroups -Layout $Layout)
+    $index = -1
+    for ($i = 0; $i -lt $groups.Count; $i++) { if ($groups[$i] -eq $Group) { $index = $i; break } }
+    $target = $index + $(if ($Direction -eq 'Up') { -1 } else { 1 })
+    if (($index -lt 0) -or ($target -lt 0) -or ($target -ge $groups.Count)) { return @($Layout) }
+    $other = $groups[$target]; $groups[$target] = $groups[$index]; $groups[$index] = $other
+    foreach ($name in $groups) { foreach ($item in $Layout) { if ($null -ne $item -and [string]$item.Group -eq $name) { $item } } }
+    # Preserve ungrouped entries too; normalised production layouts do not contain any.
+    foreach ($item in $Layout) { if ($null -eq $item -or -not [string]$item.Group) { $item } }
 }
 function Get-DomeniaBoardGroups {
     # Sections in the order of their first widget.

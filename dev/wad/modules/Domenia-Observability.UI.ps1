@@ -219,12 +219,12 @@ function Complete-DomeniaJobTrace {
     if ($publishMs -ge 0) { $afterValidate = $publishMs }
     if ($ValidateMs -ge 0) { [void](Add-DomeniaOperationTraceEvent -Trace $trace -Phase 'Validate' -AtMs ($now - $afterValidate - $ValidateMs) -DurationMs $ValidateMs -JobRef $reference) }
     if ($publishMs -ge 0) { [void](Add-DomeniaOperationTraceEvent -Trace $trace -Phase 'Publish' -AtMs ($now - $publishMs) -DurationMs $publishMs -Volume $volume -Detail ([string]$Job.SuccessHandler) -JobRef $reference) }
-    $category = ''
-    if ($Category -match '^[A-Za-z]{2,40}$') { $category = $Category }
+    $safeCategory = ''
+    if ($Category -match '^[A-Za-z]{2,40}$') { $safeCategory = $Category }
     # The rows of a dispatched job may still be on their way to SQLite and to the list: the pipe takes over before the
     # job leaves, so the trace never looks finished in between. A job never sent fed no pipe.
     if (-not $NotDispatched) { try { [void](Join-DomeniaPipeTrace -Trace $trace) } catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 } }
-    [void](Complete-DomeniaTraceJob -Trace $trace -JobRef $reference -Outcome $Outcome -AtMs $now -Category $category -Detail $Detail)
+    [void](Complete-DomeniaTraceJob -Trace $trace -JobRef $reference -Outcome $Outcome -AtMs $now -Category $safeCategory -Detail $Detail)
     if (-not [bool](Get-DomeniaMember $Job 'TraceSlowRecorded' $false)) {
         $verdict = Get-DomeniaSlownessVerdict -Name ([string]$Job.Name) -OperationId ([string]$Job.OperationId) -Handler ([string]$Job.SuccessHandler) -QueueMs ([double]$measures.QueueMs) -CollectMs ([double]$measures.CollectMs) -ValidateMs $ValidateMs -PublishMs $publishMs -Volume $volume -PublishThresholdMs ([double]::MaxValue) -TotalThresholdMs 5000
         if ([bool]$verdict.Slow) { Add-DomeniaSlowEvent -Text ([string]$verdict.Text) -OperationId ([string]$verdict.OperationId) -Phase ([string]$verdict.Phase) -Handler ([string]$verdict.Handler) -DurationMs ([double]$verdict.DurationMs) -TotalMs ([double]$verdict.TotalMs) -Volume $volume -Reference ([string]$trace.Reference) }

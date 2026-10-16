@@ -12321,7 +12321,7 @@ function Complete-DomeniaSoftwareUi {
     $script:SoftwareSource = "Poste"
     $script:SoftwareProvenance = ""
     Update-DomeniaSoftwareColumnVisibility
-    try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
+    try { Update-DomeniaSoftwareDashboard -Rows $script:SoftwareRows -ObservedAtUtc $effective.SourceCompletedUtc } catch { Add-DomeniaUiLog -Area "Tableau de bord" -Level "WARN" -Text ("Synthese des logiciels non construite : " + $_.Exception.Message) }
     $script:SoftwareAccess = @($effective.Access)
     [void](Set-DomeniaItemsSource -Name "DgSoftwareAccess" -Rows $script:SoftwareAccess)
     Update-DomeniaSoftwareAccessSummary
@@ -19000,7 +19000,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.10-D120"
+$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.11-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20299,7 +20299,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "23C975AB49E0A7E947DB2B26353246570C3731E6CA5C46185536130767D20981"
+        LocalStore           = "E66D921289FD2A2FA12D20BD07F6C2EA9BEDE1EE0AEACDA5207860205A295614"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20335,7 +20335,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "CD884422D4FCB3F02E75DA049E9E4F1226E8ABF094BF042B69915B4ACD5E6A05"
+    $expectedFingerprint = "55642A1D08CD606DB73F7D719BEA72C71A22CE22FD7D813074D5808B7D3534B1"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25932,7 +25932,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.10-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.11-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

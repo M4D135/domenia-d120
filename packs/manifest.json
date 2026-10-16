@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.16-DOMENIA-1.0-RC1.17.10-D120",
-  "source_base_commit": "5485b6f671fd49ff2792b56cc725921a7f8cef6d",
+  "build": "2026.10.16-DOMENIA-1.0-RC1.17.11-D120",
+  "source_base_commit": "430505dee54ed08d00606d83a007b300196dab9d",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3049253,
-      "sha256": "66a2d8a0e28f702364955dfa37731d3fe8821099261beaa39ee8648bea403bac",
+      "bytes": 3054546,
+      "sha256": "5d713a9a4b928d3f8f27f73c0cec3644fb622bb145e5508e6ecdf96f02c632f9",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,23 +17,24 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6473048,
-      "sha256": "ae23a029ad991057c5407d0f1f64ee1cd72692c52f828fb5152ea7ae924d402a",
-      "files": 634,
-      "archive_files_including_manifest": 635,
+      "bytes": 6487499,
+      "sha256": "39ae44650715ef9a3cdfbd7eeee50eecb51e78e5ab457ae1595b1eeb15524e9f",
+      "files": 636,
+      "archive_files_including_manifest": 637,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "STARTUP_FIX_VALIDATED_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
-    "proof": "validation/2026-10-16/windows-recovery/README.md",
+    "status": "DASHBOARD_BATCH_FIXES_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
+    "proof": "validation/2026-10-16/dashboard-batch/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "NOT_EVALUATED_ON_FINAL_ARCHIVES",
+    "formal_windows_qualification": "TARGETED_DEV_ONLY_FULL_QUALIFICATION_OPEN",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-16/windows-recovery/documentation-qa.json",
-    "interactive_gui": "NOT_QUALIFIED",
+    "documentation_proof": "validation/2026-10-16/dashboard-batch/README.md",
+    "interactive_gui": "SYNTHETIC_NATIVE_WPF_ONLY",
     "startup_incident": "RC1.17.9 pre-login failure reproduced and fixed in RC1.17.10; regression cases 2/2 and exact PROD ZIP native WPF login controls verified",
-    "startup_proof": "validation/2026-10-16/windows-recovery/startup-fix/startup-window.json"
+    "startup_proof": "validation/2026-10-16/windows-recovery/startup-fix/startup-window.json",
+    "targeted_zip_proof": "validation/2026-10-16/dashboard-batch/exact-zip/targeted-summary.json"
   }
 }

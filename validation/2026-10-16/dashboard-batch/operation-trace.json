@@ -1,0 +1,117 @@
+{
+    "Suite":  "Test-DomeniaOperationTrace",
+    "Runtime":  "5.1.26100.6584",
+    "Executed":  "2026-10-16T11:13:45.9499058+02:00",
+    "Passed":  21,
+    "Failed":  0,
+    "WpfExecuted":  true,
+    "NoADAccess":  true,
+    "NoNetwork":  true,
+    "Tests":  [
+                  {
+                      "Name":  "P123 : une tache sans contexte ouvre sa propre trace avec sa demande",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : une tache lancee depuis le rappel d une autre rejoint sa trace",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : recherche et fiche partagent l identifiant de leur contexte local",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : lecture locale et publication d une demande sont ajoutees a sa trace, une demande inconnue est ignoree",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : demande en flux : la trace reste ouverte apres la tache jusqu a la derniere publication, une seule ligne",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : une tache jamais envoyee ne rattache pas le flux ; un echec d enregistrement local ferme l etape",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123/P121 : fin de tache : file, collecte, validation, publication puis fin, une seule fois",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : la ligne de Domenia.log ne porte ni le nom de la cible ni le nom affiche",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P121 : callback lent : explication par operation, phases, volume et traitement, conservee pour la sante",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P121 : retard de l interface attribue au travail suivi, une seule fois en cinq secondes",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P118 : dernieres operations : etat par symbole et mot, etape dominante, conseil sans relance automatique",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P124 : diagnostic de la session : aucun nom de cible, aucun message, aucun secret",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : Start-UiTask ouvre la trace avant file ou envoi, et la ferme sur un refus (file comprise)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : Complete-UiTasks ferme la trace sur chaque fin (arret, remplacement, reussite, echec)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : detachement et retrait de file ecrivent la fin de la trace",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P123 : lecture locale relue et publication de la recherche reliees a la demande, etape du flux fermee une fois",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P121 : le battement de garde et les minuteurs alimentent l attribution des retards",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P124 : export du diagnostic : apercu complet, confirmation, puis fichier choisi",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P118 : vue du panneau : controles nommes, info-bulle egale au texte d aide et au catalogue",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P118 avec X04/X05 : les recus a verifier comptes et ouverts comme la pastille de l en-tete",
+                      "Passed":  true,
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P118/P113 : la vue du panneau se charge et defile en entier (STA)",
+                      "Passed":  true,
+                      "Detail":  ""
+                  }
+              ]
+}

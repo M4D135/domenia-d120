@@ -1,5 +1,9 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **RC1.17.11 — 16 octobre** : voir [dashboard et lots](validation/2026-10-16/dashboard-batch/README.md).
+> Accueil, sections, tailles et bandeau des lots corrigés ; saturation après timeout WMI reproduite puis corrigée.
+> Contrôles ciblés seulement ; la grande liste reste à 151 points intégrés et 9 de qualification seule.
+
 > **État du 16 octobre 2026** : lire le [bilan de reprise Windows](validation/2026-10-16/windows-recovery/README.md).
 > David demande de limiter les essais VM aux corrections indispensables ; aucune nouvelle campagne générale.
 > Les sections plus anciennes ci-dessous restent historiques.

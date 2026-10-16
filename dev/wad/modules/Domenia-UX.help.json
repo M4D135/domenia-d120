@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "Name": "TxtLogin",
     "Title": "Compte Windows",
@@ -244,34 +244,6 @@
     "Title": "Accueil",
     "Text": "Connexion en cours, droits du compte et opérations en cours.",
     "Kind": "TabItem",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnUxHomeSearch",
-    "Title": "Rechercher",
-    "Text": "Nom, identifiant, adresse mail ou poste",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnUxHomeDirectory",
-    "Title": "Parcourir l’annuaire",
-    "Text": "OU et conteneurs du domaine",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnUxHomeSupport",
-    "Title": "Préparer un dossier",
-    "Text": "Comparer des fiches et rédiger un ticket",
-    "Kind": "Button",
-    "Source": "existing-help"
-  },
-  {
-    "Name": "BtnUxHomeAccounts",
-    "Title": "Identités de connexion",
-    "Text": "Comptes utilisés par Domenia : annuaire, postes, secrets",
-    "Kind": "Button",
     "Source": "existing-help"
   },
   {

@@ -155,7 +155,7 @@ Check-Suite 'P121 : callback lent : explication par operation, phases, volume et
     $text=Register-DomeniaJobPublication -Job $job -PublishMs 850 -Volume 1240 -ThresholdMs 120 -ValidateMs 3
     [void](Complete-DomeniaJobTrace -Job $job -Outcome 'Succeeded' -ValidateMs 3)
     $lines=@(Get-DomeniaSlowEventLines -Maximum 3)
-    $text.StartsWith('Interface lente : ') -and $text.Contains('Complete-DomeniaGlobalSearchUi') -and $text.Contains('1240 éléments') -and $text.Contains('Trace aaaaaaaa') -and ($lines.Count -eq 1) -and (@($script:DomeniaUiWork).Count -eq 1)
+    $text.StartsWith('Interface lente : ') -and $text.Contains('Complete-DomeniaGlobalSearchUi') -and $text.Contains('1240 éléments') -and $text.Contains('Trace aaaaaaaa') -and ($lines.Count -eq 1) -and ($script:DomeniaUiWork.Count -eq 1)
 }
 Check-Suite 'P121 : retard de l interface attribue au travail suivi, une seule fois en cinq secondes' {
     Reset-TraceState
@@ -164,7 +164,7 @@ Check-Suite 'P121 : retard de l interface attribue au travail suivi, une seule f
     $first=Register-DomeniaDispatcherLateness -LateMs 800
     $second=Register-DomeniaDispatcherLateness -LateMs 700
     $small=Register-DomeniaDispatcherLateness -LateMs 120
-    ($null -ne $first) -and [bool]$first.Attributed -and $first.Text.Contains('Complete-DomeniaOpenObjectTaskUi') -and ($null -eq $second) -and ($null -eq $small) -and (@($script:DomeniaSlowEvents).Count -eq 1) -and ($script:TraceLines[0].StartsWith('[Lenteur]'))
+    ($null -ne $first) -and [bool]$first.Attributed -and $first.Text.Contains('Complete-DomeniaOpenObjectTaskUi') -and ($null -eq $second) -and ($null -eq $small) -and ($script:DomeniaSlowEvents.Count -eq 1) -and ($script:TraceLines[0].StartsWith('[Lenteur]'))
 }
 Check-Suite 'P118 : dernieres operations : etat par symbole et mot, etape dominante, conseil sans relance automatique' {
     Reset-TraceState
@@ -173,7 +173,9 @@ Check-Suite 'P118 : dernieres operations : etat par symbole et mot, etape domina
     $run=New-TraceJob -Id 'job3' -Correlation ('c'*32) -Operation 'SessionsList';[void](Start-DomeniaJobTrace -Job $run)
     $rows=@(Get-DomeniaRecentTraceRows -Maximum 20)
     $failed=@($rows|Where-Object{$_.Reference -eq 'bbbbbbbb'})[0];$open=@($rows|Where-Object{$_.Reference -eq 'cccccccc'})[0]
-    ($rows.Count -eq 3) -and $failed.State.Contains('Échec') -and $failed.State.StartsWith([string][char]0x2715) -and $failed.Detail.Contains('compte autorisé') -and $failed.Detail.Contains('bbbbbbbb') -and $open.State.Contains('En cours') -and ($rows[0].Reference -eq 'cccccccc')
+    $ok = ($rows.Count -eq 3) -and $failed.State.Contains('Échec') -and $failed.State.StartsWith([string][char]0x2715) -and $failed.Detail.Contains('compte autorisé') -and $failed.Detail.Contains('bbbbbbbb') -and $open.State.Contains('En cours') -and ($rows[0].Reference -eq 'cccccccc')
+    if (-not $ok) { throw ($rows|ConvertTo-Json -Depth 4 -Compress) }
+    $ok
 }
 Check-Suite 'P124 : diagnostic de la session : aucun nom de cible, aucun message, aucun secret' {
     Reset-TraceState
@@ -183,7 +185,9 @@ Check-Suite 'P124 : diagnostic de la session : aucun nom de cible, aucun message
     $script:Version='1.0';$script:MasterBuild='2026.10.13-DOMENIA-1.0-RC1.17.7-D120';$script:CurrentUiProfile='Tech';$script:AsyncJobs=@{};$script:DetachedReadJobs=@();$script:Persistence=$null;$script:ReceiptPending=0
     $session=New-DomeniaSessionDiagnostic
     $json=[string]$session.Json
-    (-not $json.Contains('SENTINEL')) -and $json.Contains('INC-7F3A') -and $json.Contains('Domenia-Core.ps1:2345') -and $json.Contains('ComputerGpUpdate') -and $json.Contains('AccessDenied') -and $session.Preview.Contains('Jamais inclus')
+    $ok = (-not $json.Contains('SENTINEL')) -and $json.Contains('INC-7F3A') -and $json.Contains('Domenia-Core.ps1:2345') -and $json.Contains('ComputerGpUpdate') -and $json.Contains('AccessDenied') -and $session.Preview.Contains('Jamais inclus')
+    if (-not $ok) { throw ($json + ' PREVIEW ' + $session.Preview) }
+    $ok
 }
 # Engine hooks, checked on the syntax tree of the real sources.
 function Get-SuiteFunctionText {param([string]$Path,[string]$Name)

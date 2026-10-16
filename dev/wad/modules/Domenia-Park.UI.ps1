@@ -138,6 +138,7 @@ function Update-DomeniaParkRunStatus {
     if($save.Pending -gt 0){$text+=' Enregistrement local en attente.'}
     if(([bool]$save.Suspended) -or ($save.Conflicts -gt 0)){$text+=' Stockage local à vérifier : Base autonome, onglet Stockage.'}
     if([string]$r.FailureMessage){$text+=' '+[string]$r.FailureMessage}
+    elseif($r.Stopping -and [string]$r.StopReason){$text+=' Motif : '+[string]$r.StopReason+'.'}
     $r.StatusText=$text;$r.ShortText=$short
     if($r.Completed){Sync-DomeniaParkGrid -Run $r}
     # A finished run that read workstations changed the observations: the selected workstation board is redrawn at
@@ -865,6 +866,17 @@ function Close-DomeniaParkStoreBacklog {
         if(-not [string]$r.FailureMessage){$r.FailureMessage='Mesures non enregistrées : la file dʼenregistrement est bloquée par un lot refusé (voir Fiabilité).'}
     }
 }
+function Test-DomeniaParkEngineAvailable {
+    # A timed-out CIM call may still occupy a physical slot while it is being stopped. Keep the
+    # next workstation in the campaign until the engine can admit it; saturation is not a batch failure.
+    $limits=Get-DomeniaEngineLimits;$load=Get-DomeniaEngineLoad
+    if(Test-DomeniaSchedulerEnabled){
+        $decision=Test-DomeniaTaskAdmission -Class Explicit -Running $load.Running -Outstanding $load.Outstanding -MaxConcurrent $limits.MaxConcurrent -MaxOutstanding $limits.MaxOutstanding -Queued $load.QueuedCount -MaxQueued $limits.MaxQueued -ReservedForeground $limits.ReservedForeground
+        return ([string]$decision.Decision -ne 'Reject')
+    }
+    return (($load.Outstanding -lt $limits.MaxOutstanding) -and ($load.Running -lt $limits.MaxConcurrent))
+}
+
 function Invoke-DomeniaParkRunTick {
     param([ValidateSet('List','Computer')][string]$Slot='List')
     $r=Get-DomeniaParkRun -Slot $Slot;if($null -eq $r){return}
@@ -915,6 +927,7 @@ function Invoke-DomeniaParkRunTick {
     }
     # One admission per tick keeps the Dispatcher responsive. The engine may impose a smaller provider budget.
     if($r.Pending.Count -ge $r.Concurrency){Add-DomeniaParkHeldTime $r $nowUtc -Clear;return}
+    if(-not (Test-DomeniaParkEngineAvailable)){Add-DomeniaParkHeldTime $r $nowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $nowUtc;return}
     $pick=$null
     try{$pick=Select-DomeniaParkNextTarget -Run $r -NowUtc $nowUtc}catch{$r.Stopping=$true;Set-DomeniaParkStopReason $r 'cache dʼun poste illisible';Set-Status ('Cache du poste illisible. Relancez le relevé après actualisation. '+$_.Exception.Message) 'WARN';return}
     if($null -eq $pick){Add-DomeniaParkHeldTime $r $nowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $nowUtc;return}
@@ -1013,6 +1026,7 @@ function Start-DomeniaParkPingJob {
         $storageRefusal=Get-DomeniaStorageCollectionRefusal
         if($storageRefusal){$r.Stopping=$true;Set-DomeniaParkStopReason $r ([string]$storageRefusal);Update-DomeniaParkRunStatus -Run $r;return}
     }
+    if(-not (Test-DomeniaParkEngineAvailable)){Add-DomeniaParkHeldTime $r $NowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $NowUtc;return}
     $batchSize=32
     $picked=@(Select-DomeniaParkPingBatch -Run $r -NowUtc $NowUtc -Size $batchSize)
     if(-not $picked.Count){Add-DomeniaParkHeldTime $r $NowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $NowUtc;return}

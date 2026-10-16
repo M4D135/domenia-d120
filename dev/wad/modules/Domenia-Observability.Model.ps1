@@ -212,7 +212,7 @@ function Get-DomeniaOperationTraceSummary {
     param([Parameter(Mandatory=$true)]$Trace,[double]$NowMs=-1)
     $rows = New-Object 'System.Collections.Generic.List[object]'
     $index = 0
-    foreach ($traceEvent in @($Trace.Events)) { $rows.Add([pscustomobject]@{Event=$traceEvent;Index=$index;AtMs=[double]$traceEvent.AtMs}); $index++ }
+    foreach ($traceEvent in $Trace.Events) { $rows.Add([pscustomobject]@{Event=$traceEvent;Index=$index;AtMs=[double]$traceEvent.AtMs}); $index++ }
     $ordered = @($rows.ToArray() | Sort-Object -Property @{Expression={[double]$_.AtMs}},@{Expression={[int]$_.Index}})
     $measured = @{}
     foreach ($phase in @(Get-DomeniaTracePhases)) { $measured[[string]$phase.Code] = [bool]$phase.Measured }

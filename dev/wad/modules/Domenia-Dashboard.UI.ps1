@@ -152,7 +152,9 @@ function Request-DomeniaFleetRefresh {
     # P-CD-09: an overview that could not be recomputed says so instead of showing the previous figures as current
     # (the callers keep the error: it is rethrown after the label is set, and the next display of Accueil tries again).
     try {
-        if (-not (Test-DomeniaFleetDashboardShown)) { return }
+        $first=$script:DomeniaFirstDashboard
+        $preparing=($null -ne $first -and $first.Phase -eq 'Loading' -and $first.Epoch -eq [long]$script:SessionEpoch -and $first.Path -ceq [string]$script:DatabaseScopedPath)
+        if (-not (Test-DomeniaFleetDashboardShown) -and -not $preparing) { return }
         if (Test-DomeniaFleetAwaitingScope) {
             $script:FleetAwaitingRestore = $true
             [void](Set-DomeniaControlText 'LblFleetDashboard' 'En attente de l OU memorisee dans Rechercher...')
@@ -237,6 +239,8 @@ function Fail-DomeniaFleetDashboard {
     if ($null -ne $State -and [long]$State.Epoch -ne [long]$script:SessionEpoch) { return }
     # A replaced calculation (other OU) does not overwrite the text of the current one.
     if ($null -ne $State -and [string]$State.Key -cne [string]$script:FleetPendingKey) { return }
+    Complete-DomeniaFirstDashboard -ScopeKey ([string]$script:FleetPendingKey) -ErrorText ([string]$Message)
+    try { Update-DomeniaFirstSteps } catch { Write-DomeniaSwallowed 'Dashboard' 'Fail-DomeniaFleetDashboard' $_ }
     # The next display of Accueil tries again.
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = ''
     [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + [string]$Message))
@@ -491,6 +495,7 @@ function Complete-DomeniaFleetDashboard {
     catch { Fail-DomeniaFleetDashboard $_.Exception.Message $State; return }
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = [string]$scope.Key
     $count = @($board.Last.Machines).Count
+    Complete-DomeniaFirstDashboard -ScopeKey ([string]$scope.Key) -Count $count
     Update-DomeniaFleetScopeText $scope -Count $count -Freshness (Get-DomeniaMemberValue $board 'Freshness')
     # Observations (presence, console user, light WMI, queries) feed the query widgets of both boards.
     # This is a complete SQLite snapshot for the scope. Never combine it with collector memory.
@@ -625,6 +630,33 @@ function Fail-DomeniaFleetBitLockerPresence {
     if (($null -ne $State) -and ([long]$State.Epoch -ne [long]$script:SessionEpoch)) { return }
     Set-Status ('Présence BitLocker non lue : ' + [string]$Message) 'WARN'
 }
+function Start-DomeniaFirstDashboard {
+    # David 2026-10-16: prepare the first overview automatically after the first local base read.
+    # This is a local calculation only. Network collection still belongs to the explicit OU actions.
+    param([switch]$Retry)
+    $scope=Get-DomeniaFleetScope
+    if($null -eq $scope -or -not [string]$script:DatabaseScopedPath){return $null}
+    $current=$script:DomeniaFirstDashboard
+    if($null -ne $current -and $current.Epoch -eq [long]$script:SessionEpoch -and $current.Path -ceq [string]$script:DatabaseScopedPath -and $current.Key -ceq [string]$scope.Key){
+        if(-not $Retry -or $current.Phase -ne 'Error'){return $current}
+    }
+    $current=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Key=[string]$scope.Key;Phase='Loading';Message='Premier calcul de la vue dʼensemble en cours…'}
+    $script:DomeniaFirstDashboard=$current
+    try{
+        $job=[string]$script:FleetJobId
+        if(-not ($job -and [string]$script:FleetPendingKey -ceq $current.Key -and $null -ne $script:AsyncJobs -and $script:AsyncJobs.Contains($job))){Start-DomeniaFleetDashboard}
+        if(-not [string]$script:FleetJobId -and $current.Phase -eq 'Loading'){throw 'Calcul non admis pour lʼinstant.'}
+    }catch{$current.Phase='Error';$current.Message='Première actualisation non terminée : '+$_.Exception.Message+' Réessayez.'}
+    return $current
+}
+function Complete-DomeniaFirstDashboard {
+    param([string]$ScopeKey,[int]$Count=0,[string]$ErrorText='')
+    $current=$script:DomeniaFirstDashboard
+    if($null -eq $current -or $current.Phase -ne 'Loading' -or $current.Epoch -ne [long]$script:SessionEpoch -or $current.Path -cne [string]$script:DatabaseScopedPath -or $current.Key -cne $ScopeKey){return}
+    if(-not $ErrorText -and $Count -gt 0){$current.Phase='Ready';$current.Message='Vue dʼensemble prête : '+$Count+' poste(s). Vous pouvez ouvrir le tableau de bord.'}
+    else{$current.Phase='Error';$current.Message=if($ErrorText){'Première actualisation non terminée : '+$ErrorText+' Réessayez.'}else{'Aucun poste dans cette OU dans la base locale. Vérifiez lʼOU et sa première lecture, puis réessayez.'}}
+}
+
 function Get-DomeniaFirstStepsState {
     # Point 148: the four first steps (connection, working OU, first read, dashboard) from what the session already
     # knows, through the pure rule Get-DomeniaFirstRunPlan: no request, no scan.
@@ -652,8 +684,11 @@ function Update-DomeniaFirstSteps {
         return
     }
     $card.Visibility = [System.Windows.Visibility]::Visible
+    $preparation=$null
+    if($plan.Next -eq 'Dashboard'){$preparation=Start-DomeniaFirstDashboard}
     foreach ($step in @($plan.Steps)) {
         $name = [string]$step.Name
+        if($name -eq 'Dashboard' -and $null -ne $preparation){$step.Text=$preparation.Message;$step.Enabled=($preparation.Phase -ne 'Loading')}
         $mark = Get-DomeniaControl ('LblFirstStep' + $name + 'Mark')
         if ($null -ne $mark) { $mark.Text = $(if ([bool]$step.Done) { [string][char]0x2713 } else { [string]$step.Number }) }
         $label = Get-DomeniaControl ('LblFirstStep' + $name)
@@ -663,21 +698,31 @@ function Update-DomeniaFirstSteps {
             $label.FontWeight = $(if ($name -ceq [string]$plan.Next) { [System.Windows.FontWeights]::SemiBold } else { [System.Windows.FontWeights]::Normal })
         }
         $button = Get-DomeniaControl ('BtnFirstStep' + $name)
-        if ($null -ne $button) { $button.IsEnabled = [bool]$step.Enabled }
+        if ($null -ne $button) {
+            $button.IsEnabled = [bool]$step.Enabled
+            if($name -eq 'Dashboard'){$button.Content=if($null -ne $preparation -and $preparation.Phase -eq 'Loading'){'Actualisation en cours…'}elseif($null -ne $preparation -and $preparation.Phase -eq 'Error'){'Réessayer lʼactualisation'}else{'Voir le tableau de bord'}}
+        }
     }
     [void](Set-DomeniaControlText 'LblFirstStepsDeferred' ([string]$plan.Deferred))
 }
 function Open-DomeniaFirstStep {
-    # Each step opens the screen concerned and starts nothing (decision David 2026-10-08, UX-20).
+    # The last step opens only after its first local calculation; an explicit retry stays in the guide until ready.
     param([ValidateSet('Connection','Ou','Base','Dashboard')][string]$Step)
     switch ($Step) {
         'Connection' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : compte utilisé pour lʼannuaire ; changer de compte reste possible à tout moment.' }
         'Ou' { Show-DomeniaFleetScopeSource }
         'Base' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexUpdate'}; Set-Status 'Choisissez une OU, puis mettez-la à jour. La lecture couvre cette OU et ses sous-OU.' }
         'Dashboard' {
+            $plan=Get-DomeniaFirstStepsState
+            if($plan.Next -eq 'Dashboard'){
+                $preparation=Start-DomeniaFirstDashboard -Retry
+                if($null -eq $preparation -or $preparation.Phase -ne 'Ready'){Update-DomeniaFirstSteps;return}
+            }elseif(-not $plan.Done){return}
             Invoke-DomeniaUxRoute -Route 'TabDashboard'
             $summary = Get-DomeniaControl 'LblFleetDashboard'
             if ($null -ne $summary) { try { $summary.BringIntoView() } catch { Write-DomeniaSwallowed 'Premiers pas' 'Open-DomeniaFirstStep' $_ } }
+            Set-DomeniaSetting -Name 'Home.DashboardSeen' -Value ([datetime]::UtcNow.ToString('o'))
+            Update-DomeniaFirstSteps
             Set-Status 'Tableau de bord : vue dʼensemble de lʼOU, calculée depuis la base locale à lʼaffichage de lʼaccueil. Une tuile ouvre la liste exacte de ses postes.'
         }
     }
@@ -713,7 +758,7 @@ function Update-DomeniaComputerDashboard {
     [void](Set-DomeniaControlText 'LblComputerDashboard' $text)
 }
 function Update-DomeniaSoftwareDashboard {
-    param($Rows)
+    param($Rows,$ObservedAtUtc=$null)
     $items = @($Rows | Where-Object { $null -ne $_ -and [string]$_.Name })
     if (-not $items.Count) {
         $panel = Get-DomeniaControl 'PnlSoftwareDashboard'; if ($null -ne $panel) { $panel.Children.Clear() }
@@ -721,6 +766,7 @@ function Update-DomeniaSoftwareDashboard {
         return
     }
     $board = Get-DomeniaSoftwareBoardData -Rows $items
+    $board|Add-Member -NotePropertyName ObservedAtUtc -NotePropertyValue $ObservedAtUtc
     Show-DomeniaBoard -Board Software -Data $board
     [void](Set-DomeniaControlText 'LblSoftwareDashboard' $(if ($board.Summary) { [string]$board.Summary } else { [string]$items.Count + ' logiciels lus. Synthese calculee sur la liste chargee.' }))
 }

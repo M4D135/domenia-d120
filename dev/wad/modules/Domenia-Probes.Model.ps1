@@ -267,6 +267,7 @@ function Measure-DomeniaFleetProbeEntries {
             if($bucket.Probe.Mode -eq 'All'){$entry.Detail+=' · Un poste peut figurer dans plusieurs catégories.'}
             if($null -ne $bucket.Samples.Oldest -and ($NowUtc-$bucket.Samples.Oldest).TotalDays -gt 7){$entry.State='Off'}
         }
+        $entry|Add-Member -NotePropertyName DataSources -NotePropertyValue @([pscustomobject]@{Source='WMI · sonde';OldestUtc=$bucket.Samples.Oldest;NewestUtc=$bucket.Samples.Newest;Missing=[Math]::Max(0,$targets.Count-$measure.Machines)})
         $entries[$key]=$entry
     }
     return $entries

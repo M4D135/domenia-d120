@@ -63,9 +63,11 @@ function ConvertTo-DomeniaQueryCountEntry {
     if([string]$Count.GroupBy -or $Visual -in @('Bar','Pie','Column')){
         $items=if([string]$Count.GroupBy){@($Count.Items)}else{@([pscustomobject]@{Label='Correspondants';Value=[double]$Count.Matched},[pscustomobject]@{Label='Inconnus';Value=[double]$Count.Unknown},[pscustomobject]@{Label='Non correspondants';Value=[double]$Count.NotMatched})}
         $represented=if([string]$Count.GroupBy){$Count.Matched}else{$Count.Total}
-        return (New-DomeniaBoardEntry -Key $Id -Title $Title -Kind Distribution -Value ([string]$Count.Matched) -Items $items -CenterText ([string]$represented+' poste(s)') -Detail $detail -State $state)
+        $entry=New-DomeniaBoardEntry -Key $Id -Title $Title -Kind Distribution -Value ([string]$Count.Matched) -Items $items -CenterText ([string]$represented+' poste(s)') -Detail $detail -State $state
     }
-    return (New-DomeniaBoardEntry -Key $Id -Title $Title -Kind Number -Value ([string]$Count.Matched) -Number $Count.Matched -Detail $detail -State $state)
+    else { $entry=New-DomeniaBoardEntry -Key $Id -Title $Title -Kind Number -Value ([string]$Count.Matched) -Number $Count.Matched -Detail $detail -State $state }
+    $entry|Add-Member -NotePropertyName DataSources -NotePropertyValue @(Get-DomeniaMember $Count 'DataSources' @())
+    return $entry
 }
 function Get-DomeniaComputerQueryBoardEntry {
     param([string]$Id,[string]$Visual='Kpi',[string]$ConsumerId='')

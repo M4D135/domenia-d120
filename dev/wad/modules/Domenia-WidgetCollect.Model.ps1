@@ -221,7 +221,7 @@ function Get-DomeniaWidgetNeedText {
             $probes = @(Get-DomeniaMember $Need 'ProbeIds' @()).Count
             if ($probes) { $parts.Add([string]$probes + ' requête(s) WMI de ce widget') }
             $text = 'Relit seulement : ' + ($parts -join ', ') + ', pour ' + $population + ', en lecture seule.'
-            if ([bool](Get-DomeniaMember $Need 'Directory' $false)) { $text += ' Les attributs AD restent ceux de la base locale.' }
+            if ([bool](Get-DomeniaMember $Need 'Directory' $false)) { $text += ' Les attributs AD de lʼOU sont aussi relus lors de lʼactualisation du widget du parc.' }
             if ([bool](Get-DomeniaMember $Need 'Workshop' $false)) { $text += ' Les relevés WMI personnalisés de la requête se relancent depuis lʼatelier.' }
             return $text
         }
@@ -230,7 +230,13 @@ function Get-DomeniaWidgetNeedText {
         'Card' { return 'Relit la fiche du poste sélectionné depuis lʼannuaire.' }
         'BitLocker' { return 'Lit la présence des clés BitLocker de lʼOU affichée : nom, emplacement et date, jamais la clé.' }
         'Software' { return 'Recharge la liste des logiciels du poste sélectionné.' }
-        'Local' { return 'Recalcule depuis les données enregistrées, sans collecte.' }
+        'Local' {
+            if($board -eq 'Computer'){return 'Relit lʼinventaire du poste puis recalcule cette synthèse.'}
+            if([string]$Need.Key -in @('fleet.trend.win10','fleet.trend.stale')){return 'Relit les données AD de lʼOU et recalcule le point actuel de la tendance.'}
+            if([string]$Need.Key -eq 'fleet.trend.lowdisk'){return 'Relit lʼinventaire WMI de lʼOU et recalcule le point actuel de la tendance.'}
+            if($board -eq 'Fleet'){return 'Relit AD, ping et inventaire WMI de lʼOU, puis recalcule cette synthèse. Les points historiques sont conservés.'}
+            return 'Recalcule depuis les données enregistrées, sans collecte.'
+        }
     }
     if ([bool](Get-DomeniaMember $Need 'Workshop' $false)) { return 'Cette requête lit des relevés WMI personnalisés : relancez-les depuis lʼatelier.' }
     return 'Source inconnue : aucune collecte nʼest lancée pour ce widget.'
@@ -426,4 +432,58 @@ function Get-DomeniaWidgetExplanation {
         @('Actualiser ce widget', $(if ($null -ne $Need) { [string](Get-DomeniaMember $Need 'Label' '') } else { 'Non disponible.' }))
     )) { $rows.Add([pscustomobject]@{ Aspect = [string]$pair[0]; Text = [string]$pair[1] }) }
     return [pscustomobject]@{ Title = $(if ($Title) { $Title } else { $key }); Board = $Board; Key = $key; TargetCount = $TargetCount; Members = $listMode; Rows = $rows.ToArray() }
+}
+
+function Get-DomeniaWidgetSourceFamilies {
+    # Source families of the displayed information, not the time its chart was drawn.
+    param($Need)
+    switch ([string]$Need.Kind) {
+        'Directory' { return 'AD' }
+        'Card' { return 'AD' }
+        'BitLocker' { return 'BitLocker' }
+        'Software' { return 'Software' }
+        'ComputerInventory' { return 'ComputerInventory' }
+        'Remote' {
+            if ($Need.Directory) { 'AD' }
+            if ($Need.Ping) { 'Ping' }
+            if ($Need.Console) { 'Console' }
+            if ($Need.Inventory) { 'Inventory' }
+            if (@($Need.ProbeIds).Count) { 'Probe' }
+            return
+        }
+        'Local' {
+            switch -Wildcard ([string]$Need.Key) {
+                'fleet.trend.win10' { return 'AD' }
+                'fleet.trend.stale' { return 'AD' }
+                'fleet.trend.lowdisk' { return 'Inventory' }
+                'fleet.*' { return @('AD','Ping','Inventory') }
+                'computer.*' { return @('AD','ComputerInventory') }
+            }
+        }
+    }
+    return 'Unknown'
+}
+function Format-DomeniaWidgetDataDates {
+    # Successful source clocks only. A failed attempt or a local redraw never rejuvenates the footer.
+    param([object[]]$Rows=@(),[datetime]$NowUtc=[datetime]::UtcNow)
+    $lines=New-Object System.Collections.Generic.List[string]
+    foreach ($row in $Rows) {
+        $source=[string](Get-DomeniaMember $row 'Source' 'Source inconnue')
+        $oldest=ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $row 'OldestUtc')
+        $newest=ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $row 'NewestUtc')
+        if ($null -ne $oldest -and $oldest -gt $NowUtc) { $oldest=$null }
+        if ($null -ne $newest -and $newest -gt $NowUtc) { $newest=$null }
+        $text=$source+' · '
+        if ($null -eq $oldest -or $null -eq $newest) { $text+='non daté' }
+        else {
+            $text+=$oldest.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+            if ($newest -ne $oldest) { $text+=' → '+$newest.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) }
+        }
+        $missing=[int](Get-DomeniaMember $row 'Missing' 0)
+        if ($missing -gt 0) { $text+=' · '+$missing+' non lu(s)' }
+        $lines.Add($text)
+    }
+    if (-not $lines.Count) { $lines.Add('Source inconnue · non daté') }
+    $text=$lines.ToArray() -join "`n"
+    return [pscustomobject]@{Text=$text;Detail=('Dates des données conservées, par source. Une tentative en échec ne les remplace pas.'+"`n"+$text)}
 }

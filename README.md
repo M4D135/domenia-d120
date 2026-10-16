@@ -5,10 +5,13 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.10**, candidate : corrections vérifiées par des essais Windows ciblés.
-Le blocage avant connexion de RC1.17.9 est corrigé ; le ZIP PROD RC1.17.10 atteint la fenêtre de connexion sous Windows PowerShell 5.1.
+Révision **RC1.17.11**, candidate : accueil recentré sur les données, sections déplaçables,
+Santé en dernier par défaut, tailles de widgets conservées, progression globale des lots en haut.
+Après un délai WMI, une saturation temporaire du moteur attend la libération des lectures en nettoyage
+au lieu dʼarrêter le lot et de perdre le poste suivant.
+La connexion corrigée dans RC1.17.10 a été confirmée par David sur son poste.
 La qualification complète des ZIP et les parcours GUI sur AD restent ouverts.
-Voir le [bilan de validation du 16 octobre](validation/2026-10-16/windows-recovery/README.md).
+Voir les [corrections et contrôles ciblés du 16 octobre](validation/2026-10-16/dashboard-batch/README.md).
 
 | Pack | Téléchargement direct |
 |---|---|
@@ -101,3 +104,5 @@ commun est épinglé dans `dev/vendor/m4d-admin-common`. Les tests et leur port�
 sont conservés avec les sources et dans le dossier de validation. Les essais avec
 un parc synthétique et les contrôles WPF en VM restent distincts de la recette
 sur un domaine réel.
+
+Chaque widget affiche la source et les dates des données, avec un petit ↻ permanent qui relit la source. La première configuration prépare automatiquement sa vue après la lecture de la base.

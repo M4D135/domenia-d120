@@ -1,0 +1,27 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  1,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "BRD-027"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "BRD-027",
+                      "Name":  "DS-04 : tailles respectées même sur une rangée incomplète, tuiles empilées sans élargissement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

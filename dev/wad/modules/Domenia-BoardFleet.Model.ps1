@@ -650,7 +650,7 @@ function Get-DomeniaFleetBoardData {
     if($rejected -gt 0){Add-DomeniaBoardAttention -Data $data -Level Warn -Text ([string]$rejected+' relevé(s) ignoré(s) : contenu illisible ou identité AD différente. Les postes restent dans la base et peuvent être relevés à nouveau.') -Point 'cache.invalid'}
     $data.Summary = [string]$machineCount+' comptes ordinateur dans le périmètre : '+$machineDetail+'.'
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Population' -Value ([pscustomobject]@{ Total = $total; Healthy = $healthy })
-    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;Runs=$collectionClocks;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
+    Add-Member -InputObject $data -MemberType NoteProperty -Name 'Freshness' -Value ([pscustomobject]@{Version=1;ScopeDn=$scope;Subtree=$Subtree;Index=$indexFreshness;Observations=$measurementFreshness;BitLockerAtUtc=$bitlockerAt;Runs=$collectionClocks;SnapshotAtUtc=$snapshotAt;ComputedAtUtc=$nowUtc})
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Observations' -Value $observations
     # The worker rows are kept as they are, without copy nor pipeline: thousands of workstations stay cheap on the
     # interface thread (PF-21). Targets: the active workstations (name, distinguished_name, object_guid).
@@ -767,7 +767,7 @@ function Get-DomeniaOuObservationFreshness {
         $items.Add([pscustomobject]@{Key=$key;Observation=$observation})
     }
     $result=[ordered]@{Version=1;Total=[Math]::Max(0,$Total)}
-    foreach($pair in @(@('Ping','Presence'),@('Inventory','Inventory'))){
+    foreach($pair in @(@('Ping','Presence'),@('Console','Console'),@('Inventory','Inventory'))){
         $measure=Measure-DomeniaMeasureStates -Items $items.ToArray() -Total $result.Total -Family $pair[1] -NowUtc $NowUtc -MaxDays $MaxDays -ToleranceMinutes 0
         $result[$pair[0]]=[pscustomobject]@{Count=[int]$measure.Known;Total=$result.Total;Missing=[Math]::Max(0,$result.Total-[int]$measure.Known);OldestUtc=$measure.OldestUtc;NewestUtc=$measure.NewestUtc;States=$measure.Counts;KeptAfterFailure=[int]$measure.KnownWithFailedAttempt}
     }

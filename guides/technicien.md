@@ -262,7 +262,9 @@ Quand : vous cherchez sur quel poste travaille un utilisateur, ou quels postes d
 
 # 5 Voir et explorer le parc depuis Accueil
 
-L'Accueil présente les postes de la base locale et leurs derniers relevés. Son choix d'OU est indépendant de Rechercher : vous pouvez suivre un service dans le tableau de bord tout en cherchant un autre objet dans l'annuaire.
+L'Accueil présente les postes de la base locale et leurs derniers relevés. Les données du parc s’affichent directement, avant les premiers pas. Son choix d'OU est indépendant de Rechercher : vous pouvez suivre un service dans le tableau de bord tout en cherchant un autre objet dans l'annuaire.
+
+Dans Personnaliser, utilisez Monter ou Descendre près du titre d’une section pour la déplacer avec tous ses widgets. L’ordre est mémorisé ; Annuler rétablit l’ordre précédent. Santé est placée en dernier par défaut. Compacte, Moyenne et Large gardent leur taille même si une ligne reste incomplète.
 
 ## Choisir le périmètre
 
@@ -607,3 +609,17 @@ Donnez-lui ces éléments :
 ## À propos de ce guide
 
 Ce guide accompagne Domenia 1.0 pour les gestes du support quotidien. Le guide administrateur détaille l'installation, les droits, les données, les limites et les contrôles de livraison. Les noms visibles dans les figures sont fictifs.
+
+### Suivre un lot (RC1.17.11)
+
+Le bouton Opérations de lʼen-tête affiche le type de lot et les postes traités sur le total.
+Son panneau place le lot avant les lectures individuelles, avec les erreurs et les enregistrements en attente.
+Le lot reste visible entre deux postes ; son bouton Arrêter agit sur lʼensemble du lot choisi.
+Un délai WMI concerne le poste en erreur. Si le moteur est encore occupé à nettoyer les lectures,
+le prochain poste attend une place avant de partir ; les limites du moteur restent appliquées.
+
+### RC1.17.11 : dates et actualisation des widgets
+
+Chaque widget présente sa source (AD, ping, WMI ou registre) et les dates des relevés conservés. Une plage indique des relevés réalisés à plusieurs moments ; une source sans date reste « non daté ». Le petit ↻ toujours visible relit la source, puis recalcule le widget. Les données confirmées gardent leur date si une tentative échoue. La synthèse du parc enchaîne AD puis ses mesures ping/WMI ; les historiques restent conservés. Un widget suspendu doit être repris avant actualisation. Les confirmations de collecte et les limites de périmètre restent applicables.
+
+Au dernier pas de la première configuration, un premier calcul local démarre automatiquement après la lecture de la base. Le bouton attend la vue prête ; en cas d’échec ou d’OU vide, il propose de réessayer. Aucun scan WMI supplémentaire ne part à cette étape.

@@ -1059,6 +1059,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaFilteredEmptyState',
             'Test-DomeniaExperienceCanCancel',
             'Get-DomeniaExperienceTaskRow',
+            'Get-DomeniaExperienceBatchRows',
             'Find-SuiteLiteralText'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Shell.Model.ps1'); File='Domenia-Experience.UI.ps1'; DotSource=$false; Functions=@(
@@ -2348,6 +2349,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardScopeName',
             'Get-DomeniaBoardDocumentMessage',
             'Get-DomeniaBoardLayoutFileName',
+            'Move-DomeniaBoardGroup',
             'Get-DomeniaBoardGroups',
             'Add-DomeniaBoardItem',
             'Remove-DomeniaBoardItem',
@@ -2388,7 +2390,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaComputerInventoryDeep',
             'Format-DomeniaWidgetDetailLabel',
             'Test-DomeniaWidgetSnapshotCurrent',
-            'Get-DomeniaWidgetExplanation'
+            'Get-DomeniaWidgetExplanation',
+            'Get-DomeniaWidgetSourceFamilies',
+            'Format-DomeniaWidgetDataDates'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
@@ -2586,6 +2590,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardHintAction',
             'New-DomeniaBoardHint',
             'Get-DomeniaBoardActionControl',
+            'Add-DomeniaBoardSectionMoves',
             'New-DomeniaBoardButton',
             'New-DomeniaBoardToolbar',
             'New-DomeniaBoardAddTile',
@@ -2604,6 +2609,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Set-DomeniaBoardSegmentSelection',
             'New-DomeniaWidgetStateCard',
             'Get-DomeniaBoardWidgetPlan',
+            'Get-DomeniaWidgetDataDates',
             'New-DomeniaBoardWidget',
             'Invoke-DomeniaBoardAutoScroll',
             'Request-DomeniaBoardDrop',
@@ -2691,6 +2697,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Start-DomeniaFleetBitLockerPresence',
             'Complete-DomeniaFleetBitLockerPresence',
             'Fail-DomeniaFleetBitLockerPresence',
+            'Start-DomeniaFirstDashboard',
+            'Complete-DomeniaFirstDashboard',
             'Get-DomeniaFirstStepsState',
             'Update-DomeniaFirstSteps',
             'Open-DomeniaFirstStep',
@@ -2752,6 +2760,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Stop-DomeniaParkPingWorker',
             'Test-DomeniaRemoteStoreBlocked',
             'Close-DomeniaParkStoreBacklog',
+            'Test-DomeniaParkEngineAvailable',
             'Invoke-DomeniaParkRunTick',
             'Invoke-DomeniaParkPlanStep',
             'Start-DomeniaParkPingJob',

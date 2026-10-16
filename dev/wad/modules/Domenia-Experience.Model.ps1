@@ -361,6 +361,32 @@ function Get-DomeniaExperienceTaskRow {
     }
 }
 
+function Get-DomeniaExperienceBatchRows {
+    # The logical collection remains visible between workers and until its last local save is confirmed.
+    # Only scalar presentation fields leave this projection; no targets, credentials or payloads are copied.
+    param([object[]]$Runs=@(),$Refresh=$null,[long]$SessionEpoch=0,[string]$Path='',[long]$AccountGeneration=0)
+    $linked=@{}
+    foreach($run in $Runs){
+        if($null -eq $run -or [bool]$run.Completed -or [long]$run.Epoch -ne $SessionEpoch -or [string]$run.Path -cne $Path -or [long]$run.AccountGeneration -ne $AccountGeneration){continue}
+        if([string]$run.RefreshOperationId){$linked[[string]$run.RefreshOperationId]=$true}
+        $kind=if([bool]$run.PingOnly){'Ping'}elseif([bool]$run.WmiOnly){'WMI'}else{'Postes'}
+        $total=@($run.Targets).Count;$done=[int]$run.Done
+        $state=if([bool]$run.Stopping){'Arrêt demandé'}elseif([bool]$run.Loading -or [bool](Get-DomeniaMember $run 'Planning' $false)){'Préparation'}elseif(-not [bool]$run.Approved){'À confirmer'}elseif($run.Pending.Count -gt 0){'En cours'}elseif($run.StorePending.Count -gt 0){'Enregistrement'}else{'En attente'}
+        $progress=if([bool]$run.Loading){'préparation'}else{[string]$done+'/'+[string]$total}
+        $detail=[string]$done+'/'+[string]$total+' postes traités · '+[string][int]$run.Failed+' lecture(s) non confirmée(s) · '+[string][int]$run.Errors+' erreur(s) de ping · '+[string]$run.Pending.Count+' lecture(s) en cours · '+[string]$run.StorePending.Count+' enregistrement(s) en attente.'
+        $skipped=[int](Get-DomeniaMember $run 'SkippedTargets' 0)
+        if($skipped -gt 0){$detail+=' '+$skipped+' poste(s) non relu(s) : capacité indisponible.'}
+        if([string]$run.StatusText){$detail+=' '+[string]$run.StatusText}
+        [pscustomobject]@{Id=('batch:'+ [string]$run.Id);Name=('Lot '+$kind+' · '+[string]$run.ScopeLabel);Operation='Collection';Kind='Lot';State=$state;Duration='';Detail=$detail;Detached=$false;CanCancel=(-not [bool]$run.Stopping);Header=($kind+' · '+$progress);RunId=[string]$run.Id;RefreshId=[string]$run.RefreshOperationId}
+    }
+    # An OU batch exists before Park has resolved its targets (AD, preparation, confirmation).
+    if($null -ne $Refresh -and -not [bool]$Refresh.Completed -and [long]$Refresh.Epoch -eq $SessionEpoch -and [string]$Refresh.Path -ceq $Path -and -not $linked.ContainsKey([string]$Refresh.Id)){
+        $kind=switch([string]$Refresh.Mode){'Wmi'{'WMI'};'Ping'{'Ping'};'AD'{'Objets AD'};'Base'{'Objets AD'};default{'Actualisation'}}
+        $state=switch([string]$Refresh.Phase){'Directory'{'Lecture AD'};'WaitingCollection'{'En attente'};'Confirming'{'À confirmer'};'Collecting'{'En cours'};'Saving'{'Enregistrement'};default{'Préparation'}}
+        [pscustomobject]@{Id=('refresh:'+ [string]$Refresh.Id);Name=('Lot '+$kind+' · '+[string]$Refresh.Label);Operation='Collection';Kind='Lot';State=$state;Duration='';Detail=[string]$Refresh.Status;Detached=$false;CanCancel=(-not [bool]$Refresh.Cancelled);Header=($kind+' · '+$state.ToLowerInvariant());RunId='';RefreshId=[string]$Refresh.Id}
+    }
+}
+
 function Find-SuiteLiteralText {
     param([AllowEmptyString()][string]$Text,[AllowEmptyString()][string]$Query,[int]$Start=0)
     if([string]::IsNullOrEmpty($Text) -or [string]::IsNullOrEmpty($Query)){return -1}

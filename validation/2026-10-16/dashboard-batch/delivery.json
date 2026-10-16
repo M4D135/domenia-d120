@@ -1,0 +1,30 @@
+{
+  "build": "2026.10.16-DOMENIA-1.0-RC1.17.11-D120",
+  "source_base_commit": "430505dee54ed08d00606d83a007b300196dab9d",
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3054546,
+      "sha256": "5d713a9a4b928d3f8f27f73c0cec3644fb622bb145e5508e6ecdf96f02c632f9",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6487499,
+      "sha256": "39ae44650715ef9a3cdfbd7eeee50eecb51e78e5ab457ae1595b1eeb15524e9f",
+      "files": 636,
+      "archive_files_including_manifest": 637,
+      "archive_root": "dev/"
+    }
+  ],
+  "runtime_files_identical": 172,
+  "runtime_difference": "Edition package manifest only",
+  "source_archive_matches_working_tree": true,
+  "full_qualification": false,
+  "large_vm_campaign": false,
+  "spark": "Two requests cancelled without public output; no generated code or model approval used."
+}

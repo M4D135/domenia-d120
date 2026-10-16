@@ -1,0 +1,28 @@
+{
+    "NativeWindowsPowerShell51":  true,
+    "LiveAD":  false,
+    "Passed":  5,
+    "Failed":  0,
+    "Tests":  [
+                  {
+                      "Name":  "Le lot reste visible entre deux postes même sans aucun worker actif",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Le lot précède les workers ; progression et identité des lignes conservées jusquʼau dernier enregistrement",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Un lot OU apparaît pendant sa préparation puis une seule fois avec son relevé",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Les lots obsolètes sont exclus et ne peuvent plus être arrêtés depuis une ancienne ligne",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Deux lots simultanés ont un résumé et un arrêt indépendant",
+                      "Passed":  true
+                  }
+              ]
+}

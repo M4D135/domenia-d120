@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-[CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet)
+[CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet,[string]$Filter='')
 $ErrorActionPreference='Stop'
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -16,7 +16,7 @@ foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaEff
 }
 function Assert {param($Value,[string]$Why='Assertion fausse')if(-not $Value){throw $Why}}
 $checks=[Collections.Generic.List[object]]::new()
-function Case {param($Name,[scriptblock]$Body)try{& $Body|Out-Null;$status='Passed';$detail=''}catch{$status='Failed';$detail=$_.Exception.Message+' '+$_.ScriptStackTrace};$checks.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail});if($status -eq 'Failed'){Write-Host ($Name+': '+$detail)}}
+function Case {param($Name,[scriptblock]$Body)if($Filter -and $Name -notmatch $Filter){return};try{& $Body|Out-Null;$status='Passed';$detail=''}catch{$status='Failed';$detail=$_.Exception.Message+' '+$_.ScriptStackTrace};$checks.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail});if($status -eq 'Failed'){Write-Host ($Name+': '+$detail)}}
 function Set-Status {param($Text,$Level)$script:Status=$Text}
 function Add-DomeniaUiLog {param($Area,$Text,$Level)}
 function Initialize-DomeniaWinSqliteNative {}
@@ -27,6 +27,7 @@ function New-DomeniaObservationReader {return [pscustomobject]@{Fixture=$true}}
 function Request-DomeniaInlineConfirmation {param($Title,$Target,$Message,$ConfirmText,$CancelText,$OnConfirm,$OnCancel,$Risk,[string[]]$Changes,$Details,$DetailsTitle,[switch]$DetailsExpertOnly,$TypedConfirmation,$TypedPrompt)$script:Confirm=$OnConfirm;$script:Cancel=$OnCancel;$script:Message=$Message;$script:ConfirmTitle=$Title;$script:ConfirmTarget=$Target;$script:ConfirmButton=$ConfirmText;$script:ConfirmText=$ConfirmText;$script:Preview=[pscustomobject]@{Changes=@($Changes);Details=[string]$Details;Typed=[string]$TypedConfirmation;DetailsExpertOnly=[bool]$DetailsExpertOnly}}
 function Start-UiTask {
  param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TimeoutSeconds,$HardTimeoutSeconds,$TaskClass,$ReplaceKey,$StatusText)
+ if($script:CheckEngineAdmission -and $OperationId -eq 'LiveConsole'){[void](Get-DomeniaUiTaskAdmission -Class Explicit)}
  $id='job-'+$script:Calls.Count
  $call=[pscustomobject]@{Id=$id;Name=$Name;Payload=$Payload;State=$CallbackState;OperationId=$OperationId;TimeoutSeconds=$TimeoutSeconds;HardTimeoutSeconds=$HardTimeoutSeconds;TaskClass=$TaskClass;Code=$Code};$script:Calls.Add($call);$script:AsyncJobs[$id]=$call;return $id
 }
@@ -65,6 +66,7 @@ function Set-RowAssociationMetadata {param($Rows)}
 function Run {param([string]$Slot='List') Get-DomeniaParkRun -Slot $Slot}
 function Reset-Fixture {
  if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.Timer){$old.Timer.Stop()}}}
+ $script:CheckEngineAdmission=$false;$script:DomeniaSchedulerEnabled=$true;
  $script:DomeniaRemoteStoreQueue=$null;$script:DomeniaRemoteStoreTimer=$null;$script:DomeniaAccountGeneration=1L;$script:GlobalSearchGeneration=1L;$script:ListSurveyBlocked=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null;$script:SessionEpoch=1L;$script:DatabaseScopedPath='C:\fixture\domain.db';$script:DemoMode=$false;$script:AsyncEngineClosing=$false;$script:WriteState='Idle';$script:ActiveWriteTaskId='';$script:Persistence=$null;$script:Live=$null;$script:Existing=$null;$script:FleetLast=$null;$script:FleetObservations=@{};$script:SelectedObject=$null
  $script:SearchMode='OU';$script:SelectedBranchDn='OU=Postes,dc=example,dc=invalid';$script:CurrentPresenceFilter='Tous';$script:DomeniaQueryState=$null;$script:SearchListHasMachine=$true;$script:Cfg=@{}
  $script:Conn=[pscustomobject]@{Domain='example.invalid';BaseDn='dc=example,dc=invalid'};$script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@()
@@ -1029,10 +1031,39 @@ Case 'Moteur : base en maintenance, le ping de la liste nʼenvoie plus de lot et
   Assert ($progress.State -eq 'Incident' -and $progress.DoneCount -eq 32 -and $progress.Reason -match '^Maintenance de la base locale') ('Plan : '+$progress.State+' '+$progress.Reason)
  }finally{$script:StorageMaintenance=$null}
 }
+Case 'RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant' {
+ foreach($scheduler in @($true,$false)){
+  Reset-Fixture;Ready-Run 2;$r=Run;$r.WmiOnly=$true;$r.Concurrency=1
+  Invoke-DomeniaParkRunTick;$first=$script:Calls[1]
+  Fail-DomeniaParkSession 'Délai dépassé : WMI du perimetre : PC-1' $first.State
+  $script:AsyncJobs.Remove($first.Id);Commit-Saved
+  $script:DomeniaSchedulerEnabled=$scheduler;$script:CheckEngineAdmission=$true
+  $script:Cfg['Async.MaxThreads']=1;$script:Cfg['Async.MaxOutstandingWorkers']=1;$script:Cfg['Async.MaxQueued']=0
+  $script:DetachedReadJobs=@([pscustomobject]@{Id=$first.Id},[pscustomobject]@{Id='other-cleanup'})
+  Invoke-DomeniaParkRunTick
+  Assert (-not $r.Stopping -and $r.Next -eq 1 -and $script:Calls.Count -eq 2) ('Lot arrêté ou poste perdu pendant nettoyage : '+$r.StopReason)
+  $script:DetachedReadJobs=@();Invoke-DomeniaParkRunTick
+  Assert (-not $r.Stopping -and $script:Calls.Count -eq 3 -and $script:Calls[2].Payload.Computer -eq 'PC-2') 'Le poste suivant ne repart pas après libération'
+ }
+}
+Case 'RC11711 : le timeout WMI est enregistré et le poste suivant est traité' {
+ foreach($inventory in @($false,$true)){
+  Reset-Fixture;Ready-Run 2;$r=Run;$r.WmiOnly=$true;$r.Inventory=$inventory;$r.Concurrency=1
+  Invoke-DomeniaParkRunTick;$first=$script:Calls[1];$state=$first.State
+  Fail-DomeniaParkSession 'Délai dépassé : WMI du perimetre : PC-1 — aucune étape terminée pendant le délai' $state
+  Assert (-not $r.Stopping -and $script:Saves.Count -eq 1 -and $r.Pending.Count -eq 0) ('Après délai : '+$r.StopReason+' '+$r.FailureMessage)
+  $script:AsyncJobs.Remove($first.Id);Commit-Saved
+  Invoke-DomeniaParkRunTick
+  Assert (-not $r.Stopping -and $script:Calls.Count -eq 3 -and $script:Calls[2].Payload.Computer -eq 'PC-2') ('Poste suivant absent : '+$r.StopReason)
+  Complete-DomeniaParkSession (New-Result $script:Calls[2].State.Target) $script:Calls[2].State;Commit-Saved 1
+  Invoke-DomeniaParkRunTick
+  Assert ($r.Completed -and -not $r.Stopping -and $r.Done -eq 2) ('Fin : '+$r.StatusText)
+ }
+}
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=78
-$report=[ordered]@{Kind='ParkDetection';Expected=$expected;Complete=($checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
+$expected=80;if($Filter){$expected=$checks.Count}
+$report=[ordered]@{Kind='ParkDetection';Expected=$expected;Filter=$Filter;Complete=($checks.Count -gt 0 -and $checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 Write-Host ($report.Passed.ToString()+' reussis, '+$failed+' echecs. '+$ReportPath)

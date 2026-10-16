@@ -911,7 +911,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.10" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.11" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -1071,13 +1071,14 @@
                     <TextBlock x:Name="LblAccessRecoveryCount" Text="0" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="{DynamicResource OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
-              </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="40" MinWidth="40" MaxWidth="40" Height="40" MinHeight="40" MaxHeight="40" AutomationProperties.Name="Opérations">
-                <Grid Width="38" Height="38" IsHitTestVisible="False">
+              </Button><Button x:Name="BtnSuiteActivity" Style="{StaticResource UxIconButton}" Width="Auto" MinWidth="40" MaxWidth="260" Height="40" MinHeight="40" MaxHeight="40" AutomationProperties.Name="Opérations">
+                <StackPanel Orientation="Horizontal" IsHitTestVisible="False"><Grid Width="38" Height="38" IsHitTestVisible="False">
                   <Path Data="M2,12 L7,12 10,5 14,19 17,12 22,12" Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   <Border x:Name="BadgeSuiteActivity" Width="24" Height="16" CornerRadius="8" Background="{DynamicResource AccentColor}" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Hidden">
                     <TextBlock x:Name="LblSuiteActivityCount" Text="0" FontSize="{DynamicResource FontSizeCaption}" FontWeight="SemiBold" Foreground="{DynamicResource OnAccent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                   </Border>
                 </Grid>
+                <TextBlock x:Name="LblSuiteBatchProgress" Visibility="Collapsed" Margin="4,0,8,0" MaxWidth="190" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/></StackPanel>
               </Button>
               <Button x:Name="BtnThemeToggle" Style="{StaticResource UxIconButton}" IsEnabled="True" IsHitTestVisible="True" Focusable="True" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Passer au thème sombre">
                 <!-- DS-10: the icon of the theme the button switches to (Get-DomeniaThemeToggleIcon). -->
@@ -1205,95 +1206,7 @@
               <TabItem x:Name="TabDashboard" Header="Accueil" AutomationProperties.Name="Accueil">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                   <StackPanel Margin="2,2,10,8">
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="24">
-                      <StackPanel>
-                        <TextBlock Text="Que souhaitez-vous faire ?" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="SemiBold" Margin="0,0,0,7"/>
-                        <TextBlock Text="Retrouvez une personne ou un poste, consultez sa fiche, puis préparez votre intervention." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeSubtitle}"/>
-                      </StackPanel>
-                    </Border>
-                    <UniformGrid Columns="2" Margin="0,0,0,6">
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="WsSearch" x:Name="BtnUxHomeSearch" AutomationProperties.Name="Rechercher">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
-                          <StackPanel Grid.Column="1">
-                            <TextBlock Text="Rechercher" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
-                            <TextBlock Text="Nom, identifiant, adresse mail ou poste" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                          </StackPanel>
-                        </Grid>
-                      </Button>
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="WsSearch" x:Name="BtnUxHomeDirectory" AutomationProperties.Name="Parcourir l’annuaire">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Path Data="M2,6 L10,6 12,9 23,9 23,22 2,22 Z M2,6 L2,3 10,3 13,6 22,6 22,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
-                          <StackPanel Grid.Column="1">
-                            <TextBlock Text="Choisir une OU" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
-                            <TextBlock Text="OU et conteneurs du domaine" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                          </StackPanel>
-                        </Grid>
-                      </Button>
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Visibility="Collapsed" Uid="TabSupport" x:Name="BtnUxHomeSupport" AutomationProperties.Name="Préparer un dossier">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Path Data="M4,7 L20,7 20,23 4,23 Z M8,7 L8,3 16,3 16,7 M8,12 L16,12 M8,16 L16,16" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
-                          <StackPanel Grid.Column="1">
-                            <TextBlock Text="Préparer un dossier" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
-                            <TextBlock Text="Comparer des fiches et rédiger un ticket" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                          </StackPanel>
-                        </Grid>
-                      </Button>
-                      <Button Margin="0,0,10,10" Padding="18" MinHeight="92" Uid="TabAccounts" x:Name="BtnUxHomeAccounts" AutomationProperties.Name="Identités de connexion">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38"/>
-                            <ColumnDefinition Width="*"/>
-                          </Grid.ColumnDefinitions>
-                          <Path Data="M12,2 L22,6 21,16 Q18,22 12,25 Q6,22 3,16 L2,6 Z M7,13 L11,17 18,9" Width="26" Height="26" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,12,0" IsHitTestVisible="False" Grid.Column="0"/>
-                          <StackPanel Grid.Column="1">
-                            <TextBlock Text="Identités de connexion" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
-                            <TextBlock Text="Comptes utilisés par Domenia : annuaire, postes, secrets" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,5,0,0"/>
-                          </StackPanel>
-                        </Grid>
-                      </Button>
-                    </UniformGrid>
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,14" Background="{DynamicResource InfoBg}">
-                      <StackPanel>
-                        <TextBlock Text="La consultation est protégée par défaut" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" Foreground="{DynamicResource InfoFg}"/>
-                        <TextBlock Text="Le mode Essentiel simplifie les vues. La case Lecture seule contrôle les modifications : ce sont deux réglages indépendants." TextWrapping="Wrap" Foreground="{DynamicResource InfoFg}" Margin="0,6,0,0"/>
-                      </StackPanel>
-                    </Border>
-                    <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
-                      <StackPanel>
-                        <TextBlock Text="Premiers pas" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
-                        <Grid>
-                          <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                          <TextBlock x:Name="LblFirstStepConnectionMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepConnection" Grid.Row="0" Grid.Column="1" Text="Se connecter à lʼannuaire avec son compte habituel." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepConnection" Grid.Row="0" Grid.Column="2" Content="Voir le compte" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : connexion à lʼannuaire"/>
-                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepOu" Grid.Row="1" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : choisir lʼOU de travail"/>
-                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="2" Grid.Column="1" Text="Faire la première lecture de cette OU dans la base locale (Outils, Base autonome)." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepBase" Grid.Row="2" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : première lecture de lʼOU"/>
-                          <TextBlock x:Name="LblFirstStepDashboardMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepDashboard" Grid.Row="3" Grid.Column="1" Text="Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                          <Button x:Name="BtnFirstStepDashboard" Grid.Row="3" Grid.Column="2" Content="Voir le tableau de bord" MinHeight="30" Padding="12,3" AutomationProperties.Name="Premiers pas : découvrir le tableau de bord"/>
-                        </Grid>
-                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.Name="Options réglées plus tard"/>
-                      </StackPanel>
-                    </Border>
+                    <TextBlock Text="Vue dʼensemble du parc" FontSize="{DynamicResource FontSizeDisplay}" FontWeight="SemiBold" Margin="0,0,0,12"/>
                     <Border Style="{StaticResource Card}" Margin="0,0,0,12" Padding="18,12">
                       <StackPanel>
                         <DockPanel>
@@ -1321,6 +1234,29 @@
                       </StackPanel>
                     </Border>
                     <StackPanel x:Name="PnlFleetDashboard" Margin="-7,0,-7,12"/>
+                    <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
+                      <StackPanel>
+                        <TextBlock Text="Premiers pas" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
+                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Chaque bouton ouvre lʼécran concerné, sans rien lancer." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                          <TextBlock x:Name="LblFirstStepConnectionMark" Grid.Row="0" Grid.Column="0" Text="1" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepConnection" Grid.Row="0" Grid.Column="1" Text="Se connecter à lʼannuaire avec son compte habituel." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepConnection" Grid.Row="0" Grid.Column="2" Content="Voir le compte" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : connexion à lʼannuaire"/>
+                          <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepOu" Grid.Row="1" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : choisir lʼOU de travail"/>
+                          <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepBase" Grid.Row="2" Grid.Column="1" Text="Faire la première lecture de cette OU dans la base locale (Outils, Base autonome)." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepBase" Grid.Row="2" Grid.Column="2" Content="Ouvrir la base autonome" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : première lecture de lʼOU"/>
+                          <TextBlock x:Name="LblFirstStepDashboardMark" Grid.Row="3" Grid.Column="0" Text="4" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
+                          <TextBlock x:Name="LblFirstStepDashboard" Grid.Row="3" Grid.Column="1" Text="Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <Button x:Name="BtnFirstStepDashboard" Grid.Row="3" Grid.Column="2" Content="Voir le tableau de bord" MinHeight="30" Padding="12,3" AutomationProperties.Name="Premiers pas : découvrir le tableau de bord"/>
+                        </Grid>
+                        <TextBlock x:Name="LblFirstStepsDeferred" Text="Plus tard, au moment où ils servent : le compte pour les postes (Comptes et accès) et les sauvegardes de la base (Outils, Base autonome, Stockage)." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,10,0,0" AutomationProperties.Name="Options réglées plus tard"/>
+                      </StackPanel>
+                    </Border>
                     <Expander Header="Détails de la session et outils de vérification" IsExpanded="False" x:Name="UxSessionDetails" AutomationProperties.Name="Détails de la session et outils de vérification">
                       <Border Style="{StaticResource Card}" Margin="0,10,0,0">
                         <StackPanel>

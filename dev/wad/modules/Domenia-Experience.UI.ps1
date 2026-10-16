@@ -145,6 +145,15 @@ function Stop-DomeniaOperationRow {
     # UX-32: Arrêter on one row. The real job is checked again: a write, a protected local save or a task of another
     # session is never stopped from here.
     param([string]$Id)
+    if($Id -match '^(batch|refresh):'){
+        $batch=@(Get-DomeniaExperienceBatchRows -Runs @($script:ParkRuns.Values) -Refresh $script:DomeniaOuRefresh -SessionEpoch ([long]$script:SessionEpoch) -Path ([string]$script:DatabaseScopedPath) -AccountGeneration ([long]$script:DomeniaAccountGeneration)|Where-Object{$_.Id -ceq $Id -and $_.CanCancel})
+        if($batch.Count -eq 1){
+            if($batch[0].RefreshId){Stop-DomeniaOuRefresh -OperationId $batch[0].RefreshId}
+            else{Stop-DomeniaOnlinePark -RunId $batch[0].RunId}
+            Update-DomeniaExperienceActivity -Force
+        }
+        return
+    }
     if([string]::IsNullOrWhiteSpace($Id) -or $null -eq $script:AsyncJobs -or -not $script:AsyncJobs.Contains($Id)){return}
     $job=$script:AsyncJobs[$Id]
     if(-not (Test-DomeniaExperienceCanCancel $job ([long]$script:SessionEpoch))){
@@ -160,6 +169,7 @@ function Stop-DomeniaExperienceSelectedRead {
     $grid=Get-DomeniaControl 'DgSuiteActivity'
     if($null -eq $grid -or $null -eq $grid.SelectedItem){return}
     $row=$grid.SelectedItem;$id=[string]$row.Id
+    if($id -match '^(batch|refresh):'){Stop-DomeniaOperationRow -Id $id;return}
     if([bool]$row.Detached -or $null -eq $script:AsyncJobs -or -not $script:AsyncJobs.Contains($id)){return}
     # Recheck against the actual job, not against the displayed CanCancel flag.
     $job=$script:AsyncJobs[$id]
@@ -176,7 +186,7 @@ function Sync-DomeniaOperationRows {
     param([object[]]$Projections=@())
     $panel=$script:OperationsPanel
     if($null -eq $panel){return}
-    $signature=(@($Projections|ForEach-Object{[string]$_.Id+'='+[string]$_.State})) -join '|'
+    $signature=(@($Projections|ForEach-Object{[string]$_.Id+'='+[string]$_.State+'='+[string]$_.Detail+'='+[string]$_.CanCancel})) -join '|'
     if(-not [bool]$panel.Typed){
         if($signature -cne [string]$panel.Signature){
             $panel.Rows.Clear();$panel.Map=@{}
@@ -185,11 +195,12 @@ function Sync-DomeniaOperationRows {
         $panel.Signature=$signature
         return
     }
-    $seen=@{}
+    $seen=@{};$position=0
     foreach($projection in $Projections){
         $id=[string]$projection.Id;$seen[$id]=$true
         $row=$panel.Map[$id]
         if($null -eq $row){$row=New-Object Domenia.Live.OperationRow;$row.Id=$id;$panel.Map[$id]=$row;[void]$panel.Rows.Add($row)}
+        $at=$panel.Rows.IndexOf($row);if($at -ne $position){$panel.Rows.Move($at,$position)};$position++
         $row.Name=[string]$projection.Name;$row.Kind=[string]$projection.Kind;$row.State=[string]$projection.State
         $row.Duration=[string]$projection.Duration;$row.Detail=[string]$projection.Detail
         $row.CanCancel=[bool]$projection.CanCancel;$row.Detached=[bool]$projection.Detached
@@ -237,6 +248,7 @@ function Update-DomeniaExperienceActivity {
     # D017: an entry waiting in the engine queue is counted apart; it holds no call yet.
     if($null -ne $script:AsyncJobs){foreach($job in @($script:AsyncJobs.Values)){if($null -eq $job){continue};if([string]$job.State -eq 'Queued'){$queued++}else{$active++}}}
     if($null -ne $script:DetachedReadJobs){$detached=@($script:DetachedReadJobs).Count}
+    $batches=@(Get-DomeniaExperienceBatchRows -Runs @($script:ParkRuns.Values) -Refresh $script:DomeniaOuRefresh -SessionEpoch ([long]$script:SessionEpoch) -Path ([string]$script:DatabaseScopedPath) -AccountGeneration ([long]$script:DomeniaAccountGeneration))
     $button=Get-DomeniaControl 'BtnSuiteActivity'
     $total=[long]$active+[long]$detached+[long]$queued
     # W13 (point 118) with X04/X05: the durable receipts waiting for a check, by the rule of the header pill.
@@ -244,12 +256,19 @@ function Update-DomeniaExperienceActivity {
     try{$pendingView=Get-DomeniaPendingOperationsView -Pending ([int]$script:ReceiptPending)}catch{ $script:DomeniaInterfaceFaults = [int]$script:DomeniaInterfaceFaults + 1 }
     $pendingShown=(($null -ne $pendingView) -and [bool]$pendingView.Visible)
     $counter=Get-DomeniaControl 'LblSuiteActivityCount';$badge=Get-DomeniaControl 'BadgeSuiteActivity'
-    $label=Get-DomeniaCounterText -Count ([int]$total) -ZeroText '0'
-    $visibility=if($total -gt 0){'Visible'}else{'Hidden'}
+    $shown=if($batches.Count){$batches.Count}else{$total}
+    $label=Get-DomeniaCounterText -Count ([int]$shown) -ZeroText '0'
+    $visibility=if($shown -gt 0){'Visible'}else{'Hidden'}
     if($null -ne $counter -and $counter.Text -cne $label){$counter.Text=$label}
     if($null -ne $badge -and [string]$badge.Visibility -ne $visibility){$badge.Visibility=$visibility}
+    $batchLabel=Get-DomeniaControl 'LblSuiteBatchProgress'
+    if($null -ne $batchLabel){
+        $batchLabel.Text=if($batches.Count){[string]$batches[0].Header+$(if($batches.Count -gt 1){' · +'+($batches.Count-1)+' lot'}else{''})}else{''}
+        $batchLabel.Visibility=if($batches.Count){'Visible'}else{'Collapsed'}
+    }
     if($null -ne $button){
         $help=if($total -eq 0){'Aucune opération active. Afficher le panneau des opérations et la santé du moteur.'}elseif($queued -gt 0){"$total opération(s) suivie(s) : $active active(s), $queued en attente, $detached en nettoyage. Afficher le panneau."}else{"$total opération(s) suivie(s) : $active active(s), $detached en nettoyage. Afficher le panneau."}
+        if($batches.Count){$help=(@($batches|ForEach-Object{$_.Name+' : '+$_.Detail}) -join "`r`n")+"`r`n$total tâche(s) : $active active(s), $queued en attente, $detached en nettoyage. Afficher le panneau."}
         if($pendingShown){$help+=' '+[string]$pendingView.Text+' : reçus en attente de vérification, comme sur la pastille de lʼen-tête.'}
         if([string]$button.ToolTip -cne $help){$button.ToolTip=$help}
         [Windows.Automation.AutomationProperties]::SetHelpText($button,$help)
@@ -260,6 +279,7 @@ function Update-DomeniaExperienceActivity {
     # A sheet that took the layer removed the panel: it is closed, not left half open.
     if($null -eq $panel.View.Parent){$panel.Open=$false;try{$panel.Timer.Stop()}catch{Write-DomeniaSwallowed 'Experience' 'Update-DomeniaExperienceActivity' $_};return}
     $now=Get-Date;$rows=New-Object 'System.Collections.Generic.List[object]'
+    foreach($batch in $batches){$rows.Add($batch)}
     if($null -ne $script:AsyncJobs){
         foreach($job in @($script:AsyncJobs.Values)){
             if($rows.Count -ge 64){break}
@@ -280,6 +300,7 @@ function Update-DomeniaExperienceActivity {
     try{Sync-DomeniaOperationsRecent}catch { $script:DomeniaTraceFaults = [int]$script:DomeniaTraceFaults + 1 }
     $state=[string]$script:WriteState
     $message=if($active+$detached+$queued -eq 0){'Aucune opération active. Les résultats précédents restent dans le journal.'}else{"$active opération(s) active(s) · $queued en attente · $detached lecture(s) en nettoyage."}
+    if($batches.Count){$message=(@($batches|ForEach-Object{$_.Header+' · '+$_.State}) -join ' / ')+" · $active lecture(s) active(s), $queued en attente, $detached en nettoyage."}
     if($state -in @('Unknown','UnknownPending')){$message+=' Écriture à vérifier : ne relancez pas lʼaction avant relecture de lʼobjet.'}
     $receipts=Get-DomeniaControl 'BtnOperationsReceipts'
     if($pendingShown){

@@ -2,7 +2,7 @@
 # Four steps read from what the session already knows: connection to the directory, working OU of the dashboard, first
 # read of that OU into the local base, then the overview computed from it. The rare options (account used on the
 # workstations, backups of the base) are not steps: they are offered where they are used. Each step button opens its
-# screen and starts nothing (decision David 2026-10-08, UX-20).
+# screen; the last overview is prepared locally before it is offered (David 2026-10-16).
 
 function Get-DomeniaFirstRunPlan {
     param(
@@ -31,7 +31,7 @@ function Get-DomeniaFirstRunPlan {
     }
     $baseText = 'Faire la première lecture de cette OU dans la base locale (Outils, Base autonome).'
     if ($read) { $baseText = 'Première lecture faite : ' + [string]$IndexedObjects + ' objet(s) dans la base locale.' }
-    $dashboardText = 'Découvrir le tableau de bord : la vue dʼensemble de lʼOU se calcule depuis la base locale.'
+    $dashboardText = 'Préparer le tableau de bord : première actualisation depuis la base locale, puis ouverture de la vue.'
     if ($seen) { $dashboardText = 'Vue dʼensemble calculée depuis la base locale ; une tuile ouvre la liste exacte de ses postes.' }
     $steps = @(
         [pscustomobject]@{ Name = 'Connection'; Number = 1; Done = $connected; Enabled = $true; Text = $connectionText }

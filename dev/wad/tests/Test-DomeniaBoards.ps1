@@ -5,7 +5,7 @@
 # (ajout, recherche, modification), la garde du perimetre des requetes et l animation d entree ; lot Z03 : grille
 # fluide, carte Sante, poste allege, copie pour un ticket, disposition d equipe, export et import, editeur sans jargon.
 [CmdletBinding()]
-param([string]$ReportPath='',[switch]$Quiet)
+param([string]$ReportPath='',[switch]$Quiet,[string]$Filter='')
 $ErrorActionPreference='Stop'
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -17,6 +17,7 @@ $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$fals
 $script:ExpectedCases=59
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
+    if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
     if(-not $Quiet){Write-Host ('START '+$Name)}
     try {& $Body|Out-Null;$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}
     catch {$script:Results.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.ToString()+[Environment]::NewLine+$_.ScriptStackTrace)})}
@@ -176,7 +177,7 @@ try{
     $parkModelAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Park.Model.ps1')));foreach($n in @('Get-DomeniaParkPlural','Get-DomeniaParkProgressText')){Import-Function $parkModelAst $n}
     $script:FleetScopeDn=''
     # FI-05 / PF-06: Engine.UI holds the protected timer factory (banners, counters, park run).
-    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-QueryLibrary.Model.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.UI.ps1','Domenia-QueryTransfer.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
+    foreach($m in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Collection.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Embedded.UI.ps1','Domenia-Workstation.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-Boards.Model.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-Readings.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-FirstRun.Model.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-QueryLibrary.Model.ps1','Domenia-QueryLibrary.Store.UI.ps1','Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.UI.ps1','Domenia-QueryTransfer.UI.ps1')){. (Join-Path $wad ('modules\'+$m))}
     $reader=[Xml.XmlNodeReader]::new([xml](Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot)));try{$w=[Windows.Markup.XamlReader]::Load($reader)}finally{$reader.Close()}
     $w.Width=1400;$w.Height=900;$w.ShowInTaskbar=$false
     $palette=(Get-Content -LiteralPath (Join-Path $wad 'modules\SupportSuite.UI.json') -Raw|ConvertFrom-Json).Palettes.Light
@@ -667,7 +668,7 @@ try{
     Case 'Widget de requete en attente : etat explicite, puis rempli par un resultat' {
         $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
         Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
-        $item=@(Get-Layout Fleet|Where-Object{$_.Source -eq 'Probe'})[0]
+        $item=New-DomeniaBoardItem -Source Probe -Key 'os.release' -Visual Bar -Size M
         $oldQueryState=$script:DomeniaQueryState
         try{
             $script:DomeniaQueryState=[pscustomobject]@{SnapshotKey=[string]$script:FleetQuerySnapshotKey;ProbeWidgets=@{};Busy=$true;Bound=$false;Saved=@()}
@@ -715,7 +716,66 @@ try{
         Expect ($script:StatsCalls -eq 1 -and [string]$script:Ctrl['TxtDashStats'].Text -eq 'stats fictives') 'Details non mis a jour a l ouverture'
         $expander.IsExpanded=$false;$script:Ctrl=$savedControls
     }
-    Case 'Premiers pas : connexion, OU, premiere lecture et tableau de bord ; ecrans ouverts sans rien lancer, carte masquee une fois faits' {
+    Case 'RC11711 : dates des sources, jamais celles du dessin ou de la tentative en echec' {
+        $at=[datetime]::UtcNow.AddDays(-2);$later=$at.AddHours(3)
+        $rows=@([pscustomobject]@{Source='AD';OldestUtc=$at;NewestUtc=$at;LastAttemptUtc=[datetime]::UtcNow;Error='Timeout'},[pscustomobject]@{Source='WMI';OldestUtc=$at;NewestUtc=$later;Missing=2})
+        $dates=Format-DomeniaWidgetDataDates -Rows $rows
+        Expect ($dates.Text.Contains($at.ToLocalTime().ToString('dd/MM/yyyy HH:mm'))) 'Date de succes perdue'
+        Expect ($dates.Text.Contains($later.ToLocalTime().ToString('dd/MM/yyyy HH:mm')) -and $dates.Text.Contains('WMI') -and $dates.Text.Contains('AD') -and $dates.Text.Contains('2 non lu')) 'Plage ou source perdue'
+        $unknown=Format-DomeniaWidgetDataDates -Rows @([pscustomobject]@{Source='Ping';OldestUtc=[datetime]::UtcNow.AddDays(1);NewestUtc=[datetime]::UtcNow.AddDays(1)})
+        Expect ($unknown.Text -like '*non dat*') 'Date future acceptee'
+        $state=@{DataAtUtc=[datetime]::UtcNow;Data=[pscustomobject]@{Freshness=[pscustomobject]@{Index=[pscustomobject]@{At=$at}}}}
+        $item=New-DomeniaBoardItem -Source Builtin -Key fleet.machines -Visual Kpi -Size S
+        $stamp=Get-DomeniaWidgetDataDates -Board Fleet -Item $item -State $state -Entry $null
+        Expect ($stamp.Text -eq ('AD '+[char]0x00B7+' '+$at.ToLocalTime().ToString('dd/MM/yyyy HH:mm'))) 'Date de dessin utilisee a la place de AD'
+    }
+    Case 'RC11711 : bouton permanent du widget, accessible et relie a la collecte' {
+        $item=New-DomeniaBoardItem -Source Builtin -Key fleet.machines -Visual Kpi -Size S
+        $state=Get-DomeniaBoardState Fleet;$state.Editing=$false
+        $holder=New-DomeniaBoardWidget -Board Fleet -Item $item -State $state -Width 250 -Placeholder
+        $footer=@($holder.Children|Where-Object{[Windows.Controls.Grid]::GetRow($_) -eq 3})[0]
+        $button=$footer.Children[0];$label=$footer.Children[1]
+        Expect ($button.Visibility -eq 'Visible' -and $button.Opacity -eq 1 -and $button.IsEnabled) 'Bouton masque hors survol'
+        Expect ([Windows.Automation.AutomationProperties]::GetName($button) -like 'Relire les donn*') 'Nom accessible absent'
+        Expect ($label.Text -like 'AD*') 'Source absente'
+        $script:WidgetClicked=''
+        function Start-DomeniaWidgetRefresh {param($Board,$Id,$Reason) $script:WidgetClicked=$Board+'|'+$Id+'|'+$Reason;return $true}
+        $button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+        Expect ($script:WidgetClicked -eq ('Fleet|'+$item.Id+'|Refresh')) 'Le bouton ne relit pas la source'
+        $holder.Measure([Windows.Size]::new(250,1000));$holder.Arrange([Windows.Rect]::new(0,0,250,$holder.DesiredSize.Height));$holder.UpdateLayout()
+        Expect ($footer.ActualWidth -le 250) 'Provenance hors de la largeur compacte'
+    }
+    Case 'RC11711 : synthese du parc relit AD puis ses mesures, sans collection etrangere' {
+        $item=New-DomeniaBoardItem -Source Builtin -Key fleet.health -Visual Health -Size M
+        $script:TestSettings['Dashboard.Fleet.Layout']=ConvertTo-DomeniaBoardLayoutJson @($item)
+        $old=$script:DomeniaOuRefresh
+        try {
+            $script:DomeniaOuRefresh=$null;$script:WidgetRefreshNeed=$null
+            function Invoke-DomeniaOuRefresh {param($Source,$Mode,$WidgetId,$WidgetNeed) $script:WidgetRefreshNeed=$WidgetNeed;$script:WidgetRefreshMode=$Mode;$script:DomeniaOuRefresh=[pscustomobject]@{Id='widget-health';Completed=$false;WidgetId=$WidgetId}}
+            Expect (Start-DomeniaWidgetRefresh -Board Fleet -Id $item.Id -Reason Refresh) 'Synthese non relue'
+            Expect ($script:WidgetRefreshMode -eq 'Both' -and $script:WidgetRefreshNeed.Directory -and $script:WidgetRefreshNeed.Inventory -and $script:WidgetRefreshNeed.Ping) 'Simple recalcul au lieu des sources'
+            Expect (@($script:WidgetRefreshNeed.ProbeIds).Count -eq 0) 'Sondes etrangeres ajoutees'
+        } finally {$script:DomeniaOuRefresh=$old;[void]$script:TestSettings.Remove('Dashboard.Fleet.Layout')}
+    }
+    Case 'RC11711 : apres AD le lot relit uniquement les mesures du widget avec ForceRefresh' {
+        $refreshAst=Parse-Text ([IO.File]::ReadAllText((Join-Path $wad 'modules\Domenia-Refresh.UI.ps1')))
+        Import-Function $refreshAst 'Complete-DomeniaOuRefreshTargets'
+        $old=$script:DomeniaOuRefresh
+        try {
+            function Test-DomeniaOuRefreshCurrent {param($Id) return $true}
+            function Update-DomeniaOuRefreshUi {}
+            function Fail-DomeniaOuRefresh {param($OperationId,$Message) throw $Message}
+            $script:DomeniaOuRefresh=[pscustomobject]@{Id='widget-plan';Epoch=1L;Path='fixture';Dn='OU=A,DC=example,DC=invalid';Phase='Resolving';Status='';Label='A';Mode='Both';WidgetId='w-date';WidgetNeed=[pscustomobject]@{Ping=$false;Inventory=$true;Console=$false};Probes=@();ParkRunId=''}
+            $result=[pscustomobject]@{Targets=@([pscustomobject]@{name='PC-A';object_guid='00000000-0000-4000-8000-000000000001';distinguished_name='CN=PC-A,OU=A,DC=example,DC=invalid'});Busy=$false;Missing=$false;Scope=$script:DomeniaOuRefresh.Dn;Subtree=$true}
+            $state=[pscustomobject]@{OperationId='widget-plan';Epoch=1L;Path='fixture';Dn=$script:DomeniaOuRefresh.Dn}
+            $script:ParkCalls.Clear()
+            Complete-DomeniaOuRefreshTargets -Result $result -State $state
+            Expect ($script:ParkCalls.Count -eq 1) 'Lot non lance apres AD'
+            $call=$script:ParkCalls[0]
+            Expect ($call.Force -and $call.WmiOnly -and $call.Inventory -and $call.NoConsole -and @($call.Probes|Where-Object{$null -ne $_}).Count -eq 0 -and $call.WidgetIds[0] -eq 'w-date') 'Lot non cible ou cache reutilise'
+        } finally {$script:DomeniaOuRefresh=$old;foreach($run in (Get-DomeniaParkRuns).Values){$run.Completed=$true}}
+    }
+    Case 'Premiers pas : premier calcul automatique avant ouverture, echec et OU vide recuperables sans scan' {
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:RemoteAdminCredential=$null
         $script:DatabaseScopedPath='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false
         if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
@@ -750,15 +810,36 @@ try{
         }
         Expect $trial.Trial.Done 'Selecteur non termine'
         Expect ($script:FleetScopeDn -eq 'OU=Postes,DC=example,DC=invalid' -and $script:SelectedBranchDn -eq $searchBefore) 'La selection OU modifie Rechercher'
-        foreach($step in @('Base','Connection','Dashboard')){Open-DomeniaFirstStep -Step $step}
+        foreach($step in @('Base','Connection')){Open-DomeniaFirstStep -Step $step}
         Expect ($script:StartCalls.Count -eq $before+2 -and $script:ParkCalls.Count -eq $parks) ('Une etape a lance une tache autre que la selection OU explicite : '+(@($script:StartCalls|Select-Object -Skip $before|ForEach-Object{$_.OperationId}) -join ','))
-        Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts,route:TabDashboard') ('Ecrans ouverts : '+($script:Workspaces -join ','))
-        $script:IndexDbCount=12
+        Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts') ('Ecrans ouverts : '+($script:Workspaces -join ','))
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:IndexDbCount=12;$script:DomeniaFirstDashboard=$null
         Update-DomeniaFirstSteps
-        Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord non propose apres la premiere lecture'
+        Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant le premier calcul'
+        Expect ($script:StartCalls.Count -eq $before+3 -and $script:StartCalls[$script:StartCalls.Count-1].OperationId -eq 'LocalIndexRead') 'Premier calcul local non lance'
+        Update-DomeniaFirstSteps
+        Expect ($script:StartCalls.Count -eq $before+3) 'Premier calcul relance automatiquement'
+        Fail-DomeniaFleetDashboard -Message 'Erreur de calcul fixture' -State $script:StartCalls[$script:StartCalls.Count-1].State
+        Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error' -and (Get-DomeniaControl 'BtnFirstStepDashboard').Content -eq 'Réessayer lʼactualisation') 'Erreur masquee ou aucun reessai'
+        Expect (-not [bool]$script:TestSettings['Home.FirstStepsDone']) 'Assistant termine en echec'
+        Open-DomeniaFirstStep Dashboard
+        Expect ($script:StartCalls.Count -eq $before+4 -and $script:DomeniaFirstDashboard.Phase -eq 'Loading') 'Reessai non lance'
+        Complete-DomeniaFirstDashboard -ScopeKey 'autre-ou' -Count 12
+        Expect ($script:DomeniaFirstDashboard.Phase -eq 'Loading') 'Autre OU acceptée'
+        Complete-DomeniaFirstDashboard -ScopeKey ([string](Get-DomeniaFleetScope).Key) -Count 0
+        Update-DomeniaFirstSteps
+        Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error' -and (Get-DomeniaControl 'LblFirstStepDashboard').Text -match 'Aucun poste') 'OU vide proposee comme prete'
+        $script:FleetJobId='';$script:FleetPendingKey=''
+        Open-DomeniaFirstStep Dashboard
+        Expect ($script:StartCalls.Count -eq $before+5) 'OU vide : reessai non lance'
+        Complete-DomeniaFirstDashboard -ScopeKey ([string](Get-DomeniaFleetScope).Key) -Count 12
+        Update-DomeniaFirstSteps
+        Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord non propose apres son calcul'
         Expect ([string](Get-DomeniaControl 'LblFirstStepBase').Text -like 'Première lecture faite : 12 objet(s)*') ([string](Get-DomeniaControl 'LblFirstStepBase').Text)
         Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte masquee avant la decouverte du tableau de bord'
-        $script:TestSettings['Home.DashboardSeen']='2026-10-15T08:00:00.0000000Z'
+        Open-DomeniaFirstStep Dashboard
+        Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts,route:TabDashboard') 'Navigation absente apres preparation'
+        Expect ($script:ParkCalls.Count -eq $parks) 'Scan reseau lance pendant le calcul local'
         Update-DomeniaFirstSteps
         Expect ($card.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte encore affichee apres les quatre etapes'
         Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Preference locale non enregistree'
@@ -1701,7 +1782,7 @@ try{
 finally{
     if($null -ne $script:Window){$script:Window.Close()}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Complete=($script:Finished -and $script:Results.Count -eq $script:ExpectedCases);LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
+    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Filter=$Filter;Complete=($script:Finished -and $script:Results.Count -gt 0 -and ($Filter -or $script:Results.Count -eq $script:ExpectedCases));LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 6}
 }

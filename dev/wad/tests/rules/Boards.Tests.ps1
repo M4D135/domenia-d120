@@ -528,19 +528,19 @@ Test-Case 'BRD-026' 'DS-04 : 4, 3 ou 2 colonnes selon la largeur, sans bascule a
     Assert-False (Test-DomeniaBoardRedrawNeeded -Columns 1 -BuiltColumns 1 -Cell 515 -BuiltCell 500) 'une colonne : 15 px'
     Assert-True (Test-DomeniaBoardRedrawNeeded -Columns 3 -BuiltColumns 4 -Cell 290 -BuiltCell 290) 'autre nombre de colonnes'
 }
-Test-Case 'BRD-027' 'DS-04 : rangées pleines, tuiles compactes empilées à côté dʼune carte haute, ordre de lecture gardé' {
+Test-Case 'BRD-027' 'DS-04 : tailles respectées même sur une rangée incomplète, tuiles empilées sans élargissement' {
     $k = New-BrdUnit 1 $true; $pie = New-BrdUnit 2 $false; $large = New-BrdUnit 3 $false; $gauge = New-BrdUnit 1 $false
-    Assert-Equal '0:0:1:0+1 0:1:2:2 0:3:1:3+4 1:0:2:5 1:2:2:6' (Get-BrdCells @($k,$k,$pie,$k,$k,$k,$k) 4) 'inventaire du perimetre'
-    Assert-Equal '0:0:4:0' (Get-BrdCells @($k) 4) 'une tuile seule remplit sa rangee'
-    Assert-Equal '0:0:3:0 0:3:1:1+2' (Get-BrdCells @($pie,$k,$k) 4) 'deux tuiles empilees, la carte haute prend la colonne libre'
-    Assert-Equal '0:0:1:0+1 0:1:3:2' (Get-BrdCells @($k,$k,$pie) 4) 'paire en tete : la colonne libre va a la carte haute, pas a la paire'
-    Assert-Equal '0:0:2:0 0:2:1:1 0:3:1:2 1:0:2:3 1:2:2:4' (Get-BrdCells @($gauge,$gauge,$gauge,$pie,$pie) 4) 'ressources'
+    Assert-Equal '0:0:1:0+1 0:1:2:2 0:3:1:3+4 1:0:1:5 1:1:1:6' (Get-BrdCells @($k,$k,$pie,$k,$k,$k,$k) 4) 'inventaire du perimetre'
+    Assert-Equal '0:0:1:0' (Get-BrdCells @($k) 4) 'une tuile compacte seule garde sa taille'
+    Assert-Equal '0:0:2:0 0:2:1:1+2' (Get-BrdCells @($pie,$k,$k) 4) 'deux tuiles empilees, la carte haute garde sa taille'
+    Assert-Equal '0:0:1:0+1 0:1:2:2' (Get-BrdCells @($k,$k,$pie) 4) 'paire en tete : la colonne libre reste vide'
+    Assert-Equal '0:0:1:0 0:1:1:1 0:2:1:2 1:0:2:3 1:2:2:4' (Get-BrdCells @($gauge,$gauge,$gauge,$pie,$pie) 4) 'ressources'
     Assert-Equal '0:0:1:0 0:1:1:1 0:2:1:2 0:3:1:3 1:0:1:4 1:1:1:5 1:2:1:6 1:3:1:7' (Get-BrdCells @($k,$k,$k,$k,$k,$k,$k,$k) 4) 'tuiles seules : jamais empilees'
-    Assert-Equal '0:0:1:0 0:1:1:1 1:0:2:2 2:0:2:3 3:0:2:4' (Get-BrdCells @($k,$k,$pie,$k,$large) 2) 'deux colonnes'
+    Assert-Equal '0:0:1:0 0:1:1:1 1:0:2:2 2:0:1:3 3:0:2:4' (Get-BrdCells @($k,$k,$pie,$k,$large) 2) 'deux colonnes'
     Assert-Equal '0:0:1:0 1:0:1:1 2:0:1:2' (Get-BrdCells @($k,$pie,$large) 1) 'une colonne'
-    Assert-Equal '0:0:1:0 0:1:1:1 0:2:1:2 1:0:2:3 1:2:1:4' (Get-BrdCells @($k,$k,$k,$k,$k) 3) 'trois colonnes'
+    Assert-Equal '0:0:1:0 0:1:1:1 0:2:1:2 1:0:1:3 1:1:1:4' (Get-BrdCells @($k,$k,$k,$k,$k) 3) 'trois colonnes'
     Assert-Equal '' (Get-BrdCells @() 4) 'section vide'
-    # Every row is full and every widget is placed once, in order, whatever the mix.
+    # Every widget is placed exactly once with its requested span (bounded only by the viewport).
     $pool = @($k, $pie, $large, $gauge, (New-BrdUnit 2 $true))
     foreach ($columns in @(1,2,3,4)) {
         for ($seed = 0; $seed -lt 12; $seed++) {
@@ -550,7 +550,12 @@ Test-Case 'BRD-027' 'DS-04 : rangées pleines, tuiles compactes empilées à cô
             Assert-Equal ((0..($units.Count - 1)) -join ',') ($placed -join ',') ('placement incomplet : ' + $columns + '/' + $seed)
             foreach ($row in @($cells | Group-Object Row)) {
                 $sum = 0; foreach ($cell in $row.Group) { $sum += [int]$cell.Span }
-                Assert-Equal $columns $sum ('rangee incomplete : ' + $columns + ' colonnes, essai ' + $seed)
+                Assert-True ($sum -le $columns) ('rangee debordante : ' + $columns + ' colonnes, essai ' + $seed)
+            }
+            foreach ($cell in $cells) {
+                foreach ($index in $cell.Items) {
+                    Assert-Equal ([Math]::Min($columns,[Math]::Max(1,[int]$units[$index].Span))) $cell.Span ('taille modifiee : ' + $columns + '/' + $seed + '/' + $index)
+                }
             }
             foreach ($cell in @($cells | Where-Object { $_.Stacked })) { Assert-Equal 2 @($cell.Items).Count 'deux tuiles au plus par colonne' }
         }

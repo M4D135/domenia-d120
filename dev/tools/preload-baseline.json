@@ -1,5 +1,5 @@
 {
-  "Archive": ".",
+  "Archive": "source tree",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -311,7 +311,7 @@
     "Register-DomeniaContextMenus": "19CDED8B3733B3393A2819996985358D2080A1B1899FBEE586B181B7CD3B8D76",
     "Get-DomeniaSoftwareWorkerCode": "980CC2B7D3A15B06685B39442493D559A38B6A3EFCC10EB129958CB7082E3472",
     "Apply-DomeniaSoftwareFilter": "136C9F574BEF65E053992754A508C9678A0677D037F1DC043D4335F456395026",
-    "Complete-DomeniaSoftwareUi": "5C8EA7CB39385F4BF31520C7B92FCF4AB6DC01ED627044216E5585E59E9F7EF2",
+    "Complete-DomeniaSoftwareUi": "F4CB5B2782A6428BF3D582849E77B006F48EE79A11A3F5612EE79CBD5C31E3ED",
     "Fail-DomeniaSoftwareUi": "2CD88E08311C9BCD887CF1D001623F0BCDCF7A6BCBD1CD9155353E642D63F24A",
     "Update-DomeniaSoftwareColumnVisibility": "AD3C43CE2AFD0F236FDE75748056EC025554C77131DD8E3F36F5A549F38CB08D",
     "Update-DomeniaSoftwareSyntheseVisibility": "A1D0A8706B4B403A39F06ABFC0AA19739568CE418100BE1E214F70DCA2D94864",
@@ -521,8 +521,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "DEA6B18A25DEB5DF63F60BF62AD8AA3F72E90F8CF17D72A092B561ACC5C2E777",
-    "Assert-DomeniaWorkerRegistry": "664B94A0284B9C28CA84192BE761A40CC937607A310ADA81C2B8A8C65226DCF9",
+    "Get-DomeniaWorkerOperationHashes": "9BC42804ACBE9B726B3FE80A3F5ACAF84F99030A4EA66A81E7AD7A9E23CE1347",
+    "Assert-DomeniaWorkerRegistry": "A6B7A6B2F190B1D9D6FCEAF8E7981D456078CA56F62210E6BAA660E03046986F",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4685,6 +4685,43 @@
       "Previous": ".",
       "Source": ".",
       "Decision": "2026-10-16: revue Get-DomeniaMemberValue get_Value pour propager les getters illisibles aux gardes; ReadOnly ferme; Test-DomeniaDictionaryKey pour observations et sante, LocalStore et RegistryFingerprint repinnes, fixtures natives ajoutees.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": ".",
+      "Source": "source tree",
+      "Decision": "David 2026-10-16 : sections déplacables, Santé en dernier, tailles de widgets conservées. LocalStore recompose le modèle Boards ; revue du diff des empreintes LocalStore et RegistryFingerprint, aucune modification du contrôle de registre.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "RC1.17.11 : relecture LocalStore compose, ajout des horloges Console et BitLocker aux agregats du tableau de bord, sans nouveau reseau ni changement de privileges.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Complete-DomeniaSoftwareUi",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "RC1.17.11 : horloges source des widgets et mode DatesOnly sans audit de couverture complet a chaque carte ; LocalStore compose et registre verifies.",
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"

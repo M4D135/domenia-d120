@@ -100,7 +100,7 @@ function Invoke-DomeniaOuRefresh {
     # OU, base and session confirmed by the click (-ExpectedDn, -ExpectedPath, -ExpectedEpoch) must still be the current
     # ones: an OU chosen during the backup is never read without its own click. -ExpectedProbes is the probe plan
     # snapshot taken at the click.
-    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode,[switch]$BackupDone,[string]$ExpectedDn='',[string]$ExpectedPath='',[long]$ExpectedEpoch=-1,[object[]]$ExpectedProbes=@())
+    param([ValidateSet('Fleet','Search','Index')][string]$Source,[ValidateSet('AD','Ping','Wmi','Base','Postes','Both')][string]$Mode,[switch]$BackupDone,[string]$ExpectedDn='',[string]$ExpectedPath='',[long]$ExpectedEpoch=-1,[object[]]$ExpectedProbes=@(),[string]$WidgetId='',$WidgetNeed=$null)
     $created=$false
     try{
         $context=Get-DomeniaOuRefreshContext $Source
@@ -119,6 +119,7 @@ function Invoke-DomeniaOuRefresh {
         # backup, the snapshot taken at the click is kept.
         $probes=@()
         if($BackupDone){$probes=@($ExpectedProbes|Where-Object{$null -ne $_})}
+        elseif($null -ne $WidgetNeed){if(@($WidgetNeed.ProbeIds).Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids @($WidgetNeed.ProbeIds))}}
         elseif($Mode -in @('Wmi','Postes','Both')){$probes=@(Get-DomeniaOuRefreshProbePlan)}
         # FI-13: an AD read rewrites this OU in the local base (reconciliation included). Once every check above has
         # passed, a verified backup (StorageBackup worker) comes first, from the Index, Fleet and Search pages alike; the
@@ -126,10 +127,12 @@ function Invoke-DomeniaOuRefresh {
         # observations and need no copy.
         if(($Mode -in @('AD','Base','Both')) -and (-not $BackupDone)){
             $refresh=${function:Invoke-DomeniaOuRefresh};$dn=[string]$context.Dn;$base=[string]$context.Path;$epoch=[long]$context.Epoch
-            [void](Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then ({& $refresh -Source $Source -Mode $Mode -BackupDone -ExpectedDn $dn -ExpectedPath $base -ExpectedEpoch $epoch -ExpectedProbes $probes}.GetNewClosure()))
+            [void](Invoke-DomeniaGestureBackup -Gesture 'IndexUpdate' -Then ({& $refresh -Source $Source -Mode $Mode -BackupDone -ExpectedDn $dn -ExpectedPath $base -ExpectedEpoch $epoch -ExpectedProbes $probes -WidgetId $WidgetId -WidgetNeed $WidgetNeed}.GetNewClosure()))
             return
         }
         $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Source=$Source;Mode=$Mode;Dn=$context.Dn;Subtree=$true;DomainDn=$context.DomainDn;Label=$context.Label;Epoch=$context.Epoch;Path=$context.Path;Phase='Directory';Status='Lecture AD : '+$context.Label;DirectoryJob='';TargetJob='';ParkRunId='';BaseCommitted=$false;Cancelled=$false;Completed=$false;Timer=$null;Started=[datetime]::UtcNow}
+        $r|Add-Member -NotePropertyName WidgetId -NotePropertyValue $WidgetId
+        $r|Add-Member -NotePropertyName WidgetNeed -NotePropertyValue $WidgetNeed
         $r|Add-Member -NotePropertyName Probes -NotePropertyValue $probes
         # Points 4, 5 and 10: what the run records once finished (Submit-DomeniaOuRefreshRuns).
         $r|Add-Member -NotePropertyName Directory -NotePropertyValue ([pscustomobject]@{Started=$false;Status='';Error='';StartedUtc='';FinishedUtc='';Controller='';Count=-1L})
@@ -146,6 +149,7 @@ function Invoke-DomeniaOuRefresh {
             $r.Directory.Started=$true;$r.Directory.StartedUtc=$directoryStarted
         }
         $r.Timer.Start();Update-DomeniaOuRefreshUi
+        if($WidgetId){Register-DomeniaWidgetCollect -Board Fleet -Ids @($WidgetId) -Kind Directory -RunId $r.Id;Show-DomeniaBoard -Board Fleet -Quiet}
     }catch{
         if($created){Fail-DomeniaOuRefresh -OperationId $script:DomeniaOuRefresh.Id -Message $_.Exception.Message}
         Set-Status ('Actualisation non lancée : '+$_.Exception.Message) 'WARN'
@@ -190,7 +194,19 @@ function Complete-DomeniaOuRefreshTargets {
         if(-not $targets.Count){$r.Completed=$true;$r.Phase='Complete';$r.Status='Aucun poste actif recensé dans '+$r.Label+'. Aucun ping ni WMI lancé.';$r.Timer.Stop();Submit-DomeniaOuRefreshRuns -Refresh $r;Update-DomeniaOuRefreshUi;return}
         $r.Phase='Confirming';$r.Status=[string]$targets.Count+' poste(s) activé(s) dans AD, '+$r.Label+'. Confirmation de la collecte en attente.'
         $args=@{ScopeTargets=$targets;ScopeLabel=$r.Label;ForceRefresh=$true;RefreshOperationId=$r.Id;PassThru=$true}
-        if($r.Mode -eq 'Ping'){$args.PingOnly=$true}
+        $need=Get-DomeniaMemberValue $r 'WidgetNeed'
+        if($null -ne $need){
+            $args.WidgetBoard='Fleet';$args.WidgetIds=@([string]$r.WidgetId)
+            $wmi=([bool]$need.Console -or [bool]$need.Inventory -or @($r.Probes).Count -gt 0)
+            if([bool]$need.Ping -and -not $wmi){$args.PingOnly=$true}
+            else{
+                if(-not [bool]$need.Ping){$args.WmiOnly=$true}
+                if(-not [bool]$need.Console){$args.NoConsole=$true}
+                if([bool]$need.Inventory){$args.Inventory=$true}
+                if(@($r.Probes).Count){$args.Probes=@($r.Probes)}
+            }
+        }
+        elseif($r.Mode -eq 'Ping'){$args.PingOnly=$true}
         else{$args.Inventory=$true;$args.Probes=@($r.Probes);if($r.Mode -eq 'Wmi'){$args.WmiOnly=$true}}
         $r.ParkRunId=[string](Start-DomeniaOnlinePark @args)
         if(-not $r.ParkRunId){throw 'Préparation du relevé non admise.'}
