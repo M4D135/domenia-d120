@@ -115,6 +115,56 @@
       "source": "Native CNAMTS-W11-01 Windows PowerShell 5.1 startup reproduction",
       "path": "validation/2026-10-16/windows-recovery/startup-fix/startup-regression-after.json",
       "sha256": "23e5adad543a8a839c2bdcb9e5fb0b739af507fcc5ad33c21d5ec60075249dd9"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/Resilience-recovered/Test-DomeniaEngineResilience.ps1.json",
+      "path": "validation/2026-10-16/windows-recovery/Resilience-recovered/Test-DomeniaEngineResilience.ps1.json",
+      "sha256": "8c77e0469473eaf75b289bb9fe8a9f939fbf99e564296422f81c5f1434781460"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/Resilience-recovered/_summary.json",
+      "path": "validation/2026-10-16/windows-recovery/Resilience-recovered/_summary.json",
+      "sha256": "6574e335309240ecc27579dad648c621f38f91ca0ab1a99c72d5a74c54047c48"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/Resilience-recovered/Test-DomeniaEngineResilience.ps1.stderr.txt",
+      "path": "validation/2026-10-16/windows-recovery/Resilience-recovered/Test-DomeniaEngineResilience.ps1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/Resilience-recovered/Test-DomeniaEngineResilience.ps1.json.exit",
+      "path": "validation/2026-10-16/windows-recovery/Resilience-recovered/Test-DomeniaEngineResilience.ps1.json.exit",
+      "sha256": "5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/Resilience-recovered/Test-DomeniaEngineResilience.ps1.stdout.txt",
+      "path": "validation/2026-10-16/windows-recovery/Resilience-recovered/Test-DomeniaEngineResilience.ps1.stdout.txt",
+      "sha256": "6f7ad5b30d8febe1f9d4d6f1d06d65c982820794d6c1880cc26f1470812b2221"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/LoadStability-recovered/Test-DomeniaLoadStability.ps1.json.exit",
+      "path": "validation/2026-10-16/windows-recovery/LoadStability-recovered/Test-DomeniaLoadStability.ps1.json.exit",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/LoadStability-recovered/Test-DomeniaLoadStability.ps1.stderr.txt",
+      "path": "validation/2026-10-16/windows-recovery/LoadStability-recovered/Test-DomeniaLoadStability.ps1.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/LoadStability-recovered/_summary.json",
+      "path": "validation/2026-10-16/windows-recovery/LoadStability-recovered/_summary.json",
+      "sha256": "85798c13bbcaf8058a55b08a1a02e0711331e7f9354faf9b119cac833d4bce3d"
+    },
+    {
+      "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-final/out/LoadStability-recovered/Test-DomeniaLoadStability.ps1.stdout.txt",
+      "path": "validation/2026-10-16/windows-recovery/LoadStability-recovered/Test-DomeniaLoadStability.ps1.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "/Users/david/Documents/Codex/2026-10-16/domenia-reprise-vm/work/rc11710-final-out/out/capture-attempt.json",
+      "path": "validation/2026-10-16/windows-recovery/capture-attempt-RC1.17.10.json",
+      "sha256": "78fef2ba0abb8d97f3379ea267e73d55ceb82eb1bded71693f70be44cfbadbdc"
     }
   ]
 }

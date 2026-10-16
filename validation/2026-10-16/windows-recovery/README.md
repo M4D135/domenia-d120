@@ -57,6 +57,8 @@ de version RC1.17.9 : ils ne constituent pas une qualification des ZIP finaux.
 | HealthRules | 10 réussites, 0 échec |
 | Règles P-CD-09 | 10 réussites, 0 échec |
 | Composition des workers | code de sortie 0, sans timeout |
+| EngineResilience, dernier lot | 52 réussites, 0 échec, 4,74 s |
+| LoadStability, dernier lot | limite de 3 600 s atteinte, aucun rapport final ; non validé |
 | Parseur Windows natif | PASS ; workers, WPF et domaine non qualifiés par ce contrôle |
 
 Les essais antérieurs ont également validé Support (54/0), Theme (32/0),
@@ -90,5 +92,15 @@ conservait le journal verrouillé alors que la VM était arrêtée. Ce seul proc
 orphelin a été fermé, le journal préservé, puis CNAMTS-W11-01 a redémarré à 09:41.
 David a ouvert sa session. Aucune autre VM ni règle de sécurité Windows n’a changé.
 
-Les résultats du dernier lot et le contrôle documentaire sont conservés dans ce
-dossier dès leur récupération ; ne pas déduire leur réussite de leur lancement.
+Les résultats du dernier lot sont conservés dans `Resilience-recovered/` et
+`LoadStability-recovered/`. Le test de charge n’est pas relancé. La correction du
+démarrage RC1.17.10 dispose de ses preuves distinctes dans `startup-fix/`.
+
+La reprise des captures a révélé deux dépendances manquantes du harnais :
+`Write-DomeniaSwallowed` et `Domenia-HealthRules.Model.ps1`, désormais chargées.
+L’essai sur le PROD RC1.17.10 produit Accueil et Actualisation OU en haute
+résolution, puis s’arrête à l’Atelier, faute de `Get-DomeniaSavedQueryRecipes`.
+Il reste non validé ; ses images partielles ne remplacent pas les 28 illustrations
+existantes des guides. Le correctif de cette dépendance et la série complète sont
+différés pour respecter la demande de limiter les essais VM. Les guides DOCX/PDF
+1.0 (30 et 80 pages) et leurs empreintes sont décrits dans `documentation-qa.json`.

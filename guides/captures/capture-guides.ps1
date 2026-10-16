@@ -58,7 +58,7 @@ foreach ($name in $coreNames) {
     if ($nodes.Count -ne 1) { throw ('Fonction introuvable : ' + $name) }
     Invoke-Expression $nodes[0].Extent.Text
 }
-foreach ($module in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
+foreach ($module in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
     'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Assist.Model.ps1','Domenia-Assist.UI.ps1')) {
     . (Join-Path $wad ('modules\' + $module))
 }
