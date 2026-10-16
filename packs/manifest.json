@@ -26,12 +26,13 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "TARGETED_WINDOWS_CHECKS_PASSED_FULL_QUALIFICATION_OPEN",
+    "status": "STARTUP_FAILURE_REPORTED_INVESTIGATION_PENDING",
     "proof": "validation/2026-10-16/windows-recovery/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "NOT_EVALUATED_ON_FINAL_ARCHIVES",
     "formal_publishable": false,
     "documentation_proof": "validation/2026-10-16/windows-recovery/documentation-qa.json",
-    "interactive_gui": "NOT_QUALIFIED"
+    "interactive_gui": "NOT_QUALIFIED",
+    "startup_incident": "INC-FA6D: user confirmed RC1.17.9; startup log requested; cause unknown"
   }
 }

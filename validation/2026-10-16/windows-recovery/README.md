@@ -1,5 +1,10 @@
 # Reprise Windows — candidat RC1.17.9
 
+**Incident signalé après livraison : RC1.17.9 échoue à l’initialisation sur le poste
+de l’utilisateur (capture reçue, incident INC-FA6D). Ce code est un identifiant
+aléatoire, pas une cause. Le journal de démarrage a été demandé. Les réussites
+ciblées ci-dessous ne couvrent donc pas ce défaut ; le démarrage reste bloquant.**
+
 Les corrections rétablissent le chargement WPF de Support, la préférence de thème,
 les sections d’Automate, la validation de fraîcheur et les lectures de dictionnaires
 génériques sous Windows PowerShell 5.1. Une propriété dont le getter échoue remonte

@@ -6,6 +6,7 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 ## Télécharger
 
 Révision **RC1.17.9**, candidate : corrections vérifiées par des essais Windows ciblés.
+**Blocage signalé sur un poste utilisateur : échec d’initialisation de RC1.17.9. Diagnostic en attente du journal.**
 La qualification complète des ZIP et les parcours GUI sur AD restent ouverts.
 Voir le [bilan de validation du 16 octobre](validation/2026-10-16/windows-recovery/README.md).
 

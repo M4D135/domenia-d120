@@ -7,6 +7,9 @@
 
 Build actuel : **RC1.17.9**, candidat — [contrôles et portée de validation](../validation/2026-10-16/windows-recovery/README.md).
 
+**RC1.17.9 : un échec d’initialisation a été signalé sur un poste utilisateur.
+La cause reste à identifier dans le journal de démarrage ; ne pas considérer ce candidat comme utilisable validé.**
+
 Les contrôles de construction et des essais ciblés sous Windows PowerShell 5.1 passent.
 La campagne générale a été interrompue par l’incident VM ; des échecs restent ouverts.
 Ces ZIP ne sont pas qualifiés pour la production : la preuve liée aux archives finales et
