@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.16-DOMENIA-1.0-RC1.17.9-D120",
-  "source_base_commit": "f21aab6d16fa7a37db1b6ebd3a4c4c24744890e6",
+  "build": "2026.10.16-DOMENIA-1.0-RC1.17.10-D120",
+  "source_base_commit": "5485b6f671fd49ff2792b56cc725921a7f8cef6d",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3049259,
-      "sha256": "0a2099d795b65c060bab95363d2d5dee58c2cdc9cfac0e27aace7623514aaae2",
+      "bytes": 3049253,
+      "sha256": "66a2d8a0e28f702364955dfa37731d3fe8821099261beaa39ee8648bea403bac",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,22 +17,23 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6471575,
-      "sha256": "a12028514ea88e581f4780156e8fe71658cd730e7014b63faa2773d6a5b0f8a8",
-      "files": 633,
-      "archive_files_including_manifest": 634,
+      "bytes": 6473048,
+      "sha256": "ae23a029ad991057c5407d0f1f64ee1cd72692c52f828fb5152ea7ae924d402a",
+      "files": 634,
+      "archive_files_including_manifest": 635,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "STARTUP_FAILURE_REPORTED_INVESTIGATION_PENDING",
+    "status": "STARTUP_FIX_VALIDATED_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
     "proof": "validation/2026-10-16/windows-recovery/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "NOT_EVALUATED_ON_FINAL_ARCHIVES",
     "formal_publishable": false,
     "documentation_proof": "validation/2026-10-16/windows-recovery/documentation-qa.json",
     "interactive_gui": "NOT_QUALIFIED",
-    "startup_incident": "INC-FA6D: user confirmed RC1.17.9; startup log requested; cause unknown"
+    "startup_incident": "RC1.17.9 pre-login failure reproduced and fixed in RC1.17.10; regression cases 2/2 and exact PROD ZIP native WPF login controls verified",
+    "startup_proof": "validation/2026-10-16/windows-recovery/startup-fix/startup-window.json"
   }
 }

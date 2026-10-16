@@ -1,9 +1,24 @@
-# Reprise Windows — candidat RC1.17.9
+# Reprise Windows — candidat RC1.17.10
 
 **Incident signalé après livraison : RC1.17.9 échoue à l’initialisation sur le poste
 de l’utilisateur (capture reçue, incident INC-FA6D). Ce code est un identifiant
-aléatoire, pas une cause. Le journal de démarrage a été demandé. Les réussites
-ciblées ci-dessous ne couvrent donc pas ce défaut ; le démarrage reste bloquant.**
+aléatoire, pas une cause. Le défaut a été reproduit avec le ZIP exact dans la VM,
+puis corrigé en RC1.17.10.**
+
+La boucle exécutée avant le login convertissait une `List[object]` en tableau
+avec `@(...)`, ce qui provoque `Argument types do not match` sous PowerShell 5.1.
+Elle énumère désormais directement la liste. Le test ciblé extrait la vraie boucle
+du cœur : les cas liste vide et avertissements échouent tous deux sur RC1.17.9,
+puis passent tous deux sur RC1.17.10. Le self-test existant retournait avant cette
+boucle ; il ne couvrait pas ce chemin de démarrage.
+
+Le ZIP PROD RC1.17.10 exact a ensuite été lancé par `Domenia.exe` dans la session
+interactive de CNAMTS-W11-01. UI Automation confirme le titre « Connexion », le
+bouton de connexion et le champ de mot de passe visible après « Utiliser un autre
+compte ». Aucun identifiant n’a été soumis et aucune connexion AD n’a été effectuée.
+La console était verrouillée : la capture GDI a échoué ; ce contrôle n’est donc
+pas une qualification visuelle. Les preuves et le SHA-256 du ZIP sont dans
+`startup-fix/`. La revue ciblée Spark n’a signalé aucun défaut du correctif.
 
 Les corrections rétablissent le chargement WPF de Support, la préférence de thème,
 les sections d’Automate, la validation de fraîcheur et les lectures de dictionnaires
@@ -17,6 +32,9 @@ code compilé. Les 50 tests du garde de release passent. Les deux ZIP contiennen
 les mêmes 172 fichiers d’exécution ; DEV contient 633 fichiers hors son manifeste.
 Le contrôle de l’inventaire des licences vérifie sa cohérence : il ne lève pas
 ses réserves existantes sur M4D.Admin.Common, les DLL RSAT et PsExec.
+La construction RC1.17.10 repasse ces mêmes contrôles et contient 634 fichiers
+DEV hors manifeste, avec le nouveau test de démarrage. Les rapports des deux
+constructions restent conservés ; `build-report.json` désigne RC1.17.10.
 
 Les contrats composés **LocalStore** et **LegacyMigration**, ainsi que l’empreinte
 du registre des opérations, ont été régénérés après revue. Les fixtures suivent le

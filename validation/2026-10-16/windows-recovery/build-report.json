@@ -1,8 +1,8 @@
 {
   "prod": {
-    "Archive": "Domenia_1.0_RC1.17.9_PROD.zip",
-    "Bytes": 3049259,
-    "Sha256": "0A2099D795B65C060BAB95363D2D5DEE58C2CDC9CFAC0E27AACE7623514AAAE2",
+    "Archive": "Domenia_1.0_RC1.17.10_PROD.zip",
+    "Bytes": 3049253,
+    "Sha256": "66A2D8A0E28F702364955DFA37731D3FE8821099261BEAA39EE8648BEA403BAC",
     "Files": 172,
     "ZipIntegrity": true,
     "ManifestValid": true,
@@ -10,10 +10,10 @@
     "WindowsQualification": "NOT_EVALUATED"
   },
   "dev": {
-    "Archive": "Domenia_1.0_RC1.17.9_DEV.zip",
-    "Bytes": 6471575,
-    "Sha256": "A12028514EA88E581F4780156E8FE71658CD730E7014B63FAA2773D6A5B0F8A8",
-    "Files": 633,
+    "Archive": "Domenia_1.0_RC1.17.10_DEV.zip",
+    "Bytes": 6473048,
+    "Sha256": "AE23A029AD991057C5407D0F1F64EE1CD72692C52F828FB5152EA7AE924D402A",
+    "Files": 634,
     "ZipIntegrity": true,
     "ManifestValid": true,
     "ReleaseGuard": "PASS",
@@ -21,11 +21,11 @@
   },
   "IdenticalRuntimeFiles": 172,
   "Publishable": false,
-  "Build": "2026.10.16-DOMENIA-1.0-RC1.17.9-D120",
+  "Build": "2026.10.16-DOMENIA-1.0-RC1.17.10-D120",
   "Environment": {
-    "Commit": "f21aab6d16fa7a37db1b6ebd3a4c4c24744890e6",
+    "Commit": "5485b6f671fd49ff2792b56cc725921a7f8cef6d",
     "Dirty": true,
-    "ContractSHA256": "9BD1100D2A5EDB6AA4328E50A3AA16597636CB1A39D8AF906D63DDC44BC29C62",
+    "ContractSHA256": "132647740EAFA5F145EFD438460517B3E2AE9004F0BCE7DB7C772C5F7BAFEAA8",
     "Python": "3.14.7",
     "PythonImplementation": "CPython",
     "Zlib": "1.2.12",

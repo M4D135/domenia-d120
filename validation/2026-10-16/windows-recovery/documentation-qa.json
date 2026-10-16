@@ -2,7 +2,7 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "internalBuild": "RC1.17.9",
+  "internalBuild": "RC1.17.10",
   "scope": "Documentation only; no Windows or AD qualification",
   "generatedUtc": "2026-10-16T08:12:57.283486+00:00",
   "status": "PASS",
@@ -231,5 +231,6 @@
       "bytes": 5808445,
       "sha256": "133f560e1ffdf3cb5f7221274182b2b61d2364d91cb9f6a4922413bb649433cd"
     }
-  ]
+  ],
+  "reuseNote": "Documents unchanged from the RC1.17.9 generation and layout review; no redundant rendering."
 }

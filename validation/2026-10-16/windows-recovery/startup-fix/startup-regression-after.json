@@ -1,0 +1,19 @@
+{
+    "Suite":  "StartupConfiguration",
+    "NativeWindowsPowerShell51":  true,
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  2,
+    "Failed":  0,
+    "Cases":  [
+                  {
+                      "Name":  "Empty",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Warnings",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

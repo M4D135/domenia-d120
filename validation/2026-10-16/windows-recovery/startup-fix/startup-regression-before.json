@@ -1,0 +1,19 @@
+{
+    "Suite":  "StartupConfiguration",
+    "NativeWindowsPowerShell51":  true,
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  0,
+    "Failed":  2,
+    "Cases":  [
+                  {
+                      "Name":  "Empty",
+                      "Passed":  false,
+                      "Error":  "Argument types do not match"
+                  },
+                  {
+                      "Name":  "Warnings",
+                      "Passed":  false,
+                      "Error":  "Argument types do not match"
+                  }
+              ]
+}

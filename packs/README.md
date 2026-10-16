@@ -5,10 +5,11 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
-Build actuel : **RC1.17.9**, candidat — [contrôles et portée de validation](../validation/2026-10-16/windows-recovery/README.md).
+Build actuel : **RC1.17.10**, candidat — [contrôles et portée de validation](../validation/2026-10-16/windows-recovery/README.md).
 
-**RC1.17.9 : un échec d’initialisation a été signalé sur un poste utilisateur.
-La cause reste à identifier dans le journal de démarrage ; ne pas considérer ce candidat comme utilisable validé.**
+RC1.17.10 corrige le blocage avant connexion de RC1.17.9. Le ZIP PROD exact a été lancé
+sous Windows PowerShell 5.1 : fenêtre de connexion, bouton et champ de mot de passe
+vérifiés par UI Automation. Aucun identifiant n’a été soumis ; le parcours AD reste ouvert.
 
 Les contrôles de construction et des essais ciblés sous Windows PowerShell 5.1 passent.
 La campagne générale a été interrompue par l’incident VM ; des échecs restent ouverts.

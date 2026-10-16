@@ -1,0 +1,14 @@
+{
+    "Build":  "RC1.17.10",
+    "ProdZipSha256":  "66A2D8A0E28F702364955DFA37731D3FE8821099261BEAA39EE8648BEA403BAC",
+    "PowerShell":  "5.1.26100.6584",
+    "Launcher":  "prod\\Domenia.exe",
+    "Title":  "Domenia · Connexion",
+    "LoginButtonFound":  true,
+    "PasswordControlFound":  true,
+    "PasswordVisible":  true,
+    "Passed":  true,
+    "Scope":  "Exact PROD ZIP launched in interactive session; native WPF login controls verified with UI Automation; no credentials submitted and no AD connection",
+    "ScreenshotStatus":  "Unavailable: CopyFromScreen returned invalid handle; no visual journey qualification",
+    "LockScreenProcessPresent":  true
+}

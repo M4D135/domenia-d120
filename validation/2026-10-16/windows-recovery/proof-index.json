@@ -1,5 +1,5 @@
 {
-  "scope": "Targeted native Windows results before release metadata stamping; not final ZIP qualification. Interrupted baseline retained separately.",
+  "scope": "Historical targeted native results before version stamping, plus RC1.17.10 startup proof bound to exact PROD ZIP; no complete final ZIP qualification.",
   "files": [
     {
       "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-fix9-final/out/Interface/Test-DomeniaInterface.ps1.stderr.txt",
@@ -95,6 +95,26 @@
       "source": "/Users/david/Documents/Projets/Domenia-lab/runs/20261016-rc1178-fix10-recovered/out/parser.json",
       "path": "validation/2026-10-16/windows-recovery/parser.json",
       "sha256": "908abd3c8848b92cbf2f12efa0771d27d0525de6e9a4d85a51aa418e137f15e7"
+    },
+    {
+      "source": "Native CNAMTS-W11-01 Windows PowerShell 5.1 startup reproduction",
+      "path": "validation/2026-10-16/windows-recovery/startup-fix/startup-window.json",
+      "sha256": "b4dff97b32bc872fd920939c3d630ef7660d0ee04e3b38212fc0debd69c5da62"
+    },
+    {
+      "source": "Native CNAMTS-W11-01 Windows PowerShell 5.1 startup reproduction",
+      "path": "validation/2026-10-16/windows-recovery/startup-fix/startup-regression-before.json",
+      "sha256": "22bdcf07b2fdfe6bf14f6f2e1ef5e138e8222d8abcb515713eae7fcf5d6c97a5"
+    },
+    {
+      "source": "Native CNAMTS-W11-01 Windows PowerShell 5.1 startup reproduction",
+      "path": "validation/2026-10-16/windows-recovery/startup-fix/startup-tail.txt",
+      "sha256": "623f90edbd9de49579c773c319b576da94a0f7fc6b0e83bcdb493dfb1d5aac26"
+    },
+    {
+      "source": "Native CNAMTS-W11-01 Windows PowerShell 5.1 startup reproduction",
+      "path": "validation/2026-10-16/windows-recovery/startup-fix/startup-regression-after.json",
+      "sha256": "23e5adad543a8a839c2bdcb9e5fb0b739af507fcc5ad33c21d5ec60075249dd9"
     }
   ]
 }
