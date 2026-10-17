@@ -1894,7 +1894,7 @@ try{
             }
         }
         [void](Invoke-DomeniaDbExec 'COMMIT;' $db)
-        return [pscustomobject]@{Kind='StorageMaintenance';Action='ReadRedirect';ActivePath=$active;DomainDn=$domain;Redirect=$redirect;ReadOnly=$true}
+        return [pscustomobject]@{Kind='StorageMaintenance';Action='ReadRedirect';ActivePath=$active;DomainDn=$domain;StoreId=[string]$info.StoreId;Revision=[long]$info.Revision;Redirect=$redirect;ReadOnly=$true}
     }
     if($action -eq 'Inspect'){
         $sourceDb=Open-DomeniaDatabase $source -ReadOnly;[void](Invoke-DomeniaDbExec 'BEGIN;' $sourceDb)

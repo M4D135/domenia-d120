@@ -1582,6 +1582,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaStorageMaintenanceMarkerPath',
             'Clear-DomeniaStoragePendingForOtherBase',
             'Invoke-DomeniaStorageMaintenanceSwitch',
+            'Fail-DomeniaStorageMaintenanceSwitch',
+            'Fail-DomeniaStorageMaintenanceSwitchConfirm',
+            'Complete-DomeniaStorageMaintenanceSwitchConfirm',
             'Complete-DomeniaStorageMaintenanceApply',
             'Fail-DomeniaStorageMaintenance',
             'Resume-DomeniaStorageMaintenance',
@@ -2375,7 +2378,7 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaPivotMatrix'
         ) }
         # Per-widget collection and explanation (decision David 2026-10-14, points 6, 73, 74): pure rules.
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Park.Model.ps1','Domenia-Query.Model.ps1'); File='Domenia-WidgetCollect.Model.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Park.Model.ps1','Domenia-Query.Model.ps1','Domenia-QuerySchema.Model.ps1'); File='Domenia-WidgetCollect.Model.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetSourceTable',
             'Get-DomeniaWidgetSource',
             'Get-DomeniaProbeWidgetSource',
@@ -2392,7 +2395,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaWidgetSnapshotCurrent',
             'Get-DomeniaWidgetExplanation',
             'Get-DomeniaWidgetSourceFamilies',
-            'Format-DomeniaWidgetDataDates'
+            'Format-DomeniaWidgetDataDates',
+            'Get-DomeniaWidgetDetailClocks'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Charts.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaChartPalette',
@@ -2569,7 +2573,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Show-DomeniaHealthExplanation',
             'Show-DomeniaFleetAnalysis'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-HealthRules.UI.ps1','Domenia-WidgetCollect.Model.ps1','Domenia-Access.Model.ps1','Domenia-Dossier.Model.ps1','Domenia-ProbeContract.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-QuerySchema.Worker.ps1'); File='Domenia-Widgets.UI.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaWidgetList',
             'Get-DomeniaBoardPanelName',
             'Get-DomeniaBoardState',
@@ -2657,6 +2661,11 @@ function Get-DomeniaRuntimeModulePlan {
             'Add-DomeniaWidgetCollectQueue',
             'Get-DomeniaWidgetPopulation',
             'Start-DomeniaWidgetRemoteCollect',
+            'Start-DomeniaWidgetDetailCollect',
+            'Complete-DomeniaWidgetDetailCollected',
+            'Fail-DomeniaWidgetDetailCollected',
+            'Complete-DomeniaWidgetDetailStored',
+            'Fail-DomeniaWidgetDetailStored',
             'Start-DomeniaWidgetRefresh',
             'Set-DomeniaBoardItemPaused',
             'Get-DomeniaWidgetExplanationData',
@@ -3304,8 +3313,8 @@ function Get-DomeniaRuntimeTypePlan {
     # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
     @(
         [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
-        [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391' }
-        [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='6e3b293fc08cae9b1660a48ebd7e2533ea2304711a169f61d329b92510530a2a' }
+        [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98' }
+        [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='c3659bb893abcbe9b09237ee4428dc9aec9ecb1adb2b4502087a36a384cf8d66' }
         [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan','Domenia.WindowFrame') }
     )
 }

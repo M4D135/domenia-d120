@@ -149,6 +149,10 @@ function Get-Geometry {param($Window,[string[]]$Names)
     return ,@($Names|ForEach-Object{Get-ClientRect $Window $_})
 }
 function Assert-OuNavigationLayout {param($Window)
+    $tree=Get-ClientRect $Window 'TvDirectory'
+    Assert-True ($tree.Visible -and $tree.H -ge 80) ('Arbre OU trop petit : '+$tree.H)
+    $details=$Window.FindName('UxOuRefreshExpander');$expanded=$details.IsExpanded
+    $details.IsExpanded=$true;Invoke-GeometryPump $Window
     $footer=Get-ClientRect $Window 'UxSearchOuRefresh'
     foreach($name in @('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth','BtnSearchRefreshStop','LblSearchOuRefreshScope','LblSearchOuRefreshStatus')){
         $r=Get-ClientRect $Window $name
@@ -161,12 +165,11 @@ function Assert-OuNavigationLayout {param($Window)
         Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 10 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors de la surface de recherche')
         Assert-True ($r.X -ge $footer.X-0.5 -and $r.Y -ge $footer.Y-0.5 -and $r.X+$r.W -le $footer.X+$footer.W+0.5 -and $r.Y+$r.H -le $footer.Y+$footer.H+0.5) ($name+' deborde du panneau de mise a jour OU')
     }
-    $tree=Get-ClientRect $Window 'TvDirectory'
-    Assert-True ($tree.Visible -and $tree.H -ge 80) ('Arbre OU trop petit : '+$tree.H+' ; panneau de mise a jour : '+$footer.H)
     if($script:UxCompactLayoutActive){
         Assert-True ($Window.FindName('UxSearchOuRefreshActions').ActualHeight -le 60.5) ('Commandes OU sur plus de deux rangees : '+$Window.FindName('UxSearchOuRefreshActions').ActualHeight)
         Assert-True ($Window.FindName('BtnSearchRefreshPostes').Content -ceq 'Ping') 'Action postes compacte non explicite.'
     }
+    $details.IsExpanded=$expanded;Invoke-GeometryPump $Window
 }
 function Assert-SameGeometry {param($Before,$After,[string]$Step)
     for($i=0;$i -lt $Before.Count;$i++){

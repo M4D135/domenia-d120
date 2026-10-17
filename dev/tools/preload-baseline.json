@@ -521,8 +521,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "9BC42804ACBE9B726B3FE80A3F5ACAF84F99030A4EA66A81E7AD7A9E23CE1347",
-    "Assert-DomeniaWorkerRegistry": "A6B7A6B2F190B1D9D6FCEAF8E7981D456078CA56F62210E6BAA660E03046986F",
+    "Get-DomeniaWorkerOperationHashes": "1356F597D67FE3EF38F42BA60EE46D0BA9A13CAC5B9F62752884C071CF647A76",
+    "Assert-DomeniaWorkerRegistry": "1C44A967A8820E4A88A9C03DD3EF27078F49180B3E347D9E6CA6A928C2036A01",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4736,6 +4736,18 @@
       "Decision": "RC1.17.12 : Complete-UiTasks conserve les metriques de lenteur et ecrit leur texte au niveau Trace hors journal visible; aucune erreur operationnelle masquee. Relecture du diff.",
       "ChangedCoreFunctions": [
         "Complete-UiTasks"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Revue 2026-10-17 (Spark): diff worker StorageMaintenance relu (seule ligne ReadRedirect ajoutant StoreId/Revision typés depuis Read-MaintWInfo, correctif bascule SQLite relu par ailleurs, 27 assertions Test-DomeniaStorageMaintenance); re-épinglage via update_worker_contracts --apply; Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry modifiés uniquement par réécriture mécanique des littéraux SHA-256 et empreinte registre.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

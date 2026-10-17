@@ -3942,7 +3942,8 @@ Test-Case 'FI-19 : base mise en service par une bascule : chiffres et associatio
     $apply=Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageMaintenanceApply'
     $switch=Get-FunctionTextFromFile $storageUi 'Invoke-DomeniaStorageMaintenanceSwitch'
     Assert-True ($apply.Contains('Invoke-DomeniaStorageMaintenanceSwitch -State $State -Receipt $r')) 'La confirmation de la copie ne bascule pas.'
-    Assert-True ($switch.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
+    $confirm=Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageMaintenanceSwitchConfirm'
+    Assert-True ($confirm.Contains('Resume-DomeniaDatabaseViews -ReloadLocalState')) 'La bascule ne relit pas l etat de la nouvelle base.'
     $script:LinkLoad=$null;$script:IndexMetadataPending=$false
 }
 Test-Case 'FI-19 : retour sur Outils avec Base locale deja ouverte : etat manquant relu, page cachee ignoree' {

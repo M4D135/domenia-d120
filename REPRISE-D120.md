@@ -1,5 +1,7 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **RC1.17.13 — 16 octobre** : [corrections restantes](validation/2026-10-16/rc13-corrections/README.md), builds DLL déterministes. Contrôles ciblés uniquement ; qualification générale non clôturée.
+
 > **RC1.17.12 — 16 octobre** : [corrections finales](validation/2026-10-16/final-corrections/README.md). Assistant en haut, diagnostics de lenteur discrets, guides Word/PDF actualisés. Qualification générale toujours distincte des contrôles ciblés.
 
 > **RC1.17.11 — 16 octobre** : voir [dashboard et lots](validation/2026-10-16/dashboard-batch/README.md).

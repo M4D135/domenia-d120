@@ -1,0 +1,19 @@
+{
+  "Path": "C:\\DomeniaLab\\d120-rc13-build\\out\\a\\Domenia.Native.dll",
+  "SHA256": "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+  "Sources": [
+    {
+      "Name": "ObservationReader.cs",
+      "SHA256": "2398C29B1491341AE561534965B7F5E4D22053F3D36AE09B9D49E095204BC11C"
+    },
+    {
+      "Name": "ProbeAggregation.cs",
+      "SHA256": "81EE62B401D523A22769CA4ABBEB63040586761F43A2ECE36F540C891F309C75"
+    }
+  ],
+  "TargetFramework": "net472",
+  "Deterministic": true,
+  "CompilerSHA256": "C9B43DB498213E8E8CA5D7E03A25DEFDDA2031D5E025553B8EB9773F79EBD226",
+  "CompilerVersion": "4.800.23.55801",
+  "PowerShell": "5.1.26100.6584"
+}

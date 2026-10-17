@@ -1427,31 +1427,69 @@ function Clear-DomeniaStoragePendingForOtherBase {
 }
 function Invoke-DomeniaStorageMaintenanceSwitch {
     # Switches the session to the verified copy named by a receipt. Shared by the worker completion and by the local
-    # retry of a restore that wrote no marker (unreadable previous base).
+    # retry of a restore that wrote no marker (unreadable previous base). KI-004: the copy is confirmed by the
+    # existing read-only ReadRedirect action of the maintenance worker (schema, quick_check, identity row, absence
+    # of marker) instead of an opening and a line read on the interface thread; only the pure validations (guards,
+    # path, identity footprint) run on the dispatcher, and the context is switched upon confirmed response only.
     param($State,$Receipt)
+    if(($null -eq $State) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath) -or ($null -eq $script:StorageMaintenance) -or ($script:StorageMaintenance.Id -cne $State.Id)){return}
     try{
-        Switch-DomeniaDatabaseContext -Path ([string]$Receipt.TargetPath) -ExpectedPath $State.Path -ExpectedEpoch $State.Epoch -StoreId ([string]$Receipt.StoreId) -Revision ([long]$Receipt.Revision)
+        $path=Get-DomeniaLocalDatabasePath -Path ([string]$Receipt.TargetPath) -Existing
+        $domain=([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
+        if([string]$Receipt.StoreId -cne (Get-DomeniaStoreId $path $domain) -or [long]$Receipt.Revision -lt 0 -or ([string]$Receipt.DomainDn -ine $domain)){throw 'Identité de la base cible invalide.'}
+        if(($null -eq $script:StorageMaintenance) -or ($script:StorageMaintenance.Id -cne $State.Id)){throw 'Une bascule exige une maintenance exclusive confirmée.'}
+        # A late response (account change, another maintenance) falls on the epoch/path/state guards of the handlers below.
+        $State.Job=Start-UiTask -Name 'Confirmer la copie avant la bascule' -OperationId 'StorageMaintenance' -Code (Get-DomeniaStorageMaintenanceWorkerCode) -Payload ([pscustomobject]@{Action='ReadRedirect';ActivePath=$path;SourcePath=$path;DomainDn=$domain}) -CallbackState $State -SuccessHandler 'Complete-DomeniaStorageMaintenanceSwitchConfirm' -ErrorHandler 'Fail-DomeniaStorageMaintenanceSwitchConfirm' -TimeoutSeconds 180 -TaskClass 'Explicit'
+        if(-not $State.Job){$State.Job='';throw 'Confirmation de la copie non admise.'}
     }catch{
-        # An undo that could not switch back leaves the session on the current base, which stays valid.
-        if([string]$State.Mode -eq 'Undo'){Fail-DomeniaStorageMaintenance ('bascule vers la base précédente non confirmée : '+$_.Exception.Message) $State;return}
-        $State.Locked=$true;$State.Hold=$true
-        $offer='« Reprendre la bascule »';if([bool]$Receipt.RedirectWritten){$offer+=' ou « Revenir à la base précédente »'}
-        $text='Copie locale conservée, bascule non confirmée : '+$_.Exception.Message+'. Utilisez '+$offer+' ; aucun fichier nʼest supprimé.'
-        [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN';[void](Update-DomeniaStorageMaintenanceControls);return
+        Fail-DomeniaStorageMaintenanceSwitch $_.Exception.Message $State;return
+    }
+    [void](Update-DomeniaStorageMaintenanceControls)
+}
+function Fail-DomeniaStorageMaintenanceSwitch {
+    # An unconfirmed copy leaves the session on the current base with both files kept and the switch still offered.
+    param($Message,$State)
+    $State.Job=''
+    if([string]$State.Mode -eq 'Undo'){
+        Fail-DomeniaStorageMaintenance ('bascule vers la base précédente non confirmée : '+[string]$Message) $State
+        return
+    }
+    $State.Locked=$true;$State.Hold=$true
+    $offer='« Reprendre la bascule »'
+    if(($null -ne $State.Receipt) -and [bool]$State.Receipt.RedirectWritten){$offer+=' ou « Revenir à la base précédente »'}
+    $text='Copie locale conservée, bascule non confirmée : '+[string]$Message+'. Utilisez '+$offer+' ; aucun fichier nʼest supprimé.'
+    [void](Set-DomeniaControlText 'LblStorageMaintenance' $text);Set-Status $text 'WARN'
+    [void](Update-DomeniaStorageMaintenanceControls)
+}
+function Fail-DomeniaStorageMaintenanceSwitchConfirm {
+    param($Message,$State)
+    if(($null -eq $State) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath) -or ($null -eq $script:StorageMaintenance) -or ($script:StorageMaintenance.Id -cne $State.Id)){return}
+    Fail-DomeniaStorageMaintenanceSwitch ([string]$Message) $State
+}
+function Complete-DomeniaStorageMaintenanceSwitchConfirm {
+    param($Result,$State)
+    if(($null -eq $State) -or ($State.Epoch -ne [long]$script:SessionEpoch) -or ([string]$State.Path -cne [string]$script:DatabaseScopedPath) -or ($null -eq $script:StorageMaintenance) -or ($script:StorageMaintenance.Id -cne $State.Id) -or ($null -eq $State.Receipt)){return}
+    try{
+        $State.Job='';$receipt=$State.Receipt
+        $r=Get-DomeniaEffectiveWorkerResult $Result @('Kind','Action','ActivePath','DomainDn','StoreId','Revision','Redirect')
+        if(($null -eq $r) -or ($r.Kind -cne 'StorageMaintenance') -or ($r.Action -cne 'ReadRedirect') -or ([string]$r.ActivePath -ine [string]$receipt.TargetPath) -or ([string]$r.DomainDn -ine [string]$receipt.DomainDn) -or ([string]$r.StoreId -cne [string]$receipt.StoreId) -or ([long]$r.Revision -lt [long]$receipt.Revision) -or ($null -ne $r.Redirect)){throw 'La copie ne confirme pas le reçu de maintenance.'}
+        Switch-DomeniaDatabaseContext -Path ([string]$receipt.TargetPath) -ExpectedPath $State.Path -ExpectedEpoch $State.Epoch -StoreId ([string]$receipt.StoreId) -Revision ([long]$receipt.Revision)
+    }catch{
+        Fail-DomeniaStorageMaintenanceSwitch $_.Exception.Message $State;return
     }
     # The switch has advanced the epoch. A presentation failure must never relock its obsolete context.
     $State.Locked=$false;$State.Hold=$false;$State.Recovery=$false
     $original=Get-DomeniaStorageMaintenanceMarkerPath $State
     # Point 31: a switch that left a marker on its original stays undoable until the new base receives a write.
-    if(([string]$Receipt.Action -in @('Move','Restore','Resume')) -and [bool]$Receipt.RedirectWritten){
-        $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$Receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch}
+    if(([string]$receipt.Action -in @('Move','Restore','Resume')) -and [bool]$receipt.RedirectWritten){
+        $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch}
     }else{$script:StorageLastSwitch=$null}
-    $dropped=0;try{$dropped=Clear-DomeniaStoragePendingForOtherBase -ActivePath ([string]$Receipt.TargetPath)}catch{Write-AppLog ('File locale après bascule non vérifiée : '+$_.Exception.Message) 'WARN'}
+    $dropped=0;try{$dropped=Clear-DomeniaStoragePendingForOtherBase -ActivePath ([string]$receipt.TargetPath)}catch{Write-AppLog ('File locale après bascule non vérifiée : '+$_.Exception.Message) 'WARN'}
     Request-DomeniaStorageWork
     $kept='Original conservé : '+$original
-    if([bool]$Receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$original+' ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture'}
-    elseif(-not [bool]$Receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$original}
-    if([string]$Receipt.Action -eq 'Rollback'){$text='Base précédente rétablie : '+[string]$Receipt.TargetPath+'. Lʼautre fichier est conservé.'}else{$text='Étape 3 sur 3 : base vérifiée en service : '+[string]$Receipt.TargetPath+'. '+$kept+'.'}
+    if([bool]$receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$original+' ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture'}
+    elseif(-not [bool]$receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$original}
+    if([string]$receipt.Action -eq 'Rollback'){$text='Base précédente rétablie : '+[string]$receipt.TargetPath+'. Lʼautre fichier est conservé.'}else{$text='Étape 3 sur 3 : base vérifiée en service : '+[string]$receipt.TargetPath+'. '+$kept+'.'}
     if($dropped -gt 0){$text+=' '+[string]$dropped+' élément(s) collecté(s) pendant la maintenance pour lʼautre base nʼont pas été enregistrés ; relisez-les si besoin.'}
     # Resume-DomeniaDatabaseViews refreshes the location summary; the space and limit lines of the same page follow the
     # new base (its free space stays unknown until its first measure).

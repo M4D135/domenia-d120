@@ -515,7 +515,7 @@
     "File": "wad/modules/Domenia-Storage.Worker.ps1",
     "Function": "Get-DomeniaStorageMaintenanceWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B1DCB83C988EEA67D233F96EF38AB00E5A69E4A6943D0162A83E51410D4F0CD2"
+    "Sha256": "B481E74367D9B20465368B26CED55405E7FD466C19D712CB7E917F8BA9BBD5A1"
   },
   {
     "Operation": "LockoutDiagnosis",

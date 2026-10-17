@@ -6,7 +6,9 @@
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-Park.Model.ps1')
 # The field families of a query widget come from the collection planner shared with the workshop (Query.Model).
+# The saved WMI read (detail:* recipes) is validated with the read-definition contract of QuerySchema.Model.
 . (Join-Path $modules 'Domenia-Query.Model.ps1')
+. (Join-Path $modules 'Domenia-QuerySchema.Model.ps1')
 . (Join-Path $modules 'Domenia-WidgetCollect.Model.ps1')
 . (Join-Path $modules 'Domenia-Probes.Model.ps1')
 # The catalog cache of Probes.Model starts empty (StrictMode of this runner: the variable must exist).
@@ -85,14 +87,15 @@ Test-Case 'WGC-003' 'Requete ou sonde : seuls ses champs distants sont collectes
     Assert-Equal 'Remote' ([string]$mixed.Kind)
     Assert-Equal 'sec.tpm,svc.list' (@($mixed.ProbeIds) -join ',') 'sondes dedoublonnees et triees'
     Assert-True ($mixed.Inventory -and $mixed.Ping -and $mixed.Console -and $mixed.Directory)
-    Assert-True ([string]$mixed.Label -like '*attributs AD restent ceux de la base locale*') ([string]$mixed.Label)
+    Assert-True ([string]$mixed.Label -like '*attributs AD de lʼOU sont aussi relus*') ([string]$mixed.Label)
     Assert-Equal 'Directory' ([string](Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @('os','logonDays')).Kind)
     Assert-Equal 'Card' ([string](Get-DomeniaWidgetCollectionNeed -Board Computer -Item $query -Fields @('os')).Kind)
     Assert-Equal 'Local' ([string](Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @()).Kind)
     Assert-Equal 'Unknown' ([string](Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @('probe:x') -RecipeMissing).Kind) 'requete absente'
     $custom = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @('detail:abc')
     Assert-Equal 'Unknown' ([string]$custom.Kind); Assert-True $custom.Workshop
-    Assert-True ([string]$custom.Label -like '*depuis lʼatelier*') ([string]$custom.Label)
+    Assert-True ([string]$custom.Label -like '*Relevés WMI personnalisés refusés*invalide*Aucune collecte*') ([string]$custom.Label)
+    Assert-False ([string]$custom.Label -like '*atelier*') 'une clé invalide nʼest jamais renvoyée vers lʼatelier'
     Assert-Equal 'Unknown' ([string](Get-DomeniaWidgetCollectionNeed -Board Software -Item (New-DomeniaBoardItem -Source Probe -Key 'disk.free' -Visual Kpi -Id 'p2')).Kind) 'aucune sonde sur le tableau des logiciels'
 }
 Test-Case 'WGC-004' 'Ajouter un widget part sans confirmation jusquʼa la limite, au-dela le nombre est confirme ; plafond du releve (SE-05) toujours applique' {
@@ -336,4 +339,43 @@ Test-Case 'WGC-015' 'Points 81 a 100 : widgets et sondes de lʼinventaire du pos
         Assert-True ([string]$e.Rows[4].Text).Contains('Limites documentées') ('explication : ' + $id)
     }
     Assert-Equal $null (Get-DomeniaProbeWidgetSource -Probe $null)
+}
+Test-Case 'WGC-016' 'Recette detail:* : le widget relit lui-même sa lecture WMI mémorisée ; recette absente, incohérente ou détournée refusée' {
+    $definition = New-DomeniaQueryReadDefinition -Namespace 'root\cimv2' -Query "SELECT Name FROM Win32_Service WHERE State = 'Running'" -Limit 50
+    $key = [string]$definition.RequestKey
+    $recipe = [pscustomobject]@{ ReadDefinition = $definition }
+    $query = New-DomeniaBoardItem -Source Query -Key 'q1' -Visual Bar -Id 'w1'
+    $only = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @(('detail:' + $key + ':exists'),('detail:' + $key + ':count')) -Recipe $recipe
+    Assert-Equal 'WmiDetail' ([string]$only.Kind) 'champs détail seuls : le widget relit sa propre recette, sans atelier'
+    Assert-Equal $key (@($only.DetailKeys) -join ',') 'la clé collectée est la RequestKey enregistrée'
+    Assert-True ([string]$only.Label -like '*requête WMI mémorisée*postes actifs de lʼOU affichée*lecture seule*') ([string]$only.Label)
+    Assert-False ([string]$only.Label -like '*atelier*') 'plus de renvoi à lʼatelier pour une recette valide'
+    $one = Get-DomeniaWidgetCollectionNeed -Board Computer -Item $query -Fields @(('detail:' + $key + ':exists')) -Recipe $recipe
+    Assert-Equal 'WmiDetail' ([string]$one.Kind); Assert-True ([string]$one.Label -like '*le poste sélectionné*') ([string]$one.Label)
+    $placeholder = Get-DomeniaWidgetPlaceholder -Need $one
+    Assert-Equal 'Refresh' ([string]$placeholder.Action) 'le geste existe pour relire la recette'
+    # Widget à sources mêlées : la lecture mémorisée est annoncée avec les autres, jamais ignorée en silence.
+    $mixed = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @('probe:sec.tpm',('detail:' + $key + ':exists'),'os') -Recipe $recipe
+    Assert-Equal 'Remote' ([string]$mixed.Kind); Assert-Equal $key (@($mixed.DetailKeys) -join ',')
+    Assert-True ([string]$mixed.Label -like '*requête WMI mémorisée de ce widget est aussi relue*') ([string]$mixed.Label)
+    Assert-True (@(Get-DomeniaWidgetSourceFamilies $mixed) -contains 'WmiDetail') 'la source mémorisée compte dans les familles'
+    $withAd = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @('os',('detail:' + $key + ':exists')) -Recipe $recipe
+    Assert-Equal 'WmiDetail' ([string]$withAd.Kind); Assert-True $withAd.Directory
+    $fam = @(Get-DomeniaWidgetSourceFamilies $withAd)
+    Assert-True (($fam -contains 'AD') -and ($fam -contains 'WmiDetail')) 'AD et mémorisé : aucune source ignorée'
+    Assert-True ([string]$withAd.Label -like '*attributs AD de lʼOU sont aussi relus*') ([string]$withAd.Label)
+    # Refus explicites : définition absente, empreinte incohérente, relevé étranger, clé mal formée.
+    $noDef = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @(('detail:' + $key + ':exists')) -Recipe ([pscustomobject]@{})
+    Assert-Equal 'Unknown' ([string]$noDef.Kind) 'aucune lecture mémorisée : rien ne part'
+    Assert-True ([string]$noDef.DetailBlocked -like '*aucune lecture WMI mémorisée*') ([string]$noDef.DetailBlocked)
+    Assert-True ([string]$noDef.Label -like '*refusés*Aucune collecte*' -and ([string]$noDef.Label) -notlike '*atelier*') ([string]$noDef.Label)
+    $flipped = [string](($definition.RequestKey.ToCharArray() | ForEach-Object { if ($_ -eq '0') { '1' } else { '0' } })) -join ''
+    $tampered = [pscustomobject]@{ Format = 'Domenia.WmiRead/1'; Namespace = [string]$definition.Namespace; ClassName = [string]$definition.ClassName; CanonicalQuery = [string]$definition.CanonicalQuery; Properties = @($definition.Properties); RequestKey = $flipped; Limit = [int]$definition.Limit }
+    $bad = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @(('detail:' + $key + ':exists')) -Recipe ([pscustomobject]@{ ReadDefinition = $tampered })
+    Assert-Equal 'Unknown' ([string]$bad.Kind); Assert-True ([string]$bad.DetailBlocked -like '*incohérente*') ([string]$bad.DetailBlocked)
+    $other = New-DomeniaQueryReadDefinition -Namespace 'root\cimv2' -Query 'SELECT Name FROM Win32_Process' -Limit 10
+    $foreign = Get-DomeniaWidgetCollectionNeed -Board Fleet -Item $query -Fields @(('detail:' + $key + ':exists')) -Recipe ([pscustomobject]@{ ReadDefinition = $other })
+    Assert-Equal 'Unknown' ([string]$foreign.Kind); Assert-True ([string]$foreign.DetailBlocked -like '*absent de la lecture WMI mémorisée*') ([string]$foreign.DetailBlocked)
+    # La pause dʼun widget à recette le dit sans promettre une économie inexistante.
+    Assert-True ((Get-DomeniaWidgetPauseText -Need $one) -like '*requête WMI mémorisée*') (Get-DomeniaWidgetPauseText -Need $one)
 }

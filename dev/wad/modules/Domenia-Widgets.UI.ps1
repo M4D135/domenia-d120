@@ -928,7 +928,7 @@ function Get-DomeniaWidgetDataDates {
     $freshness=Get-DomeniaMemberValue $State.Data 'Freshness'
     foreach ($family in @(Get-DomeniaWidgetSourceFamilies $need)) {
         $at=$null;$oldest=$null;$newest=$null;$missing=0
-        $source=switch ($family) { 'AD' {'AD'} 'BitLocker' {'AD · BitLocker'} 'Ping' {'Ping'} 'Console' {'WMI · console'} 'Inventory' {'WMI · inventaire'} 'ComputerInventory' {'WMI / registre'} 'Software' {'Registre · logiciels'} 'Probe' {'WMI · sonde'} default {'Données locales'} }
+        $source=switch ($family) { 'AD' {'AD'} 'BitLocker' {'AD · BitLocker'} 'Ping' {'Ping'} 'Console' {'WMI · console'} 'Inventory' {'WMI · inventaire'} 'ComputerInventory' {'WMI / registre'} 'Software' {'Registre · logiciels'} 'Probe' {'WMI · sonde'} 'WmiDetail' {'WMI · requête mémorisée'} default {'Données locales'} }
         if ($Board -eq 'Fleet') {
             switch ($family) {
                 'AD' { $at=Get-DomeniaMemberValue (Get-DomeniaMemberValue $freshness 'Index') 'At' }
@@ -949,7 +949,22 @@ function Get-DomeniaWidgetDataDates {
                 $samples=@(Get-DomeniaWidgetProbeObservations -Board Computer -ProbeId ([string]$Item.Key) | Where-Object {$_.Usable})
                 if ($samples.Count) { $at=$samples[0].CheckedUtc }
             }
-        } elseif ($Board -eq 'Software') { $at=Get-DomeniaMemberValue $State.Data 'ObservedAtUtc' }
+        } elseif (($Board -eq 'Software') -and ($family -ne 'WmiDetail')) { $at=Get-DomeniaMemberValue $State.Data 'ObservedAtUtc' }
+        if ($family -eq 'WmiDetail') {
+            # The committed saved-read clocks survive on the evaluated query rows: the footer picks them up here
+            # too, without starting any read. On Fleet only the current snapshot is trusted (same gate as above).
+            # The saved-read clocks are never overwritten by another source's date (review 2026-10-17).
+            $q = $script:DomeniaQueryState
+            $usable = (($null -ne $q) -and ($null -ne $q.Widgets) -and $q.Widgets.ContainsKey([string]$Item.Key))
+            if ($usable -and ($Board -eq 'Fleet')) { $usable = ($q.SnapshotKey -ceq [string]$script:FleetQuerySnapshotKey) }
+            if ($usable) {
+                try {
+                    $clocks = Get-DomeniaWidgetDetailClocks -Rows @(Get-DomeniaMember $q.Widgets[[string]$Item.Key] 'DataSources' @()) -DetailKeys @(Get-DomeniaMember $need 'DetailKeys' @())
+                } catch { $clocks = $null }
+                if ($null -ne $clocks) { $oldest = $clocks.OldestUtc; $newest = $clocks.NewestUtc; $missing = [int]$clocks.Missing }
+            }
+            $at = $null
+        }
         if ($null -ne $at) { $oldest=$at;$newest=$at }
         $rows.Add([pscustomobject]@{Source=$source;OldestUtc=$oldest;NewestUtc=$newest;Missing=$missing})
     }
@@ -2071,7 +2086,7 @@ function Get-DomeniaWidgetNeed {
     if ($null -eq $recipe) { return (Get-DomeniaWidgetCollectionNeed -Board $Board -Item $Item -RecipeMissing) }
     $fields = @()
     try { $fields = @(Get-DomeniaQueryRequestedFields $recipe) } catch { return (Get-DomeniaWidgetCollectionNeed -Board $Board -Item $Item -RecipeMissing) }
-    return (Get-DomeniaWidgetCollectionNeed -Board $Board -Item $Item -Fields $fields)
+    return (Get-DomeniaWidgetCollectionNeed -Board $Board -Item $Item -Fields $fields -Recipe $recipe)
 }
 function Get-DomeniaBoardItemIdentity {
     # Title and kind of a widget without reading its data (a paused widget is never resolved nor evaluated).
@@ -2119,7 +2134,7 @@ function Test-DomeniaWidgetPopulationCurrent {
 function Register-DomeniaWidgetCollect {
     # The widgets that show the progress of an activity their gesture started. The figure stays the last one read.
     # -PopulationKey: the population of the gesture (default: the one shown now); another one never shows it.
-    param([string]$Board,[string[]]$Ids = @(),[ValidateSet('Park','Inventory','Directory','BitLocker','Software','Local','Queued')][string]$Kind,[string]$RunId = '',[string]$PopulationKey = '')
+    param([string]$Board,[string[]]$Ids = @(),[ValidateSet('Park','Inventory','Directory','BitLocker','Software','Local','Queued','WmiDetail')][string]$Kind,[string]$RunId = '',[string]$PopulationKey = '')
     $population = if ($PSBoundParameters.ContainsKey('PopulationKey')) { $PopulationKey } else { Get-DomeniaWidgetPopulationKey -Board $Board }
     foreach ($id in @($Ids | Where-Object { $_ })) {
         $script:DomeniaWidgetCollects[$Board + '|' + [string]$id] = [pscustomobject]@{ Board = $Board; Id = [string]$id; Kind = $Kind; RunId = $RunId; Epoch = [long]$script:SessionEpoch; PopulationKey = $population }
@@ -2164,7 +2179,7 @@ function Get-DomeniaWidgetActivityText {
             return ''
         }
     }
-    $operation = switch ([string]$Entry.Kind) { 'Inventory' { 'ComputerInventory' } 'BitLocker' { 'BitLockerPresence' } 'Software' { 'SoftwareInventory' } default { '' } }
+    $operation = switch ([string]$Entry.Kind) { 'Inventory' { 'ComputerInventory' } 'BitLocker' { 'BitLockerPresence' } 'Software' { 'SoftwareInventory' } 'WmiDetail' { 'WidgetWmiDetail' } default { '' } }
     if (($operation) -and (Test-DomeniaWidgetOperationRunning -OperationId $operation)) { return (Format-DomeniaWidgetCollectProgress -Phase ([string]$Entry.Kind)) }
     return ''
 }
@@ -2329,6 +2344,108 @@ function Start-DomeniaWidgetRemoteCollect {
     Show-DomeniaBoard -Board $Board -Quiet
     return $true
 }
+function Start-DomeniaWidgetDetailCollect {
+    # The saved WMI read of one widget (its detail:* fields): the single definition recorded with its saved query,
+    # revalidated here — never an arbitrary WQL string — read on the population of the board (the selected
+    # workstation, or the active workstations of the OU shown) through the workshop worker, ResultKind WmiQuery.
+    # Values are committed to the local base before any display; a failed or timed-out workstation keeps the values
+    # already stored (no error row is committed for it) and the other workstations are read independently.
+    # -Confirmed: the gesture was already confirmed by the survey it shares (mixed sources).
+    param([string]$Board,$Item,$Need,[string]$Reason,[switch]$Confirmed)
+    $id = [string]$Item.Id
+    $recipe = Get-DomeniaWidgetRecipe -Id ([string]$Item.Key)
+    if ($null -eq $recipe) { Set-Status 'Requête enregistrée absente : aucune lecture WMI mémorisée nʼest lancée pour ce widget.' 'WARN'; return $false }
+    $definition = Get-DomeniaMemberValue $recipe 'ReadDefinition'
+    if ($null -eq $definition) { Set-Status 'Lecture WMI mémorisée refusée : aucune lecture WMI mémorisée dans la requête enregistrée. Corrigez la requête enregistrée.' 'WARN'; return $false }
+    $requestKey = ''
+    try {
+        Assert-DomeniaQueryReadDefinition $definition
+        $requestKey = [string](Get-DomeniaMember $definition 'RequestKey' '')
+    } catch { Set-Status 'Lecture WMI mémorisée refusée : définition absente ou incohérente avec son empreinte. Corrigez la requête enregistrée.' 'WARN'; return $false }
+    $detailKeys = @(Get-DomeniaMember $Need 'DetailKeys' @())
+    if ((-not $requestKey) -or ($requestKey -cnotmatch '^[0-9a-f]{64}$') -or (-not $detailKeys.Count) -or (@($detailKeys | Where-Object { $_ -cne $requestKey }).Count)) {
+        Set-Status 'Lecture WMI mémorisée refusée : relevé demandé absent de la définition enregistrée. Corrigez la requête enregistrée.' 'WARN'; return $false
+    }
+    if (Test-DomeniaWidgetOperationRunning -OperationId 'WidgetWmiDetail') {
+        # One saved-read campaign at a time (as one survey per scope): this widget waits in the queue, never dropped.
+        $populationKey = Get-DomeniaWidgetPopulationKey -Board $Board
+        if ((-not $populationKey) -or ($populationKey -eq '*')) { Set-Status $(if ($Board -eq 'Fleet') { 'Choisissez une OU dans le tableau de bord avant de préparer une collecte.' } else { 'Aucun poste sélectionné : ouvrez la fiche dʼun poste pour collecter ce widget.' }) 'WARN'; return $false }
+        if (-not (Add-DomeniaWidgetCollectQueue -Board $Board -Id $id -Reason $Reason -PopulationKey $populationKey)) { return $false }
+        Set-Status 'Une relecture WMI mémorisée de widget est en cours : la collecte de ce widget démarrera à sa fin.' 'INFO'
+        Show-DomeniaBoard -Board $Board -Quiet
+        return $true
+    }
+    $population = Get-DomeniaWidgetPopulation -Board $Board
+    if ($null -eq $population) { return $false }
+    $targets = @($population.Targets | Where-Object { ([string]$_.name) -and ([string]$_.distinguished_name) -and ([string]$_.object_guid) })
+    if (-not $targets.Count) { Set-Status 'Aucun poste à lire pour ce widget.' 'WARN'; return $false }
+    $admission = Get-DomeniaWidgetCollectAdmission -TargetCount $targets.Count
+    if (-not [bool]$admission.Allowed) { Set-Status ([string]$admission.Reason) 'WARN'; return $false }
+    if ((-not $Confirmed) -and (($Reason -ne 'Add') -or (-not [bool]$admission.Direct))) {
+        $title = (Get-DomeniaBoardItemIdentity -Board $Board -Item $item).Title
+        $answer = Show-DomeniaDialog -Title 'Relire la requête WMI mémorisée' -Message ('Relire la requête WMI mémorisée de « ' + [string]$title + ' » sur ' + [string]$targets.Count + ' poste(s) ? Chaque lecture est bornée, en lecture seule, et enregistrée dans la base locale avant affichage.') -Kind Question -Buttons YesNo
+        if ([string]$answer -ne 'Yes') { Set-Status 'Relecture de la requête WMI mémorisée non lancée.' 'INFO'; return $false }
+    }
+    $msi = @(Get-DomeniaMsiProviderClassNames)
+    $started = 0
+    foreach ($target in $targets) {
+        $computer = [string]$target.name
+        $dn = [string]$target.distinguished_name
+        $guid = [string]$target.object_guid
+        $state = [pscustomobject]@{ Computer = $computer; DN = $dn; ResultKind = 'WmiQuery'; RequestKey = $requestKey; Namespace = [string](Get-DomeniaMember $definition 'Namespace' ''); PublishHandler = 'Complete-DomeniaWidgetDetailStored'; PublishErrorHandler = 'Fail-DomeniaWidgetDetailStored'; RemoteStartedUtc = [datetime]::UtcNow.ToString('o'); WidgetBoard = $Board; WidgetId = $id; WidgetEpoch = [long]$script:SessionEpoch }
+        [void](Initialize-DomeniaRemoteStoreState $state $guid $dn ([long]$script:GlobalSearchGeneration))
+        $payload = [pscustomobject]@{ ModuleRoot = $script:DomeniaQueryModuleRoot; Mode = 'Select'; Computer = $computer; Namespace = [string](Get-DomeniaMember $definition 'Namespace' ''); ClassName = [string](Get-DomeniaMember $definition 'ClassName' ''); Query = [string](Get-DomeniaMember $definition 'CanonicalQuery' ''); Limit = [int](Get-DomeniaMember $definition 'Limit' 100); MsiClassNames = $msi; StopToken = $null; KeyValues = $null; AssociationClass = ''; ResultClass = ''; ClassFilter = ''; SourceProperty = ''; SourceValue = $null; TargetProperty = '' }
+        $stop = [Threading.CancellationTokenSource]::new(); $payload.StopToken = $stop.Token; $state | Add-Member -NotePropertyName StopSource -NotePropertyValue $stop -Force
+        $job = Start-UiTask -Name ('Widget WMI mémorisé : ' + $computer) -OperationId 'WidgetWmiDetail' -Code (Get-DomeniaQuerySchemaWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey ('widget:detail:' + $Board + ':' + $id + ':' + $computer.ToLowerInvariant()) -SuccessHandler 'Complete-DomeniaWidgetDetailCollected' -ErrorHandler 'Fail-DomeniaWidgetDetailCollected' -TimeoutSeconds 65 -HardTimeoutSeconds 80 -TaskClass Explicit
+        if (-not $job) { $stop.Dispose(); continue }
+        $started++
+    }
+    if (-not $started) { Set-Status 'Aucune relecture WMI mémorisée admise pour ce widget.' 'WARN'; return $false }
+    Register-DomeniaWidgetCollect -Board $Board -Ids @($id) -Kind WmiDetail
+    Show-DomeniaBoard -Board $Board -Quiet
+    Set-Status ('Relecture de la requête WMI mémorisée sur ' + [string]$started + ' poste(s) : les valeurs seront affichées après enregistrement dans la base locale.') 'INFO'
+    return $true
+}
+function Complete-DomeniaWidgetDetailCollected {
+    # Worker answer of one saved-read task: identity and definition rechecked, then the allowlisted result is
+    # committed to the local base. Nothing is displayed from a network result; the display follows the commit.
+    param($Result,$State)
+    try {
+        $data = Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Computer','Mode','Namespace','RequestKey','SourceCompletedUtc','Rows')
+        if (($null -eq $data) -or ([string]$data.Computer -ine [string]$State.Computer) -or ([string]$data.Mode -cne 'Select') -or ([string]$data.Namespace -cne [string]$State.Namespace) -or ([string]$data.RequestKey -cne [string]$State.RequestKey) -or ([string]$data.RequestKey -cne (Get-DomeniaQuerySchemaRequestKey ([string]$data.Namespace) ([string]$data.CanonicalQuery)))) { throw 'Identité ou définition du résultat WMI incohérente.' }
+        if (-not [bool]$data.Success) { throw 'Lecture distante non confirmée.' }
+        $safe = [ordered]@{}
+        foreach ($name in @('Computer','Success','Mode','Namespace','ClassName','CanonicalQuery','RequestKey','Rows','StoredCount','CountComplete','Truncated','Limit','DurationMs')) { $safe[$name] = Get-DomeniaMemberValue $data $name }
+        [void](Submit-DomeniaRemoteDetail -Data ([pscustomobject]$safe) -State $State -Succeeded $true -SourceCompletedUtc ([string]$data.SourceCompletedUtc))
+    } catch { Fail-DomeniaWidgetDetailCollected $_.Exception.Message $State }
+    finally { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Dispose() } }
+}
+function Fail-DomeniaWidgetDetailCollected {
+    # Timeout, refusal or incoherent answer: no error row is committed, so the values already stored for this
+    # workstation are kept. The other workstations of the population were started independently and stay unaffected.
+    param($Message,$State)
+    try { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Cancel(); $State.StopSource.Dispose() } } catch { }
+    if ([long](Get-DomeniaMember $State 'WidgetEpoch' 0) -ne [long]$script:SessionEpoch) { return }
+    Write-AppLog ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : ' + [string]$Message + ' (valeurs précédentes conservées).') 'WARN'
+    Set-Status ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : les valeurs précédentes sont conservées, les autres postes sont lus.') 'INFO'
+}
+function Complete-DomeniaWidgetDetailStored {
+    # Called after the commit, on the SQL readback only: the real source date of the committed read is announced and
+    # the board is redrawn from what the base really holds (the evaluation then picks up the detail rows).
+    param($Result,$State)
+    if ([long](Get-DomeniaMember $State 'WidgetEpoch' 0) -ne [long]$script:SessionEpoch) { return }
+    if (-not (Test-DomeniaRemoteStoreContext $State $null)) { return }
+    $at = ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Result 'SourceCompletedUtc' ''))
+    $when = if ($at -is [datetime]) { $at.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture) } else { 'date inconnue' }
+    Set-Status ('Relevé WMI mémorisé de ' + [string]$State.Computer + ' enregistré dans la base locale le ' + $when + '.') 'INFO'
+    try { Show-DomeniaBoard -Board ([string]$State.WidgetBoard) -Quiet } catch { Write-AppLog ('Tableau de bord non redessiné après relevé WMI mémorisé : ' + $_.Exception.Message) 'WARN' }
+}
+function Fail-DomeniaWidgetDetailStored {
+    param($Message,$State)
+    if ([long](Get-DomeniaMember $State 'WidgetEpoch' 0) -ne [long]$script:SessionEpoch) { return }
+    if (-not (Test-DomeniaRemoteStoreContext $State $null)) { return }
+    Set-Status ('Relevé WMI mémorisé de ' + [string]$State.Computer + ' non enregistré : ' + [string]$Message + ' Les valeurs précédentes sont conservées.') 'WARN'
+}
 function Start-DomeniaWidgetRefresh {
     # One widget (decision David 2026-10-14). Reason Add: the widget was just placed on the board; Resume: its
     # measurement was just resumed; both collect only what it is missing. Refresh: its own button or F5 reads again
@@ -2360,7 +2477,17 @@ function Start-DomeniaWidgetRefresh {
                     Invoke-DomeniaOuRefresh -Source Fleet -Mode Both -WidgetId $Id -WidgetNeed $need
                     return ($null -ne $script:DomeniaOuRefresh -and -not $script:DomeniaOuRefresh.Completed -and [string]$script:DomeniaOuRefresh.Id -cne $previousRefresh)
                 }
-                return (Start-DomeniaWidgetRemoteCollect -Board $Board -Item $item -Need $need -Reason $Reason)
+                $remoteStarted = Start-DomeniaWidgetRemoteCollect -Board $Board -Item $item -Need $need -Reason $Reason
+                # A widget mixing endpoint sources and detail:* fields reads both: the saved WMI read of its own
+                # recipe is chained here, never silently dropped. The survey confirmation covers the gesture.
+                if (@(Get-DomeniaMember $need 'DetailKeys' @()).Count) {
+                    $detailStarted = Start-DomeniaWidgetDetailCollect -Board $Board -Item $item -Need $need -Reason $Reason -Confirmed
+                    return (($remoteStarted) -or ($detailStarted))
+                }
+                return $remoteStarted
+            }
+            'WmiDetail' {
+                return (Start-DomeniaWidgetDetailCollect -Board $Board -Item $item -Need $need -Reason $Reason)
             }
             'ComputerInventory' {
                 $deepRead = Test-DomeniaComputerInventoryDeep -Result $script:LastComputerDashboardResult

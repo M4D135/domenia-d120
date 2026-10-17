@@ -30,6 +30,8 @@ fleet.ou|Directory|Comptes activés par OU ou sous-OU.|OU parente de chaque comp
 fleet.presence|Presence|Répartition des comptes activés par dernier résultat de ping.|Ping daté par le poste qui lʼa mesuré, conservé selon la durée de conservation.|Comptes désactivés ; ping expiré compté Non vérifié, jamais éteint.
 fleet.users|Console|Utilisateurs distincts vus en session console.|Lecture WMI de la console, datée et conservée selon la durée de conservation.|Sessions RDP ; lectures expirées.
 fleet.lastcheck|Presence|Date du ping le plus récent du périmètre.|Pings datés des comptes activés.|Pings expirés.
+fleet.wmi|Inventory|Postes dont la dernière lecture WMI est datée, indépendante du ping.|Relevé WMI léger daté de lʼobservation, conservé selon la durée de conservation.|Postes sans réponse WMI utilisable (non lu, en erreur ou expiré) ; comptes désactivés.
+fleet.reach|Presence|Répartition des comptes activés selon la combinaison du ping et de la réponse WMI.|Ping daté et lecture WMI datée de lʼobservation ; une absence de réponse ne prouve pas que le poste est éteint.|Postes sans ping ni réponse WMI exploitables ; comptes désactivés.
 fleet.models|Inventory|Répartition des postes analysés par modèle.|Relevé WMI léger (Win32_ComputerSystem) daté.|Postes sans relevé exploitable ; relevés expirés.
 fleet.releases|Inventory|Répartition des postes analysés par version relevée.|Build lu par WMI (Win32_OperatingSystem).|Postes sans relevé exploitable ; relevés expirés.
 fleet.ram|Inventory|Postes analysés par quantité de mémoire installée.|TotalPhysicalMemory lu par WMI.|Postes sans relevé exploitable ; relevés expirés.
@@ -142,11 +144,14 @@ function Get-DomeniaProbeWidgetSource {
 function Get-DomeniaWidgetFieldNeeds {
     # Fields of a saved query to what a collection reads, by the family of the collection planner shared with the
     # workshop (Get-DomeniaCollectionFieldFamily): a probe or instance field is a WMI query of the catalog, inventory
-    # fields come from the light WMI reading, presence from the ping, user from the console read; detail fields are
-    # custom WMI reads of the workshop; every other field comes from the AD copy of the local base.
+    # fields come from the light WMI reading, presence from the ping, user from the console read; detail fields name
+    # the saved WMI read of the recipe itself (detail:<RequestKey>:exists|count), keyed by the 64-hex RequestKey of
+    # the recorded definition; every other field comes from the AD copy of the local base. A detail field whose key
+    # is not such a RequestKey stays Workshop and is reported in DetailBroken: nothing is ever guessed from it.
     param([string[]]$Fields = @())
     $probes = New-Object System.Collections.Generic.List[string]
-    $ping = $false; $console = $false; $inventory = $false; $directory = $false; $workshop = $false
+    $details = New-Object System.Collections.Generic.List[string]
+    $ping = $false; $console = $false; $inventory = $false; $directory = $false; $workshop = $false; $detailBroken = $false
     foreach ($field in @($Fields)) {
         $name = [string]$field
         if (-not $name) { continue }
@@ -158,11 +163,16 @@ function Get-DomeniaWidgetFieldNeeds {
             'Inventory' { $inventory = $true }
             'Presence' { $ping = $true }
             'Console' { $console = $true }
-            'Detail' { $workshop = $true }
+            'Detail' {
+                $workshop = $true
+                $at = [string](Get-DomeniaQueryTimestampKey $name)
+                $requestKey = if ($at.StartsWith('_at:detail:', [StringComparison]::Ordinal)) { $at.Substring(11) } else { '' }
+                if ($requestKey -cmatch '^[0-9a-f]{64}$') { if (-not $details.Contains($requestKey)) { $details.Add($requestKey) } } else { $detailBroken = $true }
+            }
             default { $directory = $true }
         }
     }
-    return [pscustomobject]@{ ProbeIds = @($probes | Sort-Object); Ping = $ping; Console = $console; Inventory = $inventory; Directory = $directory; Workshop = $workshop }
+    return [pscustomobject]@{ ProbeIds = @($probes | Sort-Object); Ping = $ping; Console = $console; Inventory = $inventory; Directory = $directory; Workshop = $workshop; DetailKeys = @($details | Sort-Object); DetailBroken = $detailBroken }
 }
 function Get-DomeniaWidgetCollectionNeed {
     # What refreshing one widget alone reads, for the population of its board only. Kind:
@@ -172,20 +182,43 @@ function Get-DomeniaWidgetCollectionNeed {
     #   Card              the selected object reread from AD
     #   BitLocker         presence of the BitLocker recovery objects of the OU (never a key)
     #   Software          software list of the selected workstation
+    #   WmiDetail         the saved WMI read of the widget's own saved query (detail:* fields), validated against
+    #                     the definition recorded with the recipe — never an arbitrary WQL string
     #   Local             computed from data already stored: nothing to collect
     #   Unknown           a widget whose source is not known: nothing is started
     # -Fields: requested fields of the saved query of a Query widget (Get-DomeniaQueryRequestedFields).
     # -RecipeMissing: the saved query of a Query widget is absent or ambiguous; nothing is started for it.
-    param([ValidateSet('Computer','Fleet','Software')][string]$Board,$Item,[string[]]$Fields = @(),[switch]$RecipeMissing)
+    # -Recipe: the saved query object (Get-DomeniaWidgetRecipe). Its recorded ReadDefinition is the only source of a
+    # detail:* collection: a detail key the definition does not carry, a definition failing its own check, or no
+    # definition at all is refused (DetailBlocked names why) and never collected from a guessed query.
+    param([ValidateSet('Computer','Fleet','Software')][string]$Board,$Item,[string[]]$Fields = @(),[switch]$RecipeMissing,$Recipe = $null)
     $source = [string](Get-DomeniaMember $Item 'Source' '')
     $key = [string](Get-DomeniaMember $Item 'Key' '')
-    $need = [ordered]@{ Board = $Board; Id = [string](Get-DomeniaMember $Item 'Id' ''); Source = $source; Key = $key; Kind = 'Unknown'; Ping = $false; Console = $false; Inventory = $false; Deep = $false; ProbeIds = @(); Workshop = $false; Directory = $false; Label = '' }
+    $need = [ordered]@{ Board = $Board; Id = [string](Get-DomeniaMember $Item 'Id' ''); Source = $source; Key = $key; Kind = 'Unknown'; Ping = $false; Console = $false; Inventory = $false; Deep = $false; ProbeIds = @(); Workshop = $false; DetailKeys = @(); DetailBlocked = ''; Directory = $false; Label = '' }
     if ($source -eq 'Probe') {
         if ($Board -ne 'Software') { $need.Kind = 'Remote'; $need.ProbeIds = @($key) }
     } elseif (($source -eq 'Query') -and (-not $RecipeMissing)) {
         $parts = Get-DomeniaWidgetFieldNeeds -Fields $Fields
         $need.ProbeIds = @($parts.ProbeIds); $need.Ping = [bool]$parts.Ping; $need.Console = [bool]$parts.Console; $need.Inventory = [bool]$parts.Inventory; $need.Workshop = [bool]$parts.Workshop; $need.Directory = [bool]$parts.Directory
+        $blocked = New-Object System.Collections.Generic.List[string]
+        if ($parts.DetailBroken) { $blocked.Add('clé de relevé WMI invalide') }
+        if (@($parts.DetailKeys).Count -gt 0) {
+            $definition = Get-DomeniaMemberValue $Recipe 'ReadDefinition'
+            if ($null -eq $definition) { $blocked.Add('aucune lecture WMI mémorisée dans la requête enregistrée') }
+            else {
+                $incoherent = $false
+                try { Assert-DomeniaQueryReadDefinition $definition } catch { $incoherent = $true }
+                if ($incoherent) { $blocked.Add('lecture WMI mémorisée incohérente avec son empreinte') }
+                else {
+                    $requestKey = [string](Get-DomeniaMember $definition 'RequestKey' '')
+                    foreach ($detailKey in @($parts.DetailKeys)) { if ($detailKey -cne $requestKey) { $blocked.Add('relevé demandé absent de la lecture WMI mémorisée'); break } }
+                }
+            }
+            if (-not $blocked.Count) { $need.DetailKeys = @($parts.DetailKeys) }
+        }
+        $need.DetailBlocked = ($blocked -join ' ; ')
         if ((@($need.ProbeIds).Count -gt 0) -or ($need.Ping) -or ($need.Console) -or ($need.Inventory)) { $need.Kind = 'Remote' }
+        elseif ((-not $blocked.Count) -and (@($parts.DetailKeys).Count -gt 0)) { $need.Kind = 'WmiDetail' }
         elseif ($parts.Directory) { $need.Kind = $(if ($Board -eq 'Computer') { 'Card' } else { 'Directory' }) }
         elseif (-not $parts.Workshop) { $need.Kind = 'Local' }
     } elseif ($source -eq 'Builtin') {
@@ -203,15 +236,24 @@ function Get-DomeniaWidgetCollectionNeed {
             'Software' { $need.Kind = 'Software' }
             'Local' { $need.Kind = 'Local' }
         }
+        # fleet.reach combines the dated ping and the dated WMI answer of the observation: refreshing it alone
+        # rereads both, so the reach distribution never mixes a fresh ping with a stale WMI answer.
+        if ($key -eq 'fleet.reach') { $need.Inventory = $true }
     }
     $need.Label = Get-DomeniaWidgetNeedText -Need ([pscustomobject]$need)
     return [pscustomobject]$need
 }
 function Get-DomeniaWidgetNeedText {
-    # What the refresh of this widget reads, in plain words, with its population.
+    # What the refresh of this widget reads, in plain words, with its population. A widget mixing sources names every
+    # source it reads: a saved WMI read carried beside another source is announced, never silently dropped.
     param($Need)
     $board = [string](Get-DomeniaMember $Need 'Board' '')
     $population = if ($board -eq 'Fleet') { 'les postes actifs de lʼOU affichée' } else { 'le poste sélectionné' }
+    $detailKeys = @(Get-DomeniaMember $Need 'DetailKeys' @())
+    $detailBlocked = [string](Get-DomeniaMember $Need 'DetailBlocked' '')
+    $detailText = ''
+    if ($detailKeys.Count) { $detailText = ' La requête WMI mémorisée de ce widget est aussi relue.' }
+    elseif ($detailBlocked) { $detailText = ' Un relevé WMI personnalisé est refusé : ' + $detailBlocked + ' ; corrigez la requête enregistrée.' }
     switch ([string](Get-DomeniaMember $Need 'Kind' '')) {
         'Remote' {
             $parts = New-Object System.Collections.Generic.List[string]
@@ -222,12 +264,20 @@ function Get-DomeniaWidgetNeedText {
             if ($probes) { $parts.Add([string]$probes + ' requête(s) WMI de ce widget') }
             $text = 'Relit seulement : ' + ($parts -join ', ') + ', pour ' + $population + ', en lecture seule.'
             if ([bool](Get-DomeniaMember $Need 'Directory' $false)) { $text += ' Les attributs AD de lʼOU sont aussi relus lors de lʼactualisation du widget du parc.' }
-            if ([bool](Get-DomeniaMember $Need 'Workshop' $false)) { $text += ' Les relevés WMI personnalisés de la requête se relancent depuis lʼatelier.' }
+            $text += $detailText
+            return $text
+        }
+        'WmiDetail' {
+            $text = 'Relit seulement : la requête WMI mémorisée de ce widget, pour ' + $population + ', en lecture seule.'
+            if ([bool](Get-DomeniaMember $Need 'Directory' $false)) {
+                if ($board -eq 'Computer') { $text += ' La fiche du poste sélectionné est aussi relue depuis lʼannuaire.' }
+                else { $text += ' Les attributs AD de lʼOU sont aussi relus lors de lʼactualisation du widget du parc.' }
+            }
             return $text
         }
         'ComputerInventory' { if ([bool](Get-DomeniaMember $Need 'Deep' $false)) { return 'Inventaire complet du poste sélectionné (environ 3 minutes), en lecture seule.' }; return 'Inventaire rapide du poste sélectionné (environ 1 minute), en lecture seule.' }
-        'Directory' { return 'Relit les objets AD de lʼOU affichée et de ses sous-OU dans la base locale ; aucun ping ni WMI.' }
-        'Card' { return 'Relit la fiche du poste sélectionné depuis lʼannuaire.' }
+        'Directory' { return 'Relit les objets AD de lʼOU affichée et de ses sous-OU dans la base locale ; aucun ping ni WMI.' + $detailText }
+        'Card' { return 'Relit la fiche du poste sélectionné depuis lʼannuaire.' + $detailText }
         'BitLocker' { return 'Lit la présence des clés BitLocker de lʼOU affichée : nom, emplacement et date, jamais la clé.' }
         'Software' { return 'Recharge la liste des logiciels du poste sélectionné.' }
         'Local' {
@@ -238,7 +288,7 @@ function Get-DomeniaWidgetNeedText {
             return 'Recalcule depuis les données enregistrées, sans collecte.'
         }
     }
-    if ([bool](Get-DomeniaMember $Need 'Workshop' $false)) { return 'Cette requête lit des relevés WMI personnalisés : relancez-les depuis lʼatelier.' }
+    if ([bool](Get-DomeniaMember $Need 'Workshop' $false)) { return 'Relevés WMI personnalisés refusés : ' + $(if ($detailBlocked) { $detailBlocked } else { 'aucune lecture WMI mémorisée exploitable' }) + '. Aucune collecte nʼest lancée pour ce widget.' }
     return 'Source inconnue : aucune collecte nʼest lancée pour ce widget.'
 }
 function Get-DomeniaWidgetPauseText {
@@ -265,6 +315,7 @@ function Get-DomeniaWidgetPauseText {
         'Card' { return 'Widget suspendu : il nʼest plus calculé ; la fiche du poste reste lue à son ouverture.' }
         'BitLocker' { return 'Mesure suspendue : la présence des clés BitLocker nʼest plus lue pour ce widget.' }
         'Software' { return 'Widget suspendu : il nʼest plus calculé ; la liste des logiciels reste commune.' }
+        'WmiDetail' { return 'Mesure suspendue : la requête WMI mémorisée de ce widget nʼest plus relancée.' }
     }
     return 'Widget suspendu : il nʼest plus calculé.'
 }
@@ -299,7 +350,7 @@ function Format-DomeniaWidgetCollectProgress {
     # Planning: the run checks the stored measurements of each workstation before any network read (Done of Total
     # checked, Fresh already answered). Waiting: queued behind the recalculation of the OU that the previous run
     # started; the collection context is refused until the new snapshot is drawn.
-    param([ValidateSet('Queued','Waiting','Preparing','Planning','Confirming','Running','Inventory','Directory','BitLocker','Card','Software','Local')][string]$Phase,[int]$Done = 0,[int]$Total = 0,[int]$Fresh = 0,[int]$Failed = 0)
+    param([ValidateSet('Queued','Waiting','Preparing','Planning','Confirming','Running','Inventory','Directory','BitLocker','Card','Software','Local','WmiDetail')][string]$Phase,[int]$Done = 0,[int]$Total = 0,[int]$Fresh = 0,[int]$Failed = 0)
     switch ($Phase) {
         'Queued' { return 'En file : démarre après le relevé en cours.' }
         'Waiting' { return 'En file : en attente du recalcul de lʼOU.' }
@@ -322,6 +373,7 @@ function Format-DomeniaWidgetCollectProgress {
         'Card' { return 'Relecture de la fiche en cours…' }
         'Software' { return 'Lecture des logiciels en cours…' }
         'Local' { return 'Recalcul local en cours…' }
+        'WmiDetail' { return 'Relecture de la requête WMI mémorisée…' }
     }
     return ''
 }
@@ -404,12 +456,12 @@ function Get-DomeniaWidgetExplanation {
     if (-not $Criteria) { $Criteria = 'Non documentés pour ce widget.' }
     if (-not $Exclusions) { $Exclusions = 'Non documentées pour ce widget.' }
     $kind = [string](Get-DomeniaMember $Need 'Kind' '')
-    if ($kind -eq 'Remote') { $Exclusions += ' Relevés de plus de ' + [string]([Math]::Max(1, $MaxAgeDays)) + ' jours ignorés.' }
+    if ($kind -in @('Remote','WmiDetail')) { $Exclusions += ' Relevés de plus de ' + [string]([Math]::Max(1, $MaxAgeDays)) + ' jours ignorés.' }
     $value = [string](Get-DomeniaMember $Entry 'Value' '')
     $detail = [string](Get-DomeniaMember $Entry 'Detail' '')
     $shown = if ($null -eq $Entry) { 'Aucune valeur : ce widget nʼa pas encore de donnée.' } elseif (($value) -and ($detail)) { $value + ' · ' + $detail } elseif ($value) { $value } elseif ($detail) { $detail } else { 'Valeur vide.' }
     $dates = if ($ComputedAtUtc -is [datetime]) { 'Calcul local du ' + $ComputedAtUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm', [Globalization.CultureInfo]::InvariantCulture) + '.' } else { 'Date de calcul non conservée.' }
-    if ($kind -in @('Remote','ComputerInventory','Directory','Card','BitLocker','Software')) { $dates += ' Chaque mesure garde la date de sa collecte ; un recalcul ne la rajeunit pas.' }
+    if ($kind -in @('Remote','WmiDetail','ComputerInventory','Directory','Card','BitLocker','Software')) { $dates += ' Chaque mesure garde la date de sa collecte ; un recalcul ne la rajeunit pas.' }
     # $listMode, never $members: PowerShell names ignore case and -Members is a validated parameter.
     $listMode = if ($Members) { $Members } elseif ($TargetCount -ge 0) { 'Exact' } else { 'None' }
     if (($listMode -eq 'Exact') -and ($TargetCount -lt 0)) { $listMode = 'None' }
@@ -437,18 +489,21 @@ function Get-DomeniaWidgetExplanation {
 function Get-DomeniaWidgetSourceFamilies {
     # Source families of the displayed information, not the time its chart was drawn.
     param($Need)
+    $detailCarried = (@(Get-DomeniaMember $Need 'DetailKeys' @()).Count -gt 0)
     switch ([string]$Need.Kind) {
-        'Directory' { return 'AD' }
-        'Card' { return 'AD' }
+        'Directory' { if ($detailCarried) { return @('AD','WmiDetail') }; return 'AD' }
+        'Card' { if ($detailCarried) { return @('AD','WmiDetail') }; return 'AD' }
         'BitLocker' { return 'BitLocker' }
         'Software' { return 'Software' }
         'ComputerInventory' { return 'ComputerInventory' }
+        'WmiDetail' { if ($Need.Directory) { return @('AD','WmiDetail') }; return 'WmiDetail' }
         'Remote' {
             if ($Need.Directory) { 'AD' }
             if ($Need.Ping) { 'Ping' }
             if ($Need.Console) { 'Console' }
             if ($Need.Inventory) { 'Inventory' }
             if (@($Need.ProbeIds).Count) { 'Probe' }
+            if ($detailCarried) { 'WmiDetail' }
             return
         }
         'Local' {
@@ -486,4 +541,26 @@ function Format-DomeniaWidgetDataDates {
     if (-not $lines.Count) { $lines.Add('Source inconnue · non daté') }
     $text=$lines.ToArray() -join "`n"
     return [pscustomobject]@{Text=$text;Detail=('Dates des données conservées, par source. Une tentative en échec ne les remplace pas.'+"`n"+$text)}
+}
+function Get-DomeniaWidgetDetailClocks {
+    # Real commit clocks of the saved WMI reads (detail:* fields) among the DataSources rows the board already
+    # holds (Measure-DomeniaQueryCoverage): oldest, newest and unread count over every saved-read clock. Rows
+    # are matched by the label Get-DomeniaQueryTimestampSource gives to detail clocks; nothing is read here.
+    # $null when no row carries a date: the footer then honestly says « non daté », never a fabricated date.
+    param([object[]]$Rows = @(),[string[]]$DetailKeys = @())
+    $keys = @($DetailKeys | Where-Object { [string]$_ -cmatch '^[0-9a-f]{64}$' })
+    if (-not $keys.Count) { return $null }
+    $label = [string](Get-DomeniaQueryTimestampSource ('_at:detail:' + [string]$keys[0])).Label
+    if (-not $label) { return $null }
+    $oldest = $null; $newest = $null; $missing = 0; $dated = $false
+    foreach ($row in @($Rows)) {
+        if ([string](Get-DomeniaMember $row 'Source' '') -cne $label) { continue }
+        $o = ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $row 'OldestUtc')
+        $n = ConvertTo-DomeniaUtcDate (Get-DomeniaMemberValue $row 'NewestUtc')
+        $missing += [int](Get-DomeniaMember $row 'Missing' 0)
+        if ($null -ne $o) { $dated = $true; if (($null -eq $oldest) -or ($o -lt $oldest)) { $oldest = $o } }
+        if ($null -ne $n) { $dated = $true; if (($null -eq $newest) -or ($n -gt $newest)) { $newest = $n } }
+    }
+    if (-not $dated) { return $null }
+    return [pscustomobject]@{ OldestUtc = $oldest; NewestUtc = $newest; Missing = $missing }
 }

@@ -1,0 +1,8 @@
+{
+    "Native":  "1568 native assertions passed",
+    "QueryAssertions":  93,
+    "PowerShell":  "5.1.26100.6584",
+    "Machine":  "W11-01",
+    "NetworkUsed":  false,
+    "Success":  true
+}

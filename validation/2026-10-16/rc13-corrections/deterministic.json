@@ -1,0 +1,18 @@
+{
+    "PowerShell":  "5.1.26100.6584",
+    "PSEdition":  "Desktop",
+    "Machine":  "W11-01",
+    "Is64BitProcess":  true,
+    "Builds":  [
+                   {
+                       "Name":  "Domenia.Native.dll",
+                       "Sha256":  "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+                       "TwoBuildsIdentical":  true
+                   },
+                   {
+                       "Name":  "M4D.Admin.Common.Query.dll",
+                       "Sha256":  "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+                       "TwoBuildsIdentical":  true
+                   }
+               ]
+}

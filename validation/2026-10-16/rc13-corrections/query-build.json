@@ -1,0 +1,15 @@
+{
+  "Path": "C:\\DomeniaLab\\d120-rc13-build\\out\\a\\M4D.Admin.Common.Query.dll",
+  "SHA256": "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+  "Sources": [
+    {
+      "Name": "QueryEngine.cs",
+      "SHA256": "4EE562B205EB761E0C7F1FE1C1E4E45B7A2D0751B45C8B6F59CCDE28338F474E"
+    }
+  ],
+  "TargetFramework": "net472",
+  "Deterministic": true,
+  "CompilerSHA256": "C9B43DB498213E8E8CA5D7E03A25DEFDDA2031D5E025553B8EB9773F79EBD226",
+  "CompilerVersion": "4.800.23.55801",
+  "PowerShell": "5.1.26100.6584"
+}
