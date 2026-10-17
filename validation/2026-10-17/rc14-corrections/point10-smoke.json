@@ -1,0 +1,10 @@
+{
+  "Suite": "Point10-transport-provenance",
+  "Environment": "pwsh7 Linux, non qualifiant",
+  "Executed": "2026-10-17T19:36:11.5301686+02:00",
+  "Total": 1,
+  "Assertions": 9,
+  "Passed": true,
+  "Failed": 0,
+  "Failures": []
+}

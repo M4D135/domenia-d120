@@ -1251,6 +1251,9 @@ try {
 
     Test-Case 'P-CD-09 : contexte d association en echec, champs dits illisibles et jamais vides' {
         . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Refresh-AssociationContext'})[0].Extent.Text)))
+        # Point 9: the context reads the identity note helper of the core (Relations.Model is not loaded here;
+        # the fixtures use no GUID, so the note stays empty and Test-DomeniaLinkIdentity is never reached).
+        . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Get-DomeniaLinkIdentityNote'})[0].Extent.Text)))
         $savedSelection=$script:SelectedObject;$savedControls=$script:Ctrl
         $logs=New-Object 'System.Collections.Generic.List[string]'
         function Write-AppLog {param($Text,$Level='INFO') $logs.Add(([string]$Level)+' '+[string]$Text)}

@@ -17481,19 +17481,31 @@ $rows=foreach($l in @($Payload.Links)) {
 
 
 
+function Get-DomeniaLinkIdentityNote {
+    # Point 9: the rule of the fiche (Fill-ComputerObject) applied to every view that shows an association. A legacy
+    # link without a stored GUID whose identity cannot be established on the displayed object is announced, never
+    # presented as an ordinary association. Without the GUID of the object nothing is claimed either way.
+    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
+    if (-not $Guid) { return '' }
+    if ((Test-DomeniaLinkIdentity -Link $Link -Kind $Kind -Guid $Guid -CreatedUtc $CreatedUtc).Match -ne 'Unknown') { return '' }
+    return ' · identité non vérifiable'
+}
+
 function Get-AssociationForRow {
     param($Row)
     if ($null -eq $Row) { return "" }
     try {
         switch ([string]$Row.Type) {
             "Machine" {
-                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')) | Select-Object -First 1)
-                if ($link.Count -gt 0) { return [string]$link[0].UserLogin }
+                $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
+                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid $rowGuid | Select-Object -First 1)
+                if ($link.Count -gt 0) { return ([string]$link[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $link[0] -Kind 'Computer' -Guid $rowGuid)) }
                 return "Non detecte"
             }
             "Utilisateur" {
-                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
-                if ($links.Count -gt 0) { return (($links | ForEach-Object { [string]$_.Computer }) -join ", ") }
+                $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
+                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid $rowGuid)
+                if ($links.Count -gt 0) { return (($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) }) -join ", ") }
                 return "Aucun poste"
             }
             default { return "" }
@@ -17505,13 +17517,18 @@ function Get-AssociationForRow {
 function Get-SelectedAssociationSummary {
     if ($null -eq $script:SelectedObject) { return "Aucun objet selectionne" }
     try {
+        # Point 9: identity of the displayed object (GUID, and whenCreated once its AD fiche was read); the same rule
+        # as the fiche. whenCreated is only read from the entry already loaded, never fetched again here.
+        $selectedGuid = [string](Get-DomeniaMember $script:SelectedObject 'Guid' '')
+        $selectedEntry = Get-DomeniaMemberValue $script:SelectedObject 'Entry'
+        $selectedCreated = if ($null -ne $selectedEntry) { Get-DeProp $selectedEntry "whenCreated" $null } else { $null }
         if ($script:SelectedObject.Type -eq "Machine") {
             $computer = ""
             try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
             if ([string]::IsNullOrWhiteSpace($computer)) { $computer = [string]$script:SelectedObject.Name }
             # P-CD-09: without a name to look up, "no link" would be a guess.
             if ([string]::IsNullOrWhiteSpace($computer)) { return "Association indisponible" }
-            $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
+            $links = @(Get-LinksForComputer -Computer $computer -Guid $selectedGuid -CreatedUtc $selectedCreated)
             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
             $l = $links[0]
             $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
@@ -17519,15 +17536,15 @@ function Get-SelectedAssociationSummary {
             $whenText = ''
             if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
             if (-not $whenText) { $whenText = [string]$l.When }
-            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText"
+            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText$(Get-DomeniaLinkIdentityNote -Link $l -Kind 'Computer' -Guid $selectedGuid -CreatedUtc $selectedCreated)"
         }
         if ($script:SelectedObject.Type -eq "Utilisateur") {
             $user = ""
             try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
             if ([string]::IsNullOrWhiteSpace($user)) { return "Association indisponible" }
-            $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
+            $links = @(Get-LinksForUser -UserLogin $user -Guid $selectedGuid -CreatedUtc $selectedCreated)
             if ($links.Count -eq 0) { return "Aucun poste lie" }
-            return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]" }) -join ", ")
+            return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]$(Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $selectedGuid -CreatedUtc $selectedCreated)" }) -join ", ")
         }
     }
     catch { return "Association indisponible" }
@@ -17654,13 +17671,16 @@ function Sync-DomeniaLinksAgainstIndex {
 function Get-DomeniaIndexAssociationText {
     param($Row)
     if ($null -eq $Row) { return "" }
+    # Point 9: same identity rule as the fiche: a link whose identity cannot be established on the displayed
+    # object is announced, never shown as an ordinary association.
+    $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
     if ([string]$Row.Type -eq "Machine") {
-        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
-        return (@($links | ForEach-Object { [string]$_.UserLogin } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid $rowGuid)
+        return (@($links | ForEach-Object { [string]$_.UserLogin + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'Computer' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
     }
     if ([string]$Row.Type -eq "Utilisateur") {
-        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
-        return (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid $rowGuid)
+        return (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
     }
     return ""
 }
@@ -17720,9 +17740,11 @@ function Set-RowAssociationMetadata {
                 $computerKey = [string]$row.UPN
                 if ([string]::IsNullOrWhiteSpace($computerKey)) { $computerKey = [string]$row.Name }
 
-                $links = @(Get-LinksForComputer -Computer $computerKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
+                # Point 9: the grid column carries the identity note of the fiche, never a silent Unknown.
+                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
+                $links = @(Get-LinksForComputer -Computer $computerKey -Guid $rowGuid)
                 if ($links.Count -gt 0) {
-                    $association = [string]$links[0].UserLogin
+                    $association = [string]$links[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $links[0] -Kind 'Computer' -Guid $rowGuid)
                     $source = [string]$links[0].Source
                     $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0]).Value } else { [string]$links[0].Confidence }
                 }
@@ -17731,9 +17753,10 @@ function Set-RowAssociationMetadata {
                 $userKey = [string]$row.Login
                 if ([string]::IsNullOrWhiteSpace($userKey)) { $userKey = [string]$row.Name }
 
-                $links = @(Get-LinksForUser -UserLogin $userKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
+                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
+                $links = @(Get-LinksForUser -UserLogin $userKey -Guid $rowGuid)
                 if ($links.Count -gt 0) {
-                    $association = (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+                    $association = (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
                     if ($qualify) {
                         $bestLink = Select-DomeniaBestLink $links
@@ -17940,7 +17963,8 @@ function Refresh-AssociationContext {
             if ($links.Count -gt 0) {
                 $link = $links[0]
                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
-                $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
+                # Point 9: the fiche rule — a link whose identity cannot be established on this object is announced.
+                $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source + (Get-DomeniaLinkIdentityNote -Link $link -Kind 'Computer' -Guid $selectedGuid -CreatedUtc $selectedCreated)
                 $script:Ctrl["TxtCompLinkConfidence"].Text = if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { [string](Get-DomeniaLinkQualification $link).Value } else { [string]$link.Confidence }
                 # CO-29: local time of the stored UTC date.
                 $whenText = ''
@@ -17958,12 +17982,15 @@ function Refresh-AssociationContext {
             $user = [string]$script:Ctrl["TxtUserSam"].Text
             $links = @(Get-LinksForUser -UserLogin $user -Guid $selectedGuid -CreatedUtc $selectedCreated)
             $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
+            # Point 9: the summary names the links whose identity cannot be established on this account; the
+            # selection list keeps the plain computer names.
+            $annotatedComputers = @($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $selectedGuid -CreatedUtc $selectedCreated) } | Where-Object { $_ } | Sort-Object -Unique)
             if ($script:Ctrl.ContainsKey("TxtUserLinkedComputers")) {
                 [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)
                 if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
             }
             if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) {
-                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($computers -join ', ')" } else { "Aucun poste associé." }
+                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($annotatedComputers -join ', ')" } else { "Aucun poste associé." }
             }
         }
         $linksShown = $true
@@ -19000,7 +19027,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.16-DOMENIA-1.0-RC1.17.13-D120"
+$script:MasterBuild = "2026.10.17-DOMENIA-1.0-RC1.17.14-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20237,7 +20264,7 @@ function Get-DomeniaWorkerOperationHashes {
         StoragePurge          = "3E285BB874DC266193EA3FE482296A530B2E1798EA69B1D769D60EC2ABB23A77"
         StorageBackup         = "83ECFC725301BEDECC8C64D6C0C9F9B7875D092DA463E4CBA4ADB55A8BD84732"
         ComputerAdminShare    = "43EB4F830D0B312D6AD7EC8B49876F92E0B62A693AF27BFCD111BD6BC983A5F2"
-        StorageUsage          = "4C1DE3C70A0A4E973D6D39785BFB44C281D388AD62A305F4C99B8490F4C2811B"
+        StorageUsage          = "C3634994581554CC7F929D7F9466C529ED2BBF818D599AB8825DED6123A5530E"
         LegacyMigration       = "90D5AAB12192741A9389B72403687EC2BE141DE2E46EA2B15A93E47818C851BA"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
@@ -20290,8 +20317,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
-        LiveSelectedPing     = "775826B6402F99110E39DB0AA21E65BEEA3E533058BF0B975BBF7A2841CA4D98"
-        LiveConsole          = "775826B6402F99110E39DB0AA21E65BEEA3E533058BF0B975BBF7A2841CA4D98"
+        LiveSelectedPing     = "1E70775602B096568960822143DD98C0837656A6F06A3F99F3380B5FA75C964C"
+        LiveConsole          = "1E70775602B096568960822143DD98C0837656A6F06A3F99F3380B5FA75C964C"
         LiveCache            = "F3E4F0737A07D087A9059CE868A6F901E0A03532E48849573793BF27735A221E"
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20299,7 +20326,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "E66D921289FD2A2FA12D20BD07F6C2EA9BEDE1EE0AEACDA5207860205A295614"
+        LocalStore           = "DAA5DD659D08F463F15C0FDCCE6EE13ED0E8189FC65CCBD914E195E4C2D534DC"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
@@ -20335,7 +20362,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "D02ABBBBEAE078A82905A1266F1F2FFF32AFC149A461BE048E62B471AB305D1C"
+    $expectedFingerprint = "972AFB693CBBAE32B0E039E27BFF5A7CEA6F02B66B00A9222EB040C27771C7A2"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25933,7 +25960,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.16-DOMENIA-1.0-RC1.17.13-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.17-DOMENIA-1.0-RC1.17.14-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

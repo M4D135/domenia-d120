@@ -94,7 +94,7 @@ function ConvertTo-DomeniaLiveObservation {
         Guid=Get-DomeniaLiveField $Result 'Guid'; Outcome=$outcome
         CurrentUser=$(if($outcome -eq 'Observed'){$user}else{''})
         LastUser=$last; ObservedUtc=$lastAt; CheckedUtc=$NowUtc; UserCheckedUtc=$userChecked
-        LastSource=$lastSource; Source=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Source'}else{Get-DomeniaLiveField $Result 'Source'}); Detail=$detail
+        LastSource=$lastSource; Source=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Source'}else{Get-DomeniaLiveField $Result 'Source'}); Transport=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Transport'}else{Get-DomeniaLiveField $Result 'Transport'}); IdentityState=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'IdentityState'}else{Get-DomeniaLiveField $Result 'IdentityState'}); Detail=$detail
         Presence=$presence;PresenceCheckedUtc=$presenceAt;PresenceDetail=$presenceDetail
         LinkUser=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'LinkUser'}else{Get-DomeniaLiveField $Result 'LinkUser'}); UserDn=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserDn'}else{Get-DomeniaLiveField $Result 'UserDn'}); UserGuid=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserGuid'}else{Get-DomeniaLiveField $Result 'UserGuid'})
         DirectoryAuthRejected=((Get-DomeniaLiveField $Result 'DirectoryAuthRejected') -eq 'True')
@@ -126,8 +126,18 @@ function Get-DomeniaLiveObservationView {
     $failure=Get-DomeniaLiveField $Observation 'ConsoleError'
     $attemptLine="Dernière tentative UTC : $attempt"
     if(Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $checked -ErrorText $failure){$attemptLine+=", non confirmée : $failure`r`nDernière lecture réussie UTC : $(if($checked){$checked}else{'aucune'}), conservée"}
-    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
-    [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=Get-DomeniaLiveField $Observation 'Source'}
+    # Point 10: the transport shown is the one that really executed a read; absent data stays unknown.
+    $transport=Get-DomeniaLiveField $Observation 'Transport'
+    $transportLine=if($transport){'Transport : '+$transport}else{'Transport : inconnu (donnée ancienne ou lecture non confirmée)'}
+    $source=Get-DomeniaLiveField $Observation 'Source'
+    $sourceLine=if($source){'Source : '+$source}else{'Source : inconnue'}
+    # Point 127: the identity of the responder is its own explicit state, never inferred from the ICMP presence.
+    $identity=Get-DomeniaLiveField $Observation 'IdentityState'
+    if($identity -eq 'Vérifiée'){$identityLine='Identité du poste : confirmée par la lecture CIM'}
+    elseif($identity -eq 'Incohérente'){$identityLine='Identité du poste : incohérente · un autre poste a répondu, aucune donnée de cette lecture nʼest attribuée'}
+    else{$identityLine='Identité du poste : inconnue (donnée ancienne ou identité non vérifiable)'}
+    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`n$transportLine`r`n$sourceLine`r`n$identityLine`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
+    [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=$source;Transport=$transport;Identity=$identity}
 }
 function Test-DomeniaLiveAttemptAfter {
     # True when a failed attempt is newer than the last success (or no success exists). Unreadable dates are not newer.
@@ -252,7 +262,8 @@ function Get-DomeniaLiveProbeCode {
     $body = @'
 $target=[string]$Payload.Computer
 if($target.Length -gt 253 -or $target -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$'){throw 'Cible distante invalide.'}
-$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';IdentityCheckedUtc='';CacheReused=$false;DirectoryAuthRejected=$false}
+# Point 10: no transport is asserted before a read. Transport is set only when a CIM read really returned.
+$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='';Transport='';IdentityState='';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';IdentityCheckedUtc='';CacheReused=$false;DirectoryAuthRejected=$false}
 $cim=$null;$ping=$null;$authLease=$null
 $collectPing=($null -eq $Payload.PSObject.Properties['CollectPing'] -or [bool]$Payload.CollectPing)
 $probeUser=($null -eq $Payload.PSObject.Properties['ProbeUser'] -or [bool]$Payload.ProbeUser)
@@ -292,23 +303,32 @@ function Get-NativeCode($ErrorValue){
 # The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
 # carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
 # matches the target in either form; a mismatch is stated only when none does.
-function Get-LiveHostMismatch($Target,$System){
+function Get-LiveHostIdentityCheck($Target,$System){
+    # Point 127: the same rule as Get-LiveHostMismatch, with the extra answer the caller needs — was a comparison
+    # possible at all ('Comparable'). A verified identity and an unverifiable one must not be recorded alike.
     $wanted=([string]$Target).Trim().TrimEnd('.')
-    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
+    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return @{Comparable=$false;Mismatch=''}}
     $short=$wanted.Split('.')[0];$dns='';$name=''
     if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
     if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
-    if((-not $dns) -and (-not $name)){return ''}
+    if((-not $dns) -and (-not $name)){return @{Comparable=$false;Mismatch=''}}
     $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
     if($dns){
         $label=$dns.Split('.')[0]
-        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
+        if(($label -ieq $short) -or ($label -ieq $netbios)){return @{Comparable=$true;Mismatch=''}}
         # A cn target holds the cut NetBIOS form of a longer host name.
-        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
+        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return @{Comparable=$true;Mismatch=''}}
     }
-    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
+    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return @{Comparable=$true;Mismatch=''}}
     $reported=$name;if($dns){$reported=$dns}
-    return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
+    return @{Comparable=$true;Mismatch=('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')}
+}
+function Get-LiveHostMismatch($Target,$System){return [string](Get-LiveHostIdentityCheck $Target $System).Mismatch}
+function Set-LiveIdentityMismatch{
+    # Point 127: a confirmed mismatch is an identity state, never a network state. The raw ICMP fact stays
+    # (this address answered) but is no longer presented beside a verified identity of the workstation.
+    $answer.IdentityState='Incohérente'
+    if([string]$answer.Presence -like 'En ligne*'){$answer.PresenceDetail=[string]$answer.PresenceDetail+' · le ping prouve seulement que cette adresse répond : identité du poste contredite, présence conservée comme fait brut.'}
 }
 # Ping is an independent collection. A WMI-only request never sends ICMP.
 if($collectPing){
@@ -380,6 +400,8 @@ function Invoke-WSharedRead([string]$Key,[string]$ClassName,[string]$Filter,[str
             $instance=@(Get-CimInstance @query)[0]
         }
     }finally{Step-WReadProgress}
+    # Point 10: this read returned over the session opened above; the executed transport is CIM/DCOM.
+    $answer.Transport='CIM/DCOM'
     if($null -ne $instance){$preRead[$Key]=[pscustomobject]@{Instance=$instance;Properties=@($all);At=[datetime]::UtcNow.ToString('o')}}
     return $instance
 }
@@ -421,9 +443,13 @@ try{
             $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' $csProperties
             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
             if($null -eq $system){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
-            $hostMismatch=Get-LiveHostMismatch $target $system
-            if($hostMismatch){$system=$null;throw $hostMismatch}
+            $identityCheck=Get-LiveHostIdentityCheck $target $system
+            $hostMismatch=[string]$identityCheck.Mismatch
+            if($hostMismatch){$system=$null;Set-LiveIdentityMismatch;throw $hostMismatch}
+            if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
             $answer.User=([string]$system.UserName).Trim()
+            # Point 10: the account comes from this confirmed Win32_ComputerSystem.UserName read.
+            $answer.Source='CIM/DCOM · Win32_ComputerSystem.UserName'
             $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
         }catch{
             # Another workstation answered: nothing of this session is attributed (outer catch).
@@ -446,8 +472,10 @@ try{
             if($null -eq $system){
                 $cimStats.Consumers++
                 $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' @('Manufacturer','Model','TotalPhysicalMemory','Name','DNSHostName')
-                $hostMismatch=Get-LiveHostMismatch $target $system
-                if($hostMismatch){$system=$null;throw $hostMismatch}
+                $identityCheck=Get-LiveHostIdentityCheck $target $system
+                $hostMismatch=[string]$identityCheck.Mismatch
+                if($hostMismatch){$system=$null;Set-LiveIdentityMismatch;throw $hostMismatch}
+                if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
             }
             $disk=Invoke-WSharedRead $diskKey 'Win32_LogicalDisk' "DeviceID='C:'" @('Size','FreeSpace')
             if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
@@ -457,6 +485,19 @@ try{
     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
     # namespace, property names and a filter come from the catalog; names are checked before the call.
     if($collectProbes){
+        # Point 127: probes alone must not be attributed to the target without an identity check either. Reuse the
+        # console or inventory read when it already verified the responder; otherwise read the responder names first,
+        # on the same session and through the shared read (a catalog probe of Win32_ComputerSystem reuses it).
+        # A confirmed mismatch refuses every probe value; an impossible comparison keeps the former behaviour
+        # (identity not verified, not refused).
+        if($null -eq $system){
+            $cimStats.Consumers++
+            $identitySystem=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' @('Name','DNSHostName')
+            $identityCheck=Get-LiveHostIdentityCheck $target $identitySystem
+            $hostMismatch=[string]$identityCheck.Mismatch
+            if($hostMismatch){Set-LiveIdentityMismatch;throw $hostMismatch}
+            if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
+        }
         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
         $probeResults=[ordered]@{}
         $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
@@ -477,7 +518,7 @@ try{
                 if(-not $properties.Count){throw 'Aucune propriete valide pour cette sonde : lecture refusee.'}
                 # Do not walk controller providers, and do not merge their properties into another probe.
                 if([string]$probe.Skip -eq 'DomainController'){
-                    if(-not $productTypeRead){$productTypeRead=$true;$cimStats.Executed++;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;Step-WReadProgress;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
+                    if(-not $productTypeRead){$productTypeRead=$true;$cimStats.Executed++;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;$answer.Transport='CIM/DCOM';Step-WReadProgress;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
                     if($null -eq $productType){throw 'Type de systeme non lu : requete ignoree par prudence.'}
                     if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
                 }
@@ -522,6 +563,8 @@ try{
                         }
                     }
                     $cached.Items=$details.ToArray();$cached.Count=$instanceCount;$cached.EnumerationComplete=$true
+                    # Point 10: the enumeration returned over the session; the executed transport is CIM/DCOM.
+                    $answer.Transport='CIM/DCOM'
                 }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$cached.Error=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};Step-WReadProgress}
                 $cached.At=[datetime]::UtcNow.ToString('o')
             }

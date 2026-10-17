@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-[CmdletBinding()]param([string]$ReportPath='')
+[CmdletBinding()]param([string]$ReportPath='',[string]$CaseFilter='')
 $ErrorActionPreference='Stop';Set-StrictMode -Version 2
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -9,7 +9,7 @@ $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
 foreach($n in @('Common.Model','HealthRules.Model','HealthRules.UI','Boards.Model','BoardFleet.Model')){. (Join-Path $modules ('Domenia-'+$n+'.ps1'))}
 $checks=[Collections.Generic.List[object]]::new();$domain='DC=example,DC=invalid';$scope='OU=Fleet,'+$domain;$alpha='OU=Alpha,'+$scope;$beta='OU=Beta,'+$scope;$now=([datetime]'2026-10-13T12:00:00Z').ToUniversalTime()
 function Expect($ok,$why){if(-not $ok){throw $why}}
-function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
+function Case($name,[scriptblock]$body){if($CaseFilter -and ($name -notmatch $CaseFilter)){return};try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 function Throws([scriptblock]$body){$thrown=$false;try{&$body|Out-Null}catch{$thrown=$true};Expect $thrown 'Expected rejection'}
 function New-PolicyBook([string]$Only='lowdisk'){
  $policy=ConvertTo-DomeniaHealthPolicy @{DisabledRules=@(Get-DomeniaHealthRuleCatalog|Where-Object{$_.Id -ne $Only}|ForEach-Object{$_.Id})}
@@ -96,7 +96,26 @@ Case 'Point 78: a daily comparison names a coverage improvement, not a fleet cha
  $comparison=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Label='Veille';Day='2026-10-13';Figures=$one.Snapshot.Figures}) ([pscustomobject]@{Label='Jour';Day='2026-10-14';Figures=$two.Snapshot.Figures})
  Expect (($comparison.Category -eq 'Couverture') -and (-not $comparison.Comparable)) ('Coverage change read as '+$comparison.Category)
  Expect ($comparison.Summary.StartsWith('Amélioration de la couverture')) $comparison.Summary
- Expect (@($comparison.Factors|Where-Object{($_.Factor -eq 'Périmètre') -and ($_.Status -eq 'Inchangé')}).Count -eq 1) 'Same GUID population reported as changed'
+  Expect (@($comparison.Factors|Where-Object{($_.Factor -eq 'Périmètre') -and ($_.Status -eq 'Inchangé')}).Count -eq 1) 'Same GUID population reported as changed'
+}
+Case 'RC14 Point 78: the policy fingerprint ignores expired suspensions, stays honest across formats and keeps active edits visible' {
+ $base=New-PolicyBook
+ $pA=Resolve-DomeniaHealthPolicy $base $beta;$pA.Thresholds.DiskFreeAlert=20;$pA.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance planifiée';UntilUtc=$now.AddHours(-1).ToString('o')});$bookA=Set-DomeniaHealthScopePolicy $base $beta $pA
+ $pB=Resolve-DomeniaHealthPolicy $base $beta;$pB.Thresholds.DiskFreeAlert=20;$pB.Suspensions=@();$bookB=Set-DomeniaHealthScopePolicy $base $beta $pB
+ Expect ((Board $bookA).Snapshot.Figures.PolicyHash -ceq (Board $bookB).Snapshot.Figures.PolicyHash) 'Purging an expired suspension read as rules changed'
+ $pC=Resolve-DomeniaHealthPolicy $base $beta;$pC.Thresholds.DiskFreeAlert=20;$pC.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance planifiée';UntilUtc=$now.AddHours(1).ToString('o')});$boardC=Board (Set-DomeniaHealthScopePolicy $base $beta $pC)
+ $pD=Resolve-DomeniaHealthPolicy $base $beta;$pD.Thresholds.DiskFreeAlert=20;$pD.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance étendue';UntilUtc=$now.AddHours(1).ToString('o')});$boardD=Board (Set-DomeniaHealthScopePolicy $base $beta $pD)
+ $figC=$boardC.Snapshot.Figures;$figD=$boardD.Snapshot.Figures
+ Expect ($figC.PolicyHash -cne $figD.PolicyHash) 'Active suspension edit invisible in the policy fingerprint'
+ $cmpEdit=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Figures=$figC}) ([pscustomobject]@{Figures=$figD})
+ Expect ((@($cmpEdit.Factors|Where-Object{$_.Factor -eq 'Règles'})[0].Status -eq 'Modifié') -and ($cmpEdit.Category -eq 'Règles')) ('Active suspension edit not named a rules change: '+$cmpEdit.Category)
+ Expect ([int]$figC.FormatVersion -eq 3) 'Snapshot FormatVersion is not 3'
+ $old=$figC|ConvertTo-Json -Depth 8|ConvertFrom-Json
+ $old|Add-Member -NotePropertyName FormatVersion -NotePropertyValue 2 -Force
+ $old|Add-Member -NotePropertyName PolicyHash -NotePropertyValue (Get-DomeniaHealthFingerprint @('legacy-token-hashing-all-suspensions')) -Force
+ $cmpFormat=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Label='Ancien';Figures=$old}) ([pscustomobject]@{Label='Neuf';Figures=$figC})
+ $regles=@($cmpFormat.Factors|Where-Object{$_.Factor -eq 'Règles'})[0]
+ Expect (($regles.Status -eq 'Inconnu') -and ($cmpFormat.Category -eq 'Limitée') -and (@($cmpFormat.Limits|Where-Object{$_ -like '*format différent*'}).Count -eq 1)) ('Format drift read as '+$regles.Status+'/'+$cmpFormat.Category)
 }
 Case 'Point 79: every fleet cross table opens as a matrix whose totals match its workstations' {
  $board=Board (New-PolicyBook)

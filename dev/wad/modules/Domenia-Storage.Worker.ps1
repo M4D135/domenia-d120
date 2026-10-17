@@ -304,7 +304,7 @@ function Get-StoreWObservationSummaryJson {
         foreach($field in @('Instances','Schema','RawJson')){if($entry.Contains($field)){[void]$entry.Remove($field)}}
         $probes=[ordered]@{};$probes[$id]=[pscustomobject]$entry;$result.Probes=[pscustomobject]$probes
     }else{
-        foreach($field in @('Computer','Presence','PresenceDetail','PresenceCheckedUtc','Outcome','User','ConsoleAccount','LinkUser','UserGuid','UserDn','UserUsn','ConsoleVerifiedAD','IdentityVerifiedUtc','IdentityCheckedUtc','Detail','Source','CheckedUtc','DirectoryAuthRejected','InventoryError','InventoryAttemptUtc','LastUser','RawAccount','CurrentUser','ConsoleError')){if($null -ne $Data.PSObject.Properties[$field]){$result[$field]=$Data.$field}}
+        foreach($field in @('Computer','Presence','PresenceDetail','PresenceCheckedUtc','Outcome','User','ConsoleAccount','LinkUser','UserGuid','UserDn','UserUsn','ConsoleVerifiedAD','IdentityVerifiedUtc','IdentityCheckedUtc','Detail','Source','Transport','IdentityState','CheckedUtc','DirectoryAuthRejected','InventoryError','InventoryAttemptUtc','LastUser','RawAccount','CurrentUser','ConsoleError')){if($null -ne $Data.PSObject.Properties[$field]){$result[$field]=$Data.$field}}
         if($null -ne $Data.Inventory){$inventory=[ordered]@{};foreach($field in @('CheckedUtc','Model','Manufacturer','Build','OsCaption','LastBootUtc','RamBytes','DiskSize','DiskFree')){if($null -ne $Data.Inventory.PSObject.Properties[$field]){$inventory[$field]=$Data.Inventory.$field}};$result.Inventory=[pscustomobject]$inventory}
     }
     $json=[pscustomobject]$result|ConvertTo-Json -Depth 16 -Compress
@@ -1512,11 +1512,11 @@ try {
     if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw ('Schema local non pris en charge pour la mesure ('+(Get-DomeniaSqliteSchemaTarget).Label+' requis).')}
     # Every identifier is constant. The payload contributes no table, category, SQL or size estimate.
     $categories=[ordered]@{
-        Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details')
+        Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details','domenia_domain_metadata')
         Snapshots=@('adcc_live_queries')
         History=@('user_machine_history','user_scan_history','operation_runs','fleet_snapshots')
         # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots are local directory data too.
-        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows')
+        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows','domenia_domain_metadata')
         ManualLinks=@('user_machine_links')
         Secrets=@('secret_state')
     }
@@ -1534,19 +1534,32 @@ try {
         # An unavailable optional module is not an estimated distribution of database bytes.
         if($_.Exception.Message -notmatch '(?i)no such (table|module).*dbstat'){throw}
     }
+    # Shared-table family predicates: constants, never derived from payload.
+    $sharedTablePredicates=@{
+        Observations="WHERE family IN ('Presence','Inventory')"
+        Index="WHERE family='Directory'"
+    }
     $usage=New-Object 'System.Collections.Generic.List[object]'
     foreach($category in $categories.Keys){
         $tables=New-Object 'System.Collections.Generic.List[object]';$totalRows=0L;$totalBytes=0L
         foreach($table in $categories[$category]){
             $rows=-1L;$bytes=-1L;$state='Absent'
-            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
+            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows','domenia_domain_metadata') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
             if($existing.ContainsKey($table)){
-                $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
-                $state='Mesure'
-                if($dbstat){
-                    $bytes=0L
-                    foreach($object in @($objects|Where-Object{$_.tbl_name -eq $table})){
-                        if($objectBytes.ContainsKey([string]$object.name)){$bytes+=[long]$objectBytes[[string]$object.name]}
+                if($table -eq 'domenia_domain_metadata'){
+                    # Shared table: dbstat measures whole-table pages, not per-family slices.
+                    # Family-filtered Rows are exact; per-category Bytes stay -1 (unknown).
+                    $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+' '+$sharedTablePredicates[$category]+';') $db)[0].n)
+                    $state='Mesure'
+                    $bytes=-1L
+                } else {
+                    $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
+                    $state='Mesure'
+                    if($dbstat){
+                        $bytes=0L
+                        foreach($object in @($objects|Where-Object{$_.tbl_name -eq $table})){
+                            if($objectBytes.ContainsKey([string]$object.name)){$bytes+=[long]$objectBytes[[string]$object.name]}
+                        }
                     }
                 }
             }

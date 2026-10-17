@@ -319,6 +319,28 @@ try{
    }
   }
  }
+ Case 'RC14 StorageUsage splits domain metadata families, tolerates the old base and never double counts shared bytes' {
+  $p=New-Database 'rc14-usage'
+  Query $p "INSERT INTO domenia_domain_metadata(domain_dn,family,request_key,attempt_at,status,revision) VALUES('dc=test','Presence','p1','2026-01-01T00:00:00Z','Success',7),('dc=test','Presence','p2','2026-01-02T00:00:00Z','Success',7),('dc=test','Inventory','i1','2026-01-03T00:00:00Z','Success',7),('dc=test','Directory','d1','2026-01-04T00:00:00Z','Success',7),('dc=test','AdSchema','s1','2026-01-05T00:00:00Z','Success',7);" -Write
+  $before=Get-TestHash $p
+  $u=Run-Usage $p
+  $obs=@($u.Categories|Where-Object Category -eq Observations)[0]
+  $idx=@($u.Categories|Where-Object Category -eq Index)[0]
+  $obsMeta=@($obs.Tables|Where-Object Table -eq domenia_domain_metadata)
+  $idxMeta=@($idx.Tables|Where-Object Table -eq domenia_domain_metadata)
+  Expect ((@($obsMeta).Count -eq 1) -and (@($idxMeta).Count -eq 1)) 'the shared table is listed once per coherent category'
+  Expect (($obsMeta[0].Rows -eq 3) -and ($idxMeta[0].Rows -eq 1)) ('family split Presence+Inventory/Directory: '+$obsMeta[0].Rows+' and '+$idxMeta[0].Rows)
+  Expect (($obsMeta[0].Bytes -eq -1) -and ($idxMeta[0].Bytes -eq -1) -and ($obs.Bytes -eq -1) -and ($idx.Bytes -eq -1)) 'shared table bytes stay unknown, never counted twice'
+  $sharedRows=@($u.Categories|ForEach-Object{$_.Tables}|Where-Object Table -eq domenia_domain_metadata|ForEach-Object{$_.Rows}|Measure-Object -Sum).Sum
+  Expect ($sharedRows -eq 4) ('the five stored rows are counted once each, the unlisted family in none: '+$sharedRows)
+  Expect ((Get-TestHash $p) -ceq $before) 'the measured base is byte for byte unchanged'
+  Expect ($u.ReadOnly -and ($u.DatabaseBytes -eq (Get-Item -LiteralPath $p).Length)) 'read-only measure reports the real file'
+  $old=New-Database 'rc14-old-base';Query $old 'DROP TABLE domenia_domain_metadata;' -Write
+  Expect ((Query $old "SELECT count(*) n FROM sqlite_master WHERE name='domenia_domain_metadata';")[0].n -eq 0) 'the old base really has no such table'
+  $u=Run-Usage $old
+  $absent=@($u.Categories|ForEach-Object{$_.Tables}|Where-Object Table -eq domenia_domain_metadata)
+  Expect ((@($absent).Count -eq 2) -and (@($absent|Where-Object{($_.Rows -eq 0) -and ($_.Bytes -eq 0) -and ($_.State -ceq 'Absent')}).Count -eq 2)) 'an old base without the table measures zero, not an error'
+ }
 }finally{
  $report=[pscustomobject]@{Suite='StorageMaintenance';Platform=[Environment]::OSVersion.VersionString;PowerShell=$PSVersionTable.PSVersion.ToString();Cases=$cases.ToArray();Total=$cases.Count;Passed=@($cases|Where-Object Passed).Count;Failed=@($cases|Where-Object{-not $_.Passed}).Count;Assertions=$script:checks;NoNetwork=$true;Scope='Temporary SQLite databases; no Active Directory or real-user data.'}
  if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))}

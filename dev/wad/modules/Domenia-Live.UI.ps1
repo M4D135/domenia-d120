@@ -730,7 +730,9 @@ function Fail-DomeniaLiveProbe {
     $at=[string](Get-DomeniaMemberValue $State 'RemoteStartedUtc')
     $probeUser=[bool](Get-DomeniaMemberValue $State 'ProbeUser')
     $outcome=if($Message -match '(?i)timeout|délai|delai'){'Timeout'}else{'Unavailable'}
-    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$(if($probeUser){$outcome}else{'PresenceOnly'});User='';Source='CIM/DCOM';Detail=$Message;Presence='Erreur de ping';PresenceDetail=$Message;PresenceCheckedUtc=$at;ConsoleAttempted=$probeUser;ConsoleCheckedUtc=$(if($probeUser){$at}else{''})}
+    # Point 10: a failed read confirms no transport; Source/Transport stay empty (displayed unknown).
+    # Point 127: a failed read confirms no identity either; IdentityState stays empty (displayed unknown).
+    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$(if($probeUser){$outcome}else{'PresenceOnly'});User='';Source='';Transport='';IdentityState='';Detail=$Message;Presence='Erreur de ping';PresenceDetail=$Message;PresenceCheckedUtc=$at;ConsoleAttempted=$probeUser;ConsoleCheckedUtc=$(if($probeUser){$at}else{''})}
     Complete-DomeniaLiveProbe $result $State
 }
 

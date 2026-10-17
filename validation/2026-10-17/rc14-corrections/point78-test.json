@@ -1,0 +1,15 @@
+{
+  "Suite": "HealthAdvanced",
+  "Passed": true,
+  "Total": 1,
+  "Failed": 0,
+  "WpfExecuted": false,
+  "NetworkUsed": false,
+  "Checks": [
+    {
+      "Name": "RC14 Point 78: the policy fingerprint ignores expired suspensions, stays honest across formats and keeps active edits visible",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

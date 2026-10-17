@@ -1527,7 +1527,9 @@ function Set-DomeniaHealthSnapshotMetadata {
     $policies=@(Get-DomeniaHealthValue $Data 'EffectiveHealthPolicies' @());if(-not $policies.Count){$policies=@([pscustomobject]@{ScopeDn=$Data.Last.Scope;Policy=$Data.HealthPolicy})}
     $policyTokens=[Collections.Generic.List[string]]::new()
     foreach($record in $policies){
-        $p=$record.Policy;$stable=[ordered]@{ScopeDn=([string]$record.ScopeDn).ToLowerInvariant();Thresholds=$p.Thresholds;DisabledRules=@($p.DisabledRules|Sort-Object);CustomRules=@($p.CustomRules|Sort-Object Id);Suspensions=@($p.Suspensions|Sort-Object RuleId);ActiveSuspensions=@($p.Suspensions|Where-Object{$null -ne (Get-DomeniaHealthSuspension $p $_.RuleId)}|ForEach-Object{$_.RuleId}|Sort-Object)}
+        # Point 78: the fingerprint keeps only suspensions active at computation time, with their exact fields, so that
+        # purging an expired suspension no longer reads as "rules changed" while a real rule or active-suspension edit stays detectable.
+        $p=$record.Policy;$stable=[ordered]@{ScopeDn=([string]$record.ScopeDn).ToLowerInvariant();Thresholds=$p.Thresholds;DisabledRules=@($p.DisabledRules|Sort-Object);CustomRules=@($p.CustomRules|Sort-Object Id);ActiveSuspensions=@($p.Suspensions|Where-Object{$null -ne (Get-DomeniaHealthSuspension $p $_.RuleId $NowUtc)}|ForEach-Object{[pscustomobject]@{RuleId=[string]$_.RuleId;Reason=[string]$_.Reason;UntilUtc=[string]$_.UntilUtc}}|Sort-Object RuleId)}
         $policyTokens.Add(($stable|ConvertTo-Json -Depth 8 -Compress))
     }
     $groups=@{};foreach($g in $Data.Last.Groups){$groups[[string]$g.gid]=$g}
@@ -1536,7 +1538,7 @@ function Set-DomeniaHealthSnapshotMetadata {
         $date=[datetime]::MinValue;$logonKnown=[datetime]::TryParseExact([string]$target.logon,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$date) -and $date -le $NowUtc.Date
         $coverage.Add($guid+'|'+[int]$logonKnown+'|'+[int][bool]([string]$g.ver)+'|'+[int][bool]([string]$g.pw)+'|'+[int]($g.lk -in @('O','E','N','X'))+'|'+[int]($g.bk -in @('K','N','X'))+'|'+[int]($null -ne $inventory -and $inventory.Disk)+'|'+[int]($null -ne $inventory -and $inventory.Boot))
     }
-    $values=[ordered]@{FormatVersion=2;PopulationHash=(Get-DomeniaHealthFingerprint @($targets|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));AssessedHash=(Get-DomeniaHealthFingerprint @($assessed|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));CoverageHash=(Get-DomeniaHealthFingerprint $coverage.ToArray());PolicyHash=(Get-DomeniaHealthFingerprint $policyTokens.ToArray());Unassessed=[int]$Data.Population.Unassessed;Assessed=$assessed.Count;Score=$Data.Entries['fleet.health'].Number;PingRead=($Data.Last.WidgetTargets['fleet.presence|En ligne'].Count+$Data.Last.WidgetTargets['fleet.presence|Sans réponse'].Count);WmiRead=$Data.HealthInventoryKnown.Count;ComputedUtc=$NowUtc.ToString('o')}
+    $values=[ordered]@{FormatVersion=3;PopulationHash=(Get-DomeniaHealthFingerprint @($targets|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));AssessedHash=(Get-DomeniaHealthFingerprint @($assessed|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));CoverageHash=(Get-DomeniaHealthFingerprint $coverage.ToArray());PolicyHash=(Get-DomeniaHealthFingerprint $policyTokens.ToArray());Unassessed=[int]$Data.Population.Unassessed;Assessed=$assessed.Count;Score=$Data.Entries['fleet.health'].Number;PingRead=($Data.Last.WidgetTargets['fleet.presence|En ligne'].Count+$Data.Last.WidgetTargets['fleet.presence|Sans réponse'].Count);WmiRead=$Data.HealthInventoryKnown.Count;ComputedUtc=$NowUtc.ToString('o')}
     if($targets.Count -ne [int]$Data.Population.Total){$values.PopulationHash='';$values.AssessedHash='';$values.CoverageHash=''}
     foreach($key in $values.Keys){$figures|Add-Member -NotePropertyName $key -NotePropertyValue $values[$key] -Force}
     $records=[Collections.Generic.List[object]]::new()
@@ -1600,7 +1602,11 @@ function Compare-DomeniaHealthSnapshots {
         else{$coverageText+=' ; données disponibles différentes'}
     }
     # Rules: thresholds, enabled rules, custom alerts and suspensions active at computation time.
+    # Point 78: the policy token shape changed with FormatVersion 3 (expired suspensions no longer hashed). Two
+    # snapshots of different formats are never compared through PolicyHash : that would read as a false "rules changed".
     $policyHash=& $hash 'PolicyHash'
+    $format={param($Figures)$v=0;$raw=[string](Get-DomeniaHealthValue $Figures 'FormatVersion' '');if([int]::TryParse($raw,[ref]$v)){$v}else{-1}}
+    if((& $format $a) -ne (& $format $b)){$policyHash='Unknown';$limits.Add('Empreinte des règles relevée dans un format différent entre les deux relevés : comparaison des règles limitée aux compteurs.')}
     $policyStatus=switch($policyHash){'Same'{'Inchangé'}'Changed'{'Modifié'}default{'Inconnu'}}
     $policyText=switch($policyHash){'Same'{'Règles, seuils et suspensions actives identiques'}'Changed'{'Règles, seuils ou suspensions actives modifiés'}default{'Règles non décrites par ce relevé'}}
     # Observed state of the assessed workstations.

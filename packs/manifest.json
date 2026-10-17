@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.16-DOMENIA-1.0-RC1.17.13-D120",
-  "source_base_commit": "60ec25abb2e1b533d65061eba242cd2dba01bf8f",
+  "build": "2026.10.17-DOMENIA-1.0-RC1.17.14-D120",
+  "source_base_commit": "31fe5846e5f6a9b821a23df10c23e5d46370addd",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3059912,
-      "sha256": "e41ab40bf97679eb6eef5bd46b501ad0aef33587ea461b9e1f685217c6fae8e8",
+      "bytes": 3062218,
+      "sha256": "aab6bfe312c3615e2a3467c2b88328a19a163b86b1870af265f62645702660b4",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,21 +17,21 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6504235,
-      "sha256": "c49d59c66352104216c8e13670f96df40aa160ad20a423fec54fe38901fbec24",
-      "files": 637,
-      "archive_files_including_manifest": 638,
+      "bytes": 6526026,
+      "sha256": "90eb4c5f0ff964899c086bf0625076ab698999181119806ee5ec407c254da3bf",
+      "files": 641,
+      "archive_files_including_manifest": 642,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC13_CORRECTIONS_AND_WIDGET_DETAIL_REFRESH_SOURCE_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
-    "proof": "validation/2026-10-16/rc13-corrections/README.md",
+    "status": "RC14_FIVE_CORRECTIONS_SOURCE_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
+    "proof": "validation/2026-10-17/rc14-corrections/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NOT_EXECUTED_RC1.17.13_PACKS_DECISION_SANS_TEST_VM",
+    "formal_windows_qualification": "NOT_EXECUTED_RC1.17.14_PACKS_DECISION_SANS_TEST_VM",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-16/rc13-corrections/README.md",
-    "interactive_gui": "NOT_RETESTED_RC1.17.13"
+    "documentation_proof": "validation/2026-10-17/rc14-corrections/README.md",
+    "interactive_gui": "NOT_RETESTED_RC1.17.14"
   }
 }

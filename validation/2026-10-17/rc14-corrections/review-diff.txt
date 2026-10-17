@@ -1,0 +1,644 @@
+diff --git a/dev/engineering/d120/programme-2026-10-13/EXECUTION.json b/dev/engineering/d120/programme-2026-10-13/EXECUTION.json
+index e2a90d1..385903e 100644
+--- a/dev/engineering/d120/programme-2026-10-13/EXECUTION.json
++++ b/dev/engineering/d120/programme-2026-10-13/EXECUTION.json
+@@ -1,9 +1,9 @@
+ {
+   "schema": 1,
+   "authorized_at": "2026-10-13",
+-  "updated_at": "2026-10-16",
++  "updated_at": "2026-10-17",
+   "status": "implementation_integrated_windows_qualification_pending",
+-  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Les tests VM sont desormais autorises par David, apres le developpement.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.",
++  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.",
+   "minimum_computers": 10000,
+   "qualification_computers": 20000,
+   "publication": "source_integration_not_windows_qualified",
+@@ -154,12 +154,21 @@
+         "dev/wad/modules/Domenia-Selection.UI.ps1:Enter-DomeniaSelectionContext",
+         "dev/wad/Domenia-Core.ps1:Fill-ComputerObject",
+         "dev/wad/modules/Domenia-Engine.Worker.ps1:Get-DomeniaLocalIndexReadWorkerCode (FleetStats bk)",
+-        "dev/wad/tests/Test-DomeniaStore.ps1:Secret metadata recorded before the computer now holding the name stays unknown (point 9)"
++        "dev/wad/tests/Test-DomeniaStore.ps1:Secret metadata recorded before the computer now holding the name stays unknown (point 9)",
++        "dev/wad/Domenia-Core.ps1:Get-DomeniaLinkIdentityNote",
++        "dev/wad/Domenia-Core.ps1:Get-AssociationForRow",
++        "dev/wad/Domenia-Core.ps1:Get-DomeniaIndexAssociationText",
++        "dev/wad/Domenia-Core.ps1:Set-RowAssociationMetadata",
++        "dev/wad/Domenia-Core.ps1:Get-SelectedAssociationSummary",
++        "dev/wad/Domenia-Core.ps1:Refresh-AssociationContext",
++        "dev/wad/tests/Test-DomeniaLinkIdentity.ps1:cas « RC14 Point 9 » (banc dédié hors VM du 2026-10-17 : fonctions réelles du cœur extraites par AST, liens en mémoire, grille/index/résumé ; 1 cas, 22 assertions, 0 échec, rapport validation/2026-10-17/rc14-corrections/point9-test.json)"
+       ],
+       "remaining": [
+-        "Il reste à exécuter Store et WiringRelations en VM. Correction du rapport précédent : la colonne d'association de la grille, Get-SelectedAssociationSummary et le contexte d'association ne signalent pas l'état Unknown. La grille ne connaît pas la date de création : un lien hérité sans GUID et antérieur au poste y reste visible alors que la fiche le masque."
++        "Il reste à exécuter Store et WiringRelations sous Windows PowerShell 5.1 (aucun test VM dans ce lot).",
++        "Banc « RC14 Point 9 » écrit et exécuté hors VM le 2026-10-17 (pwsh7 Linux, non qualifiant) ; reste à l'exécuter sous Windows PowerShell 5.1 avec Test-DomeniaWiringRelations.ps1.",
++        "Qualification sous Windows PowerShell 5.1."
+       ],
+-      "implementation_summary": "Les métadonnées BitLocker et LAPS de la fiche lisent maintenant whenCreated par le GUID de l'objet affiché, sur la clé primaire d'ad_computer_facts. Il n'y a plus de recherche par nom, de LIMIT 1 arbitraire ni de balayage sur le fil d'interface. Sans GUID, rien n'est masqué. Le seau BitLocker « U » de FleetStats est testé sur une vraie base SQLite, comme le filtre de la fiche, avec une ligne témoin qui reste affichée. La fiche poste affiche « identité non vérifiable » pour un lien hérité sans GUID qui ne précède pas la création du poste."
++      "implementation_summary": "Les métadonnées BitLocker et LAPS de la fiche lisent maintenant whenCreated par le GUID de l'objet affiché, sur la clé primaire d'ad_computer_facts. Il n'y a plus de recherche par nom, de LIMIT 1 arbitraire ni de balayage sur le fil d'interface. Sans GUID, rien n'est masqué. Le seau BitLocker « U » de FleetStats est testé sur une vraie base SQLite, comme le filtre de la fiche, avec une ligne témoin qui reste affichée. La fiche poste affiche « identité non vérifiable » pour un lien hérité sans GUID qui ne précède pas la création du poste. Harmonisation du 2026-10-17 (point 9) : la colonne d’association de la grille (Get-AssociationForRow, Get-DomeniaIndexAssociationText, Set-RowAssociationMetadata), Get-SelectedAssociationSummary et le contexte d’association appliquent la règle de la fiche via Get-DomeniaLinkIdentityNote : un lien hérité sans GUID dont l’identité n’est pas établie sur l’objet affiché est annoncé « identité non vérifiable », un lien appartenant manifestement à une ancienne identité est filtré, et l’état inconnu n’est jamais remplacé par « aucun lien ». Sans GUID d’objet, rien n’est affirmé ; whenCreated n’est lu que depuis l’entrée déjà chargée, aucune lecture ajoutée au fil UI."
+     },
+     {
+       "id": 10,
+@@ -169,12 +178,21 @@
+       "evidence": [
+         "dev/wad/modules/Domenia-Collection.Model.ps1:Test-DomeniaCollectionClock",
+         "dev/wad/modules/Domenia-Collection.Model.ps1:Format-DomeniaCollectionClock",
+-        "dev/wad/modules/Domenia-ProbeDetails.UI.ps1:Update-DomeniaProbeDetailsPage"
++        "dev/wad/modules/Domenia-ProbeDetails.UI.ps1:Update-DomeniaProbeDetailsPage",
++        "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode (Transport='CIM/DCOM' pose uniquement apres une lecture CIM reellement revenue ; Source posee seulement quand le compte console est lu)",
++        "dev/wad/modules/Domenia-Live.Model.ps1:ConvertTo-DomeniaLiveObservation (propagation Transport, ping seul conserve)",
++        "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveObservationView (ligne Transport ; inconnu affiche quand absent)",
++        "dev/wad/modules/Domenia-Live.UI.ps1:Fail-DomeniaLiveProbe (plus de Source='CIM/DCOM' affirmee sur echec)",
++        "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-StoreWObservationSummaryJson (Transport persiste)",
++        "validation/2026-10-17/rc14-corrections/point10-smoke.json (9 assertions, pwsh7 Linux non qualifiant)",
++        "dev/wad/tests/Test-DomeniaLiveTransport.ps1 -CaseFilter 'RC14 Point 10' : 1 cas, 20 assertions, 0 echec (transport propage et affiche apres lecture ; Fail-DomeniaLiveProbe reel ne pose ni Source ni Transport, timeout conserve son outcome ; echec ne remplace pas le dernier compte ; ping seul conserve ; donnees anciennes sans Transport = inconnu ; Transport persiste dans le resume SQLite ; code reel du worker initialise Transport/Source vides et ne les pose qu'apres lecture CIM) ; validation/2026-10-17/rc14-corrections/point10-test.json (pwsh7 Linux non qualifiant)"
+       ],
+       "remaining": [
+-        "Il reste à exécuter les tests en VM. Le fournisseur réel d'une mesure de poste (WinRM ou DCOM) n'est pas affiché faute de donnée fiable."
++        "Execution du banc Test-DomeniaLiveTransport et de l'affichage Live sous Windows PowerShell 5.1 (banc ecrit et execute hors VM).",
++        "Re-epinglage des contrats worker LiveConsole, LocalStore, LiveSelectedPing (tools/update_worker_contracts.py --apply) apres revue independante.",
++        "Qualification sous Windows PowerShell 5.1 (affichage UI, lecture passive SQLite, mesures reelles non testees ici)."
+       ],
+-      "implementation_summary": "Chaque relevé conserve contrôleur, fournisseur, heures, enregistrement et version de collecte. Les dates incohérentes sont signalées, jamais corrigées. L'unité des compteurs suit maintenant la famille du relevé."
++      "implementation_summary": "Chaque releve conserve controleur, fournisseur, heures, enregistrement et version de collecte. Les dates incoherentes sont signalees, jamais corrigees. L'unite des compteurs suit la famille du releve. Point 10 (2026-10-17) : le transport reellement execute (CIM/DCOM dans ce chemin) n'est plus anticipe ; il est enregistre seulement quand une lecture CIM revient, persiste avec la mesure et affiche dans la vue ; echec et donnees anciennes affichent « Transport : inconnu », jamais une certitude faute de donnee."
+     },
+     {
+       "id": 11,
+@@ -1279,10 +1297,13 @@
+       "owner": "W02-health",
+       "evidence": [
+         "dev/wad/modules/Domenia-Boards.Model.ps1:Compare-DomeniaHealthSnapshots",
+-        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-006"
++        "dev/wad/modules/Domenia-Boards.Model.ps1:Set-DomeniaHealthSnapshotMetadata",
++        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-006",
++        "dev/wad/tests/Test-DomeniaHealthAdvanced.ps1:RC14 Point 78"
+       ],
+       "remaining": [
+-        "Non exécuté sous Windows PowerShell 5.1. Limite connue (implémenteur) : l’empreinte des règles inclut les suspensions terminées, donc leur purge peut faire lire « Règles modifiées » une fois."
++        "Non exécuté sous Windows PowerShell 5.1.",
++        "Correction du 2026-10-17 (point 78) appliquée et contrôlée hors VM : l’empreinte des règles ne hache plus que les suspensions actives à l’heure de calcul (FormatVersion 3) ; purge d’une suspension expirée = empreinte inchangée, édition d’une suspension active = empreinte modifiée nommée « Règles », relevé v2 face à un relevé v3 = « Limitée » côté règles, jamais « Règles modifiés ». Banc Test-DomeniaHealthAdvanced.ps1 (cas « RC14 Point 78 », 1 cas, 6 assertions, 0 échec, rapport validation/2026-10-17/rc14-corrections/point78-test.json, pwsh7 Linux non qualifiant) ; qualification Windows due."
+       ],
+       "implementation_summary": "La comparaison de deux relevés nomme la cause : réel, périmètre, couverture, règles, mixte ou limitée. La ligne de comparaison « WMI renseigné » devient « Inventaire WMI renseigné ». La définition du chiffre WmiRead ne change pas, pour rester comparable avec les relevés déjà stockés."
+     },
+@@ -2091,12 +2112,18 @@
+         "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaErrorDecision",
+         "dev/wad/tests/Test-DomeniaNetworkFaults.ps1",
+         "dev/wad/tests/Test-DomeniaSearchPresence.ps1",
+-        "dev/wad/tests/rules/NetworkFaults.Tests.ps1 (P127)"
++        "dev/wad/tests/rules/NetworkFaults.Tests.ps1 (P127)",
++        "dev/wad/modules/Domenia-Live.Model.ps1:Get-LiveHostIdentityCheck/Set-LiveIdentityMismatch + porte d'identite des sondes seules dans Get-DomeniaLiveProbeCode (tour 9, 2026-10-17)",
++        "dev/wad/modules/Domenia-Live.UI.ps1:Fail-DomeniaLiveProbe (IdentityState vide sur echec, jamais une certitude)",
++        "dev/wad/modules/Domenia-Storage.Worker.ps1:IdentityState dans la liste blanche du resume d'observation",
++        "validation/2026-10-17/rc14-corrections/point127-regression.json (banc Test-DomeniaLiveTransport rejoue apres patch : 20 assertions, 0 echec, pwsh7 Linux non qualifiant)",
++        "dev/wad/tests/Test-DomeniaLiveIdentity.ps1 -CaseFilter 'RC14 Point 127' : 1 cas, 31 assertions, 0 echec (regles d'identite exercees par leurs fonctions reelles extraites du corps epingle : meme poste verifie, autre poste nomme, adresse/reponse nulle/sans noms = comparaison impossible jamais un refus, cn NetBIOS tronque et Name seul acceptes ; Set-LiveIdentityMismatch conserve Presence='En ligne' et le fait brut ICMP, note la contradiction, pose Incoherente meme sans ping ; vue confirmee/incoherente/inconnue ; ping seul conserve ; paquet d'echec sans identite ; persistance « IdentityState\":\"Incoherente\" » ; code reel du worker : IdentityState='' initialise, porte d'identite avant le plan, rejet nominal apres note) — rapport validation/2026-10-17/rc14-corrections/point127-test.json (pwsh7 Linux non qualifiant)"
+       ],
+       "remaining": [
+-        "L'intégrateur doit réépingler LiveConsole et LiveSelectedPing. Aucune exécution Windows. Les sondes seules restent sans contrôle d'identité, et la présence ICMP n'est pas invalidée par une identité incohérente."
++        "L'intégrateur doit réépingler LiveConsole, LocalStore et LiveSelectedPing (update_worker_contracts.py --apply) après revue indépendante. Aucune exécution Windows.",
++        "Qualification Windows 5.1 : exécution du banc Test-DomeniaLiveIdentity, attribution des sondes, affichage Identité du poste et persistance IdentityState."
+       ],
+-      "implementation_summary": "Le corps LiveConsole et LiveSelectedPing vérifie l'identité du poste qui répond. Correction de revue : Get-LiveHostMismatch reconnaît le même poste dès qu'une identité correspond, sous l'une des formes suivantes : libellé DNS, NetBIOS tronqué à 15 caractères, cible cn face à un nom d'hôte long. Le refus n'est déclaré que si aucune ne correspond. Nouveaux cas réseau ajoutés (cn tronqué, nom long, autre poste à nom long). La doublure CIM de SearchPresence accepte Name et DNSHostName et ajoute un cas « autre poste ». Opérandes -or parenthésés dans Get-DomeniaErrorDecision."
++      "implementation_summary": "Le corps LiveConsole et LiveSelectedPing vérifie l'identité du poste qui répond. Correction de revue : Get-LiveHostMismatch reconnaît le même poste dès qu'une identité correspond, sous l'une des formes suivantes : libellé DNS, NetBIOS tronqué à 15 caractères, cible cn face à un nom d'hôte long. Le refus n'est déclaré que si aucune ne correspond. Nouveaux cas réseau ajoutés (cn tronqué, nom long, autre poste à nom long). La doublure CIM de SearchPresence accepte Name et DNSHostName et ajoute un cas « autre poste ». Opérandes -or parenthésés dans Get-DomeniaErrorDecision. | Tour 9 (2026-10-17) : la verification d'identite est etendue aux sondes seules — a defaut de lecture console ou inventaire deja verifiee, le worker lit Win32_ComputerSystem (Name, DNSHostName) sur la meme session avant tout plan de sondes ; une incoherence confirmee refuse toute valeur de sonde (rejet nominal, pas une panne reseau) et une comparaison possible pose IdentityState='Verifiee'. Le ping reste un fait brut : sur incoherence confirmee la presence 'En ligne' est conservee, la note 'identite du poste contredite' est ajoutee au detail de presence et IdentityState='Incoherente' est enregistre, propage (ConvertTo-DomeniaLiveObservation), persiste (liste blanche Storage.Worker) et affiche ('Identite du poste : ...') dans la vue. Get-LiveHostMismatch devient l'enveloppe de Get-LiveHostIdentityCheck (Comparable+Mismatch) ; identites NetBIOS/FQDN/cn tronque conservees."
+     },
+     {
+       "id": 128,
+diff --git a/dev/wad/Domenia-Core.ps1 b/dev/wad/Domenia-Core.ps1
+index 2902b2e..714d1be 100644
+--- a/dev/wad/Domenia-Core.ps1
++++ b/dev/wad/Domenia-Core.ps1
+@@ -17481,19 +17481,31 @@ $rows=foreach($l in @($Payload.Links)) {
+ 
+ 
+ 
++function Get-DomeniaLinkIdentityNote {
++    # Point 9: the rule of the fiche (Fill-ComputerObject) applied to every view that shows an association. A legacy
++    # link without a stored GUID whose identity cannot be established on the displayed object is announced, never
++    # presented as an ordinary association. Without the GUID of the object nothing is claimed either way.
++    param($Link,[Parameter(Mandatory=$true)][ValidateSet('Computer','User')][string]$Kind,[AllowEmptyString()][AllowNull()][string]$Guid='',$CreatedUtc=$null)
++    if (-not $Guid) { return '' }
++    if ((Test-DomeniaLinkIdentity -Link $Link -Kind $Kind -Guid $Guid -CreatedUtc $CreatedUtc).Match -ne 'Unknown') { return '' }
++    return ' · identité non vérifiable'
++}
++
+ function Get-AssociationForRow {
+     param($Row)
+     if ($null -eq $Row) { return "" }
+     try {
+         switch ([string]$Row.Type) {
+             "Machine" {
+-                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')) | Select-Object -First 1)
+-                if ($link.Count -gt 0) { return [string]$link[0].UserLogin }
++                $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
++                $link = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid $rowGuid | Select-Object -First 1)
++                if ($link.Count -gt 0) { return ([string]$link[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $link[0] -Kind 'Computer' -Guid $rowGuid)) }
+                 return "Non detecte"
+             }
+             "Utilisateur" {
+-                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
+-                if ($links.Count -gt 0) { return (($links | ForEach-Object { [string]$_.Computer }) -join ", ") }
++                $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
++                $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid $rowGuid)
++                if ($links.Count -gt 0) { return (($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) }) -join ", ") }
+                 return "Aucun poste"
+             }
+             default { return "" }
+@@ -17505,13 +17517,18 @@ function Get-AssociationForRow {
+ function Get-SelectedAssociationSummary {
+     if ($null -eq $script:SelectedObject) { return "Aucun objet selectionne" }
+     try {
++        # Point 9: identity of the displayed object (GUID, and whenCreated once its AD fiche was read); the same rule
++        # as the fiche. whenCreated is only read from the entry already loaded, never fetched again here.
++        $selectedGuid = [string](Get-DomeniaMember $script:SelectedObject 'Guid' '')
++        $selectedEntry = Get-DomeniaMemberValue $script:SelectedObject 'Entry'
++        $selectedCreated = if ($null -ne $selectedEntry) { Get-DeProp $selectedEntry "whenCreated" $null } else { $null }
+         if ($script:SelectedObject.Type -eq "Machine") {
+             $computer = ""
+             try { $computer = [string]$script:Ctrl["TxtCompName"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
+             if ([string]::IsNullOrWhiteSpace($computer)) { $computer = [string]$script:SelectedObject.Name }
+             # P-CD-09: without a name to look up, "no link" would be a guess.
+             if ([string]::IsNullOrWhiteSpace($computer)) { return "Association indisponible" }
+-            $links = @(Get-LinksForComputer -Computer $computer -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
++            $links = @(Get-LinksForComputer -Computer $computer -Guid $selectedGuid -CreatedUtc $selectedCreated)
+             if ($links.Count -eq 0) { return "Aucun utilisateur lie" }
+             $l = $links[0]
+             $confidence = $(if($null -ne (Get-Command Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)){(Get-DomeniaLinkQualification $l).Suffix}elseif($null -ne $l.PSObject.Properties['Confidence'] -and -not [string]::IsNullOrWhiteSpace([string]$l.Confidence)){'  confiance '+[string]$l.Confidence+'%'}else{''})
+@@ -17519,15 +17536,15 @@ function Get-SelectedAssociationSummary {
+             $whenText = ''
+             if ($null -ne (Get-Command Format-DomeniaRelationWhen -CommandType Function -ErrorAction SilentlyContinue)) { $whenText = Format-DomeniaRelationWhen ([string]$l.When) }
+             if (-not $whenText) { $whenText = [string]$l.When }
+-            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText"
++            return "$($l.UserLogin)  $($l.Source)$confidence  $whenText$(Get-DomeniaLinkIdentityNote -Link $l -Kind 'Computer' -Guid $selectedGuid -CreatedUtc $selectedCreated)"
+         }
+         if ($script:SelectedObject.Type -eq "Utilisateur") {
+             $user = ""
+             try { $user = [string]$script:Ctrl["TxtUserSam"].Text } catch { Write-DomeniaSwallowed 'Core' 'Get-SelectedAssociationSummary' $_ }
+             if ([string]::IsNullOrWhiteSpace($user)) { return "Association indisponible" }
+-            $links = @(Get-LinksForUser -UserLogin $user -Guid ([string](Get-DomeniaMember $script:SelectedObject 'Guid' '')))
++            $links = @(Get-LinksForUser -UserLogin $user -Guid $selectedGuid -CreatedUtc $selectedCreated)
+             if ($links.Count -eq 0) { return "Aucun poste lie" }
+-            return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]" }) -join ", ")
++            return (($links | ForEach-Object { "$($_.Computer) [$($_.Source)]$(Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $selectedGuid -CreatedUtc $selectedCreated)" }) -join ", ")
+         }
+     }
+     catch { return "Association indisponible" }
+@@ -17654,13 +17671,16 @@ function Sync-DomeniaLinksAgainstIndex {
+ function Get-DomeniaIndexAssociationText {
+     param($Row)
+     if ($null -eq $Row) { return "" }
++    # Point 9: same identity rule as the fiche: a link whose identity cannot be established on the displayed
++    # object is announced, never shown as an ordinary association.
++    $rowGuid = [string](Get-DomeniaMember $Row 'Guid' '')
+     if ([string]$Row.Type -eq "Machine") {
+-        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
+-        return (@($links | ForEach-Object { [string]$_.UserLogin } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
++        $links = @(Get-LinksForComputer -Computer ([string]$Row.Name) -Guid $rowGuid)
++        return (@($links | ForEach-Object { [string]$_.UserLogin + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'Computer' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+     }
+     if ([string]$Row.Type -eq "Utilisateur") {
+-        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid ([string](Get-DomeniaMember $Row 'Guid' '')))
+-        return (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
++        $links = @(Get-LinksForUser -UserLogin ([string]$Row.Login) -Guid $rowGuid)
++        return (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+     }
+     return ""
+ }
+@@ -17720,9 +17740,11 @@ function Set-RowAssociationMetadata {
+                 $computerKey = [string]$row.UPN
+                 if ([string]::IsNullOrWhiteSpace($computerKey)) { $computerKey = [string]$row.Name }
+ 
+-                $links = @(Get-LinksForComputer -Computer $computerKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
++                # Point 9: the grid column carries the identity note of the fiche, never a silent Unknown.
++                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
++                $links = @(Get-LinksForComputer -Computer $computerKey -Guid $rowGuid)
+                 if ($links.Count -gt 0) {
+-                    $association = [string]$links[0].UserLogin
++                    $association = [string]$links[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $links[0] -Kind 'Computer' -Guid $rowGuid)
+                     $source = [string]$links[0].Source
+                     $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0]).Value } else { [string]$links[0].Confidence }
+                 }
+@@ -17731,9 +17753,10 @@ function Set-RowAssociationMetadata {
+                 $userKey = [string]$row.Login
+                 if ([string]::IsNullOrWhiteSpace($userKey)) { $userKey = [string]$row.Name }
+ 
+-                $links = @(Get-LinksForUser -UserLogin $userKey -Guid ([string](Get-DomeniaMember $row 'Guid' '')))
++                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
++                $links = @(Get-LinksForUser -UserLogin $userKey -Guid $rowGuid)
+                 if ($links.Count -gt 0) {
+-                    $association = (@($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
++                    $association = (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+                     $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
+                     if ($qualify) {
+                         $bestLink = Select-DomeniaBestLink $links
+@@ -17940,7 +17963,8 @@ function Refresh-AssociationContext {
+             if ($links.Count -gt 0) {
+                 $link = $links[0]
+                 $script:Ctrl["TxtCompLinkedUser"].Text = [string]$link.UserLogin
+-                $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source
++                # Point 9: the fiche rule — a link whose identity cannot be established on this object is announced.
++                $script:Ctrl["TxtCompLinkSource"].Text = [string]$link.Source + (Get-DomeniaLinkIdentityNote -Link $link -Kind 'Computer' -Guid $selectedGuid -CreatedUtc $selectedCreated)
+                 $script:Ctrl["TxtCompLinkConfidence"].Text = if ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue)) { [string](Get-DomeniaLinkQualification $link).Value } else { [string]$link.Confidence }
+                 # CO-29: local time of the stored UTC date.
+                 $whenText = ''
+@@ -17958,12 +17982,15 @@ function Refresh-AssociationContext {
+             $user = [string]$script:Ctrl["TxtUserSam"].Text
+             $links = @(Get-LinksForUser -UserLogin $user -Guid $selectedGuid -CreatedUtc $selectedCreated)
+             $computers = @($links | ForEach-Object { [string]$_.Computer } | Where-Object { $_ } | Sort-Object -Unique)
++            # Point 9: the summary names the links whose identity cannot be established on this account; the
++            # selection list keeps the plain computer names.
++            $annotatedComputers = @($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $selectedGuid -CreatedUtc $selectedCreated) } | Where-Object { $_ } | Sort-Object -Unique)
+             if ($script:Ctrl.ContainsKey("TxtUserLinkedComputers")) {
+                 [void](Set-DomeniaItemsSource -Name "TxtUserLinkedComputers" -Rows $computers)
+                 if ($computers.Count -gt 0) { $script:Ctrl["TxtUserLinkedComputers"].SelectedIndex = 0 }
+             }
+             if ($script:Ctrl.ContainsKey("LblUserLinkSummary")) {
+-                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($computers -join ', ')" } else { "Aucun poste associé." }
++                $script:Ctrl["LblUserLinkSummary"].Text = if ($computers.Count -gt 0) { "$($computers.Count) poste(s) associe(s) : $($annotatedComputers -join ', ')" } else { "Aucun poste associé." }
+             }
+         }
+         $linksShown = $true
+diff --git a/dev/wad/modules/Domenia-Boards.Model.ps1 b/dev/wad/modules/Domenia-Boards.Model.ps1
+index c927be6..b80c978 100644
+--- a/dev/wad/modules/Domenia-Boards.Model.ps1
++++ b/dev/wad/modules/Domenia-Boards.Model.ps1
+@@ -1527,7 +1527,9 @@ function Set-DomeniaHealthSnapshotMetadata {
+     $policies=@(Get-DomeniaHealthValue $Data 'EffectiveHealthPolicies' @());if(-not $policies.Count){$policies=@([pscustomobject]@{ScopeDn=$Data.Last.Scope;Policy=$Data.HealthPolicy})}
+     $policyTokens=[Collections.Generic.List[string]]::new()
+     foreach($record in $policies){
+-        $p=$record.Policy;$stable=[ordered]@{ScopeDn=([string]$record.ScopeDn).ToLowerInvariant();Thresholds=$p.Thresholds;DisabledRules=@($p.DisabledRules|Sort-Object);CustomRules=@($p.CustomRules|Sort-Object Id);Suspensions=@($p.Suspensions|Sort-Object RuleId);ActiveSuspensions=@($p.Suspensions|Where-Object{$null -ne (Get-DomeniaHealthSuspension $p $_.RuleId)}|ForEach-Object{$_.RuleId}|Sort-Object)}
++        # Point 78: the fingerprint keeps only suspensions active at computation time, with their exact fields, so that
++        # purging an expired suspension no longer reads as "rules changed" while a real rule or active-suspension edit stays detectable.
++        $p=$record.Policy;$stable=[ordered]@{ScopeDn=([string]$record.ScopeDn).ToLowerInvariant();Thresholds=$p.Thresholds;DisabledRules=@($p.DisabledRules|Sort-Object);CustomRules=@($p.CustomRules|Sort-Object Id);ActiveSuspensions=@($p.Suspensions|Where-Object{$null -ne (Get-DomeniaHealthSuspension $p $_.RuleId $NowUtc)}|ForEach-Object{[pscustomobject]@{RuleId=[string]$_.RuleId;Reason=[string]$_.Reason;UntilUtc=[string]$_.UntilUtc}}|Sort-Object RuleId)}
+         $policyTokens.Add(($stable|ConvertTo-Json -Depth 8 -Compress))
+     }
+     $groups=@{};foreach($g in $Data.Last.Groups){$groups[[string]$g.gid]=$g}
+@@ -1536,7 +1538,7 @@ function Set-DomeniaHealthSnapshotMetadata {
+         $date=[datetime]::MinValue;$logonKnown=[datetime]::TryParseExact([string]$target.logon,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$date) -and $date -le $NowUtc.Date
+         $coverage.Add($guid+'|'+[int]$logonKnown+'|'+[int][bool]([string]$g.ver)+'|'+[int][bool]([string]$g.pw)+'|'+[int]($g.lk -in @('O','E','N','X'))+'|'+[int]($g.bk -in @('K','N','X'))+'|'+[int]($null -ne $inventory -and $inventory.Disk)+'|'+[int]($null -ne $inventory -and $inventory.Boot))
+     }
+-    $values=[ordered]@{FormatVersion=2;PopulationHash=(Get-DomeniaHealthFingerprint @($targets|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));AssessedHash=(Get-DomeniaHealthFingerprint @($assessed|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));CoverageHash=(Get-DomeniaHealthFingerprint $coverage.ToArray());PolicyHash=(Get-DomeniaHealthFingerprint $policyTokens.ToArray());Unassessed=[int]$Data.Population.Unassessed;Assessed=$assessed.Count;Score=$Data.Entries['fleet.health'].Number;PingRead=($Data.Last.WidgetTargets['fleet.presence|En ligne'].Count+$Data.Last.WidgetTargets['fleet.presence|Sans réponse'].Count);WmiRead=$Data.HealthInventoryKnown.Count;ComputedUtc=$NowUtc.ToString('o')}
++    $values=[ordered]@{FormatVersion=3;PopulationHash=(Get-DomeniaHealthFingerprint @($targets|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));AssessedHash=(Get-DomeniaHealthFingerprint @($assessed|ForEach-Object{([string]$_.object_guid).ToLowerInvariant()}));CoverageHash=(Get-DomeniaHealthFingerprint $coverage.ToArray());PolicyHash=(Get-DomeniaHealthFingerprint $policyTokens.ToArray());Unassessed=[int]$Data.Population.Unassessed;Assessed=$assessed.Count;Score=$Data.Entries['fleet.health'].Number;PingRead=($Data.Last.WidgetTargets['fleet.presence|En ligne'].Count+$Data.Last.WidgetTargets['fleet.presence|Sans réponse'].Count);WmiRead=$Data.HealthInventoryKnown.Count;ComputedUtc=$NowUtc.ToString('o')}
+     if($targets.Count -ne [int]$Data.Population.Total){$values.PopulationHash='';$values.AssessedHash='';$values.CoverageHash=''}
+     foreach($key in $values.Keys){$figures|Add-Member -NotePropertyName $key -NotePropertyValue $values[$key] -Force}
+     $records=[Collections.Generic.List[object]]::new()
+@@ -1600,7 +1602,11 @@ function Compare-DomeniaHealthSnapshots {
+         else{$coverageText+=' ; données disponibles différentes'}
+     }
+     # Rules: thresholds, enabled rules, custom alerts and suspensions active at computation time.
++    # Point 78: the policy token shape changed with FormatVersion 3 (expired suspensions no longer hashed). Two
++    # snapshots of different formats are never compared through PolicyHash : that would read as a false "rules changed".
+     $policyHash=& $hash 'PolicyHash'
++    $format={param($Figures)$v=0;$raw=[string](Get-DomeniaHealthValue $Figures 'FormatVersion' '');if([int]::TryParse($raw,[ref]$v)){$v}else{-1}}
++    if((& $format $a) -ne (& $format $b)){$policyHash='Unknown';$limits.Add('Empreinte des règles relevée dans un format différent entre les deux relevés : comparaison des règles limitée aux compteurs.')}
+     $policyStatus=switch($policyHash){'Same'{'Inchangé'}'Changed'{'Modifié'}default{'Inconnu'}}
+     $policyText=switch($policyHash){'Same'{'Règles, seuils et suspensions actives identiques'}'Changed'{'Règles, seuils ou suspensions actives modifiés'}default{'Règles non décrites par ce relevé'}}
+     # Observed state of the assessed workstations.
+diff --git a/dev/wad/modules/Domenia-Live.Model.ps1 b/dev/wad/modules/Domenia-Live.Model.ps1
+index ca5b10b..82e0f9b 100644
+--- a/dev/wad/modules/Domenia-Live.Model.ps1
++++ b/dev/wad/modules/Domenia-Live.Model.ps1
+@@ -94,7 +94,7 @@ function ConvertTo-DomeniaLiveObservation {
+         Guid=Get-DomeniaLiveField $Result 'Guid'; Outcome=$outcome
+         CurrentUser=$(if($outcome -eq 'Observed'){$user}else{''})
+         LastUser=$last; ObservedUtc=$lastAt; CheckedUtc=$NowUtc; UserCheckedUtc=$userChecked
+-        LastSource=$lastSource; Source=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Source'}else{Get-DomeniaLiveField $Result 'Source'}); Detail=$detail
++        LastSource=$lastSource; Source=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Source'}else{Get-DomeniaLiveField $Result 'Source'}); Transport=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'Transport'}else{Get-DomeniaLiveField $Result 'Transport'}); IdentityState=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'IdentityState'}else{Get-DomeniaLiveField $Result 'IdentityState'}); Detail=$detail
+         Presence=$presence;PresenceCheckedUtc=$presenceAt;PresenceDetail=$presenceDetail
+         LinkUser=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'LinkUser'}else{Get-DomeniaLiveField $Result 'LinkUser'}); UserDn=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserDn'}else{Get-DomeniaLiveField $Result 'UserDn'}); UserGuid=$(if($presenceOnly){Get-DomeniaLiveField $Previous 'UserGuid'}else{Get-DomeniaLiveField $Result 'UserGuid'})
+         DirectoryAuthRejected=((Get-DomeniaLiveField $Result 'DirectoryAuthRejected') -eq 'True')
+@@ -126,8 +126,18 @@ function Get-DomeniaLiveObservationView {
+     $failure=Get-DomeniaLiveField $Observation 'ConsoleError'
+     $attemptLine="Dernière tentative UTC : $attempt"
+     if(Test-DomeniaLiveAttemptAfter -Attempt $attempt -Success $checked -ErrorText $failure){$attemptLine+=", non confirmée : $failure`r`nDernière lecture réussie UTC : $(if($checked){$checked}else{'aucune'}), conservée"}
+-    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`nSource : $(Get-DomeniaLiveField $Observation 'Source')`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
+-    [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=Get-DomeniaLiveField $Observation 'Source'}
++    # Point 10: the transport shown is the one that really executed a read; absent data stays unknown.
++    $transport=Get-DomeniaLiveField $Observation 'Transport'
++    $transportLine=if($transport){'Transport : '+$transport}else{'Transport : inconnu (donnée ancienne ou lecture non confirmée)'}
++    $source=Get-DomeniaLiveField $Observation 'Source'
++    $sourceLine=if($source){'Source : '+$source}else{'Source : inconnue'}
++    # Point 127: the identity of the responder is its own explicit state, never inferred from the ICMP presence.
++    $identity=Get-DomeniaLiveField $Observation 'IdentityState'
++    if($identity -eq 'Vérifiée'){$identityLine='Identité du poste : confirmée par la lecture CIM'}
++    elseif($identity -eq 'Incohérente'){$identityLine='Identité du poste : incohérente · un autre poste a répondu, aucune donnée de cette lecture nʼest attribuée'}
++    else{$identityLine='Identité du poste : inconnue (donnée ancienne ou identité non vérifiable)'}
++    $detail="État : $state`r`nDernier compte observé : $last`r`nObservation UTC : $seen`r`n$attemptLine`r`n$transportLine`r`n$sourceLine`r`n$identityLine`r`n$(Get-DomeniaLiveField $Observation 'Detail')`r`nConsole Windows uniquement : ne recense pas toutes les sessions RDP."
++    [pscustomobject]@{Display=$display;State=$state;Detail=$detail;Checked=$checked;Observed=$seen;Source=$source;Transport=$transport;Identity=$identity}
+ }
+ function Test-DomeniaLiveAttemptAfter {
+     # True when a failed attempt is newer than the last success (or no success exists). Unreadable dates are not newer.
+@@ -252,7 +262,8 @@ function Get-DomeniaLiveProbeCode {
+     $body = @'
+ $target=[string]$Payload.Computer
+ if($target.Length -gt 253 -or $target -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$'){throw 'Cible distante invalide.'}
+-$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='CIM/DCOM · Win32_ComputerSystem.UserName';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';IdentityCheckedUtc='';CacheReused=$false;DirectoryAuthRejected=$false}
++# Point 10: no transport is asserted before a read. Transport is set only when a CIM read really returned.
++$answer=[ordered]@{Key=[string]$Payload.Key;Guid=[string]$Payload.Guid;Computer=$target;Outcome='Unavailable';User='';Source='';Transport='';IdentityState='';Detail='';Presence='Non vérifié';PresenceCheckedUtc='';PresenceDetail='';LinkUser='';UserDn='';UserGuid='';UserUsn='';IdentityCheckedUtc='';CacheReused=$false;DirectoryAuthRejected=$false}
+ $cim=$null;$ping=$null;$authLease=$null
+ $collectPing=($null -eq $Payload.PSObject.Properties['CollectPing'] -or [bool]$Payload.CollectPing)
+ $probeUser=($null -eq $Payload.PSObject.Properties['ProbeUser'] -or [bool]$Payload.ProbeUser)
+@@ -292,23 +303,32 @@ function Get-NativeCode($ErrorValue){
+ # The target is the DNS host name or, without one, the AD cn, which is the NetBIOS name cut at 15 characters; the reply
+ # carries both its DNS host name and its NetBIOS Name. The reply is the requested workstation when any of its identities
+ # matches the target in either form; a mismatch is stated only when none does.
+-function Get-LiveHostMismatch($Target,$System){
++function Get-LiveHostIdentityCheck($Target,$System){
++    # Point 127: the same rule as Get-LiveHostMismatch, with the extra answer the caller needs — was a comparison
++    # possible at all ('Comparable'). A verified identity and an unverifiable one must not be recorded alike.
+     $wanted=([string]$Target).Trim().TrimEnd('.')
+-    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return ''}
++    if((-not $wanted) -or ($wanted -match '^[0-9.]+$') -or ($null -eq $System)){return @{Comparable=$false;Mismatch=''}}
+     $short=$wanted.Split('.')[0];$dns='';$name=''
+     if($null -ne $System.PSObject.Properties['DNSHostName']){$dns=([string]$System.DNSHostName).Trim().TrimEnd('.')}
+     if($null -ne $System.PSObject.Properties['Name']){$name=([string]$System.Name).Trim()}
+-    if((-not $dns) -and (-not $name)){return ''}
++    if((-not $dns) -and (-not $name)){return @{Comparable=$false;Mismatch=''}}
+     $netbios=$short;if($netbios.Length -gt 15){$netbios=$netbios.Substring(0,15)}
+     if($dns){
+         $label=$dns.Split('.')[0]
+-        if(($label -ieq $short) -or ($label -ieq $netbios)){return ''}
++        if(($label -ieq $short) -or ($label -ieq $netbios)){return @{Comparable=$true;Mismatch=''}}
+         # A cn target holds the cut NetBIOS form of a longer host name.
+-        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return ''}
++        if(($label.Length -gt 15) -and ($label.Substring(0,15) -ieq $short)){return @{Comparable=$true;Mismatch=''}}
+     }
+-    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return ''}
++    if($name -and (($name -ieq $short) -or ($name -ieq $netbios))){return @{Comparable=$true;Mismatch=''}}
+     $reported=$name;if($dns){$reported=$dns}
+-    return ('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')
++    return @{Comparable=$true;Mismatch=('Le poste qui répond à '+$Target+' se nomme '+$reported+' : enregistrement DNS périmé, adresse réattribuée ou poste renommé. Aucune donnée de cette lecture nʼest attribuée.')}
++}
++function Get-LiveHostMismatch($Target,$System){return [string](Get-LiveHostIdentityCheck $Target $System).Mismatch}
++function Set-LiveIdentityMismatch{
++    # Point 127: a confirmed mismatch is an identity state, never a network state. The raw ICMP fact stays
++    # (this address answered) but is no longer presented beside a verified identity of the workstation.
++    $answer.IdentityState='Incohérente'
++    if([string]$answer.Presence -like 'En ligne*'){$answer.PresenceDetail=[string]$answer.PresenceDetail+' · le ping prouve seulement que cette adresse répond : identité du poste contredite, présence conservée comme fait brut.'}
+ }
+ # Ping is an independent collection. A WMI-only request never sends ICMP.
+ if($collectPing){
+@@ -380,6 +400,8 @@ function Invoke-WSharedRead([string]$Key,[string]$ClassName,[string]$Filter,[str
+             $instance=@(Get-CimInstance @query)[0]
+         }
+     }finally{Step-WReadProgress}
++    # Point 10: this read returned over the session opened above; the executed transport is CIM/DCOM.
++    $answer.Transport='CIM/DCOM'
+     if($null -ne $instance){$preRead[$Key]=[pscustomobject]@{Instance=$instance;Properties=@($all);At=[datetime]::UtcNow.ToString('o')}}
+     return $instance
+ }
+@@ -421,9 +443,13 @@ try{
+             $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' $csProperties
+             if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}
+             if($null -eq $system){throw 'Le fournisseur CIM ne retourne pas Win32_ComputerSystem.'}
+-            $hostMismatch=Get-LiveHostMismatch $target $system
+-            if($hostMismatch){$system=$null;throw $hostMismatch}
++            $identityCheck=Get-LiveHostIdentityCheck $target $system
++            $hostMismatch=[string]$identityCheck.Mismatch
++            if($hostMismatch){$system=$null;Set-LiveIdentityMismatch;throw $hostMismatch}
++            if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
+             $answer.User=([string]$system.UserName).Trim()
++            # Point 10: the account comes from this confirmed Win32_ComputerSystem.UserName read.
++            $answer.Source='CIM/DCOM · Win32_ComputerSystem.UserName'
+             $answer.Outcome=if($answer.User){'Observed'}else{'NoConsole'}
+         }catch{
+             # Another workstation answered: nothing of this session is attributed (outer catch).
+@@ -446,8 +472,10 @@ try{
+             if($null -eq $system){
+                 $cimStats.Consumers++
+                 $system=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' @('Manufacturer','Model','TotalPhysicalMemory','Name','DNSHostName')
+-                $hostMismatch=Get-LiveHostMismatch $target $system
+-                if($hostMismatch){$system=$null;throw $hostMismatch}
++                $identityCheck=Get-LiveHostIdentityCheck $target $system
++                $hostMismatch=[string]$identityCheck.Mismatch
++                if($hostMismatch){$system=$null;Set-LiveIdentityMismatch;throw $hostMismatch}
++                if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
+             }
+             $disk=Invoke-WSharedRead $diskKey 'Win32_LogicalDisk' "DeviceID='C:'" @('Size','FreeSpace')
+             if($null -eq $os -or $null -eq $system){throw 'Le fournisseur CIM nʼa pas retourné les informations système demandées.'}
+@@ -457,6 +485,19 @@ try{
+     # Widget probes (decision David 2026-10-07): catalog queries run read-only in the same CIM session. Only class,
+     # namespace, property names and a filter come from the catalog; names are checked before the call.
+     if($collectProbes){
++        # Point 127: probes alone must not be attributed to the target without an identity check either. Reuse the
++        # console or inventory read when it already verified the responder; otherwise read the responder names first,
++        # on the same session and through the shared read (a catalog probe of Win32_ComputerSystem reuses it).
++        # A confirmed mismatch refuses every probe value; an impossible comparison keeps the former behaviour
++        # (identity not verified, not refused).
++        if($null -eq $system){
++            $cimStats.Consumers++
++            $identitySystem=Invoke-WSharedRead $csKey 'Win32_ComputerSystem' '' @('Name','DNSHostName')
++            $identityCheck=Get-LiveHostIdentityCheck $target $identitySystem
++            $hostMismatch=[string]$identityCheck.Mismatch
++            if($hostMismatch){Set-LiveIdentityMismatch;throw $hostMismatch}
++            if($identityCheck.Comparable){$answer.IdentityState='Vérifiée'}
++        }
+         $since=@{'{SINCE_24H}'=(Get-Date).AddHours(-24).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000');'{SINCE_7D}'=(Get-Date).AddDays(-7).ToUniversalTime().ToString('yyyyMMddHHmmss.000000+000')}
+         $probeResults=[ordered]@{}
+         $allowedClasses=@();if($null-ne$Payload.PSObject.Properties['AllowedClasses']){foreach($allowedClass in @($Payload.AllowedClasses)){if(-not[string]::IsNullOrWhiteSpace([string]$allowedClass)){$allowedClasses+=[string]$allowedClass}}}
+@@ -477,7 +518,7 @@ try{
+                 if(-not $properties.Count){throw 'Aucune propriete valide pour cette sonde : lecture refusee.'}
+                 # Do not walk controller providers, and do not merge their properties into another probe.
+                 if([string]$probe.Skip -eq 'DomainController'){
+-                    if(-not $productTypeRead){$productTypeRead=$true;$cimStats.Executed++;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;Step-WReadProgress;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
++                    if(-not $productTypeRead){$productTypeRead=$true;$cimStats.Executed++;try{$observedProductType=[int]@(Get-CimInstance -CimSession $cim -ClassName Win32_OperatingSystem -Property ProductType -OperationTimeoutSec $timeout -ErrorAction Stop)[0].ProductType;$answer.Transport='CIM/DCOM';Step-WReadProgress;if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($observedProductType -in @(1,2,3)){$productType=$observedProductType}}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$productType=$null}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null}}}
+                     if($null -eq $productType){throw 'Type de systeme non lu : requete ignoree par prudence.'}
+                     if($productType -eq 2){$entry.Skipped='DomainController';$probeResults[[string]$probe.Id]=[pscustomobject]$entry;continue}
+                 }
+@@ -522,6 +563,8 @@ try{
+                         }
+                     }
+                     $cached.Items=$details.ToArray();$cached.Count=$instanceCount;$cached.EnumerationComplete=$true
++                    # Point 10: the enumeration returned over the session; the executed transport is CIM/DCOM.
++                    $answer.Transport='CIM/DCOM'
+                 }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$cached.Error=[string]$_.Exception.Message}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};Step-WReadProgress}
+                 $cached.At=[datetime]::UtcNow.ToString('o')
+             }
+diff --git a/dev/wad/modules/Domenia-Live.UI.ps1 b/dev/wad/modules/Domenia-Live.UI.ps1
+index fa9cc12..1ee432b 100644
+--- a/dev/wad/modules/Domenia-Live.UI.ps1
++++ b/dev/wad/modules/Domenia-Live.UI.ps1
+@@ -730,7 +730,9 @@ function Fail-DomeniaLiveProbe {
+     $at=[string](Get-DomeniaMemberValue $State 'RemoteStartedUtc')
+     $probeUser=[bool](Get-DomeniaMemberValue $State 'ProbeUser')
+     $outcome=if($Message -match '(?i)timeout|délai|delai'){'Timeout'}else{'Unavailable'}
+-    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$(if($probeUser){$outcome}else{'PresenceOnly'});User='';Source='CIM/DCOM';Detail=$Message;Presence='Erreur de ping';PresenceDetail=$Message;PresenceCheckedUtc=$at;ConsoleAttempted=$probeUser;ConsoleCheckedUtc=$(if($probeUser){$at}else{''})}
++    # Point 10: a failed read confirms no transport; Source/Transport stay empty (displayed unknown).
++    # Point 127: a failed read confirms no identity either; IdentityState stays empty (displayed unknown).
++    $result=[pscustomobject]@{Key=$State.Key;Computer=$State.Computer;Guid=$State.Guid;Outcome=$(if($probeUser){$outcome}else{'PresenceOnly'});User='';Source='';Transport='';IdentityState='';Detail=$Message;Presence='Erreur de ping';PresenceDetail=$Message;PresenceCheckedUtc=$at;ConsoleAttempted=$probeUser;ConsoleCheckedUtc=$(if($probeUser){$at}else{''})}
+     Complete-DomeniaLiveProbe $result $State
+ }
+ 
+diff --git a/dev/wad/modules/Domenia-Storage.Worker.ps1 b/dev/wad/modules/Domenia-Storage.Worker.ps1
+index 18e9d51..96a480d 100644
+--- a/dev/wad/modules/Domenia-Storage.Worker.ps1
++++ b/dev/wad/modules/Domenia-Storage.Worker.ps1
+@@ -304,7 +304,7 @@ function Get-StoreWObservationSummaryJson {
+         foreach($field in @('Instances','Schema','RawJson')){if($entry.Contains($field)){[void]$entry.Remove($field)}}
+         $probes=[ordered]@{};$probes[$id]=[pscustomobject]$entry;$result.Probes=[pscustomobject]$probes
+     }else{
+-        foreach($field in @('Computer','Presence','PresenceDetail','PresenceCheckedUtc','Outcome','User','ConsoleAccount','LinkUser','UserGuid','UserDn','UserUsn','ConsoleVerifiedAD','IdentityVerifiedUtc','IdentityCheckedUtc','Detail','Source','CheckedUtc','DirectoryAuthRejected','InventoryError','InventoryAttemptUtc','LastUser','RawAccount','CurrentUser','ConsoleError')){if($null -ne $Data.PSObject.Properties[$field]){$result[$field]=$Data.$field}}
++        foreach($field in @('Computer','Presence','PresenceDetail','PresenceCheckedUtc','Outcome','User','ConsoleAccount','LinkUser','UserGuid','UserDn','UserUsn','ConsoleVerifiedAD','IdentityVerifiedUtc','IdentityCheckedUtc','Detail','Source','Transport','IdentityState','CheckedUtc','DirectoryAuthRejected','InventoryError','InventoryAttemptUtc','LastUser','RawAccount','CurrentUser','ConsoleError')){if($null -ne $Data.PSObject.Properties[$field]){$result[$field]=$Data.$field}}
+         if($null -ne $Data.Inventory){$inventory=[ordered]@{};foreach($field in @('CheckedUtc','Model','Manufacturer','Build','OsCaption','LastBootUtc','RamBytes','DiskSize','DiskFree')){if($null -ne $Data.Inventory.PSObject.Properties[$field]){$inventory[$field]=$Data.Inventory.$field}};$result.Inventory=[pscustomobject]$inventory}
+     }
+     $json=[pscustomobject]$result|ConvertTo-Json -Depth 16 -Compress
+@@ -1512,11 +1512,11 @@ try {
+     if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw ('Schema local non pris en charge pour la mesure ('+(Get-DomeniaSqliteSchemaTarget).Label+' requis).')}
+     # Every identifier is constant. The payload contributes no table, category, SQL or size estimate.
+     $categories=[ordered]@{
+-        Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details')
++        Observations=@('adcc_live_observations','presence_cache','park_state','park_session_cache','domenia_observations','domenia_details','domenia_domain_metadata')
+         Snapshots=@('adcc_live_queries')
+         History=@('user_machine_history','user_scan_history','operation_runs','fleet_snapshots')
+         # Points 22, 24 and 30: census gaps, objects not seen again and directory snapshots are local directory data too.
+-        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows')
++        Index=@('ad_objects','domenia_provenance','sync_state','ad_computer_facts','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows','domenia_domain_metadata')
+         ManualLinks=@('user_machine_links')
+         Secrets=@('secret_state')
+     }
+@@ -1534,19 +1534,32 @@ try {
+         # An unavailable optional module is not an estimated distribution of database bytes.
+         if($_.Exception.Message -notmatch '(?i)no such (table|module).*dbstat'){throw}
+     }
++    # Shared-table family predicates: constants, never derived from payload.
++    $sharedTablePredicates=@{
++        Observations="WHERE family IN ('Presence','Inventory')"
++        Index="WHERE family='Directory'"
++    }
+     $usage=New-Object 'System.Collections.Generic.List[object]'
+     foreach($category in $categories.Keys){
+         $tables=New-Object 'System.Collections.Generic.List[object]';$totalRows=0L;$totalBytes=0L
+         foreach($table in $categories[$category]){
+             $rows=-1L;$bytes=-1L;$state='Absent'
+-            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
++            if($table -in @('park_session_cache','ad_computer_facts','fleet_snapshots','domenia_observations','domenia_details','domenia_directory_data','ad_absences','ad_census_gaps','ad_snapshots','ad_snapshot_rows','domenia_domain_metadata') -and -not $existing.ContainsKey($table)){$rows=0L;$bytes=0L}
+             if($existing.ContainsKey($table)){
+-                $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
+-                $state='Mesure'
+-                if($dbstat){
+-                    $bytes=0L
+-                    foreach($object in @($objects|Where-Object{$_.tbl_name -eq $table})){
+-                        if($objectBytes.ContainsKey([string]$object.name)){$bytes+=[long]$objectBytes[[string]$object.name]}
++                if($table -eq 'domenia_domain_metadata'){
++                    # Shared table: dbstat measures whole-table pages, not per-family slices.
++                    # Family-filtered Rows are exact; per-category Bytes stay -1 (unknown).
++                    $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+' '+$sharedTablePredicates[$category]+';') $db)[0].n)
++                    $state='Mesure'
++                    $bytes=-1L
++                } else {
++                    $rows=[long](@(Invoke-DomeniaDbQuery ('SELECT count(*) AS n FROM '+$table+';') $db)[0].n)
++                    $state='Mesure'
++                    if($dbstat){
++                        $bytes=0L
++                        foreach($object in @($objects|Where-Object{$_.tbl_name -eq $table})){
++                            if($objectBytes.ContainsKey([string]$object.name)){$bytes+=[long]$objectBytes[[string]$object.name]}
++                        }
+                     }
+                 }
+             }
+diff --git a/dev/wad/tests/Test-Domenia.ps1 b/dev/wad/tests/Test-Domenia.ps1
+index e929239..d85fb5f 100644
+--- a/dev/wad/tests/Test-Domenia.ps1
++++ b/dev/wad/tests/Test-Domenia.ps1
+@@ -1251,6 +1251,9 @@ try {
+ 
+     Test-Case 'P-CD-09 : contexte d association en echec, champs dits illisibles et jamais vides' {
+         . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Refresh-AssociationContext'})[0].Extent.Text)))
++        # Point 9: the context reads the identity note helper of the core (Relations.Model is not loaded here;
++        # the fixtures use no GUID, so the note stays empty and Test-DomeniaLinkIdentity is never reached).
++        . ([scriptblock]::Create([string](@($nodes|Where-Object{$_.Name -eq 'Get-DomeniaLinkIdentityNote'})[0].Extent.Text)))
+         $savedSelection=$script:SelectedObject;$savedControls=$script:Ctrl
+         $logs=New-Object 'System.Collections.Generic.List[string]'
+         function Write-AppLog {param($Text,$Level='INFO') $logs.Add(([string]$Level)+' '+[string]$Text)}
+diff --git a/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1 b/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1
+index db8e43c..7dc8a90 100644
+--- a/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1
++++ b/dev/wad/tests/Test-DomeniaHealthAdvanced.ps1
+@@ -1,5 +1,5 @@
+ ﻿#requires -Version 5.1
+-[CmdletBinding()]param([string]$ReportPath='')
++[CmdletBinding()]param([string]$ReportPath='',[string]$CaseFilter='')
+ $ErrorActionPreference='Stop';Set-StrictMode -Version 2
+ # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
+ # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
+@@ -9,7 +9,7 @@ $modules=Join-Path (Split-Path -Parent $PSScriptRoot) 'modules'
+ foreach($n in @('Common.Model','HealthRules.Model','HealthRules.UI','Boards.Model','BoardFleet.Model')){. (Join-Path $modules ('Domenia-'+$n+'.ps1'))}
+ $checks=[Collections.Generic.List[object]]::new();$domain='DC=example,DC=invalid';$scope='OU=Fleet,'+$domain;$alpha='OU=Alpha,'+$scope;$beta='OU=Beta,'+$scope;$now=([datetime]'2026-10-13T12:00:00Z').ToUniversalTime()
+ function Expect($ok,$why){if(-not $ok){throw $why}}
+-function Case($name,[scriptblock]$body){try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
++function Case($name,[scriptblock]$body){if($CaseFilter -and ($name -notmatch $CaseFilter)){return};try{&$body;$checks.Add([pscustomobject]@{Name=$name;Passed=$true;Error=''})}catch{$checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
+ function Throws([scriptblock]$body){$thrown=$false;try{&$body|Out-Null}catch{$thrown=$true};Expect $thrown 'Expected rejection'}
+ function New-PolicyBook([string]$Only='lowdisk'){
+  $policy=ConvertTo-DomeniaHealthPolicy @{DisabledRules=@(Get-DomeniaHealthRuleCatalog|Where-Object{$_.Id -ne $Only}|ForEach-Object{$_.Id})}
+@@ -96,7 +96,26 @@ Case 'Point 78: a daily comparison names a coverage improvement, not a fleet cha
+  $comparison=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Label='Veille';Day='2026-10-13';Figures=$one.Snapshot.Figures}) ([pscustomobject]@{Label='Jour';Day='2026-10-14';Figures=$two.Snapshot.Figures})
+  Expect (($comparison.Category -eq 'Couverture') -and (-not $comparison.Comparable)) ('Coverage change read as '+$comparison.Category)
+  Expect ($comparison.Summary.StartsWith('Amélioration de la couverture')) $comparison.Summary
+- Expect (@($comparison.Factors|Where-Object{($_.Factor -eq 'Périmètre') -and ($_.Status -eq 'Inchangé')}).Count -eq 1) 'Same GUID population reported as changed'
++  Expect (@($comparison.Factors|Where-Object{($_.Factor -eq 'Périmètre') -and ($_.Status -eq 'Inchangé')}).Count -eq 1) 'Same GUID population reported as changed'
++}
++Case 'RC14 Point 78: the policy fingerprint ignores expired suspensions, stays honest across formats and keeps active edits visible' {
++ $base=New-PolicyBook
++ $pA=Resolve-DomeniaHealthPolicy $base $beta;$pA.Thresholds.DiskFreeAlert=20;$pA.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance planifiée';UntilUtc=$now.AddHours(-1).ToString('o')});$bookA=Set-DomeniaHealthScopePolicy $base $beta $pA
++ $pB=Resolve-DomeniaHealthPolicy $base $beta;$pB.Thresholds.DiskFreeAlert=20;$pB.Suspensions=@();$bookB=Set-DomeniaHealthScopePolicy $base $beta $pB
++ Expect ((Board $bookA).Snapshot.Figures.PolicyHash -ceq (Board $bookB).Snapshot.Figures.PolicyHash) 'Purging an expired suspension read as rules changed'
++ $pC=Resolve-DomeniaHealthPolicy $base $beta;$pC.Thresholds.DiskFreeAlert=20;$pC.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance planifiée';UntilUtc=$now.AddHours(1).ToString('o')});$boardC=Board (Set-DomeniaHealthScopePolicy $base $beta $pC)
++ $pD=Resolve-DomeniaHealthPolicy $base $beta;$pD.Thresholds.DiskFreeAlert=20;$pD.Suspensions=@([pscustomobject]@{RuleId='lowdisk';Reason='Maintenance étendue';UntilUtc=$now.AddHours(1).ToString('o')});$boardD=Board (Set-DomeniaHealthScopePolicy $base $beta $pD)
++ $figC=$boardC.Snapshot.Figures;$figD=$boardD.Snapshot.Figures
++ Expect ($figC.PolicyHash -cne $figD.PolicyHash) 'Active suspension edit invisible in the policy fingerprint'
++ $cmpEdit=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Figures=$figC}) ([pscustomobject]@{Figures=$figD})
++ Expect ((@($cmpEdit.Factors|Where-Object{$_.Factor -eq 'Règles'})[0].Status -eq 'Modifié') -and ($cmpEdit.Category -eq 'Règles')) ('Active suspension edit not named a rules change: '+$cmpEdit.Category)
++ Expect ([int]$figC.FormatVersion -eq 3) 'Snapshot FormatVersion is not 3'
++ $old=$figC|ConvertTo-Json -Depth 8|ConvertFrom-Json
++ $old|Add-Member -NotePropertyName FormatVersion -NotePropertyValue 2 -Force
++ $old|Add-Member -NotePropertyName PolicyHash -NotePropertyValue (Get-DomeniaHealthFingerprint @('legacy-token-hashing-all-suspensions')) -Force
++ $cmpFormat=Compare-DomeniaHealthSnapshots ([pscustomobject]@{Label='Ancien';Figures=$old}) ([pscustomobject]@{Label='Neuf';Figures=$figC})
++ $regles=@($cmpFormat.Factors|Where-Object{$_.Factor -eq 'Règles'})[0]
++ Expect (($regles.Status -eq 'Inconnu') -and ($cmpFormat.Category -eq 'Limitée') -and (@($cmpFormat.Limits|Where-Object{$_ -like '*format différent*'}).Count -eq 1)) ('Format drift read as '+$regles.Status+'/'+$cmpFormat.Category)
+ }
+ Case 'Point 79: every fleet cross table opens as a matrix whose totals match its workstations' {
+  $board=Board (New-PolicyBook)
+diff --git a/dev/wad/tests/Test-DomeniaStorageMaintenance.ps1 b/dev/wad/tests/Test-DomeniaStorageMaintenance.ps1
+index c269d53..c861a77 100644
+--- a/dev/wad/tests/Test-DomeniaStorageMaintenance.ps1
++++ b/dev/wad/tests/Test-DomeniaStorageMaintenance.ps1
+@@ -319,6 +319,28 @@ try{
+    }
+   }
+  }
++ Case 'RC14 StorageUsage splits domain metadata families, tolerates the old base and never double counts shared bytes' {
++  $p=New-Database 'rc14-usage'
++  Query $p "INSERT INTO domenia_domain_metadata(domain_dn,family,request_key,attempt_at,status,revision) VALUES('dc=test','Presence','p1','2026-01-01T00:00:00Z','Success',7),('dc=test','Presence','p2','2026-01-02T00:00:00Z','Success',7),('dc=test','Inventory','i1','2026-01-03T00:00:00Z','Success',7),('dc=test','Directory','d1','2026-01-04T00:00:00Z','Success',7),('dc=test','AdSchema','s1','2026-01-05T00:00:00Z','Success',7);" -Write
++  $before=Get-TestHash $p
++  $u=Run-Usage $p
++  $obs=@($u.Categories|Where-Object Category -eq Observations)[0]
++  $idx=@($u.Categories|Where-Object Category -eq Index)[0]
++  $obsMeta=@($obs.Tables|Where-Object Table -eq domenia_domain_metadata)
++  $idxMeta=@($idx.Tables|Where-Object Table -eq domenia_domain_metadata)
++  Expect ((@($obsMeta).Count -eq 1) -and (@($idxMeta).Count -eq 1)) 'the shared table is listed once per coherent category'
++  Expect (($obsMeta[0].Rows -eq 3) -and ($idxMeta[0].Rows -eq 1)) ('family split Presence+Inventory/Directory: '+$obsMeta[0].Rows+' and '+$idxMeta[0].Rows)
++  Expect (($obsMeta[0].Bytes -eq -1) -and ($idxMeta[0].Bytes -eq -1) -and ($obs.Bytes -eq -1) -and ($idx.Bytes -eq -1)) 'shared table bytes stay unknown, never counted twice'
++  $sharedRows=@($u.Categories|ForEach-Object{$_.Tables}|Where-Object Table -eq domenia_domain_metadata|ForEach-Object{$_.Rows}|Measure-Object -Sum).Sum
++  Expect ($sharedRows -eq 4) ('the five stored rows are counted once each, the unlisted family in none: '+$sharedRows)
++  Expect ((Get-TestHash $p) -ceq $before) 'the measured base is byte for byte unchanged'
++  Expect ($u.ReadOnly -and ($u.DatabaseBytes -eq (Get-Item -LiteralPath $p).Length)) 'read-only measure reports the real file'
++  $old=New-Database 'rc14-old-base';Query $old 'DROP TABLE domenia_domain_metadata;' -Write
++  Expect ((Query $old "SELECT count(*) n FROM sqlite_master WHERE name='domenia_domain_metadata';")[0].n -eq 0) 'the old base really has no such table'
++  $u=Run-Usage $old
++  $absent=@($u.Categories|ForEach-Object{$_.Tables}|Where-Object Table -eq domenia_domain_metadata)
++  Expect ((@($absent).Count -eq 2) -and (@($absent|Where-Object{($_.Rows -eq 0) -and ($_.Bytes -eq 0) -and ($_.State -ceq 'Absent')}).Count -eq 2)) 'an old base without the table measures zero, not an error'
++ }
+ }finally{
+  $report=[pscustomobject]@{Suite='StorageMaintenance';Platform=[Environment]::OSVersion.VersionString;PowerShell=$PSVersionTable.PSVersion.ToString();Cases=$cases.ToArray();Total=$cases.Count;Passed=@($cases|Where-Object Passed).Count;Failed=@($cases|Where-Object{-not $_.Passed}).Count;Assertions=$script:checks;NoNetwork=$true;Scope='Temporary SQLite databases; no Active Directory or real-user data.'}
+  if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 10),[Text.UTF8Encoding]::new($false))}
+diff --git a/dev/wad/tests/Test-DomeniaWiringRelations.ps1 b/dev/wad/tests/Test-DomeniaWiringRelations.ps1
+index b474f71..b026cc0 100644
+--- a/dev/wad/tests/Test-DomeniaWiringRelations.ps1
++++ b/dev/wad/tests/Test-DomeniaWiringRelations.ps1
+@@ -206,7 +206,7 @@ try {
+     [void][IO.Directory]::CreateDirectory($script:TempRoot)
+     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
+     $definitions=[Collections.Generic.List[string]]::new()
+-    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary','Sync-DomeniaLinksAgainstIndex','Get-AssociationForRow','Get-DomeniaIndexAssociationText')){$definitions.Add((Get-SourceFunctionText $core $name))}
++    foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary','Sync-DomeniaLinksAgainstIndex','Get-AssociationForRow','Get-DomeniaIndexAssociationText','Get-DomeniaLinkIdentityNote')){$definitions.Add((Get-SourceFunctionText $core $name))}
+     foreach($pair in @(@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Storage.UI.ps1','Request-DomeniaStorageWork'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
+         $definitions.Add((Get-SourceFunctionText (Parse-Source (Join-Path $wad $pair[0])) $pair[1]))
+     }

@@ -1,5 +1,11 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **RC1.17.14 — 17 octobre** : [cinq corrections restantes (points 4, 78, 9, 10, 127)](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-17.md),
+> bancs dédiés et rapports dans `validation/2026-10-17/rc14-corrections/` (pwsh7 Linux, non qualifiants). Revue indépendante
+> session OpenCode distincte : cinq points acceptés, aucune correction de code retenue (`REVIEW-INDEPENDENT.md`). Reste :
+> ré-épinglage des contrats worker (`--apply`), packs RC1.17.14, commit, bundle et `DELIVERY.json` ; qualification Windows 5.1
+> toujours due pour tout le lot. Full Spark via OpenCode, aucun test VM (décision David du 17/10).
+
 > **RC1.17.13 — 16 octobre** : [corrections restantes](validation/2026-10-16/rc13-corrections/README.md), builds DLL déterministes. Contrôles ciblés uniquement ; qualification générale non clôturée.
 
 > **RC1.17.12 — 16 octobre** : [corrections finales](validation/2026-10-16/final-corrections/README.md). Assistant en haut, diagnostics de lenteur discrets, guides Word/PDF actualisés. Qualification générale toujours distincte des contrôles ciblés.

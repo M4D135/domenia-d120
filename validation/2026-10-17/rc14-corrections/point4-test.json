@@ -1,0 +1,18 @@
+{
+  "Suite": "StorageMaintenance",
+  "Platform": "Unix 6.17.0.1026",
+  "PowerShell": "7.4.6",
+  "Cases": [
+    {
+      "Name": "RC14 StorageUsage splits domain metadata families, tolerates the old base and never double counts shared bytes",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Total": 1,
+  "Passed": 1,
+  "Failed": 0,
+  "Assertions": 8,
+  "NoNetwork": true,
+  "Scope": "Temporary SQLite databases; no Active Directory or real-user data."
+}
