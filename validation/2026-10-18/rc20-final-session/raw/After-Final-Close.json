@@ -1,0 +1,26 @@
+{
+    "WindowMaximized":  false,
+    "WindowLeft":  120,
+    "WindowTop":  80,
+    "WindowWidth":  1320,
+    "WindowHeight":  820,
+    "Policy":  {
+                   "Version":  1,
+                   "AutomaticBackup":  true,
+                   "BackupHours":  48,
+                   "BackupKeep":  5,
+                   "PresenceDays":  30,
+                   "ConsoleDays":  90,
+                   "InventoryDays":  180,
+                   "ProbeDays":  90,
+                   "DetailDays":  30,
+                   "LinkHistoryDays":  0
+               },
+    "Receipt":  {
+                    "Bytes":  700416,
+                    "Sha256":  "ad6f037d0f37e5b7110be5b2672c73379f500af2189b9455f30c59face0660a4",
+                    "File":  "Domenia-20261018-114158-026-0de9b567.db",
+                    "Automatic":  true,
+                    "Origin":  "Scheduled"
+                }
+}

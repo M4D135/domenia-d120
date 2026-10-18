@@ -1,0 +1,41 @@
+{
+    "Passed":  true,
+    "Utc":  "2026-10-18T09:37:32.9130144Z",
+    "CoreSha256":  "9F524E4D465C0A773AE0FC3C03CB8F9D9AC3428332DD8F10FF8F4436FFEE9BFB",
+    "Expression":  "$searcher.PageSize = [Math]::Min($ldapLimit - 1,[Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize)))",
+    "Cases":  [
+                  {
+                      "Legacy":  true,
+                      "Limit":  101,
+                      "Page":  250,
+                      "Count":  0,
+                      "Error":  "The size limit for this request was exceeded.\r\n",
+                      "Passed":  true
+                  },
+                  {
+                      "Legacy":  false,
+                      "Limit":  101,
+                      "Page":  100,
+                      "Count":  101,
+                      "Error":  "",
+                      "Passed":  true
+                  },
+                  {
+                      "Legacy":  false,
+                      "Limit":  2,
+                      "Page":  1,
+                      "Count":  2,
+                      "Error":  "",
+                      "Passed":  true
+                  },
+                  {
+                      "Legacy":  false,
+                      "Limit":  501,
+                      "Page":  250,
+                      "Count":  234,
+                      "Error":  "",
+                      "Passed":  true
+                  }
+              ],
+    "DirectoryWrites":  0
+}

@@ -32,7 +32,7 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Invoke-GlobalSearch",
     "LiteralIndex": 0,
-    "Sha256": "9EF84B6C4725DA36482F29628F817DD0DDB3BF9D4820E167AC719DF282867B45"
+    "Sha256": "E9688289880A369290884B7FC4C70968C11F26F2C5228E0DAB726B52A3548D35"
   },
   {
     "Operation": "PermissionAnalysis",

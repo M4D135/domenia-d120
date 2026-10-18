@@ -1,7 +1,7 @@
 {
   "Format": 1,
   "Version": "1.0",
-  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.18-D120",
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.20-D120",
   "Edition": "dev",
   "ReleaseStatus": "CandidateRequiresWindowsValidation",
   "Files": [
@@ -581,8 +581,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/EXECUTION.json",
-      "Sha256": "43147A305322D49242C33484D5EE0152E7085F7B04FD30B6BF585A4C9C7C08F9",
-      "Bytes": 197310,
+      "Sha256": "BBF75DEB0070DABFE0953B55EB727842C275DCBA371752360AB74566AFD07653",
+      "Bytes": 199139,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -637,8 +637,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/REPRISE.md",
-      "Sha256": "D653E0E11B88E90DA96E18706B900677165C5E42DA8056CCED28814531427845",
-      "Bytes": 5153,
+      "Sha256": "AF3DD650FB2FC8BE1469A04292DC0165AC43227AF9E0F10200D7906EEE7FB1C8",
+      "Bytes": 6733,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -665,8 +665,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md",
-      "Sha256": "542576C54810C8ABE05BCF8A52FD304D8EF88946C0A5C74491A75E7320C0591E",
-      "Bytes": 9249,
+      "Sha256": "A0ED412AE911876E8F4C83EB35A36D76FCC0823C6ADAFF748CB36C714BA7755D",
+      "Bytes": 11047,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1295,15 +1295,15 @@
     },
     {
       "Path": "tools/operation-contracts.json",
-      "Sha256": "C89036F83F3A0E216BE957A4D764C49F1A37E462CC47A91483BBF8E5C84E63D2",
+      "Sha256": "BB4A792DB3B28F502D6CFB4D60018DFDEEE0EAB0851357D17619BBBF235BA39B",
       "Bytes": 23544,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "tools/preload-baseline.json",
-      "Sha256": "B8C3F2A0183A1CC364E86BD09BD4D7A5D0D31C6F1F37673154741D92BCDD3C24",
-      "Bytes": 284363,
+      "Sha256": "BD441A91BD12158B880A66B2C123C4621B4634638E9C38A12E3E4FC6A4BFD64B",
+      "Bytes": 284616,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1316,7 +1316,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "F4971514EFF4FB09808CC9677C84F4AADD6C99E93521F608B5DF78D9E9CFEDB0",
+      "Sha256": "94C361C5B5FE05FA07B083B14F5C34FBDD4079F43D01791C4373C4165DEF41D0",
       "Bytes": 39414,
       "Runtime": false,
       "PreserveExisting": false
@@ -1330,7 +1330,7 @@
     },
     {
       "Path": "tools/release-contract.json",
-      "Sha256": "B0A81D577DC1157B01E3D1722F5D7F144598DE151A68684125DBFC2FEF95E05D",
+      "Sha256": "8CC1679B0888411A44A012EF105DB879C5EAC21C7D725E15A14BD64A23D8FD3E",
       "Bytes": 3182,
       "Runtime": false,
       "PreserveExisting": false
@@ -1603,14 +1603,14 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "18D2A62935EBC9B1DC29B47EF8F8C7479AD23714F99A55AE2E0A407DC097F2EF",
-      "Bytes": 1715013,
+      "Sha256": "9F524E4D465C0A773AE0FC3C03CB8F9D9AC3428332DD8F10FF8F4436FFEE9BFB",
+      "Bytes": 1715254,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Main.xaml",
-      "Sha256": "C7DBEACE8900A9E63BFF1BCE14D26EFA751FABC1EC663B323CDF344A691F8CAD",
+      "Sha256": "80F167CFF8B3F1C9533207DA04FA610AB59E2C5B3F5A491E4C65657C223892C0",
       "Bytes": 430766,
       "Runtime": true,
       "PreserveExisting": false
@@ -1652,7 +1652,7 @@
     },
     {
       "Path": "wad/Domenia.release.json",
-      "Sha256": "B0A81D577DC1157B01E3D1722F5D7F144598DE151A68684125DBFC2FEF95E05D",
+      "Sha256": "8CC1679B0888411A44A012EF105DB879C5EAC21C7D725E15A14BD64A23D8FD3E",
       "Bytes": 3182,
       "Runtime": true,
       "PreserveExisting": false
@@ -1911,8 +1911,8 @@
     },
     {
       "Path": "wad/docs/GUIDE-DOMENIA-RC1.md",
-      "Sha256": "4177802723C4A5B6F7B8E2C8913E8423A610FA6567AFFEC4E8499A646F20DAC9",
-      "Bytes": 17896,
+      "Sha256": "3552070F70E4DDF437D7D84864142A988D5380BFB18B5FA4BFBBB79AF2C27D9E",
+      "Bytes": 18453,
       "Runtime": false,
       "PreserveExisting": false
     },

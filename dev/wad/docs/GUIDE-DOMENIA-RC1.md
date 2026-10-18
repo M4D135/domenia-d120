@@ -1,5 +1,13 @@
 # Domenia 1.0 RC1 : guide de livraison et limites
 
+## Correctif RC1.17.20
+
+La page LDAP reste inférieure au quota de lecture : une recherche limitée à 100 éléments peut maintenant lire son élément supplémentaire sans erreur de taille dès la première page. Les limites d’affichage et de requête restent appliquées.
+
+## Correctif RC1.17.19
+
+Au redémarrage, la sauvegarde automatique est initialisée après le chargement des préférences : ses champs et sa minuterie retrouvent les réglages enregistrés. RC18 conservait les valeurs sur disque mais les appliquait trop tôt à l’interface.
+
 ## Correctif RC1.17.18
 
 La fenêtre mémorise automatiquement sa taille, sa position et son état normal ou maximisé dans les préférences. La réduction conserve le dernier état ; rouvrir maximisé puis rétablir garde la taille normale choisie. Une position hors du bureau actuel revient dans la zone de travail principale.

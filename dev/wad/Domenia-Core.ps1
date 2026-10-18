@@ -8422,7 +8422,8 @@ foreach ($ctx in @($contexts)) {
             $searcher = New-WSearcher $ctx ([string]$Payload.BaseDn) $filterText @($Payload.Properties) ([string]$Payload.Scope) $ldapLimit
             $searcher.ServerTimeLimit = [TimeSpan]::FromSeconds([Math]::Max(3,[int]$Payload.ServerTimeLimitSeconds))
             $searcher.ClientTimeout = [TimeSpan]::FromSeconds([Math]::Max(5,[int]$Payload.ClientTimeoutSeconds))
-            $searcher.PageSize = [Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize))
+            # Async LDAP rejects a first page larger than SizeLimit; leave room for the look-ahead result.
+            $searcher.PageSize = [Math]::Min($ldapLimit - 1,[Math]::Max(100,[Math]::Min(1000,[int]$Payload.StreamPageSize)))
             $searcher.CacheResults = $false
             $searcher.Asynchronous = $true
             if (($null -ne $continuation) -and ([string]$continuation.SortAttribute -eq 'name')) { $searcher.Sort = New-Object System.DirectoryServices.SortOption('name',[System.DirectoryServices.SortDirection]::Ascending) }
@@ -19016,7 +19017,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.18-D120"
+$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.20-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20264,7 +20265,7 @@ function Get-DomeniaWorkerOperationHashes {
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
         TreeChildren          = "4187EB7520008EA02DDFB594B428FD1EBE53809D0C01C94B84BC331248A25CA5"
-        GlobalSearch          = "9EF84B6C4725DA36482F29628F817DD0DDB3BF9D4820E167AC719DF282867B45"
+        GlobalSearch          = "E9688289880A369290884B7FC4C70968C11F26F2C5228E0DAB726B52A3548D35"
         PermissionAnalysis    = "79F87877EC7512EC07088C0FEADD022181873112A71510AA8E90AF76791FC9BB"
         SelfCheck             = "C73BA6DA41221073BF1B56DA687BC8CF2A3250B5151F3D996C37EAFAA8E572B3"
         ReadBitLocker         = "1051F9885858BAA1CB9B0944DA4C396B264C51763FBD108F1D9242796343BB47"
@@ -20354,7 +20355,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "03A1130AABC0CEC200273EAF4BB8B8F507619619CA72EB27A97C7A41B6A372D4"
+    $expectedFingerprint = "09238B35C221D9258AD1F103316415766ADF7A3CFA954B6C71460FA0C9CDAB85"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24431,7 +24432,6 @@ function Initialize-Window {
             Request-DomeniaUserMachineLinks
             Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail 'Associations et état de la base : lecture en arrière-plan.'
         } | Out-Null
-        Invoke-DomeniaStartupStage 'Réglages du stockage local' {Initialize-DomeniaStoragePolicy} | Out-Null
         Invoke-DomeniaStartupStage "Etat initial de securite" {
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Preparation des controles..."
             Set-VisibleTabsForType ""
@@ -24448,6 +24448,8 @@ function Initialize-Window {
             Initialize-DomeniaPresentation
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Presentation prete."
         } | Out-Null
+        # Presentation loads persisted settings; only then populate storage controls and start its timer.
+        Invoke-DomeniaStartupStage 'Réglages du stockage local' {Initialize-DomeniaStoragePolicy} | Out-Null
         # D002/C2: after the presentation (which sets the session badge), the demonstration banner and the
         # write lock are applied; they stay for the whole session.
         if ([bool]$script:DemoMode) { Invoke-DomeniaStartupStage "Mode demonstration" { Set-DomeniaDemoShellPresentation } | Out-Null }
@@ -25956,7 +25958,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.18-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.20-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

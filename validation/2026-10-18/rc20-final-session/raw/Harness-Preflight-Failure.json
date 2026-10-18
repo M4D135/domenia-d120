@@ -1,0 +1,16 @@
+{
+    "Build":  "RC1.17.20",
+    "Stage":  "Final",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-18T09:37:54.8515192Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+
+              ],
+    "AppId":  0,
+    "ArchiveSha256":  "71E4DB913EE613E68F167A9F384F99C2623922401678458DFA9B957F7E3CB609",
+    "Error":  "Wrong RC20 archive",
+    "Stack":  "at Require, C:\\DomeniaLab\\d120-rc11720-final\\_Check-Final-d120-rc11720-final-37157-1802.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-final\\_Check-Final-d120-rc11720-final-37157-1802.ps1: line 67",
+    "FinishedUtc":  "2026-10-18T09:37:58.8040792Z"
+}

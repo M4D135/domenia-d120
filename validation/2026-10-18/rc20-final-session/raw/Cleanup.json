@@ -1,0 +1,10 @@
+{
+    "Passed":  true,
+    "Utc":  "2026-10-18T09:42:59.4627094Z",
+    "ControllerExitCode":  0,
+    "ApplicationProcessesClosed":  true,
+    "ScheduledTaskRemoved":  true,
+    "VmsDeleted":  false,
+    "ProdSha256":  "71E4DB913EE613E68F167A9F384F99C2623922401678458DFA9B957F7E3CB609",
+    "BackupSha256":  "AD6F037D0F37E5B7110BE5B2672C73379F500AF2189B9455F30C59FACE0660A4"
+}

@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.18-DOMENIA-1.0-RC1.17.18-D120",
-  "source_base_commit": "f9df1e5ea0c07abb1aa43e4d49ed7bb2da71044c",
+  "build": "2026.10.18-DOMENIA-1.0-RC1.17.20-D120",
+  "source_base_commit": "70c7f31af545562e350acb130539024f54f2f90b",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3066493,
-      "sha256": "ba61521bb83e0bc2deb919cb673e5f7fcc667b004d2a34d9c5d1aa9920a842ec",
+      "bytes": 3066616,
+      "sha256": "71e4db913ee613e68f167a9f384f99c2623922401678458dfa9b957f7e3cb609",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6548643,
-      "sha256": "94ef38920a2f6423cd70abc42c2208414af0fc8fe6ec81f3301c3ff71e327362",
+      "bytes": 6550005,
+      "sha256": "d78cdb6408a9da6229ad51b3e0d5c55e7600bdf3c42e8756fac5e7316442d885",
       "files": 644,
       "archive_files_including_manifest": 645,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC18_TARGETED_WINDOWS_WINDOW_AND_STORAGE_PREFERENCES_FULL_ACCEPTANCE_OPEN",
-    "proof": "validation/2026-10-18/rc18-window-geometry/README.md",
+    "status": "RC20_TARGETED_WINDOWS_FINAL_APPLICATION_AND_LDAP_PASS_FULL_ACCEPTANCE_OPEN",
+    "proof": "validation/2026-10-18/rc20-final-session/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_ONLY_FUNCTIONS_AND_NATIVE_WPF_NOT_FULL_APPLICATION_RC18",
+    "formal_windows_qualification": "TARGETED_APPLICATION_PROD_RC20_NOT_FULL_ACCEPTANCE",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -40,6 +40,13 @@
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
       "validation/2026-10-18/rc17-live-ad-wmi/README.md"
-    ]
+    ],
+    "historical_rc18_proofs": [
+      "validation/2026-10-18/rc18-window-geometry/README.md"
+    ],
+    "additional_proofs": [
+      "validation/2026-10-18/rc19-final-session/README.md"
+    ],
+    "vm_no_longer_needed_for_requested_scope": true
   }
 }

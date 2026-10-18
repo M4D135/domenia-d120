@@ -1,0 +1,107 @@
+{
+  "build": "RC1.17.20",
+  "date": "2026-10-18",
+  "source_base_commit": "70c7f31af545562e350acb130539024f54f2f90b",
+  "passed_requested_critical_scope": true,
+  "full_acceptance": false,
+  "publishable": false,
+  "vm_no_longer_needed_for_requested_scope": true,
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3066616,
+      "sha256": "71e4db913ee613e68f167a9f384f99c2623922401678458dfa9b957f7e3cb609",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6550005,
+      "sha256": "d78cdb6408a9da6229ad51b3e0d5c55e7600bdf3c42e8756fac5e7316442d885",
+      "files": 644,
+      "archive_files_including_manifest": 645,
+      "archive_root": "dev/"
+    }
+  ],
+  "proof_files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "e641d3b09b63aebc4a750e95e8b509d898a69dce7d1797fbe7a8d0ec880ce7f8"
+    },
+    {
+      "path": "README.md",
+      "sha256": "da35f0ce448a54639c3308cc8f2f719aee486ee695347b47c7a8e10c0b9f0be6"
+    },
+    {
+      "path": "build-report.json",
+      "sha256": "9e6bab4449bd2e737b01f625a992eb38d9e895c6ce8efbb543d805b98345339a"
+    },
+    {
+      "path": "harness/Check-Final-preflight.ps1",
+      "sha256": "72ef068048dd4ef999a7402cfce1baf667bb1510e0e3b274cab176a27447d52b"
+    },
+    {
+      "path": "harness/Check-Final.ps1",
+      "sha256": "e644a69b6256b49ab1eaebe2781b45263162c55cd037b15a26f1f1c39578f5e3"
+    },
+    {
+      "path": "harness/Check-Ldap.ps1",
+      "sha256": "af1b13b06a0b4c112d4cff69f58430b6b594855ca8c0d9a34b643bd64ef93098"
+    },
+    {
+      "path": "harness/Finish.ps1",
+      "sha256": "db33c8acb3febe4dac265d791e7ada025adbecb43992fbb85ba83625f017d4e0"
+    },
+    {
+      "path": "raw/After-Final-Close.json",
+      "sha256": "0e3df4246bfcd1d9835930a7013e99ae700772914f2738d05e70a34c568f5809"
+    },
+    {
+      "path": "raw/After-First-Close.json",
+      "sha256": "7f2c571897eaccbf68b05a9a52204aea91eb9b906fd0fd8d10e3f5bdfc042824"
+    },
+    {
+      "path": "raw/Automatic-Backup-Success.png",
+      "sha256": "ad6a052af13560fbb010d5449ebe82547fd76d2642c8fe43ad9492ebbf5b71b0"
+    },
+    {
+      "path": "raw/Cleanup.json",
+      "sha256": "77444c6b26b620f74eb1008a2c138c29a7fc8854929ec4f3842c68a52bf06341"
+    },
+    {
+      "path": "raw/Final-Result.json",
+      "sha256": "969c620be3de9166e41cb4a411d7565fad32d6b03186f43ce6c7ec7f93199a29"
+    },
+    {
+      "path": "raw/First-Normal.png",
+      "sha256": "83d815a0f7c6cce3520276320c7d4b093a923c30d78902567fc8c1072132b5a7"
+    },
+    {
+      "path": "raw/First-Session.log",
+      "sha256": "4cb5d66cd42d0a84289d5a2a9f4f56e80540e27473238795ee27bbcc2b905fdd"
+    },
+    {
+      "path": "raw/Harness-Preflight-Failure.json",
+      "sha256": "0bb970346ae3a599ba61d75991348514e49756a40163c25c6988d6de562d795b"
+    },
+    {
+      "path": "raw/Ldap-Page-Limit.json",
+      "sha256": "9d791e630d363a08e1d91a364e1fc204f7346cad0301f7788b537d5a919249fb"
+    },
+    {
+      "path": "raw/Reopened-Maximized.png",
+      "sha256": "f36e700d9ea4c8f9b0f70346a766cd83714cfcffa0f7b02336a98466ceda5704"
+    },
+    {
+      "path": "raw/Second-Session.log",
+      "sha256": "eb39cfd3cb794baeac739435286b93eccdb6161687dcd66818fd796237af9511"
+    },
+    {
+      "path": "raw/Setup.json",
+      "sha256": "34c06fbcd7a95820bb47c704397c7401c5775c62eabf240d885805e7d2a23ee2"
+    }
+  ]
+}

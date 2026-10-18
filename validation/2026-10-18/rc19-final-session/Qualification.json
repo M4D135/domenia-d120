@@ -1,0 +1,112 @@
+{
+  "build": "RC1.17.19",
+  "date": "2026-10-18",
+  "source_base_commit": "70c7f31af545562e350acb130539024f54f2f90b",
+  "passed_requested_critical_scope": true,
+  "full_acceptance": false,
+  "publishable": false,
+  "vm_no_longer_needed_for_requested_scope": false,
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3066552,
+      "sha256": "dbc505659603c06b7756c396c6a97a8fd9b45a68ef262cc4112783f8aea1484b",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6548804,
+      "sha256": "23e87d5831adca447a1f935cc6b4b7db9ee74a3fc3fe560111c83bf015f77f0c",
+      "files": 644,
+      "archive_files_including_manifest": 645,
+      "archive_root": "dev/"
+    }
+  ],
+  "proof_files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "45f641d85508f462542ac1b6a4be529e7c037d85ffd53bd9436fcf3fc365358f"
+    },
+    {
+      "path": "README.md",
+      "sha256": "513d61e890012202f0e529b74c1deb3c790db9f93257fe0570b58d692f2baab5"
+    },
+    {
+      "path": "build-report.json",
+      "sha256": "ed7dad65791c4676fae1d5e22d6fd51ad7f598413585cde3802dcbc05dd4e7ef"
+    },
+    {
+      "path": "harness/Check-Final.ps1",
+      "sha256": "ebc01967ca67bc0895b0ed24b230fbe74863c38309ef03f6045de0b9f01096c5"
+    },
+    {
+      "path": "harness/Finish.ps1",
+      "sha256": "18282204f106a1b7a14af2164586c0be113f5d2c258aec387d38abcbb5b9e5cf"
+    },
+    {
+      "path": "raw/After-Final-Close.json",
+      "sha256": "5f484978be3fc230c3843f4264ee119a9bd8c9644e304f04e72e30127daac373"
+    },
+    {
+      "path": "raw/After-First-Close.json",
+      "sha256": "7f2c571897eaccbf68b05a9a52204aea91eb9b906fd0fd8d10e3f5bdfc042824"
+    },
+    {
+      "path": "raw/Automatic-Backup-Success.png",
+      "sha256": "74c9967dc8554e36c0bf75c7fc71969011f4244d5cd5ef9a80e95ea2ecb7cc20"
+    },
+    {
+      "path": "raw/Cleanup.json",
+      "sha256": "fa4242327ef336ad79fd8f575f0f72bdf68759b7b78dbc7957bb6cc3c5f46243"
+    },
+    {
+      "path": "raw/Domenia-session.log",
+      "sha256": "b7014d288525a0decaf28ed50355182d527a6978913ae672c788e977f9af9d45"
+    },
+    {
+      "path": "raw/Final-Result.json",
+      "sha256": "9ab97acb725f06a1b556ba750bd573239201ee040a4acb5e976418fa45769d48"
+    },
+    {
+      "path": "raw/First-Normal.png",
+      "sha256": "a5aaddead7b7ef07e84fa69f43894711b971ce7a0dc6c2e5a399bc719347b308"
+    },
+    {
+      "path": "raw/Reopened-Maximized.png",
+      "sha256": "360a333cc042609d705866e2a79414ad692c506660a42e42426cb9c1f5a51894"
+    },
+    {
+      "path": "raw/Setup.json",
+      "sha256": "3b761dfca40ae49199794bb341c35430e236fdbf85859c8233de8aaff9243366"
+    },
+    {
+      "path": "rc18-failure/After-First-Close.json",
+      "sha256": "7f2c571897eaccbf68b05a9a52204aea91eb9b906fd0fd8d10e3f5bdfc042824"
+    },
+    {
+      "path": "rc18-failure/Check-Final.ps1",
+      "sha256": "834204d988014bccc62659ebe87396cb170138f243341e37282f538f20c001d2"
+    },
+    {
+      "path": "rc18-failure/Failed-Session-Closed.json",
+      "sha256": "7a308ce8d9416b40e3bc8449efb3b6b5777eb40a3fb5aefc10f2c468b4218eb7"
+    },
+    {
+      "path": "rc18-failure/Failure.png",
+      "sha256": "3c07f844c2346a4b579f5aa2f0396301c47500acd094328c8ff0c7177ded2790"
+    },
+    {
+      "path": "rc18-failure/Final-Result.json",
+      "sha256": "5f4dd28ee9e6364ea527e8aef1e3a4076f4ba4733194ccec08e05a6fa08a1571"
+    },
+    {
+      "path": "rc18-failure/Setup.json",
+      "sha256": "1a91678ba1eca07f13241ce3e43de295b86651e04582319e2666dbde5969a948"
+    }
+  ],
+  "followup": "LDAP page-size startup failure found in session log; corrected and rechecked under RC20."
+}

@@ -5,9 +5,11 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
-Build actuel : **RC1.17.18**, candidat — [état de fenêtre mémorisé et sept contrôles WPF natifs](../validation/2026-10-18/rc18-window-geometry/README.md).
+Build actuel : **RC1.17.20**, candidat — [démarrage, réouverture, sauvegarde automatique et correction LDAP vérifiés sur Windows](../validation/2026-10-18/rc20-final-session/README.md).
 
-Taille, position et état normal/maximisé sont enregistrés automatiquement. Réduire conserve le dernier état ; rétablir après une réouverture maximisée retrouve la taille normale. Les réglages de sauvegarde automatique et les reçus restent désormais mémorisés après redémarrage (cinq tests Windows ciblés). RC17 a aussi corrigé l'arrêt du lot après timeout WMI ; sa sauvegarde automatique et sa restauration via interface sont [qualifiées sur le pack exact](../validation/2026-10-18/rc17-storage-ui/README.md). Ces preuves RC17 restent historiques et ne sont pas réétiquetées RC18. Qualification générale et décisions externes 134/146 ouvertes.
+Taille, position et état normal/maximisé sont enregistrés automatiquement. Réduire conserve le dernier état ; rétablir après une réouverture maximisée retrouve la taille normale. Les réglages de sauvegarde automatique et les reçus restent désormais mémorisés après redémarrage (cinq tests Windows ciblés). RC17 a aussi corrigé l'arrêt du lot après timeout WMI ; sa sauvegarde automatique et sa restauration via interface sont [qualifiées sur le pack exact](../validation/2026-10-18/rc17-storage-ui/README.md). Les preuves RC17 et les tests isolés RC18 restent historiques. RC19 corrige l’ordre de chargement des réglages au démarrage. Le [dernier contrôle applicatif RC19](../validation/2026-10-18/rc19-final-session/README.md) confirme deux démarrages, la fenêtre et les réglages conservés, puis une sauvegarde automatique réelle après réouverture. ZIP inchangés. Qualification générale et décisions externes 134/146 ouvertes.
+
+RC20 borne la page LDAP sous le quota pour éviter un échec immédiat des recherches limitées. Le contrôle final du pack RC20 confirme les deux démarrages, les réglages et la sauvegarde automatique. Les preuves précédentes restent historiques.
 
 Accueil simplifié, Santé en dernier par défaut, déplacement des sections et tailles de widgets stables.
 Le bandeau suit le lot complet, y compris les attentes et lʼenregistrement ; le panneau détaille les lectures.

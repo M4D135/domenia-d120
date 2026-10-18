@@ -1,0 +1,4 @@
+# Keep original Windows evidence bytes, including CRLF.
+raw/* -text -whitespace
+rc18-failure/* -text -whitespace
+harness/* -text

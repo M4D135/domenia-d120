@@ -1,5 +1,11 @@
 # État courant — 18 octobre 2026
 
+RC1.17.20 clôt le dernier contrôle critique : deux démarrages réels, fenêtre et réglages conservés, premier cycle automatique après réouverture, intégrité et contenu de la sauvegarde vérifiés. Le défaut de chargement des préférences RC18 est corrigé ; la recherche LDAP asynchrone révélée en RC19 est corrigée par une page inférieure au quota (ancien échec reproduit, trois lectures natives réussies). Preuves et bases récupérées hors VM, fermeture et nettoyage confirmés. David peut effacer les VM pour ce périmètre ; qualification générale et décisions 134/146 restent ouvertes. [Preuve finale](../../../../validation/2026-10-18/rc20-final-session/README.md).
+
+Historique intermédiaire RC19/RC18 :
+
+RC18 a révélé un défaut supplémentaire d’ordre d’initialisation : politique de stockage appliquée avant le chargement des préférences. RC19 déplace cette étape après la présentation. Dernier contrôle applicatif RC1.17.19 réussi : deux démarrages et connexions Windows, maximisation retrouvée, taille/position normales restaurées, réglages de sauvegarde 48 h / 5 copies conservés et premier cycle automatique réel après réouverture. Reçu, SHA-256, quick_check et contenu vérifiés ; fermeture normale et runtime inchangé. Preuves récupérées hors VM ; aucune VM requise pour le périmètre critique demandé. Qualification générale et décisions externes 134/146 ouvertes. [Preuve](../../../../validation/2026-10-18/rc19-final-session/README.md). Les VM restent présentes ; leur effacement appartient à David.
+
 **RC1.17.18** : état normal/maximisé, taille et position mémorisés ; sept cas natifs WPF réussis, packs reconstruits. Les parcours RC17 de sauvegarde automatique et de restauration par interface après corruption sont qualifiés, preuves et bases de test récupérées sur le Mac. Voir [suivi](SUIVI-2026-10-18.md), [stockage RC17](../../../../validation/2026-10-18/rc17-storage-ui/README.md) et [fenêtre RC18](../../../../validation/2026-10-18/rc18-window-geometry/README.md). Les VM restent démarrées, application isolée et tâches de test fermées ; verrouillage automatique W11-01 désactivé sur demande. Décisions 134/146 et qualification générale ouvertes.
 
 Historique des qualifications précédentes :
