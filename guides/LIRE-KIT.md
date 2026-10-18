@@ -32,7 +32,7 @@ La syntaxe du texte, les champs de la fiche et la méthode complète sont dans `
 
 Les sources `technicien.md` et `administrateur.md` décrivent Domenia **1.0**. Leur fiche JSON associe
 les figures à des PNG natifs ; les livrables finaux sont copiés dans `../DOC/`. La référence interne
-de la passe est RC1.17.10, datée du 16 octobre 2026 ; les guides destinés aux utilisateurs conservent
+de la passe est RC1.17.20, datée du 18 octobre 2026 ; les guides destinés aux utilisateurs conservent
 la version produit 1.0, sans journal des changements.
 
     node build_guide.js technicien.json --no-pdf
@@ -56,10 +56,13 @@ produire le PDF depuis le DOCX et inspecter chaque page. Recalculer ensuite les 
 quatre fichiers finaux et le rapport de contrôle documentaire. Une compilation réussie seule
 ne remplace pas la relecture du rendu.
 
-La logique d’actualisation de l’OU est décrite par des tableaux natifs dans les guides. Les vues
-générales montrant un ancien parcours de boutons ou de dates sont exclues de cette édition.
-Les captures conservées illustrent uniquement les contrôles encore applicables ; leurs PNG
-originaux et leur provenance sont préservés. Aucun nouveau rendu Windows n’est revendiqué pour
-cette édition tant que les nouveaux rendus ne sont pas retenus. Le résultat de la tentative
-Windows et le contrôle des quatre documents sont décrits dans
-`../validation/2026-10-16/windows-recovery/` ; les anciens originaux et leur provenance restent conservés.
+La passe RC1.17.20 renouvelle 38 PNG natifs avec des données fictives ; les deux guides utilisent
+29 figures chacun. La provenance lie les images au manifeste runtime et aux 172 fichiers
+applicatifs vérifiés, indépendamment des évolutions du suivi et des harnais DEV. Les deux PDF
+sont produits depuis les DOCX, avec inspection des 34 pages technicien et 83 pages administrateur.
+
+Les captures réussissent 54 des 55 contrôles de disposition. À 1280 × 720, l’Atelier n’affiche
+qu’une ligne entière au lieu des deux attendues ; ce contrôle reste en échec et cette image
+n’illustre aucun guide. La fraîcheur des illustrations ne vaut donc pas qualification générale
+de la géométrie ni validation humaine clavier/Narrateur. Résultats, tentatives et limites :
+`../validation/2026-10-18/rc20-qualification-docs/README.md`.

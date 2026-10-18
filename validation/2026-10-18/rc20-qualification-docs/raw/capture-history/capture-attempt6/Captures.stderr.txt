@@ -1,0 +1,6 @@
+Capture fixture: ModŠles de requˆtes : filtre local et d‚tail du modŠle s‚lectionn‚
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:13 char:157
++ ... Condition}); if(-not $Condition){throw ('Capture fixture: '+$Name)} }
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Capture fixture...Šle s‚lectionn‚:String) [], RuntimeException
+    + FullyQualifiedErrorId : Capture fixture: ModŠles de requˆtes : filtre local et d‚tail du modŠle s‚lectionn‚

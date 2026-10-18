@@ -1,0 +1,5 @@
+surface 1920x1080
+capture accueil 1920x1240
+capture actualisation-ou 1920x1080
+capture atelier-requetes 1920x1240
+capture atelier-catalogue 1920x1080

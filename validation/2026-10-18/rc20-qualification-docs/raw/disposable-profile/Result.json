@@ -1,0 +1,65 @@
+{
+    "Build":  "RC1.17.20",
+    "StartedUtc":  "2026-10-18T10:10:03.1617623Z",
+    "Passed":  true,
+    "UserRemoved":  true,
+    "ProfileRemoved":  true,
+    "UserSid":  "S-1-5-21-1750171418-895759999-1675054065-1011",
+    "ExitCode":  0,
+    "Child":  {
+                  "Passed":  true,
+                  "Checks":  [
+                                 {
+                                     "Name":  "Dedicated disposable identity",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Standard non-administrator token",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Real disposable Windows profile",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "install exit 0",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Installed launcher exists",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "uninstall-keep exit 0",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Explicit preservation retains both data locations",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "reinstall exit 0",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "uninstall-delete exit 0",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Explicit profile deletion removes Domenia data logs receipts",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Explicit local deletion removes installed code and local data",
+                                     "Passed":  true
+                                 },
+                                 {
+                                     "Name":  "Unrelated profile sentinel retained",
+                                     "Passed":  true
+                                 }
+                             ],
+                  "Identity":  "W11-01\\DomeniaRC20Test",
+                  "Profile":  "C:\\Users\\DomeniaRC20Test\\AppData\\Local"
+              },
+    "FinishedUtc":  "2026-10-18T10:10:41.1541303Z"
+}

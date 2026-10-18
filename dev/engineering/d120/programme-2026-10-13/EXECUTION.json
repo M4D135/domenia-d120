@@ -3,7 +3,7 @@
   "authorized_at": "2026-10-13",
   "updated_at": "2026-10-18",
   "status": "implementation_integrated_windows_qualification_and_external_decisions_pending",
-  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.\nRC1.17.16 : corrections restantes du dépôt traitées directement le 18/10/2026. Registre de 97 opérations synchronisé ; provenance durable des imports ; recettes de santé à révision conservée ; suites requêtes remises en état ; sauvegardes SQLite autonomes ; commandes de démarrage non délimitées expurgées. Contrôles ciblés macOS natifs et fabrication des packs, sans VM. Aucun acceptance_passed ajouté. Décisions externes : 134 (coordination/amont) et 146 (redistribution).\n18/10/2026 : qualification Windows RC1.17.16 limitée aux quatre parcours critiques demandés. Démarrage réel PROD en session interactive, intégrité/imports PROD et DEV, 96 cas natifs ciblés (connexion, reprise du lot WMI après timeout injecté, santé, sauvegarde/restauration/conservation) : zéro échec. Lecture CIM locale réelle réussie ; aucun AD ni WMI distant réel, aucune charge représentative. Preuve liée aux SHA-256 des ZIP : validation/2026-10-18/rc16-windows-critical/README.md. Aucun acceptance_passed global ajouté ; décisions 134/146 inchangées.\n18/10/2026 : essai AD/WMI réel RC16 reproduisant un arrêt erroné à 1/2 après timeout moteur malgré la mesure du suivant enregistrée. Correctif RC1.17.17 : ne pas masquer le reçu SQLite déjà soumis lors du nettoyage natif tardif. Même lot réel réussi à 2/2 (1 échec attendu), lecture AD et CIM/DCOM distante réelles, 3 cas de non-régression Windows 5.1 réussis et intégrité finale PROD/DEV. Budget du premier travail réduit à 2 s uniquement dans le pilote, second à 25 s. Preuve : validation/2026-10-18/rc17-live-ad-wmi/README.md. Aucun acceptance_passed global ajouté.\n18/10/2026 : requalification ciblée RC1.17.17 interface, santé et sauvegarde. Santé 37 cas ; stockage 10 cas / 61 assertions ; WPF 63 cas uniques après correction de deux bancs de tests (assistant en haut, annulation simulée et closure Windows 5.1). Runtime et ZIP inchangés. Voir validation/2026-10-18/rc17-ui-health-backup/README.md pour les rapports initiaux, reprises, limites et le parcours visuel. Aucun acceptance_passed global ajouté.\n18/10/2026 : cycle automatique RC17 réel qualifié dans une copie isolée du PROD exact. La mémorisation de fenêtre est corrigée dans RC1.17.18 : rectangle normal conservé en maximisation, réduction sans perte du dernier état, enregistrement des déplacements et tailles via le writer de préférences existant. Qualification native WPF ciblée ; aucune campagne générale.\n18/10/2026 : restauration RC17 depuis la sauvegarde automatique par les dialogues natifs et confirmation WPF réussie après corruption de la seule base isolée. Préférence persistante, marqueur et quick_check vérifiés ; original et source inchangés. Preuve validation/2026-10-18/rc17-storage-ui/README.md. Sept cas natifs WPF du correctif RC18 passent, preuve distincte rc18-window-geometry. Aucun acceptance_passed global ajouté.\nRC18 : correction supplémentaire de la persistance des réglages de sauvegarde et des reçus. Cinq cas Windows 5.1 passent ; quatre échouaient sur RC17 (trois rechargements et admission bornée des nouvelles clés).\n18/10/2026 : RC18 a révélé un défaut supplémentaire d’ordre d’initialisation : politique de stockage appliquée avant le chargement des préférences. RC19 déplace cette étape après la présentation. Dernier contrôle applicatif RC1.17.19 réussi : deux démarrages et connexions Windows, maximisation retrouvée, taille/position normales restaurées, réglages de sauvegarde 48 h / 5 copies conservés et premier cycle automatique réel après réouverture. Reçu, SHA-256, quick_check et contenu vérifiés ; fermeture normale et runtime inchangé. Preuves récupérées hors VM ; aucune VM requise pour le périmètre critique demandé. Qualification générale et décisions externes 134/146 ouvertes.\n18/10/2026 : RC1.17.20 clôt le dernier contrôle critique : deux démarrages réels, fenêtre et réglages conservés, premier cycle automatique après réouverture, intégrité et contenu de la sauvegarde vérifiés. Le défaut de chargement des préférences RC18 est corrigé ; la recherche LDAP asynchrone révélée en RC19 est corrigée par une page inférieure au quota (ancien échec reproduit, trois lectures natives réussies). Preuves et bases récupérées hors VM, fermeture et nettoyage confirmés. David peut effacer les VM pour ce périmètre ; qualification générale et décisions 134/146 restent ouvertes.",
+  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.\nRC1.17.16 : corrections restantes du dépôt traitées directement le 18/10/2026. Registre de 97 opérations synchronisé ; provenance durable des imports ; recettes de santé à révision conservée ; suites requêtes remises en état ; sauvegardes SQLite autonomes ; commandes de démarrage non délimitées expurgées. Contrôles ciblés macOS natifs et fabrication des packs, sans VM. Aucun acceptance_passed ajouté. Décisions externes : 134 (coordination/amont) et 146 (redistribution).\n18/10/2026 : qualification Windows RC1.17.16 limitée aux quatre parcours critiques demandés. Démarrage réel PROD en session interactive, intégrité/imports PROD et DEV, 96 cas natifs ciblés (connexion, reprise du lot WMI après timeout injecté, santé, sauvegarde/restauration/conservation) : zéro échec. Lecture CIM locale réelle réussie ; aucun AD ni WMI distant réel, aucune charge représentative. Preuve liée aux SHA-256 des ZIP : validation/2026-10-18/rc16-windows-critical/README.md. Aucun acceptance_passed global ajouté ; décisions 134/146 inchangées.\n18/10/2026 : essai AD/WMI réel RC16 reproduisant un arrêt erroné à 1/2 après timeout moteur malgré la mesure du suivant enregistrée. Correctif RC1.17.17 : ne pas masquer le reçu SQLite déjà soumis lors du nettoyage natif tardif. Même lot réel réussi à 2/2 (1 échec attendu), lecture AD et CIM/DCOM distante réelles, 3 cas de non-régression Windows 5.1 réussis et intégrité finale PROD/DEV. Budget du premier travail réduit à 2 s uniquement dans le pilote, second à 25 s. Preuve : validation/2026-10-18/rc17-live-ad-wmi/README.md. Aucun acceptance_passed global ajouté.\n18/10/2026 : requalification ciblée RC1.17.17 interface, santé et sauvegarde. Santé 37 cas ; stockage 10 cas / 61 assertions ; WPF 63 cas uniques après correction de deux bancs de tests (assistant en haut, annulation simulée et closure Windows 5.1). Runtime et ZIP inchangés. Voir validation/2026-10-18/rc17-ui-health-backup/README.md pour les rapports initiaux, reprises, limites et le parcours visuel. Aucun acceptance_passed global ajouté.\n18/10/2026 : cycle automatique RC17 réel qualifié dans une copie isolée du PROD exact. La mémorisation de fenêtre est corrigée dans RC1.17.18 : rectangle normal conservé en maximisation, réduction sans perte du dernier état, enregistrement des déplacements et tailles via le writer de préférences existant. Qualification native WPF ciblée ; aucune campagne générale.\n18/10/2026 : restauration RC17 depuis la sauvegarde automatique par les dialogues natifs et confirmation WPF réussie après corruption de la seule base isolée. Préférence persistante, marqueur et quick_check vérifiés ; original et source inchangés. Preuve validation/2026-10-18/rc17-storage-ui/README.md. Sept cas natifs WPF du correctif RC18 passent, preuve distincte rc18-window-geometry. Aucun acceptance_passed global ajouté.\nRC18 : correction supplémentaire de la persistance des réglages de sauvegarde et des reçus. Cinq cas Windows 5.1 passent ; quatre échouaient sur RC17 (trois rechargements et admission bornée des nouvelles clés).\n18/10/2026 : RC18 a révélé un défaut supplémentaire d’ordre d’initialisation : politique de stockage appliquée avant le chargement des préférences. RC19 déplace cette étape après la présentation. Dernier contrôle applicatif RC1.17.19 réussi : deux démarrages et connexions Windows, maximisation retrouvée, taille/position normales restaurées, réglages de sauvegarde 48 h / 5 copies conservés et premier cycle automatique réel après réouverture. Reçu, SHA-256, quick_check et contenu vérifiés ; fermeture normale et runtime inchangé. Preuves récupérées hors VM ; aucune VM requise pour le périmètre critique demandé. Qualification générale et décisions externes 134/146 ouvertes.\n18/10/2026 : RC1.17.20 clôt le dernier contrôle critique : deux démarrages réels, fenêtre et réglages conservés, premier cycle automatique après réouverture, intégrité et contenu de la sauvegarde vérifiés. Le défaut de chargement des préférences RC18 est corrigé ; la recherche LDAP asynchrone révélée en RC19 est corrigée par une page inférieure au quota (ancien échec reproduit, trois lectures natives réussies). Preuves et bases récupérées hors VM, fermeture et nettoyage confirmés. David peut effacer les VM pour ce périmètre ; qualification générale et décisions 134/146 restent ouvertes.\n18/10/2026, complément RC1.17.20 : coffre natif (43), mesure bibliothèque (61) et agrégation/export 20 000 objets synthétiques (158) qualifiés dans leur périmètre. UX 15/15, pannes stockage/réseau simulées et désinstallation sur profil standard jetable réussis. Rules 34 échecs et Geometry 22 échecs à trier ; Installer complet arrêté au budget 240 s. Qualification générale toujours ouverte : conserver le labo pour ces reprises, indépendamment des décisions 134/146 et du certificat 141. Documentation RC1.17.20 renouvelée et qualifiée dans son périmètre (149, KI-002 clos) ; captures 54/55, échec Atelier 1280×720 conservé dans KI-007.",
   "minimum_computers": 10000,
   "qualification_computers": 20000,
   "publication": "source_integration_not_windows_qualified",
@@ -748,16 +748,16 @@
     {
       "id": 43,
       "title": "Qualifier le coffre Windows optionnel",
-      "status": "windows_qualification_only",
+      "status": "windows_qualified",
       "owner": "W07-accounts-writes",
       "evidence": [
         "dev/wad/tests/Test-DomeniaVaultQualification.ps1",
-        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaAccountUsageRows"
+        "dev/wad/modules/Domenia-Access.Model.ps1:Get-DomeniaAccountUsageRows",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
-      "remaining": [
-        "Exécuter Test-DomeniaVaultQualification.ps1 -NativeWindows dans la session utilisateur de la VM de qualification."
-      ],
-      "implementation_summary": "Inchangé : suite de qualification du coffre Windows facultatif. Test-DomeniaVaultQualification reçoit désormais des lignes aplaties de Get-DomeniaAccountUsageRows."
+      "remaining": [],
+      "implementation_summary": "Inchangé : suite de qualification du coffre Windows facultatif. Test-DomeniaVaultQualification reçoit désormais des lignes aplaties de Get-DomeniaAccountUsageRows.",
+      "qualification_scope": "Coffre Windows natif, 7 cas, sans réseau ; marqueur fictif supprimé."
     },
     {
       "id": 44,
@@ -1042,7 +1042,7 @@
     {
       "id": 61,
       "title": "Charger la bibliothèque progressivement",
-      "status": "implemented_windows_qualification_pending",
+      "status": "windows_qualified",
       "owner": "W09-recipes",
       "evidence": [
         "dev/wad/modules/Domenia-Query.UI.ps1:Request-DomeniaQueryTemplatePreparation",
@@ -1051,12 +1051,12 @@
         "dev/wad/modules/Domenia-Search.UI.ps1:Update-DomeniaWorkViewList",
         "dev/wad/tests/Test-DomeniaQueryLibraryTiming.ps1 (rappel abandonné, tâche disparue, résultat tardif ignoré)",
         "dev/wad/tests/Test-DomeniaUxRefinements.ps1 (sélecteur unifié : vues AD + requêtes, puis modèles préparés)",
-        "dev/wad/tests/Test-DomeniaWiringRecherche.ps1"
+        "dev/wad/tests/Test-DomeniaWiringRecherche.ps1",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
-      "remaining": [
-        "Mesurer le gain sous Windows PowerShell 5.1 dans la VM (Test-DomeniaQueryLibraryTiming.ps1 -ReportPath) et rattacher le rapport au ZIP qualifié. Aucune suite exécutée ici (pas de PowerShell)."
-      ],
-      "implementation_summary": "Recherche ne construit plus les 515 modèles sur le fil UI : le worker QueryLibrary les prépare une seule fois, à l'ouverture ou au filtrage de la liste ou avec la Bibliothèque, puis Recherche et Bibliothèque les partagent. Correctif : une préparation dont le rappel a été abandonné par le moteur (nouvelle session, changement de base, tâche disparue) ne bloque plus. L'état garde désormais JobId et Epoch, et une nouvelle préparation est relancée."
+      "remaining": [],
+      "implementation_summary": "Recherche ne construit plus les 515 modèles sur le fil UI : le worker QueryLibrary les prépare une seule fois, à l'ouverture ou au filtrage de la liste ou avec la Bibliothèque, puis Recherche et Bibliothèque les partagent. Correctif : une préparation dont le rappel a été abandonné par le moteur (nouvelle session, changement de base, tâche disparue) ne bloque plus. L'état garde désormais JobId et Epoch, et une nouvelle préparation est relancée.",
+      "qualification_scope": "12 assertions sur modèles/worker/pagination ; 1 mesure Windows, sans rendu WPF."
     },
     {
       "id": 62,
@@ -1882,10 +1882,11 @@
       "owner": "W13-ux",
       "evidence": [
         "dev/wad/Domenia-Core.ps1:Get-MainXaml (BtnUserManagerPick, BtnCompManagedByPick, BtnUserMove, BtnAccountAdRelogin, BtnSetMachineCredential, BtnWmiNamespaces, BtnRefreshMachineLink en SecondaryButton)",
-        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P111 (deux cas)"
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P111 (deux cas)",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaUxQualification.ps1 sous Windows PowerShell 5.1, puis revue visuelle des pages par David."
+        "UxQualification : 15/15 sous Windows 5.1 après remise en état du harnais. Reste la revue humaine des pages ; Geometry présente 22 échecs."
       ],
       "implementation_summary": "Une seule action principale par carte : sept actions secondaires passent au style secondaire, les options avancées restent repliées et la palette propose les commandes secondaires selon le contexte. Un contrôle automatique vérifie une action principale par carte, onglet ou extenseur (paires indépendantes listées) et des extenseurs repliés par défaut. Point non modifié par ce correctif."
     },
@@ -1901,10 +1902,11 @@
         "dev/tools/baselines/typography-baseline.json",
         "dev/tools/tests/test_audit_typography.py",
         "dev/wad/tests/Test-DomeniaUxQualification.ps1 P112",
-        "commits 8c2e274, 98cfad4"
+        "commits 8c2e274, 98cfad4",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Visual rendering must be checked under Windows by David. Some sizes shift slightly on purpose. Board and chart drawing code, the sign-in window and Show-DomeniaDialog are left on the ratchet baseline."
+        "Contrôles de ressources, typographie et styles réussis dans UxQualification (XAML réellement livré). Revue visuelle humaine et ratchets des dessins/fenêtre de connexion/dialogues encore distincts."
       ],
       "implementation_summary": "Closed type scale of 8 named FontSize resources used across the page and module views. 15 named spacing resources are used by the shared styles. A new gate, tools/audit_typography.py, is wired into build_packages and keeps a ratchet baseline for the remaining literal values."
     },
@@ -1917,10 +1919,11 @@
         "dev/wad/modules/Domenia-Operations.xaml",
         "dev/wad/modules/Domenia-Commands.UI.ps1:Set-DomeniaCommandPalettePosition",
         "dev/wad/modules/Domenia-Experience.UI.ps1:Set-DomeniaOperationsPanelPosition",
-        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P113"
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P113",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaGeometry et Test-DomeniaUxQualification sous Windows, puis une session RDP réelle en 1024x768 et 1280x720."
+        "Geometry exécuté sur RC1.17.20 : 57 contrôles réussis, 22 en échec dans les surfaces WPF hors écran, selon la taille et l’échelle simulée. À diagnostiquer avant qualification ; sessions RDP réelles et multimoniteur non testées."
       ],
       "implementation_summary": "Le panneau Opérations défile en entier (ScrollViewer) et la palette est bornée et centrée dans la fenêtre. Un cas de suite vérifie les deux panneaux dans une fenêtre RDP 1024x768 à 150 %. Point non modifié par ce correctif."
     },
@@ -2019,10 +2022,11 @@
         "dev/wad/modules/Domenia-Shell.Model.ps1:Get-DomeniaEmptyState",
         "dev/wad/modules/Domenia-UX.UI.ps1:Update-DomeniaSearchEmptyState",
         "dev/wad/tests/rules/Shell.Tests.ps1:P119",
-        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P119"
+        "dev/wad/tests/Test-DomeniaUxQualification.ps1:P119",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter sous Windows les règles et la suite (STA)."
+        "États vides et transitions vérifiés dans UxQualification sous Windows 5.1. Recette générale des règles encore non validée (34 échecs)."
       ],
       "implementation_summary": "La liste de résultats n'a qu'un état vide, choisi d'après ce qui a vraiment été lu, avec une prochaine action jamais automatique. Le verdict puis son explication sont désormais annoncés une fois, sans nouvelle annonce si l'état ne change pas."
     },
@@ -2137,10 +2141,11 @@
       "evidence": [
         "dev/wad/tests/Test-DomeniaLoadStability.ps1",
         "dev/wad/tests/fixtures/Domenia-LoadFixtures.ps1",
-        "dev/wad/tests/rules/LoadFixtures.Tests.ps1 (P125)"
+        "dev/wad/tests/rules/LoadFixtures.Tests.ps1 (P125)",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécution dans la VM à 10 000 puis 20 000 postes."
+        "QueryScale réussit 24 assertions sur 20 000 objets synthétiques en 39,509 s. Ce test ne remplace ni une endurance longue ni un parc de 10 000/20 000 machines réelles."
       ],
       "implementation_summary": "Suite Test-DomeniaLoadStability.ps1 : 10 000 et 20 000 postes, démarrage à froid, cache chaud, historique volumineux, postes très équipés, mémoire stable et files bornées. Inchangée par cette correction ; elle rapporte maintenant six catégories d'application."
     },
@@ -2150,10 +2155,11 @@
       "status": "windows_qualification_only",
       "owner": "W14-quality-perf",
       "evidence": [
-        "dev/wad/tests/Test-DomeniaStorageFaults.ps1"
+        "dev/wad/tests/Test-DomeniaStorageFaults.ps1",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécution dans la VM ; un volume physiquement plein n'est pas simulé."
+        "8 cas et 42 assertions StorageFaults réussis sous Windows 5.1 sur RC1.17.20 ; SQLITE_FULL provoqué par quota SQLite et processus enfants réellement interrompus. Un volume physiquement plein reste non testé."
       ],
       "implementation_summary": "Suite Test-DomeniaStorageFaults.ps1 : base verrouillée, disque plein, arrêts brutaux réels, contrôle d'intégrité, rejeu unique. Inchangée par cette correction."
     },
@@ -2174,10 +2180,11 @@
         "validation/2026-10-17/rc14-corrections/point127-regression.json (banc Test-DomeniaLiveTransport rejoue apres patch : 20 assertions, 0 echec, pwsh7 Linux non qualifiant)",
         "dev/wad/tests/Test-DomeniaLiveIdentity.ps1 -CaseFilter 'RC14 Point 127' : 1 cas, 31 assertions, 0 echec (regles d'identite exercees par leurs fonctions reelles extraites du corps epingle : meme poste verifie, autre poste nomme, adresse/reponse nulle/sans noms = comparaison impossible jamais un refus, cn NetBIOS tronque et Name seul acceptes ; Set-LiveIdentityMismatch conserve Presence='En ligne' et le fait brut ICMP, note la contradiction, pose Incoherente meme sans ping ; vue confirmee/incoherente/inconnue ; ping seul conserve ; paquet d'echec sans identite ; persistance « IdentityState\":\"Incoherente\" » ; code reel du worker : IdentityState='' initialise, porte d'identite avant le plan, rejet nominal apres note) — rapport validation/2026-10-17/rc14-corrections/point127-test.json (pwsh7 Linux non qualifiant)",
         "validation/2026-10-18/rc16-remaining/README.md",
-        "validation/2026-10-18/rc17-live-ad-wmi/README.md"
+        "validation/2026-10-18/rc17-live-ad-wmi/README.md",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Timeout CIM/DCOM réel et budget moteur réduit testés avec persistance et poursuite du lot. Restent les transports WTS, autres cas RPC et planificateur ; contrats synchronisés."
+        "12 cas et 89 assertions NetworkFaults réussis sous Windows 5.1 sur RC1.17.20 avec doubles de transport. La preuve AD/WMI réelle RC17 reste distincte ; WTS, autres RPC et planificateur en réseau réel restent ouverts."
       ],
       "implementation_summary": "Le corps LiveConsole et LiveSelectedPing vérifie l'identité du poste qui répond. Correction de revue : Get-LiveHostMismatch reconnaît le même poste dès qu'une identité correspond, sous l'une des formes suivantes : libellé DNS, NetBIOS tronqué à 15 caractères, cible cn face à un nom d'hôte long. Le refus n'est déclaré que si aucune ne correspond. Nouveaux cas réseau ajoutés (cn tronqué, nom long, autre poste à nom long). La doublure CIM de SearchPresence accepte Name et DNSHostName et ajoute un cas « autre poste ». Opérandes -or parenthésés dans Get-DomeniaErrorDecision. | Tour 9 (2026-10-17) : la verification d'identite est etendue aux sondes seules — a defaut de lecture console ou inventaire deja verifiee, le worker lit Win32_ComputerSystem (Name, DNSHostName) sur la meme session avant tout plan de sondes ; une incoherence confirmee refuse toute valeur de sonde (rejet nominal, pas une panne reseau) et une comparaison possible pose IdentityState='Verifiee'. Le ping reste un fait brut : sur incoherence confirmee la presence 'En ligne' est conservee, la note 'identite du poste contredite' est ajoutee au detail de presence et IdentityState='Incoherente' est enregistre, propage (ConvertTo-DomeniaLiveObservation), persiste (liste blanche Storage.Worker) et affiche ('Identite du poste : ...') dans la vue. Get-LiveHostMismatch devient l'enveloppe de Get-LiveHostIdentityCheck (Comparable+Mismatch) ; identites NetBIOS/FQDN/cn tronque conservees."
     },
@@ -2280,10 +2287,11 @@
         "dev/wad/tests/rules/Contracts.Tests.ps1 (CTR-009)",
         "dev/wad/tests/rules/Compatibility.Tests.ps1 (CMP-010)",
         "dev/wad/tests/Test-DomeniaDelivery.ps1 (2 nouveaux cas P133)",
-        "validation/2026-10-18/rc16-remaining/README.md"
+        "validation/2026-10-18/rc16-remaining/README.md",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Qualifier Rules et Delivery sous Windows."
+        "Rules exécuté sous Windows 5.1 : 1041 succès, 34 échecs. Plusieurs attentes et dépendances de harnais sont anciennes ; triage requis. Delivery reste à qualifier."
       ],
       "implementation_summary": "Catalogue de contrats versionnés dans Domenia-Common.Model.ps1. Après revue, le catalogue et un index ordinal sont construits une fois par runspace, avec une lecture tolérante à Set-StrictMode. Passent aussi par le catalogue : la validation de la bibliothèque du worker LocalStore (Assert-WQueryLibraryDefinition, enregistrements Domenia.QueryLibraryRecord côté worker et côté Store.Model), la table des fins de service Windows et la matrice de compatibilité. Une donnée produite par une version plus récente est refusée avec sa version."
     },
@@ -2312,10 +2320,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-ProbeContract.Model.ps1:ConvertTo-DomeniaProbeContract",
         "dev/wad/modules/Domenia-ProbeContract.Model.ps1:Test-DomeniaProbeContract",
-        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-001..PCT-003"
+        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-001..PCT-003",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaRules.ps1 et Test-DomeniaProbeCatalog.ps1 sous Windows PowerShell 5.1."
+        "Rules exécuté : PCT-001/PCT-003 et D073 en échec (contrat/catalogue et analyse statique). À trier ; ProbeCatalog non relancé."
       ],
       "implementation_summary": "Contrat Domenia.ProbeContract/1 par sonde (entrées CIM, champs typés, privilèges, coût, limites, sources, tests attendus), vérifié par les règles et affiché dans le sélecteur et les détails de sonde. Aucun changement dans cette correction."
     },
@@ -2453,10 +2462,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Release.Model.ps1:Get-DomeniaDataSchemaTransition",
         "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1:Import-PackageModel,Get-DataSchemaVersion,Restore-FromBackup",
-        "dev/wad/tests/rules/Delivery.Tests.ps1 (DLV-001, DLV-002)"
+        "dev/wad/tests/rules/Delivery.Tests.ps1 (DLV-001, DLV-002)",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaInstaller dans la VM après régénération des manifestes."
+        "Suite Installer complète interrompue au budget de 240 s, sans rapport final : non qualifiée. Installation/désinstallation du PROD exact en compte standard jetable réussies séparément."
       ],
       "implementation_summary": "Get-DomeniaDataSchemaTransition : l'installateur annonce la migration du schéma avant la réponse, la consigne dans le journal et la rappelle au retour arrière. Ce point n'est pas modifié par la correction."
     },
@@ -2469,10 +2479,11 @@
         "dev/wad/Support/INSTALLER-MISE-A-JOUR.ps1:Get-OpenReceipts,Resolve-DataChoice,Invoke-DomeniaUninstall",
         "dev/wad/modules/Domenia-Release.Model.ps1:Get-DomeniaUninstallPlan",
         "dev/wad/tests/rules/Delivery.Tests.ps1 (DLV-007)",
-        "dev/wad/tests/Test-DomeniaInstaller.ps1 (2 nouveaux cas P144, Expected 26)"
+        "dev/wad/tests/Test-DomeniaInstaller.ps1 (2 nouveaux cas P144, Expected 26)",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaInstaller dans la VM avec un compte standard. Le refus pour reçus ouverts est vérifié sur un dossier fixture et sur l'ordre du texte, jamais sur le vrai profil (KI-005). -ProfileData Supprimer reste à qualifier sur un compte jetable."
+        "KI-005 clos : installation, conservation, réinstallation puis -LocalData Supprimer -ProfileData Supprimer qualifiées sur un vrai compte standard jetable (12 contrôles). Suite Installer complète arrêtée à 240 s ; raccourcis et autres branches non requalifiés par ce parcours."
       ],
       "implementation_summary": "Désinstallation avec -LocalData et -ProfileData. Après revue, les choix sont ramenés à leur orthographe canonique dans l'installateur (Resolve-DataChoice) et dans Get-DomeniaUninstallPlan : « supprimer » supprime et « demander » ne fait plus échouer la liaison. Les reçus du profil sont relus avant la première suppression. Un reçu à vérifier ou illisible refuse la suppression des données du profil, rien n'est supprimé, et les reçus sont nommés. La question indique le nombre de reçus."
     },
@@ -2547,7 +2558,7 @@
     {
       "id": 149,
       "title": "Synchroniser aide et documentation v1.0",
-      "status": "implemented_windows_qualification_pending",
+      "status": "windows_qualified",
       "owner": "W17-completion",
       "evidence": [
         "dev/tools/doc_sync.py",
@@ -2556,12 +2567,11 @@
         "dev/wad/modules/Domenia-UX.help.json",
         "guides/administrateur.md, guides/technicien.md",
         "commits ba67e97, be15fa2",
-        "doc_sync --check PASS after the fixer's guide edit"
+        "doc_sync --check PASS after the fixer's guide edit",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
-      "remaining": [
-        "Renouveler les 56 captures historiques sous Windows sur le manifeste courant. Guides Markdown, DOCX et PDF déjà actualisés en RC1.17.12 ; contrôle doc_sync réussi."
-      ],
-      "implementation_summary": "All 79 quotation gaps in the guides were re-read against the interface. doc_sync now indexes the cells of catalogue tables. Stale quotations were fixed and 8 help entries without a control were removed. The baseline was tightened."
+      "remaining": [],
+      "implementation_summary": "All 79 quotation gaps in the guides were re-read against the interface. doc_sync now indexes the cells of catalogue tables. Stale quotations were fixed and 8 help entries without a control were removed. The baseline was tightened. RC1.17.20 : 38 captures WPF natives du runtime vérifié, 29 figures par guide, DOCX/PDF technicien 34 pages et administrateur 83 pages inspectés. doc_sync ne tolère plus aucun écart de figure. Qualification documentaire seulement ; l’échec de disposition 1280×720 reste dans KI-007."
     },
     {
       "id": 150,
@@ -2702,18 +2712,18 @@
     {
       "id": 158,
       "title": "Agréger plus de 10 000 valeurs distinctes",
-      "status": "implemented_windows_qualification_pending",
+      "status": "windows_qualified",
       "owner": "W10-query-advanced",
       "evidence": [
         "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryGroupPage",
         "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 158)",
         "dev/wad/tests/rules/Query.Tests.ps1 (P158)",
-        "validation/2026-10-18/rc16-remaining/README.md"
+        "validation/2026-10-18/rc16-remaining/README.md",
+        "validation/2026-10-18/rc20-qualification-docs/README.md"
       ],
-      "remaining": [
-        "Mesurer la durée à 20 000 postes sous Windows 5.1 ; LocalQuery épinglé."
-      ],
-      "implementation_summary": "Répartition exacte au-delà de 10 000 valeurs, paginée et filtrable. Assertion du filtre corrigée : 12 libellés contiennent « 1999 » (01999, 11999, 19990 à 19999), recompté par énumération ; autres cardinalités de la section revérifiées. Marqueur de génération retiré."
+      "remaining": [],
+      "implementation_summary": "Répartition exacte au-delà de 10 000 valeurs, paginée et filtrable. Assertion du filtre corrigée : 12 libellés contiennent « 1999 » (01999, 11999, 19990 à 19999), recompté par énumération ; autres cardinalités de la section revérifiées. Marqueur de génération retiré.",
+      "qualification_scope": "Agrégation/export de 20 000 objets synthétiques, 24 assertions, Windows 5.1."
     },
     {
       "id": 159,
@@ -2793,5 +2803,22 @@
     "report": "validation/2026-10-18/rc17-ui-health-backup/Qualification.json",
     "full_acceptance": false,
     "interactive_gui": "Windows login, home, search, tools, home; same exact PROD process; no full acceptance"
+  },
+  "windows_documentation_qualification": {
+    "build": "RC1.17.20",
+    "proof": "validation/2026-10-18/rc20-qualification-docs/README.md",
+    "runtime_files_unchanged": 172,
+    "native_png": 38,
+    "figures_per_guide": 29,
+    "pages": {
+      "technicien": 34,
+      "administrateur": 83
+    },
+    "layout_checks": {
+      "passed": 54,
+      "failed": 1
+    },
+    "general_qualification": false,
+    "keep_lab": true
   }
 }

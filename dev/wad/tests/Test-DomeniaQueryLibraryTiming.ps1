@@ -31,8 +31,9 @@ function Invoke-FreshWorker([string]$Code,$Payload){
 $saved=@(for($i=0;$i -lt 125;$i++){New-DomeniaQueryRecipe -Id ('timing.'+$i) -Name ('Requête personnelle '+$i)})
 
 # 1. Search startup path: AD views and saved recipes only, never the delivered models.
+$adViewCount=@(Get-DomeniaWorkViews).Count
 $startupMs=Measure-Step {$script:Light=@(Get-DomeniaSearchQueryCatalog -Saved $saved)}
-Expect (($null -eq $script:DomeniaQueryTemplateCatalog) -and $script:Light.Count -eq 130) 'The Search startup list does not build the delivered models on the caller'
+Expect (($null -eq $script:DomeniaQueryTemplateCatalog) -and $script:Light.Count -eq ($adViewCount+125) -and @($script:Light|Where-Object {$_.SourceId -eq 'Local'}).Count -eq 125 -and @($script:Light|Where-Object {$_.Id -like 'local:template.*'}).Count -eq 0) 'The Search startup list does not build the delivered models on the caller'
 
 # 2. Former UI-thread cost, measured once cold (first build in this process) then warm (cached).
 $coldMs=Measure-Step {$script:Templates=@(Get-DomeniaQueryTemplates)}
@@ -49,7 +50,7 @@ $publishMs=Measure-Step {Set-DomeniaPreparedQueryTemplateRows -Rows $rows}
 $prepared=@(Get-DomeniaPreparedQueryTemplates)
 Expect ($prepared.Count -eq $script:Templates.Count -and [string]$script:DomeniaQueryTemplateStatus -eq '') 'Prepared models are published once for Search and the library'
 $searchRuns=@(for($i=0;$i -lt $Repeat;$i++){Measure-Step {$script:Full=@(Get-DomeniaSearchQueryCatalog -Saved $saved -Templates $prepared)}})
-Expect ($script:Full.Count -eq ($script:Templates.Count+130)) 'The Search list gains every prepared model'
+Expect ($script:Full.Count -eq ($script:Templates.Count+$adViewCount+125)) 'The Search list gains every prepared model'
 $script:Fake=@{};foreach($name in @('DgQueryLibrary','CmbQueryLibrarySource','CmbQueryLibraryCategory','TxtQueryLibrarySearch','BtnQueryLibraryPrevious','BtnQueryLibraryNext','BtnQueryLibraryUse')){$script:Fake[$name]=[pscustomobject]@{ItemsSource=@();SelectedItem=$null;SelectedIndex=-1;Text='';IsEnabled=$false}}
 function Get-DomeniaControl([string]$Name){return $script:Fake[$Name]}
 function Set-DomeniaControlText([string]$Name,[string]$Text){$script:LastLabel=$Text}

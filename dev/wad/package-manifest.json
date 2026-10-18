@@ -581,8 +581,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/EXECUTION.json",
-      "Sha256": "BBF75DEB0070DABFE0953B55EB727842C275DCBA371752360AB74566AFD07653",
-      "Bytes": 199139,
+      "Sha256": "BCF9C4142C7C04B7E7A417F7DEB8AC4F2096BEE1C7AA0B57124BF981340661ED",
+      "Bytes": 201979,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -637,8 +637,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/REPRISE.md",
-      "Sha256": "AF3DD650FB2FC8BE1469A04292DC0165AC43227AF9E0F10200D7906EEE7FB1C8",
-      "Bytes": 6733,
+      "Sha256": "EC55F592A9EFC07BCEA22028CBE049923F32316C446ED025BEC60313890A2306",
+      "Bytes": 7649,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -665,8 +665,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md",
-      "Sha256": "A0ED412AE911876E8F4C83EB35A36D76FCC0823C6ADAFF748CB36C714BA7755D",
-      "Bytes": 11047,
+      "Sha256": "4ABD4414C2F4BA841497096A3D719E0824F709B58CF536CD4ABBD0889F91081C",
+      "Bytes": 12184,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1127,8 +1127,8 @@
     },
     {
       "Path": "tools/baselines/doc-sync-baseline.json",
-      "Sha256": "BE1BE9919615F8DC02059E686AE61FDBE20D69A60F9ECD5FCCE0EE7E3FBE4C79",
-      "Bytes": 11106,
+      "Sha256": "C068839C42E433E12EF7E88BBE8C0A95431F42F876AE62091EE34CF9CFB35FC4",
+      "Bytes": 4378,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1225,8 +1225,8 @@
     },
     {
       "Path": "tools/doc_sync.py",
-      "Sha256": "7A01A460F1F5C9D9ABDD566D45227B6E5B5F0170B8B4C273CC10B2D0D794BDCC",
-      "Bytes": 14719,
+      "Sha256": "BA7FEE081577612D57ADA03398C7A7F318EBB55B4DF0E3A0E60CF0150F63ECBD",
+      "Bytes": 16177,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1239,8 +1239,8 @@
     },
     {
       "Path": "tools/known-issues.json",
-      "Sha256": "332C6756B989A780F8A3055AADEEAFE1DCC3A30FE75EDB5C0D6DE6F41FB487E2",
-      "Bytes": 3427,
+      "Sha256": "4BC013CFB274AD0EB1A026DF6E9E0F684B5D5F8496C13B1B79494841737E81B9",
+      "Bytes": 4689,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1407,8 +1407,8 @@
     },
     {
       "Path": "tools/tests/test_doc_sync.py",
-      "Sha256": "79B116CDAF1D6437F32A2C81D2CBA8AB0BA0F374954F6ACDEE4758757B845902",
-      "Bytes": 4873,
+      "Sha256": "A0E674B0EE15BD3DD76255BDBC1E4807DC76C71069FFB732ACD860A26757A2BE",
+      "Bytes": 6124,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3703,8 +3703,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaQueryLibraryTiming.ps1",
-      "Sha256": "6C582787EB69668D0991932742E6A28BD2F7342AB91239BF6F5CD7D1E1E71498",
-      "Bytes": 10110,
+      "Sha256": "9AA57C978F2E61F234E63656422DB5F697C9E2F77A826A7156D08F5544F0980E",
+      "Bytes": 10336,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -3941,8 +3941,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaUxQualification.ps1",
-      "Sha256": "96549E484CC0DB7991919550C28C4DBA50B734DD77E39DEF7CDC587FCC7E952A",
-      "Bytes": 28257,
+      "Sha256": "DB66EED8A622582370738DCC174C0331344BE639EFE1D9E5D3DAD80BF2FC6AEB",
+      "Bytes": 28466,
       "Runtime": false,
       "PreserveExisting": false
     },

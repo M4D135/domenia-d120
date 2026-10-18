@@ -1,0 +1,10 @@
+Le calcul local de la capture ne s est pas termine : Calcul impossible : The term 'Start-DomeniaQueryDetailRead' is
+not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or
+if a path was included, verify that the path is correct and try again.
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:151 char:31
++ ... $pending) { throw ('Le calcul local de la capture ne s est pas termin ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Le calcul local... and try again.:String) [], RuntimeException
+    + FullyQualifiedErrorId : Le calcul local de la capture ne s est pas termine : Calcul impossible : The term 'Start
+   -DomeniaQueryDetailRead' is not recognized as the name of a cmdlet, function, script file, or operable program. Ch
+  eck the spelling of the name, or if a path was included, verify that the path is correct and try again.

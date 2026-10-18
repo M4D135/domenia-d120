@@ -1,0 +1,9 @@
+Get-DomeniaWidgetCollectionNeed : The term 'Get-DomeniaWidgetCollectionNeed' is not recognized as the name of a
+cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify
+that the path is correct and try again.
+At C:\DomeniaLab\d120-rc11720-qualification\dev\wad\modules\Domenia-Widgets.UI.ps1:2084 char:53
++ ... Source -ne 'Query') { return (Get-DomeniaWidgetCollectionNeed -Board  ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Get-DomeniaWidgetCollectionNeed:String) [], ParentContainsErrorRecordEx
+   ception
+    + FullyQualifiedErrorId : CommandNotFoundException

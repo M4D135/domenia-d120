@@ -11,8 +11,8 @@ Checks, from the sources that build the pack:
   4. each guide sheet describes the delivered version (DisplayName of tools/release-contract.json) and its Word and
      PDF deliverables exist in DOC/;
   5. the guide figures exist and carry the SHA-256 recorded by the capture provenance; the provenance manifest is
-     compared with the current package manifest (captures older than the pack are reported, never presented as
-     current).
+     compared with the current runtime manifest and every runtime file hash; the Build must also agree.
+     Tracking-only DEV changes do not invalidate captures. Legacy provenance uses the full package manifest.
 Known gaps are kept in tools/baselines/doc-sync-baseline.json (ratchet: a new gap fails, a fixed one is reported).
 Nothing is rebuilt here: the DOCX/PDF are produced by guides/build_guide.js and the captures by the Windows harness.
 
@@ -169,6 +169,34 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest().upper()
 
 
+def capture_freshness(provenance, dev):
+    """Bind illustrations to the rendered runtime; tracking-only DEV edits do not stale them."""
+    dev = Path(dev)
+    manifest = dev / 'wad/package-manifest.json'
+    runtime = dev / 'tools/prod-manifest.json'
+    result = {'ProvenanceManifestSHA256': str(provenance.get('SourceManifestSHA256', '')).upper(),
+              'CurrentManifestSHA256': sha(manifest) if manifest.is_file() else '', 'Current': False}
+    if provenance.get('SourceRuntimeManifestSHA256'):
+        result['Basis'] = 'VerifiedRuntime'
+        result['ProvenanceRuntimeManifestSHA256'] = str(provenance['SourceRuntimeManifestSHA256']).upper()
+        result['CurrentRuntimeManifestSHA256'] = sha(runtime) if runtime.is_file() else ''
+        if not runtime.is_file():
+            return result
+        data = json.loads(read(runtime))
+        files = data.get('Files', [])
+        result['Current'] = bool(files) and result['ProvenanceRuntimeManifestSHA256'] == result['CurrentRuntimeManifestSHA256'] and provenance.get('Build') == data.get('Build')
+        if result['Current']:
+            for entry in files:
+                path = (dev / entry['Path']).resolve()
+                if not path.is_relative_to(dev.resolve()) or not path.is_file() or sha(path) != str(entry['Sha256']).upper():
+                    result['Current'] = False
+                    break
+    else:
+        result['Basis'] = 'LegacyFullManifest'
+        result['Current'] = bool(result['CurrentManifestSHA256']) and result['ProvenanceManifestSHA256'] == result['CurrentManifestSHA256']
+    return result
+
+
 def collect(dev=DEV, repo=REPO):
     config = json.loads(read(Path(dev) / 'tools' / 'doc-sync.json'))
     contract = json.loads(read(Path(dev) / 'tools' / 'release-contract.json'))
@@ -226,9 +254,7 @@ def collect(dev=DEV, repo=REPO):
     provenance_path = Path(repo, 'guides', 'captures', 'capture-provenance.json')
     manifest = Path(dev, 'wad', 'package-manifest.json')
     if provenance_path.is_file() and manifest.is_file():
-        captures['ProvenanceManifestSHA256'] = str(json.loads(read(provenance_path)).get('SourceManifestSHA256', '')).upper()
-        captures['CurrentManifestSHA256'] = sha(manifest)
-        captures['Current'] = captures['ProvenanceManifestSHA256'] == captures['CurrentManifestSHA256']
+        captures = capture_freshness(json.loads(read(provenance_path)), dev)
     return gaps, captures, len(guide_quotes(repo)), len(help_entries)
 
 
@@ -277,8 +303,8 @@ def main():
     report = {'Status': 'FAIL' if new else 'PASS', 'New': new, 'Fixed': fixed,
               'Counts': {k: len(v) for k, v in gaps.items()}, 'GuideQuotes': quotes, 'HelpEntries': helps,
               'Captures': captures,
-              'CapturesNote': ('Captures prises sur le manifeste courant.' if captures['Current'] else
-                               'Captures prises sur un autre manifeste que le pack courant : les refaire avec guides/captures/capture-guides.ps1 avant une livraison.'),
+              'CapturesNote': ('Captures liées au runtime courant vérifié.' if captures['Current'] else
+                               'Captures non liées au runtime courant : les refaire avec guides/captures/capture-guides.ps1 avant une livraison.'),
               'Gaps': gaps}
     if args.report:
         args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

@@ -15,6 +15,10 @@ Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur 
 
 > [!RESULTAT] Domenia est ouvert avec l'interrupteur sur « Lecture seule » : vous consultez sans rien modifier.
 
+## Retrouver sa fenêtre à la réouverture
+
+Domenia conserve automatiquement la taille, la position et l’état normal ou maximisé de sa fenêtre. Après une fermeture maximisée, rétablir la fenêtre retrouve sa taille normale précédente. Si un écran a été retiré, la fenêtre revient dans la zone visible du bureau.
+
 ## Rechercher dans tout le domaine
 
 1. **Placer le curseur.** Cliquez dans la barre du haut « Personne, poste ou groupe, dans tout le domaine… », ou appuyez sur Ctrl+F. Vos dernières recherches et fiches s'affichent sous la barre ; pendant la frappe, des suggestions viennent de la base locale. La saisie seule n'interroge pas l'annuaire.
@@ -327,9 +331,9 @@ Un échec de lecture conserve les dernières valeurs réussies avec leur date. L
 ## Afficher les postes derrière un chiffre
 
 1. **Ouvrir le détail.** Survolez le widget ou donnez-lui le focus avec le clavier, puis cliquez sur la petite icône de détail près du crayon. L’Atelier de requêtes s’ouvre dans Outils, avec le périmètre du tableau de bord. Un clic sur la carte ou sur un segment de graphique laisse le tableau affiché.
-2. **Lire la liste.** L’onglet « Résultats » affiche les postes correspondants. Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
+2. **Lire la liste.** L’onglet « 2. Aperçu » affiche les postes correspondants. Le compteur porte sur le résultat complet. La table affiche 200 postes par page ; utilisez les commandes de page pour parcourir la suite.
 3. **Examiner un poste.** Sélectionnez sa ligne, ouvrez sa fiche ou les actions du poste. Vérifiez le nom et l'identité affichés avant une intervention.
-4. **Préciser ou revenir.** Dans « 1. Créer », ajoutez une condition, puis cliquez sur « Exécuter » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
+4. **Préciser ou revenir.** Dans « 1. Créer », ajoutez une condition, puis cliquez sur « Aperçu local » pour revenir aux résultats. Le bouton « Retour » revient à l’écran précédent.
 
 ![Détail local du poste sélectionné dans l’Atelier ; données fictives](fig:atelier-fiche-locale)
 
@@ -339,13 +343,13 @@ Pour un point d'attention, le premier aperçu est volontairement court. « Déta
 
 ## Trouver tous les postes recensés
 
-Ouvrez Outils → Atelier de requêtes, ou utilisez la petite icône de la barre du parc. Le petit crayon de Rechercher ouvre également l’Atelier ; une recette locale sélectionnée y est préparée pour modification. Dans l’Atelier, relisez le périmètre du parc affiché en haut : il peut différer de l’OU de Rechercher. Choisissez « Tous les postes recensés », cliquez sur « Charger », puis sur « Exécuter ». Elle inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
+Ouvrez Outils → Atelier de requêtes, ou utilisez la petite icône de la barre du parc. Le petit crayon de Rechercher ouvre également l’Atelier ; une recette locale sélectionnée y est préparée pour modification. Dans l’Atelier, relisez le périmètre du parc affiché en haut : il peut différer de l’OU de Rechercher. Dans « Bibliothèque », sélectionnez le modèle Tous les postes recensés, puis « Utiliser cette requête » et « Aperçu local ». Cette requête inclut les comptes actifs et désactivés du périmètre. Une recherche textuelle dans Rechercher peut donner moins de lignes à cause de sa limite et de ses filtres ; la base et l'Atelier servent à examiner le recensement complet.
 
 Dans « 1. Créer », ajoutez une condition en choisissant une information, un opérateur et une valeur. « Toutes les conditions » impose leur réunion ; « Au moins une condition » accepte un poste qui en remplit une. Pour repérer des mesures manquantes, utilisez « est absent ».
 
 Vous pouvez sauvegarder la requête sous un nom clair, la retrouver dans la liste des requêtes et l'ajouter au tableau de bord. Une répartition par système, modèle ou autre champ donne les principaux groupes ; « Autres » rassemble les groupes restants et « Inconnu » les données non renseignées.
 
-![Atelier de requêtes : onglet Résultats et liste paginée des postes recensés ; données fictives](fig:atelier-requetes)
+![Atelier de requêtes : onglet Aperçu et liste paginée des postes recensés ; données fictives](fig:atelier-requetes)
 
 Pour vérifier les comptes désactivés, choisissez leur état dans le filtre de la table. L’exemple ci-dessous retrouve trois postes désactivés dans le même recensement. Remettez ensuite le filtre sur tous les états.
 
@@ -353,7 +357,7 @@ Pour vérifier les comptes désactivés, choisissez leur état dans le filtre de
 
 ## Partir d’un modèle prêt à utiliser
 
-L’onglet « Bibliothèque » présente 152 modèles livrés dans 14 catégories, ainsi que vos requêtes personnelles. Recherchez un sujet, filtrez par catégorie ou par source (« Modèles livrés » ou « Mes requêtes »), puis sélectionnez une ligne. Lisez sa description et les informations nécessaires avant de cliquer sur « Utiliser cette requête ». Ajustez les conditions dans « 1. Créer », puis cliquez sur « Exécuter » pour consulter les résultats locaux. Le sélecteur rapide et « Charger », en haut de l’Atelier, restent disponibles.
+L’onglet « Bibliothèque » présente les modèles livrés, regroupés par catégorie, ainsi que vos requêtes personnelles. Recherchez un sujet, filtrez par catégorie ou par source (« Modèles livrés » ou « Mes requêtes »), puis sélectionnez une ligne. Lisez sa description et les informations nécessaires avant de cliquer sur « Utiliser cette requête ». Ajustez les conditions dans « 1. Créer », puis cliquez sur « Aperçu local » pour consulter les résultats locaux. Le sélecteur rapide et « Charger », en haut de l’Atelier, restent disponibles.
 
 Un modèle peut servir au parc ou au tableau d’un poste. Donnez un nom clair à votre adaptation pour l’enregistrer comme requête personnelle. Le modèle décrit les conditions ; les données nécessaires doivent déjà avoir été relevées ou faire l’objet d’une collecte explicite.
 
@@ -373,27 +377,27 @@ Cliquez sur « Utiliser cette information » pour retrouver le champ dans « 1.
 
 1. **Choisir l’information.** Ouvrez « 1. Créer » et sélectionnez l’espace libre du disque système en pourcentage.
 2. **Définir le seuil.** Choisissez l’opérateur inférieur à, saisissez 20 puis ajoutez la condition.
-3. **Lire le résultat.** Cliquez sur « Exécuter » : l’onglet « Résultats » s’ouvre. Contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
+3. **Lire le résultat.** Cliquez sur « Aperçu local » : l’onglet « 2. Aperçu » s’ouvre. Contrôlez le total et la date des mesures. Une valeur absente ne signifie pas que le disque est plein.
 
 ![Condition numérique : espace libre du disque système inférieur à 20 % ; données fictives](fig:atelier-condition)
 
-4. **Nommer et enregistrer.** Revenez dans « 1. Créer », donnez un nom explicite à la requête puis cliquez sur « Enregistrer ». Retrouvez-la dans la liste pour la réutiliser.
+4. **Nommer et enregistrer.** Passez dans « 3. Enregistrer », donnez un nom explicite à la requête puis cliquez sur « Enregistrer ». Retrouvez-la dans la liste pour la réutiliser.
 
 ![Requête nommée enregistrée dans la bibliothèque de l’Atelier ; données fictives](fig:atelier-bibliotheque)
 
-5. **Ajouter au tableau.** Dans « 1. Créer », choisissez la destination « Tableau de bord général », puis une présentation : Indicateur, Texte, Barres, Camembert ou Colonnes. Cliquez sur « Créer une sonde dashboard ». Le widget reprend la requête ; sa petite icône de détail permet de revenir aux postes concernés.
+5. **Ajouter au tableau.** Dans « 3. Enregistrer », choisissez la destination « Tableau de bord général », puis la représentation souhaitée. Cliquez sur « Créer une sonde dashboard ». Le widget reprend la requête ; sa petite icône de détail permet de revenir aux postes concernés.
 
 ![Sonde du tableau de bord créée depuis la requête sur les disques ; données fictives](fig:accueil-sonde-requete)
 
-6. **Filtrer Rechercher.** Dans « 1. Créer », cliquez sur « Appliquer aux résultats de Recherche ». Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
+6. **Filtrer Rechercher.** Dans « 3. Enregistrer », cliquez sur « Appliquer aux résultats de Recherche ». Le filtre utilise les identités des postes trouvés ; relisez la restriction affichée et effacez-la pour revenir à la liste habituelle.
 
 ![Rechercher filtré par les postes trouvés dans l’Atelier ; données fictives](fig:recherche-requete)
 
 ## Réutiliser une requête sur un poste
 
-Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque de requêtes. Dans « 1. Créer », choisissez « Tableau de bord du poste » et la présentation souhaitée, puis « Créer une sonde dashboard ». Le widget applique la recette au poste actuellement sélectionné ; il sera réévalué lorsque vous changerez de poste.
+Le bouton « Atelier » du tableau de bord du poste ouvre la même bibliothèque de requêtes. Dans « 3. Enregistrer », choisissez « Tableau de bord du poste » et la présentation souhaitée, puis « Créer une sonde dashboard ». Le widget applique la recette au poste actuellement sélectionné ; il sera réévalué lorsque vous changerez de poste.
 
-« Tester sur le poste sélectionné » indique s’il correspond, ne correspond pas ou si le résultat reste inconnu. Ce test lit les données locales déjà disponibles, sans lancer de collecte. La grande liste « Résultats » de l’Atelier continue à afficher les postes de l’OU indiquée en haut ; elle ne se transforme pas en liste d’un seul poste.
+« Tester sur le poste sélectionné » indique s’il correspond, ne correspond pas ou si le résultat reste inconnu. Ce test lit les données locales déjà disponibles, sans lancer de collecte. La grande liste « 2. Aperçu » de l’Atelier continue à afficher les postes de l’OU indiquée en haut ; elle ne se transforme pas en liste d’un seul poste.
 
 ![Atelier : destination Poste et aperçu local de la requête sur le poste sélectionné ; données fictives](fig:atelier-poste)
 

@@ -15,10 +15,10 @@
       "Id": "KI-002",
       "Title": "Captures historiques à renouveler sur le pack courant",
       "Severity": "Majeur",
-      "Status": "Ouvert",
-      "Impact": "Les citations et entrées dʼaide ont été synchronisées et les guides Word/PDF régénérés en RC1.17.12. Les 56 figures conservent une provenance historique : elles ne constituent pas une capture du manifeste courant.",
-      "Workaround": "Renouveler les captures sous Windows lors de la recette visuelle ; les textes des guides actualisés restent disponibles.",
-      "Source": "tools/baselines/doc-sync-baseline.json"
+      "Status": "Résolu",
+      "Impact": "RC1.17.20 : 38 PNG natifs renouvelés et liés au manifeste runtime vérifié ; 29 figures par guide. DOCX/PDF régénérés et leurs 34/83 pages inspectées. La géométrie générale reste ouverte dans KI-007.",
+      "Workaround": "Utiliser les guides du dépôt DOC et leur preuve documentaire. Les ZIP RC1.17.20 déjà testés restent inchangés.",
+      "Source": "validation/2026-10-18/rc20-qualification-docs/README.md"
     },
     {
       "Id": "KI-003",
@@ -42,10 +42,10 @@
       "Id": "KI-005",
       "Title": "Suppression des données du profil à la désinstallation non exécutée par les suites",
       "Severity": "Mineur",
-      "Status": "Ouvert",
-      "Impact": "-Uninstall -ProfileData Supprimer nʼest pas exécuté par Test-DomeniaInstaller : il effacerait le profil du compte de test.",
-      "Workaround": "Qualifier cette option sur un compte Windows jetable avant de la documenter aux utilisateurs.",
-      "Source": "dev/wad/tests/Test-DomeniaInstaller.ps1"
+      "Status": "Résolu",
+      "Impact": "RC1.17.20 : installation, contrôle de démarrage, désinstallation avec conservation, réinstallation puis suppression explicite des données du profil exécutés dans un vrai compte Windows standard jetable. Douze contrôles réussis ; fichier extérieur conservé ; compte et profil supprimés après récupération du rapport.",
+      "Workaround": "Aucun pour ce parcours ciblé. La suite Installer complète, arrêtée au budget de 240 secondes, reste distincte (KI-007).",
+      "Source": "validation/2026-10-18/rc20-qualification-docs/raw/disposable-profile/Result.json"
     },
     {
       "Id": "KI-006",
@@ -55,6 +55,15 @@
       "Impact": "Le moteur de requêtes local est utilisable dans Domenia, mais sa promotion amont et les besoins Pesto/FilPro ne sont pas validés par leurs mainteneurs.",
       "Workaround": "Faire valider les contrats et la version commune ; conserver la dérivation explicitement identifiée.",
       "Source": "engineering/d120/contrats/BRIQUES-COMMUNES.md"
+    },
+    {
+      "Id": "KI-007",
+      "Title": "Qualification complémentaire RC1.17.20 : règles et géométrie non validées",
+      "Severity": "Majeur",
+      "Status": "Ouvert",
+      "Impact": "Le pack exact donne 34 échecs sur 1 075 règles et 22 échecs sur 79 contrôles géométriques hors écran. Plusieurs attentes ou dépendances de harnais sont anciennes ; la part de défaut applicatif reste à établir. La suite complète Installer a dépassé le budget de 240 secondes. Ces résultats interdisent de déclarer la qualification générale terminée. Les captures documentaires ont un échec distinct à 1280×720 : une seule ligne entière visible dans l’Atelier au lieu de deux (54/55 contrôles réussis).",
+      "Workaround": "Conserver les preuves et le laboratoire pour une reprise ciblée des cas en échec ; les contrôles critiques antérieurs restent décrits séparément.",
+      "Source": "validation/2026-10-18/rc20-qualification-docs/README.md"
     }
   ]
 }

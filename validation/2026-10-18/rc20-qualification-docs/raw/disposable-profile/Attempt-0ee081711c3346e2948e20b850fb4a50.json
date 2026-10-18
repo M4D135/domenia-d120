@@ -1,0 +1,12 @@
+{
+    "Build":  "RC1.17.20",
+    "StartedUtc":  "2026-10-18T10:00:53.3785554Z",
+    "Passed":  false,
+    "UserRemoved":  true,
+    "ProfileRemoved":  true,
+    "UserSid":  "S-1-5-21-1750171418-895759999-1675054065-1007",
+    "ExitCode":  -1073741502,
+    "Error":  "Cannot find path \u0027C:\\DomeniaLab\\d120-rc11720-qualification\\out\\disposable-profile\\Child.json\u0027 because it does not exist.",
+    "Stack":  "at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\Test-DisposableProfile.ps1: line 66",
+    "FinishedUtc":  "2026-10-18T10:00:55.4751843Z"
+}

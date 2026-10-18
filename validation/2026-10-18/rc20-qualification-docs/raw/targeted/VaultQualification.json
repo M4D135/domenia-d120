@@ -1,0 +1,48 @@
+{
+    "Suite":  "VaultQualification",
+    "Point":  43,
+    "Passed":  true,
+    "Total":  7,
+    "Failed":  0,
+    "NativeWindowsRequested":  true,
+    "NativeWindowsExecuted":  true,
+    "NetworkUsed":  false,
+    "PowerShell":  "5.1.26100.6584",
+    "Checks":  [
+                   {
+                       "Name":  "Consentement : sans case cochee ni en demonstration, rien n entre dans le coffre",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Consentement : apres validation, exactement les usages choisis, compte local lie a son poste",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Utilisation ciblee : un seul usage lu, une seule validation, secret transmis sans champ texte",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Oubli cible : seul l identifiant affiche et ses usages, les autres comptes restent",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Aucune valeur secrete dans le lot SQLite ni dans le journal, meme quand le coffre echoue",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Aucune valeur secrete dans un export, meme ecrite par erreur dans un champ",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Coffre Windows reel : enregistre apres consentement, relu pour une seule validation, oublie",
+                       "Passed":  true,
+                       "Error":  ""
+                   }
+               ]
+}

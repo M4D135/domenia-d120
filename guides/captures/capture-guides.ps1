@@ -58,10 +58,9 @@ foreach ($name in $coreNames) {
     if ($nodes.Count -ne 1) { throw ('Fonction introuvable : ' + $name) }
     Invoke-Expression $nodes[0].Extent.Text
 }
-foreach ($module in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Embedded.UI.ps1','Domenia-UX.UI.ps1',
-    'Domenia-Workstation.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Charts.UI.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-BoardSoftware.Model.ps1','Domenia-BoardComputer.UI.ps1','Domenia-Widgets.UI.ps1','Domenia-Dashboard.UI.ps1','Domenia-Query.Model.ps1','Domenia-Query.Worker.ps1','Domenia-Query.UI.ps1','Domenia-QueryTargets.UI.ps1','Domenia-Search.Model.ps1','Domenia-Search.UI.ps1','Domenia-Refresh.UI.ps1','Domenia-Assist.Model.ps1','Domenia-Assist.UI.ps1')) {
-    . (Join-Path $wad ('modules\' + $module))
-}
+# Use the delivered closed, definition-only module plan so new presentation dependencies stay in sync.
+# This bootstrap performs no window, timer, credential, database or network operation.
+. (Join-Path $wad 'Domenia-Modules.ps1')
 # Local replacements: no settings, log, directory or workstation is touched.
 $script:GuideSettings = @{}; $script:Ctrl = @{}; $script:SelectedObject = $null; $script:CurrentUiProfile = 'Tech'; $script:ReadOnlyMode = $true
 # Some transactional saves deliberately write Settings directly before calling Save-DomeniaSettings.
@@ -74,6 +73,19 @@ $script:RootDir=$wad
 $script:Conn = [pscustomobject]@{ Connected = $true; BaseDn = 'DC=example,DC=local'; Domain = 'example.local'; Netbios = 'EXAMPLE' }
 $script:SelectedBranchDn = $script:Conn.BaseDn; $script:SearchMode = 'OU'; $script:SuppressBranchAutoLoad = $true; $script:RestoringSettings = $false
 $script:AsyncJobs = @{}; $script:DetachedReadJobs = @(); $script:SessionEpoch = 1; $script:WriteState = 'Idle'; $script:DomeniaReduceMotion = $true
+# Documentary in-memory store boundary only: real recipe/model/UI callbacks, no SQLite access.
+# These screenshots do not qualify persistence; that is covered by separate native Windows tests.
+$guideContext=[pscustomobject]@{Version=1;StoreId='guide-fixture';DomainDn=$script:Conn.BaseDn;Path=$script:DatabaseScopedPath;SessionEpoch=1L}
+$script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Context=$guideContext;Generation=1L;Loaded=$true;Loading=$false;Saving=$false;Error='';Rows=@{};Recipes=@();Categories=@{};ArchivedRows=@();Dependencies=@()}
+function New-DomeniaStoreContext {param([string]$RequestId) return $script:DomeniaQueryLibraryStoreState.Context}
+function Submit-DomeniaStoreBatch {
+    param($Context,[string]$BatchId,[long]$Sequence=0,[object[]]$Changes,[string]$SuccessHandler,[string]$ErrorHandler,$CallbackState)
+    $records=@($Changes|Where-Object{$_.Kind -eq 'QueryRecipe'}|ForEach-Object{$_.Record})
+    if($records.Count -ne 1){throw 'Documentary fixture expects one recipe per save.'}
+    $links=@($Changes|Where-Object{$_.Kind -eq 'QueryDependency' -and -not $_.Remove})
+    & $SuccessHandler ([pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$Context.StoreId;QueryRecipes=$records;QueryDependencies=$links}) $CallbackState
+    return [pscustomobject]@{Accepted=$true;Reason=''}
+}
 function Set-DomeniaSetting { param([string]$Name,$Value) $script:GuideSettings[$Name] = $Value }
 function Get-DomeniaSetting { param([string]$Name,$Default = $null) if ($script:GuideSettings.ContainsKey($Name)) { return $script:GuideSettings[$Name] }; return $Default }
 function Save-DomeniaSettings { param([switch]$Immediate,[switch]$ThrowOnFailure) }
@@ -90,10 +102,15 @@ function Write-AppLog { param([string]$Text,[string]$Level = 'INFO') }
 function Apply-DomeniaGuiElementPolicy { }
 function Update-Dashboard { }
 function Get-DomeniaCredentialUserName { param($Credential) return '' }
-# The capture harness only executes the pure local query worker, synchronously, on its fictitious rows.
+# The capture harness executes the pure local query/library workers synchronously on fictitious rows.
 # All other worker calls are inert. The application scheduler is exercised by the separate UI test.
 function Start-UiTask {
     param([string]$Name,[string]$OperationId,[string]$Code,$Payload,$CallbackState,[string]$ReplaceKey,[string]$SuccessHandler,[string]$ErrorHandler,[int]$TimeoutSeconds,[string]$TaskClass)
+    if ($OperationId -eq 'QueryLibrary') {
+        $result = & ([scriptblock]::Create($Code))
+        & $SuccessHandler -Result $result -State $CallbackState
+        return 'guide-query-library'
+    }
     if ($OperationId -ne 'LocalQuery') { return 'guide-disabled' }
     $result = & ([scriptblock]::Create($Code))
     $script:GuideQueryCompletion = [pscustomobject]@{Result=$result;State=$CallbackState}
@@ -193,6 +210,8 @@ function Set-GuideHeight {
 # Count rendered rows against every visual clip, not just DataGrid.ActualHeight.
 function Get-GuideVisibleBounds {
     param([Windows.FrameworkElement]$Element)
+    # Virtualized/recycled containers can be detached after a resize; they have no visible pixels.
+    if(-not $script:GuideHost.IsAncestorOf($Element)){return [Windows.Rect]::Empty}
     $visible=$Element.TransformToAncestor($script:GuideHost).TransformBounds([Windows.Rect]::new(0,0,$Element.ActualWidth,$Element.ActualHeight))
     $parent=$Element
     while($null -ne $parent){
@@ -513,6 +532,7 @@ Set-DomeniaQueryDraft (New-DomeniaQueryRecipe -Id 'template.all')
 Complete-GuideQuery
 Assert-Guide ($script:DomeniaQueryState.Result.ScopeTotal -eq 226 -and $script:DomeniaQueryState.Result.Matched -eq 226) 'Tous les postes recensés : 226, actifs et désactivés'
 Assert-Guide (@($script:DomeniaQueryState.Result.Rows).Count -eq 200 -and (Get-DomeniaControl 'BtnQueryNext').IsEnabled) 'Première page : 200 lignes et page suivante active'
+(Get-DomeniaControl 'TabQueryResults').IsSelected=$true;Update-GuideLayout
 Move-GuideScrollTo (Get-DomeniaControl 'BtnQueryBack')
 Save-GuideWindow 'atelier-requetes' 1240
 $querySavedWidth=$script:GuideWidth;$querySavedHeight=[int]$script:GuideHost.Height
@@ -534,6 +554,8 @@ Assert-Guide ($catalogGrid.Items.Count -gt 0 -and $catalogGrid.SelectedItem.Id -
 Save-GuideWindow 'atelier-catalogue' 1080
 (Get-DomeniaControl 'TxtQueryCatalogSearch').Text='';(Get-DomeniaControl 'TabQueryResults').IsSelected=$true
 (Get-DomeniaControl 'TabQueryLibrary').IsSelected=$true
+# Off-screen content has no IsVisibleChanged notification: prepare its real local library explicitly.
+Start-DomeniaQueryLibraryLoad
 (Get-DomeniaControl 'TxtQueryLibrarySearch').Text='disque'
 (Get-DomeniaControl 'CmbQueryLibrarySource').SelectedIndex=1
 (Get-DomeniaControl 'DgQueryLibrary').SelectedIndex=0;Update-GuideLayout
@@ -564,7 +586,9 @@ Complete-GuideQuery
 Assert-Guide ($script:DomeniaQueryState.Recipe.Clauses.Count -eq 1 -and $script:DomeniaQueryState.Result.Matched -gt 0) 'Condition numérique : le moteur trouve les disques sous 20 %'
 (Get-DomeniaControl 'TabQueryCompose').IsSelected=$true;Update-GuideLayout
 Move-GuideScrollTo (Get-DomeniaControl 'BtnQueryBack'); Save-GuideWindow 'atelier-condition' 1240
-$collect=(Get-DomeniaControl 'CmbCollectionConcurrency').Parent.Parent
+$collect=Get-DomeniaControl 'CmbCollectionConcurrency'
+while($null -ne $collect -and $collect -isnot [Windows.Controls.Expander]){$collect=[Windows.LogicalTreeHelper]::GetParent($collect)}
+Assert-Guide ($null -ne $collect) 'Les réglages de collecte appartiennent à un extenseur'
 $collect.IsExpanded=$true; Save-GuideWindow 'atelier-collecte' 1240; $collect.IsExpanded=$false
 (Get-DomeniaControl 'TabQueryResults').IsSelected=$true;Update-GuideLayout
 (Get-DomeniaControl 'DgFleetMachines').SelectedIndex=0
@@ -572,10 +596,10 @@ $collect.IsExpanded=$true; Save-GuideWindow 'atelier-collecte' 1240; $collect.Is
 Move-GuideScrollTo (Get-DomeniaControl 'ExpQueryObject'); Save-GuideWindow 'atelier-fiche-locale' 1240
 (Get-DomeniaControl 'ExpQueryObject').IsExpanded=$false
 Invoke-DomeniaQueryAction 'Save'
-Assert-Guide ($script:DomeniaQueryState.Saved.Count -eq 1) 'Requête nommée enregistrée dans les préférences fictives'
+Assert-Guide ($script:DomeniaQueryState.Saved.Count -eq 1) 'Requête nommée enregistrée dans la bibliothèque fictive en mémoire'
 (Get-DomeniaControl 'CmbFleetQuery').SelectedItem=$script:DomeniaQueryState.Saved[0]
 Complete-GuideQuery
-(Get-DomeniaControl 'TabQueryLibrary').IsSelected=$true;(Get-DomeniaControl 'CmbQueryLibrarySource').SelectedIndex=2;(Get-DomeniaControl 'DgQueryLibrary').SelectedIndex=0;Update-GuideLayout
+(Get-DomeniaControl 'TabQueryLibrary').IsSelected=$true;Start-DomeniaQueryLibraryLoad;(Get-DomeniaControl 'CmbQueryLibrarySource').SelectedIndex=2;(Get-DomeniaControl 'DgQueryLibrary').SelectedIndex=0;Update-GuideLayout
 Move-GuideScrollTo (Get-DomeniaControl 'BtnQueryBack'); Save-GuideWindow 'atelier-bibliotheque' 1080
 (Get-DomeniaControl 'CmbQueryLibrarySource').SelectedIndex=0
 Invoke-DomeniaQueryAction 'Widget'; Complete-GuideQuery -FinishOnly
@@ -606,9 +630,8 @@ Reset-DomeniaSearchQueryFilters
 $script:ActiveSearchViewId='';$script:SearchQueryRun=$null
 Show-GuideTab 'TabDashboard'
 Show-DomeniaQueryWorkshop
-$allRecipe=@((Get-DomeniaControl 'CmbFleetQuery').Items|Where-Object{$_.Id -eq 'template.all'})[0]
+$allRecipe=@(Get-DomeniaPreparedQueryTemplates|Where-Object{$_.Id -eq 'template.all'})[0]
 Assert-Guide ($null -ne $allRecipe) 'Comptes désactivés : le modèle Tous les postes recensés est disponible'
-(Get-DomeniaControl 'CmbFleetQuery').SelectedItem=$allRecipe
 Set-DomeniaQueryDraft $allRecipe
 (Get-DomeniaControl 'TabQueryResults').IsSelected=$true;Update-GuideLayout
 (Get-DomeniaControl 'CmbFleetMachineState').SelectedIndex=2;Complete-GuideQuery
@@ -697,6 +720,7 @@ Save-GuideWindow 'personnaliser' 1100
 
 # The same saved query can be previewed and displayed on the selected computer, without collecting.
 Show-DomeniaComputerQueryWorkshop -RecipeId ([string]$script:DomeniaQueryState.Saved[0].Id)
+(Get-DomeniaControl 'TabQueryPublish').IsSelected=$true;Update-GuideLayout
 (Get-DomeniaControl 'BtnQueryPreviewComputer').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
 Assert-Guide ([string](Get-DomeniaControl 'LblQueryComputerPreview').Text -like 'PC-COMPTA-014 : *') 'Aperçu local de la même requête sur le poste sélectionné'
 Save-GuideWindow 'atelier-poste' 1240
@@ -842,7 +866,7 @@ Save-GuideBitmap $drawing $w $h 'connexion'
 $login.Close()
 $script:Window.Close()
 [IO.File]::WriteAllText((Join-Path $Out 'capture-checks.json'),([pscustomobject]@{Fixture='example.local, 226 comptes postes fictifs (223 actifs, 3 désactivés)';Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;Rendering='Real WPF layout, off-screen RenderTargetBitmap';Checks=$script:GuideChecks.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
-[IO.File]::WriteAllText((Join-Path $Out 'capture-provenance.json'),([pscustomobject]@{UTC=[datetime]::UtcNow.ToString('o');PowerShell=$PSVersionTable.PSVersion.ToString();Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;SourceManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $wad 'package-manifest.json') -Algorithm SHA256).Hash;Rendering='Native WPF RenderTargetBitmap; off-screen host, no image upscaling';Fixture='example.local, synthetic directory and observations, no AD access';FreshnessFixture='AD 35 minutes old; ping 10 to 20 minutes old; WMI inventory 2 to 3 days old; local recalculation preserves measurement dates';ToolTipsEnabled=$false;Images=$script:GuideImages.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText((Join-Path $Out 'capture-provenance.json'),([pscustomobject]@{UTC=[datetime]::UtcNow.ToString('o');PowerShell=$PSVersionTable.PSVersion.ToString();Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;SourceManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $wad 'package-manifest.json') -Algorithm SHA256).Hash;SourceRuntimeManifestSHA256=(Get-FileHash -LiteralPath (Join-Path $Dev 'tools\prod-manifest.json') -Algorithm SHA256).Hash;Build=([IO.File]::ReadAllText((Join-Path $wad 'Domenia.release.json'))|ConvertFrom-Json).Build;Rendering='Native WPF RenderTargetBitmap; off-screen host, no image upscaling';Fixture='example.local, synthetic directory and observations, no AD access';FreshnessFixture='AD 35 minutes old; ping 10 to 20 minutes old; WMI inventory 2 to 3 days old; local recalculation preserves measurement dates';ToolTipsEnabled=$false;Images=$script:GuideImages.ToArray()}|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 [IO.File]::WriteAllText((Join-Path $Out 'capture-layouts.json'),($script:GuideLayouts.ToArray()|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
 if(@($script:GuideChecks|Where-Object{-not $_.Passed}).Count){throw 'Captures produites ; un contrôle de disposition reste en échec. Voir capture-checks.json.'}
 ' termine'

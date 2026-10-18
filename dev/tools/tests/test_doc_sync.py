@@ -65,6 +65,26 @@ class QuoteRulesTests(unittest.TestCase):
         self.assertEqual(ds.compare(moved, {'Allowed': {'Quotes|a.md|X': 1}}), ([], []), 'le numéro de ligne ne compte pas')
 
 
+class CaptureFreshnessTests(unittest.TestCase):
+    def test_tracking_edits_do_not_stale_runtime_but_code_changes_do(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            dev = Path(tmp); (dev / 'wad').mkdir(); (dev / 'tools').mkdir()
+            code = dev / 'wad/main.xaml'; code.write_text('<Window/>')
+            manifest = dev / 'wad/package-manifest.json'; manifest.write_text('tracking before')
+            runtime = dev / 'tools/prod-manifest.json'
+            runtime.write_text(json.dumps({'Build': 'RC20', 'Files': [{'Path': 'wad/main.xaml', 'Sha256': ds.sha(code)}]}))
+            provenance = {'Build': 'RC20', 'SourceManifestSHA256': ds.sha(manifest), 'SourceRuntimeManifestSHA256': ds.sha(runtime)}
+            self.assertTrue(ds.capture_freshness(provenance, dev)['Current'])
+            manifest.write_text('tracking after')
+            self.assertTrue(ds.capture_freshness(provenance, dev)['Current'])
+            code.write_text('<ChangedWindow/>')
+            self.assertFalse(ds.capture_freshness(provenance, dev)['Current'])
+            code.write_text('<Window/>')
+            provenance['Build'] = 'RC19'
+            self.assertFalse(ds.capture_freshness(provenance, dev)['Current'])
+
+
 class RepositorySyncTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

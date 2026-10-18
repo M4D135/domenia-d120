@@ -1,0 +1,6 @@
+Capture fixture: Comptes d‚sactiv‚s : le modŠle Tous les postes recens‚s est disponible
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:13 char:157
++ ... Condition}); if(-not $Condition){throw ('Capture fixture: '+$Name)} }
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Capture fixture... est disponible:String) [], RuntimeException
+    + FullyQualifiedErrorId : Capture fixture: Comptes d‚sactiv‚s : le modŠle Tous les postes recens‚s est disponible

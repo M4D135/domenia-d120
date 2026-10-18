@@ -1,0 +1,14 @@
+{
+    "Width":  1920,
+    "Height":  1080,
+    "GridHeight":  0,
+    "VisibleGridHeight":  0,
+    "GridTop":  -1,
+    "GridBottom":  -1,
+    "BoundRows":  200,
+    "FullyVisibleRows":  0,
+    "PartlyVisibleRows":  0,
+    "MaterializedRows":  [
+
+                         ]
+}

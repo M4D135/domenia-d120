@@ -1,0 +1,6 @@
+The Search startup list does not build the delivered models on the caller
+At C:\DomeniaLab\d120-rc11720-qualification\dev\wad\tests\Test-DomeniaQueryLibraryTiming.ps1:17 char:76
++ ... ol]$Good,[string]$Name){$script:checks++;if(-not $Good){throw $Name}}
++                                                             ~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (The Search star...s on the caller:String) [], RuntimeException
+    + FullyQualifiedErrorId : The Search startup list does not build the delivered models on the caller

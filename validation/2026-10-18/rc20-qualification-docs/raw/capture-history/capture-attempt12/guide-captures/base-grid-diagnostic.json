@@ -1,0 +1,107 @@
+{
+    "Items":  200,
+    "Visible":  false,
+    "Loaded":  false,
+    "FirstName":  "PC-RH-011",
+    "Cells":  [
+                  {
+                      "Header":  "Type",
+                      "Text":  "Machine",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  84,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Nom",
+                      "Text":  "PC-RH-011",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  204,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Identifiant",
+                      "Text":  "PC-RH-011$",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  134,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "UPN ou DNS",
+                      "Text":  "pc-rh-011.example.local",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  204,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Etat",
+                      "Text":  "Actif",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  74,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Association",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  214,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Score",
+                      "Text":  "",
+                      "CellType":  "null",
+                      "Visibility":  "",
+                      "Opacity":  -1,
+                      "Width":  -1,
+                      "Height":  -1
+                  },
+                  {
+                      "Header":  "Correspondance",
+                      "Text":  "",
+                      "CellType":  "null",
+                      "Visibility":  "",
+                      "Opacity":  -1,
+                      "Width":  -1,
+                      "Height":  -1
+                  },
+                  {
+                      "Header":  "Détail",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.ContentPresenter",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  262,
+                      "Height":  22
+                  },
+                  {
+                      "Header":  "Connexion AD",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  139,
+                      "Height":  17
+                  },
+                  {
+                      "Header":  "Modifié dans AD",
+                      "Text":  "",
+                      "CellType":  "System.Windows.Controls.TextBlock",
+                      "Visibility":  "Visible",
+                      "Opacity":  1,
+                      "Width":  139,
+                      "Height":  17
+                  }
+              ]
+}

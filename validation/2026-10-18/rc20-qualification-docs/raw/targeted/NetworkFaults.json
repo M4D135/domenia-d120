@@ -1,0 +1,83 @@
+{
+    "Suite":  "DomeniaNetworkFaults",
+    "Passed":  true,
+    "Total":  12,
+    "Failed":  0,
+    "Assertions":  89,
+    "Qualifying":  false,
+    "Faults":  [
+                   "Latence",
+                   "DNS errone (nom non resolu, autre poste)",
+                   "Refus (acces, compte, connexion)",
+                   "Pages partielles",
+                   "Deconnexion en cours de session",
+                   "Reponses dans le desordre"
+               ],
+    "Limitation":  "Transport remplace par des doubles qui levent les exceptions de Windows ; ne prouve pas le comportement du reseau cible.",
+    "PowerShell":  "5.1.26100.6584",
+    "Edition":  "Desktop",
+    "Host":  "Microsoft Windows NT 10.0.26200.0",
+    "Computer":  "W11-01",
+    "Cases":  [
+                  {
+                      "Name":  "Corps LiveConsole execute identique au corps epingle dans le registre",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Latence dans le budget : vraie observation, aucune panne inventee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Latence au-dela du delai : Delai depasse, aucun compte, derniere observation conservee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DNS errone : nom non resolu, poste injoignable, jamais un probleme de compte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DNS errone : un autre poste repond, aucune donnee attribuee au poste demande",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "DNS errone : inventaire seul, autre poste detecte avant toute attribution",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Identite comparee sans faux refus : nom NetBIOS tronque, nom complet, cible adresse",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Refus : acces, compte et connexion gardent chacun leur categorie",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Deconnexion en cours de session : la console lue reste, lʼinventaire coupe nʼest pas invente",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Pages partielles : aucune suppression deduite, couverture non rajeunie, tentative tracee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Reponses dans le desordre : la mesure la plus recente gagne dans les six ordres",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Reponses dans le desordre : aucune reponse dʼune ancienne selection appliquee",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

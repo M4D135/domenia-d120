@@ -1,0 +1,9 @@
+Initialize-DomeniaQuerySchemaUi : The term 'Initialize-DomeniaQuerySchemaUi' is not recognized as the name of a
+cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify
+that the path is correct and try again.
+At C:\DomeniaLab\d120-rc11720-qualification\dev\wad\modules\Domenia-Query.UI.ps1:120 char:5
++     Initialize-DomeniaQuerySchemaUi
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Initialize-DomeniaQuerySchemaUi:String) [], ParentContainsErrorRecordEx
+   ception
+    + FullyQualifiedErrorId : CommandNotFoundException

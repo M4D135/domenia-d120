@@ -1,0 +1,91 @@
+{
+    "Suite":  "DomeniaStorageFaults",
+    "Passed":  true,
+    "Total":  8,
+    "Failed":  0,
+    "Assertions":  42,
+    "Qualifying":  false,
+    "Faults":  [
+                   "Base tenue par une autre instance",
+                   "Base verrouillee",
+                   "Disque plein (SQLITE_FULL du moteur)",
+                   "Arret avant COMMIT",
+                   "Arret entre COMMIT et recu",
+                   "Migration des mesures interrompue",
+                   "Indexation complete interrompue"
+               ],
+    "Limitation":  "Disque plein simule par max_page_count (vrai code SQLITE_FULL du moteur), pas un volume physiquement plein. Arrets reels du processus enfant (Process.Kill).",
+    "Stops":  [
+                  {
+                      "Mode":  "holder",
+                      "ExitCode":  -1,
+                      "StoppedUtc":  "2026-10-18T09:55:21.0208203Z"
+                  },
+                  {
+                      "Mode":  "precommit",
+                      "ExitCode":  -1,
+                      "StoppedUtc":  "2026-10-18T09:55:38.3625800Z"
+                  },
+                  {
+                      "Mode":  "postcommit",
+                      "ExitCode":  -1,
+                      "StoppedUtc":  "2026-10-18T09:55:48.6666458Z"
+                  },
+                  {
+                      "Mode":  "import",
+                      "ExitCode":  -1,
+                      "StoppedUtc":  "2026-10-18T09:56:00.8886124Z"
+                  },
+                  {
+                      "Mode":  "index",
+                      "ExitCode":  -1,
+                      "StoppedUtc":  "2026-10-18T09:56:17.2786111Z"
+                  }
+              ],
+    "PowerShell":  "5.1.26100.6584",
+    "Edition":  "Desktop",
+    "Host":  "Microsoft Windows NT 10.0.26200.0",
+    "Computer":  "W11-01",
+    "Cases":  [
+                  {
+                      "Name":  "Points dʼinjection presents une seule fois dans le worker de stockage livre",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Base occupee par une autre instance : refus explicite, aucun recu, reprise apres son arret brutal",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Base verrouillee dans le meme processus : SQLite 5 conserve, aucun recu, reprise verifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Disque plein (SQLITE_FULL reel du moteur) : rien dʼecrit, reprise verifiee apres liberation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Arret brutal avant COMMIT : aucune ligne, aucun recu, base integre, reprise verifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Arret brutal entre COMMIT et recu : lot enregistre une fois, rejeu sans seconde ecriture",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Migration des anciennes mesures interrompue : repli conserve a lʼoctet, aucun marqueur, reprise verifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Indexation complete interrompue : index precedent intact, reprise du meme lot verifiee",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

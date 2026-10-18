@@ -19,7 +19,7 @@
     ],
     [
       "Version décrite",
-      "Domenia 1.0 · RC1.17.12"
+      "Domenia 1.0 · RC1.17.20"
     ],
     [
       "Captures",
@@ -32,20 +32,20 @@
       "file": "images/connexion.png",
       "width": 10,
       "crop": {
-        "x": 743,
-        "y": 334,
-        "w": 434,
-        "h": 411
+        "x": 738,
+        "y": 287,
+        "w": 444,
+        "h": 506
       }
     },
     "recherche-actions": {
       "file": "images/recherche-actions.png",
       "width": 16,
       "crop": {
-        "x": 520,
-        "y": 534,
-        "w": 694,
-        "h": 36
+        "x": 518,
+        "y": 466,
+        "w": 1378,
+        "h": 213
       }
     },
     "fiche-poste": {
@@ -56,10 +56,10 @@
       "file": "images/actions-poste.png",
       "width": 16,
       "crop": {
-        "x": 238,
-        "y": 240,
-        "w": 837,
-        "h": 82
+        "x": 228,
+        "y": 355,
+        "w": 1210,
+        "h": 543
       }
     },
     "tableau-poste": {
@@ -74,10 +74,10 @@
       "file": "images/editeur-widget.png",
       "width": 16,
       "crop": {
-        "x": 1108,
-        "y": 16,
-        "w": 796,
-        "h": 620
+        "x": 1060,
+        "y": 14,
+        "w": 846,
+        "h": 1017
       }
     },
     "logiciels": {
@@ -110,90 +110,90 @@
       "file": "images/atelier-condition.png",
       "width": 16,
       "crop": {
-        "x": 278,
-        "y": 473,
-        "w": 777,
-        "h": 52
+        "x": 281,
+        "y": 590,
+        "w": 960,
+        "h": 145
       }
     },
     "atelier-collecte": {
       "file": "images/atelier-collecte.png",
       "width": 16,
       "crop": {
-        "x": 280,
-        "y": 910,
-        "w": 624,
-        "h": 73
+        "x": 282,
+        "y": 1014,
+        "w": 625,
+        "h": 77
       }
     },
     "atelier-fiche-locale": {
       "file": "images/atelier-fiche-locale.png",
       "width": 16,
       "crop": {
-        "x": 277,
-        "y": 635,
-        "w": 900,
-        "h": 125
+        "x": 280,
+        "y": 545,
+        "w": 1567,
+        "h": 500
       }
     },
     "atelier-bibliotheque": {
       "file": "images/atelier-bibliotheque.png",
       "width": 16,
       "crop": {
-        "x": 277,
-        "y": 410,
-        "w": 870,
-        "h": 169
+        "x": 280,
+        "y": 450,
+        "w": 1567,
+        "h": 465
       }
     },
     "accueil-sonde-requete": {
       "file": "images/accueil-sonde-requete.png",
       "width": 12,
       "crop": {
-        "x": 218,
-        "y": 941,
-        "w": 369,
-        "h": 159
+        "x": 220,
+        "y": 895,
+        "w": 842,
+        "h": 195
       }
     },
     "recherche-requete": {
       "file": "images/recherche-requete.png",
       "width": 16,
       "crop": {
-        "x": 516,
-        "y": 388,
-        "w": 748,
-        "h": 38
+        "x": 518,
+        "y": 313,
+        "w": 1378,
+        "h": 140
       }
     },
     "atelier-desactives": {
       "file": "images/atelier-desactives.png",
       "width": 13,
       "crop": {
-        "x": 279,
-        "y": 464,
-        "w": 390,
-        "h": 107
+        "x": 280,
+        "y": 450,
+        "w": 1567,
+        "h": 215
       }
     },
     "base-commandes": {
       "file": "images/base-mise-a-jour.png",
       "width": 16,
       "crop": {
-        "x": 248,
-        "y": 204,
-        "w": 815,
-        "h": 187
+        "x": 247,
+        "y": 243,
+        "w": 1633,
+        "h": 470
       }
     },
     "actions-poste-avancees": {
       "file": "images/actions-poste.png",
       "width": 14,
       "crop": {
-        "x": 1073,
-        "y": 276,
-        "w": 637,
-        "h": 45
+        "x": 832,
+        "y": 451,
+        "w": 607,
+        "h": 447
       }
     },
     "base-stockage": {
@@ -230,50 +230,50 @@
       "file": "images/atelier-poste.png",
       "width": 16,
       "crop": {
-        "x": 278,
-        "y": 656,
-        "w": 837,
-        "h": 250
+        "x": 250,
+        "y": 300,
+        "w": 1625,
+        "h": 800
       }
     },
     "poste-sonde-requete": {
       "file": "images/poste-sonde-requete.png",
       "width": 12,
       "crop": {
-        "x": 240,
-        "y": 802,
-        "w": 360,
-        "h": 160
+        "x": 243,
+        "y": 757,
+        "w": 816,
+        "h": 195
       }
     },
     "recherche-requetes": {
       "file": "images/recherche-requetes.png",
       "width": 16,
       "crop": {
-        "x": 516,
-        "y": 296,
-        "w": 1380,
-        "h": 72
+        "x": 518,
+        "y": 315,
+        "w": 1378,
+        "h": 145
       }
     },
     "recherche-inconnus": {
       "file": "images/recherche-inconnus.png",
       "width": 16,
       "crop": {
-        "x": 516,
-        "y": 388,
-        "w": 950,
-        "h": 38
+        "x": 518,
+        "y": 390,
+        "w": 1378,
+        "h": 70
       }
     },
     "etat-moteur": {
       "file": "images/etat-moteur.png",
       "width": 16,
       "crop": {
-        "x": 16,
-        "y": 64,
-        "w": 620,
-        "h": 300
+        "x": 15,
+        "y": 63,
+        "w": 621,
+        "h": 666
       }
     }
   }

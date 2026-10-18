@@ -1,0 +1,94 @@
+{
+    "Build":  "RC1.17.20",
+    "StartedUtc":  "2026-10-18T09:53:15.4105909Z",
+    "Host":  "W11-01",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  1,
+    "ArchiveSha256":  "D78CDB6408A9DA6229AD51B3E0D5C55E7600BDF3C42E8756FAC5E7316442D885",
+    "Suites":  [
+                   {
+                       "Name":  "Rules",
+                       "ExitCode":  1,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  97267,
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "QueryScale",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  40206,
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "StorageFaults",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  99936,
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "NetworkFaults",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  34897,
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "VaultQualification",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  1580,
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "CredentialGuard",
+                       "ExitCode":  0,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  7096,
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Installer",
+                       "ExitCode":  null,
+                       "TimedOut":  true,
+                       "ReportWritten":  false,
+                       "Error":  "Suite budget exceeded",
+                       "DurationMs":  240028,
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "UxQualification",
+                       "ExitCode":  1,
+                       "TimedOut":  false,
+                       "ReportWritten":  false,
+                       "DurationMs":  3503,
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "Geometry",
+                       "ExitCode":  1,
+                       "TimedOut":  false,
+                       "ReportWritten":  true,
+                       "DurationMs":  47068,
+                       "Passed":  false
+                   },
+                   {
+                       "Name":  "QueryLibraryTiming",
+                       "ExitCode":  1,
+                       "TimedOut":  false,
+                       "ReportWritten":  false,
+                       "DurationMs":  1082,
+                       "Passed":  false
+                   }
+               ],
+    "Passed":  false,
+    "Current":  "Finished",
+    "FinishedUtc":  "2026-10-18T10:01:42.1096906Z"
+}

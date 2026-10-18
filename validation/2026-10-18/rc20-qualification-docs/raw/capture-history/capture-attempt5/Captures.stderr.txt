@@ -1,0 +1,6 @@
+Exception calling "TransformToAncestor" with "1" argument(s): "The specified Visual is not an ancestor of this Visual."
+At C:\DomeniaLab\d120-rc11720-qualification\capture-guides.ps1:214 char:5
++     $visible=$Element.TransformToAncestor($script:GuideHost).Transfor ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : InvalidOperationException

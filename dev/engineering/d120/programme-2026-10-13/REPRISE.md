@@ -1,5 +1,11 @@
 # État courant — 18 octobre 2026
 
+Documentation RC1.17.20 terminée (149, KI-002) : 38 PNG natifs, 29 figures par guide,
+DOCX/PDF relus (34/83 pages). Captures 54/55 : Atelier 1280×720 reste en échec,
+avec les échecs Rules/Geometry et Installer incomplet dans KI-007. ZIP/runtime inchangés.
+
+**Complément de qualification du 18 octobre, RC1.17.20 : conserver les VM pour la reprise ciblée.** Coffre Windows, UX (15/15), bibliothèque, agrégation/export 20 000 objets synthétiques et installation/désinstallation sur profil standard jetable passent. Les tests de règles ont 34 échecs et Geometry 22 ; Installer complet a atteint le budget de 240 s. La qualification générale reste ouverte, indépendamment de 134/146 et du certificat 141. [Rapport et limites](../../../../validation/2026-10-18/rc20-qualification-docs/README.md). Cette nouvelle constatation précise la portée de l’autorisation antérieure d’effacement ci-dessous.
+
 RC1.17.20 clôt le dernier contrôle critique : deux démarrages réels, fenêtre et réglages conservés, premier cycle automatique après réouverture, intégrité et contenu de la sauvegarde vérifiés. Le défaut de chargement des préférences RC18 est corrigé ; la recherche LDAP asynchrone révélée en RC19 est corrigée par une page inférieure au quota (ancien échec reproduit, trois lectures natives réussies). Preuves et bases récupérées hors VM, fermeture et nettoyage confirmés. David peut effacer les VM pour ce périmètre ; qualification générale et décisions 134/146 restent ouvertes. [Preuve finale](../../../../validation/2026-10-18/rc20-final-session/README.md).
 
 Historique intermédiaire RC19/RC18 :

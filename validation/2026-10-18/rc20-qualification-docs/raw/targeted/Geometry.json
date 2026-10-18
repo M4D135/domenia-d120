@@ -1,0 +1,883 @@
+{
+    "Kind":  "Geometry",
+    "Point":  "D006",
+    "Rule":  "Une operation ne deplace pas la recherche, les resultats ni leurs boutons ; aucun champ essentiel n est inaccessible.",
+    "Method":  "XAML et controles WPF reels dans une surface hors ecran a la taille client demandee, chrome reel deduit ; HWND du bureau de test rapporte separement ; echelle simulee, DPI systeme inchange.",
+    "Host":  {
+                 "Interactive":  true,
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop",
+                 "SessionId":  1
+             },
+    "NoADAccess":  true,
+    "Passed":  57,
+    "Failed":  22,
+    "Complete":  false,
+    "Observations":  [
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % clair",
+                             "WorkArea":  "1920x1032",
+                             "Window":  "1730x967",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  71,
+                             "OuPanelHeight":  621,
+                             "OuTreeHeight":  300,
+                             "OuRefreshHeight":  165,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % clair textes OU longs",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "OuTreeHeight":  239,
+                             "OuRefreshHeight":  226,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false
+                         },
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % sombre",
+                             "WorkArea":  "1920x1032",
+                             "Window":  "1730x967",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  71,
+                             "OuPanelHeight":  621,
+                             "OuTreeHeight":  300,
+                             "OuRefreshHeight":  165,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Bureau 1920x1080 100 % sombre textes OU longs",
+                             "ClientWidth":  1904,
+                             "ClientHeight":  993,
+                             "OuTreeHeight":  239,
+                             "OuRefreshHeight":  226,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % clair",
+                             "WorkArea":  "1536x825",
+                             "Window":  "1536x825",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  525,
+                             "OuTreeHeight":  204,
+                             "OuRefreshHeight":  165,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % clair textes OU longs",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  226,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % sombre",
+                             "WorkArea":  "1536x825",
+                             "Window":  "1536x825",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  525,
+                             "OuTreeHeight":  204,
+                             "OuRefreshHeight":  165,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 125 % sombre textes OU longs",
+                             "ClientWidth":  1520,
+                             "ClientHeight":  786,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  226,
+                             "OuRefreshActionsHeight":  68,
+                             "Compact":  false
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % clair",
+                             "WorkArea":  "1280x688",
+                             "Window":  "1280x688",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  411,
+                             "OuTreeHeight":  147,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % clair textes OU longs",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "OuTreeHeight":  147,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % sombre",
+                             "WorkArea":  "1280x688",
+                             "Window":  "1280x688",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  411,
+                             "OuTreeHeight":  147,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 150 % sombre textes OU longs",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  649,
+                             "OuTreeHeight":  147,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % clair",
+                             "WorkArea":  "1097x589",
+                             "Window":  "1097x589",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  206,
+                             "OuPanelHeight":  327,
+                             "OuTreeHeight":  156,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % clair textes OU longs",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "OuTreeHeight":  156,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % sombre",
+                             "WorkArea":  "1097x589",
+                             "Window":  "1097x589",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  206,
+                             "OuPanelHeight":  327,
+                             "OuTreeHeight":  156,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 175 % sombre textes OU longs",
+                             "ClientWidth":  1081,
+                             "ClientHeight":  550,
+                             "OuTreeHeight":  156,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % clair",
+                             "WorkArea":  "1280x696",
+                             "Window":  "1280x696",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  419,
+                             "OuTreeHeight":  155,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % clair textes OU longs",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "OuTreeHeight":  155,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % sombre",
+                             "WorkArea":  "1280x696",
+                             "Window":  "1280x696",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  0,
+                             "OuPanelHeight":  419,
+                             "OuTreeHeight":  155,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 2560x1440 200 % sombre textes OU longs",
+                             "ClientWidth":  1264,
+                             "ClientHeight":  657,
+                             "OuTreeHeight":  155,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % clair",
+                             "WorkArea":  "960x516",
+                             "Window":  "960x516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  141,
+                             "OuPanelHeight":  262,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  0,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % clair textes OU longs",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % sombre",
+                             "WorkArea":  "960x516",
+                             "Window":  "960x516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  141,
+                             "OuPanelHeight":  262,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  0,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Ecran 1920x1080 200 % sombre textes OU longs",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % clair",
+                             "WorkArea":  "1366x720",
+                             "Window":  "1366x720",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  15,
+                             "OuPanelHeight":  443,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % clair textes OU longs",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % sombre",
+                             "WorkArea":  "1366x720",
+                             "Window":  "1366x720",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  15,
+                             "OuPanelHeight":  443,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 100 % sombre textes OU longs",
+                             "ClientWidth":  1350,
+                             "ClientHeight":  681,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % clair",
+                             "WorkArea":  "1092x576",
+                             "Window":  "1092x576",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  193,
+                             "OuPanelHeight":  314,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % clair textes OU longs",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % sombre",
+                             "WorkArea":  "1092x576",
+                             "Window":  "1092x576",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  193,
+                             "OuPanelHeight":  314,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Portable 1366x768 125 % sombre textes OU longs",
+                             "ClientWidth":  1076,
+                             "ClientHeight":  537,
+                             "OuTreeHeight":  143,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 clair",
+                             "WorkArea":  "1024x720",
+                             "Window":  "1024x720",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  93,
+                             "OuPanelHeight":  443,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 clair textes OU longs",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 sombre",
+                             "WorkArea":  "1024x720",
+                             "Window":  "1024x720",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "ChromeWidth":  16,
+                             "ChromeHeight":  39,
+                             "ResultGridHeight":  93,
+                             "OuPanelHeight":  443,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true,
+                             "Detail":  "XAML reel arrange hors ecran a la taille client demandee ; HWND du bureau de test rapporte separement."
+                         },
+                         {
+                             "Configuration":  "Session RDP 1024x768 sombre textes OU longs",
+                             "ClientWidth":  1008,
+                             "ClientHeight":  681,
+                             "OuTreeHeight":  179,
+                             "OuRefreshHeight":  124,
+                             "OuRefreshActionsHeight":  60,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Light redimensionnement 516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  30,
+                             "Compact":  true
+                         },
+                         {
+                             "Configuration":  "Dark redimensionnement 516",
+                             "ClientWidth":  944,
+                             "ClientHeight":  477,
+                             "OuTreeHeight":  91,
+                             "OuRefreshHeight":  31,
+                             "OuRefreshActionsHeight":  30,
+                             "Compact":  true
+                         }
+                     ],
+    "Tests":  [
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Bureau 1920x1080 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (964x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (964x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (902x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (902x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 150 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (307x33). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (307x33). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 175 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (902x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "DgObjects invisible ou ecrase (902x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 2560x1440 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (0x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (0x0). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Ecran 1920x1080 200 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 100 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (307x33). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Failed",
+                      "Detail":  "TxtSuiteResultFilter invisible ou ecrase (307x33). @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 214\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 210"
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Portable 1366x768 125 % sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Failed",
+                      "Detail":  "Trop peu de boutons de resultats visibles : TxtGlobalSearch, BtnGlobalSearch, DgObjects, CmbGlobalType, CmbPresenceFilter @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 242\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 239"
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 clair : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : champs essentiels visibles et atteignables",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : commandes de donnees OU distinctes des filtres de resultats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : une portee OU et un statut longs preservent arbre et commandes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Session RDP 1024x768 sombre : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : redimensionnement vertical compact reversible, resultats et arbre utilisables",
+                      "Status":  "Failed",
+                      "Detail":  "ChkLiveVerifyOnClick inaccessible apres redimensionnement a 516 @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 292\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 281"
+                  },
+                  {
+                      "Name":  "Dark : redimensionnement vertical compact reversible, resultats et arbre utilisables",
+                      "Status":  "Failed",
+                      "Detail":  "ChkLiveVerifyOnClick inaccessible apres redimensionnement a 516 @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 292\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 281"
+                  },
+                  {
+                      "Name":  "Light : stockage local deploye accessible par defilement a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Dark : stockage local deploye accessible par defilement a 960x516",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "Light : detection des resultats accessible a 960x516",
+                      "Status":  "Failed",
+                      "Detail":  "BtnParkVerify hors vue @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 348\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 343"
+                  },
+                  {
+                      "Name":  "Dark : detection des resultats accessible a 960x516",
+                      "Status":  "Failed",
+                      "Detail":  "BtnParkVerify hors vue @ at Assert-True, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 21\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 348\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 23\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\dev\\wad\\tests\\Test-DomeniaGeometry.ps1: line 343"
+                  },
+                  {
+                      "Name":  "DS-06 : une seule carte avant la liste, chemin et nombre en tete, menu « ⋯ »",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

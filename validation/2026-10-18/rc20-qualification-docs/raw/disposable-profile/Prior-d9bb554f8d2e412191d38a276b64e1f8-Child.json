@@ -1,0 +1,25 @@
+{
+    "Passed":  false,
+    "Checks":  [
+                   {
+                       "Name":  "Dedicated disposable identity",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Standard non-administrator token",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Real disposable Windows profile",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "install exit 0",
+                       "Passed":  false
+                   }
+               ],
+    "Identity":  "W11-01\\DomeniaRC20Test",
+    "Profile":  "C:\\Users\\DomeniaRC20Test\\AppData\\Local",
+    "Error":  "install exit 0",
+    "Stack":  "at Check, C:\\DomeniaLab\\d120-rc11720-qualification\\Profile-Child.ps1: line 4\r\nat Installer, C:\\DomeniaLab\\d120-rc11720-qualification\\Profile-Child.ps1: line 17\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11720-qualification\\Profile-Child.ps1: line 19"
+}

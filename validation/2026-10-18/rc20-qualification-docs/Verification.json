@@ -1,0 +1,21 @@
+{
+  "Build": "RC1.17.20",
+  "OriginalRuntimeManifestSHA256": "94C361C5B5FE05FA07B083B14F5C34FBDD4079F43D01791C4373C4165DEF41D0",
+  "ArchiveSHA256": {
+    "packs/Domenia_PROD.zip": "71E4DB913EE613E68F167A9F384F99C2623922401678458DFA9B957F7E3CB609",
+    "packs/Domenia_DEV.zip": "D78CDB6408A9DA6229AD51B3E0D5C55E7600BDF3C42E8756FAC5E7316442D885"
+  },
+  "EditableDevManifestSHA256": "073EE868F00116540D6DE1BCE3569C7EA7EDA180031BE5978528CE930DEA9FC3",
+  "EditableDevFilesVerified": 644,
+  "RuntimeFilesVerified": 172,
+  "ImagesVerified": 38,
+  "DocumentationCheck": "PASS, 0 new gaps",
+  "DocSyncUnitTests": 11,
+  "GeneralQualification": false,
+  "VMRetained": true,
+  "ExternalExcluded": [
+    134,
+    141,
+    146
+  ]
+}

@@ -1,0 +1,9 @@
+Get-DomeniaStoredHealthPolicy : The term 'Get-DomeniaStoredHealthPolicy' is not recognized as the name of a cmdlet,
+function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the
+path is correct and try again.
+At C:\DomeniaLab\d120-rc11720-qualification\dev\wad\modules\Domenia-Dashboard.UI.ps1:755 char:151
++ ... sLifecycleTable) -HealthPolicy (Get-DomeniaStoredHealthPolicy -ScopeD ...
++                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Get-DomeniaStoredHealthPolicy:String) [], ParentContainsErrorRecordExce
+   ption
+    + FullyQualifiedErrorId : CommandNotFoundException

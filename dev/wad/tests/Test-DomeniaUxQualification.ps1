@@ -25,10 +25,12 @@ function Get-SuiteFunctionText {param([string]$Path,[string]$Name)
     if($nodes.Count -ne 1){throw ('Definition absente : '+$Name)}
     return [string]$nodes[0].Extent.Text
 }
-function Import-SuiteFunction {param([string]$Path,[string]$Name) . ([scriptblock]::Create((Get-SuiteFunctionText $Path $Name) -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name)))}
+function Import-SuiteFunction {param([string]$Path,[string]$Name) . ([scriptblock]::Create(((Get-SuiteFunctionText $Path $Name) -replace ('^function\s+'+[regex]::Escape($Name)+'\b'),('function script:'+$Name))))}
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Commands.Model.ps1')){. (Join-Path $modules $file)}
-$mainText=[regex]::Match((Get-SuiteFunctionText $core 'Get-MainXaml'),'(?s)@"\s*\n(.*?)\n"@').Groups[1].Value
+Import-SuiteFunction $core 'Get-MainXaml'
+$mainText=Get-MainXaml -WadRoot $wad
 [xml]$main=$mainText
+if($null -eq $main.DocumentElement){throw 'Main XAML is empty; static checks cannot qualify it.'}
 $x='http://schemas.microsoft.com/winfx/2006/xaml'
 $templates=@('ControlTemplate','DataTemplate','ItemsPanelTemplate','Style')
 function Get-SuiteElements {
@@ -66,7 +68,8 @@ Check-Suite 'P111 : options avancees repliees par defaut' {
     $open=@($elements|Where-Object{($_.Element.LocalName -eq 'Expander') -and ([string]$_.Element.GetAttribute('IsExpanded') -eq 'True')}|ForEach-Object{[string]$_.Element.GetAttribute('Header')})
     # X04 (P-UX-19): « Reprises » holds the resume actions moved from Fiabilité; its routes (StorageResume, LegacyImport)
     # give the focus to a button inside it, so it stays open.
-    $allowed=@('Emplacement et sauvegarde','Stockage local','Reprises')
+    # Primary OU refresh and result actions stay accessible; these are not advanced settings.
+    $allowed=@('Emplacement et sauvegarde','Stockage local','Reprises','Actualiser lʼOU','Actions, filtres et vues')
     $unexpected=@($open|Where-Object{$allowed -notcontains $_})
     if($unexpected.Count){throw ('Extenseurs ouverts : '+($unexpected -join ', '))}
     @($elements|Where-Object{[string]$_.Element.GetAttribute('Name',$x) -eq 'ExpAccountSecurityOptions'}).Count -eq 1

@@ -1,0 +1,10 @@
+
+Name                                                                                          Passed Error
+----                                                                                          ------ -----
+Consentement : sans case cochee ni en demonstration, rien n entre dans le coffre                True
+Consentement : apres validation, exactement les usages choisis, compte local lie a son poste    True
+Utilisation ciblee : un seul usage lu, une seule validation, secret transmis sans champ texte   True
+Oubli cible : seul l identifiant affiche et ses usages, les autres comptes restent              True
+Aucune valeur secrete dans le lot SQLite ni dans le journal, meme quand le coffre echoue        True
+Aucune valeur secrete dans un export, meme ecrite par erreur dans un champ                      True
+Coffre Windows reel : enregistre apres consentement, relu pour une seule validation, oublie     True

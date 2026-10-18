@@ -1,0 +1,103 @@
+{
+    "Width":  1280,
+    "Height":  720,
+    "GridHeight":  100,
+    "VisibleGridHeight":  70,
+    "GridTop":  449,
+    "GridBottom":  519,
+    "BoundRows":  200,
+    "FullyVisibleRows":  1,
+    "PartlyVisibleRows":  1,
+    "MaterializedRows":  [
+                             {
+                                 "Index":  0,
+                                 "Height":  23,
+                                 "VisibleHeight":  23,
+                                 "FullyVisible":  true
+                             },
+                             {
+                                 "Index":  1,
+                                 "Height":  23,
+                                 "VisibleHeight":  17,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  2,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  3,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  4,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  5,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  6,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  7,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  8,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  9,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  10,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  11,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  12,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  13,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             },
+                             {
+                                 "Index":  14,
+                                 "Height":  23,
+                                 "VisibleHeight":  0,
+                                 "FullyVisible":  false
+                             }
+                         ]
+}

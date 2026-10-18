@@ -12,6 +12,14 @@ La base locale et les dernières observations permettent de consulter le parc sa
 - Utilisez Outils puis Base autonome pour voir la fraîcheur, suivre une mise à jour, parcourir le contenu et sauvegarder les données.
 - Gardez la lecture seule pour la consultation. Une opération qui modifie le poste ou l'annuaire exige les droits nécessaires et sa confirmation.
 
+## Conserver les réglages et automatiser les sauvegardes
+
+La taille, la position et l’état normal ou maximisé de la fenêtre sont mémorisés automatiquement. Les préférences de sauvegarde sont rechargées à la réouverture.
+
+Dans Outils, Base autonome, Stockage, ouvrez la section de sauvegardes automatiques et de conservation. Activez la sauvegarde automatique, choisissez son intervalle et le nombre de copies à conserver, puis enregistrez. Domenia doit rester ouvert pour déclencher les copies dues ; la fermeture de l’application arrête sa minuterie. Au lancement suivant, les réglages sont repris et les échéances sont de nouveau vérifiées. Une première copie est créée lors du premier contrôle si aucune sauvegarde précédente n’est enregistrée.
+
+Vérifiez la réussite dans le journal de session et conservez une copie séparée avant toute intervention sur les données. La sauvegarde est une copie cohérente de la base SQLite ; les données du domaine d’origine et la destination doivent être contrôlées avant restauration.
+
 ## Préparer une exploitation fiable
 
 Commencez par une lecture complète d’une OU pilote et de ses sous-OU, puis contrôlez son contenu. Vérifiez que les comptes actifs et désactivés attendus figurent dans la base, que les résultats détaillés correspondent aux widgets et que les relevés disposent des droits distants. Ajustez ensuite le parallélisme à la capacité du réseau.
@@ -494,7 +502,7 @@ L'inactivité AD est approximative car lastLogonTimestamp est répliqué avec re
 
 ## Du widget à la liste exacte
 
-La petite icône de détail près du crayon d’un indicateur apparaît au survol ou au focus clavier ; elle ouvre sa requête dans une page dédiée de l’Atelier. L’icône affiche directement l’onglet « Résultats ». Le corps de la carte et les segments des graphiques ne changent pas de page. Le périmètre du tableau de bord reste visible dans l’Atelier ; les conditions permettent de préciser la sélection. « Retour » revient à l’écran précédent. Les listes, exports et actions s’appuient sur les identifiants des objets, avec contrôle de l’identité au moment d’ouvrir ou d’agir.
+La petite icône de détail près du crayon d’un indicateur apparaît au survol ou au focus clavier ; elle ouvre sa requête dans une page dédiée de l’Atelier. L’icône affiche directement l’onglet « 2. Aperçu ». Le corps de la carte et les segments des graphiques ne changent pas de page. Le périmètre du tableau de bord reste visible dans l’Atelier ; les conditions permettent de préciser la sélection. « Retour » revient à l’écran précédent. Les listes, exports et actions s’appuient sur les identifiants des objets, avec contrôle de l’identité au moment d’ouvrir ou d’agir.
 
 Pour les sondes comportant plusieurs valeurs par poste, un poste peut appartenir à plusieurs catégories. Chaque catégorie compte ce poste une seule fois ; la somme des catégories peut donc dépasser le total de postes. « Autres » regroupe les valeurs hors des catégories affichées.
 
@@ -508,18 +516,18 @@ Sélectionnez une ligne pour consulter son détail local. Relisez l’identité,
 
 ## Construire une requête
 
-L’Atelier se trouve dans Outils → Atelier de requêtes. La petite icône de la barre du parc y ouvre le brouillon ; le crayon de Rechercher prépare la recette locale sélectionnée. L’Atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page : relisez-le, car il peut différer de l’OU de Rechercher. « Résultats » réserve la place au tableau et à la fiche locale ; « 1. Créer » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Informations » aide à choisir un champ et à comprendre sa source.
+L’Atelier se trouve dans Outils → Atelier de requêtes. La petite icône de la barre du parc y ouvre le brouillon ; le crayon de Rechercher prépare la recette locale sélectionnée. L’Atelier utilise le périmètre du tableau de bord, indiqué en haut de sa page : relisez-le, car il peut différer de l’OU de Rechercher. « 2. Aperçu » réserve la place au tableau et à la fiche locale ; « 1. Créer » regroupe les conditions, les sauvegardes, les sondes et les réglages de collecte. « Bibliothèque » présente les modèles et vos requêtes personnelles. « Informations » aide à choisir un champ et à comprendre sa source.
 
-1. **Choisir une base.** Sélectionnez Tous les postes recensés ou un modèle adapté, puis « Charger ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « 1. Créer ».
+1. **Choisir une base.** Dans « Bibliothèque », sélectionnez Tous les postes recensés ou un modèle adapté, puis « Utiliser cette requête ». « Nouvelle » prépare une requête vide. Ces deux commandes ouvrent « 1. Créer ».
 2. **Ajouter les conditions.** Choisissez le champ, l'opérateur proposé et la valeur. Les opérateurs sont adaptés au type texte, nombre ou booléen.
 3. **Choisir la combinaison.** Toutes les conditions correspond à ET ; Au moins une condition correspond à OU. Une restriction de détail ou une sélection figée s’applique en plus lorsqu’elle est affichée.
-4. **Exécuter.** Cliquez sur « Exécuter » pour afficher « Résultats ». Lisez le total, le périmètre et les données absentes avant d’examiner les pages.
+4. **Exécuter.** Cliquez sur « Aperçu local » pour afficher « 2. Aperçu ». Lisez le total, le périmètre et les données absentes avant d’examiner les pages.
 5. **Regrouper si utile.** Dans « 1. Créer », choisissez un champ de répartition. Les dix principaux groupes s'affichent, complétés par Autres et Inconnu lorsque nécessaire.
 6. **Conserver.** Dans « 1. Créer », enregistrez la recette, créez une sonde dashboard ou appliquez-la aux résultats de Recherche.
 
-Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. Les requêtes personnelles enregistrées sont limitées à 100 recettes dans une enveloppe de 1 Mio ; les modèles livrés sont distincts. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
+Le moteur est un langage de filtres typés ; la recette ne contient ni PowerShell ni SQL libre. Une requête admet 64 conditions en comptant ses raffinements. Les requêtes personnelles sont enregistrées dans la base locale avec leurs révisions et dépendances ; chaque définition accepte au maximum 1 Mio. La bibliothèque se charge par pages, avec un budget de 20 000 définitions, archives comprises. Les modèles livrés restent distincts. Les données des postes ne sont pas copiées dans chaque recette. Une sauvegarde refusée est signalée et ne doit pas être considérée comme enregistrée.
 
-![Atelier de requêtes : onglet Résultats et postes recensés paginés ; données fictives](fig:atelier-requetes)
+![Atelier de requêtes : onglet Aperçu et postes recensés paginés ; données fictives](fig:atelier-requetes)
 
 Le filtre d’état conserve l’accès aux comptes désactivés : ils appartiennent au recensement même si la collecte du périmètre dans l’Atelier les exclut.
 
@@ -527,7 +535,7 @@ Le filtre d’état conserve l’accès aux comptes désactivés : ils appartien
 
 ## Bibliothèque de modèles
 
-L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories, accompagnés d’une description. La recherche textuelle et les filtres de catégorie et de source (« Modèles livrés » ou « Mes requêtes ») réduisent la liste. Celle-ci indique le nom, la catégorie et les informations nécessaires. Sélectionnez une ligne, relisez sa description puis cliquez sur « Utiliser cette requête » pour ouvrir « 1. Créer ». Le sélecteur rapide et « Charger » restent disponibles en haut de l’Atelier. Les modèles partagent le même moteur et les mêmes champs que vos requêtes personnelles ; ils peuvent alimenter le tableau général ou celui du poste.
+L’onglet « Bibliothèque » propose les modèles livrés, regroupés par catégorie, accompagnés d’une description. La recherche textuelle et les filtres de catégorie et de source (« Modèles livrés » ou « Mes requêtes ») réduisent la liste. Celle-ci indique le nom, la catégorie et les informations nécessaires. Sélectionnez une ligne, relisez sa description puis cliquez sur « Utiliser cette requête » pour ouvrir « 1. Créer ». Le sélecteur rapide et « Charger » restent disponibles en haut de l’Atelier. Les modèles partagent le même moteur et les mêmes champs que vos requêtes personnelles ; ils peuvent alimenter le tableau général ou celui du poste.
 
 | Catégories | Exemples d’usage |
 |---|---|
@@ -541,13 +549,13 @@ L’onglet « Bibliothèque » propose 152 modèles livrés dans 14 catégories,
 
 Deux exemples : « Comptes désactivés » se calcule depuis la copie AD de l’OU ; « C: moins de 20 % libre » exige un inventaire léger exploitable. Le second seuil est modifiable dans Composer et n’assimile jamais une donnée absente à zéro.
 
-Le nombre de modèles est distinct des 138 champs du catalogue : un modèle combine des conditions sur ces champs. Les valeurs inconnues restent inconnues ; ouvrir ou exécuter un modèle calcule les données locales sans déclencher de collecte réseau. Nommez et enregistrez votre adaptation pour la conserver dans la bibliothèque personnelle.
+Le nombre de modèles est distinct des champs du catalogue : un modèle combine des conditions sur ces champs. Les valeurs inconnues restent inconnues ; ouvrir ou exécuter un modèle calcule les données locales sans déclencher de collecte réseau. Nommez et enregistrez votre adaptation pour la conserver dans la bibliothèque personnelle.
 
 ![Bibliothèque de modèles : recherche locale, informations nécessaires et description de la sélection ; données fictives](fig:atelier-modeles)
 
 ## Onglet Informations
 
-Le catalogue contient les 138 champs acceptés par le moteur : 27 informations du parc et 111 sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
+Le catalogue contient les champs acceptés par le moteur, issus du parc et des sondes WMI. La recherche ignore les accents et la casse ; elle porte sur le nom, l’usage et les détails techniques, dont les classes et propriétés. Les filtres Source et Catégorie réduisent la liste.
 
 La fiche précise l’usage, le type, l’unité, un exemple de valeur, la collecte nécessaire et les conditions de disponibilité. « Détails techniques » déplie les identifiants, classes et propriétés utiles au diagnostic. Une information présente au catalogue n’est pas une preuve de disponibilité sur tous les postes : les fournisseurs Windows et les droits peuvent varier.
 
@@ -557,27 +565,27 @@ La fiche précise l’usage, le type, l’unité, un exemple de valeur, la colle
 
 ## Exemple de requête réutilisable
 
-Dans « 1. Créer », choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis cliquez sur « Exécuter ». Les mesures absentes ne sont pas assimilées à zéro.
+Dans « 1. Créer », choisissez l’espace libre du disque système en pourcentage, l’opérateur inférieur à et la valeur 20. Ajoutez la condition puis cliquez sur « Aperçu local ». Les mesures absentes ne sont pas assimilées à zéro.
 
 ![Requête numérique sur les disques ayant moins de 20 % d’espace libre ; données fictives](fig:atelier-condition)
 
-Revenez dans « 1. Créer », nommez la recette, enregistrez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
+Passez dans « 3. Enregistrer », nommez la recette, enregistrez-la puis sélectionnez-la dans la bibliothèque. Son nom doit décrire le critère et rester compréhensible hors du contexte de création.
 
 ![Bibliothèque : requête nommée sauvegardée et réutilisable ; données fictives](fig:atelier-bibliotheque)
 
-Dans « 1. Créer », choisissez « Tableau de bord général » et une présentation (Indicateur, Texte, Barres, Camembert ou Colonnes), puis « Créer une sonde dashboard » pour suivre le résultat dans le tableau de bord. Le widget conserve les conditions ; sa petite icône de détail ouvre les postes concernés.
+Dans « 3. Enregistrer », choisissez « Tableau de bord général » et la représentation souhaitée, puis « Créer une sonde dashboard » pour suivre le résultat dans le tableau de bord. Le widget conserve les conditions ; sa petite icône de détail ouvre les postes concernés.
 
 ![Widget du parc créé à partir de la requête enregistrée ; données fictives](fig:accueil-sonde-requete)
 
-Dans « 1. Créer », « Appliquer aux résultats de Recherche » transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
+Dans « 3. Enregistrer », « Appliquer aux résultats de Recherche » transmet les GUID des postes trouvés. Le résultat affiché dans Rechercher garde cette restriction tant qu’elle n’est pas effacée ; un nouveau nom ou un changement d’OU ne substitue pas un autre objet à cette identité.
 
 ![Filtre de l’Atelier appliqué à la liste Rechercher ; données fictives](fig:recherche-requete)
 
 ## Réutiliser la recette sur le tableau du poste
 
-La bibliothèque est commune à l’Atelier, aux widgets du parc, aux widgets du poste et au filtre de Rechercher. Depuis le tableau du poste, le bouton « Atelier » ouvre « 1. Créer » avec la destination « Tableau de bord du poste ». Vous pouvez aussi choisir cette destination depuis une autre entrée de l’Atelier, puis la présentation et « Créer une sonde dashboard ».
+La bibliothèque est commune à l’Atelier, aux widgets du parc, aux widgets du poste et au filtre de Rechercher. Depuis le tableau du poste, le bouton « Atelier » prépare la recette ; ouvrez « 3. Enregistrer » pour choisir la destination « Tableau de bord du poste ». Vous pouvez aussi choisir cette destination depuis une autre entrée de l’Atelier, puis la présentation et « Créer une sonde dashboard ».
 
-Le widget du poste évalue la recette sur l’objet sélectionné et ses données locales, avec ses états correspondant, inconnu ou non correspondant. Il utilise les mêmes conditions que le widget général, mais son périmètre est un seul poste. Changer de poste réévalue le widget. « Tester sur le poste sélectionné » fournit cet aperçu sans lecture réseau. La liste « Résultats » de l’Atelier garde le périmètre OU affiché dans son en-tête.
+Le widget du poste évalue la recette sur l’objet sélectionné et ses données locales, avec ses états correspondant, inconnu ou non correspondant. Il utilise les mêmes conditions que le widget général, mais son périmètre est un seul poste. Changer de poste réévalue le widget. « Tester sur le poste sélectionné » fournit cet aperçu sans lecture réseau. La liste « 2. Aperçu » de l’Atelier garde le périmètre OU affiché dans son en-tête.
 
 Une nouvelle création avec la même recette et la même destination met à jour le widget existant. La disposition est conservée dans les préférences. L’enregistrement, la création du widget et l’aperçu n’exécutent pas les sondes : une collecte reste un geste distinct, avec confirmation.
 
@@ -1536,7 +1544,7 @@ Les préférences ci-dessous sont conservées au redémarrage ; la lecture seule
 | Comptes | RemoteCredentialUser, SecretsCredentialUser : noms des comptes « POSTES / WMI / DISTANT » et « SECRETS AD », jamais de mot de passe. |
 | Poste | InventoryScope, SoftwareScope, SoftwarePerUser, SoftwareStore, SoftwareUpdates, WmiLimit (25) |
 | Parc | IndexAutoBuild, ParkSweepEnabled, ParkHarvestEnabled, Collection.Concurrency (4), Collection.CacheMinutes (15) |
-| Requêtes | Query.Library : recettes personnelles sauvegardées, dans la limite de 100 recettes et 1 Mio ; modèles livrés distincts. Search.QueryFavorites : jusqu’à 200 favoris de la barre Requêtes. |
+| Requêtes | Bibliothèque SQLite : recettes, révisions et dépendances ; Query.Library est relu uniquement pour migrer les anciennes préférences. Modèles livrés distincts. Search.QueryFavorites : jusqu’à 200 favoris de la barre Requêtes. |
 
 Le zoom reste accessible en bas de la fenêtre : − et + règlent l’interface de 80 à 150 %, par pas de 10. Le bouton affichant le pourcentage rétablit 100 %. Le réglage est conservé dans les préférences personnelles. La disposition utilise la place disponible après application du zoom : menu, aide et espacements se compactent lorsque cette place diminue. Les barres de défilement gardent accessibles les zones qui dépassent les dimensions minimales.
 
@@ -1628,7 +1636,7 @@ Un clic sur un en-tête trie tous les résultats du périmètre filtré avant la
 | Cache des observations courtes | 20 000 entrées par périmètre | Conserve un ensemble borné de dernières observations. |
 | Identité AD de la console observée | Moins de 5 minutes après sa vérification | Date indépendante du ping ; relecture si le compte change, manque dans la base ou si la relecture est forcée. |
 | Rétention des caches persistés | 30 jours | Une entrée hors délai ne constitue pas une mesure actuelle. |
-| Recettes personnelles de l'Atelier | 100 recettes, 1 Mio | Les conditions sont conservées, sans recopier tous les résultats. |
+| Recettes personnelles de l'Atelier | 20 000 définitions, archives comprises ; 1 Mio par définition | Lecture paginée ; conditions et révisions conservées, sans recopier tous les résultats. |
 | Sélection figée d'alerte | 20 000 GUID | Le détail est paginé ; la sélection reste explicite et bornée au périmètre. |
 
 Le panneau de cache affiche notamment les entrées fraîches ou expirées, le délai de validité, la réutilisation, les évictions et les erreurs. Ce cache de navigation est distinct de la base du parc. Purger un cache n'est pas la même opération que supprimer une base ; conservez une sauvegarde des associations et observations utiles.
