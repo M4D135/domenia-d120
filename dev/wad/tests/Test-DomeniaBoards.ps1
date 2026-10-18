@@ -61,6 +61,9 @@ function Clear-DomeniaParkTargetBuffers {param([object[]]$Targets)}
 # Overview calculation (FleetStats worker): recorded, never run.
 $script:StartCalls=[Collections.Generic.List[object]]::new();$script:AsyncJobs=@{}
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:StartCalls.Add([pscustomobject]@{OperationId=$OperationId;Code=$Code;Payload=$Payload;State=$CallbackState;ReplaceKey=$ReplaceKey;TaskClass=$TaskClass});return ('job-'+$script:StartCalls.Count)}
+# Tasks are recorded by this fixture, so cancellation records the matching request without a live engine.
+$script:StopCalls=[Collections.Generic.List[string]]::new()
+function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason);$script:StopCalls.Add([string]$Id)}
 function Initialize-DomeniaWinSqliteNative {return $true}
 $script:StoreReadCalls=[Collections.Generic.List[object]]::new();$script:StoreSnapshotRevision=0L;$script:SelectedObjectGeneration=1L
 function Test-DomeniaGuidText([string]$Text){$guid=[guid]::Empty;return [guid]::TryParse($Text,[ref]$guid)}
@@ -109,7 +112,8 @@ function Step-EditorTrial {param($Trial)
 function Invoke-EditorTrial {param([scriptblock]$Open,[scriptblock]$Act)
     $trial=[pscustomobject]@{Ticks=0;Error='';Done=$false;Act=$Act;Timer=[Windows.Threading.DispatcherTimer]::new();Seen=@{}}
     $trial.Timer.Interval=[timespan]::FromMilliseconds(150)
-    $tick={Step-EditorTrial $trial}.GetNewClosure();$trial.Timer.Add_Tick($tick);$trial.Timer.Start()
+    # Capture the function scriptblock so the event closure does not lose the test script scope in Windows 5.1.
+    $step=${function:Step-EditorTrial};$tick={& $step $trial}.GetNewClosure();$trial.Timer.Add_Tick($tick);$trial.Timer.Start()
     $accepted=$false
     try{$accepted=& $Open}finally{$trial.Timer.Stop();$trial.Timer.Remove_Tick($tick)}
     Expect (-not $trial.Error) $trial.Error

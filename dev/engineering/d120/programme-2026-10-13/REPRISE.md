@@ -2,7 +2,7 @@
 
 Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. **RC1.17.17 : défaut réel du timeout WMI corrigé et vérifié.** Lecture AD réelle puis lot WMI/DCOM de deux cibles : timeout moteur sur la première, succès distant de DC01, deux observations SQLite, fin 2/2 sans arrêt. Trois cas de non-régression Windows 5.1 passent ; démarrage contrôlé et intégrité des deux ZIP vérifiée. Preuve : [rc17-live-ad-wmi](../../../../validation/2026-10-18/rc17-live-ad-wmi/README.md).
 
-La qualification critique RC16 (96 cas, connexion visible, santé et sauvegarde) reste historique ; elle ne vaut pas requalification RC17. Restent la qualification générale, les autres transports/volumes/parcours WPF et les décisions externes 134/146. Les deux VM CNAMTS sont démarrées ; le profil de l’opérateur est préservé. La pause ci-dessous est historique et ne décrit plus le dépôt courant.
+La qualification critique RC16 (96 cas) reste historique. La requalification ciblée RC17 interface/santé/sauvegarde est maintenant consignée dans [rc17-ui-health-backup](../../../../validation/2026-10-18/rc17-ui-health-backup/README.md) : 37 cas santé, 10 stockage (61 assertions), 63 cas WPF uniques après correction des bancs ; runtime et ZIP inchangés. Consulter la preuve pour le parcours visuel et les limites. Restent la qualification générale, les autres transports/volumes/parcours WPF et les décisions externes 134/146. Les deux VM CNAMTS sont démarrées ; le profil de l’opérateur est préservé. La pause ci-dessous est historique et ne décrit plus le dépôt courant.
 
 ---
 

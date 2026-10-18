@@ -1,0 +1,32 @@
+{
+    "Suite":  "BoardSections",
+    "PowerShell":  "5.1.26100.6584",
+    "Is64BitProcess":  true,
+    "ApartmentState":  "STA",
+    "Wpf":  true,
+    "NoNetwork":  true,
+    "Passed":  4,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "Delivered layouts put health last on each board; team and personal orders are preserved",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A section moves all its interleaved widgets, preserving identities and relative order",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Native section buttons persist the order and existing Undo restores it",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "The home page keeps onboarding above widgets without redundant navigation",
+                        "Passed":  true,
+                        "Error":  ""
+                    }
+                ]
+}

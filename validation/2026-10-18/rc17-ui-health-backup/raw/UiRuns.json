@@ -1,0 +1,26 @@
+[
+    {
+        "Name":  "BoardCritical",
+        "Passed":  false,
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "DurationMs":  22409,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoards.ps1\u0027 -Quiet -Filter \u0027^RC11711|^Premiers pas|^Grille fluide|^Poste avec inventaire\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\BoardCritical.json\u0027"
+    },
+    {
+        "Name":  "BoardSections",
+        "Passed":  false,
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "DurationMs":  2245,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\BoardSections.json\u0027"
+    },
+    {
+        "Name":  "StableUi",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  13410,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaStableUi.ps1\u0027 -Quiet -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\StableUi.json\u0027"
+    }
+]

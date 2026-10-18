@@ -1,0 +1,10 @@
+[
+    {
+        "Path":  "Test-DomeniaBoards.ps1",
+        "SHA256":  "0E745686034D7FB54E2F42CC3D05B71ABD9320B823F4EDA39C8ADADFCB9B74BA"
+    },
+    {
+        "Path":  "Test-DomeniaBoardSections.ps1",
+        "SHA256":  "C9D81A3E6E6939711211AD8252D8262642E5D7530C7CB1CE9EDDC0AE4B20F223"
+    }
+]

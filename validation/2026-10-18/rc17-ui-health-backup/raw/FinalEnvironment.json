@@ -1,0 +1,30 @@
+{
+    "DateUtc":  "2026-10-18T08:35:23.0856071Z",
+    "Computer":  "W11-01",
+    "PSVersion":  "5.1.26100.6584",
+    "PSEdition":  "Desktop",
+    "Is64Bit":  true,
+    "Apartment":  "STA",
+    "SessionId":  1,
+    "FreeGB":  42.9,
+    "SourceCommit":  "f7a3ee73461588f29b094f9a4810c09eeac6406a",
+    "Packs":  [
+                  {
+                      "Edition":  "prod",
+                      "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.17-D120",
+                      "ArchiveSha256":  "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+                      "ManifestFilesVerified":  172,
+                      "RuntimeFiles":  172
+                  },
+                  {
+                      "Edition":  "dev",
+                      "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.17-D120",
+                      "ArchiveSha256":  "001ae72db21059bda3ad5ac72e810d8c69e20b948e2fc18c224f5b070a2eb04b",
+                      "ManifestFilesVerified":  642,
+                      "RuntimeFiles":  172
+                  }
+              ],
+    "IdenticalRuntime":  true,
+    "LiveAD":  false,
+    "Scope":  "Final archive and extracted-file integrity after targeted UI, health and backup checks; no tests rerun."
+}

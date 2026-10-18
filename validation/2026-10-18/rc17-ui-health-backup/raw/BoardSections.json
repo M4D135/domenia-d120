@@ -1,0 +1,33 @@
+{
+    "Suite":  "BoardSections",
+    "PowerShell":  "5.1.26100.6584",
+    "Is64BitProcess":  true,
+    "ApartmentState":  "STA",
+    "Wpf":  true,
+    "NoNetwork":  true,
+    "Passed":  3,
+    "Failed":  1,
+    "Results":  [
+                    {
+                        "Name":  "Delivered layouts put health last on each board; team and personal orders are preserved",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "A section moves all its interleaved widgets, preserving identities and relative order",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "Native section buttons persist the order and existing Undo restores it",
+                        "Passed":  true,
+                        "Error":  ""
+                    },
+                    {
+                        "Name":  "The home page leads with fleet data and keeps onboarding below it",
+                        "Passed":  false,
+                        "Error":  "Onboarding still hides fleet data\r\nAt C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1:18 char:71\r\n+ ... param([bool]$Value,[string]$Message) if(-not $Value){throw $Message}}\r\n+                                                          ~~~~~~~~~~~~~~\r\n    + CategoryInfo          : OperationStopped: (Onboarding still hides fleet data:String) [], RuntimeException\r\n    + FullyQualifiedErrorId : Onboarding still hides fleet data\r\n \r\n",
+                        "Stack":  "at Expect, C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1: line 18\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1: line 66\r\nat Check, C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1: line 17\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoardSections.ps1: line 59\r\nat \u003cScriptBlock\u003e, \u003cNo file\u003e: line 1"
+                    }
+                ]
+}

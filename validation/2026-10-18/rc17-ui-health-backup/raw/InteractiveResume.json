@@ -1,0 +1,16 @@
+{
+    "Build":  "RC1.17.17",
+    "Passed":  true,
+    "SessionId":  1,
+    "WindowsLoginInvoked":  true,
+    "Steps":  [
+                  "Home",
+                  "WsSearch",
+                  "TabApplicationTools",
+                  "TabDashboard"
+              ],
+    "AppId":  5976,
+    "ContinuationOf":  "InteractiveUI.json",
+    "DateUtc":  "2026-10-18T08:34:13.9614642Z",
+    "Title":  "Accueil · Aucune sélection — Domenia"
+}

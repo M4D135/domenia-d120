@@ -56,14 +56,14 @@ Check 'Native section buttons persist the order and existing Undo restores it' {
  Invoke-DomeniaBoardAction -Tag @{Board='Fleet';Action='MoveGroup';Group=$group;Direction='Up'}
  Expect ($script:Writes -eq 0) 'Boundary move wrote a default layout'
 }
-Check 'The home page leads with fleet data and keeps onboarding below it' {
+Check 'The home page keeps onboarding above widgets without redundant navigation' {
  [xml]$xml=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml'))
  $ns=New-Object Xml.XmlNamespaceManager($xml.NameTable);$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml');$ns.AddNamespace('w','http://schemas.microsoft.com/winfx/2006/xaml/presentation')
  $homePanel=$xml.SelectSingleNode('//*[@x:Name="TabDashboard"]/w:ScrollViewer/w:StackPanel',$ns)
  Expect ($null -ne $homePanel) 'Home missing'
  Expect (-not $homePanel.InnerXml.Contains('Que souhaitez-vous faire') -and -not $homePanel.InnerXml.Contains('BtnUxHome')) 'Redundant navigation still present'
  $source=$homePanel.InnerXml
- Expect ($source.IndexOf('PnlFleetDashboard') -lt $source.IndexOf('CardFirstSteps')) 'Onboarding still hides fleet data'
+ Expect ($source.IndexOf('CardFirstSteps') -ge 0 -and $source.IndexOf('CardFirstSteps') -lt $source.IndexOf('PnlFleetDashboard')) 'Onboarding must precede the widgets'
 }
 $failed=@($script:Results|Where-Object{-not $_.Passed}).Count
 $report=[pscustomobject]@{Suite='BoardSections';PowerShell=$PSVersionTable.PSVersion.ToString();Is64BitProcess=[Environment]::Is64BitProcess;ApartmentState=[Threading.Thread]::CurrentThread.ApartmentState.ToString();Wpf=$true;NoNetwork=$true;Passed=($script:Results.Count-$failed);Failed=$failed;Results=$script:Results.ToArray()}

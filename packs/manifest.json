@@ -26,7 +26,7 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC17_TARGETED_LIVE_AD_WMI_PASS_FULL_WINDOWS_AND_EXTERNAL_DECISIONS_OPEN",
+    "status": "RC17_TARGETED_LIVE_AD_WMI_UI_HEALTH_BACKUP_CHECKS_FULL_WINDOWS_AND_EXTERNAL_DECISIONS_OPEN",
     "proof": "validation/2026-10-18/rc17-live-ad-wmi/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "TARGETED_ONLY_RC1.17.17_NOT_FULL_ACCEPTANCE",
@@ -36,6 +36,9 @@
       146
     ],
     "documentation_proof": "dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md",
-    "interactive_gui": "NOT_RETESTED_RC1.17.17"
+    "interactive_gui": "RC17_WINDOWS_LOGIN_HOME_SEARCH_TOOLS_HOME_OBSERVED_TARGETED_ONLY",
+    "additional_proofs": [
+      "validation/2026-10-18/rc17-ui-health-backup/README.md"
+    ]
   }
 }

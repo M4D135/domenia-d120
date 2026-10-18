@@ -1,0 +1,8 @@
+{
+    "Name":  "FirstStepsCorrected",
+    "Passed":  true,
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "DurationMs":  16644,
+    "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11717-live\\dev\\wad\\tests\\Test-DomeniaBoards.ps1\u0027 -Quiet -Filter \u0027^Premiers pas\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11717-live\\critical-out\\FirstStepsCorrected.json\u0027"
+}
