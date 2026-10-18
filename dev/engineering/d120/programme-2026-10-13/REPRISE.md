@@ -1,5 +1,11 @@
 # État courant — RC1.17.21, 18 octobre 2026
 
+Complément du 18/10/2026 : **périmètre personnel retenu par David, limites documentées**. Les contrôles d’identifiants (30), d’alignement (68), d’accès (63), de relations WPF (59), LAPS (5), de rétention 400 000 lignes et de volume NTFS plein (10 assertions) passent. Trois bancs corrigés et sélecteurs du parcours graphique actualisés, aucun changement applicatif ni nouveau ZIP. [Preuves détaillées](../../../../validation/2026-10-18/rc21-completion/README.md).
+
+La grande échelle reste non qualifiée : premières vues sur 20 000 postes générés en 128 à 142 s, campagne d’endurance arrêtée. Multi-écrans/DPI, écoute Narrateur, relevé humain, variantes LAPS absentes et matrice cible restent des limites déclarées, pas des succès. Les anciens champs de recette générale ne doivent pas être confondus avec ce périmètre. Dernier parcours graphique en attente de revalidation après reverrouillage automatique de la VM ; premier rapport conservé. Nettoyage de la VM temporaire après sauvegarde et push vérifiés ; serveur AD et autres projets conservés.
+
+## État précédent conservé
+
 Clôture du labo : `CNAMTS-W11-01`, ses disques et instantanés sont supprimés sur demande de David ; `CNAMTS-DC01` reste démarré pour les autres projets. VM Pesto/FilPro/DEX conservées. Preuves et packs récupérés, vérifiés et poussés avant nettoyage ; aucune qualification générale ajoutée. [Reçu de nettoyage](../../../../validation/2026-10-18/rc21-closeout/README.md).
 
 Décision David du 18/10/2026 : conserver le pack personnel autonome avec M4D.Admin.Common.Query.dll, les deux DLL Active Directory/RSAT et PsExec.exe embarqués. Aucun retrait, téléchargement ni installation RSAT/PsExec supplémentaire demandé. Le point 146 ne demande plus d'arbitrage de packaging pour cet usage ; les droits de redistribution restent non établis et Publishable reste faux. Cette décision ne change ni les ZIP RC1.17.21 ni les preuves de qualification.

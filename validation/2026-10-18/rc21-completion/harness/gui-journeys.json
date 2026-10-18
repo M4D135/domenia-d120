@@ -1,0 +1,157 @@
+{
+  "Schema": "DomeniaGuiJourneys/1",
+  "Note": "Parcours graphiques natifs (point 129). Cible Preview : fenêtre dʼaperçu locale (wad/maintenance/Preview-DomeniaUi.ps1, données fictives, aucune connexion AD). Cible Application : Domenia lancé et connecté par la personne qui qualifie, dans le domaine de laboratoire ou cible. Les identifiants sont les AutomationId exposés par WPF : AutomationProperties.AutomationId explicite, sinon Uid lorsqu’il est renseigné, sinon x:Name.",
+  "Journeys": [
+    {
+      "Id": "navigation",
+      "Label": "Navigation principale à la souris et au clavier",
+      "Steps": [
+        {
+          "Kind": "Window",
+          "State": "Normal1080"
+        },
+        {
+          "Kind": "Click",
+          "Id": "WsSearch"
+        },
+        {
+          "Kind": "Assert",
+          "Id": "TxtGlobalSearch",
+          "Enabled": true
+        },
+        {
+          "Kind": "Focus",
+          "Id": "TxtGlobalSearch"
+        },
+        {
+          "Kind": "Type",
+          "Text": "pc-01"
+        },
+        {
+          "Kind": "Keys",
+          "Keys": [
+            "Enter"
+          ]
+        },
+        {
+          "Kind": "Capture",
+          "Name": "recherche"
+        },
+        {
+          "Kind": "Keys",
+          "Keys": [
+            "Tab",
+            "Tab",
+            "Shift+Tab"
+          ]
+        },
+        {
+          "Kind": "Click",
+          "Id": "TabDashboard"
+        },
+        {
+          "Kind": "Capture",
+          "Name": "accueil"
+        }
+      ]
+    },
+    {
+      "Id": "defilement",
+      "Label": "Défilement de la grille de résultats",
+      "Steps": [
+        {
+          "Kind": "Window",
+          "State": "Normal1080"
+        },
+        {
+          "Kind": "Click",
+          "Id": "WsSearch"
+        },
+        {
+          "Kind": "Assert",
+          "Id": "DgObjects"
+        },
+        {
+          "Kind": "Scroll",
+          "Id": "DgObjects",
+          "Notches": -6
+        },
+        {
+          "Kind": "Keys",
+          "Keys": [
+            "Ctrl+Home"
+          ]
+        },
+        {
+          "Kind": "Scroll",
+          "Id": "DgObjects",
+          "Notches": 3
+        },
+        {
+          "Kind": "Capture",
+          "Name": "grille"
+        }
+      ]
+    },
+    {
+      "Id": "fenetres",
+      "Label": "États de la fenêtre principale",
+      "Steps": [
+        {
+          "Kind": "Window",
+          "State": "Minimize"
+        },
+        {
+          "Kind": "Window",
+          "State": "Restore"
+        },
+        {
+          "Kind": "Window",
+          "State": "Maximize"
+        },
+        {
+          "Kind": "Window",
+          "State": "Normal1080"
+        },
+        {
+          "Kind": "Assert",
+          "Id": "TabDashboard",
+          "Enabled": true
+        },
+        {
+          "Kind": "Capture",
+          "Name": "apres-fenetres"
+        }
+      ]
+    },
+    {
+      "Id": "operations",
+      "Label": "Panneau des opérations au clavier",
+      "Steps": [
+        {
+          "Kind": "Window",
+          "State": "Normal1080"
+        },
+        {
+          "Kind": "Invoke",
+          "Id": "BtnSuiteActivity"
+        },
+        {
+          "Kind": "Capture",
+          "Name": "operations"
+        },
+        {
+          "Kind": "Keys",
+          "Keys": [
+            "Escape"
+          ]
+        },
+        {
+          "Kind": "Assert",
+          "Id": "BtnSuiteActivity",
+          "Enabled": true
+        }
+      ]
+    }
+  ]
+}

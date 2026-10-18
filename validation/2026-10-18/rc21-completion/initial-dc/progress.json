@@ -1,0 +1,38 @@
+﻿[
+    {
+        "Name":  "CredentialGuard",
+        "ExitCode":  1,
+        "ReportExists":  true,
+        "Seconds":  28.616189499999997
+    },
+    {
+        "Name":  "RelationsAlignment",
+        "ExitCode":  0,
+        "ReportExists":  true,
+        "Seconds":  10.7141405
+    },
+    {
+        "Name":  "WiringAcces",
+        "ExitCode":  0,
+        "ReportExists":  true,
+        "Seconds":  62.8130014
+    },
+    {
+        "Name":  "WiringRelations",
+        "ExitCode":  1,
+        "ReportExists":  true,
+        "Seconds":  31.9972787
+    },
+    {
+        "Name":  "LapsQualification",
+        "ExitCode":  0,
+        "ReportExists":  true,
+        "Seconds":  3.5730402999999997
+    },
+    {
+        "Name":  "StorageMaintenance",
+        "ExitCode":  0,
+        "ReportExists":  true,
+        "Seconds":  36.5965638
+    }
+]

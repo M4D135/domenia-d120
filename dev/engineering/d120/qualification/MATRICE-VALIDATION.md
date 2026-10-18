@@ -10,7 +10,7 @@ Chaque cellule croise un système, un protocole et un droit. Son état est la pr
 - **·** : *Non couvert* — aucune preuve.
 - **—** : combinaison sans objet.
 
-Bilan : 0 cellule(s) prouvée(s) sur le domaine cible, 0 en laboratoire, 35 seulement synthétique(s), 6 non couverte(s).
+Bilan : 0 cellule(s) prouvée(s) sur le domaine cible, 1 en laboratoire, 35 seulement synthétique(s), 5 non couverte(s).
 
 ## Poste dʼadministration Windows 11 (Windows PowerShell 5.1)
 
@@ -50,7 +50,7 @@ Bilan : 0 cellule(s) prouvée(s) sur le domaine cible, 0 en laboratoire, 35 seul
 
 | Protocole | Utilisateur du domaine | Support délégué sur une OU | Lecteur LAPS et BitLocker délégué | Administrateur local des postes | Admin du domaine (laboratoire seulement) |
 |---|---|---|---|---|---|
-| LDAP 389 signé et scellé | S | S | S | — | · |
+| LDAP 389 signé et scellé | S | S | S | — | L |
 | LDAPS 636 | S | — | — | — | — |
 | Catalogue global 3268 | · | — | — | — | — |
 | Kerberos | S | — | — | — | — |
@@ -136,7 +136,8 @@ Bilan : 0 cellule(s) prouvée(s) sur le domaine cible, 0 en laboratoire, 35 seul
   - Synthétique : `wad/tests/Test-DomeniaWiringAcces.ps1` — comptes par ressource
 - **Contrôleur de domaine Windows Server 2025 · Journal de sécurité distant · Support délégué sur une OU** — Lecture des verrouillages 4740 sur lʼémulateur PDC. État : Synthétique.
   - Synthétique : `wad/tests/rules/Directory.Tests.ps1` — règles pures
-- **Contrôleur de domaine Windows Server 2025 · LDAP 389 signé et scellé · Admin du domaine (laboratoire seulement)** — Validation des écritures de contrôle sur lʼOU du laboratoire. État : Non couvert.
+- **Contrôleur de domaine Windows Server 2025 · LDAP 389 signé et scellé · Admin du domaine (laboratoire seulement)** — Validation des écritures de contrôle sur lʼOU du laboratoire. État : Laboratoire.
+  - Laboratoire : `../validation/2026-10-18/rc21-completion/LabLDAP.json` (SHA-256 ab82749649e2, 2026-10-18, DC01 sur cnamts.local) — Lecture LDAP réelle de RootDSE et de l’objet du DC, 18/10/2026 ; aucun secret ni écriture. Couverture limitée du labo personnel, pas une qualification générale LDAP.
 - **Poste cible Windows 10 · CIM sur DCOM (RPC) · Administrateur local des postes** — Compte console, inventaire et sondes, identité du poste vérifiée. État : Synthétique.
   - Synthétique : `wad/tests/Test-DomeniaNetworkFaults.ps1` — transport doublé
   - Synthétique : `wad/tests/Test-DomeniaStreaming.ps1` — transport doublé

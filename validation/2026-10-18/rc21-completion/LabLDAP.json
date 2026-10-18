@@ -1,0 +1,24 @@
+﻿{
+    "Kind":  "Domenia.ScopedReadOnlyLab",
+    "Qualifying":  false,
+    "Environment":  {
+                        "Domain":  "cnamts.local",
+                        "Computer":  "DC01",
+                        "OS":  "Microsoft Windows Server 2025 Standard Evaluation",
+                        "OSVersion":  "10.0.26100",
+                        "PowerShell":  "5.1.26100.7462",
+                        "Identity":  "CNAMTS\\Administrateur"
+                    },
+    "Steps":  [
+                  {
+                      "Id":  "ldap.rootdse-and-dc-object",
+                      "Status":  "Passed",
+                      "StartedUtc":  "2026-10-18T12:00:23.6011100Z",
+                      "EndedUtc":  "2026-10-18T12:00:24.6323724Z",
+                      "BaseDn":  "DC=cnamts,DC=local",
+                      "SchemaDn":  "CN=Schema,CN=Configuration,DC=cnamts,DC=local",
+                      "ComputerDn":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local"
+                  }
+              ],
+    "Scope":  "Read-only LDAP on the laboratory DC; no secrets or AD writes; does not qualify all LDAP operations or production"
+}

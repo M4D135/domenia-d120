@@ -1,5 +1,11 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+Complément du 18/10/2026 : **périmètre personnel retenu par David, limites documentées**. Les contrôles d’identifiants (30), d’alignement (68), d’accès (63), de relations WPF (59), LAPS (5), de rétention 400 000 lignes et de volume NTFS plein (10 assertions) passent. Trois bancs corrigés et sélecteurs du parcours graphique actualisés, aucun changement applicatif ni nouveau ZIP. [Preuves détaillées](validation/2026-10-18/rc21-completion/README.md).
+
+La grande échelle reste non qualifiée : premières vues sur 20 000 postes générés en 128 à 142 s, campagne d’endurance arrêtée. Multi-écrans/DPI, écoute Narrateur, relevé humain, variantes LAPS absentes et matrice cible restent des limites déclarées, pas des succès. Les anciens champs de recette générale ne doivent pas être confondus avec ce périmètre. Dernier parcours graphique en attente de revalidation après reverrouillage automatique de la VM ; premier rapport conservé. Nettoyage de la VM temporaire après sauvegarde et push vérifiés ; serveur AD et autres projets conservés.
+
+## État précédent conservé
+
 Clôture du 18/10/2026 : pack personnel RC1.17.21 conservé avec toutes les dépendances embarquées. VM `CNAMTS-W11-01` supprimée à la demande de David après sauvegarde et push des preuves ; serveur `CNAMTS-DC01` conservé et démarré. Les indications historiques de démarrage du client ci-dessous sont obsolètes. Voir [le reçu de clôture](validation/2026-10-18/rc21-closeout/README.md).
 
 > **RC1.17.15 — 18 octobre** : [correctif de la suite santé](validation/2026-10-18/health-suspension-utc/README.md).

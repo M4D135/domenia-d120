@@ -469,7 +469,17 @@
       "Protocol": "ldap",
       "Right": "domain-admin",
       "Scenario": "Validation des écritures de contrôle sur lʼOU du laboratoire",
-      "Evidence": []
+      "Evidence": [
+        {
+          "Environment": "Lab",
+          "Report": "../validation/2026-10-18/rc21-completion/LabLDAP.json",
+          "Sha256": "ab82749649e2c00cc892ed02b7a0c587772363b9f762d8c9e1d39444a827479d",
+          "Date": "2026-10-18",
+          "Domain": "cnamts.local",
+          "Computer": "DC01",
+          "Note": "Lecture LDAP réelle de RootDSE et de l’objet du DC, 18/10/2026 ; aucun secret ni écriture. Couverture limitée du labo personnel, pas une qualification générale LDAP."
+        }
+      ]
     },
     {
       "System": "target-w10",

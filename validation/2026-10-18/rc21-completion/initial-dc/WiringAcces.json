@@ -1,0 +1,349 @@
+{
+    "Suite":  "Test-DomeniaWiringAcces",
+    "Lot":  "acces",
+    "Points":  [
+                   "D051",
+                   "D052",
+                   "D053",
+                   "D054",
+                   "D055",
+                   "D056",
+                   "D057",
+                   "D058",
+                   "D059",
+                   "D060",
+                   "P46",
+                   "P42",
+                   "P44",
+                   "P45",
+                   "UI-18",
+                   "UI-31",
+                   "UX-18"
+               ],
+    "Host":  "5.1.26100.7462",
+    "NativeWindowsPowerShell":  true,
+    "Wpf":  true,
+    "MockedNetwork":  true,
+    "LiveAD":  false,
+    "LiveCIM":  false,
+    "Passed":  63,
+    "Failed":  0,
+    "Complete":  true,
+    "Tests":  [
+                  {
+                      "Name":  "D051 Plan ferme : Access.Model, Secrets.UI et Secrets.Worker declares, importes et valides",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 Portee : la cle BitLocker partage le compte BitLocker, une ecriture garde sa portee AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 Changer le compte LAPS ne modifie ni le compte AD ni le compte du poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 Compte local refuse pour LAPS : ni memorise, ni lecture relancee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 Compte local d un poste : applique a ce poste seulement, jamais a LDAP ni LAPS",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 Lecture d une cle BitLocker : compte Secrets de l onglet Comptes, sinon jeton courant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "L01 Presence BitLocker d une OU : compte Secrets, ressource et refus BitLocker, jamais le canal AD",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D051 WPF : compte d un autre poste refuse dans la page avant tout appel reseau",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D052 Memes codes, memes decisions en francais et en anglais",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D052 Un delai n est jamais un mauvais mot de passe ; un module absent ne propose pas de compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D052 Code natif transporte par le vrai worker jusqu a EndInvoke",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D053 Vingt refus simultanes, une seule demande",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D053 Annuler conserve le compte precedent et ne rouvre pas de demande aussitot",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D053 Validation : une seule relance de lecture, jamais d ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D054 Delai glissant mesure au depart des workers ; expiration meme pendant une ecriture",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D054 Une lecture passive ne prolonge pas le compte ; Oublier et nouvelle session le retirent",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D055 Lecture LAPS avec le jeton Windows courant, sans demande de compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D055 Apres un refus, un autre compte est demande au bon moment et une seule fois",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D056 WPF : bouton grise avec motif et route sure vers le prerequis",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D056 Chaque route des explications se resout vers un controle reel du XAML principal",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D056 Une estimation ACL ne bloque pas et ne se presente pas comme un droit definitif",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D057 Dechiffrement refuse : publie et lu, ni mot de passe vide ni panne du compte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D057 Module absent : prerequis explique, aucun compte propose",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D057 Corps ReadLaps : metadonnees sans mot de passe et refus de dechiffrement distinct",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D058 Ouvrir BitLocker lit les metadonnees, aucune cle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D058 Recherche par identifiant de recuperation puis lecture d une seule cle",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D058 Vrais workers : liste sans attribut de cle, cle unique controlee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D058 Operations ReadBitLockerList, ReadBitLockerKey et ReadLaps epinglees dans le registre",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D059 Marqueurs factices absents du journal reel",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D059 Masquage du journal sans modules charges (amorcage)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D059 Une seule valeur revelee, 30 s, copie groupee desactivee et limite du presse-papiers explicite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D060 Politique de transport affichee dans Comptes, consentement cible visible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "D060 Bilan des indisponibilites : transports et absence de reglage Windows modifie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P46 Erreur affichee : refus d acces cite le droit, compte rejete et indisponibilite ne le citent pas",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P46 Panneau des operations : chaque ligne annonce l acces requis",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P44 Correction sans reconnexion : generation, pause levee pour ce seul compte, lectures anciennes arretees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P44 Compte de connexion refuse : correction proposee dans Comptes, sans reconnexion ; session Windows : connexion",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P44 Correction du compte de connexion : identite de la session seulement, une validation, mot de passe remplace en place",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P44 Correction du compte de connexion : une validation qui revient pour une autre identite ne remplace rien",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P44 Anti-verrouillage : le compte de connexion saisi pour LAPS ne leve pas la pause tant qu il garde l ancien mot de passe",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P45 Vrai worker : SID et noms d un seul compte, aucune association si plusieurs comptes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P45 Resultat du worker : alias enregistres et pause etendue, compte autre jamais touche",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "P42 Comptes : une seule vue En ce moment, chaque ressource nomme son compte, sa provenance et son etat ; correction pour une connexion explicite seulement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-31 Copier tout absent en mode valeur unique, libelles poses par une seule fonction, boutons renommes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-31 Aide contextuelle d un bouton grise : description du catalogue suivie de son motif (D056)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-18 Cle BitLocker en carte : huit blocs numerotes, identifiant rappele, compte a rebours, DN retire, aucune copie ni trace",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-18 Prolongation unique de 30 s, puis carte videe et cle masquee a l echeance",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-18 Une valeur LAPS ou une cle au format inattendu ne passe jamais par la carte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Recus en clair dans la vraie grille : etat, operation, objet, DN en infobulle, a verifier en premier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Revue dans la page : motif controle, confirmation dans la page, aucune fenetre, motif fige, un seul envoi",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Relecture proposee pour une modification de fiche, annulable, retiree au changement de session, refus explique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Relecture jamais promise quand le magasin la refuserait : valeurs non conservees, rien envoye",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Une demande remplacee par une autre ne lance ni n efface la nouvelle : un seul envoi, pour le dernier recu choisi",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-18 Aucune fenetre ni boite dans le parcours des recus (code livre)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-19 Essayer sur le poste selectionne : une seule lecture CIM, un seul poste, compte des postes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-19 Refus classe par la regle Access : droit administrateur, identifiants, poste injoignable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "FO-19 Sans poste ouvert ou apres un changement de session : aucune lecture, aucun resultat recopie",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-15 Pastille Compte poste : en-tete d Assistance poste, meme compte que le contexte worker",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-15 Panneau lateral dans la page : compte saisi en memoire, retour au compte de connexion, fermeture sans changement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-27 En ce moment : compte reellement utilise par ressource, comptes en memoire avec duree, aucun secret",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UI-27 Oublier : meme regle que la fenetre Acces, refus pendant une ecriture, section actualisee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-16 Pastille d intervention dans Actions : sans Fiabilite, compte a rebours, poste cible seulement",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Name":  "UX-16 Refus du worker : renvoi vers Assistance poste \u003e Intervenir, route du bandeau, plus de Fiabilite",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

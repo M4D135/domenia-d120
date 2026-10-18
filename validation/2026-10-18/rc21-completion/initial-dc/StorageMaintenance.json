@@ -1,0 +1,18 @@
+{
+    "Suite":  "StorageMaintenance",
+    "Platform":  "Microsoft Windows NT 10.0.26100.0",
+    "PowerShell":  "5.1.26100.7462",
+    "Cases":  [
+                  {
+                      "Name":  "Point 37: link history compaction reads each observation once on a large park",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Total":  1,
+    "Passed":  1,
+    "Failed":  0,
+    "Assertions":  5,
+    "NoNetwork":  true,
+    "Scope":  "Temporary SQLite databases; no Active Directory or real-user data."
+}

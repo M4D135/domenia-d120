@@ -128,7 +128,8 @@ function New-WorkerResult {
     return [pscustomobject]@{Login=$Subject.Login;RequestId=$RequestId;UserDn=$Subject.DN;UserGuid=$Subject.Guid;Success=$true;Partial=$false;Scanned=$true;ScanStats=[pscustomobject]@{Probed=@($Probed).Count};Hints=@($Hints);Attempts=@($Attempts);Candidates=@($Candidates);ProbedGuids=@($Probed)}
 }
 function New-ProbeResult {param([string]$Raw,[string]$Source='CIM utilisateur courant',[string]$Login='alice',[string]$Computer='PC-A')
-    return [pscustomobject]@{Computer=$Computer;UserLogin=$Login;RawAccount=$Raw;Source=$Source;Confidence=97;VerifiedInAD=$true;Details='Test';Attempts=@();Success=$true}
+    # This callback consumes the committed SQLite readback; the raw worker is tested separately.
+    return [pscustomobject]@{DataSource='SQLite';SourceCompletedUtc='2026-01-03T08:00:00Z';Computer=$Computer;UserLogin=$Login;RawAccount=$Raw;Source=$Source;Confidence=97;VerifiedInAD=$true;Details='Test';Attempts=@();Success=$true}
 }
 # Fake LDAP collections really implement IEnumerable/IDisposable; no DirectoryEntry is constructed.
 $fixtureTypes=@'
@@ -207,11 +208,14 @@ try {
     $core=Parse-Source (Join-Path $wad 'Domenia-Core.ps1')
     $definitions=[Collections.Generic.List[string]]::new()
     foreach($name in @('Get-MainXaml','Normalize-LinkComputer','Normalize-LinkUser','Rebuild-UserMachineLinkIndex','Ensure-UserMachineLinkIndex','Get-LinksForComputer','Get-LinksForUser','Get-ExistingLinkForComputer','Find-DomeniaCachedUserRow','Find-DomeniaCachedComputerRow','Add-UserMachineLinkIfMissing','ConvertTo-DomeniaCanonicalLinks','Remove-SelectedLink','Start-ComputerUserLinkProbe','Import-LinksCsv','Get-DomeniaCsvDelimiter','Start-PruneOrphanLinks','Get-AssociationSummaryForObject','Get-SelectedAssociationSummary','Sync-DomeniaLinksAgainstIndex','Get-AssociationForRow','Get-DomeniaIndexAssociationText','Get-DomeniaLinkIdentityNote')){$definitions.Add((Get-SourceFunctionText $core $name))}
-    foreach($pair in @(@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Storage.UI.ps1','Request-DomeniaStorageWork'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
+    foreach($pair in @(@('modules\Domenia-Park.UI.ps1','Initialize-DomeniaRemoteStoreState'),@('modules\Domenia-Storage.UI.ps1','New-DomeniaStoreContext'),@('modules\Domenia-Live.UI.ps1','Merge-DomeniaLiveLinkMemory'),@('modules\Domenia-Storage.UI.ps1','Queue-DomeniaLinkChanges'),@('modules\Domenia-Storage.UI.ps1','Reset-DomeniaLinkBaseline'),@('modules\Domenia-Storage.UI.ps1','Request-DomeniaStorageWork'),@('modules\Domenia-Guard.Model.ps1','ConvertTo-DomeniaLinkRecord'),@('modules\Domenia-Guard.Model.ps1','Get-DomeniaLinkFingerprint'),@('modules\Domenia-Live.Model.ps1','Get-DomeniaLiveHash'))){
         $definitions.Add((Get-SourceFunctionText (Parse-Source (Join-Path $wad $pair[0])) $pair[1]))
     }
     . ([scriptblock]::Create(($definitions.ToArray() -join "`n")))
     . (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
+    # Real dependencies added by the storage and credential contracts.
+    . (Join-Path $wad 'modules\Domenia-Store.Model.ps1')
+    . (Join-Path $wad 'modules\Domenia-Guard.Model.ps1')
     . (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
     # FI-05 / PF-06: every Dispatcher timer comes from the protected factory of the engine (Domenia-Engine.UI.ps1).
     . (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
@@ -415,6 +419,7 @@ try {
         Reset-Fixture
         Start-ComputerUserLinkProbe -Computer 'PC-Z' -Origin 'ListRender'
         Expect ($script:Submissions.Count -eq 0) 'Sonde lancee par le rendu d une liste'
+        $script:SelectedObject=Get-Machine 'PC-Z' 'dddddddd-dddd-dddd-dddd-dddddddddddd'
         Start-ComputerUserLinkProbe -Computer 'PC-Z' -Origin 'SelectedMachine'
         Expect ($script:Submissions.Count -eq 1 -and $script:Submission.Operation -eq 'ComputerLastUser') 'Sonde de la machine selectionnee absente'
     }
@@ -437,6 +442,13 @@ try {
         [void](Begin-FakeQuery -Phase 'Probe' -Plan $plan -Planned 1)
         Stop-DomeniaRelationsSearch
         Expect ($script:Messages['LblLinkProbeStatus'] -match 'partiel') 'Arret sans resultat partiel'
+    }
+    Case 'D049 Un resultat distant sans relecture SQLite ne publie aucune relation' {
+        Reset-Fixture;$script:UserMachineLinks=@();Rebuild-UserMachineLinkIndex;Set-DomeniaRelationsSelection -Row $script:PcA
+        $script:ActiveLinkProbeId='raw';$raw=New-ProbeResult 'EXAMPLE\alice';$raw.DataSource='Remote'
+        Complete-DomeniaRelationsComputerProbe $raw ([pscustomobject]@{Computer='PC-A';ProbeId='raw';RelationsSubject=(Get-DomeniaRelationsSubjectIdentity)})
+        Expect (@(Get-DomeniaRelationsAllRelations).Count -eq 0) 'Resultat non enregistre publie dans les relations'
+        Expect ($script:ActiveLinkProbeId -eq 'raw') 'Callback non enregistre consomme comme une relecture SQLite'
     }
     Case 'D049 Compte local, autre domaine ou nom nu : aucun lien' {
         foreach($raw in @('PC-A\alice','AUTRE\alice','alice')){
@@ -831,7 +843,7 @@ try {
             Reset-Fixture;Set-DomeniaRelationsSelection -Row $script:PcA;Pump $w
             Start-DomeniaRelationsSearch
             $s=$script:Submission
-            Expect ($null -ne $s -and $s.Operation -eq 'ComputerLastUser' -and $s.Success -eq 'Complete-DomeniaRelationsComputerProbe' -and [string]$s.State.Origin -eq 'ExplicitDetect') 'Lecture de session non lancee'
+            Expect ($null -ne $s -and $s.Operation -eq 'ComputerLastUser' -and $s.Success -eq 'Complete-DomeniaLastUserCollected' -and $s.State.PublishHandler -eq 'Complete-DomeniaRelationsComputerProbe' -and $null -ne $s.State.StoreContext -and [string]$s.State.Origin -eq 'ExplicitDetect') 'Lecture de session non lancee'
             Expect ([string]$s.State.RelationsSubject.Guid -eq $script:PcA.Guid) 'Sujet Relations non capture'
         }
         Case 'D044 Choisir un poste dans Rechercher ne remplace pas l utilisateur en attente' {
@@ -1089,7 +1101,8 @@ finally{
     if($null -ne $script:Window){$script:Window.Close()}
     if($script:TempRoot -and [IO.Directory]::Exists($script:TempRoot)){Remove-Item -LiteralPath $script:TempRoot -Recurse -Force -ErrorAction SilentlyContinue}
 }
-$expected=54
+# Closed case count: 58 existing cases plus the uncommitted-result regression.
+$expected=59
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count;$failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{Build='RC1.14-L04-relations';Suite='Raccordement relations D041-D050 et L04';Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell=$script:WindowsExecuted;Wpf=$true;MockedNetwork=$true;LiveAD=$false;LiveCIM=$false;Expected=$expected;Passed=$passed;Failed=$failed;Skipped=0;Complete=($script:WindowsExecuted -and $failed -eq 0 -and $script:Tests.Count -eq $expected);Tests=$script:Tests.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-wiring-relations-'+[guid]::NewGuid().ToString('N')+'.json')}

@@ -1,0 +1,43 @@
+﻿{
+    "Suite":  "LoadStabilityBoundedObservation",
+    "Status":  "StoppedAfterColdReads",
+    "FullSuitePassed":  false,
+    "Computers":  20000,
+    "PlannedCycles":  5,
+    "PowerShell":  "5.1.26100.6584",
+    "ObservedUtc":  "2026-10-18T12:10:44.9658922Z",
+    "HarnessSHA256":  "B2A06F1DDFDF4D0D54BA6E714A40F29DE4B2ABD4667CA518826F9FDBCB6E05F6",
+    "ColdReads":  [
+                      {
+                          "Passed":  true,
+                          "PreludeMs":  19898.4,
+                          "ProcessStartToReadyMs":  20732,
+                          "FirstFleetStatsMs":  128425.9,
+                          "FirstSearchMs":  695.4,
+                          "Machines":  20000,
+                          "SearchTotal":  100,
+                          "Error":  ""
+                      },
+                      {
+                          "Passed":  true,
+                          "PreludeMs":  8472.6,
+                          "ProcessStartToReadyMs":  8999.6,
+                          "FirstFleetStatsMs":  142335.4,
+                          "FirstSearchMs":  1353,
+                          "Machines":  20000,
+                          "SearchTotal":  100,
+                          "Error":  ""
+                      }
+                  ],
+    "StopReason":  "Personal laboratory and targeted tests requested. Initial FleetStats reads exceed two minutes on a one-core VM; no extended campaign, no endurance or large-scale performance qualification claimed.",
+    "StoppedProcesses":  [
+                             {
+                                 "ProcessId":  4292,
+                                 "ParentProcessId":  3448
+                             },
+                             {
+                                 "ProcessId":  1560,
+                                 "ParentProcessId":  4292
+                             }
+                         ]
+}

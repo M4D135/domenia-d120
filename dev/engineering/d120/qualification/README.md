@@ -1,7 +1,8 @@
 # Qualification qualité et performance (points 122, 125 à 130)
 
-Ces outils préparent la qualification Windows. Aucun nʼa encore été exécuté sous Windows PowerShell 5.1 : leurs
-résultats ne seront des preuves quʼune fois produits dans la VM de test, puis rattachés à la matrice de validation.
+Les contrôles Windows 5.1 exécutés dans le labo personnel sont consignés dans les [preuves du 18 octobre](../../../../validation/2026-10-18/rc21-completion/README.md), en complément des campagnes RC17 à RC21. Les résultats synthétiques, les lectures AD réelles et les observations humaines restent distingués. David a retenu le périmètre personnel et demandé de documenter les limites matérielles et humaines ; aucune qualification de domaine cible ni de redistribution n’en découle.
+
+La matrice contient une preuve LDAP réelle sur le contrôleur Windows Server 2025 du labo, limitée à RootDSE et à son objet ordinateur. Le chemin du rapport versionné est relatif à `dev/` : exécuter les commandes de matrice depuis ce dossier.
 
 | Point | Outil | Où lʼexécuter | Ce quʼil prouve, et ce quʼil ne prouve pas |
 |---|---|---|---|
@@ -51,8 +52,6 @@ laboratoire nʼest jamais compté pour le domaine cible.
 
 ## Points à connaître avant lʼexécution
 
-- Après intégration, `tools/update_worker_contracts.py --apply` doit réépingler les opérations `LiveConsole` et
-  `LiveSelectedPing` (contrôle dʼidentité du poste qui répond, point 127) ; avant cela, les suites qui vérifient
-  lʼempreinte du corps LiveConsole échouent par construction.
+- Les contrats `LiveConsole` et `LiveSelectedPing` sont épinglés dans RC1.17.21. `tools/update_worker_contracts.py` contrôle leur cohérence ; ne pas réépingler sans modification relue.
 - `Invoke-LabRun.ps1` accorde 3 600 s au banc de charge et 1 200 s aux pannes de stockage.
 - Les mesures décrivent la machine qui les a produites. Elles ne sont comparables quʼà paramètres identiques.

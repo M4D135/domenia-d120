@@ -1,0 +1,353 @@
+﻿{
+    "Build":  "RC1.8",
+    "Suite":  "Relations et alignements",
+    "Expected":  68,
+    "Passed":  68,
+    "Failed":  0,
+    "Skipped":  0,
+    "Complete":  true,
+    "WindowsPowerShellExecuted":  true,
+    "LiveNetworkExecuted":  false,
+    "Cases":  [
+                  {
+                      "Name":  "01 Parseur du corps du worker inverse",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "02 Selection seule : aucun travail soumis",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "03 Filtre utilisateur connu, sans toutes les relations",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "04 Changer utilisateur change le filtre",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "05 GUID recree exclut ancien lien homonyme",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "06 Ancien lien sans GUID reste historique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "07 Selection programmatique ignoree",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "08 Meme objet ne redemarre pas une recherche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "09 Autre utilisateur invalide la requete precedente",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "10 Etat capture valide",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "11 Requete tardive rejetee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "12 GUID utilisateur different rejete",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "13 Session differente rejetee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "14 Controleur different invalide le retour",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "15 Nouveau credential meme nom invalide le retour",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "16 Annulation interdit tout enregistrement tardif",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "17 Indice AD non enregistre automatiquement",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "18 Console confirmee enregistree en lot",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "19 Lien manuel preserve meme pour le meme compte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "20 Refus file stockage conserve la vue precedente",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "21 Sauvegarde differee si ecrivain occupe",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "22 Ecriture AD bloque application des liens",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "23 Worker sans scan : aucun CIM",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "24 Worker reprend les associations et leur date",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "25 Responsable declare ne devient pas session",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "26 Lecture AD utilise le compte annuaire",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "27 Ressources LDAP toujours liberees",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "28 Console utilise le compte poste distinct",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "29 Console du bon domaine confirmee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "30 Toutes les sessions CIM creees fermees",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "31 Compte console autre utilisateur non associe",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "32 Meme nom autre domaine non associe",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "33 Compte local homonyme non associe",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "34 Nom non qualifie non devine",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "35 UPN exact accepte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "36 Console vide ne conclut pas aux sessions RDP",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "37 Machine recue differente non attribuee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "38 Acces refuse visible dans tentatives",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "39 Delai conserve observation historique",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "40 Rejet identifiants arrete les sondes suivantes",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "41 Canal deja bloque : aucun nouvel essai",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "42 Configuration CIM desactivee respectee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "43 Limite de sondes respectee",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "44 Aucun candidat : aucun balayage domaine implicite",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "45 GUID ordinateur recree non sonde par ancien lien",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "46 GUID utilisateur recree arrete la recherche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "47 Refus AD distinct et aucun CIM",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "48 Journal du controleur desactive par defaut",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "49 Journal cible le SID et le compte AD",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "50 Adresse IP conservee entiere comme indice",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "51 Progression pleine ne bloque pas retour final",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "52 Perimetre OU explicitement transmis",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "53 Perimetre liste exclut les candidats hors liste",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "54 Point 41 : journal et consoles envoyes sous le bail du compte",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "55 Point 41 : refus d une console partage avec les autres travaux, aucune autre console",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "56 Point 41 : refus du journal attribue au compte annuaire, aucune lecture AD ensuite",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : onglet selection uniquement Alice",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : changement de focus ne passe pas a Tous",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : grille active Toutes explicite",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : texte activite aligne au bord gauche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : placeholder aligne sur le caractere saisi",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Light : contenu stable pendant activite longue",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : onglet selection uniquement Alice",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : changement de focus ne passe pas a Tous",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : grille active Toutes explicite",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : texte activite aligne au bord gauche",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : placeholder aligne sur le caractere saisi",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Dark : contenu stable pendant activite longue",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ]
+}

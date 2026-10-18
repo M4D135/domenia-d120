@@ -1,0 +1,95 @@
+{
+  "Build": "RC1.17.21",
+  "Date": "2026-10-18",
+  "Scope": "Complement de qualification du laboratoire personnel, limites documentees sur decision de David. Pas de qualification generale.",
+  "SourceBaseCommit": "a464474b98c2f8aeb82a67c884239f3b062eea12",
+  "ApplicationRuntimeChanged": false,
+  "FullAcceptance": false,
+  "Publishable": false,
+  "Archives": [
+    {
+      "Edition": "PROD",
+      "SHA256": "fae656fbb5bb245f774de7fea1b4526ddcadc5946488a77c5edebc51e5dace79"
+    },
+    {
+      "Edition": "DEV",
+      "SHA256": "dd0386b01e0fd2ffb49d12aa699678682b9525c200b878346ff6bec760f3d27b"
+    }
+  ],
+  "SupplementalHarnesses": [
+    {
+      "Path": "dev/wad/tests/Test-DomeniaCredentialGuard.ps1",
+      "SHA256": "425c2d717e6b5ec709e119cfb71ea77a80acd78fc4925bb0b4c538c165e1b690"
+    },
+    {
+      "Path": "dev/wad/tests/Test-DomeniaLapsQualification.ps1",
+      "SHA256": "3f4a2068f6a41726a28f9dae0d0a68b9fd47c1b15f1101a44894edcef82c2bc1"
+    },
+    {
+      "Path": "dev/wad/tests/Test-DomeniaWiringRelations.ps1",
+      "SHA256": "e5a742816066afab37e9aab8e9fb9a9e11cb9c681bc4935fb48ee18831ebc00f"
+    },
+    {
+      "Path": "dev/engineering/d120/lab/Invoke-DomeniaGuiJourney.ps1",
+      "SHA256": "6847f15408ccb24e89f3e403f5201856d1753d329be8d6559d3f9f6e7222dc88"
+    },
+    {
+      "Path": "dev/engineering/d120/lab/gui-journeys.json",
+      "SHA256": "2572719be89acb72f9689b2483dd33e96abbf43739115542a0c67705eb9de347"
+    },
+    {
+      "Path": "dev/wad/tests/fixtures/gui-journeys.json",
+      "SHA256": "2572719be89acb72f9689b2483dd33e96abbf43739115542a0c67705eb9de347"
+    }
+  ],
+  "Passed": {
+    "CredentialGuardCases": 30,
+    "RelationsAlignmentCases": 68,
+    "WiringAccesCases": 63,
+    "WiringRelationsCases": 59,
+    "LapsQualificationCases": 5,
+    "Retention400000RowsCases": 1,
+    "RetentionAssertions": 5,
+    "ActualFullVolumeChecks": 10,
+    "ReadOnlyLabLDAP": true,
+    "NativeParser": true,
+    "Ps51Compatibility": true,
+    "GuiJourneyRules": 8
+  },
+  "FullVolumeCleanupRecovered": true,
+  "LoadStability": {
+    "Completed": false,
+    "FullSuitePassed": false,
+    "ObservedColdReads": 2,
+    "Computers": 20000,
+    "FirstFleetStatsSeconds": [
+      128.4259,
+      142.3354
+    ],
+    "Reason": "Campagne longue arretee apres mesures initiales ; grande echelle et endurance restent non qualifiees."
+  },
+  "AcceptedPersonalLabLimitations": [
+    "Deux ecrans et DPI distincts : non executes.",
+    "Ecoute Narrateur/NVDA et releve humain complet : non executes.",
+    "LAPS historique/chiffre/delegation : non disponibles dans le schema du labo ; aucun secret lu.",
+    "Endurance complete et parc cible 10000/20000 : non qualifies.",
+    "Matrice cible OS/protocoles/droits non qualifiee, preuve labo LDAP limitee."
+  ],
+  "External": [
+    134,
+    141,
+    146
+  ],
+  "CleanupStatus": "temporary_client_cleanup_pending_after_verified_push",
+  "NativeGui": {
+    "Target": "Preview",
+    "InitialReport": "gui-initial/parcours-natifs-20261018-122104.json",
+    "InitialPassed": 11,
+    "InitialFailedOrNotExecuted": 17,
+    "InitialValidCaptures": 1,
+    "Correction": "Navigation selectors use WPF Uid WsSearch and TabDashboard instead of x:Name.",
+    "Retest": "Pending: interactive desktop automatically locked",
+    "HumanRecord": "NonReleve",
+    "Qualified": false
+  }
+}

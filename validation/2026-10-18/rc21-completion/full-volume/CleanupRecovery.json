@@ -1,0 +1,10 @@
+﻿{
+    "Recovered":  true,
+    "OriginalReportSHA256":  "E5EAAAB276137D47D993046C4DCB1B460BFEC3CCDAB3288C6F427BB526754883",
+    "AllFunctionalChecksPassed":  true,
+    "CheckCount":  10,
+    "VhdDetached":  true,
+    "VhdRemoved":  true,
+    "DateUtc":  "2026-10-18T12:13:12.1747405Z",
+    "Note":  "Original report preserved. Delayed deletion completed after the concurrent evidence copy released the disposable VHD."
+}

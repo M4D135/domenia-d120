@@ -136,9 +136,9 @@ function Invoke-LazyGuardProbe {
     $ctx|Add-Member -NotePropertyName UseCredential -NotePropertyValue $false
     $ctx|Add-Member -NotePropertyName Server -NotePropertyValue 'fixture.invalid'
     $counter=[hashtable]::Synchronized(@{Sessions=0;Reads=0;Disposed=0;Ready=0;ExpectedReads=$ExpectedConcurrentReads})
-    $gate=[Threading.ManualResetEventSlim]::new($false);$jobs=[Collections.Generic.List[object]]::new()
+    $gate=[Threading.ManualResetEventSlim]::new($false);$readyGate=[Threading.CountdownEvent]::new(4);$jobs=[Collections.Generic.List[object]]::new()
     $code=@'
-param($GuardPath,$Context,$Counter,$Gate,$Factory,$Call)
+param($GuardPath,$Context,$Counter,$Gate,$ReadyGate,$Factory,$Call)
 $ErrorActionPreference='Stop'
 # The caller creates a context per job; only its synchronized guard is shared.
 . $GuardPath
@@ -155,21 +155,23 @@ function New-Object {param($TypeName,$ArgumentList);if($TypeName -eq 'System.Dir
 function Get-WLdapPath {param($Context,$Dn);return ('LDAP://fixture.invalid/'+$Dn)}
 . ([scriptblock]::Create($Factory))
 [Threading.Monitor]::Enter($Counter.SyncRoot);try{$Counter.Ready++}finally{[Threading.Monitor]::Exit($Counter.SyncRoot)}
-[void]$Gate.Wait(10000)
+[void]$ReadyGate.Signal()
+[void]$Gate.Wait()
 try{& ([scriptblock]::Create($Call))}catch{}
 '@
     try{
         foreach($i in 1..4){
             $ps=[Management.Automation.PowerShell]::Create()
             $jobContext=[pscustomobject]@{CredentialGuard=$ctx.CredentialGuard;DirectoryAuthKey=$ctx.DirectoryAuthKey;RemoteAuthKey=$ctx.RemoteAuthKey;RemoteAdminAuthKey=$ctx.RemoteAdminAuthKey;UseWinRM=$true;UseCredential=$false;Server='fixture.invalid'}
-            [void]$ps.AddScript($code).AddArgument((Join-Path $wad 'modules/Domenia-Guard.Model.ps1')).AddArgument($jobContext).AddArgument($counter).AddArgument($gate).AddArgument($Factory).AddArgument($Call)
+            [void]$ps.AddScript($code).AddArgument((Join-Path $wad 'modules/Domenia-Guard.Model.ps1')).AddArgument($jobContext).AddArgument($counter).AddArgument($gate).AddArgument($readyGate).AddArgument($Factory).AddArgument($Call)
             $jobs.Add([pscustomobject]@{PowerShell=$ps;Handle=$ps.BeginInvoke()})
         }
-        $watch=[Diagnostics.Stopwatch]::StartNew();while($counter.Ready -lt 4 -and $watch.Elapsed.TotalSeconds -lt 10){Start-Sleep -Milliseconds 10}
-        if($counter.Ready -ne 4){$diagnostic=@($jobs|ForEach-Object{[pscustomobject]@{State=[string]$_.PowerShell.InvocationStateInfo.State;Reason=[string]$_.PowerShell.InvocationStateInfo.Reason;Error=@($_.PowerShell.Streams.Error|ForEach-Object{[string]$_});Completed=$_.Handle.IsCompleted}})|ConvertTo-Json -Compress -Depth 4;throw ('Synthetic readiness '+$counter.Ready+'/4: '+$diagnostic)};$gate.Set()
+        # Loading four runspaces is setup, not the credential timeout under test. Release them together only after
+        # every worker is ready. Workers stay at the gate until this coordinator or its finally block releases them.
+        if(-not $readyGate.Wait(30000)){$diagnostic=@($jobs|ForEach-Object{[pscustomobject]@{State=[string]$_.PowerShell.InvocationStateInfo.State;Reason=[string]$_.PowerShell.InvocationStateInfo.Reason;Error=@($_.PowerShell.Streams.Error|ForEach-Object{[string]$_});Completed=$_.Handle.IsCompleted}})|ConvertTo-Json -Compress -Depth 4;throw ('Synthetic readiness '+$counter.Ready+'/4: '+$diagnostic)};$gate.Set()
         foreach($job in $jobs){[void]$job.PowerShell.EndInvoke($job.Handle);Assert ($job.PowerShell.Streams.Error.Count -eq 0) 'No fixture import errors'}
         return [pscustomobject]@{Sessions=$counter.Sessions;Reads=$counter.Reads;Disposed=$counter.Disposed;Faults=$ctx.CredentialGuard.Faults.Count}
-    }finally{$gate.Set();foreach($job in $jobs){$job.PowerShell.Dispose()};$gate.Dispose()}
+    }finally{$gate.Set();foreach($job in $jobs){$job.PowerShell.Dispose()};$readyGate.Dispose();$gate.Dispose()}
 }
 Case 'Lazy CIM first query is serialized and its rejected session is disposed' {
     $factory=[regex]::Match($core,'(?ms)^function New-WDomeniaCimSession \{.*?(?=^function Remove-WDomeniaCimSession)').Value

@@ -16,6 +16,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
 $script:Checks=[Collections.Generic.List[object]]::new()
+$script:LiveFacts=$null
 function Expect {param([bool]$Condition,[string]$Message='Assertion fausse');if(-not $Condition){throw $Message}}
 function Case {
     param([string]$Name,[scriptblock]$Body)
@@ -128,11 +129,10 @@ $manual=@(
 )
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
-$liveFacts=$null
-if($null -ne (Get-Variable -Name LiveFacts -Scope Script -ErrorAction SilentlyContinue)){$liveFacts=$script:LiveFacts}
+$reportedLiveFacts=$script:LiveFacts
 $report=[ordered]@{
     Suite='Domenia.LapsQualification';Platform=[Environment]::OSVersion.VersionString;PowerShell=$PSVersionTable.PSVersion.ToString();Edition=[string]$PSVersionTable.PSEdition
-    LiveRequested=[bool]$Live;SecretRead=$false;Passed=$passed;Failed=$failed;Tests=$script:Checks.ToArray();Live=$liveFacts;ManualScenarios=$manual
+    LiveRequested=[bool]$Live;SecretRead=$false;Passed=$passed;Failed=$failed;Tests=$script:Checks.ToArray();Live=$reportedLiveFacts;ManualScenarios=$manual
     Limitations='Hors ligne : regles et code source. En direct (option) : schema et expiration seulement. Les quatre scenarios manuels restent a executer dans le laboratoire et ne sont pas comptes.'
 }
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),(New-Object Text.UTF8Encoding($false)))}

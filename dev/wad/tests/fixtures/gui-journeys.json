@@ -1,6 +1,6 @@
 {
   "Schema": "DomeniaGuiJourneys/1",
-  "Note": "Parcours graphiques natifs (point 129). Cible Preview : fenêtre dʼaperçu locale (wad/maintenance/Preview-DomeniaUi.ps1, données fictives, aucune connexion AD). Cible Application : Domenia lancé et connecté par la personne qui qualifie, dans le domaine de laboratoire ou cible. Les identifiants sont les noms x:Name du XAML, exposés comme AutomationId.",
+  "Note": "Parcours graphiques natifs (point 129). Cible Preview : fenêtre dʼaperçu locale (wad/maintenance/Preview-DomeniaUi.ps1, données fictives, aucune connexion AD). Cible Application : Domenia lancé et connecté par la personne qui qualifie, dans le domaine de laboratoire ou cible. Les identifiants sont les AutomationId exposés par WPF : AutomationProperties.AutomationId explicite, sinon Uid lorsqu’il est renseigné, sinon x:Name.",
   "Journeys": [
     {
       "Id": "navigation",
@@ -12,7 +12,7 @@
         },
         {
           "Kind": "Click",
-          "Id": "BtnUxNavSearch"
+          "Id": "WsSearch"
         },
         {
           "Kind": "Assert",
@@ -47,7 +47,7 @@
         },
         {
           "Kind": "Click",
-          "Id": "BtnUxNavHome"
+          "Id": "TabDashboard"
         },
         {
           "Kind": "Capture",
@@ -65,7 +65,7 @@
         },
         {
           "Kind": "Click",
-          "Id": "BtnUxNavSearch"
+          "Id": "WsSearch"
         },
         {
           "Kind": "Assert",
@@ -115,7 +115,7 @@
         },
         {
           "Kind": "Assert",
-          "Id": "BtnUxNavHome",
+          "Id": "TabDashboard",
           "Enabled": true
         },
         {

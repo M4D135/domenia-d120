@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Name":  "WiringRelations",
+        "ExitCode":  1
+    },
+    {
+        "Name":  "Ps51Compat",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "NativeParser",
+        "ExitCode":  0
+    }
+]
