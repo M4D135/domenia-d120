@@ -1,0 +1,14 @@
+{
+  "Kind": "Ps51StaticCompatibility",
+  "Host": {
+    "Platform": "NonWindows",
+    "PSEdition": "Core",
+    "PSVersion": "7.4.6"
+  },
+  "Files": 337,
+  "Errors": 0,
+  "Warnings": 0,
+  "Status": "PASS",
+  "Limitation": "Controle de source. Ne remplace pas une execution sous Windows PowerShell 5.1.",
+  "Findings": []
+}

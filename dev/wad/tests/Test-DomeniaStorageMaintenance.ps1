@@ -22,7 +22,7 @@ foreach($fn in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.F
 $folder=Join-Path ([Environment]::GetFolderPath('UserProfile')) ('.domenia-maintenance-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder)
 $cases=[Collections.Generic.List[object]]::new();$script:checks=0;$domain='dc=test'
 function Expect {param([bool]$Condition,[string]$Text);$script:checks++;if(-not $Condition){throw $Text}}
-function Case {param([string]$Name,[scriptblock]$Code);if($CaseFilter -and $Name -notmatch $CaseFilter){return};try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}
+function Case {param([string]$Name,[scriptblock]$Code);if($CaseFilter -and $Name -notmatch $CaseFilter){return};try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}
 function Refused {param([scriptblock]$Code,[string]$Contains='');$caught=$false;try{& $Code|Out-Null}catch{$caught=$true;if($Contains){Expect ($_.Exception.Message -like ('*'+$Contains+'*')) ('refusal '+$Contains)}};Expect $caught 'refused'}
 $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
 if($schema.Count -ne 1){throw 'Schema count'}
@@ -97,6 +97,18 @@ try{
   $p=New-Database 'restore-active' 20;$source=New-Database 'restore-backup' 3;$dest=Join-Path $folder 'restored.db';$preview=Run-Maintenance Inspect $p -Source $source
   $r=Run-Maintenance Restore $p $dest ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint -Source $source
   Expect ($r.Revision -eq 21 -and $r.TargetPath -ceq $dest -and [IO.File]::Exists($source)) 'restored independent revision'
+ }
+ Case 'Backup is standalone and readable after export without WAL sidecars' {
+  $p=New-Database 'backup-source';$export=Join-Path $folder 'export.db'
+  $Payload=[pscustomobject]@{Database=$p;BackupDirectory=(Join-Path $folder 'manual-backups');CopyTo=$export;BudgetSeconds=30;Keep=2}
+  $r=& ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode)))
+  Expect ($r.Verified -and $r.CopiedTo -ceq $export) 'backup published and exported'
+  foreach($path in @($r.Backup,$export)){
+   Expect ((Query $path 'PRAGMA journal_mode;')[0].journal_mode -eq 'delete') 'standalone journal mode'
+   Expect ((Query $path 'SELECT revision FROM domenia_store_state;')[0].revision -eq 7) 'export readable without sidecars'
+   foreach($suffix in @('-wal','-shm')){Expect (-not [IO.File]::Exists($path+$suffix)) 'no auxiliary file required'}
+   Expect ((Get-TestHash $path).ToLowerInvariant() -ceq $r.SHA256) 'same verified bytes'
+  }
  }
  Case 'Retention deletes only old migrated families and preserves unknown recent and legacy rows' {
   $script:ret=New-Database 'retention';$old=[datetime]::UtcNow.AddDays(-100).ToString('o');$recent=[datetime]::UtcNow.AddDays(-1).ToString('o');$cut=[datetime]::UtcNow.AddDays(-30).ToString('o');$script:cutoffs=[pscustomobject]@{Presence=$cut;Console=$cut;Inventory=$cut;Probe=$cut;Detail=$cut}

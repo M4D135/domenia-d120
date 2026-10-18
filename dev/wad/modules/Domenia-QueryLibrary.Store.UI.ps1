@@ -169,7 +169,7 @@ function Format-DomeniaQueryDependencyLabel {
 function Save-DomeniaQueryRecipe {
     # -Category '' keeps the stored category of an existing recipe (or Mes requêtes for a new one). -ImpactConfirmed: the
     # workshop already showed its in-page impact review, so the dependency confirmation is not asked again.
-    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='',[switch]$ImpactConfirmed)
+    param($Recipe,[string]$SuccessHandler='Complete-DomeniaQueryRecipeSaveUi',$CallbackState=$null,[switch]$Archive,[object[]]$AdditionalDependencies=@(),[string]$ErrorHandler='',[string]$Category='',[switch]$ImpactConfirmed,$Provenance=$null)
     $store=Initialize-DomeniaQueryLibraryStore
     if($null -eq $store -or -not $store.Loaded){throw 'Attendez la lecture confirmée de la bibliothèque locale.'}
     if($store.Saving){throw 'Un enregistrement de requête est déjà en cours.'}
@@ -183,7 +183,8 @@ function Save-DomeniaQueryRecipe {
     if($Archive -and $null -eq $previous){throw 'Cette recette nʼest pas enregistrée.'}
     $Category=([string]$Category).Trim()
     if(-not $Category){$Category=if($null -ne $previous -and [string]$previous.Category){[string]$previous.Category}else{'Mes requêtes'}}
-    $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected -Category $Category
+    if(-not $PSBoundParameters.ContainsKey('Provenance')){$Provenance=Get-DomeniaMemberValue $previous 'Provenance'}
+    $record=New-DomeniaQueryLibraryRecord -Context $store.Context -Recipe $Recipe -ExpectedRevision $expected -Category $Category -Provenance $Provenance
     $record.Archived=[bool]$Archive
     $dependencies=@($store.Dependencies|Where-Object{[string]$_.RecipeId -ceq [string]$Recipe.Id})
     # The workshop shows its in-page impact review first (ImpactConfirmed); other callers keep the confirmation.

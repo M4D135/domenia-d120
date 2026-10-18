@@ -24,6 +24,39 @@ function New-Source {
  [pscustomobject]@{Types=@();Groups=@([pscustomobject]@{gid='1';st='A';n=4;os='Windows 11 Enterprise';ver='10.0 (26100)';lb=0;cr='O';pw='R';lk='O';bk='K'});Machines=$rows;Targets=$rows;Presence=$observations;Parents=@([pscustomobject]@{p=$alpha;n=2},[pscustomobject]@{p=$beta;n=2});Coverage=[pscustomobject]@{FactsFresh=4;FactsStale=0;BitLockerRead=4;BitLockerAt=$now.ToString('o')};History=@();Links=0;DomainDn=$domain}
 }
 function Board($Book,[datetime]$At=$now){Get-DomeniaFleetBoardData (New-Source) -Scope $scope -Now $At -HealthPolicy (Resolve-DomeniaHealthPolicy $Book $scope) -HealthPolicyBook $Book}
+Case 'Saved query alert preserves its revision and separates matches from unknown data' {
+ # Query adapters run in the application scope, which deliberately has no StrictMode.
+ Set-StrictMode -Off
+ Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
+ Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
+ foreach($n in @('Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model')){. (Join-Path $modules ('Domenia-'+$n+'.ps1'))}
+ $recipe=New-DomeniaQueryRecipe -Id 'health.saved' -Name 'Mémoire sous 16 Go' -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=16})
+ $context=[pscustomobject]@{Version=1;Path=(Join-Path ([IO.Path]::GetTempPath()) 'health-query.db');StoreId='test';DomainDn=$domain}
+ $row=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 2
+ $rule=New-DomeniaHealthQueryRule -Row $row
+ $book=New-PolicyBook 'none';$book.Default.CustomRules=@($rule);$board=Board $book
+ Expect ($board.Last.ProblemTargets.Count -eq 3 -and $board.Last.UnknownTargets.Count -eq 1 -and $board.Last.HealthyTargets.Count -eq 0) 'Missing memory was counted healthy or alert population changed'
+ $explanation=Get-DomeniaHealthExplanation $board
+ $queryExplanation=@($explanation.Rows|Where-Object Id -eq $rule.Id)
+ Expect ($board.QueryHealthEligibility[$rule.Id] -eq 3 -and $queryExplanation.Count -eq 1 -and $queryExplanation[0].EligibleCount -eq 3) 'Query eligibility counts unmeasured records'
+ $recipe.Clauses[0].Value=4
+ Expect ($rule.QueryRevision -eq 3 -and (ConvertFrom-Json $rule.QueryJson).Clauses[0].Value -eq 16) 'Library edit silently changed the saved alert'
+ $newRow=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 3
+ $updatedBook=New-PolicyBook 'none';$updatedBook.Default.CustomRules=@(New-DomeniaHealthQueryRule -Row $newRow);$updatedBoard=Board $updatedBook
+ Expect ($updatedBoard.Last.HealthyTargets.Count -eq 3 -and $updatedBoard.Last.UnknownTargets.Count -eq 1) 'False and unknown verdicts were merged'
+ $book.Default.CustomRules[0].Enabled=$false;$disabled=Board $book
+ Expect ($disabled.Last.ProblemTargets.Count -eq 0 -and $disabled.SuppressedAttention.Count -gt 0) 'Disabled query alert still scored or lost its evidence'
+ $book.Default.CustomRules[0].Enabled=$true
+ $p=Resolve-DomeniaHealthPolicy $book $beta;$p.CustomRules=@();$book=Set-DomeniaHealthScopePolicy $book $beta $p -NowUtc $now
+ $scoped=Board $book
+ Expect ($scoped.Last.ProblemTargets.Count -eq 2) 'Child OU override ignored for saved-query rules'
+ $impact=Get-DomeniaQueryRecipeImpact -RecipeId 'health.saved' -CurrentRevision 4 -HealthRules @([pscustomobject]@{ScopeDn=$domain;Rule=$rule})
+ Expect ($impact.Alerts -eq 1 -and $impact.HasConsumers -and $impact.Rows[0].Link -like '*Révision 3 conservée*') 'Impact review hides frozen health alert'
+ $rule.Name='Alerte mémoire du support';$renamed=ConvertTo-DomeniaHealthPolicy @{CustomRules=@($rule)} -Strict
+ Expect ($renamed.CustomRules[0].Name -ceq 'Alerte mémoire du support' -and $renamed.CustomRules[0].QuerySHA256 -ceq $rule.QuerySHA256) 'Renaming the alert changes its recipe or loses the custom name'
+ $tampered=$rule|ConvertTo-Json -Depth 8|ConvertFrom-Json;$tampered.QuerySHA256='0'*64
+ Throws {ConvertTo-DomeniaHealthPolicy @{CustomRules=@($tampered)} -Strict}
+}
 Case 'Parent dashboard assesses each computer with its own inherited OU thresholds' {
  $book=New-PolicyBook;$p=Resolve-DomeniaHealthPolicy $book $beta;$p.Thresholds.DiskFreeAlert=20;$p.Thresholds.DiskFreeWarn=30;$book=Set-DomeniaHealthScopePolicy $book $beta $p;$board=Board $book
  Expect ($board.Last.ProblemTargets.Count -eq 2 -and $board.Last.HealthyTargets.Count -eq 2 -and $board.Last.UnknownTargets.Count -eq 0) 'Parent policy replaced child threshold'

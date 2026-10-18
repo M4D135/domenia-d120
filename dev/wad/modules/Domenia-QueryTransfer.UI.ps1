@@ -160,7 +160,7 @@ function Start-DomeniaQueryImport {
             if($null -eq $current -or [long]$current.Revision -ne [long]$change.Revision){throw 'Une recette importée a été modifiée depuis. Restauration globale refusée pour préserver cette modification.'}
             $before=Get-DomeniaMemberValue $change 'Before'
             # Source keeps the journal item: an interrupted rollback journals the items it did not reach.
-            $items.Add([pscustomobject]@{Id=[string]$change.Id;ExpectedRevision=[long]$change.Revision;Recipe=$(if($null -ne $before){ConvertFrom-Json -InputObject ([string]$before.DefinitionJson) -ErrorAction Stop}else{ConvertFrom-Json -InputObject ([string]$current.DefinitionJson) -ErrorAction Stop});Archive=($null -eq $before -or [bool]$before.Archived);Before=$current;Category=$(if($null -ne $before){[string]$before.Category}else{''});Source=$change})
+            $items.Add([pscustomobject]@{Id=[string]$change.Id;ExpectedRevision=[long]$change.Revision;Recipe=$(if($null -ne $before){ConvertFrom-Json -InputObject ([string]$before.DefinitionJson) -ErrorAction Stop}else{ConvertFrom-Json -InputObject ([string]$current.DefinitionJson) -ErrorAction Stop});Archive=($null -eq $before -or [bool]$before.Archived);Before=$current;Category=$(if($null -ne $before){[string]$before.Category}else{''});Source=$change;Provenance=(Get-DomeniaMemberValue $before 'Provenance')})
         }
     }else{
         $plan=Get-DomeniaMemberValue $q 'ImportPlan';if($null -eq $plan -or $plan.StoreId -cne $store.Context.StoreId){throw 'Préparez un aperçu du pack pour cette base.'}
@@ -172,7 +172,7 @@ function Start-DomeniaQueryImport {
             $expected=[long]$choice.ExpectedRevision;$before=$choice.Before;$target=''
             if($choice.Action -eq 'Nouvelle copie'){$recipe=Copy-DomeniaQueryRecipe $recipe -Id ([guid]::NewGuid().ToString('N'));$expected=0L;$before=$null}
             if($null -eq $before){$target=$category}
-            $items.Add([pscustomobject]@{Id=$recipe.Id;ExpectedRevision=$expected;Recipe=$recipe;Archive=$false;Before=$before;Category=$target})
+            $items.Add([pscustomobject]@{Id=$recipe.Id;ExpectedRevision=$expected;Recipe=$recipe;Archive=$false;Before=$before;Category=$target;Provenance=[pscustomobject]@{PackId=$plan.PackId;PackName=$plan.PackName;PackVersion=$plan.PackVersion;Origin=$plan.Origin;SourceRecipeId=[string]$choice.Id;Verified=[bool]$plan.Verified}})
         }
     }
     if(-not $items.Count){throw 'Aucune modification sélectionnée.'}
@@ -196,7 +196,7 @@ function Submit-DomeniaQueryImportNext {
     try{
         $item=$Run.Items[$Run.Index];$current=$script:DomeniaQueryLibraryStoreState.Rows[[string]$item.Id];$revision=if($null -ne $current){[long]$current.Revision}else{0L}
         if($revision -ne [long]$item.ExpectedRevision){throw ('La recette '+$item.Recipe.Name+' a changé depuis l''aperçu. Repréparez l''import.')}
-        [void](Save-DomeniaQueryRecipe -Recipe $item.Recipe -Archive:([bool]$item.Archive) -Category ([string](Get-DomeniaMember $item 'Category' '')) -SuccessHandler 'Complete-DomeniaQueryImportItem' -ErrorHandler 'Fail-DomeniaQueryImportItem' -CallbackState $Run)
+        [void](Save-DomeniaQueryRecipe -Recipe $item.Recipe -Provenance (Get-DomeniaMemberValue $item 'Provenance') -Archive:([bool]$item.Archive) -Category ([string](Get-DomeniaMember $item 'Category' '')) -SuccessHandler 'Complete-DomeniaQueryImportItem' -ErrorHandler 'Fail-DomeniaQueryImportItem' -CallbackState $Run)
         [void](Set-DomeniaControlText 'LblQueryImportStatus' ('Enregistrement '+($Run.Index+1)+' / '+$Run.Items.Count+'…'))
     }catch{$Run.Running=$false;$Run.Error=$_.Exception.Message;Save-DomeniaQueryImportJournal $Run;[void](Set-DomeniaControlText 'LblQueryImportStatus' (Format-DomeniaQueryImportStopText -Run $Run -Message $Run.Error))}
 }

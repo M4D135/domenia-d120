@@ -1,5 +1,5 @@
 {
-  "Archive": "RC1.17.15 correctif sante du 2026-10-18 (base 4a4fb412)",
+  "Archive": "RC1.17.16 sources finales, base 0fd32e76",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -272,7 +272,7 @@
     "Copy-AllSecrets": "71690FDBC5D0838EDF9E9B3660A70CD4927E3FACF3498DC24BD88B7AD74F05FD",
     "Set-MachineCredentialFromUi": "BA699EC6EB417392EA3FA57D646E6A5E8F5FA39AEAC6D5650CC3426293CAF5BF",
     "Clear-MachineCredential": "23A38D98B3C508A972A49DECF7993057065F591F072E65B952377EB282E69DDE",
-    "Get-DomeniaInventoryWorkerCode": "E7E314951AFA613E73F1CEE41CF2DF4CAD0232D3819A787C2DABBDC9DDFEA96C",
+    "Get-DomeniaInventoryWorkerCode": "722B80088583FA8EF3A9AFBCFD02A62BC41DECBA50B5BF6FD9EB9256488DA7B0",
     "Apply-DomeniaInventoryFilter": "1AB20D35307D9386DCD7FB6CEABAB4E4C3C6097FB8A4F5E0738FDAD3A778D041",
     "Update-DomeniaInventoryCategories": "9829F97A6E45FDBE1D8DE9BB030230433035A55F12444C7D124917D3E5F764EE",
     "Complete-DomeniaInventoryUi": "6AF0141E39692ED3906F36749E7E340A3056345B7AC5F9C7A53AEB5574345F0A",
@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "A8AE098537DF84364E79084C092AEF6EEC5F939B073C918E3345EDE73ECA3AD1",
-    "Assert-DomeniaWorkerRegistry": "8601D04318BB9A0399CE5BD2D2F5884D93652218AD7819124325B308536C6FA8",
+    "Get-DomeniaWorkerOperationHashes": "32141B119CB2ABE0CCC8FA770898315877E2985AE640D420D2D4F796F0F0B1BA",
+    "Assert-DomeniaWorkerRegistry": "EA6EF93CA4E0E8E001316CD1811317A182B4EE528898932FD13A474C3AFC9899",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4780,6 +4780,31 @@
       "Previous": "RC1.17.14 mission 2026-10-17 (base 31fe584)",
       "Source": "RC1.17.15 correctif sante du 2026-10-18 (base 4a4fb412)",
       "Decision": "RC1.17.15 : conversion invariante des dates UTC typees dans les suspensions de sante. Diff relu : seul le worker LocalStore inclut ce modele ; ses empreintes et celle du registre sont re-epinglees. Aucun changement des controles de chargement. Suites HealthAdvanced, HealthPolicies et HealthRules : 45 cas reussis sous pwsh 7.4.6 macOS, non qualifiants Windows. Aucun test VM.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "RC1.17.15 correctif sante du 2026-10-18 (base 4a4fb412)",
+      "Source": "RC1.17.16 corrections restantes (base 0fd32e76)",
+      "Decision": "David 18 octobre 2026 : terminer les corrections du depot ; revue des trois nouveaux contrats, sauvegardes autonomes et masquage des commandes non delimitees ; aucune qualification Windows revendiquee.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaInventoryWorkerCode",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "RC1.17.16 corrections restantes (base 0fd32e76)",
+      "Source": "RC1.17.16 sources finales, base 0fd32e76",
+      "Decision": "Revue RC1.17.16 : nom personnalise des alertes de requete preserve ; modification du helper HealthRules compose dans LocalStore et empreintes du registre, tests HealthAdvanced 17/17.",
       "ChangedCoreFunctions": [
         "Assert-DomeniaWorkerRegistry",
         "Get-DomeniaWorkerOperationHashes"

@@ -1,6 +1,7 @@
 ﻿# Shared recipes on the selected workstation. All inputs are already in memory; no directory or endpoint read.
 function Get-DomeniaComputerQueryRecords {
-    $so=$script:SelectedObject
+    param($Object=$script:SelectedObject)
+    $so=$Object
     $empty=[Collections.Generic.List[M4D.Admin.Common.Query.QueryRecord]]::new()
     if($null -eq $so -or [string]$so.Type -ne 'Machine'){$script:DomeniaComputerQueryLookup=$null;return ,$empty}
     $dn=([string]$so.DN).Trim();$guid=ConvertTo-DomeniaGuidText $so.Safety.Guid

@@ -45,6 +45,35 @@ function Get-DomeniaHealthValue {
     if($Object -is [Collections.IDictionary]){if((Test-DomeniaDictionaryKey $Object $Name)){if($NoEnumerate){return ,$Object[$Name]};return $Object[$Name]};return $Default}
     $p=$Object.PSObject.Properties[$Name];if($null -ne $p){if($NoEnumerate){return ,$p.Value};return $p.Value};return $Default
 }
+function New-DomeniaHealthQueryRule {
+    # Freeze the exact saved definition. Editing/archiving the library never silently changes an alert.
+    param($Row,[string]$Id=('custom.'+[guid]::NewGuid().ToString('N')),[string]$Severity='Warn',[bool]$Enabled=$true)
+    $json=[string](Get-DomeniaHealthValue $Row 'DefinitionJson' '');$sha=[string](Get-DomeniaHealthValue $Row 'DefinitionSHA256' '')
+    $revision=[long](Get-DomeniaHealthValue $Row 'Revision' 0);$recipeId=[string](Get-DomeniaHealthValue $Row 'Id' '')
+    if($revision -lt 1 -or $recipeId -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or [bool](Get-DomeniaHealthValue $Row 'Archived' $false) -or [Text.Encoding]::UTF8.GetByteCount($json) -gt 1048576 -or $sha -cnotmatch '^[0-9a-f]{64}$' -or (Get-DomeniaQuerySha256 $json) -cne $sha){throw 'Révision enregistrée de la requête invalide.'}
+    $recipe=ConvertFrom-Json -InputObject $json -ErrorAction Stop
+    if([string]$recipe.Id -cne $recipeId){throw 'Identité de requête incohérente.'}
+    [void](ConvertTo-DomeniaCompiledQuery $recipe)
+    return [pscustomobject]@{Id=$Id;Name=([string]$recipe.Name).Substring(0,[Math]::Min(100,([string]$recipe.Name).Length));Measure='Query';Operator='LessThan';Threshold=0;Severity=$Severity;Enabled=$Enabled;QueryId=$recipeId;QueryRevision=$revision;QueryJson=$json;QuerySHA256=$sha;QueryLabel=([string]$recipe.Name+' · révision '+$revision+' conservée')}
+}
+function Get-DomeniaHealthQueryStates {
+    # Use the same query compiler and three-state values as Search/widgets/reports. No collection is started.
+    param($Rule,$Records)
+    $recipe=Resolve-DomeniaQueryParameters (ConvertFrom-Json -InputObject ([string]$Rule.QueryJson))
+    $compiled=ConvertTo-DomeniaCompiledQuery $recipe;$ids=Get-DomeniaQueryIdentitySelection $recipe
+    $refinements=@(Get-DomeniaMember $recipe 'Refinements' @());$refined=$null
+    if($refinements.Count){$refined=ConvertTo-DomeniaCompiledQuery (New-DomeniaQueryRecipe -Clauses $refinements -ReadDefinition (Get-DomeniaMemberValue $recipe 'ReadDefinition'))}
+    $probe=ConvertTo-DomeniaQueryProbeSelection $recipe;$result=@{}
+    foreach($record in $Records){
+        $state='NoMatch'
+        if($null -eq $ids -or $ids.Contains($record.Id.Trim().Trim('{','}'))){
+            $state=if($null -ne $refined){[string]$refined.Evaluate($record.Values)}else{'Match'}
+            if($state -eq 'Match'){$state=if($null -ne $probe -and -not $probe.Matches($record.Values)){'Unknown'}else{[string]$compiled.Evaluate($record.Values)}}
+        }
+        $result[$record.Id.ToLowerInvariant()]=$state
+    }
+    return $result
+}
 function ConvertTo-DomeniaHealthPolicy {
     param($Value=$null,[switch]$Strict)
     if($Value -is [string]){try{$Value=$Value|ConvertFrom-Json -ErrorAction Stop}catch{if($Strict){throw 'Regles de sante illisibles.'};$Value=$null}}
@@ -61,6 +90,14 @@ function ConvertTo-DomeniaHealthPolicy {
     $custom=[Collections.Generic.List[object]]::new();$seen=@{}
     foreach($r in @(Get-DomeniaHealthValue $Value 'CustomRules' @())){
         $id=[string](Get-DomeniaHealthValue $r 'Id' '');$name=([string](Get-DomeniaHealthValue $r 'Name' '')).Trim();$measure=[string](Get-DomeniaHealthValue $r 'Measure' '');$op=[string](Get-DomeniaHealthValue $r 'Operator' '');$severity=[string](Get-DomeniaHealthValue $r 'Severity' 'Warn');$threshold=0.0
+        if($measure -ceq 'Query'){
+            try{
+                if($id -cnotmatch '^custom\.[0-9a-f]{32}$' -or $name.Length -lt 1 -or $name.Length -gt 100 -or $name -match '[\p{Cc}]' -or $seen.ContainsKey($id) -or $custom.Count -ge 32 -or $severity -notin @('Warn','Alert') -or (Get-DomeniaHealthValue $r 'Enabled' $true) -isnot [bool]){throw 'Alerte de requête invalide.'}
+                $row=[pscustomobject]@{Id=[string]$r.QueryId;Revision=[long]$r.QueryRevision;DefinitionJson=[string]$r.QueryJson;DefinitionSHA256=[string]$r.QuerySHA256;Archived=$false}
+                $queryRule=New-DomeniaHealthQueryRule -Row $row -Id $id -Severity $severity -Enabled ([bool](Get-DomeniaHealthValue $r 'Enabled' $true));$queryRule.Name=$name;$custom.Add($queryRule);$seen[$id]=$true
+            }catch{if($Strict){throw}}
+            continue
+        }
         $valid=$id -cmatch '^custom\.[0-9a-f]{32}$' -and $name.Length -ge 1 -and $name.Length -le 100 -and $name -notmatch '[\p{Cc}]' -and $measure -in @('DiskFree','UptimeDays','MemoryUsed') -and $op -in @('LessThan','GreaterThan') -and $severity -in @('Warn','Alert') -and [double]::TryParse([string](Get-DomeniaHealthValue $r 'Threshold' ''),[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$threshold) -and -not [double]::IsNaN($threshold) -and -not [double]::IsInfinity($threshold) -and $threshold -ge 0 -and $threshold -le $(if($measure -eq 'UptimeDays'){3650}else{100}) -and -not $seen.ContainsKey($id)
         if(-not $valid -or $custom.Count -ge 32){if($Strict){throw 'Regle personnalisee invalide (32 maximum, seuil selon la mesure).'};continue}
         $enabled=Get-DomeniaHealthValue $r 'Enabled' $true
@@ -213,6 +250,7 @@ function Get-DomeniaComputerRuleEvidence {
     # Point 75: whether the workstation board read the data one rule needs. A missing tile or a tile in an unknown
     # state (Off) is not measured; rules that only make sense on a fleet do not apply to one workstation.
     param($Data,[string]$RuleId,[string]$Measure='')
+    if($Measure -eq 'Query'){$states=Get-DomeniaHealthValue $Data 'QueryHealthEvidence';if(($states -is [Collections.IDictionary]) -and [string]$states[$RuleId] -in @('Match','NoMatch')){return 'Measured'};return 'NotMeasured'}
     $keys=@{'eos.ended'='computer.os';'eos.soon'='computer.os';'stale'='computer.ad.lastlogon';'pwdold'='computer.ad.password';'laps.expired'='computer.ad.laps';'bitlocker.none'='computer.bitlocker';'bitlocker.suspended'='computer.bitlocker';'secureboot'='computer.secureboot';'certificates'='computer.certificates';'lowdisk'='computer.disk.system';'disk.tight'='computer.disk.system';'uptime'='computer.uptime';'memory'='computer.memory.usage';'battery'='computer.battery';'ad.disabled'='computer.ad.account';'clock'='computer.ad.clock';'firewall'='computer.firewall';'reboot'='computer.reboot';'services'='computer.services.stopped';'devices'='computer.devices';'drivers'='computer.drivers';'hotfix'='computer.hotfix';'events'='computer.events'}
     $measures=@{DiskFree='computer.disk.system';UptimeDays='computer.uptime';MemoryUsed='computer.memory.usage'}
     $key=if($RuleId.StartsWith('custom.',[StringComparison]::Ordinal)){[string]$measures[$Measure]}else{[string]$keys[$RuleId]}
@@ -278,7 +316,8 @@ function Get-DomeniaHealthExplanation {
         $eligibleCount=$null
         if($fleet){
             $counts=Get-DomeniaHealthValue $eligibility 'Counts'
-            if($catalog.ContainsKey($id)){if(($counts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $counts $id)){$eligibleCount=[int]$counts[$id]}}
+            if($measureOf[$id] -eq 'Query'){$queryCounts=Get-DomeniaHealthValue $Data 'QueryHealthEligibility';if(($queryCounts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $queryCounts $id)){$eligibleCount=[int]$queryCounts[$id]}}
+            elseif($catalog.ContainsKey($id)){if(($counts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $counts $id)){$eligibleCount=[int]$counts[$id]}}
             elseif($measureOf.ContainsKey($id)){$measureCounts=Get-DomeniaHealthValue $eligibility 'Measures';if(($measureCounts -is [Collections.IDictionary]) -and (Test-DomeniaDictionaryKey $measureCounts $measureOf[$id])){$eligibleCount=[int]$measureCounts[$measureOf[$id]]}}
             $eligibleText=if(-not ($catalog.ContainsKey($id) -or $measureOf.ContainsKey($id))){'Diagnostic de la vue'}elseif($null -eq $eligibility){'Non calculé'}elseif($null -ne $eligibleCount){[string]$eligibleCount+' / '+$eligibleTotal}else{'Non mesuré sur le parc'}
         }else{
@@ -524,11 +563,12 @@ function Update-DomeniaFleetScopedHealth {
     # Base distributions remain population facts; health lists and score use these exact target assignments.
     # Every rule is evaluated: an enabled rule scores, a disabled or suspended one only feeds the masked list of the
     # explanation (point 75), so the operator sees what it would have flagged without any effect on the score.
-    param($Data,$Book,[datetime]$NowUtc,$Lifecycle)
+    param($Data,$Book,[datetime]$NowUtc,$Lifecycle,[int]$ObservationMaxAgeDays=30)
     $byGroup=@{};foreach($group in $Data.Last.Groups){$byGroup[[string]$group.gid]=$group}
     $names=@{};foreach($r in @(Get-DomeniaHealthRuleCatalog)){$names[$r.Id]=$r.Name}
     $rules=@('eos.ended','eos.soon','stale','never','pwdold','laps.none','laps.expired','bitlocker.none','lowdisk','disk.tight','uptime')
     $parentPolicies=@{};$policies=@{};$preparedGroups=@{};$releaseCache=@{};$hits=@{};$hiddenHits=@{}
+    $queryRecords=$null;$queryStates=@{};$queryEligible=@{}
     $healthy=[Collections.Generic.List[object]]::new();$problem=[Collections.Generic.List[object]]::new();$unknown=[Collections.Generic.List[object]]::new()
     $lapsVisible=$false;$bitlockerVisible=$false
     foreach($group in $Data.Last.Groups){if($group.st -eq 'A'){if($group.lk -in @('O','E')){$lapsVisible=$true};if($group.bk -eq 'K'){$bitlockerVisible=$true}}}
@@ -589,6 +629,16 @@ function Update-DomeniaFleetScopedHealth {
                 if($null -eq $value){continue};$hit=if($rule.Operator -eq 'LessThan'){$value -lt $rule.Threshold}else{$value -gt $rule.Threshold};if($hit){$allHits.Add(@([string]$rule.Id,[string]$rule.Severity))}
             }
         }
+        foreach($rule in @($effective.AllCustom|Where-Object Measure -eq 'Query')){
+            if($null -eq $queryRecords){$queryRecords=ConvertTo-DomeniaQueryRecords -Fleet $Data.Last -Observations $Data.Observations -NowUtc $NowUtc -Lifecycle $Lifecycle -MaxAgeDays $ObservationMaxAgeDays}
+            $queryKey=[string]$rule.QuerySHA256
+            if(-not $queryStates.ContainsKey($queryKey)){$queryStates[$queryKey]=Get-DomeniaHealthQueryStates -Rule $rule -Records $queryRecords}
+            $queryState=[string]$queryStates[$queryKey][$guid.ToLowerInvariant()]
+            if(-not $queryEligible.ContainsKey([string]$rule.Id)){$queryEligible[[string]$rule.Id]=0}
+            if($queryState -in @('Match','NoMatch')){$queryEligible[[string]$rule.Id]++}
+            if($queryState -eq 'Match'){$allHits.Add(@([string]$rule.Id,[string]$rule.Severity))}
+            elseif($queryState -ne 'NoMatch' -and $state[[string]$rule.Id] -eq 'On'){$known=$false}
+        }
         $scored=0
         foreach($hit in $allHits){
             $id=[string]$hit[0];$ruleState=[string]$state[$id];if(-not $ruleState){$ruleState='Disabled'}
@@ -612,6 +662,7 @@ function Update-DomeniaFleetScopedHealth {
         $rows=$item.Targets.ToArray();$title=[string]$names[$item.Id];if(-not $title){$title=$item.Id}
         [void]$suppressed.Add([pscustomobject]@{Level=$item.Level;Text=($title+' : '+$rows.Count+' poste(s) masqué(s), règle '+$(if($item.Reason -eq 'Suspended'){'suspendue'}else{'désactivée'})+' dans leur OU.');Point=$item.Id;Groups=@();Machines=$rows;Route='';RouteText='';Reason=$item.Reason})
     }
+    $Data|Add-Member -NotePropertyName QueryHealthEligibility -NotePropertyValue $queryEligible -Force
     $Data.Attention=$attention;$Data.Population.Healthy=$healthy.Count;$Data.Population|Add-Member -NotePropertyName Unassessed -NotePropertyValue $unknown.Count -Force
     $Data|Add-Member -NotePropertyName SuppressedAttention -NotePropertyValue $suppressed -Force
     $Data.Last.HealthyTargets=$healthy.ToArray();$Data.Last.ProblemTargets=$problem.ToArray();$Data.Last|Add-Member -NotePropertyName UnknownTargets -NotePropertyValue $unknown.ToArray() -Force

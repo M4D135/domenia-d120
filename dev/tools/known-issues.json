@@ -1,6 +1,6 @@
 {
   "Schema": "DomeniaKnownIssues/1",
-  "ReviewedOn": "2026-10-16",
+  "ReviewedOn": "2026-10-18",
   "Issues": [
     {
       "Id": "KI-001",
@@ -46,6 +46,15 @@
       "Impact": "-Uninstall -ProfileData Supprimer nʼest pas exécuté par Test-DomeniaInstaller : il effacerait le profil du compte de test.",
       "Workaround": "Qualifier cette option sur un compte Windows jetable avant de la documenter aux utilisateurs.",
       "Source": "dev/wad/tests/Test-DomeniaInstaller.ps1"
+    },
+    {
+      "Id": "KI-006",
+      "Title": "Validation interproduits et intégration amont à confirmer",
+      "Severity": "Mineur",
+      "Status": "Ouvert",
+      "Impact": "Le moteur de requêtes local est utilisable dans Domenia, mais sa promotion amont et les besoins Pesto/FilPro ne sont pas validés par leurs mainteneurs.",
+      "Workaround": "Faire valider les contrats et la version commune ; conserver la dérivation explicitement identifiée.",
+      "Source": "engineering/d120/contrats/BRIQUES-COMMUNES.md"
     }
   ]
 }

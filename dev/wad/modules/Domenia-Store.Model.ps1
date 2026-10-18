@@ -114,7 +114,7 @@ function ConvertTo-DomeniaStoreQueryChange {
         # Revalidate with the real compiler and closed recipe DTO on admission.
         $expected=[long](Get-DomeniaStoreValue $record 'ExpectedRevision' -1)
         $date=ConvertTo-DomeniaStoreUtc (Get-DomeniaStoreValue $record 'UpdatedUtc')
-        $validated=New-DomeniaQueryLibraryRecord -Context $Context -Recipe $recipe -ExpectedRevision $expected -Category ([string](Get-DomeniaStoreValue $record 'Category')) -NowUtc ([datetime]$date)
+        $validated=New-DomeniaQueryLibraryRecord -Context $Context -Recipe $recipe -ExpectedRevision $expected -Category ([string](Get-DomeniaStoreValue $record 'Category')) -NowUtc ([datetime]$date) -Provenance (Get-DomeniaStoreValue $record 'Provenance')
         foreach($name in @('Id','Name','NameFold')){if([string](Get-DomeniaStoreValue $record $name) -cne [string]$validated.$name){throw ('Metadonnee de recette incoherente : '+$name)}}
         if([long](Get-DomeniaStoreValue $record 'Revision') -ne $expected+1 -or [int](Get-DomeniaStoreValue $record 'DefinitionVersion') -ne [int]$validated.DefinitionVersion){throw 'Revision de recette invalide.'}
         if((Get-DomeniaStoreValue $record 'Archived') -isnot [bool]){throw 'Etat archive de recette invalide.'}
@@ -127,7 +127,7 @@ function ConvertTo-DomeniaStoreQueryChange {
         return [pscustomobject]@{Kind=$kind;RecipeId=$id;ConsumerKind=$consumer;ConsumerId=$key;BoundRevision=$revision;Remove=[bool](Get-DomeniaStoreValue $Change 'Remove')}
     }
     if($kind -eq 'QueryMigration'){
-        $hash=[string](Get-DomeniaStoreValue $Change 'SourceHash');$ids=@(Get-DomeniaStoreValue $Change 'RecipeIds' @());$seen=@{}
+        $hash=[string](Get-DomeniaStoreValue $Change 'SourceHash');$ids=Get-DomeniaStoreValue $Change 'RecipeIds' @();$ids=@($ids);$seen=@{}
         if($hash -cnotmatch '^[a-f0-9]{64}$' -or $ids.Count -gt 5000){throw 'Migration de recettes invalide.'}
         foreach($id in $ids){if([string]$id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or $seen.ContainsKey([string]$id)){throw 'Identite de migration de recettes invalide.'};$seen[[string]$id]=$true}
         return [pscustomobject]@{Kind=$kind;SourceHash=$hash;RecipeIds=$ids}
@@ -235,7 +235,7 @@ function Get-DomeniaStorageSchemaExpectation {
     # StorageIntegrity worker carries the same constant lists (Test-DomeniaStorageMaintenance compares both).
     return [pscustomobject]@{
         Version='11';Revision='1'
-        Tables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','park_session_cache','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')
+        Tables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','park_session_cache','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies','domenia_query_recipe_provenance')
         Columns=[ordered]@{
             domenia_observations=@('object_guid','family','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')
             domenia_details=@('object_guid','result_kind','request_key','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')

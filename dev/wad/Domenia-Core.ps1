@@ -9614,14 +9614,9 @@ function Get-CimDate {
 }
 # Point 96: exact copies of the Workstation.Model rules (the worker runspace does not load the modules).
 function Get-DomeniaCommandExecutable {
-    # Point 96: the program of a startup command, without its arguments, which may hold a password, a token or a
-    # private path. A quoted program is taken whole. Only an unquoted absolute path (drive, UNC or %VARIABLE%\) may
-    # run across spaces, up to the first known program extension, and never across a switch (a space then - or /),
-    # another drive, a character Windows refuses in a path, an assignment (=) or a chained command (&): such an
-    # unquoted path is ambiguous for Windows itself, the scan stops at the first program it can name. Anything else
-    # keeps its first word only, so an argument written before a later program never survives. The ComputerInventory
-    # worker carries an exact copy of this function (checked by the Workstation rules): the arguments never leave
-    # the worker.
+    # Startup metadata must never retain command arguments. Without quotes, spaces cannot reliably be
+    # distinguished from directory names: retain the first token only, even for absolute paths.
+    # The inventory worker carries the exact same function; arguments are removed before publication.
     param([AllowEmptyString()][AllowNull()][string]$Command)
     $text = ([string]$Command).Trim()
     if (-not $text) { return '' }
@@ -9630,8 +9625,6 @@ function Get-DomeniaCommandExecutable {
         if ($end -gt 1) { return $text.Substring(1, $end - 1).Trim() }
         return ''
     }
-    $program = [regex]::Match($text, '^(?:[A-Za-z]:\\|\\\\|%[A-Za-z0-9_()]+%\\)(?:[^"<>|?*:=&,\s]|\s(?![-/]))*?\.(?:exe|com|bat|cmd|ps1|vbs|vbe|js|jse|wsf|lnk|scr|msc|cpl|pif|hta|msi|dll)(?=\s|,|$)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($program.Success) { return $program.Value }
     return @($text -split '[\s,]', 2)[0]
 }
 function ConvertFrom-DomeniaTaskCacheDynamicInfo {
@@ -19027,7 +19020,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.15-D120"
+$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.16-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20262,7 +20255,7 @@ function Get-DomeniaWorkerOperationHashes {
     return [ordered]@{
         LocalQuery            = "C75DF0F0CDA3F0FD44B13029E7620B592560365D56EBAEBE3F842E0D18F09C0C"
         StoragePurge          = "3E285BB874DC266193EA3FE482296A530B2E1798EA69B1D769D60EC2ABB23A77"
-        StorageBackup         = "83ECFC725301BEDECC8C64D6C0C9F9B7875D092DA463E4CBA4ADB55A8BD84732"
+        StorageBackup         = "B39996DDABED2152F4AE4705E459E4114E4666B512E009B72BDA88A0DF0EE703"
         ComputerAdminShare    = "43EB4F830D0B312D6AD7EC8B49876F92E0B62A693AF27BFCD111BD6BC983A5F2"
         StorageUsage          = "C3634994581554CC7F929D7F9466C529ED2BBF818D599AB8825DED6123A5530E"
         LegacyMigration       = "90D5AAB12192741A9389B72403687EC2BE141DE2E46EA2B15A93E47818C851BA"
@@ -20270,7 +20263,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "B274CD502A2C7F983BD67BF180CF92C18F7488FBB13EDB9119BFCE07FBA46054"
+        LocalIndexRead        = "EE7814BCF72C5ACE47C3081534B5658650EB2FE5388B094C0B9C4E9A9FC0CE22"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20290,7 +20283,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "2CBCECC2C52EB5DF13929FC1F1A0E96069994DDF410A532F2418FACDB9A968D0"
         UserComputerProbe     = "C136061E3060C52435E5E53749B458ED568819BA69AD24EB4712D09E7CBDC4FB"
-        ComputerInventory     = "59207FCB99F5A3C06C24ADE089339F355EDC01ECB6B51176F74E0C6A0530BE5B"
+        ComputerInventory     = "6069456F08E8B339F3A54ED970F6AFB534BC6ED737D97AB243E835B1504A0490"
         ComputerDiagnostics   = "BCBC9F4809C9932EAB40452BB3EBB0D23357F6380BB4416FE5E982FCCA8A120C"
         ComputerLastUser      = "95DA27670D39B8EE6FE37BCDBE15255730F1E77AED224C7B2A72CBC3DC680096"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -20326,14 +20319,14 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "6E75D9FCCF9B7216A21F18D32D26D15009A71B008E58C0477D42BA9C65F7E684"
+        LocalStore           = "D82A938BBD921D1E2F85DE876CDDF28CDB05B156B290BE27B5B3D0E05DBE18D9"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "DBBEAD7CED00124FFC5249F358D0FB7C6D32C6CCA0B4DB123607E1F50C3B928E"
         StorageMaintenance    = "B481E74367D9B20465368B26CED55405E7FD466C19D712CB7E917F8BA9BBD5A1"
         QueryExport           = "9EDC61CF74A81D4167A0B36E246CD56E37A7516D3463BADDCAF411155D314719"
-        QueryLibrary          = "E9CC1DD4D312245C4F1401BA0C119D41E9FE1B924F2DC7AF337BBB038D84E203"
+        QueryLibrary          = "4A98FDC482AEC2634D75BA832FBA469339CD2735DAAC43FBFD3501C33758966F"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
         ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
         GroupPathRead         = "1CCA67CE78F17B6C0BCD3AD55A7CFF02B699CFF34A1BC8E055805BC0BDD8751D"
@@ -20341,7 +20334,7 @@ function Get-DomeniaWorkerOperationHashes {
         DirectoryAbsenceCheck = "4A35BFF449957D0FD5AE9375C073B68B04834AA376E8DF3CB379FF359096C71E"
         LogonByDcRead         = "0C1E9EC26F3E5FCA7F9FF821E29C4A35999F907AFD722222CCA855A21E668759"
         AdSchemaRead          = "94EF172741C979EDB72E3460FD498AC94ED231FB5C7ACB972FFB0E51001877A6"
-        StorageIntegrity      = "3A6E5496DABCC3ABEF23D6974F408D2CED0B484322403A4BAC943D320B08550A"
+        StorageIntegrity      = "CF6FD59D567ACE869C62DC9533D6A7E318797D37E71BD34023064E4863D9158E"
         QueryTransfer         = "8067CFBC47BC1FEF79E2C491AA0AB3AB7F669B8EDE32304BB5569A8266D302F4"
         PasswordPolicyRead    = "70395D530CFF369568D0FC1909241AE2A96D351C59F8289129434369D240C45B"
         DelegationRead        = "B17802D6BD798BAE7BB831079C76B6050DDA7CA548D4B70FA29C98418E547FE6"
@@ -20354,6 +20347,9 @@ function Get-DomeniaWorkerOperationHashes {
         RelationHistoryRead   = "6E8DD20F68AF32427C627852957045E0FC6CC17582DDCA95CE89E91544337F40"
         OfflineDossier        = "3D6BE65D554E7238805075A9A2A4EC85BEFAF915F4694D80B20F7126E1B8DA4D"
         AccountAliasRead      = "702498A6FF855C7C6F6C1CC6D2C1FC36590890841E91BD1330BFDA56F2AD8EF9"
+        StorageRetention      = "B80B144530289FFF9565BA2AEA49EA02FC35B4691A08FF235346C283D803D1D7"
+        QuerySchema           = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
+        WidgetWmiDetail       = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
     }
 }
 
@@ -20362,7 +20358,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "79CC06C209CEDEA7FBC54DD1DA93E6A2D6554083FDEFD19DE13B2D8C82583CB8"
+    $expectedFingerprint = "03A1130AABC0CEC200273EAF4BB8B8F507619619CA72EB27A97C7A41B6A372D4"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -25960,7 +25956,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.15-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.16-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -5,7 +5,7 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.15**, candidate : accueil recentré sur les données, sections déplaçables,
+Révision **RC1.17.16**, candidate : accueil recentré sur les données, sections déplaçables,
 Santé en dernier par défaut, tailles de widgets conservées, progression globale des lots en haut.
 Après un délai WMI, une saturation temporaire du moteur attend la libération des lectures en nettoyage
 au lieu dʼarrêter le lot et de perdre le poste suivant.
@@ -17,6 +17,8 @@ RC1.17.14 : occupation de la base complétée (métadonnées de domaine), emprei
 Voir les [corrections et preuves du 17 octobre](validation/2026-10-17/rc14-corrections/README.md).
 RC1.17.15 : les échéances UTC des suspensions de santé restent valides après relecture JSON.
 Les trois suites santé passent leurs 45 cas hors VM ; [correctif et vérifications du 18 octobre](validation/2026-10-18/health-suspension-utc/README.md).
+
+RC1.17.16 : opérations WMI/conservation raccordées, provenance des imports, alertes de santé par recette, sauvegardes autonomes et derniers défauts des requêtes corrigés. Voir le [suivi et les décisions externes restantes](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md).
 
 | Pack | Téléchargement direct |
 |---|---|

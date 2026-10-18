@@ -41,11 +41,7 @@ Case 'Chaque collecte lancée exécute le corps épinglé pour son opération' {
     $list=[IO.File]::ReadAllText((Join-Path $dev 'tools/operation-contracts.json'),[Text.Encoding]::UTF8)|ConvertFrom-Json
     $contracts=@{};foreach($item in @($list)){$contracts[[string]$item.Operation]=[string]$item.Function}
     Expect ($contracts.Count -gt 50) ('Contrat des opérations illisible : '+$contracts.Count+' entrée(s)')
-    # Launches already on master that the registry does not pin yet (debt outside the collection circuit): named in
-    # the report (PendingPins) until the integrator pins them, then checked like any other pair. Any other unpinned
-    # launch fails this case.
-    # QueryTransfer (point 69) is now pinned in the registry: its four launches are checked like any other pair.
-    $knownUnpinned=@('QuerySchema','StorageRetention')
+    # No allowlist: every literal operation launched by the application must be pinned.
     $pairs=0;$mismatches=[Collections.Generic.List[string]]::new()
     foreach($path in $script:Sources.Keys){
         foreach($command in @($script:Sources[$path].FindAll({param($n)($n -is [Management.Automation.Language.CommandAst]) -and ($n.GetCommandName() -eq 'Start-UiTask')},$true))){
@@ -55,7 +51,6 @@ Case 'Chaque collecte lancée exécute le corps épinglé pour son opération' {
             if($inner.Count -ne 1){continue}
             $pairs++;$name=[string]$operation.Value;$body=[string]$inner[0].GetCommandName()
             if(-not $contracts.ContainsKey($name)){
-                if($knownUnpinned -ccontains $name){$script:PendingPins.Add($name+' ('+[IO.Path]::GetFileName($path)+')');continue}
                 $mismatches.Add($name+' : opération non épinglée ('+[IO.Path]::GetFileName($path)+')');continue
             }
             if($contracts[$name] -cne $body){$mismatches.Add($name+' : corps '+$body+', contrat '+$contracts[$name]+' ('+[IO.Path]::GetFileName($path)+')')}
@@ -63,6 +58,17 @@ Case 'Chaque collecte lancée exécute le corps épinglé pour son opération' {
     }
     Expect ($pairs -ge 10) ('Trop peu de lancements analysés : '+$pairs)
     Expect ($mismatches.Count -eq 0) ('Appariements refusés par le moteur : '+($mismatches -join ' ; '))
+}
+Case 'Retention and WMI schema use the actual reviewed generated bodies' {
+    foreach($name in @('Get-DomeniaWorkerOperationHashes','ConvertTo-DomeniaCanonicalWorkerCode','Get-DomeniaWorkerCodeHash','Assert-DomeniaWorkerOperationCode')){. ([scriptblock]::Create((Get-SourceFunction $name).Extent.Text))}
+    . (Join-Path $modules 'Domenia-Storage.Worker.ps1')
+    . (Join-Path $modules 'Domenia-QuerySchema.Worker.ps1')
+    foreach($item in @(@('StorageRetention',(Get-DomeniaStorageRetentionWorkerCode)),@('QuerySchema',(Get-DomeniaQuerySchemaWorkerCode)),@('WidgetWmiDetail',(Get-DomeniaQuerySchemaWorkerCode)))){
+        $hash=Assert-DomeniaWorkerOperationCode -OperationId $item[0] -Code $item[1]
+        Expect ($hash -ceq (Get-DomeniaWorkerOperationHashes)[$item[0]]) 'Generated body differs from the registered contract'
+        $rejected=$false;try{Assert-DomeniaWorkerOperationCode -OperationId $item[0] -Code ($item[1]+"`n# altered")|Out-Null}catch{$rejected=$true}
+        Expect $rejected 'Altered worker accepted'
+    }
 }
 Case 'Le ping du poste sélectionné utilise le corps de sonde épinglé sans identifiants' {
     $start=Get-SourceFunction 'Start-DomeniaCommittedPresence'
@@ -110,7 +116,7 @@ Case 'Le vieux ping de résultats non enregistré n a plus aucun appelant' {
     Expect ($callers.Count -eq 0) 'Start-DomeniaResultPresenceScan publie un ping sans SQLite et classe une erreur en hors ligne : ne pas le rappeler'
 }
 $failed=@($script:Checks|Where-Object{-not $_.Pass})
-$report=[pscustomobject]@{Suite='Domenia.CollectCircuit';Platform=[Environment]::OSVersion.Platform.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();Pass=$script:Checks.Count-$failed.Count;Fail=$failed.Count;Tests=$script:Checks.ToArray();PendingPins=$script:PendingPins.ToArray();Limitations='Preuve statique sur les sources (AST) : aucune exécution de worker, d AD, de réseau, de SQLite ni de WPF. PendingPins nomme les lancements de master encore absents du registre épinglé (refusés par le moteur) : dette hors du circuit de collecte.'}
+$report=[pscustomobject]@{Suite='Domenia.CollectCircuit';Platform=[Environment]::OSVersion.Platform.ToString();PowerShell=$PSVersionTable.PSVersion.ToString();Pass=$script:Checks.Count-$failed.Count;Fail=$failed.Count;Tests=$script:Checks.ToArray();PendingPins=$script:PendingPins.ToArray();Limitations='Preuve statique sur les sources (AST) : aucune exécution de worker, d AD, de réseau, de SQLite ni de WPF. Tout lancement absent du registre épinglé fait échouer ce contrôle.'}
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))}
 $report|ConvertTo-Json -Depth 6
 if($failed.Count){exit 1}

@@ -539,12 +539,13 @@ JoinStateRead          |Unpinned|Cim      |Read          |Explicit        |Direc
 LinkHistoryStore       |Unpinned|Storage  |LocalWrite    |Explicit        |Directory               |Directory|-
 LocalAssistant         |Unpinned|Local    |Unknown       |Explicit        |Directory               |Directory|-
 ObjectChanges          |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
-# QuerySchema: launched by the query editor, not pinned yet (known debt, PendingPins of Test-DomeniaCollectCircuit).
-QuerySchema            |Unpinned|Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
+# QuerySchema: explicit bounded read, registered with its reviewed worker body.
+QuerySchema            |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
+WidgetWmiDetail        |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |-
 ReconcileScope         |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
 StartupWarmup          |Unpinned|Directory|Read          |Explicit        |Directory               |Directory|-
-# StorageRetention: launched by the storage assistant, not pinned yet (known debt, PendingPins of Test-DomeniaCollectCircuit).
-StorageRetention       |Unpinned|Storage  |LocalWrite    |Explicit        |-                       |Local    |-
+# StorageRetention: explicit preview/apply, registered with backup and writer-lease guards.
+StorageRetention       |Pinned  |Storage  |LocalWrite    |Explicit        |-                       |Local    |-
 UpdateStateRead        |Unpinned|Cim      |Read          |Explicit        |Directory               |Directory|Shared
 WakeOnLanSend          |Unpinned|Network  |RemoteMutation|Explicit        |Directory               |Network  |-
 '@

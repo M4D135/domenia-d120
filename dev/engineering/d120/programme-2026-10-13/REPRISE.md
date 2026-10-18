@@ -1,3 +1,9 @@
+# État courant — 18 octobre 2026
+
+Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. Corrections RC1.17.16 intégrées ; qualification Windows et décisions externes 134/146 ouvertes. La pause ci-dessous est historique et ne décrit plus le dépôt courant.
+
+---
+
 # Reprise après pause demandée
 
 Relais complet : [RELAIS-PROJET.md](RELAIS-PROJET.md). Les fichiers techniques temporaires utiles sont copiés dans `relais-technique/`.

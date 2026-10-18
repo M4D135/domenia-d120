@@ -158,9 +158,12 @@ function Get-DomeniaQueryLibraryWorkerCode {
 $root=[string]$Payload.ModuleRoot
 foreach($file in @('Domenia-Common.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1')){. (Join-Path $root $file)}
 $categories=Get-DomeniaMemberValue $Payload 'Categories'
+$storedById=@{};foreach($row in @(Get-DomeniaMember $Payload 'StoredRows' @())){$storedById[[string]$row.Id]=$row}
 $describe={param($Recipe,[string]$SourceId,[string]$Group,[string]$Description)
     $plan=Get-DomeniaQueryCollectionRequirements -Recipes @($Recipe)
     $source=if(-not $plan.Remote){'Base AD locale'}elseif($plan.ProbeIds.Count){'Relevé + '+$plan.ProbeIds.Count+' sonde(s)'}elseif($plan.Inventory){'Inventaire du poste'}else{'Présence et console'}
+    $row=$storedById[[string]$Recipe.Id];$provenance=Get-DomeniaMemberValue $row 'Provenance'
+    if($null -ne $provenance){$Description+=' Provenance déclarée : '+[string]$provenance.Origin+' · '+[string]$provenance.PackName+' v'+[string]$provenance.PackVersion+' · recette source '+[string]$provenance.SourceRecipeId+$(if([string]$row.DefinitionSHA256 -cne [string]$provenance.DefinitionSHA256){' · définition modifiée depuis lʼimport.'}else{' · définition importée conservée.'})}
     [pscustomobject]@{Id=$Recipe.Id;Name=$Recipe.Name;Category=$Group;Description=$Description;DataSource=$source;SourceId=$SourceId;Plan=$plan;Recipe=$Recipe;SearchText=($Recipe.Name+' '+$Group+' '+$Description+' '+$source)}
 }
 $rows=@(foreach($recipe in @(@(Get-DomeniaQueryTemplates)+@($Payload.Saved))){

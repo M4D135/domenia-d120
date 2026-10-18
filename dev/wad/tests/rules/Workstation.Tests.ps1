@@ -769,7 +769,7 @@ Test-Case 'D096' 'Point 96 : resultat de tache lu, etats du planificateur distin
 }
 Test-Case 'D096' 'Point 96 : demarrage automatique, seul le programme est garde, jamais ses arguments' {
     Assert-Equal 'C:\Program Files\Contoso\agent.exe' (Get-DomeniaCommandExecutable '"C:\Program Files\Contoso\agent.exe" --token=SECRET-123 /silent')
-    Assert-Equal 'C:\Program Files\Contoso\agent.exe' (Get-DomeniaCommandExecutable 'C:\Program Files\Contoso\agent.exe -password hunter2')
+    Assert-Equal 'C:\Program' (Get-DomeniaCommandExecutable 'C:\Program Files\Contoso\agent.exe -password hunter2')
     Assert-Equal 'rundll32.exe' (Get-DomeniaCommandExecutable 'rundll32.exe shell32.dll,Control_RunDLL secret')
     Assert-Equal '%ProgramFiles%\Outil\outil.EXE' (Get-DomeniaCommandExecutable '%ProgramFiles%\Outil\outil.EXE,/arg')
     Assert-Equal 'C:\Users\Public\Start.lnk' (Get-DomeniaCommandExecutable 'C:\Users\Public\Start.lnk')
@@ -777,7 +777,7 @@ Test-Case 'D096' 'Point 96 : demarrage automatique, seul le programme est garde,
     Assert-Equal '' (Get-DomeniaCommandExecutable '"programme sans fin')
     Assert-Equal '' (Get-DomeniaCommandExecutable '   ')
     Assert-Equal '' (Get-DomeniaCommandExecutable $null)
-    Assert-Equal '%ProgramFiles(x86)%\App Dir\app.exe' (Get-DomeniaCommandExecutable '%ProgramFiles(x86)%\App Dir\app.exe /S3cret') 'chemin absolu avec espace'
+    Assert-Equal '%ProgramFiles(x86)%\App' (Get-DomeniaCommandExecutable '%ProgramFiles(x86)%\App Dir\app.exe /S3cret') 'chemin non delimite : premier mot uniquement'
     Assert-Equal '\\srv\share\app.exe' (Get-DomeniaCommandExecutable '\\srv\share\app.exe -x S3cret') 'chemin UNC'
     # Without a quoted or absolute program, the first word only: a later program never drags the arguments before it.
     Assert-Equal 'node' (Get-DomeniaCommandExecutable 'node --token=S3cret C:\app\index.js')
@@ -790,7 +790,7 @@ Test-Case 'D096' 'Point 96 : demarrage automatique, seul le programme est garde,
     Assert-Equal 'C:\tools\run' (Get-DomeniaCommandExecutable 'C:\tools\run TOKEN=S3cret D\b.exe')
     Assert-Equal '\\srv\s' (Get-DomeniaCommandExecutable '\\srv\s S3cret && C:\t\map.cmd')
     foreach ($command in @('"C:\a\b.exe" -p S3cret','C:\a\b.exe -p S3cret','b.cmd S3cret','"C:\a\b c\d.ps1" -Key S3cret',
-        'node --token=S3cret C:\app\index.js','cmd /c set PASS=S3cret & run.bat','powershell -Password S3cret -File C:\s\a.ps1',
+        'C:\tools\run S3cret\b.exe','node --token=S3cret C:\app\index.js','cmd /c set PASS=S3cret & run.bat','powershell -Password S3cret -File C:\s\a.ps1',
         'cmd /c set TOKEN=S3cret& C:\x\run.bat','powershell -Command x=S3cret -File C:\s\a.ps1','powershell -Command "$p=''S3cret''" -File C:\s\a.ps1',
         'net use Z: \\srv\s S3cret && C:\t\map.cmd','C:\tools\run S3cret C:\a\b.exe','C:\tools\run /p:S3cret x.exe','\\srv\s S3cret && C:\t\map.cmd')) {
         Assert-False ((Get-DomeniaCommandExecutable $command).Contains('S3cret')) ('Argument conserve : ' + $command)

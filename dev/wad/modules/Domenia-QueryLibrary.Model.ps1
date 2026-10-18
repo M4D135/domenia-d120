@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS domenia_query_recipe_revisions (
 CREATE TABLE IF NOT EXISTS domenia_query_migrations (
  source_hash TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, imported_at TEXT NOT NULL, revision INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS domenia_query_recipe_provenance (
+ recipe_id TEXT NOT NULL, revision INTEGER NOT NULL, provenance_json TEXT NOT NULL,
+ PRIMARY KEY(recipe_id,revision)
+);
 CREATE TABLE IF NOT EXISTS domenia_query_recipe_dependencies (
  recipe_id TEXT NOT NULL, consumer_kind TEXT NOT NULL, consumer_id TEXT NOT NULL,
  bound_revision INTEGER NOT NULL, PRIMARY KEY(recipe_id,consumer_kind,consumer_id)
@@ -36,8 +40,21 @@ function Assert-DomeniaQueryLibraryContext {
     param($Context)
     if($null -eq $Context -or [int](Get-DomeniaMember $Context 'Version' 0) -ne 1 -or -not [string](Get-DomeniaMember $Context 'StoreId') -or -not [string](Get-DomeniaMember $Context 'DomainDn') -or -not [IO.Path]::IsPathRooted([string](Get-DomeniaMember $Context 'Path'))){throw 'Contexte de base locale et de domaine requis pour la bibliothèque.'}
 }
+function ConvertTo-DomeniaQueryProvenance {
+    # Declared lineage, never a trusted publisher identity. Bound to each stored revision independently of the journal.
+    param($Value,$DefaultHash='')
+    if($null -eq $Value){return $null}
+    $pack=[string](Get-DomeniaMember $Value 'PackId' '');$name=[string](Get-DomeniaMember $Value 'PackName' '');$version=[long](Get-DomeniaMember $Value 'PackVersion' 0)
+    $origin=[string](Get-DomeniaMember $Value 'Origin' '');$id=[string](Get-DomeniaMember $Value 'SourceRecipeId' '')
+    $hash=[string](Get-DomeniaMember $Value 'DefinitionSHA256' $DefaultHash)
+    $verified=Get-DomeniaMember $Value 'Verified' $false
+    if(($pack -and $pack -cnotmatch '^[0-9a-f]{32}$') -or $name.Length -gt 80 -or $version -lt 0 -or $version -gt 1000000 -or $origin.Length -gt 256 -or ($name+$origin) -match '[\p{Cc}]' -or $id -cnotmatch '^[a-zA-Z0-9_.-]{1,80}$' -or $hash -cnotmatch '^[0-9a-f]{64}$' -or $verified -isnot [bool]){throw 'Provenance de recette invalide.'}
+    if($pack){Assert-DomeniaQueryPackIdentity $name $version;if($pack -cne (Get-DomeniaQueryPackId $name)){throw 'Identité du pack de provenance incohérente.'}}
+    elseif($verified -or $version -ne 0){throw 'Provenance de pack sans version incohérente.'}
+    return [pscustomobject]@{PackId=$pack;PackName=$name;PackVersion=$version;Origin=$origin;SourceRecipeId=$id;DefinitionSHA256=$hash;Verified=$verified}
+}
 function New-DomeniaQueryLibraryRecord {
-    param($Context,$Recipe,[Parameter(Mandatory=$true)][long]$ExpectedRevision,[string]$Category='Mes requêtes',[datetime]$NowUtc=[datetime]::UtcNow)
+    param($Context,$Recipe,[Parameter(Mandatory=$true)][long]$ExpectedRevision,[string]$Category='Mes requêtes',[datetime]$NowUtc=[datetime]::UtcNow,$Provenance=$null)
     Assert-DomeniaQueryLibraryContext $Context
     if($ExpectedRevision -lt 0 -or $ExpectedRevision -ge [long]::MaxValue){throw 'Révision attendue invalide.'}
     if($Category.Length -gt 80 -or $Category -match '[\p{Cc}]'){throw 'Catégorie de bibliothèque invalide (80 caractères).'}
@@ -52,7 +69,7 @@ function New-DomeniaQueryLibraryRecord {
     $json=ConvertTo-Json -InputObject $copy -Depth 32 -Compress;$bytes=[Text.Encoding]::UTF8.GetBytes($json)
     if($bytes.Length -gt 1048576){throw 'Une définition de requête accepte au maximum 1 Mio.'}
     $hash=[Security.Cryptography.SHA256]::Create();try{$sha=[BitConverter]::ToString($hash.ComputeHash($bytes)).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
-    return [pscustomobject]@{Format='Domenia.QueryLibraryRecord/1';StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Id=$copy.Id;Name=$copy.Name;NameFold=(ConvertTo-DomeniaQuerySearchKey $copy.Name);Category=$Category;ExpectedRevision=$ExpectedRevision;Revision=($ExpectedRevision+1);DefinitionVersion=$(if($copy.Format -ceq 'Domenia.Query/2'){2}else{1});DefinitionJson=$json;DefinitionSHA256=$sha;UpdatedUtc=$NowUtc.ToUniversalTime().ToString('o');Archived=$false}
+    return [pscustomobject]@{Format='Domenia.QueryLibraryRecord/1';StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Id=$copy.Id;Name=$copy.Name;NameFold=(ConvertTo-DomeniaQuerySearchKey $copy.Name);Category=$Category;ExpectedRevision=$ExpectedRevision;Revision=($ExpectedRevision+1);DefinitionVersion=$(if($copy.Format -ceq 'Domenia.Query/2'){2}else{1});DefinitionJson=$json;DefinitionSHA256=$sha;UpdatedUtc=$NowUtc.ToUniversalTime().ToString('o');Archived=$false;Provenance=(ConvertTo-DomeniaQueryProvenance -Value $Provenance -DefaultHash $sha)}
 }
 function New-DomeniaQueryLibraryRead {
     param($Context,[string]$Text='',[string]$Category='',[int]$Offset=0,[int]$Limit=100,[switch]$Archived,[switch]$IncludeArchived,[long]$MinimumRevision=0)
@@ -170,7 +187,7 @@ function New-DomeniaQueryImportJournalEntry {
         param([object[]]$Changes)
         foreach($change in @($Changes|Where-Object{$null -ne $_}|Sort-Object Sequence)){
             $before=Get-DomeniaMemberValue $change 'Before'
-            [pscustomobject]@{Id=[string]$change.Id;Name=[string](Get-DomeniaMember $change 'Name' '');Revision=[long]$change.Revision;Sequence=[int]$change.Sequence;Before=$(if($null -ne $before){[pscustomobject]@{Revision=[long]$before.Revision;Archived=[bool]$before.Archived;Category=[string]$before.Category;DefinitionJson=[string]$before.DefinitionJson;DefinitionSHA256=[string]$before.DefinitionSHA256}}else{$null})}
+            [pscustomobject]@{Id=[string]$change.Id;Name=[string](Get-DomeniaMember $change 'Name' '');Revision=[long]$change.Revision;Sequence=[int]$change.Sequence;Before=$(if($null -ne $before){[pscustomobject]@{Revision=[long]$before.Revision;Archived=[bool]$before.Archived;Category=[string]$before.Category;DefinitionJson=[string]$before.DefinitionJson;DefinitionSHA256=[string]$before.DefinitionSHA256;Provenance=(Get-DomeniaMemberValue $before 'Provenance')}}else{$null})}
         }
     }
     $items=@(& $normalize $Applied)
@@ -260,8 +277,8 @@ function Assert-WQueryLibraryDefinition {
 function Get-DomeniaQueryRecipeImpact {
     # Consumers of one saved recipe before it changes: dashboard widgets with their transactional links, links whose
     # widget has disappeared and Search favourites. Pure: the caller supplies layouts, links and favourites.
-    # No alert references a recipe in this version; the review panel says so instead of listing an empty kind.
-    param([string]$RecipeId,[object[]]$Dependencies=@(),$Layouts=$null,[string[]]$SearchFavorites=@(),[long]$CurrentRevision=0)
+    # Health alerts retain an immutable definition: list them explicitly, even when the library is archived.
+    param([string]$RecipeId,[object[]]$Dependencies=@(),$Layouts=$null,[string[]]$SearchFavorites=@(),[object[]]$HealthRules=@(),[long]$CurrentRevision=0)
     if(-not $RecipeId){throw 'Recette à analyser absente.'}
     $boards=@{Fleet='Tableau de bord général';Computer='Tableau de bord du poste'}
     $links=@{}
@@ -284,7 +301,8 @@ function Get-DomeniaQueryRecipeImpact {
         $rows.Add([pscustomobject]@{Kind='Orphan';Element=$element;Name=('Widget absent de la disposition ('+[string]$link.ConsumerId+')');Link=('Lien enregistré à la révision '+[long]$link.BoundRevision+', sans widget affiché');ConsumerKind=[string]$link.ConsumerKind;ConsumerId=[string]$link.ConsumerId})
     }
     if(@($SearchFavorites) -ccontains ('local:'+$RecipeId)){$views++;$rows.Add([pscustomobject]@{Kind='View';Element='Vue de Recherche';Name='Favori de la liste des requêtes';Link='Affiche la définition courante';ConsumerKind='Search';ConsumerId=('local:'+$RecipeId)})}
-    return [pscustomobject]@{RecipeId=$RecipeId;Rows=$rows.ToArray();Widgets=$widgets;Orphans=$orphans;Views=$views;Count=$rows.Count;HasConsumers=($rows.Count -gt 0);CurrentRevision=$CurrentRevision}
+    $alerts=0;foreach($entry in $HealthRules){$rule=$entry.Rule;if([string]$rule.QueryId -cne $RecipeId){continue};$alerts++;$rows.Add([pscustomobject]@{Kind='Health';Element=('Santé · '+[string]$entry.ScopeDn);Name=[string]$rule.Name;Link=('Révision '+[string]$rule.QueryRevision+' conservée ; actualisation explicite dans Santé');ConsumerKind='Health';ConsumerId=[string]$rule.Id})}
+    return [pscustomobject]@{RecipeId=$RecipeId;Alerts=$alerts;Rows=$rows.ToArray();Widgets=$widgets;Orphans=$orphans;Views=$views;Count=$rows.Count;HasConsumers=($rows.Count -gt 0);CurrentRevision=$CurrentRevision}
 }
 function New-DomeniaQueryRecipeVersion {
     # Keeps the saved recipe and its consumers untouched: the modified definition becomes a new, independent recipe.

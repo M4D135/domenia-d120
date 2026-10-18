@@ -193,8 +193,9 @@ function Set-DomeniaControlText([string]$Name,[string]$Text){$script:LastLabel=$
 $script:DomeniaQueryState=[pscustomobject]@{LibraryReady=$true;LibraryOffset=0;LibraryRows=$actual.Rows}
 Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 100 -and $script:Fake.BtnQueryLibraryNext.IsEnabled -and -not $script:Fake.BtnQueryLibraryPrevious.IsEnabled) 'library first page is100 with explicit navigation'
-$script:DomeniaQueryState.LibraryOffset=600;Update-DomeniaQueryLibrary -KeepPage
-Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq ($actual.Rows.Count-600) -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves the remaining recipes'
+$lastOffset=[int]([Math]::Floor(($actual.Rows.Count-1)/100)*100)
+$script:DomeniaQueryState.LibraryOffset=$lastOffset;Update-DomeniaQueryLibrary -KeepPage
+Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq ($actual.Rows.Count-$lastOffset) -and -not $script:Fake.BtnQueryLibraryNext.IsEnabled) 'library last page preserves the remaining recipes'
 $script:Fake.TxtQueryLibrarySearch.Text='Personal 124';Update-DomeniaQueryLibrary
 Expect ($script:Fake.DgQueryLibrary.ItemsSource.Count -eq 1 -and $script:DomeniaQueryState.LibraryOffset -eq 0) 'search applies to full library and resets pagination'
 # Point 70: list, indicator and report name the versioned definition they evaluate; a draft is never presented

@@ -310,7 +310,7 @@ function Start-DomeniaQueryLibraryLoad {
         $store=$script:DomeniaQueryLibraryStoreState
         $categories=@{};$archived=@()
         if($null -ne $store -and $store.Loaded){$categories=$store.Categories;$archived=@($store.ArchivedRows|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Category=[string]$_.Category;Revision=[long]$_.Revision;UpdatedUtc=[string]$_.UpdatedUtc;DefinitionJson=[string]$_.DefinitionJson}})}
-        $job=Start-UiTask -Name 'Préparer la bibliothèque de requêtes' -OperationId 'QueryLibrary' -Code (Get-DomeniaQueryLibraryWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Saved=@($q.Saved);Categories=$categories;Archived=$archived}) -CallbackState $state -ReplaceKey 'query:library' -SuccessHandler 'Complete-DomeniaQueryLibraryLoad' -ErrorHandler 'Fail-DomeniaQueryLibraryLoad' -TimeoutSeconds 120 -TaskClass 'Explicit'
+        $job=Start-UiTask -Name 'Préparer la bibliothèque de requêtes' -OperationId 'QueryLibrary' -Code (Get-DomeniaQueryLibraryWorkerCode) -Payload ([pscustomobject]@{ModuleRoot=$script:DomeniaQueryModuleRoot;Saved=@($q.Saved);Categories=$categories;Archived=$archived;StoredRows=$(if($null -ne $script:DomeniaQueryLibraryStoreState){@($script:DomeniaQueryLibraryStoreState.Rows.Values)}else{@()})}) -CallbackState $state -ReplaceKey 'query:library' -SuccessHandler 'Complete-DomeniaQueryLibraryLoad' -ErrorHandler 'Fail-DomeniaQueryLibraryLoad' -TimeoutSeconds 120 -TaskClass 'Explicit'
         if(-not $job){throw 'Préparation non admise : revenez dans Bibliothèque.'}
     }catch{Fail-DomeniaQueryLibraryLoad $_.Exception.Message $state}
 }
@@ -451,7 +451,12 @@ function Get-DomeniaQueryDraftImpact {
     }
     $favorites=@();if($null -ne (Get-Command Get-DomeniaSearchQueryFavorites -CommandType Function -ErrorAction SilentlyContinue)){$favorites=@(Get-DomeniaSearchQueryFavorites)}
     $layouts=@{Fleet=@(Get-DomeniaBoardLayout Fleet);Computer=@(Get-DomeniaBoardLayout Computer)}
-    $impact=Get-DomeniaQueryRecipeImpact -RecipeId ([string]$Recipe.Id) -Dependencies @($store.Dependencies) -Layouts $layouts -SearchFavorites $favorites -CurrentRevision ([long]$previous.Revision)
+    $healthRules=@()
+    if($null -ne (Get-Command Get-DomeniaStoredHealthPolicyBook -CommandType Function -ErrorAction SilentlyContinue)){
+        $healthBook=Get-DomeniaStoredHealthPolicyBook
+        $healthRules=@(foreach($entry in @([pscustomobject]@{ScopeDn=$healthBook.DomainDn;Rules=$healthBook.Default.CustomRules})+@(foreach($scope in $healthBook.Scopes){[pscustomobject]@{ScopeDn=$scope.ScopeDn;Rules=$scope.Overrides.CustomRules}})){foreach($rule in @($entry.Rules)){if($rule.Measure -eq 'Query'){[pscustomobject]@{ScopeDn=$entry.ScopeDn;Rule=$rule}}}})
+    }
+    $impact=Get-DomeniaQueryRecipeImpact -RecipeId ([string]$Recipe.Id) -Dependencies @($store.Dependencies) -Layouts $layouts -SearchFavorites $favorites -HealthRules $healthRules -CurrentRevision ([long]$previous.Revision)
     if(-not $impact.HasConsumers){return $null}
     return $impact
 }
@@ -474,8 +479,8 @@ function Show-DomeniaQueryImpact {
     # The category typed when the review was asked is the one applied by the choice (Enregistrer rule).
     $q|Add-Member -NotePropertyName ImpactPending -NotePropertyValue ([pscustomobject]@{Mode=$Mode;Recipe=$Recipe;Generation=[long]$q.Generation;RecipeId=[string]$Recipe.Id;Revision=[long]$Impact.CurrentRevision;Count=[int]$Impact.Count;Widget=$Widget;Category=[string](Get-DomeniaQuerySaveCategory)}) -Force
     (Get-DomeniaControl 'DgQueryImpact').ItemsSource=@($Impact.Rows)
-    $parts=@($Impact.Widgets.ToString()+' widget(s)',$Impact.Views.ToString()+' vue(s) de Recherche');if($Impact.Orphans){$parts+=@($Impact.Orphans.ToString()+' lien(s) sans widget affiché')}
-    $text=$Impact.Count.ToString()+' élément(s) utilisent la révision '+$Impact.CurrentRevision+' de « '+[string]$Recipe.Name+' » : '+($parts -join ', ')+'. Aucune alerte ne dépend des requêtes dans cette version.'
+    $parts=@(($Impact.Widgets.ToString()+' widget(s)'),($Impact.Views.ToString()+' vue(s) de Recherche'));if($Impact.Orphans){$parts+=@($Impact.Orphans.ToString()+' lien(s) sans widget affiché')}
+    $text=$Impact.Count.ToString()+' élément(s) utilisent la révision '+$Impact.CurrentRevision+' de « '+[string]$Recipe.Name+' » : '+($parts -join ', ')+'. '+[string]$Impact.Alerts+' alerte(s) conservent leur révision : elles restent inchangées, même après archivage. Pour les actualiser, choisissez explicitement une nouvelle révision dans Santé > Mes alertes.'
     if($Mode -eq 'Archive'){$text+=' Archiver retire ces widgets des tableaux de bord et la vue favorite ne proposera plus cette requête. Les révisions et les données collectées sont conservées.'}
     else{$text+=' Choisissez : mettre à jour ces éléments avec la nouvelle définition, ou garder lʼancienne version intacte et enregistrer la modification comme une nouvelle requête.'}
     if($Mode -eq 'Widget'){$text+=' Le widget demandé est ajouté au tableau de bord '+$(if([string]$Widget.Destination -eq 'Computer'){'Poste'}else{'général'})+' seulement après ce choix, avec la requête retenue.'}

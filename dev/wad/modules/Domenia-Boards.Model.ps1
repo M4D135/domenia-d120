@@ -609,6 +609,7 @@ function Complete-DomeniaBoardData {
         $actionProperty = $partialProperty.Value.PSObject.Properties['Action']
         if ($null -ne $actionProperty) { $badgeAction = $actionProperty.Value }
     }
+    if([bool](Get-DomeniaHealthValue $Data 'QueryHealthUnknown' $false)){$badge=(@($badge,'Alerte de requête non évaluée')|Where-Object{$_}) -join ' · '}
     if($Data.Board -eq 'Computer' -and $badge -and -not ($health.Alerts -or $health.Warnings)){
         $health.Score=$null;$health.Verdict='Données insuffisantes';$health.State='Off';$healthDetail='Aucun problème établi ; contrôles incomplets.'
     }

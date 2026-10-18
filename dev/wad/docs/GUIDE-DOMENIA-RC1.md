@@ -136,3 +136,16 @@ DEV fournit `TESTER-DOMENIA.cmd` et un workflow Windows optionnel. La suite n’
 Domenia.exe et les scripts livrés ne sont pas signés avec un certificat de l’organisation. Les hashes détectent un mélange de versions ou une altération relative au manifeste, mais ne prouvent pas seuls la provenance. La signature et l’autorisation WDAC/AppLocker doivent suivre la procédure interne. L’outil `Signer-Distribution.ps1` n’exporte aucune clé et n’invente aucun éditeur de confiance.
 
 La priorité suivante de clôture reste : vraie recette Windows, vérification de reprise propre à toutes les mutations, compléments de cache/index historique et réduction des dernières attentes synchrones. La matrice M01–M42 conserve ces écarts visibles.
+
+
+## Complément RC1.17.16 — recettes, santé et sauvegardes
+
+Dans Santé, ouvrez Mes alertes, choisissez une requête enregistrée puis Utiliser cette requête. L’alerte conserve la définition et la révision choisies. Modifier ou archiver la recette dans l’atelier ne change pas cette alerte : sélectionnez-la dans Mes alertes et choisissez explicitement une nouvelle révision pour l’actualiser. Les règles par OU, la désactivation et les suspensions restent applicables.
+
+Les alertes utilisent les données déjà disponibles. Une mesure absente ou périmée reste inconnue ; ce calcul ne lance aucune collecte. La colonne des postes évaluables indique la couverture réelle. Les vues de Recherche, widgets et rapports utilisent la même définition de requête ; la revue des dépendances indique les alertes qui gardent leur révision.
+
+La bibliothèque conserve désormais l’origine déclarée, le pack, sa version et l’identifiant source de chaque import, même après un redémarrage. L’annulation restaure la provenance précédente. Cette indication décrit l’import et ne certifie pas l’identité de son auteur.
+
+Les sauvegardes automatiques, manuelles et préalables à la conservation sont des fichiers autonomes. Domenia les relit avant de les déclarer vérifiées ; la conservation ne supprime rien si sa sauvegarde ne peut pas être relue.
+
+Dans le démarrage automatique, une commande sans guillemets est limitée à son premier mot pour ne pas conserver ses arguments. Un chemin contenant des espaces peut donc apparaître tronqué ; corriger sa délimitation sur le poste permet de le lire sans ambiguïté.

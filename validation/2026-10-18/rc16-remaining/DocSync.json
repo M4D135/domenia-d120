@@ -1,0 +1,623 @@
+{
+  "Status": "PASS",
+  "New": [],
+  "Fixed": [],
+  "Counts": {
+    "Quotes": 52,
+    "Retired": 0,
+    "HelpOrphans": 0,
+    "Guides": 0,
+    "Figures": 56
+  },
+  "GuideQuotes": 1402,
+  "HelpEntries": 813,
+  "Captures": {
+    "ProvenanceManifestSHA256": "D993B8E8C72956DFDA1AB287F58FCD24389932669AE7FD658295DA55A325948E",
+    "CurrentManifestSHA256": "E53634B15E563838456D0DACCF90945EFEF5BA68F9C4B309A72BBCDD9432D307",
+    "Current": false
+  },
+  "CapturesNote": "Captures prises sur un autre manifeste que le pack courant : les refaire avec guides/captures/capture-guides.ps1 avant une livraison.",
+  "Gaps": {
+    "Quotes": [
+      {
+        "Guide": "administrateur.md",
+        "Line": 55,
+        "Quote": "Dans « Postes",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 119,
+        "Quote": "OU Postes, sous-OU",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 119,
+        "Quote": "recherche « PC",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 194,
+        "Quote": "Jean Dupont → GG-Lyon → GG-Compta",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 223,
+        "Quote": "Camille Martin · console observée le 08/10 à 08:15",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 248,
+        "Quote": "Intervention autorisée 4:59 · Retirer",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 248,
+        "Quote": "Aller à Assistance poste > Intervenir",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 274,
+        "Quote": "Disque C (C$) de",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 274,
+        "Quote": "ouvert avec",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 293,
+        "Quote": "Opérations poste : DOMAINE\\adm-poste (compte poste saisi, en mémoire seulement).",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 293,
+        "Quote": "Opérations poste : session Windows (DOMAINE\\technicien).",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 370,
+        "Quote": "couverture 90 % (18 évalué(s) sur 20)",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 487,
+        "Quote": "Postes actifs : ping N/M (du… au…) · inventaire WMI N/M (du… au…)",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 637,
+        "Quote": "Enregistrement de la disposition",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 650,
+        "Quote": "Absent du dernier relevé du …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 671,
+        "Quote": "Lu sur le poste",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 696,
+        "Quote": "Grille",
+        "Current": [
+          "En-tete de grille"
+        ]
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 705,
+        "Quote": "catalogue seulement",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 705,
+        "Quote": "Affichage initial",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 989,
+        "Quote": "quʼest-ce qui a changé sur ce poste",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1056,
+        "Quote": "2026-10-08T07:15:00.0000000Z",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1056,
+        "Quote": "2026-10-08 09:15:00",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1075,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1081,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1089,
+        "Quote": "Identifiant ou mot de passe refusé. Vérifiez la saisie avant un nouvel essai.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1091,
+        "Quote": "Compte verrouillé. Demandez son déverrouillage puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1092,
+        "Quote": "Compte désactivé. Demandez sa réactivation puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1093,
+        "Quote": "Mot de passe expiré. Changez-le (Ctrl+Alt+Suppr, Modifier un mot de passe) puis réessayez.",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1100,
+        "Quote": "Erreur interne pendant la connexion. Elle ne prouve pas un mauvais mot de passe. …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1134,
+        "Quote": "Essentiel | Expert",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1153,
+        "Quote": "Écriture active · 15 min",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1187,
+        "Quote": "Domenia · Connexion · diagnostic",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1414,
+        "Quote": "Continuer en tant que DOMAINE\\nom",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1561,
+        "Quote": "Base du domaine example.local · 4,2 Mo · sauvegardée il y a 2 h",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1645,
+        "Quote": "sauvegardée à lʼinstant",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1649,
+        "Quote": "sauvegardée il y a …",
+        "Current": []
+      },
+      {
+        "Guide": "administrateur.md",
+        "Line": 1672,
+        "Quote": "Actualisation non lancée : lʼOU, la base ou la session a changé pendant la sauvegarde ; aucune lecture AD. Cliquez à nouveau pour lʼOU affichée.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 8,
+        "Quote": "Continuer en tant que DOMAINE\\votre-compte",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 22,
+        "Quote": "Dans « Postes",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 23,
+        "Quote": "Chercher aussi les noms qui contiennent « compta",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 25,
+        "Quote": "Camille Martin · Observé",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 95,
+        "Quote": "compta*",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 116,
+        "Quote": "Camille Martin · console observée le 08/10 à 08:15",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 120,
+        "Quote": "Poste · nom",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 193,
+        "Quote": "2 points à vérifier · 1 information",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 270,
+        "Quote": "Relevé impossible : 812 postes affichés : plafond 500. Filtrez la liste.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 271,
+        "Quote": "Relevé impossible : Recherche globale sans terme…",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 272,
+        "Quote": "Relevé impossible : Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 273,
+        "Quote": "Relevé impossible : Attendez la confirmation des enregistrements locaux avant un nouveau relevé.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 274,
+        "Quote": "Relevé impossible : Aucune base autonome active.",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 581,
+        "Quote": "Essentiel | Expert",
+        "Current": []
+      },
+      {
+        "Guide": "technicien.md",
+        "Line": 588,
+        "Quote": "Écriture active · 12 min",
+        "Current": []
+      }
+    ],
+    "Retired": [],
+    "HelpOrphans": [],
+    "Guides": [],
+    "Figures": [
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "accueil-sonde-requete",
+        "Problem": "image différente de la capture enregistrée : accueil-sonde-requete.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "actions-poste",
+        "Problem": "image différente de la capture enregistrée : actions-poste.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "actions-poste-avancees",
+        "Problem": "image différente de la capture enregistrée : actions-poste.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "alerte-selection",
+        "Problem": "image différente de la capture enregistrée : alerte-selection.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-bibliotheque",
+        "Problem": "image différente de la capture enregistrée : atelier-bibliotheque.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-catalogue",
+        "Problem": "image sans provenance de capture : atelier-catalogue.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-collecte",
+        "Problem": "image différente de la capture enregistrée : atelier-collecte.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-condition",
+        "Problem": "image différente de la capture enregistrée : atelier-condition.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-desactives",
+        "Problem": "image différente de la capture enregistrée : atelier-desactives.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-fiche-locale",
+        "Problem": "image différente de la capture enregistrée : atelier-fiche-locale.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-modeles",
+        "Problem": "image sans provenance de capture : atelier-modeles.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-poste",
+        "Problem": "image sans provenance de capture : atelier-poste.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "atelier-requetes",
+        "Problem": "image différente de la capture enregistrée : atelier-requetes.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "base-autonome",
+        "Problem": "image différente de la capture enregistrée : base-autonome.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "base-commandes",
+        "Problem": "image sans provenance de capture : base-mise-a-jour.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "base-stockage",
+        "Problem": "image sans provenance de capture : base-stockage.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "editeur-widget",
+        "Problem": "image différente de la capture enregistrée : editeur-widget.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "etat-moteur",
+        "Problem": "image sans provenance de capture : etat-moteur.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "fiche-poste",
+        "Problem": "image différente de la capture enregistrée : fiche-poste.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "logiciels",
+        "Problem": "image différente de la capture enregistrée : logiciels.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "personnaliser",
+        "Problem": "image différente de la capture enregistrée : personnaliser.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "poste-sonde-requete",
+        "Problem": "image sans provenance de capture : poste-sonde-requete.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "recherche-actions",
+        "Problem": "image différente de la capture enregistrée : recherche-actions.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "recherche-inconnus",
+        "Problem": "image sans provenance de capture : recherche-inconnus.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "recherche-requete",
+        "Problem": "image différente de la capture enregistrée : recherche-requete.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "recherche-requetes",
+        "Problem": "image sans provenance de capture : recherche-requetes.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "selecteur-ou",
+        "Problem": "image différente de la capture enregistrée : selecteur-ou.png"
+      },
+      {
+        "Sheet": "administrateur.json",
+        "Figure": "tableau-poste",
+        "Problem": "image différente de la capture enregistrée : tableau-poste.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "accueil-sonde-requete",
+        "Problem": "image différente de la capture enregistrée : accueil-sonde-requete.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "actions-poste",
+        "Problem": "image différente de la capture enregistrée : actions-poste.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "actions-poste-avancees",
+        "Problem": "image différente de la capture enregistrée : actions-poste.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "alerte-selection",
+        "Problem": "image différente de la capture enregistrée : alerte-selection.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-bibliotheque",
+        "Problem": "image différente de la capture enregistrée : atelier-bibliotheque.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-catalogue",
+        "Problem": "image sans provenance de capture : atelier-catalogue.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-collecte",
+        "Problem": "image différente de la capture enregistrée : atelier-collecte.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-condition",
+        "Problem": "image différente de la capture enregistrée : atelier-condition.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-desactives",
+        "Problem": "image différente de la capture enregistrée : atelier-desactives.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-fiche-locale",
+        "Problem": "image différente de la capture enregistrée : atelier-fiche-locale.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-modeles",
+        "Problem": "image sans provenance de capture : atelier-modeles.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-poste",
+        "Problem": "image sans provenance de capture : atelier-poste.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "atelier-requetes",
+        "Problem": "image différente de la capture enregistrée : atelier-requetes.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "base-autonome",
+        "Problem": "image différente de la capture enregistrée : base-autonome.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "base-commandes",
+        "Problem": "image sans provenance de capture : base-mise-a-jour.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "base-stockage",
+        "Problem": "image sans provenance de capture : base-stockage.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "editeur-widget",
+        "Problem": "image différente de la capture enregistrée : editeur-widget.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "etat-moteur",
+        "Problem": "image sans provenance de capture : etat-moteur.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "fiche-poste",
+        "Problem": "image différente de la capture enregistrée : fiche-poste.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "logiciels",
+        "Problem": "image différente de la capture enregistrée : logiciels.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "personnaliser",
+        "Problem": "image différente de la capture enregistrée : personnaliser.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "poste-sonde-requete",
+        "Problem": "image sans provenance de capture : poste-sonde-requete.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "recherche-actions",
+        "Problem": "image différente de la capture enregistrée : recherche-actions.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "recherche-inconnus",
+        "Problem": "image sans provenance de capture : recherche-inconnus.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "recherche-requete",
+        "Problem": "image différente de la capture enregistrée : recherche-requete.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "recherche-requetes",
+        "Problem": "image sans provenance de capture : recherche-requetes.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "selecteur-ou",
+        "Problem": "image différente de la capture enregistrée : selecteur-ou.png"
+      },
+      {
+        "Sheet": "technicien.json",
+        "Figure": "tableau-poste",
+        "Problem": "image différente de la capture enregistrée : tableau-poste.png"
+      }
+    ]
+  }
+}

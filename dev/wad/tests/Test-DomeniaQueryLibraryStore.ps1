@@ -50,7 +50,7 @@ function LibraryRead {
  $q|Add-Member -NotePropertyName SnapshotRevision -NotePropertyValue $SnapshotRevision -Force
  return Read-Store $q
 }
-function Refused {param([scriptblock]$Code,[string]$Text='');$caught=$false;try{& $Code|Out-Null}catch{$caught=$true;if($Text){Expect ($_.Exception.Message -like ('*'+$Text+'*')) 'specific refusal'}};Expect $caught 'refused'}
+function Refused {param([scriptblock]$Code,[string]$Text='');$caught=$false;try{& $Code|Out-Null}catch{$caught=$true;if($Text){Expect ($_.Exception.Message -like ('*'+$Text+'*')) ('specific refusal: expected '+$Text+', got '+$_.Exception.Message)}};Expect $caught 'refused'}
 function Read-Store {param($Query,$Ctx=$context)
     $Payload=[pscustomobject]@{Action='StoreRead';Path=$path;StoreId=$Ctx.StoreId;DomainDn=$Ctx.DomainDn;Query=$Query;BusyTimeoutMs=1000}
     return & ([scriptblock]::Create($reader))
@@ -65,10 +65,28 @@ function Observation {param([string]$Family='Presence',[string]$At=$at,[string]$
 try{
  $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
  if($schema.Count -ne 1){throw 'Schema count'}
- $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec $schema[0].Value $db);$script:sqliteVersion=[string](@(Invoke-DomeniaDbQuery 'SELECT sqlite_version() AS v;' $db)[0].v)}finally{Close-DomeniaDatabase $db}
+ $db=Open-DomeniaDatabase $path;try{[void](Invoke-DomeniaDbExec ($schema[0].Value.Replace('$(Get-DomeniaQueryLibrarySchema)',(Get-DomeniaQueryLibrarySchema))) $db);$script:sqliteVersion=[string](@(Invoke-DomeniaDbQuery 'SELECT sqlite_version() AS v;' $db)[0].v)}finally{Close-DomeniaDatabase $db}
 
  Case 'Commit publishes canonical recipes separately from directory rows' {
   $r=Commit @((RecipeChange));Expect ($r.Saved -and $r.QueryRecipes.Count -eq 1 -and $r.Rows.Count -eq 0) 'typed readback';Expect ($r.QueryRecipes[0].Revision -eq 1 -and $r.QueryRecipes[0].CreatedUtc -eq $r.QueryRecipes[0].UpdatedUtc) 'initial revision';Expect ($r.QueryRecipes[0].DefinitionSHA256 -ceq (Get-DomeniaStoreHash $r.QueryRecipes[0].DefinitionJson)) 'persisted hash'
+ }
+ Case 'Imported provenance survives durable reads, edits and rollback without the journal' {
+  $recipe=New-DomeniaQueryRecipe -Id 'personal.provenance' -Name 'Origine' -Clauses @()
+  $origin=[pscustomobject]@{PackId=(Get-DomeniaQueryPackId 'Parc');PackName='Parc';PackVersion=3L;Origin='Équipe postes';SourceRecipeId='source.recipe';Verified=$true}
+  $record=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 0 -Provenance $origin
+  $saved=Commit @([pscustomobject]@{Kind='QueryRecipe';Record=$record})
+  Expect ($saved.QueryRecipes[0].Provenance.Origin -ceq 'Équipe postes') 'lineage included in committed SELECT'
+  $first=@((LibraryRead -Term 'Origine').QueryRecipes)[0]
+  Expect ($first.Provenance.SourceRecipeId -ceq 'source.recipe' -and $first.Provenance.DefinitionSHA256 -ceq $first.DefinitionSHA256) 'independent reopened reader preserves exact source'
+  $recipe.Name='Origine modifiée';$record=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 1 -Provenance $first.Provenance
+  $saved=Commit @([pscustomobject]@{Kind='QueryRecipe';Record=$record})
+  Expect ($saved.QueryRecipes[0].Provenance.DefinitionSHA256 -cne $saved.QueryRecipes[0].DefinitionSHA256) 'an edit keeps original import identity without claiming an unchanged definition'
+  $bad=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 2 -Provenance $first.Provenance
+  $bad.Provenance.SourceRecipeId='invalid source';Refused {Commit @([pscustomobject]@{Kind='QueryRecipe';Record=$bad})} 'Provenance'
+  $recipe.Name='Restaurée';$record=New-DomeniaQueryLibraryRecord -Context $context -Recipe $recipe -ExpectedRevision 2 -Provenance $null
+  $saved=Commit @([pscustomobject]@{Kind='QueryRecipe';Record=$record})
+  Expect ($null -eq $saved.QueryRecipes[0].Provenance) 'explicit rollback to a local definition clears current provenance'
+  Expect ((Read-TestDb "SELECT count(*) n FROM domenia_query_recipe_provenance WHERE recipe_id='personal.provenance';")[0].n -eq 2) 'previous provenance revisions remain durable'
  }
  Case 'Revision conflict rolls back an earlier valid recipe in the same batch' {
   $before=(Read-TestDb 'SELECT revision FROM domenia_store_state;')[0].revision
@@ -112,7 +130,7 @@ try{
  Case 'Read pagination is stable and refuses a superseded snapshot' {
   $one=LibraryRead -Limit 1;$two=LibraryRead -Limit 1 -Offset 1 -SnapshotRevision $one.SnapshotRevision
   Expect ($one.Total -eq $two.Total -and $one.QueryRecipes[0].Id -cne $two.QueryRecipes[0].Id) 'paged exact total'
-  [void](Commit @((RecipeChange 'personal.later')));Refused {LibraryRead -SnapshotRevision $one.SnapshotRevision} 'Revision'
+  [void](Commit @((RecipeChange 'personal.later')));Refused {LibraryRead -SnapshotRevision $one.SnapshotRevision} 'Instantane demande modifie'
   Refused {LibraryRead -Limit 251} 'Pagination'
  }
  Case 'Migration marker requires every ID and rolls back the final batch on omission' {

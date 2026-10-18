@@ -24,6 +24,7 @@ $factories=@{
     'StoragePurge'='Get-DomeniaStoragePurgeWorkerCode'
     'StorageBackup'='Get-DomeniaStorageBackupWorkerCode'
     'StorageMaintenance'='Get-DomeniaStorageMaintenanceWorkerCode'
+    'StorageRetention'='Get-DomeniaStorageRetentionWorkerCode'
     'LiveCache'='Get-DomeniaLiveCacheCode'
     'LegacyMigration'='Get-DomeniaMigrationWorkerCode'
     'LocalIndexRead'='Get-DomeniaLocalIndexReadWorkerCode'

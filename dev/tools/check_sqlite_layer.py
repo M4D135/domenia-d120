@@ -42,7 +42,7 @@ CORE_LAYER = ('Initialize-DomeniaWinSqliteNative', 'New-DomeniaUtf8Ptr', 'Conver
               'Close-DomeniaDatabase', 'Invoke-DomeniaDbExec', 'Invoke-DomeniaDbQuery', 'ConvertTo-DomeniaSqlLiteral')
 IDENTICAL = ('New-DomeniaUtf8Ptr', 'ConvertFrom-DomeniaUtf8Ptr', 'ConvertTo-DomeniaSqlLiteral')
 # Pinned operations that compose the layer (update_worker_contracts.composed_body) and the unpinned generator that does.
-COMPOSING = ('LocalStore', 'StorageUsage', 'StoragePurge', 'StorageBackup', 'StorageMaintenance', 'StorageIntegrity', 'LiveCache',
+COMPOSING = ('LocalStore', 'StorageUsage', 'StoragePurge', 'StorageBackup', 'StorageMaintenance', 'StorageIntegrity', 'StorageRetention', 'LiveCache',
              'LegacyMigration', 'LocalIndexRead', 'RelationHistoryRead')
 # Generators that receive the layer through the pinned helpers of another storage worker: generator -> that worker.
 THROUGH = {'Get-DomeniaStorageIntegrityWorkerCode': 'Get-DomeniaStorageUsageWorkerCode',
@@ -165,7 +165,7 @@ def composition(problems, layer):
                 problems.append('%s : %s ne compose pas Get-DomeniaSqliteWorkerCommon.' % (item['Operation'], item['Function']))
         elif count or uses.search(re.sub(r'(?m)#.*$', '', body)):
             problems.append('%s : utilise la couche SQLite sans etre declaree dans COMPOSING.' % item['Operation'])
-    # StorageRetention is launched but not pinned yet (known debt): its generator must still receive the layer.
+    # StorageRetention is pinned and must receive the layer through the purge worker.
     if not composes(STORAGE, 'Get-DomeniaStorageRetentionWorkerCode'):
         problems.append('StorageRetention : la couche SQLite partagee ne lui parvient plus par le worker de purge.')
 

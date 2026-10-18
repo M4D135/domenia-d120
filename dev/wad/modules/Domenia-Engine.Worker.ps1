@@ -210,7 +210,7 @@ function Convert-StoreWQueryRecipe {
     $hash=[Security.Cryptography.SHA256]::Create()
     try{$actual=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Row.definition_json))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
     if($actual -cne [string]$Row.definition_sha256){throw 'Corruption de definition dans la bibliotheque locale.'}
-    return [pscustomobject]@{Id=[string]$Row.id;DomainDn=[string]$Row.domain_dn;Name=[string]$Row.name;NameFold=[string]$Row.name_fold;Category=[string]$Row.category;Revision=[long]$Row.revision;DefinitionVersion=[int]$Row.definition_version;DefinitionJson=[string]$Row.definition_json;DefinitionSHA256=[string]$Row.definition_sha256;CreatedUtc=[string]$Row.created_utc;UpdatedUtc=[string]$Row.updated_utc;Archived=([int]$Row.archived -ne 0)}
+    return [pscustomobject]@{Id=[string]$Row.id;DomainDn=[string]$Row.domain_dn;Name=[string]$Row.name;NameFold=[string]$Row.name_fold;Category=[string]$Row.category;Revision=[long]$Row.revision;DefinitionVersion=[int]$Row.definition_version;DefinitionJson=[string]$Row.definition_json;DefinitionSHA256=[string]$Row.definition_sha256;CreatedUtc=[string]$Row.created_utc;UpdatedUtc=[string]$Row.updated_utc;Archived=([int]$Row.archived -ne 0);Provenance=$null}
 }
 function Read-StoreWQueryLibrary {
     param([IntPtr]$Db,$Query,[string]$DomainDn,[long]$SnapshotRevision,[string]$StoreId,[string[]]$RecipeIds=$null)
@@ -233,6 +233,12 @@ function Read-StoreWQueryLibrary {
         }
         $total=[long](@(Invoke-StoreWLibraryQuery "SELECT count(*) AS n FROM domenia_query_recipes WHERE $where;" $Db)[0].n)
         $rows=@(Invoke-StoreWLibraryQuery "SELECT * FROM domenia_query_recipes WHERE $where ORDER BY name_fold,id LIMIT $limit OFFSET $offset;" $Db|ForEach-Object{Convert-StoreWQueryRecipe $_})
+        $provenanceTable=@(Invoke-StoreWLibraryQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='domenia_query_recipe_provenance';" $Db)
+        if($provenanceTable.Count -and $rows.Count){
+            $keys=@($rows|ForEach-Object{Get-IdxWLiteral $_.Id}) -join ','
+            $lineage=@{};foreach($p in @(Invoke-StoreWLibraryQuery "SELECT p.recipe_id,p.revision,p.provenance_json FROM domenia_query_recipe_provenance p JOIN domenia_query_recipes r ON r.id=p.recipe_id AND r.revision=p.revision WHERE p.recipe_id IN ($keys);" $Db)){$lineage[[string]$p.recipe_id]=ConvertFrom-Json -InputObject ([string]$p.provenance_json) -ErrorAction Stop}
+            foreach($row in $rows){$row.Provenance=$lineage[$row.Id]}
+        }
         if($rows.Count){$keys=@($rows|ForEach-Object{Get-IdxWLiteral $_.Id}) -join ',';$dependencies=@(Invoke-StoreWLibraryQuery "SELECT recipe_id AS RecipeId,consumer_kind AS ConsumerKind,consumer_id AS ConsumerId,bound_revision AS BoundRevision FROM domenia_query_recipe_dependencies WHERE recipe_id IN ($keys) ORDER BY recipe_id,consumer_kind,consumer_id;" $Db)}
         $migrationTable=@(Invoke-StoreWLibraryQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='domenia_query_migrations';" $Db)
         if($migrationTable.Count){$migrations=@(Invoke-StoreWLibraryQuery ('SELECT source_hash AS SourceHash,domain_dn AS DomainDn,imported_at AS ImportedAtUtc,revision AS Revision FROM domenia_query_migrations WHERE domain_dn='+(Get-IdxWLiteral $DomainDn)+' ORDER BY source_hash;') $Db)}
@@ -691,6 +697,12 @@ try {
         if(-not $observationsOnly -and $null -ne $Payload.PSObject.Properties['ComputeBoard'] -and [bool]$Payload.ComputeBoard){
             # Aggregation over thousands of observations stays in the worker, never in the WPF callback.
             foreach($module in @('Domenia-Common.Model.ps1','Domenia-Collection.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Boards.Model.ps1','Domenia-BoardFleet.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
+            $queryAlerts=@($Payload.HealthPolicy.CustomRules|Where-Object Measure -eq 'Query')+@($Payload.HealthPolicyBook.Default.CustomRules|Where-Object Measure -eq 'Query')+@(foreach($scopePolicy in @($Payload.HealthPolicyBook.Scopes)){$scopePolicy.Overrides.CustomRules|Where-Object Measure -eq 'Query'})
+            if($queryAlerts.Count){
+                Add-Type -Path (Join-Path ([string]$Payload.ModuleRoot) 'M4D.Admin.Common.Query.dll')
+                Add-Type -Path (Join-Path ([string]$Payload.ModuleRoot) 'Domenia.Native.dll')
+                foreach($module in @('Domenia-Probes.Model.ps1','Domenia-QuerySchema.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Query.Model.ps1')){. (Join-Path ([string]$Payload.ModuleRoot) $module)}
+            }
             $board=Get-DomeniaFleetBoardData -Result $result -Scope $scope -Subtree $subtree -Now ([datetime]::Parse([string]$plan.NowUtc,[Globalization.CultureInfo]::InvariantCulture)) -Lifecycle $Payload.Lifecycle -ObservationMaxAgeDays ([int]$Payload.ObservationMaxAgeDays) -IndexPartial ([string]$Payload.IndexPartial) -HealthPolicy $(if($null -ne $Payload.PSObject.Properties['HealthPolicy']){$Payload.HealthPolicy}else{$null}) -HealthPolicyBook $(if($null -ne $Payload.PSObject.Properties['HealthPolicyBook']){$Payload.HealthPolicyBook}else{$null})
             $board.Freshness.ComputedAtUtc=[datetime]::UtcNow
             $result|Add-Member -NotePropertyName Board -NotePropertyValue $board

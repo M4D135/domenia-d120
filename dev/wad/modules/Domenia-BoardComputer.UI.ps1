@@ -551,6 +551,20 @@ function Get-DomeniaComputerBoardData {
     }
     if($uptime){$customUptime=$uptimeDays}
     Add-DomeniaCustomHealthAttention -Data $Data -Measures @([pscustomobject]@{DiskFree=$customDisk;MemoryUsed=$customMemory;UptimeDays=$customUptime})
+    $queryRules=@($Data.HealthPolicy.CustomRules|Where-Object Measure -eq 'Query')
+    if($queryRules.Count){
+        $Data|Add-Member -NotePropertyName QueryHealthEvidence -NotePropertyValue @{} -Force
+        $records=Get-DomeniaComputerQueryRecords -Object $Object
+        foreach($rule in $queryRules){
+            $states=Get-DomeniaHealthQueryStates -Rule $rule -Records $records
+            $Data.QueryHealthEvidence[[string]$rule.Id]=if(@($states.Values|Where-Object{$_ -eq 'Match'}).Count){'Match'}elseif($states.Count -and -not @($states.Values|Where-Object{$_ -ne 'NoMatch'}).Count){'NoMatch'}else{'Unknown'}
+            if(@($states.Values|Where-Object{$_ -eq 'Match'}).Count){Add-DomeniaBoardAttention -Data $Data -Level $rule.Severity -Text ([string]$rule.QueryLabel+' : condition vérifiée.') -Point $rule.Id}
+            elseif((Test-DomeniaHealthRuleEnabled $Data.HealthPolicy $rule.Id) -and (-not $states.Count -or @($states.Values|Where-Object{$_ -eq 'Unknown'}).Count)){
+                $Data|Add-Member -NotePropertyName QueryHealthUnknown -NotePropertyValue $true -Force
+                Add-DomeniaBoardAttention -Data $Data -Level Info -Text ([string]$rule.QueryLabel+' : données insuffisantes.') -Point $rule.Id
+            }
+        }
+    }
     Complete-DomeniaBoardData -Data $Data | Out-Null
     return $Data
 }

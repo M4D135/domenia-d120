@@ -429,6 +429,8 @@ function Read-StoreWCommitted {
 }
 function Convert-StoreWLegacyUtc {
     param($Value)
+    if($Value -is [datetime]){$Value=$Value.ToUniversalTime().ToString('o',[Globalization.CultureInfo]::InvariantCulture)}
+    elseif($Value -is [datetimeoffset]){$Value=$Value.UtcDateTime.ToString('o',[Globalization.CultureInfo]::InvariantCulture)}
     if([string]::IsNullOrWhiteSpace([string]$Value)){return ''}
     $date=[datetimeoffset]::MinValue
     if(-not [datetimeoffset]::TryParse([string]$Value,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::AssumeUniversal,[ref]$date) -or $date.UtcDateTime -gt [datetime]::UtcNow.AddMinutes(2)){throw 'Date historique invalide : migration des mesures annulee.'}
@@ -530,7 +532,7 @@ function Convert-StoreWQueryRecipe {
     $hash=[Security.Cryptography.SHA256]::Create()
     try{$actual=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([string]$Row.definition_json))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
     if($actual -cne [string]$Row.definition_sha256){throw 'Corruption de definition dans la bibliotheque locale.'}
-    return [pscustomobject]@{Id=[string]$Row.id;DomainDn=[string]$Row.domain_dn;Name=[string]$Row.name;NameFold=[string]$Row.name_fold;Category=[string]$Row.category;Revision=[long]$Row.revision;DefinitionVersion=[int]$Row.definition_version;DefinitionJson=[string]$Row.definition_json;DefinitionSHA256=[string]$Row.definition_sha256;CreatedUtc=[string]$Row.created_utc;UpdatedUtc=[string]$Row.updated_utc;Archived=([int]$Row.archived -ne 0)}
+    return [pscustomobject]@{Id=[string]$Row.id;DomainDn=[string]$Row.domain_dn;Name=[string]$Row.name;NameFold=[string]$Row.name_fold;Category=[string]$Row.category;Revision=[long]$Row.revision;DefinitionVersion=[int]$Row.definition_version;DefinitionJson=[string]$Row.definition_json;DefinitionSHA256=[string]$Row.definition_sha256;CreatedUtc=[string]$Row.created_utc;UpdatedUtc=[string]$Row.updated_utc;Archived=([int]$Row.archived -ne 0);Provenance=$null}
 }
 function Read-StoreWQueryLibrary {
     param([IntPtr]$Db,$Query,[string]$DomainDn,[long]$SnapshotRevision,[string]$StoreId,[string[]]$RecipeIds=$null)
@@ -553,6 +555,12 @@ function Read-StoreWQueryLibrary {
         }
         $total=[long](@(Invoke-DomeniaDbQuery "SELECT count(*) AS n FROM domenia_query_recipes WHERE $where;" $Db)[0].n)
         $rows=@(Invoke-DomeniaDbQuery "SELECT * FROM domenia_query_recipes WHERE $where ORDER BY name_fold,id LIMIT $limit OFFSET $offset;" $Db|ForEach-Object{Convert-StoreWQueryRecipe $_})
+        $provenanceTable=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='domenia_query_recipe_provenance';" $Db)
+        if($provenanceTable.Count -and $rows.Count){
+            $keys=@($rows|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_.Id}) -join ','
+            $lineage=@{};foreach($p in @(Invoke-DomeniaDbQuery "SELECT p.recipe_id,p.revision,p.provenance_json FROM domenia_query_recipe_provenance p JOIN domenia_query_recipes r ON r.id=p.recipe_id AND r.revision=p.revision WHERE p.recipe_id IN ($keys);" $Db)){$lineage[[string]$p.recipe_id]=ConvertFrom-Json -InputObject ([string]$p.provenance_json) -ErrorAction Stop}
+            foreach($row in $rows){$row.Provenance=$lineage[$row.Id]}
+        }
         if($rows.Count){$keys=@($rows|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_.Id}) -join ',';$dependencies=@(Invoke-DomeniaDbQuery "SELECT recipe_id AS RecipeId,consumer_kind AS ConsumerKind,consumer_id AS ConsumerId,bound_revision AS BoundRevision FROM domenia_query_recipe_dependencies WHERE recipe_id IN ($keys) ORDER BY recipe_id,consumer_kind,consumer_id;" $Db)}
         $migrationTable=@(Invoke-DomeniaDbQuery "SELECT name FROM sqlite_master WHERE type='table' AND name='domenia_query_migrations';" $Db)
         if($migrationTable.Count){$migrations=@(Invoke-DomeniaDbQuery ('SELECT source_hash AS SourceHash,domain_dn AS DomainDn,imported_at AS ImportedAtUtc,revision AS Revision FROM domenia_query_migrations WHERE domain_dn='+(ConvertTo-DomeniaSqlLiteral $DomainDn)+' ORDER BY source_hash;') $Db)}
@@ -570,13 +578,15 @@ function Assert-StoreWQueryRecord {
     $hash=[Security.Cryptography.SHA256]::Create();try{$actual=[BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($json))).Replace('-','').ToLowerInvariant()}finally{$hash.Dispose()}
     if($actual -cne [string]$Record.DefinitionSHA256){throw 'Empreinte de definition de recette invalide.'}
     $recipe=Assert-WQueryLibraryDefinition -DefinitionJson $json -DefinitionVersion ([int]$Record.DefinitionVersion) -RecipeId ([string]$Record.Id)
+    [void](ConvertTo-DomeniaQueryProvenance -Value (Get-DomeniaMemberValue $Record 'Provenance'))
     Assert-StoreWLegacySafe $recipe
     if([string]$recipe.Name -cne [string]$Record.Name){throw 'Nom de recette incoherent.'}
     $builder=[Text.StringBuilder]::new();foreach($character in ([string]$Record.Name).Normalize([Text.NormalizationForm]::FormD).ToCharArray()){if([Globalization.CharUnicodeInfo]::GetUnicodeCategory($character) -ne [Globalization.UnicodeCategory]::NonSpacingMark){[void]$builder.Append($character)}}
     $fold=([regex]::Replace($builder.ToString().Normalize([Text.NormalizationForm]::FormC).ToLowerInvariant(),'\s+',' ')).Trim()
     if([string]$Record.NameFold -cne $fold){throw 'Cle de recherche de recette incoherente.'}
     $at=Convert-StoreWLegacyUtc $Record.UpdatedUtc
-    if(-not $at -or [datetime]$at -gt [datetime]::UtcNow.AddMinutes(2)){throw 'Date de recette invalide.'}
+    if(-not $at -or ([datetimeoffset]$at).UtcDateTime -gt [datetime]::UtcNow.AddMinutes(2)){throw 'Date de recette invalide.'}
+    $Record.UpdatedUtc=$at
 }
 function Write-StoreWQueryChange {
     param([IntPtr]$Db,$Change,$Context,[long]$StoreRevision)
@@ -591,6 +601,11 @@ function Write-StoreWQueryChange {
         $created=if($old.Count){[string]$old[0].created_utc}else{[string]$r.UpdatedUtc}
         $v=@($r.Id,$Context.DomainDn,$r.Name,$r.NameFold,$r.Category,$r.Revision,$r.DefinitionVersion,$r.DefinitionJson,$r.DefinitionSHA256,$created,$r.UpdatedUtc,[int][bool]$r.Archived)
         [void](Invoke-DomeniaDbExec ('INSERT OR REPLACE INTO domenia_query_recipes(id,domain_dn,name,name_fold,category,revision,definition_version,definition_json,definition_sha256,created_utc,updated_utc,archived) VALUES('+(@($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $Db)
+        $provenance=ConvertTo-DomeniaQueryProvenance -Value (Get-DomeniaMemberValue $r 'Provenance')
+        if($null -ne $provenance){
+            $lineage=ConvertTo-DomeniaSqlLiteral (ConvertTo-Json -InputObject $provenance -Depth 4 -Compress)
+            [void](Invoke-DomeniaDbExec ("INSERT INTO domenia_query_recipe_provenance(recipe_id,revision,provenance_json) VALUES($id,"+[string]$r.Revision+",$lineage);") $Db)
+        }
         $v=@($r.Id,$r.Revision,$r.DefinitionVersion,$r.DefinitionJson,$r.DefinitionSHA256,$r.UpdatedUtc)
         [void](Invoke-DomeniaDbExec ('INSERT INTO domenia_query_recipe_revisions(id,revision,definition_version,definition_json,definition_sha256,at_utc) VALUES('+(@($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');') $Db)
         return
@@ -669,7 +684,7 @@ function Invoke-StoreWBatch {
         if($legacy.Count -and [string]$legacy[0].base_dn -ine [string]$c.DomainDn){throw 'Domaine de la base existante incompatible.'}
         [void](Invoke-DomeniaDbExec "INSERT INTO domenia_store_state(id,store_id,domain_dn,revision) VALUES(1,$store,$domain,0);" $Db)
     }
-    if(@($batch.Changes|Where-Object{$_.Kind -in @('QueryRecipe','QueryDependency','QueryMigration')}).Count){[void](Invoke-DomeniaDbExec 'CREATE TABLE IF NOT EXISTS domenia_query_recipes (  id TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, name TEXT NOT NULL, name_fold TEXT NOT NULL,  category TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision > 0), definition_version INTEGER NOT NULL,  definition_json TEXT NOT NULL, definition_sha256 TEXT NOT NULL, created_utc TEXT NOT NULL,  updated_utc TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1)) ); CREATE INDEX IF NOT EXISTS ix_domenia_query_recipes_page ON domenia_query_recipes(archived,name_fold,id); CREATE INDEX IF NOT EXISTS ix_domenia_query_recipes_category ON domenia_query_recipes(archived,category,name_fold,id); CREATE TABLE IF NOT EXISTS domenia_query_recipe_revisions (  id TEXT NOT NULL, revision INTEGER NOT NULL, definition_version INTEGER NOT NULL,  definition_json TEXT NOT NULL, definition_sha256 TEXT NOT NULL, at_utc TEXT NOT NULL,  PRIMARY KEY(id,revision) ); CREATE TABLE IF NOT EXISTS domenia_query_migrations (  source_hash TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, imported_at TEXT NOT NULL, revision INTEGER NOT NULL ); CREATE TABLE IF NOT EXISTS domenia_query_recipe_dependencies (  recipe_id TEXT NOT NULL, consumer_kind TEXT NOT NULL, consumer_id TEXT NOT NULL,  bound_revision INTEGER NOT NULL, PRIMARY KEY(recipe_id,consumer_kind,consumer_id) );' $Db)}
+    if(@($batch.Changes|Where-Object{$_.Kind -in @('QueryRecipe','QueryDependency','QueryMigration')}).Count){[void](Invoke-DomeniaDbExec (Get-DomeniaQueryLibrarySchema) $Db)}
     $prior=@(Invoke-DomeniaDbQuery "SELECT * FROM domenia_store_batches WHERE batch_id=$id;" $Db)
     if($prior.Count){
         if([string]$prior[0].payload_hash -cne $actual){throw 'Identifiant de lot reutilise avec un autre contenu.'}
@@ -1773,11 +1788,17 @@ try{
     }while($true)
     $finish=[Domenia.WinSqliteNative]::sqlite3_backup_finish($backup);$backup=[IntPtr]::Zero
     if($finish -ne 0){throw "Finalisation de sauvegarde SQLite : code $finish."}
+    $mode=@(Invoke-DomeniaDbQuery -Sql 'PRAGMA journal_mode=DELETE;' -DatabaseHandle $targetDb)
+    if($mode.Count -ne 1 -or [string]$mode[0].journal_mode -ine 'delete'){throw 'Sauvegarde non autonome : journal SQLite encore requis.'}
     $check=@(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
     if($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok'){throw 'La sauvegarde ne passe pas le controle SQLite.'}
     Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero
     Close-DomeniaDatabase $sourceDb;$sourceDb=[IntPtr]::Zero
-    [IO.File]::Move($temporary,$dest);$complete=$true
+    [IO.File]::Move($temporary,$dest)
+    $targetDb=Open-DomeniaDatabase -Path $dest -ReadOnly
+    $check=@(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
+    if($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok'){throw 'Sauvegarde publiee non relisible.'}
+    Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero;$complete=$true
     Get-ChildItem -LiteralPath $backupDir -Filter ($filePrefix+'*.db') -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
     if($copyTo){
         try{
@@ -2043,10 +2064,17 @@ function Copy-RetentionWBackup {
         $watch=[Diagnostics.Stopwatch]::StartNew()
         do{$rc=[Domenia.WinSqliteNative]::sqlite3_backup_step($backup,256);if($rc -eq 101){break};if($rc -notin @(0,5,6)){throw ('Sauvegarde prealable code '+$rc)};if($watch.Elapsed.TotalSeconds -ge 120){throw 'Delai de sauvegarde prealable depasse.'};if($rc -in @(5,6)){Start-Sleep -Milliseconds 25}}while($true)
         $rc=[Domenia.WinSqliteNative]::sqlite3_backup_finish($backup);$backup=[IntPtr]::Zero;if($rc -ne 0){throw 'Sauvegarde prealable non finalisee.'}
+        # A published backup must be a standalone file, including when the source uses WAL.
+        $mode=@(Invoke-DomeniaDbQuery 'PRAGMA journal_mode=DELETE;' $target)
+        if($mode.Count -ne 1 -or [string]$mode[0].journal_mode -ine 'delete'){throw 'Sauvegarde non autonome : journal SQLite encore requis.'}
         $check=@(Invoke-DomeniaDbQuery 'PRAGMA quick_check;' $target);$state=@(Invoke-DomeniaDbQuery 'SELECT store_id,revision FROM domenia_store_state WHERE id=1;' $target)
         if($check.Count -ne 1 -or $check[0].quick_check -cne 'ok' -or $state.Count -ne 1 -or $state[0].store_id -cne $StoreId -or [long]$state[0].revision -ne $Revision){throw 'Copie prealable non conforme au contexte confirme.'}
         Close-DomeniaDatabase $target;$target=[IntPtr]::Zero;Close-DomeniaDatabase $source;$source=[IntPtr]::Zero
         [IO.File]::Move($temporary,$destination);$temporary=''
+        $target=Open-DomeniaDatabase $destination -ReadOnly
+        $check=@(Invoke-DomeniaDbQuery 'PRAGMA quick_check;' $target);$state=@(Invoke-DomeniaDbQuery 'SELECT store_id,revision FROM domenia_store_state WHERE id=1;' $target)
+        if($check.Count -ne 1 -or $check[0].quick_check -cne 'ok' -or $state.Count -ne 1 -or $state[0].store_id -cne $StoreId -or [long]$state[0].revision -ne $Revision){throw 'Sauvegarde publiee non relisible : conservation annulee.'}
+        Close-DomeniaDatabase $target;$target=[IntPtr]::Zero
         $stream=[IO.File]::OpenRead($destination);$sha=[Security.Cryptography.SHA256]::Create();try{$hash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose();$stream.Dispose()}
         return [pscustomobject]@{Path=$destination;SHA256=$hash;Verified=$true;StoreId=$StoreId;Revision=$Revision}
     }finally{
@@ -2126,7 +2154,7 @@ function Get-DomeniaStorageIntegrityWorkerCode {
 # those of Get-DomeniaStorageSchemaExpectation (Domenia-Store.Model.ps1); Test-DomeniaStorageMaintenance compares them.
 $path=Test-DomeniaStorageMeasurePath ([string]$Payload.Path)
 $domain=([string]$Payload.DomainDn).Trim().ToLowerInvariant();if($domain -notmatch '(^|,)dc='){throw 'Domaine du controle requis.'}
-$requiredTables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','park_session_cache','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies')
+$requiredTables=@('schema_info','ad_objects','user_machine_links','user_machine_history','park_state','presence_cache','sync_state','user_scan_history','secret_state','operation_runs','domenia_provenance','ad_computer_facts','fleet_snapshots','park_session_cache','domenia_store_state','domenia_store_batches','domenia_directory_data','domenia_observations','domenia_legacy_observation_imports','domenia_account_preferences','domenia_details','domenia_domain_metadata','domenia_query_recipes','domenia_query_recipe_revisions','domenia_query_migrations','domenia_query_recipe_dependencies','domenia_query_recipe_provenance')
 $requiredColumns=[ordered]@{
     domenia_observations=@('object_guid','family','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')
     domenia_details=@('object_guid','result_kind','request_key','dn','attempt_at','status','success_at','payload','attempt_payload','summary_payload','attempt_summary','revision')

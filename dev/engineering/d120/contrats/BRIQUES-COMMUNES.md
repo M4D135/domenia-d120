@@ -35,3 +35,10 @@ pure ne fait ni WPF, ni réseau, ni disque, et que la bibliothèque de requêtes
 
 - Confirmer avec les mainteneurs de Pesto et de FILPRO les besoins notés « non vérifié » et la correspondance GP/RBP.
 - Reverser `QueryEngine.cs` dans `m4d-admin-common`, puis y publier les briques « Candidate » validées.
+
+
+## Relais prêt au 18 octobre 2026 (RC1.17.16)
+
+Source à intégrer par l’amont : `dev/vendor/m4d-admin-common/src/Query/QueryEngine.cs`, SHA-256 `4ee562b205eb761e0c7f1fe1c1e4e45b7a2d0751b45c8b6f59ccde28338f474e`. API et règles de valeurs inconnues : README voisin. Tests portables : `dev/vendor/m4d-admin-common/tests/Query/Test-Query.ps1`. DLL livrée : empreinte dans release-contract.json, compilation Windows déterministe déjà attestée en RC13.
+
+Domenia emploie désormais le même compilateur pour les alertes de santé à définition figée, en plus des widgets, listes et rapports. Les données absentes restent inconnues et aucune collecte ne fait partie du moteur commun. Le dossier est prêt pour revue ; il ne prouve ni l’acceptation par les mainteneurs ni une mise à jour de leurs dépôts. Décisions attendues : version/API commune, besoins Pesto/FilPro et autorisation de redistribution M4D. Aucun transfert externe n’a été envoyé.

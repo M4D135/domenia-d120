@@ -260,7 +260,7 @@ Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $sc
 $script:Saves.Clear();$script:CurrentDraft=$modified
 Request-DomeniaQueryRecipeSave
 Expect ($script:Saves.Count -eq 0 -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Visible' -and @($script:Fake.DgQueryImpact.ItemsSource).Count -eq 5 -and $script:Fake.BtnQueryImpactMigrate.Visibility -ceq 'Visible' -and $script:Fake.BtnQueryImpactArchive.Visibility -ceq 'Collapsed') 'a modified definition with consumers is reviewed in the page before any write'
-Expect ($script:Labels.LblQueryImpact -like '5 élément(s) utilisent la révision 3*3 widget(s), 1 vue(s) de Recherche, 1 lien(s) sans widget*Aucune alerte*' -and $script:Labels.LblQueryStatus -like '*rien nʼest encore enregistré*') 'the review states every consumer kind and that nothing was written'
+Expect ($script:Labels.LblQueryImpact -like '5 élément(s) utilisent la révision 3*3 widget(s), 1 vue(s) de Recherche, 1 lien(s) sans widget*0 alerte(s) conservent leur révision*' -and $script:Labels.LblQueryStatus -like '*rien nʼest encore enregistré*') ('the review states every consumer kind and that nothing was written: '+$script:Labels.LblQueryImpact+' | '+$script:Labels.LblQueryStatus)
 Invoke-DomeniaQueryImpactAction 'Migrate'
 Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $script:Saves[0].Recipe.Id -ceq 'personal.a' -and @($script:Saves[0].Recipe.Clauses).Count -eq 2 -and $script:Fake.PnlQueryImpact.Visibility -ceq 'Collapsed') 'migration saves the new definition after the explicit choice'
 $script:Saves.Clear();Request-DomeniaQueryRecipeSave;Invoke-DomeniaQueryImpactAction 'Keep'
@@ -309,7 +309,11 @@ Expect ($script:Saves.Count -eq 1 -and $migrated.ImpactConfirmed -and $migrated.
 $script:Saves.Clear();Add-DomeniaWorkshopWidget;Invoke-DomeniaQueryImpactAction 'Keep'
 $kept=$script:Saves[0]
 Expect ($script:Saves.Count -eq 1 -and $kept.ImpactConfirmed -and $kept.Recipe.Id -cne 'personal.a' -and $kept.Recipe.Name -ceq 'Postes à surveiller (nouvelle version)' -and $kept.SuccessHandler -ceq 'Complete-DomeniaWorkshopWidgetSave' -and $kept.CallbackState.Item.Key -ceq $kept.Recipe.Id -and $kept.CallbackState.Item.Id -cne 'w-linked' -and $kept.CallbackState.KeptRevision -eq 3 -and @($kept.AdditionalDependencies).Count -eq 1 -and $kept.AdditionalDependencies[0].ConsumerId -ceq $kept.CallbackState.Item.Id) 'keeping the old version saves a copy and links the new widget to the copy only'
+# Collection is outside this save/impact suite; record the boundary without starting a worker.
+$script:RefreshRequests=@()
+function Start-DomeniaWidgetRefresh {param($Board,$Id,$Reason)$script:RefreshRequests+=,[pscustomobject]@{Board=$Board;Id=$Id;Reason=$Reason};return $true}
 Complete-DomeniaWorkshopWidgetSave -Recipe $kept.Recipe -Record ([pscustomobject]@{Revision=1}) -State $kept.CallbackState
+Expect ($script:RefreshRequests.Count -eq 1 -and $script:RefreshRequests[0].Board -ceq 'Fleet') 'only the committed widget requests a collection'
 Expect ($script:BoardWrite.Board -ceq 'Fleet' -and @($script:BoardWrite.Layout|Where-Object{$_.Key -ceq $kept.Recipe.Id}).Count -eq 1 -and @($script:BoardWrite.Layout|Where-Object{$_.Key -ceq 'personal.a'}).Count -eq 2 -and $script:DraftSet.Id -ceq $kept.Recipe.Id) 'the copy gets its own widget; the widgets of the saved recipe stay in place'
 Expect ($script:Labels.LblQueryStatus -like 'Nouvelle requête « Postes à surveiller (nouvelle version) » enregistrée (révision 1) et ajoutée au tableau de bord général*« Postes à surveiller » et ses 5 élément(s) liés restent à la révision 3*') 'the confirmation names the copy, its board and the preserved revision'
 $script:Saves.Clear();$script:CurrentDraft=$saved;Add-DomeniaWorkshopWidget
@@ -321,7 +325,7 @@ Expect ($script:Saves.Count -eq 1 -and $script:Saves[0].ImpactConfirmed -and $sc
 . (Join-Path $modules 'Domenia-ProbeDetails.Model.ps1')
 . (Join-Path $modules 'Domenia-QuerySchema.Worker.ps1')
 . (Join-Path $modules 'Domenia-QuerySchema.UI.ps1')
-$mmi=$true;try{Add-Type -AssemblyName Microsoft.Management.Infrastructure -ErrorAction Stop}catch{$mmi=$false}
+$mmi=$true;$mmiOptions=$null;try{Add-Type -AssemblyName Microsoft.Management.Infrastructure -ErrorAction Stop;$mmiOptions=[Microsoft.Management.Infrastructure.Options.CimOperationOptions]::new();$mmiOptions.Timeout=[TimeSpan]::FromSeconds(12)}catch{$mmi=$false}finally{if($null -ne $mmiOptions){$mmiOptions.Dispose()}}
 function New-FixtureProperty([string]$Name,[string]$Type='String',[switch]$Key,[string]$Unit='',[string]$Description='',[switch]$Localized){
     $qualifiers=[Collections.Generic.List[object]]::new()
     if($Key){$qualifiers.Add([pscustomobject]@{Name='Key';Value=$true})}
@@ -396,7 +400,7 @@ $result=Invoke-SchemaWorker @{Mode='Schema'}
 $properties=@{};foreach($row in $result.Schema){$properties[$row.Property]=$row}
 Expect (-not $properties.ContainsKey('LegacyPassword') -and $properties['WaitHint'].Unit -ceq 'milliseconds' -and $properties['Dependencies'].IsArray -and $properties['Name'].IsKey -and $result.CanonicalQuery -ceq 'SCHEMA Win32_Service') 'schema gives types, keys, arrays and units, never a secret property'
 if($mmi){Expect ($result.DescriptionsAvailable -and $script:LocalizedCalls -eq 1 -and $result.ClassDescription -ceq 'Service Windows' -and $properties['Name'].Description -ceq 'Nom unique du service') 'localized descriptions are read once and flattened to one line'}
-else{Expect (-not $result.DescriptionsAvailable) 'without the CIM client library, descriptions are announced as unavailable'}
+else{Expect (-not $result.DescriptionsAvailable) 'without usable CIM options (including macOS), descriptions are announced as unavailable'}
 $script:FixtureSession=[pscustomobject]@{Fixture=$true}
 $result=Invoke-SchemaWorker @{Mode='Schema'}
 Expect (-not $result.DescriptionsAvailable -and -not $result.ClassDescription -and @($result.Schema).Count -eq 6) 'a provider without localized qualifiers falls back to the plain schema, said as such'
@@ -483,14 +487,14 @@ Update-DomeniaQueryRelationPresets
 Expect (@($combo.ItemsSource).Count -eq 3 -and $combo.SelectedItem.Kind -ceq 'Association' -and $script:Fake.TxtQueryAssociationClass.Text -ceq 'Win32_DependentService') 'relations planned for a service are offered first'
 $combo.SelectedIndex=1;Use-DomeniaQueryRelationPreset
 Expect ($combo.SelectedItem.Kind -ceq 'Reference' -and -not $script:Fake.TxtQueryAssociationClass.IsEnabled) 'a reference relation needs no free association text'
-$tasks=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
-Expect ($script:Tasks.Count -eq $tasks -and $script:Labels.LblQueryWmiStatus -like '*ProcessId nʼa pas été lue*') 'a reference without the identity property read is refused before any confirmation'
+$taskCount=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
+Expect ($script:Tasks.Count -eq $taskCount -and $script:Labels.LblQueryWmiStatus -like '*ProcessId nʼa pas été lue*') ('a reference without the identity property read is refused before any confirmation: '+$script:Labels.LblQueryWmiStatus)
 $withPid=[pscustomobject]@{Id=$service.Id;ClassName='Win32_Service';KeyValues=$service.KeyValues;Values=[pscustomobject]@{State='Running';Name='Spooler';ProcessId=1234}};$script:Fake.DgQueryWmiRows.SelectedItem=$withPid
 Invoke-DomeniaQuerySchemaAction 'Relation'
 $last=$script:Tasks[$script:Tasks.Count-1]
-Expect ($script:Tasks.Count -eq $tasks+1 -and $last.Payload.Mode -ceq 'Reference' -and [string]$last.Payload.SourceValue -ceq '1234' -and $last.Payload.ResultClass -ceq 'Win32_Process' -and $last.Payload.TargetProperty -ceq 'Handle' -and $last.State.ResultKind -ceq 'WmiQuery') 'the hosting process read is confirmed then sent with the source identity'
-$script:Fake.DgQueryWmiRows.SelectedItem=$null;$tasks=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
-Expect ($script:Tasks.Count -eq $tasks -and $script:Labels.LblQueryWmiStatus -like '*Sélectionnez une instance*') 'no relation without a selected stored instance'
+Expect ($script:Tasks.Count -eq $taskCount+1 -and $last.Payload.Mode -ceq 'Reference' -and [string]$last.Payload.SourceValue -ceq '1234' -and $last.Payload.ResultClass -ceq 'Win32_Process' -and $last.Payload.TargetProperty -ceq 'Handle' -and $last.State.ResultKind -ceq 'WmiQuery') 'the hosting process read is confirmed then sent with the source identity'
+$script:Fake.DgQueryWmiRows.SelectedItem=$null;$taskCount=$script:Tasks.Count;Invoke-DomeniaQuerySchemaAction 'Relation'
+Expect ($script:Tasks.Count -eq $taskCount -and $script:Labels.LblQueryWmiStatus -like '*Sélectionnez une instance*') 'no relation without a selected stored instance'
 
 # ---------------------------------------------------------------------------------------------------------------
 # Point 152: collections with at least one, all and none; several criteria on the SAME disk or software.

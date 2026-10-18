@@ -1,0 +1,9 @@
+{
+  "Status": "PASS",
+  "Assertions": 141,
+  "CoveragePopulation": 20000,
+  "SourceMode": false,
+  "ElapsedSeconds": 4.256,
+  "PowerShell": "7.4.6",
+  "Scope": "Actual models, worker factories, XML-independent UI pagination with inert controls; no network, AD, WMI or WPF"
+}

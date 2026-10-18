@@ -62,7 +62,7 @@ function Show-DomeniaHealthRulesEditor {
         foreach($o in @(Get-DomeniaHealthPolicyOrigins -Book $hrBook -ScopeDn $Dn)){$origins[[string]$o.Kind+'|'+[string]$o.Id]=[string]$o.Origin}
         $hrRules.Clear();foreach($r in @(Get-DomeniaHealthRuleCatalog)){$hrRules.Add([pscustomobject]@{Id=$r.Id;Name=$r.Name;Enabled=(Test-DomeniaHealthRuleEnabled $p $r.Id -IgnoreSuspension);Origin=[string]$origins['Contrôle|'+$r.Id]})}
         $hrLimits.Clear();foreach($l in @(Get-DomeniaHealthThresholdCatalog)){$hrLimits.Add([pscustomobject]@{Id=$l.Id;Name=$l.Name;Value=[string]$p.Thresholds.($l.Id);Bounds=([string]$l.Minimum+' à '+$l.Maximum);Origin=[string]$origins['Seuil|'+$l.Id]})}
-        $hrCustom.Clear();foreach($r in @($p.CustomRules)){$hrCustom.Add(($r|ConvertTo-Json -Compress|ConvertFrom-Json))}
+        $hrCustom.Clear();foreach($r in @($p.CustomRules)){$hrCustom.Add(($r|ConvertTo-Json -Depth 5 -Compress|ConvertFrom-Json))}
         $hrSuspensions.Clear();foreach($v in @($p.Suspensions)){$hrSuspensions.Add((& $hrSuspensionRow $v))}
         $source=Get-DomeniaHealthValue $p 'Origin'
         $hrOrigin.Text='Origine : '+(Format-DomeniaHealthScopeLabel ([string]$source.SourceDn) ([string]$hrBook.DomainDn))+' · alertes personnalisées : '+[string]$origins['Liste|CustomRules']+' · suspensions : '+[string]$origins['Liste|Suspensions']+'. Seules vos différences deviennent des exceptions locales.'
@@ -83,9 +83,28 @@ function Show-DomeniaHealthRulesEditor {
     $hrAdd=[Windows.Controls.Button]::new();$hrAdd.Content='Ajouter une alerte';$hrAdd.Margin=[Windows.Thickness]::new(0,0,8,0);$hrAdd.ToolTip='Ajouter une alerte personnalisée sur une mesure du poste (32 au maximum).'
     $hrDelete=[Windows.Controls.Button]::new();$hrDelete.Content='Supprimer lʼalerte sélectionnée';$hrDelete.ToolTip='Retirer définitivement cette alerte personnalisée. Pour la masquer quelque temps, utilisez plutôt lʼonglet Suspensions.'
     [void]$hrCustomActions.Children.Add($hrAdd);[void]$hrCustomActions.Children.Add($hrDelete);[void]$hrCustomPanel.Children.Add($hrCustomActions)
+    $hrQuery=[Windows.Controls.ComboBox]::new();$hrQuery.DisplayMemberPath='Label';$hrQuery.MinWidth=210;$hrQuery.Margin='8,0,8,0'
+    $hrRefreshQueryChoices={
+        $library=Initialize-DomeniaQueryLibraryStore
+        $selectedId=if($null -ne $hrQuery.SelectedItem){[string]$hrQuery.SelectedItem.Row.Id}else{''}
+        $hrQuery.ItemsSource=@(@(if($null -ne $library -and $library.Loaded){foreach($row in $library.Rows.Values){if(-not $row.Archived){[pscustomobject]@{Label=([string]$row.Name+' · révision '+$row.Revision);Row=$row}}}})|Sort-Object Label)
+        if($selectedId){$hrQuery.SelectedItem=@($hrQuery.ItemsSource|Where-Object{$_.Row.Id -ceq $selectedId}|Select-Object -First 1)[0]}
+        $hrQuery.ToolTip=if($null -eq $library){'Bibliothèque indisponible dans ce contexte.'}elseif(-not $library.Loaded){'Lecture de la bibliothèque en cours ; rouvrez la liste après sa fin.'}else{'Choisissez la révision enregistrée à utiliser dans cette alerte.'}
+    }
+    & $hrRefreshQueryChoices
+    $hrQuery.Add_DropDownOpened($hrRefreshQueryChoices)
+    $hrAddQuery=[Windows.Controls.Button]::new();$hrAddQuery.Content='Utiliser cette requête';$hrAddQuery.ToolTip='Ajouter une alerte ou actualiser la requête de lʼalerte sélectionnée. La révision choisie reste conservée jusquʼà une nouvelle sélection explicite.'
+    [void]$hrCustomActions.Children.Add($hrQuery);[void]$hrCustomActions.Children.Add($hrAddQuery)
+    $hrAddQuery.Add_Click({try{
+        $choice=$hrQuery.SelectedItem;if($null -eq $choice){throw 'Choisissez une requête enregistrée dans la bibliothèque.'}
+        $selected=$hrCustomGrid.SelectedItem
+        if($null -ne $selected -and [string]$selected.Measure -eq 'Query'){$replacement=New-DomeniaHealthQueryRule -Row $choice.Row -Id $selected.Id -Severity $selected.Severity -Enabled $selected.Enabled;$hrCustom[$hrCustom.IndexOf($selected)]=$replacement}
+        else{if($hrCustom.Count -ge 32){throw '32 alertes personnalisées au maximum.'};$hrCustom.Add((New-DomeniaHealthQueryRule -Row $choice.Row))}
+        $hrError.Text=''
+    }catch{$hrError.Text=$_.Exception.Message}})
     $hrCustomGrid=& $hrMakeGrid $hrCustom;& $hrAddCheck $hrCustomGrid;& $hrAddText $hrCustomGrid 'Nom' 'Name' $false 170
     $hrChoices=@(
-        [pscustomobject]@{Title='Mesure';Path='Measure';Items=@([pscustomobject]@{Id='DiskFree';Name='Disque C: libre (%)'},[pscustomobject]@{Id='UptimeDays';Name='Sans redémarrage (j)'},[pscustomobject]@{Id='MemoryUsed';Name='Mémoire utilisée (%)'})}
+        [pscustomobject]@{Title='Mesure';Path='Measure';Items=@([pscustomobject]@{Id='DiskFree';Name='Disque C: libre (%)'},[pscustomobject]@{Id='UptimeDays';Name='Sans redémarrage (j)'},[pscustomobject]@{Id='MemoryUsed';Name='Mémoire utilisée (%)'},[pscustomobject]@{Id='Query';Name='Requête enregistrée'})}
         [pscustomobject]@{Title='Condition';Path='Operator';Items=@([pscustomobject]@{Id='LessThan';Name='Inférieur à'},[pscustomobject]@{Id='GreaterThan';Name='Supérieur à'})}
         [pscustomobject]@{Title='Niveau';Path='Severity';Items=@([pscustomobject]@{Id='Warn';Name='À surveiller'},[pscustomobject]@{Id='Alert';Name='Critique'})}
     )
@@ -93,7 +112,8 @@ function Show-DomeniaHealthRulesEditor {
         $column=[Windows.Controls.DataGridComboBoxColumn]::new();$column.Header=$choice.Title;$column.ItemsSource=$choice.Items;$column.DisplayMemberPath='Name';$column.SelectedValuePath='Id';$column.SelectedValueBinding=[Windows.Data.Binding]::new($choice.Path);$column.Width=125;[void]$hrCustomGrid.Columns.Add($column)
     }
     & $hrAddText $hrCustomGrid 'Seuil' 'Threshold' $false 75
-    $hrLegend=[Windows.Controls.TextBlock]::new();$hrLegend.Text='Le disque et le démarrage sont disponibles après le relevé WMI de lʼOU. La mémoire utilisée demande lʼinventaire détaillé du poste. Une mesure absente reste inconnue. Supprimer retire définitivement la règle, sans effacer les données collectées ; masquer temporairement une alerte se fait dans lʼonglet Suspensions.';$hrLegend.TextWrapping='Wrap';$hrLegend.Margin=[Windows.Thickness]::new(0,8,0,0);[Windows.Controls.DockPanel]::SetDock($hrLegend,'Bottom');[void]$hrCustomPanel.Children.Add($hrLegend);[void]$hrCustomPanel.Children.Add($hrCustomGrid)
+    & $hrAddText $hrCustomGrid 'Requête conservée' 'QueryLabel' $true 240
+    $hrLegend=[Windows.Controls.TextBlock]::new();$hrLegend.Text='Le disque et le démarrage sont disponibles après le relevé WMI de lʼOU. La mémoire utilisée demande lʼinventaire détaillé du poste. Une mesure absente reste inconnue. Une alerte de requête conserve sa définition et sa révision ; seuls son niveau et son activation sʼappliquent, les colonnes Condition et Seuil sont sans effet. Utiliser cette requête permet de changer explicitement de révision. Supprimer retire définitivement la règle, sans effacer les données collectées ; masquer temporairement une alerte se fait dans lʼonglet Suspensions.';$hrLegend.TextWrapping='Wrap';$hrLegend.Margin=[Windows.Thickness]::new(0,8,0,0);[Windows.Controls.DockPanel]::SetDock($hrLegend,'Bottom');[void]$hrCustomPanel.Children.Add($hrLegend);[void]$hrCustomPanel.Children.Add($hrCustomGrid)
     $hrCustomTab=[Windows.Controls.TabItem]::new();$hrCustomTab.Header='Mes alertes';$hrCustomTab.Content=$hrCustomPanel;[void]$hrTabs.Items.Add($hrCustomTab)
     $hrAdd.Add_Click({if($hrCustom.Count -ge 32){$hrError.Text='32 alertes personnalisées au maximum.';return};$hrCustom.Add([pscustomobject]@{Id=('custom.'+[guid]::NewGuid().ToString('N'));Name='Espace disque à surveiller';Measure='DiskFree';Operator='LessThan';Threshold=15;Severity='Warn';Enabled=$true})})
     $hrDelete.Add_Click({$selected=$hrCustomGrid.SelectedItem;if($null -ne $selected){[void]$hrCustom.Remove($selected)}})

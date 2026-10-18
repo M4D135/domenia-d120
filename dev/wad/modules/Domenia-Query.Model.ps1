@@ -1373,18 +1373,18 @@ function Compare-DomeniaQueryRecipeDefinitions {
     $lists=@{'Condition'=@('Condition retirée','Condition ajoutée');'Segment'=@('Segment retiré','Segment ajouté');'Paramètre'=@('Paramètre retiré','Paramètre ajouté')}
     $rows=[Collections.Generic.List[object]]::new()
     foreach($key in @($new.Keys)){
-        $after=@($new[$key]|Where-Object{[string]$_})
+        $afterValues=@($new[$key]|Where-Object{[string]$_})
         if($null -eq $old){
-            if($key -in @('Cohérence des dates','Sélection figée','Segment de sonde','SELECT mémorisé','Répartition') -and $after.Count -eq 1 -and $after[0] -in @('Aucune contrainte','Aucune','Aucun','Compteur de postes')){continue}
-            foreach($value in $after){$rows.Add([pscustomobject]@{Element=$key;Before='';After=[string]$value})}
+            if($key -in @('Cohérence des dates','Sélection figée','Segment de sonde','SELECT mémorisé','Répartition') -and $afterValues.Count -eq 1 -and $afterValues[0] -in @('Aucune contrainte','Aucune','Aucun','Compteur de postes')){continue}
+            foreach($value in $afterValues){$rows.Add([pscustomobject]@{Element=$key;Before='';After=[string]$value})}
             continue
         }
-        $before=@($old[$key]|Where-Object{[string]$_})
+        $beforeValues=@($old[$key]|Where-Object{[string]$_})
         if($lists.ContainsKey($key)){
-            foreach($value in @($before|Where-Object{$after -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][0];Before=[string]$value;After=''})}
-            foreach($value in @($after|Where-Object{$before -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][1];Before='';After=[string]$value})}
-        }elseif(($before -join "`n") -cne ($after -join "`n")){
-            $rows.Add([pscustomobject]@{Element=$key;Before=($before -join ' ; ');After=($after -join ' ; ')})
+            foreach($value in @($beforeValues|Where-Object{$afterValues -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][0];Before=[string]$value;After=''})}
+            foreach($value in @($afterValues|Where-Object{$beforeValues -cnotcontains $_})){$rows.Add([pscustomobject]@{Element=$lists[$key][1];Before='';After=[string]$value})}
+        }elseif(($beforeValues -join "`n") -cne ($afterValues -join "`n")){
+            $rows.Add([pscustomobject]@{Element=$key;Before=($beforeValues -join ' ; ');After=($afterValues -join ' ; ')})
         }
     }
     if(($null -ne $old) -and ($null -ne $After) -and -not $rows.Count){

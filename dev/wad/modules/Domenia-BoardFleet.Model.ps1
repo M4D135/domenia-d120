@@ -700,7 +700,7 @@ function Get-DomeniaFleetBoardData {
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'Snapshot' -Value ([pscustomobject]@{ Day = $today; Taken = $taken; Figures = $figures })
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'EosKnownGroups' -Value $eosKnownGroups
     Add-Member -InputObject $data -MemberType NoteProperty -Name 'HealthEligibility' -Value (Get-DomeniaFleetRuleEligibility -Data $data -NowUtc $nowUtc)
-    if($null -ne $HealthPolicyBook -and @($HealthPolicyBook.Scopes).Count){Update-DomeniaFleetScopedHealth -Data $data -Book $HealthPolicyBook -NowUtc $nowUtc -Lifecycle $Lifecycle}
+    if($null -ne $HealthPolicyBook -and (@($HealthPolicyBook.Scopes).Count -or @($HealthPolicyBook.Default.CustomRules|Where-Object Measure -eq 'Query').Count)){Update-DomeniaFleetScopedHealth -Data $data -Book $HealthPolicyBook -NowUtc $nowUtc -Lifecycle $Lifecycle -ObservationMaxAgeDays $ObservationMaxAgeDays}
     [void](Complete-DomeniaBoardData -Data $data)
     $data.Last.WidgetTargets['fleet.health']=@($targets);$data.Last.WidgetTargets['fleet.attention']=@($data.Last.ProblemTargets)
     $data.Last.WidgetTargets['fleet.health|Sans problème']=@($data.Last.HealthyTargets);$data.Last.WidgetTargets['fleet.health|Problèmes']=@($data.Last.ProblemTargets);$data.Last.WidgetTargets['fleet.health|Incomplets']=@($data.Last.UnknownTargets)

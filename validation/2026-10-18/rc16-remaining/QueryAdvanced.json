@@ -1,0 +1,8 @@
+{
+  "Status": "PASS",
+  "Assertions": 161,
+  "SourceMode": false,
+  "ElapsedSeconds": 4.515,
+  "PowerShell": "7.4.6",
+  "Scope": "Actual models, worker factories and click handlers with inert controls; remote WMI cmdlets replaced by fixtures; no network, AD, WMI or WPF"
+}

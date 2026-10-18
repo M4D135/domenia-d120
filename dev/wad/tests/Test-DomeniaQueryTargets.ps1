@@ -11,7 +11,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','Query.UI','QueryTargets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.UI','QueryLibrary.Store.UI','QueryTargets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){
     try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}
@@ -38,7 +38,13 @@ function Reset-Fixture {
         LblQueryComputerPreview=[pscustomobject]@{Text=''}
     }
     $script:Draft=New-DomeniaQueryRecipe -Id 'fixture.shared' -Name 'Mémoire du poste' -Clauses @([pscustomobject]@{Field='ramGB';Operator='Less';Value=8})
-    $script:DomeniaQueryState=[pscustomobject]@{Saved=@($script:Draft);Recipe=$script:Draft;LibraryError='';Widgets=@{};WidgetLibrary='';Timer=$null}
+    $script:DomeniaQueryState=[pscustomobject]@{Saved=@($script:Draft);Recipe=$script:Draft;Generation=1L;LibraryError='';Widgets=@{};WidgetLibrary='';Timer=$null}
+    $script:SessionEpoch=1L;$script:DatabaseScopedPath=Join-Path ([IO.Path]::GetTempPath()) 'domenia-targets-fixture.db';$script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=test'}
+    $context=[pscustomobject]@{Version=1;Path=$script:DatabaseScopedPath;StoreId='targets-fixture';DomainDn=$script:Conn.BaseDn;SessionEpoch=1L;Generation=1L}
+    $row=New-DomeniaQueryLibraryRecord -Context $context -Recipe $script:Draft -ExpectedRevision 0
+    $script:DomeniaQueryLibraryStoreState=[pscustomobject]@{Context=$context;Generation=1L;Loaded=$true;Loading=$false;Saving=$false;Error='';Rows=@{'fixture.shared'=$row};Recipes=@($script:Draft);Categories=@{};ArchivedRows=@();Dependencies=@()}
+    $script:ConfirmedRecipeWrites=0;$script:RefuseRecipeWrite=$false
+
 }
 function Get-DomeniaControl {param($Name);return $script:Controls[$Name]}
 function Set-DomeniaControlText {param($Name,$Text);if($script:Controls.ContainsKey($Name)){$script:Controls[$Name].Text=[string]$Text};return $true}
@@ -57,6 +63,20 @@ function Set-DomeniaBoardLayout {
     $script:Layouts[$Board]=@(ConvertTo-DomeniaBoardLayout -Board $Board -Json $json)
     $script:BoardWrites++
 }
+# Only the persistence boundary is doubled: real save, receipt validation and UI callbacks execute.
+function New-DomeniaStoreContext {param($RequestId);return $script:DomeniaQueryLibraryStoreState.Context}
+function Get-DomeniaSearchQueryFavorites {return @()}
+function Show-DomeniaDialog {param($Title,$Message,$Details,$Kind,$Buttons);return 'Yes'}
+function Submit-DomeniaStoreBatch {
+    param($Context,$BatchId,$Sequence,$Changes,$SuccessHandler,$ErrorHandler,$CallbackState)
+    if($script:RefuseRecipeWrite){return [pscustomobject]@{Accepted=$false;Reason='Busy'}}
+    $record=@($Changes|Where-Object Kind -eq 'QueryRecipe')[0].Record
+    $links=@($Changes|Where-Object{$_.Kind -eq 'QueryDependency' -and -not $_.Remove})
+    $script:ConfirmedRecipeWrites++
+    $script:PendingRecipeWrite=[pscustomobject]@{Handler=$SuccessHandler;Result=[pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$Context.StoreId;QueryRecipes=@($record);QueryDependencies=$links};State=$CallbackState}
+    return [pscustomobject]@{Accepted=$true;Reason=''}
+}
+function Complete-FixtureRecipeWrite {$pending=$script:PendingRecipeWrite;$script:PendingRecipeWrite=$null;& $pending.Handler $pending.Result $pending.State}
 function Start-DomeniaQueryEvaluation {$script:Starts++}
 # A widget just added collects what it misses (decision David 2026-10-14): recorded here, run by the boards suite.
 function Start-DomeniaWidgetRefresh {param($Board,$Id,$Reason);$script:WidgetCollects.Add([string]$Board+'|'+[string]$Id+'|'+[string]$Reason);return $true}
@@ -135,23 +155,29 @@ Case 'Every supported query visual persists for both boards' {
 }
 Case 'Adding a Computer widget twice is idempotent and keeps visual' {
     Reset-Fixture;Select-FixtureComputer;Set-FixtureInventory
-    Add-DomeniaWorkshopWidget;$id=$script:Layouts.Computer[0].Id
-    Add-DomeniaWorkshopWidget
+    Add-DomeniaWorkshopWidget;Complete-FixtureRecipeWrite;$id=$script:Layouts.Computer[0].Id
+    Add-DomeniaWorkshopWidget;Complete-FixtureRecipeWrite
     Expect ($script:Layouts.Computer.Count -eq 1 -and $script:Layouts.Computer[0].Id -eq $id -and $script:Layouts.Computer[0].Visual -eq 'Pie')
     Expect ($script:Starts -eq 0 -and $script:BoardWrites -eq 2 -and $script:DomeniaQueryState.Saved.Count -eq 1)
     Expect (($script:WidgetCollects.Count -eq 1) -and ($script:WidgetCollects[0] -eq ('Computer|'+$id+'|Add'))) ('Collecte du widget ajoute : '+($script:WidgetCollects -join ','))
     Expect ($script:Controls.LblQueryStatus.Text -like '*Aucune collecte lancée*') 'Une mise a jour du widget existant ne collecte rien'
-    $loaded=@(ConvertFrom-DomeniaQueryLibrary $script:SavedSettings);Expect ($loaded.Count -eq 1 -and $loaded[0].Id -eq 'fixture.shared')
+    Expect ($script:DomeniaQueryLibraryStoreState.Rows.Count -eq 1 -and $script:ConfirmedRecipeWrites -eq 2 -and $script:DomeniaQueryLibraryStoreState.Dependencies.Count -eq 1) 'One canonical recipe and one committed widget link'
+}
+Case 'A refused recipe write never adds a widget or starts a collection' {
+    Reset-Fixture;Select-FixtureComputer;$script:RefuseRecipeWrite=$true
+    $refused=$false;try{Add-DomeniaWorkshopWidget}catch{$refused=$true}
+    Expect ($refused -and $script:BoardWrites -eq 0 -and $script:WidgetCollects.Count -eq 0 -and $script:ConfirmedRecipeWrites -eq 0) 'No publication before a successful receipt'
 }
 Case 'Same recipe is usable on Fleet and Computer without duplicate recipe' {
-    Reset-Fixture;Select-FixtureComputer;Add-DomeniaWorkshopWidget
-    $script:Controls.CmbQueryWidgetDestination.SelectedItem.Tag='Fleet';Add-DomeniaWorkshopWidget
-    Expect ($script:Layouts.Computer.Count -eq 1 -and $script:Layouts.Fleet.Count -eq 1 -and $script:DomeniaQueryState.Saved.Count -eq 1 -and $script:Starts -eq 1)
+    Reset-Fixture;Select-FixtureComputer;Add-DomeniaWorkshopWidget;Complete-FixtureRecipeWrite
+    $script:Controls.CmbQueryWidgetDestination.SelectedItem.Tag='Fleet';Add-DomeniaWorkshopWidget;Complete-FixtureRecipeWrite
+    Expect ($script:Layouts.Computer.Count -eq 1 -and $script:Layouts.Fleet.Count -eq 1 -and $script:DomeniaQueryState.Saved.Count -eq 1 -and $script:WidgetCollects.Count -eq 2)
 }
 Case 'Deleting recipe removes its widgets from both boards and preserves others' {
     Reset-Fixture
     foreach($board in @('Fleet','Computer')){$script:Layouts[$board]=@((New-DomeniaBoardItem -Source Query -Key fixture.shared -Visual Pie),(New-DomeniaBoardItem -Source Query -Key another.recipe -Visual Kpi))}
-    Invoke-DomeniaQueryAction Delete
+    # The impact review is exercised separately; this case confirms the explicit archive receipt.
+    Save-DomeniaQueryRecipe -Recipe $script:Draft -Archive -ImpactConfirmed -SuccessHandler Complete-DomeniaQueryRecipeArchiveUi | Out-Null;Complete-FixtureRecipeWrite
     Expect (-not $script:UiError) $script:UiError
     Expect ($script:DomeniaQueryState.Saved.Count -eq 0 -and $script:Layouts.Fleet.Count -eq 1 -and $script:Layouts.Computer.Count -eq 1)
     Expect ($script:Layouts.Fleet[0].Key -eq 'another.recipe' -and $script:Layouts.Computer[0].Key -eq 'another.recipe')

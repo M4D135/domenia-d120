@@ -5,7 +5,9 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
-Build actuel : **RC1.17.15**, candidat — [correctif et contrôles santé](../validation/2026-10-18/health-suspension-utc/README.md).
+Build actuel : **RC1.17.16**, candidat — [corrections et contrôles ciblés](../validation/2026-10-18/rc16-remaining/README.md).
+
+RC1.17.16 : contrats WMI/conservation, provenance durable des imports, alertes de santé par recette à révision conservée, sauvegardes SQLite autonomes et bancs de requêtes corrigés. Contrôles natifs ciblés, sans VM. Qualification Windows et décisions externes (licences, coordination Pesto/FilPro/amont) ouvertes.
 
 Accueil simplifié, Santé en dernier par défaut, déplacement des sections et tailles de widgets stables.
 Le bandeau suit le lot complet, y compris les attentes et lʼenregistrement ; le panneau détaille les lectures.

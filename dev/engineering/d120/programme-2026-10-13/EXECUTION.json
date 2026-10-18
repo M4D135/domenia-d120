@@ -2,8 +2,8 @@
   "schema": 1,
   "authorized_at": "2026-10-13",
   "updated_at": "2026-10-18",
-  "status": "implementation_integrated_windows_qualification_pending",
-  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.",
+  "status": "implementation_integrated_windows_qualification_and_external_decisions_pending",
+  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.\nRC1.17.16 : corrections restantes du dépôt traitées directement le 18/10/2026. Registre de 97 opérations synchronisé ; provenance durable des imports ; recettes de santé à révision conservée ; suites requêtes remises en état ; sauvegardes SQLite autonomes ; commandes de démarrage non délimitées expurgées. Contrôles ciblés macOS natifs et fabrication des packs, sans VM. Aucun acceptance_passed ajouté. Décisions externes : 134 (coordination/amont) et 146 (redistribution).",
   "minimum_computers": 10000,
   "qualification_computers": 20000,
   "publication": "source_integration_not_windows_qualified",
@@ -18,12 +18,13 @@
         "dev/wad/tests/Test-DomeniaCollectCircuit.ps1",
         "dev/wad/modules/Domenia-Live.UI.ps1:Get-DomeniaLiveWorkerCount",
         "dev/wad/modules/Domenia-Live.UI.ps1:Stop-DomeniaLiveJob",
-        "dev/wad/tests/Test-DomeniaStreaming.ps1"
+        "dev/wad/tests/Test-DomeniaStreaming.ps1",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Il reste à exécuter CollectCircuit et Streaming en VM sous Windows PowerShell 5.1. QuerySchema, QueryTransfer et StorageRetention restent à épingler par l'intégrateur : c'est une dette de master, hors de ce lot."
+        "Exécuter CollectCircuit et Streaming sous Windows PowerShell 5.1. Les 97 opérations sont épinglées et tout appel absent du registre fait maintenant échouer le contrôle."
       ],
-      "implementation_summary": "Le ping explicite du poste sélectionné utilise LiveSelectedPing et passe par SQLite avant publication. La suite CollectCircuit lit maintenant le contrat des opérations en deux temps, comme Test-Domenia.ps1 (CO-23) ; avant, sous WinPS 5.1, tout le tableau tombait sur une seule clé. Elle vérifie aussi que la carte contient plus de 50 entrées. Les lancements de master encore non épinglés sont listés dans PendingPins et ne font plus échouer le circuit de collecte. Ce budget de ping n'est plus compté dans les sondes de la recherche."
+      "implementation_summary": "Le ping explicite du poste sélectionné utilise LiveSelectedPing et passe par SQLite avant publication. La suite CollectCircuit lit maintenant le contrat des opérations en deux temps, comme Test-Domenia.ps1 (CO-23) ; avant, sous WinPS 5.1, tout le tableau tombait sur une seule clé. Elle vérifie aussi que la carte contient plus de 50 entrées. Historique avant RC16 : des lancements non épinglés étaient tolérés ; cette tolérance est supprimée. Ce budget de ping n'est plus compté dans les sondes de la recherche. RC16 : aucun lancement non épinglé toléré ; vérification des corps générés StorageRetention, QuerySchema et WidgetWmiDetail."
     },
     {
       "id": 2,
@@ -237,10 +238,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode",
         "dev/wad/modules/Domenia-Collection.Model.ps1:Measure-DomeniaCimQueryPlan",
-        "dev/wad/tests/Test-DomeniaRemoteStore.ps1"
+        "dev/wad/tests/Test-DomeniaRemoteStore.ps1",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épingler LiveConsole et LiveSelectedPing (intégrateur), puis exécuter Test-DomeniaRemoteStore dans la VM."
+        "Qualifier RemoteStore sous Windows et les erreurs de transport réelles."
       ],
       "implementation_summary": "Le worker LiveConsole/LiveSelectedPing lit une seule fois les classes partagées par la console, l'inventaire et les sondes, et compte les requêtes envoyées et évitées. La règle de regroupement est dans le corps épinglé. Aucun changement de logique dans cette passe."
     },
@@ -324,10 +326,11 @@
         "dev/wad/modules/Domenia-Park.UI.ps1:Complete-DomeniaParkStored",
         "dev/wad/tests/rules/Collection.Tests.ps1:P18",
         "dev/wad/tests/Test-DomeniaParkDetection.ps1",
-        "dev/wad/tests/Test-DomeniaRemoteStore.ps1"
+        "dev/wad/tests/Test-DomeniaRemoteStore.ps1",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épingler LiveConsole et LiveSelectedPing (intégrateur), puis exécuter les règles et les suites dans la VM."
+        "Qualifier les règles et suites de collecte sous Windows 5.1."
       ],
       "implementation_summary": "Seul un poste dont la réponse est prouvée est relu, au plus deux fois (30 s puis 2 min). Correctifs de revue : en WMI seul, « serveur RPC indisponible » est classé Unreachable/Neutral, sans reprise ni effet sur le budget du sous-réseau. Une lecture arrêtée par le moteur n'est reprise que si son ping a répondu : le worker dépose la réponse du ping dans le canal de progression. Un poste relu garde son observation précédente jusqu'au dernier essai."
     },
@@ -374,10 +377,11 @@
       "evidence": [
         "dev/wad/Domenia-Core.ps1:Start-DomeniaIndexRefresh",
         "dev/wad/modules/Domenia-Cache.Model.ps1:Test-DomeniaSyncCheckpoint",
-        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 21 repère refusé"
+        "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 21 repère refusé",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épingler IndexBuild (intégrateur), puis exécuter Cache.Tests et la suite de raccordement dans la VM."
+        "Qualifier Cache.Tests et la suite de raccordement sous Windows."
       ],
       "implementation_summary": "Le repère n'est réutilisé que sur le même contrôleur et la même instance, avec des données cohérentes. Correctif de revue : quand le repère est refusé, la confirmation estime une relecture complète (nombre d'objets de la base) sous le titre « Relecture complète du domaine : <motif> ». Le motif est journalisé une seule fois, au lancement réel."
     },
@@ -534,10 +538,11 @@
         "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceDrain",
         "dev/wad/modules/Domenia-Storage.UI.ps1:Start-DomeniaStorageMaintenanceUndo",
         "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'Writes queued after the preview are saved, then previewed again before any copy'",
-        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 31: a completed move is undone only through the marker of its original'"
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 31: a completed move is undone only through the marker of its original'",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Aucune suite n'a été exécutée : passage sous Windows PowerShell 5.1 dans la VM. L'intégrateur doit ré-épingler le worker StorageMaintenance."
+        "Qualifier déplacement et retour de base sous Windows ; worker épinglé."
       ],
       "implementation_summary": "L'assistant « Déplacer la base… » valide la destination avant tout changement (nouveau .db local, dossier existant, aucune annexe SQLite, réserve de deux fois la base plus 32 Mo, test d'écriture réel). L'aperçu donne la taille, l'espace libre, la réserve et le retour arrière. « Revenir à la base précédente » reste offert dans la session tant que la nouvelle base n'a reçu aucune écriture. Depuis la relecture, des écritures arrivées entre l'aperçu et la confirmation sont enregistrées, puis un nouvel aperçu est demandé : l'ancien comportement menait à une copie refusée d'avance."
     },
@@ -624,10 +629,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageIntegrityWorkerCode",
         "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageIntegrityVerdict",
-        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 36: integrity check...'"
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 36: integrity check...'",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épinglage de StorageIntegrity (--add) par l'intégrateur, puis exécution VM."
+        "Qualifier StorageIntegrity sous Windows ; schéma et worker contrôlés localement."
       ],
       "implementation_summary": "Contrôle d'intégrité explicite en lecture seule, avec un verdict honnête ; la migration de schéma est vérifiée dans sa transaction ; une base illisible ouvre le mode restauration. Inchangé par la relecture."
     },
@@ -642,12 +648,13 @@
         "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 37: link history compaction reads each observation once on a large park'",
         "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 37: link history keeps every change and the bounds of each period'",
         "dev/wad/tests/rules/Storage.Tests.ps1:P37",
-        "guides/administrateur.md:Conservation par famille"
+        "guides/administrateur.md:Conservation par famille",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épinglage de StorageRetention (jamais épinglée, donc refusée à l'exécution sur master), puis exécution VM, dont le cas à 400 000 lignes."
+        "Qualifier conservation sur Windows, dont le cas à 400 000 lignes ; sauvegarde autonome obligatoire et relue avant suppression."
       ],
-      "implementation_summary": "La famille « Historique des associations » résume l'historique sans perdre de changement. Corrigé : les voisins sont calculés en une seule passe ordonnée (table TEMP numérotée par poste, date et id, avec un contrôle d'ordre qui refuse toute suppression si la numérotation est fausse), au lieu de sous-requêtes corrélées dont le coût dépassait le délai de 300 s sur un grand parc. Le résultat est identique à l'ancienne requête sur 60 jeux aléatoires, et 400 000 lignes sont traitées en 0,6 s (Python sqlite3 3.53). Le défaut de LinkHistoryDays passe à 0 (conservé sans limite), conformément à la décision du 2026-10-04."
+      "implementation_summary": "La famille « Historique des associations » résume l'historique sans perdre de changement. Corrigé : les voisins sont calculés en une seule passe ordonnée (table TEMP numérotée par poste, date et id, avec un contrôle d'ordre qui refuse toute suppression si la numérotation est fausse), au lieu de sous-requêtes corrélées dont le coût dépassait le délai de 300 s sur un grand parc. Le résultat est identique à l'ancienne requête sur 60 jeux aléatoires, et 400 000 lignes sont traitées en 0,6 s (Python sqlite3 3.53). Le défaut de LinkHistoryDays passe à 0 (conservé sans limite), conformément à la décision du 2026-10-04. RC16 : opération raccordée ; les sauvegardes passent en fichier autonome et sont relues après publication avant la suppression."
     },
     {
       "id": 38,
@@ -698,10 +705,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Guard.Model.ps1:Enter-WCredentialAttempt",
         "dev/wad/Domenia-Core.ps1:Invoke-GlobalSearch (repli sans contrôleur, PSObject.Copy)",
-        "dev/wad/tests/Test-DomeniaCredentialGuard.ps1:Point 41 cases"
+        "dev/wad/tests/Test-DomeniaCredentialGuard.ps1:Point 41 cases",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaCredentialGuard, Test-DomeniaRelationsAlignment et Test-DomeniaWiringAcces sous Windows PowerShell 5.1 dans la VM ; ré-épinglage des opérations par l'intégrateur."
+        "Qualifier CredentialGuard, RelationsAlignment et WiringAcces sous Windows 5.1."
       ],
       "implementation_summary": "Inchangé par la reprise : chaque appel qui envoie un compte prend le bail et partage le refus ; la lecture 4624 est attribuée à la session Windows. La reprise ajoute que le repli sans contrôleur de la recherche globale garde tout le contexte (génération, opération, identité), donc le même bail et la même attribution."
     },
@@ -752,10 +760,11 @@
         "dev/wad/tests/rules/Access.Tests.ps1:P44 (écriture, anti-verrouillage)",
         "dev/wad/tests/Test-DomeniaCredentialGuard.ps1:Point 44 cases",
         "dev/wad/tests/Test-DomeniaAccounts.ps1:Point 44 compte de connexion valide comme compte poste",
-        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P44 Anti-verrouillage"
+        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P44 Anti-verrouillage",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécution de Test-DomeniaRules, Test-DomeniaCredentialGuard, Test-DomeniaAccounts et Test-DomeniaWiringAcces sous 5.1 (VM) ; ré-épinglage de GlobalSearch par l'intégrateur."
+        "Qualifier Rules, CredentialGuard, Accounts et WiringAcces sous Windows 5.1."
       ],
       "implementation_summary": "Un seul chemin de correction sans reconnexion, désormais câblé : les listes de clés, de pauses levées et de travaux arrivent aplaties, donc les lectures anciennes sont bien arrêtées et « Protection levée » n'est annoncée que si une pause a été levée. Une écriture garde son compte jusqu'à sa fin, sauf si ce compte lui a déjà été refusé. Le repli sans contrôleur de la recherche garde la génération. Anti-verrouillage : la pause n'est levée que si toutes les copies stockées du compte (connexion, session Windows, poste, secrets, compte poste saisi, temporaires) ont été revalidées après le refus. Sinon l'opérateur est guidé et rien n'est arrêté ni rejoué."
     },
@@ -768,10 +777,11 @@
         "dev/wad/modules/Domenia-Guard.Model.ps1:Get-DomeniaCredentialAliasKeys / Get-DomeniaCredentialGroupKeys",
         "dev/wad/modules/Domenia-Accounts.Async.ps1:Complete-DomeniaAccountAliasRead",
         "dev/wad/tests/rules/Access.Tests.ps1:P45",
-        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P45 Resultat du worker"
+        "dev/wad/tests/Test-DomeniaWiringAcces.ps1:P45 Resultat du worker",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épinglage de la nouvelle opération AccountAliasRead par l'intégrateur ; exécution 5.1 en VM."
+        "Qualifier AccountAliasRead sous Windows."
       ],
       "implementation_summary": "Corrigé : Get-DomeniaCredentialAliasKeys et Get-DomeniaCredentialGroupKeys rendent des clés distinctes et non une chaîne jointe par des espaces. Les noms d'un même SID partagent donc réellement la pause, le verrou et l'attribution des refus, et ils sont visibles dans Comptes."
     },
@@ -842,10 +852,11 @@
       "evidence": [
         "dev/wad/Domenia-Core.ps1:Export-DomeniaInventory",
         "dev/wad/modules/Domenia-Access.Model.ps1:Protect-DomeniaExportRows",
-        "dev/wad/tests/Test-Domenia.ps1:CSV point 50 export d inventaire"
+        "dev/wad/tests/Test-Domenia.ps1:CSV point 50 export d inventaire",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécution 5.1 en VM ; ré-épinglage de QueryExport."
+        "Qualifier QueryExport sous Windows."
       ],
       "implementation_summary": "Les exports sont expurgés et annoncent leur total. Corrigé : l'export d'inventaire annonce aussi les valeurs masquées du fichier « <poste>-acces.csv »."
     },
@@ -1142,10 +1153,11 @@
         "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1:Save-DomeniaQueryRecipe",
         "dev/wad/modules/Domenia-Query.Worker.ps1:Get-DomeniaQueryLibraryWorkerCode",
         "dev/wad/tests/Test-DomeniaQueryLibraryStore.ps1",
-        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (point 68)"
+        "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (point 68)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "L'intégrateur doit ré-épingler QueryLibrary et LocalStore (voir worker_operations). Qualification VM, dont la suite SQLite."
+        "Qualifier la bibliothèque SQLite sous Windows ; tests ciblés natifs locaux réussis."
       ],
       "implementation_summary": "Bibliothèque SQLite paginée par catégorie, archives vérifiées hors du fil UI puis restaurables, accès rapide aux 100 dernières requêtes. Correctif : une catégorie saisie survit aux redessins du brouillon (ajout de condition, paramètre, figer). Elle s'applique aussi à « Créer une sonde dashboard », et une case non modifiée ne déplace plus une recette, même si la bibliothèque a été lue entre-temps."
     },
@@ -1158,12 +1170,13 @@
         "dev/wad/modules/Domenia-QueryTransfer.UI.ps1 (Select-DomeniaQueryTransferPath, Start-DomeniaQueryTransferTask)",
         "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (Point 69 end-to-end block)",
         "dev/wad/tests/Test-DomeniaCollectCircuit.ps1 (knownUnpinned)",
-        "commits ea3ec94, ea94de0"
+        "commits ea3ec94, ea94de0",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Provenance is not stored per recipe in domenia_query_recipes. It stays in the import journal and in the 'Import · <pack>' category. Suites not run under Windows PowerShell 5.1."
+        "Qualifier import, annulation et rendu de la provenance sous Windows. La provenance déclarée par révision est conservée en SQLite ; elle ne certifie pas l’identité de l’éditeur."
       ],
-      "implementation_summary": "The pinned QueryTransfer worker already handled ExportPack, ImportPreview, JournalRead and JournalAppend, and the UI launched all four. The file picker is now split out (Select-DomeniaQueryTransferPath), so Start-DomeniaQueryTransferTask can be tested on its own. The local preparation status is now set before the task starts. An end-to-end suite case runs the real pinned worker body through an engine double and covers: export, re-examination, choosing and creating a new recipe, journaling, read-back after a restart, rollback, and the import no longer being offered. Fixer: the start guard now has every operand of -or in parentheses."
+      "implementation_summary": "The pinned QueryTransfer worker already handled ExportPack, ImportPreview, JournalRead and JournalAppend, and the UI launched all four. The file picker is now split out (Select-DomeniaQueryTransferPath), so Start-DomeniaQueryTransferTask can be tested on its own. The local preparation status is now set before the task starts. An end-to-end suite case runs the real pinned worker body through an engine double and covers: export, re-examination, choosing and creating a new recipe, journaling, read-back after a restart, rollback, and the import no longer being offered. Fixer: the start guard now has every operand of -or in parentheses. RC16 : origine, pack/version, identifiant source et empreinte sont conservés par recette/révision en SQLite ; édition et annulation préservent ou restaurent la provenance ; description visible dans la bibliothèque."
     },
     {
       "id": 70,
@@ -1176,12 +1189,13 @@
         "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1 Initialize-DomeniaQueryLibraryStore, Complete-DomeniaQueryLibraryStoreRead, Complete-DomeniaQueryLibraryMigrationBatch",
         "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (Point 70 widget block + 'Point 70 across pages' block)",
         "dev/wad/tests/rules/Query.Tests.ps1 P70",
-        "commits 1d8d505, 2406edb"
+        "commits 1d8d505, 2406edb",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "LocalStore must be re-pinned because the composed body includes Query.Model. Health-rule, search-list and report consumers are not covered. Tests not run under Windows."
+        "Qualifier les parcours WPF et les transports Windows. La même définition sert aux widgets, listes, rapports et alertes ; une alerte conserve explicitement sa révision. Les champs non relevés restent inconnus, sans collecte implicite."
       ],
-      "implementation_summary": "Each dashboard query widget names the library revision it evaluated. It turns to its warning state when its link lags behind or runs ahead of the stored revision, when the recipe is archived, modified or missing, or when the library has not been read. Fixer: the LocalStore worker returns only the links of the page it read (250 recipes per page). The store now collects links page by page in ReadDependencies, clears them when a read restarts, and publishes them together with the rows. Before this, only the last page's links survived. The final migration batch now replaces only the links of its own recipes, where it used to replace all of them. New suite case: 251 recipes on two pages, a restart during the read, and a lagging link on page 1 that is reported."
+      "implementation_summary": "Each dashboard query widget names the library revision it evaluated. It turns to its warning state when its link lags behind or runs ahead of the stored revision, when the recipe is archived, modified or missing, or when the library has not been read. Fixer: the LocalStore worker returns only the links of the page it read (250 recipes per page). The store now collects links page by page in ReadDependencies, clears them when a read restarts, and publishes them together with the rows. Before this, only the last page's links survived. The final migration batch now replaces only the links of its own recipes, where it used to replace all of them. New suite case: 251 recipes on two pages, a restart during the read, and a lagging link on page 1 that is reported. RC16 : alertes de santé à partir d’une recette enregistrée, définition/révision/empreinte conservées, règles par OU, compte des données évaluables et état inconnu ; migration explicite dans Santé ; vues de Recherche et rapports gardent la définition partagée existante."
     },
     {
       "id": 71,
@@ -1597,12 +1611,13 @@
         "dev/wad/tests/rules/Workstation.Tests.ps1 D096: S3cret loop adds node/cmd/powershell/net use/absolute-path cases and exact program assertions; new D096 behavioural test runs the extracted collector with doubles (WinRM refused -> CIM rows + 'DCOM apres echec WinRM (...)'; credential refusal propagated with no CIM read; double failure named)",
         "Python simulation of the new regex on 22 inputs: no S3cret kept, existing D096 expectations unchanged",
         "guides/administrateur.md",
-        "commits 8ef5fd2, be15fa2, 76f6976"
+        "commits 8ef5fd2, be15fa2, 76f6976",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "ComputerInventory must be re-pinned by the integrator. TaskCache needs local admin rights on the workstation; to check under Windows. Known residual ambiguity: in an unquoted absolute path, an argument with no switch, drive, '=' or '&' before a later program (e.g. 'C:\\tools\\run S3cret\\b.exe') cannot be told apart from a directory name containing a space. Windows itself resolves such a path the same way."
+        "Qualifier TaskCache avec les droits appropriés sous Windows. Les commandes sans guillemets ne conservent que le premier mot : un chemin contenant des espaces apparaît donc tronqué, sans deviner où commencent les arguments."
       ],
-      "implementation_summary": "Startup programs: only the program leaves the ComputerInventory worker. Scheduled tasks are read through MSFT_ScheduledTask over CIM, plus the last start date from the TaskCache registry; the last result is never guessed. Fixer, finding 1 (also reported as finding 5): Get-DomeniaCommandExecutable now scans across spaces only for an unquoted absolute path (drive, UNC or %VAR%\\). The scan cannot cross a switch (whitespace followed by - or /), another drive, a character Windows refuses in a path, '=' or '&'. Any other command keeps its first word only, split on whitespace or a comma. The verbatim worker copy is identical. Fixer, finding 3: the CIM and TaskCache path is now a local scriptblock. It runs when WinRM is closed, and also when Invoke-Remote fails for a non-credential reason (WinRM listener, HTTP policy, Kerberos or SPN). The transport label names the WinRM failure. A refused credential is rethrown and CIM is not read. If CIM also fails, both errors are reported. The admin guide is updated."
+      "implementation_summary": "Startup programs: only the program leaves the ComputerInventory worker. Scheduled tasks are read through MSFT_ScheduledTask over CIM, plus the last start date from the TaskCache registry; the last result is never guessed. Fixer, finding 1 (also reported as finding 5): Get-DomeniaCommandExecutable now scans across spaces only for an unquoted absolute path (drive, UNC or %VAR%\\). The scan cannot cross a switch (whitespace followed by - or /), another drive, a character Windows refuses in a path, '=' or '&'. Any other command keeps its first word only, split on whitespace or a comma. The verbatim worker copy is identical. Fixer, finding 3: the CIM and TaskCache path is now a local scriptblock. It runs when WinRM is closed, and also when Invoke-Remote fails for a non-credential reason (WinRM listener, HTTP policy, Kerberos or SPN). The transport label names the WinRM failure. A refused credential is rethrown and CIM is not read. If CIM also fails, both errors are reported. The admin guide is updated. RC16 : suppression du cas ambigu pouvant conserver un argument dans un chemin absolu non délimité. Même fonction dans le modèle et le worker."
     },
     {
       "id": 97,
@@ -1765,10 +1780,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Relations.Model.ps1:Get-DomeniaRelationOverview",
         "dev/wad/modules/Domenia-Relations.UI.ps1:Update-DomeniaLinkOverview",
-        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaRelationHistoryReadWorkerCode"
+        "dev/wad/modules/Domenia-AdAudit.Worker.ps1:Get-DomeniaRelationHistoryReadWorkerCode",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécution 5.1 dans la VM. L'intégrateur refait la ligne de base de la charge épinglée Domenia-Relations.UI.ps1 et enregistre RelationHistoryRead."
+        "Qualifier les règles d’associations sous Windows ; payload et RelationHistoryRead épinglés."
       ],
       "implementation_summary": "Relation poste-utilisateur : badge Historique distinct d'Observé, filtre ChkAllLinksHistory, résumé en trois lignes et historique SQLite lu en lecture seule. Le fixer n'a rien modifié sur ce point."
     },
@@ -2123,11 +2139,11 @@
         "dev/wad/modules/Domenia-Live.UI.ps1:Fail-DomeniaLiveProbe (IdentityState vide sur echec, jamais une certitude)",
         "dev/wad/modules/Domenia-Storage.Worker.ps1:IdentityState dans la liste blanche du resume d'observation",
         "validation/2026-10-17/rc14-corrections/point127-regression.json (banc Test-DomeniaLiveTransport rejoue apres patch : 20 assertions, 0 echec, pwsh7 Linux non qualifiant)",
-        "dev/wad/tests/Test-DomeniaLiveIdentity.ps1 -CaseFilter 'RC14 Point 127' : 1 cas, 31 assertions, 0 echec (regles d'identite exercees par leurs fonctions reelles extraites du corps epingle : meme poste verifie, autre poste nomme, adresse/reponse nulle/sans noms = comparaison impossible jamais un refus, cn NetBIOS tronque et Name seul acceptes ; Set-LiveIdentityMismatch conserve Presence='En ligne' et le fait brut ICMP, note la contradiction, pose Incoherente meme sans ping ; vue confirmee/incoherente/inconnue ; ping seul conserve ; paquet d'echec sans identite ; persistance « IdentityState\":\"Incoherente\" » ; code reel du worker : IdentityState='' initialise, porte d'identite avant le plan, rejet nominal apres note) — rapport validation/2026-10-17/rc14-corrections/point127-test.json (pwsh7 Linux non qualifiant)"
+        "dev/wad/tests/Test-DomeniaLiveIdentity.ps1 -CaseFilter 'RC14 Point 127' : 1 cas, 31 assertions, 0 echec (regles d'identite exercees par leurs fonctions reelles extraites du corps epingle : meme poste verifie, autre poste nomme, adresse/reponse nulle/sans noms = comparaison impossible jamais un refus, cn NetBIOS tronque et Name seul acceptes ; Set-LiveIdentityMismatch conserve Presence='En ligne' et le fait brut ICMP, note la contradiction, pose Incoherente meme sans ping ; vue confirmee/incoherente/inconnue ; ping seul conserve ; paquet d'echec sans identite ; persistance « IdentityState\":\"Incoherente\" » ; code reel du worker : IdentityState='' initialise, porte d'identite avant le plan, rejet nominal apres note) — rapport validation/2026-10-17/rc14-corrections/point127-test.json (pwsh7 Linux non qualifiant)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "L'intégrateur doit réépingler LiveConsole, LocalStore et LiveSelectedPing (update_worker_contracts.py --apply) après revue indépendante. Aucune exécution Windows.",
-        "Qualification Windows 5.1 : exécution du banc Test-DomeniaLiveIdentity, attribution des sondes, affichage Identité du poste et persistance IdentityState."
+        "Qualification Windows des transports WTS, RPC et planificateur ; contrats synchronisés."
       ],
       "implementation_summary": "Le corps LiveConsole et LiveSelectedPing vérifie l'identité du poste qui répond. Correction de revue : Get-LiveHostMismatch reconnaît le même poste dès qu'une identité correspond, sous l'une des formes suivantes : libellé DNS, NetBIOS tronqué à 15 caractères, cible cn face à un nom d'hôte long. Le refus n'est déclaré que si aucune ne correspond. Nouveaux cas réseau ajoutés (cn tronqué, nom long, autre poste à nom long). La doublure CIM de SearchPresence accepte Name et DNSHostName et ajoute un cas « autre poste ». Opérandes -or parenthésés dans Get-DomeniaErrorDecision. | Tour 9 (2026-10-17) : la verification d'identite est etendue aux sondes seules — a defaut de lecture console ou inventaire deja verifiee, le worker lit Win32_ComputerSystem (Name, DNSHostName) sur la meme session avant tout plan de sondes ; une incoherence confirmee refuse toute valeur de sonde (rejet nominal, pas une panne reseau) et une comparaison possible pose IdentityState='Verifiee'. Le ping reste un fait brut : sur incoherence confirmee la presence 'En ligne' est conservee, la note 'identite du poste contredite' est ajoutee au detail de presence et IdentityState='Incoherente' est enregistre, propage (ConvertTo-DomeniaLiveObservation), persiste (liste blanche Storage.Worker) et affiche ('Identite du poste : ...') dans la vue. Get-LiveHostMismatch devient l'enveloppe de Get-LiveHostIdentityCheck (Comparable+Mismatch) ; identites NetBIOS/FQDN/cn tronque conservees."
     },
@@ -2228,10 +2244,11 @@
         "dev/wad/modules/Domenia-Compatibility.Model.ps1:Test-DomeniaCompatibilityMatrix",
         "dev/wad/tests/rules/Contracts.Tests.ps1 (CTR-009)",
         "dev/wad/tests/rules/Compatibility.Tests.ps1 (CMP-010)",
-        "dev/wad/tests/Test-DomeniaDelivery.ps1 (2 nouveaux cas P133)"
+        "dev/wad/tests/Test-DomeniaDelivery.ps1 (2 nouveaux cas P133)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécution 5.1 des règles et de Test-DomeniaDelivery dans la VM. Empreinte de LocalStore à ré-épingler par l'intégrateur."
+        "Qualifier Rules et Delivery sous Windows."
       ],
       "implementation_summary": "Catalogue de contrats versionnés dans Domenia-Common.Model.ps1. Après revue, le catalogue et un index ordinal sont construits une fois par runspace, avec une lecture tolérante à Set-StrictMode. Passent aussi par le catalogue : la validation de la bibliothèque du worker LocalStore (Assert-WQueryLibraryDefinition, enregistrements Domenia.QueryLibraryRecord côté worker et côté Store.Model), la table des fins de service Windows et la matrice de compatibilité. Une donnée produite par une version plus récente est refusée avec sa version."
     },
@@ -2243,12 +2260,14 @@
       "evidence": [
         "dev/engineering/d120/contrats/briques-communes.json",
         "dev/engineering/d120/contrats/BRIQUES-COMMUNES.md",
-        "dev/tools/tests/test_shared_bricks.py:SharedBricksContract"
+        "dev/tools/tests/test_shared_bricks.py:SharedBricksContract",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
         "Confirmer avec les mainteneurs de Pesto et FILPRO les besoins notés « non vérifié » ; reverser QueryEngine.cs dans m4d-admin-common (hors dépôt)."
       ],
-      "implementation_summary": "Contrat Domenia.SharedBricks/1 inchangé par la correction : requêtes, identité, coffre, journal expurgé, composants GUI, passage de contexte et contrats publiés, avec preuves de besoin et test Python de cohérence."
+      "implementation_summary": "Contrat Domenia.SharedBricks/1 inchangé par la correction : requêtes, identité, coffre, journal expurgé, composants GUI, passage de contexte et contrats publiés, avec preuves de besoin et test Python de cohérence.",
+      "external_decision_pending": true
     },
     {
       "id": 135,
@@ -2274,10 +2293,11 @@
         "dev/wad/modules/Domenia-ProbeCatalog.Model.ps1:Assert-DomeniaCustomProbeDeclaration",
         "dev/wad/modules/Domenia-QueryLibrary.Model.ps1:Get-DomeniaQueryLibraryDefinitionValidationCode",
         "dev/wad/modules/Domenia-Storage.Worker.ps1:Get-DomeniaStorageWorkerCode",
-        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-004..PCT-006"
+        "dev/wad/tests/rules/ProbeContract.Tests.ps1:PCT-004..PCT-006",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Réépingler LocalStore à partir de la composition réelle sous Windows (Get-DomeniaWorkerCodeHash (Get-DomeniaStorageWorkerCode)), pas avec le miroir Python ; exécution des règles sous 5.1."
+        "Qualification Windows de la couche SQLite ; composition réelle des workers vérifiée localement."
       ],
       "implementation_summary": "Sonde « Personnalisée » refusée sans comportement, privilèges et coût déclarés (Assert-DomeniaCustomProbeDeclaration) ; plan d’isolement honnête. Ce changement de Domenia-ProbeCatalog.Model.ps1 modifie le corps composé de LocalStore à l’exécution : LocalStore est désormais listé pour réépinglage."
     },
@@ -2295,10 +2315,11 @@
         "dev/wad/modules/Domenia-UX.help.json:BtnLinkImportApply",
         "dev/wad/tests/rules/InventoryImport.Tests.ps1:IMP-004,IMP-007",
         "dev/wad/tests/rules/Cache.Tests.ps1:D029 point 137",
-        "dev/wad/tests/Test-DomeniaWiringCache.ps1:D029 / point 137"
+        "dev/wad/tests/Test-DomeniaWiringCache.ps1:D029 / point 137",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Réépingler StoragePurge ; exécuter les règles, Test-DomeniaWiringCache.ps1 et Test-DomeniaWiringRelations.ps1 sous Windows PowerShell 5.1 ; valider sur de vrais exports GLPI et journaux osquery."
+        "Qualifier Rules, WiringCache et WiringRelations sous Windows, puis vrais exports GLPI/journaux osquery."
       ],
       "implementation_summary": "Adaptateurs CSV, GLPI et osquery corrigés : les sessions osquery sans personne (utilisateur vide de la session des services, SYSTEM, DWM-n, UMFD-n, pseudo-comptes utmp) sont ignorées et comptées, et un enregistrement sans compte ou rejeté ne départage plus un poste. La purge « Historique » du worker StoragePurge protège aussi Import GLPI et Import osquery, avec une liste unique Get-DomeniaProtectedAssociationSources comparée au worker par un test de règles. La tâche, le journal et l’aide nomment la source réelle de l’import."
     },
@@ -2331,10 +2352,11 @@
         "dev/wad/Domenia-Automate.ps1",
         "dev/wad/tests/rules/Automation.Tests.ps1:AUT-008,AUT-010",
         "dev/wad/tests/Test-DomeniaAutomation.ps1:Point 139 Atelier",
-        "Integration Codex : diagnostic charge a la demande dans Outils ; bouton dossier hors ligne accessible ; test de reprise apres echec."
+        "Integration Codex : diagnostic charge a la demande dans Outils ; bouton dossier hors ligne accessible ; test de reprise apres echec.",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Épingler OfflineDossier ; exécuter Test-DomeniaAutomation.ps1 et les règles sous Windows PowerShell 5.1 (VM)."
+        "Qualifier Automation et les règles sous Windows."
       ],
       "implementation_summary": "Dossier hors ligne corrigé. Une OU au nom accentué (OU=Écoles) est trouvée par l’Atelier, sous-OU comprises. « Préparer le dossier » n’est plus bloqué après une annulation, un retrait de file ou un détachement : le TaskId est suivi dans $script:AsyncJobs. Le dossier temporaire est supprimé dans finally, y compris quand la tâche est arrêtée. Le classement de l’opération OfflineDossier est figé par un test : voie Local, aucun compte d’annuaire, LocalWrite, aucun reçu."
     },
@@ -2442,12 +2464,14 @@
       "owner": "W16-release",
       "evidence": [
         "dev/tools/licence-inventory.json",
-        "dev/tools/licence_inventory.py:validate,summary"
+        "dev/tools/licence_inventory.py:validate,summary",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
         "Revue juridique des trois composants bloquants (KI-001)."
       ],
-      "implementation_summary": "Inventaire des licences et contrôle licence_inventory.py, utilisé comme garde par build_packages. Ce point n'est pas modifié par la correction."
+      "implementation_summary": "Inventaire des licences et contrôle licence_inventory.py, utilisé comme garde par build_packages. Ce point n'est pas modifié par la correction.",
+      "external_decision_pending": true
     },
     {
       "id": 147,
@@ -2563,12 +2587,13 @@
         "dev/wad/modules/Domenia-Query.UI.ps1:Show-DomeniaQueryImpact (mode Widget)",
         "dev/wad/modules/Domenia-Query.UI.ps1:Invoke-DomeniaQueryImpactAction",
         "dev/wad/modules/Domenia-QueryLibrary.Store.UI.ps1:Save-DomeniaQueryRecipe (-ImpactConfirmed)",
-        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 153, bouton widget)"
+        "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 153, bouton widget)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Exécution Windows de la suite. La suite ancienne Test-DomeniaQueryTargets.ps1 appelle Add-DomeniaWorkshopWidget sans charger Domenia-QueryLibrary.Store.UI.ps1 : ses cas widget échouent déjà sur master (hors périmètre)."
+        "Qualification WPF Windows. Les suites QueryTargets et QueryAdvanced chargent désormais les vrais callbacks et valident la revue des dépendances avant enregistrement."
       ],
-      "implementation_summary": "La revue d'impact dans la page couvre maintenant aussi le bouton « Créer une sonde dashboard » : une définition enregistrée modifiée affiche widgets, liens orphelins et vue de Recherche sans fenêtre modale, rien n'est écrit ni ajouté avant le choix ; « mettre à jour » enregistre la définition et le lien du widget dans le même lot, « garder l'ancienne version » crée la copie et un widget lié à la copie seule. Revue périmée toujours refusée."
+      "implementation_summary": "La revue d'impact dans la page couvre maintenant aussi le bouton « Créer une sonde dashboard » : une définition enregistrée modifiée affiche widgets, liens orphelins et vue de Recherche sans fenêtre modale, rien n'est écrit ni ajouté avant le choix ; « mettre à jour » enregistre la définition et le lien du widget dans le même lot, « garder l'ancienne version » crée la copie et un widget lié à la copie seule. Revue périmée toujours refusée. RC16 : bancs remis en état au niveau des frontières SQLite/collecte ; vrais callbacks, refus avant commit, dépendances et alertes à révision conservée."
     },
     {
       "id": 154,
@@ -2580,12 +2605,13 @@
         "dev/wad/modules/Domenia-QuerySchema.UI.ps1:Invoke-DomeniaQuerySchemaAction",
         "dev/wad/modules/Domenia-Engine.Model.ps1:Get-DomeniaOperationProvider",
         "dev/wad/modules/Domenia-Safety.Model.ps1:Get-DomeniaOperationEffect",
-        "dev/wad/tests/rules/Query.Tests.ps1 (P154)"
+        "dev/wad/tests/rules/Query.Tests.ps1 (P154)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Intégrateur : update_worker_contracts.py --add QuerySchema Get-DomeniaQuerySchemaWorkerCode puis --apply. Vérifier CimOperationFlags.LocalizedQualifiers sous Windows."
+        "Qualifier le fournisseur CIM et les descriptions LocalizedQualifiers sous Windows ; QuerySchema et WidgetWmiDetail sont enregistrés et leurs corps vérifiés."
       ],
-      "implementation_summary": "Explorateur WMI sans récursion (espaces de noms, classes filtrées, schéma localisé) avec cache local et lecture distante explicite confirmée ; opération QuerySchema classée. Inchangé par ce correctif."
+      "implementation_summary": "Explorateur WMI sans récursion (espaces de noms, classes filtrées, schéma localisé) avec cache local et lecture distante explicite confirmée ; opération QuerySchema classée. Inchangé par ce correctif. RC16 : QuerySchema et WidgetWmiDetail épinglés ; explorateur testé avec cmdlets CIM simulées, sans réseau."
     },
     {
       "id": 155,
@@ -2630,10 +2656,11 @@
         "dev/wad/modules/Domenia-QueryTransfer.Worker.ps1:Get-DomeniaQueryTransferWorkerCode",
         "dev/wad/tests/rules/Query.Tests.ps1 (P157)",
         "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 157, indentation imbriquée)",
-        "dev/tools/validate_powershell_static.py:typographic_quotes, worker_body_errors"
+        "dev/tools/validate_powershell_static.py:typographic_quotes, worker_body_errors",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Intégrateur : update_worker_contracts.py --add QueryTransfer Get-DomeniaQueryTransferWorkerCode puis --apply (épingle le corps corrigé). Exécution Windows."
+        "Qualifier QueryTransfer sous Windows ; contrat épinglé."
       ],
       "implementation_summary": "Script PowerShell commenté et paramétrable ; les commentaires conservent désormais l'indentation des groupes et collections imbriqués. Le corps du worker QueryTransfer ne contient plus de guillemet typographique fermant la chaîne (lʼextension en U+02BC) : export pack, export PowerShell et aperçu d'import redeviennent compilables. Valeur attendue du test P157 corrigée (forme échappée ’é, ASCII seulement)."
     },
@@ -2645,10 +2672,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Query.Model.ps1:Get-DomeniaQueryGroupPage",
         "dev/wad/tests/Test-DomeniaQueryAdvanced.ps1 (section 158)",
-        "dev/wad/tests/rules/Query.Tests.ps1 (P158)"
+        "dev/wad/tests/rules/Query.Tests.ps1 (P158)",
+        "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Re-épinglage LocalQuery par l'intégrateur ; mesure de durée à 20 000 postes sous Windows 5.1."
+        "Mesurer la durée à 20 000 postes sous Windows 5.1 ; LocalQuery épinglé."
       ],
       "implementation_summary": "Répartition exacte au-delà de 10 000 valeurs, paginée et filtrable. Assertion du filtre corrigée : 12 libellés contiennent « 1999 » (01999, 11999, 19990 à 19999), recompté par énumération ; autres cardinalités de la section revérifiées. Marqueur de génération retiré."
     },
@@ -2687,7 +2715,7 @@
     "branch": "master",
     "verified": true
   },
-  "pause_reason": "David : on a plus de tokens, go calmer. Développement et agents interrompus ; tests et publication différés.",
+  "pause_reason": null,
   "qualification_only_ids": [
     41,
     43,
@@ -2702,6 +2730,11 @@
   "integration_sources": [
     "RELAIS-CODEX-2026-10-16.md",
     "Copie des statuts de Domenia-D120-team/_pilotage/points-final.json du 16 octobre 2026",
-    "SUIVI-2026-10-16.md"
+    "SUIVI-2026-10-16.md",
+    "SUIVI-2026-10-18.md"
+  ],
+  "external_decision_ids": [
+    134,
+    146
   ]
 }
