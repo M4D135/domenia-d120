@@ -3,16 +3,21 @@
   "Scope": "Personal lab, targeted checks only",
   "FullAcceptance": false,
   "Publishable": false,
-  "RuntimeFix": "Realize tab containers in UxWorkspaceHost so UI Automation sees the selected page.",
-  "StartupCheckOnlyPassed": true,
+  "RuntimeFix": "Workspace TabControl template realizes containers through an ItemsPresenter, exposing selected page to UI Automation.",
+  "PassedNativeSteps": 28,
+  "ValidCaptures": 5,
   "GuiRulesPassed": 8,
-  "NativeScrollRegression": {
-    "Passed": 7,
-    "Failed": 0,
-    "Target": "Preview",
-    "Runtime": "RC21 sources with the exact template fix before RC22 version stamping"
+  "StartupCheckOnlyPassed": true,
+  "NativeEnvironment": {
+    "Computer": "FILPRO-W11B",
+    "Domain": "cnamts.local",
+    "Session": 1,
+    "Screen": "1920x1440",
+    "WorkingArea": "1920x1392",
+    "PowerShell": "5.1.26100.6584",
+    "OS": "Microsoft Windows NT 10.0.26200.0"
   },
-  "FullNativeJourneyOnRC22": "Pending interactive Windows session after evaluation-license shutdown",
+  "Target": "Preview",
   "HumanRecord": "NonReleve",
   "Archives": [
     {
@@ -25,5 +30,13 @@
     }
   ],
   "SourceXamlSha256": "ee0b0ae345a5a5d8f34ca0a6e3e51398495d5f8323e0b3c0a577e353c5e5da9b",
-  "Cleanup": "Temporary client retained for final interactive run"
+  "Cleanup": "pending_after_verified_push",
+  "NativeScrollRegression": {
+    "Passed": 7,
+    "Failed": 0,
+    "Target": "Preview",
+    "Runtime": "RC21 sources with the exact template fix before RC22 version stamping",
+    "Observed": "Vertical scroll 0 to 100 percent, then back to 0"
+  },
+  "FinalPackScrollObservation": "Three preview rows fit in the grid; wheel input sent without scrollable content. No additional movement proof."
 }

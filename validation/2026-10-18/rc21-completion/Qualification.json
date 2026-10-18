@@ -88,9 +88,11 @@
     "InitialFailedOrNotExecuted": 17,
     "InitialValidCaptures": 1,
     "Correction": "Navigation selectors use WPF Uid WsSearch and TabDashboard instead of x:Name.",
-    "Retest": "RC22 targeted scroll passed 7/7; full run pending interactive session after Windows evaluation shutdown",
+    "Retest": "Completed on RC1.17.22 after fixing missing tab containers",
     "HumanRecord": "NonReleve",
     "Qualified": false,
-    "FollowupProof": "../rc22-ui-automation/README.md"
+    "FollowupProof": "../rc22-ui-automation/README.md",
+    "FinalProof": "../rc22-ui-automation/README.md",
+    "FinalPassed": 28
   }
 }

@@ -1,3 +1,5 @@
+Complément RC1.17.22 : [28 étapes natives et cinq captures réussies](../../../../validation/2026-10-18/rc22-ui-automation/README.md), après correction de l’arbre UI Automation. Cible Preview ; relevé humain toujours non exécuté.
+
 # Qualification qualité et performance (points 122, 125 à 130)
 
 Les contrôles Windows 5.1 exécutés dans le labo personnel sont consignés dans les [preuves du 18 octobre](../../../../validation/2026-10-18/rc21-completion/README.md), en complément des campagnes RC17 à RC21. Les résultats synthétiques, les lectures AD réelles et les observations humaines restent distingués. David a retenu le périmètre personnel et demandé de documenter les limites matérielles et humaines ; aucune qualification de domaine cible ni de redistribution n’en découle.

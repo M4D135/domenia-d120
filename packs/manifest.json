@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC22_STARTUP_AND_TARGETED_SCROLL_PASS_FULL_GUI_RUN_PENDING",
+    "status": "RC22_TARGETED_NATIVE_UI_AND_STARTUP_PASS_PERSONAL_LAB_LIMITS_DOCUMENTED",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_NATIVE_SCROLL_AND_STARTUP_NOT_FULL_ACCEPTANCE",
+    "formal_windows_qualification": "TARGETED_NATIVE_PREVIEW_UI_AUTOMATION_AND_STARTUP_NOT_FULL_ACCEPTANCE",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
