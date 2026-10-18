@@ -1,5 +1,9 @@
 # Domenia 1.0 RC1 : guide de livraison et limites
 
+## Correctif RC1.17.17
+
+Après un délai WMI, la fin tardive de l’appel natif ne masque plus le reçu SQLite déjà en attente. Le lot conserve l’échec du poste et termine le traitement des suivants ; aucun résultat tardif ne remplace le délai enregistré.
+
 Build : `2026.09.30-DOMENIA-1.0-RC1`.
 
 Cette livraison contient de vraies modifications du projet ADCC R1.13, un lanceur natif recompilé, les modules raccordés et deux distributions cohérentes. **Le plan M01 à M42 n’est pas entièrement clôturé.** Le tableau de suivi est fourni séparément, avec les parties réellement implantées et les compléments nécessaires. Aucune validation Windows n’est inventée.

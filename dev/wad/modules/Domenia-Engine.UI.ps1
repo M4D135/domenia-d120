@@ -225,10 +225,14 @@ function Save-DomeniaSupersededCollection {
     }
     $handler=[string]$Job.SuccessHandler
     if(-not $handlers.ContainsKey($handler) -or $null -eq $Job.CallbackState){return $false}
+    # The timeout callback already submitted the failed attempt to the captured store. Native cleanup can finish
+    # before that SQLite receipt: do not mutate its shared callback state or ingest a late answer a second time.
+    # Session/account/store fences still apply when the existing receipt is published.
+    if([bool]$Job.TimeoutErrorDelivered){return $true}
     $state=$Job.CallbackState
     $state | Add-Member -NotePropertyName SuppressPublish -NotePropertyValue $true -Force
     if($ErrorMessage){
-        if(-not [bool]$Job.TimeoutErrorDelivered){& ([string]$handlers[$handler]) -Message $ErrorMessage -State $state}
+        & ([string]$handlers[$handler]) -Message $ErrorMessage -State $state
     }elseif($null -ne $Output){& $handler -Result $Output -State $state}
     return $true
 }

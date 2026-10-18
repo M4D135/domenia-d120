@@ -1,0 +1,117 @@
+{
+    "Build":  "RC1.17.16",
+    "Passed":  false,
+    "LiveAD":  true,
+    "LiveRemoteWmi":  true,
+    "MockedNetwork":  false,
+    "MockedCallbacks":  false,
+    "MockedStorage":  false,
+    "Utc":  "2026-10-18T07:54:57.6694200Z",
+    "FaultMethod":  "First endpoint only: real network call with engine idle timeout shortened from 25 to 2 seconds; no callback/result injection",
+    "Steps":  [
+                  "Native application engine and isolated SQLite initialized"
+              ],
+    "DirectoryObject":  {
+                            "Name":  "DC01",
+                            "DNSHostName":  "dc01.cnamts.local",
+                            "DN":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                            "Guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3"
+                        },
+    "Run":  {
+                "ElapsedMs":  7706,
+                "Loading":  false,
+                "Approved":  true,
+                "Completed":  true,
+                "Stopping":  true,
+                "Done":  1,
+                "Failed":  0,
+                "Next":  2,
+                "Status":  "Relevé arrêté : Arrêté à 1/2 poste lu. 0 identités en cache, 0 associations actualisées, 0 mesures encore fraîches réutilisées.",
+                "StopReason":  "",
+                "FailureMessage":  "",
+                "Pending":  0,
+                "StorePending":  0,
+                "Events":  [
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  2449,
+                                   "Id":  "WMI du perimetre : 10.77.0.254:2:75d655fe",
+                                   "Name":  "WMI du perimetre : 10.77.0.254",
+                                   "Operation":  "LiveConsole",
+                                   "TimeoutSeconds":  2
+                               },
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  5792,
+                                   "Id":  "WMI du perimetre : dc01.cnamts.local:3:cf6f93e4",
+                                   "Name":  "WMI du perimetre : dc01.cnamts.local",
+                                   "Operation":  "LiveConsole",
+                                   "TimeoutSeconds":  25
+                               }
+                           ],
+                "PersistenceFault":  ""
+            },
+    "DatabasePath":  "C:\\DomeniaLab\\d120-rc11716-critical\\live-timeout-out\\profile\\Domenia\\Data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "StoredRows":  [
+
+                   ],
+    "RuntimeHashes":  [
+                          {
+                              "Path":  "Domenia-Core.ps1",
+                              "SHA256":  "F63F6C1F1FE2567508AD963EB337AE30662E4587C548890A2F502D681B5DCDF7"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Park.UI.ps1",
+                              "SHA256":  "B74DD1A2FB0E01159659C43D98BAED533B351F04B3614BEA1117467E99B2FE0C"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Live.Model.ps1",
+                              "SHA256":  "EAF51BBA443742B31FB4204951EC627DAD94FE6FEBF86E8483623C8ACB212186"
+                          }
+                      ],
+    "CanonicalRows":  [
+                          {
+                              "object_guid":  "11716000-0000-0000-0000-000000000001",
+                              "family":  "Probe:qual.os",
+                              "dn":  "cn=timeoutendpoint,ou=qualification,dc=cnamts,dc=local",
+                              "definition_hash":  "3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5",
+                              "attempt_at":  "2026-10-18T07:55:14.2671729Z",
+                              "status":  "Error",
+                              "error":  "Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.",
+                              "success_at":  "",
+                              "payload":  "null",
+                              "attempt_payload":  "{\"Computer\":\"10.77.0.254\",\"Probes\":{\"qual.os\":{\"Rows\":[],\"Count\":0,\"Error\":\"Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.\",\"Truncated\":false,\"DefinitionHash\":\"3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5\",\"CheckedUtc\":\"2026-10-18T07:55:14.2671729Z\"}}}",
+                              "summary_payload":  null,
+                              "attempt_summary":  "{\"Probes\":{\"qual.os\":{\"Rows\":[],\"Count\":0,\"Error\":\"Délai dépassé : WMI du perimetre : 10.77.0.254 — aucune étape terminée pendant le délai ; 2 s écoulées, 2 s sans nouvelle étape, 0 étape(s) terminée(s). Aucune mesure partielle nʼest conservée.\",\"Truncated\":false,\"DefinitionHash\":\"3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5\",\"CheckedUtc\":\"2026-10-18T07:55:14.2671729Z\"}}}",
+                              "revision":  1
+                          },
+                          {
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "family":  "Probe:qual.os",
+                              "dn":  "cn=dc01,ou=domain controllers,dc=cnamts,dc=local",
+                              "definition_hash":  "3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5",
+                              "attempt_at":  "2026-10-18T07:55:17.9623473Z",
+                              "status":  "Success",
+                              "error":  "",
+                              "success_at":  "2026-10-18T07:55:17.9623473Z",
+                              "payload":  "{\"Computer\":\"dc01.cnamts.local\",\"Probes\":{\"qual.os\":{\"Rows\":[[\"Microsoft Windows Server 2025 Standard Evaluation\",\"10.0.26100\",\"DC01\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5\",\"CheckedUtc\":\"2026-10-18T07:55:17.9623473Z\",\"Properties\":[\"Caption\",\"Version\",\"CSName\"],\"Instances\":[{\"Id\":\"\",\"Index\":1,\"Values\":{\"Caption\":\"Microsoft Windows Server 2025 Standard Evaluation\",\"Version\":\"10.0.26100\",\"CSName\":\"DC01\"},\"IncompleteProperties\":[]}],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1256,\"EnumerationComplete\":true}}}",
+                              "attempt_payload":  "null",
+                              "summary_payload":  "{\"Probes\":{\"qual.os\":{\"Rows\":[[\"Microsoft Windows Server 2025 Standard Evaluation\",\"10.0.26100\",\"DC01\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"3ed8ae6a2511e87206e9ae7f0fb0b72b6d271a2bb3b2cb488db4d178d1b5bcf5\",\"CheckedUtc\":\"2026-10-18T07:55:17.9623473Z\",\"Properties\":[\"Caption\",\"Version\",\"CSName\"],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1256,\"EnumerationComplete\":true}}}",
+                              "attempt_summary":  null,
+                              "revision":  2
+                          }
+                      ],
+    "Tables":  [
+                   {
+                       "name":  "park_session_cache"
+                   },
+                   {
+                       "name":  "domenia_observations"
+                   },
+                   {
+                       "name":  "domenia_legacy_observation_imports"
+                   }
+               ],
+    "Error":  "Batch incomplete: Relevé arrêté : Arrêté à 1/2 poste lu. 0 identités en cache, 0 associations actualisées, 0 mesures encore fraîches réutilisées. ",
+    "Stack":  "at \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\_qualification-engine-timeout-rc16.ps1: line 25968\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11716-critical\\_Run-EngineTimeout-d120-rc11716-critical-21095-19707.ps1: line 83\r\nat \u003cScriptBlock\u003e, \u003cNo file\u003e: line 1"
+}

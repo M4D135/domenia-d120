@@ -1,0 +1,160 @@
+{
+  "schema": 1,
+  "date": "2026-10-18",
+  "build": "RC1.17.17",
+  "source_base_commit": "5cc71745b410f8a27823d043880b28995498d813",
+  "status": "PASSED_TARGETED_LIVE_AD_WMI_AFTER_RC16_ENGINE_TIMEOUT_FIX",
+  "full_acceptance": false,
+  "publishable": false,
+  "environment": {
+    "vm": "CNAMTS-W11-01",
+    "domain_controller": "CNAMTS-DC01",
+    "domain": "cnamts.local",
+    "powershell": "5.1.26100.6584",
+    "x64": true,
+    "apartment": "STA"
+  },
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3066076,
+      "sha256": "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6539327,
+      "sha256": "001ae72db21059bda3ad5ac72e810d8c69e20b948e2fc18c224f5b070a2eb04b",
+      "files": 642,
+      "archive_files_including_manifest": 643,
+      "archive_root": "dev/"
+    }
+  ],
+  "live_test": {
+    "report": "rc17/LiveBatch.json",
+    "ad_read": true,
+    "remote_wmi_read": true,
+    "network_mocked": false,
+    "callbacks_mocked": false,
+    "storage_mocked": false,
+    "isolated_profile": true,
+    "first_target_engine_idle_seconds": 2,
+    "second_target_engine_idle_seconds": 25,
+    "completed": true,
+    "stopping": false,
+    "done": 2,
+    "expected_failed_target": 1,
+    "sqlite_statuses": [
+      "Error",
+      "Success"
+    ],
+    "elapsed_ms": 6224
+  },
+  "targeted_regressions": {
+    "report": "rc17/ParkTimeoutRegression.json",
+    "filter": "RC11711|RC11717",
+    "passed": 3,
+    "failed": 0,
+    "network_mocked": true
+  },
+  "rc16_findings": {
+    "native_transport": "passed_two_targets",
+    "engine_timeout": "failed_batch_stopped_at_one_of_two",
+    "reports": [
+      "rc16/NativeTransport.json",
+      "rc16/EngineTimeoutFailure.json"
+    ]
+  },
+  "limitations": [
+    "Budget du premier travail ramené à 2 s uniquement dans le pilote pour provoquer le timeout réel du moteur.",
+    "Lecture AD et CIM/DCOM seulement, deux cibles dont une non répondante ; aucune écriture AD.",
+    "Entrée programmatique de collecte réelle ; parcours de clics WPF non qualifié.",
+    "Qualification Windows générale et décisions externes 134/146 restent ouvertes."
+  ],
+  "evidence": [
+    {
+      "path": "README.md",
+      "sha256": "59d566c4a0b9332caeee0ee2569e28b95e48cab28d873590663fe5fdccd537f1"
+    },
+    {
+      "path": "build-report.json",
+      "sha256": "c1c3195d72052c0594e3d705ce95d184b27ffaaca1d6774018ef36f355a5af66"
+    },
+    {
+      "path": "build.log",
+      "sha256": "71c68fe3ca10bc319fe13eae92d6d4d2582791b7c54b3e58772d37b2a9badb1a"
+    },
+    {
+      "path": "harness/Final-RC17.ps1",
+      "sha256": "dabb258a7d5ed5af45976c6005f4602b4af3f775b5b0d7e9613b40f4beb6c685"
+    },
+    {
+      "path": "harness/Prepare-RC17.ps1",
+      "sha256": "14da1e5f17a4e1e37306c55c05efa8ba76c5698f2ded9765fce279cbbe5bc365"
+    },
+    {
+      "path": "harness/Run-EngineTimeout.ps1",
+      "sha256": "4ffa3fcb60607fb2d21960df82c918cdfd2208806af80ea5c0bc980d817507b8"
+    },
+    {
+      "path": "harness/Run-LiveBatch.ps1",
+      "sha256": "39a3097d9d6c5ababfb88ad5cca79121beaa02edb515f4454e03b084fca3b508"
+    },
+    {
+      "path": "harness/Run-RC17-Live.ps1",
+      "sha256": "ce2df57401dccee848f52c394136fec520a71875065dee53caaa22cd75598971"
+    },
+    {
+      "path": "rc16/AD-and-RemoteWmi.json",
+      "sha256": "580ad859b420c337409f6601febd6545666becb8e9019f83f993d037c7e5f6da"
+    },
+    {
+      "path": "rc16/EngineTimeoutFailure.json",
+      "sha256": "97a01a1fbfcf0b936b751202f048528fa092511f11efcc843d1150be37380b9c"
+    },
+    {
+      "path": "rc16/EngineTimeoutFailure.log",
+      "sha256": "d06909a1c2c9558c295b6d0e2eba5a64c359605772d4b4b03492dac7a4e80a1a"
+    },
+    {
+      "path": "rc16/NativeTransport.json",
+      "sha256": "f34ddd754e44c34e3ba0053b4eb882527e3880b7a20cc6a809f5871d0928bed0"
+    },
+    {
+      "path": "rc16/NativeTransport.log",
+      "sha256": "0fb0a798c847457bb3ed1b912209ad73a8de15dce0a99180900142e4deda0352"
+    },
+    {
+      "path": "rc17/Archives.json",
+      "sha256": "e7a4ea926042ec6fd18bc9a9ba8f1658808ad39d49341afe6f2724e7fcdc9dd2"
+    },
+    {
+      "path": "rc17/FinalIntegrity.json",
+      "sha256": "588fa0651874ddb20483b53794f73bfc7a219bb4aa0fb3321514551f7a5a0cda"
+    },
+    {
+      "path": "rc17/LiveBatch.json",
+      "sha256": "97c7fbfb7b895f13c89bdb25b4479c7d77534d1cbbcc0ffc828f137ec9c29439"
+    },
+    {
+      "path": "rc17/LiveBatch.log",
+      "sha256": "99cc6c092ce9d4f4e5993d5733c9d631509db7efd057af47f344bce4edc3c68f"
+    },
+    {
+      "path": "rc17/ParkTimeoutRegression.json",
+      "sha256": "7c8d38a0fb5c25ddbfa98c72096fd13d676a12e7f26407e0b008e9f10688daca"
+    },
+    {
+      "path": "rc17/ParkTimeoutRegression.log",
+      "sha256": "1996eb258aa403236f42f722d4567ea27d098ef7da13d49fa6488600891fd17f"
+    },
+    {
+      "path": "rc17/Startup.log",
+      "sha256": "725f2d5fd9b6021199074b71d2f0ce31c6857fcef0b0d6c58f8afc0d17f96426"
+    }
+  ]
+}

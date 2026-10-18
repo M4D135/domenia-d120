@@ -1068,9 +1068,27 @@ Case 'RC11711 : le timeout WMI est enregistré et le poste suivant est traité' 
   Assert ($r.Completed -and -not $r.Stopping -and $r.Done -eq 2) ('Fin : '+$r.StatusText)
  }
 }
+Case 'RC11717 : la fin native après timeout ne masque pas le reçu SQLite en attente et le lot finit' {
+ foreach($lateError in @('Arret natif tardif','')){
+  Reset-Fixture;Ready-Run 2;$r=Run;$r.WmiOnly=$true;$r.Concurrency=1
+  Invoke-DomeniaParkRunTick;$first=$script:Calls[1]
+  Fail-DomeniaParkSession 'Délai dépassé : WMI du perimetre : PC-1' $first.State
+  $job=[pscustomobject]@{IsWrite=$false;Demo=$false;SuccessHandler='Complete-DomeniaParkSession';CallbackState=$first.State;TimeoutErrorDelivered=$true;CancelRequested=$true}
+  [void](Save-DomeniaSupersededCollection -Job $job -Output (New-Result $first.State.Target) -ErrorMessage $lateError)
+  Assert (-not [bool](Get-DomeniaMemberValue $first.State 'SuppressPublish')) 'Le nettoyage natif a masqué le reçu du timeout'
+  Assert ($script:Saves.Count -eq 1) 'Le résultat tardif a été enregistré après le timeout'
+  $script:AsyncJobs.Remove($first.Id);Commit-Saved
+  Assert (-not $r.Stopping -and $r.Done -eq 1) 'Le reçu du timeout arrête encore le lot'
+  Invoke-DomeniaParkRunTick
+  Assert ($script:Calls[2].Payload.Computer -eq 'PC-2') 'Le poste suivant ne démarre pas'
+  Complete-DomeniaParkSession (New-Result $script:Calls[2].State.Target) $script:Calls[2].State;Commit-Saved 1
+  Invoke-DomeniaParkRunTick
+  Assert ($r.Completed -and -not $r.Stopping -and $r.Done -eq 2) 'Le lot ne finit pas à 2/2'
+ }
+}
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=80;if($Filter){$expected=$checks.Count}
+$expected=81;if($Filter){$expected=$checks.Count}
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Filter=$Filter;Complete=($checks.Count -gt 0 -and $checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))

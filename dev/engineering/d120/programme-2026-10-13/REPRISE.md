@@ -1,6 +1,8 @@
 # État courant — 18 octobre 2026
 
-Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. Corrections RC1.17.16 intégrées ; qualification Windows critique réussie (démarrage, reprise WMI après timeout injecté, santé, sauvegarde/restauration ; 96 cas natifs sans échec et connexion réellement affichée). Qualification générale, AD/WMI distants réels et décisions externes 134/146 restent ouverts. Preuve : [rc16-windows-critical](../../../../validation/2026-10-18/rc16-windows-critical/README.md). La pause ci-dessous est historique et ne décrit plus le dépôt courant.
+Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. **RC1.17.17 : défaut réel du timeout WMI corrigé et vérifié.** Lecture AD réelle puis lot WMI/DCOM de deux cibles : timeout moteur sur la première, succès distant de DC01, deux observations SQLite, fin 2/2 sans arrêt. Trois cas de non-régression Windows 5.1 passent ; démarrage contrôlé et intégrité des deux ZIP vérifiée. Preuve : [rc17-live-ad-wmi](../../../../validation/2026-10-18/rc17-live-ad-wmi/README.md).
+
+La qualification critique RC16 (96 cas, connexion visible, santé et sauvegarde) reste historique ; elle ne vaut pas requalification RC17. Restent la qualification générale, les autres transports/volumes/parcours WPF et les décisions externes 134/146. Les deux VM CNAMTS sont démarrées ; le profil de l’opérateur est préservé. La pause ci-dessous est historique et ne décrit plus le dépôt courant.
 
 ---
 

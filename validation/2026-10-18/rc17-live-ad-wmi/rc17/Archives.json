@@ -1,0 +1,14 @@
+﻿[
+    {
+        "Edition":  "PROD",
+        "Sha256":  "0393C1B7FD23E732209D3F96C4C91196AFCB57BA26F02E86D79BBBC7EB4E908A",
+        "Files":  172,
+        "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.17-D120"
+    },
+    {
+        "Edition":  "DEV",
+        "Sha256":  "001AE72DB21059BDA3AD5AC72E810D8C69E20B948E2FC18C224F5B070A2EB04B",
+        "Files":  642,
+        "Build":  "2026.10.18-DOMENIA-1.0-RC1.17.17-D120"
+    }
+]
