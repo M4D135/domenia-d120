@@ -24,7 +24,7 @@ Le premier rapport de volume plein reste `Passed=false` car la suppression final
 - LAPS : une variable locale écrasait les faits live dans la portée du script ; le rapport les conserve maintenant.
 - WiringRelations : imports Guard/Store manquants, contexte AD requis et callback avant publication remis en phase avec le circuit réel. Le faux résultat représente désormais une relecture SQLite datée ; un cas supplémentaire vérifie qu’un résultat distant non enregistré est rejeté. Les attentes de refus de compte et de conservation de l’historique n’ont pas été assouplies. Compteur fermé actualisé à 59 cas.
 
-- Parcours GUI : WPF expose le `Uid` des boutons de navigation (`WsSearch`, `TabDashboard`) comme AutomationId, avant leur `x:Name`. Les deux définitions identiques du parcours utilisent maintenant ces identifiants ; revalidation interactive en attente du déverrouillage.
+- Parcours GUI : WPF expose le `Uid` des boutons de navigation (`WsSearch`, `TabDashboard`) comme AutomationId, avant leur `x:Name`. Les deux définitions identiques du parcours utilisent maintenant ces identifiants ; reprise détaillée dans le complément RC22.
 
 Les rapports initiaux (course, huit échecs de dépendances/contexte, puis ancien compteur de cas) restent dans `initial-dc/` et `patched-dc/`. Le résultat final est dans `wiring-final/`.
 
@@ -33,7 +33,7 @@ Les rapports initiaux (course, huit échecs de dépendances/contexte, puis ancie
 - Deux écrans avec DPI différents, changement à chaud, écoute Narrateur/NVDA et relevé humain complet : non exécutés, limites acceptées pour le labo personnel.
 - Le schéma du labo ne contient ni LAPS historique ni Windows LAPS ; le module est présent. Secrets chiffrés, déchiffrement et comptes délégués ne sont pas qualifiés. Les quatre scénarios manuels restent `NotExecuted`.
 - La campagne LoadStability 20 000 postes / cinq cycles a été arrêtée après deux lectures à froid correctes : première vue du parc en **128,426 s puis 142,335 s** sur la VM à un cœur / 4 Gio. La recherche renvoie les 100 résultats attendus et la vue les 20 000 machines. Aucune conclusion positive sur la réactivité ou l’endurance ; il reste une mesure et une optimisation à conduire si ce volume devient une cible. `client/LoadStabilityObservation.json`, sortie -1 et absence de rapport complet conservées.
-- Premier parcours natif Preview : 11 étapes réussies, trois sélecteurs introuvables et quatorze étapes non exécutées ; une capture valide. Rapport conservé dans `gui-initial/`. Les sélecteurs sont corrigés, mais la seconde exécution est bloquée par le reverrouillage automatique de Windows. Parcours complet encore non validé ; aucun relevé humain fourni.
+- Premier parcours natif Preview : 11 étapes réussies, trois sélecteurs introuvables et quatorze étapes non exécutées ; une capture valide. Rapport conservé dans `gui-initial/`. Les sélecteurs puis le modèle d’onglets sont corrigés ; défilement natif 7/7 et démarrage du nouveau pack réussis. Le passage complet RC22 attend une session après arrêt Windows pour expiration de l’évaluation ; [détails RC22](../rc22-ui-automation/README.md). Aucun relevé humain fourni.
 - Domaine cible, autres OS, transports et profils de droits : non qualifiés par cette lecture LDAP limitée. La matrice comporte une cellule labo, aucune cellule cible.
 - Coordination amont (134), certificat (141) et droits de redistribution (146) restent externes. Le pack personnel reste autonome avec tous les composants embarqués.
 

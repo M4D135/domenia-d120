@@ -1,0 +1,112 @@
+{
+    "Kind":  "DomeniaGuiJourneyQualification",
+    "Qualifying":  false,
+    "Target":  "Preview",
+    "Verdict":  {
+                    "Status":  "Échec",
+                    "Qualified":  false,
+                    "Text":  "Au moins une étape simulée ou une capture a échoué."
+                },
+    "Journeys":  {
+                     "Defined":  [
+                                     "navigation",
+                                     "defilement",
+                                     "fenetres",
+                                     "operations"
+                                 ],
+                     "Selected":  [
+                                      "defilement"
+                                  ],
+                     "NotRun":  [
+                                    "navigation",
+                                    "fenetres",
+                                    "operations"
+                                ]
+                 },
+    "Environment":  {
+                        "Computer":  "FILPRO-W11B",
+                        "Domain":  "cnamts.local",
+                        "Session":  1,
+                        "Screen":  "1920x1440",
+                        "WorkingArea":  "1920x1392",
+                        "PowerShell":  "5.1.26100.6584",
+                        "OS":  "Microsoft Windows NT 10.0.26200.0"
+                    },
+    "SimulatedEvents":  {
+                            "Note":  "Événements envoyés par ce programme (UI Automation et SendInput) : ils ne valent pas un parcours humain.",
+                            "Passed":  2,
+                            "Failed":  5,
+                            "Steps":  [
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  1,
+                                              "Action":  "Fenêtre : Normal1080",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Réussi",
+                                              "Observed":  "État Normal1080",
+                                              "DurationMs":  919
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  2,
+                                              "Action":  "Cliquer sur WsSearch",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "Réussi",
+                                              "Observed":  "Clic souris en 110,191",
+                                              "DurationMs":  1100
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  3,
+                                              "Action":  "Vérifier DgObjects",
+                                              "Mode":  "Simulé : UI Automation",
+                                              "Status":  "Échec",
+                                              "Observed":  "Contrôle introuvable : DgObjects",
+                                              "DurationMs":  8412
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  4,
+                                              "Action":  "Molette sur DgObjects : -6 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  5,
+                                              "Action":  "Touches : Ctrl+Home",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  6,
+                                              "Action":  "Molette sur DgObjects : 3 cran(s)",
+                                              "Mode":  "Simulé : entrée système (SendInput)",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          },
+                                          {
+                                              "Journey":  "defilement",
+                                              "Step":  7,
+                                              "Action":  "Capture grille (1920×1080, sans infobulle)",
+                                              "Mode":  "Capture écran",
+                                              "Status":  "NonExécuté",
+                                              "Observed":  "Parcours arrêté à une étape précédente.",
+                                              "DurationMs":  0
+                                          }
+                                      ]
+                        },
+    "Captures":  [
+
+                 ],
+    "HumanJourney":  {
+                         "Status":  "NonRelevé",
+                         "Note":  "Aucun relevé humain fourni (-HumanRecord) : le parcours à la main reste à faire."
+                     }
+}

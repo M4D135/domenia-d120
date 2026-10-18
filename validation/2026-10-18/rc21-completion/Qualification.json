@@ -88,8 +88,9 @@
     "InitialFailedOrNotExecuted": 17,
     "InitialValidCaptures": 1,
     "Correction": "Navigation selectors use WPF Uid WsSearch and TabDashboard instead of x:Name.",
-    "Retest": "Pending: interactive desktop automatically locked",
+    "Retest": "RC22 targeted scroll passed 7/7; full run pending interactive session after Windows evaluation shutdown",
     "HumanRecord": "NonReleve",
-    "Qualified": false
+    "Qualified": false,
+    "FollowupProof": "../rc22-ui-automation/README.md"
   }
 }

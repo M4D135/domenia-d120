@@ -1,0 +1,27 @@
+﻿{
+    "DateUtc":  "2026-10-18T12:35:54.9777642Z",
+    "Computer":  "FILPRO-W11B",
+    "User":  "CNAMTS\\Administrateur",
+    "UserRequested":  true,
+    "Changes":  [
+                    {
+                        "Path":  "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+                        "Name":  "InactivityTimeoutSecs",
+                        "Old":  null,
+                        "New":  0
+                    },
+                    {
+                        "Path":  "HKCU:\\Control Panel\\Desktop",
+                        "Name":  "ScreenSaveActive",
+                        "Old":  "1",
+                        "New":  "0"
+                    },
+                    {
+                        "Path":  "HKCU:\\Software\\Policies\\Microsoft\\Windows\\Control Panel\\Desktop",
+                        "Name":  "ScreenSaveActive",
+                        "Old":  null,
+                        "New":  "0"
+                    }
+                ],
+    "Scope":  "Disposable DOMENIA-RC21-FINAL only"
+}

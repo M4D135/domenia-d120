@@ -1,0 +1,6 @@
+﻿$ErrorActionPreference='Stop';$root='C:\Windows\Temp\Domenia-RC21-Completion'
+$changes=@(@('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System','InactivityTimeoutSecs',0,'DWord'),@('HKCU:\Control Panel\Desktop','ScreenSaveActive','0','String'),@('HKCU:\Software\Policies\Microsoft\Windows\Control Panel\Desktop','ScreenSaveActive','0','String'))
+$before=@();foreach($c in $changes){$old=Get-ItemProperty -LiteralPath $c[0] -Name $c[1] -ErrorAction SilentlyContinue;$before+=[pscustomobject]@{Path=$c[0];Name=$c[1];Old=$old.($c[1]);New=$c[2]};[void](New-Item -Path $c[0] -Force);[void](New-ItemProperty -LiteralPath $c[0] -Name $c[1] -Value $c[2] -PropertyType $c[3] -Force)}
+& powercfg.exe /change monitor-timeout-ac 0;if($LASTEXITCODE -ne 0){throw 'Cannot prevent monitor idle'}
+& powercfg.exe /change standby-timeout-ac 0;if($LASTEXITCODE -ne 0){throw 'Cannot prevent standby'}
+[pscustomobject]@{DateUtc=[datetime]::UtcNow.ToString('o');Computer=$env:COMPUTERNAME;User=[Security.Principal.WindowsIdentity]::GetCurrent().Name;UserRequested=$true;Changes=$before;Scope='Disposable DOMENIA-RC21-FINAL only'}|ConvertTo-Json -Depth 5|Set-Content (Join-Path $root 'PreventLock.json') -Encoding UTF8

@@ -1,0 +1,29 @@
+{
+  "Build": "RC1.17.22",
+  "Scope": "Personal lab, targeted checks only",
+  "FullAcceptance": false,
+  "Publishable": false,
+  "RuntimeFix": "Realize tab containers in UxWorkspaceHost so UI Automation sees the selected page.",
+  "StartupCheckOnlyPassed": true,
+  "GuiRulesPassed": 8,
+  "NativeScrollRegression": {
+    "Passed": 7,
+    "Failed": 0,
+    "Target": "Preview",
+    "Runtime": "RC21 sources with the exact template fix before RC22 version stamping"
+  },
+  "FullNativeJourneyOnRC22": "Pending interactive Windows session after evaluation-license shutdown",
+  "HumanRecord": "NonReleve",
+  "Archives": [
+    {
+      "File": "Domenia_PROD.zip",
+      "SHA256": "A8DDD1DD5FC363B33EF8FD8C66ECC856AAE6EEFB0A4EFFA054D5E31467179B77"
+    },
+    {
+      "File": "Domenia_DEV.zip",
+      "SHA256": "DD9A59F311CDB8813A39C80280A51EACB2FB91445D20A0B34739DE2199EA43BD"
+    }
+  ],
+  "SourceXamlSha256": "ee0b0ae345a5a5d8f34ca0a6e3e51398495d5f8323e0b3c0a577e353c5e5da9b",
+  "Cleanup": "Temporary client retained for final interactive run"
+}

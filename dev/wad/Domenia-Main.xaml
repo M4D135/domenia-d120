@@ -660,7 +660,11 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="TabControl">
-            <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="{TemplateBinding Padding}" SnapsToDevicePixels="True"/>
+            <Grid>
+              <!-- Realize tab containers for UI Automation; navigation stays in the sidebar. -->
+              <ItemsPresenter Height="0" ClipToBounds="True" IsHitTestVisible="False" KeyboardNavigation.TabNavigation="None"/>
+              <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" Margin="{TemplateBinding Padding}" SnapsToDevicePixels="True"/>
+            </Grid>
           </ControlTemplate>
         </Setter.Value>
       </Setter>
@@ -911,7 +915,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.21" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.22" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>

@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.18-DOMENIA-1.0-RC1.17.21-D120",
-  "source_base_commit": "9db4d5a5d34ee07040cab820d306a9b4813c16f6",
+  "build": "2026.10.18-DOMENIA-1.0-RC1.17.22-D120",
+  "source_base_commit": "0089352d9013844613de9d2a410b93553de64e59",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3066971,
-      "sha256": "fae656fbb5bb245f774de7fea1b4526ddcadc5946488a77c5edebc51e5dace79",
+      "bytes": 3067040,
+      "sha256": "a8ddd1dd5fc363b33ef8fd8c66ecc856aae6eefb0a4effa054d5e31467179b77",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6556664,
-      "sha256": "dd0386b01e0fd2ffb49d12aa699678682b9525c200b878346ff6bec760f3d27b",
+      "bytes": 6560647,
+      "sha256": "dd9a59f311cdb8813a39c80280a51eacb2fb91445d20a0b34739de2199ea43bd",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC21_TARGETED_RULES_GEOMETRY_INSTALLATION_PASS_GENERAL_ACCEPTANCE_OPEN",
-    "proof": "validation/2026-10-18/rc21-remediation/README.md",
+    "status": "RC22_STARTUP_AND_TARGETED_SCROLL_PASS_FULL_GUI_RUN_PENDING",
+    "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_NATIVE_RULES_WPF_AND_INSTALLER_NOT_FULL_ACCEPTANCE",
+    "formal_windows_qualification": "TARGETED_NATIVE_SCROLL_AND_STARTUP_NOT_FULL_ACCEPTANCE",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -46,8 +46,9 @@
     ],
     "additional_proofs": [
       "validation/2026-10-18/rc19-final-session/README.md",
-      "validation/2026-10-18/rc20-qualification-docs/README.md"
+      "validation/2026-10-18/rc20-qualification-docs/README.md",
+      "validation/2026-10-18/rc21-completion/README.md"
     ],
-    "vm_no_longer_needed_for_requested_scope": true
+    "vm_no_longer_needed_for_requested_scope": false
   }
 }
