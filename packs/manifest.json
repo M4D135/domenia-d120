@@ -49,6 +49,7 @@
       "validation/2026-10-18/rc20-qualification-docs/README.md",
       "validation/2026-10-18/rc21-completion/README.md"
     ],
-    "vm_no_longer_needed_for_requested_scope": false
+    "vm_no_longer_needed_for_requested_scope": true,
+    "cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json"
   }
 }

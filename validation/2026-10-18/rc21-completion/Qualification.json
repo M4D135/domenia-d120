@@ -94,5 +94,15 @@
     "FollowupProof": "../rc22-ui-automation/README.md",
     "FinalProof": "../rc22-ui-automation/README.md",
     "FinalPassed": 28
+  },
+  "Cleanup": {
+    "Status": "completed",
+    "DateUtc": "2026-10-18T13:01:29.4056993Z",
+    "DeletedVM": "DOMENIA-RC21-FINAL",
+    "DeletedUUID": "d978ecc6-96ba-4e16-92e1-ed0b6746484e",
+    "ADServerPreservedRunning": true,
+    "OtherVMsPreserved": 7,
+    "Proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
+    "QualificationEvidencePushedCommit": "930061d"
   }
 }

@@ -41,6 +41,6 @@ Les rapports initiaux (course, huit échecs de dépendances/contexte, puis ancie
 
 VM temporaire `DOMENIA-RC21-FINAL`, clone complet indépendant de `FILPRO-W11B-TEST` ; la VM source est restée arrêtée ; Windows conserve le nom invité `FILPRO-W11B`. L’accès au domaine a été rétabli en raccordant le clone au réseau privé `CNAMTS-LAB`. Le contrôleur `CNAMTS-DC01` est conservé. Aucun secret ni fichier de mot de passe lu ; aucune écriture AD demandée par les tests. `OriginalMachineAccount.json` confirme que le mot de passe du compte machine reste antérieur au clonage.
 
-Les preuves doivent être committées, poussées et vérifiées avant suppression de la VM temporaire. Le reçu de nettoyage final sera ajouté après cette vérification. Les autres VM de projets sont conservées.
+Les preuves RC21/RC22 ont été committées, poussées et vérifiées avant suppression de la VM temporaire. Le [reçu de nettoyage final](../rc22-ui-automation/FinalCleanup.json) confirme la suppression du clone et de son disque ; les sept VM préexistantes sont conservées, dont le serveur AD toujours démarré.
 
 `SHA256SUMS` lie les fichiers de ce dossier. Contrôles de sources dans `SourceChecks.json`. Les commandes de matrice s’exécutent depuis `dev/`, pour relire le rapport versionné au chemin relatif indiqué.
