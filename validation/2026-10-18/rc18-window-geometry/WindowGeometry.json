@@ -1,0 +1,40 @@
+{
+    "Suite":  "WindowGeometry",
+    "PowerShell":  "5.1.26100.6584",
+    "Wpf":  true,
+    "NoNetwork":  true,
+    "ProductionPreferencesTouched":  false,
+    "CoreSha256":  "18D2A62935EBC9B1DC29B47EF8F8C7479AD23714F99A55AE2E0A407DC097F2EF",
+    "Passed":  7,
+    "Failed":  0,
+    "Results":  [
+                    {
+                        "Name":  "Normal size and position roundtrip through JSON preferences",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Maximized save retains the latest normal rectangle",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Restore Down after reopening maximized uses the saved rectangle",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Minimized close preserves the previous maximized choice",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Missing display returns the window to the current work area",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Uninitialized size leaves first-launch defaults unchanged",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Settings restoration cannot overwrite saved geometry",
+                        "Passed":  true
+                    }
+                ]
+}

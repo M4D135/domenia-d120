@@ -1,0 +1,67 @@
+{
+  "build": "RC1.17.18",
+  "date": "2026-10-18",
+  "passed_scoped_checks": true,
+  "native_wpf_cases": 7,
+  "preferences_disk_roundtrip_cases": 5,
+  "full_acceptance": false,
+  "publishable": false,
+  "archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3066493,
+      "sha256": "ba61521bb83e0bc2deb919cb673e5f7fcc667b004d2a34d9c5d1aa9920a842ec",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6548643,
+      "sha256": "94ef38920a2f6423cd70abc42c2208414af0fc8fe6ec81f3301c3ff71e327362",
+      "files": 644,
+      "archive_files_including_manifest": 645,
+      "archive_root": "dev/"
+    }
+  ],
+  "core_sha256": "18d2a62935ebc9b1dc29b47ef8f8c7479ad23714f99a55ae2e0a407dc097f2ef",
+  "experience_model_sha256": "5db362a1609f8ce77d7ce8efaef54da4039668080a83cf3fccf33c9c1c10860e",
+  "test_sources": [
+    {
+      "path": "dev/wad/tests/Test-DomeniaWindowGeometry.ps1",
+      "sha256": "ba8e2e8560493676077ae6baf6d63c2986387626e4a6c73ed0b57abb031a8b1c"
+    },
+    {
+      "path": "dev/wad/tests/Test-DomeniaStoragePreferences.ps1",
+      "sha256": "0b07df1e6c35841b6d70d9bae4c80fb0eed8124007d297716c32f19f4e1f0ebd"
+    }
+  ],
+  "proof_files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "3ead3e1d067c99938254a40ba1b418a071709b06c2c93143be9c517d02332406"
+    },
+    {
+      "path": "README.md",
+      "sha256": "8029a4021b0e4f5a541d4492caf60b3ba78d86e7e88537980909efc4faebca7f"
+    },
+    {
+      "path": "StoragePreferences-RC17.json",
+      "sha256": "0a0bfe3e3c6dae8ada9b7c7f5e81f1d32717172c0720893c0fd0130072adda57"
+    },
+    {
+      "path": "StoragePreferences-RC18.json",
+      "sha256": "0ba0eb427992140e910b076a35346dbce21e1aa8c8da2f2337b9b6d030a4bdd5"
+    },
+    {
+      "path": "WindowGeometry.json",
+      "sha256": "232e24d37982d20f63cedf3d33d506a2207e83e21a6da4190dd0f355a437377b"
+    },
+    {
+      "path": "build-report.json",
+      "sha256": "feb22e429fd65b88ce1d47a7a3f5f32fd041be0d717ccaa5485208fa01706b88"
+    }
+  ]
+}

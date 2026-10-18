@@ -1,5 +1,11 @@
 # Domenia 1.0 RC1 : guide de livraison et limites
 
+## Correctif RC1.17.18
+
+La fenêtre mémorise automatiquement sa taille, sa position et son état normal ou maximisé dans les préférences. La réduction conserve le dernier état ; rouvrir maximisé puis rétablir garde la taille normale choisie. Une position hors du bureau actuel revient dans la zone de travail principale.
+
+Les réglages de sauvegarde automatique, la dernière réussite et son reçu vérifié sont conservés au redémarrage. RC17 les oubliait au rechargement des préférences.
+
 ## Correctif RC1.17.17
 
 Après un délai WMI, la fin tardive de l’appel natif ne masque plus le reçu SQLite déjà en attente. Le lot conserve l’échec du poste et termine le traitement des suivants ; aucun résultat tardif ne remplace le délai enregistré.

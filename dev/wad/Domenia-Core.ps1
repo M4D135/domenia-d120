@@ -3657,52 +3657,48 @@ function Set-DomeniaWindowActivationPolicy {
 }
 
 function Restore-DomeniaWindowGeometry {
-    # Une position enregistree sur un ecran desormais absent ne doit pas
-    # rendre la fenetre invisible : elle est ignoree si elle sort du bureau.
-    $window = $script:Window
-    if ($null -eq $window) { return }
+    $window=$script:Window
+    if($null -eq $window){return}
     try {
-        if ([bool](Get-DomeniaSetting "WindowMaximized" $false)) {
-            $window.WindowState = [System.Windows.WindowState]::Maximized
-            return
+        # Restore the normal rectangle before maximizing, so Restore Down keeps the user's size and position.
+        $maximized=[bool](Get-DomeniaSetting 'WindowMaximized' $false)
+        $width=[double](Get-DomeniaSetting 'WindowWidth' 0);$height=[double](Get-DomeniaSetting 'WindowHeight' 0)
+        $left=[double](Get-DomeniaSetting 'WindowLeft' -1);$top=[double](Get-DomeniaSetting 'WindowTop' -1)
+        $area=[System.Windows.SystemParameters]::WorkArea
+        $virtual=[System.Windows.Rect]::new([System.Windows.SystemParameters]::VirtualScreenLeft,[System.Windows.SystemParameters]::VirtualScreenTop,[System.Windows.SystemParameters]::VirtualScreenWidth,[System.Windows.SystemParameters]::VirtualScreenHeight)
+        if($width -gt 0 -and $height -gt 0 -and -not [double]::IsNaN($width) -and -not [double]::IsInfinity($width) -and -not [double]::IsNaN($height) -and -not [double]::IsInfinity($height)) {
+            $width=[Math]::Max($window.MinWidth,[Math]::Min($width,$virtual.Width))
+            $height=[Math]::Max($window.MinHeight,[Math]::Min($height,$virtual.Height))
+            if(-not [double]::IsNaN($left) -and -not [double]::IsInfinity($left) -and -not [double]::IsNaN($top) -and -not [double]::IsInfinity($top)) {
+                # A removed display must not strand the title bar outside the current desktop.
+                if($left -lt $virtual.Left -or $top -lt $virtual.Top -or $left+120 -gt $virtual.Right -or $top+60 -gt $virtual.Bottom) {
+                    $width=[Math]::Max($window.MinWidth,[Math]::Min($width,$area.Width));$height=[Math]::Max($window.MinHeight,[Math]::Min($height,$area.Height))
+                    $left=$area.Left+[Math]::Max(0,($area.Width-$width)/2);$top=$area.Top+[Math]::Max(0,($area.Height-$height)/2)
+                } else {
+                    $left=[Math]::Min($left,$virtual.Right-$width);$top=[Math]::Min($top,$virtual.Bottom-$height)
+                }
+                $window.WindowStartupLocation=[System.Windows.WindowStartupLocation]::Manual;$window.Left=$left;$window.Top=$top
+            }
+            $window.Width=$width;$window.Height=$height
         }
-        $width = [double](Get-DomeniaSetting "WindowWidth" 0)
-        $height = [double](Get-DomeniaSetting "WindowHeight" 0)
-        $left = [double](Get-DomeniaSetting "WindowLeft" -1)
-        $top = [double](Get-DomeniaSetting "WindowTop" -1)
-        $virtualLeft = [System.Windows.SystemParameters]::VirtualScreenLeft
-        $virtualTop = [System.Windows.SystemParameters]::VirtualScreenTop
-        $virtualWidth = [System.Windows.SystemParameters]::VirtualScreenWidth
-        $virtualHeight = [System.Windows.SystemParameters]::VirtualScreenHeight
-        if ($width -ge $window.MinWidth -and $height -ge $window.MinHeight) {
-            $window.Width = [Math]::Min($width,$virtualWidth)
-            $window.Height = [Math]::Min($height,$virtualHeight)
-        }
-        if ($left -ge $virtualLeft -and $top -ge $virtualTop -and
-            ($left + 120) -le ($virtualLeft + $virtualWidth) -and
-            ($top + 60) -le ($virtualTop + $virtualHeight)) {
-            $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::Manual
-            $window.Left = $left
-            $window.Top = $top
-        }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Restore-DomeniaWindowGeometry' $_ }
+        if($maximized){$window.WindowState=[System.Windows.WindowState]::Maximized}
+    } catch {Write-DomeniaSwallowed 'Core' 'Restore-DomeniaWindowGeometry' $_}
 }
 
 function Save-DomeniaWindowGeometry {
-    $window = $script:Window
-    if ($null -eq $window) { return }
+    $window=$script:Window
+    if($null -eq $window -or $script:RestoringSettings){return}
     try {
-        $maximized = ($window.WindowState -eq [System.Windows.WindowState]::Maximized)
-        Set-DomeniaSetting -Name "WindowMaximized" -Value $maximized
-        if (-not $maximized -and $window.WindowState -eq [System.Windows.WindowState]::Normal) {
-            Set-DomeniaSetting -Name "WindowWidth" -Value ([int]$window.Width)
-            Set-DomeniaSetting -Name "WindowHeight" -Value ([int]$window.Height)
-            Set-DomeniaSetting -Name "WindowLeft" -Value ([int]$window.Left)
-            Set-DomeniaSetting -Name "WindowTop" -Value ([int]$window.Top)
+        $state=$window.WindowState
+        # Minimizing does not change the last normal/maximized choice.
+        if($state -ne [System.Windows.WindowState]::Minimized){Set-DomeniaSetting 'WindowMaximized' ($state -eq [System.Windows.WindowState]::Maximized)}
+        $bounds=$window.RestoreBounds
+        if($state -eq [System.Windows.WindowState]::Normal){$bounds=[System.Windows.Rect]::new($window.Left,$window.Top,$window.ActualWidth,$window.ActualHeight)}
+        if(-not $bounds.IsEmpty -and $bounds.Width -gt 0 -and $bounds.Height -gt 0 -and -not [double]::IsInfinity($bounds.Left) -and -not [double]::IsInfinity($bounds.Top)) {
+            Set-DomeniaSetting 'WindowWidth' ([int][Math]::Round($bounds.Width));Set-DomeniaSetting 'WindowHeight' ([int][Math]::Round($bounds.Height))
+            Set-DomeniaSetting 'WindowLeft' ([int][Math]::Round($bounds.Left));Set-DomeniaSetting 'WindowTop' ([int][Math]::Round($bounds.Top))
         }
-    }
-    catch { Write-DomeniaSwallowed 'Core' 'Save-DomeniaWindowGeometry' $_ }
+    } catch {Write-DomeniaSwallowed 'Core' 'Save-DomeniaWindowGeometry' $_}
 }
 
 function Restore-DomeniaUiSettings {
@@ -19020,7 +19016,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.17-D120"
+$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.18-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -24497,6 +24493,10 @@ function Initialize-Window {
                 Show-WarningBox "Une écriture AD est en cours de confirmation par le DC. La fenêtre ne peut pas être fermée tant que son état est inconnu."
             }
         })
+        # Geometry uses the existing debounced preferences writer, including before a minimized close.
+        $script:Window.Add_LocationChanged({if($script:Window.IsLoaded){Save-DomeniaWindowGeometry}})
+        $script:Window.Add_SizeChanged({if($script:Window.IsLoaded){Save-DomeniaWindowGeometry}})
+        $script:Window.Add_StateChanged({if($script:Window.IsLoaded){Save-DomeniaWindowGeometry}})
         $script:Window.Add_Closed({
             try{Stop-DomeniaOuTreeFilter}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
             try{Stop-DomeniaFavouriteTreeReveal}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
@@ -25956,7 +25956,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.17-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.18-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

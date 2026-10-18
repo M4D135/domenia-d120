@@ -1,0 +1,4 @@
+# Preserve raw Windows evidence byte for byte, including CRLF and JSON indentation.
+raw/* -text -whitespace
+attempts/* -text -whitespace
+harness/* -text

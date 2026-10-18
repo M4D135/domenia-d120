@@ -1,5 +1,9 @@
 # État courant — 18 octobre 2026
 
+**RC1.17.18** : état normal/maximisé, taille et position mémorisés ; sept cas natifs WPF réussis, packs reconstruits. Les parcours RC17 de sauvegarde automatique et de restauration par interface après corruption sont qualifiés, preuves et bases de test récupérées sur le Mac. Voir [suivi](SUIVI-2026-10-18.md), [stockage RC17](../../../../validation/2026-10-18/rc17-storage-ui/README.md) et [fenêtre RC18](../../../../validation/2026-10-18/rc18-window-geometry/README.md). Les VM restent démarrées, application isolée et tâches de test fermées ; verrouillage automatique W11-01 désactivé sur demande. Décisions 134/146 et qualification générale ouvertes.
+
+Historique des qualifications précédentes :
+
 Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. **RC1.17.17 : défaut réel du timeout WMI corrigé et vérifié.** Lecture AD réelle puis lot WMI/DCOM de deux cibles : timeout moteur sur la première, succès distant de DC01, deux observations SQLite, fin 2/2 sans arrêt. Trois cas de non-régression Windows 5.1 passent ; démarrage contrôlé et intégrité des deux ZIP vérifiée. Preuve : [rc17-live-ad-wmi](../../../../validation/2026-10-18/rc17-live-ad-wmi/README.md).
 
 La qualification critique RC16 (96 cas) reste historique. La requalification ciblée RC17 interface/santé/sauvegarde est maintenant consignée dans [rc17-ui-health-backup](../../../../validation/2026-10-18/rc17-ui-health-backup/README.md) : 37 cas santé, 10 stockage (61 assertions), 63 cas WPF uniques après correction des bancs ; runtime et ZIP inchangés. Consulter la preuve pour le parcours visuel et les limites. Restent la qualification générale, les autres transports/volumes/parcours WPF et les décisions externes 134/146. Les deux VM CNAMTS sont démarrées ; le profil de l’opérateur est préservé. La pause ci-dessous est historique et ne décrit plus le dépôt courant.

@@ -5,9 +5,9 @@
 | PROD | [Domenia_PROD.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_PROD.zip) | Extraire le dossier `prod`, puis lancer `Domenia.exe` en gardant `wad` à côté. |
 | DEV | [Domenia_DEV.zip](https://github.com/M4D135/domenia-d120/raw/refs/heads/master/packs/Domenia_DEV.zip) | Sources et outils ; `dev/FABRIQUER_PROD.cmd` reconstruit une distribution PROD. |
 
-Build actuel : **RC1.17.16**, candidat — [corrections et contrôles ciblés](../validation/2026-10-18/rc16-remaining/README.md).
+Build actuel : **RC1.17.18**, candidat — [état de fenêtre mémorisé et sept contrôles WPF natifs](../validation/2026-10-18/rc18-window-geometry/README.md).
 
-RC1.17.16 : contrats WMI/conservation, provenance durable des imports, alertes de santé par recette à révision conservée, sauvegardes SQLite autonomes et bancs de requêtes corrigés. Contrôles natifs ciblés, sans VM. Qualification Windows et décisions externes (licences, coordination Pesto/FilPro/amont) ouvertes.
+Taille, position et état normal/maximisé sont enregistrés automatiquement. Réduire conserve le dernier état ; rétablir après une réouverture maximisée retrouve la taille normale. Les réglages de sauvegarde automatique et les reçus restent désormais mémorisés après redémarrage (cinq tests Windows ciblés). RC17 a aussi corrigé l'arrêt du lot après timeout WMI ; sa sauvegarde automatique et sa restauration via interface sont [qualifiées sur le pack exact](../validation/2026-10-18/rc17-storage-ui/README.md). Ces preuves RC17 restent historiques et ne sont pas réétiquetées RC18. Qualification générale et décisions externes 134/146 ouvertes.
 
 Accueil simplifié, Santé en dernier par défaut, déplacement des sections et tailles de widgets stables.
 Le bandeau suit le lot complet, y compris les attentes et lʼenregistrement ; le panneau détaille les lectures.

@@ -1,0 +1,135 @@
+{
+  "build": "RC1.17.17",
+  "date": "2026-10-18",
+  "passed_scoped_checks": true,
+  "full_acceptance": false,
+  "known_defects_fixed_in_rc18": [
+    "Backup policy and receipts lost on RC17 preferences reload"
+  ],
+  "publishable": false,
+  "source_base_commit": "f9df1e5ea0c07abb1aa43e4d49ed7bb2da71044c",
+  "archives": [
+    {
+      "Edition": "PROD",
+      "Sha256": "0393C1B7FD23E732209D3F96C4C91196AFCB57BA26F02E86D79BBBC7EB4E908A"
+    },
+    {
+      "Edition": "DEV",
+      "Sha256": "001AE72DB21059BDA3AD5AC72E810D8C69E20B948E2FC18C224F5B070A2EB04B"
+    }
+  ],
+  "proof_files": [
+    {
+      "path": ".gitattributes",
+      "sha256": "f88db5f42a7feaaca7135ebbe49c7d7249023824a589235fc4372c94425f9ffe"
+    },
+    {
+      "path": "README.md",
+      "sha256": "ae6e14a149236e7c8e913730536ee4a8e2bbaa4a51c3155c5832889cd65009e4"
+    },
+    {
+      "path": "attempts/Auto-Attempt-085242.json",
+      "sha256": "ce0cd825b2c1bc2f2f07fb246b66ac5ed1747815f1566a44ac7d333397b48ce4"
+    },
+    {
+      "path": "attempts/Auto-Attempt1.json",
+      "sha256": "64d0f80b888fbd8757c84af027cd13d645e04645d4d6e434a5bd87d346a3920d"
+    },
+    {
+      "path": "attempts/Restore-Attempt.json",
+      "sha256": "f9c34e017cb714be1dffc570456f78a99ecb384c6aaab08a3d3f79bd1b21994a"
+    },
+    {
+      "path": "attempts/RestoreFinish-Attempt.json",
+      "sha256": "047e890145acee242eb59c1cd290192abbea4ecf382d2c95b309988aad982ff5"
+    },
+    {
+      "path": "harness/Confirm-RestorePreview.ps1",
+      "sha256": "d320d152637f535aee8f9a003524ad1a794786e763ccab5cbeb95439fc1ccd89"
+    },
+    {
+      "path": "harness/Disable-LabIdleLock.ps1",
+      "sha256": "0c474c2911111772c24107c5e02800fec192890c1dc6f933d73c9a4b66d3255f"
+    },
+    {
+      "path": "harness/Finalize-Storage.ps1",
+      "sha256": "50478d36dd9754dd61663ac74893af1c2b7e8225bad10e89e7fec441d59d74d4"
+    },
+    {
+      "path": "harness/Finish-RestoreNative.ps1",
+      "sha256": "36171bda131f44daeb4291cbff250780ef48cffde5ecc51b95d0d154ebd9ccf5"
+    },
+    {
+      "path": "harness/Finish-RestoreSession.ps1",
+      "sha256": "847525b378025ad7309e9f288871a2a9e52dc7e56a4ff3317520c02c62f75a04"
+    },
+    {
+      "path": "harness/Native-Probe.ps1",
+      "sha256": "4c7a172580c76a4fd7461f5cc3b374b9d815c689e77d79dca04d44db1941fcb4"
+    },
+    {
+      "path": "harness/Resume-AutoSession.ps1",
+      "sha256": "bb99726061a9eb6c543df2657c5a01892093355dfddbcdb69d4c602d707779d1"
+    },
+    {
+      "path": "harness/Resume-RestoreSession.ps1",
+      "sha256": "7ae58fe6ce201d3e4c655942ec6148661402e1f4da8cb11ab856d05f7c3d59c5"
+    },
+    {
+      "path": "harness/Test-RestoreSession.ps1",
+      "sha256": "6fc97dee5c8d5fbd5741b82b155a00f97fd11638a71a07e55e7dfb8346d95eaf"
+    },
+    {
+      "path": "harness/Test-StorageSession.ps1",
+      "sha256": "533bb1c2c2b6a6324d77174830a8dfb20e82336d5fb6eb8d250eaa326ea92817"
+    },
+    {
+      "path": "raw/Auto-Result.json",
+      "sha256": "304fbcbb8fb0e4dc449353d7ccd6e17e2eb38612083c862510075b1e630ee113"
+    },
+    {
+      "path": "raw/Auto-Success.png",
+      "sha256": "5395924c2b6b043fa4bbb86f9fee8a242ed3d4521fa0ee9a6333629d71b467f2"
+    },
+    {
+      "path": "raw/FinalIntegrity.json",
+      "sha256": "7aedc9944acf3188adcb599c8c59037f6a8af0d28c9be05f0dbf76930c865848"
+    },
+    {
+      "path": "raw/IdleLockAfter.json",
+      "sha256": "f26c63060e626f006dc67d63fde40a7990a5afab31307d72dd96c9887dbff785"
+    },
+    {
+      "path": "raw/IdleLockBefore.json",
+      "sha256": "e2492492f0d42d3e6c93bbee3f09ebfe79715cb40b647a43387356099fe923f0"
+    },
+    {
+      "path": "raw/NativeDialogs.json",
+      "sha256": "aee6a91ef8d60250b498e6c6c02554a84fb79c3f962d1d9d0f503b49ada84654"
+    },
+    {
+      "path": "raw/Restore-FilePicker.json",
+      "sha256": "298e4f127c3c9375dacd407da6204a5fbfd6aa25a29b4e40012b7da514a702a1"
+    },
+    {
+      "path": "raw/Restore-Preview.png",
+      "sha256": "93f930aa46c4c217434418d9ae786115085c578304af28da39b042638d9c4099"
+    },
+    {
+      "path": "raw/Restore-Result.json",
+      "sha256": "e4834d9629ccb4b5aff42ed480af2e2b0800d47f6d0b0c5c59a90e53a0cf80c2"
+    },
+    {
+      "path": "raw/Restore-Storage.png",
+      "sha256": "a9f09c689b3db178ad77548f39dacf635151998f490e70cf05434a02d920e1b6"
+    },
+    {
+      "path": "raw/Restore-Success.png",
+      "sha256": "ae09844a6ba51a26ccfa92d7e500c75b7d034e4bced953f2137f1cc609dc259a"
+    },
+    {
+      "path": "raw/RestoreFinish-Result.json",
+      "sha256": "bcc0ae7443620e88075abdfd8d271218bb7c79928b39917a31d5fb5031d3b1c0"
+    }
+  ]
+}

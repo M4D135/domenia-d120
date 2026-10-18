@@ -1,0 +1,36 @@
+{
+    "Suite":  "StoragePreferences",
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  1,
+    "Failed":  4,
+    "DiskRoundtrip":  true,
+    "ProductionPreferencesTouched":  false,
+    "CoreSha256":  "A7E8DA328462087E9830E20CCBFA3B1C0DD360D5FFB704CBD0D886B263F95C59",
+    "ModelSha256":  "9161C923444717BE3AD423FE110D9805087B724EBBFC9B7EB36449B70D06780C",
+    "Results":  [
+                    {
+                        "Name":  "Enabled automatic policy and retention settings survive two disk reloads",
+                        "Passed":  false,
+                        "Error":  "Storage policy lost on reload"
+                    },
+                    {
+                        "Name":  "Disabled policy remains explicit after reload",
+                        "Passed":  false,
+                        "Error":  "Disabled policy lost on reload"
+                    },
+                    {
+                        "Name":  "Last success and verified receipt survive reload independently for each store",
+                        "Passed":  false,
+                        "Error":  "Last success lost"
+                    },
+                    {
+                        "Name":  "Unknown keys, invalid store names and non-string values remain rejected",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Extra preference size and count limits remain enforced",
+                        "Passed":  false,
+                        "Error":  "Extra key bound changed"
+                    }
+                ]
+}

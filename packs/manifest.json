@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.18-DOMENIA-1.0-RC1.17.17-D120",
-  "source_base_commit": "5cc71745b410f8a27823d043880b28995498d813",
+  "build": "2026.10.18-DOMENIA-1.0-RC1.17.18-D120",
+  "source_base_commit": "f9df1e5ea0c07abb1aa43e4d49ed7bb2da71044c",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3066076,
-      "sha256": "0393c1b7fd23e732209d3f96c4c91196afcb57ba26f02e86d79bbbc7eb4e908a",
+      "bytes": 3066493,
+      "sha256": "ba61521bb83e0bc2deb919cb673e5f7fcc667b004d2a34d9c5d1aa9920a842ec",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,28 +17,29 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6539327,
-      "sha256": "001ae72db21059bda3ad5ac72e810d8c69e20b948e2fc18c224f5b070a2eb04b",
-      "files": 642,
-      "archive_files_including_manifest": 643,
+      "bytes": 6548643,
+      "sha256": "94ef38920a2f6423cd70abc42c2208414af0fc8fe6ec81f3301c3ff71e327362",
+      "files": 644,
+      "archive_files_including_manifest": 645,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC17_TARGETED_LIVE_AD_WMI_UI_HEALTH_BACKUP_CHECKS_FULL_WINDOWS_AND_EXTERNAL_DECISIONS_OPEN",
-    "proof": "validation/2026-10-18/rc17-live-ad-wmi/README.md",
+    "status": "RC18_TARGETED_WINDOWS_WINDOW_AND_STORAGE_PREFERENCES_FULL_ACCEPTANCE_OPEN",
+    "proof": "validation/2026-10-18/rc18-window-geometry/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_ONLY_RC1.17.17_NOT_FULL_ACCEPTANCE",
+    "formal_windows_qualification": "TARGETED_ONLY_FUNCTIONS_AND_NATIVE_WPF_NOT_FULL_APPLICATION_RC18",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
       146
     ],
     "documentation_proof": "dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md",
-    "interactive_gui": "RC17_WINDOWS_LOGIN_HOME_SEARCH_TOOLS_HOME_OBSERVED_TARGETED_ONLY",
-    "additional_proofs": [
-      "validation/2026-10-18/rc17-ui-health-backup/README.md"
+    "historical_rc17_proofs": [
+      "validation/2026-10-18/rc17-storage-ui/README.md",
+      "validation/2026-10-18/rc17-ui-health-backup/README.md",
+      "validation/2026-10-18/rc17-live-ad-wmi/README.md"
     ]
   }
 }

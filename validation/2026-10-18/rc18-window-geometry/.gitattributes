@@ -1,0 +1,3 @@
+# Preserve the original Windows test reports byte for byte.
+WindowGeometry.json -text -whitespace
+StoragePreferences-*.json -text -whitespace

@@ -21,10 +21,10 @@ function ConvertTo-SuiteNumber {
 }
 
 function Test-DomeniaScopedSettingName {
-    # Domain-scoped preferences are stored under a closed name pattern (prefix + SHA-256 of the domain DN), outside the
-    # declared defaults: database choice, health policies and approved BIOS references. Only these survive a reload.
+    # Persist only the named storage policy and closed domain/store-scoped keys outside the declared defaults.
+    # Backup receipts use the store SHA-256 (path + domain); their last success must survive a restart too.
     param([AllowEmptyString()][string]$Name)
-    return ([string]$Name -cmatch '^(Storage\.Database|Dashboard\.HealthPolicies|Inventory\.BiosReferences)\.[0-9a-f]{64}$')
+    return ([string]$Name -cmatch '^(Storage\.PolicyJson|(Storage\.Database|Storage\.Backup\.(Last|LastDetail)|Dashboard\.HealthPolicies|Inventory\.BiosReferences)\.[0-9a-f]{64})$')
 }
 
 function ConvertTo-DomeniaExperienceSettings {
@@ -54,7 +54,7 @@ function ConvertTo-DomeniaExperienceSettings {
         }
         $out[$key]=$value
     }
-    # Domain-scoped preferences pass through unchanged: string values only, at most 1 MiB each and 256 keys.
+    # Approved extra preferences pass through unchanged: string values only, at most 1 MiB each and 256 keys.
     if($null -ne $Values){
         $scoped=0
         foreach($key in @($Values.Keys)){
