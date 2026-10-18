@@ -1,5 +1,5 @@
 {
-  "Archive": "RC1.17.14 mission 2026-10-17 (base 31fe584)",
+  "Archive": "RC1.17.15 correctif sante du 2026-10-18 (base 4a4fb412)",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "1ABDD25744B37D6023869B9F6F3336EA58D1985C258F6ABE7215FDE05B060F52",
-    "Assert-DomeniaWorkerRegistry": "5CA282ED8A473617D80EB13722B5307DCC5E1C4CB2A4542D980310309D32E4A4",
+    "Get-DomeniaWorkerOperationHashes": "A8AE098537DF84364E79084C092AEF6EEC5F939B073C918E3345EDE73ECA3AD1",
+    "Assert-DomeniaWorkerRegistry": "8601D04318BB9A0399CE5BD2D2F5884D93652218AD7819124325B308536C6FA8",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4775,6 +4775,18 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": "RC1.17.14 mission 2026-10-17 (base 31fe584)",
+      "Source": "RC1.17.15 correctif sante du 2026-10-18 (base 4a4fb412)",
+      "Decision": "RC1.17.15 : conversion invariante des dates UTC typees dans les suspensions de sante. Diff relu : seul le worker LocalStore inclut ce modele ; ses empreintes et celle du registre sont re-epinglees. Aucun changement des controles de chargement. Suites HealthAdvanced, HealthPolicies et HealthRules : 45 cas reussis sous pwsh 7.4.6 macOS, non qualifiants Windows. Aucun test VM.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

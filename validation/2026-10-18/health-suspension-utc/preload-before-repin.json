@@ -1,0 +1,1285 @@
+{
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.15-D120",
+  "SourceBase": "RC1.17.14 mission 2026-10-17 (base 31fe584)",
+  "Passed": 251,
+  "Failed": 2,
+  "CoreFunctions": 638,
+  "ChangedCoreFunctions": [
+    "Get-DomeniaWorkerOperationHashes",
+    "Assert-DomeniaWorkerRegistry"
+  ],
+  "UnchangedCoreFunctions": 636,
+  "ModuleFiles": 128,
+  "ModuleExports": 2961,
+  "WindowsPowerShellExecuted": false,
+  "WpfExecuted": false,
+  "LiveADExecuted": false,
+  "Kind": "Source/XML and archive-level contract verification only",
+  "Checks": [
+    {
+      "Name": "Every original core function retained",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No duplicate core functions",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Invoke-DomeniaInProcessAuthProbe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Start-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Update-DomeniaFastLoginAttempt",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Complete-DomeniaFastLoginSuccess",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Start-DomeniaLoginAuthRunspace",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Get-DomeniaStandardLoginXaml",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Get-DomeniaBootThemePalette",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Test-DomeniaMainHostAvailable",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Invoke-DomeniaHostWindow",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Initialize-AsyncEngine",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Assert-DomeniaWorkerRegistry",
+      "Passed": false,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Get-DomeniaSearchScope",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Test-DomeniaSearchStateCurrent",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Invoke-GlobalSearch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Get-BranchQueryData",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Start-DomeniaWriteTask",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged critical function: Get-DomeniaWorkerOperationHashes",
+      "Passed": false,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: Domenia.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Microsoft.ActiveDirectory.Management.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/ActiveDirectoryPowerShellResources.dll",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/PsExec.exe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Domenia.config.json",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Domenia.theme.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Domenia.login-mode.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Domenia.ui-profile.cfg",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Domenia-Start.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Support/DEBLOQUER_TOUT.cmd",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/Support/Debloquer-Paquet.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/modules/Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Unchanged payload: wad/modules/Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Actual grid SelectionChanged invokes preload",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Actual grid event is not console-only",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Actual click-up also invokes the coalesced selection path",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Double click opens without forcing reread",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Enter opens without forcing reread",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Double-click validates a real row and a single selection",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection is initialized from real Wire-Events",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: SuppressGridSelectionEvents",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: AsyncEngineClosing",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: Test-DomeniaAccessBusyWrite",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: Test-DomeniaDraftNavigation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: CurrentObjectRequestId",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: SelectionDebounceMs",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Queue guard: ReadOnlyRetry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Draft decision precedes remote request",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Pending read suppresses navigation and remote effects",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Busy-write pause precedes grid-current check",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No wait or sleep in interactive preload",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: CurrentObjectRequestId",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: Epoch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: Identity",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: SelectionToken",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: Test-DomeniaSelectionLoadCurrent",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Callback guard: Test-DomeniaGridSelectionMatches",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Task identity precedes store read",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Identity validated before display",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Completion cannot steal navigation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Failure is inline for a selection",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "User cancellation exits loading phase",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh-read safety required for writes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Type display has true non-navigation mode",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preload cannot ping associated user machine",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Preload does not duplicate machine probes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Rendering restores the suppression flag in finally",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Sync-DomeniaIndexEntry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Submit-DomeniaStoreBatch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Add-DomeniaIndexPersistence",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Sync-DomeniaIndexEntry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Submit-DomeniaStoreBatch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Add-DomeniaIndexPersistence",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Sync-DomeniaIndexEntry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Submit-DomeniaStoreBatch",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Fresh render does not write the index: Add-DomeniaIndexPersistence",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Direct open releases view wrappers",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: Get-DomeniaCacheKey",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: GlobalSearchGeneration",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: GetHashCode",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: ExpectedGuid",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: ToString('D')",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: DN -ieq",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: Phase -eq 'Ready'",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: SameSelectionContext",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection/cache identity rule: reader hashed by the cache-v3 rule",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "One type update per selection type",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Read retry does not reprobe",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Old object hidden before request",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No network commands or windows in presentation module",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection module no timer starts on import",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-CredentialVault.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Common.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Engine.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Cache.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Collection.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Collection.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Search.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Relations.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Access.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Directory.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Workstation.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Shell.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Safety.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Insight.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Release.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Compatibility.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Compatibility.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Commands.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Observability.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Selection.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Embedded.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-InventoryImport.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Relations.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-UX.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Support.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Support.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Automation.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Automation.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Automation.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Live.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Live.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Access.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Continuity.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Continuity.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Guard.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.Store.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.Vault.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.Async.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Store.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectoryStore.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectoryStore.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-ProbeDetails.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-ProbeDetails.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-StorageLease.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Storage.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-StorageContext.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Storage.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DataPolicy.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DataPolicy.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Lockout.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Accounts.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Receipts.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Sessions.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Dossier.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Dossier.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Reconcile.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Guard.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Demo.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Demo.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Engine.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Isolation.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Engine.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Lockout.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Commands.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Observability.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Assist.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Assist.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Assist.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Membership.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Membership.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-AdAudit.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-AdAudit.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-AdAudit.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Assistance.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Assistance.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Demo.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Startup.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Search.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Secrets.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Secrets.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Inline.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Migration.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Migration.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Park.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-HealthRules.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Boards.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-WidgetCollect.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Charts.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-ProbeCatalog.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Probes.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-ProbeContract.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Readings.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-BoardFleet.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-BoardSoftware.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-BoardComputer.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-HealthRules.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Widgets.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-FirstRun.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Dashboard.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Park.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Park.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Query.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryLibrary.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryLibrary.Store.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Query.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryTargets.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Query.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Refresh.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QuerySchema.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QuerySchema.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QuerySchema.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryDetails.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryTransfer.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-QueryTransfer.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-SearchWorkspace.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-SearchWorkspace.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySync.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySync.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-LogonActivity.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-LogonActivity.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySchema.Model.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySchema.Worker.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-LogonActivity.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySchema.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-DirectorySync.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Closed exports match: Domenia-Confirmation.UI.ps1",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Selection module included in bootstrap plan",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Module names are unique",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No readonly variable assignment: selection module",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No readonly variable assignment: Get-DomeniaWorkerOperationHashes",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No readonly variable assignment: Assert-DomeniaWorkerRegistry",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Named content host: Object",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Reserved retry slot: Object",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Non-modal placeholder: Object",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Named content host: Computer",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Reserved retry slot: Computer",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Non-modal placeholder: Computer",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No extra Window in main XAML",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Existing data columns retained",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Result row virtualisation preserved",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "No busy state injected in the global layout",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Read state reserved row: ObjectReadRoot",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Read state reserved row: ComputerReadRoot",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Retry help catalog entries exist",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Parser]::ParseFile",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Parser]::ParseInput",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Add_SelectionChanged",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: GetScriptBlock",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: XamlReader",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: NativeWindowsPowerShell",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Requests.Count",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Late A",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: SkipWpf",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Failed",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Windows suite contains: Complete",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Installer runs no test suite on the target",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Installer checks the prepared version before activation",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Installer binds a qualification report to the ZIP hash",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "DEV installer entry point forwards to the shipped installer",
+      "Passed": true,
+      "Detail": ""
+    },
+    {
+      "Name": "Executed: validate_powershell_static.py",
+      "Passed": true,
+      "Detail": "PASS: 337 PowerShell files; lexical state, delimiters, typographic quote delimiters (code, literals and worker bodies) and boolean-command hazards checked.\nPASS: Dispatcher timers only from New-DomeniaTimer (FI-05); no Get-Command in timer ticks or heartbeat handlers (PF-10).\nNOTE: native Windows PowerShell parser was not executed on this host."
+    },
+    {
+      "Name": "Executed: update_worker_contracts.py",
+      "Passed": true,
+      "Detail": "{\n  \"ReviewedChangesRequired\": [],\n  \"Applied\": false,\n  \"Count\": 94\n}"
+    }
+  ]
+}

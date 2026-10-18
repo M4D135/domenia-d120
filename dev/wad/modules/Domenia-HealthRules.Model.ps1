@@ -502,7 +502,10 @@ function ConvertTo-DomeniaHealthSuspensions {
     param([object[]]$Values=@(),[switch]$Strict)
     $result=[Collections.Generic.List[object]]::new();$seen=@{};$known=@{};foreach($r in @(Get-DomeniaHealthRuleCatalog)){$known[$r.Id]=$true}
     foreach($v in $Values){
-        if($null -eq $v){continue};$id=[string](Get-DomeniaHealthValue $v 'RuleId' '');$reason=([string](Get-DomeniaHealthValue $v 'Reason' '')).Trim();$raw=[string](Get-DomeniaHealthValue $v 'UntilUtc' '')
+        if($null -eq $v){continue};$id=[string](Get-DomeniaHealthValue $v 'RuleId' '');$reason=([string](Get-DomeniaHealthValue $v 'Reason' '')).Trim();$expiry=Get-DomeniaHealthValue $v 'UntilUtc' '';$raw=[string]$expiry
+        # ConvertFrom-Json can materialize a UTC date. A string cast loses its UTC marker and uses a display format.
+        # Preserve only explicitly UTC typed values; local/unspecified dates must still fail strict validation.
+        if(($expiry -is [datetime] -and $expiry.Kind -eq [DateTimeKind]::Utc) -or ($expiry -is [datetimeoffset] -and $expiry.Offset -eq [timespan]::Zero)){$raw=$expiry.ToString('o',[Globalization.CultureInfo]::InvariantCulture)}
         $until=[datetimeoffset]::MinValue;$valid=($known.ContainsKey($id) -or $id -cmatch '^custom\.[0-9a-f]{32}$') -and $reason.Length -ge 3 -and $reason.Length -le 240 -and $reason -notmatch '[\p{Cc}]' -and $raw -match '(Z|\+00:00)$' -and [datetimeoffset]::TryParse($raw,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$until) -and $until.Year -ge 2000 -and $until.Year -le 9998 -and -not $seen.ContainsKey($id) -and $result.Count -lt 64
         if(-not $valid){if($Strict){throw 'Suspension invalide : contrôle unique, motif de 3 à 240 caractères et échéance UTC obligatoires (64 maximum).'};continue}
         $seen[$id]=$true;$result.Add([pscustomobject]@{RuleId=$id;Reason=$reason;UntilUtc=$until.UtcDateTime.ToString('o')})

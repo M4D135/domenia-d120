@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.17-DOMENIA-1.0-RC1.17.14-D120",
-  "source_base_commit": "31fe5846e5f6a9b821a23df10c23e5d46370addd",
+  "build": "2026.10.18-DOMENIA-1.0-RC1.17.15-D120",
+  "source_base_commit": "4a4fb4122f3b358565ce92c97b02004ec7512472",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3062218,
-      "sha256": "aab6bfe312c3615e2a3467c2b88328a19a163b86b1870af265f62645702660b4",
+      "bytes": 3062424,
+      "sha256": "111d1843b3ebe6db9ac1614325cabf806aa0465a80d2f76090ae5728f85d302a",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6526026,
-      "sha256": "90eb4c5f0ff964899c086bf0625076ab698999181119806ee5ec407c254da3bf",
+      "bytes": 6527176,
+      "sha256": "b39bc90ce2ec26e8144d91ed5b7987109597518c589a60384e2a0b8f8ff93766",
       "files": 641,
       "archive_files_including_manifest": 642,
       "archive_root": "dev/"
@@ -26,12 +26,12 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC14_FIVE_CORRECTIONS_SOURCE_TARGETED_WINDOWS_FULL_QUALIFICATION_OPEN",
-    "proof": "validation/2026-10-17/rc14-corrections/README.md",
+    "status": "RC15_HEALTH_SUITES_PASS_NATIVE_MACOS_WINDOWS_QUALIFICATION_OPEN",
+    "proof": "validation/2026-10-18/health-suspension-utc/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NOT_EXECUTED_RC1.17.14_PACKS_DECISION_SANS_TEST_VM",
+    "formal_windows_qualification": "NOT_EXECUTED_RC1.17.15_PACKS_DECISION_SANS_TEST_VM",
     "formal_publishable": false,
-    "documentation_proof": "validation/2026-10-17/rc14-corrections/README.md",
-    "interactive_gui": "NOT_RETESTED_RC1.17.14"
+    "documentation_proof": "validation/2026-10-18/health-suspension-utc/README.md",
+    "interactive_gui": "NOT_RETESTED_RC1.17.15"
   }
 }

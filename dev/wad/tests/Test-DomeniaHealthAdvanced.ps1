@@ -51,9 +51,36 @@ Case 'Suspension validates UTC expiry, reason, uniqueness and domain inheritance
  Throws {ConvertTo-DomeniaHealthSuspensions @(@{RuleId='lowdisk';Reason='';UntilUtc='2026-10-14T12:00:00Z'}) -Strict}
  Throws {ConvertTo-DomeniaHealthSuspensions @(@{RuleId='lowdisk';Reason='Maintenance';UntilUtc='2026-10-14T12:00:00'}) -Strict}
  $s=@{RuleId='lowdisk';Reason='Maintenance';UntilUtc='2026-10-14T12:00:00Z'};Throws {ConvertTo-DomeniaHealthSuspensions @($s,$s) -Strict}
- $book=New-PolicyBook;$book.Default.Suspensions=@($s);$p=Resolve-DomeniaHealthPolicy $book $beta;$p.Suspensions=@();$book=Set-DomeniaHealthScopePolicy $book $beta $p
+ $book=New-PolicyBook;$book.Default.Suspensions=@($s);$p=Resolve-DomeniaHealthPolicy $book $beta;$p.Suspensions=@();$book=Set-DomeniaHealthScopePolicy $book $beta $p -NowUtc $now
  $book=ConvertTo-DomeniaHealthPolicyBook ($book|ConvertTo-Json -Depth 15 -Compress) $domain -Strict
  Expect ((Resolve-DomeniaHealthPolicy $book $alpha).Suspensions.Count -eq 1 -and (Resolve-DomeniaHealthPolicy $book $beta).Suspensions.Count -eq 0) 'Empty suspension override lost'
+}
+Case 'UTC suspension expiries survive typed values, JSON roundtrips and display cultures' {
+ $expected='2026-10-14T12:00:00.0000000Z'
+ $utc=[datetime]::SpecifyKind([datetime]'2026-10-14T12:00:00',[DateTimeKind]::Utc)
+ $savedCulture=[Threading.Thread]::CurrentThread.CurrentCulture
+ try{
+  foreach($culture in @('en-US','fr-FR')){
+   [Threading.Thread]::CurrentThread.CurrentCulture=[Globalization.CultureInfo]::GetCultureInfo($culture)
+   foreach($expiry in @('2026-10-14T12:00:00Z','2026-10-14T12:00:00+00:00',$utc,[datetimeoffset]::new($utc))){
+    $inputPolicy=@{Suspensions=@(@{RuleId='lowdisk';Reason='Maintenance';UntilUtc=$expiry})}
+    $policy=ConvertTo-DomeniaHealthPolicy $inputPolicy -Strict
+    Expect ($policy.Suspensions.Count -eq 1 -and $policy.Suspensions[0].UntilUtc -ceq $expected) ('UTC expiry changed before persistence: '+$culture)
+    $loaded=ConvertTo-DomeniaHealthPolicy ($policy|ConvertTo-Json -Depth 8 -Compress) -Strict
+    Expect ($loaded.Suspensions.Count -eq 1 -and $loaded.Suspensions[0].UntilUtc -ceq $expected) ('UTC expiry lost after JSON roundtrip: '+$culture)
+    Expect ($null -ne (Get-DomeniaHealthSuspension $loaded lowdisk -NowUtc $utc.AddSeconds(-1))) 'Suspension ended before its deadline'
+    Expect ($null -eq (Get-DomeniaHealthSuspension $loaded lowdisk -NowUtc $utc)) 'Suspension stayed active at its deadline'
+   }
+  }
+ }finally{[Threading.Thread]::CurrentThread.CurrentCulture=$savedCulture}
+}
+Case 'Suspension expiry validation still rejects dates without explicit UTC identity' {
+ $date=[datetime]'2026-10-14T12:00:00'
+ foreach($expiry in @([datetime]::SpecifyKind($date,[DateTimeKind]::Unspecified),[datetime]::SpecifyKind($date,[DateTimeKind]::Local),[datetimeoffset]::new($date,[timespan]::FromHours(2)),'2026-10-14T12:00:00','2026-10-14T12:00:00+02:00')){
+  $inputSuspension=@{RuleId='lowdisk';Reason='Maintenance';UntilUtc=$expiry}
+  Throws {ConvertTo-DomeniaHealthSuspensions @($inputSuspension) -Strict}
+  Expect ((ConvertTo-DomeniaHealthSuspensions @($inputSuspension)).Count -eq 0) 'Non-strict parsing accepted an ambiguous expiry'
+ }
 }
 Case 'Comparisons separate population coverage and policy changes from observed state' {
  $board=Board (New-PolicyBook);$a=[pscustomobject]@{Figures=($board.Snapshot.Figures|ConvertTo-Json -Depth 8|ConvertFrom-Json)};$b=[pscustomobject]@{Figures=($a.Figures|ConvertTo-Json -Depth 8|ConvertFrom-Json)};$b.Figures.Healthy=1;$b.Figures.Problems=3

@@ -1,5 +1,10 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+> **RC1.17.15 — 18 octobre** : [correctif de la suite santé](validation/2026-10-18/health-suspension-utc/README.md).
+> Relecture des dates UTC corrigée, 45 cas santé réussis sous PowerShell 7.4.6 natif macOS.
+> Contrôles de source et packs DEV/PROD actualisés ; aucun test VM. Qualification Windows toujours ouverte.
+> Le lot RC1.17.14 ci-dessous a été livré et poussé dans `4a4fb412` ; ses mentions « reste » sont historiques.
+
 > **RC1.17.14 — 17 octobre** : [cinq corrections restantes (points 4, 78, 9, 10, 127)](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-17.md),
 > bancs dédiés et rapports dans `validation/2026-10-17/rc14-corrections/` (pwsh7 Linux, non qualifiants). Revue indépendante
 > session OpenCode distincte : cinq points acceptés, aucune correction de code retenue (`REVIEW-INDEPENDENT.md`). Reste :

@@ -1,0 +1,21 @@
+{
+  "Date": "2026-10-18",
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.15-D120",
+  "BaseCommit": "4a4fb4122f3b358565ce92c97b02004ec7512472",
+  "NativePowerShell": "7.4.6 macOS arm64",
+  "VirtualMachineTests": false,
+  "WindowsQualification": false,
+  "HealthTotal": 45,
+  "HealthFailures": 0,
+  "Ps51StaticCompatibility": "PASS",
+  "PreloadChecksPassed": 251,
+  "WorkerContractsUnreviewedChanges": [],
+  "AllArchiveEntriesEqualSourceOrEditionManifest": true,
+  "RuntimeFilesIdentical": 172,
+  "Sources": {
+    "dev/wad/modules/Domenia-HealthRules.Model.ps1": "8dbee231285be9cf88770f83282720aa09cb2ea476db7c39f2aa5c7a45d9cec8",
+    "dev/wad/tests/Test-DomeniaHealthAdvanced.ps1": "8222457af85d02330fc72e391f0358067115a5ae96dba5c42701273d28861e27",
+    "dev/wad/tests/Test-DomeniaHealthPolicies.ps1": "e668c3ce2216ddf56a4fbaed968046bdc342d4c956c5c18f95279cef7a3f01c8",
+    "dev/wad/tests/Test-DomeniaHealthRules.ps1": "4a97e55ff670540fb7125a4e8901de79f54d0664c39bb614987e0eea5be78c3c"
+  }
+}
