@@ -1,4 +1,11 @@
-# État courant — 18 octobre 2026
+# État courant — RC1.17.21, 18 octobre 2026
+
+RC1.17.21 : échecs KI-007 corrigés. Règles : 1 073/1 075 puis 149 cas ciblés réussis, aucun échec restant ; géométrie 79/79 ; capture 1280×720 : trois lignes entières, 18/18 contrôles ; installation complète RC20 24/26 puis quatre cas RC21 réussis couvrant les deux diagnostics fautifs. Démarrage CheckOnly et 172 fichiers applicatifs contrôlés. Qualification générale distincte ; décisions 134/146 et certificat 141 inchangés.
+
+**VM libérables pour le périmètre demandé ; qualification générale distincte.** [Preuves RC21](../../../../validation/2026-10-18/rc21-remediation/README.md).
+
+## Historique RC20 et précédents
+
 
 Documentation RC1.17.20 terminée (149, KI-002) : 38 PNG natifs, 29 figures par guide,
 DOCX/PDF relus (34/83 pages). Captures 54/55 : Atelier 1280×720 reste en échec,

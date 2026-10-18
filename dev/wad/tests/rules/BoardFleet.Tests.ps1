@@ -152,7 +152,7 @@ Test-Case -Id 'BF-004' -Name 'Parc : versions de Windows et fin de service, Wind
     Assert-True ($texts -contains 'Warn:1 poste(s) sous Windows 11 24H2 Pro, fin de service le 13/10/2026.') '24H2 Pro a surveiller'
     Assert-Equal 0 @($texts | Where-Object { $_ -like '*LTSC*' }).Count 'LTSC 2021 jamais signalee avant 2027'
 }
-Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, par OU sur le domaine, dix au plus' -Body {
+Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, par OU sur le domaine, groupes complets pour la presentation' -Body {
     $board = Get-BfBoard
     $entry = $board.Entries['fleet.ou']
     Assert-Equal 'Postes par sous-OU' ([string]$entry.Title)
@@ -171,10 +171,10 @@ Test-Case -Id 'BF-005' -Name 'Parc : postes par sous-OU depuis les DN parents, p
     Assert-Equal '9 activés · 1 désactivés · 0 état inconnu · domaine indexé' ([string]$all.Entries['fleet.machines'].Detail)
     $many = @(foreach ($i in 1..12) { New-BfMachine ('PC-S' + $i) ('OU=Site' + ('{0:00}' -f $i) + ',' + $script:BfScope) 'Windows 11 Pro' '10.0 (26200)' 0 })
     $items = @((Get-BfBoard -Machines $many -Presence @()).Entries['fleet.ou'].Items)
-    Assert-Equal 11 $items.Count
+    Assert-Equal 12 $items.Count
     Assert-Equal 'Site01' ([string]$items[0].Label)
-    Assert-Equal 'Autres' ([string]$items[10].Label)
-    Assert-Equal 2 ([double]$items[10].Value)
+    Assert-Equal 'Site12' ([string]$items[11].Label)
+    Assert-Equal 1 ([double]$items[11].Value)
 }
 Test-Case -Id 'BF-006' -Name 'Parc : presence des postes analyses (moins de 30 j), couverture N sur M, jamais plus que les postes' -Body {
     $board = Get-BfBoard

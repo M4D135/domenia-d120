@@ -173,7 +173,7 @@ Test-Case 'D010' 'Les emplacements du coeur, le script de build, les archives et
     $found=[ordered]@{
         'Source.MasterBuild'=[regex]::Match($coreText,'(?m)^\$script:MasterBuild = "([^"]+)"')
         'Source.DomeniaBuild'=[regex]::Match($coreText,'(?m)^\$script:DomeniaBuild = "([^"]+)"')
-        'Source.Navigation'=[regex]::Match($coreText,'<TextBlock Text="(DOMENIA \d+\.\d+ \u00B7 [^"]+)"')
+        'Source.Navigation'=[regex]::Match([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml'),[Text.Encoding]::UTF8),'<TextBlock Text="(DOMENIA \d+\.\d+ \u00B7 [^"]+)"')
         'Source.Pret'=[regex]::Match($coreText,'-Text "(Domenia [^"]+ pret\.)"')
         'Source.BuildScript'=[regex]::Match($buildText,"(?m)^BUILD='([^']+)'")
     }
@@ -300,7 +300,7 @@ Test-Case 'D113' 'Le modele suit les sources reelles du coeur : base adoptee sur
     Assert-True ($path.Success -and ($path.Value -match "'ADCC\.db'")) 'Adoption de ADCC.db par Get-DomeniaDatabasePath'
     $init=[regex]::Match($core,'(?s)function Initialize-DomeniaDatabase \{.*?\n\}\n')
     # D115: the core delegates the version decision to this rule, then backs up outside the rotation before migrating.
-    Assert-True ($init.Success -and ($init.Value -match 'Test-DomeniaSchemaCompatibility') -and ($init.Value -match 'Backup-DomeniaDatabase -Migration') -and ($init.Value -match "domenia_schema','1'")) 'Sauvegarde puis revision domenia_schema sur une base 11'
+    Assert-True ($init.Success -and ($init.Value -match 'Test-DomeniaSchemaCompatibility') -and ($init.Value -match 'Backup-DomeniaDatabase -Migration') -and ($init.Value -match 'Get-DomeniaSqliteSchemaText')) 'Sauvegarde puis revision domenia_schema sur une base 11'
 }
 Test-Case 'D113' 'Migration repetee : aucun doublon de lien, aucune ecriture au second passage' {
     $l1=[pscustomobject]@{UserLogin='jdupont';Computer='PC-001';Source='Saisie manuelle';When='2026-09-01 08:00:00'}
@@ -533,7 +533,10 @@ Test-Case 'D115' 'Lot L01 : deux tables additives, schema 11/1 inchange, aucune 
     $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
     $init=[regex]::Match($core,'(?s)function Initialize-DomeniaDatabase \{.*?\n\}\n')
     Assert-True $init.Success 'Initialize-DomeniaDatabase introuvable'
-    $script=[regex]::Match($init.Value,'(?s)BEGIN IMMEDIATE;(.*?)COMMIT;').Groups[1].Value
+    Assert-True ($init.Value -match 'Get-DomeniaSqliteSchemaText') 'Initialisation reliee au schema livre'
+    $schemaFunction=[regex]::Match($core,'(?s)function Get-DomeniaSqliteSchemaText \{.*?\n\}\n')
+    Assert-True $schemaFunction.Success 'Definition du schema introuvable'
+    $script=[regex]::Match($schemaFunction.Value,'(?s)BEGIN IMMEDIATE;(.*?)COMMIT;').Groups[1].Value
     foreach($table in @('ad_computer_facts','fleet_snapshots')){Assert-True ($script -match ('CREATE TABLE IF NOT EXISTS '+$table+'\(')) ('Table additive absente : '+$table)}
     Assert-True ($script -match "INSERT OR IGNORE INTO schema_info\(key,value\) VALUES\('schema_version','11'\);") 'Version ecrite seulement si absente'
     Assert-True ($script -match "INSERT OR IGNORE INTO schema_info\(key,value\) VALUES\('domenia_schema','1'\);") 'Revision ecrite seulement si absente'

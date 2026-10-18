@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.18-DOMENIA-1.0-RC1.17.20-D120",
-  "source_base_commit": "70c7f31af545562e350acb130539024f54f2f90b",
+  "build": "2026.10.18-DOMENIA-1.0-RC1.17.21-D120",
+  "source_base_commit": "9db4d5a5d34ee07040cab820d306a9b4813c16f6",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3066616,
-      "sha256": "71e4db913ee613e68f167a9f384f99c2623922401678458dfa9b957f7e3cb609",
+      "bytes": 3066971,
+      "sha256": "fae656fbb5bb245f774de7fea1b4526ddcadc5946488a77c5edebc51e5dace79",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,19 +17,19 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6550005,
-      "sha256": "d78cdb6408a9da6229ad51b3e0d5c55e7600bdf3c42e8756fac5e7316442d885",
-      "files": 644,
-      "archive_files_including_manifest": 645,
+      "bytes": 6556664,
+      "sha256": "dd0386b01e0fd2ffb49d12aa699678682b9525c200b878346ff6bec760f3d27b",
+      "files": 645,
+      "archive_files_including_manifest": 646,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC20_TARGETED_WINDOWS_FINAL_APPLICATION_AND_LDAP_PASS_FULL_ACCEPTANCE_OPEN",
-    "proof": "validation/2026-10-18/rc20-final-session/README.md",
+    "status": "RC21_TARGETED_RULES_GEOMETRY_INSTALLATION_PASS_GENERAL_ACCEPTANCE_OPEN",
+    "proof": "validation/2026-10-18/rc21-remediation/README.md",
     "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_APPLICATION_PROD_RC20_NOT_FULL_ACCEPTANCE",
+    "formal_windows_qualification": "TARGETED_NATIVE_RULES_WPF_AND_INSTALLER_NOT_FULL_ACCEPTANCE",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -45,7 +45,8 @@
       "validation/2026-10-18/rc18-window-geometry/README.md"
     ],
     "additional_proofs": [
-      "validation/2026-10-18/rc19-final-session/README.md"
+      "validation/2026-10-18/rc19-final-session/README.md",
+      "validation/2026-10-18/rc20-qualification-docs/README.md"
     ],
     "vm_no_longer_needed_for_requested_scope": true
   }

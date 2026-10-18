@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-[CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet,[switch]$RestoreOnly)
+[CmdletBinding()]param([string]$ReportPath='',[switch]$Quiet,[switch]$RestoreOnly,[string]$CaseFilter='')
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Minor -ne 1 -or -not [Environment]::Is64BitProcess -or [Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Windows PowerShell 5.1 x64 STA requis.'}
 $dev=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -8,14 +8,21 @@ $root=Join-Path $env:TEMP ('Domenia-install-test-'+[guid]::NewGuid().ToString('N
 $manifest=[IO.File]::ReadAllText((Join-Path $dev 'tools\prod-manifest.json'))|ConvertFrom-Json
 $utf8=[Text.UTF8Encoding]::new($true)
 $checks=[Collections.Generic.List[object]]::new()
+$script:SelectedCases=0
 function Assert {param($Value,[string]$Message='Assertion fausse')if(-not $Value){throw $Message}}
 function Hash {param($Path)return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash}
 function Save {param($Path,$Text)[void][IO.Directory]::CreateDirectory((Split-Path $Path -Parent));[IO.File]::WriteAllText($Path,$Text,$utf8)}
 function Copy-One {param($From,$To)[void][IO.Directory]::CreateDirectory((Split-Path $To -Parent));[IO.File]::Copy($From,$To,$true)}
 function Case {param($Name,[scriptblock]$Body)
  if($RestoreOnly -and $Name -notmatch 'retour verifie|restauration complete disponible'){return}
+ if($CaseFilter -and $Name -notmatch $CaseFilter){return}
+ $script:SelectedCases++
+ if($ReportPath){Save ($ReportPath+'.progress.json') ([ordered]@{Current=$Name;StartedUtc=[datetime]::UtcNow.ToString('o');Completed=$checks.ToArray()}|ConvertTo-Json -Depth 7)}
+ $watch=[Diagnostics.Stopwatch]::StartNew()
  try{& $Body|Out-Null;$status='Passed';$detail=''}catch{$status='Failed';$detail=$_.Exception.Message+' '+$_.ScriptStackTrace}
- $checks.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail});if(-not $Quiet){Write-Host ($status+' '+$Name+' '+$detail)}
+ $checks.Add([pscustomobject]@{Name=$Name;Status=$status;Detail=$detail;DurationSeconds=[math]::Round($watch.Elapsed.TotalSeconds,3)});
+ if($ReportPath){Save ($ReportPath+'.progress.json') ([ordered]@{Current='';Completed=$checks.ToArray()}|ConvertTo-Json -Depth 7)}
+ if(-not $Quiet){Write-Host ($status+' '+$Name+' '+$detail)}
 }
 function New-Fixture {
  # -Prod: the source is an extracted PROD package (Domenia.exe and wad only, no tools folder, no test suite).
@@ -392,14 +399,14 @@ try{
   Save (Join-Path $u.Path 'wad\data\a\b.txt') 'test-data';Save (Join-Path $u.Path 'wad\maintenance\backups\20200101-000000-00000001\transaction.json') '{}'
   $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -LocalData Supprimer -ProfileData Conserver -Confirm:$false')
   Assert ($r.Code -eq 0) $r.Output
-  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Dossier restant : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force|ForEach-Object FullName) -join ', '))
+  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Dossier restant : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force -ErrorAction SilentlyContinue|ForEach-Object FullName) -join ', '))
  }
  Case 'P144 choix saisis en minuscules : -LocalData supprimer supprime, -LocalData demander conserve sans question' {
   $u=New-InstalledCopy 'fresh-lowercase'
   Save (Join-Path $u.Path 'wad\data\a\b.txt') 'test-data'
   $r=Install $u.Fixture -Arguments ('-Uninstall -Destination '''+$u.Path+''' -LocalData supprimer -ProfileData conserver -Confirm:$false')
   Assert ($r.Code -eq 0) $r.Output
-  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Donnees conservees malgre -LocalData supprimer : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force|ForEach-Object FullName) -join ', '))
+  Assert (-not (Test-Path -LiteralPath $u.Path)) ('Donnees conservees malgre -LocalData supprimer : '+(@(Get-ChildItem -LiteralPath $u.Path -Recurse -Force -ErrorAction SilentlyContinue|ForEach-Object FullName) -join ', '))
   $k=New-InstalledCopy 'fresh-lowercase-ask'
   Save (Join-Path $k.Path 'wad\data\keep.txt') 'test-data'
   $r=Install $k.Fixture -Arguments ('-Uninstall -Destination '''+$k.Path+''' -LocalData demander -ProfileData conserver -Confirm:$false')
@@ -484,9 +491,9 @@ try{
  Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 }
 $passed=@($checks|Where-Object Status -eq 'Passed').Count;$failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=if($RestoreOnly){2}else{26}
+$expected=if($CaseFilter){$script:SelectedCases}elseif($RestoreOnly){2}else{26}
 # ElevatedSession: install and uninstall ran with this account; true means they do not prove standard-user rights.
-$report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($checks.Count -eq $expected);NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();ElevatedSession=[bool]$script:ElevatedSession;ProfileDataDeletionExecuted=$false;Checks=$checks.ToArray()}
+$report=[ordered]@{Suite='Test-DomeniaInstaller';Passed=$passed;Failed=$failed;Skipped=0;Expected=$expected;Complete=($expected -gt 0 -and $checks.Count -eq $expected);CaseFilter=$CaseFilter;NativeWindowsPowerShell51=$true;PSVersion=$PSVersionTable.PSVersion.ToString();ElevatedSession=[bool]$script:ElevatedSession;ProfileDataDeletionExecuted=$false;Checks=$checks.ToArray()}
 if($ReportPath){Save $ReportPath ($report|ConvertTo-Json -Depth 7)}
 Write-Host ('Installer : '+$passed+' reussis, '+$failed+' echecs')
-if($failed -gt 0 -or $checks.Count -ne $expected){exit 1};exit 0
+if($expected -eq 0 -or $failed -gt 0 -or $checks.Count -ne $expected){exit 1};exit 0

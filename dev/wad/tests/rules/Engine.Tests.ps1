@@ -607,6 +607,7 @@ Test-Case 'P-CD-07' 'Table des opérations : lue une fois, sans distinction de c
     Assert-Equal 'Remote,Machine' ((@($sessions.Accounts)) -join ',')
 }
 Test-Case 'P-CD-07' 'Table des opérations : chaque règle répond comme les anciennes listes pour chaque identifiant' {
+    # Effects reviewed by F01/D018 below supersede the old Unknown classifications.
     # Reference captured before P-CD-07 (commit b00c409) from the former lists of Get-DomeniaOperationProvider,
     # Get-DomeniaOperationCredentialNeeds, Get-DomeniaTaskClass, Get-DomeniaTaskDedupKey, Get-DomeniaIsolationDecision,
     # New-DomeniaWorkerRunspace (pool), Get-DomeniaOperationEffect and Get-DomeniaOperationResource: every pinned
@@ -620,7 +621,7 @@ AdConsistencyScan|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0
 AdHealthRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 AdSchemaRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 BatchNetworkDiag|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|0|1|0|1|0|Remote
-BitLockerPresence|Directory|Unknown|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+BitLockerPresence|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
 CmdletHelp|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 CmdletInventory|Local|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 ComputerAdminShare|Network|Read|Explicit|Explicit|0|0|0|Network|0|0|1|1|1|0|1|0|Remote
@@ -649,19 +650,19 @@ GpoAppliedRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|0|0|1|1|1|0|1|0|Remote
 GpoLinksRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 GroupPathRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 IndexBuild|Directory|LocalWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
-IndexOuList|Directory|Unknown|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
+IndexOuList|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 IndexRefresh|Directory|LocalWrite|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 IsolatedRead|Local|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 JoinStateRead|Cim|Read|Explicit|Explicit|1|0|0|Remote|1|1|0|0|0|0|0|1|Directory
-LegacyMigration|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+LegacyMigration|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 LinkHistoryStore|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|1|1|0|0|0|0|0|1|Directory
 LiveCache|Storage|LocalWrite|Background|Background|0|0|1|Local|0|0|0|0|0|0|1|0|Local
 LiveConsole|Cim|Read|Selection|Selection|0|0|1|Remote|1|1|1|1|1|0|1|0|Remote
 LiveDirectoryCheck|Directory|Read|Background|Background|0|0|1|Directory|1|1|0|0|0|0|0|1|Directory
 LiveSelectedPing|Network|Read|Selection|Selection|0|0|1|Network|0|0|0|0|0|0|1|0|Network
 LocalAssistant|Local|Unknown|Explicit|Explicit|0|0|0|Local|1|1|0|0|0|0|0|1|Directory
-LocalIndexRead|Storage|Unknown|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
-LocalQuery|Storage|Unknown|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LocalIndexRead|Storage|Read|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
+LocalQuery|Storage|Read|Explicit|Explicit|0|0|1|Local|0|0|0|0|0|0|1|0|Local
 LocalStore|Storage|LocalWrite|Background|Background|0|0|1|Local|0|0|0|0|0|0|1|0|Local
 LockoutDiagnosis|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 LogonByDcRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
@@ -672,19 +673,19 @@ OfflineDossier|Local|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Lo
 OpenAdObject|Directory|Read|Explicit|Selection|1|0|1|Directory|1|1|0|0|0|0|0|1|Directory
 OpenLinkedObject|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 ParkPing|Network|Read|Explicit|Explicit|0|0|0|Network|0|0|0|0|0|0|1|0|Network
-ParkSharedSync|Network|Unknown|Background|Background|0|0|0|Network|0|0|0|0|0|0|1|0|Network
+ParkSharedSync|Network|RemoteMutation|Background|Background|0|0|0|Network|0|0|0|0|0|0|1|0|Network
 ParkSweep|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
 PasswordPolicyRead|Directory|Read|Explicit|Explicit|1|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 PermissionAnalysis|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
 PresenceScan|Network|Read|Background|Background|0|0|0|Network|1|1|0|0|0|0|0|1|Network
 PruneLinks|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory
-QueryExport|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
-QueryLibrary|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+QueryExport|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+QueryLibrary|Storage|Read|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 QuerySchema|Cim|Read|Explicit|Explicit|0|0|0|Remote|0|0|1|1|1|0|1|0|Remote
-QueryTransfer|Storage|Unknown|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
+QueryTransfer|Storage|LocalWrite|Explicit|Explicit|0|0|0|Local|0|0|0|0|0|0|1|0|Local
 ReadBitLocker|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
 ReadBitLockerKey|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
-ReadBitLockerList|Directory|Unknown|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
+ReadBitLockerList|Directory|Read|Explicit|Explicit|0|0|0|BitLocker|1|1|0|0|0|1|0|1|BitLocker
 ReadLaps|Directory|Read|Explicit|Explicit|0|0|0|Laps|1|1|0|0|0|1|0|1|Laps
 ReceiptStore|Storage|LocalWrite|Background|Background|0|0|0|Local|0|1|0|0|0|0|1|0|Local
 ReconcileScope|Directory|Read|Explicit|Explicit|0|0|0|Directory|1|1|0|0|0|0|0|1|Directory

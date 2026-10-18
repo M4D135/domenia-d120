@@ -401,9 +401,9 @@ Test-Case 'P14' 'Concurrence : une seule baisse par intervalle, les réponses sa
 Test-Case 'P14' 'Latence par étape : ni lʼattente en file ni un plan déjà en cache ne ralentissent un site sain' {
     $f = 1000L
     Assert-Equal 200.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1000 -LastTimestamp 1400 -Steps 2 -Frequency $f)
-    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 0 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Lecture jamais partie'
-    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1000 -LastTimestamp 1400 -Steps 0 -Frequency $f) 'Aucune étape terminée'
-    Assert-Equal -1.0 (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1500 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Horloge incohérente'
+    Assert-Equal ([double]-1) (Get-DomeniaReadStepLatencyMs -StartedTimestamp 0 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Lecture jamais partie'
+    Assert-Equal ([double]-1) (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1000 -LastTimestamp 1400 -Steps 0 -Frequency $f) 'Aucune étape terminée'
+    Assert-Equal ([double]-1) (Get-DomeniaReadStepLatencyMs -StartedTimestamp 1500 -LastTimestamp 1400 -Steps 2 -Frequency $f) 'Horloge incohérente'
     $s = New-DomeniaCampaignSources -MaxLimit 4; $k = 'site:10.1.2.0/24'; $policy = Get-DomeniaCampaignSourcePolicy $s $k
     # Three plans of reused measurements (ping and one query in 0.4 s), then full reads (ping and twelve queries in
     # 2.6 s): the same pace per step, so no decrease.

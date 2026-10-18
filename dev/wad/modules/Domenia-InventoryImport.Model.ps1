@@ -305,7 +305,7 @@ function Resolve-DomeniaInventoryPriority {
             else { $decisions[$index] = [pscustomobject]@{Kind='Remplacée';Reason=('Poste déjà présent ' + $where + ' dans le fichier avec une date plus récente (compte ' + [string]$list[$winner].UserKey + ') : ligne non importée.')} }
         }
     }
-    return ,$decisions
+    return $decisions
 }
 
 function New-DomeniaImportBatchId {

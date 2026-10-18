@@ -1,0 +1,34 @@
+{
+    "Build":  "RC1.17.21",
+    "Checks":  [
+                   {
+                       "Edition":  "prod",
+                       "ManifestFiles":  172,
+                       "CheckOnlyExitCode":  0,
+                       "ArchiveSHA256":  "FAE656FBB5BB245F774DE7FEA1B4526DDCADC5946488A77C5EDEBC51E5DACE79"
+                   },
+                   {
+                       "Edition":  "dev",
+                       "ManifestFiles":  645,
+                       "CheckOnlyExitCode":  0,
+                       "ArchiveSHA256":  "DD0386B01E0FD2FFB49D12AA699678682B9525C200B878346FF6BEC760F3D27B"
+                   }
+               ],
+    "Passed":  true,
+    "VMRetained":  true,
+    "RemovedTasks":  [
+                         "Domenia-RC21-Geometry",
+                         "Domenia-RC21-Geometry-Final",
+                         "Domenia-RC21-Installer",
+                         "Domenia-RC21-Installer-Final",
+                         "Domenia-RC21-Last",
+                         "Domenia-RC21-Rules",
+                         "Domenia-RC21-Rules-Final",
+                         "Domenia-RC21-Rules-Followup",
+                         "Domenia-RC21-Viewport-Final"
+                     ],
+    "RemainingQualificationProcesses":  [
+
+                                        ],
+    "UTC":  "2026-10-18T11:11:07.6297378Z"
+}

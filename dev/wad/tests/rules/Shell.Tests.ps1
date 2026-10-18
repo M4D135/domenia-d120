@@ -535,6 +535,7 @@ Test-Case 'L08-DS10' 'Icone du theme vise, meme dessin dans la fenetre et la con
     Assert-Equal 'Moon' (Get-DomeniaThemeToggleIcon 'autre').Glyph 'Theme inconnu traite comme clair'
     Assert-Equal 'Sun' (Get-DomeniaThemeToggleIcon ' dark ').Glyph 'Casse et espaces ignores'
     $core=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Core.ps1'),[Text.Encoding]::UTF8)
+    $core+=[IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml'),[Text.Encoding]::UTF8)
     foreach($data in @($light.SunData,$light.MoonData)){
         $count=([regex]::Matches($core,[regex]::Escape('Data="'+$data+'"'))).Count
         Assert-True ($count -ge 2) ('Dessin partage par la fenetre principale et la connexion : '+$count)

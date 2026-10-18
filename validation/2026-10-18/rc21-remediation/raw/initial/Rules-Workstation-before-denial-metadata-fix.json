@@ -1,0 +1,380 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  56,
+    "Failed":  1,
+    "CoveredIds":  [
+                       "D071",
+                       "D072",
+                       "D073",
+                       "D074",
+                       "D075",
+                       "D076",
+                       "D077",
+                       "D078",
+                       "D079",
+                       "D080",
+                       "D090",
+                       "D096",
+                       "MO-09",
+                       "PF-22",
+                       "UI-08",
+                       "UX-17",
+                       "UX-37",
+                       "UX-39"
+                   ],
+    "Complete":  false,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "D071",
+                      "Name":  "Cinq controles bornes et cout annonce",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D071",
+                      "Name":  "Ouvrir une liste ne lance pas le diagnostic",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D071",
+                      "Name":  "Le retour brut devient des faits ; refus et echec ne sont pas des constats",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D071",
+                      "Name":  "Seuls les controles prevus deviennent des faits ; le depassement est signale",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D072",
+                      "Name":  "Console vide ne signifie pas absence de session RDP",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D072",
+                      "Name":  "Session, utilisateur, etat, protocole et source affiches",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D072",
+                      "Name":  "Refus de lecture : aucune conclusion ; consultation sans deconnexion",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D072",
+                      "Name":  "Compte de session illisible : lecture partielle, pas une absence",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D072",
+                      "Name":  "Liste nulle, lecture partielle ou statut inconnu : jamais une absence ni une lecture non demandee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UX-39",
+                      "Name":  "Sessions : heure locale, duree d inactivite, compte nu pour ouvrir la fiche",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UX-17",
+                      "Name":  "Diagnostic : verdict en francais, transports facultatifs comptes a part",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UI-08",
+                      "Name":  "Logiciels : une seule regle pour les colonnes et un resume du detail par portee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PF-22",
+                      "Name":  "Logiciels : la liste deja lue par l inventaire sert sans seconde requete",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Sources de desinstallation 64 et 32 bits ; categories non couvertes indiquees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "MO-09",
+                      "Name":  "La portee utilisateur est lue par StdRegProv sur HKU et ne promet plus WinRM",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Une source refusee ou partielle n est pas couverte",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Win32_Product refuse dans un code d inventaire, meme dans un code de worker",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Classes parentes et autres classes du fournisseur MSI refusees ; garde limitee a une condition",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Inventaire existant : correspondance des acces, SCCM ne couvre que les programmes 32 bits",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D073",
+                      "Name":  "Le code livre ne lit jamais Win32_Product ni une classe du fournisseur MSI",
+                      "Status":  "Failed",
+                      "Detail":  "Domenia-QuerySchema.Model.ps1 : Classe CIM_LogicalElement utilisée (fournisseur Windows Installer), Classe CIM_ManagedSystemElement utilisée (fournisseur Windows Installer) @ at Assert-True, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaRules.ps1: line 19\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\rules\\Workstation.Tests.ps1: line 382\r\nat Test-Case, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaRules.ps1: line 26\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\rules\\Workstation.Tests.ps1: line 379\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaRules.ps1: line 38\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\d120-rc11721-validation\\dev\\wad\\tests\\Test-DomeniaRules.ps1: line 38"
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Prereglages : fournisseurs et identifiants utiles",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Fenetre et volume bornes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Un refus de lecture n est pas un constat sain",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Liste nulle, lecture partielle ou statut inconnu : aucune absence constatee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Evenements non attribuables : generaux ; correlation explicite a la cible",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D074",
+                      "Name":  "Volume plafonne : liste partielle, jamais une absence",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Une GPO liee n est pas annoncee appliquee sans preuve du resultat",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Liens AD et resultat RSoP restent distincts",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Reponse RSoP incomplete ou vide : aucune GPO declaree absente ni appliquee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Drapeaux RSoP absents ou sans ordre d application : GPO non annoncee appliquee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Lien sans GPO identifiable : non prouve, jamais absente du RSoP",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Blocage d heritage, lien force et lien desactive",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D075",
+                      "Name":  "Conteneur non lu : liste incomplete et attente indeterminee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D076",
+                      "Name":  "Analyse d un texte dsregcmd colle, sans reparation",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D076",
+                      "Name":  "Sous un compte d administration, aucun verdict sur le jeton SSO de l utilisateur final",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D076",
+                      "Name":  "Texte provenant d un autre poste signale",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D077",
+                      "Name":  "Date, source et resultat ; donnee ancienne marquee ancienne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D077",
+                      "Name":  "Fournisseur absent : indisponible, jamais en panne",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D078",
+                      "Name":  "Identite coherente : attribution permise",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D078",
+                      "Name":  "Adresse reattribuee : ni observation ni relation de l ancien poste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D078",
+                      "Name":  "DNS ou identite non lus, autre domaine ou nom reutilise : pas d attribution",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D078",
+                      "Name":  "Nom complet renvoye par le poste : le domaine compte meme sans champ Domain",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D078",
+                      "Name":  "GUID du poste cible inconnu : aucune relation reprise, aucun motif de GUID different",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D079",
+                      "Name":  "Paquet magique : 6 octets FF puis 16 fois l adresse MAC (102 octets)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D079",
+                      "Name":  "Adresse MAC valide et adresse de diffusion du reseau connu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D079",
+                      "Name":  "Reveil desactive par defaut et strictement volontaire",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D079",
+                      "Name":  "Paquet envoye : Demande envoyee, jamais Poste allume",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D080",
+                      "Name":  "Contrat reconnu : seuls les champs de contexte acceptes, sans secret",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D080",
+                      "Name":  "Sans contrat reconnu : ouverture sans argument comme aujourd hui",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D080",
+                      "Name":  "Aucune ouverture par navigation, aucune commande shell",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "UX-37",
+                      "Name":  "Inventaire du poste : les codes CIM rendent un libelle, une valeur inconnue reste brute",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D090",
+                      "Name":  "Point 90 : diagnostic par couche, premiere etape bloquante, ping filtre sur un poste joignable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D096",
+                      "Name":  "Point 96 : resultat de tache lu, etats du planificateur distincts d un echec",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D096",
+                      "Name":  "Point 96 : demarrage automatique, seul le programme est garde, jamais ses arguments",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D096",
+                      "Name":  "Point 96 : cache du Planificateur, seules les dates communes a toutes les versions sont decodees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D096",
+                      "Name":  "Point 96 : le worker d inventaire porte les copies exactes des regles et ne garde ni commande ni action",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "D096",
+                      "Name":  "Point 96 : taches planifiees, une session WinRM en echec bascule sur la lecture CIM, jamais un refus d identifiant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

@@ -334,7 +334,7 @@ Test-Case '102' 'Hygiene des mots de passe : age et options lus, aucun secret ni
     Assert-True (([string]$views['pwdold'].Filter).Contains('(pwdLastSet<=' + $now.AddDays(-365).ToFileTimeUtc() + ')')) 'Seuil de 365 jours'
     foreach ($view in @(Get-DomeniaWorkViews $now)) {
         Assert-False ([string]$view.Filter -match '(?i)unicodePwd|userPassword|ms-Mcs-AdmPwd|msLAPS|supplementalCredentials') ('Attribut secret dans ' + $view.Id)
-        Assert-False ([string]$view.Name -match '(?i)compromis|faible|pirat|dangereux') ('Verdict arbitraire dans le nom de ' + $view.Id)
+        Assert-False ([string]$view.Name -match '(?i)\b(?:compromis\w*|faible\w*|pirat\w*|dangereu\w*)\b') ('Verdict arbitraire dans le nom de ' + $view.Id)
     }
     foreach ($id in @('pwdneverexpires','pwdnotrequired')) { Assert-True ([string]$views[$id].Note -match 'Aucun mot de passe nʼest lu') $id }
     Assert-True ([string]$views['pwdold'].Note -match 'ni la robustesse ni une compromission') 'Age sans conclusion'

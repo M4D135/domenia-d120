@@ -3,7 +3,7 @@
 # The same file runs under Windows PowerShell 5.1 (qualifying) and under another engine
 # (preparation only: the report then states that it is not a Windows PowerShell 5.1 result).
 [CmdletBinding()]
-param([string]$ReportPath='',[switch]$Quiet,[string]$Filter='')
+param([string]$ReportPath='',[switch]$Quiet,[string]$Filter='',[string]$TestFileFilter='*.Tests.ps1')
 $ErrorActionPreference='Stop'
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -27,13 +27,16 @@ function Test-Case {
     catch { $script:Checks.Add([pscustomobject]@{Id=$Id;Name=$Name;Status='Failed';Detail=$_.Exception.Message+' @ '+$_.ScriptStackTrace}) }
 }
 if($null -eq ('Domenia.SelectionIdentity' -as [type])){Add-Type -Path (Join-Path $modules 'Domenia-Identity.Types.cs') -ErrorAction Stop}
-$script:RuleModules=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Insight.Model.ps1','Domenia-Release.Model.ps1','Domenia-Assist.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-LogonActivity.Model.ps1','Domenia-DirectorySchema.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Commands.Model.ps1')
+$script:RuleModules=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Workstation.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Safety.Model.ps1','Domenia-Insight.Model.ps1','Domenia-Release.Model.ps1','Domenia-Assist.Model.ps1','Domenia-DirectorySync.Model.ps1','Domenia-LogonActivity.Model.ps1','Domenia-DirectorySchema.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Commands.Model.ps1')
 foreach($file in $script:RuleModules){
     $path=Join-Path $modules $file
     if(-not [IO.File]::Exists($path)){throw ('Module de regles absent : '+$file)}
     . $path
 }
-foreach($testFile in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'rules') -Filter '*.Tests.ps1' -File | Sort-Object Name)){ . $testFile.FullName }
+foreach($testFile in @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'rules') -Filter $TestFileFilter -File | Sort-Object Name)){
+    # Test-local doubles must not replace application functions for subsequent files.
+    & { . $testFile.FullName }
+}
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Checks|Where-Object{$_.Status -eq 'Failed'}).Count
 $covered=@($script:Checks|ForEach-Object{$_.Id}|Sort-Object -Unique)

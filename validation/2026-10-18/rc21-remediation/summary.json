@@ -1,0 +1,46 @@
+{
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.21-D120",
+  "Rules": {
+    "Method": "1075-case native run, then targeted reruns; not a new single full run",
+    "BaselinePassed": 1073,
+    "BaselineFailed": 2,
+    "ResolvedFailures": [
+      {
+        "Id": "P-CD-07",
+        "Name": "Table des opérations : chaque règle répond comme les anciennes listes pour chaque identifiant"
+      },
+      {
+        "Id": "D073",
+        "Name": "Le code livre ne lit jamais Win32_Product ni une classe du fournisseur MSI"
+      }
+    ],
+    "FollowupCases": 149,
+    "RemainingFailed": 0
+  },
+  "Geometry": {
+    "Passed": 79,
+    "Failed": 0
+  },
+  "Viewport": {
+    "Checks": 18,
+    "Failed": 0,
+    "FullyVisibleRows1280x720": 3,
+    "RequiredRows": 2
+  },
+  "Installer": {
+    "FullRunBuild": "RC1.17.20",
+    "FullRunPassed": 24,
+    "FullRunFailed": 2,
+    "TargetedBuild": "RC1.17.21",
+    "TargetedPassed": 4,
+    "RemainingFailed": 0,
+    "DistinctCoveredCases": 26
+  },
+  "StartupCheckOnly": true,
+  "GeneralAcceptance": false,
+  "ExternalDecisions": [
+    134,
+    146
+  ],
+  "CertificatePoint": 141
+}

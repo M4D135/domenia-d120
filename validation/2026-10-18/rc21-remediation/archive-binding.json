@@ -1,0 +1,34 @@
+{
+  "Build": "2026.10.18-DOMENIA-1.0-RC1.17.21-D120",
+  "Archives": {
+    "prod": {
+      "Archive": "Domenia_1.0_RC1.17.21_PROD.zip",
+      "Bytes": 3066971,
+      "Sha256": "FAE656FBB5BB245F774DE7FEA1B4526DDCADC5946488A77C5EDEBC51E5DACE79",
+      "Files": 172,
+      "ZipIntegrity": true,
+      "ManifestValid": true,
+      "ReleaseGuard": "PASS",
+      "WindowsQualification": "NOT_EVALUATED"
+    },
+    "dev": {
+      "Archive": "Domenia_1.0_RC1.17.21_DEV.zip",
+      "Bytes": 6556664,
+      "Sha256": "DD0386B01E0FD2FFB49D12AA699678682B9525C200B878346FF6BEC760F3D27B",
+      "Files": 645,
+      "ZipIntegrity": true,
+      "ManifestValid": true,
+      "ReleaseGuard": "PASS",
+      "WindowsQualification": "NOT_EVALUATED"
+    }
+  },
+  "RuntimeFilesMatchedToNativeLastChecks": 172,
+  "RuntimeDifferencesSinceGeometryBase": [
+    "wad/Domenia-Core.ps1",
+    "wad/modules/Domenia-ProbeContract.Model.ps1",
+    "wad/modules/Domenia-QuerySchema.Model.ps1",
+    "wad/modules/Domenia-Workstation.Model.ps1"
+  ],
+  "GeometryLayoutFilesUnchanged": true,
+  "GeneralAcceptance": false
+}

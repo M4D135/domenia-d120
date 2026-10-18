@@ -8,12 +8,12 @@ function Get-DomeniaDnParts {
     param([AllowEmptyString()][AllowNull()][string]$Dn)
     $parts=New-Object 'System.Collections.Generic.List[string]'
     $text=([string]$Dn).Trim()
-    if(-not $text){return ,$parts.ToArray()}
+    if(-not $text){return $parts.ToArray()}
     foreach($part in @(Split-DomeniaRawDn $text)){
         $value=([string]$part).Trim()
         if($value){$parts.Add($value)}
     }
-    return ,$parts.ToArray()
+    return $parts.ToArray()
 }
 
 function Test-DomeniaDnInScope {
@@ -53,13 +53,13 @@ function Get-DomeniaDnPath {
         if($part -match '^(?i)DC='){continue}
         $labels.Add((Get-DomeniaDnRdnValue $part))
     }
-    return ,$labels.ToArray()
+    return $labels.ToArray()
 }
 
 function Get-DomeniaDnBreadcrumb {
     # Parent OUs and containers of an object, from the domain head down to its direct parent.
     param([AllowEmptyString()][AllowNull()][string]$Dn)
-    return ,@(Get-DomeniaDnPath $Dn -ExcludeSelf)
+    return @(Get-DomeniaDnPath $Dn -ExcludeSelf)
 }
 
 function Get-DomeniaDnLocation {
@@ -202,7 +202,7 @@ function Select-DomeniaAbsencesToCheck {
     $candidates=@(@($Rows)|Where-Object{($null -ne $_) -and ([string](Get-DomeniaMember $_ 'Status' '') -in @('NonVu','NonConfirme')) -and (ConvertTo-DomeniaGuidText (Get-DomeniaMember $_ 'Guid' ''))})
     $ordered=@($candidates|Sort-Object @{Expression={[string](Get-DomeniaMember $_ 'NoticedAt' '')}},@{Expression={[string](Get-DomeniaMember $_ 'Guid' '')}})
     if($ordered.Count -gt $Limit){$ordered=@($ordered[0..($Limit-1)])}
-    return ,$ordered
+    return $ordered
 }
 
 function New-DomeniaAbsenceStoreRow {

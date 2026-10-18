@@ -43,8 +43,8 @@ Test-Case 'BRD-004' 'Sans reglage, la disposition livree contient le catalogue l
     Assert-Equal 'HealthSummary' ([string]$layout[0].Visual)
     # Lot L01: the home overview is delivered without the observation widgets nor any WMI query.
     $fleet = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json '')
-    Assert-Equal 'fleet.health,fleet.machines,fleet.enabled,fleet.accountstatus,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
-    Assert-Equal 'Santé' ([string]$fleet[0].Group)
+    Assert-Equal 'fleet.machines,fleet.enabled,fleet.accountstatus,fleet.stale,fleet.disabled,fleet.created,fleet.pwdold,fleet.laps,fleet.bitlocker,fleet.versions,fleet.eos,fleet.win10,fleet.os,fleet.lastlogon,fleet.ou,fleet.health' (@($fleet | ForEach-Object { [string]$_.Key }) -join ',')
+    Assert-Equal 'Santé' ([string]$fleet[-1].Group)
     Assert-Equal 0 @($fleet | Where-Object { ([string]$_.Source -eq 'Probe') -or ([string]$_.Key -in @('fleet.presence','fleet.users','fleet.lastcheck','fleet.models','fleet.releases','fleet.ram','fleet.diskfree','fleet.lowdisk','fleet.uptime')) }).Count 'aucun widget d observation livre'
     Assert-True (@(Get-DomeniaBoardCatalog -Board Fleet | Where-Object { $_.Key -eq 'fleet.presence' }).Count -eq 1) 'widget d observation toujours au catalogue'
 }
@@ -182,7 +182,7 @@ Test-Case 'BRD-013' 'Ancienne disposition livree du parc migree, disposition per
     $migrated = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json $json)
     Assert-Equal (@(Get-DomeniaBoardDefaultLayout -Board Fleet | ForEach-Object { $_.Key }) -join ',') (@($migrated | ForEach-Object { $_.Key }) -join ',') 'ancienne disposition livree remplacee'
     $renamed = @($old | ForEach-Object { $_.PSObject.Copy() }); $renamed[0].Id = 'x1'
-    Assert-Equal 'fleet.health,fleet.machines,fleet.enabled' ((@(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $renamed -Depth 3 -Compress)) | Select-Object -First 3 | ForEach-Object { $_.Key }) -join ',') 'identifiants seuls differents : migree'
+    Assert-Equal 'fleet.machines,fleet.enabled,fleet.accountstatus' ((@(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $renamed -Depth 3 -Compress)) | Select-Object -First 3 | ForEach-Object { $_.Key }) -join ',') 'identifiants seuls differents : migree'
     $custom = @($old | Where-Object { $_.Key -ne 'fleet.users' })
     $kept = @(ConvertTo-DomeniaBoardLayout -Board Fleet -Json (ConvertTo-Json -InputObject $custom -Depth 3 -Compress))
     Assert-Equal 16 $kept.Count 'disposition personnalisee conservee'

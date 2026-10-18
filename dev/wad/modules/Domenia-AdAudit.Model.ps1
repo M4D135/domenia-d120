@@ -177,7 +177,7 @@ function ConvertTo-DomeniaPasswordPolicyView {
         $precedence = [string](Get-DomeniaAttr $pso 'msDS-PasswordSettingsPrecedence' '')
         if ($precedence) { $facts.Add((New-DomeniaFact -Fait 'Priorité de la stratégie fine' -Valeur $precedence -Source 'msDS-PasswordSettingsPrecedence' -Limite 'La plus petite valeur gagne quand plusieurs stratégies visent le compte ; le contrôleur a déjà fait ce choix.' -Lecteur $Reader)) }
     }
-    if (($state -ne 'None') -and ($null -ne $domain)) {
+    if (($state -eq 'Unreadable') -and ($null -ne $domain)) {
         # Shown as a reference only: never presented as the policy of this account.
         $reference = Resolve-DomeniaPasswordPolicy -User @{} -ResultantPsoState 'None' -DomainPolicy $domain -Reader $Reader -NowUtc $NowUtc
         foreach ($fact in @($reference.Facts)) {

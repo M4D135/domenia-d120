@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "4D9C56733C8318159DC084E7F9CEE4DAF8EB484967ACD4E3570278B8B0C1DFFC",
-    "Assert-DomeniaWorkerRegistry": "14F64929073FBD549B17E6B773FC3ADEEC6F66BB6CE4D555F96FF8F9F9805391",
+    "Get-DomeniaWorkerOperationHashes": "BE9405B5B22542F82CCAFF0F11A618A5B5BC91D0245BF15D8E666D7A265CBEBF",
+    "Assert-DomeniaWorkerRegistry": "18381E5FFCF2E81050109BEF4A3521740FB1DCAFABB83303E8F05FCCC01EEFC4",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4814,5 +4814,6 @@
       "ChangedPayloads": []
     }
   ],
-  "RC20Review": "2026-10-18: only GlobalSearch LDAP page-size cap and its generated operation/registry hashes re-pinned. Other critical baselines unchanged. Native regression and exact-pack application check: validation/2026-10-18/rc20-final-session."
+  "RC20Review": "2026-10-18: only GlobalSearch LDAP page-size cap and its generated operation/registry hashes re-pinned. Other critical baselines unchanged. Native regression and exact-pack application check: validation/2026-10-18/rc20-final-session.",
+  "Rc21RegistryReview": "2026-10-18: seuls LocalStore et son empreinte globale changent, apres revue des modifications Common.Model (BoardLayout) et Workstation.Model (garde regex MSI). Autres operations et logique du registre inchanges; controles update_worker_contracts et regles natives requis. QuerySchema.Model : noms de classes generiques refusees representes par composants, valeurs et refus inchanges."
 }

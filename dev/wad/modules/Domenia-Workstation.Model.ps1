@@ -1138,16 +1138,19 @@ function Get-DomeniaInventoryCodeFindings {
             foreach ($inner in @(Get-DomeniaInventoryCodeFindings $value ($Depth + 1))) { $findings.Add($inner) }
             continue
         }
+        $cursor = $node.Parent
+        while ($null -ne $cursor -and $passThrough -contains $cursor.GetType().Name) { $cursor = $cursor.Parent }
+        $isGuard = (($cursor -is [Management.Automation.Language.BinaryExpressionAst]) -and (([string]$cursor.Operator) -match '^(?i)[IC](eq|ne|like|notlike|match|notmatch|in|notin|contains|notcontains)$') -and (Test-DomeniaInventoryGuardNode $cursor))
         $wql = [regex]::Match($value,'(?i)\b(from|isa)\s+[''"]?' + $classes + '\b')
         if (-not $wql.Success) { $wql = [regex]::Match($value,'(?i)\bof\s*\{\s*' + $classes + '\b') }
         if ($wql.Success) { $findings.Add('Requête WQL sur ' + [string]$canonical[$wql.Groups['class'].Value]); continue }
         $path = [regex]::Match($value,'(?i)[:\\]' + $classes + '\b')
-        if ($path.Success) { $findings.Add('Chemin WMI vers ' + [string]$canonical[$path.Groups['class'].Value]); continue }
+        # A scoped regex flag such as (?i:Win32_Product|...) is a guard, not a WMI path.
+        # WQL literals still fail above, even inside a condition.
+        $regexGuard = ($isGuard -and ([string]$cursor.Operator -match '^[IC](NotMatch|Match)$'))
+        if ($path.Success -and -not $regexGuard) { $findings.Add('Chemin WMI vers ' + [string]$canonical[$path.Groups['class'].Value]); continue }
         $whole = [regex]::Match($value,'^(?i)\s*' + $classes + '\s*$')
         if (-not $whole.Success) { continue }
-        $cursor = $node.Parent
-        while ($null -ne $cursor -and $passThrough -contains $cursor.GetType().Name) { $cursor = $cursor.Parent }
-        $isGuard = (($cursor -is [Management.Automation.Language.BinaryExpressionAst]) -and (([string]$cursor.Operator) -match '^(?i)[IC](eq|ne|like|notlike|match|notmatch|in|notin|contains|notcontains)$') -and (Test-DomeniaInventoryGuardNode $cursor))
         if (-not $isGuard) { $findings.Add('Classe ' + [string]$canonical[$whole.Groups['class'].Value] + ' utilisée (fournisseur Windows Installer)') }
     }
     $commands = @($ast.FindAll({ param($node) $node -is [Management.Automation.Language.CommandAst] }, $true))

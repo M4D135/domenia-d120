@@ -500,6 +500,10 @@ function Set-DomeniaUxShortLayout {
     $queryFilter=Get-DomeniaControl 'TxtSearchQueryFilter'
     if($queryFilter){$queryFilter.Padding=[Windows.Thickness]::new(6,2,6,2)}
     # The workshop lives inside Tools. Reclaim nested card spacing on short viewports so rows remain visible.
+    $toolsScroll=Get-DomeniaControl 'UxResultToolsScroll'
+    if($toolsScroll){$toolsScroll.MaxHeight=if([bool]$Plan.TinyHeight){100.0}elseif([bool]$Plan.Short){90.0}else{150.0}}
+    $toolsCard=Get-DomeniaControl 'UxApplicationToolsCard'
+    if($toolsCard){$toolsCard.Padding=[Windows.Thickness]::new($(if([bool]$Plan.Short){2.0}else{10.0}));$toolsCard.Margin=[Windows.Thickness]::new($(if([bool]$Plan.Short){0.0}else{4.0}))}
     $workshopCompact=[bool]$Plan.Short
     foreach($name in @('UxQueryLayout','UxQueryResultsLayout')){
         $control=Get-DomeniaControl $name

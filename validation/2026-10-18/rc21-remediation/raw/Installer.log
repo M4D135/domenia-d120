@@ -1,0 +1,5 @@
+Passed D114 version complete preparee, activation, preferences et donnees conservees, retour verifie
+Passed D114 interruption au milieu des copies bloque le lancement, restauration complete disponible
+Passed P144 choix explicite -LocalData Supprimer : le dossier installe disparait entierement
+Passed P144 choix saisis en minuscules : -LocalData supprimer supprime, -LocalData demander conserve sans question
+Installer : 4 reussis, 0 echecs

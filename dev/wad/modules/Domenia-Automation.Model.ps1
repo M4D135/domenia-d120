@@ -67,7 +67,7 @@ function ConvertTo-DomeniaAutomationDn {
 
 function Test-DomeniaAutomationRequest {
     # Validates one command line. Returns the normalised request, or the French reason and the exit code of a refusal.
-    param([AllowEmptyString()][string]$Command='',[AllowEmptyString()][string]$DatabasePath='',[AllowEmptyString()][string]$OrganizationalUnit='',[string[]]$Computers=@(),[string[]]$Guids=@(),[AllowEmptyString()][string]$Family='',[int]$Limit=0,[AllowEmptyString()][string]$Format='Json',[AllowEmptyString()][string]$OutputPath='',[string[]]$Sections=@())
+    param([AllowEmptyString()][string]$Command='',[AllowEmptyString()][string]$DatabasePath='',[AllowEmptyString()][string]$OrganizationalUnit='',[string[]]$Computers=@(),[string[]]$Guids=@(),[AllowEmptyString()][string]$Family='',[int]$Limit=0,[AllowEmptyString()][string]$Format='',[AllowEmptyString()][string]$OutputPath='',[string[]]$Sections=@())
     $refuse = { param($Why,$Code) [pscustomobject]@{Valid=$false;Error=$Why;ExitCode=$Code;Request=$null} }
     $contract = Get-DomeniaAutomationContract
     $limits = Get-DomeniaAutomationLimits

@@ -329,11 +329,11 @@ Test-Case 'D073' 'Une source refusee ou partielle n est pas couverte' {
 Test-Case 'D073' 'Win32_Product refuse dans un code d inventaire, meme dans un code de worker' {
     $here="function Get-InvCode {`nreturn @'`nGet-CimInstance -ClassName Win32_Product | Select-Object Name`n'@`n}"
     $hereTwo="return @'`n`$rows=@()`nforeach(`$p in @(Get-WmiObject -Query 'SELECT * FROM Win32_Product')){`$rows+=`$p.Name}`n'@"
-    $unsafe=@('Get-CimInstance -ClassName Win32_Product','Get-WmiObject Win32_Product','Get-CimInstance -Query "SELECT Name FROM Win32_Product"','[wmiclass]''root\cimv2:Win32_Product''','$c=''Win32_Product'';Get-CimInstance -ClassName $c','msiexec /fa produit.msi',$here,$hereTwo,'if (')
+    $unsafe=@('if ($q -eq ''SELECT * FROM Win32_Product'') { Get-CimInstance -Query $q }','if ($name -match ''^(?i:Win32_Product|CIM_Product)$'') { Get-CimInstance -ClassName Win32_Product }','Get-CimInstance -ClassName Win32_Product','Get-WmiObject Win32_Product','Get-CimInstance -Query "SELECT Name FROM Win32_Product"','[wmiclass]''root\cimv2:Win32_Product''','$c=''Win32_Product'';Get-CimInstance -ClassName $c','msiexec /fa produit.msi',$here,$hereTwo,'if (')
     foreach($code in $unsafe){$check=Test-DomeniaInventoryCodeSafe $code;Assert-False $check.Safe ('Accepte : '+$code);Assert-True (@($check.Findings).Count -gt 0)}
     Assert-True ((@((Test-DomeniaInventoryCodeSafe $here).Findings) -join ' ') -match 'Classe Win32_Product')
     $guardHere="return @'`n"+'if ([string]$Payload.ClassName -ieq ''Win32_Product'') { throw ''bloque'' }'+"`n"+'Get-ItemProperty -Path ''HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'''+"`n'@"
-    $safe=@('if ($ClassName -ieq ''Win32_Product'') { throw ''Classe bloquee'' }','if ($c -in @(''Win32_Product'')) { throw ''x'' }','Get-ItemProperty -Path ''HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*''',$guardHere,'msiexec /i produit.msi /qn')
+    $safe=@('if ($ClassName -match ''^(?i:Win32_Product|CIM_Product)$'') { throw ''Classe bloquee'' }','if ($ClassName -ieq ''Win32_Product'') { throw ''Classe bloquee'' }','if ($c -in @(''Win32_Product'')) { throw ''x'' }','Get-ItemProperty -Path ''HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*''',$guardHere,'msiexec /i produit.msi /qn')
     foreach($code in $safe){$check=Test-DomeniaInventoryCodeSafe $code;Assert-True $check.Safe ('Refuse : '+$code+' : '+(@($check.Findings) -join ', '))}
 }
 Test-Case 'D073' 'Classes parentes et autres classes du fournisseur MSI refusees ; garde limitee a une condition' {
@@ -379,7 +379,8 @@ Test-Case 'D073' 'Inventaire existant : correspondance des acces, SCCM ne couvre
 Test-Case 'D073' 'Le code livre ne lit jamais Win32_Product ni une classe du fournisseur MSI' {
     $files=@(Get-Item -LiteralPath (Join-Path $wad 'Domenia-Core.ps1'))+@(Get-ChildItem -LiteralPath $modules -Filter '*.ps1' -File)
     Assert-True ($files.Count -gt 10);Assert-Equal 1 @($files|Where-Object{$_.Name -eq 'Domenia-Workstation.Model.ps1'}).Count 'Ce module est analyse lui aussi'
-    foreach($file in $files){$check=Test-DomeniaInventoryCodeSafe ([IO.File]::ReadAllText($file.FullName));Assert-True $check.Safe ($file.Name+' : '+(@($check.Findings) -join ', '))}
+    $issues=@(foreach($file in $files){$check=Test-DomeniaInventoryCodeSafe ([IO.File]::ReadAllText($file.FullName));if(-not $check.Safe){$file.Name+' : '+(@($check.Findings) -join ', ')}})
+    Assert-Equal 0 $issues.Count ($issues -join ' | ')
 }
 
 # ---------------------------------------------------------------- D074

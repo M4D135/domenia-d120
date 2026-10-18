@@ -1,0 +1,76 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  8,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "PCT-001",
+                       "PCT-002",
+                       "PCT-003",
+                       "PCT-004",
+                       "PCT-005",
+                       "PCT-006",
+                       "PCT-007",
+                       "PCT-008"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "PCT-001",
+                      "Name":  "Point 135 : chaque sonde du catalogue satisfait Domenia.ProbeContract/1",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-002",
+                      "Name":  "Point 135 : les tests attendus de chaque sonde sont executes sur la regle de projection",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-003",
+                      "Name":  "Point 135 : les limites du contrat sont celles du collecteur",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-004",
+                      "Name":  "Point 136 : une sonde personnalisee declare comportement, privileges et cout",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-005",
+                      "Name":  "Point 136 : entrees refusees par le contrat",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-006",
+                      "Name":  "Point 136 : isolement decrit sans promettre de bac a sable",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-007",
+                      "Name":  "Point 135 : contrat des neuf sondes ajoutees le 15 octobre (inventaire du poste et applications installees)",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "PCT-008",
+                      "Name":  "Point 87 : indices de station d accueil, filtre LIKE borne admis, caracteres hors WQL toujours refuses",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

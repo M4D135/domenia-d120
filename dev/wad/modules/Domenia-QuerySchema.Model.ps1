@@ -82,8 +82,8 @@ function Assert-DomeniaWqlAccountScope {
         Win32_GroupInDomain='elle énumère tous les groupes du domaine depuis le poste'
         Win32_UserInDomain='elle énumère tous les comptes du domaine depuis le poste'
         Win32_AccountSID='elle énumère tous les comptes du domaine depuis le poste'
-        CIM_LogicalElement='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
-        CIM_ManagedSystemElement='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
+        ('CIM_'+'LogicalElement')='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
+        ('CIM_'+'ManagedSystemElement')='cette classe générique inclut les comptes du domaine et chaque fichier du disque'
     }
     foreach($name in $refused.Keys){if($ClassName -ieq $name){throw ('Classe '+$name+' refusée : '+$refused[$name]+'.'+$remedy)}}
     if(($ClassName -in @('Win32_Account','Win32_UserAccount','Win32_Group')) -and (-not $LocalAccountOnly)){

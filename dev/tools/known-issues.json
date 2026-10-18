@@ -44,7 +44,7 @@
       "Severity": "Mineur",
       "Status": "Résolu",
       "Impact": "RC1.17.20 : installation, contrôle de démarrage, désinstallation avec conservation, réinstallation puis suppression explicite des données du profil exécutés dans un vrai compte Windows standard jetable. Douze contrôles réussis ; fichier extérieur conservé ; compte et profil supprimés après récupération du rapport.",
-      "Workaround": "Aucun pour ce parcours ciblé. La suite Installer complète, arrêtée au budget de 240 secondes, reste distincte (KI-007).",
+      "Workaround": "Aucun pour le parcours standard jetable ; la suite Installer complète et ses reprises sont documentées dans validation/2026-10-18/rc21-remediation.",
       "Source": "validation/2026-10-18/rc20-qualification-docs/raw/disposable-profile/Result.json"
     },
     {
@@ -58,12 +58,12 @@
     },
     {
       "Id": "KI-007",
-      "Title": "Qualification complémentaire RC1.17.20 : règles et géométrie non validées",
+      "Title": "Règles, géométrie et installation : reprise ciblée RC1.17.21",
       "Severity": "Majeur",
-      "Status": "Ouvert",
-      "Impact": "Le pack exact donne 34 échecs sur 1 075 règles et 22 échecs sur 79 contrôles géométriques hors écran. Plusieurs attentes ou dépendances de harnais sont anciennes ; la part de défaut applicatif reste à établir. La suite complète Installer a dépassé le budget de 240 secondes. Ces résultats interdisent de déclarer la qualification générale terminée. Les captures documentaires ont un échec distinct à 1280×720 : une seule ligne entière visible dans l’Atelier au lieu de deux (54/55 contrôles réussis).",
-      "Workaround": "Conserver les preuves et le laboratoire pour une reprise ciblée des cas en échec ; les contrôles critiques antérieurs restent décrits séparément.",
-      "Source": "validation/2026-10-18/rc20-qualification-docs/README.md"
+      "Status": "Résolu",
+      "Impact": "RC1.17.21 : échecs KI-007 corrigés. Règles : 1 073/1 075 puis 149 cas ciblés réussis, aucun échec restant ; géométrie 79/79 ; capture 1280×720 : trois lignes entières, 18/18 contrôles ; installation complète RC20 24/26 puis quatre cas RC21 réussis couvrant les deux diagnostics fautifs. Démarrage CheckOnly et 172 fichiers applicatifs contrôlés. Qualification générale distincte ; décisions 134/146 et certificat 141 inchangés.",
+      "Workaround": "Aucun pour ces échecs. Les qualifications élargies restent hors de ce périmètre.",
+      "Source": "validation/2026-10-18/rc21-remediation/README.md"
     }
   ]
 }

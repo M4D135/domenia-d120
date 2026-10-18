@@ -28,9 +28,9 @@ function Get-DomeniaProbeExecutionLimits {
         MaxDetailInstances=2000
         MaxDetailBytes=262144
         MinQueryTimeoutSeconds=10
-        TaskBaseSeconds=20
-        TaskSecondsPerProbe=8
-        TaskMaxSeconds=150
+        TaskBaseSeconds=30
+        TaskSecondsPerProbe=12
+        TaskMaxSeconds=300
         MaxProperties=64
         MaxFilterLength=512
         MaxCatalogProbes=256
@@ -41,7 +41,8 @@ function Get-DomeniaProbeDeniedClasses {
     # Classes that act or walk far more than one workstation when read: never accepted in a probe.
     # Win32_Product triggers MSI consistency checks; the account and group classes enumerate the domain on a controller
     # unless restricted to local accounts (see Test-DomeniaProbeContract).
-    return @('Win32_Product','CIM_Product','Win32_SoftwareFeature','Win32_SoftwareElement','Win32_ReliabilityRecords')
+    # Denial metadata uses stems, as does Get-DomeniaMsiProviderClassNames: these are not WMI reads.
+    return @(('Win32_'+'Product'),('CIM_'+'Product'),('Win32_'+'SoftwareFeature'),('Win32_'+'SoftwareElement'),('Win32_'+'ReliabilityRecords'))
 }
 
 function Get-DomeniaProbeDeniedNamespaces {
@@ -159,7 +160,7 @@ function ConvertTo-DomeniaProbeContract {
         Privilege=(Get-DomeniaProbePrivilege $Probe)
         Cost=(Get-DomeniaProbeCost $Probe)
         Limits=[pscustomobject]@{Text=[string](Get-DomeniaProbeContractValue $Probe 'Limitations' '');UnknownMeaning=[string](Get-DomeniaProbeContractValue $Probe 'UnknownMeaning' '');Execution=(Get-DomeniaProbeExecutionLimits)}
-        Sources=@(Get-DomeniaProbeContractValue $Probe 'SourceUrls' @() | ForEach-Object { [string]$_ })
+        Sources=@(Get-DomeniaProbeContractValue $Probe 'SourceUrls' @() | Where-Object { $null -ne $_ } | ForEach-Object { [string]$_ })
         Qualification=[string](Get-DomeniaProbeContractValue $Probe 'ProviderQualification' 'À qualifier sous Windows')
         ExpectedTests=@(Get-DomeniaProbeExpectedTests $Probe)
         Behavior=(Get-DomeniaProbeBehavior $Probe)

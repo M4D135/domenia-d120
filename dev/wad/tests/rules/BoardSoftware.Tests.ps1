@@ -2,6 +2,7 @@
 # of the software list (Update-DomeniaSoftwareDashboard). Fictitious products and publishers only: no network, no disk.
 # The board contract and the provider are not in the launcher list: they are loaded here.
 . (Join-Path $modules 'Domenia-Boards.Model.ps1')
+. (Join-Path $modules 'Domenia-HealthRules.Model.ps1')
 . (Join-Path $modules 'Domenia-BoardSoftware.Model.ps1')
 function New-DomeniaSoftwareBoardTestRow {
     param([string]$Name,[string]$Publisher = '',[string]$Version = '1.0',[string]$Architecture = '64 bits',[string]$Scope = 'Machine',$SizeKb = 0,[string]$InstallDate = '')

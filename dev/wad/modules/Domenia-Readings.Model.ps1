@@ -445,8 +445,8 @@ function Get-DomeniaBatteryReading {
         }
     }
     $instances = New-Object System.Collections.Generic.List[string]
-    $designed = @{}; $full = @{}; $cycles = @{}; $labels = @{}
-    foreach ($pair in @(@($Static,'DesignedCapacity',$designed,$true),@($FullCharge,'FullChargedCapacity',$full,$false),@($Cycles,'CycleCount',$cycles,$false))) {
+    $designed = @{}; $full = @{}; $cyclesByInstance = @{}; $labels = @{}
+    foreach ($pair in @(@($Static,'DesignedCapacity',$designed,$true),@($FullCharge,'FullChargedCapacity',$full,$false),@($Cycles,'CycleCount',$cyclesByInstance,$false))) {
         $source = $pair[0]; $table = $pair[2]
         if ($source.State -ne 'Read') { continue }
         foreach ($row in @($source.Rows)) {
@@ -473,7 +473,7 @@ function Get-DomeniaBatteryReading {
                 Add-DomeniaReadingFact $facts $title ((Format-DomeniaReadingNumber $wear) + ' % (' + (Format-DomeniaReadingNumber $fullValue) + ' mWh à pleine charge sur ' + (Format-DomeniaReadingNumber $design) + ' mWh nominaux)') 'Estime' 'BatteryStaticData, BatteryFullChargedCapacity' $wearLimit $hint $FullCharge.CheckedUtc
             }
         } else { Add-DomeniaReadingFact $facts $title 'Usure non calculable : capacité nominale ou à pleine charge non exposée' 'Inconnu' 'root\wmi' 'Aucune usure nʼest calculée à partir dʼune valeur absente ou nulle.' }
-        $count = $cycles[$instance]
+        $count = $cyclesByInstance[$instance]
         if (($null -ne $count) -and ($count -gt 0)) { Add-DomeniaReadingFact $facts ('Cycles de la batterie ' + $label) ((Format-DomeniaReadingNumber $count) + ' cycles') 'Constate' 'BatteryCycleCount' 'Compteur déclaré par la batterie.' '' $Cycles.CheckedUtc }
         elseif ($Cycles.State -eq 'Read') { Add-DomeniaReadingFact $facts ('Cycles de la batterie ' + $label) 'Compteur non renseigné par la batterie' 'Inconnu' 'BatteryCycleCount' 'Zéro ou absence ne signifie pas une batterie neuve.' '' $Cycles.CheckedUtc }
     }

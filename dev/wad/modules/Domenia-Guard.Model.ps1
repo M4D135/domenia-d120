@@ -321,7 +321,7 @@ function ConvertTo-DomeniaAccountLookup {
     $name=([string]$UserName).Trim();$dns=([string]$Domain).Trim().TrimEnd('.').ToLowerInvariant();$nb=([string]$Netbios).Trim().ToLowerInvariant()
     if((-not $name) -or ($name.Length -gt 256) -or ($name -match '[\x00-\x1f*()]')){return [pscustomobject]@{Valid=$false;Sam='';Upn='';Reason='Nom de compte vide ou invalide.'}}
     if($name.Contains('\')){
-        $parts=$name.Split([char]92,2);$authority=$parts[0].ToLowerInvariant()
+        $parts=$name.Split([char[]]@([char]92),2);$authority=$parts[0].ToLowerInvariant()
         $known=(($authority -eq $nb) -or (($dns) -and (($authority -eq $dns) -or ($authority -eq $dns.Split('.')[0]))))
         if((-not $known) -or (-not $parts[1]) -or ($parts[1].Contains('\')) -or ($parts[1].Contains('@'))){return [pscustomobject]@{Valid=$false;Sam='';Upn='';Reason='Compte local ou dʼun autre domaine : aucun alias recherché.'}}
         return [pscustomobject]@{Valid=$true;Sam=$parts[1];Upn='';Reason=''}

@@ -3,6 +3,7 @@
 $script:GuiFile = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'fixtures') 'Domenia-GuiJourney.ps1'
 . $script:GuiFile
 $script:GuiDefinitionFile = Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) (Join-Path 'engineering' (Join-Path 'd120' (Join-Path 'lab' 'gui-journeys.json')))
+if(-not [IO.File]::Exists($script:GuiDefinitionFile)){$script:GuiDefinitionFile=Join-Path (Split-Path $script:GuiFile) 'gui-journeys.json'}
 function New-GuiTestDefinition {
     return [pscustomobject]@{ Schema='DomeniaGuiJourneys/1'; Journeys=@(
         [pscustomobject]@{ Id='navigation'; Label='Navigation'; Steps=@(
@@ -88,11 +89,11 @@ Test-Case 'P129' 'Parcours graphiques : releve humain vierge, complet ou incompl
 Test-Case 'P129' 'Parcours graphiques : jamais qualifie sur des evenements simules seuls' {
     $complete = [pscustomobject]@{ Complete=$true; Failed=0 }
     $all = @('navigation','defilement','fenetres')
-    Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $null).Status
-    Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$false; Failed=0 })).Status
+    Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $null -Selected $all -Defined $all).Status
+    Assert-Equal 'Simulé seulement' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$false; Failed=0 }) -Selected $all -Defined $all).Status
     Assert-Equal 'Échec' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 19 -SimulatedFailed 1 -CapturesValid 4 -CapturesInvalid 0 -Human $complete).Status
     Assert-Equal 'Échec' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 3 -CapturesInvalid 1 -Human $complete).Status
-    Assert-Equal 'Échec humain' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$true; Failed=2 })).Status
+    Assert-Equal 'Échec humain' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human ([pscustomobject]@{ Complete=$true; Failed=2 }) -Selected $all -Defined $all).Status
     Assert-Equal 'Non exécuté' (Get-DomeniaGuiJourneyVerdict -SimulatedPassed 0 -SimulatedFailed 0 -CapturesValid 0 -CapturesInvalid 0 -Human $complete).Status
     $ok = Get-DomeniaGuiJourneyVerdict -SimulatedPassed 20 -SimulatedFailed 0 -CapturesValid 4 -CapturesInvalid 0 -Human $complete -Selected $all -Defined $all
     Assert-Equal 'Qualifié' $ok.Status; Assert-True $ok.Qualified

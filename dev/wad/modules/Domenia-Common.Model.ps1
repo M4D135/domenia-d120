@@ -473,6 +473,7 @@ function Get-DomeniaContractCatalog {
     if ($null -ne $cached) { return $cached }
     $subset = { param([int]$From,[int]$To) [pscustomobject]@{ From = $From; To = $To; Mode = 'Subset' } }
     $catalog = @(
+        [pscustomobject]@{ Family = 'Domenia.BoardLayout'; Label = 'Disposition des tableaux'; Kind = 'Format'; Separator = '.'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Boards.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.Query'; Label = 'Recette de requête'; Kind = 'Format'; Separator = '/'; Current = 2; Readable = @(1,2); Migrations = @(& $subset 1 2); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
         [pscustomobject]@{ Family = 'Domenia.QueryLibrary'; Label = 'Bibliothèque de requêtes'; Kind = 'Format'; Separator = '/'; Current = 1; Readable = @(1); Migrations = @(); Values = @(); Owner = 'Domenia-Query.Model.ps1' }
         # W09 (point 69): version 2 adds the pack identity, its version and a content fingerprint; a version 1 pack keeps

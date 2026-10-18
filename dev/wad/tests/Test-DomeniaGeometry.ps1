@@ -140,6 +140,19 @@ function Set-FakeActivity {param([int]$Count,[string]$Name='Lecture fictive',[in
     $script:LatestTaskId=if($Count){'demo0'}else{''}
     Update-TaskUi -Force
 }
+function Get-AccessibleGeometryRect {param($Window,[string]$Name)
+    # Folded tools remain reachable by opening their real expander and scrolling.
+    # Restore the layout afterwards so activity stability is measured in the operator's initial state.
+    $control=$Window.FindName($Name);$opened=[Collections.Generic.List[object]]::new();$node=$control
+    try {
+        while($null -ne $node){
+            if($node -is [Windows.Controls.Expander] -and -not $node.IsExpanded){$node.IsExpanded=$true;$opened.Add($node)}
+            $node=[Windows.LogicalTreeHelper]::GetParent($node)
+        }
+        Invoke-GeometryPump $Window;$control.BringIntoView();Invoke-GeometryPump $Window
+        return (Get-ClientRect $Window $Name)
+    } finally {foreach($expander in $opened){$expander.IsExpanded=$false};Invoke-GeometryPump $Window}
+}
 function Get-ClientRect {param($Window,[string]$Name)
     $c=$Window.FindName($Name);if($null -eq $c){throw ('Controle absent : '+$Name)}
     $p=$c.TranslatePoint([Windows.Point]::new(0,0),$script:GeometrySurface)
@@ -210,7 +223,7 @@ if($infrastructure){
                 Test-Case ($prefix+' : champs essentiels visibles et atteignables') {
                     Set-FakeActivity 1;Invoke-GeometryPump $window
                     foreach($name in @($essentials+'BtnCancelTask')){
-                        $r=Get-ClientRect $window $name
+                        $r=Get-AccessibleGeometryRect $window $name
                         Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8) ($name+' invisible ou ecrase ('+[Math]::Round($r.W)+'x'+[Math]::Round($r.H)+').')
                         $bottom=if($name -eq 'DgObjects'){$r.Y+[Math]::Min(120,$r.H)}else{$r.Y+$r.H}
                         $right=if($name -eq 'DgObjects'){$r.X+[Math]::Min(320,$r.W)}else{$r.X+$r.W}
@@ -238,7 +251,7 @@ if($infrastructure){
                 }
                 Test-Case ($prefix+' : une operation ne deplace ni la recherche, ni les resultats, ni leurs boutons') {
                     Set-FakeActivity 0;Invoke-GeometryPump $window
-                    $measured=@(@('TxtGlobalSearch','BtnGlobalSearch','DgObjects')+@($resultButtons|Where-Object{(Test-GeometryVisible $window.FindName($_))}))
+                    $measured=@(@('TxtGlobalSearch','BtnGlobalSearch','DgObjects','UxResultToolsExpander')+@($resultButtons|Where-Object{(Test-GeometryVisible $window.FindName($_))}))
                     Assert-True ($measured.Count -ge 6) ('Trop peu de boutons de resultats visibles : '+($measured -join ', '))
                     $stable=Get-Geometry $window $measured
                     foreach($count in @(1,10,100,0)){
@@ -288,7 +301,7 @@ if($infrastructure){
                     Assert-True ($window.FindName('DgObjects').ActualHeight -ge 120) ('Resultats trop petits : '+$window.FindName('DgObjects').ActualHeight)
                     Assert-OuNavigationLayout $window
                     foreach($name in @('CmbGlobalType','CmbPresenceFilter','TxtGlobalLimit','CmbWorkView','BtnWorkView','ChkLiveVerifyOnClick','BtnLiveRecheck','TxtSuiteResultFilter','BtnSuiteResultClear','BtnGlobalClear','BtnSearchResultMenu','BtnCancelTask','LblUxDomain','TvDirectory','LblSearchScope','LblSearchHint','LblSelectionReadState','LblLiveState')){
-                        $r=Get-ClientRect $window $name
+                        $r=Get-AccessibleGeometryRect $window $name
                         Assert-True ($r.Visible -and $r.W -ge 8 -and $r.H -ge 8 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible apres redimensionnement a '+$height)
                     }
                     if($height -eq 800){
@@ -323,7 +336,7 @@ if($infrastructure){
             Test-Case ($theme+' : stockage local deploye accessible par defilement a 960x516') {
                 foreach($name in @('BtnStorageUsage','ChkStoragePurgeObservations','ChkStoragePurgeSnapshots','ChkStoragePurgeHistory','TxtStorageHistoryDays','ChkStoragePurgeIndex','BtnStoragePurgePreview','BtnStoragePurge')){
                     $control=$window.FindName($name);$control.BringIntoView();Invoke-GeometryPump $window
-                    $r=Get-ClientRect $window $name
+                    $r=Get-AccessibleGeometryRect $window $name
                     Assert-True ($r.Visible -and $r.W -ge 20 -and $r.H -ge 15 -and $r.X -ge 0 -and $r.Y -ge 0 -and $r.X+$r.W -le $script:GeometrySurface.ActualWidth+0.5 -and $r.Y+$r.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' inaccessible dans le stockage deploye')
                     $node=$control;$hasScroll=$false
                     while($null -ne $node -and $node -isnot [Windows.Window]){if($node -is [Windows.Controls.ScrollViewer] -and $node.ScrollableHeight -gt 0){$hasScroll=$true};$node=[Windows.Media.VisualTreeHelper]::GetParent($node)}
@@ -345,7 +358,7 @@ if($infrastructure){
                     $window.FindName('WorkspaceTabs').SelectedItem=$window.FindName($page);Invoke-GeometryPump $window
                     # UI-23: one « Vérifier la liste » button and its choice arrow; it becomes « Arrêter » during a survey.
                     $names=@('BtnParkVerify','BtnParkVerifyMenu')
-                    foreach($name in $names){$a=Get-ClientRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $script:GeometrySurface.ActualWidth+0.5 -and $a.Y+$a.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors vue')}
+                    foreach($name in $names){$a=Get-AccessibleGeometryRect $window $name;Assert-True ($a.Visible -and $a.W -gt 20 -and $a.H -ge 25 -and $a.X -ge 0 -and $a.Y -ge 0 -and $a.X+$a.W -le $script:GeometrySurface.ActualWidth+0.5 -and $a.Y+$a.H -le $script:GeometrySurface.ActualHeight+0.5) ($name+' hors vue')}
                 }
             }
         }catch{$script:Checks.Add([pscustomobject]@{Name=($theme+' : preparation detection');Status='Failed';Detail=$_.Exception.ToString()})}
