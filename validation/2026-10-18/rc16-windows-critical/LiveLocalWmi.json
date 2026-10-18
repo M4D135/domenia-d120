@@ -1,0 +1,8 @@
+﻿{
+    "Computer":  "W11-01",
+    "Caption":  "Microsoft Windows 11 Enterprise Evaluation",
+    "Version":  "10.0.26200",
+    "LiveLocalWmi":  true,
+    "LiveRemoteWmi":  false,
+    "ApplicationWorkerExecuted":  false
+}

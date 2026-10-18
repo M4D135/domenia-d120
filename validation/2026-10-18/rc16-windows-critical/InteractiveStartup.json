@@ -1,0 +1,12 @@
+{
+    "Build":  "RC1.17.16",
+    "Passed":  true,
+    "SessionId":  1,
+    "PowerShell":  "5.1.26100.6584",
+    "Scope":  "Exact PROD launcher, visible login only. No credentials submitted; no AD authentication.",
+    "ProdZipSha256":  "fdfd170c74823f318731e581fec7504dd47a0363933d10aa5fc0366361e95f2a",
+    "Title":  "Domenia · Connexion",
+    "LoginButtonFound":  true,
+    "PasswordControlFound":  true,
+    "DurationMs":  30466
+}

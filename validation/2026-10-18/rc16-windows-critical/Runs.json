@@ -1,0 +1,74 @@
+[
+    {
+        "Name":  "Startup-prod",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  9084,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\prod\\wad\\Domenia-Start.ps1\u0027 -CheckOnly"
+    },
+    {
+        "Name":  "Startup-dev",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  8183,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\Domenia-Start.ps1\u0027 -CheckOnly"
+    },
+    {
+        "Name":  "StartupLogin",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  58772,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaStartupLogin.ps1\u0027 -Quiet -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\StartupLogin.json\u0027"
+    },
+    {
+        "Name":  "WmiTimeoutHandoff",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  15857,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaParkDetection.ps1\u0027 -Quiet -Filter \u0027RC11711\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\WmiTimeoutHandoff.json\u0027"
+    },
+    {
+        "Name":  "BatchActivity",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  6861,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaBatchActivity.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\BatchActivity.json\u0027"
+    },
+    {
+        "Name":  "HealthRules",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  6458,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaHealthRules.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\HealthRules.json\u0027"
+    },
+    {
+        "Name":  "HealthAdvanced",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  9403,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaHealthAdvanced.ps1\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\HealthAdvanced.json\u0027"
+    },
+    {
+        "Name":  "StorageMaintenance",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  15358,
+        "Code":  "\u0026 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\dev\\wad\\tests\\Test-DomeniaStorageMaintenance.ps1\u0027 -CaseFilter \u0027Backup is standalone|Retention deletes|Retention refusal|Restore uses\u0027 -ReportPath \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\StorageMaintenance.json\u0027"
+    },
+    {
+        "Name":  "LiveLocalWmi",
+        "Passed":  true,
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "DurationMs":  599,
+        "Code":  "$ErrorActionPreference=\u0027Stop\u0027;$v=Get-CimInstance -ClassName Win32_OperatingSystem -OperationTimeoutSec 10;[pscustomobject]@{Computer=$env:COMPUTERNAME;Caption=$v.Caption;Version=$v.Version;LiveLocalWmi=$true;LiveRemoteWmi=$false;ApplicationWorkerExecuted=$false}|ConvertTo-Json|Set-Content -Encoding UTF8 \u0027C:\\DomeniaLab\\d120-rc11716-critical\\out\\LiveLocalWmi.json\u0027"
+    }
+]

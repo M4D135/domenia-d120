@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "build": "RC1.17.16",
+  "source_commit": "1a8cd5a2875dbec1488bf31ab77d715d53918f5a",
+  "status": "critical_windows_checks_passed",
+  "full_acceptance": false,
+  "scope": [
+    "startup",
+    "wmi_batch_timeout_handoff",
+    "health",
+    "backup_restore_retention"
+  ],
+  "platform": "Windows PowerShell 5.1.26100.6584 x64 STA",
+  "vm": "CNAMTS-W11-01",
+  "native_fixture_cases_passed": 96,
+  "native_fixture_cases_failed": 0,
+  "interactive_startup_passed": true,
+  "live_local_wmi_passed": true,
+  "live_ad_tested": false,
+  "live_remote_wmi_tested": false,
+  "archive_sha256": {
+    "prod": "fdfd170c74823f318731e581fec7504dd47a0363933d10aa5fc0366361e95f2a",
+    "dev": "1c0c97ce8f51c5ebfff005277c6a26d72824efc46d360727358b6df920662f64"
+  },
+  "reports": {
+    "BatchActivity.json": "66bb5032b08f6bb93157b0ebdf4fe51002bfa66ce49e396c64775b91601755fa",
+    "BatchActivity.stderr.log": "2ce70d6c8c9ad6726c794690c8b14a2b83673648cac88edf4ff1acc50ec46348",
+    "BatchActivity.stdout.log": "f71e7ad5b9b576bb0eb5a21a614db213c7825d7cee1e417d75a9111159751e20",
+    "Environment.json": "1c0549c4054dc226d8a0df6bfe1b04daf0739383736a7ae867cf6be602947ae7",
+    "FinalIntegrity.json": "996d0f39c17d548de2ee26ad1937bd7d9c46545424bca28dadd7e960efde36d9",
+    "HarnessAttempt1.json": "2946cfef69ade2b6fde38ddadca416b0a3ff4f876d5abc01c6ff40ca8eee19cd",
+    "HealthAdvanced.json": "9d944e4f418b6fed93a6fba870677a1be665a21803cb4e402c5cac951094c378",
+    "HealthAdvanced.stderr.log": "7e489cb823e2ae87ff3861325bbb68baf00723b94b6682ebd74cd22a7a8a3a81",
+    "HealthAdvanced.stdout.log": "fe2a0702ab0bd7265035552f2e9c3efdc1192551b1fd491a57c81c65561dc7aa",
+    "HealthRules.json": "f86e03cbcfcd5f9592181ce0ca45964a259b4b9ca1a1a77cc1ad44f62f0dd645",
+    "HealthRules.stderr.log": "d3cd92134ab88e47dd4cb8d97db0deac2f0722885211a5b8beca7c0f54cfd401",
+    "HealthRules.stdout.log": "0062f0b69004e060f2510578d03f800a1aff2b8e5b3c9e1e86beb9e0ef8b6d44",
+    "InteractiveStartup.json": "d2bb1e5581af836852189d0b885bc9ce32c8ba83f1438b789076417f0e7add72",
+    "LiveLocalWmi.json": "00adceb72a957f57038e48c29ff59678109650ea1ecb4aba6f4d5ea17cde133a",
+    "LiveLocalWmi.stderr.log": "7bbd206785ed8fa2651ad2167af1057de36ac16eff07509b53ad849ab8c9b7ce",
+    "LiveLocalWmi.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "Runs.json": "5a8a08e838b7e8575fecff37ca508f4c92a2ca0bfb9fea14944b6c686b713c7b",
+    "Startup-dev.stderr.log": "bb1294b62c07a2bcab33270250f75788de259e4203d2ae7e3596dab41aabc60a",
+    "Startup-dev.stdout.log": "a1c74aa7a360d7523fb79bf0e92e0032001ac15784b78da22ff92aed56dea32b",
+    "Startup-prod.stderr.log": "ed7653f81c70be1c611109b3e608b2f68a64fdd8a613c3ffc3f6d259b366d6b2",
+    "Startup-prod.stdout.log": "f864c5e66c215ad1d149541ba6fd7ea713408b28e54f0869d509122ddffccae1",
+    "StartupLogin.json": "46b2d41f7b682e2657a731b07c5be36581494db6d75a19895dc60cd833eb15b5",
+    "StartupLogin.stderr.log": "2ce70d6c8c9ad6726c794690c8b14a2b83673648cac88edf4ff1acc50ec46348",
+    "StartupLogin.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "StorageMaintenance.json": "3828447202bb131be02f1653ff1487a561fcd348d7ddbcaac8562eff42cbb755",
+    "StorageMaintenance.stderr.log": "aa4c6b5187e8a52a4b02316c91eb0c7a4cfdce4cdea9b9d7ecfe2faa1d97cce4",
+    "StorageMaintenance.stdout.log": "a8b74bdfe96e49e1ae8442b06e4f82d36ab6e7ebcfa78059d40595ec80f98d22",
+    "WmiTimeoutHandoff.json": "cadb1b18c5f4a8138ef4aa0651844afed217220181e9378561bdc77b47c74dd8",
+    "WmiTimeoutHandoff.stderr.log": "52bce97ee39e26fa423efe8040b20c866445311f1480277a57a9633dd7f597c1",
+    "WmiTimeoutHandoff.stdout.log": "7aa731747a0ce153aa1eb575213e80d91f20ce8048e514d20793d2926dfd8eb8",
+    "login.png": "d5c977133753a9a024ace4424ce3f87d9f8760838a244e4a69f3821e488f905e"
+  },
+  "external_decision_ids": [
+    134,
+    146
+  ]
+}

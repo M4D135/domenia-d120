@@ -1,6 +1,6 @@
 # État courant — 18 octobre 2026
 
-Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. Corrections RC1.17.16 intégrées ; qualification Windows et décisions externes 134/146 ouvertes. La pause ci-dessous est historique et ne décrit plus le dépôt courant.
+Voir [SUIVI-2026-10-18.md](SUIVI-2026-10-18.md) et EXECUTION.json. Corrections RC1.17.16 intégrées ; qualification Windows critique réussie (démarrage, reprise WMI après timeout injecté, santé, sauvegarde/restauration ; 96 cas natifs sans échec et connexion réellement affichée). Qualification générale, AD/WMI distants réels et décisions externes 134/146 restent ouverts. Preuve : [rc16-windows-critical](../../../../validation/2026-10-18/rc16-windows-critical/README.md). La pause ci-dessous est historique et ne décrit plus le dépôt courant.
 
 ---
 

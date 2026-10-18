@@ -3,7 +3,7 @@
   "authorized_at": "2026-10-13",
   "updated_at": "2026-10-18",
   "status": "implementation_integrated_windows_qualification_and_external_decisions_pending",
-  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.\nRC1.17.16 : corrections restantes du dépôt traitées directement le 18/10/2026. Registre de 97 opérations synchronisé ; provenance durable des imports ; recettes de santé à révision conservée ; suites requêtes remises en état ; sauvegardes SQLite autonomes ; commandes de démarrage non délimitées expurgées. Contrôles ciblés macOS natifs et fabrication des packs, sans VM. Aucun acceptance_passed ajouté. Décisions externes : 134 (coordination/amont) et 146 (redistribution).",
+  "suivi_note": "151 points avec implementation, 9 de qualification Windows seule. Statuts consolides depuis les 153 fiches equipe et les 7 points manquants. Aucun point clos : il faut un rapport Windows 5.1 lie aux SHA-256 finaux. Decision du 2026-10-17 pour le lot RC1.17.14 : aucun test VM ; les controles hors Windows sont non qualifiants.\nRC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte.\nRC1.17.12 : assistant au-dessus du dashboard, lenteurs passagères dans le diagnostic, rafraîchissement effectif du filtre après un lot ping, guides Word/PDF remis à jour. Vérifications ciblées seulement : aucune qualification générale ajoutée.\nRC1.17.16 : corrections restantes du dépôt traitées directement le 18/10/2026. Registre de 97 opérations synchronisé ; provenance durable des imports ; recettes de santé à révision conservée ; suites requêtes remises en état ; sauvegardes SQLite autonomes ; commandes de démarrage non délimitées expurgées. Contrôles ciblés macOS natifs et fabrication des packs, sans VM. Aucun acceptance_passed ajouté. Décisions externes : 134 (coordination/amont) et 146 (redistribution).\n18/10/2026 : qualification Windows RC1.17.16 limitée aux quatre parcours critiques demandés. Démarrage réel PROD en session interactive, intégrité/imports PROD et DEV, 96 cas natifs ciblés (connexion, reprise du lot WMI après timeout injecté, santé, sauvegarde/restauration/conservation) : zéro échec. Lecture CIM locale réelle réussie ; aucun AD ni WMI distant réel, aucune charge représentative. Preuve liée aux SHA-256 des ZIP : validation/2026-10-18/rc16-windows-critical/README.md. Aucun acceptance_passed global ajouté ; décisions 134/146 inchangées.",
   "minimum_computers": 10000,
   "qualification_computers": 20000,
   "publication": "source_integration_not_windows_qualified",
@@ -305,11 +305,11 @@
         "dev/wad/modules/Domenia-Park.UI.ps1:Add-DomeniaParkHeldTime",
         "dev/wad/tests/Test-DomeniaCollectionWiring.ps1:Point 17",
         "dev/wad/tests/Test-DomeniaParkDetection.ps1:Campagne : plus rien à envoyer",
-        "validation/2026-10-16/dashboard-batch/README.md"
+        "validation/2026-10-16/dashboard-batch/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Exécuter Test-DomeniaCollectionWiring et Test-DomeniaParkDetection dans la VM.",
-        "RC1.17.11 : les controles cibles de la preuve dashboard-batch ne remplacent pas la qualification complete sur AD et transports reels ; aucune grande campagne VM relancee (demande David)."
+        "RC16 : les deux cas RC11711 passent sous Windows 5.1 (timeout injecté, attente du nettoyage puis poste suivant), ainsi que les cinq cas BatchActivity. Restent les autres cas de ParkDetection, CollectionWiring et le lot sur des transports WMI distants réels."
       ],
       "implementation_summary": "Les lectures d'un relevé portent un canal de progression, et le moteur distingue l'absence de progrès de la durée totale. Correctifs de revue : un nouveau cas de raccordement exécute le vrai Invoke-DomeniaUiTaskDispatch sur un runspace local inerte. Il vérifie que l'horloge et les étapes sont remises à zéro au départ, que le canal est le même objet sur le travail et que le moteur juge la lecture sur sa progression. Par ailleurs, l'attente réelle ne croît plus quand il ne reste rien à envoyer. RC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte."
     },
@@ -580,10 +580,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Store.Model.ps1:Get-DomeniaStorageBackupSchedule",
         "dev/wad/modules/Domenia-Storage.UI.ps1:Invoke-DomeniaScheduledBackup",
-        "dev/wad/tests/rules/Storage.Tests.ps1:P33"
+        "dev/wad/tests/rules/Storage.Tests.ps1:P33",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Qualification VM d'un cycle automatique complet."
+        "RC16 : sauvegarde autonome/export sans WAL validés sous Windows sur base temporaire. Reste un cycle automatique complet en session applicative."
       ],
       "implementation_summary": "La fréquence (1 à 720 h), la rotation (2 à 30 copies), la prochaine échéance, le dernier succès vérifié et le dernier échec de la session sont affichés. Un succès n'est compté que sur un reçu vérifié (quick_check, taille, SHA-256). Inchangé par la relecture."
     },
@@ -599,10 +600,11 @@
         "dev/wad/modules/Domenia-Storage.UI.ps1:Clear-DomeniaStoragePendingForOtherBase",
         "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'A restore over an unreadable base inspects at once although its queue holds collected data'",
         "dev/wad/tests/Test-DomeniaEngineResilience.ps1:Case 'A restore over an unreadable base waits only for running work, and its timeout keeps collections suspended'",
-        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 34: restore over a corrupt active base...'"
+        "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 34: restore over a corrupt active base...'",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Qualification VM d'une restauration sur une base corrompue."
+        "RC16 : restauration dans une cible distincte vérifiée sous Windows, sans écraser la base active. Reste le parcours interface depuis une base corrompue."
       ],
       "implementation_summary": "La restauration prévisualise puis restaure dans un nouveau fichier ; une base corrompue reste intacte et ouvre un mode restauration au démarrage. Corrigé : la restauration sur une base illisible n'attend plus une file que l'écrivain verrouillé ne videra jamais, ce qui bloquait l'assistant pour toute la session. La demande, l'attente et l'application admettent cette file (AllowQueued) ; la bascule la retire et en affiche le nombre. Après 120 s, le message de dépassement dit que les collectes restent suspendues."
     },
@@ -649,10 +651,11 @@
         "dev/wad/tests/Test-DomeniaStorageMaintenance.ps1:Case 'Point 37: link history keeps every change and the bounds of each period'",
         "dev/wad/tests/rules/Storage.Tests.ps1:P37",
         "guides/administrateur.md:Conservation par famille",
-        "validation/2026-10-18/rc16-remaining/README.md"
+        "validation/2026-10-18/rc16-remaining/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Qualifier conservation sur Windows, dont le cas à 400 000 lignes ; sauvegarde autonome obligatoire et relue avant suppression."
+        "RC16 : conservation et refus d’une confirmation périmée passent sous Windows, avec sauvegarde autonome relue. Reste le volume représentatif de 400 000 lignes."
       ],
       "implementation_summary": "La famille « Historique des associations » résume l'historique sans perdre de changement. Corrigé : les voisins sont calculés en une seule passe ordonnée (table TEMP numérotée par poste, date et id, avec un contrôle d'ordre qui refuse toute suppression si la numérotation est fausse), au lieu de sous-requêtes corrélées dont le coût dépassait le délai de 300 s sur un grand parc. Le résultat est identique à l'ancienne requête sur 60 jeux aléatoires, et 400 000 lignes sont traitées en 0,6 s (Python sqlite3 3.53). Le défaut de LinkHistoryDays passe à 0 (conservé sans limite), conformément à la décision du 2026-10-04. RC16 : opération raccordée ; les sauvegardes passent en fichier autonome et sont relues après publication avant la suppression."
     },
@@ -1190,10 +1193,11 @@
         "dev/wad/tests/Test-DomeniaQueryWorkshopFeatures.ps1 (Point 70 widget block + 'Point 70 across pages' block)",
         "dev/wad/tests/rules/Query.Tests.ps1 P70",
         "commits 1d8d505, 2406edb",
-        "validation/2026-10-18/rc16-remaining/README.md"
+        "validation/2026-10-18/rc16-remaining/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Qualifier les parcours WPF et les transports Windows. La même définition sert aux widgets, listes, rapports et alertes ; une alerte conserve explicitement sa révision. Les champs non relevés restent inconnus, sans collecte implicite."
+        "RC16 : les alertes de recette à révision figée, inconnus et politiques par OU passent sous Windows dans HealthAdvanced. Restent les parcours WPF complets et les transports distants réels."
       ],
       "implementation_summary": "Each dashboard query widget names the library revision it evaluated. It turns to its warning state when its link lags behind or runs ahead of the stored revision, when the recipe is archived, modified or missing, or when the library has not been read. Fixer: the LocalStore worker returns only the links of the page it read (250 recipes per page). The store now collects links page by page in ReadDependencies, clears them when a read restarts, and publishes them together with the rows. Before this, only the last page's links survived. The final migration batch now replaces only the links of its own recipes, where it used to replace all of them. New suite case: 251 recipes on two pages, a restart during the read, and a lagging link on page 1 that is reported. RC16 : alertes de santé à partir d’une recette enregistrée, définition/révision/empreinte conservées, règles par OU, compte des données évaluables et état inconnu ; migration explicite dans Santé ; vues de Recherche et rapports gardent la définition partagée existante."
     },
@@ -1205,10 +1209,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetBoardData (fleet.stale, Snapshot.Figures.StaleDays, fleet.trend.stale)",
         "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaStaleTrendNote",
-        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-019, BF-026"
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-019, BF-026",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Tests de règles non exécutés : pas de PowerShell sur cet hôte. Qualification Windows PowerShell 5.1 à faire en VM."
+        "RC16 : séparation activation AD/activité vérifiée sous Windows par HealthRules sur données synthétiques. Reste la confrontation aux observations AD réelles."
       ],
       "implementation_summary": "Widgets séparés (comptes activés, désactivés, état AD inconnu, connexions par période, inactifs au seuil réglé). Le seuil StaleDays est conservé dans l’instantané quotidien et la courbe signale les jours comptés avec un autre seuil. Pas de changement dans cette passe de correction."
     },
@@ -1220,10 +1225,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetBoardData ($wmiOldest, $wmiOld, -State de fleet.wmi et fleet.reach)",
         "dev/wad/modules/Domenia-BoardFleet.Model.ps1:Get-DomeniaFleetWmiResponse",
-        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-024 (WMI lu il y a 10 jours grisé, console seule cohérente avec la matrice), BF-025"
+        "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-024 (WMI lu il y a 10 jours grisé, console seule cohérente avec la matrice), BF-025",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1 ; qualification en VM."
+        "RC16 : distinction ping/WMI, dates et populations exactes vérifiées sous Windows par HealthRules. Reste la collecte distante et son affichage de bout en bout."
       ],
       "implementation_summary": "La réponse WMI est lue par famille CIM et n’est jamais déduite du ping. Les widgets fleet.wmi et fleet.reach donnent les GUID exacts. Correction : fleet.wmi passe en gris quand une réponse WMI utilisée date de plus de 7 jours, et fleet.reach quand le ping ou WMI est ancien (règle FI-04). La matrice de couverture ne contredit plus fleet.wmi."
     },
@@ -1235,11 +1241,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-Widgets.UI.ps1:Show-DomeniaWidgetExplanation (Snapshot), Invoke-DomeniaBoardAction (Details)",
         "dev/wad/tests/Test-DomeniaBoards.ps1:Comprendre ce chiffre (calcul remplace)",
-        "validation/2026-10-16/dashboard-batch/README.md"
+        "validation/2026-10-16/dashboard-batch/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Exécuter sous Windows. Les sondes et requêtes du parc restent détaillées par réévaluation du même calcul ; le panneau le dit.",
-        "RC1.17.11 : les controles cibles de la preuve dashboard-batch ne remplacent pas la qualification complete sur AD et transports reels ; aucune grande campagne VM relancee (demande David)."
+        "RC16 : populations exactes et absence de doublons vérifiées sous Windows par HealthRules/HealthAdvanced. Reste le parcours interactif de détail des widgets sur relevés réels."
       ],
       "implementation_summary": "Le bouton « Afficher les postes » du panneau d'explication emporte maintenant la clé du calcul qu'il explique. Si le calcul est remplacé pendant que le panneau est ouvert, l'ouverture est refusée et le tableau redessiné, comme avec le bouton du widget. RC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte."
     },
@@ -1252,11 +1258,11 @@
         "dev/wad/modules/Domenia-Boards.Model.ps1:Get-DomeniaHealthCoverage, Get-DomeniaFleetHealth",
         "dev/wad/tests/rules/Boards.Tests.ps1:BRD-025",
         "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-011",
-        "validation/2026-10-16/dashboard-batch/README.md"
+        "validation/2026-10-16/dashboard-batch/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Exécuter sous Windows les règles et les suites HealthRules et HealthAdvanced.",
-        "RC1.17.11 : les controles cibles de la preuve dashboard-batch ne remplacent pas la qualification complete sur AD et transports reels ; aucune grande campagne VM relancee (demande David)."
+        "RC16 : HealthRules (20 cas) et HealthAdvanced (17 cas) passent sous Windows, dont couverture/inconnus. Reste la couverture sur un parc réel et la vérification visuelle complète."
       ],
       "implementation_summary": "La couverture s'affiche à côté du score de santé ; sous 50 % de postes évalués, aucun score n'est affiché. Le test BF-011 attend désormais le nouveau détail, qui inclut « couverture 85 % (6 évalué(s) sur 7) ». RC1.17.11 : corrections dashboard, ordre et tailles, attente apres timeout WMI, suivi du lot, premier calcul automatique et sources/dates/actualisation des widgets. Controles Windows cibles uniquement, qualification generale ouverte."
     },
@@ -1268,10 +1274,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-HealthRules.Model.ps1:Get-DomeniaHealthExplanation",
         "dev/wad/modules/Domenia-HealthRules.UI.ps1:Show-DomeniaHealthExplanation",
-        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-001..HR-003"
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-001..HR-003",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1."
+        "RC16 : explication des scores et postes masqués vérifiée sous Windows (HealthAdvanced). Reste la boîte d’explication interactive sur observations réelles."
       ],
       "implementation_summary": "Score expliqué règle par règle : population évaluable, postes signalés, effet sur le score, postes masqués par une règle désactivée ou suspendue, ouverture par GUID exacts. Les opérandes -and de Show-DomeniaHealthExplanation sont maintenant parenthésés."
     },
@@ -1283,10 +1290,11 @@
       "evidence": [
         "dev/wad/modules/Domenia-HealthRules.Model.ps1:Get-DomeniaHealthPolicyOrigins, Get-DomeniaHealthPolicyExceptions, Get-DomeniaHealthEditorScopes, Format-DomeniaHealthScopeLabel",
         "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-004",
-        "dev/wad/tests/Test-DomeniaHealthPolicies.ps1:Point 76"
+        "dev/wad/tests/Test-DomeniaHealthPolicies.ps1:Point 76",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1."
+        "RC16 : héritage et surcharge des seuils/règles par OU vérifiés sous Windows (HealthAdvanced). Reste le parcours éditeur WPF sur un annuaire réel."
       ],
       "implementation_summary": "Origine de chaque réglage (domaine, OU parente, exception locale), liste des exceptions et portées de l’éditeur. Les opérandes de Format-DomeniaHealthScopeLabel sont maintenant parenthésés."
     },
@@ -1302,10 +1310,11 @@
         "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-005, HR-009",
         "dev/wad/tests/Test-DomeniaHealthPolicies.ps1:Point 77 saving an OU from the editor",
         "dev/wad/modules/Domenia-HealthRules.Model.ps1:ConvertTo-DomeniaHealthSuspensions (dates UTC typees preservees)",
-        "validation/2026-10-18/health-suspension-utc/README.md"
+        "validation/2026-10-18/health-suspension-utc/README.md",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1."
+        "RC16 : suspension, justification, héritage, expiration UTC et aller-retour JSON vérifiés sous Windows (HealthAdvanced). Reste le parcours interactif complet."
       ],
       "implementation_summary": "Correction du défaut majeur : Set-DomeniaHealthScopePolicy compare les suspensions de l’OU et les suspensions héritées après la même purge à 30 jours. Enregistrer une OU sans toucher aux suspensions ne crée donc plus d’exception locale qui bloquerait les suspensions ajoutées plus tard au domaine. Le calcul déclenché par « Appliquer » est extrait dans New-DomeniaHealthEditorPolicy, un modèle pur testé. Une réactivation propre à l’OU reste bien une exception. RC1.17.15 : les dates UTC matérialisées par ConvertFrom-Json sont formatées en ISO invariant avant validation, sans accepter les dates locales ou sans fuseau. Les trois suites santé passent 45 cas sous PowerShell 7.4.6 macOS, hors VM et non qualifiants Windows."
     },
@@ -1319,11 +1328,11 @@
         "dev/wad/modules/Domenia-Boards.Model.ps1:Set-DomeniaHealthSnapshotMetadata",
         "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-006",
         "dev/wad/tests/Test-DomeniaHealthAdvanced.ps1:RC14 Point 78",
-        "validation/2026-10-18/health-suspension-utc/README.md (HealthAdvanced complet : 16/16, dont le cas RC14 point 78)"
+        "validation/2026-10-18/health-suspension-utc/README.md (HealthAdvanced complet : 16/16, dont le cas RC14 point 78)",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1.",
-        "Correction du 2026-10-17 (point 78) appliquée et contrôlée hors VM : l’empreinte des règles ne hache plus que les suspensions actives à l’heure de calcul (FormatVersion 3) ; purge d’une suspension expirée = empreinte inchangée, édition d’une suspension active = empreinte modifiée nommée « Règles », relevé v2 face à un relevé v3 = « Limitée » côté règles, jamais « Règles modifiés ». Banc Test-DomeniaHealthAdvanced.ps1 (cas « RC14 Point 78 », 1 cas, 6 assertions, 0 échec, rapport validation/2026-10-17/rc14-corrections/point78-test.json, pwsh7 Linux non qualifiant) ; qualification Windows due."
+        "RC16 : comparaison de couverture, changement de règles et purge des suspensions expirées vérifiés sous Windows (HealthAdvanced, dont RC14 Point 78). Reste une comparaison applicative de relevés réels entre deux dates."
       ],
       "implementation_summary": "La comparaison de deux relevés nomme la cause : réel, périmètre, couverture, règles, mixte ou limitée. La ligne de comparaison « WMI renseigné » devient « Inventaire WMI renseigné ». La définition du chiffre WmiRead ne change pas, pour rester comparable avec les relevés déjà stockés."
     },
@@ -1337,10 +1346,11 @@
         "dev/wad/modules/Domenia-Boards.Model.ps1:ConvertTo-DomeniaPivotMatrix",
         "dev/wad/modules/Domenia-HealthRules.UI.ps1:Show-DomeniaFleetAnalysis",
         "dev/wad/tests/rules/BoardFleet.Tests.ps1:BF-024",
-        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-007, HR-008"
+        "dev/wad/tests/rules/HealthRules.Tests.ps1:HR-007, HR-008",
+        "validation/2026-10-18/rc16-windows-critical/README.md"
       ],
       "remaining": [
-        "Non exécuté sous Windows PowerShell 5.1."
+        "RC16 : matrices, totaux et GUID exacts vérifiés sous Windows (HealthAdvanced). Reste la vérification visuelle des tableaux sur relevés réels."
       ],
       "implementation_summary": "Matrices avec totaux cohérents et cellules qui ouvrent leurs postes. Les colonnes de la matrice OU / site × couverture disent maintenant ce qu’elles comptent : « Ping et inventaire WMI », « Ping sans inventaire WMI », « Inventaire WMI sans ping », « Ni ping ni inventaire WMI ». L’intitulé du tableau suit. Une réponse WMI de la console seule n’y passe plus pour une absence de WMI."
     },
@@ -2736,5 +2746,12 @@
   "external_decision_ids": [
     134,
     146
-  ]
+  ],
+  "windows_critical_qualification": {
+    "build": "RC1.17.16",
+    "date": "2026-10-18",
+    "status": "passed_scoped_checks_only",
+    "report": "validation/2026-10-18/rc16-windows-critical/Qualification.json",
+    "full_acceptance": false
+  }
 }
