@@ -2514,9 +2514,17 @@
         "validation/2026-10-18/rc16-remaining/README.md"
       ],
       "remaining": [
-        "Revue juridique des trois composants bloquants (KI-001)."
+        "Pour une redistribution ultérieure seulement : établir les droits des trois composants (KI-001). Aucun retrait ni prérequis RSAT/PsExec externe demandé pour le pack personnel."
       ],
       "implementation_summary": "Inventaire des licences et contrôle licence_inventory.py, utilisé comme garde par build_packages. Ce point n'est pas modifié par la correction.",
+      "personal_pack_decision": {
+        "date": "2026-10-18",
+        "author": "David",
+        "scope": "Usage personnel ; conserver M4D.Admin.Common.Query.dll, les deux DLL Active Directory/RSAT et PsExec.exe embarqués pour garder le pack autonome.",
+        "redistribution_rights_granted": false,
+        "publication_status_unchanged": true
+      },
+      "external_decision_scope": "Redistribution ultérieure ; ne bloque pas la conservation du pack personnel existant.",
       "external_decision_pending": true
     },
     {
