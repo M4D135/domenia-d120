@@ -1,5 +1,7 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+Clôture du 18/10/2026 : pack personnel RC1.17.21 conservé avec toutes les dépendances embarquées. VM `CNAMTS-W11-01` supprimée à la demande de David après sauvegarde et push des preuves ; serveur `CNAMTS-DC01` conservé et démarré. Les indications historiques de démarrage du client ci-dessous sont obsolètes. Voir [le reçu de clôture](validation/2026-10-18/rc21-closeout/README.md).
+
 > **RC1.17.15 — 18 octobre** : [correctif de la suite santé](validation/2026-10-18/health-suspension-utc/README.md).
 > Relecture des dates UTC corrigée, 45 cas santé réussis sous PowerShell 7.4.6 natif macOS.
 > Contrôles de source et packs DEV/PROD actualisés ; aucun test VM. Qualification Windows toujours ouverte.

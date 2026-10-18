@@ -1,10 +1,12 @@
 # État courant — RC1.17.21, 18 octobre 2026
 
+Clôture du labo : `CNAMTS-W11-01`, ses disques et instantanés sont supprimés sur demande de David ; `CNAMTS-DC01` reste démarré pour les autres projets. VM Pesto/FilPro/DEX conservées. Preuves et packs récupérés, vérifiés et poussés avant nettoyage ; aucune qualification générale ajoutée. [Reçu de nettoyage](../../../../validation/2026-10-18/rc21-closeout/README.md).
+
 Décision David du 18/10/2026 : conserver le pack personnel autonome avec M4D.Admin.Common.Query.dll, les deux DLL Active Directory/RSAT et PsExec.exe embarqués. Aucun retrait, téléchargement ni installation RSAT/PsExec supplémentaire demandé. Le point 146 ne demande plus d'arbitrage de packaging pour cet usage ; les droits de redistribution restent non établis et Publishable reste faux. Cette décision ne change ni les ZIP RC1.17.21 ni les preuves de qualification.
 
 RC1.17.21 : échecs KI-007 corrigés. Règles : 1 073/1 075 puis 149 cas ciblés réussis, aucun échec restant ; géométrie 79/79 ; capture 1280×720 : trois lignes entières, 18/18 contrôles ; installation complète RC20 24/26 puis quatre cas RC21 réussis couvrant les deux diagnostics fautifs. Démarrage CheckOnly et 172 fichiers applicatifs contrôlés. Qualification générale distincte ; décisions 134/146 et certificat 141 inchangés.
 
-**VM libérables pour le périmètre demandé ; qualification générale distincte.** [Preuves RC21](../../../../validation/2026-10-18/rc21-remediation/README.md).
+**VM cliente supprimée ; serveur AD conservé. Qualification générale distincte.** [Preuves RC21](../../../../validation/2026-10-18/rc21-remediation/README.md).
 
 ## Historique RC20 et précédents
 

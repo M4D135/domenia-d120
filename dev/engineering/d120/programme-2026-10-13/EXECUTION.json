@@ -2880,5 +2880,16 @@
     },
     "vm_no_longer_needed_for_requested_scope": true,
     "general_acceptance": false
+  },
+  "lab_cleanup": {
+    "date": "2026-10-18",
+    "build": "RC1.17.21",
+    "proof": "validation/2026-10-18/rc21-closeout/README.md",
+    "deleted_client": "CNAMTS-W11-01",
+    "retained_ad": "CNAMTS-DC01",
+    "ad_running": true,
+    "other_project_vms_preserved": true,
+    "additional_application_tests": false,
+    "general_acceptance": false
   }
 }

@@ -1,0 +1,29 @@
+{
+  "DateUtc": "2026-10-18T11:25:55.7353795Z",
+  "DeletedClient": "CNAMTS-W11-01",
+  "DeletedClientUuid": "c7f3cf04-5c23-45b5-ae3e-ed94193c99a0",
+  "GracefulShutdown": false,
+  "ShutdownMethod": "VBoxManage poweroff after ACPI shutdown timed out",
+  "CleanupNote": "Initial unregister/delete removed VM and reinstall disk; unused snapshot child then base deleted in dependency order.",
+  "DeletedDirectories": [
+    "C:\\ADCC-Lab\\VirtualBox\\CNAMTS-W11-01",
+    "C:\\ADCC-Lab\\VirtualBox\\CNAMTS-Lab\\CNAMTS-W11-01"
+  ],
+  "DeletedDirectoriesAbsent": true,
+  "ClientDiskUuidsAbsent": true,
+  "RetainedAd": "CNAMTS-DC01",
+  "RetainedAdUuid": "7625c944-b4fc-4f8b-ac23-c796cc1be791",
+  "AdRunning": true,
+  "AdDiskAttachmentUnchanged": true,
+  "AdDiskChainFilesPresent": true,
+  "OtherVmRegistrationsUnchanged": true,
+  "RemainingVms": [
+    "\"CNAMTS-DC01\" {7625c944-b4fc-4f8b-ac23-c796cc1be791}",
+    "\"PESTO-W11-TEST\" {9b2ad4f0-0506-4f58-aed2-c43ac1973516}",
+    "\"FILPRO-W11-TEST\" {75972e3c-813f-4df7-8aa9-f76c065c2279}",
+    "\"FILPRO-W11B-TEST\" {816752c4-a95f-4d1a-9979-8a8a94f584ee}",
+    "\"DEX-SRV\" {2534383e-2038-4185-aea3-b69acca0438f}",
+    "\"DEX-SIM\" {fe0b31a5-e87d-440d-b315-8c59d7e6e70d}",
+    "\"PESTO-REMOTE-CLIENT-20261015\" {3c3dec9d-902e-4443-940b-22bb8ee457a2}"
+  ]
+}
