@@ -90,6 +90,9 @@ function New-DomeniaCollectionPlan {
     $familySeconds={param([string]$Family,[int]$Default)
         $value=$Default;$table=Get-DomeniaMember $Freshness 'Seconds' $Freshness
         if(($table -is [Collections.IDictionary]) -and $table.Contains($Family)){$value=[int]$table[$Family]}
+        if($minutes -le 0){return 0}
+        # Stable hardware keeps the profile duration. The 15 minute cache only shortens presence and volatile probes.
+        if($Family -eq 'StaticProbe'){return [int][Math]::Max(0,[Math]::Min(604800,[double]$value))}
         return [int][Math]::Max(0,[Math]::Min([double]$value,[double]($minutes*60)))
     }
     $reuseDays=[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))

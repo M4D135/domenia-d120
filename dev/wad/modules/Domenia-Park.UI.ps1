@@ -176,7 +176,14 @@ function Update-DomeniaParkRunStatus {
         $short=Get-DomeniaParkProgressText -Done ([int]$r.Done) -Total (@($r.Targets).Count) -Online ([int]$r.Online) -NoReply ([int]$r.NoReply) -Errors ([int]$r.Errors) -Failed ([int]$r.Failed) -Unchecked ([int]$r.Unchecked) -PingRequested (-not [bool]$r.WmiOnly) -Completed ([bool]$r.Completed) -Stopped ([bool]$r.Stopping)
         $text=$status+' : '+$short+'.'
         if(-not $r.PingOnly){$text+=' '+$r.Reused+' identités en cache, '+$r.Changed+' association(s) créée(s) ou changée(s), '+$r.CachedMeasurements+' mesures encore fraîches réutilisées.'}
-        if(-not $r.Completed){$text+=' '+$(if($r.PingOnly){'Échos envoyés par lots de 32.'}else{[string]$r.Pending.Count+'/'+[string]$r.Concurrency+' lectures en parallèle.'})}
+        if(-not $r.Completed){
+            $retryWait=0
+            if($null -ne $r.PSObject.Properties['Retry'] -and $null -ne $r.Retry){$retryWait=@($r.Retry).Count}
+            $phase=$(if($r.PingOnly){'Échos envoyés par lots.'}else{[string]$r.Pending.Count+' en WMI / '+[string]$r.Concurrency})
+            if([string]$r.PingJob){$phase+=', ping en cours'}
+            if($retryWait -gt 0){$phase+=', '+[string]$retryWait+' en nouvel essai (hors des créneaux)'}
+            $text+=' '+$phase+'.'
+        }
         # Widget collections: the workstations whose stored measurement already answered were never contacted.
         if($fresh -gt 0){$text+=' '+[string]$fresh+' '+(Get-DomeniaParkPlural $fresh 'poste déjà à jour' 'postes déjà à jour')+', sans lecture.'}
         # Points 13 to 20: validated results, adapted or paused sources, retries, capabilities and the durable plan.
@@ -576,7 +583,8 @@ function Start-DomeniaOnlinePark {
             if(-not [bool]$widgetAdmission.Allowed){throw ([string]$widgetAdmission.Reason)}
         }
         $concurrency=([Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4'))))
-        $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Slot=$slotName;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Requested=$targets.Count;Next=0;Pending=@{};Concurrency=$concurrency;CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Unchecked=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Logged=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';ShortText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;AccountGeneration=[long]$script:DomeniaAccountGeneration;StorePending=@{};Inventory=[bool]$Inventory;Probes=@(Add-DomeniaRemoteProbeDefinitionHash $Probes);FleetRefresh=$true;ScopeLabel=$label;ScopeKind=$scopeKind;Scope='Results';Skipped=$skipped;Subtree=$subtree;ListLimit=$listLimit;RefreshOperationId=$RefreshOperationId;FailureMessage='';PingJob='';PingQueue=$null;PingBuffer=$null;PingReported=@{};TargetsByKey=@{};PendingRows=@{};TargetDn=$(if($targets.Count -eq 1){[string]$targets[0].distinguished_name}else{''});TargetGuid=$(if($targets.Count -eq 1){[string]$targets[0].object_guid}else{''});InlineRequestId='';GridStale=$false;NoConsole=(([bool]$NoConsole) -and (-not [bool]$PingOnly));ReuseMaxAgeDays=$reuseDays;Preapproved=(([bool]$Preapproved) -and ([bool]$widgetBoard));WidgetBoard=$widgetBoard;WidgetIds=@($WidgetIds|Where-Object{$_});AlreadyFresh=0;Planning=$false;PlanNext=0;ToRead=([Collections.Generic.List[object]]::new())}
+        $waveLimit=$(if((-not [bool]$PingOnly) -and (-not $widgetBoard) -and (@($targets).Count -gt 200)){200}else{0})
+        $r=[pscustomobject]@{Id=[guid]::NewGuid().ToString('N');Slot=$slotName;Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;Targets=@();Requested=$targets.Count;Next=0;Pending=@{};Concurrency=$concurrency;WaveLimit=$waveLimit;WaveContacts=0;CacheMinutes=([Math]::Max(0,[Math]::Min(1440,[int](Get-DomeniaSetting 'Collection.CacheMinutes' '15'))));CachedMeasurements=0;Done=0;Online=0;NoReply=0;Errors=0;Unchecked=0;Reused=0;Changed=0;Failed=0;Stopping=$false;Completed=$false;Loading=$true;Approved=$false;Logged=$false;ObservationReader=(New-DomeniaObservationReader);Timer=$null;StatusText='';ShortText='';Generation=[long]$script:GlobalSearchGeneration;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;AccountGeneration=[long]$script:DomeniaAccountGeneration;StorePending=@{};Inventory=[bool]$Inventory;Probes=@(Add-DomeniaRemoteProbeDefinitionHash $Probes);FleetRefresh=$true;ScopeLabel=$label;ScopeKind=$scopeKind;Scope='Results';Skipped=$skipped;Subtree=$subtree;ListLimit=$listLimit;RefreshOperationId=$RefreshOperationId;FailureMessage='';PingJob='';PingQueue=$null;PingBuffer=$null;PingReported=@{};TargetsByKey=@{};PendingRows=@{};TargetDn=$(if($targets.Count -eq 1){[string]$targets[0].distinguished_name}else{''});TargetGuid=$(if($targets.Count -eq 1){[string]$targets[0].object_guid}else{''});InlineRequestId='';GridStale=$false;NoConsole=(([bool]$NoConsole) -and (-not [bool]$PingOnly));ReuseMaxAgeDays=$reuseDays;Preapproved=(([bool]$Preapproved) -and ([bool]$widgetBoard));WidgetBoard=$widgetBoard;WidgetIds=@($WidgetIds|Where-Object{$_});AlreadyFresh=0;Planning=$false;PlanNext=0;ToRead=([Collections.Generic.List[object]]::new())}
         # The preapproval belongs to the gesture of a widget only; ToRead keeps the workstations left to read once a
         # widget collection checked the stored measurements (Invoke-DomeniaParkPlanStep).
         # Points 14 to 20: per-source budgets bounded by the chosen value (the 32 echoes of one batch for the batch
@@ -626,6 +634,8 @@ function Start-DomeniaParkAnalysis {
     try{
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
+        # A mass survey stays on a few classes. Process lists, hotfixes and product scans stay on the single-computer inventory.
+        $probes=@($probes|Where-Object{$null -ne $_ -and [string]$_.Class -notmatch '^(?i:Win32_Process|Win32_QuickFixEngineering|Win32_Product)$' -and [string]$_.Id -notmatch '(?i)process|hotfix|evt\.'})
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
     if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes -PingBeforeWmi;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes -PingBeforeWmi
@@ -1036,6 +1046,12 @@ function Invoke-DomeniaParkRunTick {
         if($script:Persistence.Pending.Count -ge 64 -or $script:Persistence.LinkBusy){Add-DomeniaParkHeldTime $r $nowUtc;return}
     }
     # One admission per tick keeps the Dispatcher responsive. The engine may impose a smaller provider budget.
+    if(([int](Get-DomeniaMember $r 'WaveLimit' 0)) -gt 0 -and ([int](Get-DomeniaMember $r 'WaveContacts' 0)) -ge ([int]$r.WaveLimit)){
+        $r.Stopping=$true
+        Set-DomeniaParkStopReason $r 'vague de 200 postes atteinte. Relancez pour la suite : les postes déjà lus restent en cache.'
+        Update-DomeniaParkRunStatus -Run $r
+        return
+    }
     if($r.Pending.Count -ge $r.Concurrency){Add-DomeniaParkHeldTime $r $nowUtc -Clear;return}
     if(-not (Test-DomeniaParkEngineAvailable)){Add-DomeniaParkHeldTime $r $nowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $nowUtc;return}
     $pick=$null
@@ -1079,6 +1095,7 @@ function Invoke-DomeniaParkRunTick {
         $id=Start-UiTask -Name ($(if(([bool]$r.WmiOnly) -or $noConsole){'WMI du perimetre : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);RequirePing=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false));ValidateConsoleIdentity=$false;ProbeUser=$sendConsole;Inventory=$sendInventory;Probes=$sendProbes;AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class});ReadProgress=$readProgress}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $idle -HardTimeoutSeconds $total -TaskClass 'Explicit'
         if(-not $id){throw 'Lecture non admise.'}
         $state.Job=[string]$id;$r.Pending[[string]$id]=$state
+        $r.WaveContacts=[int](Get-DomeniaMember $r 'WaveContacts' 0)+1
     }catch{$r.Stopping=$true;Set-DomeniaParkStopReason $r ([string]$_.Exception.Message);$r.FailureMessage='Relevé interrompu : '+$_.Exception.Message+' Les résultats précédents sont conservés.';[void](Set-DomeniaControlText 'LblParkStatus' $r.FailureMessage)}
 }
 function Invoke-DomeniaParkPlanStep {

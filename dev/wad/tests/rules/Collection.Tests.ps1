@@ -330,7 +330,9 @@ Test-Case 'P11' 'Plan de collecte : durée retenue la plus courte du profil et d
     $slow = New-DomeniaCollectionPlan -Previous $previous -Guid 'g1' -Key 'cn=pc-1' -Probes $probes -Inventory $true -CacheMinutes 60 -NowUtc $script:CT0 -Freshness (Resolve-DomeniaFreshnessTable 'SlowNetwork' $null)
     Assert-Equal 3 $slow.Reused; Assert-False $slow.Inventory; Assert-Equal 0 @($slow.Probes).Count
     $capped = New-DomeniaCollectionPlan -Previous $previous -Guid 'g1' -Key 'cn=pc-1' -Probes $probes -Inventory $true -CacheMinutes 5 -NowUtc $script:CT0 -Freshness (Resolve-DomeniaFreshnessTable 'SlowNetwork' $null)
-    Assert-Equal 1 $capped.Reused 'Le plafond de 5 min ne garde que la sonde de 4 min'
+    Assert-Equal 2 $capped.Reused 'Le BIOS stable reste, le plafond de 5 min ne raccourcit que la sonde variable et l inventaire'
+    Assert-True $capped.Inventory
+    Assert-Equal 0 @($capped.Probes).Count
     $forced = New-DomeniaCollectionPlan -Previous $previous -Guid 'g1' -Key 'cn=pc-1' -Probes $probes -Inventory $true -CacheMinutes 0 -NowUtc $script:CT0 -Freshness (Resolve-DomeniaFreshnessTable 'SlowNetwork' $null)
     Assert-Equal 0 $forced.Reused
     $legacy = New-DomeniaCollectionPlan -Previous $previous -Guid 'g1' -Key 'cn=pc-1' -Probes $probes -Inventory $true -CacheMinutes 15 -NowUtc $script:CT0

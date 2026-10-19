@@ -805,15 +805,15 @@
     },
     {
       "Path": "wad/modules/Domenia-Park.Model.ps1",
-      "Sha256": "3B0AB242443515F013502AF014AEF9C1B012E8FC97656476760582BAB28996CD",
-      "Bytes": 32921,
+      "Sha256": "7EC04B24DF24CF39A64B8CEF0677298EE11C8283ED9CB219D4D521F5B4ABE755",
+      "Bytes": 33177,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/modules/Domenia-Park.UI.ps1",
-      "Sha256": "AAC0C62C5B9F0CB8F37630EEFC41AAC4B349F6F0A9035EC58195414A8C28299C",
-      "Bytes": 151192,
+      "Sha256": "82AE2359505081FFF178B076975ED1FE0250C76282EC50CCE8BD67946B053C8A",
+      "Bytes": 152445,
       "Runtime": true,
       "PreserveExisting": false
     },
