@@ -767,6 +767,13 @@ function Show-DomeniaOuTreePicker {
     }.GetNewClosure())
     & $summarize $r
     $initialDn=([string]$InitialDn).Trim()
+    # No page choice yet: open on the saved root OU. The reveal runs only because the operator opened the picker.
+    if (-not $initialDn) {
+        try {
+            $rootDefault = Get-DomeniaRootOuChoice
+            if ($null -ne $rootDefault -and [string]$rootDefault.Dn) { $initialDn = [string]$rootDefault.Dn }
+        } catch { Write-DomeniaSwallowed 'Embedded' 'Show-DomeniaOuTreePicker' $_ }
+    }
     Register-DomeniaSurfaceReady $w ({[void]$box.Focus();if(([string]$box.Text).Trim()){& $read -Owner $r -Mode Search}else{& $navigate $r;if($initialDn){& $reveal -Owner $r -Dn $initialDn}}}.GetNewClosure())
     try{
         [void](Show-DomeniaEmbeddedWindow $w)

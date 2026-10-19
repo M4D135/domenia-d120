@@ -54,13 +54,24 @@ function Get-DomeniaEntryFileTimeUtc {
     try { return [datetime]::FromFileTimeUtc($ticks) } catch { return $null }
 }
 function Get-DomeniaFleetScope {
-    # The dashboard owns its scope. Empty means the whole current domain; a chosen OU never changes Search filters.
+    # The dashboard owns its scope. A chosen OU never changes Search filters.
+    # Empty uses the saved root OU when one exists, otherwise the whole domain.
     # The chosen OU is restored once per session from the last startup (no directory read).
     if (-not $script:FleetScopeRestored) { Restore-DomeniaFleetScopeChoice }
     $base = ([string]$script:Conn.BaseDn).Trim()
     if (-not $base) { return $null }
     $dn = ([string]$script:FleetScopeDn).Trim()
     if ($dn -and $dn -ine $base -and -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
+    # Empty means "no own choice": the saved root OU, once one exists. An explicit whole domain stays empty only
+    # when FleetScopeExplicitDomain is set (Tools > Revenir au domaine, or a section kept on the domain).
+    if ((-not $dn) -and (-not [bool]$script:FleetScopeExplicitDomain)) {
+        $rootChoice = $null
+        try { $rootChoice = Get-DomeniaRootOuChoice } catch { $rootChoice = $null }
+        if ($null -ne $rootChoice -and [string]$rootChoice.Dn) {
+            $dn = [string]$rootChoice.Dn
+            $script:FleetScopeSubtree = [bool]$rootChoice.Subtree
+        }
+    }
     $whole = (-not $dn -or $dn -ieq $base)
     if ($whole) { $dn = '' }
     # Point 54: the depth chosen in the shared OU picker. The whole domain is always read with its sub-OU, and an
@@ -93,7 +104,7 @@ function Save-DomeniaFleetScopeChoice {
     $dn = ([string]$script:FleetScopeDn).Trim()
     $subtree = $true
     if ($script:FleetScopeSubtree -is [bool]) { $subtree = [bool]$script:FleetScopeSubtree }
-    Set-DomeniaSetting $key ((@{ Dn = $dn; Subtree = $subtree } | ConvertTo-Json -Compress))
+    Set-DomeniaSetting $key ((@{ Dn = $dn; Subtree = $subtree; ExplicitDomain = [bool]$script:FleetScopeExplicitDomain } | ConvertTo-Json -Compress))
 }
 function Restore-DomeniaFleetScopeChoice {
     # Once per connection. A missing or foreign OU leaves the session scope untouched.
@@ -107,11 +118,258 @@ function Restore-DomeniaFleetScopeChoice {
         $saved = $raw | ConvertFrom-Json
         $savedDn = ([string]$saved.Dn).Trim()
         $base = ([string]$script:Conn.BaseDn).Trim()
-        if (-not $savedDn -or -not $base) { return }
+        if (-not $base) { return }
+        if (-not $savedDn) {
+            if ($null -ne $saved.PSObject.Properties['ExplicitDomain'] -and [bool]$saved.ExplicitDomain) {
+                $script:FleetScopeDn = ''
+                $script:FleetScopeExplicitDomain = $true
+            }
+            return
+        }
         if (($savedDn -ine $base) -and (-not $savedDn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase))) { return }
         $script:FleetScopeDn = $(if ($savedDn -ieq $base) { '' } else { $savedDn })
+        $script:FleetScopeExplicitDomain = $false
         if ($null -ne $saved.PSObject.Properties['Subtree']) { $script:FleetScopeSubtree = [bool]$saved.Subtree }
     } catch { Write-DomeniaSwallowed 'Dashboard' 'Restore-DomeniaFleetScopeChoice' $_ }
+}
+function Get-DomeniaRootOuSettingKey {
+    # One working OU per domain. Same closed shape as Fleet.Scope: Directory.RootOu.<64 hex of the base DN>.
+    $base = ([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
+    if (-not $base) { return '' }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($base))
+        $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    } finally { $sha.Dispose() }
+    return ('Directory.RootOu.' + $hex)
+}
+function Get-DomeniaRootOuChoice {
+    # Local preference only. Recording or reading it never contacts the directory and never pings.
+    if (-not (Get-Command Get-DomeniaSetting -ErrorAction SilentlyContinue)) { return $null }
+    $key = Get-DomeniaRootOuSettingKey
+    if (-not $key) { return $null }
+    $raw = [string](Get-DomeniaSetting $key '')
+    if (-not $raw) { return $null }
+    try {
+        $saved = $raw | ConvertFrom-Json
+        $dn = ([string]$saved.Dn).Trim()
+        $base = ([string]$script:Conn.BaseDn).Trim()
+        if (-not $dn -or -not $base -or ($dn -ieq $base)) { return $null }
+        if ($dn -notmatch '^(?i)OU=') { return $null }
+        if (-not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { return $null }
+        $subtree = $true
+        if ($null -ne $saved.PSObject.Properties['Subtree']) { $subtree = [bool]$saved.Subtree }
+        $name = ((($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') -replace '\\(.)','$1')
+        return [pscustomobject]@{ Dn = $dn; Subtree = $subtree; Name = $name }
+    } catch { Write-DomeniaSwallowed 'Dashboard' 'Get-DomeniaRootOuChoice' $_; return $null }
+}
+function Update-DomeniaRootOuTools {
+    $choice = $null
+    try { $choice = Get-DomeniaRootOuChoice } catch { $choice = $null }
+    $text = 'Aucune OU racine : le domaine entier reste le défaut.'
+    if ($null -ne $choice) {
+        $text = [string]$choice.Name + ' — ' + [string]$choice.Dn
+        if ([bool]$choice.Subtree) { $text += ' (sous-OU incluses)' } else { $text += ' (sans les sous-OU)' }
+    }
+    [void](Set-DomeniaControlText 'LblRootOuChoice' $text)
+}
+function Test-DomeniaSectionFollowsRoot {
+    param([string]$Chosen,[string]$PreviousDn)
+    $value = ([string]$Chosen).Trim()
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    $previous = ([string]$PreviousDn).Trim()
+    if (-not $value) { return $true }
+    if ($base -and ($value -ieq $base)) { return $true }
+    if ($previous -and ($value -ieq $previous)) { return $true }
+    return $false
+}
+function Update-DomeniaSearchBookmarkDn {
+    # Rewrites the saved search bookmark only. It does not expand the tree and does not search.
+    param([string]$Dn,[bool]$Subtree=$true)
+    if ($null -eq $script:Continuity) { return }
+    $key = ''
+    try { $key = Get-DomeniaTreeContextKey } catch { return }
+    if (-not $key -or -not $script:Continuity.Bookmarks.ContainsKey($key)) { return }
+    $mark = $script:Continuity.Bookmarks[$key]
+    $mark.Selected = [string]$Dn
+    if ($null -ne $mark.PSObject.Properties['Subtree']) { $mark.Subtree = [bool]$Subtree }
+    Set-DomeniaSetting 'OuBookmarksJson' ($script:Continuity.Bookmarks | ConvertTo-Json -Depth 5 -Compress)
+}
+function Set-DomeniaSectionWorkingOu {
+    # Applies a DN already chosen. No directory read and no ping.
+    param([ValidateSet('Fleet','Search','Index')][string]$Kind,[string]$Dn,[bool]$Subtree=$true)
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    $target = ([string]$Dn).Trim()
+    $domain = ((-not $target) -or ($base -and ($target -ieq $base)))
+    switch ($Kind) {
+        'Fleet' {
+            if ($domain) { $script:FleetScopeDn = ''; $script:FleetScopeSubtree = $true; $script:FleetScopeExplicitDomain = $true }
+            else { $script:FleetScopeDn = $target; $script:FleetScopeSubtree = [bool]$Subtree; $script:FleetScopeExplicitDomain = $false }
+            try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Set-DomeniaSectionWorkingOu' $_ }
+            $script:FleetStale = $true
+        }
+        'Search' {
+            $script:SelectedBranchDn = $(if ($domain -or -not $target) { $base } else { $target })
+            $check = Get-DomeniaControl 'ChkSubtree'
+            if (($null -ne $check) -and (-not $domain)) { $check.IsChecked = [bool]$Subtree }
+            try { Update-DomeniaSearchBookmarkDn -Dn ([string]$script:SelectedBranchDn) -Subtree ((-not $domain) -and [bool]$Subtree) } catch { Write-DomeniaSwallowed 'Dashboard' 'Set-DomeniaSectionWorkingOu' $_ }
+            $saved = [bool]$script:SuppressBranchAutoLoad
+            $script:SuppressBranchAutoLoad = $true
+            try { if (Get-Command Update-DomeniaSearchScopeUi -ErrorAction SilentlyContinue) { Update-DomeniaSearchScopeUi } }
+            finally { $script:SuppressBranchAutoLoad = $saved }
+        }
+        'Index' {
+            $script:IndexScopeDn = $(if ($domain) { '' } else { $target })
+            try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Dashboard' 'Set-DomeniaSectionWorkingOu' $_ }
+        }
+    }
+}
+function Invoke-DomeniaRootOuNarrowedReplace {
+    $pending = $script:DomeniaRootOuPending
+    $script:DomeniaRootOuPending = $null
+    if ($null -eq $pending) { return }
+    foreach ($kind in @($pending.Kinds)) { Set-DomeniaSectionWorkingOu -Kind ([string]$kind) -Dn ([string]$pending.Dn) -Subtree ([bool]$pending.Subtree) }
+    try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Dashboard' 'Invoke-DomeniaRootOuNarrowedReplace' $_ }
+    try { Update-DomeniaQueryScopeLabel } catch { Write-DomeniaSwallowed 'Dashboard' 'Invoke-DomeniaRootOuNarrowedReplace' $_ }
+    Set-Status 'OU racine appliquée aussi aux sections qui avaient une OU plus étroite.'
+}
+function Publish-DomeniaRootOuChoice {
+    param($Previous,$Next)
+    $previousDn = ''
+    if ($null -ne $Previous) { $previousDn = [string]$Previous.Dn }
+    $nextDn = ''
+    $nextSubtree = $true
+    if ($null -ne $Next) { $nextDn = [string]$Next.Dn; $nextSubtree = [bool]$Next.Subtree }
+    $followers = New-Object System.Collections.ArrayList
+    $narrowed = New-Object System.Collections.ArrayList
+    $pairs = New-Object System.Collections.ArrayList
+    [void]$pairs.Add([pscustomobject]@{ Kind = 'Fleet'; Dn = [string]$script:FleetScopeDn })
+    [void]$pairs.Add([pscustomobject]@{ Kind = 'Search'; Dn = [string]$script:SelectedBranchDn })
+    [void]$pairs.Add([pscustomobject]@{ Kind = 'Index'; Dn = [string]$script:IndexScopeDn })
+    foreach ($pair in $pairs) {
+        if (Test-DomeniaSectionFollowsRoot -Chosen ([string]$pair.Dn) -PreviousDn $previousDn) { [void]$followers.Add([string]$pair.Kind) }
+        elseif (([string]$pair.Dn).Trim()) { [void]$narrowed.Add([string]$pair.Kind) }
+    }
+    if ([bool]$script:FleetScopeExplicitDomain -and ($followers -notcontains 'Fleet')) { [void]$followers.Add('Fleet') }
+    foreach ($kind in @($followers)) { Set-DomeniaSectionWorkingOu -Kind ([string]$kind) -Dn $nextDn -Subtree $nextSubtree }
+    try { Update-DomeniaRootOuTools } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
+    try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
+    try { Update-DomeniaQueryScopeLabel } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
+    if (-not $narrowed.Count) { return }
+    $names = @{ Fleet = 'tableau de bord'; Search = 'Rechercher'; Index = 'base autonome' }
+    $listed = @(foreach ($kind in @($narrowed)) { [string]$names[[string]$kind] })
+    $inlineReady = $false
+    try { $inlineReady = ($null -ne (Get-DomeniaControl 'InlineRequestPanel')) } catch { $inlineReady = $false }
+    if (-not $inlineReady) {
+        # No page to ask in: keep the narrower OU. Never fall through to a dialog.
+        Set-Status ('OU racine enregistrée. OU plus étroite conservée : ' + ($listed -join ', ') + '.')
+        return
+    }
+    $script:DomeniaRootOuPending = [pscustomobject]@{ Dn = $nextDn; Subtree = $nextSubtree; Kinds = @($narrowed) }
+    $run = ${function:Invoke-DomeniaRootOuNarrowedReplace}
+    [void](Request-DomeniaInlineConfirmation -Title 'OU plus étroite déjà choisie' -Message ('LʼOU racine est enregistrée. Ces sections ont déjà une OU plus étroite : ' + ($listed -join ', ') + '. Les remplacer par la nouvelle OU racine ?') -Target 'directory:root-ou' -ConfirmText 'Remplacer' -CancelText 'Conserver' -OnConfirm ({ & $run }.GetNewClosure()) -OnCancel { $script:DomeniaRootOuPending = $null; Set-Status 'OU racine enregistrée. Les OU plus étroites sont conservées.' })
+}
+function Save-DomeniaRootOuChoice {
+    # Writes the preference only. The caller has already chosen the OU; this function does not read the directory.
+    param([Parameter(Mandatory=$true)][string]$Dn,[bool]$Subtree=$true)
+    $key = Get-DomeniaRootOuSettingKey
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    $dn = ([string]$Dn).Trim()
+    if (-not $key -or -not $base) { Set-Status 'Connectez-vous avant dʼenregistrer lʼOU racine.' 'WARN'; return }
+    if ($dn -notmatch '^(?i)OU=' -or -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) {
+        Set-Status 'Cette OU nʼappartient pas au domaine courant.' 'WARN'
+        return
+    }
+    $previous = Get-DomeniaRootOuChoice
+    Set-DomeniaSetting $key ((@{ Dn = $dn; Subtree = [bool]$Subtree } | ConvertTo-Json -Compress))
+    $next = Get-DomeniaRootOuChoice
+    Publish-DomeniaRootOuChoice -Previous $previous -Next $next
+    $label = $dn
+    if ($null -ne $next) { $label = [string]$next.Name }
+    Set-Status ('OU racine enregistrée : ' + $label + '. Aucune lecture dʼannuaire et aucun ping.')
+}
+function Clear-DomeniaRootOuChoice {
+    $key = Get-DomeniaRootOuSettingKey
+    if (-not $key) { return }
+    $previous = Get-DomeniaRootOuChoice
+    Set-DomeniaSetting $key ''
+    Publish-DomeniaRootOuChoice -Previous $previous -Next $null
+    Set-Status 'OU racine retirée : le domaine entier redevient le défaut. Aucune lecture dʼannuaire et aucun ping.'
+}
+function Show-DomeniaRootOuSource {
+    $current = Get-DomeniaRootOuChoice
+    $initial = ''
+    $subtree = $true
+    if ($null -ne $current) { $initial = [string]$current.Dn; $subtree = [bool]$current.Subtree }
+    $picked = Show-DomeniaInlinePicker -Kind OU -Title 'OU racine' -Prompt 'Choisissez lʼOU de travail du domaine. Elle devient le défaut du tableau de bord, de Rechercher, de lʼexplorateur dʼOU et des périmètres qui nʼont pas encore leur propre choix.' -DepthMode Choice -Subtree $subtree -Purpose 'Effet : enregistre lʼOU racine. Aucune lecture dʼannuaire ni aucun ping nʼest lancé par cet enregistrement. Une OU plus étroite déjà choisie est conservée, sauf confirmation.' -InitialDn $initial
+    if ($null -eq $picked -or -not [string]$picked.DN) { return }
+    Save-DomeniaRootOuChoice -Dn ([string]$picked.DN) -Subtree ([bool](Get-DomeniaMember $picked 'Subtree' $true))
+}
+function Set-DomeniaSearchDefaultFromRootOu {
+    # No bookmark: the search scope becomes the root OU. Does not expand the tree and does not search.
+    if ($null -eq $script:Continuity) { return }
+    $key = ''
+    try { $key = Get-DomeniaTreeContextKey } catch { return }
+    if ($key -and $script:Continuity.Bookmarks.ContainsKey($key)) { return }
+    $root = Get-DomeniaRootOuChoice
+    if ($null -eq $root -or -not [string]$root.Dn) { return }
+    $current = ([string]$script:SelectedBranchDn).Trim()
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    if ($current -and $base -and ($current -ine $base)) { return }
+    $script:SelectedBranchDn = [string]$root.Dn
+    $check = Get-DomeniaControl 'ChkSubtree'
+    if ($null -ne $check) { $check.IsChecked = [bool]$root.Subtree }
+    $saved = [bool]$script:SuppressBranchAutoLoad
+    $script:SuppressBranchAutoLoad = $true
+    try { if (Get-Command Update-DomeniaSearchScopeUi -ErrorAction SilentlyContinue) { Update-DomeniaSearchScopeUi } }
+    finally { $script:SuppressBranchAutoLoad = $saved }
+}
+function Get-DomeniaSectionOuDn {
+    # Own OU when the section has one. Otherwise the root OU. An explicit domain DN stays the domain.
+    param([ValidateSet('Fleet','Search','Index')][string]$Source)
+    $base = ([string]$script:Conn.BaseDn).Trim()
+    $chosen = ''
+    $explicitDomain = $false
+    switch ($Source) {
+        'Fleet' { $chosen = ([string]$script:FleetScopeDn).Trim(); $explicitDomain = [bool]$script:FleetScopeExplicitDomain }
+        'Search' { $chosen = ([string]$script:SelectedBranchDn).Trim() }
+        'Index' { $chosen = ([string]$script:IndexScopeDn).Trim() }
+    }
+    if ($chosen -and $base -and ($chosen -ine $base) -and $chosen.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase) -and ($chosen -match '^(?i)OU=')) { return $chosen }
+    if ($chosen -and $base -and ($chosen -ieq $base)) { $explicitDomain = $true }
+    if ($explicitDomain) { return '' }
+    $root = $null
+    try { $root = Get-DomeniaRootOuChoice } catch { $root = $null }
+    if ($null -ne $root -and [string]$root.Dn) { return [string]$root.Dn }
+    return ''
+}
+function Reset-DomeniaFleetScopeToRoot {
+    $root = Get-DomeniaRootOuChoice
+    if ($null -ne $root -and [string]$root.Dn) {
+        $script:FleetScopeDn = [string]$root.Dn
+        $script:FleetScopeSubtree = [bool]$root.Subtree
+        $script:FleetScopeExplicitDomain = $false
+        try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Reset-DomeniaFleetScopeToRoot' $_ }
+        $script:FleetStale = $true
+        Request-DomeniaFleetRefresh
+        Set-Status ('Tableau de bord : OU racine ' + [string]$root.Name + ', depuis la base locale.')
+        return
+    }
+    $script:FleetScopeDn = ''
+    $script:FleetScopeSubtree = $true
+    $script:FleetScopeExplicitDomain = $false
+    try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Reset-DomeniaFleetScopeToRoot' $_ }
+    $script:FleetStale = $true
+    Request-DomeniaFleetRefresh
+    Set-Status 'Tableau de bord : tout le domaine depuis la base locale.'
+}
+function Show-DomeniaFleetOverviewIdle {
+    # No calculation and no local read. A result already drawn in this session stays put.
+    try { Update-DomeniaRootOuTools } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetOverviewIdle' $_ }
+    if ([string]$script:FleetComputedKey) { return }
+    if ($null -ne $script:FleetLast -and -not [bool]$script:FleetStale) { return }
+    [void](Set-DomeniaControlText 'LblFleetDashboard' 'Lancez « Recalculer la vue » : le tableau de bord se remplit depuis la base locale.')
+    try { Update-DomeniaFirstSteps } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetOverviewIdle' $_ }
 }
 function Update-DomeniaFleetMachineList {
     if($null -ne $script:DomeniaQueryState -and $script:DomeniaQueryState.Bound){Request-DomeniaQueryEvaluation;return}
@@ -731,8 +989,10 @@ function Update-DomeniaFirstSteps {
         return
     }
     $card.Visibility = [System.Windows.Visibility]::Visible
+    # Drawing the card never starts the overview. A calculation already asked for by the step button is only shown.
     $preparation=$null
-    if($plan.Next -eq 'Dashboard'){$preparation=Start-DomeniaFirstDashboard}
+    $currentPrep=$script:DomeniaFirstDashboard
+    if(($plan.Next -eq 'Dashboard') -and ($null -ne $currentPrep) -and ($currentPrep.Epoch -eq [long]$script:SessionEpoch) -and ($currentPrep.Path -ceq [string]$script:DatabaseScopedPath)){$preparation=$currentPrep}
     foreach ($step in @($plan.Steps)) {
         $name = [string]$step.Name
         if($name -eq 'Dashboard' -and $null -ne $preparation){$step.Text=$preparation.Message;$step.Enabled=($preparation.Phase -ne 'Loading')}
@@ -757,7 +1017,7 @@ function Open-DomeniaFirstStep {
     param([ValidateSet('Connection','Ou','Base','Dashboard')][string]$Step)
     switch ($Step) {
         'Connection' { Invoke-DomeniaUxRoute -Route 'TabAccounts'; Set-Status 'Comptes et accès : compte utilisé pour lʼannuaire ; changer de compte reste possible à tout moment.' }
-        'Ou' { Show-DomeniaFleetScopeSource }
+        'Ou' { Show-DomeniaRootOuSource }
         'Base' { Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex'; $tabs=Get-DomeniaControl 'IndexWorkspaceTabs'; if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexUpdate'}; Set-Status 'Choisissez une OU, puis mettez-la à jour. La lecture couvre cette OU et ses sous-OU.' }
         'Dashboard' {
             $plan=Get-DomeniaFirstStepsState
@@ -770,7 +1030,7 @@ function Open-DomeniaFirstStep {
             if ($null -ne $summary) { try { $summary.BringIntoView() } catch { Write-DomeniaSwallowed 'Premiers pas' 'Open-DomeniaFirstStep' $_ } }
             Set-DomeniaSetting -Name 'Home.DashboardSeen' -Value ([datetime]::UtcNow.ToString('o'))
             Update-DomeniaFirstSteps
-            Set-Status 'Tableau de bord : vue dʼensemble de lʼOU, calculée depuis la base locale à lʼaffichage de lʼaccueil. Une tuile ouvre la liste exacte de ses postes.'
+            Set-Status 'Tableau de bord : la vue dʼensemble se calcule au clic sur Recalculer la vue, depuis la base locale. Une tuile ouvre la liste exacte de ses postes.'
         }
     }
 }

@@ -4697,6 +4697,8 @@ function Load-TreeRoot {
                 $root.IsExpanded = $true
             }
             [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Arbre initialise. Chargement des sous-branches en arriere-plan.")
+        # No bookmark yet: the saved root OU is the search default. No extra directory read.
+        try { Set-DomeniaSearchDefaultFromRootOu } catch { Write-DomeniaSwallowed 'Core' 'Load-TreeRoot' $_ }
             [void](Set-DomeniaControlText -Name "LblBranchCount" -Text "Aucune branche chargee")
         # FO-04: the favourites pinned above the tree belong to the domain of this session.
         if ($null -ne (Get-Command Update-DomeniaOuFavouritesUi -CommandType Function -ErrorAction SilentlyContinue)) {
@@ -4797,8 +4799,7 @@ function Update-DomeniaSearchScopeUi {
     }
     Set-DomeniaSearchMode -Mode $mode
     try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
-    # The home overview follows this OU: recomputed now if Accueil is on screen, otherwise when it is shown.
-    try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Update-DomeniaSearchScopeUi' $_ }
+    # Point 54: Accueil has its own scope. A search OU change does not calculate the overview.
     $summary = Get-DomeniaControl -Name 'LblSearchScope'
     if ($null -eq $summary) { return }
     if ($mode -eq 'Global') {
@@ -10972,7 +10973,7 @@ function Start-DomeniaComputerInventory {
             -Payload ([pscustomobject]@{ Computer=$computer; Deep=[bool]$Deep; BudgetMs=$budget; MaxSoftwareKeys=$softwareKeys; PreferWinrm=[bool](Get-CfgValue "Inventory" "PreferWinrm" $false) }) `
             -CallbackState $collectionState `
             -ReplaceKey "inventory" `
-            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep") `
+            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep") `
             -TimeoutSeconds $timeout `
             -StatusText ("Inventaire " + $mode + " de " + $computer + " en arriere-plan...") `
             -SuccessHandler "Complete-DomeniaClassicCollected" `
@@ -12609,6 +12610,26 @@ function Get-DomeniaWmiNamespacesWorkerCode {
 $DomeniaCollectedResult = & {
 $computer=[string]$Payload.Computer;$root=[string]$Payload.Root;if([string]::IsNullOrWhiteSpace($root)){$root='root'}
 $maxCount=[Math]::Max(20,[Math]::Min(500,[int]$Payload.MaxCount));$watch=[Diagnostics.Stopwatch]::StartNew();$cred=Get-WMachineCredential $Context;$classicError='';$session=$null
+# Ping before any CIM session. Same 900 ms ICMP probe as the inventory worker.
+$pingReply=$false;$pingDetail='';$pingWatch=[Diagnostics.Stopwatch]::StartNew();$ping=$null
+try {
+    $ping=New-Object Net.NetworkInformation.Ping
+    $addresses=@();try{$addresses=@([Net.Dns]::GetHostAddresses($computer))}catch{$addresses=@()}
+    $address=@($addresses|Where-Object{$_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork}|Select-Object -First 1)
+    if(-not $address.Count){$address=@($addresses|Select-Object -First 1)}
+    if(-not $address.Count){$address=@($computer)}
+    $sent=$ping.Send($address[0],900)
+    if($null -ne $sent -and [string]$sent.Status -eq 'Success'){$pingReply=$true;$pingDetail='Reponse ICMP · '+[string]$sent.RoundtripTime+' ms · '+[string]$address[0]}
+    else{$pingDetail='ICMP : '+$(if($null -ne $sent){[string]$sent.Status}else{'aucune reponse'})}
+} catch {
+    $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+    $pingDetail='Controle ICMP non abouti. '+[string]$inner.Message
+} finally { if($null -ne $ping){try{$ping.Dispose()}catch{}} }
+$pingWatch.Stop()
+if(-not $pingReply){
+    $watch.Stop()
+    return [pscustomobject]@{Computer=$computer;Namespaces=@();Errors=@();Truncated=$false;Access=@([pscustomobject]@{Category='Ping';Status='INJOIGNABLE';Items=0;DurationMs=[int]$pingWatch.ElapsedMilliseconds;Detail=$pingDetail});DurationMs=[long]$watch.ElapsedMilliseconds;Success=$false;FailureReason='Poste sans reponse au ping : lecture WMI non lancee. Les dernieres donnees valides sont conservees.';Transport='Aucun'}
+}
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$session=New-WDomeniaCimSession $Context $computer $cred 12;$rows=New-Object Collections.ArrayList;[void]$rows.Add([pscustomobject]@{Namespace=$root;Depth=0});foreach($c in @(Get-CimInstance -CimSession $session -Namespace $root -ClassName '__NAMESPACE' -ErrorAction Stop|Select-Object -First ($maxCount-1))){if($c.Name){[void]$rows.Add([pscustomobject]@{Namespace=($root+'\'+[string]$c.Name);Depth=1})}};$watch.Stop();[pscustomobject]@{Computer=$computer;Namespaces=@($rows|Sort-Object Namespace);Errors=@();Truncated=($rows.Count-ge$maxCount);DurationMs=[long]$watch.ElapsedMilliseconds;Transport='CIM';Success=$true};return}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$classicError=$_.Exception.Message}finally{Exit-WCredentialAttempt -Lease $lease;Remove-WDomeniaCimSession $session}
 $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JHJvb3Q9W3N0cmluZ10kUGF5bG9hZC5Sb290CmlmKFtzdHJpbmddOjpJc051bGxPcldoaXRlU3BhY2UoJHJvb3QpKXskcm9vdD0ncm9vdCd9CiRtYXg9W01hdGhdOjpNYXgoMjAsW01hdGhdOjpNaW4oNTAwLFtpbnRdJFBheWxvYWQuTWF4Q291bnQpKQokcm93cz1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApbdm9pZF0kcm93cy5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7TmFtZXNwYWNlPSRyb290O0RlcHRoPTB9KQpmb3JlYWNoKCRjIGluIEAoR2V0LUNpbUluc3RhbmNlIC1OYW1lc3BhY2UgJHJvb3QgLUNsYXNzTmFtZSAnX19OQU1FU1BBQ0UnIC1FcnJvckFjdGlvbiBTdG9wfFNlbGVjdC1PYmplY3QgLUZpcnN0ICgkbWF4LTEpKSl7CiBpZigkYy5OYW1lKXtbdm9pZF0kcm93cy5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7TmFtZXNwYWNlPSgkcm9vdCsnXCcrW3N0cmluZ10kYy5OYW1lKTtEZXB0aD0xfSl9Cn0KW3BzY3VzdG9tb2JqZWN0XUB7Q29tcHV0ZXI9JGVudjpDT01QVVRFUk5BTUU7TmFtZXNwYWNlcz1AKCRyb3dzfFNvcnQtT2JqZWN0IE5hbWVzcGFjZSk7RXJyb3JzPUAoKTtUcnVuY2F0ZWQ9KCRyb3dzLkNvdW50LWdlJG1heCk7RHVyYXRpb25Ncz0wO1RyYW5zcG9ydD0nVGFza0ZhbGxiYWNrJztTdWNjZXNzPSR0cnVlfQ=='))
 Assert-WCredentialAllowed -Context $Context -Channel Remote
@@ -12624,6 +12645,26 @@ function Get-DomeniaWmiClassesWorkerCode {
 $DomeniaCollectedResult = & {
 $computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$watch=[Diagnostics.Stopwatch]::StartNew();$cred=Get-WMachineCredential $Context;$classicError='';$session=$null
 function Convert-Classes($items){$rows=New-Object Collections.ArrayList;foreach($c in @($items)){$abstract=$false;$dynamic=$false;try{foreach($q in @($c.CimClassQualifiers)){if([string]$q.Name-ieq'Abstract'){$abstract=$true};if([string]$q.Name-ieq'Dynamic'){$dynamic=$true}}}catch{};$kind='Statique';if($abstract){$kind='Abstraite'}elseif($dynamic){$kind='Dynamique'};[void]$rows.Add([pscustomobject]@{Class=[string]$c.CimClassName;Properties=@($c.CimClassProperties).Count;Methods=@($c.CimClassMethods).Count;Kind=$kind;System=([string]$c.CimClassName).StartsWith('__')})};return @($rows|Sort-Object Class)}
+# Ping before any CIM session. Same 900 ms ICMP probe as the inventory worker.
+$pingReply=$false;$pingDetail='';$pingWatch=[Diagnostics.Stopwatch]::StartNew();$ping=$null
+try {
+    $ping=New-Object Net.NetworkInformation.Ping
+    $addresses=@();try{$addresses=@([Net.Dns]::GetHostAddresses($computer))}catch{$addresses=@()}
+    $address=@($addresses|Where-Object{$_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork}|Select-Object -First 1)
+    if(-not $address.Count){$address=@($addresses|Select-Object -First 1)}
+    if(-not $address.Count){$address=@($computer)}
+    $sent=$ping.Send($address[0],900)
+    if($null -ne $sent -and [string]$sent.Status -eq 'Success'){$pingReply=$true;$pingDetail='Reponse ICMP · '+[string]$sent.RoundtripTime+' ms · '+[string]$address[0]}
+    else{$pingDetail='ICMP : '+$(if($null -ne $sent){[string]$sent.Status}else{'aucune reponse'})}
+} catch {
+    $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+    $pingDetail='Controle ICMP non abouti. '+[string]$inner.Message
+} finally { if($null -ne $ping){try{$ping.Dispose()}catch{}} }
+$pingWatch.Stop()
+if(-not $pingReply){
+    $watch.Stop()
+    return [pscustomobject]@{Computer=$computer;Namespace=$namespace;Classes=@();Access=@([pscustomobject]@{Category='Ping';Status='INJOIGNABLE';Items=0;DurationMs=[int]$pingWatch.ElapsedMilliseconds;Detail=$pingDetail});DurationMs=[long]$watch.ElapsedMilliseconds;Success=$false;FailureReason='Poste sans reponse au ping : lecture WMI non lancee. Les dernieres donnees valides sont conservees.';Transport='Aucun'}
+}
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$session=New-WDomeniaCimSession $Context $computer $cred 12;$rows=Convert-Classes @(Get-CimClass -CimSession $session -Namespace $namespace -ErrorAction Stop);$watch.Stop();[pscustomobject]@{Computer=$computer;Namespace=$namespace;Classes=$rows;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='CIM';Success=$true};return}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$classicError=$_.Exception.Message}finally{Exit-WCredentialAttempt -Lease $lease;Remove-WDomeniaCimSession $session}
 $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JHJvd3M9TmV3LU9iamVjdCBDb2xsZWN0aW9ucy5BcnJheUxpc3QKZm9yZWFjaCgkYyBpbiBAKEdldC1DaW1DbGFzcyAtTmFtZXNwYWNlIChbc3RyaW5nXSRQYXlsb2FkLk5hbWVzcGFjZSkgLUVycm9yQWN0aW9uIFN0b3ApKXsKICRhYnN0cmFjdD0kZmFsc2U7JGR5bmFtaWM9JGZhbHNlCiB0cnl7Zm9yZWFjaCgkcSBpbiBAKCRjLkNpbUNsYXNzUXVhbGlmaWVycykpe2lmKFtzdHJpbmddJHEuTmFtZS1pZXEnQWJzdHJhY3QnKXskYWJzdHJhY3Q9JHRydWV9O2lmKFtzdHJpbmddJHEuTmFtZS1pZXEnRHluYW1pYycpeyRkeW5hbWljPSR0cnVlfX19Y2F0Y2h7fQogJGtpbmQ9J1N0YXRpcXVlJztpZigkYWJzdHJhY3QpeyRraW5kPSdBYnN0cmFpdGUnfWVsc2VpZigkZHluYW1pYyl7JGtpbmQ9J0R5bmFtaXF1ZSd9CiBbdm9pZF0kcm93cy5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7Q2xhc3M9W3N0cmluZ10kYy5DaW1DbGFzc05hbWU7UHJvcGVydGllcz1AKCRjLkNpbUNsYXNzUHJvcGVydGllcykuQ291bnQ7TWV0aG9kcz1AKCRjLkNpbUNsYXNzTWV0aG9kcykuQ291bnQ7S2luZD0ka2luZDtTeXN0ZW09KFtzdHJpbmddJGMuQ2ltQ2xhc3NOYW1lKS5TdGFydHNXaXRoKCdfXycpfSkKfQpbcHNjdXN0b21vYmplY3RdQHtDb21wdXRlcj0kZW52OkNPTVBVVEVSTkFNRTtOYW1lc3BhY2U9W3N0cmluZ10kUGF5bG9hZC5OYW1lc3BhY2U7Q2xhc3Nlcz1AKCRyb3dzfFNvcnQtT2JqZWN0IENsYXNzKTtEdXJhdGlvbk1zPTA7VHJhbnNwb3J0PSdUYXNrRmFsbGJhY2snO1N1Y2Nlc3M9JHRydWV9'))
 Assert-WCredentialAllowed -Context $Context -Channel Remote
@@ -12646,6 +12687,26 @@ if ([int]$Payload.Limit -lt 1 -or [int]$Payload.Limit -gt 500 -or ([string]$Payl
 $computer=[string]$Payload.Computer;$namespace=[string]$Payload.Namespace;$className=[string]$Payload.ClassName;$where=([string]$Payload.Where).Trim();$limit=[Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit));if($className-notmatch'^[A-Za-z_][A-Za-z0-9_]{0,127}$'){throw 'Nom de classe invalide.'};if($where-match'(?i)\b(insert|update|delete|drop|exec|call)\b'){throw 'Condition interdite.'};$query='SELECT * FROM '+$className;if($where){$query+=' WHERE '+$where}
 $watch=[Diagnostics.Stopwatch]::StartNew();$cred=Get-WMachineCredential $Context;$classicError='';$session=$null
 function Flatten($class,$instances){$schema=New-Object Collections.ArrayList;$values=New-Object Collections.ArrayList;try{foreach($p in @($class.CimClassProperties)){[void]$schema.Add([pscustomobject]@{Property=[string]$p.Name;Type=[string]$p.CimType;IsKey='';Qualifiers=''})}}catch{};$ix=0;foreach($instance in @($instances)){$ix++;foreach($p in $instance.PSObject.Properties){$n=[string]$p.Name;if($n.StartsWith('Cim')-or$n.StartsWith('PS')){continue};$v='';try{if($null-ne$p.Value){if($p.Value-is[Array]){$v=@($p.Value)-join', '}else{$v=[string]$p.Value}}}catch{$v='(illisible)'};if($v.Length-gt600){$v=$v.Substring(0,600)+'...'};[void]$values.Add([pscustomobject]@{Instance=$ix;Property=$n;Value=$v})}};[pscustomobject]@{Schema=@($schema|Sort-Object Property);Instances=@($values);InstanceCount=$ix}}
+# Ping before any CIM session. Same 900 ms ICMP probe as the inventory worker.
+$pingReply=$false;$pingDetail='';$pingWatch=[Diagnostics.Stopwatch]::StartNew();$ping=$null
+try {
+    $ping=New-Object Net.NetworkInformation.Ping
+    $addresses=@();try{$addresses=@([Net.Dns]::GetHostAddresses($computer))}catch{$addresses=@()}
+    $address=@($addresses|Where-Object{$_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork}|Select-Object -First 1)
+    if(-not $address.Count){$address=@($addresses|Select-Object -First 1)}
+    if(-not $address.Count){$address=@($computer)}
+    $sent=$ping.Send($address[0],900)
+    if($null -ne $sent -and [string]$sent.Status -eq 'Success'){$pingReply=$true;$pingDetail='Reponse ICMP · '+[string]$sent.RoundtripTime+' ms · '+[string]$address[0]}
+    else{$pingDetail='ICMP : '+$(if($null -ne $sent){[string]$sent.Status}else{'aucune reponse'})}
+} catch {
+    $inner=$_.Exception;while($null -ne $inner.InnerException){$inner=$inner.InnerException}
+    $pingDetail='Controle ICMP non abouti. '+[string]$inner.Message
+} finally { if($null -ne $ping){try{$ping.Dispose()}catch{}} }
+$pingWatch.Stop()
+if(-not $pingReply){
+    $watch.Stop()
+    return [pscustomobject]@{Computer=$computer;Namespace=$namespace;ClassName=$className;Query=$query;Schema=@();Instances=@();InstanceCount=0;Access=@([pscustomobject]@{Category='Ping';Status='INJOIGNABLE';Items=0;DurationMs=[int]$pingWatch.ElapsedMilliseconds;Detail=$pingDetail});DurationMs=[long]$watch.ElapsedMilliseconds;Success=$false;FailureReason='Poste sans reponse au ping : lecture WMI non lancee. Les dernieres donnees valides sont conservees.';Transport='Aucun'}
+}
 $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$session=New-WDomeniaCimSession $Context $computer $cred 12;$class=Get-CimClass -CimSession $session -Namespace $namespace -ClassName $className -ErrorAction Stop;$instances=@(Get-CimInstance -CimSession $session -Namespace $namespace -Query $query -ErrorAction Stop|Select-Object -First $limit);$f=Flatten $class $instances;$watch.Stop();[pscustomobject]@{Computer=$computer;Namespace=$namespace;ClassName=$className;Query=$query;Schema=$f.Schema;Instances=$f.Instances;InstanceCount=$f.InstanceCount;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='CIM';Success=$true};return}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$classicError=$_.Exception.Message}finally{Exit-WCredentialAttempt -Lease $lease;Remove-WDomeniaCimSession $session}
 $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JG5hbWVzcGFjZT1bc3RyaW5nXSRQYXlsb2FkLk5hbWVzcGFjZQokY2xhc3NOYW1lPVtzdHJpbmddJFBheWxvYWQuQ2xhc3NOYW1lCiRxdWVyeT1bc3RyaW5nXSRQYXlsb2FkLlF1ZXJ5CiRsaW1pdD1baW50XSRQYXlsb2FkLkxpbWl0CiRjbGFzcz1HZXQtQ2ltQ2xhc3MgLU5hbWVzcGFjZSAkbmFtZXNwYWNlIC1DbGFzc05hbWUgJGNsYXNzTmFtZSAtRXJyb3JBY3Rpb24gU3RvcAokc2NoZW1hPU5ldy1PYmplY3QgQ29sbGVjdGlvbnMuQXJyYXlMaXN0CmZvcmVhY2goJHAgaW4gQCgkY2xhc3MuQ2ltQ2xhc3NQcm9wZXJ0aWVzKSl7W3ZvaWRdJHNjaGVtYS5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7UHJvcGVydHk9W3N0cmluZ10kcC5OYW1lO1R5cGU9W3N0cmluZ10kcC5DaW1UeXBlO0lzS2V5PScnO1F1YWxpZmllcnM9Jyd9KX0KJHZhbHVlcz1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdAokaXg9MApmb3JlYWNoKCRpbnN0YW5jZSBpbiBAKEdldC1DaW1JbnN0YW5jZSAtTmFtZXNwYWNlICRuYW1lc3BhY2UgLVF1ZXJ5ICRxdWVyeSAtRXJyb3JBY3Rpb24gU3RvcHxTZWxlY3QtT2JqZWN0IC1GaXJzdCAkbGltaXQpKXsKICRpeCsrCiBmb3JlYWNoKCRwIGluICRpbnN0YW5jZS5QU09iamVjdC5Qcm9wZXJ0aWVzKXsKICAkbj1bc3RyaW5nXSRwLk5hbWUKICBpZigkbi5TdGFydHNXaXRoKCdDaW0nKS1vciRuLlN0YXJ0c1dpdGgoJ1BTJykpe2NvbnRpbnVlfQogICR2PScnCiAgaWYoJG51bGwtbmUkcC5WYWx1ZSl7aWYoJHAuVmFsdWUtaXNbQXJyYXldKXskdj1AKCRwLlZhbHVlKS1qb2luJywgJ31lbHNleyR2PVtzdHJpbmddJHAuVmFsdWV9fQogIGlmKCR2Lkxlbmd0aC1ndDYwMCl7JHY9JHYuU3Vic3RyaW5nKDAsNjAwKSsnLi4uJ30KICBbdm9pZF0kdmFsdWVzLkFkZChbcHNjdXN0b21vYmplY3RdQHtJbnN0YW5jZT0kaXg7UHJvcGVydHk9JG47VmFsdWU9JHZ9KQogfQp9Cltwc2N1c3RvbW9iamVjdF1Ae0NvbXB1dGVyPSRlbnY6Q09NUFVURVJOQU1FO05hbWVzcGFjZT0kbmFtZXNwYWNlO0NsYXNzTmFtZT0kY2xhc3NOYW1lO1F1ZXJ5PSRxdWVyeTtTY2hlbWE9QCgkc2NoZW1hfFNvcnQtT2JqZWN0IFByb3BlcnR5KTtJbnN0YW5jZXM9QCgkdmFsdWVzKTtJbnN0YW5jZUNvdW50PSRpeDtEdXJhdGlvbk1zPTA7VHJhbnNwb3J0PSdUYXNrRmFsbGJhY2snO1N1Y2Nlc3M9JHRydWV9'))
 Assert-WCredentialAllowed -Context $Context -Channel Remote
@@ -14116,8 +14177,13 @@ function Get-DomeniaIndexScope {
     $domainDn = ([string]$script:Conn.BaseDn).Trim()
     if ($dn -and $dn -ieq $domainDn) { return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' } }
     if ($dn -and -not $dn.EndsWith(',' + $domainDn,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
-    if ($dn) { return [pscustomobject]@{ BaseDn = $dn; Scope = 'Subtree'; IsDomain = $false } }
-    return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' }
+    if (-not $dn) {
+        $fallback = ''
+        try { if (Get-Command Get-DomeniaSectionOuDn -ErrorAction SilentlyContinue) { $fallback = [string](Get-DomeniaSectionOuDn -Source Index) } } catch { $fallback = '' }
+        if ($fallback) { return [pscustomobject]@{ BaseDn = $fallback; Scope = 'Subtree'; IsDomain = $false } }
+        return [pscustomobject]@{ BaseDn = $domainDn; Scope = 'Subtree'; IsDomain = $true; Mode = 'OU' }
+    }
+    return [pscustomobject]@{ BaseDn = $dn; Scope = 'Subtree'; IsDomain = $false }
 }
 
 function Start-DomeniaSelectedIndexScopeBuild {
@@ -18468,7 +18534,7 @@ function Start-DomeniaAccountRelogin {
         Update-DomeniaAccountUi
         Apply-CurrentPermissionUi
         Request-DomeniaDashboardRefresh
-        try { Request-DomeniaFleetRefresh -Force } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAccountRelogin' $_ }
+        try { Show-DomeniaFleetOverviewIdle } catch { Write-DomeniaSwallowed 'Core' 'Start-DomeniaAccountRelogin' $_ }
         Set-Status ('Nouvelle session : ' + [string]$script:Conn.BindUser + '. Vues rechargées, lecture seule active.')
     }
     catch { [void](Show-DomeniaOperationError -Operation 'Changement de compte' -ErrorRecordOrException $_) }
@@ -18980,7 +19046,9 @@ function Wire-Events {
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue dʼensemble non calculée : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetScopeSubtree = $true; try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Core' 'BtnFleetScopeReset' $_ }; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ try { Reset-DomeniaFleetScopeToRoot } catch { Set-Status ('Périmètre du tableau de bord non rétabli : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnRootOuChoose")) { $script:Ctrl["BtnRootOuChoose"].Add_Click({ try { Show-DomeniaRootOuSource } catch { Set-Status ('OU racine non choisie : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnRootOuReset")) { $script:Ctrl["BtnRootOuReset"].Add_Click({ try { Clear-DomeniaRootOuChoice } catch { Set-Status ('OU racine non retirée : ' + $_.Exception.Message) 'WARN' } }) }
     Initialize-DomeniaUiZoom
     Initialize-DomeniaQueryWorkshop
     if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ Show-DomeniaQueryWorkshop -Evaluate }) }
@@ -19009,7 +19077,8 @@ function Wire-Events {
     $workspaceTabs = Get-DomeniaControl 'WorkspaceTabs'
     # Deferred: a tab selected for an instant (a search started from another page passes through Accueil) starts nothing.
     # FI-19: Outils shown again with Base locale already selected inside it reads missing figures (-IfShown checks the page).
-    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ }; try { Request-DomeniaIndexMetadataIfNeeded -IfShown } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } } }) }
+    # A tab change does not calculate Accueil. Outils > Base locale still reads its own figures when that page is shown.
+    if ($null -ne $workspaceTabs) { $workspaceTabs.Add_SelectionChanged({ param($sender,$eventArgs) if ($sender -eq $eventArgs.OriginalSource) { try { [void]$sender.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Background,[Action]{ try { Request-DomeniaIndexMetadataIfNeeded -IfShown } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } } }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventory")) { $script:Ctrl["BtnDashboardInventory"].Add_Click({ Start-DomeniaComputerInventory }) }
     if ($script:Ctrl.ContainsKey("BtnDashboardInventoryDeep")) { $script:Ctrl["BtnDashboardInventoryDeep"].Add_Click({ Start-DomeniaComputerInventory -Deep }) }
     if ($script:Ctrl.ContainsKey("BtnCopyInventory")) { $script:Ctrl["BtnCopyInventory"].Add_Click({ Copy-DomeniaInventory }) }
@@ -20337,9 +20406,9 @@ function Get-DomeniaWorkerOperationHashes {
         ReadLaps              = "51B8A2DA023D46E85199FEF76EFBEC0C14E820322B7DF67B672E2556341C851A"
         DomainOverview        = "B35538ADB3F50CF460A76845C883A76AC73206340C32CBE09E8C58431F1CF295"
         BatchNetworkDiag      = "C3043A5234A626DD8E83E9DE0791D55005C81C5716C7BA5FD559204C1BC87815"
-        WmiNamespaces         = "C31716BC38A3C978E078E8D8EB403163E7315C98FC641F1FB8F6506709A7E878"
-        WmiClasses            = "C9899F025E00FDD2D1A018719CC26EDA282250CCE0B6930A5778DB36DBFB7555"
-        WmiQuery              = "23C668EA65F3EF82127C2BA278753865A626E35F4122D0D5862AF95A6E06407D"
+        WmiNamespaces         = "169FB60D885DB0A77B20EEC24D716E01D2F82F71B3EC66270341DAF44956EE67"
+        WmiClasses            = "E41A67A936A96835EEC978D69A549FEFA3F000CB1AD80F384C20149FD93690A0"
+        WmiQuery              = "761A17D3C6FF22DF827D280A07A1375A34BC7AA50C0A0EA37A1CCC26A7332399"
         SoftwareInventory     = "BA54894D64A123711CFCCDEE996643C8D98D92A4C96EDBF4D2F9D1B29B0B1F53"
         LogonHarvest          = "ACBA6332B7E314A170979C76B88BFEC11803F3A9CF0F773CE22EFF3DBA3E5A5A"
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
@@ -20420,7 +20489,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "51946FB3961EB16B215D3D610573F97D655DD6505E5D6A770774E8E22C665BA5"
+    $expectedFingerprint = "94CCB4E74F2A019B52F84DA76FCF65ABC79AD77BBA145B103095A1A560C262C6"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -24613,8 +24682,8 @@ function Initialize-Window {
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
                 try { Update-DomeniaMachineAccountUi -Force } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
-                # After every ContentRendered handler: the remembered OU of Rechercher is then known to be restoring.
-                try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+                # Accueil waits for an explicit click. No overview read at startup.
+                try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ try { Show-DomeniaFleetOverviewIdle } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ } }) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
                 Write-AppLog "Pret. Base=$($script:Conn.BaseDn) Server=$($script:Conn.Server) AD=$($script:Conn.BindUser) WIN=$script:ProcessIdentity Demo=$([bool]$script:DemoMode)" "INFO"
                 Update-Dashboard
             }catch{Write-AppLog "ContentRendered : $($_.Exception.ToString())" "ERROR"}

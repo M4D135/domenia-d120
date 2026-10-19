@@ -1311,7 +1311,7 @@ function Complete-DomeniaIndexMetadataUi {
     # none) is computed now; nothing happens when Accueil is hidden or its OU is already computed. Never before the
     # main window is shown (FI-22): the startup overview waits for the remembered OU of Rechercher. Asked before the
     # startup checks, whose measures read would refuse it again.
-    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaIndexMetadataUi' $_ } }
+    # Startup figures do not calculate Accueil. The operator uses « Recalculer la vue ».
     if ([bool]$script:IndexMetadataStartupChecks) {
         $script:IndexMetadataStartupChecks = $false
         try { Request-DomeniaIndexAutoRefresh } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaIndexMetadataUi' $_ }
@@ -1374,7 +1374,7 @@ function Complete-DomeniaUserMachineLinksUi {
     try { Request-DomeniaDashboardRefresh } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaUserMachineLinksUi' $_ }
     # Same as the figures: an overview refused while this read held the local store is computed now. At startup this
     # answer may come before the main window is shown: the overview then waits for its own request (ContentRendered).
-    if ([bool]$script:DomeniaSessionShown) { try { Request-DomeniaFleetRefresh } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaUserMachineLinksUi' $_ } }
+    # Associations loaded at startup do not calculate Accueil.
     if (($session.Count -gt 0) -or $deferred) { Request-DomeniaLinkPersistence }
 }
 

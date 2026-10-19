@@ -2,7 +2,9 @@
 function Get-DomeniaOuRefreshContext {
     param([ValidateSet('Fleet','Search','Index')][string]$Source)
     $domain=([string]$script:Conn.BaseDn).Trim();$dn=''
-    switch($Source){'Fleet'{$dn=([string]$script:FleetScopeDn).Trim()};'Search'{$dn=([string]$script:SelectedBranchDn).Trim()};'Index'{$dn=([string]$script:IndexScopeDn).Trim()}}
+    # A section with no OU of its own uses the saved root OU. An explicit domain stays empty here.
+    if(Get-Command Get-DomeniaSectionOuDn -ErrorAction SilentlyContinue){$dn=[string](Get-DomeniaSectionOuDn -Source $Source)}
+    else{switch($Source){'Fleet'{$dn=([string]$script:FleetScopeDn).Trim()};'Search'{$dn=([string]$script:SelectedBranchDn).Trim()};'Index'{$dn=([string]$script:IndexScopeDn).Trim()}}}
     if(-not $domain -or -not [string]$script:DatabaseScopedPath -or $dn -notmatch '^OU=' -or $dn -ieq $domain){return $null}
     $parent=$dn;$inside=$false
     while($parent){if($parent -ieq $domain){$inside=$true;break};$parent=Get-DomeniaRawDnParent $parent}

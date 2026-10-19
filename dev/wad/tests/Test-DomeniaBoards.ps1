@@ -779,7 +779,7 @@ try{
             Expect ($call.Force -and $call.WmiOnly -and $call.Inventory -and $call.NoConsole -and @($call.Probes|Where-Object{$null -ne $_}).Count -eq 0 -and $call.WidgetIds[0] -eq 'w-date') 'Lot non cible ou cache reutilise'
         } finally {$script:DomeniaOuRefresh=$old;foreach($run in (Get-DomeniaParkRuns).Values){$run.Completed=$true}}
     }
-    Case 'Premiers pas : premier calcul automatique avant ouverture, echec et OU vide recuperables sans scan' {
+    Case 'Premiers pas : le calcul de la vue part au clic, echec et OU vide recuperables sans scan' {
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:RemoteAdminCredential=$null
         $script:DatabaseScopedPath='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false
         if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
@@ -814,16 +814,19 @@ try{
             Complete-DomeniaEmbeddedLookup -Result ([pscustomobject]@{Rows=@($row);RequestId=$verify.State.RequestId;Verified=$true;Capped=$false}) -State $verify.State
         }
         Expect $trial.Trial.Done 'Selecteur non termine'
-        Expect ($script:FleetScopeDn -eq 'OU=Postes,DC=example,DC=invalid' -and $script:SelectedBranchDn -eq $searchBefore) 'La selection OU modifie Rechercher'
+        $rootChoice=Get-DomeniaRootOuChoice
+        Expect (($null -ne $rootChoice) -and ($rootChoice.Dn -eq 'OU=Postes,DC=example,DC=invalid') -and ((Get-DomeniaFleetScope).Dn -eq 'OU=Postes,DC=example,DC=invalid') -and ($script:SelectedBranchDn -eq $searchBefore)) 'OU racine non enregistree, ou Rechercher ecrase'
         foreach($step in @('Base','Connection')){Open-DomeniaFirstStep -Step $step}
         Expect ($script:StartCalls.Count -eq $before+2 -and $script:ParkCalls.Count -eq $parks) ('Une etape a lance une tache autre que la selection OU explicite : '+(@($script:StartCalls|Select-Object -Skip $before|ForEach-Object{$_.OperationId}) -join ','))
         Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts') ('Ecrans ouverts : '+($script:Workspaces -join ','))
         $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:IndexDbCount=12;$script:DomeniaFirstDashboard=$null
         Update-DomeniaFirstSteps
-        Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant le premier calcul'
-        Expect ($script:StartCalls.Count -eq $before+3 -and $script:StartCalls[$script:StartCalls.Count-1].OperationId -eq 'LocalIndexRead') 'Premier calcul local non lance'
+        Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Le clic du tableau de bord est indisponible apres la premiere lecture'
+        Expect ($script:StartCalls.Count -eq $before+2) 'La carte lance encore le calcul'
+        Open-DomeniaFirstStep Dashboard
+        Expect ($script:StartCalls.Count -eq $before+3 -and $script:StartCalls[$script:StartCalls.Count-1].OperationId -eq 'LocalIndexRead') 'Le clic ne lance pas le calcul local'
         Update-DomeniaFirstSteps
-        Expect ($script:StartCalls.Count -eq $before+3) 'Premier calcul relance automatiquement'
+        Expect ($script:StartCalls.Count -eq $before+3) 'Le calcul est relance sans clic'
         Fail-DomeniaFleetDashboard -Message 'Erreur de calcul fixture' -State $script:StartCalls[$script:StartCalls.Count-1].State
         Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error' -and (Get-DomeniaControl 'BtnFirstStepDashboard').Content -eq 'Réessayer lʼactualisation') 'Erreur masquee ou aucun reessai'
         Expect (-not [bool]$script:TestSettings['Home.FirstStepsDone']) 'Assistant termine en echec'

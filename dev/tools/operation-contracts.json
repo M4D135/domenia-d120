@@ -95,21 +95,21 @@
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiNamespacesWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "C31716BC38A3C978E078E8D8EB403163E7315C98FC641F1FB8F6506709A7E878"
+    "Sha256": "169FB60D885DB0A77B20EEC24D716E01D2F82F71B3EC66270341DAF44956EE67"
   },
   {
     "Operation": "WmiClasses",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiClassesWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "C9899F025E00FDD2D1A018719CC26EDA282250CCE0B6930A5778DB36DBFB7555"
+    "Sha256": "E41A67A936A96835EEC978D69A549FEFA3F000CB1AD80F384C20149FD93690A0"
   },
   {
     "Operation": "WmiQuery",
     "File": "wad/Domenia-Core.ps1",
     "Function": "Get-DomeniaWmiQueryWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "23C668EA65F3EF82127C2BA278753865A626E35F4122D0D5862AF95A6E06407D"
+    "Sha256": "761A17D3C6FF22DF827D280A07A1375A34BC7AA50C0A0EA37A1CCC26A7332399"
   },
   {
     "Operation": "UserComputerProbe",

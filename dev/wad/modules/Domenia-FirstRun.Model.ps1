@@ -23,7 +23,7 @@ function Get-DomeniaFirstRunPlan {
         if ($Account.Trim()) { $connectionText += ' avec ' + $Account.Trim() }
         $connectionText += '.'
     }
-    $ouText = 'Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant.'
+    $ouText = 'Choisir lʼOU racine du domaine. Elle est le défaut des sections qui nʼont pas encore leur propre choix.'
     if ($scoped) {
         $label = $ScopeName.Trim()
         if (-not $label) { $label = $ScopeDn.Trim() }
@@ -31,7 +31,7 @@ function Get-DomeniaFirstRunPlan {
     }
     $baseText = 'Faire la première lecture de cette OU dans la base locale (Outils, Base autonome).'
     if ($read) { $baseText = 'Première lecture faite : ' + [string]$IndexedObjects + ' objet(s) dans la base locale.' }
-    $dashboardText = 'Préparer le tableau de bord : première actualisation depuis la base locale, puis ouverture de la vue.'
+    $dashboardText = 'Ouvrir le tableau de bord : le calcul part à ce clic, depuis la base locale, puis la vue sʼaffiche.'
     if ($seen) { $dashboardText = 'Vue dʼensemble calculée depuis la base locale ; une tuile ouvre la liste exacte de ses postes.' }
     $steps = @(
         [pscustomobject]@{ Name = 'Connection'; Number = 1; Done = $connected; Enabled = $true; Text = $connectionText }

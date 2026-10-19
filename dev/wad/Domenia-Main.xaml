@@ -1215,7 +1215,7 @@
                     <Border x:Name="CardFirstSteps" Style="{StaticResource Card}" Margin="0,0,0,12" Visibility="Collapsed" AutomationProperties.Name="Premiers pas">
                       <StackPanel>
                         <TextBlock Text="Premiers pas" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
-                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU de travail, première lecture, tableau de bord. Après la première lecture, la vue dʼensemble se prépare automatiquement." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+                        <TextBlock Text="Quatre étapes pour démarrer : connexion, OU racine, première lecture, tableau de bord. La vue dʼensemble se calcule au clic, pas à lʼaffichage." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,4,0,10"/>
                         <Grid>
                           <Grid.ColumnDefinitions><ColumnDefinition Width="30"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -1223,7 +1223,7 @@
                           <TextBlock x:Name="LblFirstStepConnection" Grid.Row="0" Grid.Column="1" Text="Se connecter à lʼannuaire avec son compte habituel." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepConnection" Grid.Row="0" Grid.Column="2" Content="Voir le compte" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : connexion à lʼannuaire"/>
                           <TextBlock x:Name="LblFirstStepOuMark" Grid.Row="1" Grid.Column="0" Text="2" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
-                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU de travail du tableau de bord ; Rechercher reste indépendant." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                          <TextBlock x:Name="LblFirstStepOu" Grid.Row="1" Grid.Column="1" Text="Choisir lʼOU racine du domaine. Elle est le défaut des sections qui nʼont pas encore leur propre choix." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                           <Button x:Name="BtnFirstStepOu" Grid.Row="1" Grid.Column="2" Content="Choisir une OU" MinHeight="30" Padding="12,3" Margin="0,0,0,6" AutomationProperties.Name="Premiers pas : choisir lʼOU de travail"/>
                           <TextBlock x:Name="LblFirstStepBaseMark" Grid.Row="2" Grid.Column="0" Text="3" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource AccentText}"/>
                           <TextBlock x:Name="LblFirstStepBase" Grid.Row="2" Grid.Column="1" Text="Faire la première lecture de cette OU dans la base locale (Outils, Base autonome)." TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1246,7 +1246,7 @@
                           <TextBlock x:Name="LblFleetScope" Text="Tout le domaine indexé" FontSize="{DynamicResource FontSizeSubtitle}" VerticalAlignment="Center" TextWrapping="Wrap" AutomationProperties.Name="Périmètre de la vue dʼensemble"/>
                           </WrapPanel>
                         </DockPanel>
-                        <TextBlock x:Name="LblFleetDashboard" Text="Calculée depuis la base autonome locale." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                        <TextBlock x:Name="LblFleetDashboard" Text="Lancez « Recalculer la vue » : le tableau de bord se remplit depuis la base locale." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         <WrapPanel Margin="0,8,0,0">
                           <Button x:Name="BtnFleetScope" Content="Choisir une OU" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" AutomationProperties.Name="Choisir lʼOU du tableau de bord"/>
                           <Button x:Name="BtnFleetOpenSearch" Content="Ouvrir dans Rechercher" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" AutomationProperties.Name="Ouvrir ces postes dans Rechercher"/>
@@ -3441,6 +3441,16 @@
               <TabItem x:Name="TabApplicationTools" Header="Outils" AutomationProperties.Name="Outils">
                 <Border x:Name="UxApplicationToolsCard" Style="{StaticResource Card}" Margin="4" Padding="10">
                   <DockPanel>
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,8" Padding="10">
+                      <StackPanel>
+                        <TextBlock Text="OU racine" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="LblRootOuChoice" Text="Aucune OU racine : le domaine entier reste le défaut." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" Margin="0,4,0,8" AutomationProperties.Name="OU racine enregistrée"/>
+                        <WrapPanel>
+                          <Button x:Name="BtnRootOuChoose" Content="Choisir" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,0" AutomationProperties.Name="Choisir lʼOU racine"/>
+                          <Button x:Name="BtnRootOuReset" Content="Revenir au domaine" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" AutomationProperties.Name="Revenir au domaine entier"/>
+                        </WrapPanel>
+                      </StackPanel>
+                    </Border>
                     <TabControl x:Name="ApplicationToolTabs" AutomationProperties.Name="Outils de l’application">
                       <TabItem x:Name="TabGuard" Visibility="Collapsed" Header="Fiabilité" AutomationProperties.Name="Fiabilité"><ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel Margin="4">
 

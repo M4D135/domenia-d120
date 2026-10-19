@@ -1,8 +1,38 @@
-# Domenia — passation du 19/10/2026 (session Spark / Qwen Code)
+# Domenia — passation du 19/10/2026
+
+## Intégration sur master (après la passation Spark)
+
+Travail fait dans un clone propre de `origin/master` (`ab129c6`), pas dans
+`~/Documents/Projets/Domenia-D120` (HEAD `60ec25a`, arbre sale, non reset).
+Le patch `CORRECTIFS-partiels.patch` n'a pas été appliqué : il ne couvre qu'un worker
+sur trois, ajoute des sondes TCP 1200 ms, et n'est pas re-épinglé. La garde retenue
+est le ping ICMP 900 ms de l'inventaire, sur les trois workers.
+
+| Point | Fait | Où |
+|---|---|---|
+| Maj rapide / Maj complet | Les deux boutons du tableau de bord sont désactivés pendant l'inventaire, avec les boutons de la fiche. | `Domenia-Core.ps1:10976` |
+| Ping avant WMI solo | Garde ICMP 900 ms dans le corps de `WmiNamespaces`, `WmiClasses`, `WmiQuery`, avant `Enter-WCredentialAttempt`. Échec : `Access` Ping = `INJOIGNABLE`, `FailureReason` nommé, pas de CIM ni de repli tâche. Contrats re-épinglés par `update_worker_contracts.py --apply`. | `Domenia-Core.ps1:12613`, `12648`, `12690` |
+| Vue d'ensemble | Plus de calcul au démarrage (`Initialize-Window` `24686`), au changement d'onglet (`19080`), ni quand la carte Premiers pas est dessinée (`Domenia-Dashboard.UI.ps1:992`). Le clic « Recalculer la vue » et le clic de l'étape Tableau de bord lancent le calcul. `Test-DomeniaFleetAwaitingScope` reste `$false`. | `Show-DomeniaFleetOverviewIdle` `Domenia-Dashboard.UI.ps1:366` |
+| OU racine | Clé `Directory.RootOu.<64 hex>` (`Domenia-Experience.Model.ps1:27`), JSON `{Dn,Subtree}`. Même enregistrement : Premiers pas étape Ou et Outils (`Domenia-Main.xaml:3447`, `Save-DomeniaRootOuChoice` `272`). Défaut si la section n'a pas son choix. Reset du tableau de bord : `Reset-DomeniaFleetScopeToRoot` `346`. Aucune lecture AD ni ping à l'enregistrement. | |
+
+**Non exécuté, donc non qualifiant :** aucun parseur PowerShell 5.1, aucune suite, aucune VM,
+aucun `Parser::ParseFile`, aucun appel au laboratoire `degun@192.168.1.173`.
+Contrôles Python seulement : contrats worker appliqués, `audit_preload.py --rebaseline`
+(0 échec, non Windows), `build_packages.py --manifest-only` (runtime 172, dev 646).
+`packs/Domenia_PROD.zip` et `Domenia_DEV.zip` non reconstruits. `packs/manifest.json`
+reste `source_base_commit` `a62c3ded`. Spark `/home/m4d135/domenia/fix-rc1735` relu
+(cœur `ed832a8c…`, `reachDetail` = 0) et non recopié.
+
+Le texte ci-dessous est la passation Spark, figée avant cette intégration.
+Elle décrit l'état *avant* les correctifs. Ne pas réappliquer son patch.
+
+---
+
+# Passation Spark / Qwen Code (historique)
 
 **Session interrompue par David sur « passe le relais, on continue sur un autre LLM cloud ».**
-Aucun code de production n'est commité ni poussé par cette session. `master` n'est pas touché.
-Le seul dépôt est documentaire : ce fichier et `CORRECTIFS-partiels.patch`, sur
+Aucun code de production n'avait été commité par cette session au moment de l'écriture.
+Le dépôt documentaire était ce fichier et `CORRECTIFS-partiels.patch`, sur
 `fix/domenia-postes-rc1735`.
 
 **À lire avant de coder : §3. Un patch partiel dort sur le Spark et il est capable de casser
