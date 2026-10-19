@@ -917,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.27" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.28" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -2365,12 +2365,13 @@
                             <Button x:Name="BtnAccountRemoteTry" Content="Essayer sur le poste sélectionné" IsEnabled="False" Margin="0,0,12,0" AutomationProperties.Name="Essayer sur le poste sélectionné"/>
                             <TextBlock x:Name="LblAccountRemoteTry" Text="" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="640" Foreground="{DynamicResource MutedColor}" AutomationProperties.Name="Résultat de lʼessai du compte poste" AutomationProperties.LiveSetting="Polite"/>
                           </WrapPanel>
-                          <WrapPanel Margin="0,2,0,8">
+                          <!-- Decision David 2026-10-19: the Windows vault is no longer offered. -->
+                          <WrapPanel Margin="0,2,0,8" Visibility="Collapsed">
                             <CheckBox x:Name="ChkAccountRemoteRemember" Content="Mémoriser sur ce PC" IsChecked="False" Margin="0,0,16,0" VerticalAlignment="Center"/>
                             <Button x:Name="BtnAccountRemoteVault" Content="Utiliser le coffre" Margin="0,0,8,0"/>
                             <Button x:Name="BtnAccountRemoteForgetVault" Content="Oublier le mot de passe" Margin="0"/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblAccountRemoteStatus" Text="Identifiant mémorisé dans la base ; mot de passe dans le coffre Windows uniquement si vous le choisissez." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblAccountRemoteStatus" Text="Identifiant mémorisé dans la base ; le mot de passe nʼest jamais conservé." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                       </Border>
                       <Border Background="{DynamicResource BgCard}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="14" Padding="18" Margin="0,0,0,14">
@@ -2395,12 +2396,13 @@
                             <Button x:Name="BtnAccountSecretsTest" Content="Tester" Margin="0,24,8,10" AutomationProperties.Name="Tester"/>
                             <Button x:Name="BtnAccountSecretsSave" Content="Activer" Style="{StaticResource RunButton}" Margin="0,24,8,10" AutomationProperties.Name="Activer"/>
                           </WrapPanel>
-                          <WrapPanel Margin="0,2,0,8">
+                          <!-- Decision David 2026-10-19: the Windows vault is no longer offered. -->
+                          <WrapPanel Margin="0,2,0,8" Visibility="Collapsed">
                             <CheckBox x:Name="ChkAccountSecretsRemember" Content="Mémoriser sur ce PC" IsChecked="False" Margin="0,0,16,0" VerticalAlignment="Center"/>
                             <Button x:Name="BtnAccountSecretsVault" Content="Utiliser le coffre" Margin="0,0,8,0"/>
                             <Button x:Name="BtnAccountSecretsForgetVault" Content="Oublier le mot de passe" Margin="0"/>
                           </WrapPanel>
-                          <TextBlock x:Name="LblAccountSecretsStatus" Text="Identifiant mémorisé dans la base ; mot de passe dans le coffre Windows uniquement si vous le choisissez." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                          <TextBlock x:Name="LblAccountSecretsStatus" Text="Identifiant mémorisé dans la base ; le mot de passe nʼest jamais conservé." Foreground="{DynamicResource MutedColor}" Margin="0,4,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
                       </Border>
                       </StackPanel></Expander>

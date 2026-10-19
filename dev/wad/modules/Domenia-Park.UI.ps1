@@ -67,17 +67,33 @@ function Get-DomeniaCollectionRetrySettings {
     return [pscustomobject]@{MaxAttempts=(1+[Math]::Max(0,[Math]::Min(4,$retries)));BaseDelaySeconds=[Math]::Max(10,[Math]::Min(120,$delay))}
 }
 function Initialize-DomeniaCollectionLimitsUi {
-    # Decision David 2026-10-19: ceiling of the widget collections and WMI retries, on Accueil under the OU refresh
-    # buttons; read at the start of each run. Wired once.
+    # Decision David 2026-10-19: ceiling of the widget collections and WMI retries (Outils > Relevés); read at the
+    # start of each run. Wired once, during Wire-Events, before the preferences are loaded: the choices shown are set
+    # by Update-DomeniaCollectionLimitsUi, called again once the preferences are read (Initialize-DomeniaPresentation).
     if([bool]$script:DomeniaCollectionLimitsWired){return}
     $widgetMax=Get-DomeniaControl 'CmbCollectionWidgetMax'
-    if($null -ne $widgetMax){$widgetMax.ItemsSource=@([pscustomobject]@{Name='Sans plafond';Value=0},[pscustomobject]@{Name='500 postes';Value=500},[pscustomobject]@{Name='1000 postes';Value=1000},[pscustomobject]@{Name='2000 postes';Value=2000},[pscustomobject]@{Name='5000 postes';Value=5000});$current=Get-DomeniaWidgetMaxTargets;$widgetMax.SelectedIndex=0;foreach($entry in $widgetMax.ItemsSource){if($entry.Value -eq $current){$widgetMax.SelectedItem=$entry}};$widgetMax.Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){Set-DomeniaSetting 'Collection.WidgetMaxTargets' ([string]$s.SelectedItem.Value);Save-DomeniaSettings}})}
-    $retryPolicy=Get-DomeniaCollectionRetrySettings
+    if($null -ne $widgetMax){$widgetMax.ItemsSource=@([pscustomobject]@{Name='Sans plafond';Value=0},[pscustomobject]@{Name='500 postes';Value=500},[pscustomobject]@{Name='1000 postes';Value=1000},[pscustomobject]@{Name='2000 postes';Value=2000},[pscustomobject]@{Name='5000 postes';Value=5000});$widgetMax.Add_SelectionChanged({param($s,$e)if(($null -ne $s.SelectedItem) -and (-not [bool]$script:DomeniaCollectionLimitsUpdating) -and ($null -ne $script:Settings)){Set-DomeniaSetting 'Collection.WidgetMaxTargets' ([string]$s.SelectedItem.Value);Save-DomeniaSettings}})}
     $retries=Get-DomeniaControl 'CmbCollectionWmiRetries'
-    if($null -ne $retries){$retries.ItemsSource=@(0,1,2,3,4);$retries.SelectedItem=([int]$retryPolicy.MaxAttempts-1);$retries.Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){Set-DomeniaSetting 'Collection.WmiRetries' ([string]$s.SelectedItem);Save-DomeniaSettings}})}
+    if($null -ne $retries){$retries.ItemsSource=@(0,1,2,3,4);$retries.Add_SelectionChanged({param($s,$e)if(($null -ne $s.SelectedItem) -and (-not [bool]$script:DomeniaCollectionLimitsUpdating) -and ($null -ne $script:Settings)){Set-DomeniaSetting 'Collection.WmiRetries' ([string]$s.SelectedItem);Save-DomeniaSettings}})}
     $retryDelay=Get-DomeniaControl 'CmbCollectionWmiRetryDelay'
-    if($null -ne $retryDelay){$retryDelay.ItemsSource=@([pscustomobject]@{Name='10 s';Seconds=10},[pscustomobject]@{Name='30 s';Seconds=30},[pscustomobject]@{Name='1 min';Seconds=60},[pscustomobject]@{Name='2 min';Seconds=120});$retryDelay.SelectedIndex=1;foreach($entry in $retryDelay.ItemsSource){if($entry.Seconds -eq [int]$retryPolicy.BaseDelaySeconds){$retryDelay.SelectedItem=$entry}};$retryDelay.Add_SelectionChanged({param($s,$e)if($null -ne $s.SelectedItem){Set-DomeniaSetting 'Collection.WmiRetryDelaySeconds' ([string]$s.SelectedItem.Seconds);Save-DomeniaSettings}})}
+    if($null -ne $retryDelay){$retryDelay.ItemsSource=@([pscustomobject]@{Name='10 s';Seconds=10},[pscustomobject]@{Name='30 s';Seconds=30},[pscustomobject]@{Name='1 min';Seconds=60},[pscustomobject]@{Name='2 min';Seconds=120});$retryDelay.Add_SelectionChanged({param($s,$e)if(($null -ne $s.SelectedItem) -and (-not [bool]$script:DomeniaCollectionLimitsUpdating) -and ($null -ne $script:Settings)){Set-DomeniaSetting 'Collection.WmiRetryDelaySeconds' ([string]$s.SelectedItem.Seconds);Save-DomeniaSettings}})}
+    $tab=Get-DomeniaControl 'TabCollectionLimits'
+    if($null -ne $tab){$tab.Add_IsVisibleChanged({param($s,$e)if([bool]$s.IsVisible){try{Update-DomeniaCollectionLimitsUi}catch{Write-DomeniaSwallowed 'Park' 'Initialize-DomeniaCollectionLimitsUi' $_}}})}
     $script:DomeniaCollectionLimitsWired=$true
+    Update-DomeniaCollectionLimitsUi
+}
+function Update-DomeniaCollectionLimitsUi {
+    # Shows the stored choices of Outils > Relevés without writing them back.
+    $script:DomeniaCollectionLimitsUpdating=$true
+    try{
+        $widgetMax=Get-DomeniaControl 'CmbCollectionWidgetMax'
+        if($null -ne $widgetMax){$current=Get-DomeniaWidgetMaxTargets;$widgetMax.SelectedIndex=0;foreach($entry in @($widgetMax.ItemsSource)){if([int]$entry.Value -eq $current){$widgetMax.SelectedItem=$entry}}}
+        $retryPolicy=Get-DomeniaCollectionRetrySettings
+        $retries=Get-DomeniaControl 'CmbCollectionWmiRetries'
+        if($null -ne $retries){$retries.SelectedItem=([int]$retryPolicy.MaxAttempts-1)}
+        $retryDelay=Get-DomeniaControl 'CmbCollectionWmiRetryDelay'
+        if($null -ne $retryDelay){$retryDelay.SelectedIndex=1;foreach($entry in @($retryDelay.ItemsSource)){if([int]$entry.Seconds -eq [int]$retryPolicy.BaseDelaySeconds){$retryDelay.SelectedItem=$entry}}}
+    }finally{$script:DomeniaCollectionLimitsUpdating=$false}
 }
 function Get-DomeniaParkListContext {
     # SE-05 / UX-24: what the displayed list covers, read from the running search: base, depth, term and filters.

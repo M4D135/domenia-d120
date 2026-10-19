@@ -18240,12 +18240,12 @@ function Update-DomeniaAccountUi {
         $remoteCred = $script:RemoteAdminCredential
         $remoteName = Get-DomeniaCredentialUserName $remoteCred
         if ($null -ne $remote) { $remote.Text = if ($remoteName) { "$remoteName  ·  compte Postes actif" } else { 'Aucun compte Postes : le compte de connexion sert aux postes.' } }
-        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { 'Les opérations sur les postes utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les postes exigent dʼautres droits.' } }
+        if ($null -ne $remoteStatus) { $remoteStatus.Text = if ($remoteName) { 'Les opérations sur les postes utilisent ce compte pendant cette session.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les postes exigent dʼautres droits.' } }
 
         $secretCred = $script:SecretsCredential
         $secretName = Get-DomeniaCredentialUserName $secretCred
         if ($null -ne $secrets) { $secrets.Text = if ($secretName) { "$secretName  ·  compte Secrets actif" } else { 'Aucun compte Secrets : le compte de connexion lit LAPS et BitLocker.' } }
-        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session. Le coffre Windows reste facultatif.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
+        if ($null -ne $secretsStatus) { $secretsStatus.Text = if ($secretName) { 'LAPS et BitLocker utilisent ce compte pendant cette session.' } else { 'Saisissez un compte et son mot de passe puis « Activer » si les secrets exigent dʼautres droits.' } }
 
         Update-DomeniaRemoteTrialUi
         # UI-27: no forced rebuild here. GotFocus bubbles from the « Oublier » buttons themselves: rebuilding the grid
@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.27-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.28-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22171,6 +22171,8 @@ function Initialize-DomeniaPresentation {
     # them once the window is painted (ContentRendered). The park and the detailed AD rows are loaded on demand.
     try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     try { Restore-DomeniaUiSettings } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    # Decision David 2026-10-19: the choices of Outils > Relevés were drawn before the preferences were loaded.
+    try { Update-DomeniaCollectionLimitsUi } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     try { Register-DomeniaSettingsWatchers } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     try { Restore-DomeniaWindowGeometry } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
 
@@ -24774,13 +24776,6 @@ function Update-DomeniaFastLoginVaultUi {
     if($null -ne $ui.VaultUse){$ui.VaultUse.IsEnabled=(-not $Busy -and $null -ne $identity -and -not $blocked)}
     if($null -ne $ui.VaultForget){$ui.VaultForget.IsEnabled=(-not $Busy -and $null -ne $identity)}
     if($null -ne $ui.VaultRemember){$ui.VaultRemember.IsEnabled=(-not $Busy -and -not [bool]$script:DemoMode)}
-    try{
-        $privacy=$ui.Window.FindName('LoginPrivacy')
-        if($null -ne $privacy){
-            $base='Coffre Windows facultatif, lecture uniquement sur votre demande.'
-            $privacy.Text=if(($null -eq $identity) -and (-not $Busy)){$base+' '+(Get-DomeniaVaultLoginReason -Typed ([string]$ui.Login.Text) -Account ([string](Get-CfgValue 'Auth' 'VaultUserName' '')) -DomainDn ([string](Get-CfgValue 'Auth' 'VaultDomainDn' '')) -Demo ([bool]$script:DemoMode))}elseif($blocked){$base+' Cet identifiant du coffre a déjà été refusé : corrigez le mot de passe à la main.'}else{$base}
-        }
-    }catch{Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginVaultUi' $_}
     if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrigez manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
 }
 
@@ -25437,8 +25432,8 @@ function Get-DomeniaStandardLoginXaml {
             <CheckBox x:Name="ChkRemember" FontSize="12" MinHeight="28" Margin="0" KeyboardNavigation.TabIndex="2" ToolTip="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Après une connexion réussie, propose cet identifiant à la prochaine connexion. Le mot de passe nʼest jamais mémorisé par cette case." AutomationProperties.Name="Se souvenir de mon identifiant">
               <TextBlock Text="Se souvenir de mon identifiant" TextWrapping="Wrap" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" ToolTipService.ShowOnDisabled="True"/>
             </CheckBox>
-            <CheckBox x:Name="ChkLoginVaultRemember" Content="Mémoriser sur ce PC" IsChecked="False" FontSize="12" ToolTip="Après une connexion réussie, conserve ce compte dans le Gestionnaire d’identifiants Windows de cet utilisateur. Facultatif."/>
-            <WrapPanel Margin="0,5,0,0"><Button x:Name="BtnLoginVaultUse" Content="Utiliser le coffre" MinHeight="32" FontSize="12" ToolTip="Lit et valide une fois le compte exact affiché. Aucun usage automatique."/><Button x:Name="BtnLoginVaultForget" Content="Oublier" MinHeight="32" FontSize="12" ToolTip="Supprime du coffre uniquement cet identifiant pour ce domaine et la connexion Domenia."/></WrapPanel>
+            <CheckBox x:Name="ChkLoginVaultRemember" Content="Mémoriser sur ce PC" IsChecked="False" Visibility="Collapsed" FontSize="12" ToolTip="Après une connexion réussie, conserve ce compte dans le Gestionnaire d’identifiants Windows de cet utilisateur. Facultatif."/>
+            <WrapPanel Margin="0,5,0,0" Visibility="Collapsed"><Button x:Name="BtnLoginVaultUse" Content="Utiliser le coffre" MinHeight="32" FontSize="12" ToolTip="Lit et valide une fois le compte exact affiché. Aucun usage automatique."/><Button x:Name="BtnLoginVaultForget" Content="Oublier" MinHeight="32" FontSize="12" ToolTip="Supprime du coffre uniquement cet identifiant pour ce domaine et la connexion Domenia."/></WrapPanel>
       </StackPanel>
         </ScrollViewer>
 
@@ -25462,7 +25457,7 @@ function Get-DomeniaStandardLoginXaml {
             </Grid>
             <Button x:Name="BtnWindowsLogin" Grid.Row="2" Content="Utiliser mon compte Windows" MinHeight="36" Padding="10,7" Margin="0,8,0,0" KeyboardNavigation.TabIndex="4" ToolTip="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." ToolTipService.ShowOnDisabled="True" ToolTipService.InitialShowDelay="400" ToolTipService.ShowDuration="30000" AutomationProperties.HelpText="Utilise la session Windows courante si cette option est autorisée. Cela ne demande pas le mot de passe du champ et n’ajoute aucun droit." AutomationProperties.Name="Utiliser mon compte Windows"/>
           </Grid>
-          <TextBlock x:Name="LoginPrivacy" Text="Coffre Windows facultatif, lecture uniquement sur votre demande." Style="{StaticResource Muted}" FontSize="12" LineHeight="16" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0" ToolTip="Le coffre Windows est facultatif et doit être choisi explicitement. Aucun mot de passe dans les préférences ou la base de Domenia." ToolTipService.ShowOnDisabled="True"/>
+          <TextBlock x:Name="LoginPrivacy" Text="Le mot de passe nʼest jamais conservé par Domenia." Style="{StaticResource Muted}" FontSize="12" LineHeight="16" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,10,0,0" ToolTip="Aucun mot de passe dans les préférences, la base de Domenia ou le coffre Windows." ToolTipService.ShowOnDisabled="True"/>
         </StackPanel>
       </Grid>
     </Border>
@@ -25987,7 +25982,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.27-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.28-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -246,8 +246,8 @@ function Show-DomeniaAlternateCredential {
  <TextBox x:Name="User" MaxLength="256" ToolTip="DOMAINE\compte ou compte@domaine. Compte AD, ou MACHINE\compte local pour le poste choisi."/>
  <TextBlock Text="Mot de passe" Margin="0,12,0,5"/>
  <PasswordBox x:Name="Password" ToolTip="Ni journalisé ni enregistré sur disque. Le compte actuel reste conservé en cas dʼannulation."/>
- <CheckBox x:Name="Remember" Content="Memoriser sur ce PC" IsChecked="False" Margin="0,12,0,6" ToolTip="Enregistrer dans le coffre Windows après validation. Aucun mot de passe dans la base Domenia."/>
- <WrapPanel><Button x:Name="Vault" Content="Utiliser le coffre" Margin="0,0,8,0"/><Button x:Name="ForgetVault" Content="Oublier le mot de passe"/></WrapPanel>
+ <CheckBox x:Name="Remember" Content="Memoriser sur ce PC" IsChecked="False" Visibility="Collapsed" Margin="0,12,0,6" ToolTip="Enregistrer dans le coffre Windows après validation. Aucun mot de passe dans la base Domenia."/>
+ <WrapPanel Visibility="Collapsed"><Button x:Name="Vault" Content="Utiliser le coffre" Margin="0,0,8,0"/><Button x:Name="ForgetVault" Content="Oublier le mot de passe"/></WrapPanel>
  <TextBlock x:Name="Status" Margin="0,12,0,12" TextWrapping="Wrap"/>
  <ProgressBar x:Name="Progress" Height="4" IsIndeterminate="True" Visibility="Hidden" Margin="0,0,0,12"/>
  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
