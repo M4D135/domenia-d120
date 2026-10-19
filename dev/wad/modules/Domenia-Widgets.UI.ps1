@@ -2345,7 +2345,8 @@ function Start-DomeniaWidgetRemoteCollect {
     if ($Reason -eq 'Add') { $arguments.Preapproved = $true }
     if (([bool]$Need.Ping) -and (-not $wmi)) { $arguments.PingOnly = $true }
     else {
-        if (-not [bool]$Need.Ping) { $arguments.WmiOnly = $true }
+        # Ping answers before any CIM query. A silent host is not left on a WMI timeout.
+        $arguments.PingBeforeWmi = $true
         if (-not [bool]$Need.Console) { $arguments.NoConsole = $true }
         if ([bool]$Need.Inventory) { $arguments.Inventory = $true }
         if ($probes.Count) { $arguments.Probes = $probes }

@@ -45,8 +45,8 @@ function Add-DomeniaUiLog {param($Area,$Level,$Text);$script:Trace.Add([string]$
 function Get-DomeniaStoredTheme {return 'Light'}
 function Get-CfgValue {param($Section,$Key,$Default);return $Default}
 function Set-AppWindowIcon {param($Window)}
-function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,$ScopeTargets,$ScopeLabel,$Probes,[switch]$ForceRefresh,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[string]$Slot='',[switch]$PassThru)
-    $script:ParkCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);Label=$ScopeLabel;Probes=@($Probes);ProbesBound=$PSBoundParameters.ContainsKey('Probes');Displayed=[bool]$DisplayedResults;Inventory=[bool]$Inventory;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;NoConsole=[bool]$NoConsole;Force=[bool]$ForceRefresh;Reuse=$ReuseMaxAgeDays;Preapproved=[bool]$Preapproved;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds);Slot=$Slot})
+function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$PingOnly,[switch]$WmiOnly,[switch]$PingBeforeWmi,[switch]$Inventory,$ScopeTargets,$ScopeLabel,$Probes,[switch]$ForceRefresh,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[string]$Slot='',[switch]$PassThru)
+    $script:ParkCalls.Add([pscustomobject]@{Targets=@($ScopeTargets);Label=$ScopeLabel;Probes=@($Probes);ProbesBound=$PSBoundParameters.ContainsKey('Probes');Displayed=[bool]$DisplayedResults;Inventory=[bool]$Inventory;PingOnly=[bool]$PingOnly;WmiOnly=[bool]$WmiOnly;PingBeforeWmi=[bool]$PingBeforeWmi;NoConsole=[bool]$NoConsole;Force=[bool]$ForceRefresh;Reuse=$ReuseMaxAgeDays;Preapproved=[bool]$Preapproved;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds);Slot=$Slot})
     # A widget collection follows its run: the fixture stands for an approved run that has not read anything yet, in
     # the survey scope it was started in (FI-18).
     if($PassThru){$id='park-'+$script:ParkCalls.Count;$slotName=$(if($Slot){$Slot}else{'List'});$runs=Get-DomeniaParkRuns;$runs[$slotName]=[pscustomobject]@{Id=$id;Slot=$slotName;Completed=$false;Loading=$false;Approved=$true;Done=0;Targets=@($ScopeTargets);Failed=0;AlreadyFresh=0;WidgetBoard=$WidgetBoard;WidgetIds=@($WidgetIds)};return $id}
@@ -1238,7 +1238,7 @@ try{
             # measurement already answers (Reuse, checked in Test-DomeniaParkDetection), not the interface thread.
             Expect ((@($call.Targets|ForEach-Object{$_.name}) -join ',') -eq 'PC-1,PC-2') ('Postes collectes : '+(@($call.Targets|ForEach-Object{$_.name}) -join ','))
             Expect ((@($call.Probes|ForEach-Object{$_.Id}) -join ',') -eq 'disk.cfree') 'Requete du widget seule'
-            Expect ($call.WmiOnly -and $call.NoConsole -and (-not $call.Inventory) -and (-not $call.PingOnly)) 'Mode de lecture du widget'
+            Expect ($call.PingBeforeWmi -and (-not $call.WmiOnly) -and $call.NoConsole -and (-not $call.Inventory) -and (-not $call.PingOnly)) 'Mode de lecture du widget'
             Expect ($call.Preapproved -and ($call.Reuse -eq 30) -and (-not $call.Force)) 'Ajout : manquant seulement, sans confirmation sous la limite'
             # FI-18: the OU shown on Accueil is read in the scope of the lists, with the perimeter surveys of the boards.
             Expect (($call.WidgetBoard -eq 'Fleet') -and ((@($call.WidgetIds) -join ',') -eq 'w-add') -and ($call.Slot -eq 'List')) 'Widget ou portee de la collecte'

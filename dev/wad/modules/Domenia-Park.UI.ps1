@@ -500,10 +500,11 @@ function Start-DomeniaOnlinePark {
     # widgets that show the progress of the run and -Preapproved (an added widget: the add click is the gesture)
     # starts without the confirmation up to the limit of Get-DomeniaWidgetCollectAdmission. Every widget collection
     # keeps the ceiling of a survey (SE-05), counted on the workstations left to read.
-    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$ChainApproved,[string]$ChainNote='')
+    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$PingBeforeWmi,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$ChainApproved,[string]$ChainNote='')
     $started=$false;$r=$null
     try{
         if($PingOnly -and $WmiOnly){throw 'Choisissez Ping ou WMI, pas les deux modes exclusifs.'}
+        if($PingOnly -and $PingBeforeWmi){throw 'Le ping seul ne prépare pas une lecture WMI.'}
         if($Selection -and $null -eq $ScopeTargets){throw 'Sélection sans poste : choisissez des lignes de la liste.'}
         # Decision David 2026-10-05: whole-park detection removed; only the displayed, filtered rows are read.
         if(-not $DisplayedResults -and $null -eq $ScopeTargets){throw 'relevé de tout le parc retiré. Filtrez la liste dans Rechercher puis Vérifier la liste.'}
@@ -594,6 +595,7 @@ function Start-DomeniaOnlinePark {
         # Decision David 2026-10-19: « Tout actualiser » and WMI ping every workstation once, then read WMI on those that
         # answered only. The WMI step was confirmed with the ping (ChainApproved); the ping confirmation says so (ChainNote).
         $r|Add-Member -NotePropertyName ChainApproved -NotePropertyValue ([bool]$ChainApproved -and [bool]$RefreshOperationId)
+        $r|Add-Member -NotePropertyName PingBeforeWmi -NotePropertyValue ([bool]$PingBeforeWmi)
         $r|Add-Member -NotePropertyName ChainNote -NotePropertyValue ([string]$ChainNote)
         $r|Add-Member -NotePropertyName PingOnline -NotePropertyValue @{}
         $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($excluded)
@@ -1062,7 +1064,7 @@ function Invoke-DomeniaParkRunTick {
     $state|Add-Member -NotePropertyName SentInventory -NotePropertyValue $sendInventory -Force
     $state|Add-Member -NotePropertyName SentProbes -NotePropertyValue $sendProbes -Force
     try{
-        $id=Start-UiTask -Name ($(if(([bool]$r.WmiOnly) -or $noConsole){'WMI du perimetre : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);ValidateConsoleIdentity=$false;ProbeUser=$sendConsole;Inventory=$sendInventory;Probes=$sendProbes;AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class});ReadProgress=$readProgress}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $idle -HardTimeoutSeconds $total -TaskClass 'Explicit'
+        $id=Start-UiTask -Name ($(if(([bool]$r.WmiOnly) -or $noConsole){'WMI du perimetre : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);RequirePing=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false));ValidateConsoleIdentity=$false;ProbeUser=$sendConsole;Inventory=$sendInventory;Probes=$sendProbes;AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class});ReadProgress=$readProgress}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $idle -HardTimeoutSeconds $total -TaskClass 'Explicit'
         if(-not $id){throw 'Lecture non admise.'}
         $state.Job=[string]$id;$r.Pending[[string]$id]=$state
     }catch{$r.Stopping=$true;Set-DomeniaParkStopReason $r ([string]$_.Exception.Message);$r.FailureMessage='Relevé interrompu : '+$_.Exception.Message+' Les résultats précédents sont conservés.';[void](Set-DomeniaControlText 'LblParkStatus' $r.FailureMessage)}
@@ -1762,8 +1764,16 @@ function Complete-DomeniaClassicCollected {
         if($null -eq $packet -or (Normalize-LinkComputer ([string]$packet.Computer)) -ine (Normalize-LinkComputer ([string]$State.Computer))){throw 'Resultat detaille sans identite du poste attendue.'}
         $safe=ConvertTo-DomeniaClassicStoreData -Result $packet -ResultKind $State.ResultKind
         $success=($null -eq $packet.PSObject.Properties['Success'] -or [bool]$packet.Success)
-        if(-not $success){$safe|Add-Member -NotePropertyName CollectionError -NotePropertyValue 'Lecture distante non confirmee ; les dernieres donnees valides sont conservees.' -Force}
-        [void](Submit-DomeniaRemoteDetail -Data $safe -State $State -Succeeded $success -SourceCompletedUtc ([string]$packet.SourceCompletedUtc) -ErrorText $(if($success){''}else{'Lecture distante non confirmee ; consulter le rapport dʼacces.'}))
+        $reason='Lecture distante non confirmee ; les dernieres donnees valides sont conservees.'
+        if(-not $success){
+            $named=[string](Get-DomeniaMemberValue $packet 'FailureReason')
+            if($named){$reason=$named}else{
+                $bad=@(@(Get-DomeniaMemberValue $packet 'Access')|Where-Object{$null -ne $_ -and [string](Get-DomeniaMemberValue $_ 'Detail') -and [string](Get-DomeniaMemberValue $_ 'Status') -notin @('OK','VIDE','IGNORE')}|Select-Object -Last 1)
+                if($bad.Count -and [string](Get-DomeniaMemberValue $bad[0] 'Detail')){$reason=[string](Get-DomeniaMemberValue $bad[0] 'Detail')}
+            }
+            $safe|Add-Member -NotePropertyName CollectionError -NotePropertyValue $reason -Force
+        }
+        [void](Submit-DomeniaRemoteDetail -Data $safe -State $State -Succeeded $success -SourceCompletedUtc ([string]$packet.SourceCompletedUtc) -ErrorText $(if($success){''}else{$reason}))
     }catch{Fail-DomeniaRemoteDetailStored $_.Exception.Message $State}
 }
 function Fail-DomeniaClassicCollected {

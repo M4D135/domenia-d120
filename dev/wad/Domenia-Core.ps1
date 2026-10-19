@@ -7394,11 +7394,18 @@ function Update-TaskUi {
                 $latest = $null
                 if (-not [string]::IsNullOrWhiteSpace([string]$script:LatestTaskId) -and $script:AsyncJobs.Contains($script:LatestTaskId)) { $latest = $script:AsyncJobs[$script:LatestTaskId] }
                 if ($null -eq $latest -or -not $foregroundJobs.Contains($latest)) { $latest = $foregroundJobs[$foregroundCount - 1] }
-                $since = $null
-                if ($null -ne $latest) { $since = $latest.Started; if ([string]$latest.State -eq 'Queued' -and $null -ne $latest.QueuedAt) { $since = $latest.QueuedAt } }
-                $elapsed = if ($null -ne $since) { [int]((Get-Date) - [datetime]$since).TotalSeconds } else { 0 }
-                if ($null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · $([string]$latest.Name) · $elapsed s" }
-                else { $elapsedLabel.Text = "$foregroundCount tache(s)  $([string]$latest.Name)  $elapsed s" }
+                $oldest = $null
+                foreach ($queuedJob in $foregroundJobs) {
+                    $sinceJob = $queuedJob.Started
+                    if ([string]$queuedJob.State -eq 'Queued' -and $null -ne $queuedJob.QueuedAt) { $sinceJob = $queuedJob.QueuedAt }
+                    if ($null -eq $sinceJob) { continue }
+                    if ($null -eq $oldest -or ([datetime]$sinceJob) -lt $oldest) { $oldest = [datetime]$sinceJob }
+                }
+                $queueSeconds = if ($null -ne $oldest) { [int]((Get-Date) - $oldest).TotalSeconds } else { 0 }
+                if ($queueSeconds -lt 0) { $queueSeconds = 0 }
+                $queueText = if ($queueSeconds -ge 60) { ([string]([int][Math]::Floor($queueSeconds / 60)) + ' min ' + [string]($queueSeconds % 60) + ' s') } else { ([string]$queueSeconds + ' s') }
+                if ($null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · file depuis $queueText · $([string]$latest.Name)" }
+                else { $elapsedLabel.Text = "$foregroundCount tache(s) · file depuis $queueText · $([string]$latest.Name)" }
             }
             elseif ($total -gt 0 -and $null -ne $summary) { $elapsedLabel.Text = "$($summary.Text) · appel natif encore actif, compte jusqu a sa fin reelle" }
             else { $elapsedLabel.Text = "" }
@@ -9888,6 +9895,52 @@ function Test-RegKey {
     }
     catch { return $false }
 }
+
+# ---------------------------------------------------------------------
+# Ping before any WMI. A silent host must not wait on a CIM timeout.
+# ---------------------------------------------------------------------
+$pingWatch = [System.Diagnostics.Stopwatch]::StartNew()
+$pingReply = $false
+$pingDetail = ''
+$ping = $null
+try {
+    $ping = New-Object Net.NetworkInformation.Ping
+    $addresses = @()
+    try { $addresses = @([Net.Dns]::GetHostAddresses($computer)) } catch { $addresses = @() }
+    $address = @($addresses | Where-Object { $_.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork } | Select-Object -First 1)
+    if (-not $address.Count) { $address = @($addresses | Select-Object -First 1) }
+    if (-not $address.Count) { $address = @($computer) }
+    $sent = $ping.Send($address[0], 900)
+    if ($null -ne $sent -and [string]$sent.Status -eq 'Success') {
+        $pingReply = $true
+        $pingDetail = 'Reponse ICMP · ' + [string]$sent.RoundtripTime + ' ms · ' + [string]$address[0]
+    } else {
+        $pingDetail = 'ICMP : ' + $(if ($null -ne $sent) { [string]$sent.Status } else { 'aucune reponse' })
+    }
+} catch {
+    $inner = $_.Exception
+    while ($null -ne $inner.InnerException) { $inner = $inner.InnerException }
+    $pingDetail = 'Controle ICMP non abouti. ' + [string]$inner.Message
+} finally {
+    if ($null -ne $ping) { try { $ping.Dispose() } catch { } }
+}
+$pingWatch.Stop()
+if (-not $pingReply) {
+    Add-Access 'Ping' 'INJOIGNABLE' $pingDetail ([int]$pingWatch.ElapsedMilliseconds) 0
+    $totalWatch.Stop()
+    return [pscustomobject]@{
+        Computer = $computer
+        Rows = @($rows)
+        Access = @($access)
+        Metrics = $metrics
+        DurationMs = [long]$totalWatch.ElapsedMilliseconds
+        Success = $false
+        FailureReason = 'Poste sans reponse au ping : inventaire WMI non lance. Les dernieres donnees valides sont conservees.'
+        FallbackTasks = 0
+        TaskBytes = 0
+    }
+}
+Add-Access 'Ping' 'OK' $pingDetail ([int]$pingWatch.ElapsedMilliseconds) 0
 
 # ---------------------------------------------------------------------
 # Sonde des ports. Elle determine le transport principal et evite
@@ -18927,7 +18980,7 @@ function Wire-Events {
     # stay in Rechercher on the displayed list. It is recomputed when Accueil is shown and its OU or data changed.
     if ($script:Ctrl.ContainsKey("BtnFleetDashboardRefresh")) { $script:Ctrl["BtnFleetDashboardRefresh"].Add_Click({ try { Start-DomeniaFleetDashboard } catch { Set-Status ('Vue dʼensemble non calculée : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnFleetScope")) { $script:Ctrl["BtnFleetScope"].Add_Click({ try { Show-DomeniaFleetScopeSource } catch { Set-Status ('Sélecteur dʼOU indisponible : ' + $_.Exception.Message) 'WARN' } }) }
-    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
+    if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ $script:FleetScopeDn = ''; $script:FleetScopeSubtree = $true; try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Core' 'BtnFleetScopeReset' $_ }; $script:FleetStale = $true; Request-DomeniaFleetRefresh; Set-Status 'Tableau de bord : tout le domaine depuis la base locale.' }) }
     Initialize-DomeniaUiZoom
     Initialize-DomeniaQueryWorkshop
     if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ Show-DomeniaQueryWorkshop -Evaluate }) }
@@ -20292,7 +20345,7 @@ function Get-DomeniaWorkerOperationHashes {
         ParkSweep             = "134ED776E45640FA67B7F51659711C33B37834105375CC4B083342469F2C26A9"
         IndexBuild            = "2CBCECC2C52EB5DF13929FC1F1A0E96069994DDF410A532F2418FACDB9A968D0"
         UserComputerProbe     = "C136061E3060C52435E5E53749B458ED568819BA69AD24EB4712D09E7CBDC4FB"
-        ComputerInventory     = "6069456F08E8B339F3A54ED970F6AFB534BC6ED737D97AB243E835B1504A0490"
+        ComputerInventory     = "D741B95EDEAB60F19572321DF4A11E6968CBCA35081AFB5BFAFC20D7D9511254"
         ComputerDiagnostics   = "BCBC9F4809C9932EAB40452BB3EBB0D23357F6380BB4416FE5E982FCCA8A120C"
         ComputerLastUser      = "95DA27670D39B8EE6FE37BCDBE15255730F1E77AED224C7B2A72CBC3DC680096"
         CmdletInventory       = "FA1105E9540BBC2AB373FC45037CC54FA11EB8BD9B058194CE44C422E812DF75"
@@ -20319,8 +20372,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
-        LiveSelectedPing     = "1E70775602B096568960822143DD98C0837656A6F06A3F99F3380B5FA75C964C"
-        LiveConsole          = "1E70775602B096568960822143DD98C0837656A6F06A3F99F3380B5FA75C964C"
+        LiveSelectedPing     = "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
+        LiveConsole          = "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
         LiveCache            = "F3E4F0737A07D087A9059CE868A6F901E0A03532E48849573793BF27735A221E"
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20367,7 +20420,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "128496F28561D6DF5E6E57340CDCA14F824CCE08CA51426F004B1A72FF283451"
+    $expectedFingerprint = "51946FB3961EB16B215D3D610573F97D655DD6505E5D6A770774E8E22C665BA5"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

@@ -55,6 +55,8 @@ function Get-DomeniaEntryFileTimeUtc {
 }
 function Get-DomeniaFleetScope {
     # The dashboard owns its scope. Empty means the whole current domain; a chosen OU never changes Search filters.
+    # The chosen OU is restored once per session from the last startup (no directory read).
+    if (-not $script:FleetScopeRestored) { Restore-DomeniaFleetScopeChoice }
     $base = ([string]$script:Conn.BaseDn).Trim()
     if (-not $base) { return $null }
     $dn = ([string]$script:FleetScopeDn).Trim()
@@ -73,6 +75,43 @@ function Get-DomeniaFleetScope {
         Path = $dn
         Key = $(if ($whole) { '*' } else { $dn.ToLowerInvariant() + '|' + $(if ($subtree) { 'Subtree' } else { 'OneLevel' }) })
     }
+}
+function Get-DomeniaFleetScopeSettingKey {
+    # One remembered dashboard OU per domain. The name is a closed scoped setting (64 hex of the base DN).
+    $base = ([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
+    if (-not $base) { return '' }
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = $sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($base))
+        $hex = -join ($bytes | ForEach-Object { $_.ToString('x2') })
+    } finally { $sha.Dispose() }
+    return ('Fleet.Scope.' + $hex)
+}
+function Save-DomeniaFleetScopeChoice {
+    $key = Get-DomeniaFleetScopeSettingKey
+    if (-not $key) { return }
+    $dn = ([string]$script:FleetScopeDn).Trim()
+    $subtree = $true
+    if ($script:FleetScopeSubtree -is [bool]) { $subtree = [bool]$script:FleetScopeSubtree }
+    Set-DomeniaSetting $key ((@{ Dn = $dn; Subtree = $subtree } | ConvertTo-Json -Compress))
+}
+function Restore-DomeniaFleetScopeChoice {
+    # Once per connection. A missing or foreign OU leaves the session scope untouched.
+    $script:FleetScopeRestored = $true
+    if (-not (Get-Command Get-DomeniaSetting -ErrorAction SilentlyContinue)) { return }
+    $key = Get-DomeniaFleetScopeSettingKey
+    if (-not $key) { return }
+    $raw = [string](Get-DomeniaSetting $key '')
+    if (-not $raw) { return }
+    try {
+        $saved = $raw | ConvertFrom-Json
+        $savedDn = ([string]$saved.Dn).Trim()
+        $base = ([string]$script:Conn.BaseDn).Trim()
+        if (-not $savedDn -or -not $base) { return }
+        if (($savedDn -ine $base) -and (-not $savedDn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase))) { return }
+        $script:FleetScopeDn = $(if ($savedDn -ieq $base) { '' } else { $savedDn })
+        if ($null -ne $saved.PSObject.Properties['Subtree']) { $script:FleetScopeSubtree = [bool]$saved.Subtree }
+    } catch { Write-DomeniaSwallowed 'Dashboard' 'Restore-DomeniaFleetScopeChoice' $_ }
 }
 function Update-DomeniaFleetMachineList {
     if($null -ne $script:DomeniaQueryState -and $script:DomeniaQueryState.Bound){Request-DomeniaQueryEvaluation;return}
@@ -321,6 +360,7 @@ function Show-DomeniaFleetScopeSource {
     $script:FleetScopeDn = $dn
     $script:FleetScopeSubtree = [bool](Get-DomeniaMember $picked 'Subtree' $true)
     $script:FleetStale = $true
+    try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetScopeSource' $_ }
     Request-DomeniaFleetRefresh
     Set-Status ('Périmètre du tableau de bord : ' + $dn + $(if ($script:FleetScopeSubtree) { ' et ses sous-OU' } else { ', sans ses sous-OU' }) + '. Recherche reste inchangée.')
 }
@@ -329,6 +369,7 @@ function Select-DomeniaFleetScopeOu {
     param([string]$Dn)
     $script:FleetScopeDn = ([string]$Dn).Trim()
     $script:FleetStale = $true
+    try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Select-DomeniaFleetScopeOu' $_ }
     Request-DomeniaFleetRefresh
 }
 function Show-DomeniaFleetAnalyzeSource {

@@ -35,6 +35,12 @@ try{
   Expect ((Get-DomeniaSetting ('Storage.Backup.LastDetail.'+$a) '') -ceq $detail) 'Verified receipt lost'
   Expect ((Get-DomeniaSetting ('Storage.Backup.Last.'+$b) '') -eq '2026-10-17T08:00:00.0000000Z') 'Other store lost'
  }
+ Case 'A chosen dashboard OU is a scoped setting and survives reload' {
+  $key='Fleet.Scope.'+('ab'*32)
+  $script:Settings[$key]='{"Dn":"OU=Postes,DC=example,DC=invalid","Subtree":true}'
+  Reload-Settings
+  Expect ((Get-DomeniaSetting $key '') -like '*OU=Postes*') 'OU du tableau de bord perdue'
+ }
  Case 'Unknown keys, invalid store names and non-string values remain rejected' {
   $values=@{'Storage.PolicyJson.extra'='x';'Storage.Backup.Last.short'='x';('Storage.Backup.Last.'+('A'*64))='x';('Storage.Backup.Last.'+('c'*64))=@('x');'Storage.PolicyJson'=@{AutomaticBackup=$true}}
   $clean=ConvertTo-DomeniaExperienceSettings $values (Get-DomeniaDefaultSettings)
