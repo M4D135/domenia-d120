@@ -186,6 +186,10 @@ function Update-DomeniaParkRunStatus {
         }
         # Widget collections: the workstations whose stored measurement already answered were never contacted.
         if($fresh -gt 0){$text+=' '+[string]$fresh+' '+(Get-DomeniaParkPlural $fresh 'poste déjà à jour' 'postes déjà à jour')+', sans lecture.'}
+        if($r.Completed){
+            $skipped=[int](Get-DomeniaMember $r 'SkippedTargets' 0)+[int](Get-DomeniaMember $r 'Skipped' 0)
+            $text+=' Bilan : '+[string]([int]$r.Online+[int]$r.NoReply)+' pinglés, '+[string][int]$r.NoReply+' muets, '+[string][int]$r.Done+' lus, '+[string][int]$r.CachedMeasurements+' réutilisés, '+[string]$skipped+' sautés.'
+        }
         # Points 13 to 20: validated results, adapted or paused sources, retries, capabilities and the durable plan.
         $detail=Get-DomeniaParkRunDetailText $r
         if($detail){$text+=' '+$detail}
@@ -456,7 +460,7 @@ function Start-DomeniaParkSelectionSurvey {
     $selection=Get-DomeniaParkSelectionTargets
     if(-not $selection.Rows.Count){Set-Status $(if([int]$selection.Plan.Count -gt 0){'Aucun poste dans la sélection.'}else{[string]$selection.Plan.Label}) 'WARN';return}
     if($Mode -eq 'Analyse'){Start-DomeniaParkAnalysis -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped);return}
-    Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping') -PingBeforeWmi:($Mode -eq 'Console')
+    Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping') -PingBeforeWmi:($Mode -eq 'Console') -Inventory:($Mode -eq 'Console')
 }
 function Invoke-DomeniaParkVerify {
     # UI-23: the main part of « Vérifier la liste ▾ » stops the running survey of the list, runs the reading chosen
@@ -474,7 +478,7 @@ function Invoke-DomeniaParkVerify {
     if((Get-DomeniaResultScopeMode) -eq 'Selected'){Start-DomeniaParkSelectionSurvey -Mode $Mode;Update-DomeniaParkControls;return}
     switch($Mode){
         'Ping' {Start-DomeniaOnlinePark -DisplayedResults -PingOnly}
-        'Console' {Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi}
+        'Console' {Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi -Inventory}
         'Analyse' {Start-DomeniaParkAnalysis}
     }
     Update-DomeniaParkControls
@@ -601,6 +605,8 @@ function Start-DomeniaOnlinePark {
         $runs=Get-DomeniaParkRuns;$runs[$slotName]=$r
         $started=$true
         if($ForceRefresh){$r.CacheMinutes=0}
+        # A list survey does not contact a workstation whose stored measure is still inside the profile window.
+        if((-not $ForceRefresh) -and (-not $widgetBoard) -and ([int]$r.ReuseMaxAgeDays -le 0) -and ([int]$r.CacheMinutes -gt 0)){$r.ReuseMaxAgeDays=1}
         # Point 48: what was asked and what was left out before the local read, for the exact preview.
         $r|Add-Member -NotePropertyName RequestedTargets -NotePropertyValue @($targets)
         # Decision David 2026-10-19: « Tout actualiser » and WMI ping every workstation once, then read WMI on those that
@@ -1019,7 +1025,25 @@ function Invoke-DomeniaParkRunTick {
         }
     }
     # MO-08: echoes reported by the batch ping are stored by batches, the storage keeping its own backpressure.
-    if($r.PingOnly){Submit-DomeniaParkPingResults -Run $r}
+    if($r.PingOnly -or ([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false) -and -not [bool](Get-DomeniaMember $r 'PingSwept' $false))){Submit-DomeniaParkPingResults -Run $r}
+    if(([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false)) -and -not [bool](Get-DomeniaMember $r 'PingSwept' $false) -and -not $r.Stopping){
+        $pingBusy=((Test-DomeniaParkWorkRemaining $r) -or [string]$r.PingJob -or (Test-DomeniaParkPingBuffered $r) -or ($r.Pending.Count -gt 0) -or ($r.StorePending.Count -gt 0))
+        if($pingBusy){Start-DomeniaParkPingJob -Run $r -NowUtc ([datetime]::UtcNow);return}
+        $kept=New-Object System.Collections.Generic.List[object]
+        $online=Get-DomeniaMemberValue $r 'PingOnline' $null
+        foreach($target in @($r.Targets)){
+            $key=([string]$target.Key).ToLowerInvariant()
+            if(($online -is [Collections.IDictionary]) -and $online.ContainsKey($key)){[void]$kept.Add($target)}
+        }
+        $silent=[Math]::Max(0,@($r.Targets).Count-$kept.Count)
+        $r.Targets=$kept.ToArray();$r.Next=0
+        if($null -ne $r.Deferred){$r.Deferred.Clear()}
+        if($null -ne $r.Retry){$r.Retry.Clear()}
+        Set-DomeniaParkTargetIndex -Run $r
+        $r|Add-Member -NotePropertyName PingSwept -NotePropertyValue $true -Force
+        Set-Status ('Ping terminé. Lecture WMI de '+[string]$kept.Count+' poste(s) en ligne. '+[string]$silent+' muet(s) ne sont pas contactés.')
+        if(-not $kept.Count){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()};Update-DomeniaParkRunStatus -Run $r;return}
+    }
     Close-DomeniaParkStoreBacklog -Run $r
     if(($r.Stopping -or -not (Test-DomeniaParkWorkRemaining $r)) -and -not $r.Pending.Count -and -not (Test-DomeniaParkPingBuffered -Run $r)){
         $save=Get-DomeniaPersistenceState

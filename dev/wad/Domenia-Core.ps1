@@ -10984,7 +10984,7 @@ function Start-DomeniaComputerInventory {
             -Payload ([pscustomobject]@{ Computer=$computer; Deep=[bool]$Deep; BudgetMs=$budget; MaxSoftwareKeys=$softwareKeys; PreferWinrm=[bool](Get-CfgValue "Inventory" "PreferWinrm" $false) }) `
             -CallbackState $collectionState `
             -ReplaceKey "inventory" `
-            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep") `
+            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep","BtnParkVerify","BtnParkModePing","BtnParkModeConsole","BtnParkModeAnalyse") `
             -TimeoutSeconds $timeout `
             -StatusText ("Inventaire " + $mode + " de " + $computer + " en arriere-plan...") `
             -SuccessHandler "Complete-DomeniaClassicCollected" `

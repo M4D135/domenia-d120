@@ -225,15 +225,16 @@ function Invoke-DomeniaTreeBookmarkRestore {
                 Update-DomeniaSearchScopeUi;$n.BringIntoView();$s.SelectedRestored=$true
             }finally{$script:SuppressBranchAutoLoad=$old}
             Hide-DomeniaOuRestoreNotice
-            # Restore the filter under suppression, then queue one fresh search.
-            # Unrelated expanded branches must not delay this content load.
-            # D032: an OU search is guarded by the OU text, never by the text of the upper bar.
-            $scope=Get-DomeniaSearchScope -Mode OU
-            $s.RestoreSearch=[pscustomobject]@{
-                DN=$dn;Scope=[string]$scope.Scope;Context=$s.Context;Epoch=[long]$script:SessionEpoch
-                Generation=[int]$script:GlobalSearchGeneration
-                Text=(Get-DomeniaSearchText -Mode OU)
-                TypeFilter=[string](Get-GlobalSelectedTypeFilter -Mode OU)
+            # The domain root is already opened one level by Load-TreeRoot. Do not chain another search behind it.
+            # A saved OU still loads once. The home overview is never started from here.
+            if(-not ($dn -and $rootDn -and ($dn -ieq $rootDn))){
+                $scope=Get-DomeniaSearchScope -Mode OU
+                $s.RestoreSearch=[pscustomobject]@{
+                    DN=$dn;Scope=[string]$scope.Scope;Context=$s.Context;Epoch=[long]$script:SessionEpoch
+                    Generation=[int]$script:GlobalSearchGeneration
+                    Text=(Get-DomeniaSearchText -Mode OU)
+                    TypeFilter=[string](Get-GlobalSelectedTypeFilter -Mode OU)
+                }
             }
         }
     }
