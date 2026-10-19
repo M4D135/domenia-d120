@@ -4718,6 +4718,8 @@ function Set-SelectedBranch {
     param($Node)
     if ($null -eq $Node -or $null -eq $Node.Tag -or [string]::IsNullOrWhiteSpace([string]$Node.Tag.DN)) { return }
     $script:SelectedBranchDn = [string]$Node.Tag.DN
+    # The startup selection of the domain is suppressed. A later selection is the operator's choice.
+    if (-not $script:SuppressBranchAutoLoad) { $script:SearchBranchChosen = $true }
     Update-DomeniaSearchScopeUi
     Update-Dashboard
     if ($script:SuppressBranchAutoLoad) { return }
@@ -4772,6 +4774,15 @@ function Get-DomeniaSearchScope {
     if ([string]::IsNullOrWhiteSpace($baseDn)) { $baseDn = $domainDn }
     $subtree = Get-DomeniaControl -Name 'ChkSubtree'
     $includeChildren = ($null -eq $subtree -or [bool]$subtree.IsChecked)
+    # No bookmark and no click in the tree yet: the saved root OU is the search base. The tree node
+    # stays where Load-TreeRoot put it, so a click still means the branch the operator selected.
+    if (($Mode -eq 'OU') -and (Get-Command Test-DomeniaSearchUsesRootDefault -ErrorAction SilentlyContinue) -and (Test-DomeniaSearchUsesRootDefault)) {
+        $searchRoot = Get-DomeniaRootOuChoice
+        if ($null -ne $searchRoot -and [string]$searchRoot.Dn) {
+            $baseDn = [string]$searchRoot.Dn
+            $includeChildren = [bool]$searchRoot.Subtree
+        }
+    }
     [pscustomobject]@{
         BaseDn = $baseDn
         Scope = $(if ($includeChildren) { 'Subtree' } else { 'OneLevel' })

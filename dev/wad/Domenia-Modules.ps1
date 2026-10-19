@@ -2707,6 +2707,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Save-DomeniaRootOuChoice',
             'Clear-DomeniaRootOuChoice',
             'Show-DomeniaRootOuSource',
+            'Test-DomeniaSearchUsesRootDefault',
             'Set-DomeniaSearchDefaultFromRootOu',
             'Get-DomeniaSectionOuDn',
             'Reset-DomeniaFleetScopeToRoot',

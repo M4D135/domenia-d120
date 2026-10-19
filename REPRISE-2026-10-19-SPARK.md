@@ -15,7 +15,11 @@ est le ping ICMP 900 ms de l'inventaire, sur les trois workers.
 | Vue d'ensemble | Plus de calcul au démarrage (`Initialize-Window` `24686`), au changement d'onglet (`19080`), ni quand la carte Premiers pas est dessinée (`Domenia-Dashboard.UI.ps1:992`). Le clic « Recalculer la vue » et le clic de l'étape Tableau de bord lancent le calcul. `Test-DomeniaFleetAwaitingScope` reste `$false`. | `Show-DomeniaFleetOverviewIdle` `Domenia-Dashboard.UI.ps1:366` |
 | OU racine | Clé `Directory.RootOu.<64 hex>` (`Domenia-Experience.Model.ps1:27`), JSON `{Dn,Subtree}`. Même enregistrement : Premiers pas étape Ou et Outils (`Domenia-Main.xaml:3447`, `Save-DomeniaRootOuChoice` `272`). Défaut si la section n'a pas son choix. Reset du tableau de bord : `Reset-DomeniaFleetScopeToRoot` `346`. Aucune lecture AD ni ping à l'enregistrement. | |
 
-**Non exécuté, donc non qualifiant :** aucun parseur PowerShell 5.1, aucune suite, aucune VM,
+Correctif suivant : lire le périmètre ne réécrit plus `FleetScopeSubtree`. Tant que lʼopérateur nʼa pas cliqué dans lʼarbre et quʼaucun signet nʼexiste, la recherche utilise lʼOU racine sans déplacer la sélection (`Get-DomeniaSearchScope`, `Set-SelectedBranch`).
+
+**Parseur Windows PowerShell 5.1.26100.9711 sur lʼhôte DESKTOP-285EKHU (19/10/2026) :** 8 fichiers modifiés, 0 erreur. Ce nʼest pas une exécution. `CNAMTS-W11-01` nʼest plus enregistrée ni présente sous `C:\ADCC-Lab\VirtualBox` (dossier `DOMENIA-Qualification` vide). Aucune suite lancée. PESTO et FILPRO non démarrées.
+
+**Non exécuté en VM, donc non qualifiant pour le comportement :** aucune suite, aucune VM,
 aucun `Parser::ParseFile`, aucun appel au laboratoire `degun@192.168.1.173`.
 Contrôles Python seulement : contrats worker appliqués, `audit_preload.py --rebaseline`
 (0 échec, non Windows), `build_packages.py --manifest-only` (runtime 172, dev 646).

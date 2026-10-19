@@ -161,11 +161,11 @@
     "Clear-DomeniaTreeRenderJobs": "D2E00B3E54E8F61164AA9CEA8B0BC62AE61F4734479B8B383C38435F3D3815E0",
     "Queue-DomeniaTreeRowsToNode": "5FE72AC4C8C891E1688D3C71DFC0FF5276C85197D0C1B773E2647F96CAFD48F1",
     "Load-TreeRoot": "75D5E6DD37DF0FFFBC9A4D09B6C38FB020DBB7A99379CF7D67B2233FCAD80872",
-    "Set-SelectedBranch": "02D42B69139D4B782FB4115986395FBE671EDCC52D80AD22DC3F1B760EA666BE",
+    "Set-SelectedBranch": "279969657CD25B07AA17CA8386F67165BCA3673829B8107E7CF516B246CE3E6E",
     "Get-DomeniaSearchMode": "F62BE9C0725AFF75591234717B4EE922873D665294D4639BBDA1054DFFDE205C",
     "Get-DomeniaSearchText": "D39E5CB8734DF987C8FD503B710CF414D027F6FAF1C074F73112CB1F51DD0A99",
     "Set-DomeniaSearchMode": "BE5D76201C4F846D3A3BEDF15F74773D43F68E162DE4B80F540E77FA98B3581C",
-    "Get-DomeniaSearchScope": "A6330A01DE70EBF7A2B65720E42A3E24C71F0292AFAB644EC725BB97E199AC9C",
+    "Get-DomeniaSearchScope": "0BDA6568CB63E29B89FA8B55C837E3B61B285FEBBD0EFF8253852EA44D884307",
     "Update-DomeniaSearchScopeUi": "A68CB0AA081E7C05BD3B48CFADD3FC23188FEF8CBC7FC3F3637CB6139990041C",
     "Invalidate-DomeniaSearchResults": "7153B29C23A5DE709A7137A5D8D066B5BF8CC4D955C16B107B9F4F7BF660686D",
     "Test-DomeniaSearchStateCurrent": "F361DF4467A2203E58A5C2CFFEE4A45D3FC98A4782BA9C86000F926061894AAC",
@@ -4886,6 +4886,18 @@
         "Update-DomeniaSearchScopeUi",
         "Update-TaskUi",
         "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree 2026-10-19",
+      "Source": "source tree 2026-10-19",
+      "Decision": "Revue statique 2026-10-19, non executee sous Windows. Get-DomeniaSearchScope : tant que l operateur n a pas clique dans l arbre et qu aucun signet OuBookmarksJson n existe, la recherche OU utilise l OU racine enregistree, sans deplacer la selection de l arbre. Set-SelectedBranch note le clic ulterieur. Get-DomeniaFleetScope ne reecrit plus FleetScopeSubtree en le lisant. Aucune campagne VM : CNAMTS-W11-01 est absente de l hote.",
+      "ChangedCoreFunctions": [
+        "Get-DomeniaSearchScope",
+        "Set-SelectedBranch"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

@@ -1307,10 +1307,6 @@ function Complete-DomeniaIndexMetadataUi {
     # coverage when its label still shows the waiting text (a running survey keeps its own progress text).
     try { Update-DomeniaFirstSteps } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaIndexMetadataUi' $_ }
     try { Update-DomeniaParkCoverageAfterCount } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaIndexMetadataUi' $_ }
-    # An overview of Accueil refused while this read held the local store (D018: a background Storage job waits for
-    # none) is computed now; nothing happens when Accueil is hidden or its OU is already computed. Never before the
-    # main window is shown (FI-22): the startup overview waits for the remembered OU of Rechercher. Asked before the
-    # startup checks, whose measures read would refuse it again.
     # Startup figures do not calculate Accueil. The operator uses « Recalculer la vue ».
     if ([bool]$script:IndexMetadataStartupChecks) {
         $script:IndexMetadataStartupChecks = $false
@@ -1372,8 +1368,6 @@ function Complete-DomeniaUserMachineLinksUi {
     try { Write-AppLog ('{0} association(s) utilisateur-poste lue(s) dans la base locale.' -f $stored.Count) 'INFO' } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaUserMachineLinksUi' $_ }
     try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaUserMachineLinksUi' $_ }
     try { Request-DomeniaDashboardRefresh } catch { Write-DomeniaSwallowed 'Engine' 'Complete-DomeniaUserMachineLinksUi' $_ }
-    # Same as the figures: an overview refused while this read held the local store is computed now. At startup this
-    # answer may come before the main window is shown: the overview then waits for its own request (ContentRendered).
     # Associations loaded at startup do not calculate Accueil.
     if (($session.Count -gt 0) -or $deferred) { Request-DomeniaLinkPersistence }
 }

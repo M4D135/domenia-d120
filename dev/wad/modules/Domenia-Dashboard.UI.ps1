@@ -62,14 +62,15 @@ function Get-DomeniaFleetScope {
     if (-not $base) { return $null }
     $dn = ([string]$script:FleetScopeDn).Trim()
     if ($dn -and $dn -ine $base -and -not $dn.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase)) { $dn = '' }
-    # Empty means "no own choice": the saved root OU, once one exists. An explicit whole domain stays empty only
-    # when FleetScopeExplicitDomain is set (Tools > Revenir au domaine, or a section kept on the domain).
+    # Empty means "no own choice": the saved root OU, once one exists. Reading the scope must not rewrite
+    # FleetScopeSubtree: that variable is the operator's own depth, saved later as a choice.
+    $fallbackSubtree = $null
     if ((-not $dn) -and (-not [bool]$script:FleetScopeExplicitDomain)) {
         $rootChoice = $null
         try { $rootChoice = Get-DomeniaRootOuChoice } catch { $rootChoice = $null }
         if ($null -ne $rootChoice -and [string]$rootChoice.Dn) {
             $dn = [string]$rootChoice.Dn
-            $script:FleetScopeSubtree = [bool]$rootChoice.Subtree
+            $fallbackSubtree = [bool]$rootChoice.Subtree
         }
     }
     $whole = (-not $dn -or $dn -ieq $base)
@@ -77,7 +78,8 @@ function Get-DomeniaFleetScope {
     # Point 54: the depth chosen in the shared OU picker. The whole domain is always read with its sub-OU, and an
     # unset value keeps the former behaviour (sub-OU included).
     $subtree = $true
-    if ((-not $whole) -and ($script:FleetScopeSubtree -is [bool]) -and (-not $script:FleetScopeSubtree)) { $subtree = $false }
+    if ($null -ne $fallbackSubtree) { $subtree = [bool]$fallbackSubtree }
+    elseif ((-not $whole) -and ($script:FleetScopeSubtree -is [bool]) -and (-not $script:FleetScopeSubtree)) { $subtree = $false }
     $name = if ($whole) { 'Tout le domaine' } else { ((($dn -split '(?<!\\),')[0] -replace '^(OU|CN)=','') -replace '\\(.)','$1') }
     return [pscustomobject]@{
         Dn = $dn
@@ -305,20 +307,26 @@ function Show-DomeniaRootOuSource {
     if ($null -eq $picked -or -not [string]$picked.DN) { return }
     Save-DomeniaRootOuChoice -Dn ([string]$picked.DN) -Subtree ([bool](Get-DomeniaMember $picked 'Subtree' $true))
 }
-function Set-DomeniaSearchDefaultFromRootOu {
-    # No bookmark: the search scope becomes the root OU. Does not expand the tree and does not search.
-    if ($null -eq $script:Continuity) { return }
-    $key = ''
-    try { $key = Get-DomeniaTreeContextKey } catch { return }
-    if ($key -and $script:Continuity.Bookmarks.ContainsKey($key)) { return }
-    $root = Get-DomeniaRootOuChoice
-    if ($null -eq $root -or -not [string]$root.Dn) { return }
-    $current = ([string]$script:SelectedBranchDn).Trim()
+function Test-DomeniaSearchUsesRootDefault {
+    # The tree stays on the node it loaded. Until the operator picks a branch, and while no bookmark
+    # exists, searches and OU refresh use the saved root OU. A click in the tree (Set-SelectedBranch
+    # outside the startup suppression) is an own choice, including the domain itself.
+    if ([bool]$script:SearchBranchChosen) { return $false }
+    if ($null -ne $script:Continuity) {
+        $key = ''
+        try { $key = Get-DomeniaTreeContextKey } catch { $key = '' }
+        if ($key -and $script:Continuity.Bookmarks.ContainsKey($key)) { return $false }
+    }
     $base = ([string]$script:Conn.BaseDn).Trim()
-    if ($current -and $base -and ($current -ine $base)) { return }
-    $script:SelectedBranchDn = [string]$root.Dn
-    $check = Get-DomeniaControl 'ChkSubtree'
-    if ($null -ne $check) { $check.IsChecked = [bool]$root.Subtree }
+    $chosen = ([string]$script:SelectedBranchDn).Trim()
+    if ($chosen -and $base -and ($chosen -ine $base)) { return $false }
+    $root = $null
+    try { $root = Get-DomeniaRootOuChoice } catch { $root = $null }
+    return ($null -ne $root -and [bool][string]$root.Dn)
+}
+function Set-DomeniaSearchDefaultFromRootOu {
+    # Refresh the scope label only. Does not move the tree selection and does not search.
+    if (-not (Test-DomeniaSearchUsesRootDefault)) { return }
     $saved = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
     try { if (Get-Command Update-DomeniaSearchScopeUi -ErrorAction SilentlyContinue) { Update-DomeniaSearchScopeUi } }
@@ -332,7 +340,13 @@ function Get-DomeniaSectionOuDn {
     $explicitDomain = $false
     switch ($Source) {
         'Fleet' { $chosen = ([string]$script:FleetScopeDn).Trim(); $explicitDomain = [bool]$script:FleetScopeExplicitDomain }
-        'Search' { $chosen = ([string]$script:SelectedBranchDn).Trim() }
+        'Search' {
+            if (Test-DomeniaSearchUsesRootDefault) {
+                $searchRoot = Get-DomeniaRootOuChoice
+                if ($null -ne $searchRoot -and [string]$searchRoot.Dn) { return [string]$searchRoot.Dn }
+            }
+            $chosen = ([string]$script:SelectedBranchDn).Trim()
+        }
         'Index' { $chosen = ([string]$script:IndexScopeDn).Trim() }
     }
     if ($chosen -and $base -and ($chosen -ine $base) -and $chosen.EndsWith(',' + $base,[StringComparison]::OrdinalIgnoreCase) -and ($chosen -match '^(?i)OU=')) { return $chosen }
