@@ -207,6 +207,8 @@ function Update-DomeniaParkRunStatus {
         $r|Add-Member -NotePropertyName FleetRefreshed -NotePropertyValue $true -Force
         if($r.Approved -and $r.Done -gt 0){
             if($null -ne $script:SelectedObject){try{Show-DomeniaBoard -Board Computer -Quiet}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
+            # The survey the operator started changed the local measures. One overview recalculation lets a queued widget proceed.
+            try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
         }
     }
     try{Invoke-DomeniaParkLiveUpdates -Run $r}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}

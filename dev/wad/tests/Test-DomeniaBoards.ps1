@@ -1040,6 +1040,7 @@ try{
     Case 'Tableau flotteur : une fonction absente est nommee, pas noyee dans un echec metier' {
         # Le defaut qui a couté deux heures: Complete-DomeniaFleetDashboard doit nommer la fonction
         # absente dans le journal et dans le libelle, au lieu d'afficher un echec metier muet.
+        $script:DatabaseScopedPath=''
         $state=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Key='fleet-wiring';Scope='';Subtree=$true;Name='Tous les postes';ScopePath=''}
         $script:FleetPendingKey='fleet-wiring';$script:FleetJobId='';$script:FleetComputedKey=''
         $script:UiLogLines.Clear()
@@ -1086,10 +1087,19 @@ try{
         $plain=New-DomeniaDonutChart -Title 'Systemes' -Items @([pscustomobject]@{Label='A';Value=3})
         $plainPath=@(Get-DomeniaLogicalControls $plain|Where-Object{$_ -is [Windows.Shapes.Path] -and $null -ne $_.Tag})[0]
         Expect ($null -eq $plainPath.Tag['OnSelect']) 'Un graphique sans gestionnaire reste decoratif'
+        # Earlier cases save a root OU. An empty fleet DN would follow it and refuse this whole-domain detail.
+        $savedExplicit=[bool]$script:FleetScopeExplicitDomain
+        try {
+        foreach($scopeKey in @($script:TestSettings.Keys | Where-Object { $_ -like 'Directory.RootOu.*' -or $_ -like 'Fleet.Scope.*' })) { [void]$script:TestSettings.Remove($scopeKey) }
+        $script:FleetScopeExplicitDomain=$true;$script:FleetScopeRestored=$true;$script:FleetScopeSubtree=$true
         $script:FleetScopeDn='';$script:DatabaseScopedPath='';$script:FleetPendingKey='';$script:FleetJobId='';$script:FleetStale=$false
         $script:SelectedBranchDn='OU=Recherche,DC=example,DC=invalid';$searchBefore=$script:SelectedBranchDn
         (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard'
+        # A hidden Accueil defers the draw. The click must hit the widgets of this calculation, not the previous one.
+        $w.UpdateLayout();Invoke-Pump 150;$w.UpdateLayout()
         Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+        $w.UpdateLayout();Invoke-Pump 150
+        if(-not (Get-DomeniaControl 'PnlFleetDashboard').IsVisible){Show-DomeniaBoard -Board Fleet -Quiet}
         $holder=@(Get-Holders (Get-DomeniaControl 'PnlFleetDashboard')|Where-Object{$_.Tag.Item.Key -eq 'fleet.machines'})[0]
         Expect ($null -ne $holder -and -not $holder.Tag.Editing) 'Widget Postes non cliquable'
         $parks=$script:ParkCalls.Count;$callsBefore=$script:StartCalls.Count
@@ -1101,7 +1111,8 @@ try{
         Expect ($details.Count -eq 1) 'Icone atelier absente'
         $details[0].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
         $call=$script:StartCalls[$script:StartCalls.Count-1]
-        Expect ($call.OperationId -eq 'LocalQuery') 'Le widget ne lance pas le moteur local'
+        $liveScope=Get-DomeniaFleetScope
+        Expect ($script:StartCalls.Count -gt $callsBefore -and $call.OperationId -eq 'LocalQuery') ('Le widget ne lance pas le moteur local : op='+[string]$call.OperationId+' ajoutes='+($script:StartCalls.Count-$callsBefore)+' scope='+[string]$script:FleetLast.Scope+' dn='+[string]$liveScope.Dn+' stale='+[bool]$script:FleetStale+' job='+[string]$script:FleetJobId+' statut='+[string](Get-DomeniaControl 'LblQueryStatus').Text)
         $Payload=$call.Payload;$result=& ([scriptblock]::Create([string]$call.Code))
         Complete-DomeniaQueryEvaluation -Result $result -State $call.State
         $q=$script:DomeniaQueryState
@@ -1121,6 +1132,7 @@ try{
         (Get-DomeniaControl 'BtnQueryBack').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
         Expect ((Get-DomeniaControl 'WorkspaceTabs').SelectedItem.Name -eq 'TabDashboard') 'Retour atelier incorrect'
         if($null -ne $q.Timer){$q.Timer.Stop()}
+        } finally { $script:FleetScopeExplicitDomain=$savedExplicit }
 
     }
     Case 'Base locale : le detail long garde une largeur et une hauteur lisibles dans la vraie grille WPF' {
@@ -1265,7 +1277,8 @@ try{
             Expect ($script:DomeniaWidgetCollectQueue.Count -eq 0) 'File non videe'
             (Get-DomeniaParkRun -Slot 'List').Completed=$true
             # Never the whole domain.
-            $script:FleetScopeDn='';$script:ParkCalls.Clear()
+            foreach($rootKey in @($script:TestSettings.Keys | Where-Object { $_ -like 'Directory.RootOu.*' })) { [void]$script:TestSettings.Remove($rootKey) }
+            $script:FleetScopeExplicitDomain=$true;$script:FleetScopeDn='';$script:ParkCalls.Clear()
             Expect (-not (Start-DomeniaWidgetRefresh -Board Fleet -Id 'w-add' -Reason Refresh)) 'Collecte acceptee a la racine du domaine'
             Expect ($script:ParkCalls.Count -eq 0) 'Collecte de tout le domaine'
         }finally{$script:ParkRuns=$null;$script:DomeniaWidgetCollectQueue.Clear();$script:DomeniaWidgetCollects.Clear();if($null -ne $script:DomeniaWidgetCollectTimer){$script:DomeniaWidgetCollectTimer.Stop()};$script:FleetObservations=@{};$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
@@ -1545,10 +1558,34 @@ try{
             $script:FleetScopeDn='OU=Postes,DC=example,DC=invalid';$script:FleetStale=$false;$script:FleetJobId=''
             Complete-DomeniaFleetDashboard -Result (New-FleetResult -Scope $script:FleetScopeDn) -State $null
             if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
-            $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState 'Fleet';$seen=@{};$stackedAt=@{}
+            $panel=Get-DomeniaControl 'PnlFleetDashboard';$state=Get-DomeniaBoardState 'Fleet';$seen=@{};$stackedAt=@{};$page=@{}
+            # The guest desktop can be narrower than 1100 px, so the window width never reaches the page.
+            # The grid follows the page width: when the window is clamped, give that page the requested width.
+            $scroll=$null;$node=$panel
+            while($null -ne $node){$node=[Windows.Media.VisualTreeHelper]::GetParent($node);if($node -is [Windows.Controls.ScrollViewer]){$scroll=$node;break}}
+            $savedScroll=$(if($null -ne $scroll){$scroll.HorizontalScrollBarVisibility}else{$null})
+            $hostPanel=$panel.Parent
             foreach($width in @(1920,1280,960)){
-                $w.Width=$width;$w.UpdateLayout();Invoke-Pump 500;$w.UpdateLayout();$stacked=0
-                $columns=[int]$state.GridColumns;$seen[$width]=$columns
+                $w.WindowState=[Windows.WindowState]::Normal
+                $w.SizeToContent=[Windows.SizeToContent]::Manual
+                $w.MaxWidth=4096;$w.Left=0;$w.Top=0
+                $w.Width=$width;$w.Height=900;$w.UpdateLayout()
+                # A clamped desktop never shrinks a page we widened earlier. Drive the page only while the window cannot.
+                if(($w.ActualWidth -lt ($width-48)) -and ($null -ne $scroll) -and ($hostPanel -is [Windows.FrameworkElement])){
+                    $scroll.HorizontalScrollBarVisibility=[Windows.Controls.ScrollBarVisibility]::Auto
+                    $hostPanel.HorizontalAlignment=[Windows.HorizontalAlignment]::Left
+                    $hostPanel.Width=[double]$width
+                    $w.UpdateLayout()
+                }elseif($hostPanel -is [Windows.FrameworkElement]){
+                    $hostPanel.ClearValue([Windows.FrameworkElement]::WidthProperty)
+                    $hostPanel.ClearValue([Windows.FrameworkElement]::HorizontalAlignmentProperty)
+                    if($null -ne $scroll -and $null -ne $savedScroll){$scroll.HorizontalScrollBarVisibility=$savedScroll}
+                    $w.UpdateLayout()
+                }
+                # Update-DomeniaBoardGrid redraws the cards 300 ms after the last width. Read them only after that.
+                Invoke-Pump 800;$w.UpdateLayout()
+                $stacked=0
+                $columns=[int]$state.GridColumns;$seen[$width]=$columns;$page[$width]=[int]$panel.ActualWidth
                 Expect ($columns -eq (Get-DomeniaBoardColumnCount -Width $panel.ActualWidth -Current $columns)) ('Colonnes incoherentes avec la largeur a '+$width)
                 Expect (-not (Test-DomeniaBoardRedrawNeeded -Columns $columns -BuiltColumns ([int]$state.GridBuiltColumns) -Cell ([double]$state.GridCell) -BuiltCell ([double]$state.GridBuiltCell))) ('Widgets non redessines a la nouvelle largeur : '+$width)
                 $grids=@(Get-DomeniaBoardSectionGrids $panel)
@@ -1592,9 +1629,13 @@ try{
                 }
                 $stackedAt[$width]=$stacked
             }
-            Expect ([int]$seen[1920] -gt [int]$seen[960]) ('Colonnes : '+[int]$seen[1920]+' a 1920, '+[int]$seen[960]+' a 960')
+            Expect ([int]$seen[1920] -gt [int]$seen[960]) ('Colonnes : '+[int]$seen[1920]+' a 1920 (page '+[int]$page[1920]+'), '+[int]$seen[960]+' a 960 (page '+[int]$page[960]+'), fenetre '+[int]$w.ActualWidth)
             Expect ([int]$stackedAt[1920] -gt 0) 'Aucune paire de tuiles empilees a 1920 : alignement des piles non verifie'
-        }finally{$w.Width=$oldWidth;$w.UpdateLayout();Invoke-Pump 450;$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab}
+        }finally{
+            if($null -ne $scroll -and $null -ne $savedScroll){$scroll.HorizontalScrollBarVisibility=$savedScroll}
+            if($hostPanel -is [Windows.FrameworkElement]){$hostPanel.ClearValue([Windows.FrameworkElement]::WidthProperty);$hostPanel.ClearValue([Windows.FrameworkElement]::HorizontalAlignmentProperty)}
+            $w.Width=$oldWidth;$w.UpdateLayout();Invoke-Pump 450;$script:FleetScopeDn='';Set-DomeniaSetting 'Dashboard.Fleet.Layout' $saved;$tabs.SelectedItem=$oldTab
+        }
     }
     Case 'Carte Sante : score et points a verifier dans une seule carte, ligne verte sans point (DS-05)' {
         $oldSelected=$script:SelectedObject

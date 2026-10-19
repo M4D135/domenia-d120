@@ -821,6 +821,7 @@ function Complete-DomeniaFleetDashboard {
     if ($null -eq $panel) { return }
     # A calculation replaced by a newer one (other OU) is not shown.
     if ($null -ne $State -and [string]$State.Key -cne [string]$script:FleetPendingKey) { return }
+    try {
     $data = Get-DomeniaEffectiveWorkerResult $Result @('Types','Machines')
     if ($null -eq $data) { Fail-DomeniaFleetDashboard 'reponse incomplete.' $State; return }
     if ([bool]$data.Busy) { Fail-DomeniaFleetDashboard 'base occupee, reessayez dans un instant.' $State; return }
@@ -833,20 +834,30 @@ function Complete-DomeniaFleetDashboard {
     $script:FleetLastResult = $Result
     $scope = if ($null -ne $State) { [pscustomobject]@{ Dn = [string]$State.Scope; Subtree = [bool]$State.Subtree; Name = [string]$State.Name; Path = [string]$State.ScopePath; Key = [string]$State.Key } } else { Get-DomeniaFleetScope }
     if ($null -eq $scope) { $scope = [pscustomobject]@{ Dn = ''; Subtree = $true; Name = 'Tout le domaine'; Path = ''; Key = '*' } }
-    try {
         $board=Get-DomeniaMemberValue $data 'Board'
         if($null -eq $board){throw 'Les indicateurs du parc nʼont pas été calculés. Actualisez la vue.'}
     }
-    catch [System.Management.Automation.CommandNotFoundException] {
-        # Une fonction absente est un defaut de chargement (core ou module non charge), jamais un resultat
-        # metier. Le catch general la rendait en « Vue d'ensemble non calculee : The term ... » et
-        # Fail-DomeniaFleetDashboard effacait FleetComputedKey: la trace ne nommait plus sa propre cause.
-        $absente = [string]$_.Exception.Message
-        if ($absente -match "'([^']*)'") { $absente = $matches[1] } else { $absente = [string]$_.Exception.ErrorRecord.FullyQualifiedErrorId }
-        Add-DomeniaUiLog -Text ('Tableau de bord flotteur : fonction absente ' + $absente + ' | ' + [string]$_.Exception.Message) -Level "ERROR" -Area "Interface"
-        Fail-DomeniaFleetDashboard ('fonction absente du chargement : ' + $absente) $State; return
+    catch {
+        # A missing function is a load defect. ErrorAction Stop wraps CommandNotFoundException, and
+        # Fail-DomeniaFleetDashboard would call the same missing function before it could name it.
+        $walk = $_.Exception
+        $text = [string]$walk.Message
+        while ($null -ne $walk) {
+            if ($walk -is [System.Management.Automation.CommandNotFoundException]) { $text = [string]$walk.Message; break }
+            $walk = $walk.InnerException
+        }
+        $missing = ($text -match 'not recognized as the name|n.est pas reconnu|CommandNotFound')
+        if ($missing) {
+            $absente = $text
+            if ($absente -match "'([^']*)'") { $absente = $matches[1] }
+            Add-DomeniaUiLog -Text ('Tableau de bord flotteur : fonction absente ' + $absente + ' | ' + $text) -Level "ERROR" -Area "Interface"
+            $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = ''
+            [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : fonction absente du chargement : ' + $absente))
+            return
+        }
+        try { Fail-DomeniaFleetDashboard $text $State } catch { [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $text)) }
+        return
     }
-    catch { Fail-DomeniaFleetDashboard $_.Exception.Message $State; return }
     $script:FleetPendingKey = ''; $script:FleetJobId = ''; $script:FleetComputedKey = [string]$scope.Key
     $count = @($board.Last.Machines).Count
     Complete-DomeniaFirstDashboard -ScopeKey ([string]$scope.Key) -Count $count
