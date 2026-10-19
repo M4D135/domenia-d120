@@ -529,7 +529,7 @@
     "File": "wad/modules/Domenia-Park.Worker.ps1",
     "Function": "Get-DomeniaParkPingWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
+    "Sha256": "F889C57CB5FBB9B1DBBA87D0E55C37FE471B69DA8A9DFFAAE6C3662D11D11C74"
   },
   {
     "Operation": "GroupPathRead",

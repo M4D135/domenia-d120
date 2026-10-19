@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.33-D120",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.34-D120",
   "source_base_commit": "a62c3ded03724922212c8a5d343aa32e391ba4dd",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3077623,
-      "sha256": "ac22b02ecd09e68416ff3bfdbd39dcce39b2a8d9b55e3410161ae9a89ea64527",
+      "bytes": 3078964,
+      "sha256": "eef50ad20f4a2c6208e87ed80c91da8e4d720f1e0ab068feca570f099f10d1da",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6573072,
-      "sha256": "d82d85c18435a65f60594af2901458461fb924bc82c596448b22998e773ec3f6",
+      "bytes": 6574850,
+      "sha256": "46c4ad68f73d8b4efe4672881833bb9aeb054477a307d0ccb12b22a3ead33e8a",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -66,6 +66,10 @@
     ],
     "rc30_change": "Journal : plus d'erreur ignorée « méthode dans une expression Null » à la fin des tâches du pool (pings) ; vue d'ensemble refusée par le budget de la base locale pendant un relevé dite « recalcul différé ». Contrôles hors Windows uniquement.",
     "rc31_change": "Démarrage : racine du domaine mémorisée en profondeur rouverte sur un seul niveau ; sous-étapes de « État initial de sécurité » chronométrées dans Domenia-startup.log (Detail/...). Gain avant connexion mesuré par l'utilisateur sur RC1.17.27 : environ 6,5 s. Contrôles hors Windows uniquement.",
-    "rc33_change": "Avant connexion : seule la connexion est prévalidée (interface principale vérifiée après). Accueil n'attend plus la restauration de Rechercher. Âge inconnu de la base locale dit tel quel (plus de 999999 min). Contrôles hors Windows uniquement."
+    "rc33_change": "Avant connexion : seule la connexion est prévalidée (interface principale vérifiée après). Accueil n'attend plus la restauration de Rechercher. Âge inconnu de la base locale dit tel quel (plus de 999999 min). Contrôles hors Windows uniquement.",
+    "rc34_change": "Ping en une seule vague de 192 échos (au lieu de lots de 32). « Tout actualiser » et le bouton WMI : une seule séance de ping de tous les postes, puis lecture WMI des seuls postes qui ont répondu, sans nouvel écho ni seconde confirmation ; horloges ping et WMI consignées séparément. Contrôles hors Windows uniquement.",
+    "worker_operations_changed_rc34": [
+      "ParkPing"
+    ]
   }
 }

@@ -19029,7 +19029,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.33-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.34-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -20337,7 +20337,7 @@ function Get-DomeniaWorkerOperationHashes {
         QueryExport           = "9EDC61CF74A81D4167A0B36E246CD56E37A7516D3463BADDCAF411155D314719"
         QueryLibrary          = "4A98FDC482AEC2634D75BA832FBA469339CD2735DAAC43FBFD3501C33758966F"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
-        ParkPing              = "AEC50398D907F22BBAB7FEAAD775ED44AAF30CC0DF64EAFA7BEE3283397C6058"
+        ParkPing              = "F889C57CB5FBB9B1DBBA87D0E55C37FE471B69DA8A9DFFAAE6C3662D11D11C74"
         GroupPathRead         = "1CCA67CE78F17B6C0BCD3AD55A7CFF02B699CFF34A1BC8E055805BC0BDD8751D"
         ComputerServiceControl = "AEF0B956D70FF477939AEF6048D32BC7C377E5E4F685E046D64BF87F7C66DADB"
         DirectoryAbsenceCheck = "4A35BFF449957D0FD5AE9375C073B68B04834AA376E8DF3CB379FF359096C71E"
@@ -20367,7 +20367,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "CBDD6EB2B4E1413408FE6A6F06CE05487411250D58D33CDF3AFAF607D4215537"
+    $expectedFingerprint = "128496F28561D6DF5E6E57340CDCA14F824CCE08CA51426F004B1A72FF283451"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -26004,7 +26004,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.33-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.34-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

@@ -500,7 +500,7 @@ function Start-DomeniaOnlinePark {
     # widgets that show the progress of the run and -Preapproved (an added widget: the add click is the gesture)
     # starts without the confirmation up to the limit of Get-DomeniaWidgetCollectAdmission. Every widget collection
     # keeps the ceiling of a survey (SE-05), counted on the workstations left to read.
-    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@())
+    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$ChainApproved,[string]$ChainNote='')
     $started=$false;$r=$null
     try{
         if($PingOnly -and $WmiOnly){throw 'Choisissez Ping ou WMI, pas les deux modes exclusifs.'}
@@ -579,7 +579,8 @@ function Start-DomeniaOnlinePark {
         # ping), deferred and retried targets, durations of the usage profile, measured progress and the durable plan
         # (created on approval). IndexByKey gives the place of a workstation in the plan; PingSourceKeys the budget each
         # echo was admitted on; PingMissing the workstations a batch ping never reported.
-        $sourceLimit=$(if([bool]$PingOnly){32}else{$concurrency})
+        # Decision David 2026-10-19 (ping too slow): one batch ping of 192 echoes at once (was 32), its source budget alike.
+        $sourceLimit=$(if([bool]$PingOnly){192}else{$concurrency})
         $retryPolicy=Get-DomeniaCollectionRetrySettings
         $collection=[ordered]@{Sources=(New-DomeniaCampaignSources -MaxLimit $sourceLimit);Deferred=(New-Object 'System.Collections.Generic.List[object]');Retry=(New-Object 'System.Collections.Generic.List[object]')
             Freshness=(Get-DomeniaActiveFreshnessTable);StartedUtc=$null;LastValidatedUtc=$null;HeldSeconds=[double]0;HeldSinceUtc=$null;HeldShownUtc=[datetime]::MinValue;Retried=0;RetryExhausted=0;RetryMaxAttempts=[int]$retryPolicy.MaxAttempts;RetryBaseDelaySeconds=[int]$retryPolicy.BaseDelaySeconds;CapabilitySkipped=0;CimSkipped=0;SkippedTargets=0
@@ -590,6 +591,11 @@ function Start-DomeniaOnlinePark {
         if($ForceRefresh){$r.CacheMinutes=0}
         # Point 48: what was asked and what was left out before the local read, for the exact preview.
         $r|Add-Member -NotePropertyName RequestedTargets -NotePropertyValue @($targets)
+        # Decision David 2026-10-19: « Tout actualiser » and WMI ping every workstation once, then read WMI on those that
+        # answered only. The WMI step was confirmed with the ping (ChainApproved); the ping confirmation says so (ChainNote).
+        $r|Add-Member -NotePropertyName ChainApproved -NotePropertyValue ([bool]$ChainApproved -and [bool]$RefreshOperationId)
+        $r|Add-Member -NotePropertyName ChainNote -NotePropertyValue ([string]$ChainNote)
+        $r|Add-Member -NotePropertyName PingOnline -NotePropertyValue @{}
         $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($excluded)
         $state=[pscustomobject]@{RunId=$r.Id;Slot=$r.Slot;Epoch=$r.Epoch;Path=$r.Path}
         # Read only the observation families used by this collection mode. No WMI payload is parsed for a ping refresh.
@@ -714,8 +720,10 @@ function Request-DomeniaParkAdmission {
     if($windowNote){$notes.Add($windowNote);$direct=$false}
     if(Test-DomeniaCampaignRunDurable $r){$replacement=([string](Get-DomeniaCampaignReplacementNote)).Trim();if($replacement){$notes.Add($replacement)}}
     $message=[string]$text.Message
+    $chainNote=([string](Get-DomeniaMember $r 'ChainNote' '')).Trim();if($chainNote){$notes.Insert(0,$chainNote)}
     if($notes.Count){$message+="`r`n"+($notes.ToArray() -join ' ')}
     if($direct){Set-Status ('Collecte du widget lancée : '+[string]$text.Lines[0]+'. '+[string]$text.Lines[1]);& $start $runId;return}
+    if([bool](Get-DomeniaMember $r 'ChainApproved' $false)){Set-Status ('Lecture WMI des postes en ligne : '+[string]$text.Lines[0]+'.');& $start $runId;return}
     # Point 48: the exact list of the workstations to read (the ones set aside as already answered are not in it), each
     # row left out with its reason, and a confirmation in proportion: past the threshold the count must be typed.
     $change=if([bool]$r.PingOnly){'ping ICMP'}elseif([bool]$r.WmiOnly){'lecture WMI'}elseif([bool]$r.Inventory){'ping, utilisateur console et relevé WMI léger'}elseif(@($r.Probes).Count){'requêtes WMI des widgets, ping et utilisateur console'}else{'ping puis utilisateur console'}
@@ -1115,7 +1123,7 @@ function Start-DomeniaParkPingJob {
         if($storageRefusal){$r.Stopping=$true;Set-DomeniaParkStopReason $r ([string]$storageRefusal);Update-DomeniaParkRunStatus -Run $r;return}
     }
     if(-not (Test-DomeniaParkEngineAvailable)){Add-DomeniaParkHeldTime $r $NowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $NowUtc;return}
-    $batchSize=32
+    $batchSize=192
     $picked=@(Select-DomeniaParkPingBatch -Run $r -NowUtc $NowUtc -Size $batchSize)
     if(-not $picked.Count){Add-DomeniaParkHeldTime $r $NowUtc;Update-DomeniaParkHeldStatus -Run $r -NowUtc $NowUtc;return}
     Add-DomeniaParkHeldTime $r $NowUtc -Clear
@@ -1149,6 +1157,7 @@ function Receive-DomeniaParkPingQueue {
         $key=([string]$result.Key).ToLowerInvariant()
         if(-not $key -or $r.PingReported.ContainsKey($key) -or -not $r.TargetsByKey.ContainsKey($key)){continue}
         $r.PingReported[$key]=$true;$r.PingBuffer.Enqueue($result)
+        if([string]$result.Presence -eq 'En ligne'){$online=Get-DomeniaMemberValue $r 'PingOnline' $null;if($online -is [Collections.IDictionary]){$online[$key]=$true}}
         Register-DomeniaParkPingOutcome -Run $r -Key $key -Result $result
     }
 }

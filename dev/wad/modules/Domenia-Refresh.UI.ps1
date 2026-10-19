@@ -219,9 +219,18 @@ function Complete-DomeniaOuRefreshTargets {
             }
         }
         elseif($r.Mode -eq 'Ping'){$args.PingOnly=$true}
-        else{$args.Inventory=$true;$args.Probes=@($r.Probes);if($r.Mode -eq 'Wmi'){$args.WmiOnly=$true}}
+        elseif($r.Mode -eq 'Postes'){$args.Inventory=$true;$args.Probes=@($r.Probes)}
+        else{
+            # Decision David 2026-10-19: one ping of every workstation first, then WMI on those that answered only (no
+            # second echo, no second confirmation, no wait on switched-off workstations).
+            $args.PingOnly=$true
+            $args.ChainNote='Ensuite, lecture WMI (utilisateur console, inventaire, requêtes des widgets) des seuls postes qui répondent au ping, sans nouvel écho ni nouvelle confirmation.'
+            $r|Add-Member -NotePropertyName ChainWmi -NotePropertyValue ([pscustomobject]@{Targets=@($targets);Probes=@($r.Probes)}) -Force
+        }
         $r.ParkRunId=[string](Start-DomeniaOnlinePark @args)
         if(-not $r.ParkRunId){throw 'Préparation du relevé non admise.'}
+        # Chained refresh: the ping step is kept for its own clock, even when the refresh stops before the WMI step.
+        if($null -ne (Get-DomeniaMemberValue $r 'ChainWmi')){$r|Add-Member -NotePropertyName PingRun -NotePropertyValue (Get-DomeniaParkRunById ([string]$r.ParkRunId)) -Force}
         Update-DomeniaOuRefreshUi
     }catch{Fail-DomeniaOuRefresh -OperationId $r.Id -Message $_.Exception.Message}
 }
@@ -235,13 +244,39 @@ function Update-DomeniaOuRefreshFromPark {
     if($null -eq $r -or $r.Completed -or $null -eq $Run -or $null -eq $Run.PSObject.Properties['RefreshOperationId'] -or [string]$Run.RefreshOperationId -cne $r.Id -or [string]$Run.Id -cne $r.ParkRunId){return}
     if(-not (Test-DomeniaOuRefreshCurrent $r.Id)){Stop-DomeniaOuRefresh -OperationId $r.Id -Message 'Contexte ou OU modifié : relevé arrêté.';return}
     if($Run.Completed){
+        # Ping step of a chained refresh: WMI follows on the workstations that answered, with the same confirmation.
+        $chain=Get-DomeniaMemberValue $r 'ChainWmi'
+        if(($null -ne $chain) -and (-not [bool](Get-DomeniaMember $r 'ChainStarted' $false))){
+            $r|Add-Member -NotePropertyName ChainStarted -NotePropertyValue $true -Force
+            $r|Add-Member -NotePropertyName PingRun -NotePropertyValue $Run -Force
+            $save=Get-DomeniaPersistenceState
+            $pingOk=([bool]$Run.Approved -and (-not [bool]$Run.Stopping) -and (-not [string]$Run.FailureMessage) -and (-not ($save.Suspended -or $save.Conflicts -gt 0)))
+            if($pingOk){
+                $online=Get-DomeniaMemberValue $Run 'PingOnline' $null
+                $answered=@(@($chain.Targets)|Where-Object{($online -is [Collections.IDictionary]) -and $online.ContainsKey(([string]$_.distinguished_name).ToLowerInvariant())})
+                if($answered.Count){
+                    $args=@{ScopeTargets=$answered;ScopeLabel=$r.Label;ForceRefresh=$true;RefreshOperationId=$r.Id;PassThru=$true;WmiOnly=$true;Inventory=$true;ChainApproved=$true}
+                    if(@($chain.Probes).Count){$args.Probes=@($chain.Probes)}
+                    $wmiId=''
+                    try{$wmiId=[string](Start-DomeniaOnlinePark @args)}catch{$wmiId=''}
+                    if($wmiId){
+                        $r.ParkRunId=$wmiId;$r.Phase='Collecting'
+                        $r.Status='Ping terminé : '+[string]$answered.Count+' poste(s) en ligne sur '+[string]$Run.Done+'. Lecture WMI de ces postes…'
+                        Update-DomeniaOuRefreshUi
+                        return
+                    }
+                    $r|Add-Member -NotePropertyName ChainError -NotePropertyValue 'lecture WMI non admise par le moteur' -Force
+                }else{$r|Add-Member -NotePropertyName ChainError -NotePropertyValue 'aucun poste en ligne : aucune lecture WMI' -Force}
+            }
+        }
         $r.Completed=$true;$r.Timer.Stop()
         $save=Get-DomeniaPersistenceState
         if($save.Pending -gt 0 -or $save.Suspended -or $save.Conflicts -gt 0){$r.Phase='Error';$r.Status='Relevé terminé, mais enregistrement local non confirmé. Vérifiez Stockage ; aucune réussite complète annoncée.'}
         elseif($Run.FailureMessage){$r.Phase='Error';$r.Status='Relevé non terminé : '+[string]$Run.FailureMessage}
         elseif(-not $Run.Approved -or $Run.Stopping){$r.Phase='Cancelled';$r.Cancelled=$true;$r.Status='Relevé arrêté : '+[string]$Run.Done+' poste(s) traité(s). Les données déjà confirmées sont conservées.'}
+        elseif([string](Get-DomeniaMember $r 'ChainError' '')){$r.Phase='Partial';$r.Status='Ping terminé ('+[string](Get-DomeniaMember (Get-DomeniaMemberValue $r 'PingRun') 'Done' 0)+' poste(s)) ; '+[string]$r.ChainError+'.'}
         elseif($Run.Failed -gt 0){$r.Phase='Partial';$r.Status='Relevé terminé avec '+[string]$Run.Failed+' lecture(s) non confirmée(s) sur '+[string]$Run.Done+'. Consultez les détails des postes.'}
-        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. '+$(if($r.Mode -eq 'Ping'){'Ping relu, données enregistrées. Les dates AD et WMI sont conservées.'}elseif($r.Mode -eq 'Wmi'){'WMI relu, données enregistrées. Les dates AD et ping sont conservées.'}elseif($r.Mode -eq 'Both'){$(if([string](Get-DomeniaMember $r 'DirectoryFallback' '')){'Ping et WMI relus sur les postes déjà connus ; lecture AD non aboutie : '+[string]$r.DirectoryFallback}else{'Objets AD, ping et WMI relus, données enregistrées.'})}else{'Ping et WMI relus, données enregistrées.'})}
+        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. '+$(if($r.Mode -eq 'Ping'){'Ping relu, données enregistrées. Les dates AD et WMI sont conservées.'}elseif(($r.Mode -eq 'Wmi') -and ($null -ne (Get-DomeniaMemberValue $r 'PingRun'))){'Ping de tous les postes puis WMI des postes en ligne, données enregistrées. La date AD est conservée.'}elseif($r.Mode -eq 'Wmi'){'WMI relu, données enregistrées. Les dates AD et ping sont conservées.'}elseif($r.Mode -eq 'Both'){$(if([string](Get-DomeniaMember $r 'DirectoryFallback' '')){'Ping et WMI relus sur les postes déjà connus ; lecture AD non aboutie : '+[string]$r.DirectoryFallback}else{'Objets AD, ping et WMI relus, données enregistrées.'})}else{'Ping et WMI relus, données enregistrées.'})}
         Submit-DomeniaOuRefreshRuns -Refresh $r
     }elseif($Run.Approved){$r.Phase='Collecting';$r.Status=[string]$Run.StatusText}
     Update-DomeniaOuRefreshUi
@@ -259,11 +294,28 @@ function Submit-DomeniaOuRefreshRuns {
         $collection=$null
         # FI-18: the survey of this refresh is found by its id in its scope (List), never as the only survey.
         $run=$null;if([string]$r.ParkRunId){$run=Get-DomeniaParkRunById ([string]$r.ParkRunId)}
+        $pingRun=Get-DomeniaMemberValue $r 'PingRun'
+        $pingCollection=$null
+        if($null -ne $pingRun){
+            # The ping step of a chained refresh; when no WMI step followed, the run of this refresh is that ping itself.
+            if([object]::ReferenceEquals($pingRun,$run)){$run=$null}
+            $save=Get-DomeniaPersistenceState
+            $pingCollection=[pscustomobject]@{Approved=[bool]$pingRun.Approved;StartedUtc=[string](Get-DomeniaMemberValue $pingRun 'ApprovedUtc');FinishedUtc=[datetime]::UtcNow.ToString('o');Targets=[long](@($pingRun.Targets).Count);Done=[long]$pingRun.Done;Failed=[long]$pingRun.Failed;Stopping=[bool]$pingRun.Stopping;FailureMessage=[string](Get-DomeniaMemberValue $pingRun 'FailureMessage');StorageConfirmed=(-not (($save.Pending -gt 0) -or [bool]$save.Suspended -or ($save.Conflicts -gt 0)))}
+        }
         if($null -ne $run){
             $save=Get-DomeniaPersistenceState
             $collection=[pscustomobject]@{Approved=[bool]$run.Approved;StartedUtc=[string](Get-DomeniaMemberValue $run 'ApprovedUtc');FinishedUtc=[datetime]::UtcNow.ToString('o');Targets=[long](@($run.Targets).Count);Done=[long]$run.Done;Failed=[long]$run.Failed;Stopping=[bool]$run.Stopping;FailureMessage=[string](Get-DomeniaMemberValue $run 'FailureMessage');StorageConfirmed=(-not (($save.Pending -gt 0) -or ([bool]$save.Suspended) -or ($save.Conflicts -gt 0)))}
         }
+        if($null -ne $pingCollection){
+            # Chained refresh: presence dated by the ping of every workstation, inventory by the WMI of those that answered.
+            $common=@{DomainDn=([string]$r.DomainDn);ScopeDn=([string]$r.Dn);Outcome=([string]$r.Outcome);OutcomeMessage=([string]$r.OutcomeMessage);CollectorVersion=([string]$script:MasterBuild);NowUtc=([datetime]::UtcNow)}
+            $changes=@()
+            if([string]$r.Mode -eq 'Both'){$changes+=@(New-DomeniaRefreshRunChanges -Mode AD -Directory $r.Directory @common)}
+            $changes+=@(New-DomeniaRefreshRunChanges -Mode Ping -Collection $pingCollection @common)
+            if($null -ne $collection){$changes+=@(New-DomeniaRefreshRunChanges -Mode Wmi -Collection $collection @common)}
+        }else{
         $changes=@(New-DomeniaRefreshRunChanges -Mode ([string]$r.Mode) -DomainDn ([string]$r.DomainDn) -ScopeDn ([string]$r.Dn) -Directory $r.Directory -Collection $collection -Outcome ([string]$r.Outcome) -OutcomeMessage ([string]$r.OutcomeMessage) -CollectorVersion ([string]$script:MasterBuild) -NowUtc ([datetime]::UtcNow))
+        }
         if($changes.Count -eq 0){return}
         $batchId=[guid]::NewGuid().ToString('D')
         $context=New-DomeniaStoreContext -RequestId ('ou-refresh-'+[string]$r.Id) -ScopeDn ([string]$r.Dn) -Subtree $true

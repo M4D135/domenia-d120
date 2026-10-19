@@ -478,15 +478,15 @@ Case 'UX-24 : confirmation en trois lignes, cible lisible, ecart explique, bouto
 }
 
 # ---------------------------------------------------------------- MO-08 / CO-19: batch ping and distinct counters
-Case 'MO-08 : un job ParkPing par lot de 32 postes, un seul en vol, aucune lecture de console' {
+Case 'MO-08 : un job ParkPing par lot de 192 postes, un seul en vol, aucune lecture de console' {
  # Collection engine (points 14, 15, 160): each batch is admitted by the budgets of the presumed subnets of its
  # workstations, so the next batch leaves once the current one ended (never two at once).
  Reset-Fixture;Ready-Run 200 -PingOnly
  1..5|ForEach-Object{Invoke-DomeniaParkRunTick}
  Assert ($script:Calls.Count -eq 2) ('Taches : '+$script:Calls.Count)
  $ping=$script:Calls[1]
- Assert ($ping.OperationId -eq 'ParkPing' -and $ping.TaskClass -eq 'Explicit' -and @($ping.Payload.Targets).Count -eq 32 -and [int]$ping.Payload.BatchSize -eq 32 -and [int]$ping.Payload.TimeoutMs -eq 1000) 'Charge du ping de liste'
- # One batch of 32: up to 2.5 s of name resolution + 2 s of echoes + 1 s of work, plus 20 s.
+ Assert ($ping.OperationId -eq 'ParkPing' -and $ping.TaskClass -eq 'Explicit' -and @($ping.Payload.Targets).Count -eq 192 -and [int]$ping.Payload.BatchSize -eq 192 -and [int]$ping.Payload.TimeoutMs -eq 1000) 'Charge du ping de liste'
+ # One batch of 192 (decision 2026-10-19): up to 2.5 s of name resolution + 2 s of echoes + 1 s of work, plus 20 s.
  Assert ([int]$ping.TimeoutSeconds -eq 26) ('Delai du job : '+$ping.TimeoutSeconds)
  Assert ($ping.Code -ceq (Get-DomeniaParkPingWorkerCode)) 'Corps epingle ParkPing non utilise.'
  Assert (@($script:Calls|Where-Object{$_.OperationId -eq 'LiveConsole'}).Count -eq 0) 'Lecture de console pendant un ping.'
@@ -947,23 +947,23 @@ Case 'Moteur : ping de la liste, un site suspendu attend seul, puis reprend un p
  Assert (@($next.Payload.Targets).Count -eq 1 -and [string]@($next.Payload.Targets)[0].Computer -eq 'PC-2' -and [string]$r.Sources.Health['site:10.1.2.0/24'].State -eq 'Closed') ('Reprise : '+@($next.Payload.Targets).Count)
 }
 Case 'Moteur : des échos lents réduisent le lot de leur sous-réseau, jamais celui des autres' {
- Reset-Fixture;Ready-Run 80 -PingOnly;$r=Run
- $addresses=@{};for($i=1;$i -le 80;$i++){$addresses['pc-'+$i]=$(if($i -le 60){'10.1.2.'+$i}else{'10.9.9.'+$i})};$script:DomeniaTargetAddresses=$addresses
+ Reset-Fixture;Ready-Run 400 -PingOnly;$r=Run
+ $addresses=@{};for($i=1;$i -le 400;$i++){$addresses['pc-'+$i]=$(if($i -le 300){'10.1.2.'+($i % 250)}else{'10.9.9.'+($i % 250)})};$script:DomeniaTargetAddresses=$addresses
  Invoke-DomeniaParkRunTick
  $first=$script:Calls[1]
- Assert (@($first.Payload.Targets).Count -eq 32) ('Premier lot : '+@($first.Payload.Targets).Count)
+ Assert (@($first.Payload.Targets).Count -eq 192) ('Premier lot : '+@($first.Payload.Targets).Count)
  # Three quick answers set the reference of the site, then its echoes take 900 ms: its budget is halved once.
- $detail=@{};for($i=1;$i -le 32;$i++){$detail['PC-'+$i]=$(if($i -le 3){'Réponse ICMP · 20 ms · 10.1.2.'+$i}else{'Réponse ICMP · 900 ms · 10.1.2.'+$i})}
+ $detail=@{};for($i=1;$i -le 192;$i++){$detail['PC-'+$i]=$(if($i -le 3){'Réponse ICMP · 20 ms · 10.1.2.'+($i % 250)}else{'Réponse ICMP · 900 ms · 10.1.2.'+($i % 250)})}
  Complete-PingJob $first $detail
- Assert ([int]$r.Sources.Health['site:10.1.2.0/24'].Limit -eq 16) ('Budget du site lent : '+$r.Sources.Health['site:10.1.2.0/24'].Limit)
+ Assert ([int]$r.Sources.Health['site:10.1.2.0/24'].Limit -eq 96) ('Budget du site lent : '+$r.Sources.Health['site:10.1.2.0/24'].Limit)
  Invoke-DomeniaParkRunTick
  $names=@(@($script:Calls[2].Payload.Targets)|ForEach-Object{[int]([string]$_.Computer).Substring(3)})
- Assert ($names.Count -eq 32 -and @($names|Where-Object{$_ -le 60}).Count -eq 16 -and @($names|Where-Object{$_ -gt 60}).Count -eq 16) ('Deuxième lot : '+($names -join ','))
+ Assert ($names.Count -eq 192 -and @($names|Where-Object{$_ -le 300}).Count -eq 96 -and @($names|Where-Object{$_ -gt 300}).Count -eq 96) ('Deuxième lot : '+$names.Count)
  Assert ($r.Deferred.Count -eq 12) ('Différés : '+$r.Deferred.Count)
 }
-Case 'Moteur : ping de la liste par lots de 32, un seul en vol, chaque poste validé dans le plan durable' {
- Reset-Fixture;Approve-Run 70 -PingOnly;$r=Run
- Assert ($null -ne $r.CampaignProgress -and [int]$r.CampaignProgress.Total -eq 70) 'Plan du ping non enregistré'
+Case 'Moteur : ping de la liste par lots de 192, un seul en vol, chaque poste validé dans le plan durable' {
+ Reset-Fixture;Approve-Run 400 -PingOnly;$r=Run
+ Assert ($null -ne $r.CampaignProgress -and [int]$r.CampaignProgress.Total -eq 400) 'Plan du ping non enregistré'
  $committed=0;$guard=0
  while((-not $r.Completed) -and ($guard -lt 30)){
   $guard++
@@ -974,8 +974,8 @@ Case 'Moteur : ping de la liste par lots de 32, un seul en vol, chaque poste val
   while($script:Saves.Count -gt $committed){Commit-PingSaved $committed;$committed++}
  }
  $sizes=(@($script:Calls|Where-Object{$_.OperationId -eq 'ParkPing'})|ForEach-Object{@($_.Payload.Targets).Count}) -join ','
- Assert ($sizes -eq '32,32,6') ('Lots : '+$sizes)
- Assert ($r.Completed -and $r.Done -eq 70 -and $r.Unchecked -eq 0) ('Fin : '+$r.Done+' validés, '+$r.Unchecked+' non vérifiés')
+ Assert ($sizes -eq '192,192,16') ('Lots : '+$sizes)
+ Assert ($r.Completed -and $r.Done -eq 400 -and $r.Unchecked -eq 0) ('Fin : '+$r.Done+' validés, '+$r.Unchecked+' non vérifiés')
  Assert ($script:Prefs['Domenia.campaign-plan.json'] -eq '{}' -and $script:Prefs['Domenia.campaign-progress.json'] -eq '{}') 'Plan terminé encore proposé à la reprise'
 }
 Case 'Moteur : ping arrêté, les postes validés sortent du plan, les autres restent à reprendre' {
@@ -1024,19 +1024,22 @@ Case 'Moteur : dans la fenêtre, le widget ajouté part au geste, par le budget 
 }
 Case 'Moteur : base en maintenance, le ping de la liste nʼenvoie plus de lot et le plan garde le motif' {
  # Points 32 and 35 (storage) for the batch ping as for the console reads: the echoes already reported are saved.
- Reset-Fixture;Approve-Run 40 -PingOnly;$r=Run
+ Reset-Fixture;Approve-Run 240 -PingOnly;$r=Run
  Invoke-DomeniaParkRunTick;$first=$script:Calls[1]
- Assert (@($first.Payload.Targets).Count -eq 32) ('Premier lot : '+@($first.Payload.Targets).Count)
+ Assert (@($first.Payload.Targets).Count -eq 192) ('Premier lot : '+@($first.Payload.Targets).Count)
  $script:Persistence=[pscustomobject]@{Pending=@{};InFlight=0;Failures=0;Conflicts=@{};LinkBusy=$false;LinkRequestTimer=$null;LinkPersistenceMore=$false}
  $script:StorageMaintenance=[pscustomobject]@{Locked=$true;Draining=$false;Hold=$false}
  try{
   Complete-PingJob $first
   Invoke-DomeniaParkRunTick
-  Assert ($r.Stopping -and @($script:Calls|Where-Object{$_.OperationId -eq 'ParkPing'}).Count -eq 1 -and $script:Saves.Count -eq 1) 'Lot envoyé pendant la maintenance, ou échos reçus non enregistrés'
-  Commit-PingSaved 0;Invoke-DomeniaParkRunTick
+  Assert ($r.Stopping -and @($script:Calls|Where-Object{$_.OperationId -eq 'ParkPing'}).Count -eq 1 -and $script:Saves.Count -ge 1) 'Lot envoyé pendant la maintenance, ou échos reçus non enregistrés'
+  # The 192 echoes of the batch are stored in groups of 32 (one SQLite transaction each), four in flight at most.
+  $committed=0;$guard=0
+  while((-not $r.Completed) -and ($guard -lt 20)){$guard++;while($script:Saves.Count -gt $committed){Commit-PingSaved $committed;$committed++};Invoke-DomeniaParkRunTick}
+  Assert (@($script:Calls|Where-Object{$_.OperationId -eq 'ParkPing'}).Count -eq 1) 'Lot envoyé pendant la maintenance'
   $progress=ConvertFrom-DomeniaCampaignProgressText $script:Prefs['Domenia.campaign-progress.json']
-  Assert ($r.Completed -and $r.Done -eq 32 -and $r.Unchecked -eq 8) ('Fin : '+$r.Done+' validés, '+$r.Unchecked+' non vérifiés')
-  Assert ($progress.State -eq 'Incident' -and $progress.DoneCount -eq 32 -and $progress.Reason -match '^Maintenance de la base locale') ('Plan : '+$progress.State+' '+$progress.Reason)
+  Assert ($r.Completed -and $r.Done -eq 192 -and $r.Unchecked -eq 48) ('Fin : '+$r.Done+' validés, '+$r.Unchecked+' non vérifiés')
+  Assert ($progress.State -eq 'Incident' -and $progress.DoneCount -eq 192 -and $progress.Reason -match '^Maintenance de la base locale') ('Plan : '+$progress.State+' '+$progress.Reason)
  }finally{$script:StorageMaintenance=$null}
 }
 Case 'RC11711 : nettoyage après timeout et moteur saturé attendent sans arrêter ni perdre le poste suivant' {

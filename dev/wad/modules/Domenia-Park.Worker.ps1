@@ -1,7 +1,7 @@
 ﻿# MO-08: pinned worker bodies of the surveys of a list (Domenia-Park.UI.ps1 starts them, Domenia-Engine.Model.ps1
 # classifies them). A body is a here-string pinned by SHA-256: any change goes through the worker contracts.
 function Get-DomeniaParkPingWorkerCode {
-    # ParkPing: the echoes of a list leave in parallel, BatchSize at a time (32 by default), one Ping instance per
+    # ParkPing: the echoes of a list leave in parallel, BatchSize at a time (192 from the surveys, 256 at most), one Ping instance per
     # echo, TimeoutMs each (1 s by default), after a bounded parallel name resolution (IPv4 first, as the check of a
     # single workstation). A name that cannot be resolved is an error, never a missing reply. Each batch is reported
     # through the Progress queue of the payload, then the whole result is returned. No credential, no CIM, no write.
@@ -10,7 +10,7 @@ $items=@($Payload.Targets)
 $timeout=1000;try{$timeout=[int]$Payload.TimeoutMs}catch{$timeout=1000}
 $timeout=[Math]::Max(250,[Math]::Min(3000,$timeout))
 $batch=32;try{$batch=[int]$Payload.BatchSize}catch{$batch=32}
-$batch=[Math]::Max(1,[Math]::Min(64,$batch))
+$batch=[Math]::Max(1,[Math]::Min(256,$batch))
 $progress=$null
 if($null -ne $Payload.PSObject.Properties['Progress']){$progress=$Payload.Progress}
 function Get-ParkPingInnerMessage($ErrorValue){

@@ -311,7 +311,7 @@ function Get-DomeniaParkPingTimeoutSeconds {
     # Bounded to 30 minutes; the ceiling of a list (5000 workstations at most) stays well under it.
     param([int]$Count,[int]$TimeoutMs=1000,[int]$BatchSize=32)
     $delay = [Math]::Max(250,[Math]::Min(3000,$TimeoutMs))
-    $batch = [Math]::Max(1,[Math]::Min(64,$BatchSize))
+    $batch = [Math]::Max(1,[Math]::Min(256,$BatchSize))
     $batches = [Math]::Ceiling([Math]::Max(0,$Count) / [double]$batch)
     $perBatch = [Math]::Ceiling((2500 + $delay + 1000) / 1000.0) + 1
     return [int][Math]::Min(1800,20 + $perBatch * $batches)

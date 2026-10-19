@@ -140,14 +140,14 @@ Case 'Successful collection reports completion only after local persistence drai
 Case 'Index button still opens its picker when no OU has been chosen' {$script:IndexScopeDn='';Update-DomeniaOuRefreshUi;Expect $script:Controls.BtnIndexScopeUpdate.IsEnabled}
 Case 'Old operation status identifies its original OU after scope selection changes' {Invoke-DomeniaOuRefresh Search Base;$old=$script:SelectedBranchDn;$script:SelectedBranchDn='OU=New,DC=example,DC=test';Update-DomeniaOuRefreshUi;Expect ($script:Controls.LblSearchOuRefreshStatus.Text.Contains('Précédente OU') -and $script:Controls.LblSearchOuRefreshStatus.Text.Contains($old))}
 Case 'Fleet controls become enabled after choosing their own OU' {$script:FleetScopeDn='';Update-DomeniaOuRefreshUi;Expect (-not $script:Controls.BtnFleetRefreshPostes.IsEnabled);$script:FleetScopeDn='OU=Chosen,DC=example,DC=test';Update-DomeniaOuRefreshUi;Expect $script:Controls.BtnFleetRefreshPostes.IsEnabled}
-Case 'Selected dashboard probes are snapshotted before AD and forced in remote plan' {Invoke-DomeniaOuRefresh Search Both;$script:ProbeIds=@('fixture.changed');$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;Expect ((Get-ListRun).Probes.Count -eq 1 -and (Get-ListRun).Probes[0].Id -eq 'fixture.os' -and (Get-ListRun).CacheMinutes -eq 0)}
+Case 'Selected dashboard probes are snapshotted before AD and forced in remote plan' {Invoke-DomeniaOuRefresh Search Both;$script:ProbeIds=@('fixture.changed');$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;Expect ((Get-ListRun).PingOnly -and $script:DomeniaOuRefresh.ChainWmi.Probes.Count -eq 1 -and $script:DomeniaOuRefresh.ChainWmi.Probes[0].Id -eq 'fixture.os' -and (Get-ListRun).CacheMinutes -eq 0)}
 Case 'First click includes saved query widget probes on both boards without opening the workshop' {
     $script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one'});$script:BoardWidgets.Computer=@([pscustomobject]@{Source='Query';Key='saved.two'})
     $script:SavedRecipes=@([pscustomobject]@{Id='saved.one';ProbeIds=@('fixture.os','fixture.ram')},[pscustomobject]@{Id='saved.two';ProbeIds=@('fixture.ram','fixture.disk')})
     Invoke-DomeniaOuRefresh Search Both
     Expect ($null -eq $script:DomeniaQueryState -and $script:LibraryReads -eq 1 -and $script:DomeniaOuRefresh.Probes.Count -eq 3)
     $script:SavedRecipes=@();$script:BoardWidgets.Fleet=@();$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 1
-    Expect ((Get-ListRun).Probes.Count -eq 3 -and (Get-ListRun).CacheMinutes -eq 0)
+    Expect ((Get-ListRun).PingOnly -and $script:DomeniaOuRefresh.ChainWmi.Probes.Count -eq 3 -and (Get-ListRun).CacheMinutes -eq 0)
 }
 Case 'Loaded query library is used without rereading or changing its draft' {
     $script:BoardWidgets.Computer=@([pscustomobject]@{Source='Query';Key='saved.one'})
@@ -168,6 +168,15 @@ Case 'Paused query widget is left out of the WMI refresh of the OU (decision Dav
     $script:SavedRecipes=@([pscustomobject]@{Id='saved.one';ProbeIds=@('fixture.os')},[pscustomobject]@{Id='saved.two';ProbeIds=@('fixture.disk')})
     Invoke-DomeniaOuRefresh Search Both
     Expect (($script:DomeniaOuRefresh.Probes.Count -eq 1) -and ([string]$script:DomeniaOuRefresh.Probes[0].Id -eq 'fixture.disk')) ('Sondes : '+(@($script:DomeniaOuRefresh.Probes|ForEach-Object{$_.Id}) -join ','))
+}
+Case 'Tout actualiser (decision 2026-10-19): one ping of every workstation, then WMI of those online only, without a second confirmation' {
+    Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Complete-Targets 2
+    $ping=Get-ListRun;Expect ($ping.PingOnly -and -not $ping.Inventory -and ($script:DomeniaOuRefresh.PingRun -eq $ping)) 'ping step first'
+    $ping.Approved=$true;$ping|Add-Member -NotePropertyName ApprovedUtc -NotePropertyValue ([datetime]::UtcNow.AddMinutes(-1).ToString('o')) -Force
+    $ping.PingOnline[('CN=PC-0,'+$script:DomeniaOuRefresh.Dn).ToLowerInvariant()]=$true;$ping.Done=2;$ping.Completed=$true
+    Invoke-DomeniaOuRefreshTick
+    $wmi=Get-ListRun
+    Expect ((-not [object]::ReferenceEquals($wmi,$ping)) -and $wmi.WmiOnly -and $wmi.Inventory -and [bool]$wmi.ChainApproved -and (@($wmi.RequestedTargets).Count -eq 1) -and (-not $script:DomeniaOuRefresh.Completed)) 'WMI step on the online workstation only'
 }
 Case 'Base-only refresh is independent of a damaged query library' {$script:BoardWidgets.Fleet=@([pscustomobject]@{Source='Query';Key='saved.one'});$script:BadLibrary=$true;Invoke-DomeniaOuRefresh Search Base;Expect ($script:Jobs.Count -eq 1 -and $script:LibraryReads -eq 0)}
 Case 'Failed workstation measurements never announce full ping and WMI success' {Invoke-DomeniaOuRefresh Search Postes;Invoke-DomeniaOuRefreshTick;Complete-Targets 1;(Get-ListRun).Completed=$true;(Get-ListRun).Approved=$true;(Get-ListRun).Done=1;(Get-ListRun).Failed=1;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Partial' -and -not $script:DomeniaOuRefresh.Status.Contains('Ping et WMI relus'))}
