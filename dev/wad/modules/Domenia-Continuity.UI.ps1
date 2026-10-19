@@ -212,7 +212,16 @@ function Invoke-DomeniaTreeBookmarkRestore {
             $old=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
             try{
                 $n.IsSelected=$true;$script:SelectedBranchDn=$dn
-                $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=[bool]$s.Restore.Subtree}
+                # Decision David 2026-10-19 (startup time): the domain root remembered with its whole subtree and no
+                # search text is reopened one level deep (its first OUs), as a survey of the whole domain is refused.
+                # An OU keeps its remembered depth; the subtree box stays one click away.
+                $subtree=[bool]$s.Restore.Subtree
+                $rootDn=([string]$script:Conn.BaseDn).Trim()
+                if($subtree -and $rootDn -and ($dn -ieq $rootDn) -and (-not ([string](Get-DomeniaSearchText -Mode OU)).Trim())){
+                    $subtree=$false
+                    Write-AppLog 'OU restaurée : racine du domaine rouverte sur un seul niveau (sous-niveaux sur un clic), pour éviter la lecture de tout le domaine au démarrage.' 'INFO'
+                }
+                $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=$subtree}
                 Update-DomeniaSearchScopeUi;$n.BringIntoView();$s.SelectedRestored=$true
             }finally{$script:SuppressBranchAutoLoad=$old}
             Hide-DomeniaOuRestoreNotice

@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.30-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.31-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22166,6 +22166,7 @@ function Initialize-DomeniaPresentation {
     # d icone et plusieurs lignes de journal parasites par clic.
     if ($script:PresentationInitialized) { return }
     $script:PresentationInitialized = $true
+    $split=[Diagnostics.Stopwatch]::StartNew()
 
     try { [void](Load-DomeniaSettings) } catch { Write-AppLog ("Préférences non chargées, valeurs par défaut pour cette session : " + $_.Exception.Message) "WARN" }
     # Non-blocking startup (FI-19): the page shows that the figures are being read; the LocalIndexRead worker reads
@@ -22176,18 +22177,21 @@ function Initialize-DomeniaPresentation {
     try { Update-DomeniaCollectionLimitsUi } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     try { Register-DomeniaSettingsWatchers } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
     try { Restore-DomeniaWindowGeometry } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
+    Write-DomeniaStartupSplit -Name 'Presentation/Preferences' -Watch $split
 
     try {
         Load-DomeniaUiProfile | Out-Null
         Apply-DomeniaUiProfile -Profile $script:CurrentUiProfile
     }
     catch { try { Write-AppLog "Profil d'interface : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
+    Write-DomeniaStartupSplit -Name 'Presentation/Profil' -Watch $split
 
     try {
         Load-DomeniaTheme | Out-Null
         Apply-DomeniaTheme -Theme $script:CurrentTheme
     }
     catch { try { Write-AppLog "Theme : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
+    Write-DomeniaStartupSplit -Name 'Presentation/Theme' -Watch $split
 
     try { Enable-DomeniaUxHints } catch { try { Write-AppLog "UX hints : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
 
@@ -22208,21 +22212,27 @@ function Initialize-DomeniaPresentation {
     # Le lancement ramene toujours sur l Accueil. Reprendre le dernier
     # espace visite depose l operateur sur un ecran sans rapport avec ce
     # qu il vient d ouvrir, et sans objet selectionne.
+    Write-DomeniaStartupSplit -Name 'Presentation/Aides et icone' -Watch $split
     try { Initialize-DomeniaAccess; Initialize-DomeniaContinuity } catch { Write-AppLog ('Initialisation assistance : '+$_.Exception.Message) 'ERROR' }
     try { Select-DomeniaWorkspace -Workspace "TabDashboard" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
 
     $sessionButton=Get-DomeniaControl 'BtnSessionsRead';if($null -ne $sessionButton){$sessionButton.Add_Click({Start-DomeniaSessionsRead})}
     # UX-39 : la grille des sessions se parcourt au double-clic et au clic droit, comme celle des associations.
     $sessionGrid=Get-DomeniaControl 'DgSessions';if($null -ne $sessionGrid){$sessionGrid.ContextMenu=New-DomeniaSessionsContextMenu;$sessionGrid.Add_MouseDoubleClick({param($sender,$e) Open-DomeniaSessionFiche -Source $e.OriginalSource});$sessionGrid.Add_PreviewMouseRightButtonDown({param($sender,$e) $hit=Get-DomeniaGridHit $e.OriginalSource;if($null -ne $hit -and $null -ne $hit.Row){$sender.SelectedItem=$hit.Row.Item}})}
+    Write-DomeniaStartupSplit -Name 'Presentation/Acces, continuite et accueil' -Watch $split
     Initialize-DomeniaGuard
     Initialize-DomeniaAssist
+    Write-DomeniaStartupSplit -Name 'Presentation/Fiabilite et assistance poste' -Watch $split
     # X03 (UX-15, UI-27): « Compte poste » pill, its side panel and the « En ce moment » section of Comptes.
     try { Initialize-DomeniaAccountsUi } catch { Write-AppLog ('Initialisation des comptes : '+$_.Exception.Message) 'WARN' }
+    Write-DomeniaStartupSplit -Name 'Presentation/Comptes' -Watch $split
     Initialize-DomeniaLive
     Initialize-DomeniaReconcile
+    Write-DomeniaStartupSplit -Name 'Presentation/Recherche en direct' -Watch $split
     try { Initialize-DomeniaSupportUi } catch { Stop-DomeniaSupportUi; Write-AppLog ('Initialisation du diagnostic : '+$_.Exception.Message) 'ERROR' }
     # Points 22, 24 and 30: census, disappeared objects and snapshots, as a tab of the autonomous base page.
     try { Initialize-DomeniaDirectorySyncUi } catch { Write-AppLog ('Onglet Contrôles de la base indisponible : ' + $_.Exception.Message) 'ERROR' }
+    Write-DomeniaStartupSplit -Name 'Presentation/Diagnostic et controles de la base' -Watch $split
     Add-DomeniaUiLog -Area "Application" -Text "Domenia 1.0 pret."
 }
 
@@ -24455,16 +24465,21 @@ function Initialize-Window {
         } | Out-Null
         Invoke-DomeniaStartupStage "Etat initial de securite" {
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Preparation des controles..."
+            $split=[Diagnostics.Stopwatch]::StartNew()
             Set-VisibleTabsForType ""
             if($script:Ctrl.ContainsKey("TxtBranchLimit")){$script:Ctrl["TxtBranchLimit"].Text=[string](Get-CfgValue "Browser" "DefaultLimit" 100)}
             $script:Ctrl["TxtGlobalLimit"].Text=[string](Get-CfgValue "Browser" "GlobalSearchLimit" 100)
             # Toujours demarrer en lecture seule. L administrateur peut lever le verrou explicitement dans le GUI.
             $script:ReadOnlyMode=$true
             if($script:Ctrl.ContainsKey("ChkReadOnlyMode")){$script:Ctrl["ChkReadOnlyMode"].IsChecked=$true}
+            Write-DomeniaStartupSplit -Name 'Onglets et limites' -Watch $split
             try{Update-DomeniaMachineAccountUi -Force}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
+            Write-DomeniaStartupSplit -Name 'Compte poste' -Watch $split
             Assert-DomeniaReadWriteControlClassification
+            Write-DomeniaStartupSplit -Name 'Classification des controles' -Watch $split
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Application des droits et du mode lecture seule..."
             Apply-CurrentPermissionUi
+            Write-DomeniaStartupSplit -Name 'Droits et lecture seule' -Watch $split
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Chargement de la presentation legere..."
             Initialize-DomeniaPresentation
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Presentation prete."
@@ -25983,7 +25998,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.30-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.31-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

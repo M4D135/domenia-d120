@@ -1776,6 +1776,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaIndexSearchUi',
             'Move-DomeniaIndexSearchPage',
             'Fail-DomeniaIndexSearchUi',
+            'Write-DomeniaStartupSplit',
             'Start-DomeniaLocalRead',
             'Test-DomeniaLocalReadCurrent',
             'Reset-DomeniaIndexMetadataState',

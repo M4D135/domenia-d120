@@ -1202,6 +1202,15 @@ function Fail-DomeniaIndexSearchUi {
 # would refuse it whenever another local job runs, starting with its sibling (the figures and the associations are
 # asked together at startup, on a change of account and after a switch of base). Explicit, or Selection for the
 # summary of the selected workstation, as the index search and the stored park state: at worst queued, never refused.
+function Write-DomeniaStartupSplit {
+    # Decision David 2026-10-19 (startup time): duration of one sub-step of a startup stage in Domenia-startup.log
+    # (Detail/<name>), measured on -Watch, which restarts for the next sub-step. A trace failure never stops the start.
+    param([Parameter(Mandatory=$true)][string]$Name,$Watch)
+    if($null -eq $Watch){return}
+    try{Write-StartupTrace -Stage ('Detail/'+$Name) -Status 'OK' -DurationMs ([long]$Watch.ElapsedMilliseconds)}catch{Write-DomeniaSwallowed 'Engine' 'Write-DomeniaStartupSplit' $_}
+    $Watch.Restart()
+}
+
 function Start-DomeniaLocalRead {
     param(
         [Parameter(Mandatory=$true)][string]$Name,
