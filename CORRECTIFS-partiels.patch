@@ -1,0 +1,22 @@
+--- /tmp/Core.pristine.ps1	2026-10-19 20:22:25.000000000 +0200
++++ dev/wad/Domenia-Core.ps1	2026-10-19 21:33:45.274509457 +0200
+@@ -10972,7 +10972,7 @@
+             -Payload ([pscustomobject]@{ Computer=$computer; Deep=[bool]$Deep; BudgetMs=$budget; MaxSoftwareKeys=$softwareKeys; PreferWinrm=[bool](Get-CfgValue "Inventory" "PreferWinrm" $false) }) `
+             -CallbackState $collectionState `
+             -ReplaceKey "inventory" `
+-            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep") `
++            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep") `
+             -TimeoutSeconds $timeout `
+             -StatusText ("Inventaire " + $mode + " de " + $computer + " en arriere-plan...") `
+             -SuccessHandler "Complete-DomeniaClassicCollected" `
+@@ -12609,6 +12609,10 @@
+ $DomeniaCollectedResult = & {
+ $computer=[string]$Payload.Computer;$root=[string]$Payload.Root;if([string]::IsNullOrWhiteSpace($root)){$root='root'}
+ $maxCount=[Math]::Max(20,[Math]::Min(500,[int]$Payload.MaxCount));$watch=[Diagnostics.Stopwatch]::StartNew();$cred=Get-WMachineCredential $Context;$classicError='';$session=$null
++$reachable=$false;$reachDetail=''
++try{$pg=New-Object Net.NetworkInformation.Ping;try{$ad=@([Net.Dns]::GetHostAddresses($computer)|Where-Object{$_.AddressFamily-eq[Net.Sockets.AddressFamily]::InterNetwork});$tgt=if($ad.Count){[string]$ad[0].IPAddressToString}else{[string]$computer};$sr=$pg.Send($tgt,900);if($null-ne$sr-and[string]$sr.Status-eq'Success'){$reachable=$true;$reachDetail='Reponse ICMP '+[string]$sr.RoundtripTime+' ms depuis '+$tgt}else{$reachDetail='ICMP '+$(if($null-ne$sr){[string]$sr.Status}else{'sans reponse'})+' depuis '+$tgt}}finally{try{$pg.Dispose()}catch{}}}catch{$reachDetail='Controle ICMP non abouti. '+$_.Exception.Message}
++if(-not$reachable){foreach($pt in @(135,5985,5986)){$cl=New-Object Net.Sockets.TcpClient;try{if($cl.ConnectAsync($computer,$pt).Wait(1200)){$reachable=$true;$reachDetail='ICMP muet mais port '+[string]$pt+' ouvert'}}catch{}finally{try{$cl.Close()}catch{}};if($reachable){break}}}
++if(-not$reachable){$watch.Stop();return [pscustomobject]@{Computer=$computer;Namespaces=@();Errors=@('Poste injoignable : '+$reachDetail);Truncated=$false;DurationMs=[long]$watch.ElapsedMilliseconds;Transport='Aucun';Success=$false;FailureReason='Poste injoignable ('+$reachDetail+') : lecture WMI non lancee. Les dernieres donnees valides sont conservees.'}}
+ $lease=Enter-WCredentialAttempt -Context $Context -Channel Remote;try{$session=New-WDomeniaCimSession $Context $computer $cred 12;$rows=New-Object Collections.ArrayList;[void]$rows.Add([pscustomobject]@{Namespace=$root;Depth=0});foreach($c in @(Get-CimInstance -CimSession $session -Namespace $root -ClassName '__NAMESPACE' -ErrorAction Stop|Select-Object -First ($maxCount-1))){if($c.Name){[void]$rows.Add([pscustomobject]@{Namespace=($root+'\'+[string]$c.Name);Depth=1})}};$watch.Stop();[pscustomobject]@{Computer=$computer;Namespaces=@($rows|Sort-Object Namespace);Errors=@();Truncated=($rows.Count-ge$maxCount);DurationMs=[long]$watch.ElapsedMilliseconds;Transport='CIM';Success=$true};return}catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$classicError=$_.Exception.Message}finally{Exit-WCredentialAttempt -Lease $lease;Remove-WDomeniaCimSession $session}
+ $local=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('JHJvb3Q9W3N0cmluZ10kUGF5bG9hZC5Sb290CmlmKFtzdHJpbmddOjpJc051bGxPcldoaXRlU3BhY2UoJHJvb3QpKXskcm9vdD0ncm9vdCd9CiRtYXg9W01hdGhdOjpNYXgoMjAsW01hdGhdOjpNaW4oNTAwLFtpbnRdJFBheWxvYWQuTWF4Q291bnQpKQokcm93cz1OZXctT2JqZWN0IENvbGxlY3Rpb25zLkFycmF5TGlzdApbdm9pZF0kcm93cy5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7TmFtZXNwYWNlPSRyb290O0RlcHRoPTB9KQpmb3JlYWNoKCRjIGluIEAoR2V0LUNpbUluc3RhbmNlIC1OYW1lc3BhY2UgJHJvb3QgLUNsYXNzTmFtZSAnX19OQU1FU1BBQ0UnIC1FcnJvckFjdGlvbiBTdG9wfFNlbGVjdC1PYmplY3QgLUZpcnN0ICgkbWF4LTEpKSl7CiBpZigkYy5OYW1lKXtbdm9pZF0kcm93cy5BZGQoW3BzY3VzdG9tb2JqZWN0XUB7TmFtZXNwYWNlPSgkcm9vdCsnXCcrW3N0cmluZ10kYy5OYW1lKTtEZXB0aD0xfSl9Cn0KW3BzY3VzdG9tb2JqZWN0XUB7Q29tcHV0ZXI9JGVudjpDT01QVVRFUk5BTUU7TmFtZXNwYWNlcz1AKCRyb3dzfFNvcnQtT2JqZWN0IE5hbWVzcGFjZSk7RXJyb3JzPUAoKTtUcnVuY2F0ZWQ9KCRyb3dzLkNvdW50LWdlJG1heCk7RHVyYXRpb25Ncz0wO1RyYW5zcG9ydD0nVGFza0ZhbGxiYWNrJztTdWNjZXNzPSR0cnVlfQ=='))
+ Assert-WCredentialAllowed -Context $Context -Channel Remote
