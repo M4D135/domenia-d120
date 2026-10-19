@@ -234,14 +234,6 @@
                       <TextBlock Text="Réutiliser les mesures fraîches" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <ComboBox x:Name="CmbCollectionCache" Width="210" MinHeight="32" AutomationProperties.Name="Durée de réutilisation des mesures" ToolTip="Plafond des durées de réutilisation de lʼinventaire et des sondes WMI dʼun relevé ; le ping et la console sont toujours relus. Forcer relit toutes les mesures demandées." />
                     </WrapPanel>
-                    <WrapPanel Margin="{DynamicResource SpaceRow}">
-                      <TextBlock Text="Plafond des widgets" VerticalAlignment="Center" Margin="{DynamicResource SpaceInline}" />
-                      <ComboBox x:Name="CmbCollectionWidgetMax" Width="150" MinHeight="32" Margin="{DynamicResource SpaceInlineLarge}" DisplayMemberPath="Name" AutomationProperties.Name="Plafond de postes lus par la collecte dʼun widget" ToolTip="Nombre maximal de postes lus pour actualiser un widget. Sans plafond : toute lʼOU affichée est lue ; au-delà de 200 postes, le nombre est confirmé avant toute lecture." />
-                      <TextBlock Text="Nouveaux essais WMI" VerticalAlignment="Center" Margin="{DynamicResource SpaceInline}" />
-                      <ComboBox x:Name="CmbCollectionWmiRetries" Width="80" MinHeight="32" Margin="{DynamicResource SpaceInlineLarge}" AutomationProperties.Name="Nouveaux essais WMI après incident transitoire" ToolTip="Nombre de nouvelles lectures dʼun poste qui répond mais dont la lecture WMI a dépassé le délai. 0 : aucun nouvel essai, le relevé se termine plus vite. Un poste éteint ou un droit refusé nʼest jamais relu." />
-                      <TextBlock Text="Premier délai" VerticalAlignment="Center" Margin="{DynamicResource SpaceInline}" />
-                      <ComboBox x:Name="CmbCollectionWmiRetryDelay" Width="110" MinHeight="32" DisplayMemberPath="Name" AutomationProperties.Name="Délai avant le premier nouvel essai WMI" ToolTip="Attente avant le premier nouvel essai ; chaque essai suivant attend quatre fois plus, cinq minutes au plus." />
-                    </WrapPanel>
                     <WrapPanel Margin="0,12,0,0">
                       <TextBlock Text="Profil dʼusage" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <ComboBox x:Name="CmbCollectionProfile" Width="250" MinHeight="32" AutomationProperties.Name="Profil dʼusage de la collecte" ToolTip="Durées de réutilisation par famille de données et fenêtre de collecte adaptées au réseau." />

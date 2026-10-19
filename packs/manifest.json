@@ -8,8 +8,8 @@
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3068587,
-      "sha256": "1d5b3ddfa095f8e5f66617c46beead23bf8fffa596a52104019a742b7378ce0e",
+      "bytes": 3068955,
+      "sha256": "8b3d604aebdb6bfab1fb901c48bfd84d583e66d711c1c085e22c7160a2166bb0",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6562730,
-      "sha256": "87f2d8da650414f391ccabd711a8e21b4b563b000c152dc84d9e82f1581b5ea2",
+      "bytes": 6563092,
+      "sha256": "d89bee70ac50371edffea7f4b9dcfdc0f01a94be1a703ed093aecfe4486cdba0",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -51,7 +51,7 @@
     ],
     "vm_no_longer_needed_for_requested_scope": true,
     "cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
-    "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Réglages de collecte). Contrôles hors Windows uniquement.",
+    "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Outils > Relevés). Contrôles hors Windows uniquement.",
     "historical_rc22_proofs": [
       "validation/2026-10-18/rc22-ui-automation/README.md"
     ]

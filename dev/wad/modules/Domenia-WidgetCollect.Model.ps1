@@ -327,7 +327,7 @@ function Get-DomeniaWidgetCollectAdmission {
     # the inline confirmation with its count first. Refresh and resume always ask it (Direct is only read for an
     # added widget). Limit: 200 workstations by default, bounded 1 to 2000 and never above the ceiling.
     # Maximum 0 or less: no ceiling for widgets (decision David 2026-10-19, setting « Plafond des widgets » of
-    # Réglages de collecte); the count is still confirmed above Limit.
+    # Outils > Relevés); the count is still confirmed above Limit.
     param([int]$TargetCount,[int]$Limit = 200,[int]$Maximum = 500)
     $count = [Math]::Max(0, $TargetCount)
     if ($Maximum -le 0) {
@@ -340,7 +340,7 @@ function Get-DomeniaWidgetCollectAdmission {
     $bounded = [Math]::Max(1, [Math]::Min([Math]::Min(2000, $Limit), [int]$ceiling.Maximum))
     $reason = ''
     if (-not [bool]$ceiling.Allowed) {
-        if ([string]$ceiling.Code -eq 'Ceiling') { $reason = [string]$count + ' postes à lire pour ce widget : plafond ' + [string]$ceiling.Maximum + ' (réglage « Plafond des widgets » dans Atelier > Réglages de collecte).' }
+        if ([string]$ceiling.Code -eq 'Ceiling') { $reason = [string]$count + ' postes à lire pour ce widget : plafond ' + [string]$ceiling.Maximum + ' (réglage « Plafond des widgets » dans Outils > Relevés).' }
         else { $reason = 'Aucun poste à lire pour ce widget.' }
     }
     return [pscustomobject]@{ Allowed = [bool]$ceiling.Allowed; Direct = (([bool]$ceiling.Allowed) -and ($count -le $bounded)); Limit = $bounded; Maximum = [int]$ceiling.Maximum; Count = $count; Reason = $reason }

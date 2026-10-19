@@ -2735,6 +2735,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaParkMaxTargets',
             'Get-DomeniaWidgetMaxTargets',
             'Get-DomeniaCollectionRetrySettings',
+            'Initialize-DomeniaCollectionLimitsUi',
             'Get-DomeniaParkListContext',
             'Get-DomeniaParkDisplayedTargets',
             'Test-DomeniaParkListStoppable',

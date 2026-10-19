@@ -113,7 +113,7 @@ Test-Case 'WGC-004' 'Ajouter un widget part sans confirmation jusquʼa la limite
     Assert-Equal 5 (Get-DomeniaWidgetCollectAdmission -TargetCount 3 -Maximum 5).Limit 'limite sous un plafond regle bas'
     $ceiling = Get-DomeniaWidgetCollectAdmission -TargetCount 501
     Assert-False ($ceiling.Allowed -or $ceiling.Direct) 'au-dela du plafond : rien nʼest lu'
-    Assert-Equal '501 postes à lire pour ce widget : plafond 500 (réglage « Plafond des widgets » dans Atelier > Réglages de collecte).' ([string]$ceiling.Reason)
+    Assert-Equal '501 postes à lire pour ce widget : plafond 500 (réglage « Plafond des widgets » dans Outils > Relevés).' ([string]$ceiling.Reason)
     Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 500).Allowed 'plafond inclus'
     Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 6 -Maximum 5).Allowed 'plafond regle par Collection.WidgetMaxTargets'
     # Decision David 2026-10-19: Maximum 0 = no ceiling; above the direct limit the count is still confirmed.

@@ -18938,6 +18938,7 @@ function Wire-Events {
         if($null -ne $stop){$stop.Tag=$source;$stop.Add_Click({param($sender,$eventArgs) Stop-DomeniaOuRefresh -Source ([string]$sender.Tag)})}
     }
     Update-DomeniaOuRefreshUi
+    try { Initialize-DomeniaCollectionLimitsUi } catch { Write-AppLog ('Réglages des relevés indisponibles : ' + $_.Exception.Message) 'WARN' }
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
     foreach ($firstStep in @('Connection','Ou','Base','Dashboard')) {

@@ -3771,6 +3771,24 @@
                           </DataGrid>
                         </DockPanel>
                       </TabItem>
+                      <!-- Decision David 2026-10-19: settings of the surveys (widget ceiling, WMI retries), Initialize-DomeniaCollectionLimitsUi. -->
+                      <TabItem x:Name="TabCollectionLimits" Header="Relevés" AutomationProperties.Name="Réglages des relevés">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                          <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <TextBlock Text="Réglages des relevés" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <TextBlock Text="Collectes des widgets et lectures WMI des postes. Chaque choix est enregistré aussitôt et sʼapplique au prochain relevé lancé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="{DynamicResource SpaceSection}"/>
+                            <TextBlock Text="Plafond des widgets" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <ComboBox x:Name="CmbCollectionWidgetMax" Width="200" HorizontalAlignment="Left" MinHeight="32" DisplayMemberPath="Name" AutomationProperties.Name="Plafond de postes lus par la collecte dʼun widget"/>
+                            <TextBlock Text="Nombre maximal de postes lus pour actualiser un widget de lʼAccueil. Sans plafond : toute lʼOU affichée est lue ; au-delà de 200 postes, le nombre est confirmé avant toute lecture." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="{DynamicResource SpaceSection}"/>
+                            <TextBlock Text="Nouveaux essais WMI" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <ComboBox x:Name="CmbCollectionWmiRetries" Width="200" HorizontalAlignment="Left" MinHeight="32" AutomationProperties.Name="Nouveaux essais WMI après incident transitoire"/>
+                            <TextBlock Text="Nouvelles lectures dʼun poste qui répond au ping mais dont la lecture WMI a dépassé le délai. 0 : aucun nouvel essai, le relevé se termine dès la dernière réponse. Un poste éteint ou un droit refusé nʼest jamais relu." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="{DynamicResource SpaceSection}"/>
+                            <TextBlock Text="Premier délai avant un nouvel essai" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <ComboBox x:Name="CmbCollectionWmiRetryDelay" Width="200" HorizontalAlignment="Left" MinHeight="32" DisplayMemberPath="Name" AutomationProperties.Name="Délai avant le premier nouvel essai WMI"/>
+                            <TextBlock Text="Chaque essai suivant attend quatre fois plus, cinq minutes au plus." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" Margin="{DynamicResource SpaceSection}"/>
+                          </StackPanel>
+                        </ScrollViewer>
+                      </TabItem>
                       <TabItem x:Name="WsQueryWorkshop" Header="Atelier de requêtes" AutomationProperties.Name="Atelier de requêtes">
                         <ContentControl x:Name="QueryWorkshopHost" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
                       </TabItem>
