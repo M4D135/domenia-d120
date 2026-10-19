@@ -10922,6 +10922,12 @@ function Fail-DomeniaInventoryUi {
     $detail = ([string]$Message).Trim()
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     [void](Set-DomeniaControlText -Name "LblInventoryStatus" -Text ("Inventaire impossible : " + $detail))
+    $kept = ' Les dernières données valides du tableau de bord restent affichées.'
+    if ($null -eq $script:LastComputerDashboardResult) { $kept = ' Le tableau de bord du poste attend une lecture réussie.' }
+    [void](Set-DomeniaControlText 'LblComputerDashboard' ('Inventaire impossible : ' + $detail + $kept))
+    if ($null -eq $script:LastComputerDashboardResult) {
+        try { Show-DomeniaBoard -Board Computer -EmptyText ('Inventaire impossible : ' + $detail) } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaInventoryUi' $_ }
+    }
     Set-Status ("Inventaire impossible : " + $detail) "ERROR"
     Add-DomeniaUiLog -Area "Inventaire" -Level "ERROR" -Text $detail
 }

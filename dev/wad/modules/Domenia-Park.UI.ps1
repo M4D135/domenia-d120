@@ -613,7 +613,7 @@ function Start-DomeniaOnlinePark {
         # answered only. The WMI step was confirmed with the ping (ChainApproved); the ping confirmation says so (ChainNote).
         $r|Add-Member -NotePropertyName ChainApproved -NotePropertyValue ([bool]$ChainApproved -and [bool]$RefreshOperationId)
         $r|Add-Member -NotePropertyName PingBeforeWmi -NotePropertyValue ([bool]$PingBeforeWmi)
-        $r|Add-Member -NotePropertyName IncludeUnaddressed -NotePropertyValue ([bool]$IncludeUnaddressed)
+        $r|Add-Member -NotePropertyName IncludeUnaddressed -NotePropertyValue (([bool]$IncludeUnaddressed) -or ([string]$slotName -eq 'Computer') -or (@($targets).Count -le 1))
         $r|Add-Member -NotePropertyName OnlyUnaddressed -NotePropertyValue ([bool]$OnlyUnaddressed)
         $r|Add-Member -NotePropertyName ChainNote -NotePropertyValue ([string]$ChainNote)
         $r|Add-Member -NotePropertyName PingOnline -NotePropertyValue @{}
