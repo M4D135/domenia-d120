@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.25-D120",
-  "source_base_commit": "05622325009e2fb76f01127ff240279b8c48c602",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.26-D120",
+  "source_base_commit": "b51733b083a231bb396e0409ec7fc79b7c47cdc6",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3071783,
-      "sha256": "fee18202978167402cdd98cbdfc37fb4488afe27e8a4d04de9dce5ec4a66d081",
+      "bytes": 3071965,
+      "sha256": "1dc853fb0e2ba2e86aacdb0d6c5497536faf0b731288d721fdd4700ee8aff898",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6566186,
-      "sha256": "56a14c34c0f84ff6e818f404aef50cddcef079a7c3b19c7ffd3275d923bbbc40",
+      "bytes": 6566372,
+      "sha256": "f591253a1ea598300fa054660a78b8b69d1d2a74903d973a07f5327b5e558aab",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC25_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC26_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC25",
+    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC26",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -56,6 +56,7 @@
       "validation/2026-10-18/rc22-ui-automation/README.md"
     ],
     "rc24_change": "Relevé WMI : associations utilisateur-poste depuis la console observée ; vue d'ensemble et widgets recalculés pendant le relevé (mention partiel) ; relevé arrêté affiché comme partiel exploitable ; bouton Tout actualiser (objets AD puis ping et WMI). Contrôles hors Windows uniquement.",
-    "rc25_change": "Fiche relue après une écriture sans GUID connu (erreur CacheKey vide après Désactiver le compte) ; boutons d'écriture recalculés quand la relecture échoue ; bannière de confirmation pour toute écriture vérifiée par le contrôleur de domaine. Contrôles hors Windows uniquement."
+    "rc25_change": "Fiche relue après une écriture sans GUID connu (erreur CacheKey vide après Désactiver le compte) ; boutons d'écriture recalculés quand la relecture échoue ; bannière de confirmation pour toute écriture vérifiée par le contrôleur de domaine. Contrôles hors Windows uniquement.",
+    "rc26_change": "Boutons d'écriture recalculés à chaque changement de phase de lecture de la sélection (carte Compte AD grisée en changeant de poste avec Intervenir déjà ouvert). Contrôles hors Windows uniquement."
   }
 }

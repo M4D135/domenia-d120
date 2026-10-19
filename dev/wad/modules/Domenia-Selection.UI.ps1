@@ -230,6 +230,10 @@ function Update-DomeniaSelectionReadUi {
         Set-VisibleTabsForType -Type $context.Type -PreserveWorkspace
         $load.VisibleType=$context.Type
     }
+    # The write controls depend on this phase (Get-DomeniaSelectionCachePolicy: CanEdit only when Ready). The fiche is
+    # drawn, and the controls computed, just before the phase becomes Ready: recompute them on every phase change,
+    # otherwise the account card of Intervenir stayed greyed until the read-only switch was toggled.
+    if ($Phase) { try { Apply-CurrentPermissionUi } catch { Write-DomeniaSwallowed 'Selection' 'Update-DomeniaSelectionReadUi' $_ } }
 }
 
 function Clear-DomeniaPreloadSelection {

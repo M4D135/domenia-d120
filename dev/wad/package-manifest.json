@@ -1,7 +1,7 @@
 {
   "Format": 1,
   "Version": "1.0",
-  "Build": "2026.10.19-DOMENIA-1.0-RC1.17.25-D120",
+  "Build": "2026.10.19-DOMENIA-1.0-RC1.17.26-D120",
   "Edition": "dev",
   "ReleaseStatus": "CandidateRequiresWindowsValidation",
   "Files": [
@@ -1316,7 +1316,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "8BE56A645CC6C3C7DDD13A549DE1C60371031A75995F56D61AD94EA04A664C2D",
+      "Sha256": "762AFFA2B82C17BDFF30119A12D494110CFDA8A7F02C12C58CC3B09DF4541F7B",
       "Bytes": 39414,
       "Runtime": false,
       "PreserveExisting": false
@@ -1330,7 +1330,7 @@
     },
     {
       "Path": "tools/release-contract.json",
-      "Sha256": "3FD51FF5721CBC59EF9E66CE2E137A49254304C3B0D276E6493BE7DCD5A26E81",
+      "Sha256": "B45925F60126B45A56C153403B5B60FD504195BE14BD68A17188D4122470C90C",
       "Bytes": 3182,
       "Runtime": false,
       "PreserveExisting": false
@@ -1603,14 +1603,14 @@
     },
     {
       "Path": "wad/Domenia-Core.ps1",
-      "Sha256": "912B9CA94AE6C8EBA48DC8432853CA3CD2E131B909B795247620A53C2E9A6747",
+      "Sha256": "EFA921CFD465128891869D5164DC06236D1FFE5865B73EDB256C0FD314D51A82",
       "Bytes": 1717189,
       "Runtime": true,
       "PreserveExisting": false
     },
     {
       "Path": "wad/Domenia-Main.xaml",
-      "Sha256": "5C21FA2011FF96C6BD79A8A6F1972258FD12AC61C7BBE89449F65B09FEF493BC",
+      "Sha256": "CFCC708044173809A7C3A5CEDB4E5631F08BFED9911DE5AAF6CA5392CFE3335F",
       "Bytes": 435035,
       "Runtime": true,
       "PreserveExisting": false
@@ -1652,7 +1652,7 @@
     },
     {
       "Path": "wad/Domenia.release.json",
-      "Sha256": "3FD51FF5721CBC59EF9E66CE2E137A49254304C3B0D276E6493BE7DCD5A26E81",
+      "Sha256": "B45925F60126B45A56C153403B5B60FD504195BE14BD68A17188D4122470C90C",
       "Bytes": 3182,
       "Runtime": true,
       "PreserveExisting": false
@@ -3059,8 +3059,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Selection.UI.ps1",
-      "Sha256": "BB320F4FA43B5DF3257B86E54942D117227E8FDACC49C5B00E2DEA44FFA8CEF7",
-      "Bytes": 21415,
+      "Sha256": "DDC7BFCE24034EBA4A0632E1864CB3240272C0C190645006CE3FA8C5FEBA0A23",
+      "Bytes": 21884,
       "Runtime": true,
       "PreserveExisting": false
     },
