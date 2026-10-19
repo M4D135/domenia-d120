@@ -226,6 +226,32 @@ function Set-DomeniaSectionWorkingOu {
         }
     }
 }
+function Clear-DomeniaSectionFollow {
+    # Drop a copied choice so the section follows the root OU again. No directory read and no ping.
+    param([ValidateSet('Fleet','Search','Index')][string]$Kind)
+    switch ($Kind) {
+        'Fleet' {
+            $script:FleetScopeDn = ''
+            $script:FleetScopeExplicitDomain = $false
+            try { Save-DomeniaFleetScopeChoice } catch { Write-DomeniaSwallowed 'Dashboard' 'Clear-DomeniaSectionFollow' $_ }
+            $script:FleetStale = $true
+        }
+        'Search' {
+            $base = ([string]$script:Conn.BaseDn).Trim()
+            $script:SelectedBranchDn = $base
+            $script:SearchBranchChosen = $false
+            if ($null -ne $script:Continuity) {
+                $markKey = ''
+                try { $markKey = Get-DomeniaTreeContextKey } catch { $markKey = '' }
+                if ($markKey -and $script:Continuity.Bookmarks.ContainsKey($markKey)) {
+                    [void]$script:Continuity.Bookmarks.Remove($markKey)
+                    Set-DomeniaSetting 'OuBookmarksJson' ($script:Continuity.Bookmarks | ConvertTo-Json -Depth 5 -Compress)
+                }
+            }
+        }
+        'Index' { $script:IndexScopeDn = '' }
+    }
+}
 function Invoke-DomeniaRootOuNarrowedReplace {
     $pending = $script:DomeniaRootOuPending
     $script:DomeniaRootOuPending = $null
@@ -252,8 +278,11 @@ function Publish-DomeniaRootOuChoice {
         if (Test-DomeniaSectionFollowsRoot -Chosen ([string]$pair.Dn) -PreviousDn $previousDn) { [void]$followers.Add([string]$pair.Kind) }
         elseif (([string]$pair.Dn).Trim()) { [void]$narrowed.Add([string]$pair.Kind) }
     }
-    if ([bool]$script:FleetScopeExplicitDomain -and ($followers -notcontains 'Fleet')) { [void]$followers.Add('Fleet') }
-    foreach ($kind in @($followers)) { Set-DomeniaSectionWorkingOu -Kind ([string]$kind) -Dn $nextDn -Subtree $nextSubtree }
+    if ([bool]$script:FleetScopeExplicitDomain) {
+        if ($followers -contains 'Fleet') { [void]$followers.Remove('Fleet') }
+        if ($narrowed -notcontains 'Fleet') { [void]$narrowed.Add('Fleet') }
+    }
+    foreach ($kind in @($followers)) { Clear-DomeniaSectionFollow -Kind ([string]$kind) }
     try { Update-DomeniaRootOuTools } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
     try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
     try { Update-DomeniaQueryScopeLabel } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
@@ -327,6 +356,12 @@ function Test-DomeniaSearchUsesRootDefault {
 function Set-DomeniaSearchDefaultFromRootOu {
     # Refresh the scope label only. Does not move the tree selection and does not search.
     if (-not (Test-DomeniaSearchUsesRootDefault)) { return }
+    if (-not [bool]$script:SearchRootDefaultNoted) {
+        $script:SearchRootDefaultNoted = $true
+        $rootNote = Get-DomeniaRootOuChoice
+        $rootName = $(if ($null -ne $rootNote -and [string]$rootNote.Name) { [string]$rootNote.Name } else { 'lʼOU racine' })
+        Set-Status ('Périmètre par défaut : ' + $rootName + '. Lʼarbre reste sur le domaine tant que vous ne lʼouvrez pas.')
+    }
     $saved = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
     try { if (Get-Command Update-DomeniaSearchScopeUi -ErrorAction SilentlyContinue) { Update-DomeniaSearchScopeUi } }

@@ -18912,6 +18912,9 @@ function Wire-Events {
     # UI-23: « Vérifier la liste ▾ » (main part: last reading of the session, or Arrêter while it runs; arrow: choices).
     # Point 60: it reads the scope chosen beside the results (the list as shown, or the selected rows).
     if ($script:Ctrl.ContainsKey("BtnParkVerify")) { $script:Ctrl["BtnParkVerify"].Add_Click({ param($sender,$eventArgs) Invoke-DomeniaParkVerify -Anchor $sender }) }
+    if ($script:Ctrl.ContainsKey("BtnParkModePing")) { $script:Ctrl["BtnParkModePing"].Add_Click({ Invoke-DomeniaParkVerify -Mode Ping }) }
+    if ($script:Ctrl.ContainsKey("BtnParkModeConsole")) { $script:Ctrl["BtnParkModeConsole"].Add_Click({ Invoke-DomeniaParkVerify -Mode Console }) }
+    if ($script:Ctrl.ContainsKey("BtnParkModeAnalyse")) { $script:Ctrl["BtnParkModeAnalyse"].Add_Click({ Invoke-DomeniaParkVerify -Mode Analyse }) }
     if ($script:Ctrl.ContainsKey("BtnParkVerifyMenu")) { $script:Ctrl["BtnParkVerifyMenu"].Add_Click({ param($sender,$eventArgs) Open-DomeniaParkVerifyMenu -Anchor $sender }) }
     # CO-19: the outcome pills of the last ping of the list filter it by presence (local filter only).
     if ($script:Ctrl.ContainsKey("BtnParkOutcomeOnline")) { $script:Ctrl["BtnParkOutcomeOnline"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Online }) }

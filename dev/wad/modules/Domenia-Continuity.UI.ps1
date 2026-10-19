@@ -36,14 +36,14 @@ function Invoke-DomeniaFavouriteTreeReveal {
     if($script:AsyncEngineClosing -or $s.Epoch -ne [long]$script:SessionEpoch -or $s.Context -cne (Get-DomeniaTreeContextKey) -or $s.Generation -ne [int]$script:GlobalSearchGeneration -or $s.DN -ine [string]$script:SelectedBranchDn){Stop-DomeniaFavouriteTreeReveal;return}
     $now=[datetime]::UtcNow
     if($now -gt $s.Deadline -or $now -gt $s.IdleDeadline){Stop-DomeniaFavouriteTreeReveal 'Localisation du favori non confirmée dans le délai. Les résultats restent disponibles ; redépliez la branche pour réessayer.';return}
-    if(Test-DomeniaAccessBusyWrite){return}
+    if(Test-DomeniaAccessBusyWrite){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
     $tree=Get-DomeniaControl 'TvDirectory';if($null -eq $tree){return}
     if($null -ne $s.Root -and -not $tree.Items.Contains($s.Root)){Stop-DomeniaFavouriteTreeReveal;return}
     $watch=[Diagnostics.Stopwatch]::StartNew();$examined=0
     while($examined -lt 512 -and $watch.ElapsedMilliseconds -lt 8){
         if($null -eq $s.Frames){
             if($null -ne $s.Parent){
-                if([bool]$s.Parent.Tag.Loading -or [string]$s.Parent.Tag.RenderId){return}
+                if([bool]$s.Parent.Tag.Loading -or [string]$s.Parent.Tag.RenderId){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
                 if(-not [bool]$s.Parent.Tag.Loaded){
                     Stop-DomeniaFavouriteTreeReveal 'La branche du favori nʼa pas pu être lue. Les résultats sont conservés ; redépliez cette branche pour réessayer.';return
                 }
@@ -52,7 +52,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
             # A pipeline-producing if expression would unwrap/enumerate it in PowerShell.
             $items=$tree.Items
             if($null -ne $s.Parent){$items=$s.Parent.Items}
-            if($null -eq $s.Parent -and $items.Count -eq 0){return}
+            if($null -eq $s.Parent -and $items.Count -eq 0){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
             $s.Frames=[Collections.Generic.Queue[object]]::new()
             $s.Frames.Enqueue([pscustomobject]@{Items=$items;Index=0;Group=$null})
         }
@@ -83,7 +83,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
         # Expanded starts the existing one-level, commit-before-display reader. Never retry an auth/network failure here.
         if(-not $node.IsExpanded){$node.IsExpanded=$true}
         elseif(-not [bool]$tag.Loaded -and -not [bool]$tag.Loading -and -not [string]$tag.RenderId){Load-TreeChildren -Node $node}
-        if(-not [bool]$tag.Loaded){return}
+        if(-not [bool]$tag.Loaded){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
     }
 }
 function Get-DomeniaGridColumnKey {

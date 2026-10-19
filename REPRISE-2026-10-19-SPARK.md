@@ -4,9 +4,9 @@
 
 Travail fait dans un clone propre de `origin/master` (`ab129c6`), pas dans
 `~/Documents/Projets/Domenia-D120` (HEAD `60ec25a`, arbre sale, non reset).
-Le patch `CORRECTIFS-partiels.patch` n'a pas été appliqué : il ne couvre qu'un worker
-sur trois, ajoute des sondes TCP 1200 ms, et n'est pas re-épinglé. La garde retenue
-est le ping ICMP 900 ms de l'inventaire, sur les trois workers.
+Le patch `CORRECTIFS-partiels.patch` n'a pas été appliqué, puis a été retiré de l'arbre :
+il ne couvre qu'un worker sur trois, ajoute des sondes TCP 1200 ms, et n'est pas re-épinglé.
+La garde retenue est le ping ICMP 900 ms de l'inventaire, sur les trois workers. L'historique Git le conserve.
 
 | Point | Fait | Où |
 |---|---|---|

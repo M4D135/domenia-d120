@@ -1602,10 +1602,7 @@
                               <CheckBox x:Name="ChkLiveUsersOnClick" IsEnabled="{Binding IsChecked, ElementName=ChkLiveVerifyOnClick}" Content="+ utilisateur connecté" IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,4" AutomationProperties.Name="Vérifier aussi lʼutilisateur connecté"/>
                               <Button x:Name="BtnLiveRecheck" IsEnabled="False" Content="Revérifier ce poste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" AutomationProperties.Name="Revérifier ce poste"/>
                               <!-- UI-23: one secondary « Vérifier la liste ▾ » (Rechercher stays the only main button); its main part runs the reading chosen last in this session or stops the running survey (UX-12). -->
-                              <StackPanel Orientation="Horizontal" Margin="0,0,8,4">
-                                <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0" IsEnabled="False" AutomationProperties.Name="Vérifier la liste"/>
-                                <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="{DynamicResource FontSizeCaption}" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" AutomationProperties.Name="Choisir la vérification de la liste"/>
-                              </StackPanel>
+                              <Button x:Name="BtnParkVerifyMenu" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets" FontSize="{DynamicResource FontSizeCaption}" Style="{StaticResource SecondaryButton}" MinHeight="30" MinWidth="0" Width="28" Padding="0" Margin="1,0,0,0" IsEnabled="False" Visibility="Collapsed" AutomationProperties.Name="Choisir la vérification de la liste"/>
                               <StackPanel x:Name="UxListRevalidation" Orientation="Horizontal" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,8,4">
                                 <CheckBox x:Name="ChkListRevalidation" Content="Revérifier la liste" IsChecked="True" VerticalAlignment="Center" AutomationProperties.Name="Revérifier la liste en arrière-plan"/>
                                 <TextBlock x:Name="LblListRevalidation" Text="" Margin="8,0,0,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" Foreground="{DynamicResource MutedColor}"/>
@@ -1658,6 +1655,18 @@
                             <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés"/>
                           </StackPanel>
                           </StackPanel></ScrollViewer></Expander>
+                          <Border x:Name="UxLiveActionsSection" Grid.Row="1" Margin="0,8,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
+                            <StackPanel>
+                              <TextBlock Text="Relevé de la liste" FontWeight="SemiBold"/>
+                              <TextBlock Text="Ping dʼabord. La lecture WMI ne part que si le poste répond. La vue dʼensemble ne se recalcule pas toute seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,8"/>
+                              <WrapPanel>
+                                <Button x:Name="BtnParkModePing" Content="Qui répond ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Ping de la liste"/>
+                                <Button x:Name="BtnParkModeConsole" Content="Qui est connecté ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Utilisateur connecté de la liste"/>
+                                <Button x:Name="BtnParkModeAnalyse" Content="Matériel et widgets" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Relevé matériel de la liste"/>
+                                <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Arrêter ou vérifier la liste"/>
+                              </WrapPanel>
+                            </StackPanel>
+                          </Border>
                           <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" RowHeight="34" AutomationProperties.Name="Résultats : sélection et ouverture explicite">

@@ -2702,6 +2702,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Test-DomeniaSectionFollowsRoot',
             'Update-DomeniaSearchBookmarkDn',
             'Set-DomeniaSectionWorkingOu',
+            'Clear-DomeniaSectionFollow',
             'Invoke-DomeniaRootOuNarrowedReplace',
             'Publish-DomeniaRootOuChoice',
             'Save-DomeniaRootOuChoice',

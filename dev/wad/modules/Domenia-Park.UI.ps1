@@ -196,7 +196,6 @@ function Update-DomeniaParkRunStatus {
         $r|Add-Member -NotePropertyName FleetRefreshed -NotePropertyValue $true -Force
         if($r.Approved -and $r.Done -gt 0){
             if($null -ne $script:SelectedObject){try{Show-DomeniaBoard -Board Computer -Quiet}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
-            try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
         }
     }
     try{Invoke-DomeniaParkLiveUpdates -Run $r}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
@@ -225,7 +224,6 @@ function Invoke-DomeniaParkLiveUpdates {
     if(($last -is [datetime]) -and (($nowUtc-$last).TotalSeconds -lt 15)){return}
     $Run|Add-Member -NotePropertyName LiveUpdateUtc -NotePropertyValue $nowUtc -Force
     if([bool](Get-DomeniaMember $Run 'LinksPending' $false)){$Run|Add-Member -NotePropertyName LinksPending -NotePropertyValue $false -Force;Request-DomeniaLinkPersistence}
-    if(([int]$Run.Done -gt 0) -and [bool]$script:FleetStale){Request-DomeniaFleetRefresh}
 }
 function Register-DomeniaParkConsoleLink {
     # Decision David 2026-10-19: the console account observed by a survey becomes a user-workstation association, with
@@ -334,6 +332,11 @@ function Update-DomeniaParkControls {
         }
         $menu=Get-DomeniaControl 'BtnParkVerifyMenu'
         if($null -ne $menu){$menu.IsEnabled=($available -and -not $listRunning)}
+        $modeReady=($available -and -not $listRunning)
+        foreach($modeName in @('BtnParkModePing','BtnParkModeConsole','BtnParkModeAnalyse')){
+            $modeButton=Get-DomeniaControl $modeName
+            if($null -ne $modeButton){$modeButton.IsEnabled=$modeReady}
+        }
         # UX-12: thin bar and short count of the survey of the list.
         $bar=Get-DomeniaControl 'PbParkProgress'
         if($null -ne $bar){$bar.Value=$(if($total -gt 0 -and $null -ne $list){[Math]::Min(100.0,100.0*[double]$list.Done/[double]$total)}else{0.0})}
@@ -446,7 +449,7 @@ function Start-DomeniaParkSelectionSurvey {
     $selection=Get-DomeniaParkSelectionTargets
     if(-not $selection.Rows.Count){Set-Status $(if([int]$selection.Plan.Count -gt 0){'Aucun poste dans la sélection.'}else{[string]$selection.Plan.Label}) 'WARN';return}
     if($Mode -eq 'Analyse'){Start-DomeniaParkAnalysis -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped);return}
-    Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping')
+    Start-DomeniaOnlinePark -Selection -ScopeTargets @($selection.Targets) -SkippedTargets ([int]$selection.Skipped) -PingOnly:($Mode -eq 'Ping') -PingBeforeWmi:($Mode -eq 'Console')
 }
 function Invoke-DomeniaParkVerify {
     # UI-23: the main part of « Vérifier la liste ▾ » stops the running survey of the list, runs the reading chosen
@@ -464,7 +467,7 @@ function Invoke-DomeniaParkVerify {
     if((Get-DomeniaResultScopeMode) -eq 'Selected'){Start-DomeniaParkSelectionSurvey -Mode $Mode;Update-DomeniaParkControls;return}
     switch($Mode){
         'Ping' {Start-DomeniaOnlinePark -DisplayedResults -PingOnly}
-        'Console' {Start-DomeniaOnlinePark -DisplayedResults}
+        'Console' {Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi}
         'Analyse' {Start-DomeniaParkAnalysis}
     }
     Update-DomeniaParkControls
@@ -624,8 +627,8 @@ function Start-DomeniaParkAnalysis {
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
-    if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes;return}
-    Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes
+    if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes -PingBeforeWmi;return}
+    Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes -PingBeforeWmi
 }
 function Complete-DomeniaParkTargets {
     param($Result,$State)
@@ -1013,7 +1016,7 @@ function Invoke-DomeniaParkRunTick {
     $nowUtc=[datetime]::UtcNow
     if($r.PingOnly){Start-DomeniaParkPingJob -Run $r -NowUtc $nowUtc;return}
     if($null -ne $script:DomeniaRemoteStoreQueue -and $script:DomeniaRemoteStoreQueue.Count -gt 0){Add-DomeniaParkHeldTime $r $nowUtc;return}
-    if($r.StorePending.Count -ge 16){Add-DomeniaParkHeldTime $r $nowUtc;return}
+    if($r.StorePending.Count -ge 40){Add-DomeniaParkHeldTime $r $nowUtc;return}
     if($script:ActiveWriteTaskId -or $script:WriteState -in @('Unknown','UnknownPending')){Add-DomeniaParkHeldTime $r $nowUtc;return}
     if($null -ne $script:Persistence){
         if($script:Persistence.Failures -ge 3 -or $script:Persistence.Conflicts.Count){$r.Stopping=$true;Set-DomeniaParkStopReason $r 'enregistrement local suspendu';Update-DomeniaParkRunStatus -Run $r;return}
