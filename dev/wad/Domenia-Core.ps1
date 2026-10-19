@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.29-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.30-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -21090,8 +21090,9 @@ function Complete-UiTasks {
 
         # D019: the registry releases what the job owned; the direct calls stay as an idempotent fallback.
         try { if ($null -ne $script:DomeniaResources) { [void](Release-DomeniaResources -Registry $script:DomeniaResources -Owner ([string]$id)) } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
-        try { $job.PowerShell.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
-        try { $job.Runspace.Dispose() } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+        # A job of a runspace pool (batch ping, pooled reads) owns no runspace of its own: nothing to dispose here.
+        try { if ($null -ne $job.PowerShell) { $job.PowerShell.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
+        try { if ($null -ne $job.Runspace) { $job.Runspace.Dispose() } } catch { Write-DomeniaSwallowed 'Core' 'Complete-UiTasks' $_ }
         if ($null -eq $job.PSObject.Properties['BusyApplied'] -or [bool]$job.BusyApplied) { Set-ControlsBusy -Names $job.DisableControls -Busy $false }
         [void]$script:AsyncJobs.Remove($id)
         $removed = $true
@@ -25982,7 +25983,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.29-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.30-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

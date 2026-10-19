@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.29-D120",
-  "source_base_commit": "a66d3910c4dd0a0f9e7ffd74f72b38e248c4acaf",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.30-D120",
+  "source_base_commit": "b8b330c959c4f4345833eece789b65acca191007",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3076433,
-      "sha256": "74a1f5b0c90a2cd356aa58596459c43b586d137a5d76c1a892ac2f5a663930d2",
+      "bytes": 3076741,
+      "sha256": "4f7eddefad023ea226a300e36d92cc2fd6ee96dd7b5e1cb97d1978f3e9ba7c8a",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6571883,
-      "sha256": "1a5736c5a50255671d5a36b2a23a03dc5186321531541032c1462338b6fff03d",
+      "bytes": 6572197,
+      "sha256": "df1d08fc061b00b02bca5398f50b1af3a9c84a2ea5102ee20ab8ffca594f04e2",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC29_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC30_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC29",
+    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC30",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -63,6 +63,7 @@
     "rc29_change": "Bandeau de reprise : Reprendre, Plus tard, Abandonner. Outils > Relevés : relevé en cours (Arrêter), relevé interrompu (Reprendre, Abandonner), derniers relevés par OU depuis la base locale (lecture CollectionRuns du worker LocalIndexRead, contrat ré-épinglé). Contrôles hors Windows uniquement.",
     "worker_operations_changed_rc29": [
       "LocalIndexRead"
-    ]
+    ],
+    "rc30_change": "Journal : plus d'erreur ignorée « méthode dans une expression Null » à la fin des tâches du pool (pings) ; vue d'ensemble refusée par le budget de la base locale pendant un relevé dite « recalcul différé ». Contrôles hors Windows uniquement."
   }
 }

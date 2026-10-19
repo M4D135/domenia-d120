@@ -216,6 +216,14 @@ function Start-DomeniaFleetDashboard {
     } catch {
         $fault = $_
         $script:FleetPendingKey = ''; $script:FleetJobId = ''
+        # An automatic recalculation refused by the budget of the local base (a survey is storing its measures) is
+        # postponed, not failed: the figures shown stay those of the last calculation and the next request retries.
+        if ($Quiet -and ([string]$fault.Exception.Message -match 'Concurrence maximale|Budget du site|Reprise progressive')) {
+            $script:FleetStale = $true
+            [void](Set-DomeniaControlText 'LblFleetDashboard' 'Recalcul différé : la base locale est occupée par le relevé en cours. Les chiffres affichés restent ceux du dernier calcul ; nouvel essai automatique.')
+            Set-DomeniaFleetDashboardToolTip
+            return
+        }
         [void](Set-DomeniaControlText 'LblFleetDashboard' ('Vue dʼensemble non calculée : ' + $fault.Exception.Message))
         Set-DomeniaFleetDashboardToolTip
         if (-not $Quiet) { throw }
