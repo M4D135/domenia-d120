@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.26-D120",
-  "source_base_commit": "b51733b083a231bb396e0409ec7fc79b7c47cdc6",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.27-D120",
+  "source_base_commit": "d5a873cc3490a634570b9e6fb32a2d952bc46518",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3071965,
-      "sha256": "1dc853fb0e2ba2e86aacdb0d6c5497536faf0b731288d721fdd4700ee8aff898",
+      "bytes": 3073035,
+      "sha256": "a9b0c2f4d1604a093f118a246d4c05a0e9c20c8e3af2f0e65e5512a4b3bacea2",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6566372,
-      "sha256": "f591253a1ea598300fa054660a78b8b69d1d2a74903d973a07f5327b5e558aab",
+      "bytes": 6568269,
+      "sha256": "6b10f273c1cb8c6b363f02116c7f94a91d558f539fc85b0e040ec56ca9a7101e",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC26_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC27_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC26",
+    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC27",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -57,6 +57,7 @@
     ],
     "rc24_change": "Relevé WMI : associations utilisateur-poste depuis la console observée ; vue d'ensemble et widgets recalculés pendant le relevé (mention partiel) ; relevé arrêté affiché comme partiel exploitable ; bouton Tout actualiser (objets AD puis ping et WMI). Contrôles hors Windows uniquement.",
     "rc25_change": "Fiche relue après une écriture sans GUID connu (erreur CacheKey vide après Désactiver le compte) ; boutons d'écriture recalculés quand la relecture échoue ; bannière de confirmation pour toute écriture vérifiée par le contrôleur de domaine. Contrôles hors Windows uniquement.",
-    "rc26_change": "Boutons d'écriture recalculés à chaque changement de phase de lecture de la sélection (carte Compte AD grisée en changeant de poste avec Intervenir déjà ouvert). Contrôles hors Windows uniquement."
+    "rc26_change": "Boutons d'écriture recalculés à chaque changement de phase de lecture de la sélection (carte Compte AD grisée en changeant de poste avec Intervenir déjà ouvert). Contrôles hors Windows uniquement.",
+    "rc27_change": "Démarrage : la fenêtre principale n'est plus construite une première fois avant la connexion. Coffre de connexion : compte reconnu avec ou sans domaine, raison affichée quand il est indisponible, motif Windows journalisé si l'enregistrement échoue. Contrôles hors Windows uniquement."
   }
 }

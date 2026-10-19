@@ -1,5 +1,7 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+Complément du 19/10/2026 (RC1.17.27) : la prévalidation avant connexion ne construit plus par WPF que la fenêtre de connexion (XML de la fenêtre principale toujours vérifié ; son chargement WPF réel reste celui de `Load-XamlWindow`, bloquant). Coffre de connexion : `ConvertTo-DomeniaVaultLoginKey` et `Get-DomeniaVaultLoginReason` (module CredentialVault.Model, tests VAULT-001/002), raison sous les boutons (`LoginPrivacy`), motif de l’échec d’enregistrement journalisé. Gain de démarrage non mesuré : demander `Domenia-startup.log`. Rien d’exécuté sous Windows PowerShell 5.1.
+
 Complément du 19/10/2026 (RC1.17.26) : `Update-DomeniaSelectionReadUi` relance `Apply-CurrentPermissionUi` à chaque changement de phase. `CanEdit` exige la phase Ready, posée après l’affichage de la fiche : en changeant de poste, la carte Compte AD restait grisée jusqu’à un aller-retour lecture seule/écriture. Rien d’exécuté sous Windows PowerShell 5.1.
 
 Complément du 19/10/2026, fin (RC1.17.25) : `Complete-DomeniaOpenObjectUi` accepte une clé de cache vide (relecture forcée sans GUID après une écriture, D025) ; un échec d’affichage d’une fiche relue libère la demande en cours et relance `Apply-CurrentPermissionUi` (boutons d’écriture restés grisés) ; bannière de succès après toute écriture vérifiée (`Complete-DomeniaWriteTaskUi`). Rien d’exécuté sous Windows PowerShell 5.1.

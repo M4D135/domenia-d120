@@ -10,7 +10,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Initialize-DomeniaCredentialVault',
             'Get-DomeniaCredentialVaultCredential',
             'Save-DomeniaCredentialVaultCredential',
-            'Remove-DomeniaCredentialVaultCredential'
+            'Remove-DomeniaCredentialVaultCredential',
+            'ConvertTo-DomeniaVaultLoginKey',
+            'Get-DomeniaVaultLoginReason'
         ) }
         # D011: pure rule modules first. Phase and Requires are validated by Test-DomeniaStartupPlan
         # (Domenia-Engine.Model.ps1) before any module of the Modules phase is imported.

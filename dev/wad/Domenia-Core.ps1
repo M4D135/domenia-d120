@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.26-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.27-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -24756,7 +24756,9 @@ function Get-DomeniaFastLoginVaultIdentity {
     if($null -eq $ui -or [bool]$script:DemoMode){return $null}
     $domain=([string](Get-CfgValue 'Auth' 'VaultDomainDn' '')).Trim()
     $account=([string](Get-CfgValue 'Auth' 'VaultUserName' '')).Trim()
-    if(-not $domain -or -not $account -or ([string]$ui.Login.Text).Trim() -ine $account){return $null}
+    # Decision David 2026-10-19: the remembered account is recognised with or without its domain part
+    # (CNAMTS\compte, compte@cnamts.local, compte); the secret stays bound to the exact remembered account.
+    if(-not $domain -or -not $account -or (ConvertTo-DomeniaVaultLoginKey ([string]$ui.Login.Text)) -cne (ConvertTo-DomeniaVaultLoginKey $account)){return $null}
     $configured=if([bool](Get-CfgValue 'Conf' 'AutoDiscover' $true)){''}else{([string](Get-CfgValue 'Conf' 'SearchBase' '')).Trim()}
     if([string]$SearchBase){$configured=([string]$SearchBase).Trim()}
     if($configured -and $configured -ine $domain -and -not $configured.EndsWith(','+$domain,[StringComparison]::OrdinalIgnoreCase)){return $null}
@@ -24772,6 +24774,13 @@ function Update-DomeniaFastLoginVaultUi {
     if($null -ne $ui.VaultUse){$ui.VaultUse.IsEnabled=(-not $Busy -and $null -ne $identity -and -not $blocked)}
     if($null -ne $ui.VaultForget){$ui.VaultForget.IsEnabled=(-not $Busy -and $null -ne $identity)}
     if($null -ne $ui.VaultRemember){$ui.VaultRemember.IsEnabled=(-not $Busy -and -not [bool]$script:DemoMode)}
+    try{
+        $privacy=$ui.Window.FindName('LoginPrivacy')
+        if($null -ne $privacy){
+            $base='Coffre Windows facultatif, lecture uniquement sur votre demande.'
+            $privacy.Text=if(($null -eq $identity) -and (-not $Busy)){$base+' '+(Get-DomeniaVaultLoginReason -Typed ([string]$ui.Login.Text) -Account ([string](Get-CfgValue 'Auth' 'VaultUserName' '')) -DomainDn ([string](Get-CfgValue 'Auth' 'VaultDomainDn' '')) -Demo ([bool]$script:DemoMode))}elseif($blocked){$base+' Cet identifiant du coffre a déjà été refusé : corrigez le mot de passe à la main.'}else{$base}
+        }
+    }catch{Write-DomeniaSwallowed 'Core' 'Update-DomeniaFastLoginVaultUi' $_}
     if($null -ne $ui.VaultUse){$ui.VaultUse.ToolTip=if($blocked){'Cet identifiant du coffre a déjà été essayé. Corrigez manuellement le mot de passe avant un nouvel usage.'}else{'Utilise une fois le compte exact affiché, sur ce PC. Aucune lecture automatique du coffre.'}}
 }
 
@@ -24807,6 +24816,8 @@ function Save-DomeniaFastLoginVaultPreference {
     }catch{
         # Login stays valid if optional persistence is unavailable; never fall back to a file or SQLite secret.
         $message=if($vaultSaved){'Connexion validée et secret dans le coffre Windows ; mémorisation du domaine et du compte dans HKCU impossible.'}else{'Connexion validée ; enregistrement facultatif dans le coffre Windows impossible.'}
+        # The Windows reason (Credential Manager code, policy) is kept: without it the cause cannot be found.
+        $message+=' Motif : '+[string]$_.Exception.Message
         Write-DomeniaFastLoginLog -Stage 'VAULT_SAVE' -Status 'WARN' -Detail $message
         try{Write-AppLog $message 'WARN'}catch{Write-DomeniaSwallowed 'Core' 'Save-DomeniaFastLoginVaultPreference' $_}
     }
@@ -25976,7 +25987,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.26-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.27-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }
@@ -25991,10 +26002,13 @@ try {
         )
         foreach ($xamlPreflightItem in $xamlPreflightItems) {
             Assert-DomeniaXamlPreflight -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context)
-            [void](Test-DomeniaXamlRuntimeCompatibility -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context))
+            # Decision David 2026-10-19 (startup time): only the login window is built by WPF before authentication.
+            # The main window (thousands of controls) was built here once and thrown away, then built again after the
+            # login; its real WPF load is now checked once, by Load-XamlWindow, which still stops the start on failure.
+            if ([string]$xamlPreflightItem.Context -eq 'Connexion') { [void](Test-DomeniaXamlRuntimeCompatibility -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context)) }
         }
         $preflightWatch.Stop()
-        Write-StartupTrace -Stage "Prevalidation interface" -Status "OK" -DurationMs $preflightWatch.ElapsedMilliseconds -Detail "XML, membres XAML et chargement WPF reel valides avant authentification."
+        Write-StartupTrace -Stage "Prevalidation interface" -Status "OK" -DurationMs $preflightWatch.ElapsedMilliseconds -Detail "XML et membres XAML valides ; chargement WPF reel de la connexion avant authentification, de l interface principale apres."
     }
     catch {
         $preflightWatch.Stop()

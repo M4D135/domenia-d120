@@ -64,3 +64,24 @@ function Remove-DomeniaCredentialVaultCredential {
     $removed=[Domenia.Security.CredentialVault]::Delete($target)
     return [pscustomobject]@{Removed=$removed;Disabled=$false}
 }
+
+function ConvertTo-DomeniaVaultLoginKey {
+    # Decision David 2026-10-19: comparison key of the remembered login account, without its domain part
+    # (CNAMTS\compte, compte@cnamts.local and compte are the same account), lower case. The vault entry itself stays
+    # bound to the exact remembered account (Get-DomeniaCredentialVaultTarget).
+    param([AllowEmptyString()][string]$Login)
+    $key=([string]$Login).Trim()
+    if($key.Contains('\')){$key=$key.Substring($key.LastIndexOf('\')+1)}
+    if($key.Contains('@')){$key=$key.Substring(0,$key.IndexOf('@'))}
+    return $key.Trim().ToLowerInvariant()
+}
+
+function Get-DomeniaVaultLoginReason {
+    # Why « Utiliser le coffre » of the login window is unavailable, from the remembered account only (no vault read).
+    param([AllowEmptyString()][string]$Typed='',[AllowEmptyString()][string]$Account='',[AllowEmptyString()][string]$DomainDn='',[bool]$Demo=$false)
+    if($Demo){return 'Coffre indisponible en démonstration.'}
+    $remembered=([string]$Account).Trim()
+    if((-not ([string]$DomainDn).Trim()) -or (-not $remembered)){return 'Aucun compte mémorisé dans le coffre de ce PC : cochez « Mémoriser sur ce PC » lors dʼune connexion réussie.'}
+    if((ConvertTo-DomeniaVaultLoginKey $Typed) -cne (ConvertTo-DomeniaVaultLoginKey $remembered)){return ('Coffre mémorisé pour '+$remembered+' : saisissez ce compte pour lʼutiliser.')}
+    return 'Compte mémorisé pour un autre domaine que celui de la configuration.'
+}
