@@ -359,6 +359,15 @@ if($null -ne $Payload.PSObject.Properties['PresenceProgress'] -and $null -ne $Pa
     $Payload.PresenceProgress.Enqueue([pscustomobject]@{Result=$packet;State=$Payload.PresenceState})
 }
 }
+# A survey that asked for it (widget or solo WMI) does not open CIM when the ping did not answer.
+# The combined console read keeps the former rule: a missing ICMP reply does not block a requested CIM read.
+$requirePing=($null -ne $Payload.PSObject.Properties['RequirePing'] -and [bool]$Payload.RequirePing)
+if($requirePing -and ($probeUser -or $collectInventory -or $collectProbes) -and ([string]$answer.Presence -notlike 'En ligne*')){
+    $answer.Outcome='Unavailable'
+    $answer.Detail='Ping sans réponse : lecture WMI non lancée.'
+    [pscustomobject]$answer
+    return
+}
 if(-not $probeUser -and -not $collectInventory -and -not $collectProbes){
     $answer.Outcome='PresenceOnly';$answer.Detail='Contrôle réseau uniquement. Aucune lecture du compte console.'
     [pscustomobject]$answer;return

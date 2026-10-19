@@ -633,10 +633,12 @@ function Set-DomeniaUxShortLayout {
     # ordinary layout updates; leaving the tiny viewport restores the full command panels.
     $tiny=[bool]$Plan.TinyHeight
     if(($script:UxDetailsLayoutWindow -ne $script:Window) -or ($script:UxDetailsTiny -ne $tiny)){
-        foreach($name in @('UxResultToolsExpander','UxOuRefreshExpander')){
-            $details=Get-DomeniaControl $name
-            if($details){$details.IsExpanded=(-not $tiny)}
-        }
+        $refresh=Get-DomeniaControl 'UxOuRefreshExpander'
+        if($refresh){$refresh.IsExpanded=(-not $tiny)}
+        # Actions, filtres et vues start folded: the panel overlaps the result grid. A short window keeps it folded;
+        # leaving that height does not reopen it.
+        $tools=Get-DomeniaControl 'UxResultToolsExpander'
+        if($tools -and $tiny){$tools.IsExpanded=$false}
         $script:UxDetailsLayoutWindow=$script:Window;$script:UxDetailsTiny=$tiny
     }
     $script:UxCompactLayoutActive=$compact

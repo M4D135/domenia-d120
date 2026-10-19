@@ -1561,7 +1561,7 @@
                           <RowDefinition Height="*"/>
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Expander x:Name="UxResultToolsExpander" Grid.Row="0" Header="Actions, filtres et vues" IsExpanded="True" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><ScrollViewer x:Name="UxResultToolsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="150"><StackPanel>
+                        <Expander x:Name="UxResultToolsExpander" Grid.Row="0" Header="Actions, filtres et vues" IsExpanded="False" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><ScrollViewer x:Name="UxResultToolsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="150"><StackPanel>
                         <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
