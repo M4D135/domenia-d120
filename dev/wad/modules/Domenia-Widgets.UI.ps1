@@ -1958,7 +1958,7 @@ function Invoke-DomeniaBoardEntryAction {
         'GoSearch' { Invoke-DomeniaUxRoute -Route 'WsSearch' }
         'CollectFleet' {
             $context=Get-DomeniaFleetCollectionContext
-            if($null -ne $context){Start-DomeniaOnlinePark -ScopeTargets $context.Targets -ScopeLabel $context.Scope.Name -Inventory}
+            if($null -ne $context){Start-DomeniaOnlinePark -ScopeTargets $context.Targets -ScopeLabel $context.Scope.Name -Inventory -PingBeforeWmi}
         }
         default { Set-Status ('Action de widget inconnue : ' + $Id) 'WARN' }
     }
@@ -2042,13 +2042,13 @@ function Start-DomeniaWidgetProbe {
     $probes = @(ConvertTo-DomeniaProbePayload -Ids $plan.ProbeIds)
     if($Board -eq 'Fleet'){
         $context=Get-DomeniaFleetCollectionContext;if($null -eq $context){return}
-        Start-DomeniaOnlinePark -ScopeTargets $context.Targets -ScopeLabel $context.Scope.Name -Inventory:([bool]$plan.Inventory) -Probes $probes;return
+        Start-DomeniaOnlinePark -ScopeTargets $context.Targets -ScopeLabel $context.Scope.Name -Inventory:([bool]$plan.Inventory) -Probes $probes -PingBeforeWmi;return
     }
     if ($Board -eq 'Computer') {
         if ($null -eq $script:SelectedObject -or [string]$script:SelectedObject.Type -ne 'Machine') { Set-Status 'Aucun poste sélectionné.' 'WARN'; return }
         $so = $script:SelectedObject
         $target = [pscustomobject]@{ name = $so.Name; distinguished_name = $so.DN; object_guid = [string]$so.Safety.Guid }
-        Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel ([string]$so.Name) -Inventory:([bool]$plan.Inventory) -Probes $probes
+        Start-DomeniaOnlinePark -ScopeTargets @($target) -ScopeLabel ([string]$so.Name) -Inventory:([bool]$plan.Inventory) -Probes $probes -PingBeforeWmi
     }
 }
 

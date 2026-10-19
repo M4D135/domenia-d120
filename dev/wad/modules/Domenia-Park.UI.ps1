@@ -654,7 +654,7 @@ function Start-DomeniaUnaddressedSurvey {
 }
 function Start-DomeniaCompleteSurvey {
     # Mass complete read: light inventory plus hotfixes and startup commands. No Win32_Product and no process list.
-    $ids=@('soft.hotfixcount','soft.startup','soft.stoppedauto')
+    $ids=@('soft.hotfixcount','soft.startup','soft.stoppedauto','sec.tpmversion','sec.tpmenabled','hw.bios','hw.serialmissing')
     $probes=$null
     try{$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}catch{Set-Status ('Relevé complet sans les sondes lourdes : '+$_.Exception.Message) 'WARN';$probes=$null}
     Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi -Inventory -Probes $probes

@@ -848,7 +848,9 @@ function Complete-DomeniaQueryEvaluation {
         # stored for each proposed workstation before any read (same reuse age as the plan) and contacts only the
         # others; the console user is read only when the recipe uses it.
         $reuseDays=[int](Get-DomeniaMember $plan 'ReuseMaxAgeDays' 0)
-        $runId=Start-DomeniaOnlinePark -ScopeTargets @($plan.Targets) -ScopeLabel $label -PingOnly:([bool]$plan.Ping -and -not [bool]$plan.Wmi) -WmiOnly:([bool]$plan.Wmi -and -not [bool]$plan.Ping) -NoConsole:(-not [bool](Get-DomeniaMember $plan 'Console' $true)) -Inventory:([bool]$plan.Inventory) -Probes @(ConvertTo-DomeniaProbePayload $plan.ProbeIds) -ReuseMaxAgeDays $reuseDays -PassThru
+        $pingOnly=([bool]$plan.Ping -and -not [bool]$plan.Wmi)
+        $wmiOnly=([bool]$plan.Wmi -and -not [bool]$plan.Ping)
+        $runId=Start-DomeniaOnlinePark -ScopeTargets @($plan.Targets) -ScopeLabel $label -PingOnly:$pingOnly -WmiOnly:$wmiOnly -PingBeforeWmi:(-not $pingOnly -and -not $wmiOnly) -NoConsole:(-not [bool](Get-DomeniaMember $plan 'Console' $true)) -Inventory:([bool]$plan.Inventory) -Probes @(ConvertTo-DomeniaProbePayload $plan.ProbeIds) -ReuseMaxAgeDays $reuseDays -PassThru
         $status=if([string]$runId){'Plan affiché ci-dessous : seuls les postes incomplets ou trop anciens sont proposés. '+$(if($reuseDays -gt 0){'Le relevé vérifie dʼabord la mesure enregistrée de chaque poste et met de côté ceux qui sont déjà à jour, puis demande la confirmation pour les autres.'}else{'Confirmez le relevé pour le lancer ; le moteur vérifie à nouveau chaque mesure avant de la relire.'})}else{'Plan affiché ci-dessous, mais le relevé nʼa pas pu être préparé : consultez la barre dʼétat. Aucune collecte lancée.'}
         [void](Set-DomeniaControlText 'LblQueryStatus' $status)
         return
