@@ -13194,11 +13194,17 @@ function Request-DomeniaIndexAutoRefresh {
         if ((Get-DomeniaDatabaseObjectCount) -le 0) { return }
         $when = ""
         try { $when = [string]$script:IndexInfo.Date } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ }
-        $ageMinutes = 999999
+        $ageMinutes = -1
         if (-not [string]::IsNullOrWhiteSpace($when)) { try { $ageMinutes = ((Get-Date) - [datetime]$when).TotalMinutes } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ } }
         $minutes = [Math]::Max(1,[int](Get-CfgValue "Index" "StartupDeltaMaxAgeMinutes" 30))
-        if ($ageMinutes -ge $minutes) {
-            Add-DomeniaUiLog -Area "Index" -Text ("Base locale agee de " + [int]$ageMinutes + " min : mise a jour recommandee, non lancee automatiquement. Utilise Outils > Base locale.")
+        # Decision David 2026-10-19: an unknown date (no complete read of the domain recorded, or an unreadable date) is
+        # said as such, never as an age of « 999999 min ».
+        if ($ageMinutes -lt 0) {
+            Add-DomeniaUiLog -Area "Index" -Text "Base locale : aucune lecture complète du domaine datée (seules des OU ont été lues). Une lecture complète se lance à la main dans Outils > Base locale."
+        }
+        elseif ($ageMinutes -ge $minutes) {
+            $age = if ($ageMinutes -ge 2880) { [string][int]($ageMinutes / 1440) + ' jours' } elseif ($ageMinutes -ge 120) { [string][int]($ageMinutes / 60) + ' h' } else { [string][int]$ageMinutes + ' min' }
+            Add-DomeniaUiLog -Area "Index" -Text ("Base locale lue il y a " + $age + " : mise à jour recommandée, non lancée automatiquement. Utilisez Outils > Base locale.")
         }
     } catch { Write-DomeniaSwallowed 'Core' 'Request-DomeniaIndexAutoRefresh' $_ }
 }
@@ -19023,7 +19029,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.31-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.33-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -24426,7 +24432,7 @@ function Initialize-Window {
     Initialize-DomeniaDataStore | Out-Null
     New-DomeniaStartupWindow
     try {
-        Invoke-DomeniaStartupStage "Chargement interface WPF" { Load-XamlWindow } | Out-Null
+        Invoke-DomeniaStartupStage "Chargement interface WPF" { Assert-DomeniaXamlPreflight -XamlText ([string](Get-MainXaml)) -Context "Interface principale"; Load-XamlWindow } | Out-Null
         Invoke-DomeniaStartupStage "Protection erreurs interface" { Register-DomeniaDispatcherExceptionHandler } | Out-Null
         Invoke-DomeniaStartupStage "Moteur multithread" { Initialize-AsyncEngine; Initialize-DomeniaWorkerContextCache } | Out-Null
         Invoke-DomeniaStartupStage "Branchement des evenements" { Wire-Events } | Out-Null
@@ -25998,7 +26004,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.31-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.33-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }
@@ -26007,19 +26013,12 @@ try {
 
     $preflightWatch = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        $xamlPreflightItems = @(
-            [pscustomobject]@{ Context="Interface principale"; Xaml=(Get-MainXaml) },
-            [pscustomobject]@{ Context="Connexion"; Xaml=(Get-DomeniaStandardLoginXaml) }
-        )
-        foreach ($xamlPreflightItem in $xamlPreflightItems) {
-            Assert-DomeniaXamlPreflight -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context)
-            # Decision David 2026-10-19 (startup time): only the login window is built by WPF before authentication.
-            # The main window (thousands of controls) was built here once and thrown away, then built again after the
-            # login; its real WPF load is now checked once, by Load-XamlWindow, which still stops the start on failure.
-            if ([string]$xamlPreflightItem.Context -eq 'Connexion') { [void](Test-DomeniaXamlRuntimeCompatibility -XamlText ([string]$xamlPreflightItem.Xaml) -Context ([string]$xamlPreflightItem.Context)) }
-        }
+        # Decision David 2026-10-19 (startup time, user trace: 2.7 s here): before authentication only the login XAML is
+        # checked (XML and members); its real WPF load is the login window itself, built right after. The main window
+        # is checked and loaded after the login (stage « Chargement interface WPF »), which still stops on failure.
+        Assert-DomeniaXamlPreflight -XamlText ([string](Get-DomeniaStandardLoginXaml)) -Context "Connexion"
         $preflightWatch.Stop()
-        Write-StartupTrace -Stage "Prevalidation interface" -Status "OK" -DurationMs $preflightWatch.ElapsedMilliseconds -Detail "XML et membres XAML valides ; chargement WPF reel de la connexion avant authentification, de l interface principale apres."
+        Write-StartupTrace -Stage "Prevalidation interface" -Status "OK" -DurationMs $preflightWatch.ElapsedMilliseconds -Detail "XML et membres XAML de la connexion valides ; interface principale verifiee puis chargee apres authentification."
     }
     catch {
         $preflightWatch.Stop()

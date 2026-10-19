@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.31-D120",
-  "source_base_commit": "7855ebd74dc459898d5441d4039e9811ac2a2f47",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.33-D120",
+  "source_base_commit": "a62c3ded03724922212c8a5d343aa32e391ba4dd",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3077505,
-      "sha256": "48207805b365c23f836fd1e4093f8915d9548bd9dd480646c306ae81bc292ee7",
+      "bytes": 3077623,
+      "sha256": "ac22b02ecd09e68416ff3bfdbd39dcce39b2a8d9b55e3410161ae9a89ea64527",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6572953,
-      "sha256": "a86f99e77b145d3a436b40835d5663acb9b9bde980f936a8a634fa4953e5d1b7",
+      "bytes": 6573072,
+      "sha256": "d82d85c18435a65f60594af2901458461fb924bc82c596448b22998e773ec3f6",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC31_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC33_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC31",
+    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC33",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -65,6 +65,7 @@
       "LocalIndexRead"
     ],
     "rc30_change": "Journal : plus d'erreur ignorée « méthode dans une expression Null » à la fin des tâches du pool (pings) ; vue d'ensemble refusée par le budget de la base locale pendant un relevé dite « recalcul différé ». Contrôles hors Windows uniquement.",
-    "rc31_change": "Démarrage : racine du domaine mémorisée en profondeur rouverte sur un seul niveau ; sous-étapes de « État initial de sécurité » chronométrées dans Domenia-startup.log (Detail/...). Gain avant connexion mesuré par l'utilisateur sur RC1.17.27 : environ 6,5 s. Contrôles hors Windows uniquement."
+    "rc31_change": "Démarrage : racine du domaine mémorisée en profondeur rouverte sur un seul niveau ; sous-étapes de « État initial de sécurité » chronométrées dans Domenia-startup.log (Detail/...). Gain avant connexion mesuré par l'utilisateur sur RC1.17.27 : environ 6,5 s. Contrôles hors Windows uniquement.",
+    "rc33_change": "Avant connexion : seule la connexion est prévalidée (interface principale vérifiée après). Accueil n'attend plus la restauration de Rechercher. Âge inconnu de la base locale dit tel quel (plus de 999999 min). Contrôles hors Windows uniquement."
   }
 }

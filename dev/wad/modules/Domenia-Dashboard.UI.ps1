@@ -132,12 +132,10 @@ function Test-DomeniaFleetDashboardShown {
     return ($null -ne $tools -and $null -ne $tools.SelectedItem -and [string]$tools.SelectedItem.Name -eq 'WsQueryWorkshop')
 }
 function Test-DomeniaFleetAwaitingScope {
-    # At startup Rechercher restores its remembered OU a moment after the window opens. Until then the scope is the
-    # domain root, which is not computed first: the overview waits for the OU (smooth startup).
-    $c = $script:Continuity
-    if ($null -eq $c -or -not [bool]$c.Restoring -or [bool]$c.SelectedRestored) { return $false }
-    $dn = ([string]$script:SelectedBranchDn).Trim()
-    return ((-not $dn) -or $dn -ieq ([string]$script:Conn.BaseDn).Trim())
+    # Decision David 2026-10-19: the overview has its own scope since point 54 (Get-DomeniaFleetScope reads only
+    # FleetScopeDn, never the OU of Rechercher). Waiting for the restore of Rechercher held Accueil on « En attente de
+    # lʼOU mémorisée » for up to 60 s (until « Choisir une OU ») for nothing: the overview no longer waits.
+    return $false
 }
 function Request-DomeniaFleetRefresh {
     # Recomputes the overview when it is on screen and its OU or data changed; otherwise it is recomputed when Accueil
