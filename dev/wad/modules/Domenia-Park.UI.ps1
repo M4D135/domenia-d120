@@ -344,7 +344,7 @@ function Update-DomeniaParkControls {
         $menu=Get-DomeniaControl 'BtnParkVerifyMenu'
         if($null -ne $menu){$menu.IsEnabled=($available -and -not $listRunning)}
         $modeReady=($available -and -not $listRunning)
-        foreach($modeName in @('BtnParkModePing','BtnParkModeConsole','BtnParkModeAnalyse')){
+        foreach($modeName in @('BtnParkModePing','BtnParkModeConsole','BtnParkModeAnalyse','BtnParkModeComplet','BtnParkRetryUnaddressed')){
             $modeButton=Get-DomeniaControl $modeName
             if($null -ne $modeButton){$modeButton.IsEnabled=$modeReady}
         }
@@ -514,7 +514,7 @@ function Start-DomeniaOnlinePark {
     # widgets that show the progress of the run and -Preapproved (an added widget: the add click is the gesture)
     # starts without the confirmation up to the limit of Get-DomeniaWidgetCollectAdmission. Every widget collection
     # keeps the ceiling of a survey (SE-05), counted on the workstations left to read.
-    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$PingBeforeWmi,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$ChainApproved,[string]$ChainNote='')
+    param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$PingBeforeWmi,[switch]$IncludeUnaddressed,[switch]$OnlyUnaddressed,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[switch]$ForceRefresh,[string]$RefreshOperationId='',[switch]$PassThru,[ValidateSet('','List','Computer')][string]$Slot='',[int]$SkippedTargets=0,[switch]$NoConsole,[int]$ReuseMaxAgeDays=0,[switch]$Preapproved,[string]$WidgetBoard='',[string[]]$WidgetIds=@(),[switch]$ChainApproved,[string]$ChainNote='')
     $started=$false;$r=$null
     try{
         if($PingOnly -and $WmiOnly){throw 'Choisissez Ping ou WMI, pas les deux modes exclusifs.'}
@@ -613,6 +613,8 @@ function Start-DomeniaOnlinePark {
         # answered only. The WMI step was confirmed with the ping (ChainApproved); the ping confirmation says so (ChainNote).
         $r|Add-Member -NotePropertyName ChainApproved -NotePropertyValue ([bool]$ChainApproved -and [bool]$RefreshOperationId)
         $r|Add-Member -NotePropertyName PingBeforeWmi -NotePropertyValue ([bool]$PingBeforeWmi)
+        $r|Add-Member -NotePropertyName IncludeUnaddressed -NotePropertyValue ([bool]$IncludeUnaddressed)
+        $r|Add-Member -NotePropertyName OnlyUnaddressed -NotePropertyValue ([bool]$OnlyUnaddressed)
         $r|Add-Member -NotePropertyName ChainNote -NotePropertyValue ([string]$ChainNote)
         $r|Add-Member -NotePropertyName PingOnline -NotePropertyValue @{}
         $r|Add-Member -NotePropertyName PreviewExcluded -NotePropertyValue @($excluded)
@@ -645,6 +647,17 @@ function Start-DomeniaParkAnalysis {
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
     if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes -PingBeforeWmi;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes -PingBeforeWmi
+}
+function Start-DomeniaUnaddressedSurvey {
+    # Hosts with no known address are left out of a normal wave. This button reads only those.
+    Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi -Inventory -IncludeUnaddressed -OnlyUnaddressed
+}
+function Start-DomeniaCompleteSurvey {
+    # Mass complete read: light inventory plus hotfixes and startup commands. No Win32_Product and no process list.
+    $ids=@('soft.hotfixcount','soft.startup','soft.stoppedauto')
+    $probes=$null
+    try{$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}catch{Set-Status ('Relevé complet sans les sondes lourdes : '+$_.Exception.Message) 'WARN';$probes=$null}
+    Start-DomeniaOnlinePark -DisplayedResults -PingBeforeWmi -Inventory -Probes $probes
 }
 function Complete-DomeniaParkTargets {
     param($Result,$State)
@@ -813,6 +826,7 @@ function Stop-DomeniaOnlinePark {
         }
     }
     $r.Stopping=$true
+    try{Submit-DomeniaParkPingResults -Run $r}catch{Write-DomeniaSwallowed 'Park' 'Stop-DomeniaOnlinePark' $_}
     Stop-DomeniaParkPingWorker -Run $r
     if(-not $r.Pending.Count -and -not $r.Loading -and -not (Test-DomeniaParkPingBuffered -Run $r)){
         $save=Get-DomeniaPersistenceState
@@ -915,11 +929,11 @@ function Select-DomeniaParkNextTarget {
         $index=[int]$Run.Next;$target=$Run.Targets[$index]
         $key=Get-DomeniaParkTargetSourceKey $Run $target
         $scanned++
-        if(& $unknown $key){
-            if($Run.Deferred.Count -ge 512){break}
-            $Run.Deferred.Add([pscustomobject]@{Index=$index;SourceKey=$key});$Run.Next++
-            continue
-        }
+        $isUnknown=[bool](& $unknown $key)
+        $includeUnknown=[bool](Get-DomeniaMember $Run 'IncludeUnaddressed' $false)
+        $onlyUnknown=[bool](Get-DomeniaMember $Run 'OnlyUnaddressed' $false)
+        if($onlyUnknown -and -not $isUnknown){$Run.Next++;continue}
+        if($isUnknown -and -not $includeUnknown){$Run.Next++;$Run.Unchecked++;continue}
         if(& $admit $key){$Run.Next++;Expand-DomeniaParkPrevious $target;return [pscustomobject]@{Index=$index;Target=$target;SourceKey=$key;Attempt=1}}
         if($Run.Deferred.Count -ge 512){break}
         $Run.Deferred.Add([pscustomobject]@{Index=$index;SourceKey=$key});$Run.Next++
@@ -952,6 +966,11 @@ function Select-DomeniaParkPingBatch {
         $index=[int]$Run.Next;$target=$Run.Targets[$index]
         $key=Get-DomeniaParkTargetSourceKey $Run $target
         $scanned++
+        $isUnknown=($key -in @('site:?','dc:?'))
+        $includeUnknown=[bool](Get-DomeniaMember $Run 'IncludeUnaddressed' $false)
+        $onlyUnknown=[bool](Get-DomeniaMember $Run 'OnlyUnaddressed' $false)
+        if($onlyUnknown -and -not $isUnknown){$Run.Next++;continue}
+        if($isUnknown -and -not $includeUnknown){$Run.Next++;$Run.Unchecked++;continue}
         if(& $admit $key){$Run.Next++;$batch.Add([pscustomobject]@{Index=$index;Target=$target;SourceKey=$key});continue}
         if($Run.Deferred.Count -ge 512){break}
         $Run.Deferred.Add([pscustomobject]@{Index=$index;SourceKey=$key});$Run.Next++

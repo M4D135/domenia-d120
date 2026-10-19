@@ -319,7 +319,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
+    "Sha256": "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
   },
   {
     "Operation": "LiveCache",
@@ -382,7 +382,7 @@
     "File": "wad/modules/Domenia-Live.Model.ps1",
     "Function": "Get-DomeniaLiveProbeCode",
     "LiteralIndex": 0,
-    "Sha256": "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
+    "Sha256": "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
   },
   {
     "Operation": "EmbeddedDirectoryLookup",

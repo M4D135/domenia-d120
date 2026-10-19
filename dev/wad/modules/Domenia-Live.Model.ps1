@@ -434,10 +434,25 @@ try{
     Assert-WCredentialAllowed -Context $Context -Channel Remote
     $credential=Get-WMachineCredential $Context
     $timeout=[Math]::Max(2,[Math]::Min(8,[int]$Payload.MethodSeconds))
-    # One credential, one read-only transport in this automatic path. No SMB staging.
+    # One credential, one read-only transport in this automatic path. No SMB staging and no WinRM.
     $option=New-CimSessionOption -Protocol Dcom -ErrorAction Stop
     $parameters=@{ComputerName=$target;SessionOption=$option;OperationTimeoutSec=$timeout;ErrorAction='Stop'}
-    if($null -ne $credential){$parameters.Credential=$credential}
+    $impersonated=$false
+    $logonToken=[IntPtr]::Zero
+    if($null -ne $credential){
+        try{
+            if(-not ('DomeniaSurveyLogon' -as [type])){
+                Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class DomeniaSurveyLogon{[DllImport("advapi32.dll",SetLastError=true,CharSet=CharSet.Unicode)]public static extern bool LogonUser(string u,string d,string p,int t,int pr,out IntPtr tok);[DllImport("advapi32.dll",SetLastError=true)]public static extern bool ImpersonateLoggedOnUser(IntPtr tok);[DllImport("advapi32.dll",SetLastError=true)]public static extern bool RevertToSelf();[DllImport("kernel32.dll",SetLastError=true)]public static extern bool CloseHandle(IntPtr h);}'
+            }
+            $net=$credential.GetNetworkCredential()
+            $tok=[IntPtr]::Zero
+            if([DomeniaSurveyLogon]::LogonUser([string]$net.UserName,[string]$net.Domain,[string]$net.Password,9,3,[ref]$tok)){
+                $logonToken=$tok
+                if([DomeniaSurveyLogon]::ImpersonateLoggedOnUser($logonToken)){$impersonated=$true}
+            }
+        }catch{$impersonated=$false}
+        if(-not $impersonated){$parameters.Credential=$credential}
+    }
     Assert-WCredentialAllowed -Context $Context -Channel Remote
     $authLease=Enter-WCredentialAttempt -Context $Context -Channel Remote
     $cim=New-CimSession @parameters
@@ -598,7 +613,7 @@ try{
     if($probeUser){$answer.ConsoleAttempted=$true;$answer.ConsoleCheckedUtc=[datetime]::UtcNow.ToString('o')}
     if($collectInventory -and -not $answer.Contains('Inventory')){$answer.InventoryError=$answer.Detail;$answer.InventoryCheckedUtc=[datetime]::UtcNow.ToString('o')}
     if($collectProbes){$errors=[ordered]@{};foreach($probe in @($Payload.Probes)){if($null -ne $answer.Probes -and $null -ne $answer.Probes.PSObject.Properties[[string]$probe.Id]){$errors[[string]$probe.Id]=$answer.Probes.([string]$probe.Id);continue};$errors[[string]$probe.Id]=[pscustomobject]@{Rows=@();Count=0;Error=$answer.Detail;Truncated=$false;CheckedUtc=[datetime]::UtcNow.ToString('o')}};$answer.Probes=[pscustomobject]$errors}
-}finally{if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($null -ne $cim){Remove-CimSession -CimSession $cim -ErrorAction Ignore}}
+}finally{if($impersonated){try{[DomeniaSurveyLogon]::RevertToSelf()}catch{}};if($logonToken -ne [IntPtr]::Zero){try{[DomeniaSurveyLogon]::CloseHandle($logonToken)}catch{}};if($null -ne $authLease){Exit-WCredentialAttempt -Lease $authLease;$authLease=$null};if($null -ne $cim){Remove-CimSession -CimSession $cim -ErrorAction Ignore}}
 $answer.CimQueries=[pscustomobject]@{Consumers=[int]$cimStats.Consumers;Executed=[int]$cimStats.Executed;Avoided=[int][Math]::Max(0,$cimStats.Consumers-$cimStats.Executed)}
 # Validate only a qualified account belonging to the AD domain of this session.
 # A local account or a bare username is never reinterpreted as an AD user.

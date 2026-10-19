@@ -1663,6 +1663,8 @@
                                 <Button x:Name="BtnParkModePing" Content="Qui répond ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Ping de la liste"/>
                                 <Button x:Name="BtnParkModeConsole" Content="Qui est connecté ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Utilisateur connecté de la liste"/>
                                 <Button x:Name="BtnParkModeAnalyse" Content="Matériel et widgets" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Relevé matériel de la liste"/>
+                                <Button x:Name="BtnParkModeComplet" Content="Complet : correctifs" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Relevé complet de la liste"/>
+                                <Button x:Name="BtnParkRetryUnaddressed" Content="Réessayer les sans adresse" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Relire les postes sans adresse"/>
                                 <Button x:Name="BtnParkVerify" Content="Vérifier la liste" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Arrêter ou vérifier la liste"/>
                               </WrapPanel>
                             </StackPanel>

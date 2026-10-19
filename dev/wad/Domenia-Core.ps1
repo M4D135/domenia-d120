@@ -10984,7 +10984,7 @@ function Start-DomeniaComputerInventory {
             -Payload ([pscustomobject]@{ Computer=$computer; Deep=[bool]$Deep; BudgetMs=$budget; MaxSoftwareKeys=$softwareKeys; PreferWinrm=[bool](Get-CfgValue "Inventory" "PreferWinrm" $false) }) `
             -CallbackState $collectionState `
             -ReplaceKey "inventory" `
-            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep","BtnParkVerify","BtnParkModePing","BtnParkModeConsole","BtnParkModeAnalyse") `
+            -DisableControls @("BtnRunInventory","BtnRunInventoryDeep","BtnDashboardInventory","BtnDashboardInventoryDeep","BtnParkVerify","BtnParkModePing","BtnParkModeConsole","BtnParkModeAnalyse","BtnParkModeComplet","BtnParkRetryUnaddressed") `
             -TimeoutSeconds $timeout `
             -StatusText ("Inventaire " + $mode + " de " + $computer + " en arriere-plan...") `
             -SuccessHandler "Complete-DomeniaClassicCollected" `
@@ -18915,6 +18915,8 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnParkModePing")) { $script:Ctrl["BtnParkModePing"].Add_Click({ Invoke-DomeniaParkVerify -Mode Ping }) }
     if ($script:Ctrl.ContainsKey("BtnParkModeConsole")) { $script:Ctrl["BtnParkModeConsole"].Add_Click({ Invoke-DomeniaParkVerify -Mode Console }) }
     if ($script:Ctrl.ContainsKey("BtnParkModeAnalyse")) { $script:Ctrl["BtnParkModeAnalyse"].Add_Click({ Invoke-DomeniaParkVerify -Mode Analyse }) }
+    if ($script:Ctrl.ContainsKey("BtnParkModeComplet")) { $script:Ctrl["BtnParkModeComplet"].Add_Click({ try { Start-DomeniaCompleteSurvey } catch { Set-Status ('Relevé complet non lancé : ' + $_.Exception.Message) 'WARN' } }) }
+    if ($script:Ctrl.ContainsKey("BtnParkRetryUnaddressed")) { $script:Ctrl["BtnParkRetryUnaddressed"].Add_Click({ try { Start-DomeniaUnaddressedSurvey } catch { Set-Status ('Relevé des postes sans adresse non lancé : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnParkVerifyMenu")) { $script:Ctrl["BtnParkVerifyMenu"].Add_Click({ param($sender,$eventArgs) Open-DomeniaParkVerifyMenu -Anchor $sender }) }
     # CO-19: the outcome pills of the last ping of the list filter it by presence (local filter only).
     if ($script:Ctrl.ContainsKey("BtnParkOutcomeOnline")) { $script:Ctrl["BtnParkOutcomeOnline"].Add_Click({ Set-DomeniaParkOutcomeFilter -Outcome Online }) }
@@ -20455,8 +20457,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
-        LiveSelectedPing     = "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
-        LiveConsole          = "3EC278E36E98EAC06A7774C3918E61DD09C7949A7A76BB9D42B7FC26EDB4BBBA"
+        LiveSelectedPing     = "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
+        LiveConsole          = "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
         LiveCache            = "F3E4F0737A07D087A9059CE868A6F901E0A03532E48849573793BF27735A221E"
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20503,7 +20505,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "94CCB4E74F2A019B52F84DA76FCF65ABC79AD77BBA145B103095A1A560C262C6"
+    $expectedFingerprint = "0E990EA03E04F269D9A6EAA5AAB55556A896306CBB8A24B90B5F32FA983ABC83"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

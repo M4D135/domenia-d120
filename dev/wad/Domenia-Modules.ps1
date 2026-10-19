@@ -2788,6 +2788,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Open-DomeniaParkVerifyMenu',
             'Start-DomeniaOnlinePark',
             'Start-DomeniaParkAnalysis',
+            'Start-DomeniaUnaddressedSurvey',
+            'Start-DomeniaCompleteSurvey',
             'Complete-DomeniaParkTargets',
             'Set-DomeniaParkTargetIndex',
             'Get-DomeniaParkTargetIndex',

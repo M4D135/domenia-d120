@@ -117,6 +117,15 @@
       "Reason": "Ouvre C$ ou ADMIN$ avec le compte choisi sans mot de passe dans une ligne de commande."
     },
     {
+      "Id": "survey-logon",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/modules/Domenia-Live.Model.ps1:Get-DomeniaLiveProbeCode"
+      ],
+      "Api": "Jeton réseau (advapi32 LogonUser NEW_CREDENTIALS, ImpersonateLoggedOnUser, RevertToSelf)",
+      "Reason": "Une lecture CIM automatique ouvre un jeton une fois pour le poste, puis la session DCOM sans mot de passe explicite. Le jeton est annulé à la fin de la lecture. PowerShell 5.1 nʼa pas de commande LogonUser."
+    },
+    {
       "Id": "winsqlite",
       "Kind": "Interop",
       "Sources": [
