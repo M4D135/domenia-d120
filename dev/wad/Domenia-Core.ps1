@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.24-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.25-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -21654,9 +21654,11 @@ function New-DomeniaAttributeChange {
 }
 
 function Complete-DomeniaOpenObjectUi {
+    # D025: an object read without a known GUID (a forced re-read after a write, such as « Désactiver le compte ») has
+    # an empty cache key: it is shown but not cached (Set-VisitCacheValue ignores an empty key).
     param(
         $Result,
-        [Parameter(Mandatory=$true)][string]$CacheKey,
+        [Parameter(Mandatory=$true)][AllowEmptyString()][string]$CacheKey,
         [Parameter(Mandatory=$true)][string]$Dn,
         [Parameter(Mandatory=$true)][string]$Type,
         [switch]$NoNavigate,[switch]$SuppressRemoteProbes
@@ -21684,6 +21686,9 @@ function Fail-DomeniaOpenObjectUi {
     if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "Erreur inconnue." }
     Set-Status "Erreur objet : $detail" "ERROR"
     Write-AppLog "Lecture de l'objet $Dn : $detail" "ERROR"
+    # A failed (re)read, after a write for instance, recomputes the write controls from the real session state;
+    # otherwise they kept the state of the read in progress until the read-only switch was toggled.
+    try { Apply-CurrentPermissionUi } catch { Write-DomeniaSwallowed 'Core' 'Fail-DomeniaOpenObjectUi' $_ }
 }
 
 function Complete-DomeniaOpenObjectTaskUi {
@@ -22416,6 +22421,13 @@ function Complete-DomeniaWriteTaskUi {
             else {
                 Write-AppLog "[$correlation] SUCCES $name via $backend : $message" "INFO"
                 Set-Status "$message (Vérifié)"
+                # Decision David 2026-10-19: a verified write is confirmed in the page, not only on the status line
+                # (a later message there, such as a refresh error, used to hide it).
+                $target = ''
+                try { $target = [string]$State.TargetDn } catch { $target = '' }
+                $shortTarget = if ($target -match '^(?i)CN=([^,]+)') { $matches[1] } else { $target }
+                $confirmation = $name + $(if ($shortTarget) { ' : ' + $shortTarget } else { '' }) + ' — ' + $message + ' Vérifié par le contrôleur de domaine à ' + (Get-Date).ToString('HH:mm') + '.'
+                try { [void](Show-DomeniaBanner -Kind Success -Message $confirmation -Key ('write-verified|' + $correlation)) } catch { Write-DomeniaSwallowed 'Core' 'Complete-DomeniaWriteTaskUi' $_ }
             }
         }
         elseif ($postStatus -eq "Partiel" -or $postStatus -eq "A verifier") {
@@ -25964,7 +25976,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.24-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.25-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

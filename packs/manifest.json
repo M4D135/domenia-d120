@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.24-D120",
-  "source_base_commit": "1d658ca0e69cd4890eae1723f95d194eedd58f59",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.25-D120",
+  "source_base_commit": "05622325009e2fb76f01127ff240279b8c48c602",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3071141,
-      "sha256": "58c5eaa7a2df6c90910c89581260ec69b051243da636ed2e2c56d33cff093b91",
+      "bytes": 3071783,
+      "sha256": "fee18202978167402cdd98cbdfc37fb4488afe27e8a4d04de9dce5ec4a66d081",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6565544,
-      "sha256": "9221cd6dec3af080aaeb0244e8c1eda4f72696161ff78a6f09bfc002026063ec",
+      "bytes": 6566186,
+      "sha256": "56a14c34c0f84ff6e818f404aef50cddcef079a7c3b19c7ffd3275d923bbbc40",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC24_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC25_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_RC24",
+    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC25",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -55,6 +55,7 @@
     "historical_rc22_proofs": [
       "validation/2026-10-18/rc22-ui-automation/README.md"
     ],
-    "rc24_change": "Relevé WMI : associations utilisateur-poste depuis la console observée ; vue d'ensemble et widgets recalculés pendant le relevé (mention partiel) ; relevé arrêté affiché comme partiel exploitable ; bouton Tout actualiser (objets AD puis ping et WMI). Contrôles hors Windows uniquement."
+    "rc24_change": "Relevé WMI : associations utilisateur-poste depuis la console observée ; vue d'ensemble et widgets recalculés pendant le relevé (mention partiel) ; relevé arrêté affiché comme partiel exploitable ; bouton Tout actualiser (objets AD puis ping et WMI). Contrôles hors Windows uniquement.",
+    "rc25_change": "Fiche relue après une écriture sans GUID connu (erreur CacheKey vide après Désactiver le compte) ; boutons d'écriture recalculés quand la relecture échoue ; bannière de confirmation pour toute écriture vérifiée par le contrôleur de domaine. Contrôles hors Windows uniquement."
   }
 }

@@ -153,7 +153,15 @@ function Complete-DomeniaDirectoryObjectCommit {
     $stored=ConvertFrom-DomeniaDirectoryCommittedRow $rows[0]
     $effective=[pscustomobject]@{Properties=$stored.Properties;DN=$stored.DN;Type=$stored.Type;Live=$true;DataSource='SQLite';ObservedUtc=[string](Get-DomeniaMember $rows[0] 'ObservedAtUtc' '');StoreRevision=$Result.SnapshotRevision;Demo=([string](Get-DomeniaMember $rows[0] 'Source' '') -ceq 'Demonstration')}
     Assert-DomeniaObjectResultIdentity -Result $effective -State $State
-    Complete-DomeniaOpenObjectUi -Result $effective -CacheKey ([string]$State.CacheKey) -Dn $stored.DN -Type $stored.Type -NoNavigate:([bool]$State.NoNavigate) -SuppressRemoteProbes:([bool]$State.SuppressRemoteProbes)
+    # The record is committed; a display failure must not leave the request « in progress » (a new read of the same
+    # object would be ignored) nor the write controls in the state of the read. The pipe still reports the error.
+    try{Complete-DomeniaOpenObjectUi -Result $effective -CacheKey ([string]$State.CacheKey) -Dn $stored.DN -Type $stored.Type -NoNavigate:([bool]$State.NoNavigate) -SuppressRemoteProbes:([bool]$State.SuppressRemoteProbes)}
+    catch{
+        $displayFault=$_
+        Clear-DomeniaCurrentObjectRequest ([string]$State.RequestId)
+        try{Fail-DomeniaOpenObjectUi -Message ('Fiche enregistrée, affichage non recalculé : '+$displayFault.Exception.Message) -Dn ([string]$State.Dn)}catch{Write-DomeniaSwallowed 'DirectoryStore' 'Complete-DomeniaDirectoryObjectCommit' $_}
+        throw $displayFault
+    }
     if($State.SelectionBound -and (Test-DomeniaSelectionLoadCurrent)){Update-DomeniaSelectionReadUi -Phase Ready}
     Clear-DomeniaCurrentObjectRequest ([string]$State.RequestId)
     $script:LastObjectOpenError=''
