@@ -876,6 +876,9 @@ function Select-DomeniaParkNextTarget {
         if(-not $verdict.ContainsKey($Key)){$verdict[$Key]=[bool](Test-DomeniaSourceAdmission -Health $Run.Sources.Health -Key $Key -Running ([int]$running[$Key]) -Policy (Get-DomeniaCampaignSourcePolicy $Run.Sources $Key) -NowUtc $NowUtc).Allowed}
         return [bool]$verdict[$Key]
     }
+    # Hosts with no known address wait until the addressed ones have been offered. They must not occupy a WMI slot first.
+    $unknown={param([string]$Key) $Key -in @('site:?','dc:?')}
+    $addressedRemain=([int]$Run.Next -lt @($Run.Targets).Count)
     for($i=0;$i -lt $Run.Retry.Count;$i++){
         $item=$Run.Retry[$i]
         if([datetime]$item.NotBeforeUtc -gt $NowUtc){continue}
@@ -885,6 +888,7 @@ function Select-DomeniaParkNextTarget {
     }
     for($i=0;$i -lt $Run.Deferred.Count;$i++){
         $item=$Run.Deferred[$i]
+        if($addressedRemain -and (& $unknown ([string]$item.SourceKey))){continue}
         if(-not (& $admit ([string]$item.SourceKey))){continue}
         $Run.Deferred.RemoveAt($i)
         $target=$Run.Targets[[int]$item.Index];Expand-DomeniaParkPrevious $target
@@ -895,6 +899,11 @@ function Select-DomeniaParkNextTarget {
         $index=[int]$Run.Next;$target=$Run.Targets[$index]
         $key=Get-DomeniaParkTargetSourceKey $Run $target
         $scanned++
+        if(& $unknown $key){
+            if($Run.Deferred.Count -ge 512){break}
+            $Run.Deferred.Add([pscustomobject]@{Index=$index;SourceKey=$key});$Run.Next++
+            continue
+        }
         if(& $admit $key){$Run.Next++;Expand-DomeniaParkPrevious $target;return [pscustomobject]@{Index=$index;Target=$target;SourceKey=$key;Attempt=1}}
         if($Run.Deferred.Count -ge 512){break}
         $Run.Deferred.Add([pscustomobject]@{Index=$index;SourceKey=$key});$Run.Next++

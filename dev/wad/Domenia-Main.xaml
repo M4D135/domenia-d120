@@ -1658,7 +1658,7 @@
                           <Border x:Name="UxLiveActionsSection" Grid.Row="1" Margin="0,8,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
                             <StackPanel>
                               <TextBlock Text="Relevé de la liste" FontWeight="SemiBold"/>
-                              <TextBlock Text="Ping dʼabord. La lecture WMI ne part que si le poste répond. La vue dʼensemble ne se recalcule pas toute seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,8"/>
+                              <TextBlock Text="Ping dʼabord. La lecture WMI ne part que si le poste répond. Les postes sans adresse attendent la fin des autres. La vue dʼensemble ne se recalcule pas toute seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,8"/>
                               <WrapPanel>
                                 <Button x:Name="BtnParkModePing" Content="Qui répond ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Ping de la liste"/>
                                 <Button x:Name="BtnParkModeConsole" Content="Qui est connecté ?" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="10,4" Margin="0,0,8,4" IsEnabled="False" AutomationProperties.Name="Utilisateur connecté de la liste"/>
