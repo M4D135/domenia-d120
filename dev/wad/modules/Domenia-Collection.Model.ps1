@@ -31,6 +31,37 @@ function Get-DomeniaCollectionFamilies {
     )
 }
 
+function ConvertTo-DomeniaCollectionRunListRows {
+    # Decision David 2026-10-19 (Outils > Relevés, « Derniers relevés par OU »): one row per recorded family and scope,
+    # newest attempt first. Only what was recorded is shown: date, OU, type, state, workstations read, last success and
+    # reason. A record without a readable date is left out; nothing is guessed.
+    param([object[]]$Runs=@())
+    $culture=[Globalization.CultureInfo]::InvariantCulture
+    $format={param($At) if($At -is [datetime]){return $At.ToLocalTime().ToString('dd/MM/yyyy HH:mm',$culture)};return ''}
+    $rows=New-Object 'System.Collections.Generic.List[object]'
+    foreach($raw in @($Runs)){
+        $run=ConvertFrom-DomeniaCollectionRunRecord $raw
+        if(($null -eq $run) -or ($null -eq $run.AttemptAtUtc)){continue}
+        $family=[string]$run.Family
+        $type=switch($family){'Directory'{'Objets AD'};'Presence'{'Ping'};'Inventory'{'WMI'};default{''}}
+        if(-not $type){continue}
+        $key=[string]$run.RequestKey;$subtree=$key.StartsWith('subtree:',[StringComparison]::Ordinal)
+        $scope=[string](Get-DomeniaMember $run.Attempt 'ScopeDn' '')
+        if(-not $scope){$scope=[string](Get-DomeniaMember $run.Success 'ScopeDn' '')}
+        if((-not $scope) -and ($key.IndexOf(':') -ge 0)){$scope=$key.Substring($key.IndexOf(':')+1)}
+        $name=$scope
+        if($scope -match '^(?i)(OU|CN|DC)=([^,]+)'){$name=$Matches[2]}
+        if($subtree -and $name){$name+=' et sous-OU'}
+        $counts=Format-DomeniaCollectionCounts ([pscustomobject]@{Done=(Get-DomeniaMember $run.Attempt 'Done' $null);Targets=(Get-DomeniaMember $run.Attempt 'Targets' $null);Failed=(Get-DomeniaMember $run.Attempt 'Failed' $null)}) -Family $family
+        $reason=([string]$run.Error).Trim()
+        if($reason.Length -gt 200){$reason=$reason.Substring(0,200)+'…'}
+        $rows.Add([pscustomobject]@{
+            Date=(& $format $run.AttemptAtUtc);Ou=$name;OuDn=$scope;Type=$type;Etat=(Get-DomeniaCollectionStatusText ([string]$run.Status))
+            Postes=$counts;Reussite=$(if($null -ne $run.SuccessAtUtc){& $format $run.SuccessAtUtc}else{'aucune'});Motif=$reason;AttemptUtc=$run.AttemptAtUtc
+        })
+    }
+    return @($rows.ToArray()|Sort-Object -Property AttemptUtc -Descending)
+}
 function Get-DomeniaCollectionFamily {
     param([AllowEmptyString()][string]$Family)
     foreach($item in @(Get-DomeniaCollectionFamilies)){if([string]$item.Family -ceq $Family){return $item}}

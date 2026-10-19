@@ -281,6 +281,8 @@ function Complete-DomeniaOuRefreshRunsStored {
     }
     # The page shows these clocks only after reading them back from the committed snapshot.
     try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Refresh' 'Complete-DomeniaOuRefreshRunsStored' $_}
+    # Outils > Relevés, when shown, lists the new record at once (decision David 2026-10-19).
+    try{$runsTab=Get-DomeniaControl 'TabCollectionLimits';if(($null -ne $runsTab) -and [bool]$runsTab.IsVisible){Update-DomeniaRunsPanel;Request-DomeniaCollectionRunsList}}catch{Write-DomeniaSwallowed 'Refresh' 'Complete-DomeniaOuRefreshRunsStored' $_}
 }
 function Fail-DomeniaOuRefreshRunsStored {
     param([string]$Message,$State)

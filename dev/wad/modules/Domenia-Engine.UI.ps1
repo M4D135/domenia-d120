@@ -1205,7 +1205,7 @@ function Fail-DomeniaIndexSearchUi {
 function Start-DomeniaLocalRead {
     param(
         [Parameter(Mandatory=$true)][string]$Name,
-        [Parameter(Mandatory=$true)][ValidateSet('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')][string]$Action,
+        [Parameter(Mandatory=$true)][ValidateSet('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','CollectionRuns')][string]$Action,
         [Parameter(Mandatory=$true)]$State,
         [Parameter(Mandatory=$true)][string]$ReplaceKey,
         [Parameter(Mandatory=$true)][string]$SuccessHandler,

@@ -26,6 +26,9 @@ function Initialize-DomeniaInlineUi {
     $cancel=Get-DomeniaControl 'BtnInlineRequestCancel'
     $style=$script:Window.TryFindResource('SecondaryButton');if($null -ne $style){$cancel.Style=$style}
     $cancel.Add_Click({Complete-DomeniaInlineRequest -Dismiss})
+    # Optional third answer (-AlternateText): resolved like the safe answer (nothing confirmed), then its own continuation.
+    $alternate=Get-DomeniaControl 'BtnInlineRequestAlternate'
+    if($null -ne $alternate){if($null -ne $style){$alternate.Style=$style};$alternate.Add_Click({Complete-DomeniaInlineRequest -Dismiss -Alternate})}
     (Get-DomeniaControl 'BtnInlineRequestConfirm').Add_Click({Complete-DomeniaInlineRequest -Confirm})
     # L07: a typed confirmation enables the confirming answer only once the exact text is typed.
     (Get-DomeniaControl 'TxtInlineRequestTyped').Add_TextChanged({Update-DomeniaInlineTypedState})
@@ -68,7 +71,9 @@ function Request-DomeniaInlineConfirmation {
         [string]$DetailsTitle='Détails techniques',
         [switch]$DetailsExpertOnly,
         [AllowEmptyString()][string]$TypedConfirmation='',
-        [AllowEmptyString()][string]$TypedPrompt=''
+        [AllowEmptyString()][string]$TypedPrompt='',
+        [AllowEmptyString()][string]$AlternateText='',
+        [scriptblock]$OnAlternate=$null
     )
     $changeLines=@(@($Changes)|Where-Object{-not [string]::IsNullOrWhiteSpace([string]$_)}|ForEach-Object{[string][char]0x2022+' '+([string]$_).Trim()})
     $typed=([string]$TypedConfirmation).Trim()
@@ -85,7 +90,12 @@ function Request-DomeniaInlineConfirmation {
     }
     if($null -ne $script:DomeniaInline.Current){Complete-DomeniaInlineRequest -Dismiss -Reason 'Remplacee par une nouvelle demande.'}
     $request=New-DomeniaInlineRequest -Kind Confirm -HostName 'InlineRequestPanel' -Title $Title -Message $Message -Choices @($ConfirmText,$CancelText) -SafeChoice $CancelText -ConfirmChoice $ConfirmText -ContinuationId ([guid]::NewGuid().ToString('N')) -Scope $Target -Generation ([string]$script:SessionEpoch) -TypedConfirmation $typed
-    $script:DomeniaInline.Current=[pscustomobject]@{Request=$request;OnConfirm=$OnConfirm;OnCancel=$OnCancel;Target=$Target}
+    $script:DomeniaInline.Current=[pscustomobject]@{Request=$request;OnConfirm=$OnConfirm;OnCancel=$OnCancel;Target=$Target;OnAlternate=$OnAlternate}
+    $alternateButton=Get-DomeniaControl 'BtnInlineRequestAlternate'
+    if($null -ne $alternateButton){
+        if(([string]$AlternateText).Trim() -and ($null -ne $OnAlternate)){$alternateButton.Content=([string]$AlternateText).Trim();$alternateButton.Visibility=[Windows.Visibility]::Visible}
+        else{$alternateButton.Content='';$alternateButton.Visibility=[Windows.Visibility]::Collapsed}
+    }
     [void](Set-DomeniaControlText 'LblInlineRequestTitle' ([string]$request.Title))
     [void](Set-DomeniaControlText 'LblInlineRequestMessage' ([string]$request.Message))
     [void](Set-DomeniaControlText 'LblInlineRequestChanges' ($changeLines -join "`n"))
@@ -133,7 +143,7 @@ function Update-DomeniaInlineTypedState {
 
 function Complete-DomeniaInlineRequest {
     # Answers the pending request once. A request of a former session is withdrawn without running anything.
-    param([switch]$Confirm,[switch]$Dismiss,[string]$Reason='')
+    param([switch]$Confirm,[switch]$Dismiss,[switch]$Alternate,[string]$Reason='')
     if($null -eq $script:DomeniaInline -or $null -eq $script:DomeniaInline.Current){return}
     $current=$script:DomeniaInline.Current
     $request=$current.Request
@@ -148,6 +158,7 @@ function Complete-DomeniaInlineRequest {
     if($Reason){Write-AppLog ('Demande dans la page : '+[string]$request.Title+' - '+$Reason) 'INFO'}
     try{
         if([bool]$answer.Confirmed){if($null -ne $current.OnConfirm){& $current.OnConfirm}}
+        elseif($Alternate -and ($null -ne (Get-DomeniaMember $current 'OnAlternate' $null))){& $current.OnAlternate}
         elseif($null -ne $current.OnCancel){& $current.OnCancel}
     }catch{
         Set-Status ([string]$request.Title+' : '+$_.Exception.Message) 'ERROR'

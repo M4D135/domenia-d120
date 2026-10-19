@@ -7,7 +7,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # Get-DomeniaSqliteWorkerCommon of Domenia-Storage.Worker.ps1); this body only keeps its measured read.
     return (Get-DomeniaSqliteWorkerCommon)+[Environment]::NewLine+@'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','CollectionRuns','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -713,7 +713,7 @@ try {
     }
     # FI-19 (L20): the last synchronous SQLite reads of the Dispatcher. Each action answers what its former core
     # reader read, in one snapshot; a table that the schema does not have yet answers empty, never with an error.
-    if ($action -in @('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats')) {
+    if ($action -in @('IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','CollectionRuns')) {
         [void](Invoke-IdxWQuery $db 'BEGIN;')
         $tables=@{};foreach($t in @(Invoke-IdxWQuery $db "SELECT name FROM sqlite_master WHERE type='table';")){$tables[[string]$t.name]=$true}
         $answer=[pscustomobject]@{ Rows=@(); Busy=$false; Missing=$false; MachineCount=0 }
@@ -748,6 +748,18 @@ try {
                 }
             }
             $answer.Rows=$links.ToArray()
+        }
+        elseif ($action -eq 'CollectionRuns') {
+            # Decision David 2026-10-19 (Outils > Releves): the recorded clocks of the explicit collections of this
+            # domain, one row per family and scope (last attempt and last success), newest attempt first, 300 at most.
+            $runDomain=([string]$Payload.DomainDn).Trim().ToLowerInvariant()
+            if((-not $runDomain) -or ($runDomain.Length -gt 2048) -or ($runDomain -match '[\x00-\x1f]')){throw 'Domaine de lecture invalide.'}
+            if($tables.ContainsKey('domenia_domain_metadata')){
+                $answer.Rows=@(foreach($runRow in @(Invoke-IdxWQuery $db "SELECT domain_dn,family,request_key,attempt_at,status,error,success_at,payload,attempt_payload,revision FROM domenia_domain_metadata WHERE domain_dn=?1 AND family IN ('Directory','Presence','Inventory') ORDER BY attempt_at DESC LIMIT 300;" -Parameters @($runDomain))){
+                    $runSuccess=[string]$runRow.payload;$runAttempt=[string]$runRow.attempt_payload
+                    [pscustomobject]@{Kind='CollectionRun';DomainDn=[string]$runRow.domain_dn;Family=[string]$runRow.family;RequestKey=[string]$runRow.request_key;LastAttemptAtUtc=[string]$runRow.attempt_at;Status=[string]$runRow.status;Error=[string]$runRow.error;LastSuccessAtUtc=[string]$runRow.success_at;Data=$(if(($runSuccess) -and ($runSuccess -cne 'null')){Get-StoreWJson $runSuccess}else{$null});AttemptData=$(if(($runAttempt) -and ($runAttempt -cne 'null')){Get-StoreWJson $runAttempt}else{$null});Revision=[long]$runRow.revision}
+                })
+            }
         }
         elseif ($action -eq 'SecretIndexEntry') {
             # Non-secret metadata of one workstation (key count, dates, LAPS scheme, verdict): never a key or a password.

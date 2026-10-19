@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "BE9405B5B22542F82CCAFF0F11A618A5B5BC91D0245BF15D8E666D7A265CBEBF",
-    "Assert-DomeniaWorkerRegistry": "18381E5FFCF2E81050109BEF4A3521740FB1DCAFABB83303E8F05FCCC01EEFC4",
+    "Get-DomeniaWorkerOperationHashes": "320699AF370F5F0EBD05ADA89F21F22049460A23EB687A5E13575C2820253875",
+    "Assert-DomeniaWorkerRegistry": "970E70794A984DDD2BC7929590188AF2CAE3B2100445E83E8B89CEC56E96D278",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4834,6 +4834,18 @@
         "Start-DomeniaIndexWalkStep",
         "Update-DomeniaAccountUi",
         "Wire-Events"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "Decision David 2026-10-19 : lecture locale CollectionRuns (Outils > Releves, liste des derniers releves par OU) ajoutee au worker LocalIndexRead apres relecture ; update_worker_contracts.py --apply a mis a jour les empreintes de Get-DomeniaWorkerOperationHashes et Assert-DomeniaWorkerRegistry, rien d autre.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

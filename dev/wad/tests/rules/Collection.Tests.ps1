@@ -94,6 +94,21 @@ Test-Case 'COL-005b' 'Un releve arrete sans reussite reste exploitable et le dit
     Assert-True ([bool]$text.Warning) 'releve partiel non signale'
     Assert-True ($text.Detail -like '*Relevé partiel (arrêté)*motif*') ('infobulle : '+$text.Detail)
 }
+Test-Case 'COL-005c' 'Liste des derniers releves par OU : date, OU, type, etat, postes, reussite et motif (decision du 19/10)' {
+    $stopped=New-ColRun -Family Inventory -Success '2026-10-14T08:00:00.0000000Z' -Attempt '2026-10-14T10:00:00.0000000Z' -Status Cancelled -ErrorText 'Releve arrete : 2/10 poste(s) traite(s).'
+    $ping=New-ColRun -Family Presence -Success '2026-10-14T09:00:00.0000000Z'
+    $rows=@(ConvertTo-DomeniaCollectionRunListRows -Runs @($ping,$stopped,$null))
+    Assert-Equal 2 $rows.Count 'nombre de lignes'
+    Assert-Equal 'WMI' ([string]$rows[0].Type) 'tri : la tentative la plus recente en premier'
+    Assert-Equal 'arrêté' ([string]$rows[0].Etat)
+    Assert-True ([string]$rows[0].Postes -like '2/10 postes*') ('postes : '+[string]$rows[0].Postes)
+    Assert-True ([string]$rows[0].Ou -like '* et sous-OU') ('OU : '+[string]$rows[0].Ou)
+    Assert-True ([string]$rows[0].Motif -like 'Releve arrete*') 'motif'
+    Assert-False ([string]$rows[0].Reussite -eq 'aucune') 'derniere reussite perdue'
+    Assert-Equal 'Ping' ([string]$rows[1].Type)
+    Assert-Equal 'réussi' ([string]$rows[1].Etat)
+    Assert-Equal 0 @(ConvertTo-DomeniaCollectionRunListRows -Runs @()).Count
+}
 Test-Case 'COL-006' 'Un releve de l OU englobante date la sous-OU, jamais un autre domaine ou une autre famille' {
     $parent=New-ColRun -Family Inventory -Success '2026-10-14T09:00:00.0000000Z'
     $other=New-ColRun -Family Inventory -Success '2026-10-14T11:00:00.0000000Z' -Domain 'dc=autre,dc=test'

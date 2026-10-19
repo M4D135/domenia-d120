@@ -396,7 +396,10 @@ function Request-DomeniaCampaignResumeOffer {
     $status = Get-DomeniaCampaignResumeStatus
     if (-not [bool]$status.Resumable) { return }
     $resume = ${function:Start-DomeniaCampaignResume}
-    [void](Request-DomeniaInlineConfirmation -Title 'Reprendre le relevé interrompu' -Target ([string]$script:Conn.Domain) -Message ([string]$status.Reason + ' Le nombre de postes et le périmètre sont confirmés avant toute lecture.') -ConfirmText 'Reprendre' -CancelText 'Plus tard' -OnConfirm ({ & $resume }.GetNewClosure()))
+    # Decision David 2026-10-19: the interrupted survey can also be abandoned from this offer (the measures already
+    # validated stay in the local base); « Plus tard » keeps it for Outils > Relevés and the next start.
+    $abandon = ${function:Clear-DomeniaCampaignPlan}
+    [void](Request-DomeniaInlineConfirmation -Title 'Reprendre le relevé interrompu' -Target ([string]$script:Conn.Domain) -Message ([string]$status.Reason + ' Le nombre de postes et le périmètre sont confirmés avant toute lecture. « Abandonner » oublie ce relevé ; les mesures déjà lues restent.') -ConfirmText 'Reprendre' -CancelText 'Plus tard' -OnConfirm ({ & $resume }.GetNewClosure()) -AlternateText 'Abandonner' -OnAlternate ({ & $abandon }.GetNewClosure()))
 }
 
 # ---------------------------------------------------------------- settings view (Outils > Requêtes > Réglages de collecte)
@@ -506,24 +509,91 @@ function Update-DomeniaCampaignResumeUi {
     # Called when the view opens, after a resume or an abandonment, and when a survey of the lists starts, saves its
     # plan or ends. While a campaign runs, its own plan is being written: nothing is offered and the file is not read.
     # A widget collection of the lists keeps no plan, but the resume waits for its end (one survey per scope).
-    $label = Get-DomeniaControl 'LblCollectionResume'
-    if ($null -eq $label) { return }
+    # Two places show it: Outils > Relevés (decision David 2026-10-19) and, once loaded, the workshop settings.
+    $sets=@(@('LblCollectionResume','BtnCollectionResume','BtnCollectionResumeDiscard'),@('LblRunsResume','BtnRunsResume','BtnRunsResumeDiscard'))
+    $present=@($sets|Where-Object{$null -ne (Get-DomeniaControl $_[0])})
+    if(-not $present.Count){return}
     $list = Get-DomeniaParkRun -Slot 'List'
     $running = (($null -ne $list) -and (-not [bool]$list.Completed))
-    $resume = Get-DomeniaControl 'BtnCollectionResume'
-    $discard = Get-DomeniaControl 'BtnCollectionResumeDiscard'
+    $text='';$resumeEnabled=$false;$discardEnabled=$false
     if ($running) {
         $text = 'Relevé en cours : sʼil est arrêté ou interrompu, ses postes restants seront proposés ici.'
         if (-not (Test-DomeniaCampaignRunDurable $list)) { $text = 'Collecte dʼun widget en cours : la reprise dʼun relevé interrompu sera possible à sa fin.' }
-        [void](Set-DomeniaControlText 'LblCollectionResume' $text)
-        if ($null -ne $resume) { $resume.IsEnabled = $false }
-        if ($null -ne $discard) { $discard.IsEnabled = $false }
-        return
+    } else {
+        $status = Get-DomeniaCampaignResumeStatus
+        $text=[string]$status.Reason
+        $resumeEnabled=([bool]$status.Resumable -and (-not $script:DemoMode))
+        $discardEnabled=([int]$status.Remaining -gt 0)
     }
-    $status = Get-DomeniaCampaignResumeStatus
-    [void](Set-DomeniaControlText 'LblCollectionResume' ([string]$status.Reason))
-    if ($null -ne $resume) { $resume.IsEnabled = ([bool]$status.Resumable -and (-not $script:DemoMode)) }
-    if ($null -ne $discard) { $discard.IsEnabled = ([int]$status.Remaining -gt 0) }
+    foreach($set in $present){
+        [void](Set-DomeniaControlText $set[0] $text)
+        $resume=Get-DomeniaControl $set[1];$discard=Get-DomeniaControl $set[2]
+        if ($null -ne $resume) { $resume.IsEnabled = $resumeEnabled }
+        if ($null -ne $discard) { $discard.IsEnabled = $discardEnabled }
+    }
+}
+
+# ---------------------------------------------------------------- Outils > Relevés (decision David 2026-10-19)
+function Update-DomeniaRunsPanel {
+    # Survey running now (OU refresh or list survey) with its stop button, then the interrupted survey.
+    $label=Get-DomeniaControl 'LblRunsCurrent'
+    if($null -ne $label){
+        $refresh=$script:DomeniaOuRefresh
+        $list=Get-DomeniaParkRun -Slot 'List'
+        $text='Aucun relevé en cours.';$canStop=$false
+        if(($null -ne $refresh) -and (-not [bool]$refresh.Completed)){
+            $mode=switch([string]$refresh.Mode){'AD'{'Objets AD'};'Ping'{'Ping'};'Wmi'{'WMI'};'Both'{'Tout actualiser'};default{[string]$refresh.Mode}}
+            $text=$mode+' · '+[string]$refresh.Label+' — '+[string]$refresh.Status;$canStop=$true
+        }elseif(($null -ne $list) -and (-not [bool]$list.Completed)){
+            $text=[string](Get-DomeniaMember $list 'ScopeLabel' 'Liste affichée')+' — '+[string](Get-DomeniaMember $list 'StatusText' 'Relevé en cours.');$canStop=$true
+        }
+        [void](Set-DomeniaControlText 'LblRunsCurrent' $text)
+        $stop=Get-DomeniaControl 'BtnRunsStop';if($null -ne $stop){$stop.IsEnabled=$canStop}
+        if($canStop){
+            # The resume file is not read while a survey runs (this panel follows its progress).
+            [void](Set-DomeniaControlText 'LblRunsResume' 'Un relevé est en cours : la reprise dʼun relevé interrompu sera possible à sa fin.')
+            foreach($name in @('BtnRunsResume','BtnRunsResumeDiscard')){$button=Get-DomeniaControl $name;if($null -ne $button){$button.IsEnabled=$false}}
+            return
+        }
+    }
+    Update-DomeniaCampaignResumeUi
+}
+
+function Stop-DomeniaRunsPanelSurvey {
+    # The stop of the running survey, as its own page does: measures already received stay, nothing is replayed.
+    $refresh=$script:DomeniaOuRefresh
+    if(($null -ne $refresh) -and (-not [bool]$refresh.Completed)){Stop-DomeniaOuRefresh -OperationId ([string]$refresh.Id)}
+    else{Stop-DomeniaOnlinePark -Slot 'List'}
+    Update-DomeniaRunsPanel
+}
+
+function Request-DomeniaCollectionRunsList {
+    # Reads the recorded survey clocks of this domain from the local base (no network), when the tab is shown or on
+    # « Actualiser la liste ».
+    if((-not [string]$script:DatabaseScopedPath) -or (-not [string]$script:Conn.BaseDn)){[void](Set-DomeniaControlText 'LblRunsList' 'Aucune base locale active : liste indisponible.');return}
+    $script:DomeniaRunsListGeneration=[long]$script:DomeniaRunsListGeneration+1
+    $state=[pscustomobject]@{Generation=[long]$script:DomeniaRunsListGeneration;Epoch=[long]$script:SessionEpoch}
+    [void](Set-DomeniaControlText 'LblRunsList' 'Lecture de la base locale…')
+    try{[void](Start-DomeniaLocalRead -Name 'Liste des relevés' -Action 'CollectionRuns' -State $state -ReplaceKey 'local:collection-runs' -SuccessHandler 'Complete-DomeniaCollectionRunsListUi' -ErrorHandler 'Fail-DomeniaCollectionRunsListUi' -Fields @{DomainDn=([string]$script:Conn.BaseDn)})}
+    catch{Fail-DomeniaCollectionRunsListUi -Message $_.Exception.Message -State $state}
+}
+
+function Complete-DomeniaCollectionRunsListUi {
+    param($Result,$State)
+    if(-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:DomeniaRunsListGeneration))){return}
+    $effective=Get-DomeniaEffectiveWorkerResult -Result $Result -RequiredProperties @('Rows','Busy')
+    if($null -eq $effective){Fail-DomeniaCollectionRunsListUi -Message 'Réponse de la base locale illisible.' -State $State;return}
+    if([bool]$effective.Busy){[void](Set-DomeniaControlText 'LblRunsList' 'Base locale occupée : réessayez avec « Actualiser la liste ».');return}
+    $rows=@(ConvertTo-DomeniaCollectionRunListRows -Runs @($effective.Rows))
+    $grid=Get-DomeniaControl 'DgRuns';if($null -ne $grid){$grid.ItemsSource=$rows}
+    $text=if($rows.Count){[string]$rows.Count+' relevé(s) enregistré(s), le plus récent en haut : une ligne par OU et par type (dernière tentative, dernière réussite).'}else{'Aucun relevé enregistré pour ce domaine dans la base locale.'}
+    [void](Set-DomeniaControlText 'LblRunsList' $text)
+}
+
+function Fail-DomeniaCollectionRunsListUi {
+    param($Message,$State)
+    if(($null -ne $State) -and (-not (Test-DomeniaLocalReadCurrent -State $State -Generation ([long]$script:DomeniaRunsListGeneration)))){return}
+    [void](Set-DomeniaControlText 'LblRunsList' ('Liste des relevés non lue : '+[string]$Message))
 }
 
 # ---------------------------------------------------------------- operations panel (points 12, 13, 16, 160)

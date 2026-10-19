@@ -917,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.28" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.29" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -3777,7 +3777,33 @@
                       <!-- Decision David 2026-10-19: settings of the surveys (widget ceiling, WMI retries), Initialize-DomeniaCollectionLimitsUi. -->
                       <TabItem x:Name="TabCollectionLimits" Header="Relevés" AutomationProperties.Name="Réglages des relevés">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
-                          <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                          <StackPanel>
+                            <!-- Decision David 2026-10-19: surveys running, interrupted and recorded (Update-DomeniaRunsPanel). -->
+                            <TextBlock Text="Relevé en cours" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <TextBlock x:Name="LblRunsCurrent" Text="Aucun relevé en cours." TextWrapping="Wrap" Margin="{DynamicResource SpaceStack}" AutomationProperties.Name="Relevé en cours" AutomationProperties.LiveSetting="Polite"/>
+                            <Button x:Name="BtnRunsStop" Content="Arrêter" Style="{StaticResource UxStopButton}" HorizontalAlignment="Left" MinHeight="32" IsEnabled="False" Margin="{DynamicResource SpaceSection}" AutomationProperties.Name="Arrêter le relevé en cours" ToolTip="Les mesures déjà reçues restent enregistrées ; rien nʼest rejoué."/>
+                            <TextBlock Text="Relevé interrompu" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <TextBlock x:Name="LblRunsResume" Text="Aucun relevé interrompu." TextWrapping="Wrap" Margin="{DynamicResource SpaceStack}" AutomationProperties.Name="Relevé interrompu"/>
+                            <WrapPanel Margin="{DynamicResource SpaceSection}">
+                              <Button x:Name="BtnRunsResume" Content="Reprendre" Style="{StaticResource RunButton}" MinHeight="32" IsEnabled="False" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Reprendre le relevé interrompu" ToolTip="Prépare les postes non validés ; leur nombre et le périmètre sont confirmés avant toute lecture."/>
+                              <Button x:Name="BtnRunsResumeDiscard" Content="Abandonner" MinHeight="32" IsEnabled="False" AutomationProperties.Name="Abandonner le relevé interrompu" ToolTip="Oublie ce relevé. Les mesures déjà lues restent dans la base locale."/>
+                            </WrapPanel>
+                            <TextBlock Text="Derniers relevés par OU" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
+                            <WrapPanel Margin="{DynamicResource SpaceStack}">
+                              <Button x:Name="BtnRunsRefresh" Content="Actualiser la liste" MinHeight="32" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Actualiser la liste des relevés" ToolTip="Relit la base locale ; aucun poste nʼest contacté."/>
+                              <TextBlock x:Name="LblRunsList" Text="" VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" AutomationProperties.LiveSetting="Polite"/>
+                            </WrapPanel>
+                            <DataGrid x:Name="DgRuns" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="360" Margin="{DynamicResource SpaceSection}" AutomationProperties.Name="Derniers relevés par OU">
+                              <DataGrid.Columns>
+                                <DataGridTextColumn Header="Dernière tentative" Binding="{Binding Date}" Width="140"/>
+                                <DataGridTextColumn Header="OU" Binding="{Binding Ou}" Width="2*"/>
+                                <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="110"/>
+                                <DataGridTextColumn Header="État" Binding="{Binding Etat}" Width="90"/>
+                                <DataGridTextColumn Header="Postes" Binding="{Binding Postes}" Width="180"/>
+                                <DataGridTextColumn Header="Dernière réussite" Binding="{Binding Reussite}" Width="140"/>
+                                <DataGridTextColumn Header="Motif" Binding="{Binding Motif}" Width="3*"/>
+                              </DataGrid.Columns>
+                            </DataGrid>
                             <TextBlock Text="Réglages des relevés" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>
                             <TextBlock Text="Collectes des widgets et lectures WMI des postes. Chaque choix est enregistré aussitôt et sʼapplique au prochain relevé lancé." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="{DynamicResource SpaceSection}"/>
                             <TextBlock Text="Plafond des widgets" FontWeight="SemiBold" Margin="{DynamicResource SpaceStackSmall}"/>

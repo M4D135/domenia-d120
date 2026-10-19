@@ -78,7 +78,12 @@ function Initialize-DomeniaCollectionLimitsUi {
     $retryDelay=Get-DomeniaControl 'CmbCollectionWmiRetryDelay'
     if($null -ne $retryDelay){$retryDelay.ItemsSource=@([pscustomobject]@{Name='10 s';Seconds=10},[pscustomobject]@{Name='30 s';Seconds=30},[pscustomobject]@{Name='1 min';Seconds=60},[pscustomobject]@{Name='2 min';Seconds=120});$retryDelay.Add_SelectionChanged({param($s,$e)if(($null -ne $s.SelectedItem) -and (-not [bool]$script:DomeniaCollectionLimitsUpdating) -and ($null -ne $script:Settings)){Set-DomeniaSetting 'Collection.WmiRetryDelaySeconds' ([string]$s.SelectedItem.Seconds);Save-DomeniaSettings}})}
     $tab=Get-DomeniaControl 'TabCollectionLimits'
-    if($null -ne $tab){$tab.Add_IsVisibleChanged({param($s,$e)if([bool]$s.IsVisible){try{Update-DomeniaCollectionLimitsUi}catch{Write-DomeniaSwallowed 'Park' 'Initialize-DomeniaCollectionLimitsUi' $_}}})}
+    if($null -ne $tab){$tab.Add_IsVisibleChanged({param($s,$e)if([bool]$s.IsVisible){try{Update-DomeniaCollectionLimitsUi;Update-DomeniaRunsPanel;Request-DomeniaCollectionRunsList}catch{Write-DomeniaSwallowed 'Park' 'Initialize-DomeniaCollectionLimitsUi' $_}}})}
+    # Running, interrupted and recorded surveys (Domenia-Collection.UI.ps1).
+    $runsStop=Get-DomeniaControl 'BtnRunsStop';if($null -ne $runsStop){$runsStop.Add_Click({try{Stop-DomeniaRunsPanelSurvey}catch{Set-Status ('Relevé non arrêté : '+$_.Exception.Message) 'WARN'}})}
+    $runsResume=Get-DomeniaControl 'BtnRunsResume';if($null -ne $runsResume){$runsResume.Add_Click({Start-DomeniaCampaignResume})}
+    $runsDiscard=Get-DomeniaControl 'BtnRunsResumeDiscard';if($null -ne $runsDiscard){$runsDiscard.Add_Click({Clear-DomeniaCampaignPlan})}
+    $runsRefresh=Get-DomeniaControl 'BtnRunsRefresh';if($null -ne $runsRefresh){$runsRefresh.Add_Click({Request-DomeniaCollectionRunsList})}
     $script:DomeniaCollectionLimitsWired=$true
     Update-DomeniaCollectionLimitsUi
 }
@@ -195,6 +200,7 @@ function Update-DomeniaParkRunStatus {
         }
     }
     try{Invoke-DomeniaParkLiveUpdates -Run $r}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
+    try{$runsTab=Get-DomeniaControl 'TabCollectionLimits';if(($null -ne $runsTab) -and [bool]$runsTab.IsVisible){Update-DomeniaRunsPanel}}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
     if($r.Completed -and $r.Approved -and -not [bool]$r.Logged){$r.Logged=$true;try{Write-AppLog ('Relevé des postes ('+$(if($r.Slot -eq 'Computer'){'poste'}else{'liste'})+') : '+$text) 'INFO'}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
     Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
