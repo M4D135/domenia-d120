@@ -2733,6 +2733,8 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaParkStateSlot',
             'Test-DomeniaParkRunCurrent',
             'Get-DomeniaParkMaxTargets',
+            'Get-DomeniaWidgetMaxTargets',
+            'Get-DomeniaCollectionRetrySettings',
             'Get-DomeniaParkListContext',
             'Get-DomeniaParkDisplayedTargets',
             'Test-DomeniaParkListStoppable',

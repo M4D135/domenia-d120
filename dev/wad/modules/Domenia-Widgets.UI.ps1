@@ -2379,7 +2379,7 @@ function Start-DomeniaWidgetDetailCollect {
     if ($null -eq $population) { return $false }
     $targets = @($population.Targets | Where-Object { ([string]$_.name) -and ([string]$_.distinguished_name) -and ([string]$_.object_guid) })
     if (-not $targets.Count) { Set-Status 'Aucun poste à lire pour ce widget.' 'WARN'; return $false }
-    $admission = Get-DomeniaWidgetCollectAdmission -TargetCount $targets.Count
+    $admission = Get-DomeniaWidgetCollectAdmission -TargetCount $targets.Count -Maximum (Get-DomeniaWidgetMaxTargets)
     if (-not [bool]$admission.Allowed) { Set-Status ([string]$admission.Reason) 'WARN'; return $false }
     if ((-not $Confirmed) -and (($Reason -ne 'Add') -or (-not [bool]$admission.Direct))) {
         $title = (Get-DomeniaBoardItemIdentity -Board $Board -Item $item).Title

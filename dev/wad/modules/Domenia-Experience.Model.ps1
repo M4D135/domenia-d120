@@ -42,6 +42,7 @@ function ConvertTo-DomeniaExperienceSettings {
         SearchLimit=@(1,20000);WmiLimit=@(1,500)
         'Ui.ZoomPercent'=@(80,150)
         'Collection.Concurrency'=@(1,8);'Collection.CacheMinutes'=@(0,1440)
+        'Collection.WidgetMaxTargets'=@(0,100000);'Collection.WmiRetries'=@(0,4);'Collection.WmiRetryDelaySeconds'=@(10,120)
     }
     foreach($key in $Defaults.Keys) {
         $value=$Defaults[$key]

@@ -320,19 +320,27 @@ function Get-DomeniaWidgetPauseText {
     return 'Widget suspendu : il nʼest plus calculé.'
 }
 function Get-DomeniaWidgetCollectAdmission {
-    # Admission of the endpoint reads of one widget, counted on the workstations left to read. The ceiling of a
-    # survey (SE-05, Park.MaxTargets through Test-DomeniaParkTargetAdmission) applies to every widget collection:
+    # Admission of the endpoint reads of one widget, counted on the workstations left to read. The widget ceiling
+    # (Collection.WidgetMaxTargets through Test-DomeniaParkTargetAdmission, none by default) applies to every widget collection:
     # above it nothing is read and Reason says why. Adding a widget is the explicit gesture (decision David
     # 2026-10-14): Direct, its collection starts without the confirmation for at most Limit workstations; more asks
     # the inline confirmation with its count first. Refresh and resume always ask it (Direct is only read for an
     # added widget). Limit: 200 workstations by default, bounded 1 to 2000 and never above the ceiling.
+    # Maximum 0 or less: no ceiling for widgets (decision David 2026-10-19, setting « Plafond des widgets » of
+    # Réglages de collecte); the count is still confirmed above Limit.
     param([int]$TargetCount,[int]$Limit = 200,[int]$Maximum = 500)
     $count = [Math]::Max(0, $TargetCount)
+    if ($Maximum -le 0) {
+        $bounded = [Math]::Max(1, [Math]::Min(2000, $Limit))
+        $reason = ''
+        if ($count -le 0) { $reason = 'Aucun poste à lire pour ce widget.' }
+        return [pscustomobject]@{ Allowed = ($count -gt 0); Direct = (($count -gt 0) -and ($count -le $bounded)); Limit = $bounded; Maximum = 0; Count = $count; Reason = $reason }
+    }
     $ceiling = Test-DomeniaParkTargetAdmission -Count $count -Maximum $Maximum
     $bounded = [Math]::Max(1, [Math]::Min([Math]::Min(2000, $Limit), [int]$ceiling.Maximum))
     $reason = ''
     if (-not [bool]$ceiling.Allowed) {
-        if ([string]$ceiling.Code -eq 'Ceiling') { $reason = [string]$count + ' postes à lire pour ce widget : plafond ' + [string]$ceiling.Maximum + ' (réglage Park.MaxTargets). Choisissez une OU plus petite dans Rechercher.' }
+        if ([string]$ceiling.Code -eq 'Ceiling') { $reason = [string]$count + ' postes à lire pour ce widget : plafond ' + [string]$ceiling.Maximum + ' (réglage « Plafond des widgets » dans Atelier > Réglages de collecte).' }
         else { $reason = 'Aucun poste à lire pour ce widget.' }
     }
     return [pscustomobject]@{ Allowed = [bool]$ceiling.Allowed; Direct = (([bool]$ceiling.Allowed) -and ($count -le $bounded)); Limit = $bounded; Maximum = [int]$ceiling.Maximum; Count = $count; Reason = $reason }

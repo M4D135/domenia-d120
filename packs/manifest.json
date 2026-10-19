@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.18-DOMENIA-1.0-RC1.17.22-D120",
-  "source_base_commit": "0089352d9013844613de9d2a410b93553de64e59",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.23-D120",
+  "source_base_commit": "e2945cf98cb55c4a3db4531b01594c1b0a2c7093",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3067040,
-      "sha256": "a8ddd1dd5fc363b33ef8fd8c66ecc856aae6eefb0a4effa054d5e31467179b77",
+      "bytes": 3068587,
+      "sha256": "1d5b3ddfa095f8e5f66617c46beead23bf8fffa596a52104019a742b7378ce0e",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6560647,
-      "sha256": "dd9a59f311cdb8813a39c80280a51eacb2fb91445d20a0b34739de2199ea43bd",
+      "bytes": 6562730,
+      "sha256": "87f2d8da650414f391ccabd711a8e21b4b563b000c152dc84d9e82f1581b5ea2",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC22_TARGETED_NATIVE_UI_AND_STARTUP_PASS_PERSONAL_LAB_LIMITS_DOCUMENTED",
+    "status": "RC23_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
-    "windows_executed": true,
-    "formal_windows_qualification": "TARGETED_NATIVE_PREVIEW_UI_AUTOMATION_AND_STARTUP_NOT_FULL_ACCEPTANCE",
+    "windows_executed": false,
+    "formal_windows_qualification": "NONE_FOR_RC23",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -50,6 +50,10 @@
       "validation/2026-10-18/rc21-completion/README.md"
     ],
     "vm_no_longer_needed_for_requested_scope": true,
-    "cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json"
+    "cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
+    "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Réglages de collecte). Contrôles hors Windows uniquement.",
+    "historical_rc22_proofs": [
+      "validation/2026-10-18/rc22-ui-automation/README.md"
+    ]
   }
 }

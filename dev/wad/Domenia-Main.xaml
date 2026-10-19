@@ -849,6 +849,8 @@
     <Thickness x:Key="SpaceSection">0,0,0,16</Thickness>
     <Thickness x:Key="SpaceInline">0,0,8,0</Thickness>
     <Thickness x:Key="SpaceInlineSmall">0,0,6,0</Thickness>
+    <Thickness x:Key="SpaceInlineLarge">0,0,18,0</Thickness>
+    <Thickness x:Key="SpaceRow">0,12,0,0</Thickness>
     <Thickness x:Key="PadButton">14,8</Thickness>
     <Thickness x:Key="PadButtonSecondary">14,7</Thickness>
     <Thickness x:Key="PadInput">9,6</Thickness>
@@ -915,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.22" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.23" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>

@@ -77,6 +77,7 @@ function Assert-DomeniaContractFormat {[CmdletBinding()]param([string]$Format,[s
 function Get-DomeniaEffectiveWorkerResult {[CmdletBinding()]param($Result,[string[]]$RequiredProperties)$Result}
 function Get-DomeniaQuerySchemaWorkerCode{'WORKER-CODE'}
 function Get-DomeniaObservationMaxAgeDays{30}
+function Get-DomeniaWidgetMaxTargets {return 500}
 function Test-DomeniaParkTargetAdmission {[CmdletBinding()]param([int]$Count,[int]$Maximum)@{Allowed=$true;Maximum=500;Code=''}}
 function Invoke-DomeniaOuRefresh {[CmdletBinding()]param([string]$Source,[string]$Mode,[string]$WidgetId,$WidgetNeed)}
 function ConvertTo-DomeniaProbePayload {[CmdletBinding()]param([string[]]$Ids)@($Ids|ForEach-Object{[pscustomobject]@{Id=$_}})}

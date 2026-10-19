@@ -508,6 +508,9 @@ Test-Case 'P18' 'Classement : seul un incident transitoire est repris, borné et
     Assert-True $first.Retry; Assert-Equal 30 $first.DelaySeconds; Assert-Equal $script:CT0.AddSeconds(30) $first.NotBeforeUtc
     Assert-Equal 120 (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 2 -NowUtc $script:CT0).DelaySeconds
     Assert-False (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 3 -NowUtc $script:CT0).Retry 'Trois essais au plus'
+    # Setting « Nouveaux essais WMI » (2026-10-19): 0 new attempt ends at the first transient incident.
+    Assert-False (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 1 -MaxAttempts 1 -NowUtc $script:CT0).Retry 'Aucun nouvel essai'
+    Assert-Equal 10 (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 1 -MaxAttempts 2 -BaseDelaySeconds 10 -NowUtc $script:CT0).DelaySeconds 'Premier delai regle'
     foreach ($category in @('Credential','AccessDenied','Offline','Unreachable','ProtocolUnreachable','Permanent','ClassAbsent','Success')) { Assert-False (Get-DomeniaCollectionRetryDecision -Category $category -Attempt 1).Retry $category }
     Assert-False (Get-DomeniaCollectionRetryDecision -Category 'Transient' -Attempt 1 -IsWrite $true).Retry 'Une écriture nʼest jamais rejouée'
 }

@@ -3514,6 +3514,11 @@ function Get-DomeniaDefaultSettings {
         'Query.Library' = ''
         'Collection.Concurrency' = '4'
         'Collection.CacheMinutes' = '15'
+        # Decision David 2026-10-19: ceiling of a widget collection ('0' = none) and spaced retries of a WMI read
+        # after a transient incident (new attempts, first delay in seconds).
+        'Collection.WidgetMaxTargets' = '0'
+        'Collection.WmiRetries' = '2'
+        'Collection.WmiRetryDelaySeconds' = '30'
         # Points 11 and 159: usage profile, then per profile the durations changed by the operator and the window of
         # the background work (JSON texts, no secret).
         'Collection.Profile' = 'Standard'
@@ -19017,7 +19022,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.18-DOMENIA-1.0-RC1.17.22-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.23-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -25958,7 +25963,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.18-DOMENIA-1.0-RC1.17.22-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.23-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

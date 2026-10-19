@@ -113,9 +113,17 @@ Test-Case 'WGC-004' 'Ajouter un widget part sans confirmation jusquʼa la limite
     Assert-Equal 5 (Get-DomeniaWidgetCollectAdmission -TargetCount 3 -Maximum 5).Limit 'limite sous un plafond regle bas'
     $ceiling = Get-DomeniaWidgetCollectAdmission -TargetCount 501
     Assert-False ($ceiling.Allowed -or $ceiling.Direct) 'au-dela du plafond : rien nʼest lu'
-    Assert-Equal '501 postes à lire pour ce widget : plafond 500 (réglage Park.MaxTargets). Choisissez une OU plus petite dans Rechercher.' ([string]$ceiling.Reason)
+    Assert-Equal '501 postes à lire pour ce widget : plafond 500 (réglage « Plafond des widgets » dans Atelier > Réglages de collecte).' ([string]$ceiling.Reason)
     Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 500).Allowed 'plafond inclus'
-    Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 6 -Maximum 5).Allowed 'plafond regle par Park.MaxTargets'
+    Assert-False (Get-DomeniaWidgetCollectAdmission -TargetCount 6 -Maximum 5).Allowed 'plafond regle par Collection.WidgetMaxTargets'
+    # Decision David 2026-10-19: Maximum 0 = no ceiling; above the direct limit the count is still confirmed.
+    $free = Get-DomeniaWidgetCollectAdmission -TargetCount 701 -Maximum 0
+    Assert-True ($free.Allowed -and (-not $free.Direct)) 'sans plafond : 701 postes admis apres confirmation'
+    Assert-Equal 0 ([int]$free.Maximum); Assert-Equal 200 ([int]$free.Limit)
+    Assert-True (Get-DomeniaWidgetCollectAdmission -TargetCount 150 -Maximum 0).Direct 'sans plafond : sous la limite, depart direct'
+    Assert-Equal 2000 (Get-DomeniaWidgetCollectAdmission -TargetCount 10 -Limit 50000 -Maximum 0).Limit 'limite bornee sans plafond'
+    $none = Get-DomeniaWidgetCollectAdmission -TargetCount 0 -Maximum 0
+    Assert-False ($none.Allowed -or $none.Direct) 'sans plafond, aucune cible : rien ne part'
 }
 Test-Case 'WGC-005' 'Collecter seulement le manquant : le releve juge chaque poste sur ses mesures enregistrees, sonde non applicable comprise' {
     $now = [datetime]::new(2026, 10, 14, 10, 0, 0, [DateTimeKind]::Utc)

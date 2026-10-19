@@ -51,6 +51,21 @@ function Get-DomeniaParkMaxTargets {
     try{$value=[int](Get-CfgValue 'Park' 'MaxTargets' 500)}catch{$value=500}
     return $value
 }
+function Get-DomeniaWidgetMaxTargets {
+    # Ceiling of a widget collection (setting « Plafond des widgets », Collection.WidgetMaxTargets): 0 = no ceiling,
+    # the default since 2026-10-19 (the count is still confirmed above the direct limit). Bounded to 100000.
+    $value=0
+    try{$value=[int](Get-DomeniaSetting 'Collection.WidgetMaxTargets' '0')}catch{$value=0}
+    return [Math]::Max(0,[Math]::Min(100000,$value))
+}
+function Get-DomeniaCollectionRetrySettings {
+    # Spaced retries of a WMI read after a transient incident (settings « Nouveaux essais WMI » and « Premier délai »):
+    # 0 to 4 new attempts (2 by default), first delay 10 to 120 s (30 s by default), then x4 up to 5 min.
+    $retries=2;$delay=30
+    try{$retries=[int](Get-DomeniaSetting 'Collection.WmiRetries' '2')}catch{$retries=2}
+    try{$delay=[int](Get-DomeniaSetting 'Collection.WmiRetryDelaySeconds' '30')}catch{$delay=30}
+    return [pscustomobject]@{MaxAttempts=(1+[Math]::Max(0,[Math]::Min(4,$retries)));BaseDelaySeconds=[Math]::Max(10,[Math]::Min(120,$delay))}
+}
 function Get-DomeniaParkListContext {
     # SE-05 / UX-24: what the displayed list covers, read from the running search: base, depth, term and filters.
     $state=$null;$final=$null
@@ -181,8 +196,8 @@ function Get-DomeniaParkRunDetailText {
         }
         $sources=Get-DomeniaCampaignSourceSummary (Get-DomeniaMemberValue $Run 'Sources')
         if($sources){$parts.Add('Charge adaptée : '+$sources+'.')}
-        $retried=[int](Get-DomeniaMember $Run 'Retried' 0);$waitingRetry=Get-DomeniaParkListCount $Run 'Retry'
-        if($retried -gt 0){$parts.Add([string]$retried+' nouvel(s) essai(s) après incident transitoire'+$(if($waitingRetry){', '+[string]$waitingRetry+' en attente'}else{''})+$(if([int](Get-DomeniaMember $Run 'RetryExhausted' 0)){' ; '+[string](Get-DomeniaMember $Run 'RetryExhausted' 0)+' poste(s) sans réponse après trois essais'}else{''})+'.')}
+        $retried=[int](Get-DomeniaMember $Run 'Retried' 0);$waitingRetry=Get-DomeniaParkListCount $Run 'Retry';$exhausted=[int](Get-DomeniaMember $Run 'RetryExhausted' 0);$attempts=[int](Get-DomeniaMember $Run 'RetryMaxAttempts' 3)
+        if(($retried -gt 0) -or ($exhausted -gt 0)){$parts.Add([string]$retried+' nouvel(s) essai(s) après incident transitoire'+$(if($waitingRetry){', '+[string]$waitingRetry+' en attente'}else{''})+$(if($exhausted){' ; '+[string]$exhausted+' poste(s) sans réponse après '+[string]$attempts+' essai(s)'}else{''})+'.')}
         $skipped=[int](Get-DomeniaMember $Run 'CapabilitySkipped' 0)
         if($skipped -gt 0){$parts.Add([string]$skipped+' sonde(s) non relue(s) : classe WMI absente lors dʼun relevé récent.')}
         $cimSkipped=[int](Get-DomeniaMember $Run 'CimSkipped' 0)+[int](Get-DomeniaMember $Run 'SkippedTargets' 0)
@@ -481,7 +496,7 @@ function Start-DomeniaOnlinePark {
         $reuseDays=$(if($ForceRefresh){0}else{[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))})
         $widgetBoard=[string]$WidgetBoard
         if($widgetBoard -and ($reuseDays -le 0)){
-            $widgetAdmission=Get-DomeniaWidgetCollectAdmission -TargetCount $targets.Count -Maximum (Get-DomeniaParkMaxTargets)
+            $widgetAdmission=Get-DomeniaWidgetCollectAdmission -TargetCount $targets.Count -Maximum (Get-DomeniaWidgetMaxTargets)
             if(-not [bool]$widgetAdmission.Allowed){throw ([string]$widgetAdmission.Reason)}
         }
         $concurrency=([Math]::Max(1,[Math]::Min(8,[int](Get-DomeniaSetting 'Collection.Concurrency' '4'))))
@@ -493,8 +508,9 @@ function Start-DomeniaOnlinePark {
         # (created on approval). IndexByKey gives the place of a workstation in the plan; PingSourceKeys the budget each
         # echo was admitted on; PingMissing the workstations a batch ping never reported.
         $sourceLimit=$(if([bool]$PingOnly){32}else{$concurrency})
+        $retryPolicy=Get-DomeniaCollectionRetrySettings
         $collection=[ordered]@{Sources=(New-DomeniaCampaignSources -MaxLimit $sourceLimit);Deferred=(New-Object 'System.Collections.Generic.List[object]');Retry=(New-Object 'System.Collections.Generic.List[object]')
-            Freshness=(Get-DomeniaActiveFreshnessTable);StartedUtc=$null;LastValidatedUtc=$null;HeldSeconds=[double]0;HeldSinceUtc=$null;HeldShownUtc=[datetime]::MinValue;Retried=0;RetryExhausted=0;CapabilitySkipped=0;CimSkipped=0;SkippedTargets=0
+            Freshness=(Get-DomeniaActiveFreshnessTable);StartedUtc=$null;LastValidatedUtc=$null;HeldSeconds=[double]0;HeldSinceUtc=$null;HeldShownUtc=[datetime]::MinValue;Retried=0;RetryExhausted=0;RetryMaxAttempts=[int]$retryPolicy.MaxAttempts;RetryBaseDelaySeconds=[int]$retryPolicy.BaseDelaySeconds;CapabilitySkipped=0;CimSkipped=0;SkippedTargets=0
             CimExecuted=[long]0;CimAvoided=[long]0;CampaignProgress=$null;CampaignNote='';CampaignSavedUtc=[datetime]::MinValue;CampaignDirty=$false;StopReason='';IndexByKey=@{};PingSourceKeys=@{};PingMissing=@{}}
         foreach($field in $collection.Keys){$r|Add-Member -NotePropertyName $field -NotePropertyValue $collection[$field] -Force}
         $runs=Get-DomeniaParkRuns;$runs[$slotName]=$r
@@ -600,7 +616,7 @@ function Request-DomeniaParkAdmission {
     $fresh=[int](Get-DomeniaMember $r 'AlreadyFresh' 0)
     $directLimit=0;$direct=$false
     if($widget){
-        $admission=Get-DomeniaWidgetCollectAdmission -TargetCount $r.Targets.Count -Maximum (Get-DomeniaParkMaxTargets)
+        $admission=Get-DomeniaWidgetCollectAdmission -TargetCount $r.Targets.Count -Maximum (Get-DomeniaWidgetMaxTargets)
         if(-not [bool]$admission.Allowed){
             # Nothing was read: the run ends with its reason.
             $r.Completed=$true;$r.FailureMessage=[string]$admission.Reason;if($null -ne $r.Timer){$r.Timer.Stop()}
@@ -1268,7 +1284,7 @@ function Register-DomeniaParkMeasurement {
         $latency=Get-DomeniaReadStepLatencyMs -StartedTimestamp ([long]$snapshot.StartedTimestamp) -LastTimestamp ([long]$snapshot.LastRowTimestamp) -Steps ([long]$snapshot.RowsRead)
         $key=[string](Get-DomeniaMember $State 'SourceKey' '')
         if($key){[void](Register-DomeniaSourceOutcome -Health $Run.Sources.Health -Key $key -Outcome ([string]$failure.Health) -LatencyMs $latency -Policy (Get-DomeniaCampaignSourcePolicy $Run.Sources $key) -NowUtc $nowUtc)}
-        $retry=Get-DomeniaCollectionRetryDecision -Category ([string]$failure.Category) -Attempt ([int](Get-DomeniaMember $State 'Attempt' 1)) -NowUtc $nowUtc
+        $retry=Get-DomeniaCollectionRetryDecision -Category ([string]$failure.Category) -Attempt ([int](Get-DomeniaMember $State 'Attempt' 1)) -MaxAttempts ([int](Get-DomeniaMember $Run 'RetryMaxAttempts' 3)) -BaseDelaySeconds ([int](Get-DomeniaMember $Run 'RetryBaseDelaySeconds' 30)) -NowUtc $nowUtc
         if([bool]$retry.Retry -and -not [bool]$Run.Stopping){
             $State|Add-Member -NotePropertyName WillRetry -NotePropertyValue $true -Force
             $Run.Retry.Add([pscustomobject]@{Index=[int]$State.Index;NotBeforeUtc=$retry.NotBeforeUtc;Attempt=([int]$State.Attempt+1);SourceKey=$key})
