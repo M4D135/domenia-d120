@@ -917,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.23" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.24" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -1253,12 +1253,13 @@
                         </WrapPanel>
                         <TextBlock Text="Mettre à jour les données de cette OU et de ses sous-OU" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,10,0,4"/>
                         <WrapPanel>
+                          <Button x:Name="BtnFleetRefreshAll" Content="Tout actualiser" Style="{StaticResource RunButton}" MinHeight="30" Padding="{DynamicResource PadButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Tout actualiser : objets AD, puis ping et WMI de lʼOU" ToolTip="Relit les objets AD de lʼOU, puis ping et WMI (console, inventaire, associations) en une seule confirmation. Si la lecture AD échoue, ping et WMI partent sur les postes déjà connus."/>
                           <Button x:Name="BtnFleetIndexScope" Content="Objets AD" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" AutomationProperties.Name="Actualiser Objets AD de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshPostes" Content="Ping" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" AutomationProperties.Name="Actualiser Ping de lʼOU"/>
-                          <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource RunButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" AutomationProperties.Name="Actualiser WMI de lʼOU"/>
+                          <Button x:Name="BtnFleetRefreshBoth" Content="WMI" Style="{StaticResource SecondaryButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" AutomationProperties.Name="Actualiser WMI de lʼOU"/>
                           <Button x:Name="BtnFleetRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource UxStopButton}" MinHeight="30" Padding="12,3" Margin="0,0,8,4" AutomationProperties.Name="Arrêter lʼactualisation de cette OU"/>
                         </WrapPanel>
-                        <TextBlock x:Name="LblFleetOuRefreshStatus" Text="Objets AD · Ping · WMI : trois collectes indépendantes, enregistrées automatiquement." FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                        <TextBlock x:Name="LblFleetOuRefreshStatus" Text="Tout actualiser enchaîne objets AD, ping et WMI. Objets AD · Ping · WMI restent disponibles séparément ; tout est enregistré automatiquement." FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" Margin="0,6,0,0"/>
 
                       </StackPanel>
                     </Border>

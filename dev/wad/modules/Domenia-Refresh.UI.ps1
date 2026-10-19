@@ -25,7 +25,7 @@ function Update-DomeniaOuRefreshUi {
         $status=if($null -ne $r -and $r.Source -eq $source){$(if($null -eq $context -or $context.Dn -ine $r.Dn){'Précédente OU : '+$r.Label+' — '}else{''})+[string]$r.Status}else{$scopeText}
         $label=switch($source){'Search'{'LblSearchOuRefreshStatus'};'Fleet'{'LblFleetOuRefreshStatus'};'Index'{'LblIndexOuRefreshStatus'}}
         [void](Set-DomeniaControlText $label $status)
-        $names=switch($source){'Search'{@('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth')};'Fleet'{@('BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth')};'Index'{@('BtnIndexScopeUpdate')}}
+        $names=switch($source){'Search'{@('BtnSearchRefreshBase','BtnSearchRefreshPostes','BtnSearchRefreshBoth')};'Fleet'{@('BtnFleetRefreshAll','BtnFleetIndexScope','BtnFleetRefreshPostes','BtnFleetRefreshBoth')};'Index'{@('BtnIndexScopeUpdate')}}
         foreach($name in $names){$control=Get-DomeniaControl $name;if($null -ne $control){$control.IsEnabled=(($source -eq 'Index' -or $null -ne $context) -and -not $busy -and -not $script:DemoMode)}}
         $stop=Get-DomeniaControl ('Btn'+$source+'RefreshStop')
         if($null -ne $stop){$stop.IsEnabled=($busy -and $r.Source -eq $source)}
@@ -47,6 +47,17 @@ function Fail-DomeniaOuRefresh {
     param([string]$OperationId,[string]$Message)
     $r=$script:DomeniaOuRefresh
     if(-not $OperationId -or $null -eq $r -or $r.Id -cne $OperationId -or $r.Completed){return}
+    # « Tout actualiser » of Accueil (decision David 2026-10-19): a failed or partial AD read does not stop ping and WMI. They
+    # start on the workstations already known by the local base; the AD record keeps its failure and the status says so.
+    if(($r.Mode -eq 'Both') -and ($r.Source -eq 'Fleet') -and (-not [bool]$r.BaseCommitted) -and ($r.Phase -in @('Directory','Saving')) -and (-not [string](Get-DomeniaMember $r 'DirectoryFallback' ''))){
+        if([string]$r.Directory.Status -ne 'Partial'){$r.Directory.Status='Error'}
+        if(-not [string]$r.Directory.Error){$r.Directory.Error=[string]$Message}
+        if($r.DirectoryJob){try{Stop-UiTask -Id $r.DirectoryJob -Silent}catch{Write-DomeniaSwallowed 'Refresh' 'Fail-DomeniaOuRefresh' $_}}
+        $r|Add-Member -NotePropertyName DirectoryFallback -NotePropertyValue ([string]$Message) -Force
+        $r.Phase='WaitingCollection';$r.Status='Lecture AD non aboutie ('+[string]$Message+') : ping et WMI partent sur les postes déjà connus de la base locale.'
+        Update-DomeniaOuRefreshUi
+        return
+    }
     # The run records keep the failure and its cause; Stop records them once.
     if($null -ne $r.PSObject.Properties['Outcome']){$r.Outcome='Error';$r.OutcomeMessage=[string]$Message}
     Stop-DomeniaOuRefresh -OperationId $OperationId -Message ('Actualisation interrompue : '+$Message+' Aucune nouvelle collecte ne sera lancée.')
@@ -95,7 +106,7 @@ function Get-DomeniaOuRefreshProbePlan {
     if($ids.Count){ConvertTo-DomeniaProbePayload -Ids $ids}
 }
 function Invoke-DomeniaOuRefresh {
-    # Legacy modes are retained for compatibility; the UI exposes only AD, Ping and Wmi.
+    # Legacy modes are retained for compatibility; the UI exposes AD, Ping, Wmi and Both (« Tout actualiser » on Accueil).
     # -BackupDone: continuation of the verified backup taken before an AD read (FI-13). Every check runs again, and the
     # OU, base and session confirmed by the click (-ExpectedDn, -ExpectedPath, -ExpectedEpoch) must still be the current
     # ones: an OU chosen during the backup is never read without its own click. -ExpectedProbes is the probe plan
@@ -152,7 +163,8 @@ function Invoke-DomeniaOuRefresh {
         if($WidgetId){Register-DomeniaWidgetCollect -Board Fleet -Ids @($WidgetId) -Kind Directory -RunId $r.Id;Show-DomeniaBoard -Board Fleet -Quiet}
     }catch{
         if($created){Fail-DomeniaOuRefresh -OperationId $script:DomeniaOuRefresh.Id -Message $_.Exception.Message}
-        Set-Status ('Actualisation non lancée : '+$_.Exception.Message) 'WARN'
+        if($created -and (-not [bool]$script:DomeniaOuRefresh.Completed)){Set-Status ('Lecture AD non lancée : '+$_.Exception.Message+' Ping et WMI suivent sur les postes déjà connus.') 'WARN'}
+        else{Set-Status ('Actualisation non lancée : '+$_.Exception.Message) 'WARN'}
     }
 }
 function Invoke-DomeniaOuRefreshTick {
@@ -169,7 +181,7 @@ function Invoke-DomeniaOuRefreshTick {
         $save=Get-DomeniaPersistenceState
         if($save.Suspended -or $save.Conflicts -gt 0){Fail-DomeniaOuRefresh -OperationId $r.Id -Message 'Stockage local non confirmé.';return}
         if($save.Pending -gt 0){return}
-        if($r.Mode -eq 'Both' -and -not $r.BaseCommitted){Fail-DomeniaOuRefresh -OperationId $r.Id -Message 'Le reçu de mise à jour de la base est absent.';return}
+        if($r.Mode -eq 'Both' -and -not $r.BaseCommitted -and -not [string](Get-DomeniaMember $r 'DirectoryFallback' '')){Fail-DomeniaOuRefresh -OperationId $r.Id -Message 'Le reçu de mise à jour de la base est absent.';return}
         try{
             $plan=Get-DomeniaFleetQueryPlan -Now ([datetime]::Now) -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)
             $payload=[pscustomobject]@{Action='FleetStats';Path=$r.Path;Scope=$r.Dn;Subtree=$true;Plan=$plan;Keys=@();ScopeKey='';ComputeBoard=$false;ModuleRoot=$script:DashboardModuleRoot}
@@ -229,7 +241,7 @@ function Update-DomeniaOuRefreshFromPark {
         elseif($Run.FailureMessage){$r.Phase='Error';$r.Status='Relevé non terminé : '+[string]$Run.FailureMessage}
         elseif(-not $Run.Approved -or $Run.Stopping){$r.Phase='Cancelled';$r.Cancelled=$true;$r.Status='Relevé arrêté : '+[string]$Run.Done+' poste(s) traité(s). Les données déjà confirmées sont conservées.'}
         elseif($Run.Failed -gt 0){$r.Phase='Partial';$r.Status='Relevé terminé avec '+[string]$Run.Failed+' lecture(s) non confirmée(s) sur '+[string]$Run.Done+'. Consultez les détails des postes.'}
-        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. '+$(if($r.Mode -eq 'Ping'){'Ping relu, données enregistrées. Les dates AD et WMI sont conservées.'}elseif($r.Mode -eq 'Wmi'){'WMI relu, données enregistrées. Les dates AD et ping sont conservées.'}else{'Ping et WMI relus, données enregistrées.'})}
+        else{$r.Phase='Complete';$r.Status='Actualisation terminée : '+[string]$Run.Done+' poste(s) de '+$r.Label+'. '+$(if($r.Mode -eq 'Ping'){'Ping relu, données enregistrées. Les dates AD et WMI sont conservées.'}elseif($r.Mode -eq 'Wmi'){'WMI relu, données enregistrées. Les dates AD et ping sont conservées.'}elseif($r.Mode -eq 'Both'){$(if([string](Get-DomeniaMember $r 'DirectoryFallback' '')){'Ping et WMI relus sur les postes déjà connus ; lecture AD non aboutie : '+[string]$r.DirectoryFallback}else{'Objets AD, ping et WMI relus, données enregistrées.'})}else{'Ping et WMI relus, données enregistrées.'})}
         Submit-DomeniaOuRefreshRuns -Refresh $r
     }elseif($Run.Approved){$r.Phase='Collecting';$r.Status=[string]$Run.StatusText}
     Update-DomeniaOuRefreshUi

@@ -911,6 +911,13 @@ function Get-DomeniaBoardWidgetPlan {
     $short = Test-DomeniaBoardShortWidget -Visual $visual -Kind $kind -Compact $compact
     return [pscustomobject]@{ Item = $Item; Paused = $paused; Progress = $progress; Resolved = $resolved; Entry = $entry; Kind = $kind; HasMaximum = $hasMaximum; Visual = $visual; Size = $size; Compact = $compact; Span = $span; Short = $short }
 }
+function Get-DomeniaWidgetSurveyPartialText {
+    # '' unless a confirmed survey of the lists is running: « Relevé en cours · partiel · 312/701 postes lus ».
+    $run = $null
+    try { $run = Get-DomeniaParkRun -Slot 'List' } catch { $run = $null }
+    if (($null -eq $run) -or [bool]$run.Completed -or (-not [bool]$run.Approved)) { return '' }
+    return ('Relevé en cours · partiel · ' + [string][int]$run.Done + '/' + [string]@($run.Targets).Count + ' postes lus')
+}
 function Get-DomeniaWidgetDataDates {
     # Fleet clocks are aggregated once in its worker; rendering never scans the fleet per card.
     param([string]$Board,$Item,$State,$Entry)
@@ -1054,6 +1061,12 @@ function New-DomeniaBoardWidget {
     # Always visible: source dates and a real source refresh, independent of hover/edit mode.
     & $addRows
     $dates=Get-DomeniaWidgetDataDates -Board $Board -Item $Item -State $State -Entry $entry
+    # Decision David 2026-10-19: during a survey of the lists the overview is recalculated from the measures already
+    # stored; the footer says that the figure is partial and how far the survey is.
+    if ($Board -eq 'Fleet') {
+        $partialText = Get-DomeniaWidgetSurveyPartialText
+        if ($partialText) { $dates = [pscustomobject]@{ Text = ([string]$dates.Text + "`n" + $partialText); Detail = ([string]$dates.Detail + "`n" + $partialText) } }
+    }
     $footer=New-Object System.Windows.Controls.DockPanel
     $footer.Width=[Math]::Max(100,[double]$drawSize.Width - 14)
     $footer.Margin=[System.Windows.Thickness]::new(7,0,7,7)

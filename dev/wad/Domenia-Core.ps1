@@ -13909,7 +13909,7 @@ function Start-DomeniaIndexScopeBuild {
             -Payload ([pscustomobject]@{ Path = [string]$script:DatabaseScopedPath; Progress = (New-DomeniaIndexProgressChannel); MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = $true; SearchBase = $target }) `
             -CallbackState ([pscustomobject]@{ Started = (Get-Date); SearchBase = $target; Epoch = [long]$script:SessionEpoch; Path = [string]$script:DatabaseScopedPath; RefreshOperationId = $RefreshOperationId }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope","BtnFleetRefreshAll") `
             -TimeoutSeconds $limits.TimeoutSeconds `
             -StatusText "Lecture de lʼOU dans lʼannuaire en arrière-plan..." `
             -SuccessHandler "Complete-DomeniaIndexScopeUi" `
@@ -13971,7 +13971,7 @@ function Start-DomeniaIndexWalkStep {
             -Payload ([pscustomobject]@{ Path = [string]$script:DatabaseScopedPath; Progress = (New-DomeniaIndexProgressChannel); MaxObjects = $limits.MaxObjects; BudgetMs = $limits.BudgetMs; LastUsn = [long]0; LastServer = ""; Since = ""; ComputerFirst = [bool](Get-CfgValue "Index" "ComputerFirst" $true); SearchBase = $dn; SearchScope = $(if ($isRoot) { 'OneLevel' } else { 'Subtree' }) }) `
             -CallbackState ([pscustomobject]@{ Epoch = [long]$script:SessionEpoch; SearchBase = $dn; Done = $walk.Done; Total = $walk.Total }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope","BtnFleetRefreshAll") `
             -TimeoutSeconds $limits.TimeoutSeconds `
             -StatusText ('Passe par OU (' + $walk.Done + '/' + $walk.Total + ') : ' + $dn) `
             -SuccessHandler 'Complete-DomeniaIndexWalkStepUi' `
@@ -14113,7 +14113,7 @@ function Start-DomeniaIndexBuild {
             }) `
             -CallbackState ([pscustomobject]@{ Started=(Get-Date); StartedAt=(Get-Date).ToString("o"); UpdateLinks=[bool]$UpdateLinks }) `
             -ReplaceKey "index" `
-            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope") `
+            -DisableControls @("BtnIndexBuild","BtnIndexRefresh","BtnIndexWalk","BtnIndexScopeUpdate","BtnFleetIndexScope","BtnFleetRefreshAll") `
             -TimeoutSeconds ((Get-DomeniaIndexLimits).TimeoutSeconds) `
             -StatusText "Mise a jour complete de la base autonome en arriere-plan..." `
             -SuccessHandler "Complete-DomeniaIndexBuildUi" `
@@ -18929,7 +18929,7 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("CmbFleetMachineState")) { $script:Ctrl["CmbFleetMachineState"].Add_SelectionChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("BtnFleetIndexScope")) { $script:Ctrl["BtnFleetIndexScope"].Add_Click({ try { Invoke-DomeniaOuRefresh -Source Fleet -Mode AD } catch { Set-Status ('Mise à jour de lʼOU impossible : ' + $_.Exception.Message) 'WARN' } }) }
     foreach($source in @('Fleet','Search')){
-        $map=if($source -eq 'Fleet'){@{Ping='BtnFleetRefreshPostes';Wmi='BtnFleetRefreshBoth'}}else{@{AD='BtnSearchRefreshBase';Ping='BtnSearchRefreshPostes';Wmi='BtnSearchRefreshBoth'}}
+        $map=if($source -eq 'Fleet'){@{Ping='BtnFleetRefreshPostes';Wmi='BtnFleetRefreshBoth';Both='BtnFleetRefreshAll'}}else{@{AD='BtnSearchRefreshBase';Ping='BtnSearchRefreshPostes';Wmi='BtnSearchRefreshBoth'}}
         foreach($mode in $map.Keys){
             $button=Get-DomeniaControl $map[$mode]
             if($null -ne $button){$button.Tag=[pscustomobject]@{Source=$source;Mode=$mode};$button.Add_Click({param($sender,$eventArgs) Invoke-DomeniaOuRefresh -Source ([string]$sender.Tag.Source) -Mode ([string]$sender.Tag.Mode)})}
@@ -19023,7 +19023,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.23-D120"
+$script:MasterBuild = "2026.10.19-DOMENIA-1.0-RC1.17.24-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -25964,7 +25964,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.23-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.19-DOMENIA-1.0-RC1.17.24-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

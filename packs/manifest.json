@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.23-D120",
-  "source_base_commit": "e2945cf98cb55c4a3db4531b01594c1b0a2c7093",
+  "build": "2026.10.19-DOMENIA-1.0-RC1.17.24-D120",
+  "source_base_commit": "1d658ca0e69cd4890eae1723f95d194eedd58f59",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3068955,
-      "sha256": "8b3d604aebdb6bfab1fb901c48bfd84d583e66d711c1c085e22c7160a2166bb0",
+      "bytes": 3071141,
+      "sha256": "58c5eaa7a2df6c90910c89581260ec69b051243da636ed2e2c56d33cff093b91",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6563092,
-      "sha256": "d89bee70ac50371edffea7f4b9dcfdc0f01a94be1a703ed093aecfe4486cdba0",
+      "bytes": 6565544,
+      "sha256": "9221cd6dec3af080aaeb0244e8c1eda4f72696161ff78a6f09bfc002026063ec",
       "files": 645,
       "archive_files_including_manifest": 646,
       "archive_root": "dev/"
@@ -26,10 +26,10 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC23_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
+    "status": "RC24_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
     "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
     "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23",
+    "formal_windows_qualification": "NONE_FOR_RC23_RC24",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
@@ -54,6 +54,7 @@
     "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Outils > Relevés). Contrôles hors Windows uniquement.",
     "historical_rc22_proofs": [
       "validation/2026-10-18/rc22-ui-automation/README.md"
-    ]
+    ],
+    "rc24_change": "Relevé WMI : associations utilisateur-poste depuis la console observée ; vue d'ensemble et widgets recalculés pendant le relevé (mention partiel) ; relevé arrêté affiché comme partiel exploitable ; bouton Tout actualiser (objets AD puis ping et WMI). Contrôles hors Windows uniquement."
   }
 }

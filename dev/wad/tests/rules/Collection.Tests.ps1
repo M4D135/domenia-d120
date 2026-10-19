@@ -84,6 +84,16 @@ Test-Case 'COL-005' 'Un echec plus recent n efface ni ne rajeunit la derniere re
     $fresh=Get-DomeniaCollectionClock -Runs ($runs+$later) -Family Presence -ScopeDn $script:ColOu -DomainDn $script:ColDomain -NowUtc $script:ColNow
     Assert-Equal 11 $fresh.Success.AtUtc.Hour;Assert-False $fresh.AttemptFailedAfterSuccess 'ancien echec masque une reussite plus recente'
 }
+Test-Case 'COL-005b' 'Un releve arrete sans reussite reste exploitable et le dit (decision du 19/10)' {
+    $runs=@((New-ColRun -Family Inventory -Attempt '2026-10-14T10:00:00.0000000Z' -Status Cancelled -ErrorText 'Releve arrete : 2/10 poste(s) traite(s).'))
+    $clock=Get-DomeniaCollectionClock -Runs $runs -Family Inventory -ScopeDn $script:ColOu -DomainDn $script:ColDomain -NowUtc $script:ColNow
+    $text=Format-DomeniaCollectionClock $clock -NowUtc $script:ColNow
+    Assert-True ($text.Text -like 'relevé partiel le *(2/10 postes*arrêté) ; les postes lus sont exploitables') ('texte : '+$text.Text)
+    Assert-False ($text.Text -like '*aucun relevé réussi*') ('texte : '+$text.Text)
+    Assert-False ($text.Text -like '*dernière tentative*') 'tentative repetee'
+    Assert-True ([bool]$text.Warning) 'releve partiel non signale'
+    Assert-True ($text.Detail -like '*Relevé partiel (arrêté)*motif*') ('infobulle : '+$text.Detail)
+}
 Test-Case 'COL-006' 'Un releve de l OU englobante date la sous-OU, jamais un autre domaine ou une autre famille' {
     $parent=New-ColRun -Family Inventory -Success '2026-10-14T09:00:00.0000000Z'
     $other=New-ColRun -Family Inventory -Success '2026-10-14T11:00:00.0000000Z' -Domain 'dc=autre,dc=test'

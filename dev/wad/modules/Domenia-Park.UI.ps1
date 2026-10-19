@@ -154,7 +154,7 @@ function Update-DomeniaParkRunStatus {
     }else{
         $short=Get-DomeniaParkProgressText -Done ([int]$r.Done) -Total (@($r.Targets).Count) -Online ([int]$r.Online) -NoReply ([int]$r.NoReply) -Errors ([int]$r.Errors) -Failed ([int]$r.Failed) -Unchecked ([int]$r.Unchecked) -PingRequested (-not [bool]$r.WmiOnly) -Completed ([bool]$r.Completed) -Stopped ([bool]$r.Stopping)
         $text=$status+' : '+$short+'.'
-        if(-not $r.PingOnly){$text+=' '+$r.Reused+' identités en cache, '+$r.Changed+' associations actualisées, '+$r.CachedMeasurements+' mesures encore fraîches réutilisées.'}
+        if(-not $r.PingOnly){$text+=' '+$r.Reused+' identités en cache, '+$r.Changed+' association(s) créée(s) ou changée(s), '+$r.CachedMeasurements+' mesures encore fraîches réutilisées.'}
         if(-not $r.Completed){$text+=' '+$(if($r.PingOnly){'Échos envoyés par lots de 32.'}else{[string]$r.Pending.Count+'/'+[string]$r.Concurrency+' lectures en parallèle.'})}
         # Widget collections: the workstations whose stored measurement already answered were never contacted.
         if($fresh -gt 0){$text+=' '+[string]$fresh+' '+(Get-DomeniaParkPlural $fresh 'poste déjà à jour' 'postes déjà à jour')+', sans lecture.'}
@@ -178,12 +178,49 @@ function Update-DomeniaParkRunStatus {
             try{Request-DomeniaFleetRefresh -Force}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
         }
     }
+    try{Invoke-DomeniaParkLiveUpdates -Run $r}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}
     if($r.Completed -and $r.Approved -and -not [bool]$r.Logged){$r.Logged=$true;try{Write-AppLog ('Relevé des postes ('+$(if($r.Slot -eq 'Computer'){'poste'}else{'liste'})+') : '+$text) 'INFO'}catch{Write-DomeniaSwallowed 'Park' 'Update-DomeniaParkRunStatus' $_}}
     Update-DomeniaParkControls
     foreach($label in @('LblParkStatus','LblParkDetectionStatus')){[void](Set-DomeniaControlText $label $text)}
     # A run started by a widget shows its progress on that widget; at the end of any run the next queued widget
     # starts (the watch timer of the widgets does it too, once the recalculation of the OU is drawn).
     if(([string](Get-DomeniaMember $r 'WidgetBoard' '')) -or (($null -ne $script:DomeniaWidgetCollectQueue) -and ($script:DomeniaWidgetCollectQueue.Count -gt 0))){try{Update-DomeniaWidgetCollectProgress}catch{Write-AppLog ('Progression du widget non affichée : '+$_.Exception.Message) 'WARN'}}
+}
+function Invoke-DomeniaParkLiveUpdates {
+    # Decision David 2026-10-19: while a survey of the lists runs, the overview and its widgets are recalculated from
+    # the measures already stored, every 15 seconds at most (one calculation at a time, Request-DomeniaFleetRefresh),
+    # and the console associations created so far are queued for saving. At the end, stopped or not, the associations
+    # left are queued once; the overview is recalculated by the end of the run itself.
+    param($Run)
+    if($null -eq $Run){return}
+    $nowUtc=[datetime]::UtcNow
+    if([bool]$Run.Completed){
+        if([bool](Get-DomeniaMember $Run 'LinksPending' $false)){$Run|Add-Member -NotePropertyName LinksPending -NotePropertyValue $false -Force;Request-DomeniaLinkPersistence}
+        return
+    }
+    if(([string]$Run.Slot -ne 'List') -or (-not [bool]$Run.Approved)){return}
+    $last=Get-DomeniaMemberValue $Run 'LiveUpdateUtc'
+    if(($last -is [datetime]) -and (($nowUtc-$last).TotalSeconds -lt 15)){return}
+    $Run|Add-Member -NotePropertyName LiveUpdateUtc -NotePropertyValue $nowUtc -Force
+    if([bool](Get-DomeniaMember $Run 'LinksPending' $false)){$Run|Add-Member -NotePropertyName LinksPending -NotePropertyValue $false -Force;Request-DomeniaLinkPersistence}
+    if(([int]$Run.Done -gt 0) -and [bool]$script:FleetStale){Request-DomeniaFleetRefresh}
+}
+function Register-DomeniaParkConsoleLink {
+    # Decision David 2026-10-19: the console account observed by a survey becomes a user-workstation association, with
+    # the rule of a click on one workstation (Merge-DomeniaLiveLinkMemory): only an account found in AD (UserDn), upsert
+    # next to the existing relations, never a declared or imported assignment replaced. A workstation already associated
+    # with the same account is left as it is (no rewrite of the whole fleet at each survey). Saved by the run, in batches.
+    param($Run,$Observation)
+    if(($null -eq $Run) -or ($null -eq $Observation) -or ([string]$Observation.Outcome -ne 'Observed')){return}
+    if((-not [string](Get-DomeniaMember $Observation 'LinkUser' '')) -or (-not [string](Get-DomeniaMember $Observation 'UserDn' ''))){return}
+    $computer=Normalize-LinkComputer ([string]$Observation.Computer);$user=Normalize-LinkUser ([string]$Observation.LinkUser)
+    if((-not $computer) -or (-not $user)){return}
+    $login=ConvertTo-DomeniaRelationLoginKey $user
+    foreach($link in @(Get-LinksForComputer $computer|Where-Object{$null -ne $_})){if((ConvertTo-DomeniaRelationLoginKey ([string]$link.UserLogin)) -eq $login){return}}
+    $observedUtc=ConvertTo-DomeniaUtcDate ([string](Get-DomeniaMember $Observation 'ObservedUtc' ''));if($null -eq $observedUtc){$observedUtc=[datetime]::UtcNow}
+    $relation=[pscustomobject]@{UserLogin=$user;Computer=$computer;Source='Console CIM/DCOM';Confidence=0;VerifiedInAD=$true;When=$observedUtc.ToString('o');Details='Compte console observé lors dʼun relevé ; sessions RDP non recensées.';UserGuid=[string](Get-DomeniaMember $Observation 'UserGuid' '');ComputerGuid=[string]$Observation.Guid;UserDn=[string]$Observation.UserDn;ComputerDn=[string]$Observation.Key;Kind='Console'}
+    $outcome=Add-DomeniaRelation -Relation $relation -NoSave -Quiet
+    if([bool]$outcome.StoredChanged){$Run.Changed=[int]$Run.Changed+1;$Run|Add-Member -NotePropertyName LinksPending -NotePropertyValue $true -Force}
 }
 function Get-DomeniaParkInFlightCount {
     # Workstations read right now: one per console or WMI read, every echo of the batch ping job in flight (MO-08).
@@ -1334,6 +1371,7 @@ function Complete-DomeniaParkStored {
         Clear-DomeniaParkTargetBuffers @($State.Target)
     }
     Publish-DomeniaParkObservation -Run $r -Observation $observation -Index ([int](Get-DomeniaMember $State 'Index' -1)) -Retrying:$retrying
+    if(-not $retrying){try{Register-DomeniaParkConsoleLink -Run $r -Observation $observation}catch{Write-AppLog ('Association de console non créée pour '+[string]$observation.Computer+' : '+$_.Exception.Message) 'WARN'}}
     Update-DomeniaParkRunStatus -Run $r
 }
 

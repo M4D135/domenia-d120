@@ -321,7 +321,7 @@ function Format-DomeniaCollectionClock {
     $success=Get-DomeniaMemberValue $Clock 'Success';$attempt=Get-DomeniaMemberValue $Clock 'Attempt'
     $label=[string](Get-DomeniaMember $Clock 'Label' '');$family=[string](Get-DomeniaMember $Clock 'Family' '')
     if(($null -eq $success) -and ($null -eq $attempt)){return [pscustomobject]@{Text='';Detail=($label+' : aucun relevé de périmètre enregistré.');Warning=$false}}
-    $parts=[Collections.Generic.List[string]]::new();$detail=[Collections.Generic.List[string]]::new();$warning=$false
+    $parts=[Collections.Generic.List[string]]::new();$detail=[Collections.Generic.List[string]]::new();$warning=$false;$partialShown=$false
     $describe={param($View,[string]$Kind)
         $line=$Kind+' : '+(& $date $View.AtUtc)
         if($View.FinishedAtUtc -is [datetime]){$line+=' → '+(& $date $View.FinishedAtUtc)}
@@ -341,8 +341,18 @@ function Format-DomeniaCollectionClock {
         }
         $detail.Add((& $describe $success 'Dernière réussite'))
         if(-not [bool]$success.Qualification.Coherent){$parts.Add([string]$success.Qualification.Text);$warning=$true}
-    }elseif($family -ne 'Directory'){$parts.Add('aucun relevé réussi enregistré')}
-    if(([bool](Get-DomeniaMember $Clock 'AttemptFailedAfterSuccess' $false)) -and ($null -ne $attempt)){
+    }elseif($family -ne 'Directory'){
+        # Decision David 2026-10-19: a stopped or incomplete survey stays usable. Without any success, the workstations
+        # it read are named as a partial survey instead of « aucun relevé réussi » (each measure keeps its own date).
+        $partialDone=[long](Get-DomeniaMember $attempt 'Done' 0)
+        if(($null -ne $attempt) -and ($partialDone -gt 0)){
+            $text='relevé partiel le '+(& $date $attempt.AtUtc)+' ('+(Format-DomeniaCollectionCounts $attempt -Family $family)+', '+(Get-DomeniaCollectionStatusText $attempt.Status)+') ; les postes lus sont exploitables'
+            if($attempt.Inherited){$text+=' via une OU englobante'}
+            $parts.Add($text);$warning=$true;$partialShown=$true
+            $detail.Add((& $describe $attempt ('Relevé partiel ('+(Get-DomeniaCollectionStatusText $attempt.Status)+')'))+$(if($attempt.Error){' ; motif : '+$attempt.Error}else{''}))
+        }else{$parts.Add('aucun relevé réussi enregistré')}
+    }
+    if((-not $partialShown) -and ([bool](Get-DomeniaMember $Clock 'AttemptFailedAfterSuccess' $false)) -and ($null -ne $attempt)){
         $text='dernière tentative le '+(& $date $attempt.AtUtc)+' : '+(Get-DomeniaCollectionStatusText $attempt.Status)
         if($attempt.Error){$text+=' — '+(ConvertTo-DomeniaCollectionText $attempt.Error 160)}
         if($null -ne $success){$text+=' ; la dernière réussite reste la référence'}
