@@ -1033,6 +1033,7 @@ function Get-DomeniaFirstStepsState {
     # knows, through the pure rule Get-DomeniaFirstRunPlan: no request, no scan.
     $domain = ''; $account = ''; $connected = $false
     try { $connected = [bool]$script:Conn.Connected; $domain = [string]$script:Conn.Domain; $account = [string]$script:Conn.BindUser } catch { $connected = $false }
+    $offline = ((-not $connected) -and [bool]$domain)
     if (-not $connected) { $domain = '' }
     $scopeDn = ''; $scopeName = ''; $scopeSubtree = $true
     try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name; $scopeSubtree = [bool]$scope.Subtree } } catch { $scopeDn = '' }
@@ -1040,16 +1041,17 @@ function Get-DomeniaFirstStepsState {
     try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
     # Unknown coverage is not a completed read. A later partial attempt preserves an earlier complete coverage,
     # whose At remains available; a partial attempt alone, a legacy depth or an empty marker set proves nothing.
-    $scopeRead = $false
+    $scopeRead = $false; $readInterrupted = $false
     if ($connected -and $scopeDn -and ($indexed -ge 0) -and ($null -ne $script:IndexSyncStates)) {
         try {
             $coverage = Get-DomeniaFleetFreshness -ScopeDn $scopeDn -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree $scopeSubtree
+            $readInterrupted = [bool]$coverage.Partial
             $scopeRead = (($null -ne $coverage.At) -and ([string]$coverage.Status -in @('Complete','Partial')))
         } catch { $scopeRead = $false }
     }
     $seen = $false
     try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
-    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen -ScopeRead $scopeRead
+    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen -ScopeRead $scopeRead -ReadInterrupted $readInterrupted -Offline $offline
 }
 function Update-DomeniaFirstSteps {
     # Card shown until the four steps are done once, then hidden for good (local preference). The account used on the

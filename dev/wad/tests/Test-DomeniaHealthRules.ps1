@@ -127,6 +127,37 @@ Check '5000 machine perimeter keeps every AD state and exact GUID drilldown' {
  Assert ($b.Last.WidgetTargets['fleet.machines'].Count -eq 5000 -and $b.Last.WidgetTargets['fleet.presence|Non vérifié'].Count -eq 4500 -and $b.Last.UnknownTargets.Count -eq 4500) 'Large drilldown or coverage lost objects'
  Assert ($null -eq $b.Entries['fleet.health'].Number) 'Uncollected large park claims healthy'
 }
+Check 'Programme 45 Health evidence names value source and real collection date' {
+ $d=New-DomeniaBoardData Computer
+ Add-DomeniaBoardEntry $d (New-DomeniaBoardEntry -Key 'computer.disk.system' -Kind Value -Value '5 % libre' -Detail '5 Go libres sur 100 Go' -State Alert)
+ Add-DomeniaBoardAttention $d -Level Alert -Text 'Disque presque plein' -Point 'lowdisk'
+ $row=@((Get-DomeniaHealthExplanation $d).Rows|Where-Object Id -eq 'lowdisk')[0]
+ Assert ($row.ObservationState -eq 'Problème' -and $row.Evidence.Value -like '*5 %*' -and $row.Evidence.Source -like '*WMI*' -and $row.Evidence.Rule -like '*10 %*') 'Evidence loses rule/value/source'
+ Assert ($row.Evidence.Observed -eq 'Date de collecte inconnue') 'Calculation manufactured a collection date'
+ $d|Add-Member -NotePropertyName InventoryAtUtc -NotePropertyValue '2026-10-13T12:00:00Z'
+ $dated=Get-DomeniaHealthRuleEvidenceDetail $d lowdisk
+ Assert ($dated.Observed -match '13/10/2026') 'Recorded collection date missing'
+}
+Check 'Programme 46 Missing health measure stays unknown and directs explicit collection' {
+ $d=New-DomeniaBoardData Computer
+ $row=@((Get-DomeniaHealthExplanation $d).Rows|Where-Object Id -eq 'lowdisk')[0]
+ Assert ($row.ObservationState -eq 'Inconnu' -and $row.MissingData -and $row.Effect -like '*aucun bon état*') 'Missing measure appears healthy'
+ Assert ($row.Evidence.Route -eq 'WsComputer' -and $row.Evidence.Collection -like '*explicitement*inventaire*') 'Missing inventory has no collection route'
+ Add-DomeniaBoardEntry $d (New-DomeniaBoardEntry -Key 'computer.disk.system' -Kind Value -Value '50 % libre' -State Ok)
+ $row=@((Get-DomeniaHealthExplanation $d).Rows|Where-Object Id -eq 'lowdisk')[0]
+ Assert ($row.ObservationState -eq 'Sain' -and (-not $row.MissingData)) 'Known healthy measurement stays unknown'
+}
+Check 'Programme 48 Motivated dated exception masks issue without erasing its evidence' {
+ $d=New-DomeniaBoardData Computer
+ $d.HealthPolicy=ConvertTo-DomeniaHealthPolicy @{Suspensions=@(@{RuleId='lowdisk';Reason='Maintenance planifiee';UntilUtc='2026-10-21T12:00:00Z'});EvaluatedAtUtc='2026-10-20T12:00:00Z'}
+ $d.HealthPolicy.EvaluatedAtUtc='2026-10-20T12:00:00Z'
+ Add-DomeniaBoardEntry $d (New-DomeniaBoardEntry -Key 'computer.disk.system' -Kind Value -Value '5 % libre' -State Alert)
+ Add-DomeniaBoardAttention $d -Level Alert -Text 'Disque presque plein' -Point 'lowdisk'
+ $row=@((Get-DomeniaHealthExplanation $d).Rows|Where-Object Id -eq 'lowdisk')[0]
+ Assert ($row.Status -eq 'Suspendue' -and $row.Masked -eq 1 -and $row.ObservationState -eq 'Problème' -and $row.Effect -like '*Maintenance planifiee*') 'Exception became healthy or lost its reason'
+ $d.HealthPolicy.EvaluatedAtUtc='2026-10-22T12:00:00Z'
+ Assert ((Get-DomeniaHealthRuleState $d.HealthPolicy lowdisk) -eq 'On') 'Expired exception still excludes the rule'
+}
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
 $report=[pscustomobject]@{Suite='HealthRules';Passed=($failed -eq 0);Total=$checks.Count;Failed=$failed;WpfExecuted=$false;NetworkUsed=$false;Health5000DurationMs=$script:Health5000DurationMs;Checks=$checks.ToArray()}
 if($ReportPath){[IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))}

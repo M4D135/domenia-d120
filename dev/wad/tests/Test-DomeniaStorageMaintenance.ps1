@@ -110,6 +110,81 @@ try{
    Expect ((Get-TestHash $path).ToLowerInvariant() -ceq $r.SHA256) 'same verified bytes'
   }
  }
+ Case 'Complete backup restores canonical data queries and the hash-linked preferences snapshot' {
+  $p=New-Database 'complete-source' 4;$current=New-Database 'complete-active' 20
+  $data='{"Name":"PC-SNAPSHOT","State":"Actif"}';$recipe='{"Name":"Saved recipe","Class":"Win32_OperatingSystem"}'
+  $settings='{"Theme":"Dark","GridLayoutsJson":"{\"Search\":{\"Width\":180}}","Dashboard.Fleet.Layout":"fixture-layout","Widgets.Fleet":"fixture-widgets","Query.Library":"fixture-query"}'
+  Query $p ("INSERT INTO domenia_directory_data(object_guid,payload,field_times,revision,observed_at) VALUES('00000000-0000-0000-0000-000000000001',"+(ConvertTo-DomeniaSqlLiteral $data)+",'{}',4,'2026-10-01T00:00:00Z');INSERT INTO domenia_account_preferences VALUES('dc=test','Remote','TEST\operator','2026-10-01T00:00:00Z',4);INSERT INTO domenia_query_recipes(id,domain_dn,name,name_fold,category,revision,definition_version,definition_json,definition_sha256,created_utc,updated_utc) VALUES('snapshot-query','dc=test','Saved recipe','saved recipe','Personal',1,1,"+(ConvertTo-DomeniaSqlLiteral $recipe)+",'fixture-hash','2026-10-01','2026-10-01');INSERT INTO domenia_query_recipe_revisions VALUES('snapshot-query',1,1,"+(ConvertTo-DomeniaSqlLiteral $recipe)+",'fixture-hash','2026-10-01');") -Write
+  $export=Join-Path $folder 'complete-export.db'
+  $Payload=[pscustomobject]@{Database=$p;BackupDirectory=(Join-Path $folder 'complete-backups');CopyTo=$export;BudgetSeconds=30;Keep=2;PreferencesJson=$settings}
+  $backup=& ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode)))
+  Expect ($backup.PreferencesIncluded -and [IO.File]::Exists($backup.PreferencesPath) -and [IO.File]::Exists($export+'.preferences.json')) 'both exported and local copies carry their snapshot'
+  $sidecar=[IO.File]::ReadAllText($export+'.preferences.json')|ConvertFrom-Json
+  Expect ($sidecar.DatabaseSHA256 -ceq (Get-TestHash $export).ToLowerInvariant()) 'sidecar identifies exact database bytes'
+  $preview=Run-Maintenance Inspect $current -Source $export
+  Expect ($preview.Source.Preferences.Present -and $preview.Source.Preferences.SettingsJson -ceq $settings) 'preview confirms exact settings'
+  $restored=Join-Path $folder 'complete-restored.db'
+  $r=Run-Maintenance Restore $current $restored ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint -Source $export
+  Expect ($r.Committed -and $r.Preferences.Present -and $r.Preferences.SettingsJson -ceq $settings) 'receipt carries verified snapshot only after successful publication'
+  Expect ((Query $restored 'SELECT payload FROM domenia_directory_data;')[0].payload -ceq $data) 'canonical data restored'
+  Expect ((Query $restored 'SELECT definition_json FROM domenia_query_recipes;')[0].definition_json -ceq $recipe) 'saved query restored'
+  Expect ((Query $restored 'SELECT definition_json FROM domenia_query_recipe_revisions;')[0].definition_json -ceq $recipe) 'query history restored'
+  Expect ((Query $restored 'SELECT user_name FROM domenia_account_preferences;')[0].user_name -ceq 'TEST\operator') 'database account preferences restored'
+ }
+ Case 'Mismatched or over-deep preferences are refused before a restore changes its active base' {
+  $p=New-Database 'snapshot-invalid-source';$active=New-Database 'snapshot-invalid-active';$sidecar=$p+'.preferences.json'
+  $bad=[pscustomobject]@{Format='Domenia.BackupPreferences.1';DatabaseSHA256=('0'*64);SettingsJson='{"Theme":"Dark"}'}
+  [IO.File]::WriteAllText($sidecar,($bad|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+  $before=Get-TestHash $active
+  Refused {Run-Maintenance Inspect $active -Source $p} 'SHA-256'
+  Expect ((Get-TestHash $active) -ceq $before) 'bad attachment does not change active database'
+  $bad.DatabaseSHA256=(Get-TestHash $p).ToLowerInvariant();$bad.SettingsJson=('{"a":'*10)+'0'+('}'*10)
+  [IO.File]::WriteAllText($sidecar,($bad|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+  Refused {Run-Maintenance Inspect $active -Source $p} 'imbriquees'
+  Expect ((Get-TestHash $active) -ceq $before) 'over-deep attachment does not change active database'
+  [IO.File]::Delete($sidecar)
+  $preview=Run-Maintenance Inspect $active -Source $p
+  Expect (-not $preview.Source.Preferences.Present) 'old backups explicitly report no preferences snapshot'
+  $target=Join-Path $folder 'legacy-data-only.db'
+  $r=Run-Maintenance Restore $active $target ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint -Source $p
+  Expect ($r.Committed -and (-not $r.Preferences.Present)) 'old database restores without inventing preferences'
+ }
+ Case 'Changing only the preferences attachment invalidates a confirmed restore preview' {
+  $source=New-Database 'snapshot-changed-source';$active=New-Database 'snapshot-changed-active';$sidecar=$source+'.preferences.json'
+  $doc=[pscustomobject]@{Format='Domenia.BackupPreferences.1';DatabaseSHA256=(Get-TestHash $source).ToLowerInvariant();SettingsJson='{"Theme":"Dark"}'}
+  [IO.File]::WriteAllText($sidecar,($doc|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+  $preview=Run-Maintenance Inspect $active -Source $source
+  $doc.SettingsJson='{"Theme":"Light"}';[IO.File]::WriteAllText($sidecar,($doc|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+  $target=Join-Path $folder 'snapshot-stale.db'
+  Refused {Run-Maintenance Restore $active $target ([guid]::NewGuid().ToString('D')) $preview.Source.Fingerprint -Source $source} 'source a change'
+  Expect (-not [IO.File]::Exists($target)) 'no copy published under an obsolete confirmation'
+ }
+ Case 'Migration backup preserves pre-change schema and survives regular backup rotation' {
+  $script:MigrationFixturePath=New-Database 'migration-rollback'
+  Query $script:MigrationFixturePath "CREATE TABLE migration_fixture(id INTEGER PRIMARY KEY,value TEXT NOT NULL);INSERT INTO migration_fixture VALUES(1,'original');" -Write
+  foreach($name in @('Get-DomeniaStoreBackupDirectory','Backup-DomeniaDatabase')){
+   $node=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));Expect ($node.Count -eq 1) ('production helper '+$name);. ([scriptblock]::Create($node[0].Extent.Text))
+  }
+  function Get-DomeniaDatabasePath {return $script:MigrationFixturePath}
+  function Get-CfgValue {param($Section,$Key,$Default);return $Default}
+  $saved=Backup-DomeniaDatabase -Migration
+  Expect ([IO.File]::Exists($saved) -and ([IO.Path]::GetFileName([IO.Path]::GetDirectoryName($saved)) -eq 'migrations')) 'rollback snapshot outside the rotation'
+  Expect ((Query $saved 'PRAGMA journal_mode;')[0].journal_mode -eq 'delete') 'rollback copy standalone'
+  $savedHash=Get-TestHash $saved
+  $db=Open-DomeniaDatabase $script:MigrationFixturePath
+  try{
+   [void](Invoke-DomeniaDbExec 'BEGIN IMMEDIATE;ALTER TABLE migration_fixture ADD COLUMN phase TEXT;' $db)
+   $caught=$false;try{[void](Invoke-DomeniaDbExec "INSERT INTO migration_fixture(id,value) VALUES(1,'duplicate');" $db)}catch{$caught=$true}
+   Expect $caught 'actual SQLite constraint failure interrupts migration transaction'
+   [void](Invoke-DomeniaDbExec 'ROLLBACK;' $db)
+  }finally{Close-DomeniaDatabase $db}
+  Expect (@(Query $script:MigrationFixturePath 'PRAGMA table_info(migration_fixture);'|Where-Object name -eq phase).Count -eq 0) 'schema extension rolled back'
+  Expect ((Query $script:MigrationFixturePath 'SELECT value FROM migration_fixture;')[0].value -ceq 'original') 'data retained after failure'
+  $Payload=[pscustomobject]@{Database=$script:MigrationFixturePath;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($script:MigrationFixturePath)) 'Backups');CopyTo='';BudgetSeconds=30;Keep=2}
+  foreach($i in 1..3){[void](& ([scriptblock]::Create((Get-DomeniaStorageBackupWorkerCode))))}
+  Expect ((Get-TestHash $saved) -ceq $savedHash) 'migration rollback snapshot preserved byte for byte through rotation'
+  Expect ((Query $saved 'SELECT value FROM migration_fixture;')[0].value -ceq 'original') 'pre-migration state still readable'
+ }
  Case 'Retention deletes only old migrated families and preserves unknown recent and legacy rows' {
   $script:ret=New-Database 'retention';$old=[datetime]::UtcNow.AddDays(-100).ToString('o');$recent=[datetime]::UtcNow.AddDays(-1).ToString('o');$cut=[datetime]::UtcNow.AddDays(-30).ToString('o');$script:cutoffs=[pscustomobject]@{Presence=$cut;Console=$cut;Inventory=$cut;Probe=$cut;Detail=$cut}
   $sql=[Text.StringBuilder]::new()
@@ -123,6 +198,17 @@ try{
   Expect ((Query $ret 'SELECT count(*) n FROM domenia_observations;')[0].n -eq 4) 'recent/error/unknown/legacy retained'
   Expect ((Query $r.Backup.Path 'SELECT count(*) n FROM domenia_observations;')[0].n -eq 5) 'backup precedes deletion'
   Expect ((Get-FileHash $r.Backup.Path -Algorithm SHA256).Hash.ToLowerInvariant() -ceq $r.Backup.SHA256) 'backup bytes'
+ }
+ Case 'Retention with no eligible rows avoids a redundant backup and preserves the revision' {
+  $p=New-Database 'retention-empty';$cut=[datetime]::UtcNow.AddDays(-30).ToString('o');$limits=[pscustomobject]@{Presence=$cut}
+  $before=Run-Retention $p -Cutoffs $limits
+  Expect ((@($before.Counts|Where-Object Family -eq Presence)[0].Rows -eq 0) -and ($before.Revision -eq 7)) 'empty preview'
+  $backupDirectory=Join-Path ([IO.Path]::GetDirectoryName($p)) 'Backups'
+  $filesBefore=@(Get-ChildItem -LiteralPath $backupDirectory -Filter 'Domenia-retention-*.db' -File -ErrorAction SilentlyContinue).Count
+  Refused {Run-Retention $p $false $before.Fingerprint -Cutoffs $limits} 'Aucune mesure a retirer'
+  $filesAfter=@(Get-ChildItem -LiteralPath $backupDirectory -Filter 'Domenia-retention-*.db' -File -ErrorAction SilentlyContinue).Count
+  Expect ($filesAfter -eq $filesBefore) 'no extra full database backup'
+  Expect ((Query $p 'SELECT revision FROM domenia_store_state WHERE id=1;')[0].revision -eq 7) 'no revision write'
  }
  Case 'Retention refusal rolls back and never silently accepts stale confirmation' {
   $p=Run-Retention $ret;Query $ret 'UPDATE domenia_store_state SET revision=revision+1;' -Write

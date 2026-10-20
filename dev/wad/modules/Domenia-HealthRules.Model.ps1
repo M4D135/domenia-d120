@@ -262,6 +262,34 @@ function Get-DomeniaComputerRuleEvidence {
     if(($RuleId -in @('eos.ended','eos.soon')) -and ([string]$entry.State -notin @('Alert','Warn')) -and ([string](Get-DomeniaHealthValue $entry 'Detail' '') -notmatch '(?i)fin de service')){return 'NotMeasured'}
     return 'Measured'
 }
+function Get-DomeniaHealthRuleEvidenceDetail {
+    # Provenance from the captured board only. A calculation date never substitutes for a collection date.
+    param($Data,[string]$RuleId,[string]$Measure='')
+    $keys=@{'eos.ended'='computer.os';'eos.soon'='computer.os';'stale'='computer.ad.lastlogon';'never'='computer.ad.lastlogon';'pwdold'='computer.ad.password';'laps.none'='computer.ad.laps';'laps.expired'='computer.ad.laps';'bitlocker.none'='computer.bitlocker';'bitlocker.suspended'='computer.bitlocker';'secureboot'='computer.secureboot';'certificates'='computer.certificates';'lowdisk'='computer.disk.system';'disk.tight'='computer.disk.system';'uptime'='computer.uptime';'memory'='computer.memory.usage';'battery'='computer.battery';'ad.disabled'='computer.ad.account';'clock'='computer.ad.clock';'firewall'='computer.firewall';'reboot'='computer.reboot';'services'='computer.services.stopped';'devices'='computer.devices';'drivers'='computer.drivers';'hotfix'='computer.hotfix';'events'='computer.events'}
+    $key=[string]$keys[$RuleId]
+    if($RuleId.StartsWith('custom.',[StringComparison]::Ordinal)){$measureKeys=@{DiskFree='computer.disk.system';UptimeDays='computer.uptime';MemoryUsed='computer.memory.usage'};$key=[string]$measureKeys[$Measure]}
+    $fleet=([string](Get-DomeniaHealthValue $Data 'Board' '') -eq 'Fleet')
+    $directory=($RuleId -in @('stale','never','pwdold','laps.none','laps.expired','ad.disabled')) -or ($fleet -and ($RuleId -in @('eos.ended','eos.soon','bitlocker.none')))
+    $source=if($Measure -eq 'Query'){'Requête mémorisée · base locale'}elseif($directory){'Active Directory · base locale'}else{'Inventaire WMI / registre · base locale'}
+    if($RuleId -in @('eos.ended','eos.soon')){$source+=' · table de cycle de vie Windows'}
+    $observed='Date de collecte inconnue';$fresh=Get-DomeniaHealthValue $Data 'Freshness';$dates=@()
+    if($fleet){
+        if($directory){$dates=@((Get-DomeniaHealthValue (Get-DomeniaHealthValue $fresh 'Index') 'At'))}
+        elseif($Measure -ne 'Query'){$family=Get-DomeniaHealthValue (Get-DomeniaHealthValue $fresh 'Observations') 'Inventory';$dates=@((Get-DomeniaHealthValue $family 'OldestUtc'),(Get-DomeniaHealthValue $family 'NewestUtc'))}
+    }elseif(-not $directory){$dates=@((Get-DomeniaHealthValue $Data 'InventoryAtUtc'))}
+    $labels=@(@(foreach($date in $dates){if($null -eq $date){continue};$parsed=ConvertFrom-DomeniaUtcText ([string]$date);if($date -is [datetime]){$parsed=$date.ToUniversalTime()};if($null -ne $parsed){$parsed.ToLocalTime().ToString('dd/MM/yyyy HH:mm')}})|Select-Object -Unique)
+    if($labels.Count){$observed=if($labels.Count -eq 1){'Source lue le '+$labels[0]}else{'Relevés de la source du '+$labels[0]+' au '+$labels[$labels.Count-1]}}
+    $entry=Get-DomeniaHealthValue (Get-DomeniaHealthValue $Data 'Entries') $key
+    $value=if($fleet){@(@(Get-DomeniaHealthValue $Data 'Attention' @())+@(Get-DomeniaHealthValue $Data 'SuppressedAttention' @())|Where-Object{[string]$_.Point -eq $RuleId}|ForEach-Object{[string]$_.Text}|Select-Object -Unique) -join ' ; '}else{(@((Get-DomeniaHealthValue $entry 'Value' ''),(Get-DomeniaHealthValue $entry 'Detail' ''))|Where-Object{$_}) -join ' · '}
+    if(-not $value){$value='Aucune valeur détaillée disponible pour ce contrôle.'}
+    $route=if($fleet){if($directory){'TabApplicationTools'}else{'WsSearch'}}elseif($directory){'WsObject'}else{'WsComputer'}
+    $collect=if($Measure -eq 'Query'){'Ouvrez lʼatelier pour examiner ou évaluer explicitement la requête.'}elseif($fleet -and $directory){'Ouvrez Base autonome pour actualiser explicitement la lecture de cette OU.'}elseif($fleet){'Dans Rechercher, choisissez la même OU puis lancez explicitement le relevé ou lʼinventaire des postes concernés.'}elseif($directory){'Ouvrez la fiche et actualisez explicitement sa lecture AD.'}else{'Dans le poste sélectionné, lancez explicitement un inventaire ; les contrôles détaillés peuvent demander lʼinventaire complet.'}
+    $threshold=Get-DomeniaHealthValue (Get-DomeniaHealthValue $Data 'HealthPolicy') 'Thresholds'
+    $rule=switch($RuleId){'stale'{[string](Get-DomeniaHealthValue $threshold 'StaleDays')+' jours sans connexion AD'}'pwdold'{[string](Get-DomeniaHealthValue $threshold 'PasswordDays')+' jours depuis le mot de passe machine'}'lowdisk'{'Espace libre < '+[string](Get-DomeniaHealthValue $threshold 'DiskFreeAlert')+' %'}'disk.tight'{'Espace libre < '+[string](Get-DomeniaHealthValue $threshold 'DiskFreeWarn')+' %'}'uptime'{'Démarrage depuis plus de '+[string](Get-DomeniaHealthValue $threshold 'UptimeDays')+' jours'}'memory'{'Mémoire utilisée > '+[string](Get-DomeniaHealthValue $threshold 'MemoryUsedWarn')+' %'}default{'Contrôle '+$RuleId}}
+    if($fleet){$rule+=' ; voir les règles appliquées par OU pour les exceptions'}
+    return [pscustomobject]@{Source=$source;Observed=$observed;Value=$value;Rule=$rule;Route=$route;Collection=$collect}
+}
+
 function Get-DomeniaHealthExplanation {
     # Point 75. Per rule: its state, the population whose data allow it to be evaluated, the workstations it flags
     # (unique within the rule, never summed across rules), those flagged by this rule alone, and what a disabled or
@@ -340,7 +368,12 @@ function Get-DomeniaHealthExplanation {
         }elseif(($status -in @('Désactivée','Suspendue')) -and ($eligibleText -notin @('Contrôle du parc','Diagnostic du poste','Diagnostic de la vue'))){
             $consequence=if(($null -ne $eligibleCount) -and ($eligibleCount -gt 0)){'Aucun poste concerné dans les données disponibles'}else{'Donnée non mesurée : effet inconnu'}
         }
-        $rows.Add([pscustomobject]@{Id=$id;Rule=[string]$names[$id];Status=$status;Machines=$count;Effect=$effect;Guids=@($hit.Ids);Eligible=$eligibleText;EligibleCount=$eligibleCount;Exclusive=$exclusive;Masked=$maskedCount;MaskedGuids=@($masked.Ids);Consequence=$consequence})
+        $evidenceDetail=Get-DomeniaHealthRuleEvidenceDetail -Data $Data -RuleId $id -Measure ([string]$measureOf[$id])
+        $unmeasured=(($null -eq $eligibleCount) -or ($eligibleCount -eq 0) -or ($fleet -and ($eligibleCount -lt $eligibleTotal)))
+        $missing=$unmeasured -and ($eligibleText -notin @('Contrôle du parc','Diagnostic du poste','Diagnostic de la vue'))
+        $observationState=if(($count + $maskedCount) -gt 0){'Problème'}elseif($unmeasured){'Inconnu'}else{'Sain'}
+        if(($count -eq 0) -and $missing -and ($status -notin @('Désactivée','Suspendue'))){$effect='Non évalué sur toutes les données : aucun bon état déduit'}
+        $rows.Add([pscustomobject]@{Id=$id;Rule=[string]$names[$id];Status=$status;Machines=$count;Effect=$effect;Guids=@($hit.Ids);Eligible=$eligibleText;EligibleCount=$eligibleCount;Exclusive=$exclusive;Masked=$maskedCount;MaskedGuids=@($masked.Ids);Consequence=$consequence;ObservationState=$observationState;MissingData=$missing;Evidence=$evidenceDetail})
     }
     $enabledCount=@($rows|Where-Object{$_.Status -in @('Activée','Selon lʼOU')}).Count
     $population=Get-DomeniaHealthValue $Data 'Population';$unknown=[int](Get-DomeniaHealthValue $population 'Unassessed' 0);$total=[int](Get-DomeniaHealthValue $population 'Total' 0);$healthy=[int](Get-DomeniaHealthValue $population 'Healthy' 0)

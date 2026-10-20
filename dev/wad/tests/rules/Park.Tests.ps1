@@ -164,3 +164,20 @@ Test-Case 'P-UI-23' 'Verifier la liste : trois lectures graduees, de la plus leg
     Assert-Equal 'Qui répond ?|Qui est connecté ?|Matériel et widgets' (($modes | ForEach-Object { [string]$_.Label }) -join '|')
     foreach ($mode in $modes) { Assert-True ([string]$mode.Detail).Length ('detail absent : ' + [string]$mode.Mode) }
 }
+
+Test-Case 'P60-23' 'Plan de collecte : sondes rapides avant les lentes, ordre stable et aucune sonde ajoutée' {
+    $probes=@([pscustomobject]@{Id='slow.one';Slow=$true},[pscustomobject]@{Id='fast.one';Slow=$false},[pscustomobject]@{Id='slow.two';Slow=$true},[pscustomobject]@{Id='fast.two'})
+    $plan=New-DomeniaCollectionPlan -Guid 'g' -Key 'k' -Probes $probes -CacheMinutes 0
+    Assert-Equal 'fast.one,fast.two,slow.one,slow.two' (($plan.Probes|ForEach-Object{$_.Id}) -join ',')
+    Assert-Equal 4 $plan.Requested
+    Assert-Equal 'slow.one,fast.one,slow.two,fast.two' (($probes|ForEach-Object{$_.Id}) -join ',') 'Le catalogue source a été modifié'
+}
+Test-Case 'P60-24' 'Plan de collecte : forcer prime sur un âge de réutilisation fourni par un appelant' {
+    $now=[datetime]::UtcNow;$stamp=$now.AddSeconds(-5).ToString('o')
+    $probe=[pscustomobject]@{Id='hw.fixture';DefinitionHash='same'}
+    $previous=[pscustomobject]@{Guid='g';Key='k';Inventory=[pscustomobject]@{CheckedUtc=$stamp};Probes=[pscustomobject]@{'hw.fixture'=[pscustomobject]@{CheckedUtc=$stamp;DefinitionHash='same';Error=''}}}
+    $selective=New-DomeniaCollectionPlan -Previous $previous -Guid 'g' -Key 'k' -Probes @($probe) -Inventory $true -CacheMinutes 15 -ReuseMaxAgeDays 30 -NowUtc $now
+    Assert-Equal 2 $selective.Reused;Assert-False $selective.Inventory;Assert-Equal 0 @($selective.Probes).Count
+    $forced=New-DomeniaCollectionPlan -Previous $previous -Guid 'g' -Key 'k' -Probes @($probe) -Inventory $true -CacheMinutes 0 -ReuseMaxAgeDays 30 -NowUtc $now
+    Assert-Equal 0 $forced.Reused;Assert-True $forced.Inventory;Assert-Equal 1 @($forced.Probes).Count
+}

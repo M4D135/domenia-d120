@@ -528,8 +528,9 @@ function Backup-DomeniaDatabase {
         $backupDir = Join-Path $backupDir 'migrations'
         [void][IO.Directory]::CreateDirectory($backupDir)
     }
+    $rotationPattern='^Domenia-[0-9]{8}-[0-9]{6}(?:-[0-9]{3}-[a-f0-9]{8})?\.db$'
     if ($IfNeeded -and (-not $Migration)) {
-        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Where-Object {($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -First 1
         if ($null -ne $latest -and ((Get-Date) - $latest.LastWriteTime).TotalHours -lt 20) { return [string]$latest.FullName }
     }
     $stamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
@@ -555,16 +556,27 @@ function Backup-DomeniaDatabase {
         } while ($true)
         $finish = [Domenia.WinSqliteNative]::sqlite3_backup_finish($backup); $backup = [IntPtr]::Zero
         if ($finish -ne 0) { throw "Finalisation de sauvegarde SQLite : code $finish." }
+        # The rollback file must be readable by itself after a WAL migration or a copied export.
+        $mode = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA journal_mode=DELETE;' -DatabaseHandle $targetDb)
+        if ($mode.Count -ne 1 -or [string]$mode[0].journal_mode -ine 'delete') { throw 'Sauvegarde non autonome : journal SQLite encore requis.' }
         $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
         if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'La sauvegarde ne passe pas le controle SQLite.' }
         Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         Close-DomeniaDatabase $sourceDb; $sourceDb = [IntPtr]::Zero
         [IO.File]::Move($temporary,$dest)
+        $targetDb = Open-DomeniaDatabase -Path $dest -ReadOnly
+        $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
+        if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'Sauvegarde publiee non relisible.' }
+        Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         $complete = $true
         if (-not $Migration) {
             $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
-            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
-                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Where-Object {($_.FullName -ine $dest) -and ($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -Skip ($keep-1) | ForEach-Object {
+                $expired=$_.FullName
+                try {
+                    Remove-Item -LiteralPath $expired -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath ($expired+'.preferences.json') -Force -ErrorAction SilentlyContinue
+                } catch { if(${function:Write-DomeniaSwallowed}){Write-DomeniaSwallowed 'Storage' 'Backup-DomeniaDatabase/Rotation' $_} }
             }
         }
         return $dest

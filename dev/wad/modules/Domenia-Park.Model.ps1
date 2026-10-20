@@ -95,7 +95,8 @@ function New-DomeniaCollectionPlan {
         if($Family -eq 'StaticProbe'){return [int][Math]::Max(0,[Math]::Min(604800,[double]$value))}
         return [int][Math]::Max(0,[Math]::Min([double]$value,[double]($minutes*60)))
     }
-    $reuseDays=[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))
+    # A forced read wins over the optional widget reuse age, even for a caller that supplies both.
+    $reuseDays=if($minutes -le 0){0}else{[Math]::Max(0,[Math]::Min(3650,$ReuseMaxAgeDays))}
     $fresh={param($Value,[int]$Seconds)
         if($null -eq $Value -or $Seconds -le 0 -or [string](Get-DomeniaMember $Value 'Error') -or [string](Get-DomeniaMember $Value 'Skipped') -or [bool](Get-DomeniaMember $Value 'Truncated' $false)){return $false}
         $at=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $Value 'CheckedUtc'))
@@ -128,7 +129,10 @@ function New-DomeniaCollectionPlan {
         if((($sameDefinition) -and ((& $fresh $previousProbe $seconds) -or (& $usable $previousProbe $true))) -or ($notApplicable)){$reuse++;continue}
         $planned.Add($probe)
     }
-    return [pscustomobject]@{Inventory=$readInventory;Probes=$planned.ToArray();Reused=$reuse;Requested=($seen.Count+$(if($Inventory){1}else{0}));CacheMinutes=$minutes}
+    # Stable partition: cheap probes finish first. Slow is catalog metadata, never an inferred timeout.
+    $ordered=[Collections.Generic.List[object]]::new()
+    foreach($slow in @($false,$true)){foreach($probe in $planned){if([bool](Get-DomeniaMember $probe 'Slow' $false) -eq $slow){$ordered.Add($probe)}}}
+    return [pscustomobject]@{Inventory=$readInventory;Probes=$ordered.ToArray();Reused=$reuse;Requested=($seen.Count+$(if($Inventory){1}else{0}));CacheMinutes=$minutes}
 }
 function Test-DomeniaParkTargetAnswered {
     # Widget collections (decision David 2026-10-14, collect only what is missing): the stored observation of this

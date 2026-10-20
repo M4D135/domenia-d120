@@ -301,6 +301,7 @@ function Complete-DomeniaCampaignPlan {
                 $state = 'Incident'; $reason = 'postes non validés à la fin du relevé'
                 $skipped = [int](Get-DomeniaMember $Run 'SkippedTargets' 0)
                 if ($skipped -gt 0) { $reason = [string]$skipped + ' poste(s) non lu(s) : WMI refusé, inaccessible ou sans les classes demandées, mémorisé pour un temps limité' }
+                elseif ([int](Get-DomeniaMember $Run 'Failed' 0) -gt 0) { $reason = 'postes en échec à reprendre ; les mesures déjà réussies sont conservées' }
             }
         }
         [void](Save-DomeniaCampaignProgress -Run $Run -State $state -Reason $reason -Force)

@@ -427,3 +427,21 @@ function Get-DomeniaSearchPreviewRows {
     }
     return $out.ToArray()
 }
+
+function Get-DomeniaSearchAbsenceHint {
+    # Absence is scoped to the loaded list, never a claim that an AD object does not exist.
+    param([string]$Scope='', [string]$LocalFilter='', [string]$Type='Tous', [ValidateSet('Complete','Limited','Partial','Loading','Unknown')][string]$Completeness='Unknown', [int]$Limit=0)
+    $parts=[Collections.Generic.List[string]]::new()
+    if($Scope){$parts.Add('Portée : '+$Scope+'. Un objet extérieur à cette portée nʼest pas recherché.')}
+    if($Type -and ($Type -notin @('Tous','Tous les types'))){$parts.Add('Type retenu : '+$Type+'. Les autres types sont exclus.')}
+    if($LocalFilter){$parts.Add('Filtre local actif : '+$LocalFilter+'. Il peut masquer une ligne déjà chargée ; effacer ce filtre ne relit pas AD.')}
+    $coverage=switch($Completeness){
+        'Limited' {'Plafond'+$(if($Limit -gt 0){' de '+$Limit+' lignes'}else{''})+' atteint : la liste est incomplète. Affinez la recherche ou poursuivez sa lecture.'}
+        'Partial' {'Lecture interrompue ou partielle : aucune absence ne peut être conclue.'}
+        'Loading' {'Lecture en cours : attendez sa fin avant de conclure.'}
+        'Complete' {'Lecture terminée dans cette portée et selon ces critères ; elle ne prouve pas une absence ailleurs dans lʼannuaire.'}
+        default {'Couverture inconnue de cette liste locale : une absence de résultat ne prouve pas une absence dans lʼannuaire.'}
+    }
+    $parts.Add($coverage)
+    return ($parts.ToArray() -join ' ')
+}

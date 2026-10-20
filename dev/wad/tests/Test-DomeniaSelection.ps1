@@ -22,22 +22,8 @@ foreach($name in @('Get-MainXaml','Get-DomeniaControl','Get-DomeniaSelectedGridR
     if($nodes.Count -ne 1){throw ('Definition ambiguous: '+$name)}
     Invoke-Expression $nodes[0].Extent.Text
 }
-. (Join-Path $wad 'modules\Domenia-Experience.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Live.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Common.Model.ps1')
-# D027: Live.UI builds its negative cache with the cache rules.
-. (Join-Path $wad 'modules\Domenia-Cache.Model.ps1')
-# FI-05 / PF-06: the progressive search and the layouts take their timers from the protected factory of the engine.
-. (Join-Path $wad 'modules\Domenia-Engine.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Engine.UI.ps1')
-# DS-20: the result columns follow the column rules of Shell.Model (choice of the operator, relevance).
-. (Join-Path $wad 'modules\Domenia-Shell.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Live.UI.ps1')
-. (Join-Path $wad 'modules\Domenia-Continuity.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-Continuity.UI.ps1')
-# Point 60 (W08) / FO-18: the bar of a multiple selection and its surveys use the scope rules of the search workspace.
-. (Join-Path $wad 'modules\Domenia-Search.Model.ps1')
-. (Join-Path $wad 'modules\Domenia-SearchWorkspace.Model.ps1')
+# Load the real definition-only module plan, including canonical store and probe dependencies.
+. (Join-Path $wad 'Domenia-Modules.ps1')
 function Get-DomeniaLiveIdentitySignal {return [pscustomobject]@{Signal=$script:Live.Identity}}
 function Test-DomeniaSearchStateCurrent {param($State);return $State.Generation -eq $script:GlobalSearchGeneration}
 function Test-DomeniaAccessBusyWrite {return ($script:WriteState -in @('Unknown','UnknownPending') -or [bool]$script:ActiveWriteTaskId)}
@@ -63,11 +49,19 @@ function Invoke-GlobalSearch {param([switch]$AllowEmpty,[switch]$SilentError,[sw
     $script:GlobalSearchGeneration++
 }
 function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$TimeoutSeconds,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
+    if($OperationId -eq 'LocalIndexRead'){return $null} # This selection fixture has no persisted cache.
     if($OperationId -notin @('LiveConsole','LiveSelectedPing')){throw ('Unexpected operation: '+$OperationId)}
     $id='fake-'+[guid]::NewGuid().ToString('N')
     $job=[pscustomobject]@{Id=$id;OperationId=$OperationId;Payload=$Payload;CallbackState=$CallbackState}
     $script:AsyncJobs[$id]=$job;$script:Calls.Add($job)
     return $id
+}
+# Storage is an inert boundary here; transaction/receipt validation runs in RemoteStore.
+function Submit-DomeniaRemoteObservations {
+ param($Result,$State,$SuccessHandler,$ErrorHandler)
+ $observation=ConvertTo-DomeniaLiveObservation $Result $null
+ $receipt=[pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$State.StoreContext.StoreId;RequestId=$State.StoreContext.RequestId;ObservationRows=@($observation)}
+ & $SuccessHandler -Result $receipt -State $State
 }
 function Reset-Fixture {
     $script:SearchMode='OU';$script:AccessState=$null;$script:SelectedObject=$null
@@ -78,13 +72,14 @@ function Reset-Fixture {
     $script:Calls=[Collections.Generic.List[object]]::new();$script:Stopped=[Collections.Generic.List[string]]::new();$script:SearchCalls=[Collections.Generic.List[object]]::new();$script:SavedSettings=@{}
     $script:FixtureContext='test-domain-reader';$script:FixtureType='(objectClass=*)';$script:FixtureNodes=@()
     $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Connected=$true}
+    $script:DatabaseScopedPath=Join-Path ([IO.Path]::GetTempPath()) 'domenia-selection-fixture.sqlite';$script:DomeniaAccountGeneration=1L
     $script:SelectedBranchDn='OU=Test,DC=example,DC=invalid'
     $script:Ctrl=@{
         DgObjects=[pscustomobject]@{IsEnabled=$true;SelectedItem=$null;SelectedItems=@();SelectedIndex=-1}
         TxtGlobalSearch=[pscustomobject]@{Text=''};TxtBranchSearch=[pscustomobject]@{Text=''};ChkSubtree=[pscustomobject]@{IsChecked=$true}
         LblLinkProbeStatus=[pscustomobject]@{Text=''}
     }
-    $state=[pscustomobject]@{Limit=500;PreserveSelectionDn='';Generation=11}
+    $state=[pscustomobject]@{Limit=500;PreserveSelectionDn='';Generation=11;BaseDn=$script:SelectedBranchDn;Scope='Subtree'}
     $script:Live=[pscustomobject]@{
         PresenceEvents=[Collections.Concurrent.ConcurrentQueue[object]]::new();PresenceSeen=@{};Identity='reader-7';Epoch=7L;AutoDetect=$true;VerifyOnClick=$true;ProbeSelection=$null;RemoteFaulted=$false
         Pending=[Collections.Generic.Queue[object]]::new();PendingKeys=@{};Busy=@{};Done=@{}
@@ -158,7 +153,7 @@ Case 'Timeout keeps last observation with its old date' {
 Case 'A console result updates cache even after selecting another row' {
     $a=Add-FixtureRow 1;$b=Add-FixtureRow 2;Pick $a;Ready;Start-DomeniaLiveBackgroundWork;$state=$script:Calls[0].CallbackState;Pick $b
     Complete-DomeniaLiveProbe ([pscustomobject]@{Key=$state.Key;Computer=$state.Computer;Guid=$state.Guid;Outcome='Observed';User='TEST\person';Source='fixture';Presence='En ligne'}) $state
-    Expect ($script:Live.SaveQueue.Count -eq 1 -and $a.SessionDisplay -eq 'TEST\person' -and $b.SessionDisplay -ne 'TEST\person')
+    Expect ($script:Live.Observations.ContainsKey($state.Key) -and $script:Live.SaveQueue.Count -eq 0 -and $a.SessionDisplay -eq 'TEST\person' -and $b.SessionDisplay -ne 'TEST\person')
 }
 Case 'Restored OU schedules a single search' {Restore-Request;Invoke-DomeniaRestoredOuSearch;Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 1 -and $script:SearchCalls[0].Preserve -and $null -eq $script:Continuity.RestoreSearch)}
 Case 'Restoration is deferred while settings are applied' {Restore-Request;$script:RestoringSettings=$true;Invoke-DomeniaRestoredOuSearch;Expect ($script:SearchCalls.Count -eq 0 -and $null -ne $script:Continuity.RestoreSearch)}
@@ -203,7 +198,8 @@ Case 'Expired missing bookmark has no broad fallback' {
 Case 'Every results column has a plain stable header' {
     [xml]$xml=Get-MainXaml -WadRoot (Split-Path -Parent $PSScriptRoot);$ns=[Xml.XmlNamespaceManager]::new($xml.NameTable);$ns.AddNamespace('p','http://schemas.microsoft.com/winfx/2006/xaml/presentation');$ns.AddNamespace('x','http://schemas.microsoft.com/winfx/2006/xaml')
     $cols=@($xml.SelectNodes("//p:DataGrid[@x:Name='DgObjects']/p:DataGrid.Columns/*",$ns))
-    Expect ($cols.Count -eq 18)
+    Expect ($cols.Count -eq 16) 'Expected compact result columns missing'
+    Expect (@($cols|Where-Object{$_.GetAttribute('SortMemberPath') -eq 'DirectoryState'}).Count -eq 1) 'Freshness column missing'
     foreach($c in $cols){Expect (-not [string]::IsNullOrWhiteSpace([string]$c.GetAttribute('Header'))) ('Blank header: '+$c.OuterXml)}
 }
 if($env:OS -eq 'Windows_NT' -and -not $SkipWpf){

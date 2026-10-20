@@ -1,0 +1,734 @@
+{
+  "programme": "60 améliorations du 20 octobre 2026",
+  "base_commit": "4987773",
+  "candidate": "RC1.17.39",
+  "sequence": "Tous les lots de code, puis tests Windows, corrections ciblées, packs, commit et push",
+  "vm": "DOMENIA-FIRSTRUN-20261020 conservée",
+  "points": [
+    {
+      "id": 1,
+      "titre": "Fiche mémoire immédiate puis AD",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 2,
+      "titre": "Aperçu SQLite avant réseau",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 3,
+      "titre": "Conserver données connues sur échec",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 4,
+      "titre": "Priorité à la sélection",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 5,
+      "titre": "Annuler recherches remplacées",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 6,
+      "titre": "Actualiser les champs modifiés",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 7,
+      "titre": "Grandes listes progressives rapides",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 8,
+      "titre": "Virtualisation des grilles et arbres",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 9,
+      "titre": "Index SQLite adaptés aux recherches",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 10,
+      "titre": "Mesures réseau/local/traitement/rendu",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 11,
+      "titre": "Vues lourdes chargées à la demande",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 12,
+      "titre": "Accueil utilisable avant travaux secondaires",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 13,
+      "titre": "Réutiliser les vues déjà ouvertes",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 14,
+      "titre": "Conserver sélection défilement filtres",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 15,
+      "titre": "Pas de recalcul des pages masquées",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 16,
+      "titre": "Minuteries sobres au repos",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 17,
+      "titre": "Stabilité mémoire et tâches en navigation",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 18,
+      "titre": "Timeout poste poursuit et clôt le lot",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 19,
+      "titre": "Mutualiser lectures inter-widget",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 20,
+      "titre": "Réutiliser les sessions de relevé",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 21,
+      "titre": "Parallélisme adapté et borné",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 22,
+      "titre": "Délais par sonde et plafond poste",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 23,
+      "titre": "Sondes rapides avant coûteuses explicites",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 24,
+      "titre": "Fraîcheur sélective et forçage prioritaire",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 25,
+      "titre": "Relancer uniquement les échecs",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 26,
+      "titre": "Pause arrêt reprise sans perte",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 27,
+      "titre": "Panne poste distincte des identifiants",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 28,
+      "titre": "Progression globale et motifs",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 29,
+      "titre": "Étude lecture AD incrémentale",
+      "responsable": "collectes",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 30,
+      "titre": "Cas limites Premiers pas",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 31,
+      "titre": "Classement exact préfixe approximatif",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 32,
+      "titre": "Expliquer résultats absents",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 33,
+      "titre": "Recherches récentes et favorites",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 34,
+      "titre": "Accès fiche poste relations diagnostic",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 35,
+      "titre": "Cohérence boutons menus raccourcis",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 36,
+      "titre": "Avertissements discrets regroupés",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 37,
+      "titre": "Local actualiser modifier distincts",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 38,
+      "titre": "Recalcul des widgets affectés",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 39,
+      "titre": "Dernière vue pendant recalcul",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 40,
+      "titre": "Raisons des widgets vides",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 41,
+      "titre": "Persistance tailles et ordre",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 42,
+      "titre": "Dispositions support inventaire santé",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 43,
+      "titre": "Comparaison OU et état précédent",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 44,
+      "titre": "Évolution appuyée sur historique",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 45,
+      "titre": "Alertes santé explicables",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 46,
+      "titre": "Sain problème inconnu distincts",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 47,
+      "titre": "Collecter les données manquantes",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 48,
+      "titre": "Exceptions motivées et bornées",
+      "responsable": "parcours_dashboard",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-parcours.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 49,
+      "titre": "Rotations et échéances sauvegardes",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 50,
+      "titre": "Restauration données et réglages",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 51,
+      "titre": "Disque plein destination inaccessible verrou",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 52,
+      "titre": "Coût des écritures et rétention",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 53,
+      "titre": "Retour arrière après migration",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 54,
+      "titre": "Diagnostic expurgé",
+      "responsable": "stockage_opencode",
+      "code": "RACCORDE_A_TESTER",
+      "preuves_code": [
+        "Lot-stockage.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 55,
+      "titre": "Découpage progressif du cœur",
+      "responsable": "root",
+      "code": "EXTRACTION_INTEGREE_A_TESTER",
+      "preuves_code": [
+        "Lot-collectes.md",
+        "../../../wad/modules/Domenia-AssociationRows.UI.ps1"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 56,
+      "titre": "Bancs cohérents sans assertions affaiblies",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 57,
+      "titre": "Recette courte représentative",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 58,
+      "titre": "Preuves liées au pack et parité DEV PROD",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 59,
+      "titre": "Échelle endurance réseau DPI accessibilité",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    },
+    {
+      "id": 60,
+      "titre": "Suivi courant et guides cohérents",
+      "responsable": "root",
+      "code": "EN_COURS_DE_REVUE",
+      "preuves_code": [
+        "REPRISE.md"
+      ],
+      "tests_windows": "NON_EXECUTES_SUR_CODE_FINAL",
+      "preuves_tests": [],
+      "limites": []
+    }
+  ],
+  "updated_utc": "2026-10-20T20:09:21.544780+00:00",
+  "checkpoint_branch": "codex/rc39-60points-checkpoint",
+  "qualification": "CODE_EN_COURS_TESTS_WINDOWS_CRITIQUES_NON_LANCES",
+  "decision_tests": "Dernière décision utilisateur : Windows seulement sur fonctions critiques ; VM conservée."
+}

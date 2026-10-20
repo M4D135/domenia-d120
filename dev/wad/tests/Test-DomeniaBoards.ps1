@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=66
+$script:ExpectedCases=70
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -1931,6 +1931,72 @@ try{
         Expect (([int]$run.Trial.Seen['ProbeOthers'] -eq 0) -and ([int]$run.Trial.Seen['ProbeCount'] -gt 0)) 'Filtre Lu sur le poste'
         Expect (($run.Trial.Seen['Chips'] -like 'Toutes|*') -and ($run.Trial.Seen['Chips'] -like '*Matériel*')) ('Categories : '+$run.Trial.Seen['Chips'])
         Expect (([int]$run.Trial.Seen['DiskOthers'] -eq 0) -and ([int]$run.Trial.Seen['DiskCount'] -gt 0)) 'Filtre de categorie'
+    }
+    Case 'Programme 30 Premiers pas explique interruption et hors connexion sans perdre les donnees' {
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid'
+        Expect (-not @($plan.Steps|Where-Object Name -eq 'Base')[0].Enabled) 'Lecture proposee sans OU.'
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=A,DC=example,DC=invalid' -ReadInterrupted $true
+        Expect ($plan.Next -eq 'Base' -and @($plan.Steps|Where-Object Name -eq 'Base')[0].Text -like '*interrompue*conservées*') 'Interruption pas expliquee.'
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=A,DC=example,DC=invalid' -ScopeRead $true -ReadInterrupted $true
+        Expect ($plan.Next -eq 'Dashboard' -and @($plan.Steps|Where-Object Name -eq 'Base')[0].Text -like '*précédente*disponible*') 'Couverture complete precedente perdue.'
+        $plan=Get-DomeniaFirstRunPlan -Offline $true -IndexedObjects 100
+        Expect ($plan.Next -eq 'Connection' -and $plan.Steps[0].Text -like '*Hors connexion*conservées*') 'Hors ligne interprete comme couverture ou effacement.'
+    }
+    Case 'Programme 41 42 Presets conservent widgets personnalises tailles pauses et annulation' {
+        $before=@(Get-Layout Computer)
+        $custom=New-DomeniaBoardItem -Source Probe -Key 'fixture.keep' -Visual Kpi -Size L -Group 'Mes mesures' -Title 'Mon widget' -Id 'programme-custom' -Paused
+        $layout=@($before)+@($custom)
+        foreach($preset in @('Support','Inventory','Health')){
+            $after=@(Get-DomeniaBoardPresetLayout -Board Computer -Preset $preset -Layout $layout)
+            Expect ($after.Count -ge $layout.Count) 'Un preset a supprime un widget.'
+            $kept=@($after|Where-Object Id -eq 'programme-custom')[0]
+            Expect ([object]::ReferenceEquals($custom,$kept) -and $kept.Size -eq 'L' -and $kept.Paused -and $kept.Title -eq 'Mon widget') 'Personnalisation perdue par preset.'
+            Expect ((ConvertTo-DomeniaBoardLayoutJson $after) -ceq (ConvertTo-DomeniaBoardLayoutJson @(Get-DomeniaBoardPresetLayout -Board Computer -Preset $preset -Layout $after))) 'Appliquer deux fois un preset change encore la disposition.'
+        }
+        try{
+            $saved=ConvertTo-DomeniaBoardLayoutJson @(Get-Layout Computer)
+            Invoke-DomeniaBoardAction -Tag @{Board='Computer';Action='Preset';Value='Health'}
+            Expect ((Get-DomeniaBoardState Computer).UndoStack.Count -gt 0) 'Preset sans annulation.'
+            Invoke-DomeniaBoardAction -Tag @{Board='Computer';Action='Undo'}
+            Expect ((ConvertTo-DomeniaBoardLayoutJson @(Get-Layout Computer)) -ceq $saved) 'Annuler ne restaure pas tailles et ordre.'
+        }finally{Set-DomeniaBoardLayout -Board Computer -Layout $before -KeepUndo}
+    }
+    Case 'Programme 38 Cartes simples reutilisees seulement si valeur source taille et contexte identiques' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedLayout=@(Get-Layout Software)
+        try{
+            $item=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Logiciels' -Id 'programme-count'
+            Set-DomeniaBoardLayout -Board Software -Layout @($item) -KeepUndo
+            $data=New-DomeniaBoardData Software;Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3)
+            Show-DomeniaBoard -Board Software -Data $data -Quiet
+            $first=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Show-DomeniaBoard -Board Software -Quiet
+            $again=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Expect ($null -ne $first -and [object]::ReferenceEquals($first,$again)) 'Une carte inchangee est reconstruite.'
+            $data.Entries['software.count'].Value='4';$data.Entries['software.count'].Number=4
+            Show-DomeniaBoard -Board Software -Data $data -Quiet
+            $changed=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Expect (-not [object]::ReferenceEquals($first,$changed)) 'Une valeur modifiee garde une carte obsolete.'
+        }finally{$state.WidgetRenderCache=@{};$state.Data=$savedData;Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo}
+    }
+    Case 'Programme 47 Explication sante ouvre inventaire manquant sans lancer une lecture' {
+        $state=Get-DomeniaBoardState Computer;$saved=$state.Data;$reads=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        function Set-DomeniaContextHint {param($Title,$Text)$script:ProgrammeHealthHint=[string]$Text}
+        try{
+            $state.Data=New-DomeniaBoardData Computer
+            $run=Invoke-EditorTrial -Open {Show-DomeniaHealthExplanation Computer} -Act {
+                param($controls,$trial)
+                $grid=@($controls|Where-Object{$_ -is [Windows.Controls.DataGrid] -and @($_.Columns|Where-Object Header -eq 'Constat').Count})[0]
+                $grid.SelectedItem=@($grid.ItemsSource|Where-Object Id -eq 'lowdisk')[0]
+                $button=@($controls|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Content -eq 'Voir la collecte manquante'})[0]
+                Expect $button.IsEnabled 'Collecte inconnue inaccessible.'
+                $trial.Seen['Unknown']=($grid.SelectedItem.ObservationState -eq 'Inconnu')
+                $button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+            }
+            Expect ([bool]$run.Trial.Seen['Unknown']) 'La collecte manquante apparait saine.'
+            Expect ($script:Workspaces[$script:Workspaces.Count-1] -eq 'WsComputer/TabInventory') 'La page inventaire ne s ouvre pas directement.'
+            Expect ($script:ProgrammeHealthHint -like '*explicitement*inventaire*') 'Instruction de collecte absente.'
+            Expect ($script:StartCalls.Count -eq $reads -and $script:ParkCalls.Count -eq $parks) 'Ouvrir la collecte a declenche une lecture.'
+        }finally{$state.Data=$saved}
     }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}

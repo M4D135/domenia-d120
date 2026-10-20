@@ -234,6 +234,10 @@ function Show-DomeniaBoard {
         $empty.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
         [void]$panel.Children.Add($empty)
     }
+    if($state.ContainsKey('WidgetRenderCache')){
+        $kept=@{};foreach($item in $layout){$kept[[string]$item.Id]=$true}
+        foreach($cacheId in @($state.WidgetRenderCache.Keys)){if(-not $kept.ContainsKey([string]$cacheId)){[void]$state.WidgetRenderCache.Remove($cacheId)}}
+    }
     Update-DomeniaBoardFit -Panel $panel
     if (-not $Quiet) { Invoke-DomeniaDashboardEntrance -Panel $panel }
     elseif ($state.Highlight) {
@@ -253,6 +257,7 @@ function Update-DomeniaBoardsTheme {
     foreach ($board in @('Computer','Fleet','Software')) {
         if (-not $script:DomeniaBoardStates.ContainsKey($board)) { continue }
         $state = $script:DomeniaBoardStates[$board]
+        $state.WidgetRenderCache=@{}
         if ([bool]$state.RenderPending) { continue }
         $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $board)
         if (($null -eq $panel) -or ($panel.Children.Count -eq 0)) { continue }
@@ -444,6 +449,9 @@ function New-DomeniaBoardToolbar {
     if ($null -ne $State.Data) { [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE8C8) 'Copier le résumé' 'Copie pour un ticket ce que montre ce tableau : objet, date des données, score, points à vérifier et informations principales. Un secret éventuel est masqué.' @{ Board = $Board; Action = 'CopySummary' })) }
     [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE710) 'Ajouter un widget' 'Choisir une information du tableau de bord ou une requete prete a l emploi.' @{ Board = $Board; Action = 'Add'; Value = '' }))
     if ($State.Editing) {
+        foreach ($preset in @(@('Support','Support'),@('Inventory','Inventaire'),@('Health','Santé'))) {
+            [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE8A9) ([string]$preset[1]) 'Place les informations utiles en tête, conserve les widgets personnalisés et les tailles. Annuler restaure la disposition précédente ; aucune collecte.' @{ Board=$Board; Action='Preset'; Value=[string]$preset[0] }))
+        }
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE777) 'Par défaut' 'Revient à la disposition livrée, ou à celle de lʼéquipe définie par lʼadministrateur (annulable).' @{ Board = $Board; Action = 'Reset' }))
         # FO-17: a layout shared as a JSON file, never through a Windows dialog box.
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xEDE1) 'Exporter' 'Enregistre cette disposition en JSON dans le dossier des exports, pour la partager ou en faire la disposition de lʼéquipe.' @{ Board = $Board; Action = 'Export' }))
@@ -530,6 +538,19 @@ function Get-DomeniaBoardCardWidth {
     param([int]$Span,[double]$CellWidth)
     return [Math]::Max(200.0, [Math]::Floor(([double]$Span * $CellWidth) - 14.0))
 }
+function Get-DomeniaWidgetRenderKey {
+    # Reuse only simple built-in cards: no list, query result, selection payload or mutable collection is cached.
+    # Fleet handlers belong to their exact snapshot even when their visible number did not change.
+    param([string]$Board,$Plan,$State,[double]$Width)
+    if(($null -eq $Plan) -or $State.Editing -or $Plan.Paused -or $Plan.Progress -or ($Plan.Item.Source -ne 'Builtin') -or ($Plan.Kind -notin @('Value','Number')) -or ($null -eq $Plan.Entry)){return ''}
+    $entry=$Plan.Entry
+    if(@($entry.Items).Count -or ($null -ne $entry.Action)){return ''}
+    $context=Get-DomeniaBoardRenderContext -Board $Board
+    $dates=Get-DomeniaWidgetDataDates -Board $Board -Item $Plan.Item -State $State -Entry $entry
+    if($Board -eq 'Fleet'){$dates=@($dates,(Get-DomeniaWidgetSurveyPartialText))}
+    return (ConvertTo-Json -InputObject @($context,$(if($Board -eq 'Fleet'){[string]$script:FleetQuerySnapshotKey}else{''}),$Width,$Plan.Item.Id,$Plan.Item.Key,$Plan.Item.Group,$Plan.Item.Title,$Plan.Item.Size,$Plan.Visual,$Plan.Resolved.Title,$entry.Title,$entry.Subtitle,$entry.CenterText,$entry.Value,$entry.Detail,$entry.State,$entry.Number,$entry.Maximum,$entry.Unit,$entry.Badge,$entry.LowIsBad,$dates) -Depth 4 -Compress)
+}
+
 function Set-DomeniaBoardSectionGrid {
     # DS-04: lays the widgets of one section ($Grid.Tag.Units) out in its grid of $Columns columns: placement by
     # Get-DomeniaBoardGridPlacement (rows full, compact tiles stacked by two beside a tall card), card width from the
@@ -555,7 +576,16 @@ function Set-DomeniaBoardSectionGrid {
             if ($null -eq $unit.Element) {
                 if ($null -eq $unit.Plan) { $unit.Element = New-DomeniaBoardAddTile -Board $Board -Group ([string]$unit.Group); $unit.Sizer = $unit.Element }
                 else {
-                    $unit.Element = New-DomeniaBoardWidget -Board $Board -Item $unit.Plan.Item -State $State -Plan $unit.Plan -Width $width
+                    if(-not $State.ContainsKey('WidgetRenderCache')){$State.WidgetRenderCache=@{}}
+                    $renderKey=Get-DomeniaWidgetRenderKey -Board $Board -Plan $unit.Plan -State $State -Width $width
+                    $cacheId=[string]$unit.Plan.Item.Id;$cached=$State.WidgetRenderCache[$cacheId]
+                    if($renderKey -and ($null -ne $cached) -and ($cached.Key -ceq $renderKey)){
+                        $unit.Element=$cached.Element
+                        if($unit.Element.Parent -is [Windows.Controls.Panel]){$unit.Element.Parent.Children.Remove($unit.Element)}
+                    }else{
+                        $unit.Element = New-DomeniaBoardWidget -Board $Board -Item $unit.Plan.Item -State $State -Plan $unit.Plan -Width $width
+                        if($renderKey){$State.WidgetRenderCache[$cacheId]=[pscustomobject]@{Key=$renderKey;Element=$unit.Element}}else{[void]$State.WidgetRenderCache.Remove($cacheId)}
+                    }
                     $unit.Sizer = $(if ($unit.Element.Children.Count) { $unit.Element.Children[0] } else { $unit.Element })
                 }
             }
@@ -1273,6 +1303,12 @@ function Invoke-DomeniaBoardAction {
         'EntryAction' { Invoke-DomeniaBoardEntryAction -Board $board -Id $value; return }
         'CopyTargets' { Copy-DomeniaFleetTargets -Targets @($Tag['Targets']); return }
         'QueryTargets' { Show-DomeniaAttentionInWorkshop -Targets @($Tag['Targets']) -Label ([string]$Tag['Label']); return }
+        'Preset' {
+            $layout=@(Get-DomeniaBoardPresetLayout -Board $board -Preset $value -Layout @(Get-DomeniaBoardLayout -Board $board))
+            Set-DomeniaBoardLayout -Board $board -Layout $layout -Undo 'Disposition réutilisable appliquée'
+            if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' }
+            return
+        }
         'Reset' { Set-DomeniaBoardLayout -Board $board -Layout @(Get-DomeniaBoardDefaultLayoutFor -Board $board) -Undo 'Disposition par défaut appliquée'; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' }; return }
         'Copy' { [void](Copy-DomeniaBoardWidget -Board $board -Id $id); return }
         'CopySummary' { [void](Copy-DomeniaBoardSummary -Board $board); return }

@@ -210,18 +210,31 @@ function Show-DomeniaHealthExplanation {
     if($heMasked){$heCounts+=' · '+$(if($heFleet){[string]$heMasked+' poste(s) masqué(s) par une règle désactivée ou suspendue'}else{[string]$heMasked+' contrôle(s) masqué(s) sur ce poste'})}
     $heSummary=[Windows.Controls.TextBlock]::new();$heSummary.Text=[string]$heExplanation.Summary+"`n"+$heCounts+$(if($heExplanation.Scope){"`nPérimètre : "+$heExplanation.Scope}else{''})
     $heSummary.TextWrapping='Wrap';$heSummary.Margin='0,0,0,16';[Windows.Controls.DockPanel]::SetDock($heSummary,'Top');[void]$hePanel.Children.Add($heSummary)
-    $heResult=@{Targets=$null;Label=''}
+    $heResult=@{Targets=$null;Label='';Route='';Collection=''}
     $heFooter=[Windows.Controls.StackPanel]::new();$heFooter.Margin='0,10,0,0';[Windows.Controls.DockPanel]::SetDock($heFooter,'Bottom')
     $heButtons=[Windows.Controls.WrapPanel]::new()
     $heShowFlagged=[Windows.Controls.Button]::new();$heShowFlagged.Content='Afficher les postes signalés';$heShowFlagged.Margin='0,0,8,0';$heShowFlagged.IsEnabled=$false;$heShowFlagged.ToolTip='Ouvrir dans lʼatelier les postes que ce contrôle retire des postes sains.'
     $heShowMasked=[Windows.Controls.Button]::new();$heShowMasked.Content='Afficher les postes masqués';$heShowMasked.IsEnabled=$false;$heShowMasked.ToolTip='Ouvrir dans lʼatelier les postes que ce contrôle signalerait sʼil nʼétait ni désactivé ni suspendu.'
     [void]$heButtons.Children.Add($heShowFlagged);[void]$heButtons.Children.Add($heShowMasked)
     $heError=[Windows.Controls.TextBlock]::new();$heError.TextWrapping='Wrap';$heError.Margin='0,6,0,0'
-    if($heFleet){[void]$heFooter.Children.Add($heButtons);[void]$heFooter.Children.Add($heError);[void]$hePanel.Children.Add($heFooter)}
+    $heEvidence=[Windows.Controls.TextBlock]::new();$heEvidence.Text='Sélectionnez un contrôle pour lire sa valeur, sa source et la date de collecte connue.';$heEvidence.TextWrapping='Wrap';$heEvidence.Margin='0,6,0,0'
+    $heCollect=[Windows.Controls.Button]::new();$heCollect.Content='Voir la collecte manquante';$heCollect.IsEnabled=$false;$heCollect.ToolTip='Ouvre la page utile et explique la lecture à lancer ; ne lance aucune collecte.'
+    [void]$heButtons.Children.Add($heCollect)
+    if(-not $heFleet){$heShowFlagged.Visibility='Collapsed';$heShowMasked.Visibility='Collapsed'}
+    [void]$heFooter.Children.Add($heButtons);[void]$heFooter.Children.Add($heEvidence);[void]$heFooter.Children.Add($heError);[void]$hePanel.Children.Add($heFooter)
     $heGrid=[Windows.Controls.DataGrid]::new();$heGrid.IsReadOnly=$true;$heGrid.AutoGenerateColumns=$false;$heGrid.CanUserAddRows=$false;$heGrid.CanUserDeleteRows=$false;$heGrid.EnableRowVirtualization=$true;$heGrid.SelectionMode='Single';$heGrid.ItemsSource=$heExplanation.Rows
     $heGrid.ToolTip='Évaluables : postes dont la donnée est connue pour ce contrôle. Un poste peut être signalé par plusieurs contrôles : les colonnes ne sʼadditionnent pas.'
-    foreach($field in @(@('Contrôle','Rule','2*'),@('État','Status',110),@('Évaluables','Eligible',110),@($(if($heFleet){'Postes signalés'}else{'Signalé'}),'Machines',90),@('Effet sur le score','Effect','2*'),@('Si la règle comptait','Consequence','2*'))){$col=[Windows.Controls.DataGridTextColumn]::new();$col.Header=$field[0];$col.Binding=[Windows.Data.Binding]::new($field[1]);$col.Width=$field[2];[void]$heGrid.Columns.Add($col)}
-    $heGrid.Add_SelectionChanged({$row=$heGrid.SelectedItem;$heShowFlagged.IsEnabled=(($null -ne $row) -and (@($row.Guids).Count -gt 0));$heShowMasked.IsEnabled=(($null -ne $row) -and (@($row.MaskedGuids).Count -gt 0))})
+    foreach($field in @(@('Contrôle','Rule','2*'),@('Règle','Status',110),@('Constat','ObservationState',90),@('Évaluables','Eligible',110),@($(if($heFleet){'Postes signalés'}else{'Signalé'}),'Machines',90),@('Effet sur le score','Effect','2*'),@('Si la règle comptait','Consequence','2*'))){$col=[Windows.Controls.DataGridTextColumn]::new();$col.Header=$field[0];$col.Binding=[Windows.Data.Binding]::new($field[1]);$col.Width=$field[2];[void]$heGrid.Columns.Add($col)}
+    $heGrid.Add_SelectionChanged({
+        $row=$heGrid.SelectedItem;$heShowFlagged.IsEnabled=(($null -ne $row) -and (@($row.Guids).Count -gt 0));$heShowMasked.IsEnabled=(($null -ne $row) -and (@($row.MaskedGuids).Count -gt 0))
+        $heCollect.IsEnabled=(($null -ne $row) -and [bool]$row.MissingData -and [bool]$row.Evidence.Route)
+        if($null -ne $row){$heEvidence.Text=$row.Evidence.Rule+"`n"+$row.Evidence.Value+"`n"+$row.Evidence.Source+' · '+$row.Evidence.Observed+$(if($row.MissingData){"`n"+$row.Evidence.Collection}else{''})}
+    })
+    $heCollect.Add_Click({
+        $row=$heGrid.SelectedItem;if(($null -eq $row) -or (-not $row.MissingData)){return}
+        if(-not [object]::ReferenceEquals((Get-DomeniaBoardState $Board).Data,$heData)){$heError.Text='La vue a changé. Rouvrez lʼexplication avant de choisir la collecte.';return}
+        $heResult.Route=[string]$row.Evidence.Route;$heResult.Collection=[string]$row.Evidence.Collection;Set-DomeniaSurfaceResult $heWindow $true
+    })
     $heOpen={param([object[]]$Guids,[string]$Label)
         if(-not [object]::ReferenceEquals((Get-DomeniaBoardState Fleet).Data,$heData)){$heError.Text='La vue a été recalculée pendant cette consultation. Fermez puis rouvrez lʼexplication.';return}
         $wanted=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);foreach($guid in $Guids){[void]$wanted.Add([string]$guid)}
@@ -240,6 +253,14 @@ function Show-DomeniaHealthExplanation {
     [void]$hePanel.Children.Add($heTabs);$heWindow.Content=$hePanel
     $heOpened=[bool](Show-DomeniaEmbeddedWindow $heWindow)
     if($heOpened -and ($null -ne $heResult.Targets)){Show-DomeniaAttentionInWorkshop -Targets @($heResult.Targets) -Label $heResult.Label}
+    if($heOpened -and $heResult.Route){
+        switch($heResult.Route){
+            'TabApplicationTools'{Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabIndex';$tabs=Get-DomeniaControl 'IndexWorkspaceTabs';if($null -ne $tabs){$tabs.SelectedItem=Get-DomeniaControl 'TabIndexUpdate'}}
+            'WsComputer'{Select-DomeniaWorkspace -Workspace 'WsComputer' -Inner 'ComputerTabs' -Tab 'TabInventory'}
+            default{Invoke-DomeniaUxRoute -Route $heResult.Route}
+        }
+        Set-DomeniaContextHint -Title 'Collecte manquante' -Text $heResult.Collection
+    }
 }
 
 function Show-DomeniaFleetAnalysis {

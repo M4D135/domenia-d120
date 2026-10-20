@@ -168,7 +168,7 @@ function Resolve-DomeniaDirectoryAbsence {
                 $out.Status='Deplace'
                 $out.Text='Objet présent ailleurs dans le domaine : '+[string]$move.ToLocation+'. Il nʼa pas été supprimé ; son identité (GUID) est conservée.'
             }
-        }elseif([bool](Get-DomeniaMember $Check 'Deleted' $false)){
+        }elseif(([bool](Get-DomeniaMember $Check 'Deleted' $false)) -and ($deletedRead -eq 'Read')){
             $out.Status='Supprime';$out.Proof='Objet lu par son GUID parmi les objets supprimés (isDeleted).'
             $text='Suppression constatée : lʼobjet figure parmi les objets supprimés'
             $when=ConvertTo-DomeniaUtcDate (Get-DomeniaMember $Check 'DeletedWhenUtc' $null)

@@ -699,3 +699,10 @@ Test-Case 'P20' 'Plan durable : seul un relevé de la portée des listes est une
     Assert-False (Test-DomeniaCampaignRunDurable ([pscustomobject]@{Slot='Computer';WidgetBoard='Computer'})) 'collecte dʼun widget du poste'
     Assert-False (Test-DomeniaCampaignRunDurable $null)
 }
+
+Test-Case 'P60-19' 'Estimation des sondes seules : identité obligatoire comptée, fournisseur partagé une fois' {
+    $probes=@([pscustomobject]@{Id='a';Namespace='root\cimv2';Class='Fixture';Filter='';Skip=''},[pscustomobject]@{Id='b';Namespace='root\cimv2';Class='Fixture';Filter='';Skip=''})
+    $plan=Measure-DomeniaCimQueryPlan -ProbeUser $false -Inventory $false -Probes $probes
+    Assert-Equal 3 $plan.Requested;Assert-Equal 2 $plan.Executed;Assert-Equal 1 $plan.Avoided
+    Assert-Equal 0 (Measure-DomeniaCimQueryPlan -ProbeUser $false -Inventory $false -Probes @()).Executed
+}

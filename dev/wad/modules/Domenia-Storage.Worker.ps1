@@ -1747,6 +1747,34 @@ $series='';if($null -ne $Payload.PSObject.Properties['Series']){$series=[string]
 if(($series -cne '') -and ($series -cne 'Gesture')){throw 'Série de sauvegarde inconnue.'}
 if(($series -ceq 'Gesture') -and ([bool]$copyTo)){throw 'Une sauvegarde avant geste ne se copie pas vers un fichier choisi.'}
 $filePrefix=if($series -ceq 'Gesture'){'Geste-'}else{'Domenia-'}
+function Assert-WBackupJsonDepth {
+    param([string]$Json)
+    $depth=0;$quoted=$false;$escape=$false
+    foreach($character in $Json.ToCharArray()){
+        if($quoted){if($escape){$escape=$false}elseif($character -eq '\'){$escape=$true}elseif($character -eq '"'){$quoted=$false};continue}
+        if($character -eq '"'){$quoted=$true;continue}
+        if($character -eq '{' -or $character -eq '['){$depth++;if($depth -gt 8){throw 'Preferences trop imbriquees (8 niveaux maximum).'}}
+        elseif($character -eq '}' -or $character -eq ']'){$depth--;if($depth -lt 0){throw 'Structure JSON de preferences invalide.'}}
+    }
+    if($quoted -or $depth -ne 0){throw 'Structure JSON de preferences incomplete.'}
+}
+function Write-WBackupPreferences {
+    param([string]$DatabasePath,[string]$Hash,[string]$SettingsJson)
+    if(-not $SettingsJson){return ''}
+    if([Text.Encoding]::UTF8.GetByteCount($SettingsJson) -gt 4MB){throw 'Preferences de sauvegarde trop volumineuses.'}
+    Assert-WBackupJsonDepth $SettingsJson
+    $settings=ConvertFrom-Json -InputObject $SettingsJson -ErrorAction Stop
+    if($settings -isnot [pscustomobject]){throw 'Preferences de sauvegarde invalides.'}
+    $path=Get-WBackupSafePath ($DatabasePath+'.preferences.json');$tmp=$path+'.'+[guid]::NewGuid().ToString('N')+'.partial'
+    $document=[pscustomobject]@{Format='Domenia.BackupPreferences.1';DatabaseSHA256=$Hash;SettingsJson=$SettingsJson}
+    $bytes=[Text.Encoding]::UTF8.GetBytes(($document|ConvertTo-Json -Depth 4 -Compress));$stream=$null
+    try{
+        $stream=[IO.File]::Open($tmp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        $stream.Write($bytes,0,$bytes.Length);$stream.Flush($true);$stream.Dispose();$stream=$null
+        [IO.File]::Move($tmp,$path)
+    }finally{if($null -ne $stream){$stream.Dispose()};if([IO.File]::Exists($tmp)){[IO.File]::Delete($tmp)}}
+    return $path
+}
 function Get-WBackupSafePath {
     param([string]$Path)
     if([string]::IsNullOrWhiteSpace($Path)){throw 'Chemin de sauvegarde vide.'}
@@ -1771,7 +1799,7 @@ if(-not [IO.File]::Exists($dbPath)){throw 'aucune base active a sauvegarder.'}
 [void][IO.Directory]::CreateDirectory($backupDir)
 $stamp=(Get-Date -Format 'yyyyMMdd-HHmmss-fff')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)
 $dest=Join-Path $backupDir ($filePrefix+$stamp+'.db');$temporary=$dest+'.partial'
-$sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false;$exportTemporary=''
+$sourceDb=[IntPtr]::Zero;$targetDb=[IntPtr]::Zero;$backup=[IntPtr]::Zero;$mainPtr=[IntPtr]::Zero;$complete=$false;$exportTemporary='';$exportPrevious='';$preferencesPath='';$exportPreferences='';$exportPreferencesPrevious='';$exportPublished=$false;$preferencesPublished=$false
 try{
     $sourceDb=Open-DomeniaDatabase -Path $dbPath -ReadOnly
     $targetDb=Open-DomeniaDatabase -Path $temporary
@@ -1799,7 +1827,18 @@ try{
     $check=@(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
     if($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok'){throw 'Sauvegarde publiee non relisible.'}
     Close-DomeniaDatabase $targetDb;$targetDb=[IntPtr]::Zero;$complete=$true
-    Get-ChildItem -LiteralPath $backupDir -Filter ($filePrefix+'*.db') -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+    $stream=[IO.File]::OpenRead($dest);$sha=[Security.Cryptography.SHA256]::Create();try{$fileHash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose();$stream.Dispose()}
+    $preferencesPath=Write-WBackupPreferences -DatabasePath $dest -Hash $fileHash -SettingsJson ([string]$Payload.PreferencesJson)
+    # Rotate only names produced by this series. Retention/migration copies and operator files are independent.
+    # Keep the just-verified copy even if another file carries a future timestamp or a concurrent backup completes.
+    $rotationPattern='^'+[regex]::Escape($filePrefix)+'[0-9]{8}-[0-9]{6}(?:-[0-9]{3}-[a-f0-9]{8})?\.db$'
+    $older=@(Get-ChildItem -LiteralPath $backupDir -Filter ($filePrefix+'*.db') -File | Where-Object {
+        ($_.FullName -ine $dest) -and ($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)
+    } | Sort-Object LastWriteTimeUtc,Name -Descending)
+    $older | Select-Object -Skip ($keep-1) | ForEach-Object {
+        $expired=$_.FullName
+        try{Remove-Item -LiteralPath $expired -Force -ErrorAction Stop;Remove-Item -LiteralPath ($expired+'.preferences.json') -Force -ErrorAction SilentlyContinue}catch{}
+    }
     if($copyTo){
         try{
             # Publish a fully flushed sibling copy atomically. A failed export leaves the
@@ -1812,12 +1851,24 @@ try{
                 $inputStream.CopyTo($outputStream);$outputStream.Flush($true)
             }finally{if($null -ne $outputStream){$outputStream.Dispose()};if($null -ne $inputStream){$inputStream.Dispose()}}
             [void](Get-WBackupSafePath $copyTo)
-            if([IO.File]::Exists($copyTo)){[IO.File]::Replace($exportTemporary,$copyTo,[System.Management.Automation.Language.NullString]::Value)}else{[IO.File]::Move($exportTemporary,$copyTo)}
-            $exportTemporary=''
-        }catch{throw ('Export non effectué ; sauvegarde locale vérifiée conservée dans '+$dest+' : '+$_.Exception.Message)}
+            $exportPreferences=Get-WBackupSafePath ($copyTo+'.preferences.json')
+            if([IO.File]::Exists($exportPreferences)){$exportPreferencesPrevious=$exportPreferences+'.'+[guid]::NewGuid().ToString('N')+'.previous';[IO.File]::Move($exportPreferences,$exportPreferencesPrevious)}
+            if([IO.File]::Exists($copyTo)){$exportPrevious=$copyTo+'.'+[guid]::NewGuid().ToString('N')+'.previous';[IO.File]::Replace($exportTemporary,$copyTo,$exportPrevious)}else{[IO.File]::Move($exportTemporary,$copyTo)}
+            $exportTemporary='';$exportPublished=$true
+            if($preferencesPath){[void](Write-WBackupPreferences -DatabasePath $copyTo -Hash $fileHash -SettingsJson ([string]$Payload.PreferencesJson));$preferencesPublished=$true}
+            if($exportPrevious){try{[IO.File]::Delete($exportPrevious);$exportPrevious=''}catch{}}
+            if($exportPreferencesPrevious){try{[IO.File]::Delete($exportPreferencesPrevious);$exportPreferencesPrevious=''}catch{}}
+        }catch{
+            $problem=$_.Exception.Message
+            try{
+                if($preferencesPublished -and [IO.File]::Exists($exportPreferences)){[IO.File]::Delete($exportPreferences)}
+                if($exportPublished){if($exportPrevious -and [IO.File]::Exists($exportPrevious)){[IO.File]::Replace($exportPrevious,$copyTo,[System.Management.Automation.Language.NullString]::Value);$exportPrevious=''}elseif([IO.File]::Exists($copyTo)){[IO.File]::Delete($copyTo)}}
+                if($exportPreferencesPrevious -and [IO.File]::Exists($exportPreferencesPrevious)){[IO.File]::Move($exportPreferencesPrevious,$exportPreferences);$exportPreferencesPrevious=''}
+            }catch{$problem+=' Retour de la destination a verifier ; fichiers .previous conserves : '+$_.Exception.Message}
+            throw ('Export non effectué ; sauvegarde locale vérifiée conservée dans '+$dest+' : '+$problem)
+        }
     }
-    $stream=[IO.File]::OpenRead($dest);$sha=[Security.Cryptography.SHA256]::Create();try{$fileHash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose();$stream.Dispose()}
-    [pscustomobject]@{Backup=$dest;CopiedTo=$copyTo;Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=$fileHash;Bytes=[long]([IO.FileInfo]::new($dest).Length)}
+    [pscustomobject]@{Backup=$dest;CopiedTo=$copyTo;Verified=$true;VerifiedAtUtc=[datetime]::UtcNow.ToString('o');SHA256=$fileHash;Bytes=[long]([IO.FileInfo]::new($dest).Length);PreferencesIncluded=[bool]$preferencesPath;PreferencesPath=$preferencesPath}
 }
 finally{
     if($backup -ne [IntPtr]::Zero){[void][Domenia.WinSqliteNative]::sqlite3_backup_finish($backup)}
@@ -1851,10 +1902,39 @@ function Get-MaintWPath {
     return $full
 }
 function Get-MaintWHash {param([string]$Text);$sha=[Security.Cryptography.SHA256]::Create();try{return [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Text))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}}
+function Assert-WBackupJsonDepth {
+    param([string]$Json)
+    $depth=0;$quoted=$false;$escape=$false
+    foreach($character in $Json.ToCharArray()){
+        if($quoted){if($escape){$escape=$false}elseif($character -eq '\'){$escape=$true}elseif($character -eq '"'){$quoted=$false};continue}
+        if($character -eq '"'){$quoted=$true;continue}
+        if($character -eq '{' -or $character -eq '['){$depth++;if($depth -gt 8){throw 'Preferences trop imbriquees (8 niveaux maximum).'}}
+        elseif($character -eq '}' -or $character -eq ']'){$depth--;if($depth -lt 0){throw 'Structure JSON de preferences invalide.'}}
+    }
+    if($quoted -or $depth -ne 0){throw 'Structure JSON de preferences incomplete.'}
+}
+function Read-MaintWPreferences {
+    param([string]$Path)
+    $sidecar=$Path+'.preferences.json'
+    if(-not (Test-Path -LiteralPath $sidecar)){return [pscustomobject]@{Present=$false;SettingsJson='';Fingerprint=''}}
+    $file=[IO.FileInfo]::new($sidecar)
+    if(-not $file.Exists -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $file.Length -gt 16MB){throw 'Annexe des preferences invalide ou trop volumineuse.'}
+    $json=[IO.File]::ReadAllText($sidecar,[Text.Encoding]::UTF8);Assert-WBackupJsonDepth $json;$document=ConvertFrom-Json -InputObject $json -ErrorAction Stop
+    if($document.Format -cne 'Domenia.BackupPreferences.1' -or [string]$document.DatabaseSHA256 -cnotmatch '^[a-f0-9]{64}$' -or $document.SettingsJson -isnot [string] -or [Text.Encoding]::UTF8.GetByteCount([string]$document.SettingsJson) -gt 4MB){throw 'Format des preferences de sauvegarde incompatible.'}
+    # An attachment identifies a standalone backup file, never additional pages carried by a side journal.
+    foreach($suffix in @('-wal','-journal')){if([IO.File]::Exists($Path+$suffix) -and ([IO.FileInfo]::new($Path+$suffix).Length -gt 0)){throw 'Sauvegarde de preferences non autonome : journal SQLite present.'}}
+    $stream=[IO.File]::OpenRead($Path);$sha=[Security.Cryptography.SHA256]::Create()
+    try{$hash=[BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose();$stream.Dispose()}
+    if($hash -cne [string]$document.DatabaseSHA256){throw 'Les preferences ne correspondent pas a cette sauvegarde (SHA-256).'}
+    Assert-WBackupJsonDepth ([string]$document.SettingsJson)
+    $settings=ConvertFrom-Json -InputObject ([string]$document.SettingsJson) -ErrorAction Stop
+    if($settings -isnot [pscustomobject]){throw 'Objet des preferences de sauvegarde invalide.'}
+    return [pscustomobject]@{Present=$true;SettingsJson=[string]$document.SettingsJson;Fingerprint=(Get-MaintWHash $json)}
+}
 function Read-MaintWInfo {
     # -AllowNoState: the active base of this domain may not have received its first canonical write yet (new
     # installation). A chosen backup must always prove its domain.
-    param([IntPtr]$Db,[string]$Path,[string]$Domain,[switch]$AllowNoState,[switch]$Details)
+    param([IntPtr]$Db,[string]$Path,[string]$Domain,[switch]$AllowNoState,[switch]$Details,[switch]$Preferences)
     $schema=@(Invoke-DomeniaDbQuery "SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');" $Db)
     if(-not (Test-DomeniaSqliteSchemaRows $schema)){throw 'Schema incompatible : aucune modification.'}
     $integrity=@(Invoke-DomeniaDbQuery 'PRAGMA quick_check;' $Db);if($integrity.Count -ne 1 -or [string]$integrity[0].quick_check -cne 'ok'){throw 'Integrite SQLite non confirmee.'}
@@ -1870,6 +1950,11 @@ function Read-MaintWInfo {
     $files=@(foreach($suffix in @('','-wal')){$file=[IO.FileInfo]::new($Path+$suffix);if($file.Exists){[pscustomobject]@{Suffix=$suffix;Length=$file.Length;Written=$file.LastWriteTimeUtc.ToString('o')}}})
     $basis=[ordered]@{Path=$Path;DomainDn=$stateDomain;StoreId=$storeId;Revision=$revision;Counts=$counts;Files=$files}
     $info=[pscustomobject]@{Path=$Path;DomainDn=$stateDomain;StoreId=$storeId;Revision=$revision;Counts=[pscustomobject]$counts;Integrity='ok';Bytes=[long](@($files|Measure-Object Length -Sum)[0].Sum);Fingerprint=(Get-MaintWHash ($basis|ConvertTo-Json -Depth 5 -Compress))}
+    if($Preferences){
+        $snapshot=Read-MaintWPreferences $Path
+        $info|Add-Member -NotePropertyName Preferences -NotePropertyValue $snapshot
+        $info.Fingerprint=Get-MaintWHash ($info.Fingerprint+':'+[string]$snapshot.Fingerprint)
+    }
     if($Details){
         # Point 34: dates shown before a restore, read in the same transaction. No row leaves the date unknown.
         $written='';foreach($file in $files){if([string]::CompareOrdinal([string]$file.Written,$written) -gt 0){$written=[string]$file.Written}}
@@ -1932,7 +2017,7 @@ try{
     }
     if($action -eq 'Inspect'){
         $sourceDb=Open-DomeniaDatabase $source -ReadOnly;[void](Invoke-DomeniaDbExec 'BEGIN;' $sourceDb)
-        $info=Read-MaintWInfo $sourceDb $source $domain -AllowNoState:($source -ieq $active) -Details;[void](Invoke-DomeniaDbExec 'COMMIT;' $sourceDb)
+        $info=Read-MaintWInfo $sourceDb $source $domain -AllowNoState:($source -ieq $active) -Details -Preferences:($source -ine $active);[void](Invoke-DomeniaDbExec 'COMMIT;' $sourceDb)
         $activeReport=$null
         if($source -ine $active){
             # Point 34: compare with the active base, or report it unreadable; neither case writes anything.
@@ -1993,7 +2078,7 @@ try{
             $activeReadable=$false;$activeProblem=[string]$_.Exception.Message;Close-DomeniaDatabase $db;$db=[IntPtr]::Zero
         }
     }
-    $sourceDb=Open-DomeniaDatabase $source -ReadOnly;[void](Invoke-DomeniaDbExec 'BEGIN;' $sourceDb);$info=Read-MaintWInfo $sourceDb $source $domain -AllowNoState:($source -ieq $active)
+    $sourceDb=Open-DomeniaDatabase $source -ReadOnly;[void](Invoke-DomeniaDbExec 'BEGIN;' $sourceDb);$info=Read-MaintWInfo $sourceDb $source $domain -AllowNoState:($source -ieq $active) -Preferences:($source -ine $active)
     if($info.Fingerprint -cne [string]$Payload.ExpectedFingerprint){throw 'La source a change : refaire la previsualisation.'}
     $target=(Test-MaintWTarget -Path ([string]$Payload.TargetPath) -Active $active -Source $source -SourceBytes ([long]$info.Bytes)).Path
     $parent=[IO.Path]::GetDirectoryName($target)
@@ -2023,7 +2108,7 @@ try{
         [void](Invoke-DomeniaDbExec ('PRAGMA synchronous=FULL;BEGIN IMMEDIATE;'+$identity+'CREATE TABLE IF NOT EXISTS domenia_store_redirect(id INTEGER PRIMARY KEY CHECK(id=1),operation_id TEXT NOT NULL,target_path TEXT NOT NULL,target_store_id TEXT NOT NULL,target_revision INTEGER NOT NULL,moved_at TEXT NOT NULL);INSERT INTO domenia_store_redirect(id,operation_id,target_path,target_store_id,target_revision,moved_at) VALUES(1,'+(@($v|ForEach-Object{ConvertTo-DomeniaSqlLiteral $_}) -join ',')+');COMMIT;') $db)
         $redirectWritten=$true
     }
-    return [pscustomobject]@{Kind='StorageMaintenance';Action=$action;Committed=$true;OperationId=$operation.ToString('D');ActivePath=$active;TargetPath=$target;StoreId=$newId;DomainDn=$domain;Revision=$newRevision;Integrity='ok';OriginalPreserved=$true;Counts=$verified.Counts;ActiveReadable=$activeReadable;ActiveProblem=$activeProblem;RedirectWritten=$redirectWritten}
+    return [pscustomobject]@{Kind='StorageMaintenance';Action=$action;Committed=$true;OperationId=$operation.ToString('D');ActivePath=$active;TargetPath=$target;StoreId=$newId;DomainDn=$domain;Revision=$newRevision;Integrity='ok';OriginalPreserved=$true;Counts=$verified.Counts;ActiveReadable=$activeReadable;ActiveProblem=$activeProblem;RedirectWritten=$redirectWritten;Preferences=$info.Preferences}
 }catch{
     if($published){throw ('Copie verifiee conservee dans '+$target+'. Bascule a verifier, original conserve. '+$_.Exception.Message)}
     # A move or restore writes the active base only after the atomic publication of the verified copy: before it, the
@@ -2132,6 +2217,8 @@ try{
     if(-not $dryRun -and $fingerprint -cne [string]$Payload.ExpectedFingerprint){throw 'Les mesures ont change : refaire la previsualisation de conservation.'}
     $deleted=0L;$revision=[long]$state[0].revision;$backupReceipt=$null
     if(-not $dryRun){
+        $candidateRows=0L;foreach($count in $counts){$candidateRows += [long]$count.Rows}
+        if($candidateRows -eq 0){throw 'Aucune mesure a retirer : conservation sans ecriture ni sauvegarde supplementaire.'}
         $backupReceipt=Copy-RetentionWBackup -Path $path -StoreId ([string]$state[0].store_id) -Revision $revision
         foreach($target in $targets){[void](Invoke-DomeniaDbExec ('DELETE FROM '+$target.Table+' WHERE '+$target.Where+';') $db);$deleted += [long](@(Invoke-DomeniaDbQuery 'SELECT changes() AS n;' $db)[0].n)}
         if($deleted -gt 0){$revision++;[void](Invoke-DomeniaDbExec ('UPDATE domenia_store_state SET revision='+$revision+' WHERE id=1;') $db)}

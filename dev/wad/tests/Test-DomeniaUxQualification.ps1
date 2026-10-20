@@ -12,6 +12,7 @@ $ErrorActionPreference='Stop'
 function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
+. (Join-Path $modules 'Domenia-SearchWorkspace.Model.ps1')
 $core=Join-Path $wad 'Domenia-Core.ps1'
 $script:Checks=New-Object 'System.Collections.Generic.List[object]'
 function Check-Suite {param([string]$Name,[scriptblock]$Code)

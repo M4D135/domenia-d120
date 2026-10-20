@@ -7436,13 +7436,13 @@ function Update-TaskUi {
 
 
 function Get-VisitCacheValue {
-    param([string]$Key)
+    param([string]$Key,[switch]$AllowExpired)
     if ([string]::IsNullOrWhiteSpace($Key)) { return $null }
     if (-not [bool](Get-CfgValue "Cache" "Enabled" $true)) { return $null }
     try {
         if ($script:VisitCache.ContainsKey($Key)) {
             $item = $script:VisitCache[$Key]
-            if ($item.Expires -gt (Get-Date)) {
+            if ($AllowExpired -or $item.Expires -gt (Get-Date)) {
                 if ($null -ne $item.PSObject.Properties['Accessed']) { $item.Accessed = Get-Date }
                 $script:CacheStats.Hits++; return $item.Value
             }
@@ -17856,79 +17856,6 @@ function Get-AssociationSummaryForObject {
     return "Aucune association pour ce type d objet."
 }
 
-function Set-RowAssociationMetadata {
-    param($Rows)
-
-    # L'association user-machine est un enrichissement local facultatif.
-    # Elle ne doit jamais empecher l'affichage d'un resultat AD.
-    $result = New-Object System.Collections.ArrayList
-    $enrichmentErrors = 0
-    # D043/DS-17: the LinkConfidence column carries the qualification label of the link (Get-DomeniaLinkQualification).
-    $qualify = ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue))
-
-    foreach ($row in @($Rows)) {
-        if ($null -eq $row) { continue }
-
-        $association = ""
-        $source = ""
-        $confidence = ""
-
-        try {
-            if ([string]$row.Type -eq "Machine") {
-                $computerKey = [string]$row.UPN
-                if ([string]::IsNullOrWhiteSpace($computerKey)) { $computerKey = [string]$row.Name }
-
-                # Point 9: the grid column carries the identity note of the fiche, never a silent Unknown.
-                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
-                $links = @(Get-LinksForComputer -Computer $computerKey -Guid $rowGuid)
-                if ($links.Count -gt 0) {
-                    $association = [string]$links[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $links[0] -Kind 'Computer' -Guid $rowGuid)
-                    $source = [string]$links[0].Source
-                    $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0]).Value } else { [string]$links[0].Confidence }
-                }
-            }
-            elseif ([string]$row.Type -eq "Utilisateur") {
-                $userKey = [string]$row.Login
-                if ([string]::IsNullOrWhiteSpace($userKey)) { $userKey = [string]$row.Name }
-
-                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
-                $links = @(Get-LinksForUser -UserLogin $userKey -Guid $rowGuid)
-                if ($links.Count -gt 0) {
-                    $association = (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
-                    $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
-                    if ($qualify) {
-                        $bestLink = Select-DomeniaBestLink $links
-                        if ($null -ne $bestLink) { $confidence = [string](Get-DomeniaLinkQualification $bestLink).Value }
-                    }
-                    else {
-                        $bestLink = $links | Sort-Object `
-                            @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true }, `
-                            @{ Expression = { [string]$_.When }; Descending = $true } | Select-Object -First 1
-                        if ($null -ne $bestLink) { $confidence = [string]$bestLink.Confidence }
-                    }
-                }
-            }
-        }
-        catch {
-            $enrichmentErrors++
-            if ($enrichmentErrors -le 3) {
-                Write-AppLog "Association locale ignoree pour '$([string]$row.Name)' : $($_.Exception.Message)" "WARN"
-            }
-        }
-
-        try { Set-DomeniaLiveRowValue $row "Association" $association } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        try { Set-DomeniaLiveRowValue $row "LinkSource" $source } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        try { Set-DomeniaLiveRowValue $row "LinkConfidence" $confidence } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        [void]$result.Add($row)
-    }
-
-    if ($enrichmentErrors -gt 3) {
-        Write-AppLog "$enrichmentErrors enrichissement(s) d'association locale ont ete ignores ; les resultats AD restent affiches." "WARN"
-    }
-
-    return @($result)
-}
-
 function Show-ObjectRows {
     param(
         $Rows,
@@ -19174,7 +19101,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.38-D120"
+$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.39-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -19940,8 +19867,9 @@ function Backup-DomeniaDatabase {
         $backupDir = Join-Path $backupDir 'migrations'
         [void][IO.Directory]::CreateDirectory($backupDir)
     }
+    $rotationPattern='^Domenia-[0-9]{8}-[0-9]{6}(?:-[0-9]{3}-[a-f0-9]{8})?\.db$'
     if ($IfNeeded -and (-not $Migration)) {
-        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Where-Object {($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -First 1
         if ($null -ne $latest -and ((Get-Date) - $latest.LastWriteTime).TotalHours -lt 20) { return [string]$latest.FullName }
     }
     $stamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
@@ -19967,16 +19895,27 @@ function Backup-DomeniaDatabase {
         } while ($true)
         $finish = [Domenia.WinSqliteNative]::sqlite3_backup_finish($backup); $backup = [IntPtr]::Zero
         if ($finish -ne 0) { throw "Finalisation de sauvegarde SQLite : code $finish." }
+        # The rollback file must be readable by itself after a WAL migration or a copied export.
+        $mode = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA journal_mode=DELETE;' -DatabaseHandle $targetDb)
+        if ($mode.Count -ne 1 -or [string]$mode[0].journal_mode -ine 'delete') { throw 'Sauvegarde non autonome : journal SQLite encore requis.' }
         $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
         if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'La sauvegarde ne passe pas le controle SQLite.' }
         Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         Close-DomeniaDatabase $sourceDb; $sourceDb = [IntPtr]::Zero
         [IO.File]::Move($temporary,$dest)
+        $targetDb = Open-DomeniaDatabase -Path $dest -ReadOnly
+        $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
+        if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'Sauvegarde publiee non relisible.' }
+        Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         $complete = $true
         if (-not $Migration) {
             $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
-            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
-                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Where-Object {($_.FullName -ine $dest) -and ($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -Skip ($keep-1) | ForEach-Object {
+                $expired=$_.FullName
+                try {
+                    Remove-Item -LiteralPath $expired -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath ($expired+'.preferences.json') -Force -ErrorAction SilentlyContinue
+                } catch { if(${function:Write-DomeniaSwallowed}){Write-DomeniaSwallowed 'Storage' 'Backup-DomeniaDatabase/Rotation' $_} }
             }
         }
         return $dest
@@ -20417,7 +20356,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "E1C31C9DE5CAA095292AA3B02FE3C8964ABAEEBA7B2BE5269A2EBBF23022FA4A"
+        LocalIndexRead        = "B6DE0D93665C2921A14895A0C915E8057696BC657375B70D36293ADC01D3940A"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20512,7 +20451,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "5828A165E2037A77ED5888C2AC2B055B42DC1EF956B60CE8B0B5D95AAC672965"
+    $expectedFingerprint = "FC1DAB2FF816FC128267234E1B95845B6D1A43289D032098245A2DF62879C209"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -21862,6 +21801,7 @@ function Fail-DomeniaOpenObjectTaskUi {
         Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
     }
     if ($null -eq $State -or -not (Test-DomeniaObjectCallbackIsCurrent $State)) { return }
+    if([bool](Get-DomeniaMember $State 'LocalPreviewPending' $false)){$State.DeferredReadError=[string]$Message;return}
     $script:LastObjectOpenError = [string]$Message
     if ($State.SelectionBound -and (Test-DomeniaSelectionLoadCurrent)) { Update-DomeniaSelectionReadUi -Phase Failed -Message ([string]$Message) }
     if(-not [bool]$State.SelectionBound -and $null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$State.Dn){
@@ -21918,7 +21858,8 @@ function Open-AdObject {
         if (-not $Force) {
             try { if ($script:VisitCache.ContainsKey($cacheKey)) { $cacheItem = $script:VisitCache[$cacheKey] } } catch { $cacheItem = $null }
         }
-        $cached = if (-not $Force) { Get-VisitCacheValue $cacheKey } else { $null }
+        $cachedShown=$false
+        $cached = if (-not $Force) { Get-VisitCacheValue $cacheKey -AllowExpired } else { $null }
         if ($null -ne $cached) {
             $cacheCreated = $null
             if ($null -ne $cacheItem) { $cacheCreated = $cacheItem.Created }
@@ -21932,12 +21873,13 @@ function Open-AdObject {
                 if ($null -ne $effective -and [string](Get-DomeniaMember $effective 'DataSource' '') -ceq 'SQLite' -and (Test-DomeniaObjectCallbackIsCurrent $state)) {
                     $script:ShowingCachedObject = $true
                     $script:ShowingCachedObjectCreated = $cacheCreated
-                    try { Show-AdObjectResult -Result $effective -Dn $Dn -Type $Type -NoNavigate:$NoNavigate -SuppressRemoteProbes }
+                    try { Show-AdObjectResult -Result $effective -Dn $Dn -Type $Type -NoNavigate:$NoNavigate -SuppressRemoteProbes; $cachedShown=$true }
                     finally { $script:ShowingCachedObject = $false; $script:ShowingCachedObjectCreated = $null }
                     if ($SelectionBound) { Update-DomeniaSelectionReadUi -Phase Cached }
                 }
             }
         }
+        if(-not $Force -and -not $cachedShown){Request-DomeniaLocalObjectPreview -State $state}
         $code = @'
 $Payload.DirectoryReadState.Started=$true
 $de=$null
@@ -21973,7 +21915,10 @@ function Show-AdObjectResult {
     if ([string]::IsNullOrWhiteSpace($Type)) { $Type = "Objet" }
 
     if(Keep-DomeniaDraftOnResult -Result $Result -DN $Dn -Type $Type){return}
-    Clear-ObjectDetails
+    $presentationUnchanged=Test-DomeniaObjectPresentationUnchanged -Result $Result -Dn $Dn -Type $Type
+    # Setting an unchanged WPF value is cheap; clearing every control first is not. Keep the visible
+    # projection while a matching AD read confirms it. All identity, freshness and write guards still run.
+    if(-not $presentationUnchanged){Clear-ObjectDetails}
     $isLiveRead = $false
     try { if ($null -ne $Result.PSObject.Properties["Live"]) { $isLiveRead = [bool]$Result.Live } } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead) {
@@ -21989,7 +21934,7 @@ function Show-AdObjectResult {
     $loadedAt = $attributesObservedUtc.ToLocalTime()
     $isLiveRead = -not [bool]$script:ShowingCachedObject
     $script:SelectedObject = [pscustomobject]@{
-        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=$loadedAt; Guid=(Get-DomeniaEntryFirstString $entry 'objectGUID')
+        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=$loadedAt; Guid=(Get-DomeniaEntryFirstString $entry 'objectGUID'); RenderIdentity=(Get-DomeniaObjectReadIdentity)
         Safety=[pscustomobject]@{
             Guid=Get-DomeniaEntryFirstString $entry "objectGUID"
             Usn=Get-DomeniaEntryFirstString $entry "uSNChanged"
@@ -22035,7 +21980,7 @@ function Show-AdObjectResult {
 
     $script:LastLoadedEntry = $entry
     try { Set-DomeniaSupportObjectSource -Dn $Dn -IsLive:($isLiveRead -and -not [bool]$script:ShowingCachedObject) } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
-    Reset-DomeniaDeferredViews -Dn $Dn
+    if(-not $presentationUnchanged){Reset-DomeniaDeferredViews -Dn $Dn}
     Clear-Secrets
     Set-VisibleTabsForType -Type $Type -PreserveWorkspace:$NoNavigate
     Apply-CurrentPermissionUi
@@ -26153,7 +26098,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.38-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.39-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

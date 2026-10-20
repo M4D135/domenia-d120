@@ -56,8 +56,9 @@ function Get-DomeniaDirectoryStoredType {
 }
 
 function ConvertTo-DomeniaDirectoryDisplayRow {
-    param($Properties,[string]$Type='')
-    $p=ConvertTo-DomeniaDirectoryPropertyMap $Properties
+    param($Properties,[string]$Type='',[switch]$Normalized)
+    # Internal callers already own a normalized map; rendering only reads it.
+    $p=if($Normalized -and $Properties -is [Collections.IDictionary]){$Properties}else{ConvertTo-DomeniaDirectoryPropertyMap $Properties}
     if(-not $Type){$Type=Get-DomeniaDirectoryStoredType $p}
     $login=[string](Get-DomeniaDirectoryPropertyValue $p 'samaccountname')
     $upn=[string](Get-DomeniaDirectoryPropertyValue $p 'userprincipalname')
@@ -150,7 +151,7 @@ function ConvertFrom-DomeniaDirectoryCommittedRow {
     $type=[string](Get-DomeniaMember $Row 'Type' '')
     $upnAttribute=if($type -eq 'Machine'){'dnshostname'}else{'userprincipalname'}
     if(-not $p.ContainsKey($upnAttribute)){$p[$upnAttribute]=@((Get-DomeniaMember $Row 'Upn' ''))}
-    $display=ConvertTo-DomeniaDirectoryDisplayRow -Properties $p -Type $type
+    $display=ConvertTo-DomeniaDirectoryDisplayRow -Properties $p -Type $type -Normalized
     if(-not $p.ContainsKey('useraccountcontrol') -and [string](Get-DomeniaMember $Row 'State' '')){$display.State=[string]$Row.State}
     return [pscustomobject]@{Properties=$p;Row=$display;Type=$type;DN=[string](Get-DomeniaMember $Row 'DN' '');Guid=[string](Get-DomeniaMember $Row 'Guid' '')}
 }

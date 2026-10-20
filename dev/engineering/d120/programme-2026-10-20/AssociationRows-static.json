@@ -1,0 +1,27 @@
+{
+  "scope": "point55_association_rows",
+  "passed": true,
+  "qualifying_windows": false,
+  "windows_tests_executed": false,
+  "files": [
+    {
+      "path": "dev/wad/modules/Domenia-AssociationRows.UI.ps1",
+      "passed": true,
+      "errors": [],
+      "utf8_bom": true,
+      "lf_only": true
+    },
+    {
+      "path": "dev/wad/tests/Test-DomeniaAssociationRows.ps1",
+      "passed": true,
+      "errors": [],
+      "utf8_bom": true,
+      "lf_only": true
+    }
+  ],
+  "extraction": {
+    "function_sha256": "c01d2e61def87eb88e0261e3820e6746a77be3d8ab9cfc5779b803c6b927a536",
+    "identical_to_core": true,
+    "core_definitions": 1
+  }
+}

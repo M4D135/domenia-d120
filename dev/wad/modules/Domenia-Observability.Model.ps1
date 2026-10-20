@@ -416,7 +416,15 @@ function New-DomeniaRedactedDiagnostic {
     $versionsOut = [ordered]@{}
     foreach ($key in $versionKeys) {
         $value = [string](Get-DomeniaMember $Versions $key '')
-        if ($value -match '^[A-Za-z0-9 ._()+-]{1,64}$') { $versionsOut[$key] = $value }
+        $accepted=$false
+        switch($key){
+            'Build' {$accepted=($value -cmatch '^[0-9]{4}\.[0-9]{2}\.[0-9]{2}-DOMENIA-[0-9.]+-(RC[0-9.]+|R[0-9.]+)-D[0-9]{1,4}$')}
+            'Bitness' {$accepted=($value -cin @('32','64'))}
+            'UiProfile' {$accepted=($value -cin @('Tech','Admin'))}
+            'Theme' {$accepted=($value -cin @('Light','Dark','Auto'))}
+            default {$accepted=($value -cmatch '^[0-9]{1,6}(\.[0-9]{1,6}){1,3}$')}
+        }
+        if($accepted){$versionsOut[$key]=$value}
     }
     $counterKeys = @('Tasks','QueuedTasks','DetachedReads','ReceiptPending','PendingLocalWrites','LocalWriteFailures','MemoryMb','DispatcherP50Ms','DispatcherP95Ms','ErrorsDistinct','TracesKept','TraceFaults','InterfaceFaults','ReadOnly','DemoMode','WriteStateUnknown')
     $countersOut = [ordered]@{}
@@ -425,12 +433,16 @@ function New-DomeniaRedactedDiagnostic {
         if ($value -is [bool]) { $countersOut[$key] = [bool]$value }
         elseif (($value -is [int]) -or ($value -is [long]) -or ($value -is [double]) -or ($value -is [decimal]) -or ($value -is [single])) { $countersOut[$key] = [Math]::Round([double]$value,2) }
     }
+    # A syntactically valid word may still be a host name or a password. Use the shipped operation catalog.
+    $operations=@{};if(${function:Get-DomeniaOperationTable}){$operations=Get-DomeniaOperationTable}
+    $metricExtras=@('Pulse','SearchQueryCatalog','QueryTemplates:Publish','QueryLibrary:Publish','Wait:Explicit','Wait:Selection','Wait:Background')
     $metricsOut = New-Object 'System.Collections.Generic.List[object]'
     foreach ($metric in @($Metrics)) {
         if ($metricsOut.Count -ge 200) { break }
         $provenance = [string](Get-DomeniaMember $metric 'Provenance' '')
         $operation = [string](Get-DomeniaMember $metric 'OperationId' '')
-        if (($provenance -notmatch '^[A-Za-z]{2,24}$') -or ($operation -notmatch '^[A-Za-z][A-Za-z0-9]{1,63}(:[A-Za-z][A-Za-z0-9]{1,63})?$')) { continue }
+        $operationKey=$operation -creplace '^(Callback|RunspaceOpen|Prepare|Start|Complete):',''
+        if(($provenance -cnotin @('Ldap','Wmi','Cim','Directory','Wts','Storage','Local','Network','Dispatcher','Queue')) -or ((-not $operations.ContainsKey($operationKey)) -and ($operation -cnotin $metricExtras))){continue}
         $metricsOut.Add([ordered]@{Provenance=$provenance;OperationId=$operation;Count=[int](Get-DomeniaMember $metric 'Count' 0);P50Ms=[Math]::Round([double](Get-DomeniaMember $metric 'P50' 0),1);P95Ms=[Math]::Round([double](Get-DomeniaMember $metric 'P95' 0),1);MaxMs=[Math]::Round([double](Get-DomeniaMember $metric 'Max' 0),1)})
     }
     $errorsOut = New-Object 'System.Collections.Generic.List[object]'
@@ -439,9 +451,11 @@ function New-DomeniaRedactedDiagnostic {
         $code = [string](Get-DomeniaMember $item 'Code' '')
         if ($code -notmatch '^INC-[0-9A-F]{4}$') { continue }
         $type = [string](Get-DomeniaMember $item 'Type' '')
-        if ($type -notmatch '^[A-Za-z_][A-Za-z0-9_.`+]{1,120}$') { $type = '' }
+        $exceptionType=$null
+        if($type -cmatch '^System\.[A-Za-z0-9_.]{1,110}Exception$'){$exceptionType=[type]::GetType($type,$false)}
+        if(($null -eq $exceptionType) -or (-not [Exception].IsAssignableFrom($exceptionType))){$type=''}
         $where = [string](Get-DomeniaMember $item 'Where' '')
-        if ($where -notmatch '^[A-Za-z0-9_.-]{1,80}\.ps1:[0-9]{1,6}$') { $where = '' }
+        if ($where -cnotmatch '^Domenia-Core\.ps1:[0-9]{1,6}$') { $where = '' }
         $errorsOut.Add([ordered]@{Code=$code;Count=[int](Get-DomeniaMember $item 'Count' 0);Type=$type;Where=$where})
     }
     $tracesOut = New-Object 'System.Collections.Generic.List[object]'
@@ -449,11 +463,11 @@ function New-DomeniaRedactedDiagnostic {
         if ($tracesOut.Count -ge 64) { break }
         $reference = [string](Get-DomeniaMember $summary 'Reference' '')
         $operation = [string](Get-DomeniaMember $summary 'OperationId' '')
-        if (($reference -notmatch '^[a-z0-9]{8}$') -or ($operation -notmatch '^[A-Za-z][A-Za-z0-9]{2,63}$')) { continue }
+        if (($reference -notmatch '^[a-z0-9]{8}$') -or (-not $operations.ContainsKey($operation))) { continue }
         $outcome = [string](Get-DomeniaMember $summary 'Outcome' '')
         if ($null -eq (Get-DomeniaTraceOutcome $outcome)) { $outcome = '' }
         $category = [string](Get-DomeniaMember $summary 'Category' '')
-        if ($category -notmatch '^[A-Za-z]{2,40}$') { $category = '' }
+        if ($category -cnotin @('CredentialsRejected','AccountState','AccountLocked','LogonFailure','CredentialPaused','AccessDenied','DecryptionDenied','Timeout','Network','Unavailable','AccountUnavailable','Prerequisite','ModuleUnavailable','Cancelled','StorageBusy','StorageInsufficientSpace','Internal','Validation','Unknown')) { $category = '' }
         $kind = 'Lecture'
         if ([string](Get-DomeniaMember $summary 'Kind' '') -ceq 'Écriture') { $kind = 'Écriture' }
         $phasesOut = New-Object 'System.Collections.Generic.List[object]'
@@ -469,20 +483,24 @@ function New-DomeniaRedactedDiagnostic {
     foreach ($item in @($Slow)) {
         if ($slowOut.Count -ge 16) { break }
         $operation = [string](Get-DomeniaMember $item 'OperationId' '')
-        if ($operation -notmatch '^[A-Za-z][A-Za-z0-9]{2,63}$') { $operation = '' }
+        if (-not $operations.ContainsKey($operation)) { $operation = '' }
         $phase = [string](Get-DomeniaMember $item 'Phase' '')
         if ($phase -notin @('Queue','Collect','Validate','Publish','Stall')) { $phase = '' }
         $handler = [string](Get-DomeniaMember $item 'Handler' '')
-        if ($handler -notmatch '^[A-Za-z][A-Za-z0-9:-]{2,80}$') { $handler = '' }
+        # Only an exact function name currently supplied by the application is useful technical evidence.
+        $knownHandler=$null;if($handler -cmatch '^(Complete|Invoke|Update|Fail|Start|Resume)-Domenia[A-Za-z0-9]+$'){$knownHandler=Get-Command -Name $handler -CommandType Function -ErrorAction SilentlyContinue}
+        if(($null -eq $knownHandler) -or ($knownHandler.Name -cne $handler)){$handler=''}
         if ((-not $operation) -and (-not $phase)) { continue }
         $slowOut.Add([ordered]@{OperationId=$operation;Phase=$phase;Handler=$handler;DurationMs=[Math]::Round([double](Get-DomeniaMember $item 'DurationMs' -1),1);TotalMs=[Math]::Round([double](Get-DomeniaMember $item 'TotalMs' -1),1);Volume=[long](Get-DomeniaMember $item 'Volume' -1)})
     }
     $compatibilityOut = [ordered]@{}
     foreach ($key in @('Compatibility','CompatibilityMatrix','CompatibilityWindows','CompatibilityPowerShell','CompatibilityDotNet','CompatibilitySqlite','WindowsBuild','WindowsProduct','DotNetRelease','WinSqlite')) {
         $value = Get-DomeniaMemberValue $Compatibility $key $null
-        if ($value -is [bool]) { $compatibilityOut[$key] = [bool]$value }
-        elseif (($value -is [int]) -or ($value -is [long])) { $compatibilityOut[$key] = [long]$value }
-        elseif (($value -is [string]) -and ($value -match '^[A-Za-z0-9._-]{1,32}$')) { $compatibilityOut[$key] = [string]$value }
+        if(($key -eq 'WinSqlite') -and ($value -is [bool])){$compatibilityOut[$key]=[bool]$value}
+        elseif(($key -in @('WindowsBuild','DotNetRelease')) -and (($value -is [int]) -or ($value -is [long])) -and ([long]$value -ge 0)){$compatibilityOut[$key]=[long]$value}
+        elseif(($key -eq 'WindowsProduct') -and ([string]$value -cin @('Client','Server','Unknown'))){$compatibilityOut[$key]=[string]$value}
+        elseif(($key -eq 'CompatibilityMatrix') -and ([string]$value -cmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}$')){$compatibilityOut[$key]=[string]$value}
+        elseif(($key -cmatch '^Compatibility(Windows|PowerShell|DotNet|Sqlite)?$') -and ([string]$value -cin @('Qualifie','Teste','Attendu','NonPrisEnCharge','Inconnu'))){$compatibilityOut[$key]=[string]$value}
     }
     $captured = ''
     if ($CapturedUtc -match '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]{8,16}(Z|[+-][0-9]{2}:[0-9]{2})?$') { $captured = $CapturedUtc }

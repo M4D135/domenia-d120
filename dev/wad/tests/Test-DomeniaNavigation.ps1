@@ -107,8 +107,8 @@ function Test-DomeniaEmbeddedHost {return $true}
 function New-DomeniaStoreContext {param([string]$RequestId) return [pscustomobject]@{RequestId=$RequestId;StoreId='store-fixture';Path=[string]$script:DatabaseScopedPath;DomainDn='DC=example,DC=invalid'}}
 function Request-DomeniaStoreRead {param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState) $script:StoreReads.Add([pscustomobject]@{Context=$Context;Query=$Query;SuccessHandler=$SuccessHandler;CallbackState=$CallbackState});return ('read-'+$script:StoreReads.Count)}
 function Show-DomeniaEmbeddedWindow {param($Window) $script:Embedded++;if($null -ne $script:OnEmbedded){return (& $script:OnEmbedded $Window)};return $true}
-function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[int]$SkippedTargets=0)
-    $script:ParkCalls.Add([pscustomobject]@{Kind=$(if($Inventory){'Analyse'}elseif($PingOnly){'Ping'}else{'Console'});Displayed=[bool]$DisplayedResults;Selection=[bool]$Selection;PingOnly=[bool]$PingOnly;Targets=$ScopeTargets;Skipped=$SkippedTargets})
+function Start-DomeniaOnlinePark {param([switch]$DisplayedResults,[switch]$Selection,[switch]$PingOnly,[switch]$WmiOnly,[switch]$PingBeforeWmi,[switch]$Inventory,[object[]]$ScopeTargets=$null,[string]$ScopeLabel='',[object[]]$Probes=$null,[int]$SkippedTargets=0)
+    $script:ParkCalls.Add([pscustomobject]@{Kind=$(if($Inventory){'Analyse'}elseif($PingBeforeWmi){'Console'}elseif($PingOnly){'Ping'}else{'Console'});Displayed=[bool]$DisplayedResults;Selection=[bool]$Selection;PingOnly=[bool]$PingOnly;Targets=$ScopeTargets;Skipped=$SkippedTargets})
 }
 function Get-DomeniaParkRun {param([string]$Slot='List') return $null}
 function Update-DomeniaParkControls { $script:ParkControlUpdates++ }
@@ -686,11 +686,11 @@ Case 'P54 Chaque page passe par le sélecteur commun avec son effet et sa profon
     }
     Expect ($calls.Count -ge 4) ('Appels du sélecteur dʼOU : '+$calls.Count)
     foreach($text in $calls){Expect ($text.Contains('-Purpose')) ('Sélecteur sans effet annoncé : '+$text)}
-    Expect (@($calls|Where-Object{$_.Contains('-DepthMode Choice')}).Count -eq 1 -and @($calls|Where-Object{$_.Contains('-DepthMode Subtree')}).Count -eq 2) 'Profondeur imposée ou choisie absente dʼune page.'
+    Expect (@($calls|Where-Object{$_.Contains('-DepthMode Choice')}).Count -eq 2 -and @($calls|Where-Object{$_.Contains('-DepthMode Subtree')}).Count -eq 2) 'Profondeur imposée ou choisie absente dʼune page.'
     [xml]$query=[IO.File]::ReadAllText((Join-Path $modules 'Domenia-Query.xaml'),[Text.Encoding]::UTF8)
     $button=@($query.SelectNodes('//*')|Where-Object{$_.GetAttribute('Name','http://schemas.microsoft.com/winfx/2006/xaml') -eq 'BtnQueryScope'})
     Expect ($button.Count -eq 1 -and (Get-TestCatalogueHelp $button[0] 'ToolTip') -ceq (Get-TestCatalogueHelp $button[0] 'AutomationProperties.HelpText')) 'LʼAtelier nʼa pas de bouton vers le sélecteur commun.'
-    . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Dashboard.UI.ps1') @('Get-DomeniaFleetScope','Show-DomeniaFleetScopeSource','Select-DomeniaFleetScopeOu'))))
+    . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Dashboard.UI.ps1') @('Get-DomeniaFleetScope','Get-DomeniaFleetScopeSettingKey','Restore-DomeniaFleetScopeChoice','Save-DomeniaFleetScopeChoice','Show-DomeniaFleetScopeSource','Select-DomeniaFleetScopeOu'))))
     function Request-DomeniaFleetRefresh {param([switch]$Force) $script:FleetRefreshes++}
     function Show-DomeniaInlinePicker {param($Kind,$Title,$Prompt,$InitialTerm,$DepthMode,$Subtree,$Purpose,$InitialDn) $script:PickerCall=[pscustomobject]@{DepthMode=$DepthMode;Subtree=$Subtree;InitialDn=$InitialDn};return [pscustomobject]@{DN='OU=B,DC=example,DC=invalid';Guid='00000000-0000-4000-8000-00000000000b';Subtree=$false}}
     $script:FleetScopeDn='OU=A,DC=example,DC=invalid';$script:FleetScopeSubtree=$true;$script:FleetRefreshes=0
@@ -701,6 +701,32 @@ Case 'P54 Chaque page passe par le sélecteur commun avec son effet et sa profon
     Select-DomeniaFleetScopeOu -Dn 'OU=C,DC=example,DC=invalid'
     Expect (-not (Get-DomeniaFleetScope).Subtree) 'Le fil du tableau de bord perd la profondeur choisie.'
     $script:FleetScopeDn='';Expect ((Get-DomeniaFleetScope).Subtree) 'Le domaine entier est lu sans ses sous-OU.'
+}
+
+Case 'Programme 31 Classement exact, prefixe et correspondance dans adresse avec jokers' {
+    $rows=@(
+        [pscustomobject]@{Guid='1';Name='Autre';Mail='service-alex@example.invalid'},
+        [pscustomobject]@{Guid='2';Name='Autre';Mail='alexandre@example.invalid'},
+        [pscustomobject]@{Guid='3';Name='Autre';Mail='alex@example.invalid';Login='alex'},
+        [pscustomobject]@{Guid='4';Name='Alex';Mail='different@example.invalid'}
+    )
+    $ordered=@(Sort-DomeniaSearchResults $rows '*alex*')
+    Expect (($ordered.Guid -join ',') -eq '3,4,2,1') 'Le joker ou le mail perd la pertinence exact/prefixe/contient.'
+    Expect (@(Sort-DomeniaSearchResults $rows '*').Count -eq 4) 'Le classement retire des correspondances.'
+}
+Case 'Programme 32 Une absence explique filtres portee plafond et couverture inconnue' {
+    $limited=Get-DomeniaSearchAbsenceHint -Scope 'OU=Support,DC=example,DC=invalid' -Type 'Machine' -LocalFilter 'Paris' -Completeness Limited -Limit 200
+    Expect ($limited -like '*OU=Support*' -and $limited -like '*Machine*' -and $limited -like '*Paris*' -and $limited -like '*200*incomplète*') 'Contexte de la liste limitee perdu.'
+    foreach($state in @('Partial','Unknown')){Expect ((Get-DomeniaSearchAbsenceHint -Completeness $state) -match 'aucune absence|ne prouve pas') 'Une liste inconnue prouve une absence.'}
+    Expect ((Get-DomeniaSearchAbsenceHint -Completeness Complete) -like '*ne prouve pas une absence ailleurs*') 'La portee finie devient globale.'
+}
+
+Case 'Programme 32 Fin partielle sans erreur reste partielle dans les actions de liste' {
+    function Test-DomeniaLiveSearchActive {return $true}
+    $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
+    (Get-DomeniaControl 'DgObjects').ItemsSource=$rows
+    $script:Live=[pscustomobject]@{Search=[pscustomobject]@{Rows=$rows;Error='';Finalized=$true;State=[pscustomobject]@{Limit=100};Final=[pscustomobject]@{Partial=$true;LimitReached=$false}}}
+    Expect ((Get-DomeniaSearchListCompleteness).State -eq 'Partial') 'Une fin partielle sans message d erreur devient complete.'
 }
 
 $passed=@($script:Checks|Where-Object{$_.Status -eq 'Passed'}).Count

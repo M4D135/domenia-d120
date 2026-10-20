@@ -12,7 +12,9 @@ function Get-DomeniaFirstRunPlan {
         [AllowEmptyString()][string]$ScopeName = '',
         [long]$IndexedObjects = 0,
         [bool]$DashboardSeen = $false,
-        [bool]$ScopeRead = $false
+        [bool]$ScopeRead = $false,
+        [bool]$ReadInterrupted = $false,
+        [bool]$Offline = $false
     )
     $connected = [bool]$Domain.Trim()
     $scoped = [bool]$ScopeDn.Trim()
@@ -26,6 +28,7 @@ function Get-DomeniaFirstRunPlan {
         if ($Account.Trim()) { $connectionText += ' avec ' + $Account.Trim() }
         $connectionText += '.'
     }
+    if ($Offline -and (-not $connected)) { $connectionText = 'Hors connexion : reconnectez-vous pour poursuivre les premiers pas. Les données locales déjà enregistrées sont conservées.' }
     $ouText = 'Choisir lʼOU racine du domaine. Elle est le défaut des sections qui nʼont pas encore leur propre choix.'
     if ($scoped) {
         $label = $ScopeName.Trim()
@@ -34,12 +37,15 @@ function Get-DomeniaFirstRunPlan {
     }
     $baseText = 'Faire la première lecture de cette OU dans la base locale (Outils, Base autonome).'
     if ($read) { $baseText = 'Première lecture de cette OU enregistrée dans la base locale.' }
+    if ($ReadInterrupted) {
+        $baseText = if ($read) { 'Dernière tentative interrompue : la lecture complète précédente de cette OU reste disponible. Actualisez la base pour la compléter.' } else { 'Lecture de cette OU interrompue ou incomplète : reprenez-la dans Base autonome. Les données déjà enregistrées sont conservées ; la couverture complète reste inconnue.' }
+    }
     $dashboardText = 'Ouvrir le tableau de bord : le calcul part à ce clic, depuis la base locale, puis la vue sʼaffiche.'
     if ($seen) { $dashboardText = 'Vue dʼensemble calculée depuis la base locale ; une tuile ouvre la liste exacte de ses postes.' }
     $steps = @(
         [pscustomobject]@{ Name = 'Connection'; Number = 1; Done = $connected; Enabled = $true; Text = $connectionText }
         [pscustomobject]@{ Name = 'Ou'; Number = 2; Done = $scoped; Enabled = $connected; Text = $ouText }
-        [pscustomobject]@{ Name = 'Base'; Number = 3; Done = $read; Enabled = $connected; Text = $baseText }
+        [pscustomobject]@{ Name = 'Base'; Number = 3; Done = $read; Enabled = ($connected -and $scoped); Text = $baseText }
         [pscustomobject]@{ Name = 'Dashboard'; Number = 4; Done = $seen; Enabled = $read; Text = $dashboardText }
     )
     $next = ''

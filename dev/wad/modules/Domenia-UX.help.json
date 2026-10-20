@@ -1,4 +1,4 @@
-﻿[
+[
   {
     "Name": "TxtLogin",
     "Title": "Compte Windows",
@@ -3212,7 +3212,7 @@
   },
   {
     "Name": "BtnParkVerify",
-    "Title": "Vérifier la liste",
+    "Title": "Arrêter ou vérifier la liste",
     "Text": "Vérifie les postes de la portée choisie à côté des résultats : la liste affichée après vos filtres, ou seulement les lignes sélectionnées. Sans choix dans cette session, ouvre les trois vérifications ; ensuite, relance la dernière choisie. Confirmation avec le nombre de postes avant tout envoi, plafond réglable (500 postes par défaut). Pendant un relevé, ce bouton lʼarrête.",
     "Kind": "Button",
     "Source": "X01",

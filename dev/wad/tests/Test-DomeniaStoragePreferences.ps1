@@ -6,9 +6,14 @@ $t=$null;$e=$null;$ast=[Management.Automation.Language.Parser]::ParseFile((Join-
 foreach($name in @('Get-DomeniaDefaultSettings','Load-DomeniaSettings','Save-DomeniaSettings','Get-DomeniaSetting','Set-DomeniaSetting')){
  $node=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));if($node.Count -ne 1){throw $name};. ([scriptblock]::Create($node[0].Extent.Text))
 }
+$storageAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $WadPath 'modules\Domenia-Storage.UI.ps1'),[ref]$t,[ref]$e);if($e.Count){throw 'Storage UI parse failure'}
+foreach($name in @('Get-DomeniaBackupPreferencesJson','Restore-DomeniaBackupPreferences')){
+ $node=@($storageAst.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));if($node.Count -ne 1){throw $name};. ([scriptblock]::Create($node[0].Extent.Text))
+}
+$script:RejectNextPreferenceWrite=$false
 $script:File=Join-Path ([IO.Path]::GetTempPath()) ('domenia-prefs-'+[guid]::NewGuid().ToString('N')+'.json')
 function Read-DomeniaPreference($FileName){if($FileName -eq 'Domenia.settings.json' -and (Test-Path $script:File)){return [IO.File]::ReadAllText($script:File)};return ''}
-function Write-DomeniaPreference($FileName,$Value){if($FileName -ne 'Domenia.settings.json'){throw 'Unexpected preference'};[IO.File]::WriteAllText($script:File,$Value,[Text.UTF8Encoding]::new($false));return $true}
+function Write-DomeniaPreference($FileName,$Value){if($script:RejectNextPreferenceWrite){$script:RejectNextPreferenceWrite=$false;return $false};if($FileName -ne 'Domenia.settings.json'){throw 'Unexpected preference'};[IO.File]::WriteAllText($script:File,$Value,[Text.UTF8Encoding]::new($false));return $true}
 function Get-DomeniaStoredTheme{return 'Light'}
 function Write-AppLog($Text,$Level){}
 function Write-DomeniaSwallowed($Category,$Operation,$ErrorRecord){}
@@ -58,6 +63,32 @@ try{
   $values=@{'Storage.PolicyJson.extra'='x';'Storage.Backup.Last.short'='x';('Storage.Backup.Last.'+('A'*64))='x';('Storage.Backup.Last.'+('c'*64))=@('x');'Storage.PolicyJson'=@{AutomaticBackup=$true}}
   $clean=ConvertTo-DomeniaExperienceSettings $values (Get-DomeniaDefaultSettings)
   foreach($k in $values.Keys){Expect (-not $clean.Contains($k)) ('Unapproved value retained: '+$k)}
+ }
+ Case 'Complete snapshot restores layouts and query choices without restoring old paths or identities' {
+  $pathKey='Storage.Database.'+('d'*64)
+  $script:Settings['GridLayoutsJson']='{"Search":{"Width":180}}';$script:Settings['Dashboard.Fleet.Layout']='snapshot-layout';$script:Settings['Widgets.Fleet']='snapshot-widgets';$script:Settings['Query.Library']='snapshot-query'
+  $script:Settings[$pathKey]='C:\old.db';$script:Settings['RemoteCredentialUser']='OLD\operator';$script:Settings['SecretsCredentialUser']='OLD\secrets'
+  $snapshot=Get-DomeniaBackupPreferencesJson
+  Expect ((-not $snapshot.Contains('OLD')) -and (-not $snapshot.Contains('old.db'))) 'snapshot contains no session identities or active database path'
+  $script:Settings[$pathKey]='C:\new.db';$script:Settings['RemoteCredentialUser']='CURRENT\operator';$script:Settings['SecretsCredentialUser']='CURRENT\secrets';$script:Settings['Dashboard.Fleet.Layout']='changed-layout'
+  Restore-DomeniaBackupPreferences -Json $snapshot
+  Expect ((Get-DomeniaSetting 'Dashboard.Fleet.Layout' '') -ceq 'snapshot-layout') 'layout restored'
+  Expect ((Get-DomeniaSetting 'Widgets.Fleet' '') -ceq 'snapshot-widgets') 'widgets restored'
+  Expect ((Get-DomeniaSetting 'Query.Library' '') -ceq 'snapshot-query') 'query choices restored'
+  Expect ((Get-DomeniaSetting 'GridLayoutsJson' '') -ceq '{"Search":{"Width":180}}') 'grid disposition restored'
+  Expect ((Get-DomeniaSetting $pathKey '') -ceq 'C:\new.db') 'verified new database remains active after reload'
+  Expect ((Get-DomeniaSetting 'RemoteCredentialUser' '') -ceq 'CURRENT\operator') 'current session account preserved'
+  Expect ((Get-DomeniaSetting 'SecretsCredentialUser' '') -ceq 'CURRENT\secrets') 'current secret account preserved'
+ }
+ Case 'Preference write failure rolls back current layouts and leaves the active database choice intact' {
+  $pathKey='Storage.Database.'+('e'*64);$script:Settings[$pathKey]='C:\verified.db';$script:Settings['Dashboard.Fleet.Layout']='current-layout';Reload-Settings
+  $script:RejectNextPreferenceWrite=$true;$caught=$false
+  try{Restore-DomeniaBackupPreferences -Json '{"Dashboard.Fleet.Layout":"old-layout"}'}catch{$caught=$true}
+  Expect $caught 'preference restoration failure is visible'
+  Expect ((Get-DomeniaSetting 'Dashboard.Fleet.Layout' '') -ceq 'current-layout') 'current in-memory layout rolled back'
+  Reload-Settings
+  Expect ((Get-DomeniaSetting 'Dashboard.Fleet.Layout' '') -ceq 'current-layout') 'current layout remains durable'
+  Expect ((Get-DomeniaSetting $pathKey '') -ceq 'C:\verified.db') 'verified database choice preserved'
  }
  Case 'Extra preference size and count limits remain enforced' {
   $values=@{'Storage.PolicyJson'= ('x'*1048577)}

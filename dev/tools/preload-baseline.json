@@ -1,5 +1,5 @@
 {
-  "Archive": "source tree",
+  "Archive": "RC1.17.39 bounded-backlog review",
   "ArchiveSHA256": "655ED21F90345B3C7667D4E777814C6A0595A5D5BE628AD587FB46CCA5241922",
   "CoreFunctions": {
     "Write-DomeniaAtomicText": "1C9A1583F52EB7BE80BE420662653E4AF886FE11DC4FDB3B1C4CDF19FD1C0EDA",
@@ -220,7 +220,7 @@
     "Get-NewTaskId": "67D76FEA6F42BF1BB0B3BD01ADB0B9501512FA24F19DC1A76DF41ABC954CCDB3",
     "Set-ControlsBusy": "05280220ADE5CDC9EED443B3E07A9526037F1BE820A405C8189FEA194B2C0E82",
     "Update-TaskUi": "D2369F4089EDBDE2C1954FC65784D617FEC58265D56CC9D136B6DB709CCCA60C",
-    "Get-VisitCacheValue": "4323C8617EDDB849F4CF1FF75A03BC9E2311AEC8A1F4EC72C5FEB8C91F2800E9",
+    "Get-VisitCacheValue": "617CD4A238AC40AD5560488815867369E61CB4B834319D216D43CE223353E639",
     "Set-VisitCacheValue": "364AA6CED0A31457254300B7A5DA45F4EFCAF844E549618BED6977B8D2C73DE3",
     "Clear-VisitCache": "000698D4DB3047A9CB15217631F8E9B870390CE8CF30261B8A2F676B913BCFB1",
     "Get-DeProp": "1371A3306BE4336EA95693BBDF501686BA07537280A8185740EBE41B98BC660E",
@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "C586B58423B20C5EC4296CF6C4946D5D501F628A6C64BBD703E68190BA2B65A5",
-    "Assert-DomeniaWorkerRegistry": "4D4D13EA3198E591098DCF5BFD8C1B1E62427F8E9BC537C0E6943E454189E5C5",
+    "Get-DomeniaWorkerOperationHashes": "C9E3A54BE0FFF03256E35AA82851590AC7BD8A7ABD57BAB8F0B9D0AEDD873B91",
+    "Assert-DomeniaWorkerRegistry": "2490FA18E7FD0AFE75F45CDFBC8040E6D62E7C6ADA4A633A0BD692133EE7DA67",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -551,8 +551,8 @@
     "Complete-DomeniaOpenObjectUi": "833B43C24B4C667BB364EBA6B519D187B0400D95A6EA4A0CB0B3B4A3A4565730",
     "Fail-DomeniaOpenObjectUi": "C15C3E4E7578161A64B943E3F9005532911CDA536AF88E45C5445AE7B9202CEA",
     "Complete-DomeniaOpenObjectTaskUi": "514F0FCFD19C10EEF56F20692CA048DA8F8D167183D89ADE69FE7149777356B8",
-    "Fail-DomeniaOpenObjectTaskUi": "B5C35EDB46BA2CF55639AEFF31497BF289DF5F73D11CF40825B80A1DA11187E8",
-    "Open-AdObject": "AB28700B5F7F435EDF09079BBB512596BE726044291601E710CF21EF359926D2",
+    "Fail-DomeniaOpenObjectTaskUi": "5542DBAEE9F80BCB06BBFDD11BB05479ECD898DC165629FC47797BCA4BEAFC22",
+    "Open-AdObject": "536851A26E123C53AD4D7C0955F6A32078911F3F3927F3945A9676A738F47306",
     "Show-AdObjectResult": "AD56CD114EBB9AA7825399B76645F4509370D9BF7AF289EEED3271FC4DB196DF",
     "Get-WriteControlMap": "0CAEF149167F227F924EF7D7F56ADE3985C52B3F0BC61E0C00E8FD5097B2DC7B",
     "Test-DomeniaControlIsBusy": "8E2F1916596ED2218CC66095541C27F15091E51959C0759FD06D765C943CB7D3",
@@ -616,7 +616,7 @@
     "Update-Dashboard": "0AB2AE00D3155879C84C6D141AC7558FFB53BF319D8E89B38EC30E587B6C87D8",
     "Invoke-DomeniaStartupCacheWarmup": "43DE9BBE4C483D2C404E2EA4E6772A1F08C36F66444A6C634F4D11C1A58AC9EA",
     "Assert-DomeniaStartupReadiness": "264321BCAC10F6788485C0671A8A39C29B6FE88D825E6170F2569B7627643F4B",
-    "Initialize-Window": "E9F91C7B74497B44BFED331D4EB4936B9030CAABA8751E8AA5AD9D8F53681C6D",
+    "Initialize-Window": "CAF9470EBC136D543B3B7CEF1DA0D005E9BC2ADE2017C2A8AD622A530EADDFCA",
     "Get-DomeniaFastLoginLogPath": "64580B336CA490D94D739FC9DB10E805F767602A881DCD07A371A6C6F852F001",
     "Write-DomeniaFastLoginLog": "C9AC669E685708E4CAD14C1EC9E52CD7288A73411ACD1F95AE9A07DD6CBBC0BC",
     "New-DomeniaFastLoginSession": "A54B3BCF7D880559A020CB587C86CC56D0E31D5FA6EBCD99BFFF27420EB2235C",
@@ -886,7 +886,7 @@
     "wad/modules/Domenia-Guard.UI.ps1": "11ED5549BE999C0A7DC039386ECBFB0B424668AE8CF117C0F0AE03783F12917A",
     "wad/modules/Domenia-Live.Model.ps1": "6B2C5C145D2354DED32577F45D59945B397D6AFBA91A5BACBB61B0BF8221BE19",
     "wad/modules/Domenia-Live.Types.cs": "EA90657459EDAB05A25440C2EDDAB6D15577CB437FAEF95DA939767885F05F0E",
-    "wad/modules/Domenia-Live.UI.ps1": "A386E7DA3DD123ABAC5870BE9451ECBF9B2DC485527CDD4A93CB2FE16B7DF6CC",
+    "wad/modules/Domenia-Live.UI.ps1": "EF775403C0B1E33F9EF479BE877F53CC7C90782EB0E636993C11B66E8181162A",
     "wad/modules/Domenia-Receipts.Worker.ps1": "72D43A96BABB55F6EB5C008018EB1C4AA1C0A1265402FBAD7294C1113735B68E",
     "wad/modules/Domenia-Reconcile.UI.ps1": "845F7531CCD8FB82BB4CECB5210E47E9C86E5E2C0913074D8BE460E814F52288",
     "wad/modules/Domenia-Relations.UI.ps1": "08A9543CCB95C261A0797992EBC846E6885B1C435372BF4956D78F8817B0D666",
@@ -4942,6 +4942,46 @@
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],
       "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "RC1.17.39 local-preview review",
+      "Decision": "RC1.17.39: reviewed local-first previews from canonical SQLite, original GUID/DN/session/scope guards retained, delayed cache never confirms AD freshness; worker registry repinned only for exact DN and literal prefix reads. Native regression qualification follows before release.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Fail-DomeniaOpenObjectTaskUi",
+        "Get-DomeniaWorkerOperationHashes",
+        "Get-VisitCacheValue",
+        "Initialize-Window",
+        "Open-AdObject"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "RC1.17.39 local-preview review",
+      "Source": "RC1.17.39 render review",
+      "Decision": "RC1.17.39: live cache conversion is drained by the existing bounded UI timer; typed notifying rows use their existing native setter directly. The fallback setter and identity, scope, freshness, write and epoch guards remain unchanged. First 5000-row run exceeded 120 seconds and is retained for the before/after verification.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
+    },
+    {
+      "Previous": "RC1.17.39 render review",
+      "Source": "RC1.17.39 bounded-backlog review",
+      "Decision": "RC1.17.39: while more than 200 committed rows await display, the live timer uses a 20 ms cadence while retaining its 30 ms maximum render slice. It returns to 80 ms when drained or rendering is suspended; idle cadence, write guards and hidden-window policy remain in the protected timer factory.",
+      "ChangedCoreFunctions": [],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": [
+        "wad/modules/Domenia-Live.UI.ps1"
+      ]
     }
   ]
 }

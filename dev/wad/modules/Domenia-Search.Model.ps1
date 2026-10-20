@@ -339,19 +339,19 @@ function Get-DomeniaSearchRank {
     # name prefix, word prefix, substring, the rest. A whole word ('Jean Dupont' for 'dupont') ranks
     # before a longer word that only starts with the query ('Dupontel').
     param($Row,[AllowEmptyString()][string]$Query)
-    $q = ([string]$Query).Trim().TrimEnd('*')
+    $q = ([string]$Query).Trim().Trim('*')
     if (-not $q) { return 9 }
     $login = [string](Get-DomeniaMember $Row 'Login' ''); $upn = [string](Get-DomeniaMember $Row 'UPN' '')
     $name = [string](Get-DomeniaMember $Row 'Name' ''); $display = [string](Get-DomeniaMember $Row 'Display' ''); $mail = [string](Get-DomeniaMember $Row 'Mail' '')
     $ordinal = [StringComparison]::OrdinalIgnoreCase
     if ($login.Equals($q,$ordinal) -or $upn.Equals($q,$ordinal) -or $mail.Equals($q,$ordinal) -or ($upn -and ($upn -split '@')[0].Equals($q,$ordinal))) { return 0 }
     if ($name.Equals($q,$ordinal) -or $display.Equals($q,$ordinal)) { return 1 }
-    if ($login.StartsWith($q,$ordinal) -or $upn.StartsWith($q,$ordinal)) { return 2 }
+    if ($login.StartsWith($q,$ordinal) -or $upn.StartsWith($q,$ordinal) -or $mail.StartsWith($q,$ordinal)) { return 2 }
     $words = @(($name + ' ' + $display) -split '[\s\-]+' | Where-Object { $_ })
     foreach ($word in $words) { if ($word.Equals($q,$ordinal)) { return 3 } }
     if ($name.StartsWith($q,$ordinal) -or $display.StartsWith($q,$ordinal)) { return 4 }
     foreach ($word in $words) { if ($word.StartsWith($q,$ordinal)) { return 5 } }
-    if ($login.IndexOf($q,$ordinal) -ge 0 -or $name.IndexOf($q,$ordinal) -ge 0 -or $display.IndexOf($q,$ordinal) -ge 0 -or $upn.IndexOf($q,$ordinal) -ge 0) { return 6 }
+    if ($login.IndexOf($q,$ordinal) -ge 0 -or $name.IndexOf($q,$ordinal) -ge 0 -or $display.IndexOf($q,$ordinal) -ge 0 -or $upn.IndexOf($q,$ordinal) -ge 0 -or $mail.IndexOf($q,$ordinal) -ge 0) { return 6 }
     return 7
 }
 

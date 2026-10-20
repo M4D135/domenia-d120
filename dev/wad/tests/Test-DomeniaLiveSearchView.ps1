@@ -32,7 +32,7 @@ $script:LoadedFunctions=@(foreach($name in @('Initialize-DomeniaLive','Begin-Dom
 $tokens=$null;$errors=$null;$core=Join-Path $Wad 'Domenia-Core.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw 'Core parse error.'}
-foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
+foreach($name in @('Get-DomeniaControl','Get-DomeniaSelectedGridRows','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
  $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
  if($nodes.Count -ne 1){throw ('Missing core definition '+$name)}
  . ([scriptblock]::Create($nodes[0].Extent.Text))
@@ -226,9 +226,13 @@ try {
    $s=$script:Live.Search;$clock=[Diagnostics.Stopwatch]::StartNew()
    for($i=1;$i -le 4997;$i++){$id='55555555-5555-4555-8555-'+$i.ToString('D12');$s.Progress.Enqueue((New-FixtureEvent ('SCALE-'+$i.ToString('D5')) $id))}
    Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Pump-Fixture 200
+   Expect ([int]$script:Live.Timer.Interval.TotalMilliseconds -eq 20) 'Backlog did not accelerate the rendering cadence'
    while(-not $s.Progress.IsEmpty -and $clock.Elapsed.TotalSeconds -lt 120 -and $script:Live.Timer.IsEnabled){Pump-Fixture 200}
    Snapshot-Fixture '5000-machines-plus-user-and-group'
    Expect-HealthyTimer;Expect ($s.Progress.IsEmpty) '5000-machine fixture did not drain within the 120-second fixture guard'
+   Pump-Fixture 200
+   Expect ([int]$script:Live.Timer.Interval.TotalMilliseconds -eq 80) 'Normal cadence not restored after drain'
    Expect ($s.Rows.Count -eq 5002 -and $grid.Items.Count -eq 5002) 'Complete population or visible count differs at scale'
    Expect (@($s.Rows|Where-Object{$_.Type -eq 'Machine'}).Count -eq 5000) '5000 machines were not retained'
    Expect (@($s.Rows|Group-Object DN|Where-Object{$_.Count -gt 1}).Count -eq 0) 'Duplicate DNs present in the result collection'
