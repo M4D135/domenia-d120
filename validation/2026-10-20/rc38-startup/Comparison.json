@@ -1,0 +1,177 @@
+{
+  "BeforeLoginSeconds": 33.1755,
+  "AfterLoginSeconds": 26.108,
+  "BeforeMainSeconds": 135.8035,
+  "AfterMainSeconds": 123.5855,
+  "Order": [
+    "Before5",
+    "After5",
+    "After6",
+    "Before6"
+  ],
+  "Runs": [
+    {
+      "Label": "Before5",
+      "Passed": true,
+      "Utc": "2026-10-20T17:49:13.3350730Z",
+      "PS": "5.1.26100.6584",
+      "Idle": [
+        {
+          "Utc": "2026-10-20T17:49:18.8589523Z",
+          "CpuPercent": [
+            22.66,
+            11.72,
+            19.53
+          ],
+          "FreeMB": 2349
+        }
+      ],
+      "Timings": {
+        "MainVisibleMs": 149573,
+        "LoginVisibleMs": 36984
+      },
+      "CoreSHA256": "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+      "LaunchUtc": "2026-10-20T17:49:18.9969525Z",
+      "LauncherId": 6764,
+      "AppId": 3116,
+      "MainTitle": "Accueil · Aucune sélection — Domenia",
+      "AppCpuSeconds": 103.71875,
+      "Endpoint": "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+      "SessionLocked": true,
+      "LoggedSeconds": {
+        "Apres login": 109.308,
+        "Login/WINDOW_READY": 20.425
+      },
+      "ClosedNormally": true
+    },
+    {
+      "Label": "After5",
+      "Passed": true,
+      "Utc": "2026-10-20T17:51:25.9502706Z",
+      "PS": "5.1.26100.6584",
+      "Idle": [
+        {
+          "Utc": "2026-10-20T17:51:37.6176302Z",
+          "CpuPercent": [
+            100,
+            35.66,
+            20.31
+          ],
+          "FreeMB": 2336
+        },
+        {
+          "Utc": "2026-10-20T17:51:46.6779999Z",
+          "CpuPercent": [
+            13.95,
+            20.31,
+            16.41
+          ],
+          "FreeMB": 2335
+        }
+      ],
+      "Timings": {
+        "MainVisibleMs": 132709,
+        "LoginVisibleMs": 27994
+      },
+      "CoreSHA256": "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+      "LaunchUtc": "2026-10-20T17:51:46.9734845Z",
+      "LauncherId": 6520,
+      "AppId": 6352,
+      "MainTitle": "Accueil · Aucune sélection — Domenia",
+      "AppCpuSeconds": 90.109375,
+      "Endpoint": "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+      "SessionLocked": true,
+      "LoggedSeconds": {
+        "Apres login": 167.415,
+        "Login/WINDOW_READY": 41.194
+      },
+      "ClosedNormally": true
+    },
+    {
+      "Label": "After6",
+      "Passed": true,
+      "Utc": "2026-10-20T17:54:44.9509170Z",
+      "PS": "5.1.26100.6584",
+      "Idle": [
+        {
+          "Utc": "2026-10-20T17:54:52.7440188Z",
+          "CpuPercent": [
+            68.22,
+            18.6,
+            44.53
+          ],
+          "FreeMB": 2326
+        },
+        {
+          "Utc": "2026-10-20T17:54:58.1494836Z",
+          "CpuPercent": [
+            27.13,
+            19.53,
+            20.93
+          ],
+          "FreeMB": 2327
+        }
+      ],
+      "Timings": {
+        "MainVisibleMs": 114462,
+        "LoginVisibleMs": 24222
+      },
+      "CoreSHA256": "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+      "LaunchUtc": "2026-10-20T17:54:58.3829420Z",
+      "LauncherId": 6372,
+      "AppId": 6868,
+      "MainTitle": "Accueil · Aucune sélection — Domenia",
+      "AppCpuSeconds": 81.796875,
+      "Endpoint": "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+      "SessionLocked": true,
+      "LoggedSeconds": {
+        "Apres login": 79.445,
+        "Login/WINDOW_READY": 18.345
+      },
+      "ClosedNormally": true
+    },
+    {
+      "Label": "Before6",
+      "Passed": true,
+      "Utc": "2026-10-20T17:56:26.1862739Z",
+      "PS": "5.1.26100.6584",
+      "Idle": [
+        {
+          "Utc": "2026-10-20T17:56:34.3734672Z",
+          "CpuPercent": [
+            41.09,
+            15.5,
+            14.84
+          ],
+          "FreeMB": 2357
+        },
+        {
+          "Utc": "2026-10-20T17:56:41.1852043Z",
+          "CpuPercent": [
+            17.19,
+            16.28,
+            14.06
+          ],
+          "FreeMB": 2359
+        }
+      ],
+      "Timings": {
+        "MainVisibleMs": 122034,
+        "LoginVisibleMs": 29367
+      },
+      "CoreSHA256": "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+      "LaunchUtc": "2026-10-20T17:56:41.3978695Z",
+      "LauncherId": 5184,
+      "AppId": 4480,
+      "MainTitle": "Accueil · Aucune sélection — Domenia",
+      "AppCpuSeconds": 87.78125,
+      "Endpoint": "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+      "SessionLocked": true,
+      "LoggedSeconds": {
+        "Apres login": 148.234,
+        "Login/WINDOW_READY": 39.788
+      },
+      "ClosedNormally": true
+    }
+  ]
+}

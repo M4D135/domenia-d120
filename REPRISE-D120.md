@@ -1,5 +1,13 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+**Complément RC1.17.38 du 20 octobre :** démarrage mesuré avant/après sur la VM au repos,
+connexion 33.18 → 26.11 s ; fenêtre principale 135.80 → 123.59 s (médianes, deux passages par version). Deux répétitions retirées au chargement ;
+10 régressions natives, compatibilité ciblée et intégrité du pack réussies. DEV/PROD
+régénérés ; VM conservée. [Preuves et limites](validation/2026-10-20/rc38-startup/README.md).
+**Gain global non concluant** (dispersion et horloges de la VM). Contrôle isolé
+des exports : 7562 → 128 ms, résultats identiques.
+
+
 **Complément RC1.17.37 du 20 octobre :** calcul du dashboard optimisé, 40.40 s → 10.42 s (médianes, −74.2 %)
 sur 5 000 postes synthétiques. Santé, projections et parité des lectures Fleet/Park
 vérifiées sous Windows 5.1 ; packs DEV/PROD régénérés et contrôlés. VM conservée.

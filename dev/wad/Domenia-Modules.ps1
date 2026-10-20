@@ -3363,12 +3363,18 @@ function Get-DomeniaRuntimeTypePlan {
 function Assert-DomeniaRuntimeImports {
     [CmdletBinding()]
     param([string]$ModuleRoot = (Join-Path $PSScriptRoot 'modules'))
+    # Snapshot the visible function scope once. No imports occur during validation;
+    # every declared export still has to exist and originate from its exact module.
+    $visibleFunctions = @{}
+    foreach ($function in Get-ChildItem -LiteralPath Function:\) {
+        $visibleFunctions[$function.Name] = $function
+    }
     foreach ($module in @(Get-DomeniaRuntimeModulePlan)) {
         $expected = [IO.Path]::GetFullPath((Join-Path $ModuleRoot $module.File))
         foreach ($name in @($module.Functions)) {
             # Function: avoids command auto-loading and aliases. Check origin too:
             # an older function in a parent scope must not mask an omitted import.
-            $command = Get-Item -LiteralPath ('Function:\' + $name) -ErrorAction SilentlyContinue
+            $command = $visibleFunctions[$name]
             if ($null -eq $command -or -not $command.ScriptBlock.File) {
                 throw [InvalidOperationException]::new(
                     "DOMENIA_MODULE_EXPORT : $($module.File) n'a pas fourni la fonction $name.")

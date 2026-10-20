@@ -1,0 +1,10 @@
+﻿{
+    "Passed":  true,
+    "TasksRemoved":  [
+                         "Domenia-RC35-Measure-Startup",
+                         "Domenia-RC35-Close-Startup",
+                         "Domenia-RC35-Run-StartupComparison"
+                     ],
+    "CurrentCoreSHA256":  "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+    "FinalCoreSHA256":  "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261"
+}

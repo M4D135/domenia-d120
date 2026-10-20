@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.20-DOMENIA-1.0-RC1.17.37-D120",
-  "source_base_commit": "2e916526ded4bbe69ae2e948183ead474e8e9a6a",
+  "build": "2026.10.20-DOMENIA-1.0-RC1.17.38-D120",
+  "source_base_commit": "08545267fcbd6c512b3702f75a672286fccd7649",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3090067,
-      "sha256": "380306786f83ea68e5a0a34cecffab55169743443aad14eeed137571b211f721",
+      "bytes": 3090155,
+      "sha256": "19c112238ead05da65172da564ba5d272089ab7c048805f5e1bf074ffba52152",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,17 +17,17 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6596375,
-      "sha256": "aeb66196a88a7fe9f202634d5658a832d684c01d424497798b8cc87ec0409169",
-      "files": 647,
-      "archive_files_including_manifest": 648,
+      "bytes": 6598782,
+      "sha256": "580f04b4a93d7999221bd44dbd8eed898b3a050df6e6720a05db9482bf921c1b",
+      "files": 648,
+      "archive_files_including_manifest": 649,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC37_TARGETED_PERFORMANCE_PASSED",
-    "proof": "validation/2026-10-20/rc37-dashboard/README.md",
+    "status": "RC38_STARTUP_FUNCTIONAL_PASSED_PERFORMANCE_INCONCLUSIVE",
+    "proof": "validation/2026-10-20/rc38-startup/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "TARGETED_ONLY_NOT_GENERAL",
     "formal_publishable": false,
@@ -35,7 +35,7 @@
       134,
       146
     ],
-    "documentation_proof": "validation/2026-10-20/rc37-dashboard/README.md",
+    "documentation_proof": "validation/2026-10-20/rc38-startup/README.md",
     "historical_rc17_proofs": [
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
@@ -133,10 +133,32 @@
       "LocalIndexRead",
       "LocalStore"
     ],
-    "checks": {
+    "historical_rc37_checks": {
       "performance": "40.40 s → 10.42 s (médianes, −74.2 %)",
       "windows": "tests/Summary.json et pack/Summary.json",
       "full_campaign": false
+    },
+    "rc38_change": "Validation des exports via un instantane des fonctions visibles ; suppression de la prevalidation XAML principale redondante.",
+    "checks": {
+      "windows": "Windows PowerShell 5.1 x64 STA : 10 cas, compatibilite des 3 fichiers PowerShell changes, CheckOnly",
+      "startup_measurement": {
+        "BeforeLoginSeconds": 33.1755,
+        "AfterLoginSeconds": 26.108,
+        "BeforeMainSeconds": 135.8035,
+        "AfterMainSeconds": 123.5855,
+        "Order": [
+          "Before5",
+          "After5",
+          "After6",
+          "Before6"
+        ]
+      },
+      "full_campaign": false,
+      "performance_conclusion": "Gain global non concluant : dispersion des lancements et divergence entre horodatages et chronometre dans cette VM.",
+      "import_validation_ms": {
+        "before_median": 7562.5,
+        "after_median": 127.5
+      }
     }
   }
 }

@@ -5,12 +5,13 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.37**, candidate personnelle autonome. Calcul du dashboard accéléré :
-relectures AD redondantes retirées, parent DN calculé sans découpage complet.
-Mesure ciblée sur 5 000 postes : **40.40 s → 10.42 s (médianes, −74.2 %)**.
+Révision **RC1.17.38**, candidate personnelle autonome. Contrôles du démarrage allégés et
+mesurés sur la VM au repos : **connexion 33.18 → 26.11 s ; fenêtre principale 135.80 → 123.59 s** (médianes, deux passages par version).
 Les packs DEV et PROD partagent les mêmes fichiers applicatifs.
+**Gain global non concluant** (dispersion et horloges de la VM). Contrôle isolé
+des exports : 7562 → 128 ms, résultats identiques.
 
-[Mesure, vérifications et limites](validation/2026-10-20/rc37-dashboard/README.md).
+[Mesure, vérifications et limites](validation/2026-10-20/rc38-startup/README.md).
 Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
 Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
 restent datées de leurs versions respectives.

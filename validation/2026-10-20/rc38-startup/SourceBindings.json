@@ -1,0 +1,29 @@
+{
+  "BaseCommit": "08545267fcbd6c512b3702f75a672286fccd7649",
+  "Build": "2026.10.20-DOMENIA-1.0-RC1.17.38-D120",
+  "Archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3090155,
+      "sha256": "19c112238ead05da65172da564ba5d272089ab7c048805f5e1bf074ffba52152",
+      "files": 172,
+      "archive_files_including_manifest": 173,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6598782,
+      "sha256": "580f04b4a93d7999221bd44dbd8eed898b3a050df6e6720a05db9482bf921c1b",
+      "files": 648,
+      "archive_files_including_manifest": 649,
+      "archive_root": "dev/"
+    }
+  ],
+  "Sources": {
+    "dev/wad/Domenia-Core.ps1": "717d6c89dc7b592fbac9777e2961d3f6dcd91f4013714d730c94e6c034d70261",
+    "dev/wad/Domenia-Modules.ps1": "ec9758c0494b86093602eb317dfa4c72389d5909cb9981f6675619f888e6404f",
+    "dev/wad/tests/Test-DomeniaStartupWork.ps1": "13078e6df2e378b24ba769886bd1b31e4e766706bfbf7b86b2e92a8cb8277cf5"
+  }
+}

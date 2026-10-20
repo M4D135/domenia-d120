@@ -1,0 +1,48 @@
+{
+    "Suite":  "StartupWork",
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  10,
+    "Failed":  0,
+    "Cases":  [
+                  {
+                      "Name":  "Declared export from exact file accepted",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Alias cannot mask visible function origin",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Shadowing function from another file rejected",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Missing function rejected after previous successful validation",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Alias alone does not provide an export",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Child scope import does not satisfy caller scope",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Real main loader constructs and resolves checked WPF controls",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Real main loader still rejects duplicate button content",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Real main loader still rejects unsupported WPF members",
+                      "Passed":  true
+                  },
+                  {
+                      "Name":  "Real main loader still rejects missing critical controls",
+                      "Passed":  true
+                  }
+              ]
+}
