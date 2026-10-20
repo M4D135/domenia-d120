@@ -5,11 +5,12 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.36**, candidate personnelle autonome. Grille compacte corrigée,
-réouverture de la base restaurée corrigée, délai SQLite cohérent et compteurs ping→WMI séparés, avec reprise durable conservée.
+Révision **RC1.17.37**, candidate personnelle autonome. Calcul du dashboard accéléré :
+relectures AD redondantes retirées, parent DN calculé sans découpage complet.
+Mesure ciblée sur 5 000 postes : **40.40 s → 10.42 s (médianes, −74.2 %)**.
 Les packs DEV et PROD partagent les mêmes fichiers applicatifs.
 
-[Qualification ciblée et limites du 20 octobre](validation/2026-10-20/rc35-qualification/README.md).
+[Mesure, vérifications et limites](validation/2026-10-20/rc37-dashboard/README.md).
 Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
 Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
 restent datées de leurs versions respectives.

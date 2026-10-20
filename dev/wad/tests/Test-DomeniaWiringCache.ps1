@@ -4284,6 +4284,43 @@ Test-Case 'L01 : FleetStats filtre l OU en SQL, rattache les observations par GU
         Assert-Equal 3 @($all.Parents).Count
     } finally { Remove-Item $root -Recurse -Force }
 }
+Test-Case 'L01 : observations canoniques identiques sans relire les fiches AD completes' {
+    $root=New-LegacySandbox
+    try {
+        $scope='OU=Parc,DC=example,DC=invalid'
+        $rows=@(
+            (New-L01IndexRow 'PC-1' $scope '11111111-1111-1111-1111-111111111111')
+            (New-L01IndexRow 'PC-2' $scope '22222222-2222-2222-2222-222222222222')
+            (New-L01IndexRow 'PC-3' $scope '33333333-3333-3333-3333-333333333333')
+        )
+        [void](Invoke-L01Bulk $rows)
+        $now=[datetime]::UtcNow;$stamp=ConvertTo-DomeniaSqlLiteral ($now.AddMinutes(-5).ToString('o'))
+        foreach($row in $rows[0..1]){
+            $guid=ConvertTo-DomeniaSqlLiteral $row.Guid;$dn=ConvertTo-DomeniaSqlLiteral $row.DN
+            $data=ConvertTo-DomeniaSqlLiteral (@{Presence='En ligne';PresenceCheckedUtc=$now.AddMinutes(-5).ToString('o')}|ConvertTo-Json -Compress)
+            Add-L01Rows "INSERT INTO domenia_observations(object_guid,family,dn,attempt_at,status,success_at,payload,revision) VALUES($guid,'Presence',$dn,$stamp,'Success',$stamp,$data,1);"
+        }
+        $guid=ConvertTo-DomeniaSqlLiteral $rows[0].Guid;$dn=ConvertTo-DomeniaSqlLiteral $rows[0].DN
+        $inventory=ConvertTo-DomeniaSqlLiteral (@{Inventory=@{CheckedUtc=$now.AddMinutes(-5).ToString('o');DiskSize=100GB;DiskFree=5GB}}|ConvertTo-Json -Compress)
+        Add-L01Rows "INSERT INTO domenia_observations(object_guid,family,dn,attempt_at,status,error,success_at,payload,revision) VALUES($guid,'Inventory',$dn,$stamp,'Error','denied',$stamp,$inventory,2);"
+        $Payload=[pscustomobject]@{Action='FleetStats';ModuleRoot=$modules;Path=$script:TestDbPath;Scope=$scope;Subtree=$true;Plan=(Get-DomeniaFleetQueryPlan -Now $now);Keys=@();ScopeKey=''}
+        $code=Get-DomeniaLocalIndexReadWorkerCode
+        $referenceCode=$code.Replace('SkipDirectoryRows=$true','SkipDirectoryRows=$false')
+        Assert-True ($referenceCode -cne $code) 'Reference de lecture complete absente.'
+        $reference=& ([scriptblock]::Create($referenceCode))
+        $actual=& ([scriptblock]::Create($code))
+        Assert-Equal 2 @($actual.Presence).Count 'Un poste sans observation ne doit pas devenir mesure.'
+        Assert-Equal 3 @($actual.Targets).Count 'Le poste non mesure reste dans le perimetre.'
+        $expectedJson=@($reference.Presence|Sort-Object object_guid)|ConvertTo-Json -Depth 20 -Compress
+        $actualJson=@($actual.Presence|Sort-Object object_guid)|ConvertTo-Json -Depth 20 -Compress
+        Assert-Equal $expectedJson $actualJson 'Noms, GUID, dates, familles ou echecs modifies.'
+        Assert-True ($actual.SqlStats.Rows -lt $reference.SqlStats.Rows) 'Les fiches AD sont encore relues.'
+        $Payload=[pscustomobject]@{Action='ParkTargets';ModuleRoot=$modules;Path=$script:TestDbPath;Scope='All'}
+        $reference=& ([scriptblock]::Create($referenceCode));$actual=& ([scriptblock]::Create($code))
+        Assert-Equal (@($reference.Rows)|ConvertTo-Json -Depth 20 -Compress) (@($actual.Rows)|ConvertTo-Json -Depth 20 -Compress) 'Projection du lot modifiee.'
+    } finally {Remove-Item $root -Recurse -Force}
+}
+
 Test-Case 'L01 : instantane quotidien, premier du jour garde, retention 400 jours, purges Index et Historique' {
     $root = New-LegacySandbox
     try {

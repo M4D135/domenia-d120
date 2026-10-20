@@ -1,0 +1,9 @@
+{
+  "Equal": true,
+  "Machines": 5000,
+  "Comparison": "Full board JSON, parsed and compared recursively",
+  "BeforeCanonicalSHA256": "9817f45e45d37b7776eec1fcf511191152a2a0e61b9cab65e733127d940a6c67",
+  "AfterCanonicalSHA256": "9817f45e45d37b7776eec1fcf511191152a2a0e61b9cab65e733127d940a6c67",
+  "RawParentTiming": "Cold/warm variations prevent a separate speed claim for the DN helper",
+  "Scope": "Common raw-DN parent change only; final null guard covered by pack/Common.json"
+}

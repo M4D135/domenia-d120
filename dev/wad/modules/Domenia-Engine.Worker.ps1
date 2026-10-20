@@ -150,7 +150,7 @@ function Get-StoreWProjection {
 function Read-StoreWCommitted {
     # -SkipState: the caller already holds the snapshot revision of its read transaction (slices of one read).
     # -DetailResultKind / -DetailRequestKey (point 39): operator text, bound after the GUID slots, never spliced.
-    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[AllowEmptyString()][string]$DetailResultKind='',[AllowEmptyString()][string]$DetailRequestKey='',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[switch]$SkipState,[bool]$IncludeRecordedTime=$false)
+    param([IntPtr]$Db,[string[]]$Guids,[bool]$IncludeDirectoryDetails=$true,[bool]$IncludeObservations=$true,[bool]$IncludeDetails=$true,[AllowEmptyString()][string]$DetailResultKind='',[AllowEmptyString()][string]$DetailRequestKey='',[string[]]$ObservationFamilies=$null,[ValidateSet('Full','QuerySummary')][string]$DetailProjection='Full',[ValidateSet('Full','Summary')][string]$ObservationProjection='Full',[switch]$SkipState,[bool]$IncludeRecordedTime=$false,[switch]$SkipDirectoryRows)
     $in=Get-IdxWGuidSlots $Guids;$keys=$in.Sql
     # Point 10: the recorded time of a measure is the commit of the batch that wrote its row (same snapshot).
     $observationRecorded=if($IncludeRecordedTime){',(SELECT b.committed_at FROM domenia_store_batches b WHERE b.revision=domenia_observations.revision) AS recorded_at'}else{''}
@@ -158,7 +158,9 @@ function Read-StoreWCommitted {
     $rows=[Collections.Generic.List[object]]::new();$observations=[Collections.Generic.List[object]]::new();$details=[Collections.Generic.List[object]]::new();$projections=[Collections.Generic.List[object]]::new()
     if($in.Count -gt 0){
         $names=@{};$payloadColumn=if($IncludeDirectoryDetails){'d.payload'}else{'NULL'}
-        foreach($r in @(Invoke-IdxWQuery $Db ("SELECT a.*,$payloadColumn AS store_payload,d.field_times,d.revision AS store_revision FROM ad_objects a LEFT JOIN domenia_directory_data d ON d.object_guid=a.object_guid WHERE a.object_guid IN ($keys) ORDER BY a.name COLLATE NOCASE,a.object_guid;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){$rows.Add((Convert-StoreWDirectory $r));$names[[string]$r.object_guid]=[string]$r.name}
+        if(-not $SkipDirectoryRows){
+            foreach($r in @(Invoke-IdxWQuery $Db ("SELECT a.*,$payloadColumn AS store_payload,d.field_times,d.revision AS store_revision FROM ad_objects a LEFT JOIN domenia_directory_data d ON d.object_guid=a.object_guid WHERE a.object_guid IN ($keys) ORDER BY a.name COLLATE NOCASE,a.object_guid;") -Parameters $in.Parameters -Cached:([bool]$in.Cached))){$rows.Add((Convert-StoreWDirectory $r));$names[[string]$r.object_guid]=[string]$r.name}
+        }
         $groups=@{};$familyWhere=''
         if($PSBoundParameters.ContainsKey('ObservationFamilies') -and $null -ne $ObservationFamilies){
             foreach($family in @($ObservationFamilies)){if($family -notmatch '^(Presence|Console|Inventory|Probe:[A-Za-z0-9_.-]{1,128})$'){throw 'Famille de lecture invalide.'}}
@@ -293,7 +295,9 @@ function Read-IdxWCanonicalObservations {
         $selected=[Collections.Generic.List[string]]::new()
         foreach($guid in $slice){$owner=$unique[$guid];$dn=([string]$owner.distinguished_name).ToLowerInvariant();if($migrated.ContainsKey($guid) -or -not $LegacyKeys.Contains($dn)){$selected.Add($guid);$replaced[$dn]=$true}}
         if(-not $selected.Count){continue}
-        $args=@{Db=$Db;Guids=$selected.ToArray();IncludeDirectoryDetails=$false;IncludeDetails=$false;SkipState=$true}
+        # Fleet/Park already read the owners in this transaction and restore name/DN below.
+        # Only ObservationRows are consumed: avoid rereading/converting every full AD row.
+        $args=@{Db=$Db;Guids=$selected.ToArray();IncludeDirectoryDetails=$false;IncludeDetails=$false;SkipState=$true;SkipDirectoryRows=$true}
         if($null -ne $Payload.PSObject.Properties['ObservationFamilies'] -and $null -ne $Payload.ObservationFamilies){$args.ObservationFamilies=@($Payload.ObservationFamilies)}
         # Fleet and Park only. StoreRead keeps the default Full payload.
         $args.ObservationProjection='Summary'

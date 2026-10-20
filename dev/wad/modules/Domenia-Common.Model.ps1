@@ -263,9 +263,17 @@ function Split-DomeniaRawDn {
 
 function Get-DomeniaRawDnParent {
     param([AllowEmptyString()][string]$Dn)
-    $parts=@(Split-DomeniaRawDn $Dn)
-    if ($parts.Count -lt 2) { return '' }
-    return $parts[1..($parts.Count-1)] -join ','
+    # Only the first unescaped separator is needed. Do not split and rebuild every
+    # ancestor for each workstation in a fleet; preserve the raw suffix verbatim.
+    if(-not $Dn){return ''}
+    $comma=$Dn.IndexOf([char]',')
+    while($comma -ge 0){
+        $slashes=0
+        for($i=$comma-1; ($i -ge 0) -and ($Dn[$i] -eq [char]92); $i--){$slashes++}
+        if(($slashes % 2) -eq 0){return $Dn.Substring($comma+1)}
+        $comma=$Dn.IndexOf([char]',',$comma+1)
+    }
+    return ''
 }
 
 function ConvertFrom-DomeniaDnLabel {

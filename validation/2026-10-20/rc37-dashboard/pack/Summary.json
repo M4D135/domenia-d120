@@ -1,0 +1,54 @@
+﻿{
+    "PS":  "5.1.26100.6584",
+    "Build":  "RC1.17.37",
+    "Passed":  true,
+    "Files":  [
+                  {
+                      "File":  "wad\\Domenia-Core.ps1",
+                      "SHA256":  "6E30C54F77AA2A936924CD9FC5FAC23B9E84A7003E96F7F24FC59CFC37299458",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Common.Model.ps1",
+                      "SHA256":  "44532494F39A59DD98BB21FB902C982A29C4F0BD49CD5B47501403AD096EC9C4",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\modules\\Domenia-Engine.Worker.ps1",
+                      "SHA256":  "FA9C9EE44EE21ACD0878718FFF5A63F070A7722C9500863A41D255521FA7BF8C",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\rules\\Common.Tests.ps1",
+                      "SHA256":  "40ACB7668612BA0A15D9392DD3833C5F245969A1236940D696B18D976E5E87C5",
+                      "Errors":  [
+
+                                 ]
+                  },
+                  {
+                      "File":  "wad\\tests\\Test-DomeniaWiringCache.ps1",
+                      "SHA256":  "17FA62A320856BC2667E8B04C4BFAE894004BBEA17DB74026703D21BE0F122D1",
+                      "Errors":  [
+
+                                 ]
+                  }
+              ],
+    "Archives":  [
+                     {
+                         "Edition":  "DEV",
+                         "SHA256":  "AEB66196A88A7FE9F202634D5658A832D684C01D424497798B8CC87EC0409169"
+                     },
+                     {
+                         "Edition":  "PROD",
+                         "SHA256":  "380306786F83EA68E5A0A34CECFFAB55169743443AAD14EEED137571B211F721"
+                     }
+                 ],
+    "CheckOnlyExit":  0,
+    "Utc":  "2026-10-20T16:57:50.4205124Z"
+}

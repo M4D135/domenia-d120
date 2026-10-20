@@ -1,0 +1,6 @@
+{
+  "wad/modules/Domenia-Common.Model.ps1": "9a41bebdeaf2201c5ad85db48c5f74b50fc694a453e84c90efd1347c7f8585d6",
+  "wad/modules/Domenia-Engine.Worker.ps1": "fa9c9ee44ee21acd0878718fff5a63f070a7722c9500863a41d255521fa7bf8c",
+  "wad/tests/rules/Common.Tests.ps1": "00518b750255280c27990c4d74b5082bf00a29b6b863205c91fbfb6f1bc16835",
+  "wad/tests/Test-DomeniaWiringCache.ps1": "17fa62a320856bc2667e8b04c4bfae894004bbea17db74026703d21be0f122d1"
+}

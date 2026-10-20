@@ -1,5 +1,11 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+**Complément RC1.17.37 du 20 octobre :** calcul du dashboard optimisé, 40.40 s → 10.42 s (médianes, −74.2 %)
+sur 5 000 postes synthétiques. Santé, projections et parité des lectures Fleet/Park
+vérifiées sous Windows 5.1 ; packs DEV/PROD régénérés et contrôlés. VM conservée.
+[Preuves et limites](validation/2026-10-20/rc37-dashboard/README.md). Aucun nouveau test de démarrage.
+
+
 **Complément RC1.17.36 du 20 octobre :** qualifications fonctionnelles ciblées terminées,
 Boards 66/66, WiringCache 190 cas couverts après reprise ciblée des deux derniers,
 santé 37 cas, stockage 10 cas et AD/WMI réels. Quatre corrections applicatives et

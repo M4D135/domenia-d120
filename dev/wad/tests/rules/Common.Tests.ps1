@@ -191,6 +191,33 @@ Test-Case 'P-DICT-01' 'Cles de dictionnaires : formes natives et comparateurs co
     Assert-False (Test-DomeniaDictionaryKey $null 'Name') 'Dictionnaire absent'
 }
 
+Test-Case -Id 'COMMON-DN-PARENT' -Name 'Parent DN : suffixe brut, virgules echappees et parite des antislashs' -Body {
+    Assert-Equal '' (Get-DomeniaRawDnParent)
+    Assert-Equal '' (Get-DomeniaRawDnParent $null)
+    foreach($pair in @(
+        @('', ''), @('CN=Seul', ''), @('CN=PC,OU=Parc,DC=example,DC=invalid', 'OU=Parc,DC=example,DC=invalid'),
+        @('CN=PC\,01,OU=Parc\,Nord,DC=example', 'OU=Parc\,Nord,DC=example'),
+        @('CN=PC\2C01,OU=Parc,DC=example', 'OU=Parc,DC=example'),
+        @('CN=PC\\,OU=Parc,DC=example', 'OU=Parc,DC=example'),
+        @('CN=PC\\\,01,OU=Parc,DC=example', 'OU=Parc,DC=example'),
+        @('CN=PC, OU=Parc,,DC=example,', ' OU=Parc,,DC=example,'),
+        @('CN=PC,', ''), @('CN=PC\,', '')
+    )){
+        Assert-Equal $pair[1] (Get-DomeniaRawDnParent $pair[0]) $pair[0]
+    }
+    # Compare with the established splitter over all short separator/escape sequences.
+    $alphabet=@('x',',',[string][char]92);$values=@('')
+    for($length=0;$length -lt 6;$length++){
+        $next=[Collections.Generic.List[string]]::new()
+        foreach($value in $values){foreach($char in $alphabet){
+            $dn=$value+$char;$next.Add($dn);$parts=@(Split-DomeniaRawDn $dn)
+            $expected=if($parts.Count -lt 2){''}else{$parts[1..($parts.Count-1)] -join ','}
+            Assert-Equal $expected (Get-DomeniaRawDnParent $dn) $dn
+        }}
+        $values=$next.ToArray()
+    }
+}
+
 Test-Case -Id 'COMMON-GETTER' -Name 'Une propriete existante illisible ne devient pas une valeur absente' -Body {
     $value=[pscustomobject]@{}
     $value|Add-Member -MemberType ScriptProperty -Name 'Broken' -Value {throw 'unreadable member'}

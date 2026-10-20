@@ -1,0 +1,40 @@
+{
+    "Suite":  "ObservationProjections",
+    "Passed":  true,
+    "Total":  6,
+    "Failed":  0,
+    "DatabaseUsed":  false,
+    "NetworkUsed":  false,
+    "Checks":  [
+                   {
+                       "Name":  "Canonical projection omits instance graph but preserves typed family readback unchanged",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "One failed family does not replace prior successful data or hide all other families",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Park scheduling projection retains provenance without rows or instances and does not mutate input",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Combined canonical families above old aggregate budget still produce independent summaries",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Incomplete enumeration cannot become an exact Count and truncation remains explicit",
+                       "Passed":  true,
+                       "Error":  ""
+                   },
+                   {
+                       "Name":  "Worker keeps exact revision and targeted family guards before StoreRead",
+                       "Passed":  true,
+                       "Error":  ""
+                   }
+               ]
+}

@@ -522,8 +522,8 @@
     "Save-UserMachineLinks": "BE795AF61C61794DFBB29B10146A8B867A5DCB4C22143448126BD067DC9256DE",
     "ConvertTo-DomeniaCanonicalWorkerCode": "48A6A851309CF03C8AA4802B160FC0C9D3234B795C63D0BAED6923BF42FE2FAF",
     "Get-DomeniaWorkerCodeHash": "6B81660F207AAEB37BA076144EDD12F5A926F9F64858B03755C2567E335C0D16",
-    "Get-DomeniaWorkerOperationHashes": "E8F09B97D0338C8640C60404034211900CC280A95CF77212833CEF577E2C6F96",
-    "Assert-DomeniaWorkerRegistry": "8E96946D0C79042C84C9CBFA5C78E1DEF9E12F9745A2AC029416F3D9E9D0D3C3",
+    "Get-DomeniaWorkerOperationHashes": "C586B58423B20C5EC4296CF6C4946D5D501F628A6C64BBD703E68190BA2B65A5",
+    "Assert-DomeniaWorkerRegistry": "4D4D13EA3198E591098DCF5BFD8C1B1E62427F8E9BC537C0E6943E454189E5C5",
     "Assert-DomeniaWorkerOperationCode": "41D63871EDC11F5765938E6DAF8004A01471CD63E9666E2569D6E43008032526",
     "Get-DomeniaWorkerEngineSelfTestCode": "7FB07491846A78A89C13351DC07ABCA7B150642EE02AA25FF430A19942001AF0",
     "New-DomeniaWorkerRunspace": "96B98B81FFA6E316DC13E5CDE4BBF8315CC20E4DDADB5E312834797FB853DE44",
@@ -4926,6 +4926,18 @@
         "Fail-DomeniaInventoryUi",
         "Initialize-DomeniaPresentation",
         "Initialize-Window"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
+    },
+    {
+      "Previous": "source tree",
+      "Source": "source tree",
+      "Decision": "RC1.17.37 : lecture AD redondante retiree des projections Fleet/Park ; parametre SkipDirectoryRows inactif par defaut, lectures StoreRead et LocalStore conservees. LocalIndexRead et LocalStore re-epingles apres relecture ; registre et empreinte regeneres.",
+      "ChangedCoreFunctions": [
+        "Assert-DomeniaWorkerRegistry",
+        "Get-DomeniaWorkerOperationHashes"
       ],
       "AddedCoreFunctions": [],
       "RemovedCoreFunctions": [],

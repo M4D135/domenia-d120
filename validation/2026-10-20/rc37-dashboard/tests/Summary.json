@@ -1,0 +1,30 @@
+﻿[
+    {
+        "Name":  "Common",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "Health",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "HealthAdvanced",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "HealthPolicies",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "Projections",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "Wiring",
+        "ExitCode":  0
+    },
+    {
+        "Name":  "WorkerBench",
+        "ExitCode":  0
+    }
+]

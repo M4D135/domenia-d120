@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.20-DOMENIA-1.0-RC1.17.36-D120",
-  "source_base_commit": "daec67b18d7a4011ea5afc692c07ead8be5ceefb",
+  "build": "2026.10.20-DOMENIA-1.0-RC1.17.37-D120",
+  "source_base_commit": "2e916526ded4bbe69ae2e948183ead474e8e9a6a",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3089828,
-      "sha256": "9cd534219157085a9a5e7258686df486ab7aca4390cf52ba515977b948383d74",
+      "bytes": 3090067,
+      "sha256": "380306786f83ea68e5a0a34cecffab55169743443aad14eeed137571b211f721",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,8 +17,8 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6594869,
-      "sha256": "252705ebda3274a967bc359aead20e8479f3182878f86194968ec93fd74c90f0",
+      "bytes": 6596375,
+      "sha256": "aeb66196a88a7fe9f202634d5658a832d684c01d424497798b8cc87ec0409169",
       "files": 647,
       "archive_files_including_manifest": 648,
       "archive_root": "dev/"
@@ -26,8 +26,8 @@
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC36_TARGETED_WINDOWS_PASSED_WITH_LAB_LIMITS",
-    "proof": "validation/2026-10-20/rc35-qualification/README.md",
+    "status": "RC37_TARGETED_PERFORMANCE_PASSED",
+    "proof": "validation/2026-10-20/rc37-dashboard/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "TARGETED_ONLY_NOT_GENERAL",
     "formal_publishable": false,
@@ -35,7 +35,7 @@
       134,
       146
     ],
-    "documentation_proof": "validation/2026-10-20/rc35-qualification/README.md",
+    "documentation_proof": "validation/2026-10-20/rc37-dashboard/README.md",
     "historical_rc17_proofs": [
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
@@ -71,11 +71,7 @@
       "ParkPing"
     ],
     "rc35_change": "Premiers pas : OU acceptée immédiatement visible ; première lecture fondée sur la couverture de cette OU ; lecture vide admise ; marqueurs inconnus, partiels seuls ou de profondeur incompatible refusés ; ancien calcul ignoré après changement de périmètre. Aucun worker modifié. La lecture AD partielle attend désormais son reçu de stockage avant le passage éventuel au ping/WMI ; son statut reste partiel. Fabrique PROD native alignée sur le traitement des helpers facultatifs ; parseur natif des workers aligné sur leurs corps composés et leurs dépendances.",
-    "vm_retained": {
-      "name": "DOMENIA-FIRSTRUN-20261020",
-      "uuid": "bc2f1ac0-9545-49bd-a0f5-cb89d352cf61",
-      "requested": true
-    },
+    "vm_retained": true,
     "rc36_change": "Grille compacte visible, délai SQLite hérité du contexte, phases ping/WMI et reprise durable corrigées ; préférences chargées avant la base au démarrage pour reprendre une restauration.",
     "historical_rc22_cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
     "historical_rc35_checks": {
@@ -122,7 +118,7 @@
         }
       ]
     },
-    "checks": {
+    "historical_rc36_checks": {
       "Build": "2026.10.20-DOMENIA-1.0-RC1.17.36-D120",
       "PROD_SHA256": "9cd534219157085a9a5e7258686df486ab7aca4390cf52ba515977b948383d74",
       "DEV_SHA256": "252705ebda3274a967bc359aead20e8479f3182878f86194968ec93fd74c90f0",
@@ -131,6 +127,16 @@
       "UiFinalProof": "validation/2026-10-20/rc35-qualification/ui-out/FirstStepsReopen-Result.json",
       "StoragePreferencesPassed": 7,
       "CriticalFunctionalPending": []
+    },
+    "rc37_change": "Calcul du dashboard : suppression des relectures AD redondantes des projections Fleet/Park, parent DN sans decoupage complet.",
+    "worker_operations_changed_rc37": [
+      "LocalIndexRead",
+      "LocalStore"
+    ],
+    "checks": {
+      "performance": "40.40 s → 10.42 s (médianes, −74.2 %)",
+      "windows": "tests/Summary.json et pack/Summary.json",
+      "full_campaign": false
     }
   }
 }
