@@ -178,7 +178,12 @@ function Update-DomeniaParkRunStatus {
         if(-not $r.PingOnly){$text+=' '+$r.Reused+' identités en cache, '+$r.Changed+' association(s) créée(s) ou changée(s), '+$r.CachedMeasurements+' mesures encore fraîches réutilisées.'}
         if(-not $r.Completed){
             $retryWait=0
-            if($null -ne $r.PSObject.Properties['Retry'] -and $null -ne $r.Retry){$retryWait=@($r.Retry).Count}
+            # PS 5.1 throws "Argument types do not match" on Properties['Retry'] for this run object.
+            try{
+                $retryMember=$null
+                foreach($member in @($r.PSObject.Properties)){if([string]$member.Name -ceq 'Retry'){$retryMember=$member;break}}
+                if($null -ne $retryMember -and $null -ne $retryMember.Value){$retryWait=@($retryMember.Value).Count}
+            }catch{$retryWait=0}
             $phase=$(if($r.PingOnly){'Échos envoyés par lots.'}else{[string]$r.Pending.Count+' en WMI / '+[string]$r.Concurrency})
             if([string]$r.PingJob){$phase+=', ping en cours'}
             if($retryWait -gt 0){$phase+=', '+[string]$retryWait+' en nouvel essai (hors des créneaux)'}

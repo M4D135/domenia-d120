@@ -1316,7 +1316,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "10F9285CCB273B07A340360F562E848EEB3F2EB25AA971CD7EE25D4987E621BA",
+      "Sha256": "CA9358D71D5276F395A121127CBE825AA0A50A6059758ED10135B42795DD8A93",
       "Bytes": 39414,
       "Runtime": false,
       "PreserveExisting": false
@@ -2814,8 +2814,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Park.UI.ps1",
-      "Sha256": "B0711140B16F97C77741281931B1EA7DE583C7576EA133D74ECD20EF47FE4D70",
-      "Bytes": 156700,
+      "Sha256": "B93AC155146D3201821E6E09569F9FF0CD9CABC41E83064F938CE7B97634FA09",
+      "Bytes": 157021,
       "Runtime": true,
       "PreserveExisting": false
     },

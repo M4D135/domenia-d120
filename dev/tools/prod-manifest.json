@@ -812,8 +812,8 @@
     },
     {
       "Path": "wad/modules/Domenia-Park.UI.ps1",
-      "Sha256": "B0711140B16F97C77741281931B1EA7DE583C7576EA133D74ECD20EF47FE4D70",
-      "Bytes": 156700,
+      "Sha256": "B93AC155146D3201821E6E09569F9FF0CD9CABC41E83064F938CE7B97634FA09",
+      "Bytes": 157021,
       "Runtime": true,
       "PreserveExisting": false
     },
