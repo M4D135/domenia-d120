@@ -1,6 +1,6 @@
 # Reprise RC1.17.39 — programme des 60 points
 
-## État au 20 octobre 2026, après checkpoint 8d031aa et retests R2/R4
+## État au 20 octobre 2026, retests R2/R4/R5/R6 acquis, visuel final en cours
 
 **Livraison non terminée.** Master et master distant restent `4987773325c0849129960c35b50790396ac1fc2b` (RC38). Dernier checkpoint poussé/vérifié : `8d031aa65999a33c5c2aa42b8f89f9f5d81d914f`, branche `codex/rc39-60points-checkpoint`. Ce WIP contient code, suivi, guides et preuves, mais n'est pas un pack qualifié. Les correctifs et reçus R4 postérieurs restent à sauvegarder au prochain jalon.
 
@@ -13,7 +13,7 @@ Les lots collectes 18–29, parcours/dashboard 30–48, stockage 49–54, aperç
 - **6** : delta des champs simples et protections intégrés ; R2 LocalPreview **21/21**, y compris génération du panneau de connexions, invalidation des droits, fraîcheur/secrets. Les formes sensibles/inconnues gardent le remplissage complet.
 - **38** : caches de plans/cartes, record Query Computer exact et fournisseur logiciel intégrés. R2 QueryTargets **39/39**, Boards Programme 38 **4/4** ; `SelectionComplete=true`, `Complete=false` (pas les 73 cas). Aucun gain global chiffré.
 - **8** : modèle observable et virtualisation des conteneurs intégrés. R2 compilation, TreeRendering **4/4**, Navigation Programme 8 **5/5** (sous-ensemble). Après les trois échecs R2/R3 et correction du trigger de thème imposant un panneau standard, R4 TreeVirtualization **8/8** : WPF réel, 10 000 DTO synthétiques, 40 conteneurs au premier relevé, maximum 61 sur neuf cibles. Aucun AD/réseau réel ni benchmark mémoire du processus. Aucun OpenCode actif.
-- **WiringRecherche** : R4 lancé sans filtre, **47/53** ; les dix cas visés en R2 passent. Six autres échecs restent confiés à parcours pour correction/retest. Le résultat de l’arbre ne clôture pas ce banc séparé.
+- **WiringRecherche** : **47 succès R4 + 5 retests réussis R5 + D028 réussi R6**. Aucun échec connu restant parmi ces cas ; les 53 cas ne sont pas rejoués ensemble. Les anciens échecs et retests filtrés `Complete=false` restent conservés.
 
 Registres fermés, manifeste, contrats workers et preload doivent être rafraîchis **après** fin des écritures. Le candidat R1 a passé le contrôle de 176 fichiers/133 modules ; les hashes doivent être renouvelés après les corrections finales. Ne pas relancer le runner 34 suites `Verify-60.ps1` abandonné.
 
@@ -32,7 +32,7 @@ Guides sources RC39 et quatre DOCX/PDF régénérés, QA visuelle et synchronisa
 
 ## Suite à exécuter
 
-1. Corriger/rejouer les six échecs WiringRecherche R4 ; conserver les échecs initiaux et leurs retests. Runtime gelé après le dernier correctif confirmé, sans nouvelle génération.
+1. Conserver les reçus WiringRecherche : 47 succès R4, cinq retests réussis R5, D028 réussi R6 ; aucun échec connu restant, sans nouveau passage intégral des 53 cas. Runtime gelé, sans nouvelle génération.
 2. Rapprocher les hashes des preuves R1/R2/R3/R4, régénérer registres/manifestes si nécessaire et construire les archives DEV/PROD finales. Ne pas répéter les suites inchangées.
 3. Contrôler le démarrage natif du pack final et réouvrir/capturer avec `Visual-Final.ps1` ; vérifier réellement les pixels.
 4. Finaliser Suivi/README/packs, vérifier la parité applicative avec le candidat testé, puis push master normal et SHA distant. Le garde formel Publishable=false n'est pas à contourner : recette critique ciblée ≠ qualification générale complète.
@@ -67,3 +67,13 @@ Checkpoint code stable vérifié `81ac0cb66a246bce9061d5fa9ffd030f7fd0017a`. Ré
 R2 dans `validation/2026-10-20/rc39-critical/rc39-final-retest` : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (`SelectionComplete=true`, `Complete=false`), TreeRendering 4/4, Navigation Programme 8 5/5 (`Complete=false`), règles pures Park 14/14. Les autres succès R1 restent inchangés : modules 185, favoris 20, associations 5, diagnostic 4, D024 1 et règles BoardFleet 26/Collection 49/DirectorySync 11/Observability 17.
 
 R4 `rc39-tree-r4/TreeVirtualization.json` : 8/8 sous WPF réel, 10 000 données synthétiques, maximum 61 conteneurs sur neuf cibles (premier relevé 40). Les échecs R2/R3 restent conservés ; le panneau standard imposé par le trigger hérité a été corrigé. Ce résultat ne mesure pas la mémoire du processus et ne qualifie pas un parc AD réel. WiringRecherche R4 a été lancé sans filtre : 47/53 ; les dix cas visés en R2 passent, six autres échecs sont en correction/retest chez parcours. Voir le README des preuves pour les liens et limites exactes. Point 59 hors passe ; `acceptance_passed=false` et qualification générale ouverte.
+
+## Contrôle visuel final : profil corrigé, retest en cours
+
+Le profil copié de `RC39-critical-ui` vers `RC39-final-ui` conserve l’identité SQLite de l’ancien chemin. Le premier lancement final a donc signalé huit erreurs, dont les refus de contexte LocalIndexRead/LocalStore. Vérification du code : `Store.Model.ps1:Get-DomeniaStoreId` lie l’identité au chemin complet normalisé et au domaine ; les gardes restent actives. Le Diagnostic.json classe ce premier passage NOT_ACCEPTED_DESPITE_UIA_NAVIGATION_PASS : le Passed=true du script de navigation ne vaut pas validation visuelle.
+
+Décision : conserver le `data` original et installer le runtime final en place dans `C:\DomeniaLab\RC35-qualification\RC39-critical-ui\prod`, 177 fichiers vérifiés après l’upgrade en place (archive SHA256 82752528…), puis reprendre le parcours visuel avec arbre peuplé et aucun nouvel ERROR. Résultat final et revue des pixels encore attendus. Archives initiales et preuves conservées ; aucun DDL ni StoreId forcé. Un déplacement réel vers un autre chemin passe par la maintenance Déplacer/Restaurer, qui vérifie et réidentifie une copie avant bascule. La copie manuelle du profil ne réalise pas cette migration.
+
+## Clôture des échecs WiringRecherche connus
+
+Les reçus `rc39-final-close/WiringRecherche.json` (R5 : cinq succès, D028 encore en échec) et `rc39-wiring-final/WiringRecherche.json` (R6 : D028 1/1, ExitCode 0) ferment les six échecs du passage R4. Bilan cumulé 47 + 5 + 1 ; les 53 cas ne sont pas rejoués ensemble. Les jalons antérieurs ci-dessus conservent leur état historique. Aucun verdict global des 60 points ni acceptance_passed=true ; contrôle visuel final encore en cours.

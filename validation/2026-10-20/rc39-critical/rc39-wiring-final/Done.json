@@ -1,0 +1,13 @@
+{
+    "Test":  "WiringRecherche",
+    "ExitCode":  0,
+    "TimedOut":  false,
+    "ElapsedMs":  43899,
+    "SourceSha256":  "3D97AEAF394AA3C9963B92BE58F727A528BBDDAB773E3B9920B28CCACF81FCC7",
+    "Arguments":  [
+                      "-Filter",
+                      "^D028 ",
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\RC35-qualification\\rc39-wiring-final\\WiringRecherche.json"
+                  ]
+}

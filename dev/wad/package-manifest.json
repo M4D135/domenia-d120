@@ -777,29 +777,29 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-20/Point8-TvDirectory.md",
-      "Sha256": "EA134743B8726F144127A03DE6D2AC054820F223F19572AA8E0981E217E3ED32",
-      "Bytes": 2512,
+      "Sha256": "B4BD9ABF5A6D6CDFA67B4D1CB00929DB5C91E8539BF19189460BB65C1737C518",
+      "Bytes": 1968,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/programme-2026-10-20/Point8-Virtualisation.md",
-      "Sha256": "9B6CA2D97E005460BC48F15CD8DA9F8DC24A880095D410B8D3E55EAA51796D97",
-      "Bytes": 4650,
+      "Sha256": "F35D593C200FF481AB79C3AF0A5D9359600EAB19AC6E3A6C6A9CC8B78F9F7F8B",
+      "Bytes": 5158,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/programme-2026-10-20/REPRISE.md",
-      "Sha256": "3E0946CC0B6701A7B61015AB3D9120E655F596EF00EAB13806AD8C0A89D83783",
-      "Bytes": 7728,
+      "Sha256": "F14BC06D087CD0FD72BF35CF75AE6827ADFAF953FCA6E38A13BDFA880DBE3E5E",
+      "Bytes": 10489,
       "Runtime": false,
       "PreserveExisting": false
     },
     {
       "Path": "engineering/d120/programme-2026-10-20/Revue-Spark.md",
-      "Sha256": "4E894C1B3C0EFC278654D2CCBBA1504CBC9CCEF2E56FD366584443387DAC1E9F",
-      "Bytes": 11888,
+      "Sha256": "B27CFD1E90B3F2BBE9BC03DD17B3844493497CC26A9DE31BE858857F90A44117",
+      "Bytes": 12180,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -812,8 +812,8 @@
     },
     {
       "Path": "engineering/d120/programme-2026-10-20/Suivi_60.json",
-      "Sha256": "F613A8A188C31C4EE11F81E89A8D9AFDF5F600EC4C2FB42A59200173FEB49032",
-      "Bytes": 59982,
+      "Sha256": "38A2F4055DC285374E935E8977E281E67E67F9986DCB2AAFD51872B3729D7EDF",
+      "Bytes": 66873,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -1400,7 +1400,7 @@
     },
     {
       "Path": "tools/prod-manifest.json",
-      "Sha256": "BE03D5F0B17753E9E4748D7938A551BCE00B22E9A2256B4373DC30A5D413B781",
+      "Sha256": "EBDF826A04DEA5FD6BC5960A3DB3BFB02EF1F91A8EB408BA5EF3A2FBFE1DCF12",
       "Bytes": 40343,
       "Runtime": false,
       "PreserveExisting": false
@@ -1694,8 +1694,8 @@
     },
     {
       "Path": "wad/Domenia-Main.xaml",
-      "Sha256": "A6539777EBD3695D81DEF0DD2BFFB074C195A98C7CAED2812493E2E5EED806DA",
-      "Bytes": 442641,
+      "Sha256": "CBA3BC59F75E1A0D55E9C9A94DC0349120798CD9CF40DA35017E398093D88D00",
+      "Bytes": 442859,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -2660,8 +2660,8 @@
     },
     {
       "Path": "wad/modules/Domenia-DirectoryTree.UI.ps1",
-      "Sha256": "865C98F8CCDFD49552F3B5E8B2BDE08FE2405F89F815F3370B8AF7D5FEC70EC6",
-      "Bytes": 12404,
+      "Sha256": "BEB4EFEA536E574093D4826957BD790F813DC8BB03CCBB0B464C2B252715EC89",
+      "Bytes": 13453,
       "Runtime": true,
       "PreserveExisting": false
     },
@@ -4095,8 +4095,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaTreeVirtualization.ps1",
-      "Sha256": "D58566D45E02A317B201E3CA6953E91B85102D0EB06704155A6197B4F7CA7F1A",
-      "Bytes": 11330,
+      "Sha256": "D1CDEDB15329181D52BED0EAD2D4B7DF68B6E2A3352AE4DAEF48B07CF26C7AA6",
+      "Bytes": 15993,
       "Runtime": false,
       "PreserveExisting": false
     },
@@ -4186,8 +4186,8 @@
     },
     {
       "Path": "wad/tests/Test-DomeniaWiringRecherche.ps1",
-      "Sha256": "E8726438ADC84F96DE239E53201DB5A85E2245BFAA620325EBAD1230B73A910A",
-      "Bytes": 115556,
+      "Sha256": "3D97AEAF394AA3C9963B92BE58F727A528BBDDAB773E3B9920B28CCACF81FCC7",
+      "Bytes": 121113,
       "Runtime": false,
       "PreserveExisting": false
     },

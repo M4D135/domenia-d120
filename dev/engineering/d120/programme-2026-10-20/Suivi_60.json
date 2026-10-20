@@ -161,7 +161,9 @@
         "validation/2026-10-20/rc39-critical/rc39-final-retest/TreeVirtualization.json",
         "validation/2026-10-20/rc39-critical/rc39-final-retest/Navigation.json",
         "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
-        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json"
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json"
       ],
       "limites": [
         "R4 TreeVirtualization 8/8 sous WPF réel sur 10 000 DTO synthétiques ; 40 conteneurs au premier relevé, maximum 61 sur neuf cibles. SyntheticOnly=true : aucun AD/réseau réel ni benchmark de mémoire du processus. Navigation Programme 8 5/5 est un sous-ensemble (Complete=false).",
@@ -169,7 +171,7 @@
         "Le quota commun et la tranche coopérative de 8 ms ne sont pas une garantie temps réel ; une opération WPF native ne peut pas être préemptée."
       ],
       "mise_en_oeuvre": "Grilles virtualisées ; arbre séparant les données observables des TreeViewItem générés et recyclés par WPF. Template hiérarchique et panneau virtuel à chaque niveau ; filtre sur les vues de données ; sélection/expansion/favoris conservés dans les DTO. Révélation du seul chemin cible par ticks avec annulation sur changement de contexte. Budget global, équité et groupes du job parent conservés. Compilation des quatre types différée au premier usage.",
-      "portee_tests": "D023 reçu pour les grilles. R2 : compilation, TreeRendering 4/4 (vrais types, pas de qualification du rendu WPF), Navigation Programme 8 5/5 (contrôles WPF, dépendances doublées). R4 : TreeVirtualization 8/8, révélation lointaine, recyclage/favori, groupe, filtre, feuille non lue et annulation epoch ; compteurs de lecture restent nuls sur les chemins programmés. Les trois échecs de révélation R2/R3 restent conservés ; trigger du thème/panneau enfant corrigé. WiringRecherche R4, lancé sans filtre : 47/53, dont les dix cas précédemment ciblés réussis ; six autres échecs sont en correction/retest, sans clôture du banc complet.",
+      "portee_tests": "D023 reçu pour les grilles. R2 : compilation, TreeRendering 4/4 (vrais types, pas de qualification du rendu WPF), Navigation Programme 8 5/5 (contrôles WPF, dépendances doublées). R4 : TreeVirtualization 8/8, révélation lointaine, recyclage/favori, groupe, filtre, feuille non lue et annulation epoch ; compteurs de lecture restent nuls sur les chemins programmés. Les trois échecs de révélation R2/R3 restent conservés ; trigger du thème/panneau enfant corrigé. WiringRecherche R4, lancé sans filtre : 47/53, dont les dix cas précédemment ciblés réussis ; les six échecs ont ensuite passé leurs retests (cinq en R5, D028 en R6). Bilan cumulé : 47 R4 + 5 R5 + 1 R6 ; les 53 cas ne sont pas rejoués ensemble.",
       "reste_code": []
     },
     {
@@ -947,7 +949,8 @@
         "validation/2026-10-20/rc39-critical/rc39-critical-tests/StoragePreferences.json"
       ],
       "limites": [
-        "Retour UI et redémarrage après restauration complète/ancienne copie non qualifiés."
+        "Retour UI et redémarrage après restauration complète/ancienne copie non qualifiés.",
+        "Le StoreId est lié au chemin complet et au domaine : copier manuellement un profil vers un autre chemin ne migre pas son identité. Utiliser Déplacer/Restaurer ; le premier contrôle visuel final sur profil déplacé a été refusé et doit être rejoué au chemin original conservé."
       ],
       "mise_en_oeuvre": "Paire DB + annexe préférences liée SHA256, limites taille/profondeur et aperçu revérifiés ; rollback préférences ; anciennes copies annoncées données seules.",
       "portee_tests": "Restauration données/requêtes/snapshot complet, hash/profondeur/annexe altérée refusés ; layouts/choix et rollback disque réussis.",
@@ -1042,7 +1045,9 @@
       ],
       "tests_windows": "PARTIELS_REUSSIS",
       "preuves_tests": [
-        "validation/2026-10-20/rc39-critical/rc39-final-delta/AssociationRows.json"
+        "validation/2026-10-20/rc39-critical/rc39-final-delta/AssociationRows.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json"
       ],
       "limites": [
         "Extraction ciblée, pas découpage complet du cœur ; banc local, sans parcours AD réel."
@@ -1071,13 +1076,15 @@
         "validation/2026-10-20/rc39-critical/rc39-final-retest/Boards.json",
         "validation/2026-10-20/rc39-critical/rc39-final-retest/QueryTargets.json",
         "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
-        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json"
+        "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+        "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json"
       ],
       "limites": [
-        "Contrôles critiques seulement ; R2/R4 confirment les cas nommés. WiringRecherche R4 sans filtre : 47/53, six échecs conservés et confiés au lot parcours pour correction/retest."
+        "Contrôles critiques seulement. WiringRecherche : 47 succès R4, cinq retests réussis R5 et D028 réussi R6 ; aucun échec connu restant dans ces cas, sans réexécution intégrale des 53 cas. Rapports historiques en échec conservés."
       ],
       "mise_en_oeuvre": "Fixtures LocalPreview/Live/Wiring chargent leurs vraies dépendances ; assertions conservées, incidents/opérations fictives couverts par bancs Python.",
-      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; six autres échecs en cours de correction/retest.",
+      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; les six échecs passent ensuite : cinq en R5, D028 en R6. Bilan cumulé 47 + 5 + 1 ; suite complète non rejouée.",
       "reste_code": []
     },
     {
@@ -1103,10 +1110,10 @@
         "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json"
       ],
       "limites": [
-        "Contrôles critiques seulement ; R2/R4 confirment les cas nommés. WiringRecherche R4 sans filtre : 47/53, six échecs conservés et confiés au lot parcours pour correction/retest."
+        "Contrôles critiques seulement. WiringRecherche : 47 succès R4, cinq retests réussis R5 et D028 réussi R6 ; aucun échec connu restant dans ces cas, sans réexécution intégrale des 53 cas. Rapports historiques en échec conservés."
       ],
       "mise_en_oeuvre": "Verify-Critical orchestre une recette critique réduite ; scénario AD/WMI/SQL réel séparé.",
-      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; six autres échecs en cours de correction/retest.",
+      "portee_tests": "R1 acquis conservés. R2 : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (SelectionComplete=true, Complete=false), TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 : TreeVirtualization 8/8 WPF réel/synthétique après trois échecs de révélation R2/R3 ; WiringRecherche R4 sans filtre : 47/53, les dix cas ciblés antérieurement passent ; les six échecs passent ensuite : cinq en R5, D028 en R6. Bilan cumulé 47 + 5 + 1 ; suite complète non rejouée.",
       "reste_code": []
     },
     {
@@ -1203,7 +1210,11 @@
     "validation/2026-10-20/rc39-critical/rc39-final-retest/Done.json",
     "validation/2026-10-20/rc39-critical/rc39-final-retest/Rules-Park.json",
     "validation/2026-10-20/rc39-critical/rc39-tree-r4/TreeVirtualization.json",
-    "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json"
+    "validation/2026-10-20/rc39-critical/rc39-tree-r4/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-final-close/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-wiring-final/WiringRecherche.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-initial/Diagnostic.json",
+    "validation/2026-10-20/rc39-critical/rc39-visual-initial/VisualFinal-Result.json"
   ],
   "lecture_statuts": {
     "code": "DEJA_EXISTANT_RELU : mécanisme raccordé relu ; IMPLEMENTE : ajout/correctif intégré ; PARTIEL_RESTE_CODE : lacune connue ; ETUDE_TERMINEE : décision documentée. Aucun de ces états ne clôture la qualification.",
@@ -1243,15 +1254,15 @@
       }
     ],
     "qualification_critique_restante": [
-      "WiringRecherche R4 lancé sans filtre : 47/53, les dix cas visés en R2 passent ; six autres échecs restent confiés au lot parcours pour correction et retest ciblé. Arbre R4 8/8 et R2 TreeRendering 4/4 acquis dans leur portée synthétique.",
-      "Rapprocher les reçus R1/R2/R3/R4 et hashes du runtime figé, reconstruire les packs, vérifier leur parité et terminer le contrôle visuel final."
+      "WiringRecherche : aucun échec connu restant après 47 succès R4, cinq retests réussis R5 et D028 réussi R6 ; les 53 cas ne sont pas rejoués ensemble. Arbre R4 8/8 et R2 TreeRendering 4/4 acquis dans leur portée synthétique.",
+      "Terminer le contrôle visuel après upgrade en place au chemin original : 177 fichiers vérifiés. Le premier passage sur profil déplacé est rejeté par Diagnostic.json malgré Passed=true du script de navigation ; aucun succès visuel final déclaré à ce jalon."
     ],
     "qualification_non_executee_hors_passe": [
       "Suites intégrales Boards et Navigation non rejouées : seuls les filtres Programme 38 et Programme 8 passent en R2. Règles Park 14, BoardFleet 26, Collection 49, DirectorySync 11 et Observability 17 réussies ; elles ne prouvent pas à elles seules les parcours WPF/réseau. UxQualification et campagnes complètes restent non exécutées.",
       "Échelle/endurance/mémoire, latences de navigation, réseau dégradé étendu, DPI et accessibilité (59) : hors périmètre critique demandé.",
       "Rotations sur longue période, destination de sauvegarde inaccessible, volume physiquement plein, restauration complète depuis l’interface/redémarrage, coordinateur de migration complet : non qualifiés."
     ],
-    "livraison": "Packs CANDIDAT R1 DEV/PROD : 176 fichiers runtime identiques, contrôles de paquet réussis. Corrections R2/R3 et retest final encore en cours ; hashes des archives finales à rapprocher. WindowsQualification non clôturée, Publishable=false ; aucun pack final publié.",
+    "livraison": "Packs reconstruits après R4 ; upgrade du PROD final au chemin original, 177 fichiers vérifiés selon le reçu root (archive SHA256 82752528…). Retest visuel en cours. WindowsQualification non clôturée, Publishable=false ; aucun pack final publié.",
     "guides": "Quatre DOC compilés et synchronisés ; QA visuelle passée sans exécution native Word. Texte RC39, captures RC20 explicitement historiques."
   },
   "correctifs_apres_recus": {
@@ -1260,14 +1271,14 @@
       8,
       38
     ],
-    "etat": "DELTA_PARTIELS_REUSSIS_RETEST_WIRING_EN_ATTENTE",
+    "etat": "DELTA_CRITIQUES_REUSSIS_CONTROLE_VISUEL_EN_COURS",
     "statique": "Contrôle lexical Python PASS sur 350 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Aucun parseur natif ni test Windows exécuté par le sous-lot.",
     "tests_ecrits": [
       "R2 Test-DomeniaLocalPreview : 21/21, dont les deux cas Programme 6 ; vrai callback, champs ciblés, générations, droits, fraîcheur et secrets.",
       "R2 Test-DomeniaBoards filtre Programme 38 : 4/4, SelectionComplete=true, Complete=false ; plans, compteurs WPF, dépendances et cache fournisseur logiciel. Les 73 cas ne sont pas tous exécutés.",
       "R2 Test-DomeniaQueryTargets : 39/39 ; vrais records/DLL, données locales, invalidations ciblées et filtre de sonde caché.",
-      "R2 TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 TreeVirtualization 8/8 WPF réel/synthétique après correction du panneau enfant ; WiringRecherche R4 sans filtre : 47/53, six échecs restent à corriger/rejouer ; les dix cas visés en R2 sont réussis."
+      "R2 TreeRendering 4/4, Navigation Programme 8 5/5 (Complete=false), règles Park 14/14. R4 TreeVirtualization 8/8 WPF réel/synthétique après correction du panneau enfant ; WiringRecherche R4 sans filtre : 47/53, les six échecs passent ensuite (cinq en R5, D028 en R6). Les dix cas visés en R2 sont réussis ; bilan cumulé 47 + 5 + 1, suite complète non rejouée."
     ],
-    "limite": "Les rapports sont liés aux sources de leur passage. R4 qualifie les scénarios WPF synthétiques de l’arbre ; WiringRecherche et la liaison au pack final restent en cours. Aucun verdict global des 60 points."
+    "limite": "Les rapports sont liés aux sources de leur passage. R4 qualifie les scénarios WPF synthétiques de l’arbre ; les six échecs WiringRecherche passent leurs retests R5/R6. Le contrôle visuel final reste en cours après rejet du profil déplacé manuellement. Aucun verdict global des 60 points."
   }
 }
