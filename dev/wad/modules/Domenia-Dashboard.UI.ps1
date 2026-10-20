@@ -1033,6 +1033,7 @@ function Get-DomeniaFirstStepsState {
     # knows, through the pure rule Get-DomeniaFirstRunPlan: no request, no scan.
     $domain = ''; $account = ''; $connected = $false
     try { $connected = [bool]$script:Conn.Connected; $domain = [string]$script:Conn.Domain; $account = [string]$script:Conn.BindUser } catch { $connected = $false }
+    $offline = ((-not $connected) -and [bool]$domain)
     if (-not $connected) { $domain = '' }
     $scopeDn = ''; $scopeName = ''; $scopeSubtree = $true
     try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name; $scopeSubtree = [bool]$scope.Subtree } } catch { $scopeDn = '' }
@@ -1040,16 +1041,17 @@ function Get-DomeniaFirstStepsState {
     try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
     # Unknown coverage is not a completed read. A later partial attempt preserves an earlier complete coverage,
     # whose At remains available; a partial attempt alone, a legacy depth or an empty marker set proves nothing.
-    $scopeRead = $false
+    $scopeRead = $false; $readInterrupted = $false
     if ($connected -and $scopeDn -and ($indexed -ge 0) -and ($null -ne $script:IndexSyncStates)) {
         try {
             $coverage = Get-DomeniaFleetFreshness -ScopeDn $scopeDn -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree $scopeSubtree
+            $readInterrupted = [bool]$coverage.Partial
             $scopeRead = (($null -ne $coverage.At) -and ([string]$coverage.Status -in @('Complete','Partial')))
         } catch { $scopeRead = $false }
     }
     $seen = $false
     try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
-    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen -ScopeRead $scopeRead
+    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen -ScopeRead $scopeRead -ReadInterrupted $readInterrupted -Offline $offline
 }
 function Update-DomeniaFirstSteps {
     # Card shown until the four steps are done once, then hidden for good (local preference). The account used on the
@@ -1139,6 +1141,22 @@ function Update-DomeniaComputerDashboard {
     $text = if ($board.Summary) { [string]$board.Summary } else { 'Tableau de bord de l inventaire du ' + (Get-Date -Format 'dd/MM/yyyy HH:mm') + '.' }
     [void](Set-DomeniaControlText 'LblComputerDashboard' $text)
 }
+function Get-DomeniaCachedSoftwareBoardData {
+    # This pure provider has explicit inputs: uninstall rows, local calendar day and its two neutral colours.
+    # A single bounded entry avoids repeating all grouping/sorting on a repeated presentation. Unknown or large
+    # input shapes take the ordinary provider path; no reference-only cache can hide an in-place row mutation.
+    param($Rows,$ObservedAtUtc=$null,$Now=$null)
+    if($null -eq $Now){$Now=Get-Date}
+    $state=Get-DomeniaBoardState Software
+    $context=@((Get-DomeniaBoardRenderContext Software),[string]$script:DatabaseScopedPath,[string]$script:SelectedObject.RenderIdentity)
+    $key=ConvertTo-DomeniaWidgetDependencyStamp -Value @('SoftwareProvider.1',$context,$Rows,$ObservedAtUtc,$Now.Date,(Get-DomeniaBoardColor 'Off'),(Get-DomeniaBoardColor 'Other'),[Globalization.CultureInfo]::CurrentCulture.Name,[Globalization.CultureInfo]::CurrentUICulture.Name)
+    $cached=$state.SoftwareProviderCache
+    if($key -and $null -ne $cached -and $cached.Key -ceq $key){return $cached.Data}
+    $data=Get-DomeniaSoftwareBoardData -Rows $Rows -Now $Now
+    $data|Add-Member -NotePropertyName ObservedAtUtc -NotePropertyValue $ObservedAtUtc -Force
+    if($key){$state.SoftwareProviderCache=[pscustomobject]@{Key=$key;Data=$data}}else{$state.SoftwareProviderCache=$null}
+    return $data
+}
 function Update-DomeniaSoftwareDashboard {
     param($Rows,$ObservedAtUtc=$null)
     $items = @($Rows | Where-Object { $null -ne $_ -and [string]$_.Name })
@@ -1147,8 +1165,7 @@ function Update-DomeniaSoftwareDashboard {
         [void](Set-DomeniaControlText 'LblSoftwareDashboard' 'Aucun logiciel lu.')
         return
     }
-    $board = Get-DomeniaSoftwareBoardData -Rows $items
-    $board|Add-Member -NotePropertyName ObservedAtUtc -NotePropertyValue $ObservedAtUtc
+    $board = Get-DomeniaCachedSoftwareBoardData -Rows $items -ObservedAtUtc $ObservedAtUtc
     Show-DomeniaBoard -Board Software -Data $board
     [void](Set-DomeniaControlText 'LblSoftwareDashboard' $(if ($board.Summary) { [string]$board.Summary } else { [string]$items.Count + ' logiciels lus. Synthese calculee sur la liste chargee.' }))
 }

@@ -1,5 +1,7 @@
 # 1 Administrer Domenia
 
+Édition du texte mise à jour pour Domenia 1.0 · RC1.17.39. Les captures d’écran restent celles de la RC1.17.20, avec des données fictives ; elles servent de repères visuels et certains détails de l’interface peuvent différer.
+
 Domenia réunit la recherche Active Directory, l'assistance sur les postes Windows, une base locale du parc et des tableaux de bord. Ce guide s'adresse aux administrateurs qui préparent les comptes, installent l'application, règlent la collecte et entretiennent les données. Le guide technicien décrit les gestes du quotidien.
 
 La base locale et les dernières observations permettent de consulter le parc sans relancer une lecture distante. Les compteurs doivent toujours se lire avec leur périmètre, leur source et leur date. Une donnée absente ou trop ancienne reste inconnue ; elle ne doit pas être assimilée à un poste sain.
@@ -19,6 +21,8 @@ La taille, la position et l’état normal ou maximisé de la fenêtre sont mém
 Dans Outils, Base autonome, Stockage, ouvrez la section de sauvegardes automatiques et de conservation. Activez la sauvegarde automatique, choisissez son intervalle et le nombre de copies à conserver, puis enregistrez. Domenia doit rester ouvert pour déclencher les copies dues ; la fermeture de l’application arrête sa minuterie. Au lancement suivant, les réglages sont repris et les échéances sont de nouveau vérifiées. Une première copie est créée lors du premier contrôle si aucune sauvegarde précédente n’est enregistrée.
 
 Vérifiez la réussite dans le journal de session et conservez une copie séparée avant toute intervention sur les données. La sauvegarde est une copie cohérente de la base SQLite ; les données du domaine d’origine et la destination doivent être contrôlées avant restauration.
+
+Les sauvegardes complètes récentes incluent aussi les réglages décrits dans la section « Restaurer une sauvegarde ». Pour préparer une restauration complète, copiez et conservez ensemble le fichier NOM.db et son annexe NOM.db.preferences.json, liée à l’empreinte SHA-256 exacte de la base.
 
 ## Préparer une exploitation fiable
 
@@ -375,7 +379,9 @@ Quand on sélectionne un autre objet, les tableaux du poste et des logiciels son
 - Verdict : au moins un point critique donne « Critique » ; sinon 85 et plus « Bon état », 60 et plus « À surveiller », en dessous « Dégradé ».
 - Exemples : un point à surveiller donne 90 « Bon état » ; un point critique donne 75 « Critique ».
 - Le score et la liste portent sur toutes les vérifications, que leur widget soit affiché ou non. La liste est triée : critiques, à surveiller, puis informations.
-- Parc : le score est la part des postes évalués sans point détecté. Les postes incomplets sont comptés à part, jamais comme sains. Dès qu’un poste n’est pas évalué, la couverture s’affiche à côté du score, par exemple « couverture 90 % (18 évalué(s) sur 20) ». Sous 50 % des comptes activés évalués, aucun score n’est affiché : « Couverture insuffisante », ou « Critique » si un point critique est établi.
+- Parc : le score est la part des postes évalués sans point détecté. Les postes incomplets sont comptés à part, jamais comme sains. Dès qu’un poste n’est pas évalué, la couverture s’affiche à côté du score, par exemple « couverture 90 % (18 évalué(s) sur 20) ». Sous 50 % des comptes activés évalués, aucun score n’est affiché : « Couverture insuffisante », ou « Critique » si un point critique est établi.
+- Trois constats restent séparés : sain (données évaluables, aucun point signalé), problème (signalé, même pendant une suspension motivée) et inconnu (couverture absente ou partielle). Tout compteur se lit avec son périmètre, sa date et sa source agrégée ; la donnée manquante n’est jamais assimilée à un bon état.
+- Chaque point s’explique : sa raison (règle et seuil), la valeur lue, la source et la période réellement connues ; la date de calcul ne remplace jamais la date de collecte. L’explication indique les données manquantes et ouvre la vue où lancer leur collecte ; cette navigation ne lance rien automatiquement. Une exception doit être motivée et limitée dans le temps, et le problème reste identifiable.
 
 ## Règles du poste
 
@@ -715,6 +721,7 @@ Limites d'affichage : un anneau montre 8 parts au plus, les plus petites regroup
 - Disposition de l'équipe : l'administrateur exporte la disposition voulue (« Exporter » en personnalisation), puis recopie le fichier, ou sa seule liste « Layout », dans la clé Dashboard.DefaultLayoutComputer, Dashboard.DefaultLayoutFleet ou Dashboard.DefaultLayoutSoftware de wad\Domenia.config.json. Elle s'applique aux tableaux jamais personnalisés et à « Par défaut ». Elle ne garde que les widgets connus du tableau, sans les requêtes personnelles ; une valeur illisible, vide ou d'un autre tableau est ignorée et la disposition livrée s'applique.
 - À la lecture, un widget inconnu du catalogue est écarté, représentation et taille sont corrigées. Un identifiant absent ou répété (disposition d'équipe écrite à la main, par exemple) est remplacé par un identifiant tiré de la clé du widget et de sa place dans la liste : le même texte donne toujours les mêmes identifiants, et les menus, « Copier » et « Actualiser » retrouvent le widget affiché.
 - L'écriture est différée de 1,5 s pour regrouper les changements ; un changement sans effet n'est ni enregistré ni proposé à l'annulation.
+- Dispositions prêtes : trois dispositions « Support », « Inventaire » et « Santé » sont proposés dans la personnalisation des tableaux du poste et de l’Accueil. Ils sont additifs : ils placent les rubriques utiles en tête, ajoutent les cartes connues manquantes et conservent chaque widget déjà personnalisé (identifiant, taille, titre, pause). Appliquer une disposition ne lance aucune collecte.
 
 ## Animation
 
@@ -1649,6 +1656,9 @@ Pour un parc de 5 000 postes ou plus, gardez les listes paginées, commencez ave
 2. **Copie à chaud.** Le worker StorageBackup copie la base par l'API de sauvegarde SQLite. L'original reste ouvert en lecture seule et n'est pas modifié.
 3. **Contrôle.** La copie est vérifiée (PRAGMA quick_check) dans le budget LocalStore.BackupTimeoutSeconds (30 s). Une copie partielle est supprimée.
 4. **Rotation.** Le fichier va dans le dossier Backups de la base, nommé Domenia-DATE-HEURE-ID.db. Seules les plus récentes sont gardées, autant que « Copies à conserver » (7 par défaut, réglé dans « Sauvegardes automatiques et conservation »).
+5. **Annexe des réglages.** Chaque sauvegarde complète est accompagnée d’une annexe NOM.db.preferences.json (format Domenia.BackupPreferences.1), liée à l’empreinte SHA-256 exacte de la base : elle porte un instantané des préférences approuvées, des dispositions de tableaux et des choix de requêtes. Elle exclut les secrets, les identités de connexion, les chemins de base actifs et les dates ou reçus de sauvegarde. Copiez et conservez cette annexe avec son fichier .db : la restauration des préférences n’est possible que si les deux sont présents et cohérents.
+
+La rotation ordinaire ne retire que les copies régulières de sa propre série. Les copies avant geste ont leur propre rotation ; les copies avant rétention, celles avant migration (dans Backups\migrations) et les fichiers placés par l’opérateur restent hors de la rotation ordinaire. Si un export échoue après création d’une sauvegarde locale vérifiée, cette copie locale est conservée. Vérifiez le message de résultat et l’espace disponible sur le volume de sauvegarde.
 
 > [!RESULTAT] « Sauvegarde de la base enregistrée : » suivi du chemin. Le résumé de l'encadré passe à « sauvegardée à lʼinstant ».
 
@@ -1687,6 +1697,10 @@ Le geste porte sur ce qui a été confirmé au clic. Si une autre OU ou un autre
 2. **Comparer.** L’aperçu donne le domaine, la date d’écriture du fichier, le dernier lot enregistré, la dernière mesure, le contenu (objets AD, mesures, détails, associations, requêtes, reçus) et l’écart avec la base active. Une date absente est dite inconnue.
 3. **Restaurer.** Après confirmation, la copie est vérifiée puis mise en service avec la même bascule que le déplacement. Les écritures postérieures à la sauvegarde ne sont plus visibles ; la base précédente reste disponible par « Revenir à la base précédente » tant que la base restaurée n’a reçu aucune écriture.
 4. **Rattraper.** Relisez les OU suivies dans « Mise à jour » pour retrouver les objets AD récents.
+
+**Restaurer les réglages avec la base.** Domenia vérifie la base et son annexe NOM.db.preferences.json avant la bascule, notamment leur correspondance SHA-256. Une fois la base vérifiée mise en service, les préférences, dispositions et choix de requêtes de la sauvegarde sont appliqués. Si l’écriture des préférences échoue, les préférences précédentes sont rétablies ; la base restaurée reste active et le message signale le problème. Les tableaux relisent leurs dispositions à la prochaine ouverture. Une reprise après redémarrage sans le reçu de restauration en mémoire conserve les préférences courantes : le fichier .db seul ne suffit pas à retrouver les réglages.
+
+**Copie sans annexe.** Une ancienne sauvegarde .db sans annexe restitue les données seules ; les préférences du moment restent inchangées, et ce cas est annoncé avant la restauration.
 
 **Base illisible au démarrage.** Si SQLite prouve la corruption (code 11 ou 26, quick_check en échec), Domenia démarre en mode restauration : « Base locale illisible, laissée intacte : » suivi du chemin. Les collectes restent suspendues et seul « Restaurer une sauvegarde… » est actif ; ce qui attendait son enregistrement pour la base illisible ne retarde pas la restauration et son nombre est affiché après la bascule. Une modification saisie dans ce mode est refusée avec le message « Base locale illisible : modification non enregistrée ». Le fichier illisible n’est ni modifié ni marqué ; aucun retour vers lui n’est proposé. Un verrou, un schéma inconnu ou un autre domaine ne sont pas une corruption : la base est alors refusée intacte, comme avant.
 

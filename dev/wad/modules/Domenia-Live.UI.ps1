@@ -256,7 +256,8 @@ function Begin-DomeniaLiveSearch {
     Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
     Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
-    # Only canonical SQL readbacks enter Progress. Legacy query snapshots are no longer a data source.
+    # The initial preview and the directory refresh both read back canonical SQLite data.
+    Request-DomeniaLocalSearchPreview -Search $s
     return $s
 }
 function Resume-DomeniaLiveSearch {
@@ -401,6 +402,17 @@ function Set-DomeniaLiveObservationOnRow {
     if($Row.Type -ne 'Machine'){return}
     # GUID mismatch means a recreated AD object, not the same cached machine.
     if($null -ne $Observation -and $Row.Guid -and $Observation.Guid -and [string]$Row.Guid -ine [string]$Observation.Guid){$Observation=$null}
+    # A new directory list usually has no remote observation. Its unknown presentation is constant,
+    # contains no identity or date, and can be reused within this search without fabricating freshness.
+    $emptyKey=([string][bool]$Cached)+'|'+([string][bool]$Pending)
+    $emptyOwner=if($null -ne $script:Live){$script:Live.Search}else{$null}
+    if($null -eq $Observation -and $null -ne $emptyOwner -and $emptyOwner.PSObject.Properties['EmptyObservationViews'] -and $emptyOwner.EmptyObservationViews.ContainsKey($emptyKey)){
+        foreach($property in $emptyOwner.EmptyObservationViews[$emptyKey].GetEnumerator()){
+            if($Row.GetType().FullName -eq 'Domenia.Live.ResultRow'){$Row.Set([string]$property.Key,[string]$property.Value)}
+            else{Set-DomeniaLiveRowValue $Row ([string]$property.Key) ([string]$property.Value)}
+        }
+        return
+    }
     $view=Get-DomeniaLiveObservationView $Observation -Cached:$Cached -Pending:$Pending
     # Point 11: the durations of the usage profile decide « récent » or « à relire » (cached table, two setting reads).
     $freshnessTable=$null;try{$freshnessTable=Get-DomeniaActiveFreshnessTable}catch{$freshnessTable=$null}
@@ -415,10 +427,17 @@ function Set-DomeniaLiveObservationOnRow {
     Set-DomeniaLiveRowValue $Row 'PresenceState' ([string]$network.PresenceState)
     Set-DomeniaLiveRowValue $Row 'PresenceAge' ([string]$network.Age)
     Set-DomeniaLiveRowValue $Row 'PresenceCached' $(if([bool]$network.IsCached){'1'}else{''})
+    if($null -eq $Observation -and $null -ne $emptyOwner){
+        if(-not $emptyOwner.PSObject.Properties['EmptyObservationViews']){$emptyOwner|Add-Member NoteProperty EmptyObservationViews @{}}
+        $template=@{}
+        foreach($name in @('SessionDisplay','SessionState','SessionDetail','SessionChecked','SessionObserved','SessionSource','Presence','PresenceDetail','PresenceState','PresenceAge','PresenceCached')){$template[$name]=[string]$Row.$name}
+        $emptyOwner.EmptyObservationViews[$emptyKey]=$template
+    }
 }
 function Add-DomeniaLiveRow {
     param($Event)
-    $s=$script:Live.Search;$source=$Event.Row
+    $s=$script:Live.Search
+    $source=if($Event.PSObject.Properties['StoredRow']){(ConvertFrom-DomeniaDirectoryCommittedRow $Event.StoredRow).Row}else{$Event.Row}
     $key=Get-DomeniaLiveObjectKey $source
     $fresh=([string]$Event.Kind -eq 'Row')
     if(-not $key -or $key.Length -gt 4096){if($fresh){$s.Error='Identité LDAP absente ou hors limite : résultat partiel.'};return}
@@ -439,6 +458,8 @@ function Add-DomeniaLiveRow {
     # the arrival is a revalidation of the displayed list; two rows of one streaming read are left as they are.
     if($null -eq $s.PSObject.Properties['ByGuid']){$s|Add-Member -NotePropertyName ByGuid -NotePropertyValue @{} -Force}
     $guidKey=([string](ConvertTo-DomeniaGuidText ([string]$snapshot.Guid))).ToLowerInvariant()
+    # A late preview must not resurrect the old DN of a freshly moved object.
+    if(-not $fresh -and $guidKey -and $s.ByGuid.ContainsKey($guidKey) -and [string]$s.ByGuid[$guidKey].DN -ine [string]$snapshot.DN){return}
     $revalidated=(($null -ne $Event.PSObject.Properties['Revalidated']) -and ([bool]$Event.Revalidated))
     $moved=$null;$movedFromKey=''
     # Only a fresh directory row moves an existing one: a cached row never sends an object back to an older DN.
@@ -470,7 +491,10 @@ function Add-DomeniaLiveRow {
         }
         $row=New-DomeniaLiveResultRow;$s.Map[$key]=$row
     }else{$row=$s.Map[$key]}
-    foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name ([string]$p.Value)}
+    # The notifying row already has a native setter: avoid a PowerShell function call per cell.
+    if($row.GetType().FullName -eq 'Domenia.Live.ResultRow'){
+        foreach($p in $snapshot.PSObject.Properties){$row.Set($p.Name,[string]$p.Value)}
+    }else{foreach($p in $snapshot.PSObject.Properties){Set-DomeniaLiveRowValue $row $p.Name ([string]$p.Value)}}
     if($s.Ranking){Set-DomeniaLiveRowValue $row 'Rank' ([string](Get-DomeniaSearchRank $row ([string]$s.State.Search)))}
     # D034: adminCount comes with the fresh LDAP row only (never cached); the naming rule applies to every row.
     if($s.SearchRules){
@@ -896,6 +920,16 @@ function Invoke-DomeniaLiveTick {
             }
         }
         $activeSearch=Test-DomeniaLiveSearchActive
+        # Ended confirms the directory read and its final SQL receipts. Only a successful end abandons
+        # the remaining preview; AD or storage errors keep it available. Clear before choosing the cadence.
+        if($activeSearch -and [bool]$script:Live.Search.Ended -and -not [string]$script:Live.Search.Error -and -not $script:Live.Search.CacheProgress.IsEmpty){
+            $script:Live.Search.CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()
+        }
+        # A ready backlog needs shorter gaps, not longer UI slices. Keep the 30 ms render budget
+        # and restore the normal pace as soon as the queue empties or rendering is suspended.
+        $backlogReady=($activeSearch -and $null -ne $grid -and $grid.IsEnabled -and -not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending') -and ($script:Live.Search.Progress.Count+$script:Live.Search.CacheProgress.Count) -gt 200)
+        $renderInterval=if($backlogReady){20}else{80}
+        if($null -ne $script:Live.Timer -and [int]$script:Live.Timer.Interval.TotalMilliseconds -ne $renderInterval){$script:Live.Timer.Interval=[timespan]::FromMilliseconds($renderInterval)}
         if($activeSearch){
             $s=$script:Live.Search
             if($null -ne $grid -and $grid.IsEnabled -and -not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending')){

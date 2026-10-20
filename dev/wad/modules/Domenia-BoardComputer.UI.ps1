@@ -79,6 +79,7 @@ function Get-DomeniaComputerBoardData {
     # $Lifecycle: end-of-service table read once by the interface ($null: end date unknown, never critical).
     param($Result = $null,$Object = $null,$At = $null,$Lifecycle = $null,$HealthPolicy=$null)
     $Data = New-DomeniaBoardData -Board Computer
+    $Data|Add-Member -NotePropertyName InventoryAtUtc -NotePropertyValue $(if($At -is [datetime]){$At.ToUniversalTime().ToString('o')}else{''})
     $Data.HealthPolicy=ConvertTo-DomeniaHealthPolicy $HealthPolicy
     $Data.HealthPolicy.EvaluatedAtUtc=[datetime]::UtcNow.ToString('o')
     $limits=$Data.HealthPolicy.Thresholds

@@ -132,7 +132,7 @@ try {
             if($null -ne $script:Window){$script:Window.Close()}
         }
     }
-    $types=@(@(Get-DomeniaRuntimeTypePlan)|ForEach-Object{@($_.Types)}|Where-Object{$null -eq ($_ -as [type])})
+    $types=@(@(Get-DomeniaRuntimeTypePlan)|Where-Object{$null -eq $_.PSObject.Properties['Deferred'] -or -not [bool]$_.Deferred}|ForEach-Object{@($_.Types)}|Where-Object{$null -eq ($_ -as [type])})
     [pscustomobject]@{Success=$true;Modules=$script:DomeniaRuntimeImports;Exports=$exports.ToArray();Pure=$pure;ReconcileHash=$rh;DocumentHash=$dh;Wpf=$wpf;Message='';ErrorId='';Imported=$true;MissingTypes=$types;PlanValid=[bool]$script:DomeniaStartupPlan.Valid;PlanOrder=@($script:DomeniaStartupPlan.Order)}
 } catch {
     [pscustomobject]@{Success=$false;Message=$_.Exception.Message;ErrorId=$_.FullyQualifiedErrorId;Imported=($null -ne (Get-Item -LiteralPath Function:\Initialize-DomeniaUxShell -ErrorAction SilentlyContinue))}
@@ -189,7 +189,7 @@ try {
             Expect ($missing.Count -eq 0 -and $undeclared.Count -eq 0) ('Declarees non definies : '+($missing -join ', ')+' ; definies non declarees : '+($undeclared -join ', '))
         }
     }
-    Case 'Types C# du plan compiles et resolus a l import' {Expect ($normal.Success -and @($normal.MissingTypes).Count -eq 0) ('Types absents : '+(@($normal.MissingTypes) -join ', '))}
+    Case 'Types C# immediats du plan compiles et resolus a l import' {Expect ($normal.Success -and @($normal.MissingTypes).Count -eq 0) ('Types absents : '+(@($normal.MissingTypes) -join ', '))}
     Case 'Plan de demarrage valide avant le premier module metier' {Expect ($normal.PlanValid -and @($normal.PlanOrder).Count -eq $declaredPlan.Count) ('Plan de demarrage invalide ou incomplet : '+@($normal.PlanOrder).Count+' / '+$declaredPlan.Count)}
     Case 'Import sans initialisation WPF, authentification, cache ou timers' {Expect $normal.Pure 'Un composant actif a ete initialise par l import.'}
     foreach($name in @('Initialize-DomeniaReconcile','Get-DomeniaReconcileWorkerCode','Complete-DomeniaReconcile','Fail-DomeniaReconcile','Invoke-DomeniaReconcileTick',

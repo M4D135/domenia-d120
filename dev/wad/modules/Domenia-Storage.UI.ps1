@@ -1034,6 +1034,35 @@ function Fail-DomeniaIndexBackupUi {
     Set-Status ('Sauvegarde de la base impossible : '+$Message) 'WARN'
     Update-DomeniaStorageBackupScheduleUi
 }
+function Get-DomeniaBackupPreferencesJson {
+    # Snapshot only the approved preferences, including query choices and layouts. Never runtime credentials.
+    $clean=ConvertTo-DomeniaExperienceSettings -Values $script:Settings -Defaults (Get-DomeniaDefaultSettings)
+    foreach($key in @($clean.Keys)){if(([string]$key -cmatch '^Storage\.(Database|Backup\.(Last|LastDetail))\.') -or ([string]$key -in @('RemoteCredentialUser','SecretsCredentialUser'))){[void]$clean.Remove($key)}}
+    $json=([pscustomobject]$clean)|ConvertTo-Json -Depth 8 -Compress
+    if([Text.Encoding]::UTF8.GetByteCount($json) -gt 4MB){throw 'Préférences trop volumineuses pour une sauvegarde complète.'}
+    return $json
+}
+function Restore-DomeniaBackupPreferences {
+    # Called only after the target database has been independently verified and switched. Keep the new path and
+    # backup receipts of this workstation; a snapshot cannot redirect another domain to an old path.
+    param([Parameter(Mandatory=$true)][string]$Json)
+    if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 4MB){throw 'Préférences de restauration trop volumineuses.'}
+    $value=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
+    if($value -isnot [pscustomobject]){throw 'Préférences de restauration invalides.'}
+    $values=@{};foreach($property in @($value.PSObject.Properties)){$values[$property.Name]=$property.Value}
+    $next=ConvertTo-DomeniaExperienceSettings -Values $values -Defaults (Get-DomeniaDefaultSettings)
+    foreach($key in @($next.Keys)){if(([string]$key -cmatch '^Storage\.(Database|Backup\.(Last|LastDetail))\.') -or ([string]$key -in @('RemoteCredentialUser','SecretsCredentialUser'))){[void]$next.Remove($key)}}
+    $previous=$script:Settings
+    foreach($key in @($previous.Keys)){if(([string]$key -cmatch '^Storage\.(Database|Backup\.(Last|LastDetail))\.') -or ([string]$key -in @('RemoteCredentialUser','SecretsCredentialUser'))){ $next[$key]=$previous[$key] }}
+    try{
+        $script:Settings=$next;Save-DomeniaSettings -Immediate -ThrowOnFailure
+        [void](Load-DomeniaSettings)
+    }catch{
+        $problem=$_.Exception.Message;$script:Settings=$previous
+        try{Save-DomeniaSettings -Immediate -ThrowOnFailure;[void](Load-DomeniaSettings)}catch{throw ('Préférences non restaurées ; retour des préférences à vérifier (copie .bak conservée) : '+$problem+' / '+$_.Exception.Message)}
+        throw ('Préférences non restaurées ; préférences précédentes rétablies : '+$problem)
+    }
+}
 function New-DomeniaBackupPayload {
     # One backup policy for the active base (point 33, FI-13). Manual, scheduled and before-gesture copies are all made
     # by the StorageBackup worker (SQLite online backup, quick_check, SHA-256 of the produced file) in the Backups folder
@@ -1043,7 +1072,7 @@ function New-DomeniaBackupPayload {
     param([Parameter(Mandatory=$true)][string]$Path,[int]$BudgetSeconds=120,[AllowEmptyString()][string]$CopyTo='',[switch]$Gesture)
     $keep=7;try{$keep=[int](Get-DomeniaCurrentStoragePolicy).BackupKeep}catch{$keep=7}
     $series='';if($Gesture){$series='Gesture'}
-    return [pscustomobject]@{Database=$Path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($Path)) 'Backups');BudgetSeconds=$BudgetSeconds;Keep=$keep;CopyTo=$CopyTo;Series=$series}
+    return [pscustomobject]@{Database=$Path;BackupDirectory=(Join-Path ([IO.Path]::GetDirectoryName($Path)) 'Backups');BudgetSeconds=$BudgetSeconds;Keep=$keep;CopyTo=$CopyTo;Series=$series;PreferencesJson=(Get-DomeniaBackupPreferencesJson)}
 }
 function Register-DomeniaVerifiedBackup {
     # A verified receipt (Test-DomeniaBackupReceiptVerified), whichever copy it comes from, becomes the last verified
@@ -1199,11 +1228,16 @@ function Submit-DomeniaStoreBatch {
     return [pscustomobject]@{Accepted=$true;Backpressure=$false;Reason='Queued';BatchId=$batch.BatchId}
 }
 function Request-DomeniaStoreRead {
-    param([Parameter(Mandatory=$true)]$Context,[Parameter(Mandatory=$true)]$Query,[Parameter(Mandatory=$true)][string]$SuccessHandler,[Parameter(Mandatory=$true)][string]$ErrorHandler,$CallbackState)
+    param([Parameter(Mandatory=$true)]$Context,[Parameter(Mandatory=$true)]$Query,[Parameter(Mandatory=$true)][string]$SuccessHandler,[Parameter(Mandatory=$true)][string]$ErrorHandler,$CallbackState,[switch]$Preview)
     if([string]$Context.StoreId -cne (Get-DomeniaStoreId ([string]$Context.Path) ([string]$Context.DomainDn))){throw 'Contexte de lecture invalide.'}
     Assert-DomeniaStoreSafeData $Query
     $copy=($Query|ConvertTo-Json -Depth 8 -Compress)|ConvertFrom-Json -ErrorAction Stop
     $payload=[pscustomobject]@{Action='StoreRead';Path=[string]$Context.Path;StoreId=[string]$Context.StoreId;DomainDn=[string]$Context.DomainDn;Query=$copy}
+    # Previews yield quickly on a locked database and never wait behind a long background read.
+    if($Preview){
+        $payload | Add-Member NoteProperty BusyTimeoutMs 50
+        return Start-UiTask -Name 'Affichage des données locales' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -CallbackState $CallbackState -TimeoutSeconds 10 -TaskClass Explicit -TraceId ([string]$Context.RequestId)
+    }
     # W13 (point 123): a local read belongs to the request of its store context (same trace identifier).
     return Start-UiTask -Name 'Lecture des donnees enregistrees' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler -CallbackState $CallbackState -TimeoutSeconds 120 -TraceId ([string]$Context.RequestId)
 }
@@ -1358,6 +1392,10 @@ function Complete-DomeniaStorageMaintenancePreview {
         $domainConfirmed=(($sourceDomain -ieq [string]$State.DomainDn) -or (($State.Mode -eq 'Move') -and (-not $sourceDomain)))
         if(($r.Kind -cne 'StorageMaintenance') -or ($r.Action -cne 'Inspect') -or ([string]$r.Source.Path -cne $State.SourcePath) -or ([string]$r.ActivePath -cne $State.Path) -or (-not $domainConfirmed) -or ([string]$r.Source.Integrity -cne 'ok') -or ([string]$r.Source.Fingerprint -cnotmatch '^[a-f0-9]{64}$') -or ($null -eq $r.Target) -or ([string]$r.Target.Path -ine $State.TargetPath)){throw 'Inspection non confirmée.'}
         $preview=Get-DomeniaStorageMaintenancePreview -Mode $State.Mode -Inspection $r
+        if($State.Mode -eq 'Restore'){
+            if(($null -ne $r.Source.Preferences) -and [bool]$r.Source.Preferences.Present){$preview.Text+=[Environment]::NewLine+'Préférences, requêtes personnelles et dispositions incluses : elles seront rétablies après la bascule vérifiée.'}
+            else{$preview.Text+=[Environment]::NewLine+'Sauvegarde de données uniquement : préférences et dispositions actuelles conservées (aucun instantané associé).'}
+        }
         $State.Fingerprint=[string]$r.Source.Fingerprint;$State.HoldUntil=[datetime]::UtcNow.AddMinutes(10)
         [void](Set-DomeniaControlText 'LblStorageMaintenance' $preview.Text)
         $start=${function:Start-DomeniaStorageMaintenanceApply};$cancel=${function:Stop-DomeniaStorageMaintenanceRequest}
@@ -1473,16 +1511,25 @@ function Complete-DomeniaStorageMaintenanceSwitchConfirm {
         $State.Job='';$receipt=$State.Receipt
         $r=Get-DomeniaEffectiveWorkerResult $Result @('Kind','Action','ActivePath','DomainDn','StoreId','Revision','Redirect')
         if(($null -eq $r) -or ($r.Kind -cne 'StorageMaintenance') -or ($r.Action -cne 'ReadRedirect') -or ([string]$r.ActivePath -ine [string]$receipt.TargetPath) -or ([string]$r.DomainDn -ine [string]$receipt.DomainDn) -or ([string]$r.StoreId -cne [string]$receipt.StoreId) -or ([long]$r.Revision -lt [long]$receipt.Revision) -or ($null -ne $r.Redirect)){throw 'La copie ne confirme pas le reçu de maintenance.'}
+        $beforePreferences='';if(($null -ne $receipt.Preferences) -and [bool]$receipt.Preferences.Present){$beforePreferences=Get-DomeniaBackupPreferencesJson}
         Switch-DomeniaDatabaseContext -Path ([string]$receipt.TargetPath) -ExpectedPath $State.Path -ExpectedEpoch $State.Epoch -StoreId ([string]$receipt.StoreId) -Revision ([long]$receipt.Revision)
     }catch{
         Fail-DomeniaStorageMaintenanceSwitch $_.Exception.Message $State;return
     }
     # The switch has advanced the epoch. A presentation failure must never relock its obsolete context.
     $State.Locked=$false;$State.Hold=$false;$State.Recovery=$false
+    $preferencesNotice='';$preferencesProblem=''
+    $restoreJson=''
+    if(([string]$State.Mode -eq 'Undo') -and [string](Get-DomeniaMember $State 'OriginalPreferencesJson' '')){$restoreJson=[string]$State.OriginalPreferencesJson}
+    elseif(($null -ne $receipt.Preferences) -and [bool]$receipt.Preferences.Present){$restoreJson=[string]$receipt.Preferences.SettingsJson}
+    if($restoreJson){
+        try{Restore-DomeniaBackupPreferences -Json $restoreJson;$preferencesNotice=' Préférences et dispositions rétablies ; les vues les relisent à leur prochaine ouverture.'}
+        catch{$preferencesProblem=[string]$_.Exception.Message;$preferencesNotice=' Base rétablie ; '+$preferencesProblem;Write-AppLog $preferencesProblem 'WARN'}
+    }elseif([string]$State.Mode -eq 'Restore'){$preferencesNotice=' Sauvegarde de données uniquement : préférences et dispositions actuelles conservées.'}
     $original=Get-DomeniaStorageMaintenanceMarkerPath $State
     # Point 31: a switch that left a marker on its original stays undoable until the new base receives a write.
     if(([string]$receipt.Action -in @('Move','Restore','Resume')) -and [bool]$receipt.RedirectWritten){
-        $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch}
+        $script:StorageLastSwitch=[pscustomobject]@{OperationId=[string]$State.Id;OriginalPath=$original;TargetPath=[string]$receipt.TargetPath;DomainDn=[string]$State.DomainDn;Epoch=[long]$script:SessionEpoch;OriginalPreferencesJson=$beforePreferences}
     }else{$script:StorageLastSwitch=$null}
     $dropped=0;try{$dropped=Clear-DomeniaStoragePendingForOtherBase -ActivePath ([string]$receipt.TargetPath)}catch{Write-AppLog ('File locale après bascule non vérifiée : '+$_.Exception.Message) 'WARN'}
     Request-DomeniaStorageWork
@@ -1490,6 +1537,7 @@ function Complete-DomeniaStorageMaintenanceSwitchConfirm {
     if([bool]$receipt.RedirectWritten){$kept='Original conservé en lecture seule : '+$original+' ; « Revenir à la base précédente » reste possible tant que la nouvelle base nʼa reçu aucune écriture'}
     elseif(-not [bool]$receipt.ActiveReadable){$kept='Ancienne base illisible laissée intacte : '+$original}
     if([string]$receipt.Action -eq 'Rollback'){$text='Base précédente rétablie : '+[string]$receipt.TargetPath+'. Lʼautre fichier est conservé.'}else{$text='Étape 3 sur 3 : base vérifiée en service : '+[string]$receipt.TargetPath+'. '+$kept+'.'}
+    $text+=$preferencesNotice
     if($dropped -gt 0){$text+=' '+[string]$dropped+' élément(s) collecté(s) pendant la maintenance pour lʼautre base nʼont pas été enregistrés ; relisez-les si besoin.'}
     # Resume-DomeniaDatabaseViews refreshes the location summary; the space and limit lines of the same page follow the
     # new base (its free space stays unknown until its first measure).
@@ -1505,6 +1553,7 @@ function Complete-DomeniaStorageMaintenanceApply {
         # A worker that wrote no marker (unreadable previous base) is retried locally; a marker always names this target.
         if($null -eq $r.PSObject.Properties['RedirectWritten']){$r|Add-Member -NotePropertyName RedirectWritten -NotePropertyValue $true}
         if($null -eq $r.PSObject.Properties['ActiveReadable']){$r|Add-Member -NotePropertyName ActiveReadable -NotePropertyValue $true}
+        if(($null -eq $r.PSObject.Properties['Preferences']) -and ($null -ne $State.Receipt) -and ($null -ne $State.Receipt.Preferences) -and ([string]$r.Action -ne 'Rollback')){$r|Add-Member -NotePropertyName Preferences -NotePropertyValue $State.Receipt.Preferences}
         $State.Receipt=$r
     }catch{
         if([string]$State.Mode -eq 'Undo'){Fail-DomeniaStorageMaintenance $_.Exception.Message $State;return}
@@ -1572,7 +1621,7 @@ function Start-DomeniaStorageMaintenanceUndo {
         if(($null -eq $Undo) -or ($null -eq $current) -or ([string]$Undo.OperationId -cne [string]$current.OperationId)){throw 'bascule à annuler modifiée.'}
         $busy=$script:StorageMaintenance
         if(($null -ne $busy) -and ([bool]$busy.Locked -or [bool]$busy.Draining -or [string]$busy.Job)){throw 'une étape de maintenance est déjà en cours.'}
-        $state=[pscustomobject]@{Id=[string]$current.OperationId;Mode='Undo';Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;MarkerPath=[string]$current.OriginalPath;DomainDn=[string]$current.DomainDn;SourcePath=[string]$current.OriginalPath;TargetPath=[string]$current.TargetPath;Fingerprint='';Job='';Locked=$false;Recovery=$false;Hold=$true;HoldUntil=[datetime]::UtcNow.AddMinutes(10);Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Receipt=$null}
+        $state=[pscustomobject]@{Id=[string]$current.OperationId;Mode='Undo';OriginalPreferencesJson=[string](Get-DomeniaMember $current 'OriginalPreferencesJson' '');Epoch=[long]$script:SessionEpoch;Path=[string]$script:DatabaseScopedPath;MarkerPath=[string]$current.OriginalPath;DomainDn=[string]$current.DomainDn;SourcePath=[string]$current.OriginalPath;TargetPath=[string]$current.TargetPath;Fingerprint='';Job='';Locked=$false;Recovery=$false;Hold=$true;HoldUntil=[datetime]::UtcNow.AddMinutes(10);Draining=$false;DrainNext='';DrainUntil=[datetime]::MinValue;Receipt=$null}
         $script:StorageMaintenance=$state
         Start-DomeniaStorageMaintenanceApply -State $state -Recovery 'Rollback'
         if(-not [string]$state.Job){$state.Locked=$false;$state.Hold=$false}

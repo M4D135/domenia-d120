@@ -688,6 +688,9 @@ Test-Case 'D024 : Set-DomeniaResultRowPresence affiche une mesure committée san
 }
 
 Test-Case 'D024 : Show-AdObjectResult conserve ObservedUtc SQLite independamment de Created' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Selection.UI.ps1') 'Get-DomeniaObjectReadIdentity')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-LocalPreview.UI.ps1') 'Test-DomeniaObjectPresentationUnchanged')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-LocalPreview.UI.ps1') 'Get-DomeniaObjectPresentationDelta')))
     function Keep-DomeniaDraftOnResult { param($Result,$DN,$Type) return $false }
     function Clear-ObjectDetails { }
     function Remove-DomeniaSensitiveProperties { param($Properties) return $Properties }
@@ -4755,7 +4758,10 @@ Test-Case 'PF-26 : operation_runs purgee seulement apres une insertion et au-del
 Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais sur le Dispatcher' {
     $root = New-X06Sandbox
     try {
-        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        foreach ($name in @('Get-DomeniaBackupPreferencesJson','Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        . (Join-Path $modules 'Domenia-Experience.Model.ps1')
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaDefaultSettings')))
+        $script:Settings = Get-DomeniaDefaultSettings
         $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0; $script:X06SyncBackups = 0; $script:X06Inline = $null; $script:X06Locations = 0
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
         function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }
@@ -4839,7 +4845,10 @@ Test-Case 'FI-13 : sauvegarde par le worker StorageBackup avant le geste, jamais
 Test-Case 'FI-13 : une sauvegarde annulee, retiree, detachee ou d une autre session ne bloque pas les gestes suivants' {
     $root = New-X06Sandbox
     try {
-        foreach ($name in @('Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        foreach ($name in @('Get-DomeniaBackupPreferencesJson','Get-DomeniaCurrentStoragePolicy','New-DomeniaBackupPayload','Register-DomeniaVerifiedBackup','Register-DomeniaBackupFailure','Get-DomeniaGestureBackupState','Invoke-DomeniaGestureBackup','Complete-DomeniaGestureBackup','Fail-DomeniaGestureBackup','Show-DomeniaGestureBackupFailure','Resume-DomeniaGestureWithoutBackup')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
+        . (Join-Path $modules 'Domenia-Experience.Model.ps1')
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaDefaultSettings')))
+        $script:Settings = Get-DomeniaDefaultSettings
         $script:X06Settings = @{}; $script:X06Tasks = [Collections.Generic.List[object]]::new(); $script:X06Ran = 0
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
         function Set-DomeniaSetting { param($Name,$Value) $script:X06Settings[[string]$Name] = $Value }

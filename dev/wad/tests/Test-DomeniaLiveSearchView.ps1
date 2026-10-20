@@ -32,7 +32,7 @@ $script:LoadedFunctions=@(foreach($name in @('Initialize-DomeniaLive','Begin-Dom
 $tokens=$null;$errors=$null;$core=Join-Path $Wad 'Domenia-Core.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw 'Core parse error.'}
-foreach($name in @('Get-DomeniaControl','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
+foreach($name in @('Get-DomeniaEffectiveWorkerResult','Get-DomeniaControl','Get-DomeniaSelectedGridRows','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
  $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
  if($nodes.Count -ne 1){throw ('Missing core definition '+$name)}
  . ([scriptblock]::Create($nodes[0].Extent.Text))
@@ -226,9 +226,13 @@ try {
    $s=$script:Live.Search;$clock=[Diagnostics.Stopwatch]::StartNew()
    for($i=1;$i -le 4997;$i++){$id='55555555-5555-4555-8555-'+$i.ToString('D12');$s.Progress.Enqueue((New-FixtureEvent ('SCALE-'+$i.ToString('D5')) $id))}
    Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Pump-Fixture 200
+   Expect ([int]$script:Live.Timer.Interval.TotalMilliseconds -eq 20) 'Backlog did not accelerate the rendering cadence'
    while(-not $s.Progress.IsEmpty -and $clock.Elapsed.TotalSeconds -lt 120 -and $script:Live.Timer.IsEnabled){Pump-Fixture 200}
    Snapshot-Fixture '5000-machines-plus-user-and-group'
    Expect-HealthyTimer;Expect ($s.Progress.IsEmpty) '5000-machine fixture did not drain within the 120-second fixture guard'
+   Pump-Fixture 200
+   Expect ([int]$script:Live.Timer.Interval.TotalMilliseconds -eq 80) 'Normal cadence not restored after drain'
    Expect ($s.Rows.Count -eq 5002 -and $grid.Items.Count -eq 5002) 'Complete population or visible count differs at scale'
    Expect (@($s.Rows|Where-Object{$_.Type -eq 'Machine'}).Count -eq 5000) '5000 machines were not retained'
    Expect (@($s.Rows|Group-Object DN|Where-Object{$_.Count -gt 1}).Count -eq 0) 'Duplicate DNs present in the result collection'
@@ -307,6 +311,42 @@ try {
    Expect-HealthyTimer;Snapshot-Fixture 'continuation-two-pages'
   }
  }else{$script:Results.Add([pscustomobject]@{Name='Filter apply/refresh/clear scenarios';Passed=$false;Error='Blocked by reproduced Timer:Live failure; no success inferred.'})}
+ Case 'Late local preview survives pending SQL and failure but is discarded after final success' {
+  $script:SearchMode='OU';$script:GlobalSearchGeneration++;$script:Ctrl.TxtSuiteResultFilter.Text='';$script:CurrentPresenceFilter='Tous'
+  Initialize-DomeniaQueryWorkshop
+  $scope=Get-DomeniaSearchScope
+  $state=[pscustomobject]@{Generation=$script:GlobalSearchGeneration;SearchMode='OU';BaseDn=$scope.BaseDn;Scope=$scope.Scope;TypeFilter=(Get-GlobalSelectedTypeFilter);Search='';Limit=1500;PreserveSelectionDn='';ViewId='';StoreContext=[pscustomobject]@{StoreId='fixture-live-store';Path=[string]$script:DatabaseScopedPath;RequestId='late-sql-fixture'}}
+  $s=Begin-DomeniaLiveSearch $state ([pscustomobject]@{})
+  $storedRows=@(for($i=0;$i -lt 201;$i++){[pscustomobject]@{Type='Machine';Name=('SQL-CACHE-'+$i.ToString('D3'));ObservedAtUtc=[datetime]::UtcNow.ToString('o')}})
+  # The storage boundary marks LDAP complete; the final SQL receipt has not arrived.
+  Complete-DomeniaLiveSearch ([pscustomobject]@{Rows=@();BaseDn=$state.BaseDn;Scope=$state.Scope;Partial=$false}) $state
+  Expect ([bool]$s.DirectoryPipe.Completed -and -not $s.Ended) 'LDAP complete while the SQL tail remains pending'
+  $preview=[pscustomobject]@{Rows=$storedRows;Busy=$false;Missing=$false;DataSource='SQLite';StoreId='fixture-live-store'}
+  Complete-DomeniaLocalSearchPreview $preview $s
+  Expect ($s.CacheProgress.Count -eq 201) 'Known SQLite rows remain available while the final SQL write can still fail'
+  # The last SQL receipt publishes one AD row and confirms success. No dispatcher yield occurs
+  # between this receipt and the 201-row callback above, reproducing the original race.
+  $s.Progress.Enqueue((New-FixtureEvent 'PC-FINAL-AD' $script:Ids[1]))
+  $s.Final=[pscustomobject]@{LimitReached=$false;FilterUsed='(objectCategory=computer)';Partial=$false};$s.Ended=$true
+  Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+  Wait-FixtureState -Stage 'late-sql-final' -Condition {$s.Finalized -and $s.Progress.IsEmpty}
+  Expect ($s.Rows.Count -eq 1 -and $grid.Items.Count -eq 1 -and [string]$s.Rows[0].Name -eq 'PC-FINAL-AD') 'Only the committed AD row remains after success'
+  Expect ($s.CacheProgress.IsEmpty) 'All 201 cached rows are detached before backlog cadence selection'
+  Expect (-not (Test-DomeniaLiveTickNeeded)) 'No work remains after final success'
+  Expect ($script:Live.Timer.Interval.TotalMilliseconds -ne 20) 'Fast backlog cadence remains active'
+  Expect-HealthyTimer;Snapshot-Fixture 'late-sql-final-cache-empty'
+  # An SQL failure marks Search.Error (Pipe.Error can stay empty). Suspend rendering to test
+  # the cleanup guard itself: the queue must remain available rather than be silently discarded.
+  $enabled=$grid.IsEnabled;$grid.IsEnabled=$false
+  try{
+   $s.Error='Enregistrement local non confirme : panne SQL synthetique';$s.Ended=$true
+   Complete-DomeniaLocalSearchPreview $preview $s
+   Expect ($s.CacheProgress.Count -eq 201) 'Local preview remains eligible after SQL failure'
+   Invoke-DomeniaTimerSoon -Owner 'Timer:Live'
+   Wait-FixtureState -Stage 'late-sql-failure-keeps-cache' -Condition {$s.CacheProgress.Count -eq 201}
+   Expect ($s.CacheProgress.Count -eq 201) 'An ended search with SQL failure must retain its cached rows'
+  }finally{$s.CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new();$s.Error='';$grid.IsEnabled=$enabled}
+ }
  Case 'Explicit Fleet chrome button opens the script-local workshop; chart click stays inert' {
   Initialize-DomeniaQueryWorkshop;$script:EvaluationRequests=0
   $item=New-DomeniaBoardItem -Source Builtin -Key 'fleet.disabled' -Visual Kpi -Size M -Group 'Synthese' -Title 'Disabled synthetic machines'

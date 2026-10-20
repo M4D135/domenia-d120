@@ -12,7 +12,7 @@ $worker=[scriptblock]::Create((Get-DomeniaLiveProbeCode))
 $script:checks=[Collections.Generic.List[object]]::new()
 function Check($name,[scriptblock]$body){try{&$body;$script:checks.Add([pscustomobject]@{Name=$name;Passed=$true})}catch{$script:checks.Add([pscustomobject]@{Name=$name;Passed=$false;Error=$_.Exception.Message})}}
 function Assert($value,$why){if(-not $value){throw $why}}
-function New-Object {param([string]$TypeName)if($TypeName -eq 'Collections.ArrayList'){return ,([Collections.ArrayList]::new())};if($TypeName -match 'Ping'){$script:PingCalls++;throw 'Network blocked by fixture'};throw ('Unexpected New-Object '+$TypeName)}
+function New-Object {param([string]$TypeName)if($TypeName -eq 'Collections.ArrayList'){return ,([Collections.ArrayList]::new())};if($TypeName -match 'Ping'){$script:PingCalls++;if($script:PingSuccess){$ping=[pscustomobject]@{};$ping|Add-Member ScriptMethod Send {param($Target,$Timeout)return [pscustomobject]@{Status='Success';RoundtripTime=1}};$ping|Add-Member ScriptMethod Dispose {};return $ping};throw 'Network blocked by fixture'};throw ('Unexpected New-Object '+$TypeName)}
 function Enter-WCredentialAttempt {param($Context,$Channel)$script:Leases++;return [pscustomobject]@{Fixture=$true}}
 function Exit-WCredentialAttempt {param($Lease)$script:LeaseReleases++}
 function Assert-WCredentialAllowed {param($Context,$Channel)if($script:Paused){throw 'CredentialPaused'}}
@@ -23,7 +23,7 @@ function New-CimSession {[CmdletBinding()]param($ComputerName,$SessionOption,$Op
 function Remove-CimSession {[CmdletBinding()]param($CimSession)$script:Disposed++}
 function Get-CimInstance {
  [CmdletBinding()]param($CimSession,$Namespace,$ClassName,$Property,$Filter,$OperationTimeoutSec)
- $script:Calls.Add([pscustomobject]@{Class=$ClassName;Properties=@($Property);Filter=$Filter})
+ $script:Calls.Add([pscustomobject]@{Class=$ClassName;Properties=@($Property);Filter=$Filter;TimeoutSeconds=[int]$OperationTimeoutSec})
  if($script:FailAuth){throw 'fixture-bad-credential'}
  if($script:FailConsole -and @($Property) -contains 'UserName'){throw 'UserName not readable'}
  switch($ClassName){
@@ -34,7 +34,7 @@ function Get-CimInstance {
  default{throw ('Unknown fixture class '+$ClassName)}
  }
 }
-function Reset-Fixture {$script:Leases=0;$script:LeaseReleases=0;$script:Paused=$false;$script:FailAuth=$false;$script:Sessions=0;$script:Disposed=0;$script:PingCalls=0;$script:FailConsole=$false;$script:Calls=[Collections.Generic.List[object]]::new()}
+function Reset-Fixture {$script:PingSuccess=$false;$script:Leases=0;$script:LeaseReleases=0;$script:Paused=$false;$script:FailAuth=$false;$script:Sessions=0;$script:Disposed=0;$script:PingCalls=0;$script:FailConsole=$false;$script:Calls=[Collections.Generic.List[object]]::new()}
 function Invoke-Fixture($payload){$Context=[pscustomobject]@{UseCim=$true;Domain='';Netbios=''};$Payload=$payload;return & $worker}
 function New-Payload {return [pscustomobject]@{Computer='PC-FIXTURE';Key='cn=pc,ou=test,dc=example,dc=invalid';Guid='00000000-0000-0000-0000-000000000001';CollectPing=$false;ProbeUser=$true;Inventory=$true;Probes=@();ValidateConsoleIdentity=$false;MethodSeconds=4}}
 Check 'WMI-only skips ICMP and shares ComputerSystem read' {
@@ -59,7 +59,11 @@ Check 'Catalog probes share one class call and one session' {
  Reset-Fixture;$p=New-Payload;$p.Inventory=$false;$p.ProbeUser=$false
  $p.Probes=@([pscustomobject]@{Id='sec.defender';Namespace='root\Microsoft\Windows\Defender';Class='MSFT_MpComputerStatus';Properties=@('AntivirusEnabled');Filter='';Mode='First';Skip=''},[pscustomobject]@{Id='sec.realtime';Namespace='root\Microsoft\Windows\Defender';Class='MSFT_MpComputerStatus';Properties=@('RealTimeProtectionEnabled');Filter='';Mode='First';Skip=''})
  $p|Add-Member AllowedClasses @('MSFT_MpComputerStatus');$r=Invoke-Fixture $p
- Assert ($script:Calls.Count -eq 1 -and $script:Calls[0].Properties.Count -eq 2) 'Probe calls not shared'
+ # The responder identity is an independent, required read; the two widgets still share exactly one provider read.
+ $identity=@($script:Calls|Where-Object Class -eq Win32_ComputerSystem);$provider=@($script:Calls|Where-Object Class -eq MSFT_MpComputerStatus)
+ Assert ($script:Calls.Count -eq 2 -and $identity.Count -eq 1 -and $provider.Count -eq 1 -and $provider[0].Properties.Count -eq 2) ('Probe calls not shared: '+(@($script:Calls)|ConvertTo-Json -Depth 5 -Compress)+'; '+($r.Probes|ConvertTo-Json -Depth 6 -Compress))
+ Assert (@($identity[0].Properties) -contains 'Name' -and @($identity[0].Properties) -contains 'DNSHostName') 'Responder identity not checked'
+ Assert ($r.CimQueries.Executed -eq 2 -and $r.CimQueries.Consumers -eq 3 -and $r.CimQueries.Avoided -eq 1) 'Identity cost or shared provider cost not counted'
  Assert ($r.Probes.'sec.defender'.Count -eq 1 -and $r.Probes.'sec.realtime'.Count -eq 1) 'Probe result absent'
  Assert ($script:PingCalls -eq 0 -and $script:Sessions -eq 1 -and $script:Disposed -eq 1) 'Unexpected transport calls'
 }
@@ -81,7 +85,7 @@ Check 'A joined read refused as invalid falls back to the console read; the prob
  Reset-Fixture
  function Get-CimInstance {
   [CmdletBinding()]param($CimSession,$Namespace,$ClassName,$Property,$Filter,$OperationTimeoutSec)
-  $script:Calls.Add([pscustomobject]@{Class=$ClassName;Properties=@($Property);Filter=$Filter})
+  $script:Calls.Add([pscustomobject]@{Class=$ClassName;Properties=@($Property);Filter=$Filter;TimeoutSeconds=[int]$OperationTimeoutSec})
   if(@($Property) -contains 'NumberOfLogicalProcessors'){throw 'Invalid query'}
   switch($ClassName){
    'Win32_ComputerSystem'{[pscustomobject]@{UserName='EXAMPLE\alice';Manufacturer='Fixture';Model='Example';TotalPhysicalMemory=8589934592}}
@@ -132,6 +136,18 @@ Check 'The pinned body carries the CIM grouping rule itself, with no prelude add
  . ([scriptblock]::Create($fn.Extent.Text))
  foreach($case in @(@('root\cimv2','Win32_LogicalDisk',"DeviceID='C:'"),@('ROOT\CIMV2','win32_service',"Name='a'"),@('root\Microsoft\Windows\Defender','MSFT_MpComputerStatus',''))){
   Assert ((Get-WCimGroupKey $case[0] $case[1] $case[2]) -ceq (Get-DomeniaCimGroupKey $case[0] $case[1] $case[2])) ('Worker and model rules differ for '+$case[1])
+ }
+}
+
+Check 'Probe groups use their bounded timeout and the longest requested consumer budget' {
+ foreach($case in @(@{Slow=$false;Quick=10;Heavy=15;Expected=10},@{Slow=$true;Quick=10;Heavy=15;Expected=15},@{Slow=$true;Quick=1000;Heavy=1000;Expected=20},@{Slow=$false;Quick=0;Heavy=15;Expected=1})){
+  Reset-Fixture;$p=New-Payload;$p.Inventory=$false;$p.ProbeUser=$false
+  $a=New-SharedProbe 'sec.defender' 'MSFT_MpComputerStatus' 'AntivirusEnabled';$a|Add-Member Slow $false
+  $b=New-SharedProbe 'sec.realtime' 'MSFT_MpComputerStatus' 'RealTimeProtectionEnabled';$b|Add-Member Slow ([bool]$case.Slow)
+  $p.Probes=@($a,$b);$p|Add-Member AllowedClasses @('MSFT_MpComputerStatus');$p|Add-Member ProbeTimeoutSeconds ([int]$case.Quick);$p|Add-Member SlowProbeTimeoutSeconds ([int]$case.Heavy)
+  $r=Invoke-Fixture $p;$provider=@($script:Calls|Where-Object Class -eq MSFT_MpComputerStatus)
+  Assert ($provider.Count -eq 1 -and $provider[0].TimeoutSeconds -eq [int]$case.Expected) ('Group timeout: '+($provider|ConvertTo-Json -Compress))
+  Assert ($script:Sessions -eq 1 -and $script:Disposed -eq 1 -and $r.Probes.'sec.realtime'.Count -eq 1) 'Timeout selection changed session lifetime or results'
  }
 }
 
@@ -268,12 +284,14 @@ function Remove-WDomeniaCimSession {param($Session)}
 function Get-CimClass {[CmdletBinding()]param($CimSession,$Namespace,$ClassName)if($script:FailClass){throw 'fixture-bad-credential'};return [pscustomobject]@{CimClassName='FixtureClass';CimClassQualifiers=@();CimClassProperties=@();CimClassMethods=@()}}
 function Invoke-WRemoteTaskScript {param($Context,$Computer,$Code,$Payload,$Timeout,$Reason)$script:FallbackCalls++;throw 'No fallback allowed in fixture'}
 Check 'WMI class source timestamp survives its early success return' {
- Reset-Fixture;$script:FailClass=$false;$script:FallbackCalls=0;$Payload=[pscustomobject]@{Computer='PC-FIXTURE';Namespace='root\cimv2'};$Context=[pscustomobject]@{}
+ Reset-Fixture;$script:PingSuccess=$true;$script:FailClass=$false;$script:FallbackCalls=0;$Payload=[pscustomobject]@{Computer='127.0.0.1';Namespace='root\cimv2'};$Context=[pscustomobject]@{}
  $r=& ([scriptblock]::Create((Get-DomeniaWmiClassesWorkerCode)))
- Assert ($r.Success -and $r.SourceCompletedUtc -and $r.Classes.Count -eq 1 -and $script:FallbackCalls -eq 0) 'Early return omitted producer completion time'
+ Assert ($r.Success -and $r.SourceCompletedUtc -and @($r.Classes).Count -eq 1 -and $script:FallbackCalls -eq 0) 'Early return omitted producer completion time'
+ Assert ($script:PingCalls -eq 1 -and $script:Leases -eq 1 -and $script:LeaseReleases -eq 1) 'The fixture did not exercise the successful CIM path'
+ $sourceTime=[datetime]::MinValue;Assert ([datetime]::TryParse([string]$r.SourceCompletedUtc,[ref]$sourceTime) -and $sourceTime.ToUniversalTime() -le [datetime]::UtcNow -and $sourceTime.ToUniversalTime() -gt [datetime]::UtcNow.AddMinutes(-1)) 'Invalid producer completion time'
 }
 Check 'WMI class bad credential stops before PsExec/task fallback' {
- Reset-Fixture;$script:FailClass=$true;$script:FallbackCalls=0;$Payload=[pscustomobject]@{Computer='PC-FIXTURE';Namespace='root\cimv2'};$Context=[pscustomobject]@{};$refused=$false
+ Reset-Fixture;$script:PingSuccess=$true;$script:FailClass=$true;$script:FallbackCalls=0;$Payload=[pscustomobject]@{Computer='127.0.0.1';Namespace='root\cimv2'};$Context=[pscustomobject]@{};$refused=$false
  try{& ([scriptblock]::Create((Get-DomeniaWmiClassesWorkerCode)))|Out-Null}catch{$refused=$true}
  Assert ($refused -and $script:Paused -and $script:FallbackCalls -eq 0) 'Rejected credential reached fallback transport'
 }

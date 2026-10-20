@@ -1,5 +1,7 @@
 # 1 Trouver une personne ou un poste
 
+Édition du texte mise à jour pour Domenia 1.0 · RC1.17.39. Les captures d’écran restent celles de la RC1.17.20, avec des données fictives ; elles servent de repères visuels et certains détails de l’interface peuvent différer.
+
 Quand : avant toute intervention, vous devez retrouver un poste, un utilisateur ou un groupe du domaine.
 
 ## Ouvrir Domenia
@@ -29,6 +31,8 @@ Domenia conserve automatiquement la taille, la position et l’état normal ou m
 6. **Choisir les colonnes.** La liste montre six colonnes : Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau et État. L’association affiche l’utilisateur ou les postes liés suivis de la qualification du lien (par exemple « Camille Martin · Observé ») ; son infobulle donne la source. Clic droit sur un en-tête de colonne, ou menu « ⋯ » puis « Colonnes… » : cochez ou décochez une colonne ; « Colonnes par défaut » revient aux six colonnes. Le choix est gardé d’une session à l’autre ; les colonnes propres aux postes n’apparaissent que si la liste contient un poste.
 7. **Vérifier un poste.** Cliquez une fois sur la ligne d'un poste. Domenia le pingue et lit l'utilisateur ouvert sur son écran : « Présence réseau » et « Utilisateur connecté (console) » se mettent à jour.
 8. **Ouvrir la fiche.** Double-cliquez sur la ligne, ou appuyez sur Entrée. La page « Fiche » s'ouvre sur l'onglet « Resume ». Si l'objet a changé dans l'annuaire depuis son ouverture, « Relire depuis lʼannuaire » le relit sur le contrôleur, lui seul : la liste et les autres fiches restent telles quelles.
+
+Lorsqu’une recherche est lancée ou qu’une fiche est ouverte, les données déjà présentes dans la base locale peuvent apparaître pendant la lecture Active Directory. Elles gardent leur date et leur provenance ; si la lecture échoue, les données connues restent disponibles. La saisie seule ne lance aucune recherche AD. Lorsqu’une autre recherche ou fiche remplace la précédente, une réponse tardive ne doit pas modifier la nouvelle vue.
 
 | Zone de Rechercher | Utilisation |
 |---|---|
@@ -210,6 +214,8 @@ Quand : vous voulez voir d'un coup d'œil l'état d'un poste et ses points à v�
 Pour un ticket, « Copier le résumé », dans la barre du tableau, copie le poste, la date de l'inventaire, le score, les points à vérifier et les fiches en texte. « Copier », dans le menu clic droit d'un widget (ou Ctrl+C sur le widget), copie ce seul widget.
 
 > [!NOTE] Vert : rien à signaler ; orange : à surveiller ; rouge : critique. Une section vide indique ce qu'il faut lancer pour la remplir.
+
+La santé distingue les postes évalués sans problème, les problèmes connus et les états inconnus. Une donnée absente ou trop ancienne ne signifie pas que le poste est sain. Relisez le périmètre, la date et la source ; l’explication d’un point indique aussi les données manquantes et la vue où lancer leur collecte.
 
 ## Traiter un point nécessitant une attention
 
@@ -456,6 +462,8 @@ Dans l’onglet « Mise à jour », dépliez « Détails du stockage et de la sy
 
 L’onglet « Stockage » rassemble le chemin de la base et les sauvegardes. La sauvegarde porte sur la base entière ; la purge efface les catégories de données choisies dans toute cette base, après simulation et confirmation. Le guide administrateur décrit cette opération.
 
+Pour conserver une sauvegarde complète récente, copiez ensemble le fichier NOM.db et son annexe NOM.db.preferences.json. L’annexe contient les préférences et dispositions compatibles, sans secrets ni comptes de connexion. Une ancienne sauvegarde .db sans annexe restaure les données seules et conserve les préférences actuelles.
+
 ![Stockage : emplacement, sauvegarde et maintenance locale ; données fictives](fig:base-stockage)
 
 ## Comprendre une différence
@@ -509,6 +517,10 @@ Quand : vous voulez garder sous les yeux les informations utiles. Chaque tuile o
 > [!ATTENTION] « Annuler » ne revient qu'une étape en arrière et disparaît dès que de nouvelles données arrivent ou que vous choisissez un autre objet. Vérifiez le tableau avant de passer à autre chose.
 
 > [!RESULTAT] Le tableau affiche vos widgets, dans l'ordre et à la taille choisis.
+
+## Dispositions prêtes
+
+Communiquer avec un utilisateur, inventorier un poste ou surveiller un lot de postes : trois dispositions prêtes existent, « Support », « Inventaire » et « Santé », dans le menu de personnalisation. Les appliquer ne lance aucune collecte : elles disposent les rubriques utiles en tête, ajoutent les cartes connues manquantes et conservent chaque widget personnalisé (identifiant, taille, titre ou pause). Même annulation et même enregistrement qu'après tout autre changement de tableau.
 
 ## Si ça ne se passe pas comme prévu
 

@@ -415,6 +415,16 @@ try {
                 $types=@($query.Types|Where-Object{$_});foreach($type in $types){if([string]$type -notin @('Machine','Utilisateur','Groupe','OU','Conteneur')){throw 'Type de lecture invalide.'}}
                 if($types.Count){$conditions.Add('object_type IN ('+(@($types|ForEach-Object{Get-IdxWLiteral $_}) -join ',')+')')}
                 if([string]$query.Term){$term=([string]$query.Term).Trim().ToLowerInvariant();if($term.Length -gt 1024){throw 'Filtre trop long.'};$bound.Add($term);$conditions.Add("instr(COALESCE(search_key,''),?"+$bound.Count+')>0')}
+                if([string]$query.DN){$bound.Add([string]$query.DN);$conditions.Add('distinguished_name=?'+$bound.Count+' COLLATE NOCASE')}
+                if([string]$query.Prefix){
+                    $raw=([string]$query.Prefix).Trim();if($raw.Length -gt 1024 -or $raw -match '[\s*()]'){throw 'Prefixe local invalide.'}
+                    $short=$raw;if($short.Contains([string][char]92)){$short=$short.Split([char]92)[-1]};$short=$short.TrimEnd([char]36)
+                    $bound.Add(($raw.Replace('!','!!').Replace('%','!%').Replace('_','!_')+'%'));$rawSlot='?'+$bound.Count
+                    $bound.Add(($short.Replace('!','!!').Replace('%','!%').Replace('_','!_')+'%'));$shortSlot='?'+$bound.Count
+                    $match="(name LIKE $rawSlot ESCAPE '!' COLLATE NOCASE OR display_name LIKE $rawSlot ESCAPE '!' COLLATE NOCASE OR login LIKE $shortSlot ESCAPE '!' COLLATE NOCASE OR (object_type='Machine' AND upn LIKE $shortSlot ESCAPE '!' COLLATE NOCASE) OR (object_type<>'Machine' AND upn LIKE $rawSlot ESCAPE '!' COLLATE NOCASE))"
+                    if($raw.Contains('@')){$match="upn LIKE $rawSlot ESCAPE '!' COLLATE NOCASE"}
+                    $conditions.Add($match)
+                }
                 $order='name COLLATE NOCASE,object_guid'
             }else{
                 $table=if($kind -eq 'Observation'){'domenia_observations'}else{'domenia_details'};$column='object_guid';$order='object_guid'

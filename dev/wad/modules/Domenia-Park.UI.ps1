@@ -285,7 +285,20 @@ function Get-DomeniaParkRunDetailText {
         if($null -ne $started){
             $waiting=(Get-DomeniaParkListCount $Run 'Deferred')+(Get-DomeniaParkListCount $Run 'Retry')+[Math]::Max(0,@($Run.Targets).Count-[int]$Run.Next)
             $state=Get-DomeniaCampaignProgressState -Total @($Run.Targets).Count -Validated ([int]$Run.Done) -Pending (Get-DomeniaParkInFlightCount $Run) -Waiting $waiting -StartedUtc $started -LastValidatedUtc (Get-DomeniaMemberValue $Run 'LastValidatedUtc') -HeldSeconds ([double](Get-DomeniaMember $Run 'HeldSeconds' 0))
-            if(-not [bool]$Run.Completed){$parts.Add('Progression : '+[string]$state.Text+'.')}
+            if(-not [bool]$Run.Completed){
+                $parts.Add('Progression : '+[string]$state.Text+'.')
+                $parts.Add('File : '+[string]$waiting+' poste(s) à lire ; '+[string](Get-DomeniaParkListCount $Run 'StorePending')+' enregistrement(s) à confirmer.')
+                # At most the bounded campaign slots are inspected; no fleet scan and no remote work here.
+                $current=[Collections.Generic.List[string]]::new()
+                foreach($pending in @($Run.Pending.Values)){
+                    $target=Get-DomeniaMemberValue $pending 'Target'
+                    if($null -eq $target){continue}
+                    $snapshot=Get-DomeniaParkReadProgressSnapshot $pending
+                    $current.Add([string]$target.Computer+' : '+[string]$snapshot.RowsRead+' étape(s) terminée(s)')
+                    if($current.Count -ge 8){break}
+                }
+                if($current.Count){$parts.Add('En cours : '+($current.ToArray() -join ' ; ')+'.')}
+            }
         }
         $sources=Get-DomeniaCampaignSourceSummary (Get-DomeniaMemberValue $Run 'Sources')
         if($sources){$parts.Add('Charge adaptée : '+$sources+'.')}
@@ -655,7 +668,7 @@ function Start-DomeniaParkAnalysis {
         $ids=@(Get-DomeniaBoardProbeIds)
         if($ids.Count){$probes=@(ConvertTo-DomeniaProbePayload -Ids $ids)}
         # A mass survey stays on a few classes. Process lists, hotfixes and product scans stay on the single-computer inventory.
-        $probes=@($probes|Where-Object{$null -ne $_ -and [string]$_.Class -notmatch '^(?i:Win32_Process|Win32_QuickFixEngineering|Win32_Product)$' -and [string]$_.Id -notmatch '(?i)process|hotfix|evt\.'})
+        $probes=@($probes|Where-Object{$null -ne $_ -and (-not [bool](Get-DomeniaMember $_ 'Slow' $false)) -and [string]$_.Class -notmatch '^(?i:Win32_Process|Win32_QuickFixEngineering|Win32_Product)$' -and [string]$_.Id -notmatch '(?i)process|hotfix|evt\.'})
     }catch{Set-Status ('Requêtes des widgets ignorées : '+$_.Exception.Message) 'WARN';$probes=$null}
     if($Selection){Start-DomeniaOnlinePark -Selection -ScopeTargets @($ScopeTargets) -SkippedTargets $SkippedTargets -Inventory -Probes $probes -PingBeforeWmi;return}
     Start-DomeniaOnlinePark -DisplayedResults -Inventory -Probes $probes -PingBeforeWmi
@@ -924,6 +937,9 @@ function Select-DomeniaParkNextTarget {
     for($i=0;$i -lt $Run.Retry.Count;$i++){
         $item=$Run.Retry[$i]
         if([datetime]$item.NotBeforeUtc -gt $NowUtc){continue}
+        # A delayed local writer must finish before the retry can reuse the committed successful families.
+        $storeJob=[string](Get-DomeniaMember $item 'StoreJob' '')
+        if($storeJob -and $Run.StorePending.ContainsKey($storeJob)){continue}
         if(-not (& $admit ([string]$item.SourceKey))){continue}
         $Run.Retry.RemoveAt($i)
         return [pscustomobject]@{Index=[int]$item.Index;Target=$Run.Targets[[int]$item.Index];SourceKey=[string]$item.SourceKey;Attempt=[int]$item.Attempt}
@@ -1142,8 +1158,9 @@ function Invoke-DomeniaParkRunTick {
     # Point 17: one step per finished ping or CIM query; no progress for the idle delay ends the read, and a read
     # that keeps progressing still stops at its total duration.
     $probeCount=$sendProbes.Count
+    $slowProbeCount=@($sendProbes|Where-Object{[bool](Get-DomeniaMember $_ 'Slow' $false)}).Count
     $idle=if($probeCount -or $sendInventory){25}else{20}
-    $total=if($probeCount -or $sendInventory){[Math]::Min(300,30+12*$probeCount+$(if($sendInventory){12}else{0}))}else{30}
+    $total=if($probeCount -or $sendInventory){[Math]::Min(300,30+12*$probeCount+3*$slowProbeCount+$(if($sendInventory){12}else{0}))}else{30}
     $readProgress=[hashtable]::Synchronized(@{StartedTimestamp=0L;LastRowTimestamp=0L;RowsRead=0L})
     # Points 14 and 18: the answer reads back the dispatch clock (latency per step) and the ping step of a stopped read.
     $state|Add-Member -NotePropertyName ReadProgress -NotePropertyValue $readProgress -Force
@@ -1152,7 +1169,7 @@ function Invoke-DomeniaParkRunTick {
     $state|Add-Member -NotePropertyName SentInventory -NotePropertyValue $sendInventory -Force
     $state|Add-Member -NotePropertyName SentProbes -NotePropertyValue $sendProbes -Force
     try{
-        $id=Start-UiTask -Name ($(if(([bool]$r.WmiOnly) -or $noConsole){'WMI du perimetre : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;CollectPing=(-not [bool]$r.WmiOnly);RequirePing=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false));ValidateConsoleIdentity=$false;ProbeUser=$sendConsole;Inventory=$sendInventory;Probes=$sendProbes;AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class});ReadProgress=$readProgress}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $idle -HardTimeoutSeconds $total -TaskClass 'Explicit'
+        $id=Start-UiTask -Name ($(if(([bool]$r.WmiOnly) -or $noConsole){'WMI du perimetre : '}else{'Console du parc : '})+$target.Computer) -OperationId 'LiveConsole' -Code (Get-DomeniaLiveProbeCode) -Payload ([pscustomobject]@{Computer=$target.Computer;Key=$target.Key;Guid=$target.Guid;Previous=$target.Previous;AllowIdentityCache=([int]$r.CacheMinutes -gt 0);MethodSeconds=4;ProbeTimeoutSeconds=10;SlowProbeTimeoutSeconds=15;CollectPing=(-not [bool]$r.WmiOnly);RequirePing=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false));ValidateConsoleIdentity=$false;ProbeUser=$sendConsole;Inventory=$sendInventory;Probes=$sendProbes;AllowedClasses=@(@(Get-DomeniaProbeCatalog)|ForEach-Object{[string]$_.Class});ReadProgress=$readProgress}) -CallbackState $state -SuccessHandler 'Complete-DomeniaParkSession' -ErrorHandler 'Fail-DomeniaParkSession' -TimeoutSeconds $idle -HardTimeoutSeconds $total -TaskClass 'Explicit'
         if(-not $id){throw 'Lecture non admise.'}
         $state.Job=[string]$id;$r.Pending[[string]$id]=$state
         $r.WaveContacts=[int](Get-DomeniaMember $r 'WaveContacts' 0)+1
@@ -1392,7 +1409,8 @@ function Complete-DomeniaParkPingStored {
     foreach($target in @($State.Targets)){
         $rows=@($Result.ObservationRows|Where-Object{[string]$_.Guid -ieq [string]$target.Guid -and [string]$_.Key -ieq [string]$target.Key})
         if($rows.Count -ne 1){$r.Failed++;Clear-DomeniaParkPendingRow -Run $r -Key ([string]$target.Key);continue}
-        Publish-DomeniaParkObservation -Run $r -Observation $rows[0] -Index (Get-DomeniaParkTargetIndex -Run $r -Key ([string]$target.Key))
+        $incomplete=([string]$rows[0].Presence -eq 'Erreur de ping')
+        Publish-DomeniaParkObservation -Run $r -Observation $rows[0] -Index (Get-DomeniaParkTargetIndex -Run $r -Key ([string]$target.Key)) -Incomplete:$incomplete
     }
     Sync-DomeniaParkGrid -Run $r
     Update-DomeniaParkRunStatus -Run $r
@@ -1459,7 +1477,7 @@ function Register-DomeniaParkMeasurement {
         $retry=Get-DomeniaCollectionRetryDecision -Category ([string]$failure.Category) -Attempt ([int](Get-DomeniaMember $State 'Attempt' 1)) -MaxAttempts ([int](Get-DomeniaMember $Run 'RetryMaxAttempts' 3)) -BaseDelaySeconds ([int](Get-DomeniaMember $Run 'RetryBaseDelaySeconds' 30)) -NowUtc $nowUtc
         if([bool]$retry.Retry -and -not [bool]$Run.Stopping){
             $State|Add-Member -NotePropertyName WillRetry -NotePropertyValue $true -Force
-            $Run.Retry.Add([pscustomobject]@{Index=[int]$State.Index;NotBeforeUtc=$retry.NotBeforeUtc;Attempt=([int]$State.Attempt+1);SourceKey=$key})
+            $Run.Retry.Add([pscustomobject]@{Index=[int]$State.Index;NotBeforeUtc=$retry.NotBeforeUtc;Attempt=([int]$State.Attempt+1);SourceKey=$key;StoreJob=[string]$State.Job})
             $Run.Retried=[int]$Run.Retried+1
         }elseif([string]$failure.Category -eq 'Transient'){$Run.RetryExhausted=[int]$Run.RetryExhausted+1}
         $build=[string](Get-DomeniaMember (Get-DomeniaMemberValue $Packet 'Inventory') 'Build' '')
@@ -1483,16 +1501,24 @@ function Complete-DomeniaParkStored {
     $observation=Get-DomeniaCommittedObservation $Result $State
     if($null -eq $observation){return}
     # Point 18: an attempt followed by a spaced retry is stored (its date and error are facts) but counted once, with
-    # the last attempt. Point 20: a final result is never read again by a resume of this plan.
+    # the last attempt. Point 20: successful targets leave the durable plan; final failures remain resumable.
     $retrying=[bool](Get-DomeniaMember $State 'WillRetry' $false)
+    # A committed failed attempt counts as finished for this run, but stays in the durable resume plan.
+    $requestedFamilies=@(Get-DomeniaMember $State 'ObservedFamilies' @())
+    $failedFamilies=@($Result.Observations|Where-Object{[string]$_.Guid -ieq [string]$State.StoreGuid -and [string]$_.Status -eq 'Error' -and (($requestedFamilies.Count -eq 0) -or ($requestedFamilies -contains [string]$_.Family))})
+    $incomplete=(@($failedFamilies|Where-Object{[string]$_.Error -cne 'Sonde non applicable au systeme.'}).Count -gt 0)
+    if($retrying){
+        $State.Target.Previous=$observation
+        if($null -ne $State.Target.PSObject.Properties['PreviousJson']){$State.Target.PreviousJson=''}
+    }
     if(-not $retrying){
         if(-not $r.PingOnly){$r.CachedMeasurements += [int]$State.Plan.Reused}
-        if(@($Result.Observations|Where-Object{[string]$_.Guid -ieq [string]$State.StoreGuid -and [string]$_.Status -eq 'Error' -and [string]$_.Family -ne 'Presence'}).Count){$r.Failed++}
+        if(@($failedFamilies|Where-Object{[string]$_.Family -ne 'Presence'}).Count){$r.Failed++}
         # A target that will be read again keeps its previous observation: the retry reuses its fresh measurements
         # and its capability evidence. Its buffers are released after the last attempt (or when the run ends).
         Clear-DomeniaParkTargetBuffers @($State.Target)
     }
-    Publish-DomeniaParkObservation -Run $r -Observation $observation -Index ([int](Get-DomeniaMember $State 'Index' -1)) -Retrying:$retrying
+    Publish-DomeniaParkObservation -Run $r -Observation $observation -Index ([int](Get-DomeniaMember $State 'Index' -1)) -Retrying:$retrying -Incomplete:$incomplete
     if(-not $retrying){try{Register-DomeniaParkConsoleLink -Run $r -Observation $observation}catch{Write-AppLog ('Association de console non créée pour '+[string]$observation.Computer+' : '+$_.Exception.Message) 'WARN'}}
     Update-DomeniaParkRunStatus -Run $r
 }
@@ -1502,7 +1528,8 @@ function Publish-DomeniaParkObservation {
     # presence), row of the list, observation kept for the boards. Point 17: the last validated result; point 20: the
     # workstation at -Index is validated in the durable plan. -Retrying (point 18): an attempt that will be read again
     # is shown but neither counted nor validated, and its row keeps its « relevé en cours » mark.
-    param($Run,$Observation,[int]$Index=-1,[switch]$Retrying)
+    # -Incomplete counts a final failed attempt in this run while keeping the target available for explicit resume.
+    param($Run,$Observation,[int]$Index=-1,[switch]$Retrying,[switch]$Incomplete)
     $r=$Run
     if(-not $Retrying){
         $r.Done++
@@ -1515,7 +1542,7 @@ function Publish-DomeniaParkObservation {
         $preflight=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false) -and -not [bool](Get-DomeniaMember $r 'PingSwept' $false))
         $online=(Get-DomeniaParkOutcomeKind -Presence ([string]$Observation.Presence) -PingRequested $true) -eq 'Online'
         # An online ping is only preparation; interrupted WMI work must remain resumable.
-        if($Index -ge 0 -and (-not $preflight -or -not $online)){
+        if(($Index -ge 0) -and (-not $Incomplete) -and (-not $preflight -or -not $online)){
             $planIndex=$Index
             $original=Get-DomeniaMemberValue $r 'CampaignIndexByKey' $null
             $key=([string]$Observation.Key).ToLowerInvariant()
@@ -1656,6 +1683,8 @@ function Initialize-DomeniaRemoteStoreState {
 function Submit-DomeniaRemoteObservations {
     param($Result,$State,[string]$SuccessHandler,[string]$ErrorHandler)
     $changes=@(ConvertTo-DomeniaRemoteObservationChanges -Result $Result -Guid ([string]$State.StoreGuid) -DN ([string]$State.StoreDn))
+    # SQL readback also contains older families. Only this attempt decides completion of this campaign target.
+    if(-not [string](Get-DomeniaMemberValue $State 'StoreBatchId')){$State|Add-Member -NotePropertyName ObservedFamilies -NotePropertyValue @($changes|ForEach-Object{[string]$_.Family}|Select-Object -Unique) -Force}
     return Submit-DomeniaRemoteChanges -Changes $changes -State $State -SuccessHandler $SuccessHandler -ErrorHandler $ErrorHandler
 }
 

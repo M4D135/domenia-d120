@@ -68,12 +68,16 @@ function Invoke-DomeniaFavouriteTreeReveal {
             $s.Frames.Enqueue([pscustomobject]@{Items=$node.Items;Index=0;Group=$node});continue
         }
         if([string](Get-DomeniaMember $tag 'DN') -ine [string]$s.Path[$s.Level]){continue}
-        if($null -ne $frame.Group){$frame.Group.IsExpanded=$true}
+        if($null -ne $frame.Group){Set-DomeniaTreeItemExpanded -Node $frame.Group}
         if($s.Level -eq 0){$s.Root=$node}
         $s.IdleDeadline=[datetime]::UtcNow.AddSeconds($s.IdleSeconds)
         if($s.Level -eq $s.Path.Count-1){
+            # Point 8: one programmatic selection token, then a bounded reveal that realizes only the target
+            # path indexes (no second search at the deferred layout event, real scroll into the viewport).
+            # Update-DomeniaSearchScopeUi keeps its contract: the content search was already launched by the favourite.
+            Set-DomeniaTreeProgrammaticSelection -Node $node
             $old=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
-            try{$node.IsSelected=$true;$node.BringIntoView();Update-DomeniaSearchScopeUi}
+            try{[void](Start-DomeniaTreeItemReveal -Node $node -Purpose 'favori');Update-DomeniaSearchScopeUi}
             finally{$script:SuppressBranchAutoLoad=$old}
             if($null -ne $script:Continuity){$script:Continuity.Dirty=$true}
             [void](Set-DomeniaControlText 'LblTreeStatus' 'OU du favori sélectionnée dans lʼarbre.')
@@ -81,8 +85,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
         }
         $s.Parent=$node;$s.Level++;$s.Frames=$null
         # Expanded starts the existing one-level, commit-before-display reader. Never retry an auth/network failure here.
-        if(-not $node.IsExpanded){$node.IsExpanded=$true}
-        elseif(-not [bool]$tag.Loaded -and -not [bool]$tag.Loading -and -not [string]$tag.RenderId){Load-TreeChildren -Node $node}
+        Set-DomeniaTreeItemExpanded -Node $node -AllowLoad
         if(-not [bool]$tag.Loaded){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
     }
 }
@@ -145,12 +148,13 @@ function Get-DomeniaTreeContextKey {
     return Get-DomeniaLiveHash (([string]$script:Conn.BaseDn+'|'+[string]$script:Conn.BindUser).ToLowerInvariant())
 }
 function Get-DomeniaRealizedTreeNodes {
+    # Walk loaded data, including off-screen branches. Bookmark persistence has its own size limit.
     $tree=Get-DomeniaControl 'TvDirectory';$out=[Collections.Generic.List[object]]::new()
     if($null -eq $tree){return ,$out.ToArray()}
     $queue=[Collections.Generic.Queue[object]]::new();foreach($n in $tree.Items){$queue.Enqueue($n)}
-    while($queue.Count -gt 0 -and $out.Count -lt 600){
-        $n=$queue.Dequeue();if($n -isnot [Windows.Controls.TreeViewItem]){continue};$out.Add($n)
-        foreach($c in $n.Items){if($c -is [Windows.Controls.TreeViewItem]){$queue.Enqueue($c)}}
+    while($queue.Count -gt 0){
+        $n=$queue.Dequeue();if($n -isnot [Domenia.Tree.DomeniaTreeItem]){continue};$out.Add($n)
+        foreach($c in $n.Items){if($c -is [Domenia.Tree.DomeniaTreeItem]){$queue.Enqueue($c)}}
     }
     return ,$out.ToArray()
 }
@@ -205,13 +209,16 @@ function Invoke-DomeniaTreeBookmarkRestore {
         $dn=[string]$n.Tag.DN;if(-not $dn){continue}
         $needed=($s.Restore.Expanded -contains $dn -or $s.Restore.Selected.EndsWith(','+$dn,[StringComparison]::OrdinalIgnoreCase))
         if($needed -and -not $n.IsExpanded -and $n.IsEnabled){
-            if($expandedThisTick -lt 1 -and @($script:AsyncJobs.Keys).Count -lt [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){$n.IsExpanded=$true;$expandedThisTick++};$pending=$true
+            if($expandedThisTick -lt 1 -and @($script:AsyncJobs.Keys).Count -lt [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){
+                Set-DomeniaTreeItemExpanded -Node $n -AllowLoad
+                $expandedThisTick++
+            };$pending=$true
         }
         if($needed -and -not [bool]$n.Tag.Loaded){$pending=$true}
         if(-not $s.SelectedRestored -and $dn -ieq $s.Restore.Selected -and $n.IsEnabled){
             $old=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
             try{
-                $n.IsSelected=$true;$script:SelectedBranchDn=$dn
+                Set-DomeniaTreeProgrammaticSelection -Node $n;$script:SelectedBranchDn=$dn
                 # Decision David 2026-10-19 (startup time): the domain root remembered with its whole subtree and no
                 # search text is reopened one level deep (its first OUs), as a survey of the whole domain is refused.
                 # An OU keeps its remembered depth; the subtree box stays one click away.
@@ -222,7 +229,13 @@ function Invoke-DomeniaTreeBookmarkRestore {
                     Write-AppLog 'OU restaurée : racine du domaine rouverte sur un seul niveau (sous-niveaux sur un clic), pour éviter la lecture de tout le domaine au démarrage.' 'INFO'
                 }
                 $check=Get-DomeniaControl 'ChkSubtree';if($null -ne $check){$check.IsChecked=$subtree}
-                Update-DomeniaSearchScopeUi;$n.BringIntoView();$s.SelectedRestored=$true
+                # Point 8: programmatic token then a bounded reveal that realizes only the target path indexes
+                # (real scroll to the branch, even off-screen; no second search at the deferred layout event).
+                Set-DomeniaTreeProgrammaticSelection -Node $n
+                if($n -is [Domenia.Tree.DomeniaTreeItem] -and $null -ne $n.Parent){
+                    [void](Start-DomeniaTreeItemReveal -Node $n -Purpose 'restauration')
+                }
+                Update-DomeniaSearchScopeUi;$s.SelectedRestored=$true
             }finally{$script:SuppressBranchAutoLoad=$old}
             Hide-DomeniaOuRestoreNotice
             # The domain root is already opened one level by Load-TreeRoot. Do not chain another search behind it.

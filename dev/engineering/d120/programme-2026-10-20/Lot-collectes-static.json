@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-20",
+  "kind": "CollectesStatic",
+  "qualifying_windows": false,
+  "passed": true,
+  "files": [
+    "dev/wad/modules/Domenia-Collection.Model.ps1",
+    "dev/wad/modules/Domenia-Collection.UI.ps1",
+    "dev/wad/modules/Domenia-Park.Model.ps1",
+    "dev/wad/modules/Domenia-Park.UI.ps1",
+    "dev/wad/modules/Domenia-DirectorySync.Model.ps1",
+    "dev/wad/tests/Test-DomeniaRemoteStore.ps1",
+    "dev/wad/tests/Test-DomeniaParkDetection.ps1",
+    "dev/wad/tests/rules/Collection.Tests.ps1",
+    "dev/wad/tests/rules/Park.Tests.ps1",
+    "dev/wad/tests/rules/DirectorySync.Tests.ps1"
+  ],
+  "errors": [],
+  "windows_tests_executed": false
+}

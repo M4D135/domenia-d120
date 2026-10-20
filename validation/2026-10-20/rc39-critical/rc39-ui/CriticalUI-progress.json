@@ -1,0 +1,69 @@
+{
+    "Build":  "RC1.17.39",
+    "Stage":  "CriticalUI",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-20T20:40:26.4562880Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T20:40:43.5205749Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:41:08.4633666Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:41:31.1297453Z",
+                      "Text":  "OU accepted through picker; step 2 checked immediately, index still empty and step 3 pending"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:42:19.6903913Z",
+                      "Text":  "Real AD read of Domain Controllers persisted one DC and complete coverage; step 3 checked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:42:32.7456369Z",
+                      "Text":  "First steps completed with actual AD collection and local dashboard"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:42:32.8555323Z",
+                      "Text":  "Critical UI scope: first steps, AD search, selected object and workstation health"
+                  },
+                  {
+                      "Utc":  "2026-10-20T20:43:29.6363099Z",
+                      "Text":  "Selected AD workstation, fiche, workstation and health pages opened; normal close"
+                  }
+              ],
+    "AppId":  3688,
+    "CoreSha256":  "D0F72C209121A26CBFF14EAE9B35F371AEC1F534B0AF81CAD77CCFE468D61874",
+    "ReleaseSha256":  "D89D91A696AEB0A3CA314BF5B286228FE318C8D2EE3974962B2BA4FCC619EC4C",
+    "Database":  "C:\\DomeniaLab\\RC35-qualification\\RC39-critical-ui\\prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "Coverage":  [
+                     {
+                         "scope":  "attempt:ou:ou=domain controllers,dc=cnamts,dc=local",
+                         "details":  "complete;depth=Subtree",
+                         "last_sync":  "2026-10-20T20:41:41.8199157Z",
+                         "item_count":  1
+                     },
+                     {
+                         "scope":  "ou:ou=domain controllers,dc=cnamts,dc=local",
+                         "details":  "inv=d3322c7a-bdea-4fb6-9a0c-09f8441790d3;depth=Subtree;absent=1",
+                         "last_sync":  "2026-10-20T20:41:41.8199157Z",
+                         "item_count":  1
+                     }
+                 ],
+    "DirectoryRows":  [
+                          {
+                              "name":  "DC01",
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "distinguished_name":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local"
+                          }
+                      ],
+    "BeforeDashboard":  "Ouvrir le tableau de bord : le calcul part à ce clic, depuis la base locale, puis la vue sʼaffiche.",
+    "DashboardText":  "Dates des mesures et du calcul",
+    "ScopeText":  "Périmètre et fraîcheur AD",
+    "SearchFirstRowMs":  12959,
+    "ObjectReadStatus":  "Machine : DC01 | Fiche lue. Identifiant DC01 · Systeme Non renseigne · Etat Non renseigne · Emplacement Non renseigne · Presence Non verifiee",
+    "ObjectReadMs":  300
+}

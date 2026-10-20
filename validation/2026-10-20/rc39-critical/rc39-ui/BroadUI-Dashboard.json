@@ -1,0 +1,932 @@
+[
+    {
+        "Id":  "RootScroll",
+        "Name":  "",
+        "Type":  "ControlType.Pane",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxBrandCompact",
+        "Name":  "D",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabAccounts",
+        "Name":  "Comptes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabApplicationTools",
+        "Name":  "Outils",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSidebarToggle",
+        "Name":  "Déployer le menu : icônes et libellés.",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabDashboard",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsObject",
+        "Name":  "Fiche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WsComputer",
+        "Name":  "Poste",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TabRelations",
+        "Name":  "Utilisateurs et postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavBack",
+        "Name":  "Précédent",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnNavForward",
+        "Name":  "Suivant",
+        "Type":  "ControlType.Button",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblUxPageTitle",
+        "Name":  "Accueil",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxDomain",
+        "Name":  "Connecté à cnamts.local",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUxSubject",
+        "Name":  "Poste · DC01",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxSubjectClear",
+        "Name":  "Désélectionner",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ChkReadOnlyMode",
+        "Name":  "Protection des modifications",
+        "Type":  "ControlType.CheckBox",
+        "Enabled":  true
+    },
+    {
+        "Id":  "WorkspaceTabs",
+        "Name":  "Choisissez une rubrique dans la barre latérale",
+        "Type":  "ControlType.Tab",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetShowMachines",
+        "Name":  "Ouvrir lʼatelier de requêtes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetDashboardRefresh",
+        "Name":  "Recalculer la vue sans collecte",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetScope",
+        "Name":  "Périmètre et fraîcheur AD",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetDashboard",
+        "Name":  "Dates des mesures et du calcul",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetScope",
+        "Name":  "Choisir lʼOU du tableau de bord",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetOpenSearch",
+        "Name":  "Analyser ces postes dans Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshAll",
+        "Name":  "Tout actualiser : objets AD, puis ping et WMI de lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetIndexScope",
+        "Name":  "Mettre à jour la base locale de l’OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshPostes",
+        "Name":  "Actualiser les postes de l’OU par ping et WMI",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnFleetRefreshBoth",
+        "Name":  "Mettre à jour la base locale puis les postes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblFleetOuRefreshStatus",
+        "Name":  "Progression de l’actualisation du périmètre",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Analyser la vue",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Règles de santé",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Atelier",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Copier le résumé",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ajouter un widget",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Personnaliser",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Comptes ordinateur",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Comptes AD activés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : État des comptes AD",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Sans connexion AD depuis 90 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Comptes désactivés encore dans lʼOU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Créés ces 30 jours",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Mot de passe machine de plus de 60 j",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Sans LAPS",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Lire la présence des clés BitLocker de cette OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Sans clé BitLocker",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Versions de Windows",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Fin de service",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Postes sous Windows 10",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Systèmes dʼexploitation",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Dernière connexion au domaine",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre ce chiffre : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Postes par sous-OU",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "1 poste(s) créé(s) ces 30 derniers jours. : afficher les postes concernés",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Relire les données : Santé du parc",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Ouvrir dans lʼatelier : Santé du parc",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Comprendre le score",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Suspendre la mesure : Santé du parc",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Modifier : Santé du parc",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "",
+        "Name":  "Retirer : Santé du parc",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "UxSessionDetails",
+        "Name":  "Détails de la session et outils de vérification",
+        "Type":  "ControlType.Group",
+        "Enabled":  true
+    },
+    {
+        "Id":  "HeaderSite",
+        "Name":  "Détails de la session et outils de vérification",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "VerticalScrollBar",
+        "Name":  "",
+        "Type":  "ControlType.ScrollBar",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageUp",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "PageDown",
+        "Name":  "",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LblUiLogLast",
+        "Name":  "Dernier message du journal",
+        "Type":  "ControlType.Text",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxLogToggle",
+        "Name":  "Déplier le journal",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "LstSearchBarScope",
+        "Name":  "Où chercher",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "ItmSearchBarScopeOu",
+        "Name":  "Dans lʼOU choisie",
+        "Type":  "ControlType.ListItem",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LblSearchBarScopeOu",
+        "Name":  "OU de la recherche",
+        "Type":  "ControlType.Text",
+        "Enabled":  false
+    },
+    {
+        "Id":  "LstSearchBarType",
+        "Name":  "Type cherché",
+        "Type":  "ControlType.List",
+        "Enabled":  true
+    },
+    {
+        "Id":  "TxtGlobalSearch",
+        "Name":  "Rechercher",
+        "Type":  "ControlType.Edit",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnGlobalSearchClear",
+        "Name":  "Vider la recherche",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnCommandPalette",
+        "Name":  "Palette de commandes",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnAccessRecovery",
+        "Name":  "Accès",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnSuiteActivity",
+        "Name":  "Opérations",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnThemeToggle",
+        "Name":  "Passer au thème sombre",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUxHelpToggle",
+        "Name":  "Afficher lʼaide",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomOut",
+        "Name":  "Réduire le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomReset",
+        "Name":  "Réinitialiser le zoom à 100 %",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    },
+    {
+        "Id":  "BtnUiZoomIn",
+        "Name":  "Agrandir le zoom",
+        "Type":  "ControlType.Button",
+        "Enabled":  true
+    }
+]

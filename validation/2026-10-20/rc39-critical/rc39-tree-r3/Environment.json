@@ -1,0 +1,14 @@
+{
+    "PowerShell":  "5.1.26100.6584",
+    "SourceBindings":  {
+                           "wad/modules/Domenia-DirectoryTree.Types.cs":  "8BF412290A145C6F7B2E4FC3CCBCEC08DCFF3C5C353D1676FE5FC49F39448D09",
+                           "wad/Domenia-Core.ps1":  "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+                           "wad/modules/Domenia-Widgets.UI.ps1":  "47B7B6A3F483B23CE242BF37BFE4A4268C9F6599959DDACD6C93F40F06F98E77",
+                           "wad/Domenia.release.json":  "D89D91A696AEB0A3CA314BF5B286228FE318C8D2EE3974962B2BA4FCC619EC4C",
+                           "wad/Domenia-Modules.ps1":  "1A1386A898C1F504C08E38647B236DAC04BABEC06072B2834783BD015E7343F5",
+                           "wad/modules/Domenia-LocalPreview.UI.ps1":  "F256D8EC1679D2DB85D809B916F0823890A518BAE05CEEBA1533C93247D24617",
+                           "wad/package-manifest.json":  "57DF375AAE77456395D7DFAAF0EF12152F13D424AC536685EF1E9EDEF68E0A9A",
+                           "wad/modules/Domenia-DirectoryTree.UI.ps1":  "DBF4F1015C93EBE81EC06BDF4DADBCB73E5466EA8A79F3F741BB6A43035E513B"
+                       },
+    "Apartment":  "STA"
+}

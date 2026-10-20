@@ -45,10 +45,12 @@ function Submit-DomeniaStoreBatch {
  $script:Saves.Add([pscustomobject]@{Context=$Context;BatchId=$BatchId;Changes=$Changes;CallbackState=$CallbackState;SuccessHandler=$SuccessHandler;ErrorHandler=$ErrorHandler})
  return [pscustomobject]@{Accepted=$true;Backpressure=$false}
 }
-function Commit-Saved {param([int]$Index=0)
+function Commit-Saved {param([int]$Index=0,[switch]$RealFamilies,$Observation=$null,[object[]]$AdditionalFamilies=@())
  $saved=$script:Saves[$Index];$state=$saved.CallbackState.State
  $row=[pscustomobject]@{Version=1;Key=$state.StoreDn;Guid=$state.StoreGuid;Computer=$state.Target.Computer;Presence='En ligne';PresenceCheckedUtc='2026-10-13T10:00:00Z';Outcome='Observed';CurrentUser='EXAMPLE\COMMITTED';LastUser='EXAMPLE\COMMITTED';RawAccount='EXAMPLE\COMMITTED';ObservedUtc='2026-10-13T10:00:00Z';CheckedUtc='2026-10-13T10:00:00Z';Probes=$null;Revision=17}
- $receipt=[pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$saved.Context.StoreId;RequestId=$saved.Context.RequestId;BatchId=$saved.BatchId;ObservationRows=@($row);Observations=@();Revision=17;SnapshotRevision=17}
+ if($null -ne $Observation){$row=$Observation}
+ $families=@();if($RealFamilies){$families=@($saved.Changes)};$families+=@($AdditionalFamilies)
+ $receipt=[pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$saved.Context.StoreId;RequestId=$saved.Context.RequestId;BatchId=$saved.BatchId;ObservationRows=@($row);Observations=$families;Revision=17;SnapshotRevision=17}
  & $saved.SuccessHandler -Result $receipt -State $saved.CallbackState
 }
 # MO-08: one store batch carries several workstations; the receipt returns one committed row per workstation.
@@ -894,10 +896,12 @@ Case 'Campagne : un poste relu après un incident garde ses mesures réutilisabl
  Reset-Fixture;Ready-Run 1;Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State
  $previous=[pscustomobject]@{Key=$state.Target.Key;Guid=$state.Target.Guid;Inventory=[pscustomobject]@{Build='26100';CheckedUtc=[datetime]::UtcNow.ToString('o')}}
  $state.Target.Previous=$previous
- $p=New-Result $state.Target;$p.Outcome='Timeout';Complete-DomeniaParkSession $p $state;Commit-Saved
- Assert ([object]::ReferenceEquals($state.Target.Previous,$previous)) 'Observation précédente libérée avant la reprise'
+ $p=New-Result $state.Target;$p.Outcome='Timeout';Complete-DomeniaParkSession $p $state
+ $committed=$previous.PSObject.Copy();$committed|Add-Member Computer $state.Target.Computer;$committed|Add-Member Presence 'En ligne';$committed|Add-Member Outcome 'Unavailable';$committed|Add-Member Revision 18
+ Commit-Saved -Observation $committed
+ Assert ([object]::ReferenceEquals($state.Target.Previous,$committed) -and $state.Target.Previous.Inventory.Build -eq '26100') 'Mesures réutilisables du reçu perdues avant la reprise'
  (Run).Retry[0].NotBeforeUtc=[datetime]::UtcNow.AddSeconds(-1);Invoke-DomeniaParkRunTick
- Assert ($script:Calls.Count -eq 3 -and [object]::ReferenceEquals($script:Calls[2].Payload.Previous,$previous)) 'Reprise sans lʼobservation précédente'
+ Assert ($script:Calls.Count -eq 3 -and [object]::ReferenceEquals($script:Calls[2].Payload.Previous,$committed)) 'Reprise sans la dernière observation committée'
  $second=$script:Calls[2].State;Complete-DomeniaParkSession (New-Result $second.Target) $second;Commit-Saved 1
  Assert ($null -eq $second.Target.Previous) 'Tampon conservé après le dernier essai'
 }
@@ -1089,9 +1093,52 @@ Case 'RC11717 : la fin native après timeout ne masque pas le reçu SQLite en at
   Assert ($r.Completed -and -not $r.Stopping -and $r.Done -eq 2) 'Le lot ne finit pas à 2/2'
  }
 }
+Case 'P60-25 : un échec committé reste seul à reprendre, le poste suivant termine le lot' {
+ Reset-Fixture;Approve-Run 2;$r=Run;$r.WmiOnly=$true;$r.Concurrency=1
+ Invoke-DomeniaParkRunTick;$first=$script:Calls[1]
+ Fail-DomeniaParkSession 'Délai dépassé : PC-1' $first.State
+ [void]$script:AsyncJobs.Remove($first.Id);Commit-Saved -RealFamilies
+ Assert ($r.Done -eq 1 -and $r.CampaignProgress.DoneCount -eq 0 -and -not $r.Stopping) 'Échec supprimé du plan ou lot arrêté'
+ Invoke-DomeniaParkRunTick;$second=$script:Calls[2]
+ Assert ($second.Payload.Computer -eq 'PC-2') 'Timeout bloque le poste suivant'
+ Complete-DomeniaParkSession (New-Result $second.State.Target) $second.State
+ [void]$script:AsyncJobs.Remove($second.Id)
+ $unrequested=[pscustomobject]@{Guid=$second.State.Target.Guid;Family='Probe:ancienne';Status='Error';Error='Ancien échec hors de cette collecte'}
+ Commit-Saved 1 -RealFamilies -AdditionalFamilies @($unrequested)
+ Invoke-DomeniaParkRunTick
+ Assert ($r.Completed -and $r.Done -eq 2 -and -not $r.Stopping) 'Lot non clôturé après le second poste'
+ $plan=ConvertFrom-DomeniaCampaignPlanText $script:Prefs['Domenia.campaign-plan.json']
+ $progress=ConvertFrom-DomeniaCampaignProgressText $script:Prefs['Domenia.campaign-progress.json'] -Plan $plan
+ $remaining=@(Get-DomeniaCampaignRemainingTargets -Plan $plan -Progress $progress)
+ Assert ($progress.DoneCount -eq 1 -and $remaining.Count -eq 1 -and $remaining[0].name -eq 'PC-1') 'La reprise inclut un poste réussi ou oublie lʼéchec'
+}
+Case 'P60-25 : la reprise attend le commit et conserve les familles réussies de cette tentative' {
+ Reset-Fixture;Ready-Run 1;$r=Run;$r.Inventory=$true
+ $r.Probes=@([pscustomobject]@{Id='hw.good';DefinitionHash='good'},[pscustomobject]@{Id='hw.bad';DefinitionHash='bad'})
+ Invoke-DomeniaParkRunTick;$first=$script:Calls[1];$stamp=[datetime]::UtcNow.ToString('o')
+ $packet=New-Result $first.State.Target;$packet.Outcome='Timeout'
+ $inventory=[pscustomobject]@{CheckedUtc=$stamp;Build='26100'}
+ $probeRows=[pscustomobject]@{'hw.good'=[pscustomobject]@{CheckedUtc=$stamp;DefinitionHash='good';Rows=@();Count=0;Error='';Truncated=$false};'hw.bad'=[pscustomobject]@{CheckedUtc=$stamp;DefinitionHash='bad';Rows=@();Count=0;Error='timeout';Truncated=$false}}
+ $packet|Add-Member Inventory $inventory;$packet|Add-Member InventoryAttempted $true;$packet|Add-Member InventoryCheckedUtc $stamp;$packet|Add-Member Probes $probeRows
+ Complete-DomeniaParkSession $packet $first.State
+ [void]$script:AsyncJobs.Remove($first.Id);$r.Retry[0].NotBeforeUtc=[datetime]::UtcNow.AddSeconds(-1)
+ Invoke-DomeniaParkRunTick
+ Assert ($script:Calls.Count -eq 2 -and $r.StorePending.Count -eq 1) 'Reprise partie avant le reçu SQLite'
+ $committed=[pscustomobject]@{Key=$packet.Key;Guid=$packet.Guid;Computer=$packet.Computer;Presence='En ligne';Outcome='Unavailable';Inventory=$inventory;InventoryError='';Probes=$probeRows}
+ Commit-Saved -RealFamilies -Observation $committed
+ Assert ([object]::ReferenceEquals($first.State.Target.Previous,$committed)) 'Dernières mesures committées ignorées par la reprise'
+ Invoke-DomeniaParkRunTick;$second=$script:Calls[2]
+ Assert (-not $second.Payload.Inventory -and @($second.Payload.Probes).Count -eq 1 -and $second.Payload.Probes[0].Id -eq 'hw.bad') 'Familles réussies relues inutilement'
+}
+Case 'P60-28 : progression expose file, poste actif et étape, sans inventer de résultat validé' {
+ Reset-Fixture;Ready-Run 2;$r=Run;$r.StartedUtc=[datetime]::UtcNow;$r.Concurrency=1
+ Invoke-DomeniaParkRunTick;$state=$script:Calls[1].State;$state.ReadProgress.RowsRead=2L
+ $detail=Get-DomeniaParkRunDetailText $r
+ Assert ($detail -match 'File : 1 poste' -and $detail -match 'PC-1 : 2 étape' -and $detail -match '0/2 résultat') $detail
+}
 if($null -ne $script:ParkRuns){foreach($old in @($script:ParkRuns.Values)){if($null -ne $old -and $null -ne $old.PSObject.Properties['Timer'] -and $null -ne $old.Timer){$old.Timer.Stop()}}}
 $failed=@($checks|Where-Object Status -eq 'Failed').Count
-$expected=81;if($Filter){$expected=$checks.Count}
+$expected=84;if($Filter){$expected=$checks.Count}
 $report=[ordered]@{Kind='ParkDetection';Expected=$expected;Filter=$Filter;Complete=($checks.Count -gt 0 -and $checks.Count -eq $expected -and $failed -eq 0);NativeWindowsPowerShell51=$true;LiveAD=$false;MockedNetwork=$true;Passed=$checks.Count-$failed;Failed=$failed;Tests=$checks.ToArray()}
 if(-not $ReportPath){$ReportPath=Join-Path $env:TEMP 'domenia-park-tests.json'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))

@@ -34,7 +34,7 @@ function Check-Suite {param([string]$Name,[scriptblock]$Code)
     try{if(-not (& $Code)){throw 'Condition non verifiee.'};$script:Checks.Add([pscustomobject]@{Name=$Name;Passed=$true;Detail=''})}
     catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Passed=$false;Detail=$_.Exception.Message})}
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Observability.UI.ps1')){. (Join-Path $modules $file)}
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Guard.Model.ps1','Domenia-Observability.Model.ps1','Domenia-Observability.UI.ps1')){. (Join-Path $modules $file)}
 $script:TraceLines=New-Object 'System.Collections.Generic.List[string]'
 function Write-DomeniaTrace {param([string]$Text,[string]$Area='Tache') $script:TraceLines.Add('['+$Area+'] '+$Text)}
 function Write-AppLog {param($Text,$Level)}

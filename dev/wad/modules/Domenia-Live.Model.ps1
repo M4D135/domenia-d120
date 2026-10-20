@@ -33,7 +33,9 @@ function ConvertTo-DomeniaLiveSnapshot {
     # Fixed projection: a row cannot smuggle a password/secret into the cache.
     $values=[ordered]@{}
     foreach($name in @('Type','Name','Login','UPN','Mail','Description','Changed','DN','State','OS','LastLogon','Guid')) {
-        $v=Get-DomeniaLiveField $Row $name
+        # The projection is a hot path: inspect each allowed property once, without twelve function invocations.
+        $property=if($null -ne $Row){$Row.PSObject.Properties[$name]}else{$null}
+        $v=if($null -ne $property -and $null -ne $property.Value){[string]$property.Value}else{''}
         $max=if($name -in @('DN','Description')){4096}else{512}
         if($v.Length -gt $max){$v=$v.Substring(0,$max)}
         $values[$name]=$v
@@ -550,9 +552,13 @@ try{
                 $cacheKey=Get-WCimGroupKey ([string]$probe.Namespace) ([string]$probe.Class) $filter
                 $cimStats.Consumers++
                 if(-not $groups.ContainsKey($cacheKey)){
-                    $groups[$cacheKey]=[pscustomobject]@{Namespace=[string]$probe.Namespace;Class=[string]$probe.Class;Filter=$filter;Properties=[Collections.Generic.List[string]]::new();PropertyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);Read=$false;Items=@();Count=0L;EnumerationComplete=$false;Error='';At=''}
+                    $groups[$cacheKey]=[pscustomobject]@{Namespace=[string]$probe.Namespace;Class=[string]$probe.Class;Filter=$filter;Properties=[Collections.Generic.List[string]]::new();PropertyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);TimeoutSeconds=0;Read=$false;Items=@();Count=0L;EnumerationComplete=$false;Error='';At=''}
                 }
                 $group=$groups[$cacheKey]
+                $probeSeconds=[Math]::Max(10,$timeout)
+                $timeoutKey=if($null -ne $probe.PSObject.Properties['Slow'] -and [bool]$probe.Slow){'SlowProbeTimeoutSeconds'}else{'ProbeTimeoutSeconds'}
+                if($null -ne $Payload.PSObject.Properties[$timeoutKey]){$probeSeconds=[int]$Payload.$timeoutKey}
+                $group.TimeoutSeconds=[Math]::Max([int]$group.TimeoutSeconds,[Math]::Max(1,[Math]::Min(20,$probeSeconds)))
                 foreach($property in $properties){if($group.PropertyNames.Add([string]$property)){$group.Properties.Add([string]$property)}}
                 $planned.Add([pscustomobject]@{Probe=$probe;Properties=$properties;Group=$group;Entry=$entry})
             }catch{if(Register-WCredentialFailure -Context $Context -ErrorValue $_ -Channel Remote){throw};$entry.Error=[string]$_.Exception.Message}
@@ -570,7 +576,7 @@ try{
             if(-not $cached.Read){
                 $cached.Read=$true
                 $cimStats.Executed++
-                $query=@{CimSession=$cim;Namespace=$cached.Namespace;ClassName=$cached.Class;Property=$cached.Properties.ToArray();OperationTimeoutSec=[Math]::Max(10,$timeout);ErrorAction='Stop'}
+                $query=@{CimSession=$cim;Namespace=$cached.Namespace;ClassName=$cached.Class;Property=$cached.Properties.ToArray();OperationTimeoutSec=[int]$cached.TimeoutSeconds;ErrorAction='Stop'}
                 if($cached.Filter){$query.Filter=$cached.Filter}
                 try{
                     # Count the full stream, retaining detached typed details within explicit memory budgets.

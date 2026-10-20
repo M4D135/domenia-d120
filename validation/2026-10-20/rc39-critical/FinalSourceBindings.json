@@ -1,0 +1,42 @@
+{
+  "Build": "2026.10.20-DOMENIA-1.0-RC1.17.39-D120",
+  "SourceBaseCommit": "4987773325c0849129960c35b50790396ac1fc2b",
+  "Archives": [
+    {
+      "edition": "PROD",
+      "path": "packs/Domenia_PROD.zip",
+      "bytes": 3116131,
+      "sha256": "27244218d38b6924f7f0f5bd246c613458c328ce3472de963fd6e75651b7b7a9",
+      "files": 176,
+      "archive_files_including_manifest": 177,
+      "archive_root": "prod/"
+    },
+    {
+      "edition": "DEV",
+      "path": "packs/Domenia_DEV.zip",
+      "bytes": 6714229,
+      "sha256": "05485075240a41615d63b33572ff105bfc0f5e17cb27ba1008d0083044c6789a",
+      "files": 669,
+      "archive_files_including_manifest": 670,
+      "archive_root": "dev/"
+    }
+  ],
+  "RuntimeFilesIdentical": 176,
+  "PRODIdenticalToWindowsQualifiedArchive": true,
+  "DEVChangesSinceQualifiedRuntime": [
+    "engineering/d120/programme-2026-10-20/REPRISE.md",
+    "engineering/d120/programme-2026-10-20/Suivi_60.json",
+    "wad/package-manifest.json"
+  ],
+  "FinalRuntimeProofs": [
+    "UpgradeCompactApplied.json",
+    "FinalCompactIntegrity.json",
+    "rc39-visual-compact/VisualCompact-Result.json",
+    "rc39-visual-compact/VisualReview.json"
+  ],
+  "ReuseProofs": [
+    "CriticalSourceReuse.json",
+    "DeltaSourceReuse.json"
+  ],
+  "GeneralQualification": false
+}

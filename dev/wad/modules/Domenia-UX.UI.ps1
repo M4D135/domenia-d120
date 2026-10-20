@@ -1714,7 +1714,7 @@ function Get-DomeniaSearchEmptyInputs {
     }
     $search = $null
     try { if ($null -ne $script:Live) { $search = $script:Live.Search } } catch { $search = $null }
-    $inFlight = $false; $completed = $false; $partial = $false; $errorKind = ''; $query = ''; $scope = ''
+    $inFlight = $false; $completed = $false; $partial = $false; $errorKind = ''; $query = ''; $scope = ''; $completeness = 'Unknown'; $limit = 0; $type = 'Tous'
     # The state of the search speaks only for its own rows; another list (query, history, cleared list) is foreign.
     $live = (($null -ne $search) -and ($null -ne $grid) -and [object]::ReferenceEquals($grid.ItemsSource,$search.Rows))
     $foreign = ((-not $live) -and ($null -ne $grid) -and ($null -ne $grid.ItemsSource))
@@ -1728,6 +1728,11 @@ function Get-DomeniaSearchEmptyInputs {
             if (-not $errorKind) { $errorKind = 'Unexpected' }
         }
         $state = Get-DomeniaMemberValue $search 'State' $null
+        $limit=[int](Get-DomeniaMember $state 'Limit' 0)
+        $type=[string](Get-DomeniaMember $state 'Type' 'Tous')
+        $final=Get-DomeniaMemberValue $search 'Final' $null
+        $limited=[bool](Get-DomeniaMember $final 'LimitReached' $false)
+        $completeness=if($inFlight){'Loading'}elseif($partial -or $failure){'Partial'}elseif($limited){'Limited'}elseif($completed -and ($null -ne $final)){'Complete'}else{'Unknown'}
         $query = [string](Get-DomeniaMember $state 'Search' '')
         if ([string](Get-DomeniaMember $state 'SearchMode' '') -eq 'Global') { $scope = 'tout le domaine' }
         else {
@@ -1746,7 +1751,7 @@ function Get-DomeniaSearchEmptyInputs {
         if ($localFilter) { $localFilter += ' · ' }
         $localFilter += 'présence ' + $presence
     }
-    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$localFilter;FilterText=$filterText;Presence=$presence;Foreign=$foreign;Pending=$pending}
+    return [pscustomobject]@{Displayed=$displayed;Loaded=$loaded;InFlight=$inFlight;Completed=$completed;ErrorKind=$errorKind;Partial=$partial;Query=$query;Scope=$scope;LocalFilter=$localFilter;FilterText=$filterText;Presence=$presence;Foreign=$foreign;Pending=$pending;Completeness=$completeness;Limit=$limit;Type=$type}
 }
 
 function Update-DomeniaSearchEmptyState {
@@ -1785,6 +1790,9 @@ function Update-DomeniaSearchEmptyState {
             if ([bool]$filtered.Show) { $title = [string]$filtered.Text; $text = [string]$filtered.Detail }
         }
         if ($null -ne $script:DomeniaSearchEmptyTimer) { $script:DomeniaSearchEmptyTimer.Stop() }
+    }
+    if($kind -and ($kind -notin @('NothingQueried')) -and (-not [bool]$inputs.Foreign)){
+        $text+=' '+(Get-DomeniaSearchAbsenceHint -Scope ([string]$inputs.Scope) -LocalFilter ([string]$inputs.LocalFilter) -Type ([string]$inputs.Type) -Completeness ([string]$inputs.Completeness) -Limit ([int]$inputs.Limit))
     }
     # Both blocks are polite live regions: a new verdict (refusée, aucun résultat...) is announced once, then its
     # explanation; an unchanged text is not announced again.

@@ -71,13 +71,13 @@ function ConvertTo-DomeniaQueryCountEntry {
     return $entry
 }
 function Get-DomeniaComputerQueryBoardEntry {
-    param([string]$Id,[string]$Visual='Kpi',[string]$ConsumerId='')
+    param([string]$Id,[string]$Visual='Kpi',[string]$ConsumerId='',$Records=$null)
     $q=$script:DomeniaQueryState
     $recipe=@(if($null -ne $q){$q.Saved|Where-Object{$_.Id -eq $Id}|Select-Object -First 1})
     if(-not $recipe.Count){return (New-DomeniaBoardEntry -Key $Id -Kind Number -Value 'Requête absente' -Detail 'Enregistrez une requête dans lʼatelier.' -State Off)}
     try{
         # One local record is inexpensive; rebuilding avoids stale identity, context or observation caches.
-        $records=Get-DomeniaComputerQueryRecords
+        if($null -eq $Records){$Records=Get-DomeniaComputerQueryRecords}
         if(-not $records.Count){return (New-DomeniaBoardEntry -Key $Id -Title $recipe[0].Name -Kind Number -Value 'Choisir un poste' -Detail 'Ouvrez une fiche de poste pour évaluer cette requête.' -State Off)}
         $count=Measure-DomeniaQueryWidget -Records $records -Recipe $recipe[0]
         return (ConvertTo-DomeniaQueryCountEntry -Id $Id -Title $recipe[0].Name -Count $count -Visual $Visual -Context ([string]$script:SelectedObject.Name+' · données locales') -Revision (Get-DomeniaQueryWidgetRevision -Recipe $recipe[0] -Board Computer -ConsumerId $ConsumerId))

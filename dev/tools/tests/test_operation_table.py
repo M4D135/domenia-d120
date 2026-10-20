@@ -23,8 +23,14 @@ class OperationTableTest(unittest.TestCase):
         self.assertEqual([], contracts.operation_table_problems(self.items))
 
     def test_a_new_pinned_operation_without_its_line_is_reported(self):
-        items = self.items + [dict(self.items[0], Operation='StorageRetention')]
-        self.assertIn('Operation epinglee sans ligne Pinned : StorageRetention', contracts.operation_table_problems(items))
+        operation = 'Pcd07FakeOperation'
+        contract = [i['Operation'] for i in self.items]
+        source = (DEV / 'wad/modules/Domenia-Engine.Model.ps1').read_text('utf-8-sig')
+        table = contracts.literal_bodies(contracts.function(source, 'Get-DomeniaOperationTable'))[0]
+        self.assertNotIn(operation, contract)
+        self.assertNotIn(operation, table)
+        items = self.items + [dict(self.items[0], Operation=operation)]
+        self.assertIn('Operation epinglee sans ligne Pinned : ' + operation, contracts.operation_table_problems(items))
 
     def test_a_withdrawn_operation_keeping_its_pinned_line_is_reported(self):
         items = [item for item in self.items if item['Operation'] != 'ParkPing']

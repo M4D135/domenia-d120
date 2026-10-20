@@ -1,0 +1,72 @@
+[
+    {
+        "Test":  "LocalPreview",
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  18.7016425
+    },
+    {
+        "Test":  "LiveSearchView",
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  49.6485042
+    },
+    {
+        "Test":  "StoragePreferences",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  10.103577999999999
+    },
+    {
+        "Test":  "WiringCache",
+        "ExitCode":  1,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  178.4011587
+    },
+    {
+        "Test":  "StorageMaintenance",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  12.3363339
+    },
+    {
+        "Test":  "StorageFaults",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  36.0410679
+    },
+    {
+        "Test":  "RemoteStore",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  11.384915699999999
+    },
+    {
+        "Test":  "CollectCircuit",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  13.3409958
+    },
+    {
+        "Test":  "HealthRules",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  15.3819062
+    },
+    {
+        "Test":  "StartupLogin",
+        "ExitCode":  0,
+        "TimedOut":  false,
+        "ReportPresent":  true,
+        "WallSeconds":  61.031811899999994
+    }
+]

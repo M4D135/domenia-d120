@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=66
+$script:ExpectedCases=73
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -1932,13 +1932,177 @@ try{
         Expect (($run.Trial.Seen['Chips'] -like 'Toutes|*') -and ($run.Trial.Seen['Chips'] -like '*Matériel*')) ('Categories : '+$run.Trial.Seen['Chips'])
         Expect (([int]$run.Trial.Seen['DiskOthers'] -eq 0) -and ([int]$run.Trial.Seen['DiskCount'] -gt 0)) 'Filtre de categorie'
     }
+    Case 'Programme 30 Premiers pas explique interruption et hors connexion sans perdre les donnees' {
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid'
+        Expect (-not @($plan.Steps|Where-Object Name -eq 'Base')[0].Enabled) 'Lecture proposee sans OU.'
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=A,DC=example,DC=invalid' -ReadInterrupted $true
+        Expect ($plan.Next -eq 'Base' -and @($plan.Steps|Where-Object Name -eq 'Base')[0].Text -like '*interrompue*conservées*') 'Interruption pas expliquee.'
+        $plan=Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=A,DC=example,DC=invalid' -ScopeRead $true -ReadInterrupted $true
+        Expect ($plan.Next -eq 'Dashboard' -and @($plan.Steps|Where-Object Name -eq 'Base')[0].Text -like '*précédente*disponible*') 'Couverture complete precedente perdue.'
+        $plan=Get-DomeniaFirstRunPlan -Offline $true -IndexedObjects 100
+        Expect ($plan.Next -eq 'Connection' -and $plan.Steps[0].Text -like '*Hors connexion*conservées*') 'Hors ligne interprete comme couverture ou effacement.'
+    }
+    Case 'Programme 41 42 Presets conservent widgets personnalises tailles pauses et annulation' {
+        $before=@(Get-Layout Computer)
+        $custom=New-DomeniaBoardItem -Source Probe -Key 'fixture.keep' -Visual Kpi -Size L -Group 'Mes mesures' -Title 'Mon widget' -Id 'programme-custom' -Paused
+        $layout=@($before)+@($custom)
+        foreach($preset in @('Support','Inventory','Health')){
+            $after=@(Get-DomeniaBoardPresetLayout -Board Computer -Preset $preset -Layout $layout)
+            Expect ($after.Count -ge $layout.Count) 'Un preset a supprime un widget.'
+            $kept=@($after|Where-Object Id -eq 'programme-custom')[0]
+            Expect ([object]::ReferenceEquals($custom,$kept) -and $kept.Size -eq 'L' -and $kept.Paused -and $kept.Title -eq 'Mon widget') 'Personnalisation perdue par preset.'
+            Expect ((ConvertTo-DomeniaBoardLayoutJson $after) -ceq (ConvertTo-DomeniaBoardLayoutJson @(Get-DomeniaBoardPresetLayout -Board Computer -Preset $preset -Layout $after))) 'Appliquer deux fois un preset change encore la disposition.'
+        }
+        try{
+            $saved=ConvertTo-DomeniaBoardLayoutJson @(Get-Layout Computer)
+            Invoke-DomeniaBoardAction -Tag @{Board='Computer';Action='Preset';Value='Health'}
+            Expect ((Get-DomeniaBoardState Computer).UndoStack.Count -gt 0) 'Preset sans annulation.'
+            Invoke-DomeniaBoardAction -Tag @{Board='Computer';Action='Undo'}
+            Expect ((ConvertTo-DomeniaBoardLayoutJson @(Get-Layout Computer)) -ceq $saved) 'Annuler ne restaure pas tailles et ordre.'
+        }finally{Set-DomeniaBoardLayout -Board Computer -Layout $before -KeepUndo}
+    }
+    Case 'Programme 38 Cartes simples reutilisees seulement si valeur source taille et contexte identiques' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedLayout=@(Get-Layout Software)
+        try{
+            $item=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Logiciels' -Id 'programme-count'
+            Set-DomeniaBoardLayout -Board Software -Layout @($item) -KeepUndo
+            $data=New-DomeniaBoardData Software;Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3)
+            Show-DomeniaBoard -Board Software -Data $data -Quiet
+            $first=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Show-DomeniaBoard -Board Software -Quiet
+            $again=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Expect ($null -ne $first -and [object]::ReferenceEquals($first,$again)) 'Une carte inchangee est reconstruite.'
+            $data.Entries['software.count'].Value='4';$data.Entries['software.count'].Number=4
+            Show-DomeniaBoard -Board Software -Data $data -Quiet
+            $changed=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
+            Expect (-not [object]::ReferenceEquals($first,$changed)) 'Une valeur modifiee garde une carte obsolete.'
+        }finally{$state.WidgetRenderCache=@{};$state.Data=$savedData;Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo}
+    }
+    Case 'Programme 38 Fournisseur logiciel reutilise avant agregation et invalide par lignes date et contexte' {
+        $state=Get-DomeniaBoardState Software;$savedProvider=$state.SoftwareProviderCache;$savedEpoch=$script:SessionEpoch
+        try{
+            $state.SoftwareProviderCache=$null
+            $now=[datetime]'2026-10-20T12:00:00';$at=[datetime]'2026-10-19T12:00:00Z'
+            $rows=@([pscustomobject]@{Name='Produit';Publisher='Editeur';Version='1';Architecture='64 bits';Scope='Machine';Kind='';InstallDate='20/09/2026';SizeKb=1024})
+            $a=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect ([object]::ReferenceEquals($a,(Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now.AddHours(1)))) 'Le fournisseur inchange est recalcule avant le cache des widgets.'
+            $rows[0].Publisher='Autre';$b=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect (-not [object]::ReferenceEquals($a,$b) -and $b.Entries['software.publishers'].Value -eq 'Autre') 'Une mutation en place doit changer les agregats.'
+            $next=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($b,$next) -and $b.Entries['software.recent'].Value -eq '1' -and $next.Entries['software.recent'].Value -eq '0') 'Le passage du seuil de 30 jours doit actualiser les installations recentes.'
+            $redated=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at.AddSeconds(1) -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($next,$redated) -and $redated.ObservedAtUtc -eq $at.AddSeconds(1)) 'La date de source ne doit pas rester ancienne.'
+            $script:SessionEpoch=[long]$savedEpoch+1;$other=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at.AddSeconds(1) -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($redated,$other)) 'Un autre contexte ne doit pas reutiliser le fournisseur.'
+            $rows[0]|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
+            $uncached=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect (-not [object]::ReferenceEquals($uncached,(Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now))) 'Une entree opaque doit conserver le calcul complet.'
+        }finally{$state.SoftwareProviderCache=$savedProvider;$script:SessionEpoch=$savedEpoch}
+    }
+    Case 'Programme 38 Plans reutilises avant resolution et invalides par leur seule dependance' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedCache=$state.WidgetPlanCache
+        try{
+            $state.WidgetPlanCache=@{};$state.Data=New-DomeniaBoardData Software
+            $a=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Synthese' -Id 'plan-a'
+            $b=New-DomeniaBoardItem -Source Builtin -Key 'software.publishers' -Visual Pie -Size M -Group 'Repartition' -Id 'plan-b'
+            $one=New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3
+            $one|Add-Member -NotePropertyName DataSources -NotePropertyValue @([pscustomobject]@{Source='Test';OldestUtc='2026-01-01T00:00:01Z';NewestUtc='2026-01-01T00:00:01Z';Missing=0})
+            Add-DomeniaBoardEntry $state.Data $one
+            Add-DomeniaBoardEntry $state.Data (New-DomeniaBoardEntry -Key 'software.publishers' -Kind Distribution -Items @([pscustomobject]@{Label='A';Value=3}))
+            $pa=Get-DomeniaCachedBoardWidgetPlan Software $a $state;$pb=Get-DomeniaCachedBoardWidgetPlan Software $b $state
+            Expect ([object]::ReferenceEquals($pa,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Le plan inchange est recalcule.'
+            Expect ([object]::ReferenceEquals($pb,(Get-DomeniaCachedBoardWidgetPlan Software $b $state))) 'La distribution inchangee est recalculee.'
+            $one.Number=4;$one.Value='4';$changed=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($pa,$changed)) 'La mutation en place du fournisseur est ignoree.'
+            Expect ([object]::ReferenceEquals($pb,(Get-DomeniaCachedBoardWidgetPlan Software $b $state))) 'Un autre widget est invalide sans dependance modifiee.'
+            $one.DataSources[0].NewestUtc='2026-01-01T00:00:02Z';$dated=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($changed,$dated)) 'La date brute changee dans la meme minute est ignoree.'
+            $a.Size='M';$resized=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($dated,$resized)) 'Le contrat de presentation modifie est ignore.'
+            $a.Paused=$true;$paused=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect ($paused.Paused) 'La pause ne remplace pas le plan actif.'
+            $a.Paused=$false;$resumed=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not $resumed.Paused -and -not [object]::ReferenceEquals($paused,$resumed)) 'La reprise sans nouvelle donnee garde le plan en pause.'
+            $one|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
+            Expect (-not (ConvertTo-DomeniaWidgetDependencyStamp -Value $one)) 'Un objet CLR enveloppe ne doit pas devenir un sac de proprietes vide.'
+            Expect (-not (ConvertTo-DomeniaWidgetDependencyStamp -Value ([version]::new(1,2,3,4)))) 'Les proprietes adaptees de System.Version ne sont pas des donnees plain.'
+            $unsafe=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($unsafe,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Une forme inconnue est mise en cache.'
+            $uptime=New-DomeniaBoardItem -Source Probe -Key 'os.uptime' -Visual Kpi -Size S -Id 'plan-clock'
+            Expect (-not (Get-DomeniaWidgetPlanDependencyKey Computer $uptime $state $true 4)) 'DaysSince ne doit pas utiliser une cle qui ignore le dernier demarrage.'
+            $clockPlan=Get-DomeniaCachedBoardWidgetPlan Computer $uptime $state -Placeholder
+            $clockAgain=Get-DomeniaCachedBoardWidgetPlan Computer $uptime $state -Placeholder
+            Expect ($null -ne $clockPlan -and $null -ne $clockAgain -and -not [object]::ReferenceEquals($clockPlan,$clockAgain)) 'DaysSince doit repasser par la resolution a chaque rendu.'
+        }finally{$state.WidgetPlanCache=$savedCache;$state.Data=$savedData}
+    }
+    Case 'Programme 38 Constructions WPF limitees au graphique affecte et invalidees au changement de contexte' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedLayout=@(Get-Layout Software)
+        $savedEpoch=$script:SessionEpoch;$savedTheme=$state.RenderThemeGeneration
+        $script:ProgrammeOriginalWidget=${function:New-DomeniaBoardWidget};$script:ProgrammeWidgetBuilds=@{}
+        function script:New-DomeniaBoardWidget {
+            param($Board,$Item,$State,[switch]$Placeholder,$Plan,[double]$Width=0)
+            $script:ProgrammeWidgetBuilds[[string]$Item.Id]=1+[int]$script:ProgrammeWidgetBuilds[[string]$Item.Id]
+            & $script:ProgrammeOriginalWidget @PSBoundParameters
+        }
+        try{
+            $state.WidgetRenderCache=@{};$state.WidgetPlanCache=@{}
+            $a=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Synthese' -Id 'wpf-a'
+            $b=New-DomeniaBoardItem -Source Builtin -Key 'software.publishers' -Visual Pie -Size M -Group 'Repartition' -Id 'wpf-b'
+            Set-DomeniaBoardLayout -Board Software -Layout @($a,$b) -KeepUndo
+            $data=New-DomeniaBoardData Software
+            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3)
+            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.publishers' -Kind Distribution -Items @([pscustomobject]@{Label='A';Value=3}))
+            Show-DomeniaBoard Software -Data $data -Quiet
+            $panel=Get-DomeniaControl 'PnlSoftwareDashboard';$chart=Find-DomeniaBoardHolder $panel 'wpf-b'
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 1 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 1 -and [object]::ReferenceEquals($chart,(Find-DomeniaBoardHolder $panel 'wpf-b'))) 'Le rendu identique reconstruit une carte ou le graphique WPF.'
+            $data.Entries['software.count'].Number=4;$data.Entries['software.count'].Value='4'
+            Show-DomeniaBoard Software -Data $data -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 2 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 1) 'Une mutation du compteur reconstruit le graphique non affecte.'
+            $data.Entries['software.publishers'].Items[0].Value=4
+            Show-DomeniaBoard Software -Data $data -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 2 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 2) 'La mutation du graphique ne reconstruit pas exactement sa carte.'
+            $state.RenderThemeGeneration=[long]$state.RenderThemeGeneration+1
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 3 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 3) 'Le changement de palette conserve des dessins anciens.'
+            $script:SessionEpoch=[long]$script:SessionEpoch+1
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 4 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 4) 'Un autre contexte conserve des handlers de cartes anciennes.'
+        }finally{
+            Set-Item Function:script:New-DomeniaBoardWidget $script:ProgrammeOriginalWidget
+            $script:SessionEpoch=$savedEpoch;$state.RenderThemeGeneration=$savedTheme
+            $state.WidgetRenderCache=@{};$state.WidgetPlanCache=@{};$state.Data=$savedData
+            Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo
+        }
+    }
+    Case 'Programme 47 Explication sante ouvre inventaire manquant sans lancer une lecture' {
+        $state=Get-DomeniaBoardState Computer;$saved=$state.Data;$reads=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        function Set-DomeniaContextHint {param($Title,$Text)$script:ProgrammeHealthHint=[string]$Text}
+        try{
+            $state.Data=New-DomeniaBoardData Computer
+            $run=Invoke-EditorTrial -Open {Show-DomeniaHealthExplanation Computer} -Act {
+                param($controls,$trial)
+                $grid=@($controls|Where-Object{$_ -is [Windows.Controls.DataGrid] -and @($_.Columns|Where-Object Header -eq 'Constat').Count})[0]
+                $grid.SelectedItem=@($grid.ItemsSource|Where-Object Id -eq 'lowdisk')[0]
+                $button=@($controls|Where-Object{$_ -is [Windows.Controls.Button] -and $_.Content -eq 'Voir la collecte manquante'})[0]
+                Expect $button.IsEnabled 'Collecte inconnue inaccessible.'
+                $trial.Seen['Unknown']=($grid.SelectedItem.ObservationState -eq 'Inconnu')
+                $button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+            }
+            Expect ([bool]$run.Trial.Seen['Unknown']) 'La collecte manquante apparait saine.'
+            Expect ($script:Workspaces[$script:Workspaces.Count-1] -eq 'WsComputer/TabInventory') 'La page inventaire ne s ouvre pas directement.'
+            Expect ($script:ProgrammeHealthHint -like '*explicitement*inventaire*') 'Instruction de collecte absente.'
+            Expect ($script:StartCalls.Count -eq $reads -and $script:ParkCalls.Count -eq $parks) 'Ouvrir la collecte a declenche une lecture.'
+        }finally{$state.Data=$saved}
+    }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}
 finally{
     if($null -ne $script:Window){$script:Window.Close()}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Filter=$Filter;Complete=($script:Finished -and $script:Results.Count -gt 0 -and ($Filter -or $script:Results.Count -eq $script:ExpectedCases));LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
+    $selectionComplete=($script:Finished -and $script:Results.Count -gt 0 -and ($Filter -or $script:Results.Count -eq $script:ExpectedCases))
+    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Filter=$Filter;Complete=($selectionComplete -and -not $Filter -and $script:Results.Count -eq $script:ExpectedCases);SelectionComplete=$selectionComplete;ExpectedCases=$script:ExpectedCases;LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 6}
 }
-if(-not $script:Finished -or $fail -gt 0 -or -not $report.Complete){exit 1};exit 0
+if(-not $script:Finished -or $fail -gt 0 -or -not $report.SelectionComplete){exit 1};exit 0

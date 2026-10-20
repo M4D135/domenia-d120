@@ -1,0 +1,11 @@
+{
+    "VirtualMachineDeleted":  false,
+    "Utc":  "2026-10-20T22:03:05.9714100Z",
+    "Removed":  [
+                    "Domenia-RC39-CriticalUI",
+                    "Domenia-RC39-VisualFinal",
+                    "Domenia-RC39-VisualRetest",
+                    "Domenia-RC39-VisualCompact"
+                ],
+    "TestDataPreserved":  true
+}

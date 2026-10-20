@@ -2,32 +2,32 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.20-DOMENIA-1.0-RC1.17.38-D120",
-  "source_base_commit": "08545267fcbd6c512b3702f75a672286fccd7649",
+  "build": "2026.10.20-DOMENIA-1.0-RC1.17.39-D120",
+  "source_base_commit": "4987773325c0849129960c35b50790396ac1fc2b",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3090155,
-      "sha256": "19c112238ead05da65172da564ba5d272089ab7c048805f5e1bf074ffba52152",
-      "files": 172,
-      "archive_files_including_manifest": 173,
+      "bytes": 3116131,
+      "sha256": "27244218d38b6924f7f0f5bd246c613458c328ce3472de963fd6e75651b7b7a9",
+      "files": 176,
+      "archive_files_including_manifest": 177,
       "archive_root": "prod/"
     },
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6598782,
-      "sha256": "580f04b4a93d7999221bd44dbd8eed898b3a050df6e6720a05db9482bf921c1b",
-      "files": 648,
-      "archive_files_including_manifest": 649,
+      "bytes": 6714229,
+      "sha256": "05485075240a41615d63b33572ff105bfc0f5e17cb27ba1008d0083044c6789a",
+      "files": 669,
+      "archive_files_including_manifest": 670,
       "archive_root": "dev/"
     }
   ],
-  "runtime_files_identical": 172,
+  "runtime_files_identical": 176,
   "qualification": {
-    "status": "RC38_VISUAL_STARTUP_TARGETED_PASSED_PERFORMANCE_INCONCLUSIVE",
-    "proof": "validation/2026-10-20/rc38-startup/final/README.md",
+    "status": "RC39_TARGETED_WINDOWS_PASSED_GENERAL_QUALIFICATION_OPEN",
+    "proof": "validation/2026-10-20/rc39-critical/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "TARGETED_ONLY_NOT_GENERAL",
     "formal_publishable": false,
@@ -35,7 +35,7 @@
       134,
       146
     ],
-    "documentation_proof": "validation/2026-10-20/rc38-startup/final/README.md",
+    "documentation_proof": "validation/2026-10-20/rc39-critical/README.md",
     "historical_rc17_proofs": [
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
@@ -49,7 +49,7 @@
       "validation/2026-10-18/rc20-qualification-docs/README.md",
       "validation/2026-10-18/rc21-completion/README.md"
     ],
-    "vm_no_longer_needed_for_requested_scope": true,
+    "vm_no_longer_needed_for_requested_scope": false,
     "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Outils > Relevés). Contrôles hors Windows uniquement.",
     "historical_rc22_proofs": [
       "validation/2026-10-18/rc22-ui-automation/README.md"
@@ -218,6 +218,7 @@
       },
       "full_campaign": false,
       "performance_conclusion": "Aucune accélération globale reproductible établie dans ce petit échantillon ; valeurs de labo uniquement."
-    }
+    },
+    "rc39_change": "Programme 60 : aperçu local puis AD, mises à jour différentielles bornées, arbre virtualisé, caches des widgets, collecte et stockage renforcés, diagnostics et guides actualisés. Qualification critique Windows 5.1 ciblée, point 59 hors passe."
   }
 }

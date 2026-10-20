@@ -34,6 +34,9 @@ if(@($guardErrors).Count -gt 0){throw ('Syntaxe de Guard.Model : '+$guardErrors[
 $structured=@($guardAst.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaStructuredError'},$true))
 if($structured.Count -ne 1){throw 'Fonction absente/ambigue : Get-DomeniaStructuredError'}
 Invoke-Expression $structured[0].Extent.Text
+$failure=@($guardAst.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Register-WCredentialFailure'},$true))
+if($failure.Count -ne 1){throw 'Missing credential failure guard'}
+Invoke-Expression $failure[0].Extent.Text
 # D120: the global search uses the pure search rules, as the closed loader provides them.
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Common.Model.ps1')
 . (Join-Path (Split-Path -Parent $PSScriptRoot) 'modules\Domenia-Search.Model.ps1')

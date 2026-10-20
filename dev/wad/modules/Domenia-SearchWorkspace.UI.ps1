@@ -287,6 +287,7 @@ function Get-DomeniaSearchListCompleteness {
             $limit=0;try{$limit=[int]$s.State.Limit}catch{$limit=0}
             if([string]$s.Error){return [pscustomobject]@{State='Partial';Limit=$limit}}
             if(-not [bool]$s.Finalized){return [pscustomobject]@{State='Loading';Limit=$limit}}
+            if(($null -ne $s.Final) -and [bool](Get-DomeniaMember $s.Final 'Partial' $false)){return [pscustomobject]@{State='Partial';Limit=$limit}}
             if(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached)){return [pscustomobject]@{State='Limited';Limit=$limit}}
             if($null -ne $s.Final){return [pscustomobject]@{State='Complete';Limit=$limit}}
         }
@@ -307,6 +308,12 @@ function Update-DomeniaResultScopeUi {
     $machines=0;foreach($row in $grid.SelectedItems){if(($null -ne $row) -and ([string]$row.Type -eq 'Machine')){$machines++}}
     $summary=Get-DomeniaSearchScopeSummary -Mode (Get-DomeniaResultScopeMode) -VisibleCount ([int]$grid.Items.Count) -SelectedCount ([int]$grid.SelectedItems.Count) -SelectedMachines $machines -LoadedCount (Get-DomeniaSearchLoadedCount) -Completeness $state.State -Limit $state.Limit
     [void](Set-DomeniaControlText 'LblResultScope' ('Export et relevés : '+[string]$summary.Label))
+    $scopeLabel=Get-DomeniaControl 'LblResultScope'
+    if($null -ne $scopeLabel){
+        $filterState=Get-DomeniaSearchFilterState
+        $absenceScope=if($filterState.Mode -eq 'Global'){if($filterState.BarScope -eq 'Everywhere'){'Tout le domaine'}else{[string]$filterState.BarOuDn}}else{[string]$filterState.OuDn}
+        $scopeLabel.ToolTip=Get-DomeniaSearchAbsenceHint -Scope $absenceScope -LocalFilter ([string]$filterState.LocalFilter) -Type ([string]$filterState.TypeLabel) -Completeness $state.State -Limit $state.Limit
+    }
 }
 function Get-DomeniaResultScopePlan {
     # One plan for every collective action of the list: the export, « Vérifier la liste ▾ » and the bar of a multiple

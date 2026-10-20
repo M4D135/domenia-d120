@@ -1,0 +1,90 @@
+{
+    "Suite":  "DirectoryTreePanelDiagnostic",
+    "Before":  {
+                   "OwnerType":  "System.Windows.Controls.TreeViewItem",
+                   "ItemsPanelType":  "",
+                   "ValueSource":  "StyleTrigger",
+                   "Panels":  [
+                                  {
+                                      "Type":  "System.Windows.Controls.Grid",
+                                      "IsItemsHost":  false,
+                                      "ItemsOwnerType":  "",
+                                      "OwnPanel":  false,
+                                      "Height":  160032
+                                  },
+                                  {
+                                      "Type":  "System.Windows.Controls.VirtualizingStackPanel",
+                                      "IsItemsHost":  true,
+                                      "ItemsOwnerType":  "System.Windows.Controls.TreeViewItem",
+                                      "OwnPanel":  true,
+                                      "Height":  160016
+                                  },
+                                  {
+                                      "Type":  "System.Windows.Controls.StackPanel",
+                                      "IsItemsHost":  false,
+                                      "ItemsOwnerType":  "",
+                                      "OwnPanel":  false,
+                                      "Height":  16
+                                  }
+                              ],
+                   "PresenterCount":  1,
+                   "Presenters":  [
+
+                                  ],
+                   "ItemsPanelTriggers":  [
+                                              {
+                                                  "Depth":  1,
+                                                  "Property":  "IsVirtualizing",
+                                                  "Value":  "True",
+                                                  "PanelType":  null
+                                              }
+                                          ],
+                   "Visited":  54
+               },
+    "After":  {
+                  "OwnerType":  "System.Windows.Controls.TreeViewItem",
+                  "ItemsPanelType":  "",
+                  "ValueSource":  "StyleTrigger",
+                  "Panels":  [
+                                 {
+                                     "Type":  "System.Windows.Controls.Grid",
+                                     "IsItemsHost":  false,
+                                     "ItemsOwnerType":  "",
+                                     "OwnPanel":  false,
+                                     "Height":  160032
+                                 },
+                                 {
+                                     "Type":  "System.Windows.Controls.VirtualizingStackPanel",
+                                     "IsItemsHost":  true,
+                                     "ItemsOwnerType":  "System.Windows.Controls.TreeViewItem",
+                                     "OwnPanel":  true,
+                                     "Height":  160016
+                                 },
+                                 {
+                                     "Type":  "System.Windows.Controls.StackPanel",
+                                     "IsItemsHost":  false,
+                                     "ItemsOwnerType":  "",
+                                     "OwnPanel":  false,
+                                     "Height":  16
+                                 }
+                             ],
+                  "PresenterCount":  1,
+                  "Presenters":  [
+
+                                 ],
+                  "ItemsPanelTriggers":  [
+                                             {
+                                                 "Depth":  1,
+                                                 "Property":  "IsVirtualizing",
+                                                 "Value":  "True",
+                                                 "PanelType":  null
+                                             }
+                                         ],
+                  "Visited":  54
+              },
+    "PublicRevealMethods":  [
+                                "Void BringIndexIntoViewPublic(Int32)"
+                            ],
+    "Generated":  40,
+    "Runtime":  "4.0.30319.42000"
+}

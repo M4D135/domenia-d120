@@ -917,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.38" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.39" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -1455,7 +1455,7 @@
                         </StackPanel></Expander>
                       </Border>
                       <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                      <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Arbre des OU et conteneurs"/>
+                      <TreeView x:Name="TvDirectory" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Arbre des OU et conteneurs"/>
                     </DockPanel>
                   </Border>
                   <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" x:Name="SearchOuSplitter" AutomationProperties.Name="Largeur de l’arbre des OU"/>
@@ -1748,12 +1748,14 @@
                           <!-- W13 (point 119): one empty state for the result list, chosen from what was really read
                                (Resolve-DomeniaSearchEmptyKind, Get-DomeniaEmptyState) with its next action, never automatic. -->
                           <Border Style="{StaticResource UxEmptyResults}" x:Name="UxSearchEmpty" IsHitTestVisible="True">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.AutomationId="SearchEmptyScroll">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440" Margin="16">
                               <Path Data="M17,17 L23,23 M20,11 A9,9 0 1 1 2,11 A9,9 0 1 1 20,11" Width="38" Height="38" Stretch="Uniform" Stroke="{DynamicResource AccentText}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Margin="0,0,0,15" IsHitTestVisible="False" HorizontalAlignment="Center"/>
                               <TextBlock x:Name="LblSearchEmptyTitle" Text="Rien nʼa encore été interrogé" FontSize="{DynamicResource FontSizeTitle}" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="État de la liste de résultats"/>
                               <TextBlock x:Name="LblSearchEmptyText" Text="Aucun poste ni aucune source nʼa encore été interrogé pour cette vue : lʼaffichage vide ne renseigne pas sur lʼétat réel." TextWrapping="Wrap" TextAlignment="Center" Foreground="{DynamicResource MutedColor}" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Explication de la liste vide"/>
                               <Button x:Name="BtnSearchEmptyNext" Content="Rechercher un nom ou choisir une OU" Tag="StartRead" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Center" Margin="0,14,0,0" AutomationProperties.Name="Prochaine action proposée"/>
                             </StackPanel>
+                            </ScrollViewer>
                           </Border>
                           <GridSplitter x:Name="SearchPreviewSplitter" Grid.Column="1" Width="6" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Stretch" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" ShowsPreview="True" Background="{DynamicResource SplitterBg}" Cursor="SizeWE" AutomationProperties.Name="Largeur de lʼaperçu"/>
                           <Grid x:Name="PnlSearchPreview" Grid.Column="2" MinWidth="280" Visibility="Collapsed" Margin="2,0,0,0" Background="{DynamicResource BgReadonly}" AutomationProperties.Name="Aperçu local de la fiche">

@@ -133,6 +133,15 @@
       ],
       "Api": "SQLite fourni par Windows (winsqlite3.dll), déclaré par Reflection.Emit",
       "Reason": "Base locale sans composant SQLite livré."
+    },
+    {
+      "Id": "directory-tree",
+      "Kind": "Interop",
+      "Sources": [
+        "wad/modules/Domenia-DirectoryTree.Types.cs"
+      ],
+      "Api": "WPF VirtualizingStackPanel.BringIndexIntoView (methode protegee) et notifications INotifyPropertyChanged",
+      "Reason": "Donnees de branches independantes des conteneurs WPF recycles ; expose la realisation du seul index cible dans le panneau. Compilation differee au premier usage de l arbre, aucun gain chronometre declare."
     }
   ]
 }

@@ -604,13 +604,14 @@ function Get-DomeniaFleetBoardData {
     foreach ($target in @($observedProblem.Values)) { if (-not $problem.ContainsKey([string]$target.gid)) { $unhealthy++ } }
     $healthy = [Math]::Max(0,$total - $unhealthy)
 
-    # Evolution: daily local snapshots of the OU (FO-10), drawn once 90 days of history exist.
+    # Evolution: at least two dated observations of the same indicator, in the last 90 days. Missing days stay absent.
     $history = @(@(& $member $source 'History' @()) | Where-Object { $null -ne $_ } | Sort-Object -Property @{ Expression = { [string]$_.day } })
     $today = $Now.ToString('yyyy-MM-dd',$invariant)
     $taken = (@($history | Where-Object { [string]$_.day -eq $today }).Count -gt 0)
     $since = $Now.Date.AddDays(-89).ToString('yyyy-MM-dd',$invariant)
     $first = if ($history.Count) { [string]$history[0].day } else { '' }
-    if ($first -and ([string]::CompareOrdinal($first,$since) -le 0)) {
+    $data.Hints['Évolution'] = 'Deux relevés datés du même indicateur sont nécessaires pour afficher une évolution. Un instantané local est conservé au premier calcul de chaque jour ; aucun jour manquant nʼest remplacé par zéro.'
+    if ($history.Count -ge 2) {
         # One curve per figure of the snapshots (FO-10); a day whose snapshot lacks the figure (older delivery, disks
         # not read) is left out of that curve, never drawn as 0.
         $curves = @(
@@ -620,12 +621,13 @@ function Get-DomeniaFleetBoardData {
             @('fleet.trend.stale','Stale',('postes sans connexion AD au-delà du seuil (actuellement '+[string]$data.HealthPolicy.Thresholds.StaleDays+' j)')),
             @('fleet.trend.lowdisk','LowDisk','postes analysés avec C: presque plein')
         )
-        $parsedDays = New-Object System.Collections.ArrayList
+        $parsedDays = New-Object System.Collections.ArrayList; $seenDays=@{}
         foreach ($row in $history) {
-            if ([string]::CompareOrdinal([string]$row.day,$since) -lt 0) { continue }
+            $dayText=[string]$row.day; $dayDate=[datetime]::MinValue
+            if((-not [datetime]::TryParseExact($dayText,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$dayDate)) -or ($dayDate -gt $Now.Date) -or ($dayDate -lt $Now.Date.AddDays(-89)) -or $seenDays.ContainsKey($dayText)){continue}
             $figures = $null
             try { $figures = ([string]$row.figures) | ConvertFrom-Json -ErrorAction Stop } catch { continue }
-            if ($null -ne $figures) { [void]$parsedDays.Add([pscustomobject]@{ Label = ([string]$row.day).Substring(8,2) + '/' + ([string]$row.day).Substring(5,2); Figures = $figures }) }
+            if ($null -ne $figures) { $seenDays[$dayText]=$true; [void]$parsedDays.Add([pscustomobject]@{ Label = ([string]$row.day).Substring(8,2) + '/' + ([string]$row.day).Substring(5,2); Figures = $figures }) }
         }
         foreach ($curve in $curves) {
             $points = New-Object System.Collections.ArrayList
@@ -633,17 +635,15 @@ function Get-DomeniaFleetBoardData {
             foreach ($day in $parsedDays) {
                 $figure = & $member $day.Figures ([string]$curve[1]) $null
                 if ($null -eq $figure) { continue }
-                [void]$points.Add([pscustomobject]@{ Label = [string]$day.Label; Value = [double]$figure })
+                $number=0.0
+                if((-not [double]::TryParse([string]$figure,[Globalization.NumberStyles]::Float,$invariant,[ref]$number)) -or [double]::IsNaN($number) -or [double]::IsInfinity($number) -or ($number -lt 0)){continue}
+                [void]$points.Add([pscustomobject]@{ Label = [string]$day.Label; Value = $number })
                 [void]$drawn.Add($day.Figures)
             }
             # Point 71: each day counted its inactive accounts with the threshold of that day; a mix is stated.
             $note = if ([string]$curve[1] -eq 'Stale') { Get-DomeniaStaleTrendNote -Figures $drawn.ToArray() -StaleDays ([int]$data.HealthPolicy.Thresholds.StaleDays) } else { '' }
-            if ($points.Count) { Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key ([string]$curve[0]) -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : ' + [string]$curve[2] + $note) -Items @($points)) }
+            if ($points.Count -ge 2) { [void]$data.Hints.Remove('Évolution'); Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key ([string]$curve[0]) -Kind Timeline -Value ([string][int]$points[$points.Count - 1].Value) -Detail ([string]$points.Count + ' jour(s) relevé(s) sur 90 : ' + [string]$curve[2] + $note) -Items @($points)) }
         }
-    } else {
-        $days = 0
-        if ($first) { $parsed = [datetime]::MinValue; if ([datetime]::TryParseExact($first,'yyyy-MM-dd',$invariant,[Globalization.DateTimeStyles]::None,[ref]$parsed)) { $days = [int]($Now.Date - $parsed).TotalDays + 1 } }
-        $data.Hints['Évolution'] = 'La courbe sʼaffiche après 90 jours dʼhistorique local (' + [string]$days + ' jour(s) aujourdʼhui) : un instantané est pris au premier calcul de lʼaccueil de chaque jour.'
     }
 
     $rejected=[int](& $member $source 'ObservationRejected' 0)

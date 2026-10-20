@@ -1,0 +1,17 @@
+{
+  "Reason": "Test data directory manually copied to a different path; StoreId is bound to full database path and domain. Guard correctly rejects it. Final verification upgrades the original test folder in place.",
+  "OriginalDiagnosticSha256": "6298693f941ab6c1412d54cf88bc4c867d59c24d09166c7e130c9ddbf271566d",
+  "Errors": [
+    {
+      "Path": "C:\\DomeniaLab\\RC35-qualification\\RC39-final-ui\\prod\\wad\\data\\Logs\\Domenia.log",
+      "Errors": [
+        "2026-10-20 23:49:26.859\tERROR\tAD=CNAMTS\\Administrateur\tWIN=CNAMTS\\Administrateur\t[bdb72a62b0864efdae859d9ab221f492] Lecture des donnees enregistrees : Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Contexte de lecture ne correspond pas a la base.\"",
+        "2026-10-20 23:49:27.590\tERROR\tAD=CNAMTS\\Administrateur\tWIN=CNAMTS\\Administrateur\t[78b7081103dd4923a087d9fbdb5bdd48] Lecture des donnees enregistrees : Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Contexte de lecture ne correspond pas a la base.\"",
+        "2026-10-20 23:49:33.571\tERROR\tAD=CNAMTS\\Administrateur\tWIN=CNAMTS\\Administrateur\tErreur arborescence : Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Base appartenant a un autre contexte.\"",
+        "2026-10-20 23:49:33.581\tERROR\tAD=CNAMTS\\Administrateur\tWIN=CNAMTS\\Administrateur\tAD : donnees non publiees, ecriture locale non confirmee. Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Base appartenant a un autre contexte.\"",
+        "2026-10-20 23:49:33.723\tERROR\tAD=CNAMTS\\Administrateur\tWIN=CNAMTS\\Administrateur\t[d5ce0bf0e92b4f03835ac780b22e41f3] Enregistrement cache et liens : Exception calling \"EndInvoke\" with \"1\" argument(s): \"[DOMENIA:Unknown;0;0x80131501] Base appartenant a un autre contexte.\""
+      ]
+    }
+  ],
+  "Verdict": "NOT_ACCEPTED_DESPITE_UIA_NAVIGATION_PASS"
+}

@@ -126,7 +126,7 @@ function ConvertTo-DomeniaProbePayload {
     # Only what the worker needs: the query parts, never a free WQL text (read-only SELECT built by the worker).
     # Skip = 'DomainController': the worker reads ProductType first and leaves the query out on a controller (FI-17).
     param([string[]]$Ids)
-    return @(foreach ($id in @($Ids | Select-Object -Unique)) { $probe = Get-DomeniaProbe $id; if ($null -ne $probe) { [pscustomobject]@{ Id=$probe.Id; Namespace=$probe.Namespace; Class=$probe.Class; Properties=@($probe.Properties); Filter=$probe.Filter; Mode=$probe.Mode; Skip=$(if ([bool]$probe.SkipOnDc) { 'DomainController' } else { '' }) } } })
+    return @(foreach ($id in @($Ids | Select-Object -Unique)) { $probe = Get-DomeniaProbe $id; if ($null -ne $probe) { [pscustomobject]@{ Id=$probe.Id; Namespace=$probe.Namespace; Class=$probe.Class; Properties=@($probe.Properties); Filter=$probe.Filter; Mode=$probe.Mode; Slow=[bool]$probe.Slow; Skip=$(if ([bool]$probe.SkipOnDc) { 'DomainController' } else { '' }) } } })
 }
 function New-DomeniaObservationReader {
     $definitions=[Collections.Generic.List[Domenia.Native.ProbeDefinition]]::new()

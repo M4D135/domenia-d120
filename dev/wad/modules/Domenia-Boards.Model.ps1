@@ -939,6 +939,25 @@ function Get-DomeniaBoardDefaultLayout {
     }
     return @(Get-DomeniaBoardCatalogLayout -Board $Board)
 }
+function Get-DomeniaBoardPresetLayout {
+    param([ValidateSet('Computer','Fleet','Software')][string]$Board,[ValidateSet('Support','Inventory','Health')][string]$Preset,[object[]]$Layout=@())
+    $keys=switch ($Preset) {
+        'Support' { @('computer.attention','computer.health','computer.uptime','computer.disk.system','fleet.attention','fleet.health','fleet.reach','fleet.presence','software.count') }
+        'Inventory' { @('computer.identity','computer.adaccount','computer.os','computer.model','computer.memory','fleet.machines','fleet.os','fleet.models','fleet.ram','software.count','software.largest') }
+        'Health' { @('computer.health','computer.attention','computer.firewall','computer.bitlocker','computer.disk.system','fleet.health','fleet.attention','fleet.diskfree','fleet.uptime') }
+    }
+    $items=[Collections.Generic.List[object]]::new();foreach($item in $Layout){if($null -ne $item){$items.Add($item)}}
+    $rank=@{};for($i=0;$i -lt $keys.Count;$i++){$rank[$keys[$i]]=$i}
+    foreach($key in $keys){
+        if(@($items|Where-Object{($_.Source -eq 'Builtin') -and ($_.Key -eq $key)}).Count){continue}
+        $catalog=Get-DomeniaBoardCatalogItem -Board $Board -Key $key
+        if($null -ne $catalog){$items.Add((New-DomeniaBoardItem -Source Builtin -Key $key -Visual $catalog.Visual -Size $catalog.Size -Group $catalog.Group))}
+    }
+    $groupRank=@{};foreach($item in $items){$r=if(($item.Source -eq 'Builtin') -and $rank.ContainsKey([string]$item.Key)){[int]$rank[[string]$item.Key]}else{1000};$g=[string]$item.Group;if((-not $groupRank.ContainsKey($g)) -or ($r -lt $groupRank[$g])){$groupRank[$g]=$r}}
+    $position=0;$ordered=@(foreach($item in $items){[pscustomobject]@{Item=$item;GroupRank=$groupRank[[string]$item.Group];Rank=$(if(($item.Source -eq 'Builtin') -and $rank.ContainsKey([string]$item.Key)){$rank[[string]$item.Key]}else{1000});Position=$position};$position++})
+    return @($ordered|Sort-Object GroupRank,Rank,Position|ForEach-Object{$_.Item})
+}
+
 function Test-DomeniaBoardLayoutText {
     # True when stored items are exactly the delivered layout described by $Text (key|section|representation|size per
     # line), identifiers aside: built-in widgets only, no title of the operator, none paused.
@@ -1543,7 +1562,14 @@ function Set-DomeniaHealthSnapshotMetadata {
     if($targets.Count -ne [int]$Data.Population.Total){$values.PopulationHash='';$values.AssessedHash='';$values.CoverageHash=''}
     foreach($key in $values.Keys){$figures|Add-Member -NotePropertyName $key -NotePropertyValue $values[$key] -Force}
     $records=[Collections.Generic.List[object]]::new()
-    foreach($row in $History){try{$f=([string]$row.figures)|ConvertFrom-Json -ErrorAction Stop}catch{continue};if($null -eq $f -or [string]$row.day -notmatch '^\d{4}-\d{2}-\d{2}$'){continue};$records.Add([pscustomobject]@{Label=([string]$row.day+' · relevé quotidien');Day=[string]$row.day;Figures=$f})}
+    $seenHistory=@{}
+    foreach($row in $History){
+        $day=[string]$row.day;$parsed=[datetime]::MinValue
+        if((-not [datetime]::TryParseExact($day,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$parsed)) -or ($parsed -gt $NowUtc.ToLocalTime().Date) -or $seenHistory.ContainsKey($day)){continue}
+        try{$f=([string]$row.figures)|ConvertFrom-Json -ErrorAction Stop}catch{continue}
+        if($null -eq $f){continue};$seenHistory[$day]=$true
+        $records.Add([pscustomobject]@{Label=($day+' · relevé quotidien');Day=$day;Figures=$f})
+    }
     $records.Add([pscustomobject]@{Label=('Vue actuelle · '+$NowUtc.ToLocalTime().ToString('dd/MM/yyyy HH:mm'));Day=$NowUtc.ToString('yyyy-MM-dd');Figures=$figures})
     $Data|Add-Member -NotePropertyName HealthHistory -NotePropertyValue $records.ToArray() -Force
 }

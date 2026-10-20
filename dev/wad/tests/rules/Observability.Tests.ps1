@@ -183,6 +183,15 @@ Test-Case 'P124' 'Diagnostic expurge : liste blanche, aucun secret, aucun nom, a
     $preview=Get-DomeniaDiagnosticPreviewText -Diagnostic $d
     Assert-True ($preview.Contains('Jamais inclus')) $preview;Assert-True ($preview.Contains('2 code(s) incident')) $preview
 }
+Test-Case 'P124' 'Diagnostic refuse les noms et secrets valides comme identifiants techniques' {
+    $sentinel='SecretMachine'
+    $d=New-DomeniaRedactedDiagnostic -Versions ([pscustomobject]@{Os='10.77.0.99';UiProfile=$sentinel;Theme=$sentinel;Build=$sentinel;PowerShell='alice.sentinel'}) -Compatibility ([pscustomobject]@{WindowsProduct=$sentinel;Compatibility=$sentinel;CompatibilityMatrix=$sentinel}) -Metrics @([pscustomobject]@{Provenance='Ldap';OperationId=$sentinel;Count=1;P50=1;P95=1;Max=1}) -Errors @([pscustomobject]@{Code='INC-0001';Count=1;Type='System.SecretMachineException';Where='SecretMachine.ps1:12'}) -Traces @([pscustomobject]@{Reference='1234abcd';OperationId=$sentinel;Category=$sentinel;Phases=@()}) -Slow @([pscustomobject]@{OperationId=$sentinel;Phase='Stall';Handler=$sentinel;DurationMs=1;TotalMs=1;Volume=1})
+    $json=$d|ConvertTo-Json -Depth 8
+    Assert-False ($json.Contains($sentinel)) 'Un identifiant syntaxiquement correct ne constitue pas une entree du catalogue'
+    Assert-False ($json.Contains('alice.sentinel')) 'Version non numerique'
+    Assert-Equal 0 @($d.Metrics).Count;Assert-Equal 0 @($d.Traces).Count
+    Assert-Equal '' $d.Errors[0].Type;Assert-Equal '' $d.Errors[0].Where
+}
 Test-Case 'P145' 'Diagnostic expurge : compatibilite du poste en versions et statuts, ni nom ni chemin' {
     $fields=[ordered]@{Compatibility='Teste';CompatibilityMatrix='2026-10-15';CompatibilityWindows='Qualifie';CompatibilityPowerShell='Teste';CompatibilityDotNet='Attendu';CompatibilitySqlite='Teste';WindowsBuild=26100;WindowsProduct='Client';DotNetRelease=533320;WinSqlite=$true;Poste='PC-PARIS-SENTINEL'}
     $d=New-DomeniaRedactedDiagnostic -Compatibility $fields -CapturedUtc '2026-10-15T08:00:00.0000000Z'
@@ -194,7 +203,7 @@ Test-Case 'P145' 'Diagnostic expurge : compatibilite du poste en versions et sta
     Assert-False ((Get-DomeniaDiagnosticPreviewText -Diagnostic $leak).Contains('Compatibilité')) 'Compatibilite annoncee sans valeur'
 }
 Test-Case 'P124' 'Diagnostic borne : 200 mesures, 64 traces, 16 lenteurs au plus' {
-    $metrics=@(for($i=0;$i -lt 260;$i++){[pscustomobject]@{Provenance='Ldap';OperationId=('Op'+$i);Count=1;P50=1;P95=1;Max=1}})
+    $metrics=@(for($i=0;$i -lt 260;$i++){[pscustomobject]@{Provenance='Ldap';OperationId='GlobalSearch';Count=1;P50=1;P95=1;Max=1}})
     $traces=@(for($i=0;$i -lt 80;$i++){[pscustomobject]@{Reference=('{0:x8}' -f $i);OperationId='LocalStore';Kind='Lecture';Outcome='Succeeded';Category='';Open=$false;TotalMs=1;Phases=@()}})
     $slow=@(for($i=0;$i -lt 30;$i++){[pscustomobject]@{OperationId='LocalStore';Phase='Collect';Handler='';DurationMs=6000;TotalMs=6000;Volume=-1}})
     $d=New-DomeniaRedactedDiagnostic -Metrics $metrics -Traces $traces -Slow $slow

@@ -1308,6 +1308,8 @@ function Measure-DomeniaCimQueryPlan {
         if ([string](Get-DomeniaMember $probe 'Skip' '') -eq 'DomainController') { $needProductType = $true }
         $groups[(Get-DomeniaCimGroupKey ([string](Get-DomeniaMember $probe 'Namespace' '')) ([string](Get-DomeniaMember $probe 'Class' '')) ([string](Get-DomeniaMember $probe 'Filter' '')))] = $true
     }
+    # Probe-only reads still verify the responder identity on this session before attributing values to the target.
+    if ((-not $ProbeUser) -and (-not $Inventory) -and ($requested -gt 0)) { $requested++; $groups[$cs] = $true }
     if ($needProductType) { $requested++; $groups[$os] = $true }
     $executed = $groups.Count
     return [pscustomobject]@{Requested=$requested;Executed=$executed;Avoided=[Math]::Max(0,$requested - $executed)}

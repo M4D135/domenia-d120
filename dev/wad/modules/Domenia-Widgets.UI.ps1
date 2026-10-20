@@ -206,7 +206,7 @@ function Show-DomeniaBoard {
         }
         $units = New-Object System.Collections.ArrayList
         foreach ($item in $groupItems) {
-            $plan = Get-DomeniaBoardWidgetPlan -Board $Board -Item $item -State $state -Placeholder:$partial -Columns $metrics.Columns
+            $plan = Get-DomeniaCachedBoardWidgetPlan -Board $Board -Item $item -State $state -Placeholder:$partial -Columns $metrics.Columns
             if ($null -eq $plan) { continue }
             [void]$units.Add([pscustomobject]@{ Plan = $plan; Group = $group; Span = [int]$plan.Span; Short = [bool]$plan.Short; Element = $null; Sizer = $null })
             if (-not [bool]$plan.Paused) { $live++ }
@@ -234,6 +234,14 @@ function Show-DomeniaBoard {
         $empty.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
         [void]$panel.Children.Add($empty)
     }
+    if($state.ContainsKey('WidgetRenderCache')){
+        $kept=@{};foreach($item in $layout){$kept[[string]$item.Id]=$true}
+        foreach($cacheId in @($state.WidgetRenderCache.Keys)){if(-not $kept.ContainsKey([string]$cacheId)){[void]$state.WidgetRenderCache.Remove($cacheId)}}
+    }
+    if($state.ContainsKey('WidgetPlanCache')){
+        $kept=@{};foreach($item in $layout){$kept[[string]$item.Id]=$true}
+        foreach($cacheId in @($state.WidgetPlanCache.Keys)){if(-not $kept.ContainsKey([string]$cacheId)){[void]$state.WidgetPlanCache.Remove($cacheId)}}
+    }
     Update-DomeniaBoardFit -Panel $panel
     if (-not $Quiet) { Invoke-DomeniaDashboardEntrance -Panel $panel }
     elseif ($state.Highlight) {
@@ -253,6 +261,8 @@ function Update-DomeniaBoardsTheme {
     foreach ($board in @('Computer','Fleet','Software')) {
         if (-not $script:DomeniaBoardStates.ContainsKey($board)) { continue }
         $state = $script:DomeniaBoardStates[$board]
+        $state.WidgetRenderCache=@{}
+        $state.RenderThemeGeneration=[long]$state.RenderThemeGeneration+1
         if ([bool]$state.RenderPending) { continue }
         $panel = Get-DomeniaControl (Get-DomeniaBoardPanelName $board)
         if (($null -eq $panel) -or ($panel.Children.Count -eq 0)) { continue }
@@ -444,6 +454,9 @@ function New-DomeniaBoardToolbar {
     if ($null -ne $State.Data) { [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE8C8) 'Copier le résumé' 'Copie pour un ticket ce que montre ce tableau : objet, date des données, score, points à vérifier et informations principales. Un secret éventuel est masqué.' @{ Board = $Board; Action = 'CopySummary' })) }
     [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE710) 'Ajouter un widget' 'Choisir une information du tableau de bord ou une requete prete a l emploi.' @{ Board = $Board; Action = 'Add'; Value = '' }))
     if ($State.Editing) {
+        foreach ($preset in @(@('Support','Support'),@('Inventory','Inventaire'),@('Health','Santé'))) {
+            [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE8A9) ([string]$preset[1]) 'Place les informations utiles en tête, conserve les widgets personnalisés et les tailles. Annuler restaure la disposition précédente ; aucune collecte.' @{ Board=$Board; Action='Preset'; Value=[string]$preset[0] }))
+        }
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xE777) 'Par défaut' 'Revient à la disposition livrée, ou à celle de lʼéquipe définie par lʼadministrateur (annulable).' @{ Board = $Board; Action = 'Reset' }))
         # FO-17: a layout shared as a JSON file, never through a Windows dialog box.
         [void]$buttons.Children.Add((New-DomeniaBoardButton ([string][char]0xEDE1) 'Exporter' 'Enregistre cette disposition en JSON dans le dossier des exports, pour la partager ou en faire la disposition de lʼéquipe.' @{ Board = $Board; Action = 'Export' }))
@@ -530,6 +543,21 @@ function Get-DomeniaBoardCardWidth {
     param([int]$Span,[double]$CellWidth)
     return [Math]::Max(200.0, [Math]::Floor(([double]$Span * $CellWidth) - 14.0))
 }
+function Get-DomeniaWidgetRenderKey {
+    # The bounded dependency stamp protects all captured chart data; the chrome belongs to this exact context,
+    # source date, survey state and palette. Actions, pending/unknown data and specialised cards are rebuilt.
+    param([string]$Board,$Plan,$State,[double]$Width)
+    if(($null -eq $Plan) -or $State.Editing -or $Plan.Paused -or $Plan.Progress -or ($Plan.Kind -notin @('Value','Number','Distribution','Measure','Series','List')) -or ($null -eq $Plan.Entry)){return ''}
+    $dependency=[string](Get-DomeniaMember $Plan 'DependencyKey' '')
+    if(-not $dependency){return ''}
+    $entry=$Plan.Entry
+    if($null -ne $entry.Action){return ''}
+    $context=Get-DomeniaBoardRenderContext -Board $Board
+    $dates=Get-DomeniaWidgetDataDates -Board $Board -Item $Plan.Item -State $State -Entry $entry
+    if($Board -eq 'Fleet'){$dates=@($dates,(Get-DomeniaWidgetSurveyPartialText))}
+    return (ConvertTo-Json -InputObject @($dependency,$context,[long]$State.RenderThemeGeneration,$Width,$Plan.Visual,$Plan.Resolved.Title,$dates) -Depth 4 -Compress)
+}
+
 function Set-DomeniaBoardSectionGrid {
     # DS-04: lays the widgets of one section ($Grid.Tag.Units) out in its grid of $Columns columns: placement by
     # Get-DomeniaBoardGridPlacement (rows full, compact tiles stacked by two beside a tall card), card width from the
@@ -555,7 +583,16 @@ function Set-DomeniaBoardSectionGrid {
             if ($null -eq $unit.Element) {
                 if ($null -eq $unit.Plan) { $unit.Element = New-DomeniaBoardAddTile -Board $Board -Group ([string]$unit.Group); $unit.Sizer = $unit.Element }
                 else {
-                    $unit.Element = New-DomeniaBoardWidget -Board $Board -Item $unit.Plan.Item -State $State -Plan $unit.Plan -Width $width
+                    if(-not $State.ContainsKey('WidgetRenderCache')){$State.WidgetRenderCache=@{}}
+                    $renderKey=Get-DomeniaWidgetRenderKey -Board $Board -Plan $unit.Plan -State $State -Width $width
+                    $cacheId=[string]$unit.Plan.Item.Id;$cached=$State.WidgetRenderCache[$cacheId]
+                    if($renderKey -and ($null -ne $cached) -and ($cached.Key -ceq $renderKey)){
+                        $unit.Element=$cached.Element
+                        if($unit.Element.Parent -is [Windows.Controls.Panel]){$unit.Element.Parent.Children.Remove($unit.Element)}
+                    }else{
+                        $unit.Element = New-DomeniaBoardWidget -Board $Board -Item $unit.Plan.Item -State $State -Plan $unit.Plan -Width $width
+                        if($renderKey){$State.WidgetRenderCache[$cacheId]=[pscustomobject]@{Key=$renderKey;Element=$unit.Element}}else{[void]$State.WidgetRenderCache.Remove($cacheId)}
+                    }
                     $unit.Sizer = $(if ($unit.Element.Children.Count) { $unit.Element.Children[0] } else { $unit.Element })
                 }
             }
@@ -650,14 +687,14 @@ function Invoke-DomeniaBoardRelayout {
 # ---------------------------------------------------------------------------
 function Resolve-DomeniaBoardEntry {
     # Data, kind and title of a layout item (built-in from the provider, query from its results).
-    param([string]$Board,$Item,$State)
+    param([string]$Board,$Item,$State,$QueryRecords=$null)
     $entry = $null; $title = ''; $kind = 'Value'; $name = ''
     if ([string]$Item.Source -eq 'Builtin') {
         $catalog = Get-DomeniaBoardCatalogItem -Board $Board -Key ([string]$Item.Key)
         if ($null -ne $catalog) { $kind = [string]$catalog.Kind; $name = [string]$catalog.Title }
         if ($null -ne $State.Data -and $null -ne $State.Data.Entries -and $State.Data.Entries.ContainsKey([string]$Item.Key)) { $entry = $State.Data.Entries[[string]$Item.Key] }
     } elseif([string]$Item.Source -eq 'Query' -and $Board -in @('Fleet','Computer')) {
-        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))};$kind=[string]$entry.Kind;$name=[string]$entry.Title
+        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' '')) -Records $QueryRecords}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))};$kind=[string]$entry.Kind;$name=[string]$entry.Title
     } else {
         $probe = Get-DomeniaProbe -Id ([string]$Item.Key)
         $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
@@ -885,6 +922,130 @@ function New-DomeniaWidgetStateCard {
     }
     return [pscustomobject]@{ Card = (New-DomeniaChartCard -Width $Width -Height $Height -Content $stack -Static); Message = $message }
 }
+function ConvertTo-DomeniaWidgetDependencyStamp {
+    # Hash only bounded plain data, never a WPF object, lazy getter, query record or truncated serialization.
+    # Unknown/cyclic/large shapes opt out of caching. A content stamp also detects in-place source mutations.
+    param($Value)
+    $pending=New-Object System.Collections.Stack;$pending.Push(@($Value,0));$nodes=0;$characters=0L
+    while($pending.Count){
+        $pair=$pending.Pop();$v=$pair[0];$depth=[int]$pair[1];$nodes++
+        if($nodes -gt 4096 -or $depth -gt 12){return ''}
+        if($null -eq $v){continue}
+        if($v -is [string]){$characters+=$v.Length;if($characters -gt 262144){return ''};continue}
+        if($v.GetType().IsPrimitive -or $v -is [decimal] -or $v -is [datetime] -or $v -is [guid]){continue}
+        if($v -is [Collections.IDictionary]){
+            if($v.Count -gt 4096){return ''}
+            foreach($k in $v.Keys){if($nodes+$pending.Count -ge 4096 -or $k -isnot [string] -or ($k -ieq 'Action' -and $null -ne $v[$k])){return ''};$pending.Push(@($v[$k],($depth+1)))}
+        }elseif($v -is [array] -or $v -is [Collections.IList]){
+            if($nodes+$pending.Count+$v.Count -gt 4096){return ''};foreach($part in $v){$pending.Push(@($part,($depth+1)))}
+        }elseif($v.GetType() -eq [System.Management.Automation.PSCustomObject]){
+            # -is [pscustomobject] also accepts wrapped CLR objects (including New-Object object).
+            # Only the actual note-property bag is plain data; an empty/adapted CLR surface is not a contract.
+            foreach($property in $v.PSObject.Properties){if($nodes+$pending.Count -ge 4096 -or $property.MemberType -ne 'NoteProperty' -or ($property.Name -ieq 'Action' -and $null -ne $property.Value)){return ''};$pending.Push(@($property.Value,($depth+1)))}
+        }else{return ''}
+    }
+    try{
+        $json=ConvertTo-Json -InputObject $Value -Depth 16 -Compress -ErrorAction Stop
+        if($json.Length -gt 262144){return ''}
+        $hash=[Security.Cryptography.SHA256]::Create()
+        try{return [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($json))).Replace('-','')}finally{$hash.Dispose()}
+    }catch{return ''}
+}
+function Get-DomeniaWidgetPlanDependencyKey {
+    # Resolve dependencies before Get-DomeniaBoardWidgetPlan/Measure-DomeniaWidgetData. No fleet scan.
+    # Pending work and unsupported providers remain uncached so required evaluation requests still happen.
+    param([string]$Board,$Item,$State,[bool]$Placeholder,[int]$Columns,[ref]$PreparedRecords)
+    if($null -ne $PreparedRecords){$PreparedRecords.Value=$null}
+    if($State.Editing -or (Test-DomeniaBoardItemPaused -Item $Item) -or (Get-DomeniaWidgetCollectProgress -Board $Board -Id ([string]$Item.Id))){return ''}
+    $source=$null;$contract=$null;$clock=$null;$entry=$null
+    switch([string]$Item.Source){
+        'Builtin' {
+            $contract=Get-DomeniaBoardCatalogItem -Board $Board -Key ([string]$Item.Key)
+            if($null -ne $State.Data -and $null -ne $State.Data.Entries){$entry=$State.Data.Entries[[string]$Item.Key]}
+            if($null -eq $entry){return ''}
+            $source=$entry
+            $clock=Get-DomeniaWidgetDataDates -Board $Board -Item $Item -State $State -Entry $entry -Raw
+        }
+        'Query' {
+            $q=$script:DomeniaQueryState
+            if($null -eq $q){return ''}
+            $recipe=Get-DomeniaWidgetRecipe -Id ([string]$Item.Key)
+            if($null -eq $recipe){return ''}
+            $contract=@($recipe,(Get-DomeniaQueryWidgetRevision -Recipe $recipe -Board $Board -ConsumerId ([string]$Item.Id)))
+            if($Board -eq 'Computer'){
+                # Rebuild the single canonical input record: this is the authoritative projection of AD,
+                # lifecycle, per-family dates, observations and clock-dependent transforms, not a parallel map.
+                # Pass that same record to the evaluator on a cache miss so it is not projected twice.
+                try{
+                    $records=Get-DomeniaComputerQueryRecords
+                    if($null -ne $PreparedRecords){$PreparedRecords.Value=$records}
+                    if($records.Count -ne 1){return ''}
+                    # The existing dependency walker includes clauses, refinements, nested expressions and
+                    # grouping. Typed probe collections/hidden probe selections remain on the full resolver path.
+                    # Do not hash unused continuous ages: inventoryDays would otherwise invalidate a RAM widget.
+                    $known=@{};foreach($field in @(Get-DomeniaQueryFields)){if(-not $field.ProbeId){$known[[string]$field.Id]=$true}}
+                    $values=[ordered]@{}
+                    foreach($name in @(Get-DomeniaQueryRequestedFields $recipe)){
+                        if(-not $known.ContainsKey([string]$name)){return ''}
+                        foreach($key in @([string]$name,('_quality:'+([string]$name)),(Get-DomeniaQueryTimestampKey ([string]$name)))){
+                            if($records[0].Values.ContainsKey($key)){$values[$key]=$records[0].Values[$key]}
+                        }
+                    }
+                    $source=@([string]$records[0].Id,$values,[string]$script:SelectedObject.Name,$script:SelectedObject.LoadedAt)
+                }catch{
+                    # Preserve the normal resolver's error card instead of aborting the whole board.
+                    if($null -ne $PreparedRecords){$PreparedRecords.Value=$null}
+                    return ''
+                }
+            }elseif($Board -eq 'Fleet'){
+                if($q.Busy -or $q.SnapshotKey -cne [string]$script:FleetQuerySnapshotKey -or $null -eq $q.Widgets -or -not $q.Widgets.ContainsKey([string]$Item.Key)){return ''}
+                $source=$q.Widgets[[string]$Item.Key]
+            }else{return ''}
+        }
+        'Probe' {
+            $contract=Get-DomeniaProbe -Id ([string]$Item.Key)
+            if($null -eq $contract){return ''}
+            if([string](Get-DomeniaMember $contract 'Transform' '') -eq 'DaysSince'){return ''}
+            if($Board -eq 'Fleet'){
+                $q=$script:DomeniaQueryState;$key=[string]$Item.Key+'|'+[string]$Item.Visual
+                if($null -eq $q -or $q.Busy -or $q.SnapshotKey -cne [string]$script:FleetQuerySnapshotKey -or $null -eq $q.ProbeWidgets -or -not $q.ProbeWidgets.ContainsKey($key)){return ''}
+                $source=$q.ProbeWidgets[$key]
+            }elseif($Board -eq 'Computer'){
+                $dn=([string]$script:SelectedObject.DN).ToLowerInvariant()
+                if(-not $dn -or $null -eq $script:FleetObservations -or -not $script:FleetObservations.ContainsKey($dn)){return ''}
+                $observation=$script:FleetObservations[$dn];$answer=Get-DomeniaMemberValue (Get-DomeniaMemberValue $observation 'Probes') ([string]$Item.Key)
+                if($null -eq $answer){return ''}
+                $maxDays=Get-DomeniaObservationMaxAgeDays;$now=[datetime]::UtcNow
+                $checked=ConvertFrom-DomeniaUtcText ([string](Get-DomeniaMember $answer 'CheckedUtc' ''))
+                $ageLabel=if($null -ne $checked){Format-DomeniaAge -FromUtc $checked -NowUtc $now}else{''}
+                $clock=@($maxDays,(Test-DomeniaObservationAge -CheckedUtc (Get-DomeniaMember $observation 'CheckedUtc') -NowUtc $now -MaxDays $maxDays),(Test-DomeniaObservationAge -CheckedUtc $checked -NowUtc $now -MaxDays $maxDays),$ageLabel)
+                $source=@((Get-DomeniaMember $observation 'Guid'),(Get-DomeniaMember $observation 'CheckedUtc'),$answer)
+            }else{return ''}
+        }
+        default {return ''}
+    }
+    $context=@((Get-DomeniaBoardRenderContext -Board $Board),[string]$script:DatabaseScopedPath,[string]$script:FleetQuerySnapshotKey,[string]$script:SelectedObject.RenderIdentity)
+    return (ConvertTo-DomeniaWidgetDependencyStamp -Value @('WidgetPlan.1',$context,$Item,(Test-DomeniaBoardItemPaused -Item $Item),$contract,$source,$clock,$Placeholder,$Columns))
+}
+function Get-DomeniaCachedBoardWidgetPlan {
+    param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns=4)
+    if(-not $State.ContainsKey('WidgetPlanCache') -or $null -eq $State.WidgetPlanCache){$State.WidgetPlanCache=@{}}
+    $id=[string]$Item.Id
+    $records=$null
+    $key=Get-DomeniaWidgetPlanDependencyKey -Board $Board -Item $Item -State $State -Placeholder ([bool]$Placeholder) -Columns $Columns -PreparedRecords ([ref]$records)
+    $cached=$State.WidgetPlanCache[$id]
+    if($key -and $null -ne $cached -and $cached.Key -ceq $key){return $cached.Plan}
+    $plan=Get-DomeniaBoardWidgetPlan -Board $Board -Item $Item -State $State -Placeholder:$Placeholder -Columns $Columns -QueryRecords $records
+    if($key -and $null -ne $plan -and $Board -eq 'Fleet' -and $Item.Source -ne 'Query' -and $plan.Kind -ne 'Timeline' -and $null -ne $plan.Entry){
+        # Normalise chart selection metadata before capturing the stamp; the renderer performs the same step.
+        Set-DomeniaBoardSegmentSelection -Entry $plan.Entry
+        $key=Get-DomeniaWidgetPlanDependencyKey -Board $Board -Item $Item -State $State -Placeholder ([bool]$Placeholder) -Columns $Columns
+    }
+    if($null -ne $plan){$plan|Add-Member -NotePropertyName DependencyKey -NotePropertyValue $key -Force}
+    if($key -and $null -ne $plan){$State.WidgetPlanCache[$id]=[pscustomobject]@{Key=$key;Plan=$plan}}
+    else{[void]$State.WidgetPlanCache.Remove($id)}
+    return $plan
+}
 function Get-DomeniaBoardWidgetPlan {
     # What one widget will show, before it is drawn: its entry, kind, representation and size, the columns it spans and
     # whether it is a compact tile (DS-04 places it from this). $null when it is not drawn.
@@ -893,11 +1054,11 @@ function Get-DomeniaBoardWidgetPlan {
     # only, absent from the last reading or not collected yet, with the button that collects it). Before any reading
     # it stays hidden unless it is paused or being collected. A paused widget keeps its size and title, says that it
     # is paused and is never resolved, so nothing is computed nor requested for it.
-    param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns = 4)
+    param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns = 4,$QueryRecords=$null)
     $paused = Test-DomeniaBoardItemPaused -Item $Item
     $progress = if ($paused) { '' } else { Get-DomeniaWidgetCollectProgress -Board $Board -Id ([string]$Item.Id) }
     if ($paused) { $identity = Get-DomeniaBoardItemIdentity -Board $Board -Item $Item; $resolved = [pscustomobject]@{ Entry = $null; Kind = [string]$identity.Kind; Title = [string]$identity.Title; Name = [string]$identity.Title } }
-    else { $resolved = Resolve-DomeniaBoardEntry -Board $Board -Item $Item -State $State }
+    else { $resolved = Resolve-DomeniaBoardEntry -Board $Board -Item $Item -State $State -QueryRecords $QueryRecords }
     $entry = $resolved.Entry
     if (($null -eq $entry) -and (-not $State.Editing) -and (-not $Placeholder) -and (-not $paused) -and (-not $progress)) { return $null }
     # Without data the widget keeps its real kind, representation and size.
@@ -920,14 +1081,14 @@ function Get-DomeniaWidgetSurveyPartialText {
 }
 function Get-DomeniaWidgetDataDates {
     # Fleet clocks are aggregated once in its worker; rendering never scans the fleet per card.
-    param([string]$Board,$Item,$State,$Entry)
+    param([string]$Board,$Item,$State,$Entry,[switch]$Raw)
     $ready=@(Get-DomeniaMember $Entry 'DataSources' @())
-    if ($ready.Count) { return (Format-DomeniaWidgetDataDates -Rows $ready) }
+    if ($ready.Count) { if($Raw){return ,$ready};return (Format-DomeniaWidgetDataDates -Rows $ready) }
     if ([string]$Item.Source -eq 'Query' -and $Board -eq 'Fleet') {
         $q=$script:DomeniaQueryState
         if ($null -ne $q -and $q.SnapshotKey -ceq [string]$script:FleetQuerySnapshotKey -and $q.Widgets.ContainsKey([string]$Item.Key)) {
             $ready=@(Get-DomeniaMember $q.Widgets[[string]$Item.Key] 'DataSources' @())
-            if ($ready.Count) { return (Format-DomeniaWidgetDataDates -Rows $ready) }
+            if ($ready.Count) { if($Raw){return ,$ready};return (Format-DomeniaWidgetDataDates -Rows $ready) }
         }
     }
     $need=Get-DomeniaWidgetNeed -Board $Board -Item $Item
@@ -975,6 +1136,7 @@ function Get-DomeniaWidgetDataDates {
         if ($null -ne $at) { $oldest=$at;$newest=$at }
         $rows.Add([pscustomobject]@{Source=$source;OldestUtc=$oldest;NewestUtc=$newest;Missing=$missing})
     }
+    if($Raw){return ,$rows.ToArray()}
     return (Format-DomeniaWidgetDataDates -Rows $rows.ToArray())
 }
 function New-DomeniaBoardWidget {
@@ -1273,6 +1435,12 @@ function Invoke-DomeniaBoardAction {
         'EntryAction' { Invoke-DomeniaBoardEntryAction -Board $board -Id $value; return }
         'CopyTargets' { Copy-DomeniaFleetTargets -Targets @($Tag['Targets']); return }
         'QueryTargets' { Show-DomeniaAttentionInWorkshop -Targets @($Tag['Targets']) -Label ([string]$Tag['Label']); return }
+        'Preset' {
+            $layout=@(Get-DomeniaBoardPresetLayout -Board $board -Preset $value -Layout @(Get-DomeniaBoardLayout -Board $board))
+            Set-DomeniaBoardLayout -Board $board -Layout $layout -Undo 'Disposition réutilisable appliquée'
+            if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' }
+            return
+        }
         'Reset' { Set-DomeniaBoardLayout -Board $board -Layout @(Get-DomeniaBoardDefaultLayoutFor -Board $board) -Undo 'Disposition par défaut appliquée'; if ($keyboard) { Restore-DomeniaBoardFocus $board 'Undo' '' }; return }
         'Copy' { [void](Copy-DomeniaBoardWidget -Board $board -Id $id); return }
         'CopySummary' { [void](Copy-DomeniaBoardSummary -Board $board); return }
@@ -2438,7 +2606,7 @@ function Fail-DomeniaWidgetDetailCollected {
     # Timeout, refusal or incoherent answer: no error row is committed, so the values already stored for this
     # workstation are kept. The other workstations of the population were started independently and stay unaffected.
     param($Message,$State)
-    try { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Cancel(); $State.StopSource.Dispose() } } catch { }
+    try { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Cancel(); $State.StopSource.Dispose() } } catch { Write-DomeniaSwallowed 'Widgets' 'Fail-DomeniaWidgetDetailCollected' $_ }
     if ([long](Get-DomeniaMember $State 'WidgetEpoch' 0) -ne [long]$script:SessionEpoch) { return }
     Write-AppLog ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : ' + [string]$Message + ' (valeurs précédentes conservées).') 'WARN'
     Set-Status ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : les valeurs précédentes sont conservées, les autres postes sont lus.') 'INFO'

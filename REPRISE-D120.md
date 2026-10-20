@@ -1,6 +1,18 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
-**Complément final RC1.17.38 du 20 octobre :** connexion et accueil relus visuellement,
+**État courant RC1.17.39 — programme des 60 améliorations du 20 octobre.**
+Affichage local avant relecture AD, recherche et arbre d'OU virtualisé, cache sélectif des
+widgets et des agrégats logiciels, collectes résilientes, diagnostic et maintenance du stockage.
+La qualification critique ciblée sous **Windows PowerShell 5.1 est terminée** ;
+les résultats acquis, corrections et reprises sont distingués dans les
+[preuves RC39](validation/2026-10-20/rc39-critical/README.md) et le
+[suivi des 60 points](dev/engineering/d120/programme-2026-10-20/Suivi_60.json).
+Ne pas conclure à 60 points qualifiés : endurance, gros parc réel, DPI, multi-écrans et
+accessibilité complète du point 59 restent hors de cette passe. Le statut final de livraison
+reste à rattacher aux preuves du pack final. VM **DOMENIA-FIRSTRUN-20261020 conservée**.
+Aucun gain global de démarrage RC39 n'est revendiqué ; les mesures ci-dessous sont historiques.
+
+**Historique RC1.17.38 du 20 octobre :** connexion et accueil relus visuellement,
 navigation Outils → Accueil, agrandissement/rétablissement et fermetures normales réussis.
 Chronométrage depuis l'hôte au repos : connexion 31.32 → 22.52 s ; accueil 130.07 → 110.34 s (médianes, 2 passages par version).
 **Gain global non démontré** ; bénéfice isolé des exports confirmé précédemment.

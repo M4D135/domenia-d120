@@ -40,17 +40,26 @@ function Merge-DomeniaLiveLinkMemory {param($Observation)}
 $script:Cases=[Collections.Generic.List[object]]::new()
 function Assert-Live {param([bool]$Condition,[string]$Message='Assertion non satisfaite') if(-not $Condition){throw $Message}}
 function Case {param([string]$Name,[scriptblock]$Action)
-    try{& $Action|Out-Null;$passed=$true;$detail=''}catch{$passed=$false;$detail=$_.Exception.ToString()}
+    try{& $Action|Out-Null;$passed=$true;$detail=''}catch{$passed=$false;$detail=$_.Exception.ToString()+'; '+$_.ScriptStackTrace}
     [void]$script:Cases.Add([pscustomobject]@{Name=$Name;Passed=$passed;Detail=$detail})
     if(-not $Quiet -or -not $passed){Write-Host "$passed | $Name | $detail"}
 }
 function New-FixtureRow {
-    param([string]$Name='PC-01',[string]$Guid='00000000-0000-0000-0000-000000000001')
+    param([string]$Name='PC-01',[string]$Guid='')
+    if(-not $Guid){$Guid=if($Name -eq 'PC-01'){'00000000-0000-0000-0000-000000000001'}else{([guid]::Parse((Get-DomeniaLiveHash $Name).Substring(0,32))).ToString('D')}}
     return [pscustomobject]@{Type='Machine';Name=$Name;Login=$Name;UPN=($Name.ToLowerInvariant()+'.example.invalid');DN=('CN='+$Name+',OU=Test,DC=example,DC=invalid');Guid=$Guid}
+}
+function Submit-DomeniaRemoteObservations {
+ param($Result,$State,$SuccessHandler,$ErrorHandler)
+ if(-not $State.StoreContext){[void](Initialize-DomeniaRemoteStoreState -State $State -Guid $State.Guid -DN $State.Key -Generation $State.Generation)}
+ $old=$null;[void]$script:Live.Observations.TryGetValue([string]$State.Key,[ref]$old)
+ $observation=ConvertTo-DomeniaLiveObservation $Result $old
+ & $SuccessHandler -Result ([pscustomobject]@{Saved=$true;DataSource='SQLite';StoreId=$State.StoreContext.StoreId;RequestId=$State.StoreContext.RequestId;ObservationRows=@($observation)}) -State $State
 }
 function Reset-LiveFixture {
     if($null -ne $script:Window){$script:Window.Close();$script:Window=$null}
     if($null -ne $script:Live -and $null -ne $script:Live.Timer){$script:Live.Timer.Stop()}
+    $script:DatabaseScopedPath=Join-Path ([IO.Path]::GetTempPath()) 'domenia-streaming-fixture.sqlite';$script:DomeniaAccountGeneration=1L
     $script:AsyncJobs=[ordered]@{};$script:DetachedReadJobs=@();$script:AsyncEngineClosing=$false;$script:DirectoryCredentialFaulted=$false
     $script:ActiveWriteTaskId='';$script:WriteState='Idle';$script:SessionEpoch=1L;$script:GlobalSearchGeneration=1
     $script:ProcessIdentity='EXAMPLE\technicien';$script:MachineCredential=$null;$script:RemoteAdminCredential=$null
@@ -68,10 +77,12 @@ function Reset-LiveFixture {
     $script:Payload=[pscustomobject]@{}
     [void](Begin-DomeniaLiveSearch $script:State $script:Payload)
 }
-function Feed-Live {param($Row,[string]$Kind='Row') $script:Payload.Progress.Enqueue([pscustomobject]@{Kind=$Kind;Row=$Row;ObservedUtc='2026-09-30T10:00:00.0000000Z'})}
+# Renderer fixture: inject committed rows at the readback boundary, never into the LDAP producer queue.
+function Feed-Live {param($Row,[string]$Kind='Row') $q=$script:Live.Search.Progress;if($Kind -ne 'Row'){$q=$script:Live.Search.CacheProgress};$q.Enqueue([pscustomobject]@{Kind=$Kind;DataSource='SQLite';Row=$Row;ObservedUtc='2026-09-30T10:00:00.0000000Z'})}
 function End-Live {param([bool]$Partial=$false)
     $r=[pscustomobject]@{Rows=@();BaseDn=$script:State.BaseDn;Scope=$script:State.Scope;Partial=$Partial;Failure=$(if($Partial){'Interruption fictive'}else{''});LimitReached=$false}
     Complete-DomeniaLiveSearch $r $script:State
+    Invoke-DomeniaDirectoryStoreTick
     for($i=0;$i -lt 150 -and -not $script:Live.Search.Finalized;$i++){Invoke-DomeniaLiveTick}
 }
 $testDirectory=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-R1.12-tests-'+[guid]::NewGuid().ToString('N'))
@@ -91,6 +102,22 @@ Case 'D024 : une observation rechargee depuis JSON reste utilisable par Add-Dome
     Assert-Live ($row.SessionDisplay -eq 'alice (cache)' -and $row.SessionDetail -match 'Session console.+a relire')
     Assert-Live ($row.PresenceDetail -match 'Presence reseau.+a relire')
 }
+Case 'Unknown observation presentation is reused without retaining row data or timestamps' {
+    Reset-LiveFixture
+    foreach($cached in @($false,$true)){foreach($pending in @($false,$true)){
+        $first=New-DomeniaLiveResultRow;$first.Type='Machine';$first.Guid='11111111-1111-4111-8111-111111111111';$first.DN='CN=First,OU=Lab,DC=example,DC=invalid'
+        Set-DomeniaLiveObservationOnRow $first $null -Cached:$cached -Pending:$pending
+        $expected=Get-DomeniaLiveObservationView $null -Cached:$cached -Pending:$pending
+        $expectedDetail=$first.SessionDetail;$first.SessionDisplay='must-not-leak'
+        $second=New-DomeniaLiveResultRow;$second.Type='Machine';$second.Guid='22222222-2222-4222-8222-222222222222';$second.DN='CN=Second,OU=Lab,DC=example,DC=invalid'
+        Set-DomeniaLiveObservationOnRow $second $null -Cached:$cached -Pending:$pending
+        Assert-Live ($second.SessionDisplay -ceq $expected.Display -and $second.SessionState -ceq $expected.State -and $second.SessionDetail -ceq $expectedDetail) 'Unknown view changed or retained another row'
+        Assert-Live (-not $second.SessionChecked -and -not $second.SessionObserved -and -not $second.PresenceAge -and $second.PresenceState -eq 'Unknown') 'Unknown presentation invented a reading'
+    }}
+    $observed=[pscustomobject]@{Guid=$second.Guid;Outcome='Observed';CurrentUser='known-user';LastUser='known-user';ObservedUtc=[datetime]::UtcNow.ToString('o');UserCheckedUtc=[datetime]::UtcNow.ToString('o')}
+    Set-DomeniaLiveObservationOnRow $second $observed
+    Assert-Live ($second.SessionDisplay -eq 'known-user' -and $second.SessionObserved) 'Template hid an actual observation'
+}
 Case 'D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le cache' {
     Reset-LiveFixture
     $script:State.Limit=500
@@ -102,6 +129,7 @@ Case 'D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le ca
     Assert-Live ($script:Live.Search.Rows.Count -eq 500)
     for($i=0;$i -lt 2000;$i++){Feed-Live (New-FixtureRow ('NEW-'+$i))}
     Complete-DomeniaLiveSearch ([pscustomobject]@{Rows=@();BaseDn=$script:State.BaseDn;Scope=$script:State.Scope;Partial=$false;Failure='';LimitReached=$true}) $script:State
+    Invoke-DomeniaDirectoryStoreTick
     $watch=[Diagnostics.Stopwatch]::StartNew()
     while(-not $script:Live.Search.Finalized -and $watch.Elapsed.TotalSeconds -lt 60){Invoke-DomeniaLiveTick}
     Assert-Live $script:Live.Search.Finalized 'Le flux ne se termine pas'
@@ -111,7 +139,7 @@ Case 'D023 : 2000 lignes restent bornees a 500 et les lignes AD remplacent le ca
     # Decision David 2026-10-05: the safety maximum is 20 000 rows, so a list limited at 500 may still be continued.
     Assert-Live ($script:Ctrl.BtnSearchMore.IsEnabled) 'Charger la suite refuse sous le plafond de 20 000'
 }
-Case 'D023 : vingt-cinq recherches conservent seulement vingt caches de requete' {
+Case 'D023 : vingt-cinq recherches ne dupliquent pas les lignes SQLite en cache de requete' {
     Reset-LiveFixture
     $script:Ctrl.TxtBranchSearch=[Windows.Controls.TextBox]::new()
     for($i=0;$i -lt 25;$i++){
@@ -121,7 +149,7 @@ Case 'D023 : vingt-cinq recherches conservent seulement vingt caches de requete'
         Assert-Live $script:Live.Search.Finalized ("Recherche $i non finalisee")
         Assert-Live ($script:Live.MemoryQueries.Count -le 20) ("Trop de caches apres la recherche $i")
     }
-    Assert-Live ($script:Live.MemoryQueries.Count -eq 20)
+    Assert-Live ($script:Live.MemoryQueries.Count -eq 0)
 }
 Case 'Parseur natif de tous les scripts du paquet' {
     foreach($file in Get-ChildItem -LiteralPath $root -Filter '*.ps1' -File -Recurse){$t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$t,[ref]$e);Assert-Live (@($e).Count -eq 0) ($file.Name+': '+(@($e)|Out-String))}
@@ -182,15 +210,28 @@ Case 'Observation vide ne devient pas un succès' {$r=[pscustomobject]@{Outcome=
 Case 'Jeton d identité périmé rejeté' {Assert-Live (-not (Test-DomeniaLiveIdentity ([pscustomobject]@{Epoch=1;Identity='old'}) 1 'new'))}
 Case 'Epoch périmée rejetée' {Assert-Live (-not (Test-DomeniaLiveIdentity ([pscustomobject]@{Epoch=1;Identity='same'}) 2 'same'))}
 Case 'Collection observable et choix de notification cohérent avec le runtime' {Reset-LiveFixture;Assert-Live ($script:Live.Search.Rows -is [Collections.ObjectModel.ObservableCollection[object]] -and $script:Live.Notifying -eq ($null -ne ('Domenia.Live.ResultRow' -as [type])))}
-Case 'Le producteur ne modifie pas directement la grille' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $script:Payload.Progress.Count -eq 1)}
-Case 'Ajout par budget, jamais 100 lignes dans un seul tick' {Reset-LiveFixture;foreach($n in 1..100){Feed-Live (New-FixtureRow ('PC-'+$n))};Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -gt 0 -and $script:Live.Search.Rows.Count -le 12 -and $script:Payload.Progress.Count -gt 0)}
+Case 'Le producteur ne modifie pas directement la grille' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $script:Live.Search.Progress.Count -eq 1)}
+Case 'Ajout par budget, jamais 100 lignes dans un seul tick' {Reset-LiveFixture;foreach($n in 1..100){Feed-Live (New-FixtureRow ('PC-'+$n))};Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -gt 0 -and $script:Live.Search.Rows.Count -le 12 -and $script:Live.Search.Progress.Count -gt 0)}
 Case 'Vidage progressif conserve la même collection' {$before=$script:Ctrl.DgObjects.ItemsSource;for($n=0;$n -lt 150 -and $script:Live.Search.Rows.Count -lt 100;$n++){Invoke-DomeniaLiveTick};Assert-Live ([object]::ReferenceEquals($before,$script:Ctrl.DgObjects.ItemsSource) -and $script:Live.Search.Rows.Count -eq 100)}
-Case 'La finalisation attend le drainage puis prépare un cache' {End-Live;Assert-Live ($script:Live.Search.Finalized -and $script:Live.QueryToSave.Rows.Count -eq 100)}
+Case 'La finalisation attend le drainage sans dupliquer les lignes committées' {End-Live;Assert-Live ($script:Live.Search.Finalized -and $script:Live.Search.Rows.Count -eq 100 -and $null -eq $script:Live.QueryToSave)}
 Case 'Deux publications du même objet n ajoutent pas deux lignes' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Feed-Live (New-FixtureRow);for($n=0;$n -lt 5;$n++){Invoke-DomeniaLiveTick};Assert-Live ($script:Live.Search.Rows.Count -eq 1)}
 Case 'Les nouveaux résultats AD remplacent un cache plein' {Reset-LiveFixture;$script:State.Limit=2;Feed-Live (New-FixtureRow 'OLD1') 'CachedRow';Feed-Live (New-FixtureRow 'OLD2') 'CachedRow';for($n=0;$n -lt 5;$n++){Invoke-DomeniaLiveTick};Feed-Live (New-FixtureRow 'NEW1');Feed-Live (New-FixtureRow 'NEW2');End-Live;Assert-Live ($script:Live.Search.Rows.Count -eq 2 -and $script:Live.Search.Fresh.Count -eq 2 -and $script:Live.Search.Rows[0].Name -like 'NEW*')}
-Case 'Résultat vide valide retire les lignes du cache' {Reset-LiveFixture;Feed-Live (New-FixtureRow) 'CachedRow';Invoke-DomeniaLiveTick;End-Live;Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $script:Live.QueryToSave.Rows.Count -eq 0)}
+Case 'Canonical local rows are converted inside the live timer slice' {
+ Reset-LiveFixture;$row=New-FixtureRow 'PC-STORED'
+ $script:Live.Search.CacheProgress.Enqueue([pscustomobject]@{Kind='Cached';StoredRow=[pscustomobject]@{Name=$row.Name;DN=$row.DN;Guid=$row.Guid;Type=$row.Type;Details=@{};State='Actif'};ObservedUtc='2026-01-01T00:00:00Z'})
+ Invoke-DomeniaLiveTick
+ Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.Search.Rows[0].Name -eq 'PC-STORED' -and $script:Live.Search.Rows[0].DirectoryFresh -eq 'Cached')
+}
+Case 'Late cached former DN cannot replace a fresh moved GUID' {
+ Reset-LiveFixture;$fresh=New-FixtureRow 'PC-MOVED';Feed-Live $fresh;Invoke-DomeniaLiveTick
+ $old=New-FixtureRow 'PC-OLD';$old.Guid=$fresh.Guid
+ $script:Live.Search.CacheProgress.Enqueue([pscustomobject]@{Kind='Cached';Row=$old;ObservedUtc='2026-01-01T00:00:00Z'})
+ Invoke-DomeniaLiveTick
+ Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.Search.Rows[0].DN -eq $fresh.DN -and $script:Live.Search.Rows[0].DirectoryFresh -eq 'Verified')
+}
+Case 'Résultat vide valide retire les lignes du cache' {Reset-LiveFixture;Feed-Live (New-FixtureRow) 'CachedRow';Invoke-DomeniaLiveTick;End-Live;Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $null -eq $script:Live.QueryToSave)}
 Case 'Une liste partielle n est pas enregistrée comme complète' {Reset-LiveFixture;Feed-Live (New-FixtureRow);End-Live $true;Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $null -eq $script:Live.QueryToSave)}
-Case 'Erreur conserve une ligne connue et son origine cache' {Reset-LiveFixture;Feed-Live (New-FixtureRow) 'CachedRow';Fail-DomeniaLiveSearch 'Fixture inaccessible' $script:State;for($n=0;$n -lt 4;$n++){Invoke-DomeniaLiveTick};Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.Search.Rows[0].DirectoryState.Contains('Cache'))}
+Case 'Erreur conserve une ligne connue et son origine cache' {Reset-LiveFixture;Feed-Live (New-FixtureRow) 'CachedRow';Fail-DomeniaLiveSearch 'Fixture inaccessible' $script:State;Invoke-DomeniaDirectoryStoreTick;for($n=0;$n -lt 4;$n++){Invoke-DomeniaLiveTick};Assert-Live ($script:Live.Search.Rows.Count -eq 1 -and $script:Live.Search.Rows[0].DirectoryState.Contains('Cache'))}
 Case 'Changer de génération invalide le flux précédent' {Reset-LiveFixture;$oldPayload=$script:Payload;$oldState=$script:State;$script:GlobalSearchGeneration++;$script:State.Generation=$script:GlobalSearchGeneration;$script:Payload=[pscustomobject]@{};[void](Begin-DomeniaLiveSearch $script:State $script:Payload);$oldPayload.Progress.Enqueue([pscustomobject]@{Kind='Row';Row=New-FixtureRow});Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0 -and $oldPayload.StopToken.IsCancellationRequested)}
 Case 'Filtre local recherche le compte observé sans changer OU' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$script:Live.Search.Rows[0].SessionDisplay='EXAMPLE\alice';$script:Ctrl.TxtSuiteResultFilter.Text='alice';Update-DomeniaLiveFilter;Assert-Live ($script:Ctrl.DgObjects.Items.Count -eq 1 -and $script:SelectedBranchDn -like 'OU=Test,*')}
 Case 'Filtre littéral ne traite pas les crochets en regex' {$script:Ctrl.TxtSuiteResultFilter.Text='[alice]';Update-DomeniaLiveFilter;Assert-Live ($script:Ctrl.DgObjects.Items.Count -eq 0)}
@@ -214,8 +255,8 @@ Case 'Appel annulé compte toujours dans les ressources occupées' {Reset-LiveFi
 Case 'Le ping explicite du poste sélectionné n occupe ni le budget ni le suivi des sondes de recherche' {Reset-LiveFixture;$script:AsyncJobs['fiche']=[pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey='presence-selected'};$script:AsyncJobs['ligne']=[pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey=''};Assert-Live (((Get-DomeniaLiveWorkerCount 'LiveSelectedPing') -eq 2) -and ((Get-DomeniaLiveWorkerCount 'LiveSelectedPing' -ExcludeReplaceKey 'presence-selected') -eq 1)) 'Ping de la fiche compte dans le budget des sondes';$script:Live.Done=@{};Stop-DomeniaLiveJob ([pscustomobject]@{OperationId='LiveSelectedPing';ReplaceKey='presence-selected';Superseded=$false;CallbackState=[pscustomobject]@{Computer='PC-1';Generation=$script:GlobalSearchGeneration}});Assert-Live ($script:Live.Done.Count -eq 0) 'Arret du ping de la fiche inscrit dans le suivi des lignes'}
 Case 'Ecriture en cours suspend le rendu des lignes reçues' {Reset-LiveFixture;Feed-Live (New-FixtureRow);$script:ActiveWriteTaskId='write';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0);$script:ActiveWriteTaskId='';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 1)}
 Case 'Etat inconnu d ecriture suspend également le rendu' {Reset-LiveFixture;Feed-Live (New-FixtureRow);$script:WriteState='Unknown';Invoke-DomeniaLiveTick;Assert-Live ($script:Live.Search.Rows.Count -eq 0)}
-Case 'Réponse d un ancien compte ne réenregistre aucune observation' {Reset-LiveFixture;$state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};$script:ProcessIdentity='EXAMPLE\autre';Complete-DomeniaLiveProbe $observed $state;Assert-Live ($script:Live.Observations.Count -eq 0 -and $script:Live.SaveQueue.Count -eq 0)}
-Case 'Succès de session notifie la ligne et prépare la persistance' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};Complete-DomeniaLiveProbe $observed $state;Assert-Live ($script:Live.Search.Rows[0].SessionDisplay -eq 'EXAMPLE\alice' -and $script:Live.SaveQueue.Count -eq 1)}
+Case 'Réponse d un ancien compte ne réenregistre aucune observation' {Reset-LiveFixture;$state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};$script:ProcessIdentity='EXAMPLE\autre';Reset-DomeniaLiveIdentity;Complete-DomeniaLiveProbe $observed $state;Assert-Live ($script:Live.Observations.Count -eq 0 -and $script:Live.SaveQueue.Count -eq 0)}
+Case 'Lecture committée de session notifie la ligne sans seconde persistance' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$state=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};Complete-DomeniaLiveProbe $observed $state;Assert-Live ($script:Live.Search.Rows[0].SessionDisplay -eq 'EXAMPLE\alice' -and $script:Live.Observations.Count -eq 1 -and $script:Live.SaveQueue.Count -eq 0)}
 Case 'Rejet distant coupe les nouvelles sondes, conserve le compte connu' {$r=[pscustomobject]@{Key=$observed.Key;Computer=$observed.Computer;Guid=$observed.Guid;Outcome='AuthRejected';User=''};$probeState=[pscustomobject]@{Identity=$script:Live.Identity;Epoch=1;Key=$observed.Key;Guid=$observed.Guid;Computer=$observed.Computer;Generation=1};Complete-DomeniaLiveProbe $r $probeState;Assert-Live ($script:Live.RemoteFaulted -and $script:Live.PendingKeys.Count -eq 0 -and $script:Live.Search.Rows[0].SessionDisplay.Contains('alice'))}
 # Actual SQLite roundtrips use only a newly created temporary database.
 $dbPath=Join-Path $testDirectory 'fixture.db';$scope=Get-DomeniaLiveHash 'fixture-scope';$queryKey=Get-DomeniaLiveHash 'fixture-query'
@@ -313,7 +354,7 @@ function Invoke-ProbeCatalogFixture {
     param([string[]]$AllowedClasses=$null,[string]$Class='CIM_Product')
     $script:CatalogCalls=@()
     $Context=[pscustomobject]@{MachineCredential=$script:RemoteFixture;Credential=$script:AdFixture;Domain='example.invalid';Netbios='EXAMPLE';BaseDn='DC=example,DC=invalid';UseCim=$true}
-    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;ProbeUser=$true;Probes=@([pscustomobject]@{Id='sonde';Class=$Class;Namespace='root\cimv2';Properties=@('Name');Filter='';Skip=''})}
+    $Payload=[pscustomobject]@{Computer='pc-01.example.invalid';Key=$observed.Key;Guid=$observed.Guid;MethodSeconds=4;ProbeUser=$true;Probes=@([pscustomobject]@{Id='sonde';Class=$Class;Namespace='root\cimv2';Properties=@('Name');Filter='';Skip='';Mode='All'})}
     if($PSBoundParameters.ContainsKey('AllowedClasses')){$Payload | Add-Member -NotePropertyName AllowedClasses -NotePropertyValue @($AllowedClasses)}
     function Get-WMachineCredential {param($Context) return $Context.MachineCredential}
     function New-Object {param($TypeName) $o=[pscustomobject]@{};Add-Member -InputObject $o ScriptMethod Send {param($t,$ms) $null};Add-Member -InputObject $o ScriptMethod Dispose { };return $o}
@@ -325,7 +366,7 @@ function Invoke-ProbeCatalogFixture {
 }
 Case 'Sonde hors catalogue refusee par le worker des widgets' {$r=Invoke-ProbeCatalogFixture -AllowedClasses @('Win32_ComputerSystem');Assert-Live ($r.Probes.sonde.Error -match 'catalogue de sondes' -and $script:CatalogCalls -notcontains 'CIM_Product')}
 Case 'Sonde sans catalogue transmis refusee par le worker des widgets' {$r=Invoke-ProbeCatalogFixture;Assert-Live ($r.Probes.sonde.Error -match 'Catalogue de sondes absent' -and $script:CatalogCalls -notcontains 'CIM_Product')}
-Case 'Sonde du catalogue traverse la garde et atteint le poste' {$r=Invoke-ProbeCatalogFixture -Class 'Win32_BIOS' -AllowedClasses @('Win32_ComputerSystem','Win32_BIOS');Assert-Live ($r.Probes.sonde.Error -eq '' -and $script:CatalogCalls -contains 'Win32_BIOS')}
+Case 'Sonde du catalogue traverse la garde et atteint le poste' {$r=Invoke-ProbeCatalogFixture -Class 'Win32_BIOS' -AllowedClasses @('Win32_ComputerSystem','Win32_BIOS');Assert-Live ($r.Probes.sonde.Error -eq '' -and $script:CatalogCalls -contains 'Win32_BIOS') ($r|ConvertTo-Json -Depth 8 -Compress)}
 
 Case 'Chemin de cache déjà résolu sans réinitialisation du stockage' {Reset-LiveFixture;$script:DatabaseScopeIdentity='dc=example,dc=invalid';$script:DatabaseScopedPath=Join-Path $testDirectory 'scope.db';Assert-Live ((Get-DomeniaLiveDatabasePath) -eq $script:DatabaseScopedPath)}
 Case 'Identité de consultation changée invalide les informations de session visibles' {Reset-LiveFixture;Feed-Live (New-FixtureRow);Invoke-DomeniaLiveTick;$oldRow=$script:Live.Search.Rows[0];$script:ProcessIdentity='EXAMPLE\autre';Invoke-DomeniaLiveTick;Assert-Live ($oldRow.SessionState -eq 'Compte changé · à revérifier')}

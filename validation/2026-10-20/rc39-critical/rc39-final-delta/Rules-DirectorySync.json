@@ -1,0 +1,91 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "Platform": "Windows",
+    "PSVersion": "5.1.26100.6584",
+    "PSEdition": "Desktop"
+  },
+  "NativeWindowsPowerShell51": true,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 11,
+  "Failed": 0,
+  "CoveredIds": [
+    "P22",
+    "P23",
+    "P24",
+    "P30",
+    "P60-29"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "P23",
+      "Name": "Perimetre par frontieres RDN, virgule echappee et profondeur comprises",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P23",
+      "Name": "Deplacement : meme GUID, nouvel emplacement, appartenance au perimetre et fil d Ariane",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P24",
+      "Name": "Disparition : seule une entree supprimee lue par GUID prouve une suppression",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P24",
+      "Name": "Verification bornee aux objets non revus ; fiche relue gardee seulement pour un objet existant",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P24",
+      "Name": "Liste des disparitions : etats lisibles, totaux exacts, objets a verifier",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P22",
+      "Name": "Recensement conseille : absent, partiel, ancien, ecart, horloge ; jamais lance seul",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P22",
+      "Name": "Horloge douteuse : coverage reelle de Get-DomeniaFleetFreshness avec un point de reprise date dans le futur",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P22",
+      "Name": "Objets manquants lus par GUID : ajoutes, retires sans conclusion ou laisses a lire",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P30",
+      "Name": "Releve : demande validee, couverture prouvee ou declaree incomplete, jamais une sauvegarde",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P30",
+      "Name": "Comparaison : ajouts, disparitions, deplacements et valeurs modifiees, totaux exacts et limites dites",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P60-29",
+      "Name": "Suppression : un indicateur sans lecture des objets supprimés ne constitue pas une preuve",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

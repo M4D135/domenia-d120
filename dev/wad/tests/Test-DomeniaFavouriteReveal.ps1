@@ -6,6 +6,7 @@ $ErrorActionPreference='Stop';$wad=Split-Path -Parent $PSScriptRoot
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
 # the trace itself is tested in rules/Common.Tests.ps1 and Test-DomeniaFaults.ps1).
 function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) }
+. (Join-Path $wad 'modules/Domenia-DirectoryTree.UI.ps1')
 foreach($name in @('Common.Model','Continuity.Model','Continuity.UI')){. (Join-Path $wad ('modules/Domenia-'+$name+'.ps1'))}
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'modules/Domenia-Guard.UI.ps1'),[ref]$tokens,[ref]$errors)
@@ -16,13 +17,14 @@ function Assert {param($Value,[string]$Why='Assertion failed')if(-not $Value){th
 function Case {param($Name,[scriptblock]$Body)Reset-Fixture;try{& $Body|Out-Null;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=($_.Exception.Message+' '+$_.ScriptStackTrace)})}}
 function New-Node {
  param([string]$Dn,[bool]$Loaded=$true,[string]$Kind='OU')
- $n=[pscustomobject]@{Tag=[pscustomobject]@{DN=$Dn;Kind=$Kind;Loaded=$Loaded;Loading=$false;RenderId=''};Items=[Collections.ArrayList]::new();_Expanded=$false;_Selected=$false;Brought=$false}
- $n|Add-Member ScriptProperty IsExpanded {$this._Expanded} {param($value)$changed=$this._Expanded -ne $value;$this._Expanded=$value;if($changed -and $value -and -not $this.Tag.Loaded){Load-TreeChildren -Node $this}}
- $n|Add-Member ScriptProperty IsSelected {$this._Selected} {param($value)$this._Selected=$value;if($value){$script:SelectedBranchDn=$this.Tag.DN;if(-not $script:SuppressBranchAutoLoad){Stop-DomeniaFavouriteTreeReveal;Invoke-GlobalSearch OU}}}
+ $n=[pscustomobject]@{Tag=[pscustomobject]@{DN=$Dn;Kind=$Kind;Loaded=$Loaded;Loading=$false;RenderId=''};Items=[Collections.ArrayList]::new();_Expanded=$false;_Selected=$false;Brought=$false;ExpansionReadHandled=$false;ProgrammaticSelection=$false}
+ $n|Add-Member ScriptProperty IsExpanded {$this._Expanded} {param($value)$this._Expanded=$value}
+ $n|Add-Member ScriptProperty IsSelected {$this._Selected} {param($value)$this._Selected=$value;if($value){$script:SelectedBranchDn=$this.Tag.DN;if(-not $script:SuppressBranchAutoLoad -and -not $this.ProgrammaticSelection){Stop-DomeniaFavouriteTreeReveal;Invoke-GlobalSearch OU}}}
  $n|Add-Member ScriptMethod BringIntoView {$this.Brought=$true}
  return $n
 }
 function Reset-Fixture {
+ $script:DomeniaTreeSelectedNode=$null
  $script:FavouriteTreeReveal=$null;$script:FavouriteTreeRevealTimer=$null
  $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';BindUser='EXAMPLE\reader'}
  $script:SessionEpoch=1L;$script:GlobalSearchGeneration=1;$script:SelectedBranchDn='';$script:AsyncEngineClosing=$false
@@ -48,6 +50,8 @@ function Invoke-GlobalSearch {param($SearchMode,[switch]$KeepLocalFilter)$script
 function Load-TreeChildren {param($Node)$script:Reads.Add($Node);$Node.Tag.Loading=$true}
 function Get-DomeniaFavouriteSearches {return $script:Favs}
 function Start-Favourite {param($Dn)$script:Favs=@([pscustomobject]@{DN=$Dn;Name='Target';Subtree=$true;Type='Machines';Term=''});Load-DomeniaFavouriteSearch -Dn $Dn}
+# Only viewport realization is doubled here; the separate WPF suite tests production realization.
+function Start-DomeniaTreeItemReveal {param($Node,$Purpose) $Node.BringIntoView();return $true}
 function Drain {for($i=0;$i -lt 1000 -and $null -ne $script:FavouriteTreeReveal;$i++){Invoke-DomeniaFavouriteTreeReveal};Assert ($null -eq $script:FavouriteTreeReveal) 'Reveal did not terminate'}
 Case 'Deep loaded favourite expands each ancestor and searches only once' {
  $a=New-Node ('OU=A,'+$script:Root.Tag.DN);$b=New-Node ('OU=B,'+$a.Tag.DN);$c=New-Node ('OU=C,'+$b.Tag.DN)

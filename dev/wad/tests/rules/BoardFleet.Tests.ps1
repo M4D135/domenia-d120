@@ -373,14 +373,20 @@ Test-Case -Id 'BF-018' -Name 'Couverture, age des observations et plan de calcul
     Assert-True ([string]$plan.PasswordBefore -like '2026-08-08T*Z') ([string]$plan.PasswordBefore)
     Assert-True ([string]$plan.ObservationsSince -like '2026-09-07T*') ([string]$plan.ObservationsSince)
 }
-Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, courbe seulement apres 90 jours d historique' -Body {
+Test-Case -Id 'BF-019' -Name 'Instantane quotidien : chiffres de l annuaire, courbe des deux releves dates disponibles sur 90 jours' -Body {
     $board = Get-BfBoard
     Assert-Equal '2026-10-07' ([string]$board.Snapshot.Day)
     Assert-False ([bool]$board.Snapshot.Taken) 'Premier calcul du jour'
     Assert-Equal 7 ([int]$board.Snapshot.Figures.Machines)
     Assert-Equal 6 ([int]$board.Snapshot.Figures.Problems)
-    Assert-False ($board.Entries.ContainsKey('fleet.trend')) 'Pas de courbe sans 90 jours'
-    Assert-True ([string]$board.Hints['Évolution'] -like '*90 jours*') 'Indication de la courbe'
+    Assert-False ($board.Entries.ContainsKey('fleet.trend')) 'Pas de courbe sans deux releves'
+    Assert-True ([string]$board.Hints['Évolution'] -like '*Deux relevés datés*') 'Indication de la courbe'
+    $short=@([pscustomobject]@{day='2026-10-05';figures='{"Problems":3}'},[pscustomobject]@{day='2026-10-07';figures='{"Problems":1}'})
+    $early=Get-BfBoard -History $short
+    Assert-Equal 2 @($early.Entries['fleet.trend'].Items).Count 'Deux jours suffisent, sans inventer le jour intermediaire'
+    $bad=@([pscustomobject]@{day='2026-10-05';figures='{"Problems":3}'},[pscustomobject]@{day='2026-10-05';figures='{"Problems":8}'},[pscustomobject]@{day='2026-10-08';figures='{"Problems":9}'},[pscustomobject]@{day='invalide';figures='{"Problems":9}'})
+    $unknown=Get-BfBoard -History $bad
+    Assert-False ($unknown.Entries.ContainsKey('fleet.trend')) 'Doublon, date future ou illisible ne cree pas une evolution'
     $history = @(foreach ($d in 0..95) { [pscustomobject]@{ day = $script:BfNow.Date.AddDays(0 - $d).ToString('yyyy-MM-dd',$script:BfInvariant); figures = ('{"Machines":7,"Problems":' + [string]($d % 5) + '}') } })
     $trend = Get-BfBoard -History $history
     Assert-True ([bool]$trend.Snapshot.Taken) 'Instantane du jour deja pris'

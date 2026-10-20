@@ -5,14 +5,26 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.38**, candidate personnelle autonome. Contrôle visuel ciblé terminé
-(connexion, accueil, navigation, fenêtre agrandie/rétablie). Démarrage chronométré
-depuis l'hôte sur la VM au repos : **connexion 31.32 → 22.52 s ; accueil 130.07 → 110.34 s** (médianes, deux passages par version).
-**Gain global non démontré** ; contrôle isolé des exports : 7562 → 128 ms.
-Packs DEV/PROD inchangés et vérifiés ; VM conservée.
+Révision **RC1.17.39**, candidate personnelle autonome du programme de 60 améliorations.
+Les principaux changements portent sur :
 
-[Mesures, captures et limites](validation/2026-10-20/rc38-startup/final/README.md).
-Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
+- l'affichage des données locales avant relecture AD, avec leur date et leur état de fraîcheur ;
+- la recherche et l'arbre d'OU virtualisé, avec filtrage progressif et restauration de la sélection ;
+- la réutilisation des widgets inchangés et des agrégats logiciels ;
+- la poursuite des collectes après un échec isolé et l'explication des données manquantes ;
+- le diagnostic, la maintenance SQLite, les sauvegardes et les préférences de stockage.
+
+La **qualification critique ciblée sous Windows PowerShell 5.1 est terminée**.
+Elle ne vaut pas qualification des 60 points ni recette générale sur un parc réel.
+L'endurance, les variations DPI, le multi-écrans et l'accessibilité complète du point 59
+restent hors de cette passe. La VM **DOMENIA-FIRSTRUN-20261020 est conservée**.
+
+[Preuves critiques RC39 et limites](validation/2026-10-20/rc39-critical/README.md) ·
+[Suivi des 60 points](dev/engineering/d120/programme-2026-10-20/Suivi_60.json).
+
+**Historique RC38** : connexion 31.32 → 22.52 s et accueil 130.07 → 110.34 s
+(médianes, deux passages par version au repos). Ces [mesures et captures](validation/2026-10-20/rc38-startup/final/README.md)
+restent propres à RC38 ; aucun gain global de démarrage n'est établi pour RC39.
 Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
 restent datées de leurs versions respectives.
 

@@ -181,3 +181,13 @@ Test-Case 'P30' 'Comparaison : ajouts, disparitions, deplacements et valeurs mod
     Assert-True ($report.Summary -match 'non concluants');Assert-True ($report.Summary -match 'restaurer')
     Assert-True (@($report.Rows|Where-Object{$_.Nature -eq 'Disparition'})[0].Detail -match 'non prouvé') 'Une disparition nʼest jamais une suppression.'
 }
+
+Test-Case 'P60-29' 'Suppression : un indicateur sans lecture des objets supprimés ne constitue pas une preuve' {
+    $absence=[pscustomobject]@{Guid='0f6c3a8e-2b8d-4c1e-9a77-5d2b9f1e0a11';LastDn='CN=PC1,DC=example,DC=invalid';ScopeDn='DC=example,DC=invalid'}
+    foreach($read in @('NotRequested','Unavailable','Refused','Empty','')){
+        $result=Resolve-DomeniaDirectoryAbsence $absence ([pscustomobject]@{DomainRead='Read';DeletedRead=$read;Deleted=$true})
+        Assert-True ($result.Status -ne 'Supprime') ('Suppression affirmée sans lecture : '+$read)
+    }
+    $partial=Resolve-DomeniaDirectoryAbsence $absence ([pscustomobject]@{DomainRead='Unavailable';DeletedRead='Read';Deleted=$true})
+    Assert-Equal 'NonConfirme' $partial.Status
+}

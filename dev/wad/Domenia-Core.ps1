@@ -4427,45 +4427,18 @@ function Set-TabVisibility {
 
 
 
-function Get-DomeniaTreeHeaderTemplate {
-    # FO-04: the header of a branch shows its text and, on hover, a star to pin it; the star stays filled for a
-    # favourite (AutomationProperties.ItemStatus = 'Favori'). The Header itself remains the plain branch text.
-    if ($null -ne $script:TreeHeaderTemplate) { return $script:TreeHeaderTemplate }
-    $xaml = @'
-<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <StackPanel x:Name="HeaderRoot" Orientation="Horizontal" Background="Transparent">
-    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-    <Button x:Name="OuStar" Content="☆" Visibility="Hidden" Focusable="False" Margin="6,0,0,0" MinWidth="0" MinHeight="0" Cursor="Hand" FontFamily="Segoe UI Symbol" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource AccentText}" ToolTip="Épingler cette OU dans les favoris" AutomationProperties.Name="Épingler cette OU">
-      <Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent" Padding="2,0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Button.Template>
-    </Button>
-  </StackPanel>
-  <DataTemplate.Triggers>
-    <Trigger SourceName="HeaderRoot" Property="UIElement.IsMouseOver" Value="True"><Setter TargetName="OuStar" Property="UIElement.Visibility" Value="Visible"/></Trigger>
-    <DataTrigger Binding="{Binding Path=(AutomationProperties.ItemStatus), RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="Favori">
-      <Setter TargetName="OuStar" Property="Visibility" Value="Visible"/>
-      <Setter TargetName="OuStar" Property="Content" Value="★"/>
-      <Setter TargetName="OuStar" Property="ToolTip" Value="Retirer cette OU des favoris"/>
-    </DataTrigger>
-  </DataTemplate.Triggers>
-</DataTemplate>
-'@
-    $script:TreeHeaderTemplate = [Windows.Markup.XamlReader]::Parse($xaml)
-    return $script:TreeHeaderTemplate
-}
+function Get-DomeniaTreeHeaderTemplate { return Get-DomeniaDirectoryTreeHeaderTemplate }
 
 function New-TreeItem {
+    # Only data is retained; WPF generates containers for the viewport.
     param([string]$Name, [string]$Dn, [string]$Kind)
-    $item = New-Object System.Windows.Controls.TreeViewItem
-    $item.Header = $Name
-    $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
-    try { $item.HeaderTemplate = Get-DomeniaTreeHeaderTemplate } catch { Write-DomeniaSwallowed 'Core' 'New-TreeItem' $_ }
-    if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
-        [Windows.Automation.AutomationProperties]::SetItemStatus($item,'Favori')
-    }
-    [void]$item.Items.Add("Chargement...")
-    $item.Add_Expanded({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Load-TreeChildren -Node $sender } })
-    $item.Add_Selected({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Set-SelectedBranch -Node $sender; $e.Handled = $true } })
-    return $item
+    if ($null -eq ('Domenia.Tree.DomeniaTreeItem' -as [type])) { Add-DomeniaDirectoryTreeTypes }
+    $node = [Domenia.Tree.DomeniaTreeItem]::new()
+    $node.Header = $Name
+    $node.Tag = [pscustomobject]@{Name=$Name;DN=$Dn;Kind=$Kind;Loaded=$false;RenderId='';Loading=$false}
+    if ($Dn -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) { $node.FavoriteStatus='Favori' }
+    [void]$node.Items.Add((New-DomeniaTreeStatusItem))
+    return $node
 }
 
 function New-DomeniaTreeRowItem {
@@ -4480,19 +4453,15 @@ function New-DomeniaTreeRowItem {
 }
 
 function New-DomeniaTreeSystemGroup {
-    # UI-16: System, Program Data, ForeignSecurityPrincipals, LostAndFound... folded under one node. The group has
-    # no DN: selecting it never becomes a search root, and unfolding it reads nothing.
-    param($Rows)
-    $rowArray = @($Rows | Where-Object { $null -ne $_ })
-    $group = New-Object System.Windows.Controls.TreeViewItem
-    $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
-    $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = $true; RenderId = ""; Loading = $false }
-    $group.IsExpanded = $false
-    $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
-    foreach ($row in $rowArray) {
-        $child = New-DomeniaTreeRowItem -Row $row
-        if ($null -ne $child) { [void]$group.Items.Add($child) }
-    }
+    # The render timer fills this data shell within the parent's shared budget.
+    param($Rows,[switch]$DeferChildren)
+    if ($null -eq ('Domenia.Tree.DomeniaTreeItem' -as [type])) { Add-DomeniaDirectoryTreeTypes }
+    $rowArray=@($Rows)
+    $group=[Domenia.Tree.DomeniaTreeItem]::new()
+    $group.Header='Conteneurs système ('+$rowArray.Count+')'
+    $group.Tag=[pscustomobject]@{Name='Conteneurs système';DN='';Kind='SystemGroup';Loaded=(-not $DeferChildren);RenderId='';Loading=$false}
+    $group.ToolTip='Conteneurs créés par Active Directory, repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
+    if (-not $DeferChildren) { foreach($row in $rowArray) { $child=New-DomeniaTreeRowItem -Row $row; if($null -ne $child){[void]$group.Items.Add($child)} } }
     return $group
 }
 
@@ -4512,28 +4481,9 @@ function Get-DomeniaTreeRenderRows {
 }
 
 function New-DomeniaTreeLoadingItem {
-    # UI-16: a small turning wheel under the unfolded branch replaces the former greyed node while it is read.
-    $panel = New-Object System.Windows.Controls.StackPanel
-    $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-    $panel.Tag = 'Loading'
-    $wheel = New-Object System.Windows.Controls.TextBlock
-    $wheel.Text = [string][char]0x21BB
-    $wheel.FontFamily = New-Object System.Windows.Media.FontFamily('Segoe UI Symbol')
-    $wheel.Margin = New-Object System.Windows.Thickness(0,0,6,0)
-    $wheel.RenderTransformOrigin = New-Object System.Windows.Point(0.5,0.5)
-    $rotate = New-Object System.Windows.Media.RotateTransform
-    $wheel.RenderTransform = $rotate
-    try {
-        $spin = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0,360.0,(New-Object System.Windows.Duration([TimeSpan]::FromSeconds(1.2))))
-        $spin.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
-        $rotate.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty,$spin)
-    } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaTreeLoadingItem' $_ }
-    $text = New-Object System.Windows.Controls.TextBlock
-    $text.Text = 'Chargement des sous-branches' + [string][char]0x2026
-    [void]$panel.Children.Add($wheel)
-    [void]$panel.Children.Add($text)
-    [System.Windows.Automation.AutomationProperties]::SetName($panel,'Chargement des sous-branches')
-    return $panel
+    $node=New-DomeniaTreeStatusItem -Message 'Chargement des sous-branches…'
+    $node.Tag.Kind='Loading';$node.Tag.Loading=$true
+    return $node
 }
 
 function Add-DomeniaTreeRowsToNode {
@@ -4544,9 +4494,10 @@ function Add-DomeniaTreeRowsToNode {
     $count = 0
     foreach ($row in @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)) {
         if ($null -eq $row) { continue }
-        if ([string]$row.Kind -eq 'SystemGroup') { [void]$Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows)); $count += @($row.Rows).Count; continue }
+        if ([string]$row.Kind -eq 'SystemGroup') { $groupShell = New-DomeniaTreeSystemGroup -Rows $row.Rows; if ($groupShell -is [Domenia.Tree.DomeniaTreeItem]) { $groupShell.Parent = $Node }; [void]$Node.Items.Add($groupShell); $count += @($row.Rows).Count; continue }
         $item = New-DomeniaTreeRowItem -Row $row
         if ($null -eq $item) { continue }
+        if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $Node }
         [void]$Node.Items.Add($item)
         $count++
     }
@@ -4555,59 +4506,89 @@ function Add-DomeniaTreeRowsToNode {
 
 function Initialize-DomeniaTreeRenderTimer {
     if ($null -ne $script:TreeRenderTimer) { return }
-    # FI-05: protected timer of the engine heartbeat; it only runs while a branch is being rendered.
+    $script:TreeRenderNextId = ''
+    # All branches share one quota and an 8 ms budget. One WPF construction cannot be preempted;
+    # this is a cooperative slice, not a hard deadline. A group is sub-state of its parent job.
     $script:TreeRenderTimer = New-DomeniaTimer -Owner 'Timer:TreeRender' -IntervalMs ([Math]::Max(10,[int](Get-CfgValue "UI" "TreeRenderIntervalMs" 18))) -Tick {
-        $finished = New-Object System.Collections.Generic.List[string]
-        foreach ($renderId in @($script:TreeRenderJobs.Keys)) {
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $quota = [Math]::Max(1,[Math]::Min(64,[int](Get-CfgValue "UI" "TreeRenderBatchSize" 24)))
+        $ids = @($script:TreeRenderJobs.Keys | ForEach-Object { [string]$_ } | Sort-Object)
+        $cursor = 0
+        for ($i = 0; $i -lt $ids.Count; $i++) { if ($ids[$i] -ceq $script:TreeRenderNextId) { $cursor = $i; break } }
+        $units = 0; $skipped = 0; $progressJob = $null
+        while ($ids.Count -gt 0 -and $units -lt $quota -and ($units -eq 0 -or $watch.ElapsedMilliseconds -lt 8)) {
+            $renderId = [string]$ids[$cursor]
+            $cursor = ($cursor + 1) % $ids.Count
+            $script:TreeRenderNextId = [string]$ids[$cursor]
+            if (-not $script:TreeRenderJobs.Contains($renderId)) {
+                $skipped++
+                if ($skipped -ge $ids.Count) { break }
+                continue
+            }
+            $skipped = 0; $units++
             $job = $script:TreeRenderJobs[$renderId]
-            if ($null -eq $job -or $null -eq $job.Node) { [void]$finished.Add([string]$renderId); continue }
+            if ($null -eq $job -or $null -eq $job.Node) { [void]$script:TreeRenderJobs.Remove($renderId); continue }
             try {
-                $batchSize = [Math]::Max(5,[int]$job.BatchSize)
-                $added = 0
-                while ([int]$job.Index -lt [int]$job.Rows.Count -and $added -lt $batchSize) {
-                    $row = $job.Rows[[int]$job.Index]
-                    $job.Index = [int]$job.Index + 1
-                    if ($null -eq $row) { continue }
-                    if ([string]$row.Kind -eq 'SystemGroup') {
-                        [void]$job.Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows))
-                        $job.Added = [int]$job.Added + @($row.Rows).Count
-                        $added++
-                        continue
+                # A cancelled/replaced render must never append to the old parent.
+                if ([string]$job.Node.Tag.RenderId -cne $renderId) { [void]$script:TreeRenderJobs.Remove($renderId); continue }
+                if ($null -ne $job.GroupNode) {
+                    if ([int]$job.GroupIndex -lt $job.GroupRows.Count) {
+                        $row = $job.GroupRows[[int]$job.GroupIndex]; $job.GroupIndex++
+                        $item = New-DomeniaTreeRowItem -Row $row
+                        if ($null -ne $item) {
+                            if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $job.GroupNode }
+                            [void]$job.GroupNode.Items.Add($item); $job.Added++
+                        }
                     }
-                    $item = New-DomeniaTreeRowItem -Row $row
-                    if ($null -eq $item) { continue }
-                    [void]$job.Node.Items.Add($item)
-                    $job.Added = [int]$job.Added + 1
-                    $added++
+                    if ([int]$job.GroupIndex -ge $job.GroupRows.Count) {
+                        $job.GroupNode.Tag.Loaded = $true; $job.GroupNode.Tag.RenderId = ''
+                        $job.GroupNode = $null; $job.GroupRows = @(); $job.GroupIndex = 0
+                    }
                 }
-                if ([int]$job.Index -ge [int]$job.Rows.Count) {
-                    $job.Node.Tag.Loaded = $true
-                    $job.Node.Tag.RenderId = ""
-                    $job.Node.IsEnabled = $true
-                    [void]$finished.Add([string]$renderId)
-                    [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "$($job.Added) sous-branche(s) affichee(s).")
+                elseif ([int]$job.Index -lt $job.Rows.Count) {
+                    $row = $job.Rows[[int]$job.Index]; $job.Index++
+                    if ($null -ne $row) {
+                        if ([string]$row.Kind -eq 'SystemGroup') {
+                            $group = New-DomeniaTreeSystemGroup -Rows $row.Rows -DeferChildren
+                            $group.Tag.RenderId = $renderId
+                            if ($group -is [Domenia.Tree.DomeniaTreeItem]) { $group.Parent = $job.Node }
+                            [void]$job.Node.Items.Add($group)
+                            $job.GroupNode = $group; $job.GroupRows = @($row.Rows); $job.GroupIndex = 0
+                        }
+                        else {
+                            $item = New-DomeniaTreeRowItem -Row $row
+                            if ($null -ne $item) {
+                                if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $job.Node }
+                                [void]$job.Node.Items.Add($item); $job.Added++
+                            }
+                        }
+                    }
+                }
+                # Favourite/tree restoration may continue only after every system child is attached.
+                if ([int]$job.Index -ge $job.Rows.Count -and $null -eq $job.GroupNode) {
+                    $job.Node.Tag.Loaded = $true; $job.Node.Tag.RenderId = ''; $job.Node.IsEnabled = $true
+                    [void]$script:TreeRenderJobs.Remove($renderId)
+                    [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text "$($job.Added) sous-branche(s) affichee(s).")
                     Set-Status "Sous-branches pretes : $($job.Added)."
-                    # DS-07: a branch read while the OU filter is set follows that filter (local only). PF-10: no command lookup in a tick.
                     try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
                 }
-                else {
-                    [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Affichage progressif : $($job.Added) / $($job.Rows.Count) sous-branche(s)...")
-                }
+                else { $progressJob = $job }
             }
             catch {
+                [void]$script:TreeRenderJobs.Remove($renderId)
                 try {
                     $job.Node.Items.Clear()
-                    [void]$job.Node.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
-                    $job.Node.Tag.Loaded = $false
-                    $job.Node.Tag.RenderId = ""
-                    $job.Node.IsEnabled = $true
+                    [void]$job.Node.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur d'affichage  replie puis redeplie pour reessayer"))
+                    $job.Node.Tag.Loaded = $false; $job.Node.Tag.RenderId = ''; $job.Node.IsEnabled = $true
                 } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
-                Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" "ERROR"
-                [void]$finished.Add([string]$renderId)
+                Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" 'ERROR'
             }
         }
-        foreach ($renderId in $finished.ToArray()) { [void]$script:TreeRenderJobs.Remove([string]$renderId) }
-        if (@($script:TreeRenderJobs.Keys).Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ } }
+        if ($null -ne $progressJob -and $script:TreeRenderJobs.Contains([string]$progressJob.Id)) {
+            try { [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text "Affichage progressif : $($progressJob.Added) sous-branche(s) affichée(s), suite en cours…") }
+            catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
+        }
+        if ($script:TreeRenderJobs.Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ } }
     }
 }
 
@@ -4653,7 +4634,7 @@ function Queue-DomeniaTreeRowsToNode {
     # UI-16: the node stays enabled while its sub-branches appear (no greyed branch).
     $script:TreeRenderJobs[$renderId] = [pscustomobject]@{
         Id=$renderId; Node=$Node; Rows=$rowArray; Index=0; Added=0
-        BatchSize=[Math]::Max(5,[int](Get-CfgValue "UI" "TreeRenderBatchSize" 24))
+        GroupNode=$null; GroupRows=@(); GroupIndex=0
         DisplayName=$DisplayName
     }
     Initialize-DomeniaTreeRenderTimer
@@ -4667,12 +4648,15 @@ function Load-TreeRoot {
         $tree = Get-DomeniaControl -Name "TvDirectory"
         if ($null -eq $tree) { throw "Controle d'arborescence introuvable." }
         Clear-DomeniaTreeRenderJobs
+        # Point 8: the tree is virtualized once (DTO data, recycled containers); must run before the first insert.
+        [void](Initialize-DomeniaDirectoryTree -Tree $tree)
+        Stop-DomeniaTreeItemReveal
         if ($ForceRefresh -and $tree.Items.Count -gt 0) {
             $existingRoot = $tree.Items[0]
             try {
                 if ($null -ne $existingRoot -and [string]$existingRoot.Tag.DN -ieq [string]$script:Conn.BaseDn) {
                     Load-TreeChildren -Node $existingRoot -PreserveExisting -Force
-                    $existingRoot.IsExpanded = $true
+                    Set-DomeniaTreeItemExpanded -Node $existingRoot
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Actualisation de l arborescence en arriere-plan...")
                     Set-Status "Actualisation de lʼarborescence en cours. Lʼarbre actuel reste affiché tant que la nouvelle lecture nʼest pas validée."
                     return
@@ -4687,14 +4671,14 @@ function Load-TreeRoot {
         $script:SelectedBranchDn = $script:Conn.BaseDn
         [void](Set-DomeniaControlText -Name "TxtBranchDn" -Text $script:SelectedBranchDn)
         $script:SuppressBranchAutoLoad = $true
-        try { $root.IsSelected = $true } finally { $script:SuppressBranchAutoLoad = $false }
+        try { Set-DomeniaTreeProgrammaticSelection -Node $root } finally { $script:SuppressBranchAutoLoad = $false }
 
         # Startup uses the same AD -> SQLite -> tree path as an explicit branch read.
         # An old StartupWarmCache contains no committed receipt and cannot render business data.
             $mustLoad = [bool]$ForceRefresh -or [bool](Get-CfgValue "Browser" "ForceFirstLevelAtStartup" $true) -or ((-not [bool](Get-CfgValue "Browser" "FastBoot" $false)) -and [bool](Get-CfgValue "Browser" "LoadFirstLevelOnStartup" $true))
             if ($mustLoad) {
                 Load-TreeChildren -Node $root
-                $root.IsExpanded = $true
+                Set-DomeniaTreeItemExpanded -Node $root
             }
             [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Arbre initialise. Chargement des sous-branches en arriere-plan.")
         # No bookmark yet: the saved root OU is the search default. No extra directory read.
@@ -4887,7 +4871,7 @@ function Reset-DomeniaSearchScope {
         $check = Get-DomeniaControl -Name 'ChkSubtree'
         if ($null -ne $check) { $check.IsChecked = $true }
         $tree = Get-DomeniaControl -Name 'TvDirectory'
-        if ($null -ne $tree -and $tree.Items.Count -gt 0) { $tree.Items[0].IsSelected = $true }
+        if ($null -ne $tree -and $tree.Items.Count -gt 0) { Set-DomeniaTreeProgrammaticSelection -Node $tree.Items[0] }
         Update-DomeniaSearchScopeUi
     }
     finally { $script:SuppressBranchAutoLoad = $previousSuppression }
@@ -7436,13 +7420,13 @@ function Update-TaskUi {
 
 
 function Get-VisitCacheValue {
-    param([string]$Key)
+    param([string]$Key,[switch]$AllowExpired)
     if ([string]::IsNullOrWhiteSpace($Key)) { return $null }
     if (-not [bool](Get-CfgValue "Cache" "Enabled" $true)) { return $null }
     try {
         if ($script:VisitCache.ContainsKey($Key)) {
             $item = $script:VisitCache[$Key]
-            if ($item.Expires -gt (Get-Date)) {
+            if ($AllowExpired -or $item.Expires -gt (Get-Date)) {
                 if ($null -ne $item.PSObject.Properties['Accessed']) { $item.Accessed = Get-Date }
                 $script:CacheStats.Hits++; return $item.Value
             }
@@ -7749,7 +7733,7 @@ function Complete-DomeniaTreeChildrenUi {
     catch {
         try {
             $treeNode.Items.Clear()
-            [void]$treeNode.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
+            [void]$treeNode.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur d'affichage  replie puis redeplie pour reessayer"))
             $treeNode.Tag.Loaded = $false
             $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $treeNode.IsEnabled = $true
@@ -7785,7 +7769,7 @@ function Fail-DomeniaTreeChildrenUi {
             }
             else {
                 $treeNode.Items.Clear()
-                [void]$treeNode.Items.Add("Erreur : $detail  replie puis redeplie pour reessayer")
+                [void]$treeNode.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur : $detail  replie puis redeplie pour reessayer"))
                 $treeNode.Tag.Loaded = $false
                 $treeNode.IsEnabled = $true
             }
@@ -7856,7 +7840,7 @@ $final
     catch {
         $message = [string]$_.Exception.Message
         try {
-            $Node.Items.Clear(); [void]$Node.Items.Add("Erreur : $message  replie puis redeplie pour reessayer")
+            $Node.Items.Clear(); [void]$Node.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur : $message  replie puis redeplie pour reessayer"))
             $Node.Tag.Loaded = $false
             $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $Node.IsEnabled = $true
@@ -17856,79 +17840,6 @@ function Get-AssociationSummaryForObject {
     return "Aucune association pour ce type d objet."
 }
 
-function Set-RowAssociationMetadata {
-    param($Rows)
-
-    # L'association user-machine est un enrichissement local facultatif.
-    # Elle ne doit jamais empecher l'affichage d'un resultat AD.
-    $result = New-Object System.Collections.ArrayList
-    $enrichmentErrors = 0
-    # D043/DS-17: the LinkConfidence column carries the qualification label of the link (Get-DomeniaLinkQualification).
-    $qualify = ($null -ne (Get-Command -Name Get-DomeniaLinkQualification -CommandType Function -ErrorAction SilentlyContinue))
-
-    foreach ($row in @($Rows)) {
-        if ($null -eq $row) { continue }
-
-        $association = ""
-        $source = ""
-        $confidence = ""
-
-        try {
-            if ([string]$row.Type -eq "Machine") {
-                $computerKey = [string]$row.UPN
-                if ([string]::IsNullOrWhiteSpace($computerKey)) { $computerKey = [string]$row.Name }
-
-                # Point 9: the grid column carries the identity note of the fiche, never a silent Unknown.
-                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
-                $links = @(Get-LinksForComputer -Computer $computerKey -Guid $rowGuid)
-                if ($links.Count -gt 0) {
-                    $association = [string]$links[0].UserLogin + (Get-DomeniaLinkIdentityNote -Link $links[0] -Kind 'Computer' -Guid $rowGuid)
-                    $source = [string]$links[0].Source
-                    $confidence = if ($qualify) { [string](Get-DomeniaLinkQualification $links[0]).Value } else { [string]$links[0].Confidence }
-                }
-            }
-            elseif ([string]$row.Type -eq "Utilisateur") {
-                $userKey = [string]$row.Login
-                if ([string]::IsNullOrWhiteSpace($userKey)) { $userKey = [string]$row.Name }
-
-                $rowGuid = [string](Get-DomeniaMember $row 'Guid' '')
-                $links = @(Get-LinksForUser -UserLogin $userKey -Guid $rowGuid)
-                if ($links.Count -gt 0) {
-                    $association = (@($links | ForEach-Object { [string]$_.Computer + (Get-DomeniaLinkIdentityNote -Link $_ -Kind 'User' -Guid $rowGuid) } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
-                    $source = (@($links | ForEach-Object { [string]$_.Source } | Where-Object { $_ } | Sort-Object -Unique) -join ", ")
-                    if ($qualify) {
-                        $bestLink = Select-DomeniaBestLink $links
-                        if ($null -ne $bestLink) { $confidence = [string](Get-DomeniaLinkQualification $bestLink).Value }
-                    }
-                    else {
-                        $bestLink = $links | Sort-Object `
-                            @{ Expression = { try { [int]$_.Confidence } catch { 0 } }; Descending = $true }, `
-                            @{ Expression = { [string]$_.When }; Descending = $true } | Select-Object -First 1
-                        if ($null -ne $bestLink) { $confidence = [string]$bestLink.Confidence }
-                    }
-                }
-            }
-        }
-        catch {
-            $enrichmentErrors++
-            if ($enrichmentErrors -le 3) {
-                Write-AppLog "Association locale ignoree pour '$([string]$row.Name)' : $($_.Exception.Message)" "WARN"
-            }
-        }
-
-        try { Set-DomeniaLiveRowValue $row "Association" $association } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        try { Set-DomeniaLiveRowValue $row "LinkSource" $source } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        try { Set-DomeniaLiveRowValue $row "LinkConfidence" $confidence } catch { Write-DomeniaSwallowed 'Core' 'Set-RowAssociationMetadata' $_ }
-        [void]$result.Add($row)
-    }
-
-    if ($enrichmentErrors -gt 3) {
-        Write-AppLog "$enrichmentErrors enrichissement(s) d'association locale ont ete ignores ; les resultats AD restent affiches." "WARN"
-    }
-
-    return @($result)
-}
-
 function Show-ObjectRows {
     param(
         $Rows,
@@ -19174,7 +19085,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.38-D120"
+$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.39-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -19940,8 +19851,9 @@ function Backup-DomeniaDatabase {
         $backupDir = Join-Path $backupDir 'migrations'
         [void][IO.Directory]::CreateDirectory($backupDir)
     }
+    $rotationPattern='^Domenia-[0-9]{8}-[0-9]{6}(?:-[0-9]{3}-[a-f0-9]{8})?\.db$'
     if ($IfNeeded -and (-not $Migration)) {
-        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $latest = Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File -ErrorAction SilentlyContinue | Where-Object {($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -First 1
         if ($null -ne $latest -and ((Get-Date) - $latest.LastWriteTime).TotalHours -lt 20) { return [string]$latest.FullName }
     }
     $stamp = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
@@ -19967,16 +19879,27 @@ function Backup-DomeniaDatabase {
         } while ($true)
         $finish = [Domenia.WinSqliteNative]::sqlite3_backup_finish($backup); $backup = [IntPtr]::Zero
         if ($finish -ne 0) { throw "Finalisation de sauvegarde SQLite : code $finish." }
+        # The rollback file must be readable by itself after a WAL migration or a copied export.
+        $mode = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA journal_mode=DELETE;' -DatabaseHandle $targetDb)
+        if ($mode.Count -ne 1 -or [string]$mode[0].journal_mode -ine 'delete') { throw 'Sauvegarde non autonome : journal SQLite encore requis.' }
         $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
         if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'La sauvegarde ne passe pas le controle SQLite.' }
         Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         Close-DomeniaDatabase $sourceDb; $sourceDb = [IntPtr]::Zero
         [IO.File]::Move($temporary,$dest)
+        $targetDb = Open-DomeniaDatabase -Path $dest -ReadOnly
+        $check = @(Invoke-DomeniaDbQuery -Sql 'PRAGMA quick_check;' -DatabaseHandle $targetDb)
+        if ($check.Count -ne 1 -or [string]$check[0].quick_check -cne 'ok') { throw 'Sauvegarde publiee non relisible.' }
+        Close-DomeniaDatabase $targetDb; $targetDb = [IntPtr]::Zero
         $complete = $true
         if (-not $Migration) {
             $keep = [Math]::Max(2,[Math]::Min(30,[int](Get-CfgValue 'LocalStore' 'DatabaseBackupCount' 7)))
-            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Sort-Object LastWriteTime -Descending | Select-Object -Skip $keep | ForEach-Object {
-                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+            Get-ChildItem -LiteralPath $backupDir -Filter 'Domenia-*.db' -File | Where-Object {($_.FullName -ine $dest) -and ($_.Name -cmatch $rotationPattern) -and (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0)} | Sort-Object LastWriteTimeUtc,Name -Descending | Select-Object -Skip ($keep-1) | ForEach-Object {
+                $expired=$_.FullName
+                try {
+                    Remove-Item -LiteralPath $expired -Force -ErrorAction Stop
+                    Remove-Item -LiteralPath ($expired+'.preferences.json') -Force -ErrorAction SilentlyContinue
+                } catch { if(${function:Write-DomeniaSwallowed}){Write-DomeniaSwallowed 'Storage' 'Backup-DomeniaDatabase/Rotation' $_} }
             }
         }
         return $dest
@@ -20409,15 +20332,15 @@ function Get-DomeniaWorkerOperationHashes {
     return [ordered]@{
         LocalQuery            = "C75DF0F0CDA3F0FD44B13029E7620B592560365D56EBAEBE3F842E0D18F09C0C"
         StoragePurge          = "3E285BB874DC266193EA3FE482296A530B2E1798EA69B1D769D60EC2ABB23A77"
-        StorageBackup         = "B39996DDABED2152F4AE4705E459E4114E4666B512E009B72BDA88A0DF0EE703"
+        StorageBackup         = "BABE053211D30AEFFDF4C9E900A24DA9DD9EF07A60390AEA187F67F4E01DE566"
         ComputerAdminShare    = "43EB4F830D0B312D6AD7EC8B49876F92E0B62A693AF27BFCD111BD6BC983A5F2"
         StorageUsage          = "C3634994581554CC7F929D7F9466C529ED2BBF818D599AB8825DED6123A5530E"
-        LegacyMigration       = "90D5AAB12192741A9389B72403687EC2BE141DE2E46EA2B15A93E47818C851BA"
+        LegacyMigration       = "FF6478B577787BF0065FB213B64A1DDAA22EE851AF44CFC2E3D2A28BCD682221"
         ReadBitLockerList     = "B1456CEA5805D83C6BF48E9A4040206F18F3C3773ED250610D6890E8D1F4EEC9"
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "E1C31C9DE5CAA095292AA3B02FE3C8964ABAEEBA7B2BE5269A2EBBF23022FA4A"
+        LocalIndexRead        = "B6DE0D93665C2921A14895A0C915E8057696BC657375B70D36293ADC01D3940A"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20464,8 +20387,8 @@ function Get-DomeniaWorkerOperationHashes {
         PresenceScan          = "E7F81414C29C1C8F1E91453D9EC4BA48B6F92F0AA0E2674C9EBF5C88437F4486"
         SelectedPresence      = "4ECADF4F231390182A3BF091EF8636B3536D7B3F8A28EF3984DE1E2D524D5BFA"
         StartupWarmCache      = "51117269B5EC0F16BC59E0682182264A56E048D0E5958D46DD1A2BA1D6B609DD"
-        LiveSelectedPing     = "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
-        LiveConsole          = "A38750EAACB4F74936EB27A49B70BC268B39FB9D1111294D02CFF1F94618D87C"
+        LiveSelectedPing     = "ACCE3CAAFA76A1D59FD6AA2819C71B6A5B27D1F1FE626EA6635EBA4326A64152"
+        LiveConsole          = "ACCE3CAAFA76A1D59FD6AA2819C71B6A5B27D1F1FE626EA6635EBA4326A64152"
         LiveCache            = "F3E4F0737A07D087A9059CE868A6F901E0A03532E48849573793BF27735A221E"
         LiveDirectoryCheck    = "3F2FC63D6095DB5F81F03C392279FCABC849676BF71040794FE2FF6CA98ED5BD"
         SessionsList         = "DD09187778C09CF31B0BDA41EAC88FF898D9484756AFDF2F3EE643E6B5318BF6"
@@ -20473,12 +20396,12 @@ function Get-DomeniaWorkerOperationHashes {
         ReceiptStore         = "93A2008D0F26AFB193C5AA3E7B19E31F00A0A8D1AF348C721B9B6B0139122884"
         ScopeReconcile       = "5917B0E2AB92BA626EF3621CCCE7B9A4988B318E62834EFD02FD6AFEF5C0B650"
         DocumentStore        = "BFD83587CB1BA62BC141E5F0742C6C6453A561617ED157045F3B4E7AB11A14E7"
-        LocalStore           = "BF13476FC008FE120DEB724DF057EE3B9417FC76539EF7E441849DD0CD423EB9"
+        LocalStore           = "946D6E9F61E69422F6065CB841CBC973D9A7EC639B2BFF2BA94BA190D55C71C2"
         EngineSelfTest        = "40E2C89F858E22E1D221AC48DC04DD5BF627F1ACBC836AB48036C43DB9F7E1D1"
             EmbeddedDirectoryLookup = "F43B3C78876A45E016E4B0ACBB7B30BA7DF114738BD8DCAB5249BC5B6E066689"
         EmbeddedPathBrowse = "B643D707E242EC4416AD63622847DD7C39E5B53ED47CF64FECD56E22B5A82271"
         IndexOuList           = "DBBEAD7CED00124FFC5249F358D0FB7C6D32C6CCA0B4DB123607E1F50C3B928E"
-        StorageMaintenance    = "B481E74367D9B20465368B26CED55405E7FD466C19D712CB7E917F8BA9BBD5A1"
+        StorageMaintenance    = "696C2360FA1D1CC8353221C85DB3C7E6DE62ECE553528B1E2CFF1CC3806480EC"
         QueryExport           = "9EDC61CF74A81D4167A0B36E246CD56E37A7516D3463BADDCAF411155D314719"
         QueryLibrary          = "4A98FDC482AEC2634D75BA832FBA469339CD2735DAAC43FBFD3501C33758966F"
         LockoutDiagnosis      = "16A28EB41BE4F6A88BC7FD09E979D15731ABE1508171682B86C21B516C456D3C"
@@ -20501,7 +20424,7 @@ function Get-DomeniaWorkerOperationHashes {
         RelationHistoryRead   = "6E8DD20F68AF32427C627852957045E0FC6CC17582DDCA95CE89E91544337F40"
         OfflineDossier        = "3D6BE65D554E7238805075A9A2A4EC85BEFAF915F4694D80B20F7126E1B8DA4D"
         AccountAliasRead      = "702498A6FF855C7C6F6C1CC6D2C1FC36590890841E91BD1330BFDA56F2AD8EF9"
-        StorageRetention      = "B80B144530289FFF9565BA2AEA49EA02FC35B4691A08FF235346C283D803D1D7"
+        StorageRetention      = "7503474548089E90F1208292FD3D4A448D7C4F11F0D793B18D2D37A39E37E9C4"
         QuerySchema           = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
         WidgetWmiDetail       = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
     }
@@ -20512,7 +20435,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "5828A165E2037A77ED5888C2AC2B055B42DC1EF956B60CE8B0B5D95AAC672965"
+    $expectedFingerprint = "8AAFF2FEC77A988228EFC6ADBC977B12AEB18B39EB41EBBC9C9D2F693187C524"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }
@@ -21862,6 +21785,7 @@ function Fail-DomeniaOpenObjectTaskUi {
         Complete-DomeniaDirectoryReadPipe -Pipe $State.DirectoryPipe -Error ([string]$Message)
     }
     if ($null -eq $State -or -not (Test-DomeniaObjectCallbackIsCurrent $State)) { return }
+    if([bool](Get-DomeniaMember $State 'LocalPreviewPending' $false)){$State.DeferredReadError=[string]$Message;return}
     $script:LastObjectOpenError = [string]$Message
     if ($State.SelectionBound -and (Test-DomeniaSelectionLoadCurrent)) { Update-DomeniaSelectionReadUi -Phase Failed -Message ([string]$Message) }
     if(-not [bool]$State.SelectionBound -and $null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$State.Dn){
@@ -21918,7 +21842,8 @@ function Open-AdObject {
         if (-not $Force) {
             try { if ($script:VisitCache.ContainsKey($cacheKey)) { $cacheItem = $script:VisitCache[$cacheKey] } } catch { $cacheItem = $null }
         }
-        $cached = if (-not $Force) { Get-VisitCacheValue $cacheKey } else { $null }
+        $cachedShown=$false
+        $cached = if (-not $Force) { Get-VisitCacheValue $cacheKey -AllowExpired } else { $null }
         if ($null -ne $cached) {
             $cacheCreated = $null
             if ($null -ne $cacheItem) { $cacheCreated = $cacheItem.Created }
@@ -21932,12 +21857,13 @@ function Open-AdObject {
                 if ($null -ne $effective -and [string](Get-DomeniaMember $effective 'DataSource' '') -ceq 'SQLite' -and (Test-DomeniaObjectCallbackIsCurrent $state)) {
                     $script:ShowingCachedObject = $true
                     $script:ShowingCachedObjectCreated = $cacheCreated
-                    try { Show-AdObjectResult -Result $effective -Dn $Dn -Type $Type -NoNavigate:$NoNavigate -SuppressRemoteProbes }
+                    try { Show-AdObjectResult -Result $effective -Dn $Dn -Type $Type -NoNavigate:$NoNavigate -SuppressRemoteProbes; $cachedShown=$true }
                     finally { $script:ShowingCachedObject = $false; $script:ShowingCachedObjectCreated = $null }
                     if ($SelectionBound) { Update-DomeniaSelectionReadUi -Phase Cached }
                 }
             }
         }
+        if(-not $Force -and -not $cachedShown){Request-DomeniaLocalObjectPreview -State $state}
         $code = @'
 $Payload.DirectoryReadState.Started=$true
 $de=$null
@@ -21973,7 +21899,11 @@ function Show-AdObjectResult {
     if ([string]::IsNullOrWhiteSpace($Type)) { $Type = "Objet" }
 
     if(Keep-DomeniaDraftOnResult -Result $Result -DN $Dn -Type $Type){return}
-    Clear-ObjectDetails
+    $presentationUnchanged=Test-DomeniaObjectPresentationUnchanged -Result $Result -Dn $Dn -Type $Type
+    $presentationDelta=if(-not $presentationUnchanged){Get-DomeniaObjectPresentationDelta -Result $Result -Dn $Dn -Type $Type}else{$null}
+    # Skip only presentation work. Source dates, identity generations, permissions and secret clearing below
+    # still run for every receipt. Unknown or identity-sensitive changes keep the complete original fill.
+    if(-not $presentationUnchanged -and $null -eq $presentationDelta){Clear-ObjectDetails}
     $isLiveRead = $false
     try { if ($null -ne $Result.PSObject.Properties["Live"]) { $isLiveRead = [bool]$Result.Live } } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead) {
@@ -21989,7 +21919,7 @@ function Show-AdObjectResult {
     $loadedAt = $attributesObservedUtc.ToLocalTime()
     $isLiveRead = -not [bool]$script:ShowingCachedObject
     $script:SelectedObject = [pscustomobject]@{
-        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=$loadedAt; Guid=(Get-DomeniaEntryFirstString $entry 'objectGUID')
+        DN=$Dn; Type=$Type; Name=$name; Entry=$entry; LoadedAt=$loadedAt; Guid=(Get-DomeniaEntryFirstString $entry 'objectGUID'); RenderIdentity=(Get-DomeniaObjectReadIdentity)
         Safety=[pscustomobject]@{
             Guid=Get-DomeniaEntryFirstString $entry "objectGUID"
             Usn=Get-DomeniaEntryFirstString $entry "uSNChanged"
@@ -22014,16 +21944,36 @@ function Show-AdObjectResult {
         }
     }
     $script:CurrentCapabilities = @{}
+    # The permission task above was stopped and its capabilities cleared, even for identical AD attributes.
+    # Let the rights tab request a new evaluation without invalidating the unchanged raw-attribute view.
+    $script:DeferredPermissionsDn = ''
     $oldProbeGuard=[bool]$script:RenderingObjectWithoutProbes
     $script:RenderingObjectWithoutProbes=([bool]$SuppressRemoteProbes -or [bool]$script:ShowingCachedObject)
     try {
-    Fill-GenericObject $entry $Type
-    switch ($Type) {
-        "Utilisateur" { Fill-UserObject $entry }
-        "Machine" { Fill-ComputerObject $entry }
-        "Groupe" { Fill-GroupObject $entry }
-        "OU" { Fill-ContainerObject $entry }
-        "Conteneur" { Fill-ContainerObject $entry }
+    if(-not $presentationUnchanged -and $null -eq $presentationDelta){
+        Fill-GenericObject $entry $Type
+        switch ($Type) {
+            "Utilisateur" { Fill-UserObject $entry }
+            "Machine" { Fill-ComputerObject $entry }
+            "Groupe" { Fill-GroupObject $entry }
+            "OU" { Fill-ContainerObject $entry }
+            "Conteneur" { Fill-ContainerObject $entry }
+        }
+    }else{
+        if($null -ne $presentationDelta){
+            foreach($controlName in $presentationDelta.Fields.Keys){[void](Set-DomeniaControlText -Name $controlName -Text ([string]$presentationDelta.Fields[$controlName]))}
+            Sync-DomeniaResultRowFromEntry -Entry $entry -Type $Type
+            if($Type -in @('Utilisateur','Machine')){Snapshot-DomeniaFicheEdit -Type $Type}
+        }
+        # These summaries depend on the clock/local state as well as on AD fields.
+        if($Type -in @('Utilisateur','Machine')){
+            Update-DomeniaLogonActivityPanel -Kind $(if($Type -eq 'Utilisateur'){'User'}else{'Computer'}) -Entry $entry
+        }
+        if($Type -eq 'Utilisateur'){Update-DomeniaUserSupportBand -Entry $entry}
+        elseif($Type -eq 'Machine'){
+            try{Update-DomeniaComputerAssistView -Uac (Get-DeProp $entry 'userAccountControl' $null)}
+            catch{Write-AppLog ('En-tete du poste non mis a jour : '+$_.Exception.Message) 'WARN'}
+        }
     }
 
     } finally { $script:RenderingObjectWithoutProbes=$oldProbeGuard }
@@ -22035,7 +21985,7 @@ function Show-AdObjectResult {
 
     $script:LastLoadedEntry = $entry
     try { Set-DomeniaSupportObjectSource -Dn $Dn -IsLive:($isLiveRead -and -not [bool]$script:ShowingCachedObject) } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
-    Reset-DomeniaDeferredViews -Dn $Dn
+    if(-not $presentationUnchanged){Reset-DomeniaDeferredViews -Dn $Dn}
     Clear-Secrets
     Set-VisibleTabsForType -Type $Type -PreserveWorkspace:$NoNavigate
     Apply-CurrentPermissionUi
@@ -26153,7 +26103,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.38-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.39-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

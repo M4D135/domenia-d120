@@ -1,0 +1,33 @@
+{
+  "Kind": "Python source checks; not Windows qualification",
+  "Utc": "2026-10-20T20:11:58.462313+00:00",
+  "Results": [
+    {
+      "Module": "test_shared_bricks",
+      "Tests": 4,
+      "Passed": true
+    },
+    {
+      "Module": "test_worker_composition",
+      "Tests": 11,
+      "Passed": true
+    },
+    {
+      "Module": "test_release_documents",
+      "Tests": 7,
+      "Passed": true
+    }
+  ],
+  "SourceSHA256": {
+    "dev/wad/modules/Domenia-CommonLibrary.json": "ace087add7b50f4e1e1b9895dbd14f51b60349fc9dd7ebc4498f7e3424d57113",
+    "dev/wad/modules/Domenia-UX.help.json": "aa52333811eb7c71744d58908a072609e887525a8d3837ce5592a064efa3d6b3",
+    "dev/tools/operation-contracts.json": "8d5f1f4b9a001d4301cd65e2f93a2238f7958404a0b5d73569e991e7e44a3610",
+    "dev/wad/Domenia-Modules.ps1": "b22c086a7d4be5fa21c67032348ab8f89f48b8382af6c88fdc42f3c3b05cbe34"
+  },
+  "OtherFailuresPending": [
+    "test_delivery_recipe",
+    "test_operation_table",
+    "test_lang_pass",
+    "test_sweep_swallowed"
+  ]
+}
