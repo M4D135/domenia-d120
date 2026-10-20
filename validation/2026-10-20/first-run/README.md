@@ -1,5 +1,10 @@
 # RC1.17.35 — Premiers pas et livraison, 20 octobre 2026
 
+> Suite de cette qualification et correctifs RC1.17.36 :
+> [résultats complémentaires](../rc35-qualification/README.md).
+> Les mentions « incomplet » ci-dessous décrivent la première passe conservée.
+
+
 Le périmètre ciblé est corrigé et vérifié sous Windows PowerShell 5.1 x64.
 Travail terminé directement par Codex, à la demande de David pendant la maintenance du Spark.
 Base master `83b7795`, passation et premier correctif repris depuis `3a2b939`.

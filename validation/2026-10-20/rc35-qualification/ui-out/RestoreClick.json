@@ -1,0 +1,12 @@
+﻿{
+    "StartedUtc":  "2026-10-20T12:41:22.1870274Z",
+    "Passed":  false,
+    "Steps":  [
+                  "Started",
+                  "Process found",
+                  "Window peer found",
+                  "Failed"
+              ],
+    "Preview":  null,
+    "Error":  "Unexpected restore preview"
+}

@@ -1,5 +1,13 @@
 # Reprise Domenia — Spark, 20 octobre 2026
 
+**Complément RC1.17.36 du 20 octobre :** qualifications fonctionnelles ciblées terminées,
+Boards 66/66, WiringCache 190 cas couverts après reprise ciblée des deux derniers,
+santé 37 cas, stockage 10 cas et AD/WMI réels. Quatre corrections applicatives et
+packs DEV/PROD régénérés. Réouverture après restauration et Premiers pas réels
+validés sur le pack final ; préférences 7/7. [Preuves, portée exacte et limites](validation/2026-10-20/rc35-qualification/README.md).
+VM DOMENIA-FIRSTRUN-20261020 conservée. Les états ci-dessous sont historiques.
+
+
 **Complément Codex du 20 octobre :** passation intégrée et complétée en RC1.17.35,
 tests Windows ciblés et fabrication native vérifiés. Voir le [suivi et les limites](validation/2026-10-20/first-run/README.md).
 Le compte rendu d’origine est conservé ci-dessous.

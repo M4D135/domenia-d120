@@ -19174,7 +19174,7 @@ function Wire-Events {
 # DOMENIA_MASTER_LAST_V1 = TRUE
 $script:Version = "1.0"
 $script:AppName = "Domenia"
-$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.35-D120"
+$script:MasterBuild = "2026.10.20-DOMENIA-1.0-RC1.17.36-D120"
 $script:ActiveWriteTaskId = ""
 $script:WriteState = "Idle"
 $script:UnknownWriteTargetDn = ""
@@ -22319,7 +22319,8 @@ function Initialize-DomeniaPresentation {
     $script:PresentationInitialized = $true
     $split=[Diagnostics.Stopwatch]::StartNew()
 
-    try { [void](Load-DomeniaSettings) } catch { Write-AppLog ("Préférences non chargées, valeurs par défaut pour cette session : " + $_.Exception.Message) "WARN" }
+    # Startup loads preferences before opening the selected database; keep independent callers safe.
+    if ($null -eq $script:Settings) { [void](Load-DomeniaSettings) }
     # Non-blocking startup (FI-19): the page shows that the figures are being read; the LocalIndexRead worker reads
     # them once the window is painted (ContentRendered). The park and the detailed AD rows are loaded on demand.
     try { Update-DomeniaIndexStats } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ }
@@ -24577,6 +24578,8 @@ function Initialize-Window {
     Initialize-DomeniaDataStore | Out-Null
     New-DomeniaStartupWindow
     try {
+        # Resolve persisted database choices before any window, event or worker can cache the default path.
+        Invoke-DomeniaStartupStage 'Préférences persistantes' { [void](Load-DomeniaSettings) } | Out-Null
         Invoke-DomeniaStartupStage "Chargement interface WPF" { Assert-DomeniaXamlPreflight -XamlText ([string](Get-MainXaml)) -Context "Interface principale"; Load-XamlWindow } | Out-Null
         Invoke-DomeniaStartupStage "Protection erreurs interface" { Register-DomeniaDispatcherExceptionHandler } | Out-Null
         Invoke-DomeniaStartupStage "Moteur multithread" { Initialize-AsyncEngine; Initialize-DomeniaWorkerContextCache } | Out-Null
@@ -24635,7 +24638,7 @@ function Initialize-Window {
             Initialize-DomeniaPresentation
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Presentation prete."
         } | Out-Null
-        # Presentation loads persisted settings; only then populate storage controls and start its timer.
+        # Preferences are loaded and presentation controls exist: populate storage controls and start its timer.
         Invoke-DomeniaStartupStage 'Réglages du stockage local' {Initialize-DomeniaStoragePolicy} | Out-Null
         # D002/C2: after the presentation (which sets the session badge), the demonstration banner and the
         # write lock are applied; they stay for the whole session.
@@ -26149,7 +26152,7 @@ try {
         Write-StartupTrace -Stage ('Configuration/'+[string]$issue.Source) -Status 'WARN' -Detail ([string]$issue.Text)
         if([bool]$issue.Warning){Show-WarningBox -Message ([string]$issue.Text)}
     }
-    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.35-D120)"
+    Write-StartupTrace -Stage "Application" -Status "START" -Detail "Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.36-D120)"
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }

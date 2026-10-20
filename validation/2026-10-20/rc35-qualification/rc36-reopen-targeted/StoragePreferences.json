@@ -1,0 +1,40 @@
+{
+    "Suite":  "StoragePreferences",
+    "PowerShell":  "5.1.26100.6584",
+    "Passed":  7,
+    "Failed":  0,
+    "DiskRoundtrip":  true,
+    "ProductionPreferencesTouched":  false,
+    "CoreSha256":  "F0B8C45EF332CC2ABD67A60E2492EC5DCBE40661B00311CC11B8A17C14BF3D4D",
+    "ModelSha256":  "88877B3908B9CC0453A3EBF3C6FE35E0112FFFF0EA646B31E5E0DF2D93E6AFB4",
+    "Results":  [
+                    {
+                        "Name":  "Enabled automatic policy and retention settings survive two disk reloads",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Restored database choice is available before startup opens any local store",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Disabled policy remains explicit after reload",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Last success and verified receipt survive reload independently for each store",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "A chosen dashboard OU is a scoped setting and survives reload",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Unknown keys, invalid store names and non-string values remain rejected",
+                        "Passed":  true
+                    },
+                    {
+                        "Name":  "Extra preference size and count limits remain enforced",
+                        "Passed":  true
+                    }
+                ]
+}

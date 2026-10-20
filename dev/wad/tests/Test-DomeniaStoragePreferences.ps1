@@ -22,6 +22,19 @@ try{
   $script:Settings['Storage.PolicyJson']=$policy;Reload-Settings;Reload-Settings
   Expect ((Get-DomeniaSetting 'Storage.PolicyJson' '') -ceq $policy) 'Storage policy lost on reload'
  }
+ Case 'Restored database choice is available before startup opens any local store' {
+  $key='Storage.Database.'+('ab'*32);$path='C:\DomeniaLab\restored.db'
+  $script:Settings[$key]=$path;Reload-Settings
+  Expect ((Get-DomeniaSetting $key '') -ceq $path) 'Restored database preference lost'
+  $startup=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Initialize-Window'},$true)
+  $calls=@($startup.Body.FindAll({param($n)$n -is [Management.Automation.Language.CommandAst]},$true))
+  $load=@($calls|Where-Object {$_.GetCommandName() -eq 'Load-DomeniaSettings'})
+  Expect ($load.Count -eq 1) 'Startup must load persisted preferences once'
+  foreach($name in @('Load-XamlWindow','Wire-Events','Initialize-DomeniaWorkerContextCache','Initialize-DomeniaDatabase')){
+   $call=@($calls|Where-Object {$_.GetCommandName() -eq $name})
+   Expect ($call.Count -eq 1 -and $load[0].Extent.StartOffset -lt $call[0].Extent.StartOffset) ('Preferences loaded too late: '+$name)
+  }
+ }
  Case 'Disabled policy remains explicit after reload' {
   $policy='{"Version":1,"AutomaticBackup":false,"BackupHours":48,"BackupKeep":5}'
   $script:Settings['Storage.PolicyJson']=$policy;Reload-Settings

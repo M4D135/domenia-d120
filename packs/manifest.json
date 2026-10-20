@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.20-DOMENIA-1.0-RC1.17.35-D120",
-  "source_base_commit": "3a2b939a753deb4800f66003764ab82b949aee69",
+  "build": "2026.10.20-DOMENIA-1.0-RC1.17.36-D120",
+  "source_base_commit": "daec67b18d7a4011ea5afc692c07ead8be5ceefb",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3089376,
-      "sha256": "6a60a30a27cba4ec5d83ba76e81a9f99ff8c4bac7911977262ebaa7af477f94d",
+      "bytes": 3089828,
+      "sha256": "9cd534219157085a9a5e7258686df486ab7aca4390cf52ba515977b948383d74",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,17 +17,17 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6589894,
-      "sha256": "4910d9251c351ba3f261954840f845641d8818217a53e67825c8e0fccf25ccd7",
-      "files": 646,
-      "archive_files_including_manifest": 647,
+      "bytes": 6594869,
+      "sha256": "252705ebda3274a967bc359aead20e8479f3182878f86194968ec93fd74c90f0",
+      "files": 647,
+      "archive_files_including_manifest": 648,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC35_TARGETED_WINDOWS_PASS",
-    "proof": "validation/2026-10-20/first-run/README.md",
+    "status": "RC36_TARGETED_WINDOWS_PASSED_WITH_LAB_LIMITS",
+    "proof": "validation/2026-10-20/rc35-qualification/README.md",
     "windows_executed": true,
     "formal_windows_qualification": "TARGETED_ONLY_NOT_GENERAL",
     "formal_publishable": false,
@@ -35,7 +35,7 @@
       134,
       146
     ],
-    "documentation_proof": "validation/2026-10-20/first-run/README.md",
+    "documentation_proof": "validation/2026-10-20/rc35-qualification/README.md",
     "historical_rc17_proofs": [
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
@@ -50,7 +50,6 @@
       "validation/2026-10-18/rc21-completion/README.md"
     ],
     "vm_no_longer_needed_for_requested_scope": true,
-    "cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
     "rc23_change": "Plafond des widgets réglable (sans plafond par défaut) et nouveaux essais WMI réglables (Outils > Relevés). Contrôles hors Windows uniquement.",
     "historical_rc22_proofs": [
       "validation/2026-10-18/rc22-ui-automation/README.md"
@@ -72,7 +71,14 @@
       "ParkPing"
     ],
     "rc35_change": "Premiers pas : OU acceptée immédiatement visible ; première lecture fondée sur la couverture de cette OU ; lecture vide admise ; marqueurs inconnus, partiels seuls ou de profondeur incompatible refusés ; ancien calcul ignoré après changement de périmètre. Aucun worker modifié. La lecture AD partielle attend désormais son reçu de stockage avant le passage éventuel au ping/WMI ; son statut reste partiel. Fabrique PROD native alignée sur le traitement des helpers facultatifs ; parseur natif des workers aligné sur leurs corps composés et leurs dépendances.",
-    "checks": {
+    "vm_retained": {
+      "name": "DOMENIA-FIRSTRUN-20261020",
+      "uuid": "bc2f1ac0-9545-49bd-a0f5-cb89d352cf61",
+      "requested": true
+    },
+    "rc36_change": "Grille compacte visible, délai SQLite hérité du contexte, phases ping/WMI et reprise durable corrigées ; préférences chargées avant la base au démarrage pour reprendre une restauration.",
+    "historical_rc22_cleanup_proof": "validation/2026-10-18/rc22-ui-automation/FinalCleanup.json",
+    "historical_rc35_checks": {
       "Build": "2026.10.20-DOMENIA-1.0-RC1.17.35-D120",
       "PROD_SHA256": "6A60A30A27CBA4EC5D83BA76E81A9F99FF8C4BAC7911977262EBAA7AF477F94D",
       "DEV_SHA256": "4910D9251C351BA3F261954840F845641D8818217A53E67825C8E0FCCF25CCD7",
@@ -115,6 +121,16 @@
           "NoCompleteReport": true
         }
       ]
+    },
+    "checks": {
+      "Build": "2026.10.20-DOMENIA-1.0-RC1.17.36-D120",
+      "PROD_SHA256": "9cd534219157085a9a5e7258686df486ab7aca4390cf52ba515977b948383d74",
+      "DEV_SHA256": "252705ebda3274a967bc359aead20e8479f3182878f86194968ec93fd74c90f0",
+      "Kind": "Targeted functional Windows qualification; not a complete repeated suite or performance qualification",
+      "NativeFinalProof": "validation/2026-10-20/rc35-qualification/rc36-reopen-targeted/Summary.json",
+      "UiFinalProof": "validation/2026-10-20/rc35-qualification/ui-out/FirstStepsReopen-Result.json",
+      "StoragePreferencesPassed": 7,
+      "CriticalFunctionalPending": []
     }
   }
 }

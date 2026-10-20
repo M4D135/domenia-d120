@@ -1,0 +1,180 @@
+{
+    "Build":  "RC1.17.36",
+    "Passed":  true,
+    "LiveAD":  true,
+    "LiveRemoteWmi":  true,
+    "MockedNetwork":  false,
+    "MockedCallbacks":  false,
+    "MockedStorage":  false,
+    "Utc":  "2026-10-20T12:43:54.5805894Z",
+    "FaultMethod":  "Real ping preflight then WMI; unreachable endpoint skipped; native production timeouts unchanged",
+    "Steps":  [
+                  "Native application engine and isolated SQLite initialized"
+              ],
+    "DirectorySample":  [
+                            {
+                                "Name":  "DC01",
+                                "DistinguishedName":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                                "ObjectGuid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3"
+                            },
+                            {
+                                "Name":  "PC-IT-01",
+                                "DistinguishedName":  "CN=PC-IT-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "0cf2121a-a934-45cc-8f21-0b4b0271c41f"
+                            },
+                            {
+                                "Name":  "PC-FIN-01",
+                                "DistinguishedName":  "CN=PC-FIN-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "fdafa477-a10d-48dd-8604-e8122db5a8dc"
+                            },
+                            {
+                                "Name":  "PC-SUP-01",
+                                "DistinguishedName":  "CN=PC-SUP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "6d692e44-a050-4ced-afd0-c1a735a198a5"
+                            },
+                            {
+                                "Name":  "PC-SUP-02",
+                                "DistinguishedName":  "CN=PC-SUP-02,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "f6c8ff5e-8d45-4c1a-a70c-08153b52e57b"
+                            },
+                            {
+                                "Name":  "SRV-APP-01",
+                                "DistinguishedName":  "CN=SRV-APP-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "9010eea8-a4af-472e-8087-cc78999fad29"
+                            },
+                            {
+                                "Name":  "W11-01",
+                                "DistinguishedName":  "CN=W11-01,OU=Computers,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "123c6f5d-56b8-4965-ba83-ef417174791b"
+                            },
+                            {
+                                "Name":  "R2-PC-A",
+                                "DistinguishedName":  "CN=R2-PC-A,OU=MachinesA,OU=R2-20260928,OU=ADCC-Lab,DC=cnamts,DC=local",
+                                "ObjectGuid":  "dcfa45dd-b719-4e52-9d4a-fdd32f0bb22c"
+                            }
+                        ],
+    "DirectoryObject":  {
+                            "Name":  "DC01",
+                            "DNSHostName":  "dc01.cnamts.local",
+                            "DN":  "CN=DC01,OU=Domain Controllers,DC=cnamts,DC=local",
+                            "Guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3"
+                        },
+    "Run":  {
+                "ElapsedMs":  33989,
+                "Loading":  false,
+                "Approved":  true,
+                "Completed":  true,
+                "Stopping":  false,
+                "Done":  1,
+                "Failed":  0,
+                "Next":  1,
+                "Status":  "Relevé terminé : 1/1 · 1 en ligne · 0 sans réponse · 0 erreur. 0 identités en cache, 0 association(s) créée(s) ou changée(s), 0 mesures encore fraîches réutilisées. Bilan : 2 pinglés, 1 muets, 1 lus, 0 réutilisés, 1 sautés.",
+                "StopReason":  "",
+                "FailureMessage":  "",
+                "Pending":  0,
+                "StorePending":  0,
+                "Events":  [
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  5023,
+                                   "Id":  "Ping de la liste : 1 postes:2:d19a81a9",
+                                   "Name":  "Ping de la liste : 1 postes",
+                                   "Operation":  "ParkPing",
+                                   "TimeoutSeconds":  26
+                               },
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  10203,
+                                   "Id":  "Ping de la liste : 1 postes:3:ddd9fb6a",
+                                   "Name":  "Ping de la liste : 1 postes",
+                                   "Operation":  "ParkPing",
+                                   "TimeoutSeconds":  26
+                               },
+                               {
+                                   "Event":  "WorkerStarted",
+                                   "AtMs":  23439,
+                                   "Id":  "WMI du perimetre : dc01.cnamts.local:6:98c8b6fc",
+                                   "Name":  "WMI du perimetre : dc01.cnamts.local",
+                                   "Operation":  "LiveConsole",
+                                   "TimeoutSeconds":  25
+                               }
+                           ],
+                "PersistenceFault":  ""
+            },
+    "DatabasePath":  "C:\\DomeniaLab\\RC35-qualification\\live-ping-final\\profile\\Domenia\\Data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "StoredRows":  [
+
+                   ],
+    "RuntimeHashes":  [
+                          {
+                              "Path":  "Domenia-Core.ps1",
+                              "SHA256":  "56281EA6CAEFEBEB69E62844DE09A2FA4553412F286C31D9CEFB24CAA7BD9BAC"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Park.UI.ps1",
+                              "SHA256":  "B96DB0F0B2F6D48E5EFA6E770E684B0847DD7C4DCD6453BA0147109CE238A2B9"
+                          },
+                          {
+                              "Path":  "modules\\Domenia-Live.Model.ps1",
+                              "SHA256":  "550F01A2CB2AAEB32C575547E2165B98A462053CEE44E8338C1B4173F4DCAFC1"
+                          }
+                      ],
+    "CanonicalRows":  [
+                          {
+                              "object_guid":  "11716000-0000-0000-0000-000000000001",
+                              "family":  "Presence",
+                              "dn":  "cn=timeoutendpoint,ou=qualification,dc=cnamts,dc=local",
+                              "definition_hash":  "",
+                              "attempt_at":  "2026-10-20T12:45:53.5627584Z",
+                              "status":  "Success",
+                              "error":  "",
+                              "success_at":  "2026-10-20T12:45:53.5627584Z",
+                              "payload":  "{\"Computer\":\"10.77.0.254\",\"Presence\":\"Sans réponse au ping\",\"PresenceDetail\":\"ICMP : TimedOut · 10.77.0.254\",\"PresenceCheckedUtc\":\"2026-10-20T12:45:53.5627584Z\"}",
+                              "attempt_payload":  "null",
+                              "summary_payload":  "{\"Computer\":\"10.77.0.254\",\"Presence\":\"Sans réponse au ping\",\"PresenceDetail\":\"ICMP : TimedOut · 10.77.0.254\",\"PresenceCheckedUtc\":\"2026-10-20T12:45:53.5627584Z\"}",
+                              "attempt_summary":  null,
+                              "revision":  1
+                          },
+                          {
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "family":  "Presence",
+                              "dn":  "cn=dc01,ou=domain controllers,dc=cnamts,dc=local",
+                              "definition_hash":  "",
+                              "attempt_at":  "2026-10-20T12:46:07.8359263Z",
+                              "status":  "Success",
+                              "error":  "",
+                              "success_at":  "2026-10-20T12:46:07.8359263Z",
+                              "payload":  "{\"Computer\":\"dc01.cnamts.local\",\"Presence\":\"En ligne\",\"PresenceDetail\":\"Réponse ICMP · 1 ms · 10.77.0.10\",\"PresenceCheckedUtc\":\"2026-10-20T12:46:07.8359263Z\"}",
+                              "attempt_payload":  "null",
+                              "summary_payload":  "{\"Computer\":\"dc01.cnamts.local\",\"Presence\":\"En ligne\",\"PresenceDetail\":\"Réponse ICMP · 1 ms · 10.77.0.10\",\"PresenceCheckedUtc\":\"2026-10-20T12:46:07.8359263Z\"}",
+                              "attempt_summary":  null,
+                              "revision":  3
+                          },
+                          {
+                              "object_guid":  "00999342-df6f-472c-ae45-c2e9d9e8b5c3",
+                              "family":  "Probe:hw.memoryusage",
+                              "dn":  "cn=dc01,ou=domain controllers,dc=cnamts,dc=local",
+                              "definition_hash":  "97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98",
+                              "attempt_at":  "2026-10-20T12:46:11.3136564Z",
+                              "status":  "Success",
+                              "error":  "",
+                              "success_at":  "2026-10-20T12:46:11.3136564Z",
+                              "payload":  "{\"Computer\":\"dc01.cnamts.local\",\"Probes\":{\"hw.memoryusage\":{\"Rows\":[[\"4174724\",\"2329976\",\"4895620\",\"3366668\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T12:46:11.3136564Z\",\"Properties\":[\"TotalVisibleMemorySize\",\"FreePhysicalMemory\",\"TotalVirtualMemorySize\",\"FreeVirtualMemory\"],\"Instances\":[{\"Id\":\"\",\"Index\":1,\"Values\":{\"TotalVisibleMemorySize\":4174724,\"FreePhysicalMemory\":2329976,\"TotalVirtualMemorySize\":4895620,\"FreeVirtualMemory\":3366668},\"IncompleteProperties\":[]}],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1246,\"EnumerationComplete\":true}}}",
+                              "attempt_payload":  "null",
+                              "summary_payload":  "{\"Probes\":{\"hw.memoryusage\":{\"Rows\":[[\"4174724\",\"2329976\",\"4895620\",\"3366668\"]],\"Count\":1,\"Error\":\"\",\"Truncated\":false,\"DefinitionHash\":\"97deb34ca56936e4e15fe07ea8da3b40424759912ffd054f8050cda341e72a98\",\"CheckedUtc\":\"2026-10-20T12:46:11.3136564Z\",\"Properties\":[\"TotalVisibleMemorySize\",\"FreePhysicalMemory\",\"TotalVirtualMemorySize\",\"FreeVirtualMemory\"],\"StoredCount\":1,\"CountComplete\":true,\"Mode\":\"First\",\"LimitReason\":\"\",\"DetailBudgetBytes\":98304,\"DetailBytes\":1246,\"EnumerationComplete\":true}}}",
+                              "attempt_summary":  null,
+                              "revision":  3
+                          }
+                      ],
+    "Tables":  [
+                   {
+                       "name":  "park_session_cache"
+                   },
+                   {
+                       "name":  "domenia_observations"
+                   },
+                   {
+                       "name":  "domenia_legacy_observation_imports"
+                   }
+               ]
+}

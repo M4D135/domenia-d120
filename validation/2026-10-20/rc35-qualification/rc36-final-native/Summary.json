@@ -1,0 +1,16 @@
+﻿{
+    "Utc":  "2026-10-20T12:45:28.8894168Z",
+    "Build":  "RC1.17.36",
+    "CheckOnlyExit":  0,
+    "Packs":  [
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\Domenia_1.0_RC1.17.36_DEV.zip",
+                      "Hash":  "1A95BF2521484BEF902FA18D860E3A04A8084900364F3C86707F989E2B8226AB"
+                  },
+                  {
+                      "Path":  "C:\\DomeniaLab\\RC35-qualification\\Domenia_1.0_RC1.17.36_PROD.zip",
+                      "Hash":  "EBFA089D7B618F1A4931D387CB28E47264431F41C65516045D637723C3DCA7B5"
+                  }
+              ],
+    "PS":  "5.1.26100.6584"
+}

@@ -1172,7 +1172,7 @@ function Start-DomeniaDomainLocalTotals {
     $job = $null
     try {
         [void](Initialize-DomeniaWinSqliteNative)
-        $payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $path; BusyTimeoutMs = 250; DomainDn = $domainDn; Scope = $domainDn; Subtree = $false; Plan = (Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)); Keys = @(); ScopeKey = ''; ComputeBoard = $false; ModuleRoot = $script:DashboardModuleRoot }
+        $payload = [pscustomobject]@{ Action = 'FleetStats'; Path = $path; DomainDn = $domainDn; Scope = $domainDn; Subtree = $false; Plan = (Get-DomeniaFleetQueryPlan -ObservationMaxAgeDays (Get-DomeniaObservationMaxAgeDays)); Keys = @(); ScopeKey = ''; ComputeBoard = $false; ModuleRoot = $script:DashboardModuleRoot }
         $job = Start-UiTask -Name 'Totaux de la copie locale' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'domain:totals' -SuccessHandler 'Complete-DomeniaDomainLocalTotals' -ErrorHandler 'Fail-DomeniaDomainLocalTotals' -TimeoutSeconds 60 -TaskClass Explicit
     } catch { Fail-DomeniaDomainLocalTotals -Message $_.Exception.Message -State $state; return }
     if (-not $job) { Fail-DomeniaDomainLocalTotals -Message 'lecture locale non admise pour lʼinstant, relancez lʼanalyse.' -State $state; return }

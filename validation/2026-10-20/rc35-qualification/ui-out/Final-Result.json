@@ -1,0 +1,74 @@
+{
+    "Build":  "RC1.17.35",
+    "Stage":  "Final",
+    "Passed":  true,
+    "StartedUtc":  "2026-10-20T11:51:36.3409082Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T11:51:54.5333300Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:52:17.2126126Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:54:13.6867766Z",
+                      "Text":  "First launch closed normally: geometry, maximization and enabled 48h/5-copy policy saved; no backup yet"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:54:36.2643603Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:55:44.8473538Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:56:13.5927748Z",
+                      "Text":  "Second launch: maximization, restored normal rectangle and enabled backup settings verified through UI"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:56:54.8951596Z",
+                      "Text":  "Real scheduled backup verified; isolated application closed normally; all runtime hashes unchanged"
+                  }
+              ],
+    "AppId":  4484,
+    "ArchiveSha256":  "6A60A30A27CBA4EC5D83BA76E81A9F99FF8C4BAC7911977262EBAA7AF477F94D",
+    "FirstProcess":  1792,
+    "NormalBounds":  {
+                         "Left":  120,
+                         "Top":  80,
+                         "Width":  1320,
+                         "Height":  820
+                     },
+    "SecondProcess":  4484,
+    "ReopenedMaximized":  true,
+    "RestoredNormalBounds":  {
+                                 "Left":  120,
+                                 "Top":  80,
+                                 "Width":  1320,
+                                 "Height":  820
+                             },
+    "ReopenedPolicyMatches":  true,
+    "Backup":  "C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-135629-908-cfe616c3.db",
+    "Receipt":  {
+                    "Bytes":  389120,
+                    "Sha256":  "70f3d7c3f0a49f1b3e14723e2ae37cb34370a91d615f5375850b53150426b058",
+                    "File":  "Domenia-20261020-135629-908-cfe616c3.db",
+                    "Automatic":  true,
+                    "Origin":  "Scheduled"
+                },
+    "BackupSha256":  "70F3D7C3F0A49F1B3E14723E2AE37CB34370A91D615F5375850B53150426B058",
+    "Marker":  "RC35-FINAL-27c51f24095e4aab8fb311b712d25fd9",
+    "QuickCheck":  "ok",
+    "AutomaticSecondsAfterReopen":  142,
+    "RuntimeFilesVerified":  172,
+    "RuntimeUnchanged":  true,
+    "AutomaticTimerUnchangedMs":  60000,
+    "FinalCloseNormal":  true,
+    "OperatorProfileUntouched":  true,
+    "FinishedUtc":  "2026-10-20T11:56:54.9092742Z"
+}

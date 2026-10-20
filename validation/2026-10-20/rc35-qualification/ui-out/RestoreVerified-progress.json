@@ -1,0 +1,61 @@
+{
+    "Build":  "RC1.17.35",
+    "Stage":  "Restore",
+    "Passed":  true,
+    "StartedUtc":  "2026-10-20T11:57:46.7088406Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T11:57:48.7776318Z",
+                      "Text":  "Only isolated closed DB corrupted; healthy original and automatic backup retained"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:57:56.7091867Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:58:08.8696521Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T11:58:14.0676082Z",
+                      "Text":  "Recovery UI remains available on corrupt DB"
+                  },
+                  {
+                      "Utc":  "2026-10-20T12:02:22.8238932Z",
+                      "Text":  "Automatic backup and new destination selected through native file controls"
+                  },
+                  {
+                      "Utc":  "2026-10-20T12:46:38.1087734Z",
+                      "Text":  "Restoration through UI checked independently, preference durable, originals preserved and app closed normally"
+                  }
+              ],
+    "AppId":  3624,
+    "CorruptPath":  "C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Domenia.db",
+    "CorruptSha256":  "CAD39E76CA6DFE0C8BF412B0F579B8F82FFC71FFE046129EC3E4ACCA1BE6633C",
+    "Backup":  "C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-135629-908-cfe616c3.db",
+    "Target":  "C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-140219.db",
+    "ResumedUtc":  "2026-10-20T12:02:18.2681455Z",
+    "Preview":  "Sauvegarde choisie : C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-135629-908-cfe616c3.db (380 Ko), fichier Ã©crit le 20/10/2026 13:56. RÃ©vision 10.\r\nDernier lot enregistrÃ© dans cette sauvegarde : 20/10/2026 13:55 ; derniÃ¨re mesure : aucune.\r\nDomaine : dc=cnamts,dc=local. Contenu : 11 objet(s) AD, 0 mesure(s), 0 dÃ©tail(s), 0 association(s), 0 requÃªte(s), 10 reÃ§u(s). IntÃ©gritÃ© SQLite vÃ©rifiÃ©e.\r\nBase active illisible (SQLite prepare code 26 : file is not a database) : elle reste en place, intacte, et ne reÃ§oit aucune marque de bascule.\r\nDestination : C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-140219.db. Espace libre : 40,2 Go ; rÃ©serve exigÃ©e : 32,7 Mo (deux copies et 32 Mo de marge). Ã‰criture testÃ©e dans le dossier.\r\nÃ‰tapes : 1. vÃ©rification (faite) ; 2. suspension des nouvelles collectes, enregistrement de la file, copie puis contrÃ´le ; 3. bascule vers la copie vÃ©rifiÃ©e.\r\nLa sauvegarde choisie nÊ¼est jamais modifiÃ©e et la base active nÊ¼est jamais Ã©crasÃ©e : la base restaurÃ©e est un nouveau fichier.",
+    "UiAction":  {
+                     "StartedUtc":  "2026-10-20T12:41:22.1870274Z",
+                     "Passed":  false,
+                     "Steps":  [
+                                   "Started",
+                                   "Process found",
+                                   "Window peer found",
+                                   "Failed"
+                               ],
+                     "Preview":  "Sauvegarde choisie : C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-135629-908-cfe616c3.db (380 Ko), fichier Ã©crit le 20/10/2026 13:56. RÃ©vision 10.\r\nDernier lot enregistrÃ© dans cette sauvegarde : 20/10/2026 13:55 ; derniÃ¨re mesure : aucune.\r\nDomaine : dc=cnamts,dc=local. Contenu : 11 objet(s) AD, 0 mesure(s), 0 dÃ©tail(s), 0 association(s), 0 requÃªte(s), 10 reÃ§u(s). IntÃ©gritÃ© SQLite vÃ©rifiÃ©e.\r\nBase active illisible (SQLite prepare code 26 : file is not a database) : elle reste en place, intacte, et ne reÃ§oit aucune marque de bascule.\r\nDestination : C:\\DomeniaLab\\RC35-qualification\\ui-prod\\wad\\data\\Domains\\1b07cf361b376deb3ad643b2dddef90f\\Backups\\Domenia-20261020-140219.db. Espace libre : 40,2 Go ; rÃ©serve exigÃ©e : 32,7 Mo (deux copies et 32 Mo de marge). Ã‰criture testÃ©e dans le dossier.\r\nÃ‰tapes : 1. vÃ©rification (faite) ; 2. suspension des nouvelles collectes, enregistrement de la file, copie puis contrÃ´le ; 3. bascule vers la copie vÃ©rifiÃ©e.\r\nLa sauvegarde choisie nÊ¼est jamais modifiÃ©e et la base active nÊ¼est jamais Ã©crasÃ©e : la base restaurÃ©e est un nouveau fichier.",
+                     "Error":  "Unexpected restore preview",
+                     "ConfirmedByScreen":  "Step 3/3: base verified and in service; screenshot RC35-restored-screen.png"
+                 },
+    "RecoveryLockReleased":  true,
+    "QuickCheck":  "ok",
+    "RestoredMarker":  "RC35-FINAL-27c51f24095e4aab8fb311b712d25fd9",
+    "CorruptOriginalPreserved":  true,
+    "SourceBackupPreserved":  true,
+    "DurablePreference":  "Storage.Database.1b07cf361b376deb3ad643b2dddef90fef8796e267bb5677532c41e8b745b97c",
+    "AwaitingFileSelection":  false
+}

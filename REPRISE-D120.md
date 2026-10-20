@@ -1,5 +1,13 @@
 # Reprise du lot D001-D120 de Domenia — prompt de passation
 
+**Complément RC1.17.36 du 20 octobre :** qualifications fonctionnelles ciblées terminées,
+Boards 66/66, WiringCache 190 cas couverts après reprise ciblée des deux derniers,
+santé 37 cas, stockage 10 cas et AD/WMI réels. Quatre corrections applicatives et
+packs DEV/PROD régénérés. Réouverture après restauration et Premiers pas réels
+validés sur le pack final ; préférences 7/7. [Preuves, portée exacte et limites](validation/2026-10-20/rc35-qualification/README.md).
+VM DOMENIA-FIRSTRUN-20261020 conservée. Les états ci-dessous sont historiques.
+
+
 Complément du 19/10/2026 (RC1.17.33) : prévalidation avant connexion réduite au XML de la connexion (la fenêtre de connexion construite sert de test WPF) ; `Assert-DomeniaXamlPreflight` de l’interface principale dans l’étape « Chargement interface WPF ». `Test-DomeniaFleetAwaitingScope` renvoie toujours faux (l’Accueil a son propre périmètre depuis le point 54 ; l’attente bloquait jusqu’à 60 s). `Request-DomeniaIndexAutoRefresh` : date inconnue dite telle quelle. Rien d’exécuté sous Windows PowerShell 5.1.
 Complément du 19/10/2026 (RC1.17.34) : ping en une vague de 192 échos (`Start-DomeniaParkPingJob`, budget par sous-réseau 192, borne worker 256 ; ParkPing ré-épinglé). « Tout actualiser » et WMI (`Complete-DomeniaOuRefreshTargets`) : séance de ping seule, puis `Update-DomeniaOuRefreshFromPark` lance la lecture WMI (`-WmiOnly -ChainApproved`) des seuls postes `PingOnline`, sans seconde confirmation ; `Submit-DomeniaOuRefreshRuns` consigne Ping et WMI séparément. Tests Windows adaptés (Test-DomeniaParkDetection, Test-DomeniaOuRefresh, nouveau cas d’enchaînement) mais non exécutés. Rien d’exécuté sous Windows PowerShell 5.1.
 

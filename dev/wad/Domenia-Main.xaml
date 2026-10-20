@@ -917,7 +917,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.35" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.36" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -1656,8 +1656,7 @@
                             <TextBlock x:Name="LblSearchFilterSummary" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Combinaison des critères"/>
                             <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés"/>
                           </StackPanel>
-                          </StackPanel></ScrollViewer></Expander>
-                          <Border x:Name="UxLiveActionsSection" Grid.Row="2" Margin="0,4,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
+                          <Border x:Name="UxLiveActionsSection" Margin="0,4,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
                             <StackPanel>
                               <TextBlock Text="Relevé de la liste" FontWeight="SemiBold"/>
                               <TextBlock Text="Ping dʼabord. La lecture WMI ne part que si le poste répond. Les postes sans adresse attendent la fin des autres. La vue dʼensemble ne se recalcule pas toute seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,8"/>
@@ -1671,6 +1670,7 @@
                               </WrapPanel>
                             </StackPanel>
                           </Border>
+                          </StackPanel></ScrollViewer></Expander>
                           <Grid Grid.Row="3">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" RowHeight="34" AutomationProperties.Name="Résultats : sélection et ouverture explicite">

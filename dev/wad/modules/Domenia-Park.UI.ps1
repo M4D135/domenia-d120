@@ -193,7 +193,12 @@ function Update-DomeniaParkRunStatus {
         if($fresh -gt 0){$text+=' '+[string]$fresh+' '+(Get-DomeniaParkPlural $fresh 'poste déjà à jour' 'postes déjà à jour')+', sans lecture.'}
         if($r.Completed){
             $skipped=[int](Get-DomeniaMember $r 'SkippedTargets' 0)+[int](Get-DomeniaMember $r 'Skipped' 0)
-            $text+=' Bilan : '+[string]([int]$r.Online+[int]$r.NoReply)+' pinglés, '+[string][int]$r.NoReply+' muets, '+[string][int]$r.Done+' lus, '+[string][int]$r.CachedMeasurements+' réutilisés, '+[string]$skipped+' sautés.'
+            $pingSummary=Get-DomeniaMemberValue $r 'PingSummary' $null
+            if($null -ne $pingSummary){$skipped+=[int]$pingSummary.Skipped}
+            $pingCount=if($null -ne $pingSummary){[int]$pingSummary.Done}else{[int]$r.Online+[int]$r.NoReply}
+            $silentCount=if($null -ne $pingSummary){[int]$pingSummary.NoReply}else{[int]$r.NoReply}
+            $text+=' Bilan : '+[string]$pingCount+' pinglés, '+[string]$silentCount+' muets, '+[string][int]$r.Done+' lus, '+[string][int]$r.CachedMeasurements+' réutilisés, '+[string]$skipped+' sautés.'
+            if($null -ne $pingSummary -and ([int]$pingSummary.Errors+[int]$pingSummary.Failed) -gt 0){$text+=' Ping préparatoire : '+[string]([int]$pingSummary.Errors+[int]$pingSummary.Failed)+' erreur(s).'}
         }
         # Points 13 to 20: validated results, adapted or paused sources, retries, capabilities and the durable plan.
         $detail=Get-DomeniaParkRunDetailText $r
@@ -1062,13 +1067,18 @@ function Invoke-DomeniaParkRunTick {
             if(($online -is [Collections.IDictionary]) -and $online.ContainsKey($key)){[void]$kept.Add($target)}
         }
         $silent=[Math]::Max(0,@($r.Targets).Count-$kept.Count)
+        # The ping phase does not count as a completed WMI read. Preserve its summary and the
+        # original durable-plan indices before filtering the targets for the second phase.
+        $r|Add-Member -NotePropertyName PingSummary -NotePropertyValue ([pscustomobject]@{Done=[int]$r.Done;NoReply=[int]$r.NoReply;Errors=[int]$r.Errors;Failed=[int]$r.Failed;Skipped=$silent}) -Force
+        $r|Add-Member -NotePropertyName CampaignIndexByKey -NotePropertyValue $r.IndexByKey -Force
+        $r.Done=0;$r.Online=0;$r.NoReply=0;$r.Errors=0;$r.Failed=0
         $r.Targets=$kept.ToArray();$r.Next=0
         if($null -ne $r.Deferred){$r.Deferred.Clear()}
         if($null -ne $r.Retry){$r.Retry.Clear()}
         Set-DomeniaParkTargetIndex -Run $r
         $r|Add-Member -NotePropertyName PingSwept -NotePropertyValue $true -Force
         Set-Status ('Ping terminé. Lecture WMI de '+[string]$kept.Count+' poste(s) en ligne. '+[string]$silent+' muet(s) ne sont pas contactés.')
-        if(-not $kept.Count){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()};Update-DomeniaParkRunStatus -Run $r;return}
+        if(-not $kept.Count){$r.Completed=$true;if($null -ne $r.Timer){$r.Timer.Stop()};Close-DomeniaParkCampaign $r;Update-DomeniaParkRunStatus -Run $r;return}
     }
     Close-DomeniaParkStoreBacklog -Run $r
     if(($r.Stopping -or -not (Test-DomeniaParkWorkRemaining $r)) -and -not $r.Pending.Count -and -not (Test-DomeniaParkPingBuffered -Run $r)){
@@ -1502,7 +1512,16 @@ function Publish-DomeniaParkObservation {
             'Error' {$r.Errors++}
         }
         if($null -ne $r.PSObject.Properties['LastValidatedUtc']){$r.LastValidatedUtc=[datetime]::UtcNow}
-        if($Index -ge 0){Set-DomeniaCampaignTargetValidated -Run $r -Index $Index}
+        $preflight=([bool](Get-DomeniaMember $r 'PingBeforeWmi' $false) -and -not [bool](Get-DomeniaMember $r 'PingSwept' $false))
+        $online=(Get-DomeniaParkOutcomeKind -Presence ([string]$Observation.Presence) -PingRequested $true) -eq 'Online'
+        # An online ping is only preparation; interrupted WMI work must remain resumable.
+        if($Index -ge 0 -and (-not $preflight -or -not $online)){
+            $planIndex=$Index
+            $original=Get-DomeniaMemberValue $r 'CampaignIndexByKey' $null
+            $key=([string]$Observation.Key).ToLowerInvariant()
+            if($null -ne $original -and $original.ContainsKey($key)){$planIndex=[int]$original[$key]}
+            Set-DomeniaCampaignTargetValidated -Run $r -Index $planIndex
+        }
     }
     if($null -eq $script:FleetObservations){$script:FleetObservations=@{}}
     $keep=($null -ne $script:SelectedObject -and [string]$script:SelectedObject.DN -ieq [string]$Observation.Key)

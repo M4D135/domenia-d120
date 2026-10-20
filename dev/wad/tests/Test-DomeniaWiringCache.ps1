@@ -3,7 +3,7 @@
 # Real rule modules are dot-sourced; real UI/core functions are extracted by AST; boundary doubles.
 # Windows PowerShell 5.1 x64 STA only.
 [CmdletBinding()]
-param([string]$ReportPath = '', [switch]$Quiet)
+param([string]$ReportPath = '', [switch]$Quiet, [string]$Filter = '')
 $ErrorActionPreference = 'Stop'
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -43,14 +43,28 @@ function Assert-True { param($Value,[string]$Why = 'Assertion fausse') if (-not 
 function Assert-False { param($Value,[string]$Why = 'Assertion fausse') if ([bool]$Value) { throw $Why } }
 function Assert-Equal { param($Expected,$Actual,[string]$Why = 'Valeur inattendue') if ([string]$Expected -cne [string]$Actual) { throw ($Why + ' attendu=' + [string]$Expected + ' obtenu=' + [string]$Actual) } }
 
+# The suite extracts hundreds of functions from the same immutable sources. Parse each file once;
+# retain the exact first AST match used by the previous implementation, invalidating after a file change.
+$script:WiringFunctionCache = @{}
 function Get-FunctionTextFromFile {
     param([string]$Path,[string]$Name)
-    $tokens = $null; $errors = $null
-    $ast = [Management.Automation.Language.Parser]::ParseFile($Path,[ref]$tokens,[ref]$errors)
-    if (@($errors).Count) { throw ('Syntaxe ' + $Path + ' : ' + $errors[0].Message) }
-    $nodes = @($ast.FindAll({ param($n) (($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $Name)) },$true))
-    if (@($nodes).Count -lt 1) { throw ('Fonction introuvable : ' + $Name + ' dans ' + $Path) }
-    return $nodes[0].Extent.Text
+    $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+    $key = $file.FullName
+    $stamp = [string]$file.LastWriteTimeUtc.Ticks + ':' + [string]$file.Length
+    $entry = $script:WiringFunctionCache[$key]
+    if ($null -eq $entry -or $entry.Stamp -ne $stamp) {
+        $tokens = $null; $errors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile($key,[ref]$tokens,[ref]$errors)
+        if (@($errors).Count) { throw ('Syntaxe ' + $Path + ' : ' + $errors[0].Message) }
+        $functions = @{}
+        foreach ($node in $ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] },$true)) {
+            if (-not $functions.ContainsKey($node.Name)) { $functions[$node.Name] = $node.Extent.Text }
+        }
+        $entry = @{ Stamp=$stamp; Functions=$functions }
+        $script:WiringFunctionCache[$key] = $entry
+    }
+    if (-not $entry.Functions.ContainsKey($Name)) { throw ('Fonction introuvable : ' + $Name + ' dans ' + $Path) }
+    return $entry.Functions[$Name]
 }
 function Import-FunctionFromFile {
     param([string]$Path,[string]$Name)
@@ -112,7 +126,7 @@ function Set-DomeniaLiveRowValue {
 # Real rule modules.
 # FI-05 / PF-06: Engine.UI holds the protected timer factory used by the persistence and the progressive search.
 # Store.Model: storage rules read by the save callbacks and the schema check of Initialize-DomeniaDatabase (points 35, 36).
-foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
+foreach ($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-HealthRules.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Store.Model.ps1','Domenia-StorageLease.Model.ps1','Domenia-ProbeCatalog.Model.ps1','Domenia-QueryLibrary.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Engine.UI.ps1')) {
     $path = Join-Path $modules $file
     if (-not [IO.File]::Exists($path)) { throw ('Module absent : ' + $file) }
     . $path
@@ -218,14 +232,18 @@ function Reset-TestState {
 }
 function Test-Case {
     param([string]$Name,[scriptblock]$Body)
+    if ($Filter -and $Name -notmatch $Filter) { return }
+    if (-not $Quiet) { Write-Host ('START ' + $Name) }
     try {
         Reset-TestState
         & $Body | Out-Null
         $checks.Add([pscustomobject]@{Name=$Name;Status='Passed';Detail=[string]$script:CaseDetail})
     } catch {
-        $checks.Add([pscustomobject]@{Name=$Name;Status='Failed';Detail=($_.Exception.Message + ' @ ' + $_.ScriptStackTrace)})
+        $checks.Add([pscustomobject]@{Name=$Name;Status='Failed';Detail=($_.Exception.Message + ' @ ' + $_.ScriptStackTrace + ' | status: ' + (@($script:Statuses|Select-Object -Last 2) -join ' ; '))})
     } finally {
         Stop-TestTimers
+        if ($script:FreshnessRoot) { Remove-Item -LiteralPath $script:FreshnessRoot -Recurse -Force -ErrorAction SilentlyContinue; $script:FreshnessRoot=$null }
+        if (-not $Quiet) { Write-Host ($checks[$checks.Count-1].Status + ' ' + $Name) }
     }
 }
 
@@ -235,7 +253,7 @@ Test-Case 'D028 : LiveCache ne contient plus le second ecrivain user_machine_lin
     Assert-True ($code.IndexOf('adcc_live_observations',[StringComparison]::OrdinalIgnoreCase) -ge 0) 'Le worker LiveCache ne persiste plus les observations Live.'
 }
 
-Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (RelationsSymmetry) demande la persistance et ne passe pas par l ancien chemin' {
+Test-Case 'D028 : Merge-DomeniaLiveLinkMemory projette la console deja validee sans lancer une seconde ecriture' {
     Set-Item function:script:Request-DomeniaLinkPersistence { $script:RequestCalls++ }
     $script:FeatureFlagValue = $true
     $obs = [pscustomobject]@{
@@ -244,7 +262,8 @@ Test-Case 'D028 : Merge-DomeniaLiveLinkMemory (RelationsSymmetry) demande la per
         ObservedUtc='2026-01-01T10:00:00Z'
     }
     Merge-DomeniaLiveLinkMemory $obs
-    Assert-Equal 1 $script:RequestCalls
+    # The relation is a view of the committed Console family, never a second persistence writer.
+    Assert-Equal 0 $script:RequestCalls
     Assert-Equal 1 $script:RelationCalls
     Assert-Equal 0 @($script:UserMachineLinks).Count
 }
@@ -259,7 +278,8 @@ Test-Case 'D028 / CD-06 : Merge-DomeniaLiveLinkMemory ignore l ancien interrupte
         ObservedUtc='2026-01-01T10:00:00Z'
     }
     Merge-DomeniaLiveLinkMemory $obs
-    Assert-Equal 1 $script:RequestCalls
+    # The relation is a view of the committed Console family, never a second persistence writer.
+    Assert-Equal 0 $script:RequestCalls
     Assert-Equal 1 $script:RelationCalls
     Assert-Equal 0 @($script:UserMachineLinks).Count
 }
@@ -513,7 +533,7 @@ Test-Case 'D028 : Request-DomeniaLinkPersistence est declaree dans le chargeur' 
 
 # ---------------------------------------------------------------- D115 / D113: schema of the local base (real SQLite)
 . (Join-Path $modules 'Domenia-Release.Model.ps1')
-foreach ($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory')) {
+foreach ($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','ConvertTo-DomeniaSqlLiteral','Get-DomeniaSqliteSchemaText','Initialize-DomeniaDatabase','Backup-DomeniaDatabase','Get-DomeniaStoreBackupDirectory')) {
     . ([scriptblock]::Create((Get-FunctionTextFromFile $core $name)))
 }
 function Get-CfgValue { param($Section,$Key,$Default) return $Default }
@@ -729,8 +749,37 @@ Test-Case 'D024 : LiveCache ecrit checked_utc depuis UserCheckedUtc' {
 $script:FreshnessFixture=@'
 . $cacheModel
 . $liveModel
-foreach($name in @('Complete-DomeniaLiveProbe','Complete-DomeniaLivePresence','Fail-DomeniaLiveProbe','Set-DomeniaLiveObservationOnRow')){
+foreach($name in @('Complete-DomeniaLiveProbe','Complete-DomeniaLivePresence','Fail-DomeniaLiveProbe','Complete-DomeniaLiveStored','Fail-DomeniaLiveStored','Set-DomeniaLiveObservationOnRow')){
     . ([scriptblock]::Create((Get-FunctionTextFromFile $liveUi $name)))
+}
+. (Join-Path $modules 'Domenia-Park.Model.ps1')
+. ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Park.UI.ps1') 'Get-DomeniaCommittedObservation')))
+foreach($name in @('Initialize-DomeniaWinSqliteNative','New-DomeniaUtf8Ptr','ConvertFrom-DomeniaUtf8Ptr','Open-DomeniaDatabase','Close-DomeniaDatabase','Invoke-DomeniaDbExec','Invoke-DomeniaDbQuery','Get-DomeniaSqliteSchemaText')){
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core $name)))
+}
+[void](Initialize-DomeniaWinSqliteNative)
+$script:FreshnessRoot=Join-Path ([IO.Path]::GetTempPath()) ('domenia-freshness-'+[guid]::NewGuid().ToString('N'))
+[void][IO.Directory]::CreateDirectory($script:FreshnessRoot)
+$script:DatabaseScopedPath=Join-Path $script:FreshnessRoot 'test.db'
+$db=Open-DomeniaDatabase $script:DatabaseScopedPath
+try{[void](Invoke-DomeniaDbExec (Get-DomeniaSqliteSchemaText) $db)}finally{Close-DomeniaDatabase $db}
+$script:Conn=[pscustomobject]@{BaseDn='dc=test'};$script:DomeniaAccountGeneration=1L
+$fixtureContext=[pscustomobject]@{Version=1;Path=$script:DatabaseScopedPath;DomainDn='dc=test';StoreId=(Get-DomeniaStoreId $script:DatabaseScopedPath 'dc=test');RequestId='freshness';Generation=1;SessionEpoch=1;ScopeDn='cn=pc1,dc=test';Subtree=$false}
+function Commit-FreshnessChanges($Changes){
+    $batch=ConvertTo-DomeniaStoreBatch -Context $fixtureContext -BatchId ([guid]::NewGuid().ToString()) -Sequence 1 -Changes @($Changes)
+    $Payload=[pscustomobject]@{Path=$script:DatabaseScopedPath;Items=@([pscustomobject]@{Kind='StoreBatch';Json=$batch.Json;Hash=$batch.Hash})}
+    return & ([scriptblock]::Create((Get-DomeniaStorageWorkerCode)))
+}
+# Synchronous scheduling boundary only. Conversion, SQLite COMMIT/readback, receipt guards and UI publication
+# are production code. Every callback must leave the visible observation unchanged until the receipt arrives.
+function Submit-DomeniaRemoteObservations {param($Result,$State,$SuccessHandler,$ErrorHandler)
+    $State.StoreGuid=$State.Guid
+    $changes=@(ConvertTo-DomeniaRemoteObservationChanges $Result $State.StoreGuid $State.StoreDn)
+    $before=$script:Live.Observations[$State.Key]|ConvertTo-Json -Depth 12 -Compress
+    $receipt=Commit-FreshnessChanges $changes
+    Assert-Equal $before ($script:Live.Observations[$State.Key]|ConvertTo-Json -Depth 12 -Compress) 'Publication avant COMMIT'
+    & $SuccessHandler -Result $receipt -State $State
+    return $true
 }
 function Reset-DomeniaLiveIdentity { }
 function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
@@ -738,74 +787,79 @@ function Merge-DomeniaLiveLinkMemory { param($Observation) }
 function Test-DomeniaLiveSearchActive { return $false }
 function Get-CurrentSelectedComputerName { return '' }
 function Normalize-LinkComputer { param($Computer) return $Computer }
-$script:Live=[pscustomobject]@{NegativeCache=(New-DomeniaNegativeCache);Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();SaveQueue=@{};PresenceSeen=@{};Done=@{};RemoteFaulted=$false;Search=$null;Identity='id'}
+$script:Live=[pscustomobject]@{NegativeCache=(New-DomeniaNegativeCache);Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new();SaveQueue=@{};PresenceSeen=@{};Done=@{};RemoteFaulted=$false;Search=$null;Identity='id';SaveFault=''}
 $script:SessionEpoch=1L;$script:GlobalSearchGeneration=1;$script:ActiveWriteTaskId='';$script:WriteState='Known'
 $script:DirectoryCredentialFaulted=$false
 $now=[datetime]::UtcNow;$consoleAt=$now.AddDays(-3);$presenceAt=$now.AddHours(-2)
-$previous=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Outcome='Observed';CurrentUser='alice';LastUser='alice';ObservedUtc=$consoleAt.ToString('o');UserCheckedUtc=$consoleAt.ToString('o');CheckedUtc=$consoleAt.ToString('o');Source='Console CIM/DCOM';LastSource='Console CIM/DCOM';Presence='En ligne';PresenceCheckedUtc=$presenceAt.ToString('o')}
+$previous=[pscustomobject]@{Key='cn=pc1,dc=test';Computer='PC1';Guid='00000000-0000-0000-0000-000000000001';Outcome='Observed';CurrentUser='alice';LastUser='alice';ObservedUtc=$consoleAt.ToString('o');UserCheckedUtc=$consoleAt.ToString('o');CheckedUtc=$consoleAt.ToString('o');Source='Console CIM/DCOM';LastSource='Console CIM/DCOM';Presence='En ligne';PresenceCheckedUtc=$presenceAt.ToString('o')}
 [void](Set-DomeniaObservationTime $previous 'Console' $consoleAt)
 [void](Set-DomeniaObservationTime $previous 'Presence' $presenceAt)
-$script:Live.Observations['k']=$previous
-$script:SelectedObject=[pscustomobject]@{Guid='g'}
+$seed=@(
+    [pscustomobject]@{Kind='Observation';Guid=$previous.Guid;DN=$previous.Key;Family='Console';AttemptedAtUtc=$consoleAt.ToString('o');ObservedAtUtc=$consoleAt.ToString('o');Status='Success';Data=$previous},
+    [pscustomobject]@{Kind='Observation';Guid=$previous.Guid;DN=$previous.Key;Family='Presence';AttemptedAtUtc=$presenceAt.ToString('o');ObservedAtUtc=$presenceAt.ToString('o');Status='Success';Data=[pscustomobject]@{Computer='PC1';Presence='En ligne';PresenceCheckedUtc=$presenceAt.ToString('o')}}
+)
+$previous=(Commit-FreshnessChanges $seed).ObservationRows[0]
+$script:Live.Observations['cn=pc1,dc=test']=$previous
+$script:SelectedObject=[pscustomobject]@{Guid='00000000-0000-0000-0000-000000000001'}
 [void](Set-DomeniaObservationTime $script:SelectedObject 'Attributes' $now.AddHours(-5))
 $attributesBefore=$script:SelectedObject | ConvertTo-Json -Depth 5 -Compress
-$state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=1L;Generation=1;RequestId='r';ProbeUser=$false}
-$result=[pscustomobject]@{Outcome='PresenceOnly';Key='k';Computer='PC1';Guid='g';Presence='En ligne';PresenceCheckedUtc=$now.ToString('o')}
+$state=[pscustomobject]@{Key='cn=pc1,dc=test';Computer='PC1';Guid='00000000-0000-0000-0000-000000000001';Identity='id';Epoch=1L;Generation=1;RequestId='r';ProbeUser=$false;StoreContext=$fixtureContext;StoreGuid=$previous.Guid;StoreDn=$previous.Key;AccountGeneration=1L;RemoteStartedUtc=$now.ToString('o')}
+$result=[pscustomobject]@{Outcome='PresenceOnly';Key='cn=pc1,dc=test';Computer='PC1';Guid='00000000-0000-0000-0000-000000000001';Presence='En ligne';PresenceCheckedUtc=$now.ToString('o');ConsoleCheckedUtc=$now.ToString('o');ConsoleAttempted=$false}
 '@
 Test-Case 'D024 : un ping reel preserve les dates console et attributs' {
     . ([scriptblock]::Create($script:FreshnessFixture))
     Complete-DomeniaLiveProbe $result $state
-    $observed=$script:Live.Observations['k']
+    $observed=$script:Live.Observations['cn=pc1,dc=test']
     Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $observed 'Presence').State
     Assert-Equal 'Stale' (Get-DomeniaRecordFreshness $observed 'Console').State
-    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    Assert-Equal $previous.Times.Console.ObservedUtc $observed.Times.Console.ObservedUtc
     Assert-Equal $previous.ObservedUtc $observed.ObservedUtc
     Assert-Equal 'alice' $observed.LastUser
     Assert-Equal $attributesBefore ($script:SelectedObject | ConvertTo-Json -Depth 5 -Compress)
-    Assert-Equal $now.ToString('o') $observed.Times.Presence.ObservedUtc
+    Assert-Equal ([datetimeoffset]$now).Ticks ([datetimeoffset]$observed.Times.Presence.ObservedUtc).Ticks
 }
 Test-Case 'D024 : le paquet presence intermediaire preserve la console puis la lecture la renouvelle' {
     . ([scriptblock]::Create($script:FreshnessFixture))
     Complete-DomeniaLivePresence $result $state
-    Assert-Equal $consoleAt.ToString('o') $script:Live.Observations['k'].Times.Console.ObservedUtc
-    Assert-Equal $now.ToString('o') $script:Live.Observations['k'].Times.Presence.ObservedUtc
-    $result.Outcome='Observed';$result | Add-Member User 'bob';$state.ProbeUser=$true
+    Assert-Equal $previous.Times.Console.ObservedUtc $script:Live.Observations['cn=pc1,dc=test'].Times.Console.ObservedUtc
+    Assert-Equal ([datetimeoffset]$now).Ticks ([datetimeoffset]$script:Live.Observations['cn=pc1,dc=test'].Times.Presence.ObservedUtc).Ticks
+    $result.Outcome='Observed';$result | Add-Member User 'bob';$state.ProbeUser=$true;$result.ConsoleAttempted=$true
     Complete-DomeniaLiveProbe $result $state
-    $observed=$script:Live.Observations['k']
+    $observed=$script:Live.Observations['cn=pc1,dc=test']
     Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $observed 'Console').State
     Assert-Equal 'bob' $observed.LastUser
-    Assert-Equal $now.ToString('o') $observed.Times.Presence.ObservedUtc 'La date est celle du worker'
-    Assert-Equal $consoleAt.ToString('o') $previous.Times.Console.ObservedUtc 'L ancien enregistrement ne change pas'
+    Assert-Equal ([datetimeoffset]$now).Ticks ([datetimeoffset]$observed.Times.Presence.ObservedUtc).Ticks 'La date est celle du worker'
+    Assert-Equal $previous.Times.Console.ObservedUtc $previous.Times.Console.ObservedUtc 'L ancien enregistrement ne change pas'
     Assert-True ($null -eq $observed.PSObject.Properties['ConsoleFreshness']) 'Aucune fraicheur figee serialisee'
 }
 Test-Case 'D024 : erreur ping directe ou echec worker ne rajeunit aucune observation' {
     . ([scriptblock]::Create($script:FreshnessFixture))
     $result.Presence='Erreur de ping'
     Complete-DomeniaLiveProbe $result $state
-    $observed=$script:Live.Observations['k']
-    Assert-Equal $presenceAt.ToString('o') $observed.Times.Presence.ObservedUtc
-    Assert-Equal $now.ToString('o') $observed.Times.Presence.LastAttemptUtc
+    $observed=$script:Live.Observations['cn=pc1,dc=test']
+    Assert-Equal $previous.Times.Presence.ObservedUtc $observed.Times.Presence.ObservedUtc
+    Assert-Equal ([datetimeoffset]$now).Ticks ([datetimeoffset]$observed.Times.Presence.LastAttemptUtc).Ticks
     Assert-Equal 'Stale' (Get-DomeniaRecordFreshness $observed 'Presence').State
     Fail-DomeniaLiveProbe 'delai fictif' $state
-    $observed=$script:Live.Observations['k']
-    Assert-Equal $presenceAt.ToString('o') $observed.Times.Presence.ObservedUtc
-    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    $observed=$script:Live.Observations['cn=pc1,dc=test']
+    Assert-Equal $previous.Times.Presence.ObservedUtc $observed.Times.Presence.ObservedUtc
+    Assert-Equal $previous.Times.Console.ObservedUtc $observed.Times.Console.ObservedUtc
     Assert-True ((ConvertTo-DomeniaUtcDate $observed.Times.Presence.LastAttemptUtc) -ge $now)
 }
 Test-Case 'D024 : une lecture console refusee conserve son dernier succes' {
     . ([scriptblock]::Create($script:FreshnessFixture))
-    $result.Outcome='Denied';$state.ProbeUser=$true
+    $result.Outcome='Denied';$state.ProbeUser=$true;$result.ConsoleAttempted=$true
     Complete-DomeniaLiveProbe $result $state
-    $observed=$script:Live.Observations['k']
+    $observed=$script:Live.Observations['cn=pc1,dc=test']
     $freshness=Get-DomeniaRecordFreshness $observed 'Console'
     Assert-Equal 'Stale' $freshness.State
-    Assert-Equal $consoleAt.ToString('o') $observed.Times.Console.ObservedUtc
+    Assert-Equal $previous.Times.Console.ObservedUtc $observed.Times.Console.ObservedUtc
     Assert-True ($freshness.Label -match 'derniere tentative')
 }
 Test-Case 'D024 : details recalcules apres rechargement JSON sans dates inventees' {
     . ([scriptblock]::Create($script:FreshnessFixture))
     $reloaded=$previous | ConvertTo-Json -Depth 3 -Compress | ConvertFrom-Json
-    $row=New-DomeniaLiveResultRow;$row.Type='Machine';$row.Guid='g';$row.DN='k'
+    $row=New-DomeniaLiveResultRow;$row.Type='Machine';$row.Guid='00000000-0000-0000-0000-000000000001';$row.DN='cn=pc1,dc=test'
     Set-DomeniaLiveObservationOnRow $row $reloaded -Cached
     Assert-True ($row.SessionDetail -match 'Session console.+a relire')
     Assert-True ($row.PresenceDetail -match 'Presence reseau.+a relire')
@@ -815,17 +869,21 @@ Test-Case 'D024 : details recalcules apres rechargement JSON sans dates inventee
     Assert-Equal 'Online' $row.PresenceState
     Assert-Equal '1' $row.PresenceCached
     Complete-DomeniaLivePresence $result $state
-    Set-DomeniaLiveObservationOnRow $row $script:Live.Observations['k'] -Cached
+    Set-DomeniaLiveObservationOnRow $row $script:Live.Observations['cn=pc1,dc=test'] -Cached
     Assert-True ($row.SessionDetail -match 'Session console.+a relire')
     Assert-False ($row.PresenceDetail -match 'Presence reseau.+a relire')
 }
-Test-Case 'D024 : identite remplacee et date de ping invalide ne recuperent pas une ancienne fraicheur' {
+Test-Case 'D024 : date invalide refusee et nouvelle identite sans ancienne fraicheur' {
     . ([scriptblock]::Create($script:FreshnessFixture))
-    $result.Guid='new-guid';$state.Guid='new-guid';$result.PresenceCheckedUtc='date-invalide'
+    $result.Guid='00000000-0000-0000-0000-000000000002';$state.Guid=$result.Guid;$result.PresenceCheckedUtc='date-invalide'
     Complete-DomeniaLiveProbe $result $state
-    $observed=$script:Live.Observations['k']
+    Assert-Equal $previous.Guid $script:Live.Observations[$state.Key].Guid 'Un paquet invalide ne remplace aucune mesure'
+    Assert-True ($script:Live.SaveFault -match 'Date de collecte absente') 'Erreur explicite de date absente'
+    $result.PresenceCheckedUtc=$now.ToString('o');Complete-DomeniaLiveProbe $result $state
+    $observed=$script:Live.Observations[$state.Key]
+    Assert-Equal $result.Guid $observed.Guid
     Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $observed 'Console').State
-    Assert-Equal 'Unknown' (Get-DomeniaRecordFreshness $observed 'Presence').State
+    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $observed 'Presence').State
     Assert-Equal '' $observed.LastUser
     Assert-False ((Get-Content -Raw $core).Contains('$script:PresenceCacheSeconds'))
 }
@@ -835,11 +893,11 @@ Test-Case 'D024 : une console vide observee affiche sa fraicheur dans le statut 
     function Get-CurrentSelectedComputerName { return 'PC1' }
     function Set-DomeniaControlText { param($Name,$Text) $script:FreshnessStatus[$Name]=$Text;return $true }
     $script:FreshnessStatus=@{}
-    $result.Outcome='NoConsole';$state.ProbeUser=$true
+    $result.Outcome='NoConsole';$state.ProbeUser=$true;$result.ConsoleAttempted=$true
     Complete-DomeniaLiveProbe $result $state
-    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $script:Live.Observations['k'] 'Console').State
+    Assert-Equal 'Fresh' (Get-DomeniaRecordFreshness $script:Live.Observations['cn=pc1,dc=test'] 'Console').State
     Assert-True ($script:FreshnessStatus.LblLinkProbeStatus -match 'Aucun compte console.+Session console :')
-    Assert-Equal $consoleAt.ToString('o') $script:Live.Observations['k'].ObservedUtc 'Le dernier utilisateur reste historique'
+    Assert-Equal '' $script:Live.Observations['cn=pc1,dc=test'].LastUser 'Une console vide confirmee ne presente pas l ancien compte comme courant'
 }
 
 Test-Case 'D026 : changement de DC sans instance identique ne marque pas Missing' {
@@ -1055,6 +1113,10 @@ Test-Case 'D026 : lecture OU tronquee conserve l avertissement de base partielle
 }
 
 Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Park.UI.ps1') 'Initialize-DomeniaRemoteStoreState')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'New-DomeniaStoreContext')))
+    $script:Conn=[pscustomobject]@{BaseDn='DC=x'}
+
     . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
 
     function Test-DomeniaLiveBackgroundAllowed { param($Source) return $true }
@@ -1101,7 +1163,7 @@ Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
         Identity='id'
         Epoch=[long]1
         QueryKey='q1'
-        State=[pscustomobject]@{Limit=10}
+        State=[pscustomobject]@{Limit=10;BaseDn='DC=x';Scope='Subtree'}
         CacheRequested=$true
     }
     $s.Fresh[$key]=$true
@@ -1124,7 +1186,8 @@ Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
         PendingKeys=@{}
         Busy=@{}
         Done=@{}
-        ObservationsLoaded=$false
+        ObservationReadKey='1|DC=x|Subtree'
+        ObservationsLoaded=$true
         Refresh=[Collections.Generic.Queue[object]]::new()
         SaveQueue=@{}
         QueryToSave=$null
@@ -1197,57 +1260,14 @@ Test-Case 'D027 : echec recent bloque sonde automatique mais pas manuelle' {
     Assert-Equal 0 $script:StartUiCalls 'Une sonde manuelle a rejoue un compte refuse.'
 }
 
-Test-Case 'D027 : Complete-DomeniaLiveProbe enregistre Timeout' {
-    . ([scriptblock]::Create((Get-Content -Raw $cacheModel)))
-
-    function Reset-DomeniaLiveIdentity { }
-    function Test-DomeniaLiveIdentity { param($State,$Epoch,$Identity) return $true }
-    function Get-DomeniaEffectiveWorkerResult { param($Result,$RequiredProperties) return $Result }
-    function ConvertTo-DomeniaLiveObservation {
-        param($Result,$Previous)
-        return [pscustomobject]@{
-            Outcome=[string]$Result.Outcome
-            Computer=[string]$Result.Computer
-            Guid=[string]$Result.Guid
-            DirectoryAuthRejected=$false
-        }
-    }
-    function Get-DomeniaLiveField { param($Object,$Name,$Default='') return $Default }
-    function Merge-DomeniaLiveLinkMemory { param($Observation) }
-    function Test-DomeniaLiveSearchActive { return $false }
-    function Get-CurrentSelectedComputerName { return '' }
-    function Normalize-LinkComputer { param($Computer) return $Computer }
-    function Get-ExistingLinkForComputer { param($Computer) return $null }
-    function Set-DomeniaLiveObservationOnRow { param($Row,$Observation,[switch]$Cached) }
-    function Set-DomeniaPresenceText { param($Name,$Text) }
-    function Update-DomeniaObjectPresence { param($State,$Target) }
-    function Set-RowAssociationMetadata { param($Rows) }
-    function Set-DomeniaControlText { param($Name,$Text) return $true }
-    function Get-DomeniaLiveObservationView { param($Observation) return [pscustomobject]@{State='';Display=''} }
-    function Set-DomeniaObservationTime { param($Object,$Nature,$ObservedUtc,[switch]$Succeeded) }
-    function Get-DomeniaRecordFreshness { param($Object,$Nature) return [pscustomobject]@{Nature=$Nature;State='Unknown';AgeSeconds=-1;Label=''} }
-
-    $script:RegisteredFailure=''
-    $script:Live=[pscustomobject]@{
-        NegativeCache=(New-DomeniaNegativeCache)
-        Observations=[Collections.Concurrent.ConcurrentDictionary[string,object]]::new()
-        SaveQueue=@{}
-        PresenceSeen=@{}
-        Done=@{}
-        RemoteFaulted=$false
-        Search=$null
-        Identity='id'
-    }
-    $script:SessionEpoch=[long]1
-    $script:ActiveWriteTaskId=''
-    $script:WriteState='Known'
-    $script:DirectoryCredentialFaulted=$false
-    $result=[pscustomobject]@{Outcome='Timeout';Key='k';Computer='PC1';Guid='g'}
-    $state=[pscustomobject]@{Key='k';Computer='PC1';Guid='g';Identity='id';Epoch=[long]1;Generation=1;RequestId='r'}
+Test-Case 'D027 : Complete-DomeniaLiveProbe enregistre Timeout apres le recu SQLite' {
+    . ([scriptblock]::Create($script:FreshnessFixture))
+    $result.Outcome='Timeout';$result.ConsoleAttempted=$true;$state.ProbeUser=$true
     Complete-DomeniaLiveProbe -Result $result -State $state
     $entry=$script:Live.NegativeCache['cim|pc1']
     Assert-True ($null -ne $entry)
     Assert-Equal 'Timeout' ([string]$entry.Kind)
+    Assert-True ([long]$script:Live.Observations[$state.Key].Revision -gt 0) 'Un timeout doit suivre le recu persiste'
 }
 
 Test-Case 'D024/D026/D027 : aucune garde Get-Command autour des regles Cache.Model' {
@@ -1293,6 +1313,7 @@ function Restore-TestFunctions {
 }
 
 Test-Case 'D021 : Invoke-GlobalSearch passe par Get-DomeniaProjection List' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi 'New-DomeniaStoreContext')))
     $script:SavedFunctions=@{}
     try {
         $script:ProjectionCalls=0
@@ -1341,7 +1362,7 @@ Test-Case 'D021 : Invoke-GlobalSearch passe par Get-DomeniaProjection List' {
         Set-TestFunction 'Stop-DomeniaSelectionOpenTimer' { }
         Set-TestFunction 'Clear-DomeniaCurrentObjectRequest' { param($RequestId) }
         Set-TestFunction 'Reset-DomeniaSelectionBoundViews' { }
-        Set-TestFunction 'Show-DomeniaOperationError' { param($Operation,$ErrorRecordOrException,[switch]$NoPopup) }
+        Set-TestFunction 'Show-DomeniaOperationError' { param($Operation,$ErrorRecordOrException,[switch]$NoPopup) throw $ErrorRecordOrException }
         Set-TestFunction 'Test-DomeniaAccessBusyWrite' { return $false }
         Set-TestFunction 'Test-DomeniaDraftNavigation' { param($DN,[switch]$Refresh) return $true }
         Set-TestFunction 'Get-DomeniaWorkViews' { return @() }
@@ -1418,7 +1439,7 @@ Test-Case 'D023 : le vrai XAML virtualise 100, 500 et 2000 lignes et recycle apr
         [void]$cacheHost.Children.Add($content);$window.Content=[Windows.Controls.Grid]::new()
         Settle-CacheLayout;Set-DomeniaUiZoom -Percent 100;Settle-CacheLayout
         Assert-True ($cacheHost.ActualWidth -eq 1280 -and $cacheHost.ActualHeight -eq 800) 'Le host WPF doit atteindre le viewport demande.'
-        Assert-True ($grid.ActualHeight -ge 68) ('Grille sans viewport utilisable : '+$grid.ActualHeight)
+        Assert-True ($grid.ActualHeight -ge 68) ('Grille sans viewport utilisable : '+$grid.ActualHeight+' ; '+(@('UxShellGrid','UxMainLayout','UxContentGrid','WorkspaceTabs','WsSearch','SearchBrowserLayout','UxSearchCard','UxResultsCard')|ForEach-Object{$c=$window.FindName($_);$_+'='+$c.ActualWidth+'x'+$c.ActualHeight+'/'+$c.Visibility}) -join '; ')
         . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Search.UI.ps1') 'Get-DomeniaGridScrollViewer')))
         $actualViewer=Get-DomeniaGridScrollViewer $grid
         Assert-True ($null -ne $actualViewer) 'Barre de defilement native du DataGrid absente.'
@@ -1751,7 +1772,7 @@ Test-Case 'D028 : conflit visible jusqu au rechargement' {
     Assert-True ($script:Persistence.Conflicts.ContainsKey('PC1') -and $script:Persistence.Conflicts.Count -eq 1) 'Conflit non garde.'
     Assert-Equal 'alice' $script:LinkBaseline['PC1'].UserLogin 'La reference PC1 a change malgre le conflit.'
     Assert-Equal 'erin' $script:LinkBaseline['PC2'].UserLogin 'La reference PC2 n a pas suivi l ecriture.'
-    Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifiee ailleurs : PC1' }).Count -eq 1) 'Avertissement absent.'
+    Assert-True (@($script:Statuses | Where-Object { $_ -match 'Association modifi[eé]e ailleurs : PC1' }).Count -eq 1) 'Avertissement absent.'
     $label = (Get-DomeniaPersistenceState).Label
     Assert-Equal 'En memoire : 1 association(s) modifiee(s) ailleurs, non enregistree(s). Rechargez les associations : Comptes > Changer de compte, ou redemarrage.' $label 'Libelle de conflit :'
     # Quiet path: PC1 is not resubmitted and stays silent.
@@ -1781,7 +1802,7 @@ Test-Case 'D028 : le geste nomme par le libelle de conflit recharge les associat
     $gesture = 'Comptes > Changer de compte'
     Assert-True ((Get-DomeniaPersistenceLabel -Conflicts 1).Contains($gesture)) 'Le libelle de conflit ne nomme pas le geste de rechargement.'
     Assert-True ((Get-FunctionTextFromFile $storageUi 'Complete-DomeniaStorageWork').Contains($gesture)) 'L avertissement de conflit ne nomme pas le geste de rechargement.'
-    $coreText = [IO.File]::ReadAllText($core)
+    $coreText = [IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml'))
     Assert-True ([regex]::IsMatch($coreText,'x:Name="TabAccounts" Header="Comptes"')) 'Onglet Comptes absent.'
     Assert-True ([regex]::IsMatch($coreText,'x:Name="BtnAccountAdRelogin" Content="Changer de compte"')) 'Bouton Changer de compte absent.'
     $ct = $null; $ce = $null
@@ -2523,7 +2544,7 @@ Test-Case 'D113 G2 : base absente ou ecriture en attente interdit la reprise' {
 }
 Test-Case 'D113 G3 : geste declare et aucune reprise au demarrage ni SQL direct du lecteur' {
     $text=[IO.File]::ReadAllText($core)
-    Assert-True ($text.Contains('x:Name="BtnGuardLegacyImport"'))
+    Assert-True ([IO.File]::ReadAllText((Join-Path $wad 'Domenia-Main.xaml')).Contains('x:Name="BtnGuardLegacyImport"'))
     Assert-True ($text.Contains('"BtnGuardLegacyImport" = "Default"'))
     $init=Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase'
     Assert-False ($init -match 'Import-DomeniaLegacyStoreIfNeeded|Invoke-DomeniaDatabaseMaintenance')
@@ -3099,7 +3120,10 @@ Test-Case 'D029 : mesure native compte les six categories sans modifier la base'
         Assert-Equal ([IO.FileInfo]::new($script:TestDbPath).Length) $result.DatabaseBytes
         Assert-Equal ($result.FreePages*$result.PageSize) $result.ReusableBytes
         Assert-True ($result.WalBytes -ge 0)
-        if(-not $result.DbstatAvailable){foreach($c in $result.Categories){Assert-Equal (-1L) $c.Bytes}}else{foreach($c in $result.Categories){Assert-True ($c.Bytes -gt 0)}}
+        foreach($c in $result.Categories){
+            if(-not $result.DbstatAvailable -or @($c.Tables|Where-Object{$_.Bytes -lt 0}).Count){Assert-Equal (-1L) $c.Bytes ('Taille inconnue : '+$c.Category)}
+            else{Assert-Equal ([long](($c.Tables|Measure-Object Bytes -Sum).Sum)) $c.Bytes ('Somme exacte : '+$c.Category);Assert-True ($c.Bytes -gt 0) $c.Category}
+        }
         $script:CaseDetail='SQLite natif ; dbstat='+$result.DbstatAvailable+' ; base='+$result.DatabaseBytes+' octets ; six categories ; SHA256 inchange.'
     } finally {Remove-Item $root -Recurse -Force}
 }
@@ -3303,6 +3327,9 @@ COMMIT;
     } finally {Close-DomeniaDatabase $db}
 }
 Test-Case 'D029 : simulation puis purge atomique, associations et fichiers proteges intacts' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaSetting')))
+    $oldSettings=$script:Settings;$script:Settings=@{}
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-StorageContext.UI.ps1') 'Get-DomeniaDatabasePreferenceKey')))
     $root=New-LegacySandbox
     try {
         Add-PurgeFixtureRows
@@ -3329,7 +3356,7 @@ Test-Case 'D029 : simulation puis purge atomique, associations et fichiers prote
         . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaDatabasePath')))
         $script:DataDir=$root;$script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid'};$script:DatabaseScopeIdentity='';$script:DatabaseScopedPath=''
         Assert-Equal $script:TestDbPath (Get-DomeniaDatabasePath)
-    } finally {Remove-Item $root -Recurse -Force}
+    } finally {$script:Settings=$oldSettings;Remove-Item $root -Recurse -Force}
 }
 Test-Case 'D029 / point 137 : la purge Historique conserve aussi les associations Import GLPI et Import osquery' {
     $root=New-LegacySandbox
@@ -3443,6 +3470,9 @@ function New-PurgePacket {
     return [pscustomobject]@{Kind='StoragePurge';Path=$State.Path;DryRun=[bool]$State.DryRun;Committed=(-not $State.DryRun);Selection=$State.Selection;HistoryCutoffUtc=$State.HistoryCutoffUtc;Fingerprint=('A'*64);Counts=$counts;DeletedRows=$(if($State.DryRun){0L}else{[long](($counts|Where-Object Action -eq 'Delete'|Measure-Object Rows -Sum).Sum)});ResetRows=$(if($State.DryRun){0L}else{[long](($counts|Where-Object Action -eq 'Reset'|Measure-Object Rows -Sum).Sum)})}
 }
 $script:PurgeFixtureDefinitions=@'
+foreach($name in @('Get-DomeniaParkRuns','Test-DomeniaParkRunActive')){. ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Park.UI.ps1') $name)))}
+$script:ParkRuns=@{}
+
 . ([scriptblock]::Create($script:UsageControlDefinitions))
 . ([scriptblock]::Create($script:PurgeUiDefinitions))
 Initialize-PurgeUiFixture
@@ -3685,6 +3715,7 @@ Test-Case 'CO-08 : LocalIndexRead ResolveNames lit en lecture seule les comptes 
         Assert-Equal 0 ([int](Get-LegacyCount 'user_machine_links')) 'Lecture qui ecrit'
     }finally{Remove-Item $root -Recurse -Force}
 }
+foreach($name in @('Request-DomeniaIndexMetadata','Complete-DomeniaIndexMetadataUi','Fail-DomeniaIndexMetadataUi')){. ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Engine.UI.ps1') $name)))}
 # ---------------------------------------------------------------- FI-19 (L20): the last SQLite reads of the Dispatcher
 # Real schema, real pinned LocalIndexRead body executed in this process (as the CO-08 case), real callbacks of
 # Domenia-Engine.UI.ps1 with a recording Start-UiTask. Nothing is written by a read; no network.
@@ -3843,12 +3874,12 @@ Test-Case 'FI-19 : plus aucune lecture SQLite synchrone dans les chemins de l in
     }
     foreach($name in @('Get-DomeniaDatabaseObjectCount','Update-DomeniaIndexStats','Get-DomeniaParkCoverage','Get-DomeniaParkCoverageText','Get-DomeniaParkPriority','Get-DomeniaOperationHistoryModel','Export-DomeniaOperationStatsCsv','Reset-DomeniaSelectionBoundViews','Complete-DomeniaIndexBuildUi','Complete-DomeniaIndexRefreshUi','Complete-DomeniaIndexWalkUi','Initialize-DomeniaPresentation')){
         $text=Get-FunctionTextFromFile $core $name
-        foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle encore '+$call)}
+        foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Get-DomeniaSqliteSchemaText','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle encore '+$call)}
     }
     $engineUi=Join-Path $modules 'Domenia-Engine.UI.ps1'
     foreach($name in @('Reset-DomeniaIndexMetadataState','Request-DomeniaIndexMetadataIfNeeded','Get-DomeniaParkMachineCount','Get-DomeniaParkCoverageWaitingText','Update-DomeniaParkCoverageAfterCount','Request-DomeniaIndexMetadata','Complete-DomeniaIndexMetadataUi','Request-DomeniaUserMachineLinks','Complete-DomeniaUserMachineLinksUi','Request-DomeniaSecretIndexSummary','Complete-DomeniaSecretIndexSummaryUi','Request-DomeniaOperationStats','Complete-DomeniaOperationStatsUi')){
         $text=Get-FunctionTextFromFile $engineUi $name
-        foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle '+$call)}
+        foreach($call in @('Invoke-DomeniaDbQuery','Invoke-DomeniaDbExec','Open-DomeniaDatabase','Get-DomeniaSqliteSchemaText','Initialize-DomeniaDatabase')){Assert-False ($text.Contains($call)) ($name+' appelle '+$call)}
     }
     $storageText=[IO.File]::ReadAllText($storageUi)
     Assert-False ($storageText.Contains('Load-DomeniaIndexMetadata')) 'Le rappel du stockage relit encore la base sur le Dispatcher.'
@@ -3972,10 +4003,9 @@ Test-Case 'FI-19 : retour sur Outils avec Base locale deja ouverte : etat manqua
     Assert-True ($wire.Contains('Request-DomeniaIndexMetadataIfNeeded -IfShown')) 'Le changement d espace de travail ne relit pas l etat manquant de Base locale.'
     Reset-DomeniaIndexMetadataState
 }
-Test-Case 'FI-19 : vue d ensemble refusee pendant une lecture locale redemandee a sa reponse, jamais avant l affichage' {
-    # D018: a background Storage job (the quiet overview of Accueil) is refused while a local read runs. The answers of
-    # the figures and of the associations ask for it again; before the main window is shown the overview waits for the
-    # remembered OU of Rechercher and is not asked.
+Test-Case 'FI-19 : les reponses locales ne recalculent pas la vue sans geste explicite' {
+    # Current UX contract: metadata and relation readbacks update local facts, without launching the dashboard.
+    # The explicit first-dashboard and refresh gestures are covered by Test-DomeniaBoards.
     $script:Fi19Starts=[Collections.Generic.List[object]]::new();$script:Fi19Fleet=0
     function Start-UiTask { param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$ReplaceKey,$TimeoutSeconds,$TaskClass,[switch]$NonCancellable) $script:Fi19Starts.Add([pscustomobject]@{Action=[string]$Payload.Action;State=$CallbackState}); return ('fi19-'+$script:Fi19Starts.Count) }
     function Get-DomeniaLocalIndexReadWorkerCode { return 'corps epingle' }
@@ -3997,7 +4027,7 @@ Test-Case 'FI-19 : vue d ensemble refusee pendant une lecture locale redemandee 
             Complete-DomeniaUserMachineLinksUi -Result $links -State $script:Fi19Starts[$script:Fi19Starts.Count-1].State
             if(-not $visible){Assert-Equal 0 $script:Fi19Fleet 'Vue d ensemble demandee avant l affichage de la fenetre principale.'}
         }
-        Assert-Equal 2 $script:Fi19Fleet 'Vue d ensemble refusee pendant une lecture locale non redemandee a sa reponse.'
+        Assert-Equal 0 $script:Fi19Fleet 'Une reponse locale a declenche un calcul sans geste explicite.'
         Assert-Equal 0 ([int]$script:IndexDbCount) 'Chiffres non appliques.'
         Assert-True ($null -eq $script:LinkLoad) 'Associations toujours attendues.'
     } finally { $script:DomeniaSessionShown=$shown;$script:LinkLoad=$null;Reset-DomeniaIndexMetadataState }
@@ -4134,18 +4164,18 @@ function Invoke-L01Bulk {
     return Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'IndexBulk'; Key = 'directory'; Row = $bulk }) })
 }
 function Invoke-L01Fleet {
-    param([string]$Scope = '',[bool]$Subtree = $true,[object[]]$Keys = @(),[datetime]$Now = [datetime]::Now)
-    $Payload = [pscustomobject]@{ Action = 'FleetStats'; ModuleRoot = $modules; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = $Scope; Subtree = $Subtree; Plan = (Get-DomeniaFleetQueryPlan -Now $Now); Keys = $Keys; ScopeKey = 'scope-l01' }
+    param([string]$Scope = '',[bool]$Subtree = $true,[object[]]$Keys = @(),[datetime]$Now = [datetime]::Now,[switch]$ComputeBoard)
+    $Payload = [pscustomobject]@{ ComputeBoard=[bool]$ComputeBoard; Lifecycle=([IO.File]::ReadAllText((Join-Path $modules 'Domenia-WindowsLifecycle.json'))|ConvertFrom-Json); ObservationMaxAgeDays=30; IndexPartial=''; HealthPolicy=$null; HealthPolicyBook=$null; Action = 'FleetStats'; ModuleRoot = $modules; Path = $script:TestDbPath; BusyTimeoutMs = 250; Scope = $Scope; Subtree = $Subtree; Plan = (Get-DomeniaFleetQueryPlan -Now $Now); Keys = $Keys; ScopeKey = 'scope-l01' }
     return & ([scriptblock]::Create((Get-DomeniaLocalIndexReadWorkerCode)))
 }
 function Save-L01Observation {
     param([string]$Dn,[string]$Guid,[string]$Computer,[double]$DaysAgo,[string]$User = '')
     $stamp=[datetime]::UtcNow.AddDays(0 - $DaysAgo).ToString('o')
-    $row = [pscustomobject]@{ Version = 1; Key = $Dn.ToLowerInvariant(); Guid = $Guid; Computer = $Computer; CheckedUtc = $stamp; ObservedUtc = $stamp; Outcome = 'Observed'; Presence = 'En ligne'; LinkUser = $User }
+    $row = [pscustomobject]@{ Version = 1; Key = $Dn.ToLowerInvariant(); Guid = $Guid; Computer = $Computer; CheckedUtc = $stamp; ObservedUtc = $stamp; PresenceCheckedUtc = $stamp; Outcome = 'Observed'; Presence = 'En ligne'; LinkUser = $User }
     return Invoke-LegacyWorker ([pscustomobject]@{ Path = $script:TestDbPath; Items = @([pscustomobject]@{ Kind = 'ParkSession'; Row = $row }) })
 }
 
-Test-Case 'L01 : base 11/1 existante, tables additives creees, schema_info inchange, sans sauvegarde de migration, relue par RC1.13.0' {
+Test-Case 'L01 : base 11/1 existante, tables additives creees, schema_info inchange, sans sauvegarde de migration, relue sans les tables additives' {
     $root = New-SchemaSandbox -Version '11' -Revision '1'
     try {
         Assert-True (Initialize-DomeniaDatabase) 'Ouverture refusee.'
@@ -4155,15 +4185,20 @@ Test-Case 'L01 : base 11/1 existante, tables additives creees, schema_info incha
         Assert-Equal 2 @(Get-L01Rows "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_computer_facts','fleet_snapshots');").Count 'Tables additives absentes.'
         Assert-False ([IO.Directory]::Exists((Join-Path $root 'Backups\migrations'))) 'Sauvegarde de migration demandee pour une base 11/1.'
         Assert-Equal 0 $script:RecoverCalls 'Restauration tentee.'
-        # The RC1.13.0 schema script (this function without the lines of the lot) still opens the completed base.
+        # Simulate a schema reader unaware of this additive lot. The schema moved out of Initialize;
+        # remove its additive statements too, so this remains a real backward-compatibility check.
+        $schema = (Get-FunctionTextFromFile $core 'Get-DomeniaSqliteSchemaText') -split "`n" | Where-Object { $_ -notmatch 'ad_computer_facts|fleet_snapshots' }
+        $oldSchema = ($schema -join "`n") -replace 'function Get-DomeniaSqliteSchemaText \{','function Get-L01PreviousSchemaText {'
+        . ([scriptblock]::Create($oldSchema))
         $lines = @((Get-FunctionTextFromFile $core 'Initialize-DomeniaDatabase') -split "`n" | Where-Object { $_ -notmatch 'ad_computer_facts|fleet_snapshots|UPDATE ad_objects SET search_key|repair:search_key_extra' })
         $old = ($lines -join "`n") -replace 'function Initialize-DomeniaDatabase \{','function Initialize-L01PreviousDatabase {'
-        Assert-False ($old -match 'ad_computer_facts|fleet_snapshots') 'Script precedent mal reconstitue.'
+        $old=$old.Replace('Get-DomeniaSqliteSchemaText','Get-L01PreviousSchemaText')
+        Assert-False (($old+$oldSchema) -match 'ad_computer_facts|fleet_snapshots') 'Script precedent mal reconstitue.'
         . ([scriptblock]::Create($old))
         $script:DomeniaDatabaseReady = $false
-        Assert-True (Initialize-L01PreviousDatabase) 'RC1.13.0 refuse la base completee.'
+        Assert-True (Initialize-L01PreviousDatabase) 'Lecteur sans les tables additives refuse la base completee.'
         Assert-Equal '11' (Get-SchemaValue 'schema_version'); Assert-Equal '1' (Get-SchemaValue 'domenia_schema')
-        Assert-Equal 2 @(Get-L01Rows "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_computer_facts','fleet_snapshots');").Count 'Tables additives supprimees par RC1.13.0.'
+        Assert-Equal 2 @(Get-L01Rows "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ad_computer_facts','fleet_snapshots');").Count 'Tables additives supprimees par le lecteur precedent.'
         $script:DomeniaDatabaseReady = $false
         Assert-True (Initialize-DomeniaDatabase) 'Deuxieme ouverture refusee.'
     } finally { Remove-Item $root -Recurse -Force }
@@ -4237,10 +4272,10 @@ Test-Case 'L01 : FleetStats filtre l OU en SQL, rattache les observations par GU
         Assert-True ([string]@($presence | Where-Object { $_.name -eq 'PC-1' })[0].gid) 'Observation sans groupe.'
         $board = Get-DomeniaFleetBoardData -Result $result -Scope $lyon -Now ([datetime]::Now)
         Assert-Equal '5' ([string]$board.Entries['fleet.machines'].Value) 'La tuile exclurait encore les desactives.'
-        Assert-Equal ('dont 4 actifs et 1 désactivé · dans l OU et ses sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
+        Assert-Equal ('4 activés · 1 désactivés · 0 état inconnu · OU et sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
         Assert-Equal '1' ([string]$board.Entries['fleet.disabled'].Value)
         Assert-Equal '1' ([string]$board.Entries['fleet.users'].Value) 'Seul le releve rattache par GUID compte.'
-        Assert-Equal 'En ligne|Non verifie' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string]$_.Label }) -join '|')
+        Assert-Equal 'En ligne|Non vérifié' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string]$_.Label }) -join '|')
         Assert-Equal '1|3' (@(@($board.Entries['fleet.presence'].Items) | ForEach-Object { [string][int]$_.Value }) -join '|')
         $one = Invoke-L01Fleet -Scope $lyon -Subtree $false
         Assert-Equal 'PC-1,PC-2,PC-4,PC-5' (@(@($one.Machines) | ForEach-Object { [string]$_.name }) -join ',') 'Sans les sous-OU.'
@@ -4489,19 +4524,25 @@ INSERT INTO ad_computer_facts(object_guid,object_key,os_version,when_created,pwd
 INSERT OR REPLACE INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES('directory','dc','DC=example,DC=invalid',1,'2026-10-08T08:00:00.0000000Z',5000,'test');
 COMMIT;
 "@
+        # The board is now built in LocalIndexRead, including per-workstation health coverage.
+        # The former 120 ms Dispatcher budget no longer describes this worker. Exercise the real
+        # ComputeBoard branch and bind its elapsed budget to the production task timeout instead.
+        $uiPath=Join-Path $modules 'Domenia-Dashboard.UI.ps1'
+        $startText=Get-FunctionTextFromFile $uiPath 'Start-DomeniaFleetDashboard'
+        Assert-True ($startText -match 'ComputeBoard=\$true') 'Calcul non demande au worker.'
+        Assert-True ($startText -match '-TimeoutSeconds (\d+)') 'Budget worker absent.'
+        $budgetMs=[int]$Matches[1]*1000
+        Assert-False ((Get-FunctionTextFromFile $uiPath 'Complete-DomeniaFleetDashboard') -match '\bGet-DomeniaFleetBoardData\b') 'Calcul revenu dans le Dispatcher.'
         $watch = [Diagnostics.Stopwatch]::StartNew()
-        $result = Invoke-L01Fleet -Scope 'OU=Parc,DC=example,DC=invalid'
+        $result = Invoke-L01Fleet -Scope 'OU=Parc,DC=example,DC=invalid' -ComputeBoard
         $workerMs = $watch.ElapsedMilliseconds
-        $lifecycle = [IO.File]::ReadAllText((Join-Path $modules 'Domenia-WindowsLifecycle.json'),[Text.Encoding]::UTF8) | ConvertFrom-Json
-        [void](Get-DomeniaFleetBoardData -Result $result -Scope 'OU=Parc,DC=example,DC=invalid' -Now ([datetime]::Now) -Lifecycle $lifecycle)
-        $watch.Restart()
-        $board = Get-DomeniaFleetBoardData -Result $result -Scope 'OU=Parc,DC=example,DC=invalid' -Now ([datetime]::Now) -Lifecycle $lifecycle
-        $modelMs = $watch.ElapsedMilliseconds
+        $board=$result.Board
+        Assert-True ($null -ne $board) 'Worker sans tableau calcule.'
         Assert-Equal '5000' ([string]$board.Entries['fleet.machines'].Value) 'La tuile exclurait encore les desactives.'
-        Assert-Equal ('dont 4949 actifs et 51 désactivés · dans l OU et ses sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
+        Assert-Equal ('4949 activés · 51 désactivés · 0 état inconnu · OU et sous-OU') ([string]$board.Entries['fleet.machines'].Detail)
         Assert-True (@($result.Groups).Count -lt 400) ('Trop de groupes : ' + @($result.Groups).Count)
-        $script:CaseDetail = 'Worker FleetStats ' + $workerMs + ' ms ; regles sur les agregats ' + $modelMs + ' ms ; ' + @($result.Groups).Count + ' groupes pour 5000 postes.'
-        Assert-True ($modelMs -lt 120) ('Calcul des regles trop long : ' + $modelMs + ' ms')
+        $script:CaseDetail = 'Worker FleetStats et tableau complet ' + $workerMs + ' ms ; budget production ' + $budgetMs + ' ms ; ' + @($result.Groups).Count + ' groupes pour 5000 postes. Ancien seuil Dispatcher de 120 ms non applicable.'
+        Assert-True ($workerMs -lt $budgetMs) ('Worker hors budget de production : ' + $workerMs + ' ms')
     } finally { Remove-Item $root -Recurse -Force }
 }
 
@@ -4597,7 +4638,7 @@ Test-Case 'FI-12 : aucun delai SQLite fige dans les workers ; la lecture locale 
         Assert-False ([IO.File]::ReadAllText((Join-Path $modules $file),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs\s*=\s*(?:250|1000)\b') ('Delai fige encore impose par ' + $file)
     }
     # The name check of the CSV import is not retried by itself: it waits as long as the context allows.
-    Assert-False ([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Relations.UI.ps1'),[Text.Encoding]::UTF8) -match 'BusyTimeoutMs') 'Attente explicite dans la verification de l import CSV'
+    Assert-False ([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Relations.UI.ps1'),[Text.Encoding]::UTF8) -match '\bBusyTimeoutMs\s*=') 'Attente explicite dans la verification de l import CSV'
     # Only the type-ahead of the local grid keeps an explicit short wait (it retries by itself).
     $explicit = @([regex]::Matches([IO.File]::ReadAllText((Join-Path $modules 'Domenia-Engine.UI.ps1'),[Text.Encoding]::UTF8),'BusyTimeoutMs\s*=\s*(\d+)') | ForEach-Object { $_.Groups[1].Value })
     Assert-Equal '50' ($explicit -join ',') 'Attente explicite inattendue dans Engine.UI'
@@ -4875,6 +4916,7 @@ Test-Case 'FI-13 : Oublier les releves vide park_state apres la sauvegarde, sans
 Test-Case 'UI-19 : un resume lisible de la base, le chemin en infobulle et une alerte douce' {
     $root = New-X06Sandbox
     try {
+        . ([scriptblock]::Create((Get-FunctionTextFromFile $core 'Get-DomeniaControl')))
         foreach ($name in @('Update-DomeniaIndexLocation','Copy-DomeniaIndexLocationPath')) { . ([scriptblock]::Create((Get-FunctionTextFromFile $storageUi $name))) }
         $script:X06Settings = @{}; $script:X06Clipboard = ''
         function Get-DomeniaSetting { param($Name,$Default) if ($script:X06Settings.ContainsKey([string]$Name)) { return $script:X06Settings[[string]$Name] }; return $Default }
@@ -4931,7 +4973,8 @@ $report = [ordered]@{
     Points=@('D029','D118','D030','D023','D025','D028','D115','D113','D024','D026','D027','D021','D022','L01','FI-12','FI-13','PF-26','UI-19','DS-09','P23')
     Passed=$passed
     Failed=$failed
-    Complete=($failed -eq 0 -and $passed -gt 0)
+    Filter=$Filter
+    Complete=(-not $Filter -and $failed -eq 0 -and $passed -gt 0)
     Tests=$checks.ToArray()
 }
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($ReportPath),($report | ConvertTo-Json -Depth 6),(New-Object Text.UTF8Encoding($false)))

@@ -1,0 +1,20 @@
+{
+    "Build":  "RC1.17.36",
+    "Stage":  "FirstStepsReopen",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-20T13:25:43.9599033Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T13:28:47.1305620Z",
+                      "Text":  "Windows account login invoked"
+                  }
+              ],
+    "AppId":  6384,
+    "ProdZipSha256":  "9CD534219157085A9A5E7258686DF486AB7ACA4390CF52BA515977B948383D74",
+    "CoreSha256":  "F0B8C45EF332CC2ABD67A60E2492EC5DCBE40661B00311CC11B8A17C14BF3D4D",
+    "Error":  "Main window not reached in 300 seconds",
+    "Stack":  "at Start-App, C:\\DomeniaLab\\RC35-qualification\\Check-FirstStepsReopen.ps1: line 48\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\Check-FirstStepsReopen.ps1: line 84",
+    "FinishedUtc":  "2026-10-20T13:32:07.9382569Z"
+}

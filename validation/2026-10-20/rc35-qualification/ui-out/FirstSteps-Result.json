@@ -1,0 +1,26 @@
+{
+    "Build":  "RC1.17.36",
+    "Stage":  "FirstSteps",
+    "Passed":  false,
+    "StartedUtc":  "2026-10-20T12:48:38.2876305Z",
+    "Session":  1,
+    "PSVersion":  "5.1.26100.6584",
+    "Steps":  [
+                  {
+                      "Utc":  "2026-10-20T12:49:57.6152099Z",
+                      "Text":  "Windows account login invoked"
+                  },
+                  {
+                      "Utc":  "2026-10-20T12:51:07.3513520Z",
+                      "Text":  "Authenticated main window visible"
+                  },
+                  {
+                      "Utc":  "2026-10-20T12:51:37.8514492Z",
+                      "Text":  "OU accepted through picker; step 2 checked immediately, index still empty and step 3 pending"
+                  }
+              ],
+    "AppId":  4328,
+    "Error":  "Selected OU read did not reach complete SQLite coverage",
+    "Stack":  "at Require, C:\\DomeniaLab\\RC35-qualification\\Check-FirstSteps.ps1: line 15\r\nat \u003cScriptBlock\u003e, C:\\DomeniaLab\\RC35-qualification\\Check-FirstSteps.ps1: line 110",
+    "FinishedUtc":  "2026-10-20T12:55:17.1723717Z"
+}

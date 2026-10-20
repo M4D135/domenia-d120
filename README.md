@@ -5,13 +5,11 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.35**, candidate personnelle autonome. « Premiers pas » affiche immédiatement
-l’OU choisie et attend une lecture complète de son périmètre avant le premier tableau de bord.
-Une OU réellement vide est acceptée ; une erreur de lecture reste visible et permet de réessayer.
-Les lectures AD partielles attendent leur enregistrement avant la suite.
-Les packs DEV et PROD ont été régénérés depuis le même code ; la reconstruction PROD sous Windows est vérifiée.
+Révision **RC1.17.36**, candidate personnelle autonome. Grille compacte corrigée,
+réouverture de la base restaurée corrigée, délai SQLite cohérent et compteurs ping→WMI séparés, avec reprise durable conservée.
+Les packs DEV et PROD partagent les mêmes fichiers applicatifs.
 
-[Suivi et contrôles ciblés Windows du 20 octobre](validation/2026-10-20/first-run/README.md).
+[Qualification ciblée et limites du 20 octobre](validation/2026-10-20/rc35-qualification/README.md).
 Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
 Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
 restent datées de leurs versions respectives.

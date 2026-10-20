@@ -1,0 +1,9 @@
+﻿{
+    "Passed":  true,
+    "Checks":  [
+                   "Mixed batch: preflight 2, WMI 1/1, original durable-plan indices retained",
+                   "All silent: zero WMI contacts, durable campaign closed"
+               ],
+    "PSVersion":  "5.1.26100.6584",
+    "Utc":  "2026-10-20T12:37:34.8418511Z"
+}

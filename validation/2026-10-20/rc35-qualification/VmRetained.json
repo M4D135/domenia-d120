@@ -1,0 +1,13 @@
+{
+  "Utc": "2026-10-20T13:39:56.1371274Z",
+  "Name": "DOMENIA-FIRSTRUN-20261020",
+  "UUID": "bc2f1ac0-9545-49bd-a0f5-cb89d352cf61",
+  "State": "VMState=\"running\"",
+  "Retained": true,
+  "RunningVms": [
+    "\"CNAMTS-DC01\" {7625c944-b4fc-4f8b-ac23-c796cc1be791}",
+    "\"PESTO-W11-TEST\" {9b2ad4f0-0506-4f58-aed2-c43ac1973516}",
+    "\"DOMENIA-FIRSTRUN-20261020\" {bc2f1ac0-9545-49bd-a0f5-cb89d352cf61}"
+  ],
+  "GuestDisksDeleted": false
+}
