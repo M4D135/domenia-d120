@@ -286,6 +286,9 @@ function Publish-DomeniaRootOuChoice {
     try { Update-DomeniaRootOuTools } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
     try { Update-DomeniaOuRefreshUi } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
     try { Update-DomeniaQueryScopeLabel } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
+    # The card of the first steps reads its OU through Get-DomeniaFleetScope, which now falls back on this choice.
+    # Without this redraw the accepted OU stayed on « 2 » until an unrelated refresh made « Actualiser » repaint it.
+    try { Update-DomeniaFirstSteps } catch { Write-DomeniaSwallowed 'Dashboard' 'Publish-DomeniaRootOuChoice' $_ }
     if (-not $narrowed.Count) { return }
     $names = @{ Fleet = 'tableau de bord'; Search = 'Rechercher'; Index = 'base autonome' }
     $listed = @(foreach ($kind in @($narrowed)) { [string]$names[[string]$kind] })
@@ -1028,13 +1031,23 @@ function Get-DomeniaFirstStepsState {
     $domain = ''; $account = ''; $connected = $false
     try { $connected = [bool]$script:Conn.Connected; $domain = [string]$script:Conn.Domain; $account = [string]$script:Conn.BindUser } catch { $connected = $false }
     if (-not $connected) { $domain = '' }
-    $scopeDn = ''; $scopeName = ''
-    try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name } } catch { $scopeDn = '' }
+    $scopeDn = ''; $scopeName = ''; $scopeSubtree = $true
+    try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name; $scopeSubtree = [bool]$scope.Subtree } } catch { $scopeDn = '' }
     $indexed = 0L
     try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
+    # The counters of the base are global: a base already filled by another OU, or by the previous domain, must not
+    # mark this OU as read. Only the committed coverage of the chosen scope proves its first read. No marker at all
+    # means the state was never read (unknown), not an OU never read: the guide is never locked on a missing signal.
+    $scopeRead = $true
+    if (($indexed -gt 0) -and ($null -ne $script:IndexSyncStates) -and (@($script:IndexSyncStates.Keys).Count -gt 0)) {
+        try {
+            $coverage = Get-DomeniaFleetFreshness -ScopeDn $scopeDn -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree $scopeSubtree
+            $scopeRead = ([string]$coverage.Status -ine 'Missing')
+        } catch { $scopeRead = $true }
+    }
     $seen = $false
     try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
-    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen
+    return Get-DomeniaFirstRunPlan -Domain $domain -Account $account -ScopeDn $scopeDn -ScopeName $scopeName -IndexedObjects $indexed -DashboardSeen $seen -ScopeRead $scopeRead
 }
 function Update-DomeniaFirstSteps {
     # Card shown until the four steps are done once, then hidden for good (local preference). The account used on the

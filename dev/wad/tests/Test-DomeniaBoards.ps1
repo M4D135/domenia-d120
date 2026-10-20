@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=64
+$script:ExpectedCases=65
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -852,6 +852,51 @@ try{
         Expect ($card.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte encore affichee apres les quatre etapes'
         Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Preference locale non enregistree'
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:Conn=$savedConn;$script:TestSettings.Remove('Home.DashboardSeen')
+    }
+    Case 'Premiers pas : l OU acceptee redessine la carte et une base remplie par une autre OU ne fait pas la premiere lecture' {
+        # The three reported faults: the accepted OU left the card on « 2 » until an unrelated refresh, and a base
+        # already filled by another OU unlocked the overview, which then answered « Aucun poste dans cette OU ».
+        $script:FleetScopeDn='';$script:FleetScopeExplicitDomain=$false;$script:FleetScopeRestored=$true
+        $script:IndexDbCount=0;$script:IndexSyncStates=@{};$script:RemoteAdminCredential=$null
+        $script:DatabaseScopedPath='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false
+        if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
+        $savedConn=$script:Conn
+        $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Server='dc.example.invalid';Domain='example.invalid';Netbios='EXAMPLE';Connected=$true;BindUser='EXAMPLE\agent'}
+        foreach($k in @($script:TestSettings.Keys)){if(($k -like 'Directory.RootOu.*') -or ($k -like 'Fleet.Scope.*')){$script:TestSettings.Remove($k)}}
+        $script:TestSettings['Home.FirstStepsDone']=$false;$script:TestSettings['Home.DashboardSeen']=''
+        Update-DomeniaFirstSteps
+        $card=Get-DomeniaControl 'CardFirstSteps'
+        Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte Premiers pas masquee au premier lancement'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepOuMark').Text -eq '2') 'Etape 2 annoncee faite avant tout choix'
+        Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant toute lecture'
+        $trial=Invoke-EditorTrial -Open {Open-DomeniaFirstStep -Step 'Ou'} -Act {
+            param($controls,$trial)
+            $row=[pscustomobject]@{Type='OU';Name='Postes';Second='';Description='Fixture';DN='OU=Postes,DC=example,DC=invalid';Guid='00000000-0000-4000-8000-000000000100'}
+            $lookup=$script:StartCalls[$script:StartCalls.Count-1]
+            Complete-DomeniaEmbeddedLookup -Result ([pscustomobject]@{Rows=@($row);RequestId=$lookup.State.RequestId;Verified=$false;Capped=$false}) -State $lookup.State
+            $grid=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectResults'})[0];$grid.Items[0].Items[0].IsSelected=$true
+            $accept=@($controls|Where-Object{$_.Name -eq 'EmbeddedObjectAccept'})[0]
+            Expect $accept.IsEnabled 'Choisir reste desactive'
+            $accept.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+            $verify=$script:StartCalls[$script:StartCalls.Count-1]
+            Complete-DomeniaEmbeddedLookup -Result ([pscustomobject]@{Rows=@($row);RequestId=$verify.State.RequestId;Verified=$true;Capped=$false}) -State $verify.State
+        }
+        Expect $trial.Trial.Done 'Selecteur non termine'
+        # No Update-DomeniaFirstSteps here on purpose: accepting the OU must repaint the card by itself.
+        Expect ([string](Get-DomeniaControl 'LblFirstStepOuMark').Text -eq [string][char]0x2713) 'Etape 2 non redessinee apres le choix de l OU'
+        Expect ([string](Get-DomeniaControl 'LblFirstStepOu').Text -ceq 'OU de travail : Postes.') ([string](Get-DomeniaControl 'LblFirstStepOu').Text)
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:IndexDbCount=12;$script:DomeniaFirstDashboard=$null
+        $script:IndexSyncStates=@{autre=[pscustomobject]@{scope='ou:OU=Autres,DC=example,DC=invalid';base_dn='OU=Autres,DC=example,DC=invalid';last_sync='2026-10-13T11:48:00Z';details='complete;depth=Subtree'}}
+        Update-DomeniaFirstSteps
+        Expect ([string](Get-DomeniaControl 'LblFirstStepBaseMark').Text -eq '3') 'Premiere lecture declaree faite pour une autre OU que celle du tableau de bord'
+        Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord propose avant la lecture de cette OU'
+        $script:IndexSyncStates['poste']=[pscustomobject]@{scope='ou:OU=Postes,DC=example,DC=invalid';base_dn='OU=Postes,DC=example,DC=invalid';last_sync='2026-10-13T11:48:00Z';details='complete;depth=Subtree'}
+        Update-DomeniaFirstSteps
+        Expect ([string](Get-DomeniaControl 'LblFirstStepBaseMark').Text -eq [string][char]0x2713) 'Premiere lecture de l OU choisie non reconnue'
+        Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord bloque apres la lecture de cette OU'
+        $script:FleetScopeDn='';$script:IndexDbCount=0;$script:IndexSyncStates=@{};$script:Conn=$savedConn
+        foreach($k in @($script:TestSettings.Keys)){if(($k -like 'Directory.RootOu.*') -or ($k -like 'Fleet.Scope.*')){$script:TestSettings.Remove($k)}}
+        $script:TestSettings.Remove('Home.DashboardSeen')
     }
     Case 'Anciens widgets repris une fois dans la disposition' {
         $script:TestSettings.Remove('Dashboard.Computer.Layout')

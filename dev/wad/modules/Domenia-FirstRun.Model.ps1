@@ -11,11 +11,14 @@ function Get-DomeniaFirstRunPlan {
         [AllowEmptyString()][string]$ScopeDn = '',
         [AllowEmptyString()][string]$ScopeName = '',
         [long]$IndexedObjects = 0,
-        [bool]$DashboardSeen = $false
+        [bool]$DashboardSeen = $false,
+        [bool]$ScopeRead = $true
     )
     $connected = [bool]$Domain.Trim()
     $scoped = [bool]$ScopeDn.Trim()
-    $read = ($IndexedObjects -gt 0)
+    # The first read is the read of THIS OU: a base already filled by another OU or by a previous domain does not
+    # cover it, and unlocking the overview on such an OU answered « Aucun poste dans cette OU » as a failure.
+    $read = (($IndexedObjects -gt 0) -and $ScopeRead)
     $seen = ($DashboardSeen -and $read)
     $connectionText = 'Se connecter à lʼannuaire avec son compte habituel.'
     if ($connected) {
