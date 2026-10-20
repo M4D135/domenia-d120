@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=70
+$script:ExpectedCases=71
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -1977,6 +1977,35 @@ try{
             $changed=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
             Expect (-not [object]::ReferenceEquals($first,$changed)) 'Une valeur modifiee garde une carte obsolete.'
         }finally{$state.WidgetRenderCache=@{};$state.Data=$savedData;Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo}
+    }
+    Case 'Programme 38 Plans reutilises avant resolution et invalides par leur seule dependance' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedCache=$state.WidgetPlanCache
+        try{
+            $state.WidgetPlanCache=@{};$state.Data=New-DomeniaBoardData Software
+            $a=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Synthese' -Id 'plan-a'
+            $b=New-DomeniaBoardItem -Source Builtin -Key 'software.publishers' -Visual Pie -Size M -Group 'Repartition' -Id 'plan-b'
+            $one=New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3
+            $one|Add-Member -NotePropertyName DataSources -NotePropertyValue @([pscustomobject]@{Source='Test';OldestUtc='2026-01-01T00:00:01Z';NewestUtc='2026-01-01T00:00:01Z';Missing=0})
+            Add-DomeniaBoardEntry $state.Data $one
+            Add-DomeniaBoardEntry $state.Data (New-DomeniaBoardEntry -Key 'software.publishers' -Kind Distribution -Items @([pscustomobject]@{Label='A';Value=3}))
+            $pa=Get-DomeniaCachedBoardWidgetPlan Software $a $state;$pb=Get-DomeniaCachedBoardWidgetPlan Software $b $state
+            Expect ([object]::ReferenceEquals($pa,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Le plan inchange est recalcule.'
+            Expect ([object]::ReferenceEquals($pb,(Get-DomeniaCachedBoardWidgetPlan Software $b $state))) 'La distribution inchangee est recalculee.'
+            $one.Number=4;$one.Value='4';$changed=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($pa,$changed)) 'La mutation en place du fournisseur est ignoree.'
+            Expect ([object]::ReferenceEquals($pb,(Get-DomeniaCachedBoardWidgetPlan Software $b $state))) 'Un autre widget est invalide sans dependance modifiee.'
+            $one.DataSources[0].NewestUtc='2026-01-01T00:00:02Z';$dated=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($changed,$dated)) 'La date brute changee dans la meme minute est ignoree.'
+            $a.Size='M';$resized=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($dated,$resized)) 'Le contrat de presentation modifie est ignore.'
+            $a.Paused=$true;$paused=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect ($paused.Paused) 'La pause ne remplace pas le plan actif.'
+            $a.Paused=$false;$resumed=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not $resumed.Paused -and -not [object]::ReferenceEquals($paused,$resumed)) 'La reprise sans nouvelle donnee garde le plan en pause.'
+            $one|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
+            $unsafe=Get-DomeniaCachedBoardWidgetPlan Software $a $state
+            Expect (-not [object]::ReferenceEquals($unsafe,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Une forme inconnue est mise en cache.'
+        }finally{$state.WidgetPlanCache=$savedCache;$state.Data=$savedData}
     }
     Case 'Programme 47 Explication sante ouvre inventaire manquant sans lancer une lecture' {
         $state=Get-DomeniaBoardState Computer;$saved=$state.Data;$reads=$script:StartCalls.Count;$parks=$script:ParkCalls.Count

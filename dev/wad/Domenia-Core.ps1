@@ -4480,15 +4480,16 @@ function New-DomeniaTreeRowItem {
 }
 
 function New-DomeniaTreeSystemGroup {
-    # UI-16: System, Program Data, ForeignSecurityPrincipals, LostAndFound... folded under one node. The group has
-    # no DN: selecting it never becomes a search root, and unfolding it reads nothing.
-    param($Rows)
-    $rowArray = @($Rows | Where-Object { $null -ne $_ })
+    # The render timer asks for an empty shell and fills it within the parent's fair rendering budget.
+    # The synchronous helper remains available for the small, explicit Add-DomeniaTreeRowsToNode callers.
+    param($Rows,[switch]$DeferChildren)
+    $rowArray = @($Rows)
     $group = New-Object System.Windows.Controls.TreeViewItem
     $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
-    $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = $true; RenderId = ""; Loading = $false }
+    $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = (-not $DeferChildren); RenderId = ""; Loading = $false }
     $group.IsExpanded = $false
     $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
+    if ($DeferChildren) { return $group }
     foreach ($row in $rowArray) {
         $child = New-DomeniaTreeRowItem -Row $row
         if ($null -ne $child) { [void]$group.Items.Add($child) }
@@ -4555,59 +4556,82 @@ function Add-DomeniaTreeRowsToNode {
 
 function Initialize-DomeniaTreeRenderTimer {
     if ($null -ne $script:TreeRenderTimer) { return }
-    # FI-05: protected timer of the engine heartbeat; it only runs while a branch is being rendered.
+    $script:TreeRenderNextId = ''
+    # All branches share one quota and an 8 ms budget. One WPF construction cannot be preempted;
+    # this is a cooperative slice, not a hard deadline. A group is sub-state of its parent job.
     $script:TreeRenderTimer = New-DomeniaTimer -Owner 'Timer:TreeRender' -IntervalMs ([Math]::Max(10,[int](Get-CfgValue "UI" "TreeRenderIntervalMs" 18))) -Tick {
-        $finished = New-Object System.Collections.Generic.List[string]
-        foreach ($renderId in @($script:TreeRenderJobs.Keys)) {
+        $watch = [Diagnostics.Stopwatch]::StartNew()
+        $quota = [Math]::Max(1,[Math]::Min(64,[int](Get-CfgValue "UI" "TreeRenderBatchSize" 24)))
+        $ids = @($script:TreeRenderJobs.Keys | ForEach-Object { [string]$_ } | Sort-Object)
+        $cursor = 0
+        for ($i = 0; $i -lt $ids.Count; $i++) { if ($ids[$i] -ceq $script:TreeRenderNextId) { $cursor = $i; break } }
+        $units = 0; $skipped = 0; $progressJob = $null
+        while ($ids.Count -gt 0 -and $units -lt $quota -and ($units -eq 0 -or $watch.ElapsedMilliseconds -lt 8)) {
+            $renderId = [string]$ids[$cursor]
+            $cursor = ($cursor + 1) % $ids.Count
+            $script:TreeRenderNextId = [string]$ids[$cursor]
+            if (-not $script:TreeRenderJobs.Contains($renderId)) {
+                $skipped++
+                if ($skipped -ge $ids.Count) { break }
+                continue
+            }
+            $skipped = 0; $units++
             $job = $script:TreeRenderJobs[$renderId]
-            if ($null -eq $job -or $null -eq $job.Node) { [void]$finished.Add([string]$renderId); continue }
+            if ($null -eq $job -or $null -eq $job.Node) { [void]$script:TreeRenderJobs.Remove($renderId); continue }
             try {
-                $batchSize = [Math]::Max(5,[int]$job.BatchSize)
-                $added = 0
-                while ([int]$job.Index -lt [int]$job.Rows.Count -and $added -lt $batchSize) {
-                    $row = $job.Rows[[int]$job.Index]
-                    $job.Index = [int]$job.Index + 1
-                    if ($null -eq $row) { continue }
-                    if ([string]$row.Kind -eq 'SystemGroup') {
-                        [void]$job.Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows))
-                        $job.Added = [int]$job.Added + @($row.Rows).Count
-                        $added++
-                        continue
+                # A cancelled/replaced render must never append to the old parent.
+                if ([string]$job.Node.Tag.RenderId -cne $renderId) { [void]$script:TreeRenderJobs.Remove($renderId); continue }
+                if ($null -ne $job.GroupNode) {
+                    if ([int]$job.GroupIndex -lt $job.GroupRows.Count) {
+                        $row = $job.GroupRows[[int]$job.GroupIndex]; $job.GroupIndex++
+                        $item = New-DomeniaTreeRowItem -Row $row
+                        if ($null -ne $item) { [void]$job.GroupNode.Items.Add($item); $job.Added++ }
                     }
-                    $item = New-DomeniaTreeRowItem -Row $row
-                    if ($null -eq $item) { continue }
-                    [void]$job.Node.Items.Add($item)
-                    $job.Added = [int]$job.Added + 1
-                    $added++
+                    if ([int]$job.GroupIndex -ge $job.GroupRows.Count) {
+                        $job.GroupNode.Tag.Loaded = $true; $job.GroupNode.Tag.RenderId = ''
+                        $job.GroupNode = $null; $job.GroupRows = @(); $job.GroupIndex = 0
+                    }
                 }
-                if ([int]$job.Index -ge [int]$job.Rows.Count) {
-                    $job.Node.Tag.Loaded = $true
-                    $job.Node.Tag.RenderId = ""
-                    $job.Node.IsEnabled = $true
-                    [void]$finished.Add([string]$renderId)
-                    [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "$($job.Added) sous-branche(s) affichee(s).")
+                elseif ([int]$job.Index -lt $job.Rows.Count) {
+                    $row = $job.Rows[[int]$job.Index]; $job.Index++
+                    if ($null -ne $row) {
+                        if ([string]$row.Kind -eq 'SystemGroup') {
+                            $group = New-DomeniaTreeSystemGroup -Rows $row.Rows -DeferChildren
+                            $group.Tag.RenderId = $renderId
+                            [void]$job.Node.Items.Add($group)
+                            $job.GroupNode = $group; $job.GroupRows = @($row.Rows); $job.GroupIndex = 0
+                        }
+                        else {
+                            $item = New-DomeniaTreeRowItem -Row $row
+                            if ($null -ne $item) { [void]$job.Node.Items.Add($item); $job.Added++ }
+                        }
+                    }
+                }
+                # Favourite/tree restoration may continue only after every system child is attached.
+                if ([int]$job.Index -ge $job.Rows.Count -and $null -eq $job.GroupNode) {
+                    $job.Node.Tag.Loaded = $true; $job.Node.Tag.RenderId = ''; $job.Node.IsEnabled = $true
+                    [void]$script:TreeRenderJobs.Remove($renderId)
+                    [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text "$($job.Added) sous-branche(s) affichee(s).")
                     Set-Status "Sous-branches pretes : $($job.Added)."
-                    # DS-07: a branch read while the OU filter is set follows that filter (local only). PF-10: no command lookup in a tick.
                     try { Update-DomeniaOuTreeFilter -OnlyWhenActive } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
                 }
-                else {
-                    [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Affichage progressif : $($job.Added) / $($job.Rows.Count) sous-branche(s)...")
-                }
+                else { $progressJob = $job }
             }
             catch {
+                [void]$script:TreeRenderJobs.Remove($renderId)
                 try {
                     $job.Node.Items.Clear()
                     [void]$job.Node.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
-                    $job.Node.Tag.Loaded = $false
-                    $job.Node.Tag.RenderId = ""
-                    $job.Node.IsEnabled = $true
+                    $job.Node.Tag.Loaded = $false; $job.Node.Tag.RenderId = ''; $job.Node.IsEnabled = $true
                 } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
-                Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" "ERROR"
-                [void]$finished.Add([string]$renderId)
+                Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" 'ERROR'
             }
         }
-        foreach ($renderId in $finished.ToArray()) { [void]$script:TreeRenderJobs.Remove([string]$renderId) }
-        if (@($script:TreeRenderJobs.Keys).Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ } }
+        if ($null -ne $progressJob -and $script:TreeRenderJobs.Contains([string]$progressJob.Id)) {
+            try { [void](Set-DomeniaControlText -Name 'LblTreeStatus' -Text "Affichage progressif : $($progressJob.Added) sous-branche(s) affichée(s), suite en cours…") }
+            catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
+        }
+        if ($script:TreeRenderJobs.Count -eq 0) { try { $script:TreeRenderTimer.Stop() } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ } }
     }
 }
 
@@ -4653,7 +4677,7 @@ function Queue-DomeniaTreeRowsToNode {
     # UI-16: the node stays enabled while its sub-branches appear (no greyed branch).
     $script:TreeRenderJobs[$renderId] = [pscustomobject]@{
         Id=$renderId; Node=$Node; Rows=$rowArray; Index=0; Added=0
-        BatchSize=[Math]::Max(5,[int](Get-CfgValue "UI" "TreeRenderBatchSize" 24))
+        GroupNode=$null; GroupRows=@(); GroupIndex=0
         DisplayName=$DisplayName
     }
     Initialize-DomeniaTreeRenderTimer
@@ -21916,9 +21940,10 @@ function Show-AdObjectResult {
 
     if(Keep-DomeniaDraftOnResult -Result $Result -DN $Dn -Type $Type){return}
     $presentationUnchanged=Test-DomeniaObjectPresentationUnchanged -Result $Result -Dn $Dn -Type $Type
-    # Setting an unchanged WPF value is cheap; clearing every control first is not. Keep the visible
-    # projection while a matching AD read confirms it. All identity, freshness and write guards still run.
-    if(-not $presentationUnchanged){Clear-ObjectDetails}
+    $presentationDelta=if(-not $presentationUnchanged){Get-DomeniaObjectPresentationDelta -Result $Result -Dn $Dn -Type $Type}else{$null}
+    # Skip only presentation work. Source dates, identity generations, permissions and secret clearing below
+    # still run for every receipt. Unknown or identity-sensitive changes keep the complete original fill.
+    if(-not $presentationUnchanged -and $null -eq $presentationDelta){Clear-ObjectDetails}
     $isLiveRead = $false
     try { if ($null -ne $Result.PSObject.Properties["Live"]) { $isLiveRead = [bool]$Result.Live } } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     if (-not [bool]$script:ShowingCachedObject -and $isLiveRead) {
@@ -21959,16 +21984,36 @@ function Show-AdObjectResult {
         }
     }
     $script:CurrentCapabilities = @{}
+    # The permission task above was stopped and its capabilities cleared, even for identical AD attributes.
+    # Let the rights tab request a new evaluation without invalidating the unchanged raw-attribute view.
+    $script:DeferredPermissionsDn = ''
     $oldProbeGuard=[bool]$script:RenderingObjectWithoutProbes
     $script:RenderingObjectWithoutProbes=([bool]$SuppressRemoteProbes -or [bool]$script:ShowingCachedObject)
     try {
-    Fill-GenericObject $entry $Type
-    switch ($Type) {
-        "Utilisateur" { Fill-UserObject $entry }
-        "Machine" { Fill-ComputerObject $entry }
-        "Groupe" { Fill-GroupObject $entry }
-        "OU" { Fill-ContainerObject $entry }
-        "Conteneur" { Fill-ContainerObject $entry }
+    if(-not $presentationUnchanged -and $null -eq $presentationDelta){
+        Fill-GenericObject $entry $Type
+        switch ($Type) {
+            "Utilisateur" { Fill-UserObject $entry }
+            "Machine" { Fill-ComputerObject $entry }
+            "Groupe" { Fill-GroupObject $entry }
+            "OU" { Fill-ContainerObject $entry }
+            "Conteneur" { Fill-ContainerObject $entry }
+        }
+    }else{
+        if($null -ne $presentationDelta){
+            foreach($controlName in $presentationDelta.Fields.Keys){[void](Set-DomeniaControlText -Name $controlName -Text ([string]$presentationDelta.Fields[$controlName]))}
+            Sync-DomeniaResultRowFromEntry -Entry $entry -Type $Type
+            if($Type -in @('Utilisateur','Machine')){Snapshot-DomeniaFicheEdit -Type $Type}
+        }
+        # These summaries depend on the clock/local state as well as on AD fields.
+        if($Type -in @('Utilisateur','Machine')){
+            Update-DomeniaLogonActivityPanel -Kind $(if($Type -eq 'Utilisateur'){'User'}else{'Computer'}) -Entry $entry
+        }
+        if($Type -eq 'Utilisateur'){Update-DomeniaUserSupportBand -Entry $entry}
+        elseif($Type -eq 'Machine'){
+            try{Update-DomeniaComputerAssistView -Uac (Get-DeProp $entry 'userAccountControl' $null)}
+            catch{Write-AppLog ('En-tete du poste non mis a jour : '+$_.Exception.Message) 'WARN'}
+        }
     }
 
     } finally { $script:RenderingObjectWithoutProbes=$oldProbeGuard }

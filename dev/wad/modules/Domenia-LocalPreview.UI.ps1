@@ -86,6 +86,42 @@ function Fail-DomeniaLocalObjectPreview {
     Complete-DomeniaLocalObjectPreviewWait $State
 }
 
+function Get-DomeniaObjectPresentationDelta {
+    # Only plain display fields may bypass the complete fill. Identity, account state, membership,
+    # manager links and unknown shapes always take the original path. Build the whole plan before applying it.
+    param($Result,[string]$Dn,[string]$Type)
+    $previous=$script:SelectedObject
+    if($null -eq $previous -or [string]$previous.DN -ine $Dn -or [string]$previous.Type -cne $Type -or
+       -not $previous.PSObject.Properties['RenderIdentity'] -or [string]$previous.RenderIdentity -cne (Get-DomeniaObjectReadIdentity) -or -not [string]$previous.Guid){return $null}
+    $left=$previous.Entry.Properties;$right=Remove-DomeniaSensitiveProperties -Properties $Result.Properties
+    if($left -isnot [Collections.IDictionary] -or $right -isnot [Collections.IDictionary]){return $null}
+    $map=@{whenChanged='TxtObjChanged';uSNChanged=''}
+    switch($Type){
+        'Utilisateur' {
+            $map+=@{givenName='TxtUserGivenName';sn='TxtUserSurname';displayName='TxtUserDisplayName';mail='TxtUserMail';telephoneNumber='TxtUserPhone';physicalDeliveryOfficeName='TxtUserOffice';description='TxtUserDescription';title='TxtUserTitle';department='TxtUserDepartment';company='TxtUserCompany';streetAddress='TxtUserStreet';l='TxtUserCity';st='TxtUserState2';postalCode='TxtUserPostalCode';co='TxtUserCountry';homePhone='TxtUserHomePhone';mobile='TxtUserMobile';facsimileTelephoneNumber='TxtUserFax';ipPhone='TxtUserIpPhone';wWWHomePage='TxtUserWebPage';employeeID='TxtUserEmployeeId';profilePath='TxtUserProfilePath';scriptPath='TxtUserScriptPath';homeDirectory='TxtUserHomeDirectory';homeDrive='TxtUserHomeDrive';userWorkstations='TxtUserWorkstations'}
+        }
+        'Machine' {$map+=@{description='TxtCompDescription';location='TxtCompLocation';operatingSystem='TxtCompOs';operatingSystemVersion='TxtCompOsVersion'}}
+        'Groupe' {$map+=@{description='TxtGroupDescription'}}
+    }
+    $keys=@{};foreach($key in $left.Keys){$keys[[string]$key]=$true};foreach($key in $right.Keys){$keys[[string]$key]=$true}
+    $fields=@{};$changed=New-Object 'System.Collections.Generic.List[string]'
+    foreach($key in $keys.Keys){
+        $a=@($left[$key]);$b=@($right[$key]);$same=($a.Count -eq $b.Count)
+        for($i=0;$same -and $i -lt $a.Count;$i++){
+            if($null -eq $a[$i] -and $null -eq $b[$i]){continue}
+            if($null -eq $a[$i] -or $null -eq $b[$i] -or $a[$i].GetType() -ne $b[$i].GetType()){$same=$false;break}
+            if($a[$i] -isnot [string] -and -not $a[$i].GetType().IsPrimitive -and $a[$i] -isnot [datetime] -and $a[$i] -isnot [guid]){return $null}
+            $same=$a[$i].Equals($b[$i])
+        }
+        if($same){continue}
+        if(-not $map.ContainsKey($key) -or $b.Count -gt 1){return $null}
+        if($b.Count -and $null -ne $b[0] -and $b[0] -isnot [string] -and -not $b[0].GetType().IsPrimitive -and $b[0] -isnot [datetime]){return $null}
+        $changed.Add($key);$control=[string]$map[$key]
+        if($control){$fields[$control]=$(if($key -ieq 'whenChanged'){Convert-DateLabel $(if($b.Count){$b[0]}else{''})}else{[string]$(if($b.Count){$b[0]}else{''})})}
+    }
+    return [pscustomobject]@{Fields=$fields;ChangedAttributes=$changed.ToArray()}
+}
+
 function Test-DomeniaObjectPresentationUnchanged {
     # Compare only canonical scalar attribute values. Unknown shapes fall back to a complete render.
     param($Result,[string]$Dn,[string]$Type)

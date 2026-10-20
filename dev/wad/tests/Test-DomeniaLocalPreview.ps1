@@ -107,6 +107,62 @@ try{
  Case 'Object from an old epoch never renders' {$s=New-ObjectFixture;$script:SessionEpoch=8L;$data=Read-Store @{Kind='Directory';DN=$dn;Limit=1};Complete-DomeniaLocalObjectPreview $data $s;Expect ($null -eq $script:Rendered) 'old epoch'}
  Case 'Different object GUID never renders from the local store' {$s=New-ObjectFixture;$data=Read-Store @{Kind='Directory';DN=$dn;Limit=1};$s.ExpectedGuid='00000000-0000-0000-0000-000000000002';Complete-DomeniaLocalObjectPreview $data $s;Expect ($null -eq $script:Rendered) 'GUID mismatch'}
  Case 'Fast AD failure waits for the already pending local object' {$s=New-ObjectFixture;Fail-DomeniaOpenObjectTaskUi 'offline' $s;Expect ($script:CurrentObjectRequestId -eq 'object-1' -and $s.DeferredReadError -eq 'offline') 'defer error';$data=Read-Store @{Kind='Directory';DN=$dn;Limit=1};Complete-DomeniaLocalObjectPreview $data $s;Expect ($null -ne $script:Rendered -and $script:ObjectError -eq 'offline' -and -not $script:CurrentObjectRequestId) 'cached object survives failed refresh'}
+ Case 'Programme 6 Delta accepts only mapped fields and rejects identity security and unknown shapes' {
+  $state=New-ObjectFixture
+  $properties=@{objectGUID=@($guid);name=@('PC-1');description=@('old');distinguishedName=@($dn);userAccountControl=@(4096)}
+  $script:SelectedObject=[pscustomobject]@{DN=$dn;Type='Machine';Guid=$guid;RenderIdentity=(Get-DomeniaObjectReadIdentity);Entry=[pscustomobject]@{Properties=$properties}}
+  $copy=$properties.Clone();$copy.description=@('new');$result=[pscustomobject]@{Properties=$copy}
+  $delta=Get-DomeniaObjectPresentationDelta $result $dn Machine
+  Expect ($null -ne $delta -and $delta.Fields.Count -eq 1 -and $delta.Fields['TxtCompDescription'] -ceq 'new') 'only changed description'
+  $copy.userAccountControl=@(4098);Expect ($null -eq (Get-DomeniaObjectPresentationDelta $result $dn Machine)) 'account state needs complete fill'
+  $copy.userAccountControl=@(4096);$copy.objectGUID=@('different');Expect ($null -eq (Get-DomeniaObjectPresentationDelta $result $dn Machine)) 'identity replacement needs complete fill'
+  $copy.objectGUID=@($guid);$copy.description=@([pscustomobject]@{Text='opaque'});Expect ($null -eq (Get-DomeniaObjectPresentationDelta $result $dn Machine)) 'unknown shape needs complete fill'
+  $copy.description=@('new');$script:SelectedObject.RenderIdentity='other';Expect ($null -eq (Get-DomeniaObjectPresentationDelta $result $dn Machine)) 'reader replacement needs complete fill'
+ }
+ Case 'Programme 6 Real object callback skips fills and changes one field without skipping safety or freshness' {
+  $state=New-ObjectFixture
+  foreach($name in @('Show-AdObjectResult','Get-DeProp','Get-DomeniaEntryFirstString','Convert-DateLabel')){
+   $node=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));Expect ($node.Count -eq 1) ('real function '+$name);. ([scriptblock]::Create($node[0].Extent.Text))
+  }
+  $script:PresentationCalls=@{Clear=0;Generic=0;Machine=0;Permissions=0;Secrets=0;Freshness=0};$script:PresentationWrites=@{}
+  function Keep-DomeniaDraftOnResult {param($Result,$DN,$Type);return $false}
+  function Clear-ObjectDetails {$script:PresentationCalls.Clear++}
+  function Fill-GenericObject {param($Entry,$Type);$script:PresentationCalls.Generic++}
+  function Fill-ComputerObject {param($Entry);$script:PresentationCalls.Machine++}
+  function Set-DomeniaControlText {param($Name,$Text);$script:PresentationWrites[$Name]=$Text;return $true}
+  function Set-DomeniaObservationTime {param($Record,$Family,$At,[switch]$Succeeded);$script:PresentationCalls.Freshness++}
+  function Get-DomeniaActiveFreshnessTable {return @{}}
+  function Get-DomeniaRecordFreshness {param($Record,$Family,$Table);return [pscustomobject]@{State='Fresh'}}
+  function Apply-CurrentPermissionUi {$script:PresentationCalls.Permissions++}
+  function Clear-Secrets {$script:PresentationCalls.Secrets++}
+  function Clear-DomeniaActualCapabilityDenials {param($Dn)}
+  function Set-DomeniaRelationsSelection {param($Object)}
+  function Stop-DomeniaSecretReadTasks {}
+  function Sync-DomeniaResultRowFromEntry {param($Entry,$Type)}
+  function Snapshot-DomeniaFicheEdit {param($Type)}
+  function Update-DomeniaComputerAssistView {param($Uac)}
+  function Refresh-AssociationContext {param([switch]$SkipResultRefresh)}
+  function Set-DomeniaSupportObjectSource {param($Dn,[bool]$IsLive)}
+  function Reset-DomeniaDeferredViews {param($Dn)}
+  function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
+  function Set-Status {param($Text)}
+  function Get-DomeniaControl {param($Name);return $null}
+  function Update-Dashboard {}
+  function Save-DomeniaDraftBaseline {param($DN)}
+  $script:AsyncJobs=@{};$script:ShowingCachedObject=$false;$script:RenderingObjectWithoutProbes=$false
+  $properties=@{objectGUID=@($guid);name=@('PC-1');description=@('old');distinguishedName=@($dn);userAccountControl=@(4096)}
+  $script:SelectedObject=[pscustomobject]@{DN=$dn;Type='Machine';Guid=$guid;RenderIdentity=(Get-DomeniaObjectReadIdentity);Entry=[pscustomobject]@{Properties=$properties}}
+  $copy=$properties.Clone();$result=[pscustomobject]@{Properties=$copy;Type='Machine';DataSource='SQLite';Live=$true;ObservedUtc='2026-01-02T00:00:00Z'}
+  Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Machine -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'unchanged callback must not fill or clear'
+  Expect ($script:PresentationCalls.Permissions -eq 1 -and $script:PresentationCalls.Secrets -eq 1 -and $script:PresentationCalls.Freshness -eq 1) 'unchanged callback retains safety and source time'
+  Expect ($script:SelectedObject.LoadedAt.ToUniversalTime() -eq [datetime]$result.ObservedUtc) 'receipt time retained'
+  $copy.description=@('new');Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:PresentationWrites.Count -eq 1 -and $script:PresentationWrites['TxtCompDescription'] -ceq 'new' -and $script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'one changed field only'
+  $copy.userAccountControl=@(4098);Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:PresentationCalls.Generic -eq 1 -and $script:PresentationCalls.Machine -eq 1 -and $script:PresentationCalls.Clear -eq 1) 'security change retains full fill'
+  Expect ($script:PresentationCalls.Permissions -eq 3 -and $script:PresentationCalls.Secrets -eq 3 -and $script:PresentationCalls.Freshness -eq 3) 'all paths retain safety and freshness'
+ }
  Case 'Unchanged canonical attributes preserve presentation only for the same reader and identity' {
   $state=New-ObjectFixture
   $properties=@{objectGUID=@($guid);name=@('PC-1');description=@('same');distinguishedName=@($dn)}
