@@ -73,4 +73,7 @@ Les essais ont tourné dans **DOMENIA-FIRSTRUN-20261020**
 Son nom Windows interne reste FILPRO-W11B : les tests n’ont pas été exécutés dans la VM source.
 Le [reçu de création](Clone.json) confirme l’identité et la configuration source inchangée.
 PESTO et les autres projets n’ont pas été utilisés.
-Le nettoyage de cette seule VM temporaire intervient après sauvegarde et push des preuves.
+La VM temporaire et son disque sont supprimés après push vérifié du commit `287299d`.
+Les sept VM préexistantes sont conservées, dont CNAMTS-DC01 toujours démarré.
+Le journal VirtualBox résiduel a été retiré après inspection ; le dossier de la VM est absent.
+[Reçu final de nettoyage](Cleanup.json).
