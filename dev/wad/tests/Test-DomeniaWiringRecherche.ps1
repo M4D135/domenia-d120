@@ -78,7 +78,7 @@ $script:TypeWiring=Get-WireEventsHandler 'CmbGlobalType' 'Add_SelectionChanged'
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.UI.ps1') @('Read-DomeniaOuFavouriteStore','Write-DomeniaOuFavouriteStore','Import-DomeniaFavouriteSearchesOnce','Get-DomeniaFavouriteSearches','Test-DomeniaOuFavourite','Save-DomeniaFavouriteSearch','Load-DomeniaFavouriteSearch','Update-DomeniaOuFavouritesUi','Remove-DomeniaFavouriteSearch'))))
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Guard.Model.ps1') @('ConvertTo-DomeniaSavedSearch'))))
 # UI-23 / FO-18 / SE-05: the real survey commands of the list and their rules (Park.Model is dot-sourced below).
-. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaWidgetMaxTargets','Get-DomeniaCollectionRetrySettings','Get-DomeniaParkListContext','Get-DomeniaParkDisplayedTargets','Test-DomeniaParkListStoppable','Test-DomeniaParkRunOnOpenComputer','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar'))))
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Park.UI.ps1') @('Start-DomeniaOnlinePark','Get-DomeniaParkRuns','Get-DomeniaParkRun','Test-DomeniaParkRunActive','Get-DomeniaParkMaxTargets','Get-DomeniaWidgetMaxTargets','Get-DomeniaCollectionRetrySettings','Get-DomeniaParkListContext','Get-DomeniaParkDisplayedTargets','Test-DomeniaParkListStoppable','Test-DomeniaParkRunOnOpenComputer','Update-DomeniaParkControls','Set-DomeniaParkControlVisible','Get-DomeniaParkVerifyButtonText','Update-DomeniaParkOutcomePills','Update-DomeniaParkSelectionBar','Initialize-DomeniaRemoteStoreState'))))
 # Point 60 (W08): « Vérifier la liste ▾ » names the scope chosen beside the results; the export follows that scope.
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-SearchWorkspace.UI.ps1') @('Get-DomeniaResultScopeMode','Get-DomeniaResultScopePlan','Get-DomeniaSearchListCompleteness','Get-DomeniaSearchLoadedCount'))))
 # Worker helpers live in the WorkerCommon text of the core: the row builder of the list is read from it, not copied.
@@ -92,9 +92,12 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','C
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-LocalPreview.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Directory.Model.ps1','Domenia-DirectoryStore.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Storage.Worker.ps1','Domenia-Live.UI.ps1','Domenia-LocalPreview.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
+
+# The worker/store callbacks are real; only the committed-row transport below is inert.
+. ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-DirectoryStore.UI.ps1') @('Submit-DomeniaDirectoryObjectRead','Complete-DomeniaDirectoryObjectCommit','Fail-DomeniaDirectoryObjectCommit','Test-DomeniaDirectoryChangesCurrent','Complete-DomeniaDirectoryChangesRead'))))
 
 # The historical-list fallback also applies the workshop GUID filter through this real helper.
 . ([scriptblock]::Create((Import-AstFunctions (Join-Path $modules 'Domenia-Query.UI.ps1') @('Test-DomeniaSearchQueryRow','Get-DomeniaPreparedQueryTemplates','Request-DomeniaQueryTemplatePreparation','Set-DomeniaPreparedQueryTemplateRows'))))
@@ -117,7 +120,7 @@ function Show-DomeniaFormDialog {throw 'Fenetre modale interdite dans ce parcour
 function Show-InfoBox {param($Text) throw ('Fenetre modale interdite : '+[string]$Text)}
 function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
-# L03: the home overview reads the OU of Rechercher; the double records the OU it is asked to follow.
+# Point 54: the overview owns its scope; record any unwanted refresh caused by search navigation.
 function Request-DomeniaFleetRefresh {param([switch]$Force) if($null -ne $script:FleetScopes){$script:FleetScopes.Add([string]$script:SelectedBranchDn)}}
 function Apply-DomeniaUiProfile {param($Profile)}
 function Request-UiTaskStop {param($Id,[switch]$Silent,[switch]$Force,[switch]$Superseded,$Reason) $script:Stops++}
@@ -152,13 +155,15 @@ function Fail-DomeniaOpenObjectUi {param($Message,$Dn) $script:OpenFailure=[stri
 # COMMIT ordering). Rows are fed by Feed-Live; when the worker answer arrives the double closes the list as the SQLite
 # tick does (Final, Ended, Error), so that the real Invoke-DomeniaLiveTick finalizes it.
 function New-DomeniaDirectoryReadPipe {param($Context,$ReadyQueue=$null,$Search=$null,[string]$CommitHandler='',[string]$CompleteHandler='',[string]$ErrorHandler='',$CallbackState=$null)
-    $pipe=[pscustomobject]@{Context=$Context;Ready=$ReadyQueue;Search=$Search;Input=[Collections.Concurrent.ConcurrentQueue[object]]::new();Collector=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''});Closed=$false;Completed=$false}
+    $pipe=[pscustomobject]@{Context=$Context;Ready=$ReadyQueue;Search=$Search;Input=[Collections.Concurrent.ConcurrentQueue[object]]::new();Collector=[hashtable]::Synchronized(@{Started=$false;Done=$false;Final=$null;Error=''});Stop=[Threading.CancellationTokenSource]::new();CommitHandler=$CommitHandler;CompleteHandler=$CompleteHandler;ErrorHandler=$ErrorHandler;CallbackState=$CallbackState;Closed=$false;Completed=$false}
     $script:Pipes.Add($pipe);return $pipe
 }
 function Complete-DomeniaDirectoryReadPipe {param($Pipe,$Final=$null,[string]$Error='')
     if($null -eq $Pipe -or $Pipe.Closed){return}
     $Pipe.Completed=$true;$Pipe.Closed=$true
     if($null -ne $Pipe.Search){$Pipe.Search.Final=$Final;$Pipe.Search.Ended=$true;$Pipe.Search.Error=$Error}
+    if($Error -and $Pipe.ErrorHandler){& $Pipe.ErrorHandler -Message $Error -State $Pipe.CallbackState}
+    elseif($Pipe.CompleteHandler){& $Pipe.CompleteHandler -Result $Final -State $Pipe.CallbackState}
 }
 function Start-UiTask {
     param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
@@ -212,6 +217,8 @@ function Reset-Fixture {
     Stop-DomeniaOuTreeFilter
     if($null -ne $script:Live -and $null -ne $script:Live.Timer){$script:Live.Timer.Stop()}
     if($null -ne $script:Continuity -and $null -ne $script:Continuity.Timer){$script:Continuity.Timer.Stop()}
+    if($null -ne $script:Persistence -and $null -ne $script:Persistence.Timer){$script:Persistence.Timer.Stop()}
+    $script:Persistence=$null;$script:StorageMaintenance=$null;$script:DomeniaRemoteStoreQueue=$null
     $script:Live=$null;$script:Continuity=$null
     $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=example,DC=invalid';Domain='example.invalid';Server='dc.example.invalid';Netbios='EXAMPLE';BindUser='EXAMPLE\lecteur';Credential=$null;UseCredential=$false;PageSize=100}
     $script:ProcessIdentity='EXAMPLE\lecteur';$script:MachineCredential=$null;$script:RemoteAdminCredential=$null;$script:AccessState=$null
@@ -234,7 +241,7 @@ function Reset-Fixture {
     $script:NavHistoryRows=$null;$script:NavHistoryState=$null;$script:NavListShape=$null;$script:OuTreeFilterStatus='';$script:TreeSelectionSource='Mouse';$script:WorkViewScopeOu='';$script:ListSurveyBlocked=$false;$script:ListRevalidationPaused=$false
     if($null -ne $script:FilterChangeTimer){$script:FilterChangeTimer.Stop()};$script:FilterChangeTimer=$null;$script:PendingFilterChange=$null
     if($null -ne $script:TreeRenderTimer){$script:TreeRenderTimer.Stop()};$script:TreeRenderTimer=$null;$script:TreeRenderJobs=@{}
-    $script:OuFavouriteKeys=$null;$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null
+    $script:OuFavouriteKeys=$null;$script:FleetScopeDn='';$script:FleetScopes=[Collections.Generic.List[string]]::new();$script:SearchListHasMachine=$false;$script:ParkRuns=$null;$script:ParkDefaultMode=$null
     $script:ResultColumnChoice=$null;$script:ResultColumnMenuBound=$false;$script:SearchListHasUser=$false;$script:SearchListHasAccount=$false
     $script:Ctrl=New-TestControls
     $script:Window=[Windows.Window]::new()
@@ -754,6 +761,12 @@ Case 'D012 A label change never changes the target of the fiche read' {
     Expect (Test-DomeniaSelectionLoadCurrent) 'Un changement de libelle a change la cible.'
     $original=New-ResultRow 'Alex' 'alex' 'Utilisateur' '11111111-1111-1111-1111-111111111111'
     Complete-DomeniaOpenObjectTaskUi (Result-For $original) $request.CallbackState
+    Expect ($request.CallbackState.DirectoryPipe.Completed -and $script:SelectionLoad.Phase -ne 'Ready') 'La lecture seule publie une fiche avant le readback SQLite.'
+    # Deliver the SQLite boundary receipt through the handler captured by the real Open-AdObject.
+    $stored=[pscustomobject]@{Guid=$original.Guid;DN=$original.DN;Type=$original.Type;Details=(Result-For $original).Properties;ObservedAtUtc='2026-10-20T08:00:00Z';Source='AD'}
+    $pipe=$request.CallbackState.DirectoryPipe
+    Expect ($pipe.CommitHandler -ceq 'Complete-DomeniaDirectoryObjectCommit') 'Callback de publication SQLite absent.'
+    & $pipe.CommitHandler -Result ([pscustomobject]@{Rows=@($stored);SnapshotRevision=1L}) -State $pipe.CallbackState
     Expect ($script:SelectionLoad.Phase -eq 'Ready') ('Phase : '+$script:SelectionLoad.Phase+' '+$script:OpenFailure)
     $fiche=Get-DomeniaCurrentSelectionIdentity -Workspace 'WsObject'
     Expect ($null -ne $fiche -and $fiche.SameContext($identity) -and $fiche.Name -eq 'Alex') 'La fiche ne publie pas la meme identite.'
@@ -778,15 +791,17 @@ Case 'D012 A recreated object under the same DN is another selection' {
 Case 'Rest policy (C1) and demonstration (C2) gate the live background work' {
     function Test-DomeniaBackgroundWorkAllowed {param([string]$Source) $script:BackgroundAsked.Add($Source);return [bool]$script:PolicyAllows}
     $script:BackgroundAsked=[Collections.Generic.List[string]]::new();$script:PolicyAllows=$false
-    $script:Live.CacheReady=$true;$script:Live.SaveQueue['k']=[pscustomobject]@{Key='k'}
+    Invoke-GlobalSearch -SearchMode OU
+    $script:LocalReadRequests.Clear() # The explicit local preview is not background work.
     Start-DomeniaLiveBackgroundWork
-    Expect ((Get-TaskCount 'LiveCache') -eq 0 -and $script:BackgroundAsked -contains 'Live') 'Travail de fond lance malgre la politique de repos.'
+    Expect ($script:LocalReadRequests.Count -eq 0 -and $script:BackgroundAsked -contains 'Live') 'Travail de fond lance malgre la politique de repos.'
     $script:PolicyAllows=$true;$script:DemoMode=$true
     Start-DomeniaLiveBackgroundWork
-    Expect ((Get-TaskCount 'LiveCache') -eq 0) 'Travail de fond lance en demonstration.'
+    Expect ($script:LocalReadRequests.Count -eq 0) 'Travail de fond lance en demonstration.'
     $script:DemoMode=$false
     Start-DomeniaLiveBackgroundWork
-    Expect ((Get-TaskCount 'LiveCache') -eq 1) 'Le travail autorise nʼa pas ete lance.'
+    Expect ($script:LocalReadRequests.Count -eq 1 -and $script:LocalReadRequests[0].Query.Kind -ceq 'Observation') 'La lecture centrale autorisee nʼa pas ete lancee.'
+    Expect ($script:LocalReadRequests[0].Query.ScopeDn -ceq $script:Live.Search.State.BaseDn -and (Get-TaskCount @('LiveCache','LiveConsole','LiveSelectedPing')) -eq 0) 'Le travail local a change de portee ou declenche une sonde.'
 }
 
 # ---------------------------------------------------------------- D028 save state from the rule (lot cache F2)
@@ -803,26 +818,31 @@ Case 'D028 LblLiveState porte le libelle de la regle' {
     }
     $script:Live.CacheReady=$true
     & $read 'Enregistre.' 'Rien en attente'
-    # Two observations wait while the writer is held back.
-    $script:Live.SaveAfter=[datetime]::UtcNow.AddHours(1)
-    $script:Live.SaveQueue['a']=[pscustomobject]@{Key='a'};$script:Live.SaveQueue['b']=[pscustomobject]@{Key='b'}
+    # The central LocalStore queue owns persistence now; legacy LiveCache is no longer dispatched.
+    Initialize-DomeniaPersistence;$script:Persistence.Timer.Stop()
+    $script:Persistence.Next=[datetime]::UtcNow.AddHours(1)
+    foreach($name in @('a','b')){
+        $row=[pscustomobject]@{Key=('CN=PC-'+$name+',OU=Postes,DC=example,DC=invalid');Target=('PC-'+$name);State='Online';At='2026-10-20T08:00:00Z'}
+        Expect (Queue-DomeniaMetadata -Kind Presence -Row $row -Key $name) 'Observation non admise par le stockage central.'
+    }
+    $script:Persistence.Timer.Stop()
     & $read 'En memoire : 2 modification(s) a enregistrer.' 'Deux observations en file'
-    # The real tick starts the write: SaveQueue empties, the two observations are still counted (SaveInFlight).
-    $script:Live.SaveAfter=[datetime]::MinValue
+    $script:Persistence.Next=[datetime]::MinValue
+    Start-DomeniaStorageWork
     & $read 'En memoire : 2 modification(s) a enregistrer.' 'Ecriture en cours'
-    $write=Get-LastTask 'LiveCache'
-    Expect ($null -ne $write -and $script:Live.SaveQueue.Count -eq 0 -and [int]$script:Live.SaveInFlight -eq 2) 'Ecriture non lancee ou non comptee.'
-    # The write fails: requeued, SaveFault with work waiting.
+    $write=Get-LastTask 'LocalStore'
+    Expect ($null -ne $write -and $script:Persistence.Pending.Count -eq 0 -and [int]$script:Persistence.InFlight -eq 2) ('Ecriture non lancee ou non comptee : '+$script:Persistence.Fault)
     [void]$script:AsyncJobs.Remove([string]$write.Id)
-    Fail-DomeniaLiveCache 'SQLite code 5 : database is locked' $write.CallbackState
+    Fail-DomeniaStorageWork 'SQLite code 5 : database is locked' $write.CallbackState
+    $script:Persistence.Timer.Stop()
     & $read 'En memoire : 1 enregistrement(s) en echec, nouvel essai prevu.' 'Echec d ecriture'
-    # The next write succeeds.
-    $script:Live.SaveAfter=[datetime]::MinValue
-    Invoke-DomeniaLiveTick
-    $retry=Get-LastTask 'LiveCache'
+    Expect ($script:Persistence.Pending.Count -eq 2 -and [int]$script:Persistence.InFlight -eq 0) 'Les observations en echec ne sont pas remises en file.'
+    $script:Persistence.Next=[datetime]::MinValue
+    Start-DomeniaStorageWork
+    $retry=Get-LastTask 'LocalStore'
     Expect ($null -ne $retry -and -not [object]::ReferenceEquals($retry,$write)) 'Nouvel essai non lance.'
     [void]$script:AsyncJobs.Remove([string]$retry.Id)
-    Complete-DomeniaLiveCache $null $retry.CallbackState
+    Complete-DomeniaStorageWork ([pscustomobject]@{Saved=$true;Conflicts=@();Count=2}) $retry.CallbackState
     & $read 'Enregistre.' 'Apres ecriture confirmee'
     # A failed read with nothing waiting is not a save failure.
     $script:Live.SaveFault='Lecture du cache impossible'
@@ -942,6 +962,7 @@ Case 'SP-15 Clic sans ping quand Verifier au clic est decoche ; Reverifier reste
 # Unwired if Set-SelectedBranch reads the OU at each arrow key (one request per node walked), if the tree no longer
 # records whether the keyboard or the mouse drives it, or if Wire-Events sends a change of type without the pause.
 Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris immediate' {
+    $script:FleetScopeDn='OU=Accueil,DC=example,DC=invalid'
     Initialize-DomeniaSearchUi
     . ([scriptblock]::Create($script:TypeWiring))
     Send-TreeKey $script:Ctrl.TvDirectory
@@ -952,7 +973,8 @@ Case 'PF-14 Parcours clavier temporise (300 ms) sans requete par noeud, souris i
     Invoke-DomeniaPendingFilterChange
     $t=Get-LastTask 'GlobalSearch'
     Expect ((Get-TaskCount 'GlobalSearch') -eq 1 -and $t.Payload.BaseDn -eq 'OU=C,DC=example,DC=invalid') 'Seul le dernier arret doit etre lu.'
-    Expect ($script:FleetScopes.Count -gt 0 -and $script:FleetScopes[$script:FleetScopes.Count-1] -eq 'OU=C,DC=example,DC=invalid') 'LʼAccueil ne suit pas lʼOU choisie.'
+    # Core / Update-DomeniaSearchScopeUi, point 54: Accueil owns its scope; search OU changes never calculate it.
+    Expect ($script:FleetScopes.Count -eq 0 -and $script:FleetScopeDn -ceq 'OU=Accueil,DC=example,DC=invalid') 'La navigation de recherche a modifie ou recalcule le perimetre independant de lʼAccueil.'
     # The real handler of the object type: the change waits for its pause, then the chosen type is read.
     $script:Ctrl.CmbGlobalType.SelectedIndex=3
     Expect ((Get-TaskCount 'GlobalSearch') -eq 1 -and $null -ne $script:PendingFilterChange -and $script:PendingFilterChange.Source -eq 'Type') 'Un changement de type part sans pause.'
@@ -1070,7 +1092,7 @@ Case 'SE-13 RevalidateListedObjects faux par defaut : aucune lecture AD sans ges
     $check=Get-LastTask 'LiveDirectoryCheck'
     Expect ($null -ne $check) 'Revalidation activee non lancee.'
     [void]$script:AsyncJobs.Remove([string]$check.Id)
-    Complete-DomeniaObjectChanges -Result ([pscustomobject]@{Rows=@();Server='dc.example.invalid'}) -State $check.CallbackState
+    Complete-DomeniaObjectChanges -Result ([pscustomobject]@{Rows=@();Records=@();Server='dc.example.invalid'}) -State $check.CallbackState
     Expect ($script:Ctrl.LblListRevalidation.Text -match '^Liste vérifiée à \d\d:\d\d$') ('Libelle : '+$script:Ctrl.LblListRevalidation.Text)
 }
 # Unwired if 'Relire l objet' empties the whole cache or reloads the list.
@@ -1094,9 +1116,10 @@ Case 'FI-21 Relire lʼobjet invalide seulement son GUID et ne relance pas la lis
 Case 'UX-25 Liste de lʼhistorique : bandeau, Actualiser, type, presence et filtre local memorises' {
     Initialize-DomeniaSearchUi
     . ([scriptblock]::Create($script:TypeWiring))
-    $script:Ctrl.TxtSuiteResultFilter.Text='PC'
     Invoke-GlobalSearch -SearchMode OU;$first=Get-LastTask 'GlobalSearch'
     Feed-Live (New-ResultRow 'PC-01' 'pc01' 'Machine' '' 'OU=Postes');Finish-Live $first $false
+    # A new search clears the previous local filter (CO-05); apply this list's filter after it exists.
+    $script:Ctrl.TxtSuiteResultFilter.Text='PC';Apply-DomeniaPresenceFilter
     $firstRows=$script:Ctrl.DgObjects.ItemsSource
     $script:Ctrl.DgObjects.SelectedItem=@($script:Ctrl.DgObjects.Items)[0]
     # The type change really launches the next list, after its pause.

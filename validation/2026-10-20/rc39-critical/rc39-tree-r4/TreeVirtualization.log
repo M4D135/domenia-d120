@@ -1,0 +1,89 @@
+{
+    "Suite":  "DomeniaTreeVirtualization",
+    "Passed":  true,
+    "Failed":  0,
+    "Total":  8,
+    "RealWpf":  true,
+    "SyntheticOnly":  true,
+    "Cases":  [
+                  {
+                      "Name":  "Programme 8 Ten thousand loaded nodes are data, initial WPF generation is bounded",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Unloaded branch has a chevron and explicit expansion reads exactly once",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Far selection, recycling and favourite survive repeated scrolling with no search/read",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 System-group descendant can be revealed through two virtualized levels",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Filter reaches a far node through data, excludes other children before container generation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Selected unread leaf is found without reading its children",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Session replacement cancels a pending reveal without reading",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Programme 8 Previously generated containers are not retained in proportion to loaded data",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Measurements":  [
+                         {
+                             "Target":  "OU=item-00000,DC=example,DC=invalid",
+                             "Generated":  40
+                         },
+                         {
+                             "Target":  "OU=item-05000,DC=example,DC=invalid",
+                             "Generated":  61
+                         },
+                         {
+                             "Target":  "OU=item-09999,DC=example,DC=invalid",
+                             "Generated":  42
+                         },
+                         {
+                             "Target":  "OU=item-00010,DC=example,DC=invalid",
+                             "Generated":  51
+                         },
+                         {
+                             "Target":  "OU=item-09999,DC=example,DC=invalid",
+                             "Generated":  42
+                         },
+                         {
+                             "Target":  "OU=item-00100,DC=example,DC=invalid",
+                             "Generated":  61
+                         },
+                         {
+                             "Target":  "OU=item-08000,DC=example,DC=invalid",
+                             "Generated":  61
+                         },
+                         {
+                             "Target":  "OU=item-09999,DC=example,DC=invalid",
+                             "Generated":  42
+                         },
+                         {
+                             "Target":  "CN=SystemTarget,DC=example,DC=invalid",
+                             "Generated":  41
+                         }
+                     ],
+    "Limitations":  "Real bounded WPF layout and generated-container counts; synthetic directory data, no AD/network and no process-memory benchmark."
+}

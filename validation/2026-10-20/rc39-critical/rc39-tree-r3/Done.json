@@ -1,0 +1,11 @@
+{
+    "Test":  "TreeVirtualization",
+    "ExitCode":  1,
+    "TimedOut":  false,
+    "ElapsedMs":  46729,
+    "SourceSha256":  "BFF261F84D49080E4F0613EBF3C6E8500A3DC8C3A5B013442B0F5F69D9E2DC74",
+    "Arguments":  [
+                      "-ReportPath",
+                      "C:\\DomeniaLab\\RC35-qualification\\rc39-tree-r3\\TreeVirtualization.json"
+                  ]
+}

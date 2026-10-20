@@ -1,0 +1,7 @@
+Tree virtualization failures: 3
+At C:\DomeniaLab\RC35-qualification\RC39-final\dev\wad\tests\Test-DomeniaTreeVirtualization.ps1:166 char:13
++ if($failed){throw ('Tree virtualization failures: '+$failed)}
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (Tree virtualization failures: 3:String) [], RuntimeException
+    + FullyQualifiedErrorId : Tree virtualization failures: 3
+ 

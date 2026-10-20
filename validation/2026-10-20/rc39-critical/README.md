@@ -17,11 +17,11 @@ Passe en cours ; aucune qualification générale ni livraison finale revendiqué
 
 `rc39-critical-tests/Environment.json` porte les empreintes de Core, du chargeur, de la release et du manifeste. Les rapports WMI et UIA portent également leurs empreintes. Le candidat DEV était B79F1B11821162F5D7CC0BFADCE44C0D4EE2B30D9DA834B789C29227E2E9BD65 ; PROD D82C17B915A3CA4CB9332E873970E2FF3AF50906D8169493D97CD4B953D3AF53. Leurs 174 fichiers applicatifs étaient identiques.
 
-La dernière revue a trouvé trois optimisations partielles (6, 8, 38) : corrections complémentaires en cours, distinctes de ces preuves. Les archives finales seront liées à une passe delta ciblée et au contrôle visuel final. Aucun résultat ci-dessus ne certifie un code futur.
+La revue intermédiaire a motivé les compléments 6, 8 et 38 ; leurs résultats R2/R4 figurent ci-dessous et restent distincts des preuves du premier candidat. Les archives finales doivent encore être reliées au runtime figé et au contrôle visuel final. Aucun résultat ci-dessus ne certifie un code futur.
 
 Endurance longue, gros parc réel, multi-écrans, Narrateur, variations DPI et qualification générale restent hors de cette passe critique demandée. Aucune clôture formelle D001–D120 par `acceptance_passed=true`.
 
-Les JSON sont conservés en UTF-8/LF ; quelques journaux texte disponibles restent des pièces complémentaires. Les scripts reproduisent les appels du labo sans secret.
+Les JSON sont conservés en UTF-8 ; quelques journaux texte disponibles restent des pièces complémentaires. Les scripts reproduisent les appels du labo sans secret.
 
 ## Delta après stabilisation des points 6, 8 et 38
 
@@ -30,3 +30,22 @@ Le candidat `FCBB2FBC…` DEV / `9035B033…` PROD a passé les contrôles de pa
 Les échecs ont déclenché des corrections : référence System.Xaml/System.Core manquante dans l'arbre, garde de cache acceptant un CLR enveloppé comme PSCustomObject ; fixtures UTC de LocalPreview, clé Filter dupliquée de Navigation et dépendance réelle de Park non importée. Les assertions sont conservées/renforcées. Le rapport Boards filtré indiquait Complete=true : corrigé avec Subset/SelectionComplete. Les anciens reçus restent inchangés.
 
 Le premier harnais Start-Process/WaitForExit retourne ExitCode=null sous ce Windows. Son tableau Done ne prouve donc pas un succès de processus ; les résultats ci-dessus viennent des rapports individuels et du journal natif. Le harnais de relance utilise System.Diagnostics.Process avec capture asynchrone des deux flux et code de sortie effectif. Relance limitée aux bancs affectés, sans répétition des contrôles AD/WMI/santé/stockage inchangés.
+
+## Retests R2 et R4 : succès ciblés confirmés
+
+Les reçus R2 et leur [environnement](rc39-final-retest/Environment.json) confirment :
+
+| Banc | Résultat | Portée |
+|---|---|---|
+| [LocalPreview](rc39-final-retest/LocalPreview.json) | 21/21 | Inclut les deux cas Programme 6 ; SQLite native, données locales/synthétiques. |
+| [QueryTargets](rc39-final-retest/QueryTargets.json) | 39/39 | Vrais records/DLL ; évaluation locale, aucun AD/WMI/réseau. |
+| [Boards Programme 38](rc39-final-retest/Boards.json) | 4/4 | `SelectionComplete=true`, `Complete=false` : filtre exécuté, pas les 73 cas de la suite. |
+| [TreeRendering](rc39-final-retest/TreeRendering.json) | 4/4 | Ordonnancement coopératif avec vrais types de données ; pas de preuve de virtualisation WPF. |
+| [Navigation Programme 8](rc39-final-retest/Navigation.json) | 5/5 | `Subset=true`, `Complete=false` ; contrôles WPF réels, dépendances externes doublées. |
+| [Rules-Park](rc39-final-retest/Rules-Park.json) | 14/14 | Règles pures sous PowerShell 5.1, sans WPF/réseau ni preuve du raccordement complet. |
+
+[R4 TreeVirtualization](rc39-tree-r4/TreeVirtualization.json) réussit **8/8** sous WPF réel : 10 000 DTO synthétiques, révélation lointaine, recyclage/favori, groupe, filtre, feuille non lue et annulation de session. Les neuf cibles mesurées produisent 40 conteneurs au premier relevé et 61 au maximum ; les parcours programmés n’appellent pas les doubles de lecture AD. `SyntheticOnly=true` : aucun AD réel, aucun réseau et aucun benchmark de mémoire du processus.
+
+Les trois échecs de révélation R2/R3 restent dans l’historique. Le diagnostic a identifié un trigger du thème qui imposait un panneau standard aux enfants ; la correction précède R4. Le [reçu R2 WiringRecherche en échec](rc39-final-retest/WiringRecherche.json) reste conservé. [R4 WiringRecherche](rc39-tree-r4/WiringRecherche.json), lancé sans filtre, donne **47/53** : les dix cas précédemment ciblés réussissent, mais six autres cas échouent. Ces six échecs sont confiés au lot parcours pour correction et retest ; aucun succès de la suite complète n’est annoncé. Les autres succès R1 ci-dessus restent acquis dans leur portée ; ils ne sont pas tous rejoués en R2/R4.
+
+Le runtime et les preuves doivent encore être rapprochés des archives finales et du contrôle visuel. **Passe critique partielle, livraison non finale ; point 59 hors passe, aucune qualification des 60 points.**

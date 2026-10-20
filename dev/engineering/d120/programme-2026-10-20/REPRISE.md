@@ -1,8 +1,8 @@
 # Reprise RC1.17.39 — programme des 60 points
 
-## État au 20 octobre 2026, après checkpoint 92d2212
+## État au 20 octobre 2026, après checkpoint 8d031aa et retests R2/R4
 
-**Livraison non terminée.** Master et master distant restent `4987773325c0849129960c35b50790396ac1fc2b` (RC38). Dernier checkpoint poussé/vérifié : `92d2212f993686572c0bad38abef0aac0cf8cdd7`, branche `codex/rc39-60points-checkpoint`. Ce WIP contient code, suivi, guides et preuves, mais n'est pas un pack qualifié. Les changements de l'arbre postérieurs restent à sauvegarder au prochain jalon.
+**Livraison non terminée.** Master et master distant restent `4987773325c0849129960c35b50790396ac1fc2b` (RC38). Dernier checkpoint poussé/vérifié : `8d031aa65999a33c5c2aa42b8f89f9f5d81d914f`, branche `codex/rc39-60points-checkpoint`. Ce WIP contient code, suivi, guides et preuves, mais n'est pas un pack qualifié. Les correctifs et reçus R4 postérieurs restent à sauvegarder au prochain jalon.
 
 Instruction active : finir le code, contrôler indépendamment, puis **tests Windows critiques seulement**, corriger, régénérer DEV et PROD, commit/push master. Garder la VM et pousser le suivi aux jalons. Aucune écriture AD, aucun changement réseau/sécurité VM. Le point 59 (endurance étendue, DPI, accessibilité) reste hors de cette passe critique.
 
@@ -10,11 +10,12 @@ Instruction active : finir le code, contrôler indépendamment, puis **tests Win
 
 Les lots collectes 18–29, parcours/dashboard 30–48, stockage 49–54, aperçu mémoire/SQLite, découpage AssociationRows et documentation sont intégrés. Détail et limites dans `Suivi_60.json`, `Lot-*.md`, `Revue-Spark.md`.
 
-- **6** : delta des champs simples et omission du remplissage identique prêts. Sécurité/identité/formes inconnues reprennent le chemin complet. Dernière revue corrigée : génération du panneau de connexions et invalidation des droits. LocalPreview comporte 21 cas ; les 2 nouveaux cas restent à exécuter.
-- **38** : cache des plans avant résolution et réemploi réel des graphiques WPF. Dates, palette, largeur, contexte/snapshot et mutation en place invalident. Actions/DaysSince/données opaques restent hors cache. Parcours traite les dépendances Query Computer et les fournisseurs amont ; attendre son codegate.
-- **8** : vrai modèle observable + conteneurs WPF recyclés en cours. Agent collectes possède Core arbre, Search/Continuity/Guard, Main.xaml, Modules, nouveaux DirectoryTree.Types.cs/UI.ps1 et tests arbre/navigation. Un seul OpenCode gratuit `glm-5.3-flash-free` low : tour `../stockage-20261020/turn-20261020T205828Z.jsonl`, prompt complet stdin `../tree-virtualization-20261020/prompt.txt`. Corrections supervisées préparées dans ce dernier dossier ; stockage relit sans nouveau LLM. Ne pas builder avant codegate. Préserver quota global/équité, groupes différés, annulation, identité/epoch et commit → SQLite → rendu.
+- **6** : delta des champs simples et protections intégrés ; R2 LocalPreview **21/21**, y compris génération du panneau de connexions, invalidation des droits, fraîcheur/secrets. Les formes sensibles/inconnues gardent le remplissage complet.
+- **38** : caches de plans/cartes, record Query Computer exact et fournisseur logiciel intégrés. R2 QueryTargets **39/39**, Boards Programme 38 **4/4** ; `SelectionComplete=true`, `Complete=false` (pas les 73 cas). Aucun gain global chiffré.
+- **8** : modèle observable et virtualisation des conteneurs intégrés. R2 compilation, TreeRendering **4/4**, Navigation Programme 8 **5/5** (sous-ensemble). Après les trois échecs R2/R3 et correction du trigger de thème imposant un panneau standard, R4 TreeVirtualization **8/8** : WPF réel, 10 000 DTO synthétiques, 40 conteneurs au premier relevé, maximum 61 sur neuf cibles. Aucun AD/réseau réel ni benchmark mémoire du processus. Aucun OpenCode actif.
+- **WiringRecherche** : R4 lancé sans filtre, **47/53** ; les dix cas visés en R2 passent. Six autres échecs restent confiés à parcours pour correction/retest. Le résultat de l’arbre ne clôture pas ce banc séparé.
 
-Registres fermés, manifeste, contrats workers et preload doivent être rafraîchis **après** fin des écritures. L'audit précédent a passé sur 132 modules/3740 fonctions ; il ne couvre pas les nouveaux helpers/arbre. Ne pas relancer le runner 34 suites `Verify-60.ps1` abandonné.
+Registres fermés, manifeste, contrats workers et preload doivent être rafraîchis **après** fin des écritures. Le candidat R1 a passé le contrôle de 176 fichiers/133 modules ; les hashes doivent être renouvelés après les corrections finales. Ne pas relancer le runner 34 suites `Verify-60.ps1` abandonné.
 
 ## Preuves déjà conservées
 
@@ -31,10 +32,10 @@ Guides sources RC39 et quatre DOCX/PDF régénérés, QA visuelle et synchronisa
 
 ## Suite à exécuter
 
-1. Recevoir les deux codegates, revue indépendante, régénérer registres/contrats et construire DEV+PROD.
-2. Adapter `../../rc39-local-first/Verify-DeltaFinal.ps1` : nouveaux tests arbre/réalisation/navigation/favoris, LocalPreview21, Boards Programme38 et cas D024 ; nouveaux bancs AssociationRows/DiagnosticExport et règles modifiées ciblées. Ne pas répéter les suites inchangées.
-3. Déployer dans de nouveaux dossiers, contrôle natif du pack final et réouverture/captures via `Visual-Final.ps1`. Vérifier réellement les pixels. Garder toutes les preuves d'échec puis les retests, liées aux SHA exacts.
-4. Mettre Suivi/README/packs à jour ; reconstruire les archives si docs changent, vérifier parité applicative avec le candidat testé. Push master normal et vérifier SHA distant. Le garde formel Publishable=false n'est pas à contourner : recette labo critique ≠ qualification générale complète.
+1. Corriger/rejouer les six échecs WiringRecherche R4 ; conserver les échecs initiaux et leurs retests. Runtime gelé après le dernier correctif confirmé, sans nouvelle génération.
+2. Rapprocher les hashes des preuves R1/R2/R3/R4, régénérer registres/manifestes si nécessaire et construire les archives DEV/PROD finales. Ne pas répéter les suites inchangées.
+3. Contrôler le démarrage natif du pack final et réouvrir/capturer avec `Visual-Final.ps1` ; vérifier réellement les pixels.
+4. Finaliser Suivi/README/packs, vérifier la parité applicative avec le candidat testé, puis push master normal et SHA distant. Le garde formel Publishable=false n'est pas à contourner : recette critique ciblée ≠ qualification générale complète.
 
 ## Commandes et accès
 
@@ -59,4 +60,10 @@ Déployés dans `RC39-final/dev` et `RC39-final-ui/prod`, empreintes contrôlée
 
 ## Delta1 terminé ; corrections et relance ciblée
 
-Checkpoint code stable vérifié `81ac0cb66a246bce9061d5fa9ffd030f7fd0017a`. Résultats delta1 dans `validation/2026-10-20/rc39-critical/rc39-final-delta` : modules185/185, QueryTargets39/39, favoris20/20, associations5/5, diagnostic4/4, D0241/1 et quatre fichiers de règles passent. Échecs corrigés : référence System.Xaml/System.Core (runtime arbre), vraie vérification de type PSCustomObject (runtime cache), fixtures UTC/Filter dupliqué/import réel Park. Aucun OpenCode actif. Relance `Verify-DeltaRetest.ps1`, sorties `rc39-final-retest`, à lancer après patch des candidats. Ancien harnais ExitCode=null ; nouveau harnais Process .NET conserve les vrais codes. Archives delta1 conservées dans `packs-final-r1`, originales critiques dans `packs-initial-critical`.
+Checkpoint code stable vérifié `81ac0cb66a246bce9061d5fa9ffd030f7fd0017a`. Résultats delta1 dans `validation/2026-10-20/rc39-critical/rc39-final-delta` : modules 185/185, QueryTargets 39/39, favoris 20/20, associations 5/5, diagnostic 4/4, D024 1/1 et quatre fichiers de règles passent. Échecs corrigés : référence System.Xaml/System.Core (runtime arbre), vraie vérification de type PSCustomObject (runtime cache), fixtures UTC/Filter dupliqué/import réel Park. Aucun OpenCode actif. Relance `Verify-DeltaRetest.ps1`, sorties `rc39-final-retest`, à lancer après patch des candidats. Ancien harnais ExitCode=null ; nouveau harnais Process .NET conserve les vrais codes. Archives delta1 conservées dans `packs-final-r1`, originales critiques dans `packs-initial-critical`.
+
+## Retests R2/R4 confirmés ; six cas WiringRecherche encore en correction
+
+R2 dans `validation/2026-10-20/rc39-critical/rc39-final-retest` : LocalPreview 21/21, QueryTargets 39/39, Boards Programme 38 4/4 (`SelectionComplete=true`, `Complete=false`), TreeRendering 4/4, Navigation Programme 8 5/5 (`Complete=false`), règles pures Park 14/14. Les autres succès R1 restent inchangés : modules 185, favoris 20, associations 5, diagnostic 4, D024 1 et règles BoardFleet 26/Collection 49/DirectorySync 11/Observability 17.
+
+R4 `rc39-tree-r4/TreeVirtualization.json` : 8/8 sous WPF réel, 10 000 données synthétiques, maximum 61 conteneurs sur neuf cibles (premier relevé 40). Les échecs R2/R3 restent conservés ; le panneau standard imposé par le trigger hérité a été corrigé. Ce résultat ne mesure pas la mémoire du processus et ne qualifie pas un parc AD réel. WiringRecherche R4 a été lancé sans filtre : 47/53 ; les dix cas visés en R2 passent, six autres échecs sont en correction/retest chez parcours. Voir le README des preuves pour les liens et limites exactes. Point 59 hors passe ; `acceptance_passed=false` et qualification générale ouverte.
