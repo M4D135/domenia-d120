@@ -92,7 +92,7 @@ foreach($name in @('Convert-WLargeInteger','Convert-WFileTime','Escape-WLdap','C
     if($node.Count -ne 1){throw ('Fonction worker absente : '+$name)}
     . ([scriptblock]::Create($node[0].Extent.Text))
 }
-foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
+foreach($file in @('Domenia-Common.Model.ps1','Domenia-Store.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Cache.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1','Domenia-Shell.Model.ps1','Domenia-Probes.Model.ps1','Domenia-BoardFleet.Model.ps1','Domenia-Query.Model.ps1','Domenia-Search.Model.ps1','Domenia-SearchWorkspace.Model.ps1','Domenia-Experience.Model.ps1','Domenia-Live.Model.ps1','Domenia-Park.Model.ps1','Domenia-Engine.UI.ps1','Domenia-Storage.UI.ps1','Domenia-Live.UI.ps1','Domenia-LocalPreview.UI.ps1','Domenia-Continuity.Model.ps1','Domenia-Continuity.UI.ps1','Domenia-Selection.UI.ps1','Domenia-Search.UI.ps1')){
     . (Join-Path $modules $file)
 }
 
@@ -130,6 +130,15 @@ function Get-DomeniaDatabasePath {return 'C:\DomeniaTest\aucune-base.db'}
 function Get-DomeniaSetting {param($Name,$Default) if($script:Settings.ContainsKey([string]$Name)){return $script:Settings[[string]$Name]};return $Default}
 function Set-DomeniaSetting {param($Name,$Value) $script:Settings[[string]$Name]=$Value}
 function Save-DomeniaSettings {param([switch]$Immediate,[switch]$ThrowOnFailure)}
+# The real preview adapter is required by Begin-DomeniaLiveSearch. Only its storage boundary is doubled:
+# an absent local copy completes immediately, and the independent directory request must still start.
+function Request-DomeniaStoreRead {
+    param($Context,$Query,$SuccessHandler,$ErrorHandler,$CallbackState,[switch]$Preview)
+    $script:LocalReadRequests.Add([pscustomobject]@{Context=$Context;Query=$Query;Preview=[bool]$Preview})
+    $result=[pscustomobject]@{Rows=@();Busy=$false;Missing=$true;DataSource='SQLite';StoreId=[string]$Context.StoreId}
+    & $SuccessHandler -Result $result -State $CallbackState
+    return 'local-read-fixture'
+}
 function Clear-Secrets { }
 function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
 function Set-DomeniaRelationsGridSelection { }
@@ -200,6 +209,7 @@ function New-TestControls {
 }
 function Reset-Fixture {
     Stop-DomeniaTreeItemReveal;$script:DomeniaTreeSelectedNode=$null
+    Stop-DomeniaOuTreeFilter
     if($null -ne $script:Live -and $null -ne $script:Live.Timer){$script:Live.Timer.Stop()}
     if($null -ne $script:Continuity -and $null -ne $script:Continuity.Timer){$script:Continuity.Timer.Stop()}
     $script:Live=$null;$script:Continuity=$null
@@ -207,6 +217,7 @@ function Reset-Fixture {
     $script:ProcessIdentity='EXAMPLE\lecteur';$script:MachineCredential=$null;$script:RemoteAdminCredential=$null;$script:AccessState=$null
     $script:SessionEpoch=5L;$script:GlobalSearchGeneration=40;$script:SelectedObjectGeneration=0L
     $script:SearchMode='OU';$script:SelectedBranchDn='OU=Postes,DC=example,DC=invalid';$script:CurrentPresenceFilter='Tous'
+    $script:SearchBarScope='Everywhere';$script:SearchBarType='Tous';$script:SearchBarUpdating=$false
     $script:ActiveSearchViewId='';$script:DemoMode=$false
     $script:WriteBlocked=$false;$script:ActiveWriteTaskId='';$script:WriteState='Idle';$script:AsyncEngineClosing=$false;$script:DirectoryCredentialFaulted=$false
     $script:SuppressGridSelectionEvents=$false;$script:SuppressBranchAutoLoad=$false;$script:RestoringSettings=$false
@@ -215,6 +226,7 @@ function Reset-Fixture {
     $script:CurrentObjectRequestId='';$script:CurrentObjectRequestDn='';$script:CurrentObjectRequestState=$null;$script:SelectionResetDn='';$script:DraftState=$null
     $script:BranchObjects=@();$script:BranchCountLabel='';$script:LastObjectOpenError='';$script:OpenFailure=''
     $script:Tasks=[Collections.Generic.List[object]]::new();$script:OperationErrors=[Collections.Generic.List[string]]::new();$script:Stops=0
+    $script:LocalReadRequests=[Collections.Generic.List[object]]::new()
     # New-DomeniaStoreContext (real) needs the scoped base path; no file is opened by this suite.
     $script:DatabaseScopedPath='C:\DomeniaTest\recherche.db';$script:Pipes=[Collections.Generic.List[object]]::new()
     $script:LastStatus='';$script:LastStatusLevel='';$script:DirtyFields=@();$script:CfgOverrides=@{};$script:Settings=@{}
@@ -348,6 +360,7 @@ Case 'D032 Upper-bar text does not cancel a pending OU restoration' {
     $script:Ctrl.TxtGlobalSearch.Text='autre recherche du bandeau'
     Invoke-DomeniaRestoredOuSearch
     $t=Get-LastTask 'GlobalSearch'
+    Expect ($script:OperationErrors.Count -eq 0) ('Preparation de recherche : '+($script:OperationErrors -join ' | '))
     Expect ($null -ne $t -and $t.CallbackState.SearchMode -eq 'OU' -and $t.Payload.BaseDn -eq 'OU=Postes,DC=example,DC=invalid') 'Le texte du bandeau a annule la restauration de lʼOU.'
 }
 Case 'D032 OU text change still cancels a pending OU restoration' {
@@ -360,8 +373,10 @@ Case 'D032 OU text change still cancels a pending OU restoration' {
     Expect ((Get-TaskCount 'GlobalSearch') -eq 0 -and $null -eq $script:Continuity.RestoreSearch)
 }
 Case 'D032 Clicking an OU after a user search browses the OU without the user name' {
-    [void](Search-Global 'dupont')
-    Expect ($script:Ctrl.LblSearchScope.Text.Contains('Domaine entier'))
+    $global=Search-Global 'dupont'
+    Expect ($script:OperationErrors.Count -eq 0) ('Preparation de recherche : '+($script:OperationErrors -join ' | '))
+    Expect ($null -ne $global -and $global.CallbackState.SearchMode -eq 'Global' -and $global.Payload.BaseDn -eq $script:Conn.BaseDn -and $global.Payload.Scope -eq 'Subtree') 'La recherche initiale doit porter sur le domaine entier.'
+    Expect ($script:Ctrl.LblSearchScope.Text -ceq 'Recherche · Partout · Tous les types · Aucun filtre de liste') ('Libelle global : '+$script:Ctrl.LblSearchScope.Text)
     Set-SelectedBranch ([pscustomobject]@{Tag=[pscustomobject]@{DN='OU=Lyon,DC=example,DC=invalid'}})
     $t=Get-LastTask 'GlobalSearch'
     Expect ($t.CallbackState.SearchMode -eq 'OU' -and $t.CallbackState.Search -eq '' -and $t.Payload.BaseDn -eq 'OU=Lyon,DC=example,DC=invalid')
@@ -973,6 +988,7 @@ Case 'CO-21 Un favori ne remplit plus de champ cache : son terme va au filtre lo
     $script:Ctrl.TxtBranchSearch.Text='ancien'
     Load-DomeniaFavouriteSearch -Dn 'OU=Lyon,DC=example,DC=invalid'
     $t=Get-LastTask 'GlobalSearch'
+    Expect ($script:OperationErrors.Count -eq 0) ('Preparation de recherche : '+($script:OperationErrors -join ' | '))
     Expect ($script:Ctrl.TxtBranchSearch.Text -eq '' -and $script:Ctrl.TxtSuiteResultFilter.Text -eq 'compta') ('Champs : cache='+$script:Ctrl.TxtBranchSearch.Text+' visible='+$script:Ctrl.TxtSuiteResultFilter.Text)
     Expect ($null -ne $t -and $t.CallbackState.Search -eq '' -and $t.Payload.BaseDn -eq 'OU=Lyon,DC=example,DC=invalid' -and $t.Payload.Scope -eq 'Subtree') 'La recherche porte un terme invisible ou un autre perimetre.'
     Expect ([string]$script:Ctrl.CmbGlobalType.SelectedItem.Content -eq 'Groupes' -and -not ([string]$script:Ctrl.LblSearchScope.Text).Contains('Terme')) ('Portee : '+$script:Ctrl.LblSearchScope.Text)
@@ -1015,11 +1031,17 @@ Case 'DS-07 Filtrer les OU : local, sans lecture ni depliage dʼune branche non 
     $root.Items.Clear();[void](Add-DomeniaTreeRowsToNode -Node $root -Rows @([pscustomobject]@{Name='Comptabilité';DN='OU=Comptabilite,DC=example,DC=invalid';Kind='OU'},[pscustomobject]@{Name='Postes';DN='OU=Postes,DC=example,DC=invalid';Kind='OU'}))
     $root.Tag.Loaded=$true
     $script:Ctrl.TxtOuFilter.Text='compta';Update-DomeniaOuTreeFilter
+    # The real filter now yields after 8 ms; drive its bounded slices rather than assuming the first is final.
+    for($slice=0;$slice -lt 100 -and $null -ne $script:OuTreeFilterWork;$slice++){Invoke-DomeniaOuTreeFilterSlice}
+    Expect ($null -eq $script:OuTreeFilterWork) 'Le filtre des trois branches ne termine pas dans le budget de la fixture.'
     $items=@($root.Items)
     Expect ($root.Visibility -eq 'Visible' -and $items[0].Visibility -eq 'Visible' -and $items[1].Visibility -eq 'Collapsed') 'Filtre des OU incorrect.'
+    Expect ($root.ChildrenView.Count -eq 1 -and [object]::ReferenceEquals($root.ChildrenView.GetItemAt(0),$items[0])) 'La vue filtree ne doit exposer que la branche correspondante.'
     Expect (-not $items[0].IsExpanded -and (Get-TaskCount @('TreeChildren','GlobalSearch')) -eq 0) 'Le filtre a lu lʼannuaire ou deplie une branche non lue.'
     Expect (([string]$script:Ctrl.LblTreeStatus.Text).Contains('compta')) ('Statut du filtre : '+$script:Ctrl.LblTreeStatus.Text)
     $script:Ctrl.TxtOuFilter.Text='';Update-DomeniaOuTreeFilter
+    for($slice=0;$slice -lt 100 -and $null -ne $script:OuTreeFilterWork;$slice++){Invoke-DomeniaOuTreeFilterSlice}
+    Expect ($null -eq $script:OuTreeFilterWork -and $root.ChildrenView.Count -eq 2) 'Effacer le filtre doit terminer et restituer la vue complete.'
     Expect ($items[1].Visibility -eq 'Visible') 'Effacer le filtre ne reaffiche pas tout.'
     Expect (-not ([string]$script:Ctrl.LblTreeStatus.Text).Contains('compta')) ('Le statut decrit un filtre efface : '+$script:Ctrl.LblTreeStatus.Text)
 }

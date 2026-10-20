@@ -1,0 +1,153 @@
+{
+  "Suite": "DomeniaLocalPreview",
+  "Passed": true,
+  "Total": 21,
+  "Failed": 0,
+  "Assertions": 56,
+  "SQLiteVersion": "3.43.2",
+  "ProjectionTimings": [
+    {
+      "Round": 1,
+      "Normalized": false,
+      "Rows": 100,
+      "Ms": 569.2954
+    },
+    {
+      "Round": 1,
+      "Normalized": true,
+      "Rows": 100,
+      "Ms": 139.0234
+    },
+    {
+      "Round": 2,
+      "Normalized": false,
+      "Rows": 100,
+      "Ms": 115.5407
+    },
+    {
+      "Round": 2,
+      "Normalized": true,
+      "Rows": 100,
+      "Ms": 302.3285
+    },
+    {
+      "Round": 3,
+      "Normalized": false,
+      "Rows": 100,
+      "Ms": 195.6705
+    },
+    {
+      "Round": 3,
+      "Normalized": true,
+      "Rows": 100,
+      "Ms": 124.56930000000001
+    }
+  ],
+  "Cases": [
+    {
+      "Name": "Prefix preview reads canonical stored rows before any directory call",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Prefix literal underscore never acts as a wildcard",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Prefix literal percent never expands the query",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "One-level and subtree previews preserve the selected OU",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Object preview uses exact DN and GUID together",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Local type filter does not return a workstation as a person",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Normalized display projection preserves values and never mutates its source",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Simple search starts a short preview of its exact perimeter",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Complex searches never receive a broader local substitute",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Stored rows are published as cached, with their actual date",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Late cache cannot replace a completed directory result",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Old search callback cannot paint a new search",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Directory failure still permits an available local preview",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Stored object is rendered without a remote probe or fresh confirmation",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Object from an old epoch never renders",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Different object GUID never renders from the local store",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Fast AD failure waits for the already pending local object",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 6 Delta accepts only mapped fields and rejects identity security and unknown shapes",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 6 Real object callback skips fills and changes one field without skipping safety or freshness",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Unchanged canonical attributes preserve presentation only for the same reader and identity",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Expired visit can be shown as a preview without extending its freshness",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

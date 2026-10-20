@@ -1,10 +1,11 @@
 ﻿#requires -Version 5.1
-[CmdletBinding()]param([string]$ReportPath='')
+[CmdletBinding()]param([string]$ReportPath='',[switch]$PanelDiagnosticOnly)
 $ErrorActionPreference='Stop'
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Windows PowerShell 5.1 STA required.' }
 $wad=Split-Path -Parent $PSScriptRoot
 . (Join-Path $wad 'modules/Domenia-DirectoryTree.UI.ps1')
 Add-DomeniaDirectoryTreeTypes
+. (Join-Path $wad 'modules/Domenia-Common.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Search.Model.ps1')
 . (Join-Path $wad 'modules/Domenia-Continuity.Model.ps1')
 foreach($source in @(
@@ -42,7 +43,20 @@ function Pump-Tree {
 function Drain-Reveal {
     $limit=[datetime]::UtcNow.AddSeconds(10)
     while($null -ne $script:DomeniaTreeItemReveal -and [datetime]::UtcNow -lt $limit){Pump-Tree}
-    Assert-Tree ($null -eq $script:DomeniaTreeItemReveal) 'Target reveal did not finish.'
+    if($null -ne $script:DomeniaTreeItemReveal){
+        $pending=$script:DomeniaTreeItemReveal;$details=[Collections.Generic.List[object]]::new()
+        $owner=$script:Tree
+        foreach($node in $pending.Path){
+            if($null -eq $owner){break}
+            $container=[Domenia.Tree.DomeniaTreeSupport]::ContainerFromItem($owner,$node)
+            $panel=[Domenia.Tree.DomeniaTreeSupport]::FindPanel($owner)
+            $details.Add([pscustomobject]@{Node=[string]$node.Header;Index=$owner.Items.IndexOf($node);Container=($null -ne $container);Expanded=[bool]$node.IsExpanded;Panel=$(if($null -ne $panel){$panel.GetType().FullName}else{'missing'});PanelHeight=$(if($null -ne $panel){$panel.ActualHeight}else{-1});Offset=$(if($null -ne $panel){$panel.VerticalOffset}else{-1})})
+            $owner=$container
+        }
+        $diagnostic=[pscustomobject]@{PendingLevel=$pending.Level;Path=$details.ToArray()}
+        $script:Measurements.Add($diagnostic)
+        throw ('Target reveal did not finish: '+($diagnostic|ConvertTo-Json -Depth 5 -Compress))
+    }
     Pump-Tree
 }
 function Count-Generated {
@@ -59,6 +73,31 @@ function Count-Generated {
         }
     }
     return $count
+}
+function Get-TreePanelDiagnostic {param($Owner)
+    $panels=[Collections.Generic.List[object]]::new();$presenters=[Collections.Generic.List[object]]::new()
+    $queue=[Collections.Generic.Queue[object]]::new();$queue.Enqueue($Owner);$visited=0
+    while($queue.Count -gt 0 -and $visited -lt 256){
+        $visual=$queue.Dequeue();$visited++
+        if($visual -is [Windows.Controls.TreeViewItem] -and -not [object]::ReferenceEquals($visual,$Owner)){continue}
+        if($visual -is [Windows.Controls.Panel]){
+            $itemsOwner=[Windows.Controls.ItemsControl]::GetItemsOwner($visual)
+            $panels.Add([pscustomobject]@{Type=$visual.GetType().FullName;IsItemsHost=$visual.IsItemsHost;ItemsOwnerType=$(if($null -ne $itemsOwner){$itemsOwner.GetType().FullName}else{''});OwnPanel=[object]::ReferenceEquals($itemsOwner,$Owner);Height=$visual.ActualHeight})
+        }
+        if($visual -is [Windows.Controls.ItemsPresenter]){$presenters.Add($visual)}
+        for($i=0;$i -lt [Windows.Media.VisualTreeHelper]::GetChildrenCount($visual);$i++){$queue.Enqueue([Windows.Media.VisualTreeHelper]::GetChild($visual,$i))}
+    }
+    $source=[Windows.DependencyPropertyHelper]::GetValueSource($Owner,[Windows.Controls.ItemsControl]::ItemsPanelProperty)
+    $panelType='';if($null -ne $Owner.ItemsPanel -and $null -ne $Owner.ItemsPanel.VisualTree){$panelType=$Owner.ItemsPanel.VisualTree.Type.FullName}
+    $triggers=[Collections.Generic.List[object]]::new();$style=$Owner.Style;$depth=0
+    while($null -ne $style -and $depth -lt 8){
+        foreach($trigger in $style.Triggers){
+            if($trigger -isnot [Windows.Trigger]){continue}
+            foreach($setter in $trigger.Setters){if($setter -is [Windows.Setter] -and $setter.Property -eq [Windows.Controls.ItemsControl]::ItemsPanelProperty){$triggers.Add([pscustomobject]@{Depth=$depth;Property=$trigger.Property.Name;Value=[string]$trigger.Value;PanelType=$setter.Value.VisualTree.Type.FullName})}}
+        }
+        $style=$style.BasedOn;$depth++
+    }
+    return [pscustomobject]@{OwnerType=$Owner.GetType().FullName;ItemsPanelType=$panelType;ValueSource=[string]$source.BaseValueSource;Panels=$panels.ToArray();PresenterCount=$presenters.Count;Presenters=$presenters.ToArray();ItemsPanelTriggers=$triggers.ToArray();Visited=$visited}
 }
 function Select-TestNode {param($Node)
     $script:SelectedBranchDn=[string]$Node.Tag.DN
@@ -94,9 +133,25 @@ try{
     [void]$root.Items.Add($group);$system=$group.Items[0];$system.Items.Clear();$system.Tag.Loaded=$true
     [void]$script:Tree.Items.Add($root);Set-DomeniaTreeItemExpanded -Node $root
     $script:Window.Show();Pump-Tree;Pump-Tree
+    if($PanelDiagnosticOnly){
+        $owner=Get-DomeniaTreeContainerForItem -Tree $script:Tree -Node $root
+        $before=Get-TreePanelDiagnostic -Owner $owner
+        foreach($presenter in $before.Presenters){[void]$presenter.ApplyTemplate()}
+        $after=Get-TreePanelDiagnostic -Owner $owner
+        $before.Presenters=@();$after.Presenters=@()
+        $methods=@([Windows.Controls.VirtualizingPanel].GetMethods()|Where-Object{$_.Name -eq 'BringIndexIntoViewPublic'}|ForEach-Object{$_.ToString()})
+        $diagnostic=[pscustomobject]@{Suite='DirectoryTreePanelDiagnostic';Before=$before;After=$after;PublicRevealMethods=$methods;Generated=(Count-Generated);Runtime=[Environment]::Version.ToString()}
+        $json=$diagnostic|ConvertTo-Json -Depth 8
+        if($ReportPath){[IO.File]::WriteAllText($ReportPath,$json,[Text.UTF8Encoding]::new($false))}
+        $json;return
+    }
     Case 'Programme 8 Ten thousand loaded nodes are data, initial WPF generation is bounded' {
         Assert-Tree ($root.Items.Count -eq 10001 -and @($root.Items|Where-Object{$_ -is [Windows.DependencyObject]}).Count -eq 0) 'Loaded data is missing or contains WPF controls.'
         $count=Count-Generated;Assert-Tree ($count -gt 1 -and $count -lt 300) ('Initial generated count: '+$count)
+        $rootContainer=Get-DomeniaTreeContainerForItem -Tree $script:Tree -Node $root
+        $childPanel=[Domenia.Tree.DomeniaTreeSupport]::FindPanel($rootContainer)
+        Assert-Tree ($null -ne $childPanel) 'The inherited theme trigger replaced the child reveal panel.'
+
     }
     Case 'Programme 8 Unloaded branch has a chevron and explicit expansion reads exactly once' {
         $unread=New-TreeItem 'unread' ('OU=unread,'+$script:Conn.BaseDn) 'OU'
@@ -129,6 +184,7 @@ try{
     }
     Case 'Programme 8 Selected unread leaf is found without reading its children' {
         $leaf=New-TreeItem 'not-expanded' ('OU=not-expanded,'+$script:Conn.BaseDn) 'OU';[void]$root.Items.Add($leaf)
+        Assert-Tree ([object]::ReferenceEquals((Find-DomeniaRealizedTreeNode -Dn ([string]$leaf.Tag.DN)),$leaf)) 'Unread leaf data lookup failed.'
         Assert-Tree (Select-DomeniaRealizedTreeNode -Dn ([string]$leaf.Tag.DN)) 'An existing unread leaf was incorrectly rejected.'
         Drain-Reveal;Assert-Tree ($leaf.IsSelected -and -not $leaf.Tag.Loaded -and $script:Reads.Count -eq 0) 'Selecting a leaf read its children.'
     }

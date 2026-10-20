@@ -48,6 +48,13 @@ function New-DomeniaDirectoryTreeContainerStyle {
     $factory = [Windows.FrameworkElementFactory]::new([Domenia.Tree.DomeniaVirtualizingStackPanel])
     $panel = [Windows.Controls.ItemsPanelTemplate]::new($factory)
     $style.Setters.Add([Windows.Setter]::new([Windows.Controls.ItemsControl]::ItemsPanelProperty,$panel))
+    # The inherited theme style has an IsVirtualizing trigger which wins over a plain setter.
+    # Override that trigger in the derived style so every level uses the reveal-capable panel.
+    $panelTrigger = [Windows.Trigger]::new()
+    $panelTrigger.Property = [Windows.Controls.VirtualizingPanel]::IsVirtualizingProperty
+    $panelTrigger.Value = $true
+    $panelTrigger.Setters.Add([Windows.Setter]::new([Windows.Controls.ItemsControl]::ItemsPanelProperty,$panel))
+    $style.Triggers.Add($panelTrigger)
     $style.Setters.Add([Windows.Setter]::new([Windows.Controls.VirtualizingPanel]::IsVirtualizingProperty,$true))
     $style.Setters.Add([Windows.Setter]::new([Windows.Controls.VirtualizingPanel]::VirtualizationModeProperty,[Windows.Controls.VirtualizationMode]::Recycling))
     return $style
@@ -156,7 +163,7 @@ function Start-DomeniaTreeItemReveal {
     if ($null -ne $walk -or -not [object]::ReferenceEquals($path[0],$tree.Items[0])) { return $false }
     Set-DomeniaTreeProgrammaticSelection -Node $Node
     $script:DomeniaTreeItemReveal = [pscustomobject]@{
-        Node=$Node;Path=$path.ToArray();Purpose=$Purpose;Root=$tree.Items[0];Epoch=[long]$script:SessionEpoch
+        Node=$Node;Path=$path.ToArray();Level=0;Purpose=$Purpose;Root=$tree.Items[0];Epoch=[long]$script:SessionEpoch
         Context=([string]$script:Conn.BaseDn+'|'+[string]$script:Conn.BindUser)
         Generation=[int]$script:GlobalSearchGeneration;AllowLoad=[bool]$AllowLoad;Deadline=[datetime]::UtcNow.AddSeconds(60)
     }
@@ -177,9 +184,18 @@ function Invoke-DomeniaTreeItemRevealTick {
     $tree = Get-DomeniaControl 'TvDirectory'
     if ($script:AsyncEngineClosing -or $null -eq $tree -or $tree.Items.Count -eq 0 -or [long]$state.Epoch -ne [long]$script:SessionEpoch -or [int]$state.Generation -ne [int]$script:GlobalSearchGeneration -or [string]$state.Context -cne ([string]$script:Conn.BaseDn+'|'+[string]$script:Conn.BindUser) -or -not [object]::ReferenceEquals($tree.Items[0],$state.Root) -or [datetime]::UtcNow -gt $state.Deadline) { Stop-DomeniaTreeItemReveal; return }
     $clock = [Diagnostics.Stopwatch]::StartNew()
-    $owner = $tree
-    for ($level=0; $level -lt $state.Path.Count; $level++) {
-        if ($clock.ElapsedMilliseconds -ge 8) { return }
+    $units = 0
+    # Resume at the pending level: replaying the root on every tick can starve deeper levels.
+    # Containers are looked up again, never retained across ticks (WPF may recycle them).
+    while ([int]$state.Level -lt $state.Path.Count) {
+        if ($units -gt 0 -and $clock.ElapsedMilliseconds -ge 8) { return }
+        $units++
+        $level = [int]$state.Level
+        $owner = $tree
+        if ($level -gt 0) {
+            $owner = Get-DomeniaTreeContainerForItem -Tree $tree -Node $state.Path[$level-1]
+            if ($null -eq $owner) { $state.Level = $level-1; continue }
+        }
         $node = $state.Path[$level]
         $container = [Domenia.Tree.DomeniaTreeSupport]::ContainerFromItem($owner,$node)
         if ($null -eq $container) {
@@ -196,7 +212,7 @@ function Invoke-DomeniaTreeItemRevealTick {
             Stop-DomeniaTreeItemReveal
             return
         }
-        Set-DomeniaTreeItemExpanded -Node $node -AllowLoad:([bool]$state.AllowLoad)
-        $owner = $container
+        if ((-not $node.IsExpanded) -or [bool]$state.AllowLoad) { Set-DomeniaTreeItemExpanded -Node $node -AllowLoad:([bool]$state.AllowLoad) }
+        $state.Level = $level+1
     }
 }

@@ -1,0 +1,34 @@
+{
+  "Suite": "DomeniaTreeRendering",
+  "Passed": true,
+  "Total": 4,
+  "Failed": 0,
+  "PowerShell": "5.1.26100.6584",
+  "RealWpf": false,
+  "RealDataTypes": true,
+  "SyntheticOnly": true,
+  "CoreSha256": "1C6913CACD820669B750FDE2E09E1E4C4A09F936B327B8225DD38BE295037F74",
+  "Cases": [
+    {
+      "Name": "Global quota, fair branches and parent completion; ordered=True",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Global quota, fair branches and parent completion; ordered=False",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Cancellation and replacement abandon the pending system group",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Failed system child never publishes Loaded and does not block another branch",
+      "Passed": true,
+      "Error": ""
+    }
+  ],
+  "Limitations": "Cooperative scheduling with production data types; no AD, container virtualization or real-time deadline qualification (separate WPF suite)."
+}

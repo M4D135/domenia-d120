@@ -1,0 +1,113 @@
+{
+  "Kind": "PureRules",
+  "Host": {
+    "Platform": "Windows",
+    "PSVersion": "5.1.26100.6584",
+    "PSEdition": "Desktop"
+  },
+  "NativeWindowsPowerShell51": true,
+  "WpfExecuted": false,
+  "DomainAccessed": false,
+  "NetworkAccessed": false,
+  "Passed": 14,
+  "Failed": 0,
+  "CoveredIds": [
+    "P60-23",
+    "P60-24",
+    "P-CO-19",
+    "P-FI-18",
+    "P-MO-08",
+    "P-SE-05",
+    "P-UI-23",
+    "P-UX-12",
+    "P-UX-24"
+  ],
+  "Complete": true,
+  "Limitation": "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+  "Tests": [
+    {
+      "Id": "P-SE-05",
+      "Name": "Plafond : au-dela de 500 postes, racine sans filtre et recherche globale sans terme refuses",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-SE-05",
+      "Name": "Plafond : une selection est son propre filtre, sous le meme plafond ; reglage borne",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-SE-05",
+      "Name": "Plafond : toute la liste selectionnee (Ctrl+A) suit les regles de la liste, jamais un releve deguise du domaine",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-MO-08",
+      "Name": "Delai du ping de liste : derive des attentes du worker par lot de 32, borne a 30 minutes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-CO-19",
+      "Name": "Compteurs : en ligne, sans reponse et erreur distincts ; une erreur DNS nʼest jamais un poste muet",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UX-12",
+      "Name": "Avancement court : 12/48 · 9 joignables en cours, trois compteurs a la fin, accents et pluriels",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UX-24",
+      "Name": "Confirmation : trois lignes, ecart explique, cible lisible, bouton chiffre, sans jargon",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UX-24",
+      "Name": "Confirmation : selection, perimetre, liste tronquee, un seul poste et lecture WMI seule",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UX-24",
+      "Name": "Confirmation : profil de collecte, requetes WMI regroupees et budget par sous-reseau dans les trois lignes",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UX-24",
+      "Name": "Duree estimee : echos par lots de 32, lectures quatre par quatre, libelles en francais",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-FI-18",
+      "Name": "Un releve par portee : le poste ouvert a la sienne, la liste et les perimetres partagent la leur",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P-UI-23",
+      "Name": "Verifier la liste : trois lectures graduees, de la plus legere a la plus complete",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P60-23",
+      "Name": "Plan de collecte : sondes rapides avant les lentes, ordre stable et aucune sonde ajoutée",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Id": "P60-24",
+      "Name": "Plan de collecte : forcer prime sur un âge de réutilisation fourni par un appelant",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

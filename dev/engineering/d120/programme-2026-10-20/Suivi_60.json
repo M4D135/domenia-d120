@@ -1180,18 +1180,21 @@
     "preuves": "Les rapports de lots décrivent les sources et les tests écrits, pas leur exécution. Les reçus datés priment pour les exécutions ; leurs hashes ne prouvent pas un runtime modifié ensuite."
   },
   "synthese": {
-    "code_restant_confirme": [
+    "code_restant_confirme": [],
+    "constats_intermediaires_corriges": [
       {
         "points": [
           8
         ],
-        "reste": "Virtualisation mémoire de TvDirectory non réalisée : les containers directs et branches accumulées restent matérialisés. Le budget de rendu ne remplace pas cette refonte."
+        "ancien_constat": "TvDirectory conservait directement les conteneurs ; le budget de rendu ne remplaçait pas la virtualisation.",
+        "correction": "Modèle observable séparé des TreeViewItem, template hiérarchique et panneaux virtuels intégrés. La qualification reste en cours : compilation et quatre cas TreeRendering réussis, TreeVirtualization signale encore un échec de comportement WPF en cours d'analyse. Les données déjà lues restent conservées."
       },
       {
         "points": [
           38
         ],
-        "reste": "Query Computer garde son recalcul complet : dépendances AD/lifecycle/observations non intégralement représentées dans ce cache. Les fournisseurs/agrégats amont du dashboard ne sont pas rendus entièrement incrémentaux par ce cache de plans."
+        "ancien_constat": "Les dépendances Query Computer n'étaient pas représentées dans le cache de plans et les fournisseurs amont étaient recalculés.",
+        "correction": "Cache Query Computer fondé sur le record canonique et ses champs demandés, qualité et dates ; record transmis au calcul en cas de miss. Cache logiciel placé avant groupements et tris. Les formes non admissibles et le fournisseur Computer gardent leur recalcul conservateur ; aucun incrémental universel ni gain chiffré revendiqué."
       }
     ],
     "couverture_code_bornee": [
@@ -1209,6 +1212,7 @@
       }
     ],
     "qualification_critique_restante": [
+      "Point 8 : compilation et TreeRendering (4 cas) réussis dans le delta en cours ; résoudre et rejouer l'échec de comportement WPF de TreeVirtualization avant tout verdict de qualification. Les reçus individuels seront rapprochés par root.",
       "Exécuter la delta Windows sur runtime final après correctifs 6/8/38, dont LocalPreview et Boards Programme 38 ; D024 précédent désormais reçu réussi.",
       "Rapprocher tous les reçus et hashes du runtime final puis reconstruire les packs et vérifier leur parité.",
       "AssociationRows (55) et DiagnosticExport (54) ont des bancs écrits sans reçu d’exécution dans cette série ; ne pas les annoncer validés."
