@@ -73,7 +73,30 @@ Les essais ont tourné dans **DOMENIA-FIRSTRUN-20261020**
 Son nom Windows interne reste FILPRO-W11B : les tests n’ont pas été exécutés dans la VM source.
 Le [reçu de création](Clone.json) confirme l’identité et la configuration source inchangée.
 PESTO et les autres projets n’ont pas été utilisés.
-La VM temporaire et son disque sont supprimés après push vérifié du commit `287299d`.
+La première VM temporaire et son disque ont été supprimés après push vérifié du commit `287299d`,
+avant la nouvelle demande de conservation ci-dessous.
 Les sept VM préexistantes sont conservées, dont CNAMTS-DC01 toujours démarré.
 Le journal VirtualBox résiduel a été retiré après inspection ; le dossier de la VM est absent.
 [Reçu final de nettoyage](Cleanup.json).
+
+
+## Conservation demandée après le nettoyage
+
+David a ensuite demandé de garder une VM au cas où. La suppression était déjà terminée :
+une **nouvelle copie complète indépendante** de FILPRO-W11B-TEST a été créée sous le même
+nom **DOMENIA-FIRSTRUN-20261020**, UUID `bc2f1ac0-9545-49bd-a0f5-cb89d352cf61`.
+Il ne s’agit pas de l’ancienne VM restaurée. La configuration source est restée identique
+pendant le clonage ([reçu](KeptClone.json)).
+
+Les packs définitifs DEV et PROD RC1.17.35 sont extraits dans `C:\DomeniaLab\RC1.17.35`.
+Leurs empreintes ZIP et les 172 fichiers applicatifs de chaque édition ont été vérifiés,
+sans lancer l’application ni reprendre les tests ([déploiement](KeptDeployment.json)).
+Le démarrage firmware bloqué à deux processeurs a été résolu en revenant à un processeur,
+comme lors des essais initiaux. Windows et le contrôle invité ont ensuite répondu.
+
+La VM est **conservée en état sauvegardé VirtualBox** (mémoire et disque gardés), après
+un arrêt Windows qui n’a pas terminé dans le délai d’attente. Elle ne consomme plus de CPU.
+Au prochain démarrage, laisser cet éventuel arrêt se terminer puis redémarrer si nécessaire.
+Les sept VM préexistantes restent enregistrées ; CNAMTS-DC01 reste démarré.
+[État final vérifié](RetainedVm.json). Les preuves de qualification précédentes portent
+sur l’ancienne VM ; aucune nouvelle qualification n’est revendiquée pour cette copie.

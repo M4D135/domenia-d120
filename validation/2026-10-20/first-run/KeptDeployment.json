@@ -1,0 +1,13 @@
+﻿{
+    "DateUtc":  "2026-10-20T11:18:30.9817071Z",
+    "Build":  "2026.10.20-DOMENIA-1.0-RC1.17.35-D120",
+    "Root":  "C:\\DomeniaLab\\RC1.17.35",
+    "ArchiveSHA256":  {
+                          "PROD":  "6a60a30a27cba4ec5d83ba76e81a9f99ff8c4bac7911977262ebaa7af477f94d",
+                          "DEV":  "4910d9251c351ba3f261954840f845641d8818217a53e67825c8e0fccf25ccd7"
+                      },
+    "RuntimeFiles":  172,
+    "Mismatches":  0,
+    "Action":  "Archives extracted and file hashes checked only; no application or tests launched",
+    "ComputerName":  "FILPRO-W11B"
+}
