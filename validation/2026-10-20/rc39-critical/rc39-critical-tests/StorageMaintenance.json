@@ -1,0 +1,178 @@
+{
+    "Suite":  "StorageMaintenance",
+    "Platform":  "Microsoft Windows NT 10.0.26200.0",
+    "PowerShell":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "Policy defaults are opt-in and reject invalid bounds",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backup scheduling respects interval, busy state and failed-attempt cooldown",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Move copies and verifies then redirects the preserved original",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restart discovers durable operation without writing and explicit resume verifies it",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Rollback removes only its own marker before any new target commit",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "An intervening source write or preexisting destination refuses the copy",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Rollback refuses a target that received a later commit",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Restore uses a separate verified target and never overwrites the active file",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Backup is standalone and readable after export without WAL sidecars",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Complete backup restores canonical data queries and the hash-linked preferences snapshot",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Mismatched or over-deep preferences are refused before a restore changes its active base",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Changing only the preferences attachment invalidates a confirmed restore preview",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Migration backup preserves pre-change schema and survives regular backup rotation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Retention deletes only old migrated families and preserves unknown recent and legacy rows",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Retention with no eligible rows avoids a redundant backup and preserves the revision",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Retention refusal rolls back and never silently accepts stale confirmation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 31: inspection validates the destination with a write test and states sizes",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 32: a move refused before publication says so and leaves the active base without marker",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 31: a completed move is undone only through the marker of its original",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 32: a base without canonical write can be moved, then rolled back to",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 34: restore preview dates the backup and compares it with the active base",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 34: restore over a corrupt active base leaves it untouched and writes no marker",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: unreadable patterns are the same in the model and the maintenance worker",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: the integrity worker checks exactly the tables and columns of the model",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check of a healthy base is read-only and clean",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check reports foreign identity, newer receipts and missing columns",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 36: integrity check of an unreadable file reports it without throwing",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 37: link history keeps every change and the bounds of each period",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 37: link history compaction reads each observation once on a large park",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Point 39: the composite index exists and the measured reads report their plan",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "RC13: confirmation reports the actual identity and revision, without writing",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "RC13: asynchronous switch waits for receipt confirmation and rejects stale or changed copies",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "RC14 StorageUsage splits domain metadata families, tolerates the old base and never double counts shared bytes",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Total":  33,
+    "Passed":  33,
+    "Failed":  0,
+    "Assertions":  192,
+    "NoNetwork":  true,
+    "Scope":  "Temporary SQLite databases; no Active Directory or real-user data."
+}

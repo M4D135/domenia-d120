@@ -26,7 +26,7 @@ Rédigé par le relecteur (OpenCode GLM-5.3-Flash low, relecture superviseur Cod
 
 Un vrai recyclage demanderait une migration vers un modèle de données d'arbre (hiérarchie de données + `HierarchicalDataTemplate`) générant les conteneurs par WPF. Impact à maîtriser, sans prétendre que cette migration existe :
 
-- `Tag` par nœud (`Name/DN/Kind/Loaded/RenderId/Loading`, plus `LoadingAt`, `DirectoryReadId` ajoutés dynamiquement) : doit migré sur l'objet modèle, car un conteneur recyclé change de cible.
+- `Tag` par nœud (`Name/DN/Kind/Loaded/RenderId/Loading`, plus `LoadingAt`, `DirectoryReadId` ajoutés dynamiquement) : doit migrer sur l'objet modèle, car un conteneur recyclé change de cible.
 - `Loaded`, `RenderId`, `Loading` : pilotés par le timer d'affichage et `Load-TreeChildren` ; à relier au modèle pour rester corrects au recyclage.
 - Sélection (`Add_Selected → Set-SelectedBranch`), `Expanded → Load-TreeChildren`, dépliage restitué (`Restore-DomeniaTreeNavState`, signets `Save-DomeniaTreeBookmark`), favoris (`AutomationProperties.ItemStatus 'Favori'`), `SuppressBranchAutoLoad`, restauration de sélection/défilement : tous s'accrochent aujourd'hui au `TreeViewItem` ; sous recyclage, les callbacks doivent suivre l'événement source/`DataContext`, sinon états faux au fil du scroll.
 - Filtre OU (`Update-DomeniaOuTreeFilter -OnlyWhenActive`) et statuts (`LblTreeStatus`) : appliqués au repère du nœud ; à relier au modèle.
