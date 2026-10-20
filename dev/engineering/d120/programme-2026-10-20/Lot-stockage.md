@@ -38,3 +38,9 @@ python3 ../stockage-20261020/run-opencode.py --new-session --model opencode/glm-
 ```
 
 Ne pas lancer une seconde invocation tant que celle indiquée active dans STATE.json n’est pas terminée. Les fichiers de profil et les journaux restent hors du dépôt ; aucun jeton n’y est écrit en clair.
+
+## Guides RC39 et limite de preuve
+
+Les quatre sources `guides/{technicien,administrateur}.{md,json}` ont été mises à jour par le tour OpenCode gratuit low `turn-20261020T202648Z.jsonl`, terminé avec exit 0, puis relues et corrigées par le superviseur. Elles décrivent la paire DB/annexe, les anciennes copies de données seules, l’ordre de restauration et le rollback des préférences, les dispositions prédéfinies, l’aperçu local puis AD et la provenance des indicateurs de santé. Le texte est identifié RC1.17.39 ; les captures RC1.17.20 restent explicitement historiques. Les champs de figures/provenance et les autres métadonnées protégées sont inchangés, vérifiés par empreintes avant/après.
+
+Root a ensuite retiré le seul préfixe de citation des deux notes de début de guide pour compatibilité avec le générateur, texte conservé. La génération des documents compilés et la qualification Windows critique relèvent de root. La revue de sources ne transforme ni les nouvelles assertions ni les captures historiques en preuves d’exécution du candidat RC39.

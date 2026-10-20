@@ -32,7 +32,7 @@ $script:LoadedFunctions=@(foreach($name in @('Initialize-DomeniaLive','Begin-Dom
 $tokens=$null;$errors=$null;$core=Join-Path $Wad 'Domenia-Core.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$errors)
 if(@($errors).Count){throw 'Core parse error.'}
-foreach($name in @('Get-DomeniaControl','Get-DomeniaSelectedGridRows','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
+foreach($name in @('Get-DomeniaEffectiveWorkerResult','Get-DomeniaControl','Get-DomeniaSelectedGridRows','Set-DomeniaControlText','Get-DomeniaSearchMode','Get-DomeniaSearchText','Get-DomeniaSearchScope','Get-TypeLdapFilter','Get-GlobalSelectedTypeFilter','Test-DomeniaSearchStateCurrent','Apply-DomeniaPresenceFilter')){
  $nodes=@($ast.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))
  if($nodes.Count -ne 1){throw ('Missing core definition '+$name)}
  . ([scriptblock]::Create($nodes[0].Extent.Text))

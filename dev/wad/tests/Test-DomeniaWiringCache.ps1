@@ -688,6 +688,8 @@ Test-Case 'D024 : Set-DomeniaResultRowPresence affiche une mesure committée san
 }
 
 Test-Case 'D024 : Show-AdObjectResult conserve ObservedUtc SQLite independamment de Created' {
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-Selection.UI.ps1') 'Get-DomeniaObjectReadIdentity')))
+    . ([scriptblock]::Create((Get-FunctionTextFromFile (Join-Path $modules 'Domenia-LocalPreview.UI.ps1') 'Test-DomeniaObjectPresentationUnchanged')))
     function Keep-DomeniaDraftOnResult { param($Result,$DN,$Type) return $false }
     function Clear-ObjectDetails { }
     function Remove-DomeniaSensitiveProperties { param($Properties) return $Properties }

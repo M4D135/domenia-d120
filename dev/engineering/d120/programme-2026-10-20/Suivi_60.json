@@ -741,5 +741,6 @@
     "health",
     "backup and restore"
   ],
-  "statics": "35 targeted Python checks passed after repairs; lexical and closed-loader checks passed; build succeeded."
+  "statics": "35 targeted Python checks passed after repairs; lexical and closed-loader checks passed; build succeeded.",
+  "checkpoint_note": "Première passe critique: startup et PS5.1 réussis; StoragePreferences, StorageMaintenance, StorageFaults, RemoteStore, CollectCircuit, HealthRules, StartupLogin réussis. Trois fixtures corrigées, relances ciblées en cours. Pas de qualification complète."
 }

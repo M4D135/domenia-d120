@@ -68,7 +68,7 @@ try{
  . (Join-Path $wad 'modules/Domenia-DirectoryStore.UI.ps1')
  . (Join-Path $wad 'modules/Domenia-Selection.UI.ps1')
  . (Join-Path $wad 'modules/Domenia-LocalPreview.UI.ps1')
- foreach($name in @('Remove-DomeniaSensitiveProperties','Get-TypeLdapFilter','Get-VisitCacheValue','Get-DomeniaEffectiveWorkerResult','Test-DomeniaObjectCallbackIsCurrent','Clear-DomeniaCurrentObjectRequest','Fail-DomeniaOpenObjectTaskUi')){
+ foreach($name in @('Test-DomeniaSensitiveAttributeName','Remove-DomeniaSensitiveProperties','Get-TypeLdapFilter','Get-VisitCacheValue','Get-DomeniaEffectiveWorkerResult','Test-DomeniaObjectCallbackIsCurrent','Clear-DomeniaCurrentObjectRequest','Fail-DomeniaOpenObjectTaskUi')){
   $node=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));if($node.Count -ne 1){throw ('Definition '+$name)};. ([scriptblock]::Create($node[0].Extent.Text))
  }
  function Get-CfgValue {param($Section,$Name,$Default);return $Default}
