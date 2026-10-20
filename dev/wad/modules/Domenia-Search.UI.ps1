@@ -1116,6 +1116,9 @@ function Get-DomeniaTreeItemFromElement {
 function Initialize-DomeniaSearchUi {
     if ($script:SearchUiInitialized) { return }
     $script:SearchUiInitialized = $true
+    # Actions, filtres et vues stays folded. It used to sit open over the result list.
+    $resultTools = Get-DomeniaControl 'UxResultToolsExpander'
+    if ($null -ne $resultTools) { $resultTools.IsExpanded = $false }
     $script:NavHistory = New-DomeniaNavHistory -Capacity 40
     $script:NavRestoring = $false
     $script:NavSearchLaunching = $false

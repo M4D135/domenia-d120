@@ -68,8 +68,8 @@ Check-Suite 'P111 : options avancees repliees par defaut' {
     $open=@($elements|Where-Object{($_.Element.LocalName -eq 'Expander') -and ([string]$_.Element.GetAttribute('IsExpanded') -eq 'True')}|ForEach-Object{[string]$_.Element.GetAttribute('Header')})
     # X04 (P-UX-19): « Reprises » holds the resume actions moved from Fiabilité; its routes (StorageResume, LegacyImport)
     # give the focus to a button inside it, so it stays open.
-    # Primary OU refresh and result actions stay accessible; these are not advanced settings.
-    $allowed=@('Emplacement et sauvegarde','Stockage local','Reprises','Actualiser lʼOU','Actions, filtres et vues')
+    # The OU refresh stays open. Actions, filtres et vues starts folded so it does not cover the result list.
+    $allowed=@('Emplacement et sauvegarde','Stockage local','Reprises','Actualiser lʼOU')
     $unexpected=@($open|Where-Object{$allowed -notcontains $_})
     if($unexpected.Count){throw ('Extenseurs ouverts : '+($unexpected -join ', '))}
     @($elements|Where-Object{[string]$_.Element.GetAttribute('Name',$x) -eq 'ExpAccountSecurityOptions'}).Count -eq 1

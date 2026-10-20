@@ -1558,11 +1558,11 @@
                         <Grid.RowDefinitions>
                           <RowDefinition Height="Auto"/>
                           <RowDefinition Height="Auto"/>
-                          <RowDefinition Height="*"/>
                           <RowDefinition Height="Auto"/>
+                          <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
-                        <Expander x:Name="UxResultToolsExpander" Grid.Row="0" Header="Actions, filtres et vues" IsExpanded="False" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><ScrollViewer x:Name="UxResultToolsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="150"><StackPanel>
-                        <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
+                        <!-- Count, clear and the list menu stay out of the folded tools: they are the everyday actions. -->
+                        <StackPanel x:Name="UxResultBar" Grid.Row="0" Margin="0,0,0,8"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
                             <!-- DS-06: Actualiser and Exporter CSV live in the « ⋯ » menu. Their buttons stay for the wiring, the busy states and
@@ -1589,6 +1589,8 @@
                         </DockPanel>
                         <!-- FO-01: few names or none in a global list: the « contains » search is offered as a chip and read on click only. -->
                         <Button x:Name="BtnSearchContains" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinHeight="28" Padding="12,2" Style="{StaticResource SecondaryButton}" Content="Chercher aussi les noms qui contiennent ce texte" AutomationProperties.Name="Chercher aussi les noms qui contiennent ce texte"/>
+                        </StackPanel>
+                        <Expander x:Name="UxResultToolsExpander" Grid.Row="1" Header="Actions, filtres et vues" IsExpanded="False" Margin="0,0,0,4" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><ScrollViewer x:Name="UxResultToolsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="220"><StackPanel Margin="0,6,0,2">
                         <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 <StackPanel Width="112" VerticalAlignment="Center" Margin="0,0,10,0"><TextBlock Text="Filtrer la liste" FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}"/><TextBlock x:Name="LblSuiteResultCount" Text="Filtre local : affine seulement les lignes déjà chargées." FontSize="{DynamicResource FontSizeCaption}" Foreground="{DynamicResource MutedColor}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" Height="18" Margin="0" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/></StackPanel>
@@ -1610,7 +1612,7 @@
                             </WrapPanel>
                             <!-- UX-12: thin bar of the survey of the list, in the bottom margin of the actions (no layout shift). -->
                             <ProgressBar x:Name="PbParkProgress" Height="3" VerticalAlignment="Bottom" Minimum="0" Maximum="100" Value="0" Visibility="Collapsed" IsHitTestVisible="False" AutomationProperties.Name="Avancement du relevé de la liste"/>
-                            <!-- DS-06: the selection and list states share one line (two halves); in compact mode they stack beside the actions. -->
+                            <!-- DS-06: the selection and list states share one line. They stay in this folded panel with the filters and views. -->
                             <Grid x:Name="UxResultLiveStatuses" Grid.Row="1"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Text="Sélectionnez une ligne pour précharger sa fiche. Double-clic : ouvrir." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" Height="20" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" x:Name="LblSelectionReadState"/>
                               <!-- FO-18: from two selected rows, the selection line becomes its actions (same height, no layout shift). -->
                               <StackPanel x:Name="UxSelectionBar" Orientation="Horizontal" Height="20" Visibility="Collapsed" VerticalAlignment="Center" AutomationProperties.Name="Actions sur la sélection">
@@ -1630,8 +1632,8 @@
                                   <Button x:Name="BtnParkOutcomeError" MinHeight="0" Height="18" MinWidth="0" Padding="6,0" Margin="0,0,4,0" FontSize="{DynamicResource FontSizeCaption}" VerticalAlignment="Center" AutomationProperties.Name="Afficher les postes en erreur de ping"><StackPanel Orientation="Horizontal"><Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center" Fill="{DynamicResource StatusError}"/><TextBlock Text="0 erreur" VerticalAlignment="Center"/></StackPanel></Button>
                                 </StackPanel>
                               </StackPanel></Grid>
-                          </Grid></StackPanel>
-                          <StackPanel Grid.Row="1" Margin="0,0,0,4">
+                          </Grid>
+                          <StackPanel Margin="0,8,0,4">
                             <WrapPanel>
                               <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,4">
                                 <ComboBox x:Name="CmbSearchWorkspace" MinWidth="160" MaxWidth="320" MinHeight="30" Margin="0,0,4,0" VerticalAlignment="Center" AutomationProperties.Name="Vue personnelle"/>
@@ -1655,7 +1657,7 @@
                             <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés"/>
                           </StackPanel>
                           </StackPanel></ScrollViewer></Expander>
-                          <Border x:Name="UxLiveActionsSection" Grid.Row="1" Margin="0,8,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
+                          <Border x:Name="UxLiveActionsSection" Grid.Row="2" Margin="0,4,0,8" Padding="10" Style="{StaticResource Card}" AutomationProperties.Name="Relevé de la liste">
                             <StackPanel>
                               <TextBlock Text="Relevé de la liste" FontWeight="SemiBold"/>
                               <TextBlock Text="Ping dʼabord. La lecture WMI ne part que si le poste répond. Les postes sans adresse attendent la fin des autres. La vue dʼensemble ne se recalcule pas toute seule." TextWrapping="Wrap" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeSmall}" Margin="0,4,0,8"/>
@@ -1669,7 +1671,7 @@
                               </WrapPanel>
                             </StackPanel>
                           </Border>
-                          <Grid Grid.Row="2">
+                          <Grid Grid.Row="3">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" RowHeight="34" AutomationProperties.Name="Résultats : sélection et ouverture explicite">
                             <DataGrid.RowStyle>

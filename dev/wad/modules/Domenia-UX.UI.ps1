@@ -635,10 +635,10 @@ function Set-DomeniaUxShortLayout {
     if(($script:UxDetailsLayoutWindow -ne $script:Window) -or ($script:UxDetailsTiny -ne $tiny)){
         $refresh=Get-DomeniaControl 'UxOuRefreshExpander'
         if($refresh){$refresh.IsExpanded=(-not $tiny)}
-        # Actions, filtres et vues start folded: the panel overlaps the result grid. A short window keeps it folded;
-        # leaving that height does not reopen it.
+        # Actions, filtres et vues start folded and a short window keeps them folded.
+        # Leaving that height does not reopen the panel.
         $tools=Get-DomeniaControl 'UxResultToolsExpander'
-        if($tools -and $tiny){$tools.IsExpanded=$false}
+        if($tools -and ($script:UxDetailsLayoutWindow -ne $script:Window -or $tiny)){$tools.IsExpanded=$false}
         $script:UxDetailsLayoutWindow=$script:Window;$script:UxDetailsTiny=$tiny
     }
     $script:UxCompactLayoutActive=$compact
