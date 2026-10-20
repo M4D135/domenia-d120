@@ -1,5 +1,8 @@
 # RC1.17.38 — démarrage mesuré
 
+**Complément final :** [contrôle visuel et chronométrage depuis l’hôte](final/README.md).
+Les mesures ci-dessous sont les premiers relevés, conservés comme historique.
+
 Deux suppressions de travail répété : les 3 059 exports sont vérifiés dans un
 instantané des fonctions visibles, au lieu de 3 059 appels au fournisseur Function.
 Chaque fonction doit toujours exister et provenir du fichier exact du plan fermé.

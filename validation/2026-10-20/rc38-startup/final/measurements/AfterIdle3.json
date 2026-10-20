@@ -1,0 +1,160 @@
+{
+    "Label":  "AfterIdle3",
+    "Passed":  true,
+    "Utc":  "2026-10-20T18:36:26.5563930Z",
+    "PS":  "5.1.26100.6584",
+    "Idle":  [
+                 {
+                     "Utc":  "2026-10-20T18:36:31.9293038Z",
+                     "CpuPercent":  [
+                                        25.58,
+                                        13.95,
+                                        23.44
+                                    ],
+                     "FreeMB":  2415
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:36:36.4644432Z",
+                     "CpuPercent":  [
+                                        18.75,
+                                        17.83,
+                                        16.41
+                                    ],
+                     "FreeMB":  2415
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:36:41.1220519Z",
+                     "CpuPercent":  [
+                                        15.62,
+                                        17.19,
+                                        15.62
+                                    ],
+                     "FreeMB":  2415
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:36:46.1523578Z",
+                     "CpuPercent":  [
+                                        13.18,
+                                        19.53,
+                                        21.88
+                                    ],
+                     "FreeMB":  2415
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:36:51.4470203Z",
+                     "CpuPercent":  [
+                                        16.28,
+                                        21.09,
+                                        14.84
+                                    ],
+                     "FreeMB":  2416
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:36:56.9752532Z",
+                     "CpuPercent":  [
+                                        11.72,
+                                        22.48,
+                                        13.28
+                                    ],
+                     "FreeMB":  2417
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:02.9849196Z",
+                     "CpuPercent":  [
+                                        13.28,
+                                        25,
+                                        14.06
+                                    ],
+                     "FreeMB":  2417
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:09.1923750Z",
+                     "CpuPercent":  [
+                                        18.6,
+                                        14.84,
+                                        21.09
+                                    ],
+                     "FreeMB":  2417
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:15.8950848Z",
+                     "CpuPercent":  [
+                                        12.4,
+                                        19.53,
+                                        19.53
+                                    ],
+                     "FreeMB":  2417
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:22.9447262Z",
+                     "CpuPercent":  [
+                                        18.6,
+                                        17.97,
+                                        20.31
+                                    ],
+                     "FreeMB":  2418
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:30.3178136Z",
+                     "CpuPercent":  [
+                                        16.41,
+                                        19.53,
+                                        18.6
+                                    ],
+                     "FreeMB":  2418
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:38.3270770Z",
+                     "CpuPercent":  [
+                                        23.26,
+                                        17.19,
+                                        17.97
+                                    ],
+                     "FreeMB":  2418
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:46.6068036Z",
+                     "CpuPercent":  [
+                                        15.62,
+                                        17.05,
+                                        22.66
+                                    ],
+                     "FreeMB":  2418
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:37:55.5051594Z",
+                     "CpuPercent":  [
+                                        16.41,
+                                        15.5,
+                                        17.19
+                                    ],
+                     "FreeMB":  2416
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:38:03.9105239Z",
+                     "CpuPercent":  [
+                                        14.84,
+                                        17.19,
+                                        8.59
+                                    ],
+                     "FreeMB":  2416
+                 }
+             ],
+    "Timings":  {
+                    "MainVisibleMs":  114306,
+                    "LoginVisibleMs":  21253
+                },
+    "CoreSHA256":  "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+    "LaunchUtc":  "2026-10-20T18:38:04.7016185Z",
+    "LauncherId":  5824,
+    "AppId":  1668,
+    "MainTitle":  "Accueil · Aucune sélection — Domenia",
+    "AppCpuSeconds":  83.484375,
+    "Endpoint":  "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+    "SessionLocked":  false,
+    "LoggedSeconds":  {
+                          "Apres login":  93.149,
+                          "Login/WINDOW_READY":  24.691
+                      },
+    "ClosedNormally":  true
+}

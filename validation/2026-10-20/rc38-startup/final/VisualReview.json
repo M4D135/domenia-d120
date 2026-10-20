@@ -1,0 +1,36 @@
+{
+  "Passed": true,
+  "Method": "Revue des captures ; clics réels via la souris de la console VirtualBox",
+  "Viewport": [
+    1140,
+    852
+  ],
+  "Actions": [
+    {
+      "Action": "Outils",
+      "X": 41,
+      "Y": 687,
+      "Screenshot": "visual-tools.png"
+    },
+    {
+      "Action": "Accueil",
+      "X": 41,
+      "Y": 107,
+      "Screenshot": "visual-home-return.png"
+    },
+    {
+      "Action": "Double clic titre : maximiser",
+      "X": 500,
+      "Y": 15,
+      "Screenshot": "visual-maximized.png"
+    },
+    {
+      "Action": "Double clic titre : rétablir",
+      "X": 500,
+      "Y": 15,
+      "Screenshot": "visual-restored.png"
+    }
+  ],
+  "Observed": "Connexion entière et lisible ; accueil, Premiers pas et lecture seule visibles ; Outils puis Accueil affichés ; maximisation et restauration visibles ; commandes et défilement accessibles.",
+  "HarnessLimitation": "Le sélecteur UI Automation BtnUxNavTools était indisponible. Tentative archivée dans Visual-UiaAttempt.json ; contrôle terminé par clics dans la console."
+}

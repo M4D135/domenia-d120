@@ -1,0 +1,79 @@
+﻿2026-10-20 20:19:33.925	2ab18aa4fdc84a739753d71e40fa2b77	7	Preferences/Migration	INFO	0	Conserver : C:\DomeniaLab\RC35-qualification\startup38\prod\wad\data\Domenia.settings.json -> C:\DomeniaLab\RC35-qualification\startup38\prod\wad\data\Preferences\Domenia.settings.json ; Preferences deja presentes : aucun ecrasement.
+2026-10-20 20:19:33.937	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Mode	INFO	0	Portable ; Deduit ; C:\DomeniaLab\RC35-qualification\startup38\prod\wad\data
+2026-10-20 20:19:33.962	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Mode	WARN	0	Mode Compatible : des donnees existent dans wad\data, le mode Portable est retenu. Choisir UserLocal ou Portable pour un mode explicite.
+2026-10-20 20:19:33.962	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Categorie	INFO	0	Configuration ; Lecture seule attendue ; C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia.config.json
+2026-10-20 20:19:33.972	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Categorie	INFO	0	Preference ; Pret ; C:\DomeniaLab\RC35-qualification\startup38\prod\wad\data\Preferences
+2026-10-20 20:19:33.981	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Categorie	INFO	0	Cache ; Pret ; C:\DomeniaLab\RC35-qualification\startup38\prod\wad\data
+2026-10-20 20:19:34.002	2ab18aa4fdc84a739753d71e40fa2b77	7	Stockage/Categorie	INFO	0	Receipt ; Non verifie ; C:\Users\Administrateur\AppData\Local\Domenia\Receipts
+2026-10-20 20:19:34.022	2ab18aa4fdc84a739753d71e40fa2b77	7	Application	START	0	Demarrage Domenia 1.0 (2026.10.20-DOMENIA-1.0-RC1.17.38-D120)
+2026-10-20 20:19:34.046	2ab18aa4fdc84a739753d71e40fa2b77	7	Integrite du paquet	OK	2514	172 fichiers runtime controles (plafond 250), 142 composants requis.
+2026-10-20 20:19:34.107	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/APPLICATION_START	INFO	0	PID=1856 Script=C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia-Core.ps1 Root=C:\DomeniaLab\RC35-qualification\startup38\prod\wad
+2026-10-20 20:19:34.738	2ab18aa4fdc84a739753d71e40fa2b77	7	Prevalidation interface	OK	540	XML et membres XAML de la connexion valides ; interface principale verifiee puis chargee apres authentification.
+2026-10-20 20:19:34.847	2ab18aa4fdc84a739753d71e40fa2b77	7	Login	START	0	Ouverture du login V2.3.1 SINGLE FILE ENTERPRISE  mode=Standard  source=C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia.login-mode.cfg
+2026-10-20 20:19:34.930	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/WINDOW_CREATE	INFO	0	Construction du login Domenia 1.0 Mode=Standard Source=C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia.login-mode.cfg
+2026-10-20 20:19:38.112	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/WINDOW_SHOW	INFO	0	ShowDialog
+2026-10-20 20:19:38.592	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/WINDOW_READY	INFO	0	Fenetre affichee. Mode=Standard Source=C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia.login-mode.cfg Script=C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia-Core.ps1
+2026-10-20 20:19:39.096	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/ACTIVATION	OK	0	Trigger=Launch Resultat=Refusee
+2026-10-20 20:19:40.551	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/CLICK	INFO	0	Compte=CNAMTS\Administrateur Mode=Windows
+2026-10-20 20:19:40.798	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/SESSION_CREATE	INFO	0	Mode=Windows Domaine= Base= Serveur= Timeout=30s
+2026-10-20 20:19:41.141	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/AUTH_STARTED	OK	0	Mode=Windows Runspace=MTA Processus=1856
+2026-10-20 20:19:42.451	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/TIMER_STARTED	INFO	0	Interval=200ms IsEnabled=True
+2026-10-20 20:19:42.791	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/PROGRESS	INFO	0	Preparation|Initialisation du controle Active Directory en memoire
+2026-10-20 20:19:42.802	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/HEARTBEAT	INFO	0	Elapsed=2s Runspace=MTA Processus=1856
+2026-10-20 20:19:43.825	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/HEARTBEAT	INFO	0	Elapsed=3s Runspace=MTA Processus=1856
+2026-10-20 20:19:44.054	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/PROGRESS	INFO	0	Decouverte Active Directory|Bind LDAP et lecture RootDSE sur CNAMTS.LOCAL
+2026-10-20 20:19:44.713	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/HEARTBEAT	INFO	0	Elapsed=4s Runspace=MTA Processus=1856
+2026-10-20 20:19:44.947	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/PROGRESS	INFO	0	Termine|Contexte AD valide sur dc01.cnamts.local
+2026-10-20 20:19:45.531	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/AUTH_COMPLETED	INFO	0	Runspace MTA termine.
+2026-10-20 20:19:45.777	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/LOGIN_OK	OK	2564	Compte=CNAMTS\Administrateur Mode=Windows Serveur=dc01.cnamts.local Base=DC=cnamts,DC=local
+2026-10-20 20:19:46.788	2ab18aa4fdc84a739753d71e40fa2b77	7	Login/WINDOW_CLOSE	INFO	0	LoginOk=True
+2026-10-20 20:19:46.821	2ab18aa4fdc84a739753d71e40fa2b77	7	Login	OK	0	Compte AD valide : CNAMTS\Administrateur
+2026-10-20 20:19:46.821	2ab18aa4fdc84a739753d71e40fa2b77	7	Apres login	START	0	Initialisation de la fenetre principale
+2026-10-20 20:19:49.862	2ab18aa4fdc84a739753d71e40fa2b77	7	Préférences persistantes	START	0	
+2026-10-20 20:19:50.244	2ab18aa4fdc84a739753d71e40fa2b77	7	Preferences/LectureHistorique	INFO	0	C:\DomeniaLab\RC35-qualification\startup38\prod\wad\Domenia.ui-profile.cfg
+2026-10-20 20:19:50.626	2ab18aa4fdc84a739753d71e40fa2b77	7	Préférences persistantes	OK	933	
+2026-10-20 20:19:50.637	2ab18aa4fdc84a739753d71e40fa2b77	7	Chargement interface WPF	START	0	
+2026-10-20 20:20:00.632	2ab18aa4fdc84a739753d71e40fa2b77	7	Chargement interface WPF	OK	0	Controles WPF resolus : 969/998.
+2026-10-20 20:20:02.468	2ab18aa4fdc84a739753d71e40fa2b77	7	Chargement interface WPF	OK	11692	
+2026-10-20 20:20:02.478	2ab18aa4fdc84a739753d71e40fa2b77	7	Protection erreurs interface	START	0	
+2026-10-20 20:20:02.537	2ab18aa4fdc84a739753d71e40fa2b77	7	Protection erreurs interface	OK	54	
+2026-10-20 20:20:02.547	2ab18aa4fdc84a739753d71e40fa2b77	7	Moteur multithread	START	0	
+2026-10-20 20:20:02.627	2ab18aa4fdc84a739753d71e40fa2b77	7	Moteur multithread	START	0	
+2026-10-20 20:20:02.909	2ab18aa4fdc84a739753d71e40fa2b77	7	Moteur multithread	OK	309	Moteur ferme pret ; 97 operations hash-pinnees, registre verifie. Pools de lecture et runspaces dedies selon operation.
+2026-10-20 20:20:04.167	2ab18aa4fdc84a739753d71e40fa2b77	7	Moteur multithread	OK	983	
+2026-10-20 20:20:04.187	2ab18aa4fdc84a739753d71e40fa2b77	7	Branchement des evenements	START	0	
+2026-10-20 20:20:18.147	2ab18aa4fdc84a739753d71e40fa2b77	7	Branchement des evenements	OK	15426	
+2026-10-20 20:20:18.155	2ab18aa4fdc84a739753d71e40fa2b77	7	Vues de recherche	START	0	
+2026-10-20 20:20:19.144	2ab18aa4fdc84a739753d71e40fa2b77	7	Vues de recherche	OK	1154	
+2026-10-20 20:20:19.153	2ab18aa4fdc84a739753d71e40fa2b77	7	Gestion des comptes	START	0	
+2026-10-20 20:20:19.434	2ab18aa4fdc84a739753d71e40fa2b77	7	Gestion des comptes	OK	326	
+2026-10-20 20:20:19.443	2ab18aa4fdc84a739753d71e40fa2b77	7	Aides et ergonomie	START	0	
+2026-10-20 20:20:20.201	2ab18aa4fdc84a739753d71e40fa2b77	7	Aides et ergonomie	OK	893	
+2026-10-20 20:20:20.236	2ab18aa4fdc84a739753d71e40fa2b77	7	Base autonome DOMENIA	START	0	
+2026-10-20 20:20:33.589	2ab18aa4fdc84a739753d71e40fa2b77	7	Base autonome DOMENIA	OK	6846	
+2026-10-20 20:20:33.596	2ab18aa4fdc84a739753d71e40fa2b77	7	Etat initial de securite	START	0	
+2026-10-20 20:20:34.492	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Onglets et limites	OK	1295	
+2026-10-20 20:20:34.549	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Compte poste	OK	71	
+2026-10-20 20:20:34.556	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Classification des controles	OK	8	
+2026-10-20 20:20:36.001	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Droits et lecture seule	OK	2090	
+2026-10-20 20:20:37.542	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Preferences	OK	329	
+2026-10-20 20:20:37.727	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Profil	OK	264	
+2026-10-20 20:20:38.581	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Theme	OK	1235	
+2026-10-20 20:20:41.122	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Aides et icone	OK	3405	
+2026-10-20 20:20:44.120	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Acces, continuite et accueil	OK	3975	
+2026-10-20 20:20:45.077	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Fiabilite et assistance poste	OK	1257	
+2026-10-20 20:20:45.652	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Comptes	OK	749	
+2026-10-20 20:20:45.785	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Recherche en direct	OK	176	
+2026-10-20 20:20:45.935	2ab18aa4fdc84a739753d71e40fa2b77	7	Detail/Presentation/Diagnostic et controles de la base	OK	185	
+2026-10-20 20:20:51.984	2ab18aa4fdc84a739753d71e40fa2b77	7	Etat initial de securite	OK	24484	
+2026-10-20 20:20:51.989	2ab18aa4fdc84a739753d71e40fa2b77	7	Réglages du stockage local	START	0	
+2026-10-20 20:20:54.743	2ab18aa4fdc84a739753d71e40fa2b77	7	Réglages du stockage local	OK	2346	
+2026-10-20 20:20:54.752	2ab18aa4fdc84a739753d71e40fa2b77	7	Prechargement cache AD	START	0	
+2026-10-20 20:20:54.769	2ab18aa4fdc84a739753d71e40fa2b77	7	Preparation des donnees	OK	0	Les branches passent par la collecte normale, la base locale puis son readback ; aucune seconde collecte initiale.
+2026-10-20 20:20:55.297	2ab18aa4fdc84a739753d71e40fa2b77	7	Prechargement cache AD	OK	33	
+2026-10-20 20:20:55.307	2ab18aa4fdc84a739753d71e40fa2b77	7	Preparation arbre AD	START	0	
+2026-10-20 20:21:00.377	2ab18aa4fdc84a739753d71e40fa2b77	7	Preparation arbre AD	OK	2088	
+2026-10-20 20:21:00.626	2ab18aa4fdc84a739753d71e40fa2b77	7	Barriere de disponibilite	START	0	
+2026-10-20 20:21:04.483	2ab18aa4fdc84a739753d71e40fa2b77	7	Barriere de disponibilite	OK	508	
+2026-10-20 20:21:05.044	2ab18aa4fdc84a739753d71e40fa2b77	7	Initialisation	OK	0	Fenetre principale prete ; moteur asynchrone valide et cache initial facultatif
+2026-10-20 20:21:08.051	2ab18aa4fdc84a739753d71e40fa2b77	7	Apres login	OK	0	Fenetre principale initialisee ; Domenia.db, cache initial et pool MTA valides

@@ -5,13 +5,13 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.38**, candidate personnelle autonome. Contrôles du démarrage allégés et
-mesurés sur la VM au repos : **connexion 33.18 → 26.11 s ; fenêtre principale 135.80 → 123.59 s** (médianes, deux passages par version).
-Les packs DEV et PROD partagent les mêmes fichiers applicatifs.
-**Gain global non concluant** (dispersion et horloges de la VM). Contrôle isolé
-des exports : 7562 → 128 ms, résultats identiques.
+Révision **RC1.17.38**, candidate personnelle autonome. Contrôle visuel ciblé terminé
+(connexion, accueil, navigation, fenêtre agrandie/rétablie). Démarrage chronométré
+depuis l'hôte sur la VM au repos : **connexion 31.32 → 22.52 s ; accueil 130.07 → 110.34 s** (médianes, deux passages par version).
+**Gain global non démontré** ; contrôle isolé des exports : 7562 → 128 ms.
+Packs DEV/PROD inchangés et vérifiés ; VM conservée.
 
-[Mesure, vérifications et limites](validation/2026-10-20/rc38-startup/README.md).
+[Mesures, captures et limites](validation/2026-10-20/rc38-startup/final/README.md).
 Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
 Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
 restent datées de leurs versions respectives.

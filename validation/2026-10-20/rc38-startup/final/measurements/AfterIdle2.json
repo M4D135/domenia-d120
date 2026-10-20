@@ -1,0 +1,80 @@
+{
+    "Label":  "AfterIdle2",
+    "Passed":  true,
+    "Utc":  "2026-10-20T18:29:02.5318968Z",
+    "PS":  "5.1.26100.6584",
+    "Idle":  [
+                 {
+                     "Utc":  "2026-10-20T18:29:12.6451926Z",
+                     "CpuPercent":  [
+                                        47.29,
+                                        11.63,
+                                        22.66
+                                    ],
+                     "FreeMB":  2291
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:29:20.9961201Z",
+                     "CpuPercent":  [
+                                        12.5,
+                                        28.12,
+                                        21.88
+                                    ],
+                     "FreeMB":  2293
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:29:29.4956759Z",
+                     "CpuPercent":  [
+                                        19.38,
+                                        10.16,
+                                        19.53
+                                    ],
+                     "FreeMB":  2293
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:29:37.1797145Z",
+                     "CpuPercent":  [
+                                        10.85,
+                                        21.09,
+                                        17.19
+                                    ],
+                     "FreeMB":  2294
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:29:44.5621776Z",
+                     "CpuPercent":  [
+                                        20.31,
+                                        18.75,
+                                        16.41
+                                    ],
+                     "FreeMB":  2294
+                 },
+                 {
+                     "Utc":  "2026-10-20T18:29:51.4781210Z",
+                     "CpuPercent":  [
+                                        11.63,
+                                        10.94,
+                                        17.19
+                                    ],
+                     "FreeMB":  2295
+                 }
+             ],
+    "Timings":  {
+                    "MainVisibleMs":  113354,
+                    "LoginVisibleMs":  23436
+                },
+    "CoreSHA256":  "717D6C89DC7B592FBAC9777E2961D3F6DCD91F4013714D730C94E6C034D70261",
+    "LaunchUtc":  "2026-10-20T18:29:51.7991120Z",
+    "LauncherId":  5624,
+    "AppId":  5884,
+    "MainTitle":  "Accueil · Aucune sélection — Domenia",
+    "AppCpuSeconds":  80.34375,
+    "Endpoint":  "Application initialization OK and native main window visible; dashboard UI Automation traversal excluded",
+    "SessionLocked":  false,
+    "LoggedSeconds":  {
+                          "Apres login":  83.661,
+                          "Login/WINDOW_READY":  22.678
+                      },
+    "VisualHold":  true,
+    "ClosedNormally":  true
+}
