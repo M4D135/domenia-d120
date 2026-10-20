@@ -1,0 +1,34 @@
+{
+    "Suite":  "Windows ordinary PROD factory",
+    "PowerShell":  "5.1.26100.6584",
+    "Session":  0,
+    "Source":  "C:\\Windows\\Temp\\Domenia-FirstRun-20261020-delivery\\candidate\\dev",
+    "Output":  "C:\\Windows\\Temp\\Domenia-FirstRun-20261020-delivery\\factory-proof\\factory-prod-2c603058935d4f40bf9bed8b0aa67707",
+    "Synthetic":  true,
+    "ADAccessed":  false,
+    "Checks":  [
+                   {
+                       "Name":  "Ordinary PROD: executable and wad directory",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "All executable, module and asset files match frozen DEV",
+                       "Passed":  true,
+                       "Files":  172,
+                       "Different":  [
+
+                                     ]
+                   },
+                   {
+                       "Name":  "Regenerated release metadata preserves version and build",
+                       "Passed":  true
+                   },
+                   {
+                       "Name":  "Generated PROD startup integrity CheckOnly",
+                       "Passed":  true,
+                       "ExitCode":  0
+                   }
+               ],
+    "Failure":  "",
+    "Passed":  true
+}

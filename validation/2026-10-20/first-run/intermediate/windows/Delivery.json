@@ -1,0 +1,139 @@
+{
+    "Kind":  "PureRules",
+    "Host":  {
+                 "Platform":  "Windows",
+                 "PSVersion":  "5.1.26100.6584",
+                 "PSEdition":  "Desktop"
+             },
+    "NativeWindowsPowerShell51":  true,
+    "WpfExecuted":  false,
+    "DomainAccessed":  false,
+    "NetworkAccessed":  false,
+    "Passed":  17,
+    "Failed":  0,
+    "CoveredIds":  [
+                       "DLV-001",
+                       "DLV-002",
+                       "DLV-003",
+                       "DLV-004",
+                       "DLV-005",
+                       "DLV-006",
+                       "DLV-007",
+                       "DPO-001",
+                       "DPO-002",
+                       "DPO-003",
+                       "DPO-004",
+                       "DPO-005",
+                       "DPO-006",
+                       "FRN-001",
+                       "FRN-002",
+                       "FRN-003",
+                       "FRN-004"
+                   ],
+    "Complete":  true,
+    "Limitation":  "Regles pures uniquement. Ne prouve ni le raccordement, ni WPF, ni un acces au domaine.",
+    "Tests":  [
+                  {
+                      "Id":  "DLV-001",
+                      "Name":  "Mise a jour avec migration : annoncee avant la reponse, retour arriere averti",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-002",
+                      "Name":  "Meme schema, retour a une version plus ancienne et schema inconnu",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-003",
+                      "Name":  "Desinstallation par defaut : code intact retire, donnees et preferences conservees, verrou en dernier",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-004",
+                      "Name":  "Choix explicites : donnees du dossier et du profil supprimees seulement sur demande",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-005",
+                      "Name":  "Fichier modifie conserve et nomme, fichier absent ignore, le dossier reste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-006",
+                      "Name":  "Refus : arbre DEV, mise a jour inachevee, manifeste incomplet ou visant les donnees",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DLV-007",
+                      "Name":  "Choix saisis en minuscules : meme effet que leur orthographe canonique",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-001",
+                      "Name":  "Chaque donnee gardee sur le poste a son contenu, son emplacement, sa conservation, son export et sa suppression",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-002",
+                      "Name":  "La conservation affichee vient des reglages enregistres : 0 sans limite, sinon jours confirmes",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-003",
+                      "Name":  "Emplacements : inconnus annonces comme tels, sauvegardes a cote de la base active",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-004",
+                      "Name":  "Reglages illisibles : conservation inconnue, jamais une valeur par defaut presentee comme reglee",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-005",
+                      "Name":  "Chaque zone du stockage local a sa ligne, a lʼemplacement declare par la disposition",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "DPO-006",
+                      "Name":  "Donnees des autres lots : associations et lots dʼimport, releves, horloges, bibliotheque, dossiers hors ligne, copies avant geste",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FRN-001",
+                      "Name":  "Quatre etapes dans lʼordre : connexion, OU de travail, premiere lecture, tableau de bord",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FRN-002",
+                      "Name":  "Progression : chaque etape est lue dans la session, la suivante est mise en avant",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FRN-003",
+                      "Name":  "Un tableau de bord vu sans base lue nʼest pas une etape faite ; une OU sans nom affiche son DN",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  },
+                  {
+                      "Id":  "FRN-004",
+                      "Name":  "La couverture explicite prime sur le compteur global, y compris pour une OU vide",
+                      "Status":  "Passed",
+                      "Detail":  ""
+                  }
+              ]
+}

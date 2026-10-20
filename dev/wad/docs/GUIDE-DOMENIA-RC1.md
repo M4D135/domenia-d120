@@ -1,5 +1,20 @@
 # Domenia 1.0 RC1 : guide de livraison et limites
 
+## Correctif RC1.17.35
+
+Dans **Premiers pas**, le choix d’OU est affiché dès sa validation. La première lecture
+doit couvrir cette OU et sa profondeur : le nombre global d’objets d’une autre OU
+ne suffit plus. Une lecture complète sans objet permet de poursuivre ; une tentative
+partielle seule ou une profondeur inconnue demandent une nouvelle lecture.
+
+Le premier calcul local accepte une OU sans poste et indique qu’elle est vide.
+Une erreur reste récupérable ; changer d’OU ne conserve pas l’état du calcul précédent.
+Afficher la carte ne déclenche aucune collecte réseau.
+
+Après une lecture AD partielle, les lignes doivent être enregistrées avant la suite.
+Depuis l’Accueil, **Tout actualiser** peut ensuite relever les postes déjà connus ;
+la lecture AD conserve son état partiel et ne devient pas une lecture complète.
+
 ## Correctif RC1.17.20
 
 La page LDAP reste inférieure au quota de lecture : une recherche limitée à 100 éléments peut maintenant lire son élément supplémentaire sans erreur de taille dès la première page. Les limites d’affichage et de requête restent appliquées.

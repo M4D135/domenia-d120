@@ -1,5 +1,9 @@
 # Reprise Domenia — Spark, 20 octobre 2026
 
+**Complément Codex du 20 octobre :** passation intégrée et complétée en RC1.17.35,
+tests Windows ciblés et fabrication native vérifiés. Voir le [suivi et les limites](validation/2026-10-20/first-run/README.md).
+Le compte rendu d’origine est conservé ci-dessous.
+
 Chantier : trois pannes de la carte « Premiers pas » à la première initialisation, puis build DEV et **surtout PROD** sur GitHub.
 Ce document remplace `REPRISE-2026-10-19-SPARK.md` (sa branche `fix/domenia-postes-rc1735` a disparu du Mac).
 

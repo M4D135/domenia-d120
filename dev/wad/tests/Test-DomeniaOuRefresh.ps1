@@ -117,7 +117,14 @@ Case 'Null AD result fails the chain' {Invoke-DomeniaOuRefresh Search Both;try{C
 Case 'AD error callback fails chain' {Invoke-DomeniaOuRefresh Search Both;Fail-DomeniaIndexBuildUi 'fixture denied' $script:Jobs[0].State;Expect ($script:DomeniaOuRefresh.Phase -eq 'Error')}
 Case 'Refused AD admission releases UI state' {$script:RefuseAdmission=$true;Invoke-DomeniaOuRefresh Search Both;Expect ($script:DomeniaOuRefresh.Completed -and $script:DomeniaOuRefresh.Phase -eq 'Error' -and $script:Controls.BtnSearchRefreshBase.IsEnabled)}
 Case 'Tout actualiser on Accueil: an AD failure still starts ping and WMI on the local base' {Invoke-DomeniaOuRefresh Fleet Both;Fail-DomeniaIndexBuildUi 'fixture denied' $script:Jobs[0].State;Expect ((-not $script:DomeniaOuRefresh.Completed) -and $script:DomeniaOuRefresh.Phase -eq 'WaitingCollection' -and $script:DomeniaOuRefresh.Directory.Status -eq 'Error' -and [string]$script:DomeniaOuRefresh.DirectoryFallback);Invoke-DomeniaOuRefreshTick;Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].Payload.Scope -eq $script:FleetScopeDn)}
-Case 'Tout actualiser on Accueil: a partial AD read is recorded partial and the collection follows' {Invoke-DomeniaOuRefresh Fleet Both;$item=Complete-Ad $true;Commit-Item $item;Expect ((-not $script:DomeniaOuRefresh.Completed) -and $script:DomeniaOuRefresh.Phase -eq 'WaitingCollection' -and $script:DomeniaOuRefresh.Directory.Status -eq 'Partial')}
+Case 'Tout actualiser on Accueil: a partial AD read is recorded partial and the collection follows' {
+    Invoke-DomeniaOuRefresh Fleet Both;$item=Complete-Ad $true
+    Expect ($script:DomeniaOuRefresh.Phase -eq 'Saving' -and -not $script:DomeniaOuRefresh.Directory.Status -and $script:Jobs.Count -eq 1) 'Lecture partielle traitee avant son recu de stockage'
+    Invoke-DomeniaOuRefreshTick
+    Expect ($script:Jobs.Count -eq 1 -and $script:DomeniaOuRefresh.Phase -eq 'Saving') 'Collecte lancee avant confirmation de la lecture partielle'
+    Commit-Item $item
+    Expect ((-not $script:DomeniaOuRefresh.Completed) -and $script:DomeniaOuRefresh.Phase -eq 'WaitingCollection' -and $script:DomeniaOuRefresh.Directory.Status -eq 'Partial') 'Lecture partielle perdue apres son recu'
+}
 Case 'Storage failure latches before automatic retries' {Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Fail-DomeniaStorageWork 'fixture busy' ([pscustomobject]@{Items=@($item)});Commit-Item $item;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Phase -eq 'Error' -and $script:Jobs.Count -eq 1)}
 Case 'Cancellation during storage prevents later success from collecting' {Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;Stop-DomeniaOuRefresh -Source Search;Commit-Item $item;Invoke-DomeniaOuRefreshTick;Expect ($script:DomeniaOuRefresh.Cancelled -and $script:Jobs.Count -eq 1)}
 Case 'Foreign operation receipt ignored' {Invoke-DomeniaOuRefresh Search Both;$item=Complete-Ad;$item.Row.RefreshOperationId='other';Commit-Item $item;Expect (-not $script:DomeniaOuRefresh.BaseCommitted -and $script:DomeniaOuRefresh.Phase -eq 'Saving')}
@@ -253,6 +260,10 @@ Case 'FI-13 : la relecture AD de l OU attend la sauvegarde verifiee de la base ;
         Expect ($script:Jobs.Count -eq 2 -and $script:Jobs[1].OperationId -eq 'IndexBuild' -and $script:Jobs[1].Payload.SearchBase -eq $script:IndexScopeDn -and $script:DomeniaOuRefresh.Source -eq 'Index' -and $script:DomeniaOuRefresh.Phase -eq 'Directory') 'Lecture AD non lancee apres la sauvegarde verifiee'
         # A failed backup starts nothing; the explicit choice to continue without a backup is offered in the page.
         Stop-DomeniaOuRefresh -Source Index;$script:AsyncJobs.Clear();$script:BackupSettings=@{}
+        # The cancellation records a collection receipt. Finish that fixture write before the next independent
+        # backup gesture; the production guard must continue to refuse a new AD read while persistence is pending.
+        Expect (@($script:Persistence.Pending.Values|Where-Object{$_.Kind -ne 'StoreBatch'}).Count -eq 0) 'Ecriture inattendue apres annulation'
+        $script:Persistence.Pending.Clear()
         Invoke-DomeniaOuRefresh Fleet AD
         $backup=$script:Jobs[2];Expect ($backup.OperationId -eq 'StorageBackup') 'Sauvegarde absente avant la mise a jour du tableau de bord'
         [void]$script:AsyncJobs.Remove($backup.Id)

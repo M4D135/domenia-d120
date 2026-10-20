@@ -1,0 +1,21 @@
+﻿{
+    "Suite":  "Tableaux de bord en widgets",
+    "Host":  "5.1.26100.6584",
+    "Passed":  0,
+    "Failed":  1,
+    "Filter":  "Premiers pas : l OU acceptee",
+    "Complete":  true,
+    "LiveADExecuted":  false,
+    "NetworkAccessed":  false,
+    "RenderTimings":  [
+
+                      ],
+    "RenderTimingScope":  "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+    "Results":  [
+                    {
+                        "Name":  "Premiers pas : l OU acceptee redessine la carte et une base remplie par une autre OU ne fait pas la premiere lecture",
+                        "Passed":  false,
+                        "Error":  "System.Management.Automation.RuntimeException: Etape 2 non redessinee apres le choix de l OU\r\nat Expect, C:\\Windows\\Temp\\Domenia-FirstRun-20261020\\baseline\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 18\r\nat \u003cScriptBlock\u003e, C:\\Windows\\Temp\\Domenia-FirstRun-20261020\\baseline\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 886\r\nat Case, C:\\Windows\\Temp\\Domenia-FirstRun-20261020\\baseline\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 22\r\nat \u003cScriptBlock\u003e, C:\\Windows\\Temp\\Domenia-FirstRun-20261020\\baseline\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 856"
+                    }
+                ]
+}

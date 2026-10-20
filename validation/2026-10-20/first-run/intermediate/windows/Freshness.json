@@ -1,0 +1,124 @@
+﻿{
+    "Suite":  "Freshness",
+    "Passed":  true,
+    "Total":  22,
+    "Failed":  0,
+    "Assertions":  124,
+    "StorageExecuted":  true,
+    "PowerShellVersion":  "5.1.26100.6584",
+    "Cases":  [
+                  {
+                      "Name":  "Generic dictionaries retain WMI dates, failures and trend thresholds under PowerShell 5.1",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Successful OU date survives a later calculation and no global date fallback is invented",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Child, sibling and mismatched scope identities cannot date the selected OU",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Escaped comma in an RDN is not an ancestor boundary",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Valid ancestor Subtree applies to descendants but not to the whole domain",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Legacy OU depth is unknown; legacy complete directory remains a valid ancestor",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OneLevel covers only the exact direct scope and never replaces a Subtree timestamp",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Legacy root OU marker never substitutes for a domain census",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Partial attempt retains successful coverage and clears only after a later complete pass",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Future, malformed and missing dates never become just now",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping and WMI report independent dates, ranges and coverage",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Ping family date overrides a newer cache write timestamp; duplicate objects count once",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Invalid, expired and unknown measurements are excluded independently",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Empty population has no fabricated coverage or timestamps",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "OU collection clocks keep the last success beside a newer stopped run, with provenance",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A partial AD pass named by its coverage checkpoint is not repeated by its run clock",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Real completion renders the snapshot date even if in-memory metadata is older",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Commit during an in-flight snapshot never repaints older dates or counts",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Legacy LastSyncUtc argument is never used to synthesize scope coverage",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "The dashboard tool tip keeps its catalogued help and never keeps the provenance of a previous calculation",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "A scope without collection keys requests no scope clock, so they stay unknown instead of never recorded",
+                      "Passed":  true,
+                      "Error":  ""
+                  },
+                  {
+                      "Name":  "Real SQLite depth checkpoints, partial commits and repeat FleetStats preserve timestamps",
+                      "Passed":  true,
+                      "Error":  ""
+                  }
+              ],
+    "Limitations":  [
+                        "Synthetic local data only; no live AD or workstation measurement."
+                    ]
+}

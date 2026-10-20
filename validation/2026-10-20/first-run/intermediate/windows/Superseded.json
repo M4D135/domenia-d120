@@ -1,0 +1,10 @@
+﻿{
+    "DateUtc":  "2026-10-20T10:50:57.4138994Z",
+    "Reason":  "Intermediate candidate superseded by final Core partial-read fix; remaining checks run on the final archives.",
+    "Stopped":  [
+                    {
+                        "ProcessId":  2060,
+                        "Name":  "powershell.exe"
+                    }
+                ]
+}

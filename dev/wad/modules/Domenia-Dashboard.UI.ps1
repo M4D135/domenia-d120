@@ -1018,11 +1018,14 @@ function Start-DomeniaFirstDashboard {
     return $current
 }
 function Complete-DomeniaFirstDashboard {
-    param([string]$ScopeKey,[int]$Count=0,[string]$ErrorText='')
+    param([string]$ScopeKey,[int]$Count=-1,[string]$ErrorText='')
     $current=$script:DomeniaFirstDashboard
     if($null -eq $current -or $current.Phase -ne 'Loading' -or $current.Epoch -ne [long]$script:SessionEpoch -or $current.Path -cne [string]$script:DatabaseScopedPath -or $current.Key -cne $ScopeKey){return}
-    if(-not $ErrorText -and $Count -gt 0){$current.Phase='Ready';$current.Message='Vue dʼensemble prête : '+$Count+' poste(s). Vous pouvez ouvrir le tableau de bord.'}
-    else{$current.Phase='Error';$current.Message=if($ErrorText){'Première actualisation non terminée : '+$ErrorText+' Réessayez.'}else{'Aucun poste dans cette OU dans la base locale. Vérifiez lʼOU et sa première lecture, puis réessayez.'}}
+    if(-not $ErrorText -and $Count -ge 0){
+        $current.Phase='Ready'
+        $current.Message=if($Count -eq 0){'Vue dʼensemble prête : aucun poste recensé dans cette OU. Vous pouvez ouvrir le tableau de bord.'}else{'Vue dʼensemble prête : '+$Count+' poste(s). Vous pouvez ouvrir le tableau de bord.'}
+    }
+    else{$current.Phase='Error';$current.Message=if($ErrorText){'Première actualisation non terminée : '+$ErrorText+' Réessayez.'}else{'Première actualisation non terminée : nombre de postes inconnu. Réessayez.'}}
 }
 
 function Get-DomeniaFirstStepsState {
@@ -1035,15 +1038,14 @@ function Get-DomeniaFirstStepsState {
     try { $scope = Get-DomeniaFleetScope; if ($null -ne $scope) { $scopeDn = [string]$scope.Dn; $scopeName = [string]$scope.Name; $scopeSubtree = [bool]$scope.Subtree } } catch { $scopeDn = '' }
     $indexed = 0L
     try { $indexed = [long]$script:IndexDbCount } catch { $indexed = 0L }
-    # The counters of the base are global: a base already filled by another OU, or by the previous domain, must not
-    # mark this OU as read. Only the committed coverage of the chosen scope proves its first read. No marker at all
-    # means the state was never read (unknown), not an OU never read: the guide is never locked on a missing signal.
-    $scopeRead = $true
-    if (($indexed -gt 0) -and ($null -ne $script:IndexSyncStates) -and (@($script:IndexSyncStates.Keys).Count -gt 0)) {
+    # Unknown coverage is not a completed read. A later partial attempt preserves an earlier complete coverage,
+    # whose At remains available; a partial attempt alone, a legacy depth or an empty marker set proves nothing.
+    $scopeRead = $false
+    if ($connected -and $scopeDn -and ($indexed -ge 0) -and ($null -ne $script:IndexSyncStates)) {
         try {
             $coverage = Get-DomeniaFleetFreshness -ScopeDn $scopeDn -DomainDn ([string]$script:Conn.BaseDn) -SyncStates $script:IndexSyncStates -Subtree $scopeSubtree
-            $scopeRead = ([string]$coverage.Status -ine 'Missing')
-        } catch { $scopeRead = $true }
+            $scopeRead = (($null -ne $coverage.At) -and ([string]$coverage.Status -in @('Complete','Partial')))
+        } catch { $scopeRead = $false }
     }
     $seen = $false
     try { $seen = [bool][string](Get-DomeniaSetting -Name 'Home.DashboardSeen' -Default '') } catch { $seen = $false }
@@ -1065,7 +1067,7 @@ function Update-DomeniaFirstSteps {
     # Drawing the card never starts the overview. A calculation already asked for by the step button is only shown.
     $preparation=$null
     $currentPrep=$script:DomeniaFirstDashboard
-    if(($plan.Next -eq 'Dashboard') -and ($null -ne $currentPrep) -and ($currentPrep.Epoch -eq [long]$script:SessionEpoch) -and ($currentPrep.Path -ceq [string]$script:DatabaseScopedPath)){$preparation=$currentPrep}
+    if(($plan.Next -eq 'Dashboard') -and ($null -ne $currentPrep) -and ($currentPrep.Epoch -eq [long]$script:SessionEpoch) -and ($currentPrep.Path -ceq [string]$script:DatabaseScopedPath) -and ($currentPrep.Key -ceq [string](Get-DomeniaFleetScope).Key)){$preparation=$currentPrep}
     foreach ($step in @($plan.Steps)) {
         $name = [string]$step.Name
         if($name -eq 'Dashboard' -and $null -ne $preparation){$step.Text=$preparation.Message;$step.Enabled=($preparation.Phase -ne 'Loading')}

@@ -5,20 +5,16 @@ inventaire des postes, tableaux de bord et atelier de requêtes.
 
 ## Télécharger
 
-Révision **RC1.17.16**, candidate : accueil recentré sur les données, sections déplaçables,
-Santé en dernier par défaut, tailles de widgets conservées, progression globale des lots en haut.
-Après un délai WMI, une saturation temporaire du moteur attend la libération des lectures en nettoyage
-au lieu dʼarrêter le lot et de perdre le poste suivant.
-La connexion corrigée dans RC1.17.10 a été confirmée par David sur son poste.
-La qualification complète des ZIP et les parcours GUI sur AD restent ouverts.
-L’assistant de première configuration reste en haut jusqu’à sa fin. Les mesures de lenteur restent dans le diagnostic, sans avertissements répétitifs dans le journal de session. Guides Word/PDF actualisés.
-RC1.17.13 : vérification de la base en arrière-plan, commandes repliables sur les fenêtres très basses et DLL construites de façon déterministe.
-RC1.17.14 : occupation de la base complétée (métadonnées de domaine), empreinte des règles de santé stable à la purge des suspensions expirées, identité des associations harmonisée entre grille, résumé et fiche, transport réellement utilisé affiché au lieu dʼêtre déduit, identité du poste contrôlée aussi pour les sondes seules.
-Voir les [corrections et preuves du 17 octobre](validation/2026-10-17/rc14-corrections/README.md).
-RC1.17.15 : les échéances UTC des suspensions de santé restent valides après relecture JSON.
-Les trois suites santé passent leurs 45 cas hors VM ; [correctif et vérifications du 18 octobre](validation/2026-10-18/health-suspension-utc/README.md).
+Révision **RC1.17.35**, candidate personnelle autonome. « Premiers pas » affiche immédiatement
+l’OU choisie et attend une lecture complète de son périmètre avant le premier tableau de bord.
+Une OU réellement vide est acceptée ; une erreur de lecture reste visible et permet de réessayer.
+Les lectures AD partielles attendent leur enregistrement avant la suite.
+Les packs DEV et PROD ont été régénérés depuis le même code ; la reconstruction PROD sous Windows est vérifiée.
 
-RC1.17.16 : opérations WMI/conservation raccordées, provenance des imports, alertes de santé par recette, sauvegardes autonomes et derniers défauts des requêtes corrigés. Voir le [suivi et les décisions externes restantes](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md).
+[Suivi et contrôles ciblés Windows du 20 octobre](validation/2026-10-20/first-run/README.md).
+Cette vérification ciblée ne vaut pas qualification générale de toutes les fonctions sur un parc réel.
+Les [preuves et limites antérieures](dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md)
+restent datées de leurs versions respectives.
 
 | Pack | Téléchargement direct |
 |---|---|

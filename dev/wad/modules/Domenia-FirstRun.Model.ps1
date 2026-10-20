@@ -12,13 +12,13 @@ function Get-DomeniaFirstRunPlan {
         [AllowEmptyString()][string]$ScopeName = '',
         [long]$IndexedObjects = 0,
         [bool]$DashboardSeen = $false,
-        [bool]$ScopeRead = $true
+        [bool]$ScopeRead = $false
     )
     $connected = [bool]$Domain.Trim()
     $scoped = [bool]$ScopeDn.Trim()
-    # The first read is the read of THIS OU: a base already filled by another OU or by a previous domain does not
-    # cover it, and unlocking the overview on such an OU answered « Aucun poste dans cette OU » as a failure.
-    $read = (($IndexedObjects -gt 0) -and $ScopeRead)
+    # Coverage proves the read, not the global object count. A fully read empty OU is a valid first read.
+    # IndexedObjects remains accepted for callers, but cannot establish coverage of the selected OU.
+    $read = ($connected -and $scoped -and $ScopeRead)
     $seen = ($DashboardSeen -and $read)
     $connectionText = 'Se connecter à lʼannuaire avec son compte habituel.'
     if ($connected) {
@@ -33,7 +33,7 @@ function Get-DomeniaFirstRunPlan {
         $ouText = 'OU de travail : ' + $label + '.'
     }
     $baseText = 'Faire la première lecture de cette OU dans la base locale (Outils, Base autonome).'
-    if ($read) { $baseText = 'Première lecture faite : ' + [string]$IndexedObjects + ' objet(s) dans la base locale.' }
+    if ($read) { $baseText = 'Première lecture de cette OU enregistrée dans la base locale.' }
     $dashboardText = 'Ouvrir le tableau de bord : le calcul part à ce clic, depuis la base locale, puis la vue sʼaffiche.'
     if ($seen) { $dashboardText = 'Vue dʼensemble calculée depuis la base locale ; une tuile ouvre la liste exacte de ses postes.' }
     $steps = @(

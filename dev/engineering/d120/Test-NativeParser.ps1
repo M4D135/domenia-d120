@@ -100,12 +100,18 @@ if ($workersRequested) {
             $tokens = $null; $errors = $null
             $moduleAsts[$module.Name] = [Management.Automation.Language.Parser]::ParseFile($module.FullName,[ref]$tokens,[ref]$errors)
         }
-        foreach ($helper in @('Get-DomeniaStructuredError','Get-DomeniaReceiptsCommon')) {
-            $helperText = ''
-            foreach ($moduleName in @($moduleAsts.Keys | Sort-Object)) {
-                $hits = @($moduleAsts[$moduleName].FindAll({ param($n) ($n -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($n.Name -eq $helper) },$true))
-                if ($hits.Count -eq 1) { $helperText = [string]$hits[0].Extent.Text }
+        $helpers = @('Get-DomeniaStructuredError','Get-DomeniaReceiptsCommon','Get-DomeniaOperationTable','Get-DomeniaOperationRow','Get-CfgValue','Get-DomeniaDirectoryStoreWorkerPrelude',
+            'Get-DomeniaCredentialAccountKey','Set-WCredentialAttemptIdentity','Get-WCredentialGuardKeys','Assert-WCredentialAllowed','Enter-WCredentialAttempt','Exit-WCredentialAttempt','Register-WCredentialFailure')
+        $helperTexts = @{}
+        foreach ($moduleName in @($moduleAsts.Keys | Sort-Object)) {
+            foreach ($node in @($moduleAsts[$moduleName].FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] },$true))) {
+                if ($helpers -notcontains $node.Name) { continue }
+                if ($helperTexts.ContainsKey($node.Name)) { throw ('Helper worker ambigu : ' + $node.Name) }
+                $helperTexts[$node.Name] = [string]$node.Extent.Text
             }
+        }
+        foreach ($helper in $helpers) {
+            $helperText = [string]$helperTexts[$helper]
             if (-not $helperText) { $helperText = Get-NativeFunctionText $coreAst $helper }
             . ([scriptblock]::Create($helperText))
         }
@@ -129,19 +135,18 @@ if ($workersRequested) {
         # Parse-only stand-in for the registry check (the registry itself is verified by the worker.contracts scenario).
         function Assert-DomeniaWorkerOperationCode { param([string]$OperationId,[string]$Code) return ('PARSE-ONLY-' + $OperationId) }
         $workerSetup = 'WorkerCommon=' + $commonParts + ' fragments + recus'
-        $fileAsts = @{}
+        # Use the same composed bodies as the native factory and the pinned contracts, including the shared SQLite
+        # layer. A raw here-string is insufficient for the storage workers and probe-detail helpers.
+        $factory = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'tools\Production.Source.ps1'
+        . $factory
+        $bodyAsts = @{}
         foreach ($contract in $contracts) {
             $operation = [string]$contract.Operation
             $forms = New-Object 'System.Collections.Generic.List[string]'
             $problems = New-Object 'System.Collections.Generic.List[string]'
             $hashMatches = $false
             try {
-                $relative = ([string]$contract.File).Replace('/','\')
-                if (-not $fileAsts.ContainsKey($relative)) {
-                    $tokens = $null; $errors = $null
-                    $fileAsts[$relative] = [Management.Automation.Language.Parser]::ParseFile((Join-Path $root $relative),[ref]$tokens,[ref]$errors)
-                }
-                $literal = Get-NativeWorkerLiteral (Get-NativeFunctionText $fileAsts[$relative] ([string]$contract.Function)) ([int]$contract.LiteralIndex)
+                $literal = Get-DomeniaBuildWorkerBody -WadRoot (Join-Path $root 'wad') -Item $contract -Cache $bodyAsts
                 if ($null -eq $literal) { throw 'Litteral du worker introuvable.' }
                 $hashMatches = ((Get-NativeTextSha256 $literal) -ceq ([string]$contract.Sha256).ToUpperInvariant())
                 if (-not $hashMatches) { $problems.Add('Empreinte du corps differente du contrat.') }

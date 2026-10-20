@@ -1,0 +1,1210 @@
+﻿{
+    "Total":  172,
+    "Failed":  0,
+    "Checks":  [
+                   {
+                       "Path":  "Domenia.exe",
+                       "Expected":  "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+                       "PROD":  "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+                       "DEV":  "3535A6CBCEEA3BAA0066D9024EA316A8DFA2992A463F8EB17CC8BAA40B6BE7AC",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/ActiveDirectoryPowerShellResources.dll",
+                       "Expected":  "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+                       "PROD":  "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+                       "DEV":  "E233D92238AA31EA1B3C60145D8811EDB2E517E1B9B53F4BC496883EE5D9973B",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia-Automate.ps1",
+                       "Expected":  "9A98F1BB6B6387F5AE3CFA340C494366156DE97D505C3B6B4D9A8A91C9DA49BC",
+                       "PROD":  "9A98F1BB6B6387F5AE3CFA340C494366156DE97D505C3B6B4D9A8A91C9DA49BC",
+                       "DEV":  "9A98F1BB6B6387F5AE3CFA340C494366156DE97D505C3B6B4D9A8A91C9DA49BC",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia-Core.ps1",
+                       "Expected":  "A49CF22FDBEC5311D290AB7EFF89953ABEBA35F07A3A9259966007ADAD825FA7",
+                       "PROD":  "A49CF22FDBEC5311D290AB7EFF89953ABEBA35F07A3A9259966007ADAD825FA7",
+                       "DEV":  "A49CF22FDBEC5311D290AB7EFF89953ABEBA35F07A3A9259966007ADAD825FA7",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia-Main.xaml",
+                       "Expected":  "91285E9FD025D3088829B81FFB91A7C337441A7BB3FB6AC9447F913A08898A6C",
+                       "PROD":  "91285E9FD025D3088829B81FFB91A7C337441A7BB3FB6AC9447F913A08898A6C",
+                       "DEV":  "91285E9FD025D3088829B81FFB91A7C337441A7BB3FB6AC9447F913A08898A6C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia-Modules.ps1",
+                       "Expected":  "F6408F60CA1FD9A7A51B2D2F58F6D0CFFA046F0207C1F0BA2DE0CC3A64CE5F89",
+                       "PROD":  "F6408F60CA1FD9A7A51B2D2F58F6D0CFFA046F0207C1F0BA2DE0CC3A64CE5F89",
+                       "DEV":  "F6408F60CA1FD9A7A51B2D2F58F6D0CFFA046F0207C1F0BA2DE0CC3A64CE5F89",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia-Start.ps1",
+                       "Expected":  "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+                       "PROD":  "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+                       "DEV":  "72D583EA58F7DC81AD9592ED7D0E6E3B5C270F8C1B7FBF7305DBB986BA5F78D9",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.config.json",
+                       "Expected":  "766DBF8924F4EFC3641768E0C1B2C37E5936D681F002C3260E2FE6C8DA7680F8",
+                       "PROD":  "766DBF8924F4EFC3641768E0C1B2C37E5936D681F002C3260E2FE6C8DA7680F8",
+                       "DEV":  "766DBF8924F4EFC3641768E0C1B2C37E5936D681F002C3260E2FE6C8DA7680F8",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.ico",
+                       "Expected":  "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
+                       "PROD":  "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
+                       "DEV":  "EC032BF6A14EAC2CC80073B376FE0364DDA62F25D452C8C783C926B0C28E837F",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.login-mode.cfg",
+                       "Expected":  "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
+                       "PROD":  "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
+                       "DEV":  "EF6691545D2C5523EFED00424407CB261AEB0037D165CA5792F7F8BAC3381362",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.release.json",
+                       "Expected":  "8D09402A37B3E8E6F7A07669A43C137D9E1E939628834859ACEA46F1A8F0C2C3",
+                       "PROD":  "8D09402A37B3E8E6F7A07669A43C137D9E1E939628834859ACEA46F1A8F0C2C3",
+                       "DEV":  "8D09402A37B3E8E6F7A07669A43C137D9E1E939628834859ACEA46F1A8F0C2C3",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.theme.cfg",
+                       "Expected":  "DBCD5E7BB7A0F538810DE44C3EFBD813037EE3FA358747BB71FA58E157AF45F7",
+                       "PROD":  "DBCD5E7BB7A0F538810DE44C3EFBD813037EE3FA358747BB71FA58E157AF45F7",
+                       "DEV":  "DBCD5E7BB7A0F538810DE44C3EFBD813037EE3FA358747BB71FA58E157AF45F7",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Domenia.ui-profile.cfg",
+                       "Expected":  "D0DA7AB8BC927960B4CA3C6678137464BAF9266C4FE3281F30E4769F6C4427DB",
+                       "PROD":  "D0DA7AB8BC927960B4CA3C6678137464BAF9266C4FE3281F30E4769F6C4427DB",
+                       "DEV":  "D0DA7AB8BC927960B4CA3C6678137464BAF9266C4FE3281F30E4769F6C4427DB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Microsoft.ActiveDirectory.Management.dll",
+                       "Expected":  "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+                       "PROD":  "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+                       "DEV":  "1A6AF7B8F8BCE5B35FF873E2528746480C980526D86E38CA5ACD04C2E9037157",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/PsExec.exe",
+                       "Expected":  "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+                       "PROD":  "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+                       "DEV":  "EDFAE1A69522F87B12C6DAC3225D930E4848832E3C551EE1E7D31736BF4525EF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Support/.lifecycle.lock",
+                       "Expected":  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+                       "PROD":  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+                       "DEV":  "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Support/DEBLOQUER_TOUT.cmd",
+                       "Expected":  "EB9CA9BDA1174D07227DF29256B5A5B90C9514C7E120AA38A683A45016118B1D",
+                       "PROD":  "EB9CA9BDA1174D07227DF29256B5A5B90C9514C7E120AA38A683A45016118B1D",
+                       "DEV":  "EB9CA9BDA1174D07227DF29256B5A5B90C9514C7E120AA38A683A45016118B1D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Support/Debloquer-Paquet.ps1",
+                       "Expected":  "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+                       "PROD":  "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+                       "DEV":  "A62BECF6CC25F85A0A21B6CE018FDC0826B43EC99D9897EB5E227967E8BA9454",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/Support/INSTALLER-MISE-A-JOUR.ps1",
+                       "Expected":  "DF5CB018C3725F9868478DBC07F82B20FEFD826D9CCAC3B538D44C4449A6ABA4",
+                       "PROD":  "DF5CB018C3725F9868478DBC07F82B20FEFD826D9CCAC3B538D44C4449A6ABA4",
+                       "DEV":  "DF5CB018C3725F9868478DBC07F82B20FEFD826D9CCAC3B538D44C4449A6ABA4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Access.Model.ps1",
+                       "Expected":  "C9EAD8CA6F384391C751180405BC8C2A810A76FDC2C203FA4FB55D19FCE8C316",
+                       "PROD":  "C9EAD8CA6F384391C751180405BC8C2A810A76FDC2C203FA4FB55D19FCE8C316",
+                       "DEV":  "C9EAD8CA6F384391C751180405BC8C2A810A76FDC2C203FA4FB55D19FCE8C316",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Access.UI.ps1",
+                       "Expected":  "57DC9EADD69D4677EDDFDD7FA53C232A5DAD50761F7088D8F2F52B9B43D10E6C",
+                       "PROD":  "57DC9EADD69D4677EDDFDD7FA53C232A5DAD50761F7088D8F2F52B9B43D10E6C",
+                       "DEV":  "57DC9EADD69D4677EDDFDD7FA53C232A5DAD50761F7088D8F2F52B9B43D10E6C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.Async.ps1",
+                       "Expected":  "3426CAF7EB93EDCAF4DCB29A6B1B5A6002827A3C11C11066F3EBB3E2C3917440",
+                       "PROD":  "3426CAF7EB93EDCAF4DCB29A6B1B5A6002827A3C11C11066F3EBB3E2C3917440",
+                       "DEV":  "3426CAF7EB93EDCAF4DCB29A6B1B5A6002827A3C11C11066F3EBB3E2C3917440",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.Model.ps1",
+                       "Expected":  "3657A3247D62018349F6D09F62B1D419BADF47032567840F33C7C3EF71B6D664",
+                       "PROD":  "3657A3247D62018349F6D09F62B1D419BADF47032567840F33C7C3EF71B6D664",
+                       "DEV":  "3657A3247D62018349F6D09F62B1D419BADF47032567840F33C7C3EF71B6D664",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.Store.UI.ps1",
+                       "Expected":  "83F9586009FA5286B3B6632A5C9DB6046CE10D7086BB3B26001A3D6C6D84023D",
+                       "PROD":  "83F9586009FA5286B3B6632A5C9DB6046CE10D7086BB3B26001A3D6C6D84023D",
+                       "DEV":  "83F9586009FA5286B3B6632A5C9DB6046CE10D7086BB3B26001A3D6C6D84023D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.UI.ps1",
+                       "Expected":  "EB53D11AD095A1130BC210CBF4EA01A513EF8C05FAF2CBB63739E7403120347B",
+                       "PROD":  "EB53D11AD095A1130BC210CBF4EA01A513EF8C05FAF2CBB63739E7403120347B",
+                       "DEV":  "EB53D11AD095A1130BC210CBF4EA01A513EF8C05FAF2CBB63739E7403120347B",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.Vault.UI.ps1",
+                       "Expected":  "A93068443A8D2EA368853CEE81A2C2D1E03056F7303FBFCD00EB47B5BAE6FE7F",
+                       "PROD":  "A93068443A8D2EA368853CEE81A2C2D1E03056F7303FBFCD00EB47B5BAE6FE7F",
+                       "DEV":  "A93068443A8D2EA368853CEE81A2C2D1E03056F7303FBFCD00EB47B5BAE6FE7F",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Accounts.Worker.ps1",
+                       "Expected":  "B4D94A832D240D4330A4E44FB4B493DC7188313757072DD1704D9397E4464480",
+                       "PROD":  "B4D94A832D240D4330A4E44FB4B493DC7188313757072DD1704D9397E4464480",
+                       "DEV":  "B4D94A832D240D4330A4E44FB4B493DC7188313757072DD1704D9397E4464480",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-AdAudit.Model.ps1",
+                       "Expected":  "8C1F7344B25B8DAFFEB728AF527805D3692A594251C6A8B21BFE04ED179B372A",
+                       "PROD":  "8C1F7344B25B8DAFFEB728AF527805D3692A594251C6A8B21BFE04ED179B372A",
+                       "DEV":  "8C1F7344B25B8DAFFEB728AF527805D3692A594251C6A8B21BFE04ED179B372A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-AdAudit.UI.ps1",
+                       "Expected":  "BB5C0F66F0A1C3DFB88F67D80C70B4F194F31887213C9B65D8A14ED795C7EE32",
+                       "PROD":  "BB5C0F66F0A1C3DFB88F67D80C70B4F194F31887213C9B65D8A14ED795C7EE32",
+                       "DEV":  "BB5C0F66F0A1C3DFB88F67D80C70B4F194F31887213C9B65D8A14ED795C7EE32",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-AdAudit.Worker.ps1",
+                       "Expected":  "950F9B8F1E2B2F547359BB8EFDC2BEB354F0D36C34F51008184E765B73FFC8B0",
+                       "PROD":  "950F9B8F1E2B2F547359BB8EFDC2BEB354F0D36C34F51008184E765B73FFC8B0",
+                       "DEV":  "950F9B8F1E2B2F547359BB8EFDC2BEB354F0D36C34F51008184E765B73FFC8B0",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-AdAudit.xaml",
+                       "Expected":  "F1378B0E7448F008390B0C42E57C60B06F651BCB136BAB837117180F45ECB3D7",
+                       "PROD":  "F1378B0E7448F008390B0C42E57C60B06F651BCB136BAB837117180F45ECB3D7",
+                       "DEV":  "F1378B0E7448F008390B0C42E57C60B06F651BCB136BAB837117180F45ECB3D7",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assist.Model.ps1",
+                       "Expected":  "BE9DD946560C196E8B7D8074FA3294FCAB39F37C66510750005FEC496F86267F",
+                       "PROD":  "BE9DD946560C196E8B7D8074FA3294FCAB39F37C66510750005FEC496F86267F",
+                       "DEV":  "BE9DD946560C196E8B7D8074FA3294FCAB39F37C66510750005FEC496F86267F",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assist.UI.ps1",
+                       "Expected":  "025BFBCEE03D4515C45E4F4A6AD1377157FCD816361ED01BA45D0B33639AB4C5",
+                       "PROD":  "025BFBCEE03D4515C45E4F4A6AD1377157FCD816361ED01BA45D0B33639AB4C5",
+                       "DEV":  "025BFBCEE03D4515C45E4F4A6AD1377157FCD816361ED01BA45D0B33639AB4C5",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assist.Worker.ps1",
+                       "Expected":  "DACE4243D8ADD81487346237F3DC54389F0A98568C7FCB7EE110603515E81115",
+                       "PROD":  "DACE4243D8ADD81487346237F3DC54389F0A98568C7FCB7EE110603515E81115",
+                       "DEV":  "DACE4243D8ADD81487346237F3DC54389F0A98568C7FCB7EE110603515E81115",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assistance.Model.ps1",
+                       "Expected":  "44124F66ACF63C69A860F4CF60BF90D9D449782B8F842BFE5995675DB7734638",
+                       "PROD":  "44124F66ACF63C69A860F4CF60BF90D9D449782B8F842BFE5995675DB7734638",
+                       "DEV":  "44124F66ACF63C69A860F4CF60BF90D9D449782B8F842BFE5995675DB7734638",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assistance.UI.ps1",
+                       "Expected":  "4F198EE7C8837702C40517B872B1FA2E712A2B044142F562E49BCA4F9E4CF90D",
+                       "PROD":  "4F198EE7C8837702C40517B872B1FA2E712A2B044142F562E49BCA4F9E4CF90D",
+                       "DEV":  "4F198EE7C8837702C40517B872B1FA2E712A2B044142F562E49BCA4F9E4CF90D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Assistance.xaml",
+                       "Expected":  "13431DCAF2487550E04C8740203A5178710BCB481BC803790F45D0ED0414A089",
+                       "PROD":  "13431DCAF2487550E04C8740203A5178710BCB481BC803790F45D0ED0414A089",
+                       "DEV":  "13431DCAF2487550E04C8740203A5178710BCB481BC803790F45D0ED0414A089",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Automation.Model.ps1",
+                       "Expected":  "841BB6B71467A942A520E954B4E003872916631ADC4144AC3860CEA10FD1641E",
+                       "PROD":  "841BB6B71467A942A520E954B4E003872916631ADC4144AC3860CEA10FD1641E",
+                       "DEV":  "841BB6B71467A942A520E954B4E003872916631ADC4144AC3860CEA10FD1641E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Automation.UI.ps1",
+                       "Expected":  "A75043F836F488269AFA4DD04265D0A51026412488248BCC374D50BD6A5EF162",
+                       "PROD":  "A75043F836F488269AFA4DD04265D0A51026412488248BCC374D50BD6A5EF162",
+                       "DEV":  "A75043F836F488269AFA4DD04265D0A51026412488248BCC374D50BD6A5EF162",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Automation.Worker.ps1",
+                       "Expected":  "9C19F8AD124A21F44AAB19BE8D4D4E676B6FB616E21F261DAB4AA51F3375D309",
+                       "PROD":  "9C19F8AD124A21F44AAB19BE8D4D4E676B6FB616E21F261DAB4AA51F3375D309",
+                       "DEV":  "9C19F8AD124A21F44AAB19BE8D4D4E676B6FB616E21F261DAB4AA51F3375D309",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-BoardComputer.UI.ps1",
+                       "Expected":  "584BE5F8D984CD894F16126F2B67155EA2B28F39DDCCD3D739B1732FCDE69DB4",
+                       "PROD":  "584BE5F8D984CD894F16126F2B67155EA2B28F39DDCCD3D739B1732FCDE69DB4",
+                       "DEV":  "584BE5F8D984CD894F16126F2B67155EA2B28F39DDCCD3D739B1732FCDE69DB4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-BoardFleet.Model.ps1",
+                       "Expected":  "AFB2A6A435333C4AB859ED4B9FFFF6A4D73E8D5D735FC22680569C4831BBA857",
+                       "PROD":  "AFB2A6A435333C4AB859ED4B9FFFF6A4D73E8D5D735FC22680569C4831BBA857",
+                       "DEV":  "AFB2A6A435333C4AB859ED4B9FFFF6A4D73E8D5D735FC22680569C4831BBA857",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-BoardSoftware.Model.ps1",
+                       "Expected":  "C01486FB60698EBA3BB6B2D54C318C01B601AC405E79A37F2424C5CAB81B53DF",
+                       "PROD":  "C01486FB60698EBA3BB6B2D54C318C01B601AC405E79A37F2424C5CAB81B53DF",
+                       "DEV":  "C01486FB60698EBA3BB6B2D54C318C01B601AC405E79A37F2424C5CAB81B53DF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Boards.Model.ps1",
+                       "Expected":  "3D1B2DBCB65B77D362813EDDCE3DE0396EFFD5E2CDBCCBDDDAD2E3281A2BC7ED",
+                       "PROD":  "3D1B2DBCB65B77D362813EDDCE3DE0396EFFD5E2CDBCCBDDDAD2E3281A2BC7ED",
+                       "DEV":  "3D1B2DBCB65B77D362813EDDCE3DE0396EFFD5E2CDBCCBDDDAD2E3281A2BC7ED",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Cache.Model.ps1",
+                       "Expected":  "7CF39139DEDFB96E6B7B0D2BB7982AB431A7EB3CE87F5153D77C670DC8DB0EBE",
+                       "PROD":  "7CF39139DEDFB96E6B7B0D2BB7982AB431A7EB3CE87F5153D77C670DC8DB0EBE",
+                       "DEV":  "7CF39139DEDFB96E6B7B0D2BB7982AB431A7EB3CE87F5153D77C670DC8DB0EBE",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Charts.UI.ps1",
+                       "Expected":  "2A044B2251C3523786404739171748FEEF67638798EB76FE6E6646B796691273",
+                       "PROD":  "2A044B2251C3523786404739171748FEEF67638798EB76FE6E6646B796691273",
+                       "DEV":  "2A044B2251C3523786404739171748FEEF67638798EB76FE6E6646B796691273",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Clipboard.Native.cs",
+                       "Expected":  "172AAC508C967E80B18AB427EDA9157516D63C61315BF7A1FEBEE62206E19ADC",
+                       "PROD":  "172AAC508C967E80B18AB427EDA9157516D63C61315BF7A1FEBEE62206E19ADC",
+                       "DEV":  "172AAC508C967E80B18AB427EDA9157516D63C61315BF7A1FEBEE62206E19ADC",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Collection.Model.ps1",
+                       "Expected":  "A2242B5F56E167D1D9B2FBC92EED1F48C8802E536D4B7E4E942526407E8C0CC3",
+                       "PROD":  "A2242B5F56E167D1D9B2FBC92EED1F48C8802E536D4B7E4E942526407E8C0CC3",
+                       "DEV":  "A2242B5F56E167D1D9B2FBC92EED1F48C8802E536D4B7E4E942526407E8C0CC3",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Collection.UI.ps1",
+                       "Expected":  "F6EF71603D0E13003C42F574C198C5F2AA73F4A8053D04DF58BF80272824E91F",
+                       "PROD":  "F6EF71603D0E13003C42F574C198C5F2AA73F4A8053D04DF58BF80272824E91F",
+                       "DEV":  "F6EF71603D0E13003C42F574C198C5F2AA73F4A8053D04DF58BF80272824E91F",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-CommandPalette.xaml",
+                       "Expected":  "2CF67C15F2A049768A51D657BB47B83BE19C3F2F6229D70D1F9BF5417CCAE4AC",
+                       "PROD":  "2CF67C15F2A049768A51D657BB47B83BE19C3F2F6229D70D1F9BF5417CCAE4AC",
+                       "DEV":  "2CF67C15F2A049768A51D657BB47B83BE19C3F2F6229D70D1F9BF5417CCAE4AC",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Commands.Model.ps1",
+                       "Expected":  "904E3A67CDA7143A250AC874EB84A1AECB683F2132A29EC382759B254898060C",
+                       "PROD":  "904E3A67CDA7143A250AC874EB84A1AECB683F2132A29EC382759B254898060C",
+                       "DEV":  "904E3A67CDA7143A250AC874EB84A1AECB683F2132A29EC382759B254898060C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Commands.UI.ps1",
+                       "Expected":  "37587C91902CA4243F20FE88ED5E5D6D22A0D3883D66D337C4AD3BF3F1BE0334",
+                       "PROD":  "37587C91902CA4243F20FE88ED5E5D6D22A0D3883D66D337C4AD3BF3F1BE0334",
+                       "DEV":  "37587C91902CA4243F20FE88ED5E5D6D22A0D3883D66D337C4AD3BF3F1BE0334",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Common.Model.ps1",
+                       "Expected":  "A82AC72A80D34E0F6C098FEAF87C9468F8D3DFE2565E9D37EC4C35D51756B613",
+                       "PROD":  "A82AC72A80D34E0F6C098FEAF87C9468F8D3DFE2565E9D37EC4C35D51756B613",
+                       "DEV":  "A82AC72A80D34E0F6C098FEAF87C9468F8D3DFE2565E9D37EC4C35D51756B613",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-CommonLibrary.json",
+                       "Expected":  "A3A74A047912CA573D7A66C621115FF97D284213B53D28F26C2150EC589FC0C6",
+                       "PROD":  "A3A74A047912CA573D7A66C621115FF97D284213B53D28F26C2150EC589FC0C6",
+                       "DEV":  "A3A74A047912CA573D7A66C621115FF97D284213B53D28F26C2150EC589FC0C6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Compatibility.Model.ps1",
+                       "Expected":  "EBAFF79A931140FE7328A517DEC962C3005FB88FA14A7B69AC53C8BAEB928C3A",
+                       "PROD":  "EBAFF79A931140FE7328A517DEC962C3005FB88FA14A7B69AC53C8BAEB928C3A",
+                       "DEV":  "EBAFF79A931140FE7328A517DEC962C3005FB88FA14A7B69AC53C8BAEB928C3A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Compatibility.UI.ps1",
+                       "Expected":  "52551955BBE93769F74059D2D36EB0DFA543BC50FD92E3E8D007586C50146277",
+                       "PROD":  "52551955BBE93769F74059D2D36EB0DFA543BC50FD92E3E8D007586C50146277",
+                       "DEV":  "52551955BBE93769F74059D2D36EB0DFA543BC50FD92E3E8D007586C50146277",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Compatibility.json",
+                       "Expected":  "7B767A7D1FD4C53DB94064F7D9EFFA28EE2403EE42EF1181B3D5E043AE7B2733",
+                       "PROD":  "7B767A7D1FD4C53DB94064F7D9EFFA28EE2403EE42EF1181B3D5E043AE7B2733",
+                       "DEV":  "7B767A7D1FD4C53DB94064F7D9EFFA28EE2403EE42EF1181B3D5E043AE7B2733",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Confirmation.UI.ps1",
+                       "Expected":  "A4F8E6EE882E4C9419B0ECFBD99FBA7E6DA0905C419C7B54856DD81FB6DA32B6",
+                       "PROD":  "A4F8E6EE882E4C9419B0ECFBD99FBA7E6DA0905C419C7B54856DD81FB6DA32B6",
+                       "DEV":  "A4F8E6EE882E4C9419B0ECFBD99FBA7E6DA0905C419C7B54856DD81FB6DA32B6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Continuity.Model.ps1",
+                       "Expected":  "7FE19CAE7944C48A92D589D9FA566FF047285923DFD4EB80C673BFEBBEBE38B6",
+                       "PROD":  "7FE19CAE7944C48A92D589D9FA566FF047285923DFD4EB80C673BFEBBEBE38B6",
+                       "DEV":  "7FE19CAE7944C48A92D589D9FA566FF047285923DFD4EB80C673BFEBBEBE38B6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Continuity.UI.ps1",
+                       "Expected":  "4A7ECF6F18CEB9EE1A3B240FEE67683B5F1FCEAA7D093CFD58A61B3A877C5A95",
+                       "PROD":  "4A7ECF6F18CEB9EE1A3B240FEE67683B5F1FCEAA7D093CFD58A61B3A877C5A95",
+                       "DEV":  "4A7ECF6F18CEB9EE1A3B240FEE67683B5F1FCEAA7D093CFD58A61B3A877C5A95",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-CredentialVault.Model.ps1",
+                       "Expected":  "E65CB962F12E9B2C46761520B11067987AFC460C4695632AC32095A3BA8D52A1",
+                       "PROD":  "E65CB962F12E9B2C46761520B11067987AFC460C4695632AC32095A3BA8D52A1",
+                       "DEV":  "E65CB962F12E9B2C46761520B11067987AFC460C4695632AC32095A3BA8D52A1",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-CredentialVault.Native.cs",
+                       "Expected":  "6CE0F65D6EB1086FF39F38D8817132BD84A67ABA7F8429C4A7A0303C2594F8A0",
+                       "PROD":  "6CE0F65D6EB1086FF39F38D8817132BD84A67ABA7F8429C4A7A0303C2594F8A0",
+                       "DEV":  "6CE0F65D6EB1086FF39F38D8817132BD84A67ABA7F8429C4A7A0303C2594F8A0",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Dashboard.UI.ps1",
+                       "Expected":  "97D45A83CAF50E1359D3231FD4BF1E34D9879C373880B76682993CC1A88283C8",
+                       "PROD":  "97D45A83CAF50E1359D3231FD4BF1E34D9879C373880B76682993CC1A88283C8",
+                       "DEV":  "97D45A83CAF50E1359D3231FD4BF1E34D9879C373880B76682993CC1A88283C8",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DataPolicy.Model.ps1",
+                       "Expected":  "C51B999CC5CF8FB1A8866B22AEC2ACA629D5D1B2A948A19D8364421C7841FDF3",
+                       "PROD":  "C51B999CC5CF8FB1A8866B22AEC2ACA629D5D1B2A948A19D8364421C7841FDF3",
+                       "DEV":  "C51B999CC5CF8FB1A8866B22AEC2ACA629D5D1B2A948A19D8364421C7841FDF3",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DataPolicy.UI.ps1",
+                       "Expected":  "85F81C5C70FEA28E80D54608555A86BD9815E483F8408540AC04AA36EA42032B",
+                       "PROD":  "85F81C5C70FEA28E80D54608555A86BD9815E483F8408540AC04AA36EA42032B",
+                       "DEV":  "85F81C5C70FEA28E80D54608555A86BD9815E483F8408540AC04AA36EA42032B",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Demo.Model.ps1",
+                       "Expected":  "C764732382877C91280EFB8E3FA85A51EBA0DB1035AFA2E44616AE1529D379CE",
+                       "PROD":  "C764732382877C91280EFB8E3FA85A51EBA0DB1035AFA2E44616AE1529D379CE",
+                       "DEV":  "C764732382877C91280EFB8E3FA85A51EBA0DB1035AFA2E44616AE1529D379CE",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Demo.UI.ps1",
+                       "Expected":  "310ABC28ED9781FB9A16F760DB0BCB1F1774D1978A444627ADD1437B09C2357D",
+                       "PROD":  "310ABC28ED9781FB9A16F760DB0BCB1F1774D1978A444627ADD1437B09C2357D",
+                       "DEV":  "310ABC28ED9781FB9A16F760DB0BCB1F1774D1978A444627ADD1437B09C2357D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Demo.Worker.ps1",
+                       "Expected":  "827E84ED73F72C01AA909EA3B028941C8CB9336361EFE3FF8DDACC71295EA476",
+                       "PROD":  "827E84ED73F72C01AA909EA3B028941C8CB9336361EFE3FF8DDACC71295EA476",
+                       "DEV":  "827E84ED73F72C01AA909EA3B028941C8CB9336361EFE3FF8DDACC71295EA476",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Directory.Model.ps1",
+                       "Expected":  "F87498884C6DCF66B32CEE171E0D87FDAA5D4D4061462B984EF325AC32C2CC1D",
+                       "PROD":  "F87498884C6DCF66B32CEE171E0D87FDAA5D4D4061462B984EF325AC32C2CC1D",
+                       "DEV":  "F87498884C6DCF66B32CEE171E0D87FDAA5D4D4061462B984EF325AC32C2CC1D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySchema.Model.ps1",
+                       "Expected":  "59CC9EEA9E04D08D05C458838A135CA7EF679C98A3408131F5A97306107BB87D",
+                       "PROD":  "59CC9EEA9E04D08D05C458838A135CA7EF679C98A3408131F5A97306107BB87D",
+                       "DEV":  "59CC9EEA9E04D08D05C458838A135CA7EF679C98A3408131F5A97306107BB87D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySchema.UI.ps1",
+                       "Expected":  "D3B0A3CAC741013280AE649AF61934CAAE184130757346A91030D0C343424467",
+                       "PROD":  "D3B0A3CAC741013280AE649AF61934CAAE184130757346A91030D0C343424467",
+                       "DEV":  "D3B0A3CAC741013280AE649AF61934CAAE184130757346A91030D0C343424467",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySchema.Worker.ps1",
+                       "Expected":  "B8D8A732E6B7133B987D48775B0A9264FD4ADEC8C0865323E1B190F35BFC018A",
+                       "PROD":  "B8D8A732E6B7133B987D48775B0A9264FD4ADEC8C0865323E1B190F35BFC018A",
+                       "DEV":  "B8D8A732E6B7133B987D48775B0A9264FD4ADEC8C0865323E1B190F35BFC018A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySchema.xaml",
+                       "Expected":  "88637FF37FBBDB55B4995BB111B014E6DD97BCCF29850D4D34B099CE36677923",
+                       "PROD":  "88637FF37FBBDB55B4995BB111B014E6DD97BCCF29850D4D34B099CE36677923",
+                       "DEV":  "88637FF37FBBDB55B4995BB111B014E6DD97BCCF29850D4D34B099CE36677923",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectoryStore.Model.ps1",
+                       "Expected":  "E5F8608847EC1E93D60D0BA8AAA414F015014C19F59277D71C5A376E7D1189D4",
+                       "PROD":  "E5F8608847EC1E93D60D0BA8AAA414F015014C19F59277D71C5A376E7D1189D4",
+                       "DEV":  "E5F8608847EC1E93D60D0BA8AAA414F015014C19F59277D71C5A376E7D1189D4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectoryStore.UI.ps1",
+                       "Expected":  "5A5B6DE3D1C1B043DF105D5D79DDF73A753949DCBE296500396911AAE700372C",
+                       "PROD":  "5A5B6DE3D1C1B043DF105D5D79DDF73A753949DCBE296500396911AAE700372C",
+                       "DEV":  "5A5B6DE3D1C1B043DF105D5D79DDF73A753949DCBE296500396911AAE700372C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySync.Model.ps1",
+                       "Expected":  "CDD37E31865558B667D9E30192C52F5B343EC6940C444D518FAD9403714D99AB",
+                       "PROD":  "CDD37E31865558B667D9E30192C52F5B343EC6940C444D518FAD9403714D99AB",
+                       "DEV":  "CDD37E31865558B667D9E30192C52F5B343EC6940C444D518FAD9403714D99AB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySync.UI.ps1",
+                       "Expected":  "9F4CA08281BBEE480D049D31F960EEB213136740B4978667F3DE36259057A238",
+                       "PROD":  "9F4CA08281BBEE480D049D31F960EEB213136740B4978667F3DE36259057A238",
+                       "DEV":  "9F4CA08281BBEE480D049D31F960EEB213136740B4978667F3DE36259057A238",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySync.Worker.ps1",
+                       "Expected":  "72776E1FF660D68BB0F18D5BB9EE1C15F050231E6A8A47A1A1381E8D90B775DE",
+                       "PROD":  "72776E1FF660D68BB0F18D5BB9EE1C15F050231E6A8A47A1A1381E8D90B775DE",
+                       "DEV":  "72776E1FF660D68BB0F18D5BB9EE1C15F050231E6A8A47A1A1381E8D90B775DE",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-DirectorySync.xaml",
+                       "Expected":  "119A2A7D81A745838B133782272E215E0009EC54B03F91B51357E237AF1466D9",
+                       "PROD":  "119A2A7D81A745838B133782272E215E0009EC54B03F91B51357E237AF1466D9",
+                       "DEV":  "119A2A7D81A745838B133782272E215E0009EC54B03F91B51357E237AF1466D9",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Dossier.Model.ps1",
+                       "Expected":  "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+                       "PROD":  "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+                       "DEV":  "9D6D07CD0A9202D027139E022F7B34A7D05E0266401F6784570529F19EE4BCFF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Dossier.UI.ps1",
+                       "Expected":  "8800353406B980A2E0D4B742B9331C1745F42378AE04D0CCF4A17E1CA2975FA0",
+                       "PROD":  "8800353406B980A2E0D4B742B9331C1745F42378AE04D0CCF4A17E1CA2975FA0",
+                       "DEV":  "8800353406B980A2E0D4B742B9331C1745F42378AE04D0CCF4A17E1CA2975FA0",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Embedded.UI.ps1",
+                       "Expected":  "9599A192A48D62361B1D9C33A7CD10A426836090D1575B1987BC971E923ED9C4",
+                       "PROD":  "9599A192A48D62361B1D9C33A7CD10A426836090D1575B1987BC971E923ED9C4",
+                       "DEV":  "9599A192A48D62361B1D9C33A7CD10A426836090D1575B1987BC971E923ED9C4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Engine.Model.ps1",
+                       "Expected":  "C3D082AA348B8FF407F4566842C56AFF40383140A9D42482D5FAB235DAD0EEA1",
+                       "PROD":  "C3D082AA348B8FF407F4566842C56AFF40383140A9D42482D5FAB235DAD0EEA1",
+                       "DEV":  "C3D082AA348B8FF407F4566842C56AFF40383140A9D42482D5FAB235DAD0EEA1",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Engine.UI.ps1",
+                       "Expected":  "47FAB8B0FC978A67D132A13F960B19A56D8B982EC19614168F4EC29031A62242",
+                       "PROD":  "47FAB8B0FC978A67D132A13F960B19A56D8B982EC19614168F4EC29031A62242",
+                       "DEV":  "47FAB8B0FC978A67D132A13F960B19A56D8B982EC19614168F4EC29031A62242",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Engine.Worker.ps1",
+                       "Expected":  "C7A7B5399AC05F799482F77FB70B0B0F26140D88C2C8A3B272E4CA727CF9E36E",
+                       "PROD":  "C7A7B5399AC05F799482F77FB70B0B0F26140D88C2C8A3B272E4CA727CF9E36E",
+                       "DEV":  "C7A7B5399AC05F799482F77FB70B0B0F26140D88C2C8A3B272E4CA727CF9E36E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Experience.Model.ps1",
+                       "Expected":  "88877B3908B9CC0453A3EBF3C6FE35E0112FFFF0EA646B31E5E0DF2D93E6AFB4",
+                       "PROD":  "88877B3908B9CC0453A3EBF3C6FE35E0112FFFF0EA646B31E5E0DF2D93E6AFB4",
+                       "DEV":  "88877B3908B9CC0453A3EBF3C6FE35E0112FFFF0EA646B31E5E0DF2D93E6AFB4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Experience.UI.ps1",
+                       "Expected":  "67DA4181E12D95CCC319E045AA868301ABABBF3AC54B163A3CB3950566940B04",
+                       "PROD":  "67DA4181E12D95CCC319E045AA868301ABABBF3AC54B163A3CB3950566940B04",
+                       "DEV":  "67DA4181E12D95CCC319E045AA868301ABABBF3AC54B163A3CB3950566940B04",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-FirstRun.Model.ps1",
+                       "Expected":  "5DB2E8A364009A79FE6E4724AE2787710DBD7BBDDDDD34C393656033EC9BAF54",
+                       "PROD":  "5DB2E8A364009A79FE6E4724AE2787710DBD7BBDDDDD34C393656033EC9BAF54",
+                       "DEV":  "5DB2E8A364009A79FE6E4724AE2787710DBD7BBDDDDD34C393656033EC9BAF54",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Guard.Model.ps1",
+                       "Expected":  "34FC2EE9A30007C78F86DD3319475643A8B81DBCD530A9781FD22AE94445D91E",
+                       "PROD":  "34FC2EE9A30007C78F86DD3319475643A8B81DBCD530A9781FD22AE94445D91E",
+                       "DEV":  "34FC2EE9A30007C78F86DD3319475643A8B81DBCD530A9781FD22AE94445D91E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Guard.UI.ps1",
+                       "Expected":  "0496259A02E978EDF2D0BCEC47B03A234D36F824CD90EA4BADDCF764A4E5BD7A",
+                       "PROD":  "0496259A02E978EDF2D0BCEC47B03A234D36F824CD90EA4BADDCF764A4E5BD7A",
+                       "DEV":  "0496259A02E978EDF2D0BCEC47B03A234D36F824CD90EA4BADDCF764A4E5BD7A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-HealthRules.Model.ps1",
+                       "Expected":  "F89ACDBCAD7BE1637128E0728FCF0840555EC059B7AA911CA5BD17E190D193BB",
+                       "PROD":  "F89ACDBCAD7BE1637128E0728FCF0840555EC059B7AA911CA5BD17E190D193BB",
+                       "DEV":  "F89ACDBCAD7BE1637128E0728FCF0840555EC059B7AA911CA5BD17E190D193BB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-HealthRules.UI.ps1",
+                       "Expected":  "8B51913B4050F6D2DBD446E52D18DD453A2E6B854329E63E701D1415AB614D0B",
+                       "PROD":  "8B51913B4050F6D2DBD446E52D18DD453A2E6B854329E63E701D1415AB614D0B",
+                       "DEV":  "8B51913B4050F6D2DBD446E52D18DD453A2E6B854329E63E701D1415AB614D0B",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Identity.Types.cs",
+                       "Expected":  "793D94FB7002E90EE7CA0D8FD6AA1BAB5B362D99635423C6F4844ABA4FD58D5C",
+                       "PROD":  "793D94FB7002E90EE7CA0D8FD6AA1BAB5B362D99635423C6F4844ABA4FD58D5C",
+                       "DEV":  "793D94FB7002E90EE7CA0D8FD6AA1BAB5B362D99635423C6F4844ABA4FD58D5C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Inline.UI.ps1",
+                       "Expected":  "0DB83005B84A3ECEEF62B33BBA489835198245C1AF04032D52C941A30A80B108",
+                       "PROD":  "0DB83005B84A3ECEEF62B33BBA489835198245C1AF04032D52C941A30A80B108",
+                       "DEV":  "0DB83005B84A3ECEEF62B33BBA489835198245C1AF04032D52C941A30A80B108",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Inline.xaml",
+                       "Expected":  "17B9A1E3C8701E9A9708123C0F37A3DB662A542631B35645DD13438F97018CDA",
+                       "PROD":  "17B9A1E3C8701E9A9708123C0F37A3DB662A542631B35645DD13438F97018CDA",
+                       "DEV":  "17B9A1E3C8701E9A9708123C0F37A3DB662A542631B35645DD13438F97018CDA",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Insight.Model.ps1",
+                       "Expected":  "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+                       "PROD":  "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+                       "DEV":  "6287EE0F3FE04F5D03E25E529BB1F4B056ECE8F66C2DE26872BCAA228C9DE27A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-InventoryImport.Model.ps1",
+                       "Expected":  "81E212E1F4FF83AAF2495B58B66EE029B7A664B509CA6586AF7BF6BEF0B2DA18",
+                       "PROD":  "81E212E1F4FF83AAF2495B58B66EE029B7A664B509CA6586AF7BF6BEF0B2DA18",
+                       "DEV":  "81E212E1F4FF83AAF2495B58B66EE029B7A664B509CA6586AF7BF6BEF0B2DA18",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Isolation.Worker.ps1",
+                       "Expected":  "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+                       "PROD":  "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+                       "DEV":  "DDA9BE0B91370AE8C23CA130198FF17C5BB3B4A0F584C8510588029D5C9E0A33",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Live.Model.ps1",
+                       "Expected":  "550F01A2CB2AAEB32C575547E2165B98A462053CEE44E8338C1B4173F4DCAFC1",
+                       "PROD":  "550F01A2CB2AAEB32C575547E2165B98A462053CEE44E8338C1B4173F4DCAFC1",
+                       "DEV":  "550F01A2CB2AAEB32C575547E2165B98A462053CEE44E8338C1B4173F4DCAFC1",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Live.Types.cs",
+                       "Expected":  "55362B7948F6241009211DD2603DFC3808F66876A0EBABBED15B9A95B03AD71C",
+                       "PROD":  "55362B7948F6241009211DD2603DFC3808F66876A0EBABBED15B9A95B03AD71C",
+                       "DEV":  "55362B7948F6241009211DD2603DFC3808F66876A0EBABBED15B9A95B03AD71C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Live.UI.ps1",
+                       "Expected":  "A386E7DA3DD123ABAC5870BE9451ECBF9B2DC485527CDD4A93CB2FE16B7DF6CC",
+                       "PROD":  "A386E7DA3DD123ABAC5870BE9451ECBF9B2DC485527CDD4A93CB2FE16B7DF6CC",
+                       "DEV":  "A386E7DA3DD123ABAC5870BE9451ECBF9B2DC485527CDD4A93CB2FE16B7DF6CC",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Lockout.UI.ps1",
+                       "Expected":  "E3429EBB0D0CE0AF32FEB5EC75FE6084150E4883F68617ABF47C74B17586AE14",
+                       "PROD":  "E3429EBB0D0CE0AF32FEB5EC75FE6084150E4883F68617ABF47C74B17586AE14",
+                       "DEV":  "E3429EBB0D0CE0AF32FEB5EC75FE6084150E4883F68617ABF47C74B17586AE14",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Lockout.Worker.ps1",
+                       "Expected":  "6DFB544F69ACCC712C80511072FD22914F8D790F6DF557BE2968CD66CB69E854",
+                       "PROD":  "6DFB544F69ACCC712C80511072FD22914F8D790F6DF557BE2968CD66CB69E854",
+                       "DEV":  "6DFB544F69ACCC712C80511072FD22914F8D790F6DF557BE2968CD66CB69E854",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-LogonActivity.Model.ps1",
+                       "Expected":  "606A077F1B1DFC4D348181A6DCB104B399F635E68C61D5C9A90929BEC906CD90",
+                       "PROD":  "606A077F1B1DFC4D348181A6DCB104B399F635E68C61D5C9A90929BEC906CD90",
+                       "DEV":  "606A077F1B1DFC4D348181A6DCB104B399F635E68C61D5C9A90929BEC906CD90",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-LogonActivity.UI.ps1",
+                       "Expected":  "EEA3472295145AC49B341FC04D58A387C5E49940D1A2C814E6FAF2A3B003329D",
+                       "PROD":  "EEA3472295145AC49B341FC04D58A387C5E49940D1A2C814E6FAF2A3B003329D",
+                       "DEV":  "EEA3472295145AC49B341FC04D58A387C5E49940D1A2C814E6FAF2A3B003329D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-LogonActivity.Worker.ps1",
+                       "Expected":  "FF35E2946025D5E5F7724CDCD6CC9DE83B208552453D5DA6CA612ACBDA43E57D",
+                       "PROD":  "FF35E2946025D5E5F7724CDCD6CC9DE83B208552453D5DA6CA612ACBDA43E57D",
+                       "DEV":  "FF35E2946025D5E5F7724CDCD6CC9DE83B208552453D5DA6CA612ACBDA43E57D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-MachineAccount.xaml",
+                       "Expected":  "5D72CBCC817716FB917DC5DE2734B7D987A6DF47AE151147903FF685C91D7FA9",
+                       "PROD":  "5D72CBCC817716FB917DC5DE2734B7D987A6DF47AE151147903FF685C91D7FA9",
+                       "DEV":  "5D72CBCC817716FB917DC5DE2734B7D987A6DF47AE151147903FF685C91D7FA9",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Membership.UI.ps1",
+                       "Expected":  "68DE9E7237FC406E9520C39F2349D8781F4E1B9037E72319D6FCA1F43472AB14",
+                       "PROD":  "68DE9E7237FC406E9520C39F2349D8781F4E1B9037E72319D6FCA1F43472AB14",
+                       "DEV":  "68DE9E7237FC406E9520C39F2349D8781F4E1B9037E72319D6FCA1F43472AB14",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Membership.Worker.ps1",
+                       "Expected":  "7E165DCF873DC022D801E4B9373E9908C362A42A7941925AC361B738D3BAD8C2",
+                       "PROD":  "7E165DCF873DC022D801E4B9373E9908C362A42A7941925AC361B738D3BAD8C2",
+                       "DEV":  "7E165DCF873DC022D801E4B9373E9908C362A42A7941925AC361B738D3BAD8C2",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Migration.UI.ps1",
+                       "Expected":  "30715CC560E8C7AE588B37EB92E767EE039C24A22605F1D15B633BA1E2CF4218",
+                       "PROD":  "30715CC560E8C7AE588B37EB92E767EE039C24A22605F1D15B633BA1E2CF4218",
+                       "DEV":  "30715CC560E8C7AE588B37EB92E767EE039C24A22605F1D15B633BA1E2CF4218",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Migration.Worker.ps1",
+                       "Expected":  "F6C45A59CE28E6C0DB13CE8464BE08145D061DA66355CDCD2B2578626836719C",
+                       "PROD":  "F6C45A59CE28E6C0DB13CE8464BE08145D061DA66355CDCD2B2578626836719C",
+                       "DEV":  "F6C45A59CE28E6C0DB13CE8464BE08145D061DA66355CDCD2B2578626836719C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Observability.Model.ps1",
+                       "Expected":  "B1FFF3136E468BEBA86E81C6AA009C8EEC0C60D72D32631F3FAA471892303A87",
+                       "PROD":  "B1FFF3136E468BEBA86E81C6AA009C8EEC0C60D72D32631F3FAA471892303A87",
+                       "DEV":  "B1FFF3136E468BEBA86E81C6AA009C8EEC0C60D72D32631F3FAA471892303A87",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Observability.UI.ps1",
+                       "Expected":  "D040552ADDEB2008425971F3C8F051BEB22441B6F4BE2E1D6197E6B34C8C0607",
+                       "PROD":  "D040552ADDEB2008425971F3C8F051BEB22441B6F4BE2E1D6197E6B34C8C0607",
+                       "DEV":  "D040552ADDEB2008425971F3C8F051BEB22441B6F4BE2E1D6197E6B34C8C0607",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Operations.xaml",
+                       "Expected":  "A24AD5FB0C5ABC0646B3C010DF561FF9878238B96BCD77D8CF8D13C7756E4359",
+                       "PROD":  "A24AD5FB0C5ABC0646B3C010DF561FF9878238B96BCD77D8CF8D13C7756E4359",
+                       "DEV":  "A24AD5FB0C5ABC0646B3C010DF561FF9878238B96BCD77D8CF8D13C7756E4359",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Park.Model.ps1",
+                       "Expected":  "7EC04B24DF24CF39A64B8CEF0677298EE11C8283ED9CB219D4D521F5B4ABE755",
+                       "PROD":  "7EC04B24DF24CF39A64B8CEF0677298EE11C8283ED9CB219D4D521F5B4ABE755",
+                       "DEV":  "7EC04B24DF24CF39A64B8CEF0677298EE11C8283ED9CB219D4D521F5B4ABE755",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Park.UI.ps1",
+                       "Expected":  "B93AC155146D3201821E6E09569F9FF0CD9CABC41E83064F938CE7B97634FA09",
+                       "PROD":  "B93AC155146D3201821E6E09569F9FF0CD9CABC41E83064F938CE7B97634FA09",
+                       "DEV":  "B93AC155146D3201821E6E09569F9FF0CD9CABC41E83064F938CE7B97634FA09",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Park.Worker.ps1",
+                       "Expected":  "67A6CAF5A737EC47E41FA23F4D820A5D15500F579C2CA7F0595298F44141CF7B",
+                       "PROD":  "67A6CAF5A737EC47E41FA23F4D820A5D15500F579C2CA7F0595298F44141CF7B",
+                       "DEV":  "67A6CAF5A737EC47E41FA23F4D820A5D15500F579C2CA7F0595298F44141CF7B",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-ProbeCatalog.Model.ps1",
+                       "Expected":  "816AA67769F5BC93B36E61DF626C718CC37FA83B7EA94A1E440BB7C71E1628CF",
+                       "PROD":  "816AA67769F5BC93B36E61DF626C718CC37FA83B7EA94A1E440BB7C71E1628CF",
+                       "DEV":  "816AA67769F5BC93B36E61DF626C718CC37FA83B7EA94A1E440BB7C71E1628CF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-ProbeCatalog.json",
+                       "Expected":  "E542611A64C6AEB4F8AD2220EE459466D7D64733C47D908F3FF3A22C0D731F4A",
+                       "PROD":  "E542611A64C6AEB4F8AD2220EE459466D7D64733C47D908F3FF3A22C0D731F4A",
+                       "DEV":  "E542611A64C6AEB4F8AD2220EE459466D7D64733C47D908F3FF3A22C0D731F4A",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-ProbeContract.Model.ps1",
+                       "Expected":  "326B4753CDC59DF6BB48DCA5E767C207FE9DE10F4A02B5FB66A5F616DFE5E7C6",
+                       "PROD":  "326B4753CDC59DF6BB48DCA5E767C207FE9DE10F4A02B5FB66A5F616DFE5E7C6",
+                       "DEV":  "326B4753CDC59DF6BB48DCA5E767C207FE9DE10F4A02B5FB66A5F616DFE5E7C6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-ProbeDetails.Model.ps1",
+                       "Expected":  "5C2E1E3AA09E1B5A8ADB65563F8787B77C249AB8C43783812888BBDF4BEED7BB",
+                       "PROD":  "5C2E1E3AA09E1B5A8ADB65563F8787B77C249AB8C43783812888BBDF4BEED7BB",
+                       "DEV":  "5C2E1E3AA09E1B5A8ADB65563F8787B77C249AB8C43783812888BBDF4BEED7BB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-ProbeDetails.UI.ps1",
+                       "Expected":  "A2FB106408745F03D7FAE4FF1B5651FB9735334F6CDB7141D591C2A17EC47E22",
+                       "PROD":  "A2FB106408745F03D7FAE4FF1B5651FB9735334F6CDB7141D591C2A17EC47E22",
+                       "DEV":  "A2FB106408745F03D7FAE4FF1B5651FB9735334F6CDB7141D591C2A17EC47E22",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Probes.Model.ps1",
+                       "Expected":  "B9F78CC7158BB135A38BAD76F8722528B314599E7647BE18EB8C155679D137A1",
+                       "PROD":  "B9F78CC7158BB135A38BAD76F8722528B314599E7647BE18EB8C155679D137A1",
+                       "DEV":  "B9F78CC7158BB135A38BAD76F8722528B314599E7647BE18EB8C155679D137A1",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Query.Model.ps1",
+                       "Expected":  "73E1B1DA4B2BE78453A6C189583E0AF9EC7708A8822AAC9715304EBDDE275E76",
+                       "PROD":  "73E1B1DA4B2BE78453A6C189583E0AF9EC7708A8822AAC9715304EBDDE275E76",
+                       "DEV":  "73E1B1DA4B2BE78453A6C189583E0AF9EC7708A8822AAC9715304EBDDE275E76",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Query.UI.ps1",
+                       "Expected":  "47B4B2BC877FE5DC09347B2632A099DB575F91768C7F15E35EBFD79FA0C69DA0",
+                       "PROD":  "47B4B2BC877FE5DC09347B2632A099DB575F91768C7F15E35EBFD79FA0C69DA0",
+                       "DEV":  "47B4B2BC877FE5DC09347B2632A099DB575F91768C7F15E35EBFD79FA0C69DA0",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Query.Worker.ps1",
+                       "Expected":  "BB24BA6FE53BA05DEAEF3BCAEA66C562C99A330935FFFD2871C7725ABA1761EF",
+                       "PROD":  "BB24BA6FE53BA05DEAEF3BCAEA66C562C99A330935FFFD2871C7725ABA1761EF",
+                       "DEV":  "BB24BA6FE53BA05DEAEF3BCAEA66C562C99A330935FFFD2871C7725ABA1761EF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Query.xaml",
+                       "Expected":  "12BDB5B312028213BADE55E82006E53B2F1C3F28964B37720C936CC15620E277",
+                       "PROD":  "12BDB5B312028213BADE55E82006E53B2F1C3F28964B37720C936CC15620E277",
+                       "DEV":  "12BDB5B312028213BADE55E82006E53B2F1C3F28964B37720C936CC15620E277",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryDetails.UI.ps1",
+                       "Expected":  "78082FAB6DB2969B508C9C657B73D300983E068F01420470AFE9123ED6657852",
+                       "PROD":  "78082FAB6DB2969B508C9C657B73D300983E068F01420470AFE9123ED6657852",
+                       "DEV":  "78082FAB6DB2969B508C9C657B73D300983E068F01420470AFE9123ED6657852",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryLibrary.Model.ps1",
+                       "Expected":  "FC5C9548876C8D67F82540B041347A88EC916DBDE5C9ECB80C207AE2786C7B40",
+                       "PROD":  "FC5C9548876C8D67F82540B041347A88EC916DBDE5C9ECB80C207AE2786C7B40",
+                       "DEV":  "FC5C9548876C8D67F82540B041347A88EC916DBDE5C9ECB80C207AE2786C7B40",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryLibrary.Store.UI.ps1",
+                       "Expected":  "133B6042138E945379795EB4ED2F4D6572C8E08712895D84813B4229A0D296DF",
+                       "PROD":  "133B6042138E945379795EB4ED2F4D6572C8E08712895D84813B4229A0D296DF",
+                       "DEV":  "133B6042138E945379795EB4ED2F4D6572C8E08712895D84813B4229A0D296DF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QuerySchema.Model.ps1",
+                       "Expected":  "9D2467ED2BFF13FC99EC0D4AB5D6B7F02B5293DA73B3AB5B9E53E93A57A768CA",
+                       "PROD":  "9D2467ED2BFF13FC99EC0D4AB5D6B7F02B5293DA73B3AB5B9E53E93A57A768CA",
+                       "DEV":  "9D2467ED2BFF13FC99EC0D4AB5D6B7F02B5293DA73B3AB5B9E53E93A57A768CA",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QuerySchema.UI.ps1",
+                       "Expected":  "89F7B07CBFE5BE1012B4378A5826FEAE824B3422ABDA8FCA418FE4914764BDF6",
+                       "PROD":  "89F7B07CBFE5BE1012B4378A5826FEAE824B3422ABDA8FCA418FE4914764BDF6",
+                       "DEV":  "89F7B07CBFE5BE1012B4378A5826FEAE824B3422ABDA8FCA418FE4914764BDF6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QuerySchema.Worker.ps1",
+                       "Expected":  "1E1639EC1F38BB899B804811FB4D871D3BFEF3EDF214008E7D2B5BABD93EBF0D",
+                       "PROD":  "1E1639EC1F38BB899B804811FB4D871D3BFEF3EDF214008E7D2B5BABD93EBF0D",
+                       "DEV":  "1E1639EC1F38BB899B804811FB4D871D3BFEF3EDF214008E7D2B5BABD93EBF0D",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryTargets.UI.ps1",
+                       "Expected":  "20D70DBA12A4B442C3E74E0CBF4A2AC44408AB34030A89EC73DF1E391172E919",
+                       "PROD":  "20D70DBA12A4B442C3E74E0CBF4A2AC44408AB34030A89EC73DF1E391172E919",
+                       "DEV":  "20D70DBA12A4B442C3E74E0CBF4A2AC44408AB34030A89EC73DF1E391172E919",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryTransfer.UI.ps1",
+                       "Expected":  "D004B65DAB8A8A17A0CAC4D89FDBD914074D9B44DAFF46D13AF5A86A728936D4",
+                       "PROD":  "D004B65DAB8A8A17A0CAC4D89FDBD914074D9B44DAFF46D13AF5A86A728936D4",
+                       "DEV":  "D004B65DAB8A8A17A0CAC4D89FDBD914074D9B44DAFF46D13AF5A86A728936D4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-QueryTransfer.Worker.ps1",
+                       "Expected":  "433228B0988FEDE0C4C5DFB19E3108C15FA8CE15AC15D00C0152CD27FE6C1730",
+                       "PROD":  "433228B0988FEDE0C4C5DFB19E3108C15FA8CE15AC15D00C0152CD27FE6C1730",
+                       "DEV":  "433228B0988FEDE0C4C5DFB19E3108C15FA8CE15AC15D00C0152CD27FE6C1730",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Readings.Model.ps1",
+                       "Expected":  "8EB5BCD3B8918D8F4E74F9E448D44555F629BEFE8D1683F8FF935D44D9086C21",
+                       "PROD":  "8EB5BCD3B8918D8F4E74F9E448D44555F629BEFE8D1683F8FF935D44D9086C21",
+                       "DEV":  "8EB5BCD3B8918D8F4E74F9E448D44555F629BEFE8D1683F8FF935D44D9086C21",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Receipts.Worker.ps1",
+                       "Expected":  "04720F3E1175B1FC9C047EA1660D93915A046C2FD871E564B1743B6D0B1956A2",
+                       "PROD":  "04720F3E1175B1FC9C047EA1660D93915A046C2FD871E564B1743B6D0B1956A2",
+                       "DEV":  "04720F3E1175B1FC9C047EA1660D93915A046C2FD871E564B1743B6D0B1956A2",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Reconcile.UI.ps1",
+                       "Expected":  "C07FEF638787A69B0C8A11EEE3A81ED6D5274BB1752AA1C94006397E6994A88E",
+                       "PROD":  "C07FEF638787A69B0C8A11EEE3A81ED6D5274BB1752AA1C94006397E6994A88E",
+                       "DEV":  "C07FEF638787A69B0C8A11EEE3A81ED6D5274BB1752AA1C94006397E6994A88E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Refresh.UI.ps1",
+                       "Expected":  "D835433BADBB8D96CF665B6E9ADACCE5D15C29C54673634962F448913BAC9F86",
+                       "PROD":  "D835433BADBB8D96CF665B6E9ADACCE5D15C29C54673634962F448913BAC9F86",
+                       "DEV":  "D835433BADBB8D96CF665B6E9ADACCE5D15C29C54673634962F448913BAC9F86",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Relations.Model.ps1",
+                       "Expected":  "F14944F4BE7F3F9DCF34B53244319DECE2ECB5E9058CE7EF6400853F16651777",
+                       "PROD":  "F14944F4BE7F3F9DCF34B53244319DECE2ECB5E9058CE7EF6400853F16651777",
+                       "DEV":  "F14944F4BE7F3F9DCF34B53244319DECE2ECB5E9058CE7EF6400853F16651777",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Relations.UI.ps1",
+                       "Expected":  "08A9543CCB95C261A0797992EBC846E6885B1C435372BF4956D78F8817B0D666",
+                       "PROD":  "08A9543CCB95C261A0797992EBC846E6885B1C435372BF4956D78F8817B0D666",
+                       "DEV":  "08A9543CCB95C261A0797992EBC846E6885B1C435372BF4956D78F8817B0D666",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Release.Model.ps1",
+                       "Expected":  "6C57059576F2387A557950DB7C7937F7E0F68DE9111E4B155C0F23462B764DD8",
+                       "PROD":  "6C57059576F2387A557950DB7C7937F7E0F68DE9111E4B155C0F23462B764DD8",
+                       "DEV":  "6C57059576F2387A557950DB7C7937F7E0F68DE9111E4B155C0F23462B764DD8",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Safety.Model.ps1",
+                       "Expected":  "C1BB822EE0BAE34AC9CC1989E06487DE2DFF3615EFA1C1668BAAD3B6873D4798",
+                       "PROD":  "C1BB822EE0BAE34AC9CC1989E06487DE2DFF3615EFA1C1668BAAD3B6873D4798",
+                       "DEV":  "C1BB822EE0BAE34AC9CC1989E06487DE2DFF3615EFA1C1668BAAD3B6873D4798",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Search.Model.ps1",
+                       "Expected":  "3FBC8FF3CA925AA44DCAC7F182A248B654A0EE6EE72DEFD93FCE11F30E44A99E",
+                       "PROD":  "3FBC8FF3CA925AA44DCAC7F182A248B654A0EE6EE72DEFD93FCE11F30E44A99E",
+                       "DEV":  "3FBC8FF3CA925AA44DCAC7F182A248B654A0EE6EE72DEFD93FCE11F30E44A99E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Search.UI.ps1",
+                       "Expected":  "D5A85DD434EFAFB9E3FA4A0D99AF3B91E4A281D4D3E1961FC83A2D08386C0DC3",
+                       "PROD":  "D5A85DD434EFAFB9E3FA4A0D99AF3B91E4A281D4D3E1961FC83A2D08386C0DC3",
+                       "DEV":  "D5A85DD434EFAFB9E3FA4A0D99AF3B91E4A281D4D3E1961FC83A2D08386C0DC3",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-SearchWorkspace.Model.ps1",
+                       "Expected":  "31593724FE57EFD9A81F8D318AEF2CC8766B03743D9D46DC241D4AC441B487D7",
+                       "PROD":  "31593724FE57EFD9A81F8D318AEF2CC8766B03743D9D46DC241D4AC441B487D7",
+                       "DEV":  "31593724FE57EFD9A81F8D318AEF2CC8766B03743D9D46DC241D4AC441B487D7",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-SearchWorkspace.UI.ps1",
+                       "Expected":  "B940DCEA115F0F7EF67033834E911E9F50F9AF947DEDB21E1F444CA80C38F58C",
+                       "PROD":  "B940DCEA115F0F7EF67033834E911E9F50F9AF947DEDB21E1F444CA80C38F58C",
+                       "DEV":  "B940DCEA115F0F7EF67033834E911E9F50F9AF947DEDB21E1F444CA80C38F58C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Secrets.UI.ps1",
+                       "Expected":  "A17639CF24093696D3D0047DACDD55B5161FBBD5BFB9C1ABC38A28DDBB7D9FDF",
+                       "PROD":  "A17639CF24093696D3D0047DACDD55B5161FBBD5BFB9C1ABC38A28DDBB7D9FDF",
+                       "DEV":  "A17639CF24093696D3D0047DACDD55B5161FBBD5BFB9C1ABC38A28DDBB7D9FDF",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Secrets.Worker.ps1",
+                       "Expected":  "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+                       "PROD":  "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+                       "DEV":  "8F5B009EEA769A9C81DC01B1EBD070F43DDA1838908CC3476F8181165ACB0F9E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Selection.UI.ps1",
+                       "Expected":  "DDC7BFCE24034EBA4A0632E1864CB3240272C0C190645006CE3FA8C5FEBA0A23",
+                       "PROD":  "DDC7BFCE24034EBA4A0632E1864CB3240272C0C190645006CE3FA8C5FEBA0A23",
+                       "DEV":  "DDC7BFCE24034EBA4A0632E1864CB3240272C0C190645006CE3FA8C5FEBA0A23",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Sessions.Native.cs",
+                       "Expected":  "C70C809DBA96D7651C90947E6AF3C61F101C876C429BA7B0FF4EA884F21704F5",
+                       "PROD":  "C70C809DBA96D7651C90947E6AF3C61F101C876C429BA7B0FF4EA884F21704F5",
+                       "DEV":  "C70C809DBA96D7651C90947E6AF3C61F101C876C429BA7B0FF4EA884F21704F5",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Sessions.UI.ps1",
+                       "Expected":  "BBB61DF914B7B9951BDE3ED5CE2955F9F5FB964FA08E7C903B75E8497D730F70",
+                       "PROD":  "BBB61DF914B7B9951BDE3ED5CE2955F9F5FB964FA08E7C903B75E8497D730F70",
+                       "DEV":  "BBB61DF914B7B9951BDE3ED5CE2955F9F5FB964FA08E7C903B75E8497D730F70",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Shell.Model.ps1",
+                       "Expected":  "EEC70CD9BB5738A0EB64DCA840A64CDC968544146A7E037D3CF2F68FD11CE729",
+                       "PROD":  "EEC70CD9BB5738A0EB64DCA840A64CDC968544146A7E037D3CF2F68FD11CE729",
+                       "DEV":  "EEC70CD9BB5738A0EB64DCA840A64CDC968544146A7E037D3CF2F68FD11CE729",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Startup.UI.ps1",
+                       "Expected":  "AB155FC22313622A6BF3696F55811A3BAB057679DA9F0220EEF1E2A83470DADB",
+                       "PROD":  "AB155FC22313622A6BF3696F55811A3BAB057679DA9F0220EEF1E2A83470DADB",
+                       "DEV":  "AB155FC22313622A6BF3696F55811A3BAB057679DA9F0220EEF1E2A83470DADB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Storage.UI.ps1",
+                       "Expected":  "37989233EABBEF4BC47E45F9136E3FB79D23BF7AC220E5AFB70FDD8D9EA2A1AB",
+                       "PROD":  "37989233EABBEF4BC47E45F9136E3FB79D23BF7AC220E5AFB70FDD8D9EA2A1AB",
+                       "DEV":  "37989233EABBEF4BC47E45F9136E3FB79D23BF7AC220E5AFB70FDD8D9EA2A1AB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Storage.Worker.ps1",
+                       "Expected":  "13069DA4E607D1DFD69838F89212768ED8E5D1F0480C63A6B49E31DA2F2E94EB",
+                       "PROD":  "13069DA4E607D1DFD69838F89212768ED8E5D1F0480C63A6B49E31DA2F2E94EB",
+                       "DEV":  "13069DA4E607D1DFD69838F89212768ED8E5D1F0480C63A6B49E31DA2F2E94EB",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-StorageContext.UI.ps1",
+                       "Expected":  "E7BE3B6E882EB267EDF8ABBB3A4E9DAB19AC583CB0763F3162C0BCA637434441",
+                       "PROD":  "E7BE3B6E882EB267EDF8ABBB3A4E9DAB19AC583CB0763F3162C0BCA637434441",
+                       "DEV":  "E7BE3B6E882EB267EDF8ABBB3A4E9DAB19AC583CB0763F3162C0BCA637434441",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-StorageLease.Model.ps1",
+                       "Expected":  "5E642F436D6D04CEC87D3BBE670E7173A16DA9C3F5AF1FBF64993306A373DF88",
+                       "PROD":  "5E642F436D6D04CEC87D3BBE670E7173A16DA9C3F5AF1FBF64993306A373DF88",
+                       "DEV":  "5E642F436D6D04CEC87D3BBE670E7173A16DA9C3F5AF1FBF64993306A373DF88",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Store.Model.ps1",
+                       "Expected":  "6374916065CECCE4299D0BCC4CF3212A450F480A27B831F7C03137254809D33E",
+                       "PROD":  "6374916065CECCE4299D0BCC4CF3212A450F480A27B831F7C03137254809D33E",
+                       "DEV":  "6374916065CECCE4299D0BCC4CF3212A450F480A27B831F7C03137254809D33E",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Support.Model.ps1",
+                       "Expected":  "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+                       "PROD":  "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+                       "DEV":  "DC86FBE76C2A30663223B3AC11D29CCC38DB3F6080D2E4BE3569E25A8406B3A6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Support.UI.ps1",
+                       "Expected":  "10A1236D6AE2D8673D1E853D0FE77AFE20070BA33790A164F8E1911AD0B85316",
+                       "PROD":  "10A1236D6AE2D8673D1E853D0FE77AFE20070BA33790A164F8E1911AD0B85316",
+                       "DEV":  "10A1236D6AE2D8673D1E853D0FE77AFE20070BA33790A164F8E1911AD0B85316",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Support.xaml",
+                       "Expected":  "8D803D5090354851490F0F9636B3FA38603990713F5810C1CAD9FF7C200921B5",
+                       "PROD":  "8D803D5090354851490F0F9636B3FA38603990713F5810C1CAD9FF7C200921B5",
+                       "DEV":  "8D803D5090354851490F0F9636B3FA38603990713F5810C1CAD9FF7C200921B5",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-UX.UI.ps1",
+                       "Expected":  "0312CBD40A0F618970CCC84557CB9AF56701424A28E35568C59BB94C72367DF5",
+                       "PROD":  "0312CBD40A0F618970CCC84557CB9AF56701424A28E35568C59BB94C72367DF5",
+                       "DEV":  "0312CBD40A0F618970CCC84557CB9AF56701424A28E35568C59BB94C72367DF5",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-UX.help.json",
+                       "Expected":  "FBCF78DD46D9D7E814A30A92E6C35DC9A4BBDF66980A075A5EFFB6F628E90E62",
+                       "PROD":  "FBCF78DD46D9D7E814A30A92E6C35DC9A4BBDF66980A075A5EFFB6F628E90E62",
+                       "DEV":  "FBCF78DD46D9D7E814A30A92E6C35DC9A4BBDF66980A075A5EFFB6F628E90E62",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-WidgetCollect.Model.ps1",
+                       "Expected":  "5DDD4CB005D3379D6383EDA223AF744F9571FD4386AFC1F7E82E64101F31CAE6",
+                       "PROD":  "5DDD4CB005D3379D6383EDA223AF744F9571FD4386AFC1F7E82E64101F31CAE6",
+                       "DEV":  "5DDD4CB005D3379D6383EDA223AF744F9571FD4386AFC1F7E82E64101F31CAE6",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Widgets.UI.ps1",
+                       "Expected":  "AD57566EB1BB1A571F0164C8433779EF8C3D55A3B53C2C32B58E1E62D73E09B4",
+                       "PROD":  "AD57566EB1BB1A571F0164C8433779EF8C3D55A3B53C2C32B58E1E62D73E09B4",
+                       "DEV":  "AD57566EB1BB1A571F0164C8433779EF8C3D55A3B53C2C32B58E1E62D73E09B4",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-WindowsLifecycle.json",
+                       "Expected":  "278FCB9733DDF1117AC984A99DFC98DC925ABDD37E1EDF6F999A9A8E7DAAF50C",
+                       "PROD":  "278FCB9733DDF1117AC984A99DFC98DC925ABDD37E1EDF6F999A9A8E7DAAF50C",
+                       "DEV":  "278FCB9733DDF1117AC984A99DFC98DC925ABDD37E1EDF6F999A9A8E7DAAF50C",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia-Workstation.Model.ps1",
+                       "Expected":  "1E4433D2E037537496A7C9459368019EFB8D72BD404062AC84CEE8D8127CE6B1",
+                       "PROD":  "1E4433D2E037537496A7C9459368019EFB8D72BD404062AC84CEE8D8127CE6B1",
+                       "DEV":  "1E4433D2E037537496A7C9459368019EFB8D72BD404062AC84CEE8D8127CE6B1",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/Domenia.Native.dll",
+                       "Expected":  "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+                       "PROD":  "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+                       "DEV":  "C3659BB893ABCBE9B09237EE4428DC9AEC9ECB1ADB2B4502087A36A384CF8D66",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/M4D.Admin.Common.Query.dll",
+                       "Expected":  "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+                       "PROD":  "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+                       "DEV":  "472D9C5FEBA970E2999621072DED76A8BF691EF22DC4DE23FD4E5D0FB45A4D98",
+                       "Passed":  true
+                   },
+                   {
+                       "Path":  "wad/modules/SupportSuite.UI.json",
+                       "Expected":  "64D2C82036747CE3BFB1B49399D9826B2C2E94D75478FA8527DEDC6ABA120C49",
+                       "PROD":  "64D2C82036747CE3BFB1B49399D9826B2C2E94D75478FA8527DEDC6ABA120C49",
+                       "DEV":  "64D2C82036747CE3BFB1B49399D9826B2C2E94D75478FA8527DEDC6ABA120C49",
+                       "Passed":  true
+                   }
+               ]
+}

@@ -1,0 +1,44 @@
+﻿[
+    {
+        "Name":  "FirstSteps",
+        "StartedUtc":  "2026-10-20T10:51:54.8674849Z",
+        "Seconds":  32.0267677,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "OuRefresh",
+        "StartedUtc":  "2026-10-20T10:52:26.9199688Z",
+        "Seconds":  24.9913311,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "NativeParser",
+        "StartedUtc":  "2026-10-20T10:52:51.9307324Z",
+        "Seconds":  3.627688,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "Ps51Compat",
+        "StartedUtc":  "2026-10-20T10:52:55.5584204Z",
+        "Seconds":  37.0649716,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "PROD-CheckOnly",
+        "StartedUtc":  "2026-10-20T10:53:32.6233920Z",
+        "Seconds":  13.1967552,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "PROD-Builder",
+        "StartedUtc":  "2026-10-20T10:53:45.8534860Z",
+        "Seconds":  13.8933018,
+        "ExitCode":  1,
+        "TimedOut":  false
+    }
+]

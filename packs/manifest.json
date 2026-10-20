@@ -2,14 +2,14 @@
   "schema": 1,
   "product": "Domenia",
   "version": "1.0",
-  "build": "2026.10.19-DOMENIA-1.0-RC1.17.34-D120",
-  "source_base_commit": "a62c3ded03724922212c8a5d343aa32e391ba4dd",
+  "build": "2026.10.20-DOMENIA-1.0-RC1.17.35-D120",
+  "source_base_commit": "3a2b939a753deb4800f66003764ab82b949aee69",
   "archives": [
     {
       "edition": "PROD",
       "path": "packs/Domenia_PROD.zip",
-      "bytes": 3078964,
-      "sha256": "eef50ad20f4a2c6208e87ed80c91da8e4d720f1e0ab068feca570f099f10d1da",
+      "bytes": 3089376,
+      "sha256": "6a60a30a27cba4ec5d83ba76e81a9f99ff8c4bac7911977262ebaa7af477f94d",
       "files": 172,
       "archive_files_including_manifest": 173,
       "archive_root": "prod/"
@@ -17,25 +17,25 @@
     {
       "edition": "DEV",
       "path": "packs/Domenia_DEV.zip",
-      "bytes": 6574850,
-      "sha256": "46c4ad68f73d8b4efe4672881833bb9aeb054477a307d0ccb12b22a3ead33e8a",
-      "files": 645,
-      "archive_files_including_manifest": 646,
+      "bytes": 6589894,
+      "sha256": "4910d9251c351ba3f261954840f845641d8818217a53e67825c8e0fccf25ccd7",
+      "files": 646,
+      "archive_files_including_manifest": 647,
       "archive_root": "dev/"
     }
   ],
   "runtime_files_identical": 172,
   "qualification": {
-    "status": "RC33_NOT_EXECUTED_ON_WINDOWS_RC22_PROOFS_HISTORICAL",
-    "proof": "validation/2026-10-18/rc22-ui-automation/README.md",
-    "windows_executed": false,
-    "formal_windows_qualification": "NONE_FOR_RC23_TO_RC33",
+    "status": "RC35_TARGETED_WINDOWS_PASS",
+    "proof": "validation/2026-10-20/first-run/README.md",
+    "windows_executed": true,
+    "formal_windows_qualification": "TARGETED_ONLY_NOT_GENERAL",
     "formal_publishable": false,
     "external_decision_ids": [
       134,
       146
     ],
-    "documentation_proof": "dev/engineering/d120/programme-2026-10-13/SUIVI-2026-10-18.md",
+    "documentation_proof": "validation/2026-10-20/first-run/README.md",
     "historical_rc17_proofs": [
       "validation/2026-10-18/rc17-storage-ui/README.md",
       "validation/2026-10-18/rc17-ui-health-backup/README.md",
@@ -70,6 +70,51 @@
     "rc34_change": "Ping en une seule vague de 192 échos (au lieu de lots de 32). « Tout actualiser » et le bouton WMI : une seule séance de ping de tous les postes, puis lecture WMI des seuls postes qui ont répondu, sans nouvel écho ni seconde confirmation ; horloges ping et WMI consignées séparément. Contrôles hors Windows uniquement.",
     "worker_operations_changed_rc34": [
       "ParkPing"
-    ]
+    ],
+    "rc35_change": "Premiers pas : OU acceptée immédiatement visible ; première lecture fondée sur la couverture de cette OU ; lecture vide admise ; marqueurs inconnus, partiels seuls ou de profondeur incompatible refusés ; ancien calcul ignoré après changement de périmètre. Aucun worker modifié. La lecture AD partielle attend désormais son reçu de stockage avant le passage éventuel au ping/WMI ; son statut reste partiel. Fabrique PROD native alignée sur le traitement des helpers facultatifs ; parseur natif des workers aligné sur leurs corps composés et leurs dépendances.",
+    "checks": {
+      "Build": "2026.10.20-DOMENIA-1.0-RC1.17.35-D120",
+      "PROD_SHA256": "6A60A30A27CBA4EC5D83BA76E81A9F99FF8C4BAC7911977262EBAA7AF477F94D",
+      "DEV_SHA256": "4910D9251C351BA3F261954840F845641D8818217A53E67825C8E0FCCF25CCD7",
+      "TargetedPassed": true,
+      "GeneralQualification": false,
+      "FirstSteps": {
+        "Passed": 3,
+        "Failed": 0
+      },
+      "OuRefresh": {
+        "Passed": 58,
+        "Failed": 0
+      },
+      "NativeParser": {
+        "Files": 335,
+        "Workers": 97,
+        "Failed": 0
+      },
+      "FactoryChecks": 4,
+      "RuntimeIdenticalFiles": 172,
+      "RetainedResults": {
+        "Freshness": 22,
+        "Delivery": 17,
+        "TestFilesAndAllModulesIdentical": true,
+        "CoreHelpersSha256": {
+          "Initialize-DomeniaWinSqliteNative": "ed42326d76a28126980e6d250b684d61cf50610bc011c9e69427238cd1666a5a",
+          "Get-DomeniaSqliteSchemaText": "f61fa178f86aa06b609161bc7362096aef06ada1112aa5173925d0b4adb4f09d"
+        }
+      },
+      "IncompleteBroaderSuites": [
+        {
+          "Suite": "Boards full",
+          "PassedBeforeTimeout": 41,
+          "Expected": 66,
+          "BudgetSeconds": 240
+        },
+        {
+          "Suite": "WiringCache full",
+          "BudgetSeconds": 240,
+          "NoCompleteReport": true
+        }
+      ]
+    }
   }
 }

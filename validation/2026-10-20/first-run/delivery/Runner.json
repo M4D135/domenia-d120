@@ -1,0 +1,23 @@
+﻿[
+    {
+        "Name":  "NativeParser",
+        "StartedUtc":  "2026-10-20T10:59:04.7302183Z",
+        "Seconds":  90.4206535,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "Factory",
+        "StartedUtc":  "2026-10-20T11:00:35.1629802Z",
+        "Seconds":  68.1652857,
+        "ExitCode":  0,
+        "TimedOut":  false
+    },
+    {
+        "Name":  "PROD-CheckOnly",
+        "StartedUtc":  "2026-10-20T11:01:43.4260654Z",
+        "Seconds":  12.3945823,
+        "ExitCode":  0,
+        "TimedOut":  false
+    }
+]

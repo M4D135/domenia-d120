@@ -201,11 +201,11 @@ Test-Case 'FRN-002' 'Progression : chaque etape est lue dans la session, la suiv
     $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -ScopeName 'Postes'
     Assert-Equal 'Base' $plan.Next
     Assert-Equal 'OU de travail : Postes.' @($plan.Steps)[1].Text
-    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200 -ScopeRead $true
     Assert-Equal 'Dashboard' $plan.Next
     Assert-True @($plan.Steps)[3].Enabled
-    Assert-Equal 'Première lecture faite : 1200 objet(s) dans la base locale.' @($plan.Steps)[2].Text
-    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200 -DashboardSeen $true
+    Assert-Equal 'Première lecture de cette OU enregistrée dans la base locale.' @($plan.Steps)[2].Text
+    $plan = Get-DomeniaFirstRunPlan -Domain 'example.invalid' -ScopeDn 'OU=Postes,DC=example,DC=invalid' -IndexedObjects 1200 -DashboardSeen $true -ScopeRead $true
     Assert-True $plan.Done; Assert-Equal '' $plan.Next
 }
 
@@ -214,4 +214,18 @@ Test-Case 'FRN-003' 'Un tableau de bord vu sans base lue nʼest pas une etape fa
     Assert-False @($plan.Steps)[3].Done
     Assert-Equal 'OU de travail : OU=Postes,DC=example,DC=invalid.' @($plan.Steps)[1].Text
     Assert-Equal 'Connecté à example.invalid.' @((Get-DomeniaFirstRunPlan -Domain 'example.invalid').Steps)[0].Text
+}
+
+Test-Case 'FRN-004' 'La couverture explicite prime sur le compteur global, y compris pour une OU vide' {
+    $args_ = @{Domain='example.invalid';ScopeDn='OU=Postes,DC=example,DC=invalid'}
+    $unknown = Get-DomeniaFirstRunPlan @args_ -IndexedObjects 1200 -DashboardSeen $true
+    Assert-False @($unknown.Steps)[2].Done 'Le compteur global ne prouve pas cette OU'
+    Assert-False @($unknown.Steps)[3].Enabled
+    $missing = Get-DomeniaFirstRunPlan @args_ -IndexedObjects 1200 -ScopeRead $false
+    Assert-Equal 'Base' $missing.Next
+    $empty = Get-DomeniaFirstRunPlan @args_ -IndexedObjects 0 -ScopeRead $true
+    Assert-True @($empty.Steps)[2].Done 'Une lecture complete vide reste une lecture'
+    Assert-True @($empty.Steps)[3].Enabled
+    Assert-Equal 'Dashboard' $empty.Next
+    Assert-False @((Get-DomeniaFirstRunPlan -ScopeRead $true).Steps)[2].Done 'Une couverture sans connexion ni OU ne valide rien'
 }

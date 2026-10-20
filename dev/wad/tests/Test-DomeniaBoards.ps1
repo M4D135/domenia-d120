@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=65
+$script:ExpectedCases=66
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -779,7 +779,7 @@ try{
             Expect ($call.Force -and $call.WmiOnly -and $call.Inventory -and $call.NoConsole -and @($call.Probes|Where-Object{$null -ne $_}).Count -eq 0 -and $call.WidgetIds[0] -eq 'w-date') 'Lot non cible ou cache reutilise'
         } finally {$script:DomeniaOuRefresh=$old;foreach($run in (Get-DomeniaParkRuns).Values){$run.Completed=$true}}
     }
-    Case 'Premiers pas : le calcul de la vue part au clic, echec et OU vide recuperables sans scan' {
+    Case 'Premiers pas : le calcul de la vue part au clic, erreurs recuperables sans scan' {
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:RemoteAdminCredential=$null
         $script:DatabaseScopedPath='';$script:FleetJobId='';$script:FleetPendingKey='';$script:FleetStale=$false
         if($null -ne $script:DomeniaQueryState.Timer){$script:DomeniaQueryState.Timer.Stop()}
@@ -820,6 +820,7 @@ try{
         Expect ($script:StartCalls.Count -eq $before+2 -and $script:ParkCalls.Count -eq $parks) ('Une etape a lance une tache autre que la selection OU explicite : '+(@($script:StartCalls|Select-Object -Skip $before|ForEach-Object{$_.OperationId}) -join ','))
         Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts') ('Ecrans ouverts : '+($script:Workspaces -join ','))
         $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:IndexDbCount=12;$script:DomeniaFirstDashboard=$null
+        $script:IndexSyncStates=@{poste=[pscustomobject]@{scope='ou:OU=Postes,DC=example,DC=invalid';base_dn='OU=Postes,DC=example,DC=invalid';last_sync='2026-10-13T11:48:00Z';details='complete;depth=Subtree'}}
         Update-DomeniaFirstSteps
         Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Le clic du tableau de bord est indisponible apres la premiere lecture'
         Expect ($script:StartCalls.Count -eq $before+2) 'La carte lance encore le calcul'
@@ -834,16 +835,16 @@ try{
         Expect ($script:StartCalls.Count -eq $before+4 -and $script:DomeniaFirstDashboard.Phase -eq 'Loading') 'Reessai non lance'
         Complete-DomeniaFirstDashboard -ScopeKey 'autre-ou' -Count 12
         Expect ($script:DomeniaFirstDashboard.Phase -eq 'Loading') 'Autre OU acceptée'
-        Complete-DomeniaFirstDashboard -ScopeKey ([string](Get-DomeniaFleetScope).Key) -Count 0
+        Complete-DomeniaFirstDashboard -ScopeKey ([string](Get-DomeniaFleetScope).Key) -Count 0 -ErrorText 'Erreur de lecture fixture'
         Update-DomeniaFirstSteps
-        Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error' -and (Get-DomeniaControl 'LblFirstStepDashboard').Text -match 'Aucun poste') 'OU vide proposee comme prete'
+        Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error' -and (Get-DomeniaControl 'LblFirstStepDashboard').Text -match 'Erreur de lecture fixture') 'Erreur de lecture proposee comme prete'
         $script:FleetJobId='';$script:FleetPendingKey=''
         Open-DomeniaFirstStep Dashboard
-        Expect ($script:StartCalls.Count -eq $before+5) 'OU vide : reessai non lance'
+        Expect ($script:StartCalls.Count -eq $before+5) 'Erreur de lecture : reessai non lance'
         Complete-DomeniaFirstDashboard -ScopeKey ([string](Get-DomeniaFleetScope).Key) -Count 12
         Update-DomeniaFirstSteps
         Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Tableau de bord non propose apres son calcul'
-        Expect ([string](Get-DomeniaControl 'LblFirstStepBase').Text -like 'Première lecture faite : 12 objet(s)*') ([string](Get-DomeniaControl 'LblFirstStepBase').Text)
+        Expect ([string](Get-DomeniaControl 'LblFirstStepBase').Text -ceq 'Première lecture de cette OU enregistrée dans la base locale.') ([string](Get-DomeniaControl 'LblFirstStepBase').Text)
         Expect ($card.Visibility -eq [Windows.Visibility]::Visible) 'Carte masquee avant la decouverte du tableau de bord'
         Open-DomeniaFirstStep Dashboard
         Expect (($script:Workspaces -join ',') -eq 'TabApplicationTools/TabIndex,route:TabAccounts,route:TabDashboard') 'Navigation absente apres preparation'
@@ -851,7 +852,7 @@ try{
         Update-DomeniaFirstSteps
         Expect ($card.Visibility -eq [Windows.Visibility]::Collapsed) 'Carte encore affichee apres les quatre etapes'
         Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Preference locale non enregistree'
-        $script:FleetScopeDn='';$script:IndexDbCount=0;$script:Conn=$savedConn;$script:TestSettings.Remove('Home.DashboardSeen')
+        $script:FleetScopeDn='';$script:IndexDbCount=0;$script:IndexSyncStates=@{};$script:Conn=$savedConn;$script:TestSettings.Remove('Home.DashboardSeen')
     }
     Case 'Premiers pas : l OU acceptee redessine la carte et une base remplie par une autre OU ne fait pas la premiere lecture' {
         # The three reported faults: the accepted OU left the card on « 2 » until an unrelated refresh, and a base
@@ -897,6 +898,56 @@ try{
         $script:FleetScopeDn='';$script:IndexDbCount=0;$script:IndexSyncStates=@{};$script:Conn=$savedConn
         foreach($k in @($script:TestSettings.Keys)){if(($k -like 'Directory.RootOu.*') -or ($k -like 'Fleet.Scope.*')){$script:TestSettings.Remove($k)}}
         $script:TestSettings.Remove('Home.DashboardSeen')
+    }
+    Case 'Premiers pas : couverture inconnue ou partielle, OU vide et preparation changeant de perimetre' {
+        $savedConn=$script:Conn
+        $script:Conn=[pscustomobject]@{BaseDn='DC=example,DC=invalid';Domain='example.invalid';Connected=$true;BindUser='EXAMPLE\agent'}
+        $dn='OU=Postes,DC=example,DC=invalid'
+        $script:FleetScopeDn=$dn;$script:FleetScopeName='Postes';$script:FleetScopeSubtree=$true
+        $script:FleetScopeExplicitDomain=$false;$script:FleetScopeRestored=$true
+        $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:IndexDbCount=1200
+        $script:TestSettings['Home.FirstStepsDone']=$false;$script:TestSettings['Home.DashboardSeen']=''
+        $before=$script:StartCalls.Count;$parks=$script:ParkCalls.Count
+        try {
+            $incomplete=@(
+                @{},
+                @{partial=[pscustomobject]@{scope=('attempt:ou:'+$dn);base_dn=$dn;last_sync='2026-10-13T12:00:00Z';details='partial;depth=Subtree'}},
+                @{legacy=[pscustomobject]@{scope=('ou:'+$dn);base_dn=$dn;last_sync='2026-10-13T11:48:00Z';details='complete'}},
+                @{shallow=[pscustomobject]@{scope=('ou:onelevel:'+$dn);base_dn=$dn;last_sync='2026-10-13T11:48:00Z';details='complete;depth=OneLevel'}}
+            )
+            foreach($markers in $incomplete){
+                $script:IndexSyncStates=$markers
+                Update-DomeniaFirstSteps
+                Expect ([string](Get-DomeniaControl 'LblFirstStepBaseMark').Text -eq '3') 'Couverture incomplete reconnue comme premiere lecture'
+                Expect (-not (Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'Couverture incomplete debloque le tableau de bord'
+            }
+            $script:IndexSyncStates=@{
+                complete=[pscustomobject]@{scope=('ou:'+$dn);base_dn=$dn;last_sync='2026-10-13T11:48:00Z';details='complete;depth=Subtree'}
+                partial=[pscustomobject]@{scope=('attempt:ou:'+$dn);base_dn=$dn;last_sync='2026-10-13T12:00:00Z';details='partial;depth=Subtree'}
+            }
+            $script:IndexDbCount=0
+            Update-DomeniaFirstSteps
+            Expect ([string](Get-DomeniaControl 'LblFirstStepBaseMark').Text -eq [string][char]0x2713) 'Lecture complete vide perdue apres une tentative partielle'
+            Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'OU vide lue completement bloquee'
+            $key=[string](Get-DomeniaFleetScope).Key
+            $script:DomeniaFirstDashboard=[pscustomobject]@{Epoch=[long]$script:SessionEpoch;Path=$script:DatabaseScopedPath;Key='autre-ou';Phase='Loading';Message='Ancienne OU en cours'}
+            Update-DomeniaFirstSteps
+            Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled -and (Get-DomeniaControl 'LblFirstStepDashboard').Text -notmatch 'Ancienne OU') 'Preparation de l ancienne OU affichee sur la nouvelle'
+            $script:DomeniaFirstDashboard.Key=$key
+            Complete-DomeniaFirstDashboard -ScopeKey $key
+            Expect ($script:DomeniaFirstDashboard.Phase -eq 'Error') 'Comptage absent interprete comme OU vide'
+            $script:DomeniaFirstDashboard.Phase='Loading'
+            Complete-DomeniaFirstDashboard -ScopeKey $key -Count 0
+            Update-DomeniaFirstSteps
+            Expect ($script:DomeniaFirstDashboard.Phase -eq 'Ready' -and (Get-DomeniaControl 'LblFirstStepDashboard').Text -match 'aucun poste recensé') 'OU vide en erreur apres calcul reussi'
+            Expect ((Get-DomeniaControl 'BtnFirstStepDashboard').IsEnabled) 'OU vide prete mais inaccessible'
+            Open-DomeniaFirstStep Dashboard
+            Expect ([bool]$script:TestSettings['Home.FirstStepsDone']) 'Parcours vide impossible a terminer'
+            Expect ($script:StartCalls.Count -eq $before -and $script:ParkCalls.Count -eq $parks) 'Requete lancee pour redessiner ou ouvrir une vue deja prete'
+        } finally {
+            $script:Conn=$savedConn;$script:FleetScopeDn='';$script:IndexDbCount=0;$script:IndexSyncStates=@{};$script:DomeniaFirstDashboard=$null
+            $script:TestSettings.Remove('Home.DashboardSeen')
+        }
     }
     Case 'Anciens widgets repris une fois dans la disposition' {
         $script:TestSettings.Remove('Dashboard.Computer.Layout')
