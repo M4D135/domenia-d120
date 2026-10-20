@@ -19,8 +19,22 @@ Statut : code et bancs ajoutés, **aucun test Windows/VM exécuté par ce lot**.
 - Patch additionnel de rotation du compagnon Core : `../stockage-20261020/core-backup-companion.patch` (hors dépôt), intégré par root avec garde de journalisation ; Migration.Worker régénéré par root.
 - Contrôle local effectué : `git diff --check` sur les fichiers du lot, sans erreur. Il ne qualifie aucun comportement Windows.
 
-## OpenCode/Spark
+## OpenCode/Spark et contrôle du brouillon
 
-KBZA doctor : identité mac et client local OK. Passerelle `/v1/models` vérifiée, alias `spark-local` présent. OpenCode CLI 1.19.1 utilise uniquement Spark ; session `ses_ea52cc62bffeezy9ol4nH2YyHH`. Un seul processus à la fois, aucun service permanent ajouté. Profil temporaire à permissions bornées dans `../stockage-20261020/`. Le premier lancement CLI avait mal interprété `-f` ; le lancement détaché suivant n'a produit qu'un début de tour ; reprise supervisée au premier plan avec correction des motifs de lecture relatifs. Ces étapes ne sont pas des preuves de travail achevé.
+KBZA doctor : identité mac et client local OK ; passerelle `/v1/models` et alias `spark-local` vérifiés. Aucun service, tunnel ou superviseur ancien relancé. Un seul appel LLM de cette file à la fois. Les profils temporaires interdisent shell, tests, réseau direct et sous-agents ; écritures limitées au lot courant.
 
-Le tour de qualification a été interrompu proprement (exit -2) sans fichier produit ; session et journaux préservés. Le correctif Live/LocalPreview s’exécute dans un contexte frais `ses_ea518d676ffeLFsGBFFH7tsgWV` du même OpenCode/Spark, avec sources complètes et écritures limitées à trois fichiers. Revue statique et guides suivent dans la même file. Qualification Windows ciblée à venir sous contrôle root ; aucune exécution n’est déclarée ici. Aucun appel OpenCode ne peut exécuter de shell, tests, VM, réseau direct ou sous-agent.
+- Sauvegarde : session Spark `ses_ea52cc62bffeezy9ol4nH2YyHH` arrêtée proprement sans banc produit ; journaux conservés. Aucun `Test-DomeniaBackupQualification.ps1` revendiqué.
+- Race : session Spark fraîche `ses_ea518d676ffeLFsGBFFH7tsgWV` arrêtée après absence de sortie utile. Le fallback gratuit `opencode/glm-5.3-flash-free` est vérifié dans le catalogue live et autorisé par root. Un premier tour gratuit a atteint sa limite moteur de 32 000 tokens de raisonnement sans patch (coût déclaré 0), ce qui n’est pas un résultat de code.
+- Le tour compact gratuit en variante `low`, session `ses_ea5083578ffevQtI9bDZEjqeKd`, a écrit le brouillon Live/LocalPreview/test. Le superviseur l’a corrigé : aucun rejet prématuré du cache sur `DirectoryPipe.Completed`, car une erreur SQL utilise `Failure` et `Search.Error`. Seule la fin `Ended` sans erreur détache le reliquat avant sélection de cadence. Le test attend 201 lignes pendant le dernier COMMIT, cache vide et seules lignes AD après succès, et conservation de la file après erreur SQL.
+- Le tour gratuit low `turn-20261020T202414Z.jsonl` a terminé avec exit 0 : accents des messages Storage.UI, catch Widgets tracé, tests Python d’incidents et d’opération fictive. Relecture du superviseur : retrait supplémentaire du couplage au KI-001 courant ; le registre réel est testé sans quota ni incident figé, et une fixture vérifie le blocage/résolution.
+- Deux fixtures FI-13 de `Test-DomeniaWiringCache.ps1` importent maintenant les vraies fonctions de snapshot/defaults nécessaires à `New-DomeniaBackupPayload` ; assertions existantes conservées.
+
+**Codegate donné à root le 20/10 à 20:26 UTC pour build et qualification critique ciblée.** Aucune suite Windows n’a été exécutée par ce lot. Guides et revue globale suivent sans mutation du runtime ; une éventuelle anomalie de revue sera signalée séparément.
+
+Reprise locale : `../stockage-20261020/STATE.json` décrit la session active, les journaux et la file. Le lanceur reçoit le prompt intégral par stdin (réception confirmée via export CLI), sans troncature des fonctions ni secret dans les arguments. Commande type :
+
+```text
+python3 ../stockage-20261020/run-opencode.py --new-session --model opencode/glm-5.3-flash-free --variant low --profile opencode-guides.json --prompt-file CHEMIN_ABSOLU_DU_PROMPT
+```
+
+Ne pas lancer une seconde invocation tant que celle indiquée active dans STATE.json n’est pas terminée. Les fichiers de profil et les journaux restent hors du dépôt ; aucun jeton n’y est écrit en clair.

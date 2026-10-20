@@ -1039,16 +1039,16 @@ function Get-DomeniaBackupPreferencesJson {
     $clean=ConvertTo-DomeniaExperienceSettings -Values $script:Settings -Defaults (Get-DomeniaDefaultSettings)
     foreach($key in @($clean.Keys)){if(([string]$key -cmatch '^Storage\.(Database|Backup\.(Last|LastDetail))\.') -or ([string]$key -in @('RemoteCredentialUser','SecretsCredentialUser'))){[void]$clean.Remove($key)}}
     $json=([pscustomobject]$clean)|ConvertTo-Json -Depth 8 -Compress
-    if([Text.Encoding]::UTF8.GetByteCount($json) -gt 4MB){throw 'Preferences trop volumineuses pour une sauvegarde complete.'}
+    if([Text.Encoding]::UTF8.GetByteCount($json) -gt 4MB){throw 'Préférences trop volumineuses pour une sauvegarde complète.'}
     return $json
 }
 function Restore-DomeniaBackupPreferences {
     # Called only after the target database has been independently verified and switched. Keep the new path and
     # backup receipts of this workstation; a snapshot cannot redirect another domain to an old path.
     param([Parameter(Mandatory=$true)][string]$Json)
-    if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 4MB){throw 'Preferences de restauration trop volumineuses.'}
+    if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 4MB){throw 'Préférences de restauration trop volumineuses.'}
     $value=ConvertFrom-Json -InputObject $Json -ErrorAction Stop
-    if($value -isnot [pscustomobject]){throw 'Preferences de restauration invalides.'}
+    if($value -isnot [pscustomobject]){throw 'Préférences de restauration invalides.'}
     $values=@{};foreach($property in @($value.PSObject.Properties)){$values[$property.Name]=$property.Value}
     $next=ConvertTo-DomeniaExperienceSettings -Values $values -Defaults (Get-DomeniaDefaultSettings)
     foreach($key in @($next.Keys)){if(([string]$key -cmatch '^Storage\.(Database|Backup\.(Last|LastDetail))\.') -or ([string]$key -in @('RemoteCredentialUser','SecretsCredentialUser'))){[void]$next.Remove($key)}}
@@ -1059,8 +1059,8 @@ function Restore-DomeniaBackupPreferences {
         [void](Load-DomeniaSettings)
     }catch{
         $problem=$_.Exception.Message;$script:Settings=$previous
-        try{Save-DomeniaSettings -Immediate -ThrowOnFailure;[void](Load-DomeniaSettings)}catch{throw ('Preferences non restaurees ; retour des preferences a verifier (copie .bak conservee) : '+$problem+' / '+$_.Exception.Message)}
-        throw ('Preferences non restaurees ; preferences precedentes retablies : '+$problem)
+        try{Save-DomeniaSettings -Immediate -ThrowOnFailure;[void](Load-DomeniaSettings)}catch{throw ('Préférences non restaurées ; retour des préférences à vérifier (copie .bak conservée) : '+$problem+' / '+$_.Exception.Message)}
+        throw ('Préférences non restaurées ; préférences précédentes rétablies : '+$problem)
     }
 }
 function New-DomeniaBackupPayload {
@@ -1393,8 +1393,8 @@ function Complete-DomeniaStorageMaintenancePreview {
         if(($r.Kind -cne 'StorageMaintenance') -or ($r.Action -cne 'Inspect') -or ([string]$r.Source.Path -cne $State.SourcePath) -or ([string]$r.ActivePath -cne $State.Path) -or (-not $domainConfirmed) -or ([string]$r.Source.Integrity -cne 'ok') -or ([string]$r.Source.Fingerprint -cnotmatch '^[a-f0-9]{64}$') -or ($null -eq $r.Target) -or ([string]$r.Target.Path -ine $State.TargetPath)){throw 'Inspection non confirmée.'}
         $preview=Get-DomeniaStorageMaintenancePreview -Mode $State.Mode -Inspection $r
         if($State.Mode -eq 'Restore'){
-            if(($null -ne $r.Source.Preferences) -and [bool]$r.Source.Preferences.Present){$preview.Text+=[Environment]::NewLine+'Preferences, requetes personnelles et dispositions incluses : elles seront retablies apres la bascule verifiee.'}
-            else{$preview.Text+=[Environment]::NewLine+'Sauvegarde de donnees uniquement : preferences et dispositions actuelles conservees (aucun instantane associe).'}
+            if(($null -ne $r.Source.Preferences) -and [bool]$r.Source.Preferences.Present){$preview.Text+=[Environment]::NewLine+'Préférences, requêtes personnelles et dispositions incluses : elles seront rétablies après la bascule vérifiée.'}
+            else{$preview.Text+=[Environment]::NewLine+'Sauvegarde de données uniquement : préférences et dispositions actuelles conservées (aucun instantané associé).'}
         }
         $State.Fingerprint=[string]$r.Source.Fingerprint;$State.HoldUntil=[datetime]::UtcNow.AddMinutes(10)
         [void](Set-DomeniaControlText 'LblStorageMaintenance' $preview.Text)
@@ -1523,9 +1523,9 @@ function Complete-DomeniaStorageMaintenanceSwitchConfirm {
     if(([string]$State.Mode -eq 'Undo') -and [string](Get-DomeniaMember $State 'OriginalPreferencesJson' '')){$restoreJson=[string]$State.OriginalPreferencesJson}
     elseif(($null -ne $receipt.Preferences) -and [bool]$receipt.Preferences.Present){$restoreJson=[string]$receipt.Preferences.SettingsJson}
     if($restoreJson){
-        try{Restore-DomeniaBackupPreferences -Json $restoreJson;$preferencesNotice=' Preferences et dispositions retablies ; les vues les relisent a leur prochaine ouverture.'}
-        catch{$preferencesProblem=[string]$_.Exception.Message;$preferencesNotice=' Base retablie ; '+$preferencesProblem;Write-AppLog $preferencesProblem 'WARN'}
-    }elseif([string]$State.Mode -eq 'Restore'){$preferencesNotice=' Sauvegarde de donnees uniquement : preferences et dispositions actuelles conservees.'}
+        try{Restore-DomeniaBackupPreferences -Json $restoreJson;$preferencesNotice=' Préférences et dispositions rétablies ; les vues les relisent à leur prochaine ouverture.'}
+        catch{$preferencesProblem=[string]$_.Exception.Message;$preferencesNotice=' Base rétablie ; '+$preferencesProblem;Write-AppLog $preferencesProblem 'WARN'}
+    }elseif([string]$State.Mode -eq 'Restore'){$preferencesNotice=' Sauvegarde de données uniquement : préférences et dispositions actuelles conservées.'}
     $original=Get-DomeniaStorageMaintenanceMarkerPath $State
     # Point 31: a switch that left a marker on its original stays undoable until the new base receives a write.
     if(([string]$receipt.Action -in @('Move','Restore','Resume')) -and [bool]$receipt.RedirectWritten){

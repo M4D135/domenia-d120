@@ -30,10 +30,31 @@ class RecipeAndIssuesTests(unittest.TestCase):
         self.assertTrue(any('retour arrière' in p for p in dr.validate_recipe(broken)))
 
     def test_shipped_register_lists_open_incidents_and_blocks_on_a_bloquant(self):
-        outcome, opened = dr.check_issues(dr.read_json(dr.ISSUES))
-        self.assertEqual(outcome['Status'], 'FAIL')
-        self.assertIn('KI-001', outcome['Detail'])
-        self.assertGreaterEqual(len(opened), 5)
+        real = dr.read_json(dr.ISSUES)
+        outcome, opened = dr.check_issues(real)
+        # Incident counts and identifiers evolve; validate the current register and its actual blockers.
+        self.assertEqual(opened, [i for i in real['Issues'] if i.get('Status') == 'Ouvert'])
+        blockers = [i['Id'] for i in opened if i.get('Severity') == 'Bloquant']
+        self.assertEqual(outcome['Status'], 'FAIL' if blockers else 'PASS')
+        for identifier in blockers:
+            self.assertIn(identifier, outcome['Detail'])
+        resolved = copy.deepcopy(real)
+        for issue in resolved['Issues']:
+            if issue['Id'] in blockers:
+                issue['Status'] = 'Résolu'
+        self.assertEqual(dr.check_issues(resolved)[0]['Status'], 'PASS', 'The current register must remain well formed')
+        # Independent fixture: an open Bloquant blocks, and moving it to Résolu ends the block.
+        fixture = {'Schema': 'DomeniaKnownIssues/1', 'Issues': [
+            {'Id': 'KI-010', 'Title': 'T', 'Severity': 'Bloquant', 'Status': 'Ouvert', 'Impact': 'I', 'Workaround': 'W', 'Source': 'S'},
+            {'Id': 'KI-011', 'Title': 'T', 'Severity': 'Mineur', 'Status': 'Ouvert', 'Impact': 'I', 'Workaround': 'W', 'Source': 'S'}]}
+        blocked, openedFixture = dr.check_issues(fixture)
+        self.assertEqual(blocked['Status'], 'FAIL')
+        self.assertIn('KI-010', blocked['Detail'])
+        self.assertEqual([i['Id'] for i in openedFixture], ['KI-010', 'KI-011'])
+        fixture['Issues'][0]['Status'] = 'Résolu'
+        unblocked, openedAfter = dr.check_issues(fixture)
+        self.assertEqual(unblocked['Status'], 'PASS')
+        self.assertEqual([i['Id'] for i in openedAfter], ['KI-011'])
 
     def test_incomplete_incident_fails_and_minor_ones_pass(self):
         base = {'Schema': 'DomeniaKnownIssues/1', 'Issues': [

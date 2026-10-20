@@ -920,6 +920,11 @@ function Invoke-DomeniaLiveTick {
             }
         }
         $activeSearch=Test-DomeniaLiveSearchActive
+        # Ended confirms the directory read and its final SQL receipts. Only a successful end abandons
+        # the remaining preview; AD or storage errors keep it available. Clear before choosing the cadence.
+        if($activeSearch -and [bool]$script:Live.Search.Ended -and -not [string]$script:Live.Search.Error -and -not $script:Live.Search.CacheProgress.IsEmpty){
+            $script:Live.Search.CacheProgress=[Collections.Concurrent.ConcurrentQueue[object]]::new()
+        }
         # A ready backlog needs shorter gaps, not longer UI slices. Keep the 30 ms render budget
         # and restore the normal pace as soon as the queue empties or rendering is suspended.
         $backlogReady=($activeSearch -and $null -ne $grid -and $grid.IsEnabled -and -not $script:ActiveWriteTaskId -and $script:WriteState -notin @('Unknown','UnknownPending') -and ($script:Live.Search.Progress.Count+$script:Live.Search.CacheProgress.Count) -gt 200)

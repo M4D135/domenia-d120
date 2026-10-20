@@ -2474,7 +2474,7 @@ function Fail-DomeniaWidgetDetailCollected {
     # Timeout, refusal or incoherent answer: no error row is committed, so the values already stored for this
     # workstation are kept. The other workstations of the population were started independently and stay unaffected.
     param($Message,$State)
-    try { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Cancel(); $State.StopSource.Dispose() } } catch { }
+    try { if ($null -ne (Get-DomeniaMemberValue $State 'StopSource')) { $State.StopSource.Cancel(); $State.StopSource.Dispose() } } catch { Write-DomeniaSwallowed 'Widgets' 'Fail-DomeniaWidgetDetailCollected' $_ }
     if ([long](Get-DomeniaMember $State 'WidgetEpoch' 0) -ne [long]$script:SessionEpoch) { return }
     Write-AppLog ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : ' + [string]$Message + ' (valeurs précédentes conservées).') 'WARN'
     Set-Status ('Relevé WMI mémorisé non confirmé pour ' + [string]$State.Computer + ' : les valeurs précédentes sont conservées, les autres postes sont lus.') 'INFO'
