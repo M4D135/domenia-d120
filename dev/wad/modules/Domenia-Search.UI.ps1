@@ -1282,12 +1282,12 @@ function Invoke-DomeniaOuTreeFilterSlice {
     if($script:AsyncEngineClosing -or [long]$state.Epoch -ne [long]$script:SessionEpoch -or -not [object]::ReferenceEquals($tree,$state.Tree) -or [string]$state.Filter -cne ([string]$box.Text).Trim()){Stop-DomeniaOuTreeFilter;return}
     $clock=[Diagnostics.Stopwatch]::StartNew();$steps=0
     while($state.Stack.Count -and $steps -lt 512 -and $clock.ElapsedMilliseconds -lt 8){
-        $steps++;        $frame=$state.Stack[$state.Stack.Count-1]
+        $steps++;$frame=$state.Stack[$state.Stack.Count-1]
         if($frame.Next -lt $frame.Items.Count){
             $child=$frame.Items[$frame.Next];$frame.Next++
             if($child -isnot [Domenia.Tree.DomeniaTreeItem]){continue}
-            $childView=$null;try{$childView=Get-DomeniaTreeChildView $child}catch{}
-            $state.Stack.Add([pscustomobject]@{Node=$child;Items=$child.Items;Next=0;ChildMatch=$false;IsRoot=($null -eq $frame.Node);View=$childView})
+            if([string]$child.Tag.Kind -in @('Placeholder','Loading')){continue}
+            $state.Stack.Add([pscustomobject]@{Node=$child;Items=$child.Items;Next=0;ChildMatch=$false;IsRoot=($null -eq $frame.Node)})
             continue
         }
         $state.Stack.RemoveAt($state.Stack.Count-1)
@@ -1301,12 +1301,11 @@ function Invoke-DomeniaOuTreeFilterSlice {
         $oldVisible=$frame.Node.Visibility -eq 'Visible'
         if($oldVisible -ne $wantedVisible){
             $frame.Node.Visibility=if($wantedVisible){'Visible'}else{'Collapsed'}
-            # Only the touched node's child view is refreshed (filter evaluation at the source), a bounded cost.
-            if($null -ne $frame.View){try{$frame.View.Refresh()}catch{Write-DomeniaSwallowed 'Search' 'Invoke-DomeniaOuTreeFilterSlice' $_}}
         }
+        # Refresh each existing child view once, after all children have their final visibility.
+        $frame.Node.RefreshChildrenView()
         if($state.Filter -and $frame.ChildMatch -and [bool]$frame.Node.Tag.Loaded -and -not $frame.Node.IsExpanded){
-            $program=$script:DomeniaTreeProgrammaticExpand;$script:DomeniaTreeProgrammaticExpand=$true
-            try{$frame.Node.IsExpanded=$true}finally{$script:DomeniaTreeProgrammaticExpand=$program}
+            Set-DomeniaTreeItemExpanded -Node $frame.Node
         }
         if($match -and $state.Stack.Count){$state.Stack[$state.Stack.Count-1].ChildMatch=$true}
     }
@@ -1452,10 +1451,6 @@ function Select-DomeniaRealizedTreeNode {
         elseif ($current -is [Domenia.Tree.DomeniaTreeItem]) { $current.IsSelected = $false }
         return $false
     }
-    $walk = $found
-    $allRead = $true
-    while ($null -ne $walk) { if (-not $walk.Loaded) { $allRead = $false; break }; $walk = $walk.Parent }
-    if (-not $allRead) { return $false }
     Set-DomeniaTreeProgrammaticSelection -Node $found
     $old = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
@@ -1492,11 +1487,8 @@ function Restore-DomeniaTreeNavState {
     $script:SuppressBranchAutoLoad = $true
     try {
         # Restoration never reads: expansion is logical only on already read branches (no container event path).
-        $program = $script:DomeniaTreeProgrammaticExpand
-        $script:DomeniaTreeProgrammaticExpand = $true
-        foreach ($dn in @($plan.Collapse)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $false }
-        foreach ($dn in @($plan.Expand)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $true }
-        $script:DomeniaTreeProgrammaticExpand = $program
+        foreach ($dn in @($plan.Collapse)) { Set-DomeniaTreeItemExpanded -Node $byDn[([string]$dn).ToLowerInvariant()] -Expanded $false }
+        foreach ($dn in @($plan.Expand)) { Set-DomeniaTreeItemExpanded -Node $byDn[([string]$dn).ToLowerInvariant()] }
     } finally { $script:SuppressBranchAutoLoad = $old }
     [void](Select-DomeniaRealizedTreeNode -Dn $SelectedDn)
     return $plan

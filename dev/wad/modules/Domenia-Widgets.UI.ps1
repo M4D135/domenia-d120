@@ -974,11 +974,27 @@ function Get-DomeniaWidgetPlanDependencyKey {
                 # Rebuild the single canonical input record: this is the authoritative projection of AD,
                 # lifecycle, per-family dates, observations and clock-dependent transforms, not a parallel map.
                 # Pass that same record to the evaluator on a cache miss so it is not projected twice.
-                $records=Get-DomeniaComputerQueryRecords
-                if($null -ne $PreparedRecords){$PreparedRecords.Value=$records}
-                if($records.Count -ne 1){return ''}
-                $values=[ordered]@{};foreach($name in @($records[0].Values.Keys|Sort-Object)){$values[[string]$name]=$records[0].Values[$name]}
-                $source=@([string]$records[0].Id,$values,[string]$script:SelectedObject.Name,$script:SelectedObject.LoadedAt)
+                try{
+                    $records=Get-DomeniaComputerQueryRecords
+                    if($null -ne $PreparedRecords){$PreparedRecords.Value=$records}
+                    if($records.Count -ne 1){return ''}
+                    # The existing dependency walker includes clauses, refinements, nested expressions and
+                    # grouping. Typed probe collections/hidden probe selections remain on the full resolver path.
+                    # Do not hash unused continuous ages: inventoryDays would otherwise invalidate a RAM widget.
+                    $known=@{};foreach($field in @(Get-DomeniaQueryFields)){if(-not $field.ProbeId){$known[[string]$field.Id]=$true}}
+                    $values=[ordered]@{}
+                    foreach($name in @(Get-DomeniaQueryRequestedFields $recipe)){
+                        if(-not $known.ContainsKey([string]$name)){return ''}
+                        foreach($key in @([string]$name,('_quality:'+([string]$name)),(Get-DomeniaQueryTimestampKey ([string]$name)))){
+                            if($records[0].Values.ContainsKey($key)){$values[$key]=$records[0].Values[$key]}
+                        }
+                    }
+                    $source=@([string]$records[0].Id,$values,[string]$script:SelectedObject.Name,$script:SelectedObject.LoadedAt)
+                }catch{
+                    # Preserve the normal resolver's error card instead of aborting the whole board.
+                    if($null -ne $PreparedRecords){$PreparedRecords.Value=$null}
+                    return ''
+                }
             }elseif($Board -eq 'Fleet'){
                 if($q.Busy -or $q.SnapshotKey -cne [string]$script:FleetQuerySnapshotKey -or $null -eq $q.Widgets -or -not $q.Widgets.ContainsKey([string]$Item.Key)){return ''}
                 $source=$q.Widgets[[string]$Item.Key]

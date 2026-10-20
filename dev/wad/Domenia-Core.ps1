@@ -4427,55 +4427,18 @@ function Set-TabVisibility {
 
 
 
-function Get-DomeniaTreeHeaderTemplate {
-    # FO-04: the header of a branch shows its text and, on hover, a star to pin it; the star stays filled for a
-    # favourite (AutomationProperties.ItemStatus = 'Favori'). The Header itself remains the plain branch text.
-    if ($null -ne $script:TreeHeaderTemplate) { return $script:TreeHeaderTemplate }
-    $xaml = @'
-<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <StackPanel x:Name="HeaderRoot" Orientation="Horizontal" Background="Transparent">
-    <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
-    <Button x:Name="OuStar" Content="☆" Visibility="Hidden" Focusable="False" Margin="6,0,0,0" MinWidth="0" MinHeight="0" Cursor="Hand" FontFamily="Segoe UI Symbol" FontSize="{DynamicResource FontSizeBody}" Foreground="{DynamicResource AccentText}" ToolTip="Épingler cette OU dans les favoris" AutomationProperties.Name="Épingler cette OU">
-      <Button.Template><ControlTemplate TargetType="Button"><Border Background="Transparent" Padding="2,0"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border></ControlTemplate></Button.Template>
-    </Button>
-  </StackPanel>
-  <DataTemplate.Triggers>
-    <Trigger SourceName="HeaderRoot" Property="UIElement.IsMouseOver" Value="True"><Setter TargetName="OuStar" Property="UIElement.Visibility" Value="Visible"/></Trigger>
-    <DataTrigger Binding="{Binding Path=(AutomationProperties.ItemStatus), RelativeSource={RelativeSource AncestorType=TreeViewItem}}" Value="Favori">
-      <Setter TargetName="OuStar" Property="Visibility" Value="Visible"/>
-      <Setter TargetName="OuStar" Property="Content" Value="★"/>
-      <Setter TargetName="OuStar" Property="ToolTip" Value="Retirer cette OU des favoris"/>
-    </DataTrigger>
-  </DataTemplate.Triggers>
-</DataTemplate>
-'@
-    $script:TreeHeaderTemplate = [Windows.Markup.XamlReader]::Parse($xaml)
-    return $script:TreeHeaderTemplate
-}
+function Get-DomeniaTreeHeaderTemplate { return Get-DomeniaDirectoryTreeHeaderTemplate }
 
 function New-TreeItem {
-    # Point 8: the data is a typed observable DTO (Domenia.Tree.DomeniaTreeItem), never a TreeViewItem.
-    # No control is stored in the data; the generated containers are recycled by WPF. The signature is kept.
+    # Only data is retained; WPF generates containers for the viewport.
     param([string]$Name, [string]$Dn, [string]$Kind)
-    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
-        $data = New-Object Domenia.Tree.DomeniaTreeItem
-        $data.Header = $Name
-        $data.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
-        if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
-            $data.FavoriteStatus = 'Favori'
-        }
-        return $data
-    }
-    # Fallback (types absent, should not happen at runtime): former explicit container.
-    $item = New-Object System.Windows.Controls.TreeViewItem
-    $item.Header = $Name
-    $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
-    try { $item.HeaderTemplate = Get-DomeniaTreeHeaderTemplate } catch { Write-DomeniaSwallowed 'Core' 'New-TreeItem' $_ }
-    if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
-        [Windows.Automation.AutomationProperties]::SetItemStatus($item,'Favori')
-    }
-    [void]$item.Items.Add("Chargement...")
-    return $item
+    if ($null -eq ('Domenia.Tree.DomeniaTreeItem' -as [type])) { Add-DomeniaDirectoryTreeTypes }
+    $node = [Domenia.Tree.DomeniaTreeItem]::new()
+    $node.Header = $Name
+    $node.Tag = [pscustomobject]@{Name=$Name;DN=$Dn;Kind=$Kind;Loaded=$false;RenderId='';Loading=$false}
+    if ($Dn -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) { $node.FavoriteStatus='Favori' }
+    [void]$node.Items.Add((New-DomeniaTreeStatusItem))
+    return $node
 }
 
 function New-DomeniaTreeRowItem {
@@ -4490,34 +4453,15 @@ function New-DomeniaTreeRowItem {
 }
 
 function New-DomeniaTreeSystemGroup {
-    # The render timer asks for an empty shell and fills it within the parent's fair rendering budget.
-    # The synchronous helper remains available for the small, explicit Add-DomeniaTreeRowsToNode callers.
+    # The render timer fills this data shell within the parent's shared budget.
     param($Rows,[switch]$DeferChildren)
-    $rowArray = @($Rows)
-    # Point 8: the group is a DTO too (Kind SystemGroup is read from the Tag by every tree walker).
-    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
-        $group = New-Object Domenia.Tree.DomeniaTreeItem
-        $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
-        $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = (-not $DeferChildren); RenderId = ""; Loading = $false }
-        $group.IsExpanded = $false
-        $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
-        if ($DeferChildren) { return $group }
-        foreach ($row in $rowArray) {
-            $child = New-DomeniaTreeRowItem -Row $row
-            if ($null -ne $child) { [void]$group.Items.Add($child) }
-        }
-        return $group
-    }
-    $group = New-Object System.Windows.Controls.TreeViewItem
-    $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
-    $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = (-not $DeferChildren); RenderId = ""; Loading = $false }
-    $group.IsExpanded = $false
-    $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
-    if ($DeferChildren) { return $group }
-    foreach ($row in $rowArray) {
-        $child = New-DomeniaTreeRowItem -Row $row
-        if ($null -ne $child) { [void]$group.Items.Add($child) }
-    }
+    if ($null -eq ('Domenia.Tree.DomeniaTreeItem' -as [type])) { Add-DomeniaDirectoryTreeTypes }
+    $rowArray=@($Rows)
+    $group=[Domenia.Tree.DomeniaTreeItem]::new()
+    $group.Header='Conteneurs système ('+$rowArray.Count+')'
+    $group.Tag=[pscustomobject]@{Name='Conteneurs système';DN='';Kind='SystemGroup';Loaded=(-not $DeferChildren);RenderId='';Loading=$false}
+    $group.ToolTip='Conteneurs créés par Active Directory, repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
+    if (-not $DeferChildren) { foreach($row in $rowArray) { $child=New-DomeniaTreeRowItem -Row $row; if($null -ne $child){[void]$group.Items.Add($child)} } }
     return $group
 }
 
@@ -4537,37 +4481,9 @@ function Get-DomeniaTreeRenderRows {
 }
 
 function New-DomeniaTreeLoadingItem {
-    # UI-16 + point 8: the loading indicator is data again (placeholder DTO, Kind=Loading), never a StackPanel
-    # per node: no control is stored in the tree data, and the header template renders it like any branch.
-    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
-        $data = New-Object Domenia.Tree.DomeniaTreeItem
-        $data.Header = 'Chargement des sous-branches' + [string][char]0x2026
-        $data.ToolTip = 'Lecture des sous-branches en cours.'
-        $data.Tag = [pscustomobject]@{ Name = $data.Header; DN = ''; Kind = 'Loading'; Loaded = $false; RenderId = ""; Loading = $true }
-        $data.IsEnabled = $false
-        return $data
-    }
-    $panel = New-Object System.Windows.Controls.StackPanel
-    $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
-    $panel.Tag = 'Loading'
-    $wheel = New-Object System.Windows.Controls.TextBlock
-    $wheel.Text = [string][char]0x21BB
-    $wheel.FontFamily = New-Object System.Windows.Media.FontFamily('Segoe UI Symbol')
-    $wheel.Margin = New-Object System.Windows.Thickness(0,0,6,0)
-    $wheel.RenderTransformOrigin = New-Object System.Windows.Point(0.5,0.5)
-    $rotate = New-Object System.Windows.Media.RotateTransform
-    $wheel.RenderTransform = $rotate
-    try {
-        $spin = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0,360.0,(New-Object System.Windows.Duration([TimeSpan]::FromSeconds(1.2))))
-        $spin.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
-        $rotate.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty,$spin)
-    } catch { Write-DomeniaSwallowed 'Core' 'New-DomeniaTreeLoadingItem' $_ }
-    $text = New-Object System.Windows.Controls.TextBlock
-    $text.Text = 'Chargement des sous-branches' + [string][char]0x2026
-    [void]$panel.Children.Add($wheel)
-    [void]$panel.Children.Add($text)
-    [System.Windows.Automation.AutomationProperties]::SetName($panel,'Chargement des sous-branches')
-    return $panel
+    $node=New-DomeniaTreeStatusItem -Message 'Chargement des sous-branches…'
+    $node.Tag.Kind='Loading';$node.Tag.Loading=$true
+    return $node
 }
 
 function Add-DomeniaTreeRowsToNode {
@@ -4662,7 +4578,7 @@ function Initialize-DomeniaTreeRenderTimer {
                 [void]$script:TreeRenderJobs.Remove($renderId)
                 try {
                     $job.Node.Items.Clear()
-                    [void]$job.Node.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
+                    [void]$job.Node.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur d'affichage  replie puis redeplie pour reessayer"))
                     $job.Node.Tag.Loaded = $false; $job.Node.Tag.RenderId = ''; $job.Node.IsEnabled = $true
                 } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaTreeRenderTimer' $_ }
                 Write-AppLog "Affichage progressif de l'arborescence : $($_.Exception.ToString())" 'ERROR'
@@ -4733,13 +4649,14 @@ function Load-TreeRoot {
         if ($null -eq $tree) { throw "Controle d'arborescence introuvable." }
         Clear-DomeniaTreeRenderJobs
         # Point 8: the tree is virtualized once (DTO data, recycled containers); must run before the first insert.
-        try { [void](Initialize-DomeniaDirectoryTree -Tree $tree) } catch { Write-DomeniaSwallowed 'Core' 'Load-TreeRoot' $_ }
+        [void](Initialize-DomeniaDirectoryTree -Tree $tree)
+        Stop-DomeniaTreeItemReveal
         if ($ForceRefresh -and $tree.Items.Count -gt 0) {
             $existingRoot = $tree.Items[0]
             try {
                 if ($null -ne $existingRoot -and [string]$existingRoot.Tag.DN -ieq [string]$script:Conn.BaseDn) {
                     Load-TreeChildren -Node $existingRoot -PreserveExisting -Force
-                    $existingRoot.IsExpanded = $true
+                    Set-DomeniaTreeItemExpanded -Node $existingRoot
                     [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Actualisation de l arborescence en arriere-plan...")
                     Set-Status "Actualisation de lʼarborescence en cours. Lʼarbre actuel reste affiché tant que la nouvelle lecture nʼest pas validée."
                     return
@@ -4754,14 +4671,14 @@ function Load-TreeRoot {
         $script:SelectedBranchDn = $script:Conn.BaseDn
         [void](Set-DomeniaControlText -Name "TxtBranchDn" -Text $script:SelectedBranchDn)
         $script:SuppressBranchAutoLoad = $true
-        try { $root.IsSelected = $true } finally { $script:SuppressBranchAutoLoad = $false }
+        try { Set-DomeniaTreeProgrammaticSelection -Node $root } finally { $script:SuppressBranchAutoLoad = $false }
 
         # Startup uses the same AD -> SQLite -> tree path as an explicit branch read.
         # An old StartupWarmCache contains no committed receipt and cannot render business data.
             $mustLoad = [bool]$ForceRefresh -or [bool](Get-CfgValue "Browser" "ForceFirstLevelAtStartup" $true) -or ((-not [bool](Get-CfgValue "Browser" "FastBoot" $false)) -and [bool](Get-CfgValue "Browser" "LoadFirstLevelOnStartup" $true))
             if ($mustLoad) {
                 Load-TreeChildren -Node $root
-                $root.IsExpanded = $true
+                Set-DomeniaTreeItemExpanded -Node $root
             }
             [void](Set-DomeniaControlText -Name "LblTreeStatus" -Text "Arbre initialise. Chargement des sous-branches en arriere-plan.")
         # No bookmark yet: the saved root OU is the search default. No extra directory read.
@@ -4954,7 +4871,7 @@ function Reset-DomeniaSearchScope {
         $check = Get-DomeniaControl -Name 'ChkSubtree'
         if ($null -ne $check) { $check.IsChecked = $true }
         $tree = Get-DomeniaControl -Name 'TvDirectory'
-        if ($null -ne $tree -and $tree.Items.Count -gt 0) { $tree.Items[0].IsSelected = $true }
+        if ($null -ne $tree -and $tree.Items.Count -gt 0) { Set-DomeniaTreeProgrammaticSelection -Node $tree.Items[0] }
         Update-DomeniaSearchScopeUi
     }
     finally { $script:SuppressBranchAutoLoad = $previousSuppression }
@@ -7816,7 +7733,7 @@ function Complete-DomeniaTreeChildrenUi {
     catch {
         try {
             $treeNode.Items.Clear()
-            [void]$treeNode.Items.Add("Erreur d'affichage  replie puis redeplie pour reessayer")
+            [void]$treeNode.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur d'affichage  replie puis redeplie pour reessayer"))
             $treeNode.Tag.Loaded = $false
             $treeNode.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $treeNode.IsEnabled = $true
@@ -7852,7 +7769,7 @@ function Fail-DomeniaTreeChildrenUi {
             }
             else {
                 $treeNode.Items.Clear()
-                [void]$treeNode.Items.Add("Erreur : $detail  replie puis redeplie pour reessayer")
+                [void]$treeNode.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur : $detail  replie puis redeplie pour reessayer"))
                 $treeNode.Tag.Loaded = $false
                 $treeNode.IsEnabled = $true
             }
@@ -7923,7 +7840,7 @@ $final
     catch {
         $message = [string]$_.Exception.Message
         try {
-            $Node.Items.Clear(); [void]$Node.Items.Add("Erreur : $message  replie puis redeplie pour reessayer")
+            $Node.Items.Clear(); [void]$Node.Items.Add((New-DomeniaTreeStatusItem -Message "Erreur : $message  replie puis redeplie pour reessayer"))
             $Node.Tag.Loaded = $false
             $Node.Tag | Add-Member -NotePropertyName Loading -NotePropertyValue $false -Force
             $Node.IsEnabled = $true

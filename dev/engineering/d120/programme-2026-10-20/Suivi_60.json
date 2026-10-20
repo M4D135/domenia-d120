@@ -697,22 +697,23 @@
       "id": 38,
       "titre": "Recalcul des widgets affectés",
       "responsable": "parcours_dashboard",
-      "code": "PARTIEL_RESTE_CODE",
+      "code": "IMPLEMENTE_BORNE_A_VALIDER_WINDOWS",
       "preuves_code": [
         "dev/engineering/d120/programme-2026-10-20/Lot-parcours.md",
-        "dev/wad/modules/Domenia-Widgets.UI.ps1"
+        "dev/wad/modules/Domenia-Widgets.UI.ps1",
+        "dev/wad/modules/Domenia-QueryTargets.UI.ps1",
+        "dev/wad/modules/Domenia-Dashboard.UI.ps1"
       ],
       "tests_windows": "NON_EXECUTES",
       "preuves_tests": [],
       "limites": [
-        "Collecte/calcul en attente, Action à tout niveau, forme inconnue/cyclique/trop grande, pause, DaysSince et Query Computer contournent le cache. Les demandes d’évaluation et transformations temporelles restent exécutées. Cartes spécialisées reconstruites. Pas de gain mesuré ni de test Windows exécuté sur ce correctif."
+        "Fallback de sûreté : collecte/calcul en attente, Action, forme opaque/cyclique/trop grande, pause, sonde DaysSince, champs de requête probe/instance/detail et sélection de sonde contournent le cache. Le calcul complet et les demandes nécessaires restent exécutés ; les cartes spécialisées sont reconstruites.",
+        "Le record canonique du poste est reprojeté pour vérifier les valeurs temporelles et la fraîcheur ; seules les dépendances évaluées invalident le plan. Le fournisseur Computer conserve sa réévaluation conservatrice sans contrat global de révision/horloge. Le fournisseur Fleet utilise son résultat déjà publié. Aucune promesse d’incrémental champ par champ pour ces fournisseurs ; aucun gain mesuré.",
+        "Tests causaux écrits, non exécutés sur Windows : qualification du delta encore ouverte."
       ],
-      "mise_en_oeuvre": "Cache de plans placé avant Get-DomeniaBoardWidgetPlan : données source bornées, contrat, contexte, dates brutes, état de pause et fraîcheur des sondes ; mutation en place détectée. Couvre Builtin de tous types et Query/Probe Fleet déjà calculés, Probe Computer. Le plan porte sa clé pour réutiliser aussi les cartes WPF (valeurs, distributions, séries, mesures, listes) sans les reconstruire ; clé de rendu avec largeur, contexte/snapshot, dates affichées, état partiel et génération de palette.",
-      "portee_tests": "Deux nouveaux cas Programme 38 écrits : plans avant résolution et vrais compteurs de constructions WPF (deux cartes dont distribution), mutation d’une source seule, autre carte conservée, date brute, taille, pause/reprise, contexte/palette et opt-out unknown/DaysSince. Aucun reçu d’exécution.",
-      "reste_code": [
-        "Query Computer garde son recalcul complet : dépendances AD/lifecycle/observations non intégralement représentées dans ce cache.",
-        "Les fournisseurs/agrégats amont du dashboard ne sont pas rendus entièrement incrémentaux par ce cache de plans."
-      ]
+      "mise_en_oeuvre": "Cache avant Get-DomeniaBoardWidgetPlan et résolution : dépendances source bornées, contrat, contexte, dates, pause et fraîcheur ; mutations en place détectées. Builtin, Query/Probe Fleet prêts, Probe Computer. Query Computer : record canonique AD/lifecycle/observations, champs demandés incluant raffinements/expression/groupage, qualité/dates et identité ; même record transmis au calcul en cas de miss. Plans inchangés réutilisés et cartes WPF valeurs/distributions/séries/mesures/listes conservées via clé incluant largeur, snapshot, dates affichées, état partiel et palette. En amont, cache du fournisseur logiciel avant groupements/tris, invalidé par lignes, jour, date source, identité/store, couleurs et culture.",
+      "portee_tests": "Programme 38 : plans avant résolution ; vrais compteurs de constructions WPF de deux cartes dont distribution ; source seule changée, date brute, taille, pause/reprise, contexte/palette, opt-out unknown/DaysSince. Deux ajouts : QueryTargets utilise les vrais records/DLL pour RAM non affectée par lifecycle et inversement, raffinement AD, péremption/date/identité et filtre sonde caché ; Boards vérifie réutilisation du fournisseur logiciel, mutation en place, seuil 30 jours, date source/contexte et fallback opaque. Aucun reçu d’exécution de ces ajouts.",
+      "reste_code": []
     },
     {
       "id": 39,
@@ -1223,10 +1224,11 @@
       38
     ],
     "etat": "CODE_INTEGRE_DELTA_WINDOWS_NON_EXECUTE",
-    "statique": "Contrôle lexical Python PASS sur 349 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Aucun parseur natif ni test Windows exécuté par le sous-lot.",
+    "statique": "Contrôle lexical Python PASS sur 350 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Aucun parseur natif ni test Windows exécuté par le sous-lot.",
     "tests_ecrits": [
       "Test-DomeniaLocalPreview.ps1 : deux cas Programme 6, total 21 ; vrai callback, champs ciblés, générations du panneau de connexion et lecture explicite, nouvelle analyse droits, fraîcheur et secrets. Non exécutés.",
-      "Test-DomeniaBoards.ps1 : Programme 38 plans/dépendances et compteurs de constructions WPF de deux cartes dont distribution ; ExpectedCases 72. Pause/reprise, date brute, contexte/palette, unknown et DaysSince couverts ; non exécutés."
+      "Test-DomeniaBoards.ps1 : Programme 38 plans/dépendances, compteurs WPF de deux cartes dont distribution et fournisseur logiciel avant agrégation ; ExpectedCases 73. Pause/reprise, dates, contexte/palette, unknown et DaysSince couverts ; non exécutés.",
+      "Test-DomeniaQueryTargets.ps1 : un cas Programme 38 ajouté ; dépendances réelles AD/lifecycle/observations, plans non affectés conservés, date/fraîcheur/identité et fallback de filtre sonde caché. Non exécuté."
     ],
     "limite": "Les hashes des reçus critiques ne correspondent pas au runtime modifié après leur exécution. Le pack final et sa qualification delta relèvent de root."
   }

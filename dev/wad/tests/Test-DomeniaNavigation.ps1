@@ -36,10 +36,12 @@ if([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Utiliser p
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
+. (Join-Path $modules 'Domenia-DirectoryTree.UI.ps1')
+Add-DomeniaDirectoryTreeTypes
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Ok,[string]$Reason='Assertion fausse');if(-not $Ok){throw $Reason}}
 function Case {param([string]$Name,[scriptblock]$Body)
-    if($Filter -and $Name -notmatch $Filter){return}
+    if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
     try{Reset-Fixture;& $Body|Out-Null;$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Passed';Detail=''})}
     catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Failed';Detail=($_.Exception.Message+' @ '+$_.ScriptStackTrace)})}
 }
@@ -120,7 +122,7 @@ function Get-DomeniaSearchExportSubject {return 'fixture'}
 function Show-ErrorBox {param($Text) throw ('Fenêtre dʼerreur : '+[string]$Text)}
 
 function New-FixtureNode {param([string]$Dn,[string]$Name,[bool]$Loaded,[string]$Kind='OU')
-    $node=[Windows.Controls.TreeViewItem]::new()
+    $node=[Domenia.Tree.DomeniaTreeItem]::new()
     $node.Header=$(if($Kind -eq 'SystemGroup'){$Name}elseif($Kind -eq 'OU'){'OU  '+$Name}else{'CN  '+$Name})
     $node.Tag=[pscustomobject]@{Name=$Name;DN=$Dn;Kind=$Kind;Loaded=$Loaded;RenderId='';Loading=$false}
     return $node
@@ -164,6 +166,7 @@ function New-TestControls {
     return $c
 }
 function Reset-Fixture {
+    Stop-DomeniaTreeItemReveal;$script:DomeniaTreeSelectedNode=$null
     $script:Conn=[pscustomobject]@{Connected=$true;BaseDn='DC=example,DC=invalid';Domain='example.invalid';Server='dc.example.invalid'}
     $script:SessionEpoch=5L;$script:GlobalSearchGeneration=40;$script:SearchMode='OU'
     $script:SelectedBranchDn='OU=Postes,DC=example,DC=invalid';$script:CurrentPresenceFilter='Tous';$script:ActiveSearchViewId=''
@@ -207,7 +210,7 @@ Case 'P52 Fil dʼAriane : chaque niveau intermédiaire remonte, le domaine reste
     Expect ($script:Searches.Count -eq 1) 'Un fil dʼune autre session a lancé une lecture.'
 }
 # Unwired if the scope line or the favourites name an OU by its leaf only when another OU has the same name.
-Case 'P52 Deux OU de même nom restent distinctes dans la portée et les favoris' {
+Case 'Programme 8 / P52 Deux OU de même nom restent distinctes dans la portée et les favoris' {
     $lyon='OU=Postes,OU=Lyon,DC=example,DC=invalid';$paris='OU=Postes,OU=Paris,DC=example,DC=invalid'
     Update-DomeniaUxOuScope ([pscustomobject]@{BaseDn=$lyon;Scope='Subtree';IsDomain=$false})
     Expect (([string]$script:Ctrl.LblSearchScope.Text).Contains('Postes (dans Lyon)')) ('Portée : '+$script:Ctrl.LblSearchScope.Text)
@@ -220,7 +223,7 @@ Case 'P52 Deux OU de même nom restent distinctes dans la portée et les favoris
 
 # ---------------------------------------------------------------- Point 53: tree filter keeping the path
 # Unwired if the filter hides the parents of a match, reads an unread branch, or shows the system group for its label.
-Case 'P53 Filtre de lʼarbre : parents conservés, groupe système seulement pour un conteneur trouvé, aucune lecture' {
+Case 'Programme 8 / P53 Filtre de lʼarbre : parents conservés, groupe système seulement pour un conteneur trouvé, aucune lecture' {
     $root=New-FixtureNode 'DC=example,DC=invalid' 'example.invalid' $true 'domainDNS'
     $sites=New-FixtureNode 'OU=Sites,DC=example,DC=invalid' 'Sites' $true;$lyon=New-FixtureNode 'OU=Comptabilite,OU=Sites,DC=example,DC=invalid' 'Comptabilité' $true
     $other=New-FixtureNode 'OU=Serveurs,DC=example,DC=invalid' 'Serveurs' $true;$unread=New-FixtureNode 'OU=Archives,DC=example,DC=invalid' 'Archives' $false
@@ -244,7 +247,7 @@ Case 'P53 Filtre de lʼarbre : parents conservés, groupe système seulement pou
 # ---------------------------------------------------------------- Point 55: exact return to the previous view
 # Unwired if the history keeps only one selected row, loses the sort or the list size, or ignores the branches open
 # at that step.
-Case 'P55 Précédent rend le tri, la taille de la liste, toutes les lignes sélectionnées et les branches ouvertes, sans lecture' {
+Case 'Programme 8 / P55 Précédent rend le tri, la taille de la liste, toutes les lignes sélectionnées et les branches ouvertes, sans lecture' {
     $base='DC=example,DC=invalid'
     $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';$sites=New-FixtureNode ('OU=Sites,'+$base) 'Sites' $true
     $lyon=New-FixtureNode ('OU=Lyon,OU=Sites,'+$base) 'Lyon' $true;$paris=New-FixtureNode ('OU=Paris,'+$base) 'Paris' $true
@@ -278,7 +281,7 @@ Case 'P55 Précédent rend le tri, la taille de la liste, toutes les lignes sél
     Expect ($script:Searches.Count -eq 0 -and $script:SelectedBranchDn -eq ('OU=Lyon,OU=Sites,'+$base)) 'Le retour a relu lʼannuaire ou changé de périmètre.'
 }
 # Unwired if a remembered branch that is no longer read is opened (which would read it) instead of being reported.
-Case 'P55 Une branche mémorisée mais non lue nʼest jamais relue par lʼhistorique' {
+Case 'Programme 8 / P55 Une branche mémorisée mais non lue nʼest jamais relue par lʼhistorique' {
     $base='DC=example,DC=invalid'
     $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';$gone=New-FixtureNode ('OU=Archives,'+$base) 'Archives' $false
     [void]$gone.Items.Add('Chargement...');[void]$root.Items.Add($gone);[void]$script:Ctrl.TvDirectory.Items.Add($root);$root.IsExpanded=$true
@@ -290,7 +293,7 @@ Case 'P55 Une branche mémorisée mais non lue nʼest jamais relue par lʼhistor
 }
 # Unwired if the history only sees the first 600 tree items or the first 128 open branches: in a large directory a
 # read branch would be called unread, the OU of the step would not be selected and open branches would be folded.
-Case 'P55 Grand annuaire : toutes les branches ouvertes et lʼOU de lʼétape sont retrouvées, sans lecture' {
+Case 'Programme 8 / P55 Grand annuaire : toutes les branches ouvertes et lʼOU de lʼétape sont retrouvées, sans lecture' {
     $base='DC=example,DC=invalid'
     $root=New-FixtureNode $base 'example.invalid' $true 'domainDNS';[void]$script:Ctrl.TvDirectory.Items.Add($root);$root.IsExpanded=$true
     $children=[Collections.Generic.List[object]]::new()
@@ -735,7 +738,7 @@ if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-
 $report=[ordered]@{
     Kind='Wiring';Lot='W08-navigation';Filter=$Filter;Points=@('52','53','54','55','56','57','58','59','60')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false;SQLite=$false
-    Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
+    Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0 -and -not $Filter);Filter=$Filter;Subset=([bool]$Filter)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF ; annuaire, postes, base SQLite, presse-papiers et fenetres sont des doubles. Ne prouve ni un acces a un domaine reel ni le rendu final a lʼecran.'
     Tests=$script:Checks.ToArray()
 }

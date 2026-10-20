@@ -68,7 +68,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
             $s.Frames.Enqueue([pscustomobject]@{Items=$node.Items;Index=0;Group=$node});continue
         }
         if([string](Get-DomeniaMember $tag 'DN') -ine [string]$s.Path[$s.Level]){continue}
-        if($null -ne $frame.Group){$frame.Group.IsExpanded=$true}
+        if($null -ne $frame.Group){Set-DomeniaTreeItemExpanded -Node $frame.Group}
         if($s.Level -eq 0){$s.Root=$node}
         $s.IdleDeadline=[datetime]::UtcNow.AddSeconds($s.IdleSeconds)
         if($s.Level -eq $s.Path.Count-1){
@@ -85,9 +85,7 @@ function Invoke-DomeniaFavouriteTreeReveal {
         }
         $s.Parent=$node;$s.Level++;$s.Frames=$null
         # Expanded starts the existing one-level, commit-before-display reader. Never retry an auth/network failure here.
-        if($node -is [Domenia.Tree.DomeniaTreeItem]){Set-DomeniaTreeItemExpanded -Node $node -Expanded $true -AllowLoad}
-        elseif(-not $node.IsExpanded){$node.IsExpanded=$true}
-        elseif(-not [bool]$tag.Loaded -and -not [bool]$tag.Loading -and -not [string]$tag.RenderId){Load-TreeChildren -Node $node}
+        Set-DomeniaTreeItemExpanded -Node $node -AllowLoad
         if(-not [bool]$tag.Loaded){$s.IdleDeadline=[datetime]::UtcNow.AddSeconds([int]$s.IdleSeconds);return}
     }
 }
@@ -150,12 +148,11 @@ function Get-DomeniaTreeContextKey {
     return Get-DomeniaLiveHash (([string]$script:Conn.BaseDn+'|'+[string]$script:Conn.BindUser).ToLowerInvariant())
 }
 function Get-DomeniaRealizedTreeNodes {
-    # Point 7: walks the typed DTO data (not the generated containers), so a branch off-screen, beyond the
-    # realized window (recycled containers), is still listed: 10 000 data nodes at most. Returned as one array.
+    # Walk loaded data, including off-screen branches. Bookmark persistence has its own size limit.
     $tree=Get-DomeniaControl 'TvDirectory';$out=[Collections.Generic.List[object]]::new()
     if($null -eq $tree){return ,$out.ToArray()}
     $queue=[Collections.Generic.Queue[object]]::new();foreach($n in $tree.Items){$queue.Enqueue($n)}
-    while($queue.Count -gt 0 -and $out.Count -lt 10000){
+    while($queue.Count -gt 0){
         $n=$queue.Dequeue();if($n -isnot [Domenia.Tree.DomeniaTreeItem]){continue};$out.Add($n)
         foreach($c in $n.Items){if($c -is [Domenia.Tree.DomeniaTreeItem]){$queue.Enqueue($c)}}
     }
@@ -213,8 +210,7 @@ function Invoke-DomeniaTreeBookmarkRestore {
         $needed=($s.Restore.Expanded -contains $dn -or $s.Restore.Selected.EndsWith(','+$dn,[StringComparison]::OrdinalIgnoreCase))
         if($needed -and -not $n.IsExpanded -and $n.IsEnabled){
             if($expandedThisTick -lt 1 -and @($script:AsyncJobs.Keys).Count -lt [Math]::Max(1,([int](Get-CfgValue 'Async' 'MaxThreads' 6)-2))){
-                if($n -is [Domenia.Tree.DomeniaTreeItem]){Set-DomeniaTreeItemExpanded -Node $n -Expanded $true -AllowLoad}
-                else{$n.IsExpanded=$true}
+                Set-DomeniaTreeItemExpanded -Node $n -AllowLoad
                 $expandedThisTick++
             };$pending=$true
         }
@@ -222,7 +218,7 @@ function Invoke-DomeniaTreeBookmarkRestore {
         if(-not $s.SelectedRestored -and $dn -ieq $s.Restore.Selected -and $n.IsEnabled){
             $old=$script:SuppressBranchAutoLoad;$script:SuppressBranchAutoLoad=$true
             try{
-                $n.IsSelected=$true;$script:SelectedBranchDn=$dn
+                Set-DomeniaTreeProgrammaticSelection -Node $n;$script:SelectedBranchDn=$dn
                 # Decision David 2026-10-19 (startup time): the domain root remembered with its whole subtree and no
                 # search text is reopened one level deep (its first OUs), as a survey of the whole domain is refused.
                 # An OU keeps its remembered depth; the subtree box stays one click away.

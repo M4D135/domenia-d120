@@ -1141,6 +1141,22 @@ function Update-DomeniaComputerDashboard {
     $text = if ($board.Summary) { [string]$board.Summary } else { 'Tableau de bord de l inventaire du ' + (Get-Date -Format 'dd/MM/yyyy HH:mm') + '.' }
     [void](Set-DomeniaControlText 'LblComputerDashboard' $text)
 }
+function Get-DomeniaCachedSoftwareBoardData {
+    # This pure provider has explicit inputs: uninstall rows, local calendar day and its two neutral colours.
+    # A single bounded entry avoids repeating all grouping/sorting on a repeated presentation. Unknown or large
+    # input shapes take the ordinary provider path; no reference-only cache can hide an in-place row mutation.
+    param($Rows,$ObservedAtUtc=$null,$Now=$null)
+    if($null -eq $Now){$Now=Get-Date}
+    $state=Get-DomeniaBoardState Software
+    $context=@((Get-DomeniaBoardRenderContext Software),[string]$script:DatabaseScopedPath,[string]$script:SelectedObject.RenderIdentity)
+    $key=ConvertTo-DomeniaWidgetDependencyStamp -Value @('SoftwareProvider.1',$context,$Rows,$ObservedAtUtc,$Now.Date,(Get-DomeniaBoardColor 'Off'),(Get-DomeniaBoardColor 'Other'),[Globalization.CultureInfo]::CurrentCulture.Name,[Globalization.CultureInfo]::CurrentUICulture.Name)
+    $cached=$state.SoftwareProviderCache
+    if($key -and $null -ne $cached -and $cached.Key -ceq $key){return $cached.Data}
+    $data=Get-DomeniaSoftwareBoardData -Rows $Rows -Now $Now
+    $data|Add-Member -NotePropertyName ObservedAtUtc -NotePropertyValue $ObservedAtUtc -Force
+    if($key){$state.SoftwareProviderCache=[pscustomobject]@{Key=$key;Data=$data}}else{$state.SoftwareProviderCache=$null}
+    return $data
+}
 function Update-DomeniaSoftwareDashboard {
     param($Rows,$ObservedAtUtc=$null)
     $items = @($Rows | Where-Object { $null -ne $_ -and [string]$_.Name })
@@ -1149,8 +1165,7 @@ function Update-DomeniaSoftwareDashboard {
         [void](Set-DomeniaControlText 'LblSoftwareDashboard' 'Aucun logiciel lu.')
         return
     }
-    $board = Get-DomeniaSoftwareBoardData -Rows $items
-    $board|Add-Member -NotePropertyName ObservedAtUtc -NotePropertyValue $ObservedAtUtc
+    $board = Get-DomeniaCachedSoftwareBoardData -Rows $items -ObservedAtUtc $ObservedAtUtc
     Show-DomeniaBoard -Board Software -Data $board
     [void](Set-DomeniaControlText 'LblSoftwareDashboard' $(if ($board.Summary) { [string]$board.Summary } else { [string]$items.Count + ' logiciels lus. Synthese calculee sur la liste chargee.' }))
 }

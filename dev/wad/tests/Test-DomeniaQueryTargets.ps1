@@ -11,7 +11,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot;$modules=Join-Path $wad 'modules'
 Add-Type -Path (Join-Path $modules 'M4D.Admin.Common.Query.dll')
 Add-Type -Path (Join-Path $modules 'Domenia.Native.dll')
-foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.UI','QueryLibrary.Store.UI','QueryTargets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
+foreach($name in @('Common.Model','HealthRules.Model','Boards.Model','BoardFleet.Model','Probes.Model','QuerySchema.Model','Workstation.Model','Query.Model','QueryLibrary.Model','Query.UI','QueryLibrary.Store.UI','QueryTargets.UI','WidgetCollect.Model','Widgets.UI')){. (Join-Path $modules ('Domenia-'+$name+'.ps1'))}
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Case([string]$Name,[scriptblock]$Body){
     try{& $Body;$script:Checks.Add([pscustomobject]@{Name=$Name;Pass=$true;Error=''})}
@@ -275,6 +275,41 @@ Case 'Ungrouped pie center counts matches unknowns and nonmatches' {
     $entry=ConvertTo-DomeniaQueryCountEntry -Id 'fixture.ungrouped' -Title 'Résultat' -Count $count -Visual Pie
     Expect ($entry.CenterText -ceq '10 poste(s)' -and $entry.Value -eq '3') 'Ungrouped chart center must represent the complete partition'
     Expect (($entry.Items|Measure-Object Value -Sum).Sum -eq 10)
+}
+Case 'Programme 38 Computer plans reuse exact dependencies and invalidate AD lifecycle observations dates and identity' {
+    Reset-Fixture;Select-FixtureComputer @{userAccountControl=@(4096);operatingSystem=@('Windows 11 Pro');operatingSystemVersion=@('10.0 (26100)')};Set-FixtureInventory
+    $life=@($script:FixtureLifecycle.Entries|Where-Object{$_.Build -eq '26100' -and $_.Family -eq 'Pro'})[0];$savedEnd=$life.End
+    $state=Get-DomeniaBoardState Computer;$state.WidgetPlanCache=@{}
+    $script:Draft.Refinements=@([pscustomobject]@{Field='active';Operator='Equal';Value=$true})
+    $lifecycle=New-DomeniaQueryRecipe -Id 'fixture.lifecycle' -Name 'Fin du support' -Clauses @([pscustomobject]@{Field='lifeStatus';Operator='Equal';Value='Ended'})
+    $script:DomeniaQueryState.Saved=@($script:Draft,$lifecycle)
+    $ram=New-DomeniaBoardItem -Source Query -Key 'fixture.shared' -Visual Kpi -Size S -Id 'cache-ram'
+    $os=New-DomeniaBoardItem -Source Query -Key 'fixture.lifecycle' -Visual Kpi -Size S -Id 'cache-life'
+    try{
+        $life.End='2999-01-01'
+        $a=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state;$b=Get-DomeniaCachedBoardWidgetPlan Computer $os $state
+        Expect ($a.DependencyKey -and $b.DependencyKey -and $a.Entry.Number -eq 1 -and $b.Entry.Number -eq 0) 'Both real evaluators must produce cacheable plans'
+        Expect ([object]::ReferenceEquals($a,(Get-DomeniaCachedBoardWidgetPlan Computer $ram $state))) 'Unused inventory age must not invalidate RAM'
+        $observation=$script:FleetObservations[$script:FixtureDn.ToLowerInvariant()];$observation.Inventory.RamBytes=16GB
+        $changed=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        Expect (-not [object]::ReferenceEquals($a,$changed) -and $changed.Entry.Number -eq 0) 'Changed RAM must be evaluated again'
+        Expect ([object]::ReferenceEquals($b,(Get-DomeniaCachedBoardWidgetPlan Computer $os $state))) 'RAM must not rebuild the lifecycle widget'
+        $life.End='1900-01-01';$ended=Get-DomeniaCachedBoardWidgetPlan Computer $os $state
+        Expect (-not [object]::ReferenceEquals($b,$ended) -and $ended.Entry.Number -eq 1) 'Lifecycle table change must invalidate the affected widget'
+        Expect ([object]::ReferenceEquals($changed,(Get-DomeniaCachedBoardWidgetPlan Computer $ram $state))) 'Lifecycle must not rebuild RAM'
+        $script:SelectedObject.Entry.Properties.userAccountControl=@(4098);$inactive=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        Expect (-not [object]::ReferenceEquals($changed,$inactive) -and $inactive.Entry.Detail -like '*0 correspondant(s), 0 inconnu(s), 0 non correspondant(s)*') 'AD refinement must remove the selected account from the population'
+        $script:SelectedObject.Entry.Properties.userAccountControl=@(4096);$observation.Inventory.RamBytes=4GB
+        $fresh=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        $observation.Inventory.CheckedUtc=[datetime]::UtcNow.AddMinutes(-1).ToString('o');$redated=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        Expect (-not [object]::ReferenceEquals($fresh,$redated) -and $redated.Entry.Number -eq 1) 'Source date must invalidate even an unchanged figure'
+        $observation.Inventory.CheckedUtc=[datetime]::UtcNow.AddDays(-31).ToString('o');$expired=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        Expect (-not [object]::ReferenceEquals($redated,$expired) -and $expired.Entry.Detail -like '*1 inconnu*') 'Expired measurement must become unknown'
+        $script:SelectedObject.Safety.Guid=$script:OtherGuid;$other=Get-DomeniaCachedBoardWidgetPlan Computer $ram $state
+        Expect (-not [object]::ReferenceEquals($expired,$other)) 'Identity change must discard the old plan'
+        $script:Draft.ProbeSelection=[pscustomobject]@{Key='os.uptime';Mode='Range';Low=0;High=10}
+        Expect (-not (Get-DomeniaWidgetPlanDependencyKey Computer $ram $state $false 4)) 'Hidden probe population must use the complete resolver, never a scalar-only key'
+    }finally{$life.End=$savedEnd;$state.WidgetPlanCache=@{}}
 }
 $failed=@($script:Checks|Where-Object{-not $_.Pass})
 $report=[pscustomobject]@{Suite='Domenia.QueryTargets';PowerShell=[string]$PSVersionTable.PSVersion;Pass=($script:Checks.Count-$failed.Count);Fail=$failed.Count;Scope='Actual common/native DLLs and PowerShell adapters; local materialized fixtures; no WPF, AD, WMI or network';Checks=$script:Checks.ToArray()}

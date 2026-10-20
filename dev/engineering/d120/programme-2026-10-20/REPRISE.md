@@ -50,3 +50,9 @@ python3 dev/tools/build_packages.py --output ../../rc39-local-first/packs
 ```
 
 VM conservée `DOMENIA-FIRSTRUN-20261020`, UUID `bc2f1ac0-9545-49bd-a0f5-cb89d352cf61`, hôte `degun@192.168.1.173`, 1 vCPU/4 Go. Helper `../../rc38-final/lab.py`, guestcontrol par fichier opaque existant (ne pas lire son contenu). Récupération fraîche : `../../rc39-local-first/get.py`, ou depuis le workspace `work/rc35-qualification/pull.py`. Aucun secret dans scripts/journaux/Git. Keep-Console borné 45 min ; vérifier session avant le parcours final, sans changer de politique de verrouillage.
+
+## Jalon suivant : code stabilisé et delta Windows lancé (21:19 UTC)
+
+Codegates 6/8/38 reçus, revue indépendante sans défaut concret restant. Aucun OpenCode actif. Registre fermé, contrats97, release et contrôle lexical350 passent ; preload réépinglé avec décision de revue explicite. Packs candidats DEV `FCBB2FBC1FFEABA22482D26A0A7DD84F9F379DDC28260C8082795333DE574E4D`, PROD `9035B033D16C4E88DD545EA1741AC668BFB19EE858FA797F37508695FE233A8C`, 176 fichiers applicatifs identiques. Copies initiales conservées dans `../../rc39-local-first/packs-initial-critical`.
+
+Déployés dans `RC39-final/dev` et `RC39-final-ui/prod`, empreintes contrôlées, profil isolé du candidat initial recopié application fermée. Session déverrouillée, LogonUI absent. `Verify-DeltaFinal.ps1` lancé ; sorties `rc39-final-delta`. Ne pas lancer de second runner. Chaque banc est borné à240s. Restent verdicts/corrections, pixels du pack PROD et publication master.

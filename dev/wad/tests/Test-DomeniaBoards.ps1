@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=72
+$script:ExpectedCases=73
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -1977,6 +1977,27 @@ try{
             $changed=Find-DomeniaBoardHolder (Get-DomeniaControl 'PnlSoftwareDashboard') 'programme-count'
             Expect (-not [object]::ReferenceEquals($first,$changed)) 'Une valeur modifiee garde une carte obsolete.'
         }finally{$state.WidgetRenderCache=@{};$state.Data=$savedData;Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo}
+    }
+    Case 'Programme 38 Fournisseur logiciel reutilise avant agregation et invalide par lignes date et contexte' {
+        $state=Get-DomeniaBoardState Software;$savedProvider=$state.SoftwareProviderCache;$savedEpoch=$script:SessionEpoch
+        try{
+            $state.SoftwareProviderCache=$null
+            $now=[datetime]'2026-10-20T12:00:00';$at=[datetime]'2026-10-19T12:00:00Z'
+            $rows=@([pscustomobject]@{Name='Produit';Publisher='Editeur';Version='1';Architecture='64 bits';Scope='Machine';Kind='';InstallDate='20/09/2026';SizeKb=1024})
+            $a=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect ([object]::ReferenceEquals($a,(Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now.AddHours(1)))) 'Le fournisseur inchange est recalcule avant le cache des widgets.'
+            $rows[0].Publisher='Autre';$b=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect (-not [object]::ReferenceEquals($a,$b) -and $b.Entries['software.publishers'].Value -eq 'Autre') 'Une mutation en place doit changer les agregats.'
+            $next=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($b,$next) -and $b.Entries['software.recent'].Value -eq '1' -and $next.Entries['software.recent'].Value -eq '0') 'Le passage du seuil de 30 jours doit actualiser les installations recentes.'
+            $redated=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at.AddSeconds(1) -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($next,$redated) -and $redated.ObservedAtUtc -eq $at.AddSeconds(1)) 'La date de source ne doit pas rester ancienne.'
+            $script:SessionEpoch=[long]$savedEpoch+1;$other=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at.AddSeconds(1) -Now $now.AddDays(1)
+            Expect (-not [object]::ReferenceEquals($redated,$other)) 'Un autre contexte ne doit pas reutiliser le fournisseur.'
+            $rows[0]|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
+            $uncached=Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now
+            Expect (-not [object]::ReferenceEquals($uncached,(Get-DomeniaCachedSoftwareBoardData -Rows $rows -ObservedAtUtc $at -Now $now))) 'Une entree opaque doit conserver le calcul complet.'
+        }finally{$state.SoftwareProviderCache=$savedProvider;$script:SessionEpoch=$savedEpoch}
     }
     Case 'Programme 38 Plans reutilises avant resolution et invalides par leur seule dependance' {
         $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedCache=$state.WidgetPlanCache

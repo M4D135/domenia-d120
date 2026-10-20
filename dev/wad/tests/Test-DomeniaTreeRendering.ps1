@@ -4,7 +4,10 @@ param([string]$ReportPath='')
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName PresentationFramework
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Windows PowerShell STA required.' }
-$core=Join-Path (Split-Path $PSScriptRoot -Parent) 'Domenia-Core.ps1'
+$wad=Split-Path $PSScriptRoot -Parent
+. (Join-Path $wad 'modules/Domenia-DirectoryTree.UI.ps1')
+Add-DomeniaDirectoryTreeTypes
+$core=Join-Path $wad 'Domenia-Core.ps1'
 $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($core,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw $errors[0].Message}
@@ -13,7 +16,7 @@ foreach($name in @('New-DomeniaTreeRowItem','New-DomeniaTreeSystemGroup','Initia
     if($nodes.Count -ne 1){throw ('Missing real function: '+$name)}
     . ([scriptblock]::Create($nodes[0].Extent.Text))
 }
-# Only scheduling is isolated: real WPF containers and real production render functions, no Dispatcher/network.
+# Scheduling and fault injection are isolated; real DTO types and production render functions. No Dispatcher/network.
 function Get-CfgValue {param($Section,$Name,$Default);if($Name -eq 'TreeRenderBatchSize'){return $script:Quota};return $Default}
 function New-DomeniaTimer {
     param($Owner,$IntervalMs,$Tick)
@@ -27,7 +30,7 @@ function Get-DomeniaTreeRenderRows {param($Node,$Rows);return $Rows}
 function New-TreeItem {
     param($Name,$Dn,$Kind)
     if($script:ThrowName -and $Name -like ('*'+$script:ThrowName)){throw 'Injected construction failure'}
-    $node=[Windows.Controls.TreeViewItem]::new();$node.Header=$Name
+    $node=[Domenia.Tree.DomeniaTreeItem]::new();$node.Header=$Name
     $node.Tag=[pscustomobject]@{DN=$Dn;Kind=$Kind;Loaded=$false;RenderId='';Loading=$false}
     return $node
 }
@@ -47,7 +50,7 @@ function New-Rows {param([int]$Count,[string]$Prefix)
 }
 function Count-Nodes {param($Node)
     $count=0
-    foreach($child in $Node.Items){if($child -is [Windows.Controls.TreeViewItem]){$count++;$count+=Count-Nodes $child}}
+    foreach($child in $Node.Items){if($child -is [Domenia.Tree.DomeniaTreeItem]){$count++;$count+=Count-Nodes $child}}
     return $count
 }
 function Drain-Render {
@@ -102,11 +105,11 @@ Case 'Failed system child never publishes Loaded and does not block another bran
     Queue-DomeniaTreeRowsToNode $root @([pscustomobject]@{Kind='SystemGroup';Rows=@(New-Rows 3 'Bad')})
     Queue-DomeniaTreeRowsToNode $other @(New-Rows 3 'Good')
     Drain-Render
-    Assert-Render (-not $root.Tag.Loaded -and -not $root.Tag.RenderId -and $root.Items.Count -eq 1 -and $root.Items[0] -is [string]) 'Failed parent was marked Loaded or kept partial containers.'
+    Assert-Render (-not $root.Tag.Loaded -and -not $root.Tag.RenderId -and $root.Items.Count -eq 1 -and [string]$root.Items[0].Tag.Kind -eq 'Placeholder') 'Failed parent was marked Loaded or kept partial containers.'
     Assert-Render ($other.Tag.Loaded -and $other.Items.Count -eq 3 -and $script:RenderErrors.Count -eq 1) 'Failure blocked another branch or was not traced.'
 }
 $failed=@($checks|Where-Object{-not $_.Passed}).Count
-$report=[pscustomobject]@{Suite='DomeniaTreeRendering';Passed=($failed -eq 0);Total=$checks.Count;Failed=$failed;PowerShell=$PSVersionTable.PSVersion.ToString();RealWpf=$true;SyntheticOnly=$true;CoreSha256=(Get-FileHash $core -Algorithm SHA256).Hash;Cases=$checks.ToArray();Limitations='Cooperative scheduling with real WPF containers; no AD, full-memory virtualization or real-time deadline qualification.'}
+$report=[pscustomobject]@{Suite='DomeniaTreeRendering';Passed=($failed -eq 0);Total=$checks.Count;Failed=$failed;PowerShell=$PSVersionTable.PSVersion.ToString();RealWpf=$false;RealDataTypes=$true;SyntheticOnly=$true;CoreSha256=(Get-FileHash $core -Algorithm SHA256).Hash;Cases=$checks.ToArray();Limitations='Cooperative scheduling with production data types; no AD, container virtualization or real-time deadline qualification (separate WPF suite).'}
 $json=$report|ConvertTo-Json -Depth 6
 if($ReportPath){[IO.File]::WriteAllText($ReportPath,$json,[Text.UTF8Encoding]::new($false))}
 $json

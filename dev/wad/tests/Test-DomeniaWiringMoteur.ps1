@@ -15,6 +15,8 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad = Split-Path -Parent $PSScriptRoot
 $dev = Split-Path -Parent $wad
 $modules = Join-Path $wad 'modules'
+. (Join-Path $modules 'Domenia-DirectoryTree.UI.ps1')
+Add-DomeniaDirectoryTreeTypes
 $checks = [Collections.Generic.List[object]]::new()
 $script:UiBlockingAudit = $null
 $native = ($PSVersionTable.PSEdition -eq 'Desktop' -and $PSVersionTable.PSVersion.Major -eq 5 -and $PSVersionTable.PSVersion.Minor -eq 1 -and [Environment]::Is64BitProcess)

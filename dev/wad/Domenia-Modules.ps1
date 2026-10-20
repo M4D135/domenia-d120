@@ -1506,6 +1506,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Complete-DomeniaLocalObjectPreview',
             'Complete-DomeniaLocalObjectPreviewWait',
             'Fail-DomeniaLocalObjectPreview',
+            'Get-DomeniaObjectPresentationDelta',
             'Test-DomeniaObjectPresentationUnchanged'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-ProbeDetails.Model.ps1','Domenia-Storage.UI.ps1','Domenia-Collection.Model.ps1','Domenia-Readings.Model.ps1','Domenia-ProbeContract.Model.ps1'); File='Domenia-ProbeDetails.UI.ps1'; DotSource=$true; Functions=@(
@@ -2659,6 +2660,9 @@ function Get-DomeniaRuntimeModulePlan {
             'New-DomeniaBoardMenu',
             'Set-DomeniaBoardSegmentSelection',
             'New-DomeniaWidgetStateCard',
+            'ConvertTo-DomeniaWidgetDependencyStamp',
+            'Get-DomeniaWidgetPlanDependencyKey',
+            'Get-DomeniaCachedBoardWidgetPlan',
             'Get-DomeniaBoardWidgetPlan',
             'Get-DomeniaWidgetSurveyPartialText',
             'Get-DomeniaWidgetDataDates',
@@ -2782,6 +2786,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaBoardRouteTarget',
             'Invoke-DomeniaBoardRoute',
             'Update-DomeniaComputerDashboard',
+            'Get-DomeniaCachedSoftwareBoardData',
             'Update-DomeniaSoftwareDashboard',
             'Start-DomeniaDomainLocalTotals',
             'Test-DomeniaDomainLocalTotalsCurrent',

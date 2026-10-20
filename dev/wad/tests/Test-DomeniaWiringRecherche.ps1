@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.1
 [CmdletBinding()]
-param([string]$ReportPath='', [switch]$Quiet)
+param([string]$ReportPath='', [switch]$Quiet,[string]$Filter='')
 # D120, lot recherche (D012, D031-D040): proves that the application functions really call the search rules.
 # Real core functions are extracted by AST, real modules are dot-sourced and real WPF controls are used.
 # Directory, workstation, network and disk are replaced by explicit doubles: no LDAP, CIM, ping or file write.
@@ -17,9 +17,12 @@ if([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA'){throw 'Utiliser p
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $wad=Split-Path -Parent $PSScriptRoot
 $modules=Join-Path $wad 'modules'
+. (Join-Path $modules 'Domenia-DirectoryTree.UI.ps1')
+Add-DomeniaDirectoryTreeTypes
 $script:Checks=[Collections.Generic.List[object]]::new()
 function Expect {param([bool]$Ok,[string]$Reason='Assertion fausse');if(-not $Ok){throw $Reason}}
 function Case {param([string]$Name,[scriptblock]$Body)
+    if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
     try{Reset-Fixture;& $Body|Out-Null;$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Passed';Detail=''})}
     catch{$script:Checks.Add([pscustomobject]@{Name=$Name;Status='Failed';Detail=($_.Exception.Message+' @ '+$_.ScriptStackTrace)})}
 }
@@ -196,6 +199,7 @@ function New-TestControls {
     return $c
 }
 function Reset-Fixture {
+    Stop-DomeniaTreeItemReveal;$script:DomeniaTreeSelectedNode=$null
     if($null -ne $script:Live -and $null -ne $script:Live.Timer){$script:Live.Timer.Stop()}
     if($null -ne $script:Continuity -and $null -ne $script:Continuity.Timer){$script:Continuity.Timer.Stop()}
     $script:Live=$null;$script:Continuity=$null
@@ -247,7 +251,7 @@ function Finish-Live {param($Task,[bool]$LimitReached=$false,[string]$FilterUsed
 function Get-GridNames {return @($script:Ctrl.DgObjects.Items|Where-Object{$_ -ne [Windows.Data.CollectionView]::NewItemPlaceholder}|ForEach-Object{[string]$_.Name})}
 function Result-For {param($Row) return [pscustomobject]@{DN=$Row.DN;Type=$Row.Type;Live=$true;Properties=@{name=@($Row.Name);objectGUID=@($Row.Guid);distinguishedName=@($Row.DN)}}}
 function New-TreeNode {param([string]$Dn,[bool]$Loaded)
-    $n=[Windows.Controls.TreeViewItem]::new();$n.Header=$Dn;$n.Tag=[pscustomobject]@{DN=$Dn;Loaded=$Loaded};return $n
+    $n=[Domenia.Tree.DomeniaTreeItem]::new();$n.Header=$Dn;$n.Tag=[pscustomobject]@{DN=$Dn;Name=$Dn;Kind='OU';Loaded=$Loaded;Loading=$false;RenderId=''};return $n
 }
 function Start-Continuity {Initialize-DomeniaContinuity;if($null -ne $script:Continuity.Timer){$script:Continuity.Timer.Stop()}}
 function Send-TreeKey {param($Tree)
@@ -960,7 +964,7 @@ Case 'FO-04 Favoris repris une fois de SavedSearches, donnees conservees' {
     Expect (@(Get-DomeniaFavouriteSearches).Count -eq 0) 'La reprise a ete rejouee : un favori retire revient.'
     $root=New-TreeItem -Name 'OU  Lyon' -Dn 'OU=Lyon,DC=example,DC=invalid' -Kind 'OU';[void]$script:Ctrl.TvDirectory.Items.Add($root)
     [void](Save-DomeniaFavouriteSearch -Dn 'OU=Lyon,DC=example,DC=invalid' -Toggle)
-    Expect ([string][Windows.Automation.AutomationProperties]::GetItemStatus($root) -eq 'Favori' -and $null -ne $root.HeaderTemplate) 'Lʼetoile de la branche ne suit pas le favori.'
+    Expect ([string]$root.FavoriteStatus -eq 'Favori' -and (Get-DomeniaTreeHeaderTemplate) -is [Windows.HierarchicalDataTemplate]) 'Lʼetoile de la branche ne suit pas le favori.'
     Expect ((Get-TaskCount @('GlobalSearch','TreeChildren','OpenAdObject')) -eq 0) 'Un favori a lu lʼannuaire sans geste.'
 }
 # Unwired if a favourite fills the hidden OU field again: the list is filtered by a term nobody sees.
@@ -996,7 +1000,7 @@ Case 'UI-16 Conteneurs systeme regroupes, chevron retire apres lecture sans sous
     $postes=$items[1]
     Load-TreeChildren -Node $postes;Load-TreeChildren -Node $postes
     $task=Get-LastTask 'TreeChildren'
-    Expect ((Get-TaskCount 'TreeChildren') -eq 1 -and $postes.IsEnabled -and [string]$postes.Items[0].Tag -eq 'Loading') 'Noeud grise ou double lecture.'
+    Expect ((Get-TaskCount 'TreeChildren') -eq 1 -and $postes.IsEnabled -and [string]$postes.Items[0].Tag.Kind -eq 'Loading') 'Noeud grise ou double lecture.'
     Expect ([regex]::Matches([string]$task.Code,'\.Find(All|One)\(').Count -eq 1 -and $null -eq $task.Payload.PSObject.Properties['ProbeMax']) 'Le worker sonde chaque sous-branche : plusieurs requetes par depliage.'
     Queue-DomeniaTreeRowsToNode -Node $postes -Rows @() -DisplayName 'Postes'
     Expect ($postes.Items.Count -eq 0 -and [bool]$postes.Tag.Loaded -and -not [bool]$postes.Tag.Loading -and $postes.IsEnabled) 'Branche lue sans enfant : le chevron reste.'
@@ -1231,7 +1235,7 @@ if(-not $ReportPath){$ReportPath=Join-Path ([IO.Path]::GetTempPath()) ('Domenia-
 $report=[ordered]@{
     Kind='Wiring';Lot='recherche';Points=@('D012','D031','D032','D033','D034','D035','D036','D037','D038','D039','D040','CO-20','CO-21','DS-07','FI-21','FO-04','PF-14','SE-13','UI-16','UX-25','UX-33','UX-26','CO-35','SP-05','SP-15')
     Host=$PSVersionTable.PSVersion.ToString();NativeWindowsPowerShell51=$native;Wpf=$true;LiveAD=$false;LiveCIM=$false;LivePing=$false
-    Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0)
+    Passed=$passed;Failed=$failed;Complete=($failed -eq 0 -and $passed -gt 0 -and -not $Filter);Filter=$Filter;Subset=([bool]$Filter)
     Limitation='Raccordement prouve par les vraies fonctions et de vrais controles WPF, reseau double. Ne prouve pas un acces a un domaine reel.'
     Tests=$script:Checks.ToArray()
 }
