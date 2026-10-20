@@ -1,0 +1,34 @@
+{
+  "Suite": "Tableaux de bord en widgets",
+  "Host": "5.1.26100.6584",
+  "Passed": 2,
+  "Failed": 2,
+  "Filter": "Programme 38",
+  "Complete": true,
+  "LiveADExecuted": false,
+  "NetworkAccessed": false,
+  "RenderTimings": [],
+  "RenderTimingScope": "Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded",
+  "Results": [
+    {
+      "Name": "Programme 38 Cartes simples reutilisees seulement si valeur source taille et contexte identiques",
+      "Passed": true,
+      "Error": ""
+    },
+    {
+      "Name": "Programme 38 Fournisseur logiciel reutilise avant agregation et invalide par lignes date et contexte",
+      "Passed": false,
+      "Error": "System.Management.Automation.RuntimeException: Une entree opaque doit conserver le calcul complet.\r\nat Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 18\r\nat <ScriptBlock>, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 1999\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 22\r\nat <ScriptBlock>, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 1981"
+    },
+    {
+      "Name": "Programme 38 Plans reutilises avant resolution et invalides par leur seule dependance",
+      "Passed": false,
+      "Error": "System.Management.Automation.RuntimeException: Une forme inconnue est mise en cache.\r\nat Expect, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 18\r\nat <ScriptBlock>, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 2028\r\nat Case, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 22\r\nat <ScriptBlock>, C:\\DomeniaLab\\RC35-qualification\\RC39-final\\dev\\wad\\tests\\Test-DomeniaBoards.ps1: line 2002"
+    },
+    {
+      "Name": "Programme 38 Constructions WPF limitees au graphique affecte et invalidees au changement de contexte",
+      "Passed": true,
+      "Error": ""
+    }
+  ]
+}

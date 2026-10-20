@@ -1,0 +1,940 @@
+{
+  "Build": "2026.10.01-DOMENIA-1.0-RC1.4-SEARCH",
+  "PowerShell": "5.1.26100.6584",
+  "Edition": "Desktop",
+  "OS": "Microsoft Windows NT 10.0.26200.0",
+  "Passed": 185,
+  "Failed": 0,
+  "Skipped": 0,
+  "Complete": true,
+  "ADAccess": false,
+  "CredentialValidation": false,
+  "ProductionDataAccess": false,
+  "Tests": [
+    {
+      "Name": "Parseur PowerShell : Domenia-Core.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Parseur PowerShell : Domenia-Start.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Parseur PowerShell : Domenia-Modules.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Import reel a froid, depuis un autre repertoire courant",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Modules du plan ferme verifies, sans scanner les scripts supplementaires",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonctions du plan ferme disponibles dans la portee appelante",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Aucune fonction declaree deux fois dans le plan ferme",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-CredentialVault.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Common.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Engine.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Cache.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Collection.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Collection.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Search.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Relations.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Access.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Directory.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Workstation.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Shell.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Safety.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Insight.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Release.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Compatibility.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Compatibility.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Commands.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Observability.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Selection.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Embedded.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-InventoryImport.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Relations.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-UX.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Experience.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Experience.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Support.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Support.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Automation.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Automation.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Automation.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Live.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-AssociationRows.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Live.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Access.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Continuity.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectoryTree.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Continuity.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Guard.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.Store.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.Vault.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.Async.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Store.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectoryStore.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectoryStore.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-LocalPreview.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-ProbeDetails.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-ProbeDetails.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-StorageLease.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Storage.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-StorageContext.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Storage.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DataPolicy.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DataPolicy.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Lockout.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Accounts.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Receipts.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Sessions.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Dossier.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Dossier.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Reconcile.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Guard.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Demo.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Demo.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Engine.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Isolation.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Engine.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Lockout.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Commands.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Observability.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Assist.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Assist.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Assist.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Membership.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Membership.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-AdAudit.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-AdAudit.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-AdAudit.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Assistance.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Assistance.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Demo.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Startup.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Search.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Secrets.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Secrets.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Inline.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Migration.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Migration.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Park.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-HealthRules.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Boards.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-WidgetCollect.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Charts.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-ProbeCatalog.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Probes.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-ProbeContract.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Readings.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-BoardFleet.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-BoardSoftware.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-BoardComputer.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-HealthRules.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Widgets.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-FirstRun.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Dashboard.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Park.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Park.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Query.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryLibrary.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryLibrary.Store.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Query.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryTargets.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Query.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Refresh.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QuerySchema.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QuerySchema.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QuerySchema.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryDetails.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryTransfer.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-QueryTransfer.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-SearchWorkspace.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-SearchWorkspace.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySync.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySync.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-LogonActivity.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-LogonActivity.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySchema.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySchema.Worker.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-LogonActivity.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySchema.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-DirectorySync.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan ferme egal aux definitions : Domenia-Confirmation.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Types C# immediats du plan compiles et resolus a l import",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Plan de demarrage valide avant le premier module metier",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Import sans initialisation WPF, authentification, cache ou timers",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Initialize-DomeniaReconcile",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Get-DomeniaReconcileWorkerCode",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Complete-DomeniaReconcile",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Fail-DomeniaReconcile",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Invoke-DomeniaReconcileTick",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : ConvertTo-DomeniaStoredCapture",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Get-DomeniaDocumentWorkerCode",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Start-DomeniaDocumentTask",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Complete-DomeniaDocumentTask",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Fail-DomeniaDocumentTask",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Use-DomeniaCaptureFile",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Export-DomeniaTechnicalDossier",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Initialize-DomeniaLive",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Initialize-DomeniaGuard",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction raccordee : Initialize-DomeniaExperience",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Etat Live initialise avant le timer de reconciliation",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Point d entree partage raccorde au vrai demarrage",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Aucune fermeture GetNewClosure n appelle une fonction de l application par son nom",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Corps ScopeReconcile toujours conforme au contrat",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Corps DocumentStore toujours conforme au contrat",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Regression RC1.1 reproduite : commande Initialize-DomeniaReconcile absente",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Memes fichiers, imports corriges : commande disponible",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier absent detecte avant imports : Domenia-Reconcile.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier absent detecte avant imports : Domenia-Dossier.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier absent detecte avant imports : Domenia-Dossier.UI.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier absent detecte avant imports : Domenia-Experience.Model.ps1",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Erreur de syntaxe detectee avant tout chargement partiel",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier present mais fonction manquante refusee",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fonction homonyme externe ne masque pas un import absent",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Invocation en portee enfant refusee : dot-sourcing obligatoire",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Amorcage en portee enfant refuse avant tout module metier",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Dependance declaree absente refusee avant tout import metier",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de dependances refuse avant tout import metier",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Fichier de types absent detecte avant imports",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Un script non declare n est pas charge automatiquement",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Erreur d import conserve le module et le message natif",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Initialisation reelle du module Reconcile sous WPF",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de vie WPF : TimerStarted",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de vie WPF : NoSearch",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de vie WPF : Idempotent",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de vie WPF : Deferred",
+      "Status": "Passed",
+      "Error": ""
+    },
+    {
+      "Name": "Cycle de vie WPF : Stopped",
+      "Status": "Passed",
+      "Error": ""
+    }
+  ]
+}

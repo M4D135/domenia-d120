@@ -1,5 +1,7 @@
 ﻿# Releves de la liste de Rechercher (lot X01) : regles pures de Domenia-Park.Model, sans reseau, base ni WPF.
 # Donnees fictives uniquement (domaine example.test).
+# Real UTC parsing is part of the collection freshness contract.
+. (Join-Path $modules 'Domenia-Boards.Model.ps1')
 . (Join-Path $modules 'Domenia-Live.Model.ps1')
 . (Join-Path $modules 'Domenia-Park.Model.ps1')
 

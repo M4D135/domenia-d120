@@ -1,0 +1,33 @@
+{
+  "Suite": "DomeniaAssociationRows",
+  "Passed": true,
+  "Total": 5,
+  "Failed": 0,
+  "Checks": [
+    {
+      "Name": "An absent association clears obsolete metadata and preserves row identity and order",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "User links retain unique sorted names and sources with numeric confidence fallback",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Failed optional enrichment keeps every AD result and bounds the warning volume",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Machine lookup carries GUID and qualified identity metadata without replacing the row",
+      "Status": "Passed",
+      "Detail": ""
+    },
+    {
+      "Name": "Qualified user confidence comes from the best link",
+      "Status": "Passed",
+      "Detail": ""
+    }
+  ]
+}

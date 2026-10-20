@@ -938,7 +938,9 @@ function ConvertTo-DomeniaWidgetDependencyStamp {
             foreach($k in $v.Keys){if($nodes+$pending.Count -ge 4096 -or $k -isnot [string] -or ($k -ieq 'Action' -and $null -ne $v[$k])){return ''};$pending.Push(@($v[$k],($depth+1)))}
         }elseif($v -is [array] -or $v -is [Collections.IList]){
             if($nodes+$pending.Count+$v.Count -gt 4096){return ''};foreach($part in $v){$pending.Push(@($part,($depth+1)))}
-        }elseif($v -is [pscustomobject]){
+        }elseif($v.GetType() -eq [System.Management.Automation.PSCustomObject]){
+            # -is [pscustomobject] also accepts wrapped CLR objects (including New-Object object).
+            # Only the actual note-property bag is plain data; an empty/adapted CLR surface is not a contract.
             foreach($property in $v.PSObject.Properties){if($nodes+$pending.Count -ge 4096 -or $property.MemberType -ne 'NoteProperty' -or ($property.Name -ieq 'Action' -and $null -ne $property.Value)){return ''};$pending.Push(@($property.Value,($depth+1)))}
         }else{return ''}
     }

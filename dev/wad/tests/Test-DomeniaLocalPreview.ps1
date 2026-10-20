@@ -163,15 +163,21 @@ try{
   Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
   Expect ($script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Machine -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'unchanged callback must not fill or clear'
   Expect ($script:PresentationCalls.Permissions -eq 1 -and $script:PresentationCalls.Secrets -eq 1 -and $script:PresentationCalls.Freshness -eq 1) 'unchanged callback retains safety and source time'
-  Expect ($script:SelectedObject.LoadedAt.ToUniversalTime() -eq [datetime]$result.ObservedUtc) 'receipt time retained'
+  # A cast from ISO Z to DateTime is local on Windows; DateTime equality does not normalise Kind.
+  # Compare exact UTC ticks against an independently constructed instant, never against a local cast.
+  $expectedReceiptUtc=[datetime]::new(2026,1,2,0,0,0,[DateTimeKind]::Utc)
+  Expect ($script:SelectedObject.LoadedAt.Kind -eq [DateTimeKind]::Local -and $script:SelectedObject.LoadedAt.ToUniversalTime().Ticks -eq $expectedReceiptUtc.Ticks) 'receipt time retained'
   Expect ($script:PresentationLogonButton.IsEnabled -and $script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'cached receipt rebinds the enabled logon button'
   Start-DomeniaLogonByDcRead Computer;Expect ($script:PresentationLogonStarts -eq 1) 'explicit logon gesture admitted after cached receipt'
   Ensure-DomeniaPermissions;Expect ($script:PresentationPermissionStarts -eq 1 -and $script:DeferredRawDn -ceq 'keep-raw') 'permissions reevaluate without invalidating raw view'
+  $result.ObservedUtc='2026-01-02T02:00:00+02:00'
   $script:ShowingCachedObject=$false;Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:SelectedObject.LoadedAt.ToUniversalTime().Ticks -eq $expectedReceiptUtc.Ticks) 'identical receipt with explicit offset retains the same instant'
   Expect ($script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'identical AD receipt rebinds target generation'
   Start-DomeniaLogonByDcRead Computer;Ensure-DomeniaPermissions
   Expect ($script:PresentationLogonStarts -eq 2 -and $script:PresentationPermissionStarts -eq 2) 'identical AD receipt permits explicit logon and reevaluates permissions'
-  $copy.description=@('new');Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  $copy.description=@('new');$result.ObservedUtc='2026-01-03T03:00:00+02:00';Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:SelectedObject.LoadedAt.ToUniversalTime().Ticks -eq [datetime]::new(2026,1,3,1,0,0,[DateTimeKind]::Utc).Ticks) 'field delta advances to the actual source instant'
   Expect (@($script:PresentationWrites.Keys|Where-Object{$_ -ne 'TxtCompLogonByDc'}).Count -eq 1 -and $script:PresentationWrites['TxtCompDescription'] -ceq 'new' -and $script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'one changed field plus local logon summary only'
   Expect ($script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'field delta rebinds logon target'
   Start-DomeniaLogonByDcRead Computer;Ensure-DomeniaPermissions

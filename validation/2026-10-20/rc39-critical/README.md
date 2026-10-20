@@ -22,3 +22,11 @@ La dernière revue a trouvé trois optimisations partielles (6, 8, 38) : correct
 Endurance longue, gros parc réel, multi-écrans, Narrateur, variations DPI et qualification générale restent hors de cette passe critique demandée. Aucune clôture formelle D001–D120 par `acceptance_passed=true`.
 
 Les JSON sont conservés en UTF-8/LF ; quelques journaux texte disponibles restent des pièces complémentaires. Les scripts reproduisent les appels du labo sans secret.
+
+## Delta après stabilisation des points 6, 8 et 38
+
+Le candidat `FCBB2FBC…` DEV / `9035B033…` PROD a passé les contrôles de paquet (176 fichiers applicatifs identiques), puis les bancs ciblés dans `rc39-final-delta/`. Les résultats suivants sont nouveaux : favoris 20/20, associations 5/5, diagnostic 4/4, modules 185/185, QueryTargets 39/39, WiringCache D024 1/1, règles BoardFleet26/Collection49/DirectorySync11/Observability17. Le contrôle natif du démarrage vérifie176 fichiers/133 modules ; il ne compile pas les types WPF différés.
+
+Les échecs ont déclenché des corrections : référence System.Xaml/System.Core manquante dans l'arbre, garde de cache acceptant un CLR enveloppé comme PSCustomObject ; fixtures UTC de LocalPreview, clé Filter dupliquée de Navigation et dépendance réelle de Park non importée. Les assertions sont conservées/renforcées. Le rapport Boards filtré indiquait Complete=true : corrigé avec Subset/SelectionComplete. Les anciens reçus restent inchangés.
+
+Le premier harnais Start-Process/WaitForExit retourne ExitCode=null sous ce Windows. Son tableau Done ne prouve donc pas un succès de processus ; les résultats ci-dessus viennent des rapports individuels et du journal natif. Le harnais de relance utilise System.Diagnostics.Process avec capture asynchrone des deux flux et code de sortie effectif. Relance limitée aux bancs affectés, sans répétition des contrôles AD/WMI/santé/stockage inchangés.

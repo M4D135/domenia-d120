@@ -4,8 +4,8 @@ $script:DomeniaTreeItemReveal = $null
 $script:DomeniaTreeItemRevealTimer = $null
 function Add-DomeniaDirectoryTreeTypes {
     if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) { return }
-    Add-Type -AssemblyName WindowsBase,PresentationCore,PresentationFramework
-    $references = @([object].Assembly.Location,[ComponentModel.INotifyPropertyChanged].Assembly.Location,[Collections.ObjectModel.ObservableCollection[object]].Assembly.Location,[Windows.DependencyObject].Assembly.Location,[Windows.Media.Visual].Assembly.Location,[Windows.Controls.TreeView].Assembly.Location)
+    Add-Type -AssemblyName System.Core,System.Xaml,WindowsBase,PresentationCore,PresentationFramework
+    $references = @([object].Assembly.Location,[ComponentModel.INotifyPropertyChanged].Assembly.Location,[Collections.ObjectModel.ObservableCollection[object]].Assembly.Location,[Windows.DependencyObject].Assembly.Location,[Windows.Media.Visual].Assembly.Location,[Windows.Controls.TreeView].Assembly.Location,[Windows.Markup.IQueryAmbient].Assembly.Location,[Linq.Enumerable].Assembly.Location)
     Add-Type -Path (Join-Path $PSScriptRoot 'Domenia-DirectoryTree.Types.cs') -ReferencedAssemblies @($references | Select-Object -Unique) -ErrorAction Stop
 }
 function Get-DomeniaDirectoryTreeHeaderTemplate {

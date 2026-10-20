@@ -144,25 +144,29 @@
       "id": 8,
       "titre": "Virtualisation des grilles et arbres",
       "responsable": "root",
-      "code": "PARTIEL_RESTE_CODE",
+      "code": "IMPLEMENTE_A_VALIDER_WINDOWS",
       "preuves_code": [
         "dev/engineering/d120/programme-2026-10-20/Revue-Spark.md",
         "dev/engineering/d120/programme-2026-10-20/Point8-TvDirectory.md",
-        "dev/wad/Domenia-Core.ps1"
+        "dev/wad/Domenia-Core.ps1",
+        "dev/engineering/d120/programme-2026-10-20/Point8-Virtualisation.md",
+        "dev/wad/modules/Domenia-DirectoryTree.Types.cs",
+        "dev/wad/modules/Domenia-DirectoryTree.UI.ps1"
       ],
-      "tests_windows": "PARTIELS_REUSSIS",
+      "tests_windows": "PARTIELS_REUSSIS_AVANT_DELTA",
       "preuves_tests": [
         "validation/2026-10-20/rc39-critical/rc39-critical-tests/WiringCache.json"
       ],
       "limites": [
-        "D023 reçu concerne la grille. Correctif arbre intégré après les reçus, delta Windows encore non exécuté."
+        "D023 reçu concerne la grille. Le nouveau modèle d’arbre et les tests de conteneurs WPF attendent le delta Windows final.",
+        "La virtualisation limite les conteneurs visuels réalisés, pas la mémoire des données déjà lues : les DTO, métadonnées et lignes chargées restent conservés. Aucun benchmark de mémoire du processus ou qualification AD à grande échelle n’est revendiqué.",
+        "Le quota commun et la tranche coopérative de 8 ms ne sont pas une garantie temps réel ; une opération WPF native ne peut pas être préemptée."
       ],
-      "mise_en_oeuvre": "Grilles virtualisées ; correctif de rendu arbre intégré : budget global et groupes en file, maintien de Loaded/RenderId jusqu’à fin des enfants. Containers TreeViewItem restent directement matérialisés.",
-      "portee_tests": "D023 réussi dans WiringCache : vrai XAML, 100/500/2 000 lignes, recyclage après défilement et contrôle négatif.",
-      "reste_code": [
-        "Virtualisation mémoire de TvDirectory non réalisée : les containers directs et branches accumulées restent matérialisés. Le budget de rendu ne remplace pas cette refonte."
-      ]
+      "mise_en_oeuvre": "Grilles virtualisées ; arbre séparant les données observables des TreeViewItem générés et recyclés par WPF. Template hiérarchique et panneau virtuel à chaque niveau ; filtre sur les vues de données ; sélection/expansion/favoris conservés dans les DTO. Révélation du seul chemin cible par ticks avec annulation sur changement de contexte. Budget global, équité et groupes du job parent conservés. Compilation des quatre types différée au premier usage.",
+      "portee_tests": "D023 réussi dans WiringCache pour les grilles. Arbre : huit nouveaux cas WPF avec 10 000 données synthétiques et bornes de conteneurs, défilement, recyclage, groupe, filtre et annulation ; tests de rendu, favoris, navigation et raccordement adaptés. Contrôles statiques locaux passés ; aucun nouveau résultat Windows à cette étape.",
+      "reste_code": []
     },
+
     {
       "id": 9,
       "titre": "Index SQLite adaptés aux recherches",

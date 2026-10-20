@@ -2024,6 +2024,8 @@ try{
             $a.Paused=$false;$resumed=Get-DomeniaCachedBoardWidgetPlan Software $a $state
             Expect (-not $resumed.Paused -and -not [object]::ReferenceEquals($paused,$resumed)) 'La reprise sans nouvelle donnee garde le plan en pause.'
             $one|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
+            Expect (-not (ConvertTo-DomeniaWidgetDependencyStamp -Value $one)) 'Un objet CLR enveloppe ne doit pas devenir un sac de proprietes vide.'
+            Expect (-not (ConvertTo-DomeniaWidgetDependencyStamp -Value ([version]::new(1,2,3,4)))) 'Les proprietes adaptees de System.Version ne sont pas des donnees plain.'
             $unsafe=Get-DomeniaCachedBoardWidgetPlan Software $a $state
             Expect (-not [object]::ReferenceEquals($unsafe,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Une forme inconnue est mise en cache.'
             $uptime=New-DomeniaBoardItem -Source Probe -Key 'os.uptime' -Visual Kpi -Size S -Id 'plan-clock'
@@ -2098,8 +2100,9 @@ try{
 finally{
     if($null -ne $script:Window){$script:Window.Close()}
     $fail=@($script:Results|Where-Object{-not $_.Passed}).Count
-    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Filter=$Filter;Complete=($script:Finished -and $script:Results.Count -gt 0 -and ($Filter -or $script:Results.Count -eq $script:ExpectedCases));LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
+    $selectionComplete=($script:Finished -and $script:Results.Count -gt 0 -and ($Filter -or $script:Results.Count -eq $script:ExpectedCases))
+    $report=[ordered]@{Suite='Tableaux de bord en widgets';Host=$PSVersionTable.PSVersion.ToString();Passed=($script:Results.Count-$fail);Failed=$fail;Filter=$Filter;Complete=($selectionComplete -and -not $Filter -and $script:Results.Count -eq $script:ExpectedCases);SelectionComplete=$selectionComplete;ExpectedCases=$script:ExpectedCases;LiveADExecuted=$false;NetworkAccessed=$false;RenderTimings=$script:RenderTimings.ToArray();RenderTimingScope='Same warmed synthetic board; synchronous full hidden render vs deferred hidden update; visible render still required and excluded';Results=@($script:Results)}
     if($ReportPath){[IO.File]::WriteAllText($ReportPath,($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($true))}
     if(-not $Quiet){$report|ConvertTo-Json -Depth 6}
 }
-if(-not $script:Finished -or $fail -gt 0 -or -not $report.Complete){exit 1};exit 0
+if(-not $script:Finished -or $fail -gt 0 -or -not $report.SelectionComplete){exit 1};exit 0
