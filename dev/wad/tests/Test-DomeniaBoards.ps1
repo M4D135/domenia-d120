@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=71
+$script:ExpectedCases=72
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -2005,7 +2005,52 @@ try{
             $one|Add-Member -NotePropertyName Opaque -NotePropertyValue (New-Object object)
             $unsafe=Get-DomeniaCachedBoardWidgetPlan Software $a $state
             Expect (-not [object]::ReferenceEquals($unsafe,(Get-DomeniaCachedBoardWidgetPlan Software $a $state))) 'Une forme inconnue est mise en cache.'
+            $uptime=New-DomeniaBoardItem -Source Probe -Key 'os.uptime' -Visual Kpi -Size S -Id 'plan-clock'
+            Expect (-not (Get-DomeniaWidgetPlanDependencyKey Computer $uptime $state $true 4)) 'DaysSince ne doit pas utiliser une cle qui ignore le dernier demarrage.'
+            $clockPlan=Get-DomeniaCachedBoardWidgetPlan Computer $uptime $state -Placeholder
+            $clockAgain=Get-DomeniaCachedBoardWidgetPlan Computer $uptime $state -Placeholder
+            Expect ($null -ne $clockPlan -and $null -ne $clockAgain -and -not [object]::ReferenceEquals($clockPlan,$clockAgain)) 'DaysSince doit repasser par la resolution a chaque rendu.'
         }finally{$state.WidgetPlanCache=$savedCache;$state.Data=$savedData}
+    }
+    Case 'Programme 38 Constructions WPF limitees au graphique affecte et invalidees au changement de contexte' {
+        $state=Get-DomeniaBoardState Software;$savedData=$state.Data;$savedLayout=@(Get-Layout Software)
+        $savedEpoch=$script:SessionEpoch;$savedTheme=$state.RenderThemeGeneration
+        $script:ProgrammeOriginalWidget=${function:New-DomeniaBoardWidget};$script:ProgrammeWidgetBuilds=@{}
+        function script:New-DomeniaBoardWidget {
+            param($Board,$Item,$State,[switch]$Placeholder,$Plan,[double]$Width=0)
+            $script:ProgrammeWidgetBuilds[[string]$Item.Id]=1+[int]$script:ProgrammeWidgetBuilds[[string]$Item.Id]
+            & $script:ProgrammeOriginalWidget @PSBoundParameters
+        }
+        try{
+            $state.WidgetRenderCache=@{};$state.WidgetPlanCache=@{}
+            $a=New-DomeniaBoardItem -Source Builtin -Key 'software.count' -Visual Kpi -Size S -Group 'Synthese' -Id 'wpf-a'
+            $b=New-DomeniaBoardItem -Source Builtin -Key 'software.publishers' -Visual Pie -Size M -Group 'Repartition' -Id 'wpf-b'
+            Set-DomeniaBoardLayout -Board Software -Layout @($a,$b) -KeepUndo
+            $data=New-DomeniaBoardData Software
+            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.count' -Kind Number -Value '3' -Number 3)
+            Add-DomeniaBoardEntry $data (New-DomeniaBoardEntry -Key 'software.publishers' -Kind Distribution -Items @([pscustomobject]@{Label='A';Value=3}))
+            Show-DomeniaBoard Software -Data $data -Quiet
+            $panel=Get-DomeniaControl 'PnlSoftwareDashboard';$chart=Find-DomeniaBoardHolder $panel 'wpf-b'
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 1 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 1 -and [object]::ReferenceEquals($chart,(Find-DomeniaBoardHolder $panel 'wpf-b'))) 'Le rendu identique reconstruit une carte ou le graphique WPF.'
+            $data.Entries['software.count'].Number=4;$data.Entries['software.count'].Value='4'
+            Show-DomeniaBoard Software -Data $data -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 2 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 1) 'Une mutation du compteur reconstruit le graphique non affecte.'
+            $data.Entries['software.publishers'].Items[0].Value=4
+            Show-DomeniaBoard Software -Data $data -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 2 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 2) 'La mutation du graphique ne reconstruit pas exactement sa carte.'
+            $state.RenderThemeGeneration=[long]$state.RenderThemeGeneration+1
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 3 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 3) 'Le changement de palette conserve des dessins anciens.'
+            $script:SessionEpoch=[long]$script:SessionEpoch+1
+            Show-DomeniaBoard Software -Quiet
+            Expect ($script:ProgrammeWidgetBuilds['wpf-a'] -eq 4 -and $script:ProgrammeWidgetBuilds['wpf-b'] -eq 4) 'Un autre contexte conserve des handlers de cartes anciennes.'
+        }finally{
+            Set-Item Function:script:New-DomeniaBoardWidget $script:ProgrammeOriginalWidget
+            $script:SessionEpoch=$savedEpoch;$state.RenderThemeGeneration=$savedTheme
+            $state.WidgetRenderCache=@{};$state.WidgetPlanCache=@{};$state.Data=$savedData
+            Set-DomeniaBoardLayout -Board Software -Layout $savedLayout -KeepUndo
+        }
     }
     Case 'Programme 47 Explication sante ouvre inventaire manquant sans lancer une lecture' {
         $state=Get-DomeniaBoardState Computer;$saved=$state.Data;$reads=$script:StartCalls.Count;$parks=$script:ParkCalls.Count

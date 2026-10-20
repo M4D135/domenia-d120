@@ -1,37 +1,44 @@
-# Reprise RC1.17.39 et programme des 60 points
+# Reprise RC1.17.39 — programme des 60 points
 
-## État réel au troisième checkpoint du 20 octobre 2026
+## État au 20 octobre 2026, après checkpoint 92d2212
 
-**Code intégré, qualification critique en cours, livraison non terminée.** Master reste `4987773325c0849129960c35b50790396ac1fc2b`. Premier checkpoint vérifié : `7a3376a98c60e2c04926f775761a92dce77c7b77`, branche `codex/rc39-60points-checkpoint`. Les ZIP publiés sur master restent RC38 ; les candidats RC39 sont dans `../../rc39-local-first/packs` (174 fichiers applicatifs identiques DEV/PROD).
+**Livraison non terminée.** Master et master distant restent `4987773325c0849129960c35b50790396ac1fc2b` (RC38). Dernier checkpoint poussé/vérifié : `92d2212f993686572c0bad38abef0aac0cf8cdd7`, branche `codex/rc39-60points-checkpoint`. Ce WIP contient code, suivi, guides et preuves, mais n'est pas un pack qualifié. Les changements de l'arbre postérieurs restent à sauvegarder au prochain jalon.
 
-Dernière instruction : OpenCode/Spark, contrôle indépendant, puis tests Windows **critiques seulement**, corrections, packs DEV/PROD, intégration master et push. Garder la VM. Pousser le suivi aux étapes importantes. Le runner `Verify-Critical.ps1` vient d’être lancé sur une copie fraîche `RC39-critical` ; résultats `rc39-critical-tests`. Ne pas lancer un second runner. Première passe terminée : démarrage/import natif réussi, compatibilité PS5.1 sans erreur, 7 suites critiques réussies sur 10. Trois fixtures ont oublié un import réel (LocalPreview, LiveSearchView, un cas WiringCache) : corrigées, relances ciblées en cours. Dernier checkpoint distant vérifié avant cette mise à jour : 50bf14a4878206868bbf0074d51cfba0d19a07a4.
+Instruction active : finir le code, contrôler indépendamment, puis **tests Windows critiques seulement**, corriger, régénérer DEV et PROD, commit/push master. Garder la VM et pousser le suivi aux jalons. Aucune écriture AD, aucun changement réseau/sécurité VM. Le point 59 (endurance étendue, DPI, accessibilité) reste hors de cette passe critique.
 
-Spark puis GLM gratuit ont épuisé leur génération sans patch (GLM : 32 000 tokens de raisonnement, aucun texte de sortie, coût déclaré nul). Le passage OpenCode GLM gratuit en variante low, avec fonctions complètes ciblées et prompt transmis par stdin, a produit les correctifs. Spark/OpenCode reste utilisé pour les guides puis la revue ; aucune écriture du runtime pendant les tests.
+## Code et tâches encore actives
 
-## Code réalisé
+Les lots collectes 18–29, parcours/dashboard 30–48, stockage 49–54, aperçu mémoire/SQLite, découpage AssociationRows et documentation sont intégrés. Détail et limites dans `Suivi_60.json`, `Lot-*.md`, `Revue-Spark.md`.
 
-- Collectes 18–29 : délais bornés par sonde, sondes rapides avant lentes, réutilisation de cache correctement désactivable, budgets CIM incluant l’identité, reprise après défaut SQL, clôture par familles réellement observées, suppression AD fondée sur preuves. Voir `Lot-collectes.md`.
-- Interface 30–48 : Premiers pas interrompus/hors connexion, pertinence mail/jokers, absence contextualisée, dispositions Support/Inventaire/Santé, réutilisation ciblée des cartes simples, historique et santé avec provenance/date, accès à la collecte manquante. Voir `Lot-parcours.md`.
-- Stockage 49–54 : rotation bornée, contrôle de copie SQLite, restauration de préférences par annexe `.db.preferences.json` liée au SHA256, conservation des chemins actifs et identités, retour des préférences en cas d’échec, diagnostic expurgé. Voir `Lot-stockage.md`.
-- Recherche et affichage : aperçu mémoire/SQLite avant AD, données connues conservées sur échec, identité/époque vérifiées, projection des lignes accélérée et présentation inconnue partagée par recherche, réutilisation de fiche identique. Gains de performance **non validés** sur ce code.
-- Extraction de `Set-RowAssociationMetadata` dans un module dédié intégrée au registre ; corps conservé, nouveau banc non exécuté.
+- **6** : delta des champs simples et omission du remplissage identique prêts. Sécurité/identité/formes inconnues reprennent le chemin complet. Dernière revue corrigée : génération du panneau de connexions et invalidation des droits. LocalPreview comporte 21 cas ; les 2 nouveaux cas restent à exécuter.
+- **38** : cache des plans avant résolution et réemploi réel des graphiques WPF. Dates, palette, largeur, contexte/snapshot et mutation en place invalident. Actions/DaysSince/données opaques restent hors cache. Parcours traite les dépendances Query Computer et les fournisseurs amont ; attendre son codegate.
+- **8** : vrai modèle observable + conteneurs WPF recyclés en cours. Agent collectes possède Core arbre, Search/Continuity/Guard, Main.xaml, Modules, nouveaux DirectoryTree.Types.cs/UI.ps1 et tests arbre/navigation. Un seul OpenCode gratuit `glm-5.3-flash-free` low : tour `../stockage-20261020/turn-20261020T205828Z.jsonl`, prompt complet stdin `../tree-virtualization-20261020/prompt.txt`. Corrections supervisées préparées dans ce dernier dossier ; stockage relit sans nouveau LLM. Ne pas builder avant codegate. Préserver quota global/équité, groupes différés, annulation, identité/epoch et commit → SQLite → rendu.
 
-## Correctifs et contrôles encore ouverts
+Registres fermés, manifeste, contrats workers et preload doivent être rafraîchis **après** fin des écritures. L'audit précédent a passé sur 132 modules/3740 fonctions ; il ne couvre pas les nouveaux helpers/arbre. Ne pas relancer le runner 34 suites `Verify-60.ps1` abandonné.
 
-1. Course aperçu local **corrigée** : le tick détache CacheProgress uniquement après Ended sans Error, avant le choix de cadence. Le callback reste autorisé pendant SQL pending et après échec. Test causal avec 201 lignes ajouté ; sa preuve Windows reste à obtenir.
-2. Python : les 8 échecs/1 erreur initiaux sont corrigés ; les 35 contrôles ciblés relancés passent (13 sur fixtures/langue/traces, 22 sur briques/workers/documents). BOM du JSON retiré, déclaration CommonLibrary alignée sur DLL inchangée déjà approuvée, fixtures d’incidents/opérations rendues indépendantes des données historiques, messages accentués, catch tracé. Pas de nouvelle campagne complète relancée.
-3. Registre, migration, 97 contrats workers, manifeste et version régénérés. L’audit du build a trouvé une erreur d’intégration : refresh avait absorbé l’entrée Live.UI après extraction AssociationRows. Entrée restaurée, audit fermé PASS (132 modules, 3740 fonctions), build DEV/PROD réussi. Preload rebaseliné après revue explicite ; ce contrôle statique ne remplace pas Windows.
-4. Compléter la revue des points 1–17 et 55–60, relire le diff de tous les lots ; mettre Suivi_60 à jour à partir des preuves, pas des intentions.
-5. Guides et métadonnées : textes RC39 mis à jour et guides DOCX/PDF régénérés, contrôle visuel en cours ; captures anciennes RC20 à conserver comme historiques, sans leur attribuer une nouvelle provenance. Refaire les documents si sources modifiées.
-6. Après fin du code : tests critiques seulement, puis corrections ciblées, packs DEV/PROD exacts et preuves liées aux SHA256. Qualification étendue, endurance longue et observation humaine restent distinctes.
+## Preuves déjà conservées
 
-## Orchestration et commandes
+Dossier `validation/2026-10-20/rc39-critical/`, candidat initial avant les derniers changements 6/8/38 :
 
-Dépôt : `work/opencode-supervision-rc14/isolated-checkout`. Remote de livraison : `https://github.com/M4D135/domenia-d120.git`. **origin désigne un ancien bundle local, ne pas pousser origin.** Ne pas effacer les modifications concurrentes.
+- Démarrage/intégrité natifs, PS5.1 (342 fichiers sans erreur), StartupLogin 48/48.
+- StoragePreferences 9/9, Maintenance 33/33, Faults 8/8 (SQLITE_FULL simulé par quota, pas disque physique rempli).
+- RemoteStore 34/34, CollectCircuit 7/7 (AST), HealthRules 23/23.
+- Après réparations des imports réels de fixtures : LocalPreview 19/19, LiveSearchView 16/16, WiringCache D024 1/1.
+- AD/WMI/SQLite réels : cible expirée puis DC01 réussi, lot 2/2 dont 1 échec attendu, pas d'arrêt global. Premier délai réduit à 2 s pour le scénario.
+- UIA : connexion, Premiers pas/OU sans collecte implicite, AD confirmé, dashboard, recherche, fiche, poste/santé, fermeture. Session verrouillée pendant cette passe : aucune preuve pixels. Session ensuite déverrouillée avec reçu LogonUI absent et capture bureau locale.
 
-File locale OpenCode : `../stockage-20261020/run-opencode.py --prompt-file CHEMIN`. Session race : `ses_ea518d676ffeLFsGBFFH7tsgWV`, log `turn-20261020T200100Z.jsonl`. Un seul appel Spark pour ce projet. Jeton lu uniquement en mémoire depuis la configuration privée ; jamais dans Git ou dans les sorties. Ancien tour backup interrompu sans fichier produit : ne pas attendre Test-DomeniaBackupQualification.ps1.
+Guides sources RC39 et quatre DOCX/PDF régénérés, QA visuelle et synchronisation SHA réussies (`Guide-QA.json`, `DocSync.json`). Captures RC20 explicitement historiques. Pas de gain global de performance chiffré établi.
 
-Contrôles et construction depuis le dépôt :
+## Suite à exécuter
+
+1. Recevoir les deux codegates, revue indépendante, régénérer registres/contrats et construire DEV+PROD.
+2. Adapter `../../rc39-local-first/Verify-DeltaFinal.ps1` : nouveaux tests arbre/réalisation/navigation/favoris, LocalPreview21, Boards Programme38 et cas D024 ; nouveaux bancs AssociationRows/DiagnosticExport et règles modifiées ciblées. Ne pas répéter les suites inchangées.
+3. Déployer dans de nouveaux dossiers, contrôle natif du pack final et réouverture/captures via `Visual-Final.ps1`. Vérifier réellement les pixels. Garder toutes les preuves d'échec puis les retests, liées aux SHA exacts.
+4. Mettre Suivi/README/packs à jour ; reconstruire les archives si docs changent, vérifier parité applicative avec le candidat testé. Push master normal et vérifier SHA distant. Le garde formel Publishable=false n'est pas à contourner : recette labo critique ≠ qualification générale complète.
+
+## Commandes et accès
+
+Dépôt : `work/opencode-supervision-rc14/isolated-checkout`. Livraison : `https://github.com/M4D135/domenia-d120.git`. **Ne pas pousser origin**, qui est un ancien bundle local. Préserver les modifications concurrentes.
 
 ```sh
 python3 dev/tools/integrate_lots.py --refresh-functions --apply
@@ -42,26 +49,4 @@ python3 dev/tools/validate_powershell_static.py
 python3 dev/tools/build_packages.py --output ../../rc39-local-first/packs
 ```
 
-Le contrôle lexical a passé sur 347 fichiers avant les dernières modifications. Ce n’est pas une preuve PowerShell 5.1.
-
-## Labo à conserver
-
-VM `DOMENIA-FIRSTRUN-20261020`, UUID `bc2f1ac0-9545-49bd-a0f5-cb89d352cf61`, 1 vCPU / 4 Go, hôte `degun@192.168.1.173`. Dernier état observé : running. Aucun mot de passe à lire ni à consigner. Accès guestcontrol par fichier opaque existant. Ne pas modifier AD, réseau, sécurité ni configuration VM.
-
-Harnais locaux prêts : `../../rc39-local-first/Verify-Critical.ps1`, `Critical-UI.ps1`, `Live-Timeout.ps1`. Le premier runner critique est terminé ; relances ciblées des trois fixtures en cours. Critical-UI et Live-Timeout restent à exécuter après lui. Le runner critique couvre démarrage/import natif, recherche/aperçu, stockage/restauration, WMI et santé. Le vieux Verify-60 de 34 suites est abandonné : ne pas le lancer. Candidats déployés dans les dossiers neufs RC39-critical et RC39-critical-ui ; régénérer les archives finales après documentation, puis vérifier leur identité applicative. Helper de transfert `../../rc38-final/lab.py` ; pour récupérer les résultats, utiliser les dossiers hôte uniques de `../../rc35-qualification/pull.py`, pas un fichier ancien susceptible d’être réutilisé.
-
-Aucune mesure avant/après RC39 concluante ; ne pas annoncer de qualification complète ni de commit final de livraison avant les reçus correspondants.
-
-## Dernière preuve critique
-
-Aperçu local 19/19 et LiveSearchView 16/16 réussis après import des vrais helpers dans les fixtures. WiringCache attend le retest d’un deuxième helper de fixture. Lot WMI réel terminé : premier poste en délai, puis DC01 lu et mesure mémoire enregistrée dans SQLite. 2/2 terminés dont 1 échec attendu, aucun arrêt global ; délai du premier poste réduit à 2 secondes (réseau, moteur et stockage réels). Preuves : `validation/2026-10-20/rc39-critical/`. Contrôle graphique en cours, session Windows verrouillée au dernier relevé.
-
-Relances ciblées terminées : LocalPreview 19/19, LiveSearchView 16/16 et le cas WiringCache D024 passent. UIA critique réussi : login, Premiers pas (choix OU sans collecte implicite, collecte AD confirmée, calcul dashboard), recherche, fiche, poste, santé et fermeture normale. Les captures de ce passage verrouillé sont indisponibles : succès fonctionnel UIA, pas une preuve visuelle pixels. Session ensuite déverrouillée et vérifiée (LogonUI absent). Guides DOCX/PDF régénérés, QA visuelle et synchronisation SHA réussies ; captures des guides RC20 clairement historiques. Point8 : OpenCode prépare correction budget global du rendu arbre, sans refonte de virtualisation mémoire.
-
-## Relève : dernier code en cours après les preuves initiales
-
-Checkpoint distant confirmé `b40c1cccb3ba4c431bb04afb17e40115271a5a67` sur `codex/rc39-60points-checkpoint`, avec guides et preuves. Master reste RC38. Trois compléments trouvés en revue : (6) vrai delta des champs de fiche et omission du remplissage identique, (38) cache du plan avant résolution/recalcul, (8) arbre. Budget global/équité/groupes différés corrigés et banc 4 cas prêt ; collectes prend le seul OpenCode actif pour implémenter la vraie virtualisation par modèle + conteneurs WPF recyclés, préserver sélection/favoris/filtre et adapter les tests. Aucun OpenCode concurrent. Parcours termine tests6/38, stockage relit uniquement ces correctifs. Ne pas builder avant leur codegate ; nouveaux helpers à enregistrer par integrate_lots.
-
-Harnais final local préparé `Verify-DeltaFinal.ps1` (3 nouveaux bancs + 5 fichiers de règles modifiés, contrôle intégrité final) et `Visual-Final.ps1` (réouverture + captures, sans refaire collecte AD). Adapter le delta aux tests8 additionnels et nouveaux6/38 avant exécution. Session Windows déverrouillée, Keep-Console borné45min démarré ; aucun secret dans ces fichiers. Les prochains dossiers de déploiement doivent être neufs.
-
-Revue complémentaire avant delta : raccourci fiche doit rafraîchir la cible du panneau de connexions après SelectedObjectGeneration++ et invalider DeferredPermissionsDn après annulation/vide des capacités. Cache widgets : exclure ou dater DaysSince, éviter de payer un hash complet pour seulement remplacer un lookup constant ; réutilisation WPF des graphiques inchangés à rendre effective. Parcours traite ces constats avec tests causaux. Aucun de ces derniers changements n’est encore qualifié par les rapports du candidat initial.
+VM conservée `DOMENIA-FIRSTRUN-20261020`, UUID `bc2f1ac0-9545-49bd-a0f5-cb89d352cf61`, hôte `degun@192.168.1.173`, 1 vCPU/4 Go. Helper `../../rc38-final/lab.py`, guestcontrol par fichier opaque existant (ne pas lire son contenu). Récupération fraîche : `../../rc39-local-first/get.py`, ou depuis le workspace `work/rc35-qualification/pull.py`. Aucun secret dans scripts/journaux/Git. Keep-Console borné 45 min ; vérifier session avant le parcours final, sans changer de politique de verrouillage.

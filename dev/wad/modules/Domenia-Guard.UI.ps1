@@ -367,12 +367,17 @@ function Update-DomeniaOuFavouritesUi {
     $favourites=@(Get-DomeniaFavouriteSearches)
     $keys=@{};foreach($f in $favourites){$keys[([string]$f.DN).ToLowerInvariant()]=$true}
     $script:OuFavouriteKeys=$keys
+    # Point 8: the favourite status lives on the DTO (FavoriteStatus); the header star binds it and stays
+    # correct after each container recycling (600th element included). No control stored, nothing materialized.
     if($null -ne (Get-Command Get-DomeniaRealizedTreeNodes -CommandType Function -ErrorAction SilentlyContinue)){
         # Get-DomeniaRealizedTreeNodes returns its array as one object: enumerate it, do not wrap it again.
         foreach($n in (Get-DomeniaRealizedTreeNodes)){
-            $dn=[string]$n.Tag.DN;if(-not $dn){continue}
+            $dn='';try{$dn=[string]$n.Tag.DN}catch{Write-DomeniaSwallowed 'Guard' 'Update-DomeniaOuFavouritesUi' $_}
+            if(-not $dn){continue}
             $status=if($keys.ContainsKey($dn.ToLowerInvariant())){'Favori'}else{''}
-            if([string][Windows.Automation.AutomationProperties]::GetItemStatus($n) -cne $status){[Windows.Automation.AutomationProperties]::SetItemStatus($n,$status)}
+            if($n -is [Domenia.Tree.DomeniaTreeItem]){
+                if([string]$n.FavoriteStatus -cne $status){$n.FavoriteStatus=$status}
+            }elseif([string][Windows.Automation.AutomationProperties]::GetItemStatus($n) -cne $status){[Windows.Automation.AutomationProperties]::SetItemStatus($n,$status)}
         }
     }
     $toggle=Get-DomeniaControl 'BtnOuFavouriteToggle'

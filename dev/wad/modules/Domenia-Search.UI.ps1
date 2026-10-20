@@ -1071,15 +1071,16 @@ function Get-DomeniaOuTreeNodeName {
 }
 
 function Update-DomeniaOuTreeFilter {
-    # Work in small Dispatcher slices even when thousands of nodes have already been read.
+    # Work in small Dispatcher slices over the typed DTO tree data: containers of excluded items are not
+    # generated (each node carries a filtered child view), so no explicit Collapse 99999 walk happens.
     param([switch]$OnlyWhenActive)
     $box=Get-DomeniaControl 'TxtOuFilter';$filter=([string]$box.Text).Trim()
     if($OnlyWhenActive -and -not $filter){return}
     $tree=Get-DomeniaControl 'TvDirectory';if($null -eq $tree){return}
     Stop-DomeniaOuTreeFilter
     $stack=[Collections.Generic.List[object]]::new()
-    $stack.Add([pscustomobject]@{Node=$null;Items=$tree.Items;Next=0;ChildMatch=$false;IsRoot=$false})
-    $script:OuTreeFilterWork=[pscustomobject]@{Tree=$tree;Stack=$stack;Filter=$filter;Epoch=[long]$script:SessionEpoch;Matched=$false;MatchCount=0}
+    $stack.Add([pscustomobject]@{Node=$null;Items=$tree.Items;Next=0;ChildMatch=$false;IsRoot=$true;View=$null})
+    $script:OuTreeFilterWork=[pscustomobject]@{Tree=$tree;Epoch=[long]$script:SessionEpoch;Matched=$false;MatchCount=0;Filter=$filter;Stack=$stack}
     Invoke-DomeniaOuTreeFilterSlice
     if($null -ne $script:OuTreeFilterWork){
         if($null -eq $script:OuTreeFilterTimer){$script:OuTreeFilterTimer=New-DomeniaTimer -Owner 'Timer:OuTreeFilter' -IntervalMs 25 -Tick {Invoke-DomeniaOuTreeFilterSlice}}
@@ -1281,11 +1282,12 @@ function Invoke-DomeniaOuTreeFilterSlice {
     if($script:AsyncEngineClosing -or [long]$state.Epoch -ne [long]$script:SessionEpoch -or -not [object]::ReferenceEquals($tree,$state.Tree) -or [string]$state.Filter -cne ([string]$box.Text).Trim()){Stop-DomeniaOuTreeFilter;return}
     $clock=[Diagnostics.Stopwatch]::StartNew();$steps=0
     while($state.Stack.Count -and $steps -lt 512 -and $clock.ElapsedMilliseconds -lt 8){
-        $steps++;$frame=$state.Stack[$state.Stack.Count-1]
+        $steps++;        $frame=$state.Stack[$state.Stack.Count-1]
         if($frame.Next -lt $frame.Items.Count){
             $child=$frame.Items[$frame.Next];$frame.Next++
-            if($child -isnot [Windows.Controls.TreeViewItem]){continue}
-            $state.Stack.Add([pscustomobject]@{Node=$child;Items=$child.Items;Next=0;ChildMatch=$false;IsRoot=($null -eq $frame.Node)})
+            if($child -isnot [Domenia.Tree.DomeniaTreeItem]){continue}
+            $childView=$null;try{$childView=Get-DomeniaTreeChildView $child}catch{}
+            $state.Stack.Add([pscustomobject]@{Node=$child;Items=$child.Items;Next=0;ChildMatch=$false;IsRoot=($null -eq $frame.Node);View=$childView})
             continue
         }
         $state.Stack.RemoveAt($state.Stack.Count-1)
@@ -1295,9 +1297,17 @@ function Invoke-DomeniaOuTreeFilterSlice {
         $self=((-not $group) -and (Test-DomeniaOuTreeMatch -Name (Get-DomeniaOuTreeNodeName $frame.Node) -Filter $state.Filter))
         if($self -and $state.Filter){$state.MatchCount++}
         $match=($self -or $frame.ChildMatch)
-        $wanted=if($frame.IsRoot -or -not $state.Filter -or $match){[Windows.Visibility]::Visible}else{[Windows.Visibility]::Collapsed}
-        if($frame.Node.Visibility -ne $wanted){$frame.Node.Visibility=$wanted}
-        if($state.Filter -and $frame.ChildMatch -and [bool]$frame.Node.Tag.Loaded -and -not $frame.Node.IsExpanded){$frame.Node.IsExpanded=$true}
+        $wantedVisible=if($frame.IsRoot -or -not $state.Filter -or $match){$true}else{$false}
+        $oldVisible=$frame.Node.Visibility -eq 'Visible'
+        if($oldVisible -ne $wantedVisible){
+            $frame.Node.Visibility=if($wantedVisible){'Visible'}else{'Collapsed'}
+            # Only the touched node's child view is refreshed (filter evaluation at the source), a bounded cost.
+            if($null -ne $frame.View){try{$frame.View.Refresh()}catch{Write-DomeniaSwallowed 'Search' 'Invoke-DomeniaOuTreeFilterSlice' $_}}
+        }
+        if($state.Filter -and $frame.ChildMatch -and [bool]$frame.Node.Tag.Loaded -and -not $frame.Node.IsExpanded){
+            $program=$script:DomeniaTreeProgrammaticExpand;$script:DomeniaTreeProgrammaticExpand=$true
+            try{$frame.Node.IsExpanded=$true}finally{$script:DomeniaTreeProgrammaticExpand=$program}
+        }
         if($match -and $state.Stack.Count){$state.Stack[$state.Stack.Count-1].ChildMatch=$true}
     }
     if($state.Stack.Count){return}
@@ -1362,47 +1372,48 @@ function Get-DomeniaOpenTreeNodes {
     if ($null -eq $tree) { return ,$out.ToArray() }
     $queue = [Collections.Generic.Queue[object]]::new(); foreach ($n in $tree.Items) { $queue.Enqueue($n) }
     while (($queue.Count -gt 0) -and ($out.Count -lt 20000)) {
-        $n = $queue.Dequeue(); if ($n -isnot [Windows.Controls.TreeViewItem]) { continue }; $out.Add($n)
-        if ($n.IsExpanded) { foreach ($c in $n.Items) { if ($c -is [Windows.Controls.TreeViewItem]) { $queue.Enqueue($c) } } }
+        $n = $queue.Dequeue(); if ($n -isnot [Domenia.Tree.DomeniaTreeItem]) { continue }; $out.Add($n)
+        if ($n.IsExpanded) { foreach ($c in $n.Items) { if ($c -is [Domenia.Tree.DomeniaTreeItem]) { $queue.Enqueue($c) } } }
     }
     return ,$out.ToArray()
 }
 
 function Get-DomeniaRealizedTreeIndex {
-    # Point 55: every tree item already created (read branches, folded or not), by lower-case DN, in one walk:
-    # the history finds each remembered branch in it, however large the tree. Nothing is read. 100 000 items at most.
+    # Point 55: every read branch (folded or not, realized container or not), by lower-case DN, in one data walk.
+    # The history finds each remembered branch in it, however large the tree and however far it sits
+    # beyond the first generated containers. Nothing is read. 100 000 items at most.
     $index = @{}
     $tree = Get-DomeniaControl 'TvDirectory'
     if ($null -eq $tree) { return $index }
     $queue = [Collections.Generic.Queue[object]]::new(); foreach ($n in $tree.Items) { $queue.Enqueue($n) }
     $visited = 0
     while (($queue.Count -gt 0) -and ($visited -lt 100000)) {
-        $n = $queue.Dequeue(); if ($n -isnot [Windows.Controls.TreeViewItem]) { continue }; $visited++
+        $n = $queue.Dequeue(); if ($n -isnot [Domenia.Tree.DomeniaTreeItem]) { continue }; $visited++
         $dn = ''; try { $dn = [string]$n.Tag.DN } catch { $dn = '' }
         if ($dn) { $key = $dn.ToLowerInvariant(); if (-not $index.ContainsKey($key)) { $index[$key] = $n } }
-        foreach ($c in $n.Items) { if ($c -is [Windows.Controls.TreeViewItem]) { $queue.Enqueue($c) } }
+        foreach ($c in $n.Items) { if ($c -is [Domenia.Tree.DomeniaTreeItem]) { $queue.Enqueue($c) } }
     }
     return $index
 }
 
 function Find-DomeniaRealizedTreeNode {
-    # Point 55: the tree item of a DN when it already exists, found through its ancestors (RDN boundaries, the system
-    # containers group included), however many items the tree holds; $null otherwise. Nothing is read.
+    # Point 55: the DTO data node of a DN when it is already read, found through its ancestors (RDN boundaries,
+    # the system containers group included), however many items the tree holds; $null otherwise. Nothing is read.
     param([AllowEmptyString()][string]$Dn)
     $tree = Get-DomeniaControl 'TvDirectory'
     if (($null -eq $tree) -or (-not $Dn)) { return $null }
     $path = Get-DomeniaTreeRevealPath -Dn $Dn -BaseDn ([string]$script:Conn.BaseDn)
     if (-not $path.Count) { return $null }
-    # Keep the live collection: a pipeline-producing expression would enumerate an ItemCollection.
+    # Data walk (typed DTO items); an off-screen branch is still found: virtualization keeps the data.
     $items = $tree.Items; $node = $null
     foreach ($step in $path) {
         $next = $null
         $levels = [Collections.Generic.Queue[object]]::new(); $levels.Enqueue($items)
         while (($null -eq $next) -and ($levels.Count -gt 0)) {
             foreach ($child in $levels.Dequeue()) {
-                if ($child -isnot [Windows.Controls.TreeViewItem]) { continue }
+                if ($child -isnot [Domenia.Tree.DomeniaTreeItem]) { continue }
                 $tag = $child.Tag; if ($null -eq $tag) { continue }
-                # Tree item tags always carry Name, DN, Kind and Loaded (New-TreeItem, the system containers group).
+                # Tags always carry Name, DN, Kind and Loaded (New-TreeItem, the system containers group).
                 if ([string]$tag.Kind -eq 'SystemGroup') { $levels.Enqueue($child.Items); continue }
                 if ([string]$tag.DN -ieq [string]$step) { $next = $child; break }
             }
@@ -1425,8 +1436,9 @@ function Get-DomeniaTreeExpandedDns {
 }
 
 function Select-DomeniaRealizedTreeNode {
-    # Selects the tree item of an OU when it already exists, without reading anything. Otherwise the tree selection
-    # is cleared, so that the tree never shows another OU than the list. Returns $true when the item was found.
+    # Selects the DTO node of an OU when it is already read, without reading anything: programmatic token first,
+    # then a bounded reveal which realizes only the target path indexes (real scrolling, not a bare IsSelected
+    # on data that stays outside the viewport). Nothing is read by the selection itself.
     param([AllowEmptyString()][string]$Dn)
     $tree = Get-DomeniaControl 'TvDirectory'
     if ($null -eq $tree) { return $false }
@@ -1434,17 +1446,22 @@ function Select-DomeniaRealizedTreeNode {
     if ($Dn) {
         try { $found = Find-DomeniaRealizedTreeNode -Dn $Dn } catch { $found = $null }
     }
+    if ($null -eq $found) {
+        $current = $tree.SelectedItem
+        if ($current -is [Windows.Controls.TreeViewItem]) { $current.IsSelected = $false }
+        elseif ($current -is [Domenia.Tree.DomeniaTreeItem]) { $current.IsSelected = $false }
+        return $false
+    }
+    $walk = $found
+    $allRead = $true
+    while ($null -ne $walk) { if (-not $walk.Loaded) { $allRead = $false; break }; $walk = $walk.Parent }
+    if (-not $allRead) { return $false }
+    Set-DomeniaTreeProgrammaticSelection -Node $found
     $old = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
     try {
-        if ($null -ne $found) {
-            if (-not $found.IsSelected) { $found.IsSelected = $true }
-            try { $found.BringIntoView() } catch { Write-DomeniaSwallowed 'Search' 'Select-DomeniaRealizedTreeNode' $_ }
-            return $true
-        }
-        $current = $tree.SelectedItem
-        if ($current -is [Windows.Controls.TreeViewItem]) { $current.IsSelected = $false }
-        return $false
+        [void](Start-DomeniaTreeItemReveal -Node $found -Purpose 'selection')
+        return $true
     } finally { $script:SuppressBranchAutoLoad = $old }
 }
 
@@ -1474,8 +1491,12 @@ function Restore-DomeniaTreeNavState {
     $old = [bool]$script:SuppressBranchAutoLoad
     $script:SuppressBranchAutoLoad = $true
     try {
+        # Restoration never reads: expansion is logical only on already read branches (no container event path).
+        $program = $script:DomeniaTreeProgrammaticExpand
+        $script:DomeniaTreeProgrammaticExpand = $true
         foreach ($dn in @($plan.Collapse)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $false }
         foreach ($dn in @($plan.Expand)) { $byDn[([string]$dn).ToLowerInvariant()].IsExpanded = $true }
+        $script:DomeniaTreeProgrammaticExpand = $program
     } finally { $script:SuppressBranchAutoLoad = $old }
     [void](Select-DomeniaRealizedTreeNode -Dn $SelectedDn)
     return $plan

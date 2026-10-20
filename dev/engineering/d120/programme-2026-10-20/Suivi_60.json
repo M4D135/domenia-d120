@@ -117,8 +117,8 @@
       "limites": [
         "Changements de sécurité, identité, membres, manager ou forme inconnue reprennent volontairement le remplissage complet. Résumés dépendant du temps et protections restent actualisés. Nouveau comportement non exécuté sous Windows."
       ],
-      "mise_en_oeuvre": "Show-AdObjectResult ne remplit plus une projection identique ; delta ciblé des champs simples autorisés à lecteur/identité identiques. Dates de source, générations, permissions et secrets restent traités à chaque reçu.",
-      "portee_tests": "Reçus antérieurs LocalPreview/Live réussis. Deux nouveaux cas Programme 6 écrits : delta limité et véritable callback avec compteurs Fill/Clear, contrôle/date/secrets ; non exécutés.",
+      "mise_en_oeuvre": "Show-AdObjectResult ne remplit plus une projection identique ; delta ciblé des champs simples autorisés à lecteur/identité identiques. Dates de source, générations, permissions et secrets restent traités à chaque reçu. Les chemins rapides réassocient le panneau de connexion à la génération actuelle ; chaque reçu invalide le repère de droits après annulation/vidage des capacités, sans invalider le cache brut inchangé.",
+      "portee_tests": "Reçus antérieurs LocalPreview/Live réussis. Deux nouveaux cas Programme 6 écrits : delta limité et vrai callback, générations/panneau/lecture explicite, réévaluation droits, Fill/Clear, dates/secrets ; non exécutés.",
       "reste_code": []
     },
     {
@@ -705,10 +705,10 @@
       "tests_windows": "NON_EXECUTES",
       "preuves_tests": [],
       "limites": [
-        "Collecte/calcul en attente, forme inconnue/cyclique/trop grande et Query Computer contournent le cache. Les demandes d’évaluation nécessaires restent exécutées. Nouveau cache non exécuté sous Windows."
+        "Collecte/calcul en attente, Action à tout niveau, forme inconnue/cyclique/trop grande, pause, DaysSince et Query Computer contournent le cache. Les demandes d’évaluation et transformations temporelles restent exécutées. Cartes spécialisées reconstruites. Pas de gain mesuré ni de test Windows exécuté sur ce correctif."
       ],
-      "mise_en_oeuvre": "Cache de plans placé avant Get-DomeniaBoardWidgetPlan : données source bornées, contrat, contexte, dates brutes, état de pause et fraîcheur des sondes ; mutation en place détectée. Couvre Builtin de tous types et Query/Probe Fleet déjà calculés, Probe Computer.",
-      "portee_tests": "Programme 38 écrit : réemploi du plan, distribution incluse, mutation du seul fournisseur affecté, autre widget conservé, date brute à la seconde, taille, pause/reprise et unknown=>rebuild. Aucun reçu d’exécution.",
+      "mise_en_oeuvre": "Cache de plans placé avant Get-DomeniaBoardWidgetPlan : données source bornées, contrat, contexte, dates brutes, état de pause et fraîcheur des sondes ; mutation en place détectée. Couvre Builtin de tous types et Query/Probe Fleet déjà calculés, Probe Computer. Le plan porte sa clé pour réutiliser aussi les cartes WPF (valeurs, distributions, séries, mesures, listes) sans les reconstruire ; clé de rendu avec largeur, contexte/snapshot, dates affichées, état partiel et génération de palette.",
+      "portee_tests": "Deux nouveaux cas Programme 38 écrits : plans avant résolution et vrais compteurs de constructions WPF (deux cartes dont distribution), mutation d’une source seule, autre carte conservée, date brute, taille, pause/reprise, contexte/palette et opt-out unknown/DaysSince. Aucun reçu d’exécution.",
       "reste_code": [
         "Query Computer garde son recalcul complet : dépendances AD/lifecycle/observations non intégralement représentées dans ce cache.",
         "Les fournisseurs/agrégats amont du dashboard ne sont pas rendus entièrement incrémentaux par ce cache de plans."
@@ -1140,7 +1140,7 @@
       "reste_code": []
     }
   ],
-  "updated_utc": "2026-10-20T20:58:18.722326+00:00",
+  "updated_utc": "2026-10-20T21:04:31.665144+00:00",
   "checkpoint_branch": "codex/rc39-60points-checkpoint",
   "qualification": "PARTIELLE_CRITIQUE_NON_CLOTUREE",
   "decision_tests": "Dernière décision utilisateur : contrôler les fonctions critiques sous Windows seulement ; qualification étendue du point 59 hors périmètre de cette passe ; VM conservée.",
@@ -1223,10 +1223,10 @@
       38
     ],
     "etat": "CODE_INTEGRE_DELTA_WINDOWS_NON_EXECUTE",
-    "statique": "Contrôle lexical Python PASS sur 348 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Pas de parseur natif exécuté par le sous-lot.",
+    "statique": "Contrôle lexical Python PASS sur 349 fichiers ; BOM/LF et diff-check des fichiers 6/38 sans erreur. Aucun parseur natif ni test Windows exécuté par le sous-lot.",
     "tests_ecrits": [
-      "Test-DomeniaLocalPreview.ps1 : deux cas Programme 6 supplémentaires ; total attendu 21, dernier reçu antérieur 19/19.",
-      "Test-DomeniaBoards.ps1 : Programme 38 plans avant résolution et dépendances ; ExpectedCases 71 ; aucun reçu de ce nouveau cas."
+      "Test-DomeniaLocalPreview.ps1 : deux cas Programme 6, total 21 ; vrai callback, champs ciblés, générations du panneau de connexion et lecture explicite, nouvelle analyse droits, fraîcheur et secrets. Non exécutés.",
+      "Test-DomeniaBoards.ps1 : Programme 38 plans/dépendances et compteurs de constructions WPF de deux cartes dont distribution ; ExpectedCases 72. Pause/reprise, date brute, contexte/palette, unknown et DaysSince couverts ; non exécutés."
     ],
     "limite": "Les hashes des reçus critiques ne correspondent pas au runtime modifié après leur exécution. Le pack final et sa qualification delta relèvent de root."
   }

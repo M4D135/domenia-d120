@@ -232,6 +232,26 @@
       "Conditions": "Non livrée : seuls les documents produits sont diffusés.",
       "Alternative": "",
       "Note": ""
+    },
+    {
+      "Id": "directory-tree",
+      "Name": "Donnees et panneau virtualisant de l arbre Domenia",
+      "Paths": [
+        "wad/modules/Domenia-DirectoryTree.Types.cs"
+      ],
+      "Delivery": "Livre",
+      "Origin": "Projet",
+      "Licence": "Code du projet Domenia (titulaire : lʼauteur du projet)",
+      "Redistribution": "Interne",
+      "Evidence": [
+        {
+          "Kind": "Source",
+          "Ref": "wad/modules/Domenia-DirectoryTree.Types.cs"
+        }
+      ],
+      "Conditions": "Diffusion décidée par le titulaire du projet.",
+      "Alternative": "",
+      "Note": "C# 5 du projet, compilation au premier usage ; utilise WPF fourni par Windows."
     }
   ]
 }

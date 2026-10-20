@@ -4454,7 +4454,19 @@ function Get-DomeniaTreeHeaderTemplate {
 }
 
 function New-TreeItem {
+    # Point 8: the data is a typed observable DTO (Domenia.Tree.DomeniaTreeItem), never a TreeViewItem.
+    # No control is stored in the data; the generated containers are recycled by WPF. The signature is kept.
     param([string]$Name, [string]$Dn, [string]$Kind)
+    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
+        $data = New-Object Domenia.Tree.DomeniaTreeItem
+        $data.Header = $Name
+        $data.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
+        if (-not [string]::IsNullOrWhiteSpace($Dn) -and $null -ne $script:OuFavouriteKeys -and $script:OuFavouriteKeys.ContainsKey($Dn.ToLowerInvariant())) {
+            $data.FavoriteStatus = 'Favori'
+        }
+        return $data
+    }
+    # Fallback (types absent, should not happen at runtime): former explicit container.
     $item = New-Object System.Windows.Controls.TreeViewItem
     $item.Header = $Name
     $item.Tag = [pscustomobject]@{ Name = $Name; DN = $Dn; Kind = $Kind; Loaded = $false; RenderId = ""; Loading = $false }
@@ -4463,8 +4475,6 @@ function New-TreeItem {
         [Windows.Automation.AutomationProperties]::SetItemStatus($item,'Favori')
     }
     [void]$item.Items.Add("Chargement...")
-    $item.Add_Expanded({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Load-TreeChildren -Node $sender } })
-    $item.Add_Selected({ param($sender,$e) if ($e.OriginalSource -eq $sender) { Set-SelectedBranch -Node $sender; $e.Handled = $true } })
     return $item
 }
 
@@ -4484,6 +4494,20 @@ function New-DomeniaTreeSystemGroup {
     # The synchronous helper remains available for the small, explicit Add-DomeniaTreeRowsToNode callers.
     param($Rows,[switch]$DeferChildren)
     $rowArray = @($Rows)
+    # Point 8: the group is a DTO too (Kind SystemGroup is read from the Tag by every tree walker).
+    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
+        $group = New-Object Domenia.Tree.DomeniaTreeItem
+        $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
+        $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = (-not $DeferChildren); RenderId = ""; Loading = $false }
+        $group.IsExpanded = $false
+        $group.ToolTip = 'Conteneurs créés par Active Directory (System, Program Data, ForeignSecurityPrincipals, LostAndFound…), repliés ici. Users et Computers restent visibles. Déplier ce groupe ne lance aucune lecture.'
+        if ($DeferChildren) { return $group }
+        foreach ($row in $rowArray) {
+            $child = New-DomeniaTreeRowItem -Row $row
+            if ($null -ne $child) { [void]$group.Items.Add($child) }
+        }
+        return $group
+    }
     $group = New-Object System.Windows.Controls.TreeViewItem
     $group.Header = 'Conteneurs système (' + $rowArray.Count + ')'
     $group.Tag = [pscustomobject]@{ Name = 'Conteneurs système'; DN = ''; Kind = 'SystemGroup'; Loaded = (-not $DeferChildren); RenderId = ""; Loading = $false }
@@ -4513,7 +4537,16 @@ function Get-DomeniaTreeRenderRows {
 }
 
 function New-DomeniaTreeLoadingItem {
-    # UI-16: a small turning wheel under the unfolded branch replaces the former greyed node while it is read.
+    # UI-16 + point 8: the loading indicator is data again (placeholder DTO, Kind=Loading), never a StackPanel
+    # per node: no control is stored in the tree data, and the header template renders it like any branch.
+    if ($null -ne ('Domenia.Tree.DomeniaTreeItem' -as [type])) {
+        $data = New-Object Domenia.Tree.DomeniaTreeItem
+        $data.Header = 'Chargement des sous-branches' + [string][char]0x2026
+        $data.ToolTip = 'Lecture des sous-branches en cours.'
+        $data.Tag = [pscustomobject]@{ Name = $data.Header; DN = ''; Kind = 'Loading'; Loaded = $false; RenderId = ""; Loading = $true }
+        $data.IsEnabled = $false
+        return $data
+    }
     $panel = New-Object System.Windows.Controls.StackPanel
     $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal
     $panel.Tag = 'Loading'
@@ -4545,9 +4578,10 @@ function Add-DomeniaTreeRowsToNode {
     $count = 0
     foreach ($row in @(Get-DomeniaTreeRenderRows -Node $Node -Rows $Rows)) {
         if ($null -eq $row) { continue }
-        if ([string]$row.Kind -eq 'SystemGroup') { [void]$Node.Items.Add((New-DomeniaTreeSystemGroup -Rows $row.Rows)); $count += @($row.Rows).Count; continue }
+        if ([string]$row.Kind -eq 'SystemGroup') { $groupShell = New-DomeniaTreeSystemGroup -Rows $row.Rows; if ($groupShell -is [Domenia.Tree.DomeniaTreeItem]) { $groupShell.Parent = $Node }; [void]$Node.Items.Add($groupShell); $count += @($row.Rows).Count; continue }
         $item = New-DomeniaTreeRowItem -Row $row
         if ($null -eq $item) { continue }
+        if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $Node }
         [void]$Node.Items.Add($item)
         $count++
     }
@@ -4585,7 +4619,10 @@ function Initialize-DomeniaTreeRenderTimer {
                     if ([int]$job.GroupIndex -lt $job.GroupRows.Count) {
                         $row = $job.GroupRows[[int]$job.GroupIndex]; $job.GroupIndex++
                         $item = New-DomeniaTreeRowItem -Row $row
-                        if ($null -ne $item) { [void]$job.GroupNode.Items.Add($item); $job.Added++ }
+                        if ($null -ne $item) {
+                            if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $job.GroupNode }
+                            [void]$job.GroupNode.Items.Add($item); $job.Added++
+                        }
                     }
                     if ([int]$job.GroupIndex -ge $job.GroupRows.Count) {
                         $job.GroupNode.Tag.Loaded = $true; $job.GroupNode.Tag.RenderId = ''
@@ -4598,12 +4635,16 @@ function Initialize-DomeniaTreeRenderTimer {
                         if ([string]$row.Kind -eq 'SystemGroup') {
                             $group = New-DomeniaTreeSystemGroup -Rows $row.Rows -DeferChildren
                             $group.Tag.RenderId = $renderId
+                            if ($group -is [Domenia.Tree.DomeniaTreeItem]) { $group.Parent = $job.Node }
                             [void]$job.Node.Items.Add($group)
                             $job.GroupNode = $group; $job.GroupRows = @($row.Rows); $job.GroupIndex = 0
                         }
                         else {
                             $item = New-DomeniaTreeRowItem -Row $row
-                            if ($null -ne $item) { [void]$job.Node.Items.Add($item); $job.Added++ }
+                            if ($null -ne $item) {
+                                if ($item -is [Domenia.Tree.DomeniaTreeItem]) { $item.Parent = $job.Node }
+                                [void]$job.Node.Items.Add($item); $job.Added++
+                            }
                         }
                     }
                 }
@@ -4691,6 +4732,8 @@ function Load-TreeRoot {
         $tree = Get-DomeniaControl -Name "TvDirectory"
         if ($null -eq $tree) { throw "Controle d'arborescence introuvable." }
         Clear-DomeniaTreeRenderJobs
+        # Point 8: the tree is virtualized once (DTO data, recycled containers); must run before the first insert.
+        try { [void](Initialize-DomeniaDirectoryTree -Tree $tree) } catch { Write-DomeniaSwallowed 'Core' 'Load-TreeRoot' $_ }
         if ($ForceRefresh -and $tree.Items.Count -gt 0) {
             $existingRoot = $tree.Items[0]
             try {

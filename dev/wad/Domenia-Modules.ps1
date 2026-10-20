@@ -1293,7 +1293,24 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaTreeRevealPath',
             'Get-DomeniaChangeWorkerCode'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Continuity.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1'); File='Domenia-DirectoryTree.UI.ps1'; DotSource=$true; Functions=@(
+            'Add-DomeniaDirectoryTreeTypes',
+            'Get-DomeniaDirectoryTreeHeaderTemplate',
+            'New-DomeniaDirectoryTreeTemplate',
+            'New-DomeniaDirectoryTreeContainerStyle',
+            'Initialize-DomeniaDirectoryTree',
+            'Clear-DomeniaDirectoryTreeWiring',
+            'Set-DomeniaTreeItemExpanded',
+            'New-DomeniaTreeStatusItem',
+            'Get-DomeniaTreeChildView',
+            'Set-DomeniaTreeProgrammaticSelection',
+            'Get-DomeniaTreeContainerForItem',
+            'Find-DomeniaTreeVirtualizingPanel',
+            'Start-DomeniaTreeItemReveal',
+            'Stop-DomeniaTreeItemReveal',
+            'Invoke-DomeniaTreeItemRevealTick'
+        ) }
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Continuity.Model.ps1','Domenia-Live.UI.ps1','Domenia-DirectoryTree.UI.ps1'); File='Domenia-Continuity.UI.ps1'; DotSource=$true; Functions=@(
             'Stop-DomeniaFavouriteTreeReveal',
             'Start-DomeniaFavouriteTreeReveal',
             'Invoke-DomeniaFavouriteTreeReveal',
@@ -1679,7 +1696,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Invoke-DomeniaReconcileTick',
             'Initialize-DomeniaReconcile'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.UI.ps1','Domenia-Migration.UI.ps1'); File='Domenia-Guard.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.UI.ps1','Domenia-Migration.UI.ps1','Domenia-DirectoryTree.UI.ps1'); File='Domenia-Guard.UI.ps1'; DotSource=$true; Functions=@(
             'Show-DomeniaGuard',
             'Start-DomeniaReceiptRefresh',
             'Complete-DomeniaReceiptRefresh',
@@ -2139,7 +2156,7 @@ function Get-DomeniaRuntimeModulePlan {
             'Request-DomeniaWindowActivation',
             'Test-DomeniaUserSwitchedAway'
         ) }
-        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.UI.ps1'); File='Domenia-Search.UI.ps1'; DotSource=$true; Functions=@(
+        [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Live.UI.ps1','Domenia-DirectoryTree.UI.ps1'); File='Domenia-Search.UI.ps1'; DotSource=$true; Functions=@(
             'Update-DomeniaSearchHint',
             'Get-DomeniaSearchBarState',
             'Update-DomeniaSearchBarUi',
@@ -3373,6 +3390,7 @@ function Get-DomeniaRuntimeModuleValue {
 function Get-DomeniaRuntimeTypePlan {
     # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
     @(
+        [pscustomobject]@{ File='Domenia-DirectoryTree.Types.cs'; Types=@('Domenia.Tree.DomeniaTreeItem','Domenia.Tree.DomeniaTreeChildren','Domenia.Tree.DomeniaVirtualizingStackPanel','Domenia.Tree.DomeniaTreeSupport'); Deferred=$true }
         [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
         [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98' }
         [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='c3659bb893abcbe9b09237ee4428dc9aec9ecb1adb2b4502087a36a384cf8d66' }
@@ -3454,6 +3472,8 @@ try {
     }
     # Types: compiled once per process; a type already loaded from the same file is kept.
     foreach ($domeniaType in @(Get-DomeniaRuntimeTypePlan)) {
+        # WPF directory types are compiled at first tree use, after authentication.
+        if ($null -ne $domeniaType.PSObject.Properties['Deferred'] -and [bool]$domeniaType.Deferred) { continue }
         $domeniaMissingTypes = @(@($domeniaType.Types) | Where-Object { $null -eq ($_ -as [type]) })
         if ($domeniaMissingTypes.Count -eq 0) { continue }
         try { Add-Type -Path (Join-Path $domeniaImportRoot $domeniaType.File) -ErrorAction Stop }

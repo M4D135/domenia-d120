@@ -687,14 +687,14 @@ function Invoke-DomeniaBoardRelayout {
 # ---------------------------------------------------------------------------
 function Resolve-DomeniaBoardEntry {
     # Data, kind and title of a layout item (built-in from the provider, query from its results).
-    param([string]$Board,$Item,$State)
+    param([string]$Board,$Item,$State,$QueryRecords=$null)
     $entry = $null; $title = ''; $kind = 'Value'; $name = ''
     if ([string]$Item.Source -eq 'Builtin') {
         $catalog = Get-DomeniaBoardCatalogItem -Board $Board -Key ([string]$Item.Key)
         if ($null -ne $catalog) { $kind = [string]$catalog.Kind; $name = [string]$catalog.Title }
         if ($null -ne $State.Data -and $null -ne $State.Data.Entries -and $State.Data.Entries.ContainsKey([string]$Item.Key)) { $entry = $State.Data.Entries[[string]$Item.Key] }
     } elseif([string]$Item.Source -eq 'Query' -and $Board -in @('Fleet','Computer')) {
-        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))};$kind=[string]$entry.Kind;$name=[string]$entry.Title
+        $entry=if($Board -eq 'Computer'){Get-DomeniaComputerQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' '')) -Records $QueryRecords}else{Get-DomeniaQueryBoardEntry -Id ([string]$Item.Key) -Visual ([string]$Item.Visual) -ConsumerId ([string](Get-DomeniaMember $Item 'Id' ''))};$kind=[string]$entry.Kind;$name=[string]$entry.Title
     } else {
         $probe = Get-DomeniaProbe -Id ([string]$Item.Key)
         $kind = Get-DomeniaProbeKind -Probe $probe -Board $Board
@@ -926,19 +926,20 @@ function ConvertTo-DomeniaWidgetDependencyStamp {
     # Hash only bounded plain data, never a WPF object, lazy getter, query record or truncated serialization.
     # Unknown/cyclic/large shapes opt out of caching. A content stamp also detects in-place source mutations.
     param($Value)
-    $pending=New-Object System.Collections.Stack;$pending.Push(@($Value,0));$nodes=0
+    $pending=New-Object System.Collections.Stack;$pending.Push(@($Value,0));$nodes=0;$characters=0L
     while($pending.Count){
         $pair=$pending.Pop();$v=$pair[0];$depth=[int]$pair[1];$nodes++
         if($nodes -gt 4096 -or $depth -gt 12){return ''}
         if($null -eq $v){continue}
-        if($v -is [string] -or $v.GetType().IsPrimitive -or $v -is [decimal] -or $v -is [datetime] -or $v -is [guid]){continue}
+        if($v -is [string]){$characters+=$v.Length;if($characters -gt 262144){return ''};continue}
+        if($v.GetType().IsPrimitive -or $v -is [decimal] -or $v -is [datetime] -or $v -is [guid]){continue}
         if($v -is [Collections.IDictionary]){
             if($v.Count -gt 4096){return ''}
-            foreach($k in $v.Keys){if($k -isnot [string] -or ($k -ieq 'Action' -and $null -ne $v[$k])){return ''};$pending.Push(@($v[$k],($depth+1)))}
+            foreach($k in $v.Keys){if($nodes+$pending.Count -ge 4096 -or $k -isnot [string] -or ($k -ieq 'Action' -and $null -ne $v[$k])){return ''};$pending.Push(@($v[$k],($depth+1)))}
         }elseif($v -is [array] -or $v -is [Collections.IList]){
-            if($v.Count -gt 4096){return ''};foreach($part in $v){$pending.Push(@($part,($depth+1)))}
+            if($nodes+$pending.Count+$v.Count -gt 4096){return ''};foreach($part in $v){$pending.Push(@($part,($depth+1)))}
         }elseif($v -is [pscustomobject]){
-            foreach($property in $v.PSObject.Properties){if($property.MemberType -ne 'NoteProperty' -or ($property.Name -ieq 'Action' -and $null -ne $property.Value)){return ''};$pending.Push(@($property.Value,($depth+1)))}
+            foreach($property in $v.PSObject.Properties){if($nodes+$pending.Count -ge 4096 -or $property.MemberType -ne 'NoteProperty' -or ($property.Name -ieq 'Action' -and $null -ne $property.Value)){return ''};$pending.Push(@($property.Value,($depth+1)))}
         }else{return ''}
     }
     try{
@@ -951,7 +952,8 @@ function ConvertTo-DomeniaWidgetDependencyStamp {
 function Get-DomeniaWidgetPlanDependencyKey {
     # Resolve dependencies before Get-DomeniaBoardWidgetPlan/Measure-DomeniaWidgetData. No fleet scan.
     # Pending work and unsupported providers remain uncached so required evaluation requests still happen.
-    param([string]$Board,$Item,$State,[bool]$Placeholder,[int]$Columns)
+    param([string]$Board,$Item,$State,[bool]$Placeholder,[int]$Columns,[ref]$PreparedRecords)
+    if($null -ne $PreparedRecords){$PreparedRecords.Value=$null}
     if($State.Editing -or (Test-DomeniaBoardItemPaused -Item $Item) -or (Get-DomeniaWidgetCollectProgress -Board $Board -Id ([string]$Item.Id))){return ''}
     $source=$null;$contract=$null;$clock=$null;$entry=$null
     switch([string]$Item.Source){
@@ -963,14 +965,24 @@ function Get-DomeniaWidgetPlanDependencyKey {
             $clock=Get-DomeniaWidgetDataDates -Board $Board -Item $Item -State $State -Entry $entry -Raw
         }
         'Query' {
-            # The workstation query provider also uses lifecycle/AD/detail inputs; keep its original path.
-            if($Board -ne 'Fleet'){return ''}
             $q=$script:DomeniaQueryState
-            if($null -eq $q -or $q.Busy -or $q.SnapshotKey -cne [string]$script:FleetQuerySnapshotKey -or $null -eq $q.Widgets -or -not $q.Widgets.ContainsKey([string]$Item.Key)){return ''}
+            if($null -eq $q){return ''}
             $recipe=Get-DomeniaWidgetRecipe -Id ([string]$Item.Key)
             if($null -eq $recipe){return ''}
             $contract=@($recipe,(Get-DomeniaQueryWidgetRevision -Recipe $recipe -Board $Board -ConsumerId ([string]$Item.Id)))
-            $source=$q.Widgets[[string]$Item.Key]
+            if($Board -eq 'Computer'){
+                # Rebuild the single canonical input record: this is the authoritative projection of AD,
+                # lifecycle, per-family dates, observations and clock-dependent transforms, not a parallel map.
+                # Pass that same record to the evaluator on a cache miss so it is not projected twice.
+                $records=Get-DomeniaComputerQueryRecords
+                if($null -ne $PreparedRecords){$PreparedRecords.Value=$records}
+                if($records.Count -ne 1){return ''}
+                $values=[ordered]@{};foreach($name in @($records[0].Values.Keys|Sort-Object)){$values[[string]$name]=$records[0].Values[$name]}
+                $source=@([string]$records[0].Id,$values,[string]$script:SelectedObject.Name,$script:SelectedObject.LoadedAt)
+            }elseif($Board -eq 'Fleet'){
+                if($q.Busy -or $q.SnapshotKey -cne [string]$script:FleetQuerySnapshotKey -or $null -eq $q.Widgets -or -not $q.Widgets.ContainsKey([string]$Item.Key)){return ''}
+                $source=$q.Widgets[[string]$Item.Key]
+            }else{return ''}
         }
         'Probe' {
             $contract=Get-DomeniaProbe -Id ([string]$Item.Key)
@@ -1001,10 +1013,11 @@ function Get-DomeniaCachedBoardWidgetPlan {
     param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns=4)
     if(-not $State.ContainsKey('WidgetPlanCache') -or $null -eq $State.WidgetPlanCache){$State.WidgetPlanCache=@{}}
     $id=[string]$Item.Id
-    $key=Get-DomeniaWidgetPlanDependencyKey -Board $Board -Item $Item -State $State -Placeholder ([bool]$Placeholder) -Columns $Columns
+    $records=$null
+    $key=Get-DomeniaWidgetPlanDependencyKey -Board $Board -Item $Item -State $State -Placeholder ([bool]$Placeholder) -Columns $Columns -PreparedRecords ([ref]$records)
     $cached=$State.WidgetPlanCache[$id]
     if($key -and $null -ne $cached -and $cached.Key -ceq $key){return $cached.Plan}
-    $plan=Get-DomeniaBoardWidgetPlan -Board $Board -Item $Item -State $State -Placeholder:$Placeholder -Columns $Columns
+    $plan=Get-DomeniaBoardWidgetPlan -Board $Board -Item $Item -State $State -Placeholder:$Placeholder -Columns $Columns -QueryRecords $records
     if($key -and $null -ne $plan -and $Board -eq 'Fleet' -and $Item.Source -ne 'Query' -and $plan.Kind -ne 'Timeline' -and $null -ne $plan.Entry){
         # Normalise chart selection metadata before capturing the stamp; the renderer performs the same step.
         Set-DomeniaBoardSegmentSelection -Entry $plan.Entry
@@ -1023,11 +1036,11 @@ function Get-DomeniaBoardWidgetPlan {
     # only, absent from the last reading or not collected yet, with the button that collects it). Before any reading
     # it stays hidden unless it is paused or being collected. A paused widget keeps its size and title, says that it
     # is paused and is never resolved, so nothing is computed nor requested for it.
-    param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns = 4)
+    param([string]$Board,$Item,$State,[switch]$Placeholder,[int]$Columns = 4,$QueryRecords=$null)
     $paused = Test-DomeniaBoardItemPaused -Item $Item
     $progress = if ($paused) { '' } else { Get-DomeniaWidgetCollectProgress -Board $Board -Id ([string]$Item.Id) }
     if ($paused) { $identity = Get-DomeniaBoardItemIdentity -Board $Board -Item $Item; $resolved = [pscustomobject]@{ Entry = $null; Kind = [string]$identity.Kind; Title = [string]$identity.Title; Name = [string]$identity.Title } }
-    else { $resolved = Resolve-DomeniaBoardEntry -Board $Board -Item $Item -State $State }
+    else { $resolved = Resolve-DomeniaBoardEntry -Board $Board -Item $Item -State $State -QueryRecords $QueryRecords }
     $entry = $resolved.Entry
     if (($null -eq $entry) -and (-not $State.Editing) -and (-not $Placeholder) -and (-not $paused) -and (-not $progress)) { return $null }
     # Without data the widget keeps its real kind, representation and size.

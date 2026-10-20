@@ -121,9 +121,11 @@ try{
  }
  Case 'Programme 6 Real object callback skips fills and changes one field without skipping safety or freshness' {
   $state=New-ObjectFixture
-  foreach($name in @('Show-AdObjectResult','Get-DeProp','Get-DomeniaEntryFirstString','Convert-DateLabel')){
+  foreach($name in @('Show-AdObjectResult','Get-DeProp','Get-DomeniaEntryFirstString','Convert-DateLabel','Ensure-DomeniaPermissions')){
    $node=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true));Expect ($node.Count -eq 1) ('real function '+$name);. ([scriptblock]::Create($node[0].Extent.Text))
   }
+  . (Join-Path $wad 'modules/Domenia-LogonActivity.Model.ps1')
+  . (Join-Path $wad 'modules/Domenia-LogonActivity.UI.ps1')
   $script:PresentationCalls=@{Clear=0;Generic=0;Machine=0;Permissions=0;Secrets=0;Freshness=0};$script:PresentationWrites=@{}
   function Keep-DomeniaDraftOnResult {param($Result,$DN,$Type);return $false}
   function Clear-ObjectDetails {$script:PresentationCalls.Clear++}
@@ -146,10 +148,15 @@ try{
   function Reset-DomeniaDeferredViews {param($Dn)}
   function Set-VisibleTabsForType {param($Type,[switch]$PreserveWorkspace)}
   function Set-Status {param($Text)}
-  function Get-DomeniaControl {param($Name);return $null}
+  function Get-DomeniaControl {param($Name);if($Name -eq 'BtnCompLogonByDc'){return $script:PresentationLogonButton};return $null}
+  function Start-PermissionAnalysis {$script:PresentationPermissionStarts++}
+  function Get-DomeniaLogonByDcWorkerCode {return ''}
+  function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$DisableControls,$TimeoutSeconds,$TaskClass);$script:PresentationLogonStarts++;return 'explicit-logon'}
   function Update-Dashboard {}
   function Save-DomeniaDraftBaseline {param($DN)}
-  $script:AsyncJobs=@{};$script:ShowingCachedObject=$false;$script:RenderingObjectWithoutProbes=$false
+  $script:AsyncJobs=@{};$script:ShowingCachedObject=$true;$script:RenderingObjectWithoutProbes=$false
+  $script:DemoMode=$false;$script:PresentationLogonButton=[pscustomobject]@{IsEnabled=$false};$script:PresentationLogonStarts=0;$script:PresentationPermissionStarts=0
+  $script:DeferredPermissionsDn=$dn;$script:DeferredRawDn='keep-raw'
   $properties=@{objectGUID=@($guid);name=@('PC-1');description=@('old');distinguishedName=@($dn);userAccountControl=@(4096)}
   $script:SelectedObject=[pscustomobject]@{DN=$dn;Type='Machine';Guid=$guid;RenderIdentity=(Get-DomeniaObjectReadIdentity);Entry=[pscustomobject]@{Properties=$properties}}
   $copy=$properties.Clone();$result=[pscustomobject]@{Properties=$copy;Type='Machine';DataSource='SQLite';Live=$true;ObservedUtc='2026-01-02T00:00:00Z'}
@@ -157,11 +164,21 @@ try{
   Expect ($script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Machine -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'unchanged callback must not fill or clear'
   Expect ($script:PresentationCalls.Permissions -eq 1 -and $script:PresentationCalls.Secrets -eq 1 -and $script:PresentationCalls.Freshness -eq 1) 'unchanged callback retains safety and source time'
   Expect ($script:SelectedObject.LoadedAt.ToUniversalTime() -eq [datetime]$result.ObservedUtc) 'receipt time retained'
+  Expect ($script:PresentationLogonButton.IsEnabled -and $script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'cached receipt rebinds the enabled logon button'
+  Start-DomeniaLogonByDcRead Computer;Expect ($script:PresentationLogonStarts -eq 1) 'explicit logon gesture admitted after cached receipt'
+  Ensure-DomeniaPermissions;Expect ($script:PresentationPermissionStarts -eq 1 -and $script:DeferredRawDn -ceq 'keep-raw') 'permissions reevaluate without invalidating raw view'
+  $script:ShowingCachedObject=$false;Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
+  Expect ($script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'identical AD receipt rebinds target generation'
+  Start-DomeniaLogonByDcRead Computer;Ensure-DomeniaPermissions
+  Expect ($script:PresentationLogonStarts -eq 2 -and $script:PresentationPermissionStarts -eq 2) 'identical AD receipt permits explicit logon and reevaluates permissions'
   $copy.description=@('new');Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
-  Expect ($script:PresentationWrites.Count -eq 1 -and $script:PresentationWrites['TxtCompDescription'] -ceq 'new' -and $script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'one changed field only'
+  Expect (@($script:PresentationWrites.Keys|Where-Object{$_ -ne 'TxtCompLogonByDc'}).Count -eq 1 -and $script:PresentationWrites['TxtCompDescription'] -ceq 'new' -and $script:PresentationCalls.Generic -eq 0 -and $script:PresentationCalls.Clear -eq 0) 'one changed field plus local logon summary only'
+  Expect ($script:DomeniaLogonTargets.Computer.Generation -eq $script:SelectedObjectGeneration) 'field delta rebinds logon target'
+  Start-DomeniaLogonByDcRead Computer;Ensure-DomeniaPermissions
+  Expect ($script:PresentationLogonStarts -eq 3 -and $script:PresentationPermissionStarts -eq 3) 'field delta permits explicit logon and reevaluates permissions'
   $copy.userAccountControl=@(4098);Show-AdObjectResult $result $dn Machine -NoNavigate -SuppressRemoteProbes
   Expect ($script:PresentationCalls.Generic -eq 1 -and $script:PresentationCalls.Machine -eq 1 -and $script:PresentationCalls.Clear -eq 1) 'security change retains full fill'
-  Expect ($script:PresentationCalls.Permissions -eq 3 -and $script:PresentationCalls.Secrets -eq 3 -and $script:PresentationCalls.Freshness -eq 3) 'all paths retain safety and freshness'
+  Expect ($script:PresentationCalls.Permissions -eq 4 -and $script:PresentationCalls.Secrets -eq 4 -and $script:PresentationCalls.Freshness -eq 4) 'all paths retain safety and freshness'
  }
  Case 'Unchanged canonical attributes preserve presentation only for the same reader and identity' {
   $state=New-ObjectFixture
