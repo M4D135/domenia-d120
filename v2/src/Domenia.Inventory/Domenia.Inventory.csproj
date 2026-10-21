@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Domenia.Inventory</RootNamespace></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" />
+    <PackageReference Include="System.Management" Version="10.0.12" />
+  </ItemGroup>
+</Project>

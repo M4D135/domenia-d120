@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Domenia</AssemblyName>
+    <RootNamespace>Domenia.App</RootNamespace>
+    <SelfContained>true</SelfContained>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The WebView2 package also references its WPF control; the host only uses WinForms, so the WindowsBase version notice is harmless. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" />
+    <ProjectReference Include="../Domenia.Bridge/Domenia.Bridge.csproj" />
+    <ProjectReference Include="../Domenia.Store/Domenia.Store.csproj" />
+    <ProjectReference Include="../Domenia.Ad/Domenia.Ad.csproj" />
+    <ProjectReference Include="../Domenia.Inventory/Domenia.Inventory.csproj" />
+    <ProjectReference Include="../Domenia.Engine/Domenia.Engine.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../web/**/*" LinkBase="web" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
