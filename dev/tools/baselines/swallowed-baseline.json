@@ -1,14 +1,14 @@
 {
  "Schema": "DomeniaSwallowedBaseline/1",
- "Source": "P-CD-09 balayage : catch vides tracés (cœur, interface, règles pures) ; restent le code des workers, lʼamorce et les fonctions recopiées dans un runspace",
- "Total": 259,
+ "Source": "reference initiale",
+ "Total": 268,
  "Kinds": {
-  "empty": 258,
+  "empty": 267,
   "null": 1
  },
  "Places": {
   "code": 31,
-  "here-string": 228
+  "here-string": 237
  },
  "Findings": {
   "Delete-SelectedObject [here-string]": 2,
@@ -24,10 +24,10 @@
   "Get-DomeniaGroupPathWorkerCode [here-string]": 3,
   "Get-DomeniaIndexOuListWorkerCode [here-string]": 3,
   "Get-DomeniaIndexWorkerCode [here-string]": 11,
-  "Get-DomeniaInventoryWorkerCode [here-string]": 50,
+  "Get-DomeniaInventoryWorkerCode [here-string]": 51,
   "Get-DomeniaIsolatedReadWorkerCode [here-string]": 4,
   "Get-DomeniaLiveCacheCode [here-string]": 1,
-  "Get-DomeniaLiveProbeCode [here-string]": 4,
+  "Get-DomeniaLiveProbeCode [here-string]": 6,
   "Get-DomeniaLocalIndexReadWorkerCode [here-string]": 5,
   "Get-DomeniaParkPingWorkerCode [here-string]": 5,
   "Get-DomeniaParkSharedSyncWorkerCode [here-string]": 2,
@@ -38,13 +38,15 @@
   "Get-DomeniaRimotteWorkerCode [here-string]": 2,
   "Get-DomeniaSelectedPresenceWorkerCode [here-string]": 1,
   "Get-DomeniaSoftwareWorkerCode [here-string]": 24,
+  "Get-DomeniaStorageBackupWorkerCode [here-string]": 3,
   "Get-DomeniaStorageIntegrityWorkerCode [here-string]": 2,
   "Get-DomeniaStoragePurgeWorkerCode [here-string]": 1,
   "Get-DomeniaStorageRetentionWorkerCode [here-string]": 1,
   "Get-DomeniaStorageUsageWorkerCode [here-string]": 1,
   "Get-DomeniaStorageWorkerCode [here-string]": 2,
-  "Get-DomeniaWmiClassesWorkerCode [here-string]": 1,
-  "Get-DomeniaWmiQueryWorkerCode [here-string]": 1,
+  "Get-DomeniaWmiClassesWorkerCode [here-string]": 2,
+  "Get-DomeniaWmiNamespacesWorkerCode [here-string]": 1,
+  "Get-DomeniaWmiQueryWorkerCode [here-string]": 2,
   "Invoke-DomeniaInProcessAuthProbe": 29,
   "Invoke-GlobalSearch [here-string]": 3,
   "Load-AdCmdlets [here-string]": 2,
