@@ -2204,6 +2204,44 @@
                       </DockPanel>
                     </Border>
                   </TabItem>
+                  <TabItem x:Name="TabUserAccessDiff" Header="Droits comparés" AutomationProperties.Name="Droits comparés">
+                    <Border Style="{StaticResource Card}">
+                      <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="{DynamicResource SpaceStackLarge}">
+                          <TextBlock Text="Comparer les groupes de cet utilisateur avec un second compte" FontSize="{DynamicResource FontSizeSection}" FontWeight="SemiBold"/>
+                          <TextBlock Text="Deux lectures bornées, à la demande : groupes directs et imbriqués, groupe principal et chemins. Aucune écriture AD." Foreground="{DynamicResource MutedColor}" Margin="{DynamicResource SpaceStackSmall}" TextWrapping="Wrap"/>
+                          <Grid>
+                            <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="Auto"/>
+                              <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" x:Name="TxtAccessDiffOther" MinHeight="30" MaxLength="2048" VerticalContentAlignment="Center" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Identifiant ou DN du second utilisateur"/>
+                            <Button Grid.Column="1" x:Name="BtnAccessDiffCompare" Content="Comparer" Style="{StaticResource RunButton}" Margin="{DynamicResource SpaceInline}" AutomationProperties.Name="Comparer les droits"/>
+                            <Button Grid.Column="2" x:Name="BtnAccessDiffCopy" Content="Copier pour le ticket" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="Copier pour le ticket" IsEnabled="False"/>
+                          </Grid>
+                          <TextBlock x:Name="LblAccessDiffStatus" Text="Saisissez lʼidentifiant ou le DN du second utilisateur, puis lancez la comparaison." Foreground="{DynamicResource MutedColor}" Margin="{DynamicResource SpaceStack}" TextWrapping="Wrap" AutomationProperties.Name="État de la comparaison"/>
+                        </StackPanel>
+                        <DataGrid x:Name="DgAccessDiff" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" CanUserSortColumns="True" EnableRowVirtualization="True" MinRowHeight="28" HeadersVisibility="Column" ScrollViewer.HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Groupes comparés">
+                          <DataGrid.RowStyle><Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}"><Setter Property="ToolTip" Value="{Binding Dn}"/></Style></DataGrid.RowStyle>
+                          <DataGrid.Columns>
+                            <DataGridTextColumn Header="Groupe" Binding="{Binding Groupe}" Width="220"/>
+                            <DataGridTextColumn Header="Catégorie" Binding="{Binding Categorie}" Width="180"/>
+                            <DataGridTextColumn Header="Origine" Binding="{Binding Origine}" Width="110"/>
+                            <DataGridTemplateColumn Header="Chemin" Width="*" MinWidth="260">
+                              <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                  <TextBlock Text="{Binding Chemin}" ToolTip="{Binding Chemin}" Style="{StaticResource WrappedCellText}"/>
+                                </DataTemplate>
+                              </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Niveau" Binding="{Binding Profondeur}" Width="80"/>
+                            <DataGridTextColumn Header="Privilèges" Binding="{Binding Privilege}" Width="90"/>
+                          </DataGrid.Columns>
+                        </DataGrid>
+                      </DockPanel>
+                    </Border>
+                  </TabItem>
                   <TabItem x:Name="TabRaw" Header="Attributs" AutomationProperties.Name="Attributs">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>

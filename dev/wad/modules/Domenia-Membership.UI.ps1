@@ -23,6 +23,7 @@ function Set-DomeniaMembershipList {
     foreach ($row in $built) { $rows.Add($row) }
     $previous = $script:MembershipLists[$Kind]
     $sameObject = (($null -ne $previous) -and ([string]$previous.ObjectDn -ieq $ObjectDn))
+    if (($null -ne $previous) -and (-not $sameObject)) { Reset-DomeniaUserAccessDiff }
     $script:MembershipLists[$Kind] = [pscustomobject]@{Rows=$rows;Total=$all.Count;Complete=$Complete;Note=$Note;Noun=$names.Noun;ObjectDn=$ObjectDn;Epoch=[long]$script:SessionEpoch}
     $filter = Get-DomeniaControl $names.Filter
     if (($null -ne $filter) -and (-not $sameObject) -and ([string]$filter.Text)) { $filter.Text = '' }
@@ -48,6 +49,7 @@ function Clear-DomeniaMembershipLists {
     $script:MembershipLists = @{}
     $script:MembershipNested = $null
     Show-DomeniaMembershipWhy ''
+    Reset-DomeniaUserAccessDiff
 }
 
 function Update-DomeniaMembershipFilter {
@@ -239,6 +241,207 @@ function Format-DomeniaNestedMembershipSummary {
     return $text + ' Le groupe principal nʼest pas compris dans memberOf.'
 }
 
+# R40: compare the group access of the fiche user with a second user. The two reads are the pinned GroupPathRead
+# operation (no new worker body), started only by the explicit button; the UI thread never reads the directory.
+$script:AccessDiff = $null
+$script:AccessDiffSequence = 0L
+$script:AccessDiffResult = $null
+$script:AccessDiffUiBound = $false
+
+function Reset-DomeniaUserAccessDiff {
+    # A new fiche, a new user or a new comparison: no result of the previous comparison stays on screen.
+    $script:AccessDiffSequence = [long]$script:AccessDiffSequence + 1
+    $script:AccessDiff = $null
+    $script:AccessDiffResult = $null
+    $box = Get-DomeniaControl 'TxtAccessDiffOther'
+    if ($null -ne $box) { try { $box.Text = '' } catch { Write-DomeniaSwallowed 'Membership' 'Reset-DomeniaUserAccessDiff' $_ } }
+    $grid = Get-DomeniaControl 'DgAccessDiff'
+    if ($null -ne $grid) { $grid.ItemsSource = $null }
+    [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Saisissez lʼidentifiant ou le DN du second utilisateur, puis lancez la comparaison (deux lectures bornées).')
+    $copy = Get-DomeniaControl 'BtnAccessDiffCopy'
+    if ($null -ne $copy) { try { $copy.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Membership' 'Reset-DomeniaUserAccessDiff' $_ } }
+}
+
+function Test-DomeniaUserAccessDiffCurrent {
+    # A callback from a previous fiche, session or comparison never writes into the current one.
+    param($State)
+    if (($null -eq $State) -or ($null -eq $script:AccessDiff)) { return $false }
+    if ([long](Get-DomeniaMember $State 'Sequence' 0) -ne [long](Get-DomeniaMember $script:AccessDiff 'Sequence' -1)) { return $false }
+    if ([long](Get-DomeniaMember $State 'Epoch' 0) -ne [long]$script:SessionEpoch) { return $false }
+    if ([long](Get-DomeniaMember $State 'Generation' -1) -ne [long]$script:SelectedObjectGeneration) { return $false }
+    if (($null -eq $script:SelectedObject) -or ([string](Get-DomeniaMember $State 'LeftDn' '') -ine [string]$script:SelectedObject.DN)) { return $false }
+    return $true
+}
+
+function Start-DomeniaUserAccessDiff {
+    # Explicit gesture only. A DN starts the first read at once; a short name is first resolved in the local copy
+    # (SQLite, no directory request) and the exact match starts the same two reads.
+    $object = $script:SelectedObject
+    if (($null -eq $object) -or ([string]$object.Type -ne 'Utilisateur') -or (-not [string]$object.DN)) {
+        [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Ouvrez la fiche dʼun utilisateur avant de comparer ses droits.')
+        return
+    }
+    $box = Get-DomeniaControl 'TxtAccessDiffOther'
+    $text = ''
+    if ($null -ne $box) { $text = ([string]$box.Text).Trim() }
+    if (-not $text) { [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Saisissez lʼidentifiant ou le DN du second utilisateur.'); return }
+    if ($text.Length -gt 2048) { [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Identifiant ou DN trop long : aucune lecture.'); return }
+    $script:AccessDiffSequence = [long]$script:AccessDiffSequence + 1
+    $run = [pscustomobject]@{
+        Sequence=[long]$script:AccessDiffSequence;Epoch=[long]$script:SessionEpoch;Generation=[long]$script:SelectedObjectGeneration
+        LeftDn=[string]$object.DN;LeftName=[string]$object.Name;RightDn='';RightName='';Input=$text;Candidates=@()
+        Phase='Start';LeftRead=$null;RightRead=$null
+    }
+    $script:AccessDiff = $run
+    $script:AccessDiffResult = $null
+    $grid = Get-DomeniaControl 'DgAccessDiff'
+    if ($null -ne $grid) { $grid.ItemsSource = $null }
+    $copy = Get-DomeniaControl 'BtnAccessDiffCopy'
+    if ($null -ne $copy) { try { $copy.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Membership' 'Start-DomeniaUserAccessDiff' $_ } }
+    if (($text.IndexOf('=') -gt 0) -and ($text.IndexOf(',') -gt 0)) {
+        $run.RightDn = $text
+        $run.RightName = Get-DomeniaDnDisplayName $text
+        Start-DomeniaUserAccessDiffRead -Run $run
+        return
+    }
+    $candidates = New-Object 'System.Collections.Generic.List[string]'
+    $candidates.Add($text)
+    if ($text.Contains([string][char]92)) { $short = $text.Split([char]92)[-1]; if ($short) { $candidates.Add($short) } }
+    if ($text.Contains('@')) { $short = $text.Split([char]64)[0]; if ($short) { $candidates.Add($short) } }
+    $run.Candidates = @($candidates | Select-Object -Unique)
+    $path = ''
+    try { $path = [string](Get-DomeniaLocalDatabasePathForRead) } catch { $path = '' }
+    if (-not $path) { Fail-DomeniaUserAccessDiff -Message 'La copie locale nʼest pas disponible : saisissez le DN du second utilisateur.' -State $run; return }
+    $payload = [pscustomobject]@{Action='ResolveNames';Path=$path;BusyTimeoutMs=250;Users=@($run.Candidates);Computers=@();Dns=@()}
+    [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Recherche du second utilisateur dans la copie locale, sans requête AD…')
+    try {
+        $job = Start-UiTask -Name 'Droits comparés : second utilisateur' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $run -ReplaceKey 'useraccessdiff-resolve' -DisableControls @('BtnAccessDiffCompare') -TimeoutSeconds 30 -SuccessHandler 'Complete-DomeniaUserAccessDiffResolve' -ErrorHandler 'Fail-DomeniaUserAccessDiff' -TaskClass 'Explicit'
+        if (-not $job) { Fail-DomeniaUserAccessDiff -Message 'Recherche du second utilisateur non admise pour lʼinstant : réessayez.' -State $run }
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $run }
+}
+
+function Start-DomeniaUserAccessDiffRead {
+    # First of the two bounded directory reads: the groups of the fiche user. The second read only starts when this
+    # one answered for the same user, so an abandoned comparison never leaves a second request in flight.
+    param($Run)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $Run)) { return }
+    $Run.Phase = 'Left'
+    [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Lecture des groupes de « ' + [string]$Run.LeftName + ' » (première des deux lectures)…'))
+    $payload = [pscustomobject]@{Dn=[string]$Run.LeftDn;Mode='Expand';TargetDn='';MaxNodes=2000;MaxDepth=16;Seconds=10}
+    try {
+        $job = Start-UiTask -Name 'Droits comparés : groupes du premier utilisateur' -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathWorkerCode) -Payload $payload -CallbackState $Run -ReplaceKey 'useraccessdiff-left' -DisableControls @('BtnAccessDiffCompare') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaUserAccessDiffLeft' -ErrorHandler 'Fail-DomeniaUserAccessDiff' -TaskClass 'Explicit'
+        if (-not $job) { Fail-DomeniaUserAccessDiff -Message 'Lecture des groupes non admise pour lʼinstant : réessayez.' -State $Run }
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $Run }
+}
+
+function Start-DomeniaUserAccessDiffRight {
+    # Second of the two bounded reads: the groups of the second user. Nothing else is read after it.
+    param($Run)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $Run)) { return }
+    $Run.Phase = 'Right'
+    [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Lecture des groupes de « ' + [string]$Run.RightName + ' » (seconde des deux lectures)…'))
+    $payload = [pscustomobject]@{Dn=[string]$Run.RightDn;Mode='Expand';TargetDn='';MaxNodes=2000;MaxDepth=16;Seconds=10}
+    try {
+        $job = Start-UiTask -Name 'Droits comparés : groupes du second utilisateur' -OperationId 'GroupPathRead' -Code (Get-DomeniaGroupPathWorkerCode) -Payload $payload -CallbackState $Run -ReplaceKey 'useraccessdiff-right' -DisableControls @('BtnAccessDiffCompare') -TimeoutSeconds 60 -SuccessHandler 'Complete-DomeniaUserAccessDiffRight' -ErrorHandler 'Fail-DomeniaUserAccessDiff' -TaskClass 'Explicit'
+        if (-not $job) { Fail-DomeniaUserAccessDiff -Message 'Lecture des groupes non admise pour lʼinstant : réessayez.' -State $Run }
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $Run }
+}
+
+function Complete-DomeniaUserAccessDiffResolve {
+    # Exact match only: a partial local answer is never taken for the wanted user. The DN then follows the same path.
+    param($Result,$State)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $State)) { return }
+    try {
+        $data = Get-DomeniaEffectiveWorkerResult $Result @('Users')
+        if (($null -eq $data) -or [bool](Get-DomeniaMember $data 'Busy' $false) -or [bool](Get-DomeniaMember $data 'Missing' $false)) {
+            Fail-DomeniaUserAccessDiff -Message 'La copie locale nʼa pas répondu : saisissez le DN du second utilisateur.' -State $State
+            return
+        }
+        $wanted = @($State.Candidates)
+        $match = $null
+        foreach ($user in @(Get-DomeniaMember $data 'Users' @())) {
+            $login = [string](Get-DomeniaMember $user 'login' '')
+            if (-not $login) { continue }
+            foreach ($candidate in $wanted) {
+                if ([string]$candidate -and ($login -ieq [string]$candidate)) { $match = $user; break }
+            }
+            if ($null -ne $match) { break }
+        }
+        $dn = ''
+        if ($null -ne $match) { $dn = [string](Get-DomeniaMember $match 'distinguished_name' '') }
+        if (-not $dn) {
+            Fail-DomeniaUserAccessDiff -Message ('Aucun utilisateur de la copie locale ne porte exactement « ' + [string]$State.Input + ' ». Saisissez le DN du second utilisateur ou actualisez la copie locale.') -State $State
+            return
+        }
+        $State.RightDn = $dn
+        $State.RightName = Get-DomeniaDnDisplayName $dn
+        Start-DomeniaUserAccessDiffRead -Run $State
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $State }
+}
+
+function Complete-DomeniaUserAccessDiffLeft {
+    # The answer must name the same user; the second read starts only then.
+    param($Result,$State)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $State)) { return }
+    try {
+        $data = Get-DomeniaEffectiveWorkerResult $Result @('Dn','Nodes')
+        if (($null -eq $data) -or ([string](Get-DomeniaMember $data 'Dn' '') -ine [string]$State.LeftDn)) { throw 'Réponse des groupes du premier utilisateur absente ou dʼun autre objet.' }
+        $State.LeftRead = $data
+        Start-DomeniaUserAccessDiffRight -Run $State
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $State }
+}
+
+function Complete-DomeniaUserAccessDiffRight {
+    # Both answers are in: compare locally, fill the grid, enable the ticket copy. No other directory read.
+    param($Result,$State)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $State)) { return }
+    try {
+        $data = Get-DomeniaEffectiveWorkerResult $Result @('Dn','Nodes')
+        if (($null -eq $data) -or ([string](Get-DomeniaMember $data 'Dn' '') -ine [string]$State.RightDn)) { throw 'Réponse des groupes du second utilisateur absente ou dʼun autre objet.' }
+        $State.RightRead = $data
+        $State.Phase = 'Done'
+        $comparison = Compare-DomeniaUserGroupAccess -Left $State.LeftRead -Right $data -LeftDn ([string]$State.LeftDn) -RightDn ([string]$State.RightDn) -LeftLabel ([string]$State.LeftName) -RightLabel ([string]$State.RightName) -MaxDepth 16 -MaxGroups 5000
+        $script:AccessDiffResult = $comparison
+        $rows = [Collections.ObjectModel.ObservableCollection[object]]::new()
+        foreach ($row in @($comparison.Rows)) { $rows.Add($row) }
+        $grid = Get-DomeniaControl 'DgAccessDiff'
+        if ($null -ne $grid) { $grid.ItemsSource = $rows }
+        [void](Set-DomeniaControlText 'LblAccessDiffStatus' ([string]$comparison.Summary + ' ' + [string]$comparison.Note))
+        $copy = Get-DomeniaControl 'BtnAccessDiffCopy'
+        if ($null -ne $copy) { $copy.IsEnabled = $true }
+    } catch { Fail-DomeniaUserAccessDiff -Message $_.Exception.Message -State $State }
+}
+
+function Fail-DomeniaUserAccessDiff {
+    # A failed or abandoned read never leaves a previous result looking current.
+    param($Message,$State)
+    if (-not (Test-DomeniaUserAccessDiffCurrent $State)) { return }
+    if ($null -ne $script:AccessDiff) { $script:AccessDiff.Phase = 'Failed' }
+    [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Comparaison interrompue : ' + [string]$Message + ' Aucune écriture AD nʼa été faite.'))
+    $copy = Get-DomeniaControl 'BtnAccessDiffCopy'
+    if ($null -ne $copy) { try { $copy.IsEnabled = $false } catch { Write-DomeniaSwallowed 'Membership' 'Fail-DomeniaUserAccessDiff' $_ } }
+}
+
+function Copy-DomeniaUserAccessDiffTicket {
+    # Copies the comparison already on screen; no new read.
+    if ($null -eq $script:AccessDiffResult) { [void](Set-DomeniaControlText 'LblAccessDiffStatus' 'Aucune comparaison à copier : lancez dʼabord la comparaison.'); return }
+    try {
+        $text = Format-DomeniaUserAccessDiffTicket -Comparison $script:AccessDiffResult -When ([datetime]::Now.ToString('dd/MM/yyyy HH:mm'))
+        Set-ClipboardSafe $text
+        Set-Status 'Comparaison des droits copiée pour le ticket.'
+    } catch { [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Copie impossible : ' + $_.Exception.Message)) }
+}
+
+function Register-DomeniaUserAccessDiffUi {
+    # Binds the explicit compare and copy gestures once; no control, no binding.
+    if ([bool]$script:AccessDiffUiBound) { return }
+    $compare = Get-DomeniaControl 'BtnAccessDiffCompare'
+    if ($compare -is [Windows.Controls.Primitives.ButtonBase]) { $compare.Add_Click({ try { Start-DomeniaUserAccessDiff } catch { [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Comparaison impossible : ' + $_.Exception.Message)) } }) }
+    $copy = Get-DomeniaControl 'BtnAccessDiffCopy'
+    if ($copy -is [Windows.Controls.Primitives.ButtonBase]) { $copy.Add_Click({ try { Copy-DomeniaUserAccessDiffTicket } catch { [void](Set-DomeniaControlText 'LblAccessDiffStatus' ('Copie impossible : ' + $_.Exception.Message)) } }) }
+    $script:AccessDiffUiBound = $true
+}
+
 function Register-DomeniaMembershipUi {
     # Context menus, filters and the « Groupes imbriqués » button of the membership grids. Returns the number of
     # controls wired (Register-DomeniaContextMenus counts them).
@@ -272,5 +475,6 @@ function Register-DomeniaMembershipUi {
         if ($nestedButton -is [Windows.Controls.Primitives.ButtonBase]) { $nestedButton.Add_Click({ try { Start-DomeniaMembershipPathRead } catch { Show-DomeniaMembershipWhy ('Lecture impossible : ' + $_.Exception.Message) } }) }
     }
     $script:MembershipUiBound = $true
+    try { Register-DomeniaUserAccessDiffUi } catch { Write-DomeniaSwallowed 'Membership' 'Register-DomeniaMembershipUi' $_ }
     return $applied
 }

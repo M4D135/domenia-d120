@@ -936,6 +936,12 @@ $script:GuiElementPolicy = [ordered]@{
     "TxtMemberOfFilter" = "Default"
     "BtnMemberOfNested" = "Default"
     "LblMembershipWhy" = "Default"
+    "TabUserAccessDiff" = "Default"
+    "TxtAccessDiffOther" = "Default"
+    "BtnAccessDiffCompare" = "Default"
+    "BtnAccessDiffCopy" = "Default"
+    "LblAccessDiffStatus" = "Default"
+    "DgAccessDiff" = "Default"
     "TabRaw" = "Default"
     "TxtRawAttrName" = "Default"
     "TxtRawAttrValue" = "Default"
@@ -7658,7 +7664,7 @@ function Set-VisibleTabsForType {
     foreach ($t in @(
         "TabUser","TabUserContact","TabUserAdmin","TabGroup","TabContainer",
         "TabComputer","TabComputerAdmin","TabComputerDetails","TabSecurity","TabComputerHealth","TabComputerChecks","TabInventory","TabSoftware","TabWmi",
-        "TabPermissions"
+        "TabPermissions","TabUserAccessDiff"
     )) { Set-TabVisibility $t $false }
 
     # Commandes was removed from the tools (decision David 2026-10-07): it is never shown again here.
@@ -7667,6 +7673,7 @@ function Set-VisibleTabsForType {
     $hasObject = -not [string]::IsNullOrWhiteSpace($Type)
     foreach ($t in @("TabGeneric","TabRaw")) { Set-TabVisibility $t $hasObject }
     Set-TabVisibility "TabMemberOf" ($Type -in @("Utilisateur","Machine","Groupe"))
+    Set-TabVisibility "TabUserAccessDiff" ($Type -eq "Utilisateur")
     Set-TabVisibility "TabPermissions" $hasObject
     # UX-09 (L08): Fiche and Poste stay reachable without a selection; their page then shows its empty state
     # (search field and recent fiches from the local memory, no network), see Update-DomeniaUxEmptyStates.

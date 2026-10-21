@@ -929,7 +929,6 @@ try{
                 Expect (([bool]$helpText) -and ([string]$c.ToolTip -ceq $expectedTip)) ('Infobulle et aide divergent : '+$n)
             }
             foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
-            foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}
             $tasks=New-Object 'System.Collections.ArrayList'
             function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Success=[string]$SuccessHandler});return ('task-ui06-'+$tasks.Count)}
             function Get-DomeniaLocalDatabasePathForRead {return 'C:\DomeniaTest\Domenia.db'}
@@ -984,6 +983,67 @@ try{
             Expect (($members.Items.Count -eq 0) -and ($tasks.Count -eq $before)) ('Groupe vide : '+$members.Items.Count+' ligne(s), '+($tasks.Count-$before)+' lecture(s).')
             Clear-DomeniaMembershipLists;Pump $main
             Expect (($null -eq $grid.ItemsSource) -and ($null -eq $members.ItemsSource) -and ($script:Ctrl['LblMembershipWhy'].Visibility -eq 'Collapsed')) 'Appartenances de lʼobjet precedent encore affichees.'
+            $script:SelectedObject=$null
+        }
+
+        # R40: two bounded GroupPathRead answers, one per user, started only by the explicit button; the second user
+        # comes from the local copy when a short name is given; a late answer for a replaced fiche is ignored.
+        Case 'R40 : droits compares de deux utilisateurs, deux lectures bornees, groupe principal et ticket' {
+            foreach($file in @('Domenia-Common.Model.ps1','Domenia-Search.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Directory.Model.ps1','Domenia-Membership.Worker.ps1','Domenia-Membership.UI.ps1')){. (Join-Path $wad ('modules\'+$file))}
+            foreach($name in @('Get-DomeniaMembershipLabel','New-DomeniaMenuItem')){. ([scriptblock]::Create(@($coreAst.FindAll({param($n)$n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name},$true))[0].Extent.Text))}
+            $tasks=New-Object 'System.Collections.ArrayList'
+            function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,$TaskClass);[void]$tasks.Add([pscustomobject]@{OperationId=[string]$OperationId;Payload=$Payload;State=$CallbackState;Success=[string]$SuccessHandler});return ('task-r40-'+$tasks.Count)}
+            function Get-DomeniaLocalDatabasePathForRead {return 'C:\DomeniaTest\Domenia.db'}
+            function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture'}
+            function Set-ClipboardSafe {param($Text);$script:Copied=[string]$Text}
+            $alice='CN=Alice,OU=Support,DC=example,DC=local';$bob='CN=Bob,OU=Support,DC=example,DC=local'
+            $g1='CN=GG-Lyon,OU=Groupes,DC=example,DC=local';$g2='CN=GG-RH,OU=Groupes,DC=example,DC=local';$g3='CN=GG-Compta,OU=Groupes,DC=example,DC=local';$da='CN=Admins du domaine,CN=Users,DC=example,DC=local';$gp='CN=Domain Users,CN=Users,DC=example,DC=local'
+            foreach($n in @('TabUserAccessDiff','TxtAccessDiffOther','BtnAccessDiffCompare','BtnAccessDiffCopy','LblAccessDiffStatus','DgAccessDiff')){Expect ($null -ne $script:Ctrl[$n]) ('Controle absent : '+$n)}
+            $helpText=[string][Windows.Automation.AutomationProperties]::GetHelpText($script:Ctrl['DgAccessDiff'])
+            Expect ([bool]$helpText) 'Aide absente sur la grille des droits compares.'
+            $script:SessionEpoch=7L;$script:SelectedObjectGeneration=11L
+            $script:SelectedObject=[pscustomobject]@{DN=$alice;Type='Utilisateur';Name='Alice'}
+            Reset-DomeniaUserAccessDiff
+            $script:Ctrl['TxtAccessDiffOther'].Text=$bob
+            Start-DomeniaUserAccessDiff
+            $reads=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
+            Expect (($reads.Count -eq 1) -and ([string]$reads[0].Payload.Dn -eq $alice) -and ([int]$reads[0].Payload.MaxNodes -eq 2000) -and ([int]$reads[0].Payload.MaxDepth -eq 16)) 'Premiere lecture non conforme.'
+            $left=[pscustomobject]@{Dn=$alice;StartParents=@($g1,$da);StartComplete=$true;Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g2)},[pscustomobject]@{Dn=$g2;Name='GG-RH';Parents=@()},[pscustomobject]@{Dn=$da;Name='Admins du domaine';Parents=@()});Unread=@();Truncated=$false;PrimaryGroup=[pscustomobject]@{Dn=$gp;Name='Domain Users';Sid='S-1-5-21-1-2-3-513';Error=''}}
+            Complete-DomeniaUserAccessDiffLeft -Result $left -State $reads[0].State
+            $reads=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
+            Expect (($reads.Count -eq 2) -and ([string]$reads[1].Payload.Dn -eq $bob)) 'La seconde lecture ne vise pas le second utilisateur.'
+            $right=[pscustomobject]@{Dn=$bob;StartParents=@($g1);StartComplete=$true;Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g3)},[pscustomobject]@{Dn=$g3;Name='GG-Compta';Parents=@()});Unread=@();Truncated=$false;PrimaryGroup=[pscustomobject]@{Dn=$gp;Name='Domain Users';Sid='S-1-5-21-1-2-3-513';Error=''}}
+            Complete-DomeniaUserAccessDiffRight -Result $right -State $reads[1].State
+            $grid=$script:Ctrl['DgAccessDiff'];Pump $main
+            Expect ($grid.Items.Count -eq 5) ('Lignes comparees : '+$grid.Items.Count)
+            Expect ([string](@($grid.Items|Where-Object{[string]$_.Groupe -eq 'GG-RH'})[0].Categorie) -eq 'Seulement chez Alice') 'Groupe propre au premier compte mal classe.'
+            Expect ([string](@($grid.Items|Where-Object{[string]$_.Groupe -eq 'GG-Compta'})[0].Categorie) -eq 'Seulement chez Bob') 'Groupe propre au second compte mal classe.'
+            $daRow=@($grid.Items|Where-Object{[string]$_.Groupe -eq 'Admins du domaine'})[0]
+            Expect ([bool]$daRow.Privilegie -and [string]$daRow.Privilege -eq 'Oui') 'Groupe a privileges non signale.'
+            $gpRow=@($grid.Items|Where-Object{[string]$_.Groupe -eq 'Domain Users'})[0]
+            Expect ([bool]$gpRow.Principal -and [string]$gpRow.Origine -eq 'Groupe principal' -and [string]$gpRow.Categorie -eq 'Commun') 'Groupe principal mal represente.'
+            Expect ([string]$script:Ctrl['LblAccessDiffStatus'].Text -match '2 groupe\(s\) seulement chez Alice') ('Resume : '+[string]$script:Ctrl['LblAccessDiffStatus'].Text)
+            Expect ($script:Ctrl['BtnAccessDiffCopy'].IsEnabled) 'Copie du ticket non activee apres comparaison.'
+            Copy-DomeniaUserAccessDiffTicket
+            Expect (([string]$script:Copied).Contains('Seulement chez Alice') -and ([string]$script:Copied).Contains('GG-RH') -and ([string]$script:Copied).Contains('Admins du domaine') -and ([string]$script:Copied).Contains('Groupe principal')) 'Ticket incomplet.'
+            $script:SelectedObjectGeneration=12L
+            Complete-DomeniaUserAccessDiffRight -Result $right -State $reads[1].State
+            Expect ($grid.Items.Count -eq 5) 'Une ancienne reponse a modifie la comparaison.'
+            # Short name: exact match in the local copy, then the same two reads.
+            Reset-DomeniaUserAccessDiff;$script:SelectedObjectGeneration=13L
+            $script:Ctrl['TxtAccessDiffOther'].Text='bob';Start-DomeniaUserAccessDiff
+            $local=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})[-1]
+            Expect (([string]$local.Payload.Action -eq 'ResolveNames') -and (@($local.Payload.Users) -contains 'bob')) 'Resolution locale non demandee.'
+            Complete-DomeniaUserAccessDiffResolve -Result ([pscustomobject]@{Busy=$false;Missing=$false;Users=@([pscustomobject]@{login='bob';distinguished_name=$bob})}) -State $local.State
+            $reads=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'})
+            Expect ([string]$reads[-1].Payload.Dn -eq $alice) 'La comparaison ne commence pas par le premier utilisateur.'
+            # A local answer without the exact login does not start a directory read.
+            Reset-DomeniaUserAccessDiff;$script:SelectedObjectGeneration=14L
+            $script:Ctrl['TxtAccessDiffOther'].Text='ghost';Start-DomeniaUserAccessDiff
+            $before=@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'}).Count
+            $local=@($tasks|Where-Object{$_.OperationId -eq 'LocalIndexRead'})[-1]
+            Complete-DomeniaUserAccessDiffResolve -Result ([pscustomobject]@{Busy=$false;Missing=$false;Users=@([pscustomobject]@{login='ghost2';distinguished_name=$bob})}) -State $local.State
+            Expect ((@($tasks|Where-Object{$_.OperationId -eq 'GroupPathRead'}).Count -eq $before) -and ([string]$script:Ctrl['LblAccessDiffStatus'].Text -match 'Aucun utilisateur')) 'Une correspondance approximative a lance une lecture.'
             $script:SelectedObject=$null
         }
 
@@ -1139,7 +1199,7 @@ try{
     $script:Tests.Add([pscustomobject]@{Name='Initialisation ou suite interrompue';Status='Failed';Detail=$_.Exception.ToString()})
 }
 
-$expected=29
+$expected=30
 $passed=@($script:Tests|Where-Object{$_.Status -eq 'Passed'}).Count
 $failed=@($script:Tests|Where-Object{$_.Status -eq 'Failed'}).Count
 $report=[ordered]@{
