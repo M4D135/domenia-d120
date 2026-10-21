@@ -809,6 +809,38 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnUserSupportLockouts" = "Default"
     "TxtUserSupportLockouts" = "Default"
     "BtnUserSupportUnlock" = "Default"
+    # R40 (fiche dʼappel): button of the user fiche, tab shell and controls of Domenia-CallSheet.xaml.
+    "BtnUserCallSheet" = "Default"
+    "TabUserCallSheet" = "Default"
+    "DomeniaCallSheetView" = "Default"
+    "LblCallSheetSubject" = "Default"
+    "LblCallSheetOrigin" = "Default"
+    "BtnCallSheetRefresh" = "Default"
+    "BtnCallSheetCopy" = "Default"
+    "LblCallSheetAttention" = "Default"
+    "DgCallSheetAccount" = "Default"
+    "TxtCallSheetFactDetail" = "Default"
+    "BtnCallSheetLockouts" = "Default"
+    "BtnCallSheetPolicy" = "Default"
+    "TxtCallSheetAccountReads" = "Default"
+    "LblCallSheetComputers" = "Default"
+    "DgCallSheetComputers" = "Default"
+    "BtnCallSheetPresence" = "Default"
+    "BtnCallSheetSessions" = "Default"
+    "BtnCallSheetOpenComputer" = "Default"
+    "LblCallSheetGroups" = "Default"
+    "DgCallSheetGroups" = "Default"
+    "BtnCallSheetGroupsView" = "Default"
+    "BtnCallSheetCompareRights" = "Default"
+    "LblCallSheetReceipts" = "Default"
+    "DgCallSheetReceipts" = "Default"
+    "BtnCallSheetReceipts" = "Default"
+    "LblCallSheetTriageTarget" = "Default"
+    "BtnCallSheetTriage" = "Default"
+    "DgCallSheetTriage" = "Default"
+    "LblCallSheetTriage" = "Default"
+    "LblCallSheetTicket" = "Default"
+    "TxtCallSheetTicket" = "Default"
     "BtnUserEnable" = "Default"
     "BtnUserDisable" = "Default"
     "PwdUserNew" = "Default"
@@ -7582,7 +7614,9 @@ function Get-DomeniaSafeObjectPropertyNames {
         "facsimileTelephoneNumber","ipPhone","wWWHomePage","employeeID","employeeNumber",
         "division","profilePath","scriptPath","homeDirectory","homeDrive","userWorkstations",
         "info","directReports","servicePrincipalName","operatingSystemServicePack",
-        "msDS-SupportedEncryptionTypes","lastLogoff","badPwdCount","badPasswordTime","msDS-UserPasswordExpiryTimeComputed","logonCount","userCertificate"
+        "msDS-SupportedEncryptionTypes","lastLogoff","badPwdCount","badPasswordTime","msDS-UserPasswordExpiryTimeComputed","logonCount","userCertificate",
+        # R40 (fiche dʼappel): logon restrictions of the account, 21 bytes, read with the fiche (no second read).
+        "logonHours"
     )
 }
 
@@ -7736,6 +7770,8 @@ function Set-VisibleTabsForType {
     # (search field and recent fiches from the local memory, no network), see Update-DomeniaUxEmptyStates.
     Set-TabVisibility "WsObject" $true
     Set-TabVisibility "WsComputer" $true
+    # R40 (fiche dʼappel): the call sheet belongs to a user account only.
+    Set-TabVisibility "TabUserCallSheet" ($Type -eq "Utilisateur")
 
     switch ($Type) {
         "Utilisateur" {
@@ -11795,6 +11831,10 @@ function Build-DomeniaObjectsContextMenu {
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
     }
     elseif ($isUser) {
+        # R40 (fiche dʼappel): the fiche of the account opens, then its call sheet; nothing else is read.
+        [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Fiche dʼappel" -Enabled $single `
+            -ToolTip "Ouvre la fiche du compte puis sa fiche dʼappel : état, restrictions, postes, groupes, opérations et tri du poste. Aucune autre lecture ne part sans clic." `
+            -Action { Open-DomeniaResultRowCallSheet }))
         [void]$Menu.Items.Add((New-DomeniaMenuItem -Header "Rechercher le poste associé" -Enabled ($single -and $hasAssociation) `
             -ToolTip "Lance une recherche globale sur le poste associé à ce compte." `
             -Action { Start-DomeniaSearchAssociated -Row (Get-DomeniaSelectedGridRow) }))
@@ -19169,6 +19209,8 @@ function Wire-Events {
     # Points 102 to 110: the Audit AD and Assistance tools load their own view at the first opening of their tab.
     try { Register-DomeniaAdAuditTool } catch { Write-AppLog ('Audit AD non raccordé : ' + $_.Exception.Message) 'ERROR' }
     try { Register-DomeniaAssistanceTool } catch { Write-AppLog ('Assistance non raccordée : ' + $_.Exception.Message) 'ERROR' }
+    # R40: the call sheet of a user loads its own view at its first opening (fiche, or Rechercher context menu).
+    try { Register-DomeniaCallSheetUi } catch { Write-AppLog ('Fiche dʼappel non raccordée : ' + $_.Exception.Message) 'ERROR' }
     Write-DomeniaStartupSplit -Name 'Evenements/Raccourcis et outils a la demande' -Watch $wireSplit
 }
 
@@ -22246,6 +22288,8 @@ function Show-AdObjectResult {
             [void](Set-DomeniaControlText ('Lbl'+$kind+'ReadStatus') ($Type+' : '+$name+' | '+$(if($script:ShowingCachedObject){'Cache, verification AD en cours.'}else{'Fiche AD chargee.'})))
         }
     }
+    # R40 (fiche dʼappel): origin of this display for the call sheet; a sheet asked from Rechercher opens on it.
+    try { Sync-DomeniaCallSheetAfterOpen -Dn $Dn -Type $Type -IsLive (($isLiveRead) -and (-not [bool]$script:ShowingCachedObject)) -ObservedUtc $attributesObservedUtc -NoNavigate:$NoNavigate } catch { Write-DomeniaSwallowed 'Core' 'Show-AdObjectResult' $_ }
     Save-DomeniaDraftBaseline -DN $Dn
 
 }

@@ -1852,6 +1852,10 @@
                     <Border Style="{StaticResource Card}" Margin="4">
                       <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
+                        <!-- R40: the call sheet of this account (tab TabUserCallSheet), opened without any read. -->
+                        <WrapPanel Margin="{StaticResource SpaceStack}">
+                          <Button x:Name="BtnUserCallSheet" Content="Fiche dʼappel" Style="{StaticResource SecondaryButton}" AutomationProperties.Name="Ouvrir la fiche dʼappel du compte"/>
+                        </WrapPanel>
                         <Border x:Name="PnlUserSupportBand" Visibility="Collapsed" Background="{DynamicResource BgReadonly}" BorderBrush="{DynamicResource AccentColor}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,10" AutomationProperties.Name="État du compte pour le support">
                           <StackPanel>
                             <TextBlock x:Name="TxtUserSupportBand" FontSize="{DynamicResource FontSizeSubtitle}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="État du compte relevé sur le contrôleur"/>
@@ -2118,6 +2122,8 @@
                       </ScrollViewer>
                     </Border>
                   </TabItem>
+                  <!-- R40: content loaded from Domenia-CallSheet.xaml at the first opening (Domenia-CallSheet.UI.ps1). -->
+                  <TabItem x:Name="TabUserCallSheet" Header="Fiche dʼappel" Visibility="Collapsed" AutomationProperties.Name="Fiche dʼappel"/>
                   <TabItem x:Name="TabGroup" Header="Groupe" AutomationProperties.Name="Groupe">
                     <Border Style="{StaticResource Card}" Margin="4">
                       <DockPanel>
