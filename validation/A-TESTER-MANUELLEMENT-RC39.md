@@ -197,3 +197,35 @@ Liste tirée de `dev/engineering/d120/programme-2026-10-20/Suivi_60.json` (21 oc
   - Déjà vu : guide-qa-sync passed=true : tous feuillets en planches et pages modifiées agrandies ; doc_sync PASS.
   - À vérifier : Pas d’exécution native Word ; captures RC20 conservées et explicitement historiques, pas preuve visuelle runtime RC39.
 
+
+## 6. Lots R40 du 21 octobre : jamais exécutés sous Windows (4)
+
+Écrits et contrôlés hors Windows (contrôles Python du dépôt). Aucun test PowerShell 5.1 n’a été lancé.
+
+- **R40-startup. Démarrage plus rapide**
+  - À vérifier :
+    - temps jusqu’à la fenêtre et jusqu’à l’Accueil, mesurés dans `Domenia-startup.log` ;
+    - l’arbre et la base locale se chargent après l’affichage ;
+    - l’application rouvre sur la dernière vue (Accueil par défaut) ;
+    - suite `Test-DomeniaRules.ps1` sans régression par rapport à la ligne de base.
+- **R40-ipmac. Recherche par adresse IP ou MAC**
+  - À vérifier :
+    - une IP, une MAC (formats `aa:bb…`, `aa-bb…` et `aabb…`) ou un préfixe trouve le poste dans la base locale (`AddressSearch`) ;
+    - la résolution DNS inverse (`DnsReverseLookup`, nouvelle opération épinglée) ne part qu’au geste de l’opérateur.
+- **R40-userdiff. Comparer les groupes de deux utilisateurs**
+  - À vérifier :
+    - groupes communs, groupes propres à chacun et groupes hérités via `GroupPathRead` ;
+    - deux comptes identiques, puis un compte sans groupe.
+- **R40-callsheet. Fiche d’appel support**
+  - Points d’entrée : bouton `BtnUserCallSheet` et menu contextuel d’un utilisateur dans Rechercher.
+  - À vérifier :
+    - aucune requête réseau à l’ouverture : seule la lecture locale `LocalIndexRead` part ;
+    - plages `logonHours` décodées et message « hors des heures autorisées » ;
+    - `userWorkstations` ;
+    - verrouillages des 7 jours (4740) et échéance du mot de passe, au clic seulement ;
+    - postes habituels et leurs trois actions ;
+    - groupes privilégiés en tête ;
+    - les 10 derniers reçus ;
+    - « Trier la lenteur du poste » ;
+    - « Copier pour le ticket » : secrets masqués, et modèle `CallSheet.TicketTemplate`.
+  - Suites : `tests/rules/CallSheet.Tests.ps1` (23 cas) et `tests/Test-DomeniaCallSheet.ps1` (8 cas).
