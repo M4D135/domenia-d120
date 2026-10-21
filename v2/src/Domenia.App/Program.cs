@@ -1,6 +1,7 @@
 using System.Text;
 using Domenia.App.Capture;
 using Domenia.Core;
+using Domenia.Store;
 
 namespace Domenia.App;
 
@@ -63,10 +64,18 @@ internal static class Program
         return capture?.Finish() ?? 0;
     }
 
-    /// <summary>The mode is decided once: --simulation, then DOMENIA_SIMULATION, then the local join state (no network).</summary>
+    /// <summary>
+    /// The mode is decided once: --simulation, then DOMENIA_SIMULATION, then Auth.DemoProvider of Domenia.config.json next
+    /// to the executable (read only when needed; absent or invalid: traced, never blocking), then the local join state (no
+    /// network).
+    /// </summary>
     private static ModeDecision ResolveMode(IReadOnlyList<string> args)
     {
-        var decision = ModeResolver.Resolve(args, Environment.GetEnvironmentVariable(ModeResolver.SimulationVariable), DomainJoin.Read);
+        var decision = ModeResolver.Resolve(
+            args,
+            Environment.GetEnvironmentVariable(ModeResolver.SimulationVariable),
+            DomainJoin.Read,
+            static () => LegacyConfigurationFile.Read(AppPaths.AppDirectory, AppTechnicalJournal.Instance).DemoProvider);
         TechnicalLog.Info($"Démarrage de {ProductInfo.Name} {ProductInfo.Version} : mode {decision.Mode}, raison {decision.Reason}.");
         foreach (var warning in decision.Warnings)
         {
@@ -86,7 +95,7 @@ internal static class Program
         var refusal = request.Error
             ?? (decision.Mode == AppMode.Simulation ? null : CaptureTexts.SimulationOnly)
             ?? CaptureFolder.Prepare(request.Folder ?? string.Empty, out folder);
-        var session = refusal is null ? CaptureSession.Open(folder) : null;
+        var session = refusal is null ? CaptureSession.Open(folder, CapturePlan.For(request.Routes, request.Themes)) : null;
         if (session is null)
         {
             // No window and no message box: the option is meant for unattended runs. The folder is never copied.
@@ -102,9 +111,14 @@ internal static class Program
         {
             session.Write("ATTENTION " + warning);
         }
+        // Routes are checked by a strict expression: they can be written as they are.
+        var extra = request.Routes.Length == 0
+            ? ""
+            : $" ; écrans en plus : {string.Join(", ", request.Routes.Select(r => r.Value))} ; thèmes : {string.Join(", ", request.Themes.Select(CaptureThemes.Id))}";
+        session.Write($"Séquence : {session.Steps} étapes{extra}.");
         // An image of an earlier run never passes for one of this run, even if this run stops early.
         session.ClearEarlierImages();
-        TechnicalLog.Info($"Capture d’écrans demandée : {session.Expected} étapes.");
+        TechnicalLog.Info($"Capture d’écrans demandée : {session.Steps} étapes ({request.Routes.Length} écran(s) en plus de la séquence, {request.Themes.Length} thème(s)).");
         return true;
     }
 
@@ -136,7 +150,7 @@ internal static class Program
             Fail("Erreur imprévue sur le fil de l’interface.", e.Exception);
             Application.Exit();
         };
-        using var composition = Composition.Create(decision);
+        using var composition = Composition.Create(decision, capture is not null);
         using var form = new MainForm(composition, capture);
         Application.Run(form);
     }

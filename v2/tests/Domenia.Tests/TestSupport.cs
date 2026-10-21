@@ -146,26 +146,121 @@ internal sealed class GatedReadSource(IDirectorySource inner) : IDirectorySource
         return state;
     }
 
-    public Task<DirectoryState> RefreshAsync(MeasureFamily family, CancellationToken cancellationToken) => inner.RefreshAsync(family, cancellationToken);
+    public Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken) => inner.RefreshAsync(family, scope, cancellationToken);
 }
 
-/// <summary>Real bridge over a simulated source without latency.</summary>
+/// <summary>Technical journal that keeps every line, to check what is traced (and what never is).</summary>
+internal sealed class RecordingJournal : ITechnicalJournal
+{
+    private readonly List<string> lines = [];
+
+    public IReadOnlyList<string> Lines
+    {
+        get
+        {
+            lock (lines)
+            {
+                return [.. lines];
+            }
+        }
+    }
+
+    public void Info(string message) => Add("INFO " + message);
+
+    public void Warning(string message) => Add("ATTENTION " + message);
+
+    public void Error(string message, Exception exception) => Add("ERREUR " + message + " " + exception.GetType().Name);
+
+    private void Add(string line)
+    {
+        lock (lines)
+        {
+            lines.Add(line);
+        }
+    }
+}
+
+/// <summary>Preferences whose writes always fail like a full or read-only disk.</summary>
+internal sealed class FailingPreferenceStore : IPreferenceStore
+{
+    private readonly MemoryPreferenceStore memory = new();
+
+    public bool Persistent => true;
+
+    public bool TryGet(string key, out JsonElement value) => memory.TryGet(key, out value);
+
+    public async Task SetAsync(string key, JsonElement? value, CancellationToken cancellationToken)
+    {
+        await memory.SetAsync(key, value, cancellationToken).ConfigureAwait(false);
+        throw new IOException("Disque plein (test).");
+    }
+}
+
+/// <summary>Temporary folder deleted at the end of a test.</summary>
+internal sealed class TemporaryFolder : IDisposable
+{
+    public TemporaryFolder()
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "domenia-tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path);
+    }
+
+    public string Path { get; }
+
+    public string File(string name) => System.IO.Path.Combine(Path, name);
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(Path, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A file still open by a failed test: left in the temporary folder.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Same: never hides the result of the test itself.
+        }
+    }
+}
+
+/// <summary>
+/// Real bridge over a simulated source without latency, composed like the application: engine context, screen readers
+/// and operation modules found by reflection on Domenia.Simulation and Domenia.Bridge.
+/// </summary>
 internal sealed class SimulatedBridge
 {
     private readonly List<BridgeResponse> sent = [];
     private int counter;
 
-    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null)
+    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null)
     {
         Clock = clock ?? TestClock.Fixed();
         Source = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = latency }, Clock);
-        Service = new DashboardService(Source, new OperationJournal(), Clock);
-        Dispatcher = new BridgeDispatcher(new OperationRegistry(DashboardOperations.Create(Service)), Publish, AdmissionGuards.ReadOnlySimulation);
+        Preferences = preferences ?? new MemoryPreferenceStore();
+        Log = new RecordingJournal();
+        Context = new EngineContext(Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]));
+        Service = DashboardService.From(Context);
+        Registry = OperationModules.CreateRegistry(Context, OperationModules.Discover([typeof(DashboardOperations).Assembly]));
+        Dispatcher = new BridgeDispatcher(Registry, Publish, AdmissionGuards.ReadOnlySimulation);
     }
+
+    /// <summary>Simulation started with --simulation.</summary>
+    public static ModeDecision Decision { get; } = ModeResolver.Resolve(["--simulation"], null, () => new DomainJoinInfo(DomainJoinState.Unknown, null));
 
     public FixedTimeProvider Clock { get; }
 
     public SimulatedDirectorySource Source { get; }
+
+    public IPreferenceStore Preferences { get; }
+
+    public RecordingJournal Log { get; }
+
+    public EngineContext Context { get; }
+
+    public OperationRegistry Registry { get; }
 
     public DashboardService Service { get; }
 

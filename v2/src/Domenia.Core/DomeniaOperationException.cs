@@ -28,5 +28,17 @@ public static class DomeniaErrors
     public const string SimulationUnavailable = "simulation.unavailable";
     public const string SimulationUnavailableMessage = "Non disponible en simulation : aucune connexion au poste ni à l’annuaire.";
 
+    public const string WriteUnavailable = "write.unavailable";
+    public const string WriteUnavailableMessage = "Écritures non disponibles dans cette version\u00A0: aucune écriture tentée.";
+
     public const string ArgumentsInvalid = "arguments.invalid";
+
+    public const string OuUnknown = "ou.unknown";
+    public const string OuUnknownMessage = "OU introuvable\u00A0: rien n’a été lu.";
+
+    public const string ScopeUnknown = "scope.unknown";
+    public const string ScopeUnknownMessage = "OU introuvable\u00A0: l’OU de travail n’a pas été changée.";
+
+    public const string ScopeOutsideDomain = "scope.outsideDomain";
+    public const string ScopeOutsideDomainMessage = "Cette OU n’appartient pas au domaine de la session\u00A0: l’OU de travail n’a pas été changée.";
 }

@@ -19,31 +19,41 @@ internal sealed class CaptureSession : IDisposable
     private readonly Stopwatch clock = Stopwatch.StartNew();
     private readonly System.Threading.Timer watchdog;
     private int captured;
+    private int skipped;
     private bool completed;
     private bool aborted;
     private bool closed;
 
-    private CaptureSession(string folder, StreamWriter writer)
+    private CaptureSession(string folder, StreamWriter writer, CapturePlan plan)
     {
         Folder = folder;
+        Plan = plan;
         this.writer = writer;
-        watchdog = new System.Threading.Timer(OnWatchdog, null, CaptureSequence.Watchdog, Timeout.InfiniteTimeSpan);
+        watchdog = new System.Threading.Timer(OnWatchdog, null, plan.Watchdog, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>Absolute, local, existing folder of the images and of capture.log.</summary>
     public string Folder { get; }
 
-    public int Expected => CaptureSequence.Steps.Length;
+    /// <summary>Steps of this run: the default sequence, then the extra screens and themes asked for.</summary>
+    public CapturePlan Plan { get; }
+
+    /// <summary>Steps of the plan.</summary>
+    public int Steps => Plan.Steps.Length;
+
+    /// <summary>Images expected: every step, except the optional ones found without object (page that does not scroll).</summary>
+    public int Expected => Plan.Steps.Length - Volatile.Read(ref skipped);
 
     /// <summary>Opens a new capture.log in the folder (replacing the one of an earlier run); null when impossible.</summary>
-    public static CaptureSession? Open(string folder)
+    public static CaptureSession? Open(string folder, CapturePlan plan)
     {
         ArgumentException.ThrowIfNullOrEmpty(folder);
+        ArgumentNullException.ThrowIfNull(plan);
         try
         {
             // UTF-8 with a byte order mark: Windows PowerShell 5.1 and Notepad then read the accents right.
             var stream = new FileStream(Path.Combine(folder, LogName), FileMode.Create, FileAccess.Write, FileShare.Read);
-            return new CaptureSession(folder, new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)) { AutoFlush = true });
+            return new CaptureSession(folder, new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)) { AutoFlush = true }, plan);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -90,7 +100,7 @@ internal sealed class CaptureSession : IDisposable
     /// </summary>
     public void ClearEarlierImages()
     {
-        foreach (var step in CaptureSequence.Steps)
+        foreach (var step in Plan.Steps)
         {
             Remove(step.Name + ".png");
             Remove(step.Name + ".png.tmp");
@@ -111,6 +121,9 @@ internal sealed class CaptureSession : IDisposable
     }
 
     public void ImageWritten() => Interlocked.Increment(ref captured);
+
+    /// <summary>An optional step found without object: no image is expected from it.</summary>
+    public void StepSkipped() => Interlocked.Increment(ref skipped);
 
     /// <summary>The sequence ran to its end (successfully or not).</summary>
     public void Complete() => Volatile.Write(ref completed, true);
@@ -136,7 +149,7 @@ internal sealed class CaptureSession : IDisposable
 
     private void OnWatchdog(object? state)
     {
-        Write($"ARRÊT Délai global de {CaptureSequence.Watchdog.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s dépassé : l’application est arrêtée.");
+        Write($"ARRÊT Délai global de {Plan.Watchdog.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s dépassé : l’application est arrêtée.");
         TechnicalLog.Warning("Capture : délai global dépassé, arrêt de l’application (code 2).");
         Dispose();
         // The window or WebView2 no longer answers: nothing else can end the process.

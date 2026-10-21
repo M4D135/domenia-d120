@@ -69,6 +69,42 @@ public static class BridgeArguments
         throw Invalid(FrenchText.Quote(name) + " est obligatoire et doit valoir true ou false.");
     }
 
-    private static BridgeOperationException Invalid(string precision) =>
+    /// <summary>Optional text: absent or null gives null; any other kind is refused.</summary>
+    public static string? GetOptionalString(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        if (!values.TryGetValue(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        return value.ValueKind == JsonValueKind.String
+            ? value.GetString()!
+            : throw Invalid(FrenchText.Quote(name) + " doit être un texte ou null.");
+    }
+
+    /// <summary>Longest distinguished name accepted from the page.</summary>
+    public const int MaxDistinguishedNameLength = 2048;
+
+    /// <summary>A well-formed distinguished name (RFC 4514), 2 048 characters at most; otherwise arguments.invalid.</summary>
+    public static string RequireDistinguishedName(string value, string name)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.Length is 0 or > MaxDistinguishedNameLength)
+        {
+            throw Invalid(FrenchText.Quote(name) + " doit être un nom distinctif valide.");
+        }
+        try
+        {
+            _ = DistinguishedName.Parse(value);
+        }
+        catch (FormatException)
+        {
+            throw Invalid(FrenchText.Quote(name) + " doit être un nom distinctif valide.");
+        }
+        return value;
+    }
+
+    /// <summary>arguments.invalid with a fixed precision (never the page's input).</summary>
+    public static BridgeOperationException Invalid(string precision) =>
         new(DomeniaErrors.ArgumentsInvalid, "Arguments invalides" + FrenchText.Colon + precision);
 }

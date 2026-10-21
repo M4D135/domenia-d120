@@ -56,13 +56,18 @@ public static class DashboardCalculator
         return new(definition.Id, definition.Kind, definition.Title, scopeLabel, true, Tone.Off, null, false, detail, null);
     }
 
-    /// <summary>« Domaine example.local », « OU Postes » or « Session ».</summary>
-    public static string ScopeLabel(WidgetDefinition definition, string? domainDnsName, ScopeSelection? scope)
+    /// <summary>
+    /// « Domaine example.local », « OU Postes » or « Session ». A working scope on the domain root (whole domain) is labelled
+    /// like the domain widgets.
+    /// </summary>
+    public static string ScopeLabel(WidgetDefinition definition, string? domainDnsName, ScopeSelection? scope, string? rootDn = null)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        var domainLabel = domainDnsName is null ? "Domaine" : "Domaine " + domainDnsName;
         return definition.Scope switch
         {
-            WidgetScope.Domain => domainDnsName is null ? "Domaine" : "Domaine " + domainDnsName,
+            WidgetScope.Domain => domainLabel,
+            WidgetScope.WorkingOu when scope is not null && ScopeRules.IsDomainRoot(scope, rootDn) => domainLabel,
             WidgetScope.WorkingOu => scope is null ? "OU de travail" : "OU " + scope.Label,
             _ => "Session",
         };
@@ -120,6 +125,8 @@ public static class DashboardCalculator
         private readonly DateOnly today;
         private readonly Lazy<List<Workstation>> workstations;
         private readonly Lazy<List<DirectoryUser>> activeUsers;
+        // Workstation figures of the history belong to the OU they were recorded for: never shown for another one.
+        private readonly bool historyOfScope;
 
         public Context(DashboardInput input)
         {
@@ -135,13 +142,17 @@ public static class DashboardCalculator
             today = LocalDays.DateOf(now, input.TimeZone);
             workstations = new Lazy<List<Workstation>>(LoadWorkstations, LazyThreadSafetyMode.None);
             activeUsers = new Lazy<List<DirectoryUser>>(() => [.. snapshot.Users.Where(u => !AdValues.IsDisabled(u.UserAccountControl))], LazyThreadSafetyMode.None);
+            historyOfScope = input.State.HistoryScope is null || ScopeRules.SameScope(input.State.HistoryScope, input.Scope);
         }
+
+        /// <summary>A workstation figure of the history, or null when the history was recorded for another OU.</summary>
+        private Func<DailyFigures, int?> OfScope(Func<DailyFigures, int?> figure) => historyOfScope ? figure : static _ => null;
 
         private List<Workstation> Workstations => workstations.Value;
 
         public DashboardWidget Widget(WidgetDefinition definition)
         {
-            var scopeLabel = ScopeLabel(definition, snapshot.Domain.DnsName, input.Scope);
+            var scopeLabel = ScopeLabel(definition, snapshot.Domain.DnsName, input.Scope, input.RootDn ?? snapshot.Domain.RootDn);
             if (input.DisabledWidgets.Contains(definition.Id))
             {
                 return Disabled(definition, scopeLabel);
@@ -281,7 +292,7 @@ public static class DashboardCalculator
                     notChecked++;
                 }
             }
-            var data = Kpi(online, Workstations.Count, "postes", d => d.WorkstationsOnline, AlwaysInfo,
+            var data = Kpi(online, Workstations.Count, "postes", OfScope(d => d.WorkstationsOnline), AlwaysInfo,
             [
                 new BreakdownItem("online", "En ligne", online, Tone.Ok),
                 new BreakdownItem("noAnswer", "Sans réponse", noAnswer, Tone.Warn),
@@ -393,7 +404,7 @@ public static class DashboardCalculator
             }
             var alert = policy.DiskFreeAlertPercent;
             var warn = policy.DiskFreeWarnPercent;
-            var data = Kpi(critical, null, "postes", d => d.DiskAlerts, RiseIs(Tone.Alert),
+            var data = Kpi(critical, null, "postes", OfScope(d => d.DiskAlerts), RiseIs(Tone.Alert),
             [
                 new BreakdownItem("critical", $"Moins de {alert}{FrenchText.Nbsp}% libre", critical, Tone.Alert),
                 new BreakdownItem("tight", $"{alert} à {warn}{FrenchText.Nbsp}% libre", tight, Tone.Warn),
@@ -454,7 +465,7 @@ public static class DashboardCalculator
                 }
                 else
                 {
-                    value = input.State.History.FirstOrDefault(h => h.Day == day)?.WorkstationsSeen;
+                    value = historyOfScope ? input.State.History.FirstOrDefault(h => h.Day == day)?.WorkstationsSeen : null;
                 }
                 points.Add(new SeriesPoint(day, FrenchText.DayAbbreviation(day.DayOfWeek), value, offset == 0));
             }
@@ -564,7 +575,7 @@ public static class DashboardCalculator
             var free = FreePercent(w.Inventory);
             if (free is double low && low < policy.DiskFreeAlertPercent)
             {
-                points.Add(new WatchPoint(WatchRule.LowDisk, Tone.Alert, low, $"Disque C: presque plein{FrenchText.Colon}{FrenchText.Percent(low)} libre"));
+                points.Add(new WatchPoint(WatchRule.LowDisk, Tone.Alert, low, $"Disque C presque plein{FrenchText.Colon}{FrenchText.Percent(low)} libre"));
             }
             var lastLogon = AdValues.FromFileTime(computer.LastLogonTimestamp);
             if (lastLogon is null)
@@ -587,7 +598,7 @@ public static class DashboardCalculator
             }
             if (free is double tight && tight >= policy.DiskFreeAlertPercent && tight < policy.DiskFreeWarnPercent)
             {
-                points.Add(new WatchPoint(WatchRule.DiskTight, Tone.Warn, tight, $"Disque C: peu d’espace{FrenchText.Colon}{FrenchText.Percent(tight)} libre"));
+                points.Add(new WatchPoint(WatchRule.DiskTight, Tone.Warn, tight, $"Peu d’espace sur le disque C{FrenchText.Colon}{FrenchText.Percent(tight)} libre"));
             }
             if (free is not null && w.Inventory.LastBootAt is DateTimeOffset boot && boot <= now && now - boot > TimeSpan.FromDays(policy.UptimeDays))
             {

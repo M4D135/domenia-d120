@@ -249,7 +249,7 @@ internal static class DashboardCalculatorTests
         Check.Equal(1, list.Rows[4].OtherReasons, "mot de passe machine ancien en plus");
         Check.Equal(WatchRule.DiskTight, list.Rows[5].RuleId, "puis disque serré");
         Check.Equal(Tone.Alert, widget.Tone, "une ligne en alerte");
-        Check.Equal("Disque C: presque plein : 3,0 % libre", list.Rows[0].Reason, "motif avec la valeur mesurée");
+        Check.Equal("Disque C presque plein : 3,0 % libre", list.Rows[0].Reason, "motif avec la valeur mesurée");
     }
 
     [Test]

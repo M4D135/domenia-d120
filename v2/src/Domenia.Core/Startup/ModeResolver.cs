@@ -2,14 +2,21 @@ using System.Collections.Immutable;
 
 namespace Domenia.Core;
 
-/// <summary>Chooses the operating mode from the command line, the environment and the local join state (SIMULATION.md § 2).</summary>
+/// <summary>
+/// Chooses the operating mode from the command line, the environment, the configuration file and the local join state
+/// (SIMULATION.md § 2).
+/// </summary>
 public static class ModeResolver
 {
     public const string SimulationArgument = "--simulation";
     public const string SimulationVariable = "DOMENIA_SIMULATION";
 
-    /// <summary>Pure: the join probe is called only when neither the argument nor the variable decides.</summary>
-    public static ModeDecision Resolve(IReadOnlyList<string> arguments, string? variableValue, Func<DomainJoinInfo> probeJoin)
+    /// <summary>
+    /// Pure. Order: --simulation, DOMENIA_SIMULATION=1, DOMENIA_SIMULATION=0, Auth.DemoProvider of the configuration, then
+    /// the local join state. <paramref name="demoConfiguration"/> (reads Domenia.config.json) and the join probe are
+    /// called only when nothing before them decides.
+    /// </summary>
+    public static ModeDecision Resolve(IReadOnlyList<string> arguments, string? variableValue, Func<DomainJoinInfo> probeJoin, Func<bool>? demoConfiguration = null)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(probeJoin);
@@ -53,6 +60,11 @@ public static class ModeResolver
         if (variableOff)
         {
             return new ModeDecision(AppMode.Directory, ModeReason.EnvironmentOptOut, ModeTexts.DetailEnvironmentOptOut, null, null, warnings.ToImmutable());
+        }
+
+        if (demoConfiguration?.Invoke() == true)
+        {
+            return Simulation(ModeReason.Configuration, ModeTexts.DetailConfiguration, warnings);
         }
 
         var join = probeJoin();

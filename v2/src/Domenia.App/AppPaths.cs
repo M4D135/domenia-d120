@@ -39,6 +39,13 @@ internal static class AppPaths
         return Path.Combine(UserData, name);
     }
 
+    /// <summary>
+    /// Local preferences of the mode (LocalWrite): preferences.json, or preferences-simulation.json in simulation; null when
+    /// there is no data folder (the preferences then last for the session only).
+    /// </summary>
+    public static string? Preferences(AppMode mode) =>
+        UserData is null ? null : Path.Combine(UserData, Domenia.Store.FilePreferenceStore.FileNameFor(mode));
+
     private static string? ResolveUserData()
     {
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create);

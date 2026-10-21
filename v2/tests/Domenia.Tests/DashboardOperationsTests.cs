@@ -213,9 +213,11 @@ internal static class DashboardOperationsTests
     public static async Task Directory_mode_without_ad_answers_unavailable_but_keeps_the_session()
     {
         var clock = TestClock.Fixed();
-        using var service = new DashboardService(new UnavailableDirectorySource("cnamts.local", () => @"CNAMTS\degun"), new OperationJournal(), clock);
+        var decision = ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));
+        var source = new UnavailableDirectorySource("cnamts.local", () => @"CNAMTS\degun");
+        using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), clock, new RecordingJournal(), ScreenReaders.Discover(source, [typeof(SimulatedDirectorySource).Assembly]));
         var sent = new List<BridgeResponse>();
-        var dispatcher = new BridgeDispatcher(new OperationRegistry(DashboardOperations.Create(service)), sent.Add);
+        var dispatcher = new BridgeDispatcher(OperationModules.CreateRegistry(context, OperationModules.Discover([typeof(DashboardOperations).Assembly])), sent.Add, AdmissionGuards.For(decision.Mode));
         await dispatcher.HandleAsync("{\"id\":\"a\",\"op\":\"dashboard.summary\",\"args\":{}}", CancellationToken.None);
         Check.Equal(DomeniaErrors.SourceUnavailable, sent[^1].Error!.Code, "résumé indisponible");
         await dispatcher.HandleAsync("{\"id\":\"b\",\"op\":\"dashboard.widget.refresh\",\"args\":{\"id\":\"lockedAccounts\"}}", CancellationToken.None);
@@ -261,9 +263,66 @@ internal static class DashboardOperationsTests
         Check.Equal("result", sent[^1].Kind, "lecture servie par la simulation admise");
         await dispatcher.HandleAsync("{\"id\":\"l\",\"op\":\"test.local\",\"args\":{}}", CancellationToken.None);
         Check.Equal("result", sent[^1].Kind, "lecture locale admise");
-        var home = DashboardOperations.Create(new SimulatedBridge().Service);
+        var home = DashboardOperations.Definitions(new SimulatedBridge().Service);
         Check.True(home.Where(d => d.Class == OperationClass.NetworkRead).All(d => d.ServedInSimulation), "lectures réseau de l’Accueil servies par la simulation");
-        Check.Null(AdmissionGuards.For(AppMode.Directory), "aucune garde en mode annuaire");
+    }
+
+    [Test]
+    public static async Task Directory_mode_refuses_every_write_before_its_handler()
+    {
+        var ran = 0;
+        var sent = new List<BridgeResponse>();
+        var registry = new OperationRegistry(
+        [
+            new OperationDefinition("test.write", OperationClass.Write, (_, _, _) =>
+            {
+                ran++;
+                return Task.FromResult<object?>(null);
+            }, "écriture de test"),
+            new OperationDefinition("test.read", OperationClass.NetworkRead, (_, _, _) => Task.FromResult<object?>(1), "lecture réseau de test"),
+            new OperationDefinition("test.prefs", OperationClass.LocalWrite, (_, _, _) => Task.FromResult<object?>(2), "préférence de test"),
+        ]);
+        var guard = AdmissionGuards.For(AppMode.Directory);
+        var dispatcher = new BridgeDispatcher(registry, sent.Add, guard);
+        await dispatcher.HandleAsync("{\"id\":\"w\",\"op\":\"test.write\",\"args\":{}}", CancellationToken.None);
+        Check.Equal(DomeniaErrors.WriteUnavailable, sent[^1].Error!.Code, "écriture refusée en mode annuaire");
+        Check.Equal(DomeniaErrors.WriteUnavailableMessage, sent[^1].Error!.Message, "message du contrat");
+        Check.Equal(0, ran, "gestionnaire jamais appelé");
+        await dispatcher.HandleAsync("{\"id\":\"r\",\"op\":\"test.read\",\"args\":{}}", CancellationToken.None);
+        Check.Equal("result", sent[^1].Kind, "lecture réseau admise (après un geste)");
+        await dispatcher.HandleAsync("{\"id\":\"p\",\"op\":\"test.prefs\",\"args\":{}}", CancellationToken.None);
+        Check.Equal("result", sent[^1].Kind, "préférences locales admises");
+        // Any class added later is refused until the guard knows it.
+        var unknown = new OperationDefinition("test.future", (OperationClass)99, (_, _, _) => Task.FromResult<object?>(null), "classe future");
+        Check.Equal(DomeniaErrors.WriteUnavailable, guard(unknown)!.Code, "classe inconnue refusée");
+    }
+
+    [Test]
+    public static void The_real_registry_declares_no_write_in_any_mode()
+    {
+        // Every module found in the Domenia assemblies, as the application composes them.
+        var assemblies = OperationModules.LoadDomeniaAssemblies();
+        foreach (var mode in new[] { AppMode.Simulation, AppMode.Directory })
+        {
+            var clock = TestClock.Fixed();
+            IDirectorySource source = mode == AppMode.Simulation
+                ? new SimulatedDirectorySource(SimulationOptions.Default with { Latency = SimulationLatency.None }, clock)
+                : new UnavailableDirectorySource("cnamts.local", () => @"CNAMTS\degun");
+            var decision = mode == AppMode.Simulation
+                ? SimulatedBridge.Decision
+                : ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));
+            using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), clock, new RecordingJournal(), ScreenReaders.Discover(source, assemblies));
+            var registry = OperationModules.CreateRegistry(context, OperationModules.Discover(assemblies));
+            Check.True(registry.Names.Count > 0, "opérations trouvées (" + mode + ")");
+            foreach (var name in registry.Names)
+            {
+                Check.True(registry.TryGet(name, out var definition) && definition.Class != OperationClass.Write, "aucune écriture déclarée : " + name);
+                if (mode == AppMode.Directory)
+                {
+                    Check.Null(AdmissionGuards.For(mode)(definition!), "opération admise en mode annuaire : " + name);
+                }
+            }
+        }
     }
 
     [Test]

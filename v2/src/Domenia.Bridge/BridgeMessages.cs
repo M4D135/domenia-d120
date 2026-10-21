@@ -31,6 +31,11 @@ public enum OperationClass
     LocalRead,
     /// <summary>Directory, WMI, DNS or ping read; only after an explicit operator gesture.</summary>
     NetworkRead,
+    /// <summary>
+    /// Write to the local preferences of the application only (user data folder, separate document in simulation); never
+    /// the directory nor a workstation. Admitted in simulation.
+    /// </summary>
+    LocalWrite,
     /// <summary>Write to Active Directory or remote action; plan, confirmation, receipt and re-read required.</summary>
     Write,
 }

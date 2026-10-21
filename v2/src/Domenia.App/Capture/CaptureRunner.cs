@@ -17,7 +17,7 @@ internal sealed class CaptureRunner(CoreWebView2 core, CaptureSession session)
 
     private string? lastScriptError;
 
-    /// <summary>Profile preparation, navigation and the seven steps. Never throws: every failure ends in capture.log.</summary>
+    /// <summary>Profile preparation, navigation and the steps of the plan. Never throws: every failure ends in capture.log.</summary>
     /// <param name="startupBegan">Stopwatch timestamp of the window load: the profile preparation uses what is left of
     /// the single startup budget (CaptureSequence.StartupLimit).</param>
     public async Task RunAsync(CoreWebView2Environment environment, string address, long startupBegan, CancellationToken cancellationToken)
@@ -52,7 +52,7 @@ internal sealed class CaptureRunner(CoreWebView2 core, CaptureSession session)
             return;
         }
 
-        var steps = CaptureSequence.Steps;
+        var steps = session.Plan.Steps;
         for (var n = 0; n < steps.Length; n++)
         {
             var passed = !cancellationToken.IsCancellationRequested && await RunStepAsync(n, steps[n], cancellationToken).ConfigureAwait(true);
@@ -72,10 +72,13 @@ internal sealed class CaptureRunner(CoreWebView2 core, CaptureSession session)
         session.Complete();
     }
 
-    /// <summary>One step: true once its image is written, false when it failed or was interrupted (logged).</summary>
+    /// <summary>
+    /// One step: true once its image is written or the optional step is found without object, false when it failed or was
+    /// interrupted (logged).
+    /// </summary>
     private async Task<bool> RunStepAsync(int index, CaptureStep step, CancellationToken cancellationToken)
     {
-        var prefix = $"[{(index + 1).ToString(CultureInfo.InvariantCulture)}/{CaptureSequence.Steps.Length.ToString(CultureInfo.InvariantCulture)}] {step.Name}";
+        var prefix = $"[{(index + 1).ToString(CultureInfo.InvariantCulture)}/{session.Steps.ToString(CultureInfo.InvariantCulture)}] {step.Name}";
         var file = step.Name + ".png";
         var target = Path.Combine(session.Folder, file);
         var clock = Stopwatch.StartNew();
@@ -87,6 +90,17 @@ internal sealed class CaptureRunner(CoreWebView2 core, CaptureSession session)
         {
             // An image of an earlier run never passes for one of this run.
             File.Delete(target);
+            if (step.SkipWhen is not null)
+            {
+                current = "examen du défilement de l’écran";
+                if (await IsTrueAsync(step.SkipWhen, budget.Token).ConfigureAwait(true))
+                {
+                    session.StepSkipped();
+                    var why = step.SkipWhen == CaptureSequence.NoMiddle ? "l’écran tient en deux hauteurs de fenêtre" : "l’écran ne défile pas";
+                    session.Write($"{prefix} : sans objet — {why}, aucune image attendue.");
+                    return true;
+                }
+            }
             foreach (var action in step.Actions)
             {
                 current = action.Description;

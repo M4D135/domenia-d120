@@ -32,7 +32,7 @@
   flex: none; width: 32px; height: 32px; border-radius: 10px;
   background: var(--brand-1);
   box-shadow: 0 6px 16px var(--accent-glow);
-  display: grid; place-items: center; color: #fff;
+  display: grid; place-items: center; color: var(--on-brand);
 }
 /* The conic layer itself turns (transform only, no repaint on each frame); the mark clips it. */
 .brand-mark::before {

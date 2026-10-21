@@ -31,7 +31,8 @@ public sealed record SimulatedWorld(
 {
     private static readonly JsonSerializerOptions FingerprintJson = new() { WriteIndented = false };
 
-    public DirectoryState InitialState => new(Directory, Observations, History, Journal);
+    /// <summary>Round 0; the daily history was recorded for the default working OU of the session.</summary>
+    public DirectoryState InitialState => new(Directory, Observations, History, Journal, Session.Scope);
 
     /// <summary>SHA-256 of the canonical JSON of the generated data (declaration order, arrays in generation order).</summary>
     public string ComputeFingerprint()

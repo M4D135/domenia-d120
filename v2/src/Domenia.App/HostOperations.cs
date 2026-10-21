@@ -3,15 +3,25 @@ using Domenia.Core;
 
 namespace Domenia.App;
 
-/// <summary>Operations of the host itself (identity and mode). Domain operations come from Domenia.Bridge.</summary>
-internal static class HostOperations
+/// <summary>
+/// Operations of the host itself (identity and mode, docs/OPERATIONS.md § 2). Found by the composition like every other
+/// module; public for that reason only.
+/// </summary>
+public sealed class HostOperations : IOperationModule
 {
-    public static OperationDefinition AppInfoOperation(AppInfo info) => new("app.info", OperationClass.Local, (args, _, _) =>
-    {
-        BridgeArguments.RequireNone(args);
-        return Task.FromResult<object?>(info);
-    }, "Identité de l’application, du moteur web et du mode de fonctionnement.");
+    public string Screen => "app";
 
-    public static OperationRegistry CreateRegistry(AppInfo info, DashboardService dashboard) =>
-        new([AppInfoOperation(info), .. DashboardOperations.Create(dashboard)]);
+    public IEnumerable<OperationDefinition> CreateOperations(EngineContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var info = AppInfoBuilder.Build(context.Decision, Environment.Version.ToString(), AppPaths.WebViewRuntime is null ? "windows" : "embarque");
+        return
+        [
+            new OperationDefinition("app.info", OperationClass.Local, (args, _, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(info);
+            }, "Identité de l’application, du moteur web et du mode de fonctionnement."),
+        ];
+    }
 }

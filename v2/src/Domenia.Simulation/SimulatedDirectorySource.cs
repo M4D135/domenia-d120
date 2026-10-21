@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Domenia.Core;
 
 namespace Domenia.Simulation;
@@ -18,6 +20,8 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     // Separate draw counters: refreshes are serialized by the caller, so their delays follow the seed whatever the reads do.
     private int readDraws;
     private int refreshDraws;
+    // Delays of the screen readers, one counter per kind: a screen never shifts the delays of another one.
+    private readonly ConcurrentDictionary<string, StrongBox<int>> screenDraws = new(StringComparer.Ordinal);
 
     public SimulatedDirectorySource(SimulationOptions options, TimeProvider timeProvider)
     {
@@ -32,6 +36,30 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     }
 
     public DirectorySourceKind Kind => DirectorySourceKind.Simulation;
+
+    /// <summary>Seed and latency of this simulation (screen readers derive their own data and delays from them).</summary>
+    public SimulationOptions Options => options;
+
+    /// <summary>
+    /// Named sub-stream of the seed for the data of one screen (« screen/&lt;name&gt; »): deterministic, independent of the
+    /// central generator and of every other screen. Derive screen data from <see cref="World"/> and this stream only.
+    /// </summary>
+    public SeededRandom ScreenStream(string screen)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(screen);
+        return new SeededRandom(options.Seed).Fork("screen/" + screen);
+    }
+
+    /// <summary>
+    /// Realistic delay of a screen read (n-th draw of « latency/screen/&lt;kind&gt;/n »), cancellable; none with
+    /// <see cref="SimulationLatency.None"/>. Separate from the home page delays, which keep their own sequences.
+    /// </summary>
+    public Task SimulateScreenLatencyAsync(string kind, int minMilliseconds, int maxMilliseconds, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(kind);
+        var counter = screenDraws.GetOrAdd(kind, static _ => new StrongBox<int>());
+        return DelayAsync("screen/" + kind, ref counter.Value, minMilliseconds, maxMilliseconds, cancellationToken);
+    }
 
     /// <summary>The generated world (generated now if needed).</summary>
     public SimulatedWorld World => world.Value;
@@ -62,13 +90,13 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         return Current();
     }
 
-    public async Task<DirectoryState> RefreshAsync(MeasureFamily family, CancellationToken cancellationToken)
+    public async Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken)
     {
         var generated = World;
         if (family is MeasureFamily.Presence or MeasureFamily.Inventory)
         {
             // Same rule as the real directory: workstation measures never run on the domain root.
-            ScopeRules.EnsureNotDomainRoot(generated.Session.Scope, generated.Directory.Domain.RootDn);
+            ScopeRules.EnsureNotDomainRoot(scope, generated.Directory.Domain.RootDn);
         }
         // Every family, local computation included, answers after the refresh delay (docs/OPERATIONS.md § 6).
         await DelayAsync("refresh", ref refreshDraws, 400, 900, cancellationToken).ConfigureAwait(false);
@@ -80,9 +108,10 @@ public sealed class SimulatedDirectorySource : IDirectorySource
             {
                 // Same directory read again: values unchanged, read date now.
                 MeasureFamily.Directory => state with { Directory = state.Directory with { ReadAt = now } },
-                MeasureFamily.Presence => state with { Observations = PresenceRounds.Apply(generated.Presence, state.Observations, ++round, now) },
-                // Same inventory read again: values unchanged, reading dates now.
-                MeasureFamily.Inventory => state with { Observations = RereadInventory(state.Observations, now) },
+                // Only the workstations of the working OU are probed; the others keep their earlier readings.
+                MeasureFamily.Presence => state with { Observations = WithinScope(generated, scope!, state.Observations, PresenceRounds.Apply(generated.Presence, state.Observations, ++round, now)) },
+                // Same inventory read again: values unchanged, reading dates now (working OU only).
+                MeasureFamily.Inventory => state with { Observations = WithinScope(generated, scope!, state.Observations, RereadInventory(state.Observations, now)) },
                 // Local computation: recomputed from the state in memory, nothing measured.
                 _ => state,
             };
@@ -98,6 +127,17 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         {
             return current ?? generated.InitialState;
         }
+    }
+
+    /// <summary>Readings of the workstations inside the scope from <paramref name="measured"/>, the others from before.</summary>
+    private static FleetObservations WithinScope(SimulatedWorld world, ScopeSelection scope, FleetObservations before, FleetObservations measured)
+    {
+        var inScope = world.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName)).Select(c => c.ObjectGuid).ToHashSet();
+        var previous = before.Workstations.ToDictionary(o => o.ComputerGuid);
+        return measured with
+        {
+            Workstations = [.. measured.Workstations.Select(o => inScope.Contains(o.ComputerGuid) ? o : previous.GetValueOrDefault(o.ComputerGuid, o))],
+        };
     }
 
     private static FleetObservations RereadInventory(FleetObservations observations, DateTimeOffset now) => new(

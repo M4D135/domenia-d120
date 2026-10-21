@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -17,7 +18,12 @@ internal sealed class MainForm : Form
     private const string StartFailedMessage = "L’affichage de Domenia n’a pas pu démarrer. Le détail technique est dans le journal de l’application.";
     private const string NoDataFolderMessage = "Dossier de données introuvable : Windows ne fournit pas de dossier %LOCALAPPDATA% pour ce compte. Domenia n’écrit nulle part ailleurs et ne peut donc pas démarrer l’affichage.";
 
+    /// <summary>Longest wait, at closing, for the page messages still being handled (preferences being written…).</summary>
+    private static readonly TimeSpan ShutdownDrain = TimeSpan.FromSeconds(3);
+
     private readonly WebView2 webView = new() { Dock = DockStyle.Fill };
+    // Page messages being handled off the UI thread: waited for (bounded) before the engine services are disposed.
+    private readonly ConcurrentDictionary<int, Task> inFlight = new();
     private readonly BridgeDispatcher dispatcher;
     private readonly CancellationTokenSource lifetime = new();
     private readonly AppMode mode;
@@ -57,7 +63,11 @@ internal sealed class MainForm : Form
             }
             await InitializeWebViewAsync().ConfigureAwait(true);
         };
-        FormClosed += (_, _) => lifetime.Cancel();
+        FormClosed += (_, _) =>
+        {
+            lifetime.Cancel();
+            DrainPendingMessages();
+        };
     }
 
     /// <summary>
@@ -209,7 +219,7 @@ internal sealed class MainForm : Form
         }
         var json = e.WebMessageAsJson;
         var token = lifetime.Token;
-        _ = Task.Run(async () =>
+        var task = Task.Run(async () =>
         {
             try
             {
@@ -222,6 +232,34 @@ internal sealed class MainForm : Form
                 TechnicalLog.Error("Message de l’interface non traité.", ex);
             }
         }, CancellationToken.None);
+        // Added before the continuation is attached: a task already finished is removed at once.
+        inFlight[task.Id] = task;
+        _ = task.ContinueWith(t => inFlight.TryRemove(t.Id, out _), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// Closing: the handlers still running were cancelled (lifetime); they are waited for, a few seconds at most, so the
+    /// engine services (and their locks) are disposed after them, and the last preference write is not cut short.
+    /// </summary>
+    private void DrainPendingMessages()
+    {
+        var pending = inFlight.Values.ToArray();
+        if (pending.Length == 0)
+        {
+            return;
+        }
+        try
+        {
+            if (!Task.WaitAll(pending, ShutdownDrain))
+            {
+                TechnicalLog.Warning($"Fermeture : {inFlight.Count} message(s) de l’interface encore en cours après {(int)ShutdownDrain.TotalSeconds} s ; fermeture poursuivie.");
+            }
+        }
+        catch (AggregateException ex)
+        {
+            // Each handler traces its own failures: only the count is added here.
+            TechnicalLog.Warning($"Fermeture : {ex.InnerExceptions.Count} message(s) de l’interface terminés en erreur.");
+        }
     }
 
     private void PostToPage(BridgeResponse response)

@@ -3,6 +3,9 @@ import { icon } from '../icons.js';
 import { esc, errorText, fold, applyVars, reveal, countUp, formatNumber, announce } from '../ui.js';
 
 const MAX_STAGGER = 18;
+// A group longer than this spans the width and spreads its list over columns; shorter ones flow side by side.
+const WIDE_GROUP = 24;
+const NBSP = '\u00A0';
 
 function skeletonGroups() {
   const group = `<section class="card feature-group"><div class="sk-stack">
@@ -41,12 +44,15 @@ function layout(page) {
   </div>`;
 }
 
+// m = 1: states and instructions of the screen (status sentences of Domenia 1), kept apart, not counted as functions.
 function groupMarkup(group) {
   const title = group.s || 'Écran principal';
-  const rows = group.f.map(([t, d], n) => `<li data-j="${Math.min(n, MAX_STAGGER)}"><span class="mk" aria-hidden="true"></span>`
-    + `<span><span class="t">${esc(t)}</span>${d ? `<span class="d">${esc(d)}</span>` : ''}</span></li>`).join('');
-  return `<section class="card feature-group reveal spot">
-    <div class="card-head"><span class="card-icon">${icon('folder')}</span><h3>${esc(title)}</h3>
+  const msg = group.m === 1;
+  const rows = group.f.map(([t, d], n) => `<li data-j="${Math.min(n, MAX_STAGGER)}"><span class="mk${msg ? ' msg' : ''}" aria-hidden="true"></span>`
+    + `<span><span class="t">${esc(t)}</span>${d ? `<span class="d">${esc(msg ? `Affiché dans${NBSP}: ${d}` : d)}</span>` : ''}</span></li>`).join('');
+  const wide = !msg && group.f.length > WIDE_GROUP;
+  return `<section class="card feature-group${msg ? ' messages' : ''}${wide ? ' wide' : ''} reveal spot">
+    <div class="card-head"><span class="card-icon">${icon(msg ? 'info' : 'folder')}</span><h3>${esc(title)}</h3>
       <span class="meta"><span class="chip" data-n>${formatNumber(group.f.length)}</span></span></div>
     <ul class="feature-list cascade">${rows}</ul>
   </section>`;
@@ -66,7 +72,8 @@ function bindFilter(input, holder) {
     index.forEach(([li, text]) => { li.hidden = q !== '' && !text.includes(q); });
     holder.querySelectorAll('.feature-group').forEach((g) => {
       const shown = g.querySelectorAll('li:not([hidden])').length;
-      total += shown;
+      // States and instructions are filtered too, but only functions are counted.
+      if (!g.classList.contains('messages')) total += shown;
       g.hidden = shown === 0;
       g.querySelector('[data-n]').textContent = formatNumber(shown);
     });
@@ -94,7 +101,7 @@ export function render(main, ctx) {
   import('../parite.js').then(({ PARITE }) => {
     if (!alive) return;
     const groups = PARITE[page.id] ?? [];
-    const total = groups.reduce((s, g) => s + g.f.length, 0);
+    const total = groups.filter((g) => g.m !== 1).reduce((s, g) => s + g.f.length, 0);
     if (!groups.length) {
       holder.innerHTML = `<section class="card reveal"><p class="muted">L’inventaire de Domenia 1 ne liste pas de contrôle propre
         à cet écran : ses fonctions viennent des autres vues.</p></section>`;

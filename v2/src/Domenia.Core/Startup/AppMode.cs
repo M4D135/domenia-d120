@@ -21,6 +21,8 @@ public enum ModeReason
     NotDomainJoined,
     JoinStateUnknown,
     DomainJoined,
+    /// <summary>Auth.DemoProvider=true in Domenia.config.json (setting of Domenia 1), JSON text "configuration".</summary>
+    Configuration,
 }
 
 /// <summary>Local join state of the workstation (LSA), read without any network access.</summary>
@@ -58,6 +60,7 @@ public static class ModeTexts
     public const string DetailNotDomainJoined = "Ce poste n’est joint à aucun domaine : démarrage en simulation.";
     public const string DetailJoinStateUnknown = "Appartenance du poste à un domaine illisible : démarrage en simulation. Pour forcer l’annuaire, définissez DOMENIA_SIMULATION=0.";
     public const string DetailJoinedWithoutName = "Poste joint à un domaine.";
+    public const string DetailConfiguration = "Réglage Auth.DemoProvider de Domenia.config.json : démarrage en simulation.";
 
     public const string WarningVariable = "Valeur de DOMENIA_SIMULATION ignorée : seules 1 et 0 sont admises.";
 

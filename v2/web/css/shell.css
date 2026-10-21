@@ -1,6 +1,7 @@
-/* Domenia 2 shell additions: pieces the component sheet does not cover yet (boot, mode chip, simulation banner,
-   floating tips, cursor halo, stepper, key/value grid, legend, KPI controls, parity lists).
-   Loaded last. Motion uses transform, opacity and filter only. */
+/* Domenia 2 shell additions: pieces the component sheet does not cover yet (boot, brand, mode chip, simulation banner,
+   floating tips, cursor halo, chart primitives, parity lists). Screen sheets (css/pages/<id>.css, the Accueil's
+   included) are loaded by the router and apply only while their screen is shown. Motion uses transform, opacity and
+   filter only. */
 
 /* ---------- Hidden SVG definitions (gradients referenced by charts) ---------- */
 .svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
@@ -39,20 +40,29 @@
 
 /* ---------- Navigation ---------- */
 .nav-item, .nav-item:hover { text-decoration: none; }
-/* « v2 » pill next to the logo (full version in its tip): framed, since its fill nearly matches the menu background in
-   the light theme and disappears in high contrast. */
-.brand-ver {
-  margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); font-size: var(--fs-caption); font-weight: 700; line-height: 18px;
-  color: var(--accent-text); background: var(--accent-soft); letter-spacing: 0; cursor: default;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+/* Brand: name and what Domenia administers (the full version is in the tip of the logo). */
+.brand { cursor: default; }
+.brand-name { display: grid; min-width: 0; line-height: 1.1; }
+.brand-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-sub {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;
+  font-family: var(--font); font-size: var(--fs-caption); font-weight: 600; letter-spacing: .02em; color: var(--text-faint);
 }
-:root[data-theme="contrast"] .brand-ver { border-color: currentColor; }
-.nav-item .nav-kbd { margin-left: auto; opacity: 0; transform: translateX(-4px); transition: opacity var(--t-fast), transform var(--t) var(--ease-out); }
+.brand-mark { transition: transform var(--t-slow) var(--ease-spring); }
+.brand:hover .brand-mark { transform: rotate(-8deg) scale(1.06); }
+/* One line per item, all the same height: the label never wraps (full name in the tip when shortened) and the shortcut
+   floats over its end on hover instead of taking room from it. */
+.nav-item .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item .nav-kbd {
+  position: absolute; right: var(--s3); top: 0; bottom: 0; height: fit-content; margin: auto 0;
+  box-shadow: -14px 0 12px -2px var(--bg-hover);
+  opacity: 0; transform: translateX(-4px); transition: opacity var(--t-fast), transform var(--t) var(--ease-out);
+}
 .nav-item:hover .nav-kbd, .nav-item:focus-visible .nav-kbd { opacity: 1; transform: none; }
 .nav-toggle { margin-top: var(--s2); }
 .nav-toggle svg { transition: transform var(--t-slow) var(--ease-spring); }
 .shell.nav-collapsed .nav-toggle svg { transform: scaleX(-1); }
-.shell.nav-collapsed .brand-ver, .shell.nav-collapsed .nav-kbd { display: none; }
+.shell.nav-collapsed .nav-kbd { display: none; }
 .shell.nav-collapsed .brand { justify-content: center; padding: 0; }
 /* Labels slide in whenever they reappear (start-up, menu unfolded): a display change restarts the animation. */
 .nav .nav-label, .nav .nav-section, .nav .brand-name { animation: nav-text-in var(--t) var(--ease-out) both; }
@@ -62,7 +72,7 @@
 @media (max-width: 900px) {
   .shell .nav-item { justify-content: center; padding: 0; }
   .shell .brand { justify-content: center; padding: 0; }
-  .shell .brand-ver, .shell .nav-kbd { display: none; }
+  .shell .nav-kbd { display: none; }
   /* The rail is always folded here: a toggle (and its aria-expanded) would announce a state it cannot change. */
   .shell .nav-toggle { display: none; }
 }
@@ -96,6 +106,9 @@
 /* ---------- Top bar: connection state and mode chip ---------- */
 .live { transition: color var(--t); }
 .live[data-state="simulated"] { color: var(--info); }
+/* In simulation the mode chip already says it (its tip gives the detail) and the banner below explains it: the
+   connection indicator would say it a third time, so it steps aside. */
+.topbar .live[data-state="simulated"] { display: none; }
 .live[data-state="simulated"] .dot { --tone: var(--info-mark); }
 .live[data-state="disconnected"], .live[data-state="unknown"] { color: var(--text-faint); }
 .live[data-state="disconnected"] .dot, .live[data-state="unknown"] .dot { --tone: var(--off-mark); }
@@ -111,7 +124,15 @@
   animation: chip-in var(--t-slow) var(--ease-spring) both;
 }
 .mode-chip[hidden] { display: none; }
+/* The chip, the connection state and the shortcut keep their size; the search field shrinks first. The bar and the
+   banner never widen the content column (zero minimum in the shell grid), so the window never scrolls sideways. */
+.mode-chip, .topbar .live, .topbar > .btn, .topbar > .segmented { flex: none; white-space: nowrap; }
+.shell > .topbar, .shell > .sim-banner { min-width: 0; }
+.topbar .search-trigger { min-width: 0; }
+.topbar .search-trigger kbd { flex: none; white-space: nowrap; }
 .mode-chip .dot { --tone: var(--info-mark); }
+.mode-chip[data-mode="preview"] { color: var(--accent-text); background: color-mix(in srgb, var(--brand-2) 14%, var(--accent-soft)); }
+.mode-chip[data-mode="preview"] .dot { --tone: var(--brand-2); }
 /* Rotating border: .glow-ring (components.css) with the chip's own colours and pace */
 .mode-chip .glow-ring { z-index: auto; }
 .mode-chip .glow-ring::before {
@@ -141,6 +162,7 @@
   animation: banner-in var(--t-slow) var(--ease-out) both;
 }
 .sim-banner > svg { width: 18px; height: 18px; flex: none; }
+.sim-banner .text { flex: 1 1 320px; min-width: 0; }
 .sim-banner .detail { margin-left: auto; color: var(--text-muted); font-weight: 500; }
 .sim-banner::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
@@ -151,7 +173,7 @@
 
 /* ---------- Page header icon ---------- */
 .page-icon {
-  width: 52px; height: 52px; border-radius: 16px; flex: none; display: grid; place-items: center; color: #fff;
+  width: 52px; height: 52px; border-radius: 16px; flex: none; display: grid; place-items: center; color: var(--on-brand);
   background: var(--brand-gradient); background-size: 180% 180%;
   box-shadow: 0 10px 28px var(--accent-glow);
   animation: page-icon-in var(--t-slow) var(--ease-spring) both;
@@ -160,26 +182,16 @@
 .page-header .head-row { display: flex; align-items: center; gap: var(--s4); }
 @keyframes page-icon-in { from { transform: scale(.6) rotate(-12deg); opacity: 0; } }
 
-/* ---------- Hero extras ---------- */
+/* ---------- Hero orbs (parallax) and busy buttons ---------- */
 .hero .orbs {
   position: absolute; inset: 0; z-index: -1; pointer-events: none;
   transform: translate3d(calc(var(--px, 0) * -22px), calc(var(--py, 0) * -16px), 0);
   transition: transform 900ms var(--ease-out);
 }
-.hero .eyebrow { display: inline-flex; align-items: center; gap: var(--s2); margin-bottom: var(--s2); font-size: var(--fs-small); font-weight: 700; color: var(--accent-text); }
-.hero .eyebrow svg { width: 16px; height: 16px; }
-.hero .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
-.hero .chip svg { width: 14px; height: 14px; flex: none; }
-.hero .chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 60ms + 180ms); }
-.hero .btn .label-progress { font-variant-numeric: tabular-nums; }
 .btn.spinning svg { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Onboarding stepper */
-.stepper { margin-top: var(--s6); display: grid; gap: var(--s3); max-width: 820px; }
-.stepper-head { display: flex; align-items: center; gap: var(--s3); font-size: var(--fs-small); font-weight: 700; color: var(--text-muted); }
-.stepper-head .count { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-faint); }
-.stepper-head svg { width: 18px; height: 18px; flex: none; color: var(--accent-text); }
+/* Progress bar */
 .progress { position: relative; height: 6px; border-radius: var(--r-pill); overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .progress > span {
   position: absolute; inset: 0; border-radius: inherit; background: var(--brand-gradient);
@@ -191,22 +203,6 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
   transform: translateX(-100%); animation: shimmer 2.4s var(--ease-in-out) infinite;
 }
-.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3); }
-.step { display: flex; align-items: center; gap: var(--s2); min-width: 0; font-size: var(--fs-small); color: var(--text-muted); }
-.step .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.step .mark {
-  position: relative; width: 26px; height: 26px; flex: none; border-radius: 50%; display: grid; place-items: center;
-  font-size: var(--fs-caption); font-weight: 700; color: var(--text-faint);
-  background: var(--bg-elevated); border: 2px solid var(--border-strong);
-  transition: transform var(--t) var(--ease-spring), background var(--t), border-color var(--t), color var(--t);
-}
-.step .mark svg { width: 14px; height: 14px; }
-.step.done { color: var(--text); }
-.step.done .mark { color: #fff; border-color: transparent; background: var(--brand-gradient); animation: pop var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 120ms + 300ms); }
-.step.current { color: var(--accent-text); font-weight: 600; }
-.step.current .mark { border-color: var(--accent); color: var(--accent-text); }
-.step.current .mark::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: pulse-ring 2s var(--ease-out) infinite; }
-@media (max-width: 1100px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ---------- Cards: inner cascade, gated until the card is revealed ---------- */
 .cascade > * { animation: cascade-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 45ms + 160ms); }
@@ -219,46 +215,8 @@
 .card.is-off .card-body, .card.is-stale .card-body { filter: grayscale(1); opacity: .5; transition: filter var(--t-slow), opacity var(--t-slow); }
 .card .card-body { transition: filter var(--t-slow), opacity var(--t-slow); }
 .card .card-body.updating { opacity: .55; filter: blur(1px); }
-.off-note { display: grid; justify-items: start; gap: var(--s2); padding: var(--s3) 0; color: var(--text-muted); font-size: var(--fs-small); }
-.off-note svg { width: 18px; height: 18px; color: var(--text-faint); }
 
-/* ---------- KPI band (five tiles, always full rows) ---------- */
-.kpi-band { grid-column: span 12; display: grid; gap: var(--s5); grid-template-columns: repeat(5, minmax(0, 1fr)); }
-@media (max-width: 1500px) {
-  .kpi-band { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .kpi-band > :nth-child(-n+3) { grid-column: span 2; }
-  .kpi-band > :nth-child(n+4) { grid-column: span 3; }
-}
-@media (max-width: 1000px) {
-  .kpi-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpi-band > :nth-child(n) { grid-column: auto; }
-  .kpi-band > :last-child:nth-child(odd) { grid-column: span 2; }
-}
-@media (max-width: 640px) { .kpi-band { grid-template-columns: 1fr; } .kpi-band > :last-child:nth-child(odd) { grid-column: auto; } }
-
-.kpi .kpi-top { display: flex; align-items: center; gap: var(--s2); }
-.kpi .kpi-top .label { flex: 1; min-width: 0; text-wrap: balance; }
-.kpi .kpi-top .card-icon { width: 32px; height: 32px; border-radius: 10px; }
-.kpi .kpi-top .card-icon svg { width: 18px; height: 18px; }
-/* Value on its own row, then the trend row: the delta chip keeps its line and the sparkline takes the rest (it moves
-   below the chip when less than 72 px are left, e.g. « Pas d’historique à 7 jours » in a narrow card). */
-.kpi .kpi-main { position: relative; display: grid; gap: var(--s2); }
-.kpi .kpi-trend { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s1) var(--s3); min-height: 44px; }
-.kpi .kpi-trend .delta { flex: none; white-space: nowrap; margin-bottom: 2px; }
-.kpi .kpi-trend .spark { position: static; flex: 1 1 72px; min-width: 72px; width: auto; height: 44px; margin-right: -4px; }
-.kpi .value { white-space: nowrap; }
-.kpi .value.bump { animation: bump 640ms var(--ease-spring); }
-@keyframes bump { 30% { transform: scale(1.08); filter: brightness(1.2); } }
-.kpi .value.none { color: var(--text-faint); }
-.kpi .kpi-foot { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s1); padding-top: var(--s3); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: var(--fs-caption); color: var(--text-faint); }
-/* « Mesure active » never wraps; a narrow card shortens the relative time instead (its tip gives the full date). */
-.kpi .kpi-foot .when { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.kpi-switch { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; font-weight: 600; color: var(--text-muted); }
-.kpi .kpi-foot .kpi-switch { flex: none; white-space: nowrap; }
-.kpi-switch .switch { width: 36px; height: 22px; }
-.kpi-switch .switch::after { width: 16px; height: 16px; }
-.kpi-switch .switch:checked::after { transform: translateX(14px); }
-.kpi-switch .switch:disabled { opacity: .5; cursor: progress; }
+/* ---------- Status chips and delta pills ---------- */
 .chip.stale-chip { height: 22px; font-size: var(--fs-caption); }
 .delta.warn { background: var(--warn-soft); color: var(--warn); }
 .delta.info { background: var(--info-soft); color: var(--info); }
@@ -266,24 +224,7 @@
 .delta.alert { background: var(--alert-soft); color: var(--alert); }
 .delta svg { width: 12px; height: 12px; }
 
-/* Breakdown bar under a KPI */
-.stack {
-  display: flex; gap: 2px; height: 6px; border-radius: var(--r-pill); overflow: hidden;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  transform-origin: left center; animation: stack-in var(--t-chart) var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * var(--stagger) + 220ms);
-}
-.stack > span { background: var(--tone, var(--off-mark)); min-width: 3px; transition: opacity var(--t-fast); }
-.stack:hover > span { opacity: .55; }
-.stack > span:hover { opacity: 1; }
-@keyframes stack-in { from { transform: scaleX(0); } }
-.stack-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-caption); color: var(--text-faint); }
-/* The label and its value form one text run: a long label wraps and its value follows its last word. */
-.stack-legend li { display: flex; align-items: flex-start; gap: 5px; min-width: 0; }
-.stack-legend .dot { width: 7px; height: 7px; margin-top: calc((1lh - 7px) / 2); }
-.stack-legend b { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-
-/* ---------- Donut, gauge and legend ---------- */
+/* ---------- Donut and gauge (ui.js donut) ---------- */
 .ring circle.seg.draw { stroke-dasharray: var(--len) 200; }
 .ring.donut circle { stroke-linecap: butt; }
 .ring circle.seg { transition: opacity var(--t) var(--ease-out); }
@@ -294,28 +235,12 @@
 .ring circle.brand { stroke: url(#ring-grad); }
 .ring .center b { font-variant-numeric: tabular-nums; }
 .ring.lg { width: 156px; height: 156px; }
-.ring-wrap { display: flex; align-items: center; gap: var(--s5); flex-wrap: wrap; }
-.ring-wrap > .ring { animation: ring-in var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--i, 0) * var(--stagger) + 100ms); }
-.reveal:not(.in) .ring-wrap > .ring { animation: none; }
-@keyframes ring-in { from { transform: scale(.85) rotate(-20deg); opacity: 0; } }
-.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; flex: 1; min-width: 180px; }
-.legend li { display: flex; align-items: center; gap: var(--s2); padding: 5px 8px; border-radius: var(--r-sm); font-size: var(--fs-small); cursor: default; transition: background var(--t-fast), transform var(--t) var(--ease-out); }
-.legend li:hover, .legend li.focus { background: var(--bg-hover); transform: translateX(3px); }
-.legend .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; background: var(--tone, var(--off-mark)); }
-.legend .sw.s1 { background: var(--c1); } .legend .sw.s2 { background: var(--c2); } .legend .sw.s3 { background: var(--c3); } .legend .sw.s4 { background: var(--c4); }
-.legend .sw.s5 { background: var(--c5); } .legend .sw.s6 { background: var(--c6); } .legend .sw.s7 { background: var(--c7); } .legend .sw.s8 { background: var(--c8); }
-.legend .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.legend .val { color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.legend .pct { min-width: 54px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---------- Bars extras ---------- */
 .bars .bar { transition: filter var(--t-fast); }
 .bars .bar.partial { background: repeating-linear-gradient(135deg, var(--brand-2) 0 6px, color-mix(in srgb, var(--brand-1) 70%, transparent) 6px 12px); }
 .bars .bar-gap { flex: 1; align-self: stretch; display: grid; align-items: end; justify-items: center; padding-bottom: 4px; border-radius: 6px; border: 1px dashed var(--border); color: var(--text-faint); font-size: var(--fs-caption); }
 .bars-x span.today { color: var(--accent-text); font-weight: 700; }
-.chart-note { margin-top: var(--s3); display: flex; gap: var(--s4); flex-wrap: wrap; font-size: var(--fs-caption); color: var(--text-faint); }
-.chart-note .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--brand-gradient); }
-.chart-note .sw.partial { background: repeating-linear-gradient(135deg, var(--brand-2) 0 3px, var(--brand-1) 3px 6px); }
 
 /* ---------- Lists: watchlist rows as buttons ---------- */
 button.list-row { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; }
@@ -323,18 +248,7 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .list-row .more { font-size: var(--fs-caption); font-weight: 700; color: var(--text-faint); }
 .list-row .chev { width: 16px; height: 16px; color: var(--text-faint); opacity: 0; transform: translateX(-4px); transition: opacity var(--t-fast), transform var(--t) var(--ease-out); }
 .list-row:hover .chev, .list-row:focus-visible .chev { opacity: 1; transform: none; }
-.timeline .ev .label { font-weight: 600; }
 
-/* ---------- Tabs panels and key/value grid ---------- */
-.tab-panel { animation: panel-in var(--t-slow) var(--ease-out) both; }
-.tab-panel[hidden] { display: none; }
-@keyframes panel-in { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } }
-.kv { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s2) var(--s3); }
-.kv > div { display: grid; gap: 2px; align-content: start; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 65%, transparent); border: 1px solid transparent; transition: border-color var(--t-fast), transform var(--t) var(--ease-out); }
-.kv > div:hover { border-color: var(--border); transform: translateY(-1px); }
-.kv dt { font-size: var(--fs-caption); font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; }
-.kv dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.kv dd .sub { display: block; font-weight: 500; font-size: var(--fs-small); color: var(--text-muted); }
 
 /* ---------- Skeleton shapes ---------- */
 .skeleton.sk { display: block; }
@@ -374,21 +288,35 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .toast:hover .bar, .toast:focus-within .bar { animation-play-state: paused; }
 
 /* ---------- Parity lists on pages not ported yet ---------- */
-.todo-hero .empty { padding-block: var(--s8); }
+/* Compact banner: the icon beside the text, no tall empty card above the list. */
+.card.todo-hero { padding: var(--s2) var(--s3); }
+.todo-hero .empty { grid-template-columns: auto minmax(0, 1fr); justify-items: start; align-items: center; column-gap: var(--s6); row-gap: var(--s2); padding: var(--s3) var(--s4); text-align: left; }
+.todo-hero .empty .art { grid-row: span 3; width: 72px; height: 72px; border-radius: 22px; }
+.todo-hero .empty .art svg { width: 34px; height: 34px; }
+.todo-hero .empty h2 { font-size: var(--fs-section); }
+.todo-hero .empty p { max-width: 90ch; }
 .todo-tools { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; margin: var(--s6) 0 var(--s4); }
 .todo-tools h2 { font-size: var(--fs-section); }
 .todo-tools .input { margin-left: auto; width: min(360px, 100%); }
-/* Groups share the width (empty tracks collapse); a group alone spreads its list over columns instead of leaving
-   two thirds of the screen empty. */
-.feature-groups { display: grid; gap: var(--s5); grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-items: start; }
-.feature-group:only-child .feature-list { display: block; columns: 3 320px; column-gap: var(--s5); }
-.feature-group:only-child .feature-list li { break-inside: avoid; margin-bottom: 2px; }
+/* Groups flow in columns (masonry): a short card never leaves a hole under it. A long group (wide), or a group alone,
+   spans the width and spreads its own list over columns instead of making one very long column. */
+.feature-groups { columns: 3 380px; column-gap: var(--s5); }
+.feature-groups > .feature-group { break-inside: avoid; margin-bottom: var(--s5); }
+.feature-groups > .feature-group:only-child, .feature-groups > .feature-group.wide { column-span: all; }
+.feature-group:only-child .feature-list, .feature-group.wide .feature-list { display: block; columns: 3 320px; column-gap: var(--s5); }
+.feature-group:only-child .feature-list li, .feature-group.wide .feature-list li { break-inside: avoid; margin-bottom: 2px; }
 .feature-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.feature-list li { display: flex; gap: var(--s2); padding: 6px var(--s2); border-radius: var(--r-sm); font-size: var(--fs-small); transition: background var(--t-fast), transform var(--t) var(--ease-out); }
-.feature-list li:hover { background: var(--bg-hover); transform: translateX(3px); }
+.feature-list li { position: relative; isolation: isolate; display: flex; gap: var(--s2); padding: 6px var(--s2); border-radius: var(--r-sm); font-size: var(--fs-small); transition: transform var(--t) var(--ease-out); }
+.feature-list li::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--bg-hover); opacity: 0; transition: opacity var(--t-fast); pointer-events: none; }
+.feature-list li:hover { transform: translateX(3px); }
+.feature-list li:hover::before { opacity: 1; }
 .feature-list li[hidden] { display: none; }
 .feature-list .mk { width: 14px; height: 14px; margin-top: 3px; flex: none; border-radius: 50%; border: 2px solid var(--border-strong); }
-.feature-list .d { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-faint); font-size: var(--fs-caption); }
+/* States and instructions of the screen: a short dash instead of the circle of a function to port. */
+.feature-list .mk.msg { height: 2px; margin-top: 9px; border: 0; border-radius: 2px; background: var(--border-strong); }
+/* The whole description is shown (240 characters at most): nothing to guess, nothing hidden. */
+.feature-list .d { display: block; color: var(--text-faint); font-size: var(--fs-caption); text-wrap: pretty; }
+.feature-group.messages .card-icon { color: var(--info); }
 .feature-group[hidden] { display: none; }
 
 /* Tilt follows the pointer quickly while hovered, then settles slowly (base transition) */
@@ -416,20 +344,3 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .theme-switch button[aria-pressed="true"] svg { color: var(--accent-text); }
 @media (max-width: 1200px) { .topbar .search-trigger span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 @media (max-width: 1000px) { .topbar .live .label { display: none; } }
-
-/* Accueil layout details */
-/* The KPI cards share their rows across the band (subgrid): titles, values and footers line up even when one title
-   needs three lines (« Mots de passe expirant sous 7 jours »). */
-.kpi-band > .kpi { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--s2); }
-.kpi-band > .kpi > .kpi-top { align-self: start; }
-.kpi-band > .kpi > .card-body { display: grid; gap: var(--s2); align-content: start; }
-.kpi-band > .kpi > .kpi-foot { align-self: end; }
-.card-head { flex-wrap: wrap; }
-.card-head .meta { flex-wrap: wrap; justify-content: flex-end; }
-.card-head .meta .kpi-switch .switch { margin-left: var(--s1); }
-.ring-wrap.stacked { flex-direction: column; align-items: stretch; }
-.ring-wrap.stacked > .ring { align-self: center; }
-.list-row .title, .list-row .sub { display: block; }
-.list-row .body { display: block; }
-.home .grid > .hero { grid-column: span 12; }
-.home .grid { grid-auto-flow: row dense; }

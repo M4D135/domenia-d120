@@ -1,13 +1,18 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 
 namespace Domenia.Core;
 
 /// <summary>
 /// Home page state of the session (docs/OPERATIONS.md § 3 to 7): disabled widgets, last known state, journal and read
-/// counters. In memory only, no I/O of its own; refreshes run one after another.
+/// counters; refreshes run one after another. The disabled widgets are remembered in the local preferences (key
+/// dashboard.disabledWidgets, LocalWrite) and restored at the first call; the working OU comes from <see cref="WorkingScope"/>.
 /// </summary>
 public sealed class DashboardService : IDisposable
 {
+    /// <summary>Preference key of the disabled widgets: array of widget identifiers, catalog order.</summary>
+    public const string DisabledWidgetsPreference = "dashboard.disabledWidgets";
+
     private static readonly (string Id, string Label)[] OnboardingSteps =
     [
         ("connect", "Connexion à l’annuaire"),
@@ -20,8 +25,13 @@ public sealed class DashboardService : IDisposable
     private readonly OperationJournal journal;
     private readonly TimeProvider timeProvider;
     private readonly DashboardPolicy policy;
+    private readonly WorkingScope? workingScope;
+    private readonly IPreferenceStore? preferences;
+    private readonly ITechnicalJournal log;
     private readonly SemaphoreSlim refreshGate = new(1, 1);
+    private readonly SemaphoreSlim persistGate = new(1, 1);
     private readonly Lock gate = new();
+    private int preferencesLoaded;
     private ImmutableHashSet<string> disabled = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
     private DirectoryState? lastState;
     // Bumped at every store of lastState, so a summary that overlapped a refresh never brings back an older state.
@@ -30,7 +40,16 @@ public sealed class DashboardService : IDisposable
     private int queued;
     private bool summaryDone;
 
-    public DashboardService(IDirectorySource source, OperationJournal journal, TimeProvider timeProvider, DashboardPolicy? policy = null)
+    /// <param name="workingScope">Working OU of the session; without it, the default scope of the source.</param>
+    /// <param name="preferences">Where the disabled widgets are remembered; without it, they last for the session only.</param>
+    public DashboardService(
+        IDirectorySource source,
+        OperationJournal journal,
+        TimeProvider timeProvider,
+        DashboardPolicy? policy = null,
+        WorkingScope? workingScope = null,
+        IPreferenceStore? preferences = null,
+        ITechnicalJournal? log = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(journal);
@@ -39,12 +58,22 @@ public sealed class DashboardService : IDisposable
         this.journal = journal;
         this.timeProvider = timeProvider;
         this.policy = policy ?? DashboardPolicy.Default;
+        this.workingScope = workingScope;
+        this.preferences = preferences;
+        this.log = log ?? SilentTechnicalJournal.Instance;
+    }
+
+    /// <summary>The home page service shared by every module of the context.</summary>
+    public static DashboardService From(EngineContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return context.Shared(static c => new DashboardService(c.Directory, c.Journal, c.Clock, null, WorkingScope.From(c), c.Preferences, c.Log));
     }
 
     /// <summary>session.info: session of the source plus counters, local base state and onboarding.</summary>
     public async Task<SessionInfo> GetSessionInfoAsync(CancellationToken cancellationToken)
     {
-        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
         var now = timeProvider.GetUtcNow();
         var store = session.Store;
         var cacheState = store.LastReadAt switch
@@ -84,7 +113,8 @@ public sealed class DashboardService : IDisposable
     /// <summary>dashboard.summary: every widget from the last known state; never measures anything.</summary>
     public async Task<DashboardSummary> GetSummaryAsync(CancellationToken cancellationToken)
     {
-        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        LoadPreferences();
+        var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
         long versionAtRead;
         lock (gate)
         {
@@ -101,7 +131,7 @@ public sealed class DashboardService : IDisposable
             Interlocked.Decrement(ref running);
         }
         var scope = RequireScope(session);
-        var summary = DashboardCalculator.Compute(Input(state, scope));
+        var summary = DashboardCalculator.Compute(Input(state, scope, session));
         lock (gate)
         {
             // A refresh (or another summary) stored a state since this read started: that one is at least as recent.
@@ -122,6 +152,7 @@ public sealed class DashboardService : IDisposable
         {
             throw new DomeniaOperationException(DomeniaErrors.WidgetUnknown, DomeniaErrors.WidgetUnknownReadMessage);
         }
+        LoadPreferences();
         if (IsDisabled(definition.Id))
         {
             throw new DomeniaOperationException(DomeniaErrors.WidgetDisabled, DomeniaErrors.WidgetDisabledMessage);
@@ -138,7 +169,7 @@ public sealed class DashboardService : IDisposable
         Interlocked.Increment(ref running);
         try
         {
-            var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+            var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
             if (IsDisabled(definition.Id))
             {
                 // Disabled while waiting: nothing is read.
@@ -151,7 +182,8 @@ public sealed class DashboardService : IDisposable
                 WidgetFamily.Inventory => MeasureFamily.Inventory,
                 _ => MeasureFamily.LocalComputation,
             };
-            var state = await source.RefreshAsync(family, cancellationToken).ConfigureAwait(false);
+            // Workstation measures are bounded to the working OU (never the domain root, checked by the source).
+            var state = await source.RefreshAsync(family, session.Scope, cancellationToken).ConfigureAwait(false);
             var scope = RequireScope(session);
             lock (gate)
             {
@@ -165,7 +197,7 @@ public sealed class DashboardService : IDisposable
                 // Disabled during the measure: the result is not published.
                 return DashboardCalculator.Disabled(definition, Label(definition, session));
             }
-            return DashboardCalculator.ComputeWidget(definition.Id, Input(state, scope));
+            return DashboardCalculator.ComputeWidget(definition.Id, Input(state, scope, session));
         }
         finally
         {
@@ -174,13 +206,17 @@ public sealed class DashboardService : IDisposable
         }
     }
 
-    /// <summary>dashboard.widget.setEnabled: idempotent, kept for the session; enabling reuses the last state in memory.</summary>
+    /// <summary>
+    /// dashboard.widget.setEnabled: idempotent; a change is remembered in the preferences (LocalWrite) and kept for the
+    /// session even if the preferences cannot be written (journal entry). Enabling reuses the last state in memory.
+    /// </summary>
     public async Task<DashboardWidget> SetEnabledAsync(string widgetId, bool enabled, CancellationToken cancellationToken)
     {
         if (!WidgetCatalog.TryGet(widgetId, out var definition))
         {
             throw new DomeniaOperationException(DomeniaErrors.WidgetUnknown, DomeniaErrors.WidgetUnknownChangeMessage);
         }
+        LoadPreferences();
         bool changed;
         DirectoryState? state;
         lock (gate)
@@ -194,8 +230,9 @@ public sealed class DashboardService : IDisposable
         {
             var label = (enabled ? "Mesure réactivée" : "Mesure désactivée") + FrenchText.Colon + definition.Title;
             journal.Add(new JournalEntry(timeProvider.GetUtcNow(), label, Tone.Info));
+            await RememberDisabledAsync(cancellationToken).ConfigureAwait(false);
         }
-        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
         var scopeLabel = Label(definition, session);
         if (!enabled)
         {
@@ -205,10 +242,90 @@ public sealed class DashboardService : IDisposable
         {
             return DashboardCalculator.NotMeasured(definition, scopeLabel, DashboardCalculator.NoMemoryDetail);
         }
-        return DashboardCalculator.ComputeWidget(definition.Id, Input(state, session.Scope));
+        return DashboardCalculator.ComputeWidget(definition.Id, Input(state, session.Scope, session));
     }
 
-    public void Dispose() => refreshGate.Dispose();
+    public void Dispose()
+    {
+        refreshGate.Dispose();
+        persistGate.Dispose();
+    }
+
+    /// <summary>Session of the source, with the working OU of the session in place of the default scope.</summary>
+    private async Task<SessionSnapshot> SessionAsync(CancellationToken cancellationToken)
+    {
+        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        return workingScope is null ? session : await workingScope.ApplyAsync(session, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Restores the disabled widgets once, at the first call (always off the UI thread). Unknown identifiers are ignored;
+    /// an unreadable value is traced and the widgets stay enabled.
+    /// </summary>
+    private void LoadPreferences()
+    {
+        if (preferences is null || Volatile.Read(ref preferencesLoaded) != 0)
+        {
+            return;
+        }
+        var restored = ImmutableHashSet.Create<string>(StringComparer.Ordinal);
+        if (preferences.TryGet(DisabledWidgetsPreference, out var value))
+        {
+            if (value.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in value.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String && WidgetCatalog.TryGet(item.GetString()!, out var definition))
+                    {
+                        restored = restored.Add(definition.Id);
+                    }
+                }
+            }
+            else
+            {
+                log.Warning("Préférence dashboard.disabledWidgets illisible : tous les widgets restent actifs.");
+            }
+        }
+        lock (gate)
+        {
+            // A change made meanwhile by this session wins over the remembered state.
+            if (preferencesLoaded == 0)
+            {
+                disabled = disabled.Union(restored);
+                preferencesLoaded = 1;
+            }
+        }
+    }
+
+    /// <summary>Writes the current set (never an older one: writes run one after another and read the latest set).</summary>
+    private async Task RememberDisabledAsync(CancellationToken cancellationToken)
+    {
+        if (preferences is null)
+        {
+            return;
+        }
+        await persistGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ImmutableHashSet<string> current;
+            lock (gate)
+            {
+                current = disabled;
+            }
+            string[] ids = [.. WidgetCatalog.All.Select(w => w.Id).Where(current.Contains)];
+            await preferences.SetAsync(DisabledWidgetsPreference, JsonSerializer.SerializeToElement(ids), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The choice stays for the session; the operator is told it will not survive a restart.
+            log.Warning($"Préférences non enregistrées (widgets) : {ex.GetType().Name}.");
+            journal.Add(new JournalEntry(timeProvider.GetUtcNow(), "Préférences non enregistrées" + FrenchText.Colon + "l’état des widgets vaut pour cette session", Tone.Warn));
+        }
+        finally
+        {
+            persistGate.Release();
+        }
+    }
 
     private bool IsDisabled(string widgetId)
     {
@@ -218,7 +335,7 @@ public sealed class DashboardService : IDisposable
         }
     }
 
-    private DashboardInput Input(DirectoryState state, ScopeSelection scope)
+    private DashboardInput Input(DirectoryState state, ScopeSelection scope, SessionSnapshot session)
     {
         ImmutableHashSet<string> disabledNow;
         lock (gate)
@@ -227,12 +344,12 @@ public sealed class DashboardService : IDisposable
         }
         // Session operations (in memory) then the journal kept by the source; the calculator orders them by date.
         var entries = journal.Snapshot().AddRange(state.Journal);
-        return new DashboardInput(state, scope, policy, disabledNow, entries, timeProvider.GetUtcNow(), timeProvider.LocalTimeZone, source.Kind);
+        return new DashboardInput(state, scope, policy, disabledNow, entries, timeProvider.GetUtcNow(), timeProvider.LocalTimeZone, source.Kind, session.Domain?.RootDn);
     }
 
     private static ScopeSelection RequireScope(SessionSnapshot session) =>
         session.Scope ?? throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
 
     private static string Label(WidgetDefinition definition, SessionSnapshot session) =>
-        DashboardCalculator.ScopeLabel(definition, session.Domain?.DnsName, session.Scope);
+        DashboardCalculator.ScopeLabel(definition, session.Domain?.DnsName, session.Scope, session.Domain?.RootDn);
 }

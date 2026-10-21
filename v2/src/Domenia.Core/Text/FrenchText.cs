@@ -17,6 +17,59 @@ public static class FrenchText
     /// <summary>« : » with its no-break space.</summary>
     public const string Colon = " : ";
 
+    /// <summary>Separator of a readable path (« example.local › Postes › Paris »): kept with the previous name, may wrap after.</summary>
+    public const string PathSeparator = " › ";
+
+    /// <summary>
+    /// Text for accent and case insensitive matching (« Sécurité » → « securite »), independent of the culture: canonical
+    /// decomposition without combining marks, ligatures spelled out, typographic apostrophe as « ' », lower case.
+    /// </summary>
+    public static string Fold(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var decomposed = Normalized(text, System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder(decomposed.Length);
+        foreach (var c in decomposed)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+            switch (c)
+            {
+                case 'œ' or 'Œ':
+                    builder.Append("oe");
+                    break;
+                case 'æ' or 'Æ':
+                    builder.Append("ae");
+                    break;
+                case 'ß':
+                    builder.Append("ss");
+                    break;
+                case '’' or '‘' or 'ʼ':
+                    builder.Append('\'');
+                    break;
+                default:
+                    builder.Append(char.ToLowerInvariant(c));
+                    break;
+            }
+        }
+        return Normalized(builder.ToString(), System.Text.NormalizationForm.FormC);
+    }
+
+    /// <summary>Normalized text; a text with invalid code points (lone surrogate) is kept as is, never an exception.</summary>
+    private static string Normalized(string text, System.Text.NormalizationForm form)
+    {
+        try
+        {
+            return text.Normalize(form);
+        }
+        catch (ArgumentException)
+        {
+            return text;
+        }
+    }
+
     public static string Integer(long value)
     {
         var magnitude = value < 0 ? (ulong)(-(value + 1)) + 1 : (ulong)value;

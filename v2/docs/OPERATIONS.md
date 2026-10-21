@@ -1,9 +1,11 @@
 # Domenia 2 — contrat des opérations du pont
 
 Ce document fixe, opération par opération, ce que la page web peut demander au moteur et la forme **exacte** de la
-réponse. Il couvre le shell et la page Accueil : `app.info`, `session.info`, `dashboard.summary`,
-`dashboard.widget.refresh` et `dashboard.widget.setEnabled`. La conception du mode simulation qui sert ces opérations
-sans Active Directory est dans [`SIMULATION.md`](SIMULATION.md).
+réponse. Il couvre le shell, la page Accueil et l’OU de travail : `app.info`, `session.info`, `dashboard.summary`,
+`dashboard.widget.refresh`, `dashboard.widget.setEnabled`, `directory.ou.children`, `directory.ou.search` et
+`session.setScope`. La conception du mode simulation qui sert ces opérations sans Active Directory est dans
+[`SIMULATION.md`](SIMULATION.md) ; l’organisation du moteur en modules (un par écran, trouvés tout seuls) est dans
+[`PLATFORM.md`](PLATFORM.md).
 
 Toute opération absente de ce document est refusée par le pont (`operation.unknown`). Ajouter une opération, c’est
 d’abord l’écrire ici.
@@ -57,10 +59,18 @@ Réponse du moteur, réussite puis échec :
 | `Local` | Calcul ou état en mémoire ; ni disque, ni réseau. |
 | `LocalRead` | Lecture de la base locale ou des fichiers de l’application. |
 | `NetworkRead` | Lecture annuaire, WMI, DNS ou ping, seulement après un geste explicite de l’opérateur, bornée à une OU. |
-| `Write` | Écriture AD ou action distante : plan, confirmation, reçu, relecture. **Refusée en simulation** (§ 1.5). |
+| `LocalWrite` | Écriture des **préférences locales de l’application seulement** (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
+| `Write` | Écriture AD ou action distante : plan, confirmation, reçu, relecture. **Toujours refusée en simulation** (§ 1.5). |
 
 La classe déclarée est celle du **mode annuaire** (le cas le plus exigeant). En simulation, le même nom d’opération
-garde la même classe et les mêmes règles d’admission, même si son gestionnaire ne touche ni réseau ni disque.
+garde la même classe et les mêmes règles d’admission, même si son gestionnaire ne touche ni réseau ni disque. Seule
+exception : une lecture de l’arborescence que la simulation sert en mémoire est déclarée `LocalRead` en simulation et
+`NetworkRead` en mode annuaire (`directory.ou.children`, `directory.ou.search`).
+
+Une écriture locale qui échoue (disque plein, droits) ne fait jamais échouer l’opération : le choix vaut pour la session,
+le journal technique trace le type d’erreur et le journal des opérations affiche « Préférences non enregistrées : … »
+(ton `warn`). Un document de préférences illisible est ignoré (valeurs par défaut) et mis de côté une fois
+(`.illisible`) avant d’être remplacé (`PLATFORM.md` § 5).
 
 ### 1.4 Codes d’erreur communs (déjà produits par `BridgeDispatcher`)
 
@@ -80,37 +90,54 @@ Codes communs ajoutés par ce contrat :
 | `arguments.invalid` | Arguments invalides : *précision*. | `args` d’une forme non admise (voir chaque opération). Le message ne recopie jamais la saisie de la page. |
 | `simulation.readOnly` | Écritures désactivées en simulation : aucune écriture tentée. | Toute opération de classe `Write` en simulation, refusée **avant** son gestionnaire. |
 | `simulation.unavailable` | Non disponible en simulation : aucune connexion au poste ni à l’annuaire. | Opération `NetworkRead` que l’annuaire fictif ne sert pas, refusée **avant** son gestionnaire. |
+| `write.unavailable` | Écritures non disponibles dans cette version : aucune écriture tentée. | Mode annuaire : toute opération de classe `Write` (et toute classe que la garde ne connaît pas), refusée **avant** son gestionnaire tant que la chaîne plan, confirmation, reçu et relecture n’existe pas dans le pont. |
 | `source.unavailable` | Lecture de l’annuaire indisponible dans cette version : lancez Domenia avec --simulation pour l’essayer sans Active Directory. | Mode annuaire tant que `Domenia.Ad` n’est pas branché. |
+| `ou.unknown` | OU introuvable : rien n’a été lu. | DN bien formé qui ne désigne ni la racine du domaine ni une OU (conteneur `CN=…`, OU absente, autre domaine). |
+| `scope.unknown` | OU introuvable : l’OU de travail n’a pas été changée. | `session.setScope` vers une OU absente ou un conteneur. |
+| `scope.outsideDomain` | Cette OU n’appartient pas au domaine de la session : l’OU de travail n’a pas été changée. | `session.setScope` vers un DN d’un autre domaine. |
 
 Précisions fixes de `arguments.invalid` :
 
 - « cette opération n’en accepte aucun. » — `args` porte des propriétés alors que l’opération n’en prend pas ;
 - « un objet JSON est attendu. » — `args` n’est pas un objet ;
 - « propriété non admise. » — propriété inconnue ou en double ;
-- « « id » est obligatoire et doit être un texte. » ;
-- « « enabled » est obligatoire et doit valoir true ou false. ».
+- « « id » est obligatoire et doit être un texte. » (de même pour « text » et « dn » quand ils sont obligatoires) ;
+- « « enabled » est obligatoire et doit valoir true ou false. » (de même pour « subtree ») ;
+- « « dn » doit être un texte ou null. » ;
+- « « dn » doit être un nom distinctif valide. » — DN vide, mal formé (RFC 4514) ou de plus de 2 048 caractères ;
+- « « text » doit faire au plus 100 caractères. ».
 
 Une opération sans argument accepte `args` absent, `null` ou `{}`.
 
 ### 1.5 Admission en simulation
 
 En simulation, le dispatcher refuse toute opération de classe `Write` avec `simulation.readOnly`, sans appeler le
-gestionnaire. Une opération `NetworkRead` n’est admise que si sa déclaration la marque servie par l’annuaire fictif
+gestionnaire, même si sa déclaration la marque servie ; les classes `Local`, `LocalRead` et `LocalWrite` (préférences de
+la simulation, jamais l’annuaire) sont admises, et toute classe ajoutée plus tard est refusée tant que la garde ne la
+connaît pas. Une opération `NetworkRead` n’est admise que si sa déclaration la marque servie par l’annuaire fictif
 (`OperationDefinition.ServedInSimulation`, aujourd’hui `dashboard.widget.refresh` seulement) ; toute autre (outils
 distants à venir) est refusée par défaut, sans appeler le gestionnaire, avec `simulation.unavailable` : « Non
 disponible en simulation : aucune connexion au poste ni à l’annuaire. » (parité avec `DOMENIA_DEMO_WRITE` et
 `DOMENIA_DEMO_UNAVAILABLE` de Domenia 1). Chaque refus du pont (message, opération, admission, arguments) est tracé
 dans le journal technique par son code et le nom d’opération déclaré, jamais par le contenu du message.
 
+En mode annuaire, la garde `AdmissionGuards.ReadOnlyDirectory` refuse de même toute opération de classe `Write`, et toute
+classe qu’elle ne connaît pas, avec `write.unavailable`, sans appeler le gestionnaire : la lecture seule par défaut ne
+dépend d’aucun module. `Local`, `LocalRead`, `LocalWrite` et `NetworkRead` sont admises. Un test construit le registre
+réel (tous les modules trouvés dans les assemblages Domenia) et vérifie qu’aucune opération n’y est de classe `Write`.
+
 ### 1.6 Récapitulatif
 
 | Opération | Classe | Arguments | Résultat |
 |---|---|---|---|
 | `app.info` | `Local` | aucun | identité de l’application et mode |
-| `session.info` | `Local` | aucun | session, domaine, contrôleur, périmètre, base locale |
+| `session.info` | `LocalRead` | aucun | session, domaine, contrôleur, OU de travail, base locale |
 | `dashboard.summary` | `LocalRead` | aucun | tous les widgets de l’Accueil |
 | `dashboard.widget.refresh` | `NetworkRead` | `{ id }` | le widget remesuré |
-| `dashboard.widget.setEnabled` | `Local` | `{ id, enabled }` | le widget dans son nouvel état |
+| `dashboard.widget.setEnabled` | `LocalWrite` | `{ id, enabled }` | le widget dans son nouvel état, mémorisé |
+| `directory.ou.children` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn }` (texte ou `null`) | l’OU (ou la racine) et ses OU enfants |
+| `directory.ou.search` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ text }` | tableau d’au plus 50 OU |
+| `session.setScope` | `LocalWrite` | `{ dn, subtree }` | `session.info` à jour |
 
 ---
 
@@ -133,7 +160,7 @@ tout le reste : c’est elle qui décide de l’affichage de la bannière de sim
 | `webViewRuntime` | texte | `"embarque"` (moteur fixe du pack) ou `"windows"` (moteur installé). La maquette du navigateur renvoie `"apercu"`. |
 | `mode` | texte | `"simulation"` ou `"annuaire"`. |
 | `modeLabel` | texte | `"Simulation"` ou `"Annuaire Active Directory"`. |
-| `modeReason` | texte | Pourquoi ce mode : `argument`, `environment`, `notDomainJoined`, `joinStateUnknown`, `domainJoined`, `environmentOptOut` (voir `SIMULATION.md` § 2). |
+| `modeReason` | texte | Pourquoi ce mode : `argument`, `environment`, `environmentOptOut`, `configuration`, `notDomainJoined`, `joinStateUnknown`, `domainJoined` (voir `SIMULATION.md` § 2). |
 | `modeDetail` | texte | Phrase pour l’opérateur expliquant le choix du mode. |
 | `banner` | texte ou `null` | Texte de la bannière permanente ; `null` en mode annuaire. La page l’affiche dès qu’il n’est pas nul. |
 
@@ -163,16 +190,20 @@ Textes de `modeDetail` :
 | `joinStateUnknown` | Appartenance du poste à un domaine illisible : démarrage en simulation. Pour forcer l’annuaire, définissez DOMENIA_SIMULATION=0. |
 | `domainJoined` | Poste joint au domaine *nom DNS du domaine*. |
 | `environmentOptOut` | Variable DOMENIA_SIMULATION=0 : mode annuaire demandé. |
+| `configuration` | Réglage Auth.DemoProvider de Domenia.config.json : démarrage en simulation. |
 
 ---
 
 ## 3. `session.info`
 
 État de la session : qui est connecté, à quel domaine et quel contrôleur, sur quel périmètre, avec quels droits
-estimés, et l’état de la base locale. Alimente la barre supérieure, le héros (« Bonjour Julien », puces domaine,
-contrôleur, OU) et l’onglet « Session » de « Session et vérifications ».
+estimés, et l’état de la base locale. Alimente la barre supérieure, le héros (titre « Vue d’ensemble · OU *libellé* »,
+puces compte, domaine, contrôleur, OU) et l’onglet « Session » de « Session et vérifications ». Pas de salutation par
+prénom (décision de David du 21/10) : l’opérateur travaille avec un compte d’administration, affiché en puce.
 
-- **Classe** : `Local` (état en mémoire ; aucune lecture réseau).
+- **Classe** : `LocalRead` : l’OU de travail mémorisée est relue dans le fichier des préférences au premier appel et
+  vérifiée dans l’index local des OU (`IOrganizationalUnitIndex` : mémoire en simulation, base locale en mode annuaire),
+  jamais par le réseau.
 - **Arguments** : aucun.
 - **Erreurs** : `arguments.invalid` seulement. En mode annuaire non connecté, l’opération répond quand même, avec
   `connection.state` = `disconnected` et les champs inconnus à `null`.
@@ -187,12 +218,12 @@ contrôleur, OU) et l’onglet « Session » de « Session et vérifications ».
 | `controller` | objet ou `null` | `dnsName` (FQDN du contrôleur), `site` (texte ou `null`). |
 | `account.login` | texte | Compte au format `DOMAINE\compte`. |
 | `account.displayName` | texte ou `null` | Nom affiché du compte. |
-| `account.givenName` | texte ou `null` | Prénom, pour « Bonjour *prénom* » ; `null` → « Bonjour ». |
+| `account.givenName` | texte ou `null` | Prénom du compte. La page ne s’en sert plus pour saluer (décision du 21/10) ; il reste dans le contrat. |
 | `account.dn` | texte ou `null` | DN du compte. |
 | `authentication.method` | texte | `none` (simulation), `windowsSession`, `explicitCredentials`. |
 | `authentication.protocol` | texte ou `null` | `kerberos`, `ntlm` ou `null` si inconnu. |
 | `authentication.label` | texte | Libellé affiché : `Aucune (simulation)`, `Kerberos`, `NTLM`, `Session Windows`. |
-| `scope` | objet ou `null` | Branche de travail des widgets de postes : `dn`, `label` (nom de l’OU), `subtree` (booléen). |
+| `scope` | objet ou `null` | OU de travail de la session (§ 11), défaut de toutes les sections sans choix propre : `dn`, `label` (nom de l’OU, ou nom DNS du domaine pour tout le domaine), `subtree` (booléen). `null` en mode annuaire non connecté. |
 | `rights.level` | texte | `read`, `delegated`, `admin` ou `unknown`. |
 | `rights.label` | texte | `Lecture`, `Délégués`, `Administration`, `Non évalués`. |
 | `rights.estimated` | booléen | Toujours `true` tant que les droits sont déduits des groupes et non vérifiés par l’annuaire. |
@@ -307,7 +338,11 @@ deux opérations de widget. Tout autre identifiant est refusé (`widget.unknown`
 | `recentOperations` | `timeline` | Dernières opérations | session | calcul local | journal des opérations |
 
 Les comptes (actifs, verrouillés, mots de passe) couvrent **tout le domaine** : l’OU de travail `OU=Postes` ne contient
-pas d’utilisateurs. Les widgets de postes couvrent l’OU de travail (`session.info.scope`), sous-arborescence comprise.
+pas d’utilisateurs. Les widgets de postes couvrent l’OU de travail (`session.info.scope`, § 11), sous-arborescence
+comprise si `subtree` est vrai. Leur `scopeLabel` vaut `OU <nom>`, ou `Domaine <nom DNS>` quand l’OU de travail est tout
+le domaine. L’historique quotidien des chiffres de postes (`history`, `delta`, jours passés de `workstationActivity`)
+appartient à l’OU pour laquelle il a été relevé : pour une autre OU de travail, ces jours sont **absents** (seul le
+point du jour reste, `delta` = `null`), jamais repris comme s’ils étaient les siens.
 
 ### 4.2 Champs communs à tous les widgets
 
@@ -759,12 +794,12 @@ Le bouton « Tout actualiser » appelle `dashboard.widget.refresh` pour chaque w
         "total": 63,
         "shown": 6,
         "rows": [
-          { "name": "PC-LYO-0031", "dn": "CN=PC-LYO-0031,OU=Lyon,OU=Postes,DC=example,DC=local", "objectGuid": "3f2a9c41-7b0e-4d6a-9e15-0c4b8d2f6a17", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 3,1 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:58:00Z" },
-          { "name": "PT-PAR-0118", "dn": "CN=PT-PAR-0118,OU=Paris,OU=Postes,DC=example,DC=local", "objectGuid": "8d41e0b2-55c9-4f3e-a2d7-61f09b3c4e88", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 4,0 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:47:00Z" },
-          { "name": "PC-MRS-0007", "dn": "CN=PC-MRS-0007,OU=Marseille,OU=Postes,DC=example,DC=local", "objectGuid": "c07b5e13-2a8f-4b91-8d3c-9e6a14f702d5", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 5,2 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-20T14:12:00Z" },
-          { "name": "PC-PAR-0142", "dn": "CN=PC-PAR-0142,OU=Paris,OU=Postes,DC=example,DC=local", "objectGuid": "5ae9d270-1c4b-4e8f-b6a0-27d38c91fe04", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 6,4 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:52:00Z" },
-          { "name": "PT-LIL-0012", "dn": "CN=PT-LIL-0012,OU=Lille,OU=Postes,DC=example,DC=local", "objectGuid": "91c6f8a3-6d2e-4a07-9b54-e80f3d1a2c69", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 7,7 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": null },
-          { "name": "PC-BDX-0021", "dn": "CN=PC-BDX-0021,OU=Bordeaux,OU=Postes,DC=example,DC=local", "objectGuid": "e4b0137c-9f5a-4c2d-8e61-a3d75b0c9f12", "ruleId": "lowDisk", "reason": "Disque C: presque plein : 8,3 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-19T09:58:00Z" }
+          { "name": "PC-LYO-0031", "dn": "CN=PC-LYO-0031,OU=Lyon,OU=Postes,DC=example,DC=local", "objectGuid": "3f2a9c41-7b0e-4d6a-9e15-0c4b8d2f6a17", "ruleId": "lowDisk", "reason": "Disque C presque plein : 3,1 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:58:00Z" },
+          { "name": "PT-PAR-0118", "dn": "CN=PT-PAR-0118,OU=Paris,OU=Postes,DC=example,DC=local", "objectGuid": "8d41e0b2-55c9-4f3e-a2d7-61f09b3c4e88", "ruleId": "lowDisk", "reason": "Disque C presque plein : 4,0 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:47:00Z" },
+          { "name": "PC-MRS-0007", "dn": "CN=PC-MRS-0007,OU=Marseille,OU=Postes,DC=example,DC=local", "objectGuid": "c07b5e13-2a8f-4b91-8d3c-9e6a14f702d5", "ruleId": "lowDisk", "reason": "Disque C presque plein : 5,2 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-20T14:12:00Z" },
+          { "name": "PC-PAR-0142", "dn": "CN=PC-PAR-0142,OU=Paris,OU=Postes,DC=example,DC=local", "objectGuid": "5ae9d270-1c4b-4e8f-b6a0-27d38c91fe04", "ruleId": "lowDisk", "reason": "Disque C presque plein : 6,4 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-21T15:52:00Z" },
+          { "name": "PT-LIL-0012", "dn": "CN=PT-LIL-0012,OU=Lille,OU=Postes,DC=example,DC=local", "objectGuid": "91c6f8a3-6d2e-4a07-9b54-e80f3d1a2c69", "ruleId": "lowDisk", "reason": "Disque C presque plein : 7,7 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": null },
+          { "name": "PC-BDX-0021", "dn": "CN=PC-BDX-0021,OU=Bordeaux,OU=Postes,DC=example,DC=local", "objectGuid": "e4b0137c-9f5a-4c2d-8e61-a3d75b0c9f12", "ruleId": "lowDisk", "reason": "Disque C presque plein : 8,3 % libre", "severity": "alert", "otherReasons": 0, "lastSeenAt": "2026-10-19T09:58:00Z" }
         ]
       }
     },
@@ -814,8 +849,8 @@ Renvoie le widget recalculé, **même forme** que `dashboard.summary.widgets[id]
 | Famille | Mode annuaire | Simulation |
 |---|---|---|
 | annuaire | Lecture des attributs du widget, enregistrée dans la base locale. | Relecture de l’annuaire fictif : valeurs inchangées, `measuredAt` = maintenant. |
-| présence | Relevé de présence borné à l’OU de travail (jamais la racine du domaine), budgets du moteur. | Nouvelle manche de présence déterministe (`SIMULATION.md` § 5.3). |
-| inventaire | Relevé WMI borné à l’OU de travail. | Relecture de l’inventaire fictif : valeurs inchangées, dates de relevé = maintenant. |
+| présence | Relevé de présence borné à l’OU de travail (jamais la racine du domaine), budgets du moteur. | Nouvelle manche de présence déterministe (`SIMULATION.md` § 5.3) ; seuls les postes de l’OU de travail sont relevés. |
+| inventaire | Relevé WMI borné à l’OU de travail. | Relecture de l’inventaire fictif : valeurs inchangées, dates de relevé des postes de l’OU de travail = maintenant. |
 | calcul local | Recalcul depuis la base locale, sans réseau. | Recalcul depuis l’état en mémoire. |
 
 - Une actualisation peut changer d’autres widgets qui partagent sa mesure (une manche de présence change aussi
@@ -885,7 +920,8 @@ Active ou désactive la mesure d’un widget (interrupteur « Mesure active »).
 grisé, sans aucune mesure ni appel réseau (demande de David) : `dashboard.summary` le renvoie avec `data` = `null`, et
 `dashboard.widget.refresh` le refuse (`widget.disabled`).
 
-- **Classe** : `Local` (état en mémoire du moteur ; aucune lecture).
+- **Classe** : `LocalWrite` (état du moteur, mémorisé dans les préférences locales ; aucune lecture d’annuaire, aucune
+  écriture AD). Admise en simulation (fichier `preferences-simulation.json`).
 - **Arguments** : `{ "id": "lockedAccounts", "enabled": false }` — `id` texte de la liste fermée, `enabled` booléen ;
   aucune autre propriété.
 - **Résultat** : le widget dans son nouvel état, même forme que `dashboard.summary.widgets[id]`.
@@ -896,8 +932,11 @@ grisé, sans aucune mesure ni appel réseau (demande de David) : `dashboard.summ
 - Un changement effectif ajoute au journal « Mesure désactivée : *titre* » ou « Mesure réactivée : *titre* ».
 - Une actualisation en cours sur un widget qu’on désactive se termine sans être publiée : sa réponse est le widget
   désactivé.
-- **Durée de vie** : l’état est conservé pendant la session. Sa persistance dans les préférences de l’application
-  attend `Domenia.Store` (point ouvert, `SIMULATION.md` § 10).
+- **Durée de vie** : décision de David du 21/10. Un changement effectif est mémorisé dans les préférences locales (clé
+  `dashboard.disabledWidgets` : identifiants des widgets désactivés, dans l’ordre du catalogue) ; au démarrage suivant,
+  les widgets reprennent leur état mémorisé dès le premier appel (`dashboard.summary`, `refresh` ou `setEnabled`). Un
+  identifiant inconnu est ignoré ; une valeur illisible est tracée et tous les widgets restent actifs. Redemander l’état
+  courant n’écrit rien. Si l’écriture échoue, le choix vaut pour la session et le journal le dit (§ 1.3).
 
 **Erreurs**
 
@@ -907,3 +946,136 @@ grisé, sans aucune mesure ni appel réseau (demande de David) : `dashboard.summ
 | `widget.unknown` | Widget inconnu : rien n’a été changé. | `id` hors de la liste fermée. |
 
 Exemple : `{ "id": "lockedAccounts", "enabled": false }` renvoie exactement l’objet « widget désactivé » du § 4.2.
+
+---
+
+## 8. Arborescence des OU : éléments communs
+
+Le panneau d’arborescence (choix de l’OU de travail) lit les OU du domaine de la session. Seuls les objets
+`organizationalUnit` sont listés : les conteneurs (`CN=Users`, `CN=Computers`, `CN=Builtin`) ne le sont jamais ; une OU
+placée sous un conteneur est rattachée à l’OU la plus proche au-dessus d’elle, sinon à la racine.
+
+Élément d’OU (forme commune à `directory.ou.children` et `directory.ou.search`) :
+
+| Champ | Type | Contenu |
+|---|---|---|
+| `dn` | texte | DN de l’OU, tel que l’annuaire l’écrit (échappements RFC 4514 compris) ; réutilisable tel quel dans les arguments. |
+| `name` | texte | Nom de l’OU (`name`, accents conservés). |
+| `path` | texte | Chemin lisible du domaine à l’OU : `example.local › Postes › Paris` (séparateur : espace insécable, `›`, espace). |
+| `hasChildren` | booléen | L’OU contient au moins une sous-OU. |
+| `counts.users` | entier | Utilisateurs de l’OU **et de ses sous-OU**, activés ou non. |
+| `counts.computers` | entier | Ordinateurs, même règle. |
+| `counts.groups` | entier | Groupes, même règle. |
+
+Ordre : nom, dans l’ordre alphabétique français sans casse (indépendant de la culture du poste), puis DN.
+
+---
+
+## 9. `directory.ou.children`
+
+OU enfants d’une OU, ou de la racine du domaine.
+
+- **Classe** : `LocalRead` en simulation (annuaire fictif en mémoire), `NetworkRead` en mode annuaire (lecture de
+  l’arborescence à l’ouverture ou au dépliage du panneau : geste explicite, un niveau à la fois).
+- **Arguments** : `{ "dn": null }` — `dn` texte ou `null` ; absent ou `null` désigne la racine du domaine ; aucune autre
+  propriété. Le DN de la racine elle-même (`DC=example,DC=local`, casse et échappements ignorés) est admis.
+- **Erreurs** : `arguments.invalid` (`dn` non texte, vide, mal formé, plus de 2 048 caractères, propriété en trop, `args`
+  non objet), `ou.unknown` (DN bien formé qui n’est ni la racine ni une OU du domaine), `source.unavailable` (mode
+  annuaire non connecté), `operation.cancelled`. L’aperçu dans un navigateur (`web/js/mock.js`) applique les mêmes
+  contrôles, dans le même ordre et avec les mêmes textes.
+- **Simulation** : délai réaliste de 60 à 160 ms, annulable (sous-suite `latency/screen/tree`).
+
+### Résultat
+
+| Champ | Type | Contenu |
+|---|---|---|
+| `parent` | objet | `{ dn, name, path }` de l’OU demandée ; pour la racine : DN de la racine, `name` = `path` = nom DNS du domaine. |
+| `children` | tableau | Éléments d’OU (§ 8) des OU enfants directes ; `[]` pour une feuille. |
+
+### Exemple (simulation, `{ "dn": null }`)
+
+```json
+{
+  "parent": { "dn": "DC=example,DC=local", "name": "example.local", "path": "example.local" },
+  "children": [
+    { "dn": "OU=Comptes à privilèges,DC=example,DC=local", "name": "Comptes à privilèges", "path": "example.local › Comptes à privilèges", "hasChildren": false, "counts": { "users": 6, "computers": 0, "groups": 0 } },
+    { "dn": "OU=Comptes de service,DC=example,DC=local", "name": "Comptes de service", "path": "example.local › Comptes de service", "hasChildren": false, "counts": { "users": 13, "computers": 0, "groups": 0 } },
+    { "dn": "OU=Domain Controllers,DC=example,DC=local", "name": "Domain Controllers", "path": "example.local › Domain Controllers", "hasChildren": false, "counts": { "users": 0, "computers": 2, "groups": 0 } },
+    { "dn": "OU=Groupes,DC=example,DC=local", "name": "Groupes", "path": "example.local › Groupes", "hasChildren": true, "counts": { "users": 0, "computers": 0, "groups": 58 } },
+    { "dn": "OU=Postes,DC=example,DC=local", "name": "Postes", "path": "example.local › Postes", "hasChildren": true, "counts": { "users": 0, "computers": 431, "groups": 0 } },
+    { "dn": "OU=Serveurs,DC=example,DC=local", "name": "Serveurs", "path": "example.local › Serveurs", "hasChildren": true, "counts": { "users": 0, "computers": 18, "groups": 0 } },
+    { "dn": "OU=Utilisateurs,DC=example,DC=local", "name": "Utilisateurs", "path": "example.local › Utilisateurs", "hasChildren": true, "counts": { "users": 1236, "computers": 0, "groups": 0 } }
+  ]
+}
+```
+
+`{ "dn": "OU=Postes,DC=example,DC=local" }` renvoie `Bordeaux` (36 postes), `Lille` (44), `Lyon` (82), `Marseille` (64),
+`Paris` (186) et `Quarantaine` (19), chemins `example.local › Postes › Paris`…
+
+---
+
+## 10. `directory.ou.search`
+
+Recherche d’OU par nom ou par chemin, pour le champ de recherche du panneau.
+
+- **Classe** : comme `directory.ou.children`.
+- **Arguments** : `{ "text": "secu" }` — `text` texte obligatoire, 100 caractères au plus ; aucune autre propriété.
+- **Correspondance** : l’OU est retenue si son **nom ou son chemin** contient le texte, **sans accent ni casse**
+  (« securite » trouve « Sécurité », « PARIS » trouve `Utilisateurs › Paris`, ses services et `Postes › Paris`) ; les
+  ligatures sont écrites en toutes lettres (« oe ») et l’apostrophe typographique vaut « ' ». Les espaces autour du texte
+  sont ignorés ; un texte vide ne trouve rien.
+- **Ordre et limite** : par chemin, dans l’ordre alphabétique français ; **au plus 50** éléments. Exactement 50 éléments
+  peut vouloir dire que d’autres OU correspondent : la page invite alors à affiner la recherche.
+- **Erreurs** : `arguments.invalid`, `source.unavailable`, `operation.cancelled`.
+
+### Résultat
+
+Un **tableau** d’éléments d’OU (§ 8), même forme que `children` ; `[]` si rien ne correspond.
+
+```json
+[
+  { "dn": "OU=Sécurité,OU=Groupes,DC=example,DC=local", "name": "Sécurité", "path": "example.local › Groupes › Sécurité", "hasChildren": false, "counts": { "users": 0, "computers": 0, "groups": 28 } }
+]
+```
+
+---
+
+## 11. `session.setScope`
+
+Choisit l’OU de travail (décision de David du 21/10 : « au plus pratique et logique ») : OU globale, choisie dans le
+panneau d’arborescence, mémorisée, défaut de toutes les sections sans choix propre (Accueil compris) ; une surcharge par
+section viendra ensuite.
+
+- **Classe** : `LocalWrite` (vérification dans l’index local des OU, jamais par le réseau, puis mémorisation dans les
+  préférences locales ; aucune écriture AD). Admise en simulation (fichier `preferences-simulation.json`).
+- **Arguments** : `{ "dn": "OU=Paris,OU=Postes,DC=example,DC=local", "subtree": true }` — `dn` texte obligatoire (DN bien
+  formé, 2 048 caractères au plus), `subtree` booléen obligatoire ; aucune autre propriété.
+- **Vérification** : le DN doit être une OU existante du domaine de la session (même règle que `directory.ou.children`),
+  ou la racine du domaine (« tout le domaine », toujours avec ses sous-OU : `subtree` est alors forcé à `true`). Avec tout
+  le domaine comme OU de travail, les mesures de postes restent refusées (`scope.tooWide`, § 6) : jamais tout le domaine.
+- **Effet** : l’OU vaut pour la session dès la réponse (Accueil, `session.info`, sections sans choix propre) et est
+  mémorisée **par domaine** dans les préférences (clé `session.workingScope.<SHA-256 du DN de la racine>`, valeur
+  `{ dn, subtree }`), comme `Directory.RootOu.<hex>` dans Domenia 1. Un changement effectif ajoute au journal
+  « OU de travail : *chemin* » (et « (sans sous-OU) » si `subtree` est faux). Redemander le choix courant n’écrit rien.
+- **Démarrage suivant** : l’OU mémorisée pour le domaine de la session est reprise si elle existe encore (vérifiée dans
+  l’index local des OU, `IOrganizationalUnitIndex` : mémoire en simulation, base locale en mode annuaire, jamais par le
+  réseau ; la racine du domaine est reprise elle aussi, toujours avec ses sous-OU) ; sinon l’OU par défaut de la source s’applique,
+  le journal technique trace le code de la raison (jamais le DN) et le journal des opérations affiche
+  « OU de travail mémorisée introuvable : périmètre par défaut » (ton `warn`). Une valeur mémorisée pour un autre domaine
+  n’est jamais lue.
+- **Résultat** : `session.info` à jour (§ 3), dont `scope` et l’étape `scope` des premiers pas.
+- **Erreurs** : `arguments.invalid`, `scope.unknown` (OU absente, conteneur), `scope.outsideDomain` (autre domaine),
+  `source.unavailable` (mode annuaire non connecté : ni domaine ni index local connus), `operation.cancelled`. L’aperçu
+  dans un navigateur suit les mêmes règles, racine du domaine comprise.
+
+Exemple de réponse (extrait) après `{ "dn": "OU=Paris,OU=Postes,DC=example,DC=local", "subtree": true }` :
+
+```json
+{
+  "connection": { "state": "simulated", "label": "Annuaire simulé" },
+  "scope": { "dn": "OU=Paris,OU=Postes,DC=example,DC=local", "label": "Paris", "subtree": true },
+  "readOnly": true
+}
+```
+
+Le `dashboard.summary` suivant porte le même `scope`, `workstationsOnline.data.total` = 186 et `scopeLabel` = `OU Paris`.

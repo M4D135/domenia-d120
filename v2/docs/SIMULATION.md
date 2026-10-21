@@ -14,15 +14,18 @@ En simulation, Domenia :
    WebView2 vers un autre hôte que `domenia.local` (pages, cadres, workers), bloque les navigations de cadres hors de ce
    nom et désactive la vérification de réputation SmartScreen ; à confirmer par une capture réseau dans la VM au moment
    des tests ;
-2. **n’écrit rien hors de son dossier de données** (`%LOCALAPPDATA%\Domenia`) : seuls le profil WebView2 et le journal
-   technique y vont, comme en mode annuaire. Le profil WebView2 de la simulation est distinct
-   (`WebView2-Simulation`) : stockage web et cache ne sont jamais partagés avec le mode annuaire. Si Windows ne fournit
-   aucun dossier `%LOCALAPPDATA%` absolu, rien n’est écrit (ni journal ni profil) et la fenêtre l’explique ;
+2. **n’écrit rien hors de son dossier de données** (`%LOCALAPPDATA%\Domenia`) : seuls le profil WebView2, le journal
+   technique et les préférences locales y vont, comme en mode annuaire. Le profil WebView2 de la simulation est distinct
+   (`WebView2-Simulation`) et ses préférences aussi (`preferences-simulation.json`, opérations `LocalWrite` :
+   widgets désactivés, OU de travail) : stockage web, cache et préférences ne sont jamais partagés avec le mode annuaire.
+   Si Windows ne fournit aucun dossier `%LOCALAPPDATA%` absolu, rien n’est écrit (ni journal, ni profil, ni
+   préférences, gardées en mémoire pour la session) et la fenêtre l’explique ;
 3. **n’ouvre pas la base locale** de Domenia (SQLite) : aucune donnée fictive n’y entre, aucune donnée réelle n’est
    montrée en simulation ;
 4. **est en lecture seule** : toute opération de classe `Write` est refusée par le pont avant son gestionnaire
    (`simulation.readOnly`) ; toute opération `NetworkRead` que l’annuaire fictif ne sert pas (outils distants) est
-   refusée par défaut (`simulation.unavailable`) ;
+   refusée par défaut (`simulation.unavailable`) ; seules les écritures `LocalWrite` (préférences de la simulation,
+   jamais l’annuaire) sont admises ;
 5. **ne demande ni mot de passe ni compte** : aucune saisie d’identifiants, aucun coffre, aucun secret ;
 6. **le dit en permanence** : bannière dans la page et titre de fenêtre « Domenia — Simulation » ;
 7. **est déterministe** : même graine, même date de référence et même fuseau donnent le même annuaire, à l’octet près ;
@@ -45,15 +48,25 @@ Le mode est décidé **une fois, au démarrage**, par une fonction pure de `Dome
 | 1 | Argument `--simulation` sur la ligne de commande (casse indifférente, valeur exacte, sans `=`) | simulation | `argument` |
 | 2 | `DOMENIA_SIMULATION` vaut `1` (espaces autour tolérés) | simulation | `environment` |
 | 3 | `DOMENIA_SIMULATION` vaut `0` | annuaire | `environmentOptOut` |
-| 4 | Le poste n’est joint à aucun domaine (groupe de travail ou non joint) | simulation | `notDomainJoined` |
-| 5 | L’état de jonction est illisible | simulation | `joinStateUnknown` |
-| 6 | Le poste est joint à un domaine | annuaire | `domainJoined` |
+| 4 | `Domenia.config.json`, à côté de l’exécutable, active `Auth.DemoProvider` (booléen JSON `true`) | simulation | `configuration` |
+| 5 | Le poste n’est joint à aucun domaine (groupe de travail ou non joint) | simulation | `notDomainJoined` |
+| 6 | L’état de jonction est illisible | simulation | `joinStateUnknown` |
+| 7 | Le poste est joint à un domaine | annuaire | `domainJoined` |
 
 - Toute autre valeur de `DOMENIA_SIMULATION` (`true`, `oui`, `2`…) est **ignorée** et tracée une fois dans le journal
   technique (« Valeur de DOMENIA_SIMULATION ignorée : seules 1 et 0 sont admises. »).
 - Les autres arguments de la ligne de commande sont ignorés et tracés de même ; aucun n’est recopié dans un message de
   l’interface.
-- Le cas 5 privilégie le démarrage : la simulation est sans risque (lecture seule, données fictives, bannière). Pour
+- Règle 4 (décision de David du 21/10, « ok, fais au mieux ») : reprise du réglage `Auth.DemoProvider` de Domenia 1. Le
+  fichier garde le format JSON de Domenia 1 (`{ "Auth": { "DemoProvider": true } }`, marque d’ordre des octets admise,
+  noms de sections et de clés sans casse comme `ConvertFrom-Json`) ; seul le booléen JSON `true` active la simulation
+  (`"true"` ou `1` ne l’activent pas, comme `Test-DomeniaDemoProviderEnabled`). Le fichier n’est lu que si les règles
+  1 à 3 ne décident pas, en lecture seule, 1 Mo au plus. Absent : tracé (« Domenia.config.json absent : réglages par
+  défaut. »). Invalide (JSON illisible, autre chose qu’un objet, contenu après l’objet, commentaires, virgule finale,
+  section ou clé en double à la casse près, plus de 1 Mo, lecture impossible) : tracé avec une raison fixe, jamais son
+  contenu ni son chemin, et ignoré ; le démarrage continue avec la règle suivante. `DOMENIA_SIMULATION=0` l’emporte (règle
+  3). Les livraisons de Domenia 1 refusaient déjà un fichier livré avec ce réglage (`release_guard.py`).
+- Le cas 6 privilégie le démarrage : la simulation est sans risque (lecture seule, données fictives, bannière). Pour
   forcer l’annuaire sur un tel poste : `DOMENIA_SIMULATION=0`.
 - Un poste joint mais hors réseau (portable en déplacement) reste en mode annuaire, non connecté : il n’y a pas de
   bascule automatique vers la simulation en cours de session.
@@ -413,7 +426,8 @@ valeurs et date la lecture de maintenant. L’inventaire non plus : seules ses d
 Seule la **présence** évolue, par manches déterministes :
 
 - la manche `k` (k ≥ 1) part à chaque actualisation de `workstationsOnline` ou de `measureFreshness` ; tous les postes
-  actifs de l’OU sont sondés à l’instant de l’actualisation ;
+  actifs de l’OU **de travail** sont sondés à l’instant de l’actualisation (la manche est tirée sur tout `OU=Postes`,
+  puis seuls les postes de l’OU de travail prennent leur nouveau relevé ; les autres gardent le précédent) ;
 - les 3 postes en erreur gardent leur relevé précédent (« non vérifié ») ; les 13 postes inactifs ne répondent pas ;
 - parmi les autres, exactement `N_k = cible du profil + e_k` répondent, avec `e_k` ∈ [−6 ; +6] tiré de la sous-suite
   `presence/k` ; ce sont les `N_k` postes de plus petit score `r + j(k)`, `j(k)` ∈ [0 ; 40[ tiré par poste : la
@@ -504,7 +518,7 @@ public interface IDirectorySource
 
     Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken);     // LocalRead: last known state
 
-    Task<DirectoryState> RefreshAsync(MeasureFamily family, CancellationToken cancellationToken); // NetworkRead in directory mode
+    Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken); // NetworkRead in directory mode, bounded to the working OU
 }
 
 public enum MeasureFamily { Directory, Presence, Inventory }
@@ -514,8 +528,10 @@ public sealed record DirectoryState(DirectorySnapshot Directory, FleetObservatio
 
 L’interface n’a **aucune** méthode d’écriture : la simulation est en lecture seule par construction. Les échecs
 attendus lèvent `DomeniaOperationException(code, message)` (Core), que le pont transmet tels quels.
-`RefreshAsync(Presence)` et `RefreshAsync(Inventory)` lèvent `scope.tooWide` si le périmètre de la session est la racine
-du domaine, dans les deux modes.
+`RefreshAsync(Presence)` et `RefreshAsync(Inventory)` lèvent `scope.tooWide` si l’OU de travail passée (`scope`, celle
+de `session.setScope`, `OPERATIONS.md` § 11) est la racine du domaine ou manque, dans les deux modes.
+`DirectoryState.HistoryScope` dit pour quelle OU l’historique quotidien a été relevé : pour une autre OU de travail, le
+calcul laisse les jours passés des chiffres de postes absents.
 
 `UnavailableDirectorySource` (Core) sert le mode annuaire tant que `Domenia.Ad` n’existe pas : `GetSessionAsync` renvoie
 une session « non connectée » construite à partir des informations locales que lui passe l’application (domaine de
@@ -593,7 +609,8 @@ désactivés échangée atomiquement, dernier état connu conservé pour `setEna
 | `SimulatedWorldGenerator.cs` | Fonction pure `(options, référence, fuseau) → SimulatedWorld`. |
 | `SimulatedWorld.cs` | Instantané, relevés de la manche 0, historique, journal initial, session. |
 | `PresenceRounds.cs` | Manches de présence du § 5.3, pures. |
-| `SimulatedDirectorySource.cs` | `IDirectorySource` : monde généré à la première utilisation (`Lazy`, hors du fil de l’interface), manches, dates de relevé, latence. |
+| `SimulatedDirectorySource.cs` | `IDirectorySource` : monde généré à la première utilisation (`Lazy`, hors du fil de l’interface), manches, dates de relevé, latence ; `ScreenStream(écran)` et `SimulateScreenLatencyAsync` pour les lecteurs d’écran. |
+| `Screens/SimulatedDirectoryTreeReader.cs` | `IDirectoryTreeReader` (arborescence des OU) dérivé du monde généré, sans changer le générateur (`PLATFORM.md` § 4). |
 
 Latence simulée : `ReadLocalAsync` 120 à 250 ms (sous-suite `latency/read/n`), `RefreshAsync` 400 à 900 ms pour toutes
 les familles, calcul local compris (sous-suite `latency/refresh/n`), par `Task.Delay(durée, timeProvider,
@@ -622,9 +639,11 @@ concurrentes. `GetSessionAsync` n’attend pas.
 1. `Program.Main(string[] args)` : `ModeResolver.Resolve(args, Environment.GetEnvironmentVariable("DOMENIA_SIMULATION"),
    DomainJoin.Read)` ; trace la décision et ses avertissements dans le journal technique.
 2. Composition (`Composition.cs`) : simulation → `new SimulatedDirectorySource(SimulationOptions.Default,
-   TimeProvider.System)` ; annuaire → `UnavailableDirectorySource` (plus tard `Domenia.Ad`). Puis `DashboardService`,
-   puis le registre : `app.info` (`HostOperations`, avec la décision) + `SessionOperations` + `DashboardOperations`.
-   Rien de lourd ici : aucune génération, aucune lecture.
+   TimeProvider.System)` ; annuaire → `UnavailableDirectorySource` (plus tard `Domenia.Ad`). Puis le contexte de
+   services (`EngineContext` : préférences du mode, horloge, journal technique, lecteurs d’écran trouvés pour la source)
+   et le registre construit à partir des modules trouvés par réflexion dans les assemblages `Domenia.*` (`HostOperations`
+   pour `app.info`, `SessionOperations`, `DashboardOperations`, `DirectoryTreeOperations`…, `PLATFORM.md`). Rien de lourd
+   ici : aucune génération, aucune lecture.
 3. `MainForm(ModeDecision, OperationRegistry)` : titre « Domenia — Simulation » en simulation, garde d’admission selon
    le mode, sérialisation `BridgeJson.Options`. Les messages restent traités hors du fil de l’interface (`Task.Run`
    existant).
@@ -756,19 +775,22 @@ fuseau fixés) et une référence par défaut `2026-10-21T16:26:00Z`, fuseau de 
 5. Compilation dans la VM après chaque lot (`tools/sync-vm.sh` puis `tools/build-vm.ps1`) ; tests à la toute fin.
 
 La page Accueil (`web/`) consomme le contrat tel quel ; `web/js/mock.js` doit renvoyer les mêmes formes pour l’aperçu
-dans un navigateur.
+dans un navigateur. Il porte `SeededRandom` à l’identique (SplitMix64 en entiers 64 bits, sous-suites nommées par FNV-1a 64,
+tirages sans biais par rejet) : les 13 instantanés quotidiens (`history`, `history/accounts`) sont les mêmes nombres que
+ceux du moteur, donc les mêmes tendances à 7 jours et les mêmes courbes ; comme le moteur, il ne montre l’historique des
+postes que pour l’OU où il a été relevé (OU Postes avec ses sous-OU), jamais au prorata d’une autre OU.
 
 ## 10. Points ouverts
 
-1. **Persistance de « Mesure active »** : l’état est gardé pour la session. Le rendre durable demande un emplacement
-   dans les préférences (`Domenia.Store`) et une classe d’opération d’écriture locale (dossier de données seulement,
-   jamais l’annuaire) que l’énumération actuelle n’a pas. À trancher par David.
-2. **Réglage `Auth.DemoProvider` de Domenia 1** : à la reprise des réglages, faut-il le traduire en démarrage en
-   simulation ? Proposition : oui, équivalent de `DOMENIA_SIMULATION=1`.
+1. ~~**Persistance de « Mesure active »**~~ : tranché le 21/10 (« fais au plus intelligent ») et réalisé : classe
+   `LocalWrite`, préférences locales (`preferences-simulation.json` en simulation), `OPERATIONS.md` § 7.
+2. ~~**Réglage `Auth.DemoProvider` de Domenia 1**~~ : tranché le 21/10 (« ok, fais au mieux ») et réalisé : règle 4
+   du § 2.1, raison `configuration`.
 3. **Fins de service** (`fleet.eos`, `fleet.win10`) : hors de cette étape ; la table de Domenia 1 sera portée avec ces
    widgets. Les 23 postes Windows 10 22H2 de la simulation deviendront alors des alertes « fin de service ».
-4. **Choix de l’OU de travail** : une opération `session.setScope` (et la lecture de l’arborescence) suivra ; d’ici là
-   le périmètre est `OU=Postes`.
+4. ~~**Choix de l’OU de travail**~~ : tranché le 21/10 (« au plus pratique et logique ») et réalisé côté moteur :
+   `directory.ou.children`, `directory.ou.search`, `session.setScope` (`OPERATIONS.md` § 8 à 11), OU mémorisée par
+   domaine ; `OU=Postes` reste l’OU par défaut de la simulation.
 5. `docs/FEATURES.md` n’existe pas encore : le mode simulation y sera inscrit comme amélioration de la démonstration
    D002 à D004 (statut `ameliore`). `ARCHITECTURE.md` liste `Domenia.Simulation` depuis le 21 octobre 2026.
 
@@ -810,3 +832,18 @@ fictif lu il y a 12 min », onglet « Données fictives ») ; `lastSeenAt` nul s
   antérieur à la lecture fictive de l’annuaire (référence − 12 minutes).
 - `distribution.lead` vaut `null` seulement si le périmètre ne contient aucun ordinateur activé (cas absent de la simulation).
 
+### Ajouts du 21 octobre 2026 au soir (plateforme)
+
+Code écrit et compilé dans la VM (Debug et Release, 0 erreur, 0 avertissement) ; **tests écrits, non exécutés**.
+
+- Modules d’opérations trouvés par réflexion, contexte de services, lecteurs d’écran : `PLATFORM.md`.
+- `LocalWrite`, préférences locales (`Domenia.Store/Preferences/FilePreferenceStore.cs`), persistance de
+  `dashboard.widget.setEnabled`, OU de travail (`Domenia.Core/Session/WorkingScope.cs`), arborescence des OU
+  (`Domenia.Core/Directory/Tree/`, `Domenia.Simulation/Screens/SimulatedDirectoryTreeReader.cs`), `Auth.DemoProvider`
+  (`Domenia.Core/Startup/LegacyConfiguration.cs`, `Domenia.Store/Configuration/LegacyConfigurationFile.cs`).
+- Tests ajoutés (à exécuter à la fin) : `PlatformTests` (découverte des modules et des lecteurs, erreurs de composition,
+  garde de simulation avec `LocalWrite`), `PreferencesTests` (document atomique, illisible mis de côté, échec d’écriture,
+  widgets mémorisés et restaurés), `DirectoryTreeTests` (formes exactes, ordre français, chemins, nombres, recherche sans
+  accent, bornes), `WorkingScopeTests` (choix, mémorisation par domaine, restauration, OU disparue, tout le domaine,
+  historique d’une autre OU, manche bornée à l’OU), `LegacyConfigurationTests` (ordre des règles, booléen strict, fichiers
+  invalides), `CaptureArgumentsTests` (`CAPTURE.md` § 14), `tests/tools/vm-lock-test.sh` (verrou de la VM).

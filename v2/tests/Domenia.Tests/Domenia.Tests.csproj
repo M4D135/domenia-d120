@@ -10,4 +10,11 @@
     <ProjectReference Include="../../src/Domenia.Engine/Domenia.Engine.csproj" />
     <ProjectReference Include="../../src/Domenia.Simulation/Domenia.Simulation.csproj" />
   </ItemGroup>
+  <!-- Domenia.App is a self-contained WinForms executable the tests cannot reference: its pure capture types (no WinForms,
+       no WebView2, no journal) are compiled here from the very same source files, so the code tested is the code shipped. -->
+  <ItemGroup>
+    <Compile Include="../../src/Domenia.App/Capture/CaptureArguments.cs" Link="Linked/CaptureArguments.cs" />
+    <Compile Include="../../src/Domenia.App/Capture/CaptureSequence.cs" Link="Linked/CaptureSequence.cs" />
+    <Using Include="System.Drawing" />
+  </ItemGroup>
 </Project>

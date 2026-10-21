@@ -28,6 +28,6 @@ public sealed class UnavailableDirectorySource(string? joinedDomain, Func<string
     public Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken) =>
         Task.FromException<DirectoryState>(new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage));
 
-    public Task<DirectoryState> RefreshAsync(MeasureFamily family, CancellationToken cancellationToken) =>
+    public Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken) =>
         Task.FromException<DirectoryState>(new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage));
 }

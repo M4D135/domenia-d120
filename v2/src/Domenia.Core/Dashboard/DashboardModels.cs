@@ -110,7 +110,10 @@ public sealed record TimelineRow(string Label, DateTimeOffset At, Tone Tone);
 
 public sealed record TimelineData(int Total, ImmutableArray<TimelineRow> Rows);
 
-/// <summary>Everything the pure calculation needs: no clock, time zone or culture is read inside.</summary>
+/// <summary>
+/// Everything the pure calculation needs: no clock, time zone or culture is read inside. <see cref="RootDn"/> (domain root
+/// of the session) lets a working scope on the whole domain be labelled « Domaine … »; null falls back to the snapshot.
+/// </summary>
 public sealed record DashboardInput(
     DirectoryState State,
     ScopeSelection Scope,
@@ -119,4 +122,5 @@ public sealed record DashboardInput(
     ImmutableArray<JournalEntry> Journal,
     DateTimeOffset Now,
     TimeZoneInfo TimeZone,
-    DirectorySourceKind SourceKind);
+    DirectorySourceKind SourceKind,
+    string? RootDn = null);

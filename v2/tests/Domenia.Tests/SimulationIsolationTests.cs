@@ -40,6 +40,19 @@ internal static class SimulationIsolationTests
     }
 
     [Test]
+    public static void Simulation_screen_readers_depend_on_the_simulated_source_only()
+    {
+        var readers = typeof(SimulatedDirectorySource).Assembly.GetExportedTypes().Where(t => typeof(IScreenReader).IsAssignableFrom(t) && t.IsClass).ToList();
+        Check.True(readers.Count >= 1, "au moins un lecteur d’écran simulé");
+        foreach (var reader in readers)
+        {
+            var parameters = reader.GetConstructors().Single().GetParameters();
+            Check.True(parameters.Length == 1 && parameters[0].ParameterType == typeof(SimulatedDirectorySource), "construit sur la source simulée : " + reader.Name);
+            Check.Equal("Domenia.Simulation", reader.Namespace, "espace de noms de la simulation : " + reader.Name);
+        }
+    }
+
+    [Test]
     public static async Task Responses_and_snapshot_carry_no_secret()
     {
         var bridge = new SimulatedBridge();
@@ -48,6 +61,9 @@ internal static class SimulationIsolationTests
             SimulatedBridge.Json(await bridge.CallAsync("session.info")),
             SimulatedBridge.Json(await bridge.CallAsync("dashboard.summary")),
             SimulatedBridge.Json(await bridge.CallAsync("dashboard.widget.refresh", "{\"id\":\"watchlist\"}")),
+            SimulatedBridge.Json(await bridge.CallAsync("directory.ou.children", "{\"dn\":null}")),
+            SimulatedBridge.Json(await bridge.CallAsync("directory.ou.search", "{\"text\":\"comptes\"}")),
+            SimulatedBridge.Json(await bridge.CallAsync("session.setScope", "{\"dn\":\"OU=Paris,OU=Postes,DC=example,DC=local\",\"subtree\":true}")),
         };
         using (var info = JsonDocument.Parse(JsonSerializer.Serialize(AppInfoBuilder.Build(ModeResolver.Resolve(["--simulation"], null, () => new DomainJoinInfo(DomainJoinState.Unknown, null)), "10", "windows"), BridgeJson.Options)))
         {

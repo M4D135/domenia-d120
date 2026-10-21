@@ -119,7 +119,7 @@ function navMarkup() {
   }).join('');
   const bottom = PAGES.map((p, n) => (p.section === null ? navItem(p, n) : '')).join('');
   return `<nav class="nav" aria-label="Navigation principale">
-    <div class="brand"><span class="brand-mark">${icon('logo')}</span><span class="brand-name">Domenia</span><span class="brand-ver" data-tip="Domenia 2"><span aria-hidden="true">v2</span><span class="visually-hidden">, version 2</span></span></div>
+    <div class="brand" data-tip="Domenia 2"><span class="brand-mark">${icon('logo')}</span><span class="brand-name"><span class="brand-title">Domenia</span><span class="brand-sub">Active Directory</span></span></div>
     <span class="nav-pill" aria-hidden="true"></span>
     ${sections}
     <div class="nav-spacer"></div>
@@ -137,7 +137,7 @@ function topbarMarkup() {
       ${icon('search')}<span>Rechercher un compte, un poste, une commande…</span><kbd>Ctrl K</kbd>
     </button>
     <div class="topbar-spacer"></div>
-    <span class="mode-chip" hidden><span class="glow-ring" aria-hidden="true"></span><span class="dot pulse"></span><span class="txt"></span></span>
+    <span class="mode-chip" hidden><span class="glow-ring" aria-hidden="true"></span><span class="dot pulse"></span><span class="txt"></span><span class="visually-hidden detail"></span></span>
     <span class="live" data-state="unknown"><span class="dot pulse"></span><span class="label">Connexion…</span></span>
     <div class="segmented theme-switch" role="group" aria-label="Thème"><span class="thumb" aria-hidden="true"></span>${themes}</div>
     <button class="btn ghost icon notif" type="button" aria-label="Notifications" data-tip="Notifications">${icon('bell')}</button>
@@ -211,21 +211,27 @@ function initTips(nav) {
 
 // ---------- Mode, connection and banner ----------
 
-// Full version in the tip of the « v2 » pill next to the logo (app.info, OPERATIONS.md § 2).
+// Full version in the tip of the logo (app.info, OPERATIONS.md § 2); the subtitle under the name says what Domenia
+// administers rather than a bare « v2 ».
 function showVersion(info) {
-  const pill = document.querySelector('.brand-ver');
-  if (pill && typeof info?.version === 'string' && info.version) pill.dataset.tip = `Domenia 2 · version ${info.version}`;
+  const brand = document.querySelector('.brand');
+  if (brand && typeof info?.version === 'string' && info.version) brand.dataset.tip = `Domenia 2 · version ${info.version}`;
 }
 
 // The browser preview is recognised by its engine (OPERATIONS.md § 2: webViewRuntime "apercu"); it also reports
-// mode "simulation", so the preview wording wins.
+// mode "simulation", so the preview wording wins. The chip names the mode in one word and stands for the connection
+// indicator, hidden in simulation (shell.css); the banner below explains the mode; the chip's tip and hidden text give
+// its reason.
 function showMode(info) {
   const preview = info?.webViewRuntime === 'apercu';
   const simulation = info?.mode === 'simulation';
   const chip = document.querySelector('.mode-chip');
   if (simulation || preview) {
-    chip.querySelector('.txt').textContent = preview ? 'Aperçu' : 'Simulation · annuaire fictif';
-    chip.dataset.tip = info.modeDetail || (preview ? 'Aperçu dans un navigateur : données de démonstration intégrées à la page.' : 'Annuaire fictif : aucune requête ne part.');
+    const detail = info.modeDetail || (preview ? 'Aperçu dans un navigateur\u00A0: données de démonstration intégrées à la page.' : 'Annuaire fictif\u00A0: aucune requête ne part.');
+    chip.querySelector('.txt').textContent = preview ? 'Aperçu' : 'Simulation';
+    chip.querySelector('.detail').textContent = `\u00A0: ${detail} Lecture seule, aucune écriture possible.`;
+    chip.dataset.tip = `${detail} Lecture seule, aucune écriture possible.`;
+    chip.dataset.mode = preview ? 'preview' : 'simulation';
     chip.hidden = false;
   }
   const text = info?.banner
@@ -352,7 +358,7 @@ function boot() {
       page,
       pages: PAGES,
       call: trackedCall,
-      go: (id) => router.go(id),
+      go: (id, params) => router.go(id, params),
       toast,
       app: appInfo,
       showConnection,

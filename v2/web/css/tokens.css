@@ -73,6 +73,8 @@
   /* Brand gradient used by hero surfaces, primary buttons and the logo */
   --brand-1: #066ddb; --brand-2: #6a5cff; --brand-3: #19c3b2; --brand-4: #ff7ab6;
   --brand-gradient: linear-gradient(120deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+  /* Text and icons drawn on the brand colours (marks, icons of panels and dialogs, avatars) */
+  --on-brand: #ffffff;
 
   /* Layout */
   --nav-w: 248px;
@@ -124,6 +126,11 @@
   --ok: #3ff23f; --warn: #ffff00; --alert: #ff6b6b; --info: #1aebff; --off: #ffffff;
   --ok-soft: #000000; --warn-soft: #000000; --alert-soft: #000000; --info-soft: #000000; --off-soft: #000000;
   --shadow-1: none; --shadow-2: none; --shadow-3: none;
+  /* No blue-violet gradient in high contrast: the brand colours become the solid accent of the theme, with black
+     marks and icons on them (the accent is light). */
+  --brand-1: #1aebff; --brand-2: #1aebff; --brand-3: #1aebff; --brand-4: #ffff00;
+  --brand-gradient: linear-gradient(#1aebff, #1aebff);
+  --on-brand: #000000;
 }
 
 /* "Réduire les animations" (operator setting), or "Suivre Windows" when Windows asks for it. Rich motion stays the
