@@ -109,7 +109,8 @@ internal static class DashboardOperationsTests
         Check.Equal("Julien", before.GetProperty("account").GetProperty("givenName").GetString(), "prénom");
         Check.Equal(JsonValueKind.Null, before.GetProperty("authentication").GetProperty("protocol").ValueKind, "protocole nul écrit");
         Check.Equal("none", before.GetProperty("authentication").GetProperty("method").GetString(), "aucune authentification");
-        Check.True(before.GetProperty("readOnly").GetBoolean(), "lecture seule");
+        // Writes are admitted in simulation on the in-memory overlay (decision of 21/10): not read only (docs/WRITES.md).
+        Check.False(before.GetProperty("readOnly").GetBoolean(), "écritures de la simulation admises (surcouche en mémoire)");
         Check.Equal("fresh", before.GetProperty("cache").GetProperty("state").GetString(), "base à jour");
         Check.Equal(1826, before.GetProperty("cache").GetProperty("objects").GetInt32(), "objets");
         Check.Equal(3, before.GetProperty("onboarding").GetProperty("completed").GetInt32(), "trois étapes faites");
@@ -298,9 +299,10 @@ internal static class DashboardOperationsTests
     }
 
     [Test]
-    public static void The_real_registry_declares_no_write_in_any_mode()
+    public static void The_real_registry_declares_one_write_only_the_write_circuit()
     {
-        // Every module found in the Domenia assemblies, as the application composes them.
+        // Every module found in the Domenia assemblies, as the application composes them. The only operation of class Write is
+        // the generic execution of the write circuit (docs/WRITES.md); every operation is admitted in directory mode.
         var assemblies = OperationModules.LoadDomeniaAssemblies();
         foreach (var mode in new[] { AppMode.Simulation, AppMode.Directory })
         {
@@ -311,17 +313,26 @@ internal static class DashboardOperationsTests
             var decision = mode == AppMode.Simulation
                 ? SimulatedBridge.Decision
                 : ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));
-            using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), clock, new RecordingJournal(), ScreenReaders.Discover(source, assemblies));
+            using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), clock, new RecordingJournal(), ScreenReaders.Discover(source, assemblies),
+                writers: WriteExecutors.Discover(source, assemblies));
             var registry = OperationModules.CreateRegistry(context, OperationModules.Discover(assemblies));
             Check.True(registry.Names.Count > 0, "opérations trouvées (" + mode + ")");
+            var writes = new List<string>();
             foreach (var name in registry.Names)
             {
-                Check.True(registry.TryGet(name, out var definition) && definition.Class != OperationClass.Write, "aucune écriture déclarée : " + name);
+                Check.True(registry.TryGet(name, out var definition), "opération présente : " + name);
+                if (definition!.Class == OperationClass.Write)
+                {
+                    writes.Add(name);
+                }
                 if (mode == AppMode.Directory)
                 {
-                    Check.Null(AdmissionGuards.For(mode)(definition!), "opération admise en mode annuaire : " + name);
+                    Check.Null(AdmissionGuards.For(mode)(definition), "opération admise en mode annuaire : " + name);
                 }
             }
+            Check.True(writes.SequenceEqual([WriteCircuit.ExecuteOperation]), "une seule écriture, write.execute (" + mode + ") : " + string.Join(", ", writes));
+            Check.True(registry.TryGet(WriteCircuit.ExecuteOperation, out var execute), "write.execute déclarée (" + mode + ")");
+            Check.Null(AdmissionGuards.For(mode)(execute!), "write.execute admise (" + mode + ")");
         }
     }
 

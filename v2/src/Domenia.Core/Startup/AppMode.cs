@@ -5,7 +5,7 @@ namespace Domenia.Core;
 /// <summary>Operating mode of the application, decided once at startup.</summary>
 public enum AppMode
 {
-    /// <summary>Fictitious in-memory directory: no network, no local base, read only.</summary>
+    /// <summary>Fictitious in-memory directory: no network, no local base; writes go to an in-memory overlay only.</summary>
     Simulation,
 
     /// <summary>Real Active Directory (JSON text "annuaire").</summary>
@@ -51,7 +51,7 @@ public static class ModeTexts
 {
     public const string SimulationLabel = "Simulation";
     public const string DirectoryLabel = "Annuaire Active Directory";
-    public const string Banner = "Simulation : annuaire fictif example.local, aucune connexion à Active Directory, aucune écriture possible.";
+    public const string Banner = "Simulation : annuaire fictif example.local, aucune connexion à Active Directory ; les écritures ne modifient que cet annuaire fictif, en mémoire.";
     public const string WindowTitleSuffix = " — Simulation";
 
     public const string DetailArgument = "Lancé avec l’option --simulation.";

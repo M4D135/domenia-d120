@@ -99,8 +99,9 @@ internal sealed class WorldBuilder
             new AccountIdentity(SimulationProfile.NetbiosName + "\\" + julien.Sam, julien.DisplayName, julien.Given, julien.Dn),
             new AuthenticationInfo(AuthenticationMethod.None, null, "Aucune (simulation)"),
             new ScopeSelection(ouDn["Postes"], SimulationProfile.WorkingOuName, true),
-            new RightsInfo(RightsLevel.Read, SessionTexts.RightsLabel(RightsLevel.Read), true, "Simulation : les droits sont fictifs et aucune écriture n’est possible."),
-            true,
+            new RightsInfo(RightsLevel.Read, SessionTexts.RightsLabel(RightsLevel.Read), true, "Simulation : les droits sont fictifs ; les écritures ne modifient que l’annuaire fictif, en mémoire."),
+            // Writes are admitted in simulation, on the in-memory overlay only (decision of David, 21/10): not read only.
+            false,
             new StoreStatus(snapshot.ReadAt, snapshot.ObjectCount, snapshot.Complete));
         return new SimulatedWorld(reference, timeZone, Weekend, snapshot, observations, history, journal, session, presence);
     }

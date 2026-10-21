@@ -1,0 +1,626 @@
+
+
+## Fonctions visibles pour l'utilisateur
+- `Move-DomeniaSelectedUserWithOuPicker` : déplacement d'un utilisateur sélectionné via un sélecteur d'OU, avec statut d'annulation ou message d'erreur.
+- `Get-DomeniaManagerControls` : exposition des contrôles « Choisir », « Ouvrir » et « Retirer » pour le responsable d'un utilisateur ou d'un poste.
+- `Set-DomeniaManagerField` : affichage du nom du responsable dans la fiche, sans DN visible, avec boutons Ouvrir/Retirer visibles seulement si un responsable est posé.
+- `Show-DomeniaManagerPicker` : ouverture d'un sélecteur d'utilisateur pour choisir le responsable, avec statut « responsable choisi » et rappel de l'enregistrement différé.
+- `Clear-DomeniaManagerSelection` : retrait local du responsable avec message demandant l'enregistrement pour effacer la valeur dans l'annuaire.
+- `Open-DomeniaManagerObject` : ouverture de l'objet responsable sélectionné, ou avertissement si aucun responsable n'est présent.
+- `Add-SelectedLink` : bascule vers l'onglet Relations, ouverture du panneau Ajouter de Relations et focus sur la recherche d'association.
+- `Import-LinksCsv` : choix d'un fichier d'import CSV/GLPI/osquery, filtre de fichier selon l'adaptateur, puis prévisualisation avant toute modification.
+- `Copy-SelectedCmdlet` : copie de la commande sélectionnée dans le presse-papiers avec message de confirmation.
+- `Copy-SelectedCmdletSyntax` : copie de la syntaxe chargée de la cmdlet, ou avertissement si aucune syntaxe n'est disponible.
+- `Copy-SelectedCmdletHelp` : copie de l'aide détaillée chargée, ou avertissement si aucune aide n'est disponible.
+- `Filter-AdCmdletReference` : filtrage de la liste des cmdlets par texte et par module, avec mise à jour du compteur `LblCmdletCount`.
+- `Clear-AdCmdletFilter` : réinitialisation du filtre texte et du module sélectionné pour les cmdlets.
+- `Start-SelectedCmdletHelp` : chargement de l'aide PowerShell d'une cmdlet dans `TxtCmdletHelp`, avec statut de chargement et désactivation temporaire des boutons de copie.
+- `Toggle-PasswordBox` : bascule afficher/masquer un mot de passe entre une zone masquée et une zone texte, avec icône et infobulle.
+- `Set-ControlsBusy` : désactivation temporaire des contrôles ciblés pendant les tâches, avec réapplication des droits d'interface à la fin.
+- `Update-TaskUi` : barre de progression `PbTop`, bouton `BtnCancelTask`, libellé `LblTaskElapsed`, badge Opérations et rafraîchissement du panneau d'activité.
+- `Clear-VisitCache` : vidage du cache de visite avec message indiquant qu'aucun objet AD n'a été modifié.
+- `Entry-ToRawAttributes` : affichage possible des attributs bruts d'un objet, filtrés des attributs sensibles.
+- `Apply-AutoTooltips` : application automatique d'infobulles sur les contrôles de l'interface.
+- `Select-DomeniaWorkspace` : navigation explicite vers un espace, un onglet interne ou une vue Expert ponctuelle, avec messages contextuels.
+- `Get-DomeniaLandingView` : choix de la vue d'atterrissage selon le type d'objet sélectionné.
+- `Set-VisibleTabsForType` : affichage ou masquage des onglets de fiche selon le type Utilisateur, Machine, Groupe, OU ou Conteneur.
+- `Assert-DomeniaWorkspaceSelection` : bascule automatique vers le premier espace visible si l'espace actif est masqué.
+- `Complete-DomeniaTreeChildrenUi` : rendu des enfants d'une branche de l'arborescence, avec message d'erreur invitant à replier/redéplier.
+- `Fail-DomeniaTreeChildrenUi` : affichage d'une erreur de chargement d'arborescence et restauration éventuelle des enfants précédents.
+- `Load-TreeChildren` : chargement des sous-branches de l'arborescence avec élément de chargement, statut d'erreur et garde anti double dépliage.
+- `Complete-DomeniaBranchObjectsUi` : affichage des objets d'une branche après relecture depuis la base locale.
+- `Load-BranchObjects` : rafraîchissement ou navigation de branche selon le mode OU ou la recherche courante.
+- `Complete-DomeniaGlobalSearchUi` : affichage des résultats de recherche, compteur, statut de durée, avertissement de limite atteinte et purge de grille si aucun résultat.
+- `Fail-DomeniaGlobalSearchUi` : affichage d'une erreur de recherche Active Directory avec libellé `LblBranchCount` en erreur.
+- `Clear-DomeniaGlobalSearch` : effacement de la recherche, de la grille, des filtres locaux et retour à l'espace Rechercher.
+- `Invoke-GlobalSearch` : lancement d'une recherche globale ou OU avec messages d'attente, statut de suite, avertissements de périmètre et sélection préservée ou purgée.
+- `Invoke-GlobalSearch` : affichage d'un indice de recherche dans `LblSearchHint` pour vue, adresse, syntaxe, multi-mots ou mode contient.
+- `Invoke-GlobalSearch` : affichage de l'état de compteur dans `LblBranchCount` pendant la recherche ou la continuation.
+- `Complete-DomeniaGlobalSearchUi` : affichage de la durée, du serveur et du nombre de résultats dans le statut.
+- `Complete-DomeniaBranchObjectsUi` : affichage du statut « Branche chargee : X objet(s) ».
+- `Load-TreeChildren` : affichage du statut « Chargement des sous-branches de ... » pendant la tâche.
+- `Start-SelectedCmdletHelp` : affichage de « Chargement de lʼaide de ... » dans la zone d'aide.
+- `Filter-AdCmdletReference` : affichage du nombre de cmdlets filtrées dans `LblCmdletCount`.
+- `Toggle-PasswordBox` : changement du contenu du bouton entre icône œil et icône masquer, avec infobulle adaptée.
+- `Update-TaskUi` : affichage du temps de file et du nom de la dernière tâche dans `LblTaskElapsed`.
+- `Set-ControlsBusy` : désactivation visuelle des contrôles occupés par une tâche.
+- `Apply-AutoTooltips` : ajout d'infobulles sur les contrôles pour l'aide contextuelle.
+- `Select-DomeniaWorkspace` : affichage d'indices contextuels pour les vues Expert refusées ou ponctuelles.
+- `Clear-VisitCache` : affichage d'un message de confirmation après vidage du cache.
+
+## Opérations et lectures
+- `Load-TreeChildren` : lecture AD/LDAP des enfants d'une DN avec filtre `(|(objectClass=organizationalUnit)(objectClass=container)(objectClass=builtinDomain))`, portée `OneLevel`, propriétés `name`, `distinguishedName`, `objectClass`, `objectGUID`, `whenChanged`, `uSNChanged`, `description`, `managedBy`, délai `Async/TreeTimeoutSeconds` par défaut 30 s.
+- `Invoke-GlobalSearch` : lecture AD/LDAP globale ou OU avec filtres prefix/exact/fast/ANR/broad, budget d'affichage 1 à 20000, budget LDAP `limit+1` plus les clés connues en continuation, page LDAP 100 à 1000, délai d'inactivité 120 à 600 s, durée maximale 900 à 3600 s, limite serveur LDAP 60 à 300 s, timeout client 90 à 600 s.
+- `Complete-DomeniaGlobalSearchUi` : refus d'affichage si la source retournée n'est pas `SQLite` ou si le périmètre retourné ne correspond pas à la requête.
+- `Complete-DomeniaBranchObjectsUi` : refus d'affichage de branche si la source n'est pas `SQLite`.
+- `Get-BranchQueryData` : préparation d'une requête de branche avec limite par défaut 100, minimum 1 et plafond 20000.
+- `Start-DomeniaAddressSearch` via `Invoke-GlobalSearch` : recherche locale d'adresse IPv4 ou MAC dans les relevés SQLite, sans réseau, avec périmètre, type et limite de la recherche courante.
+- `Start-SelectedCmdletHelp` : lecture PowerShell de l'aide d'une cmdlet via `Get-Command`, `Get-Help -Full`, syntaxe et paramètres, avec import éventuel du module `ActiveDirectory` ou `LAPS`, délai 35 s.
+- `Import-LinksCsv` : lecture d'un fichier choisi par l'opérateur avec filtre de l'adaptateur d'inventaire, puis prévisualisation avant import.
+- `Move-DomeniaSelectedUserWithOuPicker` : écriture AD de déplacement déléguée à `Move-SelectedObject` après sélecteur d'OU, avec vérification de fraîcheur, plan, confirmation et contrôle du DN cible.
+- `Show-DomeniaManagerPicker` et `Clear-DomeniaManagerSelection` : préparation locale du responsable à écrire dans l'annuaire seulement à l'enregistrement de la fiche.
+- `Open-DomeniaManagerObject` : ouverture d'un objet responsable via `Open-AdObject` en type `Utilisateur`.
+- `Complete-DomeniaGlobalSearchUi` : comportement annoncé pour les machines nouvellement listées : ping ICMP court en arrière-plan pour renseigner la présence, avec réutilisation d'un résultat encore frais.
+- `Load-TreeChildren` : envoi des propriétés d'objets d'arborescence vers le magasin local via `New-WDirectoryStoreProperties` et le pipe de lecture.
+- `Invoke-GlobalSearch` : envoi des propriétés d'objets de recherche vers le pipe de progression pour stockage local, avec tampon borné à 1000 enregistrements.
+- `Clear-DomeniaGlobalSearch` : arrêt silencieux des tâches de lecture globale ou de branche non écrites.
+- `Update-TaskUi` : lecture des tâches de premier plan et des lectures détachées pour piloter la barre, l'annulation et le libellé.
+- `Get-VisitCacheValue` : lecture d'une valeur de cache en mémoire avec expiration et statistiques.
+- `Set-VisitCacheValue` : écriture d'une valeur de cache en mémoire avec TTL, plafond d'entrées et éviction.
+- `Entry-ToRawAttributes` : lecture des propriétés d'un objet annuaire pour affichage brut, avec filtrage des attributs sensibles.
+- `Get-DeProp` : lecture de la première valeur d'une propriété d'objet annuaire.
+- `Get-DePropAll` : lecture de toutes les valeurs d'une propriété d'objet annuaire.
+- `Filter-AdCmdletReference` : lecture des lignes de référence cmdlets en mémoire pour filtrage.
+- `Copy-SelectedCmdlet` : lecture de la ligne sélectionnée dans `DgCmdlets` pour copie.
+- `Copy-SelectedCmdletSyntax` : lecture de `script:CurrentCmdletSyntax` pour copie.
+- `Copy-SelectedCmdletHelp` : lecture de `script:CurrentCmdletHelp` pour copie.
+- `Select-DomeniaWorkspace` : lecture de l'état des onglets et de la visibilité des espaces pour navigation.
+- `Set-VisibleTabsForType` : lecture du type d'objet sélectionné pour décider des onglets visibles.
+- `Load-BranchObjects` : lecture du mode de recherche courant pour rafraîchir la branche.
+- `Invoke-GlobalSearch` : lecture du texte de recherche, du type sélectionné, de la limite affichée et du périmètre courant avant envoi LDAP.
+- `Invoke-GlobalSearch` : lecture des vues de travail disponibles pour appliquer un filtre prédéfini.
+- `Invoke-GlobalSearch` : lecture des relevés locaux pour les recherches par adresse IPv4 ou MAC.
+- `Invoke-GlobalSearch` : lecture du contexte de connexion pour la clé de cache, le domaine et le serveur LDAP.
+
+## Règles métier et calculs
+- `Move-DomeniaSelectedUserWithOuPicker` : la sélection doit être un objet de type `Utilisateur` avec DN non vide.
+- `Move-DomeniaSelectedUserWithOuPicker` : si l'OU cible est identique au parent actuel, aucun déplacement et message « Le compte est déjà dans cette OU. Aucune écriture AD. ».
+- `Get-DomeniaManagerControls` : les contrôles du responsable sont distincts pour `Utilisateur` et `Machine`.
+- `Set-DomeniaManagerField` : le champ affiche le CN extrait du DN via `Get-DomeniaCnFromDn`, sinon le DN lui-même.
+- `Set-DomeniaManagerField` : les boutons Ouvrir et Retirer ne sont visibles que si un DN de responsable est présent.
+- `Show-DomeniaManagerPicker` : si le responsable choisi est identique à l'actuel, aucune modification et message dédié.
+- `Show-DomeniaManagerPicker` : le choix reste local et n'est écrit dans l'annuaire qu'à l'enregistrement de la fiche.
+- `Clear-DomeniaManagerSelection` : le retrait écrit une valeur vide plus tard, pas une suppression immédiate.
+- `Add-SelectedLink` : seul un `Utilisateur` ou une `Machine` peut porter des associations.
+- `Add-SelectedLink` : si aucun sujet n'est sélectionné, l'opérateur est invité à sélectionner un utilisateur ou un poste dans Rechercher.
+- `Add-SelectedLink` : le panneau d'ajout d'association est ouvert en mode recherche et le focus est placé sur la recherche d'association.
+- `Import-LinksCsv` : le format choisi impose l'adaptateur et la source (CSV générique, export GLPI, résultats osquery).
+- `Import-LinksCsv` : les lignes ne sont importées qu'après « Importer », en lot annulable même après redémarrage.
+- `Copy-SelectedCmdlet` : seule la ligne sélectionnée de la grille cmdlets est copiée.
+- `Copy-SelectedCmdletSyntax` : la copie est refusée avec avertissement si aucune syntaxe n'est chargée.
+- `Copy-SelectedCmdletHelp` : la copie est refusée avec avertissement si aucune aide n'est chargée.
+- `Filter-AdCmdletReference` : le filtre texte compare insensiblement la concaténation `Name`, `Module`, `Parameters`, `Synopsis`.
+- `Filter-AdCmdletReference` : le module sélectionné filtre par égalité insensible, sauf « Tous les modules ».
+- `Filter-AdCmdletReference` : le libellé du compteur est « X commande(s) ».
+- `Start-SelectedCmdletHelp` : l'aide est structurée en sections Commande, Module/Type, Synopsis, Description, Syntaxe, Paramètres, Exemples, Notes, Liens et Aide PowerShell complète.
+- `Start-SelectedCmdletHelp` : les paramètres affichent type, alias, jeux de paramètres, obligatoires, position, pipeline, propriété pipeline, reste et description d'aide si disponible.
+- `Start-SelectedCmdletHelp` : si le module est `ActiveDirectory`, le module est importé via `Import-WAdModule`; si `LAPS`, via `Import-Module LAPS`.
+- `Toggle-PasswordBox` : l'état affiché/masqué est mémorisé par un drapeau script et synchronise les deux contrôles.
+- `Get-NewTaskId` : l'identifiant de tâche combine le nom, un compteur incrémenté et 8 caractères d'un GUID.
+- `Set-ControlsBusy` : un contrôle est réactivé seulement quand son compteur d'occupation revient à 0.
+- `Update-TaskUi` : la barre, le bouton Annuler et le libellé suivent uniquement les tâches de premier plan ; les lectures détachées ou sauvegardes locales ne les déclenchent pas.
+- `Update-TaskUi` : le bouton Annuler est actif seulement si une tâche de premier plan est encore tenue par le moteur.
+- `Update-TaskUi` : le temps de file est calculé depuis la plus ancienne tâche en attente, avec format secondes ou minutes/secondes.
+- `Update-TaskUi` : les tâches en file sont affichées comme en attente, jamais comme en cours.
+- `Update-TaskUi` : le panneau d'activité est rafraîchi seulement s'il est ouvert, tandis que le badge Opérations est toujours mis à jour.
+- `Update-TaskUi` : les détails de session d'Accueil sont reconstruits seulement s'ils sont ouverts, sinon la vue est marquée comme obsolète.
+- `Get-VisitCacheValue` : une clé vide, un cache désactivé ou une entrée expirée ne renvoient aucune valeur.
+- `Get-VisitCacheValue` : une lecture réussie met à jour la date d'accès de l'entrée.
+- `Set-VisitCacheValue` : une clé vide n'est pas mise en cache ; le TTL est borné entre 1 et 86400 secondes.
+- `Set-VisitCacheValue` : le nombre d'entrées est borné entre 1 et 100000 ; les entrées expirées sont supprimées avant les entrées les plus anciennes.
+- `Set-VisitCacheValue` : la mise à jour d'une entrée existante n'évince pas une entrée vivante non concernée.
+- `Clear-VisitCache` : le cache est vidé et les statistiques sont remises à zéro.
+- `Get-DeProp` : la première valeur d'une propriété est renvoyée, avec repli sur une valeur par défaut.
+- `Get-DePropAll` : toutes les valeurs d'une propriété sont renvoyées sous forme de tableau.
+- `Test-DomeniaSensitiveAttributeName` : les noms d'attributs sensibles sont détectés par une liste regex couvrant mots de passe, LAPS, BitLocker, credentials gérés et clés.
+- `Get-DomeniaSafeObjectPropertyNames` : liste blanche explicite incluant `name`, `distinguishedName`, `objectClass`, `objectCategory`, `objectGUID`, `objectSid`, `uSNChanged`, `whenCreated`, `whenChanged`, `adminCount`, `isCriticalSystemObject`, `sAMAccountName`, `userPrincipalName`, `displayName`, `givenName`, `sn`, `mail`, `telephoneNumber`, `physicalDeliveryOfficeName`, `description`, `title`, `department`, `company`, `manager`, `userAccountControl`, `lockoutTime`, `msDS-User-Account-Control-Computed`, `lastLogonTimestamp`, `pwdLastSet`, `accountExpires`, `dNSHostName`, `operatingSystem`, `operatingSystemVersion`, `location`, `managedBy`, `member`, `memberOf`, `primaryGroupID`, `streetAddress`, `l`, `st`, `postalCode`, `co`, `c`, `homePhone`, `mobile`, `facsimileTelephoneNumber`, `ipPhone`, `wWWHomePage`, `employeeID`, `employeeNumber`, `division`, `profilePath`, `scriptPath`, `homeDirectory`, `homeDrive`, `userWorkstations`, `info`, `directReports`, `servicePrincipalName`, `operatingSystemServicePack`, `msDS-SupportedEncryptionTypes`, `lastLogoff`, `badPwdCount`, `badPasswordTime`, `msDS-UserPasswordExpiryTimeComputed`, `logonCount`, `userCertificate`.
+- `Remove-DomeniaSensitiveProperties` : les propriétés sensibles sont retirées avant exposition ou stockage.
+- `Entry-ToRawAttributes` : les attributs sont triés par nom, les valeurs multiples sont jointes par « ; », les octets sont convertis en texte hexadécimal et certains horodatages sont convertis via `Convert-FileTimeLabel`.
+- `Entry-ToRawAttributes` : les attributs sensibles sont exclus avant production des lignes brutes.
+- `Select-DomeniaWorkspace` : `TabDirectory` est redirigé vers `WsSearch`, `WsQueryWorkshop` vers l'espace Outils, et `TabSupport` vers l'espace Outils avec chargement du support.
+- `Select-DomeniaWorkspace` : une navigation depuis un raccourci, un menu contextuel ou la palette ne change jamais le profil enregistré.
+- `Select-DomeniaWorkspace` : une vue Expert non autorisée est refusée avec motif, et une vue Expert ponctuelle est affichée temporairement.
+- `Select-DomeniaWorkspace` : l'onglet `TabGuard` est masqué par défaut et montré seulement lors d'une navigation explicite.
+- `Get-DomeniaLandingView` : chaque type a une vue d'atterrissage dédiée, avec vue d'ensemble pour les postes et vue générique par défaut.
+- `Set-VisibleTabsForType` : les onglets sont masqués puis réaffichés selon le type d'objet, avec états vides pour Fiche et Poste.
+- `Set-VisibleTabsForType` : les onglets `TabMemberOf`, `TabUserAccessDiff`, `TabPermissions`, `TabGeneric` et `TabRaw` dépendent de la présence d'un objet ou du type.
+- `Assert-DomeniaWorkspaceSelection` : si l'espace actif est masqué, la sélection bascule sur le premier espace visible.
+- `Load-TreeChildren` : un nœud déjà chargé n'est pas relu sauf avec `-Force`, et un nœud en cours de lecture ou en rendu ne relance pas de lecture.
+- `Load-TreeChildren` : une lecture sans réponse bloque le nœud seulement jusqu'à `TreeTimeoutSeconds + 15` secondes.
+- `Load-TreeChildren` : les enfants sont triés par nom et les doublons ou objets sans DN sont ignorés.
+- `Fail-DomeniaTreeChildrenUi` : si la lecture précédente était préservée, les anciens enfants sont restaurés en cas d'échec.
+- `Complete-DomeniaGlobalSearchUi` : un résultat obsolète, un texte de recherche modifié ou un périmètre différent sont ignorés ou rejetés.
+- `Complete-DomeniaGlobalSearchUi` : une recherche sans résultat vide la grille sans recalcul de suggestions floues.
+- `Complete-DomeniaGlobalSearchUi` : la recherche n'ouvre aucune fiche automatiquement et ne sélectionne jamais une ligne à la place de l'opérateur.
+- `Complete-DomeniaGlobalSearchUi` : si le rendu dépasse 250 ms, un avertissement de lenteur est journalisé.
+- `Clear-DomeniaGlobalSearch` : le filtre OU est conservé après effacement de la recherche globale.
+- `Invoke-GlobalSearch` : une écriture active ou à vérifier diffère la recherche.
+- `Invoke-GlobalSearch` : une continuation n'est acceptée que si la liste affichée est encore la recherche courante.
+- `Invoke-GlobalSearch` : une vue de travail est un filtre en lecture seule, sans compte, sans droit et sans mode écriture.
+- `Invoke-GlobalSearch` : une vue de travail demandée sur une OU exige une OU sélectionnée dans l'arbre.
+- `Invoke-GlobalSearch` : une vue listée sur tout le domaine bloque ping, détection et analyse des lignes.
+- `Invoke-GlobalSearch` : une recherche globale refuse un texte composé uniquement d'astérisques, alors qu'une recherche OU peut lister la OU comme une navigation.
+- `Invoke-GlobalSearch` : les jokers ne sont utilisés que s'ils sont saisis explicitement.
+- `Invoke-GlobalSearch` : la recherche exacte couvre `sAMAccountName`, `userPrincipalName`, `mail`, `dNSHostName`, `name`, variantes courtes, variantes machine avec `$`, et variantes domaine.
+- `Invoke-GlobalSearch` : la recherche par préfixe est exécutée avant ANR pour éviter qu'un terme large renvoie moins de résultats qu'un terme précis.
+- `Invoke-GlobalSearch` : une recherche par identifiant ou syntaxe explicite n'ajoute aucune passe élargie cachée.
+- `Invoke-GlobalSearch` : le mode « contient » utilise un seul filtre et avertit que la lecture est plus longue.
+- `Invoke-GlobalSearch` : la limite est bornée à 20000 et un budget LDAP supplémentaire d'un objet permet de détecter la troncature.
+- `Invoke-GlobalSearch` : la continuation ajoute seulement les lignes suivantes, sans nouvelle entrée d'historique et sans déplacer les lignes déjà affichées.
+- `Invoke-GlobalSearch` : une nouvelle recherche purge la sélection sous garde d'événements pour ne pas déclencher d'ouverture d'objet.
+- `Invoke-GlobalSearch` : une nouvelle recherche vide le filtre local de la liste, sauf rafraîchissement, continuation, favori ou historique conservant leur filtre.
+- `Invoke-GlobalSearch` : la liste marque les comptes d'administration via `AdminCount`, sans en déduire un droit.
+- Vocabulaire objet utilisé : `Utilisateur`, `Machine`, `Groupe`, `OU`, `Conteneur`.
+
+## Réglages et données conservées
+- `Get-CfgValue` `Async/UiRefreshIntervalMs` : intervalle de rafraîchissement de l'UI des tâches, par défaut 500 ms, minimum 200 ms.
+- `Get-CfgValue` `Async/TreeTimeoutSeconds` : délai de lecture des enfants d'arborescence, par défaut 30 s.
+- `Get-CfgValue` `Async/SearchTimeoutSeconds` : délai d'inactivité de recherche, par défaut 120 s, borné 120 à 600 s.
+- `Get-CfgValue` `Async/SearchMaxDurationSeconds` : durée maximale de recherche, par défaut 900 s, bornée à au moins le délai d'inactivité et au plus 3600 s.
+- `Get-CfgValue` `Browser/GlobalSearchMinChars` : longueur minimale de recherche, par défaut 2, minimum 1.
+- `Get-CfgValue` `Browser/GlobalSearchLimit` : limite de recherche par défaut, par défaut 100.
+- `Get-CfgValue` `Browser/SearchServerTimeLimitSeconds` : limite serveur LDAP, par défaut 60 s, bornée 60 à 300 s.
+- `Get-CfgValue` `Browser/SearchClientTimeoutSeconds` : timeout client LDAP, par défaut 90 s, borné au moins serveur+30 s et au plus 600 s.
+- `Get-CfgValue` `Browser/SearchPageSize` : taille de page LDAP, par défaut 250, bornée 100 à 1000.
+- `Get-CfgValue` `Cache/Enabled` : activation du cache de visite, par défaut vrai.
+- `Get-CfgValue` `Cache/TtlSeconds` : durée de vie du cache, par défaut 90 s, bornée 1 à 86400 s.
+- `Get-CfgValue` `Cache/MaxEntries` : nombre maximal d'entrées de cache, par défaut 500, borné 1 à 100000.
+- `Get-CfgValue` `UI/AllowExpertProfile` : autorisation du profil Expert pour les décisions de navigation, par défaut vrai.
+- `Get-DomeniaFeatureFlag` `SearchSyntax` : activation de la syntaxe de recherche explicite, par défaut vrai.
+- `script:SelectedObject` : objet actuellement sélectionné, utilisé pour le déplacement et les associations.
+- `script:UserManagerDn` et `script:CompManagedByDn` : DN locaux du responsable d'utilisateur ou de poste avant enregistrement.
+- `script:CmdletReferenceRows` : lignes de référence des cmdlets filtrées dans la grille.
+- `script:CurrentCmdletSyntax` et `script:CurrentCmdletHelp` : syntaxe et aide chargées pour la cmdlet sélectionnée.
+- `script:AsyncSequence` : compteur incrémenté pour générer des identifiants de tâches.
+- `script:ControlBusyRef` : compteurs d'occupation par nom de contrôle.
+- `script:AsyncJobs` et `script:DetachedReadJobs` : tâches en cours et lectures détachées suivies par l'UI.
+- `script:LastTaskUiCount`, `script:LastTaskUiSignature`, `script:LastTaskUiRefresh` : mémoire anti-rafraîchissement de l'UI des tâches.
+- `script:VisitCache` et `script:CacheStats` : cache de visite en mémoire et statistiques Hits, Misses, Writes, Evictions, Errors.
+- `script:BranchObjects` et `script:BranchCountLabel` : objets de branche et libellé de compteur affichés.
+- `script:GlobalSearchGeneration` : génération de recherche utilisée pour ignorer les résultats obsolètes.
+- `script:ActiveSearchViewId` et `script:ListSurveyBlocked` : identifiant de vue active et blocage des relevés pour les vues domaine.
+- `script:SearchBarType` : type sélectionné dans la barre de recherche, normalisé pour le contrat global.
+- `script:SelectedBranchDn` : OU sélectionnée dans l'arbre, exigée par certaines vues de travail.
+- `script:Conn.Server`, `script:Conn.BaseDn`, `script:Conn.Domain` : contexte de connexion utilisé pour les clés de cache, les filtres domaine et les périmètres.
+- `script:Live.Identity` et `script:Live.Search.State.BaseDn` : identité et périmètre de la recherche active pour valider une continuation.
+- `script:ExperienceRestoring` : garde utilisée pour vider le filtre local sans déclencher les événements d'expérience.
+- `script:PendingObjectSelection`, `script:SelectionResetDn`, `script:CurrentObjectRequestId` : états de sélection et de demande d'objet à purger lors d'une nouvelle recherche.
+- `script:DashboardDirty` : marque de rafraîchissement du tableau de bord quand les détails de session sont fermés.
+- Base locale SQLite : source obligatoire pour afficher une recherche ou une branche, et source des relevés d'adresse IPv4/MAC.
+- Fichier choisi par `Import-LinksCsv` : chemin transmis à la prévisualisation d'import, avec filtre de l'adaptateur.
+- Presse-papiers : cible des copies de commande, syntaxe et aide via `Set-ClipboardSafe`.
+- Filtre OU : conservé après effacement de la recherche globale.
+- `TxtGlobalLimit` : valeur de limite saisie par l'opérateur, relue à chaque recherche et bornée à 20000.
+- `TxtCmdletFilter` et `CmbCmdletModule` : critères de filtrage des cmdlets.
+- `TxtGlobalSearch`, `TxtBranchSearch`, `TxtSuiteResultFilter` : textes de recherche et filtre local de liste.
+- `CmbGlobalType` : type sélectionné pour la recherche globale.
+- `DgCmdlets` : grille des cmdlets avec sélection courante.
+- `TxtCmdletHelp` : zone contenant l'aide détaillée chargée.
+- `LblSearchHint` : libellé affichant les indices de recherche, vues, adresses, syntaxe ou mode contient.
+- `LblBranchCount` : libellé affichant l'état de compteur ou l'erreur de recherche.
+- `LblTreeStatus` : libellé affichant les erreurs d'arborescence.
+- `LblTaskElapsed` : libellé affichant l'état des tâches et le temps de file.
+- `PbTop` : barre de progression des tâches.
+- `BtnCancelTask` : bouton d'annulation des tâches de premier plan.
+
+## Sécurité et garde-fous
+- `Assert-WriteAllowed` : bloque le déplacement, le choix et le retrait de responsable si l'écriture n'est pas autorisée.
+- `Test-DomeniaAccessBusyWrite` : diffère ou refuse les actions de recherche, associations et import pendant une écriture active ou à vérifier.
+- `Move-DomeniaSelectedUserWithOuPicker` : exige un utilisateur sélectionné avec DN, et refuse toute écriture si l'OU cible est identique au parent actuel.
+- `Move-SelectedObject` : unique écriture de déplacement, avec vérification de fraîcheur, plan, confirmation et contrôle du DN cible.
+- `Show-DomeniaManagerPicker` : le responsable choisi n'est pas écrit immédiatement ; l'écriture est différée à l'enregistrement de la fiche.
+- `Clear-DomeniaManagerSelection` : le retrait est une valeur vide différée, pas une suppression immédiate.
+- `Import-LinksCsv` : la prévisualisation est obligatoire avant toute modification, et l'import reste un lot annulable.
+- `Start-SelectedCmdletHelp` : les boutons de copie sont désactivés pendant le chargement et l'opération est bornée à 35 s.
+- `Update-TaskUi` : une lecture détachée n'est pas annulable ; seul le moteur peut annuler une tâche de premier plan encore tenue.
+- `Set-VisitCacheValue` : une clé vide n'est pas cacheable et le cache peut être désactivé par configuration.
+- `Test-DomeniaSensitiveAttributeName` : les attributs sensibles sont exclus des lectures brutes et des projections.
+- `Remove-DomeniaSensitiveProperties` : le dictionnaire de propriétés est filtré avant exposition.
+- `Get-DomeniaSafeObjectPropertyNames` : la liste blanche limite les propriétés accessibles aux objets.
+- `Complete-DomeniaGlobalSearchUi` : refus d'affichage si la source n'est pas SQLite ou si le périmètre retourné diffère de la requête.
+- `Complete-DomeniaBranchObjectsUi` : refus d'affichage de branche si la source n'est pas SQLite.
+- `Invoke-GlobalSearch` : contrat global strict refusant un périmètre hérité non autorisé par la puce de la barre.
+- `Invoke-GlobalSearch` : limite de résultats bornée à 20000 et budget LDAP borné à 1 à 20000 objets.
+- `Invoke-GlobalSearch` : filtres LDAP refusés s'ils ne sont pas entre parenthèses ou dépassent 16500 caractères en continuation.
+- `Invoke-GlobalSearch` : les erreurs de compte verrouillé, indisponible ou échec de connexion interrompent la recherche.
+- `Invoke-GlobalSearch` : les échecs d'identifiants sont enregistrés via `Register-WCredentialFailure`.
+- `Invoke-GlobalSearch` : la projection de liste est refusée si elle est trop lourde.
+- `Invoke-GlobalSearch` : les recherches par adresse restent locales et n'envoient pas de requête LDAP.
+- `Invoke-GlobalSearch` : les vues de travail sont en lecture seule et ne portent ni compte, ni droit, ni mode écriture.
+- `Invoke-GlobalSearch` : les vues sur tout le domaine bloquent les relevés, pings et analyses des lignes.
+- `Invoke-GlobalSearch` : les jokers implicites sont refusés ; seuls les jokers saisis explicitement sont utilisés.
+- `Invoke-GlobalSearch` : la sélection est purgée sous garde pour éviter toute ouverture d'objet non demandée.
+- `Select-DomeniaWorkspace` : les raccourcis, menus contextuels et palettes ne modifient jamais le profil enregistré.
+- `Select-DomeniaWorkspace` : les vues Expert non autorisées sont refusées avec motif affiché.
+- `Toggle-PasswordBox` : l'affichage du mot de passe est local à l'interface et bascule entre deux contrôles.
+- `Clear-VisitCache` : le vidage du cache n'écrit aucun objet AD.
+- `Show-ErrorBox` et `Show-DomeniaOperationError` : les erreurs sont présentées à l'opérateur avec contexte d'opération.
+- `Write-DomeniaSwallowed` : les erreurs non bloquantes d'UI sont journalisées sans interrompre la tâche.
+- `Test-DomeniaDraftNavigation` : bloque la recherche si une navigation de brouillon est en cours.
+- `Test-DomeniaContinuationCurrent` : refuse une continuation si l'identité, la génération ou le périmètre ne correspondent plus.
+- `Test-DomeniaSearchStateCurrent` : ignore les callbacks d'état de recherche obsolètes.
+- `Test-DomeniaDirectoryTreeCurrent` : ignore les erreurs d'arbre pour un contexte non courant.
+- `Get-DomeniaEffectiveWorkerResult` : exige les propriétés attendues du résultat worker.
+- `Test-DomeniaProjectionMinimal` : refuse une projection trop lourde.
+- `Test-DomeniaGlobalSearchRequest` : vérifie le contrat de recherche globale.
+- `Test-DomeniaLiveSearchActive` : exige une recherche active pour une continuation.
+- `Get-DomeniaSearchTextCheck` : refuse les textes de recherche invalides selon le mode.
+- `Get-DomeniaGlobalSearchPlan` : valide le plan de recherche globale avant envoi.
+- `New-DomeniaContainsFilter` : valide le filtre « contient » avant envoi.
+- `Get-DomeniaWorkViewPlan` : valide le plan d'une vue de travail avant envoi.
+- `Get-DomeniaExpertTabDecision` : décide l'affichage ou le refus des vues Expert.
+- `Escape-LdapValue` : échappe les valeurs LDAP, avec ou sans joker.
+- `Get-DomeniaStructuredError` : classe les erreurs LDAP et interrompt les erreurs critiques.
+- `Register-WCredentialFailure` : journalise les échecs d'identifiants sur le canal annuaire.
+- `Request-UiTaskStop` : arrête silencieusement les tâches de lecture globale ou de branche lors de l'effacement.
+- `Stop-DomeniaTreeRenderForNode` : stoppe le rendu d'un nœud pour éviter les affichages concurrents.
+- `Stop-DomeniaSelectionOpenTimer` : coupe l'ouverture différée de fiche pendant les purges de sélection.
+- `Reset-DomeniaSelectionBoundViews` : nettoie les vues liées à la sélection pour éviter les états fantômes.
+- `Set-ControlsBusy` : empêche les interactions sur les contrôles occupés par une tâche.
+- `Apply-CurrentPermissionUi` : réapplique les droits d'interface après libération d'un contrôle.
+- `Apply-DomeniaGuiElementPolicy` : applique la politique des éléments d'interface après changement de visibilité.
+- `Update-DomeniaUxProfileVisibility` : applique la visibilité selon le profil UX courant.
+- `Sync-DomeniaUxNavigation` : synchronise la navigation après changement d'espace ou d'onglet.
+- `Assert-DomeniaWorkspaceSelection` : évite de laisser l'interface sur un espace masqué.
+- `Fail-DomeniaTreeChildrenUi` : nettoie l'état de chargement d'un nœud pour éviter les blocages permanents.
+- `Complete-DomeniaTreeChildrenUi` : exige un nœud et un résultat valide avant de publier les enfants.
+- `Complete-DomeniaGlobalSearchUi` : ignore les résultats d'une génération de recherche obsolète.
+- `Complete-DomeniaGlobalSearchUi` : ignore les résultats si le texte de recherche a changé entre-temps.
+- `Fail-DomeniaGlobalSearchUi` : ignore les erreurs d'une génération de recherche obsolète.
+- `Clear-DomeniaGlobalSearch` : arrête les tâches de lecture non écrites avant de purger l'affichage.
+- `Invoke-GlobalSearch` : refuse la recherche si le champ de recherche est introuvable.
+- `Invoke-GlobalSearch` : refuse la recherche si la Base DN est vide.
+- `Invoke-GlobalSearch` : refuse la portée de recherche autre que `Subtree` ou `OneLevel`.
+- `Invoke-GlobalSearch` : refuse la continuation si la liste affichée n'est plus la recherche courante.
+- `Invoke-GlobalSearch` : refuse la continuation si le périmètre de la liste a changé.
+- `Invoke-GlobalSearch` : refuse une vue de travail inconnue.
+- `Invoke-GlobalSearch` : refuse une vue OU sans OU sélectionnée dans l'arbre.
+- `Invoke-GlobalSearch` : refuse une projection de liste trop lourde avant le worker.
+- `Invoke-GlobalSearch` : refuse un budget de recherche invalide hors 1 à 20000.
+- `Invoke-GlobalSearch` : refuse un filtre de continuation invalide ou trop long.
+- `Invoke-GlobalSearch` : interrompt la lecture si le token d'annulation est demandé.
+- `Invoke-GlobalSearch` : borne le tampon de progression à 1000 enregistrements pour éviter la saturation mémoire.
+- `Invoke-GlobalSearch` : n'ajoute pas de passe élargie cachée pour les identifiants ou syntaxes explicites.
+- `Invoke-GlobalSearch` : n'utilise pas de suggestion floue après une recherche sans résultat.
+- `Invoke-GlobalSearch` : ne choisit jamais une ligne de résultat à la place de l'opérateur.
+- `Invoke-GlobalSearch` : n'ouvre aucune fiche automatiquement après une recherche.
+- `Invoke-GlobalSearch` : bloque les relevés de poste pour les vues listées sur tout le domaine.
+- `Invoke-GlobalSearch` : conserve le filtre local seulement pour les gestes qui lui sont associés.
+- `Invoke-GlobalSearch` : sauvegarde le lieu quitté avant de changer la liste, sauf continuation.
+- `Invoke-GlobalSearch` : utilise un contexte serveurless uniquement comme copie complète du contexte courant.
+- `Invoke-GlobalSearch` : ne rafraîchit pas l'horloge d'inactivité sur les lignes déjà en cache ou le rendu UI.
+- `Invoke-GlobalSearch` : distingue la troncature par un résultat LDAP supplémentaire au-delà de la limite affichée.
+- `Invoke-GlobalSearch` : marque une liste partielle si le budget LDAP est atteint sans confirmer la complétude.
+- `Invoke-GlobalSearch` : journalise les diagnostics par serveur, filtre, nombre brut, nombre ajouté et durée.
+- `Invoke-GlobalSearch` : trace les budgets de recherche pour diagnostic.
+- `Invoke-GlobalSearch` : vérifie le contrat global uniquement pour le mode global.
+- `Invoke-GlobalSearch` : normalise le type de la barre avant comparaison avec le filtre LDAP.
+- `Invoke-GlobalSearch` : refuse un contrat global non respecté avec message explicite.
+- `Invoke-GlobalSearch` : sort proprement du contexte de navigation dans un bloc finally.
+- `Load-TreeChildren` : empêche un second dépliage pendant une lecture en cours.
+- `Load-TreeChildren` : ignore une lecture si un rendu est déjà en cours pour le nœud.
+- `Load-TreeChildren` : bloque un nœud seulement jusqu'au délai de lecture plus 15 secondes.
+- `Load-TreeChildren` : annule la lecture si le token d'annulation est demandé.
+- `Load-TreeChildren` : borne le tampon de progression à 1000 enregistrements.
+- `Load-TreeChildren` : trie les enfants par nom avant publication.
+- `Load-TreeChildren` : ignore les objets sans DN.
+- `Load-TreeChildren` : ne grise pas le nœud pendant la lecture, mais empêche les relances.
+- `Fail-DomeniaTreeChildrenUi` : annule le pipe de lecture s'il n'est pas terminé.
+- `Fail-DomeniaTreeChildrenUi` : ignore l'erreur si le contexte de magasin n'est plus courant.
+- `Fail-DomeniaTreeChildrenUi` : restaure les enfants précédents si la préservation est demandée.
+- `Fail-DomeniaTreeChildrenUi` : remet le nœud en état utilisable après erreur.
+- `Complete-DomeniaBranchObjectsUi` : exige que la source soit SQLite avant affichage.
+- `Complete-DomeniaGlobalSearchUi` : exige que la source soit SQLite avant affichage.
+- `Complete-DomeniaGlobalSearchUi` : exige que le périmètre retourné corresponde à la requête.
+- `Complete-DomeniaGlobalSearchUi` : supprime la clé de cache si la recherche ne renvoie aucune ligne.
+- `Clear-VisitCache` : réinitialise les statistiques de cache après vidage.
+- `Get-VisitCacheValue` : journalise les erreurs de cache sans interrompre l'application.
+- `Set-VisitCacheValue` : journalise les erreurs de cache sans interrompre l'application.
+- `Entry-ToRawAttributes` : exclut les attributs sensibles avant affichage brut.
+- `Entry-ToRawAttributes` : convertit les octets en texte lisible plutôt qu'en objet binaire.
+- `Entry-ToRawAttributes` : convertit les horodatages FileTime en libellés lisibles.
+- `Get-DeProp` : renvoie une valeur par défaut en cas d'absence de propriété.
+- `Get-DePropAll` : renvoie un tableau vide en cas d'absence de propriété.
+- `Test-DomeniaSensitiveAttributeName` : renvoie faux pour un nom vide.
+- `Remove-DomeniaSensitiveProperties` : ne conserve que les propriétés non sensibles d'un dictionnaire.
+- `Apply-AutoTooltips` : applique l'aide UX sans modifier les données.
+- `Select-DomeniaWorkspace` : refuse de naviguer vers un espace désactivé ou invisible.
+- `Select-DomeniaWorkspace` : masque les vues Expert temporaires lors des mises à jour suivantes.
+- `Select-DomeniaWorkspace` : affiche une raison quand une vue Expert est refusée.
+- `Select-DomeniaWorkspace` : ne change pas le profil enregistré lors des navigations rapides.
+- `Set-VisibleTabsForType` : masque les onglets non pertinents plutôt que de les laisser vides.
+- `Set-VisibleTabsForType` : conserve Fiche et Poste accessibles avec états vides.
+- `Set-VisibleTabsForType` : masque l'espace actif si nécessaire puis bascule sur un espace visible.
+- `Update-TaskUi` : ne montre la barre que s'il existe des tâches ou appels natifs actifs.
+- `Update-TaskUi` : n'active l'annulation que pour les tâches de premier plan.
+- `Update-TaskUi` : rafraîchit le panneau d'activité seulement s'il est ouvert.
+- `Update-TaskUi` : marque le tableau de bord comme obsolète si les détails de session sont fermés.
+- `Update-TaskUi` : limite la fréquence de rafraîchissement pour éviter les boucles UI.
+- `Set-ControlsBusy` : décrémente le compteur d'occupation sans le rendre négatif.
+- `Set-ControlsBusy` : ignore les noms de contrôles vides ou inexistants.
+- `Toggle-PasswordBox` : ne conserve pas le mot de passe dans un fichier.
+- `Copy-SelectedCmdlet` : copie seulement le nom de la commande sélectionnée.
+- `Copy-SelectedCmdletSyntax` : refuse de copier une syntaxe vide.
+- `Copy-SelectedCmdletHelp` : refuse de copier une aide vide.
+- `Filter-AdCmdletReference` : filtre seulement les lignes déjà chargées en mémoire.
+- `Clear-AdCmdletFilter` : réinitialise le filtre sans modifier les données sources.
+- `Start-SelectedCmdletHelp` : désactive les boutons de copie pendant le chargement pour éviter les copies incohérentes.
+- `Start-SelectedCmdletHelp` : stocke l'erreur dans la zone d'aide si le chargement échoue.
+- `Start-SelectedCmdletHelp` : utilise un délai dur pour éviter les blocages d'aide PowerShell.
+- `Import-LinksCsv` : n'importe pas sans prévisualisation.
+- `Import-LinksCsv` : impose le filtre de fichier de l'adaptateur choisi.
+- `Add-SelectedLink` : refuse les associations pour les objets autres qu'utilisateur ou poste.
+- `Add-SelectedLink` : refuse l'association si aucun sujet n'est sélectionné.
+- `Add-SelectedLink` : ne crée aucune association immédiate, seulement la préparation du panneau.
+- `Move-DomeniaSelectedUserWithOuPicker` : ne déplace pas si l'utilisateur sélectionné est nul ou de mauvais type.
+- `Move-DomeniaSelectedUserWithOuPicker` : ne déplace pas si le DN est vide.
+- `Move-DomeniaSelectedUserWithOuPicker` : ne déplace pas si le sélecteur d'OU retourne un DN vide.
+- `Move-DomeniaSelectedUserWithOuPicker` : ne déplace pas si la cible est déjà le parent actuel.
+- `Show-DomeniaManagerPicker` : refuse si l'écriture n'est pas autorisée.
+- `Clear-DomeniaManagerSelection` : refuse si l'écriture n'est pas autorisée.
+- `Open-DomeniaManagerObject` : affiche un avertissement si aucun responsable n'est présent.
+- `Load-BranchObjects` : délègue la recherche au moteur global unique.
+- `Get-BranchQueryData` : borne la limite de branche à 20000.
+- `Get-BranchQueryData` : utilise le filtre de texte OU et le filtre de type OU.
+- `Complete-DomeniaGlobalSearchUi` : affiche un avertissement de limite atteinte plutôt qu'une liste prétendument complète.
+- `Complete-DomeniaGlobalSearchUi` : journalise le nombre brut, la durée, le serveur, la base et les filtres utilisés.
+- `Fail-DomeniaGlobalSearchUi` : peut supprimer la boîte de dialogue d'erreur si l'appel est silencieux.
+- `Clear-DomeniaGlobalSearch` : journalise l'échec d'effacement dans le journal applicatif.
+- `Invoke-GlobalSearch` : retourne immédiatement si une écriture est active.
+- `Invoke-GlobalSearch` : retourne immédiatement si la navigation de brouillon est bloquée.
+- `Invoke-GlobalSearch` : retourne immédiatement si la continuation est obsolète.
+- `Invoke-GlobalSearch` : retourne immédiatement si le texte de recherche est invalide.
+- `Invoke-GlobalSearch` : retourne immédiatement si le plan de recherche est invalide.
+- `Invoke-GlobalSearch` : retourne immédiatement si le filtre contient est invalide.
+- `Invoke-GlobalSearch` : retourne immédiatement si la génération de recherche a changé pendant la préparation.
+- `Invoke-GlobalSearch` : affiche un statut d'attente pendant la recherche.
+- `Invoke-GlobalSearch` : affiche un statut de chargement de suite pendant une continuation.
+- `Invoke-GlobalSearch` : désactive le bouton de recherche globale pendant la tâche.
+- `Invoke-GlobalSearch` : utilise une clé de cache incluant mode, serveur, base, portée, type, texte et limite.
+- `Invoke-GlobalSearch` : ajoute la vue ou le mode contient à la clé de cache.
+- `Invoke-GlobalSearch` : utilise une projection de liste unique comme source de vérité.
+- `Invoke-GlobalSearch` : refuse une projection de liste trop lourde avant lecture.
+- `Invoke-GlobalSearch` : ajoute un contexte sans serveur seulement si le contexte courant a un serveur.
+- `Invoke-GlobalSearch` : copie le contexte complet pour le retry sans serveur.
+- `Invoke-GlobalSearch` : ignore les lignes dont le type n'est pas dans le vocabulaire objet.
+- `Invoke-GlobalSearch` : dédoublonne les lignes par DN ou par clé type/nom/login.
+- `Invoke-GlobalSearch` : ignore les lignes déjà connues lors d'une continuation.
+- `Invoke-GlobalSearch` : ajoute une ligne seulement si le budget d'affichage n'est pas atteint.
+- `Invoke-GlobalSearch` : publie aussi l'observation au-delà de la limite pour détecter la troncature.
+- `Invoke-GlobalSearch` : arrête la lecture d'un filtre dès qu'un résultat est trouvé ou la limite atteinte.
+- `Invoke-GlobalSearch` : passe au contexte suivant seulement si aucun résultat et aucune lecture réussie.
+- `Invoke-GlobalSearch` : lève une erreur si tous les contextes échouent sans résultat partiel.
+- `Invoke-GlobalSearch` : distingue succès, échec partiel et échec total.
+- `Invoke-GlobalSearch` : conserve le nom de la dernière ligne pour la continuation.
+- `Invoke-GlobalSearch` : trie la continuation par `name` ascendant.
+- `Invoke-GlobalSearch` : ajoute les clés connues au budget LDAP de la continuation.
+- `Invoke-GlobalSearch` : refuse un filtre de continuation hors bornes.
+- `Invoke-GlobalSearch` : utilise un filtre unique pour une continuation.
+- `Invoke-GlobalSearch` : ne crée pas de nouvelle entrée d'historique pour une continuation.
+- `Invoke-GlobalSearch` : conserve les lignes déjà affichées lors d'une continuation.
+- `Invoke-GlobalSearch` : conserve la sélection lors d'une continuation.
+- `Invoke-GlobalSearch` : conserve le filtre local lors d'une continuation.
+- `Invoke-GlobalSearch` : conserve le filtre local lors d'un rafraîchissement.
+- `Invoke-GlobalSearch` : conserve le filtre local lors d'un favori ou historique.
+- `Invoke-GlobalSearch` : vide le filtre local lors d'une nouvelle recherche.
+- `Invoke-GlobalSearch` : sauvegarde le lieu quitté avant une nouvelle recherche.
+- `Invoke-GlobalSearch` : ne sauvegarde pas le lieu quitté pour une continuation.
+- `Invoke-GlobalSearch` : sort du contexte de navigation dans tous les cas.
+- `Invoke-GlobalSearch` : utilise un timer de recherche en direct pour les résultats progressifs.
+- `Invoke-GlobalSearch` : démarre une recherche en direct pour une nouvelle recherche.
+- `Invoke-GlobalSearch` : reprend une recherche en direct pour une continuation.
+- `Invoke-GlobalSearch` : journalise la demande de recherche avec périmètre et limite.
+- `Invoke-GlobalSearch` : trace les budgets effectifs de recherche.
+- `Invoke-GlobalSearch` : sélectionne l'espace Rechercher sauf si la sélection doit être préservée.
+- `Invoke-GlobalSearch` : met à jour l'UI du périmètre sauf pour une continuation.
+- `Invoke-GlobalSearch` : affiche l'indice de recherche avant le lancement.
+- `Invoke-GlobalSearch` : bloque les relevés si la vue est sur tout le domaine.
+- `Invoke-GlobalSearch` : conserve le type de la barre pour l'historique et la continuation.
+- `Invoke-GlobalSearch` : conserve le choix de périmètre de la barre pour l'historique et la continuation.
+- `Invoke-GlobalSearch` : conserve le mode de correspondance pour l'historique et la continuation.
+- `Invoke-GlobalSearch` : conserve le type de plan pour l'historique et la continuation.
+- `Invoke-GlobalSearch` : crée un contexte de magasin pour la génération de recherche.
+- `Invoke-GlobalSearch` : exige un texte de recherche valide avant toute lecture.
+- `Invoke-GlobalSearch` : exige une longueur minimale de texte selon la configuration.
+- `Invoke-GlobalSearch` : refuse les textes composés uniquement d'astérisques en recherche globale.
+- `Invoke-GlobalSearch` : autorise les astérisques en recherche OU comme navigation.
+- `Invoke-GlobalSearch` : détecte les adresses IPv4 et MAC pour une lecture locale.
+- `Invoke-GlobalSearch` : remplace le plan LDAP par une lecture locale pour les adresses.
+- `Invoke-GlobalSearch` : journalise la recherche par adresse avec portee locale.
+- `Invoke-GlobalSearch` : n'utilise pas de passe élargie pour les adresses.
+- `Invoke-GlobalSearch` : n'utilise pas de passe élargie pour les vues.
+- `Invoke-GlobalSearch` : n'utilise pas de passe élargie pour les identifiants.
+- `Invoke-GlobalSearch` : n'utilise pas de passe élargie pour la syntaxe.
+- `Invoke-GlobalSearch` : n'utilise pas de passe élargie pour le mode contient.
+- `Invoke-GlobalSearch` : utilise une seule passe pour le mode contient.
+- `Invoke-GlobalSearch` : utilise une seule passe pour les vues.
+- `Invoke-GlobalSearch` : utilise une seule passe pour les identifiants.
+- `Invoke-GlobalSearch` : utilise une seule passe pour la syntaxe.
+- `Invoke-GlobalSearch` : utilise plusieurs passes seulement pour la recherche texte globale standard.
+- `Invoke-GlobalSearch` : exécute les passes dans un ordre borné.
+- `Invoke-GlobalSearch` : s'arrête dès qu'une passe prioritaire trouve des résultats.
+- `Invoke-GlobalSearch` : s'arrête dès qu'une passe atteint la limite.
+- `Invoke-GlobalSearch` : continue vers le contexte sans serveur seulement si nécessaire.
+- `Invoke-GlobalSearch` : n'accepte pas les erreurs critiques de compte.
+- `Invoke-GlobalSearch` : accepte les erreurs non critiques avec diagnostic.
+- `Invoke-GlobalSearch` : libère les objets LDAP dans un bloc finally.
+- `Invoke-GlobalSearch` : libère la collection, le searcher et la racine de recherche.
+- `Invoke-GlobalSearch` : met à jour la progression seulement sur les lignes réellement reçues.
+- `Invoke-GlobalSearch` : n'actualise pas la progression sur le rendu UI.
+- `Invoke-GlobalSearch` : n'actualise pas la progression sur les lignes en cache.
+- `Invoke-GlobalSearch` : n'actualise pas la progression sur les retries sans résultat.
+- `Invoke-GlobalSearch` : utilise un verrou pour la progression partagée.
+- `Invoke-GlobalSearch` : attend quand le tampon de progression est plein.
+- `Invoke-GlobalSearch` : vérifie l'annulation pendant l'attente du tampon.
+- `Invoke-GlobalSearch` : vérifie l'annulation pendant la lecture LDAP.
+- `Invoke-GlobalSearch` : vérifie l'annulation pendant la construction des lignes.
+- `Invoke-GlobalSearch` : vérifie l'annulation pendant la publication des observations.
+- `Invoke-GlobalSearch` : retourne un objet final avec lignes, diagnostics et métriques.
+- `Invoke-GlobalSearch` : remplit l'état de lecture pour le pipe si présent.
+- `Invoke-GlobalSearch` : signale l'erreur dans l'état de lecture si présent.
+- `Invoke-GlobalSearch` : marque la lecture comme terminée dans tous les cas.
+- `Invoke-GlobalSearch` : démarre la tâche UI avec identifiant d'opération global.
+- `Invoke-GlobalSearch` : utilise une clé de remplacement pour éviter les doublons de tâche.
+- `Invoke-GlobalSearch` : désactive le bouton de recherche pendant la tâche.
+- `Invoke-GlobalSearch` : utilise un timeout souple et un timeout dur.
+- `Invoke-GlobalSearch` : appelle le gestionnaire de succès à la fin.
+- `Invoke-GlobalSearch` : appelle le gestionnaire d'erreur en cas d'échec.
+- `Invoke-GlobalSearch` : affiche une erreur de préparation si le lancement échoue.
+- `Invoke-GlobalSearch` : nettoie l'état de recherche en direct en cas d'erreur de préparation.
+- `Invoke-GlobalSearch` : ne laisse pas la navigation de recherche ouverte en cas d'exception.
+- `Invoke-GlobalSearch` : journalise l'erreur d'effacement si l'effacement échoue.
+- `Invoke-GlobalSearch` : affiche un statut d'erreur si l'effacement échoue.
+- `Invoke-GlobalSearch` : retourne à l'espace Rechercher après effacement.
+- `Invoke-GlobalSearch` : conserve le filtre OU après effacement.
+- `Invoke-GlobalSearch` : arrête le timer de recherche en direct avant effacement.
+- `Invoke-GlobalSearch` : arrête les tâches de recherche non écrites avant effacement.
+- `Invoke-GlobalSearch` : purge la grille avant de demander le rafraîchissement du tableau de bord.
+- `Invoke-GlobalSearch` : réinitialise les vues liées à la sélection après effacement.
+- `Invoke-GlobalSearch` : met à jour l'UI du périmètre après effacement.
+- `Invoke-GlobalSearch` : affiche le statut d'effacement réussi.
+- `Invoke-GlobalSearch` : journalise l'erreur d'effacement avec stack trace.
+- `Invoke-GlobalSearch` : affiche le statut d'erreur d'effacement.
+- `Invoke-GlobalSearch` : retourne à l'espace Rechercher après effacement.
+- `Invoke-GlobalSearch` : conserve le filtre OU après effacement.
+- `Invoke-GlobalSearch` : arrête le timer de recherche en direct avant effacement.
+- `Invoke-GlobalSearch` : arrête les tâches de recherche non écrites avant effacement.
+- `Invoke-GlobalSearch` : purge la grille avant de demander le rafraîchissement du tableau de bord.
+- `Invoke-GlobalSearch` : réinitialise les vues liées à la sélection après effacement.
+- `Invoke-GlobalSearch` : met à jour l'UI du périmètre après effacement.
+- `Invoke-GlobalSearch` : affiche le statut d'effacement réussi.
+- `Invoke-GlobalSearch` : journalise l'erreur d'effacement avec stack trace.
+- `Invoke-GlobalSearch` : affiche le statut d'erreur d'effacement.
+- `Invoke-GlobalSearch` : retourne à l'espace Rechercher après effacement.
+- `Invoke-GlobalSearch` : conserve le filtre OU après effacement.
+- `Invoke-GlobalSearch` : arrête le timer de recherche en direct avant effacement.
+- `Invoke-GlobalSearch` : arrête les tâches de recherche non écrites avant effacement.
+- `Invoke-GlobalSearch` : purge la grille avant de demander le rafraîchissement du tableau de bord.
+- `Invoke-GlobalSearch` : réinitialise les vues liées à la sélection après effacement.
+- `Invoke-GlobalSearch` : met à jour l'UI du périmètre après effacement.
+- `Invoke-GlobalSearch` : affiche le statut d'effacement réussi.
+- `Invoke-GlobalSearch` : journalise l'erreur d'effacement avec stack trace.
+- `Invoke-GlobalSearch` : affiche le statut d'erreur d'effacement.
+
+## Dépendances
+- `Add-DomeniaUiLog` : journalisation des événements UI de recherche et d'effacement.
+- `Apply-CurrentPermissionUi` : réapplication des droits d'interface après libération d'un contrôle.
+- `Apply-DomeniaGuiElementPolicy` : application de la politique des éléments d'interface après changement d'onglets.
+- `Assert-WriteAllowed` : contrôle d'autorisation d'écriture.
+- `Begin-DomeniaLiveSearch` : démarrage de la recherche en direct.
+- `Complete-DomeniaDirectoryReadPipe` : finalisation d'un pipe de lecture d'annuaire.
+- `Complete-DomeniaDirectoryTreeRead` : gestionnaire de finalisation d'une lecture d'arbre.
+- `Complete-DomeniaLiveSearch` : finalisation UI d'une recherche en direct.
+- `Convert-FileTimeLabel` : conversion des horodatages FileTime pour les attributs bruts.
+- `Convert-WGuid` : conversion de GUID pour les lignes de recherche.
+- `Enter-DomeniaNavSearch` : sauvegarde du lieu quitté avant une nouvelle recherche.
+- `Exit-DomeniaNavSearch` : sortie du contexte de navigation de recherche.
+- `Escape-LdapValue` : échappement des valeurs LDAP, avec ou sans joker.
+- `Fail-DomeniaDirectoryTreeCommit` : gestionnaire d'erreur de commit d'arbre.
+- `Fail-DomeniaLiveSearch` : échec UI d'une recherche en direct.
+- `Get-CfgValue` : lecture des clés de configuration.
+- `Get-DomeniaAddressQuery` : détection d'une requête IPv4 ou MAC locale.
+- `Get-DomeniaControl` : accès aux contrôles WPF par nom.
+- `Get-DomeniaEffectiveWorkerResult` : validation du résultat worker.
+- `Get-DomeniaExpertTabDecision` : décision d'affichage des onglets Expert.
+- `Get-DomeniaFeatureFlag` : lecture des drapeaux de fonctionnalité.
+- `Get-DomeniaGlobalSearchPlan` : construction du plan de recherche globale.
+- `Get-DomeniaInventoryAdapter` : sélection de l'adaptateur d'import.
+- `Get-DomeniaLinkImportAdapterChoice` : lecture du format d'import choisi.
+- `Get-DomeniaMember` : lecture défensive de propriétés d'objet.
+- `Get-DomeniaProjection` : récupération de la projection de liste.
+- `Get-DomeniaRelationsSubject` : sujet courant des relations.
+- `Get-DomeniaSearchMode` : mode de recherche courant.
+- `Get-DomeniaSearchScope` : périmètre de recherche OU ou global.
+- `Get-DomeniaSearchText` : texte de recherche selon le mode.
+- `Get-DomeniaSearchTextCheck` : validation du texte de recherche.
+- `Get-DomeniaStructuredError` : classification des erreurs.
+- `Get-DomeniaTaskStateSummary` : résumé des états de tâches.
+- `Get-DomeniaUxOuDisplay` : affichage lisible d'une OU.
+- `Get-DomeniaWorkViewPlan` : plan d'exécution d'une vue de travail.
+- `Get-DomeniaWorkViews` : liste des vues de travail disponibles.
+- `Get-GlobalSelectedTypeFilter` : filtre LDAP du type sélectionné.
+- `Get-TypeLdapFilter` : filtre LDAP par type d'objet.
+- `Get-WObjectType` : détermination du type d'un objet annuaire.
+- `Get-WPropFirst` : lecture de la première valeur d'une propriété annuaire.
+- `Import-WAdModule` : import du module ActiveDirectory.
+- `Import-Module` : import du module LAPS pour l'aide des cmdlets.
+- `Initialize-DomeniaUxControlHelp` : initialisation des infobulles des contrôles.
+- `Invalidate-DomeniaSearchResults` : invalidation des résultats de recherche.
+- `Invoke-DomeniaSupportLoad` : chargement de l'espace Support.
+- `New-DomeniaContainsFilter` : création du filtre « contient ».
+- `New-DomeniaDirectoryReadPipe` : création d'un pipe de lecture d'annuaire.
+- `New-DomeniaFileRequest` : création de la boîte de dialogue de fichier d'import.
+- `New-DomeniaStoreContext` : création d'un contexte de magasin local.
+- `New-DomeniaTreeLoadingItem` : élément de chargement d'arborescence.
+- `New-DomeniaTreeStatusItem` : élément de statut d'arborescence.
+- `New-WBranchRow` : création d'une ligne de résultat de recherche.
+- `New-WDirectoryStoreProperties` : préparation des propriétés à stocker localement.
+- `New-WSearcher` : création d'un searcher LDAP.
+- `Open-AdObject` : ouverture d'un objet annuaire.
+- `Register-WCredentialFailure` : enregistrement des échecs d'identifiants.
+- `Request-DomeniaDashboardRefresh` : demande de rafraîchissement du tableau de bord.
+- `Request-UiTaskStop` : arrêt silencieux des tâches de recherche/branche.
+- `Reset-DomeniaSelectionBoundViews` : réinitialisation des vues liées à la sélection.
+- `Resume-DomeniaLiveSearch` : reprise d'une recherche en direct pour une continuation.
+- `Select-DomeniaComputerView` : sélection d'une vue de poste.
+- `Set-DomeniaControlText` : mise à jour du texte d'un contrôle.
+- `Set-DomeniaContextHint` : affichage d'un indice contextuel.
+- `Set-DomeniaItemsSource` : affectation des lignes d'une grille.
+- `Set-DomeniaRelationsSelection` : définition du sujet des relations.
+- `Set-DomeniaSearchMode` : changement du mode de recherche.
+- `Set-TabVisibility` : visibilité d'un onglet.
+- `Show-DomeniaObjectPicker` : sélecteur d'objet commun.
+- `Show-DomeniaOperationError` : affichage structuré d'une erreur d'opération.
+- `Show-DomeniaOuPicker` : sélecteur d'OU.
+- `Show-DomeniaRelationsAddPanel` : affichage du panneau d'ajout de relations.
+- `Show-ErrorBox` : boîte d'erreur.
+- `Show-ObjectRows` : affichage des lignes d'objets dans la grille.
+- `Start-DomeniaAddressSearch` : recherche locale d'adresse.
+- `Start-UiTask` : exécution d'une tâche UI asynchrone.
+- `Stop-DomeniaLiveSearch` : arrêt de la recherche en direct.
+- `Stop-DomeniaSelectionOpenTimer` : arrêt du minuteur d'ouverture de sélection.
+- `Stop-DomeniaTreeRenderForNode` : arrêt du rendu d'un nœud d'arbre.
+- `Submit-DomeniaDirectoryTreeRead` : soumission des lignes d'arborescence au magasin.
+- `Sync-DomeniaUxNavigation` : synchronisation de la navigation UX.
+- `Test-DomeniaAccessBusyWrite` : contrôle d'occupation d'écriture.
+- `Test-DomeniaContinuationCurrent` : validation d'une continuation.
+- `Test-DomeniaDirectoryTreeCurrent` : validation du contexte d'arbre.
+- `Test-DomeniaDraftNavigation` : contrôle de navigation de brouillon.
+- `Test-DomeniaGlobalSearchRequest` : validation du contrat de recherche globale.
+- `Test-DomeniaLiveSearchActive` : contrôle d'activité de la recherche en direct.
+- `Test-DomeniaProjectionMinimal` : contrôle de légèreté de la projection.
+- `Test-DomeniaSearchStateCurrent` : contrôle de l'état courant de recherche.
+- `Update-Dashboard` : rafraîchissement du tableau de bord.
+- `Update-DomeniaExperienceActivity` : rafraîchissement du panneau d'activité.
+- `Update-DomeniaSearchScopeUi` : mise à jour de l'UI du périmètre de recherche.
+- `Update-DomeniaUxProfileVisibility` : application de la visibilité par profil UX.
+- `Write-AppLog` : journal applicatif.
+- `Write-DomeniaSwallowed` : journalisation des erreurs UI avalées.
+- `Write-DomeniaTrace` : trace de diagnostic.
+- `Move-SelectedObject` : écriture AD de déplacement.
+- `Set-ClipboardSafe` : écriture sûre dans le presse-papiers.
+- `Get-DomeniaCnFromDn` : extraction du CN d'un DN.
+- `Get-DomeniaParentDn` : extraction du DN parent.
+- `Get-DomeniaManagerControls` : mapping des contrôles responsable.
+- `Get-DomeniaManagerDn` : lecture du DN responsable local.
+- `Get-DomeniaLandingView` : vue d'atterrissage par type.
+- `Get-BranchQueryData` : préparation de requête de branche.
+- `Module ActiveDirectory` : importé via `Import-WAdModule` pour l'aide des cmdlets AD.
+- `Module LAPS` : importé via `Import-Module` pour l'aide des cmdlets LAPS.
+- `System.DirectoryServices.SortOption` : utilisé pour trier les continuations par `name`.
+- `System.Diagnostics.Stopwatch` : utilisée pour mesurer les durées de recherche et de rendu.
+- `System.Threading.Monitor` : utilisée pour synchroniser la progression de lecture LDAP.
+- `System.Threading.Thread` : utilisée pour attendre quand le tampon de progression est plein.
+- `System.Windows.Visibility` : utilisée pour afficher ou masquer les contrôles.
+- `System.Collections.ArrayList` : utilisée pour accumuler lignes et diagnostics.
+- `System.Collections.Generic.HashSet` : utilisée pour les clés connues de continuation.

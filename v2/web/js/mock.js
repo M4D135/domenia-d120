@@ -9,6 +9,9 @@
 // (SIMULATION.md § 4.3); every widget of workstations is computed on the machines of the chosen OU. The LocalWrite
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
+// Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+
+import { createWriteOperations } from './mock-writes.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -869,7 +872,7 @@ function appInfo(args) {
     name: 'Domenia', version: '2.0.0-dev', runtime: '10.0.12', webViewRuntime: 'apercu',
     mode: 'simulation', modeLabel: 'Simulation', modeReason: 'argument',
     modeDetail: `Ouvert dans un navigateur${COLON}la page répond avec sa maquette intégrée.`,
-    banner: `Aperçu${COLON}annuaire fictif ${DOMAIN} intégré à la page, aucune requête ne part. Vos choix (OU de travail, mesures actives) restent dans ce navigateur.`,
+    banner: `Aperçu${COLON}annuaire fictif ${DOMAIN} intégré à la page, aucune requête ne part. Vos choix (OU de travail, mesures actives) restent dans ce navigateur, les écritures d’essai dans la page.`,
   };
 }
 
@@ -896,8 +899,9 @@ function sessionInfo(args) {
     },
     authentication: { method: 'none', protocol: null, label: 'Aucune (simulation)' },
     scope: { ...state.scope },
-    rights: { level: 'read', label: 'Lecture', estimated: true, detail: `Simulation${COLON}les droits sont fictifs et aucune écriture n’est possible.` },
-    readOnly: true,
+    rights: { level: 'read', label: 'Lecture', estimated: true, detail: `Simulation${COLON}les droits sont fictifs${NBSP}; les écritures ne modifient que l’annuaire fictif, en mémoire.` },
+    // Writes are admitted in simulation, on the in-memory overlay only (decision of 21/10): same as the engine.
+    readOnly: false,
     tasks: { running: state.running, queued: state.queued },
     cache: { state: cacheState, label: cacheLabel, ...storeStatus() },
     onboarding: { steps, completed: steps.filter((s) => s.done).length, total: steps.length },
@@ -1051,6 +1055,9 @@ const OPERATIONS = {
   'dashboard.widget.setEnabled': setEnabled,
   'directory.ou.children': ouChildren,
   'directory.ou.search': ouSearch,
+  ...createWriteOperations({
+    readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength

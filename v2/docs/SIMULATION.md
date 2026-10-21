@@ -22,10 +22,13 @@ En simulation, Domenia :
    préférences, gardées en mémoire pour la session) et la fenêtre l’explique ;
 3. **n’ouvre pas la base locale** de Domenia (SQLite) : aucune donnée fictive n’y entre, aucune donnée réelle n’est
    montrée en simulation ;
-4. **est en lecture seule** : toute opération de classe `Write` est refusée par le pont avant son gestionnaire
-   (`simulation.readOnly`) ; toute opération `NetworkRead` que l’annuaire fictif ne sert pas (outils distants) est
-   refusée par défaut (`simulation.unavailable`) ; seules les écritures `LocalWrite` (préférences de la simulation,
-   jamais l’annuaire) sont admises ;
+4. **n’écrit rien de réel** : décision de David du 21/10, les écritures sont testables en simulation, sans effet réel.
+   `write.execute`, seule opération de classe `Write`, est admise et ses exécuteurs n’écrivent que dans une **surcouche en
+   mémoire** de l’annuaire fictif, vue par toutes les lectures, jamais enregistrée (le monde généré ne change pas) ; les
+   reçus sont marqués « simulé » (`receipts-simulation.jsonl`, [`WRITES.md`](WRITES.md)). Toute autre opération `Write` est
+   refusée par le pont avant son gestionnaire (`simulation.readOnly`) ; toute opération `NetworkRead` que l’annuaire fictif
+   ne sert pas (outils distants) est refusée par défaut (`simulation.unavailable`) ; les écritures `LocalWrite`
+   (préférences et reçus de la simulation, jamais l’annuaire) sont admises ;
 5. **ne demande ni mot de passe ni compte** : aucune saisie d’identifiants, aucun coffre, aucun secret ;
 6. **le dit en permanence** : bannière dans la page et titre de fenêtre « Domenia — Simulation » ;
 7. **est déterministe** : même graine, même date de référence et même fuseau donnent le même annuaire, à l’octet près ;
@@ -66,7 +69,7 @@ Le mode est décidé **une fois, au démarrage**, par une fonction pure de `Dome
   section ou clé en double à la casse près, plus de 1 Mo, lecture impossible) : tracé avec une raison fixe, jamais son
   contenu ni son chemin, et ignoré ; le démarrage continue avec la règle suivante. `DOMENIA_SIMULATION=0` l’emporte (règle
   3). Les livraisons de Domenia 1 refusaient déjà un fichier livré avec ce réglage (`release_guard.py`).
-- Le cas 6 privilégie le démarrage : la simulation est sans risque (lecture seule, données fictives, bannière). Pour
+- Le cas 6 privilégie le démarrage : la simulation est sans risque (aucune écriture réelle, données fictives, bannière). Pour
   forcer l’annuaire sur un tel poste : `DOMENIA_SIMULATION=0`.
 - Un poste joint mais hors réseau (portable en déplacement) reste en mode annuaire, non connecté : il n’y a pas de
   bascule automatique vers la simulation en cours de session.
@@ -526,7 +529,9 @@ public enum MeasureFamily { Directory, Presence, Inventory }
 public sealed record DirectoryState(DirectorySnapshot Directory, FleetObservations Observations, ImmutableArray<DailyFigures> History);
 ```
 
-L’interface n’a **aucune** méthode d’écriture : la simulation est en lecture seule par construction. Les échecs
+L’interface n’a **aucune** méthode d’écriture. Les écritures de la simulation passent par les exécuteurs de
+`Domenia.Simulation` (méthodes `internal` de `SimulatedDirectorySource`), dans une surcouche en mémoire que toutes les
+lectures voient (`CurrentDirectory`, `ReadLocalAsync`, `RefreshAsync`) ; voir [`WRITES.md`](WRITES.md) § 5. Les échecs
 attendus lèvent `DomeniaOperationException(code, message)` (Core), que le pont transmet tels quels.
 `RefreshAsync(Presence)` et `RefreshAsync(Inventory)` lèvent `scope.tooWide` si l’OU de travail passée (`scope`, celle
 de `session.setScope`, `OPERATIONS.md` § 11) est la racine du domaine ou manque, dans les deux modes.
@@ -630,7 +635,7 @@ concurrentes. `GetSessionAsync` n’attend pas.
   que valider les arguments et appeler le service.
 - `BridgeDispatcher` : traduit `DomeniaOperationException` comme `BridgeOperationException`, et accepte une garde
   d’admission (`Func<OperationDefinition, BridgeError?>`) évaluée avant le gestionnaire ; la garde de simulation refuse
-  la classe `Write` (`simulation.readOnly`) et toute `NetworkRead` non marquée `ServedInSimulation`
+  la classe `Write` sauf `write.execute` (`simulation.readOnly`) et toute `NetworkRead` non marquée `ServedInSimulation`
   (`simulation.unavailable`). L’événement `Refused(code, opération)` signale chaque refus à l’hôte, qui le trace (code
   et nom d’opération déclaré ou bien formé, jamais le contenu).
 
@@ -737,7 +742,7 @@ fuseau fixés) et une référence par défaut `2026-10-21T16:26:00Z`, fuseau de 
     injectée.
 38. Annulation pendant une latence simulée → `operation.cancelled`.
 39. Mode annuaire sans `Domenia.Ad` : `dashboard.summary` → `source.unavailable`, `session.info` répond « non connecté ».
-40. Garde de simulation : une opération `Write` de test est refusée (`simulation.readOnly`) et une `NetworkRead` non
+40. Garde de simulation : une opération `Write` de test autre que `write.execute` est refusée (`simulation.readOnly`) et une `NetworkRead` non
     servie l’est aussi (`simulation.unavailable`), sans que leur gestionnaire s’exécute ; une `NetworkRead` marquée
     servie et une `LocalRead` passent ; les lectures réseau de l’Accueil sont marquées servies.
 

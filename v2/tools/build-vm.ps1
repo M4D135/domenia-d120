@@ -47,6 +47,14 @@ Get-ChildItem -Recurse -Filter *.csproj -Path src, tests | Where-Object { $prese
     & $dotnet sln Domenia.sln add $_.FullName | Out-Null
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
 }
+# « dotnet sln add » reports an unreadable project file but still exits with 0: a project left out would never be built
+# while the build reports success, so every project of the tree must now be listed.
+$listed = @(& $dotnet sln Domenia.sln list | Where-Object { $_ -like '*.csproj' } | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $root $_.Trim())) })
+$missing = @(Get-ChildItem -Recurse -Filter *.csproj -Path src, tests | Where-Object { $listed -notcontains $_.FullName })
+if ($missing.Count -gt 0) {
+    "Projet(s) absent(s) de la solution (fichier illisible ?) : $(($missing | ForEach-Object { $_.Name }) -join ', ')"
+    exit 1
+}
 & $dotnet build Domenia.sln -c $Configuration -nologo -clp:NoSummary -v:minimal
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 "Compilation $Configuration réussie."

@@ -31,7 +31,8 @@ internal static class WorkingScopeTests
         Check.Equal(Paris, scope.GetProperty("dn").GetString(), "OU choisie");
         Check.Equal("Paris", scope.GetProperty("label").GetString(), "libellé : nom de l’OU");
         Check.True(scope.GetProperty("subtree").GetBoolean(), "sous-OU comprises");
-        Check.True(session.GetProperty("readOnly").GetBoolean(), "toujours en lecture seule");
+        // Simulation: writes admitted on the in-memory overlay only (decision of 21/10), so not read only; unchanged by the scope.
+        Check.False(session.GetProperty("readOnly").GetBoolean(), "lecture seule inchangée par le choix de l’OU (simulation : écritures en mémoire)");
 
         var summary = SimulatedBridge.Json(await bridge.CallAsync("dashboard.summary"));
         Check.Equal(Paris, summary.GetProperty("scope").GetProperty("dn").GetString(), "le tableau de bord suit l’OU de travail");

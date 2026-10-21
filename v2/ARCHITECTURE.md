@@ -25,7 +25,7 @@ v2/
     Domenia.Inventory/    ping, WMI/CIM DCOM, catalogue de sondes, relevés, budgets réseau
     Domenia.Engine/       ordonnanceur de tâches, budgets, garde d'authentification, journal, mesures
     Domenia.Bridge/       contrat des messages page ↔ moteur (opérations fermées, schémas, validation)
-    Domenia.Simulation/   annuaire fictif en mémoire, lecture seule, sans réseau ni disque (référence Core seulement)
+    Domenia.Simulation/   annuaire fictif en mémoire (écritures dans une surcouche en mémoire seulement), sans réseau ni disque (référence Core seulement)
   web/                    interface HTML/CSS/JS sans chaîne de compilation (modules ES natifs)
     index.html, css/, js/, assets/
   tests/

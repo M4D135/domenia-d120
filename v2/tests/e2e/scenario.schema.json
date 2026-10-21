@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://domenia.local/e2e/scenario.schema.json",
+  "title": "Scénario E2E de Domenia 2",
+  "description": "Format des fichiers tests/e2e/<écran>/<nom>.json (docs/E2E.md). Le harnais Domenia.E2E refuse tout champ inconnu et contrôle les champs admis par chaque action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120, "description": "Titre du scénario, en français." },
+    "description": { "type": "string", "maxLength": 1000 },
+    "modes": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["simulation", "annuaire"] },
+      "description": "Modes où le scénario s’applique ; simulation par défaut. Les autres modes l’ignorent."
+    },
+    "start": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}(\\?[A-Za-z0-9=&%._,-]{0,200})?$", "description": "Écran de départ (route), accueil par défaut." },
+    "theme": { "enum": ["dark", "light", "contrast"], "description": "Thème imposé à la page avant le chargement." },
+    "motion": { "enum": ["full", "reduced"], "description": "Animations imposées à la page avant le chargement." },
+    "allowConsoleErrors": { "type": "boolean", "description": "Admet les erreurs de la console de la page (refusées par défaut)." },
+    "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 120000, "description": "Délai par défaut de chaque étape (10 000 ms)." },
+    "steps": { "type": "array", "minItems": 1, "maxItems": 200, "items": { "$ref": "#/$defs/step" } }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["do"],
+      "properties": {
+        "do": { "enum": ["go", "click", "hover", "type", "press", "expect", "wait", "shot", "scroll", "journal"] },
+        "title": { "type": "string", "maxLength": 200, "description": "Description de l’étape dans le rapport." },
+        "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 120000 },
+        "selector": { "type": "string", "maxLength": 300, "description": "Sélecteur CSS de l’élément (ou du champ pour type)." },
+        "text": { "type": "string", "maxLength": 500, "description": "Texte visible exact de l’élément (ou texte à saisir pour type)." },
+        "contains": { "type": "string", "maxLength": 500, "description": "Texte présent dans la zone (expect, wait) ou dans une ligne du journal (journal)." },
+        "within": { "type": "string", "maxLength": 300, "description": "Sélecteur CSS de la zone où chercher." },
+        "nth": { "type": "integer", "minimum": 0, "maximum": 1000, "description": "Rang de l’élément quand plusieurs correspondent." },
+        "route": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,30}(\\?[A-Za-z0-9=&%._,-]{0,200})?$" },
+        "key": { "type": "string", "maxLength": 40, "description": "Touche : Enter, Escape, Tab, Space, ArrowDown, Control+K, Shift+Tab, Alt+1…" },
+        "repeat": { "type": "integer", "minimum": 1, "maximum": 50 },
+        "ms": { "type": "integer", "minimum": 0, "maximum": 30000 },
+        "ready": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "count": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "absent": { "type": "boolean" },
+        "property": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9]{0,39}$" },
+        "attribute": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_:.-]{0,59}$" },
+        "equals": { "type": ["string", "number", "boolean", "null"] },
+        "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+        "pattern": { "type": "string", "maxLength": 500, "description": "Expression régulière .NET cherchée dans les lignes du journal." },
+        "clear": { "type": "boolean" },
+        "clickCount": { "enum": [1, 2] },
+        "button": { "enum": ["left", "right"] },
+        "deltaY": { "type": "number", "minimum": -20000, "maximum": 20000 }
+      }
+    }
+  }
+}

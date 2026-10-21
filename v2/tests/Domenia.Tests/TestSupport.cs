@@ -235,13 +235,15 @@ internal sealed class SimulatedBridge
     private readonly List<BridgeResponse> sent = [];
     private int counter;
 
-    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null)
+    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null, IReceiptStore? receipts = null)
     {
         Clock = clock ?? TestClock.Fixed();
         Source = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = latency }, Clock);
         Preferences = preferences ?? new MemoryPreferenceStore();
+        Receipts = receipts ?? new MemoryReceiptStore();
         Log = new RecordingJournal();
-        Context = new EngineContext(Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]));
+        Context = new EngineContext(Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]),
+            writers: WriteExecutors.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]), receipts: Receipts);
         Service = DashboardService.From(Context);
         Registry = OperationModules.CreateRegistry(Context, OperationModules.Discover([typeof(DashboardOperations).Assembly]));
         Dispatcher = new BridgeDispatcher(Registry, Publish, AdmissionGuards.ReadOnlySimulation);
@@ -253,6 +255,21 @@ internal sealed class SimulatedBridge
     public FixedTimeProvider Clock { get; }
 
     public SimulatedDirectorySource Source { get; }
+
+    /// <summary>Write receipts of the bridge (memory unless a store is given).</summary>
+    public IReceiptStore Receipts { get; }
+
+    /// <summary>Events pushed to the page (« write.execute:stage »…), in order.</summary>
+    public IReadOnlyList<BridgeResponse> Events
+    {
+        get
+        {
+            lock (sent)
+            {
+                return [.. sent.Where(r => r.Kind == "event")];
+            }
+        }
+    }
 
     public IPreferenceStore Preferences { get; }
 

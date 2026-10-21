@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- End-to-end harness (docs/E2E.md): starts Domenia.exe with its E2E port option and DOMENIA_E2E=1, then drives the WebView2
+       through the Chrome DevTools Protocol. No package: ClientWebSocket, HttpClient and System.Text.Json of the framework. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Domenia.E2E</AssemblyName>
+    <RootNamespace>Domenia.E2E</RootNamespace>
+  </PropertyGroup>
+  <!-- The pure E2E switch of Domenia.App (option, variable, environment guard) is compiled here from its very source file,
+       so the self-tests (Domenia.E2E.exe self-test) check the code that ships. -->
+  <ItemGroup>
+    <Compile Include="../../src/Domenia.App/E2e/E2eArguments.cs" Link="Linked/E2eArguments.cs" />
+    <EmbeddedResource Include="Report/report.css" LogicalName="Domenia.E2E.report.css" />
+  </ItemGroup>
+</Project>

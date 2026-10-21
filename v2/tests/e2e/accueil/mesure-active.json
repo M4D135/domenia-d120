@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : désactiver puis réactiver la mesure d’un widget",
+  "description": "Coupe l’interrupteur « Mesure active » du widget Alertes disque, vérifie l’état et la notification, puis le réactive. En mode E2E, le choix reste en mémoire : les préférences de l’opérateur ne sont ni lues ni modifiées.",
+  "modes": ["simulation"],
+  "steps": [
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": true, "title": "La mesure d’Alertes disque est active au départ" },
+    { "do": "click", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "title": "Couper « Mesure active » sur Alertes disque" },
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": false, "title": "L’interrupteur est coupé" },
+    { "do": "expect", "contains": "Mesure désactivée : Alertes disque.", "within": ".toasts", "title": "La notification confirme la désactivation" },
+    { "do": "expect", "contains": "Mesure désactivée", "within": "[data-widget=\"diskAlerts\"]", "title": "Le widget dit que sa mesure est désactivée" },
+    { "do": "shot", "name": "widget-desactive", "selector": "[data-widget=\"diskAlerts\"]" },
+    { "do": "click", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "title": "Réactiver « Mesure active »" },
+    { "do": "expect", "selector": "[data-toggle]", "within": "[data-widget=\"diskAlerts\"]", "property": "checked", "equals": true, "title": "L’interrupteur est rétabli" },
+    { "do": "expect", "contains": "Mesure réactivée : Alertes disque. Ce choix est mémorisé.", "within": ".toasts", "title": "La notification confirme la réactivation" },
+    { "do": "journal", "contains": "Préférences en mémoire seulement (mode E2E)", "title": "Journal : préférences de l’opérateur non touchées" },
+    { "do": "journal", "contains": "Préférences non enregistrées", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

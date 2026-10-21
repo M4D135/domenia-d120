@@ -5,17 +5,23 @@
 #   tools/vm.sh <lot> build   [--config Debug|Release|both] [--no-sync]
 #   tools/vm.sh <lot> publish [--zip] [--no-sync]
 #   tools/vm.sh <lot> capture [--routes r1,r2] [--themes dark,light,contrast] [--pack] [--out DIR] [--no-sync]
+#   tools/vm.sh <lot> e2e     [--scenarios motif] [--mode simulation|annuaire] [--config Debug|Release] [--pack] [--out DIR] [--no-sync]
 #   tools/vm.sh <lot> test    [--config Debug|Release] [--no-sync]      (tests: only at the very end, decision of 21/10)
 #
 # <lot>: lower case letters, digits and dashes (40 at most). Sources go to C:\DomeniaDev\src\<lot>\v2 (mirror of the tree
 # that holds this script, worktrees included), the pack to C:\DomeniaDev\out\<lot>, the images to
-# C:\DomeniaDev\captures\<lot>. « capture » syncs, builds Release (or publishes with --pack), runs the capture in
-# simulation, then copies the images and capture.log into DIR (--out) when given.
+# C:\DomeniaDev\captures\<lot>, the E2E reports to C:\DomeniaDev\e2e\<lot>. « capture » syncs, builds Release (or
+# publishes with --pack), runs the capture in simulation, then copies the images and capture.log into DIR (--out) when
+# given. « e2e » syncs, builds (Release by default), runs the scenarios of tests/e2e (docs/E2E.md) and copies the report
+# into DIR. Both run in the desktop session of the VM account when one is open (tools/desktop-run.ps1: one-shot
+# interactive scheduled task, removed afterwards), else directly through SSH.
 #
 # Environment: DOMENIA_VM_HOST (ssh host, default domenia-vm), DOMENIA_VM_LOCK (lock path, a symbolic link, default
 # /tmp/domenia-vm.lock), DOMENIA_VM_LOCK_WAIT (seconds to wait for the lock, default 3600), DOMENIA_VM_LOCK_STALE
 # (seconds after which a lock whose owner cannot be checked is taken as dead, default 7200), DOMENIA_VM_DRY_RUN=1
-# (takes the lock and prints the remote commands without running them; DOMENIA_VM_DRY_RUN_HOLD=N keeps the lock N s).
+# (takes the lock and prints the remote commands without running them; DOMENIA_VM_DRY_RUN_HOLD=N keeps the lock N s),
+# DOMENIA_VM_SESSION (auto, direct or desktop: where capture and e2e run, default auto), DOMENIA_VM_E2E_TIMEOUT (seconds
+# allowed to a whole E2E run in the VM, default 3600).
 set -uo pipefail
 
 TOOLS=$(cd "$(dirname "$0")" && pwd)
@@ -26,6 +32,8 @@ LOCK_STALE=${DOMENIA_VM_LOCK_STALE:-7200}
 POLL=${DOMENIA_VM_LOCK_POLL:-5}
 DRY=${DOMENIA_VM_DRY_RUN:-0}
 HOLD=${DOMENIA_VM_DRY_RUN_HOLD:-0}
+SESSION=${DOMENIA_VM_SESSION:-auto}
+E2E_TIMEOUT=${DOMENIA_VM_E2E_TIMEOUT:-3600}
 
 usage() {
   # The comment block at the top of this file.
@@ -48,7 +56,9 @@ shift 2
 case "$LOT" in
   cache|v2|domenia) echo "vm.sh : « $LOT » est un nom réservé (cache, v2, domenia)." >&2; exit 64 ;;
 esac
-case "$CMD" in build|publish|capture|test) ;; *) usage ;; esac
+case "$CMD" in build|publish|capture|e2e|test) ;; *) usage ;; esac
+case "$SESSION" in auto|direct|desktop) ;; *) echo "vm.sh : DOMENIA_VM_SESSION vaut auto, direct ou desktop." >&2; exit 64 ;; esac
+[[ "$E2E_TIMEOUT" =~ ^[0-9]{2,5}$ ]] && [ "$E2E_TIMEOUT" -ge 60 ] || { echo "vm.sh : DOMENIA_VM_E2E_TIMEOUT : de 60 à 99999 secondes." >&2; exit 64; }
 
 CONFIG=""
 ZIP=0
@@ -57,6 +67,8 @@ PACK=0
 ROUTES=""
 THEMES=""
 OUT=""
+SCENARIOS=""
+MODE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --config) [ $# -ge 2 ] || usage; CONFIG=$2; shift 2 ;;
@@ -66,6 +78,8 @@ while [ $# -gt 0 ]; do
     --routes) [ $# -ge 2 ] || usage; ROUTES=$2; shift 2 ;;
     --themes) [ $# -ge 2 ] || usage; THEMES=$2; shift 2 ;;
     --out) [ $# -ge 2 ] || usage; OUT=$2; shift 2 ;;
+    --scenarios) [ $# -ge 2 ] || usage; SCENARIOS=$2; shift 2 ;;
+    --mode) [ $# -ge 2 ] || usage; MODE=$2; shift 2 ;;
     *) echo "vm.sh : option inconnue : $1" >&2; usage ;;
   esac
 done
@@ -73,7 +87,8 @@ case "$CMD:$CONFIG" in
   build:) CONFIG=Debug ;;
   test:) CONFIG=Debug ;;
   capture:) CONFIG=Release ;;
-  build:Debug|build:Release|build:both|test:Debug|test:Release) ;;
+  e2e:) CONFIG=Release ;;
+  build:Debug|build:Release|build:both|test:Debug|test:Release|e2e:Debug|e2e:Release) ;;
   *:) ;;
   *) fail "configuration non admise pour $CMD : $CONFIG" ;;
 esac
@@ -83,7 +98,13 @@ esac
 if [ -n "$ROUTES" ] && { [ ${#ROUTES} -gt 2000 ] || ! [[ "$ROUTES" =~ ^[A-Za-z0-9=\&%._,?-]{2,}$ ]]; }; then fail "écrans invalides (--routes : 2 000 caractères au plus)"; fi
 if [ -n "$THEMES" ] && ! [[ "$THEMES" =~ ^(dark|light|contrast)(,(dark|light|contrast)){0,2}$ ]]; then fail "thèmes invalides (--themes) : dark, light, contrast"; fi
 if [ -n "$THEMES" ] && [ -z "$ROUTES" ]; then fail "--themes s’applique aux écrans de --routes"; fi
-if [ "$CMD" != "capture" ] && { [ -n "$ROUTES$THEMES$OUT" ] || [ $PACK -eq 1 ]; }; then fail "--routes, --themes, --pack et --out ne valent que pour capture"; fi
+if [ "$CMD" != "capture" ] && [ -n "$ROUTES$THEMES" ]; then fail "--routes et --themes ne valent que pour capture"; fi
+if [ "$CMD" != "capture" ] && [ "$CMD" != "e2e" ] && { [ -n "$OUT" ] || [ $PACK -eq 1 ]; }; then fail "--pack et --out ne valent que pour capture et e2e"; fi
+if [ "$CMD" != "e2e" ] && [ -n "$SCENARIOS$MODE" ]; then fail "--scenarios et --mode ne valent que pour e2e"; fi
+if [ -n "$SCENARIOS" ] && ! [[ "$SCENARIOS" =~ ^[A-Za-z0-9*?_./,-]{1,200}$ ]]; then fail "motif de scénarios invalide (--scenarios : lettres, chiffres et * ? _ . / , - ; 200 caractères au plus)"; fi
+case "$MODE" in ''|simulation|annuaire) ;; *) fail "--mode vaut simulation ou annuaire" ;; esac
+[ -n "$MODE" ] || MODE=simulation
+if [ "$CMD" = "e2e" ] && [ $PACK -eq 1 ] && [ "$CONFIG" != "Release" ]; then fail "--pack s’emploie avec la configuration Release"; fi
 if [ "$CMD" != "publish" ] && [ $ZIP -eq 1 ]; then fail "--zip ne vaut que pour publish"; fi
 
 SRC="C:\\DomeniaDev\\src\\$LOT\\v2"
@@ -244,6 +265,30 @@ run_build() {
   remote_ps "& $(ps_quote "$TOOLS_VM\\build-vm.ps1") -Configuration $1 $2" || fail "compilation $1 en échec (lot $LOT)."
 }
 
+# Runs a script of tools/ in the desktop session of the VM account when one is open (one-shot interactive task), else
+# directly (tools/desktop-run.ps1). $1: script name, $2: PowerShell hashtable of its arguments, $3: time limit in seconds.
+run_in_session() {
+  remote_ps "& $(ps_quote "$TOOLS_VM\\desktop-run.ps1") -Script $(ps_quote "$1") -Session $SESSION -TimeoutSeconds $3 -Arguments $2"
+}
+
+# Copies a folder of the VM (C:/DomeniaDev/<kind>/<lot>) into the local folder $2.
+fetch() {
+  if [ "$DRY" = "1" ]; then
+    echo "[essai] copie de C:\\DomeniaDev\\$1\\$LOT vers $2"
+    return 0
+  fi
+  mkdir -p "$2" || fail "dossier local impossible à créer : $2"
+  # A local E2E report folder (marked by the harness) loses its previous report first: no stale screenshot stays behind.
+  if [ "$1" = "e2e" ] && [ -f "$2/.domenia-e2e" ]; then
+    rm -rf "$2/shots" "$2/report.json" "$2/report.html" "$2/report.css"
+  fi
+  if ssh -o BatchMode=yes "$HOST" "tar -cf - -C C:/DomeniaDev/$1/$LOT ." | tar -xf - -C "$2"; then
+    echo "vm.sh : $3 dans $2."
+  else
+    fail "copie depuis C:\\DomeniaDev\\$1\\$LOT en échec (lot $LOT)."
+  fi
+}
+
 # ---------------------------------------------------------------- commands
 
 acquire_lock
@@ -282,25 +327,50 @@ case "$CMD" in
       run_build Release ""
       exe="$SRC\\src\\Domenia.App\\bin\\x64\\Release\\net10.0-windows\\win-x64\\Domenia.exe"
     fi
-    args="-Exe $(ps_quote "$exe") -Clean"
-    [ -z "$ROUTES" ] || args="$args -Routes $(ps_quote "$ROUTES")"
-    [ -z "$THEMES" ] || args="$args -Themes $(ps_quote "$THEMES")"
-    remote_ps "& $(ps_quote "$TOOLS_VM\\capture-vm.ps1") $args"
+    args="@{ Exe = $(ps_quote "$exe"); Clean = \$true"
+    [ -z "$ROUTES" ] || args="$args; Routes = $(ps_quote "$ROUTES")"
+    [ -z "$THEMES" ] || args="$args; Themes = $(ps_quote "$THEMES")"
+    args="$args }"
+    # Same bound as capture-vm.ps1 (330 s, plus 45 s per extra image: three per screen and theme), plus a margin.
+    screens=0
+    [ -z "$ROUTES" ] || screens=$(( $(tr -cd ',' <<<"$ROUTES" | wc -c) + 1 ))
+    themes=1
+    [ -z "$THEMES" ] || themes=$(( $(tr -cd ',' <<<"$THEMES" | wc -c) + 1 ))
+    run_in_session capture-vm.ps1 "$args" $(( 330 + 135 * screens * themes + 120 ))
     code=$?
-    if [ -n "$OUT" ] && [ "$DRY" = "1" ]; then
-      echo "[essai] copie de C:\\DomeniaDev\\captures\\$LOT vers $OUT"
-    elif [ -n "$OUT" ]; then
-      mkdir -p "$OUT" || fail "dossier local impossible à créer : $OUT"
-      # Images and capture.log only, from the folder of this lot.
-      if ssh -o BatchMode=yes "$HOST" "tar -cf - -C C:/DomeniaDev/captures/$LOT ." | tar -xf - -C "$OUT"; then
-        echo "vm.sh : captures copiées dans $OUT."
-      else
-        fail "copie des captures en échec (lot $LOT)."
-      fi
+    # Images and capture.log only, from the folder of this lot.
+    if [ -n "$OUT" ]; then
+      fetch captures "$OUT" "captures copiées"
     else
       echo "vm.sh : captures laissées dans C:\\DomeniaDev\\captures\\$LOT (--out DIR pour les rapatrier)."
     fi
     [ $code -eq 0 ] || fail "capture terminée avec le code $code (voir capture.log)."
+    ;;
+  e2e)
+    if [ $PACK -eq 1 ]; then
+      run_build Release "-Publish"
+      exe="C:\\DomeniaDev\\out\\$LOT\\Domenia\\Domenia.exe"
+    else
+      run_build "$CONFIG" ""
+      exe="$SRC\\src\\Domenia.App\\bin\\x64\\$CONFIG\\net10.0-windows\\win-x64\\Domenia.exe"
+    fi
+    args="@{ Exe = $(ps_quote "$exe"); Mode = $(ps_quote "$MODE"); Configuration = $(ps_quote "$CONFIG")"
+    [ -z "$SCENARIOS" ] || args="$args; Scenarios = $(ps_quote "$SCENARIOS")"
+    args="$args }"
+    run_in_session e2e-vm.ps1 "$args" "$E2E_TIMEOUT"
+    code=$?
+    # report.json, report.html, report.css and shots/ of this lot.
+    if [ -n "$OUT" ]; then
+      fetch e2e "$OUT" "rapport et captures E2E copiés"
+      [ ! -f "$OUT/report.html" ] || echo "vm.sh : rapport : $OUT/report.html"
+    else
+      echo "vm.sh : rapport laissé dans C:\\DomeniaDev\\e2e\\$LOT (--out DIR pour le rapatrier)."
+    fi
+    case $code in
+      0) ;;
+      1) fail "scénarios en échec (voir le rapport)." ;;
+      *) fail "exécution E2E terminée avec le code $code." ;;
+    esac
     ;;
 esac
 echo "vm.sh : lot $LOT, $CMD terminé en $(( $(date +%s) - started )) s."

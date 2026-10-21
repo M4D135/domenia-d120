@@ -6,8 +6,11 @@ using Domenia.Core;
 namespace Domenia.Simulation;
 
 /// <summary>
-/// Read-only fictitious directory. The world is generated on first use (always off the UI thread: bridge handlers run on the
-/// thread pool). No network, no LDAP, WMI or DNS, no disk: only memory. Only the presence changes, by deterministic rounds.
+/// Fictitious directory. The world is generated on first use (always off the UI thread: bridge handlers run on the thread
+/// pool). No network, no LDAP, WMI or DNS, no disk: only memory. The presence changes by deterministic rounds; the writes of
+/// the simulation go to an in-memory overlay (<see cref="Overlay"/>, never persisted) that every read sees. The generated
+/// world itself never changes. <see cref="IDirectorySource"/> still has no write method: only the write executors of this
+/// assembly change the overlay.
 /// </summary>
 public sealed class SimulatedDirectorySource : IDirectorySource
 {
@@ -22,6 +25,7 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     private int refreshDraws;
     // Delays of the screen readers, one counter per kind: a screen never shifts the delays of another one.
     private readonly ConcurrentDictionary<string, StrongBox<int>> screenDraws = new(StringComparer.Ordinal);
+    private readonly SimulatedDirectoryOverlay overlay = new();
 
     public SimulatedDirectorySource(SimulationOptions options, TimeProvider timeProvider)
     {
@@ -61,8 +65,27 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         return DelayAsync("screen/" + kind, ref counter.Value, minMilliseconds, maxMilliseconds, cancellationToken);
     }
 
-    /// <summary>The generated world (generated now if needed).</summary>
+    /// <summary>
+    /// The generated world (generated now if needed), as generated: the writes of the session are not in it. Screen readers
+    /// read the directory through <see cref="CurrentDirectory"/>.
+    /// </summary>
     public SimulatedWorld World => world.Value;
+
+    /// <summary>Clock of the simulation (dates of the writes and of their receipts).</summary>
+    public TimeProvider Clock => timeProvider;
+
+    /// <summary>Changes made by the writes of this session (in memory only).</summary>
+    public SimulatedDirectoryOverlay Overlay => overlay;
+
+    /// <summary>
+    /// The directory as every read of the session sees it: the last directory read (generated, or read again by a refresh) with
+    /// the writes of the session applied. Screen readers and write executors read this, never <see cref="SimulatedWorld.Directory"/>.
+    /// </summary>
+    public DirectorySnapshot CurrentDirectory => overlay.Apply(Base().Directory);
+
+    /// <summary>Changes one user in the overlay (write executors of the simulation only); null when no user has this GUID.</summary>
+    internal DirectoryUser? UpdateUser(Guid id, Func<DirectoryUser, long, DirectoryUser?> change) =>
+        overlay.UpdateUser(Base().Directory, id, change);
 
     /// <summary>Number of presence rounds run since the start (0 = initial state only).</summary>
     public int PresenceRound
@@ -116,17 +139,27 @@ public sealed class SimulatedDirectorySource : IDirectorySource
                 _ => state,
             };
             current = state;
-            return state;
+            return WithOverlay(state);
         }
     }
 
-    private DirectoryState Current()
+    /// <summary>Last known state as the session sees it (writes of the session applied).</summary>
+    private DirectoryState Current() => WithOverlay(Base());
+
+    /// <summary>Last known state of the generated directory, before the overlay.</summary>
+    private DirectoryState Base()
     {
         var generated = World;
         lock (gate)
         {
             return current ?? generated.InitialState;
         }
+    }
+
+    private DirectoryState WithOverlay(DirectoryState state)
+    {
+        var directory = overlay.Apply(state.Directory);
+        return ReferenceEquals(directory, state.Directory) ? state : state with { Directory = directory };
     }
 
     /// <summary>Readings of the workstations inside the scope from <paramref name="measured"/>, the others from before.</summary>

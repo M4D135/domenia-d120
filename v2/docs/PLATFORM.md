@@ -15,10 +15,13 @@ Mis en place le 21 octobre 2026 ; `DashboardOperations` (Accueil), `SessionOpera
 Domenia.App      Composition : charge les assemblages Domenia.*, trouve lecteurs et modules, construit le registre
 Domenia.Bridge   IOperationModule, OperationModules (découverte, registre), un module par écran (Operations/*.cs)
 Domenia.Core     EngineContext, IPreferenceStore, ITechnicalJournal, IScreenReader + une interface par écran,
-                 services partagés (DashboardService, WorkingScope), règles pures (OrganizationalUnitTree…)
-Domenia.Simulation  une implémentation par écran (Screens/Simulated<Écran>Reader.cs), sur SimulatedDirectorySource
-Domenia.Store    FilePreferenceStore (préférences locales), LegacyConfigurationFile (Domenia.config.json)
-Domenia.Ad       plus tard : les mêmes interfaces de lecture, sur la source Active Directory
+                 services partagés (DashboardService, WorkingScope, WriteCircuit), règles pures (OrganizationalUnitTree…),
+                 circuit des écritures (Writes/ : plan, jeton, IWriteExecutor + une interface par type d’écriture, reçus)
+Domenia.Simulation  une implémentation par écran (Screens/Simulated<Écran>Reader.cs) et par écriture
+                 (Writes/Simulated<Verbe>Executor.cs), sur SimulatedDirectorySource et sa surcouche en mémoire
+Domenia.Store    FilePreferenceStore (préférences locales), FileReceiptStore (reçus d’écriture),
+                 LegacyConfigurationFile (Domenia.config.json)
+Domenia.Ad       plus tard : les mêmes interfaces de lecture et d’écriture, sur la source Active Directory
 ```
 
 Au démarrage, `Composition.Create` (fil de l’interface, rien de lourd) :
@@ -28,7 +31,9 @@ Au démarrage, `Composition.Create` (fil de l’interface, rien de lourd) :
 2. charge les assemblages **`Domenia`** et **`Domenia.*`** de la liste de confiance de l’hôte
    (`TRUSTED_PLATFORM_ASSEMBLIES`, c’est-à-dire le `deps.json` de l’application) : une DLL déposée à côté de l’exe n’est
    jamais prise ;
-3. trouve les **lecteurs d’écran** qui acceptent cette source (`ScreenReaders.Discover`) ;
+3. trouve les **lecteurs d’écran** et les **exécuteurs d’écriture** qui acceptent cette source (`ScreenReaders.Discover`,
+   `WriteExecutors.Discover`, même règle : classe publique, un seul constructeur public qui prend la source) et ouvre le
+   magasin des reçus du mode (`FileReceiptStore`, mémoire en capture et en E2E) ;
 4. construit le **contexte** (`EngineContext`) ;
 5. trouve les **modules** (`OperationModules.Discover`) et construit le **registre fermé** du pont
    (`OperationModules.CreateRegistry`), puis trace dans le journal technique le nombre de modules, d’opérations, les
@@ -113,14 +118,16 @@ l’opération avec `source.unavailable`, comme `dashboard.summary`.
 | `LocalRead` | base locale, fichiers de l’application, annuaire fictif en mémoire | admise |
 | `NetworkRead` | annuaire, WMI, DNS, ping, après un geste explicite, borné à une OU | admise seulement si `ServedInSimulation` |
 | `LocalWrite` | **préférences locales seulement** (`%LOCALAPPDATA%\Domenia`), jamais l’annuaire ni un poste | admise |
-| `Write` | écriture AD ou action distante : plan, confirmation, reçu, relecture | **toujours refusée** |
+| `Write` | écriture AD ou action distante, **seulement `write.execute`** : plan, confirmation, reçu, relecture ([`WRITES.md`](WRITES.md)) | admise pour `write.execute` seulement, sur la surcouche en mémoire (décision du 21/10) |
 
 La classe déclarée est celle du mode le plus exigeant ; elle peut dépendre du mode (`directory.ou.children` est
 `LocalRead` en simulation, `NetworkRead` en mode annuaire : le module lit `context.Mode`). Chaque mode a sa garde, évaluée
 par le dispatcher avant tout gestionnaire : `AdmissionGuards.ReadOnlySimulation` en simulation, et en mode annuaire
-`AdmissionGuards.ReadOnlyDirectory`, qui refuse `Write` (`write.unavailable`) tant que la chaîne plan, confirmation, reçu
-et relecture n’existe pas dans le pont. Les deux refusent par défaut toute classe qu’elles ne connaissent pas : un module
-découvert automatiquement ne peut donc pas brancher une écriture à l’insu de cette garde.
+`AdmissionGuards.ReadOnlyDirectory`. Les deux n’admettent la classe `Write` que pour `write.execute`, la porte unique du
+circuit d’écriture (`AdmissionGuards.IsWriteCircuit`, [`WRITES.md`](WRITES.md)) : toute autre opération `Write` est refusée
+(`simulation.readOnly`, `write.unavailable`). Un écran qui écrit déclare un **plan** (une lecture,
+`<écran>.<verbe>.plan`), jamais une écriture. Les deux gardes refusent par défaut toute classe qu’elles ne connaissent
+pas : un module découvert automatiquement ne peut donc pas brancher une écriture à l’insu de cette garde.
 
 ### 3.3 Contexte de services (`EngineContext`)
 
@@ -133,6 +140,8 @@ découvert automatiquement ne peut donc pas brancher une écriture à l’insu d
 | `Log` | journal technique (`ITechnicalJournal`) : codes, nombres, types d’erreur ; jamais une saisie de la page, une donnée d’annuaire en masse ni un secret |
 | `Readers` | lecteurs d’écran servis par la source du mode (`Find<T>()`, `Require<T>()`) |
 | `Journal` | journal des opérations de la session, affiché par l’Accueil (« Dernières opérations ») |
+| `Writers` | exécuteurs d’écriture servis par la source du mode (`Find<T>()`, `Require<T>()`, `ForKind(type)`), lancés par `WriteCircuit` seulement |
+| `Receipts` | reçus d’écriture du mode (`IReceiptStore` : `receipts.jsonl`, `receipts-simulation.jsonl`, mémoire en capture et en E2E) |
 | `Shared<T>(fabrique)` | service partagé du contexte, créé au premier usage, libéré avec le contexte |
 
 Un service partagé expose **un seul** accès statique qui passe sa propre fabrique : `DashboardService.From(context)`,
@@ -151,7 +160,9 @@ session complète). Elle est mémorisée **par domaine** et restaurée seulement
 Le générateur central (`SimulatedWorldGenerator`) ne change pas pour un nouvel écran. Les données propres à l’écran sont
 **dérivées** du monde généré, dans le fichier de l’écran (`Screens/Simulated<Écran>Reader.cs`) :
 
-1. ce qui existe déjà dans `source.World` (annuaire, relevés, historique, session) se lit tel quel ;
+1. ce qui existe déjà dans `source.World` (relevés, historique, session) se lit tel quel ; l’**annuaire** se lit par
+   `source.CurrentDirectory`, qui applique les écritures de la session (surcouche en mémoire, [`WRITES.md`](WRITES.md)
+   § 5), jamais par `source.World.Directory` ;
 2. ce qui manque se tire d’un **sous-flux SplitMix64 nommé**, propre à l’écran :
    `var random = source.ScreenStream("accounts");` (graine de la session, puis `Fork("screen/accounts")`). Une
    sous-suite par sujet si besoin : `random.Fork("lockouts")`. Ajouter des tirages à un écran ne déplace donc ni
@@ -209,6 +220,7 @@ utilise la VM.
 | Sources du lot | `C:\DomeniaDev\src\<lot>\v2` (miroir exact du dossier `v2/` qui contient le script, worktree compris ; `bin`, `obj`, `.vs` et `Domenia.sln` y restent) |
 | Pack publié | `C:\DomeniaDev\out\<lot>\Domenia` (et `Domenia.zip` avec `--zip`) |
 | Captures | `C:\DomeniaDev\captures\<lot>` |
+| Rapports E2E | `C:\DomeniaDev\e2e\<lot>` ([`E2E.md`](E2E.md) § 7) |
 | Historique (sans lot) | `C:\DomeniaDev\src\v2`, `C:\DomeniaDev\out\Domenia`, `C:\DomeniaDev\captures` |
 
 Un **lot** est un nom en minuscules, chiffres et tirets (40 caractères au plus) : `accueil`, `plateforme`, `comptes-2`.
@@ -224,6 +236,7 @@ tools/vm.sh plateforme build --config both        # Debug puis Release
 tools/vm.sh plateforme publish --zip              # pack Release dans C:\DomeniaDev\out\plateforme
 tools/vm.sh accueil capture --routes accueil,parametres --themes dark,light,contrast --out ~/captures/accueil
 tools/vm.sh accueil capture --pack --out ~/captures/accueil-pack   # capture depuis le pack publié
+tools/vm.sh accueil e2e --out ~/e2e/accueil      # scénarios E2E dans la session de bureau visible (E2E.md § 7)
 tools/vm.sh plateforme test                       # tests : seulement à la toute fin (décision du 21/10)
 ```
 
@@ -239,10 +252,17 @@ tools/vm.sh plateforme test                       # tests : seulement à la tout
 - `capture` : synchronisation, compilation Release (ou publication avec `--pack`), capture en simulation avec
   l’exécutable qui vient d’être produit (`capture-vm.ps1 -Exe … -Clean`, dossier du lot vidé de ses anciennes images),
   puis copie des images et de `capture.log` dans `--out` s’il est donné.
+- `e2e` : synchronisation, compilation (Release par défaut, ou pack avec `--pack`), scénarios de `tests/e2e`
+  (`--scenarios motif`, `--mode simulation|annuaire`), puis copie du rapport dans `--out` s’il est donné
+  ([`E2E.md`](E2E.md) § 7).
+- `capture` et `e2e` s’exécutent dans la session de bureau du compte quand elle est ouverte (tâche planifiée ponctuelle
+  de `tools/desktop-run.ps1`, retirée à la fin ; la session n’est jamais fermée), sinon directement par SSH
+  (`CAPTURE.md` § 11) ; `DOMENIA_VM_SESSION=auto|direct|desktop` force le choix.
 - Les commandes PowerShell partent en `-EncodedCommand` : aucune interprétation par `cmd.exe`, code de sortie conservé.
 - `--no-sync` saute la synchronisation ; `DOMENIA_VM_DRY_RUN=1` prend le verrou et affiche les commandes sans rien
   envoyer (tests du verrou : `tests/tools/vm-lock-test.sh`).
-- Variables : `DOMENIA_VM_HOST`, `DOMENIA_VM_LOCK`, `DOMENIA_VM_LOCK_WAIT`, `DOMENIA_VM_LOCK_STALE`.
+- Variables : `DOMENIA_VM_HOST`, `DOMENIA_VM_LOCK`, `DOMENIA_VM_LOCK_WAIT`, `DOMENIA_VM_LOCK_STALE`,
+  `DOMENIA_VM_SESSION`, `DOMENIA_VM_E2E_TIMEOUT`.
 
 `tools/sync-vm.sh <lot>`, `tools/build-vm.ps1` et `tools/capture-vm.ps1` restent utilisables seuls (ils déduisent le
 lot du dossier qui les contient), mais sans verrou : à réserver aux interventions manuelles.

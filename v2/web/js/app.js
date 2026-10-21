@@ -229,8 +229,10 @@ function showMode(info) {
   if (simulation || preview) {
     const detail = info.modeDetail || (preview ? 'Aperçu dans un navigateur\u00A0: données de démonstration intégrées à la page.' : 'Annuaire fictif\u00A0: aucune requête ne part.');
     chip.querySelector('.txt').textContent = preview ? 'Aperçu' : 'Simulation';
-    chip.querySelector('.detail').textContent = `\u00A0: ${detail} Lecture seule, aucune écriture possible.`;
-    chip.dataset.tip = `${detail} Lecture seule, aucune écriture possible.`;
+    // Writes of the simulation only change the fictitious directory in memory (decision of 21/10, docs/WRITES.md).
+    const writes = 'Écritures d’essai sur l’annuaire fictif seulement, sans aucun effet réel.';
+    chip.querySelector('.detail').textContent = `\u00A0: ${detail} ${writes}`;
+    chip.dataset.tip = `${detail} ${writes}`;
     chip.dataset.mode = preview ? 'preview' : 'simulation';
     chip.hidden = false;
   }

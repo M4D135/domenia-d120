@@ -1,0 +1,96 @@
+/* Hidden #/ecritures screen (web/js/pages/ecritures.js): the five stages of a write, the reference example and the last
+   receipts. Rules limited to this screen. Motion: transform, opacity and filter only, tokens for every duration. */
+
+.main[data-page="ecritures"] .wfd .grid { margin-top: var(--s5); }
+
+/* ---------- Five stages ---------- */
+.main[data-page="ecritures"] .wfd-flow .card-head .meta { gap: 6px; }
+.main[data-page="ecritures"] .wfd-steps {
+  position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s4); margin: 0; padding: 0; list-style: none;
+}
+.main[data-page="ecritures"] .wfd-steps::before {
+  /* The thread that links the stages, with a light running along it. */
+  content: ""; position: absolute; left: 6%; right: 6%; top: 34px; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--brand-1), var(--brand-2), var(--brand-3));
+  opacity: .45; transform-origin: left center; animation: wfd-thread 1.2s var(--ease-out) .2s both;
+}
+.main[data-page="ecritures"] .wfd-steps::after {
+  content: ""; position: absolute; left: 6%; top: 31px; width: 18%; height: 8px; border-radius: 8px; pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--brand-3) 90%, transparent), transparent);
+  filter: blur(1px); animation: wfd-run 4.8s var(--ease-in-out) 1.4s infinite;
+}
+@keyframes wfd-thread { from { transform: scaleX(0); } }
+@keyframes wfd-run { 0% { opacity: 0; transform: translateX(0); } 12% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; transform: translateX(420%); } }
+.main[data-page="ecritures"] .wfd-step {
+  position: relative; z-index: 1; display: grid; justify-items: center; align-content: start; gap: var(--s2); padding: var(--s3) var(--s2) var(--s4); text-align: center;
+  border-radius: var(--r-lg); animation: wfd-step-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 110ms + 240ms);
+}
+@keyframes wfd-step-in { from { opacity: 0; transform: translateY(14px) scale(.96); filter: blur(4px); } }
+.main[data-page="ecritures"] .wfd-step-icon {
+  width: 52px; height: 52px; display: grid; place-items: center; border-radius: 18px; color: var(--on-brand);
+  background: var(--brand-gradient); box-shadow: 0 10px 26px var(--accent-glow);
+  transition: transform var(--t) var(--ease-spring);
+}
+.main[data-page="ecritures"] .wfd-step:hover .wfd-step-icon { transform: translateY(-3px) scale(1.06) rotate(-4deg); }
+.main[data-page="ecritures"] .wfd-step-icon svg { width: 25px; height: 25px; }
+.main[data-page="ecritures"] .wfd-step-num {
+  position: absolute; top: 4px; left: calc(50% + 18px); width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+  font-size: var(--fs-caption); font-weight: 800; color: var(--accent-text); background: var(--bg-elevated); border: 1px solid var(--border);
+}
+.main[data-page="ecritures"] .wfd-step h3 { margin: var(--s1) 0 0; font-size: var(--fs-subtitle); }
+.main[data-page="ecritures"] .wfd-step p { margin: 0; font-size: var(--fs-small); color: var(--text-muted); text-wrap: pretty; }
+
+/* ---------- Reference example ---------- */
+.main[data-page="ecritures"] .wfd-lead { margin: 0 0 var(--s4); color: var(--text-muted); text-wrap: pretty; }
+.main[data-page="ecritures"] .wfd-form { display: grid; gap: var(--s4); }
+.main[data-page="ecritures"] .wfd-form .input { width: 100%; }
+.main[data-page="ecritures"] .wfd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); }
+.main[data-page="ecritures"] .wfd-note { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text-muted); }
+.main[data-page="ecritures"] .wfd-note svg { width: 16px; height: 16px; color: var(--accent-text); }
+
+/* ---------- Last receipts ---------- */
+.main[data-page="ecritures"] .wfd-summary { margin: 0 0 var(--s3); font-size: var(--fs-small); color: var(--text-muted); text-wrap: pretty; }
+.main[data-page="ecritures"] .wfd-summary:empty { display: none; }
+.main[data-page="ecritures"] .wfd-list { display: grid; gap: var(--s2); margin: 0; padding: 0; list-style: none; }
+.main[data-page="ecritures"] .wfd-sk { display: block; height: 52px; border-radius: var(--r); }
+.main[data-page="ecritures"] .wfd-row { animation: wfd-row-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
+@keyframes wfd-row-in { from { opacity: 0; transform: translateX(-8px); } }
+.main[data-page="ecritures"] .wfd-row-btn {
+  --tone: var(--info-mark);
+  width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px var(--s3); align-items: center;
+  padding: var(--s3) var(--s4); border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font: inherit; text-align: left; color: var(--text); background: color-mix(in srgb, var(--bg-sunken) 50%, transparent); cursor: pointer;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.main[data-page="ecritures"] .wfd-row-btn:hover { transform: translateX(3px); }
+.main[data-page="ecritures"] .wfd-row-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.main[data-page="ecritures"] .wfd-row-btn[data-tone="ok"] { --tone: var(--ok-mark); }
+.main[data-page="ecritures"] .wfd-row-btn[data-tone="warn"] { --tone: var(--warn-mark); }
+.main[data-page="ecritures"] .wfd-row-btn[data-tone="alert"] { --tone: var(--alert-mark); }
+.main[data-page="ecritures"] .wfd-row-dot { grid-row: span 2; width: 10px; height: 10px; border-radius: 50%; background: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 22%, transparent); }
+.main[data-page="ecritures"] .wfd-row-main { display: grid; min-width: 0; }
+.main[data-page="ecritures"] .wfd-row-main b { font-size: var(--fs-small); }
+.main[data-page="ecritures"] .wfd-row-main span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.main[data-page="ecritures"] .wfd-row-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.main[data-page="ecritures"] .wfd-row-btn time { grid-column: 2 / 4; font-size: var(--fs-caption); color: var(--text-faint); }
+.main[data-page="ecritures"] .wfd-empty { display: flex; align-items: center; gap: var(--s3); padding: var(--s4); border-radius: var(--r); color: var(--text-muted); background: color-mix(in srgb, var(--bg-sunken) 50%, transparent); }
+.main[data-page="ecritures"] .wfd-empty svg { width: 20px; height: 20px; flex: none; color: var(--accent-text); }
+.main[data-page="ecritures"] .wfd-empty.alert { color: var(--alert); background: var(--alert-soft); }
+
+/* ---------- Narrow windows ---------- */
+@media (max-width: 1400px) {
+  .main[data-page="ecritures"] .wfd-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .main[data-page="ecritures"] .wfd-steps::before, .main[data-page="ecritures"] .wfd-steps::after { display: none; }
+}
+@media (max-width: 1100px) {
+  .main[data-page="ecritures"] .wfd .span-7, .main[data-page="ecritures"] .wfd .span-5 { grid-column: span 12; }
+}
+
+/* ---------- High contrast and reduced motion ---------- */
+:root[data-theme="contrast"] .main[data-page="ecritures"] .wfd-steps::after { display: none; }
+:root[data-theme="contrast"] .main[data-page="ecritures"] .wfd-step-icon { box-shadow: none; }
+:root[data-theme="contrast"] .main[data-page="ecritures"] .wfd-row-btn { background: #000; border: 2px solid var(--border); }
+:root[data-motion="reduced"] .main[data-page="ecritures"] .wfd-steps::after { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"] .main[data-page="ecritures"] .wfd-steps::after { display: none; }
+}

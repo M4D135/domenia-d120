@@ -34,7 +34,9 @@ internal sealed class Composition : IDisposable
 
     /// <param name="capture">Capture mode: preferences in memory only, so the images never depend on (nor change) the
     /// operator's preferences.</param>
-    public static Composition Create(ModeDecision decision, bool capture)
+    /// <param name="e2e">E2E mode (docs/E2E.md): preferences in memory only as well, so every scenario starts from the
+    /// defaults and a stopped run never leaves a widget switched off for the operator.</param>
+    public static Composition Create(ModeDecision decision, bool capture, bool e2e = false)
     {
         ArgumentNullException.ThrowIfNull(decision);
         var log = AppTechnicalJournal.Instance;
@@ -42,18 +44,20 @@ internal sealed class Composition : IDisposable
             ? new SimulatedDirectorySource(SimulationOptions.Default, TimeProvider.System)
             : new UnavailableDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName);
         var assemblies = OperationModules.LoadDomeniaAssemblies();
-        var context = new EngineContext(decision, source, CreatePreferences(decision.Mode, capture, log), TimeProvider.System, log, ScreenReaders.Discover(source, assemblies));
+        var context = new EngineContext(decision, source, CreatePreferences(decision.Mode, capture, e2e, log), TimeProvider.System, log, ScreenReaders.Discover(source, assemblies),
+            writers: WriteExecutors.Discover(source, assemblies), receipts: CreateReceipts(decision.Mode, capture || e2e, log));
         try
         {
             var modules = OperationModules.Discover(assemblies);
             var registry = OperationModules.CreateRegistry(context, modules);
-            log.Info($"Composition : {modules.Length} modules, {registry.Names.Count} opérations, lecteurs d’écran [{string.Join(", ", context.Readers.Interfaces)}], assemblages [{Describe(assemblies)}].");
+            log.Info($"Composition : {modules.Length} modules, {registry.Names.Count} opérations, lecteurs d’écran [{string.Join(", ", context.Readers.Interfaces)}], écritures [{string.Join(", ", context.Writers.Kinds)}], assemblages [{Describe(assemblies)}].");
             return new Composition(context, registry);
         }
         catch
         {
             context.Dispose();
             (context.Preferences as IDisposable)?.Dispose();
+            (context.Receipts as IDisposable)?.Dispose();
             throw;
         }
     }
@@ -62,13 +66,33 @@ internal sealed class Composition : IDisposable
     {
         context.Dispose();
         (context.Preferences as IDisposable)?.Dispose();
+        (context.Receipts as IDisposable)?.Dispose();
     }
 
-    private static IPreferenceStore CreatePreferences(AppMode mode, bool capture, ITechnicalJournal log)
+    /// <summary>
+    /// Durable write receipts of the mode (docs/WRITES.md § 4). Capture and E2E modes keep them in memory only: the images and
+    /// the scenarios never depend on (nor add to) the operator's receipts.
+    /// </summary>
+    private static IReceiptStore CreateReceipts(AppMode mode, bool memoryOnly, ITechnicalJournal log)
     {
-        if (capture)
+        if (memoryOnly)
         {
-            log.Info("Préférences en mémoire seulement (mode capture) : celles de l’opérateur ne sont ni lues ni modifiées.");
+            log.Info("Reçus d’écriture en mémoire seulement (capture ou E2E) : ceux de l’opérateur ne sont ni lus ni modifiés.");
+            return new MemoryReceiptStore();
+        }
+        if (AppPaths.Receipts(mode) is not string path)
+        {
+            log.Warning("Dossier de données introuvable : reçus d’écriture en mémoire pour cette session.");
+            return new MemoryReceiptStore();
+        }
+        return new FileReceiptStore(path, log);
+    }
+
+    private static IPreferenceStore CreatePreferences(AppMode mode, bool capture, bool e2e, ITechnicalJournal log)
+    {
+        if (capture || e2e)
+        {
+            log.Info($"Préférences en mémoire seulement (mode {(capture ? "capture" : "E2E")}) : celles de l’opérateur ne sont ni lues ni modifiées.");
             return new MemoryPreferenceStore();
         }
         if (AppPaths.Preferences(mode) is not string path)

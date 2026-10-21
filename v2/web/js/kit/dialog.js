@@ -151,16 +151,22 @@ export function confirmDialog(opts) {
  * @property {string} [confirmLabel]
  * @property {{ label: string }} [alternate] Third answer (resolves 'alternate').
  * @property {string} [badge]                Default « Écriture dans l’annuaire ».
+ * @property {boolean} [typed=true]          false: the plan asks for no typed name (docs/WRITES.md), the confirm button
+ *                                           is active at once; the dialog still shows target, changes and details.
+ * @property {(text: string) => void} [onTyped]  Receives the typed name when the operator confirms, so the page can send
+ *                                           it to the engine, which checks it again.
  */
 
 /**
  * Reinforced confirmation of a write: changes before and after, folded technical details, and the name of the target
- * to type exactly (paste disabled). The safe answer has the focus; Entrée confirms only once the name matches.
- * Resolves 'confirm', 'alternate' or null. It never writes anything itself: the page sends the plan afterwards.
+ * to type exactly (paste disabled) unless the plan says otherwise (typed: false). The safe answer has the focus; Entrée
+ * confirms only once the name matches. Resolves 'confirm', 'alternate' or null. It never writes anything itself: the page
+ * sends the plan afterwards.
  * @param {WriteConfirmation} opts
  * @returns {Promise<'confirm'|'alternate'|null>}
  */
 export function confirmWrite(opts) {
+  const typed = opts.typed !== false;
   const id = uid('cw');
   const message = String(opts.message ?? '').slice(0, 2000);
   const changes = (opts.changes ?? []).map((c) => `<li><span class="k-cw-label">${esc(c.label)}</span>`
@@ -173,16 +179,16 @@ export function confirmWrite(opts) {
     ${changes ? `<ul class="k-cw-changes" aria-label="Changements prévus">${changes}</ul>` : ''}
     ${opts.details ? `<div class="k-cw-details"><button class="k-cw-more" type="button" aria-expanded="false" aria-controls="${id}-d">${glyph('chevronRight')}Détails techniques</button>
       <pre class="k-cw-pre" id="${id}-d" hidden>${esc(opts.details)}</pre></div>` : ''}
-    <div class="k-field k-cw-typed">
+    ${typed ? `<div class="k-field k-cw-typed">
       <label for="${id}-in">Pour confirmer, saisissez ${esc(quote(opts.target))}</label>
       <div class="k-cw-inrow"><input class="input mono" id="${id}-in" type="text" autocomplete="off" spellcheck="false" aria-describedby="${id}-h">
         <span class="k-cw-ok" aria-hidden="true">${glyph('check')}</span></div>
       <p class="k-hint" id="${id}-h">Respectez les majuscules. Le collage est désactivé pour cette saisie.</p>
-    </div>`;
+    </div>` : ''}`;
   const actions = [
     { id: 'cancel', label: 'Annuler', safe: true },
     ...(opts.alternate ? [{ id: 'alternate', label: opts.alternate.label }] : []),
-    { id: 'confirm', label: opts.confirmLabel ?? 'Confirmer l’écriture', icon: 'edit', danger: true, disabled: true },
+    { id: 'confirm', label: opts.confirmLabel ?? 'Confirmer l’écriture', icon: 'edit', danger: true, disabled: typed },
   ];
   const d = openDialog({
     title: opts.title,
@@ -193,31 +199,33 @@ export function confirmWrite(opts) {
     body,
     actions,
   });
-  const input = /** @type {HTMLInputElement} */ (d.body.querySelector('input'));
-  const row = d.body.querySelector('.k-cw-typed');
-  const hint = d.body.querySelector('.k-hint');
-  let matched = false;
-  const check = () => {
-    matched = input.value === opts.target;
-    row.classList.toggle('ok', matched);
-    input.setAttribute('aria-invalid', String(input.value !== '' && !opts.target.startsWith(input.value)));
-    d.setDisabled('confirm', !matched);
-  };
-  input.addEventListener('input', check);
-  const refuse = (e) => {
-    e.preventDefault();
-    hint.textContent = `Le collage est désactivé${NBSP}: saisissez le nom lettre par lettre.`;
-    hint.classList.add('warn');
-    announce('Le collage est désactivé : saisissez le nom.');
-  };
-  input.addEventListener('paste', refuse);
-  input.addEventListener('drop', refuse);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+  const input = /** @type {HTMLInputElement|null} */ (d.body.querySelector('.k-cw-typed input'));
+  if (input) {
+    const row = d.body.querySelector('.k-cw-typed');
+    const hint = d.body.querySelector('.k-hint');
+    let matched = false;
+    const check = () => {
+      matched = input.value === opts.target;
+      row.classList.toggle('ok', matched);
+      input.setAttribute('aria-invalid', String(input.value !== '' && !opts.target.startsWith(input.value)));
+      d.setDisabled('confirm', !matched);
+    };
+    input.addEventListener('input', check);
+    const refuse = (e) => {
       e.preventDefault();
-      if (matched) d.close('confirm');
-    }
-  });
+      hint.textContent = `Le collage est désactivé${NBSP}: saisissez le nom lettre par lettre.`;
+      hint.classList.add('warn');
+      announce('Le collage est désactivé : saisissez le nom.');
+    };
+    input.addEventListener('paste', refuse);
+    input.addEventListener('drop', refuse);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (matched) d.close('confirm');
+      }
+    });
+  }
   const more = d.body.querySelector('.k-cw-more');
   more?.addEventListener('click', () => {
     const pre = d.body.querySelector('.k-cw-pre');
@@ -225,5 +233,8 @@ export function confirmWrite(opts) {
     more.setAttribute('aria-expanded', String(open));
     pre.hidden = !open;
   });
-  return d.result.then((r) => (r === 'confirm' || r === 'alternate' ? r : null));
+  return d.result.then((r) => {
+    if (r === 'confirm' && input) opts.onTyped?.(input.value);
+    return r === 'confirm' || r === 'alternate' ? r : null;
+  });
 }

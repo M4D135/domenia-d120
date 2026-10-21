@@ -1,5 +1,6 @@
 using System.Text;
 using Domenia.App.Capture;
+using Domenia.App.E2e;
 using Domenia.Core;
 using Domenia.Store;
 
@@ -13,6 +14,9 @@ internal static class Program
 
     /// <summary>Set with --capture only (docs/CAPTURE.md); the run then ends by itself with code 0 or 2.</summary>
     private static CaptureSession? capture;
+
+    /// <summary>Set with --e2e-port and DOMENIA_E2E=1 only (docs/E2E.md): the harness drives the window.</summary>
+    private static E2eArguments? e2e;
 
     [STAThread]
     private static int Main(string[] args)
@@ -36,12 +40,20 @@ internal static class Program
             TechnicalLog.Error("Tâche en échec jamais observée.", e.Exception);
             e.SetObserved();
         };
-        // --capture <folder> is taken out first: without it, the command line reaches the mode resolver unchanged.
+        // --capture <folder> and --e2e-port <n> are taken out first: without them, the command line reaches the mode
+        // resolver unchanged.
         var request = CaptureArguments.Parse(args);
+        var e2eRequest = E2eArguments.Parse(request.Remaining, Environment.GetEnvironmentVariable(E2eArguments.Variable));
 #pragma warning disable CA1031 // Startup failures of any kind are traced and told to the operator in French.
         try
         {
-            var decision = ResolveMode(request.Remaining);
+            var decision = ResolveMode(e2eRequest.Remaining);
+            // Checked before the capture opens capture.log: a refused E2E start touches no profile and no capture folder.
+            if (e2eRequest.Requested && !StartE2e(e2eRequest, request.Requested))
+            {
+                return E2eArguments.FailureCode;
+            }
+            GuardBrowserArguments(e2e is not null);
             if (request.Requested && !StartCapture(request, decision))
             {
                 return CaptureSession.FailureCode;
@@ -60,8 +72,50 @@ internal static class Program
             Fail("Échec du démarrage.", ex);
         }
 #pragma warning restore CA1031
-        // Without --capture the exit code stays 0, as before the option existed.
-        return capture?.Finish() ?? 0;
+        // Without --capture the exit code stays 0, as before the option existed; an E2E run that failed ends with 2.
+        return capture?.Finish() ?? (e2e is not null && Volatile.Read(ref failed) != 0 ? E2eArguments.FailureCode : 0);
+    }
+
+    /// <summary>
+    /// --e2e-port with DOMENIA_E2E=1 (docs/E2E.md). A refusal (port, variable, repeated option, capture requested too)
+    /// is traced and ends the process with code 2 before any window, profile or file is touched.
+    /// </summary>
+    private static bool StartE2e(E2eArguments request, bool captureRequested)
+    {
+        var refusal = request.Error ?? (captureRequested ? E2eTexts.WithCapture : null);
+        if (refusal is not null || !request.Enabled)
+        {
+            refusal ??= E2eTexts.PortInvalid;
+            TechnicalLog.Warning(refusal);
+            WriteStandardError(refusal);
+            return false;
+        }
+        e2e = request;
+        return true;
+    }
+
+    /// <summary>
+    /// WebView2 also reads browser arguments from the environment: a variable that would open the DevTools protocol (or,
+    /// in E2E mode, replace the loopback port of --e2e-port) is removed from this process, so neither the WebView2 loader
+    /// nor the browser processes it starts ever see it. Only the variable name is traced, never its value.
+    /// </summary>
+    private static void GuardBrowserArguments(bool e2eActive)
+    {
+#if DEBUG
+        const bool debugBuild = true;
+#else
+        const bool debugBuild = false;
+#endif
+        var variables = BrowserArgumentsGuard.VariablesToNeutralize(
+            Environment.GetEnvironmentVariable(BrowserArgumentsGuard.ArgumentsVariable),
+            Environment.GetEnvironmentVariable(BrowserArgumentsGuard.ScriptDebuggerVariable),
+            e2eActive,
+            debugBuild);
+        foreach (var variable in variables)
+        {
+            Environment.SetEnvironmentVariable(variable, null);
+            TechnicalLog.Warning(E2eTexts.Neutralized(variable));
+        }
     }
 
     /// <summary>
@@ -150,8 +204,8 @@ internal static class Program
             Fail("Erreur imprévue sur le fil de l’interface.", e.Exception);
             Application.Exit();
         };
-        using var composition = Composition.Create(decision, capture is not null);
-        using var form = new MainForm(composition, capture);
+        using var composition = Composition.Create(decision, capture is not null, e2e is not null);
+        using var form = new MainForm(composition, capture, e2e);
         Application.Run(form);
     }
 
@@ -165,8 +219,9 @@ internal static class Program
             capture.Abort(message);
             return;
         }
-        // One message box only, even if several failures arrive while closing.
-        if (Interlocked.Exchange(ref failed, 1) == 0)
+        // One message box only, even if several failures arrive while closing; none in E2E mode, where nobody would close
+        // it (the harness reads the exit code and the journal).
+        if (Interlocked.Exchange(ref failed, 1) == 0 && e2e is null)
         {
             MessageBox.Show(FatalMessage, ProductInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }

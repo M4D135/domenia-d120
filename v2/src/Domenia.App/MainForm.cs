@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Domenia.App.Capture;
+using Domenia.App.E2e;
 using Domenia.Bridge;
 using Domenia.Core;
 using Microsoft.Web.WebView2.Core;
@@ -28,18 +29,22 @@ internal sealed class MainForm : Form
     private readonly CancellationTokenSource lifetime = new();
     private readonly AppMode mode;
     private readonly CaptureSession? capture;
+    private readonly E2eArguments? e2e;
 
     /// <summary>Stopwatch timestamp of the window load: start of the single startup budget of the capture mode.</summary>
     private long startupBegan;
 
     /// <param name="capture">Set with --capture only: fixed geometry, capture profile, then the sequence and closing.</param>
-    public MainForm(Composition composition, CaptureSession? capture = null)
+    /// <param name="e2e">Set with --e2e-port and DOMENIA_E2E=1 only (docs/E2E.md): emptied E2E profile and DevTools
+    /// protocol on the loopback port, for the end-to-end harness.</param>
+    public MainForm(Composition composition, CaptureSession? capture = null, E2eArguments? e2e = null)
     {
         ArgumentNullException.ThrowIfNull(composition);
         mode = composition.Decision.Mode;
         this.capture = capture;
-        // « Domenia — Simulation » stays visible even if the page fails to load.
-        Text = composition.WindowTitle;
+        this.e2e = e2e is { Enabled: true } ? e2e : null;
+        // « Domenia — Simulation » stays visible even if the page fails to load; a driven window says so.
+        Text = composition.WindowTitle + (this.e2e is null ? "" : E2eTexts.WindowTitleSuffix);
         MinimumSize = new Size(1024, 680);
         Size = new Size(1440, 900);
         StartPosition = FormStartPosition.CenterScreen;
@@ -85,7 +90,7 @@ internal sealed class MainForm : Form
 
     private async Task InitializeWebViewAsync()
     {
-        var userData = AppPaths.WebViewUserData(mode, capture is not null);
+        var userData = AppPaths.WebViewUserData(mode, capture is not null, e2e is not null);
         if (userData is null)
         {
             TechnicalLog.Warning("Dossier de données introuvable : l’affichage n’est pas démarré.");
@@ -97,8 +102,18 @@ internal sealed class MainForm : Form
         CoreWebView2Environment environment;
         try
         {
+            if (e2e is not null)
+            {
+                // Every E2E run starts from an empty profile (web storage, cache, cookies): off the UI thread.
+                await Task.Run(() => EmptyE2eProfile(userData)).ConfigureAwait(true);
+            }
             Directory.CreateDirectory(userData);
             var options = new CoreWebView2EnvironmentOptions { AreBrowserExtensionsEnabled = false };
+            if (e2e is not null)
+            {
+                // Loopback DevTools port only; the environment variable that could override it was neutralized at start.
+                options.AdditionalBrowserArguments = e2e.BrowserArguments;
+            }
             environment = await Bounded(CoreWebView2Environment.CreateAsync(AppPaths.WebViewRuntime, userData, options)).ConfigureAwait(true);
             await Bounded(webView.EnsureCoreWebView2Async(environment)).ConfigureAwait(true);
         }
@@ -162,6 +177,19 @@ internal sealed class MainForm : Form
         };
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.WebMessageReceived += OnWebMessageReceived;
+        if (e2e is not null)
+        {
+            // The profile folder was deleted before the start; whatever could not be deleted is cleared here.
+            try
+            {
+                await core.Profile.ClearBrowsingDataAsync().ConfigureAwait(true);
+            }
+            catch (COMException ex)
+            {
+                TechnicalLog.Warning($"Profil WebView2 E2E : effacement des données de navigation en échec (HRESULT 0x{ex.HResult.ToString("X8", CultureInfo.InvariantCulture)}).");
+            }
+            TechnicalLog.Info(E2eTexts.Active(e2e.Port, Path.GetFileName(userData)));
+        }
         if (capture is null)
         {
             core.Navigate(StartAddress);
@@ -176,6 +204,33 @@ internal sealed class MainForm : Form
     }
 
     private static string StartAddress => $"https://{ProductInfo.WebHost}/index.html";
+
+    /// <summary>
+    /// Deletes the E2E profile folder (its fixed name comes from AppPaths, never from the command line). A folder that is a
+    /// link is left alone (its target is not ours to delete); a file still held by a browser process that has not exited
+    /// yet is traced, and ClearBrowsingDataAsync clears the rest once WebView2 has started.
+    /// </summary>
+    private static void EmptyE2eProfile(string folder)
+    {
+        try
+        {
+            var info = new DirectoryInfo(folder);
+            if (!info.Exists)
+            {
+                return;
+            }
+            if (info.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                TechnicalLog.Warning("Profil WebView2 E2E non vidé : le dossier est un lien ; les données de navigation seront effacées par WebView2.");
+                return;
+            }
+            info.Delete(recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            TechnicalLog.Warning($"Profil WebView2 E2E vidé en partie ({ex.GetType().Name}) ; les données de navigation restantes seront effacées par WebView2.");
+        }
+    }
 
     /// <summary>
     /// In capture mode a WebView2 start that never ends must not keep the process alive: every startup call shares one

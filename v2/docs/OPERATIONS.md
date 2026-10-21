@@ -3,7 +3,9 @@
 Ce document fixe, opération par opération, ce que la page web peut demander au moteur et la forme **exacte** de la
 réponse. Il couvre le shell, la page Accueil et l’OU de travail : `app.info`, `session.info`, `dashboard.summary`,
 `dashboard.widget.refresh`, `dashboard.widget.setEnabled`, `directory.ou.children`, `directory.ou.search` et
-`session.setScope`. La conception du mode simulation qui sert ces opérations sans Active Directory est dans
+`session.setScope`. Le circuit des écritures (§ 12, [`WRITES.md`](WRITES.md)) ajoute `accounts.unlock.plan`,
+`write.execute`, `write.receipts.list`, `write.receipts.get` et `write.receipts.verify`. La conception du mode simulation
+qui sert ces opérations sans Active Directory est dans
 [`SIMULATION.md`](SIMULATION.md) ; l’organisation du moteur en modules (un par écran, trouvés tout seuls) est dans
 [`PLATFORM.md`](PLATFORM.md).
 
@@ -59,13 +61,14 @@ Réponse du moteur, réussite puis échec :
 | `Local` | Calcul ou état en mémoire ; ni disque, ni réseau. |
 | `LocalRead` | Lecture de la base locale ou des fichiers de l’application. |
 | `NetworkRead` | Lecture annuaire, WMI, DNS ou ping, seulement après un geste explicite de l’opérateur, bornée à une OU. |
-| `LocalWrite` | Écriture des **préférences locales de l’application seulement** (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
-| `Write` | Écriture AD ou action distante : plan, confirmation, reçu, relecture. **Toujours refusée en simulation** (§ 1.5). |
+| `LocalWrite` | Écriture des **données locales de l’application seulement** : préférences (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation) et reçus d’écriture (`receipts.jsonl`, ou `receipts-simulation.jsonl`, § 12.6), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
+| `Write` | Écriture AD ou action distante, **seulement par `write.execute`** (§ 12) : plan, confirmation, reçu, relecture. **Admise en simulation sur la surcouche en mémoire de l’annuaire fictif, sans effet réel** (§ 1.5, décision du 21/10) ; toute autre opération `Write` est refusée dans les deux modes. |
 
 La classe déclarée est celle du **mode annuaire** (le cas le plus exigeant). En simulation, le même nom d’opération
-garde la même classe et les mêmes règles d’admission, même si son gestionnaire ne touche ni réseau ni disque. Seule
-exception : une lecture de l’arborescence que la simulation sert en mémoire est déclarée `LocalRead` en simulation et
-`NetworkRead` en mode annuaire (`directory.ou.children`, `directory.ou.search`).
+garde la même classe et les mêmes règles d’admission, même si son gestionnaire ne touche ni réseau ni disque. Seules
+exceptions : les lectures que la simulation sert en mémoire et que le mode annuaire fait sur le contrôleur, déclarées
+`LocalRead` en simulation et `NetworkRead` en mode annuaire : l’arborescence (`directory.ou.children`,
+`directory.ou.search`) et les plans d’écriture (`accounts.unlock.plan`, § 12).
 
 Une écriture locale qui échoue (disque plein, droits) ne fait jamais échouer l’opération : le choix vaut pour la session,
 le journal technique trace le type d’erreur et le journal des opérations affiche « Préférences non enregistrées : … »
@@ -88,9 +91,9 @@ Codes communs ajoutés par ce contrat :
 | Code | Message | Cause |
 |---|---|---|
 | `arguments.invalid` | Arguments invalides : *précision*. | `args` d’une forme non admise (voir chaque opération). Le message ne recopie jamais la saisie de la page. |
-| `simulation.readOnly` | Écritures désactivées en simulation : aucune écriture tentée. | Toute opération de classe `Write` en simulation, refusée **avant** son gestionnaire. |
+| `simulation.readOnly` | Écritures désactivées en simulation : aucune écriture tentée. | Toute opération de classe `Write` autre que `write.execute` en simulation, refusée **avant** son gestionnaire. |
 | `simulation.unavailable` | Non disponible en simulation : aucune connexion au poste ni à l’annuaire. | Opération `NetworkRead` que l’annuaire fictif ne sert pas, refusée **avant** son gestionnaire. |
-| `write.unavailable` | Écritures non disponibles dans cette version : aucune écriture tentée. | Mode annuaire : toute opération de classe `Write` (et toute classe que la garde ne connaît pas), refusée **avant** son gestionnaire tant que la chaîne plan, confirmation, reçu et relecture n’existe pas dans le pont. |
+| `write.unavailable` | Écritures non disponibles dans cette version : aucune écriture tentée. | Mode annuaire : toute opération de classe `Write` autre que `write.execute` (et toute classe que la garde ne connaît pas), refusée **avant** son gestionnaire : seule la porte du circuit d’écriture écrit (§ 12). |
 | `source.unavailable` | Lecture de l’annuaire indisponible dans cette version : lancez Domenia avec --simulation pour l’essayer sans Active Directory. | Mode annuaire tant que `Domenia.Ad` n’est pas branché. |
 | `ou.unknown` | OU introuvable : rien n’a été lu. | DN bien formé qui ne désigne ni la racine du domaine ni une OU (conteneur `CN=…`, OU absente, autre domaine). |
 | `scope.unknown` | OU introuvable : l’OU de travail n’a pas été changée. | `session.setScope` vers une OU absente ou un conteneur. |
@@ -109,22 +112,28 @@ Précisions fixes de `arguments.invalid` :
 
 Une opération sans argument accepte `args` absent, `null` ou `{}`.
 
+Les codes et précisions du circuit d’écriture (`write.*`, `receipt.*`) sont au § 12.7.
+
 ### 1.5 Admission en simulation
 
-En simulation, le dispatcher refuse toute opération de classe `Write` avec `simulation.readOnly`, sans appeler le
-gestionnaire, même si sa déclaration la marque servie ; les classes `Local`, `LocalRead` et `LocalWrite` (préférences de
-la simulation, jamais l’annuaire) sont admises, et toute classe ajoutée plus tard est refusée tant que la garde ne la
-connaît pas. Une opération `NetworkRead` n’est admise que si sa déclaration la marque servie par l’annuaire fictif
-(`OperationDefinition.ServedInSimulation`, aujourd’hui `dashboard.widget.refresh` seulement) ; toute autre (outils
+En simulation, le dispatcher admet `write.execute`, la seule opération de classe `Write`, dont les exécuteurs de la
+simulation n’écrivent que dans la surcouche en mémoire de l’annuaire fictif (décision de David du 21/10 : écritures
+testables en simulation, sans effet réel ; `WRITES.md` § 5) ; il refuse toute autre opération `Write` avec
+`simulation.readOnly`, sans appeler le gestionnaire, même si sa déclaration la marque servie ; les classes `Local`,
+`LocalRead` et `LocalWrite` (préférences et reçus de la simulation, jamais l’annuaire) sont admises, et toute classe
+ajoutée plus tard est refusée tant que la garde ne la connaît pas. Une opération `NetworkRead` n’est admise que si sa déclaration la marque servie par l’annuaire fictif
+(`OperationDefinition.ServedInSimulation`, aujourd’hui `dashboard.widget.refresh` et `write.receipts.verify`) ; toute autre (outils
 distants à venir) est refusée par défaut, sans appeler le gestionnaire, avec `simulation.unavailable` : « Non
 disponible en simulation : aucune connexion au poste ni à l’annuaire. » (parité avec `DOMENIA_DEMO_WRITE` et
 `DOMENIA_DEMO_UNAVAILABLE` de Domenia 1). Chaque refus du pont (message, opération, admission, arguments) est tracé
 dans le journal technique par son code et le nom d’opération déclaré, jamais par le contenu du message.
 
-En mode annuaire, la garde `AdmissionGuards.ReadOnlyDirectory` refuse de même toute opération de classe `Write`, et toute
-classe qu’elle ne connaît pas, avec `write.unavailable`, sans appeler le gestionnaire : la lecture seule par défaut ne
-dépend d’aucun module. `Local`, `LocalRead`, `LocalWrite` et `NetworkRead` sont admises. Un test construit le registre
-réel (tous les modules trouvés dans les assemblages Domenia) et vérifie qu’aucune opération n’y est de classe `Write`.
+En mode annuaire, la garde `AdmissionGuards.ReadOnlyDirectory` admet `write.execute` (circuit complet : plan,
+confirmation, reçu avant l’envoi, relecture, § 12) et refuse toute autre opération de classe `Write`, et toute classe
+qu’elle ne connaît pas, avec `write.unavailable`, sans appeler le gestionnaire : la lecture seule par défaut ne dépend
+d’aucun module (`AdmissionGuards.IsWriteCircuit`). `Local`, `LocalRead`, `LocalWrite` et `NetworkRead` sont admises. Un
+test construit le registre réel (tous les modules trouvés dans les assemblages Domenia) et vérifie que `write.execute` y
+est la seule opération de classe `Write`, admise dans les deux modes.
 
 ### 1.6 Récapitulatif
 
@@ -138,6 +147,11 @@ réel (tous les modules trouvés dans les assemblages Domenia) et vérifie qu’
 | `directory.ou.children` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn }` (texte ou `null`) | l’OU (ou la racine) et ses OU enfants |
 | `directory.ou.search` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ text }` | tableau d’au plus 50 OU |
 | `session.setScope` | `LocalWrite` | `{ dn, subtree }` | `session.info` à jour |
+| `accounts.unlock.plan` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn }` | plan du déverrouillage et son jeton (§ 12.2) |
+| `write.execute` | `Write` | `{ planId, token, typedName }` | reçu de l’écriture (§ 12.3) |
+| `write.receipts.list` | `LocalRead` | aucun | reçus du mode, à vérifier d’abord (§ 12.4) |
+| `write.receipts.get` | `LocalRead` | `{ id }` | un reçu complet (§ 12.5) |
+| `write.receipts.verify` | `NetworkRead` (servie en simulation) | `{ id }` | le reçu après relecture de son objet (§ 12.5) |
 
 ---
 
@@ -176,7 +190,7 @@ tout le reste : c’est elle qui décide de l’affichage de la bannière de sim
   "modeLabel": "Simulation",
   "modeReason": "argument",
   "modeDetail": "Lancé avec l’option --simulation.",
-  "banner": "Simulation : annuaire fictif example.local, aucune connexion à Active Directory, aucune écriture possible."
+  "banner": "Simulation : annuaire fictif example.local, aucune connexion à Active Directory ; les écritures ne modifient que cet annuaire fictif, en mémoire."
 }
 ```
 
@@ -228,7 +242,7 @@ prénom (décision de David du 21/10) : l’opérateur travaille avec un compte 
 | `rights.label` | texte | `Lecture`, `Délégués`, `Administration`, `Non évalués`. |
 | `rights.estimated` | booléen | Toujours `true` tant que les droits sont déduits des groupes et non vérifiés par l’annuaire. |
 | `rights.detail` | texte | Phrase d’explication. |
-| `readOnly` | booléen | Lecture seule active. Toujours `true` en simulation. |
+| `readOnly` | booléen | Lecture seule active : `true` quand aucune écriture n’est admise (mode annuaire tant que `Domenia.Ad` n’est pas branché) ; `false` en simulation, où les écritures sont admises sur la surcouche en mémoire de l’annuaire fictif (décision du 21/10, § 12). Même `false`, rien n’est écrit sans plan confirmé. |
 | `tasks.running` | entier | Lectures en cours (actualisations de widgets comprises). |
 | `tasks.queued` | entier | Lectures en attente. |
 | `cache.state` | texte | `fresh` (moins de 24 h), `aging` (1 à 7 jours), `stale` (plus de 7 jours), `empty` (jamais lue). |
@@ -261,9 +275,9 @@ L’étape `dashboard` est faite dès qu’un `dashboard.summary` a réussi dans
     "level": "read",
     "label": "Lecture",
     "estimated": true,
-    "detail": "Simulation : les droits sont fictifs et aucune écriture n’est possible."
+    "detail": "Simulation : les droits sont fictifs ; les écritures ne modifient que l’annuaire fictif, en mémoire."
   },
-  "readOnly": true,
+  "readOnly": false,
   "tasks": { "running": 0, "queued": 0 },
   "cache": {
     "state": "fresh",
@@ -1074,8 +1088,230 @@ Exemple de réponse (extrait) après `{ "dn": "OU=Paris,OU=Postes,DC=example,DC=
 {
   "connection": { "state": "simulated", "label": "Annuaire simulé" },
   "scope": { "dn": "OU=Paris,OU=Postes,DC=example,DC=local", "label": "Paris", "subtree": true },
-  "readOnly": true
+  "readOnly": false
 }
 ```
 
 Le `dashboard.summary` suivant porte le même `scope`, `workstationsOnline.data.total` = 186 et `scopeLabel` = `OU Paris`.
+
+---
+
+## 12. Écritures : plan, confirmation, reçu, relecture
+
+Le circuit des écritures ([`WRITES.md`](WRITES.md)) est le même pour tous les écrans : un écran expose une opération de
+**lecture** `<écran>.<verbe>.plan` qui renvoie le plan et son jeton ; l’exécution passe toujours par **`write.execute`**,
+la seule opération de classe `Write` (§ 1.5) ; les reçus se lisent par `write.receipts.*` (écran Opérations). Rien n’est
+jamais rejoué : ni par le moteur, ni par la page, ni au démarrage, ni à partir d’un reçu. En simulation, les écritures ne
+changent que la surcouche en mémoire de l’annuaire fictif (décision de David du 21/10) et leurs reçus sont marqués
+`simulated` = `true`.
+
+### 12.1 Plan (résultat commun des opérations `<écran>.<verbe>.plan`)
+
+Résultat : `{ "plan": { … }, "token": "…" }`. Le jeton (43 caractères base64url) est à usage unique, lié à l’empreinte du
+plan, valable jusqu’à `plan.expiresAt` (5 minutes) ; il n’apparaît dans aucune autre réponse ni dans aucun reçu.
+
+| Champ de `plan` | Type | Contenu |
+|---|---|---|
+| `id` | texte | Identifiant du plan : 32 caractères hexadécimaux minuscules. |
+| `kind` | texte | Type d’écriture, noms pointés en camelCase (`account.unlock`). |
+| `title` | texte | Action, pour le titre du panneau (« Déverrouiller le compte »). |
+| `label` | texte | Nom de l’opération dans les reçus et les journaux (« Déverrouillage du compte »). |
+| `summary` | texte | Ce qui va se passer, en une phrase. |
+| `target` | objet | `kind` (`user`, `computer`, `group`, `ou`), `kindLabel` (« Compte utilisateur »), `name`, `dn`, `objectGuid` (format `D` minuscule), `samAccountName` (texte ou `null`). |
+| `changes` | tableau | 1 à 64 changements `{ attribute, label, kind, before, after, beforeValue, afterValue }` : `kind` vaut `replace`, `clear`, `add`, `remove`, `move` ou `reset` ; `before` et `after` en clair (texte ou `null`) ; `beforeValue` et `afterValue` valeurs brutes de l’annuaire (texte ou `null`), jamais un secret. |
+| `risks` | tableau | Points à vérifier `{ tone, text }`, `tone` = `warn`, `alert` ou `info` ; `[]` si aucun. |
+| `confirmation` | objet | `typedNameRequired` (booléen), `typedName` (nom exact à saisir, texte ou `null`), `reason` (phrase). |
+| `reversibility` | objet | `reversible` (booléen), `label`, `detail`. |
+| `controller` | texte ou `null` | Contrôleur destinataire (celui qui a été lu). |
+| `operator` | texte | Compte de la session (`EXAMPLE\j.martin`). |
+| `mode` | texte | `simulation` ou `annuaire`. |
+| `simulated` | booléen | `true` en simulation. |
+| `createdAt`, `expiresAt` | date-heure | Préparation et fin de validité (5 minutes plus tard). |
+| `fingerprint` | texte | SHA-256 (64 hexadécimaux) de la forme canonique du plan (`WRITES.md` § 3). |
+| `details` | texte | Détails techniques repliés, une ligne par fait (cible, DN, GUID, contrôleur, opérateur, mode, changements, dates, 12 premiers caractères de l’empreinte). |
+
+Refus communs d’un plan : `source.unavailable` (aucun exécuteur de ce type dans ce mode : mode annuaire tant que
+`Domenia.Ad` n’est pas branché), `write.targetPending`, `receipt.unavailable` (§ 12.7). Un plan n’écrit rien.
+
+### 12.2 `accounts.unlock.plan`
+
+Plan du déverrouillage d’un compte utilisateur (Domenia 1 FIC-012 : remise à zéro de `lockoutTime`, puis vérification).
+
+- **Classe** : `LocalRead` en simulation, `NetworkRead` en mode annuaire (relecture du compte sur le contrôleur, après le
+  geste de l’opérateur).
+- **Arguments** : `{ "dn": "CN=Camille Bernard,OU=Commercial,OU=Lyon,OU=Utilisateurs,DC=example,DC=local" }` — `dn` texte
+  obligatoire (DN bien formé, 2 048 caractères au plus, casse et échappements ignorés) ; aucune autre propriété.
+- **Règles** : compte avec `lockoutTime` non nul (verrouillé, verrouillage expiré ou « à vérifier » : Domenia 1 efface aussi
+  un verrouillage expiré) ; changement unique `lockoutTime` → `0` (`kind` = `clear`) ; saisie du nom (`sAMAccountName`)
+  exigée pour un compte protégé (`adminCount` = 1), confirmation simple sinon ; sans retour arrière (aucune compensation,
+  comme Domenia 1). Risques : identité du demandeur (verrouillé, avec le nombre d’essais), verrouillage déjà expiré ou non
+  confirmé par le contrôleur, compte désactivé, compteur d’essais remis à zéro, mot de passe à changer, compte à privilèges.
+- **Erreurs** : `arguments.invalid`, `write.targetUnknown` (« Ce nom distinctif ne désigne aucun compte utilisateur de
+  l’annuaire fictif : aucune écriture préparée. » en simulation), `write.nothingToDo` (« Ce compte n’est pas verrouillé :
+  aucune écriture à préparer. »), refus communs du § 12.1, `operation.cancelled`.
+- **Simulation** : délai réaliste de 90 à 220 ms (`latency/screen/write/plan`).
+
+Exemple (simulation, graine par défaut ; heures, identifiant, empreinte et jeton illustratifs) :
+
+```json
+{
+  "plan": {
+    "id": "5b0e4c1d9a7f42e8b3c6d1a0f9e8d7c6",
+    "kind": "account.unlock",
+    "title": "Déverrouiller le compte",
+    "label": "Déverrouillage du compte",
+    "summary": "Camille Bernard pourra de nouveau ouvrir une session : lockoutTime remis à zéro sur DC01.example.local.",
+    "target": { "kind": "user", "kindLabel": "Compte utilisateur", "name": "Camille Bernard", "dn": "CN=Camille Bernard,OU=Commercial,OU=Lyon,OU=Utilisateurs,DC=example,DC=local", "objectGuid": "6f1c2b7e-9a43-4d1e-8c55-2b7d90e4a1c3", "samAccountName": "c.bernard" },
+    "changes": [
+      { "attribute": "lockoutTime", "label": "Verrouillage", "kind": "clear", "before": "Verrouillé depuis le 21/10/2026 à 18:08", "after": "Déverrouillé", "beforeValue": "134055412800000000", "afterValue": "0" }
+    ],
+    "risks": [
+      { "tone": "warn", "text": "Vérifiez l’identité du demandeur : un verrouillage (5 essais erronés) peut aussi venir d’une tentative d’intrusion ou d’un ancien mot de passe enregistré sur un poste." },
+      { "tone": "info", "text": "Le contrôleur remet aussi à zéro le compteur d’essais erronés (5)." }
+    ],
+    "confirmation": { "typedNameRequired": false, "typedName": null, "reason": "Confirmation simple : compte standard ; ni droit ni mot de passe modifié." },
+    "reversibility": { "reversible": false, "label": "Sans retour arrière", "detail": "Un déverrouillage ne se défait pas : le compte ne se verrouille de nouveau qu’après de nouveaux essais erronés. Aucune compensation n’est proposée, comme dans Domenia 1." },
+    "controller": "DC01.example.local",
+    "operator": "EXAMPLE\\j.martin",
+    "mode": "simulation",
+    "simulated": true,
+    "createdAt": "2026-10-21T16:26:00Z",
+    "expiresAt": "2026-10-21T16:31:00Z",
+    "fingerprint": "3f2a9c41b7e05d6a8c1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c",
+    "details": "Opération : account.unlock\nCible : Compte utilisateur Camille Bernard\n…\nEmpreinte du plan : 3f2a9c41b7e0"
+  },
+  "token": "q3V0Jx9cR2m8T1wYbZ5nA7eK4hU6sD0fG2iL8pO3vXc"
+}
+```
+
+### 12.3 `write.execute`
+
+Exécute **une fois** un plan confirmé et renvoie son reçu (forme du § 12.6, avec `details` et `plan`).
+
+- **Classe** : `Write` — seule opération de cette classe, admise par les gardes des deux modes (§ 1.5).
+- **Arguments** : `{ "planId": "…", "token": "…", "typedName": null }` — `planId` (32 hexadécimaux) et `token` (43
+  caractères base64url) obligatoires ; `typedName` texte (256 caractères au plus) ou `null`, obligatoire et identique au nom
+  du plan (casse comprise) quand `confirmation.typedNameRequired` est vrai, ignoré sinon ; aucune autre propriété.
+- **Déroulé** (`WRITES.md` § 3) : contrôles du plan et du jeton, nom saisi, jeton consommé (un refus après ce point dépense
+  le plan), une écriture à la fois, aucune écriture incertaine sur la cible, préconditions relues, **reçu version 1 écrit
+  avant l’envoi** (sans lui rien ne part), envoi unique jamais interrompu, résultat enregistré, relecture de l’objet, reçu
+  complété, journal des opérations (« Déverrouillage du compte (simulation) : Camille Bernard · relecture conforme »).
+- **Événements** : `write.execute:stage` avec `{ "stage": "checking" | "sending" | "verifying", "label": "…" }` (« Relecture
+  de l’objet avant l’envoi », « Reçu enregistré, envoi du changement », « Relecture après l’écriture »), dans cet ordre.
+- **Résultat** : une fois le reçu écrit, la réponse est **toujours** un reçu, quelle que soit l’issue : `applied`,
+  `noChange` (objet déjà dans l’état demandé : rien envoyé), `notApplied` (refus attendu avant tout changement, `error`
+  renseignée), `unknown` (issue inconnue après l’envoi : à vérifier, bloque la cible).
+- **Erreurs** (rien n’a été envoyé) : `arguments.invalid`, `write.planUnknown`, `write.tokenUsed`, `write.tokenInvalid`,
+  `write.planChanged`, `write.tokenExpired`, `write.confirmationMismatch`, `write.targetPending`, `write.stale`,
+  `receipt.unavailable`, `source.unavailable`, `operation.cancelled` (fermeture pendant l’attente d’une autre écriture).
+- **Simulation** : préconditions 60 à 140 ms, envoi 280 à 620 ms, relecture 90 à 200 ms (`latency/screen/write/…`).
+
+### 12.4 `write.receipts.list`
+
+Reçus du mode (fichier du mode, plus les versions de la session), **à vérifier d’abord**, puis du plus récent au plus
+ancien ; 500 lignes au plus (les reçus à vérifier toujours compris).
+
+- **Classe** : `LocalRead`. **Arguments** : aucun.
+- **Erreurs** : `arguments.invalid`, `receipt.unavailable` (reçus illisibles pour l’instant).
+
+| Champ | Type | Contenu |
+|---|---|---|
+| `total` | entier | Reçus connus. |
+| `pending` | entier | Reçus à vérifier (chacun bloque les écritures sur sa cible). |
+| `unreadable` | entier | Enregistrements illisibles ignorés. |
+| `truncated` | booléen | `true` si des reçus ne sont pas renvoyés (au-delà de 500). |
+| `summary` | texte | Phrase de la liste (« Aucune écriture à vérifier. Un reçu conservé ; rien n’est renvoyé automatiquement. »). |
+| `receipts` | tableau | Lignes : forme du § 12.6 **sans** `details` ni `plan`. |
+
+### 12.5 `write.receipts.get` et `write.receipts.verify`
+
+- `write.receipts.get` (`LocalRead`) : `{ "id": "…" }` (32 hexadécimaux) → le reçu complet (§ 12.6). Erreurs :
+  `arguments.invalid`, `receipt.unknown`, `receipt.unavailable`.
+- `write.receipts.verify` (`NetworkRead`, servie en simulation) : `{ "id": "…" }` → relit l’objet du reçu (mémoire en
+  simulation, contrôleur en mode annuaire, après le geste de l’opérateur) et renvoie le reçu avec une version de plus
+  (`verification`, `verifiedAt`, détail « Relecture »). **Seule une lecture part** : l’écriture n’est jamais renvoyée. Un
+  reçu à vérifier tranché par la relecture (`verified` ou `mismatch`) cesse de bloquer sa cible. Erreurs :
+  `arguments.invalid`, `receipt.unknown`, `receipt.unavailable`, `source.unavailable`, `operation.cancelled`.
+
+### 12.6 Reçu
+
+| Champ | Type | Contenu |
+|---|---|---|
+| `id` | texte | Identifiant du reçu (32 hexadécimaux). |
+| `kind`, `title`, `label` | texte | Ceux du plan. |
+| `target` | objet | Cible du plan (§ 12.1). |
+| `at` | date-heure | Dernière version du reçu. |
+| `sentAt` | date-heure | Écriture du reçu avant l’envoi. |
+| `completedAt` | date-heure ou `null` | Résultat de l’envoi ; `null` tant qu’il manque. |
+| `verifiedAt` | date-heure ou `null` | Dernière relecture. |
+| `operator`, `controller`, `mode`, `simulated` | | Ceux du plan. |
+| `result` | texte | `sent` (envoyée, issue à vérifier : application fermée pendant l’envoi), `applied`, `noChange`, `notApplied`, `unknown`. |
+| `resultLabel` | texte | « Envoyée, issue à vérifier », « Appliquée » (« Appliquée (simulation) »), « Déjà faite : rien envoyé », « Non appliquée », « Issue inconnue, à vérifier ». |
+| `verification` | texte | `verified`, `mismatch` ou `unknown`. |
+| `verificationLabel` | texte | « Vérifiée par relecture », « Écart à la relecture » (« Relue : objet inchangé » après un refus), « Relecture en attente », « Non vérifiée ». |
+| `pending` | booléen | `true` si la requête est partie sans issue connue (`sent`, `unknown`) et qu’aucune relecture n’a tranché : le reçu bloque les écritures sur sa cible. |
+| `tone` | texte | `ok`, `warn`, `alert` ou `info` (`WRITES.md` § 4.1). |
+| `summary` | texte | Phrase pour l’opérateur ; en simulation, elle dit « aucun effet réel ». |
+| `error` | objet ou `null` | `{ code, message }` d’un refus ou d’une issue inconnue (`write.outcomeUnknown`). |
+| `details` | tableau | `{ label, value }` dans l’ordre : « Préconditions », « Envoi », puis une « Relecture » par relecture. Absent des lignes de la liste. |
+| `plan` | objet | Le plan exécuté (§ 12.1, sans jeton). Absent des lignes de la liste. |
+
+Exemple (réponse de `write.execute`, simulation ; extrait) :
+
+```json
+{
+  "id": "9c8b7a6f5e4d43c2b1a0f9e8d7c6b5a4",
+  "kind": "account.unlock",
+  "title": "Déverrouiller le compte",
+  "label": "Déverrouillage du compte",
+  "target": { "kind": "user", "kindLabel": "Compte utilisateur", "name": "Camille Bernard", "dn": "CN=Camille Bernard,OU=Commercial,OU=Lyon,OU=Utilisateurs,DC=example,DC=local", "objectGuid": "6f1c2b7e-9a43-4d1e-8c55-2b7d90e4a1c3", "samAccountName": "c.bernard" },
+  "at": "2026-10-21T16:27:02Z",
+  "sentAt": "2026-10-21T16:27:01Z",
+  "completedAt": "2026-10-21T16:27:02Z",
+  "verifiedAt": "2026-10-21T16:27:02Z",
+  "operator": "EXAMPLE\\j.martin",
+  "controller": "DC01.example.local",
+  "mode": "simulation",
+  "simulated": true,
+  "result": "applied",
+  "resultLabel": "Appliquée (simulation)",
+  "verification": "verified",
+  "verificationLabel": "Vérifiée par relecture",
+  "pending": false,
+  "tone": "ok",
+  "summary": "Écriture appliquée et vérifiée par relecture. Simulation : annuaire fictif en mémoire, aucun effet réel.",
+  "error": null,
+  "details": [
+    { "label": "Préconditions", "value": "Compte relu sur DC01.example.local : toujours verrouillé, DN et GUID inchangés." },
+    { "label": "Envoi", "value": "lockoutTime remis à zéro dans l’annuaire fictif (en mémoire, aucun effet réel), comme le ferait DC01.example.local." },
+    { "label": "Relecture", "value": "lockoutTime = 0 relu sur DC01.example.local : compte déverrouillé." }
+  ],
+  "plan": { "id": "5b0e4c1d9a7f42e8b3c6d1a0f9e8d7c6", "kind": "account.unlock" }
+}
+```
+
+Stockage (`LocalWrite`) : une ligne JSON par version dans `receipts.jsonl` (mode annuaire) ou `receipts-simulation.jsonl`
+(simulation) du dossier de données, ajout atomique ; en mémoire seulement en mode capture et en mode E2E (`WRITES.md` § 4.2).
+
+### 12.7 Codes d’erreur du circuit
+
+| Code | Message | Cause |
+|---|---|---|
+| `write.planUnknown` | Plan d’écriture inconnu ou expiré : rien n’a été envoyé. Préparez de nouveau l’écriture. | Plan absent de cette session (autre session, ou purgé longtemps après son expiration). |
+| `write.tokenUsed` | Ce plan a déjà servi : une écriture ne part qu’une fois et n’est jamais rejouée. Préparez de nouveau l’écriture si besoin. | Second envoi du même plan (double clic, deux pages), ou plan dépensé par un refus. |
+| `write.tokenInvalid` | Jeton de confirmation refusé : rien n’a été envoyé. Préparez de nouveau l’écriture. | Jeton d’un autre plan ou inventé ; le plan n’est pas dépensé. |
+| `write.planChanged` | Le plan ne correspond plus à son empreinte : rien n’a été envoyé. | Plan modifié après son scellement. |
+| `write.tokenExpired` | Confirmation expirée (plan de plus de 5 min) : rien n’a été envoyé. Préparez de nouveau l’écriture pour relire l’objet. | `expiresAt` atteint. |
+| `write.confirmationMismatch` | Le nom saisi ne correspond pas à la cible : rien n’a été envoyé. Préparez de nouveau l’écriture. | `typedName` différent du nom exigé (le plan est dépensé). |
+| `write.targetPending` | Une écriture précédente sur cet objet reste à vérifier : relisez son reçu dans Opérations avant d’en préparer une autre. | Reçu à vérifier sur la même cible (GUID). |
+| `write.stale` | *Raison de l’exécuteur*, qui finit toujours par « Rien n’a été envoyé. » | Préconditions changées depuis le plan (objet déplacé, renommé, supprimé, valeur « avant » différente). |
+| `write.nothingToDo` | *Phrase de l’exécuteur* (« Ce compte n’est pas verrouillé : aucune écriture à préparer. »). | Objet déjà dans l’état demandé au moment du plan. |
+| `write.targetUnknown` | *Phrase de l’exécuteur* (« Objet introuvable dans l’annuaire : aucune écriture préparée. » par défaut). | DN qui ne désigne pas un objet du type attendu. |
+| `write.outcomeUnknown` | Issue inconnue après l’envoi : vérifiez l’objet par une relecture avant toute nouvelle écriture. Rien n’est renvoyé automatiquement. | Gardé sur un reçu `unknown` (`error`), jamais renvoyé comme erreur de l’opération. |
+| `receipt.unavailable` | Reçus d’écriture illisibles ou impossibles à enregistrer : rien n’a été envoyé. | Reçu version 1 non écrit (disque plein, droits) ; ou, pour un plan et la liste : « Reçus d’écriture illisibles pour l’instant (fichier verrouillé ou accès refusé) : aucune écriture n’est préparée tant qu’ils ne sont pas relus. » |
+| `receipt.unknown` | Reçu introuvable : rien n’a été lu. | Identifiant inconnu. |
+
+Précisions de `arguments.invalid` propres au circuit : « « planId » doit être un identifiant de plan (32 caractères
+hexadécimaux). », « « token » doit être un jeton de confirmation. », « « typedName » doit être un texte ou null. »,
+« « typedName » doit faire au plus 256 caractères. », « « id » doit être un identifiant de reçu (32 caractères
+hexadécimaux). ».

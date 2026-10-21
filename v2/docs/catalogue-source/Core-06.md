@@ -1,0 +1,213 @@
+
+
+## Fonctions visibles pour l'utilisateur
+- `Start-DomeniaComputerInventory` lance un inventaire poste rapide ou complet depuis des boutons `BtnRunInventory` et `BtnRunInventoryDeep`, avec message dans `LblInventoryStatus`.
+- `Start-DomeniaComputerInventory` désactive temporairement `BtnRunInventory`, `BtnRunInventoryDeep`, `BtnDashboardInventory`, `BtnDashboardInventoryDeep`, `BtnParkVerify`, `BtnParkModePing`, `BtnParkModeConsole`, `BtnParkModeAnalyse`, `BtnParkModeComplet` et `BtnParkRetryUnaddressed`.
+- `Complete-DomeniaInventoryUi` affiche les lignes d'inventaire dans `DgInventory`, les rapports d'accès dans `DgInventoryAccess`, un résumé dans `LblInventoryStatus` et met à jour le tableau de bord du poste.
+- `Update-DomeniaInventoryCategories` remplit la liste déroulante `CmbInventoryCategory` avec `Toutes` puis les catégories uniques de l'inventaire.
+- `Apply-DomeniaInventoryFilter` filtre `DgInventory` selon la catégorie sélectionnée.
+- `Update-DomeniaInventoryAgeLine` affiche ou masque la ligne `TxtInventoryAge`/`LblInventoryAge` avec l'âge de la dernière lecture et une infobulle horodatée.
+- `Fail-DomeniaInventoryUi` affiche un message d'échec dans `LblInventoryStatus`, dans `LblComputerDashboard` et éventuellement dans le tableau de bord du poste.
+- `Copy-DomeniaInventory` copie l'inventaire et le rapport d'accès dans le presse-papiers via `Set-ClipboardSafe`.
+- `Export-DomeniaInventory` exporte deux fichiers CSV, inventaire et accès, avec message de résultat et comptage des valeurs masquées.
+- `Start-DomeniaDomainOverview` lance une analyse du domaine depuis `BtnLoadDomain`, affiche l'état dans `LblDomainStatus` et les résultats dans `DgDomain`.
+- `Copy-DomeniaDomainReport` copie le rapport de domaine dans le presse-papiers.
+- `New-DomeniaObjectsContextMenu` crée le menu contextuel de `DgObjects` et le reconstruit à chaque ouverture.
+- `Build-DomeniaObjectsContextMenu` offre un menu contextuel sur `DgObjects` : ouvrir la fiche, assistance poste, revérifier ce poste, rechercher l'associé, ouvrir l'OU parente, copies et export CSV.
+- `New-DomeniaTreeContextMenu` crée le menu contextuel de `TvDirectory` et le reconstruit à chaque ouverture.
+- `Build-DomeniaTreeContextMenu` offre un menu contextuel sur `TvDirectory` : afficher la branche, actualiser, copier le DN, créer une OU si non lecture seule, analyser les droits.
+- `New-DomeniaCopyContextMenu` crée un menu de copie générique pour une grille et ses propriétés.
+- `Register-DomeniaContextMenus` branche des menus de copie sur les grilles `DgLinks`, `DgLinkAttempts`, `DgRawAttrs`, `DgComputerDiag`, `DgPermissions`, `DgSelfCheck`, `DgInventory`, `DgInventoryAccess`, `DgSoftware`, `DgSoftwareAccess`, `DgWmiSchema`, `DgWmiInstances`, `DgDomain`, `DgIndex` et `DgCmdlets`.
+- `Show-DomeniaBatchNetworkReport` propose une confirmation groupée pour un diagnostic réseau sur des postes sélectionnés, avec liste exacte des cibles, exclusions, impact et texte de confirmation typé.
+- `Complete-DomeniaBatchNetworkReportUi` affiche un dialogue de synthèse réseau, ping, SMB 445 et WinRM, et copie le rapport dans le presse-papiers.
+- `Fail-DomeniaBatchNetworkReportUi` affiche un statut d'échec pour le diagnostic réseau groupé.
+- `Copy-DomeniaSelectedRowsForTicket` copie des lignes lisibles pour un ticket sans identifiant interne.
+- `Open-DomeniaResultRowParentOu` ouvre l'OU parente d'une ligne dans `WsSearch` via `TxtBranchDn` et `TxtBranchSearch`.
+- `Open-DomeniaResultRowSupport` ouvre la vue Intervenir du poste dans `WsComputer`/`TabComputerAdmin` sans lancer d'action distante.
+- `Start-DomeniaSearchFor` place un terme dans `TxtGlobalSearch`, bascule vers `WsSearch` et lance `Invoke-GlobalSearch`.
+- `Start-DomeniaSearchAssociated` recherche l'utilisateur associé à un poste ou le poste associé à un utilisateur.
+- `Apply-DomeniaSoftwareFilter` filtre `DgSoftware` par portée, sélection graphique et texte, affiche le compteur dans `LblSoftwareStatus` et la provenance.
+- `Show-DomeniaCachedInventory` recharge un inventaire déjà lu depuis le dépôt local pour un poste.
+
+## Opérations et lectures
+- `Start-DomeniaComputerInventory` exécute `Get-DomeniaInventoryWorkerCode` en tâche UI avec `OperationId ComputerInventory`, `ReplaceKey inventory`, timeout 110 s rapide ou 260 s complet, budget interne 55000 ms ou 150000 ms, `MaxSoftwareKeys` 250 ou 1200, et `PreferWinrm` depuis la configuration.
+- `Start-DomeniaComputerInventory` crée un état de collecte `ClassicInventory` avec `RequestKey inventory-rapide` ou `inventory-complet` et les gestionnaires `Complete-DomeniaInventoryUi`/`Fail-DomeniaInventoryUi`.
+- `Show-DomeniaCachedInventory` lit le dépôt local via `Request-DomeniaStoreRead` avec `Kind Detail`, `ResultKind ClassicInventory`, `Offset 0`, `Limit 20`, `RequestKey inventory-cache` et le GUID du poste.
+- `Complete-DomeniaInventoryUi` consomme les propriétés `Rows`, `Access`, `SourceCompletedUtc`, `DurationMs`, `FallbackTasks`, `TaskBytes` et `Success` du résultat effectif.
+- `Start-DomeniaDomainOverview` exécute `Get-DomeniaDomainWorkerCode` en tâche UI avec `OperationId DomainOverview`, `ReplaceKey domain`, timeout 90 s, et appelle `Start-DomeniaDomainLocalTotals` pour les totaux locaux.
+- `Get-DomeniaDomainWorkerCode` lit le RootDSE via `New-WRootDse` avec les propriétés `defaultNamingContext`, `configurationNamingContext`, `schemaNamingContext`, `rootDomainNamingContext`, `dnsHostName`, `serverName`, niveaux fonctionnels, `supportedCapabilities`, `highestCommittedUSN`, `currentTime` et `namingContexts`.
+- `Get-DomeniaDomainWorkerCode` lit les propriétaires FSMO via `New-WEntry` sur le domaine, le schéma, `CN=Partitions,CN=Configuration...`, `CN=RID Manager$,CN=System...` et `CN=Infrastructure...`.
+- `Get-DomeniaDomainWorkerCode` lit la stratégie de mot de passe du domaine : `minPwdLength`, `pwdHistoryLength`, `maxPwdAge`, `minPwdAge`, `lockoutThreshold`, `lockoutDuration`, `lockOutObservationWindow`, `pwdProperties` et `ms-DS-MachineAccountQuota`.
+- `Get-DomeniaDomainWorkerCode` recherche les PSO sous `CN=Password Settings Container,CN=System,<baseDn>` avec filtre `objectClass=msDS-PasswordSettings`, portée `OneLevel`, limite 50.
+- `Get-DomeniaDomainWorkerCode` vérifie la corbeille AD via `msDS-EnabledFeature` sur `CN=Partitions,CN=Configuration...` puis recherche `isDeleted=TRUE` sous `CN=Deleted Objects,<baseDn>` avec `Tombstone true`, portée `OneLevel`, limite 25.
+- `Get-DomeniaDomainWorkerCode` recherche les contrôleurs de domaine avec filtre `(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))`, portée `Subtree`, limite 100.
+- `Get-DomeniaDomainWorkerCode` recherche les sites sous `CN=Sites,CN=Configuration...` avec `objectClass=site`, portée `OneLevel`, limite 200, et les sous-réseaux sous `CN=Subnets,CN=Sites,CN=Configuration...` avec `objectClass=subnet`, portée `OneLevel`, limite 500.
+- `Get-DomeniaDomainWorkerCode` recherche les approbations sous `CN=System,<baseDn>` avec `objectClass=trustedDomain`, portée `OneLevel`, limite 100.
+- `Get-DomeniaDomainWorkerCode` recherche les GPO sous `CN=Policies,CN=System,<baseDn>` avec `objectClass=groupPolicyContainer`, portée `OneLevel`, limite 500, puis affiche les 12 premières modifiées.
+- `Get-DomeniaDomainWorkerCode` recherche les groupes privilégiés par noms anglais et français avec filtre `(&(objectCategory=group)(name=<nom échappé>))`, portée `Subtree`, limite 5 par nom, et lit les 12 premiers membres.
+- `Get-DomeniaDomainWorkerCode` recherche les comptes à surveiller : sans expiration UAC 65536 limite 60, désactivés UAC 2 limite 200, sans pré-authentification Kerberos UAC 4194304 limite 60, avec SPN limite 60, délégation non contrainte UAC 524288 limite 60, et `krbtgt` limite 1.
+- `Show-DomeniaBatchNetworkReport` exécute un ping ICMP via `Test-Connection -Count 1 -Quiet` et des tests TCP via `Test-NetConnection -InformationLevel Quiet` sur les ports 445, 135, 5985 et 5986.
+- `Show-DomeniaBatchNetworkReport` limite la sélection à 1-200 postes, par défaut 50, avec timeout `[Math]::Max(20, Async ComputerTimeoutSeconds)` et défaut 90 s.
+- `Show-DomeniaBatchNetworkReport` utilise `ReplaceKey batch-network-diag` et démarre la tâche seulement après confirmation.
+- `Get-DomeniaSoftwareWorkerCode` teste la joignabilité TCP sur 135, 5985 et 5986 via `Test-WTcpPort` avec délais 1800 ms ou 1500 ms.
+- `Get-DomeniaSoftwareWorkerCode` ouvre des sessions CIM DCOM ou Wsman via `New-CimSession`, valide la session par `Win32_OperatingSystem`, et utilise `Invoke-Command` WinRM avec timeouts 40 s, 45 s ou 60 s selon la portée.
+- `Get-DomeniaSoftwareWorkerCode` lit les logiciels machine via WinRM dans `HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*` et `HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*`.
+- `Get-DomeniaSoftwareWorkerCode` lit les logiciels machine via SCCM `Win32Reg_AddRemovePrograms` si disponible.
+- `Get-DomeniaSoftwareWorkerCode` lit les logiciels machine via `StdRegProv` dans `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` et `SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall`, limité à `MaxKeys` minimum 100.
+- `Get-DomeniaSoftwareWorkerCode` utilise `StdRegProv` avec `GetStringValue`, `GetDWORDValue` et `EnumKey` pour les lectures registre distantes.
+- `Get-DomeniaSoftwareWorkerCode` lit les logiciels utilisateur via `HKU` sur les SIDs `^S-1-5-21-` montés, résout le compte via `Win32_UserAccount`, et limite à `MaxKeys`.
+- `Get-DomeniaSoftwareWorkerCode` lit les paquets Store via `Get-AppxPackage -AllUsers` uniquement si WinRM est prêt.
+- `Get-DomeniaSoftwareWorkerCode` déclenche une tâche locale SYSTEM via `Invoke-WRemoteTaskScript` si l'inventaire machine est vide ou si Store est demandé et vide, avec timeout `min(90, Context.TaskFallbackTimeoutSeconds)`.
+- `Get-DomeniaSoftwareWorkerCode` journalise les accès `Joignabilite`, `Connexion CIM`, `Machine`, `Utilisateur`, `Store` et `Fallback ...`.
+- `Get-DomeniaSoftwareWorkerCode` retourne `Computer`, `Rows`, `Access`, `DurationMs`, `Success`, `FallbackTransport`, `FallbackTasks` et `TaskBytes`.
+- `Export-DomeniaInventory` écrit des CSV via `Export-DomeniaCsv` avec sujets `<poste>-inventaire` et `<poste>-acces`.
+- `Copy-DomeniaInventory`, `Copy-DomeniaDomainReport`, `Copy-DomeniaGridSelection`, `Copy-DomeniaRowProperty`, `Copy-DomeniaSelectedRowsForTicket` et `Complete-DomeniaBatchNetworkReportUi` écrivent dans le presse-papiers via `Set-ClipboardSafe`.
+- `Complete-DomeniaInventoryUi` alimente le tableau de bord du poste via `Update-DomeniaComputerDashboard` et l'en-tête via `Update-DomeniaComputerHeader`.
+- `Complete-DomeniaBatchNetworkReportUi` formate le rapport avec `Format-Table -AutoSize` et `Out-String -Width 240`.
+- Aucune lecture DNS explicite n'apparaît dans cette tranche.
+
+## Règles métier et calculs
+- `Apply-DomeniaInventoryFilter` conserve toutes les lignes si `InventoryCategory` est vide ou `Toutes`, sinon filtre exactement sur `Category`.
+- `Update-DomeniaInventoryCategories` construit une liste unique de catégories non vides, toujours précédée de `Toutes`, et réinitialise la sélection à `Toutes`.
+- `Update-DomeniaInventoryCategories` désactive temporairement l'événement de catégorie via `SuppressInventoryCategoryEvent` pour éviter un déclenchement récursif.
+- `Complete-DomeniaInventoryUi` ignore un résultat si l'état n'est pas courant ou si `State.DN` ne correspond pas à `SelectedObject.DN`.
+- `Complete-DomeniaInventoryUi` compare `State.DN` à `SelectedObject.DN` sans tenir compte de la casse.
+- `Complete-DomeniaInventoryUi` exige la propriété `Access` dans le résultat effectif et lève une erreur si le résultat est vide ou invalide.
+- `Complete-DomeniaInventoryUi` déduit les méthodes d'acquisition depuis les accès `Status OK` : `PsExec`, `TaskScheduler`, `WinRM`, `CIM/DCOM`.
+- `Complete-DomeniaInventoryUi` journalise un échantillon d'opération avec mode `Classic+TaskFallback` si `FallbackTasks` est supérieur à 0, sinon `Classic`, et estime les octets à `TaskBytes` ou 250000.
+- `Complete-DomeniaInventoryUi` enregistre `Operation ComputerInventory`, `ItemCount 1`, `RemoteAttempts 1`, `DurationMs`, `FallbackTasks`, `SuccessCount` et `FailureCount`.
+- `Complete-DomeniaInventoryUi` journalise une alerte si `Update-DomeniaComputerDashboard` échoue.
+- `Fail-DomeniaInventoryUi` conserve l'affichage du dernier tableau de bord valide si `LastComputerDashboardResult` existe, sinon affiche une attente de lecture réussie.
+- `Update-DomeniaInventoryAgeLine` masque l'âge si aucune date de fin ou aucun poste ne sont connus, et affiche sinon une infobulle avec la date au format `dd/MM/yyyy HH:mm:ss` en culture invariante.
+- `Show-DomeniaCachedInventory` retourne faux sans poste ou sans objet sélectionné.
+- `Start-DomeniaComputerInventory` exige un objet sélectionné de type `Machine` et une cible validée par `Assert-DomeniaComputerTarget`.
+- `Start-DomeniaComputerInventory` distingue le mode rapide `rapide` du mode complet `complet` pour le libellé, le budget, le nombre de clés et le timeout.
+- `Start-DomeniaComputerInventory` utilise `ReplaceKey inventory` pour remplacer la tâche d'inventaire précédente.
+- `Get-DomeniaInventoryReportText` groupe les lignes par catégorie avec en-têtes `[Catégorie]` et format `Item = Value`, puis ajoute un rapport d'accès aligné.
+- `Copy-DomeniaInventory` exige au moins une ligne d'inventaire ou d'accès.
+- `Export-DomeniaInventory` exige au moins une ligne d'inventaire et mentionne séparément le nombre de lignes d'accès et les valeurs masquées.
+- `Get-DomeniaDomainWorkerCode` lève une erreur si `Context.BaseDn` est vide.
+- `Get-DomeniaDomainWorkerCode` normalise une valeur vide en `Non renseigne` dans `Add-Row`.
+- `Get-DomeniaDomainWorkerCode` ajoute `Aucune donnee retournee` avec statut `VIDE` si une section ne produit aucune ligne.
+- `Get-DomeniaDomainWorkerCode` classe les erreurs de section en `REFUSE`, `INDISPONIBLE` ou `ERREUR` selon des motifs texte.
+- `Get-BehaviorLabel` traduit les niveaux fonctionnels 0 à 7 en versions Windows, sinon `Niveau <valeur>`.
+- `Convert-Duration` convertit un LargeInteger en durée : `Jamais` si 0, jours arrondis à 2 si au moins 1 jour, heures arrondies à 2 si au moins 1 heure, minutes arrondies à 1 sinon.
+- `Get-DomeniaDomainWorkerCode` calcule les RID restants comme `(pool >> 32) - (pool & 4294967295)` si le pool est positif.
+- `Get-DomeniaDomainWorkerCode` interprète `pwdProperties` : complexité si bit 1, chiffrement réversible si bit 16.
+- `Get-DomeniaDomainWorkerCode` interprète `trustDirection` : 1 `Entrante`, 2 `Sortante`, 3 `Bidirectionnelle`, sinon `Inconnue`.
+- `Get-DomeniaDomainWorkerCode` déduit la corbeille AD active si `msDS-EnabledFeature` contient `Recycle Bin Feature`.
+- `Get-DomeniaDomainWorkerCode` retourne `Rows`, `BaseDn`, `DurationMs` et `Success`.
+- `Complete-DomeniaDomainUi` exige la propriété `Rows` et lève une erreur si le résultat est vide.
+- `Complete-DomeniaDomainUi` compte les sections uniques, les statuts `REFUSE` et les anomalies hors `OK`/`VIDE` pour le résumé.
+- `Fail-DomeniaDomainUi` utilise `Erreur inconnue.` si le message est vide.
+- `Start-DomeniaDomainOverview` efface les lignes précédentes avant de lancer l'analyse.
+- `Copy-DomeniaDomainReport` exige au moins une ligne de domaine.
+- `New-DomeniaMenuItem` crée un élément de menu avec en-tête, activation, infobulle et action exécutée au clic, avec capture d'erreur.
+- `Add-DomeniaMenuSeparator` ajoute un séparateur dans un menu.
+- `Get-DomeniaRowText` sérialise uniquement les propriétés `NoteProperty` et `Property` au format `Nom=Valeur` séparées par tabulation.
+- `Get-DomeniaRowText` retourne une chaîne vide si la ligne est nulle.
+- `Copy-DomeniaGridSelection` copie les lignes sélectionnées ou la ligne active, sinon avertit qu'aucune ligne n'est sélectionnée.
+- `Copy-DomeniaGridSelection` retourne silencieusement si la grille est absente.
+- `Copy-DomeniaRowProperty` refuse de copier une valeur vide.
+- `Copy-DomeniaRowProperty` capture les erreurs de lecture de propriété.
+- `Start-DomeniaSearchFor` conserve intact un identifiant exact de type `DN`, `Guid` ou `Sid`, sinon tronque aux séparateurs `, ; |`, prend le dernier segment après `\` et retire un `$` final.
+- `Start-DomeniaSearchAssociated` considère une association vide ou commençant par `aucun`, `non detect`, `non détect` ou `inconnu` comme absente.
+- `Get-DomeniaSelectedGridRows` retourne les lignes non nulles sélectionnées dans `DgObjects` et renvoie un tableau vide si la grille est absente.
+- `Get-DomeniaSelectedMachineRows` ne retient que les lignes sélectionnées de type `Machine` avec un nom non vide.
+- `Show-DomeniaBatchNetworkReport` exclut les postes dont le nom ne correspond pas à `^[A-Za-z0-9][A-Za-z0-9._-]{0,252}$` et journalise la raison.
+- `Show-DomeniaBatchNetworkReport` lit `Name` et `Type` depuis un dictionnaire ou un objet avec accès direct aux propriétés.
+- `Show-DomeniaBatchNetworkReport` affiche l'impact un poste après l'autre et arrêt au timeout.
+- `Show-DomeniaBatchNetworkReport` démarre la tâche seulement après confirmation via une closure.
+- `Complete-DomeniaBatchNetworkReportUi` calcule les compteurs de succès ping, SMB 445 et WinRM 5985/5986 pour la synthèse.
+- `Complete-DomeniaBatchNetworkReportUi` avertit si aucun résultat de diagnostic n'est retourné.
+- `Get-DomeniaSoftwareWorkerCode` déduit le statut d'échec distant en `REFUSE`, `INDISPONIBLE`, `INJOIGNABLE` ou `ERREUR` selon des motifs texte.
+- `Get-DomeniaSoftwareWorkerCode` formate les tailles en `o`, `Ko`, `Mo`, `Go` ou `To` avec une décimale.
+- `Get-DomeniaSoftwareWorkerCode` normalise les dates d'installation `yyyyMMdd` en `dd/MM/yyyy`, sinon tente une conversion date, sinon garde le texte.
+- `Get-DomeniaSoftwareWorkerCode` déduit le type logiciel : `Mise a jour` si `SystemComponent`, `ParentKeyName` ou `ReleaseType` update/hotfix/security, `Paquet MSI` si `WindowsInstaller` vaut 1, sinon `Application`.
+- `Get-DomeniaSoftwareWorkerCode` déduplique les logiciels par portée, propriétaire, architecture, nom et version, avec fusion spéciale des lignes sans architecture issues de SCCM.
+- `Get-DomeniaSoftwareWorkerCode` choisit la source machine par ordre `WinRM`, puis `SCCM`, puis `Registre unitaire`.
+- `Get-DomeniaSoftwareWorkerCode` marque la portée machine `PARTIEL` si la lecture registre unitaire s'arrête après `MaxKeys`.
+- `Get-DomeniaSoftwareWorkerCode` considère une portée utilisateur vide comme `VIDE` et non comme un échec déclenchant le fallback.
+- `Get-DomeniaSoftwareWorkerCode` déclenche le fallback si aucune ligne n'existe ou si Store est demandé sans ligne Store.
+- `Get-DomeniaSoftwareWorkerCode` considère `Success` vrai uniquement si au moins une ligne logicielle est retournée.
+- `Get-DomeniaSoftwareWorkerCode` ajoute `SourceCompletedUtc` en UTC au résultat collecté.
+- `Apply-DomeniaSoftwareFilter` combine les filtres portée, sélection graphique et texte sans les remplacer.
+- `Apply-DomeniaSoftwareFilter` ajoute des clés de tri date pour `InstallDate` avant d'afficher `DgSoftware`.
+- `Build-DomeniaObjectsContextMenu` active les actions unitaires seulement si une seule ligne est sélectionnée et adapte les libellés selon `Type` `Machine` ou `Utilisateur`.
+- `Build-DomeniaObjectsContextMenu` active `Revérifier ce poste` seulement si la grille est activée.
+- `Build-DomeniaObjectsContextMenu` affiche l'infobulle `Une seule ligne sélectionnée.` pour les actions unitaires désactivées.
+- `Build-DomeniaObjectsContextMenu` adapte l'export CSV au mode de portée `Selected` ou affiché via `Get-DomeniaResultScopeMode`.
+- `Build-DomeniaTreeContextMenu` désactive la création d'OU en mode lecture seule avec l'infobulle `Le mode lecture seule est actif.`.
+
+## Réglages et données conservées
+- `Get-CfgValue "Inventory" "PreferWinrm"` fournit la préférence d'inventaire poste avec défaut `false`.
+- `Get-CfgValue "Async" "ComputerTimeoutSeconds"` fournit le timeout du diagnostic réseau groupé avec défaut 90 s.
+- `Start-DomeniaComputerInventory` conserve dans la tâche UI le budget, le nombre maximal de clés logicielles, le mode profond et la cible.
+- `Complete-DomeniaInventoryUi` conserve `InventoryRows`, `InventoryAccess`, `InventoryComputer` et `InventoryCompletedAt` au niveau script.
+- `Complete-DomeniaInventoryUi` alimente `InventoryCacheByComputer` avec une entrée par poste normalisé via `Normalize-LinkComputer`.
+- `InventoryCacheByComputer` conserve `Computer`, `Effective`, `CompletedAt`, `Guid`, `StoreId`, `SessionEpoch` et `AccountGeneration`.
+- `SuppressInventoryCategoryEvent` est un drapeau de garde pour la liste de catégories.
+- `LastComputerDashboardResult` conserve le dernier résultat de tableau de bord poste.
+- `Show-DomeniaCachedInventory` relit le dépôt local par GUID avec `ResultKind ClassicInventory` et limite 20.
+- `Complete-DomeniaDomainUi` conserve `DomainRows` au niveau script pour les copies et exports.
+- `Apply-DomeniaSoftwareFilter` utilise `SoftwareRows`, `SoftwareScope`, `SoftwareChartSelect` et `SoftwareProvenance` comme état de la vue Logiciels.
+- `SelectedObject`, `SelectedBranchDn`, `ReadOnlyMode` et `Conn.Domain` portent le contexte de sélection et de sécurité.
+- `Export-DomeniaInventory` conserve les chemins de fichiers CSV renvoyés par `Export-DomeniaCsv` et les affiche dans le journal.
+- `Register-DomeniaOperationSample` conserve un échantillon d'opération `ComputerInventory` avec mode, durée, octets estimés, tentatives distantes, fallbacks et succès/échecs.
+- `Register-DomeniaContextMenus` conserve le nombre de contrôles avec menus contextuels actifs dans le journal d'interface.
+- Les contrôles nommés `DgInventory`, `CmbInventoryCategory`, `DgInventoryAccess`, `LblInventoryStatus`, `TxtInventoryAge`, `LblInventoryAge`, `DgDomain`, `LblDomainStatus`, `DgObjects`, `TvDirectory`, `TxtGlobalSearch`, `TxtBranchDn`, `TxtBranchSearch`, `TxtNewOuName`, `DgSoftware`, `TxtSoftwareFilter` et `LblSoftwareStatus` portent l'état visible de ces écrans.
+- Aucune table SQLite explicite n'est définie dans cette tranche ; le dépôt local est consulté via `Request-DomeniaStoreRead`.
+
+## Sécurité et garde-fous
+- `Build-DomeniaTreeContextMenu` bloque la création d'OU quand `ReadOnlyMode` est vrai.
+- `Show-DomeniaBatchNetworkReport` exige une confirmation inline avec titre, cible, message de lecture seule, texte de confirmation typé et liste exacte des cibles/exclusions.
+- `Show-DomeniaBatchNetworkReport` précise qu'aucun compte n'est envoyé et rien n'est modifié sur les postes.
+- `Build-DomeniaObjectsContextMenu` ne contient aucune écriture AD ni action distante immédiate.
+- `Open-DomeniaResultRowSupport` ouvre la vue d'assistance sans lancer d'action distante.
+- `Export-DomeniaInventory` compte et annonce les valeurs ressemblant à des secrets masquées dans l'export d'accès.
+- `Register-DomeniaContextMenus` exclut `DgSecrets` du menu de copie générique pour préserver la copie protégée des secrets.
+- `Get-DomeniaSoftwareWorkerCode` encadre chaque tentative distante par `Enter-WCredentialAttempt`, `Assert-WCredentialAllowed`, `Register-WCredentialFailure` et `Exit-WCredentialAttempt`.
+- `Get-DomeniaSoftwareWorkerCode` valide la première opération authentifiée pendant la location de compte pour éviter une session CIM fantôme.
+- `Get-DomeniaSoftwareWorkerCode` refuse ou journalise les accès distants selon les statuts `REFUSE`, `INDISPONIBLE` et `INJOIGNABLE`.
+- `Start-DomeniaComputerInventory` impose une sélection de type `Machine` avant toute collecte.
+- `Show-DomeniaBatchNetworkReport` valide la plage de limite entre 1 et 200 et impose un timeout minimal de 20 s.
+- `Get-DomeniaDomainWorkerCode` échappe les noms de groupes avec `Escape-WLdap` avant les recherches LDAP.
+- `Get-DomeniaDomainWorkerCode` limite les lectures LDAP par portée et par nombre d'objets pour éviter les collectes non bornées.
+- `Start-DomeniaSearchFor` refuse les termes vides après nettoyage.
+- `Copy-DomeniaGridSelection` et `Copy-DomeniaRowProperty` refusent les sélections ou valeurs vides.
+- `Complete-DomeniaInventoryUi` rejette les résultats obsolètes ou ne correspondant pas à l'objet sélectionné.
+- `Fail-DomeniaInventoryUi` et `Fail-DomeniaDomainUi` journalisent les erreurs avec niveau `ERROR` et affichent un statut explicite.
+- `Write-DomeniaSwallowed` et `Add-DomeniaUiLog` capturent les erreurs non bloquantes sans interrompre l'interface.
+
+## Dépendances
+- `Complete-DomeniaInventoryUi` dépend de `Test-DomeniaClassicResultCurrent`, `Get-DomeniaEffectiveWorkerResult`, `ConvertTo-DomeniaUtcDate`, `Update-DomeniaComputerDashboard`, `Update-DomeniaInventoryCategories`, `Apply-DomeniaInventoryFilter`, `Set-DomeniaItemsSource`, `Normalize-LinkComputer`, `Get-DomeniaInventorySummaryText`, `Update-DomeniaInventoryAgeLine`, `Set-Status`, `Add-DomeniaUiLog`, `Register-DomeniaOperationSample` et `Write-DomeniaSwallowed`.
+- `Fail-DomeniaInventoryUi` dépend de `Test-DomeniaClassicResultCurrent`, `Set-DomeniaControlText`, `Show-DomeniaBoard`, `Set-Status`, `Add-DomeniaUiLog` et `Write-DomeniaSwallowed`.
+- `Update-DomeniaInventoryAgeLine` dépend de `Get-DomeniaControl`, `Get-DomeniaInventoryAgeLabel`, `Set-DomeniaControlText`, `Update-DomeniaComputerHeader` et `Write-DomeniaSwallowed`.
+- `Show-DomeniaCachedInventory` dépend de `New-DomeniaClassicCollectionState`, `Request-DomeniaStoreRead`, `Write-AppLog` et des gestionnaires `Complete-DomeniaCachedInventoryRead`/`Fail-DomeniaCachedInventoryRead`.
+- `Start-DomeniaComputerInventory` dépend de `Get-CurrentSelectedComputerName`, `Assert-DomeniaComputerTarget`, `New-DomeniaClassicCollectionState`, `Start-UiTask`, `Get-DomeniaInventoryWorkerCode`, `Get-CfgValue`, `Set-DomeniaControlText`, `Set-Status`, `Show-DomeniaOperationError`, `Complete-DomeniaClassicCollected` et `Fail-DomeniaClassicCollected`.
+- `Export-DomeniaInventory` dépend de `Get-DomeniaExportComputerName`, `Export-DomeniaCsv`, `Get-DomeniaControl`, `Get-DomeniaMember`, `Show-DomeniaExportResult`, `Add-DomeniaUiLog` et `Show-DomeniaOperationError`.
+- `Start-DomeniaDomainOverview` dépend de `Set-DomeniaItemsSource`, `Set-DomeniaControlText`, `Start-DomeniaDomainLocalTotals`, `Start-UiTask`, `Get-DomeniaDomainWorkerCode`, `Set-Status`, `Add-DomeniaUiLog` et `Show-DomeniaOperationError`.
+- `Complete-DomeniaDomainUi` dépend de `Get-DomeniaEffectiveWorkerResult`, `Set-DomeniaItemsSource`, `Set-DomeniaControlText`, `Set-Status` et `Add-DomeniaUiLog`.
+- `Get-DomeniaDomainWorkerCode` dépend de `New-WRootDse`, `New-WEntry`, `New-WSearcher`, `Get-WPropFirst`, `Get-WPropAll`, `Escape-WLdap`, `Convert-WLargeInteger`, `Convert-WFileTime` et `Convert-WDate`.
+- `Show-DomeniaBatchNetworkReport` dépend de `Get-CfgValue`, `Get-DomeniaMember`, `New-DomeniaCollectivePreview`, `Request-DomeniaInlineConfirmation`, `Start-UiTask`, `Set-Status` et `Show-DomeniaDialog`.
+- `Complete-DomeniaBatchNetworkReportUi` dépend de `Get-DomeniaEffectiveWorkerResult`, `Set-ClipboardSafe`, `Set-Status`, `Show-DomeniaDialog`, `Add-DomeniaUiLog` et `Show-DomeniaOperationError`.
+- `Copy-DomeniaSelectedRowsForTicket` dépend de `Get-DomeniaSelectedGridRows`, `ConvertTo-DomeniaTicketText`, `Set-ClipboardSafe` et `Set-Status`.
+- `Open-DomeniaResultRowParentOu` dépend de `Get-DomeniaRawDnParent`, `Set-DomeniaControlText`, `Select-DomeniaWorkspace`, `Load-BranchObjects`, `Get-DomeniaOuDisplayPath` et `Set-Status`.
+- `Open-DomeniaResultRowSupport` dépend de `Get-DomeniaSelectedGridRow`, `Queue-DomeniaSelectedObjectOpen`, `Select-DomeniaWorkspace` et `Set-Status`.
+- `Build-DomeniaObjectsContextMenu` dépend de `Get-DomeniaSelectedGridRow`, `Get-DomeniaSelectedGridRows`, `Get-DomeniaControl`, `New-DomeniaMenuItem`, `Add-DomeniaMenuSeparator`, `Open-SelectedObject`, `Open-DomeniaResultRowSupport`, `Request-DomeniaLiveRecheck`, `Start-DomeniaSearchAssociated`, `Open-DomeniaResultRowParentOu`, `Copy-DomeniaSelectedRowsForTicket`, `Copy-DomeniaGridSelection`, `Copy-DomeniaRowProperty`, `Copy-ObjectSummary`, `Get-DomeniaResultScopeMode` et `Export-CurrentResults`.
+- `Build-DomeniaTreeContextMenu` dépend de `New-DomeniaMenuItem`, `Add-DomeniaMenuSeparator`, `Load-BranchObjects`, `Load-TreeRoot`, `Set-ClipboardSafe`, `Set-Status`, `Select-DomeniaWorkspace`, `Update-DomeniaNewOuParentUi`, `Get-DomeniaOuDisplayPath` et `Start-PermissionAnalysis`.
+- `Register-DomeniaContextMenus` dépend de `Get-DomeniaControl`, `New-DomeniaObjectsContextMenu`, `New-DomeniaTreeContextMenu`, `New-DomeniaCopyContextMenu`, `Register-DomeniaMembershipUi`, `Add-DomeniaUiLog` et `Write-DomeniaSwallowed`.
+- `Get-DomeniaSoftwareWorkerCode` dépend de `Get-WMachineCredential`, `Test-WTcpPort`, `New-CimSessionOption`, `New-CimSession`, `Get-CimInstance`, `Invoke-CimMethod`, `Remove-CimSession`, `New-PSSessionOption`, `Invoke-Command`, `Enter-WCredentialAttempt`, `Assert-WCredentialAllowed`, `Register-WCredentialFailure`, `Exit-WCredentialAttempt`, `Invoke-WRemoteTaskScript` et `Remove-WDomeniaCimSession`.
+- `Apply-DomeniaSoftwareFilter` dépend de `Get-DomeniaControl`, `Test-DomeniaSoftwareRowMatchesSelect`, `Add-DomeniaGridDateKeys`, `Set-DomeniaGridRows`, `Set-DomeniaControlText`, `Update-DomeniaSoftwareFilterChip` et `Add-DomeniaUiLog`.
+- `Start-DomeniaSearchFor` dépend de `Get-DomeniaPastedIdentifier`, `Set-DomeniaControlText`, `Select-DomeniaWorkspace`, `Add-DomeniaUiLog` et `Invoke-GlobalSearch`.
+- `Start-DomeniaSearchAssociated` dépend de `Start-DomeniaSearchFor`, `Set-Status` et `Write-DomeniaSwallowed`.
+- `Copy-DomeniaGridSelection` dépend de `Get-DomeniaControl`, `Get-DomeniaRowText`, `Set-ClipboardSafe` et `Set-Status`.
+- `Copy-DomeniaRowProperty` dépend de `Set-ClipboardSafe`, `Set-Status` et `Write-DomeniaSwallowed`.
+- `New-DomeniaObjectsContextMenu` dépend de `Build-DomeniaObjectsContextMenu` et `Write-DomeniaSwallowed`.
+- `New-DomeniaTreeContextMenu` dépend de `Build-DomeniaTreeContextMenu` et `Write-DomeniaSwallowed`.
+- `New-DomeniaCopyContextMenu` dépend de `New-DomeniaMenuItem`, `Get-DomeniaControl`, `Copy-DomeniaGridSelection` et `Copy-DomeniaRowProperty`.
+- `New-DomeniaMenuItem` dépend de `Show-DomeniaOperationError` pour l'exécution sécurisée des actions de menu.
+- `Register-DomeniaContextMenus` dépend de `Register-DomeniaMembershipUi` pour les menus des grilles d'appartenance.
+- Les fonctions dépendent des cmdlets Windows PowerShell 5.1 `Test-Connection`, `Test-NetConnection`, `New-CimSession`, `Get-CimInstance`, `Invoke-CimMethod`, `Remove-CimSession`, `New-PSSessionOption`, `Invoke-Command`, `Get-ItemProperty`, `Get-AppxPackage` et `Get-ChildItem`.
+- Les fonctions dépendent des types .NET `Stopwatch`, `TimeSpan`, `DateTime`, `Encoding`, `Convert`, `Path`, `ArrayList` et `List`.
+- Les fonctions dépendent des contrôles WPF `System.Windows.Controls.MenuItem`, `Separator`, `ComboBoxItem`, `ContextMenu` et de l'énumération `System.Windows.Visibility`.

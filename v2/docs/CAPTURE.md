@@ -250,15 +250,35 @@ du service, et la capture y fonctionne.
 **Session de bureau ouverte pour le même compte** (console, ou tâche planifiée interactive comme `DomeniaLive`) :
 constaté le 22 octobre 2026, la session SSH (session 0, jeton administrateur élevé) voit WebView2 lancer son processus
 navigateur **par l’explorateur de la session de bureau** (session 1, sans élévation ; parent `explorer.exe`). Ce
-navigateur ne peut pas s’attacher à une fenêtre de la session 0 : la capture s’arrête au démarrage avec
-`COMException (0x80070578)` (handle de fenêtre invalide), ou `TimeoutException` après 60 s, code 2. `vm.sh capture`
-échoue donc tant que cette session reste ouverte ; la variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--do-not-de-elevate`
-n’y change rien. Contournement employé ce jour-là, sans toucher à la session : lancer `capture-vm.ps1` dans cette
-session par une tâche planifiée **ponctuelle** (`Register-ScheduledTask`, `LogonType Interactive`, `RunLevel Limited`,
-compte `Administrateur`), attendre sa fin, puis la retirer (`Unregister-ScheduledTask`) ; 38 images sur 38, code 0. La
-fenêtre de capture apparaît une minute environ sur ce bureau, puis se ferme seule. **Depuis le Mac, passer par `tools/vm.sh <lot> capture`**
-(`PLATFORM.md` § 6) : verrou exclusif de la VM, synchronisation du lot, compilation Release (ou pack avec `--pack`),
-capture avec l’exécutable produit, puis copie des images et de `capture.log` dans le dossier local donné par `--out` :
+navigateur ne peut pas s’attacher à une fenêtre de la session 0 : lancée directement par SSH, la capture s’arrête au
+démarrage avec `COMException (0x80070578)` (handle de fenêtre invalide), ou `TimeoutException` après 60 s, code 2 ; la
+variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--do-not-de-elevate` n’y change rien.
+
+**`vm.sh capture` choisit seul** (depuis le 22 octobre 2026, `tools/desktop-run.ps1`) :
+
+- il cherche une session de bureau du compte de la session SSH : un `explorer.exe` hors de la session 0 dont le
+  propriétaire a le même SID (indépendant de la langue de Windows) ;
+- **s’il y en a une**, il exécute `capture-vm.ps1` dans cette session par une **tâche planifiée ponctuelle**
+  (`Register-ScheduledTask`, `LogonType Interactive`, `RunLevel Limited`, aucun mot de passe enregistré, priorité normale,
+  nom `Domenia-vmsh-<lot>-<hasard>`), relaie sa sortie ligne à ligne (fichier `output.log` en UTF-8 dans
+  `C:\DomeniaDev\tasks\<tâche>`), attend sa fin, reprend son code de sortie (écrit en dernier, à part puis renommé),
+  puis **retire la tâche et son dossier** quoi qu’il arrive (« Tâche … retirée. ») ; une tâche ou un dossier laissés par
+  une exécution interrompue sont retirés au lancement suivant (le verrou de la VM garantit qu’ils ne servent plus) ;
+- **sinon**, il lance `capture-vm.ps1` directement dans la session SSH, comme avant.
+
+La session de bureau n’est jamais fermée, verrouillée ni redémarrée ; la fenêtre de capture y apparaît le temps de la
+séquence puis se ferme seule. Au-delà du délai (330 s, plus 135 s par écran et par thème, plus 120 s), la tâche est
+arrêtée avec les seuls processus lancés depuis le dossier du lot (code 124). `DOMENIA_VM_SESSION=direct` force
+l’exécution par SSH, `desktop` exige une session de bureau.
+
+Vérifié le 22 octobre 2026 sur le lot `infra`, session de bureau `CNAMTS\Administrateur` ouverte sur la console :
+`tools/vm.sh infra capture --routes accueil,parametres --out …` a compilé en Release (0 avertissement), exécuté la capture
+dans la session 1 par la tâche ponctuelle, **14 images sur 14** en 29,7 s, code 0 (« Fin : 14 image(s) sur 14 … ; code de
+sortie 0 »), retiré la tâche et rapatrié les images et `capture.log` sur le Mac.
+
+**Depuis le Mac, passer par `tools/vm.sh <lot> capture`** (`PLATFORM.md` § 6) : verrou exclusif de la VM, synchronisation
+du lot, compilation Release (ou pack avec `--pack`), capture avec l’exécutable produit, puis copie des images et de
+`capture.log` dans le dossier local donné par `--out` :
 
 ```bash
 tools/vm.sh accueil capture --routes accueil,parametres --themes dark,light,contrast --out ~/captures/accueil
@@ -339,6 +359,7 @@ d’adapter le guide aux images disponibles.
 | `src/Domenia.App/AppPaths.cs` | profils `WebView2-Capture` et `WebView2-Capture-Simulation` |
 | `web/js/router.js`, `web/js/app.js` | signal `data-ready` et compteur des appels du pont en cours |
 | `tools/capture-vm.ps1` | capture en simulation dans la VM du labo |
+| `tools/desktop-run.ps1` | exécution dans la session de bureau du compte (tâche planifiée ponctuelle interactive) ou directe, sortie relayée, tâche retirée |
 
 ## 14. Tests à écrire (exécutés à la fin, dans la VM)
 

@@ -21,8 +21,9 @@ import { createGrid, openDrawer, confirmWrite, pill } from '../kit/index.js';
 
 - **Aucun composant ne lit l’annuaire, le réseau ni le disque.** La page appelle le pont (`ctx.call`) et nourrit les
   composants. Trier, filtrer, choisir des colonnes, chercher dans un arbre : tout reste local.
-- **Lecture seule par défaut.** Une écriture passe toujours par `confirmWrite` (saisie exacte du nom de la cible), puis
-  par l’opération du pont qui revérifie le plan. Le kit ne fait jamais d’écriture lui-même.
+- **Lecture seule par défaut.** Une écriture passe toujours par le circuit d’écriture (`web/js/write-flow.js`,
+  [`WRITES.md`](WRITES.md) § 7) : plan relu par le moteur, `confirmWrite` (saisie exacte du nom de la cible quand le plan
+  l’exige), puis `write.execute` qui revérifie le plan, le jeton et le nom. Le kit ne fait jamais d’écriture lui-même.
 - **Aucune lecture réseau sans geste explicite.** La pagination infinie et la grille lisent la suite sur un clic ;
   `auto: true` / `autoLoadMore: true` sont réservés aux lectures locales (base, données déjà chargées).
 - **Jamais tout le domaine** : le fil d’Ariane affiche le domaine en texte seul ; l’arbre ne le rend pas sélectionnable.
@@ -278,8 +279,10 @@ if (answer === 'confirm') await ctx.call('account.disable', { planId: plan.id })
 ```
 
 `confirmWrite` exige la saisie exacte du nom (casse comprise, collage refusé) avant d’activer « Confirmer l’écriture » ;
-Entrée ne confirme rien tant que le nom ne correspond pas. Il n’envoie rien : la page envoie le plan ensuite, le moteur
-le revérifie.
+Entrée ne confirme rien tant que le nom ne correspond pas. Avec `typed: false` (plan sans saisie exigée), le bouton est
+actif tout de suite et le dialogue garde cible, changements et détails ; `onTyped(texte)` reçoit le nom saisi à la
+confirmation, pour que la page l’envoie au moteur qui le revérifie. Il n’envoie rien : la page envoie le plan ensuite
+(`runWrite` de `web/js/write-flow.js` fait tout l’enchaînement, [`WRITES.md`](WRITES.md) § 7).
 
 ### 4.5 Arborescence paresseuse — `createTree(host, options)`
 

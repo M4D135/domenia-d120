@@ -95,6 +95,7 @@ internal static class PlatformTests
 
     private static readonly (string Name, OperationClass Class)[] SimulationOperations =
     [
+        ("accounts.unlock.plan", OperationClass.LocalRead),
         ("dashboard.summary", OperationClass.LocalRead),
         ("dashboard.widget.refresh", OperationClass.NetworkRead),
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
@@ -102,6 +103,10 @@ internal static class PlatformTests
         ("directory.ou.search", OperationClass.LocalRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
+        ("write.execute", OperationClass.Write),
+        ("write.receipts.get", OperationClass.LocalRead),
+        ("write.receipts.list", OperationClass.LocalRead),
+        ("write.receipts.verify", OperationClass.NetworkRead),
     ];
 
     private static EngineContext Context(AppMode mode = AppMode.Simulation, IDirectorySource? source = null)
@@ -120,7 +125,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["DashboardOperations", "DirectoryTreeOperations", "SessionOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");
