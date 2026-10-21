@@ -691,6 +691,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnExportResults" = "Default"
     "BtnSearchMoreJump" = "Default"
     "BtnSearchContains" = "Default"
+    "BtnAddressDns" = "Default"
     "BtnSearchResultMenu" = "Default"
     "LblSearchCardCount" = "Default"
     "LblBranchCount" = "Default"
@@ -8119,12 +8120,20 @@ function Invoke-GlobalSearch {
             return
         }
         $isBrowse = [bool]$textCheck.Browse
+        # R40: a bare IPv4 or MAC address is a local read of the stored network readings, not a name search.
+        $addressQuery = $null
+        if (($SearchMode -eq 'Global') -and ($null -eq $view) -and (-not $isBrowse) -and (-not $Contains) -and ($null -eq $Continuation)) {
+            $addressQuery = Get-DomeniaAddressQuery $textValue
+        }
         # D033/D035/D036: optional explicit syntax, pasted identifiers and multi-word fallback (global bar only).
         $searchPlan = $null
         $searchHint = ''
         if ($null -ne $view) {
             $searchHint = 'Vue : ' + [string]$view.Name + ' · ' + [string]$viewPlan.ChipText + $(if ([string]$view.Note) { ' · ' + [string]$view.Note } else { '' })
             if (-not [bool]$viewPlan.SurveyAllowed) { $searchHint += ' · ' + [string]$viewPlan.Reason }
+        }
+        elseif ($null -ne $addressQuery) {
+            $searchHint = Get-DomeniaAddressSearchHint $addressQuery
         }
         elseif ($SearchMode -eq 'Global' -and -not $isBrowse) {
             $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
@@ -8224,6 +8233,15 @@ function Invoke-GlobalSearch {
         # UX-25: the object type shown when this list is produced comes back with it from the history.
         $typeLabel = 'Tous'
         try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
+        # R40: the local address read replaces the LDAP plan. The list, its generation and its history are those of a
+        # normal search; only the source differs (SQLite observations, no network).
+        if (($null -ne $addressQuery) -and (-not $continuing)) {
+            Start-DomeniaAddressSearch -Query $addressQuery -BaseDn ([string]$scope.BaseDn) -Scope ([string]$scope.Scope) -TypeFilter $typeFilter -Limit $limit -Generation $generation -Search $textValue -PreserveSelectionDn $preserveDn
+            if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
+            [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche par adresse dans les relevés locaux...')
+            Add-DomeniaUiLog -Area 'Recherche' -Level 'INFO' -Text ('Recherche par ' + [string]$addressQuery.Label + ' ' + [string]$addressQuery.Value + ' demandee, base locale, portee ' + [string]$scope.Scope + '.')
+            return
+        }
         $prefixFilter = ""
         $fastFilter = ""
         $exactFilter = ""

@@ -442,6 +442,8 @@ ComputerRestart        |Pinned  |Cim      |RemoteMutation|Explicit        |Remot
 ComputerServiceControl |Pinned  |Cim      |RemoteMutation|Explicit        |Remote,Machine          |Remote   |-
 # DcServicesRead: points 105, 108 and 109 (also GpoAppliedRead, MachineIdentityRead): a computer read by CIM only.
 DcServicesRead         |Pinned  |Cim      |Read          |Explicit        |Remote,Machine          |Remote   |Shared
+# DnsReverseLookup: R40: reverse lookup of one IPv4, only after the explicit « Chercher dans le DNS » gesture.
+DnsReverseLookup       |Pinned  |Network  |Read          |Explicit        |-                       |Network  |-
 DelegationRead         |Pinned  |Directory|Read          |Explicit        |Directory               |Directory|Shared
 # DemoDirectory: answers every read in demonstration (in-memory directory, no network): pooled like the reads.
 DemoDirectory          |Pinned  |Local    |Read          |Explicit        |-                       |Local    |Pool

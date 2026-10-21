@@ -620,3 +620,37 @@ Test-Case 'FO-01' 'La puce « contient » apparait seulement apres une recherche
     $k2=Get-DomeniaNavStateKey ([pscustomobject]@{Page='WsSearch';Mode='Global';Text='compta';MatchMode='Contains'})
     Assert-True ($k1 -cne $k2) 'La liste « contient » est un autre lieu de l historique'
 }
+
+# D120, lot R40: retrouver un poste par son adresse IP ou MAC dans les releves locaux.
+Test-Case -Id 'R40' -Name 'IPv4 et MAC reconnues, normalisees, tout le reste rend $null' -Body {
+    $ip=Get-DomeniaAddressQuery '10.12.3.45'
+    Assert-Equal 'IPv4' $ip.Kind;Assert-Equal '10.12.3.45' $ip.Value;Assert-Equal 'adresse IP' $ip.Label
+    Assert-Equal '0.0.0.0' (Get-DomeniaAddressQuery '0.0.0.0').Value
+    Assert-Equal '255.255.255.255' (Get-DomeniaAddressQuery '255.255.255.255').Value
+    foreach($bad in @('256.1.1.1','10.12.3','10.12.3.45.6','10.12.3.045','10.12.3.01','10.12.3.45/24','fe80::1','10.12.3.45 10.12.3.46','')){Assert-Equal $null (Get-DomeniaAddressQuery $bad) ('Adresse acceptee a tort : '+$bad)}
+    foreach($text in @('00-1A-2B-3C-4D-5E','00:1a:2b:3c:4d:5e','001A2B3C4D5E','001a2b3c4d5e')){
+        $mac=Get-DomeniaAddressQuery $text
+        Assert-Equal 'Mac' $mac.Kind;Assert-Equal '00-1A-2B-3C-4D-5E' $mac.Value;Assert-Equal 'adresse MAC' $mac.Label
+    }
+    foreach($bad in @('00-1A:2B-3C-4D-5E','00-1A-2B-3C-4D','00-1A-2B-3C-4D-5E-6F','GG-1A-2B-3C-4D-5E','001A2B3C4D5','001A2B3C4D5E6F')){Assert-Equal $null (Get-DomeniaAddressQuery $bad) ('MAC acceptee a tort : '+$bad)}
+}
+Test-Case -Id 'R40' -Name 'Une adresse reconnue annonce une lecture locale, sans scan reseau' -Body {
+    $hint=Get-DomeniaAddressSearchHint (Get-DomeniaAddressQuery '10.12.3.45')
+    Assert-True ($hint.Contains('10.12.3.45'));Assert-True ($hint.Contains('relevés locaux'));Assert-True ($hint.Contains('sans scan réseau'))
+    $macHint=Get-DomeniaAddressSearchHint (Get-DomeniaAddressQuery '00:1a:2b:3c:4d:5e')
+    Assert-True ($macHint.Contains('00-1A-2B-3C-4D-5E'));Assert-True ($macHint.Contains('adresse MAC'))
+    Assert-Equal '' (Get-DomeniaAddressSearchHint $null)
+}
+Test-Case -Id 'R40' -Name 'La date du releve est affichee, jamais inventee' -Body {
+    $query=Get-DomeniaAddressQuery '10.12.3.45'
+    $stamp='2026-10-12T08:30:00Z'
+    $expected=[datetime]::Parse($stamp,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind).ToLocalTime().ToString('dd/MM/yyyy',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))
+    $text=Get-DomeniaAddressNotice -Query $query -ObservedUtc $stamp -Addresses '10.12.3.45'
+    Assert-True ($text.StartsWith('adresse relevée le ')) $text
+    Assert-True ($text.Contains($expected)) $text
+    Assert-True ($text.Contains('adresse IP 10.12.3.45')) $text
+    $unknown=Get-DomeniaAddressNotice -Query $query -Addresses '10.12.3.45'
+    Assert-True ($unknown.Contains('date inconnue')) $unknown;Assert-False ($unknown.Contains('01/01/'))
+    $mac=Get-DomeniaAddressNotice -Query (Get-DomeniaAddressQuery '00-1A-2B-3C-4D-5E') -ObservedUtc $stamp -Addresses '00-1A-2B-3C-4D-5E'
+    Assert-True ($mac.Contains('adresse MAC 00-1A-2B-3C-4D-5E')) $mac
+}

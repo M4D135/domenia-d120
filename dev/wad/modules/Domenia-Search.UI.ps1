@@ -40,11 +40,18 @@ function Update-DomeniaSearchHint {
         # CO-34: an asterisk-only text is refused by the upper bar; say so before Entrée rather than after.
         if (Test-DomeniaWildcardOnly $text) { $hint = [string](Get-DomeniaSearchTextCheck -Text $text -Mode Global -MinimumLength $minimum).Reason }
         else {
-            # FO-05: the plan uses the type chosen in the bar, as the search will.
-            $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
-            $hint = [string]$plan.Hint
+            # R40: an IPv4 or MAC address is announced before the plain-text plan (an IPv4 also looks like an FQDN).
+            $address = Get-DomeniaAddressQuery $text
+            if ($null -ne $address) { $hint = Get-DomeniaAddressSearchHint $address }
+            else {
+                # FO-05: the plan uses the type chosen in the bar, as the search will.
+                $plan = Get-DomeniaGlobalSearchPlan -Text $text -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minimum -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
+                $hint = [string]$plan.Hint
+            }
         }
     }
+    # R40: the DNS offer belongs to the address list that produced it; another text removes it before any read.
+    Update-DomeniaAddressDnsOffer -Visible $false
     [void](Set-DomeniaControlText -Name 'LblSearchHint' -Text $hint)
 }
 
@@ -171,6 +178,176 @@ function Invoke-DomeniaSearchContains {
     }
     Update-DomeniaSearchContainsOffer -Search $null
     Invoke-GlobalSearch -SearchMode Global -Contains
+}
+
+# ---------------------------------------------------------------- R40 address lookup
+function Update-DomeniaAddressDnsOffer {
+    # R40: the DNS fallback is offered only for an IPv4 local search that found nothing. It stays a click:
+    # showing the button sends no packet.
+    param($Query=$null,[bool]$Visible=$false)
+    $button = Get-DomeniaControl 'BtnAddressDns'
+    if ($null -eq $button) { return }
+    $show = ([bool]$Visible -and ($null -ne $Query) -and ([string]$Query.Kind -eq 'IPv4'))
+    $button.Tag = $(if ($show) { $Query } else { $null })
+    $button.Content = 'Chercher dans le DNS'
+    $button.IsEnabled = $show
+    $button.Visibility = $(if ($show) { [Windows.Visibility]::Visible } else { [Windows.Visibility]::Collapsed })
+    $button.ToolTip = $(if ($show) { 'Résolution inverse de ' + [string]$Query.Value + ' : une requête DNS part seulement avec ce clic. Le nom trouvé est ensuite cherché dans lʼannuaire.' } else { '' })
+}
+
+function Show-DomeniaAddressNoticeColumn {
+    # R40: the stored reading date is written in the Description cell. The column is revealed for this list only;
+    # the operator choice is not saved and a later search applies it again.
+    $grid = Get-DomeniaControl 'DgObjects'
+    if ($null -eq $grid) { return }
+    foreach ($column in @($grid.Columns)) {
+        if ($null -eq $column) { continue }
+        $key = ''
+        try {
+            $key = [string]$column.SortMemberPath
+            if ((-not $key) -and ($null -ne $column.Binding)) { $key = [string]$column.Binding.Path.Path }
+        } catch { $key = '' }
+        if ($key -eq 'Description' -and [string]$column.Visibility -ne 'Visible') { $column.Visibility = [Windows.Visibility]::Visible }
+    }
+}
+
+function Start-DomeniaAddressSearch {
+    # R40: a recognised address is read in the local base, in the LocalIndexRead worker (never on the WPF thread).
+    # No directory request, no ping, no DNS call: the result list carries the date of the stored reading.
+    param($Query,[string]$BaseDn,[string]$Scope='Subtree',[string]$TypeFilter='',[int]$Limit=100,[long]$Generation=0,
+        [AllowEmptyString()][string]$Search='',[AllowEmptyString()][string]$PreserveSelectionDn='')
+    if ($null -eq $Query) { return }
+    $effectiveLimit = [Math]::Max(1,[Math]::Min(500,$Limit))
+    $payload = [pscustomobject]@{
+        Action='AddressSearch';Path=(Get-DomeniaLocalDatabasePathForRead)
+        QueryKind=[string]$Query.Kind;QueryValue=[string]$Query.Value
+        Limit=$effectiveLimit;BusyTimeoutMs=2500
+    }
+    $state = [pscustomobject]@{
+        SearchMode='Global';BaseDn=$BaseDn;Scope=$Scope;TypeFilter=$TypeFilter;Limit=$effectiveLimit
+        PreserveSelectionDn=$PreserveSelectionDn;CacheKey=('address|'+[string]$Query.Kind+'|'+[string]$Query.Value+'|'+[string]$BaseDn)
+        Search=$Search;RequestedAt=Get-Date;NoPopup=$false;Generation=$Generation;ViewId=''
+        SurveyAllowed=$true;ViewChoice='';TypeLabel='Tous';BarScope='Everywhere';BarType=''
+        MatchMode='';PlanKind='Address';AddressKind=[string]$Query.Kind;AddressValue=[string]$Query.Value
+        StoreContext=(New-DomeniaStoreContext -RequestId ([guid]::NewGuid().ToString('D')) -Generation $Generation -ScopeDn $BaseDn -Subtree ($Scope -eq 'Subtree'))
+    }
+    Update-DomeniaAddressDnsOffer -Visible $false
+    Update-DomeniaSearchContainsOffer -Search $null
+    Show-DomeniaAddressNoticeColumn
+    $live = Begin-DomeniaLiveSearch -State $state -Payload $payload
+    try {
+        [void](Start-UiTask -Name 'Recherche par adresse' -OperationId 'LocalIndexRead' -Code (Get-DomeniaLocalIndexReadWorkerCode) -Payload $payload -CallbackState $state -ReplaceKey 'address-search' -DisableControls @('BtnGlobalSearch','BtnAddressDns') -TimeoutSeconds 20 -StatusText 'Recherche dans les relevés locaux…' -SuccessHandler 'Complete-DomeniaAddressSearchUi' -ErrorHandler 'Fail-DomeniaAddressSearchUi' -TaskClass 'Explicit')
+        Set-Status ('Recherche de ' + [string]$Query.Label + ' ' + [string]$Query.Value + ' dans les relevés locaux.') 'INFO'
+        Add-DomeniaUiLog -Area 'Recherche' -Level 'INFO' -Text ('Recherche par ' + [string]$Query.Label + ' : ' + [string]$Query.Value + ', base locale, sans scan réseau.')
+    } catch {
+        Fail-DomeniaAddressSearchUi -Message $_.Exception.Message -State $state
+    }
+}
+
+function Complete-DomeniaAddressSearchUi {
+    # R40: the worker rows become live rows only on this thread. Every row states the date of the stored reading.
+    param($Result,$State)
+    if ($null -eq $State) { return }
+    if (-not (Test-DomeniaSearchStateCurrent -State $State)) { return }
+    $s = $script:Live.Search
+    if ($null -eq $s) { return }
+    $query = [pscustomobject]@{Kind=[string]$State.AddressKind;Value=[string]$State.AddressValue}
+    $busy = (($null -ne $Result) -and [bool]$Result.Busy)
+    $count = 0
+    if (-not $busy) {
+        foreach ($row in @($Result.Rows)) {
+            if ($null -eq $row) { continue }
+            $notice = Get-DomeniaAddressNotice -Query $query -ObservedUtc ([string]$row.ObservedUtc) -Addresses ([string]$row.Addresses)
+            $snapshot = [pscustomobject]@{
+                Type='Machine';Name=[string]$row.Name;Login=[string]$row.Login;UPN=[string]$row.Upn;Mail=''
+                Description=$notice;Changed=[string]$row.WhenChanged;DN=[string]$row.DN;State=[string]$row.State;OS=''
+                LastLogon=[string]$row.LastLogon;Guid=[string]$row.Guid
+            }
+            [void]$s.Progress.Enqueue([pscustomobject]@{Kind='Row';Row=$snapshot;ObservedUtc=[string]$row.ObservedUtc;AddressNote=$notice})
+            $count++
+        }
+        $s.Ended = $true
+        $s.Final = [pscustomobject]@{Rows=@();BaseDn=$State.BaseDn;Scope=$State.Scope;Partial=$false;Failure='';LimitReached=$false}
+        if ($count -gt 0) {
+            Update-DomeniaAddressDnsOffer -Visible $false
+            Set-Status ([string]$count + ' poste(s) trouvé(s) par ' + [string]$query.Kind + ' dans les relevés locaux.') 'INFO'
+        } else {
+            Set-Status ('Aucun poste connu pour ' + [string]$query.Value + ' dans les relevés locaux.') 'INFO'
+            Update-DomeniaAddressDnsOffer -Query $query -Visible $true
+        }
+    } else {
+        $s.Error = 'Base locale occupée : la recherche par adresse est incomplète.'
+        $s.Ended = $true
+        $s.Final = [pscustomobject]@{Rows=@();BaseDn=$State.BaseDn;Scope=$State.Scope;Partial=$true;Failure=$s.Error;LimitReached=$false}
+        Set-Status $s.Error 'WARN'
+        Update-DomeniaAddressDnsOffer -Visible $false
+    }
+}
+
+function Fail-DomeniaAddressSearchUi {
+    # R40: a failed local read stays partial; the empty list never proves the address is absent.
+    param([string]$Message,[AllowNull()]$State)
+    if ($null -eq $State) { $State = $(if ($null -ne $script:Live) { $script:Live.Search.State } else { $null }) }
+    if (($null -eq $State) -or (-not (Test-DomeniaSearchStateCurrent -State $State))) { return }
+    $s = $script:Live.Search
+    if ($null -eq $s) { return }
+    $s.Error = [string]$Message
+    $s.Ended = $true
+    $s.Final = [pscustomobject]@{Rows=@();BaseDn=$State.BaseDn;Scope=$State.Scope;Partial=$true;Failure=[string]$Message;LimitReached=$false}
+    Set-Status ('Recherche par adresse incomplète : ' + [string]$Message) 'WARN'
+    Update-DomeniaAddressDnsOffer -Visible $false
+}
+
+function Invoke-DomeniaAddressDnsLookup {
+    # R40: explicit gesture. The reverse lookup runs in its pinned Network worker; the found name then follows
+    # the normal directory search path, nothing else.
+    $s = $script:Live.Search
+    if (($null -eq $s) -or (-not (Test-DomeniaLiveSearchActive)) -or (-not [bool]$s.AddressSearch)) {
+        Set-Status 'La liste affichée nʼest plus une recherche par adresse : relancez la recherche avant le DNS.' 'WARN'
+        return
+    }
+    if ($s.Fresh.Count -gt 0) { return }
+    $query = [pscustomobject]@{Kind=[string]$s.State.AddressKind;Value=[string]$s.State.AddressValue}
+    if ($query.Kind -ne 'IPv4') { return }
+    $state = [pscustomobject]@{Address=[string]$query.Value;Generation=[long]$s.State.Generation;AddressState=$s.State}
+    Update-DomeniaAddressDnsOffer -Visible $false
+    Set-Status ('Résolution DNS inverse de ' + [string]$query.Value + ' en cours…') 'INFO'
+    try {
+        [void](Start-UiTask -Name 'Résolution DNS inverse' -OperationId 'DnsReverseLookup' -Code (Get-DomeniaDnsReverseWorkerCode) -Payload ([pscustomobject]@{Address=[string]$query.Value}) -CallbackState $state -ReplaceKey 'address-dns' -DisableControls @('BtnAddressDns') -TimeoutSeconds 15 -StatusText ('Résolution inverse de ' + [string]$query.Value + '…') -SuccessHandler 'Complete-DomeniaAddressDnsUi' -ErrorHandler 'Fail-DomeniaAddressDnsUi' -TaskClass 'Explicit')
+    } catch {
+        Set-Status ('Résolution DNS non lancée : ' + $_.Exception.Message) 'WARN'
+        Update-DomeniaAddressDnsOffer -Query $query -Visible $true
+    }
+}
+
+function Complete-DomeniaAddressDnsUi {
+    # R40: the resolved name is put in the upper bar, then searched as any normal text. The operator sees both steps.
+    param($Result,$State)
+    if (($null -eq $State) -or (-not (Test-DomeniaSearchStateCurrent -State $State.AddressState))) { return }
+    $name = ''
+    if ($null -ne $Result) { $name = ([string]$Result.HostName).Trim() }
+    if (-not $name) {
+        $query = [pscustomobject]@{Kind='IPv4';Value=[string]$State.Address}
+        Update-DomeniaAddressDnsOffer -Query $query -Visible $true
+        Set-Status ('DNS : aucun nom trouvé pour ' + [string]$State.Address + '.') 'WARN'
+        return
+    }
+    $box = Get-DomeniaControl 'TxtGlobalSearch'
+    if ($null -ne $box) { $box.Text = $name }
+    Set-Status ('DNS : ' + [string]$State.Address + ' résolue en ' + $name + ' · recherche du nom dans lʼannuaire.') 'INFO'
+    try { Invoke-GlobalSearch -SearchMode Global }
+    catch { Set-Status ('Recherche du nom DNS non lancée : ' + $_.Exception.Message) 'ERROR' }
+}
+
+function Fail-DomeniaAddressDnsUi {
+    # R40: a refused or failed lookup changes nothing else; the explicit offer comes back for another try.
+    param([string]$Message,[AllowNull()]$State)
+    $s = $script:Live.Search
+    if (($null -ne $s) -and [bool]$s.AddressSearch -and ($s.Fresh.Count -eq 0)) {
+        Update-DomeniaAddressDnsOffer -Query ([pscustomobject]@{Kind=[string]$s.State.AddressKind;Value=[string]$s.State.AddressValue}) -Visible $true
+    }
+    Set-Status ('Résolution DNS inverse impossible : ' + [string]$Message) 'WARN'
+    Write-AppLog ('Résolution DNS inverse : ' + [string]$Message) 'WARN'
 }
 
 # ---------------------------------------------------------------- DS-06 « ⋯ » menu of the result card
@@ -1168,6 +1345,9 @@ function Initialize-DomeniaSearchUi {
     # FO-01: the « contains » chip starts its read on click only.
     $containsChip = Get-DomeniaControl 'BtnSearchContains'
     if ($containsChip -is [Windows.Controls.Primitives.ButtonBase]) { $containsChip.Add_Click({ try { Invoke-DomeniaSearchContains } catch { Write-AppLog ('Recherche « contient » : '+$_.Exception.Message) 'ERROR'; Set-Status ('Recherche non lancée : '+$_.Exception.Message) 'ERROR' } }) }
+    # R40: « Chercher dans le DNS » is the only gesture that starts a reverse lookup.
+    $addressDns = Get-DomeniaControl 'BtnAddressDns'
+    if ($addressDns -is [Windows.Controls.Primitives.ButtonBase]) { $addressDns.Add_Click({ try { Invoke-DomeniaAddressDnsLookup } catch { Write-AppLog ('Résolution DNS inverse : '+$_.Exception.Message) 'ERROR'; Set-Status ('Résolution DNS non lancée : '+$_.Exception.Message) 'ERROR' } }) }
     # MO-07: « Charger jusquʼà 1 000 » reads the missing rows in one explicit gesture.
     $jump = Get-DomeniaControl 'BtnSearchMoreJump'
     if ($jump -is [Windows.Controls.Primitives.ButtonBase]) { $jump.Add_Click({ try { Invoke-DomeniaSearchMore -Step Jump } catch { Write-AppLog ('Charger jusquʼà : '+$_.Exception.Message) 'ERROR'; Set-Status ('Suite non chargée : '+$_.Exception.Message) 'ERROR' } }) }

@@ -302,6 +302,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Sort-DomeniaSearchResults',
             'ConvertTo-DomeniaGuidFilterValue',
             'Get-DomeniaPastedIdentifier',
+            'Get-DomeniaAddressQuery',
+            'Get-DomeniaAddressSearchHint',
+            'Get-DomeniaAddressNotice',
             'Get-DomeniaResultCounterText',
             'Get-DomeniaContinuationDecision',
             'New-DomeniaContinuation',
@@ -1748,6 +1751,7 @@ function Get-DomeniaRuntimeModulePlan {
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Storage.Worker.ps1'); File='Domenia-Engine.Worker.ps1'; DotSource=$true; Functions=@(
             'Get-DomeniaLocalIndexReadWorkerCode',
+            'Get-DomeniaDnsReverseWorkerCode',
             'Get-DomeniaParkSharedSyncWorkerCode'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@(); File='Domenia-Isolation.Worker.ps1'; DotSource=$true; Functions=@(
@@ -2164,6 +2168,14 @@ function Get-DomeniaRuntimeModulePlan {
             'Set-DomeniaSearchBarChoice',
             'Update-DomeniaSearchContainsOffer',
             'Invoke-DomeniaSearchContains',
+            'Update-DomeniaAddressDnsOffer',
+            'Show-DomeniaAddressNoticeColumn',
+            'Start-DomeniaAddressSearch',
+            'Complete-DomeniaAddressSearchUi',
+            'Fail-DomeniaAddressSearchUi',
+            'Invoke-DomeniaAddressDnsLookup',
+            'Complete-DomeniaAddressDnsUi',
+            'Fail-DomeniaAddressDnsUi',
             'Get-DomeniaSearchResultMenuEntries',
             'New-DomeniaSearchResultMenu',
             'Open-DomeniaSearchResultMenu',
