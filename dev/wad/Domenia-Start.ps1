@@ -2,6 +2,14 @@
 [CmdletBinding()]
 param([switch]$CheckOnly,[switch]$Diagnostic)
 $ErrorActionPreference='Stop'
+# R40 (startup time): process clock shared with the core for the milestones of Domenia-startup.log. Stopwatch timestamp of
+# this first statement and age of the process at that moment (launcher, powershell.exe and the parse of this script).
+# Read by the core for the startup trace only; never used as a decision input.
+$DomeniaStartClock=$null
+try{
+    $startProcess=[Diagnostics.Process]::GetCurrentProcess()
+    try{$DomeniaStartClock=[pscustomobject]@{Timestamp=[Diagnostics.Stopwatch]::GetTimestamp();ProcessAgeMs=[long]([datetime]::Now-$startProcess.StartTime).TotalMilliseconds}}finally{$startProcess.Dispose()}
+}catch{$DomeniaStartClock=$null}
 $lifecycle=$null
 $integrityHasher=$null
 try {
@@ -132,7 +140,8 @@ try {
     }
     $integrityWatch.Stop()
     # Read by the core for the startup trace (stage Integrite du paquet); never used as a decision input.
-    $DomeniaStartIntegrity=[pscustomobject]@{Files=$entries.Count;Required=$required.Count;Limit=$runtimeLimit;DurationMs=[long]$integrityWatch.ElapsedMilliseconds;Eol=$eolDifferences.Count}
+    # EndTimestamp (R40): stopwatch timestamp at the end of the check; the core measures its own parse from it.
+    $DomeniaStartIntegrity=[pscustomobject]@{Files=$entries.Count;Required=$required.Count;Limit=$runtimeLimit;DurationMs=[long]$integrityWatch.ElapsedMilliseconds;Eol=$eolDifferences.Count;EndTimestamp=[Diagnostics.Stopwatch]::GetTimestamp()}
     if($CheckOnly){
         # Exercise the real imports in a disposable scope, never the application.
         # This loads definitions only; it does not start a timer/window or contact AD.
