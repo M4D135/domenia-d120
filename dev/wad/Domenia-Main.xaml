@@ -1589,6 +1589,8 @@
                         </DockPanel>
                         <!-- FO-01: few names or none in a global list: the « contains » search is offered as a chip and read on click only. -->
                         <Button x:Name="BtnSearchContains" Visibility="Collapsed" HorizontalAlignment="Right" Margin="0,0,0,8" MinHeight="28" Padding="12,2" Style="{StaticResource SecondaryButton}" Content="Chercher aussi les noms qui contiennent ce texte" AutomationProperties.Name="Chercher aussi les noms qui contiennent ce texte"/>
+                        <!-- R40: DNS fallback, offered only after an empty local read of an IPv4 address; a click is required. -->
+                        <Button x:Name="BtnAddressDns" Visibility="Collapsed" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Content="Chercher dans le DNS" AutomationProperties.Name="Chercher dans le DNS"/>
                         </StackPanel>
                         <Expander x:Name="UxResultToolsExpander" Grid.Row="1" Header="Actions, filtres et vues" IsExpanded="False" Margin="0,0,0,4" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><ScrollViewer x:Name="UxResultToolsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="220"><StackPanel Margin="0,6,0,2">
                         <!-- CO-05 / SP-14: the filter of the list works on any loaded list, global search included; no request. -->

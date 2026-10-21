@@ -118,6 +118,8 @@ function Show-DomeniaOperationError {param($Operation,$ErrorRecordOrException,[s
     $script:OperationErrors.Add($m)
 }
 function Show-DomeniaFormDialog {throw 'Fenetre modale interdite dans ce parcours.'}
+function Get-DomeniaLocalIndexReadWorkerCode {return 'fixture read worker'}
+function Get-DomeniaDnsReverseWorkerCode {return 'fixture dns worker'}
 function Show-InfoBox {param($Text) throw ('Fenetre modale interdite : '+[string]$Text)}
 function Update-Dashboard { }
 function Request-DomeniaDashboardRefresh { }
@@ -167,7 +169,7 @@ function Complete-DomeniaDirectoryReadPipe {param($Pipe,$Final=$null,[string]$Er
     elseif($Pipe.CompleteHandler){& $Pipe.CompleteHandler -Result $Final -State $Pipe.CallbackState}
 }
 function Start-UiTask {
-    param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable)
+    param($Name,$OperationId,$Code,$Payload,$CallbackState,$ReplaceKey,$DisableControls,$TimeoutSeconds,$StatusText,$SuccessHandler,$ErrorHandler,[switch]$NonCancellable,$TaskClass)
     $id='task-'+[guid]::NewGuid().ToString('N')
     $job=[pscustomobject]@{Id=$id;OperationId=[string]$OperationId;Payload=$Payload;CallbackState=$CallbackState;ReplaceKey=[string]$ReplaceKey;IsWrite=$false;Code=[string]$Code}
     $script:Tasks.Add($job);$script:AsyncJobs[$id]=$job
@@ -178,7 +180,7 @@ function New-TestControls {
     $c=@{}
     foreach($n in @('TxtGlobalSearch','TxtBranchSearch','TxtGlobalLimit','TxtSuiteResultFilter','TxtBranchDn')){$c[$n]=[Windows.Controls.TextBox]::new()}
     foreach($n in @('LblBranchCount','LblSuiteResultCount','LblSearchScope','LblSearchHint','LblLiveState','LblOuRestoreMessage','LblSelectionReadState','LblOuScopeName','LblOuScopePath','LblTreeStatus')){$c[$n]=[Windows.Controls.TextBlock]::new()}
-    foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss')){$c[$n]=[Windows.Controls.Button]::new()}
+    foreach($n in @('BtnSearchMore','BtnNavBack','BtnNavForward','BtnWorkView','BtnOuRestoreRetry','BtnOuRestoreDismiss','BtnSearchContains','BtnAddressDns')){$c[$n]=[Windows.Controls.Button]::new()}
     $c.TxtGlobalLimit.Text='100'
     $c.ChkSubtree=[Windows.Controls.CheckBox]::new();$c.ChkSubtree.IsChecked=$false
     # SP-15: « Vérifier au clic » and its user sub-option, read and saved by Initialize-DomeniaLive.
@@ -507,6 +509,60 @@ Case 'D036 Address is explained but keeps the prefix search' {
     $t=Search-Global 'jdupont@example.invalid'
     Expect ($t.Payload.PrefixFilter.Contains('(mail=jdupont@example.invalid*)')) 'La recherche par prefixe a ete remplacee.'
     Expect ($script:Ctrl.LblSearchHint.Text.Contains('Adresse reconnue'))
+}
+# ---------------------------------------------------------------- R40 address lookup
+# Unwired if Invoke-GlobalSearch keeps its LDAP plan for an IPv4 or MAC address, or if the local read is not
+# addressed to the LocalIndexRead worker with the parsed kind and value.
+Case 'R40 Une IPv4 lance une lecture locale, sans LDAP, sans cache et sans ouverture' {
+    $t=Search-Global '10.12.3.45'
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 0) 'Une recherche LDAP est partie pour une adresse IP.'
+    Expect ((Get-TaskCount 'LocalIndexRead') -eq 1) 'La lecture locale na pas ete demandee.'
+    $task=Get-LastTask 'LocalIndexRead'
+    Expect (($task.Payload.Action -eq 'AddressSearch') -and ($task.Payload.QueryKind -eq 'IPv4') -and ($task.Payload.QueryValue -eq '10.12.3.45') -and ($task.Payload.Path -eq $script:DatabaseScopedPath)) ('Charge utile : '+($task.Payload|ConvertTo-Json -Compress))
+    Expect (($script:Live.Search.AddressSearch -eq $true) -and ($script:Live.Search.CacheRequested -eq $false) -and ($script:Live.Search.State.PlanKind -eq 'Address')) 'La liste nest pas une liste dadresse.'
+    Expect (-not $script:Ctrl.LblSearchHint.Text.Contains('FQDN') -and $script:Ctrl.LblSearchHint.Text.Contains('adresse IP')) ('Aide : '+$script:Ctrl.LblSearchHint.Text)
+    Expect ($script:Ctrl.BtnAddressDns.Visibility -eq 'Collapsed') 'LOffre DNS apparait avant la fin de la lecture locale.'
+    Expect ((Get-TaskCount 'OpenAdObject') -eq 0) 'Une fiche a ete ouverte automatiquement.'
+}
+Case 'R40 Les lignes locales affichent la date du releve et ne proposent ni contient ni DNS' {
+    $t=Search-Global '10.12.3.45'
+    $row=[pscustomobject]@{Name='PC-COMPTA-01';Login='';Upn='';WhenChanged='';DN='CN=PC-COMPTA-01,OU=Postes,DC=example,DC=invalid';State='';LastLogon='';Guid=[guid]::NewGuid().ToString('D');Addresses='10.12.3.45';ObservedUtc='2026-10-12T08:30:00Z'}
+    Complete-DomeniaAddressSearchUi -Result ([pscustomobject]@{Busy=$false;Rows=@($row)}) -State $t.CallbackState
+    Pump-Live
+    Expect ((@(Get-GridNames) -contains 'PC-COMPTA-01')) ('Liste : '+((Get-GridNames) -join ', '))
+    $shown=$script:Ctrl.DgObjects.Items[0]
+    Expect ($shown.Description.Contains('adresse relevée le ') -and $shown.Description.Contains('adresse IP 10.12.3.45')) ('Mention : '+[string]$shown.Description)
+    Expect ($script:Ctrl.LblBranchCount.Text.Contains('par adresse')) ('Compteur : '+$script:Ctrl.LblBranchCount.Text)
+    Expect ($script:Ctrl.BtnSearchContains.Visibility -eq 'Collapsed') 'La puce contient est proposee pour une liste dadresse.'
+    Expect ($script:Ctrl.BtnAddressDns.Visibility -eq 'Collapsed') 'LOffre DNS est proposee alors que la lecture a trouve un poste.'
+    Expect (-not $script:Ctrl.BtnSearchMore.IsEnabled) 'La suite est proposee pour une liste dadresse.'
+}
+Case 'R40 IPv4 sans resultat : le DNS reste une offre explicite, puis le nom trouve est cherche normalement' {
+    $t=Search-Global '10.12.3.46'
+    Complete-DomeniaAddressSearchUi -Result ([pscustomobject]@{Busy=$false;Rows=@()}) -State $t.CallbackState
+    Pump-Live
+    Expect (($script:Ctrl.BtnAddressDns.Visibility -eq 'Visible') -and $script:Ctrl.BtnAddressDns.IsEnabled -and ($script:Ctrl.BtnAddressDns.Tag.Value -eq '10.12.3.46')) 'LOffre DNS nest pas visible et armee.'
+    Expect ((Get-TaskCount 'DnsReverseLookup') -eq 0) 'Une resolution DNS est partie sans clic.'
+    Invoke-DomeniaAddressDnsLookup
+    Expect ((Get-TaskCount 'DnsReverseLookup') -eq 1) 'La resolution DNS na pas ete demandee.'
+    $dns=Get-LastTask 'DnsReverseLookup'
+    Expect (($dns.Payload.Address -eq '10.12.3.46') -and ([string]$dns.ReplaceKey -eq 'address-dns')) ('Resolution : '+($dns.Payload|ConvertTo-Json -Compress))
+    Expect ($script:Ctrl.BtnAddressDns.Visibility -eq 'Collapsed') 'LOffre DNS reste visible pendant la resolution.'
+    Complete-DomeniaAddressDnsUi -Result ([pscustomobject]@{Address='10.12.3.46';HostName='pc-compta-02.example.invalid';ShortName='pc-compta-02'}) -State $dns.CallbackState
+    Expect ($script:Ctrl.TxtGlobalSearch.Text -ceq 'pc-compta-02.example.invalid') ('Barre : '+$script:Ctrl.TxtGlobalSearch.Text)
+    Expect ((Get-TaskCount 'GlobalSearch') -eq 1) 'Le nom resolu nest pas cherche dans lannuaire.'
+    $name=Get-LastTask 'GlobalSearch'
+    Expect ($name.Payload.PrefixFilter.Contains('pc-compta-02.example.invalid')) ('Filtre du nom : '+$name.Payload.PrefixFilter)
+}
+Case 'R40 Une MAC ne propose jamais le DNS et interdit la suite' {
+    $t=Search-Global '00:1a:2b:3c:4d:5e'
+    $task=Get-LastTask 'LocalIndexRead'
+    Expect (($task.Payload.QueryKind -eq 'Mac') -and ($task.Payload.QueryValue -eq '00-1A-2B-3C-4D-5E') -and ((Get-TaskCount 'GlobalSearch') -eq 0)) ('Lecture MAC : '+($task.Payload|ConvertTo-Json -Compress))
+    Complete-DomeniaAddressSearchUi -Result ([pscustomobject]@{Busy=$false;Rows=@()}) -State $t.CallbackState
+    Pump-Live
+    Expect ($script:Ctrl.BtnAddressDns.Visibility -eq 'Collapsed') 'LOffre DNS est proposee pour une MAC.'
+    Expect ((Get-TaskCount 'DnsReverseLookup') -eq 0) 'Une resolution DNS est partie pour une MAC.'
+    Expect (-not $script:Ctrl.BtnSearchMore.IsEnabled) 'La suite est proposee apres une lecture dadresse vide.'
 }
 Case 'D036 A pasted DN is not cut at its commas' {
     $dn='CN=Dupont\, Jean,OU=Lyon,DC=example,DC=invalid'

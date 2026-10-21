@@ -427,6 +427,55 @@ function Get-DomeniaPastedIdentifier {
     return $none
 }
 
+# ---------------------------------------------------------------- R40 address lookup
+function Get-DomeniaAddressQuery {
+    # R40: a typed text that is exactly an IPv4 address or a MAC address, normalised for the local read.
+    # MAC addresses are written 00-1A-2B-3C-4D-5E upper case; the separator must be the same in the whole text.
+    # Anything else returns $null: a name, a partial address or an IPv6 address keeps the normal search.
+    param([AllowEmptyString()][AllowNull()][string]$Text)
+    $value = ([string]$Text).Trim()
+    if ((-not $value) -or ($value -match '\s')) { return $null }
+    $octet = '(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])'
+    if ($value -match ('^' + $octet + '(?:\.' + $octet + '){3}$')) {
+        return [pscustomobject]@{Kind='IPv4';Value=$value;Label='adresse IP';Original=$value}
+    }
+    $hex = ''
+    if ($value -match '^[0-9A-Fa-f]{2}([:-])([0-9A-Fa-f]{2}\1){4}[0-9A-Fa-f]{2}$') { $hex = ($value -replace '[:-]','') }
+    elseif ($value -match '^[0-9A-Fa-f]{12}$') { $hex = $value }
+    if (-not $hex) { return $null }
+    $hex = $hex.ToUpperInvariant()
+    $pairs = New-Object 'System.Collections.Generic.List[string]'
+    for ($index = 0; $index -lt 12; $index += 2) { $pairs.Add($hex.Substring($index,2)) }
+    return [pscustomobject]@{Kind='Mac';Value=($pairs.ToArray() -join '-');Label='adresse MAC';Original=$value}
+}
+
+function Get-DomeniaAddressSearchHint {
+    # R40: what the upper bar will do with a recognised address, before any read. No network scan is announced.
+    param($Query)
+    if ($null -eq $Query) { return '' }
+    return ('Adresse ' + [string]$Query.Label + ' reconnue (' + [string]$Query.Value + ') : recherche dans les relevés locaux, sans scan réseau. Une adresse peut avoir changé depuis le relevé.')
+}
+
+function Get-DomeniaAddressNotice {
+    # R40: the wording shown on every workstation found by an address. The date comes from the stored reading;
+    # an unreadable date is stated as unknown rather than invented.
+    param($Query,[AllowEmptyString()][string]$ObservedUtc='',[AllowEmptyString()][string]$Addresses='')
+    $label = 'adresse'
+    if (($null -ne $Query) -and [string]$Query.Kind -eq 'Mac') { $label = 'adresse MAC' }
+    else { $label = 'adresse IP' }
+    $when = ''
+    if (-not [string]::IsNullOrWhiteSpace($ObservedUtc)) {
+        try {
+            $parsed = [datetime]::Parse($ObservedUtc,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+            $when = $parsed.ToLocalTime().ToString('dd/MM/yyyy',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))
+        } catch { $when = '' }
+    }
+    $text = if ($when) { 'adresse relevée le ' + $when } else { 'adresse relevée à une date inconnue' }
+    $text = $text + ' · ' + $label
+    if (-not [string]::IsNullOrWhiteSpace($Addresses)) { $text = $text + ' ' + $Addresses.Trim() }
+    return $text
+}
+
 # ---------------------------------------------------------------- D037 explicit continuation
 function Get-DomeniaResultCounterText {
     # States plainly whether the list is complete, limited or still loading.

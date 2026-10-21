@@ -714,6 +714,7 @@ $script:GuiElementPolicy = [ordered]@{
     "BtnExportResults" = "Default"
     "BtnSearchMoreJump" = "Default"
     "BtnSearchContains" = "Default"
+    "BtnAddressDns" = "Default"
     "BtnSearchResultMenu" = "Default"
     "LblSearchCardCount" = "Default"
     "LblBranchCount" = "Default"
@@ -8175,12 +8176,20 @@ function Invoke-GlobalSearch {
             return
         }
         $isBrowse = [bool]$textCheck.Browse
+        # R40: a bare IPv4 or MAC address is a local read of the stored network readings, not a name search.
+        $addressQuery = $null
+        if (($SearchMode -eq 'Global') -and ($null -eq $view) -and (-not $isBrowse) -and (-not $Contains) -and ($null -eq $Continuation)) {
+            $addressQuery = Get-DomeniaAddressQuery $textValue
+        }
         # D033/D035/D036: optional explicit syntax, pasted identifiers and multi-word fallback (global bar only).
         $searchPlan = $null
         $searchHint = ''
         if ($null -ne $view) {
             $searchHint = 'Vue : ' + [string]$view.Name + ' · ' + [string]$viewPlan.ChipText + $(if ([string]$view.Note) { ' · ' + [string]$view.Note } else { '' })
             if (-not [bool]$viewPlan.SurveyAllowed) { $searchHint += ' · ' + [string]$viewPlan.Reason }
+        }
+        elseif ($null -ne $addressQuery) {
+            $searchHint = Get-DomeniaAddressSearchHint $addressQuery
         }
         elseif ($SearchMode -eq 'Global' -and -not $isBrowse) {
             $searchPlan = Get-DomeniaGlobalSearchPlan -Text $textValue -TypeFilter (Get-GlobalSelectedTypeFilter -Mode Global) -MinimumLength $minChars -SyntaxEnabled (Get-DomeniaFeatureFlag -Name 'SearchSyntax' -Default $true)
@@ -8280,6 +8289,15 @@ function Invoke-GlobalSearch {
         # UX-25: the object type shown when this list is produced comes back with it from the history.
         $typeLabel = 'Tous'
         try { $typeItem = (Get-DomeniaControl -Name 'CmbGlobalType').SelectedItem; if ($null -ne $typeItem -and [string]$typeItem.Content) { $typeLabel = [string]$typeItem.Content } } catch { Write-DomeniaSwallowed 'Core' 'Invoke-GlobalSearch' $_ }
+        # R40: the local address read replaces the LDAP plan. The list, its generation and its history are those of a
+        # normal search; only the source differs (SQLite observations, no network).
+        if (($null -ne $addressQuery) -and (-not $continuing)) {
+            Start-DomeniaAddressSearch -Query $addressQuery -BaseDn ([string]$scope.BaseDn) -Scope ([string]$scope.Scope) -TypeFilter $typeFilter -Limit $limit -Generation $generation -Search $textValue -PreserveSelectionDn $preserveDn
+            if (-not $PreserveSelection) { Select-DomeniaWorkspace -Workspace 'WsSearch' }
+            [void](Set-DomeniaControlText -Name 'LblBranchCount' -Text 'Recherche par adresse dans les relevés locaux...')
+            Add-DomeniaUiLog -Area 'Recherche' -Level 'INFO' -Text ('Recherche par ' + [string]$addressQuery.Label + ' ' + [string]$addressQuery.Value + ' demandee, base locale, portee ' + [string]$scope.Scope + '.')
+            return
+        }
         $prefixFilter = ""
         $fastFilter = ""
         $exactFilter = ""
@@ -20549,7 +20567,7 @@ function Get-DomeniaWorkerOperationHashes {
         ReadBitLockerKey      = "8A98EBCDC48AD572404E1566826035C84F34ACB87564330A7AA511FAAC01EE6F"
         BitLockerPresence     = "F1A7C8FD83BA659E7826DE2DDBDD01EE13BC185819FD9330656B77A99ACD6764"
         DemoDirectory         = "FBE11A3ADE0630788C56DF30F9E883FEA8FF6033FE71D2E9B1E2BE92007268BF"
-        LocalIndexRead        = "B6DE0D93665C2921A14895A0C915E8057696BC657375B70D36293ADC01D3940A"
+        LocalIndexRead        = "6A3C4A0A486E9EB9301D02FCD2E8913FE1903C22B4CB47E5EFFDF358F391BB9E"
         ParkSharedSync        = "B3A64051813F12A24BD5E791D59CF7E2330FA84E965C9F44BD62366D4A81415E"
         IsolatedRead          = "4074D6ECAA620A9C80A5B6B535BB657E02DCE06A9DF97E35CA1EA47572D1060C"
         CmdletHelp            = "12505D0654AB0E97BD803A70B953BB0BBE2152836AAA1889744C1312EB215D62"
@@ -20636,6 +20654,7 @@ function Get-DomeniaWorkerOperationHashes {
         StorageRetention      = "7503474548089E90F1208292FD3D4A448D7C4F11F0D793B18D2D37A39E37E9C4"
         QuerySchema           = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
         WidgetWmiDetail       = "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
+        DnsReverseLookup      = "DC556720981C5FFF6A91ED3810D4E7B8A2994130A0427B4CFDA906184B879BEA"
     }
 }
 
@@ -20644,7 +20663,7 @@ function Assert-DomeniaWorkerRegistry {
     param([AllowNull()][System.Collections.IDictionary]$Registry = (Get-DomeniaWorkerOperationHashes))
     # Pin the entire reviewed map, not a separately maintained operation counter.
     # This digest is updated only by the DEV release tool after contract review.
-    $expectedFingerprint = "8AAFF2FEC77A988228EFC6ADBC977B12AEB18B39EB41EBBC9C9D2F693187C524"
+    $expectedFingerprint = "CBDDB84F8E02612B4FD2461E883346281EDD3B41F64267A290C09182D7299064"
     if ($null -eq $Registry -or $Registry.Count -eq 0) {
         throw 'Registre worker absent ou vide.'
     }

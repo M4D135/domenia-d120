@@ -7,7 +7,7 @@ function Get-DomeniaLocalIndexReadWorkerCode {
     # Get-DomeniaSqliteWorkerCommon of Domenia-Storage.Worker.ps1); this body only keeps its measured read.
     return (Get-DomeniaSqliteWorkerCommon)+[Environment]::NewLine+@'
 $action = [string]$Payload.Action
-if ($action -notin @('Search','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','CollectionRuns','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
+if ($action -notin @('Search','AddressSearch','ParkState','ParkTargets','FleetStats','ResolveNames','StoreRead','IndexMetadata','UserMachineLinks','SecretIndexEntry','OperationStats','CollectionRuns','DirectorySync','SnapshotCompare')) { throw 'Lecture locale non autorisee.' }
 $path = [IO.Path]::GetFullPath([string]$Payload.Path)
 if ($path.StartsWith('\\')) { throw 'Base locale reseau non prise en charge.' }
 if (-not [IO.File]::Exists($path)) { return [pscustomobject]@{ Rows=@(); Busy=$false; Missing=$true; MachineCount=0 } }
@@ -775,6 +775,105 @@ try {
                 })
             }
         }
+        elseif ($action -eq 'AddressSearch') {
+            # R40: a workstation found by an IPv4 or MAC address in the stored network readings. The payload is
+            # pre-filtered in SQL, then every candidate is parsed and the address is compared exactly: a LIKE hit
+            # alone is never presented as a match. Local base only, no network call.
+            $kind=[string]$Payload.QueryKind;$value=[string]$Payload.QueryValue
+            $rowLimit=[Math]::Max(1,[Math]::Min(500,[int]$Payload.Limit))
+            $answerRows=$null
+            if($kind -eq 'Mac'){
+                if($value -notmatch '^[0-9A-F]{2}(-[0-9A-F]{2}){5}$'){throw 'Adresse MAC de lecture invalide.'}
+            }
+            elseif($kind -eq 'IPv4'){
+                $octet='(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+                if($value -notmatch ('^'+$octet+'(?:\.'+$octet+'){3}$')){throw 'Adresse IP de lecture invalide.'}
+            }
+            else{throw 'Type d adresse de lecture invalide.'}
+            if((-not $tables.ContainsKey('ad_objects')) -or (-not $tables.ContainsKey('domenia_observations'))){
+                [pscustomobject]@{Rows=@();Busy=$false;Missing=$false;MachineCount=0;QueryKind=$kind;QueryValue=$value;AddressSearch=$true}
+                return
+            }
+            $needles=New-Object 'System.Collections.Generic.List[string]'
+            [void]$needles.Add($value)
+            if($kind -eq 'Mac'){[void]$needles.Add(($value -replace '-',''))}
+            $clauses=New-Object 'System.Collections.Generic.List[string]'
+            $searchParameters=New-Object 'System.Collections.Generic.List[object]'
+            foreach($needle in $needles){
+                $like=([string]$needle).Replace('!','!!').Replace('%','!%').Replace('_','!_')
+                $index=$searchParameters.Count+1
+                [void]$clauses.Add('b.payload LIKE ?'+$index+" ESCAPE '!'")
+                [void]$searchParameters.Add('%'+$like+'%')
+            }
+            $sql="SELECT o.object_type,o.name,o.login,o.upn,o.display_name,o.description,o.extra,o.state,o.distinguished_name,"+
+                "o.when_changed,o.usn_changed,o.last_logon,o.object_guid,b.family,b.success_at,b.payload"+
+                " FROM ad_objects o JOIN domenia_observations b ON b.object_guid=o.object_guid"+
+                " WHERE o.object_type='Machine' AND b.status='Success'"+
+                " AND b.family IN ('Probe:net.interfaces','Probe:net.configurations')"+
+                " AND ("+($clauses.ToArray() -join ' OR ')+")"+
+                " ORDER BY o.name COLLATE NOCASE,o.object_guid,b.success_at DESC LIMIT "+([string]$rowLimit)+";"
+            $records=@{}
+            foreach($r in @(Invoke-IdxWQuery $db $sql -Parameters $searchParameters.ToArray())){
+                $data=$null;try{$data=Get-StoreWJson ([string]$r.payload)}catch{$data=$null}
+                if($null -eq $data){continue}
+                $family=[string]$r.family;$probeName=$family
+                if($probeName.StartsWith('Probe:')){$probeName=$probeName.Substring(6)}
+                $probes=$data.PSObject.Properties['Probes'];if($null -eq $probes){continue}
+                $probeProperty=$data.Probes.PSObject.Properties[$probeName];if($null -eq $probeProperty){continue}
+                $probe=$probeProperty.Value;if($null -eq $probe){continue}
+                $checked=''
+                if($null -ne $probe.PSObject.Properties['CheckedUtc']){$checked=[string]$probe.CheckedUtc}
+                if(-not $checked){$checked=[string]$r.success_at}
+                $found=New-Object 'System.Collections.Generic.List[string]'
+                foreach($instance in @($probe.Instances)){
+                    if($null -eq $instance){continue}
+                    $valuesProperty=$instance.PSObject.Properties['Values']
+                    if($null -eq $valuesProperty){continue}
+                    $values=$valuesProperty.Value;if($null -eq $values){continue}
+                    if($kind -eq 'Mac'){
+                        $macProperty=$values.PSObject.Properties['MACAddress'];if($null -eq $macProperty){continue}
+                        $hex=(([string]$macProperty.Value) -replace '[^0-9A-Fa-f]','').ToUpperInvariant()
+                        if($hex.Length -ne 12){continue}
+                        $pairs=New-Object 'System.Collections.Generic.List[string]'
+                        for($index=0;$index -lt 12;$index+=2){$pairs.Add($hex.Substring($index,2))}
+                        $normalized=$pairs.ToArray() -join '-'
+                        if($normalized -ceq $value){if(-not $found.Contains($normalized)){[void]$found.Add($normalized)}}
+                    }
+                    else{
+                        $ipProperty=$values.PSObject.Properties['IPAddress'];if($null -eq $ipProperty){continue}
+                        foreach($ip in @($ipProperty.Value)){
+                            $text=([string]$ip).Trim()
+                            if($text -ceq $value){if(-not $found.Contains($text)){[void]$found.Add($text)}}
+                        }
+                    }
+                }
+                if(-not $found.Count){continue}
+                $guid=([string]$r.object_guid).ToLowerInvariant()
+                $observedDate=[datetime]::MinValue
+                if($checked){try{$observedDate=[datetime]::Parse($checked,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)}catch{$observedDate=[datetime]::MinValue}}
+                if(-not $records.ContainsKey($guid)){
+                    $records[$guid]=[pscustomobject]@{
+                        Type='Machine';Name=[string]$r.name;Login=[string]$r.login;Upn=[string]$r.upn;Display=[string]$r.display_name
+                        AdDescription=[string]$r.description;Extra=[string]$r.extra;State=[string]$r.state;DN=[string]$r.distinguished_name
+                        WhenChanged=[string]$r.when_changed;Usn=[long]$r.usn_changed;LastLogon=[string]$r.last_logon;Guid=$guid
+                        ObservedUtc=$checked;ObservedDate=$observedDate;Addresses=(New-Object 'System.Collections.Generic.List[string]')
+                    }
+                }
+                $record=$records[$guid]
+                if($observedDate -gt [datetime]$record.ObservedDate){$record.ObservedDate=$observedDate;$record.ObservedUtc=$checked}
+                foreach($address in $found){if(-not $record.Addresses.Contains($address)){[void]$record.Addresses.Add($address)}}
+            }
+            $answerRows=New-Object 'System.Collections.Generic.List[object]'
+            foreach($record in @($records.Values|Sort-Object -Property @{Expression={[string]$_.Name}},@{Expression={[string]$_.Guid}})){
+                $answerRows.Add([pscustomobject]@{
+                    Type='Machine';Name=[string]$record.Name;Login=[string]$record.Login;Upn=[string]$record.Upn;Display=[string]$record.Display
+                    Description=[string]$record.AdDescription;Extra=[string]$record.Extra;State=[string]$record.State;DN=[string]$record.DN
+                    WhenChanged=[string]$record.WhenChanged;Usn=[long]$record.Usn;LastLogon=[string]$record.LastLogon;Guid=[string]$record.Guid
+                    Addresses=($record.Addresses.ToArray() -join ', ');ObservedUtc=[string]$record.ObservedUtc;AddressSearch=$true
+                })
+            }
+            [pscustomobject]@{Rows=$answerRows.ToArray();Busy=$false;Missing=$false;MachineCount=$answerRows.Count;QueryKind=$kind;QueryValue=$value;AddressSearch=$true}
+        }
         elseif ($action -eq 'SecretIndexEntry') {
             # Non-secret metadata of one workstation (key count, dates, LAPS scheme, verdict): never a key or a password.
             $key=([string]$Payload.Computer).Trim().ToUpperInvariant()
@@ -901,6 +1000,23 @@ finally {
     $IdxWStatements.Clear()
     if ($db -ne [IntPtr]::Zero) { try { [void][Domenia.WinSqliteNative]::sqlite3_close($db) } catch { } }
 }
+'@
+}
+
+function Get-DomeniaDnsReverseWorkerCode {
+    # R40: reverse DNS lookup of one IPv4 address, only on the explicit click of « Chercher dans le DNS ».
+    # Network read, no credential; the answer is a host name, which the interface then searches as a normal text.
+    return @'
+$address = ([string]$Payload.Address).Trim()
+$octet = '(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])'
+if ($address -notmatch ('^' + $octet + '(?:\.' + $octet + '){3}$')) { throw 'Adresse IPv4 invalide pour la resolution inverse.' }
+try { $entry = [Net.Dns]::GetHostEntry($address) }
+catch { throw ('Resolution DNS inverse impossible : ' + $_.Exception.Message) }
+$hostName = ([string]$entry.HostName).Trim()
+if (-not $hostName) { throw 'Resolution DNS inverse sans nom : aucun nom a chercher.' }
+$short = $hostName
+if ($short.Contains('.')) { $short = $short.Split('.')[0] }
+[pscustomobject]@{ Address = $address; HostName = $hostName; ShortName = $short }
 '@
 }
 

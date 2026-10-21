@@ -3728,6 +3728,13 @@
     "Source": "X02"
   },
   {
+    "Name": "BtnAddressDns",
+    "Title": "Chercher dans le DNS",
+    "Text": "Proposé quand aucune adresse IP relevée ne correspond : lance une résolution DNS inverse du nom du poste, puis cherche ce nom dans lʼannuaire comme une recherche normale. Une requête réseau part seulement avec ce clic ; un poste peut aussi nʼavoir aucun nom DNS.",
+    "Kind": "Button",
+    "Source": "R40"
+  },
+  {
     "Name": "BtnSearchResultMenu",
     "Title": "Autres actions de la liste",
     "Text": "Autres actions de la liste : actualiser, exporter en CSV et choisir les colonnes affichées. Aucune lecture ne part à lʼouverture du menu.",

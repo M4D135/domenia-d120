@@ -209,6 +209,8 @@ function Begin-DomeniaLiveSearch {
     Reset-DomeniaLiveIdentity;Stop-DomeniaLiveSearch
     $queue=[Collections.Concurrent.ConcurrentQueue[object]]::new();$cacheQueue=[Collections.Concurrent.ConcurrentQueue[object]]::new()
     $stop=[Threading.CancellationTokenSource]::new()
+    # R40: an address search lists the stored network readings; it has no directory stream and no cache preview.
+    $addressSearch=([string](Get-DomeniaMember $State 'PlanKind' '') -eq 'Address')
     $keyText='search-v214|'+[string]$State.SearchMode+'|'+$script:Live.Scope+'|'+[string]$State.BaseDn+'|'+[string]$State.Scope+'|'+[string]$State.TypeFilter+'|'+[string]$State.Search+'|'+[string]$State.Limit
     $viewId='';if($null -ne $State.PSObject.Properties['ViewId']){$viewId=[string]$State.ViewId}
     if($viewId){$keyText+='|view:'+$viewId}
@@ -218,7 +220,7 @@ function Begin-DomeniaLiveSearch {
     $rows=[Collections.ObjectModel.ObservableCollection[object]]::new()
     # D034/D037: the search rules are resolved once per search; without them the arrival order and the former counter remain.
     $rules=($null -ne (Get-Command Get-DomeniaSearchRank -CommandType Function -ErrorAction SilentlyContinue))
-    $ranking=($rules -and [string]$State.SearchMode -eq 'Global' -and -not [string]::IsNullOrWhiteSpace([string]$State.Search) -and -not $viewId)
+    $ranking=($rules -and (-not $addressSearch) -and [string]$State.SearchMode -eq 'Global' -and -not [string]::IsNullOrWhiteSpace([string]$State.Search) -and -not $viewId)
     if($ranking -and $null -ne (Get-Command Get-DomeniaFeatureFlag -CommandType Function -ErrorAction SilentlyContinue)){$ranking=[bool](Get-DomeniaFeatureFlag -Name 'SearchRanking' -Default $true)}
     # UX-03: resolved once per search, never in the tick (PF-10): the empty list explains a filter that hides every row.
     $emptyState=($null -ne (Get-Command Update-DomeniaFilteredEmptyState -CommandType Function -ErrorAction SilentlyContinue))
@@ -228,7 +230,7 @@ function Begin-DomeniaLiveSearch {
     $s=[pscustomobject]@{
         Identity=$script:Live.Identity;Epoch=[long]$script:SessionEpoch;State=$State;QueryKey=$key
         Rows=$rows;Map=@{};Fresh=@{};FreshOrder=[Collections.Generic.List[object]]::new();CacheKeys=[Collections.Generic.Queue[string]]::new();Progress=$queue;CacheProgress=$cacheQueue;Stop=$stop
-        Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=$true
+        Stopped=$false;SelectionRestored=$false;Ended=$false;Final=$null;Error='';Finalized=$false;Prune=$null;CacheRequested=(-not $addressSearch);AddressSearch=$addressSearch
         Started=[Diagnostics.Stopwatch]::StartNew();FirstMs=-1L;CacheUtc='';RefreshNeeded=$false;FilterPending=$false
         Ranking=[bool]$ranking;SearchRules=[bool]$rules;EmptyState=[bool]$emptyState;ContainsOffer=[bool]$containsOffer
     }
@@ -256,8 +258,9 @@ function Begin-DomeniaLiveSearch {
     Add-Member -InputObject $Payload -NotePropertyName DirectoryReadState -NotePropertyValue $directoryPipe.Collector -Force
     Add-Member -InputObject $Payload -NotePropertyName StopToken -NotePropertyValue $stop.Token -Force
     Add-Member -InputObject $Payload -NotePropertyName StreamPageSize -NotePropertyValue ([Math]::Max(100,[Math]::Min(1000,[int](Get-DomeniaMember $Payload 'StreamPageSize' 250)))) -Force
-    # The initial preview and the directory refresh both read back canonical SQLite data.
-    Request-DomeniaLocalSearchPreview -Search $s
+    # The initial preview and the directory refresh both read back canonical SQLite data. An address search reads
+    # its own rows from the stored observations and never asks the text preview.
+    if(-not $addressSearch){Request-DomeniaLocalSearchPreview -Search $s}
     return $s
 }
 function Resume-DomeniaLiveSearch {
@@ -501,10 +504,12 @@ function Add-DomeniaLiveRow {
         $adminRow=((Test-DomeniaAdminAccountRow $source) -or (Test-DomeniaAdminAccountRow $row))
         if($adminRow){Set-DomeniaLiveRowValue $row 'Admin' 'Compte admin'}
     }
-    $row.DirectoryState=if($fresh){'AD vérifié'}else{'Cache · à vérifier'}
+    # R40: a row found by an address carries the date of the stored reading; it is not a value re-read in AD.
+    $addressNote='';if($null -ne $Event.PSObject.Properties['AddressNote']){$addressNote=[string]$Event.AddressNote}
+    $row.DirectoryState=if($addressNote){$addressNote}elseif($fresh){'AD vérifié'}else{'Cache · à vérifier'}
     if($null -ne $moved){$row.DirectoryState=[string]$moved}
     if($guidKey){$s.ByGuid[$guidKey]=$row}
-    Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($fresh){'Verified'}else{'Cached'})
+    Set-DomeniaLiveRowValue $row 'DirectoryFresh' $(if($addressNote){'Cached'}elseif($fresh){'Verified'}else{'Cached'})
     $row.DirectoryChecked=[string]$Event.ObservedUtc
     if($fresh){if(-not $s.Fresh.ContainsKey($key)){[void]$s.FreshOrder.Add($snapshot)};$s.Fresh[$key]=$snapshot}
     if($isNew){
@@ -967,21 +972,26 @@ function Invoke-DomeniaLiveTick {
                         Update-DomeniaLoginColumnFromRows $s.Rows
                         # The selection kept for this search is no longer in the list: clear it everywhere.
                         if($null -ne $grid -and @($grid.SelectedItems).Count -eq 0 -and ($null -ne $script:SelectionLoad -or $null -ne $script:SelectedObject)){Clear-DomeniaSelectionEverywhere}
-                        $label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}
+                        if([bool]$s.AddressSearch){
+                            $label=if($s.Error){'Liste partielle · relevés locaux · lecture incomplète'}elseif($s.Fresh.Count -eq 0){'Aucun poste trouvé par adresse dans les relevés locaux'}else{"$($s.Fresh.Count) poste(s) trouvé(s) par adresse dans les relevés locaux"}
+                        }else{$label=if($s.Error){'Liste partielle · '+$s.Fresh.Count+' résultat(s) AD · vérification incomplète'}else{"$($s.Fresh.Count) résultat(s) AD vérifiés"}}
                         $limited=(($null -ne $s.Final) -and ([bool]$s.Final.LimitReached))
                         if($limited){$label+=' · limite atteinte, affiner'}
                         # D037: the counter states complete or limited; the former wording stays only without the search rules.
-                        if($s.SearchRules -and -not $s.Error){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
+                        if($s.SearchRules -and (-not $s.Error) -and (-not [bool]$s.AddressSearch)){$label=Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Complete (-not $limited) -Visible ([int]$grid.Items.Count)}
                         $script:BranchCountLabel=$label
                         Set-Status $label $(if($s.Error){'WARN'}else{'INFO'})
                         # FO-01: few names or none: offer the « contains » search (a chip, read on click only).
-                        if([bool]$s.ContainsOffer){Update-DomeniaSearchContainsOffer -Search $s}
+                        if([bool]$s.ContainsOffer -and -not [bool]$s.AddressSearch){Update-DomeniaSearchContainsOffer -Search $s}
                         Write-AppLog ("Chargement progressif : premier affichage=$($s.FirstMs) ms ; AD=$($s.Fresh.Count) ; total=$($s.Started.ElapsedMilliseconds) ms ; complet=$(-not [bool]$s.Error).") 'INFO'
                     }
                 }
                 if(-not $s.Finalized){
-                    $script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · $($s.Fresh.Count) vérifiée(s) AD · chargement…"
-                    if($s.SearchRules){$script:BranchCountLabel=(Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Loading $true)+" · $($s.Rows.Count) ligne(s) affichée(s)"}
+                    if([bool]$s.AddressSearch){$script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · recherche par adresse dans les relevés locaux…"}
+                    else{
+                        $script:BranchCountLabel="$($s.Rows.Count) ligne(s) affichée(s) · $($s.Fresh.Count) vérifiée(s) AD · chargement…"
+                        if($s.SearchRules){$script:BranchCountLabel=(Get-DomeniaResultCounterText -Loaded $s.Fresh.Count -Limit ([int]$s.State.Limit) -Loading $true)+" · $($s.Rows.Count) ligne(s) affichée(s)"}
+                    }
                 }
                 [void](Set-DomeniaControlText 'LblBranchCount' $script:BranchCountLabel)
                 $filterBox=Get-DomeniaControl 'TxtSuiteResultFilter'

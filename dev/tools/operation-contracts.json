@@ -410,7 +410,7 @@
     "File": "wad/modules/Domenia-Engine.Worker.ps1",
     "Function": "Get-DomeniaLocalIndexReadWorkerCode",
     "LiteralIndex": 0,
-    "Sha256": "B6DE0D93665C2921A14895A0C915E8057696BC657375B70D36293ADC01D3940A"
+    "Sha256": "6A3C4A0A486E9EB9301D02FCD2E8913FE1903C22B4CB47E5EFFDF358F391BB9E"
   },
   {
     "Operation": "ParkSharedSync",
@@ -677,5 +677,12 @@
     "Function": "Get-DomeniaQuerySchemaWorkerCode",
     "LiteralIndex": 0,
     "Sha256": "D599334B94FBA1CF9AE66336F0350F5CCEB46A85E48D6B75514DE97402F0321B"
+  },
+  {
+    "Operation": "DnsReverseLookup",
+    "File": "wad/modules/Domenia-Engine.Worker.ps1",
+    "Function": "Get-DomeniaDnsReverseWorkerCode",
+    "LiteralIndex": 0,
+    "Sha256": "DC556720981C5FFF6A91ED3810D4E7B8A2994130A0427B4CFDA906184B879BEA"
   }
 ]
