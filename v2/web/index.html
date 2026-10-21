@@ -1,14 +1,34 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-motion="full">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <title>Domenia</title>
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/motion.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <script src="js/boot.js"></script>
 </head>
 <body>
-  <main id="app" aria-live="polite"><p class="boot">Domenia démarre…</p></main>
+  <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="spark-fill" x1="0" y1="0" x2="0" y2="1">
+        <stop class="spark-stop-0" offset="0"/>
+        <stop class="spark-stop-1" offset="1"/>
+      </linearGradient>
+      <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop class="ring-stop-0" offset="0"/>
+        <stop class="ring-stop-1" offset=".55"/>
+        <stop class="ring-stop-2" offset="1"/>
+      </linearGradient>
+    </defs>
+  </svg>
+  <div id="app"><p class="boot">Domenia démarre…</p></div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

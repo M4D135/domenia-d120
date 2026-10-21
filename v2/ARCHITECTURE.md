@@ -46,7 +46,7 @@ v2/
 
 ## Interface
 
-Un « site » d'application soigné : navigation latérale par espaces (Accueil, Rechercher, Fiches, Parc, Analyses, Assistance, Administration), barre supérieure (recherche universelle et palette de commandes, domaine et contrôleur, lecture seule, centre des opérations, thème, aide), écrans en grille fluide, animations sobres et rapides (respect de « réduire les animations »), thèmes clair, sombre et contraste élevé, accessibilité clavier et lecteur d'écran, DPI natif. Palette héritée de Domenia 1 (`SupportSuite.UI.json`).
+Un « site » d'application soigné : navigation latérale par espaces (Accueil, Rechercher, Fiches, Parc, Analyses, Assistance, Administration), barre supérieure (recherche universelle et palette de commandes, domaine et contrôleur, lecture seule, centre des opérations, thème, aide), écrans en grille fluide, animations riches par défaut — fond aurora vivant, surfaces en verre, halo qui suit la souris, entrées en cascade, transitions de page, graphiques qui se tracent (décision de David du 21/10) — avec un réglage « Animations : riches, réduites, suivre Windows », thèmes clair, sombre et contraste élevé, accessibilité clavier et lecteur d'écran, DPI natif. Palette héritée de Domenia 1 (`SupportSuite.UI.json`).
 
 ## Ordre de réalisation
 

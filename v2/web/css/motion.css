@@ -1,0 +1,127 @@
+/* Domenia 2 motion layer: living background, glass, spotlight, staggered entrances, view transitions.
+   Everything animates transform, opacity or filter only (GPU), and stops under "réduire les animations". */
+
+/* ---------- Living aurora background ---------- */
+.aurora {
+  position: fixed; inset: -20vmax; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(40vmax 40vmax at 15% 20%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 60%),
+    radial-gradient(35vmax 35vmax at 85% 15%, color-mix(in srgb, #7c5cff 30%, transparent), transparent 60%),
+    radial-gradient(45vmax 45vmax at 70% 85%, color-mix(in srgb, #19c3b2 26%, transparent), transparent 60%),
+    radial-gradient(30vmax 30vmax at 20% 90%, color-mix(in srgb, #ff7ab6 20%, transparent), transparent 60%),
+    var(--bg);
+  filter: blur(30px) saturate(140%);
+  animation: aurora-drift 38s var(--ease-in-out) infinite alternate;
+  opacity: .55;
+}
+:root[data-theme="dark"] .aurora { opacity: .7; }
+:root[data-theme="contrast"] .aurora { display: none; }
+.aurora::after {
+  /* Fine animated grain, so gradients never band */
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 3px 3px; mix-blend-mode: overlay;
+}
+@keyframes aurora-drift {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  33%  { transform: translate3d(4vmax, -3vmax, 0) rotate(8deg) scale(1.06); }
+  66%  { transform: translate3d(-3vmax, 4vmax, 0) rotate(-6deg) scale(1.03); }
+  100% { transform: translate3d(2vmax, 2vmax, 0) rotate(4deg) scale(1.08); }
+}
+
+/* ---------- Glass surfaces ---------- */
+.glass {
+  background: color-mix(in srgb, var(--bg-elevated) 68%, transparent);
+  backdrop-filter: blur(18px) saturate(170%);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* ---------- Cursor spotlight and border glow on cards ---------- */
+.spot { position: relative; isolation: isolate; }
+.spot::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit; z-index: -1; pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 55%, transparent), transparent 45%);
+  opacity: 0; transition: opacity var(--t-slow) var(--ease-out);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; padding: 1px;
+}
+.spot::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 10%, transparent), transparent 40%);
+  opacity: 0; transition: opacity var(--t-slow) var(--ease-out);
+}
+.spot:hover::before, .spot:hover::after { opacity: 1; }
+
+/* Subtle 3D tilt driven by JS (--rx, --ry) */
+.tilt { transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateZ(0); transition: transform var(--t-slow) var(--ease-out); will-change: transform; }
+
+/* ---------- Entrances ---------- */
+.reveal { opacity: 0; transform: translateY(18px) scale(.985); filter: blur(6px); }
+.reveal.in { animation: reveal-in var(--t-slow) var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+@keyframes reveal-in { to { opacity: 1; transform: none; filter: none; } }
+
+.pop { animation: pop var(--t) var(--ease-spring); }
+@keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@keyframes nav-indicator { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+
+/* ---------- Page transitions (View Transitions API) ---------- */
+::view-transition-old(page) { animation: page-out 220ms var(--ease-in-out) both; }
+::view-transition-new(page) { animation: page-in 420ms var(--ease-out) both; }
+@keyframes page-out { to { opacity: 0; transform: translateY(-10px) scale(.99); filter: blur(4px); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(16px) scale(1.01); filter: blur(6px); } }
+
+/* ---------- Shimmer skeletons ---------- */
+.skeleton {
+  position: relative; overflow: hidden; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+.skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--bg-elevated) 70%, transparent) 50%, transparent 80%);
+  transform: translateX(-100%); animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* ---------- Glowing pulses for live states ---------- */
+.pulse { position: relative; }
+.pulse::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%;
+  border: 2px solid currentColor; opacity: 0; animation: pulse-ring 2.2s var(--ease-out) infinite;
+}
+@keyframes pulse-ring { 0% { transform: scale(.6); opacity: .7; } 100% { transform: scale(1.8); opacity: 0; } }
+
+/* Animated gradient text for titles. background-position repaints on every frame, so the flow runs two
+   seamless cycles after each render, then the title rests (the page goes back to idle).
+   -183.333 % moves the image by exactly one tile (220 % wide), so the end matches the start. */
+.gradient-text {
+  background: linear-gradient(90deg, var(--text) 0%, var(--accent-text) 30%, #8b5cf6 55%, var(--text) 80%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: gradient-flow 9s linear 2;
+}
+@keyframes gradient-flow { to { background-position: -183.333% 0; } }
+:root[data-theme="contrast"] .gradient-text { background: none; color: var(--text); animation: none; }
+
+/* Shared rotation (compositor only) */
+@keyframes turn { to { transform: rotate(1turn); } }
+
+/* Ripple on buttons (JS places --rx/--ry) */
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); background: currentColor; opacity: .28; pointer-events: none; animation: ripple 650ms var(--ease-out) forwards; }
+@keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+/* Scroll-driven reveal for long pages (Chromium) */
+@supports (animation-timeline: view()) {
+  .scroll-reveal { animation: reveal-in linear both; animation-timeline: view(); animation-range: entry 0% cover 25%; }
+}
+
+/* ---------- Reduced motion: the operator's choice, or Windows when the operator follows it ---------- */
+:root[data-motion="reduced"] *, :root[data-motion="reduced"] *::before, :root[data-motion="reduced"] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+:root[data-motion="reduced"] .aurora, :root[data-motion="reduced"] .orb { animation: none !important; }
+:root[data-motion="reduced"] .reveal { opacity: 1; transform: none; filter: none; }
+:root[data-motion="reduced"] .tilt { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"] *, :root[data-motion="system"] *::before, :root[data-motion="system"] *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+  :root[data-motion="system"] .reveal { opacity: 1; transform: none; filter: none; }
+  :root[data-motion="system"] .tilt { transform: none !important; }
+}

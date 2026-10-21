@@ -1,0 +1,134 @@
+/* Domenia 2 design tokens. Colours inherit the Domenia 1 palette (SupportSuite.UI.json). */
+:root {
+  color-scheme: light;
+  /* Surfaces */
+  --bg: #f3f6fb;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #eaf0f8;
+  --bg-input: #ffffff;
+  --bg-hover: #f0f6ff;
+  --bg-selected: #dfedff;
+  --nav-bg: #eef3fa;
+  --glass: rgba(255, 255, 255, .72);
+  --border: #d7dee9;
+  --border-strong: #b9c6d8;
+  /* Text */
+  --text: #17243a;
+  --text-muted: #52627b;
+  --text-faint: #7a8aa3;
+  --text-on-accent: #ffffff;
+  /* Accent */
+  --accent: #066ddb;
+  --accent-hover: #0a5fbf;
+  --accent-soft: #e8f2ff;
+  --accent-text: #075ebd;
+  --accent-glow: rgba(6, 109, 219, .28);
+  /* States (text on soft background, mark for dots and bars) */
+  --ok: #15803d;   --ok-soft: #dcfce7;   --ok-mark: #22c55e;
+  --warn: #a16207; --warn-soft: #fef3c7; --warn-mark: #f59e0b;
+  --alert: #b91c1c; --alert-soft: #fee2e2; --alert-mark: #ef4444;
+  --info: #1d4ed8; --info-soft: #dbeafe; --info-mark: #3b82f6;
+  --off: #475569;  --off-soft: #e2e8f0;  --off-mark: #94a3b8;
+  --danger: #bc263d; --danger-hover: #a51f34;
+  /* Categorical chart series (pastels, state colours stay reserved) */
+  --c1: #9dc1f2; --c2: #c4b3f2; --c3: #8ed3cc; --c4: #f2b0cc;
+  --c5: #9ad5ee; --c6: #f5bfa8; --c7: #ddb8ee; --c8: #b8cba6;
+  --c-edge: rgba(23, 36, 58, .28);
+
+  /* Typography */
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  --fs-caption: .75rem;
+  --fs-small: .8125rem;
+  --fs-body: .875rem;
+  --fs-subtitle: 1rem;
+  --fs-section: 1.125rem;
+  --fs-title: 1.375rem;
+  --fs-page: 1.75rem;
+  --fs-display: 2.5rem;
+  --lh: 1.45;
+
+  /* Spacing (4 px grid) */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px; --s8: 32px; --s10: 40px; --s12: 48px;
+
+  /* Shape */
+  --r-sm: 6px; --r: 10px; --r-lg: 14px; --r-xl: 20px; --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(15, 30, 60, .06), 0 1px 1px rgba(15, 30, 60, .04);
+  --shadow-2: 0 4px 12px rgba(15, 30, 60, .08), 0 1px 3px rgba(15, 30, 60, .06);
+  --shadow-3: 0 16px 40px rgba(15, 30, 60, .14), 0 4px 12px rgba(15, 30, 60, .08);
+  --ring: 0 0 0 3px var(--accent-glow);
+
+  /* Motion: rich by default (David, 21/10: « à mort d'animation »); "réduites" is an operator setting */
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --ease-bounce: linear(0, .004, .016, .035, .063 9.1%, .141, .25, .391, .563, .765, 1 36.4%, .946, .908 41.4%, .892, .885, .887 45.5%, .896, .914, .942 51.5%, 1 56.6%, .981, .973 63.6%, .972, .976, .985 72.7%, 1 77.3%, .996 85.9%, 1);
+  --t-fast: 160ms;
+  --t: 280ms;
+  --t-slow: 520ms;
+  --t-page: 460ms;
+  --t-chart: 1200ms;
+  --stagger: 55ms;
+  /* Brand gradient used by hero surfaces, primary buttons and the logo */
+  --brand-1: #066ddb; --brand-2: #6a5cff; --brand-3: #19c3b2; --brand-4: #ff7ab6;
+  --brand-gradient: linear-gradient(120deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+
+  /* Layout */
+  --nav-w: 248px;
+  --nav-w-collapsed: 72px;
+  --topbar-h: 60px;
+  --content-max: 1680px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1625;
+  --bg-elevated: #172437;
+  --bg-sunken: #0a121f;
+  --bg-input: #13203a;
+  --bg-hover: #1d3050;
+  --bg-selected: #254d7c;
+  --nav-bg: #101b2c;
+  --glass: rgba(16, 26, 41, .72);
+  --border: #2b3d57;
+  --border-strong: #3a4f6b;
+  --text: #edf4ff;
+  --text-muted: #bfcee2;
+  --text-faint: #8ea2bf;
+  --accent: #2f86e8;
+  --accent-hover: #4a97ee;
+  --accent-soft: #1c3553;
+  --accent-text: #8bbeff;
+  --accent-glow: rgba(47, 134, 232, .35);
+  --ok: #86efac;   --ok-soft: rgba(34, 197, 94, .16);
+  --warn: #fcd34d; --warn-soft: rgba(245, 158, 11, .16);
+  --alert: #fca5a5; --alert-soft: rgba(239, 68, 68, .16);
+  --info: #93c5fd; --info-soft: rgba(59, 130, 246, .16);
+  --off: #cbd5e1;  --off-soft: rgba(148, 163, 184, .16);
+  --danger: #e0475f; --danger-hover: #ea5d73;
+  --c-edge: transparent;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-2: 0 6px 18px rgba(0, 0, 0, .35);
+  --shadow-3: 0 20px 48px rgba(0, 0, 0, .5);
+}
+
+/* High contrast: Windows forced colours, or the explicit "Contraste élevé" theme. */
+:root[data-theme="contrast"] {
+  color-scheme: dark;
+  --bg: #000000; --bg-elevated: #000000; --bg-sunken: #000000; --bg-input: #000000;
+  --bg-hover: #1a1a1a; --bg-selected: #1aebff; --nav-bg: #000000; --glass: #000000;
+  --border: #ffffff; --border-strong: #ffffff;
+  --text: #ffffff; --text-muted: #ffffff; --text-faint: #ffffff; --text-on-accent: #000000;
+  --accent: #1aebff; --accent-hover: #ffff00; --accent-soft: #000000; --accent-text: #ffff00; --accent-glow: #ffff00;
+  --ok: #3ff23f; --warn: #ffff00; --alert: #ff6b6b; --info: #1aebff; --off: #ffffff;
+  --ok-soft: #000000; --warn-soft: #000000; --alert-soft: #000000; --info-soft: #000000; --off-soft: #000000;
+  --shadow-1: none; --shadow-2: none; --shadow-3: none;
+}
+
+/* "Réduire les animations" (operator setting), or "Suivre Windows" when Windows asks for it. Rich motion stays the
+   default even when Windows animations are off, which is common in domain VMs and RDP sessions. */
+:root[data-motion="reduced"] { --t-fast: 1ms; --t: 1ms; --t-slow: 1ms; --t-page: 1ms; --t-chart: 1ms; --stagger: 0ms; }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-motion="system"] { --t-fast: 1ms; --t: 1ms; --t-slow: 1ms; --t-page: 1ms; --t-chart: 1ms; --stagger: 0ms; }
+}
