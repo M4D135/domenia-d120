@@ -24,6 +24,45 @@ internal static class Check
     {
         if (!EqualityComparer<T>.Default.Equals(expected, actual)) throw new TestFailureException($"{message} (attendu {expected}, obtenu {actual})");
     }
+
+    public static void False(bool condition, string message) => True(!condition, message);
+
+    public static void NotNull(object? value, string message) => True(value is not null, message);
+
+    public static void Null(object? value, string message) => True(value is null, message);
+
+    public static void Contains(string expectedPart, string? actual, string message)
+    {
+        if (actual is null || !actual.Contains(expectedPart, StringComparison.Ordinal)) throw new TestFailureException($"{message} (« {expectedPart} » absent de « {actual} »)");
+    }
+
+    public static T Throws<T>(Action action, string message) where T : Exception
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        try
+        {
+            action();
+        }
+        catch (T expected)
+        {
+            return expected;
+        }
+        throw new TestFailureException($"{message} (aucune exception {typeof(T).Name})");
+    }
+
+    public static async Task<T> ThrowsAsync<T>(Func<Task> action, string message) where T : Exception
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        try
+        {
+            await action().ConfigureAwait(false);
+        }
+        catch (T expected)
+        {
+            return expected;
+        }
+        throw new TestFailureException($"{message} (aucune exception {typeof(T).Name})");
+    }
 }
 
 /// <summary>Minimal dependency-free test runner: finds [Test] methods by reflection, runs them, prints a summary.</summary>

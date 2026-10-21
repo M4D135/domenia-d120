@@ -8,5 +8,6 @@
     <ProjectReference Include="../../src/Domenia.Bridge/Domenia.Bridge.csproj" />
     <ProjectReference Include="../../src/Domenia.Store/Domenia.Store.csproj" />
     <ProjectReference Include="../../src/Domenia.Engine/Domenia.Engine.csproj" />
+    <ProjectReference Include="../../src/Domenia.Simulation/Domenia.Simulation.csproj" />
   </ItemGroup>
 </Project>

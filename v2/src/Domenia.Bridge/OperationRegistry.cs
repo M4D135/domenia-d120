@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
 namespace Domenia.Bridge;
@@ -6,8 +7,11 @@ namespace Domenia.Bridge;
 /// <summary>Handler of one declared operation. Runs off the UI thread; returns the data sent back to the page.</summary>
 public delegate Task<object?> OperationHandler(JsonElement arguments, BridgeContext context, CancellationToken cancellationToken);
 
-/// <summary>One operation the page is allowed to call.</summary>
-public sealed record OperationDefinition(string Name, OperationClass Class, OperationHandler Handler, string Description);
+/// <summary>
+/// One operation the page is allowed to call. <see cref="ServedInSimulation"/> marks a NetworkRead operation answered by the
+/// simulated source; any other NetworkRead operation is refused in simulation (simulation.unavailable).
+/// </summary>
+public sealed record OperationDefinition(string Name, OperationClass Class, OperationHandler Handler, string Description, bool ServedInSimulation = false);
 
 /// <summary>Closed list of operations: the page can only call what is registered here, nothing else.</summary>
 public sealed class OperationRegistry
@@ -34,7 +38,7 @@ public sealed class OperationRegistry
 
     public IReadOnlyCollection<string> Names => operations.Keys;
 
-    public bool TryGet(string name, out OperationDefinition definition) => operations.TryGetValue(name, out definition!);
+    public bool TryGet(string name, [NotNullWhen(true)] out OperationDefinition? definition) => operations.TryGetValue(name, out definition);
 
     /// <summary>Operation names are dotted lower camel case, e.g. "search.run" or "store.status".</summary>
     public static bool IsValidName(string? name)

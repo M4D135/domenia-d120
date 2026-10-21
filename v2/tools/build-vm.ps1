@@ -4,11 +4,19 @@ $ErrorActionPreference = 'Stop'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'; $env:DOTNET_NOLOGO = '1'; $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
 $env:NUGET_PACKAGES = 'C:\DomeniaDev\nuget-packages'
 $dotnet = 'C:\DomeniaDev\dotnet\dotnet.exe'
+# The SDK is portable (not registered): framework-dependent test executables find their runtime through DOTNET_ROOT.
+$env:DOTNET_ROOT = Split-Path $dotnet; $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
 $root = 'C:\DomeniaDev\src\v2'
 Set-Location $root
 if (-not (Test-Path (Join-Path $root 'Domenia.sln'))) {
     & $dotnet new sln -n Domenia --format sln | Out-Null
-    Get-ChildItem -Recurse -Filter *.csproj -Path src, tests | ForEach-Object { & $dotnet sln Domenia.sln add $_.FullName | Out-Null }
+}
+# Every project of src/ and tests/ belongs to the solution, including ones added after it was created.
+$listed = @(& $dotnet sln Domenia.sln list | Where-Object { $_ -like '*.csproj' } | ForEach-Object { [IO.Path]::GetFullPath((Join-Path $root $_.Trim())) })
+Get-ChildItem -Recurse -Filter *.csproj -Path src, tests | Where-Object { $listed -notcontains $_.FullName } | ForEach-Object {
+    "Ajout à la solution : $($_.Name)"
+    & $dotnet sln Domenia.sln add $_.FullName | Out-Null
+    if ($LASTEXITCODE) { exit $LASTEXITCODE }
 }
 & $dotnet build Domenia.sln -c $Configuration -nologo -clp:NoSummary -v:minimal
 if ($LASTEXITCODE) { exit $LASTEXITCODE }

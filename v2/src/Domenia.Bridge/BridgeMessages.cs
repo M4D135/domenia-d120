@@ -9,13 +9,13 @@ public sealed record BridgeRequest(
     [property: JsonPropertyName("op")] string Operation,
     [property: JsonPropertyName("args")] JsonElement Arguments);
 
-/// <summary>Answer or event pushed to the page. <see cref="Kind"/> is "result", "error" or "event".</summary>
+/// <summary>Answer or event pushed to the page. <see cref="Kind"/> is "result", "error" or "event"; « error » is written only when set.</summary>
 public sealed record BridgeResponse(
     [property: JsonPropertyName("id")] string? Id,
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("op")] string Operation,
     [property: JsonPropertyName("data")] object? Data,
-    [property: JsonPropertyName("error")] BridgeError? Error = null);
+    [property: JsonPropertyName("error"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] BridgeError? Error = null);
 
 /// <summary>Error returned to the page: a stable code for the interface and a French message for the operator.</summary>
 public sealed record BridgeError(

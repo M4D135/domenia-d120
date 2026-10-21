@@ -52,6 +52,25 @@ internal static class BridgeTests
     }
 
     [Test]
+    public static async Task Refusals_are_reported_with_their_code_and_declared_name_only()
+    {
+        var (d, sent) = Create();
+        var refused = new List<(string Code, string? Operation)>();
+        d.Refused += (code, operation) => refused.Add((code, operation));
+        await d.HandleAsync("{not json", CancellationToken.None);
+        await d.HandleAsync("""{"id":"r1","op":"test.absent","args":{}}""", CancellationToken.None);
+        await d.HandleAsync("""{"id":"r2","op":"Pas Valide <motdepasse>","args":{}}""", CancellationToken.None);
+        await d.HandleAsync("""{"id":"r3","op":"test.fail","args":{}}""", CancellationToken.None);
+        await d.HandleAsync("""{"id":"r4","op":"test.echo","args":{"value":1}}""", CancellationToken.None);
+        Check.Equal(5, sent.Count, "chaque message reçoit une réponse");
+        Check.Equal(4, refused.Count, "quatre refus signalés, aucun pour la réponse normale");
+        Check.Equal(("message.json", (string?)null), refused[0], "JSON illisible, sans contenu");
+        Check.Equal(("operation.unknown", (string?)"test.absent"), refused[1], "nom bien formé signalé");
+        Check.Equal(("operation.unknown", (string?)null), refused[2], "nom mal formé jamais recopié");
+        Check.Equal(("demo.refused", (string?)"test.fail"), refused[3], "refus de l’opération avec son nom déclaré");
+    }
+
+    [Test]
     public static void Operation_names_are_strict()
     {
         Check.True(OperationRegistry.IsValidName("search.run"), "nom valide");

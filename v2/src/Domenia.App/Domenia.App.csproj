@@ -7,6 +7,8 @@
     <SelfContained>true</SelfContained>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- LibraryImport (local join state, netapi32 and kernel32) needs unsafe blocks in the generated stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- The WebView2 package also references its WPF control; the host only uses WinForms, so the WindowsBase version notice is harmless. -->
     <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
   </PropertyGroup>
@@ -17,6 +19,7 @@
     <ProjectReference Include="../Domenia.Ad/Domenia.Ad.csproj" />
     <ProjectReference Include="../Domenia.Inventory/Domenia.Inventory.csproj" />
     <ProjectReference Include="../Domenia.Engine/Domenia.Engine.csproj" />
+    <ProjectReference Include="../Domenia.Simulation/Domenia.Simulation.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
   <ItemGroup>

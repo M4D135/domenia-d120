@@ -16,7 +16,7 @@ Le pack PROD contient tout : `Domenia.exe` autonome (.NET 10 embarqué), `runtim
 
 ```text
 v2/
-  Domenia.sln
+  Domenia.sln             générée et complétée dans la VM par tools/build-vm.ps1 (non versionnée)
   src/
     Domenia.App/          exe WinForms minimal : fenêtre, WebView2, pont, cycle de vie, repli d'erreur
     Domenia.Core/         modèles et règles pures (port des *.Model.ps1), sans E/S
@@ -25,6 +25,7 @@ v2/
     Domenia.Inventory/    ping, WMI/CIM DCOM, catalogue de sondes, relevés, budgets réseau
     Domenia.Engine/       ordonnanceur de tâches, budgets, garde d'authentification, journal, mesures
     Domenia.Bridge/       contrat des messages page ↔ moteur (opérations fermées, schémas, validation)
+    Domenia.Simulation/   annuaire fictif en mémoire, lecture seule, sans réseau ni disque (référence Core seulement)
   web/                    interface HTML/CSS/JS sans chaîne de compilation (modules ES natifs)
     index.html, css/, js/, assets/
   tests/
@@ -40,7 +41,7 @@ v2/
 2. **Les règles de sécurité de Domenia 1 sont reprises telles quelles** : lecture seule par défaut, aucune action réseau ni LDAP sans geste explicite, jamais tout le domaine, écritures avec plan, confirmation, reçu et relecture, jamais rejouées automatiquement, aucun secret journalisé ni passé en ligne de commande, garde d'authentification (un refus suspend le compte concerné), mots de passe en `SecureString` jusqu'à l'API Windows.
 3. **Le moteur ne bloque jamais l'interface.** Toute lecture AD, WMI, réseau ou SQLite s'exécute en tâche de fond (`Task` + ordonnanceur à budgets) ; la page reçoit progression et résultats par messages.
 4. **Pont fermé et typé.** La page n'appelle que des opérations déclarées (`Domenia.Bridge`), chacune avec son schéma d'entrée, sa classe (lecture locale, lecture réseau, écriture), son budget et ses droits ; tout message non conforme est refusé et tracé.
-5. **WebView2 verrouillé.** Contenu servi uniquement depuis le dossier `web/` par le nom virtuel `https://domenia.local/`, politique de sécurité de contenu stricte (`default-src 'self'`), navigation hors de ce nom bloquée, nouvelles fenêtres refusées, outils de développement et menu contextuel désactivés en PROD, dossier de données utilisateur sous `%LOCALAPPDATA%\Domenia\WebView2`.
+5. **WebView2 verrouillé.** Contenu servi uniquement depuis le dossier `web/` par le nom virtuel `https://domenia.local/`, politique de sécurité de contenu stricte (`default-src 'self'`), navigation hors de ce nom bloquée, nouvelles fenêtres refusées, outils de développement et menu contextuel désactivés en PROD, dossier de données utilisateur sous `%LOCALAPPDATA%\Domenia\WebView2` (`WebView2-Simulation` en simulation), requêtes hors `domenia.local` refusées par l'hôte.
 6. **Compatibilité des données.** La base SQLite locale de Domenia 1 (schéma 11) est lue et migrée sans perte ; les réglages et dispositions de tableaux sont repris.
 7. **Code de qualité** : C# moderne, `nullable` activé, avertissements traités comme des erreurs, analyseurs .NET, aucune exception avalée sans trace, textes d'interface en français soigné.
 

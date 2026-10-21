@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Domenia.Simulation</RootNamespace></PropertyGroup>
+  <!-- Core only: no directory, WMI, network or store assembly may ever be referenced here. -->
+  <ItemGroup><ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" /></ItemGroup>
+</Project>
