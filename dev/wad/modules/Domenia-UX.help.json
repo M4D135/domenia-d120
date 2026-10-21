@@ -5686,5 +5686,215 @@
     "Text": "Agrandir lʼinterface de 10 %",
     "Kind": "Button",
     "Source": "Z04-theme"
+  },
+  {
+    "Name": "BtnUserCallSheet",
+    "Title": "Fiche dʼappel",
+    "Text": "Ouvre la fiche dʼappel de ce compte : état, restrictions, postes, groupes, opérations Domenia et tri du poste lent. Lʼouverture ne lit rien sur le réseau.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "TabUserCallSheet",
+    "Title": "Fiche dʼappel",
+    "Text": "Tout ce quʼun appel au support demande pour ce compte, chaque valeur avec sa source et sa date. Rien nʼest lu sur le réseau sans un clic sur un bouton de lecture.",
+    "Kind": "TabItem",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetSubject",
+    "Title": "Compte de la fiche dʼappel",
+    "Text": "Nom affiché, identifiant et nom de connexion du compte de la fiche ouverte.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetOrigin",
+    "Title": "Origine de la fiche",
+    "Text": "Dʼoù vient la fiche affichée : lecture de lʼannuaire ou base locale, avec sa date. Une fiche ancienne de la base locale est dite périmée.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetRefresh",
+    "Title": "Recalculer la fiche dʼappel",
+    "Text": "Recalcule la fiche dʼappel depuis les données déjà en mémoire. Aucune lecture réseau.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetCopy",
+    "Title": "Copier pour le ticket",
+    "Text": "Copie un texte brut pour le ticket, construit depuis le modèle CallSheet.TicketTemplate de Domenia.config.json ou le modèle par défaut. Les valeurs qui ressemblent à un secret sont masquées.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetAttention",
+    "Title": "Points dʼattention",
+    "Text": "Les faits qui expliquent souvent un appel : compte désactivé ou verrouillé, mot de passe expiré, hors des heures autorisées, poste sans place disque…",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "DgCallSheetAccount",
+    "Title": "État du compte et restrictions",
+    "Text": "État, verrouillage, échecs de mot de passe, échéances et restrictions dʼouverture de session, chacun avec sa source, sa date et son état de mesure. Sélectionnez une ligne pour lire ce quʼelle prouve.",
+    "Kind": "DataGrid",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "TxtCallSheetFactDetail",
+    "Title": "Détail du fait sélectionné",
+    "Text": "Ce que la ligne choisie prouve et ce quʼelle ne prouve pas.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetLockouts",
+    "Title": "Lire les verrouillages (4740)",
+    "Text": "Lit dans le journal Sécurité de lʼémulateur PDC les événements 4740 de ce seul compte, 7 jours, 200 au plus. Droit de lecture du journal Sécurité requis.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetPolicy",
+    "Title": "Lire la stratégie de mot de passe",
+    "Text": "Lit la stratégie applicable à ce compte (stratégie fine ou du domaine) et lʼéchéance calculée par le contrôleur. Aucun mot de passe nʼest lu.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "TxtCallSheetAccountReads",
+    "Title": "Résultat des lectures du compte",
+    "Text": "Résultat des lectures demandées depuis la fiche dʼappel : verrouillages journalisés et stratégie de mot de passe.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetComputers",
+    "Title": "Postes associés au compte",
+    "Text": "Nombre de postes associés à ce compte dans Domenia et état des lectures de sessions.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "DgCallSheetComputers",
+    "Title": "Postes associés, présence et sessions",
+    "Text": "Postes associés au compte, la relation déclarée dʼabord. Présence et compte en console viennent du dernier relevé enregistré, avec leur date ; les sessions se lisent par le bouton. Choisir un poste change celui du tri.",
+    "Kind": "DataGrid",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetPresence",
+    "Title": "Vérifier la présence",
+    "Text": "Envoie un seul ping au poste choisi, sans compte. Le résultat est enregistré puis affiché avec sa date.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetSessions",
+    "Title": "Lire les sessions",
+    "Text": "Lit les sessions console et RDP du poste choisi (WTS), en consultation seule : aucune déconnexion.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetOpenComputer",
+    "Title": "Ouvrir le poste",
+    "Text": "Ouvre la fiche du poste choisi. La fiche du compte est alors remplacée.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetGroups",
+    "Title": "Résumé des groupes",
+    "Text": "Groupes directs, groupe principal et changements vus depuis la première fiche de ce compte dans la session. Aucun historique local des appartenances nʼexiste.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "DgCallSheetGroups",
+    "Title": "Groupes directs du compte",
+    "Text": "Groupes directs lus dans la fiche, les groupes privilégiés en premier, avec les ajouts et retraits vus pendant la session.",
+    "Kind": "DataGrid",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetGroupsView",
+    "Title": "Voir les appartenances",
+    "Text": "Ouvre la vue Appartenances de la fiche : groupes imbriqués et chemin dʼappartenance.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetCompareRights",
+    "Title": "Comparer les droits avec…",
+    "Text": "Ouvre la comparaison des droits de ce compte avec un autre compte, quand cette version la propose.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetReceipts",
+    "Title": "Résumé des opérations Domenia",
+    "Text": "Nombre de reçus dʼopérations Domenia dont la cible est ce compte, et ceux qui restent à vérifier.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "DgCallSheetReceipts",
+    "Title": "Dernières opérations Domenia",
+    "Text": "Les dix dernières opérations Domenia sur ce compte, lues dans les reçus durables locaux.",
+    "Kind": "DataGrid",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetReceipts",
+    "Title": "Relire les reçus",
+    "Text": "Relit les reçus durables sur le disque local, comme Outils > Fiabilité. Aucune lecture réseau.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetTriageTarget",
+    "Title": "Poste du tri rapide",
+    "Text": "Poste dont le tri lit lʼinventaire : celui choisi dans la liste des postes, sinon le premier.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "BtnCallSheetTriage",
+    "Title": "Trier la lenteur du poste",
+    "Text": "Lance lʼinventaire rapide du poste (CIM/WMI, 10 à 60 secondes, droits dʼadministration du poste) : processeur, mémoire, disques, processus, démarrage et redémarrage en attente.",
+    "Kind": "Button",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "DgCallSheetTriage",
+    "Title": "Tri rapide du poste lent",
+    "Text": "Mesures du dernier inventaire rapide du poste, chacune avec sa date. Une mesure instantanée de plus dʼune heure est dite périmée.",
+    "Kind": "DataGrid",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetTriage",
+    "Title": "État du tri rapide",
+    "Text": "État de lʼinventaire en cours ou dernier résultat du tri, et détail de la mesure choisie.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "LblCallSheetTicket",
+    "Title": "Modèle du texte pour le ticket",
+    "Text": "Modèle utilisé pour le texte du ticket et champs inconnus éventuels.",
+    "Kind": "TextBlock",
+    "Source": "R40-callsheet"
+  },
+  {
+    "Name": "TxtCallSheetTicket",
+    "Title": "Aperçu du texte pour le ticket",
+    "Text": "Texte exact que « Copier pour le ticket » met dans le presse-papiers.",
+    "Kind": "TextBox",
+    "Source": "R40-callsheet"
   }
 ]

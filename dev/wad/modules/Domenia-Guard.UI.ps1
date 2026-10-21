@@ -2,6 +2,9 @@
 $script:Guard=$null
 $script:DraftState=$null
 $script:ArtifactConsent=$null
+$script:ReceiptViews=$null
+$script:ReceiptViewsReadUtc=$null
+$script:ReceiptViewsEpoch=[long]-1
 function Show-DomeniaGuard {
     Select-DomeniaWorkspace -Workspace 'TabApplicationTools' -Inner 'ApplicationToolTabs' -Tab 'TabGuard'
     $tabs=Get-DomeniaControl 'ApplicationToolTabs';$tab=Get-DomeniaControl 'TabGuard'
@@ -31,6 +34,8 @@ function Complete-DomeniaReceiptRefresh {
     # UI-18: rows in plain words (Get-DomeniaReceiptView), the receipts still to verify first, then the most recent.
     $views=@(foreach($row in @($r.Rows)){if($null -ne $row){Get-DomeniaReceiptView $row}})
     $views=@($views|Sort-Object @{Expression={[bool]$_.Pending};Descending=$true},@{Expression={[string]$_.UpdatedUtc};Descending=$true})
+    # R40 (fiche dʼappel): the views read, with their time and session, for the operations of one account.
+    $script:ReceiptViews=$views;$script:ReceiptViewsReadUtc=[datetime]::UtcNow;$script:ReceiptViewsEpoch=[long]$script:SessionEpoch
     $grid=Get-DomeniaControl 'DgGuardReceipts'
     $keep=[string]$State.Id
     if((-not $keep) -and ($null -ne $grid) -and ($null -ne $grid.SelectedItem)){$keep=[string](Get-DomeniaMember $grid.SelectedItem 'Id' '')}

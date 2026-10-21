@@ -298,6 +298,14 @@
       "Owner": "interface",
       "Reason": "Lot W12 (point 110), revue du 2026-10-15 : lecture du XAML local du paquet (Domenia-Assistance.xaml), protegee par AssistanceView ; une seule creation de la vue par session, a la premiere ouverture de l onglet Outils > Assistance. Aucun chemin choisi par l utilisateur, aucune lecture AD ni collecte. Meme contrat que Initialize-DomeniaQueryView et Initialize-DomeniaSupportUi.",
       "Chain": "wad\\modules\\Domenia-Assistance.UI.ps1:12 $tabs.Add_SelectionChanged > Show-DomeniaAssistanceTool > Initialize-DomeniaAssistanceView"
+    },
+    {
+      "Function": "Initialize-DomeniaCallSheetView",
+      "Pattern": ".ReadAllText",
+      "Status": "Justifie",
+      "Owner": "interface",
+      "Reason": "Lot R40 (fiche d appel), 2026-10-21 : lecture du XAML local du paquet (Domenia-CallSheet.xaml), protegee par CallSheetView ; une seule creation de la vue par session, a la premiere ouverture de l onglet Fiche d appel de la fiche utilisateur. Aucun chemin choisi par l utilisateur, aucune lecture AD ni collecte. Meme contrat que Initialize-DomeniaAssistanceView et Initialize-DomeniaSupportUi.",
+      "Chain": "wad\\modules\\Domenia-CallSheet.UI.ps1 $tabs.Add_SelectionChanged > Initialize-DomeniaCallSheetView ; BtnUserCallSheet.Add_Click > Show-DomeniaCallSheet > Initialize-DomeniaCallSheetView"
     }
   ]
 }
