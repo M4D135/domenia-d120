@@ -2598,7 +2598,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaOuFreshnessSummary',
             'Get-DomeniaFleetWmiResponse',
             'Get-DomeniaFleetReachLabel',
-            'Get-DomeniaStaleTrendNote'
+            'Get-DomeniaStaleTrendNote',
+            'ConvertTo-DomeniaFleetLastView',
+            'Get-DomeniaFleetLastViewNotice'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',
@@ -2753,6 +2755,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSectionOuDn',
             'Reset-DomeniaFleetScopeToRoot',
             'Show-DomeniaFleetOverviewIdle',
+            'Get-DomeniaFleetLastViewSettingKey',
+            'Get-DomeniaFleetLastViewStoreId',
+            'Get-DomeniaFleetLastViewNoticeForScope',
+            'Save-DomeniaFleetLastView',
             'Update-DomeniaFleetMachineList',
             'Get-DomeniaWindowsLifecycleTable',
             'Get-DomeniaObservationMaxAgeDays',
@@ -3432,11 +3438,44 @@ function Assert-DomeniaRuntimeImports {
     }
 }
 
+function Get-DomeniaRuntimeModuleParseError {
+    # First syntax error of one declared module, or $null; checked before any module is imported.
+    # R40 (startup time): the parse goes through the script information of the file, the very object a dot-sourcing
+    # builds. PowerShell keeps the script block of an external script for its path and content, so the import below
+    # reuses this parse instead of parsing the module a second time (about 5.8 MB of script parsed twice before
+    # RC1.17.40). The import itself still goes through the execution policy and the script block checks of PowerShell.
+    # Any other refusal here (policy, unreadable file) leaves the verdict to the plain parser, as before, and the import
+    # that follows reports that refusal itself.
+    param([Parameter(Mandatory=$true)][string]$Path)
+    $syntax = $null
+    try {
+        $scriptInfo = $ExecutionContext.InvokeCommand.GetCommand($Path,[Management.Automation.CommandTypes]::ExternalScript)
+        # Only the very file named here (a path read as a pattern could name another one).
+        if (($null -ne $scriptInfo) -and [string]::Equals([string]$scriptInfo.Path,[IO.Path]::GetFullPath($Path),[StringComparison]::OrdinalIgnoreCase)) {
+            $null = $scriptInfo.ScriptBlock
+            return $null
+        }
+    }
+    catch {
+        # The property adapter wraps the ParseException of the getter: it is the syntax verdict of the file.
+        $syntax = $_.Exception
+        while (($null -ne $syntax) -and ($syntax -isnot [Management.Automation.ParseException])) { $syntax = $syntax.InnerException }
+    }
+    if (($null -ne $syntax) -and (@($syntax.Errors).Count -gt 0)) { return @($syntax.Errors)[0] }
+    $tokens = $null; $errors = $null
+    [void][Management.Automation.Language.Parser]::ParseFile($Path,[ref]$tokens,[ref]$errors)
+    if (@($errors).Count -gt 0) { return @($errors)[0] }
+    return $null
+}
+
 $domeniaImportRoot = Join-Path $PSScriptRoot 'modules'
 $domeniaImportPlan = @(Get-DomeniaRuntimeModulePlan)
 $domeniaImportErrorAction = $ErrorActionPreference
 $script:DomeniaRuntimeImports = @()
 $script:DomeniaStartupPlan = $null
+# R40 (startup time): duration of each loader step (milliseconds, in order), written by the core to its startup trace.
+$script:DomeniaRuntimeImportTimings = [ordered]@{}
+$domeniaLoaderWatch = [Diagnostics.Stopwatch]::StartNew()
 try {
     $ErrorActionPreference = 'Stop'
     # Check the entire declared set before importing the first module.
@@ -3466,28 +3505,48 @@ try {
                 "DOMENIA_MODULE_MISSING : $($domeniaModule.File). Reinstallez le paquet complet.",
                 $domeniaModulePath)
         }
-        $domeniaTokens=$null; $domeniaParseErrors=$null
-        [void][Management.Automation.Language.Parser]::ParseFile(
-            $domeniaModulePath,[ref]$domeniaTokens,[ref]$domeniaParseErrors)
-        if (@($domeniaParseErrors).Count -gt 0) {
-            $domeniaFirstError=@($domeniaParseErrors)[0]
+        $domeniaFirstError = Get-DomeniaRuntimeModuleParseError -Path $domeniaModulePath
+        if ($null -ne $domeniaFirstError) {
             throw [InvalidOperationException]::new(
                 "DOMENIA_MODULE_PARSE : $($domeniaModule.File), ligne $($domeniaFirstError.Extent.StartLineNumber) : $($domeniaFirstError.Message)")
         }
     }
+    $script:DomeniaRuntimeImportTimings['Fichiers et analyse syntaxique'] = [long]$domeniaLoaderWatch.ElapsedMilliseconds
+    $domeniaLoaderWatch.Restart()
     # Types: compiled once per process; a type already loaded from the same file is kept.
+    # R40 (startup time): the C# files of the immediate plan whose types are missing are compiled together, by one call of
+    # the compiler instead of one per file (each Add-Type of source starts csc.exe and loads its own assembly). The
+    # libraries (.dll) are still loaded one by one, after their hash check above.
+    $domeniaSourceFiles = New-Object 'System.Collections.Generic.List[string]'
+    $domeniaSourcePaths = New-Object 'System.Collections.Generic.List[string]'
     foreach ($domeniaType in @(Get-DomeniaRuntimeTypePlan)) {
         # WPF directory types are compiled at first tree use, after authentication.
-        if ($null -ne $domeniaType.PSObject.Properties['Deferred'] -and [bool]$domeniaType.Deferred) { continue }
+        if (($null -ne $domeniaType.PSObject.Properties['Deferred']) -and [bool]$domeniaType.Deferred) { continue }
         $domeniaMissingTypes = @(@($domeniaType.Types) | Where-Object { $null -eq ($_ -as [type]) })
         if ($domeniaMissingTypes.Count -eq 0) { continue }
-        try { Add-Type -Path (Join-Path $domeniaImportRoot $domeniaType.File) -ErrorAction Stop }
+        $domeniaTypePath = Join-Path $domeniaImportRoot $domeniaType.File
+        if ([IO.Path]::GetExtension([string]$domeniaType.File) -ieq '.cs') {
+            $domeniaSourceFiles.Add([string]$domeniaType.File)
+            $domeniaSourcePaths.Add($domeniaTypePath)
+            continue
+        }
+        try { Add-Type -Path $domeniaTypePath -ErrorAction Stop }
         catch {
             throw [InvalidOperationException]::new(
                 "DOMENIA_MODULE_TYPES : echec de compilation de $($domeniaType.File). $($_.Exception.Message)",
                 $_.Exception)
         }
     }
+    if ($domeniaSourcePaths.Count -gt 0) {
+        try { Add-Type -Path $domeniaSourcePaths.ToArray() -ErrorAction Stop }
+        catch {
+            throw [InvalidOperationException]::new(
+                "DOMENIA_MODULE_TYPES : echec de compilation de $($domeniaSourceFiles.ToArray() -join ', '). $($_.Exception.Message)",
+                $_.Exception)
+        }
+    }
+    $script:DomeniaRuntimeImportTimings['Types C#'] = [long]$domeniaLoaderWatch.ElapsedMilliseconds
+    $domeniaLoaderWatch.Restart()
     # Bootstrap phase: shared helpers and the startup-plan rules themselves.
     $domeniaImported = @{}
     foreach ($domeniaModule in $domeniaImportPlan) {
@@ -3502,6 +3561,8 @@ try {
         }
         $domeniaImported[[string]$domeniaModule.File] = $true
     }
+    $script:DomeniaRuntimeImportTimings['Socle'] = [long]$domeniaLoaderWatch.ElapsedMilliseconds
+    $domeniaLoaderWatch.Restart()
     # D011: phases, dependencies, cycles and duplicate providers are refused before the first business module.
     $script:DomeniaStartupPlan = Test-DomeniaStartupPlan -Modules $domeniaImportPlan
     if (-not [bool]$script:DomeniaStartupPlan.Valid) {
@@ -3526,7 +3587,10 @@ try {
         }
         $domeniaImported[[string]$domeniaFile] = $true
     }
+    $script:DomeniaRuntimeImportTimings['Import des modules'] = [long]$domeniaLoaderWatch.ElapsedMilliseconds
+    $domeniaLoaderWatch.Restart()
     $script:DomeniaRuntimeImports = @(Assert-DomeniaRuntimeImports -ModuleRoot $domeniaImportRoot)
+    $script:DomeniaRuntimeImportTimings['Controle des exports'] = [long]$domeniaLoaderWatch.ElapsedMilliseconds
 }
 finally {
     $ErrorActionPreference = $domeniaImportErrorAction

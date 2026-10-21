@@ -119,16 +119,26 @@ function Initialize-DomeniaUxControlHelp {
     [Windows.Automation.AutomationProperties]::SetName($Control,[string]$entry.Title)
     [Windows.Automation.AutomationProperties]::SetHelpText($Control,[string]$presentation.HelpText)
     $Control.Resources['Domenia.UxHelpAttached'] = $true
+    # R40 (startup time): the three handlers are identical for every catalogued control. They are converted to delegates
+    # once per session and shared; a script block written in each call was compiled into a new delegate for each control
+    # (about 2 400 conversions for the 813 entries of the catalogue, while the main window was being built).
+    if ($null -eq $script:UxHelpHandlers) {
+        $script:UxHelpHandlers = [pscustomobject]@{
+            MouseEnter = [Windows.Input.MouseEventHandler]{param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender}
+            ToolTipOpening = [Windows.Controls.ToolTipEventHandler]{param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender}
+            GotKeyboardFocus = [Windows.Input.KeyboardFocusChangedEventHandler]{
+                param($sender,$eventArgs)
+                # A routed child focus must not let a parent overwrite the specific help.
+                if ($sender -eq $eventArgs.OriginalSource) { Show-DomeniaUxControlHelp -Control $sender }
+            }
+        }
+    }
     # UI-10: hovering a container (a page, a grid, a journal) does not rewrite the help panel; its keyboard focus does.
     if ([bool]$presentation.HoverHelp) {
-        $Control.Add_MouseEnter({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
-        $Control.Add_ToolTipOpening({param($sender,$eventArgs) Show-DomeniaUxControlHelp -Control $sender})
+        $Control.Add_MouseEnter($script:UxHelpHandlers.MouseEnter)
+        $Control.Add_ToolTipOpening($script:UxHelpHandlers.ToolTipOpening)
     }
-    $Control.Add_GotKeyboardFocus({
-        param($sender,$eventArgs)
-        # A routed child focus must not let a parent overwrite the specific help.
-        if ($sender -eq $eventArgs.OriginalSource) { Show-DomeniaUxControlHelp -Control $sender }
-    })
+    $Control.Add_GotKeyboardFocus($script:UxHelpHandlers.GotKeyboardFocus)
 }
 
 function Initialize-DomeniaUxWindowHelp {

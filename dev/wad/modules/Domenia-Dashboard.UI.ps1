@@ -420,8 +420,49 @@ function Show-DomeniaFleetOverviewIdle {
     try { Update-DomeniaRootOuTools } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetOverviewIdle' $_ }
     if ([string]$script:FleetComputedKey) { return }
     if ($null -ne $script:FleetLast -and -not [bool]$script:FleetStale) { return }
-    [void](Set-DomeniaControlText 'LblFleetDashboard' 'Lancez « Recalculer la vue » : le tableau de bord se remplit depuis la base locale.')
+    # R40 (cache-first Accueil): the last overview computed for this scope and this base, kept in the preferences already
+    # in memory, is shown with its date (no read, no calculation); « Recalculer la vue » still computes the current one.
+    $text = 'Lancez « Recalculer la vue » : le tableau de bord se remplit depuis la base locale.'
+    $lastView = $null
+    try { $lastView = Get-DomeniaFleetLastViewNoticeForScope } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetOverviewIdle' $_ }
+    if (($null -ne $lastView) -and [bool]$lastView.Available) { $text = [string]$lastView.Text }
+    [void](Set-DomeniaControlText 'LblFleetDashboard' $text)
     try { Update-DomeniaFirstSteps } catch { Write-DomeniaSwallowed 'Dashboard' 'Show-DomeniaFleetOverviewIdle' $_ }
+}
+function Get-DomeniaFleetLastViewSettingKey {
+    # R40: Fleet.LastView.<64 hex of the base DN>, the closed domain-scoped shape of Fleet.Scope (one last view per domain).
+    $scopeSetting = [string](Get-DomeniaFleetScopeSettingKey)
+    if (-not $scopeSetting.StartsWith('Fleet.Scope.',[StringComparison]::Ordinal)) { return '' }
+    return ('Fleet.LastView.' + $scopeSetting.Substring('Fleet.Scope.'.Length))
+}
+function Get-DomeniaFleetLastViewStoreId {
+    # The last view belongs to one local base (path and domain): a restored or moved base does not show it.
+    $path = [string]$script:DatabaseScopedPath
+    $domain = [string]$script:Conn.BaseDn
+    if ([string]::IsNullOrWhiteSpace($path) -or [string]::IsNullOrWhiteSpace($domain)) { return '' }
+    try { return [string](Get-DomeniaStoreId $path $domain) } catch { return '' }
+}
+function Get-DomeniaFleetLastViewNoticeForScope {
+    # The notice of the last view of the current overview scope, or $null when it cannot be named.
+    $scope = Get-DomeniaFleetScope
+    if ($null -eq $scope) { return $null }
+    $key = Get-DomeniaFleetLastViewSettingKey
+    if (-not $key) { return $null }
+    return (Get-DomeniaFleetLastViewNotice -Json ([string](Get-DomeniaSetting -Name $key -Default '')) -StoreId (Get-DomeniaFleetLastViewStoreId) -ScopeKey ([string]$scope.Key))
+}
+function Save-DomeniaFleetLastView {
+    # R40 (cache-first Accueil): after each completed overview, its counts and dated measure line for the next start.
+    # A view that cannot be named (no base, no scope) is not kept; a failure never touches the drawn overview.
+    param($Scope,$Board,[AllowEmptyString()][string]$ObservationsText='')
+    if ($null -eq $Scope) { return }
+    $key = Get-DomeniaFleetLastViewSettingKey
+    $store = Get-DomeniaFleetLastViewStoreId
+    if ((-not $key) -or (-not $store) -or (-not [string]$Scope.Key)) { return }
+    $machines = -1; $problems = -1
+    $figures = Get-DomeniaMemberValue (Get-DomeniaMemberValue $Board 'Snapshot') 'Figures'
+    if ($null -ne $figures) { $machines = [int](Get-DomeniaMember $figures 'Machines' -1); $problems = [int](Get-DomeniaMember $figures 'Problems' -1) }
+    if ($machines -lt 0) { return }
+    Set-DomeniaSetting $key (ConvertTo-DomeniaFleetLastView -StoreId $store -ScopeKey ([string]$Scope.Key) -ScopeName ([string]$Scope.Name) -Machines $machines -Problems $problems -ObservationsText $ObservationsText -ComputedUtc ([datetime]::UtcNow))
 }
 function Update-DomeniaFleetMachineList {
     if($null -ne $script:DomeniaQueryState -and $script:DomeniaQueryState.Bound){Request-DomeniaQueryEvaluation;return}
@@ -890,6 +931,7 @@ function Complete-DomeniaFleetDashboard {
     [void](Set-DomeniaControlText 'LblFleetDashboard' ($lines -join "`n"))
     Set-DomeniaFleetDashboardToolTip -Provenance ([string]$summary.RunsDetail)
     [void](Save-DomeniaFleetSnapshot -Scope $scope -Board $board)
+    try { Save-DomeniaFleetLastView -Scope $scope -Board $board -ObservationsText ([string]$summary.ObservationsText) } catch { Write-DomeniaSwallowed 'Dashboard' 'Complete-DomeniaFleetDashboard' $_ }
     # Point 148: the dashboard is discovered once an overview with workstations was computed while Accueil itself is
     # shown. The workshop (Outils, Atelier) also reads this overview, but it is not the dashboard the step points to.
     try {

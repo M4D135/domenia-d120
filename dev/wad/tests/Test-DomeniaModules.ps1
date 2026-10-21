@@ -133,7 +133,7 @@ try {
         }
     }
     $types=@(@(Get-DomeniaRuntimeTypePlan)|Where-Object{$null -eq $_.PSObject.Properties['Deferred'] -or -not [bool]$_.Deferred}|ForEach-Object{@($_.Types)}|Where-Object{$null -eq ($_ -as [type])})
-    [pscustomobject]@{Success=$true;Modules=$script:DomeniaRuntimeImports;Exports=$exports.ToArray();Pure=$pure;ReconcileHash=$rh;DocumentHash=$dh;Wpf=$wpf;Message='';ErrorId='';Imported=$true;MissingTypes=$types;PlanValid=[bool]$script:DomeniaStartupPlan.Valid;PlanOrder=@($script:DomeniaStartupPlan.Order)}
+    [pscustomobject]@{Success=$true;Modules=$script:DomeniaRuntimeImports;Exports=$exports.ToArray();Pure=$pure;ReconcileHash=$rh;DocumentHash=$dh;Wpf=$wpf;Message='';ErrorId='';Imported=$true;MissingTypes=$types;PlanValid=[bool]$script:DomeniaStartupPlan.Valid;PlanOrder=@($script:DomeniaStartupPlan.Order);Timings=@($script:DomeniaRuntimeImportTimings.Keys);TimingValues=@($script:DomeniaRuntimeImportTimings.Values)}
 } catch {
     [pscustomobject]@{Success=$false;Message=$_.Exception.Message;ErrorId=$_.FullyQualifiedErrorId;Imported=($null -ne (Get-Item -LiteralPath Function:\Initialize-DomeniaUxShell -ErrorAction SilentlyContinue))}
 }
@@ -218,6 +218,37 @@ try {
         })
         Expect ($byName.Count -eq 0) ('Fonction appelee par son nom dans une fermeture : '+($byName -join ', '))
     }
+    # R40 (startup time): the loader times its steps for the startup trace of the core, in their order.
+    Case 'R40 : etapes du chargeur chronometrees dans leur ordre' {
+        Expect ((@($normal.Timings) -join '|') -ceq 'Fichiers et analyse syntaxique|Types C#|Socle|Import des modules|Controle des exports') ('Etapes : '+(@($normal.Timings) -join ', '))
+        Expect (@(@($normal.TimingValues)|Where-Object{[long]$_ -lt 0}).Count -eq 0) 'Duree negative'
+    }
+    Case 'R40 : sources C# immediates compilees en un seul appel, bibliotheques chargees une a une' {
+        $t=$null;$e=$null;$loaderAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Modules.ps1'),[ref]$t,[ref]$e)
+        $addType=@($loaderAst.FindAll({param($n)($n -is [Management.Automation.Language.CommandAst]) -and ($n.GetCommandName() -eq 'Add-Type')},$true))
+        Expect ($addType.Count -eq 2) ('Appels Add-Type : '+$addType.Count)
+        Expect (@($addType|Where-Object{$_.Extent.Text -match '-Path \$domeniaSourcePaths\.ToArray\(\)'}).Count -eq 1) 'Compilation groupee des sources absente'
+        $parse=@($loaderAst.FindAll({param($n)($n -is [Management.Automation.Language.InvokeMemberExpressionAst]) -and ($n.Member.Extent.Text -eq 'ParseFile')},$true))
+        Expect ($parse.Count -eq 1) ('Analyses directes du chargeur : '+$parse.Count)
+        $owner=$parse[0].Parent;while(($null -ne $owner) -and ($owner -isnot [Management.Automation.Language.FunctionDefinitionAst])){$owner=$owner.Parent}
+        Expect (($null -ne $owner) -and ($owner.Name -eq 'Get-DomeniaRuntimeModuleParseError')) 'Analyse de secours hors de sa fonction'
+    }
+    Case 'R40 : analyse partagee avec l import, meme verdict que le parseur' {
+        $t=$null;$e=$null;$loaderAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $wad 'Domenia-Modules.ps1'),[ref]$t,[ref]$e)
+        $definition=@($loaderAst.EndBlock.Statements|Where-Object{($_ -is [Management.Automation.Language.FunctionDefinitionAst]) -and ($_.Name -eq 'Get-DomeniaRuntimeModuleParseError')})
+        Expect ($definition.Count -eq 1) 'Fonction d analyse absente du chargeur'
+        . ([scriptblock]::Create($definition[0].Extent.Text))
+        $good=Join-Path $temp 'r40-good.ps1';[IO.File]::WriteAllText($good,'function R40Good { 41 + 1 }',[Text.UTF8Encoding]::new($true))
+        $broken=Join-Path $temp 'r40-broken.ps1';[IO.File]::WriteAllText($broken,("# first line`n" + 'function R40Broken {'),[Text.UTF8Encoding]::new($true))
+        Expect ($null -eq (Get-DomeniaRuntimeModuleParseError -Path $good)) 'Fichier valide refuse'
+        $found=Get-DomeniaRuntimeModuleParseError -Path $broken
+        $t=$null;$e=$null;[void][Management.Automation.Language.Parser]::ParseFile($broken,[ref]$t,[ref]$e)
+        Expect (($null -ne $found) -and (@($e).Count -gt 0)) 'Erreur de syntaxe non detectee'
+        Expect (([int]$found.Extent.StartLineNumber -eq [int]$e[0].Extent.StartLineNumber) -and ([string]$found.Message -ceq [string]$e[0].Message)) ('Verdict different du parseur : '+[string]$found.Message)
+        # The file whose parse was kept is imported as usual.
+        . $good
+        Expect ((R40Good) -eq 42) 'Import apres analyse'
+    }
     $contracts=[IO.File]::ReadAllText((Join-Path $root 'tools\operation-contracts.json'))|ConvertFrom-Json
     Case 'Corps ScopeReconcile toujours conforme au contrat' {Expect ($normal.ReconcileHash -ieq [string]($contracts|Where-Object{$_.Operation -eq 'ScopeReconcile'}).Sha256) 'Contrat reconciliation different.'}
     Case 'Corps DocumentStore toujours conforme au contrat' {Expect ($normal.DocumentHash -ieq [string]($contracts|Where-Object{$_.Operation -eq 'DocumentStore'}).Sha256) 'Contrat document different.'}
@@ -240,6 +271,8 @@ try {
     [IO.File]::WriteAllText((Join-Path $fixture 'modules\Domenia-Dossier.UI.ps1'),'function Bad {',[Text.UTF8Encoding]::new($true))
     $bad=Probe $fixture
     Case 'Erreur de syntaxe detectee avant tout chargement partiel' {Expect (-not $bad.Success -and -not $bad.Imported -and $bad.Message -match 'DOMENIA_MODULE_PARSE') $bad.Message}
+    # R40 (startup time): the syntax check is the parse that the import reuses; the error keeps its file and its line.
+    Case 'R40 : erreur de syntaxe toujours localisee par l analyse partagee avec l import' {Expect ($bad.Message -match 'DOMENIA_MODULE_PARSE : Domenia-Dossier\.UI\.ps1, ligne \d+ : ') $bad.Message}
 
     $fixture=New-Fixture 'export'
     Replace-FixtureText (Join-Path $fixture 'modules\Domenia-Reconcile.UI.ps1') 'function Initialize-DomeniaReconcile {' 'function Initialize-DomeniaReconcile_TestRename {'

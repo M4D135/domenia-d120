@@ -249,6 +249,29 @@ function Write-DomeniaSwallowed {
     }
 }
 
+# R40 (startup time): first script statement of the core, right after its parse (and after the trace of swallowed
+# errors, defined first so that every catch below may call it). The launch clock comes from Domenia-Start.ps1
+# (stopwatch timestamp of its first statement and age of the process then); a core started directly starts it here.
+# CoreParse is the time between the end of the package check and this statement (parse and compilation of this file).
+# These values only feed the milestones of Domenia-startup.log (Get-DomeniaLaunchElapsedMs); never a decision input.
+$script:DomeniaCoreTimestamp = [Diagnostics.Stopwatch]::GetTimestamp()
+$script:DomeniaLaunchClock = $null
+$script:DomeniaCoreParseMs = [long]-1
+try {
+    $domeniaCoreLaunchProbe = Get-Variable -Name DomeniaStartClock -ValueOnly -ErrorAction SilentlyContinue
+    if (($null -ne $domeniaCoreLaunchProbe) -and ($null -ne $domeniaCoreLaunchProbe.PSObject.Properties['Timestamp'])) {
+        $script:DomeniaLaunchClock = [pscustomobject]@{ Timestamp = [long]$domeniaCoreLaunchProbe.Timestamp; ProcessAgeMs = [long]$domeniaCoreLaunchProbe.ProcessAgeMs; Source = 'Domenia-Start.ps1' }
+    } else {
+        $domeniaCoreProcess = [Diagnostics.Process]::GetCurrentProcess()
+        try { $script:DomeniaLaunchClock = [pscustomobject]@{ Timestamp = [long]$script:DomeniaCoreTimestamp; ProcessAgeMs = [long]([datetime]::Now - $domeniaCoreProcess.StartTime).TotalMilliseconds; Source = 'Domenia-Core.ps1' } }
+        finally { $domeniaCoreProcess.Dispose() }
+    }
+    $domeniaCoreIntegrityProbe = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
+    if (($null -ne $domeniaCoreIntegrityProbe) -and ($null -ne $domeniaCoreIntegrityProbe.PSObject.Properties['EndTimestamp'])) {
+        $script:DomeniaCoreParseMs = [long](([long]$script:DomeniaCoreTimestamp - [long]$domeniaCoreIntegrityProbe.EndTimestamp) * 1000 / [Diagnostics.Stopwatch]::Frequency)
+    }
+} catch { $script:DomeniaLaunchClock = $null }
+
 function ConvertTo-DomeniaSpreadsheetCell {
     param($Value)
     if ($null -eq $Value) { return $null }
@@ -4121,6 +4144,10 @@ function Assert-DomeniaXamlPreflight {
     if ([string]::IsNullOrWhiteSpace($XamlText)) {
         throw "$Context : contenu XAML vide."
     }
+    # R40 (startup time): the verdict depends on the text alone. A text already accepted in this session is accepted
+    # again without a second walk: the login XAML is checked before the login window, then by its construction (0.5 to
+    # 0.7 s each on the lab VM). A refused text is never remembered and is checked again on every call.
+    if (($null -ne $script:DomeniaXamlPreflightAccepted) -and $script:DomeniaXamlPreflightAccepted.Contains($XamlText)) { return }
 
     try { [xml]$document = $XamlText }
     catch { throw "$Context : XML invalide : $($_.Exception.Message)" }
@@ -4248,6 +4275,8 @@ function Assert-DomeniaXamlPreflight {
     if ($duplicateNames.Count -gt 0) {
         throw "$Context : x:Name dupliqué(s) : $((@($duplicateNames | Select-Object -Unique)) -join ', ')."
     }
+    if ($null -eq $script:DomeniaXamlPreflightAccepted) { $script:DomeniaXamlPreflightAccepted = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal) }
+    [void]$script:DomeniaXamlPreflightAccepted.Add($XamlText)
 }
 
 function Save-DomeniaXamlDiagnostic {
@@ -4276,23 +4305,31 @@ function ConvertFrom-DomeniaXaml {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][string]$XamlText,
-        [string]$Context = "Fenetre WPF"
+        [string]$Context = "Fenetre WPF",
+        # R40 (startup time): optional ordered table that receives the duration of each step, in milliseconds.
+        [Collections.IDictionary]$Timings = $null
     )
 
     $reader = $null
+    $stepWatch = $null
+    if ($null -ne $Timings) { $stepWatch = [Diagnostics.Stopwatch]::StartNew() }
     try {
         Assert-DomeniaXamlPreflight -XamlText $XamlText -Context $Context
+        if ($null -ne $stepWatch) { $Timings['Controle du XAML'] = [long]$stepWatch.ElapsedMilliseconds; $stepWatch.Restart() }
         [xml]$xaml = $XamlText
         $reader = New-Object -TypeName System.Xml.XmlNodeReader -ArgumentList $xaml
         $window = [Windows.Markup.XamlReader]::Load($reader)
         if ($null -eq $window) { throw "$Context : XamlReader.Load a retourne une fenetre vide." }
+        if ($null -ne $stepWatch) { $Timings['Construction WPF'] = [long]$stepWatch.ElapsedMilliseconds; $stepWatch.Restart() }
         if ($null -ne (Get-Command Initialize-DomeniaUxWindowHelp -ErrorAction SilentlyContinue)) {
             Initialize-DomeniaUxWindowHelp -Window $window -XamlText $XamlText
         }
+        if ($null -ne $stepWatch) { $Timings['Aides du catalogue'] = [long]$stepWatch.ElapsedMilliseconds; $stepWatch.Restart() }
         # DS-18: login, startup monitor and other windows take the dark title bar of the session theme.
         if (($window -is [System.Windows.Window]) -and ($null -ne (Get-Command Set-DomeniaWindowFrameTheme -ErrorAction SilentlyContinue))) {
             [void](Set-DomeniaWindowFrameTheme -Window $window)
         }
+        if ($null -ne $stepWatch) { $Timings['Barre de titre'] = [long]$stepWatch.ElapsedMilliseconds }
         return $window
     }
     catch {
@@ -4348,8 +4385,13 @@ function Get-DomeniaXamlControlNames {
 }
 
 function Load-XamlWindow {
+    # R40 (startup time): each step is timed and written as Detail/Interface/<step> after the stage line.
+    $timings = [ordered]@{}
+    $stepWatch = [Diagnostics.Stopwatch]::StartNew()
     $xamlText = [string](Get-MainXaml)
-    $script:Window = ConvertFrom-DomeniaXaml -XamlText $xamlText -Context "Interface principale"
+    $timings['Lecture du XAML'] = [long]$stepWatch.ElapsedMilliseconds
+    $script:Window = ConvertFrom-DomeniaXaml -XamlText $xamlText -Context "Interface principale" -Timings $timings
+    $stepWatch.Restart()
     Set-AppWindowIcon $script:Window
     $script:Ctrl = @{}
 
@@ -4364,6 +4406,7 @@ function Load-XamlWindow {
         try { $c = $script:Window.FindName($name) } catch { Write-DomeniaSwallowed 'Core' 'Load-XamlWindow' $_ }
         if ($null -ne $c) { $script:Ctrl[$name] = $c }
     }
+    $timings['Controles nommes'] = [long]$stepWatch.ElapsedMilliseconds
     try {
         Write-StartupTrace -Stage "Chargement interface WPF" -Status "OK" -Detail (
             "Controles WPF resolus : {0}/{1}." -f $script:Ctrl.Count,$declaredNames.Count
@@ -4378,9 +4421,22 @@ function Load-XamlWindow {
         throw "Interface principale : controle(s) WPF critique(s) introuvable(s) : $($missingCriticalControls -join ', ')."
     }
     # Appliquer le choix du login avant le premier affichage de la principale.
-    Apply-DomeniaTheme -Theme (Get-DomeniaStoredTheme)
+    $stepWatch.Restart()
+    $paintedBefore = $script:DomeniaPaintedPalette
+    $startupTheme = [string](Get-DomeniaStoredTheme)
+    Apply-DomeniaTheme -Theme $startupTheme
+    # R40 (startup time): this window is now painted with this theme; Initialize-DomeniaPresentation does not paint the
+    # same palette a second time (a new palette object means that Set-DomeniaUxPalette went to its end).
+    $script:DomeniaStartupPaintedTheme = $null
+    if (($null -ne $script:DomeniaPaintedPalette) -and (-not [object]::ReferenceEquals($paintedBefore,$script:DomeniaPaintedPalette))) {
+        $script:DomeniaStartupPaintedTheme = [pscustomobject]@{ Window = $script:Window; Theme = $startupTheme; HighContrast = [bool]$script:DomeniaPaintedHighContrast; SystemColors = [string]$script:DomeniaPaintedSystemColors }
+    }
+    $timings['Theme'] = [long]$stepWatch.ElapsedMilliseconds
+    $stepWatch.Restart()
     try { Update-DomeniaWriteModeVisual } catch { Write-DomeniaSwallowed 'Core' 'Load-XamlWindow' $_ }
     Apply-DomeniaGuiElementPolicy
+    $timings['Mode et politique des controles'] = [long]$stepWatch.ElapsedMilliseconds
+    Write-DomeniaStartupTimings -Prefix 'Interface' -Timings $timings
 }
 
 function Apply-DomeniaGuiElementPolicy {
@@ -18488,9 +18544,12 @@ function Initialize-DomeniaAccountPanel {
 }
 
 function Wire-Events {
+    # R40 (startup time): Detail/Evenements/<group> lines measure each group of this stage (14 s on the lab VM, 20/10/2026).
+    $wireSplit = [Diagnostics.Stopwatch]::StartNew()
     Register-DomeniaReliabilityUi
     Initialize-DomeniaAccountVaultUi
     Add-DomeniaUiLog -Area "Interface" -Level "INFO" -Text "Branchement des evenements de l'interface."
+    Write-DomeniaStartupSplit -Name 'Evenements/Fiabilite et coffre' -Watch $wireSplit
 
     
 
@@ -18551,7 +18610,9 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnAccountSecretsClear")) {
         $script:Ctrl["BtnAccountSecretsClear"].Add_Click({ Clear-DomeniaSecondaryCredential -Scope Secrets })
     }
+    Write-DomeniaStartupSplit -Name 'Evenements/Comptes' -Watch $wireSplit
     Initialize-DomeniaRelationsUi
+    Write-DomeniaStartupSplit -Name 'Evenements/Associations' -Watch $wireSplit
     if ($script:Ctrl.ContainsKey("TabAccounts")) {
         $script:Ctrl["TabAccounts"].Add_GotFocus({ try { Update-DomeniaAccountUi } catch { Write-DomeniaSwallowed 'Core' 'Wire-Events' $_ } })
     }
@@ -18618,7 +18679,9 @@ function Wire-Events {
     $script:Ctrl["BtnDashCopy"].Add_Click({ Copy-DashboardSummary })
     $script:Ctrl["TxtBranchSearch"].Add_KeyDown({ param($s,$e) if ($e.Key -eq "Enter") { Load-BranchObjects -Browse } })
     $script:Ctrl["CmbObjectFilter"].Add_SelectionChanged({ if ($script:Window -and $script:Conn.Connected -and -not [string]::IsNullOrWhiteSpace($script:SelectedBranchDn)) { Load-BranchObjects -Browse } })
+    Write-DomeniaStartupSplit -Name 'Evenements/Recherche et arbre' -Watch $wireSplit
     Initialize-DomeniaSelectionPreload
+    Write-DomeniaStartupSplit -Name 'Evenements/Prechargement de la selection' -Watch $wireSplit
     $script:Ctrl["DgObjects"].Add_SelectionChanged({
         param($sender,$e)
         if($e.OriginalSource -eq $sender){Update-DomeniaSearchActionStates;Queue-DomeniaSelectedObjectOpen}
@@ -18803,6 +18866,7 @@ function Wire-Events {
         Start-DomeniaSelectedIndexScopeBuild
     }) }
     if ($script:Ctrl.ContainsKey("BtnIndexBuild")) { $script:Ctrl["BtnIndexBuild"].Add_Click({ Start-DomeniaIndexBuild -UpdateLinks }) }
+    Write-DomeniaStartupSplit -Name 'Evenements/Fiches, associations et secrets' -Watch $wireSplit
     foreach($name in @('BtnStorageMove','BtnStorageRestore','BtnStorageResume','BtnStorageRollback','BtnStoragePolicySave','BtnStorageRetentionPreview','BtnStorageRetentionApply','BtnStorageIntegrity')){
         $button=Get-DomeniaControl $name
         if($null -ne $button){$button.Add_Click({param($sender,$eventArgs)
@@ -18983,8 +19047,11 @@ function Wire-Events {
     if ($script:Ctrl.ContainsKey("BtnFleetScopeReset")) { $script:Ctrl["BtnFleetScopeReset"].Add_Click({ try { Reset-DomeniaFleetScopeToRoot } catch { Set-Status ('Périmètre du tableau de bord non rétabli : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnRootOuChoose")) { $script:Ctrl["BtnRootOuChoose"].Add_Click({ try { Show-DomeniaRootOuSource } catch { Set-Status ('OU racine non choisie : ' + $_.Exception.Message) 'WARN' } }) }
     if ($script:Ctrl.ContainsKey("BtnRootOuReset")) { $script:Ctrl["BtnRootOuReset"].Add_Click({ try { Clear-DomeniaRootOuChoice } catch { Set-Status ('OU racine non retirée : ' + $_.Exception.Message) 'WARN' } }) }
+    Write-DomeniaStartupSplit -Name 'Evenements/Stockage, parc, index et inventaire' -Watch $wireSplit
     Initialize-DomeniaUiZoom
+    Write-DomeniaStartupSplit -Name 'Evenements/Zoom' -Watch $wireSplit
     Initialize-DomeniaQueryWorkshop
+    Write-DomeniaStartupSplit -Name 'Evenements/Atelier de requetes' -Watch $wireSplit
     if ($script:Ctrl.ContainsKey("BtnFleetShowMachines")) { $script:Ctrl["BtnFleetShowMachines"].Add_Click({ Show-DomeniaQueryWorkshop -Evaluate }) }
     if ($script:Ctrl.ContainsKey("TxtFleetMachineFilter")) { $script:Ctrl["TxtFleetMachineFilter"].Add_TextChanged({ Update-DomeniaFleetMachineList }) }
     if ($script:Ctrl.ContainsKey("CmbFleetMachineState")) { $script:Ctrl["CmbFleetMachineState"].Add_SelectionChanged({ Update-DomeniaFleetMachineList }) }
@@ -19000,6 +19067,7 @@ function Wire-Events {
     }
     Update-DomeniaOuRefreshUi
     try { Initialize-DomeniaCollectionLimitsUi } catch { Write-AppLog ('Réglages des relevés indisponibles : ' + $_.Exception.Message) 'WARN' }
+    Write-DomeniaStartupSplit -Name 'Evenements/Releves par OU' -Watch $wireSplit
     if ($script:Ctrl.ContainsKey("BtnFleetOpenSearch")) { $script:Ctrl["BtnFleetOpenSearch"].Add_Click({ try { Show-DomeniaFleetAnalyzeSource } catch { Set-Status ('Rechercher indisponible : ' + $_.Exception.Message) 'WARN' } }) }
     # First steps (UX-20): each step opens its screen and starts nothing.
     foreach ($firstStep in @('Connection','Ou','Base','Dashboard')) {
@@ -19068,12 +19136,15 @@ function Wire-Events {
     ) {
         $script:Ctrl["TxtGlobalSearch"].Add_TextChanged({ Queue-LiveGlobalSearch })
     }
+    Write-DomeniaStartupSplit -Name 'Evenements/Accueil, droits et diagnostic' -Watch $wireSplit
     [void](Register-DomeniaContextMenus)
+    Write-DomeniaStartupSplit -Name 'Evenements/Menus contextuels' -Watch $wireSplit
     Register-DomeniaDeferredViewHandlers
     [void](Register-DomeniaShortcuts)
     # Points 102 to 110: the Audit AD and Assistance tools load their own view at the first opening of their tab.
     try { Register-DomeniaAdAuditTool } catch { Write-AppLog ('Audit AD non raccordé : ' + $_.Exception.Message) 'ERROR' }
     try { Register-DomeniaAssistanceTool } catch { Write-AppLog ('Assistance non raccordée : ' + $_.Exception.Message) 'ERROR' }
+    Write-DomeniaStartupSplit -Name 'Evenements/Raccourcis et outils a la demande' -Watch $wireSplit
 }
 
 
@@ -19462,6 +19533,86 @@ function Write-StartupTrace {
     catch { Write-DomeniaSwallowed 'Core' 'Write-StartupTrace' $_ }
 }
 
+function Get-DomeniaLaunchElapsedMs {
+    # R40 (startup time): milliseconds since the start of this PowerShell process, read on the process stopwatch from the
+    # launch clock of Domenia-Start.ps1 (or of the core started directly). The wall clock of a busy virtual machine drifts
+    # during the start (lab VM, 20/10/2026: up to 30 % against the host), the stopwatch does not. -1: clock unknown.
+    param([long]$Timestamp = 0)
+    $clock = $script:DomeniaLaunchClock
+    if ($null -eq $clock) { return [long]-1 }
+    if ($Timestamp -le 0) { $Timestamp = [Diagnostics.Stopwatch]::GetTimestamp() }
+    return [long]([long]$clock.ProcessAgeMs + ((($Timestamp - [long]$clock.Timestamp) * 1000) / [Diagnostics.Stopwatch]::Frequency))
+}
+
+function Format-DomeniaLaunchElapsed {
+    # Text of a launch elapsed time for the startup trace (seconds, one decimal, invariant culture).
+    param([long]$ElapsedMs)
+    if ($ElapsedMs -lt 0) { return 'horloge du lancement indisponible' }
+    return ('T+' + ([double]$ElapsedMs / 1000).ToString('0.0',[Globalization.CultureInfo]::InvariantCulture) + ' s depuis le demarrage de PowerShell')
+}
+
+function Add-DomeniaStartupMark {
+    # R40: one startup sub-step measured before Domenia-startup.log can be written (configuration and data folder not yet
+    # read). Write-DomeniaStartupMarks writes them in order as Detail/Demarrage/<name>. A negative duration is not measured.
+    param([Parameter(Mandatory=$true)][string]$Name,[long]$DurationMs = 0,[string]$Detail = '')
+    if ($null -eq $script:DomeniaStartupMarks) { $script:DomeniaStartupMarks = New-Object 'System.Collections.Generic.List[object]' }
+    $script:DomeniaStartupMarks.Add([pscustomobject]@{ Name = $Name; DurationMs = $DurationMs; Detail = $Detail })
+}
+
+function Write-DomeniaStartupMarks {
+    # Writes the sub-steps kept by Add-DomeniaStartupMark, once the startup trace is available. A trace failure never
+    # stops the start (Write-StartupTrace keeps its own guard).
+    if ($null -eq $script:DomeniaStartupMarks) { return }
+    foreach ($mark in @($script:DomeniaStartupMarks.ToArray())) {
+        $duration = [long]$mark.DurationMs
+        $detail = [string]$mark.Detail
+        $status = 'OK'
+        if ($duration -lt 0) { $status = 'INFO'; $duration = 0; $detail = (@('non mesure',$detail) | Where-Object { $_ }) -join ' ; ' }
+        Write-StartupTrace -Stage ('Detail/Demarrage/' + [string]$mark.Name) -Status $status -DurationMs $duration -Detail $detail
+    }
+    $script:DomeniaStartupMarks.Clear()
+}
+
+function Get-DomeniaStartupMilestoneGap {
+    # Text of the time elapsed between an earlier milestone of this session and ElapsedMs; '' when that milestone is unknown.
+    param([Parameter(Mandatory=$true)][string]$Since,[long]$ElapsedMs)
+    if (($null -eq $script:DomeniaStartupMilestones) -or (-not $script:DomeniaStartupMilestones.ContainsKey($Since))) { return '' }
+    $from = [long]$script:DomeniaStartupMilestones[$Since]
+    if (($from -lt 0) -or ($ElapsedMs -lt 0) -or ($ElapsedMs -lt $from)) { return '' }
+    return (([double]($ElapsedMs - $from) / 1000).ToString('0.0',[Globalization.CultureInfo]::InvariantCulture) + ' s apres ' + $Since)
+}
+
+function Write-DomeniaStartupMilestone {
+    # R40 (startup time): Jalon/<name> in Domenia-startup.log, the elapsed time since the start of the PowerShell process
+    # (DurationMs column and T+ text) on the process stopwatch. Written once per name and session; -Repeat writes every
+    # occurrence (a new connection attempt). -Since adds the time elapsed since an earlier milestone. Writes nothing to the
+    # pipeline. Measurement only: nothing waits on it and a trace failure never stops the start.
+    param([Parameter(Mandatory=$true)][string]$Name,[string]$Detail = '',[string[]]$Since = @(),[switch]$Repeat)
+    if ($null -eq $script:DomeniaStartupMilestones) { $script:DomeniaStartupMilestones = @{} }
+    if ((-not $Repeat) -and $script:DomeniaStartupMilestones.ContainsKey($Name)) { return }
+    $elapsed = Get-DomeniaLaunchElapsedMs
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    $parts.Add((Format-DomeniaLaunchElapsed -ElapsedMs $elapsed))
+    foreach ($earlier in @($Since)) {
+        if ([string]::IsNullOrWhiteSpace([string]$earlier)) { continue }
+        $gap = Get-DomeniaStartupMilestoneGap -Since ([string]$earlier) -ElapsedMs $elapsed
+        if ($gap) { $parts.Add($gap) }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) { $parts.Add($Detail) }
+    $script:DomeniaStartupMilestones[$Name] = $elapsed
+    Write-StartupTrace -Stage ('Jalon/' + $Name) -Status 'OK' -DurationMs ([Math]::Max([long]0,[long]$elapsed)) -Detail ($parts.ToArray() -join ' ; ')
+}
+
+function Write-DomeniaStartupTimings {
+    # R40: sub-step durations measured by a step without a trace of its own (the main XAML conversion), as an ordered
+    # table name -> milliseconds, written as Detail/<Prefix>/<name> lines of the startup trace.
+    param([Parameter(Mandatory=$true)][string]$Prefix,$Timings)
+    if ($null -eq $Timings) { return }
+    foreach ($key in @($Timings.Keys)) {
+        Write-StartupTrace -Stage ('Detail/' + $Prefix + '/' + [string]$key) -Status 'OK' -DurationMs ([long]$Timings[$key])
+    }
+}
+
 function Get-DomeniaStartupXaml {
     return (Convert-DomeniaXamlToBootTheme -Xaml @"
 <Window Foreground="{DynamicResource DomeniaBootText}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -19546,7 +19697,12 @@ function Set-DomeniaStartupStage {
             $script:StartupCtrl.Detail.ScrollToEnd()
         }
         if ($null -ne $script:LoginAuthStarted) { $script:StartupCtrl.Elapsed.Text = "$([int]((Get-Date)-$script:LoginAuthStarted).TotalSeconds) s" }
+        # R40 (startup time): DoEvents also runs the work already queued on the thread (worker answers, timers). Its total
+        # is written at the end of Initialize-Window (Detail/Ouverture/Travaux en file pendant le moniteur).
+        $pumpWatch = [System.Diagnostics.Stopwatch]::StartNew()
         [System.Windows.Forms.Application]::DoEvents()
+        $script:DomeniaStartupPumpMs = [long]$script:DomeniaStartupPumpMs + [long]$pumpWatch.ElapsedMilliseconds
+        $script:DomeniaStartupPumpCount = [int]$script:DomeniaStartupPumpCount + 1
     }
     catch { Write-DomeniaSwallowed 'Core' 'Set-DomeniaStartupStage' $_ }
 }
@@ -19578,6 +19734,59 @@ function Invoke-DomeniaStartupStage {
         Write-StartupTrace -Stage $Stage -Status "ERROR" -Detail $detail -DurationMs $sw.ElapsedMilliseconds
         throw
     }
+}
+
+function Register-DomeniaDeferredStartupStep {
+    # R40 (startup time): a startup step of a page that is not on the first screen. Start-DomeniaDeferredStartup runs it
+    # right after the main window has painted Accueil (ContentRendered), at Loaded priority: WPF runs it before any input
+    # of the operator, so no page can be reached before it is ready, but the window is already on screen.
+    param([Parameter(Mandatory=$true)][string]$Stage,[Parameter(Mandatory=$true)][scriptblock]$Action)
+    if ($null -eq $script:DomeniaDeferredStartup) { $script:DomeniaDeferredStartup = New-Object 'System.Collections.Generic.Queue[object]' }
+    $script:DomeniaDeferredStartup.Enqueue([pscustomobject]@{ Stage = $Stage; Action = $Action })
+    Write-StartupTrace -Stage $Stage -Status 'INFO' -Detail 'Differe apres le premier affichage de l Accueil (avant toute saisie).'
+}
+
+function Invoke-DomeniaNextDeferredStartupStep {
+    # One deferred step per dispatcher operation, in registration order. A closed window skips the rest. A failure no
+    # longer stops an opening already shown: it is traced, logged and announced like any other display failure.
+    if (($null -eq $script:DomeniaDeferredStartup) -or ($script:DomeniaDeferredStartup.Count -eq 0)) { return }
+    $step = $script:DomeniaDeferredStartup.Dequeue()
+    $stage = 'Apres affichage/' + [string]$step.Stage
+    if (($null -eq $script:Window) -or [bool]$script:AsyncEngineClosing -or (-not [bool]$script:Window.IsVisible)) {
+        Write-StartupTrace -Stage $stage -Status 'CANCEL' -Detail 'Fenetre principale fermee avant cette etape.'
+        return
+    }
+    $stepWatch = [System.Diagnostics.Stopwatch]::StartNew()
+    Write-StartupTrace -Stage $stage -Status 'START'
+    try {
+        & $step.Action | Out-Null
+        $stepWatch.Stop()
+        Write-StartupTrace -Stage $stage -Status 'OK' -DurationMs $stepWatch.ElapsedMilliseconds
+    }
+    catch {
+        $stepWatch.Stop()
+        $fault = $_
+        Write-StartupTrace -Stage $stage -Status 'ERROR' -DurationMs $stepWatch.ElapsedMilliseconds -Detail $fault.Exception.ToString()
+        try { Write-AppLog ('Etape de demarrage apres affichage en echec (' + [string]$step.Stage + ') : ' + $fault.Exception.Message) 'ERROR' } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaNextDeferredStartupStep' $_ }
+        try { [void](Invoke-DomeniaDispatcherFault -Exception $fault.Exception) } catch { Write-DomeniaSwallowed 'Core' 'Invoke-DomeniaNextDeferredStartupStep' $_ }
+    }
+}
+
+function Start-DomeniaDeferredStartup {
+    # Called once, by the ContentRendered of the main window: one Loaded-priority operation per deferred step, then the
+    # milestone « Accueil disponible » once the thread is idle (ApplicationIdle, after the startup work queued by Accueil).
+    if ($null -eq $script:Window) { return }
+    $dispatcher = $script:Window.Dispatcher
+    $count = 0
+    if ($null -ne $script:DomeniaDeferredStartup) { $count = [int]$script:DomeniaDeferredStartup.Count }
+    for ($index = 0; $index -lt $count; $index++) {
+        [void]$dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::Loaded,[Action]{ Invoke-DomeniaNextDeferredStartupStep })
+    }
+}
+
+function Complete-DomeniaStartupAvailability {
+    # R40: first idle moment of the UI thread after the opening (deferred steps and startup work queued by Accueil done).
+    Write-DomeniaStartupMilestone -Name 'Accueil disponible' -Since @('Clic de connexion','Accueil affiche') -Detail 'premier moment ou le fil de l interface est libre'
 }
 
 $script:DomeniaDatabaseReady = $false
@@ -22290,7 +22499,16 @@ function Initialize-DomeniaPresentation {
 
     try {
         Load-DomeniaTheme | Out-Null
-        Apply-DomeniaTheme -Theme $script:CurrentTheme
+        # R40 (startup time): Load-XamlWindow already painted this window with the theme of the login. The same theme,
+        # with the same high contrast state of Windows, is not painted a second time (0.9 to 1.4 s on the lab VM): only
+        # the theme button is brought up to date. Any difference paints the theme as before.
+        $painted = $script:DomeniaStartupPaintedTheme
+        $script:DomeniaStartupPaintedTheme = $null
+        $highContrast = $false
+        try { $highContrast = [bool][Windows.SystemParameters]::HighContrast } catch { $highContrast = (-not [bool]$painted.HighContrast) }
+        $samePaint = (($null -ne $painted) -and [object]::ReferenceEquals($painted.Window,$script:Window) -and ([string]$painted.Theme -ceq [string]$script:CurrentTheme) -and ([bool]$painted.HighContrast -eq $highContrast) -and ((-not $highContrast) -or ([string]$painted.SystemColors -ceq [string](Get-DomeniaSystemColorSignature))))
+        if ($samePaint) { Update-DomeniaUxThemeToggle }
+        else { Apply-DomeniaTheme -Theme $script:CurrentTheme }
     }
     catch { try { Write-AppLog "Theme : $($_.Exception.Message)" "WARN" } catch { Write-DomeniaSwallowed 'Core' 'Initialize-DomeniaPresentation' $_ } }
     Write-DomeniaStartupSplit -Name 'Presentation/Theme' -Watch $split
@@ -24525,8 +24743,15 @@ function Initialize-Window {
     }
     $script:LoginAuthStarted = Get-Date
     $script:StartupCancelled = $false
+    # R40 (startup time): the startup monitor is built before the first stage (untraced 1.8 s on the lab VM); the work run
+    # by its DoEvents is totalled from here; the deferred steps of this opening start from an empty queue.
+    $script:DomeniaStartupPumpMs = 0L
+    $script:DomeniaStartupPumpCount = 0
+    $script:DomeniaDeferredStartup = $null
+    $monitorWatch = [Diagnostics.Stopwatch]::StartNew()
     Initialize-DomeniaDataStore | Out-Null
     New-DomeniaStartupWindow
+    Write-DomeniaStartupSplit -Name 'Ouverture/Moniteur de demarrage' -Watch $monitorWatch
     try {
         # Resolve persisted database choices before any window, event or worker can cache the default path.
         Invoke-DomeniaStartupStage 'Préférences persistantes' { [void](Load-DomeniaSettings) } | Out-Null
@@ -24562,10 +24787,14 @@ function Initialize-Window {
                 return
             }
             $dbBoot.Stop()
+            # R40 (startup time): schema check of the local base on the UI thread, then the request of the associations.
+            Write-StartupTrace -Stage 'Detail/Base/Schema SQLite' -Status 'OK' -DurationMs $dbBoot.ElapsedMilliseconds
             Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail ("SQLite pret en " + $dbBoot.ElapsedMilliseconds + " ms")
+            $dbBoot.Restart()
             # FI-19: the content is read off the Dispatcher by the LocalIndexRead worker. The associations are asked now,
             # the figures of the base once the window is painted (ContentRendered), followed by the startup notices.
             Request-DomeniaUserMachineLinks
+            Write-DomeniaStartupSplit -Name 'Base/Demande des associations' -Watch $dbBoot
             Set-DomeniaStartupStage -Stage "Base autonome DOMENIA" -Detail 'Associations et état de la base : lecture en arrière-plan.'
         } | Out-Null
         Invoke-DomeniaStartupStage "Etat initial de securite" {
@@ -24590,17 +24819,24 @@ function Initialize-Window {
             Set-DomeniaStartupStage -Stage "Etat initial de securite" -Detail "Presentation prete."
         } | Out-Null
         # Preferences are loaded and presentation controls exist: populate storage controls and start its timer.
-        Invoke-DomeniaStartupStage 'Réglages du stockage local' {Initialize-DomeniaStoragePolicy} | Out-Null
+        # R40 (startup time): Outils > Base autonome > Stockage is not on the first screen (2.5 to 8.7 s on the lab VM):
+        # filled right after Accueil is painted, before any input (Start-DomeniaDeferredStartup). Its backup timer has a
+        # 60 s period: its first check is not moved.
+        Register-DomeniaDeferredStartupStep -Stage 'Réglages du stockage local' -Action {Initialize-DomeniaStoragePolicy}
         # D002/C2: after the presentation (which sets the session badge), the demonstration banner and the
         # write lock are applied; they stay for the whole session.
         if ([bool]$script:DemoMode) { Invoke-DomeniaStartupStage "Mode demonstration" { Set-DomeniaDemoShellPresentation } | Out-Null }
         Invoke-DomeniaStartupStage "Prechargement cache AD" { Invoke-DomeniaStartupCacheWarmup } | Out-Null
-        Invoke-DomeniaStartupStage "Preparation arbre AD" {
-            if($null -ne $script:StorageMaintenance -and $script:StorageMaintenance.Locked){
+        if(($null -ne $script:StorageMaintenance) -and [bool]$script:StorageMaintenance.Locked){
+            Invoke-DomeniaStartupStage "Preparation arbre AD" {
                 if([string]$script:StorageMaintenance.Id -ceq 'recovery-unreadable'){Set-Status 'Base locale illisible : restaurez une sauvegarde vérifiée dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
                 else{Set-Status 'Bascule locale à reprendre dans Outils > Base autonome > Stockage. Les collectes sont suspendues.' 'WARN'}
-            }else{Load-TreeRoot;Update-Dashboard}
-        } | Out-Null
+            } | Out-Null
+        }else{
+            # R40 (startup time): the tree belongs to Rechercher. Its WPF types (compiled at first use) and its first
+            # directory read start right after Accueil is painted, before any input (1.2 to 3.1 s on the lab VM).
+            Register-DomeniaDeferredStartupStep -Stage 'Preparation arbre AD' -Action {Load-TreeRoot;Update-Dashboard}
+        }
         Invoke-DomeniaStartupStage "Barriere de disponibilite" { Assert-DomeniaStartupReadiness } | Out-Null
         # D020: Activated, Deactivated, StateChanged and the page selector drive the idle policy (C1).
         try { Initialize-DomeniaIdlePolicy -Window $script:Window } catch { Write-AppLog ("Politique de repos non initialisee : " + $_.Exception.Message) "WARN" }
@@ -24654,7 +24890,12 @@ function Initialize-Window {
             try{$script:Conn.Credential=$null}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
             try{Stop-DomeniaLoginAuth}catch{Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_}
         })
+        # R40 (startup time): the main window has done its first layout (Loaded), then painted Accueil (ContentRendered).
+        $script:Window.Add_Loaded({ try { Write-DomeniaStartupMilestone -Name 'Fenetre principale chargee' -Since @('Clic de connexion') } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ } })
         $script:Window.Add_ContentRendered({
+            try { Write-DomeniaStartupMilestone -Name 'Accueil affiche' -Since @('Clic de connexion','Connexion affichee') } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
+            # Steps of pages not on the first screen, before any input (Register-DomeniaDeferredStartupStep).
+            try { Start-DomeniaDeferredStartup } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
             try{
                 if ([bool]$script:DemoMode) { Set-Status ("Prêt. " + (Get-DomeniaDemoBannerText) + ".") "WARN" }
                 else { Set-Status "Pret. Connexion validee, mode lecture seule actif." }
@@ -24683,8 +24924,11 @@ function Initialize-Window {
                         try { Add-DomeniaUiLog -Area "Demarrage" -Text "Politique V10.22 : aucune operation longue AD/reseau n'est lancee automatiquement ; recherche globale verifie toujours LDAP ; comptes editables sans reset." } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
                     })
             }catch{Write-AppLog "Amorcage differe de l index impossible : $($_.Exception.Message)" "WARN"}
+            # R40: queued last, so it runs once the work above is done (milestone « Accueil disponible »).
+            try { [void]$script:Window.Dispatcher.BeginInvoke([System.Windows.Threading.DispatcherPriority]::ApplicationIdle,[Action]{ Complete-DomeniaStartupAvailability }) } catch { Write-DomeniaSwallowed 'Core' 'Initialize-Window' $_ }
         })
         if (-not $script:StartupReady) { throw "La fenetre principale ne peut pas etre affichee : barriere de disponibilite non validee." }
+        Write-StartupTrace -Stage 'Detail/Ouverture/Travaux en file pendant le moniteur' -Status 'OK' -DurationMs ([long]$script:DomeniaStartupPumpMs) -Detail ([string]$script:DomeniaStartupPumpCount + ' passage(s) DoEvents du moniteur ; duree deja comprise dans les etapes ci-dessus')
         Write-StartupTrace -Stage "Initialisation" -Status "OK" -Detail "Fenetre principale prete ; moteur asynchrone valide et cache initial facultatif"
     }
     catch {
@@ -24767,6 +25011,15 @@ function Write-DomeniaFastLoginLog {
     }
     catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaFastLoginLog' $_ }
     try { Write-StartupTrace -Stage "Login/$Stage" -Status $Status -Detail $Detail -DurationMs $DurationMs } catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaFastLoginLog' $_ }
+    # R40 (startup time): the moments of the connection are also milestones of the launch clock. The last click before a
+    # valid connection starts the time measured after the operator (Fenetre principale prete, Accueil affiche).
+    try {
+        switch -CaseSensitive ($Stage) {
+            'WINDOW_READY' { Write-DomeniaStartupMilestone -Name 'Connexion affichee' -Since @('Coeur pret') }
+            'CLICK' { Write-DomeniaStartupMilestone -Name 'Clic de connexion' -Since @('Connexion affichee') -Repeat }
+            'LOGIN_OK' { Write-DomeniaStartupMilestone -Name 'Connexion validee' -Since @('Clic de connexion') }
+        }
+    } catch { Write-DomeniaSwallowed 'Core' 'Write-DomeniaFastLoginLog' $_ }
 }
 
 function New-DomeniaFastLoginSession {
@@ -26053,16 +26306,36 @@ function Register-DomeniaSessionShownHook {
 
 # Main autoritaire
 try {
+    # R40 (startup time): the steps run before the startup trace can be written (configuration and data folder unknown)
+    # are measured on the process stopwatch and written after the line Application START (Detail/Demarrage/...).
+    $mainTimestamp = [Diagnostics.Stopwatch]::GetTimestamp()
+    if ($null -ne $script:DomeniaLaunchClock) {
+        $launchDetail = if ([string]$script:DomeniaLaunchClock.Source -eq 'Domenia-Start.ps1') { 'lanceur, powershell.exe et analyse de Domenia-Start.ps1 jusqu a sa premiere instruction (horloge Windows du processus)' } else { 'coeur lance sans Domenia-Start.ps1 : inclut son analyse (horloge Windows du processus)' }
+        Add-DomeniaStartupMark -Name 'Lancement de PowerShell' -DurationMs ([long]$script:DomeniaLaunchClock.ProcessAgeMs) -Detail $launchDetail
+    }
+    Add-DomeniaStartupMark -Name 'Analyse du coeur' -DurationMs ([long]$script:DomeniaCoreParseMs) -Detail 'Domenia-Core.ps1, apres le controle du paquet'
+    Add-DomeniaStartupMark -Name 'Definitions du coeur' -DurationMs ([long]((($mainTimestamp - [long]$script:DomeniaCoreTimestamp) * 1000) / [Diagnostics.Stopwatch]::Frequency)) -Detail 'fonctions, tables et assemblages WPF du coeur'
+    $bootSplit = [Diagnostics.Stopwatch]::StartNew()
     # Same validated definition-only entry point as the standalone package check.
     # Dot-sourcing here keeps the functions in this application script scope.
     . (Join-Path $PSScriptRoot 'Domenia-Modules.ps1')
+    Add-DomeniaStartupMark -Name 'Modules' -DurationMs $bootSplit.ElapsedMilliseconds -Detail ([string]@($script:DomeniaRuntimeImports).Count + ' modules du plan ferme')
+    if ($null -ne $script:DomeniaRuntimeImportTimings) {
+        foreach ($loaderStep in @($script:DomeniaRuntimeImportTimings.Keys)) { Add-DomeniaStartupMark -Name ('Modules/' + [string]$loaderStep) -DurationMs ([long]$script:DomeniaRuntimeImportTimings[$loaderStep]) }
+    }
+    $bootSplit.Restart()
     $script:WorkerCommon += "`r`n"+(Get-DomeniaReceiptsCommon)
     $script:WorkerCommon += "`r`n"+(Get-DomeniaWorkerRulesCommon)
+    Add-DomeniaStartupMark -Name 'Composition des workers' -DurationMs $bootSplit.ElapsedMilliseconds
     $script:ReceiptReady=$false;$script:ReceiptPending=0
+    $bootSplit.Restart()
     Load-AppConfig | Out-Null
     # C2 (D002): demonstration mode fixed once for the whole session, right after the configuration is read.
     [void](Initialize-DomeniaDemoMode)
+    Add-DomeniaStartupMark -Name 'Configuration' -DurationMs $bootSplit.ElapsedMilliseconds
+    $bootSplit.Restart()
     Initialize-DomeniaDataStore | Out-Null
+    Add-DomeniaStartupMark -Name 'Dossier des donnees' -DurationMs $bootSplit.ElapsedMilliseconds
     if ($DomeniaSelfTest) {
         $selfTestResult = Invoke-DomeniaSelfTest
         $selfTestJson = $selfTestResult | ConvertTo-Json -Depth 8
@@ -26084,7 +26357,9 @@ try {
         return
     }
     $script:StartupCorrelation = [guid]::NewGuid().ToString("N")
+    $bootSplit.Restart()
     [void](Invoke-DomeniaPreferenceMigration)
+    Add-DomeniaStartupMark -Name 'Migration des preferences' -DurationMs $bootSplit.ElapsedMilliseconds
     Write-StartupTrace -Stage 'Stockage/Mode' -Detail ($script:StorageLayout.Mode+' ; '+$script:StorageLayout.ModeSource+' ; '+$script:StorageLayout.DataRoot)
     foreach($notice in @($script:StorageLayout.Notices)){Write-StartupTrace -Stage 'Stockage/Mode' -Status 'WARN' -Detail $notice}
     foreach($category in @($script:StorageLayout.Categories)){Write-StartupTrace -Stage 'Stockage/Categorie' -Detail ($category.Category+' ; '+$category.State+' ; '+$category.Path)}
@@ -26107,6 +26382,8 @@ try {
     # PF-19: duration of the package integrity check made by Domenia-Start.ps1 before the core (absent when launched otherwise).
     $startIntegrity = Get-Variable -Name DomeniaStartIntegrity -ValueOnly -ErrorAction SilentlyContinue
     if ($null -ne $startIntegrity) { Write-StartupTrace -Stage "Integrite du paquet" -Status "OK" -DurationMs ([long]$startIntegrity.DurationMs) -Detail ("{0} fichiers runtime controles (plafond {1}), {2} composants requis." -f $startIntegrity.Files,$startIntegrity.Limit,$startIntegrity.Required) }
+    # R40: steps measured before the trace existed, then the first milestone of the launch clock.
+    try { Write-DomeniaStartupMarks; Write-DomeniaStartupMilestone -Name 'Coeur pret' } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     if ([bool]$script:DemoMode) { Write-StartupTrace -Stage "Demonstration" -Status "WARN" -Detail "Demo=True : annuaire fictif en memoire, aucune connexion AD, ecritures desactivees." }
     Write-DomeniaFastLoginLog -Stage "APPLICATION_START" -Detail "PID=$PID Script=$($script:LaunchPath) Root=$($script:RootDir)"
 
@@ -26139,6 +26416,7 @@ try {
     Initialize-Window
     if (-not $script:StartupReady) { throw "Initialisation incomplete : la fenetre principale reste masquee." }
     Write-StartupTrace -Stage "Apres login" -Status "OK" -Detail "Fenetre principale initialisee ; Domenia.db, cache initial et pool MTA valides"
+    try { Write-DomeniaStartupMilestone -Name 'Fenetre principale prete' -Since @('Clic de connexion','Connexion validee') } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     # The geometry may have been restored maximized after the activation choice: check again just before showing.
     try { [void](Set-DomeniaWindowActivationPolicy -Window $script:Window -UserSwitchedAway:(-not [bool]$script:Window.ShowActivated)) } catch { Write-DomeniaSwallowed 'Core' 'Domenia-Core.ps1' $_ }
     # FI-22: once the main window has rendered, a failure is an unexpected stop of a shown session.
