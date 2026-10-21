@@ -232,7 +232,7 @@
     "Apply-AutoTooltips": "3E8123486340D3A07A476CD448CEFCB23529E455CB8C1EFE0A05EB7913E0DBD6",
     "Select-DomeniaWorkspace": "1A6651E09D7BD0BB92DEC4EEA1B0AB75F4ECCBFAF68E6E18795DF081A8ED1E7A",
     "Get-DomeniaLandingView": "3E8FAE17A6951450DE761B288109AC7D7E68CA7540C281733F21D371CDE555EE",
-    "Set-VisibleTabsForType": "AD13948A3B4811AAB3ED318ED83BB9CAC622E2080BAE4E134BB3B6BB892CBE1C",
+    "Set-VisibleTabsForType": "B6D783C0ABC2FC7BC50B87451ADDEF63101C589B8F96E820F8E54DAD1C170D0A",
     "Assert-DomeniaWorkspaceSelection": "ABA88A3CF9388DA013A1612F45CFF38CF7B52023F58E79514F925C334CD3FF54",
     "Complete-DomeniaTreeChildrenUi": "3CB8FA261F2800E56DC956A375513E6658EB02F64FA1E91917CD5B6E1359E65C",
     "Fail-DomeniaTreeChildrenUi": "795A701E25E962D69385C37ABC52C2DBEE192AC2C3531C55DF305DFC9DE6829E",
@@ -5091,6 +5091,17 @@
       "ChangedPayloads": [
         "wad/modules/Domenia-Live.UI.ps1"
       ]
+    },
+    {
+      "Previous": ".",
+      "Source": ".",
+      "Decision": "Lot R40-userdiff (amelioration 6, par OpenCode DeepSeek V4.1 Free) : comparer les droits de deux utilisateurs depuis la fiche (groupes propres a chacun et communs, imbrication bornee avec cycles, groupe principal, chemin d appartenance par GroupPathRead existant, copie pour le ticket). Deux lectures AD bornees au clic, aucune nouvelle operation.",
+      "ChangedCoreFunctions": [
+        "Set-VisibleTabsForType"
+      ],
+      "AddedCoreFunctions": [],
+      "RemovedCoreFunctions": [],
+      "ChangedPayloads": []
     }
   ]
 }

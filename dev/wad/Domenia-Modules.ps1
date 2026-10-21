@@ -477,7 +477,10 @@ function Get-DomeniaRuntimeModulePlan {
             'ConvertTo-DomeniaMembershipEdges',
             'ConvertTo-DomeniaGroupPathEdges',
             'Get-DomeniaNestedMembershipRows',
-            'Get-DomeniaMembershipWhy'
+            'Get-DomeniaMembershipWhy',
+            'Get-DomeniaUserGroupAccessMap',
+            'Compare-DomeniaUserGroupAccess',
+            'Format-DomeniaUserAccessDiffTicket'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Common.Model.ps1','Domenia-Engine.Model.ps1','Domenia-Relations.Model.ps1','Domenia-Access.Model.ps1'); File='Domenia-Workstation.Model.ps1'; DotSource=$true; Functions=@(
             'ConvertTo-DomeniaWorkstationFactState',
@@ -2000,6 +2003,17 @@ function Get-DomeniaRuntimeModulePlan {
             'Fail-DomeniaMembershipPathRead',
             'Add-DomeniaNestedMembershipRows',
             'Format-DomeniaNestedMembershipSummary',
+            'Reset-DomeniaUserAccessDiff',
+            'Test-DomeniaUserAccessDiffCurrent',
+            'Start-DomeniaUserAccessDiff',
+            'Start-DomeniaUserAccessDiffRead',
+            'Start-DomeniaUserAccessDiffRight',
+            'Complete-DomeniaUserAccessDiffResolve',
+            'Complete-DomeniaUserAccessDiffLeft',
+            'Complete-DomeniaUserAccessDiffRight',
+            'Fail-DomeniaUserAccessDiff',
+            'Copy-DomeniaUserAccessDiffTicket',
+            'Register-DomeniaUserAccessDiffUi',
             'Register-DomeniaMembershipUi'
         ) }
         # Points 101 to 109 (Audit AD): pure rules, pinned read workers and the view of Outils > Audit AD. The nested

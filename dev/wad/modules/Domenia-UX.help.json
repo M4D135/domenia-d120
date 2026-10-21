@@ -1364,6 +1364,48 @@
     "Source": "X02"
   },
   {
+    "Name": "TabUserAccessDiff",
+    "Title": "Droits comparés",
+    "Text": "Compare les groupes de deux utilisateurs, y compris les groupes imbriqués et le groupe principal, pour expliquer pourquoi lʼun a accès et pas lʼautre. Lecture seule, à la demande.",
+    "Kind": "TabItem",
+    "Source": "R40"
+  },
+  {
+    "Name": "TxtAccessDiffOther",
+    "Title": "Second utilisateur",
+    "Text": "Identifiant court (sAMAccountName) ou DN du second utilisateur. Un identifiant est résolu dans la copie locale, sans requête AD ; un DN lance directement les lectures.",
+    "Kind": "TextBox",
+    "Source": "R40"
+  },
+  {
+    "Name": "BtnAccessDiffCompare",
+    "Title": "Comparer les droits",
+    "Text": "Lit les groupes des deux utilisateurs en deux lectures bornées (2 000 groupes, 16 niveaux et 10 secondes au plus chacune). Aucune écriture, aucun parcours du domaine.",
+    "Kind": "Button",
+    "Source": "R40"
+  },
+  {
+    "Name": "BtnAccessDiffCopy",
+    "Title": "Copier pour le ticket",
+    "Text": "Copie en texte brut le résultat affiché : groupes seulement chez lʼun, seulement chez lʼautre, communs, chemins et limites. Aucune donnée nʼest relue.",
+    "Kind": "Button",
+    "Source": "R40"
+  },
+  {
+    "Name": "LblAccessDiffStatus",
+    "Title": "État de la comparaison",
+    "Text": "Saisissez le second utilisateur, puis lancez la comparaison. Le résultat indique les groupes propres à chaque compte, les groupes communs, le chemin dʼappartenance et les limites de lecture.",
+    "Kind": "TextBlock",
+    "Source": "R40"
+  },
+  {
+    "Name": "DgAccessDiff",
+    "Title": "Groupes comparés",
+    "Text": "Groupes de chaque compte avec leur catégorie, le chemin dʼappartenance et les groupes à privilèges. Le DN complet est dans lʼinfobulle de la ligne. Affichage local, aucune requête AD.",
+    "Kind": "DataGrid",
+    "Source": "R40"
+  },
+  {
     "Name": "TabRaw",
     "Title": "Attributs",
     "Text": "Tous les attributs Active Directory de lʼobjet, consultables et modifiables.",

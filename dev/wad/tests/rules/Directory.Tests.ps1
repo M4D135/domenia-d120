@@ -223,3 +223,32 @@ Test-Case 'UI-06' 'Reponse GroupPathRead partagee avec l audit AD : aretes de l 
     Assert-Equal 1 $partial.Count;Assert-False $partial.ContainsKey($g1)
     Assert-Equal 0 (ConvertTo-DomeniaGroupPathEdges $null).Count 'Aucune reponse : aucune arete'
 }
+
+Test-Case 'R40' 'Groupes propres, communs, imbriques et groupe principal avec chemins' {
+    $alice='CN=Alice,OU=Support,DC=example,DC=invalid';$bob='CN=Bob,OU=Support,DC=example,DC=invalid'
+    $g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid';$g3='CN=GG-Compta,DC=example,DC=invalid';$gp='CN=Domain Users,CN=Users,DC=example,DC=invalid';$da='CN=Admins du domaine,CN=Users,DC=example,DC=invalid'
+    $left=[pscustomobject]@{Dn=$alice;StartParents=@($g1,$da);StartComplete=$true;Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g2)},[pscustomobject]@{Dn=$g2;Name='GG-RH';Parents=@()},[pscustomobject]@{Dn=$da;Name='Admins du domaine';Parents=@()});Unread=@();Truncated=$false;PrimaryGroup=[pscustomobject]@{Dn=$gp;Name='Domain Users';Sid='S-1-5-21-1-2-3-513';Error=''}}
+    $right=[pscustomobject]@{Dn=$bob;StartParents=@($g1);StartComplete=$true;Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g3)},[pscustomobject]@{Dn=$g3;Name='GG-Compta';Parents=@()});Unread=@();Truncated=$false;PrimaryGroup=[pscustomobject]@{Dn=$gp;Name='Domain Users';Sid='S-1-5-21-1-2-3-513';Error=''}}
+    $c=Compare-DomeniaUserGroupAccess -Left $left -Right $right -LeftDn $alice -RightDn $bob -LeftLabel 'Alice' -RightLabel 'Bob'
+    Assert-False $c.CanApply
+    Assert-Equal 2 $c.LeftOnly;Assert-Equal 1 $c.RightOnly;Assert-Equal 2 $c.Common;Assert-Equal 3 $c.Different
+    $onlyA=@($c.Rows|Where-Object{$_.Dn -eq $g2})[0];Assert-Equal 'Seulement chez Alice' $onlyA.Categorie;Assert-True ($onlyA.Chemin -match 'GG-Lyon → GG-RH')
+    $onlyB=@($c.Rows|Where-Object{$_.Dn -eq $g3})[0];Assert-Equal 'Seulement chez Bob' $onlyB.Categorie;Assert-True ($onlyB.Chemin -match 'GG-Lyon → GG-Compta')
+    $privileged=@($c.Rows|Where-Object{$_.Dn -eq $da})[0];Assert-True $privileged.Privilegie;Assert-Equal 'Oui' $privileged.Privilege;Assert-True ($privileged.Alerte.Length -gt 10)
+    $principal=@($c.Rows|Where-Object{$_.Dn -eq $gp})[0];Assert-True $principal.Principal;Assert-Equal 'Commun' $principal.Categorie;Assert-Equal 'Groupe principal' $principal.Origine
+    $ticket=Format-DomeniaUserAccessDiffTicket -Comparison $c -When '2026-01-01 10:00'
+    foreach($expected in @('Seulement chez Alice','Seulement chez Bob','Commun','GG-RH','Admins du domaine','Groupe principal','Lecture seule')){Assert-True ($ticket.Contains($expected)) ('Ticket sans : '+$expected)}
+}
+Test-Case 'R40' 'Cycles, profondeur et lectures incompletes ne deviennent pas une absence' {
+    $alice='CN=Alice,OU=Support,DC=example,DC=invalid';$g1='CN=GG-Lyon,DC=example,DC=invalid';$g2='CN=GG-RH,DC=example,DC=invalid'
+    $read=[pscustomobject]@{Dn=$alice;StartParents=@($g1);StartComplete=$true;Nodes=@([pscustomobject]@{Dn=$g1;Name='GG-Lyon';Parents=@($g2)},[pscustomobject]@{Dn=$g2;Name='GG-RH';Parents=@($g1)});Unread=@([pscustomobject]@{Dn='CN=GU,DC=autre,DC=invalid';Reason='Autre domaine : non lu'});Truncated=$false;PrimaryGroup=$null}
+    $map=Get-DomeniaUserGroupAccessMap -Read $read -ObjectDn $alice
+    Assert-Equal 2 $map.Groups.Count;Assert-Equal 1 $map.Cycles;Assert-Equal 1 $map.Unread;Assert-False $map.Truncated
+    $cut=Get-DomeniaUserGroupAccessMap -Read $read -ObjectDn $alice -MaxDepth 1
+    Assert-True $cut.Truncated;Assert-True $cut.Groups.ContainsKey($g1);Assert-False $cut.Groups.ContainsKey($g2)
+    $c=Compare-DomeniaUserGroupAccess -Left $read -Right $read -LeftDn $alice -RightDn $alice -LeftLabel 'Alice' -RightLabel 'Alice'
+    Assert-True ($c.Cycles -ge 1);Assert-True (($c.Limits -join ' ') -match 'non lu');Assert-True ($c.Summary -match 'non lu')
+    Assert-True (($c.Limits -join ' ') -match 'Groupe principal du premier compte non résolu')
+    $bounded=Compare-DomeniaUserGroupAccess -Left $read -Right $read -LeftDn $alice -RightDn $alice -MaxDepth 1
+    Assert-True $bounded.Truncated;Assert-True (($bounded.Limits -join ' ') -match 'Lecture bornée')
+}

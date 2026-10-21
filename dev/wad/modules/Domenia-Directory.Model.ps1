@@ -880,3 +880,195 @@ function Get-DomeniaMembershipWhy {
     if ($ServerAnswer -eq $false) { return [pscustomobject]@{Known=$true;NeedsRead=$false;Member=$false;Path=@();Text=('« ' + $object + ' » nʼest pas membre de « ' + $group + ' » pour ce compte de lecture.')} }
     return [pscustomobject]@{Known=$false;NeedsRead=$false;Member=$false;Path=@();Text=('Aucun chemin vers « ' + $group + ' » dans les groupes lus ; le groupe principal et les groupes dʼautres domaines ne sont pas couverts.')}
 }
+
+# ---------------------------------------------------------------- R40 comparing the group access of two users
+function Get-DomeniaUserGroupAccessMap {
+    # R40: the groups a user belongs to, direct or nested, from one GroupPathRead answer (StartParents and Nodes).
+    # Breadth-first over memberOf edges, bounded by depth and count; a loop back to an ancestor is counted, never walked.
+    # The primary group (primaryGroupID, absent from memberOf) is added as a direct group when the worker resolved it.
+    param($Read,[AllowEmptyString()][string]$ObjectDn='',[ValidateRange(1,64)][int]$MaxDepth=16,[ValidateRange(1,100000)][int]$MaxGroups=5000)
+    $comparer = [StringComparer]::OrdinalIgnoreCase
+    $groups = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    $edges = ConvertTo-DomeniaGroupPathEdges $Read
+    $pathEdges = @{}
+    if ($null -ne $edges) { foreach ($key in @($edges.Keys)) { $pathEdges[[string]$key] = @($edges[[string]$key]) } }
+    if (-not $ObjectDn) { $ObjectDn = [string](Get-DomeniaMember $Read 'Dn' '') }
+    $primary = Get-DomeniaMember $Read 'PrimaryGroup' $null
+    $primaryDn = [string](Get-DomeniaMember $primary 'Dn' '')
+    # The path lookup sees the primary group as a direct edge of the user, as AD does.
+    if ($primaryDn) {
+        $startParents = @()
+        if ($pathEdges.ContainsKey($ObjectDn)) { $startParents = @($pathEdges[$ObjectDn]) }
+        $known = $false
+        foreach ($parent in $startParents) { if ($comparer.Equals([string]$parent,$primaryDn)) { $known = $true; break } }
+        if (-not $known) { $startParents = @($startParents) + @($primaryDn) }
+        $pathEdges[$ObjectDn] = @($startParents)
+    }
+    $metadata = New-Object 'System.Collections.Generic.Dictionary[string,object]' $comparer
+    foreach ($node in @(Get-DomeniaMember $Read 'Nodes' @())) {
+        if ($null -eq $node) { continue }
+        $dn = [string](Get-DomeniaMember $node 'Dn' '')
+        if ($dn) { $metadata[$dn] = $node }
+    }
+    if ($primaryDn -and (-not $metadata.ContainsKey($primaryDn))) {
+        $metadata[$primaryDn] = [pscustomobject]@{Dn=$primaryDn;Name=[string](Get-DomeniaMember $primary 'Name' '');Sid=[string](Get-DomeniaMember $primary 'Sid' '');AdminCount='';Primary=$true}
+    }
+    $visited = New-Object 'System.Collections.Generic.HashSet[string]' $comparer
+    $parentOf = New-Object 'System.Collections.Generic.Dictionary[string,string]' $comparer
+    $queue = New-Object 'System.Collections.Generic.Queue[object]'
+    if ($ObjectDn) { [void]$visited.Add($ObjectDn); $queue.Enqueue([pscustomobject]@{Dn=$ObjectDn;Depth=0}) }
+    $cycles = 0
+    $bounded = $false
+    while ($queue.Count -gt 0) {
+        $current = $queue.Dequeue()
+        $currentDn = [string](Get-DomeniaMember $current 'Dn' '')
+        $currentDepth = [int](Get-DomeniaMember $current 'Depth' 0)
+        if (-not $currentDn -or -not $pathEdges.ContainsKey($currentDn)) { continue }
+        foreach ($parent in @($pathEdges[$currentDn])) {
+            $name = [string]$parent
+            if (-not $name) { continue }
+            # A parent already on the chain back to the user closes a loop (self-loop included).
+            $cursor = $currentDn; $loop = $false; $guard = 0
+            while ($cursor -and ($guard -le $MaxDepth)) {
+                if ($comparer.Equals($cursor,$name)) { $loop = $true; break }
+                if ($parentOf.ContainsKey($cursor)) { $cursor = [string]$parentOf[$cursor] } else { $cursor = '' }
+                $guard++
+            }
+            if ($loop) { $cycles++; continue }
+            $nextDepth = $currentDepth + 1
+            if ($nextDepth -gt $MaxDepth) { $bounded = $true; continue }
+            if ($visited.Contains($name)) { continue }
+            if (($visited.Count - 1) -ge $MaxGroups) { $bounded = $true; continue }
+            [void]$visited.Add($name)
+            $parentOf[$name] = $currentDn
+            $info = $null
+            if ($metadata.ContainsKey($name)) { $info = $metadata[$name] }
+            $label = ''; $sid = ''; $admin = ''
+            if ($null -ne $info) {
+                $label = [string](Get-DomeniaMember $info 'Name' '')
+                $sid = [string](Get-DomeniaMember $info 'Sid' '')
+                $admin = [string](Get-DomeniaMember $info 'AdminCount' '')
+            }
+            if (-not $label) { $label = Get-DomeniaDnDisplayName $name }
+            $groups[$name] = [pscustomobject]@{Dn=$name;Name=$label;Sid=$sid;AdminCount=$admin;Depth=$nextDepth;Primary=$false}
+            $queue.Enqueue([pscustomobject]@{Dn=$name;Depth=$nextDepth})
+        }
+    }
+    if ($primaryDn -and $groups.ContainsKey($primaryDn)) { $groups[$primaryDn].Primary = $true }
+    $truncated = ([bool](Get-DomeniaMember $Read 'Truncated' $false) -or (-not [bool](Get-DomeniaMember $Read 'StartComplete' $true)) -or $bounded)
+    return [pscustomobject]@{
+        ObjectDn=$ObjectDn;Groups=$groups;PathEdges=$pathEdges;Cycles=$cycles;Truncated=$truncated
+        Unread=@(Get-DomeniaMember $Read 'Unread' @()).Count;PrimaryDn=$primaryDn
+        PrimaryKnown=[bool]$primaryDn;PrimaryError=[string](Get-DomeniaMember $primary 'Error' '')
+    }
+}
+
+function Compare-DomeniaUserGroupAccess {
+    # R40: differences between the group access of two users, from their GroupPathRead answers. Every row carries the
+    # category (only one side, common), the path from the side where the group exists and its privileges. Read-only:
+    # nothing is applied, and a bounded read never turns into a false "not a member".
+    param($Left,$Right,[AllowEmptyString()][string]$LeftDn='',[AllowEmptyString()][string]$RightDn='',
+        [AllowEmptyString()][string]$LeftLabel='A',[AllowEmptyString()][string]$RightLabel='B',
+        [ValidateRange(1,64)][int]$MaxDepth=16,[ValidateRange(1,100000)][int]$MaxGroups=5000)
+    $leftMap = Get-DomeniaUserGroupAccessMap -Read $Left -ObjectDn $LeftDn -MaxDepth $MaxDepth -MaxGroups $MaxGroups
+    $rightMap = Get-DomeniaUserGroupAccessMap -Read $Right -ObjectDn $RightDn -MaxDepth $MaxDepth -MaxGroups $MaxGroups
+    $leftDn = $leftMap.ObjectDn
+    $rightDn = $rightMap.ObjectDn
+    $all = @{}
+    foreach ($key in @($leftMap.Groups.Keys)) { $all[[string]$key] = $true }
+    foreach ($key in @($rightMap.Groups.Keys)) { $all[[string]$key] = $true }
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $leftOnly = 0; $rightOnly = 0; $common = 0
+    $leftName = Get-DomeniaDnDisplayName $leftDn
+    $rightName = Get-DomeniaDnDisplayName $rightDn
+    if (-not $LeftLabel) { $LeftLabel = $leftName }
+    if (-not $RightLabel) { $RightLabel = $rightName }
+    foreach ($key in @($all.Keys)) {
+        $inLeft = $leftMap.Groups.ContainsKey([string]$key)
+        $inRight = $rightMap.Groups.ContainsKey([string]$key)
+        $info = $null
+        if ($inLeft) { $info = $leftMap.Groups[[string]$key] } else { $info = $rightMap.Groups[[string]$key] }
+        $category = 'Commun'
+        $order = 2
+        if ($inLeft -and (-not $inRight)) { $category = 'Seulement chez ' + $LeftLabel; $order = 0; $leftOnly++ }
+        elseif ($inRight -and (-not $inLeft)) { $category = 'Seulement chez ' + $RightLabel; $order = 1; $rightOnly++ }
+        else { $common++ }
+        $pathNames = @()
+        $pathSide = ''
+        if ($inLeft) {
+            $found = Find-DomeniaMembershipPath -Edges $leftMap.PathEdges -Start $leftDn -Target ([string]$info.Dn) -MaxDepth $MaxDepth -MaxNodes $MaxGroups
+            if ([bool]$found.Found) { $pathNames = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName ([string]$_) }); $pathSide = $LeftLabel }
+        }
+        if ((-not $pathNames.Count) -and $inRight) {
+            $found = Find-DomeniaMembershipPath -Edges $rightMap.PathEdges -Start $rightDn -Target ([string]$info.Dn) -MaxDepth $MaxDepth -MaxNodes $MaxGroups
+            if ([bool]$found.Found) { $pathNames = @($found.Path | ForEach-Object { Get-DomeniaDnDisplayName ([string]$_) }); $pathSide = $RightLabel }
+        }
+        if ((-not $pathNames.Count) -and [bool]$info.Primary) {
+            $sideDn = $rightDn
+            if ($inLeft) { $sideDn = $leftDn }
+            $pathNames = @((Get-DomeniaDnDisplayName $sideDn), [string]$info.Name)
+            $pathSide = $RightLabel
+            if ($inLeft) { $pathSide = $LeftLabel }
+        }
+        $privileged = Test-DomeniaPrivilegedGroup ([pscustomobject]@{Name=[string]$info.Name;Sid=[string]$info.Sid;AdminCount=[string]$info.AdminCount})
+        $privilegeText = ''
+        if ($privileged) { $privilegeText = 'Oui' }
+        $alert = ''
+        if ($privileged) {
+            if ($category -eq 'Commun') { $alert = 'Groupe à privilèges, commun aux deux comptes.' }
+            else { $alert = 'Groupe à privilèges : vérifier lʼécart avant toute attribution.' }
+        }
+        $origin = 'memberOf'
+        if ([bool]$info.Primary) { $origin = 'Groupe principal' }
+        $rows.Add([pscustomobject]@{
+            Groupe=[string]$info.Name;Dn=[string]$info.Dn;Categorie=$category;Origine=$origin
+            Chemin=($pathNames -join ' → ');Profondeur=[int]$info.Depth;Principal=[bool]$info.Primary;Privilegie=$privileged;Privilege=$privilegeText;Alerte=$alert
+            Ordre=$order;Cote=$pathSide
+        })
+    }
+    $sorted = @($rows | Sort-Object Ordre, @{Expression={if ([bool]$_.Principal) { 0 } else { 1 }}}, Groupe)
+    $limits = New-Object 'System.Collections.Generic.List[string]'
+    if ($leftMap.Truncated -or $rightMap.Truncated) { $limits.Add('Lecture bornée (2 000 groupes, 16 niveaux ou 10 s) pour au moins un compte : la comparaison peut être incomplète.') }
+    $unread = [int]$leftMap.Unread + [int]$rightMap.Unread
+    if ($unread -gt 0) { $limits.Add([string]$unread + ' groupe(s) non lu(s) pendant les lectures : leur contenu nʼest pas comparé.') }
+    if (-not $leftMap.PrimaryKnown) { $limits.Add('Groupe principal du premier compte non résolu : il peut manquer dans la comparaison.') }
+    if (-not $rightMap.PrimaryKnown) { $limits.Add('Groupe principal du second compte non résolu : il peut manquer dans la comparaison.') }
+    $note = 'Lecture seule : aucune différence nʼest appliquée. Le groupe principal est inclus ; les groupes dʼautres domaines non lus ne le sont pas.'
+    $summary = [string]$leftOnly + ' groupe(s) seulement chez ' + $LeftLabel + ', ' + [string]$rightOnly + ' seulement chez ' + $RightLabel + ', ' + [string]$common + ' commun(s).'
+    if ($limits.Count -gt 0) { $summary = $summary + ' ' + ($limits.ToArray() -join ' ') }
+    return [pscustomobject]@{
+        Rows=$sorted;LeftOnly=$leftOnly;RightOnly=$rightOnly;Common=$common;Different=($leftOnly + $rightOnly)
+        LeftLabel=$LeftLabel;RightLabel=$RightLabel;LeftDn=$leftDn;RightDn=$rightDn;LeftName=$leftName;RightName=$rightName
+        Truncated=($leftMap.Truncated -or $rightMap.Truncated);Cycles=([int]$leftMap.Cycles + [int]$rightMap.Cycles);Unread=$unread
+        Summary=$summary;Limits=$limits.ToArray();Note=$note;CanApply=$false
+    }
+}
+
+function Format-DomeniaUserAccessDiffTicket {
+    # R40: plain text for a ticket from one comparison result. Repeats only what was read: no new request, no secret.
+    param([Parameter(Mandatory=$true)]$Comparison,[AllowEmptyString()][string]$When='')
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('Comparaison des droits AD (lecture seule)')
+    $lines.Add('Premier utilisateur (' + [string]$Comparison.LeftLabel + ') : ' + [string]$Comparison.LeftDn)
+    $lines.Add('Second utilisateur (' + [string]$Comparison.RightLabel + ') : ' + [string]$Comparison.RightDn)
+    if ($When) { $lines.Add('Comparaison : ' + $When) }
+    $lines.Add('')
+    foreach ($category in @(('Seulement chez ' + [string]$Comparison.LeftLabel), ('Seulement chez ' + [string]$Comparison.RightLabel), 'Commun')) {
+        $rows = @($Comparison.Rows | Where-Object { [string]$_.Categorie -eq $category })
+        $lines.Add($category + ' : ' + [string]$rows.Count)
+        foreach ($row in @($rows | Sort-Object Groupe)) {
+            $line = '- ' + [string]$row.Groupe
+            if ([bool]$row.Principal) { $line = $line + ' (groupe principal)' }
+            $line = $line + ' [' + [string]$row.Dn + ']'
+            if ([string]$row.Chemin) { $line = $line + ' — chemin : ' + [string]$row.Chemin }
+            if ([bool]$row.Privilegie) { $line = $line + ' — groupe à privilèges' }
+            $lines.Add($line)
+        }
+    }
+    $lines.Add('')
+    if ($null -ne $Comparison.Limits -and @($Comparison.Limits).Count -gt 0) {
+        foreach ($limit in @($Comparison.Limits)) { $lines.Add('Limite : ' + [string]$limit) }
+    }
+    $lines.Add([string]$Comparison.Note)
+    return ($lines.ToArray() -join [Environment]::NewLine)
+}
