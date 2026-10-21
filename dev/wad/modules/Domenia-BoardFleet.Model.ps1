@@ -939,3 +939,76 @@ function Get-DomeniaStaleTrendNote {
     if(-not $parts.Count){return ''}
     return (' ; '+($parts -join ', ')+' : ces jours ne se comparent pas directement')
 }
+
+function ConvertTo-DomeniaFleetLastView {
+    # R40 (cache-first Accueil): summary of an overview just computed, kept in a domain-scoped preference
+    # (Fleet.LastView.<64 hex>) so that the next start shows it, dated, before any new calculation. Counts of the
+    # active workstations, the scope key and the dated measure line only: no workstation name, no credential.
+    # Pure: returns the JSON the caller stores.
+    param(
+        [Parameter(Mandatory=$true)][string]$StoreId,
+        [Parameter(Mandatory=$true)][string]$ScopeKey,
+        [AllowEmptyString()][string]$ScopeName='',
+        [int]$Machines=-1,
+        [int]$Problems=-1,
+        [AllowEmptyString()][string]$ObservationsText='',
+        [datetime]$ComputedUtc=[datetime]::UtcNow
+    )
+    if ([string]::IsNullOrWhiteSpace($StoreId) -or [string]::IsNullOrWhiteSpace($ScopeKey)) { throw 'Vue du tableau de bord sans base ou sans périmètre.' }
+    $observations = ([string]$ObservationsText).Trim()
+    if ($observations.Length -gt 2000) { $observations = $observations.Substring(0,2000) }
+    $name = ([string]$ScopeName).Trim()
+    if ($name.Length -gt 256) { $name = $name.Substring(0,256) }
+    $view = [ordered]@{
+        Version = 1
+        StoreId = $StoreId
+        ScopeKey = $ScopeKey
+        ScopeName = $name
+        ComputedUtc = $ComputedUtc.ToUniversalTime().ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+        Machines = [Math]::Max(-1,$Machines)
+        Problems = [Math]::Max(-1,$Problems)
+        Observations = $observations
+    }
+    return (ConvertTo-Json -InputObject $view -Compress)
+}
+
+function Get-DomeniaFleetLastViewNotice {
+    # R40 (cache-first Accueil): what Accueil says before any calculation, from the last overview computed for the same
+    # base (StoreId) and the same scope (ScopeKey). Another base, another OU, a record that cannot be read or that is
+    # dated in the future: nothing (Available=$false), Accueil keeps its invitation to recalculate. The figures are
+    # named for what they are, the result of a dated calculation, never presented as current.
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Json,
+        [AllowEmptyString()][string]$StoreId='',
+        [AllowEmptyString()][string]$ScopeKey='',
+        [datetime]$NowUtc=[datetime]::UtcNow
+    )
+    $none = [pscustomobject]@{ Available = $false; Text = ''; ComputedUtc = $null; Machines = -1; Problems = -1 }
+    if ([string]::IsNullOrWhiteSpace($Json) -or [string]::IsNullOrWhiteSpace($StoreId) -or [string]::IsNullOrWhiteSpace($ScopeKey)) { return $none }
+    $view = $null
+    try { $view = ConvertFrom-Json -InputObject $Json -ErrorAction Stop } catch { return $none }
+    if ($null -eq $view) { return $none }
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    $version = 0
+    if ((-not [int]::TryParse([string](Get-DomeniaMember $view 'Version' ''),[Globalization.NumberStyles]::Integer,$invariant,[ref]$version)) -or ($version -ne 1)) { return $none }
+    if (([string](Get-DomeniaMember $view 'StoreId' '') -cne $StoreId) -or ([string](Get-DomeniaMember $view 'ScopeKey' '') -cne $ScopeKey)) { return $none }
+    # Windows PowerShell 5.1 keeps the round-trip text; another engine may already have read it as a date.
+    $computed = [datetime]::MinValue
+    $rawComputed = Get-DomeniaMemberValue $view 'ComputedUtc'
+    if ($rawComputed -is [datetime]) { $computed = $rawComputed }
+    elseif (-not [datetime]::TryParse([string]$rawComputed,$invariant,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$computed)) { return $none }
+    if ($computed.Kind -ne [DateTimeKind]::Utc) { return $none }
+    if ($computed -gt $NowUtc.ToUniversalTime().AddMinutes(5)) { return $none }
+    $machines = -1
+    if ((-not [int]::TryParse([string](Get-DomeniaMember $view 'Machines' ''),[Globalization.NumberStyles]::Integer,$invariant,[ref]$machines)) -or ($machines -lt 0)) { return $none }
+    $problems = -1
+    if (-not [int]::TryParse([string](Get-DomeniaMember $view 'Problems' ''),[Globalization.NumberStyles]::Integer,$invariant,[ref]$problems)) { $problems = -1 }
+    $count = [string]$machines + ' poste' + $(if ($machines -gt 1) { 's actifs' } else { ' actif' })
+    if (($problems -ge 0) -and ($problems -le $machines)) { $count += ', dont ' + [string]$problems + ' à traiter' } else { $problems = -1 }
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add('Dernière vue enregistrée, non recalculée : calcul du ' + $computed.ToLocalTime().ToString('dd/MM/yyyy HH:mm',$invariant) + ', ' + $count + '.')
+    $observations = ([string](Get-DomeniaMember $view 'Observations' '')).Trim()
+    if ($observations) { $lines.Add($observations) }
+    $lines.Add('Lancez « Recalculer la vue » pour lʼactualiser depuis la base locale.')
+    return [pscustomobject]@{ Available = $true; Text = ($lines.ToArray() -join "`n"); ComputedUtc = $computed; Machines = $machines; Problems = $problems }
+}

@@ -23,8 +23,9 @@ function ConvertTo-SuiteNumber {
 function Test-DomeniaScopedSettingName {
     # Persist only the named storage policy and closed domain/store-scoped keys outside the declared defaults.
     # Backup receipts use the store SHA-256 (path + domain); their last success must survive a restart too.
+    # Fleet.LastView (R40): the summary of the last overview computed for the domain, shown by Accueil at the next start.
     param([AllowEmptyString()][string]$Name)
-    return ([string]$Name -cmatch '^(Storage\.PolicyJson|(Storage\.Database|Storage\.Backup\.(Last|LastDetail)|Dashboard\.HealthPolicies|Inventory\.BiosReferences|Fleet\.Scope|Directory\.RootOu)\.[0-9a-f]{64})$')
+    return ([string]$Name -cmatch '^(Storage\.PolicyJson|(Storage\.Database|Storage\.Backup\.(Last|LastDetail)|Dashboard\.HealthPolicies|Inventory\.BiosReferences|Fleet\.Scope|Fleet\.LastView|Directory\.RootOu)\.[0-9a-f]{64})$')
 }
 
 function ConvertTo-DomeniaExperienceSettings {

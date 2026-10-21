@@ -59,6 +59,14 @@ try{
   Reload-Settings
   Expect ((Get-DomeniaSetting $key '') -like '*OU=Postes*') 'OU du tableau de bord perdue'
  }
+ Case 'R40 the last overview of a domain is a scoped setting and survives reload' {
+  $key='Fleet.LastView.'+('cd'*32)
+  $script:Settings[$key]='{"Version":1,"StoreId":"s","ScopeKey":"*","Machines":3}'
+  Reload-Settings
+  Expect ((Get-DomeniaSetting $key '') -like '*"Machines":3*') 'Derniere vue du tableau de bord perdue'
+  Expect (Test-DomeniaScopedSettingName $key) 'Forme fermee refusee'
+  foreach($bad in @('Fleet.LastView.short',('Fleet.LastView.'+('CD'*32)),('Fleet.LastView.'+('cd'*32)+'.extra'))){Expect (-not (Test-DomeniaScopedSettingName $bad)) ('Nom hors forme accepte : '+$bad)}
+ }
  Case 'Unknown keys, invalid store names and non-string values remain rejected' {
   $values=@{'Storage.PolicyJson.extra'='x';'Storage.Backup.Last.short'='x';('Storage.Backup.Last.'+('A'*64))='x';('Storage.Backup.Last.'+('c'*64))=@('x');'Storage.PolicyJson'=@{AutomaticBackup=$true}}
   $clean=ConvertTo-DomeniaExperienceSettings $values (Get-DomeniaDefaultSettings)

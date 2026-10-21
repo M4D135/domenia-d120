@@ -2598,7 +2598,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Format-DomeniaOuFreshnessSummary',
             'Get-DomeniaFleetWmiResponse',
             'Get-DomeniaFleetReachLabel',
-            'Get-DomeniaStaleTrendNote'
+            'Get-DomeniaStaleTrendNote',
+            'ConvertTo-DomeniaFleetLastView',
+            'Get-DomeniaFleetLastViewNotice'
         ) }
         [pscustomobject]@{ Phase='Modules'; Requires=@('Domenia-Boards.Model.ps1'); File='Domenia-BoardSoftware.Model.ps1'; DotSource=$true; Functions=@(
             'Test-DomeniaSoftwareRowMatchesSelect',
@@ -2753,6 +2755,10 @@ function Get-DomeniaRuntimeModulePlan {
             'Get-DomeniaSectionOuDn',
             'Reset-DomeniaFleetScopeToRoot',
             'Show-DomeniaFleetOverviewIdle',
+            'Get-DomeniaFleetLastViewSettingKey',
+            'Get-DomeniaFleetLastViewStoreId',
+            'Get-DomeniaFleetLastViewNoticeForScope',
+            'Save-DomeniaFleetLastView',
             'Update-DomeniaFleetMachineList',
             'Get-DomeniaWindowsLifecycleTable',
             'Get-DomeniaObservationMaxAgeDays',

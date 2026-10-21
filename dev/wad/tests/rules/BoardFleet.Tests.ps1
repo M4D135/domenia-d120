@@ -594,3 +594,44 @@ Test-Case -Id 'BF-026' -Name 'Point 71 : la courbe des inactifs signale les jour
     Assert-Equal ' ; 1 jour(s) compté(s) avec un autre seuil : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ StaleDays = 45 }) -StaleDays 90)
     Assert-Equal ' ; 2 jour(s) sans seuil conservé : ces jours ne se comparent pas directement' (Get-DomeniaStaleTrendNote -Figures @([pscustomobject]@{ Stale = 1 }, [pscustomobject]@{ StaleDays = 'illisible' }) -StaleDays 90)
 }
+Test-Case -Id 'BF-028' -Name 'R40 : la derniere vue calculee est gardee puis annoncee avec sa date, jamais comme actuelle' -Body {
+    $computed = [datetime]::SpecifyKind([datetime]'2026-10-20T16:31:00',[DateTimeKind]::Utc)
+    $json = ConvertTo-DomeniaFleetLastView -StoreId 'store-a' -ScopeKey '*' -ScopeName 'Tout le domaine' -Machines 523 -Problems 43 -ObservationsText '  Postes actifs : ping 400/523 (le 20/10/2026 18:00)  ' -ComputedUtc $computed
+    Assert-True ($json -notmatch '[\r\n]') 'Vue gardee sur une ligne'
+    $notice = Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-a' -ScopeKey '*' -NowUtc $computed.AddDays(1)
+    Assert-True $notice.Available 'Vue de la meme base et du meme perimetre'
+    $local = $computed.ToLocalTime().ToString('dd/MM/yyyy HH:mm',[Globalization.CultureInfo]::InvariantCulture)
+    $expected = 'Dernière vue enregistrée, non recalculée : calcul du ' + $local + ', 523 postes actifs, dont 43 à traiter.' + "`n" + 'Postes actifs : ping 400/523 (le 20/10/2026 18:00)' + "`n" + 'Lancez « Recalculer la vue » pour lʼactualiser depuis la base locale.'
+    Assert-Equal $expected ([string]$notice.Text) 'Texte de la vue gardee'
+    Assert-Equal 523 ([int]$notice.Machines)
+    Assert-Equal 43 ([int]$notice.Problems)
+    Assert-True (($notice.ComputedUtc -is [datetime]) -and ($notice.ComputedUtc -eq $computed)) 'Date du calcul conservee en UTC'
+    $single = Get-DomeniaFleetLastViewNotice -Json (ConvertTo-DomeniaFleetLastView -StoreId 's' -ScopeKey 'k' -Machines 1 -Problems -1 -ComputedUtc $computed) -StoreId 's' -ScopeKey 'k' -NowUtc $computed
+    Assert-True ($single.Available -and ([string]$single.Text -like '*, 1 poste actif.*') -and ([string]$single.Text -notmatch 'à traiter')) ('Singulier sans nombre a traiter : ' + [string]$single.Text)
+    $bare = Get-DomeniaFleetLastViewNotice -Json (ConvertTo-DomeniaFleetLastView -StoreId 's' -ScopeKey 'k' -Machines 0 -Problems 0 -ComputedUtc $computed) -StoreId 's' -ScopeKey 'k' -NowUtc $computed
+    Assert-Equal 2 @(([string]$bare.Text) -split "`n").Count 'Sans ligne de mesures, seule l invitation suit'
+}
+Test-Case -Id 'BF-029' -Name 'R40 : une vue gardee d une autre base, d une autre OU, illisible ou datee du futur n est jamais montree' -Body {
+    $now = [datetime]::SpecifyKind([datetime]'2026-10-21T08:00:00',[DateTimeKind]::Utc)
+    $scope = 'ou=postes,dc=example,dc=test|Subtree'
+    $json = ConvertTo-DomeniaFleetLastView -StoreId 'store-a' -ScopeKey $scope -Machines 12 -Problems 2 -ComputedUtc $now.AddHours(-3)
+    Assert-True (Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-a' -ScopeKey $scope -NowUtc $now).Available 'Reference'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-b' -ScopeKey $scope -NowUtc $now).Available 'Autre base'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-a' -ScopeKey 'ou=postes,dc=example,dc=test|OneLevel' -NowUtc $now).Available 'Autre profondeur'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-a' -ScopeKey 'OU=Postes,DC=example,DC=test|Subtree' -NowUtc $now).Available 'Cle comparee a la casse pres'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json $json -StoreId 'store-a' -ScopeKey $scope -NowUtc $now.AddHours(-4)).Available 'Calcul date du futur'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json '{illisible' -StoreId 'store-a' -ScopeKey $scope -NowUtc $now).Available 'JSON illisible'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json ($json -replace '"Version":1','"Version":2') -StoreId 'store-a' -ScopeKey $scope -NowUtc $now).Available 'Version inconnue'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json ($json -replace '"Machines":12','"Machines":-1') -StoreId 'store-a' -ScopeKey $scope -NowUtc $now).Available 'Nombre de postes inconnu'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json '' -StoreId 'store-a' -ScopeKey $scope -NowUtc $now).Available 'Rien de garde'
+    Assert-False (Get-DomeniaFleetLastViewNotice -Json $json -StoreId '' -ScopeKey $scope -NowUtc $now).Available 'Base inconnue'
+    $odd = Get-DomeniaFleetLastViewNotice -Json ($json -replace '"Problems":2','"Problems":40') -StoreId 'store-a' -ScopeKey $scope -NowUtc $now
+    Assert-True ($odd.Available -and ([int]$odd.Problems -eq -1) -and ([string]$odd.Text -notmatch 'à traiter')) 'Nombre a traiter incoherent omis'
+    $long = ConvertTo-DomeniaFleetLastView -StoreId 's' -ScopeKey 'k' -Machines 1 -ObservationsText ('x' * 5000) -ScopeName ('n' * 300) -ComputedUtc $now
+    $kept = $long | ConvertFrom-Json
+    Assert-Equal 2000 ([string]$kept.Observations).Length 'Ligne de mesures bornee'
+    Assert-Equal 256 ([string]$kept.ScopeName).Length 'Nom du perimetre borne'
+    $refused = $false
+    try { [void](ConvertTo-DomeniaFleetLastView -StoreId ' ' -ScopeKey 'k') } catch { $refused = $true }
+    Assert-True $refused 'Vue sans base refusee'
+}

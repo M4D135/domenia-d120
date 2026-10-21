@@ -14,7 +14,7 @@ function Write-DomeniaSwallowed { param($Category,$Operation,$ErrorRecord,$Now) 
 $wad=Split-Path -Parent $PSScriptRoot
 $script:RenderTimings=[Collections.Generic.List[object]]::new()
 $script:Results=[Collections.Generic.List[object]]::new();$script:Finished=$false;$script:Window=$null
-$script:ExpectedCases=73
+$script:ExpectedCases=75
 function Expect {param([bool]$Value,[string]$Why='Assertion non verifiee');if(-not $Value){throw $Why}}
 function Case {param([string]$Name,[scriptblock]$Body)
     if($Filter -and $Name -notmatch $Filter -and $Name -ne 'Suite interrompue'){return}
@@ -2094,6 +2094,49 @@ try{
             Expect ($script:ProgrammeHealthHint -like '*explicitement*inventaire*') 'Instruction de collecte absente.'
             Expect ($script:StartCalls.Count -eq $reads -and $script:ParkCalls.Count -eq $parks) 'Ouvrir la collecte a declenche une lecture.'
         }finally{$state.Data=$saved}
+    }
+    # R40 (cache-first Accueil): Store.Model is not loaded here; the store identity is a fixture of these two cases.
+    Case 'R40 Accueil : la derniere vue calculee est gardee puis montree datee, sans lecture ni calcul' {
+        function Get-DomeniaStoreId {param([string]$Path,[string]$DomainDn) return ('store|'+$Path.ToLowerInvariant()+'|'+$DomainDn.ToLowerInvariant())}
+        $savedPath=$script:DatabaseScopedPath
+        try{
+            $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetScopeDn='';$script:FleetScopeExplicitDomain=$false;$script:FleetStale=$false
+            foreach($k in @($script:TestSettings.Keys|Where-Object{$_ -like 'Fleet.LastView.*'})){[void]$script:TestSettings.Remove($k)}
+            (Get-DomeniaControl 'WorkspaceTabs').SelectedItem=Get-DomeniaControl 'TabDashboard';$w.UpdateLayout()
+            Complete-DomeniaFleetDashboard -Result (New-FleetResult) -State $null
+            $keys=@($script:TestSettings.Keys|Where-Object{$_ -like 'Fleet.LastView.*'})
+            Expect (($keys.Count -eq 1) -and ($keys[0] -cmatch '^Fleet\.LastView\.[0-9a-f]{64}$')) ('Cle de la derniere vue : '+($keys -join ', '))
+            $kept=[string]$script:TestSettings[$keys[0]]|ConvertFrom-Json
+            Expect (([int]$kept.Machines -eq 3) -and ([string]$kept.ScopeKey -ceq '*') -and ([string]$kept.StoreId -ceq 'store|c:\fictif\domenia.db|dc=example,dc=invalid')) ('Vue gardee : '+[string]$script:TestSettings[$keys[0]])
+            Expect ([string]$kept.Observations -like 'Postes actifs : *') ('Ligne des mesures : '+[string]$kept.Observations)
+            Expect ([string]$script:TestSettings[$keys[0]] -notmatch 'PC-1|PC-2|SRV-1|PC-OFF') 'Un nom de poste est garde dans les preferences'
+            # Next start: nothing computed in the session; Accueil shows the kept view with its date and starts nothing.
+            $script:FleetComputedKey='';$script:FleetLast=$null;$script:FleetStale=$true;$starts=$script:StartCalls.Count
+            Show-DomeniaFleetOverviewIdle
+            $text=[string](Get-DomeniaControl 'LblFleetDashboard').Text
+            Expect ($text -like 'Dernière vue enregistrée, non recalculée : calcul du *, 3 postes actifs*') ('Texte : '+$text)
+            Expect ($text -like '*Lancez « Recalculer la vue » pour lʼactualiser depuis la base locale.') ('Invitation : '+$text)
+            Expect ($script:StartCalls.Count -eq $starts) 'Une lecture ou un calcul est parti a l affichage'
+        }finally{$script:DatabaseScopedPath=$savedPath}
+    }
+    Case 'R40 Accueil : la vue gardee d une autre base ou d une autre OU n est jamais montree' {
+        function Get-DomeniaStoreId {param([string]$Path,[string]$DomainDn) return ('store|'+$Path.ToLowerInvariant()+'|'+$DomainDn.ToLowerInvariant())}
+        $savedPath=$script:DatabaseScopedPath
+        $idle='Lancez « Recalculer la vue » : le tableau de bord se remplit depuis la base locale.'
+        try{
+            Expect (@($script:TestSettings.Keys|Where-Object{$_ -like 'Fleet.LastView.*'}).Count -eq 1) 'Vue gardee absente (cas precedent)'
+            $script:FleetComputedKey='';$script:FleetLast=$null;$script:FleetStale=$true
+            $script:DatabaseScopedPath='D:\autre\domenia.db';$script:FleetScopeDn=''
+            Show-DomeniaFleetOverviewIdle
+            Expect ([string](Get-DomeniaControl 'LblFleetDashboard').Text -ceq $idle) 'Vue d une autre base montree'
+            $script:DatabaseScopedPath='C:\fictif\domenia.db';$script:FleetScopeDn='OU=Postes,DC=example,DC=invalid'
+            Show-DomeniaFleetOverviewIdle
+            Expect ([string](Get-DomeniaControl 'LblFleetDashboard').Text -ceq $idle) 'Vue d une autre OU montree'
+            # A view computed in the session stays on screen.
+            $script:FleetComputedKey='*';[void](Set-DomeniaControlText 'LblFleetDashboard' 'Vue de la session')
+            Show-DomeniaFleetOverviewIdle
+            Expect ([string](Get-DomeniaControl 'LblFleetDashboard').Text -ceq 'Vue de la session') 'Vue de la session remplacee'
+        }finally{$script:DatabaseScopedPath=$savedPath;$script:FleetScopeDn='';$script:FleetComputedKey=''}
     }
     $script:Finished=$true
 }catch{Case 'Suite interrompue' {throw $_}}
