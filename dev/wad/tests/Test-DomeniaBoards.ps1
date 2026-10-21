@@ -991,6 +991,11 @@ try{
         }finally{$script:FleetScopeDn=$savedDn;$script:FleetLast=$savedLast;$script:FleetStale=$savedStale;$script:FleetJobId=$savedJob}
     }
     Case 'Widget sans chiffre : place compacte qui dit pourquoi et propose sa collecte, plus de Non lu par cet inventaire (SP-18, demande David)' {
+        # Inventory placeholders are independent from custom probes installed by earlier editor cases.
+        $savedComputerLayout=[string](Get-DomeniaSetting 'Dashboard.Computer.Layout' '')
+        try{
+        Set-DomeniaSetting 'Dashboard.Computer.Layout' (ConvertTo-DomeniaBoardLayoutJson -Layout @(Get-Layout Computer|Where-Object Source -eq 'Builtin'))
+        Update-DomeniaComputerDashboard -Result (New-InventoryResult)
         $panel=Get-DomeniaControl 'PnlComputerDashboard'
         Expect (@(Get-Texts $panel|Where-Object{[string]$_.Text -eq 'Non lu par cet inventaire'}).Count -eq 0) 'Ancien emplacement Non lu par cet inventaire'
         $battery=@(Get-Holders $panel|Where-Object{[string]$_.Tag.Item.Key -eq 'computer.battery'})
@@ -1003,6 +1008,7 @@ try{
         Expect ($volumes.Count -eq 1 -and @(Get-Texts $volumes[0]|Where-Object{[string]$_.Text -eq 'Aucun autre volume'}).Count -eq 1) 'Un seul disque non dit en mots'
         Clear-DomeniaDashboards
         Expect (@(Get-Holders $panel).Count -eq 0) 'Emplacement avant toute lecture'
+        }finally{Set-DomeniaSetting 'Dashboard.Computer.Layout' $savedComputerLayout;Show-DomeniaBoard -Board Computer -Quiet}
     }
     Case 'Animation d entree : cartes, anneaux et compteurs vont au bout puis s arretent' {
         # Windows animations off (accessibility, some remote sessions): the board stays static by design.
@@ -1161,8 +1167,9 @@ try{
             Expect ($clauses.Count -eq 1) ('Le clic Ajouter ne cree pas une seule condition : '+$clauses.Count+' ; '+[string](Get-DomeniaControl 'LblQueryStatus').Text)
             Expect ($clauses[0].Field -eq 'diskFreePercent' -and $clauses[0].Operator -eq 'Less') 'Champ ou operateur numerique perdu'
             Expect ($clauses[0].Value -is [decimal] -and $clauses[0].Value -eq [decimal]20) 'La valeur numerique 20 n est pas conservee comme decimal'
+            # The grid shows the unit; the recipe above keeps its numeric decimal value.
             $rows=@((Get-DomeniaControl 'DgQueryConditions').ItemsSource)
-            Expect ($rows.Count -eq 1 -and $rows[0].FieldLabel -eq $field.SelectedItem.Name -and $rows[0].OperatorLabel -eq $operator.SelectedItem.Name -and $rows[0].Value -eq 20) 'La condition ajoutee ne se voit pas dans le tableau'
+            Expect ($rows.Count -eq 1 -and $rows[0].FieldLabel -eq $field.SelectedItem.Name -and $rows[0].OperatorLabel -eq $operator.SelectedItem.Name -and $rows[0].Value -ceq '20 %') 'La condition ajoutee ne se voit pas dans le tableau'
             Expect ($script:StartCalls.Count -eq $callsBefore) 'Ajouter une condition lance une tache avant Executer'
         } finally {
             Set-DomeniaQueryDraft $oldRecipe

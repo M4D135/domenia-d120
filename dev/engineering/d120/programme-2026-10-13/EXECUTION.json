@@ -2348,12 +2348,12 @@
       "evidence": [
         "dev/tools/build_packages.py:build,select_members,component_inventory",
         "dev/tools/delivery_recipe.py:check_rebuild",
-        "dev/tools/tests/test_delivery_recipe.py:test_second_build_must_give_identical_archives"
+        "dev/tools/tests/test_delivery_recipe.py:test_second_build_must_give_identical_archives",
+        "validation/2026-10-16/rc13-corrections/deterministic.json",
+        "validation/2026-10-16/rc13-corrections/compiled-smoke.json"
       ],
-      "remaining": [
-        "KI-003 : DLL natives recompilées sans fabrication déterministe."
-      ],
-      "implementation_summary": "build_packages était déjà déterministe : deux constructions successives donnent des ZIP identiques à l'octet. Le critère de recette R12 compare deux constructions du même commit. Ce point n'est pas modifié par la correction."
+      "remaining": [],
+      "implementation_summary": "build_packages était déjà déterministe : deux constructions successives donnent des ZIP identiques à l'octet. Le critère de recette R12 compare deux constructions du même commit. Ce point n'est pas modifié par la correction. RC1.17.13 : DLL Native et Query construites deux fois avec Roslyn 4.8.0/net472, identiques à l’octet ; 1568 assertions Native et 93 Query passent sur les DLL compilées sous Windows PowerShell 5.1."
     },
     {
       "id": 143,
@@ -2467,7 +2467,7 @@
         "doc_sync --check PASS after the fixer's guide edit"
       ],
       "remaining": [
-        "Screenshots and the regenerated DOCX and PDF guides are David's manual job under Windows. 56 figure gaps remain until then."
+        "Renouveler les 56 captures historiques sous Windows sur le manifeste courant. Guides Markdown, DOCX et PDF déjà actualisés en RC1.17.12 ; contrôle doc_sync réussi."
       ],
       "implementation_summary": "All 79 quotation gaps in the guides were re-read against the interface. doc_sync now indexes the cells of catalogue tables. Stale quotations were fixed and 8 help entries without a control were removed. The baseline was tightened."
     },

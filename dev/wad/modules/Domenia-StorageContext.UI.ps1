@@ -5,19 +5,16 @@ function Get-DomeniaDatabasePreferenceKey {
     return 'Storage.Database.'+(Get-DomeniaStoreHash $DomainDn.Trim().ToLowerInvariant())
 }
 function Switch-DomeniaDatabaseContext {
+    # KI-004: the copy is validated before this switch by a read-only maintenance worker (Action ReadRedirect:
+    # schema, quick_check, identity row of the domain, absence of marker). Only the pure checks remain here
+    # (context guards, local path, identity footprint recomputed), instant, so the switch runs no SQLite read
+    # on the interface thread.
     param([string]$Path,[string]$ExpectedPath,[long]$ExpectedEpoch,[string]$StoreId,[long]$Revision)
     if($ExpectedEpoch -ne [long]$script:SessionEpoch -or $ExpectedPath -ine [string]$script:DatabaseScopedPath){throw 'Le contexte actif a changé pendant la maintenance.'}
     if($null -eq $script:StorageMaintenance -or -not $script:StorageMaintenance.Locked){throw 'Une bascule exige une maintenance exclusive confirmée.'}
     $domain=([string]$script:Conn.BaseDn).Trim().ToLowerInvariant()
     $target=Get-DomeniaLocalDatabasePath -Path $Path -Existing
     if($StoreId -cne (Get-DomeniaStoreId $target $domain) -or $Revision -lt 0){throw 'Identité de la base cible invalide.'}
-    $db=[IntPtr]::Zero
-    try{
-        $db=Open-DomeniaDatabase -Path $target -ReadOnly
-        Assert-StoreWDatabaseWritable -Db $db
-        $rows=@(Invoke-DomeniaDbQuery 'SELECT store_id,domain_dn,revision FROM domenia_store_state WHERE id=1;' $db)
-        if($rows.Count -ne 1 -or [string]$rows[0].store_id -cne $StoreId -or [string]$rows[0].domain_dn -ine $domain -or [long]$rows[0].revision -lt $Revision){throw 'La copie ne confirme pas le reçu de maintenance.'}
-    }finally{Close-DomeniaDatabase $db}
     $key=Get-DomeniaDatabasePreferenceKey $domain
     if($null -eq $script:Settings){$script:Settings=Get-DomeniaDefaultSettings}
     $existed=$script:Settings.Contains($key);$old=$script:Settings[$key]

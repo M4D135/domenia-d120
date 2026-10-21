@@ -911,7 +911,7 @@
                 </Button>
                 <Border x:Name="UxAboutPanel" Visibility="Collapsed" Margin="10,6,0,0">
                   <StackPanel>
-                    <TextBlock Text="DOMENIA 1.0 · RC1.17.12" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
+                    <TextBlock Text="DOMENIA 1.0 · RC1.17.13" Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}"/>
                     <TextBlock Text="Les actions restent sous votre contrôle." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0"/>
                     <TextBlock x:Name="LblUxAboutCompatibility" Text="Compatibilité de ce poste : non évaluée." Foreground="{DynamicResource MutedColor}" TextWrapping="Wrap" FontSize="{DynamicResource FontSizeCaption}" Margin="0,4,0,0" AutomationProperties.Name="Compatibilité de ce poste"/>
                   </StackPanel>
@@ -1435,7 +1435,7 @@
                         </Border>
                       </StackPanel>
                       <Border DockPanel.Dock="Bottom" x:Name="UxSearchOuRefresh" Margin="0,8,0,0" Padding="8" Background="{DynamicResource BgReadonly}" CornerRadius="8">
-                        <StackPanel>
+                        <Expander x:Name="UxOuRefreshExpander" Header="Actualiser lʼOU" IsExpanded="True" AutomationProperties.Name="Afficher les commandes de mise à jour de lʼOU"><StackPanel>
                           <TextBlock x:Name="UxSearchOuRefreshTitle" Text="Données de lʼOU" FontWeight="SemiBold" Margin="0,0,0,4"/>
                           <TextBlock x:Name="LblSearchOuRefreshScope" Text="Choisissez une OU dans lʼarbre." FontSize="{DynamicResource FontSizeSmall}" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}"/>
                           <WrapPanel x:Name="UxSearchOuRefreshActions" Margin="0,6,0,0">
@@ -1445,7 +1445,7 @@
                             <Button x:Name="BtnSearchRefreshStop" Content="Arrêter" IsEnabled="False" Style="{StaticResource UxStopButton}" MinHeight="30" Padding="8,3" Margin="0,0,0,4" AutomationProperties.Name="Arrêter lʼactualisation de lʼOU choisie"/>
                           </WrapPanel>
                           <TextBlock x:Name="LblSearchOuRefreshStatus" Text="La mise à jour couvre toujours les sous-OU." FontSize="{DynamicResource FontSizeCaption}" TextWrapping="Wrap" MaxHeight="58" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedColor}"/>
-                        </StackPanel>
+                        </StackPanel></Expander>
                       </Border>
                       <TextBlock x:Name="LblTreeStatus" Text="Arbre pret." Foreground="{DynamicResource MutedColor}" FontSize="{DynamicResource FontSizeCaption}" TextWrapping="NoWrap" Margin="0,10,0,0" DockPanel.Dock="Bottom" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                       <TreeView x:Name="TvDirectory" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Arbre des OU et conteneurs"/>
@@ -1554,6 +1554,7 @@
                           <RowDefinition Height="*"/>
                           <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
+                        <Expander x:Name="UxResultToolsExpander" Grid.Row="0" Header="Actions, filtres et vues" IsExpanded="True" AutomationProperties.Name="Afficher les actions, filtres et vues de la liste"><StackPanel>
                         <StackPanel x:Name="UxResultBar" Margin="0,0,0,10"><DockPanel x:Name="UxResultActionsRow" Margin="0,0,0,8">
                           <!-- Result actions dock first on the right: a changing count only narrows the title, never moves them. -->
                           <StackPanel x:Name="UxResultActions" Orientation="Horizontal" DockPanel.Dock="Right" Margin="8,0,0,0">
@@ -1649,6 +1650,7 @@
                             <TextBlock x:Name="LblSearchFilterSummary" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Combinaison des critères"/>
                             <TextBlock x:Name="LblResultScope" Text="" TextWrapping="Wrap" MaxHeight="36" TextTrimming="CharacterEllipsis" FontSize="{DynamicResource FontSizeSmall}" Foreground="{DynamicResource MutedColor}" Margin="0,2,0,0" AutomationProperties.Name="Lignes traitées par lʼexport et les relevés"/>
                           </StackPanel>
+                          </StackPanel></Expander>
                           <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="240"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <DataGrid x:Name="DgObjects" AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" CanUserResizeColumns="True" EnableRowVirtualization="True" EnableColumnVirtualization="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" ScrollViewer.CanContentScroll="True" ScrollViewer.HorizontalScrollBarVisibility="Auto" HeadersVisibility="Column" RowHeight="34" AutomationProperties.Name="Résultats : sélection et ouverture explicite">

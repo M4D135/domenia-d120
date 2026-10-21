@@ -625,6 +625,16 @@ function Set-DomeniaUxShortLayout {
         if($bar){$bar.Margin=[Windows.Thickness]::new(0)}
         if($actions){$actions.Margin=[Windows.Thickness]::new(0)}
     }
+    # Only an entry into the tiny layout folds optional controls. Operator expansion survives
+    # ordinary layout updates; leaving the tiny viewport restores the full command panels.
+    $tiny=[bool]$Plan.TinyHeight
+    if(($script:UxDetailsLayoutWindow -ne $script:Window) -or ($script:UxDetailsTiny -ne $tiny)){
+        foreach($name in @('UxResultToolsExpander','UxOuRefreshExpander')){
+            $details=Get-DomeniaControl $name
+            if($details){$details.IsExpanded=(-not $tiny)}
+        }
+        $script:UxDetailsLayoutWindow=$script:Window;$script:UxDetailsTiny=$tiny
+    }
     $script:UxCompactLayoutActive=$compact
 
     # Journal shown folded while the screen is short, unless the operator unfolds it; the saved state is untouched.

@@ -1583,6 +1583,9 @@ function Get-DomeniaRuntimeModulePlan {
             'Clear-DomeniaStoragePendingForOtherBase',
             'Invoke-DomeniaStorageMaintenanceSwitch',
             'Complete-DomeniaStorageMaintenanceApply',
+            'Complete-DomeniaStorageMaintenanceSwitchConfirm',
+            'Fail-DomeniaStorageMaintenanceSwitch',
+            'Fail-DomeniaStorageMaintenanceSwitchConfirm',
             'Fail-DomeniaStorageMaintenance',
             'Resume-DomeniaStorageMaintenance',
             'Start-DomeniaStorageMaintenanceUndo',
@@ -3304,8 +3307,8 @@ function Get-DomeniaRuntimeTypePlan {
     # Immutable C# 5 types compiled before the rule modules (Add-Type of Windows PowerShell 5.1).
     @(
         [pscustomobject]@{ File='Domenia-Live.Types.cs'; Types=@('Domenia.Live.ResultRow','Domenia.Live.OperationRow') }
-        [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391' }
-        [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='6e3b293fc08cae9b1660a48ebd7e2533ea2304711a169f61d329b92510530a2a' }
+        [pscustomobject]@{ File='M4D.Admin.Common.Query.dll'; Types=@('M4D.Admin.Common.Query.QueryEngine'); SHA256='472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98' }
+        [pscustomobject]@{ File='Domenia.Native.dll'; Types=@('Domenia.Native.ObservationReader','Domenia.Native.ObservationIdentityReader','Domenia.Native.ProbeBatch'); SHA256='c3659bb893abcbe9b09237ee4428dc9aec9ecb1adb2b4502087a36a384cf8d66' }
         [pscustomobject]@{ File='Domenia-Identity.Types.cs'; Types=@('Domenia.SelectionIdentity','Domenia.PlanChange','Domenia.InterventionPlan','Domenia.WindowFrame') }
     )
 }

@@ -13,18 +13,20 @@
   "SourceHashFormat": "SHA256 of QueryEngine.cs file bytes",
   "TargetFramework": "net472",
   "LanguageVersion": "CSharp5",
-  "BuildScript": "csc.exe 4.8.9221.0 sur DESKTOP-285EKHU. tools/build_query.ps1 exige PowerShell 7, absent de ce PC.",
+  "BuildScript": "tools/build_query.ps1 -CompilerDirectory (Microsoft.Net.Compilers.Toolset 4.8.0, tasks/net472)",
   "Builder": {
-    "PowerShell": "5.1.26100.9711",
-    "Compiler": "csc 4.8.9221.0",
+    "PowerShell": "5.1.26100.6584",
+    "Compiler": "4.800.23.55801",
+    "CompilerSHA256": "C9B43DB498213E8E8CA5D7E03A25DEFDDA2031D5E025553B8EB9773F79EBD226",
     "Language": "C# 5",
-    "ReferenceAssemblies": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319"
+    "ReferenceAssemblies": "Microsoft.NETFramework.ReferenceAssemblies.net472 1.0.3",
+    "Deterministic": true
   },
   "Files": [
     {
       "Name": "M4D.Admin.Common.Query.dll",
-      "SHA256": "da97976108351a9e24552f18de2e02b4e5b454b438c461cb2317c427c610b391",
-      "Bytes": 26624
+      "SHA256": "472d9c5feba970e2999621072ded76a8bf691ef22dc4de23fd4e5d0fb45a4d98",
+      "Bytes": 26112
     }
   ]
 }

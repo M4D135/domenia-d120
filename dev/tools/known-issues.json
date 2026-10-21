@@ -1,6 +1,6 @@
 {
   "Schema": "DomeniaKnownIssues/1",
-  "ReviewedOn": "2026-10-15",
+  "ReviewedOn": "2026-10-16",
   "Issues": [
     {
       "Id": "KI-001",
@@ -13,29 +13,29 @@
     },
     {
       "Id": "KI-002",
-      "Title": "Guides et captures à resynchroniser avec le pack",
+      "Title": "Captures historiques à renouveler sur le pack courant",
       "Severity": "Majeur",
       "Status": "Ouvert",
-      "Impact": "36 citations des guides restent à relire, 8 entrées dʼaide ne nomment plus de contrôle et 56 figures nʼont pas de provenance de capture à jour ; les DOCX et PDF datent du 13 octobre 2026.",
-      "Workaround": "Se fier aux infobulles et à lʼaide contextuelle du pack ; refaire les captures sous Windows puis régénérer les guides.",
+      "Impact": "Les citations et entrées dʼaide ont été synchronisées et les guides Word/PDF régénérés en RC1.17.12. Les 56 figures conservent une provenance historique : elles ne constituent pas une capture du manifeste courant.",
+      "Workaround": "Renouveler les captures sous Windows lors de la recette visuelle ; les textes des guides actualisés restent disponibles.",
       "Source": "tools/baselines/doc-sync-baseline.json"
     },
     {
       "Id": "KI-003",
       "Title": "Bibliothèques natives recompilées sans fabrication déterministe",
       "Severity": "Majeur",
-      "Status": "Ouvert",
-      "Impact": "Domenia.Native.dll et M4D.Admin.Common.Query.dll ont été recompilées avec csc ; tools/build_native.ps1 et tools/build_query.ps1 exigent PowerShell 7, absent du poste de compilation : elles ne se reconstruisent pas à lʼoctet.",
-      "Workaround": "Les DLL livrées sont épinglées par empreinte (tools/release-contract.json) ; ne pas les remplacer sans nouvelle revue.",
+      "Status": "Résolu",
+      "Impact": "DLL reconstruites avec Roslyn 4.8.0 et références net472 sous PowerShell 5.1. Deux compilations identiques, 1568 assertions Native et 93 assertions Query réussies. Empreintes de livraison mises à jour.",
+      "Workaround": "Aucun ; voir validation/2026-10-16/rc13-corrections/deterministic.json.",
       "Source": "tools/release-contract.json"
     },
     {
       "Id": "KI-004",
       "Title": "Bascule de base : courte lecture SQLite sur le fil dʼinterface",
       "Severity": "Mineur",
-      "Status": "Ouvert",
-      "Impact": "Pendant la bascule vers une base déplacée ou restaurée, Switch-DomeniaDatabaseContext lit une ligne de la base cible sur le fil dʼinterface.",
-      "Workaround": "Aucun nécessaire : la bascule est un geste explicite et rare.",
+      "Status": "Résolu",
+      "Impact": "La cible est relue par le worker de maintenance avant la bascule : domaine, empreinte, révision et absence de redirection sont contrôlés. Le fil UI applique ensuite le contexte confirmé, sans lecture SQLite. 27 assertions ciblées réussies sous Windows PowerShell 5.1.",
+      "Workaround": "Aucun ; voir validation/2026-10-16/rc13-corrections/Storage-switch.json.",
       "Source": "dev/wad/modules/Domenia-StorageContext.UI.ps1"
     },
     {

@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.1
-param([string]$ReportPath='')
+param([string]$ReportPath='',[string]$CaseFilter='')
 $ErrorActionPreference='Stop'
 # P-CD-09: the catch blocks of the core and of the UI modules trace an ignored error with Write-DomeniaSwallowed, defined
 # in the script scope of Domenia-Core.ps1. Functions loaded one by one stay silent here, as before the sweep (no-op double;
@@ -22,7 +22,7 @@ foreach($fn in @($ast.FindAll({param($n)$n -is [Management.Automation.Language.F
 $folder=Join-Path ([Environment]::GetFolderPath('UserProfile')) ('.domenia-maintenance-'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($folder)
 $cases=[Collections.Generic.List[object]]::new();$script:checks=0;$domain='dc=test'
 function Expect {param([bool]$Condition,[string]$Text);$script:checks++;if(-not $Condition){throw $Text}}
-function Case {param([string]$Name,[scriptblock]$Code);try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}
+function Case {param([string]$Name,[scriptblock]$Code);if($CaseFilter -and $Name -notmatch $CaseFilter){return};try{& $Code;$cases.Add([pscustomobject]@{Name=$Name;Passed=$true;Error=''})}catch{$cases.Add([pscustomobject]@{Name=$Name;Passed=$false;Error=$_.Exception.Message});Write-Output ('FAIL '+$Name+': '+$_.Exception.Message)}}
 function Refused {param([scriptblock]$Code,[string]$Contains='');$caught=$false;try{& $Code|Out-Null}catch{$caught=$true;if($Contains){Expect ($_.Exception.Message -like ('*'+$Contains+'*')) ('refusal '+$Contains)}};Expect $caught 'refused'}
 $schema=@($core.FindAll({param($n)$n -is [Management.Automation.Language.StringConstantExpressionAst] -or $n -is [Management.Automation.Language.ExpandableStringExpressionAst]},$true)|Where-Object{$_.Value -match '^PRAGMA journal_mode=WAL;' -and $_.Value -match 'CREATE TABLE IF NOT EXISTS schema_info'})
 if($schema.Count -ne 1){throw 'Schema count'}
@@ -268,6 +268,56 @@ try{
   Expect ((@($u.ReadProbes|Where-Object Name -eq ActiveMachines)[0].Rows -eq 2) -and (@($u.ReadProbes|Where-Object Name -eq DirectoryPage)[0].Plan -like '*ix_ad_objects_type_name*')) 'rows counted and index used for the typed page'
   $line=Format-DomeniaStorageReadProbes -Probes @($u.ReadProbes)
   Expect ($line -like 'Lectures mesurées sur cette base : *') 'measure shown'
+ }
+ Case 'RC13: confirmation reports the actual identity and revision, without writing' {
+  $p=New-Database 'confirm' 17;$before=Get-TestHash $p
+  $r=Run-Maintenance ReadRedirect $p
+  Expect ($r.ReadOnly -and $r.StoreId -ceq (Get-DomeniaStoreId $p $domain) -and $r.Revision -eq 17 -and $null -eq $r.Redirect) 'actual identity and revision'
+  Expect ((Get-TestHash $p) -ceq $before) 'read confirmation modified the file'
+  $p=New-Database 'confirm-no-state' -NoState;$r=Run-Maintenance ReadRedirect $p
+  Expect (-not $r.StoreId -and $r.Revision -eq 0) 'missing identity must not be invented'
+ }
+ Case 'RC13: asynchronous switch waits for receipt confirmation and rejects stale or changed copies' {
+  . (Join-Path $wad 'modules/Domenia-Storage.UI.ps1')
+  $definition=@($core.FindAll({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-DomeniaEffectiveWorkerResult'},$true))[0].Extent.Text
+  . ([scriptblock]::Create($definition))
+  function Set-DomeniaControlText {param($Name,$Text)}
+  function Set-Status {param($Text,$Level)}
+  function Write-AppLog {param($Text,$Level)}
+  function Update-DomeniaStorageMaintenanceControls {}
+  function Clear-DomeniaStoragePendingForOtherBase {param($ActivePath);return 0}
+  function Request-DomeniaStorageWork {}
+  function Resume-DomeniaDatabaseViews {param([switch]$ReloadLocalState)}
+  function Update-DomeniaStorageSpaceUi {}
+  function Update-DomeniaStorageLimitsUi {}
+  function Start-UiTask {param($Name,$OperationId,$Code,$Payload,$CallbackState,$SuccessHandler,$ErrorHandler,$TimeoutSeconds,$TaskClass);$script:confirmPayload=$Payload;return 'confirmation-job'}
+  function Switch-DomeniaDatabaseContext {param($Path,$ExpectedPath,$ExpectedEpoch,$StoreId,$Revision);$script:switchCount++;$script:DatabaseScopedPath=$Path;$script:SessionEpoch++}
+  $original=New-Database 'ui-original';$target=New-Database 'ui-target' 18
+  $script:Conn=[pscustomobject]@{BaseDn=$domain}
+  foreach($scenario in @('valid','wrong-store','old-revision','redirect','missing-store','stale-epoch','other-maintenance','cancelled')){
+   $script:SessionEpoch=12L;$script:DatabaseScopedPath=$original;$script:switchCount=0;$script:confirmPayload=$null
+   $receipt=[pscustomobject]@{TargetPath=$target;StoreId=(Get-DomeniaStoreId $target $domain);DomainDn=$domain;Revision=18L;Action='Move';RedirectWritten=$true;ActiveReadable=$true}
+   $state=[pscustomobject]@{Id='operation';Epoch=12L;Path=$original;DomainDn=$domain;Mode='Move';Job='';Locked=$true;Hold=$true;Recovery=$false;Receipt=$receipt}
+   $script:StorageMaintenance=$state
+   Invoke-DomeniaStorageMaintenanceSwitch $state $receipt
+   Expect ($script:switchCount -eq 0 -and $script:DatabaseScopedPath -ceq $original -and $state.Locked -and $state.Job -eq 'confirmation-job') ('context changed before worker: '+$scenario)
+   Expect ($script:confirmPayload.Action -eq 'ReadRedirect' -and $script:confirmPayload.ActivePath -ceq $target) 'wrong confirmation target'
+   $r=Run-Maintenance ReadRedirect $target
+   switch($scenario){
+    'wrong-store' {$r.StoreId='foreign'}
+    'old-revision' {$r.Revision=17L}
+    'redirect' {$r.Redirect=[pscustomobject]@{TargetPath='elsewhere'}}
+    'missing-store' {$r.PSObject.Properties.Remove('StoreId')}
+    'stale-epoch' {$script:SessionEpoch=13L}
+    'other-maintenance' {$script:StorageMaintenance=[pscustomobject]@{Id='other'}}
+   }
+   if($scenario -eq 'cancelled'){Fail-DomeniaStorageMaintenanceSwitchConfirm 'Cancelled' $state}else{Complete-DomeniaStorageMaintenanceSwitchConfirm $r $state}
+   if($scenario -eq 'valid'){
+    Expect ($script:switchCount -eq 1 -and $script:DatabaseScopedPath -ceq $target -and -not $state.Locked -and -not $state.Hold) 'verified copy not switched once'
+   }else{
+    Expect ($script:switchCount -eq 0 -and $script:DatabaseScopedPath -ceq $original -and $state.Locked) ('unconfirmed context switched: '+$scenario)
+   }
+  }
  }
 }finally{
  $report=[pscustomobject]@{Suite='StorageMaintenance';Platform=[Environment]::OSVersion.VersionString;PowerShell=$PSVersionTable.PSVersion.ToString();Cases=$cases.ToArray();Total=$cases.Count;Passed=@($cases|Where-Object Passed).Count;Failed=@($cases|Where-Object{-not $_.Passed}).Count;Assertions=$script:checks;NoNetwork=$true;Scope='Temporary SQLite databases; no Active Directory or real-user data.'}
