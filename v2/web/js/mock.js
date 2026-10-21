@@ -1,306 +1,446 @@
-// Browser preview of the bridge: same operations and shapes as docs/OPERATIONS.md, fictitious example.local
-// directory (values from docs/SIMULATION.md § 4-5). Nothing leaves the page; state lives in memory only.
-// Texts follow OPERATIONS.md § 1.2: the space before « : » and « % » is a no-break space (U+00A0) in the strings.
+// Browser preview of the bridge (no WebView2 host): same operations, result shapes, error codes and messages as the
+// engine (docs/OPERATIONS.md; src/Domenia.Bridge, src/Domenia.Core/Dashboard), on the fictitious example.local directory
+// of the simulation with the figures of the day of its default seed (docs/SIMULATION.md § 4 and 5). Nothing leaves the
+// page and the state lives in memory only. Only app.info says that this is a browser preview (webViewRuntime "apercu",
+// its own detail and banner). Texts follow OPERATIONS.md § 1.2, written with the helpers below: U+00A0 before « : » and
+// « % » and inside « », U+202F between thousands, U+2212 minus sign, decimal comma.
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-const MINUS = '−';
-const REF = Date.now();
-const TOTAL = 412;
-const OBJECTS = 1826;
+const NBSP = ' ';
+const COLON = `${NBSP}: `;
+const SEED = 20261021;
+
+// Default seed of the simulation (SIMULATION.md § 4.2 to 4.5 and 5.1).
 const DOMAIN = 'example.local';
-const SCOPE = { dn: 'OU=Postes,DC=example,DC=local', label: 'Postes', subtree: true };
-const DAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-const WIDGET_IDS = [
-  'workstationsOnline', 'activeAccounts', 'lockedAccounts', 'passwordsExpiring', 'diskAlerts',
-  'osDistribution', 'workstationActivity', 'measureFreshness', 'watchlist', 'recentOperations',
-];
+const ROOT_DN = 'DC=example,DC=local';
+const SCOPE = { dn: `OU=Postes,${ROOT_DN}`, label: 'Postes', subtree: true };
+const OBJECTS = 1826;
+const USERS = 1258;
+const ACTIVE_USERS = 1186;
+const WORKSTATIONS = 412;
+const ERROR_PROBES = 3; // probes always in error: never read, kept as they are by every round
+const NEVER_ANSWER = 14; // 13 workstations inactive in the directory and 1 whose ping is filtered (WMI only)
+const NOT_CHECKED = 27; // round 0: 12 never read (3 probes in error included) and 15 read more than 30 days ago
+const ROUND_SPREAD = 6;
+const ROUND_JITTER = 40;
+const WATCH_TOTAL = 63;
+const STALE_AFTER = 7 * DAY;
 
-// ---------- Helpers ----------
+// ---------- Texts (same rules as FrenchText) ----------
 
-const fr = new Intl.NumberFormat('fr-FR'); // U+202F group separator, as the contract requires
-const pad = (n) => String(n).padStart(2, '0');
+function int(n) {
+  const digits = String(Math.abs(Math.trunc(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return n < 0 ? `−${digits}` : digits;
+}
+
+function dec(x, decimals = 1) {
+  const scale = 10 ** decimals;
+  const [whole, fraction] = (Math.round(Math.abs(x) * scale) / scale).toFixed(decimals).split('.');
+  const text = `${int(Number(whole))}${fraction ? `,${fraction}` : ''}`;
+  return x < 0 && Math.round(Math.abs(x) * scale) !== 0 ? `−${text}` : text;
+}
+
+const percentText = (x) => `${dec(x)}${NBSP}%`;
+const count = (n, one, many) => `${int(n)} ${Math.abs(n) >= 2 ? many : one}`;
+const quote = (text) => `«${NBSP}${text}${NBSP}»`;
+const signed = (n) => (n > 0 ? `+${int(n)}` : int(n));
+
+// ---------- Dates ----------
+
+// Instant in UTC to the second with « Z »; local calendar day as yyyy-MM-dd (BridgeJson, OPERATIONS.md § 1.2).
 const iso = (t) => new Date(t).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const localDate = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-const isWeekend = (t) => [0, 6].includes(new Date(t).getDay());
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const clone = (v) => (typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)));
+const pad = (n) => String(n).padStart(2, '0');
+// Days are counted on the calendar, as LocalDays does: a change of summer time never skips or repeats a day.
+const dayOf = (t) => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const addDays = (day, k) => new Date(day.getFullYear(), day.getMonth(), day.getDate() + k);
+const isoDay = (day) => `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+const isWeekend = (day) => day.getDay() === 0 || day.getDay() === 6;
+// Fixed abbreviations, whatever the culture of the workstation (FrenchText.DayAbbreviation), by getDay() index.
+const DAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 
-function seeded(seed) {
-  let a = seed >>> 0;
-  return () => {
+// ---------- Deterministic draws ----------
+
+function fnv1a(text) {
+  let h = 0x811c9dc5;
+  for (const c of text) {
+    h ^= c.codePointAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// Named sub-sequence of the seed, like SeededRandom.Fork: a new draw somewhere never moves the others.
+function fork(name) {
+  let a = (SEED ^ fnv1a(name)) >>> 0;
+  const next = () => {
     a = (a + 0x6D2B79F5) >>> 0;
     let t = a;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+  const between = (lo, hi) => lo + Math.floor(next() * (hi - lo + 1));
+  const shuffle = (list) => {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = between(0, i);
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  };
+  return { next, between, shuffle };
 }
-const rand = seeded(Number(localDate(REF).replaceAll('-', '')));
-const between = (lo, hi) => lo + Math.floor(rand() * (hi - lo + 1));
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const clone = (v) => (typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)));
+
+// Simulated latency (SIMULATION.md § 6.3): local reads 120 to 250 ms, refreshes 400 to 900 ms, separate draw counters.
+const draws = { read: 0, refresh: 0 };
+function latency(kind, lo, hi) {
+  draws[kind] += 1;
+  return fork(`latency/${kind}/${draws[kind]}`).between(lo, hi);
+}
 
 function fail(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-// ---------- Fictitious directory and readings ----------
+// ---------- Reference and history ----------
 
-const profile = isWeekend(REF) ? { online: 61, noAnswer: 324, notChecked: 27 } : { online: 287, noAnswer: 98, notChecked: 27 };
-const days = Array.from({ length: 14 }, (_, n) => REF - (13 - n) * DAY);
+// Reference read once and truncated to the minute; profile chosen by the local day of the week (SIMULATION.md § 4.1).
+const REF = Math.floor(Date.now() / MIN) * MIN;
+const TODAY = dayOf(REF);
+const TARGET = isWeekend(TODAY) ? 61 : 287;
 
-function buildHistory() {
-  const online = days.map((t, n) => (n === 13 ? profile.online : isWeekend(t) ? between(48, 70) : between(265, 300)));
-  const seen = days.map((t, n) => (n === 13 ? online[n] : online[n] + (isWeekend(t) ? between(5, 12) : between(8, 25))));
-  const active = new Array(14);
-  active[13] = 1186;
-  for (let n = 12; n >= 0; n--) active[n] = active[n + 1] - [0, 0, 1, 2, 3][between(0, 4)];
-  const locked = days.map((_, n) => (n === 13 ? 7 : between(0, 12)));
-  const expiring = days.map((_, n) => (n === 13 ? 23 : between(15, 26)));
-  const disk = days.map((_, n) => (n === 13 ? 9 : between(6, 11)));
-  return { online, seen, active, locked, expiring, disk };
-}
+// 13 daily snapshots (days J−13 to J−1), drawn in the same order as the generator (SIMULATION.md § 5.2).
+const HISTORY = (() => {
+  const accounts = fork('history/accounts');
+  const active = new Array(13);
+  let value = ACTIVE_USERS;
+  for (let back = 1; back <= 13; back++) {
+    value -= isWeekend(addDays(TODAY, -back)) ? 0 : accounts.between(0, 3);
+    active[13 - back] = value;
+  }
+  const random = fork('history');
+  return Array.from({ length: 13 }, (_, k) => {
+    const day = addDays(TODAY, k - 13);
+    const weekend = isWeekend(day);
+    const online = weekend ? random.between(48, 70) : random.between(265, 300);
+    const seen = online + (weekend ? random.between(5, 12) : random.between(8, 25));
+    return {
+      date: isoDay(day), online, seen, active: active[k],
+      locked: random.between(0, 12), expiring: random.between(15, 26), disk: random.between(6, 11),
+    };
+  });
+})();
 
-const JOURNAL = [
-  [12 * MIN, `Lecture de l’annuaire : ${fr.format(OBJECTS)} objets`, 'ok'],
-  [28 * MIN, 'Relevé de présence de l’OU Paris : 158 en ligne sur 186', 'ok'],
-  [55 * MIN, 'Relevé d’inventaire de l’OU Lyon : 74 postes sur 82', 'ok'],
-  [99 * MIN, 'Diagnostic de verrouillage : Camille Bernard', 'warn'],
-  [201 * MIN, 'Lecture BitLocker refusée pour l’OU Marseille', 'alert'],
-  [226 * MIN, 'Recherche « dupont » : 12 résultats', 'info'],
-  [302 * MIN, 'Relevé de présence de l’OU Lyon : 61 en ligne sur 82', 'ok'],
-  [390 * MIN, 'Export des comptes verrouillés : 7 lignes', 'info'],
-  [DAY + HOUR, `Lecture de l’annuaire : ${fr.format(1824)} objets`, 'ok'],
-  [DAY + 2 * HOUR, 'Relevé d’inventaire de l’OU Paris : 171 postes sur 186', 'ok'],
-  [DAY + 4 * HOUR, 'Relevé de présence de l’OU Marseille : sondes refusées pour 3 postes', 'warn'],
-  [2 * DAY, 'Requête « Postes sans LAPS » : 23 résultats', 'info'],
-  [2 * DAY + 3 * HOUR, `Lecture de l’annuaire : ${fr.format(1821)} objets`, 'ok'],
-  [3 * DAY, 'Première lecture de l’OU Postes : 431 comptes ordinateur', 'ok'],
-].map(([ago, label, tone]) => ({ label, at: iso(REF - ago), tone }));
+// ---------- Presence (SIMULATION.md § 5.1 and 5.3) ----------
 
+// One fixed rank per active workstation of the OU. Round 0: the lowest ranks among those that can answer are online.
+const PRESENCE = (() => {
+  const ranks = fork('presence').shuffle(Array.from({ length: WORKSTATIONS }, (_, i) => i));
+  const order = fork('presence/roles').shuffle(Array.from({ length: WORKSTATIONS }, (_, i) => i));
+  const errors = order.slice(0, ERROR_PROBES);
+  const silent = order.slice(ERROR_PROBES, ERROR_PROBES + NEVER_ANSWER);
+  const candidates = order.slice(ERROR_PROBES + NEVER_ANSWER).sort((x, y) => ranks[x] - ranks[y]);
+  return { ranks, errors, silent, candidates, online: candidates.slice(0, TARGET), offline: candidates.slice(TARGET) };
+})();
+
+// Answers of round 0 lie between the start of the local day (8 hours at most) and the reference minus 28 minutes.
+const WINDOW_START = Math.max(TODAY.getTime(), REF - 8 * HOUR);
+const WINDOW_END = REF - 28 * MIN < WINDOW_START ? REF : REF - 28 * MIN;
+const inWindow = (ago) => Math.min(WINDOW_END, Math.max(WINDOW_START, REF - ago));
+
+// Watch list of the default seed: the six lowest free spaces on C: (SIMULATION.md § 5.1). Rows 0, 1 and 3 answered today,
+// rows 2 and 5 answered days ago, row 4 is the workstation whose ping is filtered (never seen).
 const WATCH = [
-  ['PC-LYO-0031', 'Lyon', '3f2a9c41-7b0e-4d6a-9e15-0c4b8d2f6a17', '3,1', 28 * MIN],
-  ['PT-PAR-0118', 'Paris', '8d41e0b2-55c9-4f3e-a2d7-61f09b3c4e88', '4,0', 39 * MIN],
-  ['PC-MRS-0007', 'Marseille', 'c07b5e13-2a8f-4b91-8d3c-9e6a14f702d5', '5,2', DAY + 2 * HOUR + 14 * MIN],
-  ['PC-PAR-0142', 'Paris', '5ae9d270-1c4b-4e8f-b6a0-27d38c91fe04', '6,4', 34 * MIN],
-  ['PT-LIL-0012', 'Lille', '91c6f8a3-6d2e-4a07-9b54-e80f3d1a2c69', '7,7', null],
-  ['PC-BDX-0021', 'Bordeaux', 'e4b0137c-9f5a-4c2d-8e61-a3d75b0c9f12', '8,3', 2 * DAY + 6 * HOUR + 28 * MIN],
-].map(([name, ou, guid, free, ago]) => ({
-  name, dn: `CN=${name},OU=${ou},OU=Postes,DC=example,DC=local`, objectGuid: guid, ruleId: 'lowDisk',
-  reason: `Disque C: presque plein : ${free} % libre`, severity: 'alert', otherReasons: 0,
-  lastSeenAt: ago === null ? null : iso(REF - ago),
+  ['PC-LYO-0031', 'Lyon', '3f2a9c41-7b0e-4d6a-9e15-0c4b8d2f6a17', 3.1, PRESENCE.online[0], inWindow(28 * MIN)],
+  ['PT-PAR-0118', 'Paris', '8d41e0b2-55c9-4f3e-a2d7-61f09b3c4e88', 4.0, PRESENCE.online[1], inWindow(39 * MIN)],
+  ['PC-MRS-0007', 'Marseille', 'c07b5e13-2a8f-4b91-8d3c-9e6a14f702d5', 5.2, PRESENCE.offline.at(-1), REF - (2 * DAY + 3 * HOUR + 14 * MIN)],
+  ['PC-PAR-0142', 'Paris', '5ae9d270-1c4b-4e8f-b6a0-27d38c91fe04', 6.4, PRESENCE.online[2], inWindow(34 * MIN)],
+  ['PT-LIL-0012', 'Lille', '91c6f8a3-6d2e-4a07-9b54-e80f3d1a2c69', 7.7, PRESENCE.silent[0], null],
+  ['PC-BDX-0021', 'Bordeaux', 'e4b0137c-9f5a-4c2d-8e61-a3d75b0c9f12', 8.3, PRESENCE.offline.at(-2), REF - (3 * DAY + 6 * HOUR + 28 * MIN)],
+].map(([name, site, objectGuid, free, station, seenAt]) => ({
+  station, seenAt,
+  row: {
+    name, dn: `CN=${name},OU=${site},${SCOPE.dn}`, objectGuid, ruleId: 'lowDisk',
+    reason: `Disque C: presque plein${COLON}${percentText(free)} libre`, severity: 'alert', otherReasons: 0,
+  },
 }));
 
+// ---------- Journal (SIMULATION.md § 5.4) ----------
+
+const SOURCE_JOURNAL = [
+  [12 * MIN, `Lecture de l’annuaire${COLON}${count(OBJECTS, 'objet', 'objets')}`, 'ok'],
+  [28 * MIN, `Relevé de présence de l’OU Paris${COLON}158 en ligne sur 186`, 'ok'],
+  [55 * MIN, `Relevé d’inventaire de l’OU Lyon${COLON}74 postes sur 82`, 'ok'],
+  [99 * MIN, `Diagnostic de verrouillage${COLON}Camille Bernard`, 'warn'],
+  [201 * MIN, 'Lecture BitLocker refusée pour l’OU Marseille', 'alert'],
+  [226 * MIN, `Recherche ${quote('dupont')}${COLON}12 résultats`, 'info'],
+  [302 * MIN, `Relevé de présence de l’OU Lyon${COLON}61 en ligne sur 82`, 'ok'],
+  [390 * MIN, `Export des comptes verrouillés${COLON}7 lignes`, 'info'],
+  [1500 * MIN, `Lecture de l’annuaire${COLON}${count(1824, 'objet', 'objets')}`, 'ok'],
+  [1560 * MIN, `Relevé d’inventaire de l’OU Paris${COLON}171 postes sur 186`, 'ok'],
+  [1680 * MIN, `Relevé de présence de l’OU Marseille${COLON}sondes refusées pour 3 postes`, 'warn'],
+  [2880 * MIN, `Requête ${quote('Postes sans LAPS')}${COLON}23 résultats`, 'info'],
+  [3060 * MIN, `Lecture de l’annuaire${COLON}${count(1821, 'objet', 'objets')}`, 'ok'],
+  [4320 * MIN, `Première lecture de l’OU Postes${COLON}431 comptes ordinateur`, 'ok'],
+].map(([ago, label, tone]) => ({ at: REF - ago, label, tone }));
+const JOURNAL_CAPACITY = 200; // OperationJournal.DefaultCapacity
+
+// ---------- Session state ----------
+
 const state = {
-  history: buildHistory(),
-  presence: { ...profile },
+  readAt: REF - 12 * MIN, // directory read of the fictitious local base
+  inventoryAt: REF - 55 * MIN, // most recent inventory reading
+  presenceAt: WINDOW_END, // most recent presence reading
+  presence: { online: TARGET, noAnswer: WORKSTATIONS - TARGET - NOT_CHECKED, notChecked: NOT_CHECKED },
   freshness: { recent: 346, aging: 39, expired: 15, never: 12 },
-  measured: { annuaire: REF - 12 * MIN, presence: REF - 28 * MIN, inventory: REF - 55 * MIN },
-  enabled: Object.fromEntries(WIDGET_IDS.map((id) => [id, true])),
-  journal: [...JOURNAL],
+  seenToday: new Set(PRESENCE.online),
+  watchSeen: WATCH.map((w) => w.seenAt),
   round: 0,
+  disabled: new Set(),
+  journal: [], // operations of the session, most recent first
+  loaded: false, // a state is in memory once a summary or a refresh succeeded
+  dashboardDone: false,
   running: 0,
   queued: 0,
-  dashboardDone: false,
 };
 // Refreshes run one after the other, as in the engine (OPERATIONS.md § 6).
 let refreshChain = Promise.resolve();
-const presenceRand = seeded(Number(localDate(REF).replaceAll('-', '')) ^ 0x5eed);
 
-function log(label, tone) {
-  state.journal.unshift({ label, at: iso(Date.now()), tone });
+function log(label, tone, at) {
+  state.journal.unshift({ at, label, tone });
+  if (state.journal.length > JOURNAL_CAPACITY) state.journal.length = JOURNAL_CAPACITY;
 }
 
-// One deterministic presence round (SIMULATION.md § 5.3): every active workstation is probed now.
-function presenceRound() {
+// Round k ≥ 1: every active workstation is probed now; the probes in error keep their reading, the silent ones do not
+// answer, and among the others exactly target + e_k answer, the lowest scores rank + j(k).
+function presenceRound(at) {
   state.round += 1;
-  const online = profile.online + Math.floor(presenceRand() * 13) - 6;
-  state.presence = { online, noAnswer: TOTAL - online - 3, notChecked: 3 };
-  state.freshness = { recent: TOTAL - 3, aging: 0, expired: 0, never: 3 };
-  const h = state.history;
-  h.online[13] = online;
-  h.seen[13] = Math.max(h.seen[13], online) + Math.floor(presenceRand() * 3);
-  state.measured.presence = Date.now();
+  const random = fork(`presence/${state.round}`);
+  const spread = random.between(-ROUND_SPREAD, ROUND_SPREAD);
+  const scored = PRESENCE.candidates.map((station) => ({ station, rank: PRESENCE.ranks[station], score: PRESENCE.ranks[station] + random.between(0, ROUND_JITTER - 1) }));
+  const n = Math.min(Math.max(TARGET + spread, 0), scored.length);
+  const responders = new Set(scored.sort((x, y) => x.score - y.score || x.rank - y.rank).slice(0, n).map((c) => c.station));
+  responders.forEach((station) => state.seenToday.add(station));
+  WATCH.forEach((w, i) => { if (responders.has(w.station)) state.watchSeen[i] = at; });
+  state.presence = { online: n, noAnswer: WORKSTATIONS - ERROR_PROBES - n, notChecked: ERROR_PROBES };
+  state.freshness = { recent: WORKSTATIONS - ERROR_PROBES, aging: 0, expired: 0, never: ERROR_PROBES };
+  state.presenceAt = at;
 }
 
-// ---------- Widgets ----------
+// ---------- Widgets (DashboardCalculator) ----------
 
-const META = {
-  workstationsOnline: { kind: 'kpi', title: 'Postes en ligne', scope: 'ou', family: 'presence' },
-  activeAccounts: { kind: 'kpi', title: 'Comptes actifs', scope: 'domain', family: 'annuaire' },
-  lockedAccounts: { kind: 'kpi', title: 'Comptes verrouillés', scope: 'domain', family: 'annuaire' },
-  passwordsExpiring: { kind: 'kpi', title: 'Mots de passe expirant sous 7 jours', scope: 'domain', family: 'annuaire' },
-  diskAlerts: { kind: 'kpi', title: 'Alertes disque', scope: 'ou', family: 'inventory' },
-  osDistribution: { kind: 'distribution', title: 'Systèmes d’exploitation', scope: 'ou', family: 'annuaire' },
-  workstationActivity: { kind: 'series', title: 'Activité des postes · 7 jours', scope: 'ou', family: 'local' },
-  measureFreshness: { kind: 'gauge', title: 'Fraîcheur des mesures', scope: 'ou', family: 'presence' },
-  watchlist: { kind: 'list', title: 'Postes à surveiller', scope: 'ou', family: 'local' },
-  recentOperations: { kind: 'timeline', title: 'Dernières opérations', scope: 'session', family: 'local' },
-};
+const CATALOG = [
+  ['workstationsOnline', 'kpi', 'Postes en ligne', 'ou', 'presence'],
+  ['activeAccounts', 'kpi', 'Comptes actifs', 'domain', 'directory'],
+  ['lockedAccounts', 'kpi', 'Comptes verrouillés', 'domain', 'directory'],
+  ['passwordsExpiring', 'kpi', 'Mots de passe expirant sous 7 jours', 'domain', 'directory'],
+  ['diskAlerts', 'kpi', 'Alertes disque', 'ou', 'inventory'],
+  ['osDistribution', 'distribution', 'Systèmes d’exploitation', 'ou', 'directory'],
+  ['workstationActivity', 'series', 'Activité des postes · 7 jours', 'ou', 'local'],
+  ['measureFreshness', 'gauge', 'Fraîcheur des mesures', 'ou', 'presence'],
+  ['watchlist', 'list', 'Postes à surveiller', 'ou', 'local'],
+  ['recentOperations', 'timeline', 'Dernières opérations', 'session', 'local'],
+].map(([id, kind, title, scope, family]) => ({ id, kind, title, scope, family }));
+const BY_ID = new Map(CATALOG.map((w) => [w.id, w]));
 const SCOPE_LABELS = { domain: `Domaine ${DOMAIN}`, ou: `OU ${SCOPE.label}`, session: 'Session' };
 
-function upDown(value, up, down) {
-  return value > 0 ? up : value < 0 ? down : 'info';
-}
+const DISABLED_DETAIL = `Mesure désactivée${COLON}ce widget ne lit rien tant qu’il n’est pas réactivé.`;
+const NO_MEMORY_DETAIL = `Aucune mesure en mémoire${COLON}actualisez ce widget.`;
 
-function delta(series, rule) {
-  const now = series[13]; const before = series[6];
-  if (!Number.isFinite(now) || !Number.isFinite(before)) return null;
-  const value = now - before;
-  const label = value > 0 ? `+${fr.format(value)} sur 7 jours`
-    : value < 0 ? `${MINUS}${fr.format(-value)} sur 7 jours` : 'Stable sur 7 jours';
-  return { value, period: 'P7D', label, tone: rule(value) };
-}
-
-const history = (series) => series.map((value, n) => ({ date: localDate(days[n]), value }));
 const part = (key, label, value, tone) => ({ key, label, value, tone });
+const riseIs = (rise) => (d) => (d > 0 ? rise : d < 0 ? 'ok' : 'info');
+const alwaysInfo = () => 'info';
 
-function kpiData(id) {
-  const h = state.history; const p = state.presence;
-  switch (id) {
-    case 'workstationsOnline':
-      return { value: p.online, total: TOTAL, unit: 'postes', delta: delta(h.online, () => 'info'), history: history(h.online),
-        breakdown: [part('online', 'En ligne', p.online, 'ok'), part('noAnswer', 'Sans réponse', p.noAnswer, 'warn'), part('notChecked', 'Non vérifié', p.notChecked, 'off')] };
-    case 'activeAccounts':
-      return { value: h.active[13], total: null, unit: 'comptes', delta: delta(h.active, () => 'info'), history: history(h.active),
-        breakdown: [part('enabled', 'Actifs', h.active[13], 'ok'), part('disabled', 'Désactivés', 72, 'off')] };
-    case 'lockedAccounts':
-      return { value: h.locked[13], total: null, unit: 'comptes', delta: delta(h.locked, (v) => upDown(v, 'alert', 'ok')), history: history(h.locked),
-        breakdown: [part('locked', 'Verrouillés', h.locked[13], 'alert'), part('toCheck', 'À vérifier', 0, 'off')] };
-    case 'passwordsExpiring':
-      return { value: h.expiring[13], total: null, unit: 'comptes', delta: delta(h.expiring, (v) => upDown(v, 'warn', 'ok')), history: history(h.expiring),
-        breakdown: [part('expiring', 'Expirent sous 7 jours', h.expiring[13], 'warn'), part('expired', 'Déjà expirés', 11, 'alert'),
-          part('mustChange', 'À changer à la prochaine connexion', 4, 'info'), part('neverExpires', 'N’expirent jamais', 16, 'off')] };
-    default:
-      return { value: h.disk[13], total: null, unit: 'postes', delta: delta(h.disk, (v) => upDown(v, 'alert', 'ok')), history: history(h.disk),
-        breakdown: [part('critical', 'Moins de 10 % libre', 9, 'alert'), part('tight', '10 à 20 % libre', 17, 'warn'),
-          part('healthy', '20 % et plus', 345, 'ok'), part('unknown', 'Sans relevé', 41, 'off')] };
+// History: the past snapshots then today's value; delta against the snapshot of 7 days ago, null if it is missing.
+function kpi(value, total, unit, figure, deltaTone, breakdown) {
+  const history = [...HISTORY.map((h) => ({ date: h.date, value: h[figure] })), { date: isoDay(TODAY), value }];
+  const past = HISTORY.find((h) => h.date === isoDay(addDays(TODAY, -7)));
+  let delta = null;
+  if (past) {
+    const d = value - past[figure];
+    delta = { value: d, period: 'P7D', label: d === 0 ? 'Stable sur 7 jours' : `${signed(d)} sur 7 jours`, tone: deltaTone(d) };
   }
+  return { value, total, unit, delta, history, breakdown };
 }
 
-function osData() {
-  return {
-    total: TOTAL, unit: 'postes', centerText: `${fr.format(TOTAL)} postes`,
-    segments: [
-      { key: 'w11-24h2', label: 'Windows 11 24H2', value: 223, percent: 54.1, members: [] },
-      { key: 'w11-23h2', label: 'Windows 11 23H2', value: 96, percent: 23.3, members: [] },
-      { key: 'w11-25h2', label: 'Windows 11 25H2', value: 58, percent: 14.1, members: [] },
-      { key: 'w10-22h2', label: 'Windows 10 22H2', value: 23, percent: 5.6, members: [] },
-      { key: 'autres', label: 'Autres', value: 12, percent: 2.9, members: ['Windows 10 LTSC 2021'] },
-    ],
-    lead: { label: 'Windows 11 24H2', percent: 54.1 },
-  };
+function journalRows() {
+  return [...state.journal, ...SOURCE_JOURNAL].sort((x, y) => y.at - x.at);
 }
 
-function activityData() {
-  const seen = state.history.seen.slice(7);
-  const points = days.slice(7).map((t, n) => ({
-    date: localDate(t), label: DAY_LABELS[new Date(t).getDay()], value: seen[n], partial: n === 6,
-  }));
-  return { unit: 'postes', max: Math.max(0, ...points.map((p) => p.value ?? 0)), points };
-}
-
-function freshnessData() {
-  const f = state.freshness;
-  return {
-    percent: Math.round((f.recent / TOTAL) * 1000) / 10, fresh: f.recent, total: TOTAL, freshDays: 7,
-    breakdown: [part('recent', 'Moins de 7 jours', f.recent, 'ok'), part('aging', '7 à 30 jours', f.aging, 'warn'),
-      part('expired', 'Plus de 30 jours', f.expired, 'alert'), part('never', 'Jamais relevé', f.never, 'off')],
-  };
-}
-
-const DETAILS = {
-  workstationsOnline: 'Dernier relevé de présence de moins de 30 jours. Une absence de réponse ne prouve pas que le poste est éteint.',
-  activeAccounts: 'Comptes utilisateurs activés de tout le domaine (userAccountControl).',
-  lockedAccounts: 'Verrouillage calculé par le contrôleur (msDS-User-Account-Control-Computed), comptes actifs.',
-  passwordsExpiring: 'Expiration calculée par le contrôleur (msDS-UserPasswordExpiryTimeComputed), comptes actifs.',
-  diskAlerts: `Moins de 10 % libre sur C: · 371 postes relevés sur ${TOTAL}.`,
-  osDistribution: 'Attributs operatingSystem et operatingSystemVersion des comptes ordinateur activés.',
-  workstationActivity: 'Postes distincts ayant répondu au relevé de présence, par jour. Aujourd’hui : journée en cours.',
-  measureFreshness: 'Postes actifs dont le dernier relevé de présence date de moins de 7 jours.',
-  watchlist: '63 postes avec au moins un point d’attention, du plus grave au moins grave.',
-  recentOperations: 'Journal fictif de l’aperçu, les plus récentes d’abord.',
-};
-
-function dataOf(id) {
-  if (META[id].kind === 'kpi') return kpiData(id);
-  if (id === 'osDistribution') return osData();
-  if (id === 'workstationActivity') return activityData();
-  if (id === 'measureFreshness') return freshnessData();
-  if (id === 'watchlist') return { total: 63, shown: WATCH.length, rows: WATCH };
-  return { total: state.journal.length, rows: state.journal.slice(0, 6) };
-}
-
-function toneOf(id, data) {
-  switch (id) {
-    case 'lockedAccounts': return data.value > 0 ? 'alert' : 'ok';
-    case 'passwordsExpiring': return data.value > 0 ? 'warn' : 'ok';
-    case 'diskAlerts': {
-      const [critical, tight] = data.breakdown;
-      return critical.value > 0 ? 'alert' : tight.value > 0 ? 'warn' : 'ok';
+// Tone, measure date, detail and data of an enabled widget.
+function measure(def, now) {
+  switch (def.id) {
+    case 'workstationsOnline': {
+      const p = state.presence;
+      return {
+        tone: 'info', at: state.presenceAt,
+        detail: 'Dernier relevé de présence de moins de 30 jours. Une absence de réponse ne prouve pas que le poste est éteint.',
+        data: kpi(p.online, WORKSTATIONS, 'postes', 'online', alwaysInfo, [
+          part('online', 'En ligne', p.online, 'ok'), part('noAnswer', 'Sans réponse', p.noAnswer, 'warn'),
+          part('notChecked', 'Non vérifié', p.notChecked, 'off')]),
+      };
     }
-    case 'measureFreshness': return data.percent >= 90 ? 'ok' : data.percent >= 60 ? 'warn' : 'alert';
-    case 'watchlist': return data.rows.some((r) => r.severity === 'alert') ? 'alert' : data.rows.length ? 'warn' : 'ok';
-    default: return 'info';
+    case 'activeAccounts':
+      return {
+        tone: 'info', at: state.readAt, detail: 'Comptes utilisateurs activés de tout le domaine (userAccountControl).',
+        data: kpi(ACTIVE_USERS, null, 'comptes', 'active', alwaysInfo, [
+          part('enabled', 'Actifs', ACTIVE_USERS, 'ok'), part('disabled', 'Désactivés', USERS - ACTIVE_USERS, 'off')]),
+      };
+    case 'lockedAccounts':
+      return {
+        tone: 'alert', at: state.readAt,
+        detail: 'Verrouillage calculé par le contrôleur (msDS-User-Account-Control-Computed), comptes actifs.',
+        data: kpi(7, null, 'comptes', 'locked', riseIs('alert'), [
+          part('locked', 'Verrouillés', 7, 'alert'), part('toCheck', 'À vérifier', 0, 'off')]),
+      };
+    case 'passwordsExpiring':
+      return {
+        tone: 'warn', at: state.readAt,
+        detail: 'Expiration calculée par le contrôleur (msDS-UserPasswordExpiryTimeComputed), comptes actifs.',
+        data: kpi(23, null, 'comptes', 'expiring', riseIs('warn'), [
+          part('expiring', 'Expirent sous 7 jours', 23, 'warn'), part('expired', 'Déjà expirés', 11, 'alert'),
+          part('mustChange', 'À changer à la prochaine connexion', 4, 'info'), part('neverExpires', 'N’expirent jamais', 16, 'off')]),
+      };
+    case 'diskAlerts':
+      return {
+        tone: 'alert', at: state.inventoryAt,
+        detail: `Moins de 10${NBSP}% libre sur C: · ${count(371, 'poste relevé', 'postes relevés')} sur ${int(WORKSTATIONS)}.`,
+        data: kpi(9, null, 'postes', 'disk', riseIs('alert'), [
+          part('critical', `Moins de 10${NBSP}% libre`, 9, 'alert'), part('tight', `10 à 20${NBSP}% libre`, 17, 'warn'),
+          part('healthy', `20${NBSP}% et plus`, 345, 'ok'), part('unknown', 'Sans relevé', 41, 'off')]),
+      };
+    case 'osDistribution':
+      // Editions of one release grouped; percentages to the tenth by the largest remainder (sum 100.0).
+      return {
+        tone: 'info', at: state.readAt,
+        detail: 'Attributs operatingSystem et operatingSystemVersion des comptes ordinateur activés.',
+        data: {
+          total: WORKSTATIONS, unit: 'postes', centerText: count(WORKSTATIONS, 'poste', 'postes'),
+          segments: [
+            { key: 'w11-24h2', label: 'Windows 11 24H2', value: 223, percent: 54.1, members: [] },
+            { key: 'w11-23h2', label: 'Windows 11 23H2', value: 96, percent: 23.3, members: [] },
+            { key: 'w11-25h2', label: 'Windows 11 25H2', value: 58, percent: 14.1, members: [] },
+            { key: 'w10-22h2', label: 'Windows 10 22H2', value: 23, percent: 5.6, members: [] },
+            { key: 'autres', label: 'Autres', value: 12, percent: 2.9, members: ['Windows 10 LTSC 2021'] },
+          ],
+          lead: { label: 'Windows 11 24H2', percent: 54.1 },
+        },
+      };
+    case 'workstationActivity': {
+      const points = [];
+      for (let offset = 6; offset >= 0; offset--) {
+        const day = addDays(TODAY, -offset);
+        const value = offset === 0 ? state.seenToday.size : (HISTORY.find((h) => h.date === isoDay(day))?.seen ?? null);
+        points.push({ date: isoDay(day), label: DAY_LABELS[day.getDay()], value, partial: offset === 0 });
+      }
+      return {
+        tone: 'info', at: now,
+        detail: `Postes distincts ayant répondu au relevé de présence, par jour. Aujourd’hui${COLON}journée en cours.`,
+        data: { unit: 'postes', max: Math.max(0, ...points.map((p) => p.value ?? 0)), points },
+      };
+    }
+    case 'measureFreshness': {
+      const f = state.freshness;
+      const percent = Math.round((f.recent * 1000) / WORKSTATIONS) / 10;
+      return {
+        tone: percent >= 90 ? 'ok' : percent >= 60 ? 'warn' : 'alert', at: state.presenceAt,
+        detail: 'Postes actifs dont le dernier relevé de présence date de moins de 7 jours.',
+        data: {
+          percent, fresh: f.recent, total: WORKSTATIONS, freshDays: 7,
+          breakdown: [
+            part('recent', 'Moins de 7 jours', f.recent, 'ok'), part('aging', '7 à 30 jours', f.aging, 'warn'),
+            part('expired', 'Plus de 30 jours', f.expired, 'alert'), part('never', 'Jamais relevé', f.never, 'off')],
+        },
+      };
+    }
+    case 'watchlist': {
+      const rows = WATCH.map((w, i) => ({ ...w.row, lastSeenAt: state.watchSeen[i] == null ? null : iso(state.watchSeen[i]) }));
+      return {
+        // The list mixes directory, presence and inventory figures: it is as old as the oldest of them.
+        tone: 'alert', at: Math.min(state.readAt, state.presenceAt, state.inventoryAt),
+        detail: `${count(WATCH_TOTAL, 'poste', 'postes')} avec au moins un point d’attention, du plus grave au moins grave.`,
+        data: { total: WATCH_TOTAL, shown: rows.length, rows },
+      };
+    }
+    default: {
+      const entries = journalRows();
+      return {
+        tone: 'info', at: entries[0].at, detail: 'Journal fictif de la simulation, les plus récentes d’abord.',
+        data: { total: entries.length, rows: entries.slice(0, 6).map((e) => ({ label: e.label, at: iso(e.at), tone: e.tone })) },
+      };
+    }
   }
 }
 
-function measuredOf(id, now) {
-  const m = state.measured;
-  if (id === 'workstationActivity') return now;
-  if (id === 'watchlist') return Math.min(m.annuaire, m.presence, m.inventory);
-  if (id === 'recentOperations') return Date.parse(state.journal[0].at);
-  return m[META[id].family];
-}
-
+// One shape for every widget (OPERATIONS.md § 4.2): data is null if and only if disabled or never measured.
 function widget(id, now = Date.now()) {
-  const meta = META[id];
-  const base = { id, kind: meta.kind, title: meta.title, scopeLabel: SCOPE_LABELS[meta.scope] };
-  if (!state.enabled[id]) {
-    return { ...base, enabled: false, tone: 'off', measuredAt: null, stale: false,
-      detail: 'Mesure désactivée : ce widget ne lit rien tant qu’il n’est pas réactivé.', data: null };
+  const def = BY_ID.get(id);
+  const base = { id, kind: def.kind, title: def.title, scopeLabel: SCOPE_LABELS[def.scope] };
+  if (state.disabled.has(id)) {
+    return { ...base, enabled: false, tone: 'off', measuredAt: null, stale: false, detail: DISABLED_DETAIL, data: null };
   }
-  const data = dataOf(id);
-  const measuredAt = measuredOf(id, now);
-  const stale = now - measuredAt > 7 * DAY;
-  return { ...base, enabled: true, tone: stale ? 'off' : toneOf(id, data), measuredAt: iso(measuredAt), stale, detail: DETAILS[id], data: clone(data) };
+  const m = measure(def, now);
+  const stale = now - m.at > STALE_AFTER;
+  return { ...base, enabled: true, tone: stale ? 'off' : m.tone, measuredAt: iso(m.at), stale, detail: m.detail, data: m.data };
 }
 
-// ---------- Arguments (same rules and texts as the engine) ----------
+function notMeasured(id, detail) {
+  const def = BY_ID.get(id);
+  return { id, kind: def.kind, title: def.title, scopeLabel: SCOPE_LABELS[def.scope], enabled: true, tone: 'off', measuredAt: null, stale: false, detail, data: null };
+}
 
-const invalid = (why) => fail('arguments.invalid', `Arguments invalides : ${why}`);
+// ---------- Arguments (BridgeArguments: same order of checks, same texts) ----------
 
-function noArgs(args) {
-  if (args == null) return;
-  if (typeof args !== 'object' || Array.isArray(args)) throw invalid('un objet JSON est attendu.');
+const invalid = (precision) => fail('arguments.invalid', `Arguments invalides${COLON}${precision}`);
+const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+function requireNone(args) {
+  if (args === undefined || args === null) return;
+  if (!isObject(args)) throw invalid('un objet JSON est attendu.');
   if (Object.keys(args).length) throw invalid('cette opération n’en accepte aucun.');
 }
 
-function widgetArgs(args, withEnabled) {
-  if (args == null || typeof args !== 'object' || Array.isArray(args)) throw invalid('un objet JSON est attendu.');
-  const allowed = withEnabled ? ['id', 'enabled'] : ['id'];
+function readObject(args, allowed) {
+  if (!isObject(args)) throw invalid('un objet JSON est attendu.');
   if (Object.keys(args).some((k) => !allowed.includes(k))) throw invalid('propriété non admise.');
-  if (typeof args.id !== 'string') throw invalid('« id » est obligatoire et doit être un texte.');
-  if (withEnabled && typeof args.enabled !== 'boolean') throw invalid('« enabled » est obligatoire et doit valoir true ou false.');
-  if (!WIDGET_IDS.includes(args.id)) {
-    throw fail('widget.unknown', withEnabled ? 'Widget inconnu : rien n’a été changé.' : 'Widget inconnu : rien n’a été lu.');
-  }
+  return args;
+}
+
+function getString(values, name) {
+  if (Object.hasOwn(values, name) && typeof values[name] === 'string') return values[name];
+  throw invalid(`${quote(name)} est obligatoire et doit être un texte.`);
+}
+
+function getBoolean(values, name) {
+  if (Object.hasOwn(values, name) && typeof values[name] === 'boolean') return values[name];
+  throw invalid(`${quote(name)} est obligatoire et doit valoir true ou false.`);
 }
 
 // ---------- Operations ----------
 
-// Contract values only (OPERATIONS.md § 2): the preview is a simulation, recognised by webViewRuntime "apercu".
-// No modeReason describes a browser preview yet; "argument" (simulation chosen at launch) is the closest one.
-function appInfo() {
+// Contract values (OPERATIONS.md § 2); the preview is recognised by webViewRuntime "apercu". No modeReason describes a
+// browser preview: "argument" (simulation chosen at launch) is the closest one, the detail and the banner say the rest.
+function appInfo(args) {
+  requireNone(args);
   return {
     name: 'Domenia', version: '2.0.0-dev', runtime: '10.0.12', webViewRuntime: 'apercu',
     mode: 'simulation', modeLabel: 'Simulation', modeReason: 'argument',
-    modeDetail: 'Ouvert dans un navigateur : la page répond avec sa maquette intégrée.',
-    banner: `Aperçu : annuaire fictif ${DOMAIN} intégré à la page, aucune requête ne part et rien n’est écrit.`,
+    modeDetail: `Ouvert dans un navigateur${COLON}la page répond avec sa maquette intégrée.`,
+    banner: `Aperçu${COLON}annuaire fictif ${DOMAIN} intégré à la page, aucune requête ne part et rien n’est écrit.`,
   };
 }
 
-function sessionInfo() {
+const storeStatus = () => ({ lastReadAt: iso(state.readAt), objects: OBJECTS, complete: true });
+
+function sessionInfo(args) {
+  requireNone(args);
+  const now = Date.now();
+  const age = now - state.readAt;
+  const [cacheState, cacheLabel] = age < DAY ? ['fresh', 'À jour'] : age <= 7 * DAY ? ['aging', 'À relire bientôt'] : ['stale', 'Ancienne'];
   const steps = [
     { id: 'connect', label: 'Connexion à l’annuaire', done: true },
     { id: 'scope', label: 'Choix de l’OU de travail', done: true },
@@ -309,81 +449,113 @@ function sessionInfo() {
   ];
   return {
     connection: { state: 'simulated', label: 'Annuaire simulé' },
-    domain: { dnsName: DOMAIN, netbiosName: 'EXAMPLE', rootDn: 'DC=example,DC=local' },
-    controller: { dnsName: 'DC01.example.local', site: 'Paris' },
-    account: { login: 'EXAMPLE\\j.martin', displayName: 'Julien Martin', givenName: 'Julien',
-      dn: 'CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,DC=example,DC=local' },
+    domain: { dnsName: DOMAIN, netbiosName: 'EXAMPLE', rootDn: ROOT_DN },
+    controller: { dnsName: `DC01.${DOMAIN}`, site: 'Paris' },
+    account: {
+      login: 'EXAMPLE\\j.martin', displayName: 'Julien Martin', givenName: 'Julien',
+      dn: `CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,${ROOT_DN}`,
+    },
     authentication: { method: 'none', protocol: null, label: 'Aucune (simulation)' },
     scope: { ...SCOPE },
-    rights: { level: 'read', label: 'Lecture', estimated: true, detail: 'Aperçu : les droits sont fictifs et aucune écriture n’est possible.' },
+    rights: { level: 'read', label: 'Lecture', estimated: true, detail: `Simulation${COLON}les droits sont fictifs et aucune écriture n’est possible.` },
     readOnly: true,
     tasks: { running: state.running, queued: state.queued },
-    cache: { state: 'fresh', label: 'À jour', lastReadAt: iso(REF - 12 * MIN), objects: OBJECTS, complete: true },
+    cache: { state: cacheState, label: cacheLabel, ...storeStatus() },
     onboarding: { steps, completed: steps.filter((s) => s.done).length, total: steps.length },
   };
 }
 
-function summary() {
-  const now = Date.now();
-  state.dashboardDone = true;
-  return {
-    generatedAt: iso(now),
-    scope: { ...SCOPE },
-    store: { lastReadAt: iso(REF - 12 * MIN), objects: OBJECTS, complete: true },
-    widgets: Object.fromEntries(WIDGET_IDS.map((id) => [id, widget(id, now)])),
-  };
-}
-
-async function measure(id) {
-  state.queued -= 1;
+async function summary(args) {
+  requireNone(args);
   state.running += 1;
   try {
-    await sleep(400 + Math.floor(Math.random() * 500));
+    await sleep(latency('read', 120, 250));
   } finally {
     state.running -= 1;
   }
-  if (!state.enabled[id]) return widget(id); // disabled meanwhile: not published
-  const family = META[id].family;
-  if (family === 'presence') presenceRound();
-  else if (family === 'annuaire') state.measured.annuaire = Date.now();
-  else if (family === 'inventory') state.measured.inventory = Date.now();
-  log(`Actualisation : ${META[id].title}`, 'ok');
-  return widget(id);
+  const now = Date.now();
+  const result = {
+    generatedAt: iso(now),
+    scope: { ...SCOPE },
+    store: storeStatus(),
+    widgets: Object.fromEntries(CATALOG.map((def) => [def.id, widget(def.id, now)])),
+  };
+  state.loaded = true;
+  state.dashboardDone = true;
+  return result;
+}
+
+async function measureNow(id) {
+  state.queued -= 1;
+  state.running += 1;
+  try {
+    // Disabled while waiting: nothing is read.
+    if (state.disabled.has(id)) return widget(id);
+    const def = BY_ID.get(id);
+    await sleep(latency('refresh', 400, 900));
+    const now = Date.now();
+    // Directory and inventory: same values read again, dated now. Presence: one more round. Local computation: nothing.
+    if (def.family === 'directory') state.readAt = now;
+    else if (def.family === 'inventory') state.inventoryAt = now;
+    else if (def.family === 'presence') presenceRound(now);
+    state.loaded = true;
+    log(`Actualisation${COLON}${def.title}`, 'ok', now);
+    // Disabled during the measure: the measure is kept, the widget comes back disabled (nothing is published).
+    return widget(id, now);
+  } finally {
+    state.running -= 1;
+  }
 }
 
 function refresh(args) {
-  widgetArgs(args, false);
-  const { id } = args;
-  if (!state.enabled[id]) {
-    throw fail('widget.disabled', 'Ce widget est désactivé : aucune mesure n’est faite. Réactivez « Mesure active » pour l’actualiser.');
+  const id = getString(readObject(args, ['id']), 'id');
+  if (!BY_ID.has(id)) throw fail('widget.unknown', `Widget inconnu${COLON}rien n’a été lu.`);
+  if (state.disabled.has(id)) {
+    throw fail('widget.disabled', `Ce widget est désactivé${COLON}aucune mesure n’est faite. Réactivez ${quote('Mesure active')} pour l’actualiser.`);
   }
   state.queued += 1;
-  const turn = refreshChain.then(() => measure(id));
+  const turn = refreshChain.then(() => measureNow(id));
   refreshChain = turn.catch(() => {});
   return turn;
 }
 
 function setEnabled(args) {
-  widgetArgs(args, true);
-  const { id, enabled } = args;
-  if (state.enabled[id] !== enabled) {
-    state.enabled[id] = enabled;
-    log(`${enabled ? 'Mesure réactivée' : 'Mesure désactivée'} : ${META[id].title}`, 'info');
+  const values = readObject(args, ['id', 'enabled']);
+  const id = getString(values, 'id');
+  const enabled = getBoolean(values, 'enabled');
+  if (!BY_ID.has(id)) throw fail('widget.unknown', `Widget inconnu${COLON}rien n’a été changé.`);
+  const changed = enabled === state.disabled.has(id);
+  if (changed) {
+    if (enabled) state.disabled.delete(id); else state.disabled.add(id);
+    log(`${enabled ? 'Mesure réactivée' : 'Mesure désactivée'}${COLON}${BY_ID.get(id).title}`, 'info', Date.now());
   }
+  // Enabling reuses the last state in memory, without any read; none before the first summary.
+  if (enabled && !state.loaded) return notMeasured(id, NO_MEMORY_DETAIL);
   return widget(id);
 }
 
 const OPERATIONS = {
-  'app.info': (args) => { noArgs(args); return appInfo(); },
-  'session.info': (args) => { noArgs(args); return sessionInfo(); },
-  'dashboard.summary': (args) => { noArgs(args); return summary(); },
+  'app.info': appInfo,
+  'session.info': sessionInfo,
+  'dashboard.summary': summary,
   'dashboard.widget.refresh': refresh,
   'dashboard.widget.setEnabled': setEnabled,
 };
 
+const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength
+
+// Same answers as the host: arguments travel as JSON, results come back as fresh JSON values.
 export async function mockCall(op, args) {
-  const handler = Object.hasOwn(OPERATIONS, op) ? OPERATIONS[op] : null;
-  if (op !== 'dashboard.widget.refresh') await sleep(300 + Math.floor(Math.random() * 600));
-  if (!handler) throw fail('operation.unknown', 'Opération inconnue : rien n’a été exécuté.');
-  return clone(await handler(args));
+  let wire;
+  try {
+    const text = JSON.stringify({ op, args });
+    if (text.length > MAX_MESSAGE_LENGTH) throw fail('message.size', `Message de l’interface refusé${COLON}taille non admise.`);
+    wire = JSON.parse(text);
+  } catch (err) {
+    if (err?.code) throw err;
+    throw fail('message.json', 'Message de l’interface illisible.');
+  }
+  const handler = typeof wire.op === 'string' && Object.hasOwn(OPERATIONS, wire.op) ? OPERATIONS[wire.op] : null;
+  if (!handler) throw fail('operation.unknown', `Opération inconnue${COLON}rien n’a été exécuté.`);
+  return clone(await handler(wire.args));
 }

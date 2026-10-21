@@ -39,10 +39,14 @@
 
 /* ---------- Navigation ---------- */
 .nav-item, .nav-item:hover { text-decoration: none; }
+/* « v2 » pill next to the logo (full version in its tip): framed, since its fill nearly matches the menu background in
+   the light theme and disappears in high contrast. */
 .brand-ver {
-  margin-left: auto; padding: 1px 8px; border-radius: var(--r-pill); font-size: var(--fs-caption); font-weight: 700;
-  color: var(--accent-text); background: var(--accent-soft); letter-spacing: 0;
+  margin-left: auto; padding: 0 7px; border-radius: var(--r-pill); font-size: var(--fs-caption); font-weight: 700; line-height: 18px;
+  color: var(--accent-text); background: var(--accent-soft); letter-spacing: 0; cursor: default;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
 }
+:root[data-theme="contrast"] .brand-ver { border-color: currentColor; }
 .nav-item .nav-kbd { margin-left: auto; opacity: 0; transform: translateX(-4px); transition: opacity var(--t-fast), transform var(--t) var(--ease-out); }
 .nav-item:hover .nav-kbd, .nav-item:focus-visible .nav-kbd { opacity: 1; transform: none; }
 .nav-toggle { margin-top: var(--s2); }
@@ -233,18 +237,24 @@
 @media (max-width: 640px) { .kpi-band { grid-template-columns: 1fr; } .kpi-band > :last-child:nth-child(odd) { grid-column: auto; } }
 
 .kpi .kpi-top { display: flex; align-items: center; gap: var(--s2); }
-.kpi .kpi-top .label { flex: 1; min-width: 0; }
+.kpi .kpi-top .label { flex: 1; min-width: 0; text-wrap: balance; }
 .kpi .kpi-top .card-icon { width: 32px; height: 32px; border-radius: 10px; }
 .kpi .kpi-top .card-icon svg { width: 18px; height: 18px; }
-.kpi .kpi-main { position: relative; min-height: 70px; display: grid; align-content: center; gap: 6px; padding-right: 46%; }
-.kpi .kpi-main .spark { top: auto; bottom: 4px; right: -4px; width: 48%; height: 52px; }
+/* Value on its own row, then the trend row: the delta chip keeps its line and the sparkline takes the rest (it moves
+   below the chip when less than 72 px are left, e.g. « Pas d’historique à 7 jours » in a narrow card). */
+.kpi .kpi-main { position: relative; display: grid; gap: var(--s2); }
+.kpi .kpi-trend { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s1) var(--s3); min-height: 44px; }
+.kpi .kpi-trend .delta { flex: none; white-space: nowrap; margin-bottom: 2px; }
+.kpi .kpi-trend .spark { position: static; flex: 1 1 72px; min-width: 72px; width: auto; height: 44px; margin-right: -4px; }
 .kpi .value { white-space: nowrap; }
 .kpi .value.bump { animation: bump 640ms var(--ease-spring); }
 @keyframes bump { 30% { transform: scale(1.08); filter: brightness(1.2); } }
 .kpi .value.none { color: var(--text-faint); }
 .kpi .kpi-foot { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s1); padding-top: var(--s3); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: var(--fs-caption); color: var(--text-faint); }
-.kpi .kpi-foot .when { margin-left: auto; white-space: nowrap; }
+/* « Mesure active » never wraps; a narrow card shortens the relative time instead (its tip gives the full date). */
+.kpi .kpi-foot .when { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kpi-switch { display: inline-flex; align-items: center; gap: var(--s2); cursor: pointer; font-weight: 600; color: var(--text-muted); }
+.kpi .kpi-foot .kpi-switch { flex: none; white-space: nowrap; }
 .kpi-switch .switch { width: 36px; height: 22px; }
 .kpi-switch .switch::after { width: 16px; height: 16px; }
 .kpi-switch .switch:checked::after { transform: translateX(14px); }
@@ -268,9 +278,10 @@
 .stack > span:hover { opacity: 1; }
 @keyframes stack-in { from { transform: scaleX(0); } }
 .stack-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--fs-caption); color: var(--text-faint); }
-.stack-legend li { display: inline-flex; align-items: center; gap: 5px; }
-.stack-legend .dot { width: 7px; height: 7px; }
-.stack-legend b { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+/* The label and its value form one text run: a long label wraps and its value follows its last word. */
+.stack-legend li { display: flex; align-items: flex-start; gap: 5px; min-width: 0; }
+.stack-legend .dot { width: 7px; height: 7px; margin-top: calc((1lh - 7px) / 2); }
+.stack-legend b { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* ---------- Donut, gauge and legend ---------- */
 .ring circle.seg.draw { stroke-dasharray: var(--len) 200; }
@@ -339,7 +350,7 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 /* ---------- Error and empty states ---------- */
 .card.error-card .art { background: var(--alert-soft); color: var(--alert); }
 .empty h2, .empty h3 { color: var(--text); }
-.empty p { max-width: 62ch; }
+.empty p { max-width: 62ch; text-wrap: pretty; }
 .empty .code { font-family: var(--font-mono); font-size: var(--fs-caption); color: var(--text-faint); }
 
 /* ---------- Command palette extras ---------- */
@@ -367,7 +378,11 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .todo-tools { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; margin: var(--s6) 0 var(--s4); }
 .todo-tools h2 { font-size: var(--fs-section); }
 .todo-tools .input { margin-left: auto; width: min(360px, 100%); }
-.feature-groups { display: grid; gap: var(--s5); grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); align-items: start; }
+/* Groups share the width (empty tracks collapse); a group alone spreads its list over columns instead of leaving
+   two thirds of the screen empty. */
+.feature-groups { display: grid; gap: var(--s5); grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); align-items: start; }
+.feature-group:only-child .feature-list { display: block; columns: 3 320px; column-gap: var(--s5); }
+.feature-group:only-child .feature-list li { break-inside: avoid; margin-bottom: 2px; }
 .feature-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .feature-list li { display: flex; gap: var(--s2); padding: 6px var(--s2); border-radius: var(--r-sm); font-size: var(--fs-small); transition: background var(--t-fast), transform var(--t) var(--ease-out); }
 .feature-list li:hover { background: var(--bg-hover); transform: translateX(3px); }
@@ -403,9 +418,12 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 @media (max-width: 1000px) { .topbar .live .label { display: none; } }
 
 /* Accueil layout details */
-.kpi-band > .kpi { display: flex; flex-direction: column; }
-.kpi-band > .kpi > .card-body { display: grid; gap: var(--s2); }
-.kpi .kpi-foot { margin-top: auto; }
+/* The KPI cards share their rows across the band (subgrid): titles, values and footers line up even when one title
+   needs three lines (« Mots de passe expirant sous 7 jours »). */
+.kpi-band > .kpi { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: var(--s2); }
+.kpi-band > .kpi > .kpi-top { align-self: start; }
+.kpi-band > .kpi > .card-body { display: grid; gap: var(--s2); align-content: start; }
+.kpi-band > .kpi > .kpi-foot { align-self: end; }
 .card-head { flex-wrap: wrap; }
 .card-head .meta { flex-wrap: wrap; justify-content: flex-end; }
 .card-head .meta .kpi-switch .switch { margin-left: var(--s1); }

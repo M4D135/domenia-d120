@@ -8,6 +8,12 @@ const MODULES = {
 };
 const fallback = () => import('./pages/_todo.js');
 
+// Readiness signal read by the host in capture mode (docs/CAPTURE.md): <html data-ready="<route>"> once the route is
+// mounted, no bridge call is in flight and the screen shows no skeleton nor busy region. Nothing reads it otherwise.
+const READY_POLL_MS = 80;
+const READY_GIVE_UP_MS = 120_000;
+const docRoot = document.documentElement;
+
 function parseHash() {
   const m = /^#\/([a-z0-9-]+)/i.exec(location.hash);
   return m ? m[1].toLowerCase() : '';
@@ -26,8 +32,9 @@ function errorPage(err) {
   };
 }
 
-// pages: [{ id, label, icon, section }]; context(page) → object handed to render(main, ctx).
-export function createRouter({ main, nav, pages, context, defaultId = 'accueil', onChange }) {
+// pages: [{ id, label, icon, section }]; context(page) → object handed to render(main, ctx);
+// isBusy() → true while a bridge call of the page is in flight (readiness signal).
+export function createRouter({ main, nav, pages, context, defaultId = 'accueil', onChange, isBusy = () => false }) {
   let cleanup = null;
   let token = 0;
   let currentId = null;
@@ -55,6 +62,21 @@ export function createRouter({ main, nav, pages, context, defaultId = 'accueil',
       else el.removeAttribute('aria-current');
     });
     updatePill();
+  }
+
+  // Sets data-ready once the screen of render `my` is quiet on two checks in a row (a call chained right after
+  // another one is never taken for the end); a newer render stops the watch.
+  function watchReady(id, my) {
+    const started = performance.now();
+    let calm = 0;
+    const check = () => {
+      if (my !== token) return;
+      const quiet = !isBusy() && !main.querySelector('.skeleton, [aria-busy="true"]');
+      calm = quiet ? calm + 1 : 0;
+      if (calm >= 2) { docRoot.dataset.ready = id; return; }
+      if (performance.now() - started < READY_GIVE_UP_MS) setTimeout(check, READY_POLL_MS);
+    };
+    setTimeout(check, READY_POLL_MS);
   }
 
   // first: initial render at start-up (focus stays where the browser put it).
@@ -86,6 +108,7 @@ export function createRouter({ main, nav, pages, context, defaultId = 'accueil',
   }
 
   async function render() {
+    delete docRoot.dataset.ready; // the previous screen is no longer the one being shown
     const id = parseHash();
     const page = pages.find((p) => p.id === id);
     if (!page) {
@@ -107,7 +130,11 @@ export function createRouter({ main, nav, pages, context, defaultId = 'accueil',
     const first = currentId === null;
     currentId = id;
     // A view transition skipped by a newer navigation still runs its callback: only the latest one mounts.
-    const swap = () => { if (my === token) mount(mod, page, my, first); };
+    const swap = () => {
+      if (my !== token) return;
+      mount(mod, page, my, first);
+      watchReady(page.id, my);
+    };
     if (!first && document.startViewTransition && !motionReduced()) {
       const vt = document.startViewTransition(swap);
       vt.finished.catch(() => {});

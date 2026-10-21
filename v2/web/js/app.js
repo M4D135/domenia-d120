@@ -119,7 +119,7 @@ function navMarkup() {
   }).join('');
   const bottom = PAGES.map((p, n) => (p.section === null ? navItem(p, n) : '')).join('');
   return `<nav class="nav" aria-label="Navigation principale">
-    <div class="brand"><span class="brand-mark">${icon('logo')}</span><span class="brand-name">Domenia</span><span class="brand-ver">2</span></div>
+    <div class="brand"><span class="brand-mark">${icon('logo')}</span><span class="brand-name">Domenia</span><span class="brand-ver" data-tip="Domenia 2"><span aria-hidden="true">v2</span><span class="visually-hidden">, version 2</span></span></div>
     <span class="nav-pill" aria-hidden="true"></span>
     ${sections}
     <div class="nav-spacer"></div>
@@ -181,7 +181,8 @@ function initTips(nav) {
     tip.style.setProperty('--tx', `${Math.round(x)}px`);
     tip.style.setProperty('--ty', `${Math.round(y)}px`);
   };
-  const wanted = (el) => !(el.closest('.nav') && nav.getBoundingClientRect().width > 120);
+  // Unfolded menu: its items show their label, so they need no tip (the version pill keeps its own).
+  const wanted = (el) => !(el.closest('.nav-item') && nav.getBoundingClientRect().width > 120);
   const show = (el) => {
     if (!el.isConnected || !el.dataset.tip || !wanted(el)) return;
     const wasOn = tip.classList.contains('on');
@@ -209,6 +210,12 @@ function initTips(nav) {
 }
 
 // ---------- Mode, connection and banner ----------
+
+// Full version in the tip of the « v2 » pill next to the logo (app.info, OPERATIONS.md § 2).
+function showVersion(info) {
+  const pill = document.querySelector('.brand-ver');
+  if (pill && typeof info?.version === 'string' && info.version) pill.dataset.tip = `Domenia 2 · version ${info.version}`;
+}
 
 // The browser preview is recognised by its engine (OPERATIONS.md § 2: webViewRuntime "apercu"); it also reports
 // mode "simulation", so the preview wording wins.
@@ -250,9 +257,16 @@ export function showConnection(session) {
 
 let themeInk = null;
 
+// Bridge calls in flight: the router waits for none before it signals a screen as ready (data-ready).
+let inflight = 0;
+
 function trackedCall(op, args) {
+  inflight += 1;
   setBusy(true);
-  return call(op, args).finally(() => setBusy(false));
+  return call(op, args).finally(() => {
+    inflight -= 1;
+    setBusy(false);
+  });
 }
 
 function boot() {
@@ -271,7 +285,7 @@ function boot() {
   initPointerEffects();
   initTips(nav);
 
-  const appInfo = trackedCall('app.info').then((info) => { showMode(info); return info; }).catch((err) => {
+  const appInfo = trackedCall('app.info').then((info) => { showMode(info); showVersion(info); return info; }).catch((err) => {
     console.error(err);
     toast(`Informations de l’application indisponibles : ${errorText(err)}`, { tone: 'warn' });
     return null;
@@ -333,6 +347,7 @@ function boot() {
     main,
     nav,
     pages: PAGES,
+    isBusy: () => inflight > 0,
     context: (page) => ({
       page,
       pages: PAGES,

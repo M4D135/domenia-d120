@@ -2,6 +2,7 @@
 import { icon } from './icons.js';
 import { esc, fold, toast } from './ui.js';
 
+// Results kept per group while typing; with an empty query every command is listed (all the pages, all the actions).
 const LIMIT_PER_GROUP = 12;
 
 // Score a label against the query: substring first (word starts win), then loose subsequence.
@@ -74,7 +75,7 @@ export function createPalette({ getCommands, inertTarget }) {
       .map((c) => ({ c, s: Math.max(score(c.label, query), score(c.keywords ?? '', query) * 0.8) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => (query ? b.s - a.s : 0))
-      .slice(0, LIMIT_PER_GROUP)
+      .slice(0, query ? LIMIT_PER_GROUP : undefined)
       .map((x) => x.c);
     const groups = [
       { title: 'Aller à', list: rank(pages), activeText: 'écran affiché' },

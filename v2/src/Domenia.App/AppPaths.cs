@@ -25,9 +25,19 @@ internal static class AppPaths
     /// </summary>
     public static string? UserData { get; } = ResolveUserData();
 
-    /// <summary>WebView2 profile of the mode: the simulation never shares web storage or cache with the directory mode.</summary>
-    public static string? WebViewUserData(AppMode mode) =>
-        UserData is null ? null : Path.Combine(UserData, mode == AppMode.Simulation ? "WebView2-Simulation" : "WebView2");
+    /// <summary>
+    /// WebView2 profile of the mode: the simulation never shares web storage or cache with the directory mode. The
+    /// capture mode (--capture) has its own profiles, so its forced preferences never reach the operator's.
+    /// </summary>
+    public static string? WebViewUserData(AppMode mode, bool capture = false)
+    {
+        if (UserData is null)
+        {
+            return null;
+        }
+        var name = (capture ? "WebView2-Capture" : "WebView2") + (mode == AppMode.Simulation ? "-Simulation" : "");
+        return Path.Combine(UserData, name);
+    }
 
     private static string? ResolveUserData()
     {

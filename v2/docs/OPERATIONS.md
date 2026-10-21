@@ -202,7 +202,7 @@ contrôleur, OU) et l’onglet « Session » de « Session et vérifications ».
 | `tasks.queued` | entier | Lectures en attente. |
 | `cache.state` | texte | `fresh` (moins de 24 h), `aging` (1 à 7 jours), `stale` (plus de 7 jours), `empty` (jamais lue). |
 | `cache.label` | texte | `À jour`, `À relire bientôt`, `Ancienne`, `Vide`. |
-| `cache.lastReadAt` | date-heure ou `null` | Dernière lecture de l’annuaire enregistrée dans la base locale. |
+| `cache.lastReadAt` | date-heure ou `null` | Dernière lecture de l’annuaire enregistrée dans la base locale. En simulation : date fictive de lecture de l’annuaire fictif (la base locale n’est jamais ouverte, `SIMULATION.md` § 1). |
 | `cache.objects` | entier | Objets d’annuaire dans la base (utilisateurs, ordinateurs, groupes, OU). |
 | `cache.complete` | booléen | `false` si la dernière lecture s’est arrêtée à sa limite (chiffres possiblement sous-estimés). |
 | `onboarding.steps` | tableau | 4 étapes `{ id, label, done }` dans l’ordre : `connect`, `scope`, `firstRead`, `dashboard`. |
@@ -421,7 +421,7 @@ vaut exactement 100.0**. Un système non renseigné forme le segment `nonRenseig
 | `rows[].reason` | texte | Motif affiché, avec la valeur mesurée. |
 | `rows[].severity` | texte | `alert` ou `warn`. |
 | `rows[].otherReasons` | entier | Autres points d’attention du même poste. |
-| `rows[].lastSeenAt` | date-heure ou `null` | Dernière réponse au relevé de présence ; `null` si jamais vu. |
+| `rows[].lastSeenAt` | date-heure ou `null` | Dernière réponse au relevé de présence (ping) ; `null` si aucune réponse n’est enregistrée : poste jamais relevé, ou ping filtré alors que le poste répond à WMI (il peut donc avoir un inventaire). La page affiche « aucune réponse au ping », jamais « jamais vu ». |
 
 Ordre : gravité (`alert` puis `warn`), puis ordre des règles ci-dessus, puis valeur mesurée la plus grave (espace
 libre croissant, ancienneté décroissante), puis nom (ordinal). Un poste n’apparaît qu’une fois, avec son point le plus
@@ -506,7 +506,7 @@ Le bouton « Tout actualiser » appelle `dashboard.widget.refresh` pour chaque w
 |---|---|---|
 | `generatedAt` | date-heure | Instant du calcul (horloge du moteur). |
 | `scope` | objet | OU de travail des widgets de postes : `dn`, `label`, `subtree`. |
-| `store.lastReadAt` | date-heure ou `null` | Dernière lecture de l’annuaire dans la base locale (« Base locale lue il y a 12 min »). |
+| `store.lastReadAt` | date-heure ou `null` | Dernière lecture de l’annuaire dans la base locale (« Base locale lue il y a 12 min »). En simulation, date fictive de lecture de l’annuaire fictif (référence − 12 min, `SIMULATION.md` § 4.2), que la page affiche « Annuaire fictif lu il y a 12 min » : la base locale n’est jamais ouverte et la page ne la nomme pas (onglet « Données fictives », « Depuis l’annuaire fictif en mémoire »). |
 | `store.objects` | entier | Objets d’annuaire dans la base. |
 | `store.complete` | booléen | `false` si la dernière lecture s’est arrêtée à sa limite. |
 | `widgets` | objet | Les 10 widgets de la liste fermée, clés dans l’ordre du § 4.1, désactivés compris. |

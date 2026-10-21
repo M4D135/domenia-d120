@@ -775,7 +775,11 @@ dans un navigateur.
 ## 11. État de la réalisation (21 octobre 2026)
 
 Code écrit et compilé dans la VM Domenia (0 erreur, 0 avertissement) ; **tests écrits, non exécutés** (décision de David :
-tests à la toute fin). Rien n’a été modifié dans `web/`.
+tests à la toute fin). Côté `web/` : `js/mock.js` est réécrit sur l’annuaire fictif et rend les formes exactes du
+contrat (aperçu dans un navigateur) ; `js/pages/accueil.js` suit le contrat (`distribution.lead` nul, bannière, texte
+d’introduction du mode non connecté) et, en simulation, parle d’annuaire fictif plutôt que de base locale (puce « Annuaire
+fictif lu il y a 12 min », onglet « Données fictives ») ; `lastSeenAt` nul s’y lit « aucune réponse au ping ».
+`js/router.js` et `js/app.js` portent le signal `data-ready` du mode capture (`CAPTURE.md` § 5).
 
 | Lot | Fichiers |
 |---|---|

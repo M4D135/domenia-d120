@@ -15,7 +15,7 @@ const WIDGET_ICONS = {
 const PANELS = [
   { id: 'session', label: 'Session' },
   { id: 'application', label: 'Application' },
-  { id: 'store', label: 'Base locale' },
+  { id: 'store', label: 'Base locale', simulated: 'Données fictives' },
 ];
 // No-break space before « % », as in the engine texts (OPERATIONS.md § 1.2).
 const NBSP = '\u00A0';
@@ -27,6 +27,13 @@ const numAttr = (v) => (isNum(v) ? String(v) : 'NaN');
 const countText = (v) => (isNum(v) ? formatNumber(v) : 'non mesuré');
 const plural = (n, one, many) => `${formatNumber(n)} ${n > 1 ? many : one}`;
 const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
+// The simulation (and the browser preview) never opens the local base: its figures come from the fictitious directory
+// kept in memory (SIMULATION.md § 1), and the texts say so.
+const isSimulated = (s) => s?.connection?.state === 'simulated';
+const panelLabel = (p, s) => (isSimulated(s) && p.simulated ? p.simulated : p.label);
+// lastSeenAt is null when no answer to the presence check (ping) is recorded, even if WMI answered (OPERATIONS.md § 4.7).
+const NO_PING_TIP = 'Aucune réponse au relevé de présence (ping) n’est enregistrée pour ce poste. Le ping peut être filtré : '
+  + 'une absence de réponse n’est jamais un verdict d’arrêt.';
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 
 // ---------- Skeletons ----------
@@ -68,8 +75,9 @@ function deltaChip(delta) {
 
 function stack(breakdown, label) {
   const parts = breakdown.filter((b) => b.value > 0)
-    .map((b) => `<span data-tone="${esc(b.tone)}" data-grow="${numAttr(b.value)}" data-tip="${esc(`${b.label} : ${formatNumber(b.value)}`)}"></span>`).join('');
-  const legend = breakdown.map((b) => `<li><span class="dot" data-tone="${esc(b.tone)}"></span>${esc(b.label)} <b>${formatNumber(b.value)}</b></li>`).join('');
+    .map((b) => `<span data-tone="${esc(b.tone)}" data-grow="${numAttr(b.value)}" data-tip="${esc(`${b.label} : ${formatNumber(b.value)}`)}"></span>`).join('');
+  // The value stays glued to the end of its label, even when a long label wraps.
+  const legend = breakdown.map((b) => `<li><span class="dot" data-tone="${esc(b.tone)}"></span><span>${esc(b.label)}${NBSP}<b>${formatNumber(b.value)}</b></span></li>`).join('');
   return `<div class="stack" role="img" aria-label="${esc(label)}">${parts}</div><ul class="stack-legend">${legend}</ul>`;
 }
 
@@ -80,7 +88,7 @@ function refreshButton() {
 function enabledSwitch(w, withLabel) {
   const text = withLabel ? '<span>Mesure active</span>' : '';
   const tip = withLabel ? '' : ' data-tip="Mesure active"';
-  return `<label class="kpi-switch"${tip}><input class="switch" type="checkbox" role="switch" data-toggle aria-label="Mesure active : ${esc(w.title)}"${w.enabled ? ' checked' : ''}>${text}</label>`;
+  return `<label class="kpi-switch"${tip}><input class="switch" type="checkbox" role="switch" data-toggle aria-label="Mesure active : ${esc(w.title)}"${w.enabled ? ' checked' : ''}>${text}</label>`;
 }
 
 function whenText(w) {
@@ -118,13 +126,14 @@ function kpiCard(w) {
     // The final value is in the DOM for assistive technologies; the count-up runs on a hidden twin.
     body = `<div class="kpi-main">
         <div class="value num"><span class="visually-hidden">${esc(countText(d.value))}</span><span data-count="${numAttr(d.value)}" aria-hidden="true">0</span>${small}</div>
-        <div>${deltaChip(d.delta)}</div>
-        ${sparkline(days)}
+        <div class="kpi-trend">${deltaChip(d.delta)}${sparkline(days)}</div>
       </div>
-      ${stack(d.breakdown, `${w.title} : ${d.breakdown.map((b) => `${b.label} ${b.value}`).join(', ')}`)}`;
+      ${stack(d.breakdown, `${w.title} : ${d.breakdown.map((b) => `${b.label} ${b.value}`).join(', ')}`)}`;
   }
-  // With data, the method note only lives in the tip; without data it is already written in the off-note.
-  const foot = d ? tipSpan('when', `${w.scopeLabel} · ${w.detail}`, when)
+  // With data, the method note only lives in the tip; without data it is already written in the off-note. The tip
+  // also gives the full date, since a narrow card may shorten the relative time.
+  const measured = formatDateTime(w.measuredAt);
+  const foot = d ? tipSpan('when', `${measured ? `Mesuré le ${measured} · ` : ''}${w.scopeLabel} · ${w.detail}`, when)
     : `<span class="when" data-tip="${esc(w.scopeLabel)}">${when}</span>`;
   return `<div class="kpi-top"><span class="card-icon">${icon(WIDGET_ICONS[w.id])}</span>
       <span class="label">${esc(w.title)}</span>${staleChip(w)}${w.enabled ? refreshButton() : ''}</div>
@@ -147,12 +156,12 @@ function osBody(d) {
   const legend = d.segments.map((s, n) => {
     const members = s.members?.length ? s.members.join(', ') : '';
     const tip = members ? ` data-tip="${esc(members)}"` : '';
-    const more = members ? `<span class="visually-hidden"> : ${esc(members)}</span>` : '';
+    const more = members ? `<span class="visually-hidden"> : ${esc(members)}</span>` : '';
     return `<li tabindex="0" data-key="${esc(s.key)}" data-j="${n}"${tip}><span class="sw s${(n % 8) + 1}"></span><span class="name">${esc(s.label)}</span>`
       + `<span class="val">${formatNumber(s.value)}</span><span class="pct">${pct(s.percent)}</span>${more}</li>`;
   }).join('');
   const ring = donut(d.segments.map((s) => ({ value: s.value, key: s.key })), {
-    total: d.total, label: `${d.centerText} : ${d.segments.map((s) => `${s.label} ${pct(s.percent)}`).join(', ')}`,
+    total: d.total, label: `${d.centerText} : ${d.segments.map((s) => `${s.label} ${pct(s.percent)}`).join(', ')}`,
     center: `<div><b data-count="${numAttr(d.total)}">0</b><span>${esc(d.unit)}</span></div>`,
   });
   return `<div class="ring-wrap">${ring}<ul class="legend cascade">${legend}</ul></div>`;
@@ -162,15 +171,15 @@ function activityBody(d) {
   const values = d.points.map((p) => (p.value == null ? null : p.value));
   const labels = d.points.map((p) => p.label);
   const partial = d.points.map((p) => p.partial);
-  const aria = `Activité sur 7 jours : ${d.points.map((p) => `${p.label} ${p.value ?? 'sans relevé'}`).join(', ')}`;
+  const aria = `Activité sur 7 jours : ${d.points.map((p) => `${p.label} ${p.value ?? 'sans relevé'}`).join(', ')}`;
   return `${bars(values, labels, { max: d.max || undefined, partial, label: aria })}
-    <div class="chart-note"><span><span class="sw"></span>Postes ayant répondu</span><span><span class="sw partial"></span>Aujourd’hui : journée en cours</span></div>`;
+    <div class="chart-note"><span><span class="sw"></span>Postes ayant répondu</span><span><span class="sw partial"></span>Aujourd’hui : journée en cours</span></div>`;
 }
 
 function freshnessBody(w) {
   const d = w.data;
   const ring = donut([{ value: d.percent, cls: 'toned', tone: w.tone }], {
-    total: 100, single: true, size: 'lg', label: `Fraîcheur : ${pct(d.percent)}`,
+    total: 100, single: true, size: 'lg', label: `Fraîcheur : ${pct(d.percent)}`,
     center: `<div><b data-count="${numAttr(d.percent)}" data-dec="1" data-suffix="${NBSP}%">0</b><span>${formatNumber(d.fresh)} / ${formatNumber(d.total)}</span></div>`,
   });
   const legend = d.breakdown.map((b, n) => `<li data-j="${n}"><span class="sw" data-tone="${esc(b.tone)}"></span><span class="name">${esc(b.label)}</span><span class="val">${formatNumber(b.value)}</span></li>`).join('');
@@ -180,7 +189,7 @@ function freshnessBody(w) {
 function watchBody(d) {
   if (!d.rows.length) return `<div class="off-note">${icon('check')}<span>Aucun poste à surveiller dans le périmètre.</span></div>`;
   const rows = d.rows.map((r, n) => {
-    const seen = r.lastSeenAt ? rel(r.lastSeenAt, 'vu ') : 'jamais vu';
+    const seen = r.lastSeenAt ? rel(r.lastSeenAt, 'vu ') : `<span data-tip="${esc(NO_PING_TIP)}">aucune réponse au ping</span>`;
     const more = r.otherReasons > 0
       ? `<span class="more" data-tip="Autres points d’attention">+${formatNumber(r.otherReasons)}<span class="visually-hidden"> ${r.otherReasons > 1 ? 'autres points' : 'autre point'} d’attention</span></span>` : '';
     const sev = r.severity === 'alert' ? 'Critique' : 'À surveiller';
@@ -206,7 +215,11 @@ function chartCard(w) {
   let body;
   let foot = '';
   if (!d) body = offNote(w);
-  else if (w.id === 'osDistribution') { extra = `<span>${esc(d.lead.label)} en tête · ${pct(d.lead.percent)}</span>`; body = osBody(d); }
+  else if (w.id === 'osDistribution') {
+    // lead is null when the scope holds no enabled computer (DistributionData.Lead).
+    if (d.lead) extra = `<span>${esc(d.lead.label)} en tête · ${pct(d.lead.percent)}</span>`;
+    body = osBody(d);
+  }
   else if (w.id === 'workstationActivity') body = activityBody(d);
   else if (w.id === 'measureFreshness') body = freshnessBody(w);
   else if (w.id === 'watchlist') {
@@ -223,24 +236,32 @@ function chartCard(w) {
 
 // ---------- Hero, stepper and session panels ----------
 
+// session.info in directory mode without a connection still names the join domain (domain.dnsName may also be null).
 function leadText(s) {
-  if (!s.domain) return 'Domaine non connecté : les lectures de l’annuaire reprendront à la connexion.';
+  const safety = s.readOnly ? 'Lecture seule : aucune modification de l’annuaire n’est possible.'
+    : 'Rien n’est modifié sans votre geste : toute écriture demande une confirmation explicite.';
+  const dns = s.domain?.dnsName;
+  if (s.connection?.state === 'disconnected' || !dns) {
+    return `Annuaire non connecté${dns ? ` (domaine ${dns})` : ''} : les lectures de l’annuaire reprendront à la connexion. ${safety}`;
+  }
   const where = s.scope
-    ? `l’OU ${s.scope.label}${s.scope.subtree ? ' et ses sous-OU' : ''}`
-    : 'aucune OU de travail (choisissez-en une pour mesurer les postes)';
-  const safety = s.readOnly ? 'Lecture seule : aucune modification de l’annuaire n’est possible.'
-    : 'Rien n’est modifié sans votre geste : toute écriture demande une confirmation explicite.';
-  return `Postes de ${where}, comptes de tout le domaine ${s.domain.dnsName}. ${safety}`;
+    ? `Postes de l’OU ${s.scope.label}${s.scope.subtree ? ' et de ses sous-OU' : ''}`
+    : 'Aucune OU de travail choisie pour mesurer les postes';
+  return `${where}, comptes de tout le domaine ${dns}. ${safety}`;
 }
 
 function heroChips(s, lastReadAt) {
   const chips = [];
-  if (s.domain) chips.push(`<span class="chip" data-tip="${esc(s.domain.netbiosName ? `NetBIOS : ${s.domain.netbiosName}` : 'Domaine')}">${icon('server')}${esc(s.domain.dnsName)}</span>`);
+  if (s.domain?.dnsName) chips.push(`<span class="chip" data-tip="${esc(s.domain.netbiosName ? `NetBIOS : ${s.domain.netbiosName}` : 'Domaine')}">${icon('server')}${esc(s.domain.dnsName)}</span>`);
   if (s.controller) chips.push(`<span class="chip" data-tip="Contrôleur de domaine">${icon('server')}${esc(s.controller.dnsName)}${s.controller.site ? ` · ${esc(s.controller.site)}` : ''}</span>`);
   if (s.scope) chips.push(`<span class="chip" data-tip="${esc(s.scope.dn)}">${icon('folder')}OU ${esc(s.scope.label)}</span>`);
+  const simulated = isSimulated(s);
+  const readTip = simulated
+    ? `Lecture fictive du ${formatDateTime(lastReadAt) ?? '—'} : en simulation, aucune base locale n’est ouverte.`
+    : formatDateTime(lastReadAt) ?? '';
   chips.push(lastReadAt
-    ? `<span class="chip info" data-tip="${esc(formatDateTime(lastReadAt) ?? '')}">${icon('database')}${rel(lastReadAt, 'Base locale lue ')}</span>`
-    : `<span class="chip warn">${icon('database')}Base locale vide</span>`);
+    ? `<span class="chip info" data-tip="${esc(readTip)}">${icon('database')}${rel(lastReadAt, simulated ? 'Annuaire fictif lu ' : 'Base locale lue ')}</span>`
+    : `<span class="chip warn">${icon('database')}${simulated ? 'Annuaire fictif non lu' : 'Base locale vide'}</span>`);
   return chips.map((c, n) => c.replace('<span class="chip', `<span data-j="${n}" class="chip`)).join('');
 }
 
@@ -319,29 +340,36 @@ function panelRows(id, s, app, summary) {
   if (id === 'application') {
     if (!app) return [['Application', 'Informations indisponibles']];
     const chromium = /Chrome\/([\d.]+)/.exec(navigator.userAgent)?.[1];
+    // The engine's banner text is shown as is (null in directory mode, OPERATIONS.md § 2).
+    const banner = typeof app.banner === 'string' && app.banner ? [['Bannière', app.banner]] : [];
     return [
       ['Application', `${app.name} ${app.version}`],
       ['Mode', app.modeLabel ?? app.mode, app.modeDetail ?? ''],
+      ...banner,
       ['Moteur web', ENGINES[app.webViewRuntime] ?? app.webViewRuntime, chromium ? `Chromium ${chromium}` : ''],
       ['.NET embarqué', app.runtime],
       ['Affichage', document.documentElement.dataset.theme === 'dark' ? 'Thème sombre' : document.documentElement.dataset.theme === 'contrast' ? 'Contraste élevé' : 'Thème clair',
-        document.documentElement.dataset.motion === 'reduced' ? 'Animations réduites' : document.documentElement.dataset.motion === 'system' ? 'Animations : suivre Windows' : 'Animations riches'],
+        document.documentElement.dataset.motion === 'reduced' ? 'Animations réduites' : document.documentElement.dataset.motion === 'system' ? 'Animations : suivre Windows' : 'Animations riches'],
     ];
   }
   const store = summary?.store;
   const cache = s?.cache;
-  return [
+  const simulated = isSimulated(s);
+  const rows = [
     ['État', cache?.label ?? '—'],
-    ['Dernière lecture de l’annuaire', formatDateTime(store?.lastReadAt ?? cache?.lastReadAt) ?? 'Jamais', relTime(store?.lastReadAt ?? cache?.lastReadAt) ?? ''],
-    ['Objets enregistrés', formatNumber(store?.objects ?? cache?.objects ?? 0)],
-    ['Lecture complète', (store?.complete ?? cache?.complete) ? 'Oui' : 'Non : chiffres possiblement sous-estimés'],
+    [simulated ? 'Lecture de l’annuaire fictif' : 'Dernière lecture de l’annuaire', formatDateTime(store?.lastReadAt ?? cache?.lastReadAt) ?? 'Jamais', relTime(store?.lastReadAt ?? cache?.lastReadAt) ?? ''],
+    [simulated ? 'Objets de l’annuaire fictif' : 'Objets enregistrés', formatNumber(store?.objects ?? cache?.objects ?? 0)],
+    ['Lecture complète', (store?.complete ?? cache?.complete) ? 'Oui' : 'Non : chiffres possiblement sous-estimés'],
     ['OU de travail', summary?.scope?.label ?? s?.scope?.label ?? '—', summary?.scope?.dn ?? s?.scope?.dn ?? ''],
-    ['Tableau de bord calculé', formatDateTime(summary?.generatedAt) ?? '—', summary ? 'Depuis la base locale, sans lecture réseau' : ''],
+    ['Tableau de bord calculé', formatDateTime(summary?.generatedAt) ?? '—',
+      summary ? (simulated ? 'Depuis l’annuaire fictif en mémoire, sans lecture réseau' : 'Depuis la base locale, sans lecture réseau') : ''],
   ];
+  if (simulated) rows.push(['Base locale', 'Jamais ouverte en simulation', 'Aucune donnée fictive n’y entre']);
+  return rows;
 }
 
-function sessionMarkup() {
-  const tabs = PANELS.map((p, n) => `<button type="button" role="tab" id="tab-${p.id}" aria-controls="panel-${p.id}" aria-selected="${n === 0}" tabindex="${n === 0 ? 0 : -1}">${esc(p.label)}</button>`).join('');
+function sessionMarkup(s) {
+  const tabs = PANELS.map((p, n) => `<button type="button" role="tab" id="tab-${p.id}" aria-controls="panel-${p.id}" aria-selected="${n === 0}" tabindex="${n === 0 ? 0 : -1}">${esc(panelLabel(p, s))}</button>`).join('');
   const panels = PANELS.map((p, n) => `<div class="tab-panel" role="tabpanel" id="panel-${p.id}" aria-labelledby="tab-${p.id}"${n ? ' hidden' : ''}><dl class="kv cascade"></dl></div>`).join('');
   return `<div class="card-head"><span class="card-icon">${icon('shield')}</span><h3>Session et vérifications</h3>
       <span class="meta">Informations déjà chargées, sans lecture réseau</span></div>
@@ -433,7 +461,7 @@ export function render(main, ctx) {
     card.dataset.tone = 'warn';
     const retry = w.enabled ? `<button class="btn sm" type="button" data-refresh>${icon('refresh')}Actualiser</button>` : '';
     card.innerHTML = `<div class="card-head"><span class="card-icon">${icon('alert')}</span><h3>${esc(w.title ?? 'Widget')}</h3></div>
-      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
+      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
         Les autres widgets ne sont pas concernés.</span>${retry}</div></div>`;
     applyVars(card);
   }
@@ -502,12 +530,12 @@ export function render(main, ctx) {
       if (w?.enabled === false) {
         paintWidget(w);
         restoreFocus(id, key);
-        if (!quiet) ctx.toast(`${w.title} : mesure désactivée pendant l’actualisation, rien n’a été publié.`, { tone: 'info' });
+        if (!quiet) ctx.toast(`${w.title} : mesure désactivée pendant l’actualisation, rien n’a été publié.`, { tone: 'info' });
         return 'skipped';
       }
       paintWidget(w, { bump: true });
       restoreFocus(id, key);
-      if (!quiet) ctx.toast(`${w.title} : mesure actualisée.`, { tone: 'ok', life: 3000 });
+      if (!quiet) ctx.toast(`${w.title} : mesure actualisée.`, { tone: 'ok', life: 3000 });
       return 'ok';
     } catch (err) {
       if (!st.alive) return 'failed';
@@ -537,7 +565,7 @@ export function render(main, ctx) {
       paintWidget(w);
       syncCard(id);
       settle(w.enabled);
-      ctx.toast(enabled ? `Mesure réactivée : ${w.title}.` : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget.`, { tone: 'info', life: 3600 });
+      ctx.toast(enabled ? `Mesure réactivée : ${w.title}.` : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget.`, { tone: 'info', life: 3600 });
     } catch (err) {
       if (!st.alive) return;
       toggling.delete(id);
@@ -553,10 +581,10 @@ export function render(main, ctx) {
     const ok = results.filter((r) => r === 'ok').length;
     const failed = results.filter((r) => r === 'failed').length;
     const skipped = total - ok - failed;
-    const note = skipped ? ` ${plural(skipped, 'mesure désactivée', 'mesures désactivées')} pendant l’actualisation : rien n’a été publié pour ${skipped > 1 ? 'elles' : 'elle'}.` : '';
-    if (failed) return { text: `Actualisation terminée : ${formatNumber(failed)} widget${failed > 1 ? 's' : ''} sur ${formatNumber(total)} en échec.${note}`, tone: 'warn' };
+    const note = skipped ? ` ${plural(skipped, 'mesure désactivée', 'mesures désactivées')} pendant l’actualisation : rien n’a été publié pour ${skipped > 1 ? 'elles' : 'elle'}.` : '';
+    if (failed) return { text: `Actualisation terminée : ${formatNumber(failed)} widget${failed > 1 ? 's' : ''} sur ${formatNumber(total)} en échec.${note}`, tone: 'warn' };
     if (!ok) return { text: `Aucun widget remesuré.${note}`, tone: 'info' };
-    return { text: `Tableau de bord actualisé : ${plural(ok, 'widget remesuré', 'widgets remesurés')}.${note}`, tone: 'ok' };
+    return { text: `Tableau de bord actualisé : ${plural(ok, 'widget remesuré', 'widgets remesurés')}.${note}`, tone: 'ok' };
   }
 
   async function refreshAll(button) {
@@ -565,7 +593,7 @@ export function render(main, ctx) {
     if (!st.summary) return; // first summary not there yet: nothing to measure
     const ids = Object.values(st.widgets).filter((w) => w.enabled && !toggling.has(w.id)).map((w) => w.id);
     if (!ids.length) {
-      ctx.toast('Aucun widget à mesurer : réactivez « Mesure active » sur au moins un widget.', { tone: 'info' });
+      ctx.toast('Aucun widget à mesurer : réactivez « Mesure active » sur au moins un widget.', { tone: 'info' });
       return;
     }
     st.refreshing = true;
@@ -624,10 +652,12 @@ export function render(main, ctx) {
     const slot = main.querySelector('[data-slot="session"]');
     if (!slot) return;
     if (!slot.querySelector('.tabs')) {
-      slot.innerHTML = sessionMarkup();
+      slot.innerHTML = sessionMarkup(st.session);
       bindTabs(slot);
     }
     PANELS.forEach((p) => {
+      const tab = slot.querySelector(`#tab-${p.id}`);
+      if (tab && tab.textContent !== panelLabel(p, st.session)) tab.textContent = panelLabel(p, st.session);
       const dl = slot.querySelector(`#panel-${p.id} dl`);
       dl.innerHTML = panelRows(p.id, st.session, st.app, st.summary).map((r) => kv(...r)).join('');
       dl.querySelectorAll(':scope > div').forEach((div, n) => div.dataset.j = String(Math.min(n, 12)));
@@ -668,9 +698,10 @@ export function render(main, ctx) {
   function copySummary() {
     const s = st.session;
     const lines = [`Domenia — tableau de bord du ${formatDateTime(st.summary?.generatedAt ?? new Date().toISOString())}`];
+    if (typeof st.app?.banner === 'string' && st.app.banner) lines.push(st.app.banner);
     if (s) {
-      lines.push(`Domaine : ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur : ${s.controller?.dnsName ?? 'non connecté'}`,
-        `Compte : ${s.account?.login ?? '—'}`, `OU de travail : ${s.scope?.dn ?? 'aucune'}`);
+      lines.push(`Domaine : ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur : ${s.controller?.dnsName ?? 'non connecté'}`,
+        `Compte : ${s.account?.login ?? '—'}`, `OU de travail : ${s.scope?.dn ?? 'aucune'}`);
     }
     for (const w of Object.values(st.widgets)) {
       const d = w.data;
@@ -680,15 +711,15 @@ export function render(main, ctx) {
         else if (d && w.kind === 'gauge') value = `${pct(d.percent)} (${formatNumber(d.fresh)} / ${formatNumber(d.total)})`;
         else if (d && w.kind === 'distribution') value = d.segments.map((x) => `${x.label} ${pct(x.percent)}`).join(', ');
         else if (d && w.kind === 'series') value = d.points.map((p) => `${p.label} ${p.value ?? '—'}`).join(', ');
-        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes : ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
+        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes : ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
         else if (d && w.kind === 'timeline') value = d.rows.map((r) => r.label).join(' ; ');
       } catch (err) {
         console.error(`Widget « ${w.id} » : copie impossible`, err, w);
         value = 'données inattendues';
       }
-      lines.push(`${w.title} — ${w.scopeLabel} : ${value}`);
+      lines.push(`${w.title} — ${w.scopeLabel} : ${value}`);
     }
-    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Tableau de bord copié dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn' }));
+    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Tableau de bord copié dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn' }));
   }
 
   async function checkApplication(button) {
@@ -701,9 +732,9 @@ export function render(main, ctx) {
       ctx.showConnection?.(session);
       paintPanels();
       const ms = Math.round(performance.now() - t0);
-      ctx.toast(`Pont vérifié : ${app.name} ${app.version} répond en ${formatNumber(ms)} ms. Les contrôles complets arrivent avec le moteur.`, { tone: 'ok' });
+      ctx.toast(`Pont vérifié : ${app.name} ${app.version} répond en ${formatNumber(ms)} ms. Les contrôles complets arrivent avec le moteur.`, { tone: 'ok' });
     } catch (err) {
-      ctx.toast(`Vérification en échec : ${reported(err)}`, { tone: 'alert' });
+      ctx.toast(`Vérification en échec : ${reported(err)}`, { tone: 'alert' });
     } finally {
       button.disabled = false;
     }
@@ -755,7 +786,9 @@ export function render(main, ctx) {
       const after = await ctx.call('session.info').catch(() => null);
       if (after && st.alive) { st.session = after; paintHero(); paintPanels(); }
     }
-    if (!silent) ctx.toast('Accueil actualisé depuis la base locale.', { tone: 'ok', life: 2600 });
+    if (!silent) {
+      ctx.toast(isSimulated(st.session) ? 'Accueil actualisé depuis l’annuaire fictif en mémoire.' : 'Accueil actualisé depuis la base locale.', { tone: 'ok', life: 2600 });
+    }
   }
 
   async function start() {

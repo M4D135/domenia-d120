@@ -5,7 +5,7 @@ Décisions de David (21 octobre 2026) : tout réécrire en C#, interface en HTML
 ## Cible
 
 - **.NET 10 LTS autonome** (`win-x64`, `SelfContained`), support jusqu'en novembre 2028. Le runtime .NET est livré dans le dossier de l'application : rien à installer, pas de droits d'administration.
-- **Moteur WebView2 « version fixe »** livré dans le pack (`runtime/webview2/`, 154.0.4258.62, signature Microsoft vérifiée), SDK `Microsoft.Web.WebView2` 1.0.4258.31. Le pack portable (≈ 400 Mo) est publié en *Release* GitHub ; le dépôt ne garde que les manifestes et empreintes.
+- **Moteur WebView2 « version fixe »** livré dans le pack (`runtime/webview2/`, 154.0.4258.62, signature Microsoft vérifiée), SDK `Microsoft.Web.WebView2` 1.0.4258.31. Le pack portable est publié en *Release* GitHub ; le dépôt ne garde que les manifestes et empreintes. Mesuré le 21 octobre 2026 par `tools/build-vm.ps1 -Configuration Release -Publish -Zip` : dossier de 781 Mo, dont 669 Mo pour `runtime/webview2/` (fichiers du moteur fixe seulement, ni symboles ni archive d’installation), et archive `Domenia.zip` de 341 Mo (en Mio, comme les affiche l’outil).
 - **Dépendances minimales** : SQLite par `winsqlite3.dll` (fourni par Windows), LDAP par `System.DirectoryServices` / `System.DirectoryServices.Protocols`, WMI/CIM DCOM par `System.Management`, WebView2 par son SDK. Aucun service, aucun port ouvert, aucun cloud.
 
 ## Pack PROD : dézipper et lancer

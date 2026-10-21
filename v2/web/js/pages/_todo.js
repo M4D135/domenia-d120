@@ -110,7 +110,7 @@ export function render(main, ctx) {
   }).catch((err) => {
     console.error(err);
     if (!alive) return;
-    holder.innerHTML = `<section class="card" role="alert"><p class="muted">Liste des fonctions indisponible : ${esc(errorText(err))}</p></section>`;
+    holder.innerHTML = `<section class="card error-card" role="alert"><p class="muted">Liste des fonctions indisponible : ${esc(errorText(err))}</p></section>`;
     holder.removeAttribute('aria-busy');
     counter.textContent = '—';
   });

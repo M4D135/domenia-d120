@@ -1,5 +1,8 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Domenia.App.Capture;
 using Domenia.Bridge;
 using Domenia.Core;
 using Microsoft.Web.WebView2.Core;
@@ -18,11 +21,17 @@ internal sealed class MainForm : Form
     private readonly BridgeDispatcher dispatcher;
     private readonly CancellationTokenSource lifetime = new();
     private readonly AppMode mode;
+    private readonly CaptureSession? capture;
 
-    public MainForm(Composition composition)
+    /// <summary>Stopwatch timestamp of the window load: start of the single startup budget of the capture mode.</summary>
+    private long startupBegan;
+
+    /// <param name="capture">Set with --capture only: fixed geometry, capture profile, then the sequence and closing.</param>
+    public MainForm(Composition composition, CaptureSession? capture = null)
     {
         ArgumentNullException.ThrowIfNull(composition);
         mode = composition.Decision.Mode;
+        this.capture = capture;
         // « Domenia — Simulation » stays visible even if the page fails to load.
         Text = composition.WindowTitle;
         MinimumSize = new Size(1024, 680);
@@ -33,36 +42,67 @@ internal sealed class MainForm : Form
         dispatcher.UnhandledError += (operation, exception) => TechnicalLog.Error($"Échec imprévu de l’opération {operation}.", exception);
         // Code and declared name only: the content of a refused message never reaches the journal.
         dispatcher.Refused += (code, operation) => TechnicalLog.Warning($"Message de l’interface refusé : {code}" + (operation is null ? "." : $" ({operation})."));
-        Load += async (_, _) => await InitializeWebViewAsync().ConfigureAwait(true);
+        if (capture is not null)
+        {
+            StartPosition = FormStartPosition.Manual;
+            Location = Point.Empty;
+            webView.Dock = DockStyle.None;
+        }
+        Load += async (_, _) =>
+        {
+            startupBegan = Stopwatch.GetTimestamp();
+            if (capture is not null)
+            {
+                ApplyCaptureGeometry(capture);
+            }
+            await InitializeWebViewAsync().ConfigureAwait(true);
+        };
         FormClosed += (_, _) => lifetime.Cancel();
+    }
+
+    /// <summary>
+    /// The page always gets the same viewport (1600 × 1000 CSS pixels): the WebView2 surface keeps that size even when
+    /// Windows limits the window to a smaller screen (non-interactive session of the lab VM).
+    /// </summary>
+    private void ApplyCaptureGeometry(CaptureSession session)
+    {
+        var viewport = LogicalToDeviceUnits(CaptureSequence.Viewport);
+        ClientSize = viewport;
+        webView.Bounds = new Rectangle(Point.Empty, viewport);
+        var limited = ClientSize != viewport ? " (fenêtre limitée par l’écran, surface conservée)" : "";
+        session.Write($"Fenêtre : zone cliente {ClientSize.Width.ToString(CultureInfo.InvariantCulture)} × {ClientSize.Height.ToString(CultureInfo.InvariantCulture)} px, surface WebView2 {viewport.Width.ToString(CultureInfo.InvariantCulture)} × {viewport.Height.ToString(CultureInfo.InvariantCulture)} px, {DeviceDpi.ToString(CultureInfo.InvariantCulture)} ppp{limited}.");
     }
 
     private async Task InitializeWebViewAsync()
     {
-        var userData = AppPaths.WebViewUserData(mode);
+        var userData = AppPaths.WebViewUserData(mode, capture is not null);
         if (userData is null)
         {
             TechnicalLog.Warning("Dossier de données introuvable : l’affichage n’est pas démarré.");
             ShowFallback(NoDataFolderMessage);
             return;
         }
+        // Profile name only: the full path holds the Windows account name, and capture.log lives outside the data folder.
+        capture?.Write($"Profil WebView2 de capture : %LOCALAPPDATA%\\Domenia\\{Path.GetFileName(userData)} (vidé au démarrage ; les préférences de l’opérateur ne sont pas touchées).");
         CoreWebView2Environment environment;
         try
         {
             Directory.CreateDirectory(userData);
             var options = new CoreWebView2EnvironmentOptions { AreBrowserExtensionsEnabled = false };
-            environment = await CoreWebView2Environment.CreateAsync(AppPaths.WebViewRuntime, userData, options).ConfigureAwait(true);
-            await webView.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
+            environment = await Bounded(CoreWebView2Environment.CreateAsync(AppPaths.WebViewRuntime, userData, options)).ConfigureAwait(true);
+            await Bounded(webView.EnsureCoreWebView2Async(environment)).ConfigureAwait(true);
         }
         catch (WebView2RuntimeNotFoundException ex)
         {
             TechnicalLog.Error("Moteur WebView2 introuvable.", ex);
+            capture?.Error("Moteur WebView2 introuvable.", ex);
             ShowFallback(RuntimeMissingMessage);
             return;
         }
-        catch (Exception ex) when (ex is COMException or InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is COMException or InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException or TimeoutException)
         {
             TechnicalLog.Error("Démarrage de WebView2 impossible.", ex);
+            capture?.Error("Démarrage de WebView2 impossible.", ex);
             ShowFallback(StartFailedMessage);
             return;
         }
@@ -112,8 +152,28 @@ internal sealed class MainForm : Form
         };
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.WebMessageReceived += OnWebMessageReceived;
-        core.Navigate($"https://{ProductInfo.WebHost}/index.html");
+        if (capture is null)
+        {
+            core.Navigate(StartAddress);
+            return;
+        }
+        await new CaptureRunner(core, capture).RunAsync(environment, StartAddress, startupBegan, lifetime.Token).ConfigureAwait(true);
+        // The sequence is over (or stopped): the application closes by itself and Main returns the exit code.
+        if (!IsDisposed)
+        {
+            Close();
+        }
     }
+
+    private static string StartAddress => $"https://{ProductInfo.WebHost}/index.html";
+
+    /// <summary>
+    /// In capture mode a WebView2 start that never ends must not keep the process alive: every startup call shares one
+    /// budget (CaptureSequence.StartupLimit) counted from the window load.
+    /// </summary>
+    private Task<T> Bounded<T>(Task<T> task) => capture is null ? task : task.WaitAsync(CaptureSequence.StartupLeft(startupBegan));
+
+    private Task Bounded(Task task) => capture is null ? task : task.WaitAsync(CaptureSequence.StartupLeft(startupBegan));
 
     private static bool IsInterfaceAddress(string? address) =>
         Uri.TryCreate(address, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
@@ -132,6 +192,12 @@ internal sealed class MainForm : Form
         // The window title (« Domenia — Simulation ») stays; the web surface is replaced by an explicit message.
         Controls.Remove(webView);
         Controls.Add(new Label { Dock = DockStyle.Fill, Text = message, TextAlign = ContentAlignment.MiddleCenter, Padding = new Padding(48) });
+        if (capture is not null)
+        {
+            // Nobody is there to read the message: the capture stops and the application closes with code 2.
+            capture.Abort(message);
+            BeginInvoke(() => Close());
+        }
     }
 
     private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
