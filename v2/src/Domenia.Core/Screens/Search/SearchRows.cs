@@ -176,6 +176,8 @@ public sealed class SearchRowFactory
     public WorkstationObservation? Observation(Guid computer) => observations.TryGetValue(computer, out var o) ? o : null;
 
     /// <summary>The row of any directory record (user, computer, group or OU).</summary>
+    private static DateTimeOffset? Date(DateTimeOffset at) => at == DateTimeOffset.MinValue ? null : at;
+
     public SearchRow Row(object record, int rank = 9, string? verdict = null) => record switch
     {
         DirectoryUser user => User(user, rank, verdict),
@@ -209,7 +211,7 @@ public sealed class SearchRowFactory
         return new SearchRow(
             Id(user.ObjectGuid), SearchObjectKind.User, "Utilisateur", user.Cn, user.DisplayName, user.SamAccountName, user.UserPrincipalName,
             user.Mail, user.Description, user.DistinguishedName, SearchTexts.ContainerPath(user.DistinguishedName, dnsName),
-            SearchTexts.UserState(state, expired), flags, null, null, lastLogon, user.WhenChanged, user.WhenCreated, snapshot.ReadAt,
+            SearchTexts.UserState(state, expired), flags, null, null, lastLogon, Date(user.WhenChanged), Date(user.WhenCreated), snapshot.ReadAt,
             null, null, enrichment?.Association(user.ObjectGuid), null, null, verdict, rank);
     }
 
@@ -231,7 +233,7 @@ public sealed class SearchRowFactory
             Id(computer.ObjectGuid), SearchObjectKind.Computer, kindLabel, computer.Name, null, computer.SamAccountName.TrimEnd('$'), computer.DnsHostName,
             null, computer.Description, computer.DistinguishedName, SearchTexts.ContainerPath(computer.DistinguishedName, dnsName),
             disabled ? new SearchState("disabled", "Désactivé", Tone.Off) : new SearchState("active", "Actif", Tone.Ok), flags,
-            release?.Label ?? computer.OperatingSystem, osVersion, lastLogon, computer.WhenChanged, computer.WhenCreated, snapshot.ReadAt,
+            release?.Label ?? computer.OperatingSystem, osVersion, lastLogon, Date(computer.WhenChanged), Date(computer.WhenCreated), snapshot.ReadAt,
             SearchTexts.Presence(measure, now), enrichment?.Console(computer.ObjectGuid), enrichment?.Association(computer.ObjectGuid),
             enrichment?.Address(computer.ObjectGuid), null, verdict, rank);
     }
@@ -244,7 +246,7 @@ public sealed class SearchRowFactory
         return new SearchRow(
             Id(group.ObjectGuid), SearchObjectKind.Group, "Groupe", group.Name, null, group.SamAccountName, null, group.Mail, group.Description,
             group.DistinguishedName, SearchTexts.ContainerPath(group.DistinguishedName, dnsName), new SearchState("group", scope, Tone.Info), flags,
-            null, null, null, group.WhenChanged, group.WhenCreated, snapshot.ReadAt, null, null, null, null,
+            null, null, null, Date(group.WhenChanged), Date(group.WhenCreated), snapshot.ReadAt, null, null, null, null,
             new SearchGroupInfo(scope, group.Members.Length), verdict, rank);
     }
 
@@ -255,7 +257,7 @@ public sealed class SearchRowFactory
         return new SearchRow(
             Id(ou.ObjectGuid), SearchObjectKind.Ou, "OU", ou.Name, null, null, null, null, ou.Description, ou.DistinguishedName,
             SearchTexts.ContainerPath(ou.DistinguishedName, dnsName), new SearchState("ou", "Unité d’organisation", Tone.Off), flags,
-            null, null, null, ou.WhenChanged, ou.WhenCreated, snapshot.ReadAt, null, null, null, null, null, verdict, rank);
+            null, null, null, Date(ou.WhenChanged), Date(ou.WhenCreated), snapshot.ReadAt, null, null, null, null, null, verdict, rank);
     }
 
     /// <summary>Candidates of every object of the snapshot, in the order of the snapshot (OUs, users, computers, groups).</summary>

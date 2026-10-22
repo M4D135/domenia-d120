@@ -20,6 +20,9 @@ public sealed record AdSearchRequest(string BaseDn, string Filter, AdSearchScope
 {
     public int PageSize { get; init; } = 500;
 
+    /// <summary>Server sorting, required for a stable continuation; only the documented name key is admitted.</summary>
+    public string? SortAttribute { get; init; }
+
     public int SizeLimit { get; init; }
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);

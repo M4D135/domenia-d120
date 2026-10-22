@@ -91,6 +91,8 @@ public sealed class AdConnection : IAdConnection
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Filter, nameof(request.Filter));
         ArgumentNullException.ThrowIfNull(request.Attributes);
 
+        if (request.SortAttribute is not null && request.SortAttribute != "name")
+        { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Clé de tri LDAP non autorisée."); }
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
         var connection = _connection ?? throw new DomeniaOperationException(AdErrors.NotConnected, AdErrors.NotConnectedMessage);
 
@@ -124,8 +126,12 @@ public sealed class AdConnection : IAdConnection
                 ? new PageResultRequestControl(pageLimit)
                 : new PageResultRequestControl(pageLimit) { Cookie = cookie };
             searchRequest.Controls.Add(pageControl);
+            if (request.SortAttribute is not null)
+            { searchRequest.Controls.Add(new SortRequestControl(request.SortAttribute, false) { IsCritical = true }); }
 
             var response = await SendRequestAsync<SearchResponse>(connection, searchRequest, timeout, "search", cancellationToken).ConfigureAwait(false);
+            if (request.SortAttribute is not null && response.Controls.OfType<SortResponseControl>().FirstOrDefault()?.Result != ResultCode.Success)
+            { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Le contrôleur n’a pas confirmé le tri : relancez la recherche, aucune suite incertaine n’est affichée."); }
 
             if (response.Entries is { } entries)
             {
