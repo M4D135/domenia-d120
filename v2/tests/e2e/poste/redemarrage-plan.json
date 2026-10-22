@@ -14,7 +14,7 @@
     { "do": "expect", "selector": ".poste-drw input[name=mode][value=delayed]", "property": "checked", "equals": true, "title": "Différé par défaut quand WinRM le permet" },
     { "do": "shot", "name": "panneau-redemarrage", "selector": ".poste-drw" },
     { "do": "click", "text": "Préparer le redémarrage" },
-    { "do": "wait", "contains": "Redémarrer PC-PAR-0001", "title": "Le plan du redémarrage est présenté" },
+    { "do": "wait", "contains": "Redémarrer le poste", "title": "Le plan du redémarrage est présenté" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]
 }

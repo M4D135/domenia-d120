@@ -9,7 +9,7 @@
   "timeoutMs": 20000,
   "steps": [
     { "do": "click", "selector": ".ps-inventory [data-act=read]", "title": "Lire les services" },
-    { "do": "wait", "contains": "Spouleur", "within": ".k-grid", "title": "Liste lue" },
+    { "do": "wait", "contains": "services lus sur PC-PAR-0001", "within": ".ps-inventory", "title": "Liste lue" },
     { "do": "type", "selector": "[data-filter]", "text": "Spooler", "title": "Filtre local, rien n’est relu" },
     { "do": "click", "text": "Spooler", "within": ".k-grid", "title": "Choisir le service" },
     { "do": "expect", "selector": "[data-svc=restart]", "property": "disabled", "equals": false, "title": "Redémarrer est proposé pour un service en cours" },
