@@ -248,6 +248,8 @@ button.chip:hover { transform: translateY(-1px); border-color: var(--accent); co
 
 /* ---------- Toasts ---------- */
 .toasts { position: fixed; right: var(--s6); bottom: var(--s6); z-index: 60; display: grid; gap: var(--s2); width: min(380px, 90vw); }
+/* An open panel keeps its footer (Confirmer…, Annuler) clear: the toasts rise above it instead of covering its buttons. */
+body:has(.k-drw-layer .k-drw-foot:not([hidden])) .toasts { bottom: calc(var(--s6) + 76px); }
 .toast {
   display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) var(--s4); border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--bg-elevated) 88%, transparent); backdrop-filter: blur(18px);

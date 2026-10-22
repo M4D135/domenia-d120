@@ -11,7 +11,7 @@
     { "do": "shot", "name": "entete-compact", "selector": ".op-page" },
     { "do": "click", "selector": "[data-act=\"fold\"]", "title": "Afficher l’en-tête complet" },
     { "do": "expect", "selector": ".op-hero", "attribute": "data-compact", "equals": "false", "title": "En-tête complet" },
-    { "do": "expect", "contains": "Les temps d’une écriture", "within": ".op-circuit", "title": "Les cinq temps du circuit sont visibles" },
+    { "do": "expect", "selector": ".op-circuit-steps li", "within": ".op-circuit", "count": 5, "title": "Les cinq temps du circuit sont visibles" },
     { "do": "click", "selector": "[data-act=\"fold\"]", "title": "Réduire l’en-tête" },
     { "do": "expect", "selector": ".op-hero", "attribute": "data-compact", "equals": "true" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }

@@ -382,6 +382,7 @@ export function createResults(host, ctx, o) {
     st.presence = PRESENCE_OPTIONS.some((p) => p.value === cols.presence) ? cols.presence : null;
     if (changed) pushUndo(before);
     paintCriteria();
+    o.onFiltered?.();
   }
 
   // Presentation undo for the filters of the list (Domenia 1 RCH-049; the grid undoes its own layout with Ctrl Z).

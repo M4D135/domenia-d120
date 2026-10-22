@@ -65,7 +65,7 @@
     },
     {
       "do": "wait",
-      "contains": "Reprise des enregistrements locaux",
+      "contains": "Reprendre les sauvegardes locales",
       "title": "Le plan de la reprise est affiché"
     },
     {

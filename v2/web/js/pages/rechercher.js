@@ -861,6 +861,8 @@ export function render(main, ctx) {
       onOpen: (row) => openObject(row),
       onActive: (row) => { if (results.grid.getSelection().length <= 1 && row) { preview.show(row); dock(); } },
       onSelection: (rows) => onRowSelection(rows),
+      // A filter hides or shows selected rows: the sentence of the selection bar is said again, after the grid repaints it.
+      onFiltered: () => requestAnimationFrame(() => { if (alive && results) paintSelectionLabel(results.grid.getSelection()); }),
       contextMenu: (c) => actions.contextMenu(c),
       selectionActions: (rows) => actions.selectionActions(rows),
       onExport: (scope) => exportList(scope),

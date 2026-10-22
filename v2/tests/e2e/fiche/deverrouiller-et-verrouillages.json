@@ -14,8 +14,8 @@
     { "do": "wait", "contains": "lockoutTime", "within": "[role=dialog]", "title": "Le plan remet lockoutTime à zéro" },
     { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
     { "do": "click", "text": "Confirmer (simulation)", "title": "Confirmer l’écriture simulée" },
-    { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
-    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Vérifiée par relecture", "within": ".wf-receipt", "timeoutMs": 20000 },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau du reçu" },
     { "do": "wait", "contains": "Verrouillé depuis", "within": ".fi-page", "absent": true, "title": "Le verrouillage disparaît de la fiche relue" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]
