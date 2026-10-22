@@ -1027,7 +1027,9 @@ export function render(main, ctx) {
       else toast(`Aucune sélection figée dans cette session${COLON}figez d’abord les correspondants depuis l’aperçu de l’atelier de requêtes.`, { tone: 'info', life: 6000 });
     } else if (p.requete) {
       await choose(p.ou);
-      await runLocalQuery(p.requete.startsWith('local.') ? p.requete : `local.${p.requete}`, { verdict: p.verdict ?? 'match', dn: p.ou ?? null, subtree: p.sousou !== '0', wholeDomain: p.domaine === '1', limit });
+      // Without « ou », the query runs on the OU of the tree, else the working OU (as from the catalogue), never the domain.
+      const ou = p.ou ? null : chosenOu();
+      await runLocalQuery(p.requete.startsWith('local.') ? p.requete : `local.${p.requete}`, { verdict: p.verdict ?? 'match', dn: p.ou ?? ou?.dn ?? null, subtree: p.sousou === undefined && ou ? ou.subtree : p.sousou !== '0', wholeDomain: p.domaine === '1', limit });
     } else if (p.vue) {
       await choose(p.ou);
       await runView(p.vue, { wholeDomain: p.domaine === '1', dn: p.ou ?? null, subtree: p.sousou !== '0', limit });
