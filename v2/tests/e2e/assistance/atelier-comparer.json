@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Assistance : capturer A et B puis comparer",
+  "description": "Ouvre l’Assistance sur le compte c.bernard, vérifie les constats (verrouillage indiqué par le contrôleur), capture la fiche en A puis en B et vérifie que la comparaison dit « Même objet » sans aucune lecture réseau supplémentaire.",
+  "modes": ["simulation"],
+  "start": "assistance?vue=constats&compte=c.bernard",
+  "motion": "reduced",
+  "steps": [
+    { "do": "wait", "selector": ".as-cover", "title": "La fiche analysée est affichée" },
+    { "do": "expect", "contains": "Verrouillage indiqué par le contrôleur", "within": ".as-master", "title": "Le constat de verrouillage est présent" },
+    { "do": "expect", "contains": "Élément observé", "within": "[data-detail]", "title": "Le détail cite son indice" },
+    { "do": "click", "selector": "[data-act=\"a\"]", "title": "Capturer la fiche en A" },
+    { "do": "wait", "selector": "[data-slotcard=\"a\"].filled", "title": "La vue Comparer s’ouvre avec A" },
+    { "do": "click", "selector": "[data-take=\"user\"][data-slot=\"b\"]", "title": "Capturer le compte en B" },
+    { "do": "expect", "contains": "Même objet", "within": ".as-banner", "title": "La comparaison dit qu’il s’agit du même objet" },
+    { "do": "click", "selector": "[data-swap]", "title": "Inverser A et B" },
+    { "do": "expect", "selector": "[data-slotcard=\"b\"].filled", "title": "Les deux emplacements restent remplis" },
+    { "do": "shot", "name": "comparaison", "selector": ".as-view" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

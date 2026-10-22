@@ -1,0 +1,25 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Assistance : parcours « Connexion impossible » pas à pas",
+  "description": "Choisit le compte verrouillé Camille Bernard par la recherche de la session d’assistance, vérifie que les étapes du compte deviennent « À lancer », lance l’étape suivante (verrouillages des 7 derniers jours) et vérifie que son résultat s’affiche dans la ligne, sans verdict, puis que les étapes du poste attendent toujours le poste.",
+  "modes": ["simulation"],
+  "start": "assistance",
+  "motion": "reduced",
+  "steps": [
+    { "do": "expect", "contains": "Pour qui intervenez-vous", "within": ".as-session", "title": "La session d’assistance est affichée" },
+    { "do": "type", "selector": "#as-search-user", "text": "c.bernard", "title": "Chercher le compte c.bernard" },
+    { "do": "wait", "selector": "#as-list-user [role=option]", "title": "La recherche répond" },
+    { "do": "press", "key": "Enter", "title": "Choisir la première réponse au clavier" },
+    { "do": "expect", "text": "Camille Bernard", "within": ".as-slot[data-kind=\"user\"] .as-slot-name", "title": "Le compte de la session est Camille Bernard" },
+    { "do": "expect", "contains": "Compte : Camille Bernard", "within": ".as-needs", "title": "La recette sait pour qui elle travaille" },
+    { "do": "expect", "contains": "À lancer", "within": ".as-step[data-step=\"lockouts\"]", "title": "L’étape des verrouillages est prête" },
+    { "do": "expect", "contains": "Sélectionnez le poste concerné.", "within": ".as-step[data-step=\"reach\"]", "title": "Les étapes du poste attendent le poste" },
+    { "do": "click", "selector": "[data-next]", "title": "Lancer l’étape suivante" },
+    { "do": "wait", "selector": ".as-step[data-step=\"lockouts\"] .as-result", "timeoutMs": 15000, "title": "Le résultat de la lecture arrive" },
+    { "do": "expect", "contains": "Lue à", "within": ".as-step[data-step=\"lockouts\"]", "title": "L’étape dit quand elle a lu, pas un succès" },
+    { "do": "expect", "contains": "verrouillage", "within": ".as-step[data-step=\"lockouts\"] .as-result", "title": "Le résumé des verrouillages est dans la ligne" },
+    { "do": "expect", "contains": "1/5", "within": ".as-ring", "title": "La progression compte une lecture" },
+    { "do": "shot", "name": "etape-lue", "selector": ".as-step[data-step=\"lockouts\"]" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

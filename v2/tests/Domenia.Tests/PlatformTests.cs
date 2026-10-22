@@ -96,6 +96,30 @@ internal static class PlatformTests
     private static readonly (string Name, OperationClass Class)[] SimulationOperations =
     [
         ("accounts.unlock.plan", OperationClass.LocalRead),
+        ("assistance.capture.clear", OperationClass.Local),
+        ("assistance.capture.export", OperationClass.LocalWrite),
+        ("assistance.capture.import", OperationClass.Local),
+        ("assistance.capture.swap", OperationClass.Local),
+        ("assistance.capture.take", OperationClass.Local),
+        ("assistance.dossier.prepare", OperationClass.LocalWrite),
+        ("assistance.engine.state", OperationClass.Local),
+        ("assistance.incidents.clear", OperationClass.Local),
+        ("assistance.overview", OperationClass.Local),
+        ("assistance.pin.add", OperationClass.Local),
+        ("assistance.pin.locate", OperationClass.LocalRead),
+        ("assistance.pin.remove", OperationClass.Local),
+        ("assistance.recipes", OperationClass.Local),
+        ("assistance.report.export", OperationClass.LocalWrite),
+        ("assistance.report.preview", OperationClass.Local),
+        ("assistance.step.run", OperationClass.NetworkRead),
+        ("assistance.subject.analyse", OperationClass.Local),
+        ("assistance.subject.read", OperationClass.LocalRead),
+        ("assistance.subjects.search", OperationClass.LocalRead),
+        ("assistance.subjects.suggest", OperationClass.LocalRead),
+        ("assistance.ticket.export", OperationClass.LocalWrite),
+        ("assistance.ticket.preview", OperationClass.Local),
+        ("assistance.workshop.get", OperationClass.Local),
+        ("assistance.workshop.reset", OperationClass.Local),
         ("dashboard.summary", OperationClass.LocalRead),
         ("dashboard.widget.refresh", OperationClass.NetworkRead),
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
@@ -125,7 +149,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AssistanceOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

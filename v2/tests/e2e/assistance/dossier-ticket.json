@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Assistance : dossier support et compte rendu pseudonymisé",
+  "description": "Ouvre « Dossier et ticket » pour c.bernard, vérifie l’aperçu du dossier support (gabarit GLPI), passe au compte rendu de ticket, active la pseudonymisation : sans clé, aucun aperçu en clair ; avec une clé de 8 caractères, l’aperçu est pseudonymisé et la table de correspondance reste hors du texte.",
+  "modes": ["simulation"],
+  "start": "assistance?vue=dossier&compte=c.bernard",
+  "motion": "reduced",
+  "steps": [
+    { "do": "wait", "contains": "DOMENIA | DOSSIER SUPPORT", "within": ".as-pre", "title": "L’aperçu du dossier support est calculé" },
+    { "do": "click", "text": "GLPI", "within": ".as-seg", "title": "Choisir le gabarit GLPI" },
+    { "do": "wait", "contains": "### Objet observé", "within": ".as-pre", "title": "Le gabarit GLPI s’applique" },
+    { "do": "click", "selector": ".as-switch [data-kind=\"ticket\"]", "title": "Passer au compte rendu de ticket" },
+    { "do": "wait", "contains": "COMPTE RENDU DE TICKET", "within": ".as-pre", "title": "Le compte rendu est calculé" },
+    { "do": "click", "selector": "[data-field=\"pseudonymize\"]", "title": "Activer la pseudonymisation" },
+    { "do": "expect", "contains": "aucun aperçu en clair", "within": "[data-preview]", "title": "Sans clé, rien n’est montré en clair" },
+    { "do": "type", "selector": "[data-field=\"key\"]", "text": "cle-de-test-e2e", "title": "Saisir une clé de pseudonymisation" },
+    { "do": "wait", "contains": "Pseudonymisation : active", "within": ".as-pre", "title": "L’aperçu est pseudonymisé" },
+    { "do": "expect", "contains": "Camille", "within": ".as-pre", "absent": true, "title": "Le nom n’apparaît plus dans le texte" },
+    { "do": "expect", "selector": ".as-map", "title": "La table de correspondance reste à côté de l’aperçu" },
+    { "do": "shot", "name": "ticket-pseudonymise", "selector": ".as-doc-preview" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
