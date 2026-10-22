@@ -104,6 +104,8 @@ export async function chooseDestination(sctx, o) {
       <p class="pr-sub">Disque local fixe seulement, fichier .db ; partages, lecteurs amovibles, liens et chemins de périphérique refusés. ${o.purpose === 'move' ? 'Un déplacement va toujours vers un nouveau fichier.' : 'Un fichier existant est remplacé par la copie vérifiée.'}</p>
     </div>`;
   const d = openDialog({ title: o.title, icon: o.purpose === 'move' ? 'external' : 'download', size: 'lg', body, actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: o.action, primary: true }] });
+  // The dialog lives in <body>, outside the screen: its body carries data-page so that the rules of the screen apply.
+  d.body.dataset.page = 'parametres';
   const folder = d.body.querySelector('[data-dest-folder]');
   const file = d.body.querySelector('[data-dest-name]');
   const out = d.body.querySelector('[data-dest-check]');
@@ -166,6 +168,8 @@ export async function chooseRestore(sctx, view) {
         ${browserMarkup()}</span></label>
     </div>`;
   const d = openDialog({ title: 'Restaurer une sauvegarde', icon: 'undo', size: 'lg', body, actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: 'Préparer la restauration', primary: true }] });
+  // The dialog lives in <body>, outside the screen: its body carries data-page so that the rules of the screen apply.
+  d.body.dataset.page = 'parametres';
   const fileInput = d.body.querySelector('[data-restore-file]');
   const browser = bindBrowser(d.body, sctx.call, (picked) => { fileInput.value = join(picked, nameOf(fileInput.value) || ''); d.body.querySelector('input[value="other"]').checked = true; fileInput.focus(); });
   d.body.querySelector('[data-browse-toggle]').addEventListener('click', () => browser.toggle(folderOf(fileInput.value)));

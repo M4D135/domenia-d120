@@ -62,7 +62,7 @@ function documentCard(v) {
   const [toneName, label, iconName] = STATES[v.state] ?? STATES.read;
   const max = Math.max(1, ...v.owners.map((o) => o.keys));
   const owners = v.owners.length
-    ? `<ul class="pr-owners">${v.owners.map((o, n) => `<li data-j="${n}"><details><summary><b>${esc(o.label)}</b><span class="pr-owner-n">${count(o.keys, 'clé', 'clés')}</span>${meter((o.keys / max) * 100, `${o.label} : ${o.keys} clés`)}<span class="pr-sub">${esc(size(o.bytes))}</span></summary>
+    ? `<ul class="pr-owners">${v.owners.map((o, n) => `<li data-j="${n}"><details><summary><b>${esc(o.label)}</b><span class="pr-owner-n">${count(o.keys, 'clé', 'clés')}</span>${meter((o.keys / max) * 100, `${o.label}${NBSP}: ${o.keys} clés`)}<span class="pr-sub">${esc(size(o.bytes))}</span></summary>
         <ul class="pr-keys-list">${o.names.map((k) => `<li class="mono">${esc(k)}</li>`).join('')}</ul></details></li>`).join('')}</ul>`
     : '<p class="pr-sub">Aucune préférence mémorisée pour l’instant : tout est à sa valeur d’origine.</p>';
   return card({
@@ -199,7 +199,7 @@ export function mount(host, sctx, { open } = {}) {
     const g = view?.resetGroups.find((x) => x.id === group);
     if (!g) return;
     const ok = await confirmDialog({
-      title: `Réinitialiser : ${g.label.toLowerCase()} ?`,
+      title: `Réinitialiser : ${g.label.toLowerCase()}${NBSP}?`,
       message: `${g.detail} Les reçus d’écriture, le journal et la base locale ne sont jamais touchés.`,
       confirmLabel: 'Réinitialiser', danger: group === 'all',
     });

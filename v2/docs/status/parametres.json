@@ -172,5 +172,11 @@
       "id": "PAR-049",
       "reste": "« Se souvenir de mon identifiant » (décoché par défaut, jamais de mot de passe) et « Oublier » faits, refusés en simulation ; le dernier identifiant et le compte du coffre seront écrits par la connexion explicite (vague 3), dans les préférences de Domenia 2 et non plus HKCU."
     }
+  ],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : le commit wip(parametres) (réponse au tour 1 : app.js rendu au lot shell, alias des sections de la coque, « Effacer l’affichage » du journal corrigé, « ouvrir= » consommé une fois, typographie française, statuts requalifiés en partiel) compile sans correction et a été vérifié par sondage.",
+    "Ajouts de la relève : règles des dialogues et du panneau d’OU préfixées [data-page=\"parametres\"] (corps des panneaux marqués), espaces insécables restantes (préférences).",
+    "Les 39 fonctions partielles dépendent surtout de la base locale SQLite (Domenia.Store, mode annuaire, vague 3), de la coque (densité, profil, menu, aide, thème) ou de la lecture des réglages par les autres écrans (collecte, sécurité, réseau) : chaque reste est écrit dans « partiel ».",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés."
   ]
 }

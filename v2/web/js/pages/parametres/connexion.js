@@ -110,6 +110,7 @@ export function mount(host, sctx, { open } = {}) {
     const root = view.domain?.rootDn;
     const body = document.createElement('div');
     body.className = 'pr-ou-picker';
+    body.dataset.page = 'parametres';
     body.innerHTML = `<p class="pr-ou-lead">Choisissez l’OU qui sert de défaut aux sections. L’arbre se lit niveau par niveau, à l’ouverture d’une branche ; rien d’autre n’est lu.</p>
       <div class="pr-ou-tree"></div>
       <label class="pr-ou-sub"><input type="checkbox" class="switch" role="switch" data-sub${view.scope.subtree ? ' checked' : ''}><span>Sous-OU comprises</span></label>

@@ -183,6 +183,8 @@ export function mount(host, sctx) {
       <p class="pr-sub">Masquage au mieux${COLON}relisez avant d’envoyer. Aucun secret n’est jamais écrit dans ce journal.</p>
       <pre class="pr-copy-preview" data-preview></pre>`;
     const d = openDialog({ title: 'Copier le journal affiché', icon: 'copy', size: 'lg', body, actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: 'Copier', primary: true }] });
+    // The dialog lives in <body>, outside the screen: its body carries data-page so that the rules of the screen apply.
+    d.body.dataset.page = 'parametres';
     const preview = d.body.querySelector('[data-preview]');
     const mask = d.body.querySelector('[data-mask]');
     const refresh = () => { preview.textContent = (mask.checked ? maskNames(text) : text).slice(0, 20000) || 'Rien à copier.'; };
