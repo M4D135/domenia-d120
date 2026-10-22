@@ -225,9 +225,9 @@ export function createResults(host, ctx, o) {
           <span class="rch-res-kind" data-kind="none">${glyph('search')}<span>Résultats</span></span>
           <h2 class="rch-res-title">Prêt à chercher</h2>
         </div>
-        <p class="rch-res-scopeline"><span class="rch-res-scope"></span><span class="rch-res-crumbs" hidden></span><span class="rch-res-fresh"></span></p>
+        <p class="rch-res-scopeline"><span class="rch-res-scope"></span><span class="rch-res-crumbs" hidden></span><span class="rch-res-fresh"></span><span class="rch-res-mode k-pill sm info" hidden>${glyph('check')}Portée${COLON}lignes sélectionnées</span></p>
       </div>
-      <div class="rch-count" aria-live="polite"><b class="rch-count-n num">0</b><span class="rch-count-t">ligne</span></div>
+      <div class="rch-count"><b class="rch-count-n num" aria-hidden="true">0</b><span class="rch-count-t" aria-hidden="true">ligne</span><span class="visually-hidden rch-count-sr"></span></div>
     </header>
     <div class="rch-cmdrow"><div class="rch-actions"></div></div>
     <div class="rch-notices" aria-live="polite"></div>
@@ -503,11 +503,18 @@ export function createResults(host, ctx, o) {
 
   // ---------- Header, notices, footer ----------
 
+  // The animated figure stays out of the reading of a screen reader (it would say the values in between): the final value is
+  // in a hidden text and announced once, after the list or its filter settled.
+  let countSaid = '';
+  const sayCount = debounce((text) => { if (text !== countSaid) { countSaid = text; announce(text); } }, 500);
   function paintCount() {
     const shown = grid.getVisibleRows().length;
     const total = st.rows.length;
     countUp(countN, shown, { duration: 600 });
     countT.textContent = `${shown >= 2 ? 'lignes' : 'ligne'}${shown !== total ? ` sur ${int(total)}` : ''}`;
+    const said = `${count(shown, 'ligne', 'lignes')}${shown !== total ? ` sur ${int(total)}` : ''}`;
+    host.querySelector('.rch-count-sr').textContent = said;
+    if (st.result) sayCount(said);
     // The combination sentence is said when a criterion of the loaded list hides rows (Domenia 1 RCH-040).
     const summary = st.result && activeCount() ? `→ ${count(shown, 'ligne affichée', 'lignes affichées')} sur ${int(total)}` : '';
     fbar.setSummary(summary);
@@ -515,15 +522,38 @@ export function createResults(host, ctx, o) {
   }
 
   /** Shows or replaces a notice band (id → { tone, icon, html, more, actions: [{id, label, icon, kind, primary}], dismiss }), or removes it with null. */
+  // Notices never pile up above the grid: the three most important ones are shown (a running survey and a suspension first),
+  // the others wait behind « +n messages », which opens them all.
+  const NOTICE_MAX = 3;
+  const NOTICE_RANK = { survey: 0, suspended: 0, write: 0, resume: 1, reval: 1, restore: 1, dns: 1, listcheck: 2, offer: 2, measures: 2 };
+  let noticesOpen = false;
+  function arrangeNotices() {
+    const list = [...noticeMap.entries()].filter(([, el]) => !el.classList.contains('leaving'))
+      .sort((a, b) => (NOTICE_RANK[a[0]] ?? 3) - (NOTICE_RANK[b[0]] ?? 3) || Number(b[1].dataset.at) - Number(a[1].dataset.at));
+    list.forEach(([, el], n) => el.classList.toggle('folded', !noticesOpen && n >= NOTICE_MAX));
+    const extra = Math.max(0, list.length - NOTICE_MAX);
+    let more = notices.querySelector('.rch-notices-more');
+    if (!extra) { more?.remove(); noticesOpen = false; return; }
+    if (!more) {
+      more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'btn ghost sm rch-notices-more';
+      more.addEventListener('click', () => { noticesOpen = !noticesOpen; arrangeNotices(); });
+    }
+    more.textContent = noticesOpen ? 'Réduire les messages' : `+${int(extra)} message${extra > 1 ? 's' : ''}`;
+    more.setAttribute('aria-expanded', String(noticesOpen));
+    notices.appendChild(more);
+  }
+
   function setNotice(id, notice) {
     const prev = noticeMap.get(id);
-    if (!notice) { if (prev) { prev.classList.add('leaving'); setTimeout(() => prev.remove(), 260); noticeMap.delete(id); } return; }
+    if (!notice) { if (prev) { prev.classList.add('leaving'); setTimeout(() => prev.remove(), 260); noticeMap.delete(id); arrangeNotices(); } return; }
     const el = document.createElement('div');
     el.className = `rch-notice ${notice.tone ?? 'info'}`;
     el.dataset.id = id;
     const more = notice.more ? `<details class="rch-note-more"><summary>Détails</summary><div class="rch-note-more-in">${notice.more}</div></details>` : '';
     el.innerHTML = `<span class="rch-notice-ico">${glyph(notice.icon ?? 'info')}</span><div class="rch-notice-body"><div class="rch-notice-main">${notice.html}</div>${more}</div>`
-      + `<div class="rch-notice-acts">${(notice.actions ?? []).map((a) => `<button class="btn sm${a.primary ? ' primary' : ' subtle'}${a.pressed ? ' on' : ''}" type="button" data-act="${esc(a.id)}"${a.pressed !== undefined ? ` aria-pressed="${!!a.pressed}"` : ''}${a.kind === 'network' ? ' data-tip="Lecture réseau : part seulement sur ce clic"' : a.tip ? ` data-tip="${esc(a.tip)}"` : ''}>${a.icon ? glyph(a.icon) : ''}${esc(a.label)}${a.kind === 'network' ? '<span class="rch-net-dot" aria-hidden="true"></span>' : ''}</button>`).join('')}`
+      + `<div class="rch-notice-acts">${(notice.actions ?? []).map((a) => `<button class="btn sm${a.primary ? ' accent' : ' subtle'}${a.pressed ? ' on' : ''}" type="button" data-act="${esc(a.id)}"${a.pressed !== undefined ? ` aria-pressed="${!!a.pressed}"` : ''}${a.kind === 'network' ? ' data-tip="Lecture réseau : part seulement sur ce clic"' : a.tip ? ` data-tip="${esc(a.tip)}"` : ''}>${a.icon ? glyph(a.icon) : ''}${esc(a.label)}${a.kind === 'network' ? '<span class="rch-net-dot" aria-hidden="true"></span>' : ''}</button>`).join('')}`
       + `${notice.dismiss ? `<button class="btn ghost icon sm rch-notice-x" type="button" data-act="dismiss" aria-label="Masquer ce message" data-tip="Masquer">${glyph('x')}</button>` : ''}</div>`;
     el.addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest('[data-act]') : null;
@@ -531,8 +561,27 @@ export function createResults(host, ctx, o) {
       if (b.dataset.act === 'dismiss') { setNotice(id, null); return; }
       notice.run?.(b.dataset.act, b);
     });
+    el.dataset.at = String(Date.now());
     if (prev) prev.replaceWith(el); else notices.appendChild(el);
     noticeMap.set(id, el);
+    arrangeNotices();
+  }
+
+  /** Element of a notice, to update it in place (a running survey patches its counter, bar, button and details). */
+  function noticeEl(id) { return noticeMap.get(id) ?? null; }
+
+  /** Replaces the « Détails » of a notice in place; an open block stays open (the operator is reading it). */
+  function setNoticeMore(id, html) {
+    const el = noticeMap.get(id);
+    if (!el) return;
+    let more = el.querySelector('.rch-note-more');
+    if (!html) { more?.remove(); return; }
+    if (!more) {
+      el.querySelector('.rch-notice-body').insertAdjacentHTML('beforeend', '<details class="rch-note-more"><summary>Détails</summary><div class="rch-note-more-in"></div></details>');
+      more = el.querySelector('.rch-note-more');
+    }
+    const inner = more.querySelector('.rch-note-more-in');
+    if (inner.innerHTML !== html) inner.innerHTML = html;
   }
 
   function paintFoot() {
@@ -541,7 +590,7 @@ export function createResults(host, ctx, o) {
     if (!r) return;
     const c = r.continuation;
     moreEl.innerHTML = c.allowed
-      ? `<button class="btn sm primary rch-more-next" type="button" data-more="${c.nextLimit}" data-tip="${esc(c.reason)}">${glyph('plus')}Charger la suite<span class="rch-more-n">+${int(c.page)}</span><span class="rch-net-dot" aria-hidden="true"></span></button>`
+      ? `<button class="btn sm accent rch-more-next" type="button" data-more="${c.nextLimit}" data-tip="${esc(c.reason)}">${glyph('plus')}Charger la suite<span class="rch-more-n">+${int(c.page)}</span><span class="rch-net-dot" aria-hidden="true"></span></button>`
         + (c.jumpLimit ? `<button class="btn sm subtle rch-more-jump" type="button" data-more="${c.jumpLimit}" data-tip="${esc(c.jumpText ?? '')}${COLON}lit seulement les lignes suivantes, ${int(c.jumpLimit)} lignes en tout">Jusqu’à ${int(c.jumpLimit)}</button>` : '')
       : '';
     // The header gives the number of rows: the footer says plainly whether the list is complete, without any cut sentence.
@@ -590,7 +639,7 @@ export function createResults(host, ctx, o) {
       <h3>${esc(state.title)}</h3>
       <p>${esc(state.text)}</p>
       ${state.hint ? `<p class="rch-empty-hint">${glyph('info')}${esc(state.hint)}</p>` : ''}
-      ${state.actions?.length ? `<div class="rch-empty-acts">${state.actions.map((a, n) => `<button class="btn sm${a.primary ? ' primary' : ''}" type="button" data-empty="${esc(a.id)}" data-j="${n}">${glyph(a.icon ?? 'play')}${esc(a.label)}${a.kind === 'network' ? '<span class="rch-net-dot" aria-hidden="true"></span>' : ''}</button>`).join('')}</div>` : ''}
+      ${state.actions?.length ? `<div class="rch-empty-acts">${state.actions.map((a, n) => `<button class="btn sm${a.primary ? ' accent' : ''}" type="button" data-empty="${esc(a.id)}" data-j="${n}">${glyph(a.icon ?? 'play')}${esc(a.label)}${a.kind === 'network' ? '<span class="rch-net-dot" aria-hidden="true"></span>' : ''}</button>`).join('')}</div>` : ''}
     </div>`;
     emptyEl.querySelectorAll('[data-j]').forEach((x) => x.style.setProperty('--j', x.dataset.j));
   }
@@ -621,6 +670,8 @@ export function createResults(host, ctx, o) {
     if (!b) return;
     st.scopeMode = b.dataset.mode;
     tools.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    // The active scope is recalled in the header while the options stay folded (design review, tour 2).
+    host.querySelector('.rch-res-mode').hidden = st.scopeMode !== 'selected';
     inks[1].update();
     paintFoot();
     o.onScopeMode?.(st.scopeMode);
@@ -819,6 +870,8 @@ export function createResults(host, ctx, o) {
     rows: () => st.rows,
     pointerRecent: () => Date.now() - lastPointer < 500,
     setNotice,
+    noticeEl,
+    setNoticeMore,
     setToolsOpen,
     setClickCheck({ ping, console: cons }) {
       const a = tools.querySelector('[data-click="ping"]');

@@ -236,8 +236,8 @@ public sealed partial class SearchOperations : IOperationModule
                     "ping" => SurveyMode.Ping,
                     _ => throw BridgeArguments.Invalid(FrenchText.Quote("mode") + " vaut ping ou console."),
                 };
-                var listId = OptionalString(values, "listId") is null ? null : Hex32(values, "listId");
-                return await service.RecheckAsync(Id(values, "id"), mode, listId, OptionalBool(values, "onClick", false), ct).ConfigureAwait(false);
+                // The engine judges on the list shown (whole domain view, membership): listId is required.
+                return await service.RecheckAsync(Id(values, "id"), mode, Hex32(values, "listId"), OptionalBool(values, "onClick", false), ct).ConfigureAwait(false);
             }, "Un ping (et l’utilisateur connecté) du seul poste sélectionné.", ServedInSimulation: true),
 
             new OperationDefinition("search.netdiag", OperationClass.NetworkRead, async (args, _, ct) =>
@@ -246,7 +246,13 @@ public sealed partial class SearchOperations : IOperationModule
                 return await service.DiagnoseAsync(Hex32(values, "listId"), Ids(values, "ids", 1, 500), ct).ConfigureAwait(false);
             }, "Diagnostic réseau groupé des lignes d’une liste (ping puis ports 445, 135, 5985, 5986), 50 postes au plus ; aucun compte envoyé.", ServedInSimulation: true),
 
-            new OperationDefinition("search.memory", OperationClass.LocalRead, async (args, _, ct) =>
+            new OperationDefinition("search.policy", OperationClass.LocalRead, (args, _, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(service.Policy());
+            }, "Réglages de l’administrateur (Domenia.config.json : revalidation des objets listés, actions masquées ou grisées) et budgets des relevés (Paramètres)."),
+
+            new OperationDefinition("search.memory", OperationClass.LocalWrite, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 // First display of a domain: the saved searches of Domenia 1 become OU favourites once (RCH-004).

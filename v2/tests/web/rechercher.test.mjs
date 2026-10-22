@@ -88,5 +88,15 @@ for (let n = 0; n < 50; n++) h.push(place(`t${n}`, 1));
 check(h.list().length === 41, '40 étapes en arrière au plus');
 check(placeKey(place('a', 1)) !== placeKey({ ...place('a', 1), request: { op: 'search.run', text: 'a', type: 'users' } }), 'un autre type est un autre lieu');
 
+// ---------- CSV of the selected rows that are shown (RCH-126): records split outside quotes ----------
+
+const grid = '\uFEFFNom;Note\r\nPC-01;"deux\r\nlignes"\r\nPC-02;simple\r\n';
+const records = text.csvRecords(grid);
+check(records.length === 3, 'en-tête et deux enregistrements, même avec un saut de ligne dans une cellule');
+check(records[1] === 'PC-01;"deux\r\nlignes"', 'cellule entre guillemets gardée entière');
+check(records[0].startsWith('\uFEFF'), 'marque d’ordre des octets gardée sur l’en-tête');
+check(text.selectionText(3, 3) === '3 postes sélectionnés', 'énoncé « 3 postes sélectionnés »');
+check(text.selectionText(3, 1) === '3 lignes sélectionnées dont 1 poste', 'énoncé « 3 lignes sélectionnées dont 1 poste »');
+
 console.log(`${passed} vérifications réussies, ${failed} en échec.`);
 if (failed) process.exit(1);

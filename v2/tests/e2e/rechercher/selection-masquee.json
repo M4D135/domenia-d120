@@ -1,0 +1,67 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : une ligne sélectionnée masquée par un filtre n’est ni exportée ni relevée",
+  "description": "Liste Paris, sélectionne tout, filtre la liste : la barre de sélection dit combien de lignes sélectionnées sont masquées et exclues ; l’export de la sélection les annonce exclues (RCH-097, RCH-126, RCH-127).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher?ou=OU%3DParis%2COU%3DPostes%2CDC%3Dexample%2CDC%3Dlocal",
+  "steps": [
+    {
+      "do": "wait",
+      "contains": "PC-PAR-0001",
+      "within": ".rch-results .k-gbody",
+      "title": "Le contenu de Paris est listé"
+    },
+    {
+      "do": "click",
+      "selector": ".rch-results .k-gbody .k-gr",
+      "nth": 0,
+      "title": "Activer la grille"
+    },
+    {
+      "do": "press",
+      "key": "Control+A",
+      "title": "Tout sélectionner"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-gselbar [data-sel=\"copy\"]",
+      "absent": true,
+      "title": "Une seule copie dans la barre : celle de la page (pour un ticket)"
+    },
+    {
+      "do": "type",
+      "selector": ".rch-results .k-gquick input",
+      "text": "PC-PAR-0001",
+      "title": "Filtrer la liste chargée"
+    },
+    {
+      "do": "wait",
+      "contains": "masquées par un filtre, exclues",
+      "within": ".k-gselbar",
+      "title": "La barre de sélection dit les lignes masquées exclues"
+    },
+    {
+      "do": "click",
+      "text": "Exporter…",
+      "within": ".k-gselbar",
+      "title": "Exporter la sélection"
+    },
+    {
+      "do": "wait",
+      "contains": "lignes sélectionnées masquées par un filtre",
+      "within": ".k-dlg",
+      "title": "La confirmation les dit exclues"
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

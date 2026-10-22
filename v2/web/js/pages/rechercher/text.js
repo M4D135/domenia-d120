@@ -294,6 +294,21 @@ export function selectionText(selected, machines = -1) {
   return t;
 }
 
+/** CSV records of the grid of the kit (a quoted cell may hold a line break): header first, then one record per row. */
+export function csvRecords(text) {
+  const out = [];
+  let cur = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text[i];
+    if (c === '"') quoted = !quoted;
+    if (!quoted && c === '\r' && text[i + 1] === '\n') { out.push(cur); cur = ''; i += 1; continue; }
+    cur += c;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 /** Sentence of what an export or a survey processes (Domenia 1 Get-DomeniaSearchScopeSummary). */
 export function scopeSummary({ mode, visible, loaded, selected, selectedHidden = 0, complete, limit }) {
   const note = complete ? 'liste complète' : `liste limitée à ${int(limit)} lignes${COLON}les objets au-delà ne sont pas inclus`;

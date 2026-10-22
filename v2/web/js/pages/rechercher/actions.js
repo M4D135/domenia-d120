@@ -39,12 +39,26 @@ export function createActions(ctx, S) {
   const listId = () => S.results.result()?.listId ?? null;
   /** A list listed on the whole domain is never surveyed, not even a selection of it (RCH-117): the reason, or ''. */
   const blocked = () => { const v = S.results.result()?.view; return v && !v.surveyAllowed ? v.reason : ''; };
+  // During a survey, the readings of the menus, the selection bar and the preview are greyed with their reason: only the main
+  // button « Arrêter (n/m) » of the list stops it (a choice in a menu never stops it silently).
+  const RUNNING = `Un relevé est déjà en cours${NBSP}: «${NBSP}Arrêter${NBSP}» de la liste l’arrête.`;
+  const busyReason = () => (run ? RUNNING : blocked());
+  // Only the selected rows that are shown are processed (RCH-097, RCH-126): a selected row hidden by a filter is excluded from
+  // the surveys, the diagnostic, the copies and the exports, and the operator is told how many.
+  function visibleOf(rows) {
+    const shown = new Set(S.results.grid.getVisibleRows().map((v) => v.id));
+    const kept = (rows ?? []).filter((r) => shown.has(r.id));
+    const hidden = (rows?.length ?? 0) - kept.length;
+    if (hidden > 0) toast(`${count(hidden, 'ligne sélectionnée masquée', 'lignes sélectionnées masquées')} par un filtre${COLON}exclue${hidden > 1 ? 's' : ''}.`, { tone: 'info', life: 4200 });
+    return kept;
+  }
 
   function copy(text, what) {
     writeClipboard(text).then((ok) => toast(ok ? `${what} copié.` : `Copie impossible${COLON}le presse-papiers est indisponible.`, { tone: ok ? 'ok' : 'warn', life: 2600 }));
   }
 
-  function copyTicket(rows) {
+  function copyTicket(given) {
+    const rows = visibleOf(given);
     if (!rows.length) return;
     // One readable line per object: no GUID, no DN, secrets masked before the clipboard (Domenia 1 SP-05).
     copy(ticketText(rows), rows.length > 1 ? `Texte pour un ticket (${count(rows.length, 'ligne', 'lignes')})` : 'Texte pour un ticket');
@@ -97,10 +111,10 @@ export function createActions(ctx, S) {
         { label: 'Poste', icon: 'monitor', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('poste', one) },
         { label: 'Utilisateurs et postes', icon: 'link', disabled: !linkable, reason: 'Réservé aux utilisateurs et aux postes.', run: () => S.go('relations', one) },
         '-',
-        { label: 'L’OU parente, dans cette liste', icon: 'ou', kind: 'network', run: () => S.browse(parentDn(one.dn)) },
+        { label: 'Afficher l’OU parente', icon: 'ou', kind: 'network', hint: 'remplace la liste', run: () => S.browse(parentDn(one.dn)) },
       ] : [] },
       { label: isPc ? 'Rechercher l’utilisateur associé' : 'Rechercher le poste associé', icon: 'search', disabled: !one?.association, reason: one ? 'Aucune association mémorisée.' : many, run: () => S.searchAssociated(one) },
-      { label: 'Réseau', icon: 'wifi', kind: 'network', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif.', items: [
+      { label: 'Réseau', icon: 'wifi', kind: 'network', disabled: !pcs.length || !!busyReason(), reason: busyReason() || 'Aucun poste actif.', items: [
         { label: 'Revérifier ce poste (ping et utilisateur)', icon: 'refresh', disabled: !isPc || one.flags.disabled, reason: !one ? many : !isPc ? 'Réservé aux postes.' : 'Poste désactivé.', run: () => recheck(one) },
         '-',
         ...MODES.slice(0, 3).map((m) => ({ label: `${m.label}${list.length > 1 ? ` (${int(pcs.length)})` : ''}`, icon: m.icon, run: () => survey(m.id, list, 'selection') })),
@@ -120,9 +134,9 @@ export function createActions(ctx, S) {
         { label: 'Le GUID', disabled: !one, reason: many, run: () => copy(one.id, 'GUID') },
         { label: 'Toutes les valeurs', disabled: !one, reason: many, run: () => copy(allValues(one), 'Valeurs de la ligne') },
         '-',
-        { label: S.results.scopeMode === 'selected' ? 'Exporter la sélection en CSV…' : 'Exporter la liste affichée en CSV…', icon: 'csv', run: () => S.exportList(S.results.scopeMode) },
+        ...(S.actionMode?.('export') === 'hidden' ? [] : [{ label: S.results.scopeMode === 'selected' ? 'Exporter la sélection en CSV…' : 'Exporter la liste affichée en CSV…', icon: 'csv', disabled: S.actionMode?.('export') === 'disabled', reason: 'Fonction désactivée dans la configuration de l’application.', run: () => S.exportList(S.results.scopeMode) }]),
       ] },
-      { label: 'Épingler l’OU parente', icon: 'star', disabled: !one, reason: many, run: () => S.pin(parentDn(one.dn)) },
+      { label: 'Épingler l’OU parente', icon: 'star', disabled: !one || !/^OU=/i.test(parentDn(one.dn) ?? ''), reason: one ? `Le parent est un conteneur (CN=…)${NBSP}: seules les OU s’épinglent.` : many, run: () => S.pin(parentDn(one.dn)) },
     ];
     if (one?.kind === 'user' && (one.flags.locked || one.flags.lockToCheck)) {
       // A write, marked as such (pencil) and last; not destructive: no danger tone (kit § 2.6).
@@ -133,12 +147,13 @@ export function createActions(ctx, S) {
 
   function selectionActions(rows) {
     const pcs = pcsOf(rows);
-    const stop = blocked();
+    const stop = busyReason();
     return [
       { label: `Pinger ${pcs.length ? int(pcs.length) : ''}`.trim(), icon: 'wifi', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => survey('ping', sel, 'selection') },
       { label: `Qui est connecté${NBSP}?`, icon: 'users', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => survey('console', sel, 'selection') },
       { label: 'Comparer', icon: 'split', disabled: !comparable(rows), reason: 'Deux à huit objets d’un même type.', run: (sel) => compare(sel) },
       { label: 'Diagnostic réseau', icon: 'activity', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => netdiag(sel) },
+      ...(S.actionMode?.('export') === 'hidden' ? [] : [{ label: 'Exporter…', icon: 'csv', disabled: S.actionMode?.('export') === 'disabled', reason: 'Fonction désactivée dans la configuration de l’application.', run: () => S.exportList('selected') }]),
       { label: 'Copier pour un ticket', icon: 'copy', run: (sel) => copyTicket(sel) },
     ];
   }
@@ -162,11 +177,11 @@ export function createActions(ctx, S) {
   // ---------- Surveys ----------
 
   async function survey(mode, rows, scope, { resume = false } = {}) {
-    if (run) { stopRun(); return; }
+    if (run) { toast(RUNNING, { tone: 'info', life: 3600 }); return; }
     const id = listId();
     if (!id) { toast('Aucune liste à relever.', { tone: 'warn' }); return; }
     S.lastMode = mode;
-    let list = rows;
+    let list = rows ? visibleOf(rows) : rows;
     if (!list && !resume) {
       const visible = S.results.grid.getVisibleRows();
       if (S.results.scopeMode === 'selected') {
@@ -253,6 +268,20 @@ export function createActions(ctx, S) {
       const bar = document.querySelector('.rch-notice[data-id="survey"] .rch-progress-fill');
       bar?.style.setProperty('--p', String(total ? p.done / total : 1));
     };
+    // While the survey reads, the notice is updated in place: no entrance replayed at every batch, the bar glides, the focus
+    // stays on « Arrêter » and the « Détails » the operator opened stay open (detailed state, RCH-099).
+    const patch = (p) => {
+      const el = S.results.noticeEl('survey');
+      if (!el || !el.querySelector('[data-act="stop"]')) { notice(p); return; }
+      const num = el.querySelector('.rch-progress-top .num');
+      if (num) num.textContent = p.text;
+      el.querySelector('.rch-progress-bar')?.setAttribute('aria-valuenow', String(p.done));
+      const stopBtn = el.querySelector('[data-act="stop"]');
+      const label = [...stopBtn.childNodes].reverse().find((n) => n.nodeType === Node.TEXT_NODE);
+      const text = run?.stopAsked ? 'Arrêt demandé…' : `Arrêter (${int(p.done)}/${int(total)})`;
+      if (label && label.textContent !== text) label.textContent = text;
+      S.results.setNoticeMore('survey', statusHtml(p.status));
+    };
     notice({ done: 0, text: `0/${int(total)}`, online: 0, noReply: 0, errors: 0, status: null });
     const off = onEvent('search.survey.run:progress', (p) => {
       if (!run) return;
@@ -265,7 +294,7 @@ export function createActions(ctx, S) {
       }).filter(Boolean);
       if (changed.length) S.results.updateRows(changed);
       last = p;
-      notice(p);
+      patch(p);
       paintBar(p);
       S.onRunChange?.();
     });
@@ -327,9 +356,11 @@ export function createActions(ctx, S) {
 
   // ---------- Network diagnostic ----------
 
-  async function netdiag(rows) {
+  async function netdiag(given) {
     const stop = blocked();
     if (stop) { toast(stop, { tone: 'warn' }); return; }
+    const rows = visibleOf(given);
+    if (!rows.length) return;
     const pcs = pcsOf(rows);
     const others = rows.length - pcs.length;
     const head = pcs.slice(0, 50);

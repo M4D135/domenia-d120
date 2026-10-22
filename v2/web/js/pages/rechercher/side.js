@@ -10,7 +10,7 @@ import { openDialog } from '../../kit/dialog.js';
 import { createTree } from '../../kit/tree.js';
 import { readLayout, writeLayout, writeClipboard, debounce, highlight } from '../../kit/util.js';
 import { announce, toast, errorText } from '../../ui.js';
-import { esc, fold, int, count, quote, COLON, splitDn, leafOf, pathOf, parentDn, sameDn } from './text.js';
+import { esc, fold, int, count, quote, COLON, NBSP, splitDn, leafOf, pathOf, parentDn, sameDn } from './text.js';
 
 const MEMORY_MAX = 128;
 const SYSTEM_ID = '#system';
@@ -60,7 +60,7 @@ export function createSide(host, ctx, o) {
         <input type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nom ou chemin d’une OU…"></label>
       <button class="btn ghost icon sm rch-ousearch-x" type="button" aria-label="Fermer la recherche d’OU">${glyph('x')}</button>
       <ul class="rch-ousearch-list" role="listbox" aria-label="OU trouvées"></ul>
-      <p class="rch-ousearch-note">La recherche lit l’annuaire à chaque pause de la saisie.</p>
+      <p class="rch-ousearch-note">Saisissez un nom puis Entrée${COLON}la recherche lit l’annuaire seulement sur ce geste.</p>
     </div>
     <div class="rch-tree"></div>
     <footer class="rch-side-foot">
@@ -240,14 +240,23 @@ export function createSide(host, ctx, o) {
     pinBtn.setAttribute('aria-pressed', String(!!pinned));
     pinBtn.setAttribute('aria-label', pinned ? 'Retirer cette OU des favoris' : 'Épingler cette OU');
     pinBtn.dataset.tip = !pinnable ? 'Choisissez une OU pour l’épingler' : pinned ? 'Retirer des favoris' : `Épingler ${quote(node.data.name)}`;
-    browseBtn.disabled = !usable(node);
+    // Without a choice in the tree, the working OU is the default (RCH-005, decision of 21/10: default of the sections without a
+    // choice of their own, as Domenia 1): « Afficher le contenu » lists it.
+    const fallback = !usable(node) ? o.defaultOu?.() ?? null : null;
+    browseBtn.disabled = !usable(node) && !fallback;
     // Two lines: the action, then the OU and its depth (the full name always shows, it wraps instead of being cut).
-    browseBtn.querySelector('.rch-browse-t small').textContent = usable(node) ? `${quote(node.data.name)} · ${st.subtree ? 'sous-OU incluses' : 'enfants directs'}` : 'Choisissez une OU dans l’arbre';
-    browseBtn.dataset.tip = usable(node) ? `Lit le contenu de ${quote(node.data.name)} dans l’annuaire (geste explicite)` : '';
+    browseBtn.querySelector('.rch-browse-t small').textContent = usable(node) ? `${quote(node.data.name)} · ${st.subtree ? 'sous-OU incluses' : 'enfants directs'}`
+      : fallback ? `OU de travail${COLON}${quote(fallback.name)} · ${st.subtree ? 'sous-OU incluses' : 'enfants directs'}` : 'Choisissez une OU dans l’arbre';
+    browseBtn.dataset.tip = usable(node) ? `Lit le contenu de ${quote(node.data.name)} dans l’annuaire (geste explicite)`
+      : fallback ? `Lit le contenu de l’OU de travail ${quote(fallback.name)} dans l’annuaire (geste explicite)` : '';
   }
 
   pinBtn.addEventListener('click', () => { if (st.selected?.data?.kind === 'ou') o.onPin(st.selected, !o.isPinned(st.selected.data.dn)); });
-  browseBtn.addEventListener('click', () => { const d = st.selected?.data; if (d?.dn) o.onBrowse(d.dn, d.name, st.subtree); });
+  browseBtn.addEventListener('click', () => {
+    const d = usable(st.selected) ? st.selected.data : null;
+    const target = d ?? o.defaultOu?.() ?? null;
+    if (target?.dn) o.onBrowse(target.dn, target.name, st.subtree);
+  });
   depth.addEventListener('change', () => {
     st.subtree = depth.checked;
     save();
@@ -328,9 +337,11 @@ export function createSide(host, ctx, o) {
     ouSearch.classList.add('in');
     ouInput.focus();
   }
-  const runOuSearch = debounce(async () => {
+  // Typing never reads the directory (Domenia 1 RCH-009, explicit read): Entrée starts the search (directory.ou.search,
+  // NetworkRead in directory mode); the filter of the branches already read stays local, as you type.
+  const runOuSearch = async () => {
     const text = ouInput.value.trim();
-    if (text.length < 2) { ouList.innerHTML = ''; ouNote.textContent = 'Deux caractères au moins. La recherche lit l’annuaire à chaque pause de la saisie.'; return; }
+    if (text.length < 2) { ouList.innerHTML = ''; ouNote.textContent = `Deux caractères au moins, puis Entrée${COLON}la recherche lit l’annuaire seulement sur ce geste.`; return; }
     ouSearch.setAttribute('aria-busy', 'true');
     try {
       const found = await ctx.call('directory.ou.search', { text });
@@ -345,9 +356,14 @@ export function createSide(host, ctx, o) {
     } finally {
       ouSearch.removeAttribute('aria-busy');
     }
-  }, 320);
-  ouInput.addEventListener('input', runOuSearch);
+  };
+  ouInput.addEventListener('input', () => {
+    const text = ouInput.value.trim();
+    ouList.innerHTML = '';
+    ouNote.textContent = text.length < 2 ? `Deux caractères au moins, puis Entrée${COLON}la recherche lit l’annuaire seulement sur ce geste.` : 'Entrée lance la recherche dans l’annuaire.';
+  });
   ouInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); runOuSearch(); return; }
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); ouSearch.hidden = true; tree.focus(); }
     if (e.key === 'ArrowDown') { e.preventDefault(); ouList.querySelector('li')?.focus(); }
   });
@@ -379,14 +395,14 @@ export function createSide(host, ctx, o) {
    * not read): Domenia 1 RCH-015, a failed read is never an absence.
    * @returns {Promise<{ok: boolean, kind?: 'absent'|'failed', parent?: string, message?: string}>}
    */
-  async function locate(dn) {
+  async function locate(dn, aborted = () => st.restoring && st.abort, stopped = 'restauration interrompue par votre geste') {
     if (!dn) return { ok: false, kind: 'absent', parent: o.root };
     if (sameDn(dn, o.root)) return { ok: true };
     const chain = chainOf(dn);
     for (let n = 0; n < chain.length - 1; n++) {
       const id = chain[n];
       if (!tree.pathOf(id).length) return { ok: false, kind: 'absent', parent: n > 0 ? chain[n - 1] : o.root };
-      if (st.abort) return { ok: false, kind: 'failed', parent: id, message: 'restauration interrompue par votre geste' };
+      if (aborted()) return { ok: false, kind: 'stopped', parent: id, message: stopped };
       await tree.expand(id);
       const outcome = reads.get(id);
       if (outcome && outcome !== 'ok') return { ok: false, kind: 'failed', parent: id, message: outcome };
@@ -396,12 +412,37 @@ export function createSide(host, ctx, o) {
     return { ok: tree.select(dn) };
   }
 
+  /**
+   * Reveals an OU in the tree (favourite, personal view, « OU parente », search of an OU). Each call has its own stop flag,
+   * armed by the gestures of the operator while it opens the branches (RCH-020): a click or a key elsewhere stops this reveal
+   * only, never the next ones. Without notify, the page is told (onReveal) so its chosen OU follows the tree, without a read.
+   */
   async function reveal(dn, notify = false) {
-    const res = await locate(dn).catch((err) => { console.error(err); return { ok: false, kind: 'failed', parent: parentDn(dn), message: errorText(err) }; });
+    const call = { aborted: false };
+    const stop = (e) => { if (!(e instanceof KeyboardEvent) || !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) call.aborted = true; };
+    // The gesture that asked for the reveal is over before it starts: only the next ones stop it.
+    const arm = setTimeout(() => { document.addEventListener('pointerdown', stop, true); document.addEventListener('keydown', stop, true); }, 0);
+    let res;
+    try {
+      res = await locate(dn, () => call.aborted, 'révélation interrompue par votre geste').catch((err) => { console.error(err); return { ok: false, kind: 'failed', parent: parentDn(dn), message: errorText(err) }; });
+    } finally {
+      clearTimeout(arm);
+      document.removeEventListener('pointerdown', stop, true);
+      document.removeEventListener('keydown', stop, true);
+    }
     if (res.ok) {
       st.selected = tree.getSelected();
       paint();
+      save();
       if (notify && st.selected) o.onSelect(st.selected, 'pointer');
+      else if (st.selected) o.onReveal?.(st.selected);
+      // A branch hidden by the filter of the tree is said (RCH-011): the OU is selected, the filter decides what is shown.
+      const filter = host.querySelector('.k-tree-search input')?.value?.trim();
+      if (filter && st.selected && !fold(st.selected.label ?? '').includes(fold(filter))) {
+        toast(`OU ${quote(leafOf(dn))} sélectionnée, mais masquée par le filtre de l’arbre (${quote(filter)})${COLON}effacez le filtre pour la voir.`, { tone: 'info', life: 5200 });
+      }
+    } else if (res.kind === 'stopped') {
+      announce(`Révélation de ${leafOf(dn)} interrompue par votre geste${NBSP}: rien d’autre n’est lu.`);
     } else if (notify) {
       toast(res.kind === 'absent'
         ? `OU ${quote(leafOf(dn))} absente de ${quote(leafOf(res.parent ?? o.root))} relue${COLON}elle a pu être déplacée ou supprimée.`
@@ -421,7 +462,7 @@ export function createSide(host, ctx, o) {
       if (st.selected) o.onSelect(st.selected, 'restore');
       return;
     }
-    if (st.abort && res.message === 'restauration interrompue par votre geste') return;
+    if (res.kind === 'stopped') return;
     const parent = res.parent ?? o.root;
     o.onRestoreIssue({ kind: res.kind ?? 'failed', dn, name: leafOf(dn), parent, parentName: sameDn(parent, o.root) ? o.dns : leafOf(parent), message: res.message ?? '' });
   }
@@ -445,6 +486,8 @@ export function createSide(host, ctx, o) {
       else if (st.remembered) announce('Restauration de l’arborescence interrompue : rien n’est lu sans votre geste.');
     } finally {
       st.restoring = false;
+      // The stop of the restoration belongs to it: later reveals (favourite, view, OU parente) are never refused because of it.
+      st.abort = false;
       document.removeEventListener('pointerdown', stop, true);
       document.removeEventListener('keydown', stop, true);
     }

@@ -118,7 +118,11 @@ public static class SearchLists
         return new SearchScopeInfo("ou", whole ? rootDn : dn, label, path, whole || subtree, whole && subtree, (whole ? "Domaine " : "OU ") + name + " · " + depth);
     }
 
-    /// <summary>True when <paramref name="dn"/> names the root (escaping and case ignored); a malformed DN never does.</summary>
+    /// <summary>
+    /// True when <paramref name="dn"/> names the root (escaping and case ignored); a malformed DN never does. Every DN of the
+    /// page is checked upstream by BridgeArguments.RequireDistinguishedName (arguments.invalid) and the root comes from the
+    /// session: the FormatException branch is a guard for direct callers, an answer (« not the root »), not a swallowed fault.
+    /// </summary>
     public static bool IsRoot(string dn, string rootDn)
     {
         try

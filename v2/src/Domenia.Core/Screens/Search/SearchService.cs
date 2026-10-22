@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace Domenia.Core;
 
@@ -53,9 +54,9 @@ public sealed class SearchService : IDisposable
 {
     private const int MaxLists = 24;
     private const int MaxPlans = 16;
-    private const int PingBatch = 32;
-    private const int Concurrency = 4;
     private const int MeasuresPage = 250;
+    /// <summary>Preference of Paramètres that holds the survey budgets (concurrency, maxTargets): read here, never written.</summary>
+    private const string CollectionSettingsKey = "settings.collection";
     private const string ProfileKey = "collection.profile";
     private static readonly TimeSpan PlanLifetime = TimeSpan.FromMinutes(10);
 
@@ -69,6 +70,7 @@ public sealed class SearchService : IDisposable
     private string? checksSuspended;
     private int surveyCount;
     private int surveyRunning;
+    private Func<JsonElement?> configuration = static () => null;
 
     public SearchService(EngineContext context)
     {
@@ -81,6 +83,33 @@ public sealed class SearchService : IDisposable
     {
         ArgumentNullException.ThrowIfNull(context);
         return context.Shared(static c => new SearchService(c));
+    }
+
+    /// <summary>
+    /// The host hands the reading of Domenia.config.json (its root, or null without a file): the settings an administrator
+    /// gives to this screen (revalidation of the listed objects, hidden or greyed actions). Read on demand, never written.
+    /// </summary>
+    public void UseConfiguration(Func<JsonElement?> read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        configuration = read;
+    }
+
+    /// <summary>search.policy: settings of the administrator and survey budgets of Paramètres (RCH-067, RCH-073, RCH-090, RCH-093).</summary>
+    public SearchPolicy Policy()
+    {
+        JsonElement? config;
+        try
+        {
+            config = configuration();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            context.Log.Warning("search.policy : Domenia.config.json illisible (" + ex.GetType().Name + ") : réglages par défaut.");
+            config = null;
+        }
+        JsonElement? settings = context.Preferences.TryGet(CollectionSettingsKey, out var value) ? value : null;
+        return SearchPolicyRules.Read(config, settings);
     }
 
     private TimeZoneInfo Zone => context.Clock.LocalTimeZone;
@@ -116,7 +145,7 @@ public sealed class SearchService : IDisposable
         var baseDn = root;
         if (scopeDn is not null && !SearchLists.IsRoot(scopeDn, root))
         {
-            baseDn = await RequireOuAsync(scopeDn, root, cancellationToken).ConfigureAwait(false);
+            baseDn = await RequireBaseAsync(reader, scopeDn, root, cancellationToken).ConfigureAwait(false);
         }
         var scope = SearchLists.Scope(true, baseDn, root, dns, true);
         var list = Register(new ListState(SearchListKind.Search, plan, type, baseDn, true, null, text.Trim(), match, scope, null));
@@ -140,9 +169,7 @@ public sealed class SearchService : IDisposable
     {
         var (root, dns) = await DomainAsync(cancellationToken).ConfigureAwait(false);
         var reader = context.Readers.Require<ISearchReader>();
-        var containers = await reader.ContainersAsync(false, cancellationToken).ConfigureAwait(false);
-        var container = containers.FirstOrDefault(c => SearchLists.IsRoot(c.Dn, dn));
-        var baseDn = SearchLists.IsRoot(dn, root) ? root : container?.Dn ?? await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);
+        var baseDn = SearchLists.IsRoot(dn, root) ? root : await RequireBaseAsync(reader, dn, root, cancellationToken).ConfigureAwait(false);
         var whole = SearchLists.IsRoot(baseDn, root);
         var scope = SearchLists.Scope(false, baseDn, root, dns, whole || subtree);
         var list = Register(new ListState(SearchListKind.Browse, SearchText.BrowsePlan(type), type, baseDn, whole || subtree, null, "", SearchMatchMode.Prefix, scope, null));
@@ -161,7 +188,7 @@ public sealed class SearchService : IDisposable
             // The whole domain is an explicit choice (wholeDomain), never the silent fallback of a missing OU.
             throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Arguments invalides" + FrenchText.Colon + "choisissez une OU, ou demandez explicitement tout le domaine.");
         }
-        var baseDn = wholeDomain || SearchLists.IsRoot(dn!, root) ? root : await RequireOuAsync(dn!, root, cancellationToken).ConfigureAwait(false);
+        var baseDn = wholeDomain || SearchLists.IsRoot(dn!, root) ? root : await RequireBaseAsync(reader, dn!, root, cancellationToken).ConfigureAwait(false);
         var whole = SearchLists.IsRoot(baseDn, root);
         var depth = whole || subtree;
         const string survey = "Vue sur tout le domaine" + FrenchText.Colon + "aucun relevé des postes (ping, détection, analyse) n’est proposé sur cette liste.";
@@ -181,7 +208,7 @@ public sealed class SearchService : IDisposable
         var reader = context.Readers.Require<ISearchReader>();
         var query = SearchViews.LocalQueries.FirstOrDefault(q => q.Id == queryId)
             ?? throw new DomeniaOperationException(SearchErrors.ViewUnknown, SearchErrors.ViewUnknownMessage);
-        var baseDn = SearchLists.IsRoot(dn, root) ? root : await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);
+        var baseDn = SearchLists.IsRoot(dn, root) ? root : await RequireBaseAsync(reader, dn, root, cancellationToken).ConfigureAwait(false);
         var whole = SearchLists.IsRoot(baseDn, root);
         var scope = SearchLists.Scope(false, baseDn, root, dns, whole || subtree);
         var plan = new SearchPlan(SearchPlanKind.LocalQuery, true, "", query.Description, [], [], null, null, "", false, "");
@@ -431,17 +458,18 @@ public sealed class SearchService : IDisposable
         }
         var (targets, excluded) = await TargetsAsync(mode, distinct, cancellationToken).ConfigureAwait(false);
         var covers = distinct.Count >= known.Count;
+        var policy = Policy();
         var admission = state.View is { SurveyAllowed: false } view
-            ? new SurveyAdmission(false, "wholeDomainView", view.Reason, SearchSurvey.MaxTargets)
-            : SearchSurvey.Admit(targets.Length, SearchSurvey.MaxTargets, state.Scope.Mode == "global", !string.IsNullOrWhiteSpace(state.Text), state.Scope.WholeDomain,
+            ? new SurveyAdmission(false, "wholeDomainView", view.Reason, policy.MaxTargets)
+            : SearchSurvey.Admit(targets.Length, policy.MaxTargets, state.Scope.Mode == "global", !string.IsNullOrWhiteSpace(state.Text), state.Scope.WholeDomain,
                 hasFilter: !covers, scope == SurveyScope.Selection, covers);
         var scopeLabel = state.Scope.Mode == "global" ? state.Scope.Chip : state.Scope.WholeDomain ? "tout le domaine" : SearchTexts.Leaf(state.BaseDn);
         var (title, target, lines, confirm, seconds) = SearchSurvey.Confirmation(mode, targets.Length, resuming ? SurveyScope.Selection : scope, scopeLabel, state.Subtree, excluded.Length,
-            state.LimitReached ? state.Limit : 0, Concurrency);
+            state.LimitReached ? state.Limit : 0, policy.Concurrency);
         var profile = ProfileOf();
         var now = context.Clock.GetUtcNow();
         var open = SearchSurvey.WindowOpen(profile, TimeZoneInfo.ConvertTime(now, Zone).DateTime);
-        var details = SearchSurvey.Details(mode, profile, open, pending is null ? null : Resume(pending), resuming, Concurrency);
+        var details = SearchSurvey.Details(mode, profile, open, pending is null ? null : Resume(pending), resuming, policy.Concurrency);
         if (resuming)
         {
             title = "Reprendre le relevé" + FrenchText.Colon + SearchSurvey.ModeLabel(mode);
@@ -496,12 +524,14 @@ public sealed class SearchService : IDisposable
             throw new DomeniaOperationException(SearchErrors.SurveyTypedCount, "Nombre saisi différent du nombre de postes (" + FrenchText.Integer(targets.Length) + ")"
                 + FrenchText.Colon + "rien n’est lu. Confirmez de nouveau.");
         }
+        // The reader is required before the « survey running » marker is taken: a refusal here (source.unavailable) never
+        // leaves the marker set, which would refuse every later survey (search.surveyBusy).
+        var mode = plan.Mode;
+        var reader = context.Readers.Require<ISearchReader>();
         if (Interlocked.CompareExchange(ref surveyRunning, 1, 0) != 0)
         {
             throw new DomeniaOperationException(SearchErrors.SurveyBusy, SearchErrors.SurveyBusyMessage);
         }
-        var mode = plan.Mode;
-        var reader = context.Readers.Require<ISearchReader>();
         var runId = NewId();
         var run = Interlocked.Increment(ref surveyCount);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -527,7 +557,10 @@ public sealed class SearchService : IDisposable
         try
         {
             publish(new SurveyProgress(runId, 0, targets.Length, 0, 0, 0, SearchSurvey.Progress(0, targets.Length, 0, 0, 0, false, false), [], StatusOf(false, targets.Length)));
-            var size = mode == SurveyMode.Ping ? PingBatch : Concurrency;
+            // Budgets read when the survey starts (Paramètres may have changed them since the plan): echoes by batches of 192,
+            // the other modes as many workstations at a time as Paramètres allows (4 by default, 1 to 8).
+            var budgets = Policy();
+            var size = mode == SurveyMode.Ping ? budgets.PingBatch : budgets.Concurrency;
             foreach (var batch in targets.Chunk(size))
             {
                 stop.Token.ThrowIfCancellationRequested();
@@ -651,19 +684,17 @@ public sealed class SearchService : IDisposable
     /// selected (RCH-079, RCH-078), one attempt. A row of a list listed on the whole domain is never probed; a check started
     /// by a click is refused while the selection checks are suspended after a rejected account (RCH-082).
     /// </summary>
-    public async Task<SearchRow> RecheckAsync(Guid id, SurveyMode mode, string? listId, bool onClick, CancellationToken cancellationToken)
+    public async Task<SearchRow> RecheckAsync(Guid id, SurveyMode mode, string listId, bool onClick, CancellationToken cancellationToken)
     {
-        if (listId is not null)
+        // The engine judges on the list shown: a row of a whole domain view, or a row that is not in the list, is never probed.
+        var state = RequireList(listId);
+        if (state.View is { SurveyAllowed: false } view)
         {
-            var state = RequireList(listId);
-            if (state.View is { SurveyAllowed: false } view)
-            {
-                throw new DomeniaOperationException(SearchErrors.SurveyRefused, view.Reason);
-            }
-            if (!KnownOf(state).Contains(id.ToString("D")))
-            {
-                throw new DomeniaOperationException(SearchErrors.SurveyRefused, "Cette ligne n’appartient pas à la liste affichée" + FrenchText.Colon + "aucune sonde n’est envoyée.");
-            }
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, view.Reason);
+        }
+        if (!KnownOf(state).Contains(id.ToString("D")))
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, "Cette ligne n’appartient pas à la liste affichée" + FrenchText.Colon + "aucune sonde n’est envoyée.");
         }
         if (onClick)
         {
@@ -943,6 +974,18 @@ public sealed class SearchService : IDisposable
             throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
         }
         return (root, dns);
+    }
+
+    /// <summary>
+    /// Base of a list (search, browse, view, local query): a container of the domain root (CN=Users, CN=Computers: the tree
+    /// offers them, the index of the OU leaves them out) or an OU known by the local index; never the network. ou.unknown
+    /// otherwise.
+    /// </summary>
+    private async Task<string> RequireBaseAsync(ISearchReader reader, string dn, string root, CancellationToken cancellationToken)
+    {
+        var containers = await reader.ContainersAsync(false, cancellationToken).ConfigureAwait(false);
+        var container = containers.FirstOrDefault(c => SearchLists.IsRoot(c.Dn, dn));
+        return container?.Dn ?? await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>An OU of the session domain known by the local index (never the network); ou.unknown otherwise.</summary>

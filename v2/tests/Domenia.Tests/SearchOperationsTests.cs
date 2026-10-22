@@ -25,9 +25,10 @@ internal static class SearchOperationsTests
         ("search.favorite.unpin", OperationClass.LocalWrite),
         ("search.localQuery", OperationClass.LocalRead),
         ("search.measures", OperationClass.LocalRead),
-        ("search.memory", OperationClass.LocalRead),
+        ("search.memory", OperationClass.LocalWrite),
         ("search.more", OperationClass.LocalRead),
         ("search.netdiag", OperationClass.NetworkRead),
+        ("search.policy", OperationClass.LocalRead),
         ("search.preload", OperationClass.LocalRead),
         ("search.preview", OperationClass.LocalRead),
         ("search.query.favorite", OperationClass.LocalWrite),
@@ -228,8 +229,10 @@ internal static class SearchOperationsTests
         Check.True(bridge.Events.Any(e => e.Operation == "search.survey.run:progress"), "progression publiée");
         Check.Equal(SearchErrors.SurveyPlanUnknown, await Refused(bridge, "search.survey.run", Args(new { planId })), "un plan ne sert qu’une fois");
 
-        var user = Ids(await Ok(bridge, "search.run", Args(new { text = "martin", type = "users" })))[0];
-        Check.Equal(SearchErrors.NotWorkstation, await Refused(bridge, "search.recheck", Args(new { id = user })), "aucune sonde vers un compte");
+        var users = await Ok(bridge, "search.run", Args(new { text = "martin", type = "users" }));
+        var user = Ids(users)[0];
+        Check.Equal(SearchErrors.NotWorkstation, await Refused(bridge, "search.recheck", Args(new { id = user, listId = users.GetProperty("listId").GetString() })), "aucune sonde vers un compte");
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.recheck", Args(new { id = user })), "le moteur juge sur la liste affichée : listId obligatoire");
         var recheck = await Ok(bridge, "search.recheck", Args(new { id = targets[0], listId }));
         Check.Equal(targets[0], recheck.GetProperty("id").GetString(), "un seul poste");
         var ping = await Ok(bridge, "search.recheck", Args(new { id = targets[0], mode = "ping", listId, onClick = true }));
@@ -399,5 +402,73 @@ internal static class SearchOperationsTests
         Check.True(suggestions.GetArrayLength() <= SearchLimits.Suggestions, "huit suggestions au plus");
         Check.Equal("arguments.invalid", await Refused(bridge, "search.containers", Args(new { dn = Root })), "aucun argument");
         Check.Equal(0, bridge.Source.PresenceRound, "aucune manche de présence");
+    }
+
+    // ---------------------------------------------------------------- tour 2 of the critique (written, run at the very end)
+
+    [Test]
+    public static async Task A_root_container_is_a_perimeter_for_the_search_the_views_and_the_local_queries()
+    {
+        var bridge = new SimulatedBridge();
+        const string computers = "CN=Computers," + Root;
+        var browsed = await Ok(bridge, "search.browse", Args(new { dn = computers, subtree = true }));
+        Check.Equal(computers, browsed.GetProperty("scope").GetProperty("dn").GetString(), "contenu du conteneur");
+        var found = await Ok(bridge, "search.run", Args(new { text = "a", scope = computers, type = "all", match = "contains" }));
+        Check.Equal(computers, found.GetProperty("scope").GetProperty("dn").GetString(), "recherche dans « Computers » : jamais « OU inconnue »");
+        var view = await bridge.CallAsync("search.view", Args(new { id = "oucomputers", dn = computers, subtree = true, wholeDomain = false }));
+        Check.True(view.Error is null || view.Error.Code != "ou.unknown", "vue sur un conteneur de la racine admise");
+        var local = await bridge.CallAsync("search.localQuery", Args(new { id = "local.lowdisk", dn = computers, subtree = true }));
+        Check.True(local.Error is null || local.Error.Code != "ou.unknown", "requête locale sur un conteneur de la racine admise");
+        Check.Equal("ou.unknown", await Refused(bridge, "search.run", Args(new { text = "a", scope = "CN=Inconnu," + Root })), "un conteneur inconnu reste refusé");
+    }
+
+    [Test]
+    public static async Task The_policy_gives_the_defaults_of_Domenia_1_without_a_configuration()
+    {
+        var bridge = new SimulatedBridge();
+        var policy = await Ok(bridge, "search.policy");
+        Check.False(policy.GetProperty("revalidateListed").GetBoolean(), "revalidation des objets listés désactivée par défaut");
+        Check.Equal(60, policy.GetProperty("revalidateSeconds").GetInt32(), "toutes les 60 s quand un administrateur l’active");
+        Check.Equal(SearchSurvey.MaxTargets, policy.GetProperty("maxTargets").GetInt32(), "plafond d’un relevé : 500");
+        Check.Equal(4, policy.GetProperty("concurrency").GetInt32(), "quatre postes à la fois");
+        Check.Equal(192, policy.GetProperty("pingBatch").GetInt32(), "échos par lots de 192");
+        Check.Equal(0, policy.GetProperty("hiddenActions").GetArrayLength(), "aucune action masquée");
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.policy", Args(new { x = 1 })), "aucun argument");
+    }
+
+    [Test]
+    public static void The_policy_reads_the_configuration_and_the_settings_strictly()
+    {
+        using var config = JsonDocument.Parse("""{ "streaming": { "RevalidateListedObjects": "oui", "RevalidateIntervalSeconds": 120 }, "UI": { "Elements": { "rechercher.export": "Masqué", "rechercher.compare": "Grisé", "fiche.x": "Hidden", "rechercher.refresh": "Rouge" } } }""");
+        using var settings = JsonDocument.Parse("""{ "concurrency": 8, "maxTargets": 2000 }""");
+        var policy = SearchPolicyRules.Read(config.RootElement, settings.RootElement);
+        Check.True(policy.RevalidateListed, "section et clé lues sans casse, « oui » vaut vrai");
+        Check.Equal(120, policy.RevalidateSeconds, "intervalle dans ses bornes");
+        Check.True(policy.HiddenActions.SequenceEqual(["rechercher.export"]), "action masquée de cet écran seulement");
+        Check.True(policy.DisabledActions.SequenceEqual(["rechercher.compare"]), "action grisée");
+        Check.Equal(1, policy.Problems.Length, "valeur inconnue signalée, jamais devinée");
+        Check.Equal(8, policy.Concurrency, "budget de Paramètres");
+        Check.Equal(2000, policy.MaxTargets, "plafond de Paramètres");
+        using var wrong = JsonDocument.Parse("""{ "Streaming": { "RevalidateIntervalSeconds": 5 } }""");
+        using var badSettings = JsonDocument.Parse("""{ "concurrency": 64 }""");
+        var fallback = SearchPolicyRules.Read(wrong.RootElement, badSettings.RootElement);
+        Check.Equal(60, fallback.RevalidateSeconds, "hors limites : 60 s");
+        Check.Equal(4, fallback.Concurrency, "hors limites : 4");
+        Check.Equal(2, fallback.Problems.Length, "les deux valeurs hors limites sont dites");
+        Check.Equal("hidden", SearchPolicyRules.Mode("Collapsed"), "synonymes de Domenia 1");
+        Check.Equal("default", SearchPolicyRules.Mode("Visible"), "visible = par défaut");
+    }
+
+    [Test]
+    public static async Task The_survey_ceiling_of_Parametres_bounds_the_plan()
+    {
+        var preferences = new MemoryPreferenceStore();
+        using var budgets = JsonDocument.Parse("""{ "maxTargets": 2 }""");
+        await preferences.SetAsync("settings.collection", budgets.RootElement.Clone(), CancellationToken.None);
+        var bridge = new SimulatedBridge(preferences: preferences);
+        var paris = await Ok(bridge, "search.browse", Args(new { dn = Paris, subtree = true, type = "computers", limit = 10 }));
+        var plan = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = paris.GetProperty("listId").GetString(), ids = Ids(paris), scope = "selection" }));
+        Check.False(plan.GetProperty("admission").GetProperty("allowed").GetBoolean(), "au-delà du plafond réglé dans Paramètres, le relevé est refusé");
+        Check.Equal(2, plan.GetProperty("admission").GetProperty("maximum").GetInt32(), "plafond lu dans settings.collection");
     }
 }

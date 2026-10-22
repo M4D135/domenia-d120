@@ -21,7 +21,7 @@ import { createPreview } from './rechercher/preview.js';
 import { createActions, MODES, modeLabel } from './rechercher/actions.js';
 import { createHistory } from './rechercher/history.js';
 import { openCatalog, openViews, openSyntaxHelp, layoutOf } from './rechercher/library.js';
-import { quote, COLON, NBSP, int, count, leafOf, typeLabel, pathOf, sameDn, DEFAULT_LIMIT, MAX_LIMIT, dateText } from './rechercher/text.js';
+import { quote, COLON, NBSP, int, count, leafOf, typeLabel, pathOf, sameDn, DEFAULT_LIMIT, MAX_LIMIT, dateText, selectionText, csvRecords } from './rechercher/text.js';
 
 /** The screen has its own stylesheet (css/pages/rechercher.css), loaded by the router. */
 export const stylesheet = true;
@@ -113,7 +113,64 @@ export function render(main, ctx) {
     onRunChange: () => paintCommandsSoon(),
     onSuspended: (reason) => showSuspended(reason),
     setResume: (r) => setResume(r),
+    actionMode: (id) => actionMode(id),
   };
+
+  // ---------- Settings of the administrator (search.policy: Domenia.config.json and Paramètres) ----------
+
+  // RCH-067: an action an administrator hides (UI.Elements « rechercher.<id> »: Hidden) is never shown, a greyed one says why.
+  // RCH-073: the revalidation of the listed objects, off unless an administrator turned it on (Streaming.RevalidateListedObjects),
+  // every 60 s by default (30 to 600); the page can stop it for the session.
+  let policy = { revalidateListed: false, revalidateSeconds: 60, hiddenActions: [], disabledActions: [], problems: [] };
+  const DISABLED_BY_ADMIN = 'Fonction désactivée dans la configuration de l’application.';
+  function actionMode(id) {
+    const key = `rechercher.${id}`;
+    if ((policy.hiddenActions ?? []).includes(key)) return 'hidden';
+    if ((policy.disabledActions ?? []).includes(key)) return 'disabled';
+    return 'default';
+  }
+  function applyPolicy(items) {
+    return items.filter((c) => actionMode(c.id) !== 'hidden').map((c) => (actionMode(c.id) === 'disabled' ? { ...c, disabled: true, reason: DISABLED_BY_ADMIN } : c));
+  }
+
+  const listCheck = { on: true, timer: 0 };
+  function stopListCheck() {
+    clearInterval(listCheck.timer);
+    timers.delete(listCheck.timer);
+    listCheck.timer = 0;
+  }
+  function startListCheck() {
+    stopListCheck();
+    if (!policy.revalidateListed || !listCheck.on || !results?.result()) return;
+    listCheck.timer = setInterval(() => { if (document.visibilityState === 'visible') checkListed(); }, Math.max(30, Math.min(600, policy.revalidateSeconds)) * 1000);
+    timers.add(listCheck.timer);
+  }
+  /** Reads again the objects listed in their own perimeter: moves and renames under the same GUID; an absence is never a deletion. */
+  async function checkListed() {
+    const r = results?.result();
+    const rows = results?.rows() ?? [];
+    if (!r || !rows.length) return;
+    const my = r.listId;
+    try {
+      const res = await ctx.call('search.revalidate', { ids: rows.slice(0, 500).map((x) => x.id) });
+      // Another list shown meanwhile: the answer belongs to the previous one and is ignored (Domenia 1).
+      if (!alive || results.result()?.listId !== my) return;
+      if (res.rows.length) results.updateRows(res.rows);
+      results.setNotice('listcheck', {
+        tone: res.missing.length ? 'warn' : 'info', icon: 'sync', html: esc(res.summary), dismiss: true,
+        actions: [{ id: 'off', label: 'Arrêter pour la session', icon: 'pause' }],
+        run: (act) => { if (act === 'off') setListCheck(false); },
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  function setListCheck(on) {
+    listCheck.on = !!on;
+    if (on) startListCheck(); else { stopListCheck(); results?.setNotice('listcheck', null); }
+    announce(on ? `Revalidation des objets listés toutes les ${int(policy.revalidateSeconds)} secondes, tant que la page est affichée.` : 'Revalidation des objets listés arrêtée pour cette session.');
+    paintCommandsSoon();
+  }
 
   // ---------- Bridge calls of the lists ----------
 
@@ -167,6 +224,8 @@ export function render(main, ctx) {
     // A search typed in the field is remembered; one started while typing is not (Domenia 1 RCH-023).
     if (op === 'search.run' && !typedSearch && (result.kind !== 'address' || result.rows.length)) recentSearch(args.text);
     pendingSelect();
+    results.setNotice('listcheck', null);
+    startListCheck();
   }
 
   function listLabel(r) {
@@ -186,6 +245,22 @@ export function render(main, ctx) {
     if (!dn) return null;
     return list('search.browse', { dn, subtree, type, limit }, `Contenu de ${sameDn(dn, rootDn()) ? 'tout le domaine' : quote(name ?? leafOf(dn))}…`);
   }
+
+  /** The working OU of the session when it is an OU (never the domain root): default of the sections without a choice. */
+  function workingOu() {
+    if (session?.scope?.dn && !sameDn(session.scope.dn, rootDn())) return { dn: session.scope.dn, name: session.scope.label, subtree: session.scope.subtree !== false };
+    return null;
+  }
+
+  /** The OU of the tree becomes the choice of the page and of the bar (chip « Dans « X » »), without any read. */
+  function takeOu(node) {
+    const d = node?.data ?? {};
+    if (!d.dn) return;
+    ouChoice = { dn: d.dn, name: d.name, kind: d.kind };
+    bar.setOu(d.kind === 'ou' || d.kind === 'container' ? { dn: d.dn, name: d.name } : workingOuChip());
+    results.setNotice('defaultScope', null);
+  }
+  const workingOuChip = () => { const w = workingOu(); return w ? { dn: w.dn, name: w.name } : null; };
 
   /** The OU a view or a query runs on: the OU of the tree, else the working OU; never the domain root by default. */
   function chosenOu() {
@@ -419,7 +494,19 @@ export function render(main, ctx) {
 
   // ---------- Checks on click, preload, suspension, resume ----------
 
+  /** Sentence of the selection bar, the same as the preview and the confirmations (RCH-127): visible rows, hidden ones excluded. */
+  function paintSelectionLabel(rows) {
+    const label = results?.grid.el.querySelector('.k-gselbar .k-gsel-n');
+    if (!label) return;
+    const shown = new Set(results.grid.getVisibleRows().map((v) => v.id));
+    const visible = rows.filter((r) => shown.has(r.id));
+    const hidden = rows.length - visible.length;
+    label.textContent = selectionText(visible.length, visible.filter((r) => r.kind === 'computer').length)
+      + (hidden ? ` · ${count(hidden, 'masquée par un filtre, exclue', 'masquées par un filtre, exclues')}` : '');
+  }
+
   function onRowSelection(rows) {
+    paintSelectionLabel(rows);
     if (rows.length > 1) preview.showMany(rows);
     else if (rows.length === 1) preview.show(rows[0]);
     else preview.show(null);
@@ -516,18 +603,36 @@ export function render(main, ctx) {
 
   // ---------- Exports (RCH-069) ----------
 
+  /** Selected rows that are shown (RCH-126): a selected row hidden by a filter is never exported nor surveyed. */
+  function selectedVisible() {
+    const shown = new Set(results.grid.getVisibleRows().map((v) => v.id));
+    return results.grid.getSelection().filter((r) => shown.has(r.id));
+  }
+
+  /** CSV of exactly these rows, in the order and with the columns of the grid (neutralisation of the kit kept). */
+  function csvOf(rows) {
+    const grid = results.grid;
+    const visible = grid.getVisibleRows();
+    const records = csvRecords(grid.toCsv({ scope: 'visible', bom: true }));
+    const wanted = new Set(rows.map((r) => r.id));
+    const kept = [records[0]];
+    visible.forEach((row, n) => { if (wanted.has(row.id) && records[n + 1] !== undefined) kept.push(records[n + 1]); });
+    return `${kept.join('\r\n')}\r\n`;
+  }
+
   async function exportList(scope) {
     const grid = results.grid;
     const r = results.result();
     if (!r) return;
-    const rows = scope === 'selected' ? grid.getSelection() : grid.getVisibleRows();
-    if (!rows.length) { toast(scope === 'selected' ? 'Aucune ligne sélectionnée à exporter.' : 'Aucune ligne affichée à exporter.', { tone: 'warn' }); return; }
+    const rows = scope === 'selected' ? selectedVisible() : grid.getVisibleRows();
+    const selectedHidden = scope === 'selected' ? grid.getSelection().length - rows.length : 0;
+    if (!rows.length) { toast(scope === 'selected' ? (selectedHidden ? `Les lignes sélectionnées sont masquées par un filtre${COLON}rien à exporter.` : 'Aucune ligne sélectionnée à exporter.') : 'Aucune ligne affichée à exporter.', { tone: 'warn' }); return; }
     const loaded = results.rows().length;
     const hidden = scope === 'visible' ? Math.max(0, loaded - rows.length) : Math.max(0, grid.getVisibleRows().length - rows.length);
     const columns = grid.el.querySelectorAll('.k-ghrow .k-gh:not(.sel)').length;
     const facts = [
       ['Portée', scope === 'selected' ? `Lignes sélectionnées${COLON}${count(rows.length, 'ligne', 'lignes')}` : `Liste affichée${COLON}${count(rows.length, 'ligne', 'lignes')}`],
-      ['Exclu', [hidden ? (scope === 'visible' ? `${count(hidden, 'ligne chargée masquée', 'lignes chargées masquées')} par les filtres` : `${count(hidden, 'ligne affichée non sélectionnée', 'lignes affichées non sélectionnées')}`) : '', 'colonnes masquées', r.complete ? '' : `objets au-delà de la limite de ${int(r.limit)} lignes`].filter(Boolean).join(' · ')],
+      ['Exclu', [hidden ? (scope === 'visible' ? `${count(hidden, 'ligne chargée masquée', 'lignes chargées masquées')} par les filtres` : `${count(hidden, 'ligne affichée non sélectionnée', 'lignes affichées non sélectionnées')}`) : '', selectedHidden ? `${count(selectedHidden, 'ligne sélectionnée masquée', 'lignes sélectionnées masquées')} par un filtre` : '', 'colonnes masquées', r.complete ? '' : `objets au-delà de la limite de ${int(r.limit)} lignes`].filter(Boolean).join(' · ')],
       ['Complétude', r.complete ? `Liste complète dans ce périmètre (${r.scope.label}).` : `Liste limitée à ${int(r.limit)} lignes${COLON}les objets au-delà ne sont pas inclus.`],
       ['Format', `${count(columns, 'colonne visible', 'colonnes visibles')} dans l’ordre affiché, association en trois colonnes ; point-virgule, UTF-8, formules neutralisées.`],
     ];
@@ -539,21 +644,21 @@ export function render(main, ctx) {
       actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'copy', label: 'Copier le CSV', icon: 'copy', primary: true }],
     }).result;
     if (answer !== 'copy') return;
-    const csv = expandAssociationColumns(grid.toCsv({ scope, bom: true }), rows);
+    const csv = expandAssociationColumns(scope === 'selected' ? csvOf(rows) : grid.toCsv({ scope, bom: true }), rows);
     const ok = await writeClipboard(csv);
     toast(ok ? `CSV copié${COLON}${count(rows.length, 'ligne', 'lignes')}, séparateur point-virgule. Collez-le dans un tableur.` : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn', life: 5200 });
   }
 
   function exportItems() {
     const grid = results.grid;
-    const nSel = grid.getSelection().length;
+    const nSel = selectedVisible().length;
     const nVis = grid.getVisibleRows().length;
     return [
       { heading: 'Exporter en CSV (avec confirmation)' },
       { label: `Liste affichée (${int(nVis)})…`, icon: 'csv', disabled: !nVis, reason: 'Aucune ligne affichée.', run: () => exportList('visible') },
       { label: `Lignes sélectionnées (${int(nSel)})…`, icon: 'csv', disabled: !nSel, reason: 'Aucune ligne sélectionnée.', run: () => exportList('selected') },
       '-',
-      { label: 'Copier pour un ticket', icon: 'copy', disabled: !nSel && !nVis, reason: 'Liste vide.', run: () => actions.copyTicket(nSel ? grid.getSelection() : grid.getVisibleRows().slice(0, 500)) },
+      { label: 'Copier pour un ticket', icon: 'copy', disabled: !nSel && !nVis, reason: 'Liste vide.', run: () => actions.copyTicket(nSel ? selectedVisible() : grid.getVisibleRows().slice(0, 500)) },
     ];
   }
 
@@ -572,11 +677,11 @@ export function render(main, ctx) {
     const items = [];
     if (runState) {
       // While a survey reads, the main button stops it and says where it is (RCH-086).
-      items.push({ id: 'verify', label: runState.stopAsked ? 'Arrêt demandé…' : `Arrêter (${int(runState.done)}/${int(runState.total)})`, icon: 'pause', primary: true, run: () => actions.stopRun() });
+      items.push({ id: 'verify', label: runState.stopAsked ? 'Arrêt demandé…' : `Arrêter (${int(runState.done)}/${int(runState.total)})`, icon: 'pause', pinned: true, run: () => actions.stopRun() });
     } else if (has && rows.some((x) => x.kind === 'computer')) {
       // The main action launches the last reading chosen in the session, the chevron opens the choices.
       const last = S.chosen ? S.lastMode : null;
-      items.push({ id: 'verify', label: last ? `Vérifier · ${modeLabel(last)}` : 'Vérifier la liste', icon: 'wifi', kind: 'network', primary: true, disabled: !pcs || !!blocked,
+      items.push({ id: 'verify', label: last ? `Vérifier · ${modeLabel(last)}` : 'Vérifier la liste', icon: 'wifi', kind: 'network', pinned: true, disabled: !pcs || !!blocked,
         reason: blocked || 'Aucun poste actif dans la liste.', run: () => (last ? actions.survey(last, null, 'list') : openSurveyMenu()) });
       items.push({ id: 'verifyMenu', label: 'Choisir le relevé', icon: 'chevronDown', iconOnly: true, pinned: true, disabled: !pcs || !!blocked, reason: blocked || 'Aucun poste actif dans la liste.', items: actions.surveyItems() });
     }
@@ -589,6 +694,7 @@ export function render(main, ctx) {
         { label: 'Revérifier maintenant', icon: 'refresh', run: () => revalidateNow() },
         { label: 'Revérifier en arrière-plan', checked: revalidate.on, run: (item) => setRevalidate(item.checked) },
         { label: 'Intervalle', icon: 'clock', items: INTERVALS.map((s) => ({ label: s < 600 ? `${Math.round(s / 60)}${NBSP}minutes${s === 180 ? ' (par défaut)' : ''}` : `${Math.round(s / 60)}${NBSP}minutes`, radio: 'interval', checked: revalidate.interval === s, run: () => setRevalidate(revalidate.on, s) })) },
+        ...(policy.revalidateListed ? [{ label: `Revalider les objets listés (toutes les ${int(policy.revalidateSeconds)}${NBSP}s, réglage de l’administrateur)`, checked: listCheck.on, run: (item) => setListCheck(item.checked) }] : []),
         '-',
         { label: 'Relit la dernière liste avec son filtre et sa portée ; une absence ne prouve pas une suppression.', disabled: true, reason: '' },
       ] },
@@ -596,7 +702,7 @@ export function render(main, ctx) {
       { id: 'saveview', label: 'Enregistrer la vue…', icon: 'tag', overflow: true, run: () => views() },
       { id: 'columns', label: 'Colonnes et affichage', icon: 'columns', overflow: true, disabled: !has, reason: 'Aucune liste.', run: () => results.grid.el.querySelector('.k-gcols')?.click() },
     );
-    commands.setItems(items);
+    commands.setItems(applyPolicy(items));
   }
   const paintCommandsSoon = rafThrottle(() => paintCommands());
 
@@ -714,11 +820,13 @@ export function render(main, ctx) {
 
   async function start() {
     try {
-      [session, memory, catalogCache] = await Promise.all([
+      [session, memory, catalogCache, policy] = await Promise.all([
         ctx.call('session.info'),
         ctx.call('search.memory').catch((err) => { console.error(err); return memory; }),
         ctx.call('search.catalog').catch(() => null),
+        ctx.call('search.policy').catch((err) => { console.error(err); return policy; }),
       ]);
+      listCheck.on = true;
     } catch (err) {
       main.querySelector('.rch-results').innerHTML = `<div class="empty">${glyph('alert')}<h2>Rechercher indisponible</h2><p>${esc(errorText(err))}</p></div>`;
       return;
@@ -741,6 +849,7 @@ export function render(main, ctx) {
       // The DNS offer belongs to the address typed: another text withdraws it at once (RCH-037).
       onInput: (text) => { const r = results?.result(); if (r?.dns && text !== r.dns.ip) results.setNotice('dns', null); },
     });
+
 
     results = createResults(main.querySelector('.rch-results'), ctx, {
       onOpen: (row) => openObject(row),
@@ -783,6 +892,15 @@ export function render(main, ctx) {
     });
     results.setClickCheck(clickCheck);
     results.setRevalidate(false);
+    // RCH-005 (Domenia 1 Test-DomeniaSearchUsesRootDefault): while no branch nor favourite is chosen, the bar searches in the
+    // working OU, with one message; « Partout » stays an explicit choice of the operator.
+    const work = workingOu();
+    if (work) {
+      bar.setOu({ dn: work.dn, name: work.name });
+      bar.setScope('ou');
+      results.setNotice('defaultScope', { tone: 'info', icon: 'ou', dismiss: true,
+        html: `Périmètre par défaut${COLON}<b>OU ${esc(work.name)}</b>, l’OU de travail${work.subtree ? ' et ses sous-OU' : ''}. «${NBSP}Partout${NBSP}» cherche dans tout le domaine.` });
+    }
     commands = createCommandBar(results.actionsHost, { label: 'Actions de la liste', items: [], size: 'sm', moreLabel: 'Plus d’actions de la liste' });
     const nav = results.navEls;
     nav.back.addEventListener('click', () => step('back'));
@@ -809,11 +927,13 @@ export function render(main, ctx) {
     if (root) {
       side = createSide(main.querySelector('.rch-side'), ctx, {
         root, dns,
+        defaultOu: () => workingOu(),
+        // A reveal (favourite, personal view, OU parente) selects the OU without listing it: the choice of the page follows.
+        onReveal: (node) => takeOu(node),
         onSelect: (node, how) => {
           const d = node?.data ?? {};
           if (!d.dn) return;
-          ouChoice = { dn: d.dn, name: d.name, kind: d.kind };
-          bar.setOu(d.kind === 'ou' || d.kind === 'container' ? { dn: d.dn, name: d.name } : null);
+          takeOu(node);
           // A pointer click lists the OU at once; the keyboard waits 300 ms (the tree does); a restored OU waits for a gesture.
           if (how === 'restore') {
             results.setNotice('restore', { tone: 'info', icon: 'ou', html: `OU mémorisée${COLON}<b>${esc(d.name)}</b>. Rien n’est lu avant votre geste.`, dismiss: true, actions: [{ id: 'browse', label: 'Afficher son contenu', icon: 'rows', kind: 'network', primary: true }], run: () => browse(d.dn, d.name, side.subtree) });
@@ -882,7 +1002,7 @@ export function render(main, ctx) {
       if (!dn || !side) return;
       await side.reveal(dn);
       const node = side.selected();
-      if (node?.data?.dn) { ouChoice = { dn: node.data.dn, name: node.data.name, kind: node.data.kind }; bar.setOu(node.data.kind === 'ou' || node.data.kind === 'container' ? { dn: node.data.dn, name: node.data.name } : null); }
+      if (node?.data?.dn) takeOu(node);
     };
     if (q) {
       bar.setText(q);
@@ -961,7 +1081,8 @@ export function render(main, ctx) {
     try {
       const now = await ctx.call('session.info');
       if (!alive) return;
-      const same = now?.domain?.rootDn === session?.domain?.rootDn && now?.account?.login === session?.account?.login && now?.connection?.state === session?.connection?.state;
+      // A change of session, domain or account restarts the page (RCH-136); a mere change of the connection state does not.
+      const same = now?.domain?.rootDn === session?.domain?.rootDn && now?.account?.login === session?.account?.login;
       if (same) return;
       generation++;
       hist = createHistory();
@@ -969,6 +1090,10 @@ export function render(main, ctx) {
       pendingWorkspace = null;
       clearTimeout(preloadTimer);
       setRevalidate(false);
+      stopListCheck();
+      actions?.stopRun();
+      commands?.destroy();
+      commands = null;
       bar?.destroy(); side?.destroy(); results?.destroy(); preview?.destroy();
       main.querySelector('.rch-side').replaceChildren();
       ouChoice = null;
@@ -1021,6 +1146,9 @@ export function render(main, ctx) {
     clearTimeout(preloadTimer);
     paintCommandsSoon.cancel?.();
     stopReveal?.();
+    stopListCheck();
+    actions?.stopRun();
+    commands?.destroy();
     bar?.destroy();
     side?.destroy();
     results?.destroy();

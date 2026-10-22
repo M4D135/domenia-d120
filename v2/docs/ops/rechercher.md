@@ -15,7 +15,8 @@ Aperçu dans un navigateur : `web/js/mock-search.js`.
 - **Classes.** Les lectures de listes (`search.run`, `search.browse`, `search.view`, `search.more`, `search.revalidate`,
   `search.reconcile`, `search.preload`, `search.containers`) sont `LocalRead` en simulation et `NetworkRead` en mode
   annuaire. Les lectures de la base locale (`search.suggest`, `search.preview`, `search.compare`, `search.localQuery`,
-  `search.catalog`, `search.memory`, `search.measures`, `search.survey.plan`) sont `LocalRead` partout. Les sondes sur
+  `search.catalog`, `search.measures`, `search.survey.plan`) sont `LocalRead` partout ; `search.memory` est `LocalWrite`
+  (reprise unique des recherches de Domenia 1 dans les préférences). Les sondes sur
   geste (`search.survey.run`, `search.recheck`, `search.netdiag`, `search.dns.reverse`) sont `NetworkRead` dans les deux
   modes, servies par l’annuaire fictif (`ServedInSimulation`). La mémoire de l’écran (`search.recent.*`,
   `search.favorite.*`, `search.workspace.*`, `search.query.favorite`) est `LocalWrite` (préférences locales).
@@ -73,8 +74,8 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 
 | Opération | Classe (simulation / annuaire) | Arguments | Résultat |
 |---|---|---|---|
-| `search.run` | LocalRead / NetworkRead | `text`, `scope?` (DN de l’OU choisie, sous-OU incluses ; absent = domaine entier), `type?` (`all`, `users`, `computers`, `groups`, `ous`), `limit?`, `match?` (`prefix`, `contains`) | `SearchResult` (§ 3). Une adresse IPv4 ou MAC donne `kind = address` (base locale seulement) ; une IPv4 inconnue ajoute `dns` (offre, rien n’est résolu). |
-| `search.browse` | LocalRead / NetworkRead | `dn`, `subtree`, `type?`, `limit?` | `SearchResult` `kind = browse` : contenu de l’OU, sans filtre caché (un terme filtre seulement les lignes chargées, côté page). |
+| `search.run` | LocalRead / NetworkRead | `text`, `scope?` (DN de l’OU ou du conteneur de la racine choisi, `CN=Users`, `CN=Computers`, sous-OU incluses ; absent = domaine entier), `type?` (`all`, `users`, `computers`, `groups`, `ous`), `limit?`, `match?` (`prefix`, `contains`) | `SearchResult` (§ 3). Une adresse IPv4 ou MAC donne `kind = address` (base locale seulement) ; une IPv4 inconnue ajoute `dns` (offre, rien n’est résolu). |
+| `search.browse` | LocalRead / NetworkRead | `dn` (OU, conteneur de la racine ou racine), `subtree`, `type?`, `limit?` | `SearchResult` `kind = browse` : contenu de l’OU, sans filtre caché (un terme filtre seulement les lignes chargées, côté page). |
 | `search.containers` | LocalRead / NetworkRead | `counts?` (`false` par défaut) | Conteneurs de la racine (`Users`, `Computers`, conteneurs système repliés à part) ; leur nombre d’objets seulement avec `counts: true` (sinon `objects = -1` : en mode annuaire, compter coûte une requête par conteneur). |
 | `search.view` | LocalRead / NetworkRead | `id`, `dn?`, `subtree`, `wholeDomain`, `limit?` | `SearchResult` `kind = view` : vue prête sur l’OU `dn` ou, explicitement (`wholeDomain: true`), sur tout le domaine (jamais relevable). Sans `dn` (ou avec la racine) et sans `wholeDomain` : `arguments.invalid`, jamais un repli silencieux sur tout le domaine. |
 | `search.localQuery` | LocalRead | `id` (`local.*`), `dn`, `subtree`, `verdict?` (`match`, `unknown`, `noMatch`, `all`), `limit?` | `SearchResult` `kind = localQuery` avec `verdicts` (trois totaux, choix affiché) et `verdict` sur chaque ligne. |
@@ -94,9 +95,10 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 | `search.survey.state` | Local | — | `{ resume, checksSuspended, suspendedReason }` : plan de reprise de la session et suspension des vérifications au clic. |
 | `search.survey.forget` | Local | — | Même forme : plan de reprise abandonné (les mesures validées restent). |
 | `search.checks.resume` | Local | — | Même forme : vérifications sur sélection reprises. |
-| `search.recheck` | NetworkRead (servie) | `id`, `mode?` (`console` par défaut, `ping`), `listId?`, `onClick?` | `SearchRow` relue : un ping (et l’utilisateur connecté) du seul poste ; refusé sur une liste listée sur tout le domaine, ou au clic pendant une suspension. |
+| `search.recheck` | NetworkRead (servie) | `id`, `mode?` (`console` par défaut, `ping`), `listId` (obligatoire : le moteur juge sur la liste affichée), `onClick?` | `SearchRow` relue : un ping (et l’utilisateur connecté) du seul poste de la liste ; refusé sur une liste listée sur tout le domaine, pour une ligne absente de la liste, ou au clic pendant une suspension. |
 | `search.netdiag` | NetworkRead (servie) | `listId`, `ids` (1 à 500, 50 postes actifs diagnostiqués au plus) | `NetworkDiagnostic` : lignes de la liste seulement, jamais sur une liste listée sur tout le domaine ; ping puis ports 445, 135, 5985, 5986 par poste, lignes écartées, résumé, rapport tabulé. |
-| `search.memory` | LocalRead | — | `SearchMemoryState` (§ 5) ; au premier affichage d’un domaine, reprise unique des recherches enregistrées de Domenia 1 (RCH-004, `imported`). |
+| `search.policy` | LocalRead | — | `SearchPolicy` : réglages de l’administrateur lus dans `Domenia.config.json` à côté de l’exécutable (`Streaming.RevalidateListedObjects`, désactivée par défaut, et `Streaming.RevalidateIntervalSeconds`, 60 s, de 30 à 600 : revalidation des objets listés, RCH-073 ; `UI.Elements` « rechercher.<commande> » : `Hidden` ou `Disabled`, la GuiElementPolicy de Domenia 1, RCH-067) et budgets des relevés de Paramètres (préférence `settings.collection` : `concurrency` 1 à 8, `maxTargets`, ex `Collection.Concurrency` et `Park.MaxTargets`, RCH-090, RCH-093) ; échos par lots de 192 (RCH-092). Une valeur hors limites est ignorée et dite (`problems`). Rien n’est écrit. |
+| `search.memory` | LocalWrite | — | `SearchMemoryState` (§ 5) ; au premier affichage d’un domaine, reprise unique des recherches enregistrées de Domenia 1 (RCH-004, `imported`) : `LocalWrite`, car cette reprise écrit une fois les favoris et le drapeau `search.legacyImported.*` dans les préférences locales. |
 | `search.recent.add` | LocalWrite | `kind` (`search`, `object`), `text`, `type?`, `dn?` | État de la mémoire. |
 | `search.recent.clear` | LocalWrite | — | État de la mémoire, récents vidés. |
 | `search.favorite.pin` | LocalWrite | `dn`, `name?`, `subtree`, `type?`, `term?` | État ; OU connue localement exigée. |

@@ -82,7 +82,7 @@ export function createPreview(host, ctx, o) {
       { id: 'poste', label: 'Poste', icon: 'monitor', ok: isPc, reason: 'Réservé aux postes.' },
       { id: 'assistance', label: 'Assistance', icon: 'lifebuoy', ok: isPc, reason: 'Réservé aux postes.' },
     ];
-    return list.map((d) => `<button class="btn sm${d.primary ? ' primary' : ' subtle'}" type="button" data-go="${d.id}"${d.ok ? (d.tip ? ` data-tip="${esc(d.tip)}"` : '') : ` disabled aria-disabled="true" data-tip="${esc(d.reason)}"`}>${glyph(d.icon)}<span>${esc(d.label)}</span></button>`).join('');
+    return list.map((d) => `<button class="btn sm${d.primary ? ' accent' : ' subtle'}" type="button" data-go="${d.id}"${d.ok ? (d.tip ? ` data-tip="${esc(d.tip)}"` : '') : ` disabled aria-disabled="true" data-tip="${esc(d.reason)}"`}>${glyph(d.icon)}<span>${esc(d.label)}</span></button>`).join('');
   }
 
   function facts(row) {
@@ -197,7 +197,7 @@ export function createPreview(host, ctx, o) {
       <h3>${esc(selectionText(rows.length, pcs.length))}</h3>
       <ul class="rch-many-kinds">${byKind.map(([k, n]) => `<li>${glyph(k.icon)}${esc(count(n, k.label.toLowerCase(), k.plural.toLowerCase()))}</li>`).join('')}</ul>
       <div class="rch-many-acts">
-        <button class="btn sm primary" type="button" data-act="compare"${comparable ? '' : ' disabled data-tip="Comparez de deux à huit objets d’un même type (postes ou comptes)"'}>${glyph('split')}Comparer</button>
+        <button class="btn sm accent" type="button" data-act="compare"${comparable ? '' : ' disabled data-tip="Comparez de deux à huit objets d’un même type (postes ou comptes)"'}>${glyph('split')}Comparer</button>
         <button class="btn sm" type="button" data-act="ping"${pcs.length ? '' : ' disabled data-tip="Aucun poste dans la sélection"'}>${glyph('wifi')}Pinger ${pcs.length ? int(pcs.length) : ''}<span class="rch-net-dot" aria-hidden="true"></span></button>
         <button class="btn sm" type="button" data-act="console"${pcs.length ? '' : ' disabled data-tip="Aucun poste dans la sélection"'}>${glyph('users')}Qui est connecté${NBSP}?<span class="rch-net-dot" aria-hidden="true"></span></button>
         <button class="btn sm subtle" type="button" data-act="ticket">${glyph('copy')}Copier pour un ticket</button>
