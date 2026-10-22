@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : date d’expiration en français, date passée signalée",
+  "description": "Le champ date est en JJ/MM/AAAA avec son calendrier (jamais le format du contrôle natif) ; la date choisie est redite en toutes lettres avec le dernier jour d’ouverture ; une date passée reste admise, avec son risque (« expiré dès l’écriture »).",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&compte=c.bernard&action=expiration",
+  "steps": [
+    { "do": "type", "selector": "#cpt-exp-date", "text": "31/12/2026", "clear": true },
+    { "do": "expect", "contains": "31 décembre 2026", "within": ".cpt-exp-said", "title": "Date redite en toutes lettres" },
+    { "do": "expect", "contains": "Dernier jour d’ouverture de session", "within": ".cpt-exp-said" },
+    { "do": "type", "selector": "#cpt-exp-date", "text": "11/21/2026", "clear": true },
+    { "do": "expect", "contains": "Saisissez une date au format JJ/MM/AAAA", "within": ".cpt-exp-said", "title": "L’ordre américain n’est jamais lu comme une date" },
+    { "do": "type", "selector": "#cpt-exp-date", "text": "01/01/2026", "clear": true },
+    { "do": "expect", "contains": "le compte sera expiré dès l’écriture", "within": ".cpt-exp-said", "title": "Date passée admise, avec son risque" },
+    { "do": "click", "selector": ".cpt-date-btn", "title": "Ouvrir le calendrier" },
+    { "do": "expect", "selector": ".cpt-cal:not([hidden])", "title": "Calendrier du lundi au dimanche" },
+    { "do": "press", "key": "Escape" },
+    { "do": "expect", "selector": ".cpt-cal:not([hidden])", "absent": true, "title": "Échap referme le calendrier" },
+    { "do": "shot", "name": "expiration", "selector": ".cpt-exp" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

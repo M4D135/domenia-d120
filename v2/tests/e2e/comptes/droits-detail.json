@@ -1,0 +1,16 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : droit nécessaire lisible en entier",
+  "description": "Le tableau des droits garde des cellules d’une ligne (texte complet en info-bulle) et montre l’opération choisie en entier à côté ; la politique de transport présente une carte par transport, ports et règle en clair.",
+  "modes": ["simulation"],
+  "start": "comptes?vue=droits",
+  "steps": [
+    { "do": "wait", "selector": ".cpt-req-grid .k-grid", "title": "Table des droits" },
+    { "do": "type", "selector": ".cpt-req-grid .k-gq", "text": "Réinitialiser" },
+    { "do": "click", "text": "Réinitialiser un mot de passe", "within": ".cpt-req-grid" },
+    { "do": "expect", "contains": "Droit étendu", "within": ".cpt-req-detail", "title": "Le droit complet est lisible" },
+    { "do": "expect", "selector": ".cpt-tr-list li", "count": 7, "title": "Sept transports, une carte chacun" },
+    { "do": "shot", "name": "droits", "selector": ".cpt-droits" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : un mot de passe affiché se masque de lui-même",
+  "description": "Un mot de passe généré s’affiche quelques secondes (5 s, Domenia 1 TRV-219) puis se masque ; l’œil l’affiche de nouveau, une frappe le masque aussitôt.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&compte=c.bernard&action=mdp",
+  "steps": [
+    { "do": "click", "text": "Générer un mot de passe", "within": ".cpt-pwd" },
+    { "do": "expect", "selector": "#cpt-pwd-new", "attribute": "type", "equals": "text", "title": "Affiché après la génération" },
+    { "do": "wait", "ms": 6000 },
+    { "do": "expect", "selector": "#cpt-pwd-new", "attribute": "type", "equals": "password", "title": "Masqué au bout de 5 s" },
+    { "do": "click", "selector": ".cpt-pwd-input [data-reveal]", "nth": 0 },
+    { "do": "expect", "selector": "#cpt-pwd-new", "attribute": "type", "equals": "text" },
+    { "do": "type", "selector": "#cpt-pwd-new", "text": "x" },
+    { "do": "expect", "selector": "#cpt-pwd-new", "attribute": "type", "equals": "password", "title": "Une frappe le masque aussitôt" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -12,13 +12,18 @@ public enum LapsKind
 
 public sealed record DomainController(string DnsName, string? Site);
 
+/// <summary>
+/// Default domain policy. <see cref="ComplexityRequired"/> is bit 0x1 of pwdProperties (DOMAIN_PASSWORD_COMPLEX): when it is
+/// off, the controller accepts a password without three character classes and Domenia does not ask for them either.
+/// </summary>
 public sealed record DomainPasswordPolicy(
     TimeSpan MaxPasswordAge,
     int MinPasswordLength,
     int PasswordHistoryLength,
     int LockoutThreshold,
     TimeSpan LockoutDuration,
-    TimeSpan LockoutObservationWindow);
+    TimeSpan LockoutObservationWindow,
+    bool ComplexityRequired = true);
 
 /// <summary>Domain identity; <see cref="Containers"/> are the default containers (CN=Users…), which are not OUs.</summary>
 public sealed record DomainInfo(

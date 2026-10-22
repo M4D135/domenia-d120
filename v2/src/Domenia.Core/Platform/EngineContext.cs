@@ -98,5 +98,7 @@ public sealed class EngineContext : IDisposable
             }
         }
         services.Clear();
+        // Executors that hold resources (secrets of a password reset kept for their plan) are released with the context.
+        Writers.Dispose();
     }
 }

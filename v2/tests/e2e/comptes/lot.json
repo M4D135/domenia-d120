@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : déverrouiller les comptes verrouillés par lot",
+  "description": "L’aperçu exact liste les cibles et les exclusions ; la confirmation exige de saisir le nombre de comptes, revérifié par le moteur ; chaque compte reçoit son plan et son reçu, l’un après l’autre, puis le bilan s’affiche.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&lot=deverrouiller",
+  "timeoutMs": 20000,
+  "steps": [
+    { "do": "wait", "selector": ".cpt-batch-hero", "title": "L’aperçu exact est calculé" },
+    { "do": "expect", "contains": "comptes exacts, et seulement eux", "within": ".cpt-batch-hero" },
+    { "do": "expect", "contains": "Aperçu scellé par le moteur", "within": ".cpt-batch-hero", "title": "L’aperçu est scellé par le moteur (liste exacte, empreinte)" },
+    { "do": "click", "text": "Confirmer avec le nombre…", "within": ".k-drw-foot" },
+    { "do": "type", "selector": ".k-cw-typed input", "text": "7", "title": "Saisir le nombre de comptes" },
+    { "do": "click", "text": "Lancer (simulation)", "within": ".k-dlg" },
+    { "do": "wait", "selector": ".cpt-run-sum", "timeoutMs": 60000, "title": "Bilan des écritures" },
+    { "do": "expect", "contains": "Toutes les cibles ont été traitées", "within": ".cpt-run-sum" },
+    { "do": "shot", "name": "bilan", "selector": ".cpt-run" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

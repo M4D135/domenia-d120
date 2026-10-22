@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : retirer un compte d’un lot et sceller un nouvel aperçu",
+  "description": "Un compte décoché rend l’aperçu scellé caduc : la confirmation laisse place à « Calculer le nouvel aperçu », qui scelle la liste des comptes gardés ; l’aperçu se copie en CSV. Rien n’est écrit.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&lot=deverrouiller",
+  "timeoutMs": 20000,
+  "steps": [
+    { "do": "wait", "selector": ".cpt-batch-hero", "title": "L’aperçu exact est calculé" },
+    { "do": "expect", "contains": "7", "within": ".cpt-batch-count", "title": "Sept comptes verrouillés" },
+    { "do": "click", "selector": ".cpt-batch-list li:first-child input[type=\"checkbox\"]", "title": "Retirer le premier compte du lot" },
+    { "do": "expect", "contains": "l’aperçu scellé ne vaut plus", "within": ".cpt-batch-reseal" },
+    { "do": "expect", "text": "Confirmer avec le nombre…", "within": ".k-drw-foot", "absent": true, "title": "Aucune confirmation d’une liste qui n’est plus celle scellée" },
+    { "do": "click", "text": "Calculer le nouvel aperçu", "within": ".k-drw-foot" },
+    { "do": "wait", "contains": "6", "within": ".cpt-batch-count", "title": "Nouvel aperçu scellé : six comptes" },
+    { "do": "click", "text": "Copier en CSV", "within": ".cpt-batch" },
+    { "do": "wait", "contains": "Aperçu copié en CSV", "within": ".toasts" },
+    { "do": "click", "text": "Annuler", "within": ".k-drw-foot" },
+    { "do": "expect", "contains": "7", "within": "[data-tile=\"locked\"] .cpt-ktile-value", "title": "Rien n’a été écrit" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -22,7 +22,7 @@ Les règles de sécurité de Domenia 1 sont reprises telles quelles et resserré
 | Préconditions relues | Juste avant l’envoi, l’exécuteur relit la cible : même objet, même place, mêmes valeurs « avant » ; sinon rien n’est envoyé (`write.stale`, TRV-228, TRV-235). |
 | Une écriture à la fois | Le circuit sérialise les écritures (canal unique, TRV-214) ; une écriture commencée n’est jamais interrompue (elle reçoit `CancellationToken.None`). |
 | Aucun secret | Un plan ne contient jamais de secret ; le jeton n’est écrit nulle part (ni reçu, ni journal) ; le journal technique ne reçoit que des codes et des nombres (ni DN, ni nom). Les mots de passe des écritures à venir restent en `SecureString` jusqu’à l’API Windows (§ 6, étape 9). |
-| Jamais tout le domaine | Un plan vise exactement **un** objet. Une écriture collective aura son propre plan avec un aperçu exact (TRV-229), à venir. |
+| Jamais tout le domaine | Un plan vise exactement **un** objet. Une écriture collective a son propre plan avec un aperçu exact, scellé par le moteur (TRV-229) : en place pour les comptes (`accounts.batch.preview`, `confirm`, `plan`, [`ops/comptes.md`](ops/comptes.md) § 3.5), puis un plan, un jeton, un reçu et une relecture par cible. |
 | Simulation sans effet réel | Décision de David du 21/10 : en simulation, `write.execute` est admis et ses exécuteurs écrivent dans une **surcouche en mémoire** de l’annuaire fictif, vue par toutes les lectures, jamais enregistrée. Les reçus sont marqués « simulé ». |
 
 ## 2. Architecture

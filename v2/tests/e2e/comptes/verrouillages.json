@@ -1,0 +1,16 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : lire les verrouillages d’un compte (événements 4740)",
+  "description": "Sur geste explicite, lit les verrouillages du seul compte sur l’émulateur PDC (fictifs en simulation), affiche les postes à l’origine, la chronologie et les faits avec leurs limites.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&compte=c.bernard&action=verrouillages",
+  "steps": [
+    { "do": "expect", "selector": ".cpt-lk-report", "absent": true, "title": "Rien n’est lu sans geste" },
+    { "do": "click", "text": "Lire les verrouillages", "within": ".cpt-lk-intro" },
+    { "do": "wait", "selector": ".cpt-lk-report", "timeoutMs": 15000, "title": "Le rapport s’affiche" },
+    { "do": "expect", "contains": "Émulateur PDC", "within": ".cpt-lk-report", "title": "Le contrôleur lu est dit" },
+    { "do": "expect", "contains": "Postes à l’origine", "within": ".cpt-lk-report", "title": "Les postes à l’origine sont listés" },
+    { "do": "shot", "name": "rapport", "selector": ".cpt-lk-report" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

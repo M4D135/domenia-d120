@@ -38,7 +38,7 @@ public interface IWriteExecutor
 /// exactly one public constructor taking a single parameter that accepts the source. Executors of another source are
 /// ignored. Constructors stay cheap: nothing is read before the first plan.
 /// </summary>
-public sealed class WriteExecutors
+public sealed class WriteExecutors : IDisposable
 {
     private readonly FrozenDictionary<Type, IWriteExecutor> byInterface;
     private readonly FrozenDictionary<string, IWriteExecutor> byKind;
@@ -137,6 +137,17 @@ public sealed class WriteExecutors
     {
         ArgumentNullException.ThrowIfNull(kind);
         return byKind.GetValueOrDefault(kind);
+    }
+
+    /// <summary>
+    /// Disposes the executors that hold resources (secrets of the password reset, timers), once each, with the engine context.
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var executor in byKind.Values.Distinct().OfType<IDisposable>())
+        {
+            executor.Dispose();
+        }
     }
 
     private static IEnumerable<Type> ExportedTypes(Assembly assembly)

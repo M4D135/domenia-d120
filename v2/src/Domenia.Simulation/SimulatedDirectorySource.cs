@@ -26,6 +26,8 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     // Delays of the screen readers, one counter per kind: a screen never shifts the delays of another one.
     private readonly ConcurrentDictionary<string, StrongBox<int>> screenDraws = new(StringComparer.Ordinal);
     private readonly SimulatedDirectoryOverlay overlay = new();
+    // Account of the session after « Changer de compte » (Comptes screen, CPT-007); null: the generated session account.
+    private (AccountIdentity Account, RightsInfo Rights)? switched;
 
     public SimulatedDirectorySource(SimulationOptions options, TimeProvider timeProvider)
     {
@@ -112,8 +114,39 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     {
         cancellationToken.ThrowIfCancellationRequested();
         var directory = Current().Directory;
-        var session = World.Session with { Store = new StoreStatus(directory.ReadAt, directory.ObjectCount, directory.Complete) };
+        var session = CurrentSession with { Store = new StoreStatus(directory.ReadAt, directory.ObjectCount, directory.Complete) };
         return Task.FromResult(session);
+    }
+
+    /// <summary>The session as it is now: the generated one, with the account chosen by « Changer de compte » if any.</summary>
+    public SessionSnapshot CurrentSession
+    {
+        get
+        {
+            lock (gate)
+            {
+                return switched is { } s ? World.Session with { Account = s.Account, Rights = s.Rights } : World.Session;
+            }
+        }
+    }
+
+    /// <summary>
+    /// « Changer de compte » in simulation (Comptes screen, CPT-007, after one validation): the fictitious session takes this user
+    /// of the same domain. Its rights are estimated from adminCount (the overlay never checks rights). Memory only.
+    /// </summary>
+    internal AccountIdentity SwitchSessionAccount(DirectoryUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        var generated = World.Session;
+        var identity = new AccountIdentity(World.Directory.Domain.NetbiosName + "\\" + user.SamAccountName, user.DisplayName ?? user.Cn, user.GivenName, user.DistinguishedName);
+        var rights = user.AdminCount == 1
+            ? generated.Rights
+            : new RightsInfo(RightsLevel.Read, "Lecture (estimée)", true, "Compte sans adminCount" + FrenchText.Colon + "l’annuaire réel refuserait probablement ses écritures ; la simulation ne vérifie pas les droits.");
+        lock (gate)
+        {
+            switched = (identity, rights);
+        }
+        return identity;
     }
 
     public async Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
