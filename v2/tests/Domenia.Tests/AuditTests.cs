@@ -141,7 +141,7 @@ internal static class AuditTests
         Check.True(items.Count >= 3, "compte, racine et Admins du domaine au moins");
         Check.True(Names(items[0]).SequenceEqual(["id", "label", "detail", "target"]), "propriétés d’une suggestion");
         Check.Equal("account", items[0].GetProperty("id").GetString(), "compte de la session d’abord");
-        Check.Equal("j.martin", items[0].GetProperty("target").GetProperty("samAccountName").GetString(), "compte de la session");
+        Check.Equal(SimulationProfile.SessionLogin, items[0].GetProperty("target").GetProperty("samAccountName").GetString(), "compte de la session");
         var admins = items.Single(i => i.GetProperty("id").GetString() == "domainAdmins");
         var directory = bridge.Source.CurrentDirectory;
         var expected = directory.Groups.Single(g => g.Sid.EndsWith("-512", StringComparison.Ordinal));

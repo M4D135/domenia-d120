@@ -1,5 +1,9 @@
 {
   "fait": [
+    "PAR-004",
+    "PAR-006",
+    "PAR-007",
+    "PAR-008",
     "PAR-027",
     "PAR-032",
     "PAR-047"
@@ -17,24 +21,8 @@
   ],
   "partiel": [
     {
-      "id": "PAR-004",
-      "reste": "Densité compacte, normale ou confort dans le magasin de la coque (domenia.prefs.v1, valeurs alignées sur le lot shell), appliquée aux tableaux et listes de Paramètres ; la grille du kit (createGrid) doit prendre cette densité par défaut pour les listes sans choix propre (demande au kit et à la coque)."
-    },
-    {
       "id": "PAR-005",
       "reste": "Profil Essentiel ou Expert dans le magasin de la coque, soumis à UI.AllowExpertProfile ; parties expertes de Paramètres (vue brute du journal, empreintes, plans SQLite, noms des réglages, détails des contrôles) masquées en Essentiel et jamais laissées sélectionnées ; les vues Brut, Permissions, WMI, Autodiagnostic, Classe et GUID des autres écrans suivent ctx.expert de la coque."
-    },
-    {
-      "id": "PAR-006",
-      "reste": "Choix « Menu replié en icônes » mémorisé et appliqué par la coque ; le repli temporaire sous 1 280 et le dépliage pour la session relèvent de app.js et layout.css (lot shell)."
-    },
-    {
-      "id": "PAR-007",
-      "reste": "Infobulles d’aide (helpTips de la coque) et bouton « Ouvrir l’aide » raccordés à ctx.help ; la colonne de 300, la superposition sous 1 040 et le retour du focus sur « ? » sont ceux du panneau F1 de la coque (lot shell, absent de cette branche avant fusion)."
-    },
-    {
-      "id": "PAR-008",
-      "reste": "Clair, sombre, contraste élevé et suivre Windows par les commandes de la coque ; Ctrl T est un raccourci de la coque (lot shell), listé dans les raccourcis dès que la coque le fournit."
     },
     {
       "id": "PAR-010",
@@ -177,6 +165,7 @@
     "Relève OpenCode (22/10/2026) : le commit wip(parametres) (réponse au tour 1 : app.js rendu au lot shell, alias des sections de la coque, « Effacer l’affichage » du journal corrigé, « ouvrir= » consommé une fois, typographie française, statuts requalifiés en partiel) compile sans correction et a été vérifié par sondage.",
     "Ajouts de la relève : règles des dialogues et du panneau d’OU préfixées [data-page=\"parametres\"] (corps des panneaux marqués), espaces insécables restantes (préférences).",
     "Les 39 fonctions partielles dépendent surtout de la base locale SQLite (Domenia.Store, mode annuaire, vague 3), de la coque (densité, profil, menu, aide, thème) ou de la lecture des réglages par les autres écrans (collecte, sécurité, réseau) : chaque reste est écrit dans « partiel ».",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés.",
+    "Intégration (22/10) : la densité de l’interface s’applique aux tableaux du kit sans choix propre (data-density, createGrid, PAR-004) ; le repli du menu, l’aide F1 et ses infobulles, et Ctrl T sont ceux de la coque fusionnée (PAR-006, PAR-007, PAR-008)."
   ]
 }

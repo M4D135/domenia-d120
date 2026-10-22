@@ -102,7 +102,7 @@ internal static class AccountsOperationsTests
         Check.Equal(WriteErrors.NothingToDo, again.Error?.Code, "déjà désactivé");
         var enable = SimulatedBridge.Json(await bridge.CallAsync("accounts.enable.plan", Args(new { dn = target.DistinguishedName })));
         Check.Equal("verified", (await ExecuteAsync(bridge, enable)).GetProperty("verification").GetString(), "réactivé et relu");
-        var self = await bridge.CallAsync("accounts.disable.plan", Args(new { dn = User(bridge, "Julien Martin").DistinguishedName }));
+        var self = await bridge.CallAsync("accounts.disable.plan", Args(new { dn = bridge.Source.CurrentDirectory.Users.First(u => u.SamAccountName == SimulationProfile.SessionLogin).DistinguishedName }));
         Check.Equal(AccountWrites.ProtectedAccount, self.Error?.Code, "jamais le compte de session");
     }
 
@@ -164,7 +164,7 @@ internal static class AccountsOperationsTests
     {
         var bridge = new SimulatedBridge();
         var state = SimulatedBridge.Json(await bridge.CallAsync("accounts.access.state"));
-        Check.Equal(@"EXAMPLE\j.martin", state.GetProperty("connection").GetProperty("identity").GetString(), "compte de connexion");
+        Check.Equal(@"EXAMPLE\" + SimulationProfile.SessionLogin, state.GetProperty("connection").GetProperty("identity").GetString(), "compte de connexion");
         Check.False(state.GetProperty("connection").GetProperty("correction").GetProperty("available").GetBoolean(), "rien à corriger en simulation");
         var pending = state.GetProperty("pending");
         Check.Equal(1, pending.GetArrayLength(), "un accès refusé fictif");

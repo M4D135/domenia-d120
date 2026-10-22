@@ -300,7 +300,7 @@ internal sealed class SimulatedFicheWorld
                     && u.DistinguishedName.Contains(",OU=Utilisateurs,", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(u => u.SamAccountName, StringComparer.Ordinal).ToList();
             random.Shuffle(people);
-            var priority = people.Where(u => u.SamAccountName is "c.bernard" or SimulationProfile.SessionLogin).ToList();
+            var priority = people.Where(u => u.SamAccountName is "c.bernard" or SimulationProfile.PersonLogin).ToList();
             foreach (var p in priority)
             {
                 people.Remove(p);

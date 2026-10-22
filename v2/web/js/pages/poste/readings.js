@@ -107,7 +107,8 @@ export function renderReadings(panel, state) {
     else if (act === 'reload') load();
     else if (act === 'stop') state.stop('probes');
     else if (act === 'catalog') openCatalog(data);
-    else if (act === 'workshop') state.ctx.navigate('requetes', { cible: 'poste', dn: state.dn });
+    // PST-111: « Atelier » opens the query workshop on the computers (a reusable query and its widget of the workstation board).
+    else if (act === 'workshop') state.ctx.navigate('requetes', { cible: 'computer', onglet: 'creer' });
     else if (act === 'approve' || act === 'remove') bios(act);
   });
   load().then(() => { if (state.essai === 'sondes' && alive) collect(false); });
@@ -208,7 +209,8 @@ function openProbe(state, probeId) {
           <div class="ps-sheet-row"><dt>Valeur inconnue</dt><dd>${esc(r.probe.unknownMeaning)}</dd></div>
           <div class="ps-sheet-row"><dt>Coût</dt><dd>${r.probe.slow ? 'Lente : signalée dans l’éditeur' : 'Rapide'}</dd></div></dl></details>
         <div class="ps-row-actions"><button class="btn sm" type="button" data-workshop>${ico('sliders')}Ouvrir dans l’atelier</button></div>`;
-      body.querySelector('[data-workshop]')?.addEventListener('click', () => { panel.close(); state.ctx.navigate('requetes', { cible: 'poste', dn: state.dn, sonde: probeId }); });
+      // PST-111: the WMI read of the probe opens in the WMI view of the workshop, on this workstation (nothing read before a click there).
+      body.querySelector('[data-workshop]')?.addEventListener('click', () => { panel.close(); state.ctx.navigate('requetes', { onglet: 'wmi', poste: state.data.computer.name }); });
       grid?.destroy();
       grid = createGrid(body.querySelector('[data-grid]'), {
         key: `poste.sonde.${probeId}`,

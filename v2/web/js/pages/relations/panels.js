@@ -123,10 +123,13 @@ function refusalCard(res) {
     <p>${rejected ? 'Les identifiants de la session ont été rejetés : la lecture s’est arrêtée au premier rejet, aucun autre poste n’a été contacté avec ce compte.' : 'Ces postes refusent la lecture au compte de la session.'} Rien n’est rejoué automatiquement${NBSP}: ouvrez Domenia avec un compte autorisé sur ces ressources, puis relancez vous-même la lecture.</p>
     <ul>${refused.map((a) => `<li>${tonePill(a.tone, a.statusLabel)}<span class="mono">${esc(a.target ?? '—')}</span><span>${esc(a.resource)}</span></li>`).join('')}</ul>
     ${names.length ? `<button class="btn xs" type="button" data-copy-refused="${esc(names.join('\n'))}">${glyph('copy')}Copier la liste</button>` : ''}
+    <button class="btn xs subtle" type="button" data-access-requests>${glyph('key')}Choisir un autre compte dans Comptes</button>
   </section>`;
 }
 
-function bindRefusal(scope) {
+function bindRefusal(scope, navigate) {
+  // REL-029: each refusal opened an access to review in Comptes (relations.detect.run); the operator chooses the account there.
+  scope.querySelectorAll('[data-access-requests]').forEach((b) => b.addEventListener('click', () => navigate?.('comptes', { vue: 'acces' })));
   scope.querySelectorAll('[data-copy-refused]').forEach((b) => b.addEventListener('click', async () => {
     const ok = await writeClipboard(b.dataset.copyRefused);
     toast(ok ? 'Liste des ressources refusées copiée.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
@@ -587,7 +590,7 @@ function detectMode(app, ctl, host, foot, subject) {
         ${refusalCard(res)}${candidatesMarkup(res.candidates)}${attemptsMarkup(res.attempts)}`;
       applyVars(probeHost);
       bindCandidates(probeHost);
-      bindRefusal(probeHost);
+      bindRefusal(probeHost, (id, p) => app.ctx.navigate(id, p));
       announce(res.message);
       app.touch();
       resultFoot(res.savable);
@@ -649,7 +652,7 @@ function sessionMode(app, ctl, host, foot, subject) {
           <p class="rel-session-check ${o.match ? 'ok' : 'warn'}">${glyph(o.match ? 'shield' : 'alert')}${esc(o.reason)}</p>` : ''}
         <p class="rel-status">${esc(res.message)}</p>${refusalCard(res)}${attemptsMarkup(res.attempts)}</section>`;
       applyVars(out);
-      bindRefusal(out);
+      bindRefusal(out, (id, p) => app.ctx.navigate(id, p));
       app.touch();
       announce(res.message);
       paintFoot(res.savable ? 1 : 0);
@@ -1091,7 +1094,7 @@ export function openSweepPanel(app) {
         resultId = res.resultId;
         probeHost.innerHTML = `<h3><span class="rel-step-n">3</span>Relevé${res.counters?.stopped ? ' partiel' : ''}</h3><p class="rel-status">${esc(res.message)}</p>${refusalCard(res)}${candidatesMarkup(res.candidates, { associate: false })}${attemptsMarkup(res.attempts)}`;
         applyVars(probeHost);
-        bindRefusal(probeHost);
+        bindRefusal(probeHost, (id, p) => app.ctx.navigate(id, p));
         probeHost.querySelectorAll('[data-fiche]').forEach((b) => b.addEventListener('click', () => app.openFiche({ dn: b.dataset.fiche })));
         app.touch();
         resultFoot(res.savable);

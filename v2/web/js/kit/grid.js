@@ -67,6 +67,11 @@ import { relTime, formatDateTime } from '../ui.js';
 
 const DENSITY = { compact: 32, normal: 40, comfortable: 48 };
 const DENSITY_LABEL = { compact: 'Compacte', normal: 'Normale', comfortable: 'Confortable' };
+/** Density of a list without a choice of its own: the one of the interface (Paramètres, PAR-004), « normal » otherwise. */
+const shellDensity = () => {
+  const d = document.documentElement.dataset.density;
+  return d === 'confortable' ? 'comfortable' : DENSITY[d] ? d : 'normal';
+};
 const SEL_W = 44;
 const OVERSCAN = 6;
 const MIN_W = 40;
@@ -222,7 +227,7 @@ export function createGrid(host, options) {
     hidden: new Set(),
     widths: new Map(),
     sort: [],
-    density: DENSITY[o.density] ? o.density : 'normal',
+    density: DENSITY[o.density] ? o.density : shellDensity(),
     quick: '',
     colFilters: new Map(),
     tests: new Map(),
@@ -301,7 +306,7 @@ export function createGrid(host, options) {
     st.hidden = new Set(cols.filter((c) => c.hidden && !c.required).map((c) => c.id));
     st.widths = new Map(cols.map((c) => [c.id, c.width]));
     st.sort = [];
-    st.density = DENSITY[o.density] ? o.density : 'normal';
+    st.density = DENSITY[o.density] ? o.density : shellDensity();
   }
 
   // Stored layouts are bounded and filtered: unknown ids are ignored, widths clamped, nothing else is read.

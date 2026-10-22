@@ -19,6 +19,7 @@
     "REL-026",
     "REL-027",
     "REL-028",
+    "REL-029",
     "REL-031",
     "REL-032",
     "REL-033",
@@ -70,10 +71,6 @@
       "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
     },
     {
-      "id": "REL-029",
-      "reste": "Demande d’un autre compte pour la ressource refusée : le canal existe dans l’écran Comptes (demandes d’accès, « Utiliser un autre compte », accounts.access.*) ; brancher les refus de la détection sur ces demandes à l’intégration, les lectures réelles en vague 3. Fait : arrêt au premier refus d’identifiants (RelationProbeLoop), ressources refusées nommées et copiables dans la carte « Reprise d’accès », jamais rejouées."
-    },
-    {
       "id": "REL-030",
       "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
     }
@@ -83,6 +80,7 @@
     "Design : une seule action principale, barre de commandes du kit dans l’en-tête (marques réseau et écriture du kit, dites au lecteur d’écran), vue du sujet mise à jour sur place (ni entrée rejouée, ni sélection perdue), transitions sur transform et opacity seulement, détection : « Annuler » et plan oublié quand le périmètre change, moisson : sélection enregistrée retirée, journal : filtres « Mises à jour » et « Conflits », restaurables par pas de 60, récents séparés par mode.",
     "Constat écarté : « openFiche par nom (q) » — la Fiche documente et résout le paramètre q (docs/ops/fiche.md § 6, branche v2-page/fiche) ; il fonctionne après l’intégration.",
     "Questions à David (REPRISE.md § 4) : mémorisation sans confirmation (REL-014, 017, 018, 030) ; classe des exports de fichiers (LocalWrite, export.open).",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C# écrits sans être exécutés (décision de David)."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C# écrits sans être exécutés (décision de David).",
+    "Intégration (22/10) : chaque refus de la détection ouvre une demande d’accès dans Comptes (AccountAccess.RegisterRefusal) et la carte « Reprise d’accès » y mène (REL-029)."
   ]
 }

@@ -60,7 +60,7 @@ internal static class AccountsAccessTests
         var access = Access(bridge);
         var state = SimulatedBridge.Json(await bridge.CallAsync("accounts.access.state"));
         var id = state.GetProperty("pending")[0].GetProperty("id").GetString();
-        var recovered = SimulatedBridge.Json(await bridge.CallAsync("accounts.access.recover", Args(new { id, login = @"EXAMPLE\adm-j.martin", password = "essai", lease = "inactivity", minutes = 30, target = (string?)null })));
+        var recovered = SimulatedBridge.Json(await bridge.CallAsync("accounts.access.recover", Args(new { id, login = @"EXAMPLE\adm-s.leroy", password = "essai", lease = "inactivity", minutes = 30, target = (string?)null })));
         Check.True(recovered.GetProperty("result").GetProperty("success").GetBoolean(), "compte temporaire LAPS");
         // The temporary account is refused in turn: LAPS is paused.
         access.RegisterRefusal(CredentialRules.Laps, "Lecture du mot de passe LAPS", null, "badCredentials", null, interactive: false);
@@ -69,7 +69,7 @@ internal static class AccountsAccessTests
         Check.False(Paused(Row(paused, CredentialRules.Directory)), "l’annuaire garde son compte, sans pause");
         var forgotten = SimulatedBridge.Json(await bridge.CallAsync("accounts.access.forget", Args(new { key = "temporary:" + CredentialRules.Laps })));
         Check.False(Paused(Row(forgotten, CredentialRules.Laps)), "Oublier efface les refus liés (CPT-011)");
-        Check.Equal(@"EXAMPLE\j.martin", Row(forgotten, CredentialRules.Laps).GetProperty("account").GetString(), "retour au compte configuré");
+        Check.Equal(@"EXAMPLE\" + SimulationProfile.SessionLogin, Row(forgotten, CredentialRules.Laps).GetProperty("account").GetString(), "retour au compte configuré");
         var again = await bridge.CallAsync("accounts.access.forget", Args(new { key = "temporary:" + CredentialRules.Laps }));
         Check.Equal(AccountAccess.KeyUnknown, again.Error?.Code, "plus rien à oublier");
     }

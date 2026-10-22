@@ -4,10 +4,12 @@
   "branche": "v2-page/comptes",
   "note": "Simulation complète, reprise après CRITIQUE-1.md ; mode annuaire décrit dans docs/ops/comptes.md § 7 (vague 3). Tests C#, tests web et scénarios E2E écrits, non exécutés (décisions de David du 21/10 et du 22/10 : la VM ne sert qu’à compiler).",
   "fait": [
+    "CPT-001",
     "CPT-003",
     "CPT-004",
     "CPT-005",
     "CPT-009",
+    "CPT-012",
     "CPT-013",
     "CPT-014",
     "CPT-015",
@@ -33,20 +35,12 @@
   ],
   "partiel": [
     {
-      "id": "CPT-001",
-      "reste": "Emplacement « Accès » de la barre du haut alimenté par ctx.access.report (docs/SHELL.md § 9) à chaque relecture de l’écran Comptes, clic vers Comptes ; pastille de l’en-tête de l’écran (badge, info-bulle, clic qui ouvre la plus ancienne demande) et onglet Accès faits. Reste au shell, à l’intégration : relire accounts.access.revision (local, 2 s) hors de l’écran Comptes."
-    },
-    {
       "id": "CPT-007",
-      "reste": "Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu). Relecture de la barre supérieure sur domenia:session-changed par le shell ; ouverture réelle de la session par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3)."
+      "reste": "Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu) ; la barre supérieure se relit sur domenia:session-changed (intégration du 22/10). Reste : l’ouverture réelle de la session avec l’autre compte par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3)."
     },
     {
       "id": "CPT-008",
       "reste": "Règles et contrat faits (même identité, pause du seul compte levée sauf autre copie du mot de passe refusé, refus en simulation et en session Windows) ; remplacement réel du secret de la session et arrêt des lectures parties avec l’ancien par Domenia.Ad (SwapConnectionPasswordAsync, vague 3)."
-    },
-    {
-      "id": "CPT-012",
-      "reste": "Les trois identités sont dans l’écran Comptes (accounts.access.state.identities) ; leur rappel dans le panneau d’aide du shell (F1), avec le raccourci vers Comptes, reste au shell à l’intégration (ctx.help.register n’admet que des textes fixes)."
     },
     {
       "id": "CPT-017",
@@ -70,6 +64,7 @@
   "notes": [
     "Relève OpenCode (22/10/2026) : critique du tour 1 (comptes-tour1.md) traitée par 9dedf45, vérifiée point par point dans le code (accès sans réécriture des saisies, pauses par clé de compte, lot scellé, ProbeAsync avec copie SecureString, file des relectures, aperçu navigateur, tuile et filtre cohérents) ; parité refaite sur CPT-001 à CPT-021.",
     "Ajouts de la relève : compteur « Accès » de la barre du haut (ctx.access.report), espaces insécables (gestion.js, journal du changement de compte).",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement.",
+    "Intégration (22/10) : la coque relit accounts.access.revision toutes les 2 s sur tous les écrans (CPT-001) et montre les trois identités dans l’aide F1 avec « Ouvrir Comptes » (CPT-012)."
   ]
 }

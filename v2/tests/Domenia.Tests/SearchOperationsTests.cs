@@ -38,6 +38,7 @@ internal static class SearchOperationsTests
         ("search.reconcile", OperationClass.LocalRead),
         ("search.revalidate", OperationClass.LocalRead),
         ("search.run", OperationClass.LocalRead),
+        ("search.selection", OperationClass.LocalRead),
         ("search.suggest", OperationClass.LocalRead),
         ("search.survey.forget", OperationClass.Local),
         ("search.survey.plan", OperationClass.LocalRead),

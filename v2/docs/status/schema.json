@@ -1,5 +1,6 @@
 {
   "fait": [
+    "MAC-002",
     "SCH-007",
     "SCH-008"
   ],
@@ -13,15 +14,11 @@
     "MAC-001",
     "MAC-003"
   ],
-  "partiel": [
-    {
-      "id": "MAC-002",
-      "reste": "Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites, tenues à jour par la veille du moteur (machine.account.watch, équivalent de Timer:Accounts, repeintes seulement quand le texte change) et livrées prêtes à poser : mountMachineAccount(hôte, ctx, { target, show: 'pill' | 'sentence' | 'both' }) dans web/js/pages/machine/panel.js. Reste leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir : ces écrans appartiennent aux équipes Poste et Assistance et n’existent pas sur cette branche."
-    }
-  ],
+  "partiel": [],
   "notes": [
     "Relève OpenCode (22/10/2026) : tour 1 du critique traité par c592077, vérifié ; compilation Debug et Release 0 erreur, 0 avertissement.",
     "Ajouts de la relève : transitions limitées à transform et opacity (schema.css, machine.css), conformément au kit.",
-    "À l’intégration : poser mountMachineAccount (web/js/pages/machine/panel.js) dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir (MAC-002)."
+    "À l’intégration : poser mountMachineAccount (web/js/pages/machine/panel.js) dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir (MAC-002).",
+    "Intégration (22/10) : pastille « Compte poste » dans l’en-tête du Poste et phrase dans les outils d’Intervenir (MAC-002)."
   ]
 }

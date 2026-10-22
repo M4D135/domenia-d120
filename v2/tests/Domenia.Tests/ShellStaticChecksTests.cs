@@ -66,6 +66,12 @@ internal static partial class ShellStaticChecksTests
             ["src/Domenia.App/Program.cs"] = ["MessageBox"],
             // The one window of the application.
             ["src/Domenia.App/MainForm.cs"] = [": Form"],
+            // Secure windows of the host: a secret is typed or shown there, never in the page (OPERATIONS.md § 1.2).
+            ["src/Domenia.App/Poste/SecretWindowForm.cs"] = [": Form"],
+            ["src/Domenia.App/Secrets/PasswordWindow.cs"] = [": Form"],
+            ["src/Domenia.App/Secrets/HostPasswordWindow.cs"] = [".ShowDialog("],
+            // « Enregistrer sous » of the exports of the Poste screen (poste.export.save: the file chosen by the operator).
+            ["src/Domenia.App/Poste/PosteHostServices.cs"] = ["SaveFileDialog", ".ShowDialog("],
         };
         var problems = new List<string>();
         foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories))

@@ -5,13 +5,18 @@
     "OPE-006",
     "OPE-007",
     "OPE-013",
+    "OPE-014",
+    "OPE-015",
     "OPE-016",
     "OPE-017",
     "OPE-018",
     "OPE-020",
     "OPE-021",
+    "OPE-025",
+    "OPE-026",
     "OPE-027",
     "OPE-029",
+    "OPE-030",
     "OPE-033",
     "OPE-034",
     "OPE-035",
@@ -43,28 +48,8 @@
       "reste": "Règles des séquences Arrivée, Changement de service et Suspension portées et affichées avec la disponibilité de chaque étape (comme en Domenia 1, règle non raccordée). Exécution étape par étape quand les écritures groupes, attributs, déplacement et activation seront servies."
     },
     {
-      "id": "OPE-014",
-      "reste": "Onglet Journal ouvert par onglet=journal. Le raccourci Ctrl L depuis n’importe quel écran relève de l’écran shell (app.js) : il doit viser operations?onglet=journal en profil expert."
-    },
-    {
-      "id": "OPE-015",
-      "reste": "Tâches en cours dans l’onglet Tâches (durée vivante, phases et compteurs des lots, arrêt d’une lecture) et operations.center prêt pour le panneau déroulant de la barre supérieure ; ce panneau (Échap, clic à côté) relève de l’écran shell (app.js)."
-    },
-    {
       "id": "OPE-019",
       "reste": "Étapes dans l’ordre, total, volume et étape dominante à part, suite possible, panneau mis à jour en place. La publication dans l’interface est dite « non mesurée » : la mesurer par tâche demande un point d’accroche dans bridge.js (fichier partagé)."
-    },
-    {
-      "id": "OPE-025",
-      "reste": "Blocage de toutes les nouvelles écritures restauré dans WriteCircuit (write.receiptsPending), levée par relecture conclusive ou revue seulement, tracée en WARN, visible dans l’écran (circuit, tuile, onglet, bilan). Le bouton du panneau Opérations de la barre supérieure relève de l’écran shell (operations.center)."
-    },
-    {
-      "id": "OPE-026",
-      "reste": "Pastille « N opérations à vérifier » (jamais « 0 opération »), aide de Domenia 1 et reçu le plus ancien au survol dans l’en-tête de l’écran, la tuile, l’onglet et operations.center. La pastille de la barre supérieure relève de l’écran shell (app.js)."
-    },
-    {
-      "id": "OPE-030",
-      "reste": "Battement de toute l’interface, continu dès le premier affichage d’Opérations (pulse.js, startPulse). Le démarrer dès le lancement de l’application revient à l’écran shell (une ligne dans app.js)."
     },
     {
       "id": "OPE-032",
@@ -75,6 +60,8 @@
     "Relève OpenCode (22/10/2026) : tour 1 du critique traité par e0385ab (blocage global des écritures tant qu’un reçu attend, suivi des lectures qui rendent un reçu, battement de toute l’interface, pseudonymes complets, classes LocalRead, motifs d’exemple réservés au mode exemple, statut réévalué) ; vérifié dans le code.",
     "Ajouts de la relève : transitions limitées à transform (operations.css), espaces insécables (guillemets, point-virgule).",
     "À l’intégration : la coque a déjà Ctrl L (journal) et le panneau « Opérations de la session » ; vérifier qu’ils lisent operations.center et operations?onglet=journal (OPE-014, OPE-015).",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés.",
+    "Intégration (22/10) : Ctrl L ouvre l’onglet Journal en profil Expert (OPE-014) ; « Opérations de la session » de la coque lit operations.center (tâches du moteur, durée vivante, compteurs, arrêt d’une lecture) et dit le reçu le plus ancien (OPE-015, OPE-026).",
+    "Intégration (22/10) : le bouton « Opérations de la session » de la barre supérieure dit « N opérations à vérifier » et le reçu le plus ancien au survol (operations.center, OPE-025, OPE-026) ; le battement de l’interface démarre avec l’application (startPulse dans app.js, OPE-030)."
   ]
 }

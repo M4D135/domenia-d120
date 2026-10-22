@@ -179,7 +179,7 @@ public static partial class SupportSecretMask
     [GeneratedRegex(@"(""(?:password|passwd|pwd|pass|p|motdepasse|secret|token|api[_-]?key|apikey|client[_-]?secret)""\s*:\s*)(""(?:\\.|[^""\\])*""|[^,}\s]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 100)]
     private static partial Regex JsonMember();
 
-    [GeneratedRegex(@"\b(password|passwd|pwd|pass|motdepasse|mot\s+de\s+passe|secret|token|authorization|api[_-]?key|apikey|client[_-]?secret)(\s*[=:]\s*)(""[^""]*""|'[^']*'|[^\s;,]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 100)]
+    [GeneratedRegex(@"\b(password|passwd|pwd|pass|motdepasse|mot\s+de\s+passe|secret|token|authorization|api[_-]?key|apikey|client[_-]?secret)(\s*[=:]\s*)(?!(?:Bearer|Basic)\s)(""[^""]*""|'[^']*'|[^\s;,]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 100)]
     private static partial Regex KeyValue();
 
     [GeneratedRegex(@"(^|\s)([-/](?:p|rp|pass|password|pwd))(?:\s+|[:=])(""[^""]*""|'[^']*'|\S+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 100)]

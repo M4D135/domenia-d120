@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -219,6 +220,38 @@ public sealed class SearchService : IDisposable
         return Complete(state, page, limit, appended: false) with { Verdicts = totals };
     }
 
+    /// <summary>
+    /// search.selection (REQ-048, Domenia 1 « Appliquer aux résultats de Recherche »): the objects frozen by the query workshop,
+    /// read from the local data by GUID (never the network), in the order of the selection, unknown GUIDs left out and counted.
+    /// The list is complete at once (5 000 objects at most): it is never continued.
+    /// </summary>
+    public async Task<SearchResult> SelectionAsync(IReadOnlyList<Guid> ids, string label, DateTimeOffset frozenAt, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        ArgumentNullException.ThrowIfNull(label);
+        var (root, dns) = await DomainAsync(cancellationToken).ConfigureAwait(false);
+        var reader = context.Readers.Require<ISearchReader>();
+        var distinct = ids.Distinct().Take(SearchLimits.MaxLimit).ToArray();
+        var rows = await reader.LocalRowsAsync(distinct, cancellationToken).ConfigureAwait(false);
+        var byId = new Dictionary<Guid, SearchRow>();
+        foreach (var row in rows)
+        {
+            if (Guid.TryParse(row.Id, out var guid))
+            {
+                byId.TryAdd(guid, row);
+            }
+        }
+        var ordered = distinct.Where(byId.ContainsKey).Select(id => byId[id]).ToImmutableArray();
+        var missing = distinct.Length - ordered.Length;
+        var stamp = FrenchText.Quote(label) + " · figée le " + frozenAt.ToOffset(context.Clock.LocalTimeZone.GetUtcOffset(frozenAt)).ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+        var note = missing > 0 ? stamp + " · " + FrenchText.Count(missing, "objet absent des données locales", "objets absents des données locales") : stamp;
+        var plan = new SearchPlan(SearchPlanKind.Selection, true, "", note, [], [], null, null, "", false, "");
+        var info = new SearchViewInfo("selection", "Sélection de l’atelier de requêtes", note, false, true, "");
+        var scope = SearchLists.Scope(true, root, root, dns, true);
+        var state = Register(new ListState(SearchListKind.Selection, plan, SearchTypeFilter.All, root, true, "selection", "", SearchMatchMode.Prefix, scope, info));
+        return Complete(state, new SearchPage(ordered, false, null, context.Clock.GetUtcNow(), "Données locales"), Math.Max(1, ordered.Length), appended: false);
+    }
+
     /// <summary>search.more: the following rows of a list only (MO-07), up to <paramref name="target"/> rows in all.</summary>
     public async Task<SearchResult> MoreAsync(string listId, int target, CancellationToken cancellationToken)
     {
@@ -277,6 +310,17 @@ public sealed class SearchService : IDisposable
                 case SearchListKind.LocalQuery:
                     (page, _) = await reader.LocalQueryAsync(state.ViewId!, state.BaseDn, state.Subtree, state.Verdict ?? "match", take, cancellationToken).ConfigureAwait(false);
                     break;
+                case SearchListKind.Selection:
+                    {
+                        // The frozen selection is read again from the local data, same objects, same order (REQ-048).
+                        Guid[] frozen;
+                        lock (gate)
+                        {
+                            frozen = [.. state.Order.Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty)];
+                        }
+                        page = new SearchPage(await reader.LocalRowsAsync(frozen, cancellationToken).ConfigureAwait(false), false, null, context.Clock.GetUtcNow(), "Données locales");
+                        break;
+                    }
                 default:
                     page = await reader.FindAsync(new SearchQuery(state.Kind, state.Plan, state.Type, state.BaseDn, state.Subtree, state.ViewId, null,
                         new HashSet<string>(StringComparer.Ordinal), take), cancellationToken).ConfigureAwait(false);

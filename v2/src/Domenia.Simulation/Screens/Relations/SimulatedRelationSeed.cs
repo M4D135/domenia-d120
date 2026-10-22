@@ -51,7 +51,7 @@ internal static class SimulatedRelationSeed
             .Where(c => c.Name.StartsWith("PC-", StringComparison.Ordinal) || c.Name.StartsWith("PT-", StringComparison.Ordinal))
             .Where(c => !AdValues.IsDisabled(c.UserAccountControl) && c.DistinguishedName.Contains("OU=Postes", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        var julien = directory.Users.First(u => u.SamAccountName == SimulationProfile.SessionLogin);
+        var julien = directory.Users.First(u => u.SamAccountName == SimulationProfile.PersonLogin);
         var camille = directory.Users.First(u => u.GivenName == "Camille" && u.Surname == "Bernard");
         var store = ImmutableDictionary.CreateBuilder<string, StoredRelation>(StringComparer.Ordinal);
         var journal = new List<RelationJournalRecord>();

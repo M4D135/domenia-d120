@@ -36,6 +36,8 @@ public enum SearchListKind
     View,
     Address,
     LocalQuery,
+    /// <summary>The frozen selection of the query workshop (REQ-048): the matching objects of a preview, by GUID.</summary>
+    Selection,
 }
 
 /// <summary>How the text of the bar refines the search (Domenia 1 Get-DomeniaGlobalSearchPlan).</summary>
@@ -49,6 +51,7 @@ public enum SearchPlanKind
     Browse,
     View,
     LocalQuery,
+    Selection,
 }
 
 /// <summary>Identifier recognized in a pasted text (Domenia 1 Get-DomeniaPastedIdentifier).</summary>

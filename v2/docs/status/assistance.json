@@ -3,7 +3,9 @@
     "ASS-001",
     "ASS-004",
     "ASS-005",
+    "ASS-006",
     "ASS-011",
+    "ASS-012",
     "ASS-016",
     "TRV-184",
     "TRV-185"
@@ -19,21 +21,13 @@
     "ASS-014",
     "ASS-015"
   ],
-  "partiel": [
-    {
-      "id": "ASS-006",
-      "reste": "Les refus de l’écran Assistance entrent tous dans Incidents (journal de session, AssistanceOperations.Journaled, « Moteur occupé » reconnu) ; ceux des autres écrans n’y entrent que s’ils écrivent au journal : les journaliser tous demande un ajout dans BridgeDispatcher (fichier partagé), à l’intégration."
-    },
-    {
-      "id": "ASS-012",
-      "reste": "Contrat d’arrivée défini et branché (#/assistance?postes=…, 500 noms, périmètre « Liste de postes » rempli, rien lu ni écrit avant la confirmation) ; reste aux écrans de liste (Rechercher, Comptes machine) à poser le lien « Dossier hors ligne de ces postes » avec leurs résultats affichés, à l’intégration."
-    }
-  ],
+  "partiel": [],
   "notes": [
     "Relève OpenCode (22/10/2026), tour 2 du critique traité : refus de l’écran journalisés et expliqués (ENGINE_BUSY reconnaît « Moteur occupé ») ; commande « Domenia.exe dossier » attachée à la console parente (AttachConsole), attente documentée (Start-Process -Wait -PassThru, start /wait) ; capture et repère refusés pendant la lecture du même objet (assistance.subjectReading) et grisés dans la page ; document.reveal en classe Local ; suivi d’une seconde arrêté après trois échecs, avec « Reprendre » ; pistes « health » vers l’état du moteur de l’écran.",
     "Design : bandeau explicite sans lecteur de l’annuaire (mode annuaire de cette version), recherche et pistes sans code brut ; squelette de la vue au premier affichage ; saisie des noms du dossier sans repeindre la vue ; carte « OU de travail » grisée quand elle vaut tout le domaine ; Incidents et Comparer mis à jour sur place (focus, défilement, champ de fichier conservés) ; en-têtes de colonnes de la capture ; anneau de progression qui se trace ; règles CSS des panneaux préfixées [data-page=\"assistance\"].",
     "Fichiers partagés modifiés par ce lot (nécessaires, périmètre minimal, à revoir à l’intégration) : Composition.cs (fabrique CreateDocuments) et Program.cs (aiguillage « dossier » de la ligne de commande) ; EngineContext.cs (service Documents, à réutiliser par les autres écrans pour leurs exports plutôt que d’en créer un autre) ; SessionModels.cs (Epoch, génération de session) ; AppPaths.cs ; mock.js (branchement de mock-assistance.js) ; PLATFORM.md et OPERATIONS.md.",
     "Clé de pseudonymisation : champ masqué (type password) par exception à KIT § 4.8 — clé choisie par l’opérateur pour un document, pas un secret d’annuaire, jamais gardée ni journalisée, renvoyée au moteur seulement pour l’aperçu ; à inscrire dans KIT par son responsable.",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés.",
+    "Intégration (22/10) : les refus de toutes les opérations entrent au journal de la session (OperationRefusals, une fois par minute au plus) et donc dans Incidents (ASS-006) ; Rechercher pose « Dossier hors ligne de ces postes » (postes=, ASS-012)."
   ]
 }

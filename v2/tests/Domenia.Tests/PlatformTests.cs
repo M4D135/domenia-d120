@@ -603,7 +603,8 @@ internal static class PlatformTests
 
         var probe = ScreenReaders.Discover(new ProbeSource(), [SimulationAssembly, typeof(PlatformTests).Assembly]);
         Check.Equal("Simulation", probe.Require<IProbeReader>().Name, "lecteur construit avec sa source");
-        Check.True(probe.Interfaces.SequenceEqual(["IProbeReader"]), "interfaces servies : " + string.Join(", ", probe.Interfaces));
+        // The scripted password window of FicheTests takes any source: it is served for this source too.
+        Check.True(probe.Interfaces.Where(i => i != nameof(IFichePasswordWindow)).SequenceEqual(["IProbeReader"]), "interfaces servies : " + string.Join(", ", probe.Interfaces));
     }
 
     [Test]

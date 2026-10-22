@@ -3,6 +3,7 @@ using System.Security;
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
@@ -146,7 +147,7 @@ internal static class MachineAccountTests
         var bridge = new SimulatedBridge();
         var json = SimulatedBridge.Json(await bridge.CallAsync("machine.account.state", "{}"));
         Check.Equal("windows", json.GetProperty("inUse").GetProperty("source").GetString(), "session Windows");
-        Check.Equal(@"EXAMPLE\j.martin", json.GetProperty("inUse").GetProperty("account").GetString(), "compte de la session fictive, jamais le compte Windows réel");
+        Check.Equal(@"EXAMPLE\" + SimulationProfile.SessionLogin, json.GetProperty("inUse").GetProperty("account").GetString(), "compte de la session fictive, jamais le compte Windows réel");
         Check.False(json.GetProperty("credentialRequired").GetBoolean(), "aucun mot de passe en simulation");
         Check.Equal(6, json.GetProperty("levels").GetArrayLength(), "six niveaux");
         Check.Equal(3, json.GetProperty("confidentialReads").GetProperty("levels").GetArrayLength(), "trois niveaux pour les secrets");
@@ -190,8 +191,8 @@ internal static class MachineAccountTests
         var unknown = await bridge.CallAsync("machine.account.trial", "{\"target\":\"PC-INEXISTANT\"}");
         Check.Equal(MachineErrors.TargetUnknown, unknown.Error!.Code, "poste introuvable");
 
-        // j.martin (GG-Support-N2, imbriqué dans GG-Admins-Postes) n’administre pas les serveurs.
-        var server = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\"}"));
+        // j.martin (GG-Support-N2, imbriqué dans GG-Admins-Postes) n’administre pas les serveurs ; la session signe avec adm-j.martin.
+        var server = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\",\"account\":\"EXAMPLE\\\\j.martin\",\"password\":null}"));
         Check.Equal("denied", server.GetProperty("trial").GetProperty("verdict").GetString(), "serveur : accès refusé");
         Check.True(server.GetProperty("trial").GetProperty("simulated").GetBoolean(), "essai simulé");
         Check.Equal("SRV-FIC-01", server.GetProperty("state").GetProperty("target").GetProperty("name").GetString(), "poste de l’état");

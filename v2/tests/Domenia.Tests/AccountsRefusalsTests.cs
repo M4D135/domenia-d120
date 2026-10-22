@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
@@ -62,7 +63,7 @@ internal static class AccountsRefusalsTests
         Check.NotNull(detail.GetProperty("actions").GetProperty("expiration").GetProperty("reason").GetString(), "avec sa raison");
 
         var privileged = users.First(u => u.AdminCount == 1 && u.SamAccountName != "krbtgt" && !AdValues.IsDisabled(u.UserAccountControl)
-            && !u.DistinguishedName.Contains("Julien Martin", StringComparison.Ordinal) && u.PasswordLastSet is > 0
+            && u.SamAccountName != SimulationProfile.SessionLogin && u.PasswordLastSet is > 0
             && !AdValues.HasFlag(u.UserAccountControl, AdValues.DontExpirePassword));
         foreach (var operation in new[] { "accounts.mustChange.plan", "accounts.disable.plan" })
         {

@@ -10,6 +10,9 @@ Ce catalogue est la liste de contrôle de la réécriture : chaque fonction de D
 | `fait` | Domenia 2 fait déjà ce que faisait Domenia 1 ; vérifié dans `v2/src` ou `v2/web` (la preuve est donnée plus bas). |
 | `ameliore` | Domenia 2 fait la fonction et l'améliore (réservé aux fonctions livrées avec une amélioration de la liste « Nouveautés »). |
 | `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
+| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
+| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
+| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
 | `abandonne` | La fonction n'est pas reprise. Ce statut n'est posé que sur une décision écrite et datée de David : PST-001 (WAPT, décision du 22/10/2026). |
 
 Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préférence), **lecture locale** (base SQLite, fichier, mémoire), **lecture réseau** (annuaire, poste, DNS, contrôleur), **écriture** (annuaire, poste ou base locale). Une fonction qui réunit plusieurs fiches prend la classe la plus engageante.
@@ -30,19 +33,19 @@ Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préfér
 | [Accueil](#acc) | ACC | 64 | 46 | 8 | 10 | 0 | 0 |
 | [Rechercher](#rch) | RCH | 137 | 116 | 14 | 7 | 0 | 0 |
 | [Fiche](#fic) | FIC | 50 | 23 | 27 | 0 | 0 | 0 |
-| [Comptes](#cpt) | CPT | 21 | 9 | 7 | 5 | 0 | 0 |
-| [Utilisateurs et postes](#rel) | REL | 52 | 33 | 13 | 6 | 0 | 0 |
-| [Poste](#pst) | PST | 117 | 81 | 31 | 4 | 0 | 1 |
-| [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 0 | 2 | 1 | 0 | 0 |
-| [Assistance](#ass) | ASS | 16 | 5 | 9 | 2 | 0 | 0 |
-| [Atelier de requêtes](#req) | REQ | 69 | 29 | 37 | 3 | 0 | 0 |
+| [Comptes](#cpt) | CPT | 21 | 11 | 7 | 3 | 0 | 0 |
+| [Utilisateurs et postes](#rel) | REL | 52 | 34 | 13 | 5 | 0 | 0 |
+| [Poste](#pst) | PST | 117 | 83 | 31 | 2 | 0 | 1 |
+| [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 1 | 2 | 0 | 0 | 0 |
+| [Assistance](#ass) | ASS | 16 | 7 | 9 | 0 | 0 | 0 |
+| [Atelier de requêtes](#req) | REQ | 69 | 31 | 37 | 1 | 0 | 0 |
 | [Audit AD](#aud) | AUD | 23 | 14 | 9 | 0 | 0 | 0 |
 | [Schéma de l'annuaire](#sch) | SCH | 8 | 2 | 6 | 0 | 0 | 0 |
 | [Synchronisation et base autonome](#syn) | SYN | 30 | 17 | 13 | 0 | 0 | 0 |
-| [Opérations](#ope) | OPE | 36 | 16 | 10 | 10 | 0 | 0 |
-| [Paramètres](#par) | PAR | 51 | 5 | 9 | 37 | 0 | 0 |
+| [Opérations](#ope) | OPE | 36 | 21 | 10 | 5 | 0 | 0 |
+| [Paramètres](#par) | PAR | 51 | 7 | 9 | 35 | 0 | 0 |
 | [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 66 | 21 | 5 | 224 | 0 |
-| **Total** | | **993** | **462** | **216** | **90** | **224** | **1** |
+| **Total** | | **993** | **479** | **216** | **73** | **224** | **1** |
 
 ## Fonctions déjà faites dans Domenia 2
 
@@ -2559,15 +2562,13 @@ Mot de passe de 16 caractères (14 à 64) tiré par générateur cryptographique
 
 ## Comptes (CPT)
 
-21 fonctions : 9 faites, 7 améliorées, 5 partielles.
+21 fonctions : 11 faites, 7 améliorées, 3 partielles.
 
 ### Accès
 
 #### CPT-001 · Bouton Accès et accès à revoir
 
-> Reste à faire : Emplacement « Accès » de la barre du haut alimenté par ctx.access.report (docs/SHELL.md § 9) à chaque relecture de l’écran Comptes, clic vers Comptes ; pastille de l’en-tête de l’écran (badge, info-bulle, clic qui ouvre la plus ancienne demande) et onglet Accès faits. Reste au shell, à l’intégration : relire accounts.access.revision (local, 2 s) hors de l’écran Comptes.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Badge du nombre d'accès refusés en attente (16 max, un par ressource et cible) et info-bulle ; clic pour traiter la plus ancienne demande.
 
@@ -2624,7 +2625,7 @@ Affiche l'identité qui s'est réellement liée (BindUser), le mode (session Win
 
 #### CPT-007 · Changer de compte sans fermer Domenia
 
-> Reste à faire : Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu). Relecture de la barre supérieure sur domenia:session-changed par le shell ; ouverture réelle de la session par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3).
+> Reste à faire : Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu) ; la barre supérieure se relit sur domenia:session-changed (intégration du 22/10). Reste : l’ouverture réelle de la session avec l’autre compte par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3).
 
 `partiel` · lecture réseau
 
@@ -2676,9 +2677,7 @@ Liste le compte poste saisi et les comptes temporaires acceptés après un refus
 
 #### CPT-012 · Comptes utilisés (AD, postes, secrets)
 
-> Reste à faire : Les trois identités sont dans l’écran Comptes (accounts.access.state.identities) ; leur rappel dans le panneau d’aide du shell (F1), avec le raccourci vers Comptes, reste au shell à l’intégration (ctx.help.register n’admet que des textes fixes).
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le panneau d'aide affiche les noms des trois identités : AD courante, compte pour les postes, compte pour les secrets (« Compte AD courant » par défaut). Un raccourci ouvre la page Comptes.
 
@@ -2782,7 +2781,7 @@ Valide un identifiant/mot de passe dans un runspace d'authentification dédié, 
 
 ## Utilisateurs et postes (REL)
 
-52 fonctions : 33 faites, 13 améliorées, 6 partielles.
+52 fonctions : 34 faites, 13 améliorées, 5 partielles.
 
 ### Association manuelle
 
@@ -3070,9 +3069,7 @@ Grille des méthodes essayées (compte, associations, indices, journal, consoles
 
 #### REL-029 · Reprise d'accès après refus pendant la détection
 
-> Reste à faire : Demande d’un autre compte pour la ressource refusée : le canal existe dans l’écran Comptes (demandes d’accès, « Utiliser un autre compte », accounts.access.*) ; brancher les refus de la détection sur ces demandes à l’intégration, les lectures réelles en vague 3. Fait : arrêt au premier refus d’identifiants (RelationProbeLoop), ressources refusées nommées et copiables dans la carte « Reprise d’accès », jamais rejouées.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un rejet ou refus de l'annuaire ou d'un poste ouvre une demande d'autre compte pour la ressource concernée, sans rejouer la recherche.
 
@@ -3306,7 +3303,7 @@ Contrôle les liens contre l'annuaire et liste les orphelins avec leur motif et 
 
 ## Poste (PST)
 
-117 fonctions : 81 faites, 31 améliorées, 4 partielles, 1 abandonnée.
+117 fonctions : 83 faites, 31 améliorées, 2 partielles, 1 abandonnée.
 
 ### Connecteurs
 
@@ -4403,9 +4400,7 @@ Bouton de la barre d'outils du tableau poste : collecte seulement les champs dis
 
 #### PST-111 · Atelier et détails enregistrés depuis le tableau poste
 
-> Reste à faire : L’atelier de requêtes est l’écran Requêtes (autre lot) : les boutons « Atelier » (vue Sondes et relevés) et « Ouvrir dans l’atelier » (détails d’une sonde) y mènent avec le poste et la sonde en paramètres (#/requetes?cible=poste&dn=…&sonde=…) ; la destination d’affichage reste à brancher de ce côté.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bouton Atelier (requête réutilisable et destination d'affichage) et bouton rond « Détails enregistrés » d'une sonde ou « Ouvrir dans l'atelier » d'une requête enregistrée.
 
@@ -4422,9 +4417,7 @@ Quand un autre objet est sélectionné, les tableaux poste et logiciels oublient
 
 #### PST-113 · Widget de requête sur le tableau du poste
 
-> Reste à faire : Widget d’une requête enregistrée évalué sur ce seul poste : dépend du moteur et du stockage des requêtes enregistrées de l’écran Requêtes (autre lot), absents de cet arbre.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Évalue une requête enregistrée sur le seul poste de la fiche ouverte à partir de l'instantané du parc, des attributs de la fiche et des observations en mémoire.
 
@@ -4476,7 +4469,7 @@ Local d'abord (association connue immédiatement), puis pipeline : CIM utilisate
 
 ## Comptes machine (panneau Compte poste) (MAC)
 
-3 fonctions : 2 améliorées, 1 partielle.
+3 fonctions : 1 faite, 2 améliorées.
 
 ### Panneau Compte poste
 
@@ -4491,9 +4484,7 @@ Règle unique, identique au contexte des workers : compte local accepté pour ce
 
 #### MAC-002 · Pastille « Compte poste : … ▾ » d'Assistance poste
 
-> Reste à faire : Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites, tenues à jour par la veille du moteur (machine.account.watch, équivalent de Timer:Accounts, repeintes seulement quand le texte change) et livrées prêtes à poser : mountMachineAccount(hôte, ctx, { target, show: 'pill' | 'sentence' | 'both' }) dans web/js/pages/machine/panel.js. Reste leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir : ces écrans appartiennent aux équipes Poste et Assistance et n’existent pas sur cette branche.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Dans l'en-tête d'Assistance poste, une pastille nomme le compte que prendra la prochaine opération sur le poste ouvert (court) avec son origine en infobulle ; la même phrase « Opérations poste : … » s'affiche dans le panneau et dans la carte « Se connecter » d'Intervenir. Un clic ouvre le panneau Compte poste.
 
@@ -4513,7 +4504,7 @@ Panneau dans la page (pas de fenêtre) : identifiant DOMAINE\nom ou POSTE\nom, m
 
 ## Assistance (ASS)
 
-16 fonctions : 5 faites, 9 améliorées, 2 partielles.
+16 fonctions : 7 faites, 9 améliorées.
 
 ### Atelier support
 
@@ -4565,9 +4556,7 @@ Compare deux captures du même périmètre et du même type d'objet, attribut pa
 
 #### ASS-006 · Incidents expliqués de la session
 
-> Reste à faire : Les refus de l’écran Assistance entrent tous dans Incidents (journal de session, AssistanceOperations.Journaled, « Moteur occupé » reconnu) ; ceux des autres écrans n’y entrent que s’ils écrivent au journal : les journaliser tous demande un ajout dans BridgeDispatcher (fichier partagé), à l’intégration.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Collecte les avertissements et erreurs de la session et les classe par règles fixes : conflit SMB 1219, annulation, authentification refusée, accès refusé, RPC indisponible, délai dépassé, nom DNS ou chemin non résolu, moteur occupé, PsExec. Chaque piste propose une vérification. La liste est plafonnée à 200, les doublons adjacents de moins de 2 s sont ignorés, et un filtre littéral porte sur le titre, le code et la zone.
 
@@ -4625,9 +4614,7 @@ Après confirmation, efface les captures, repères et incidents de l'atelier. Do
 
 #### ASS-012 · Dossier de diagnostic hors ligne
 
-> Reste à faire : Contrat d’arrivée défini et branché (#/assistance?postes=…, 500 noms, périmètre « Liste de postes » rempli, rien lu ni écrit avant la confirmation) ; reste aux écrans de liste (Rechercher, Comptes machine) à poser le lien « Dossier hors ligne de ces postes » avec leurs résultats affichés, à l’intégration.
-
-`partiel` · écriture
+`fait` · écriture
 
 Écrit un nouveau dossier daté dans Exports pour une intervention sans Domenia, sur un périmètre au choix : poste sélectionné, postes des résultats affichés (500 au plus) ou OU sélectionnée. Options : observations, associations, requêtes enregistrées. Le dossier contient un manifeste et des empreintes SHA-256 ; il s'obtient aussi en ligne de commande (Domenia-Automate.ps1 dossier).
 
@@ -4678,7 +4665,7 @@ Ouvre la vue où l'étape présente ses informations (fiche, Audit AD et son ong
 
 ## Atelier de requêtes (REQ)
 
-69 fonctions : 29 faites, 37 améliorées, 3 partielles.
+69 fonctions : 31 faites, 37 améliorées, 1 partielle.
 
 ### 1. Créer
 
@@ -5048,9 +5035,7 @@ Archive la définition (révisions et données conservées) et retire ses widget
 
 #### REQ-039 · Créer une sonde (widget) de tableau de bord
 
-> Reste à faire : Fait : recette et widget dans la même écriture, revue d’impact exigée par le moteur (jamais de migration imposée), plan de collecte ouvert aussitôt le widget ajouté (confirmé avant toute lecture), requetes.widget.evaluate (révision liée, chiffres, répartition, verdict d’un poste) et aperçu vivant des widgets dans l’atelier. Reste : l’affichage sur l’Accueil et la Fiche, écrans d’autres lots, qui liront requetes.widget.list puis requetes.widget.evaluate (docs/ops/requetes.md § 6.4).
-
-`partiel` · écriture
+`fait` · écriture
 
 Enregistre la requête et l'ajoute (ou met à jour) en widget du tableau général ou du tableau du poste, en indicateur, texte, barres, camembert ou colonnes ; un widget ajouté collecte aussitôt ses données manquantes.
 
@@ -5141,9 +5126,7 @@ Prépare l'éditeur de condition avec l'information choisie et place le focus su
 
 #### REQ-048 · Appliquer la requête aux résultats de Recherche
 
-> Reste à faire : Fait : sélection figée des correspondants (GUID, date, empreinte, inconnus exclus), puis ouverture de Rechercher comme Domenia 1 (#/rechercher?requete=selection), favoris déclarables par requetes.consumer.bind. Reste : l’écran Rechercher (autre lot) doit lire requetes.search.selection pour filtrer ses résultats ; la sélection reste en mémoire de session, comme dans Domenia 1.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Fige les GUID des postes correspondants (inconnus exclus) de l'aperçu courant comme filtre daté des résultats de Recherche, puis ouvre Rechercher.
 
@@ -6002,7 +5985,7 @@ L'état du relevé du parc est relu depuis la base par worker. Un résultat de p
 
 ## Opérations (OPE)
 
-36 fonctions : 16 faites, 10 améliorées, 10 partielles.
+36 fonctions : 21 faites, 10 améliorées, 5 partielles.
 
 ### Charge et statistiques
 
@@ -6143,9 +6126,7 @@ Copie le détail de l'opération sélectionnée, masqué par Protect-DomeniaLogT
 
 #### OPE-014 · Ouvrir le journal depuis les opérations
 
-> Reste à faire : Onglet Journal ouvert par onglet=journal. Le raccourci Ctrl L depuis n’importe quel écran relève de l’écran shell (app.js) : il doit viser operations?onglet=journal en profil expert.
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ferme le panneau et suit la même route que Ctrl+L : le journal de session en mode Essentiel, Outils > Journal en mode Expert.
 
@@ -6155,9 +6136,7 @@ Ferme le panneau et suit la même route que Ctrl+L : le journal de session en mo
 
 #### OPE-015 · Panneau des opérations en cours
 
-> Reste à faire : Tâches en cours dans l’onglet Tâches (durée vivante, phases et compteurs des lots, arrêt d’une lecture) et operations.center prêt pour le panneau déroulant de la barre supérieure ; ce panneau (Échap, clic à côté) relève de l’écran shell (app.js).
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Panneau déroulant sous le bouton Opérations. Il liste les tâches en cours, en attente (rien n'est encore envoyé), avec arrêt demandé, à vérifier et en nettoyage, ainsi que les lots de collecte. Pour chaque ligne : type (Lecture, Écriture, Cache local), état, durée rafraîchie chaque seconde sans perdre la sélection, détail et accès requis. Jusqu'à 64 lignes.
 
@@ -6255,9 +6234,7 @@ L'opérateur décrit le contrôle réalisé avec un autre outil (12 à 240 carac
 
 #### OPE-025 · Levée de l'incertitude d'écriture et pastille « opérations à vérifier »
 
-> Reste à faire : Blocage de toutes les nouvelles écritures restauré dans WriteCircuit (write.receiptsPending), levée par relecture conclusive ou revue seulement, tracée en WARN, visible dans l’écran (circuit, tuile, onglet, bilan). Le bouton du panneau Opérations de la barre supérieure relève de l’écran shell (operations.center).
-
-`partiel` · écriture
+`fait` · écriture
 
 L'état d'écriture inconnu ne redevient « au repos » qu'après vérification ou revue explicite de tous les reçus en attente ; la pastille d'en-tête et le bouton du panneau Opérations comptent les reçus à vérifier, et les droits d'interface sont recalculés.
 
@@ -6267,9 +6244,7 @@ L'état d'écriture inconnu ne redevient « au repos » qu'après vérification 
 
 #### OPE-026 · Opérations à vérifier (reçus d'écriture)
 
-> Reste à faire : Pastille « N opérations à vérifier » (jamais « 0 opération »), aide de Domenia 1 et reçu le plus ancien au survol dans l’en-tête de l’écran, la tuile, l’onglet et operations.center. La pastille de la barre supérieure relève de l’écran shell (app.js).
-
-`partiel` · lecture locale
+`fait` · lecture locale
 
 Pastille d'en-tête visible seulement quand un reçu durable attend une vérification ou une revue (jamais « 0 opération »). Un clic ouvre la liste des reçus (route TabGuard) et ne rejoue rien. Tant qu'elle est visible, les nouvelles écritures restent bloquées.
 
@@ -6312,9 +6287,7 @@ Propose une fois par session de reprendre (ou abandonner, ou plus tard) un relev
 
 #### OPE-030 · Mesures de réactivité de l'interface
 
-> Reste à faire : Battement de toute l’interface, continu dès le premier affichage d’Opérations (pulse.js, startPulse). Le démarrer dès le lancement de l’application revient à l’écran shell (une ligne dans app.js).
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un battement de cœur d'une seconde mesure le retard du Dispatcher (240 derniers échantillons, p50/p95), l'attribue au travail d'interface qui l'a chevauché, et affiche dans Fiabilité le p50/p95, le nombre de tâches et l'état de l'enregistrement local.
 
@@ -6382,7 +6355,7 @@ Lignes en clair pour chaque source qui n'est pas saine : « annuaire · site X :
 
 ## Paramètres (PAR)
 
-51 fonctions : 5 faites, 9 améliorées, 37 partielles.
+51 fonctions : 7 faites, 9 améliorées, 35 partielles.
 
 ### À propos
 
@@ -6417,9 +6390,7 @@ Options : Suivre (défilement automatique), Erreurs seulement (vue lisible), ret
 
 #### PAR-004 · Densité des résultats
 
-> Reste à faire : Densité compacte, normale ou confort dans le magasin de la coque (domenia.prefs.v1, valeurs alignées sur le lot shell), appliquée aux tableaux et listes de Paramètres ; la grille du kit (createGrid) doit prendre cette densité par défaut pour les listes sans choix propre (demande au kit et à la coque).
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Deux réglages mémorisés : Confort (lignes de 36 unités) ou Compact (28 unités).
 
@@ -6450,9 +6421,7 @@ Replie le menu en icônes (68 unités au lieu de 204), choix mémorisé. Sur un 
 
 #### PAR-007 · Panneau d'aide à droite
 
-> Reste à faire : Infobulles d’aide (helpTips de la coque) et bouton « Ouvrir l’aide » raccordés à ctx.help ; la colonne de 300, la superposition sous 1 040 et le retour du focus sur « ? » sont ceux du panneau F1 de la coque (lot shell, absent de cette branche avant fusion).
-
-`partiel` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Colonne d'aide de 300 unités, à afficher ou masquer, choix mémorisé. Quand la zone utile fait moins de 1040 unités, elle s'ouvre en superposition. Sur un écran court, elle s'ouvre pour la session seulement. Le focus revient au bouton ? quand elle se ferme.
 

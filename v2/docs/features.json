@@ -5182,7 +5182,7 @@
   "operations": [],
   "safeguards": "Aucune erreur brute, charge utile ni compte stockés ; refus local (fichier) non proposé.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "CPT-002",
@@ -5399,7 +5399,7 @@
   "operations": [],
   "safeguards": "Noms seulement, jamais de secret. Une identité active ne confirme pas ses droits.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "CPT-013",
@@ -6232,7 +6232,7 @@
   ],
   "safeguards": "Aucun rejeu automatique.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REL-030",
@@ -9116,7 +9116,7 @@
   "operations": [],
   "safeguards": "",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "PST-112",
@@ -9147,7 +9147,7 @@
   "operations": [],
   "safeguards": "Aucune lecture annuaire ou poste ; cache de correspondance borné invalidé à chaque changement de session, base, instantané ou identité ; état AD inconnu laissé inconnu.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "PST-114",
@@ -9289,7 +9289,7 @@
   "operations": [],
   "safeguards": "Noms seulement, jamais de mot de passe ; mise à jour seulement quand le texte change. Aucun mot de passe affiché.",
   "improvement": "Couleur/glyphe distinct si le compte est en pause après refus.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "MAC-003",
@@ -9463,7 +9463,7 @@
   "operations": [],
   "safeguards": "Expressions régulières fixes sur un texte borné à 8192 caractères, avec un délai maximal de 100 ms. Aucun rattachement automatique à la fiche. Aucune collecte avant l'installation de la vue ni hors du Dispatcher.",
   "improvement": "Relier chaque incident à l'opération (référence de trace) qui l'a produit et proposer « ouvrir l'opération ».",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "ASS-007",
@@ -9591,7 +9591,7 @@
   ],
   "safeguards": "Lecture seule de la base, sans réseau ni identifiant ; jamais tout le domaine implicitement ; 500 postes affichés max ; 64 Mio ; secrets, BitLocker, LAPS (métadonnées incluses), secret_state, détails bruts, journaux et comptes exclus ; un dossier à la fois ; 300 s ; réponse tardive d'une autre session ignorée. Base lue en lecture seule, aucun accès réseau ni à l'annuaire. Mots de passe, BitLocker, LAPS et champs secrets exclus. Données datées, non revérifiées.",
   "improvement": "Archive ZIP chiffrée en option. Chiffrer le dossier en option (mot de passe ou certificat) pour le transport sur clé USB.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "ASS-013",
@@ -10444,7 +10444,7 @@
   ],
   "safeguards": "Revue d'impact si la définition enregistrée change ; recette et lien widget écrits ensemble ; widget installé seulement après reçu ; disposition conservée avec Undo.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REQ-040",
@@ -10623,7 +10623,7 @@
   "operations": [],
   "safeguards": "Exige des données locales de moins d'une minute et un aperçu terminé ; la sélection ne change pas silencieusement ensuite.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REQ-049",
@@ -12748,7 +12748,7 @@
   "operations": [],
   "safeguards": "",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "OPE-015",
@@ -12778,7 +12778,7 @@
   "operations": [],
   "safeguards": "Échap ou clic à côté ferme sans arrêter les opérations ; une ligne disparue ne prouve pas un résultat. Aucune donnée sensible copiée : pas de payload, de credential ni de code. Une écriture à délai dépassé est « à vérifier », jamais réussie. Le panneau se ferme par Échap ou par un clic à côté.",
   "improvement": "Ajouter un historique filtrable et persistant (opérations des 7 derniers jours) avec leurs reçus.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "OPE-016",
@@ -13005,7 +13005,7 @@
   ],
   "safeguards": "Incertitude jamais levée par le temps ou un redémarrage ; journalisée en WARN.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "OPE-026",
@@ -13026,7 +13026,7 @@
   ],
   "safeguards": "Rien n'est rejoué ; même compte que la pastille de l'en-tête. Rien n'est rejoué. Les écritures sont bloquées tant qu'un reçu est en attente.",
   "improvement": "Afficher au survol l'objet et l'opération du reçu le plus ancien.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "OPE-027",
@@ -13116,7 +13116,7 @@
   "operations": [],
   "safeguards": "Mesure indicative locale, pas un benchmark réseau ; une erreur d'affichage n'arrête jamais les reçus.",
   "improvement": "Graphique temporel des latences et seuil d'alerte.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "OPE-031",
@@ -13308,7 +13308,7 @@
   "operations": [],
   "safeguards": "Ne change ni les filtres AD ni les droits.",
   "improvement": "Appliquer la densité à toutes les grilles, pas seulement aux résultats.",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "PAR-005",
@@ -13386,7 +13386,7 @@
   "operations": [],
   "safeguards": "Un redimensionnement n'annule pas un choix volontaire.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "PAR-008",

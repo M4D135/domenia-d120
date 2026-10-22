@@ -40,6 +40,7 @@ import { statusBadge } from './shell/glyphs.js';
 import { createBoard } from './shell/board.js';
 import { beginTask, runningTasks, stopFirstTask, elapsedText } from './shell/tasks.js';
 import { installSheets } from './shell/sheets.js';
+import { startPulse } from './pages/operations/pulse.js';
 
 const root = document.documentElement;
 const NBSP = ' ';
@@ -407,9 +408,14 @@ function trackedCall(op, args) {
 
 let lastActivity = null;
 function refreshActivity() {
-  return quietCall('shell.activity').then((a) => {
+  return quietCall('shell.activity').then(async (a) => {
     lastActivity = a;
-    paintActivity(a);
+    // OPE-025, OPE-026: while a receipt waits, the button says « N opérations à vérifier » and the oldest one on hover.
+    let pill = null;
+    if ((a?.receipts?.pending ?? 0) > 0) {
+      try { pill = (await quietCall('operations.center'))?.pill ?? null; } catch { pill = null; }
+    }
+    paintActivity(a, pill);
     return a;
   });
 }
@@ -419,7 +425,7 @@ function scheduleActivity() {
   activityTimer = setTimeout(() => refreshActivity().catch((err) => console.warn(err)), 1500);
 }
 
-function paintActivity(a) {
+function paintActivity(a, pill = null) {
   const slot = document.querySelector('.sh-slot-activity');
   if (!slot) return;
   const counter = slot.querySelector('.sh-counter');
@@ -430,7 +436,8 @@ function paintActivity(a) {
   slot.classList.toggle('pending', (a?.receipts?.pending ?? 0) > 0);
   const button = slot.querySelector('.sh-activity');
   const shortcut = button.dataset.tipShortcut ?? '';
-  button.dataset.tip = a ? `Opérations de la session${NBSP}: ${a.detail}${shortcut}` : `Opérations de la session${shortcut}`;
+  const pending = pill?.visible ? `${pill.text}${pill.oldest ? ` · plus ancien${NBSP}: ${pill.oldest.label} · ${pill.oldest.target}` : ''}` : '';
+  button.dataset.tip = pending ? `${pending}${shortcut}` : a ? `Opérations de la session${NBSP}: ${a.detail}${shortcut}` : `Opérations de la session${shortcut}`;
   button.setAttribute('aria-label', a?.active ? `Opérations de la session${NBSP}: ${a.detail}` : 'Opérations de la session');
 }
 
@@ -493,6 +500,10 @@ function boot() {
     return null;
   });
   trackedCall('session.info').then(showConnection).catch((err) => console.error(err));
+  // CPT-007: « Changer de compte » (Comptes) announces the new session; the top bar reads it again (badge, account, rights).
+  window.addEventListener('domenia:session-changed', () => { quietCall('session.info').then(showConnection).catch((err) => console.error(err)); refreshActivity().catch(() => {}); });
+  // OPE-030: the heartbeat of the interface runs from the start of the application, not only once Opérations is shown.
+  startPulse();
   trackedCall('shell.interface.get').then((snapshot) => {
     const first = !snapshot?.interface || !Object.keys(snapshot.interface).length;
     adoptEngine(snapshot, true);
@@ -638,6 +649,8 @@ function boot() {
   function applyPrefsToShell() {
     applyNavWidth();
     document.querySelector('.sh-help-dot').hidden = !!state.prefs.helpIntroSeen;
+    // PAR-004: the density of the interface is the default of every list of the kit without a choice of its own.
+    document.documentElement.dataset.density = state.prefs.density ?? 'normal';
   }
   on('prefs', applyPrefsToShell);
   on('prefs-warning', (text) => notify(text, { tone: 'warn', key: 'prefs-warning' }));

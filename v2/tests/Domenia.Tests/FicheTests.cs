@@ -175,8 +175,8 @@ internal static class FicheTests
     [Test]
     public static void Readable_paths_and_dn_comparison()
     {
-        Check.Equal("example.local › Utilisateurs › Lyon", FicheValues.ReadablePath("CN=Camille,OU=Lyon,OU=Utilisateurs," + Root), "chemin lisible sans l’objet");
-        Check.Equal("example.local › Utilisateurs › Lyon › Camille", FicheValues.ReadablePath("CN=Camille,OU=Lyon,OU=Utilisateurs," + Root, includeSelf: true), "avec l’objet");
+        Check.Equal("example.local\u00A0› Utilisateurs\u00A0› Lyon", FicheValues.ReadablePath("CN=Camille,OU=Lyon,OU=Utilisateurs," + Root), "chemin lisible sans l’objet");
+        Check.Equal("example.local\u00A0› Utilisateurs\u00A0› Lyon\u00A0› Camille", FicheValues.ReadablePath("CN=Camille,OU=Lyon,OU=Utilisateurs," + Root, includeSelf: true), "avec l’objet");
         Check.True(FicheValues.SameDn("cn=camille,ou=lyon," + Root.ToLowerInvariant(), "CN=Camille,OU=Lyon," + Root), "casse ignorée");
         Check.False(FicheValues.SameDn("CN=Camille", null), "absent : jamais égal");
     }
@@ -199,7 +199,7 @@ internal static class FicheTests
         var identity = sheet.GetProperty("identity");
         Check.Equal("user", identity.GetProperty("kind").GetString(), "type");
         Check.Equal(camille.ObjectGuid.ToString("D"), identity.GetProperty("guid").GetString(), "GUID");
-        Check.Equal("example.local › Utilisateurs › Lyon › Commercial", identity.GetProperty("path").GetString(), "chemin lisible");
+        Check.Equal("example.local\u00A0› Utilisateurs\u00A0› Lyon\u00A0› Commercial", identity.GetProperty("path").GetString(), "chemin lisible");
         Check.True(Strings(sheet.GetProperty("tabs"), "id").SequenceEqual(["general", "compte", "groupes", "relations", "droits", "attributs", "historique", "appel"]), "onglets d’un utilisateur");
         Check.True(Strings(sheet.GetProperty("states"), "id").Contains("locked"), "Camille est verrouillée dans le monde simulé");
         Check.True(sheet.GetProperty("band").GetProperty("unlock").GetBoolean(), "bandeau : déverrouiller");

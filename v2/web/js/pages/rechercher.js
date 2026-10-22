@@ -1016,6 +1016,14 @@ export function render(main, ctx) {
       bar.setMatch(match);
       if (p.portee) { await choose(p.portee); bar.setScope('ou'); }
       await search({ text: q, scope: p.portee ?? null, type, match, limit });
+    } else if (p.requete === 'selection') {
+      // REQ-048: the frozen selection of the query workshop (GUID, date, fingerprint), read in the memory of the session, shown
+      // from the local data only; nothing is read on the network.
+      let selection = null;
+      try { selection = await ctx.call('requetes.search.selection'); } catch (err) { console.warn(err); }
+      if (!alive) return;
+      if (selection?.ids?.length) await list('search.selection', { ids: selection.ids, label: selection.recipeName || 'Requête', at: selection.at }, 'Sélection de l’atelier de requêtes…');
+      else toast(`Aucune sélection figée dans cette session${COLON}figez d’abord les correspondants depuis l’aperçu de l’atelier de requêtes.`, { tone: 'info', life: 6000 });
     } else if (p.requete) {
       await choose(p.ou);
       await runLocalQuery(p.requete.startsWith('local.') ? p.requete : `local.${p.requete}`, { verdict: p.verdict ?? 'match', dn: p.ou ?? null, subtree: p.sousou !== '0', wholeDomain: p.domaine === '1', limit });

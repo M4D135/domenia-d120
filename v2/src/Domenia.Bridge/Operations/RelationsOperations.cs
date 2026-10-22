@@ -145,7 +145,9 @@ public sealed partial class RelationsOperations : IOperationModule
                 var stop = probes.Start(planId) ?? throw new DomeniaOperationException(RelationErrors.ProbeBusy, RelationErrors.ProbeBusyMessage);
                 try
                 {
-                    return await readers.Require<IRelationsReader>().ProbeAsync(planId, new Publisher(bridge), stop.Token, ct).ConfigureAwait(false);
+                    var detection = await readers.Require<IRelationsReader>().ProbeAsync(planId, new Publisher(bridge), stop.Token, ct).ConfigureAwait(false);
+                    ReportRefusals(context, detection);
+                    return detection;
                 }
                 finally
                 {
@@ -487,7 +489,26 @@ public sealed partial class RelationsOperations : IOperationModule
     {
         public void Report(RelationProbeProgress value) => bridge.Publish("progress", value);
     }
-}
 
-/// <summary>Answer of relations.detect.stop.</summary>
-public sealed record RelationStopAnswer(bool Stopping, string Message);
+    /// <summary>
+    /// REL-029 (Domenia 1 « Reprise d’accès »): every workstation that refused the console read, or rejected the credentials of
+    /// the session, opens one access to review in Comptes (AccountAccess.RegisterRefusal: the workstation account, this
+    /// workstation); a rejected authentication also pauses the account in use. Nothing is retried: the operator chooses another
+    /// account there, then relaunches the detection.
+    /// </summary>
+    private static void ReportRefusals(EngineContext context, RelationDetection detection)
+    {
+        var refused = detection.Attempts.Where(a => a.Target is not null
+            && (string.Equals(a.Status, "REFUSE", StringComparison.OrdinalIgnoreCase) || string.Equals(a.Status, RelationProbeLoop.AuthRejected, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (refused.Count == 0)
+        {
+            return;
+        }
+        var access = AccountAccess.From(context);
+        foreach (var attempt in refused.Take(16))
+        {
+            var kind = string.Equals(attempt.Status, RelationProbeLoop.AuthRejected, StringComparison.OrdinalIgnoreCase) ? "badCredentials" : "accessDenied";
+            access.RegisterRefusal(CredentialRules.Remote, "relations.detect.run", attempt.Target, kind, null, interactive: true);
+        }
+    }
+}

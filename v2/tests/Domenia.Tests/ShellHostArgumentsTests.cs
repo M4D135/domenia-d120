@@ -24,9 +24,9 @@ internal static class ShellHostArgumentsTests
         Check.Equal("#101b2c", ok.Caption, "légende");
         var minimal = ShellHostArguments.Chrome(Json("""{"dark":false,"writeActive":false}"""));
         Check.Null(minimal.Caption, "couleurs facultatives");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Chrome(Json("{\"title\":\"" + new string('x', ShellTexts.MaxTitleLength * 2 + 1) + "\",\"dark\":false,\"writeActive\":false}")), "titre trop long"), "titre borné");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Chrome(Json("""{"dark":false,"writeActive":false,"caption":"Canvas"}""")), "couleur système"), "couleur #rrggbb seulement");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Chrome(Json("""{"dark":false,"writeActive":false,"other":1}""")), "argument inconnu"), "argument inconnu refusé");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Chrome(Json("{\"title\":\"" + new string('x', ShellTexts.MaxTitleLength * 2 + 1) + "\",\"dark\":false,\"writeActive\":false}")), "titre trop long"), "titre borné");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Chrome(Json("""{"dark":false,"writeActive":false,"caption":"Canvas"}""")), "couleur système"), "couleur #rrggbb seulement");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Chrome(Json("""{"dark":false,"writeActive":false,"other":1}""")), "argument inconnu"), "argument inconnu refusé");
     }
 
     [Test]
@@ -44,17 +44,17 @@ internal static class ShellHostArgumentsTests
         var placed = ShellHostArguments.Save(Json("""{"kind":"json","name":"d","text":"{}","target":{"folder":"C:\\Users\\x\\Documents","fileName":"disposition.json","replace":{"size":12,"at":"2026-10-22T09:05:00.123Z"}}}"""));
         Check.Equal("disposition.json", placed.Target!.FileName, "emplacement choisi");
         Check.Equal(12L, placed.Target.Replace!.Size, "signature du fichier à remplacer");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"xml","name":"x"}""")), "nature inconnue"), "nature fermée");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("{\"kind\":\"csv\",\"name\":\"" + new string('n', 81) + "\",\"text\":\"a\"}")), "nom trop long"), "nom de 80 caractères au plus");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{"}""")), "JSON invalide"), "JSON vérifié");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x"}""")), "texte manquant"), "texte obligatoire en JSON");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","text":"a","headers":["a"],"rows":[]}""")), "texte et tableau"), "une seule forme de CSV");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[["1","2"]]}""")), "ligne trop longue"), "cellules bornées par les en-têtes");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[[{"x":1}]]}""")), "objet dans une cellule"), "cellule simple seulement");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[],"secretColumns":[3]}""")), "colonne secrète hors bornes"), "colonne secrète existante");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"Documents","fileName":"a.json"}}""")), "dossier relatif"), "chemin complet exigé");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"C:\\x","fileName":"a.csv"}}""")), "extension d’une autre nature"), "nom de la nature");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"C:\\x","fileName":"a.json","replace":{"size":1,"at":"hier"}}}""")), "date illisible"), "date ISO exigée");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"xml","name":"x"}""")), "nature inconnue"), "nature fermée");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("{\"kind\":\"csv\",\"name\":\"" + new string('n', 81) + "\",\"text\":\"a\"}")), "nom trop long"), "nom de 80 caractères au plus");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{"}""")), "JSON invalide"), "JSON vérifié");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x"}""")), "texte manquant"), "texte obligatoire en JSON");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","text":"a","headers":["a"],"rows":[]}""")), "texte et tableau"), "une seule forme de CSV");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[["1","2"]]}""")), "ligne trop longue"), "cellules bornées par les en-têtes");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[[{"x":1}]]}""")), "objet dans une cellule"), "cellule simple seulement");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"csv","name":"x","headers":["a"],"rows":[],"secretColumns":[3]}""")), "colonne secrète hors bornes"), "colonne secrète existante");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"Documents","fileName":"a.json"}}""")), "dossier relatif"), "chemin complet exigé");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"C:\\x","fileName":"a.csv"}}""")), "extension d’une autre nature"), "nom de la nature");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Save(Json("""{"kind":"json","name":"x","text":"{}","target":{"folder":"C:\\x","fileName":"a.json","replace":{"size":1,"at":"hier"}}}""")), "date illisible"), "date ISO exigée");
         Check.True(json.SecretColumns.Count == 0, "aucune colonne secrète en JSON");
     }
 
@@ -62,16 +62,16 @@ internal static class ShellHostArgumentsTests
     public static void Picker_paths_pages_and_boards_are_bounded()
     {
         Check.Equal((null as string, "all"), ShellHostArguments.Browse(Json("""{"filter":"all"}""")), "emplacements de départ");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Browse(Json("""{"filter":"exe"}""")), "filtre"), "filtre fermé");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Browse(Json("{\"folder\":\"" + new string('a', 1025) + "\",\"filter\":\"all\"}")), "chemin long"), "1 024 caractères au plus");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Share(Json("""{"filter":"csv"}""")), "partage sans dossier"), "dossier exigé pour un partage");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Browse(Json("""{"filter":"exe"}""")), "filtre"), "filtre fermé");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Browse(Json("{\"folder\":\"" + new string('a', 1025) + "\",\"filter\":\"all\"}")), "chemin long"), "1 024 caractères au plus");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Share(Json("""{"filter":"csv"}""")), "partage sans dossier"), "dossier exigé pour un partage");
         Check.Equal(("C:\\x.csv", "csv"), ShellHostArguments.Read(Json("""{"path":"C:\\x.csv","kind":"csv"}""")), "lecture");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Read(Json("""{"path":"C:\\x.csv","kind":"all"}""")), "nature de lecture"), "csv ou json");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Read(Json("""{"path":"C:\\x.csv","kind":"all"}""")), "nature de lecture"), "csv ou json");
         Check.Equal("accueil", ShellHostArguments.Page(Json("""{"page":"accueil"}""")), "écran");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Page(Json("""{"page":"../x"}""")), "écran invalide"), "nom d’écran");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Page(Json("""{"page":"../x"}""")), "écran invalide"), "nom d’écran");
         Check.Equal("Interface", ShellHostArguments.Board(Json("""{"board":"Interface"}""")), "tableau");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.Board(Json("""{"board":"interface"}""")), "tableau en minuscules"), "nom de tableau de Domenia 1");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.Board(Json("""{"board":"interface"}""")), "tableau en minuscules"), "nom de tableau de Domenia 1");
         Check.Null(ShellHostArguments.ExportFileName(Json("""{"fileName":null}""")), "dossier seul");
-        Check.Equal("argument.invalid", Refusal(() => ShellHostArguments.ExportFileName(Json("""{"fileName":"..\\notes.txt"}""")), "nom hors export"), "nom d’export seulement");
+        Check.Equal("arguments.invalid", Refusal(() => ShellHostArguments.ExportFileName(Json("""{"fileName":"..\\notes.txt"}""")), "nom hors export"), "nom d’export seulement");
     }
 }

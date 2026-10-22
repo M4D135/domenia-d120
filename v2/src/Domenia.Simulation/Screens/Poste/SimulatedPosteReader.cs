@@ -32,7 +32,7 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ["10.0.0.0/8"],
         300,
         PosteRemote.RestartMinutes,
-        SimulationProfile.NetbiosName + "\\adm-" + SimulationProfile.SessionLogin,
+        SimulationProfile.NetbiosName + "\\" + SimulationProfile.SessionLogin,
         [
             new SuiteTool("pesto", "Pesto", false, "Chemin de Pesto non configuré (Suite.Pesto) : rien n’est lancé en simulation.", PosteRemote.SuiteFields),
             new SuiteTool("filpro", "FILPRO", false, "Chemin de FILPRO non configuré (Suite.FilPro) : rien n’est lancé en simulation.", PosteRemote.SuiteFields),

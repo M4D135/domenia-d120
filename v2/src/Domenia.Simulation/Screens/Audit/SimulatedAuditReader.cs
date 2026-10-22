@@ -923,7 +923,7 @@ public sealed class SimulatedAuditReader : IAuditReader
                 result[c.ObjectGuid] = pool[random.Next(pool.Count)];
             }
         }
-        if (SessionWorkstation(index) is { } own && index.UsersBySam.TryGetValue(SimulationProfile.SessionLogin, out var sessionUser))
+        if (SessionWorkstation(index) is { } own && index.UsersBySam.TryGetValue(SimulationProfile.PersonLogin, out var sessionUser))
         {
             result[own.ObjectGuid] = sessionUser;
         }
@@ -937,7 +937,7 @@ public sealed class SimulatedAuditReader : IAuditReader
     /// </summary>
     private DirectoryComputer? SessionWorkstation(Index index)
     {
-        if (!index.UsersBySam.TryGetValue(SimulationProfile.SessionLogin, out var user) || !Active(user))
+        if (!index.UsersBySam.TryGetValue(SimulationProfile.PersonLogin, out var user) || !Active(user))
         {
             return null;
         }

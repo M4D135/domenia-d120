@@ -39,7 +39,7 @@ internal static class SyncRulesTests
     [Test]
     public static void Locations_are_readable_paths()
     {
-        Check.Equal("Postes › Lyon", SyncLocations.Location("CN=PC1," + Lyon), "emplacement lisible");
+        Check.Equal("Postes\u00A0› Lyon", SyncLocations.Location("CN=PC1," + Lyon), "emplacement lisible");
         Check.Equal(SyncLocations.RootLocation, SyncLocations.Location("CN=PC1," + Root), "directement sous la racine");
         Check.Equal("", SyncLocations.Location("CN=Seul"), "trop court");
         Check.Equal("Le Gall, Anne", SyncLocations.Name("CN=Le Gall\\, Anne," + Lyon), "valeur déséchappée");
@@ -82,7 +82,7 @@ internal static class SyncRulesTests
         Check.Contains("GUID", elsewhere.Detail, "identité conservée");
         var deleted = SyncAbsences.Resolve(absence, new AbsenceCheck(DomainRead.Read, null, DeletedProbe.Read, true, Now - TimeSpan.FromDays(2), Lyon, true, null), Zone);
         Check.Equal(AbsenceStatus.Deleted, deleted.Status, "isDeleted lu : suppression constatée");
-        Check.Contains("Postes › Lyon", deleted.Detail, "dernier parent");
+        Check.Contains("Postes\u00A0› Lyon", deleted.Detail, "dernier parent");
         Check.Contains("recyclé", deleted.Detail, "objet recyclé");
         Check.Equal(AbsenceStatus.NotFound, SyncAbsences.Resolve(absence, new AbsenceCheck(DomainRead.Read, null, DeletedProbe.Read, false, null, null, false, null), Zone).Status, "introuvable");
         Check.Equal(AbsenceStatus.Invisible, SyncAbsences.Resolve(absence, new AbsenceCheck(DomainRead.Read, null, DeletedProbe.Empty, false, null, null, false, null), Zone).Status, "objets supprimés invisibles");
@@ -227,7 +227,7 @@ internal static class SyncRulesTests
         Check.Contains("431 actifs · 23 désactivés", tiles[1].Detail, "postes actifs et désactivés");
         Check.Equal(300, tiles[2].Parts[0].Count, "postes avec utilisateur");
         Check.Equal(154, tiles[2].Parts[1].Count, "postes sans utilisateur");
-        Check.Equal("il y a 12 min", tiles[3].Value, "âge de la dernière lecture");
+        Check.Equal("il y a 12\u00A0min", tiles[3].Value, "âge de la dernière lecture");
         Check.True(tiles[3].Gauge is > 0.99 and <= 1, "jauge de fraîcheur pleine après 12 min");
         var old = SyncCoverageRules.Tiles(new SyncCoverageRules.TileCounts(1, 0, 1, 0, 0, 0), Now - TimeSpan.FromDays(10), Now, Zone, 7)[3];
         Check.Equal(0.0, old.Gauge ?? -1, "au-delà du seuil, jauge vide");
@@ -618,10 +618,10 @@ internal static class SyncRulesTests
         var after = Snapshot(new string('b', 32), "Après", Now, [a with { Dn = "CN=PC-A," + Paris, Description = "y" }, SnapshotLine.From(Row("PC-N"))]);
         var report = SyncSnapshots.Compare(before, after, Zone);
         var move = report.Rows.Single(r => r.Nature == SnapshotDiffNature.Moved);
-        Check.Equal("Postes › Lyon", move.Before, "avant : emplacement lisible");
-        Check.Equal("Postes › Paris", move.After, "après : emplacement lisible");
+        Check.Equal("Postes\u00A0› Lyon", move.Before, "avant : emplacement lisible");
+        Check.Equal("Postes\u00A0› Paris", move.After, "après : emplacement lisible");
         Check.Equal("CN=PC-A," + Paris, move.AfterDn, "DN gardé pour l’export");
-        Check.Equal("Postes › Lyon", report.Rows.Single(r => r.Nature == SnapshotDiffNature.Added).After, "ajout : emplacement");
+        Check.Equal("Postes\u00A0› Lyon", report.Rows.Single(r => r.Nature == SnapshotDiffNature.Added).After, "ajout : emplacement");
         Check.Equal(3, report.Counts.Distinct, "objets distincts : communs, ajouts, disparitions");
         Check.Contains("3 objets distincts", report.Headline, "titre de la comparaison");
         Check.Contains("se recouvrent", report.Overlap, "un objet déplacé et modifié est expliqué");

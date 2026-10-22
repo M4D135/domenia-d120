@@ -21,6 +21,7 @@ public sealed partial class SearchOperations : IOperationModule
     private static readonly string[] ArgsIdDnSubtreeWholeDomainLimit = ["id", "dn", "subtree", "wholeDomain", "limit"];
     private static readonly string[] ArgsIdDnSubtreeVerdictLimit = ["id", "dn", "subtree", "verdict", "limit"];
     private static readonly string[] ArgsListIdLimit = ["listId", "limit"];
+    private static readonly string[] ArgsSelection = ["ids", "label", "at"];
     private static readonly string[] ArgsTextType = ["text", "type"];
     private static readonly string[] ArgsId = ["id"];
     private static readonly string[] ArgsIds = ["ids"];
@@ -101,6 +102,21 @@ public sealed partial class SearchOperations : IOperationModule
                 }
                 return await service.ViewAsync(id, dn, BridgeArguments.GetBoolean(values, "subtree"), wholeDomain, Limit(values), ct).ConfigureAwait(false);
             }, "Vue prête à l’emploi sur l’OU choisie (ou, explicitement, sur tout le domaine)."),
+
+            // REQ-048: the frozen selection of the query workshop (requetes.search.selection, read by the page), shown as a list
+            // read from the local data only; 5 000 objects at most, never continued.
+            new OperationDefinition("search.selection", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ArgsSelection);
+                var label = BridgeArguments.GetString(values, "label").Trim();
+                if (label.Length is 0 or > 120)
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("label") + " est le nom de la requête (1 à 120 caractères).");
+                }
+                var at = BridgeArguments.GetOptionalString(values, "at") is { } text && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed)
+                    ? parsed : context.Clock.GetUtcNow();
+                return await service.SelectionAsync(Ids(values, "ids", 1, SearchLimits.MaxLimit), label, at, ct).ConfigureAwait(false);
+            }, "Sélection figée de l’atelier de requêtes, lue dans les données locales (5 000 objets au plus)."),
 
             new OperationDefinition("search.localQuery", OperationClass.LocalRead, async (args, _, ct) =>
             {

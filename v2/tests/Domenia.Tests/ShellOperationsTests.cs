@@ -48,8 +48,8 @@ internal static class ShellOperationsTests
 
         var again = await ResultAsync(bridge, "shell.interface.get");
         Check.Equal("dark", again.GetProperty("interface").GetProperty("theme").GetString(), "relu");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.interface.set", "{\"interface\":3}"), "objet attendu");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.interface.set", "{\"other\":{}}"), "argument inconnu");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.interface.set", "{\"interface\":3}"), "objet attendu");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.interface.set", "{\"other\":{}}"), "argument inconnu");
     }
 
     [Test]
@@ -143,7 +143,7 @@ internal static class ShellOperationsTests
         var userDn = user.GetProperty("items")[0].GetProperty("dn").GetString()!;
         var notOu = await ResultAsync(bridge, "shell.ou.resolve", JsonSerializer.Serialize(new { dn = userDn }));
         Check.Equal("missing", notOu.GetProperty("state").GetString(), "un compte n’est pas une OU");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.ou.resolve", "{\"dn\":\"pas un DN\"}"), "DN vérifié");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.ou.resolve", "{\"dn\":\"pas un DN\"}"), "DN vérifié");
         var ous = await ResultAsync(bridge, "shell.lookup", "{\"text\":\"p\",\"kinds\":[\"ou\"]}");
         Check.True(ous.GetProperty("items").GetArrayLength() <= ShellOperations.LookupLimit, "recherche d’OU : 100 au plus");
     }
@@ -159,13 +159,13 @@ internal static class ShellOperationsTests
         var nested = await ResultAsync(bridge, "shell.fault", "{\"kind\":\"nested\",\"route\":\"shell\",\"count\":2,\"place\":null}");
         Check.Equal(2, nested.GetProperty("total").GetInt32(), "erreurs imbriquées comptées");
         Check.True(bridge.Log.Lines.Any(l => l.Contains("(board.copy)", StringComparison.Ordinal)), "endroit du code au journal");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"swallowed\",\"route\":\"shell\",\"count\":1,\"place\":\"mot de passe=x\"}"), "endroit : identifiant seulement");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"swallowed\",\"route\":\"shell\",\"count\":1,\"place\":\"mot de passe=x\"}"), "endroit : identifiant seulement");
         var metric = await ResultAsync(bridge, "shell.metric", "{\"kind\":\"sheet\",\"route\":\"shell\",\"count\":2,\"milliseconds\":4200}");
         Check.True(metric.GetProperty("traced").GetBoolean(), "temps bloqué tracé");
         Check.Equal(2, metric.GetProperty("panels").GetInt32(), "panneaux");
         Check.Equal(4200L, metric.GetProperty("totalMilliseconds").GetInt64(), "durée");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"other\",\"route\":\"shell\",\"count\":1,\"milliseconds\":1}"), "nature fermée");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"sheet\",\"route\":\"shell\",\"count\":1,\"milliseconds\":-1}"), "durée positive");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"other\",\"route\":\"shell\",\"count\":1,\"milliseconds\":1}"), "nature fermée");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"sheet\",\"route\":\"shell\",\"count\":1,\"milliseconds\":-1}"), "durée positive");
         Check.True(bridge.Log.Lines.Any(l => l.Contains("panneau(x) modal(aux)", StringComparison.Ordinal)), "ligne du journal technique");
     }
 
@@ -173,11 +173,11 @@ internal static class ShellOperationsTests
     public static async Task Lookup_arguments_are_checked_before_any_read()
     {
         var bridge = new SimulatedBridge();
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"a\",\"kinds\":[\"user\"]}"), "un caractère");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"" + new string('a', 161) + "\",\"kinds\":[\"user\"]}"), "trop long");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"ab\",\"kinds\":[\"group\"]}"), "nature inconnue");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.lookup.verify", "{\"dn\":\"pas un DN\",\"objectGuid\":\"00000000-0000-0000-0000-000000000000\"}"), "DN invalide");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.lookup.verify", "{\"dn\":\"" + Root + "\",\"objectGuid\":\"x\"}"), "GUID invalide");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"a\",\"kinds\":[\"user\"]}"), "un caractère");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"" + new string('a', 161) + "\",\"kinds\":[\"user\"]}"), "trop long");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.lookup", "{\"text\":\"ab\",\"kinds\":[\"group\"]}"), "nature inconnue");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.lookup.verify", "{\"dn\":\"pas un DN\",\"objectGuid\":\"00000000-0000-0000-0000-000000000000\"}"), "DN invalide");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.lookup.verify", "{\"dn\":\"" + Root + "\",\"objectGuid\":\"x\"}"), "GUID invalide");
         var ouOnly = await ResultAsync(bridge, "shell.lookup", "{\"text\":\"p\",\"kinds\":[\"ou\"]}");
         Check.True(ouOnly.GetProperty("items").EnumerateArray().All(i => i.GetProperty("kind").GetString() == "ou"), "un caractère suffit pour les OU");
     }
@@ -214,9 +214,9 @@ internal static class ShellOperationsTests
         var third = await ResultAsync(bridge, "shell.fault", "{\"kind\":\"error\",\"route\":\"accueil\",\"count\":1}");
         Check.True(third.GetProperty("traced").GetBoolean(), "une minute après : nouvelle ligne");
         Check.True(bridge.Log.Lines.Any(l => l.Contains("3 autre(s) depuis la ligne précédente", StringComparison.Ordinal)), "occurrences silencieuses annoncées");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"message\",\"route\":\"accueil\",\"count\":1}"), "nature fermée");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"error\",\"route\":\"Mot de passe=x\",\"count\":1}"), "écran seulement, jamais un texte");
-        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"error\",\"route\":\"accueil\",\"count\":0}"), "nombre borné");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"message\",\"route\":\"accueil\",\"count\":1}"), "nature fermée");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"error\",\"route\":\"Mot de passe=x\",\"count\":1}"), "écran seulement, jamais un texte");
+        Check.Equal("arguments.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"error\",\"route\":\"accueil\",\"count\":0}"), "nombre borné");
     }
 
     [Test]

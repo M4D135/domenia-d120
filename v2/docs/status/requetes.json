@@ -14,10 +14,12 @@
     "REQ-033",
     "REQ-035",
     "REQ-038",
+    "REQ-039",
     "REQ-040",
     "REQ-043",
     "REQ-044",
     "REQ-047",
+    "REQ-048",
     "REQ-049",
     "REQ-050",
     "REQ-052",
@@ -73,20 +75,13 @@
     {
       "id": "REQ-034",
       "reste": "Fait : bibliothèque dans son propre fichier par domaine (verrou machine, relecture sous le verrou, révision vérifiée sur le disque, écriture atomique, reçu « relue » seulement après relecture du disque, 16 Mio et 5 000 requêtes, enregistrements illisibles conservés), brouillon repris avec sa révision, brouillon modifié pendant l’écriture jamais écrasé. Reste : la migration de la bibliothèque SQLite de Domenia 1 (domenia_query_recipes, révisions, provenance, dépendances) passe par Domenia.Store (vague 3) ; d’ici là, un pack exporté par Domenia 1 s’importe sans perte (examen, provenance, point de restauration)."
-    },
-    {
-      "id": "REQ-039",
-      "reste": "Fait : recette et widget dans la même écriture, revue d’impact exigée par le moteur (jamais de migration imposée), plan de collecte ouvert aussitôt le widget ajouté (confirmé avant toute lecture), requetes.widget.evaluate (révision liée, chiffres, répartition, verdict d’un poste) et aperçu vivant des widgets dans l’atelier. Reste : l’affichage sur l’Accueil et la Fiche, écrans d’autres lots, qui liront requetes.widget.list puis requetes.widget.evaluate (docs/ops/requetes.md § 6.4)."
-    },
-    {
-      "id": "REQ-048",
-      "reste": "Fait : sélection figée des correspondants (GUID, date, empreinte, inconnus exclus), puis ouverture de Rechercher comme Domenia 1 (#/rechercher?requete=selection), favoris déclarables par requetes.consumer.bind. Reste : l’écran Rechercher (autre lot) doit lire requetes.search.selection pour filtrer ses résultats ; la sélection reste en mémoire de session, comme dans Domenia 1."
     }
   ],
   "notes": [
     "Relève OpenCode (22/10/2026) : le commit wip(requetes) de l’agent précédent (réponse au tour 1 : bibliothèque dans son propre fichier par domaine à écriture atomique, widget lié après revue d’impact, brouillon repris avec sa révision, négations LDAP fidèles au contrôleur, exports préparés par le moteur sans aller-retour par la page, company retiré de l’évaluateur, aide des cmdlets, confirmation des lectures WMI, « Utiliser » désactivé sur une archive, aperçu ouvert sur les correspondants avec filtre et tri côté moteur, h1) compile sans erreur et a été vérifié par sondage dans le code.",
     "Nettoyage : journaux de compilation .tmp-oc retirés de la branche (outillage de l’agent précédent, hors v2).",
     "Fichiers partagés modifiés par ce lot (à revoir à l’intégration) : OPERATIONS.md et PLATFORM.md (classe des fichiers d’export, opérations servies en simulation, renvoi vers docs/ops/requetes.md).",
-    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés."
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés.",
+    "Intégration (22/10) : widgets affichés sur l’Accueil (tableau général) et sur le Poste (tableau du poste), composant requetes/board-widgets.js (REQ-039) ; Rechercher lit la sélection figée (search.selection, REQ-048)."
   ]
 }

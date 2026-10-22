@@ -41,7 +41,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
 | **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **terminés** (§ 4) : les 14 écrans |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | **fait** (`c7b9d09`, § 4) : 14 fusions `--no-ff`, collisions de noms résolues, statuts appliqués (462 faites, 216 améliorées, 90 partielles, 224 à faire, 1 abandonnée), Debug et Release : 0 erreur, 0 avertissement ; branchements de la coque restants (§ 4) |
-| Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
+| Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | **en cours** (§ 4 bis) : source du mode annuaire, connexion LDAP, lecteurs et écritures des comptes, base SQLite (winsqlite3), mesures des postes |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
 | Pack final et release GitHub | à faire |
 
@@ -141,6 +141,24 @@ Une nouvelle critique suit : on boucle jusqu'à ce qu'il ne manque plus rien.
 comptes, relations, poste, assistance, requetes, audit, schema, synchro, operations, parametres ; statuts appliqués à
 `features.json` et `FEATURES.md` ; `vm.sh main build` Debug et Release ; commit et push. Reste : retirer les arbres de
 travail (après accord, voir les suites).
+
+## 4 bis. Vague 3 : mode annuaire (en cours, relève OpenCode, 22/10)
+
+Demande de David (22/10) : « finis tout le code et tout le dev entièrement, commit, push, puis test VM » et « fais bosser le
+Spark pour économiser tes tokens, tâches multiples ». Le Spark rédige des premiers jets (prompts et réponses dans le dossier
+temporaire de la relève, `spark/*.md`, `*.out`), la relève fixe les contrats, intègre, compile et vérifie.
+
+- Contrats posés par la relève : `Domenia.Ad/Ldap/AdContracts.cs` (`IAdConnection`, `AdEntry`, `AdErrors`…),
+  `Domenia.Ad/AdDirectorySource.cs` (source du mode annuaire : connexion paresseuse, session, image de l’annuaire relue à la
+  demande, présence et inventaire léger de l’OU de travail), `Domenia.Core/Fleet/IWorkstationProbe.cs`,
+  `Domenia.Ad/Screens/AdDirectoryTreeReader.cs` (arbre des OU). `Composition.cs` crée `AdDirectorySource` en mode annuaire.
+- Premiers jets demandés au Spark : connexion LDAP (System.DirectoryServices.Protocols), lecture du domaine et de l’annuaire
+  (`AdDirectoryReader`, `AdDirectoryMapper`), écritures des comptes (déverrouiller, activer, désactiver, expiration,
+  changement exigé, réinitialisation), base SQLite par `winsqlite3.dll` au schéma 11 de Domenia 1, sonde des postes
+  (ping, WMI léger), portage des lecteurs Schéma, Comptes, Accueil, Comptes machine, puis Fiche et Rechercher.
+- Restent ensuite : lecteurs Audit, Relations, Synchronisation, Poste (WMI complet), Requêtes (collecte), Assistance,
+  Opérations, Paramètres (stockage SQLite), écritures de la Fiche et du Poste en mode annuaire, persistance de l’image de
+  l’annuaire dans la base locale, puis les tests en VM (suite C#, E2E simulation et annuaire sur `cnamts.local`).
 
 ## 5. Règles techniques
 
