@@ -21,6 +21,6 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:16. Ce fic
 | 02-ad-accueil-rechercher | running | 3 |  | relance : la première tentative n’avait rien produit |
 | 03-ad-fiche-comptes | running | 2 | FAIL | relance après échec de vérification |
 | 04-ad-relations-poste | pending | 1 | FAIL | relance après échec de vérification |
-| 05-ad-requetes-audit-schema | delegue | 0 |  | confiée à la relève OpenCode (API Claude), PROMPT-GUI-2, branche gui/05-ad-requetes-audit-schema |
-| 06-store-synchro | delegue | 0 |  | confiée à la relève OpenCode (API Claude), PROMPT-GUI-2, branche gui/06-store-synchro |
-| 07-ops-assist-param | delegue | 0 |  | confiée à la relève OpenCode (API Claude), PROMPT-GUI-2, branche gui/07-ops-assist-param |
+| 05-ad-requetes-audit-schema | pending | 0 |  |  |
+| 06-store-synchro | pending | 0 |  |  |
+| 07-ops-assist-param | pending | 0 |  |  |
