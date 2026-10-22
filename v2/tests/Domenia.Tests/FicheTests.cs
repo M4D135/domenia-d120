@@ -701,7 +701,10 @@ internal static class FicheTests
         ScriptedPasswordWindow.Reset(_ => null);
         Check.Equal(FicheErrors.Cancelled, await ErrorAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = false }), "fenêtre fermée : rien n’est préparé");
 
-        var admin = bridge.Source.CurrentDirectory.Users.FirstOrDefault(u => u.AdminCount == 1);
+        // A protected administration account (adminCount = 1), not a critical system object (Administrateur, krbtgt: never reset)
+        // nor the account of the session.
+        var admin = bridge.Source.CurrentDirectory.Users.FirstOrDefault(u => u.AdminCount == 1 && u.SamAccountName.StartsWith("adm-", StringComparison.Ordinal)
+            && u.SamAccountName != SimulationProfile.SessionLogin);
         if (admin is not null)
         {
             ScriptedPasswordWindow.Reset(request => new FichePasswordEntry(TemporaryPassword.Generate(request.GeneratedLength), false));

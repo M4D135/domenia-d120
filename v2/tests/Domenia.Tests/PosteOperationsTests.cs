@@ -270,7 +270,8 @@ internal static class PosteOperationsTests
         Check.False(view.TryGetProperty("value", out _) || view.TryGetProperty("password", out _), "les métadonnées ne portent aucune valeur");
         var reveal = await bridge.CallAsync("poste.laps.reveal", Args(new { dn = c.DistinguishedName }));
         Check.Equal(PosteErrors.HostUnavailable, reveal.Error!.Code, "sans fenêtre sécurisée : refus avant toute lecture");
-        Check.False(bridge.Context.Journal.Snapshot().Any(e => e.Label.Contains("affiché", StringComparison.Ordinal)), "rien n’est affiché ni journalisé");
+        // The refusal itself is journaled (OperationRefusals); no display of a secret is.
+        Check.False(bridge.Context.Journal.Snapshot().Any(e => e.Label.Contains("affiché dans la fenêtre sécurisée", StringComparison.Ordinal)), "rien n’est affiché ni journalisé");
         var state = SimulatedBridge.Json(await bridge.CallAsync("poste.secret.state"));
         Check.False(state.GetProperty("open").GetBoolean(), "aucune fenêtre ouverte");
     }

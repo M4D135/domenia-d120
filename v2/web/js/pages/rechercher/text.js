@@ -165,7 +165,8 @@ function identifierOf(v) {
 /** Tokens of the optional syntax: { tokens: [{prefix, kind, value}], free, unknown: [prefix], empty: [prefix] }. */
 export function parseSyntax(text) {
   const out = { tokens: [], free: [], unknown: [], empty: [] };
-  const re = /(\p{L}+):(?:"([^"]*)"|(\S*))|"([^"]*)"|(\S+)/gu;
+  // One space after the colon is allowed (« utilisateur: martin », as the examples of the help write it), as in the engine.
+  const re = /(\p{L}+):[ \t\u00A0]?(?:"([^"]*)"|(\S*))|"([^"]*)"|(\S+)/gu;
   let m;
   while ((m = re.exec(String(text ?? '').trim())) !== null) {
     if (m[1]) {

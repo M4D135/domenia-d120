@@ -82,7 +82,8 @@ internal static class SearchRulesTests
         var unknown = SearchText.Plan("foo:bar", SearchTypeFilter.All, SearchMatchMode.Prefix);
         Check.Equal(SearchPlanKind.Default, unknown.Kind, "préfixe inconnu cherché comme texte");
         Check.True(unknown.Notes.Any(n => n.Contains("n’est pas un jeton reconnu", StringComparison.Ordinal)), "préfixe inconnu expliqué");
-        var empty = SearchText.ParseSyntax("utilisateur: martin");
+        Check.Equal(1, SearchText.ParseSyntax("utilisateur: martin").Tokens.Length, "une espace après les deux-points est admise");
+        var empty = SearchText.ParseSyntax("martin utilisateur:");
         Check.True(empty.Notes.Any(n => n.Contains("sans valeur", StringComparison.Ordinal)), "jeton vide ignoré et dit");
         var mixed = SearchText.ParseSyntax("utilisateur:martin poste:pc");
         Check.Null(mixed.Type, "plusieurs types : aucun type unique");

@@ -142,7 +142,8 @@ public static partial class WqlRules
             throw Invalid("une seule instruction SELECT est autorisée.");
         }
         CheckAccountScope(className, localOnly);
-        var canonical = string.Join(" ", tokens.Select(t => t.Text));
+        // Keywords in capitals: « select … from … » and « SELECT … FROM … » are the same request, with the same key.
+        var canonical = string.Join(" ", tokens.Select(t => t.Kind == "Identifier" && Keywords.Contains(t.Text) ? t.Text.ToUpperInvariant() : t.Text));
         return new WqlSelect(className, [.. properties], [.. state.Used], [.. state.WhereUsed], where, canonical, localOnly);
     }
 
@@ -174,6 +175,12 @@ public static partial class WqlRules
             throw new QueryDefinitionException("Classe " + className + " refusée sans LocalAccount = TRUE : depuis un poste du domaine, elle énumère tous les comptes ou groupes du domaine. Ajoutez LocalAccount = TRUE à la condition WHERE, dans chaque branche OU, pour ne lire que les comptes locaux du poste.");
         }
     }
+
+    /// <summary>Reserved words of the WQL subset (never a property name).</summary>
+    private static readonly HashSet<string> Keywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "LIKE", "IS", "NULL", "TRUE", "FALSE", "ISA",
+    };
 
     public static void CheckNamespace(string ns)
     {
