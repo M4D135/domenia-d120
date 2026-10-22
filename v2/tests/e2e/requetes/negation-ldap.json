@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : négation LDAP sur un attribut absent",
+  "description": "Saisit (!(description=x)) sur les postes : le critère garde la sémantique LDAP (un poste sans description correspond), la puce « Filtre LDAP exact » est juste et l’aperçu se calcule localement.",
+  "modes": ["simulation"],
+  "start": "requetes?cible=computer",
+  "steps": [
+    { "do": "wait", "selector": ".rq-ldap-input" },
+    { "do": "type", "selector": ".rq-ldap-input", "text": "(&(objectCategory=computer)(!(description=x)))", "clear": true },
+    { "do": "wait", "contains": "Synchronisé", "within": ".rq-ldap-state" },
+    { "do": "expect", "contains": "Description du compte", "within": ".rq-crit-list", "title": "Le texte devient un critère du constructeur visuel" },
+    { "do": "expect", "contains": "Filtre LDAP exact", "within": ".rq-hero-chips" },
+    { "do": "click", "text": "Calculer l’aperçu", "within": ".rq-cmds" },
+    { "do": "wait", "selector": ".rq-kpi[data-kpi=\"match\"] .rq-count" },
+    { "do": "expect", "contains": "Toutes les conditions s’expriment en LDAP", "within": ".rq-ldap-mini" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : aperçu ouvert sur les correspondants, recherche sur tout l’aperçu et export préparé",
+  "description": "Calcule l’aperçu d’un modèle : il s’ouvre sur les correspondants (Domenia 1) avec les valeurs interrogées juste après le verdict ; la recherche par nom ou chemin AD porte sur toute la population figée ; l’export est préparé par le moteur, son enregistrement est refusé dans ce mode et son contenu se copie.",
+  "modes": ["simulation"],
+  "start": "requetes?recette=template.active.lowdisk&apercu=1",
+  "steps": [
+    { "do": "wait", "selector": ".rq-kpi[data-kpi=\"match\"] .rq-count", "title": "L’aperçu est calculé" },
+    { "do": "expect", "selector": ".rq-res-filters [aria-pressed=\"true\"]", "count": 1, "title": "Un seul verdict actif à l’ouverture" },
+    { "do": "expect", "contains": "Correspondants", "within": ".rq-res-filters [aria-pressed=\"true\"]", "title": "L’aperçu s’ouvre sur les correspondants" },
+    { "do": "expect", "contains": "Espace libre", "within": ".rq-res-grid", "title": "La valeur interrogée est une colonne visible" },
+    { "do": "click", "selector": ".rq-res-filters [aria-pressed=\"true\"]", "title": "Afficher tous les verdicts" },
+    { "do": "type", "selector": ".rq-res-search input", "text": "OU=", "clear": true, "title": "Chercher dans le chemin AD, sur toute la population figée" },
+    { "do": "wait", "contains": "objets affichés", "within": ".rq-res-filters" },
+    { "do": "type", "selector": ".rq-res-search input", "text": "zzz-aucun-objet", "clear": true },
+    { "do": "wait", "contains": "Aucun objet pour ces filtres", "within": ".rq-res-grid" },
+    { "do": "press", "key": "Escape" },
+    { "do": "click", "text": "Exporter", "within": ".rq-pv-cmds" },
+    { "do": "click", "text": "Correspondants (CSV)" },
+    { "do": "wait", "selector": ".k-drw .rq-exp-save", "title": "Export préparé par le moteur" },
+    { "do": "expect", "contains": "Aucune valeur secrète", "within": ".k-drw" },
+    { "do": "click", "text": "Enregistrer dans Exports", "within": ".k-drw" },
+    { "do": "wait", "contains": "Aucun fichier écrit dans ce mode", "within": ".toasts", "title": "Pas d’écriture disque en E2E" },
+    { "do": "click", "text": "Copier le contenu", "within": ".k-drw" },
+    { "do": "wait", "contains": "Contenu copié", "within": ".toasts" },
+    { "do": "shot", "name": "export", "selector": ".k-drw" },
+    { "do": "journal", "pattern": "Requêtes\\s?:\\s?aperçu" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

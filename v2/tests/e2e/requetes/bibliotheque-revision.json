@@ -1,0 +1,33 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : utiliser un modèle, l’enregistrer puis créer une révision",
+  "description": "Cherche un modèle livré dans la bibliothèque, l’utilise, l’enregistre (copie personnelle, reçu relu, révision 1), le renomme depuis le titre de l’écran et enregistre une nouvelle révision, puis ouvre l’historique des révisions.",
+  "modes": ["simulation"],
+  "start": "requetes?onglet=bibliotheque",
+  "steps": [
+    { "do": "wait", "selector": ".rq-library .k-gsearch input", "title": "La bibliothèque est lue" },
+    { "do": "type", "selector": ".rq-library .k-gsearch input", "text": "sans connexion depuis au moins 90", "clear": true },
+    { "do": "wait", "contains": "Comptes actifs sans connexion depuis au moins 90 jours", "within": ".rq-library" },
+    { "do": "click", "selector": ".rq-library .k-gbody .k-gc", "text": "Comptes actifs sans connexion depuis au moins 90 jours", "title": "Choisir le modèle" },
+    { "do": "wait", "text": "Utiliser", "within": ".rq-lib-detail" },
+    { "do": "click", "text": "Utiliser", "within": ".rq-lib-detail" },
+    { "do": "wait", "contains": "chargée dans l’atelier", "within": ".toasts" },
+    { "do": "click", "selector": "#rq-tab-enregistrer", "title": "Aller à « 3. Enregistrer »" },
+    { "do": "click", "text": "Enregistrer", "within": ".rq-identity .rq-save-actions" },
+    { "do": "wait", "contains": "révision 1", "within": ".rq-receipt", "title": "Reçu de la première révision" },
+    { "do": "click", "selector": ".rq-rename", "title": "Renommer depuis le titre de l’écran (seul h1)" },
+    { "do": "type", "selector": "#rq-name", "text": "Revue des postes inactifs", "clear": true },
+    { "do": "press", "key": "Enter" },
+    { "do": "expect", "contains": "Revue des postes inactifs", "within": "h1.rq-title", "title": "Le titre de l’écran porte le nouveau nom" },
+    { "do": "wait", "ms": 600 },
+    { "do": "click", "text": "Enregistrer une nouvelle révision", "within": ".rq-identity" },
+    { "do": "wait", "contains": "révision 2", "within": ".rq-receipt", "title": "Reçu de la deuxième révision" },
+    { "do": "click", "text": "Révisions…", "within": ".rq-identity" },
+    { "do": "wait", "selector": ".k-dlg .rq-revs", "title": "L’historique des révisions s’ouvre" },
+    { "do": "expect", "selector": ".k-dlg .rq-revs li", "count": 2 },
+    { "do": "shot", "name": "revisions", "selector": ".k-dlg" },
+    { "do": "press", "key": "Escape" },
+    { "do": "journal", "pattern": "Revue des postes inactifs" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

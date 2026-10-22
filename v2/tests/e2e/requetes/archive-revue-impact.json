@@ -1,0 +1,31 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : widget, archivage avec revue d’impact puis annulation",
+  "description": "Enregistre un modèle comme requête personnelle, lui ajoute un widget (recette et widget dans la même écriture, plan de collecte ouvert sans rien lire), archive la requête par la revue d’impact (« Archiver et retirer les widgets »), puis annule l’archivage depuis le reçu : la requête revient avec son widget.",
+  "modes": ["simulation"],
+  "start": "requetes?recette=template.active.lowdisk&onglet=enregistrer",
+  "steps": [
+    { "do": "wait", "contains": "Comptes actifs avec moins de 10", "within": "h1.rq-title", "title": "Le modèle est chargé" },
+    { "do": "click", "text": "Enregistrer", "within": ".rq-identity .rq-save-actions" },
+    { "do": "wait", "contains": "révision 1", "within": ".rq-receipt", "title": "Copie personnelle enregistrée et relue" },
+    { "do": "click", "text": "Enregistrer et ajouter le widget", "within": ".rq-widgets" },
+    { "do": "wait", "selector": ".k-drw", "title": "Le plan de collecte du widget s’ouvre" },
+    { "do": "expect", "contains": "rien n’est lu avant votre confirmation", "within": ".k-drw" },
+    { "do": "click", "text": "Fermer", "within": ".k-drw", "title": "Fermer le plan sans rien lire" },
+    { "do": "wait", "contains": "Widget ajouté", "within": ".rq-receipt" },
+    { "do": "wait", "selector": ".rq-w-items li", "title": "Le widget est listé avec son aperçu vivant" },
+    { "do": "click", "text": "Archiver…", "within": ".rq-identity" },
+    { "do": "wait", "selector": ".k-dlg .rq-impact", "title": "Revue d’impact de l’archivage" },
+    { "do": "expect", "contains": "Widget", "within": ".k-dlg .rq-impact" },
+    { "do": "shot", "name": "revue-archivage", "selector": ".k-dlg" },
+    { "do": "click", "text": "Archiver et retirer les widgets", "within": ".k-dlg" },
+    { "do": "wait", "contains": "widget retiré", "within": ".rq-receipt", "title": "Archivage et retrait du widget dans la même écriture" },
+    { "do": "wait", "contains": "Aucun widget", "within": ".rq-w-list", "title": "Plus de widget actif" },
+    { "do": "click", "text": "Annuler l’archivage", "within": ".rq-receipt" },
+    { "do": "wait", "contains": "Restaurée avec 1 widget", "within": ".rq-receipt", "title": "La restauration remet le widget" },
+    { "do": "wait", "selector": ".rq-w-items li", "title": "Le widget est revenu" },
+    { "do": "journal", "contains": "archivée" },
+    { "do": "journal", "contains": "restaurée" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
