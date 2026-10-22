@@ -6,3 +6,6 @@ Domenia.sln.DotSettings.user
 docs/catalogue-source/prompts/
 docs/catalogue-source/*.err
 docs/catalogue-source/*.tmp
+
+# E2E simulation reports fetched by the Spark agent (local evidence, never committed).
+e2e-out/
