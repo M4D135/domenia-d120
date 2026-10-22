@@ -19,7 +19,7 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:13. Ce fic
 |---|---|---|---|---|
 | 01-e2e | merged | 1 | PASS | fusionnée dans v2-spark |
 | 02-ad-accueil-rechercher | merged | 1 | PASS | fusionnée dans v2-spark |
-| 03-ad-fiche-comptes | verifying | 1 |  |  |
+| 03-ad-fiche-comptes | pending | 1 | FAIL | relance après échec de vérification |
 | 04-ad-relations-poste | verifying | 1 |  |  |
 | 05-ad-requetes-audit-schema | running | 1 |  |  |
 | 06-store-synchro | pending | 0 |  |  |
