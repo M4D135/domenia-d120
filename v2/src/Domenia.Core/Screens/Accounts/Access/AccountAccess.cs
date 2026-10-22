@@ -622,7 +622,7 @@ public sealed class AccountAccess : IDisposable
         var fresh = await SessionAsync(cancellationToken).ConfigureAwait(false);
         await RememberAsync(RootHash(fresh), "directory", opened.Identity.Login, at, cancellationToken).ConfigureAwait(false);
         journal.Add(new JournalEntry(at, "Changement de compte" + FrenchText.Colon + opened.Identity.Login + " (nouvelle session\u00A0; comptes et refus de la session précédente oubliés)", Tone.Info));
-        log.Info("Changement de compte : nouvelle époque de session.");
+        log.Info("Changement de compte" + FrenchText.Colon + "nouvelle époque de session.");
         var simulatedNote = reader.Simulated ? " Simulation" + FrenchText.Colon + "l’annuaire fictif ne contient aucun mot de passe, seul l’état du compte est vérifié." : "";
         var result = new AccessValidation(true, "ok", "Session ouverte avec " + opened.Identity.Login + (answer.Controller is null ? "." : " (contrôleur " + answer.Controller + ")."),
             "Les vues sont relues pour la nouvelle session\u00A0; rien n’est rejoué." + simulatedNote, opened.Identity.Login, answer.Controller, Tone.Ok, RightsNote(), reader.Simulated, at);

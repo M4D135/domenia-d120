@@ -319,7 +319,7 @@ export function mountGestion(panel, ctx, page) {
     const title = list.tooWide ? 'Le périmètre est le domaine entier' : `Aucun compte utilisateur dans ${list.scope.label}`;
     const text = list.tooWide
       ? 'La liste des comptes n’est jamais lue sur tout le domaine : choisissez une OU.'
-      : `${list.scope.origin === 'working' ? 'L’OU de travail' : 'Cette OU'} ne contient que des postes ou des groupes. Choisissez une OU qui contient des comptes : le choix vaut pour la section Comptes seulement.`;
+      : `${list.scope.origin === 'working' ? 'L’OU de travail' : 'Cette OU'} ne contient que des postes ou des groupes. Choisissez une OU qui contient des comptes : le choix vaut pour la section Comptes seulement.`;
     box.innerHTML = `<section class="card cpt-scope-card-empty reveal in">${emptyState({ iconName: 'users', title, text })}
       ${suggestions ? `<div class="cpt-suggs" role="group" aria-label="OU qui contiennent des comptes">${suggestions}</div>` : ''}
       <div class="cpt-empty-actions"><button class="btn" type="button" data-pick-scope>${glyph('ou')}Choisir une autre OU…</button></div></section>`;

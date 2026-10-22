@@ -136,10 +136,12 @@ export function render(main, ctx) {
       if (!alive) return;
       oldest = r.oldestPendingId;
       tabs?.setCount('acces', r.pending || null, 'warn');
+      const label = r.pending === 1 ? '1 accès à revoir' : `${r.pending} accès à revoir`;
+      // The « Accès » slot of the top bar keeps the count on every screen (docs/SHELL.md § 9); its click opens Comptes.
+      ctx.access?.report?.({ suspended: r.pending, detail: r.pending ? `${label}${r.oldestPendingLabel ? ` · plus ancien${NBSP}: ${r.oldestPendingLabel}` : ''}` : '' });
       const chip = main.querySelector('.cpt-access-chip');
       chip.hidden = r.pending === 0;
       if (r.pending) {
-        const label = r.pending === 1 ? '1 accès à revoir' : `${r.pending} accès à revoir`;
         if (chip.dataset.count !== String(r.pending)) {
           chip.innerHTML = `${glyph('bell')}<b>${esc(String(r.pending))}</b><span>accès à revoir</span>`;
           chip.classList.remove('bump');
