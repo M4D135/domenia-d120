@@ -1,0 +1,17 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : une saisie en cours n’est jamais effacée par une relecture",
+  "description": "Un identifiant tapé dans la carte Compte Postes survit aux relectures de l’onglet (révision chaque seconde, action dans une autre carte) ; la pastille de l’en-tête compte les accès à revoir et ouvre le plus ancien.",
+  "modes": ["simulation"],
+  "start": "comptes?vue=acces",
+  "steps": [
+    { "do": "expect", "contains": "accès à revoir", "within": ".cpt-access-chip", "title": "Pastille des accès à revoir dans l’en-tête (CPT-001)" },
+    { "do": "type", "selector": "#cpt-remote-login", "text": "EXAMPLE\\saisie-en-cours" },
+    { "do": "click", "text": "Garder le compte actuel", "within": ".cpt-pending", "title": "Une action dans une autre carte relit l’état" },
+    { "do": "wait", "contains": "Compte actuel conservé", "within": ".toasts" },
+    { "do": "wait", "ms": 2500, "title": "Deux relectures de la révision" },
+    { "do": "expect", "selector": "#cpt-remote-login", "property": "value", "equals": "EXAMPLE\\saisie-en-cours", "title": "La saisie est intacte (CPT-006, CPT-016)" },
+    { "do": "expect", "selector": ".cpt-access-chip", "attribute": "hidden", "equals": "", "title": "Plus d’accès à revoir : la pastille disparaît" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

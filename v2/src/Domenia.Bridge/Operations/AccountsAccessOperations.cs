@@ -19,6 +19,7 @@ public sealed class AccountsAccessOperations : IOperationModule
     private static readonly string[] KeyArguments = ["key"];
     private static readonly string[] ComputerArguments = ["computer"];
     private static readonly string[] PasswordArguments = ["password"];
+    private static readonly string[] SwitchArguments = ["login", "password"];
 
     public string Screen => "accounts";
 
@@ -26,6 +27,7 @@ public sealed class AccountsAccessOperations : IOperationModule
     {
         ArgumentNullException.ThrowIfNull(context);
         var access = AccountAccess.From(context);
+        var consents = InterventionConsentBoard.From(context);
         return
         [
             new OperationDefinition("accounts.access.state", OperationClass.LocalRead, async (args, _, cancellationToken) =>
@@ -33,6 +35,12 @@ public sealed class AccountsAccessOperations : IOperationModule
                 BridgeArguments.RequireNone(args);
                 return await access.OverviewAsync(cancellationToken).ConfigureAwait(false);
             }, "Comptes utilisés par Domenia\u00A0: connexion, en ce moment, en mémoire, comptes secondaires, accès à revoir\u00A0; aucun secret."),
+
+            new OperationDefinition("accounts.access.revision", OperationClass.Local, async (args, _, cancellationToken) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await access.RevisionAsync(cancellationToken).ConfigureAwait(false);
+            }, "Révision de l’état des accès et compteurs de la pastille (noms et nombres seulement)\u00A0; aucune lecture réseau."),
 
             new OperationDefinition("accounts.access.test", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
             {
@@ -124,6 +132,14 @@ public sealed class AccountsAccessOperations : IOperationModule
                 return await access.CorrectConnectionAsync(password, cancellationToken).ConfigureAwait(false);
             }, "Corrige le mot de passe du compte de connexion sans reconnecter (même identité seulement).", ServedInSimulation: true),
 
+            new OperationDefinition("accounts.connection.switch", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
+            {
+                var values = BridgeArguments.ReadObject(args, SwitchArguments);
+                var login = AccountsArguments.GetLogin(values, "login");
+                using var password = AccountsArguments.GetPassword(values, "password");
+                return await access.SwitchAsync(login, password, cancellationToken).ConfigureAwait(false);
+            }, "Change de compte sans fermer Domenia\u00A0: une validation, nouvelle session, comptes et refus de la session précédente oubliés\u00A0; rien n’est rejoué.", ServedInSimulation: true),
+
             new OperationDefinition("accounts.remembered.forget", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
             {
                 var values = BridgeArguments.ReadObject(args, UsageArguments);
@@ -136,11 +152,14 @@ public sealed class AccountsAccessOperations : IOperationModule
                 return Task.FromResult<object?>(OperationRequirements.All());
             }, "Droits, comptes et accès réseau requis par chaque opération."),
 
-            new OperationDefinition("accounts.transports", OperationClass.Local, (args, _, _) =>
+            // LocalRead: Domenia.config.json next to the executable (read once) and the intervention consent in memory.
+            new OperationDefinition("accounts.transports", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
                 BridgeArguments.RequireNone(args);
-                return Task.FromResult<object?>(TransportPolicy.Build(TransportSettings.Defaults, false, null));
-            }, "Politique de transport\u00A0: ce que Domenia utilise, ce qui reste coupé et pourquoi."),
+                var settings = await access.ConfigurationAsync(cancellationToken).ConfigureAwait(false);
+                var (active, computer, until) = consents.Current();
+                return TransportPolicy.Build(settings.Transports, active, computer, until);
+            }, "Politique de transport\u00A0: réglages Remote.* de Domenia.config.json, autorisation d’intervention en cours, ce qui reste coupé et pourquoi."),
         ];
     }
 

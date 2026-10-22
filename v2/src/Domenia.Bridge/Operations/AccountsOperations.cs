@@ -20,7 +20,10 @@ public sealed class AccountsOperations : IOperationModule
     private static readonly string[] ScopeArguments = ["dn", "subtree"];
     private static readonly string[] DnArguments = ["dn"];
     private static readonly string[] LockoutArguments = ["dn", "hours"];
-    private static readonly string[] BatchArguments = ["action", "dns", "date"];
+    private static readonly string[] BatchArguments = ["action", "dns", "date", "ticket"];
+    private static readonly string[] BatchConfirmArguments = ["id", "typedCount"];
+    private static readonly string[] BatchPlanArguments = ["id", "index"];
+    private static readonly string[] TicketArguments = ["ticket"];
     private static readonly string[] ExpirationArguments = ["dn", "date"];
     private static readonly string[] PasswordArguments = ["dn", "password", "mustChange", "unlock"];
 
@@ -34,6 +37,8 @@ public sealed class AccountsOperations : IOperationModule
         var source = context.Directory;
         var circuit = WriteCircuit.From(context);
         var scope = AccountsSectionScope.From(context);
+        var seals = AccountsBatchSeals.From(context);
+        var access = AccountAccess.From(context);
         var readClass = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
         return
         [
@@ -76,8 +81,15 @@ public sealed class AccountsOperations : IOperationModule
                 var dn = RequireDn(args);
                 var reader = readers.Require<IAccountsReader>();
                 var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-                return await reader.DetailAsync(dn, session.Account.Dn, cancellationToken).ConfigureAwait(false);
-            }, "Détail d’un compte\u00A0: identité, état calculé, mot de passe, bandeau support et actions possibles."),
+                var detail = await reader.DetailAsync(dn, session.Account.Dn, cancellationToken).ConfigureAwait(false);
+                var settings = await access.ConfigurationAsync(cancellationToken).ConfigureAwait(false);
+                return detail with
+                {
+                    ResetDefaults = new PasswordResetDefaults(settings.ForcePasswordChangeOnReset,
+                        settings.State == ConfigurationFileState.Read ? "Security.ForcePasswordChangeOnReset (Domenia.config.json)" : "Défaut de Domenia 1 (Security.ForcePasswordChangeOnReset)",
+                        AccountsConfiguration.RevealSeconds),
+                };
+            }, "Détail d’un compte\u00A0: identité, état calculé, mot de passe, bandeau support, actions possibles et réglages du formulaire de réinitialisation."),
 
             // NetworkRead in both modes: the security log of the PDC emulator, read on an explicit gesture only.
             new OperationDefinition("accounts.lockouts", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
@@ -104,6 +116,7 @@ public sealed class AccountsOperations : IOperationModule
                     throw BridgeArguments.Invalid(FrenchText.Quote("action") + " doit valoir unlock, enable, disable, mustChange ou expiration.");
                 }
                 var dns = AccountsArguments.GetDnList(values, "dns", MaxBatchDns);
+                var ticket = AccountsArguments.GetTicket(values, "ticket");
                 var reader = readers.Require<IAccountsReader>();
                 var (now, zone, simulated) = reader.Clock;
                 DateOnly? date = null;
@@ -116,9 +129,67 @@ public sealed class AccountsOperations : IOperationModule
                     throw BridgeArguments.Invalid(FrenchText.Quote("date") + " n’est admise que pour l’expiration.");
                 }
                 var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-                var candidates = await reader.CandidatesAsync(dns, cancellationToken).ConfigureAwait(false);
-                return AccountsBatch.Preview(action, candidates, session.Account.Dn, date, now, zone, simulated);
-            }, "Aperçu exact d’une action par lot\u00A0: cibles, exclusions motivées, impact et nombre de comptes à saisir\u00A0; rien n’est écrit."),
+                // The read of the candidates can be stopped by the page (panel closed: accounts.batch.cancel with its ticket).
+                using var tracked = ticket is null ? null : seals.Track(ticket);
+                using var linked = tracked is null ? null : CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, tracked.Token);
+                try
+                {
+                    var candidates = await reader.CandidatesAsync(dns, linked?.Token ?? cancellationToken).ConfigureAwait(false);
+                    var preview = AccountsBatch.Preview(action, candidates, session.Account.Dn, date, now, zone, simulated);
+                    return seals.Seal(preview, session.Account.Dn);
+                }
+                finally
+                {
+                    if (ticket is not null && tracked is not null)
+                    {
+                        seals.Untrack(ticket, tracked);
+                    }
+                }
+            }, "Aperçu exact d’une action par lot, scellé par le moteur\u00A0: cibles, exclusions motivées, impact et nombre de comptes à saisir\u00A0; rien n’est écrit."),
+
+            new OperationDefinition("accounts.batch.cancel", OperationClass.Local, (args, _, _) =>
+            {
+                var values = BridgeArguments.ReadObject(args, TicketArguments);
+                var ticket = AccountsArguments.GetTicket(values, "ticket") ?? throw BridgeArguments.Invalid(FrenchText.Quote("ticket") + " est obligatoire.");
+                return Task.FromResult<object?>(new BatchCancel(seals.Cancel(ticket)));
+            }, "Arrête la lecture d’un aperçu collectif (panneau fermé)\u00A0; rien n’a été préparé."),
+
+            new OperationDefinition("accounts.batch.confirm", OperationClass.Local, (args, _, _) =>
+            {
+                var values = BridgeArguments.ReadObject(args, BatchConfirmArguments);
+                var id = AccountsArguments.GetBatchId(values, "id");
+                var typed = BridgeArguments.GetOptionalString(values, "typedCount");
+                if (typed is { Length: > 12 })
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("typedCount") + " doit être un nombre de comptes.");
+                }
+                return Task.FromResult<object?>(seals.Confirm(id, typed));
+            }, "Confirme un aperçu collectif scellé\u00A0: le nombre saisi est revérifié par le moteur\u00A0; rien n’est écrit."),
+
+            new OperationDefinition("accounts.batch.plan", readClass, async (args, _, cancellationToken) =>
+            {
+                var values = BridgeArguments.ReadObject(args, BatchPlanArguments);
+                var id = AccountsArguments.GetBatchId(values, "id");
+                var index = AccountsArguments.GetOptionalInt(values, "index", 0, AccountsBatch.Limit) ?? throw BridgeArguments.Invalid(FrenchText.Quote("index") + " est obligatoire.");
+                var (action, date, dn, guid, operatorDn) = seals.Issue(id, index);
+                var draft = action switch
+                {
+                    AccountsBatchAction.Unlock => await writers.Require<IAccountUnlockExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+                    AccountsBatchAction.Enable => await writers.Require<IAccountEnableExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+                    AccountsBatchAction.Disable => await writers.Require<IAccountDisableExecutor>().PlanAsync(dn, operatorDn, cancellationToken).ConfigureAwait(false),
+                    AccountsBatchAction.MustChange => await writers.Require<IAccountMustChangePasswordExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+                    _ => await writers.Require<IAccountExpirationExecutor>().PlanAsync(dn, date, cancellationToken).ConfigureAwait(false),
+                };
+                if (!string.Equals(draft.Target.ObjectGuid, guid, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new DomeniaOperationException(AccountsBatchSeals.TargetChanged, "Ce nom distinctif désigne un autre compte que dans l’aperçu scellé" + FrenchText.Colon + "aucune écriture préparée.");
+                }
+                if (draft.Confirmation.TypedNameRequired)
+                {
+                    throw new DomeniaOperationException(AccountsBatchSeals.TypedNameRequired, "Ce compte exige la saisie de son nom" + FrenchText.Colon + "à traiter seul, aucune écriture préparée dans le lot.");
+                }
+                return await circuit.PlanAsync(draft, cancellationToken).ConfigureAwait(false);
+            }, "Plan d’un compte d’un lot confirmé (une fois par compte, GUID scellé revérifié)\u00A0; l’exécution reste write.execute."),
 
             new OperationDefinition("accounts.enable.plan", readClass, async (args, _, cancellationToken) =>
             {
@@ -280,6 +351,24 @@ internal static class AccountsArguments
         return PasswordSecrets.FromText(text);
     }
 
+    /// <summary>Optional ticket of a preview read (8 to 40 letters, digits or dashes), or null.</summary>
+    public static string? GetTicket(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        var ticket = BridgeArguments.GetOptionalString(values, name);
+        return ticket is null || (ticket.Length is >= 8 and <= 40 && ticket.All(ch => char.IsAsciiLetterOrDigit(ch) || ch == '-'))
+            ? ticket
+            : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un identifiant de lecture (8 à 40 lettres, chiffres ou tirets).");
+    }
+
+    /// <summary>Identifier of a sealed collective plan (32 hexadecimal characters).</summary>
+    public static string GetBatchId(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        var id = BridgeArguments.GetString(values, name);
+        return id.Length == 32 && id.All(char.IsAsciiHexDigitLower)
+            ? id
+            : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être l’identifiant d’un aperçu collectif (32 caractères hexadécimaux).");
+    }
+
     /// <summary>An account name in one of the admitted forms (DOMAINE\compte, compte@domaine, POSTE\compte, .\compte).</summary>
     public static string GetLogin(IReadOnlyDictionary<string, JsonElement> values, string name)
     {
@@ -289,3 +378,6 @@ internal static class AccountsArguments
             : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un compte DOMAINE\\compte, compte@domaine, POSTE\\compte ou .\\compte.");
     }
 }
+
+/// <summary>Result of accounts.batch.cancel.</summary>
+public sealed record BatchCancel(bool Cancelled);

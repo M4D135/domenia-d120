@@ -4,14 +4,16 @@ Contrat des opérations de l’écran **Comptes** (`web/js/pages/comptes.js`, ro
 [`../OPERATIONS.md`](../OPERATIONS.md) : conventions communes (§ 1), enveloppe, règles JSON, classes, codes d’erreur et
 admission y sont définis et valent ici. Les écritures suivent le circuit de [`../WRITES.md`](../WRITES.md) : l’écran ne
 déclare que des **plans** (des lectures) et l’exécution passe toujours par `write.execute`. Réalisé le 22 octobre 2026
-(lot `comptes`, branche `v2-page/comptes`) ; tests écrits, non exécutés (décision de David du 21/10 : à la toute fin) ;
-compilation Debug vérifiée dans la VM, 0 avertissement.
+(lot `comptes`, branche `v2-page/comptes`), repris le même jour après la critique indépendante (`CRITIQUE-1.md`) : aperçu
+collectif scellé par le moteur, pauses par clé de compte, « Changer de compte », réglages de `Domenia.config.json`, onglet des
+accès relu sans jamais effacer une saisie. Tests écrits, non exécutés (décisions de David du 21/10 et du 22/10 : à la toute
+fin) ; la VM ne sert qu’à compiler.
 
 ## 1. Fonctions couvertes
 
 | Domenia 1 | Fonction | Où dans Domenia 2 |
 |---|---|---|
-| CPT-001 à CPT-021 | Comptes utilisés par Domenia : accès à revoir, autre compte après un refus, contexte, baux, comptes en service et en mémoire, comptes secondaires Postes et Secrets, essai sur un poste, identifiants mémorisés, coffre, droits et transports, validation | onglets « Accès de Domenia » et « Droits et transports » ; `accounts.access.*`, `accounts.connection.correct`, `accounts.remembered.forget`, `accounts.requirements`, `accounts.transports` |
+| CPT-001 à CPT-021 | Comptes utilisés par Domenia : accès à revoir (pastille de l’en-tête de l’écran), autre compte après un refus, contexte, baux, comptes en service et en mémoire, comptes secondaires Postes et Secrets, essai sur un poste, identifiants mémorisés, coffre, changer de compte, droits et transports, validation | onglets « Accès de Domenia » et « Droits et transports » ; `accounts.access.*`, `accounts.connection.correct`, `accounts.connection.switch`, `accounts.remembered.forget`, `accounts.requirements`, `accounts.transports` |
 | FIC-012 | Déverrouiller | `accounts.unlock.plan` (circuit de référence, inchangé), depuis le détail, le menu d’une ligne ou un lot |
 | FIC-013 | Activer ou désactiver (utilisateurs) | `accounts.enable.plan`, `accounts.disable.plan` |
 | FIC-014 | Réinitialiser le mot de passe | `accounts.password.plan` (mot de passe en `SecureString`, § 6) |
@@ -19,7 +21,7 @@ compilation Debug vérifiée dans la VM, 0 avertissement.
 | FIC-017 | Imposer un nouveau mot de passe | `accounts.mustChange.plan` |
 | FIC-040, FIC-045 | Lire les verrouillages (4740) et refus de Domenia juste avant | `accounts.lockouts` |
 | FIC-043, FIC-048 | État calculé, bandeau support | `accounts.detail` (`state`, `band`) |
-| TRV-229 | Aperçu exact d’une opération collective (comptes) | `accounts.batch.preview` puis un plan par cible |
+| TRV-229 | Aperçu exact d’une opération collective (comptes), scellé par le moteur ; cibles décochables, copie en CSV | `accounts.batch.preview`, `accounts.batch.confirm`, puis `accounts.batch.plan` par cible |
 
 ## 2. Récapitulatif
 
@@ -31,13 +33,17 @@ compilation Debug vérifiée dans la VM, 0 avertissement.
 | `accounts.scope.reset` | `LocalWrite` | aucun | périmètre après retour à l’OU de travail |
 | `accounts.detail` | `LocalRead` · `NetworkRead` | `{ dn }` | détail d’un compte (§ 3.3) |
 | `accounts.lockouts` | `NetworkRead`, servie en simulation | `{ dn, hours? }` | rapport des verrouillages (§ 3.4) |
-| `accounts.batch.preview` | `LocalRead` · `NetworkRead` | `{ action, dns, date? }` | aperçu exact d’une action par lot (§ 3.5) |
+| `accounts.batch.preview` | `LocalRead` · `NetworkRead` | `{ action, dns, date?, ticket? }` | aperçu exact et scellé d’une action par lot (§ 3.5) |
+| `accounts.batch.cancel` | `Local` | `{ ticket }` | `{ cancelled }` : arrête la lecture d’un aperçu (panneau fermé) |
+| `accounts.batch.confirm` | `Local` | `{ id, typedCount? }` | lot scellé confirmé (nombre revérifié) |
+| `accounts.batch.plan` | `LocalRead` · `NetworkRead` | `{ id, index }` | `{ plan, token }` d’une cible scellée, une seule fois |
 | `accounts.enable.plan` | `LocalRead` · `NetworkRead` | `{ dn }` | `{ plan, token }` (§ 4) |
 | `accounts.disable.plan` | `LocalRead` · `NetworkRead` | `{ dn }` | `{ plan, token }` |
 | `accounts.mustChange.plan` | `LocalRead` · `NetworkRead` | `{ dn }` | `{ plan, token }` |
 | `accounts.expiration.plan` | `LocalRead` · `NetworkRead` | `{ dn, date }` | `{ plan, token }` |
 | `accounts.password.plan` | `LocalRead` · `NetworkRead` | `{ dn, password, mustChange, unlock }` | `{ plan, token }` |
 | `accounts.access.state` | `LocalRead` | aucun | comptes de Domenia (§ 5.1) |
+| `accounts.access.revision` | `Local` | aucun | révision de l’état et compteurs de la pastille (§ 5.1) |
 | `accounts.access.test` | `NetworkRead`, servie | `{ usage, login, password }` | validation (§ 5.2) |
 | `accounts.access.activate` | `NetworkRead`, servie | `{ usage, login, password }` | `{ result, state }` |
 | `accounts.access.clear` | `LocalRead` | `{ usage }` | état |
@@ -48,12 +54,14 @@ compilation Debug vérifiée dans la VM, 0 avertissement.
 | `accounts.access.cancel` | `Local` | aucun | `{ cancelled }` |
 | `accounts.access.tryRemote` | `NetworkRead`, servie | `{ computer }` | essai (§ 5.3) |
 | `accounts.connection.correct` | `NetworkRead`, servie | `{ password }` | validation |
+| `accounts.connection.switch` | `NetworkRead`, servie | `{ login, password }` | `{ result, identity, epoch }` (§ 5.2) |
 | `accounts.remembered.forget` | `LocalWrite` | `{ usage }` | état |
 | `accounts.requirements` | `Local` | aucun | table des droits (§ 5.4) |
-| `accounts.transports` | `Local` | aucun | politique de transport (§ 5.5) |
+| `accounts.transports` | `LocalRead` | aucun | politique de transport (§ 5.5) |
 
 Aucune opération de l’écran n’est de classe `Write` (un test le vérifie). `LocalRead` des opérations `accounts.access.clear`,
-`forget` et `forgetAll` : elles lisent les reçus pour refuser tout changement de compte pendant une écriture à vérifier.
+`forget` et `forgetAll` : elles lisent les reçus pour refuser tout changement de compte pendant une écriture à vérifier ;
+`accounts.transports` lit `Domenia.config.json` à côté de l’exécutable (une fois) et l’autorisation d’intervention en mémoire.
 
 ## 3. Lectures des comptes
 
@@ -106,7 +114,10 @@ relit ce choix (vérifié dans l’index local), sinon l’OU de travail ; `acco
 `lockedAt`, `lockEndsAt`, `badPasswordCount`, `passwordExpired`, `passwordNeverExpires`, `passwordNotRequired`,
 `smartCardRequired`, `privileged`, `accountExpiresAt`, `accountExpired`, `lastLogon`), `passwordInfo` (`lastSet`, `expiresAt`,
 `estimated`, `class`, `label`, `ageDays`, `maxAgeDays`, `percent` de la validité écoulée, `tone`), `band` (ou `null`),
-`actions`, `groups` (`count`, `primaryGroupId`, `privileged` par nom), `policy`, `controller`, `readAt`, `simulated`.
+`actions`, `groups` (`count`, `primaryGroupId`, `privileged` par nom), `policy` (avec `complexityRequired`, bit 0x1 de
+`pwdProperties`), `controller`, `readAt`, `simulated`, `resetDefaults` (`mustChange` lu dans `Security.ForcePasswordChangeOnReset`
+de `Domenia.config.json`, vrai par défaut comme Domenia 1 ; `source` ; `revealSeconds` = 5 : un mot de passe affiché se masque
+de lui-même, TRV-219).
 
 **Bandeau support** (FIC-048) : seulement ce que le contrôleur a répondu, le plus urgent en titre — verrouillé depuis
 (heure, durée écoulée, fin prévue selon la stratégie), verrouillage à vérifier, désactivé, compte expiré, mot de passe expiré,
@@ -148,19 +159,34 @@ sous-suite `screen/accounts/lockouts/<GUID>` (déterministes), poste de l’util
 TRV-229 : `{ action, dns, date? }`, `action` ∈ `unlock`, `enable`, `disable`, `mustChange`, `expiration` ; `dns` 1 à
 5 000 DN valides ; `date` (`AAAA-MM-JJ` ou `null`) seulement pour `expiration`. Relit chaque candidat et répond :
 
-`action`, `actionLabel`, `title`, `kind` (type d’écriture), `planOperation` (plan à demander par cible), `count`,
+`action`, `actionLabel`, `title`, `kind` (type d’écriture), `planOperation` (type de plan de chaque cible), `count`,
 `confirmation` (`none`, `simple` pour une cible, `typed` dès deux : saisir le nombre), `typedCount`, `targets [{ dn, guid, name,
 sam, change, before, after, index }]` (position conservée), `shown` (12), `excluded [{ dn, name, reason }]`, `excludedGroups
 [{ reason, count }]` (plus grand d’abord), `excludedCount`, `impact`, `risks`, `lines`, `details` (liste complète), `limit`
-(20 000), `date`, `simulated`. Exclusions : compte introuvable, doublon, `krbtgt`, **compte à privilèges** (à traiter seul,
+(20 000), `date`, `simulated`, et `batch` : le **plan collectif scellé** par le moteur (`AccountsBatchSeals`) `{ id (32
+hexadécimaux), fingerprint (SHA-256 de « action|date|nombre|guid,guid,… », GUID dans l’ordre), count, typedRequired,
+expiresAt (10 min, glissant), confirmed }` (WRITES.md § 1 : « une écriture collective aura son propre plan avec un aperçu
+exact »). `ticket` (8 à 40 lettres, chiffres ou tirets) nomme la lecture : `accounts.batch.cancel { ticket }` l’arrête quand
+la page ferme le panneau (`operation.cancelled`, rien n’a été préparé). Exclusions : compte introuvable, doublon, `krbtgt`, **compte à privilèges** (à traiter seul,
 avec la saisie de son nom), rien à faire (pas verrouillé, déjà activé…), **compte de session** pour une désactivation,
 changement sans effet, au-delà de la limite (nommés jusqu’à 100 puis comptés). Rien n’est écrit.
 
-Déroulé dans la page (`web/js/pages/comptes/batch.js`, composant local) : aperçu, confirmation du kit (`confirmWrite`, saisie
-du nombre de comptes dès deux), puis pour chaque cible **son propre plan** (`planOperation`, relu sur le contrôleur) et
-**une** exécution `write.execute`, l’une après l’autre ; un plan refusé (« rien à faire », préconditions changées) passe à la
-suivante, **une issue incertaine arrête la suite** ; « Arrêter après le compte en cours » n’interrompt jamais l’écriture en
-cours ; bilan avec un lien vers chaque reçu. Rien n’est rejoué.
+`accounts.batch.confirm { id, typedCount }` : le moteur **revérifie le nombre saisi** quand le lot l’exige ; un nombre faux
+dépense le lot (`accounts.batchCountMismatch`, l’aperçu est à relire). `accounts.batch.plan { id, index }` ne rend le plan
+d’une cible que pour un lot confirmé (`accounts.batchUnconfirmed`), **une seule fois par cible** (`accounts.batchIssued`), après
+avoir relu l’objet et comparé son GUID à celui du sceau (`accounts.batchTargetChanged`) ; un compte qui exigerait la saisie de
+son nom est refusé (`accounts.batchTypedName`, à traiter seul). Autres refus : `accounts.batchUnknown`, `accounts.batchExpired`,
+`arguments.invalid` (identifiant, rang). L’exécution reste `write.execute`, avec le jeton du plan de la cible, son reçu et sa
+relecture.
+
+Déroulé dans la page (`web/js/pages/comptes/batch.js`, composant local) : aperçu scellé (empreinte affichée), cibles
+**décochables** (un compte retiré rend le sceau caduc : « Calculer le nouvel aperçu » scelle la liste des comptes gardés),
+**copie en CSV** de l’aperçu (cibles et exclusions, cellules `= + - @` neutralisées), confirmation du kit (`confirmWrite`,
+saisie du nombre de comptes dès deux) puis `accounts.batch.confirm`, puis pour chaque cible `accounts.batch.plan` et **une**
+exécution `write.execute`, l’une après l’autre ; un plan refusé (« rien à faire », préconditions changées) passe à la suivante,
+**une issue incertaine arrête la suite**, un lot expiré aussi ; « Arrêter après le compte en cours » n’interrompt jamais
+l’écriture en cours ; bilan avec un lien vers chaque reçu. Rien n’est rejoué. La date d’une expiration par lot se saisit en
+JJ/MM/AAAA (champ français et calendrier de l’écran), une date passée reste admise avec son risque.
 
 ## 4. Écritures (plans)
 
@@ -177,7 +203,7 @@ ne désigne aucun compte utilisateur de l’annuaire fictif : aucune écriture p
 | `accounts.disable.plan` | `account.disable` | `userAccountControl` : bit 0x2 ajouté | idem | bit 0x2 présent | nouveau plan « Activer » |
 | `accounts.mustChange.plan` | `account.mustChangePassword` | `pwdLastSet` → 0 | `pwdLastSet` inchangé ; déjà 0 : rien d’écrit | `pwdLastSet` = 0 | non |
 | `accounts.expiration.plan` | `account.expiration` | `accountExpires` → 0 h locale du jour choisi (FILETIME), ou 0 (jamais) | jour d’expiration inchangé | jour local relu = jour demandé | nouveau plan avec l’ancienne valeur |
-| `accounts.password.plan` | `account.resetPassword` | `unicodePwd` (réinitialisation, **aucune valeur dans le plan**), `pwdLastSet` → 0 si changement exigé, `lockoutTime` → 0 si « Déverrouiller ensuite » et verrouillé | `pwdLastSet` inchangé, **mot de passe encore en mémoire** pour ce plan | `pwdLastSet` = 0 (exigé) ou postérieur au plan, `lockoutTime` = 0 si demandé | non |
+| `accounts.password.plan` | `account.resetPassword` | `unicodePwd` (réinitialisation, **aucune valeur dans le plan**), `pwdLastSet` (toujours, avec sa valeur brute « avant ») → 0 si changement exigé, sinon posé par le contrôleur, `lockoutTime` → 0 si « Déverrouiller ensuite » et verrouillé | `pwdLastSet` inchangé (toute réinitialisation), **mot de passe encore en mémoire** pour ce plan | `pwdLastSet` = 0 (exigé) ou **postérieur à sa valeur « avant »** relue sur le contrôleur (jamais l’horloge du poste), `lockoutTime` = 0 si demandé | non |
 
 Erreurs propres : `write.nothingToDo` (« Ce compte est déjà activé : aucune écriture à préparer. », « Le changement de mot de
 passe est déjà imposé… », « Le mot de passe de ce compte n’expire jamais : un changement imposé resterait sans effet. »,
@@ -195,14 +221,26 @@ date passée (« le compte sera expiré dès l’écriture »), historique véri
 `connection` (CPT-006 : `connected`, `identity`, `displayName`, `mode` = `demo|windows|explicit`, `modeLabel`, `controller`,
 `site`, `domain`, `netbios`, `since`, `authentication`, `detail`, `correction { available, reason }`, `relogin { available,
 reason }`), `identities` (CPT-012 : annuaire, postes, secrets), `pending` (CPT-001 : `[{ id, scope, scopeLabel, operation,
-target, kind, kindLabel, at, interactive }]`, 16 au plus, un par ressource et cible ; le plus ancien avis d’arrière-plan part
-d’abord), `pendingLimit`, `inUse` (CPT-010 : `[{ resource, resourceKey, account, origin, state, stateTone, action { id, label,
-argument } }]` ; « Aucun refus enregistré. » ou « En pause après un refus : *où le corriger*. », jamais « valide »), `memory`
+target, kind, kindLabel, at, interactive, remembered }]`, 16 au plus, un par ressource et cible ; le plus ancien avis
+d’arrière-plan part d’abord ; `remembered` : identifiant mémorisé pour cette ressource, proposé dans « Utiliser un autre
+compte »), `pendingLimit`, `inUse` (CPT-010 : `[{ resource, resourceKey, account, origin, state, stateTone, action { id, label,
+argument } }]` ; « Aucun refus enregistré. », « En pause après un refus : *où le corriger*. » ou « Même compte que … (SID
+confirmé par l’annuaire). », jamais « valide » ; les pauses sont rangées **par clé de compte**, comme Domenia 1 : un refus
+d’authentification met en pause toutes les ressources qui utilisent ce compte), `memory`
 (CPT-011 : `[{ key, resource, account, origin, remaining, minutes, usable, state, stateTone }]`), `remote` et `secrets`
 (CPT-013, CPT-014 : `usage`, `label`, `account`, `active`, `activatedAt`, `controller`, `status`, `statusTone`, `remembered
 { account, lastUsedAt }`, `resources`), `validation` (CPT-021 : `busy`, `usage`, `label`, `startedAt`, `timeoutSeconds`),
 `lastTrial`, `lease` (`defaultMinutes` 30, `minMinutes` 1, `maxMinutes` 480), `vault { available, reason }`, `refusals`,
-`generation`, `summary`, `simulated`. Les comptes temporaires expirés sont oubliés à chaque lecture (balayage, journal).
+`generation`, `summary`, `simulated`, `revision` (change à chaque changement d’état), `epoch` (époque de session : une nouvelle
+avec « Changer de compte »), `revealSeconds` (5). Les comptes temporaires expirés sont oubliés à chaque lecture (balayage,
+journal).
+
+`accounts.access.revision` (classe `Local`, noms et nombres seulement) : `{ revision, leaseMinute, pending, oldestPendingId,
+oldestPendingLabel, temporaries, paused, validating, epoch }`. La page la lit **chaque seconde** quand l’onglet est affiché et
+ne relit l’état que s’il a changé (CPT-010) ; l’en-tête de l’écran la lit toutes les 2 s pour sa pastille « N accès à revoir »
+(CPT-001 : info-bulle avec la plus ancienne demande, clic qui l’ouvre). L’onglet est construit une fois ; seules ses zones
+d’état sont repeintes, **jamais un formulaire** : un identifiant ou un mot de passe en cours de saisie n’est jamais effacé
+(CPT-006, CPT-016), un champ tapé n’est plus prérempli.
 
 ### 5.2 Validations
 
@@ -221,18 +259,36 @@ ressource non certifiés par ce test : seule l’identité est vérifiée »), `
   temporaires de ses ressources (`Remote`, ou `ReadLaps` et `ReadBitLocker`) et leurs refus ; l’identifiant (jamais le mot de
   passe) est mémorisé par domaine (`accounts.remembered.<usage>.<16 hex>` = `{ account, lastUsedAt }`).
 - `accounts.access.recover` (CPT-002) : autre compte pour la ressource d’un accès à revoir, avec son **bail** (`inactivity` :
-  1 à 480 min, 30 par défaut ; `session` ; `once`), gardé pour cette ressource (et ce poste : clé `RemoteLocal|POSTE` pour un
-  compte local, complété par le nom du poste) ; les accès de la même ressource sont clos ; **rien n’est rejoué**.
-- `accounts.connection.correct` (CPT-008) : même identité seulement ; refusé en simulation (« la session n’utilise aucun mot
-  de passe ») et pour une session Windows (`accounts.correctionUnavailable`).
+  1 à 480 min, `Security.AlternateCredentialIdleMinutes` ou 30 par défaut ; `session` ; `once`), gardé pour cette ressource (et
+  ce poste : clé `RemoteLocal|POSTE` pour un compte local, complété par le nom du poste) ; les accès de la même ressource sont
+  clos ; **rien n’est rejoué**. L’identifiant est mémorisé par usage (`laps`, `bitlocker`, `remote`, `directory`,
+  `operation.<empreinte>`, `remoteLocal.<empreinte du poste>`) : LAPS et BitLocker préremplissent le compte Secrets, un compte
+  local d’un poste ne préremplit **jamais** le compte Postes (CPT-016).
+- `accounts.access.forget` (CPT-011) rend la main au compte configuré **et efface les refus liés** ; `accounts.access.forgetAll`
+  (CPT-005) est précédé d’une confirmation dans la page. Une opération déjà partie garde sa copie et n’est pas interrompue.
+- `accounts.connection.switch` (CPT-007, « Changer de compte » sans fermer Domenia) : refusé pendant une écriture à vérifier ;
+  contexte contrôlé (jamais un compte local), **une** authentification du compte proposé qui ouvre la nouvelle session (même
+  domaine), puis une **nouvelle époque** : comptes Postes, Secrets et temporaires, accès à revoir, pauses, refus et dernier essai
+  de la session précédente sont oubliés, tout résultat d’une époque antérieure est écarté (`accounts.epochChanged`).
+  Le formulaire s’ouvre prérempli avec le compte courant (`#/comptes?vue=acces&compte-connexion=changer`) ; la page émet
+  `domenia:session-changed` et relit son en-tête et sa liste. Simulation : la session fictive prend ce compte (mémoire
+  seulement, droits estimés par `adminCount`) ; mode annuaire : `IAccountsAccessReader.OpenSessionAsync` (vague 3) ;
+  `accounts.reloginUnavailable` sans lecteur.
+- `accounts.connection.correct` (CPT-008) : même identité seulement (clé de compte) ; puis
+  `IAccountsAccessReader.SwapConnectionPasswordAsync` remplace le secret de la session (`SecureString` jusqu’à l’API Windows),
+  arrête les lectures parties avec l’ancien et dit si une autre copie du mot de passe refusé subsiste (la pause est alors
+  conservée) ; la pause de ce seul compte est levée. Refusé en simulation (« la session n’utilise aucun mot de passe ») et pour
+  une session Windows (`accounts.correctionUnavailable`).
 - Simulation : l’annuaire fictif ne contient **aucun mot de passe** : seuls le compte et son état sont vérifiés (inconnu,
   désactivé, verrouillé, expiré, mot de passe expiré ou à changer), et la réponse le dit ; 700 à 1 500 ms.
 
 ### 5.3 `accounts.access.tryRemote`
 
 CPT-015 : une lecture CIM légère (`Win32_OperatingSystem.Caption`) d’**un** poste, avec le compte que prendront les opérations
-sur les postes (compte local temporaire de ce poste, compte temporaire, compte Postes, sinon compte de connexion) ; ni
-balayage, ni ping, ni console, aucun repli intrusif ; un essai à la fois (`accounts.trialBusy`), 30 s au plus. Verdicts
+sur les postes (compte local temporaire de ce poste, compte temporaire, compte Postes, sinon compte de connexion), passé à la
+lecture comme **copie `SecureString` en lecture seule** (`RemoteProbeCredential`, détruite après l’essai ; le bail d’un compte
+temporaire compte cette utilisation, CPT-004) ; ni balayage, ni ping, ni console, aucun repli intrusif ; un essai à la fois
+(`accounts.trialBusy`), 30 s au plus ; un compte que l’annuaire ne connaît pas est refusé (`authRejected`), jamais « OK ». Verdicts
 (`Get-DomeniaRemoteAccessTrialVerdict`) : `adminOk` (seul un succès explicite dit « Accès administrateur OK », avec le système),
 `denied`, `rejected`, `accountState`, `unreachable`, `unknown`. Journal des opérations : « Essai du compte poste sur *poste* ».
 
@@ -246,8 +302,12 @@ un droit n’est jamais deviné. Filtrable par famille, exportable en CSV dans l
 ### 5.5 `accounts.transports`
 
 CPT-020 (`Get-DomeniaTransportPolicy`) : `rows [{ id, transport, usage, ports, state, stateTone, rule, intrusive }]` pour LDAP,
-CIM/DCOM, CIM/WSMan, WTS, partage ADMIN$, Planificateur, PsExec ; `consentActive`, `consentText` (une autorisation
-d’intervention couvre un poste 5 min) ; `settingsSource` ; `note`. Rien ici ne modifie un réglage de Windows.
+CIM/DCOM, CIM/WSMan, WTS, partage ADMIN$, Planificateur, PsExec, selon les réglages `Remote.UseCim`, `Remote.UseWinRM`,
+`Remote.UsePsExecFallback`, `Remote.UseTaskFallback` de `Domenia.config.json` (`AccountsConfigurationFile`, Domenia.Store, lu une
+fois hors du fil de l’interface ; fichier absent ou inutilisable : défauts de Domenia 1, dits dans `settingsSource`, jamais le
+contenu du fichier) ; `consentActive`, `consentText` (l’autorisation d’intervention en cours, publiée par l’écran qui l’accorde
+dans `InterventionConsentBoard` : un poste, 5 min, avec son heure de fin) ; `settingsSource` ; `note`. Rien ici ne modifie un
+réglage de Windows.
 
 ## 6. Mots de passe et secrets
 
@@ -256,11 +316,16 @@ d’intervention couvre un poste 5 min) ; `settingsSource` ; `note`. Rien ici ne
   (`AccountsArguments.GetPassword`) ; la chaîne JSON du message reste en mémoire gérée jusqu’au ramasse-miettes (comme le
   champ texte de Domenia 1, SE-16) : elle n’est **ni journalisée, ni copiée, ni renvoyée**.
 - Réinitialisation : la stratégie est vérifiée sur une copie temporaire des caractères, effacée aussitôt
-  (`PasswordSecrets.Inspect`) — longueur minimale du domaine, trois classes sur quatre, ni le compte ni une partie du nom
-  affiché — refus `accounts.passwordPolicy` qui cite les règles, **jamais le mot de passe**. Le plan dit « Nouvelle valeur
+  (`PasswordSecrets.Inspect`) — longueur minimale du domaine (1 au moins) ; trois classes sur quatre, ni le compte ni une partie
+  du nom affiché **seulement si le domaine exige la complexité** (`pwdProperties`, sinon le contrôleur tranche, comme Domenia 1)
+  — refus `accounts.passwordPolicy` qui cite les règles, **jamais le mot de passe**. La page applique les mêmes règles en direct
+  (`web/js/pages/comptes/rules.js`). Le plan dit « Nouvelle valeur
   saisie, ni affichée ni conservée » (aucune valeur brute) ; le secret est gardé **pour ce seul plan** (`PasswordSecrets`,
-  5 minutes, une seule prise, détruit à la prise, au remplacement ou à l’expiration). Sans lui, l’exécution est refusée avant
-  tout envoi (« Le nouveau mot de passe n’est plus en mémoire… Rien n’a été envoyé. »).
+  5 minutes, une seule prise, détruit à la prise, au remplacement, à l’expiration — une minuterie l’efface à son échéance même si
+  rien ne le demande — et avec l’exécuteur, libéré par `EngineContext.Dispose` via `WriteExecutors.Dispose`). Sans lui,
+  l’exécution est refusée avant tout envoi (« Le nouveau mot de passe n’est plus en mémoire… Rien n’a été envoyé. »).
+- Un mot de passe affiché (œil, mot de passe généré) se masque de lui-même au bout de 5 s ; une frappe ou un second clic le
+  masque aussitôt (Domenia 1 TRV-219).
 - Comptes secondaires et temporaires : copies `SecureString` en lecture seule, détruites quand elles sont remplacées, oubliées
   ou expirées ; seuls les **noms** atteignent la page et les préférences. Coffre Windows : non branché (§ 9).
 
@@ -334,19 +399,24 @@ Droits requis (`OperationRequirements`) : `WriteUnlock`, `WriteAccountDisabled`,
 | Fichier | Couvre |
 |---|---|
 | `AccountsRulesTests` | verrouillage (`toCheck`, échu), ordre des états, dates calculées ou estimées, compteurs exacts, bandeau support, actions et raisons (compte de session, `krbtgt`), rapprochement des refus (120 s, 5 s), rapport des verrouillages (origines, lecture refusée), aperçu d’un lot (cibles, exclusions, saisie du nombre), stratégie du mot de passe sans le citer, plan de réinitialisation sans secret, secrets à usage unique et expirés, activation et désactivation, changement imposé, expiration (0 h locale, jamais = 0), contexte d’un compte proposé, baux, droits jamais devinés, transports |
+| `AccountsBatchSealTests` | empreinte (ordre, action, date, nombre), confirmation par le nombre exact revérifiée et lot dépensé sur un nombre faux, une cible confirmée une seule fois, rang hors de l’aperçu, expiration et délai glissant, 16 lots au plus, ticket d’une lecture d’aperçu ; de bout en bout par le pont (plan refusé avant confirmation, trois écritures relues, jamais deux plans) ; bornes de l’aperçu (5 000 DN, doublon, `krbtgt`, compte à privilèges, DN inconnu) |
+| `AccountsAccessTests` | pause par clé de compte sur toutes les ressources, « Oublier » efface les refus liés, identifiants mémorisés par usage (LAPS relu pour Secrets, compte local jamais pour Postes), essai sur un poste (inconnu refusé), refus pendant une écriture à vérifier, une validation et un essai à la fois avec annulation, changer de compte (nouvelle époque, session suivie, rien de la session précédente), correction refusée en simulation, révision, `Domenia.config.json` (défauts, bornes, doublon, BOM, JSON illisible jamais cité), défauts du formulaire et autorisation d’intervention, complexité du domaine, `pwdLastSet` comparé au contrôleur, purge des secrets et secret disparu avant l’envoi |
+| `AccountsRefusalsTests` | périmètre d’un autre domaine ou inconnu, `krbtgt` jamais écrit, saisie du nom revérifiée pour un compte à privilèges et plan dépensé, préconditions changées (changement imposé, réinitialisation, expiration), contrôle de `userAccountControl`, mode annuaire sans lecteur ni exécuteur (`source.unavailable`), SID de domaine |
+| `tests/web/comptes/rules.test.mjs` | règles de mot de passe de la page (avec et sans complexité, longueur 1 au moins), force, générateur, raisons des actions grisées, CSV de l’aperçu, dates JJ/MM/AAAA (31/02 refusé, ordre américain jamais lu), saisie jamais préremplie |
 | `AccountsOperationsTests` | forme de `accounts.list`, OU de travail sans comptes et suggestions, périmètre jamais racine, compteurs de l’OU Utilisateurs (7 verrouillés, 2 échus), détail et bandeau de Camille Bernard, compte inconnu, verrouillages déterministes et fenêtre bornée, désactivation puis activation sur la surcouche, compte de session protégé, réinitialisation : stratégie, secret absent du plan, du reçu et du journal, jamais rejouée ; changement imposé et expiration, date obligatoire ; aperçu d’un lot sans écriture ; état des accès, accès fictif, contexte refusé, autre compte validé et oublié ; comptes secondaires, identifiant mémorisé, essai sur un poste ; références locales ; aucune opération `Write` dans l’écran |
 | mis à jour | `PlatformTests` (modules et opérations du pont) |
-| E2E | `tests/e2e/comptes/*.json` (non exécutés) |
+| E2E | `tests/e2e/comptes/*.json` (non exécutés) : déverrouiller, mot de passe, mot de passe masqué au bout de 5 s, verrouillages, périmètre, lot, lot décoché et scellé de nouveau, accès (« Tout oublier » confirmé), saisie préservée et pastille, changer de compte, date d’expiration en français, droits lisibles en entier |
 
 ## 9. Reste à faire
 
 - Mode annuaire (§ 7) : `Domenia.Ad` (vague 3), puis essais réels dans `OU=Domenia-Tests` (vague 4).
 - Coffre Windows des comptes Postes et Secrets (CPT-017) : décision de David attendue (« Décider de l’activer en D2 ») et
   branchement natif (`CredRead`, `CredWrite`, `CredDelete`) ; indisponible en simulation comme dans Domenia 1.
-- Changer de compte sans fermer Domenia (CPT-007) : nouvelle époque de session à brancher dans la composition (hors écran).
-- Pastille globale des accès à revoir dans la barre supérieure (CPT-001, shell `app.js`) et rappel des identités dans le panneau
-  d’aide (CPT-012) : l’état est servi par `accounts.access.state`.
-- Réglages `Remote.*` de `Domenia.config.json` (CPT-020) : défauts de Domenia 1 affichés tant que la configuration n’est pas
-  lue par le moteur.
+- Shell (`app.js`, hors de cet écran) : pastille des accès à revoir dans la barre supérieure, visible de tous les écrans
+  (CPT-001 : lire `accounts.access.revision` et écouter `domenia:access-changed` ; clic vers
+  `#/comptes?vue=acces&acces=<oldestPendingId>`), rappel des trois identités dans le panneau d’aide avec le raccourci vers
+  Comptes (CPT-012 : `accounts.access.state.identities`), relecture de la barre supérieure sur `domenia:session-changed`
+  (CPT-007).
+- Écran Assistance poste : publier l’autorisation d’intervention dans `InterventionConsentBoard` (CPT-020).
 - Activation et désactivation des comptes **ordinateur** (FIC-013, écran Poste) ; aperçu collectif des autres opérations
   (TRV-229 : diagnostic réseau d’une liste, relevé du parc).

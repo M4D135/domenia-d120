@@ -2,18 +2,19 @@
   "ecran": "comptes",
   "date": "2026-10-22",
   "branche": "v2-page/comptes",
-  "note": "Simulation complète ; mode annuaire décrit dans docs/ops/comptes.md § 7 (vague 3). Tests écrits, non exécutés (décision du 21/10).",
-  "fait": ["CPT-003", "CPT-005", "CPT-009", "CPT-013", "CPT-014", "CPT-015", "CPT-018", "FIC-012", "FIC-017", "FIC-043", "FIC-045", "FIC-048"],
+  "note": "Simulation complète, reprise après CRITIQUE-1.md ; mode annuaire décrit dans docs/ops/comptes.md § 7 (vague 3). Tests C#, tests web et scénarios E2E écrits, non exécutés (décisions de David du 21/10 et du 22/10 : la VM ne sert qu’à compiler).",
+  "fait": ["CPT-003", "CPT-004", "CPT-005", "CPT-009", "CPT-013", "CPT-014", "CPT-015", "CPT-018", "CPT-020", "FIC-012", "FIC-017", "FIC-043", "FIC-045", "FIC-048"],
   "ameliore": ["CPT-002", "CPT-006", "CPT-010", "CPT-011", "CPT-016", "CPT-019", "CPT-021", "FIC-014", "FIC-016", "FIC-040"],
   "partiel": [
-    { "id": "CPT-001", "reste": "Pastille globale des accès à revoir dans la barre supérieure (shell, app.js) ; liste, traitement et badge de l’onglet faits. Les refus réels arriveront des lectures de la vague 3 (AccountAccess.RegisterRefusal)." },
-    { "id": "CPT-004", "reste": "Baux, expiration et balayage faits ; prolongation « au départ de chaque lecture » à brancher quand les lectures réseau de la vague 3 utiliseront ces comptes." },
-    { "id": "CPT-007", "reste": "Changer de compte sans fermer Domenia : nouvelle époque de session, purge des vues et base du domaine à brancher dans la composition (vague 3) ; bouton et raison affichés." },
-    { "id": "CPT-008", "reste": "Règles faites (même identité, refus en simulation et en session Windows) ; correction réelle du secret de la session avec Domenia.Ad (vague 3)." },
-    { "id": "CPT-012", "reste": "Les trois identités sont dans l’écran Comptes ; rappel dans le panneau d’aide du shell à faire par l’écran shell." },
-    { "id": "CPT-017", "reste": "Coffre Windows (Gestionnaire d’identification) : décision de David attendue puis branchement natif ; indisponible en simulation comme dans Domenia 1 (case grisée avec sa raison)." },
-    { "id": "CPT-020", "reste": "Lecture des réglages Remote.* de Domenia.config.json par le moteur (défauts de Domenia 1 affichés) et consentement d’intervention en cours (écran Poste)." },
-    { "id": "FIC-013", "reste": "Utilisateurs faits (activer, désactiver, par lot) ; comptes ordinateur à l’écran Poste (surcouche des ordinateurs)." },
-    { "id": "TRV-229", "reste": "Aperçu collectif fait pour les comptes ; diagnostic réseau d’une liste et relevé du parc (écrans Postes)." }
+    { "id": "CPT-001", "reste": "Pastille de la barre supérieure, visible de tous les écrans : à faire par l’écran shell (app.js) avec accounts.access.revision et l’événement domenia:access-changed. La pastille de l’en-tête de l’écran Comptes (badge, info-bulle, clic qui ouvre la plus ancienne demande) et l’onglet Accès sont faits." },
+    { "id": "CPT-007", "reste": "Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu). Relecture de la barre supérieure sur domenia:session-changed par le shell ; ouverture réelle de la session par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3)." },
+    { "id": "CPT-008", "reste": "Règles et contrat faits (même identité, pause du seul compte levée sauf autre copie du mot de passe refusé, refus en simulation et en session Windows) ; remplacement réel du secret de la session et arrêt des lectures parties avec l’ancien par Domenia.Ad (SwapConnectionPasswordAsync, vague 3)." },
+    { "id": "CPT-012", "reste": "Les trois identités sont dans l’écran Comptes (accounts.access.state.identities) ; leur rappel dans le panneau d’aide du shell, avec le raccourci vers Comptes, est à faire par l’écran shell." },
+    { "id": "CPT-017", "reste": "Coffre Windows (Gestionnaire d’identification) : décision de David attendue puis branchement natif (CredRead, CredWrite, CredDelete) ; indisponible en simulation comme dans Domenia 1 (case grisée avec sa raison)." },
+    { "id": "FIC-013", "reste": "Utilisateurs faits (activer, désactiver, par lot scellé) ; comptes ordinateur à l’écran Poste (surcouche des ordinateurs)." },
+    { "id": "TRV-229", "reste": "Fait pour les comptes : aperçu exact scellé par le moteur, nombre revérifié, un plan par cible scellée, cibles décochables, copie en CSV. Reste aux écrans Postes : diagnostic réseau d’une liste, relevé du parc." }
+  ],
+  "constats_rejetes": [
+    { "constat": "FIC-015 (options de sécurité UAC)", "raison": "docs/features.json range FIC-015 dans la page fiche : l’écran Fiche le porte ; rien ne se perd et Comptes ne le duplique pas." }
   ]
 }

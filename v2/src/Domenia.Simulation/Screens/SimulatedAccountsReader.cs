@@ -139,13 +139,48 @@ public sealed class SimulatedAccountsReader : IAccountsReader, IAccountsAccessRe
             case PasswordClass.MustChange:
                 return new CredentialAnswer(false, "mustChange", null, Controller, null);
         }
-        return new CredentialAnswer(true, "ok", domain.NetbiosName + "\\" + user.SamAccountName, Controller, null);
+        return new CredentialAnswer(true, "ok", domain.NetbiosName + "\\" + user.SamAccountName, Controller, null, user.Sid);
     }
 
-    public async Task<RemoteProbeAnswer> ProbeAsync(string computer, string account, CancellationToken cancellationToken)
+    public bool SessionSwitchAvailable => true;
+
+    public Task<string?> SessionSidAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = source.CurrentSession;
+        var user = session.Account.Dn is string dn ? SimulatedAccounts.FindByDn(source.CurrentDirectory, dn) : null;
+        return Task.FromResult(user?.Sid);
+    }
+
+    public async Task<SessionOpenAnswer> OpenSessionAsync(CredentialRequest request, SecureString password, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(password);
+        // One validation of the proposed account (the same checks as « Tester »), then the fictitious session takes it.
+        var answer = await ValidateAsync(request, password, cancellationToken).ConfigureAwait(false);
+        if (!answer.Success || answer.BindUser is null)
+        {
+            return new SessionOpenAnswer(answer, null);
+        }
+        var directory = source.CurrentDirectory;
+        var name = CredentialRules.Parse(answer.BindUser);
+        var user = directory.Users.FirstOrDefault(u => string.Equals(u.SamAccountName, name.Name, StringComparison.OrdinalIgnoreCase));
+        if (user is null)
+        {
+            return new SessionOpenAnswer(answer with { Success = false, Kind = "unknownAccount" }, null);
+        }
+        var identity = source.SwitchSessionAccount(user);
+        return new SessionOpenAnswer(answer, identity);
+    }
+
+    public Task<ConnectionSecretSwap> SwapConnectionPasswordAsync(SecureString password, CancellationToken cancellationToken) =>
+        throw new DomeniaOperationException(AccountAccess.CorrectionUnavailable, "Simulation" + FrenchText.Colon + "la session n’utilise aucun mot de passe, il n’y a rien à corriger.");
+
+    public async Task<RemoteProbeAnswer> ProbeAsync(string computer, RemoteProbeCredential credential, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(computer);
-        ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(credential);
+        var account = credential.Account;
         await source.SimulateScreenLatencyAsync("accounts/probe", 500, 1300, cancellationToken).ConfigureAwait(false);
         var directory = source.CurrentDirectory;
         var found = SimulatedAccounts.FindComputer(directory, computer);
@@ -161,22 +196,37 @@ public sealed class SimulatedAccountsReader : IAccountsReader, IAccountsAccessRe
         {
             return new RemoteProbeAnswer("error", "network", null, "RPC indisponible (0x800706BA)");
         }
+        var caption = source.World.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == found.ObjectGuid)?.Inventory.OsCaption
+            ?? (found.OperatingSystem is string os ? "Microsoft " + os : null);
+        if (!credential.Session && CredentialRules.IsLocalAccount(account, found.Name))
+        {
+            // A local account of this very workstation (accepted after a refusal): the fictitious local administrator.
+            return new RemoteProbeAnswer("observed", null, caption, null);
+        }
         var name = CredentialRules.Parse(account);
-        var user = name.Form is AccountNameForm.DownLevel or AccountNameForm.Upn
-            ? directory.Users.FirstOrDefault(u => string.Equals(u.SamAccountName, name.Name, StringComparison.OrdinalIgnoreCase))
-            : null;
-        if (user is not null && (AdValues.IsDisabled(user.UserAccountControl) || AccountsRules.LockOf(user) == AccountLock.Locked))
+        var domain = directory.Domain;
+        var inDomain = name.Form switch
+        {
+            AccountNameForm.DownLevel => string.Equals(name.Authority, domain.NetbiosName, StringComparison.OrdinalIgnoreCase) || string.Equals(name.Authority, domain.DnsName, StringComparison.OrdinalIgnoreCase),
+            AccountNameForm.Upn => string.Equals(name.Authority, domain.DnsName, StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
+        var user = inDomain ? directory.Users.FirstOrDefault(u => string.Equals(u.SamAccountName, name.Name, StringComparison.OrdinalIgnoreCase)) : null;
+        if (user is null)
+        {
+            // Only an explicit success says « OK »: an account the directory does not know is refused by the workstation.
+            return new RemoteProbeAnswer("authRejected", "credentialsRejected", null, null);
+        }
+        if (AdValues.IsDisabled(user.UserAccountControl) || AccountsRules.LockOf(user) == AccountLock.Locked)
         {
             return new RemoteProbeAnswer("authRejected", "accountState", null, null);
         }
         // Local administrators of the fictitious workstations: the administration accounts and the support groups (AGDLP).
-        var admin = user is null || user.AdminCount == 1 || user.MemberOf.Any(g => g.Contains("GG-Support", StringComparison.OrdinalIgnoreCase) || g.Contains("GG-Admins-Postes", StringComparison.OrdinalIgnoreCase));
+        var admin = user.AdminCount == 1 || user.MemberOf.Any(g => g.Contains("GG-Support", StringComparison.OrdinalIgnoreCase) || g.Contains("GG-Admins-Postes", StringComparison.OrdinalIgnoreCase));
         if (!admin)
         {
             return new RemoteProbeAnswer("denied", "accessDenied", null, null);
         }
-        var caption = source.World.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == found.ObjectGuid)?.Inventory.OsCaption
-            ?? (found.OperatingSystem is string os ? "Microsoft " + os : null);
         return new RemoteProbeAnswer("observed", null, caption, null);
     }
 
@@ -185,7 +235,7 @@ public sealed class SimulatedAccountsReader : IAccountsReader, IAccountsAccessRe
         cancellationToken.ThrowIfCancellationRequested();
         var world = source.World;
         var random = source.ScreenStream("accounts").Fork("access");
-        var candidates = world.Directory.Computers
+        var candidates = source.CurrentDirectory.Computers
             .Where(c => !AdValues.IsDisabled(c.UserAccountControl) && c.DistinguishedName.Contains("OU=Paris,OU=Postes", StringComparison.OrdinalIgnoreCase))
             .OrderBy(c => c.Name, StringComparer.Ordinal)
             .ToList();

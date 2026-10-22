@@ -123,6 +123,101 @@ export function skeletonLines(n = 4) {
 /** Glyph with a fixed class (inline SVG, aria-hidden). */
 export const g = (name, cls = '') => glyph(name, cls);
 
+/**
+ * Password fields with an eye (Domenia 1 TRV-219, Show-DomeniaSecretPeek): a click shows the typed password for a few seconds
+ * (5 by default) then hides it; a second click, a keystroke in the field or the end of the delay hides it at once. Nothing is
+ * copied anywhere. Returns { show(input), hideAll(), destroy() }.
+ * @param {HTMLElement} scope @param {{ seconds?: number }} [o]
+ */
+export function bindReveal(scope, { seconds = 5 } = {}) {
+  const timers = new Map();
+  const buttonOf = (input) => input.parentElement?.querySelector('[data-reveal]') ?? null;
+  const set = (input, shown) => {
+    input.type = shown ? 'text' : 'password';
+    const b = buttonOf(input);
+    if (b) {
+      b.setAttribute('aria-pressed', String(shown));
+      b.innerHTML = glyph(shown ? 'eyeOff' : 'eye');
+      b.dataset.tip = shown ? 'Masquer' : `Afficher ${seconds}${NBSP}s`;
+      b.setAttribute('aria-label', shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe quelques secondes');
+    }
+    clearTimeout(timers.get(input));
+    timers.delete(input);
+    if (shown) timers.set(input, setTimeout(() => { if (input.isConnected) set(input, false); }, seconds * 1000));
+  };
+  const onClick = (e) => {
+    const b = e.target instanceof Element ? e.target.closest('[data-reveal]') : null;
+    if (!b || !scope.contains(b)) return;
+    const input = b.parentElement?.querySelector('input');
+    if (input) set(input, input.type === 'password');
+  };
+  const onKey = (e) => {
+    const input = e.target;
+    if (input instanceof HTMLInputElement && input.type === 'text' && timers.has(input) && e.key.length === 1) set(input, false);
+  };
+  scope.addEventListener('click', onClick);
+  scope.addEventListener('keydown', onKey, true);
+  scope.querySelectorAll('[data-reveal]').forEach((b) => { b.dataset.tip = `Afficher ${seconds}${NBSP}s`; });
+  return {
+    show: (input) => set(input, true),
+    hideAll: () => [...timers.keys()].forEach((input) => set(input, false)),
+    destroy: () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+      scope.removeEventListener('click', onClick);
+      scope.removeEventListener('keydown', onKey, true);
+    },
+  };
+}
+
+/**
+ * Scroll hints of a kit tab strip that may not fit (detail of an account): fading edges and two arrows for the mouse (the
+ * keyboard already moves between tabs with ← →). Returns a cleanup function.
+ * @param {HTMLElement} host  Element that holds the .k-tabs of createTabs.
+ */
+export function tabScrollHints(host) {
+  const strip = host.querySelector('.k-tabs-scroll');
+  if (!strip) return () => {};
+  const frame = strip.parentElement;
+  frame.classList.add('cpt-tabs-hints');
+  const arrow = (side) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `cpt-tabs-arrow ${side}`;
+    b.tabIndex = -1;
+    b.setAttribute('aria-hidden', 'true');
+    b.innerHTML = glyph(side === 'l' ? 'chevronLeft' : 'chevronRight');
+    b.addEventListener('click', () => strip.scrollBy({ left: side === 'l' ? -160 : 160, behavior: 'smooth' }));
+    frame.insertBefore(b, strip.nextSibling);
+    return b;
+  };
+  const left = arrow('l');
+  const right = arrow('r');
+  const update = () => {
+    const max = strip.scrollWidth - strip.clientWidth;
+    frame.classList.toggle('can-l', strip.scrollLeft > 2);
+    frame.classList.toggle('can-r', strip.scrollLeft < max - 2);
+  };
+  strip.addEventListener('scroll', update, { passive: true });
+  const ro = 'ResizeObserver' in window ? new ResizeObserver(update) : null;
+  ro?.observe(strip);
+  requestAnimationFrame(update);
+  return () => { ro?.disconnect(); strip.removeEventListener('scroll', update); left.remove(); right.remove(); };
+}
+
+/** French long day « jeudi 20 novembre 2026 » of a local « yyyy-MM-dd », or null. */
+export function longDay(value) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value ?? ''));
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+}
+
+/** Tells the shell badge and the other views that the accesses of Domenia changed (no data in the event). */
+export function accessChanged() {
+  window.dispatchEvent(new CustomEvent('domenia:access-changed'));
+}
+
 /** Error code and message of a bridge error, as a French sentence. */
 export function errorSentence(err, fallback = 'Erreur interne de l’interface.') {
   return err && err.code && err.message ? String(err.message) : fallback;
@@ -130,5 +225,5 @@ export function errorSentence(err, fallback = 'Erreur interne de l’interface.'
 
 /** Tone of an error code: refusals that say nothing was done are warnings, the rest alerts. */
 export function errorTone(err) {
-  return /^(write\.nothingToDo|accounts\.validationBusy|accounts\.trialBusy|accounts\.requestUnknown)$/.test(err?.code ?? '') ? 'warn' : 'alert';
+  return /^(write\.nothingToDo|accounts\.validationBusy|accounts\.trialBusy|accounts\.requestUnknown|accounts\.batchIssued|accounts\.batchTypedName)$/.test(err?.code ?? '') ? 'warn' : 'alert';
 }

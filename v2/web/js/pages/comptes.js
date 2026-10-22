@@ -1,54 +1,46 @@
 // Comptes screen (docs/ops/comptes.md): management of the user accounts of the section scope (lockout diagnosis, unlock,
 // password reset, enable and disable, expiration, collective actions) and the accounts Domenia itself works with
-// (connection, secondary accounts, accesses to review, rights and transports). Hero with the scope of the section, three
-// tabs, each mounted on its first display.
+// (connection, secondary accounts, accesses to review, rights and transports). A compact header (title, scope of the
+// section, context chips) leaves the whole height to the work: three tabs, each mounted on its first display.
 // Parameters: vue=gestion|acces|droits, compte=<sAMAccountName or DN> (opens its detail), action=mdp|verrouillages|
 // expiration|identite, lire=1 (reads the lockouts at once, simulation only), filtre=<facet>, lot=deverrouiller|activer|
-// desactiver|imposer|expiration (opens the collective action on the matching accounts), perimetre=choisir (opens the scope
-// panel), corriger=connexion (CPT-009), acces=<id>|premier (opens « Utiliser un autre compte »).
-import { glyph, createTabs, pill } from '../kit/index.js';
+// desactiver|imposer|expiration (opens the collective action), perimetre=choisir (opens the scope panel),
+// corriger=connexion (CPT-009), acces=<id>|premier (opens « Utiliser un autre compte »), compte-connexion=changer (opens
+// « Changer de compte »).
+import { glyph, createTabs, NBSP } from '../kit/index.js';
 import { esc, reveal, announce } from '../ui.js';
 import { mountGestion } from './comptes/gestion.js';
 import { mountAcces } from './comptes/acces.js';
 import { mountDroits } from './comptes/droits.js';
 import { openScopePicker } from './comptes/scope.js';
-import { relSpan, skeletonLines, errorSentence } from './comptes/shared.js';
+import { relSpan, errorSentence } from './comptes/shared.js';
 
 /** The screen has its own stylesheet (css/pages/comptes.css), loaded by the router. */
 export const stylesheet = true;
 
 const VIEWS = { gestion: 'gestion', acces: 'acces', droits: 'droits' };
-const longDate = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
-const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 
-function crumbs(path) {
-  const parts = String(path ?? '').split(/\s*›\s*/).filter(Boolean);
-  return parts.length ? `<ol class="cpt-crumbs" aria-label="Chemin du périmètre">${parts.map((p, n) => `<li data-j="${n}"${n === parts.length - 1 ? ' aria-current="location"' : ''}>${esc(p)}</li>`).join('')}</ol>` : '';
-}
-
-function scopeCard(scope) {
+/** Scope chip of the header: the OU, its origin and its depth; a click opens the scope panel. */
+function scopeChip(scope) {
   if (!scope) {
-    return `<div class="cpt-scope-top"><span class="cpt-scope-ico">${glyph('ou')}</span><span class="cpt-scope-k">Périmètre des comptes</span></div>
-      <div class="cpt-scope-name">Aucun périmètre</div><p class="cpt-scope-note">Annuaire non connecté.</p>`;
+    return `<span class="cpt-scope-chip off">${glyph('ou')}<span class="cpt-scope-chip-main"><b>Aucun périmètre</b><span>Annuaire non connecté</span></span></span>`;
   }
-  const origin = scope.origin === 'section'
-    ? pill('accent', 'Choix de la section', { icon: 'pin', size: 'sm', tip: 'Mémorisé pour ce domaine ; les autres sections gardent l’OU de travail' })
-    : pill('info', 'OU de travail', { icon: 'ou', size: 'sm', tip: 'Défaut de toutes les sections sans choix propre' });
-  return `<div class="cpt-scope-top"><span class="cpt-scope-ico">${glyph('ou')}</span><span class="cpt-scope-k" id="cpt-scope-k">Périmètre des comptes</span>${origin}</div>
-    <div class="cpt-scope-name">${esc(scope.label)}</div>
-    ${crumbs(scope.path)}
-    <p class="cpt-scope-note">${scope.subtree ? 'Sous-OU comprises' : 'Cette OU seulement'} · jamais tout le domaine</p>
-    <div class="cpt-scope-btns"><button class="btn sm" type="button" data-scope-pick aria-haspopup="dialog">${glyph('ou')}Changer de périmètre</button>
-      ${scope.origin === 'section' ? `<button class="btn sm ghost" type="button" data-scope-reset>${glyph('undo')}Revenir à l’OU de travail</button>` : ''}</div>`;
+  const path = String(scope.path ?? '').split(/\s*›\s*/).filter(Boolean).join(' › ');
+  const origin = scope.origin === 'section' ? 'Choix de la section' : 'OU de travail';
+  return `<button class="cpt-scope-chip" type="button" data-scope-pick aria-haspopup="dialog"
+      data-tip="${esc(path || scope.label)} · ${esc(scope.subtree ? 'sous-OU comprises' : 'cette OU seulement')} · jamais tout le domaine">
+      <span class="cpt-scope-chip-ico">${glyph('ou')}</span>
+      <span class="cpt-scope-chip-main"><b>OU ${esc(scope.label)}</b><span>${esc(origin)} · ${esc(scope.subtree ? 'sous-OU comprises' : 'cette OU seulement')}</span></span>
+      <span class="cpt-scope-chip-go">${glyph('chevronDown')}<span class="visually-hidden">Changer de périmètre</span></span>
+    </button>${scope.origin === 'section' ? `<button class="btn xs ghost cpt-scope-reset" type="button" data-scope-reset data-tip="Les autres sections gardent l’OU de travail">${glyph('undo')}OU de travail</button>` : ''}`;
 }
 
-function heroChips(session, list, sim) {
+function contextChips(session, list, sim, tab) {
   const chips = [];
   if (session?.account?.login) chips.push(`<span class="chip" data-tip="Compte utilisé pour l’annuaire">${glyph('user')}<span class="mono">${esc(session.account.login)}</span></span>`);
-  if (session?.controller?.dnsName) chips.push(`<span class="chip" data-tip="Contrôleur lu">${glyph('server')}${esc(session.controller.dnsName)}${session.controller.site ? ` · ${esc(session.controller.site)}` : ''}</span>`);
-  if (list?.readAt) chips.push(`<span class="chip info">${glyph(sim ? 'sparkles' : 'database')}${relSpan(list.readAt, { prefix: sim ? 'Annuaire fictif · lu ' : 'Lu ' })}</span>`);
-  if (list?.policy) chips.push(`<span class="chip" data-tip="Stratégie de mot de passe et de verrouillage du domaine">${glyph('key')}${esc(list.policy.label)}</span>`);
+  if (session?.controller?.dnsName) chips.push(`<span class="chip" data-tip="Contrôleur de la session${session.controller.site ? ` · site ${esc(session.controller.site)}` : ''}">${glyph('server')}${esc(session.controller.dnsName)}</span>`);
+  if (tab === 'gestion' && list?.readAt) chips.push(`<span class="chip info">${glyph(sim ? 'sparkles' : 'database')}${relSpan(list.readAt, { prefix: sim ? 'Annuaire fictif · lu ' : 'Lu ' })}</span>`);
+  if (tab === 'gestion' && list?.policy) chips.push(`<span class="chip" data-tip="${esc(list.policy.label)}">${glyph('key')}Stratégie${NBSP}: ${esc(String(list.policy.maxPasswordAgeDays))}${NBSP}j · ${esc(String(list.policy.minPasswordLength))}${NBSP}car.</span>`);
   return chips.map((c, n) => c.replace('<span class="chip', `<span data-j="${n}" class="chip`)).join('');
 }
 
@@ -62,47 +54,44 @@ export function render(main, ctx) {
   let acces = null;
   let droits = null;
   let tabs = null;
+  let tab = VIEWS[params.vue] ?? 'gestion';
   let alive = true;
 
   main.innerHTML = `<div class="page cpt">
-    <section class="hero cpt-hero reveal" data-slot="hero">${RING}${ORBS}
-      <div class="cpt-hero-grid">
-        <div class="cpt-hero-main">
-          <div class="eyebrow">${glyph('users')}<span>Gestion des comptes</span><span class="cpt-eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
+    <header class="cpt-head reveal">
+      <span class="cpt-head-glow" aria-hidden="true"></span>
+      <div class="cpt-head-id">
+        <span class="cpt-head-ico" aria-hidden="true">${glyph('users')}</span>
+        <div class="cpt-head-titles">
           <h1 class="gradient-text">Comptes</h1>
-          <p class="lead">Verrouillages, mots de passe, activation et expiration des comptes du périmètre. Aucune écriture sans plan relu, confirmation, reçu et relecture ; jamais rejouée.</p>
-          <div class="chips cpt-chips"></div>
-          <div class="hero-row">
-            <button class="btn primary" type="button" data-reload>${glyph('refresh')}Actualiser la liste</button>
-            <button class="btn" type="button" data-go-locked>${glyph('lock')}Voir les verrouillés</button>
-          </div>
+          <p class="cpt-head-lead">Aucune écriture sans plan relu, confirmation, reçu et relecture${NBSP}; jamais rejouée.</p>
         </div>
-        <aside class="cpt-scope-card" aria-labelledby="cpt-scope-k">${skeletonLines(4)}</aside>
       </div>
-    </section>
-    <div class="cpt-tabs-host reveal"></div>
+      <div class="cpt-head-scope"><span class="skeleton cpt-sk-chip"></span></div>
+      <div class="cpt-head-chips chips"></div>
+      <button class="cpt-access-chip" type="button" data-access-oldest hidden></button>
+    </header>
+    <div class="cpt-tabs-host"></div>
   </div>`;
   const stopReveal = reveal(main);
 
   const simulated = () => app?.mode === 'simulation' || app?.webViewRuntime === 'apercu' || session?.connection?.state === 'simulated';
 
-  function paintHero() {
-    const h1 = main.querySelector('.cpt-hero h1');
-    if (scope) h1.textContent = `Comptes · OU ${scope.label}`;
-    main.querySelector('.cpt-chips').innerHTML = heroChips(session, list, simulated());
-    main.querySelectorAll('.cpt-chips [data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
-    const card = main.querySelector('.cpt-scope-card');
-    card.innerHTML = scopeCard(scope);
-    card.querySelectorAll('[data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
+  function paintHead() {
+    const host = main.querySelector('.cpt-head-scope');
+    host.innerHTML = scopeChip(scope);
+    const chips = main.querySelector('.cpt-head-chips');
+    chips.innerHTML = contextChips(session, list, simulated(), tab);
+    chips.querySelectorAll('[data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
   }
 
   async function loadScope() {
     try {
       scope = await ctx.call('accounts.scope.get');
-      if (alive) paintHero();
+      if (alive) paintHead();
     } catch (err) {
       console.error(err);
-      if (alive) main.querySelector('.cpt-scope-card').innerHTML = `<p class="cpt-inline-error">${glyph('alert')}${esc(errorSentence(err))}</p>`;
+      if (alive) main.querySelector('.cpt-head-scope').innerHTML = `<p class="cpt-inline-error">${glyph('alert')}${esc(errorSentence(err))}</p>`;
     }
   }
 
@@ -110,10 +99,11 @@ export function render(main, ctx) {
     const next = await openScopePicker(ctx, { current: scope });
     if (!next || !alive) return;
     scope = next;
-    paintHero();
-    main.querySelector('.cpt-scope-card').classList.add('changed');
-    setTimeout(() => main.querySelector('.cpt-scope-card')?.classList.remove('changed'), 1100);
-    ctx.toast(`Périmètre des comptes : ${next.label}${next.subtree ? ' et ses sous-OU' : ''}.`, { tone: 'ok' });
+    paintHead();
+    const chip = main.querySelector('.cpt-scope-chip');
+    chip?.classList.add('changed');
+    setTimeout(() => chip?.classList.remove('changed'), 1100);
+    ctx.toast(`Périmètre des comptes${NBSP}: ${next.label}${next.subtree ? ' et ses sous-OU' : ''}.`, { tone: 'ok' });
     tabs?.select('gestion');
     gestion?.reload();
   }
@@ -125,35 +115,67 @@ export function render(main, ctx) {
     onList: (next) => {
       list = next;
       scope = next.scope;
-      paintHero();
+      paintHead();
       const urgent = next.counts.locked + next.counts.lockToCheck;
       tabs?.setCount('gestion', next.counts.total, urgent ? 'alert' : 'off');
     },
     onScope: () => loadScope(),
     pickScope,
     setCount: (n) => tabs?.setCount('acces', n || null, 'warn'),
+    onSession: () => window.dispatchEvent(new CustomEvent('domenia:session-changed')),
   };
 
-  main.querySelector('.cpt').addEventListener('click', async (e) => {
-    const b = e.target.closest('button');
+  // Accesses to review (CPT-001), visible from every tab of the screen: badge, tip, a click opens the oldest request.
+  // accounts.access.revision is local (names and counts only); read every 2 s while the screen is shown.
+  let accessTimer = 0;
+  let oldest = null;
+  async function pollAccess() {
+    if (!alive || document.hidden) return;
+    try {
+      const r = await ctx.call('accounts.access.revision');
+      if (!alive) return;
+      oldest = r.oldestPendingId;
+      tabs?.setCount('acces', r.pending || null, 'warn');
+      const chip = main.querySelector('.cpt-access-chip');
+      chip.hidden = r.pending === 0;
+      if (r.pending) {
+        const label = r.pending === 1 ? '1 accès à revoir' : `${r.pending} accès à revoir`;
+        if (chip.dataset.count !== String(r.pending)) {
+          chip.innerHTML = `${glyph('bell')}<b>${esc(String(r.pending))}</b><span>accès à revoir</span>`;
+          chip.classList.remove('bump');
+          void chip.offsetWidth;
+          chip.classList.add('bump');
+          chip.dataset.count = String(r.pending);
+        }
+        chip.dataset.tip = `${label}${r.oldestPendingLabel ? ` · plus ancien${NBSP}: ${r.oldestPendingLabel}` : ''} · ouvrir «${NBSP}Utiliser un autre compte${NBSP}»`;
+        chip.setAttribute('aria-label', chip.dataset.tip);
+      } else {
+        delete chip.dataset.count;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  const onAccessChanged = () => pollAccess();
+  window.addEventListener('domenia:access-changed', onAccessChanged);
+
+  main.querySelector('.cpt-head').addEventListener('click', async (e) => {
+    const b = e.target instanceof Element ? e.target.closest('button') : null;
     if (!b) return;
-    if (b.matches('[data-scope-pick]')) pickScope();
+    if (b.matches('[data-access-oldest]')) {
+      tabs?.select('acces');
+      acces?.openRequest(oldest);
+    } else if (b.matches('[data-scope-pick]')) pickScope();
     else if (b.matches('[data-scope-reset]')) {
       try {
         scope = await ctx.call('accounts.scope.reset');
-        paintHero();
+        paintHead();
         ctx.toast('Retour à l’OU de travail pour les comptes.', { tone: 'info' });
         gestion?.reload();
       } catch (err) {
         console.error(err);
         ctx.toast(errorSentence(err), { tone: 'alert' });
       }
-    } else if (b.matches('[data-reload]')) {
-      tabs?.select('gestion');
-      gestion?.reload();
-      announce('Liste des comptes relue.');
-    } else if (b.matches('[data-go-locked]')) {
-      ctx.navigate('comptes', { vue: 'gestion', filtre: 'locked' });
     }
   });
 
@@ -172,23 +194,46 @@ export function render(main, ctx) {
     chooseFromLink,
   ]).then(() => {
     if (!alive) return;
-    paintHero();
+    paintHead();
     const scopeLoaded = loadScope();
     tabs = createTabs(main.querySelector('.cpt-tabs-host'), {
       label: 'Sections de l’écran Comptes',
       key: params.vue ? undefined : 'comptes.vue',
-      selected: VIEWS[params.vue] ?? 'gestion',
+      selected: tab,
+      onChange: (id) => {
+        tab = id;
+        main.querySelector('.cpt').dataset.tab = id;
+        paintHead();
+        announce(id === 'gestion' ? 'Comptes de l’OU.' : id === 'acces' ? 'Accès de Domenia.' : 'Droits et transports.');
+      },
       tabs: [
         { id: 'gestion', label: 'Comptes de l’OU', icon: 'users', render: (p) => { gestion = mountGestion(p, ctx, page); } },
         { id: 'acces', label: 'Accès de Domenia', icon: 'key', render: (p) => { acces = mountAcces(p, ctx, page); } },
         { id: 'droits', label: 'Droits et transports', icon: 'shield', render: (p) => { droits = mountDroits(p, ctx); } },
       ],
     });
+    tab = tabs.current();
+    main.querySelector('.cpt').dataset.tab = tab;
+    paintHead();
     if (params.perimetre === 'choisir') scopeLoaded.then(() => { if (alive) pickScope(); });
+    pollAccess();
+    accessTimer = setInterval(pollAccess, 2000);
   });
+
+  // A new session (« Changer de compte », CPT-007): the chips and the list of the accounts are read again for it.
+  const onSession = () => ctx.call('session.info').then((s) => {
+    if (!alive) return;
+    session = s;
+    paintHead();
+    gestion?.reload();
+  }).catch((err) => console.error(err));
+  window.addEventListener('domenia:session-changed', onSession);
 
   return () => {
     alive = false;
+    clearInterval(accessTimer);
+    window.removeEventListener('domenia:session-changed', onSession);
+    window.removeEventListener('domenia:access-changed', onAccessChanged);
     stopReveal();
     gestion?.destroy();
     acces?.destroy();

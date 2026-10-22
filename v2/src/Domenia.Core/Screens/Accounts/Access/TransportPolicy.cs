@@ -22,11 +22,12 @@ public sealed record TransportTable(ImmutableArray<TransportRow> Rows, bool Cons
 /// </summary>
 public static class TransportPolicy
 {
-    public static TransportTable Build(TransportSettings settings, bool consentActive, string? consentTarget)
+    public static TransportTable Build(TransportSettings settings, bool consentActive, string? consentTarget, DateTimeOffset? consentUntil = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         var c = FrenchText.Colon;
         var consent = consentActive && consentTarget is not null ? "Autorisé pour " + consentTarget + " et la durée consentie" : "Inactif sans autorisation explicite";
+        var until = consentUntil is DateTimeOffset end ? " jusqu’à " + end.ToLocalTime().ToString("HH':'mm", System.Globalization.CultureInfo.InvariantCulture) : "";
         var rows = ImmutableArray.Create(
             new TransportRow("ldap", "LDAP", "Lectures et écritures de l’annuaire", "389/TCP (signature et scellement Kerberos ou NTLM)", "Actif", Tone.Ok,
                 "Authentification sécurisée Windows. Aucun certificat n’est accepté à l’aveugle.", false),
@@ -47,7 +48,7 @@ public static class TransportPolicy
                 !settings.UsePsExecFallback ? Tone.Off : consentActive ? Tone.Warn : Tone.Off,
                 "Aucun compte explicite converti en argument.", true));
         var consentText = consentActive && consentTarget is not null
-            ? "Autorisation d’intervention en cours" + c + consentTarget + ", pour ce poste seulement et pour vos actions volontaires."
+            ? "Autorisation d’intervention en cours" + c + consentTarget + until + ", pour ce poste seulement et pour vos actions volontaires."
             : "Aucune autorisation d’intervention en cours" + c + "une autorisation couvre un seul poste pendant 5 minutes, sur geste explicite (Assistance poste, Intervenir).";
         return new TransportTable(rows, consentActive, consentText, settings.Source,
             "Un transport intrusif n’est jamais un repli silencieux d’une lecture ni d’une détection. Rien ici ne modifie un réglage de Windows.");
@@ -73,5 +74,67 @@ public static class TransportPolicy
             return (true, "");
         }
         return consentGiven ? (true, "") : (false, transport + " exige une autorisation explicite pour ce poste.");
+    }
+}
+
+/// <summary>
+/// The intervention consent in force (Domenia 1: one workstation, five minutes, granted by an explicit gesture of Assistance poste,
+/// « Intervenir »). The screen that grants it publishes it here; the transport policy of the Comptes screen reads it. Names and
+/// dates only. Thread safe; shared by the modules of the context.
+/// </summary>
+public sealed class InterventionConsentBoard
+{
+    private readonly Lock gate = new();
+    private readonly TimeProvider clock;
+    private (string Computer, DateTimeOffset Until)? current;
+
+    public InterventionConsentBoard(TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        this.clock = clock;
+    }
+
+    /// <summary>The board shared by the modules of the context.</summary>
+    public static InterventionConsentBoard From(EngineContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return context.Shared(static c => new InterventionConsentBoard(c.Clock));
+    }
+
+    /// <summary>A consent granted for <paramref name="computer"/> until <paramref name="until"/> (replaces any other: one workstation at a time).</summary>
+    public void Publish(string computer, DateTimeOffset until)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(computer);
+        lock (gate)
+        {
+            current = (computer.Trim(), until);
+        }
+    }
+
+    /// <summary>The consent of <paramref name="computer"/> withdrawn (or expired).</summary>
+    public void Withdraw(string computer)
+    {
+        ArgumentNullException.ThrowIfNull(computer);
+        lock (gate)
+        {
+            if (current is { } c && string.Equals(c.Computer, computer.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                current = null;
+            }
+        }
+    }
+
+    /// <summary>The consent in force now, or none (an expired one is forgotten).</summary>
+    public (bool Active, string? Computer, DateTimeOffset? Until) Current()
+    {
+        lock (gate)
+        {
+            if (current is { } c && c.Until > clock.GetUtcNow())
+            {
+                return (true, c.Computer, c.Until);
+            }
+            current = null;
+            return (false, null, null);
+        }
     }
 }

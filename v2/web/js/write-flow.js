@@ -18,8 +18,8 @@ const TONE_ICONS = { ok: 'check', warn: 'eye', alert: 'alert', info: 'info', off
 
 /** Refusals that happen before anything is sent: a new plan (an explicit gesture) is the way forward. */
 const REPLAN = new Set(['write.stale', 'write.tokenExpired', 'write.planUnknown', 'write.tokenUsed', 'write.planChanged', 'write.tokenInvalid', 'write.confirmationMismatch']);
-/** Refusals of the engine that mean nothing was sent either. */
-const NOTHING_SENT = new Set([...REPLAN, 'write.targetPending', 'write.nothingToDo', 'write.targetUnknown', 'receipt.unavailable',
+/** Refusals of the engine that mean nothing was sent either (exported: the collective actions of the screens use it too). */
+export const NOTHING_SENT = new Set([...REPLAN, 'write.targetPending', 'write.nothingToDo', 'write.targetUnknown', 'receipt.unavailable',
   'simulation.readOnly', 'write.unavailable', 'source.unavailable', 'arguments.invalid', 'operation.unknown', 'message.size', 'message.json']);
 
 const ADVICE = {

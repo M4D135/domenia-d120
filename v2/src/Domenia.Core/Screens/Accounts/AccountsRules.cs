@@ -262,12 +262,12 @@ public static class AccountsRules
         var parts = new List<string>
         {
             maxAge > 0 ? "Mot de passe valable " + FrenchText.Count(maxAge, "jour", "jours") : "Mot de passe sans durée maximale",
-            FrenchText.Count(policy.MinPasswordLength, "caractère", "caractères") + " au moins",
+            FrenchText.Count(policy.MinPasswordLength, "caractère", "caractères") + " au moins" + (policy.ComplexityRequired ? ", complexité exigée" : ", sans complexité exigée"),
         };
         parts.Add(policy.LockoutThreshold > 0
             ? "verrouillage après " + FrenchText.Count(policy.LockoutThreshold, "essai erroné", "essais erronés") + (lockMinutes > 0 ? " pendant " + FrenchText.Integer(lockMinutes) + " min" : " jusqu’au déverrouillage")
             : "aucun verrouillage");
-        return new AccountsPolicy(maxAge, policy.MinPasswordLength, policy.PasswordHistoryLength, policy.LockoutThreshold, lockMinutes, observe, string.Join(" · ", parts));
+        return new AccountsPolicy(maxAge, policy.MinPasswordLength, policy.PasswordHistoryLength, policy.LockoutThreshold, lockMinutes, observe, string.Join(" · ", parts), policy.ComplexityRequired);
     }
 
     /// <summary>Password block of the detail.</summary>

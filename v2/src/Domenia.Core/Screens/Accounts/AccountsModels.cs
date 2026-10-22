@@ -49,7 +49,8 @@ public sealed record AccountsPolicy(
     int LockoutThreshold,
     int LockoutMinutes,
     int ObservationMinutes,
-    string Label);
+    string Label,
+    bool ComplexityRequired = true);
 
 /// <summary>Counts of the accounts of the scope (exact, from the same rules as the rows).</summary>
 public sealed record AccountsCounts(
@@ -200,7 +201,17 @@ public sealed record AccountsDetail(
     AccountsPolicy Policy,
     string? Controller,
     DateTimeOffset ReadAt,
-    bool Simulated);
+    bool Simulated)
+{
+    /// <summary>
+    /// Defaults of the reset form from Domenia.config.json (Security.ForcePasswordChangeOnReset), set by the module: the reader
+    /// never reads the configuration.
+    /// </summary>
+    public PasswordResetDefaults? ResetDefaults { get; init; }
+}
+
+/// <summary>Defaults of the password reset form (Domenia 1 FIC-014) and where they come from.</summary>
+public sealed record PasswordResetDefaults(bool MustChange, string Source, int RevealSeconds);
 
 /// <summary>How the security log of the lockout report was read.</summary>
 public enum LockoutReadState
@@ -295,7 +306,17 @@ public sealed record AccountsBatchPreview(
     string Details,
     int Limit,
     DateOnly? Date,
-    bool Simulated);
+    bool Simulated)
+{
+    /// <summary>The collective plan sealed by the engine for this exact preview (set by the module; null in the pure rules).</summary>
+    public AccountsBatchSeal? Batch { get; init; }
+}
+
+/// <summary>
+/// A collective plan sealed by the engine (TRV-229): identifier, fingerprint of the exact list (action, date, GUIDs in order),
+/// number of targets, whether the number must be typed, and how long it may be confirmed.
+/// </summary>
+public sealed record AccountsBatchSeal(string Id, string Fingerprint, int Count, bool TypedRequired, DateTimeOffset ExpiresAt, bool Confirmed);
 
 /// <summary>A candidate of a collective action as read from the directory (null user: DN unknown).</summary>
 public sealed record AccountsBatchCandidate(string Dn, DirectoryUser? User);

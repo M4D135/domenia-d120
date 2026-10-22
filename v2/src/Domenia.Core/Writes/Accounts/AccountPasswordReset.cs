@@ -30,9 +30,10 @@ public sealed record PasswordRuleCheck(string Id, string Label, bool Met);
 
 /// <summary>
 /// Rules of the password reset (pure). Changes: unicodePwd « reset » (no value in the plan: « nouvelle valeur saisie, ni
-/// affichée ni conservée »), pwdLastSet to 0 when the change is required at the next logon, lockoutTime to 0 when « unlock
-/// after » is chosen and the account is locked. Never reversible: the former password is never kept. The policy check below
-/// is the one of a default domain with complexity on; the controller still decides (history, custom filters).
+/// affichée ni conservée »), pwdLastSet (always in the plan with its raw value before: to 0 when the change is required at the
+/// next logon, otherwise set by the controller at the write), lockoutTime to 0 when « unlock after » is chosen and the account
+/// is locked. Never reversible: the former password is never kept. The policy check follows the domain: minimum length, three
+/// character classes only when pwdProperties asks for complexity; the controller still decides (history, custom filters).
 /// </summary>
 public static class AccountPasswordReset
 {
@@ -70,11 +71,12 @@ public static class AccountPasswordReset
         var lastSet = user.PasswordLastSet ?? 0;
         var changes = ImmutableArray.CreateBuilder<WriteChange>();
         changes.Add(new WriteChange(PasswordAttribute, "Mot de passe", WriteChangeKind.Reset, "Mot de passe actuel (jamais lu)", "Nouvelle valeur saisie, ni affichée ni conservée", null, null));
-        if (options.MustChange)
-        {
-            var before = lastSet == 0 ? "Déjà à changer (0)" : AdValues.FromFileTime(lastSet) is DateTimeOffset set ? "Changé le " + WritePlans.LocalTime(set, zone) : "Inconnu";
-            changes.Add(new WriteChange(LastSetAttribute, "Changement à la prochaine connexion", WriteChangeKind.Replace, before, "Exigé (pwdLastSet = 0)", AccountWrites.Raw(lastSet), "0"));
-        }
+        // pwdLastSet is always in the plan with its raw value before (Domenia 1 PreviousUtc): the precondition and the re-read
+        // compare the controller with the controller, never with the clock of this workstation.
+        var lastSetBefore = lastSet == 0 ? "Déjà à changer (0)" : AdValues.FromFileTime(lastSet) is DateTimeOffset set ? "Changé le " + WritePlans.LocalTime(set, zone) : "Inconnu";
+        changes.Add(options.MustChange
+            ? new WriteChange(LastSetAttribute, "Changement à la prochaine connexion", WriteChangeKind.Replace, lastSetBefore, "Exigé (pwdLastSet = 0)", AccountWrites.Raw(lastSet), "0")
+            : new WriteChange(LastSetAttribute, "Date du dernier changement", WriteChangeKind.Replace, lastSetBefore, "Date de l’écriture, posée par le contrôleur", AccountWrites.Raw(lastSet), null));
         if (unlock)
         {
             var lockedAt = AdValues.FromFileTime(user.LockoutTime);
@@ -131,9 +133,16 @@ public static class AccountPasswordReset
             controller);
     }
 
+    /// <summary>True when the plan requires the change at the next logon (pwdLastSet written to 0).</summary>
+    public static bool RequiresChange(WritePlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.Changes.Any(change => change.Attribute == LastSetAttribute && change.AfterValue == "0");
+    }
+
     /// <summary>
-    /// Preconditions: same object, pwdLastSet unchanged since the plan (somebody changed the password meanwhile otherwise),
-    /// and the password of the plan still in memory.
+    /// Preconditions: same object, pwdLastSet unchanged since the plan for every reset (somebody changed the password meanwhile
+    /// otherwise), and the password of the plan still in memory.
     /// </summary>
     public static WritePrecheck Check(WritePlan plan, DirectoryUser? user, bool secretHeld)
     {
@@ -160,7 +169,7 @@ public static class AccountPasswordReset
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(plan);
-        var mustChange = AccountWrites.Changes(plan, LastSetAttribute);
+        var mustChange = RequiresChange(plan);
         var unlock = AccountWrites.Changes(plan, LockoutAttribute);
         long? expiry = mustChange ? 0
             : AdValues.HasFlag(user.UserAccountControl, AdValues.DontExpirePassword) || maxPasswordAge <= TimeSpan.Zero ? AdValues.Never
@@ -183,8 +192,8 @@ public static class AccountPasswordReset
     }
 
     /// <summary>
-    /// Postcondition (OPE-009): pwdLastSet read again (0 when the change is required, otherwise set since the plan was built),
-    /// and lockoutTime 0 when the unlock was asked.
+    /// Postcondition (OPE-009): pwdLastSet read again (0 when the change is required, otherwise later than its raw value before,
+    /// as the controller wrote it: no clock of this workstation involved), and lockoutTime 0 when the unlock was asked.
     /// </summary>
     public static WriteVerification Verify(DirectoryUser? user, WritePlan plan)
     {
@@ -195,7 +204,7 @@ public static class AccountPasswordReset
         {
             return new WriteVerification(VerificationState.Unknown, "Compte introuvable à la relecture" + c + "vérifiez-le dans l’annuaire.");
         }
-        var mustChange = AccountWrites.Changes(plan, LastSetAttribute);
+        var mustChange = RequiresChange(plan);
         var unlock = AccountWrites.Changes(plan, LockoutAttribute);
         var lastSet = user.PasswordLastSet ?? 0;
         bool passwordOk;
@@ -207,8 +216,9 @@ public static class AccountPasswordReset
         }
         else
         {
+            var before = long.TryParse(AccountWrites.PlannedBefore(plan, LastSetAttribute), NumberStyles.Integer, CultureInfo.InvariantCulture, out var raw) ? raw : (long?)null;
             var set = AdValues.FromFileTime(lastSet);
-            passwordOk = set is DateTimeOffset at && at >= plan.CreatedAt - TimeSpan.FromSeconds(5);
+            passwordOk = before is long previous && lastSet > previous && set is not null;
             passwordText = set is DateTimeOffset changedAt ? "mot de passe changé le " + changedAt.UtcDateTime.ToString("dd'/'MM'/'yyyy HH':'mm':'ss", CultureInfo.InvariantCulture) + " UTC" : "pwdLastSet illisible";
         }
         var unlockOk = !unlock || user.LockoutTime is null or 0;
@@ -221,10 +231,11 @@ public static class AccountPasswordReset
     }
 
     /// <summary>
-    /// Policy check of a typed password (default domain policy with complexity): minimum length, three character classes out of
-    /// four, no account name nor part of the display name of three characters or more. Never returns the password.
+    /// Policy check of a typed password: minimum length of the domain; when the domain asks for complexity (pwdProperties), three
+    /// character classes out of four and no account name nor part of the display name of three characters or more. Never
+    /// returns the password. Without complexity the controller alone decides beyond the length.
     /// </summary>
-    public static ImmutableArray<PasswordRuleCheck> CheckPolicy(ReadOnlySpan<char> password, DirectoryUser user, int minLength)
+    public static ImmutableArray<PasswordRuleCheck> CheckPolicy(ReadOnlySpan<char> password, DirectoryUser user, int minLength, bool complexity = true)
     {
         ArgumentNullException.ThrowIfNull(user);
         var upper = false;
@@ -254,8 +265,11 @@ public static class AccountPasswordReset
         var min = Math.Max(1, minLength);
         var rules = ImmutableArray.CreateBuilder<PasswordRuleCheck>();
         rules.Add(new PasswordRuleCheck("length", FrenchText.Count(min, "caractère", "caractères") + " au moins", password.Length >= min && password.Length <= MaxLength));
-        rules.Add(new PasswordRuleCheck("classes", "Trois types parmi majuscules, minuscules, chiffres et symboles", classes >= 3));
-        rules.Add(new PasswordRuleCheck("name", "Ni le nom du compte ni une partie du nom affiché", !ContainsName(password, user)));
+        if (complexity)
+        {
+            rules.Add(new PasswordRuleCheck("classes", "Trois types parmi majuscules, minuscules, chiffres et symboles", classes >= 3));
+            rules.Add(new PasswordRuleCheck("name", "Ni le nom du compte ni une partie du nom affiché", !ContainsName(password, user)));
+        }
         return rules.ToImmutable();
     }
 
@@ -268,7 +282,7 @@ public static class AccountPasswordReset
         ArgumentNullException.ThrowIfNull(password);
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(domain);
-        var checks = PasswordSecrets.Inspect(password, chars => CheckPolicy(chars, user, domain.PasswordPolicy.MinPasswordLength));
+        var checks = PasswordSecrets.Inspect(password, chars => CheckPolicy(chars, user, domain.PasswordPolicy.MinPasswordLength, domain.PasswordPolicy.ComplexityRequired));
         var unmet = checks.Where(r => !r.Met).Select(r => r.Label).ToList();
         if (unmet.Count > 0)
         {
@@ -298,18 +312,22 @@ public static class AccountPasswordReset
 
 /// <summary>
 /// New passwords held for their sealed plan only (one entry per plan, five minutes at most): taken once by the execution,
-/// disposed when taken, when replaced or when their plan expires. Never enumerated, never logged. Thread safe.
+/// disposed when taken, when replaced or when their plan expires. A timer of the clock disposes an expired entry at its
+/// expiry, even when nothing asks for it any more. Never enumerated, never logged. Thread safe.
 /// </summary>
 public sealed class PasswordSecrets : IDisposable
 {
     private readonly Lock gate = new();
     private readonly Dictionary<string, (DateTimeOffset ExpiresAt, SecureString Secret)> held = new(StringComparer.Ordinal);
     private readonly TimeProvider clock;
+    private readonly ITimer timer;
+    private bool disposed;
 
     public PasswordSecrets(TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
         this.clock = clock;
+        timer = clock.CreateTimer(static state => ((PasswordSecrets)state!).OnTimer(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>Number of passwords held (tests).</summary>
@@ -340,6 +358,22 @@ public sealed class PasswordSecrets : IDisposable
                 previous.Secret.Dispose();
             }
             held[planId] = (expiresAt, copy);
+            ScheduleLocked(clock.GetUtcNow());
+        }
+    }
+
+    /// <summary>Disposes the password of a plan now (plan refused or replaced before its execution); false when none was held.</summary>
+    public bool Drop(string planId)
+    {
+        lock (gate)
+        {
+            if (!held.Remove(planId, out var gone))
+            {
+                return false;
+            }
+            gone.Secret.Dispose();
+            ScheduleLocked(clock.GetUtcNow());
+            return true;
         }
     }
 
@@ -367,12 +401,48 @@ public sealed class PasswordSecrets : IDisposable
     {
         lock (gate)
         {
+            if (disposed)
+            {
+                return;
+            }
+            disposed = true;
             foreach (var entry in held.Values)
             {
                 entry.Secret.Dispose();
             }
             held.Clear();
         }
+        timer.Dispose();
+    }
+
+    private void OnTimer()
+    {
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+            var now = clock.GetUtcNow();
+            Purge(now);
+            ScheduleLocked(now);
+        }
+    }
+
+    /// <summary>Arms the timer for the earliest expiry (stopped when nothing is held).</summary>
+    private void ScheduleLocked(DateTimeOffset now)
+    {
+        if (disposed)
+        {
+            return;
+        }
+        if (held.Count == 0)
+        {
+            timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            return;
+        }
+        var next = held.Values.Min(e => e.ExpiresAt) - now;
+        timer.Change(next < TimeSpan.Zero ? TimeSpan.Zero : next + TimeSpan.FromMilliseconds(50), Timeout.InfiniteTimeSpan);
     }
 
     private void Purge(DateTimeOffset now)

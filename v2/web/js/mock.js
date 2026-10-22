@@ -9,9 +9,11 @@
 // (SIMULATION.md § 4.3); every widget of workstations is computed on the machines of the chosen OU. The LocalWrite
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
-// Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page; the
+// operations of the Comptes screen: mock-comptes.js (same shapes and texts as docs/ops/comptes.md).
 
 import { createWriteOperations } from './mock-writes.js';
+import { createAccountsOperations } from './mock-comptes.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1046,6 +1048,10 @@ async function setScope(args) {
   return sessionInfo();
 }
 
+const WRITE_OPERATIONS = createWriteOperations({
+  readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+});
+
 const OPERATIONS = {
   'app.info': appInfo,
   'session.info': sessionInfo,
@@ -1055,8 +1061,11 @@ const OPERATIONS = {
   'dashboard.widget.setEnabled': setEnabled,
   'directory.ou.children': ouChildren,
   'directory.ou.search': ouSearch,
-  ...createWriteOperations({
-    readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  ...WRITE_OPERATIONS,
+  // Comptes screen (mock-comptes.js): its accounts.* and the wrappers of write.execute and write.receipts.* for its plans.
+  ...createAccountsOperations({
+    readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF, keyOf, getBoolean,
+    writes: WRITE_OPERATIONS,
   }),
 };
 

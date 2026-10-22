@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security;
 
 namespace Domenia.Core;
 
@@ -69,7 +70,11 @@ public sealed record AccessRequest(
     string Kind,
     string KindLabel,
     DateTimeOffset At,
-    bool Interactive);
+    bool Interactive)
+{
+    /// <summary>Identifier remembered for this resource and target (names only), to prefill « Utiliser un autre compte ».</summary>
+    public string? Remembered { get; init; }
+}
 
 /// <summary>A refusal a source reports at startup (simulation: fictitious refusal to try the recovery flow).</summary>
 public sealed record AccessRequestSeed(string Scope, string Operation, string? Target, string Kind, DateTimeOffset At);
@@ -174,13 +179,57 @@ public sealed record AccessOverview(
     int Refusals,
     long Generation,
     string Summary,
-    bool Simulated);
+    bool Simulated)
+{
+    /// <summary>Revision of the state (accounts.access.revision): the page reads the state again only when it changes.</summary>
+    public long Revision { get; init; }
+
+    /// <summary>Session epoch: a new one starts with « Changer de compte »; a result of another epoch is dropped.</summary>
+    public long Epoch { get; init; }
+
+    /// <summary>Seconds a password shown in clear stays visible (Domenia 1 TRV-219).</summary>
+    public int RevealSeconds { get; init; } = AccountsConfiguration.RevealSeconds;
+}
+
+/// <summary>
+/// accounts.access.revision: what the shell badge and the Accès tab poll each second (names and counts only): the revision of
+/// the state, the minute when a lease counts down, the accesses to review and the accounts kept in memory.
+/// </summary>
+public sealed record AccessRevision(
+    long Revision,
+    long LeaseMinute,
+    int Pending,
+    string? OldestPendingId,
+    string? OldestPendingLabel,
+    int Temporaries,
+    int Paused,
+    bool Validating,
+    long Epoch);
+
+/// <summary>The credential a trial on a workstation uses (CPT-015): a read-only copy, or the session itself (no copy).</summary>
+public sealed record RemoteProbeCredential(string Account, SecureString? Password, bool Session);
+
+/// <summary>What a source answers to « Changer de compte » (CPT-007): the validation and the identity of the new session.</summary>
+public sealed record SessionOpenAnswer(CredentialAnswer Answer, AccountIdentity? Identity);
+
+/// <summary>
+/// What a source did with the corrected password of the connection account (CPT-008): replaced in memory, the reads started
+/// with the former one stopped, and whether another copy of the refused password is still held elsewhere (the pause is then
+/// kept as it is).
+/// </summary>
+public sealed record ConnectionSecretSwap(bool Replaced, int StoppedReads, bool OtherRefusedCopy);
+
+/// <summary>Result of accounts.connection.switch: the validation, the new identity and the new epoch.</summary>
+public sealed record AccessSwitch(AccessValidation Result, string? Identity, long Epoch);
 
 /// <summary>A credential validation request: who, for which resource, on which workstation.</summary>
 public sealed record CredentialRequest(string Login, string Scope, string? Target);
 
-/// <summary>What the source answered to one validation (an explicit authentication with the identity that bound).</summary>
-public sealed record CredentialAnswer(bool Success, string Kind, string? BindUser, string? Controller, string? Detail);
+/// <summary>
+/// What the source answered to one validation (an explicit authentication with the identity that bound, and its SID when the
+/// directory confirmed it).
+/// </summary>
+public sealed record CredentialAnswer(bool Success, string Kind, string? BindUser, string? Controller, string? Detail, string? Sid = null);
 
 /// <summary>Result of a validation for the page (CPT-021): verdict, identity, controller and what was not tested.</summary>
 public sealed record AccessValidation(

@@ -1,0 +1,25 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : changer de compte sans fermer Domenia",
+  "description": "Le formulaire s’ouvre prérempli avec le compte courant ; un compte inconnu est refusé sans rien changer ; un compte valide ouvre une nouvelle session : comptes et accès à revoir de la session précédente oubliés, en-tête relu. Aucun mot de passe journalisé.",
+  "modes": ["simulation"],
+  "start": "comptes?vue=acces&compte-connexion=changer",
+  "timeoutMs": 15000,
+  "steps": [
+    { "do": "wait", "contains": "Changer de compte", "within": ".k-drw", "title": "Le formulaire « Changer de compte » s’ouvre" },
+    { "do": "expect", "selector": "#cpt-relogin-login", "property": "value", "equals": "EXAMPLE\\j.martin", "title": "Prérempli avec le compte courant (CPT-007)" },
+    { "do": "type", "selector": "#cpt-relogin-login", "text": "EXAMPLE\\personne", "clear": true },
+    { "do": "type", "selector": "#cpt-relogin-pwd", "text": "mot-de-passe-e2e" },
+    { "do": "click", "text": "Ouvrir la session", "within": ".k-drw-foot" },
+    { "do": "wait", "contains": "Compte inconnu", "within": ".k-drw", "title": "Compte inconnu refusé, session inchangée" },
+    { "do": "type", "selector": "#cpt-relogin-login", "text": "EXAMPLE\\adm-j.martin", "clear": true },
+    { "do": "type", "selector": "#cpt-relogin-pwd", "text": "mot-de-passe-e2e" },
+    { "do": "click", "text": "Ouvrir la session", "within": ".k-drw-foot" },
+    { "do": "wait", "contains": "Session ouverte avec", "within": ".toasts", "title": "Nouvelle session" },
+    { "do": "expect", "contains": "adm-j.martin", "within": ".cpt-conn", "title": "La carte du compte de connexion suit la nouvelle session" },
+    { "do": "expect", "selector": ".cpt-pending", "absent": true, "title": "Accès à revoir de la session précédente oubliés" },
+    { "do": "expect", "contains": "adm-j.martin", "within": ".cpt-head-chips", "title": "L’en-tête de l’écran est relu" },
+    { "do": "journal", "contains": "mot-de-passe-e2e", "absent": true, "title": "Aucun mot de passe dans le journal technique" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

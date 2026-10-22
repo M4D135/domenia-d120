@@ -1,32 +1,47 @@
-// Comptes screen: collective action on accounts (Domenia 1 TRV-229). Local component of the screen (kit request: a
-// « runBatchWrite » of web/js/write-flow.js): the engine computes the exact preview (accounts.batch.preview: targets,
-// motivated exclusions, impact, number to type), the operator confirms with the kit (number of accounts typed from two on),
-// then each target gets its OWN plan (read again on the controller) and runs once through write.execute, with its receipt
-// and its re-read. One after the other; an uncertain outcome stops the rest; nothing is ever replayed. A stop request
-// never interrupts the write under way.
+// Comptes screen: collective action on accounts (Domenia 1 TRV-229, docs/WRITES.md § 1 « une écriture collective aura son
+// propre plan avec un aperçu exact »). Local component of the screen. The engine computes the exact preview and SEALS it
+// (accounts.batch.preview: targets, motivated exclusions, impact, number to type, collective plan { id, fingerprint, count }).
+// The operator may untick targets (a new exact preview is then sealed for the kept ones) and copy the preview as CSV. The
+// confirmation of the kit asks for the number of accounts from two on, and the ENGINE checks it again (accounts.batch.confirm).
+// Only then does each sealed target get its own plan (accounts.batch.plan: once per target, its GUID compared with the seal,
+// read again on the controller) and run once through write.execute, with its receipt and its re-read. One after the other;
+// an uncertain outcome stops the rest; nothing is ever replayed. A stop request never interrupts the write under way.
+// Closing the panel while the preview is read stops that read (accounts.batch.cancel): nothing was prepared.
 import { openDrawer, confirmWrite, glyph, pill, setVars, NBSP } from '../../kit/index.js';
-import { esc, errorText, announce, formatNumber, toast } from '../../ui.js';
-import { receiptHref } from '../../write-flow.js';
-import { plural, isoDay, whenOpen } from './shared.js';
+import { esc, errorText, announce, formatNumber, toast, copyText } from '../../ui.js';
+import { receiptHref, NOTHING_SENT as CIRCUIT_NOTHING_SENT } from '../../write-flow.js';
+import { plural, isoDay, whenOpen, longDay } from './shared.js';
+import { previewCsv } from './rules.js';
+import { createDateField } from './datefield.js';
 
-/** Refusals of a plan or of write.execute that mean nothing was sent (same list as write-flow.js). */
-const NOTHING_SENT = new Set(['write.stale', 'write.tokenExpired', 'write.planUnknown', 'write.tokenUsed', 'write.planChanged',
-  'write.tokenInvalid', 'write.confirmationMismatch', 'write.targetPending', 'write.nothingToDo', 'write.targetUnknown',
-  'receipt.unavailable', 'simulation.readOnly', 'write.unavailable', 'source.unavailable', 'arguments.invalid', 'operation.unknown',
-  'message.size', 'message.json', 'accounts.protectedAccount']);
+/** Most accounts a selection or a link hands to one collective action (the engine admits 5 000 DN per preview). */
+export const MAX_BATCH = 5000;
+
+/** Refusals of a plan or of write.execute that mean nothing was sent: those of the circuit, and those of the sealed batch. */
+const NOTHING_SENT = new Set([...CIRCUIT_NOTHING_SENT, 'accounts.protectedAccount', 'accounts.batchUnknown', 'accounts.batchExpired',
+  'accounts.batchUnconfirmed', 'accounts.batchIssued', 'accounts.batchTargetChanged', 'accounts.batchTypedName', 'accounts.batchCountMismatch',
+  'operation.cancelled']);
+/** Refusals that end the whole batch (the seal is gone): the remaining targets get no plan. */
+const BATCH_GONE = new Set(['accounts.batchUnknown', 'accounts.batchExpired', 'accounts.batchUnconfirmed']);
 
 const ACTIONS = {
   unlock: { label: 'Déverrouiller', icon: 'lock' },
   enable: { label: 'Activer', icon: 'power' },
-  disable: { label: 'Désactiver', icon: 'power' },
+  disable: { label: 'Désactiver', icon: 'power', danger: true },
   mustChange: { label: 'Imposer un nouveau mot de passe', icon: 'refresh' },
   expiration: { label: 'Fixer l’expiration', icon: 'calendar' },
 };
 
+/** Ticket of a preview read (8 to 40 letters, digits or dashes), so the page can stop it. */
+function newTicket() {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 /**
  * Opens the collective action panel for the selected rows.
  * @param {{ call: Function }} ctx
- * @param {{ action: string, rows: any[], onDone?: () => void }} o
+ * @param {{ action: string, rows: any[], onDone?: (receipts: any[]) => void }} o
  */
 export function openBatch(ctx, { action, rows, onDone }) {
   const meta = ACTIONS[action];
@@ -34,19 +49,27 @@ export function openBatch(ctx, { action, rows, onDone }) {
   let stop = false;
   let preview = null;
   let date = null;
+  let reading = null; // ticket of the preview read under way
+  let dns = rows.slice(0, MAX_BATCH).map((r) => r.dn);
+  const unticked = new Set();
   const body = document.createElement('div');
   body.className = 'cpt-batch';
-    body.dataset.page = 'comptes';
+  body.dataset.page = 'comptes';
   const panel = openDrawer({
     title: `${meta.label} · action par lot`,
-    subtitle: plural(rows.length, 'compte sélectionné', 'comptes sélectionnés'),
+    subtitle: plural(dns.length, 'compte sélectionné', 'comptes sélectionnés'),
     icon: 'layers',
     key: 'comptes.batch',
-    width: 620,
-    minWidth: 460,
+    width: 640,
+    minWidth: 480,
     maxWidth: 1000,
     body,
-    onClose: () => { if (locked) stop = true; },
+    onClose: () => {
+      if (locked) stop = true;
+      // Panel closed during the preview: its read stops (nothing was prepared).
+      if (reading) ctx.call('accounts.batch.cancel', { ticket: reading }).catch((err) => console.error(err));
+      reading = null;
+    },
   });
 
   const foot = (buttons) => {
@@ -54,9 +77,9 @@ export function openBatch(ctx, { action, rows, onDone }) {
     panel.foot.hidden = buttons.length === 0;
     panel.foot.innerHTML = buttons.map((b) => (b.href
       ? `<a class="btn${b.primary ? ' primary' : ' subtle'}" href="${esc(b.href)}">${b.icon ? glyph(b.icon) : ''}${esc(b.label)}</a>`
-      : `<button class="btn${b.primary ? ' primary' : ''}${b.danger ? ' danger' : ''}${!b.primary && !b.danger ? ' subtle' : ''}" type="button" data-b="${esc(b.id)}"${b.disabled ? ' disabled' : ''}>${b.icon ? glyph(b.icon) : ''}${esc(b.label)}</button>`)).join('');
+      : `<button class="btn${b.primary ? ' primary' : ''}${b.danger ? ' danger' : ''}${!b.primary && !b.danger ? ' subtle' : ''}" type="button" data-b="${esc(b.id)}"${b.disabled ? ` disabled data-tip="${esc(b.reason ?? '')}"` : ''}>${b.icon ? glyph(b.icon) : ''}${esc(b.label)}${b.write ? '<span class="cpt-wmark" aria-hidden="true">' + glyph('edit') + '</span>' : ''}</button>`)).join('');
     panel.foot.onclick = (e) => {
-      const btn = e.target.closest('[data-b]');
+      const btn = e.target instanceof Element ? e.target.closest('[data-b]') : null;
       if (btn && !btn.disabled) buttons.find((b) => b.id === btn.dataset.b)?.run?.();
     };
   };
@@ -65,8 +88,9 @@ export function openBatch(ctx, { action, rows, onDone }) {
     if (!(await whenOpen(panel))) return;
     // Échap does not close the panel while the writes run (each write goes to its end; the summary shows here).
     panel.el.addEventListener('keydown', (e) => {
-      if (locked && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); announce('Écritures en cours : le panneau reste ouvert jusqu’au bilan.'); }
+      if (locked && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); announce(`Écritures en cours${NBSP}: le panneau reste ouvert jusqu’au bilan.`); }
     }, true);
+    if (rows.length > MAX_BATCH) toast(`Lot limité aux ${formatNumber(MAX_BATCH)} premiers comptes sur ${formatNumber(rows.length)}.`, { tone: 'warn', life: 7000 });
     if (action === 'expiration') chooseDate(); else loadPreview();
   };
 
@@ -75,17 +99,32 @@ export function openBatch(ctx, { action, rows, onDone }) {
     const plus = (days) => { const x = new Date(now); x.setDate(x.getDate() + days); return isoDay(x); };
     body.innerHTML = `<div class="cpt-batch-step"><span class="cpt-batch-num">1</span><div>
         <h3>Date d’expiration</h3><p>Tous les comptes retenus expireront à 0${NBSP}h ce jour-là (heure locale), ou n’expireront plus.</p>
-        <div class="k-field"><label for="cpt-batch-date">Expire le</label><input class="input" id="cpt-batch-date" type="date" min="${isoDay(now)}" value="${plus(30)}"></div>
+        <div class="k-field"><label for="cpt-batch-date">Expire le (à 0${NBSP}h, heure locale)</label><div class="cpt-exp-field"></div></div>
+        <div class="cpt-exp-said" id="cpt-batch-said" aria-live="polite"></div>
         <label class="k-check-row"><input class="k-checkbox" type="checkbox" data-never><span>Supprimer l’expiration (n’expire plus)</span></label>
       </div></div>`;
-    const input = body.querySelector('#cpt-batch-date');
     const never = body.querySelector('[data-never]');
-    never.addEventListener('change', () => { input.disabled = never.checked; });
+    const said = body.querySelector('#cpt-batch-said');
+    // French date field (JJ/MM/AAAA and its calendar), never the format of the native control.
+    const field = createDateField(body.querySelector('.cpt-exp-field'), { id: 'cpt-batch-date', value: plus(30), describedBy: 'cpt-batch-said', onChange: () => describe() });
+    // The date in French words, and the risk of a past date (the engine admits it: « expiré dès l’écriture »).
+    function describe() {
+      if (never.checked) { said.innerHTML = `<span class="cpt-muted">Les comptes retenus n’expireront plus.</span>`; said.dataset.tone = 'info'; return; }
+      const value = field.value() ?? '';
+      const day = longDay(value);
+      if (!day) { said.innerHTML = '<span class="cpt-muted">Saisissez une date au format JJ/MM/AAAA ou choisissez-la dans le calendrier.</span>'; said.dataset.tone = 'info'; return; }
+      const past = value <= isoDay(now);
+      said.innerHTML = `<b>${glyph('calendar')}Expirent le ${esc(day)} à 0${NBSP}h</b>`
+        + (past ? `<span class="cpt-exp-risk">${glyph('alert')}Date passée ou d’aujourd’hui${NBSP}: les comptes seront expirés dès l’écriture.</span>` : '');
+      said.dataset.tone = past ? 'alert' : 'info';
+    }
+    describe();
+    never.addEventListener('change', () => { field.disable(never.checked); describe(); });
     foot([
       { id: 'cancel', label: 'Annuler', run: () => panel.close() },
       { id: 'next', label: 'Voir l’aperçu exact', icon: 'eye', primary: true, run: () => {
-        if (!never.checked && !/^\d{4}-\d{2}-\d{2}$/.test(input.value)) { input.focus(); return; }
-        date = never.checked ? null : input.value;
+        if (!never.checked && !field.value()) { field.focus(); toast('Saisissez une date au format JJ/MM/AAAA.', { tone: 'warn' }); return; }
+        date = never.checked ? null : field.value();
         loadPreview();
       } },
     ]);
@@ -93,69 +132,141 @@ export function openBatch(ctx, { action, rows, onDone }) {
 
   async function loadPreview() {
     panel.setBusy(true);
-    body.innerHTML = `<div class="cpt-batch-wait"><span class="k-spin" aria-hidden="true"></span>Relecture des ${formatNumber(rows.length)}${NBSP}comptes et calcul de l’aperçu exact…</div>`;
+    body.innerHTML = `<div class="cpt-batch-wait" role="status"><span class="k-spin" aria-hidden="true"></span>Relecture des ${formatNumber(dns.length)}${NBSP}comptes et calcul de l’aperçu exact…</div>`;
     foot([{ id: 'cancel', label: 'Annuler', run: () => panel.close() }]);
+    const ticket = newTicket();
+    reading = ticket;
     try {
-      const args = { action, dns: rows.map((r) => r.dn) };
+      const args = { action, dns, ticket };
       if (action === 'expiration') args.date = date;
-      preview = await ctx.call('accounts.batch.preview', args);
+      const next = await ctx.call('accounts.batch.preview', args);
+      if (reading !== ticket) return; // closed, or replaced by another read
+      reading = null;
       if (!panel.el?.isConnected) return;
+      preview = next;
+      unticked.clear();
       showPreview();
     } catch (err) {
+      if (reading !== ticket) return;
+      reading = null;
       console.error(err);
       if (!panel.el?.isConnected) return;
       panel.setBusy(false);
-      body.innerHTML = `<p class="cpt-inline-error">${glyph('alert')}${esc(errorText(err, 'Aperçu impossible : rien n’a été préparé.'))}</p>`;
+      body.innerHTML = `<p class="cpt-inline-error">${glyph('alert')}${esc(errorText(err, `Aperçu impossible${NBSP}: rien n’a été préparé.`))}</p>`;
+      foot([{ id: 'close', label: 'Fermer', run: () => panel.close() }, { id: 'again', label: 'Relire l’aperçu', icon: 'refresh', primary: true, run: loadPreview }]);
     }
+  }
+
+  function targetRow(t, n) {
+    const off = unticked.has(t.dn);
+    return `<li data-j="${n}" class="${off ? 'off' : ''}"><label class="cpt-batch-pick" data-tip="${off ? 'Remettre dans le lot' : 'Retirer du lot'}">
+        <input class="k-checkbox" type="checkbox" data-dn="${esc(t.dn)}" ${off ? '' : 'checked'} aria-label="${esc(`${t.name}${NBSP}: garder dans le lot`)}"></label>
+      <b>${esc(t.name)}</b><span class="mono">${esc(t.sam)}</span>
+      <span class="cpt-batch-change"><s>${esc(t.before ?? '')}</s>${glyph('chevronRight')}<em>${esc(t.after ?? '')}</em></span></li>`;
   }
 
   function showPreview() {
     const p = preview;
     panel.setBusy(false);
     panel.setTitle(p.title, p.simulated ? 'Annuaire fictif · écritures simulées' : 'Écritures dans l’annuaire');
-    const targets = p.targets.slice(0, p.shown).map((t, n) => `<li data-j="${n}"><b>${esc(t.name)}</b><span class="mono">${esc(t.sam)}</span>
-        <span class="cpt-batch-change"><s>${esc(t.before ?? '')}</s>${glyph('chevronRight')}<em>${esc(t.after ?? '')}</em></span></li>`).join('');
+    const shown = p.targets.slice(0, p.shown);
     const more = p.count > p.shown ? `<button class="btn xs subtle" type="button" data-all>${glyph('rows')}Afficher les ${formatNumber(p.count)}${NBSP}comptes</button>` : '';
     const groups = p.excludedGroups.map((gr) => `<li><span>${esc(gr.reason)}</span><b>${formatNumber(gr.count)}</b></li>`).join('');
     const risks = p.risks.map((r) => `<li data-tone="${esc(r.tone)}">${glyph(r.tone === 'alert' ? 'alert' : r.tone === 'warn' ? 'eye' : 'info')}<span>${esc(r.text)}</span></li>`).join('');
+    const seal = p.batch ? `<span class="cpt-batch-seal" data-tip="${esc(`Empreinte de la liste exacte${NBSP}: ${p.batch.fingerprint}`)}" tabindex="0">${glyph('shield')}Aperçu scellé par le moteur · ${esc(p.batch.fingerprint.slice(0, 12))}</span>` : '';
     body.innerHTML = `<div class="cpt-batch-hero" data-tone="${p.count ? (action === 'disable' ? 'alert' : 'warn') : 'off'}">
         <span class="cpt-batch-count">${formatNumber(p.count)}</span>
-        <div><b>${esc(p.count === 1 ? 'compte exact, et seulement lui' : p.count ? 'comptes exacts, et seulement eux' : 'aucun compte à traiter')}</b><span>${esc(p.impact)}</span></div>
+        <div><b>${esc(p.count === 1 ? 'compte exact, et seulement lui' : p.count ? 'comptes exacts, et seulement eux' : 'aucun compte à traiter')}</b><span>${esc(p.impact)}</span>${seal}</div>
         ${p.simulated ? pill('accent', 'Simulation', { icon: 'sparkles', size: 'sm' }) : ''}
       </div>
       ${risks ? `<ul class="cpt-batch-risks">${risks}</ul>` : ''}
-      ${p.count ? `<section class="cpt-batch-sec"><h3>${glyph('check')}Cibles et ce que chacune reçoit</h3><ol class="cpt-batch-list">${targets}</ol>${more}</section>` : ''}
+      ${p.count ? `<section class="cpt-batch-sec"><div class="cpt-batch-sec-head"><h3>${glyph('check')}Cibles et ce que chacune reçoit</h3>
+          <button class="btn xs subtle" type="button" data-csv data-tip="Cibles et exclusions, copiées en CSV pour un tableur">${glyph('csv')}Copier en CSV</button></div>
+        <p class="cpt-batch-hint">Décochez un compte pour le retirer du lot${NBSP}: un nouvel aperçu exact est alors calculé et scellé pour les comptes gardés.</p>
+        <ol class="cpt-batch-list">${shown.map(targetRow).join('')}</ol>${more}
+        <div class="cpt-batch-reseal" hidden></div></section>` : ''}
       ${p.excludedCount ? `<section class="cpt-batch-sec"><h3>${glyph('x')}${esc(plural(p.excludedCount, 'compte exclu', 'comptes exclus'))}</h3><ul class="cpt-batch-groups">${groups}</ul></section>` : ''}
       <details class="cpt-batch-details"><summary>${glyph('chevronRight')}Détail complet</summary><pre>${esc(p.details)}</pre></details>`;
     body.querySelectorAll('[data-j]').forEach((el) => setVars(el, { '--j': String(Math.min(16, Number(el.dataset.j))) }));
     body.querySelector('[data-all]')?.addEventListener('click', (e) => {
-      const list = body.querySelector('.cpt-batch-list');
-      list.innerHTML = p.targets.map((t) => `<li><b>${esc(t.name)}</b><span class="mono">${esc(t.sam)}</span><span class="cpt-batch-change"><s>${esc(t.before ?? '')}</s>${glyph('chevronRight')}<em>${esc(t.after ?? '')}</em></span></li>`).join('');
+      body.querySelector('.cpt-batch-list').innerHTML = p.targets.map(targetRow).join('');
       e.currentTarget.remove();
     });
+    body.querySelector('[data-csv]')?.addEventListener('click', async () => {
+      const csv = previewCsv(p);
+      if (await copyText(csv)) toast(`Aperçu copié en CSV (${plural(p.count + p.excludedCount, 'ligne', 'lignes')})${NBSP}: collez-le dans un tableur.`, { tone: 'ok' });
+      else toast('Copie impossible dans le presse-papiers.', { tone: 'warn' });
+    });
+    body.querySelector('.cpt-batch-list')?.addEventListener('change', (e) => {
+      const box = e.target instanceof HTMLInputElement ? e.target : null;
+      if (!box?.dataset.dn) return;
+      if (box.checked) unticked.delete(box.dataset.dn); else unticked.add(box.dataset.dn);
+      box.closest('li')?.classList.toggle('off', !box.checked);
+      paintFoot();
+    });
+    paintFoot();
+    announce(`${p.title}${NBSP}: ${p.lines[0] ?? ''}`);
+  }
+
+  /** Footer of the preview: confirm the sealed list, or seal a new one without the unticked accounts. */
+  function paintFoot() {
+    const p = preview;
+    const reseal = body.querySelector('.cpt-batch-reseal');
+    const kept = p.targets.filter((t) => !unticked.has(t.dn));
+    if (unticked.size) {
+      if (reseal) {
+        reseal.hidden = false;
+        reseal.innerHTML = `${glyph('info')}<span>${esc(plural(unticked.size, 'compte retiré', 'comptes retirés'))}${NBSP}: l’aperçu scellé ne vaut plus. Calculez l’aperçu des ${esc(plural(kept.length, 'compte gardé', 'comptes gardés'))}.</span>`;
+      }
+      foot([
+        { id: 'cancel', label: 'Annuler', run: () => panel.close() },
+        { id: 'reseal', label: 'Calculer le nouvel aperçu', icon: 'refresh', primary: true, disabled: kept.length === 0, reason: 'Gardez au moins un compte.', run: () => {
+          dns = kept.map((t) => t.dn);
+          panel.setTitle(`${meta.label} · action par lot`, plural(dns.length, 'compte gardé', 'comptes gardés'));
+          loadPreview();
+        } },
+      ]);
+      return;
+    }
+    if (reseal) reseal.hidden = true;
     foot([
       { id: 'cancel', label: 'Annuler', run: () => panel.close() },
-      { id: 'confirm', label: p.confirmation === 'typed' ? 'Confirmer avec le nombre…' : 'Confirmer…', icon: 'edit', danger: true, disabled: p.count === 0, run: confirm },
+      { id: 'confirm', label: p.confirmation === 'typed' ? 'Confirmer avec le nombre…' : 'Confirmer…', icon: meta.icon, write: true,
+        primary: !meta.danger, danger: !!meta.danger, disabled: p.count === 0 || !p.batch, reason: p.count === 0 ? 'Aucun compte à traiter.' : 'Aperçu non scellé.', run: confirm },
     ]);
-    announce(`${p.title} : ${p.lines[0]}`);
   }
 
   async function confirm() {
     const p = preview;
     const typed = p.confirmation === 'typed';
+    let typedCount = null;
     const answer = await confirmWrite({
       title: p.title,
-      message: `${p.impact} Chaque compte reçoit son propre plan, relu juste avant l’envoi, avec son reçu et sa relecture ; une issue incertaine arrête la suite.`,
+      message: `${p.impact} Le moteur revérifie le nombre saisi, puis chaque compte reçoit son propre plan, relu juste avant l’envoi, avec son reçu et sa relecture${NBSP}; une issue incertaine arrête la suite.`,
       target: typed ? p.typedCount : p.targets[0].name,
       targetKind: typed ? 'Nombre de comptes à saisir' : 'Compte',
       targetDetail: typed ? `${formatNumber(p.count)}${NBSP}comptes exacts, ${formatNumber(p.excludedCount)}${NBSP}exclus` : p.targets[0].dn,
       changes: [{ label: p.actionLabel, before: p.targets[0].before ?? '', after: p.targets[0].after ?? '' }],
       details: p.details,
       typed,
+      onTyped: (text) => { typedCount = text; },
       badge: p.simulated ? 'Écritures simulées · annuaire fictif' : 'Écritures dans l’annuaire',
       confirmLabel: p.simulated ? 'Lancer (simulation)' : 'Lancer les écritures',
     });
     if (answer !== 'confirm' || !panel.el?.isConnected) return;
+    // The engine checks the typed number again; a wrong number spends the seal (the preview is to be read again).
+    try {
+      panel.setBusy(true);
+      await ctx.call('accounts.batch.confirm', { id: p.batch.id, typedCount: typed ? typedCount : null });
+      panel.setBusy(false);
+    } catch (err) {
+      console.error(err);
+      panel.setBusy(false);
+      if (!panel.el?.isConnected) return;
+      body.insertAdjacentHTML('afterbegin', `<p class="cpt-inline-error">${glyph('alert')}${esc(errorText(err, `Confirmation refusée${NBSP}: rien n’a été préparé.`))}</p>`);
+      foot([{ id: 'close', label: 'Fermer', run: () => panel.close() }, { id: 'again', label: 'Relire l’aperçu', icon: 'refresh', primary: true, run: loadPreview }]);
+      return;
+    }
     run();
   }
 
@@ -184,26 +295,21 @@ export function openBatch(ctx, { action, rows, onDone }) {
       li.querySelector('.cpt-run-state').innerHTML = href ? `<a href="${esc(href)}">${esc(text)}</a>` : esc(text);
       if (state === 'busy') li.scrollIntoView({ block: 'nearest' });
     };
-    foot([{ id: 'stop', label: 'Arrêter après le compte en cours', icon: 'pause', run: () => { stop = true; announce('Arrêt demandé : le compte en cours va jusqu’au bout.'); foot([]); } }]);
+    foot([{ id: 'stop', label: 'Arrêter après le compte en cours', icon: 'pause', run: () => { stop = true; announce(`Arrêt demandé${NBSP}: le compte en cours va jusqu’au bout.`); foot([]); } }]);
     let halted = null;
     for (let n = 0; n < p.targets.length; n++) {
       if (stop) { halted = 'stopped'; break; }
-      const t = p.targets[n];
       setRow(n, 'busy', 'Relecture et plan…');
       let planned;
       try {
-        const args = { dn: t.dn };
-        if (action === 'expiration') args.date = p.date;
-        planned = await ctx.call(p.planOperation, args);
+        // The plan of a sealed target only, once: the engine compares its GUID with the seal.
+        planned = await ctx.call('accounts.batch.plan', { id: p.batch.id, index: n });
       } catch (err) {
         console.error(err);
-        setRow(n, err?.code === 'write.nothingToDo' ? 'skip' : 'fail', errorText(err, 'Plan impossible : rien n’a été envoyé.'));
-        bump(err?.code === 'write.nothingToDo' ? 'info' : 'alert');
-        continue;
-      }
-      if (planned.plan.confirmation.typedNameRequired) {
-        setRow(n, 'skip', 'Saisie du nom exigée : à traiter seul, rien n’a été envoyé.');
-        bump('info');
+        const skip = err?.code === 'write.nothingToDo' || err?.code === 'accounts.batchTypedName';
+        setRow(n, skip ? 'skip' : 'fail', errorText(err, `Plan impossible${NBSP}: rien n’a été envoyé.`));
+        bump(skip ? 'info' : 'alert');
+        if (BATCH_GONE.has(err?.code)) { halted = 'expired'; break; }
         continue;
       }
       setRow(n, 'busy', 'Reçu enregistré, envoi…');
@@ -217,7 +323,7 @@ export function openBatch(ctx, { action, rows, onDone }) {
       } catch (err) {
         console.error(err);
         const sent = !NOTHING_SENT.has(err?.code);
-        setRow(n, sent ? 'warn' : 'fail', sent ? 'Issue incertaine : consultez Opérations.' : errorText(err, 'Rien n’a été envoyé.'));
+        setRow(n, sent ? 'warn' : 'fail', sent ? `Issue incertaine${NBSP}: consultez Opérations.` : errorText(err, 'Rien n’a été envoyé.'));
         bump(sent ? 'warn' : 'alert');
         if (sent) { halted = 'uncertain'; break; }
       }
@@ -228,18 +334,20 @@ export function openBatch(ctx, { action, rows, onDone }) {
     }
     locked = false;
     panel.el?.classList.remove('wf-locked');
-    body.querySelectorAll('.cpt-run-row[data-state="wait"]').forEach((li) => { li.dataset.state = 'off'; li.querySelector('.cpt-run-state').textContent = halted === 'uncertain' ? 'Non lancé : suite arrêtée' : 'Non lancé : arrêt demandé'; });
+    const notRun = `Non lancé${NBSP}: ${halted === 'uncertain' ? 'suite arrêtée' : halted === 'expired' ? 'lot expiré' : 'arrêt demandé'}`;
+    body.querySelectorAll('.cpt-run-row[data-state="wait"]').forEach((li) => { li.dataset.state = 'off'; li.querySelector('.cpt-run-state').textContent = notRun; });
     const tone = tally.warn ? 'warn' : tally.alert ? 'alert' : tally.ok ? 'ok' : 'info';
     const sentence = halted === 'uncertain'
-      ? 'Une issue est incertaine : la suite a été arrêtée et rien n’est rejoué. Relisez le reçu dans Opérations.'
-      : halted === 'stopped' ? 'Arrêt demandé : les comptes restants n’ont pas été traités.' : 'Toutes les cibles ont été traitées, chacune avec son reçu.';
+      ? `Une issue est incertaine${NBSP}: la suite a été arrêtée et rien n’est rejoué. Relisez le reçu dans Opérations.`
+      : halted === 'expired' ? `Le lot scellé a expiré${NBSP}: les comptes restants n’ont reçu aucun plan. Relisez l’aperçu pour les traiter.`
+        : halted === 'stopped' ? `Arrêt demandé${NBSP}: les comptes restants n’ont pas été traités.` : 'Toutes les cibles ont été traitées, chacune avec son reçu.';
     body.querySelector('.cpt-run').insertAdjacentHTML('afterbegin', `<div class="cpt-run-sum" data-tone="${tone}">${glyph(tone === 'ok' ? 'check' : tone === 'info' ? 'info' : 'alert')}<div><b>Bilan</b><span>${esc(sentence)}</span></div></div>`);
     panel.setTitle(p.title, 'Bilan');
     foot([
       { id: 'close', label: 'Fermer', run: () => panel.close() },
       { id: 'ops', label: 'Voir dans Opérations', icon: 'activity', href: '#/operations' },
     ]);
-    toast(`${p.actionLabel} : ${plural(tally.ok, 'écriture vérifiée', 'écritures vérifiées')}${tally.warn ? `, ${plural(tally.warn, 'à vérifier', 'à vérifier')}` : ''}${p.simulated ? '. Simulation : aucun effet réel.' : '.'}`, { tone, life: 8000 });
+    toast(`${p.actionLabel}${NBSP}: ${plural(tally.ok, 'écriture vérifiée', 'écritures vérifiées')}${tally.warn ? `, ${plural(tally.warn, 'à vérifier', 'à vérifier')}` : ''}${p.simulated ? `. Simulation${NBSP}: aucun effet réel.` : '.'}`, { tone, life: 8000 });
     announce(sentence);
     onDone?.(receipts);
   }

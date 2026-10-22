@@ -41,11 +41,34 @@ public interface IAccountsAccessReader : IScreenReader
     /// <summary>Validates one account once; the password is a read-only copy owned by the caller.</summary>
     Task<CredentialAnswer> ValidateAsync(CredentialRequest request, SecureString password, CancellationToken cancellationToken);
 
-    /// <summary>One light read (Win32_OperatingSystem.Caption) of one workstation with the account the workstation operations take.</summary>
-    Task<RemoteProbeAnswer> ProbeAsync(string computer, string account, CancellationToken cancellationToken);
+    /// <summary>
+    /// One light read (Win32_OperatingSystem.Caption) of one workstation with the credential the workstation operations take:
+    /// a read-only copy of a secondary or temporary account (owned by the caller), or the session itself. Only an explicit
+    /// success is « observed »; an account the source does not know is « authRejected ».
+    /// </summary>
+    Task<RemoteProbeAnswer> ProbeAsync(string computer, RemoteProbeCredential credential, CancellationToken cancellationToken);
 
     /// <summary>Refusals the source already knows when the session starts (simulation: one fictitious refusal of a LAPS read).</summary>
     Task<ImmutableArray<AccessRequestSeed>> InitialRequestsAsync(CancellationToken cancellationToken);
+
+    /// <summary>SID of the account of the session as the directory confirmed it (aliases of « En ce moment »), or null.</summary>
+    Task<string?> SessionSidAsync(CancellationToken cancellationToken);
+
+    /// <summary>Whether this source can open a new session without closing Domenia (CPT-007).</summary>
+    bool SessionSwitchAvailable { get; }
+
+    /// <summary>
+    /// « Changer de compte » (CPT-007): one explicit authentication of the proposed account; on success the source opens the new
+    /// session (same domain) and answers its identity. Nothing is replayed; the caller starts a new epoch.
+    /// </summary>
+    Task<SessionOpenAnswer> OpenSessionAsync(CredentialRequest request, SecureString password, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Correction of the connection password (CPT-008), once the same identity is confirmed: the source replaces the secret of
+    /// the session in memory (SecureString up to the Windows API), stops the reads started with the former one and says whether
+    /// another copy of the refused password remains. accounts.correctionUnavailable when the session holds no password.
+    /// </summary>
+    Task<ConnectionSecretSwap> SwapConnectionPasswordAsync(SecureString password, CancellationToken cancellationToken);
 
     /// <summary>Whether this source answers with fictitious data (simulation).</summary>
     bool Simulated { get; }
