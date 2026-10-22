@@ -22,8 +22,10 @@ internal static class PageScripts
         // innerText applies CSS text-transform (table headers, captions in capitals): the visible text is compared without
         // case, while the exact case is still required in the DOM text (textContent), so a label must be written as asked.
         const fold = (s) => norm(s).toLocaleLowerCase('fr');
+        // innerText exists on HTML elements only: an SVG element (graph, chart) gives its text content.
+        const shownTextOf = (el) => (el instanceof HTMLElement ? el.innerText : el.textContent);
         const visibleHas = (el, text) => {
-          const shownText = norm(el.innerText);
+          const shownText = norm(shownTextOf(el));
           const want = norm(text);
           if (shownText.includes(want)) return true;
           return fold(shownText).includes(fold(want)) && squash(el.textContent).includes(squash(text));
@@ -63,7 +65,8 @@ internal static class PageScripts
               const label = el.getAttribute('aria-label');
               if (label !== null && norm(label) === want) return shown(el);
               if (!squash(el.textContent).includes(flat)) return false;
-              return (norm(el.innerText) === want || fold(el.innerText) === fold(want)) && shown(el);
+              const seen = shownTextOf(el);
+              return (norm(seen) === want || fold(seen) === fold(want)) && shown(el);
             });
             // Deepest matches only: a parent whose whole text is its child's text is the same target.
             if (!spec.selector) found = found.filter((el) => !found.some((o) => o !== el && el.contains(o)));

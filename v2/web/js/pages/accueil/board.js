@@ -624,6 +624,8 @@ export function createBoard(host, o) {
     const card = grip.closest('.card.fw[data-item]');
     if (!card) return;
     e.preventDefault();
+    // preventDefault also cancels the focus move: the grip takes it, so Alt + arrows follow the click.
+    grip.focus({ preventScroll: true });
     const grid = card.parentElement;
     const r = card.getBoundingClientRect();
     drag = { card, grid, id: card.dataset.item, startX: e.clientX, startY: e.clientY, dx: r.left - e.clientX, dy: r.top - e.clientY, moved: false, pointer: e.pointerId };
