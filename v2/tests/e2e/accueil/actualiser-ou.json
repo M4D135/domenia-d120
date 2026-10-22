@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : mettre à jour la base locale de l’OU",
+  "description": "Prépare le plan de « Mettre à jour la base locale de l’OU » (figé au clic, rien n’est contacté), vérifie ses étapes dans la fenêtre de confirmation, le lance une fois, suit les étapes jusqu’au compte rendu, puis vérifie que le tableau du parc est recalculé.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "timeoutMs": 20000,
+  "steps": [
+    { "do": "click", "text": "Mettre à jour la base locale de l’OU", "within": ".controls", "title": "Préparer la mise à jour de la base locale" },
+    { "do": "expect", "selector": ".k-dlg[role=dialog]", "title": "La confirmation présente le plan" },
+    { "do": "expect", "contains": "Sauvegarde vérifiée de la base locale", "within": ".k-dlg", "title": "Le plan commence par la sauvegarde" },
+    { "do": "expect", "contains": "Reçu d’enregistrement local", "within": ".k-dlg" },
+    { "do": "shot", "name": "plan-actualisation", "selector": ".k-dlg" },
+    { "do": "click", "text": "Lancer la mise à jour", "within": ".k-dlg-foot", "title": "Confirmer : le plan part une seule fois" },
+    { "do": "expect", "selector": ".controls .ctl-run", "title": "Les étapes s’affichent" },
+    { "do": "wait", "selector": ".ctl-stage[data-state=done]", "within": ".controls", "count": 3, "title": "Les trois étapes sont terminées" },
+    { "do": "expect", "contains": "Terminée", "within": ".ctl-last", "title": "Le compte rendu est affiché" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

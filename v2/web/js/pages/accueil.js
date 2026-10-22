@@ -1,14 +1,25 @@
-// Accueil: dashboard of the working OU (hero with the working OU, KPI band, charts, watchlist, timeline, session and
-// checks) and the « Choisir l’OU » side panel (tree read on demand, search, counts per OU, sub-OU, apply).
-// Data contract: docs/OPERATIONS.md (app.info, session.info, session.setScope, dashboard.summary,
-// dashboard.widget.refresh / setEnabled, directory.ou.children / search).
+// Accueil: overview of the working OU — hero (scope title, account chip, working OU and first steps), « Contrôles du parc »
+// (explicit refresh of the OU), KPI band, charts, the fleet board (widgets with their exact workstations, layout shaped by
+// the operator, health rules, analysis, provenance), watchlist, timeline, session and its tools. The « Choisir l’OU »
+// panel is the kit drawer with the kit tree (pages/accueil/ou-picker.js).
+// Data contract: docs/OPERATIONS.md (app.info, session.info, session.setScope, dashboard.summary, dashboard.widget.*,
+// directory.ou.*) and docs/ops/accueil.md (accueil.*).
 import { icon } from '../icons.js';
 import { glyph } from '../kit/glyphs.js';
-import { pushModal, popModal, trapFocus, leave, highlight, debounce } from '../kit/util.js';
 import {
-  esc, errorText, applyVars, reveal, countUp, progressTo, donut, inkFollow, copyText, announce,
-  relTime, formatNumber, formatDateTime, formatTime, cssMs, fold,
+  esc, applyVars, reveal, countUp, donut, inkFollow, copyText, announce, relTime, formatNumber, formatDateTime, formatTime,
+  cssMs, motionReduced,
 } from '../ui.js';
+import {
+  NBSP, pct, isNum, numAttr, plural, capitalize, isSimulated, reported, dnChain, pathOf, isRootDn, paint, sk, skStack,
+  localStamp, sameDn,
+} from './accueil/shared.js';
+import { createOuPicker } from './accueil/ou-picker.js';
+import { createBoard } from './accueil/board.js';
+import { createRefresh } from './accueil/refresh.js';
+import { openTargets, openCatalog, openProbeContract, openExplain, openProvenance, openAnalysis } from './accueil/tools.js';
+import { openHealthRules } from './accueil/health.js';
+import { stepsMarkup, journeyMarkup, animateSteps, openHelp, openSelfCheck, clearCache, openJournal } from './accueil/session-tools.js';
 
 /** The screen has its own stylesheet (css/pages/accueil.css), loaded by the router. */
 export const stylesheet = true;
@@ -33,109 +44,30 @@ const PANELS = [
   { id: 'application', label: 'Application' },
   { id: 'store', label: 'Base locale', simulated: 'Données fictives' },
 ];
-// No-break space before « % » and « : », as in the engine texts (OPERATIONS.md § 1.2).
-const NBSP = ' ';
-const pct = (v) => `${formatNumber(v, 1)}${NBSP}%`;
+const SECTIONS = [
+  { id: 'controles', label: 'Contrôles', icon: 'zap' },
+  { id: 'kpis', label: 'Indicateurs', icon: 'gauge' },
+  { id: 'fleet', label: 'Activité', icon: 'activity' },
+  { id: 'board', label: 'Tableau du parc', icon: 'layers' },
+  { id: 'follow', label: 'Suivi', icon: 'eye' },
+  { id: 'session', label: 'Session', icon: 'shield' },
+];
 const DAY_MS = 86_400_000;
-// Numbers from the bridge written into attributes: always a plain number ("NaN" for a missing measure, shown "—").
-const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-const numAttr = (v) => (isNum(v) ? String(v) : 'NaN');
 const countText = (v) => (isNum(v) ? formatNumber(v) : 'non mesuré');
-const plural = (n, one, many) => `${formatNumber(n)} ${n > 1 ? many : one}`;
-const capitalize = (t) => (t ? t[0].toLocaleUpperCase('fr') + t.slice(1) : t);
 const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 const longDate = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-// The simulation (and the browser preview) never opens the local base: its figures come from the fictitious directory
-// kept in memory (SIMULATION.md § 1), and the texts say so.
-const isSimulated = (s, app) => s?.connection?.state === 'simulated' || app?.mode === 'simulation';
 const panelLabel = (p, sim) => (sim && p.simulated ? p.simulated : p.label);
 // lastSeenAt is null when no answer to the presence check (ping) is recorded, even if WMI answered (OPERATIONS.md § 4.7).
-const NO_PING_TIP = 'Aucune réponse au relevé de présence (ping) n’est enregistrée pour ce poste. Le ping peut être filtré : '
+const NO_PING_TIP = 'Aucune réponse au relevé de présence (ping) n’est enregistrée pour ce poste. Le ping peut être filtré : '
   + 'une absence de réponse n’est jamais un verdict d’arrêt.';
 const INVENTORY_RULES = new Set(['lowDisk', 'diskTight', 'uptime']);
-const PATH_SEP = `${NBSP}› `;
-// directory.ou.search answers at most this many OU (OPERATIONS.md § 10): a full list may hide more matches.
-const OU_SEARCH_LIMIT = 50;
-
-// ---------- Distinguished names (RFC 4514) ----------
-
-// Splits a DN into its RDN; escaped commas stay inside their RDN.
-function splitDn(dn) {
-  const parts = [];
-  let cur = '';
-  for (let n = 0; n < dn.length; n++) {
-    const c = dn[n];
-    if (c === '\\' && n + 1 < dn.length) { cur += c + dn[n + 1]; n += 1; continue; }
-    if (c === ',') { parts.push(cur.trim()); cur = ''; continue; }
-    cur += c;
-  }
-  if (cur.trim()) parts.push(cur.trim());
-  return parts;
-}
-
-// Value of an RDN with its escapes decoded (\, and hexadecimal UTF-8 bytes such as \C3\A9).
-function rdnValue(rdn) {
-  const raw = rdn.slice(rdn.indexOf('=') + 1);
-  const bytes = [];
-  let out = '';
-  const flush = () => { if (bytes.length) { out += new TextDecoder().decode(new Uint8Array(bytes)); bytes.length = 0; } };
-  for (let n = 0; n < raw.length; n++) {
-    if (raw[n] === '\\' && /^[0-9a-f]{2}$/i.test(raw.slice(n + 1, n + 3))) { bytes.push(parseInt(raw.slice(n + 1, n + 3), 16)); n += 2; continue; }
-    flush();
-    if (raw[n] === '\\' && n + 1 < raw.length) { out += raw[n + 1]; n += 1; continue; }
-    out += raw[n];
-  }
-  flush();
-  return out;
-}
-
-const rdnType = (rdn) => rdn.slice(0, Math.max(0, rdn.indexOf('='))).trim().toUpperCase();
-const sameDn = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
-
-// Root of the domain and chain of the containers of a DN from the top ({ dn, name, type }, the DN itself last).
-function dnChain(dn, dnsName) {
-  const rdns = splitDn(String(dn ?? ''));
-  const dcAt = rdns.findIndex((r) => rdnType(r) === 'DC');
-  if (dcAt < 0) return null;
-  const domain = dnsName || rdns.slice(dcAt).map(rdnValue).join('.');
-  const chain = [];
-  for (let k = dcAt - 1; k >= 0; k--) chain.push({ dn: rdns.slice(k).join(','), name: rdnValue(rdns[k]), type: rdnType(rdns[k]) });
-  return { root: { dn: rdns.slice(dcAt).join(','), name: domain }, chain };
-}
-
-const pathOf = (dn, dnsName) => {
-  const c = dnChain(dn, dnsName);
-  return c ? [c.root.name, ...c.chain.map((x) => x.name)].join(PATH_SEP) : '';
-};
-
-// ---------- CSS variables set through the CSSOM (CSP forbids style="…") ----------
-
-// data-x / data-y / data-h: positions and heights in percent; data-lvl: depth in the OU tree.
-function applyLocal(scope) {
-  const sel = '[data-x],[data-y],[data-h],[data-lvl]';
-  const list = scope.matches?.(sel) ? [scope] : [];
-  list.push(...scope.querySelectorAll(sel));
-  for (const el of list) {
-    for (const k of ['x', 'y', 'h', 'lvl']) {
-      const v = el.dataset[k];
-      if (v === undefined) continue;
-      const n = Number(v);
-      el.style.setProperty(`--${k}`, String(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0));
-    }
-  }
-}
-
-function paint(scope) {
-  applyVars(scope);
-  applyLocal(scope);
-}
+// Tools opened from the address (#/accueil?outil=…), for links from other screens, guides and the capture mode.
+const TOOLS = new Set(['widgets', 'sante', 'score', 'analyse', 'provenance', 'journal', 'verifier', 'aide', 'actualiser', 'base', 'wmi']);
 
 // ---------- Skeletons ----------
 
-const sk = (cls) => `<span class="skeleton sk ${cls}"></span>`;
-const skStack = (...cls) => `<div class="sk-stack">${cls.map(sk).join('')}</div>`;
-const secHead = (id, title, note) => `<div class="home-sec reveal" data-sec="${id}"><h2>${esc(title)}</h2><span class="sec-note">${esc(note)}</span></div>`;
+const secHead = (id, title, note) => `<div class="home-sec reveal" data-sec="${id}" id="acc-sec-${id}"><h2>${esc(title)}</h2><span class="sec-note">${esc(note)}</span></div>`;
 
 function skeletonPage() {
   const kpi = (id) => `<article class="card kpi spot tilt reveal" data-widget="${id}">${skStack('sk-line w40', 'sk-title w70', 'sk-value w55', 'sk-line w85', 'sk-line w70')}</article>`;
@@ -146,20 +78,22 @@ function skeletonPage() {
       <div class="hero-grid"><div class="hero-main">${skStack('sk-line w25', 'sk-title w40', 'sk-line w70', 'sk-line w55')}</div>
         <div class="scope-card">${skStack('sk-line w40', 'sk-title w55', 'sk-line w85', 'sk-line w70')}</div></div>
     </section>
-    ${secHead('kpis', 'Indicateurs clés', 'Comptes : tout le domaine · postes : OU de travail')}
+    <nav class="acc-nav span-12 reveal" aria-label="Sections de l’Accueil"><div class="acc-nav-track">${SECTIONS.map((s, n) => `<button type="button" class="acc-nav-btn" data-nav="${s.id}" data-j="${n}">${glyph(s.icon)}<span>${esc(s.label)}</span></button>`).join('')}<span class="ink acc-nav-ink" aria-hidden="true"></span></div></nav>
+    <section class="card span-12 controls spot reveal" data-slot="controls" id="acc-sec-controles">${skStack('sk-line w25', 'sk-line w55', 'sk-block w100')}</section>
+    ${secHead('kpis', 'Indicateurs clés', 'Comptes : tout le domaine · postes : OU de travail')}
     <div class="kpi-band">${KPI_IDS.map(kpi).join('')}</div>
-    ${secHead('fleet', 'Parc de l’OU de travail', 'Calculé localement, sans lecture réseau')}
+    ${secHead('fleet', 'Activité de l’OU de travail', 'Calculé localement, sans lecture réseau')}
     ${chart('workstationActivity', 'span-5', sk('sk-block w100'))}
     ${chart('osDistribution', 'span-4', sk('sk-ring'))}
     ${chart('measureFreshness', 'span-3', sk('sk-ring'))}
+    ${secHead('board', 'Tableau du parc', 'Chaque chiffre ouvre ses postes exacts · disposition personnalisable')}
+    <section class="span-12 board" data-slot="board" aria-labelledby="acc-sec-board"></section>
     ${secHead('follow', 'Suivi', 'Postes à surveiller et journal des opérations')}
     ${chart('watchlist', 'span-7', skStack('sk-line w85', 'sk-line w70', 'sk-line w85', 'sk-line w55'))}
     ${chart('recentOperations', 'span-5', skStack('sk-line w70', 'sk-line w55', 'sk-line w70', 'sk-line w40'))}
-    <section class="card span-12 spot reveal session-card" data-slot="session">${skStack('sk-line w25', 'sk-line w100', 'sk-line w85')}</section>
+    <section class="card span-12 spot reveal session-card" data-slot="session" id="acc-sec-session">${skStack('sk-line w25', 'sk-line w100', 'sk-line w85')}</section>
   </div></div>`;
 }
-
-// ---------- Small pieces ----------
 
 function rel(iso, prefix = '') {
   const text = relTime(iso);
@@ -439,7 +373,7 @@ function chartCard(w) {
   return `${cardHead(w, extra)}<div class="card-body">${body}</div>${cardFoot(w, action)}`;
 }
 
-// ---------- Hero, working OU, stepper and session panels ----------
+// ---------- Hero, working OU, first steps and session panels ----------
 
 // session.info in directory mode without a connection still names the join domain (domain.dnsName may also be null).
 function leadText(s) {
@@ -482,7 +416,7 @@ function scopeCardMarkup(s) {
     crumbs = `<nav class="crumbs" aria-label="Chemin de l’OU de travail"><ol>${steps.map((c, n) => {
       const last = n === steps.length - 1;
       const inner = last ? `<span class="crumb now" aria-current="location">${esc(c.name)}</span>`
-        : `<button type="button" class="crumb" data-reveal="${esc(c.dn)}" data-tip="${esc(c.root ? 'Ouvrir le choix de l’OU à la racine du domaine' : `Ouvrir le choix de l’OU sur ${c.name}`)}">${esc(c.name)}</button>`;
+        : `<button type="button" class="crumb" data-reveal="${esc(c.dn)}"${c.root ? ' data-root="1"' : ''} data-tip="${esc(c.root ? 'Ouvrir le choix de l’OU à la racine du domaine (tout le domaine se confirme)' : `Choisir ${c.name} comme OU de travail, même profondeur`)}">${esc(c.name)}</button>`;
       return `<li data-j="${n}">${inner}</li>`;
     }).join('')}</ol></nav>`;
   }
@@ -494,44 +428,6 @@ function scopeCardMarkup(s) {
     ${crumbs}
     <p class="scope-note">${esc(note)}</p>
     <button class="btn ${scope ? '' : 'primary '}sm scope-btn" type="button" data-act="scope" aria-haspopup="dialog">${glyph('ou')}Choisir l’OU</button>`;
-}
-
-// Ordered list in a labelled group; each step says its state in words (the check mark is decorative).
-function stepperMarkup(onb) {
-  const steps = onb.steps.map((st, n) => `<li class="step" data-step="${esc(st.id)}" data-j="${n}"><span class="mark" aria-hidden="true"></span>`
-    + `<span class="label">${esc(st.label)}</span><span class="visually-hidden step-state"></span></li>`).join('');
-  return `<div class="stepper" role="group" aria-labelledby="stepper-title">
-    <div class="stepper-head">${icon('sparkles')}<span class="title" id="stepper-title">Premiers pas</span><span class="count"></span></div>
-    <div class="progress" role="progressbar" aria-label="Progression des premiers pas" aria-valuemin="0" aria-valuemax="${Number(onb.total) || 0}"><span></span></div>
-    <ol class="steps">${steps}</ol></div>`;
-}
-
-function updateStepper(root, onb) {
-  const stepper = root.querySelector('.stepper');
-  if (!stepper || !onb) return;
-  const firstOpen = onb.steps.findIndex((s) => !s.done);
-  const items = [...stepper.querySelectorAll('[data-step]')];
-  onb.steps.forEach((st, n) => {
-    const li = items.find((el) => el.dataset.step === st.id);
-    if (!li) return;
-    const wasDone = li.classList.contains('done');
-    li.classList.toggle('done', st.done);
-    li.classList.toggle('current', n === firstOpen);
-    if (n === firstOpen) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-    const state = li.querySelector('.step-state');
-    if (state) state.textContent = st.done ? ', terminée' : n === firstOpen ? ', étape en cours' : ', à faire';
-    if (wasDone !== st.done || !li.querySelector('.mark').hasChildNodes()) {
-      li.querySelector('.mark').innerHTML = st.done ? icon('check') : String(n + 1);
-    }
-  });
-  const all = onb.completed >= onb.total;
-  stepper.classList.toggle('complete', all);
-  stepper.querySelector('.title').textContent = all ? 'Premiers pas terminés' : 'Premiers pas';
-  stepper.querySelector('.count').textContent = `${onb.completed} / ${onb.total}`;
-  const bar = stepper.querySelector('.progress');
-  bar.setAttribute('aria-valuenow', String(onb.completed));
-  bar.setAttribute('aria-valuetext', `${plural(onb.completed, 'étape faite', 'étapes faites')} sur ${formatNumber(onb.total)}`);
-  progressTo(bar.firstElementChild, onb.total ? onb.completed / onb.total : 0);
 }
 
 // Hero content; the rotating ring and the orbs come from the skeleton and stay, so their motion never restarts.
@@ -546,18 +442,19 @@ function heroTitle(s) {
 function heroMarkup(s, lastReadAt, sim) {
   return `<div class="hero-grid">
       <div class="hero-main">
-        <div class="eyebrow">${icon('sparkles')}<span>Tableau de bord</span><span class="eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
+        <div class="eyebrow">${icon('sparkles')}<span>Vue d’ensemble</span><span class="eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
         <h1 class="gradient-text">${esc(heroTitle(s))}</h1>
         <p class="lead">${esc(leadText(s))}</p>
         <div class="chips">${heroChips(s, lastReadAt, sim)}</div>
         <div class="hero-row">
-          <button class="btn primary" type="button" data-act="refresh-all">${icon('refresh')}<span class="label-progress">Tout actualiser</span></button>
-          <button class="btn" type="button" data-act="queries">${icon('database')}Ouvrir l’atelier de requêtes</button>
+          <button class="btn primary" type="button" data-act="refresh-all" data-tip="Base locale de l’OU, puis ping et WMI des postes actifs, après confirmation">${icon('refresh')}<span class="label-progress">Tout actualiser</span></button>
+          <button class="btn" type="button" data-act="scope" aria-haspopup="dialog">${glyph('ou')}Choisir l’OU</button>
+          <button class="btn ghost" type="button" data-act="queries">${icon('database')}Ouvrir l’atelier de requêtes</button>
         </div>
       </div>
       <aside class="scope-card" data-slot="scope" aria-labelledby="scope-card-k">${scopeCardMarkup(s)}</aside>
     </div>
-    ${stepperMarkup(s.onboarding)}`;
+    <div class="steps-slot" data-slot="steps"></div>`;
 }
 
 // A DN only breaks after its commas (<wbr>), never in the middle of a name.
@@ -651,607 +548,23 @@ function sessionMarkup(sim) {
     </div>`;
 }
 
-// ---------- « Choisir l’OU » side panel ----------
-
-const countsText = (c) => [plural(c.users, 'utilisateur', 'utilisateurs'), plural(c.computers, 'ordinateur', 'ordinateurs'), plural(c.groups, 'groupe', 'groupes')].join(', ');
-const validCounts = (c) => c && isNum(c.users) && isNum(c.computers) && isNum(c.groups);
-const validOu = (o) => o && typeof o.dn === 'string' && o.dn && typeof o.name === 'string';
-
-function countsMarkup(c) {
-  if (!validCounts(c)) return '';
-  const item = (n, ic, one, many, cls) => `<span class="ou-cnt ${cls}${n ? '' : ' zero'}" data-tip="${esc(plural(n, one, many))}">${glyph(ic)}${formatNumber(n)}</span>`;
-  return `<span class="ou-counts" aria-hidden="true">${item(c.users, 'user', 'utilisateur', 'utilisateurs', 'u')}${item(c.computers, 'monitor', 'ordinateur', 'ordinateurs', 'c')}${item(c.groups, 'group', 'groupe', 'groupes', 'g')}</span>`
-    + `<span class="visually-hidden">, ${esc(countsText(c))}</span>`;
-}
-
-// Panel over the page (never a new window): tree read level by level with directory.ou.children (a closed branch is
-// never read), search with directory.ou.search, and session.setScope on « Appliquer ». The tree stays in memory while
-// the Accueil is shown; « Relire » reads it again.
-function createOuPanel({ ctx, current, onApplied, fallbackFocus }) {
-  let layer = null;
-  let panel = null;
-  let tree = null;
-  let results = null;
-  let input = null;
-  let applyBtn = null;
-  let subBox = null;
-  let release = null;
-  let opener = null;
-  let isOpen = false;
-  let busy = false;
-  let root = null;
-  let selected = null; // { dn, name, path, counts }
-  let subtree = true;
-  let hits = [];
-  let treeToken = 0;
-  let searchToken = 0;
-  let seq = 0;
-  const nodes = new Map(); // lower-case DN → node
-
-  const sim = () => isSimulated(current().session, current().app);
-  const nodeOf = (el) => (el instanceof Element ? nodes.get(el.closest('[role="treeitem"]')?.dataset.key ?? '') ?? null : null);
-  const visibleItems = () => [...tree.querySelectorAll('[role="treeitem"]')].filter((el) => !el.parentElement.closest('[role="group"][hidden]'));
-
-  function makeNode(o, level, isRoot = false) {
-    seq += 1;
-    const node = {
-      id: `ou-n-${seq}`, key: o.dn.toLowerCase(), dn: o.dn, name: o.name, path: typeof o.path === 'string' ? o.path : '',
-      hasChildren: isRoot || Boolean(o.hasChildren), counts: validCounts(o.counts) ? o.counts : null, level, isRoot,
-      el: null, group: null, loaded: false, loading: null, expanded: false,
-    };
-    nodes.set(node.key, node);
-    return node;
-  }
-
-  function nodeMarkup(n, j) {
-    const twisty = n.hasChildren ? glyph('chevronRight') : '';
-    return `<div class="ou-node${n.isRoot ? ' root' : ''}" role="treeitem" id="${n.id}" aria-level="${n.level}"${n.hasChildren ? ' aria-expanded="false"' : ''} aria-selected="false" tabindex="-1" data-key="${esc(n.key)}">
-      <div class="ou-row" data-lvl="${n.level - 1}" data-j="${Math.min(j, 16)}">
-        <span class="ou-twisty${n.hasChildren ? '' : ' leaf'}" aria-hidden="true">${twisty}</span>
-        <span class="ou-ico" aria-hidden="true">${n.isRoot ? glyph('domain') : glyph('ou')}</span>
-        <span class="ou-name">${esc(n.name)}</span>
-        ${n.isRoot ? '<span class="ou-tag root-tag">Domaine</span>' : '<span class="ou-tag now-tag" hidden>Actuelle</span>'}
-        ${n.counts ? countsMarkup(n.counts) : ''}
-      </div>
-      ${n.hasChildren ? '<div class="ou-group" role="group" hidden></div>' : ''}
-    </div>`;
-  }
-
-  function attach(scope) {
-    scope.querySelectorAll('[role="treeitem"]').forEach((el) => {
-      const n = nodes.get(el.dataset.key);
-      if (!n) return;
-      n.el = el;
-      n.group = el.querySelector(':scope > [role="group"]');
-    });
-    paint(scope);
-  }
-
-  // Selected OU (aria-selected), current working OU (« Actuelle ») and the roving tab stop.
-  function refreshMarks() {
-    const cur = current().session?.scope?.dn;
-    nodes.forEach((n) => {
-      if (!n.el) return;
-      const on = Boolean(selected && sameDn(selected.dn, n.dn));
-      n.el.setAttribute('aria-selected', String(on));
-      n.el.classList.toggle('is-current', Boolean(cur && sameDn(cur, n.dn)));
-      const tag = n.el.querySelector(':scope > .ou-row .now-tag');
-      if (tag) tag.hidden = !(cur && sameDn(cur, n.dn));
-    });
-    if (!tree.querySelector('[role="treeitem"][tabindex="0"]')) {
-      const first = tree.querySelector('[role="treeitem"][aria-selected="true"]') ?? tree.querySelector('[role="treeitem"]');
-      first?.setAttribute('tabindex', '0');
-    }
-  }
-
-  function setActive(node, focus = false) {
-    if (!node?.el) return;
-    tree.querySelectorAll('[role="treeitem"][tabindex="0"]').forEach((el) => { if (el !== node.el) el.tabIndex = -1; });
-    node.el.tabIndex = 0;
-    if (focus) node.el.focus({ preventScroll: true });
-    node.el.querySelector(':scope > .ou-row')?.scrollIntoView({ block: 'nearest' });
-  }
-
-  function skeletonRows(n) {
-    return Array.from({ length: n }, (_, k) => `<div class="ou-skel" role="none" data-j="${k}"><span class="skeleton sk sk-line ${['w55', 'w40', 'w70', 'w55', 'w40'][k % 5]}"></span></div>`).join('');
-  }
-
-  function errorBlock(err, retry) {
-    return `<div class="ou-err" role="none">${icon('alert')}<span>${esc(reported(err))}</span><button class="btn sm" type="button" ${retry}>${icon('refresh')}Réessayer</button></div>`;
-  }
-
-  function reported(err) {
-    if (!err?.code) console.error(err);
-    return errorText(err);
-  }
-
-  function renderChildren(parent, list) {
-    const kids = list.filter(validOu).map((o) => makeNode(o, parent.level + 1));
-    if (!kids.length) {
-      // Announced with sub-OU but none came back: the branch becomes a leaf.
-      parent.hasChildren = false;
-      parent.el.removeAttribute('aria-expanded');
-      const twisty = parent.el.querySelector(':scope > .ou-row .ou-twisty');
-      if (twisty) { twisty.classList.add('leaf'); twisty.innerHTML = ''; }
-      parent.group.innerHTML = '';
-      parent.group.hidden = true;
-      return;
-    }
-    parent.group.innerHTML = kids.map((k, j) => nodeMarkup(k, j)).join('');
-    attach(parent.group);
-    refreshMarks();
-  }
-
-  function load(node) {
-    if (node.loading) return node.loading;
-    node.group.setAttribute('aria-busy', 'true');
-    node.group.innerHTML = skeletonRows(2);
-    paint(node.group);
-    const my = treeToken;
-    node.loading = (async () => {
-      try {
-        const r = await ctx.call('directory.ou.children', { dn: node.dn });
-        if (my !== treeToken) return;
-        renderChildren(node, Array.isArray(r?.children) ? r.children : []);
-        node.loaded = true;
-      } catch (err) {
-        if (my !== treeToken) return;
-        node.group.innerHTML = errorBlock(err, `data-ou-retry="${esc(node.key)}"`);
-      } finally {
-        node.group?.removeAttribute('aria-busy');
-        node.loading = null;
-      }
-    })();
-    return node.loading;
-  }
-
-  async function expand(node) {
-    if (!node?.hasChildren || !node.group) return;
-    node.expanded = true;
-    node.el.setAttribute('aria-expanded', 'true');
-    node.group.hidden = false;
-    if (!node.loaded) await load(node);
-  }
-
-  function collapse(node) {
-    if (!node?.hasChildren || !node.group) return;
-    node.expanded = false;
-    node.el.setAttribute('aria-expanded', 'false');
-    node.group.hidden = true;
-  }
-
-  async function loadRoot() {
-    const my = ++treeToken;
-    nodes.clear();
-    root = null;
-    tree.setAttribute('aria-busy', 'true');
-    tree.innerHTML = skeletonRows(6);
-    paint(tree);
-    try {
-      const r = await ctx.call('directory.ou.children', { dn: null });
-      if (my !== treeToken) return false;
-      const s = current().session;
-      const p = r?.parent ?? {};
-      const dn = typeof p.dn === 'string' && p.dn ? p.dn : s?.domain?.rootDn ?? 'DC=';
-      const name = typeof p.name === 'string' && p.name ? p.name : s?.domain?.dnsName ?? 'Domaine';
-      root = makeNode({ dn, name, path: typeof p.path === 'string' ? p.path : name, hasChildren: true }, 1, true);
-      tree.innerHTML = nodeMarkup(root, 0);
-      attach(tree);
-      root.expanded = true;
-      root.el.setAttribute('aria-expanded', 'true');
-      root.group.hidden = false;
-      renderChildren(root, Array.isArray(r?.children) ? r.children : []);
-      root.loaded = true;
-      refreshMarks();
-      return true;
-    } catch (err) {
-      if (my !== treeToken) return false;
-      tree.innerHTML = errorBlock(err, 'data-ou-retry-root');
-      return false;
-    } finally {
-      if (my === treeToken) tree.removeAttribute('aria-busy');
-    }
-  }
-
-  // Opens the branches down to an OU (its parents are read one by one, only if needed) and returns its node.
-  async function revealDn(dn) {
-    if (!root) return null;
-    if (!dn || sameDn(dn, root.dn)) return root;
-    const info = dnChain(dn, root.name);
-    let node = root;
-    for (const step of info?.chain ?? []) {
-      await expand(node);
-      const next = nodes.get(step.dn.toLowerCase());
-      if (!next) break;
-      node = next;
-    }
-    return node;
-  }
-
-  function select(node) {
-    if (!node) return;
-    if (node.isRoot) {
-      showError('Choisissez une OU : le domaine entier ne peut pas être l’OU de travail, la mesure des postes n’est jamais lancée sur tout le domaine.', 'info');
-      setActive(node, true);
-      return;
-    }
-    hideError();
-    selected = { dn: node.dn, name: node.name, path: node.path, counts: node.counts };
-    refreshMarks();
-    setActive(node, true);
-    updateFoot();
-    announce(`OU sélectionnée : ${node.name}`);
-  }
-
-  function showError(text, tone = 'alert') {
-    const box = panel.querySelector('.ou-error');
-    box.dataset.tone = tone;
-    box.querySelector('span').textContent = text;
-    box.hidden = false;
-    box.classList.remove('shake');
-    void box.offsetWidth;
-    box.classList.add('shake');
-  }
-
-  function hideError() {
-    panel.querySelector('.ou-error').hidden = true;
-  }
-
-  function updateFoot() {
-    const cur = current().session?.scope ?? null;
-    const pick = panel.querySelector('.ou-pick');
-    if (selected) {
-      const path = selected.path || pathOf(selected.dn, root?.name);
-      pick.innerHTML = `<span class="ou-pick-k">Sélection</span>
-        <span class="ou-pick-name">${glyph('ou')}<b>${esc(selected.name)}</b>${countsMarkup(selected.counts)}</span>
-        <span class="ou-pick-path"><span class="txt" data-tip="${esc(selected.dn)}">${esc(path)}</span>
-        <button class="btn ghost icon sm" type="button" data-ou-copy aria-label="Copier le DN de l’OU sélectionnée" data-tip="Copier le chemin LDAP (DN)">${icon('copy')}</button></span>`;
-    } else {
-      pick.innerHTML = '<span class="ou-pick-k">Sélection</span><span class="ou-pick-none">Aucune OU sélectionnée : choisissez-en une dans l’arborescence ou par la recherche.</span>';
-    }
-    paint(pick);
-    const same = Boolean(selected && cur && sameDn(selected.dn, cur.dn) && cur.subtree === subtree);
-    applyBtn.disabled = !selected || same || busy;
-    const effect = panel.querySelector('.ou-effect');
-    if (!selected) effect.textContent = '';
-    else if (same) effect.textContent = 'C’est déjà l’OU de travail : rien à changer.';
-    else {
-      effect.textContent = `Les widgets de postes porteront sur l’OU ${selected.name}${subtree ? ' et ses sous-OU' : ' seule, sans ses sous-OU'} ; `
-        + `les comptes restent comptés sur tout le domaine. Aucune lecture réseau : l’Accueil se recalcule depuis ${sim() ? 'l’annuaire fictif en mémoire' : 'la base locale'}.`;
-    }
-    effect.classList.remove('flash');
-    void effect.offsetWidth;
-    effect.classList.add('flash');
-  }
-
-  function nowLine() {
-    const s = current().session;
-    const cur = s?.scope;
-    panel.querySelector('.ou-now').innerHTML = cur
-      ? `<span class="k">OU actuelle</span><b>${esc(cur.label)}</b><span class="faint">${esc(pathOf(cur.dn, s.domain?.dnsName))} · ${cur.subtree ? 'sous-OU comprises' : 'cette OU seulement'}</span>`
-      : '<span class="k">OU actuelle</span><b>Aucune</b><span class="faint">la mesure des postes attend une OU</span>';
-  }
-
-  function showTree() {
-    results.hidden = true;
-    results.innerHTML = '';
-    tree.hidden = false;
-    hits = [];
-    panel.querySelector('.ou-search').classList.remove('searching');
-  }
-
-  function renderHits(list, text, truncated) {
-    hits = list;
-    const wanted = fold(text);
-    if (!list.length) {
-      results.innerHTML = `<div class="ou-empty">${icon('search')}<p>Aucune OU ne contient «${NBSP}${esc(text)}${NBSP}».</p></div>`;
-      announce('Aucune OU trouvée.');
-      return;
-    }
-    const head = `${plural(list.length, 'OU trouvée', 'OU trouvées')}${truncated ? ` : d’autres peuvent correspondre, précisez la recherche` : ''}`;
-    results.innerHTML = `<p class="ou-hits-k">${esc(head)}</p><ul class="ou-hits cascade" aria-label="Résultats de la recherche">${list.map((o, n) => `<li data-j="${Math.min(n, 14)}">`
-      + `<button class="ou-hit" type="button" data-n="${n}">${glyph('ou')}<span class="ou-hit-text"><span class="ou-hit-name">${highlight(o.name, wanted)}</span>`
-      + `<span class="ou-hit-path">${highlight(o.path ?? '', wanted)}</span></span>${countsMarkup(o.counts)}</button></li>`).join('')}</ul>`;
-    paint(results);
-    announce(head);
-  }
-
-  const runSearch = debounce(async (text) => {
-    const my = ++searchToken;
-    tree.hidden = true;
-    results.hidden = false;
-    results.setAttribute('aria-busy', 'true');
-    results.innerHTML = skeletonRows(4);
-    paint(results);
-    panel.querySelector('.ou-search').classList.add('searching');
-    try {
-      const r = await ctx.call('directory.ou.search', { text });
-      if (my !== searchToken || !isOpen) return;
-      const list = (Array.isArray(r) ? r : Array.isArray(r?.results) ? r.results : Array.isArray(r?.items) ? r.items : []).filter(validOu);
-      // The engine answers a bare array (OPERATIONS.md § 10); { results, truncated } is still read.
-      renderHits(list, text, r?.truncated === true || list.length >= OU_SEARCH_LIMIT);
-    } catch (err) {
-      if (my !== searchToken || !isOpen) return;
-      results.innerHTML = errorBlock(err, 'data-ou-retry-search');
-    } finally {
-      if (my === searchToken) {
-        results.removeAttribute('aria-busy');
-        panel.querySelector('.ou-search').classList.remove('searching');
-      }
-    }
-  }, 220);
-
-  function onInput() {
-    const text = input.value.trim();
-    if (!text) { runSearch.cancel(); searchToken += 1; showTree(); return; }
-    runSearch(text);
-  }
-
-  async function chooseHit(o) {
-    hideError();
-    selected = { dn: o.dn, name: o.name, path: o.path ?? '', counts: validCounts(o.counts) ? o.counts : null };
-    updateFoot();
-    input.value = '';
-    runSearch.cancel();
-    searchToken += 1;
-    showTree();
-    const node = await revealDn(o.dn);
-    if (!isOpen) return;
-    refreshMarks();
-    if (node && sameDn(node.dn, o.dn)) setActive(node, true);
-    announce(`OU sélectionnée : ${o.name}`);
-  }
-
-  async function apply() {
-    if (!selected || busy) return;
-    busy = true;
-    hideError();
-    applyBtn.disabled = true;
-    applyBtn.classList.add('spinning');
-    try {
-      const session = await ctx.call('session.setScope', { dn: selected.dn, subtree });
-      if (!isOpen) return;
-      applyBtn.classList.remove('spinning');
-      applyBtn.classList.add('done');
-      await close();
-      await onApplied(session);
-    } catch (err) {
-      if (isOpen) showError(reported(err));
-      else ctx.toast(reported(err), { tone: 'alert' });
-    } finally {
-      busy = false;
-      applyBtn.classList.remove('spinning', 'done');
-      if (isOpen) updateFoot();
-    }
-  }
-
-  function onTreeKey(e) {
-    const node = nodeOf(document.activeElement);
-    if (!node) return;
-    const items = visibleItems();
-    const at = items.indexOf(node.el);
-    const go = (el) => { const n = nodeOf(el); if (n) setActive(n, true); };
-    switch (e.key) {
-      case 'ArrowDown': go(items[Math.min(items.length - 1, at + 1)]); break;
-      case 'ArrowUp': go(items[Math.max(0, at - 1)]); break;
-      case 'Home': go(items[0]); break;
-      case 'End': go(items.at(-1)); break;
-      case 'ArrowRight':
-        if (node.hasChildren && !node.expanded) expand(node);
-        else if (node.expanded) {
-          const first = node.group?.querySelector(':scope > [role="treeitem"]');
-          if (first) go(first);
-        }
-        break;
-      case 'ArrowLeft':
-        if (node.expanded && !node.isRoot) collapse(node);
-        else go(node.el.parentElement.closest('[role="treeitem"]'));
-        break;
-      case 'Enter':
-      case ' ':
-        select(node);
-        break;
-      default: return;
-    }
-    e.preventDefault();
-  }
-
-  function onHitKey(e) {
-    const buttons = [...results.querySelectorAll('.ou-hit')];
-    const at = buttons.indexOf(document.activeElement);
-    if (at < 0) return;
-    if (e.key === 'ArrowDown') { buttons[Math.min(buttons.length - 1, at + 1)].focus(); e.preventDefault(); }
-    else if (e.key === 'ArrowUp') { (at === 0 ? input : buttons[at - 1]).focus(); e.preventDefault(); }
-  }
-
-  function onInputKey(e) {
-    if (e.key !== 'ArrowDown') return;
-    const first = results.hidden ? tree.querySelector('[role="treeitem"][tabindex="0"]') : results.querySelector('.ou-hit');
-    if (first) { first.focus(); e.preventDefault(); }
-  }
-
-  function onClick(e) {
-    const t = e.target instanceof Element ? e.target : null;
-    if (!t) return;
-    if (t.closest('[data-ou-close]')) { close(); return; }
-    if (t.closest('[data-ou-apply]')) { apply(); return; }
-    if (t.closest('[data-ou-reload]')) { reloadTree(); return; }
-    if (t.closest('[data-ou-copy]')) {
-      if (selected) copyText(selected.dn).then((ok) => ctx.toast(ok ? 'DN de l’OU copié dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn', life: 2600 }));
-      return;
-    }
-    if (t.closest('[data-ou-retry-root]')) { reloadTree(); return; }
-    if (t.closest('[data-ou-retry-search]')) { onInput(); return; }
-    const retry = t.closest('[data-ou-retry]');
-    if (retry) { const n = nodes.get(retry.dataset.ouRetry); if (n) load(n); return; }
-    const hit = t.closest('.ou-hit');
-    if (hit) { const o = hits[Number(hit.dataset.n)]; if (o) chooseHit(o); return; }
-    const twisty = t.closest('.ou-twisty');
-    const node = nodeOf(t);
-    if (!node) return;
-    if (twisty && node.hasChildren) {
-      if (node.expanded && !node.isRoot) collapse(node); else expand(node);
-      setActive(node, true);
-      return;
-    }
-    if (t.closest('.ou-row')) select(node);
-  }
-
-  function onDouble(e) {
-    const node = nodeOf(e.target);
-    if (node?.hasChildren && !node.isRoot) { if (node.expanded) collapse(node); else expand(node); }
-  }
-
-  // Modal surface: the application shortcuts wait until the panel is closed; Échap clears the search, then closes.
-  function onKeys(e) {
-    if (!isOpen) return;
-    const mod = e.ctrlKey || e.metaKey;
-    const key = e.key.toLowerCase();
-    if ((mod && !e.altKey && ['k', 'p', 'b'].includes(key)) || (e.altKey && !mod && /^Digit[1-9]$/.test(e.code))) {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    if (e.key !== 'Escape') return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (document.activeElement === input && input.value) { input.value = ''; onInput(); return; }
-    close();
-  }
-
-  function build() {
-    layer = document.createElement('div');
-    layer.className = 'k-surface ou-layer';
-    layer.hidden = true;
-    layer.innerHTML = `<div class="ou-backdrop" data-ou-close></div>
-      <aside class="ou-panel" role="dialog" aria-modal="true" aria-labelledby="ou-title" aria-describedby="ou-desc" tabindex="-1">
-        <span class="ou-glow" aria-hidden="true"></span>
-        <header class="ou-head">
-          <span class="ou-head-icon">${glyph('ou')}</span>
-          <div class="ou-titles"><h2 id="ou-title">Choisir l’OU de travail</h2>
-            <p id="ou-desc">Elle sert de défaut à toutes les sections sans choix propre. Le choix est gardé dans les préférences de Domenia, jamais dans l’annuaire.</p></div>
-          <button class="btn ghost icon sm" type="button" data-ou-reload aria-label="Relire l’arborescence" data-tip="Relire l’arborescence">${icon('refresh')}</button>
-          <button class="btn ghost icon sm" type="button" data-ou-close aria-label="Fermer" data-tip="Fermer (Échap)">${icon('x')}</button>
-        </header>
-        <div class="ou-now"></div>
-        <div class="ou-search">${icon('search')}<input class="ou-input" type="search" placeholder="Rechercher une OU par nom ou chemin" aria-label="Rechercher une OU par nom ou par chemin" autocomplete="off" spellcheck="false" maxlength="100"><span class="ou-spin" aria-hidden="true"></span></div>
-        <div class="ou-body">
-          <div class="ou-tree" role="tree" aria-label="Arborescence des OU"></div>
-          <div class="ou-results" hidden></div>
-        </div>
-        <footer class="ou-foot">
-          <div class="ou-pick"></div>
-          <label class="ou-sub"><input class="switch" type="checkbox" data-ou-subtree><span>Inclure les sous-OU</span></label>
-          <p class="ou-effect"></p>
-          <p class="ou-error" role="alert" hidden>${icon('info')}<span></span></p>
-          <div class="ou-actions"><button class="btn ghost" type="button" data-ou-close>Annuler</button>
-            <button class="btn primary" type="button" data-ou-apply>${icon('check')}<span>Appliquer</span></button></div>
-        </footer>
-      </aside>`;
-    document.body.appendChild(layer);
-    panel = layer.querySelector('.ou-panel');
-    tree = layer.querySelector('.ou-tree');
-    results = layer.querySelector('.ou-results');
-    input = layer.querySelector('.ou-input');
-    applyBtn = layer.querySelector('[data-ou-apply]');
-    subBox = layer.querySelector('[data-ou-subtree]');
-    layer.addEventListener('click', onClick);
-    tree.addEventListener('dblclick', onDouble);
-    tree.addEventListener('keydown', onTreeKey);
-    results.addEventListener('keydown', onHitKey);
-    input.addEventListener('input', onInput);
-    input.addEventListener('keydown', onInputKey);
-    subBox.addEventListener('change', () => { subtree = subBox.checked; updateFoot(); });
-  }
-
-  async function reloadTree() {
-    const keep = selected?.dn;
-    const ok = await loadRoot();
-    if (!ok || !isOpen) return;
-    const node = await revealDn(keep ?? current().session?.scope?.dn);
-    refreshMarks();
-    if (node) setActive(node);
-  }
-
-  async function open({ opener: from = null, revealDn: target = null } = {}) {
-    if (isOpen) return;
-    if (!layer) build();
-    opener = from ?? document.activeElement;
-    isOpen = true;
-    const s = current().session;
-    const cur = s?.scope ?? null;
-    subtree = cur ? cur.subtree !== false : true;
-    subBox.checked = subtree;
-    selected = cur ? { dn: cur.dn, name: cur.label, path: pathOf(cur.dn, s.domain?.dnsName), counts: null } : null;
-    input.value = '';
-    showTree();
-    hideError();
-    nowLine();
-    updateFoot();
-    layer.classList.remove('leaving');
-    layer.hidden = false;
-    pushModal(layer);
-    release = trapFocus(panel);
-    window.addEventListener('keydown', onKeys, true);
-    input.focus({ preventScroll: true });
-    if (!root) {
-      const ok = await loadRoot();
-      if (!ok || !isOpen) return;
-    } else {
-      refreshMarks();
-    }
-    const node = await revealDn(target ?? cur?.dn ?? null);
-    if (!isOpen) return;
-    // The selected OU may now carry its counts (read with its level).
-    const sel = selected ? nodes.get(selected.dn.toLowerCase()) : null;
-    if (sel && !selected.counts && sel.counts) { selected.counts = sel.counts; selected.path = sel.path || selected.path; updateFoot(); }
-    refreshMarks();
-    if (node) setActive(node);
-  }
-
-  async function close() {
-    if (!isOpen) return;
-    isOpen = false;
-    window.removeEventListener('keydown', onKeys, true);
-    runSearch.cancel();
-    searchToken += 1;
-    release?.();
-    release = null;
-    await leave(layer, 520);
-    if (isOpen) return; // reopened during the animation
-    layer.hidden = true;
-    layer.classList.remove('leaving');
-    popModal(layer);
-    const back = opener?.isConnected ? opener : fallbackFocus?.();
-    back?.focus({ preventScroll: true });
-  }
-
-  function destroy() {
-    window.removeEventListener('keydown', onKeys, true);
-    runSearch.cancel();
-    release?.();
-    if (layer) {
-      if (isOpen) popModal(layer);
-      layer.remove();
-    }
-    isOpen = false;
-    treeToken += 1;
-    searchToken += 1;
-  }
-
-  return { open, close, destroy, isOpen: () => isOpen };
-}
-
 // ---------- Page ----------
 
 export function render(main, ctx) {
-  const st = { session: null, summary: null, app: null, widgets: {}, alive: true, refreshing: false };
+  const st = {
+    session: null, summary: null, app: null, widgets: {}, alive: true, steps: null, stepsHidden: false, helpSeen: true,
+    favorites: [], lastView: null, refreshing: false,
+  };
   const pending = new Map();
   const busy = new Map(); // widget id → measurements in flight
   const toggling = new Set(); // widgets whose « Mesure active » change is not confirmed yet
   const stops = [];
   let ink = null;
+  let navInk = null;
   let ticker = 0;
+  let board = null;
+  let refresh = null;
+  let liveTimer = 0;
 
   const sim = () => isSimulated(st.session, st.app);
   const stagger = () => cssMs('--stagger', 55);
@@ -1260,6 +573,7 @@ export function render(main, ctx) {
   const startReveal = (scope) => stops.push(reveal(scope, {
     onIn: (el, n) => { const fn = pending.get(el); if (fn) { pending.delete(el); fn(n); } },
   }));
+  const scopeOk = () => Boolean(st.session?.scope && !isRootDn(st.session.scope.dn));
 
   function runCounters(scope, previous, n = 0) {
     scope.querySelectorAll('[data-count]').forEach((el, k) => {
@@ -1276,13 +590,7 @@ export function render(main, ctx) {
     return map;
   }
 
-  // Operator text of an error; browser errors (no code) are logged, their English message is not shown.
-  function reported(err) {
-    if (!err?.code) console.error(err);
-    return errorText(err);
-  }
-
-  // ----- Widgets -----
+  // ----- Widgets of dashboard.summary -----
 
   // Widget ids come from the bridge: escaped before they enter a selector.
   const cardOf = (id) => main.querySelector(`[data-widget="${CSS.escape(String(id))}"]`);
@@ -1304,7 +612,7 @@ export function render(main, ctx) {
       if (w.id === 'osDistribution') bindLegend(card);
     } catch (err) {
       // One unexpected widget must not take the whole dashboard down: only its own card shows the problem.
-      console.error(`Widget « ${w.id} » : affichage impossible`, err, w);
+      console.error(`Widget « ${w.id} » : affichage impossible`, err, w);
       paintBroken(card, w);
       syncCard(w.id);
       return;
@@ -1320,7 +628,7 @@ export function render(main, ctx) {
     card.dataset.tone = 'warn';
     const retry = w.enabled ? `<button class="btn sm" type="button" data-refresh>${icon('refresh')}Actualiser</button>` : '';
     card.innerHTML = `<div class="card-head"><span class="card-icon">${icon('alert')}</span><div class="head-titles"><h3>${esc(w.title ?? 'Widget')}</h3></div></div>
-      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
+      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
         Les autres widgets ne sont pas concernés.</span>${retry}</div></div>`;
     applyVars(card);
   }
@@ -1390,12 +698,12 @@ export function render(main, ctx) {
       if (w?.enabled === false) {
         paintWidget(w);
         restoreFocus(id, key);
-        if (!quiet) ctx.toast(`${w.title} : mesure désactivée pendant l’actualisation, rien n’a été publié.`, { tone: 'info' });
+        if (!quiet) ctx.toast(`${w.title} : mesure désactivée pendant l’actualisation, rien n’a été publié.`, { tone: 'info' });
         return 'skipped';
       }
       paintWidget(w, { bump: true });
       restoreFocus(id, key);
-      if (!quiet) ctx.toast(`${w.title} : mesure actualisée.`, { tone: 'ok', life: 3000 });
+      if (!quiet) ctx.toast(`${w.title} : mesure actualisée.`, { tone: 'ok', life: 3000 });
       return 'ok';
     } catch (err) {
       if (!st.alive) return 'failed';
@@ -1425,8 +733,8 @@ export function render(main, ctx) {
       paintWidget(w);
       syncCard(id);
       settle(w.enabled);
-      ctx.toast(enabled ? `Mesure réactivée : ${w.title}. Ce choix est mémorisé.`
-        : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget, et ce choix est mémorisé.`, { tone: 'info', life: 3600 });
+      ctx.toast(enabled ? `Mesure réactivée : ${w.title}. Ce choix est mémorisé.`
+        : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget, et ce choix est mémorisé.`, { tone: 'info', life: 3600 });
     } catch (err) {
       if (!st.alive) return;
       toggling.delete(id);
@@ -1437,56 +745,17 @@ export function render(main, ctx) {
     }
   }
 
-  function refreshAllText(results) {
-    const total = results.length;
-    const ok = results.filter((r) => r === 'ok').length;
-    const failed = results.filter((r) => r === 'failed').length;
-    const skipped = total - ok - failed;
-    const note = skipped ? ` ${plural(skipped, 'mesure désactivée', 'mesures désactivées')} pendant l’actualisation : rien n’a été publié pour ${skipped > 1 ? 'elles' : 'elle'}.` : '';
-    if (failed) return { text: `Actualisation terminée : ${formatNumber(failed)} widget${failed > 1 ? 's' : ''} sur ${formatNumber(total)} en échec.${note}`, tone: 'warn' };
-    if (!ok) return { text: `Aucun widget remesuré.${note}`, tone: 'info' };
-    return { text: `Tableau de bord actualisé : ${plural(ok, 'widget remesuré', 'widgets remesurés')}.${note}`, tone: 'ok' };
-  }
-
-  async function refreshAll(button) {
-    if (st.refreshing) return;
-    if (!main.querySelector('[data-widget]')) { start(); return; } // error state: reload the whole page
-    if (!st.summary) return; // first summary not there yet: nothing to measure
-    const ids = Object.values(st.widgets).filter((w) => w.enabled && !toggling.has(w.id)).map((w) => w.id);
-    if (!ids.length) {
-      ctx.toast('Aucun widget à mesurer : réactivez « Mesure active » sur au moins un widget.', { tone: 'info' });
-      return;
-    }
-    st.refreshing = true;
-    const label = button.querySelector('.label-progress');
-    let done = 0;
-    button.classList.add('spinning');
-    button.disabled = true;
-    label.textContent = `Actualisation · 0 / ${ids.length}`;
-    const results = await Promise.all(ids.map((id) => refreshWidget(id, { quiet: true }).then((r) => {
-      done += 1;
-      if (st.alive) label.textContent = `Actualisation · ${done} / ${ids.length}`;
-      return r;
-    })));
-    if (!st.alive) return;
-    try {
-      await reload({ silent: true });
-      const { text, tone } = refreshAllText(results);
-      ctx.toast(text, { tone });
-    } catch (err) {
-      ctx.toast(reported(err), { tone: 'alert' });
-    } finally {
-      st.refreshing = false;
-      const b = main.querySelector('[data-act="refresh-all"]');
-      if (b) { b.classList.remove('spinning'); b.disabled = false; b.querySelector('.label-progress').textContent = 'Tout actualiser'; }
-    }
-  }
-
-  // ----- Hero, working OU and session -----
+  // ----- Hero, working OU, first steps -----
 
   // The working-OU card is rebuilt only when the OU, its depth or the domain change, so a refresh never replays its
   // entrance; a new OU chosen in the panel also gets a short highlight.
   const scopeKey = (s) => JSON.stringify([s?.scope?.dn ?? null, s?.scope?.label ?? null, s?.scope?.subtree ?? null, s?.domain?.dnsName ?? null]);
+
+  function lastViewChip() {
+    const v = st.lastView;
+    if (!v?.available) return '';
+    return `<span class="chip last-view" data-tip="${esc(v.text)}">${glyph('history')}<span>Vue précédente · ${esc(localStamp(v.computedAt))}</span></span>`;
+  }
 
   function paintHero({ scopeChanged = false } = {}) {
     const hero = main.querySelector('[data-slot="hero"]');
@@ -1501,9 +770,7 @@ export function render(main, ctx) {
       paint(hero);
     } else {
       hero.querySelector('h1').textContent = heroTitle(st.session);
-      hero.querySelector('.chips').innerHTML = heroChips(st.session, lastReadAt, sim());
       hero.querySelector('.lead').textContent = leadText(st.session);
-      applyVars(hero.querySelector('.chips'));
       const card = hero.querySelector('.scope-card');
       if (card) {
         const key = scopeKey(st.session);
@@ -1519,17 +786,98 @@ export function render(main, ctx) {
         }
       }
     }
+    const chips = hero.querySelector('.chips');
+    chips.innerHTML = heroChips(st.session, lastReadAt, sim()) + lastViewChip();
+    applyVars(chips);
+    paintFavorites();
+    paintSteps();
     const fleet = main.querySelector('[data-sec="fleet"] h2');
-    if (fleet) fleet.textContent = st.session.scope ? `Parc de l’OU ${st.session.scope.label}` : 'Parc de l’OU de travail';
-    updateStepper(hero, st.session.onboarding);
-    syncRefreshAll();
+    if (fleet) fleet.textContent = st.session.scope ? `Activité de l’OU ${st.session.scope.label}` : 'Activité de l’OU de travail';
+    const boardHead = main.querySelector('[data-sec="board"] h2');
+    if (boardHead) boardHead.textContent = st.session.scope ? `Tableau du parc · OU ${st.session.scope.label}` : 'Tableau du parc';
+    syncHeroActions();
   }
 
-  // « Tout actualiser » waits for the first summary (nothing to measure before it); in the error state it reloads.
-  function syncRefreshAll() {
+  // Favourite working OU under the card: one click switches (session.setScope), the panel manages them.
+  function paintFavorites() {
+    const card = main.querySelector('.scope-card');
+    if (!card) return;
+    let host = card.querySelector('.scope-favs');
+    const list = (st.favorites ?? []).filter((f) => f.exists).slice(0, 6);
+    if (!list.length) { host?.remove(); return; }
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'scope-favs';
+      card.querySelector('.scope-btn')?.before(host);
+    }
+    const cur = st.session?.scope;
+    host.innerHTML = `<span class="scope-favs-k">${icon('star')}Favorites</span>${list.map((f, n) => {
+      const now = cur && sameDn(cur.dn, f.dn) && cur.subtree === f.subtree;
+      return `<button type="button" class="fav-chip${now ? ' now' : ''}" data-fav-dn="${esc(f.dn)}" data-fav-sub="${f.subtree ? '1' : '0'}" data-j="${n}"${now ? ' aria-current="true"' : ''} data-tip="${esc(f.path)}">${esc(f.name)}</button>`;
+    }).join('')}`;
+    paint(host);
+  }
+
+  function paintSteps() {
+    const slot = main.querySelector('[data-slot="steps"]');
+    if (!slot) return;
+    const info = st.steps;
+    const showSteps = info && !info.dismissed && !st.stepsHidden;
+    slot.innerHTML = `${showSteps ? stepsMarkup(info, { helpSeen: st.helpSeen }) : ''}${journeyMarkup()}`;
+    paint(slot);
+    if (showSteps) animateSteps(slot, info);
+  }
+
+  async function loadSteps() {
+    try {
+      const info = await ctx.call('accueil.firstSteps');
+      if (!st.alive) return;
+      st.steps = info;
+      st.helpSeen = info.helpSeen;
+      st.stepsHidden = info.dismissed;
+      paintSteps();
+      syncHelpDot();
+    } catch (err) {
+      reported(err);
+    }
+  }
+
+  function syncHelpDot() {
+    main.querySelectorAll('[data-act="help"]').forEach((b) => {
+      b.querySelector('.new-dot')?.remove();
+      b.querySelector('.visually-hidden')?.remove();
+      if (!st.helpSeen) b.insertAdjacentHTML('beforeend', '<span class="new-dot" aria-hidden="true"></span><span class="visually-hidden"> (nouveau)</span>');
+    });
+  }
+
+  async function setStepsHidden(hidden) {
+    st.stepsHidden = hidden;
+    paintSteps();
+    try {
+      const info = await ctx.call('accueil.firstSteps.dismiss', { dismissed: hidden });
+      if (st.alive && info) { st.steps = info; paintSteps(); }
+      ctx.toast(hidden ? 'Premiers pas masqués : l’aide de l’Accueil les réaffiche.' : 'Premiers pas réaffichés.', { tone: 'info', life: 2600 });
+    } catch (err) {
+      ctx.toast(reported(err), { tone: 'alert' });
+    }
+  }
+
+  function stepAction(id) {
+    if (id === 'connect') { scrollToSection('session'); return; }
+    if (id === 'scope') { picker.open(); return; }
+    if (id === 'firstRead') { refresh?.plan('directory'); return; }
+    if (id === 'dashboard') { scrollToSection('board'); return; }
+    if (id === 'rights') openSelfCheck({ ctx, onDone: () => loadSteps() });
+  }
+
+  function syncHeroActions() {
     const b = main.querySelector('[data-act="refresh-all"]');
-    if (!b || st.refreshing) return;
-    b.disabled = !st.summary && Boolean(main.querySelector('[data-widget]'));
+    if (b) {
+      b.disabled = st.refreshing || !scopeOk();
+      b.classList.toggle('spinning', st.refreshing);
+      b.querySelector('.label-progress').textContent = st.refreshing ? 'Actualisation en cours…' : 'Tout actualiser';
+    }
+    refresh?.sync();
   }
 
   function paintPanels() {
@@ -1582,12 +930,13 @@ export function render(main, ctx) {
 
   function copySummary() {
     const s = st.session;
-    const lines = [`Domenia — tableau de bord du ${formatDateTime(st.summary?.generatedAt ?? new Date().toISOString())}`];
+    const b = board?.board();
+    const lines = [`Domenia — vue d’ensemble du ${formatDateTime(st.summary?.generatedAt ?? new Date().toISOString())}`];
     if (typeof st.app?.banner === 'string' && st.app.banner) lines.push(st.app.banner);
     if (s) {
-      lines.push(`Domaine : ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur : ${s.controller?.dnsName ?? 'non connecté'}`,
-        `Compte : ${s.account?.login ?? '—'}`,
-        `OU de travail : ${s.scope ? `${pathOf(s.scope.dn, s.domain?.dnsName) || s.scope.label} (${s.scope.subtree ? 'sous-OU comprises' : 'cette OU seulement'}) — ${s.scope.dn}` : 'aucune'}`);
+      lines.push(`Domaine : ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur : ${s.controller?.dnsName ?? 'non connecté'}`,
+        `Compte : ${s.account?.login ?? '—'}`,
+        `OU de travail : ${s.scope ? `${pathOf(s.scope.dn, s.domain?.dnsName) || s.scope.label} (${s.scope.subtree ? 'sous-OU comprises' : 'cette OU seulement'}) — ${s.scope.dn}` : 'aucune'}`);
     }
     for (const w of Object.values(st.widgets)) {
       const d = w.data;
@@ -1597,39 +946,29 @@ export function render(main, ctx) {
         else if (d && w.kind === 'gauge') value = `${pct(d.percent)} (${formatNumber(d.fresh)} / ${formatNumber(d.total)})`;
         else if (d && w.kind === 'distribution') value = d.segments.length ? d.segments.map((x) => `${x.label} ${pct(x.percent)}`).join(', ') : 'aucun ordinateur';
         else if (d && w.kind === 'series') value = d.points.map((p) => `${p.label} ${p.value ?? '—'}`).join(', ');
-        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes : ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
+        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes : ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
         else if (d && w.kind === 'timeline') value = d.rows.map((r) => r.label).join(' ; ');
       } catch (err) {
-        console.error(`Widget « ${w.id} » : copie impossible`, err, w);
+        console.error(`Widget « ${w.id} » : copie impossible`, err, w);
         value = 'données inattendues';
       }
-      lines.push(`${w.title} — ${w.scopeLabel} : ${value}`);
+      lines.push(`${w.title} — ${w.scopeLabel} : ${value}`);
     }
-    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Tableau de bord copié dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn' }));
-  }
-
-  async function checkApplication(button) {
-    button.disabled = true;
-    const t0 = performance.now();
-    try {
-      const [app, session] = await Promise.all([ctx.call('app.info'), ctx.call('session.info')]);
-      if (!st.alive) return;
-      st.app = app; st.session = session;
-      ctx.showConnection?.(session);
-      paintPanels();
-      const ms = Math.round(performance.now() - t0);
-      ctx.toast(`Pont vérifié : ${app.name} ${app.version} répond en ${formatNumber(ms)} ms. Les contrôles complets arrivent avec le moteur.`, { tone: 'ok' });
-    } catch (err) {
-      ctx.toast(`Vérification en échec : ${reported(err)}`, { tone: 'alert' });
-    } finally {
-      button.disabled = false;
+    if (b) {
+      lines.push('', `Tableau du parc — ${b.scopeLabel} (calculé le ${localStamp(b.computedAt)})`, b.summary,
+        `Santé du parc : ${b.health.verdict}${isNum(b.health.score) ? ` (${b.health.score} %)` : ''} · ${b.health.pointsTitle}`);
+      for (const item of board.layout()?.items ?? []) {
+        const e = b.entries[item.source === 'probe' ? `probe:${item.key}` : item.source === 'query' ? `query:${item.key}` : item.key];
+        if (e && e.kind !== 'health' && e.kind !== 'list') lines.push(`${e.title} : ${e.value}${e.unit ? ` ${String(e.unit).trim()}` : ''}`);
+      }
     }
+    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Vue d’ensemble copiée dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn' }));
   }
 
   // ----- Working OU -----
 
   // After session.setScope: the page shows the new OU at once, then every widget is computed again from the local data
-  // (dashboard.summary, no network read) while the cards show that they are being recalculated.
+  // (dashboard.summary and accueil.board, no network read) while the cards show that they are being recalculated.
   async function scopeApplied(session) {
     if (!st.alive || !session) return;
     st.session = session;
@@ -1640,9 +979,9 @@ export function render(main, ctx) {
     main.querySelectorAll('[data-widget]').forEach((card) => card.querySelector('.card-body')?.classList.add('updating'));
     const scope = session.scope;
     try {
-      await reload({ silent: true });
+      await Promise.all([reload({ silent: true }), loadLastView(), loadFavorites()]);
       if (!st.alive) return;
-      const where = scope ? `OU de travail : ${scope.label}${scope.subtree ? ' et ses sous-OU' : ' seule'}.` : 'OU de travail retirée.';
+      const where = scope ? `OU de travail : ${scope.label}${scope.subtree ? ' et ses sous-OU' : ' seule'}.` : 'OU de travail retirée.';
       ctx.toast(`${where} Accueil recalculé depuis ${sim() ? 'l’annuaire fictif en mémoire' : 'la base locale'}, sans lecture réseau.`, { tone: 'ok' });
     } catch (err) {
       if (st.alive) ctx.toast(reported(err), { tone: 'alert' });
@@ -1651,32 +990,159 @@ export function render(main, ctx) {
     }
   }
 
-  const panel = createOuPanel({
+  async function switchFavorite(dn, subtree) {
+    try {
+      const session = await ctx.call('session.setScope', { dn, subtree });
+      await scopeApplied(session);
+    } catch (err) {
+      ctx.toast(reported(err), { tone: 'alert' });
+    }
+  }
+
+  async function loadFavorites() {
+    try {
+      const r = await ctx.call('accueil.favorites');
+      if (!st.alive) return;
+      st.favorites = r.items ?? [];
+      paintFavorites();
+    } catch (err) {
+      reported(err);
+    }
+  }
+
+  async function loadLastView() {
+    try {
+      st.lastView = await ctx.call('accueil.lastView');
+    } catch (err) {
+      st.lastView = null;
+      reported(err);
+    }
+  }
+
+  const picker = createOuPicker({
     ctx,
     current: () => ({ session: st.session, app: st.app }),
     onApplied: scopeApplied,
-    fallbackFocus: () => main.querySelector('.scope-card [data-act="scope"]'),
   });
+
+  // ----- Tools -----
+
+  function openTargetsFor(key, label, revision) {
+    const b = board?.board();
+    if (!b) return;
+    openTargets({ ctx, revision: revision ?? b.revision, key, label, scope: st.session?.scope ?? null, onReplaced: () => board.load() });
+  }
+
+  function onBoardAction(id) {
+    if (id === 'collect') { refresh?.plan('inventory'); return; }
+    if (id === 'bitlocker') readBitLocker();
+  }
+
+  async function readBitLocker() {
+    try {
+      ctx.toast('Lecture de la présence des clés BitLocker de l’OU…', { tone: 'info', life: 2000 });
+      const r = await ctx.call('accueil.bitlocker.read');
+      if (!st.alive) return;
+      ctx.toast(r.text, { tone: r.withoutKey ? 'warn' : 'ok', life: 5200 });
+      await board.load();
+    } catch (err) {
+      ctx.toast(reported(err), { tone: err?.code === 'scope.tooWide' ? 'warn' : 'alert' });
+    }
+  }
+
+  function openTool(id) {
+    if (id === 'catalog' || id === 'widgets') openCatalog({ ctx, board, onProbe: (pid) => openProbeContract(ctx, pid) });
+    else if (id === 'explain' || id === 'score') openExplain({ ctx, onTargets: openTargetsFor });
+    else if (id === 'health' || id === 'sante') openHealthRules({ ctx, onSaved: () => board.load() });
+    else if (id === 'analysis' || id === 'analyse') openAnalysis({ ctx, onTargets: openTargetsFor });
+    else if (id === 'provenance') openProvenance({ ctx });
+    else if (id === 'journal') openJournal({ ctx });
+    else if (id === 'verifier') openSelfCheck({ ctx, onDone: () => loadSteps() });
+    else if (id === 'aide') openHelpPanel();
+    else if (id === 'actualiser') refresh?.plan('all');
+    else if (id === 'base') refresh?.plan('directory');
+    else if (id === 'wmi') refresh?.plan('inventory');
+    else if (id.startsWith('probe:')) openProbeContract(ctx, id.slice(6));
+  }
+
+  function openHelpPanel() {
+    openHelp({
+      ctx,
+      stepsHidden: st.stepsHidden || st.steps?.dismissed,
+      onSeen: (seen) => { st.helpSeen = seen; syncHelpDot(); },
+      onShowSteps: () => setStepsHidden(false),
+    });
+  }
+
+  // ----- Sections: sticky index with its ink on the section in view -----
+
+  function scrollToSection(id) {
+    const target = id === 'controles' ? main.querySelector('[data-slot="controls"]')
+      : id === 'session' ? main.querySelector('[data-slot="session"]') : main.querySelector(`[data-sec="${CSS.escape(id)}"]`);
+    if (!target) return;
+    const nav = main.querySelector('.acc-nav');
+    const top = target.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - (nav?.offsetHeight ?? 0) - 12;
+    main.scrollTo({ top, behavior: motionReduced() ? 'auto' : 'smooth' });
+    setNav(id);
+  }
+
+  function setNav(id) {
+    main.querySelectorAll('.acc-nav-btn').forEach((b) => {
+      if (b.dataset.nav === id) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    });
+    navInk?.update();
+  }
+
+  function watchSections() {
+    const track = main.querySelector('.acc-nav-track');
+    if (!track) return;
+    navInk = inkFollow(track, '.acc-nav-btn', '[aria-current="true"]');
+    stops.push(() => navInk?.stop());
+    const targets = () => SECTIONS.map((sec) => [sec.id, sec.id === 'controles' ? main.querySelector('[data-slot="controls"]') : sec.id === 'session' ? main.querySelector('[data-slot="session"]') : main.querySelector(`[data-sec="${sec.id}"]`)])
+      .filter(([, el]) => el && el.offsetParent !== null);
+    // The section in view is the last one whose top passed the upper third of the screen; the bottom of the page is the last.
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const list = targets();
+      if (!list.length) return;
+      const limit = main.getBoundingClientRect().top + main.clientHeight * 0.32;
+      let current = list[0][0];
+      for (const [id, el] of list) if (el.getBoundingClientRect().top <= limit) current = id;
+      if (main.scrollTop + main.clientHeight >= main.scrollHeight - 2) current = list.at(-1)[0];
+      setNav(current);
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update); };
+    main.addEventListener('scroll', onScroll, { passive: true });
+    stops.push(() => { main.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); });
+    update();
+  }
 
   function onAction(btn) {
     const act = btn.dataset.act;
-    if (act === 'refresh-all') refreshAll(btn);
-    else if (act === 'scope') panel.open({ opener: btn });
+    if (act === 'refresh-all') refresh?.plan('all');
+    else if (act === 'scope') picker.open();
     else if (act === 'queries') ctx.go('requetes');
-    else if (act === 'check') checkApplication(btn);
-    else if (act === 'cache') ctx.toast('Vider le cache arrive dans une prochaine étape. Aucun objet Active Directory n’est modifié.', { tone: 'info' });
-    else if (act === 'journal') ctx.go('operations');
+    else if (act === 'check') openSelfCheck({ ctx, onDone: () => loadSteps() });
+    else if (act === 'cache') clearCache({ ctx, onCleared: () => { board?.load(); reload({ silent: true }).catch(reported); } });
+    else if (act === 'journal') openJournal({ ctx });
     else if (act === 'copy') copySummary();
+    else if (act === 'help') openHelpPanel();
+    else if (act === 'steps-hide') setStepsHidden(true);
     else if (act === 'retry') start();
   }
 
-  // #/accueil?ou=choisir opens the « Choisir l’OU » panel once the dashboard is shown (links from other screens, guides,
-  // capture mode). Once per visit: « Réessayer » or a refresh does not open it again.
+  // #/accueil?ou=choisir opens « Choisir l’OU », ?outil=… a tool, ?postes=<clé> the workstations of a figure and
+  // ?personnaliser=1 the layout mode, once the screen is shown (links, guides, capture). Once per visit.
   let linkOpened = false;
   function openFromLink() {
-    if (linkOpened || ctx.params?.ou !== 'choisir' || !st.alive) return;
+    if (linkOpened || !st.alive) return;
     linkOpened = true;
-    panel.open({ opener: main.querySelector('.scope-card [data-act="scope"]') }).catch((err) => console.error(err));
+    const p = ctx.params ?? {};
+    if (p.ou === 'choisir') { picker.open(); return; }
+    if (p.personnaliser === '1') board?.setEditing(true);
+    if (typeof p.outil === 'string' && TOOLS.has(p.outil)) { openTool(p.outil); return; }
+    if (typeof p.postes === 'string' && p.postes) openTargetsFor(p.postes, board?.board()?.entries?.[p.postes]?.title ?? p.postes);
   }
 
   // ----- Loading -----
@@ -1689,11 +1155,10 @@ export function render(main, ctx) {
     grid.innerHTML = '';
     if (keepHero) grid.appendChild(keepHero);
     grid.insertAdjacentHTML('beforeend', `<section class="card span-12 error-card reveal" role="alert"><div class="empty">
-      <div class="art">${icon('alert')}</div><h2>Tableau de bord indisponible</h2>
+      <div class="art">${icon('alert')}</div><h2>Vue d’ensemble indisponible</h2>
       <p>${esc(text)}</p>${err?.code ? `<span class="code">${esc(err.code)}</span>` : ''}
       <button class="btn primary" type="button" data-act="retry">${icon('refresh')}Réessayer</button></div></section>`);
     startReveal(grid);
-    syncRefreshAll();
   }
 
   // Parameters of a link of the page: the object of a watchlist row; for Rechercher, the working OU (never the whole
@@ -1701,16 +1166,14 @@ export function render(main, ctx) {
   function goParams(el) {
     if (el.dataset.dn) return { dn: el.dataset.dn };
     const scope = st.session?.scope;
-    const root = st.session?.domain?.rootDn;
-    if (el.dataset.go === 'rechercher' && scope && (!root || scope.dn.toLowerCase() !== root.toLowerCase())) {
+    if (el.dataset.go === 'rechercher' && scope && !isRootDn(scope.dn)) {
       return { ou: scope.dn, subtree: scope.subtree ? '1' : '0' };
     }
     return {};
   }
 
   async function reload({ silent = false } = {}) {
-    // One after the other: the summary's own read never counts among the running tasks of session.info, and the
-    // « dashboard » onboarding step is already done when the session is read.
+    // One after the other: the summary's own read never counts among the running tasks of session.info.
     const summary = await ctx.call('dashboard.summary');
     const session = await ctx.call('session.info');
     if (!st.alive) return;
@@ -1720,9 +1183,39 @@ export function render(main, ctx) {
     Object.values(summary.widgets).forEach((w) => paintWidget(w));
     paintHero();
     paintPanels();
+    await Promise.all([board?.load(), loadSteps()]);
     if (!silent) {
       ctx.toast(sim() ? 'Accueil actualisé depuis l’annuaire fictif en mémoire.' : 'Accueil actualisé depuis la base locale.', { tone: 'ok', life: 2600 });
     }
+  }
+
+  function mountParts() {
+    const boardHost = main.querySelector('[data-slot="board"]');
+    board?.destroy();
+    board = createBoard(boardHost, {
+      ctx,
+      onTargets: (key, label) => openTargetsFor(key, label),
+      onAction: onBoardAction,
+      onTool: openTool,
+      onComputed: (b) => {
+        // Remembered for the next start of the same base and OU (counts and date only, never a name).
+        ctx.call('accueil.lastView.save', { revision: b.revision }).catch((err) => reported(err));
+      },
+    });
+    const controls = main.querySelector('[data-slot="controls"]');
+    refresh?.destroy();
+    refresh = createRefresh(controls, {
+      ctx,
+      scopeOk,
+      onRunning: (on) => {
+        st.refreshing = on;
+        syncHeroActions();
+        // During a collection the board is computed again from the measures already recorded, every 15 s at most (ACC-037).
+        clearInterval(liveTimer);
+        liveTimer = on ? setInterval(() => { if (st.alive && !document.hidden) board?.load(); }, 15_000) : 0;
+      },
+      onFinished: () => { reload({ silent: true }).catch((err) => ctx.toast(reported(err), { tone: 'alert' })); },
+    });
   }
 
   async function start() {
@@ -1733,6 +1226,8 @@ export function render(main, ctx) {
     main.innerHTML = skeletonPage();
     paint(main);
     startReveal(main);
+    watchSections();
+    mountParts();
     ctx.app.then((app) => {
       if (!st.alive) return;
       st.app = app;
@@ -1744,15 +1239,18 @@ export function render(main, ctx) {
       const summaryCall = ctx.call('dashboard.summary');
       // Awaited below, after the session; this handler only keeps an early failure from being reported as unhandled.
       summaryCall.catch(() => {});
-      st.session = await sessionCall.catch(() => null);
+      const [session] = await Promise.all([sessionCall.catch(() => null), loadLastView(), loadFavorites()]);
+      st.session = session;
       if (!st.alive) return;
       if (st.session) { ctx.showConnection?.(st.session); paintHero(); }
       st.summary = await summaryCall;
       if (!st.alive) return;
       Object.values(st.summary.widgets).forEach((w) => paintWidget(w));
-      // Session read again once the summary is done: its read no longer counts among the running tasks (stable count),
-      // and the « dashboard » onboarding step shows as done.
-      const after = await ctx.call('session.info').catch(() => null);
+      await board.load();
+      if (!st.alive) return;
+      // Session and first steps read again once the summary and the board are done: their reads no longer count among the
+      // running tasks, and the « Tableau de bord » step shows as done.
+      const [after] = await Promise.all([ctx.call('session.info').catch(() => null), loadSteps()]);
       if (!st.alive) return;
       if (after) st.session = after;
       paintHero();
@@ -1762,19 +1260,39 @@ export function render(main, ctx) {
       if (st.alive) showError(err);
     }
   }
+
   // ----- Events (delegated) -----
 
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
-    const refresh = t?.closest('[data-refresh]');
-    if (refresh) {
-      const id = refresh.closest('[data-widget]')?.dataset.widget;
+    const refreshBtn = t?.closest('[data-refresh]');
+    if (refreshBtn) {
+      const id = refreshBtn.closest('[data-widget]')?.dataset.widget;
       // No measure while « Mesure active » is being changed (the widget may be off already on the engine side).
-      if (id && !toggling.has(id) && !refresh.disabled) refreshWidget(id);
+      if (id && !toggling.has(id) && !refreshBtn.disabled) refreshWidget(id);
       return;
     }
+    const nav = t?.closest('[data-nav]');
+    if (nav) { scrollToSection(nav.dataset.nav); return; }
+    const fav = t?.closest('[data-fav-dn]');
+    if (fav) { if (!fav.classList.contains('now')) switchFavorite(fav.dataset.favDn, fav.dataset.favSub === '1'); return; }
+    const journey = t?.closest('[data-journey]');
+    if (journey) {
+      const id = journey.dataset.journey;
+      if (id === 'find') ctx.navigate('rechercher', goParams({ dataset: { go: 'rechercher' } }));
+      else if (id === 'view') ctx.go('fiche');
+      else ctx.go('requetes');
+      return;
+    }
+    const step = t?.closest('[data-step-act]');
+    if (step && !step.disabled) { stepAction(step.dataset.stepAct); return; }
+    // A level of the path chooses that OU at once, keeping the depth (Domenia 1, ACC-013); the domain opens the panel.
     const crumb = t?.closest('[data-reveal]');
-    if (crumb) { panel.open({ opener: crumb, revealDn: crumb.dataset.reveal }); return; }
+    if (crumb) {
+      if (crumb.dataset.root === '1') picker.open({ revealDn: crumb.dataset.reveal });
+      else switchFavorite(crumb.dataset.reveal, st.session?.scope?.subtree !== false);
+      return;
+    }
     const act = t?.closest('[data-act]');
     if (act) { onAction(act); return; }
     const go = t?.closest('[data-go]');
@@ -1802,11 +1320,15 @@ export function render(main, ctx) {
   return () => {
     st.alive = false;
     clearInterval(ticker);
+    clearInterval(liveTimer);
     main.removeEventListener('click', onClick);
     main.removeEventListener('change', onChange);
     window.removeEventListener('domenia:refresh-home', onRefreshHome);
     stops.forEach((stop) => stop());
-    // The panel outlives a reload of the page content (« Réessayer »): it goes with the page only.
-    panel.destroy();
+    board?.destroy();
+    refresh?.destroy();
+    // Panels belong to the page: leaving the screen closes them (the kit drawers also close on hashchange).
+    picker.destroy();
   };
 }
+

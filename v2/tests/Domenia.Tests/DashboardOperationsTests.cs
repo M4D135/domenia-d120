@@ -105,8 +105,11 @@ internal static class DashboardOperationsTests
         SameNames(before, ["connection", "domain", "controller", "account", "authentication", "scope", "rights", "readOnly", "tasks", "cache", "onboarding"], "session.info");
         Check.Equal("simulated", before.GetProperty("connection").GetProperty("state").GetString(), "état simulé");
         Check.Equal("Annuaire simulé", before.GetProperty("connection").GetProperty("label").GetString(), "libellé");
-        Check.Equal(@"EXAMPLE\j.martin", before.GetProperty("account").GetProperty("login").GetString(), "compte");
-        Check.Equal("Julien", before.GetProperty("account").GetProperty("givenName").GetString(), "prénom");
+        // Administration account of the operator (decision of David, 21/10): never his own name; the page shows it as a chip.
+        Check.Equal(@"EXAMPLE\adm-j.martin", before.GetProperty("account").GetProperty("login").GetString(), "compte d’administration");
+        Check.Equal("Julien Martin (administration)", before.GetProperty("account").GetProperty("displayName").GetString(), "nom affiché du compte");
+        Check.Equal("Julien", before.GetProperty("account").GetProperty("givenName").GetString(), "prénom (gardé dans le contrat, plus affiché)");
+        Check.Equal("admin", before.GetProperty("rights").GetProperty("level").GetString(), "droits estimés depuis Admins du domaine");
         Check.Equal(JsonValueKind.Null, before.GetProperty("authentication").GetProperty("protocol").ValueKind, "protocole nul écrit");
         Check.Equal("none", before.GetProperty("authentication").GetProperty("method").GetString(), "aucune authentification");
         // Writes are admitted in simulation on the in-memory overlay (decision of 21/10): not read only (docs/WRITES.md).

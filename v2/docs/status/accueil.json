@@ -1,0 +1,114 @@
+{
+  "fait": [
+    "ACC-002",
+    "ACC-004",
+    "ACC-005",
+    "ACC-008",
+    "ACC-009",
+    "ACC-012",
+    "ACC-013",
+    "ACC-014",
+    "ACC-016",
+    "ACC-018",
+    "ACC-019",
+    "ACC-020",
+    "ACC-021",
+    "ACC-023",
+    "ACC-024",
+    "ACC-025",
+    "ACC-026",
+    "ACC-028",
+    "ACC-029",
+    "ACC-030",
+    "ACC-032",
+    "ACC-033",
+    "ACC-034",
+    "ACC-035",
+    "ACC-036",
+    "ACC-037",
+    "ACC-041",
+    "ACC-042",
+    "ACC-043",
+    "ACC-044",
+    "ACC-045",
+    "ACC-046",
+    "ACC-047",
+    "ACC-052",
+    "ACC-053",
+    "ACC-055",
+    "ACC-056",
+    "ACC-057",
+    "ACC-058",
+    "ACC-059",
+    "ACC-060",
+    "ACC-061",
+    "ACC-062",
+    "ACC-063",
+    "ACC-064"
+  ],
+  "ameliore": [
+    "ACC-001",
+    "ACC-010",
+    "ACC-011",
+    "ACC-015",
+    "ACC-054"
+  ],
+  "partiel": [
+    {
+      "id": "ACC-003",
+      "reste": "Sauvegarde vérifiée réelle de la base locale avant la relecture AD avec Domenia.Store (vague 3) ; l’étape est planifiée, suivie et affichée, « sans objet » en simulation (aucune base ouverte)."
+    },
+    {
+      "id": "ACC-006",
+      "reste": "Reçu IndexBulk réel de Domenia.Store (OU, base, session, complétude) avant la collecte (vague 3) ; l’étape « Reçu d’enregistrement local » et l’attente sont en place, servies par l’annuaire fictif en simulation."
+    },
+    {
+      "id": "ACC-007",
+      "reste": "Ajouter au plan figé les sondes des widgets du tableau Poste et celles des requêtes enregistrées quand ces écrans seront portés ; les sondes des widgets actifs du tableau du parc sont figées au clic."
+    },
+    {
+      "id": "ACC-017",
+      "reste": "Pastille « Nouveau » sur le bouton d’aide de la barre du haut (app.js, fichier partagé hors lot) ; elle est en place sur l’aide de l’Accueil et marquée vue (accueil.help.seen)."
+    },
+    {
+      "id": "ACC-022",
+      "reste": "Persistance des relevés dans Domenia.Store (vague 3) ; règles d’admission (CollectionClocks.Create), liste « Relevés par OU » (300 lignes) et horloges en place, relevés gardés en mémoire en simulation."
+    },
+    {
+      "id": "ACC-027",
+      "reste": "Alertes sur une requête enregistrée figée à sa révision, quand l’atelier de requêtes sera porté ; les 32 alertes sur mesures du poste (disque, démarrage, mémoire) sont en place."
+    },
+    {
+      "id": "ACC-031",
+      "reste": "L’écran Rechercher (autre lot) doit reprendre la liste transmise : la page navigue vers Rechercher avec l’OU et la profondeur (ou=…&subtree=…), et « Postes concernés » copie les noms et le CSV de la liste exacte."
+    },
+    {
+      "id": "ACC-038",
+      "reste": "Collecter seulement ce qui manque : relire par tranches les mesures enregistrées et ne contacter que les postes sans mesure récente, avec Domenia.Inventory (vague 3) ; la simulation relève toute l’OU."
+    },
+    {
+      "id": "ACC-039",
+      "reste": "Ouvrir un chiffre dans l’atelier avec sa recette quand l’atelier de requêtes sera porté ; chaque chiffre ouvre déjà sa liste exacte de postes (grille, filtres, CSV, fiche, Rechercher)."
+    },
+    {
+      "id": "ACC-040",
+      "reste": "Enregistrer les instantanés quotidiens et manuels dans la base locale (Domenia.Store, vague 3) ; en simulation, historique dérivé du monde fictif, instantané du jour et instantanés manuels (amélioration) gardés en mémoire pour la session."
+    },
+    {
+      "id": "ACC-048",
+      "reste": "Widgets issus de « Mes requêtes » quand l’atelier de requêtes sera porté ; les widgets de sondes WMI (catalogue, « À relever », couverture) sont en place."
+    },
+    {
+      "id": "ACC-049",
+      "reste": "Widget de requête enregistrée (10 premières valeurs, « Autres valeurs », « Valeur inconnue ») : dépend de la bibliothèque de requêtes de l’atelier, non portée ; la clé query:<id> est réservée et un widget de requête affiche « Requête absente »."
+    },
+    {
+      "id": "ACC-050",
+      "reste": "Révision évaluée et avertissements de lien sur le widget de requête : dépend de l’atelier de requêtes ; le refus d’un relevé WMI avec un widget de requête actif (refresh.queryMissing) est en place."
+    },
+    {
+      "id": "ACC-051",
+      "reste": "Ouvrir la sélection figée des GUID dans l’atelier, nommée avec le compte et la date, quand l’atelier sera porté ; « Points d’attention », « Sans problème » et « Non évalués » ouvrent déjà leurs postes exacts."
+    }
+  ]
+}

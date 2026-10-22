@@ -207,6 +207,41 @@ public sealed class DashboardService : IDisposable
     }
 
     /// <summary>
+    /// Measures one family again for an explicit refresh of the working OU (accueil.refresh.run, docs/ops/accueil.md § 5): same
+    /// gate as the widget refreshes (one after another) and same state in memory, so every widget sees the new readings. Bounded
+    /// to the working OU by the source (never the domain root). Returns the new state; the caller writes the journal.
+    /// </summary>
+    public async Task<DirectoryState> MeasureAsync(MeasureFamily family, CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref queued);
+        try
+        {
+            await refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref queued);
+        }
+        Interlocked.Increment(ref running);
+        try
+        {
+            var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
+            var state = await source.RefreshAsync(family, session.Scope, cancellationToken).ConfigureAwait(false);
+            lock (gate)
+            {
+                lastState = state;
+                stateVersion++;
+            }
+            return state;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref running);
+            refreshGate.Release();
+        }
+    }
+
+    /// <summary>
     /// dashboard.widget.setEnabled: idempotent; a change is remembered in the preferences (LocalWrite) and kept for the
     /// session even if the preferences cannot be written (journal entry). Enabling reuses the last state in memory.
     /// </summary>

@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : règles de santé du domaine",
+  "description": "Ouvre « Règles de santé », désactive le contrôle « Redémarrage ancien », enregistre (préférences en mémoire en mode E2E), vérifie la notification, puis le réactive.",
+  "modes": ["simulation"],
+  "start": "accueil?outil=sante",
+  "steps": [
+    { "do": "expect", "selector": ".acc-health .hr-rules", "title": "Les contrôles sont listés" },
+    { "do": "click", "selector": "[data-hr-toggle=uptime]", "title": "Désactiver « Redémarrage ancien »" },
+    { "do": "expect", "contains": "Modifications non enregistrées", "within": ".acc-health" },
+    { "do": "click", "text": "Enregistrer", "within": ".k-drw-foot" },
+    { "do": "expect", "contains": "Règles de santé enregistrées pour le domaine.", "within": ".toasts" },
+    { "do": "click", "selector": "[data-hr-toggle=uptime]", "title": "Réactiver le contrôle" },
+    { "do": "click", "text": "Enregistrer", "within": ".k-drw-foot" },
+    { "do": "journal", "contains": "Préférences en mémoire seulement (mode E2E)" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

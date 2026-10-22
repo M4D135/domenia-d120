@@ -96,6 +96,41 @@ internal static class PlatformTests
     private static readonly (string Name, OperationClass Class)[] SimulationOperations =
     [
         ("accounts.unlock.plan", OperationClass.LocalRead),
+        ("accueil.analysis.compare", OperationClass.LocalRead),
+        ("accueil.analysis.pivots", OperationClass.LocalRead),
+        ("accueil.analysis.snapshots", OperationClass.LocalRead),
+        ("accueil.bitlocker.read", OperationClass.NetworkRead),
+        ("accueil.board", OperationClass.LocalRead),
+        ("accueil.cache.clear", OperationClass.Local),
+        ("accueil.collections", OperationClass.LocalRead),
+        ("accueil.favorite.drop", OperationClass.LocalWrite),
+        ("accueil.favorite.save", OperationClass.LocalWrite),
+        ("accueil.favorites", OperationClass.LocalRead),
+        ("accueil.firstSteps", OperationClass.LocalRead),
+        ("accueil.firstSteps.dismiss", OperationClass.LocalWrite),
+        ("accueil.health.exceptions", OperationClass.LocalRead),
+        ("accueil.health.explain", OperationClass.LocalRead),
+        ("accueil.health.policy", OperationClass.LocalRead),
+        ("accueil.health.revert", OperationClass.LocalWrite),
+        ("accueil.health.save", OperationClass.LocalWrite),
+        ("accueil.help.seen", OperationClass.LocalWrite),
+        ("accueil.journal", OperationClass.LocalRead),
+        ("accueil.lastView", OperationClass.LocalRead),
+        ("accueil.lastView.save", OperationClass.LocalWrite),
+        ("accueil.layout", OperationClass.LocalRead),
+        ("accueil.layout.reset", OperationClass.LocalWrite),
+        ("accueil.layout.save", OperationClass.LocalWrite),
+        ("accueil.probe", OperationClass.Local),
+        ("accueil.provenance", OperationClass.LocalRead),
+        ("accueil.refresh.plan", OperationClass.LocalRead),
+        ("accueil.refresh.run", OperationClass.NetworkRead),
+        ("accueil.refresh.state", OperationClass.Local),
+        ("accueil.refresh.stop", OperationClass.Local),
+        ("accueil.scope.reset", OperationClass.LocalWrite),
+        ("accueil.selfCheck", OperationClass.LocalRead),
+        ("accueil.snapshot.take", OperationClass.LocalWrite),
+        ("accueil.targets", OperationClass.LocalRead),
+        ("accueil.widgets.catalog", OperationClass.Local),
         ("dashboard.summary", OperationClass.LocalRead),
         ("dashboard.widget.refresh", OperationClass.NetworkRead),
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
@@ -125,7 +160,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AccueilOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

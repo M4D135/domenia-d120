@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : ajouter un widget du catalogue",
+  "description": "Ouvre le catalogue, ajoute le widget « Présence réseau », vérifie qu’il apparaît dans la section « Relevés des postes », puis le retire par son menu.",
+  "modes": ["simulation"],
+  "start": "accueil?outil=widgets",
+  "steps": [
+    { "do": "expect", "selector": ".acc-catalog .cat-group", "title": "Le catalogue est affiché" },
+    { "do": "click", "selector": "[aria-label=\"Ajouter Présence réseau\"]", "within": ".acc-catalog", "title": "Ajouter « Présence réseau »" },
+    { "do": "expect", "contains": "« Présence réseau » ajouté au tableau du parc", "within": ".toasts" },
+    { "do": "press", "key": "Escape" },
+    { "do": "expect", "selector": "[data-entry=\"fleet.presence\"]", "title": "Le widget est sur le tableau" },
+    { "do": "click", "selector": "[data-fw-menu]", "within": "[data-entry=\"fleet.presence\"]" },
+    { "do": "click", "text": "Retirer du tableau", "within": ".k-menu" },
+    { "do": "expect", "selector": "[data-entry=\"fleet.presence\"]", "absent": true, "title": "Le widget est retiré" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

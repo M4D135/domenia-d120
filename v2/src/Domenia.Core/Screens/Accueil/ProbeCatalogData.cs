@@ -1,0 +1,2836 @@
+// Generated from Domenia 1 (dev/wad/modules/Domenia-Probes.Model.ps1 and Domenia-ProbeCatalog.json, reviewed 13/10/2026).
+// The 77 built-in probes keep their identifiers, classes, filters, modes, transforms and flags; their French names and
+// categories carry their accents. The 33 detailed probes are the reviewed document, unchanged. Data only: no code.
+namespace Domenia.Core.Accueil;
+
+internal static class ProbeCatalogData
+{
+    /// <summary>Id|Category|Name|Namespace|Class|Properties|Filter|Mode|Transform|Visual[|Flags], one probe per line.</summary>
+    public const string Builtin = """
+hw.maker|Matériel|Fabricant|root\cimv2|Win32_ComputerSystem|Manufacturer||First|Text|Pie
+hw.model|Matériel|Modèle|root\cimv2|Win32_ComputerSystem|Model||First|Text|Bar
+hw.ram|Matériel|Mémoire installée|root\cimv2|Win32_ComputerSystem|TotalPhysicalMemory||First|GB|Column
+hw.cpu|Matériel|Processeur|root\cimv2|Win32_Processor|Name||First|Text|Bar
+hw.cpuload|Matériel|Charge du premier processeur (%)|root\cimv2|Win32_Processor|LoadPercentage||First|Number|Column
+hw.cpumhz|Matériel|Fréquence maximale du processeur (MHz)|root\cimv2|Win32_Processor|MaxClockSpeed||First|Number|Column
+hw.virtualization|Matériel|Virtualisation activée dans le firmware|root\cimv2|Win32_Processor|VirtualizationFirmwareEnabled||First|Map:True=Oui;False=Non|Pie
+hw.slat|Matériel|Traduction SLAT du processeur|root\cimv2|Win32_Processor|SecondLevelAddressTranslationExtensions||First|Map:True=Oui;False=Non|Pie
+hw.batterylevel|Matériel|Charge restante de la première batterie (%)|root\cimv2|Win32_Battery|EstimatedChargeRemaining||First|Number|Column
+hw.cores|Matériel|Cœurs du processeur|root\cimv2|Win32_Processor|NumberOfCores||First|Number|Column
+hw.threads|Matériel|Processeurs logiques|root\cimv2|Win32_ComputerSystem|NumberOfLogicalProcessors||First|Number|Column
+hw.bios|Matériel|Version du BIOS|root\cimv2|Win32_BIOS|SMBIOSBIOSVersion||First|Text|Bar
+hw.biosyear|Matériel|Année du BIOS|root\cimv2|Win32_BIOS|ReleaseDate||First|Year|Column
+hw.gpu|Matériel|Carte graphique|root\cimv2|Win32_VideoController|Name||First|Text|Bar
+hw.screens|Matériel|Nombre d’écrans|root\wmi|WmiMonitorID|InstanceName||Count|Number|Column
+hw.battery|Matériel|Batterie présente|root\cimv2|Win32_Battery|Name||Count|Map:0=Non;1=Oui;2=Oui|Pie
+hw.chassis|Matériel|Type de système|root\cimv2|Win32_ComputerSystem|PCSystemTypeEx||First|Map:0=Non précisé;1=Bureau;2=Portable;3=Station de travail;4=Serveur;5=Serveur;6=Appareil;7=Serveur;8=Tablette|Pie
+hw.serialmissing|Matériel|Numéro de série|root\cimv2|Win32_BIOS|SerialNumber||First|Text|Text
+os.caption|Système|Édition de Windows|root\cimv2|Win32_OperatingSystem|Caption||First|Text|Pie
+os.release|Système|Version de Windows|root\cimv2|Win32_OperatingSystem|BuildNumber,ProductType||First|Release|Pie
+os.arch|Système|Architecture|root\cimv2|Win32_OperatingSystem|OSArchitecture||First|Text|Pie
+os.uptime|Système|Jours depuis le dernier démarrage|root\cimv2|Win32_OperatingSystem|LastBootUpTime||First|DaysSince|Column
+os.installyear|Système|Année d’installation de Windows|root\cimv2|Win32_OperatingSystem|InstallDate||First|Year|Column
+os.lang|Système|Langue du système|root\cimv2|Win32_OperatingSystem|OSLanguage||First|Map:1036=Français;1033=Anglais (US);2057=Anglais (UK);1031=Allemand;1034=Espagnol;1040=Italien|Pie
+os.tz|Système|Fuseau horaire|root\cimv2|Win32_TimeZone|Caption||First|Text|Bar
+os.pagefile|Système|Fichier d’échange (Mo)|root\cimv2|Win32_PageFileUsage|AllocatedBaseSize||First|Number|Column
+os.freeram|Système|Mémoire libre (Go)|root\cimv2|Win32_OperatingSystem|FreePhysicalMemory||First|GBfromKB|Column
+os.virtualfree|Système|Mémoire virtuelle libre (Go)|root\cimv2|Win32_OperatingSystem|FreeVirtualMemory||First|GBfromKB|Column
+os.visiblememory|Système|Mémoire visible par Windows (Go)|root\cimv2|Win32_OperatingSystem|TotalVisibleMemorySize||First|GBfromKB|Column
+os.users|Système|Utilisateurs déclarés connectés par Windows|root\cimv2|Win32_OperatingSystem|NumberOfUsers||First|Number|Column
+os.producttype|Système|Rôle Windows|root\cimv2|Win32_OperatingSystem|ProductType||First|Map:1=Poste;2=Contrôleur de domaine;3=Serveur|Pie
+disk.cfree|Disques|Espace libre sur C: (%)|root\cimv2|Win32_LogicalDisk|FreeSpace,Size|DeviceID='C:'|First|PercentFree|Column
+disk.csize|Disques|Taille de C: (Go)|root\cimv2|Win32_LogicalDisk|Size|DeviceID='C:'|First|GB|Column
+disk.count|Disques|Nombre de volumes locaux|root\cimv2|Win32_LogicalDisk|DeviceID|DriveType=3|Count|Number|Column
+disk.media|Disques|Type de disque physique|root\Microsoft\Windows\Storage|MSFT_PhysicalDisk|MediaType||First|Map:3=Disque dur;4=SSD;5=SCM;0=Non précisé|Pie
+disk.health|Disques|Santé du disque physique|root\Microsoft\Windows\Storage|MSFT_PhysicalDisk|HealthStatus||First|Map:0=Sain;1=Avertissement;2=Défaillant;5=Inconnu|Pie
+disk.removable|Disques|Supports amovibles connectés|root\cimv2|Win32_LogicalDisk|DeviceID|DriveType=2|Count|Number|Column
+sec.bitlocker|Sécurité|Protection BitLocker de C:|root\cimv2\Security\MicrosoftVolumeEncryption|Win32_EncryptableVolume|ProtectionStatus|DriveLetter='C:'|First|Map:0=Non protégé;1=Protégé;2=Inconnu|Pie
+sec.av|Sécurité|Antivirus déclaré|root\SecurityCenter2|AntiVirusProduct|displayName||All|Text|Bar
+sec.localusers|Sécurité|Comptes locaux activés|root\cimv2|Win32_UserAccount|Name|LocalAccount=TRUE AND Disabled=FALSE|Count|Number|Column|NoDC
+sec.shares|Sécurité|Partages de fichiers déclarés|root\cimv2|Win32_Share|Name|Type=0|Count|Number|Column
+sec.defender|Sécurité|Antivirus Defender actif|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusEnabled||First|Map:True=Oui;False=Non|Pie
+sec.realtime|Sécurité|Protection en temps réel de Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|RealTimeProtectionEnabled||First|Map:True=Oui;False=Non|Pie
+sec.behavior|Sécurité|Surveillance comportementale de Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|BehaviorMonitorEnabled||First|Map:True=Oui;False=Non|Pie
+sec.signatures|Sécurité|Âge des signatures Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusSignatureAge||First|Number|Column
+sec.quickscan|Sécurité|Âge de l’analyse rapide Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|QuickScanAge||First|Number|Column
+sec.fullscan|Sécurité|Âge de l’analyse complète Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|FullScanAge||First|Number|Column
+sec.defenderversion|Sécurité|Version du produit Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AMProductVersion||First|Text|Bar
+sec.tpmversion|Sécurité|Spécification TPM|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|SpecVersion||First|Text|Pie
+sec.tpmenabled|Sécurité|TPM activé au relevé|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|IsEnabled_InitialValue||First|Map:True=Oui;False=Non|Pie
+sec.tpmactivated|Sécurité|TPM opérationnel au relevé|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|IsActivated_InitialValue||First|Map:True=Oui;False=Non|Pie
+net.adapter|Réseau|Carte réseau connectée|root\cimv2|Win32_NetworkAdapter|Name|NetConnectionStatus=2 AND PhysicalAdapter=TRUE|All|Text|Bar
+net.speed|Réseau|Vitesse du lien (Mbit/s)|root\cimv2|Win32_NetworkAdapter|Speed|NetConnectionStatus=2 AND PhysicalAdapter=TRUE|First|Mbps|Column
+net.dhcp|Réseau|Adresse DHCP|root\cimv2|Win32_NetworkAdapterConfiguration|DHCPEnabled|IPEnabled=TRUE|First|Map:True=DHCP;False=Fixe|Pie
+net.dns|Réseau|Premier serveur DNS|root\cimv2|Win32_NetworkAdapterConfiguration|DNSServerSearchOrder|IPEnabled=TRUE|First|Text|Bar
+net.gateway|Réseau|Passerelle|root\cimv2|Win32_NetworkAdapterConfiguration|DefaultIPGateway|IPEnabled=TRUE|First|Text|Bar
+net.wifi|Réseau|Wi-Fi connecté|root\StandardCimv2|MSFT_NetAdapter|Name|NdisPhysicalMedium=9 AND MediaConnectState=1|Count|Map:0=Non;1=Oui;2=Oui|Pie
+soft.printers|Logiciels et services|Nombre d’imprimantes|root\cimv2|Win32_Printer|Name||Count|Number|Column
+soft.defaultprinter|Logiciels et services|Imprimante par défaut|root\cimv2|Win32_Printer|Name|Default=TRUE|First|Text|Bar
+soft.startup|Logiciels et services|Programmes au démarrage|root\cimv2|Win32_StartupCommand|Name||Count|Number|Column
+soft.stoppedauto|Logiciels et services|Services automatiques arrêtés|root\cimv2|Win32_Service|Name|StartMode='Auto' AND State='Stopped'|Count|Number|Column
+soft.running|Logiciels et services|Services en cours d’exécution|root\cimv2|Win32_Service|Name|State='Running'|Count|Number|Column
+soft.spooler|Logiciels et services|Service Spouleur d’impression|root\cimv2|Win32_Service|State|Name='Spooler'|First|Text|Pie
+soft.wuauserv|Logiciels et services|Service Windows Update|root\cimv2|Win32_Service|State|Name='wuauserv'|First|Text|Pie
+soft.winrm|Logiciels et services|Service WinRM|root\cimv2|Win32_Service|State|Name='WinRM'|First|Text|Pie
+soft.bits|Logiciels et services|Service BITS|root\cimv2|Win32_Service|State|Name='BITS'|First|Text|Pie
+soft.w32time|Logiciels et services|Service Heure Windows|root\cimv2|Win32_Service|State|Name='W32Time'|First|Text|Pie
+soft.rdp|Logiciels et services|Service Bureau à distance|root\cimv2|Win32_Service|State|Name='TermService'|First|Text|Pie
+soft.firewall|Logiciels et services|Service Pare-feu Windows|root\cimv2|Win32_Service|State|Name='MpsSvc'|First|Text|Pie
+soft.defender|Logiciels et services|Service Antivirus Defender|root\cimv2|Win32_Service|State|Name='WinDefend'|First|Text|Pie
+soft.dnsclient|Logiciels et services|Service Client DNS|root\cimv2|Win32_Service|State|Name='Dnscache'|First|Text|Pie
+soft.hotfixcount|Logiciels et services|Nombre de correctifs CBS visibles|root\cimv2|Win32_QuickFixEngineering|HotFixID||Count|Number|Column
+soft.processes|Logiciels et services|Processus en cours|root\cimv2|Win32_Process|Name||Count|Number|Column
+user.console|Utilisateurs|Utilisateur de la console|root\cimv2|Win32_ComputerSystem|UserName||First|Text|Text
+user.profiles|Utilisateurs|Profils utilisateurs sur le poste|root\cimv2|Win32_UserProfile|LocalPath|Special=FALSE|Count|Number|Column
+user.sessions|Utilisateurs|Sessions ouvertes|root\cimv2|Win32_LogonSession|LogonId|(LogonType=2 OR LogonType=10) AND AuthenticationPackage<>'Negotiate'|Count|Number|Column
+evt.syserrors|Événements|Erreurs système (24 h)|root\cimv2|Win32_NTLogEvent|EventCode|Logfile='System' AND EventType=1 AND TimeGenerated>='{SINCE_24H}'|Count|Number|Column|Slow
+evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent|EventCode|Logfile='System' AND EventCode=6008 AND TimeGenerated>='{SINCE_7D}'|Count|Number|Column|Slow
+""";
+
+    /// <summary>Detailed catalog (Domenia-ProbeCatalog.json, schema 1).</summary>
+    public const string Extended = """
+{
+  "SchemaVersion": 1,
+  "DocumentationReviewedUtc": "2026-10-13",
+  "Qualification": "Documentation vérifiée ; qualification des fournisseurs Windows à réaliser.",
+  "Probes": [
+    {
+      "Id": "hw.memorymodules",
+      "Name": "Barrettes mémoire et emplacements occupés",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_PhysicalMemory",
+      "Properties": [
+        "DeviceLocator",
+        "Capacity",
+        "Manufacturer",
+        "PartNumber",
+        "SerialNumber",
+        "SMBIOSMemoryType",
+        "ConfiguredClockSpeed",
+        "FormFactor"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Une ligne par barrette mémoire exposée par le firmware.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une VM ou un firmware incomplet peut masquer des barrettes ; aucun emplacement libre n’est déduit de cette seule classe.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemory"
+      ],
+      "Fields": [
+        {
+          "Name": "DeviceLocator",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Emplacement désigné par le firmware"
+        },
+        {
+          "Name": "Capacity",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Capacité de cette barrette"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant rapporté"
+        },
+        {
+          "Name": "PartNumber",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Référence de la barrette"
+        },
+        {
+          "Name": "SerialNumber",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Numéro de série rapporté"
+        },
+        {
+          "Name": "SMBIOSMemoryType",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code SMBIOS",
+          "Description": "Type mémoire ; 0 = inconnu"
+        },
+        {
+          "Name": "ConfiguredClockSpeed",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "MHz",
+          "Description": "Vitesse configurée ; 0 = non renseigné"
+        },
+        {
+          "Name": "FormFactor",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Format physique"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.memoryarrays",
+      "Name": "Capacité mémoire et nombre d’emplacements",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_PhysicalMemoryArray",
+      "Properties": [
+        "Tag",
+        "MemoryDevices",
+        "MaxCapacityEx",
+        "MemoryErrorCorrection",
+        "Use"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Groupes mémoire, emplacements et capacité maximale déclarés dans SMBIOS.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "MaxCapacityEx : Windows 10 / Windows Server 2016 ou ultérieur selon le fournisseur.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "MaxCapacityEx est en kilo-octets. La capacité firmware n’est pas une garantie de compatibilité avec une barrette donnée. Seuls les groupes d’usage 3 (mémoire système) comptent pour les emplacements de barrettes.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemoryarray"
+      ],
+      "Fields": [
+        {
+          "Name": "Tag",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du groupe mémoire"
+        },
+        {
+          "Name": "MemoryDevices",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "emplacements",
+          "Description": "Nombre de supports physiques du groupe"
+        },
+        {
+          "Name": "MaxCapacityEx",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "Ko",
+          "Description": "Capacité maximale déclarée ; 0 = inconnue"
+        },
+        {
+          "Name": "MemoryErrorCorrection",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Type de correction d’erreurs"
+        },
+        {
+          "Name": "Use",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Usage du groupe : 3 = mémoire système ; 4 vidéo, 5 flash, 6 NVRAM, 7 cache"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "disk.volumes",
+      "Name": "Volumes locaux : capacité et espace libre",
+      "Category": "Disques",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_LogicalDisk",
+      "Properties": [
+        "DeviceID",
+        "VolumeName",
+        "FileSystem",
+        "Size",
+        "FreeSpace"
+      ],
+      "Filter": "DriveType=3",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Chaque volume local fixe et ses capacités au moment du relevé.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "La tendance et une prévision de saturation demandent plusieurs relevés historiques comparables. Les volumes sans lettre ne sont pas exhaustivement couverts.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-logicaldisk"
+      ],
+      "Fields": [
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Lettre du volume"
+        },
+        {
+          "Name": "VolumeName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du volume"
+        },
+        {
+          "Name": "FileSystem",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Système de fichiers"
+        },
+        {
+          "Name": "Size",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Capacité du volume"
+        },
+        {
+          "Name": "FreeSpace",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Espace disponible au relevé"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "disk.physical",
+      "Name": "Disques physiques : modèle, bus et santé",
+      "Category": "Disques",
+      "Namespace": "root\\Microsoft\\Windows\\Storage",
+      "Class": "MSFT_PhysicalDisk",
+      "Properties": [
+        "FriendlyName",
+        "DeviceId",
+        "MediaType",
+        "BusType",
+        "HealthStatus",
+        "OperationalStatus",
+        "Size",
+        "FirmwareVersion",
+        "SerialNumber"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Tous les disques physiques visibles du fournisseur de stockage.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur Storage et pilote compatibles.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les contrôleurs RAID, VM et pilotes peuvent ne pas exposer la santé réelle du support. Un statut inconnu ne vaut pas sain.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-physicaldisk"
+      ],
+      "Fields": [
+        {
+          "Name": "FriendlyName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du disque déclaré par le pilote"
+        },
+        {
+          "Name": "DeviceId",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant fourni par le pilote"
+        },
+        {
+          "Name": "MediaType",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "0 inconnu, 3 disque dur, 4 SSD, 5 SCM"
+        },
+        {
+          "Name": "BusType",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Type de bus déclaré"
+        },
+        {
+          "Name": "HealthStatus",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "0 sain, 1 avertissement, 2 défaillant, 5 inconnu"
+        },
+        {
+          "Name": "OperationalStatus",
+          "CimType": "uint16[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes",
+          "Description": "Tous les états de fonctionnement déclarés"
+        },
+        {
+          "Name": "Size",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Taille du disque"
+        },
+        {
+          "Name": "FirmwareVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version du micrologiciel"
+        },
+        {
+          "Name": "SerialNumber",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Numéro de série déclaré"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "disk.reliability",
+      "Name": "Stockage : compteurs de fiabilité rapportés",
+      "Category": "Disques",
+      "Namespace": "root\\Microsoft\\Windows\\Storage",
+      "Class": "MSFT_StorageReliabilityCounter",
+      "Properties": [
+        "DeviceId",
+        "Temperature",
+        "Wear",
+        "PowerOnHours",
+        "ReadErrorsTotal",
+        "ReadErrorsUncorrected",
+        "WriteErrorsTotal",
+        "WriteErrorsUncorrected"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": true,
+      "SkipOnDc": false,
+      "Description": "Compteurs fournis par les pilotes de stockage compatibles.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; support dépendant du disque et du pilote.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Disponibilité variable ; aucun diagnostic SMART universel, aucune durée de vie restante calculée à partir d’une valeur absente.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-storagereliabilitycounter"
+      ],
+      "Fields": [
+        {
+          "Name": "DeviceId",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du disque"
+        },
+        {
+          "Name": "Temperature",
+          "CimType": "uint8",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "°C",
+          "Description": "Température rapportée"
+        },
+        {
+          "Name": "Wear",
+          "CimType": "uint8",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "%",
+          "Description": "Usure rapportée ; 100 = limite estimée atteinte"
+        },
+        {
+          "Name": "PowerOnHours",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "heures",
+          "Description": "Temps de fonctionnement rapporté"
+        },
+        {
+          "Name": "ReadErrorsTotal",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "erreurs",
+          "Description": "Compteur total de lecture"
+        },
+        {
+          "Name": "ReadErrorsUncorrected",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "erreurs",
+          "Description": "Erreurs de lecture non corrigées"
+        },
+        {
+          "Name": "WriteErrorsTotal",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "erreurs",
+          "Description": "Compteur total d’écriture"
+        },
+        {
+          "Name": "WriteErrorsUncorrected",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "erreurs",
+          "Description": "Erreurs d’écriture non corrigées"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.batteries",
+      "Name": "Batteries : charge et capacités rapportées",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_Battery",
+      "Properties": [
+        "DeviceID",
+        "Name",
+        "EstimatedChargeRemaining",
+        "BatteryStatus",
+        "DesignCapacity",
+        "FullChargeCapacity",
+        "EstimatedRunTime"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Une ligne par batterie exposée, avec ses estimations et capacités.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "DesignCapacity et FullChargeCapacity à zéro signifient non exposé. Le nombre de cycles n’est pas une propriété de Win32_Battery ; aucune usure n’est calculée sans deux capacités valides.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-battery"
+      ],
+      "Fields": [
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant batterie"
+        },
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom rapporté"
+        },
+        {
+          "Name": "EstimatedChargeRemaining",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "%",
+          "Description": "Estimation de charge au relevé"
+        },
+        {
+          "Name": "BatteryStatus",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État rapporté par le fournisseur"
+        },
+        {
+          "Name": "DesignCapacity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "mWh",
+          "Description": "Capacité nominale ; 0 = non prise en charge"
+        },
+        {
+          "Name": "FullChargeCapacity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "mWh",
+          "Description": "Capacité à pleine charge ; 0 = non prise en charge"
+        },
+        {
+          "Name": "EstimatedRunTime",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "minutes",
+          "Description": "Autonomie estimée, selon le fournisseur"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.biosdetails",
+      "Name": "BIOS : identité, version et date",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_BIOS",
+      "Properties": [
+        "SMBIOSBIOSVersion",
+        "Manufacturer",
+        "ReleaseDate",
+        "SerialNumber",
+        "SMBIOSMajorVersion",
+        "SMBIOSMinorVersion"
+      ],
+      "Filter": "",
+      "Mode": "First",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Identité et version du BIOS déclarées par le firmware.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une date ancienne ne prouve pas une vulnérabilité. Une référence approuvée par modèle est nécessaire avant de conclure qu’une mise à jour est attendue.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-bios"
+      ],
+      "Fields": [
+        {
+          "Name": "SMBIOSBIOSVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version du BIOS SMBIOS"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant du BIOS"
+        },
+        {
+          "Name": "ReleaseDate",
+          "CimType": "datetime",
+          "Kind": "Timestamp",
+          "IsArray": false,
+          "Unit": "UTC",
+          "Description": "Date de publication déclarée"
+        },
+        {
+          "Name": "SerialNumber",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Numéro de série rapporté"
+        },
+        {
+          "Name": "SMBIOSMajorVersion",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "version",
+          "Description": "Version majeure SMBIOS"
+        },
+        {
+          "Name": "SMBIOSMinorVersion",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "version",
+          "Description": "Version mineure SMBIOS"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.processors",
+      "Name": "Tous les processeurs : architecture et capacités",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_Processor",
+      "Properties": [
+        "Name",
+        "DeviceID",
+        "Manufacturer",
+        "Architecture",
+        "NumberOfCores",
+        "NumberOfLogicalProcessors",
+        "MaxClockSpeed",
+        "VirtualizationFirmwareEnabled",
+        "SecondLevelAddressTranslationExtensions",
+        "LoadPercentage"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Toutes les instances processeur, plutôt que seulement le premier socket.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les valeurs d’une VM décrivent le matériel présenté au système invité. Ces capacités ne prouvent pas qu’un hyperviseur est actuellement exécuté. La charge est une mesure instantanée datée, pas un usage habituel.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Modèle de processeur"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du processeur"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant"
+        },
+        {
+          "Name": "Architecture",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Architecture du processeur"
+        },
+        {
+          "Name": "NumberOfCores",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "cœurs",
+          "Description": "Cœurs de cette instance"
+        },
+        {
+          "Name": "NumberOfLogicalProcessors",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "processeurs logiques",
+          "Description": "Threads de cette instance"
+        },
+        {
+          "Name": "MaxClockSpeed",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "MHz",
+          "Description": "Fréquence maximale déclarée"
+        },
+        {
+          "Name": "VirtualizationFirmwareEnabled",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Virtualisation activée dans le firmware"
+        },
+        {
+          "Name": "SecondLevelAddressTranslationExtensions",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Prise en charge SLAT"
+        },
+        {
+          "Name": "LoadPercentage",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "%",
+          "Description": "Charge moyenne de la dernière seconde, au relevé"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.monitors",
+      "Name": "Écrans : identifiants EDID rapportés",
+      "Category": "Matériel",
+      "Namespace": "root\\wmi",
+      "Class": "WmiMonitorID",
+      "Properties": [
+        "InstanceName",
+        "Active",
+        "ManufacturerName",
+        "ProductCodeID",
+        "SerialNumberID",
+        "UserFriendlyName",
+        "YearOfManufacture",
+        "WeekOfManufacture"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Identifiants EDID de chaque écran visible par Windows.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur WmiMonitorID et pilote d’affichage compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les tableaux de codes sont conservés sans perdre leurs éléments. EDID absent, moniteur virtuel ou station d’accueil ne sont pas assimilés à un écran physique identifié.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorid"
+      ],
+      "Fields": [
+        {
+          "Name": "InstanceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance de moniteur"
+        },
+        {
+          "Name": "Active",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance active"
+        },
+        {
+          "Name": "ManufacturerName",
+          "CimType": "uint16[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes EDID",
+          "Description": "Codes du fabricant"
+        },
+        {
+          "Name": "ProductCodeID",
+          "CimType": "uint16[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes EDID",
+          "Description": "Codes produit"
+        },
+        {
+          "Name": "SerialNumberID",
+          "CimType": "uint16[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes EDID",
+          "Description": "Codes du numéro de série"
+        },
+        {
+          "Name": "UserFriendlyName",
+          "CimType": "uint16[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes EDID",
+          "Description": "Codes du nom du moniteur"
+        },
+        {
+          "Name": "YearOfManufacture",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "année",
+          "Description": "Année déclarée"
+        },
+        {
+          "Name": "WeekOfManufacture",
+          "CimType": "uint8",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "semaine",
+          "Description": "Semaine déclarée"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "net.interfaces",
+      "Name": "Interfaces physiques et virtuelles",
+      "Category": "Réseau",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_NetworkAdapter",
+      "Properties": [
+        "Name",
+        "DeviceID",
+        "NetConnectionID",
+        "NetConnectionStatus",
+        "PhysicalAdapter",
+        "MACAddress",
+        "Speed",
+        "PNPDeviceID"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Toutes les interfaces, y compris virtuelles et déconnectées, identifiées séparément.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une adresse MAC peut changer ou être dupliquée ; elle n’est jamais utilisée pour fusionner des identités AD. Une vitesse déclarée n’est pas un débit mesuré.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapter"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de la carte"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant de la carte"
+        },
+        {
+          "Name": "NetConnectionID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de la connexion"
+        },
+        {
+          "Name": "NetConnectionStatus",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État de la connexion"
+        },
+        {
+          "Name": "PhysicalAdapter",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Carte physique selon le fournisseur"
+        },
+        {
+          "Name": "MACAddress",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Adresse matérielle rapportée"
+        },
+        {
+          "Name": "Speed",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "bit/s",
+          "Description": "Vitesse déclarée du lien"
+        },
+        {
+          "Name": "PNPDeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant Plug and Play"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "net.configurations",
+      "Name": "Adresses IP, DNS, passerelles et DHCP",
+      "Category": "Réseau",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_NetworkAdapterConfiguration",
+      "Properties": [
+        "Description",
+        "Index",
+        "MACAddress",
+        "IPAddress",
+        "IPSubnet",
+        "DefaultIPGateway",
+        "DNSServerSearchOrder",
+        "DHCPEnabled",
+        "DHCPServer",
+        "DNSHostName",
+        "DNSDomain"
+      ],
+      "Filter": "IPEnabled=TRUE",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Configuration complète des interfaces IP activées ; les listes ne sont pas réduites au premier élément.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "La configuration ne prouve ni la résolution DNS réussie ni l’accessibilité d’un service.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapterconfiguration"
+      ],
+      "Fields": [
+        {
+          "Name": "Description",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Description de la configuration"
+        },
+        {
+          "Name": "Index",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "index",
+          "Description": "Index de l’interface"
+        },
+        {
+          "Name": "MACAddress",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Adresse matérielle rapportée"
+        },
+        {
+          "Name": "IPAddress",
+          "CimType": "string[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "",
+          "Description": "Toutes les adresses IPv4 et IPv6 rapportées"
+        },
+        {
+          "Name": "IPSubnet",
+          "CimType": "string[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "",
+          "Description": "Masques et préfixes associés"
+        },
+        {
+          "Name": "DefaultIPGateway",
+          "CimType": "string[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "",
+          "Description": "Toutes les passerelles rapportées"
+        },
+        {
+          "Name": "DNSServerSearchOrder",
+          "CimType": "string[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "",
+          "Description": "Ordre des serveurs DNS"
+        },
+        {
+          "Name": "DHCPEnabled",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Configuration DHCP activée"
+        },
+        {
+          "Name": "DHCPServer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Serveur DHCP déclaré"
+        },
+        {
+          "Name": "DNSHostName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom d’hôte DNS déclaré"
+        },
+        {
+          "Name": "DNSDomain",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Suffixe DNS déclaré"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.printerdetails",
+      "Name": "Imprimantes : pilote, port et état",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_Printer",
+      "Properties": [
+        "Name",
+        "DriverName",
+        "PortName",
+        "PrinterStatus",
+        "ExtendedPrinterStatus",
+        "WorkOffline",
+        "Default",
+        "Local",
+        "Network"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Imprimantes visibles du contexte distant et leur état rapporté.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les imprimantes propres à une autre session utilisateur peuvent ne pas apparaître. Le pilote peut rapporter un état obsolète.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-printer"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de l’imprimante"
+        },
+        {
+          "Name": "DriverName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Pilote associé"
+        },
+        {
+          "Name": "PortName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Port associé"
+        },
+        {
+          "Name": "PrinterStatus",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État principal déclaré"
+        },
+        {
+          "Name": "ExtendedPrinterStatus",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État étendu déclaré"
+        },
+        {
+          "Name": "WorkOffline",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Mode hors connexion déclaré"
+        },
+        {
+          "Name": "Default",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Imprimante par défaut du contexte de lecture"
+        },
+        {
+          "Name": "Local",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Imprimante locale déclarée"
+        },
+        {
+          "Name": "Network",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Imprimante réseau déclarée"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.deviceerrors",
+      "Name": "Périphériques signalant une erreur",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_PnPEntity",
+      "Properties": [
+        "Name",
+        "DeviceID",
+        "PNPClass",
+        "Manufacturer",
+        "Status",
+        "ConfigManagerErrorCode"
+      ],
+      "Filter": "ConfigManagerErrorCode<>0",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Périphériques dont ConfigManagerErrorCode est différent de zéro au relevé.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une lecture refusée ou interrompue n’est pas un inventaire vide. Le code indique l’état du gestionnaire de périphériques, pas une cause certaine.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-pnpentity"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du périphérique"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du périphérique"
+        },
+        {
+          "Name": "PNPClass",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Classe Plug and Play"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant"
+        },
+        {
+          "Name": "Status",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "État principal"
+        },
+        {
+          "Name": "ConfigManagerErrorCode",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Code du gestionnaire de configuration différent de zéro"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.servicedetails",
+      "Name": "Services : état, démarrage et processus",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_Service",
+      "Properties": [
+        "Name",
+        "DisplayName",
+        "State",
+        "StartMode",
+        "ExitCode",
+        "ProcessId"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": true,
+      "SkipOnDc": false,
+      "Description": "État et mode de démarrage de chaque service, sans commande ni mot de passe.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un service automatique arrêté peut être déclenché à la demande ; aucune panne n’est déduite sans profil attendu. Les dépendances nécessitent une lecture d’association distincte.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-service"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom technique du service"
+        },
+        {
+          "Name": "DisplayName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom affiché"
+        },
+        {
+          "Name": "State",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "État rapporté"
+        },
+        {
+          "Name": "StartMode",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Mode de démarrage"
+        },
+        {
+          "Name": "ExitCode",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Dernier code de sortie Windows"
+        },
+        {
+          "Name": "ProcessId",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "PID",
+          "Description": "Identifiant du processus du service"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.hotfixdetails",
+      "Name": "Correctifs CBS visibles et date déclarée",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_QuickFixEngineering",
+      "Properties": [
+        "HotFixID",
+        "Description",
+        "InstalledOn",
+        "InstalledBy"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": true,
+      "SkipOnDc": false,
+      "Description": "Correctifs exposés par Win32_QuickFixEngineering, sans conclure à la conformité globale.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Cette source ne couvre pas toutes les mises à jour Windows ni MSI. InstalledOn reste un texte brut car son format peut varier.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-quickfixengineering"
+      ],
+      "Fields": [
+        {
+          "Name": "HotFixID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du correctif"
+        },
+        {
+          "Name": "Description",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Type de mise à jour"
+        },
+        {
+          "Name": "InstalledOn",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Date déclarée, format variable selon le fournisseur"
+        },
+        {
+          "Name": "InstalledBy",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Compte déclaré comme installateur"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.processdetails",
+      "Name": "Processus : mémoire et compteurs instantanés",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_Process",
+      "Properties": [
+        "Name",
+        "ProcessId",
+        "ParentProcessId",
+        "WorkingSetSize",
+        "ThreadCount",
+        "HandleCount",
+        "CreationDate"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": true,
+      "SkipOnDc": false,
+      "Description": "Photographie des processus ; mémoire et compteurs sont datés.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les processus évoluent pendant la lecture. Aucun taux CPU n’est calculé sur un échantillon unique. Les lignes de commande et paramètres ne sont pas collectés.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-process"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de l’exécutable"
+        },
+        {
+          "Name": "ProcessId",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "PID",
+          "Description": "Identifiant du processus"
+        },
+        {
+          "Name": "ParentProcessId",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "PID",
+          "Description": "Processus parent rapporté"
+        },
+        {
+          "Name": "WorkingSetSize",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Mémoire résidente au relevé"
+        },
+        {
+          "Name": "ThreadCount",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "threads",
+          "Description": "Nombre de threads"
+        },
+        {
+          "Name": "HandleCount",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "handles",
+          "Description": "Nombre de handles"
+        },
+        {
+          "Name": "CreationDate",
+          "CimType": "datetime",
+          "Kind": "Timestamp",
+          "IsArray": false,
+          "Unit": "UTC",
+          "Description": "Date de création visible selon les droits"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.scheduledtasks",
+      "Name": "Tâches planifiées : identité et état",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\Microsoft\\Windows\\TaskScheduler",
+      "Class": "MSFT_ScheduledTask",
+      "Properties": [
+        "TaskName",
+        "TaskPath",
+        "State",
+        "Author",
+        "Date"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": true,
+      "SkipOnDc": false,
+      "Description": "Inventaire des tâches visibles, sans lire actions, arguments, déclencheurs ou comptes enregistrés.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur avec fournisseur TaskScheduler.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Dernière exécution et dernier résultat ne sont pas des propriétés de cette classe ; une lecture dédiée est nécessaire. Certaines tâches restent invisibles selon les ACL.",
+      "SourceUrls": [
+        "https://github.com/microsoft/wmi/blob/master/server23h2/root/microsoft/windows/taskscheduler/MSFT_ScheduledTask.go"
+      ],
+      "Fields": [
+        {
+          "Name": "TaskName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de la tâche"
+        },
+        {
+          "Name": "TaskPath",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Dossier de la tâche"
+        },
+        {
+          "Name": "State",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État déclaré"
+        },
+        {
+          "Name": "Author",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Auteur déclaré"
+        },
+        {
+          "Name": "Date",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Date de définition déclarée"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.startupdetails",
+      "Name": "Démarrage automatique : nom et origine",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_StartupCommand",
+      "Properties": [
+        "Name",
+        "Location",
+        "User"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Entrées de démarrage automatique visibles du fournisseur.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les commandes et arguments sont volontairement exclus. Ce fournisseur ne représente pas toutes les persistances possibles ni tous les profils non chargés.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-startupcommand"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de l’entrée"
+        },
+        {
+          "Name": "Location",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Emplacement de configuration"
+        },
+        {
+          "Name": "User",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Contexte utilisateur déclaré"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "soft.installed",
+      "Name": "Applications installées : nom, éditeur et version",
+      "Category": "Logiciels et services",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_InstalledWin32Program",
+      "Properties": [
+        "ProgramId",
+        "Name",
+        "Vendor",
+        "Version"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": true,
+      "Description": "Une ligne par application de bureau recensée par lʼinventaire des applications de Windows, sans passer par Windows Installer.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Postes Windows 7 ou ultérieur ; la documentation ne couvre aucune version serveur : la classe peut être absente dʼun serveur, ce qui reste inconnu.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Inventaire du fournisseur Application and Device Inventory : il ne sollicite pas Windows Installer et ne déclenche aucune vérification MSI. Les applications du Store relèvent dʼune autre classe, aucune date dʼinstallation nʼest fournie et une installation propre à un profil peut ne pas y figurer.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/wmisdk/win32-installedwin32program"
+      ],
+      "Fields": [
+        {
+          "Name": "ProgramId",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant unique de lʼapplication pour le fournisseur"
+        },
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de lʼapplication"
+        },
+        {
+          "Name": "Vendor",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Éditeur déclaré"
+        },
+        {
+          "Name": "Version",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version déclarée"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.defenderdetails",
+      "Name": "Defender : protections et signatures rapportées",
+      "Category": "Sécurité",
+      "Namespace": "root\\Microsoft\\Windows\\Defender",
+      "Class": "MSFT_MpComputerStatus",
+      "Properties": [
+        "AMProductVersion",
+        "AMEngineVersion",
+        "AntivirusEnabled",
+        "RealTimeProtectionEnabled",
+        "BehaviorMonitorEnabled",
+        "AntivirusSignatureVersion",
+        "AntivirusSignatureLastUpdated",
+        "AntivirusSignatureAge",
+        "QuickScanAge",
+        "FullScanAge"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "État déclaré par le fournisseur Microsoft Defender installé sur le poste.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Système équipé du fournisseur Defender ; propriétés dépendantes de la plateforme de protection.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un antivirus tiers peut désactiver Defender ou rendre cette classe indisponible. Cette lecture ne mesure pas la couverture d’un autre produit.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/previous-versions/windows/desktop/defender/msft-mpcomputerstatus"
+      ],
+      "Fields": [
+        {
+          "Name": "AMProductVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version du produit antimalware"
+        },
+        {
+          "Name": "AMEngineVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version du moteur"
+        },
+        {
+          "Name": "AntivirusEnabled",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Antivirus activé selon le fournisseur"
+        },
+        {
+          "Name": "RealTimeProtectionEnabled",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Protection temps réel activée"
+        },
+        {
+          "Name": "BehaviorMonitorEnabled",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Surveillance comportementale activée"
+        },
+        {
+          "Name": "AntivirusSignatureVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version des signatures"
+        },
+        {
+          "Name": "AntivirusSignatureLastUpdated",
+          "CimType": "datetime",
+          "Kind": "Timestamp",
+          "IsArray": false,
+          "Unit": "UTC",
+          "Description": "Dernière mise à jour déclarée"
+        },
+        {
+          "Name": "AntivirusSignatureAge",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "jours",
+          "Description": "Ancienneté ; 65535 = jamais"
+        },
+        {
+          "Name": "QuickScanAge",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "jours",
+          "Description": "Ancienneté analyse rapide ; 65535 = jamais"
+        },
+        {
+          "Name": "FullScanAge",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "jours",
+          "Description": "Ancienneté analyse complète ; 65535 = jamais"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.firewallprofiles",
+      "Name": "Pare-feu : configuration des profils déclarés",
+      "Category": "Sécurité",
+      "Namespace": "root\\StandardCimv2",
+      "Class": "MSFT_NetFirewallProfile",
+      "Properties": [
+        "Name",
+        "Enabled",
+        "DefaultInboundAction",
+        "DefaultOutboundAction",
+        "AllowLocalFirewallRules",
+        "DisabledInterfaceAliases"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Paramètres des profils retournés par le fournisseur de pare-feu.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur NetSecurity.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Cette énumération WMI ne prouve pas le profil effectivement actif ni l’origine GPO. Le magasin actif et la source de stratégie nécessitent une lecture NetSecurity dédiée.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/wfascimprov/msft-netfirewallprofile"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du profil"
+        },
+        {
+          "Name": "Enabled",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État du paramètre : 0 faux, 1 vrai, 2 non configuré"
+        },
+        {
+          "Name": "DefaultInboundAction",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Action par défaut entrante"
+        },
+        {
+          "Name": "DefaultOutboundAction",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Action par défaut sortante"
+        },
+        {
+          "Name": "AllowLocalFirewallRules",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Application des règles locales"
+        },
+        {
+          "Name": "DisabledInterfaceAliases",
+          "CimType": "string[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "",
+          "Description": "Interfaces exclues déclarées"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.deviceguard",
+      "Name": "Sécurité matérielle : VBS et services déclarés",
+      "Category": "Sécurité",
+      "Namespace": "root\\Microsoft\\Windows\\DeviceGuard",
+      "Class": "Win32_DeviceGuard",
+      "Properties": [
+        "InstanceIdentifier",
+        "VirtualizationBasedSecurityStatus",
+        "AvailableSecurityProperties",
+        "RequiredSecurityProperties",
+        "SecurityServicesConfigured",
+        "SecurityServicesRunning",
+        "CodeIntegrityPolicyEnforcementStatus",
+        "UsermodeCodeIntegrityPolicyEnforcementStatus"
+      ],
+      "Filter": "",
+      "Mode": "First",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Capacités, configuration et exécution VBS sont conservées séparément.",
+      "Rights": "Lecture WMI/CIM du namespace DeviceGuard ; élévation et droits distants selon les ACL.",
+      "Compatibility": "Windows 10 / Windows Server 2016 ou ultérieur ; propriétés selon la version.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "AvailableSecurityProperties contenant 2 indique la disponibilité de Secure Boot ; ce n’est pas une preuve de son activation. Aucun état absent n’est traduit en désactivé.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/security/hardware-security/enable-virtualization-based-protection-of-code-integrity"
+      ],
+      "Fields": [
+        {
+          "Name": "InstanceIdentifier",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant de l’instance"
+        },
+        {
+          "Name": "VirtualizationBasedSecurityStatus",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "0 désactivé, 1 activé sans exécution, 2 en exécution"
+        },
+        {
+          "Name": "AvailableSecurityProperties",
+          "CimType": "uint32[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes",
+          "Description": "Capacités de sécurité disponibles"
+        },
+        {
+          "Name": "RequiredSecurityProperties",
+          "CimType": "uint32[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes",
+          "Description": "Capacités requises par la configuration"
+        },
+        {
+          "Name": "SecurityServicesConfigured",
+          "CimType": "uint32[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes",
+          "Description": "Services configurés"
+        },
+        {
+          "Name": "SecurityServicesRunning",
+          "CimType": "uint32[]",
+          "Kind": "Text",
+          "IsArray": true,
+          "Unit": "codes",
+          "Description": "Services effectivement déclarés en exécution"
+        },
+        {
+          "Name": "CodeIntegrityPolicyEnforcementStatus",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "0 désactivé, 1 audit, 2 appliqué"
+        },
+        {
+          "Name": "UsermodeCodeIntegrityPolicyEnforcementStatus",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État d’application de l’intégrité du code utilisateur"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.bitlockervolumes",
+      "Name": "BitLocker : protection et conversion des volumes",
+      "Category": "Sécurité",
+      "Namespace": "root\\cimv2\\Security\\MicrosoftVolumeEncryption",
+      "Class": "Win32_EncryptableVolume",
+      "Properties": [
+        "DriveLetter",
+        "DeviceID",
+        "PersistentVolumeID",
+        "ProtectionStatus",
+        "ConversionStatus",
+        "EncryptionMethod"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Protection active, état de conversion et algorithme, séparés pour chaque volume visible.",
+      "Rights": "Droits administrateur et accès distant chiffré compatibles avec le fournisseur BitLocker.",
+      "Compatibility": "Windows avec fournisseur BitLocker installé ; accès chiffré au namespace.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un volume chiffré peut avoir une protection suspendue. Les valeurs sont celles de l’instanciation WMI ; aucune clé, aucun protecteur secret ni mot de passe de récupération ne sont lus.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/secprov/win32-encryptablevolume"
+      ],
+      "Fields": [
+        {
+          "Name": "DriveLetter",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Lettre du volume, parfois absente"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant du volume"
+        },
+        {
+          "Name": "PersistentVolumeID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant persistant BitLocker"
+        },
+        {
+          "Name": "ProtectionStatus",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "0 non protégé, 1 protégé, 2 inconnu"
+        },
+        {
+          "Name": "ConversionStatus",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État de conversion au moment du relevé"
+        },
+        {
+          "Name": "EncryptionMethod",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Algorithme déclaré"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.tpmdetails",
+      "Name": "TPM : version, fabricant et états initiaux",
+      "Category": "Sécurité",
+      "Namespace": "root\\CIMV2\\Security\\MicrosoftTpm",
+      "Class": "Win32_Tpm",
+      "Properties": [
+        "SpecVersion",
+        "ManufacturerId",
+        "ManufacturerVersion",
+        "ManufacturerVersionInfo",
+        "IsEnabled_InitialValue",
+        "IsActivated_InitialValue",
+        "IsOwned_InitialValue"
+      ],
+      "Filter": "",
+      "Mode": "First",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Caractéristiques et états du TPM au moment de l’instanciation du fournisseur.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 7 / Windows Server 2008 R2 ou ultérieur pour les propriétés InitialValue ; matériel TPM compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Les états InitialValue ne remplacent pas une nouvelle lecture. Aucun appel de méthode, secret, effacement ou provisionnement TPM.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/secprov/win32-tpm"
+      ],
+      "Fields": [
+        {
+          "Name": "SpecVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Spécification TPM déclarée"
+        },
+        {
+          "Name": "ManufacturerId",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code fabricant",
+          "Description": "0 = non renseigné"
+        },
+        {
+          "Name": "ManufacturerVersion",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Version du fabricant, ou Not Supported"
+        },
+        {
+          "Name": "ManufacturerVersionInfo",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Informations complémentaires"
+        },
+        {
+          "Name": "IsEnabled_InitialValue",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "TPM activé à l’instanciation"
+        },
+        {
+          "Name": "IsActivated_InitialValue",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "TPM opérationnel à l’instanciation"
+        },
+        {
+          "Name": "IsOwned_InitialValue",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "TPM possédé à l’instanciation"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-13",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.memoryusage",
+      "Name": "Mémoire visible et libre au relevé",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_OperatingSystem",
+      "Properties": [
+        "TotalVisibleMemorySize",
+        "FreePhysicalMemory",
+        "TotalVirtualMemorySize",
+        "FreeVirtualMemory"
+      ],
+      "Filter": "",
+      "Mode": "First",
+      "Transform": "GBfromKB",
+      "Visual": "Column",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Mémoire physique visible par Windows et mémoire libre, mesurées au même instant.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Mesure instantanée : elle ne décrit pas l’usage habituel. La mémoire visible exclut la part réservée au matériel ; la capacité installée se lit dans les barrettes.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem"
+      ],
+      "Fields": [
+        {
+          "Name": "TotalVisibleMemorySize",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "Ko",
+          "Description": "Mémoire physique visible par Windows"
+        },
+        {
+          "Name": "FreePhysicalMemory",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "Ko",
+          "Description": "Mémoire physique libre au relevé"
+        },
+        {
+          "Name": "TotalVirtualMemorySize",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "Ko",
+          "Description": "Mémoire virtuelle totale (physique et fichier d’échange)"
+        },
+        {
+          "Name": "FreeVirtualMemory",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "Ko",
+          "Description": "Mémoire virtuelle libre au relevé"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.computersystem",
+      "Name": "Système déclaré : modèle, fabricant et hyperviseur",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_ComputerSystem",
+      "Properties": [
+        "Model",
+        "Manufacturer",
+        "SystemFamily",
+        "HypervisorPresent",
+        "NumberOfProcessors",
+        "NumberOfLogicalProcessors",
+        "TotalPhysicalMemory",
+        "PCSystemTypeEx"
+      ],
+      "Filter": "",
+      "Mode": "First",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Identité matérielle déclarée par le firmware et présence d’un hyperviseur signalée par Windows.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "HypervisorPresent indique qu’un hyperviseur est actif, y compris Hyper-V ou la sécurité basée sur la virtualisation d’une machine physique : seul, il ne prouve pas une machine virtuelle. Le modèle déclaré peut être générique.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-computersystem"
+      ],
+      "Fields": [
+        {
+          "Name": "Model",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Modèle déclaré par le firmware"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant déclaré"
+        },
+        {
+          "Name": "SystemFamily",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Famille de produits déclarée"
+        },
+        {
+          "Name": "HypervisorPresent",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Hyperviseur actif signalé par Windows"
+        },
+        {
+          "Name": "NumberOfProcessors",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "processeurs",
+          "Description": "Processeurs physiques (sockets) déclarés"
+        },
+        {
+          "Name": "NumberOfLogicalProcessors",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "processeurs logiques",
+          "Description": "Processeurs logiques visibles"
+        },
+        {
+          "Name": "TotalPhysicalMemory",
+          "CimType": "uint64",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "octets",
+          "Description": "Mémoire physique utilisable déclarée"
+        },
+        {
+          "Name": "PCSystemTypeEx",
+          "CimType": "uint16",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Type de système (bureau, portable, station, serveur…)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.batterystatic",
+      "Name": "Batteries : capacité nominale et identité",
+      "Category": "Matériel",
+      "Namespace": "root\\wmi",
+      "Class": "BatteryStaticData",
+      "Properties": [
+        "DeviceName",
+        "ManufactureName",
+        "SerialNumber",
+        "DesignedCapacity",
+        "InstanceName"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Données fixes déclarées par le pilote de chaque batterie, dont la capacité nominale.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Capacité en mWh, ou en unités relatives quand le pilote le signale ; une capacité nulle ou inconnue n’autorise aucun calcul d’usure. Le numéro de série peut être générique.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
+      ],
+      "Fields": [
+        {
+          "Name": "DeviceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de la batterie déclaré par le pilote"
+        },
+        {
+          "Name": "ManufactureName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant déclaré"
+        },
+        {
+          "Name": "SerialNumber",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Numéro de série déclaré"
+        },
+        {
+          "Name": "DesignedCapacity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "mWh",
+          "Description": "Capacité nominale déclarée"
+        },
+        {
+          "Name": "InstanceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance du pilote (clé de rapprochement entre classes)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.batteryfullcharge",
+      "Name": "Batteries : capacité à pleine charge",
+      "Category": "Matériel",
+      "Namespace": "root\\wmi",
+      "Class": "BatteryFullChargedCapacity",
+      "Properties": [
+        "FullChargedCapacity",
+        "InstanceName"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Number",
+      "Visual": "Column",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Capacité actuelle à pleine charge de chaque batterie, rapportée par son pilote.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "À comparer à la capacité nominale de la même instance ; une valeur nulle ou absente reste inconnue. La valeur évolue avec la calibration de la batterie.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
+      ],
+      "Fields": [
+        {
+          "Name": "FullChargedCapacity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "mWh",
+          "Description": "Capacité actuelle à pleine charge"
+        },
+        {
+          "Name": "InstanceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance du pilote (clé de rapprochement entre classes)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.batterycycles",
+      "Name": "Batteries : cycles de charge",
+      "Category": "Matériel",
+      "Namespace": "root\\wmi",
+      "Class": "BatteryCycleCount",
+      "Properties": [
+        "CycleCount",
+        "InstanceName"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Number",
+      "Visual": "Column",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Nombre de cycles de charge déclaré par le pilote de chaque batterie.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Beaucoup de batteries ne rapportent pas ce compteur : zéro est traité comme non renseigné, jamais comme une batterie neuve.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
+      ],
+      "Fields": [
+        {
+          "Name": "CycleCount",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "cycles",
+          "Description": "Cycles de charge déclarés par le pilote"
+        },
+        {
+          "Name": "InstanceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance du pilote (clé de rapprochement entre classes)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.monitorconnections",
+      "Name": "Écrans : type de raccordement",
+      "Category": "Matériel",
+      "Namespace": "root\\wmi",
+      "Class": "WmiMonitorConnectionParams",
+      "Properties": [
+        "VideoOutputTechnology",
+        "Active",
+        "InstanceName"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Map:0=VGA;4=DVI;5=HDMI;6=LVDS (interne);10=DisplayPort externe;11=DisplayPort intégré;15=Miracast;16=Indirect filaire;2147483648=Écran interne;4294967295=Autre",
+      "Visual": "Pie",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Technologie de raccordement de chaque écran : interne, HDMI, DisplayPort, VGA…",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec pilote d’affichage WDDM ; propriétés selon le pilote.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un écran raccordé par une station d’accueil apparaît avec la technologie vue par la carte graphique ; aucune classe Windows normalisée n’identifie la station d’accueil elle-même.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorconnectionparams"
+      ],
+      "Fields": [
+        {
+          "Name": "VideoOutputTechnology",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Technologie de sortie vidéo (D3DKMDT_VIDEO_OUTPUT_TECHNOLOGY)"
+        },
+        {
+          "Name": "Active",
+          "CimType": "boolean",
+          "Kind": "Boolean",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Écran actif au relevé"
+        },
+        {
+          "Name": "InstanceName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Instance de l’écran (clé de rapprochement avec WmiMonitorID)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "hw.dockhints",
+      "Name": "Stations dʼaccueil : indices parmi les périphériques",
+      "Category": "Matériel",
+      "Namespace": "root\\cimv2",
+      "Class": "Win32_PnPEntity",
+      "Properties": [
+        "Name",
+        "PNPClass",
+        "Manufacturer",
+        "DeviceID",
+        "Status"
+      ],
+      "Filter": "PNPClass = 'Dock' OR Name LIKE '%Dock%' OR Name LIKE '%Thunderbolt%' OR Name LIKE '%USB4%' OR Name LIKE '%DisplayLink%'",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Périphériques Plug and Play de la classe Dock, ou dont le nom évoque une station dʼaccueil, Thunderbolt, USB4 ou DisplayLink, présents au relevé : des indices de station dʼaccueil, pas une identification.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; noms fournis par les pilotes, selon le fabricant et la langue du système.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Indices seulement : aucune classe Windows normalisée nʼidentifie une station dʼaccueil. Une station USB-C ou Thunderbolt peut nʼapparaître que comme concentrateur USB, carte réseau ou carte audio sans nom évocateur : lʼabsence dʼindice ne prouve pas lʼabsence de station. Un contrôleur Thunderbolt ou USB4 intégré au portable, ou un adaptateur DisplayLink seul, nʼest pas une station. Seuls les périphériques présents au relevé sont listés.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-pnpentity"
+      ],
+      "Fields": [
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du périphérique"
+        },
+        {
+          "Name": "PNPClass",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Classe Plug and Play"
+        },
+        {
+          "Name": "Manufacturer",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Fabricant déclaré par le pilote"
+        },
+        {
+          "Name": "DeviceID",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant Plug and Play (fabricant et produit USB quand ils sont fournis)"
+        },
+        {
+          "Name": "Status",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "État principal"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "net.connectionprofiles",
+      "Name": "Profils réseau appliqués par Windows",
+      "Category": "Réseau",
+      "Namespace": "root\\StandardCimv2",
+      "Class": "MSFT_NetConnectionProfile",
+      "Properties": [
+        "NetworkCategory",
+        "InterfaceAlias",
+        "InterfaceIndex",
+        "Name",
+        "IPv4Connectivity",
+        "IPv6Connectivity"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Map:0=Public;1=Privé;2=Domaine",
+      "Visual": "Pie",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Catégorie de réseau de chaque connexion active : elle désigne le profil de pare-feu appliqué.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 et suivants, fournisseur NetConnection.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Seules les connexions actives ont un profil. La catégorie Domaine suppose l’authentification réseau du domaine au moment du relevé.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/powershell/module/netconnection/get-netconnectionprofile"
+      ],
+      "Fields": [
+        {
+          "Name": "NetworkCategory",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Catégorie : 0 public, 1 privé, 2 domaine"
+        },
+        {
+          "Name": "InterfaceAlias",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom de l’interface"
+        },
+        {
+          "Name": "InterfaceIndex",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Index de l’interface"
+        },
+        {
+          "Name": "Name",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du réseau identifié"
+        },
+        {
+          "Name": "IPv4Connectivity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Connectivité IPv4 déclarée (0 déconnecté à 4 Internet)"
+        },
+        {
+          "Name": "IPv6Connectivity",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "Connectivité IPv6 déclarée (0 déconnecté à 4 Internet)"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    },
+    {
+      "Id": "sec.avproducts",
+      "Name": "Antivirus déclarés au Centre de sécurité",
+      "Category": "Sécurité",
+      "Namespace": "root\\SecurityCenter2",
+      "Class": "AntiVirusProduct",
+      "Properties": [
+        "displayName",
+        "productState",
+        "timestamp",
+        "instanceGuid"
+      ],
+      "Filter": "",
+      "Mode": "All",
+      "Transform": "Text",
+      "Visual": "Bar",
+      "Slow": false,
+      "SkipOnDc": false,
+      "Description": "Produits antivirus enregistrés auprès du Centre de sécurité Windows, Defender compris.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows client uniquement : le Centre de sécurité n’existe pas sur Windows Server.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Le décodage de productState n’est pas documenté par Microsoft : l’état actif et la fraîcheur des signatures qui en sont tirés restent des estimations. Un produit absent de cette liste peut exister sans s’y déclarer.",
+      "SourceUrls": [
+        "https://learn.microsoft.com/en-us/windows/win32/api/iwscapi/ne-iwscapi-wsc_security_product_state"
+      ],
+      "Fields": [
+        {
+          "Name": "displayName",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Nom du produit déclaré"
+        },
+        {
+          "Name": "productState",
+          "CimType": "uint32",
+          "Kind": "Number",
+          "IsArray": false,
+          "Unit": "code",
+          "Description": "État déclaré (codage non documenté)"
+        },
+        {
+          "Name": "timestamp",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Horodatage déclaré par le produit"
+        },
+        {
+          "Name": "instanceGuid",
+          "CimType": "string",
+          "Kind": "Text",
+          "IsArray": false,
+          "Unit": "",
+          "Description": "Identifiant d’enregistrement du produit"
+        }
+      ],
+      "DocumentationReviewedUtc": "2026-10-15",
+      "ProviderQualification": "À qualifier sous Windows"
+    }
+  ]
+}
+""";
+}

@@ -894,12 +894,13 @@ function sessionInfo(args) {
     domain: { dnsName: DOMAIN, netbiosName: 'EXAMPLE', rootDn: ROOT_DN },
     controller: { dnsName: `DC01.${DOMAIN}`, site: 'Paris' },
     account: {
-      login: 'EXAMPLE\\j.martin', displayName: 'Julien Martin', givenName: 'Julien',
-      dn: `CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,${ROOT_DN}`,
+      // Administration account, as the engine (decision of David, 21/10: never the everyday account).
+      login: 'EXAMPLE\\adm-j.martin', displayName: 'Julien Martin (administration)', givenName: 'Julien',
+      dn: `CN=adm-j.martin,OU=Comptes à privilèges,${ROOT_DN}`,
     },
     authentication: { method: 'none', protocol: null, label: 'Aucune (simulation)' },
     scope: { ...state.scope },
-    rights: { level: 'read', label: 'Lecture', estimated: true, detail: `Simulation${COLON}les droits sont fictifs${NBSP}; les écritures ne modifient que l’annuaire fictif, en mémoire.` },
+    rights: { level: 'admin', label: 'Administration', estimated: true, detail: `Simulation${COLON}droits estimés depuis les groupes du compte fictif (Admins du domaine)${NBSP}; les écritures ne modifient que l’annuaire fictif, en mémoire.` },
     // Writes are admitted in simulation, on the in-memory overlay only (decision of 21/10): same as the engine.
     readOnly: false,
     tasks: { running: state.running, queued: state.queued },

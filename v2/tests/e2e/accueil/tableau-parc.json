@@ -1,0 +1,28 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : tableau du parc, postes exacts et disposition",
+  "description": "Ouvre les postes exacts d’un chiffre du tableau du parc (grille du kit), change la taille d’un widget par son menu, déplace un widget au clavier en mode Personnaliser, puis annule la modification.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "wait", "selector": "[data-entry=\"fleet.machines\"]", "title": "Le tableau du parc est calculé" },
+    { "do": "click", "selector": ".fw-kpi", "within": "[data-entry=\"fleet.machines\"]", "title": "Ouvrir les postes de « Comptes ordinateur »" },
+    { "do": "expect", "selector": ".acc-targets .k-grid", "title": "Le panneau « Postes concernés » montre la grille" },
+    { "do": "expect", "contains": "Liste exacte du calcul affiché", "within": ".acc-targets", "title": "La liste vient du calcul affiché" },
+    { "do": "shot", "name": "postes-concernes", "selector": ".k-drw" },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau" },
+    { "do": "expect", "selector": ".k-drw", "absent": true },
+    { "do": "click", "selector": "[data-fw-menu]", "within": "[data-entry=\"fleet.os\"]", "title": "Ouvrir le menu du widget Systèmes d’exploitation" },
+    { "do": "click", "text": "Large", "within": ".k-menu", "title": "Passer le widget en taille large" },
+    { "do": "expect", "selector": ".card.fw.size-L[data-entry=\"fleet.os\"]", "title": "Le widget est large" },
+    { "do": "click", "text": "Personnaliser", "within": ".fw-tools", "title": "Passer en mode Personnaliser" },
+    { "do": "expect", "selector": ".board.editing", "title": "Les poignées de déplacement sont affichées" },
+    { "do": "click", "selector": "[data-fw-grip]", "within": "[data-entry=\"fleet.enabled\"]", "title": "Prendre la poignée de « Comptes AD activés »" },
+    { "do": "press", "key": "Alt+ArrowLeft", "title": "Déplacer le widget d’un rang vers le début" },
+    { "do": "expect", "selector": ".fw-grid > [data-entry=\"fleet.enabled\"]:first-child", "title": "Le widget est désormais le premier de sa section" },
+    { "do": "click", "text": "Annuler", "within": ".fw-tools", "title": "Annuler la dernière modification" },
+    { "do": "expect", "contains": "Dernière modification de la disposition annulée.", "within": ".toasts" },
+    { "do": "click", "text": "Terminer", "within": ".fw-tools" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
