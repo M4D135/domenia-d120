@@ -112,6 +112,7 @@ internal static class PlatformTests
         ("synchro.park.reset.plan", OperationClass.LocalRead),
         ("synchro.park.shared.read", OperationClass.NetworkRead),
         ("synchro.park.state", OperationClass.LocalRead),
+        ("synchro.read.discard", OperationClass.Local),
         ("synchro.read.estimate", OperationClass.LocalRead),
         ("synchro.read.run", OperationClass.NetworkRead),
         ("synchro.read.stop", OperationClass.Local),

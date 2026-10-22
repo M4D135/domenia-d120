@@ -59,6 +59,8 @@ public static class SimulatedSyncSeed
             managers[computer.ObjectGuid] = computer.ManagedByDn;
         }
         state.SetInvocation(NewGuid(random.Fork("invocation")).ToString("D"));
+        // The fictitious domain has the Windows LAPS schema (msLAPS-PasswordExpirationTime): read with the last domain pass.
+        state.LapsSchema = SyncIndex.LapsSchemaPresent;
 
         // Checkpoint: the USN below which the base already holds the objects (48 objects changed since).
         var usns = truth.Select(t => t.Usn).Order().ToList();
@@ -393,6 +395,12 @@ public static class SimulatedSyncSeed
             park[SyncPark.Key(computer.Name)] = Entry(computer, state.Operator, TimeSpan.FromMinutes(40), TimeSpan.FromDays(9));
         }
         state.SetPark(park);
+        // A probe of the session on its way: an unreachable workstation now answers with a session; it lands during the first
+        // reload of the stored survey and is applied after it, on top of the stored attempt counter (Domenia 1 point 30).
+        if (park.Values.Where(e => e.Status == ParkStatus.Unreachable).OrderBy(e => e.Computer, StringComparer.Ordinal).FirstOrDefault() is { } waiting && people.Count > 0)
+        {
+            state.InFlightProbe = new ParkProbe(waiting.Computer, reference - TimeSpan.FromMinutes(2), ParkStatus.Session, people[random.Fork("inflight").Next(people.Count)], state.Operator);
+        }
         var shared = new Dictionary<string, ParkEntry>(StringComparer.Ordinal);
         var share = random.Fork("shared");
         foreach (var (entry, index) in park.Values.OrderBy(e => e.Computer, StringComparer.Ordinal).Take(30).Select((e, i) => (e, i)))

@@ -33,8 +33,11 @@ public enum SyncStoreOperation
     ParkReset,
 }
 
-/// <summary>The first change of a plan decoded: operation, identifier, fingerprint and count it was planned with.</summary>
-public sealed record SyncStoreHead(SyncStoreOperation Operation, string Kind, string Id, string Sha256, int Count);
+/// <summary>
+/// The first change of a plan decoded: operation, identifier, fingerprint and count it was planned with, and for the storage
+/// of a read the fingerprint of the preview the operator saw (<see cref="SyncReconcile.PreviewFingerprint"/>), empty otherwise.
+/// </summary>
+public sealed record SyncStoreHead(SyncStoreOperation Operation, string Kind, string Id, string Sha256, int Count, string Preview);
 
 /// <summary>
 /// Pure rules of the plans of the local base: targets (one fixed identity per store, so an uncertain receipt only holds back its
@@ -76,12 +79,13 @@ public static class SyncStoreChange
         simulated ? "Base locale de la simulation · relevé du parc" : "Base locale de Domenia · relevé du parc",
         ParkStoreGuid.ToString("D"), null);
 
-    /// <summary>Raw value of the first change: « kind:id|sha256|count ».</summary>
-    public static string HeadValue(string kind, string id, string sha256, int count)
+    /// <summary>Raw value of the first change: « kind:id|sha256|count », then « |preview » when the preview has a fingerprint.</summary>
+    public static string HeadValue(string kind, string id, string sha256, int count, string? preview = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(kind);
         ArgumentException.ThrowIfNullOrEmpty(id);
-        return kind + ":" + id + "|" + (sha256 ?? "") + "|" + count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var value = kind + ":" + id + "|" + (sha256 ?? "") + "|" + count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return string.IsNullOrEmpty(preview) ? value : value + "|" + preview;
     }
 
     /// <summary>Decodes the first change of a plan; null when the plan is not one of this executor.</summary>
@@ -108,11 +112,11 @@ public static class SyncStoreChange
         }
         var colon = raw.IndexOf(':', StringComparison.Ordinal);
         string[] parts = colon < 0 ? [] : raw[(colon + 1)..].Split('|');
-        if (colon <= 0 || parts.Length != 3 || !int.TryParse(parts[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count))
+        if (colon <= 0 || parts.Length is < 3 or > 4 || !int.TryParse(parts[2], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count))
         {
             return null;
         }
-        return new SyncStoreHead(operation.Value, raw[..colon], parts[0], parts[1], count);
+        return new SyncStoreHead(operation.Value, raw[..colon], parts[0], parts[1], count, parts.Length == 4 ? parts[3] : "");
     }
 
     /// <summary>

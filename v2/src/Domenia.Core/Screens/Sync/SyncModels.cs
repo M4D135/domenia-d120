@@ -38,8 +38,15 @@ public sealed record IndexRecord(
 /// <summary>Scope of the screen: the OU chosen for the updates (or the working OU by default), never silently the domain.</summary>
 public sealed record SyncScope(string Dn, string Label, string Path, bool Subtree, bool IsDomain, string Source);
 
-/// <summary>One of the four tiles of the local base (Domenia 1 DS-09). <see cref="Number"/> is null when unknown, never 0.</summary>
-public sealed record SyncTile(string Key, string Caption, string Value, int? Number, string Detail, Tone Tone);
+/// <summary>One part of the foot of a tile (enabled and disabled accounts, workstations with or without a user…).</summary>
+public sealed record SyncTilePart(string Key, string Label, int Count, Tone Tone);
+
+/// <summary>
+/// One of the four tiles of the local base (Domenia 1 DS-09). <see cref="Number"/> is null when unknown, never 0. Every tile
+/// has a foot of the same nature: two <see cref="Parts"/> (a distribution), or a <see cref="Gauge"/> from 0 to 1 (freshness of
+/// the scope against the census threshold) with its caption.
+/// </summary>
+public sealed record SyncTile(string Key, string Caption, string Value, int? Number, string Detail, Tone Tone, ImmutableArray<SyncTilePart> Parts, double? Gauge, string? GaugeText);
 
 /// <summary>State of the coverage of a scope by a complete read (Domenia 1 Get-DomeniaFleetFreshness).</summary>
 public enum CoverageStatus
@@ -76,7 +83,8 @@ public enum CensusState
     Gap,
 }
 
-public sealed record CensusAdvice(CensusState State, bool Due, int? AgeDays, int MaxAgeDays, int GapCount, string Text, Tone Tone);
+/// <summary>Census advice; <see cref="GapText"/> names the identities of the census still missing from the base, apart from the advice.</summary>
+public sealed record CensusAdvice(CensusState State, bool Due, int? AgeDays, int MaxAgeDays, int GapCount, string Text, Tone Tone, string? GapText);
 
 /// <summary>Directory checkpoint of the base (controller, instance, USN), the reference of the incremental updates.</summary>
 public sealed record SyncCheckpoint(string Controller, string InvocationId, long Usn, DateTimeOffset At, int Count, string ScopeDn);
@@ -112,10 +120,21 @@ public sealed record SyncLimits(
     int MaxPageSize,
     int CheckLimit,
     int SnapshotLimit,
-    int SnapshotMaxObjects);
+    int SnapshotMaxObjects,
+    string Source);
 
 /// <summary>Whether a new directory pass may start now, and why not (Domenia 1 Test-DomeniaIndexWriteReady).</summary>
 public sealed record SyncReadiness(bool Ready, string? Reason);
+
+/// <summary>
+/// State of the storage that admits new collections (Domenia 1 Get-DomeniaStorageCollectionRefusal, points 32 and 35):
+/// maintenance of the base, writer suspended after failures, free space of the volume of the base (« unknown » while not
+/// measured: nothing is blocked then). <see cref="Refusal"/> is the sentence shown when a new pass must wait.
+/// </summary>
+public sealed record SyncStorageHealth(string SpaceState, long? FreeBytes, string SpaceText, bool Maintenance, bool WriterSuspended, string? Refusal);
+
+/// <summary>Counters shown on the tabs of the workspaces (objects, coverage lines, disappearances, census gaps, snapshots, park).</summary>
+public sealed record SyncWorkspaceCounts(int Objects, int Scopes, int Absences, int AbsencesPending, int Gaps, int Snapshots, int Park);
 
 /// <summary>A read of the directory in progress (shown again when the operator comes back to the screen).</summary>
 public sealed record SyncRunInfo(string RunId, string Target, string ScopeLabel, string Phase, string PhaseLabel, DateTimeOffset StartedAt, bool Stopping);
@@ -155,7 +174,11 @@ public sealed record SyncOverview(
     SyncBackupInfo Backup,
     ParkCoverage Park,
     string Details,
-    string Lead);
+    string Lead,
+    DateTimeOffset Now,
+    SyncWorkspaceCounts Counts,
+    SyncStorageHealth Storage,
+    string LapsSchema);
 
 /// <summary>Sort of the local index, chosen by the operator: only these fixed expressions exist (Domenia 1 point 39).</summary>
 public enum IndexSort
@@ -194,7 +217,9 @@ public sealed record IndexHit(
     DateTimeOffset? WhenChanged,
     DateTimeOffset? LastLogon,
     DateTimeOffset? LapsExpiration,
-    DateTimeOffset ObservedAt);
+    DateTimeOffset ObservedAt,
+    string? LapsState,
+    string? LapsText);
 
 /// <summary>Result of synchro.index.search: one page, its total and the page taken from the same state of the base.</summary>
 public sealed record IndexSearchPage(
@@ -243,11 +268,13 @@ public sealed record AbsenceRow(
     DateTimeOffset? CheckedAt,
     string Detail,
     string ScopeDn,
-    string? Server);
+    string? Server,
+    bool InScope);
 
 public sealed record AbsenceCount(AbsenceStatus Status, string Label, int Count, Tone Tone);
 
-public sealed record AbsenceList(int Total, ImmutableArray<AbsenceCount> Counts, int Pending, int Shown, bool CanCheck, string Summary, ImmutableArray<AbsenceRow> Rows);
+/// <summary>Disappeared objects of the domain; <see cref="InScope"/> counts those last seen inside the scope of the screen.</summary>
+public sealed record AbsenceList(int Total, ImmutableArray<AbsenceCount> Counts, int Pending, int Shown, bool CanCheck, string Summary, ImmutableArray<AbsenceRow> Rows, int InScope);
 
 /// <summary>An identity the last census of the domain saw in the directory but the base does not hold.</summary>
 public sealed record CensusGapRow(string Guid, string Dn, string Name, string Location, DateTimeOffset SeenAt);
@@ -282,7 +309,7 @@ public sealed record SnapshotRow(
 public sealed record SnapshotList(int Count, int Max, int MaxObjects, string Text, string Notice, ImmutableArray<SnapshotRow> Rows);
 
 /// <summary>Result of synchro.controls: census, census gaps, disappeared objects and snapshots of the domain.</summary>
-public sealed record SyncControls(SyncScope Scope, CensusAdvice Census, CensusGapList Gaps, AbsenceList Absences, SnapshotList Snapshots, long Generation);
+public sealed record SyncControls(SyncScope Scope, CensusAdvice Census, CensusGapList Gaps, AbsenceList Absences, SnapshotList Snapshots, long Generation, DateTimeOffset Now);
 
 /// <summary>Target of a read: the chosen OU with its sub-OUs, or the changes of the whole domain.</summary>
 public enum SyncTarget
@@ -321,7 +348,9 @@ public sealed record SyncEstimate(
     string ConfirmText,
     bool Ready,
     string? Refusal,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    bool Rebuild,
+    bool CanRebuild);
 
 /// <summary>Phase of a read in progress, pushed as « synchro.read.run:progress ».</summary>
 public enum SyncPhase
@@ -375,9 +404,13 @@ public sealed record SyncReadResult(
     string Summary,
     ImmutableArray<string> Notes,
     bool Storable,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    bool Rebuild);
 
 public sealed record SyncStop(bool Stopping, string Message);
+
+/// <summary>Result of synchro.read.discard: a read kept by the engine and dropped at the operator's request (nothing is written).</summary>
+public sealed record SyncDiscard(bool Discarded, string Message);
 
 /// <summary>Visibility of the deleted objects for this account (Domenia 1 DeletedRead).</summary>
 public enum DeletedProbe
@@ -420,9 +453,18 @@ public enum SnapshotDiffNature
     Changed,
 }
 
-public sealed record SnapshotDiffRow(SnapshotDiffNature Nature, string NatureLabel, string Name, string Guid, string Detail, string? Before, string? After);
+/// <summary>
+/// One difference between two snapshots. <see cref="Before"/> and <see cref="After"/> are readable (a location for an
+/// addition, a disappearance or a move, a value for a changed field); the DNs stay in <see cref="BeforeDn"/> and <see cref="AfterDn"/>.
+/// </summary>
+public sealed record SnapshotDiffRow(SnapshotDiffNature Nature, string NatureLabel, string Name, string Guid, string Detail, string? Before, string? After, string? BeforeDn, string? AfterDn);
 
-public sealed record SnapshotDiffCounts(int Added, int Disappeared, int Common, int Differing, int Unchanged, int Moved, int Renamed, int Changed);
+/// <summary>
+/// Exact totals of a comparison. <see cref="Distinct"/> is the union of the two snapshots (common, added, disappeared);
+/// a common object can be moved and changed at once, so <see cref="Moved"/> + <see cref="Renamed"/> + <see cref="Changed"/>
+/// may exceed <see cref="Differing"/>.
+/// </summary>
+public sealed record SnapshotDiffCounts(int Added, int Disappeared, int Common, int Differing, int Unchanged, int Moved, int Renamed, int Changed, int Distinct);
 
 public sealed record SnapshotComparison(
     SnapshotRow Before,
@@ -435,7 +477,9 @@ public sealed record SnapshotComparison(
     bool Truncated,
     ImmutableArray<SnapshotDiffRow> Rows,
     ImmutableArray<string> Summary,
-    string Notice);
+    string Notice,
+    string Headline,
+    string Overlap);
 
 /// <summary>Status of one workstation in the park survey (Domenia 1 park_state.status).</summary>
 public enum ParkStatus
@@ -454,11 +498,21 @@ public sealed record ParkRow(string Key, string Computer, DateTimeOffset LastPro
 
 public sealed record ParkShared(bool Configured, string? Path, DateTimeOffset? LastSyncAt, string Text, bool CanSync);
 
-public sealed record ParkState(ParkCoverage Coverage, ImmutableArray<ParkRow> Rows, ParkShared Shared, long Generation);
+/// <summary>
+/// Stored park survey (Domenia 1 ParkState). <see cref="Deferred"/> counts the workstation results that arrived while the
+/// stored state was read again: they were applied after it, so their attempt counters start from the stored ones.
+/// </summary>
+public sealed record ParkState(ParkCoverage Coverage, ImmutableArray<ParkRow> Rows, ParkShared Shared, long Generation, int Deferred, string? DeferredText, DateTimeOffset Now);
 
 /// <summary>One workstation where the shared survey and the local one differ, and which line wins (the most recent).</summary>
 public sealed record ParkMergeRow(string Computer, DateTimeOffset? Local, DateTimeOffset? Shared, string Winner, string Detail);
 
+/// <summary>
+/// Result of a read of the shared park survey (Domenia 1 ParkSharedSync). <see cref="Outcome"/> is « merged » (lock obtained,
+/// merged in memory), « lockBusy » (lock not obtained after 12 attempts: work in local, new attempt at <see cref="RetryAt"/>)
+/// or « unreachable » (share not reachable: work in local, noted in the Parc journal). <see cref="Queued"/> says the request
+/// arrived during another synchronisation and was made after it. <see cref="BatchId"/> is empty when nothing can be stored.
+/// </summary>
 public sealed record ParkSharedRead(
     string BatchId,
     string Path,
@@ -472,7 +526,11 @@ public sealed record ParkSharedRead(
     ImmutableArray<ParkMergeRow> Rows,
     string Text,
     bool Storable,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    string Outcome,
+    bool Reachable,
+    bool Queued,
+    DateTimeOffset? RetryAt);
 
 /// <summary>A CSV written by the screen (Exports folder), or prepared only when the mode keeps everything in memory.</summary>
 public sealed record SyncExport(bool Written, string? Path, string FileName, int Rows, string Sha256, string Text);

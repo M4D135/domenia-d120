@@ -5,6 +5,25 @@ namespace Domenia.Core;
 /// <summary>Result of a merge of two park surveys (Domenia 1 Merge-DomeniaParkState).</summary>
 public sealed record ParkMerge(ImmutableDictionary<string, ParkEntry> State, int Added, int Replaced, int Total);
 
+/// <summary>One workstation result of a park probe (session seen, no session, unreachable…), as a probe delivers it.</summary>
+public sealed record ParkProbe(string Computer, DateTimeOffset At, ParkStatus Status, string? User, string? ProbedBy);
+
+/// <summary>The park state after a reload of the stored survey and the results that waited for it (Domenia 1 ParkStateReload).</summary>
+public sealed record ParkReload(ImmutableDictionary<string, ParkEntry> State, int Applied, string? Text);
+
+/// <summary>What became of a synchronisation of the shared survey (Domenia 1 ParkSharedSync).</summary>
+public enum SharedSyncOutcome
+{
+    /// <summary>Lock obtained, file read and merged in memory.</summary>
+    Merged,
+
+    /// <summary>Lock held by another console for every attempt: work in local, new attempt later.</summary>
+    LockBusy,
+
+    /// <summary>Share out of reach: work in local, noted in the Parc journal.</summary>
+    Unreachable,
+}
+
 /// <summary>
 /// Pure rules of the park survey kept by the base (Domenia 1 points 28 to 30 and FI-13): coverage of the stored survey, merge
 /// by workstation where the most recent line wins (two consoles never destroy each other's readings), labels. No network.
@@ -67,9 +86,10 @@ public static class SyncPark
         if (latest is { } last)
         {
             var span = now - last;
+            // Under one day, the words of the engine (« il y a 3 min », « il y a 2 h »): never « il y a 0 h ».
             text += span.TotalDays >= 1
                 ? ", dernier passage il y a " + FrenchText.Count((long)span.TotalDays, "jour", "jours")
-                : ", dernier passage il y a " + FrenchText.Integer(Math.Max(0, (long)span.TotalHours)) + " h";
+                : ", dernier passage " + SyncText.Elapsed(last, now);
         }
         return new ParkCoverage(activeMachines, surveyed, withSession, dormants, percent, latest, text + ".");
     }
@@ -100,6 +120,71 @@ public static class SyncPark
             }
         }
         return new ParkMerge(merged.ToImmutable(), added, replaced, merged.Count);
+    }
+
+    /// <summary>Results kept while the stored survey is read again (Domenia 1: 16 at most, the oldest dropped first).</summary>
+    public const int DeferredLimit = 16;
+
+    /// <summary>Delay before the new attempt when the lock of the shared survey was not obtained.</summary>
+    public static readonly TimeSpan LockRetryDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Applies one probe result (Domenia 1 Complete-DomeniaParkSweepUi): the attempt counter builds on the stored one (+1), so a
+    /// result applied before the stored survey is loaded would restart from zero: such a result waits (<see cref="Defer"/>).
+    /// </summary>
+    public static ParkEntry Apply(IReadOnlyDictionary<string, ParkEntry> state, ParkProbe probe)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(probe);
+        var attempts = state.TryGetValue(Key(probe.Computer), out var old) ? Math.Max(0, old.Attempts) + 1 : 1;
+        return new ParkEntry(probe.Computer, probe.At, probe.Status, probe.Status == ParkStatus.Session ? probe.User : null, attempts, probe.ProbedBy);
+    }
+
+    /// <summary>Keeps a result that arrived during the reload of the stored survey; the oldest leaves beyond <see cref="DeferredLimit"/>.</summary>
+    public static ImmutableArray<ParkProbe> Defer(ImmutableArray<ParkProbe> waiting, ParkProbe probe)
+    {
+        ArgumentNullException.ThrowIfNull(probe);
+        ImmutableArray<ParkProbe> list = waiting.IsDefault ? [] : waiting;
+        list = list.Add(probe);
+        return list.Length > DeferredLimit ? list.RemoveRange(0, list.Length - DeferredLimit) : list;
+    }
+
+    /// <summary>
+    /// End of a reload (Domenia 1 Complete-DomeniaParkStateReloadUi): the stored rows are the base, what this session saw since
+    /// wins when more recent, then the waiting results are applied in their order of arrival on top of the stored counters.
+    /// </summary>
+    public static ParkReload Reload(IReadOnlyDictionary<string, ParkEntry> stored, IReadOnlyDictionary<string, ParkEntry> session, IReadOnlyList<ParkProbe> waiting)
+    {
+        ArgumentNullException.ThrowIfNull(stored);
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(waiting);
+        var state = Merge(stored, session).State.ToBuilder();
+        foreach (var probe in waiting)
+        {
+            state[Key(probe.Computer)] = Apply(state, probe);
+        }
+        var text = waiting.Count == 0 ? null
+            : FrenchText.Count(waiting.Count, "résultat de poste arrivé pendant la relecture du relevé a été appliqué", "résultats de poste arrivés pendant la relecture du relevé ont été appliqués")
+                + " ensuite" + SyncText.C + "les tentatives partent des compteurs enregistrés.";
+        return new ParkReload(state.ToImmutable(), waiting.Count, text);
+    }
+
+    /// <summary>
+    /// What a synchronisation of the shared survey tells the operator (Domenia 1 Start-DomeniaParkSharedSync and its worker):
+    /// a lock not obtained or a share out of reach never blocks the console, the work goes on in local.
+    /// </summary>
+    public static string SharedText(SharedSyncOutcome outcome, string path, int lockAttempts, DateTimeOffset? retryAt, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(zone);
+        var c = SyncText.C;
+        return outcome switch
+        {
+            SharedSyncOutcome.LockBusy => "Verrou du relevé partagé non obtenu après " + FrenchText.Count(lockAttempts, "essai", "essais") + c + "une autre console l’écrit. Domenia travaille en local"
+                + (retryAt is { } at ? SyncText.Semi + " nouvel essai à " + TimeZoneInfo.ConvertTime(at, zone).ToString("HH':'mm':'ss", System.Globalization.CultureInfo.InvariantCulture) + "." : "."),
+            SharedSyncOutcome.Unreachable => "Partage inaccessible (" + path + ")" + c + "Domenia travaille en local, noté dans le journal Parc. Rien n’a été lu ni écrit.",
+            _ => "Verrou obtenu au " + (lockAttempts <= 1 ? "1ᵉʳ" : FrenchText.Integer(lockAttempts) + "ᵉ") + " essai sur " + FrenchText.Integer(LockAttempts) + ".",
+        };
     }
 
     public static ParkRow Row(ParkEntry entry)

@@ -109,13 +109,83 @@ public static class SyncReconcile
     }
 
     /// <summary>
+    /// The limit that makes a read incomplete although no quota, budget or stop cut it (Domenia 1 Get-DomeniaIndexWorkerCode
+    /// and IndexBulk): a class whose read failed (« échec d’une classe = passe incomplète, jamais un annuaire vide »), a complete
+    /// read that returns no object while the base holds some in the scope, an empty census of the domain. Only an explicit
+    /// rebuild (<paramref name="rebuild"/>, Domenia 1 ReplaceAll) may confirm an empty domain after a checkpoint. Null: nothing
+    /// cuts the read.
+    /// </summary>
+    /// <param name="read">Objects returned by the read.</param>
+    /// <param name="knownInScope">Objects of the base inside the scope of the read.</param>
+    /// <param name="failedClasses">Classes whose read failed (« postes », « comptes »), named by the reader.</param>
+    /// <param name="census">Identities of the census of a domain pass; null when the pass has no census (OU, incremental part).</param>
+    /// <param name="domainPass">The read covers the domain (changes of the domain or rebuild).</param>
+    /// <param name="hasCheckpoint">The base holds a checkpoint of the domain (it was built once).</param>
+    /// <param name="rebuild">The operator asked a complete rebuild explicitly.</param>
+    public static SyncCut? EmptyReadCut(int read, int knownInScope, IReadOnlyCollection<string> failedClasses, int? census, bool domainPass, bool hasCheckpoint, bool rebuild)
+    {
+        ArgumentNullException.ThrowIfNull(failedClasses);
+        var c = SyncText.C;
+        var readText = FrenchText.Count(read, "objet relu", "objets relus") + " dans la passe";
+        if (failedClasses.Count > 0)
+        {
+            return new SyncCut("erreur", 0, "Lecture des " + string.Join(" et des ", failedClasses) + " en échec" + c + "passe incomplète, jamais un annuaire vide (" + readText
+                + "). Aucune absence n’est déduite et le repère ne bouge pas.");
+        }
+        if (rebuild)
+        {
+            return null;
+        }
+        if (domainPass && census is 0 && (knownInScope > 0 || hasCheckpoint))
+        {
+            return new SyncCut("vide", 0, "Recensement vide" + c + "relancez une reconstruction complète explicite pour confirmer une base vide (" + readText + "). Aucune absence ni nouveau repère ne sont validés.");
+        }
+        if (read == 0 && knownInScope > 0)
+        {
+            return new SyncCut("vide", 0, domainPass && hasCheckpoint
+                ? "Domaine vide après le repère" + c + "une reconstruction complète explicite est exigée pour vider la base. Aucune absence n’est déduite."
+                : "Lecture complète vide alors que la base contient " + FrenchText.Count(knownInScope, "objet", "objets") + " dans ce périmètre" + c
+                    + "passe tenue pour incomplète, aucune absence n’est déduite.");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Refusal of the storage of a batch (Domenia 1 IndexBulk): a complete domain pass whose census is empty while the base is
+    /// not, outside an explicit rebuild. Null: the batch may be stored.
+    /// </summary>
+    public static string? StorageRefusal(bool domainPass, bool complete, bool rebuild, int census, int baseCount)
+    {
+        if (domainPass && complete && !rebuild && census == 0 && baseCount > 0)
+        {
+            return "Recensement vide" + SyncText.C + "reconstruction complète explicite requise, transaction refusée. Rien n’a été écrit.";
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Fingerprint of a preview (SHA-256 of « GUID|category » lines and the unseen GUIDs): two previews with the same counts but
+    /// other objects never pass for the same preview when the plan is checked again before its commit.
+    /// </summary>
+    public static string PreviewFingerprint(SyncReconciliation reconciliation)
+    {
+        ArgumentNullException.ThrowIfNull(reconciliation);
+        var lines = reconciliation.Items.Select(i => i.Row.ObjectGuid.ToString("D") + "|" + CategoryKey(i.Category))
+            .Concat(reconciliation.Unseen.Select(u => u.ObjectGuid.ToString("D") + "|unseen"))
+            .Order(StringComparer.Ordinal);
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', lines))));
+    }
+
+    /// <summary>
     /// Reconciles a read with the base. <paramref name="scopeDn"/> is the OU read with its sub-OUs, or null for the domain;
     /// <paramref name="assertAbsence"/> is true only for a complete read of the whole scope on which absences may be recorded.
+    /// An empty read never asserts an absence (it would empty the scope), unless <paramref name="rebuild"/> confirms it.
     /// </summary>
-    public static SyncReconciliation Reconcile(IReadOnlyDictionary<Guid, IndexRecord> current, IReadOnlyCollection<IndexRecord> read, string? scopeDn, bool assertAbsence)
+    public static SyncReconciliation Reconcile(IReadOnlyDictionary<Guid, IndexRecord> current, IReadOnlyCollection<IndexRecord> read, string? scopeDn, bool assertAbsence, bool rebuild = false)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(read);
+        assertAbsence = assertAbsence && (read.Count > 0 || rebuild);
         var items = ImmutableArray.CreateBuilder<ReconcileItem>(read.Count);
         var seen = new HashSet<Guid>();
         foreach (var row in read)
@@ -177,7 +247,7 @@ public static class SyncReconcile
         }
         foreach (var row in unseen.Take(SamplesPerCategory))
         {
-            samples.Add(new SyncReconcileSample("unseen", row.Name, row.Type, "Non revu par la lecture complète" + SyncText.C + SyncLocations.Location(row.Dn) + " (jamais supprimé de l’annuaire)"));
+            samples.Add(new SyncReconcileSample("unseen", row.Name, row.Type, "Non revu par la lecture complète" + SyncText.C + SyncLocations.Location(row.Dn) + " (absence non prouvée, rien n’est supprimé dans l’annuaire)"));
         }
         return new SyncReconciliation(built, unseen, counts, samples.ToImmutable());
     }

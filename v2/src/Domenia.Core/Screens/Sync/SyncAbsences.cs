@@ -206,8 +206,11 @@ public static class SyncAbsences
             .OrderBy(r => r.NoticedAt).ThenBy(r => r.ObjectGuid.ToString("D"), StringComparer.Ordinal).Take(bound)];
     }
 
-    /// <summary>Display row of one stored absence (Domenia 1 ConvertTo-DomeniaAbsenceRow).</summary>
-    public static AbsenceRow Row(AbsenceRecord record, TimeZoneInfo zone)
+    /// <summary>
+    /// Display row of one stored absence (Domenia 1 ConvertTo-DomeniaAbsenceRow). <paramref name="scopeDn"/> is the scope of the
+    /// screen (null for the domain): the row says whether the object was last seen inside it.
+    /// </summary>
+    public static AbsenceRow Row(AbsenceRecord record, TimeZoneInfo zone, string? scopeDn = null)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(zone);
@@ -222,20 +225,25 @@ public static class SyncAbsences
             detail = "Absent de la lecture complète du " + SyncText.LocalDateTime(record.NoticedAt, zone) + SyncText.C + "invisible, déplacé ou supprimé. À vérifier avant toute conclusion.";
         }
         return new AbsenceRow(record.ObjectGuid.ToString("D"), record.Status, Label(record.Status), ToneOf(record.Status), record.Name, record.Type, TypeLabel(record.Type),
-            record.LastDn, record.FoundDn, place, record.NoticedAt, record.CheckedAt, detail, record.ScopeDn, record.Server);
+            record.LastDn, record.FoundDn, place, record.NoticedAt, record.CheckedAt, detail, record.ScopeDn, record.Server,
+            scopeDn is null || SyncLocations.InScope(record.LastDn, scopeDn) || (record.FoundDn is { Length: > 0 } found && SyncLocations.InScope(found, scopeDn)));
     }
 
-    /// <summary>The list of the screen: exact totals by status, the most recent rows, how many are still to verify.</summary>
-    public static AbsenceList List(IReadOnlyCollection<AbsenceRecord> records, TimeZoneInfo zone, bool canRead, int shownLimit = ShownLimit)
+    /// <summary>
+    /// The list of the screen: exact totals by status, the most recent rows, how many are still to verify, and how many were
+    /// last seen inside <paramref name="scopeDn"/> (the absences belong to the domain: a domain read records them too).
+    /// </summary>
+    public static AbsenceList List(IReadOnlyCollection<AbsenceRecord> records, TimeZoneInfo zone, bool canRead, int shownLimit = ShownLimit, string? scopeDn = null)
     {
         ArgumentNullException.ThrowIfNull(records);
         var rows = records.OrderByDescending(r => r.CheckedAt ?? r.NoticedAt).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Max(1, shownLimit)).Select(r => Row(r, zone)).ToImmutableArray();
+            .Take(Math.Max(1, shownLimit)).Select(r => Row(r, zone, scopeDn)).ToImmutableArray();
+        var inScope = scopeDn is null ? records.Count : records.Count(r => SyncLocations.InScope(r.LastDn, scopeDn) || (r.FoundDn is { Length: > 0 } f && SyncLocations.InScope(f, scopeDn)));
         var counts = Enum.GetValues<AbsenceStatus>()
             .Select(s => new AbsenceCount(s, Label(s), records.Count(r => r.Status == s), ToneOf(s)))
             .ToImmutableArray();
         var pending = SelectToCheck(records).Length;
-        return new AbsenceList(records.Count, counts, pending, rows.Length, canRead && pending > 0, Summary(records.Count, counts, rows.Length, pending), rows);
+        return new AbsenceList(records.Count, counts, pending, rows.Length, canRead && pending > 0, Summary(records.Count, counts, rows.Length, pending), rows, inScope);
     }
 
     /// <summary>One line for the list (Domenia 1 Get-DomeniaAbsenceSummary).</summary>

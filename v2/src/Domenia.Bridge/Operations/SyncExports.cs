@@ -3,6 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using Domenia.Core;
 
+// The tests read the CSV rules of the exports (neutralized cells, never overwritten, link refused) directly.
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Domenia.Tests")]
+
 namespace Domenia.Bridge;
 
 /// <summary>

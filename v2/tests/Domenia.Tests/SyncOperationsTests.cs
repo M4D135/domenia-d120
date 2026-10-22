@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
@@ -279,6 +280,123 @@ internal static class SyncOperationsTests
         Check.Equal("verified", receipt.GetProperty("verification").GetString(), "relevé relu : vide");
         Check.Equal(0, (await Ok(bridge, "synchro.park.state")).GetProperty("rows").GetArrayLength(), "état de balayage effacé");
         Check.Equal(SyncErrors.ParkEmpty, await Error(bridge, "synchro.park.reset.plan"), "rien à oublier");
+    }
+
+    [Test]
+    public static async Task A_read_can_be_dropped_without_writing_anything()
+    {
+        var bridge = new SimulatedBridge();
+        var estimate = await Ok(bridge, "synchro.read.estimate", new { target = "ou", dn = Users });
+        var read = await Ok(bridge, "synchro.read.run", new { estimateId = estimate.GetProperty("id").GetString() });
+        var batchId = read.GetProperty("batchId").GetString();
+        var before = await Ok(bridge, "synchro.overview", new { dn = Users });
+        Check.Equal(batchId, before.GetProperty("pending").GetProperty("batchId").GetString(), "lecture en attente");
+        var dropped = await Ok(bridge, "synchro.read.discard", new { batchId });
+        Check.True(dropped.GetProperty("discarded").GetBoolean(), "lecture écartée");
+        var after = await Ok(bridge, "synchro.overview", new { dn = Users });
+        Check.Equal(JsonValueKind.Null, after.GetProperty("pending").ValueKind, "plus proposée à l’enregistrement");
+        Check.Equal(before.GetProperty("generation").GetInt64(), after.GetProperty("generation").GetInt64(), "rien n’est écrit");
+        Check.Equal(SyncErrors.BatchUnknown, await Error(bridge, "synchro.store.plan", new { batchId }), "plus de plan possible");
+        Check.False((await Ok(bridge, "synchro.read.discard", new { batchId })).GetProperty("discarded").GetBoolean(), "déjà écartée");
+        Check.Equal("arguments.invalid", await Error(bridge, "synchro.read.discard", new { batchId = "court" }), "identifiant invalide");
+    }
+
+    [Test]
+    public static async Task A_rebuild_is_asked_explicitly_and_only_for_the_domain()
+    {
+        var bridge = new SimulatedBridge();
+        Check.Equal("arguments.invalid", await Error(bridge, "synchro.read.estimate", new { target = "ou", rebuild = true }), "une reconstruction relit le domaine");
+        Check.Equal("arguments.invalid", await Error(bridge, "synchro.read.estimate", new { target = "domain", rebuild = "oui" }), "booléen exigé");
+        var ou = await Ok(bridge, "synchro.read.estimate", new { target = "ou" });
+        Check.False(ou.GetProperty("canRebuild").GetBoolean(), "pas de reconstruction pour une OU");
+        var changes = await Ok(bridge, "synchro.read.estimate", new { target = "domain" });
+        Check.Equal("incremental", changes.GetProperty("mode").GetString(), "sans demande : changements depuis le repère");
+        Check.True(changes.GetProperty("canRebuild").GetBoolean(), "la reconstruction se propose");
+        var rebuild = await Ok(bridge, "synchro.read.estimate", new { target = "domain", rebuild = true });
+        Check.Equal("full", rebuild.GetProperty("mode").GetString(), "reconstruction : lecture complète du domaine");
+        Check.True(rebuild.GetProperty("rebuild").GetBoolean(), "demande explicite gardée");
+        Check.True(rebuild.GetProperty("warnings").EnumerateArray().Any(w => w.GetString()!.Contains("Reconstruction explicite", StringComparison.Ordinal)), "conséquence annoncée");
+        var read = await Ok(bridge, "synchro.read.run", new { estimateId = rebuild.GetProperty("id").GetString() });
+        Check.True(read.GetProperty("rebuild").GetBoolean(), "lecture de reconstruction");
+        Check.True(read.GetProperty("complete").GetBoolean(), "domaine fictif complet : rien ne coupe la passe");
+    }
+
+    [Test]
+    public static async Task The_overview_gives_one_clock_the_counters_and_the_storage()
+    {
+        var bridge = new SimulatedBridge();
+        var o = await Ok(bridge, "synchro.overview");
+        Check.Equal(bridge.Clock.GetUtcNow(), o.GetProperty("now").GetDateTimeOffset(), "heure du moteur, source unique des âges");
+        var counts = o.GetProperty("counts");
+        Check.Equal(o.GetProperty("objects").GetInt32(), counts.GetProperty("objects").GetInt32(), "objets de la base");
+        Check.True(counts.GetProperty("absencesPending").GetInt32() > 0, "disparitions à vérifier");
+        Check.True(counts.GetProperty("snapshots").GetInt32() > 0, "relevés");
+        Check.Equal("unknown", o.GetProperty("storage").GetProperty("spaceState").GetString(), "simulation : espace jamais mesuré");
+        Check.Equal(JsonValueKind.Null, o.GetProperty("storage").GetProperty("refusal").ValueKind, "rien ne bloque une passe");
+        Check.Equal("present", o.GetProperty("lapsSchema").GetString(), "schéma LAPS lu");
+        Check.Equal("Réglages par défaut", o.GetProperty("limits").GetProperty("source").GetString(), "sans Domenia.config.json : défauts");
+        var tiles = o.GetProperty("tiles").EnumerateArray().ToList();
+        Check.True(tiles.Take(3).All(t => t.GetProperty("parts").GetArrayLength() == 2), "trois tuiles réparties en deux");
+        Check.True(tiles[3].GetProperty("gauge").GetDouble() is > 0 and <= 1, "jauge de fraîcheur");
+        Check.False(o.GetProperty("lead").GetString()!.Contains("Changements du domaine", StringComparison.Ordinal), "l’âge du repère n’est dit qu’une fois (avis)");
+        var search = await Ok(bridge, "synchro.index.search", new { text = "", sort = "name", limit = 500 });
+        var computer = search.GetProperty("rows").EnumerateArray().First(r => r.GetProperty("type").GetString() == "computer" && r.GetProperty("lapsExpiration").ValueKind == JsonValueKind.Null);
+        Check.Equal("none", computer.GetProperty("lapsState").GetString(), "schéma présent, expiration non visible");
+    }
+
+    [Test]
+    public static async Task Startup_notices_go_to_the_journal_of_the_operations()
+    {
+        var bridge = new SimulatedBridge();
+        ImmutableArray<JournalEntry> entries = [];
+        for (var i = 0; i < 100 && !entries.Any(e => e.Label.StartsWith("Base locale · ", StringComparison.Ordinal)); i++)
+        {
+            await Task.Delay(20);
+            entries = bridge.Context.Journal.Snapshot();
+        }
+        Check.True(entries.Any(e => e.Label.Contains("jamais lancée automatiquement", StringComparison.Ordinal)), "âge de la base : conseil seulement");
+        Check.True(entries.Any(e => e.Label.Contains("incomplète", StringComparison.Ordinal) && e.Tone == Tone.Warn), "dernière passe coupée, limite nommée");
+        Check.Equal(0, bridge.Events.Count(e => e.Operation == "synchro.read.run:progress"), "rien n’est lancé");
+    }
+
+    [Test]
+    public static async Task Exports_neutralize_formulas_and_write_nothing_in_memory_modes()
+    {
+        Check.Equal("'=cmd|' /C calc'!A0", SyncExports.Cell("=cmd|' /C calc'!A0"), "formule neutralisée");
+        Check.Equal("'-1", SyncExports.Cell("-1"), "signe moins neutralisé");
+        Check.Equal("'+33", SyncExports.Cell("+33"), "signe plus neutralisé");
+        Check.Equal("'@SUM(1)", SyncExports.Cell("@SUM(1)"), "arobase neutralisée");
+        Check.Equal("'\tx", SyncExports.Cell("\tx"), "tabulation neutralisée");
+        Check.Equal("\"a;b\"", SyncExports.Cell("a;b"), "point-virgule entre guillemets");
+        Check.Equal("\"dit \"\"oui\"\"\"", SyncExports.Cell("dit \"oui\""), "guillemets doublés");
+        Check.Equal("", SyncExports.Cell(null), "vide");
+        Check.Equal("Nom;Type\r\n'=x;\"a;b\"\r\n", SyncExports.Csv(["Nom", "Type"], [["=x", "a;b"]]), "en-têtes puis lignes");
+        var bridge = new SimulatedBridge();
+        var export = await Ok(bridge, "synchro.index.export", new { text = "pc-lyo" });
+        Check.False(export.GetProperty("written").GetBoolean(), "reçus en mémoire : rien n’est écrit sur le disque");
+        Check.Equal(64, export.GetProperty("sha256").GetString()!.Length, "empreinte gardée");
+        Check.True(export.GetProperty("fileName").GetString()!.StartsWith("Domenia-base-locale-", StringComparison.Ordinal), "nom daté");
+    }
+
+    [Test]
+    public static async Task The_shared_survey_is_synchronised_once_at_a_time_and_a_late_result_waits_for_the_reload()
+    {
+        var bridge = new SimulatedBridge(SimulationLatency.Realistic);
+        var first = await Ok(bridge, "synchro.park.state");
+        Check.Equal(1, first.GetProperty("deferred").GetInt32(), "un résultat arrivé pendant la relecture");
+        Check.Contains("appliqué ensuite", first.GetProperty("deferredText").GetString(), "dit à l’opérateur");
+        Check.Equal(0, (await Ok(bridge, "synchro.park.state")).GetProperty("deferred").GetInt32(), "appliqué une fois");
+        var a = bridge.CallAsync("synchro.park.shared.read", "{}");
+        await Task.Delay(30);
+        var b = bridge.CallAsync("synchro.park.shared.read", "{}");
+        var ra = SimulatedBridge.Json(await a);
+        var rb = SimulatedBridge.Json(await b);
+        Check.Equal("merged", ra.GetProperty("outcome").GetString(), "verrou obtenu");
+        Check.Equal(2, ra.GetProperty("lockAttempts").GetInt32(), "au deuxième essai (une autre console écrivait)");
+        Check.False(ra.GetProperty("queued").GetBoolean(), "première demande");
+        Check.True(rb.GetProperty("queued").GetBoolean(), "la seconde est faite à la suite, jamais perdue");
+        Check.Equal(1, rb.GetProperty("lockAttempts").GetInt32(), "verrou libre ensuite");
+        Check.True(bridge.Context.Journal.Snapshot().Count(e => e.Label.StartsWith("Lecture du relevé partagé", StringComparison.Ordinal)) == 2, "deux lectures notées");
     }
 
     [Test]

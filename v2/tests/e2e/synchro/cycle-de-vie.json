@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : quitter l’écran ne laisse aucun gestionnaire derrière lui",
+  "description": "Ouvre l’écran, revient à l’Accueil et clique sur « Choisir l’OU » de l’Accueil : seul le panneau de l’Accueil s’ouvre, jamais le sélecteur de la synchronisation (le gestionnaire posé sur la zone principale est retiré au nettoyage). Puis un terme d’un seul caractère n’est pas cherché.",
+  "modes": ["simulation"],
+  "start": "synchro",
+  "steps": [
+    { "do": "wait", "selector": ".sy-hero h1", "title": "L’écran de synchronisation est affiché" },
+    { "do": "go", "route": "accueil", "title": "Retour à l’Accueil" },
+    { "do": "wait", "selector": ".scope-card", "title": "L’Accueil est affiché" },
+    { "do": "click", "text": "Choisir l’OU", "within": ".scope-card", "title": "« Choisir l’OU » de l’Accueil" },
+    { "do": "expect", "selector": ".ou-panel[role=dialog]", "title": "Le panneau de l’Accueil s’ouvre" },
+    { "do": "expect", "selector": ".sy-picker", "absent": true, "title": "Le sélecteur de la synchronisation ne s’ouvre pas" },
+    { "do": "press", "key": "Escape" },
+    { "do": "go", "route": "synchro?onglet=donnees", "title": "Retour à l’onglet Données" },
+    { "do": "wait", "contains": "correspondants dans la base", "within": ".sy-data-status" },
+    { "do": "click", "selector": ".sy-search input", "title": "Champ de recherche" },
+    { "do": "press", "key": "Control+A" },
+    { "do": "type", "selector": ".sy-search input", "text": "x", "title": "Un seul caractère" },
+    { "do": "wait", "contains": "au moins deux caractères", "within": ".sy-data-status", "title": "Rien n’est cherché, la règle est dite" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

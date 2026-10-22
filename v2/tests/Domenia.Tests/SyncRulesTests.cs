@@ -171,7 +171,9 @@ internal static class SyncRulesTests
         var recent = SyncCoverageRules.Census(Cov(CoverageStatus.Complete, Now - TimeSpan.FromDays(1)), 3, 7, Now, false);
         Check.Equal(CensusState.Recent, recent.State, "récent");
         Check.False(recent.Due, "rien de dû");
-        Check.Contains("Lire les objets manquants", recent.Text, "les écarts du domaine sont ajoutés au conseil de l’OU");
+        Check.Contains("Lire les objets manquants", recent.GapText ?? "", "les écarts du domaine sont donnés à part du conseil de l’OU");
+        Check.False(recent.Text.Contains("Lire les objets manquants", StringComparison.Ordinal), "le conseil ne répète pas les objets manquants");
+        Check.True(SyncCoverageRules.Census(Cov(CoverageStatus.Complete, Now - TimeSpan.FromDays(1)), 0, 7, Now, false).GapText is null, "aucun écart, aucun texte");
         Check.Equal(90, SyncCoverageRules.Census(Cov(CoverageStatus.Missing, null), 0, 400, Now, false).MaxAgeDays, "seuil borné à 90 jours");
     }
 
@@ -216,13 +218,21 @@ internal static class SyncRulesTests
         Check.False(SyncCoverageRules.Readiness(true, false, null).Ready, "une passe à la fois");
         Check.False(SyncCoverageRules.Readiness(false, true, null).Ready, "pendant un enregistrement");
         Check.Equal("Disque presque plein.", SyncCoverageRules.Readiness(false, false, "Disque presque plein.").Reason, "refus du stockage");
-        var unreadable = SyncCoverageRules.Tiles(0, 0, 0, 0, 0, null, Now, Zone, unreadable: true);
-        Check.True(unreadable.All(t => t.Value == "—" && t.Number is null), "base illisible : jamais de zéros");
-        var tiles = SyncCoverageRules.Tiles(1258, 454, 431, 23, 104, Now - TimeSpan.FromMinutes(12), Now, Zone);
-        Check.Equal("1 258", tiles[0].Value, "milliers séparés par une espace fine insécable");
+        var unreadable = SyncCoverageRules.Tiles(null, null, Now, Zone);
+        Check.True(unreadable.All(t => t.Value == "—" && t.Number is null && t.Parts.IsEmpty && t.Gauge is null), "base illisible\u00A0: jamais de zéros");
+        var tiles = SyncCoverageRules.Tiles(new SyncCoverageRules.TileCounts(1200, 58, 431, 23, 104, 300), Now - TimeSpan.FromMinutes(12), Now, Zone);
+        Check.Equal("1\u202F258", tiles[0].Value, "milliers séparés par une espace fine insécable");
+        Check.Equal(1200, tiles[0].Parts[0].Count, "comptes activés");
+        Check.Equal(58, tiles[0].Parts[1].Count, "comptes désactivés");
         Check.Contains("431 actifs · 23 désactivés", tiles[1].Detail, "postes actifs et désactivés");
-        Check.Equal("il y a 12 min", tiles[3].Value, "âge de la dernière lecture");
-        Check.Equal("Jamais", SyncCoverageRules.Tiles(1, 1, 1, 0, 0, null, Now, Zone)[3].Value, "jamais lu");
+        Check.Equal(300, tiles[2].Parts[0].Count, "postes avec utilisateur");
+        Check.Equal(154, tiles[2].Parts[1].Count, "postes sans utilisateur");
+        Check.Equal("il y a 12 min", tiles[3].Value, "âge de la dernière lecture");
+        Check.True(tiles[3].Gauge is > 0.99 and <= 1, "jauge de fraîcheur pleine après 12 min");
+        var old = SyncCoverageRules.Tiles(new SyncCoverageRules.TileCounts(1, 0, 1, 0, 0, 0), Now - TimeSpan.FromDays(10), Now, Zone, 7)[3];
+        Check.Equal(0.0, old.Gauge ?? -1, "au-delà du seuil, jauge vide");
+        Check.Contains("au-delà du seuil", old.GaugeText ?? "", "seuil nommé");
+        Check.Equal("Jamais", SyncCoverageRules.Tiles(new SyncCoverageRules.TileCounts(1, 0, 1, 0, 0, 0), null, Now, Zone)[3].Value, "jamais lu");
         Check.Contains("Aucune base locale", SyncCoverageRules.Notices(0, null, null, Now)[0].Text, "première construction à la main");
         var checkpoint = new SyncCheckpoint("DC1", Guid.NewGuid().ToString("D"), 10, Now - TimeSpan.FromDays(3), 10, Root);
         Check.Contains("jamais lancée automatiquement", SyncCoverageRules.Notices(10, checkpoint, null, Now)[0].Text, "âge de la base : conseil, jamais lancement");
@@ -433,5 +443,187 @@ internal static class SyncRulesTests
         Check.Equal(SyncStoreChange.IndexStoreGuid.ToString("D"), plan.Target.ObjectGuid, "cible : la base, pas un objet de l’annuaire");
         Check.Null(SyncStoreChange.Head(plan with { Kind = "account.unlock" }), "plan d’un autre type");
         Check.Null(SyncStoreChange.Head(plan with { Changes = [head with { AfterValue = "illisible" }] }), "valeur illisible");
+        Check.Equal("", decoded.Preview, "sans empreinte d’aperçu");
+        var withPreview = SyncStoreChange.Head(plan with { Changes = [head with { AfterValue = SyncStoreChange.HeadValue("index", new string('e', 32), new string('f', 64), 412, new string('9', 64)) }] });
+        Check.Equal(new string('9', 64), withPreview?.Preview, "empreinte de l’aperçu relue");
+    }
+
+    // ---------------------------------------------------------------- empty reads, failed classes, rebuild (SYN-013, SYN-016)
+
+    [Test]
+    public static void An_empty_or_failed_read_never_empties_the_base()
+    {
+        var failed = SyncReconcile.EmptyReadCut(120, 400, ["comptes"], null, false, true, false);
+        Check.Equal("erreur", failed?.Reason, "échec d’une classe : passe incomplète");
+        Check.Contains("jamais un annuaire vide", failed?.Text, "règle nommée");
+        Check.Equal("erreur", SyncReconcile.EmptyReadCut(0, 0, ["postes"], 0, true, true, true)?.Reason, "même une reconstruction ne passe pas une classe en échec");
+        var emptyOu = SyncReconcile.EmptyReadCut(0, 37, [], null, false, true, false);
+        Check.Equal("vide", emptyOu?.Reason, "lecture complète vide d’une OU remplie");
+        Check.Contains("37 objets", emptyOu?.Text, "objets de la base nommés");
+        Check.Equal("vide", SyncReconcile.EmptyReadCut(1200, 1500, [], 0, true, true, false)?.Reason, "recensement vide refusé");
+        Check.Contains("reconstruction complète explicite", SyncReconcile.EmptyReadCut(0, 1500, [], 0, true, true, false)?.Text, "domaine vide après repère");
+        Check.Null(SyncReconcile.EmptyReadCut(0, 1500, [], 0, true, true, true), "reconstruction explicite : un domaine vide est confirmé");
+        Check.Null(SyncReconcile.EmptyReadCut(0, 0, [], null, false, false, false), "OU vide dans une base vide : rien à protéger");
+        Check.Null(SyncReconcile.EmptyReadCut(25, 30, [], 1700, true, true, false), "lecture normale");
+
+        var current = new Dictionary<Guid, IndexRecord> { [Fixtures.IdOf("PC1")] = Row("PC1"), [Fixtures.IdOf("PC2")] = Row("PC2") };
+        Check.Equal(0, SyncReconcile.Reconcile(current, [], Lyon, assertAbsence: true).Counts.Unseen, "lecture vide : aucune absence, jamais un périmètre vidé");
+        Check.Equal(2, SyncReconcile.Reconcile(current, [], Lyon, assertAbsence: true, rebuild: true).Counts.Unseen, "reconstruction explicite : les absents sortent de la copie");
+
+        Check.Contains("Recensement vide", SyncReconcile.StorageRefusal(true, true, false, 0, 1500), "enregistrement refusé");
+        Check.Null(SyncReconcile.StorageRefusal(true, true, true, 0, 1500), "reconstruction explicite admise");
+        Check.Null(SyncReconcile.StorageRefusal(true, false, false, 0, 1500), "lot incomplet : rien de déduit, admis");
+        Check.Null(SyncReconcile.StorageRefusal(false, true, false, 0, 1500), "lecture d’OU : pas de recensement");
+        Check.Null(SyncReconcile.StorageRefusal(true, true, false, 0, 0), "base vide : rien à protéger");
+    }
+
+    [Test]
+    public static void The_preview_fingerprint_changes_with_the_objects_not_only_the_counts()
+    {
+        var current = new Dictionary<Guid, IndexRecord> { [Fixtures.IdOf("PC1")] = Row("PC1"), [Fixtures.IdOf("PC2")] = Row("PC2") };
+        var a = SyncReconcile.Reconcile(current, [Row("PC1", description: "x"), Row("PC3")], Lyon, false);
+        var b = SyncReconcile.Reconcile(current, [Row("PC2", description: "x"), Row("PC4")], Lyon, false);
+        Check.Equal(a.Counts.Added, b.Counts.Added, "mêmes ajouts");
+        Check.Equal(a.Counts.Changed, b.Counts.Changed, "mêmes valeurs modifiées");
+        Check.False(SyncReconcile.PreviewFingerprint(a) == SyncReconcile.PreviewFingerprint(b), "autres objets : autre empreinte d’aperçu");
+        Check.Equal(SyncReconcile.PreviewFingerprint(a), SyncReconcile.PreviewFingerprint(SyncReconcile.Reconcile(current, [Row("PC3"), Row("PC1", description: "x")], Lyon, false)), "l’ordre de lecture ne compte pas");
+        Check.Contains("rien n’est supprimé dans l’annuaire", SyncReconcile.Reconcile(current, [Row("PC1")], Lyon, true).Samples.Single(x => x.Category == "unseen").Detail, "non revu : absence non prouvée");
+    }
+
+    // ---------------------------------------------------------------- storage readiness (SYN-017)
+
+    [Test]
+    public static void New_passes_wait_for_a_healthy_storage()
+    {
+        var unknown = SyncCoverageRules.Storage(false, 0, null, null, 0, Now, Zone);
+        Check.Equal("unknown", unknown.SpaceState, "sans mesure : inconnu");
+        Check.Null(unknown.Refusal, "sans mesure, rien n’est bloqué");
+        Check.Contains("Maintenance", SyncCoverageRules.Storage(true, 0, null, null, 0, Now, Zone).Refusal, "maintenance : nouvelles passes suspendues");
+        var suspended = SyncCoverageRules.Storage(false, 3, null, null, 0, Now, Zone);
+        Check.True(suspended.WriterSuspended, "trois échecs : rédacteur suspendu");
+        Check.Contains("suspendu", suspended.Refusal, "refus nommé");
+        Check.Null(SyncCoverageRules.Storage(false, 2, null, null, 0, Now, Zone).Refusal, "deux échecs : pas encore suspendu");
+        var low = SyncCoverageRules.Storage(false, 0, 400L * 1024 * 1024, Now - TimeSpan.FromMinutes(5), 0, Now, Zone);
+        Check.Equal("suspend", low.SpaceState, "moins de 512 Mo : collectes suspendues");
+        Check.Contains("400", low.Refusal, "espace nommé");
+        Check.Equal("critical", SyncCoverageRules.Storage(false, 0, 10L * 1024 * 1024, Now, 0, Now, Zone).SpaceState, "moins de 32 Mo : critique");
+        Check.Equal("low", SyncCoverageRules.Storage(false, 0, 1024L * 1024 * 1024, Now, 0, Now, Zone).SpaceState, "moins de 2 Go : à surveiller, sans refus");
+        Check.Equal("suspend", SyncCoverageRules.Storage(false, 0, 1024L * 1024 * 1024, Now, 200L * 1024 * 1024, Now, Zone).SpaceState, "la file d’attente relève les seuils (×4)");
+        Check.Contains("Mesure ancienne", SyncCoverageRules.Storage(false, 0, 8L * 1024 * 1024 * 1024, Now - TimeSpan.FromHours(2), 0, Now, Zone).SpaceText, "mesure de plus de 30 min");
+        Check.False(SyncCoverageRules.Readiness(false, false, low.Refusal).Ready, "la garde d’écriture refuse la passe");
+        Check.Equal("1,5" + FrenchText.Nbsp + "Go", SyncCoverageRules.Size(1536L * 1024 * 1024), "taille lisible");
+    }
+
+    // ---------------------------------------------------------------- LAPS (SYN-018)
+
+    [Test]
+    public static void The_laps_state_tells_an_absent_schema_from_a_value_not_visible()
+    {
+        var withDate = Row("PC1") with { Laps = LapsKind.Windows, LapsExpiration = Now + TimeSpan.FromDays(10) };
+        Check.Equal("windows", SyncIndex.Laps(withDate, SyncIndex.LapsSchemaPresent).State, "Windows LAPS daté");
+        Check.Equal("legacy", SyncIndex.Laps(withDate with { Laps = LapsKind.Legacy }, SyncIndex.LapsSchemaPresent).State, "LAPS hérité daté");
+        Check.Equal("noSchema", SyncIndex.Laps(Row("PC2"), SyncIndex.LapsSchemaAbsent).State, "attribut absent du domaine");
+        Check.Contains("non disponible dans ce domaine", SyncIndex.Laps(Row("PC2"), SyncIndex.LapsSchemaAbsent).Text, "texte : absent du schéma");
+        Check.Equal("none", SyncIndex.Laps(Row("PC2"), SyncIndex.LapsSchemaPresent).State, "schéma présent, valeur non visible");
+        Check.Contains("visible avec ce compte", SyncIndex.Laps(Row("PC2"), SyncIndex.LapsSchemaPresent).Text, "texte : non visible avec ce compte");
+        Check.Equal("unknown", SyncIndex.Laps(Row("PC2"), SyncIndex.LapsSchemaUnknown).State, "schéma jamais lu");
+        Check.Null(SyncIndex.Laps(Row("Anne", Fixtures.People, IndexObjectType.User), SyncIndex.LapsSchemaPresent).State, "un compte n’a pas de LAPS");
+        var hit = SyncIndex.Hit(Row("PC2"), 0, true, null, SyncIndex.LapsSchemaAbsent);
+        Check.Equal("noSchema", hit.LapsState, "transmis à la fiche locale");
+    }
+
+    // ---------------------------------------------------------------- park results and shared survey (SYN-029, SYN-030)
+
+    [Test]
+    public static void Park_results_wait_for_the_reload_and_build_on_the_stored_counters()
+    {
+        var stored = new Dictionary<string, ParkEntry> { ["PC1"] = new("PC1", Now - TimeSpan.FromDays(2), ParkStatus.Unreachable, null, 3, "x") };
+        var probe = new ParkProbe("pc1", Now, ParkStatus.Session, "anne", "y");
+        Check.Equal(4, SyncPark.Apply(stored, probe).Attempts, "tentatives : compteur enregistré + 1");
+        Check.Equal(1, SyncPark.Apply(new Dictionary<string, ParkEntry>(), probe).Attempts, "sans compteur enregistré : 1");
+        Check.Equal("anne", SyncPark.Apply(stored, probe).User, "utilisateur vu");
+        Check.Null(SyncPark.Apply(stored, probe with { Status = ParkStatus.Unreachable, User = "z" }).User, "sans session : aucun utilisateur");
+        var waiting = ImmutableArray<ParkProbe>.Empty;
+        for (var i = 0; i < 20; i++)
+        {
+            waiting = SyncPark.Defer(waiting, probe with { Computer = "PC" + i });
+        }
+        Check.Equal(SyncPark.DeferredLimit, waiting.Length, "16 résultats au plus en attente");
+        Check.Equal("PC4", waiting[0].Computer, "les plus anciens partent d’abord");
+        var reload = SyncPark.Reload(stored, new Dictionary<string, ParkEntry>(), [probe]);
+        Check.Equal(1, reload.Applied, "appliqué après la relecture");
+        Check.Equal(4, reload.State["PC1"].Attempts, "à partir des compteurs enregistrés");
+        Check.Contains("appliqué ensuite", reload.Text, "dit à l’opérateur");
+        var session = new Dictionary<string, ParkEntry> { ["PC1"] = new("PC1", Now - TimeSpan.FromHours(1), ParkStatus.Empty, null, 5, "y") };
+        Check.Equal(ParkStatus.Empty, SyncPark.Reload(stored, session, []).State["PC1"].Status, "ce que la session a vu depuis gagne s’il est plus récent");
+        Check.Null(SyncPark.Reload(stored, session, []).Text, "rien en attente : aucun texte");
+    }
+
+    [Test]
+    public static void Shared_survey_outcomes_keep_the_work_local()
+    {
+        var busy = SyncPark.SharedText(SharedSyncOutcome.LockBusy, @"\\srv\p\r.json", 12, Now + TimeSpan.FromSeconds(30), Zone);
+        Check.Contains("non obtenu après 12 essais", busy, "verrou non obtenu");
+        Check.Contains("travaille en local", busy, "travail en local");
+        Check.Contains("nouvel essai à", busy, "nouvel essai annoncé");
+        var unreachable = SyncPark.SharedText(SharedSyncOutcome.Unreachable, @"\\srv\p\r.json", 0, null, Zone);
+        Check.Contains("Partage inaccessible", unreachable, "partage inaccessible");
+        Check.Contains("journal Parc", unreachable, "noté dans le journal Parc");
+        Check.Contains("1ᵉʳ essai", SyncPark.SharedText(SharedSyncOutcome.Merged, "x", 1, null, Zone), "verrou au premier essai");
+        Check.Contains("2ᵉ essai", SyncPark.SharedText(SharedSyncOutcome.Merged, "x", 2, null, Zone), "verrou au deuxième essai");
+    }
+
+    // ---------------------------------------------------------------- settings and absences of the scope (SYN-016, SYN-024)
+
+    [Test]
+    public static void Settings_are_read_from_the_index_section()
+    {
+        static SyncSettings Parse(string json) => SyncSettings.Parse(System.Text.Encoding.UTF8.GetBytes(json));
+        Check.Equal(SyncSettings.Default.BudgetMs, Parse("{}").BudgetMs, "sans section : défauts");
+        Check.Equal("Réglages par défaut", Parse("{}").Source, "source par défaut");
+        var read = Parse("{ \"index\": { \"MaxObjects\": 5000, \"BudgetMs\": \"600000\", \"FullRebuildDays\": 14, \"StartupDeltaMaxAgeMinutes\": 90 } }");
+        Check.Equal(5000L, read.MaxObjects, "Index.MaxObjects (nom insensible à la casse)");
+        Check.Equal(600_000, read.BudgetMs, "Index.BudgetMs en texte, comme le cast [int] de Domenia 1");
+        Check.Equal(14, read.FullRebuildDays, "Index.FullRebuildDays");
+        Check.Equal(90, read.StartupDeltaMaxAgeMinutes, "Index.StartupDeltaMaxAgeMinutes");
+        Check.Contains("Index.MaxObjects", read.Source, "clés lues nommées");
+        Check.Equal(SyncSettings.Default.FullRebuildDays, Parse("{ \"Index\": { \"FullRebuildDays\": 400 } }").FullRebuildDays, "hors bornes : défaut");
+        Check.Equal(SyncSettings.Default.MaxObjects, Parse("{ \"Index\": { \"MaxObjects\": -1 } }").MaxObjects, "quota négatif : défaut");
+        Check.Equal(ConfigurationFileState.Invalid, Parse("{ \"Index\": {}, \"INDEX\": {} }").State, "section en double : fichier ignoré");
+        Check.Equal(ConfigurationFileState.Invalid, Parse("{ pas du json").State, "JSON illisible");
+        Check.Contains("ignoré", Parse("[1]").Source, "fichier ignoré dit");
+    }
+
+    [Test]
+    public static void Absences_say_whether_they_were_last_seen_in_the_scope()
+    {
+        var records = new List<AbsenceRecord>
+        {
+            new(Fixtures.IdOf("PC1"), "PC1", IndexObjectType.Computer, "CN=PC1," + Lyon, null, AbsenceStatus.NotSeen, Now, null, "", Postes, null),
+            new(Fixtures.IdOf("Anne"), "Anne", IndexObjectType.User, "CN=Anne," + Fixtures.People, null, AbsenceStatus.NotSeen, Now, null, "", Root, null),
+            new(Fixtures.IdOf("PC9"), "PC9", IndexObjectType.Computer, "CN=PC9," + Fixtures.People, "CN=PC9," + Paris, AbsenceStatus.Moved, Now, Now, "", Root, null),
+        };
+        var list = SyncAbsences.List(records, Zone, true, SyncAbsences.ShownLimit, Postes);
+        Check.Equal(3, list.Total, "toutes les disparitions du domaine");
+        Check.Equal(2, list.InScope, "vues pour la dernière fois dans le périmètre (ou retrouvées dedans)");
+        Check.False(list.Rows.Single(r => r.Name == "Anne").InScope, "hors périmètre");
+        Check.Equal(3, SyncAbsences.List(records, Zone, true).InScope, "domaine entier : toutes");
+    }
+
+    [Test]
+    public static void Comparisons_show_places_and_explain_overlaps()
+    {
+        var a = SnapshotLine.From(Row("PC-A"));
+        var before = Snapshot(new string('a', 32), "Avant", Now - TimeSpan.FromDays(7), [a, SnapshotLine.From(Row("PC-Z"))]);
+        var after = Snapshot(new string('b', 32), "Après", Now, [a with { Dn = "CN=PC-A," + Paris, Description = "y" }, SnapshotLine.From(Row("PC-N"))]);
+        var report = SyncSnapshots.Compare(before, after, Zone);
+        var move = report.Rows.Single(r => r.Nature == SnapshotDiffNature.Moved);
+        Check.Equal("Postes › Lyon", move.Before, "avant : emplacement lisible");
+        Check.Equal("Postes › Paris", move.After, "après : emplacement lisible");
+        Check.Equal("CN=PC-A," + Paris, move.AfterDn, "DN gardé pour l’export");
+        Check.Equal("Postes › Lyon", report.Rows.Single(r => r.Nature == SnapshotDiffNature.Added).After, "ajout : emplacement");
+        Check.Equal(3, report.Counts.Distinct, "objets distincts : communs, ajouts, disparitions");
+        Check.Contains("3 objets distincts", report.Headline, "titre de la comparaison");
+        Check.Contains("se recouvrent", report.Overlap, "un objet déplacé et modifié est expliqué");
     }
 }

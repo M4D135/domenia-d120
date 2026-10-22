@@ -1,11 +1,12 @@
 // « Données » workspace: search of the local index (Domenia 1 TxtIndexSearch, DgIndex, points 1 to 5). The term waits 250 ms
-// after the last key (no read on the key itself), a newer search replaces the older one, the engine sorts the whole filtered
-// population before cutting the page (the sort menu, not the headers: only fixed expressions exist), a locked base is said and
+// after the last key (no read on the key itself), a newer search replaces the older one, a click on a header (or the « Trier
+// par » list) sorts the whole filtered population in the engine before the page is cut (only fixed expressions exist: the
+// grid only reports the gesture, remoteSort), « Pertinence » goes back to the order of the match, a locked base is said and
 // tried again once. Double click or « Ouvrir la fiche » opens the object (a fresh read of the directory belongs to the Fiche).
-import { createGrid, createSplit, kvSection, bindKv, openMenu, writeClipboard } from '../../kit/index.js';
+import { createGrid, createSplit, kvSection, bindKv, writeClipboard } from '../../kit/index.js';
 import { announce } from '../../ui.js';
 import {
-  esc, icon, glyph, pill, int, count, NBSP, button, errorText, emptyBlock, paint, ago,
+  esc, icon, glyph, pill, int, count, NBSP, button, errorText, emptyBlock, paint, ago, due, stamp,
 } from './common.js';
 
 const SORTS = [
@@ -16,27 +17,32 @@ const SIZES = [50, 100, 200, 500];
 const DEBOUNCE_MS = 250;
 const RETRY_MS = 600;
 
+// The columns that map to a fixed sort expression of the engine are sortable by their header; the others are not (the page
+// of 200 rows never sorts locally: the population is sorted before the page is cut). Filters stay off: the term searches.
+// Six columns by default (no horizontal scroll next to the local record); the others are one click away (« Colonnes »).
 const COLUMNS = [
-  { id: 'typeLabel', label: 'Type', width: 110, sortable: false, filterable: false, html: (v, r) => `<span class="sy-type">${glyph(r.type === 'computer' ? 'monitor' : 'user')}${esc(v)}</span>` },
-  { id: 'name', label: 'Nom', required: true, width: 220, sortable: false, filterable: false },
-  { id: 'login', label: 'Identifiant', width: 150, mono: true, sortable: false, filterable: false },
-  { id: 'upn', label: 'UPN ou DNS', width: 230, sortable: false, filterable: false },
+  { id: 'typeLabel', label: 'Type', sort: 'type', width: 96, filterable: false, html: (v, r) => `<span class="sy-type">${glyph(r.type === 'computer' ? 'monitor' : 'user')}${esc(v)}</span>` },
+  { id: 'name', label: 'Nom', sort: 'name', required: true, width: 176, filterable: false },
+  { id: 'login', label: 'Identifiant', sort: 'login', width: 150, mono: true, filterable: false },
+  { id: 'upn', label: 'UPN ou DNS', sort: 'upn', width: 230, hidden: true, filterable: false },
   {
-    id: 'stateLabel', label: 'État', width: 110, type: 'enum', sortable: false, filterable: false,
+    id: 'stateLabel', label: 'État', sort: 'state', width: 104, type: 'enum', filterable: false,
     options: [{ value: 'Actif', label: 'Actif', tone: 'ok' }, { value: 'Désactivé', label: 'Désactivé', tone: 'off' }],
   },
-  { id: 'association', label: 'Association', width: 200, sortable: false, filterable: false },
-  { id: 'score', label: 'Score', type: 'number', width: 80, align: 'end', sortable: false, filterable: false, tip: '100\u00A0: exacte · 90\u00A0: début du nom · 70\u00A0: contenu dans la fiche' },
-  { id: 'reason', label: 'Correspondance', width: 170, sortable: false, filterable: false },
-  { id: 'description', label: 'Détail', width: 260, sortable: false, filterable: false },
-  { id: 'location', label: 'Emplacement', width: 220, sortable: false, filterable: false },
-  { id: 'lastLogon', label: 'Connexion AD', type: 'date', width: 150, sortable: false, filterable: false },
-  { id: 'whenChanged', label: 'Modifié dans AD', type: 'date', width: 150, sortable: false, filterable: false },
+  { id: 'association', label: 'Association', width: 200, hidden: true, sortable: false, filterable: false },
+  { id: 'score', label: 'Score', sort: 'score', type: 'number', width: 80, align: 'end', hidden: true, filterable: false, tip: '100\u00A0: exacte · 90\u00A0: début du nom · 70\u00A0: contenu dans la fiche' },
+  { id: 'reason', label: 'Correspondance', sort: 'reason', width: 160, hidden: true, filterable: false },
+  { id: 'description', label: 'Détail', sort: 'description', width: 240, hidden: true, filterable: false },
+  { id: 'location', label: 'Emplacement', width: 166, sortable: false, filterable: false },
+  { id: 'lastLogon', label: 'Connexion AD', sort: 'lastLogon', type: 'date', width: 136, hidden: true, filterable: false },
+  { id: 'whenChanged', label: 'Modifié dans AD', sort: 'whenChanged', type: 'date', width: 144, filterable: false },
   { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 380, sortable: false, filterable: false },
   { id: 'guid', label: 'GUID', mono: true, hidden: true, width: 300, sortable: false, filterable: false },
 ];
+const COLUMN_OF_SORT = new Map(COLUMNS.filter((c) => c.sort).map((c) => [c.sort, c.id]));
+const SORT_OF_COLUMN = new Map(COLUMNS.filter((c) => c.sort).map((c) => [c.id, c.sort]));
 
-function detailMarkup(row) {
+function detailMarkup(row, now) {
   if (!row) {
     return emptyBlock('object', 'Aucun objet choisi', 'Choisissez une ligne pour voir sa fiche locale\u00A0: identité, emplacement, dates lues dans l’annuaire.');
   }
@@ -51,11 +57,16 @@ function detailMarkup(row) {
     { label: 'Détail', value: row.description, wide: true },
     { label: row.type === 'computer' ? 'Système et lieu' : 'Service et fonction', value: row.extra, wide: true },
   ] });
+  // LAPS: a date (Windows LAPS or legacy), or why there is none (attribute absent from the schema of the domain, or not
+  // visible with this account), never the password.
+  const laps = row.type !== 'computer' ? [] : [row.lapsExpiration
+    ? { label: 'Expiration LAPS', html: due(row.lapsExpiration, now), sub: `${row.lapsText ?? 'LAPS'} · ${stamp(row.lapsExpiration)} · date seulement, jamais le mot de passe` }
+    : { label: 'Expiration LAPS', value: row.lapsText ?? null, tone: row.lapsState === 'noSchema' ? 'off' : 'warn', wide: true }];
   const ad = kvSection({ id: 'annuaire', title: 'Lu dans l’annuaire', icon: 'clock', items: [
-    { label: 'Connexion AD', html: row.lastLogon ? ago(row.lastLogon) : undefined, value: row.lastLogon ? undefined : null },
-    { label: 'Modifié dans AD', html: row.whenChanged ? ago(row.whenChanged) : undefined, value: row.whenChanged ? undefined : null },
-    ...(row.type === 'computer' ? [{ label: 'Expiration LAPS', html: row.lapsExpiration ? ago(row.lapsExpiration) : undefined, value: row.lapsExpiration ? undefined : null, sub: 'Date seulement, jamais le mot de passe' }] : []),
-    { label: 'Enregistré dans la base', html: ago(row.observedAt) },
+    { label: 'Connexion AD', html: row.lastLogon ? ago(row.lastLogon, now) : undefined, value: row.lastLogon ? undefined : null },
+    { label: 'Modifié dans AD', html: row.whenChanged ? ago(row.whenChanged, now) : undefined, value: row.whenChanged ? undefined : null },
+    ...laps,
+    { label: 'Enregistré dans la base', html: ago(row.observedAt, now) },
   ] });
   const where = kvSection({ id: 'emplacement', title: 'Emplacement et identité', icon: 'ou', items: [
     { label: 'Chemin (DN)', value: row.dn, mono: true, copy: true, wide: true },
@@ -75,10 +86,11 @@ export function renderData(panel, screen) {
   panel.innerHTML = `<div class="sy-data">
       <div class="sy-data-bar" role="search">
         <label class="sy-search">${icon('search')}<span class="visually-hidden">Rechercher dans la base locale</span>
-          <input class="input" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nom, identifiant, UPN, description… (vide\u00A0: tout le périmètre)" value="${esc(st.term)}"></label>
+          <input class="input" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nom, identifiant, UPN, description… (vide${NBSP}: tout le périmètre)" value="${esc(st.term)}"></label>
         <div class="sy-data-tools">
           <label class="sy-field-inline"><span>Trier par</span><span class="k-select sm"><select class="input" data-d="sort" aria-label="Trier toute la population par">${SORTS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></span></label>
-          <button class="btn sm ghost sy-order" type="button" data-d="order" aria-pressed="false" data-tip="Ordre du tri">${glyph('sort')}<span>Croissant</span></button>
+          <button class="btn sm ghost sy-order" type="button" data-d="order" aria-pressed="false">${glyph('sort')}<span>Croissant</span></button>
+          <button class="btn sm ghost sy-relevance" type="button" data-d="relevance" hidden data-tip="Revenir à l’ordre de correspondance (tri par pertinence)">${glyph('sparkles')}<span>Pertinence</span></button>
           <label class="sy-field-inline"><span>Par page</span><span class="k-select sm"><select class="input" data-d="limit" aria-label="Lignes par page">${SIZES.map((n) => `<option value="${n}"${n === 200 ? ' selected' : ''}>${n}</option>`).join('')}</select></span></label>
           ${button('Exporter CSV', { icon: 'csv', sm: true, data: { d: 'export' }, tip: 'Écrit toutes les lignes de la recherche (20 000 au plus) dans le dossier Exports' })}
         </div>
@@ -97,23 +109,29 @@ export function renderData(panel, screen) {
   gridHost.className = 'sy-grid-host';
   const detail = document.createElement('div');
   detail.className = 'sy-detail';
-  detail.innerHTML = detailMarkup(null);
-  const split = createSplit(panel.querySelector('.sy-data-split'), { a: gridHost, b: detail, key: 'synchro.data', size: 380, min: 300, max: 640, label: 'Largeur de la fiche locale' });
+  detail.innerHTML = detailMarkup(null, screen.now());
+  const split = createSplit(panel.querySelector('.sy-data-split'), { a: gridHost, b: detail, key: 'synchro.data', size: 340, min: 300, max: 600, label: 'Largeur de la fiche locale' });
   let kv = bindKv(detail, { key: 'synchro.data.kv' });
 
   const grid = createGrid(gridHost, {
-    key: 'synchro.index',
+    key: 'synchro.index.v3',
     label: 'Objets de la base locale',
     rowId: (r) => r.guid,
     selection: 'single',
     quickFilter: false,
     loading: true,
-    height: '600px',
+    height: 'fill',
+    remoteSort: true,
     columns: COLUMNS,
     empty: { icon: 'search', title: 'Aucun objet', text: 'Aucun objet de la base locale ne correspond.' },
     onActivate: (row) => open(row),
     onActiveChange: (row) => showDetail(row),
     onSelectionChange: (rows) => showDetail(rows[0] ?? null),
+    // A header gesture sorts the whole population in the engine (one fixed expression); no sort goes back to the relevance.
+    onSortChange: (sort) => {
+      const first = sort[0];
+      setSort(first ? SORT_OF_COLUMN.get(first.id) ?? 'relevance' : 'relevance', first ? first.dir < 0 : false, { fromGrid: true });
+    },
     contextMenu: ({ row }) => [
       { label: 'Ouvrir la fiche', icon: 'object', kbd: 'Entrée', disabled: !row, reason: 'Aucune ligne.', run: () => open(row) },
       { label: 'Copier le DN', icon: 'copy', disabled: !row, reason: 'Aucune ligne.', run: () => copyDn(row) },
@@ -121,11 +139,31 @@ export function renderData(panel, screen) {
     ],
   });
 
+  /** One sort for the list, the order button, the « Pertinence » button and the header of the grid. */
+  function setSort(sort, descending, { fromGrid = false, search: doSearch = true } = {}) {
+    st.sort = SORTS.some(([v]) => v === sort) ? sort : 'relevance';
+    st.descending = st.sort === 'relevance' ? false : Boolean(descending);
+    panel.querySelector('[data-d="sort"]').value = st.sort;
+    const order = panel.querySelector('[data-d="order"]');
+    const relevance = st.sort === 'relevance';
+    order.disabled = relevance;
+    order.setAttribute('aria-disabled', String(relevance));
+    order.setAttribute('aria-pressed', String(st.descending));
+    order.dataset.tip = relevance ? `Tri par pertinence${NBSP}: les meilleures correspondances d’abord, sans ordre croissant ni décroissant.` : 'Ordre du tri, sur toute la population';
+    order.querySelector('span').textContent = st.descending ? 'Décroissant' : 'Croissant';
+    panel.querySelector('[data-d="relevance"]').hidden = relevance;
+    if (!fromGrid) {
+      const column = COLUMN_OF_SORT.get(st.sort);
+      grid.setSort(column && !relevance ? [{ id: column, dir: st.descending ? -1 : 1 }] : []);
+    }
+    if (doSearch) search({ reset: true });
+  }
+
   function showDetail(row) {
     if (row && st.selected && row.guid === st.selected.guid) return;
     st.selected = row ?? null;
     kv.destroy();
-    detail.innerHTML = detailMarkup(st.selected);
+    detail.innerHTML = detailMarkup(st.selected, screen.now());
     kv = bindKv(detail, { key: 'synchro.data.kv' });
     paint(detail);
   }
@@ -171,8 +209,8 @@ export function renderData(panel, screen) {
           return;
         }
         st.attempt = 0;
-        grid.setError('Base locale occupée\u00A0: recherche non effectuée. Réessayez dans un instant.', { retry: () => search() });
-        status.textContent = 'Base locale occupée\u00A0: recherche non effectuée.';
+        grid.setError(`Base locale occupée${NBSP}: recherche non effectuée. Réessayez dans un instant.`, { retry: () => search() });
+        status.textContent = `Base locale occupée${NBSP}: recherche non effectuée.`;
         pager(null);
         return;
       }
@@ -221,17 +259,14 @@ export function renderData(panel, screen) {
     const act = t.dataset.d ?? t.dataset.dt;
     if (act === 'prev' && st.page) { st.offset = Math.max(0, st.page.offset - st.limit); search(); }
     else if (act === 'next' && st.page?.hasMore) { st.offset = st.page.offset + st.limit; search(); }
-    else if (act === 'order') {
-      st.descending = !st.descending;
-      t.setAttribute('aria-pressed', String(st.descending));
-      t.querySelector('span').textContent = st.descending ? 'Décroissant' : 'Croissant';
-      search({ reset: true });
-    } else if (act === 'export') exportCsv(t);
+    else if (act === 'order') setSort(st.sort, !st.descending);
+    else if (act === 'relevance') setSort('relevance', false);
+    else if (act === 'export') exportCsv(t);
     else if (act === 'open') open(st.selected);
     else if (act === 'copy-dn') copyDn(st.selected);
   };
   panel.addEventListener('click', onClick);
-  panel.querySelector('[data-d="sort"]').addEventListener('change', (e) => { st.sort = e.target.value; search({ reset: true }); });
+  panel.querySelector('[data-d="sort"]').addEventListener('change', (e) => setSort(e.target.value, st.descending));
   panel.querySelector('[data-d="limit"]').addEventListener('change', (e) => { st.limit = Number(e.target.value) || 200; search({ reset: true }); });
 
   async function exportCsv(btn) {
@@ -251,7 +286,9 @@ export function renderData(panel, screen) {
 
   const offScope = screen.on('scope', () => search({ reset: true }));
   const offStored = screen.on('stored', () => search());
-  search({ reset: true });
+  // The sort remembered by the grid (its layout) is the sort of the first search.
+  const remembered = grid.getSort()[0];
+  setSort(remembered ? SORT_OF_COLUMN.get(remembered.id) ?? 'relevance' : 'relevance', remembered ? remembered.dir < 0 : false, { fromGrid: true });
 
   return () => {
     clearTimeout(timer);
@@ -263,5 +300,3 @@ export function renderData(panel, screen) {
     split.destroy();
   };
 }
-
-void openMenu;

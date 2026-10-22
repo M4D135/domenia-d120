@@ -57,9 +57,10 @@ public sealed class SimulatedSyncReader : ISyncReader
 
     // ---------------------------------------------------------------- local reads
 
-    public async Task<SyncOverview> OverviewAsync(SyncScope scope, CancellationToken cancellationToken)
+    public async Task<SyncOverview> OverviewAsync(SyncScope scope, SyncSettings settings, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(settings);
         await source.SimulateScreenLatencyAsync("synchro/overview", 80, 160, cancellationToken).ConfigureAwait(false);
         var now = source.Clock.GetUtcNow();
         var state = State;
@@ -68,21 +69,27 @@ public sealed class SimulatedSyncReader : ISyncReader
             state.EnsureSeeded();
             state.Purge(now);
             var zone = state.Zone;
+            var days = settings.FullRebuildDays;
             var coverage = SyncCoverageRules.Coverage(scope.IsDomain ? null : scope.Dn, state.DomainDn, state.SyncStates, now, zone);
-            var census = SyncCoverageRules.Census(coverage, state.OpenGaps().Count, SyncCoverageRules.DefaultFullRebuildDays, now, scope.IsDomain);
+            var gaps = state.OpenGaps();
+            var census = SyncCoverageRules.Census(coverage, gaps.Count, days, now, scope.IsDomain);
             var rows = state.Rows.Values;
             var users = rows.Count(r => r.Type == IndexObjectType.User);
+            var usersEnabled = rows.Count(r => r.Type == IndexObjectType.User && r.Enabled);
             var computers = rows.Count(r => r.Type == IndexObjectType.Computer);
             var active = rows.Count(r => r.Type == IndexObjectType.Computer && r.Enabled);
+            var withUser = rows.Count(r => r.Type == IndexObjectType.Computer && state.LinksByComputer.TryGetValue(SyncPark.Key(r.Name), out var linked) && linked.Count > 0);
             var partial = state.Partial is { } marker ? SyncCoverageRules.PartialText(marker.At, marker.Count, marker.Reason, marker.Limit, zone) : null;
-            var tiles = SyncCoverageRules.Tiles(users, computers, active, computers - active, state.LinkCount, coverage.At, now, zone);
+            var tiles = SyncCoverageRules.Tiles(new SyncCoverageRules.TileCounts(usersEnabled, users - usersEnabled, active, computers - active, state.LinkCount, withUser), coverage.At, now, zone, days);
             var freshness = SyncCoverageRules.Freshness(rows.Count, coverage, scope.IsDomain ? partial : null, census, now, zone);
-            var scopes = SyncCoverageRules.ScopeStates(state.SyncStates, state.DomainDn, state.DomainName, now, zone);
-            var notices = SyncCoverageRules.Notices(rows.Count, state.Checkpoint, partial, now);
-            var limits = SyncCoverageRules.Limits(null, null);
-            var syncLimits = new SyncLimits(limits.MaxObjects, limits.BudgetMs, SyncText.Duration(limits.BudgetMs), limits.TimeoutSeconds, SyncCoverageRules.DefaultFullRebuildDays,
-                SyncCoverageRules.DefaultStartupDeltaMaxAgeMinutes, SyncIndex.DefaultPageSize, SyncIndex.MaxPageSize, SyncAbsences.CheckLimit, SyncSnapshots.MaxPerDomain, SyncSnapshots.MaxObjects);
-            var readiness = SyncCoverageRules.Readiness(state.Run is not null, state.Committing, null);
+            var scopes = SyncCoverageRules.ScopeStates(state.SyncStates, state.DomainDn, state.DomainName, now, zone, days);
+            var notices = SyncCoverageRules.Notices(rows.Count, state.Checkpoint, partial, now, settings.StartupDeltaMaxAgeMinutes);
+            var limits = SyncCoverageRules.Limits(settings.MaxObjects, settings.BudgetMs);
+            var syncLimits = new SyncLimits(limits.MaxObjects, limits.BudgetMs, SyncText.Duration(limits.BudgetMs), limits.TimeoutSeconds, days,
+                settings.StartupDeltaMaxAgeMinutes, SyncIndex.DefaultPageSize, SyncIndex.MaxPageSize, SyncAbsences.CheckLimit, SyncSnapshots.MaxPerDomain, SyncSnapshots.MaxObjects, settings.Source);
+            // The simulation has no disk: the free space is never measured, so it never blocks (Domenia 1 « non mesuré »).
+            var storage = SyncCoverageRules.Storage(state.Maintenance, state.WriterFailures, null, null, 0, now, zone);
+            var readiness = SyncCoverageRules.Readiness(state.Run is not null, state.Committing, storage.Refusal);
             var running = state.Run is { } run
                 ? new SyncRunInfo(run.RunId, run.Target == SyncTarget.Domain ? "domain" : "ou", run.ScopeLabel, Phase(run.Phase), PhaseLabel(run.Phase), run.StartedAt, run.Stop.IsCancellationRequested)
                 : null;
@@ -92,14 +99,31 @@ public sealed class SimulatedSyncReader : ISyncReader
             var park = SyncPark.Coverage(state.Park.Values, active, state.Dormants, now);
             var c = SyncText.C;
             var details = "Contrôleur de la dernière lecture" + c + (state.Checkpoint?.Controller ?? "inconnu") + ". Objets enregistrés" + c + FrenchText.Integer(rows.Count)
-                + ". Associations utilisateur-poste" + c + FrenchText.Integer(state.LinkCount) + ". Génération de la base" + c + FrenchText.Integer(state.Generation) + ".";
+                + ". Associations utilisateur-poste" + c + FrenchText.Integer(state.LinkCount) + ". Génération de la base" + c + FrenchText.Integer(state.Generation) + ". " + storage.SpaceText;
+            // The age of the changes of the domain is a notice of its own: the lead keeps the base and the scope.
             var lead = "Copie locale de " + FrenchText.Count(users, "compte", "comptes") + " et " + FrenchText.Count(computers, "poste", "postes") + ", consultable sans réseau. "
                 + (coverage.At is { } at
                     ? "Périmètre " + FrenchText.Quote(scope.Label) + " couvert par une lecture complète " + SyncText.Elapsed(at, now) + "."
-                    : "Périmètre " + FrenchText.Quote(scope.Label) + " jamais lu en entier.")
-                + (state.Checkpoint is { } checkpoint ? " Changements du domaine lus " + SyncText.Elapsed(checkpoint.At, now) + "." : "");
-            return new SyncOverview(scope, "Base locale de la simulation (en mémoire)", true, state.Generation, rows.Count, tiles, coverage, freshness, census, state.Checkpoint,
-                scopes, notices, partial, syncLimits, readiness, running, pending, [.. state.StorageReceipts.Take(6)], backup, park, details, lead);
+                    : "Périmètre " + FrenchText.Quote(scope.Label) + " jamais lu en entier.");
+            var counts = new SyncWorkspaceCounts(rows.Count, scopes.Length, state.Absences.Count, SyncAbsences.SelectToCheck(state.Absences).Length, gaps.Count, state.Snapshots.Count, state.Park.Count);
+            return new SyncOverview(scope, "Simulation · base en mémoire", true, state.Generation, rows.Count, tiles, coverage, freshness, census, state.Checkpoint,
+                scopes, notices, partial, syncLimits, readiness, running, pending, [.. state.StorageReceipts.Take(6)], backup, park, details, lead,
+                now, counts, storage, state.LapsSchema);
+        }
+    }
+
+    public Task<ImmutableArray<SyncNotice>> StartupNoticesAsync(SyncSettings settings, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        cancellationToken.ThrowIfCancellationRequested();
+        var now = source.Clock.GetUtcNow();
+        var state = State;
+        // Called off the UI thread (the module starts it in the background): seeding derives the base from the generated world.
+        lock (state.Gate)
+        {
+            state.EnsureSeeded();
+            var partial = state.Partial is { } marker ? SyncCoverageRules.PartialText(marker.At, marker.Count, marker.Reason, marker.Limit, state.Zone) : null;
+            return Task.FromResult(SyncCoverageRules.Notices(state.Rows.Count, state.Checkpoint, partial, now, settings.StartupDeltaMaxAgeMinutes));
         }
     }
 
@@ -118,7 +142,7 @@ public sealed class SimulatedSyncReader : ISyncReader
             state.EnsureSeeded();
             return state.Committing
                 ? SyncIndex.Busy(query, state.Generation)
-                : SyncIndex.Page(state.Rows.Values, query, state.Association, state.Generation);
+                : SyncIndex.Page(state.Rows.Values, query, state.Association, state.Generation, state.LapsSchema);
         }
     }
 
@@ -131,13 +155,14 @@ public sealed class SimulatedSyncReader : ISyncReader
         {
             state.EnsureSeeded();
             var browse = SyncIndex.Normalize(query.Term).Length == 0;
-            return [.. SyncIndex.Matches(state.Rows.Values, query).Take(Math.Max(1, max)).Select(m => SyncIndex.Hit(m.Record, m.Score, browse, state.Association(m.Record)))];
+            return [.. SyncIndex.Matches(state.Rows.Values, query).Take(Math.Max(1, max)).Select(m => SyncIndex.Hit(m.Record, m.Score, browse, state.Association(m.Record), state.LapsSchema))];
         }
     }
 
-    public async Task<SyncControls> ControlsAsync(SyncScope scope, CancellationToken cancellationToken)
+    public async Task<SyncControls> ControlsAsync(SyncScope scope, SyncSettings settings, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(settings);
         await source.SimulateScreenLatencyAsync("synchro/controls", 80, 180, cancellationToken).ConfigureAwait(false);
         var now = source.Clock.GetUtcNow();
         var state = State;
@@ -145,9 +170,10 @@ public sealed class SimulatedSyncReader : ISyncReader
         {
             state.EnsureSeeded();
             var coverage = SyncCoverageRules.Coverage(scope.IsDomain ? null : scope.Dn, state.DomainDn, state.SyncStates, now, state.Zone);
-            var census = SyncCoverageRules.Census(coverage, state.OpenGaps().Count, SyncCoverageRules.DefaultFullRebuildDays, now, scope.IsDomain);
-            return new SyncControls(scope, census, SyncAbsences.Gaps(state.OpenGaps(), state.Run is null), SyncAbsences.List(state.Absences, state.Zone, state.Run is null),
-                SyncSnapshots.List(state.Snapshots, state.Zone), state.Generation);
+            var census = SyncCoverageRules.Census(coverage, state.OpenGaps().Count, settings.FullRebuildDays, now, scope.IsDomain);
+            return new SyncControls(scope, census, SyncAbsences.Gaps(state.OpenGaps(), state.Run is null),
+                SyncAbsences.List(state.Absences, state.Zone, state.Run is null, SyncAbsences.ShownLimit, scope.IsDomain ? null : scope.Dn),
+                SyncSnapshots.List(state.Snapshots, state.Zone), state.Generation, now);
         }
     }
 
@@ -172,20 +198,64 @@ public sealed class SimulatedSyncReader : ISyncReader
 
     public async Task<ParkState> ParkAsync(CancellationToken cancellationToken)
     {
-        await source.SimulateScreenLatencyAsync("synchro/park", 60, 140, cancellationToken).ConfigureAwait(false);
-        var now = source.Clock.GetUtcNow();
         var state = State;
         lock (state.Gate)
         {
             state.EnsureSeeded();
+            // The stored survey is read again; the state in memory stays usable meanwhile (Domenia 1 Request-DomeniaParkStateReload).
+            state.ParkReloading = true;
+            // A probe of the session lands during the read: it waits, so its attempt counter builds on the stored one.
+            if (state.InFlightProbe is { } probe)
+            {
+                state.InFlightProbe = null;
+                RecordProbe(state, probe);
+            }
+        }
+        ParkReload reload;
+        try
+        {
+            await source.SimulateScreenLatencyAsync("synchro/park", 60, 140, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (state.Gate)
+            {
+                var waiting = state.DeferredProbes;
+                state.DeferredProbes = [];
+                state.ParkReloading = false;
+                reload = SyncPark.Reload(state.Park, new Dictionary<string, ParkEntry>(StringComparer.Ordinal), waiting);
+                if (reload.Applied > 0)
+                {
+                    state.SetPark(new Dictionary<string, ParkEntry>(reload.State, StringComparer.Ordinal));
+                }
+            }
+        }
+        var now = source.Clock.GetUtcNow();
+        lock (state.Gate)
+        {
             var active = state.Rows.Values.Count(r => r.Type == IndexObjectType.Computer && r.Enabled);
             var coverage = SyncPark.Coverage(state.Park.Values, active, state.Dormants, now);
             var rows = state.Park.Values.OrderByDescending(e => e.LastProbe).ThenBy(e => e.Computer, StringComparer.Ordinal).Select(SyncPark.Row).ToImmutableArray();
             var c = SyncText.C;
             var text = "Relevé partagé entre consoles" + c + state.SharedPath + (state.SharedLastSync is { } at ? ", dernière synchronisation le " + SyncText.LocalDateTime(at, state.Zone) : ", jamais synchronisé")
                 + ". Lecture et fusion sous verrou (fichier .lock, " + FrenchText.Integer(SyncPark.LockAttempts) + " essais), écriture après votre confirmation.";
-            return new ParkState(coverage, rows, new ParkShared(true, state.SharedPath, state.SharedLastSync, text, state.Run is null), state.Generation);
+            return new ParkState(coverage, rows, new ParkShared(true, state.SharedPath, state.SharedLastSync, text, state.Run is null), state.Generation, reload.Applied, reload.Text, now);
         }
+    }
+
+    /// <summary>A workstation result of the session: applied at once, or kept while the stored survey is read again (call under the gate).</summary>
+    private static void RecordProbe(SimulatedSyncState state, ParkProbe probe)
+    {
+        if (state.ParkReloading)
+        {
+            state.DeferredProbes = SyncPark.Defer(state.DeferredProbes, probe);
+            return;
+        }
+        var park = new Dictionary<string, ParkEntry>(state.Park, StringComparer.Ordinal)
+        {
+            [SyncPark.Key(probe.Computer)] = SyncPark.Apply(state.Park, probe),
+        };
+        state.SetPark(park);
     }
 
     // ---------------------------------------------------------------- estimate and directory reads
@@ -207,8 +277,10 @@ public sealed class SimulatedSyncReader : ISyncReader
             state.Purge(now);
             var zone = state.Zone;
             var c = SyncText.C;
-            var limits = SyncCoverageRules.Limits(request.MaxObjects, request.BudgetSeconds is { } seconds ? checked(seconds * 1000) : null);
-            var readiness = SyncCoverageRules.Readiness(state.Run is not null, state.Committing, null);
+            var limits = SyncCoverageRules.Limits(request.MaxObjects ?? request.Settings.MaxObjects, request.BudgetSeconds is { } seconds ? checked(seconds * 1000) : request.Settings.BudgetMs);
+            var storage = SyncCoverageRules.Storage(state.Maintenance, state.WriterFailures, null, null, 0, now, zone);
+            var readiness = SyncCoverageRules.Readiness(state.Run is not null, state.Committing, storage.Refusal);
+            var rebuild = request.Target == SyncTarget.Domain && request.Rebuild;
             SyncReadMode mode;
             string? reason = null;
             int expected;
@@ -225,6 +297,19 @@ public sealed class SimulatedSyncReader : ISyncReader
                 estimatedMs = 600 + 18 * expected;
                 title = "Mettre à jour l’OU " + FrenchText.Quote(request.Scope.Label);
                 confirm = "Lancer la lecture";
+            }
+            else if (rebuild)
+            {
+                // Domenia 1 ReplaceAll: asked explicitly, the only read that may confirm an empty domain after a checkpoint.
+                mode = SyncReadMode.Full;
+                reason = "Reconstruction complète demandée" + c + "toute la base est relue depuis le domaine.";
+                known = state.Rows.Count;
+                expected = truth.Count;
+                estimatedMs = 1500 + 22 * expected;
+                title = "Reconstruire la base depuis le domaine";
+                confirm = "Reconstruire la base";
+                warnings.Add("Reconstruction explicite" + c + "les objets absents de cette lecture complète sortiront de la copie locale (non revus, jamais supprimés de l’annuaire), même si le domaine paraît vide.");
+                warnings.Add("Domaine complet" + c + "opération longue et occasionnelle, selon le volume et le réseau.");
             }
             else
             {
@@ -271,8 +356,9 @@ public sealed class SimulatedSyncReader : ISyncReader
             var text = what + ", sur " + state.Controller + " (environ " + SyncText.Duration(estimatedMs) + "). Lecture seule de l’annuaire" + SyncText.Semi
                 + " la base locale n’est modifiée qu’après votre confirmation de l’enregistrement. " + backup.Text;
             var id = WritePlans.NewId();
-            var estimate = new SyncEstimate(id, request.Target, request.Scope, mode, ModeLabel(mode), reason, expected, known, estimatedMs, "environ " + SyncText.Duration(estimatedMs),
-                limits.MaxObjects, limits.BudgetMs, limits.TimeoutSeconds, backup, warnings.ToImmutable(), title, confirm, text, readiness.Ready, readiness.Reason, now + SimulatedSyncState.BatchLifetime);
+            var estimate = new SyncEstimate(id, request.Target, request.Scope, mode, ModeLabel(mode, rebuild), reason, expected, known, estimatedMs, "environ " + SyncText.Duration(estimatedMs),
+                limits.MaxObjects, limits.BudgetMs, limits.TimeoutSeconds, backup, warnings.ToImmutable(), title, confirm, text, readiness.Ready, readiness.Reason, now + SimulatedSyncState.BatchLifetime,
+                rebuild, request.Target == SyncTarget.Domain);
             if (readiness.Ready)
             {
                 state.Estimates[id] = new EstimateRecord(estimate, request, limits.MaxObjects, limits.BudgetMs);
@@ -301,7 +387,8 @@ public sealed class SimulatedSyncReader : ISyncReader
             {
                 throw new DomeniaOperationException(SyncErrors.Busy, SyncErrors.BusyMessage);
             }
-            var readiness = SyncCoverageRules.Readiness(false, state.Committing, null);
+            var storage = SyncCoverageRules.Storage(state.Maintenance, state.WriterFailures, null, null, 0, started, state.Zone);
+            var readiness = SyncCoverageRules.Readiness(false, state.Committing, storage.Refusal);
             if (!readiness.Ready)
             {
                 throw new DomeniaOperationException(SyncErrors.NotReady, readiness.Reason!);
@@ -343,10 +430,19 @@ public sealed class SimulatedSyncReader : ISyncReader
         Report(state, run, progress, SyncPhase.Backup, 0, null, 0, estimate.Backup.Due ? "Sauvegarde vérifiée de la base avant la lecture…" : estimate.Backup.Text);
         if (estimate.Backup.Due)
         {
-            await source.SimulateScreenLatencyAsync("synchro/read/backup", 300, 550, cancellationToken).ConfigureAwait(false);
-            lock (state.Gate)
+            // The verified backup is a maintenance of the base: no other collection starts meanwhile.
+            state.BeginMaintenance();
+            try
             {
-                state.LastBackupAt = source.Clock.GetUtcNow();
+                await source.SimulateScreenLatencyAsync("synchro/read/backup", 300, 550, cancellationToken).ConfigureAwait(false);
+                lock (state.Gate)
+                {
+                    state.LastBackupAt = source.Clock.GetUtcNow();
+                }
+            }
+            finally
+            {
+                state.EndMaintenance();
             }
         }
 
@@ -405,16 +501,44 @@ public sealed class SimulatedSyncReader : ISyncReader
         var rows = all.Take(target).ToImmutableArray();
         var complete = cut is null;
         var durationMs = overhead + msPerObject * rows.Length;
+        var rebuild = estimate.Rebuild;
+        var domainPass = estimate.Mode != SyncReadMode.Ou;
+        // One small read of the schema tells « attribute absent from this domain » from « not visible with this account »
+        // (Domenia 1): the fictitious domain has the Windows LAPS schema.
+        const string lapsSchema = SyncIndex.LapsSchemaPresent;
 
         // 3. Census of the identities (domain passes): every user and computer GUID, to find the gaps of the base.
         var census = ImmutableArray<CensusGapRecord>.Empty;
-        if (estimate.Mode != SyncReadMode.Ou && complete)
+        if (domainPass && complete)
         {
             Report(state, run, progress, SyncPhase.Census, truth.Count, truth.Count, durationMs,
                 "Vérification des identités" + c + FrenchText.Count(truth.Count, "GUID reçu", "GUID reçus") + SyncText.Semi + " aucune absence validée pendant la lecture.");
             await source.SimulateScreenLatencyAsync("synchro/read/census", 250, 450, cancellationToken).ConfigureAwait(false);
             census = [.. truth.Select(t => new CensusGapRecord(t.ObjectGuid, t.Dn, now))];
             durationMs += 2 * truth.Count;
+        }
+
+        // A failed class, an empty read of a scope the base holds or an empty census never empties the base (Domenia 1).
+        if (complete)
+        {
+            int knownInScope;
+            bool hasCheckpoint;
+            lock (state.Gate)
+            {
+                knownInScope = estimate.Mode switch
+                {
+                    SyncReadMode.Ou => state.Rows.Values.Count(r => SyncLocations.InScope(r.Dn, request.Scope.Dn)),
+                    SyncReadMode.Full => state.Rows.Count,
+                    _ => 0, // a differential answer without change is normal
+                };
+                hasCheckpoint = state.Checkpoint is not null;
+            }
+            if (SyncReconcile.EmptyReadCut(rows.Length, knownInScope, [], domainPass ? census.Length : null, domainPass, hasCheckpoint, rebuild) is { } guard)
+            {
+                cut = guard;
+                complete = false;
+                census = [];
+            }
         }
 
         // 4. Transfer fingerprint (the « .jsonl haché » of Domenia 1), then 5. validation before it is kept.
@@ -430,7 +554,7 @@ public sealed class SimulatedSyncReader : ISyncReader
         SyncReadResult result;
         lock (state.Gate)
         {
-            var reconciliation = SyncReconcile.Reconcile(state.Rows, rows, scopeDn, complete && estimate.Mode != SyncReadMode.Incremental);
+            var reconciliation = SyncReconcile.Reconcile(state.Rows, rows, scopeDn, complete && estimate.Mode != SyncReadMode.Incremental, rebuild);
             var notes = ImmutableArray.CreateBuilder<string>();
             var advances = false;
             string checkpointText;
@@ -458,25 +582,44 @@ public sealed class SimulatedSyncReader : ISyncReader
             var readIds = rows.Select(r => r.ObjectGuid).ToHashSet();
             var censusGaps = census.IsEmpty ? 0 : census.Count(g => !state.Rows.ContainsKey(g.ObjectGuid) && !readIds.Contains(g.ObjectGuid));
             var computers = rows.Count(r => r.Type == IndexObjectType.Computer);
-            var laps = rows.Any(r => r.Laps != LapsKind.None);
+            var lapsRead = rows.Count(r => r.Laps != LapsKind.None && r.LapsExpiration is not null);
             var label = estimate.Mode switch
             {
                 SyncReadMode.Ou => "Lecture de l’OU " + request.Scope.Label + " du " + SyncText.ShortDateTime(readAt, readAt, state.Zone),
                 SyncReadMode.Incremental => "Changements du domaine du " + SyncText.ShortDateTime(readAt, readAt, state.Zone),
-                _ => "Relecture complète du domaine du " + SyncText.ShortDateTime(readAt, readAt, state.Zone),
+                _ => (rebuild ? "Reconstruction de la base du " : "Relecture complète du domaine du ") + SyncText.ShortDateTime(readAt, readAt, state.Zone),
             };
             var batch = new IndexBatch(WritePlans.NewId(), label, readAt, readAt + SimulatedSyncState.BatchLifetime, request.Target, request.Scope, estimate.Mode, complete, cut,
-                state.Controller, complete ? state.InvocationId : null, maxUsn, rows, census, sha);
+                state.Controller, complete ? state.InvocationId : null, maxUsn, rows, census, sha, rebuild, lapsSchema);
             state.Batches[batch.Id] = batch;
             var counts = reconciliation.Counts;
             var summary = (complete ? "Lecture terminée" : "Lecture partielle") + c + ReadText(computers, rows.Length - computers) + ". " + StoreText(counts) + " Rien n’est écrit avant votre confirmation.";
-            result = new SyncReadResult(run.RunId, batch.Id, request.Target, request.Scope, estimate.Mode, ModeLabel(estimate.Mode), complete, cut, state.Controller, batch.InvocationId,
-                maxUsn, readAt, durationMs, rows.Length, rows.Length - computers, computers, counts, reconciliation.Samples, laps ? "present" : "absent",
-                laps ? "Expiration LAPS lue avec les postes (Windows LAPS et LAPS hérité)" + c + "dates seulement, jamais le mot de passe." : "Aucune expiration LAPS lue dans ce périmètre.",
-                advances, checkpointText, censusGaps, sha, rows.Length, summary, notes.ToImmutable(), true, batch.ExpiresAt);
+            var lapsText = computers == 0
+                ? "Schéma LAPS présent dans le domaine" + SyncText.Semi + " aucun poste dans cette lecture."
+                : lapsRead > 0
+                    ? FrenchText.Count(lapsRead, "expiration LAPS lue", "expirations LAPS lues") + " avec les postes (Windows LAPS et LAPS hérité)" + c + "dates seulement, jamais le mot de passe."
+                        + (computers > lapsRead ? " " + FrenchText.Count(computers - lapsRead, "poste sans expiration visible avec ce compte", "postes sans expiration visible avec ce compte") + "." : "")
+                    : "Schéma LAPS présent dans le domaine" + c + "aucune expiration visible avec ce compte pour ces postes.";
+            result = new SyncReadResult(run.RunId, batch.Id, request.Target, request.Scope, estimate.Mode, ModeLabel(estimate.Mode, rebuild), complete, cut, state.Controller, batch.InvocationId,
+                maxUsn, readAt, durationMs, rows.Length, rows.Length - computers, computers, counts, reconciliation.Samples, lapsSchema, lapsText,
+                advances, checkpointText, censusGaps, sha, rows.Length, summary, notes.ToImmutable(), true, batch.ExpiresAt, rebuild);
         }
         Report(state, run, progress, SyncPhase.Done, rows.Length, rows.Length, durationMs, result.Summary);
         return result;
+    }
+
+    public SyncDiscard DiscardRead(string batchId)
+    {
+        ArgumentNullException.ThrowIfNull(batchId);
+        var state = State;
+        lock (state.Gate)
+        {
+            if (state.Batches.Remove(batchId, out var batch))
+            {
+                return new SyncDiscard(true, FrenchText.Quote(batch.Label) + " écartée" + SyncText.C + "elle ne sera plus proposée à l’enregistrement. Rien n’a été écrit.");
+            }
+            return new SyncDiscard(false, "Lecture déjà enregistrée, écartée ou expirée" + SyncText.C + "rien à écarter.");
+        }
     }
 
     public SyncStop StopRead(string runId)
@@ -664,29 +807,69 @@ public sealed class SimulatedSyncReader : ISyncReader
                 throw new DomeniaOperationException(SyncErrors.SharedNotConfigured, SyncErrors.SharedNotConfiguredMessage);
             }
         }
-        // The lock file of another console is found once, then obtained at the second attempt.
-        await source.SimulateScreenLatencyAsync("synchro/shared/lock", 250, 450, cancellationToken).ConfigureAwait(false);
-        await source.SimulateScreenLatencyAsync("synchro/shared/read", 250, 450, cancellationToken).ConfigureAwait(false);
-        var now = source.Clock.GetUtcNow();
-        lock (state.Gate)
+        // One synchronisation at a time: a request during another one is made after it, never dropped (Domenia 1).
+        var queued = state.SharedGate.CurrentCount == 0;
+        await state.SharedGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            var merge = SyncPark.Merge(state.Park, state.SharedFile);
-            var differences = SyncPark.Differences(state.Park, state.SharedFile);
-            var kept = state.Park.Count(p => state.SharedFile.TryGetValue(p.Key, out var theirs) && p.Value.LastProbe > theirs.LastProbe)
-                + state.Park.Keys.Count(k => !state.SharedFile.ContainsKey(k));
-            var localSha = SimulatedSyncState.ParkFingerprint(state.Park);
-            var sharedSha = SimulatedSyncState.ParkFingerprint(state.SharedFile);
-            var mergedSha = SimulatedSyncState.ParkFingerprint(merge.State);
-            var batch = new ParkSharedBatch(WritePlans.NewId(), "Relevé partagé lu le " + SyncText.ShortDateTime(now, now, state.Zone), now, now + SimulatedSyncState.BatchLifetime,
-                merge.State, localSha, sharedSha, merge.Added, merge.Replaced, state.SharedFile.Count, mergedSha);
-            state.Batches.Remove(state.Batches.Values.OfType<ParkSharedBatch>().FirstOrDefault()?.Id ?? "");
-            state.Batches[batch.Id] = batch;
             var c = SyncText.C;
-            var text = "Partage" + c + FrenchText.Count(state.SharedFile.Count, "ligne reçue", "lignes reçues") + ", " + FrenchText.Count(merge.Added, "poste ajouté", "postes ajoutés")
-                + ", " + FrenchText.Count(merge.Replaced, "relevé actualisé", "relevés actualisés") + ", " + FrenchText.Count(kept, "relevé de cette console à partager", "relevés de cette console à partager")
-                + ", " + FrenchText.Integer(merge.Total) + " au total. Verrou obtenu au 2ᵉ essai sur " + FrenchText.Integer(SyncPark.LockAttempts) + ". Rien n’est écrit avant votre confirmation.";
-            return new ParkSharedRead(batch.Id, state.SharedPath, state.SharedFile.Count, merge.Added, merge.Replaced, kept, merge.Total, false, 2, differences, text,
-                merge.Added + merge.Replaced + kept > 0, batch.ExpiresAt);
+            var prefix = queued ? "Demande faite à la suite de la synchronisation en cours. " : "";
+            string path;
+            bool reachable;
+            int held;
+            lock (state.Gate)
+            {
+                path = state.SharedPath;
+                reachable = state.SharedReachable;
+                held = state.SharedLockHeldFor;
+            }
+            await source.SimulateScreenLatencyAsync("synchro/shared/lock", 250, 450, cancellationToken).ConfigureAwait(false);
+            var now = source.Clock.GetUtcNow();
+            if (!reachable)
+            {
+                // Share out of reach: the console keeps working in local; nothing is read or written.
+                return new ParkSharedRead("", path, 0, 0, 0, 0, 0, false, 0, [], prefix + SyncPark.SharedText(SharedSyncOutcome.Unreachable, path, 0, null, state.Zone),
+                    false, now, "unreachable", false, queued, null);
+            }
+            if (held >= SyncPark.LockAttempts)
+            {
+                // Lock held by another console for every attempt: work in local, a new attempt later (the other console will be done).
+                var retryAt = now + SyncPark.LockRetryDelay;
+                lock (state.Gate)
+                {
+                    state.SharedLockHeldFor = 0;
+                }
+                return new ParkSharedRead("", path, 0, 0, 0, 0, 0, false, SyncPark.LockAttempts, [], prefix + SyncPark.SharedText(SharedSyncOutcome.LockBusy, path, SyncPark.LockAttempts, retryAt, state.Zone),
+                    false, now, "lockBusy", true, queued, retryAt);
+            }
+            var attempts = held + 1;
+            await source.SimulateScreenLatencyAsync("synchro/shared/read", 250, 450, cancellationToken).ConfigureAwait(false);
+            now = source.Clock.GetUtcNow();
+            lock (state.Gate)
+            {
+                // The other console released the lock: the next synchronisation obtains it at once.
+                state.SharedLockHeldFor = 0;
+                var merge = SyncPark.Merge(state.Park, state.SharedFile);
+                var differences = SyncPark.Differences(state.Park, state.SharedFile);
+                var kept = state.Park.Count(p => state.SharedFile.TryGetValue(p.Key, out var theirs) && p.Value.LastProbe > theirs.LastProbe)
+                    + state.Park.Keys.Count(k => !state.SharedFile.ContainsKey(k));
+                var localSha = SimulatedSyncState.ParkFingerprint(state.Park);
+                var sharedSha = SimulatedSyncState.ParkFingerprint(state.SharedFile);
+                var mergedSha = SimulatedSyncState.ParkFingerprint(merge.State);
+                var batch = new ParkSharedBatch(WritePlans.NewId(), "Relevé partagé lu le " + SyncText.ShortDateTime(now, now, state.Zone), now, now + SimulatedSyncState.BatchLifetime,
+                    merge.State, localSha, sharedSha, merge.Added, merge.Replaced, state.SharedFile.Count, mergedSha);
+                state.Batches.Remove(state.Batches.Values.OfType<ParkSharedBatch>().FirstOrDefault()?.Id ?? "");
+                state.Batches[batch.Id] = batch;
+                var text = prefix + "Partage" + c + FrenchText.Count(state.SharedFile.Count, "ligne reçue", "lignes reçues") + ", " + FrenchText.Count(merge.Added, "poste ajouté", "postes ajoutés")
+                    + ", " + FrenchText.Count(merge.Replaced, "relevé actualisé", "relevés actualisés") + ", " + FrenchText.Count(kept, "relevé de cette console à partager", "relevés de cette console à partager")
+                    + ", " + FrenchText.Integer(merge.Total) + " au total. " + SyncPark.SharedText(SharedSyncOutcome.Merged, path, attempts, null, state.Zone) + " Rien n’est écrit avant votre confirmation.";
+                return new ParkSharedRead(batch.Id, path, state.SharedFile.Count, merge.Added, merge.Replaced, kept, merge.Total, true, attempts, differences, text,
+                    merge.Added + merge.Replaced + kept > 0, batch.ExpiresAt, "merged", true, queued, null);
+            }
+        }
+        finally
+        {
+            state.SharedGate.Release();
         }
     }
 
@@ -755,10 +938,10 @@ public sealed class SimulatedSyncReader : ISyncReader
             : "Aucun changement" + SyncText.Semi + " l’enregistrement actualise la couverture et le repère.";
     }
 
-    internal static string ModeLabel(SyncReadMode mode) => mode switch
+    internal static string ModeLabel(SyncReadMode mode, bool rebuild = false) => mode switch
     {
         SyncReadMode.Ou => "Lecture complète de l’OU et de ses sous-OU",
         SyncReadMode.Incremental => "Changements depuis le repère (USN)",
-        _ => "Relecture complète du domaine",
+        _ => rebuild ? "Reconstruction explicite de la base" : "Relecture complète du domaine",
     };
 }

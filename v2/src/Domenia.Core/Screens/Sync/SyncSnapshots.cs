@@ -180,15 +180,15 @@ public static class SyncSnapshots
             }
             if (after.CapturedAt < before.CapturedAt)
             {
-                warnings.Add("Le relevé « après » est plus ancien que le relevé « avant »" + SyncText.C + "les ajouts apparaissent comme des disparitions.");
+                warnings.Add("Le relevé " + FrenchText.Quote("après") + " est plus ancien que le relevé " + FrenchText.Quote("avant") + SyncText.C + "les ajouts apparaissent comme des disparitions.");
             }
             if (before.CoverageState != SnapshotCoverageState.Complete)
             {
-                warnings.Add("Relevé « avant » sans couverture complète" + SyncText.C + "ajouts et disparitions non concluants.");
+                warnings.Add("Relevé " + FrenchText.Quote("avant") + " sans couverture complète" + SyncText.C + "ajouts et disparitions non concluants.");
             }
             if (after.CoverageState != SnapshotCoverageState.Complete)
             {
-                warnings.Add("Relevé « après » sans couverture complète" + SyncText.C + "ajouts et disparitions non concluants.");
+                warnings.Add("Relevé " + FrenchText.Quote("après") + " sans couverture complète" + SyncText.C + "ajouts et disparitions non concluants.");
             }
         }
         return (reasons.Count == 0, reasons.ToImmutable(), warnings.ToImmutable());
@@ -208,8 +208,8 @@ public static class SyncSnapshots
         var bound = Math.Clamp(limit, 1, 5000);
         if (!comparable)
         {
-            return new SnapshotComparison(beforeRow, afterRow, false, reasons, warnings, new SnapshotDiffCounts(0, 0, 0, 0, 0, 0, 0, 0), bound, false, [],
-                ["Comparaison impossible" + SyncText.C + string.Join(" ", reasons)], Notice);
+            return new SnapshotComparison(beforeRow, afterRow, false, reasons, warnings, new SnapshotDiffCounts(0, 0, 0, 0, 0, 0, 0, 0, 0), bound, false, [],
+                ["Comparaison impossible" + SyncText.C + string.Join(" ", reasons)], Notice, "Comparaison impossible", "");
         }
         var c = SyncText.C;
         var oldByGuid = before.Lines.GroupBy(l => l.ObjectGuid).ToDictionary(g => g.Key, g => g.First());
@@ -221,12 +221,13 @@ public static class SyncSnapshots
         var truncated = false;
         foreach (var line in added.Take(bound))
         {
-            rows.Add(new SnapshotDiffRow(SnapshotDiffNature.Added, "Ajout", line.Name, line.ObjectGuid.ToString("D"), "Présent dans « après »" + c + SyncLocations.Location(line.Dn), null, line.Dn));
+            rows.Add(new SnapshotDiffRow(SnapshotDiffNature.Added, "Ajout", line.Name, line.ObjectGuid.ToString("D"), "Présent dans " + FrenchText.Quote("après") + " seulement",
+                null, Place(line.Dn), null, line.Dn));
         }
         foreach (var line in gone.Take(bound))
         {
             rows.Add(new SnapshotDiffRow(SnapshotDiffNature.Disappeared, "Disparition", line.Name, line.ObjectGuid.ToString("D"),
-                "Absent de « après »" + c + "déplacé hors du périmètre, invisible ou supprimé" + SyncText.Semi + " non prouvé ici.", line.Dn, null));
+                "Absent de " + FrenchText.Quote("après") + c + "déplacé hors du périmètre, invisible ou supprimé" + SyncText.Semi + " non prouvé ici.", Place(line.Dn), null, line.Dn, null));
         }
         truncated |= added.Count > bound || gone.Count > bound;
         int moved = 0, renamed = 0, differing = 0;
@@ -250,7 +251,9 @@ public static class SyncSnapshots
                 differs = true;
                 if (differing < bound)
                 {
-                    rows.Add(new SnapshotDiffRow(nature, nature == SnapshotDiffNature.Renamed ? "Renommage" : "Déplacement", next.Name, next.ObjectGuid.ToString("D"), move.Text, old.Dn, next.Dn));
+                    rows.Add(nature == SnapshotDiffNature.Renamed
+                        ? new SnapshotDiffRow(nature, "Renommage", next.Name, next.ObjectGuid.ToString("D"), move.Text, SyncLocations.Name(old.Dn), SyncLocations.Name(next.Dn), old.Dn, next.Dn)
+                        : new SnapshotDiffRow(nature, "Déplacement", next.Name, next.ObjectGuid.ToString("D"), move.Text, Place(old.Dn), Place(next.Dn), old.Dn, next.Dn));
                 }
             }
             foreach (var (label, value) in LineFields)
@@ -263,7 +266,7 @@ public static class SyncSnapshots
                     changedObjects.Add(next.ObjectGuid);
                     if (differing < bound)
                     {
-                        rows.Add(new SnapshotDiffRow(SnapshotDiffNature.Changed, "Valeur modifiée", next.Name, next.ObjectGuid.ToString("D"), label, a, b));
+                        rows.Add(new SnapshotDiffRow(SnapshotDiffNature.Changed, "Valeur modifiée", next.Name, next.ObjectGuid.ToString("D"), label, a, b, null, null));
                     }
                 }
             }
@@ -273,7 +276,18 @@ public static class SyncSnapshots
             }
         }
         truncated |= differing > bound;
-        var counts = new SnapshotDiffCounts(added.Count, gone.Count, common.Count, differing, Math.Max(0, common.Count - differing), moved, renamed, changedObjects.Count);
+        var counts = new SnapshotDiffCounts(added.Count, gone.Count, common.Count, differing, Math.Max(0, common.Count - differing), moved, renamed, changedObjects.Count,
+            common.Count + added.Count + gone.Count);
+        var headline = FrenchText.Count(before.Lines.Length, "objet", "objets") + " avant, " + FrenchText.Count(after.Lines.Length, "objet", "objets") + " après" + c
+            + FrenchText.Count(counts.Distinct, "objet distinct", "objets distincts") + " (" + FrenchText.Count(common.Count, "commun", "communs") + ", "
+            + FrenchText.Count(added.Count, "ajout", "ajouts") + ", " + FrenchText.Count(gone.Count, "disparition", "disparitions") + ").";
+        var natures = moved + renamed + changedObjects.Count;
+        var overlap = differing == 0
+            ? "Aucun objet commun ne diffère entre les deux relevés."
+            : FrenchText.Count(differing, "objet commun diffère", "objets communs diffèrent") + c
+                + FrenchText.Count(moved, "déplacé", "déplacés") + ", " + FrenchText.Count(renamed, "renommé", "renommés") + ", "
+                + FrenchText.Count(changedObjects.Count, "aux valeurs modifiées", "aux valeurs modifiées") + "."
+                + (natures > differing ? " Un même objet peut être déplacé et modifié à la fois" + c + "les natures se recouvrent." : "");
         var summary = ImmutableArray.CreateBuilder<string>();
         summary.Add(FrenchText.Quote(before.Label) + " → " + FrenchText.Quote(after.Label) + c + FrenchText.Count(added.Count, "ajout", "ajouts") + ", "
             + FrenchText.Count(gone.Count, "disparition", "disparitions") + ", " + FrenchText.Count(differing, "objet déplacé ou modifié", "objets déplacés ou modifiés")
@@ -290,7 +304,14 @@ public static class SyncSnapshots
         {
             summary.Add("À noter" + c + warning);
         }
-        return new SnapshotComparison(beforeRow, afterRow, true, reasons, warnings, counts, bound, truncated, rows.ToImmutable(), summary.ToImmutable(), Notice);
+        return new SnapshotComparison(beforeRow, afterRow, true, reasons, warnings, counts, bound, truncated, rows.ToImmutable(), summary.ToImmutable(), Notice, headline, overlap);
+    }
+
+    /// <summary>Readable place of a DN in a comparison (« Postes › Lyon »), the domain root named as such.</summary>
+    private static string Place(string dn)
+    {
+        var place = SyncLocations.Location(dn);
+        return place.Length == 0 ? SyncLocations.RootLocation : place;
     }
 
     private static readonly ImmutableArray<(string Label, Func<SnapshotLine, string> Value)> LineFields =

@@ -1,12 +1,13 @@
 // « Contrôles » workspace (Domenia 1 Contrôles tab, points 22 to 24): census advice of the scope (never starts anything),
 // identities of the last census missing from the base (read by GUID on request), objects a complete read did not see again
-// (verified by GUID on request: only an isDeleted entry proves a deletion). Every directory read asks a confirmation first,
-// shows its progress, and keeps its result until the operator stores it through the write circuit.
+// (verified by GUID on request: only an isDeleted entry proves a deletion), shown for the scope or for the whole domain.
+// Every directory read asks a confirmation first, shows its progress, and keeps its result until the operator stores it
+// through the write circuit or drops it.
 import { onEvent } from '../../bridge.js';
 import { createGrid, confirmDialog } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
 import {
-  esc, icon, glyph, pill, int, count, NBSP, toneOf, cardHead, button, paint, ago, errorBlock, emptyBlock, skStack, errorText, typeGlyph,
+  esc, icon, glyph, pill, int, count, NBSP, toneOf, cardHead, button, paint, errorBlock, skStack, errorText, typeGlyph, fitGrid, latest, stamp,
 } from './common.js';
 
 const STATUS = {
@@ -21,37 +22,58 @@ const STATUS = {
 const CENSUS_ICONS = { recent: 'check', due: 'clock', partial: 'alert', absent: 'info', clock: 'alert', gap: 'users' };
 const CENSUS_LABELS = { recent: 'À jour', due: 'Recensement dû', partial: 'Incomplet', absent: 'Jamais complet', clock: 'Horloge douteuse', gap: 'Objets manquants' };
 
-function censusMarkup(c, scope) {
+/** The complete read behind the advice: when, from which scope, against which threshold (from the overview). */
+function coverageFacts(o) {
+  const cov = o?.coverage;
+  if (!cov) return '';
+  return `<dl class="sy-facts three sy-census-facts">
+      <div><dt>Lecture complète</dt><dd>${cov.at ? esc(stamp(cov.at)) : 'Jamais'}</dd></div>
+      <div><dt>Source</dt><dd>${esc(cov.sourceLabel ?? '—')}</dd></div>
+      <div><dt>Seuil</dt><dd>${esc(count(o.limits?.fullRebuildDays ?? 7, 'jour', 'jours'))}</dd></div>
+    </dl>`;
+}
+
+function censusMarkup(c, scope, ready, reason, o) {
   const tone = toneOf(c.tone);
   const age = Number.isFinite(c.ageDays) ? `${c.ageDays < 1 ? 'moins d’un jour' : count(c.ageDays, 'jour', 'jours')} · seuil ${count(c.maxAgeDays, 'jour', 'jours')}` : `seuil ${count(c.maxAgeDays, 'jour', 'jours')}`;
+  // Domenia 1: « demande une OU si aucune n’est choisie ». With the domain as scope, the gesture opens the OU choice first.
   const action = scope.isDomain
-    ? button('Lire les changements du domaine…', { icon: 'activity', kind: 'network', data: { ct: 'domain' } })
-    : button('Relire l’OU choisie en entier…', { icon: 'refresh', kind: 'network', primary: c.due, data: { ct: 'read' }, tip: 'Lecture complète des utilisateurs et postes de l’OU et de ses sous-OU\u00A0: seule une lecture complète repère disparus et déplacés. Rien n’est modifié dans l’annuaire.' });
+    ? button('Choisir l’OU à relire en entier…', { icon: 'tree', kind: 'network', primary: c.due, data: { ct: 'choose' }, disabled: !ready, tip: ready ? `Le domaine entier n’est pas une OU de mise à jour${NBSP}: choisissez l’OU, puis confirmez son estimation.` : reason })
+    : button('Relire l’OU choisie en entier…', { icon: 'refresh', kind: 'network', primary: c.due, data: { ct: 'read' }, disabled: !ready, tip: ready ? `Lecture complète des utilisateurs et postes de l’OU et de ses sous-OU${NBSP}: seule une lecture complète repère disparus et déplacés. Rien n’est modifié dans l’annuaire.` : reason });
   return `<div class="sy-census" data-tone="${tone}">
       <span class="sy-census-ring" aria-hidden="true"><span>${glyph(CENSUS_ICONS[c.state] ?? 'info')}</span></span>
       <div class="sy-census-main">
         <div class="sy-census-line">${pill(tone, CENSUS_LABELS[c.state] ?? 'Recensement', { size: 'sm' })}<span class="sy-census-age">${esc(age)}</span></div>
         <p>${esc(c.text)}</p>
+        <p class="sy-muted">${icon('info')}<span>Seule une lecture complète repère les disparus et les objets devenus visibles sans modification${NBSP}; Domenia la conseille, ne la lance jamais seule.</span></p>
       </div>
     </div>
-    <p class="sy-muted">${icon('info')}<span>Une mise à jour différentielle ne voit ni les objets supprimés, ni ceux devenus visibles ou invisibles sans modification. Seule une lecture complète du périmètre les repère${NBSP}; Domenia la conseille, elle ne la lance jamais seule.</span></p>
-    <div class="sy-card-actions">${action}</div>`;
+    ${coverageFacts(o)}
+    <div class="sy-card-actions">${c.gapCount > 0 && c.state !== 'gap' ? `<span class="sy-gap-hint">${glyph('users')}${esc(count(c.gapCount, 'identité recensée manque', 'identités recensées manquent'))}</span>` : ''}${action}</div>`;
 }
 
 function gapsMarkup(g) {
-  const list = g.rows.slice(0, 8).map((r, n) => `<li data-i="${n}">${glyph('user')}<span><b>${esc(r.name || r.guid)}</b><small>${esc(r.location || '—')}</small></span></li>`).join('');
+  const list = g.rows.slice(0, 6).map((r, n) => `<li data-i="${n}">${glyph('user')}<span><b>${esc(r.name || r.guid)}</b><small>${esc(r.location || '—')}</small></span></li>`).join('');
   return `<p class="sy-gap-summary">${esc(g.summary)}</p>
-    ${g.total ? `<ul class="sy-gap-list">${list}</ul>${g.total > 8 ? `<p class="sy-more">${esc(`et ${count(g.total - 8, 'autre identité', 'autres identités')}`)}</p>` : ''}` : ''}
-    <div class="sy-card-actions">${button('Lire les objets manquants…', { icon: 'download', kind: 'network', data: { ct: 'gaps' }, disabled: !g.canRead, tip: g.canRead ? 'Lit par leur GUID, après confirmation, jusqu’à 200 objets que le dernier recensement a trouvés dans l’AD mais pas dans la base. Ni relecture de tout le domaine, ni modification de l’annuaire.' : 'Aucun objet manquant à lire.' })}</div>
+    ${g.total ? `<ul class="sy-gap-list">${list}</ul>` : ''}
+    <div class="sy-card-actions">${g.total > 6 ? `<span class="sy-more">${esc(`et ${count(g.total - 6, 'autre identité', 'autres identités')}`)}</span>` : ''}${button('Lire les objets manquants…', { icon: 'download', kind: 'network', data: { ct: 'gaps' }, disabled: !g.canRead, tip: g.canRead ? 'Lit par leur GUID, après confirmation, jusqu’à 200 objets que le dernier recensement a trouvés dans l’AD mais pas dans la base. Ni relecture de tout le domaine, ni modification de l’annuaire.' : 'Aucun objet manquant à lire.' })}</div>
     <div class="sy-job" data-job="gaps" hidden></div>`;
 }
 
-function facetsMarkup(a, filter) {
-  const chips = a.counts.filter((c) => c.count > 0).map((c) => {
-    const s = STATUS[c.status] ?? STATUS.notSeen;
-    return `<button class="sy-facet" type="button" data-facet="${esc(c.status)}" data-tone="${s.tone}" aria-pressed="${filter === c.status}">${glyph(s.icon)}<span>${esc(s.label)}</span><b>${int(c.count)}</b></button>`;
-  }).join('');
+/** Facets by status, counted on the rows shown (scope or whole domain). */
+function facetsMarkup(rows, filter) {
+  const chips = Object.entries(STATUS).map(([status, s]) => [status, s, rows.filter((r) => r.status === status).length]).filter(([, , n]) => n > 0)
+    .map(([status, s, n]) => `<button class="sy-facet" type="button" data-facet="${esc(status)}" data-tone="${s.tone}" aria-pressed="${filter === status}">${glyph(s.icon)}<span>${esc(s.label)}</span><b>${int(n)}</b></button>`).join('');
   return `<div class="sy-facets" role="group" aria-label="Filtrer par état">${chips}</div>`;
+}
+
+/** Scope of the list: the objects last seen in the scope of the screen, or every disappearance of the domain. */
+function scopeToggle(scope, absences, wide) {
+  if (scope.isDomain) return '';
+  return `<div class="segmented sy-seg" role="group" aria-label="Portée de la liste">
+      <button type="button" data-abs="scope" aria-pressed="${!wide}">${esc(scope.label)}<b>${int(absences.inScope)}</b></button>
+      <button type="button" data-abs="domain" aria-pressed="${wide}">Tout le domaine<b>${int(absences.total)}</b></button>
+    </div>`;
 }
 
 function jobMarkup(title, progress) {
@@ -92,13 +114,13 @@ function gapResultMarkup(r) {
 }
 
 const COLUMNS = [
-  { id: 'status', label: 'État', type: 'enum', width: 190, options: Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label, tone: s.tone })) },
-  { id: 'name', label: 'Nom', required: true, width: 190 },
-  { id: 'typeLabel', label: 'Type', width: 110, html: (v, r) => `<span class="sy-type">${glyph(typeGlyph(r.type))}${esc(v)}</span>` },
-  { id: 'location', label: 'Dernier emplacement connu', width: 260 },
-  { id: 'noticedAt', label: 'Non revu le', type: 'date', dateStyle: 'datetime', width: 150 },
-  { id: 'checkedAt', label: 'Vérifié le', type: 'date', dateStyle: 'datetime', width: 150 },
-  { id: 'detail', label: 'Détail', width: 420 },
+  { id: 'status', label: 'État', type: 'enum', width: 180, options: Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label, tone: s.tone })) },
+  { id: 'name', label: 'Nom', required: true, width: 172 },
+  { id: 'typeLabel', label: 'Type', width: 104, html: (v, r) => `<span class="sy-type">${glyph(typeGlyph(r.type))}${esc(v)}</span>` },
+  { id: 'location', label: 'Dernier emplacement', width: 200, tip: 'Dernier emplacement connu dans la base locale' },
+  { id: 'noticedAt', label: 'Non revu le', type: 'date', dateStyle: 'datetime', width: 138 },
+  { id: 'checkedAt', label: 'Vérifié le', type: 'date', dateStyle: 'datetime', width: 138, hidden: true },
+  { id: 'detail', label: 'Détail', width: 280 },
   { id: 'lastDn', label: 'Dernier DN', mono: true, hidden: true, width: 380 },
   { id: 'foundDn', label: 'Nouveau DN', mono: true, hidden: true, width: 380 },
   { id: 'guid', label: 'GUID', mono: true, hidden: true, width: 300 },
@@ -108,20 +130,20 @@ const COLUMNS = [
 export function renderControls(panel, screen) {
   const ctx = screen.ctx;
   panel.classList.add('sy-ws', 'sy-ws-controls');
+  const answers = latest();
   let data = null;
   let filter = null;
+  let wide = false;
   let check = null;
   let gaps = null;
   let alive = true;
   let unsub = () => {};
   let asked = false;
   panel.innerHTML = `<div class="sy-ws-grid">
-      <div class="sy-col span-4">
-        <section class="sy-card" data-slot="census" data-i="0">${cardHead('shield', 'Recensement du périmètre', 'Conseil de lecture complète, jamais lancée seule')}<div class="sy-slot">${skStack('sk-line w70', 'sk-line w85', 'sk-line w55')}</div></section>
-        <section class="sy-card" data-slot="gaps" data-i="1">${cardHead('users', 'Objets recensés absents de la base', 'Dernier recensement du domaine')}<div class="sy-slot">${skStack('sk-line w85', 'sk-line w55')}</div></section>
-      </div>
-      <section class="sy-card span-8" data-slot="absences" data-i="2">
-        ${cardHead('eyeOff', 'Objets disparus du périmètre', 'Non revus par une lecture complète\u00A0: retirés de la copie, jamais déclarés supprimés',
+      <section class="sy-card span-6" data-slot="census" data-i="0">${cardHead('shield', 'Recensement du périmètre', 'Conseil de lecture complète, jamais lancée seule')}<div class="sy-slot">${skStack('sk-line w70', 'sk-line w85', 'sk-line w55')}</div></section>
+      <section class="sy-card span-6" data-slot="gaps" data-i="1">${cardHead('users', 'Objets recensés absents de la base', 'Dernier recensement du domaine')}<div class="sy-slot">${skStack('sk-line w85', 'sk-line w55')}</div></section>
+      <section class="sy-card span-12" data-slot="absences" data-i="2">
+        ${cardHead('eyeOff', 'Objets disparus', 'Non revus par une lecture complète\u00A0: retirés de la copie, jamais déclarés supprimés',
           `${button('Actualiser la liste', { sm: true, ghost: true, icon: 'refresh', data: { ct: 'reload' }, tip: 'Relit la liste dans la base locale\u00A0; aucune lecture de l’annuaire.' })}${button('Vérifier les disparitions…', { sm: true, icon: 'eye', kind: 'network', data: { ct: 'check' } })}`)}
         <div class="sy-abs-top"></div>
         <div class="sy-job" data-job="check" hidden></div>
@@ -129,12 +151,12 @@ export function renderControls(panel, screen) {
       </section>
     </div>`;
   const grid = createGrid(panel.querySelector('.sy-abs-grid'), {
-    key: 'synchro.absences',
-    label: 'Objets disparus du périmètre',
+    key: 'synchro.absences.v3',
+    label: 'Objets disparus',
     rowId: (r) => r.guid,
     selection: 'single',
     loading: true,
-    height: '420px',
+    height: '360px',
     columns: COLUMNS,
     empty: { icon: 'check', title: 'Aucune disparition', text: 'Un objet qu’une lecture complète ne retrouve plus apparaîtra ici au lieu d’être déclaré supprimé.' },
     onActivate: (row) => { if (row.foundDn) ctx.navigate('fiche', { dn: row.foundDn }); },
@@ -143,31 +165,55 @@ export function renderControls(panel, screen) {
 
   const slot = (name) => panel.querySelector(`[data-slot="${name}"] .sy-slot`);
 
+  /** Rows of the list: the scope of the screen (last seen inside it) or the whole domain. */
+  const rowsShown = () => (wide || data.scope.isDomain ? data.absences.rows : data.absences.rows.filter((r) => r.inScope));
+
+  function paintAbsences() {
+    const a = data.absences;
+    const rows = rowsShown();
+    if (filter && !rows.some((r) => r.status === filter)) filter = null;
+    const top = panel.querySelector('.sy-abs-top');
+    // The engine summarizes the domain; the scope view says what it shows and how many remain elsewhere.
+    const summary = data.scope.isDomain || wide
+      ? a.summary
+      : `${count(rows.length, 'objet vu', 'objets vus')} pour la dernière fois dans ${data.scope.label}, sur ${count(a.total, 'disparition', 'disparitions')} du domaine${NBSP}; la vérification relit les ${count(a.pending, 'objet', 'objets')} non revus ou non confirmés du domaine.`;
+    top.innerHTML = `<div class="sy-abs-bar">${scopeToggle(data.scope, a, wide)}${facetsMarkup(rows, filter)}</div>
+      <p class="sy-abs-summary">${esc(summary)}</p>`;
+    const shown = filter ? rows.filter((r) => r.status === filter) : rows;
+    grid.setRows(shown);
+    fitGrid(grid, shown.length, { min: 4, max: 10 });
+    grid.setEmpty(rows.length === 0 && a.total > 0
+      ? { icon: 'check', title: 'Aucune disparition dans ce périmètre', text: `Les ${count(a.total, 'disparition', 'disparitions')} du domaine sont ailleurs${NBSP}: «${NBSP}Tout le domaine${NBSP}» les montre.` }
+      : null);
+  }
+
   function paintAll() {
     if (!data) return;
-    slot('census').innerHTML = censusMarkup(data.census, data.scope);
+    const o = screen.overview;
+    slot('census').innerHTML = censusMarkup(data.census, data.scope, o?.readiness?.ready !== false, o?.readiness?.reason ?? '', o);
     slot('gaps').innerHTML = gapsMarkup(data.gaps);
     if (gaps) showGapResult(gaps);
-    const top = panel.querySelector('.sy-abs-top');
-    top.innerHTML = `${facetsMarkup(data.absences, filter)}<p class="sy-abs-summary">${esc(data.absences.summary)}</p>`;
     const checkBtn = panel.querySelector('[data-ct="check"]');
     if (checkBtn) {
       checkBtn.disabled = !data.absences.canCheck;
-      checkBtn.dataset.tip = data.absences.canCheck ? `Relit par leur GUID, après confirmation, jusqu’à 200 objets non revus${NBSP}: dans le domaine, puis parmi les objets supprimés. Rien n’est modifié dans l’annuaire.` : 'Aucun objet à vérifier.';
+      checkBtn.dataset.tip = data.absences.canCheck ? `Relit par leur GUID, après confirmation, jusqu’à 200 objets non revus du domaine${NBSP}: dans le domaine, puis parmi les objets supprimés. Rien n’est modifié dans l’annuaire.` : 'Aucun objet à vérifier.';
     }
-    grid.setRows(filter ? data.absences.rows.filter((r) => r.status === filter) : data.absences.rows);
+    paintAbsences();
     paint(panel);
   }
 
   async function load() {
+    const my = answers.next();
     try {
-      data = await ctx.call('synchro.controls', screen.scopeArgs());
-      if (!alive) return;
+      const next = await ctx.call('synchro.controls', screen.scopeArgs());
+      // An answer of an older request or of an older generation of the base never repaints a newer list.
+      if (!alive || !answers.keep(my, next.generation)) return;
+      data = next;
       paintAll();
       if (asked) { asked = false; runCheck(); }
     } catch (err) {
       console.error(err);
-      if (!alive) return;
+      if (!alive || !answers.keep(my)) return;
       for (const name of ['census', 'gaps']) slot(name).innerHTML = errorBlock(err);
       grid.setError(errorText(err), { retry: load });
     }
@@ -262,13 +308,31 @@ export function renderControls(panel, screen) {
     });
   }
 
+  /** « Ignorer »: the engine drops the kept result too (it is no longer offered for storage). */
+  function dismiss(kind) {
+    const kept = kind === 'gaps' ? gaps : check;
+    if (kind === 'gaps') gaps = null; else check = null;
+    const h = panel.querySelector(`[data-job="${kind}"]`);
+    h.hidden = true;
+    h.innerHTML = '';
+    if (kept?.batchId) ctx.call('synchro.read.discard', { batchId: kept.batchId }).catch((err) => console.error(err));
+  }
+
   const onClick = (e) => {
-    const t = e.target instanceof Element ? e.target.closest('[data-ct], [data-facet], [data-retry]') : null;
+    const t = e.target instanceof Element ? e.target.closest('[data-ct], [data-facet], [data-abs], [data-retry]') : null;
     if (!t || t.disabled) return;
     if (t.dataset.retry !== undefined) { load(); return; }
     if (t.dataset.facet) {
       filter = filter === t.dataset.facet ? null : t.dataset.facet;
-      paintAll();
+      paintAbsences();
+      paint(panel.querySelector('.sy-abs-top'));
+      return;
+    }
+    if (t.dataset.abs) {
+      wide = t.dataset.abs === 'domain';
+      filter = null;
+      paintAbsences();
+      paint(panel.querySelector('.sy-abs-top'));
       return;
     }
     const act = t.dataset.ct;
@@ -276,14 +340,14 @@ export function renderControls(panel, screen) {
     else if (act === 'check') runCheck();
     else if (act === 'gaps') runGaps();
     else if (act === 'read') screen.startRead('ou');
-    else if (act === 'domain') screen.startRead('domain');
+    else if (act === 'choose') screen.chooseScope({ read: true });
     else if (act === 'store-check' && check) store(check.batchId, 'absences');
     else if (act === 'store-gaps' && gaps) store(gaps.batchId, 'gaps');
-    else if (act === 'dismiss-check') { check = null; const h = panel.querySelector('[data-job="check"]'); h.hidden = true; h.innerHTML = ''; }
-    else if (act === 'dismiss-gaps') { gaps = null; const h = panel.querySelector('[data-job="gaps"]'); h.hidden = true; h.innerHTML = ''; }
+    else if (act === 'dismiss-check') dismiss('check');
+    else if (act === 'dismiss-gaps') dismiss('gaps');
   };
   panel.addEventListener('click', onClick);
-  const offScope = screen.on('scope', () => load());
+  const offScope = screen.on('scope', () => { wide = false; filter = null; load(); });
   const offStored = screen.on('stored', (r) => { if (!r?.kind) load(); });
   const offAsk = screen.on('ask', (what) => { if (what !== 'check') return; if (data) runCheck(); else asked = true; });
   load();
@@ -298,6 +362,3 @@ export function renderControls(panel, screen) {
     grid.destroy();
   };
 }
-
-void emptyBlock;
-void ago;

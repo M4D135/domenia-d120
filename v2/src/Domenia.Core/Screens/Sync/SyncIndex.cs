@@ -84,13 +84,43 @@ public static class SyncIndex
 
     public static string Reason(int score, bool browse) => score >= 100 ? "Correspondance exacte" : score >= 90 ? "Début du nom" : browse ? "Périmètre local" : "Contenu dans la fiche";
 
-    /// <summary>Row of the page for one record.</summary>
-    public static IndexHit Hit(IndexRecord record, int score, bool browse, string? association)
+    /// <summary>LAPS schema of the domain as the last read of the schema found it (Domenia 1 $lapsSchema).</summary>
+    public const string LapsSchemaPresent = "present";
+    public const string LapsSchemaAbsent = "absent";
+    public const string LapsSchemaUnknown = "unknown";
+
+    /// <summary>
+    /// LAPS state of a workstation of the base (Domenia 1 lapsKind): « windows » or « legacy » with an expiration date (never the
+    /// password), « noSchema » when the attribute does not exist in the schema of the domain, « none » when the schema has it
+    /// but no value is visible with this account, « unknown » before any read of the schema. Null for a user.
+    /// </summary>
+    public static (string? State, string? Text) Laps(IndexRecord record, string lapsSchema)
     {
         ArgumentNullException.ThrowIfNull(record);
+        if (record.Type != IndexObjectType.Computer)
+        {
+            return (null, null);
+        }
+        if (record.Laps != LapsKind.None && record.LapsExpiration is not null)
+        {
+            return record.Laps == LapsKind.Windows ? ("windows", "Windows LAPS") : ("legacy", "LAPS hérité");
+        }
+        return lapsSchema switch
+        {
+            LapsSchemaAbsent => ("noSchema", "Expiration LAPS non disponible dans ce domaine (attribut absent du schéma)"),
+            LapsSchemaPresent => ("none", "Aucune expiration visible avec ce compte (LAPS non déployé sur ce poste ou attribut non lisible)"),
+            _ => ("unknown", "Schéma LAPS non lu" + SyncText.C + "la prochaine lecture du domaine le précisera"),
+        };
+    }
+
+    /// <summary>Row of the page for one record.</summary>
+    public static IndexHit Hit(IndexRecord record, int score, bool browse, string? association, string lapsSchema = LapsSchemaUnknown)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        var (lapsState, lapsText) = Laps(record, lapsSchema);
         return new IndexHit(record.ObjectGuid.ToString("D"), record.Type, TypeLabel(record.Type), record.Name, record.Login, record.Upn, record.DisplayName,
             record.Description, record.Extra, record.Enabled, StateLabel(record.Enabled), record.Dn, SyncLocations.Location(record.Dn), association, score,
-            Reason(score, browse), record.WhenChanged, record.LastLogon, record.LapsExpiration, record.ObservedAt);
+            Reason(score, browse), record.WhenChanged, record.LastLogon, record.LapsExpiration, record.ObservedAt, lapsState, lapsText);
     }
 
     /// <summary>
@@ -125,7 +155,7 @@ public static class SyncIndex
     }
 
     /// <summary>One page of the query from the rows of the base (total and page from the same rows).</summary>
-    public static IndexSearchPage Page(IEnumerable<IndexRecord> rows, IndexQuery query, Func<IndexRecord, string?> association, long generation)
+    public static IndexSearchPage Page(IEnumerable<IndexRecord> rows, IndexQuery query, Func<IndexRecord, string?> association, long generation, string lapsSchema = LapsSchemaUnknown)
     {
         ArgumentNullException.ThrowIfNull(association);
         ArgumentNullException.ThrowIfNull(query);
@@ -145,7 +175,7 @@ public static class SyncIndex
         {
             offset = 0;
         }
-        var page = matched.Skip(offset).Take(limit).Select(m => Hit(m.Record, m.Score, browse, association(m.Record))).ToImmutableArray();
+        var page = matched.Skip(offset).Take(limit).Select(m => Hit(m.Record, m.Score, browse, association(m.Record), lapsSchema)).ToImmutableArray();
         var pages = Math.Max(1, (total + limit - 1) / limit);
         var number = offset / limit + 1;
         string message;

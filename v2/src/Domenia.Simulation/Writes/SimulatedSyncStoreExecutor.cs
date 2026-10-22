@@ -154,12 +154,16 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
 
     private static WritePlanDraft DraftIndex(SimulatedSyncState state, IndexBatch batch, string backup, DateTimeOffset now)
     {
+        if (Refusal(state, batch) is { } refusal)
+        {
+            throw new DomeniaOperationException(WriteErrors.Stale, refusal);
+        }
         var reconciliation = Reconcile(state, batch);
         var counts = reconciliation.Counts;
         var zone = state.Zone;
         var head = new WriteChange(SyncStoreChange.BatchAttribute, "Lot vérifié", WriteChangeKind.Add, null,
             batch.Label + " · " + SyncStoreChange.Objects(batch.Rows.Length) + " · empreinte " + SyncText.ShortHash(batch.Sha256), null,
-            SyncStoreChange.HeadValue("index", batch.Id, batch.Sha256, batch.Rows.Length));
+            SyncStoreChange.HeadValue("index", batch.Id, batch.Sha256, batch.Rows.Length, SyncReconcile.PreviewFingerprint(reconciliation)));
         var effects = new List<WriteChange>();
         if (counts.Added > 0)
         {
@@ -174,7 +178,7 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
         if (counts.Unseen > 0)
         {
             effects.Add(SyncStoreChange.Effect("index.unseen", "Marqués non revus", WriteChangeKind.Remove, SyncStoreChange.Objects(counts.Unseen),
-                "Retirés de la copie, listés dans « Disparitions »", "unseen=" + Int(counts.Unseen), null));
+                "Retirés de la copie, listés dans " + FrenchText.Quote("Disparitions"), "unseen=" + Int(counts.Unseen), null));
         }
         if (counts.Conflicts > 0)
         {
@@ -210,7 +214,7 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
         if (counts.Unseen > 0)
         {
             risks.Add(new WriteRisk(Tone.Warn, FrenchText.Count(counts.Unseen, "objet de ce périmètre n’a pas été revu", "objets de ce périmètre n’ont pas été revus")
-                + " par cette lecture complète" + c0 + "retirés de la copie locale et listés dans « Disparitions », jamais supprimés de l’annuaire. Vérifiez-les avant toute conclusion."));
+                + " par cette lecture complète" + c0 + "retirés de la copie locale et listés dans " + FrenchText.Quote("Disparitions") + ", jamais supprimés de l’annuaire. Vérifiez-les avant toute conclusion."));
         }
         if (!batch.Complete)
         {
@@ -392,14 +396,23 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
 
     private static WritePrecheck CheckIndex(SimulatedSyncState state, IndexBatch batch, WritePlan plan)
     {
-        var counts = Reconcile(state, batch).Counts;
+        if (Refusal(state, batch) is { } refusal)
+        {
+            return WritePrecheck.Stale(refusal);
+        }
+        var reconciliation = Reconcile(state, batch);
+        var counts = reconciliation.Counts;
         int Planned(string attribute, string key)
         {
             var change = plan.Changes.FirstOrDefault(c => c.Attribute == attribute);
             var raw = change?.AfterValue ?? change?.BeforeValue;
             return raw is not null && raw.StartsWith(key + "=", StringComparison.Ordinal) && int.TryParse(raw.AsSpan(key.Length + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : 0;
         }
-        if (Planned("index.added", "added") != counts.Added || Planned("index.updated", "updated") != counts.Updated || Planned("index.unseen", "unseen") != counts.Unseen)
+        // The counts and the fingerprint of the preview (GUID and category of every object): a base changed by another storage
+        // that gives the same counts never passes for the preview the operator confirmed.
+        var preview = SyncStoreChange.Head(plan)?.Preview ?? "";
+        if (Planned("index.added", "added") != counts.Added || Planned("index.updated", "updated") != counts.Updated || Planned("index.unseen", "unseen") != counts.Unseen
+            || !string.Equals(preview, SyncReconcile.PreviewFingerprint(reconciliation), StringComparison.Ordinal))
         {
             return WritePrecheck.Stale("La base locale a changé depuis le plan (autre enregistrement)" + c0 + "préparez de nouveau l’enregistrement pour revoir l’aperçu, rien n’a été écrit.");
         }
@@ -412,7 +425,7 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
         ArgumentNullException.ThrowIfNull(plan);
         var state = State;
         var head = SyncStoreChange.Head(plan) ?? throw new DomeniaOperationException(WriteErrors.Stale, Unreadable);
-        state.Committing = true;
+        state.BeginCommit();
         try
         {
             // The commit holds the base: concurrent searches answer « busy » (one short retry in the page, Domenia 1 point 4).
@@ -444,7 +457,7 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
         }
         finally
         {
-            state.Committing = false;
+            state.EndCommit();
         }
     }
 
@@ -497,6 +510,8 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
         var census = batch.Target == SyncTarget.Domain && batch.Complete && !batch.Census.IsEmpty ? CensusGaps(state, batch, reconciliation) : null;
         var (rows, absences) = SyncReconcile.Apply(state.Rows, reconciliation, scopeDn, batch.CreatedAt, batch.Controller);
         state.SetRows(rows);
+        // Every pass reads the LAPS schema with the computers (absent, or present but not visible with this account).
+        state.LapsSchema = batch.LapsSchema;
         var back = batch.Rows.Select(r => r.ObjectGuid).ToHashSet();
         state.Absences.RemoveAll(a => back.Contains(a.ObjectGuid) || absences.Any(n => n.ObjectGuid == a.ObjectGuid));
         state.Absences.AddRange(absences);
@@ -645,7 +660,11 @@ public sealed class SimulatedSyncStoreExecutor : ISyncStoreExecutor
     };
 
     private static SyncReconciliation Reconcile(SimulatedSyncState state, IndexBatch batch) =>
-        SyncReconcile.Reconcile(state.Rows, batch.Rows, batch.Target == SyncTarget.Ou ? batch.Scope.Dn : null, batch.Complete && batch.Mode != SyncReadMode.Incremental);
+        SyncReconcile.Reconcile(state.Rows, batch.Rows, batch.Target == SyncTarget.Ou ? batch.Scope.Dn : null, batch.Complete && batch.Mode != SyncReadMode.Incremental, batch.Rebuild);
+
+    /// <summary>An empty census of a complete domain pass is refused outside an explicit rebuild (Domenia 1 IndexBulk).</summary>
+    private static string? Refusal(SimulatedSyncState state, IndexBatch batch) =>
+        batch.Mode == SyncReadMode.Ou ? null : SyncReconcile.StorageRefusal(true, batch.Complete, batch.Rebuild, batch.Census.Length, state.Rows.Count);
 
     /// <summary>Identities of the census missing from the base once the batch is stored.</summary>
     private static List<CensusGapRecord> CensusGaps(SimulatedSyncState state, IndexBatch batch, SyncReconciliation reconciliation)

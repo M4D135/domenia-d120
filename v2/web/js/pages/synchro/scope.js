@@ -44,7 +44,6 @@ export function openScopePicker(ctx, o = {}) {
     let chosen = null;
     let tree = null;
     let done = false;
-    let rootId = null;
     const finish = (value) => { if (!done) { done = true; resolve(value); } };
     const body = document.createElement('div');
     body.className = 'sy-picker';
@@ -85,7 +84,8 @@ export function openScopePicker(ctx, o = {}) {
         const r = await ctx.call('directory.ou.children', { dn: null });
         const root = toNode({ dn: r.parent.dn, name: r.parent.name, path: r.parent.path }, true);
         root.children = (r.children ?? []).map((c) => toNode(c));
-        rootId = root.id;
+        // The tree keeps these roots as soon as this promise settles (a microtask): a task scheduled now runs after it.
+        setTimeout(() => openAt(root.id), 0);
         return [root];
       },
       load: async (node) => {
@@ -108,18 +108,12 @@ export function openScopePicker(ctx, o = {}) {
       },
     });
     // Once the first level is read, the current OU is shown open (its branches are read once, like any opening); without
-    // one, the domain root is opened so the first level shows at once.
-    let tries = 0;
-    const open = () => {
-      if (done) return;
-      if (!rootId || tree.size() === 0) {
-        if (tries++ < 80) setTimeout(open, 50);
-        return;
-      }
+    // one, the domain root is opened so the first level shows at once. A branch that cannot be read shows its own error.
+    function openAt(rootId) {
+      if (done || !tree) return;
       const chain = o.current && !o.current.isDomain ? chainOf(o.current.dn) : [];
-      if (chain.length) tree.reveal([rootId, ...chain]).catch(() => {});
+      if (chain.length) tree.reveal([rootId, ...chain]).catch((err) => console.error(err));
       else tree.expand?.(rootId);
-    };
-    setTimeout(open, 50);
+    }
   });
 }

@@ -60,6 +60,9 @@ import { relTime, formatDateTime } from '../ui.js';
  * @property {() => void} [onLoadMore]
  * @property {(csv: string, info: {rows: number, columns: number, scope: string}) => void} [onExport]  Replaces the clipboard copy.
  * @property {(info: {quick: string, columns: Object<string,string>, shown: number, total: number}) => void} [onFilterChange]
+ * @property {boolean} [remoteSort=false]      Rows arrive sorted by the caller (the engine sorts the whole population before
+ *                                             paging): a header gesture only reports the sort (one column), rows keep their order.
+ * @property {(sort: Array<{id: string, dir: 1|-1}>) => void} [onSortChange]  Sort changed by the operator (header, menu, undo).
  */
 
 const DENSITY = { compact: 32, normal: 40, comfortable: 48 };
@@ -320,7 +323,7 @@ export function createGrid(host, options) {
     }
     if (Array.isArray(saved.sort)) {
       st.sort = saved.sort.filter((s) => s && colById.get(s.id)?.sortable && (s.dir === 1 || s.dir === -1))
-        .slice(0, 4).map((s) => ({ id: s.id, dir: s.dir }));
+        .slice(0, o.remoteSort ? 1 : 4).map((s) => ({ id: s.id, dir: s.dir }));
     }
     if (DENSITY[saved.density]) st.density = saved.density;
   }
@@ -359,7 +362,7 @@ export function createGrid(host, options) {
     persist();
     paintUndo();
     rebuildColumns();
-    if (JSON.stringify(st.sort) !== keepSort) resort();
+    if (JSON.stringify(st.sort) !== keepSort) { resort(); reportSort(keepSort); }
     announce(`Annulé${NBSP}: ${step.label}.`);
   }
 
@@ -464,7 +467,8 @@ export function createGrid(host, options) {
       if (tests.length && !tests.every((t) => t(ri))) continue;
       out.push(ri);
     }
-    if (st.sort.length) {
+    // A remote sort keeps the order of the rows: the caller sorted the whole population before cutting the page.
+    if (st.sort.length && !o.remoteSort) {
       const keys = st.sort.map((s) => ({ col: colById.get(s.id), dir: s.dir })).filter((k) => k.col);
       out.sort((a, b) => {
         for (const k of keys) {
@@ -936,9 +940,15 @@ export function createGrid(host, options) {
     }
   }
 
+  const sortKeyText = () => JSON.stringify(st.sort);
+  const reportSort = (before) => { if (sortKeyText() !== before) o.onSortChange?.(st.sort.map((s) => ({ ...s }))); };
+
   function sortBy(id, { add = false, dir } = {}) {
     const col = colById.get(id);
     if (!col?.sortable) return;
+    // A remote sort covers one column (the engine sorts by one fixed expression).
+    if (o.remoteSort) add = false;
+    const before = sortKeyText();
     changeLayout('Tri', () => {
       const at = st.sort.findIndex((s) => s.id === id);
       if (dir === 0) { if (at >= 0) st.sort.splice(at, 1); return; }
@@ -954,6 +964,7 @@ export function createGrid(host, options) {
       else st.sort = [{ id, dir: 1 }];
     });
     resort();
+    reportSort(before);
     const first = st.sort[0];
     announce(first
       ? `Trié par ${st.sort.map((s) => `${colById.get(s.id).label}, ${s.dir > 0 ? 'croissant' : 'décroissant'}`).join(', puis ')}.`
@@ -1706,11 +1717,24 @@ export function createGrid(host, options) {
       refreshView();
     },
 
+    /** Current sort (copies), for a caller that sorts the rows itself (remoteSort). */
+    getSort: () => st.sort.map((s) => ({ ...s })),
+
+    /** Shows a sort chosen elsewhere (a menu of the page) without reporting it back; unknown or unsortable columns are ignored. */
+    setSort(sort) {
+      st.sort = (Array.isArray(sort) ? sort : []).filter((s) => s && colById.get(s.id)?.sortable && (s.dir === 1 || s.dir === -1))
+        .slice(0, o.remoteSort ? 1 : 4).map((s) => ({ id: s.id, dir: s.dir }));
+      persist();
+      resort();
+    },
+
     resetLayout() {
+      const before = sortKeyText();
       changeLayout('Disposition par défaut', () => defaults());
       root.dataset.density = st.density;
       rebuildColumns();
       resort();
+      reportSort(before);
       announce('Disposition par défaut rétablie.');
     },
 

@@ -189,17 +189,21 @@ public static class SyncCoverageRules
         var gap = Math.Max(0, gapCount);
         int? age = coverage.At is { } at ? (int)Math.Floor((now - at).TotalDays) : null;
         var c = SyncText.C;
-        var gapText = "Recensement du domaine" + c + FrenchText.Count(gap, "objet présent dans l’AD manque", "objets présents dans l’AD manquent")
-            + " dans la base locale. « Lire les objets manquants » les relit par leur GUID (200 au plus à la fois)" + SyncText.Semi
-            + " la mise à jour des changements continue sans eux.";
-        const string clockText = "Recensement daté dans le futur : vérifiez l’horloge de ce poste avant de vous y fier.";
+        string? gapText = gap > 0
+            ? "Recensement du domaine" + c + FrenchText.Count(gap, "objet présent dans l’AD manque", "objets présents dans l’AD manquent")
+                + " dans la base locale. " + FrenchText.Quote("Lire les objets manquants") + " les relit par leur GUID (200 au plus à la fois)" + SyncText.Semi
+                + " la mise à jour des changements continue sans eux."
+            : null;
+        var clockText = "Recensement daté dans le futur" + c + "vérifiez l’horloge de ce poste avant de vous y fier.";
         if (coverage.ClockInvalid)
         {
-            return new CensusAdvice(CensusState.Clock, true, age, days, gap, gap > 0 ? clockText + " " + gapText : clockText, Tone.Alert);
+            return new CensusAdvice(CensusState.Clock, true, age, days, gap, clockText, Tone.Alert, gapText);
         }
         if (gap > 0 && isDomain)
         {
-            return new CensusAdvice(CensusState.Gap, true, age, days, gap, gapText, Tone.Warn);
+            return new CensusAdvice(CensusState.Gap, true, age, days, gap,
+                "Recensement du domaine" + c + FrenchText.Count(gap, "identité recensée manque", "identités recensées manquent") + " dans la base locale" + SyncText.Semi
+                + " elles se relisent par leur GUID, sans relire tout le domaine.", Tone.Warn, gapText);
         }
         CensusState state;
         string text;
@@ -239,11 +243,7 @@ public static class SyncCoverageRules
                 text += " Chaque mise à jour des changements du domaine recense aussi toutes les identités.";
             }
         }
-        if (gap > 0)
-        {
-            text += " " + gapText;
-        }
-        return new CensusAdvice(state, state != CensusState.Recent, age, days, gap, text, tone);
+        return new CensusAdvice(state, state != CensusState.Recent, age, days, gap, text, tone, gapText);
     }
 
     /// <summary>
@@ -336,9 +336,77 @@ public static class SyncCoverageRules
         return "la dernière mise à jour était incomplète le " + SyncText.LocalDateTime(at, zone) + " (" + detail + ").";
     }
 
+    /// <summary>Writes stop under this reserve (Domenia 1: 32 Mio plus four times what is queued).</summary>
+    public const long WriteReserveBytes = 33_554_432;
+
+    /// <summary>New collections stop under this free space (Domenia 1: 512 Mio plus four times what is queued).</summary>
+    public const long SuspendBelowBytes = 536_870_912;
+
+    /// <summary>Free space under which the page warns (Domenia 1: 2 Gio plus four times what is queued).</summary>
+    public const long WarnBelowBytes = 2_147_483_648;
+
+    /// <summary>Failed local writes after which the writer is suspended (Domenia 1 Persistence.Failures).</summary>
+    public const int WriterFailureLimit = 3;
+
+    /// <summary>
+    /// State of the storage for new collections (Domenia 1 Get-DomeniaStorageSpaceState and Get-DomeniaStorageCollectionRefusal,
+    /// points 32 and 35): a maintenance of the base or a writer suspended after <see cref="WriterFailureLimit"/> failures stops
+    /// new passes; so does a free space under 512 Mio (critical under 32 Mio), both raised by four times what is queued. Without
+    /// a measure (<paramref name="freeBytes"/> null) nothing is blocked and nothing is claimed. Data already read keep being
+    /// written: only new collections wait.
+    /// </summary>
+    public static SyncStorageHealth Storage(bool maintenance, int writerFailures, long? freeBytes, DateTimeOffset? measuredAt, long queuedBytes, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        var c = SyncText.C;
+        var queued = Math.Max(0, queuedBytes);
+        var write = WriteReserveBytes + 4 * queued;
+        var suspend = SuspendBelowBytes + 4 * queued;
+        var warn = WarnBelowBytes + 4 * queued;
+        var state = "unknown";
+        string text;
+        if (freeBytes is { } free && free >= 0 && measuredAt is { } at)
+        {
+            var when = SyncText.LocalDateTime(at, zone);
+            (state, text) = free < write
+                ? ("critical", "Espace disque critique" + c + Size(free) + " libres (mesure du " + when + "). Écritures refusées sous " + Size(write) + " et nouvelles collectes suspendues.")
+                : free < suspend
+                    ? ("suspend", "Espace disque insuffisant" + c + Size(free) + " libres (mesure du " + when + "). Nouvelles collectes suspendues sous " + Size(suspend) + SyncText.Semi + " ce qui est déjà collecté continue de s’enregistrer.")
+                    : free < warn
+                        ? ("low", "Espace disque à surveiller" + c + Size(free) + " libres (mesure du " + when + "). Les nouvelles collectes seront suspendues sous " + Size(suspend) + ".")
+                        : ("ok", "Espace libre du volume de la base" + c + Size(free) + " (mesure du " + when + ").");
+            if (now - at > TimeSpan.FromMinutes(30))
+            {
+                text += " Mesure ancienne" + c + "elle sera reprise à la prochaine vérification du stockage.";
+            }
+        }
+        else
+        {
+            text = "Espace libre du volume de la base" + c + "non mesuré dans cette session. Chaque enregistrement contrôle sa propre réserve.";
+        }
+        var suspended = writerFailures >= WriterFailureLimit;
+        string? refusal = maintenance
+            ? "Maintenance de la base locale en cours" + c + "nouvelles collectes suspendues jusqu’à la fin de la maintenance."
+            : suspended
+                ? "Enregistrement local suspendu après des échecs" + c + "nouvelles collectes suspendues jusqu’à la reprise des sauvegardes."
+                : state is "critical" or "suspend" ? text : null;
+        return new SyncStorageHealth(state, freeBytes, text, maintenance, suspended, refusal);
+    }
+
+    /// <summary>Size in plain words (« 412 Mo », « 1,8 Go »), binary units as Domenia 1 shows them.</summary>
+    public static string Size(long bytes)
+    {
+        const double Mio = 1024 * 1024;
+        var value = Math.Max(0, bytes);
+        return value >= 1024 * Mio
+            ? FrenchText.Decimal(value / (1024 * Mio), 1) + FrenchText.Nbsp + "Go"
+            : FrenchText.Integer((long)Math.Round(value / Mio)) + FrenchText.Nbsp + "Mo";
+    }
+
     /// <summary>
     /// Whether a new directory pass may start (Domenia 1 Test-DomeniaIndexWriteReady): one pass at a time, never during a
-    /// commit of the base, a maintenance, a suspended writer or a nearly full disk. Saved branches are kept.
+    /// commit of the base, a maintenance, a suspended writer or a nearly full disk (<paramref name="storageRefusal"/>, see
+    /// <see cref="Storage"/>). Saved branches are kept.
     /// </summary>
     public static SyncReadiness Readiness(bool passRunning, bool committing, string? storageRefusal)
     {
@@ -357,40 +425,61 @@ public static class SyncCoverageRules
         return new SyncReadiness(true, null);
     }
 
+    /// <summary>Counts of the base behind the tiles: accounts and workstations by state, associations and workstations with a known user.</summary>
+    public sealed record TileCounts(int UsersEnabled, int UsersDisabled, int ComputersActive, int ComputersDisabled, int Links, int ComputersWithUser);
+
     /// <summary>
-    /// The four tiles of the base (Domenia 1 Get-DomeniaIndexTiles): accounts, workstations (active and disabled),
-    /// associations, last complete read of the chosen scope. An unreadable base shows « — », never zeros.
+    /// The four tiles of the base (Domenia 1 Get-DomeniaIndexTiles): accounts (enabled and disabled), workstations (active and
+    /// disabled), associations (workstations with or without a known user), last complete read of the chosen scope with a gauge
+    /// of its freshness against the census threshold. An unreadable base (<paramref name="counts"/> null) shows « — », never zeros.
     /// </summary>
-    public static ImmutableArray<SyncTile> Tiles(int users, int computers, int active, int disabled, int links, DateTimeOffset? lastAt, DateTimeOffset now, TimeZoneInfo zone, bool unreadable = false)
+    public static ImmutableArray<SyncTile> Tiles(TileCounts? counts, DateTimeOffset? lastAt, DateTimeOffset now, TimeZoneInfo zone, int maxAgeDays = DefaultFullRebuildDays)
     {
         ArgumentNullException.ThrowIfNull(zone);
-        if (unreadable)
+        var days = Math.Clamp(maxAgeDays, 1, 90);
+        if (counts is null)
         {
             return
             [
-                new SyncTile("accounts", "Comptes", "—", null, "base illisible", Tone.Off),
-                new SyncTile("computers", "Postes", "—", null, "base illisible", Tone.Off),
-                new SyncTile("links", "Associations", "—", null, "base illisible", Tone.Off),
-                new SyncTile("updated", "Dernière mise à jour", "—", null, "base illisible", Tone.Off),
+                new SyncTile("accounts", "Comptes", "—", null, "base illisible", Tone.Off, [], null, null),
+                new SyncTile("computers", "Postes", "—", null, "base illisible", Tone.Off, [], null, null),
+                new SyncTile("links", "Associations", "—", null, "base illisible", Tone.Off, [], null, null),
+                new SyncTile("updated", "Dernière mise à jour", "—", null, "base illisible", Tone.Off, [], null, null),
             ];
         }
+        static int P(int n) => Math.Max(0, n);
+        var users = P(counts.UsersEnabled) + P(counts.UsersDisabled);
+        var computers = P(counts.ComputersActive) + P(counts.ComputersDisabled);
+        var withUser = Math.Min(computers, P(counts.ComputersWithUser));
         var updatedValue = "Jamais";
         var updatedDetail = "aucune lecture complète de ce périmètre";
         var updatedTone = Tone.Warn;
+        double? gauge = null;
+        var gaugeText = "seuil de recensement" + SyncText.C + FrenchText.Count(days, "jour", "jours");
         if (lastAt is { } at)
         {
             updatedValue = SyncText.Elapsed(at, now);
             updatedDetail = "le " + SyncText.LocalDateTime(at, zone);
             var age = now - at;
-            updatedTone = age < TimeSpan.Zero ? Tone.Alert : age.TotalHours < 24 ? Tone.Ok : age.TotalDays <= DefaultFullRebuildDays ? Tone.Info : Tone.Warn;
+            updatedTone = age < TimeSpan.Zero ? Tone.Alert : age.TotalHours < 24 ? Tone.Ok : age.TotalDays <= days ? Tone.Info : Tone.Warn;
+            gauge = age < TimeSpan.Zero ? 0 : Math.Round(Math.Clamp(1 - age.TotalDays / days, 0, 1), 3);
+            gaugeText = age.TotalDays > days
+                ? "au-delà du seuil de " + FrenchText.Count(days, "jour", "jours")
+                : "fraîcheur · seuil de " + FrenchText.Count(days, "jour", "jours");
         }
         return
         [
-            new SyncTile("accounts", "Comptes", FrenchText.Integer(Math.Max(0, users)), Math.Max(0, users), "comptes utilisateurs", Tone.Info),
-            new SyncTile("computers", "Postes", FrenchText.Integer(Math.Max(0, computers)), Math.Max(0, computers),
-                FrenchText.Count(Math.Max(0, active), "actif", "actifs") + " · " + FrenchText.Count(Math.Max(0, disabled), "désactivé", "désactivés"), Tone.Info),
-            new SyncTile("links", "Associations", FrenchText.Integer(Math.Max(0, links)), Math.Max(0, links), "liens utilisateur-poste", Tone.Info),
-            new SyncTile("updated", "Dernière mise à jour", updatedValue, null, updatedDetail, updatedTone),
+            new SyncTile("accounts", "Comptes", FrenchText.Integer(users), users, "comptes utilisateurs", Tone.Info,
+                [new SyncTilePart("enabled", P(counts.UsersEnabled) >= 2 ? "activés" : "activé", P(counts.UsersEnabled), Tone.Ok),
+                 new SyncTilePart("disabled", P(counts.UsersDisabled) >= 2 ? "désactivés" : "désactivé", P(counts.UsersDisabled), Tone.Off)], null, null),
+            new SyncTile("computers", "Postes", FrenchText.Integer(computers), computers,
+                FrenchText.Count(P(counts.ComputersActive), "actif", "actifs") + " · " + FrenchText.Count(P(counts.ComputersDisabled), "désactivé", "désactivés"), Tone.Info,
+                [new SyncTilePart("active", P(counts.ComputersActive) >= 2 ? "actifs" : "actif", P(counts.ComputersActive), Tone.Ok),
+                 new SyncTilePart("disabled", P(counts.ComputersDisabled) >= 2 ? "désactivés" : "désactivé", P(counts.ComputersDisabled), Tone.Off)], null, null),
+            new SyncTile("links", "Associations", FrenchText.Integer(P(counts.Links)), P(counts.Links), "liens utilisateur-poste", Tone.Info,
+                [new SyncTilePart("withUser", withUser >= 2 ? "postes liés" : "poste lié", withUser, Tone.Info),
+                 new SyncTilePart("withoutUser", computers - withUser >= 2 ? "non liés" : "non lié", computers - withUser, Tone.Off)], null, null),
+            new SyncTile("updated", "Dernière mise à jour", updatedValue, null, updatedDetail, updatedTone, [], gauge, gaugeText),
         ];
     }
 
@@ -404,7 +493,7 @@ public static class SyncCoverageRules
         var c = SyncText.C;
         if (objects <= 0)
         {
-            notices.Add(new SyncNotice(Tone.Info, "Aucune base locale" + c + "construction disponible ici, à la main (« Mettre à jour l’OU choisie »). Aucune lecture automatique au démarrage."));
+            notices.Add(new SyncNotice(Tone.Info, "Aucune base locale" + c + "construction disponible ici, à la main (" + FrenchText.Quote("Mettre à jour l’OU choisie") + "). Aucune lecture automatique au démarrage."));
             return notices.ToImmutable();
         }
         if (checkpoint is null)
@@ -539,6 +628,10 @@ public static class SyncCoverageRules
         if (census.Due)
         {
             lines.Add(census.Text);
+        }
+        if (census.GapText is { Length: > 0 } gapText)
+        {
+            lines.Add(gapText);
         }
         return lines.ToImmutable();
     }

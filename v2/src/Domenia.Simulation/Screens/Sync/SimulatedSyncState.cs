@@ -29,7 +29,9 @@ internal sealed record IndexBatch(
     long HighestUsn,
     ImmutableArray<IndexRecord> Rows,
     ImmutableArray<CensusGapRecord> Census,
-    string Sha256) : HeldBatch(Id, "index", Label, CreatedAt, ExpiresAt, Rows.Length);
+    string Sha256,
+    bool Rebuild,
+    string LapsSchema) : HeldBatch(Id, "index", Label, CreatedAt, ExpiresAt, Rows.Length);
 
 /// <summary>A verification of disappeared objects.</summary>
 internal sealed record AbsenceBatch(string Id, string Label, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, string Server, ImmutableDictionary<Guid, AbsenceOutcome> Outcomes, string Sha256)
@@ -139,17 +141,52 @@ internal sealed class SimulatedSyncState
 
     public RunState? Run { get; set; }
 
-    private bool committing;
+    private int commits;
 
     /// <summary>
-    /// True while a storage commit holds the base (reads with a short wait answer « busy », Domenia 1 point 4). Read without the
-    /// gate for the short wait of a search; every decision is taken again under the gate.
+    /// True while at least one storage commit holds the base (reads with a short wait answer « busy », Domenia 1 point 4). A
+    /// counter, so two commits that overlap never clear it too early. Read without the gate for the short wait of a search;
+    /// every decision is taken again under the gate.
     /// </summary>
-    public bool Committing
-    {
-        get => Volatile.Read(ref committing);
-        set => Volatile.Write(ref committing, value);
-    }
+    public bool Committing => Volatile.Read(ref commits) > 0;
+
+    /// <summary>A commit starts (call <see cref="EndCommit"/> in a finally).</summary>
+    public void BeginCommit() => Interlocked.Increment(ref commits);
+
+    public void EndCommit() => Interlocked.Decrement(ref commits);
+
+    private int maintenance;
+
+    /// <summary>True while a maintenance of the base runs (a verified backup in the simulation): new passes wait.</summary>
+    public bool Maintenance => Volatile.Read(ref maintenance) > 0;
+
+    public void BeginMaintenance() => Interlocked.Increment(ref maintenance);
+
+    public void EndMaintenance() => Interlocked.Decrement(ref maintenance);
+
+    /// <summary>Failed local writes in a row (Domenia 1 Persistence.Failures); the simulation never fails a write, it stays at 0.</summary>
+    public int WriterFailures { get; set; }
+
+    /// <summary>LAPS schema of the fictitious domain as the last read of the schema found it (Domenia 1 $lapsSchema).</summary>
+    public string LapsSchema { get; set; } = SyncIndex.LapsSchemaUnknown;
+
+    /// <summary>A workstation result on its way (a park probe of the session) that lands while the stored survey is read again.</summary>
+    public ParkProbe? InFlightProbe { get; set; }
+
+    /// <summary>Results kept while the stored survey is read again (Domenia 1 DomeniaParkDeferred), applied after it.</summary>
+    public ImmutableArray<ParkProbe> DeferredProbes { get; set; } = [];
+
+    /// <summary>True while the stored park survey is read again.</summary>
+    public bool ParkReloading { get; set; }
+
+    /// <summary>One synchronisation of the shared survey at a time: a second request waits and is made after it (Domenia 1).</summary>
+    public SemaphoreSlim SharedGate { get; } = new(1, 1);
+
+    /// <summary>Attempts during which another console holds the lock of the shared file (the next read finds it free).</summary>
+    public int SharedLockHeldFor { get; set; } = 1;
+
+    /// <summary>Whether the share of the shared survey answers (the fictitious file server always does).</summary>
+    public bool SharedReachable { get; set; } = true;
 
     public string DomainDn { get; private set; } = "";
 

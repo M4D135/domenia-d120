@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Synchronisation : vérifier les disparitions puis enregistrer les résultats",
-  "description": "Onglet Contrôles : la vérification demande une confirmation, relit les objets non revus par leur GUID (suppression prouvée seulement par isDeleted), puis les résultats passent par le circuit d’écriture.",
+  "description": "Onglet Contrôles : la vérification demande une confirmation, relit les objets non revus du domaine par leur GUID (suppression prouvée seulement par isDeleted), puis les résultats passent par le circuit d’écriture ; la liste se lit pour le périmètre ou pour tout le domaine.",
   "modes": ["simulation"],
   "start": "synchro?onglet=controles",
   "steps": [
@@ -15,6 +15,7 @@
     { "do": "click", "text": "Confirmer…" },
     { "do": "click", "text": "Confirmer l’écriture" },
     { "do": "wait", "selector": "[data-job=\"check\"]", "absent": true, "timeoutMs": 30000, "title": "Les résultats sont relus depuis la base" },
+    { "do": "click", "selector": "[data-abs=\"domain\"]", "title": "Afficher les disparitions de tout le domaine" },
     { "do": "expect", "contains": "De nouveau visible", "within": "[data-slot=\"absences\"]" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]

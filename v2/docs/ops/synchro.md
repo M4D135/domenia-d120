@@ -27,9 +27,10 @@ tests écrits et non exécutés (décision de David du 21/10 : à la toute fin).
 | `synchro.index.search` | `LocalRead` | `{ text, dn?, sort?, descending?, offset?, limit? }` | `IndexSearchPage` |
 | `synchro.index.export` | `LocalWrite` | `{ text, dn?, sort?, descending? }` | `SyncExport` |
 | `synchro.controls` | `LocalRead` | `{ dn? }` | `SyncControls` |
-| `synchro.read.estimate` | `LocalRead` | `{ target: "ou"\|"domain", dn?, maxObjects? (0..10 000 000), budgetSeconds? (30..7 200) }` | `SyncEstimate` |
+| `synchro.read.estimate` | `LocalRead` | `{ target: "ou"\|"domain", dn?, maxObjects? (0..10 000 000), budgetSeconds? (30..7 200), rebuild? (true seulement avec "domain") }` | `SyncEstimate` |
 | `synchro.read.run` | `NetworkRead` (servie en simulation) | `{ estimateId }` | `SyncReadResult` ; événements `synchro.read.run:progress` (`SyncProgress`) |
 | `synchro.read.stop` | `Local` | `{ runId }` | `SyncStop` |
+| `synchro.read.discard` | `Local` | `{ batchId }` | `SyncDiscard` (`discarded`, `message`) : le lot (lecture, vérification, objets manquants, partage) n’est plus proposé à l’enregistrement ; rien n’est écrit |
 | `synchro.absences.check` | `NetworkRead` (servie) | aucun | `AbsenceCheckResult` ; événements `synchro.absences.check:progress` |
 | `synchro.gaps.read` | `NetworkRead` (servie) | aucun | `GapReadResult` ; événements `synchro.gaps.read:progress` |
 | `synchro.snapshot.compare` | `LocalRead` | `{ before, after }` | `SnapshotComparison` |
@@ -73,45 +74,65 @@ sont écrits ; dates UTC à la seconde ; énumérations en camelCase.
   `runId`, `target`, `scopeLabel`, `phase`, `phaseLabel`, `startedAt`, `stopping`) ou `null`, `pending` (lot de lecture en
   attente : `batchId`, `kind`, `label`, `count`, `readAt`, `expiresAt`) ou `null`, `receipts` (6 derniers reçus de
   stockage : `batchId`, `kind`, `label`, `at`, `count`, `sha256`, `verified`, `text`), `backup` (`lastAt`, `due`, `text`),
-  `park` (`ParkCoverage`), `details`, `lead` (phrase du héros).
+  `park` (`ParkCoverage`), `details`, `lead` (phrase du héros : base et périmètre ; l’âge du repère n’est dit que par son
+  avis), `now` (heure du moteur : **seule source** des âges affichés par la page), `counts` (`objects`, `scopes`,
+  `absences`, `absencesPending`, `gaps`, `snapshots`, `park` : compteurs des onglets), `storage` (`spaceState` ∈
+  `unknown|ok|low|suspend|critical`, `freeBytes`, `spaceText`, `maintenance`, `writerSuspended`, `refusal` : garde des
+  nouvelles collectes, Domenia 1 Get-DomeniaStorageCollectionRefusal), `lapsSchema` ∈ `present|absent|unknown`. Chaque
+  tuile porte un pied de même nature : `parts` (deux parts `key`, `label`, `count`, `tone` : comptes activés et désactivés,
+  postes actifs et désactivés, postes avec et sans utilisateur) ou `gauge` (0 à 1, fraîcheur du périmètre rapportée au seuil
+  de recensement) et `gaugeText`. `census.gapText` donne les identités recensées absentes à part du conseil (`text`).
+  `limits.source` dit d’où viennent les limites (« Réglages par défaut » ou les clés lues dans `Domenia.config.json`).
 - **`IndexSearchPage`** : `term`, `browse`, `scope`, `sort`, `descending`, `sortLabel`, `offset`, `limit`, `page`,
   `pages`, `total`, `hasMore`, `busy` (base tenue par un enregistrement : jamais un résultat vide, la page réessaie une
   fois), `generation`, `rows` (`IndexHit` : `guid`, `type` ∈ `user|computer`, `typeLabel`, `name`, `login`, `upn`,
   `displayName`, `description`, `extra`, `enabled`, `stateLabel`, `dn`, `location`, `association`, `score` 100/90/70/0,
-  `reason`, `whenChanged`, `lastLogon`, `lapsExpiration`, `observedAt`), `message`.
+  `reason`, `whenChanged`, `lastLogon`, `lapsExpiration`, `observedAt`, `lapsState` ∈
+  `windows|legacy|none|noSchema|unknown` (nul pour un compte) et `lapsText` : la fiche locale distingue « absent du schéma du
+  domaine » de « non visible avec ce compte »), `message`.
 - **`SyncControls`** : `scope`, `census`, `gaps` (`total`, `shown`, `canRead`, `summary`, `rows` : `guid`, `dn`, `name`,
   `location`, `seenAt`), `absences` (`total`, `counts` par état, `pending`, `shown`, `canCheck`, `summary`, `rows` :
   `guid`, `status` ∈ `notSeen|visible|moved|deleted|notFound|invisible|unconfirmed`, `label`, `tone`, `name`, `type`,
-  `typeLabel`, `lastDn`, `foundDn`, `location`, `noticedAt`, `checkedAt`, `detail`, `scopeDn`, `server`), `snapshots`
+  `typeLabel`, `lastDn`, `foundDn`, `location`, `noticedAt`, `checkedAt`, `detail`, `scopeDn`, `server`, `inScope` : vu
+  pour la dernière fois, ou retrouvé, dans le périmètre de l’écran), `inScope` (leur nombre), `snapshots`
   (`count`, `max` 50, `maxObjects` 300 000, `text`, `notice`, `rows` : `id`, `label`, `domainDn`, `scopeDn`, `subtree`,
   `scopeText`, `capturedAt`, `objectCount`, `coverageState` ∈ `complete|partial|unknown|missing`, `coverageAt`,
-  `coverageText`, `rowsSha256`, `display`), `generation`.
+  `coverageText`, `rowsSha256`, `display`), `generation`, `now`.
 - **`SyncEstimate`** : `id`, `target`, `scope`, `mode` ∈ `ou|incremental|full`, `modeLabel`, `checkpointReason` (raison
   d’une relecture complète), `expectedObjects`, `knownObjects`, `estimatedMs`, `estimateText`, `maxObjects`, `budgetMs`,
-  `timeoutSeconds`, `backup`, `warnings`, `confirmTitle`, `confirmLabel`, `confirmText`, `ready`, `refusal`, `expiresAt`.
+  `timeoutSeconds`, `backup`, `warnings`, `confirmTitle`, `confirmLabel`, `confirmText`, `ready`, `refusal`, `expiresAt`,
+  `rebuild` (reconstruction explicite demandée), `canRebuild` (cible domaine). Sans argument, quota et budget viennent de
+  `Domenia.config.json` (§ 9.5).
 - **`SyncProgress`** (événement) : `runId`, `phase` ∈ `backup|reading|census|fingerprint|validation|done`, `phaseLabel`,
   `count`, `total` (nul tant qu’inconnu), `rate` (objets/s), `elapsedMs`, `percent`, `text`.
 - **`SyncReadResult`** : `runId`, `batchId`, `target`, `scope`, `mode`, `modeLabel`, `complete`, `cut` (`reason` ∈
-  `volume|temps|serveur|arret|erreur`, `limit`, `text`) ou `null`, `controller`, `invocationId`, `highestUsn`, `readAt`,
+  `volume|temps|serveur|arret|erreur|vide`, `limit`, `text`) ou `null`, `controller`, `invocationId`, `highestUsn`, `readAt`,
   `durationMs`, `read`, `users`, `computers`, `reconcile` (`added`, `updated`, `moved`, `renamed`, `changed`,
   `unchanged`, `unseen`, `conflicts`, `totalAfter`), `samples` (exemples par catégorie : `category`, `name`, `type`,
-  `detail`), `lapsSchema` ∈ `present|absent`, `lapsText`, `checkpointAdvances`, `checkpointText`, `censusGaps`, `sha256`,
-  `rowCount`, `summary`, `notes`, `storable`, `expiresAt`.
+  `detail`), `lapsSchema` ∈ `present|absent|unknown` (lecture du schéma, jamais déduite des lignes), `lapsText`,
+  `checkpointAdvances`, `checkpointText`, `censusGaps`, `sha256`, `rowCount`, `summary`, `notes`, `storable`, `expiresAt`,
+  `rebuild`.
 - **`AbsenceCheckResult`** : `batchId`, `checked`, `counts`, `deletedProbe` ∈ `read|empty|refused|unavailable|notRequested`,
   `deletedProbeText`, `server`, `observedAt`, `rows` (`guid`, `name`, `status`, `label`, `tone`, `foundDn`, `location`,
   `proof`, `text`), `summary`, `storable`, `expiresAt`. **`GapReadResult`** : `batchId`, `asked`, `added`, `gone`, `unread`,
   `rows` (`guid`, `name`, `status` ∈ `visible|notFound|unconfirmed`, `label`, `tone`, `foundDn`, `location`, `text`),
   `summary`, `storable`, `expiresAt`.
 - **`SnapshotComparison`** : `before`, `after` (`SnapshotRow`), `comparable`, `reasons`, `warnings`, `counts` (`added`,
-  `disappeared`, `common`, `differing`, `unchanged`, `moved`, `renamed`, `changed`), `limit` (500), `truncated`, `rows`
-  (`nature` ∈ `added|disappeared|moved|renamed|changed`, `natureLabel`, `name`, `guid`, `detail`, `before`, `after`),
-  `summary`, `notice`.
+  `disappeared`, `common`, `differing`, `unchanged`, `moved`, `renamed`, `changed`, `distinct` = communs + ajouts +
+  disparitions), `limit` (500), `truncated`, `rows` (`nature` ∈ `added|disappeared|moved|renamed|changed`, `natureLabel`,
+  `name`, `guid`, `detail`, `before` et `after` lisibles : emplacement pour un ajout, une disparition ou un déplacement, nom
+  pour un renommage, valeur pour un champ modifié ; `beforeDn`, `afterDn`), `summary`, `notice`, `headline` (objets avant,
+  après, distincts), `overlap` (objets communs qui diffèrent, par nature ; un objet déplacé et modifié compte dans les deux,
+  ce que la phrase dit).
 - **`ParkState`** : `coverage` (`machines` −1 tant qu’inconnu, `surveyed`, `withSession`, `dormants`, `percent`,
   `latestAt`, `text`), `rows` (`key`, `computer`, `lastProbe`, `status` ∈ `session|empty|unreachable|refused|error`,
   `statusLabel`, `tone`, `user`, `attempts`, `probedBy`), `shared` (`configured`, `path`, `lastSyncAt`, `text`, `canSync`),
-  `generation`. **`ParkSharedRead`** : `batchId`, `path`, `received`, `added`, `updated`, `kept`, `total`, `locked`,
-  `lockAttempts`, `rows` (`computer`, `local`, `shared`, `winner` ∈ `local|shared`, `detail`), `text`, `storable`,
-  `expiresAt`.
+  `generation`, `deferred` (résultats de poste arrivés pendant la relecture du relevé, appliqués ensuite sur les compteurs
+  enregistrés), `deferredText`, `now`. **`ParkSharedRead`** : `batchId` (vide quand rien n’est enregistrable), `path`,
+  `received`, `added`, `updated`, `kept`, `total`, `locked`, `lockAttempts`, `rows` (`computer`, `local`, `shared`, `winner`
+  ∈ `local|shared`, `detail`), `text`, `storable`, `expiresAt`, `outcome` ∈ `merged|lockBusy|unreachable`, `reachable`,
+  `queued` (demande arrivée pendant une autre synchronisation, faite à la suite), `retryAt` (nouvel essai après un verrou
+  non obtenu).
 - **`SyncExport`** : `written`, `path`, `fileName` (`Domenia-base-locale-AAAAMMJJ-HHmmss.csv`,
   `Domenia-comparaison-releves-…csv`), `rows`, `sha256`, `text`.
 
@@ -122,7 +143,7 @@ sont écrits ; dates UTC à la seconde ; énumérations en camelCase.
 | `synchro.scopeRoot` | Mise à jour par OU demandée sur la racine du domaine. |
 | `synchro.estimateUnknown` | Estimation inconnue, déjà utilisée ou expirée (15 min). |
 | `synchro.busy` | Une lecture de l’annuaire (ou une vérification) est déjà en cours. |
-| `synchro.notReady` | Enregistrement en cours (ou refus du stockage) : nouvelle passe refusée (Domenia 1 Test-DomeniaIndexWriteReady). |
+| `synchro.notReady` | Enregistrement en cours, maintenance de la base, rédacteur suspendu ou disque presque plein : nouvelle passe refusée (Domenia 1 Test-DomeniaIndexWriteReady). |
 | `synchro.batchUnknown` | Lot inconnu, déjà enregistré, remplacé ou expiré. |
 | `synchro.nothingToCheck`, `synchro.nothingToRead` | Rien à vérifier, aucun objet manquant à lire. |
 | `synchro.snapshotUnknown`, `synchro.snapshotLimit`, `synchro.snapshotTooLarge` | Relevé introuvable ; 50 relevés par domaine ; plus de 300 000 objets. |
@@ -153,7 +174,7 @@ après), `census` (`gaps=…`), `absence.results`, `snapshot.count`, `park.local
 
 | Opération | Préconditions relues juste avant l’écriture (`write.stale` sinon) | Écriture | Relecture (`VerifyAsync`) |
 |---|---|---|---|
-| Lot `index` | lot présent et non expiré, même nombre de lignes et même empreinte ; aperçu recalculé identique à celui du plan (sinon « La base locale a changé depuis le plan ») | sauvegarde vérifiée si due ; réconciliation en une transaction : lignes écrites sous leur GUID, observation locale plus récente conservée, non revus retirés et notés « non revus », couverture (`ou:<dn>` ou `attempt:…`), repère du domaine (lecture complète du domaine), identités du recensement, marqueur de passe incomplète (posé ou effacé quand une lecture complète couvre la branche) ; reçu de stockage | reçu de stockage relu (lot, nombre, empreinte) → `verified` ; lot toujours en mémoire → `mismatch` |
+| Lot `index` | lot présent et non expiré, même nombre de lignes et même empreinte ; aperçu recalculé identique à celui du plan : mêmes nombres **et même empreinte d’aperçu** (GUID et catégorie de chaque objet, `SyncReconcile.PreviewFingerprint`, portée par le premier changement du plan), sinon « La base locale a changé depuis le plan » ; recensement vide d’une passe complète du domaine refusé hors reconstruction explicite (`SyncReconcile.StorageRefusal`) | sauvegarde vérifiée si due ; réconciliation en une transaction : lignes écrites sous leur GUID, observation locale plus récente conservée, non revus retirés et notés « non revus », couverture (`ou:<dn>` ou `attempt:…`), repère du domaine (lecture complète du domaine), identités du recensement, marqueur de passe incomplète (posé ou effacé quand une lecture complète couvre la branche) ; reçu de stockage | reçu de stockage relu (lot, nombre, empreinte) → `verified` ; lot toujours en mémoire → `mismatch` |
 | Lot `absences` | chaque objet est toujours « non revu » ou « vérification impossible » | statuts, emplacement trouvé, détail, date ; objets retrouvés remis dans la base sous le même GUID | reçu de stockage relu |
 | Lot `gaps` | chaque identité manque toujours | objets lus ajoutés ; identités retrouvées ou disparues retirées de la liste | reçu de stockage relu |
 | Lot `park` | relevé local et fichier partagé inchangés (empreintes) | fusion (la ligne la plus récente gagne) écrite dans la base et dans le fichier partagé sous verrou | reçu de stockage relu |
@@ -161,11 +182,15 @@ après), `census` (`gaps=…`), `absence.results`, `snapshot.count`, `park.local
 | `snapshot.delete` | relevé présent, même empreinte | suppression | relevé absent de la base relue |
 | `park.reset` | relevé du parc inchangé (empreinte) | sauvegarde vérifiée si due, puis état de balayage effacé (associations, observations, historique conservés) | relevé vide |
 
-Pendant l’écriture, la base est tenue : une recherche concurrente attend 50 ms puis répond `busy` (la page réessaie une
+Pendant l’écriture, la base est tenue (compteur d’écritures en cours : deux écritures qui se chevauchent ne la libèrent jamais trop tôt) : une recherche concurrente attend 50 ms puis répond `busy` (la page réessaie une
 fois après 600 ms, puis le dit). Réversibilité déclarée : « Point de retour : sauvegarde vérifiée » (index, parc), relevé
 supprimable (capture), définitif (suppression d’un relevé, fusion du partage).
 
 ## 6. Exports (`LocalWrite`)
+
+Classe : `LocalWrite` (données locales de l’application, jamais l’annuaire ni un poste) ; `OPERATIONS.md` § 1.3 réserve
+cette classe aux préférences et aux reçus : l’usage pour un export demandé par l’opérateur (un fichier neuf, jamais un
+remplacement, comme le prévoit le kit pour `onExport`, `KIT.md` § 4.1) y est ajouté **à faire acter par David**.
 
 `synchro.index.export` (toutes les lignes de la recherche, 20 000 au plus, triées) et `synchro.snapshot.export` (rapport
 de comparaison) écrivent un CSV neuf dans `%LOCALAPPDATA%\Domenia\Exports` (`Exports-simulation` en simulation) :
@@ -194,7 +219,16 @@ générateur central :
   domaine entier il y a 26 jours (couverture incomplète) ;
 - relevé du parc : 70 % des postes actifs de Postes (ceux sans connexion depuis 90 jours écartés), statuts session, aucune
   session, injoignable, refus ; relevé partagé fictif `\\SRV-FIC-01.example.local\Domenia$\releve-parc.json` de deux autres
-  consoles (12 lignes plus récentes, 18 postes en plus), verrou obtenu au deuxième essai ;
+  consoles (12 lignes plus récentes, 18 postes en plus), verrou obtenu au deuxième essai puis au premier (l’autre console
+  a fini) ; une demande arrivée pendant une synchronisation attend et se fait à la suite ; partage injoignable et verrou
+  gardé 12 essais sont modélisés (`SharedReachable`, `SharedLockHeldFor`) ; un résultat de poste en route (un poste
+  injoignable qui répond enfin) arrive pendant la première relecture du relevé et s’applique ensuite, ses tentatives
+  partant du compteur enregistré ;
+- schéma LAPS du domaine fictif : présent (Windows LAPS), lu avec chaque passe ; postes sans expiration : « non visible avec
+  ce compte » ; espace disque jamais mesuré (aucun disque), maintenance pendant la sauvegarde vérifiée d’une lecture ;
+- avis de démarrage : au démarrage, le module lit une fois la base, en tâche de fond (jamais sur le fil de l’interface), et
+  inscrit ses avis dans le journal des opérations affiché par l’Accueil (« Base locale · Changements du domaine lus il y a
+  3 jours… », « Base locale · À vérifier : la dernière mise à jour était incomplète… ») ; rien n’est lancé ;
 - associations : postes et utilisateur de leur `managedBy` ; dernière sauvegarde vérifiée 47 minutes avant la référence.
 
 Délais réalistes et annulables (`latency/screen/synchro/…` : vue 80–160 ms, recherche 40–120, contrôles 80–180,
@@ -205,17 +239,28 @@ validation 150–260 ; écriture : plan 60–140, contrôle 60–140, exécution
 
 ## 8. Page `#/synchro`
 
-- Héros : titre, phrase de synthèse, puces (base, contrôleur, USN, génération), gestes « Mettre à jour l’OU … » et
-  « Changements du domaine », cadran de fraîcheur du périmètre (arc selon l’âge de la dernière lecture complète, seuil de
-  7 jours), périmètre (OU de travail, ou OU choisie ici, mémorisée dans l’adresse `?ou=`).
-- Quatre tuiles (comptes, postes actifs et désactivés, associations, dernière mise à jour), avis de démarrage.
-- Panneau de lecture : estimation (panneau latéral, limites de la passe modifiables), étapes animées, compteurs, arrêt,
-  aperçu exact de l’enregistrement (barre des changements, exemples par catégorie, faits), enregistrement par le circuit
-  d’écriture ; une lecture en attente est rappelée au retour sur l’écran.
-- Espaces : **Mise à jour** (couverture par périmètre sur un axe de 14 jours, repère, limites, reçus de stockage,
-  sauvegarde), **Données** (recherche, tri sur la population, pages, fiche locale, export), **Contrôles** (recensement,
-  objets manquants, disparitions filtrées par état, vérification), **Relevés** (nouveau relevé, liste, suppression,
-  comparaison filtrable par nature, export), **Parc** (couverture, partage entre consoles, postes relevés, oubli).
+- Héros : titre, phrase de synthèse, puces sur une ligne (base, contrôleur, USN, génération), gestes « Mettre à jour l’OU … »
+  (avec le domaine pour périmètre : le choix de l’OU s’ouvre d’abord, puis son estimation) et « Changements du domaine »,
+  menu « Autres gestes » (dont « Reconstruire la base depuis le domaine… »), cadran de fraîcheur du périmètre (jauge du
+  moteur : âge de la dernière lecture complète rapporté au seuil de recensement), périmètre (OU de travail, ou OU choisie
+  ici, mémorisée dans l’adresse `?ou=`).
+- Titres de section comme l’Accueil (« Indicateurs de la base », « Espaces de travail ») ; quatre tuiles au pied de même
+  nature (répartition en deux parts ou jauge de fraîcheur, légende), avis de démarrage. Tous les âges sont mesurés sur
+  l’heure du moteur (`now`), une seule forme de date (« 22/10/2026 05:16 »).
+- Panneau de lecture : estimation (panneau latéral : déroulement phase par phase, reconstruction explicite pour le domaine,
+  limites de la passe modifiables), étapes animées, compteurs, arrêt, aperçu exact de l’enregistrement (barre des
+  changements, exemples par catégorie, faits), enregistrement par le circuit d’écriture ; « Ignorer cette lecture » écarte
+  le lot du moteur (`synchro.read.discard`) ; une lecture en attente est rappelée au retour sur l’écran.
+- Espaces (compteurs sur les onglets) : **Mise à jour** (couverture par périmètre sur un axe de 14 jours, repère, limites et
+  leur source, sauvegarde et stockage, reçus de stockage), **Données** (recherche, tri par l’en-tête ou la liste sur toute la
+  population dans le moteur, « Pertinence », pages, fiche locale avec l’état LAPS, export), **Contrôles** (recensement,
+  objets manquants, disparitions du périmètre ou de tout le domaine, filtrées par état, vérification), **Relevés** (nouveau
+  relevé, liste ajustée à ses lignes, menu de la ligne : comparer, prendre comme avant ou après, supprimer ; comparaison
+  lisible, filtrable par nature, export de la comparaison affichée), **Parc** (couverture, résultats appliqués après la
+  relecture, partage entre consoles en trois étapes, verrou non obtenu : un nouvel essai annoncé et annulable, postes
+  relevés, oubli).
+- Réponses périmées écartées : chaque lecture de la page porte un numéro de demande et la génération de la base ; une
+  réponse plus ancienne ne repeint jamais un état plus récent (Domenia 1 : lecture écartée par génération).
 - Adresse : `onglet=mise-a-jour|donnees|controles|releves|parc`, `ou=<DN>`, `q=<terme>`, `objet=<GUID>`, `comparer=1`
   (compare les deux relevés proposés, lecture locale), `lecture=ou|domaine` (ouvre l’estimation, rien n’est lu),
   `choisir=1` (ouvre le choix de l’OU), `apercu=lecture` (**simulation seulement** : lance la lecture de l’OU sans
@@ -289,25 +334,43 @@ puis remplacement, sous le verrou, après la confirmation du plan.
 
 `Index.MaxObjects` (0 = sans quota), `Index.BudgetMs` (1 200 000 ; l’ancien défaut 240 000 est relevé ; 30 000 au moins ;
 délai = budget + 120 s, 300 s au moins), `Index.FullRebuildDays` (7, borné de 1 à 90), `Index.StartupDeltaMaxAgeMinutes`
-(30), `Index.ComputerFirst`, `ParkSweep.SharedPath`, `LocalStore.DatabaseBusyTimeoutMs`. Aujourd’hui, la configuration
-héritée ne lit que `Auth.DemoProvider` : les valeurs par défaut de Domenia 1 s’appliquent, et l’estimation permet de
-changer quota et budget pour une passe.
+(30), `Index.ComputerFirst`, `ParkSweep.SharedPath`, `LocalStore.DatabaseBusyTimeoutMs`. Le module lit la section
+`Index` de `Domenia.config.json` (à côté de l’exe) au premier usage, hors du fil de l’interface (`SyncSettings.Parse` :
+noms insensibles à la casse, nom en double = fichier ignoré, entier JSON ou texte de chiffres comme le cast `[int]` de
+Domenia 1, valeur hors bornes = défaut ; le journal technique ne reçoit que les clés lues ou la raison, jamais le contenu) :
+`MaxObjects`, `BudgetMs`, `FullRebuildDays`, `StartupDeltaMaxAgeMinutes`. L’estimation permet encore de changer quota et
+budget pour une passe. `Index.ComputerFirst`, `ParkSweep.SharedPath` et `LocalStore.DatabaseBusyTimeoutMs` suivront avec
+le mode annuaire.
+
+### 9.6 Lectures vides, classes en échec, reconstruction
+
+Une classe dont la lecture échoue rend la passe incomplète (motif `erreur`), jamais un annuaire vide ; une lecture complète
+qui ne rend aucun objet alors que la base en contient dans le périmètre, ou un recensement vide du domaine, rend la passe
+incomplète (motif `vide`) : aucune absence, repère et date de couverture inchangés (`SyncReconcile.EmptyReadCut`). Seule
+une **reconstruction explicite** (`rebuild: true`, Domenia 1 ReplaceAll) confirme un domaine vide après un repère.
+L’enregistrement refuse encore un recensement vide hors reconstruction (`SyncReconcile.StorageRefusal`).
+
+### 9.7 Garde d’écriture avant une passe
+
+`SyncCoverageRules.Storage` : maintenance de la base, rédacteur suspendu après 3 échecs d’écriture, espace libre du volume
+de la base sous 512 Mio (critique sous 32 Mio), seuils relevés de quatre fois ce qui attend ; sans mesure, rien n’est
+bloqué. `Domenia.Store` fournira la mesure et les états en vague 3 ; la simulation n’a pas de disque (« non mesuré »).
 
 ## 10. Tests écrits (exécutés à la fin, dans la VM)
 
 | Fichier | Couvre |
 |---|---|
-| `SyncRulesTests` | appartenance par frontière de RDN et profondeurs ; emplacements lisibles ; classement des déplacements ; résolution des disparitions (preuve `isDeleted`, retrouvé, déplacé, introuvable, invisible, contrôleur indisponible, fiche d’un autre GUID jamais gardée) ; sélection bornée ; résumés ; objets manquants ; couverture (ancêtre, niveau direct, tentative, date future, profondeur inconnue, autre domaine) ; conseil de recensement ; repère (11 codes) ; limites, coupures, avertissement de l’Accueil ; tuiles (base illisible), avis, sauvegarde ; normalisation et score ; tri de la population avant la page, vides en fin ; réconciliation (ajout, déplacement, renommage, valeur, conflit, non revu dans le périmètre seulement) ; empreintes ; repère incrémentiel ; relevés (domaine, nom par défaut, comparaison exacte et bornée, périmètres différents, avertissements) ; fusion du parc ; plans scellés et décodés |
-| `SyncOperationsTests` | vue et périmètre ; arguments ; recherche paginée et triée ; export préparé sans écriture ; lecture d’OU gardée puis plan, exécution unique, reçu `applied`/`verified`, base relue, non revus notés, journal ; plan d’un lot remplacé refusé (`write.stale`) ; changements du domaine et repère ; lecture arrêtée partielle ; vérifications et objets manquants enregistrés ; relevés (comparaison, capture, suppression) ; parc (partage fusionné, oubli) ; mode annuaire sans lecteur et aucune opération `Write` |
+| `SyncRulesTests` | appartenance par frontière de RDN et profondeurs ; emplacements lisibles ; classement des déplacements ; résolution des disparitions (preuve `isDeleted`, retrouvé, déplacé, introuvable, invisible, contrôleur indisponible, fiche d’un autre GUID jamais gardée) ; sélection bornée ; résumés ; objets manquants ; couverture (ancêtre, niveau direct, tentative, date future, profondeur inconnue, autre domaine) ; conseil de recensement ; repère (11 codes) ; limites, coupures, avertissement de l’Accueil ; tuiles (base illisible), avis, sauvegarde ; normalisation et score ; tri de la population avant la page, vides en fin ; réconciliation (ajout, déplacement, renommage, valeur, conflit, non revu dans le périmètre seulement) ; empreintes ; repère incrémentiel ; relevés (domaine, nom par défaut, comparaison exacte et bornée, périmètres différents, avertissements) ; fusion du parc ; plans scellés et décodés | ; lectures vides, classes en échec, recensement vide et reconstruction explicite ; empreinte d’aperçu ; garde du stockage (maintenance, rédacteur suspendu, espace disque) ; état LAPS (schéma absent ou valeur non visible) ; résultats du parc différés pendant la relecture ; issues du relevé partagé ; réglages `Index` ; disparitions du périmètre ; comparaisons lisibles et recouvrements expliqués ; tuiles (parts et jauge)
+| `SyncOperationsTests` | vue et périmètre ; arguments ; recherche paginée et triée ; export préparé sans écriture ; lecture d’OU gardée puis plan, exécution unique, reçu `applied`/`verified`, base relue, non revus notés, journal ; plan d’un lot remplacé refusé (`write.stale`) ; changements du domaine et repère ; lecture arrêtée partielle ; vérifications et objets manquants enregistrés ; relevés (comparaison, capture, suppression) ; parc (partage fusionné, oubli) ; mode annuaire sans lecteur et aucune opération `Write` | ; lecture écartée (`synchro.read.discard`) ; reconstruction demandée pour le domaine seulement ; heure du moteur, compteurs, stockage, schéma LAPS ; avis de démarrage dans le journal ; exports neutralisés (cellules, en-têtes) ; relevé partagé une fois à la fois (demande faite à la suite) et résultat différé du parc
 | `PlatformTests` (mis à jour) | module `SyncOperations` trouvé, 17 opérations et leurs classes |
 | `tests/e2e/synchro/*.json` | lecture puis enregistrement, recherche, vérification des disparitions, comparaison et nouveau relevé, partage du parc |
 
 ## 11. Reste à faire
 
-- Vague 3 : `AdSyncReader` et `StoreSyncExecutor` (§ 9), lecture des réglages `Index.*`, `ParkSweep.SharedPath` et
-  `LocalStore.DatabaseBusyTimeoutMs` de `Domenia.config.json`, refus pendant une maintenance, un rédacteur suspendu ou un
-  disque presque plein (Domenia 1 Get-DomeniaStorageCollectionRefusal).
-- Avis de démarrage de la base (âge, première construction, passe incomplète) dans le journal de l’Accueil : ils sont
-  servis par `synchro.overview.notices`, l’Accueil doit les reprendre.
+- Vague 3 : `AdSyncReader` et `StoreSyncExecutor` (§ 9) : mesure réelle de l’espace libre et compteur d’échecs du
+  rédacteur (la règle `SyncCoverageRules.Storage` est en place), classes en échec signalées par la lecture LDAP (la règle
+  `SyncReconcile.EmptyReadCut` est en place), lecture de `ParkSweep.SharedPath` et `LocalStore.DatabaseBusyTimeoutMs`.
+- L’Accueil reçoit les avis de démarrage par le journal des opérations ; son tableau du parc pourrait aussi reprendre
+  `synchro.overview.partial` (décision de l’équipe de l’Accueil).
 - Améliorations proposées par le catalogue et non faites : restauration depuis la corbeille AD (écriture AD avec son
   propre plan), synchronisation DirSync côté serveur, relevés programmés, partage par un service central.
