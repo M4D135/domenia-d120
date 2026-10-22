@@ -9,7 +9,7 @@
     { "do": "go", "route": "accueil", "title": "Retour à l’Accueil" },
     { "do": "wait", "selector": ".scope-card", "title": "L’Accueil est affiché" },
     { "do": "click", "text": "Choisir l’OU", "within": ".scope-card", "title": "« Choisir l’OU » de l’Accueil" },
-    { "do": "expect", "selector": ".ou-panel[role=dialog]", "title": "Le panneau de l’Accueil s’ouvre" },
+    { "do": "expect", "selector": ".k-drw[role=dialog] .acc-ou", "title": "Le panneau de l’Accueil s’ouvre" },
     { "do": "expect", "selector": ".sy-picker", "absent": true, "title": "Le sélecteur de la synchronisation ne s’ouvre pas" },
     { "do": "press", "key": "Escape" },
     { "do": "go", "route": "synchro?onglet=donnees", "title": "Retour à l’onglet Données" },

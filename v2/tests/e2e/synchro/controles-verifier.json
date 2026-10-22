@@ -5,7 +5,7 @@
   "modes": ["simulation"],
   "start": "synchro?onglet=controles",
   "steps": [
-    { "do": "wait", "contains": "objets non revus par une lecture complète", "within": "[data-slot=\"absences\"]", "title": "La liste des disparitions est lue dans la base" },
+    { "do": "wait", "contains": "pour la dernière fois dans Postes", "within": "[data-slot=\"absences\"]", "title": "La liste des disparitions est lue dans la base" },
     { "do": "click", "selector": "[data-ct=\"check\"]", "title": "Vérifier les disparitions" },
     { "do": "click", "text": "Lancer la vérification", "title": "Confirmer la lecture par GUID" },
     { "do": "wait", "contains": "Vérification terminée", "within": "[data-job=\"check\"]", "timeoutMs": 30000 },

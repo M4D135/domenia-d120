@@ -5,7 +5,7 @@
   "modes": ["simulation"],
   "start": "synchro",
   "steps": [
-    { "do": "expect", "text": "Synchronisation", "within": ".sy-hero h1", "title": "Le titre de l’écran est affiché" },
+    { "do": "expect", "contains": "Synchronisation et base autonome", "within": ".sy-hero h1", "title": "Le titre de l’écran est affiché" },
     { "do": "expect", "contains": "Postes", "within": ".sy-scope", "title": "Le périmètre est l’OU de travail" },
     { "do": "click", "selector": "[data-act=\"read-ou\"]", "title": "Mettre à jour l’OU choisie" },
     { "do": "wait", "contains": "Objets attendus", "within": ".sy-estimate", "title": "L’estimation est affichée avant toute lecture" },
