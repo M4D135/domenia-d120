@@ -83,6 +83,30 @@ public sealed record FicheTab(string Id, string Label, int? Count);
 /// <summary>Counts shown on the tabs and in the header.</summary>
 public sealed record FicheCounts(int? Groups, int? Members, int? Children, int? Linked, int? Reports);
 
+/// <summary>
+/// Settings that the page needs to show and pre-check (FIC-001, FIC-014, FIC-036): forced password change by default, length of the
+/// generated password, clipboard delay, raw writes, each setting with its provenance, and the usage profile of the freshness.
+/// </summary>
+public sealed record FicheSettingsSummary(
+    bool ForcePasswordChange,
+    int PasswordLength,
+    int ClipboardSeconds,
+    bool RawWrite,
+    bool ContainerDelete,
+    bool TypedDelete,
+    ImmutableArray<FicheSettingView> Items,
+    string FileText,
+    string FreshnessText)
+{
+    public static FicheSettingsSummary Of(FicheSecurityPolicy policy, ImmutableArray<FicheSettingView> items, string fileText, FicheFreshnessTable table)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(table);
+        return new FicheSettingsSummary(policy.ForcePasswordChangeOnReset, policy.GeneratedPasswordLength, policy.ClipboardClearSeconds, policy.AllowRawAttributeWrite,
+            policy.AllowContainerDelete, policy.RequireTypedDeleteConfirmation, items.IsDefault ? [] : items, fileText, table.Text);
+    }
+}
+
 /// <summary>Result of fiche.read and fiche.preview: the whole fiche of one object.</summary>
 public sealed record FicheSheet(
     FicheIdentity Identity,
@@ -102,7 +126,8 @@ public sealed record FicheSheet(
     string Landing,
     string Summary,
     ImmutableArray<FicheFact> Support,
-    string Signature);
+    string Signature,
+    FicheSettingsSummary Settings);
 
 /// <summary>What the sheet needs besides the entry: origin, clock, names of the linked objects and what writes are possible.</summary>
 public sealed record FicheContext(
@@ -121,7 +146,12 @@ public sealed record FicheContext(
     bool Writes,
     string? WritesReason,
     FicheLogonInterval Interval,
-    FicheSecurityPolicy Policy);
+    FicheSecurityPolicy Policy,
+    FicheFreshnessTable? Table = null,
+    IReadOnlyDictionary<string, DateTimeOffset>? Attempts = null,
+    DateTimeOffset? HistoryReadAt = null,
+    ImmutableArray<FicheSettingView> SettingItems = default,
+    string SettingsText = "");
 
 /// <summary>
 /// Builds the fiche of one object from its entry (Domenia 1 Fill-UserObject, Fill-ComputerObject, Fill-GroupObject,
@@ -141,7 +171,7 @@ public static class FicheSheets
         (0x100000, "notDelegated", "Le compte est sensible et ne peut pas être délégué", false, false, "Protège les comptes à privilèges contre la délégation Kerberos."),
         (0x20, "passwordNotRequired", "Mot de passe non requis", true, true, "Un mot de passe vide peut être accepté."),
         (0x80, "reversibleEncryption", "Chiffrement réversible du mot de passe", true, true, "Le mot de passe est stocké de façon récupérable."),
-        (0x400000, "noPreAuth", "Pré-authentification Kerberos facultative", true, true, "Expose le compte au « AS-REP roasting »."),
+        (0x400000, "noPreAuth", "Pré-authentification Kerberos facultative", true, true, "Expose le compte au « AS-REP roasting »."),
         (0x200000, "desOnly", "Chiffrement DES uniquement", true, true, "Algorithme obsolète, déconseillé."),
         (0x80000, "trustedForDelegation", "Délégation approuvée (non contrainte)", true, true, "Le compte peut emprunter l’identité de tout utilisateur qui s’y connecte."),
         (0x1000000, "trustedToAuthForDelegation", "Délégation contrainte avec transition de protocole", true, true, "Le compte peut obtenir des tickets au nom d’autres utilisateurs."),
@@ -207,9 +237,28 @@ public static class FicheSheets
         var actions = Actions(entry, account, context);
         var tabs = Tabs(entry, counts);
         var freshness = Freshness(entry, context);
-        var support = entry.Kind == FicheKind.User ? FicheDiagnostics.Support(entry, origin.Label, now, zone) : [];
+        var support = entry.Kind == FicheKind.User ? FicheDiagnostics.Support(entry, origin.Label, now, zone, context.Controller, context.ReadAt) : [];
+        var table = context.Table ?? FicheFreshnessTable.Standard;
         return new FicheSheet(identity, origin, states, band, sections, edit, account, counts, freshness, manager, context.Associations, presence, actions, tabs,
-            "general", Summary(identity, presence, zone), support, Signature(entry, context));
+            Landing(entry), Summary(identity, presence, zone), support, Signature(entry, context),
+            FicheSettingsSummary.Of(context.Policy, context.SettingItems, context.SettingsText, table));
+    }
+
+    /// <summary>
+    /// Tab the fiche opens on (Get-DomeniaLandingView, UX-27: open on what is read first): a user on its identity, a computer on its
+    /// overview, a group on its members (Domenia 1 TabGroup), an OU or a container on its content (TabContainer), anything else on
+    /// the summary of the general tab.
+    /// </summary>
+    public static string Landing(FicheEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return entry.Kind switch
+        {
+            FicheKind.Group => "membres",
+            FicheKind.Ou => "membres",
+            FicheKind.Container when !entry.Dn.StartsWith("DC=", StringComparison.OrdinalIgnoreCase) => "membres",
+            _ => "general",
+        };
     }
 
     private static FicheIdentity Identity(FicheEntry entry, FicheContext context)
@@ -371,7 +420,7 @@ public static class FicheSheets
         if (observation.PresenceState != MeasureState.Known || observation.Answered is null || observation.PresenceAt is null)
         {
             return new FichePresenceView("unknown", "Présence non relevée" + via, observation.PresenceAt, observation.Computer, observation.ComputerDn,
-                "Le dernier relevé n’a pas donné de réponse exploitable" + C + "« Vérifier la présence » lance un ping.");
+                "Le dernier relevé n’a pas donné de réponse exploitable" + C + "« Vérifier la présence » lance un ping.");
         }
         var at = observation.PresenceAt.Value;
         var stale = (context.Now - at).TotalMinutes > 2;
@@ -740,7 +789,8 @@ public static class FicheSheets
         if (kind == FicheKind.User && account is not null)
         {
             Add("unlock", "Déverrouiller", "write", write ?? (entry.Int64("lockoutTime") is > 0 ? null : "Ce compte n’est pas verrouillé."));
-            Add("resetPassword", "Réinitialiser le mot de passe…", "write", write ?? (isProtected ? "Compte à privilèges" + C + "réinitialisation par la console d’administration seulement." : null), danger: true);
+            // A protected account (adminCount = 1) is allowed, as in Domenia 1: the plan asks for the typed name.
+            Add("resetPassword", "Réinitialiser le mot de passe…", "write", write ?? (critical ? "Objet système" + C + "jamais réinitialisé depuis Domenia." : null), danger: true);
             Add("expirePassword", "Imposer un nouveau mot de passe", "write", write ?? (account.MustChange ? "Le mot de passe est déjà à changer à la prochaine ouverture de session." : null));
             Add("expiration", "Expiration du compte…", "write", write);
             Add("options", "Options de sécurité…", "write", write);
@@ -852,19 +902,30 @@ public static class FicheSheets
         return [.. tabs];
     }
 
+    /// <summary>
+    /// Freshness per nature (FIC-036): identity and attributes from the read of the fiche, presence and console from the last measure
+    /// of the workstation (or, for the console, the date of the console session that established the association), history from the
+    /// read of the replication metadata in this session (never whenChanged, which dates the object and not an observation). Durations
+    /// come from the usage profile; the last attempt is said when more recent than the observation.
+    /// </summary>
     private static ImmutableArray<FicheFreshness> Freshness(FicheEntry entry, FicheContext context)
     {
+        var table = context.Table;
+        DateTimeOffset? Attempt(string nature) => context.Attempts is not null && context.Attempts.TryGetValue(nature, out var at) ? at : null;
+        var readAt = context.Preview ? (DateTimeOffset?)null : context.ReadAt;
         var list = new List<FicheFreshness>
         {
-            FicheDiagnostics.Freshness("identity", context.ReadAt, null, context.Now, context.Zone),
-            FicheDiagnostics.Freshness("attributes", context.ReadAt, null, context.Now, context.Zone),
+            FicheDiagnostics.Freshness("identity", context.Preview ? context.ReadAt : readAt, Attempt("identity"), context.Now, context.Zone, table),
+            FicheDiagnostics.Freshness("attributes", context.Preview ? context.ReadAt : readAt, Attempt("attributes"), context.Now, context.Zone, table),
         };
         if (entry.Kind is FicheKind.User or FicheKind.Computer)
         {
-            list.Add(FicheDiagnostics.Freshness("presence", context.Observation?.PresenceAt, null, context.Now, context.Zone));
-            list.Add(FicheDiagnostics.Freshness("console", context.Observation?.ConsoleAt, null, context.Now, context.Zone));
+            list.Add(FicheDiagnostics.Freshness("presence", context.Observation?.PresenceAt, Attempt("presence"), context.Now, context.Zone, table));
+            var console = context.Observation?.ConsoleAt
+                ?? context.Associations.Where(a => a.Evidence == "observed").Select(a => a.When).OfType<DateTimeOffset>().DefaultIfEmpty().Max();
+            list.Add(FicheDiagnostics.Freshness("console", console == default(DateTimeOffset) ? null : console, Attempt("console"), context.Now, context.Zone, table));
         }
-        list.Add(FicheDiagnostics.Freshness("history", entry.Generalized("whenChanged"), null, context.Now, context.Zone));
+        list.Add(FicheDiagnostics.Freshness("history", context.HistoryReadAt, null, context.Now, context.Zone, table));
         return [.. list];
     }
 

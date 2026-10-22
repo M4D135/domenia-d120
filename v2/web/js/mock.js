@@ -12,6 +12,7 @@
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createFicheOperations } from './mock-fiche.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1058,6 +1059,7 @@ const OPERATIONS = {
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
   }),
+  ...createFicheOperations({ readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, int, sleep, NBSP, REF }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength

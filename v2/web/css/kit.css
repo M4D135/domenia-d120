@@ -45,6 +45,12 @@
 .k-mi-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .k-mi kbd { margin-left: auto; flex: none; }
 .k-mi-hint { margin-left: auto; flex: none; font-size: var(--fs-caption); color: var(--text-faint); }
+/* Marks of a write (pencil) or a network read (blue dot), as in the command bar (KIT § 2.6.6). */
+.k-mi-kind { display: inline-grid; place-items: center; flex: none; margin-left: auto; width: 18px; height: 18px; }
+.k-mi-kind + .k-mi-hint, .k-mi-kind + kbd { margin-left: 6px; }
+.k-mi-kind.write svg { width: 13px; height: 13px; color: var(--warn); }
+.k-mi-kind.net::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--info-mark); box-shadow: 0 0 0 3px color-mix(in srgb, var(--info-mark) 22%, transparent); }
+:root[data-theme="contrast"] .k-mi-kind.net::before { box-shadow: none; outline: 1px solid var(--text); }
 .k-mi-sub { width: 15px; height: 15px; margin-left: auto; flex: none; color: var(--text-faint); }
 .k-mi[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 .k-mi.danger { color: var(--alert); }
@@ -139,6 +145,8 @@
 .k-gh:hover .k-gh-menu, .k-gh-menu[aria-expanded="true"], .k-grid.kbd .k-gh.is-act .k-gh-menu { opacity: 1; transform: none; }
 .k-gh-menu:hover { background: var(--bg-hover); color: var(--text); }
 .k-gh-resize { position: absolute; top: 6px; right: -5px; bottom: 6px; z-index: 2; width: 10px; cursor: col-resize; touch-action: none; }
+/* The handle of the last column stays inside the table: it never adds a horizontal scroll of a few pixels. */
+.k-gh:last-child .k-gh-resize { right: 0; }
 .k-gh-resize::after {
   content: ""; position: absolute; left: 4px; top: 3px; bottom: 3px; width: 2px; border-radius: 2px; background: var(--border);
   transition: transform var(--t) var(--ease-spring), opacity var(--t-fast);

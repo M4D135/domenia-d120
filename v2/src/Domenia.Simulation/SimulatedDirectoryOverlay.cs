@@ -142,6 +142,11 @@ public sealed class SimulatedDirectoryOverlay
         return after;
     }
 
+    // ---------------------------------------------------------------- generic edit
+    // Added for the « Fiche » screen (wave 2): computers, groups, OUs and deletions, besides the users of UpdateUser. Other
+    // screens that change computers or groups (« Poste ») can go through Edit too instead of a method per kind; the integrator
+    // merges the two extensions of this file (see docs/status/fiche.json, « shared »).
+
     /// <summary>
     /// Applies one write of the simulation as a single change of the overlay (several objects at once when a write touches both
     /// sides of a link, such as member and memberOf). <paramref name="edit"/> sees the directory as the session sees it and

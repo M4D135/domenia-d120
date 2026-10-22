@@ -235,14 +235,17 @@ internal sealed class SimulatedBridge
     private readonly List<BridgeResponse> sent = [];
     private int counter;
 
-    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null, IReceiptStore? receipts = null)
+    /// <param name="readers">More assemblies whose screen readers join those of the simulation (a scripted secure window of the
+    /// fiche, for instance); none by default.</param>
+    public SimulatedBridge(SimulationLatency latency = SimulationLatency.None, FixedTimeProvider? clock = null, IPreferenceStore? preferences = null, IReceiptStore? receipts = null,
+        IEnumerable<System.Reflection.Assembly>? readers = null)
     {
         Clock = clock ?? TestClock.Fixed();
         Source = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = latency }, Clock);
         Preferences = preferences ?? new MemoryPreferenceStore();
         Receipts = receipts ?? new MemoryReceiptStore();
         Log = new RecordingJournal();
-        Context = new EngineContext(Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]),
+        Context = new EngineContext(Decision, Source, Preferences, Clock, Log, ScreenReaders.Discover(Source, [typeof(SimulatedDirectorySource).Assembly, .. readers ?? []]),
             writers: WriteExecutors.Discover(Source, [typeof(SimulatedDirectorySource).Assembly]), receipts: Receipts);
         Service = DashboardService.From(Context);
         Registry = OperationModules.CreateRegistry(Context, OperationModules.Discover([typeof(DashboardOperations).Assembly]));

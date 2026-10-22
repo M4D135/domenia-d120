@@ -70,8 +70,11 @@ public sealed record FicheGroupGraph(
 /// <summary>Result of fiche.groups.nested: the groups reached through other groups only.</summary>
 public sealed record FicheNestedList(string Dn, int Direct, int Nested, bool Truncated, int Unread, string Summary, ImmutableArray<FicheGroupRow> Rows);
 
-/// <summary>Result of fiche.groups.why (« Pourquoi membre ? », FIC-027).</summary>
-public sealed record FicheWhy(string Group, bool Known, bool? Member, bool NeedsRead, ImmutableArray<string> Path, string Text);
+/// <summary>
+/// Result of fiche.groups.why (« Pourquoi membre ? », FIC-027): <see cref="Basis"/> says what the answer rests on (« direct »,
+/// « path », « primary », « controller » for the transitive answer of the controller, « unknown »).
+/// </summary>
+public sealed record FicheWhy(string Group, bool Known, bool? Member, bool NeedsRead, ImmutableArray<string> Path, string Text, string Basis = "unknown");
 
 /// <summary>Result of a breadth-first walk (Find-DomeniaMembershipPath).</summary>
 public sealed record FicheMembershipPath(bool Found, ImmutableArray<string> Path, bool Direct, bool Truncated, bool CycleSeen, int Visited);
@@ -107,6 +110,15 @@ public sealed record FicheGroupDeltaStep(string Action, string GroupDn, string G
 
 /// <summary>Result of fiche.groups.delta: the steps, one write plan each, and the notes about contradictions.</summary>
 public sealed record FicheGroupDelta(ImmutableArray<FicheGroupDeltaStep> Steps, ImmutableArray<string> Notes, bool WritesFullList);
+
+/// <summary>One step of a delta checked again on the controller: « verified », « failed » (re-read differs) or « toCheck » (not read).</summary>
+public sealed record FicheDeltaCheckRow(string Label, string GroupDn, string GroupName, string Action, string Status, string StatusLabel);
+
+/// <summary>
+/// Postcondition of a group delta (Test-DomeniaGroupDeltaPostcondition): every step compared with the memberOf read again on the
+/// controller; overall « verified », « partial » (a step failed), « toCheck » (a step could not be read) or « none » (no step).
+/// </summary>
+public sealed record FicheDeltaCheck(string Dn, string Overall, string OverallLabel, ImmutableArray<FicheDeltaCheckRow> Rows, DateTimeOffset ReadAt, string Text);
 
 /// <summary>
 /// Pure membership rules of the fiche (Domenia-Directory.Model.ps1): readable rows, breadth-first paths with limits and
@@ -232,7 +244,8 @@ public static partial class FicheMemberships
     /// Members of a group or children of an OU as rows (ConvertTo-DomeniaMembershipRows -Kind Members): the type comes from the
     /// local index only (« Non lu » otherwise, never guessed from a name), duplicates dropped, 2 000 rows kept.
     /// </summary>
-    public static FicheMemberList Members(string dn, string mode, IReadOnlyList<string> dns, IReadOnlyDictionary<string, FicheSummary> index, bool complete, string? note)
+    /// <param name="counted">Members counted by the read by ranges when more than the DNs given were seen (50 000 at most).</param>
+    public static FicheMemberList Members(string dn, string mode, IReadOnlyList<string> dns, IReadOnlyDictionary<string, FicheSummary> index, bool complete, string? note, int? counted = null)
     {
         ArgumentNullException.ThrowIfNull(dn);
         ArgumentNullException.ThrowIfNull(dns);
@@ -258,6 +271,8 @@ public static partial class FicheMemberships
             var privileged = known is not null && known.Kind == FicheKind.Group && IsPrivileged(known.Name, known.Sid, known.AdminCount);
             rows.Add(new FicheMemberRow(known?.Name ?? FicheValues.DisplayName(text), text, type, typeLabel, FicheValues.ReadablePath(text), known?.Disabled ?? false, known?.Detail, privileged || known?.AdminCount == 1));
         }
+        // The read by ranges counts beyond the DNs it keeps: the total is the one counted (never less than the rows).
+        total = Math.Max(total, counted ?? 0);
         var counts = rows.GroupBy(r => r.Type)
             .Select(g => new FicheTypeCount(g.Key, TypePlural(g.Key), g.Count()))
             .OrderByDescending(c => c.Count).ThenBy(c => c.Type, StringComparer.Ordinal)
@@ -456,7 +471,7 @@ public static partial class FicheMemberships
     /// « Pourquoi membre ? » (Get-DomeniaMembershipWhy): a direct group needs no read; otherwise the path comes from the edges
     /// read on demand. A truncated or partial walk never concludes that the object is not a member.
     /// </summary>
-    public static FicheWhy Why(string objectDn, string objectName, string groupDn, string groupName, bool direct, FicheGroupGraph? graph, bool primary)
+    public static FicheWhy Why(string objectDn, string objectName, string groupDn, string groupName, bool direct, FicheGroupGraph? graph, bool primary, bool? transitive = null)
     {
         ArgumentNullException.ThrowIfNull(objectDn);
         ArgumentNullException.ThrowIfNull(groupDn);
@@ -465,11 +480,11 @@ public static partial class FicheMemberships
         var grp = FrenchText.Quote(groupName);
         if (primary)
         {
-            return new FicheWhy(groupName, true, true, false, [objectName, groupName], obj + " a " + grp + " pour groupe principal" + c + "l’appartenance est portée par primaryGroupID, pas par l’attribut member.");
+            return new FicheWhy(groupName, true, true, false, [objectName, groupName], obj + " a " + grp + " pour groupe principal" + c + "l’appartenance est portée par primaryGroupID, pas par l’attribut member.", "primary");
         }
         if (direct)
         {
-            return new FicheWhy(groupName, true, true, false, [objectName, groupName], obj + " est membre direct de " + grp + c + "l’attribut member du groupe le nomme.");
+            return new FicheWhy(groupName, true, true, false, [objectName, groupName], obj + " est membre direct de " + grp + c + "l’attribut member du groupe le nomme.", "direct");
         }
         if (graph is null)
         {
@@ -481,14 +496,27 @@ public static partial class FicheMemberships
             var names = found.Path.Select(dn => FicheValues.SameDn(dn, objectDn) ? objectName : graph.Nodes.TryGetValue(dn, out var n) ? n.Name : FicheValues.DisplayName(dn)).ToImmutableArray();
             var levels = names.Length - 1;
             return new FicheWhy(groupName, true, true, false, names,
-                obj + " est membre de " + grp + " par imbrication" + c + string.Join(" → ", names) + " (" + FrenchText.Count(levels, "niveau", "niveaux") + ").");
+                obj + " est membre de " + grp + " par imbrication" + c + string.Join(" → ", names) + " (" + FrenchText.Count(levels, "niveau", "niveaux") + ").", "path");
+        }
+        // No path in the groups read: the transitive answer of the controller (memberOf:1.2.840.113556.1.4.1941) decides when it came.
+        const string chain = " (règle de chaînage 1.2.840.113556.1.4.1941)";
+        if (transitive == true)
+        {
+            return new FicheWhy(groupName, true, true, false, [objectName, groupName],
+                "Le contrôleur confirme que " + obj + " est membre de " + grp + " par imbrication" + chain + c + "le chemin passe par des groupes non lus ici (autre domaine ou lecture bornée).", "controller");
+        }
+        if (transitive == false && !found.Truncated && !graph.Truncated && graph.Unread == 0)
+        {
+            return new FicheWhy(groupName, true, false, false, [],
+                "Le contrôleur confirme que " + obj + " n’est pas membre de " + grp + chain + c + "aucun chemin dans les groupes lus non plus. Le groupe principal n’est pas couvert par cette règle.", "controller");
         }
         if (found.Truncated || graph.Truncated || graph.Unread > 0)
         {
             var missing = graph.Unread > 0 ? " " + FrenchText.Count(graph.Unread, "groupe non lu", "groupes non lus") + "." : "";
-            return new FicheWhy(groupName, false, null, false, [], "Appartenance à " + grp + " indéterminée" + c + "la lecture des groupes imbriqués est incomplète." + missing);
+            var controller = transitive == false ? " Le contrôleur répond " + FrenchText.Quote("non membre") + chain + "." : transitive is null ? " Le contrôleur n’a pas répondu à la question transitive." : "";
+            return new FicheWhy(groupName, false, null, false, [], "Appartenance à " + grp + " indéterminée" + c + "la lecture des groupes imbriqués est incomplète." + missing + controller, "unknown");
         }
-        return new FicheWhy(groupName, false, false, false, [], "Aucun chemin vers " + grp + " dans les groupes lus ; le groupe principal et les groupes d’autres domaines ne sont pas couverts.");
+        return new FicheWhy(groupName, false, false, false, [], "Aucun chemin vers " + grp + " dans les groupes lus" + FrenchText.Nbsp + "; le groupe principal et les groupes d’autres domaines ne sont pas couverts.", "path");
     }
 
     private static readonly (string Attribute, string Label)[] Organisation =
@@ -797,5 +825,50 @@ public static partial class FicheMemberships
             steps.Add(new FicheGroupDeltaStep("remove", group, name, memberDn, "Retirer de " + name));
         }
         return new FicheGroupDelta([.. steps], [.. notes], false);
+    }
+
+    /// <summary>
+    /// Postcondition of a delta (Test-DomeniaGroupDeltaPostcondition): each step compared with the memberOf read again on the
+    /// controller (<paramref name="observed"/>, null when the re-read failed). A step whose group is in memberOf as expected is
+    /// « verified », otherwise « failed »; without a re-read, « toCheck ». Overall: a failure makes it « partial », an unread step
+    /// « toCheck », no step « none ».
+    /// </summary>
+    public static FicheDeltaCheck DeltaPostcondition(string dn, IReadOnlyList<FicheGroupDeltaStep> steps, IReadOnlyCollection<string>? observed, DateTimeOffset readAt)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        ArgumentNullException.ThrowIfNull(steps);
+        var groups = observed is null ? null : new HashSet<string>(observed, StringComparer.OrdinalIgnoreCase);
+        var rows = new List<FicheDeltaCheckRow>();
+        foreach (var step in steps)
+        {
+            var expected = step.Action == "add";
+            string status;
+            if (groups is null)
+            {
+                status = "toCheck";
+            }
+            else
+            {
+                var member = groups.Contains(step.GroupDn) || groups.Any(g => FicheValues.SameDn(g, step.GroupDn));
+                status = member == expected ? "verified" : "failed";
+            }
+            rows.Add(new FicheDeltaCheckRow(step.Label, step.GroupDn, step.GroupName, step.Action, status, status switch
+            {
+                "verified" => "Vérifié",
+                "failed" => "Échec",
+                _ => "À vérifier",
+            }));
+        }
+        var overall = rows.Count == 0 ? "none" : rows.Any(r => r.Status == "failed") ? "partial" : rows.Any(r => r.Status == "toCheck") ? "toCheck" : "verified";
+        var label = overall switch { "none" => "Aucun changement", "partial" => "Partiel", "toCheck" => "À vérifier", _ => "Vérifié" };
+        var verified = rows.Count(r => r.Status == "verified");
+        var text = overall switch
+        {
+            "none" => "Aucune étape à vérifier.",
+            "verified" => FrenchText.Count(verified, "étape vérifiée", "étapes vérifiées") + " sur le contrôleur" + FrenchText.Colon + "les appartenances relues sont celles attendues.",
+            "partial" => FrenchText.Count(rows.Count(r => r.Status == "failed"), "étape en échec", "étapes en échec") + " à la relecture" + FrenchText.Colon + "rien n’est rejoué, préparez un nouveau plan pour ces groupes.",
+            _ => "Relecture des appartenances non aboutie" + FrenchText.Colon + "relisez la fiche pour vérifier.",
+        };
+        return new FicheDeltaCheck(dn, overall, label, [.. rows], readAt, text);
     }
 }

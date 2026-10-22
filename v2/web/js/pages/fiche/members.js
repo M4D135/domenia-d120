@@ -1,9 +1,9 @@
 // Members tab: members of a group (FIC-029, FIC-023, FIC-024, FIC-025) with add and remove, or the content of an OU or a
 // container with the creation of an OU (FIC-020) and « Définir comme OU de travail ».
-import { createGrid, openDrawer, glyph, pill, writeClipboard, int } from '../../kit/index.js';
+import { createGrid, openDrawer, setVars, glyph, pill, writeClipboard, startFreshness, NBSP, int } from '../../kit/index.js';
 import { esc, errorText, toast, applyVars } from '../../ui.js';
 import { write } from './actions.js';
-import { kindOf } from './common.js';
+import { kindOf, freshChip, gridHeight } from './common.js';
 
 const TYPE_TONES = { user: 'info', computer: 'accent', group: 'ok', ou: 'warn', contact: 'off', container: 'off', unknown: 'off' };
 
@@ -27,7 +27,17 @@ export function mountMembers(panel, S) {
     if (!data) return '<div class="fi-type-chips"><span class="skeleton fi-sk-line w55"></span></div>';
     const chips = data.counts.map((c, n) => `<button type="button" class="fi-type-chip${typeFilter === c.type ? ' on' : ''}" data-type="${esc(c.type)}" data-tone="${TYPE_TONES[c.type] ?? 'off'}" data-j="${n}" aria-pressed="${typeFilter === c.type}">
       ${glyph(kindOf(c.type).icon)}<b>${int(c.count)}</b><span>${esc(c.label)}</span></button>`).join('');
-    return `<div class="fi-type-chips">${chips || '<span class="fi-faint">Aucun objet.</span>'}</div><p class="fi-note">${glyph('info')}${esc(data.label)}${isGroup() ? ' · Types résolus dans la base locale (jamais devinés d’après un nom).' : ' · Un seul niveau lu, jamais toute l’arborescence.'}</p>`;
+    const partial = !data.complete || data.total > data.shown;
+    return `<div class="fi-members-head"><div class="fi-type-chips">${chips || '<span class="fi-faint">Aucun objet.</span>'}</div>${freshChip(S.sheet, 'attributes')}</div>
+      <p class="fi-note${partial ? ' warn' : ''}">${glyph(partial ? 'alert' : 'info')}${esc(data.label)}${isGroup() ? ` · Lu par plages de 1 500${NBSP}; types résolus dans la base locale, jamais devinés d’après un nom.` : ' · Un seul niveau lu, jamais toute l’arborescence.'}</p>`;
+  }
+
+  // The head (counts, note, freshness chip) and the height of the grid follow every read: no empty band, no hidden row.
+  function paintTop() {
+    top.innerHTML = topMarkup();
+    applyVars(top);
+    startFreshness(top);
+    if (grid?.el) setVars(grid.el, { '--k-grid-h': gridHeight(data ? filtered().length : (isGroup() ? S.sheet.counts.members : S.sheet.counts.children), { max: 560 }) });
   }
 
   function filtered() {
@@ -43,14 +53,15 @@ export function mountMembers(panel, S) {
       selection: 'single',
       loading: true,
       // Sized on the count already read by the sheet: a short list does not leave an empty area, a long one scrolls.
-      height: `${Math.max(240, Math.min(560, 64 + 40 * ((isGroup() ? S.sheet.counts.members : S.sheet.counts.children) ?? 12)))}px`,
-      quickPlaceholder: 'Filtrer : nom, type, OU, DN…',
+      height: gridHeight(Math.min(2000, (isGroup() ? S.sheet.counts.members : S.sheet.counts.children) ?? 12), { max: 560 }),
+      quickPlaceholder: `Filtrer${NBSP}: nom, type, détail, OU, DN…`,
+      // Widths fit the panel (no horizontal scroll); the location also carries the DN for the quick filter.
       columns: [
-        { id: 'name', label: 'Nom', required: true, width: 260, html: (v, r) => `<span class="fi-gname"><span class="fi-type-ico" data-kind="${esc(r.type)}">${glyph(kindOf(r.type).icon)}</span>${esc(v)}${r.privileged ? `<span class="fi-priv" data-tip="Objet à privilèges">${glyph('shield')}</span>` : ''}</span>` },
-        { id: 'typeLabel', label: 'Type', width: 270 },
-        { id: 'detail', label: 'Détail', width: 320, get: (r) => r.detail ?? '' },
-        { id: 'disabled', label: 'État', type: 'enum', width: 120, get: (r) => (r.type === 'user' || r.type === 'computer' ? (r.disabled ? 'off' : 'on') : ''), options: [{ value: 'on', label: 'Actif', tone: 'ok' }, { value: 'off', label: 'Désactivé', tone: 'off' }] },
-        { id: 'ou', label: 'Emplacement', width: 260, hidden: !isGroup() },
+        { id: 'name', label: 'Nom', required: true, width: 250, get: (r) => (isGroup() ? r.name : `${r.name}\u2003${r.dn}`), sortKey: (v, r) => r.name, csv: (v, r) => r.name, html: (v, r) => `<span class="fi-gname"><span class="fi-type-ico" data-kind="${esc(r.type)}">${glyph(kindOf(r.type).icon)}</span>${esc(r.name)}${r.privileged ? `<span class="fi-priv" data-tip="Objet à privilèges">${glyph('shield')}</span>` : ''}</span>` },
+        { id: 'typeLabel', label: 'Type', width: 196 },
+        { id: 'detail', label: 'Détail', width: isGroup() ? 340 : 440, get: (r) => r.detail ?? '', html: (v) => (v ? `<span class="fi-cell-text" data-tip="${esc(v)}">${esc(v)}</span>` : '<span class="fi-none">—</span>') },
+        { id: 'disabled', label: 'État', type: 'enum', width: 108, get: (r) => (r.type === 'user' || r.type === 'computer' ? (r.disabled ? 'off' : 'on') : ''), options: [{ value: 'on', label: 'Actif', tone: 'ok' }, { value: 'off', label: 'Désactivé', tone: 'off' }] },
+        { id: 'ou', label: 'Emplacement', width: 250, hidden: !isGroup(), get: (r) => `${r.ou}\u2003${r.dn}`, html: (v, r) => `<span class="fi-path-cell" data-tip="${esc(r.dn)}">${esc(r.ou)}</span>`, csv: (v, r) => r.ou, sortKey: (v, r) => r.ou },
         { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
       ],
       empty: { icon: isGroup() ? 'users' : 'folder', title: isGroup() ? 'Aucun membre direct' : 'Branche vide', text: isGroup() ? 'Les membres par le groupe principal n’apparaissent pas dans member.' : 'Aucun objet directement dans cette branche.' },
@@ -75,12 +86,13 @@ export function mountMembers(panel, S) {
 
   async function load() {
     const my = ++token;
-    top.innerHTML = topMarkup();
+    paintTop();
     try {
       data = await S.ctx.call('fiche.members', { dn: S.sheet.identity.dn });
       if (my !== token || !S.alive) return;
-      top.innerHTML = topMarkup();
+      paintTop();
       applyVars(top);
+      startFreshness(top);
       grid.setRows(filtered(), { keepSelection: true });
     } catch (err) {
       if (my !== token) return;
@@ -96,7 +108,7 @@ export function mountMembers(panel, S) {
     const chip = t?.closest('[data-type]');
     if (chip) {
       typeFilter = typeFilter === chip.dataset.type ? '' : chip.dataset.type;
-      top.innerHTML = topMarkup();
+      paintTop();
       applyVars(top);
       grid.setRows(filtered());
       return;
@@ -111,6 +123,7 @@ export function mountMembers(panel, S) {
   panel.addEventListener('click', onClick);
 
   return {
+    touch() { startFreshness(top); },
     update() {},
     refresh() { buildGrid(); load(); },
     destroy() { panel.removeEventListener('click', onClick); grid?.destroy(); },
@@ -125,8 +138,8 @@ export async function createOu(S) {
   body.className = 'fi-newou';
   body.innerHTML = `<div class="fi-newou-parent"><span class="k">Branche parente</span><b>${glyph('ou')}${esc(parent.name)}</b><span class="mono fi-break">${esc(parent.dn)}</span></div>
     <label class="fi-field-label" for="fi-newou-name">Nom de la nouvelle OU</label>
-    <input id="fi-newou-name" class="input" type="text" maxlength="64" autocomplete="off" spellcheck="true" placeholder="Par exemple : Accueil">
-    <p class="fi-picker-hint">${glyph('info')}De 1 à 64 caractères ; l’unicité est vérifiée par le plan, et le parent est revérifié avant l’envoi.</p>
+    <input id="fi-newou-name" class="input" type="text" maxlength="64" autocomplete="off" spellcheck="true" placeholder="Par exemple : Accueil">
+    <p class="fi-picker-hint">${glyph('info')}De 1 à 64 caractères ; l’unicité est vérifiée par le plan, et le parent est revérifié avant l’envoi.</p>
     <p class="fi-newou-preview fi-faint" aria-live="polite"></p>`;
   let name = '';
   const ctl = openDrawer({
@@ -143,7 +156,7 @@ export async function createOu(S) {
   });
   input.addEventListener('input', (e) => {
     const v = /** @type {HTMLInputElement} */ (e.target).value.trim();
-    preview.textContent = v ? `Nouvelle OU : ${parent.path} › ${parent.name} › ${v}` : '';
+    preview.textContent = v ? `Nouvelle OU : ${parent.path} › ${parent.name} › ${v}` : '';
   });
   await ctl.closed;
   if (!name) return;

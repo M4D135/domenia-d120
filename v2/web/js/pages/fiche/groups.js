@@ -1,10 +1,11 @@
 // Groups tab (« Groupes », « Membre de » for a group): direct groups (FIC-023), local filter (FIC-025), nested groups on
 // demand (FIC-026, FIC-021), « Pourquoi membre ? » (FIC-027), context menus (FIC-028), add or remove one group (FIC-019),
-// several groups as a delta with one plan per group (FIC-022), and the comparison of two users (FIC-005, FIC-006, FIC-004).
-import { createGrid, openDrawer, glyph, pill, writeClipboard, debounce, NBSP, int } from '../../kit/index.js';
+// several groups as a delta with one plan per group, then each step checked again on the controller (FIC-022), and the
+// comparison of two users (FIC-005, FIC-006, FIC-004).
+import { createGrid, openDrawer, setVars, confirmDialog, glyph, pill, writeClipboard, debounce, startFreshness, NBSP, int } from '../../kit/index.js';
 import { esc, errorText, toast, announce, applyVars } from '../../ui.js';
 import { write } from './actions.js';
-import { failure, skeleton, emptyNote, plural } from './common.js';
+import { failure, skeleton, emptyNote, plural, freshChip, gridHeight } from './common.js';
 
 /**
  * @param {HTMLElement} panel
@@ -34,11 +35,19 @@ export function mountGroups(panel, S) {
          ${nested ? `<span class="fi-count-chip accent">${glyph('layers')}<b>${int(nested.nested)}</b> imbriqué${nested.nested > 1 ? 's' : ''} lu${nested.nested > 1 ? 's' : ''}</span>` : ''}
          ${direct.privileged ? `<span class="fi-count-chip alert">${glyph('shield')}<b>${int(direct.privileged)}</b> à privilèges</span>` : ''}`
       : '<span class="skeleton fi-sk-line w40"></span>';
-    const primary = p ? `<div class="fi-primary-chip" data-tip="primaryGroupID : ce groupe n’apparaît pas dans memberOf.">${glyph('star')}<span>Groupe principal</span><b>${esc(p.label)}</b></div>` : '';
+    const primary = p ? `<div class="fi-primary-chip" data-tip="primaryGroupID : ce groupe n’apparaît pas dans memberOf.">${glyph('star')}<span>Groupe principal</span><b>${esc(p.label)}</b></div>` : '';
     return `<div class="fi-groups-head">
-        <div class="fi-counts">${counts}</div>${primary}
+        <div class="fi-counts">${counts}</div>${primary}${freshChip(S.sheet, 'attributes')}
       </div>
       <p class="fi-note">${glyph('info')}${esc(direct?.label ?? 'Lecture des appartenances…')}${nested ? ` · ${esc(nested.summary)}` : ' · Les groupes imbriqués se lisent sur demande, jamais sur tout le domaine.'}</p>`;
+  }
+
+  // The head (counts, note, freshness chip) and the height of the grid follow every read: no empty band, no hidden row.
+  function paintTop() {
+    top.innerHTML = topMarkup();
+    applyVars(top);
+    startFreshness(top);
+    if (grid?.el) setVars(grid.el, { '--k-grid-h': gridHeight(rows().length || S.sheet.counts.groups, { max: 560 }) });
   }
 
   function rows() {
@@ -55,19 +64,21 @@ export function mountGroups(panel, S) {
       rowId: (r) => r.dn,
       selection: 'single',
       loading: true,
-      height: `${Math.max(240, Math.min(480, 64 + 40 * ((S.sheet.counts.groups ?? 8) + 4)))}px`,
-      quickPlaceholder: 'Filtrer : nom, type, OU, DN, via…',
+      height: gridHeight(S.sheet.counts.groups, { max: 520 }),
+      quickPlaceholder: `Filtrer${NBSP}: nom, type, OU, DN, appartenance, via…`,
+      // Widths fit the panel: no horizontal scroll. The location column also carries the DN, so that the quick filter (which
+      // searches the visible columns) finds it, as Domenia 1 does (Test-DomeniaMembershipRow).
       columns: [
-        { id: 'name', label: 'Groupe', required: true, width: 270, html: (v, r) => `<span class="fi-gname">${r.privileged ? `<span class="fi-priv" data-tip="Groupe à privilèges">${glyph('shield')}</span>` : glyph('group')}${esc(v)}</span>` },
-        { id: 'type', label: 'Type', width: 260 },
-        { id: 'membership', label: 'Appartenance', type: 'enum', width: 160, options: [
+        { id: 'name', label: 'Groupe', required: true, width: 240, html: (v, r) => `<span class="fi-gname">${r.privileged ? `<span class="fi-priv" data-tip="Groupe à privilèges">${glyph('shield')}</span>` : glyph('group')}${esc(v)}</span>` },
+        { id: 'type', label: 'Type', width: 196 },
+        { id: 'membership', label: 'Appartenance', type: 'enum', width: 158, options: [
           { value: 'Directe', label: 'Directe', tone: 'ok' }, { value: 'Imbriquée', label: 'Imbriquée', tone: 'off' }] },
-        { id: 'via', label: 'Via', width: 170, get: (r) => r.via ?? '' },
-        { id: 'depth', label: 'Niveau', type: 'number', width: 110 },
-        { id: 'ou', label: 'Emplacement', width: 280 },
+        { id: 'via', label: 'Via', width: 150, get: (r) => r.via ?? '' },
+        { id: 'depth', label: 'Niveau', type: 'number', width: 98 },
+        { id: 'ou', label: 'Emplacement', width: 262, get: (r) => `${r.ou}\u2003${r.dn}`, html: (v, r) => `<span class="fi-path-cell" data-tip="${esc(r.dn)}">${esc(r.ou)}</span>`, csv: (v, r) => r.ou, sortKey: (v, r) => r.ou },
         { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
       ],
-      empty: { icon: 'group', title: isGroup() ? 'Membre d’aucun groupe' : 'Aucun groupe direct', text: 'Le groupe principal (primaryGroupID) n’apparaît pas dans memberOf : il est affiché au-dessus.' },
+      empty: { icon: 'group', title: isGroup() ? 'Membre d’aucun groupe' : 'Aucun groupe direct', text: 'Le groupe principal (primaryGroupID) n’apparaît pas dans memberOf : il est affiché au-dessus.' },
       onActivate: (r) => S.open(r.dn),
       contextMenu: ({ row }) => menuFor(row),
     });
@@ -75,7 +86,7 @@ export function mountGroups(panel, S) {
     slot.innerHTML = `<div class="fi-grid-actions">
       <button class="btn sm fi-net" type="button" data-g="nested">${glyph('layers')}Groupes imbriqués</button>
       ${act('groupAdd') ? `<button class="btn sm fi-write" type="button" data-g="add"${act('groupAdd').available ? '' : ` aria-disabled="true" data-tip="${esc(act('groupAdd').reason ?? '')}"`}>${glyph('plus')}Ajouter à un groupe…</button>
-        <button class="btn sm ghost fi-write" type="button" data-g="delta"${act('groupAdd').available ? '' : ` aria-disabled="true" data-tip="${esc(act('groupAdd').reason ?? '')}"`}>${glyph('sliders')}Plusieurs groupes…</button>` : ''}
+        <button class="btn sm fi-write" type="button" data-g="delta"${act('groupAdd').available ? '' : ` aria-disabled="true" data-tip="${esc(act('groupAdd').reason ?? '')}"`}>${glyph('sliders')}Plusieurs groupes…</button>` : ''}
       ${S.sheet.identity.kind === 'user' ? `<button class="btn sm ghost fi-net" type="button" data-g="compare">${glyph('split')}Comparer les droits…</button>` : ''}</div>`;
   }
 
@@ -88,23 +99,24 @@ export function mountGroups(panel, S) {
       { label: 'Rechercher cet objet', icon: 'search', run: () => S.ctx.navigate('rechercher', { q: row.name }) },
       { label: 'Copier le DN', icon: 'copy', run: () => writeClipboard(row.dn).then((ok) => toast(ok ? 'DN copié.' : 'Copie impossible.', { tone: ok ? 'ok' : 'warn', life: 2400 })) },
       '-',
-      { label: 'Pourquoi membre ?', icon: 'info', run: () => why(row) },
+      { label: 'Pourquoi membre ?', icon: 'info', run: () => why(row) },
       { label: 'Afficher les groupes imbriqués', icon: 'layers', disabled: !!nested, reason: 'Déjà lus.', run: () => readNested() },
       '-',
-      { label: 'Retirer du groupe…', icon: 'minus', danger: true, disabled: !canRemove, reason: row.membership !== 'Directe' ? 'Appartenance imbriquée : retirez-la dans le groupe direct « via ».' : 'Écritures indisponibles.',
+      { label: 'Retirer du groupe…', icon: 'minus', danger: true, disabled: !canRemove, reason: row.membership !== 'Directe' ? 'Appartenance imbriquée : retirez-la dans le groupe direct « via ».' : 'Écritures indisponibles.',
         run: () => S.act('removeFrom', { group: row.dn, groupName: row.name }) },
     ];
   }
 
   async function load() {
     const my = ++token;
-    top.innerHTML = topMarkup();
+    paintTop();
     try {
       direct = await S.ctx.call('fiche.groups', { dn: S.sheet.identity.dn });
       if (my !== token || !S.alive) return;
-      top.innerHTML = topMarkup();
+      paintTop();
       grid.setRows(rows(), { keepSelection: true });
       applyVars(top);
+      startFreshness(top);
     } catch (err) {
       if (my !== token) return;
       grid.setError(errorText(err), { retry: () => load() });
@@ -117,12 +129,12 @@ export function mountGroups(panel, S) {
     try {
       nested = await S.ctx.call('fiche.groups.nested', { dn: S.sheet.identity.dn });
       if (!S.alive) return;
-      top.innerHTML = topMarkup();
+      paintTop();
       grid.setRows(rows(), { keepSelection: true, keepScroll: true });
       announce(nested.summary);
       if (b) { b.disabled = true; b.innerHTML = `${glyph('check')}Imbriqués lus`; }
     } catch (err) {
-      toast(`Groupes imbriqués non lus : ${errorText(err)}`, { tone: 'warn' });
+      toast(`Groupes imbriqués non lus : ${errorText(err)}`, { tone: 'warn' });
     } finally {
       b?.removeAttribute('aria-busy');
     }
@@ -182,15 +194,26 @@ export function mountGroups(panel, S) {
         hits.innerHTML = `<p class="fi-faint">${esc(errorText(err))}</p>`;
       }
     }, 180);
+    let planned = null;
+    // A change of the choices after « Préparer les plans » makes the prepared steps stale: they are computed again.
+    const stale = () => {
+      if (!planned) return;
+      planned = null;
+      steps.hidden = true;
+      steps.innerHTML = '';
+      const b = panelCtl.foot?.querySelector('[data-id="prepare"]');
+      if (b) b.textContent = 'Préparer les plans';
+      announce('Choix modifiés : les plans seront préparés de nouveau.');
+    };
     body.addEventListener('input', (e) => { if (e.target.matches?.('[data-delta-search]')) search(e.target.value.trim()); });
+    body.addEventListener('change', (e) => { if (e.target.matches?.('[data-remove]')) stale(); });
     body.addEventListener('click', (e) => {
       const t = e.target instanceof Element ? e.target : null;
       const add = t?.closest('[data-add]');
-      if (add) { adds.set(add.dataset.add, { dn: add.dataset.add, name: add.dataset.name }); paintChosen(); return; }
+      if (add) { adds.set(add.dataset.add, { dn: add.dataset.add, name: add.dataset.name }); paintChosen(); stale(); return; }
       const un = t?.closest('[data-unadd]');
-      if (un) { adds.delete(un.dataset.unadd); paintChosen(); }
+      if (un) { adds.delete(un.dataset.unadd); paintChosen(); stale(); }
     });
-    let planned = null;
     async function prepare() {
       if (planned) { panelCtl.close(); run(planned); return; }
       const remove = [...body.querySelectorAll('[data-remove]:checked')].map((b) => b.dataset.remove);
@@ -209,15 +232,61 @@ export function mountGroups(panel, S) {
       if (b) b.textContent = planned.steps.length ? 'Lancer les plans un par un' : 'Fermer';
       if (!planned.steps.length) planned = { steps: [] };
     }
+    // One plan per group, one at a time. A step refused, cancelled or with nothing to do never stops the others silently: the
+    // operator chooses to go on or to stop. Then every step is checked again on the controller (Test-DomeniaGroupDeltaPostcondition).
     async function run(p) {
-      let applied = 0;
-      for (const s of p.steps ?? []) {
-        const receipt = await write(S.ctx, 'fiche.membership.plan', { group: s.groupDn, member: s.memberDn, add: s.action === 'add' }, { subtitle: s.label });
-        if (!receipt) break;
-        if (receipt.result === 'applied' || receipt.result === 'noChange') applied += 1;
+      const outcomes = [];
+      const list = p.steps ?? [];
+      for (let i = 0; i < list.length; i++) {
+        const s = list[i];
+        const receipt = await write(S.ctx, 'fiche.membership.plan', { group: s.groupDn, member: s.memberDn, add: s.action === 'add' }, { subtitle: `${s.label} (${i + 1}/${list.length})` });
+        outcomes.push({ step: s, receipt });
+        if (!S.alive) return;
+        if (!receipt && i < list.length - 1) {
+          const goOn = await confirmDialog({
+            title: 'Étape non envoyée',
+            message: `${s.label}${NBSP}: aucune écriture (plan refusé, annulé ou sans objet). ${plural(list.length - i - 1, 'étape reste', 'étapes restent')} à préparer. Continuer avec la suivante${NBSP}?`,
+            confirmLabel: 'Continuer', cancelLabel: 'Arrêter ici', icon: 'sliders',
+          });
+          if (!goOn) {
+            for (const rest of list.slice(i + 1)) outcomes.push({ step: rest, receipt: null, skipped: true });
+            break;
+          }
+        }
       }
-      if (applied) await S.reload({ quiet: true });
+      let check = null;
+      try {
+        check = await S.ctx.call('fiche.groups.delta.check', { dn: S.sheet.identity.dn, steps: list.map((s) => ({ action: s.action, group: s.groupDn })) });
+      } catch (err) {
+        toast(`Vérification des appartenances non aboutie${NBSP}: ${errorText(err)}`, { tone: 'warn' });
+      }
+      showDeltaResult(outcomes, check);
+      await S.reload({ quiet: true });
     }
+  }
+
+  /** Synthesis of a delta: per group the receipt and the state read again on the controller, then the overall state. */
+  function showDeltaResult(outcomes, check) {
+    const RECEIPT = { applied: ['ok', 'Appliqué'], noChange: ['info', 'Déjà en place'], notApplied: ['alert', 'Non appliqué'], unknown: ['warn', 'Issue inconnue'], sent: ['warn', 'Envoyé, sans réponse'] };
+    const STATUS = { verified: 'ok', failed: 'alert', toCheck: 'warn' };
+    const OVERALL = { verified: 'ok', partial: 'alert', toCheck: 'warn', none: 'off' };
+    const rows = outcomes.map(({ step, receipt, skipped }, n) => {
+      const r = receipt ? RECEIPT[receipt.result] ?? ['off', receipt.result] : skipped ? ['off', 'Arrêté avant'] : ['off', 'Non envoyé'];
+      const c = check?.rows?.find((x) => x.groupDn === step.groupDn && x.action === step.action);
+      return `<tr data-j="${n}"><td>${glyph(step.action === 'add' ? 'plus' : 'minus')} ${esc(step.label)}</td><td>${pill(r[0], r[1], { size: 'sm' })}</td>
+        <td>${c ? pill(STATUS[c.status] ?? 'off', c.statusLabel, { size: 'sm', dot: true }) : '<span class="fi-faint">Non relu</span>'}</td></tr>`;
+    }).join('');
+    const body = document.createElement('div');
+    body.dataset.page = 'fiche';
+    body.className = 'fi-delta-result';
+    body.innerHTML = `<div class="fi-delta-overall" data-tone="${OVERALL[check?.overall] ?? 'warn'}">${pill(OVERALL[check?.overall] ?? 'warn', check?.overallLabel ?? 'À vérifier', { icon: check?.overall === 'verified' ? 'check' : 'alert' })}
+        <p>${esc(check?.text ?? 'Relecture non aboutie : relisez la fiche pour vérifier les appartenances.')}</p></div>
+      <div class="fi-table-wrap"><table class="fi-table"><thead><tr><th>Étape</th><th>Reçu</th><th>Relu sur le contrôleur</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="fi-note">${glyph('info')}Rien n’est rejoué automatiquement${NBSP}: une étape en échec se prépare de nouveau, par son propre plan.</p>`;
+    openDrawer({ title: 'Modification des groupes', subtitle: `${S.sheet.identity.name} · ${check?.overallLabel ?? 'À vérifier'}`, icon: 'sliders', key: 'fiche.delta', width: 600, body,
+      actions: [{ id: 'close', label: 'Fermer', primary: true, run: (pnl) => pnl.close() }] });
+    applyVars(body);
+    announce(`Modification des groupes${NBSP}: ${check?.overallLabel ?? 'à vérifier'}.`);
   }
 
   buildGrid();
@@ -237,9 +306,34 @@ export function mountGroups(panel, S) {
   };
   panel.addEventListener('click', onClick);
 
+  // A route state shows the button and the grid; the read runs on `run` only (gesture, or simulation with run=1).
+  function focusButton(selector) {
+    const b = panel.querySelector(selector);
+    b?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    b?.classList.remove('fi-focus');
+    void b?.offsetWidth;
+    b?.classList.add('fi-focus');
+    b?.focus({ preventScroll: true });
+  }
+
   return {
     nested: readNested,
     why: () => { const first = direct?.rows?.[0]; if (first) why(first); },
+    focus(what, { run = true } = {}) {
+      if (what === 'nested') {
+        if (run) readNested();
+        else focusButton('[data-g="nested"]');
+      } else if (what === 'why') {
+        const pickFirst = () => { const first = direct?.rows?.find((r) => r.membership === 'Directe') ?? direct?.rows?.[0]; if (first) why(first); };
+        if (run) {
+          if (direct) pickFirst();
+          else setTimeout(pickFirst, 400);
+        } else {
+          focusButton('.fi-groups-grid');
+        }
+      }
+    },
+    touch() { startFreshness(top); },
     update() {},
     refresh() { nested = null; whyHost.innerHTML = ''; buildGrid(); load(); },
     destroy() { panel.removeEventListener('click', onClick); grid?.destroy(); },
@@ -249,9 +343,10 @@ export function mountGroups(panel, S) {
 /**
  * Comparison of the group access of the user of the fiche with a second account (FIC-005), organisation attributes merged
  * (FIC-004), plain text for a ticket (FIC-006). Read only: nothing is applied.
- * @param {any} S @param {string} [initial]
+ * @param {any} S @param {string} [initial]  Second account prefilled (route « other »).
+ * @param {{ submit?: boolean }} [o]  submit: compare at once (two network reads); false only shows the prefilled form.
  */
-export function openCompare(S, initial = '') {
+export function openCompare(S, initial = '', { submit = true } = {}) {
   const body = document.createElement('div');
   body.dataset.page = 'fiche';
   body.className = 'fi-cmp';
@@ -260,7 +355,7 @@ export function openCompare(S, initial = '') {
       <div class="fi-cmp-row"><input id="fi-cmp-other" class="input" type="search" maxlength="256" autocomplete="off" spellcheck="false" placeholder="Identifiant, DOMAINE\\compte, UPN ou DN" value="${esc(initial)}">
         <button class="btn primary fi-net" type="submit">${glyph('split')}Comparer</button></div>
       <div class="fi-cmp-sugg" role="listbox" aria-label="Comptes de la base locale"></div>
-      <p class="fi-picker-hint">${glyph('database')}Le second compte est résolu exactement dans la base locale ; deux lectures bornées suivent (2 000 groupes, 16 niveaux). Rien n’est appliqué.</p>
+      <p class="fi-picker-hint">${glyph('database')}Le second compte est résolu exactement dans la base locale ; deux lectures bornées suivent (2 000 groupes, 16 niveaux). Rien n’est appliqué.</p>
     </form>
     <div class="fi-cmp-result"></div>`;
   openDrawer({ title: 'Comparer les droits', subtitle: `${S.sheet.identity.name} (A) et un second compte (B)`, icon: 'split', key: 'fiche.compare', width: 920, minWidth: 560, maxWidth: 1300, body, focusFirst: true,
@@ -338,7 +433,7 @@ export function openCompare(S, initial = '') {
       toast(ok ? 'Comparaison copiée pour le ticket.' : 'Copie impossible.', { tone: ok ? 'ok' : 'warn', life: 2600 });
     }
   });
-  if (initial) setTimeout(() => form.requestSubmit(), 50);
+  if (initial && submit) setTimeout(() => form.requestSubmit(), 50);
 }
 
 export { NBSP, emptyNote };

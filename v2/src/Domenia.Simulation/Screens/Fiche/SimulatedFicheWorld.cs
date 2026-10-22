@@ -31,6 +31,8 @@ internal sealed class SimulatedFicheWorld
     private ImmutableDictionary<Guid, ImmutableDictionary<string, ImmutableArray<string>>> overrides = ImmutableDictionary<Guid, ImmutableDictionary<string, ImmutableArray<string>>>.Empty;
     private ImmutableDictionary<Guid, string> contactDns = ImmutableDictionary<Guid, string>.Empty;
     private ImmutableHashSet<Guid> removedContacts = ImmutableHashSet<Guid>.Empty;
+    // Objects whose local associations were removed after their deletion (Domenia 1 Remove-LinksForDeletedObject).
+    private ImmutableHashSet<Guid> unlinked = ImmutableHashSet<Guid>.Empty;
     private long version;
     private (long Overlay, long Local, Dictionary<string, SimulatedObject> ByDn, Dictionary<Guid, SimulatedObject> ById)? index;
 
@@ -331,6 +333,27 @@ internal sealed class SimulatedFicheWorld
         return result.ToImmutable();
     }
 
+    private IEnumerable<(Guid Computer, Guid User, string Evidence, DateTimeOffset When)> Links()
+    {
+        var removed = unlinked;
+        return links.Value.Where(l => !removed.Contains(l.Computer) && !removed.Contains(l.User));
+    }
+
+    /// <summary>Number of local associations that name this object (user or computer).</summary>
+    public int LinkCount(Guid id) => Links().Count(l => l.Computer == id || l.User == id);
+
+    /// <summary>Removes from the local memory every association that names this object; returns how many were removed.</summary>
+    public int ForgetLinks(Guid id)
+    {
+        lock (gate)
+        {
+            var count = Links().Count(l => l.Computer == id || l.User == id);
+            unlinked = unlinked.Add(id);
+            version++;
+            return count;
+        }
+    }
+
     /// <summary>Associations of a user (its workstations) or of a computer (its users), primary first.</summary>
     public ImmutableArray<FicheAssociation> Associations(SimulatedObject item)
     {
@@ -338,7 +361,7 @@ internal sealed class SimulatedFicheWorld
         var list = new List<FicheAssociation>();
         if (item.Kind == FicheKind.User)
         {
-            foreach (var link in links.Value.Where(l => l.User == item.Id))
+            foreach (var link in Links().Where(l => l.User == item.Id))
             {
                 if (Find(link.Computer) is { Value: DirectoryComputer computer } found)
                 {
@@ -350,7 +373,7 @@ internal sealed class SimulatedFicheWorld
         }
         else if (item.Kind == FicheKind.Computer)
         {
-            foreach (var link in links.Value.Where(l => l.Computer == item.Id))
+            foreach (var link in Links().Where(l => l.Computer == item.Id))
             {
                 if (Find(link.User) is { Value: DirectoryUser user } found)
                 {
@@ -380,7 +403,7 @@ internal sealed class SimulatedFicheWorld
         DateTimeOffset? consoleAt = null;
         if (observation.Presence.HasReading && observation.Presence.Answered == true)
         {
-            var link = links.Value.FirstOrDefault(l => l.Computer == value.ObjectGuid && l.Evidence != "history");
+            var link = Links().FirstOrDefault(l => l.Computer == value.ObjectGuid && l.Evidence != "history");
             if (link.User != Guid.Empty && Find(link.User) is { Value: DirectoryUser user })
             {
                 console = source.World.Directory.Domain.NetbiosName + "\\" + user.SamAccountName;
@@ -660,7 +683,7 @@ internal sealed class SimulatedFicheWorld
         }
         if (string.Equals(user.Department, "Finances", StringComparison.Ordinal) && random.Chance(8))
         {
-            var mine = links.Value.Where(l => l.User == user.ObjectGuid).Select(l => Find(l.Computer)?.Value as DirectoryComputer).Where(c => c is not null).Select(c => c!.Name).ToList();
+            var mine = Links().Where(l => l.User == user.ObjectGuid).Select(l => Find(l.Computer)?.Value as DirectoryComputer).Where(c => c is not null).Select(c => c!.Name).ToList();
             var allowed = random.Chance(50) || mine.Count == 0 ? "PC-PAR-0001,PC-PAR-0002" : string.Join(",", mine.Append("PC-PAR-0001"));
             set("userWorkstations", [allowed]);
         }

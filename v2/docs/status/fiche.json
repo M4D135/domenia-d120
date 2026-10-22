@@ -8,35 +8,38 @@
     "FIC-013",
     "FIC-016",
     "FIC-017",
-    "FIC-018",
     "FIC-019",
     "FIC-020",
     "FIC-021",
-    "FIC-023",
     "FIC-024",
     "FIC-026",
-    "FIC-027",
     "FIC-028",
-    "FIC-029",
     "FIC-030",
     "FIC-034",
     "FIC-035",
     "FIC-041",
     "FIC-043",
-    "FIC-044",
+    "FIC-045",
     "FIC-047",
-    "FIC-049"
+    "FIC-049",
+    "FIC-050"
   ],
   "ameliore": [
+    "FIC-001",
     "FIC-003",
     "FIC-004",
     "FIC-005",
     "FIC-007",
     "FIC-008",
     "FIC-009",
+    "FIC-014",
     "FIC-015",
+    "FIC-018",
     "FIC-022",
+    "FIC-023",
     "FIC-025",
+    "FIC-027",
+    "FIC-029",
     "FIC-031",
     "FIC-032",
     "FIC-033",
@@ -46,25 +49,33 @@
     "FIC-039",
     "FIC-040",
     "FIC-042",
+    "FIC-044",
     "FIC-046",
     "FIC-048"
   ],
-  "partiel": [
-    {
-      "id": "FIC-001",
-      "reste": "Lire Security.AllowRawAttributeWrite et Security.BlockSensitiveRawAttributes dans la configuration de Domenia 1 (LegacyConfiguration) : en attendant, les valeurs par défaut de Domenia 1 s’appliquent en mode annuaire (écriture brute désactivée) et la simulation l’ouvre. La règle elle-même (double contrôle, liste sensible, attributs opérationnels refusés) est faite."
-    },
-    {
-      "id": "FIC-014",
-      "reste": "Saisie par l’opérateur d’un mot de passe choisi, avec confirmation révélable : la fenêtre sécurisée de l’hôte qui garde le SecureString jusqu’à l’API Windows reste à brancher dans le shell. Aujourd’hui la réinitialisation pose un mot de passe généré par le moteur (options « Déverrouiller ensuite » et « Changement obligatoire » faites), sans le montrer."
-    },
-    {
-      "id": "FIC-045",
-      "reste": "Le rapprochement des événements 4740 avec les refus d’authentification de Domenia (120 s, 5 s de décalage) est écrit et affiché, mais Domenia 2 n’enregistre encore aucun refus d’authentification (pas d’identifiants alternatifs) : la liste des refus est vide."
-    },
-    {
-      "id": "FIC-050",
-      "reste": "Générateur fait (16 caractères, 14 à 64, quatre classes, sans caractères ambigus, mélangé, SecureString) ; l’affichage unique du mot de passe généré à l’opérateur passe par la fenêtre sécurisée de l’hôte, à brancher dans le shell."
-    }
+  "partiel": [],
+  "precisions": {
+    "FIC-001": "Security.AllowRawAttributeWrite et BlockSensitiveRawAttributes lus dans Domenia.config.json (FicheSettingsFileReader, valeurs par défaut de Domenia 1 si absentes) ; provenance de chaque réglage affichée ; double contrôle avec la politique du plan (Remember). En simulation, une écriture brute que le fichier ne règle pas est ouverte sur l’annuaire fictif, et la page le dit.",
+    "FIC-014": "Saisie deux fois dans la fenêtre sécurisée native de l’hôte (champs révélables, collage accepté, copie refusée), SecureString de bout en bout (plan → Hold → exécuteur) ; compte protégé permis avec la saisie du nom, comme Domenia 1 ; « Changement obligatoire » suit Security.ForcePasswordChangeOnReset.",
+    "FIC-045": "Refus de la protection des comptes lus par IFicheReader.RefusalsAsync (mémoire locale de la garde) et rapprochés de chaque 4740 ; la simulation sert des refus fictifs ; en mode annuaire, servis par Domenia.Ad avec le reste de la lecture.",
+    "FIC-050": "Mot de passe généré dans la fenêtre sécurisée (longueur Security.GeneratedPasswordLength, 14 à 64), révélé une fois pour être lu ou dicté, copiable avec effacement du presse-papiers après Security.AutoClearSecretClipboardSeconds.",
+    "FIC-007": "Garde du routeur (ctx.guardLeave) : changer de fiche, quitter l’écran ou relire (F5) avec des saisies non enregistrées demande confirmation ; comparaison champ par champ quand une relecture arrive.",
+    "FIC-008": "Deux confirmations : le mot SUPPRIMER dans la page, puis le nom exact dans le plan ; associations locales retirées après la suppression (reçu).",
+    "FIC-022": "Une étape refusée ou annulée propose de continuer ou d’arrêter ; synthèse par groupe d’après les reçus et la relecture du contrôleur (fiche.groups.delta.check : Vérifié, Échec, À vérifier, Partiel) ; plans refaits si la sélection change.",
+    "FIC-029": "Membres lus par plages (member;range, 1 500), 2 000 affichés, 50 000 comptés, motif d’une lecture partielle.",
+    "FIC-031": "Aucun repeint quand rien n’a changé ; seules les lignes changées clignotent ; l’en-tête n’est repeint que si ce qu’il montre change.",
+    "FIC-036": "Durées du profil d’usage (Paramètres, settings.collection), dernière tentative, historique daté par la lecture des métadonnées ; pastille de fraîcheur sur chaque bloc.",
+    "FIC-038": "Onglet d’arrivée par type (Get-DomeniaLandingView) : compte et poste sur Général, groupe sur Membres, OU et conteneur sur Contenu.",
+    "FIC-040": "Commande de palette « Lire les verrouillages (4740) » de la fiche affichée (ctx.commands).",
+    "R40": "Modèle CallSheet.TicketTemplate de Domenia.config.json (texte ou lignes) appliqué avec les refus de Domenia 1 (plus de 4 000 caractères, caractères de contrôle, aucun champ connu), motif affiché."
+  },
+  "partages": [
+    "src/Domenia.Simulation/SimulatedDirectoryOverlay.cs (édition générique : postes, groupes, OU, suppressions ; à fusionner avec l’extension de l’écran Poste)",
+    "src/Domenia.Simulation/SimulatedDirectorySource.cs (EditDirectory, CurrentObservations)",
+    "web/js/router.js (garde de sortie ctx.guardLeave)",
+    "web/js/app.js (commandes de palette de l’écran affiché, ctx.commands)",
+    "web/js/kit/menu.js, web/css/kit.css (marques écriture et réseau des menus), web/js/kit/glyphs.js (phone, mail, building)",
+    "web/js/mock.js (deux lignes : mock-fiche.js)",
+    "tests/Domenia.Tests/TestSupport.cs (lecteurs supplémentaires du pont de test), tests/Domenia.Tests/PlatformTests.cs"
   ]
 }

@@ -1,20 +1,23 @@
-// Header of the fiche: kind, name, state pills, origin and freshness, DN breadcrumb, command bar, support band of a user
-// (FIC-048) and the key figures of the object. Updated in place when the fiche is read again (FIC-031).
-import { createCommandBar, createDnBreadcrumb, freshness, startFreshness, glyph, pill, NBSP, int } from '../../kit/index.js';
-import { esc, applyVars } from '../../ui.js';
-import { avatar, kindOf, statePills, plural } from './common.js';
+// Header of the fiche: kind, name, identifiers, state pills, origin and freshness, command bar (one primary action, one
+// « Actions » menu ordered Aller à, Lire sur le réseau, Modifier, Zone sensible, each entry marked), DN breadcrumb with its menu
+// (FIC-039: copy the DN or the name, open the parent), the support band of a user (FIC-048) and the key figures of the object,
+// shown on every tab with the tile of the current tab highlighted. Updated in place when the fiche is read again (FIC-031).
+import { createCommandBar, createDnBreadcrumb, freshness, startFreshness, glyph, openMenu, writeClipboard, NBSP, int } from '../../kit/index.js';
+import { esc, applyVars, toast } from '../../ui.js';
+import { avatar, kindOf, statePills, plural, day, stamp, nobr, presenceWords } from './common.js';
 
 const ACTION_ICONS = {
   edit: 'edit', unlock: 'lock', resetPassword: 'key', expirePassword: 'key', expiration: 'calendar', options: 'sliders', enable: 'power',
   disable: 'power', move: 'ou', groupAdd: 'group', memberAdd: 'plus', createOu: 'plus', setScope: 'pin', delete: 'trash', lockouts: 'lock',
   logonByDc: 'server', compare: 'split', callSheet: 'lifebuoy', openPoste: 'monitor', presence: 'wifi', rights: 'shield', reread: 'refresh',
-  copySummary: 'copy', openParent: 'ou',
+  copySummary: 'copy', openParent: 'ou', support: 'lifebuoy',
 };
 
+// Reads first, writes after, the destructive one last (KIT § 2.6.6: a write is never the first entry of a menu).
 const GROUPS = [
-  { heading: 'Modifier', ids: ['edit', 'unlock', 'enable', 'disable', 'expirePassword', 'resetPassword', 'expiration', 'options', 'move', 'groupAdd', 'memberAdd', 'createOu'] },
+  { heading: 'Aller à', ids: ['callSheet', 'support', 'openPoste', 'openParent', 'setScope', 'copySummary'] },
   { heading: 'Lire sur le réseau', ids: ['lockouts', 'logonByDc', 'presence', 'rights', 'compare'] },
-  { heading: 'Aller à', ids: ['callSheet', 'openPoste', 'openParent', 'setScope', 'copySummary'] },
+  { heading: 'Modifier', ids: ['edit', 'unlock', 'enable', 'disable', 'expirePassword', 'resetPassword', 'expiration', 'options', 'move', 'groupAdd', 'memberAdd', 'createOu'] },
   { heading: 'Zone sensible', ids: ['delete'] },
 ];
 
@@ -25,6 +28,7 @@ const GROUPS = [
 export function mountHeader(host, S) {
   let bar = null;
   let crumbs = null;
+  let shown = '';
 
   function primaryId(sheet) {
     const usable = (id) => sheet.actions.find((a) => a.id === id && a.available);
@@ -33,30 +37,36 @@ export function mountHeader(host, S) {
     return 'reread';
   }
 
+  /** Actions of the sheet, plus « Résumé support » for a user (a local view of the facts already read). */
+  function actionsOf(sheet) {
+    const list = [...sheet.actions];
+    if (sheet.identity.kind === 'user' && sheet.support?.length) list.push({ id: 'support', label: 'Résumé support', kind: 'local', available: true, reason: null, danger: false });
+    return list;
+  }
+
   function commands(sheet) {
     const primary = primaryId(sheet);
-    const byId = new Map(sheet.actions.map((a) => [a.id, a]));
-    const cmd = (a, extra = {}) => ({
-      id: a.id, label: a.label, icon: ACTION_ICONS[a.id], kind: a.kind === 'write' ? 'write' : a.kind === 'network' ? 'network' : 'local',
-      disabled: !a.available, reason: a.reason ?? undefined, danger: a.danger && a.id !== primary, run: () => S.act(a.id), ...extra,
-    });
+    const actions = actionsOf(sheet);
+    const byId = new Map(actions.map((a) => [a.id, a]));
+    const kindOfAction = (a) => (a.kind === 'write' ? 'write' : a.kind === 'network' ? 'network' : undefined);
     const items = [];
     const p = byId.get(primary);
-    if (p) items.push(cmd(p, { primary: true, danger: false, pinned: true }));
-    if (sheet.identity.kind === 'computer' && byId.has('openPoste')) items.push(cmd(byId.get('openPoste')));
+    if (p) {
+      items.push({ id: p.id, label: p.label, icon: ACTION_ICONS[p.id], kind: kindOfAction(p), primary: true, pinned: true, disabled: !p.available, reason: p.reason ?? undefined, run: () => S.act(p.id) });
+    }
     const menu = [];
     for (const g of GROUPS) {
-      const list = g.ids.map((id) => byId.get(id)).filter((a) => a && a.id !== primary);
+      const list = g.ids.map((id) => byId.get(id)).filter((a) => a && a.id !== primary && a.id !== 'reread');
       if (!list.length) continue;
       if (menu.length) menu.push('-');
       menu.push({ heading: g.heading });
       for (const a of list) {
-        menu.push({ label: a.label, icon: ACTION_ICONS[a.id], danger: !!a.danger, disabled: !a.available, reason: a.reason ?? undefined, run: () => S.act(a.id) });
+        menu.push({ label: a.label, icon: ACTION_ICONS[a.id], kind: kindOfAction(a), danger: !!a.danger, disabled: !a.available, reason: a.reason ?? undefined, run: () => S.act(a.id) });
       }
     }
     items.push({ id: 'more', label: 'Actions', icon: 'more', items: menu, pinned: true });
-    if (byId.has('reread')) items.push(cmd(byId.get('reread'), { iconOnly: true, kbd: 'F5', pinned: true, label: 'Relire depuis l’annuaire' }));
-    if (byId.has('copySummary')) items.push(cmd(byId.get('copySummary'), { iconOnly: true, pinned: true }));
+    if (byId.has('reread')) items.push({ id: 'reread', label: 'Relire depuis l’annuaire', icon: 'refresh', kind: 'network', iconOnly: true, kbd: 'F5', pinned: true, run: () => S.act('reread') });
+    if (byId.has('copySummary')) items.push({ id: 'copySummary', label: 'Copier le résumé', icon: 'copy', iconOnly: true, pinned: true, run: () => S.act('copySummary') });
     return items;
   }
 
@@ -67,21 +77,18 @@ export function mountHeader(host, S) {
     }
     const label = o.source === 'simulation' ? 'Annuaire fictif' : 'Annuaire';
     return `<span class="fi-origin live" data-tip="${esc(o.detail)}">${glyph(o.source === 'simulation' ? 'sparkles' : 'server')}<span>${esc(label)}${o.controller ? ` · ${esc(o.controller)}` : ''}</span></span>`
-      + freshness(o.readAt, { label: 'Lu', staleAfter: 15 * 60_000, source: o.controller ?? label });
+      + freshness(o.readAt, { label: 'Lu', staleAfter: (sheet.freshness.find((f) => f.nature === 'attributes')?.validitySeconds || 900) * 1000, source: o.controller ?? label });
   }
 
   function band(sheet) {
     const b = sheet.band;
     if (!b) return '';
-    const buttons = [
-      b.unlock ? `<button class="btn sm primary" type="button" data-band="unlock">${glyph('lock')}Déverrouiller maintenant</button>` : '',
-      b.lockouts ? `<button class="btn sm" type="button" data-band="lockouts">${glyph('history')}Lire les verrouillages (4740)</button>` : '',
-    ].join('');
+    // Information only: the unlock is the primary command of the header, the 4740 read is on the account tab (one place each).
     return `<section class="fi-band reveal" data-tone="${esc(b.tone)}" role="status">
       <span class="fi-band-ico">${glyph(b.tone === 'alert' ? 'alert' : 'eye')}</span>
       <div class="fi-band-body"><p class="fi-band-alerts">${b.alerts.map((a, n) => `<span class="fi-band-alert" data-j="${n}">${esc(a)}</span>`).join('<span class="fi-band-dot" aria-hidden="true">·</span>')}</p>
         ${b.limits ? `<p class="fi-band-limits">${esc(b.limits)}</p>` : ''}</div>
-      ${buttons ? `<div class="fi-band-actions">${buttons}</div>` : ''}
+      ${b.unlock || b.lockouts ? `<div class="fi-band-actions"><button class="btn sm ghost" type="button" data-band="lockCard">${glyph('chevronRight')}Voir le verrouillage</button></div>` : ''}
     </section>`;
   }
 
@@ -90,47 +97,54 @@ export function mountHeader(host, S) {
     const a = sheet.account;
     const c = sheet.counts;
     const tiles = [];
-    const tile = (icon, label, value, sub, tone, tab, extra = '') => tiles.push({ icon, label, value, sub, tone, tab, extra });
+    const tile = (icon, label, value, sub, tone, tab) => tiles.push({ icon, label, value, sub, tone, tab });
     if (id.kind === 'user') {
-      tile('shield', 'Compte', a?.disabled ? 'Désactivé' : a?.lock === 'locked' ? 'Verrouillé' : 'Activé',
-        a?.lock === 'locked' ? a.lockLabel : a?.accountExpiresLabel ?? '', a?.disabled || a?.lock === 'locked' ? 'alert' : 'ok', 'compte');
-      // The value already gives the date: the sub keeps only what it adds (« dans 55 jours »).
-      tile('key', 'Mot de passe', a ? passwordShort(a) : '—', a?.passwordExpires ? (/\(([^)]+)\)\s*$/.exec(a.passwordLabel ?? '')?.[1] ?? a.passwordLabel) : a?.passwordLabel ?? '', a?.passwordTone ?? 'off', 'compte');
-      tile('clock', 'Dernière connexion', a?.logon?.approx ? dateShort(a.logon.approx) : 'Aucune', a?.logon?.badge ?? 'Valeur approximative (répliquée)', a?.logon?.badgeTone ?? 'off', 'compte');
-      tile('group', 'Groupes directs', c.groups != null ? int(c.groups) : '—', groupSub(sheet), privilegedTone(sheet), 'groupes');
-      tile('monitor', 'Poste associé', sheet.linked?.[0]?.name ?? 'Aucun', (sheet.presence?.label ?? '').replace(/\s*\(poste associé [^)]*\)/, ''), presenceTone(sheet.presence), 'relations');
+      const locked = a?.lock === 'locked';
+      tile('shield', 'Compte', a?.disabled ? 'Désactivé' : locked ? 'Verrouillé' : 'Activé', a?.accountExpiresLabel ?? '', a?.disabled || locked ? 'alert' : 'ok', 'compte');
+      tile('key', 'Mot de passe', a ? passwordShort(a) : '—', a?.passwordLastSet ? `Changé le ${day(a.passwordLastSet)}` : a?.mustChange ? 'À la prochaine ouverture de session' : '', a?.passwordTone ?? 'off', 'compte');
+      tile('clock', 'Dernière connexion', a?.logon?.approx ? day(a.logon.approx) : 'Aucune', a?.logon?.badge ?? 'Valeur répliquée, à 14 jours près', a?.logon?.badgeTone ?? 'off', 'compte');
+      tile('group', 'Groupes directs', c.groups != null ? int(c.groups) : '—', sheet.states.some((s) => s.id === 'protected') ? 'Compte à privilèges (adminCount = 1)' : 'Groupe principal à part', sheet.states.some((s) => s.id === 'protected') ? 'accent' : 'info', 'groupes');
+      tile('monitor', 'Poste associé', sheet.linked?.[0]?.name ?? 'Aucun', presenceShort(sheet.presence), presenceTone(sheet.presence), 'relations');
     } else if (id.kind === 'computer') {
       const os = sheet.sections.find((s) => s.id === 'systeme')?.items.find((i) => i.key === 'operatingSystem');
-      tile('monitor', 'Système', os?.sub ?? os?.value ?? '—', os?.value ?? '', 'info', 'general');
-      tile('wifi', 'Présence', sheet.presence?.label ?? 'Non relevée', sheet.presence?.detail ?? '', presenceTone(sheet.presence), 'general');
-      tile('clock', 'Dernière connexion', a?.logon?.approx ? dateShort(a.logon.approx) : 'Aucune', a?.logon?.badge ?? '', a?.logon?.badgeTone ?? 'off', 'compte');
-      tile('key', 'Mot de passe machine', a?.passwordTone === 'warn' ? 'Ancien' : 'À jour', a?.passwordLabel ?? '', a?.passwordTone ?? 'off', 'compte');
-      tile('user', 'Utilisateur associé', sheet.linked?.[0]?.name ?? 'Aucun', sheet.linked?.[0] ? `${sheet.linked[0].evidenceLabel}` : 'Aucune association connue', sheet.linked?.length ? 'accent' : 'off', 'relations');
+      tile('monitor', 'Système', os?.sub ?? os?.value ?? '—', os?.sub ? os?.value ?? '' : '', 'info', 'general');
+      tile('wifi', 'Présence', presenceValue(sheet.presence), sheet.presence?.checkedAt ? `Relevé le ${stamp(sheet.presence.checkedAt)}` : 'Aucun relevé exploitable', presenceTone(sheet.presence), 'general');
+      tile('clock', 'Dernière connexion', a?.logon?.approx ? day(a.logon.approx) : 'Aucune', a?.logon?.badge ?? '', a?.logon?.badgeTone ?? 'off', 'compte');
+      tile('key', 'Mot de passe machine', a?.passwordTone === 'warn' ? 'Ancien' : 'À jour', a?.passwordLastSet ? `Renouvelé le ${day(a.passwordLastSet)}` : 'Date non lue', a?.passwordTone ?? 'off', 'compte');
+      tile('user', 'Utilisateur associé', sheet.linked?.[0]?.name ?? 'Aucun', sheet.linked?.[0] ? sheet.linked[0].evidenceLabel : 'Aucune association connue', sheet.linked?.length ? 'accent' : 'off', 'relations');
     } else if (id.kind === 'group') {
       const type = sheet.sections[0]?.items.find((i) => i.key === 'groupType')?.value ?? 'Groupe';
       const typeMatch = /^Groupe de (sécurité|distribution) (.+)$/.exec(type);
-      tile('users', 'Membres directs', c.members != null ? int(c.members) : '—', 'Attribut member', 'info', 'membres');
+      tile('users', 'Membres directs', c.members != null ? int(c.members) : '—', 'Attribut member, lu par plages', 'info', 'membres');
       tile('group', 'Membre de', c.groups != null ? int(c.groups) : '—', c.groups ? plural(c.groups, 'groupe parent', 'groupes parents') : 'Aucun groupe parent', 'accent', 'groupes');
-      tile('tag', 'Type', typeMatch ? (typeMatch[1] === 'sécurité' ? 'Sécurité' : 'Distribution') : type, typeMatch ? `Portée : ${typeMatch[2]}` : '', typeMatch?.[1] === 'sécurité' ? 'info' : 'off', 'general');
-      tile('user', 'Géré par', sheet.manager?.name ?? 'Personne', sheet.manager?.detail ?? '', sheet.manager ? 'ok' : 'off', 'relations');
+      tile('tag', 'Type', typeMatch ? (typeMatch[1] === 'sécurité' ? 'Sécurité' : 'Distribution') : type, typeMatch ? `Étendue${NBSP}: ${typeMatch[2]}` : '', typeMatch?.[1] === 'sécurité' ? 'info' : 'off', 'general');
+      tile('user', 'Géré par', sheet.manager?.name ?? 'Personne', sheet.manager?.detail ?? 'Attribut managedBy vide', sheet.manager ? 'ok' : 'off', 'relations');
     } else if (id.kind === 'ou' || id.kind === 'container') {
-      tile('layers', 'Objets directs', c.children != null ? int(c.children) : '—', 'Lecture d’un seul niveau', 'info', 'membres');
+      tile('layers', 'Objets directs', c.children != null ? int(c.children) : '—', 'Index local, un seul niveau', 'info', 'membres');
       const gpo = sheet.states.find((s) => s.id === 'gpo');
       tile('shield', 'Stratégies liées', gpo ? gpo.label.split(NBSP)[0].split(' ')[0] : '0', gpo ? 'Attribut gPLink' : 'Aucune stratégie liée', gpo ? 'accent' : 'off', 'attributs');
-      tile('user', 'Géré par', sheet.manager?.name ?? 'Personne', sheet.manager?.detail ?? '', sheet.manager ? 'ok' : 'off', 'relations');
-      tile('clock', 'Modifiée', id.changed ? dateShort(id.changed) : '—', 'whenChanged', 'off', 'historique');
+      tile('user', 'Géré par', sheet.manager?.name ?? 'Personne', sheet.manager?.detail ?? 'Attribut managedBy vide', sheet.manager ? 'ok' : 'off', 'relations');
+      tile('clock', 'Modifiée le', id.changed ? day(id.changed) : '—', 'Attribut whenChanged', 'off', 'historique');
     } else {
       const item = (key) => sheet.sections.flatMap((s) => s.items).find((i) => i.key === key);
-      tile('object', 'Société', item('company')?.value ?? '—', item('title')?.value ?? '', 'info', 'general');
-      tile('link', 'Messagerie', item('mail')?.value ?? '—', '', 'accent', 'general');
-      tile('clock', 'Téléphone', item('telephoneNumber')?.value ?? '—', item('mobile')?.value ?? '', 'off', 'general');
-      tile('group', 'Listes de diffusion', c.groups != null ? int(c.groups) : '—', '', 'off', 'groupes');
+      tile('building', 'Société', item('company')?.value ?? '—', item('title')?.value ?? '', 'info', 'general');
+      tile('mail', 'Messagerie', item('mail')?.value ?? '—', 'Adresse de messagerie', 'accent', 'general');
+      tile('phone', 'Téléphone', item('telephoneNumber')?.value ?? '—', item('mobile')?.value ? `Mobile${NBSP}: ${item('mobile').value}` : '', 'off', 'general');
+      tile('group', 'Listes de diffusion', c.groups != null ? int(c.groups) : '—', 'Groupes dont le contact est membre', 'off', 'groupes');
     }
-    return `<div class="fi-stats" data-count="${tiles.length}">${tiles.map((t, n) => `<button type="button" class="fi-stat spot tilt reveal" data-tab="${esc(t.tab)}" data-tone="${esc(t.tone)}" data-j="${n}" aria-label="${esc(`${t.label} : ${t.value}${t.sub ? `, ${t.sub}` : ''}`)}">
+    return `<div class="fi-stats" data-count="${tiles.length}">${tiles.map((t, n) => `<button type="button" class="fi-stat spot reveal" data-tab="${esc(t.tab)}" data-tone="${esc(t.tone)}" data-j="${n}" aria-label="${esc(`${t.label}${NBSP}: ${t.value}${t.sub ? `, ${t.sub}` : ''}. Ouvre l’onglet correspondant.`)}">
       <span class="fi-stat-top"><span class="fi-stat-ico">${glyph(t.icon)}</span><span class="fi-stat-label">${esc(t.label)}</span></span>
-      <span class="fi-stat-value">${esc(t.value)}</span>
-      <span class="fi-stat-sub">${esc(t.sub || ' ')}</span>
+      <span class="fi-stat-value">${nobr(t.value)}</span>
+      <span class="fi-stat-sub">${nobr(t.sub || ' ')}</span>
       <span class="fi-stat-bar" aria-hidden="true"></span></button>`).join('')}</div>`;
+  }
+
+  function ids(sheet) {
+    const id = sheet.identity;
+    const chips = [];
+    if (id.sam) chips.push(`<span class="fi-idchip mono" data-tip="Identifiant (sAMAccountName)">${glyph('user')}${esc(id.sam)}</span>`);
+    if (id.upn) chips.push(`<span class="fi-idchip mono" data-tip="Nom de connexion (UPN)">${glyph('mail')}${esc(id.upn)}</span>`);
+    return chips.join('');
   }
 
   function markup(sheet) {
@@ -147,15 +161,14 @@ export function mountHeader(host, S) {
           <div class="fi-id-text">
             <p class="fi-eyebrow"><span class="fi-kind">${glyph(k.icon)}${esc(id.kindLabel)}</span>${origin(sheet)}</p>
             <h1 class="fi-name gradient-text">${esc(id.name)}</h1>
-            <p class="fi-subtitle">${esc(id.subtitle)}</p>
-            <div class="fi-states">${statePills(sheet.states)}</div>
+            <p class="fi-subtitle">${nobr(id.subtitle)}</p>
+            <div class="fi-states">${statePills(sheet.states)}${ids(sheet)}</div>
           </div>
         </div>
-        <div class="fi-hero-side"><div class="fi-cmd"></div>
-          ${id.sam ? `<p class="fi-ids"><span class="mono" data-tip="Identifiant (sAMAccountName)">${esc(id.sam)}</span>${id.upn ? `<span class="mono" data-tip="Nom de connexion (UPN)">${esc(id.upn)}</span>` : ''}</p>` : ''}
-        </div>
+        <div class="fi-hero-side"><div class="fi-cmd"></div></div>
       </div>
-      <div class="fi-crumbs"></div>
+      <div class="fi-crumbs-row"><div class="fi-crumbs"></div>
+        <button class="btn ghost icon sm fi-dn-menu" type="button" aria-haspopup="menu" aria-label="Menu du nom distinctif" data-tip="Copier le DN ou le nom, ouvrir le parent">${glyph('more')}</button></div>
     </section>
     ${band(sheet)}
     ${stats(sheet)}`;
@@ -168,32 +181,61 @@ export function mountHeader(host, S) {
     crumbs = createDnBreadcrumb(host.querySelector('.fi-crumbs'), { dn: sheet.identity.dn, onNavigate: (dn) => S.open(dn), copy: true, maxVisible: 6, label: 'Emplacement de l’objet' });
     applyVars(host);
     startFreshness(host);
+    markTab(S.tabs?.current?.() ?? sheet.landing);
+  }
+
+  function markTab(tab) {
+    host.querySelectorAll('.fi-stat[data-tab]').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+  }
+
+  function dnMenu(button) {
+    const id = S.sheet.identity;
+    const copy = (text, done) => writeClipboard(text).then((ok) => toast(ok ? done : 'Copie impossible.', { tone: ok ? 'ok' : 'warn', life: 2400 }));
+    openMenu(button, [
+      { heading: 'Nom distinctif' },
+      { label: 'Copier le DN', icon: 'copy', run: () => copy(id.dn, 'DN copié.') },
+      { label: 'Copier le nom', icon: 'copy', run: () => copy(id.name, 'Nom copié.') },
+      { label: 'Ouvrir le parent', icon: 'ou', disabled: !id.parentDn || /^DC=/i.test(id.parentDn), reason: 'Le parent est la racine du domaine, qui ne s’ouvre pas en fiche.', run: () => S.open(id.parentDn) },
+    ], { label: 'Menu du nom distinctif', placement: 'bottom-end' });
   }
 
   host.innerHTML = markup(S.sheet);
+  shown = headerKey(S.sheet);
   wire(S.sheet);
 
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (!t) return;
     const stat = t.closest('.fi-stat[data-tab]');
-    if (stat) { S.selectTab(stat.dataset.tab); return; }
+    if (stat) { S.selectTab(stat.dataset.tab, { scroll: true }); return; }
     const b = t.closest('[data-band]');
-    if (b) S.act(b.dataset.band);
+    if (b) { S.act('lockCard'); return; }
+    const dn = t.closest('.fi-dn-menu');
+    if (dn) dnMenu(dn);
   };
   host.addEventListener('click', onClick);
 
   return {
+    /** Same object read again: repainted only when what the header shows changed (FIC-031), never with its entrance again. */
     update(sheet) {
-      // Same object: the header is repainted in place (no entrance again), the command bar follows the new actions.
+      const key = headerKey(sheet);
+      if (key === shown) {
+        const fresh = host.querySelector('.fi-origin + .k-fresh');
+        if (fresh) { fresh.dataset.at = sheet.origin.readAt; startFreshness(host); }
+        return false;
+      }
+      shown = key;
       host.innerHTML = markup(sheet).replaceAll(' reveal', ' revealed');
       wire(sheet);
       host.querySelector('.fi-hero')?.classList.add('refreshed');
+      return true;
     },
+    markTab,
     setBusy(on) {
-      host.querySelector('.fi-hero')?.classList.toggle('busy', !!on);
-      if (on) host.querySelector('.fi-hero')?.setAttribute('aria-busy', 'true');
-      else host.querySelector('.fi-hero')?.removeAttribute('aria-busy');
+      const hero = host.querySelector('.fi-hero');
+      hero?.classList.toggle('busy', !!on);
+      if (on) hero?.setAttribute('aria-busy', 'true');
+      else hero?.removeAttribute('aria-busy');
     },
     destroy() {
       host.removeEventListener('click', onClick);
@@ -203,33 +245,34 @@ export function mountHeader(host, S) {
   };
 }
 
-function dateShort(iso) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+/** What the header shows, without the date of the read (an identical header is never repainted). */
+function headerKey(sheet) {
+  const { origin, freshness, ...rest } = sheet;
+  return JSON.stringify([rest.identity, rest.states, rest.band, rest.account, rest.counts, rest.presence, rest.linked?.[0], rest.manager, rest.actions, origin.preview, origin.controller,
+    rest.sections.find((s) => s.id === 'systeme'), freshness?.length]);
 }
 
 function passwordShort(a) {
   if (a.mustChange) return 'À changer';
   if (a.passwordTone === 'alert') return 'Expiré';
   if (a.options?.some((o) => o.id === 'passwordNeverExpires' && o.on)) return 'Sans expiration';
-  if (a.passwordExpires) return `Expire le ${dateShort(a.passwordExpires)}`;
+  if (a.passwordExpires) return `Expire le ${day(a.passwordExpires)}`;
   return 'Valide';
 }
 
-function groupSub(sheet) {
-  const privileged = sheet.states.some((s) => s.id === 'protected');
-  return privileged ? 'Compte à privilèges (adminCount = 1)' : 'memberOf, groupe principal à part';
+function presenceValue(p) {
+  if (!p) return 'Non relevée';
+  if (p.state === 'online') return 'En ligne';
+  if (p.state === 'offline') return 'Sans réponse';
+  return p.checkedAt ? presenceWords(p) : 'Non relevée';
 }
 
-function privilegedTone(sheet) {
-  return sheet.states.some((s) => s.id === 'protected') ? 'accent' : 'info';
+function presenceShort(p) {
+  if (!p) return 'Présence non relevée';
+  return p.checkedAt ? `${presenceWords(p)}, relevé le ${stamp(p.checkedAt)}` : presenceWords(p);
 }
 
 function presenceTone(p) {
   if (!p) return 'off';
   return p.state === 'online' ? 'ok' : p.state === 'offline' ? 'warn' : 'off';
 }
-
-export { pill };

@@ -5,28 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace Domenia.Core;
 
-/// <summary>
-/// Security settings of the fiche (Domenia 1 Security.* of Domenia.config.json): raw attribute writes, deletion of
-/// containers, typed confirmations, forced password change. <see cref="Default"/> holds the defaults of Domenia 1. The
-/// simulation (in-memory overlay, no real effect, decision of David of 21/10) allows raw attribute writes so that the editor
-/// can be tried; the block list of sensitive attributes always applies.
-/// </summary>
-public sealed record FicheSecurityPolicy(
-    bool AllowRawAttributeWrite,
-    bool BlockSensitiveRawAttributes,
-    bool AllowContainerDelete,
-    bool RequireTypedDeleteConfirmation,
-    bool RequireTypedHighRiskConfirmation,
-    bool ForcePasswordChangeOnReset,
-    int GeneratedPasswordLength)
-{
-    public static FicheSecurityPolicy Default { get; } = new(false, true, false, true, true, true, 16);
-
-    public static FicheSecurityPolicy Simulation { get; } = Default with { AllowRawAttributeWrite = true };
-
-    public static FicheSecurityPolicy For(AppMode mode) => mode == AppMode.Simulation ? Simulation : Default;
-}
-
 /// <summary>Answer of the raw attribute rule: allowed, or why not (Domenia 1 Test-DomeniaRawAttributeAllowed).</summary>
 public sealed record RawAttributeDecision(bool Allowed, string Attribute, string Reason);
 
@@ -49,8 +27,11 @@ public sealed record FicheRawAttributes(
     FicheRawWrite RawWrite,
     string Note);
 
-/// <summary>Whether the raw editor is open, why not, and the block list in force (improvement of FIC-001).</summary>
-public sealed record FicheRawWrite(bool Allowed, string? Reason, bool BlockSensitive, ImmutableArray<string> BlockList);
+/// <summary>
+/// Whether the raw editor is open, why not, the block list in force and where each setting comes from (improvement of FIC-001:
+/// Domenia.config.json, default of Domenia 1 or simulation).
+/// </summary>
+public sealed record FicheRawWrite(bool Allowed, string? Reason, bool BlockSensitive, ImmutableArray<string> BlockList, ImmutableArray<FicheSettingView> Settings, string FileText);
 
 /// <summary>
 /// Pure rules about attribute names and raw values: sensitive attributes never shown (Test-DomeniaSensitiveAttributeName), the
@@ -191,7 +172,7 @@ public static partial class FicheAttributeRules
     /// Raw attributes of an entry, sorted by name (Entry-ToRawAttributes): dates converted beside their raw value, binary
     /// values in hexadecimal, flags with their readable names, sensitive attributes excluded (and counted).
     /// </summary>
-    public static FicheRawAttributes Rows(FicheEntry entry, FicheSecurityPolicy policy, TimeZoneInfo zone, int hiddenSensitive)
+    public static FicheRawAttributes Rows(FicheEntry entry, FicheSecurityPolicy policy, TimeZoneInfo zone, int hiddenSensitive, ImmutableArray<FicheSettingView> settings = default, string fileText = "")
     {
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(policy);
@@ -208,7 +189,8 @@ public static partial class FicheAttributeRules
             })
             .ToImmutableArray();
         var write = RawWriteAllowed("description", policy);
-        var rawWrite = new FicheRawWrite(policy.AllowRawAttributeWrite, policy.AllowRawAttributeWrite ? null : write.Reason, policy.BlockSensitiveRawAttributes, BlockList);
+        var rawWrite = new FicheRawWrite(policy.AllowRawAttributeWrite, policy.AllowRawAttributeWrite ? null : write.Reason, policy.BlockSensitiveRawAttributes, BlockList,
+            settings.IsDefault ? [] : settings, fileText);
         var note = hiddenSensitive > 0
             ? FrenchText.Count(hiddenSensitive, "attribut sensible exclu", "attributs sensibles exclus") + " (mots de passe, LAPS, BitLocker, clés)" + FrenchText.Colon + "jamais lus ni affichés."
             : "Attributs sensibles (mots de passe, LAPS, BitLocker, clés) jamais lus ni affichés.";

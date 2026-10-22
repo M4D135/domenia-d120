@@ -12,6 +12,7 @@ import { esc, fold, uid, placeFloating, leave, isTextEntry } from './util.js';
  * @property {boolean} [disabled]
  * @property {string} [reason]              Why it is disabled (tooltip and accessible description).
  * @property {boolean} [danger]             Write or destructive action (red, never the first item).
+ * @property {'write'|'network'} [kind]     Marks a write (pencil) or a network read (blue dot), as the command bar does (§ 2.6.6).
  * @property {boolean} [checked]            Makes a checkbox item (menuitemcheckbox).
  * @property {string} [radio]               Radio group name (menuitemradio, uses `checked`).
  * @property {boolean} [keepOpen]           The menu stays open after the action (checkbox lists).
@@ -39,8 +40,10 @@ function itemMarkup(item, n) {
   const popup = sub ? ' aria-haspopup="menu" aria-expanded="false"' : '';
   const mark = role === 'menuitem' ? (item.icon ? glyph(item.icon, 'k-mi-ico') : '<span class="k-mi-ico" aria-hidden="true"></span>')
     : `<span class="k-mi-check${item.radio ? ' radio' : ''}" aria-hidden="true">${glyph(item.radio ? 'dot' : 'check')}</span>`;
+  const kind = item.kind === 'write' ? `<span class="k-mi-kind write" data-tip="Écriture">${glyph('edit')}</span><span class="visually-hidden">, écriture</span>`
+    : item.kind === 'network' ? '<span class="k-mi-kind net" data-tip="Lecture sur le réseau"></span><span class="visually-hidden">, lecture sur le réseau</span>' : '';
   const right = sub ? glyph('chevronRight', 'k-mi-sub')
-    : `${item.hint ? `<span class="k-mi-hint">${esc(item.hint)}</span>` : ''}${item.kbd ? `<kbd>${esc(item.kbd)}</kbd>` : ''}`;
+    : `${kind}${item.hint ? `<span class="k-mi-hint">${esc(item.hint)}</span>` : ''}${item.kbd ? `<kbd>${esc(item.kbd)}</kbd>` : ''}`;
   return `<div class="k-mi${item.danger ? ' danger' : ''}" role="${role}" tabindex="-1" data-n="${n}"${checked}${disabled}${popup}${tip}>`
     + `${mark}<span class="k-mi-label">${esc(item.label)}${desc}</span>${right}</div>`;
 }

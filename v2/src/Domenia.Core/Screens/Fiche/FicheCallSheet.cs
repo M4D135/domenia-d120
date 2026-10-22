@@ -75,7 +75,11 @@ public sealed record FicheCallSheet(
     bool TicketTruncated,
     string TemplateSource,
     FicheCallReads Reads,
-    DateTimeOffset BuiltAt);
+    DateTimeOffset BuiltAt,
+    string? TemplateWarning = null);
+
+/// <summary>Ticket template in force (Resolve-DomeniaCallSheetTemplate): its text, « Défaut » or « Configuration », and why a configured one was refused.</summary>
+public sealed record FicheCallTemplate(string Text, string Source, string? Warning);
 
 /// <summary>What the sheet is built from: everything already read plus the explicit reads of the session.</summary>
 public sealed record FicheCallInput(
@@ -456,11 +460,11 @@ public static partial class FicheCallSheets
         (string Value, string How, bool Attention)? expiry = null;
         if (uac is not null && state.PasswordNeverExpires)
         {
-            expiry = ("N’expire jamais (option du compte)", "Option « Le mot de passe n’expire jamais » de userAccountControl.", false);
+            expiry = ("N’expire jamais (option du compte)", "Option « Le mot de passe n’expire jamais » de userAccountControl.", false);
         }
         else if (mustChange)
         {
-            expiry = ("À changer à la prochaine ouverture de session", "pwdLastSet vaut 0" + C + "le point est déjà signalé par « Mot de passe changé ».", false);
+            expiry = ("À changer à la prochaine ouverture de session", "pwdLastSet vaut 0" + C + "le point est déjà signalé par « Mot de passe changé ».", false);
         }
         else if (expires is DateTimeOffset e)
         {
@@ -483,7 +487,7 @@ public static partial class FicheCallSheets
         else
         {
             var why = input.Policy is null
-                ? "Échéance non calculée par le contrôleur" + C + "lisez la stratégie applicable (« Lire la stratégie de mot de passe »)."
+                ? "Échéance non calculée par le contrôleur" + C + "lisez la stratégie applicable (« Lire la stratégie de mot de passe »)."
                 : input.Policy.Summary;
             facts.Add(Fact("Compte", "Expiration du mot de passe", "Inconnue", "notRead", expSource, expAt, why, false, zone));
         }
@@ -523,7 +527,7 @@ public static partial class FicheCallSheets
         }
         else
         {
-            facts.Add(Fact("Compte", "Verrouillages des 7 derniers jours", "Non demandés", "notRead", "Journal Sécurité", null, "La lecture du journal 4740 se demande explicitement" + C + "« Lire les verrouillages (4740) ».", false, zone));
+            facts.Add(Fact("Compte", "Verrouillages des 7 derniers jours", "Non demandés", "notRead", "Journal Sécurité", null, "La lecture du journal 4740 se demande explicitement" + C + "« Lire les verrouillages (4740) ».", false, zone));
         }
 
         var offset = (int)zone.GetUtcOffset(now).TotalMinutes;
@@ -811,7 +815,7 @@ public static partial class FicheCallSheets
         var facts = new List<FicheCallFact>();
         if (inventory is null)
         {
-            facts.AddRange(labels.Select(l => Fact("Poste", l, "Aucun inventaire enregistré", "absent", source, null, "« Trier la lenteur du poste » lance l’inventaire rapide de ce poste.", false, zone)));
+            facts.AddRange(labels.Select(l => Fact("Poste", l, "Aucun inventaire enregistré", "absent", source, null, "« Trier la lenteur du poste » lance l’inventaire rapide de ce poste.", false, zone)));
             return [.. facts];
         }
         if (inventory.State == "failed")
@@ -959,8 +963,45 @@ public static partial class FicheCallSheets
     /// <summary>True when a value of the sheet holds something that looks like a secret (it is masked in the ticket).</summary>
     private static bool Masks(string? value) => !string.IsNullOrEmpty(value) && !string.Equals(SecretMask.Protect(value), value, StringComparison.Ordinal);
 
+    /// <summary>Placeholders a ticket template may use (Get-DomeniaCallSheetTemplatePlaceholders).</summary>
+    public static ImmutableArray<string> Placeholders { get; } = ["Date", "NomAffiche", "Identifiant", "UPN", "PointsAttention", "Compte", "Restrictions", "Postes", "Groupes", "Operations", "Triage"];
+
+    /// <summary>
+    /// The template in force (Resolve-DomeniaCallSheetTemplate): CallSheet.TicketTemplate of Domenia.config.json when it is usable,
+    /// else the default one with the reason. Refused: more than 4 000 characters, control characters other than line breaks and
+    /// tabs, or no known placeholder at all (a fixed text would hide every fact). An empty or blank text keeps the default silently.
+    /// </summary>
+    public static FicheCallTemplate ResolveTemplate(string? configured)
+    {
+        if (configured is null)
+        {
+            return new FicheCallTemplate(DefaultTemplate, "Défaut", null);
+        }
+        var text = configured.Replace("\r\n", "\n", StringComparison.Ordinal);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return new FicheCallTemplate(DefaultTemplate, "Défaut", null);
+        }
+        string? reason = null;
+        if (text.Length > 4000)
+        {
+            reason = "modèle de plus de " + FrenchText.Integer(4000) + " caractères";
+        }
+        else if (text.Any(ch => ch < 0x20 && ch is not ('\n' or '\t' or '\r')))
+        {
+            reason = "caractères de contrôle dans le modèle";
+        }
+        else if (!Placeholder().Matches(text).Any(m => Placeholders.Contains(m.Groups[1].Value, StringComparer.Ordinal)))
+        {
+            reason = "aucun champ connu entre accolades";
+        }
+        return reason is null
+            ? new FicheCallTemplate(text, "Configuration", null)
+            : new FicheCallTemplate(DefaultTemplate, "Défaut", "Modèle CallSheet.TicketTemplate ignoré (" + reason + ")" + C + "modèle par défaut.");
+    }
+
     /// <summary>Builds the whole sheet and its ticket text (Get-DomeniaCallSheetTicketValues, ConvertTo-DomeniaCallSheetTicket).</summary>
-    public static FicheCallSheet Build(FicheCallInput input, DateTimeOffset now, TimeZoneInfo zone)
+    public static FicheCallSheet Build(FicheCallInput input, DateTimeOffset now, TimeZoneInfo zone, FicheCallTemplate? template = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(zone);
@@ -991,12 +1032,13 @@ public static partial class FicheCallSheets
             ["Operations"] = Lines([operations]) + (receiptRows.Length > 0 ? "\n" + string.Join("\n", receiptRows.Take(5).Select(r => "  " + r.Date + " · " + r.Operation + " · " + r.Stage)) : ""),
             ["Triage"] = triageComputer is null ? "- Aucun poste associé" + C + "tri non disponible." : "Poste " + triageComputer.Name + "\n" + Lines(triage),
         };
-        var (ticket, truncated) = Ticket(DefaultTemplate, values);
+        var resolved = template ?? ResolveTemplate(null);
+        var (ticket, truncated) = Ticket(resolved.Text, values);
         var masked = account.Concat(groupFacts).Append(operations).Concat(triage).Any(f => Masks(f.Value))
             || computers.Any(c => Masks(c.SessionValue) || Masks(c.ConsoleValue) || Masks(c.PresenceValue));
         var reads = new FicheCallReads(input.Lockouts is not null, input.Policy is not null, input.PresenceRead, input.Sessions.Count > 0, input.Inventory is not null);
         return new FicheCallSheet(subject, origin.Text, origin.State, attention, account, computers, computersText, groupFacts, groupRows, operations, receiptRows,
-            triageComputer?.Name, triageComputer?.Dn, triage, ticket, masked, truncated, "Défaut", reads, now);
+            triageComputer?.Name, triageComputer?.Dn, triage, ticket, masked, truncated, resolved.Source, reads, now, resolved.Warning);
     }
 
     private static string Lines(IEnumerable<FicheCallFact> facts)

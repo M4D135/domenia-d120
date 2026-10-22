@@ -11,6 +11,15 @@ public sealed record FicheLocalRead(FicheEntry Entry, DateTimeOffset ReadAt);
 /// <summary>Direct children of an OU or a container, bounded (2 000), with the reason of a partial read.</summary>
 public sealed record FicheChildren(string Dn, ImmutableArray<string> Dns, bool Complete, string? Note);
 
+/// <summary>
+/// Members of a group read by ranges (member;range=…, 1 500 values per range, Domenia 1 FIC-029): the first <c>shown</c> kept for
+/// display, up to <c>counted</c> counted; a read stopped before the end says why (<see cref="Note"/>), never « complete ».
+/// </summary>
+public sealed record FicheMemberRange(string Dn, ImmutableArray<string> Dns, int Total, bool Complete, string? Note);
+
+/// <summary>An OU or a container where an object may go (move picker, FIC-018), one level under a branch.</summary>
+public sealed record FicheDestination(string Dn, string Name, string Kind, string Path, bool HasChildren, int? Objects);
+
 /// <summary>What links an object to others: manager, reports, managedBy, what it manages, user/workstation associations.</summary>
 public sealed record FicheRelationsRead(string? ManagerDn, ImmutableArray<string> Reports, string? ManagedByDn, ImmutableArray<string> Manages, ImmutableArray<FicheAssociation> Associations);
 
@@ -34,11 +43,32 @@ public interface IFicheReader : IScreenReader
     /// <summary>Local: names, kinds and places of the given DNs in the local index (exact DN, case ignored); unknown DNs are absent.</summary>
     Task<IReadOnlyDictionary<string, FicheSummary>> IndexAsync(IReadOnlyCollection<string> dns, CancellationToken cancellationToken);
 
+    /// <summary>Local: the object of the local index whose GUID (any usual form) or SID is exactly this text, or null. Never the network.</summary>
+    Task<FicheSummary?> LocalByIdAsync(string id, CancellationToken cancellationToken);
+
     /// <summary>Local: objects whose name, account, UPN or mail holds the text (accents and case ignored), of the given kinds.</summary>
     Task<ImmutableArray<FicheSummary>> SearchLocalAsync(string text, IReadOnlyCollection<FicheKind> kinds, int limit, CancellationToken cancellationToken);
 
     /// <summary>Network: direct children of an OU or a container (one level), bounded.</summary>
     Task<FicheChildren> ChildrenAsync(string dn, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Local: number of direct children of a branch known by the local index (null when the index has no count). Never the network.</summary>
+    Task<int?> LocalChildCountAsync(string dn, CancellationToken cancellationToken);
+
+    /// <summary>Network: members of a group read by ranges, <paramref name="shown"/> kept, <paramref name="counted"/> counted at most.</summary>
+    Task<FicheMemberRange> MembersAsync(string dn, int shown, int counted, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Network: answer of the controller to « is this object a member of this group, directly or not? » (base search on the object
+    /// with memberOf:1.2.840.113556.1.4.1941:=group). Null when the controller gave no answer (timeout, refusal).
+    /// </summary>
+    Task<bool?> TransitiveMemberAsync(string dn, string groupDn, CancellationToken cancellationToken);
+
+    /// <summary>Network: OUs and containers directly under a branch (or the top of the domain when null), for the move picker.</summary>
+    Task<ImmutableArray<FicheDestination>> DestinationsAsync(string? parentDn, CancellationToken cancellationToken);
+
+    /// <summary>Local: authentication refusals recorded by the account guard of Domenia for this account since a date (FIC-045).</summary>
+    Task<ImmutableArray<FicheDomeniaRefusal>> RefusalsAsync(string dn, DateTimeOffset since, CancellationToken cancellationToken);
 
     /// <summary>Local: relations of the object from the local base (manager, reports, managedBy, associations).</summary>
     Task<FicheRelationsRead> RelationsAsync(string dn, CancellationToken cancellationToken);
@@ -96,6 +126,9 @@ public static class FicheErrors
     public const string Refused = "fiche.refused";
 
     public const string Invalid = "fiche.invalid";
+
+    /// <summary>The operator closed the secure window without a password: nothing prepared, nothing sent.</summary>
+    public const string Cancelled = "fiche.cancelled";
 
     public static DomeniaOperationException Error(string code, string message) => new(code, message);
 }

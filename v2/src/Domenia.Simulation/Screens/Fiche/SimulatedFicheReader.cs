@@ -75,6 +75,30 @@ public sealed class SimulatedFicheReader : IFicheReader
         return Task.FromResult<IReadOnlyDictionary<string, FicheSummary>>(result);
     }
 
+    public Task<FicheSummary?> LocalByIdAsync(string id, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        cancellationToken.ThrowIfCancellationRequested();
+        var text = id.Trim();
+        var world = World;
+        if (Guid.TryParse(text.Trim('{', '}'), out var guid))
+        {
+            return Task.FromResult(world.Find(guid) is SimulatedObject byGuid ? world.Summary(byGuid) : null);
+        }
+        if (text.StartsWith("S-1-", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var item in world.All())
+            {
+                var summary = world.Summary(item);
+                if (string.Equals(summary.Sid, text, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult<FicheSummary?>(summary);
+                }
+            }
+        }
+        return Task.FromResult<FicheSummary?>(null);
+    }
+
     public Task<ImmutableArray<FicheSummary>> SearchLocalAsync(string text, IReadOnlyCollection<FicheKind> kinds, int limit, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -135,6 +159,108 @@ public sealed class SimulatedFicheReader : IFicheReader
         var bounded = children.Take(Math.Max(1, limit)).ToImmutableArray();
         return new FicheChildren(item.Dn, bounded, bounded.Length == children.Count,
             bounded.Length == children.Count ? null : FrenchText.Integer(limit) + " premiers objets lus sur " + FrenchText.Integer(children.Count));
+    }
+
+    public Task<int?> LocalChildCountAsync(string dn, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        cancellationToken.ThrowIfCancellationRequested();
+        var item = World.Find(dn);
+        return Task.FromResult<int?>(item is null || item.Kind is not (FicheKind.Ou or FicheKind.Container) ? null : World.ChildrenOf(item.Dn).Count());
+    }
+
+    public async Task<FicheMemberRange> MembersAsync(string dn, int shown, int counted, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        var item = Require(dn);
+        var all = World.Entry(item).All("member");
+        // One delay per range of 1 500 values, as the directory answers member;range=… one range at a time.
+        var ranges = Math.Max(1, (Math.Min(all.Length, counted) + 1499) / 1500);
+        for (var i = 0; i < ranges; i++)
+        {
+            await WaitAsync("members", 60, 160, cancellationToken).ConfigureAwait(false);
+        }
+        var total = Math.Min(all.Length, counted);
+        var complete = all.Length <= counted;
+        var note = complete ? null : "lecture arrêtée à " + FrenchText.Count(counted, "membre", "membres") + ", le groupe en compte davantage";
+        return new FicheMemberRange(item.Dn, [.. all.Take(Math.Max(0, shown))], total, complete, note);
+    }
+
+    public async Task<bool?> TransitiveMemberAsync(string dn, string groupDn, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        ArgumentNullException.ThrowIfNull(groupDn);
+        await WaitAsync("transitive", 150, 380, cancellationToken).ConfigureAwait(false);
+        var world = World;
+        var item = Require(dn);
+        var groups = world.Directory.Groups.ToDictionary(g => g.DistinguishedName, StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var queue = new Queue<string>(world.Entry(item).All("memberOf"));
+        while (queue.Count > 0)
+        {
+            var next = queue.Dequeue();
+            if (!seen.Add(next))
+            {
+                continue;
+            }
+            if (FicheValues.SameDn(next, groupDn))
+            {
+                return true;
+            }
+            if (groups.TryGetValue(next, out var group))
+            {
+                foreach (var parent in group.MemberOf)
+                {
+                    queue.Enqueue(parent);
+                }
+            }
+        }
+        // The matching rule of the controller does not follow primaryGroupID: same answer here.
+        return false;
+    }
+
+    public async Task<ImmutableArray<FicheDestination>> DestinationsAsync(string? parentDn, CancellationToken cancellationToken)
+    {
+        await WaitAsync("destinations", 60, 160, cancellationToken).ConfigureAwait(false);
+        var world = World;
+        var root = world.Directory.Domain.RootDn;
+        var parent = parentDn is null ? root : Require(parentDn).Dn;
+        var list = new List<FicheDestination>();
+        foreach (var child in world.ChildrenOf(parent))
+        {
+            if (child.Kind is not (FicheKind.Ou or FicheKind.Container) || child.Dn.StartsWith("CN=Builtin,", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            var grandChildren = world.ChildrenOf(child.Dn).ToList();
+            list.Add(new FicheDestination(child.Dn, FicheValues.DisplayName(child.Dn), FicheSheets.KindId(child.Kind), FicheValues.ReadablePath(child.Dn, includeSelf: true),
+                grandChildren.Any(g => g.Kind is FicheKind.Ou or FicheKind.Container), grandChildren.Count));
+        }
+        // OUs first, then the default containers, each by name.
+        return [.. list.OrderBy(d => d.Kind == "ou" ? 0 : 1).ThenBy(d => d.Name, StringComparer.Create(CultureInfo.GetCultureInfo("fr-FR"), true))];
+    }
+
+    public Task<ImmutableArray<FicheDomeniaRefusal>> RefusalsAsync(string dn, DateTimeOffset since, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        cancellationToken.ThrowIfCancellationRequested();
+        var world = World;
+        if (world.Find(dn) is not { Value: DirectoryUser user } item)
+        {
+            return Task.FromResult(ImmutableArray<FicheDomeniaRefusal>.Empty);
+        }
+        // Refusals of the account guard of Domenia (local memory of the guard): about half of the lockouts of the fictitious journal
+        // are preceded by a refusal of Domenia 4 to 110 s before, so that the reconciliation of FIC-045 shows both cases.
+        var random = source.ScreenStream("fiche").Fork("refusals/" + user.ObjectGuid.ToString("N"));
+        var refusals = new List<FicheDomeniaRefusal>();
+        foreach (var lockout in LockoutHistory(world, item, user, source.Clock.GetUtcNow()))
+        {
+            if (lockout.At >= since && random.Chance(50))
+            {
+                refusals.Add(new FicheDomeniaRefusal(lockout.At - TimeSpan.FromSeconds(random.Next(4, 110)), user.SamAccountName, "authentification"));
+            }
+        }
+        return Task.FromResult<ImmutableArray<FicheDomeniaRefusal>>([.. refusals.OrderByDescending(r => r.At)]);
     }
 
     public Task<FicheRelationsRead> RelationsAsync(string dn, CancellationToken cancellationToken)
@@ -268,33 +394,40 @@ public sealed class SimulatedFicheReader : IFicheReader
         {
             throw FicheErrors.Error(FicheErrors.NotApplicable, "Le journal des verrouillages se lit pour un compte utilisateur : rien n’a été lu.");
         }
+        var windowStart = now - TimeSpan.FromHours(hours);
+        var events = LockoutHistory(world, item, user, now).Where(e => e.At >= windowStart).Select(e => e with { Controller = pdc }).ToList();
+        var ordered = events.OrderByDescending(e => e.At).ToList();
+        var truncated = ordered.Count > maxEvents;
+        return new FicheLockoutRead("read", pdc, "émulateur PDC", hours, maxEvents, truncated, [.. ordered.Take(maxEvents)], now, null);
+    }
+
+    /// <summary>
+    /// 4740 events of the fictitious journal of the account over the longest window (720 h), the same at every read: the last
+    /// lockout, a few earlier ones when the account had bad passwords, and sometimes an older lockout already lifted.
+    /// </summary>
+    private List<FicheLockoutEvent> LockoutHistory(SimulatedFicheWorld world, SimulatedObject item, DirectoryUser user, DateTimeOffset now)
+    {
         var random = source.ScreenStream("fiche").Fork("lockouts/" + user.ObjectGuid.ToString("N"));
         var events = new List<FicheLockoutEvent>();
         var associated = world.Associations(item).Select(a => a.Name).ToList();
         var site = user.Office is { Length: >= 3 } office ? office[..3].ToUpperInvariant() : "PAR";
         var fallback = new[] { "SRV-WEB-01", "PT-" + site + "-0" + random.Next(100, 999).ToString(CultureInfo.InvariantCulture) };
         string Caller() => associated.Count > 0 && random.Chance(75) ? associated[random.Next(associated.Count)] : fallback[random.Next(fallback.Length)];
-        var windowStart = now - TimeSpan.FromHours(hours);
-        if (AdValues.FromFileTime(user.LockoutTime) is DateTimeOffset lockedAt && lockedAt >= windowStart)
+        const int longest = 720;
+        if (AdValues.FromFileTime(user.LockoutTime) is DateTimeOffset lockedAt && lockedAt >= now - TimeSpan.FromHours(longest))
         {
-            events.Add(new FicheLockoutEvent(lockedAt, Caller(), pdc));
+            events.Add(new FicheLockoutEvent(lockedAt, Caller(), ""));
             var earlier = user.BadPasswordCount is >= 3 ? random.Next(1, 3) : random.Next(0, 2);
             for (var i = 0; i < earlier; i++)
             {
-                var at = lockedAt - TimeSpan.FromHours(random.Next(3, Math.Max(4, hours - 1)));
-                if (at >= windowStart)
-                {
-                    events.Add(new FicheLockoutEvent(at, Caller(), pdc));
-                }
+                events.Add(new FicheLockoutEvent(lockedAt - TimeSpan.FromHours(random.Next(3, 160)), Caller(), ""));
             }
         }
         else if (user.BadPasswordCount is > 0 && random.Chance(35))
         {
-            events.Add(new FicheLockoutEvent(now - TimeSpan.FromHours(random.Next(6, Math.Max(7, hours))), Caller(), pdc));
+            events.Add(new FicheLockoutEvent(now - TimeSpan.FromHours(random.Next(6, 160)), Caller(), ""));
         }
-        var ordered = events.OrderByDescending(e => e.At).ToList();
-        var truncated = ordered.Count > maxEvents;
-        return new FicheLockoutRead("read", pdc, "émulateur PDC", hours, maxEvents, truncated, [.. ordered.Take(maxEvents)], now, null);
+        return events;
     }
 
     public async Task<FicheLogonReadings> LogonReadingsAsync(string dn, CancellationToken cancellationToken)

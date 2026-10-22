@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Security;
 using Domenia.Core;
 
 namespace Domenia.Simulation;
@@ -83,6 +85,48 @@ public abstract class SimulatedFicheWriteExecutor
         plan.Changes.Length == 1 ? plan.Changes[0].Label + " écrit" : FrenchText.Count(plan.Changes.Length, "changement écrit", "changements écrits");
 
     private protected bool WritePlain(WritePlan plan, Guid id) => World.WriteAttributes(id, ObjectWrites.PlainChanges(plan), Now);
+}
+
+/// <summary>
+/// What an executor keeps for one sealed plan until it runs or expires (policy of a raw write, password of a reset): taken once,
+/// expired values dropped (and disposed when they hold a secret) at every new value.
+/// </summary>
+internal sealed class PlanMemory<T> where T : class
+{
+    private readonly ConcurrentDictionary<string, (T Value, DateTimeOffset ExpiresAt)> values = new(StringComparer.Ordinal);
+
+    public void Keep(string planId, DateTimeOffset expiresAt, T value, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(planId);
+        ArgumentNullException.ThrowIfNull(value);
+        foreach (var (id, kept) in values)
+        {
+            if (kept.ExpiresAt < now && values.TryRemove(id, out var gone))
+            {
+                (gone.Value as IDisposable)?.Dispose();
+            }
+        }
+        if (values.TryRemove(planId, out var previous))
+        {
+            (previous.Value as IDisposable)?.Dispose();
+        }
+        values[planId] = (value, expiresAt);
+    }
+
+    /// <summary>The value of the plan (removed: a plan runs once), or null when none was kept or it expired.</summary>
+    public T? Take(string planId, DateTimeOffset now)
+    {
+        if (!values.TryRemove(planId, out var kept))
+        {
+            return null;
+        }
+        if (kept.ExpiresAt < now)
+        {
+            (kept.Value as IDisposable)?.Dispose();
+            return null;
+        }
+        return kept.Value;
+    }
 }
 
 /// <summary>Save of the editable fields of a fiche in simulation (« object.update »).</summary>
@@ -189,12 +233,12 @@ public sealed class SimulatedAccountOptionsExecutor : SimulatedFicheWriteExecuto
 
     public string Kind => ObjectWrites.OptionsKind;
 
-    public async Task<WritePlanDraft> PlanAsync(string dn, IReadOnlyDictionary<string, bool> options, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAsync(string dn, IReadOnlyDictionary<string, bool> options, FicheSecurityPolicy policy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
         ArgumentNullException.ThrowIfNull(options);
         await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
-        return ObjectWrites.Options(Read(dn), options, FicheSecurityPolicy.Simulation, Controller);
+        return ObjectWrites.Options(Read(dn), options, policy, Controller);
     }
 
     private protected override bool Apply(WritePlan plan, FicheEntry current, Guid id) => WritePlain(plan, id);
@@ -202,29 +246,39 @@ public sealed class SimulatedAccountOptionsExecutor : SimulatedFicheWriteExecuto
     private protected override string Describe(WritePlan plan) => "Bits changés de userAccountControl écrits";
 }
 
-/// <summary>Raw attribute write in simulation (« attribute.raw »): the SE-02 rule is applied again before sending.</summary>
+/// <summary>
+/// Raw attribute write in simulation (« attribute.raw »): the SE-02 rule is applied again before sending, with the policy the plan
+/// was drafted with (kept by <see cref="Remember"/>); a plan without one is refused.
+/// </summary>
 public sealed class SimulatedRawAttributeExecutor : SimulatedFicheWriteExecutor, IRawAttributeExecutor
 {
+    private readonly PlanMemory<FicheSecurityPolicy> policies = new();
+
     public SimulatedRawAttributeExecutor(SimulatedDirectorySource source) : base(source)
     {
     }
 
     public string Kind => ObjectWrites.RawKind;
 
-    public async Task<WritePlanDraft> PlanAsync(string dn, string attribute, string? value, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAsync(string dn, string attribute, string? value, FicheSecurityPolicy policy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
         ArgumentNullException.ThrowIfNull(attribute);
+        ArgumentNullException.ThrowIfNull(policy);
         await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
-        return ObjectWrites.Raw(Read(dn), attribute, value, FicheSecurityPolicy.Simulation, Controller);
+        return ObjectWrites.Raw(Read(dn), attribute, value, policy, Controller);
     }
+
+    public void Remember(string planId, DateTimeOffset expiresAt, FicheSecurityPolicy policy) => policies.Keep(planId, expiresAt, policy, Now);
 
     private protected override bool Apply(WritePlan plan, FicheEntry current, Guid id)
     {
-        // Double check (Domenia 1 Test-WRawAttributeAllowed): whatever the page or the plan said, the rule decides again here.
+        // Double check (Domenia 1 Test-WRawAttributeAllowed): whatever the page or the plan said, the rule decides again here, with
+        // the policy of the plan; without it, the strictest rule (raw writes closed) refuses.
+        var policy = policies.Take(plan.Id, Now) ?? FicheSecurityPolicy.Default;
         foreach (var change in plan.Changes)
         {
-            var decision = FicheAttributeRules.RawWriteAllowed(change.Attribute, FicheSecurityPolicy.Simulation);
+            var decision = FicheAttributeRules.RawWriteAllowed(change.Attribute, policy);
             if (!decision.Allowed)
             {
                 throw FicheErrors.Error(FicheErrors.Refused, decision.Reason + " Rien n’a été envoyé.");
@@ -243,12 +297,16 @@ public sealed class SimulatedObjectMoveExecutor : SimulatedFicheWriteExecutor, I
 
     public string Kind => ObjectWrites.MoveKind;
 
-    public async Task<WritePlanDraft> PlanAsync(string dn, string targetDn, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAsync(string dn, string targetDn, Guid? expectedGuid, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
         ArgumentNullException.ThrowIfNull(targetDn);
         await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
         var entry = Read(dn);
+        if (expectedGuid is Guid expected && entry.ObjectGuid != expected)
+        {
+            throw FicheErrors.Error(FicheErrors.Refused, "L’objet a changé pendant le choix de l’OU" + FrenchText.Colon + "ce DN désigne maintenant un autre objet (GUID différent). Relisez la fiche. Aucune écriture préparée.");
+        }
         var destination = World.Find(targetDn) ?? throw FicheErrors.Error(FicheErrors.Invalid, "OU de destination introuvable : aucune écriture préparée.");
         var rdn = entry.Kind == FicheKind.Contact || entry.Kind == FicheKind.User ? entry.First("cn") ?? entry.Name : entry.Name;
         var taken = World.Exists(DistinguishedName.Child("CN", rdn, destination.Dn));
@@ -294,34 +352,50 @@ public sealed class SimulatedGroupMemberExecutor : SimulatedFicheWriteExecutor, 
     private protected override string Describe(WritePlan plan) => plan.Changes[0].Kind == WriteChangeKind.Add ? "Membre ajouté (member et memberOf)" : "Membre retiré (member et memberOf)";
 }
 
-/// <summary>Deletion of an object in simulation (« object.delete »), never recursive.</summary>
+/// <summary>
+/// Deletion of an object in simulation (« object.delete »), never recursive; once the object is gone, its local associations
+/// (workstations of a user, users of a workstation) are removed from the local memory (Domenia 1 Remove-LinksForDeletedObject).
+/// </summary>
 public sealed class SimulatedObjectDeleteExecutor : SimulatedFicheWriteExecutor, IObjectDeleteExecutor
 {
+    private readonly ConcurrentDictionary<string, int> unlinked = new(StringComparer.Ordinal);
+
     public SimulatedObjectDeleteExecutor(SimulatedDirectorySource source) : base(source)
     {
     }
 
     public string Kind => ObjectWrites.DeleteKind;
 
-    public async Task<WritePlanDraft> PlanAsync(string dn, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAsync(string dn, FicheSecurityPolicy policy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
+        ArgumentNullException.ThrowIfNull(policy);
         await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
         var entry = Read(dn);
         var children = World.ChildrenOf(entry.Dn).Count();
-        return ObjectWrites.Delete(entry, children, FicheSecurityPolicy.Simulation, Controller);
+        return ObjectWrites.Delete(entry, children, policy, Controller, World.LinkCount(entry.ObjectGuid));
     }
 
     private protected override bool Apply(WritePlan plan, FicheEntry current, Guid id)
     {
         if (World.ChildrenOf(current.Dn).Any())
         {
-            throw FicheErrors.Error(FicheErrors.Refused, "L’objet a maintenant des enfants : suppression non récursive, rien n’a été envoyé.");
+            throw FicheErrors.Error(FicheErrors.Refused, "L’objet a maintenant des enfants" + FrenchText.Colon + "suppression non récursive, rien n’a été envoyé.");
         }
-        return World.WriteDelete(id);
+        if (!World.WriteDelete(id))
+        {
+            return false;
+        }
+        // Domenia 1 Remove-LinksForDeletedObject: the local associations of a deleted object go with it.
+        unlinked[plan.Id] = World.ForgetLinks(id);
+        return true;
     }
 
-    private protected override string Describe(WritePlan plan) => "Objet supprimé";
+    private protected override string Describe(WritePlan plan)
+    {
+        var count = unlinked.TryRemove(plan.Id, out var n) ? n : 0;
+        return count > 0 ? "Objet supprimé, " + FrenchText.Count(count, "association locale retirée", "associations locales retirées") : "Objet supprimé";
+    }
 }
 
 /// <summary>Creation of an OU in simulation (« ou.create »).</summary>
@@ -354,27 +428,39 @@ public sealed class SimulatedOuCreateExecutor : SimulatedFicheWriteExecutor, IOu
 }
 
 /// <summary>
-/// Password reset in simulation (« password.reset »): the engine generates the temporary password (four classes, no ambiguous
-/// character) as a SecureString, uses it for the simulated write and disposes of it at once; it is never shown, never stored.
+/// Password reset in simulation (« password.reset »): the password typed or generated in the secure window of the host is held as
+/// a SecureString for its plan only (<see cref="Hold"/>), taken once at the execution, used for the simulated write and disposed of
+/// at once; it is never shown, never stored. A plan whose password is gone (expired, Domenia restarted) is refused, nothing sent.
 /// </summary>
 public sealed class SimulatedPasswordResetExecutor : SimulatedFicheWriteExecutor, IPasswordResetExecutor
 {
+    private static readonly string SecretGoneMessage = "Le nouveau mot de passe n’est plus en mémoire (plan expiré ou Domenia relancé)" + FrenchText.Colon + "préparez de nouveau la réinitialisation. Rien n’a été envoyé.";
+
+    private readonly PlanMemory<SecureString> secrets = new();
+
     public SimulatedPasswordResetExecutor(SimulatedDirectorySource source) : base(source)
     {
     }
 
     public string Kind => ObjectWrites.ResetPasswordKind;
 
-    public async Task<WritePlanDraft> PlanAsync(string dn, bool mustChange, bool unlock, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAsync(string dn, bool mustChange, bool unlock, bool generated, int length, FicheSecurityPolicy policy, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
+        ArgumentNullException.ThrowIfNull(policy);
         await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
-        return ObjectWrites.ResetPassword(Read(dn), mustChange, unlock, FicheSecurityPolicy.Simulation, Controller);
+        return ObjectWrites.ResetPassword(Read(dn), mustChange, unlock, generated, length, policy, Controller);
+    }
+
+    public void Hold(string planId, DateTimeOffset expiresAt, SecureString password)
+    {
+        ArgumentNullException.ThrowIfNull(password);
+        secrets.Keep(planId, expiresAt, password, Now);
     }
 
     private protected override bool Apply(WritePlan plan, FicheEntry current, Guid id)
     {
-        using var password = TemporaryPassword.Generate(FicheSecurityPolicy.Simulation.GeneratedPasswordLength);
+        using var password = secrets.Take(plan.Id, Now) ?? throw FicheErrors.Error(FicheErrors.Refused, SecretGoneMessage);
         var now = Now;
         var mustChange = plan.Changes.Any(c => c.Attribute == "pwdLastSet");
         var changes = new Dictionary<string, ImmutableArray<string>>(StringComparer.OrdinalIgnoreCase)
@@ -385,9 +471,9 @@ public sealed class SimulatedPasswordResetExecutor : SimulatedFicheWriteExecutor
         {
             changes["lockoutTime"] = ["0"];
         }
-        // The simulated directory keeps no password: the generated value only proves the generator ran with the policy length.
+        // The simulated directory keeps no password: the value held for the plan only proves the secure path reached the executor.
         return password.Length > 0 && World.WriteAttributes(id, changes, now);
     }
 
-    private protected override string Describe(WritePlan plan) => "Mot de passe réinitialisé (généré par le moteur, ni affiché ni conservé)";
+    private protected override string Describe(WritePlan plan) => "Mot de passe réinitialisé (SecureString de la fenêtre sécurisée, ni affiché ni conservé)";
 }

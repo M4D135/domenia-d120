@@ -19,6 +19,8 @@ public sealed class FicheSession
     private readonly Dictionary<string, FicheInventoryReading> inventories = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, string> triageTargets = new();
     private readonly Dictionary<string, FicheRead> reads = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<(string Subject, string Nature), DateTimeOffset> attempts = new();
+    private readonly Dictionary<Guid, DateTimeOffset> histories = new();
 
     /// <summary>The session state of the context (one per engine context, like DashboardService).</summary>
     public static FicheSession From(EngineContext context)
@@ -248,13 +250,68 @@ public sealed class FicheSession
         };
     }
 
-    /// <summary>Forgets the explicit reads of one object (after a write on it): the next sheet reads them again on request.</summary>
-    public void Forget(Guid objectGuid)
+    /// <summary>
+    /// « Relire » of one fiche (FIC-039: only the cache of this object, never the list): forgets the read kept for this DN and the
+    /// explicit reads of its object (lockouts, policy), so that the next read and the next call sheet start from the directory.
+    /// </summary>
+    public void Forget(string dn)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        lock (gate)
+        {
+            var kept = reads.Where(r => FicheValues.SameDn(r.Key, dn)).ToList();
+            foreach (var (key, read) in kept)
+            {
+                reads.Remove(key);
+                lockouts.Remove(read.Entry.ObjectGuid);
+                policies.Remove(read.Entry.ObjectGuid);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Records an attempt to read one nature of a subject (« attributes » of an object, « presence » or « console » of a
+    /// workstation), successful or not: shown as « dernière tentative » when it is more recent than the observation, and never
+    /// rejuvenates it (FIC-036).
+    /// </summary>
+    public void KeepAttempt(string subject, string nature, DateTimeOffset at)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(nature);
+        lock (gate)
+        {
+            attempts[(subject.ToUpperInvariant(), nature)] = at;
+        }
+    }
+
+    /// <summary>The last attempt to read this nature of this subject in the session, or null.</summary>
+    public DateTimeOffset? Attempt(string? subject, string nature)
+    {
+        if (subject is null)
+        {
+            return null;
+        }
+        lock (gate)
+        {
+            return attempts.TryGetValue((subject.ToUpperInvariant(), nature), out var at) ? at : null;
+        }
+    }
+
+    /// <summary>Records when the history of an object (replication metadata) was read, its date of observation (FIC-036).</summary>
+    public void KeepHistory(Guid objectGuid, DateTimeOffset at)
     {
         lock (gate)
         {
-            lockouts.Remove(objectGuid);
-            policies.Remove(objectGuid);
+            histories[objectGuid] = at;
+        }
+    }
+
+    /// <summary>When the history of this object was last read in the session, or null.</summary>
+    public DateTimeOffset? History(Guid objectGuid)
+    {
+        lock (gate)
+        {
+            return histories.TryGetValue(objectGuid, out var at) ? at : null;
         }
     }
 

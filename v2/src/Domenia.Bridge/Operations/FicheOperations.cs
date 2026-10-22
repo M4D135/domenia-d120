@@ -21,7 +21,12 @@ public sealed class FicheOperations : IOperationModule
     public const int MaxChildren = 2000;
     public const string RecentKey = "fiche.recent";
 
+    public const int MaxMembersCounted = 50000;
+
     private static readonly string[] DnArguments = ["dn"];
+    private static readonly string[] ReadArguments = ["dn", "reread"];
+    private static readonly string[] DeltaCheckArguments = ["dn", "steps"];
+    private static readonly string[] DestinationArguments = ["dn"];
     private static readonly string[] ResolveArguments = ["text"];
     private static readonly string[] PickArguments = ["text", "kinds"];
     private static readonly string[] WhyArguments = ["dn", "group"];
@@ -35,10 +40,10 @@ public sealed class FicheOperations : IOperationModule
     private static readonly string[] ExpirationArguments = ["dn", "date"];
     private static readonly string[] OptionsArguments = ["dn", "options"];
     private static readonly string[] RawArguments = ["dn", "attribute", "value"];
-    private static readonly string[] MoveArguments = ["dn", "target"];
+    private static readonly string[] MoveArguments = ["dn", "target", "guid"];
     private static readonly string[] MemberArguments = ["group", "member", "add"];
     private static readonly string[] CreateOuArguments = ["parent", "name"];
-    private static readonly string[] ResetArguments = ["dn", "mustChange", "unlock"];
+    private static readonly string[] ResetArguments = ["dn", "mustChange", "unlock", "generate", "theme"];
 
     private const string NoWritesReason = "Écritures réelles non disponibles dans cette version : elles arriveront avec la lecture de l’annuaire (vague 3). Essayez-les en simulation.";
 
@@ -56,15 +61,33 @@ public sealed class FicheOperations : IOperationModule
         var journal = context.Journal;
         var log = context.Log;
         var simulation = context.Mode == AppMode.Simulation;
-        var policy = FicheSecurityPolicy.For(context.Mode);
         var readClass = simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
         var sourceName = simulation ? "simulation" : "annuaire";
+        var settingsReader = readers.Find<IFicheSettingsReader>();
+        var settingsTraced = new int[1];
         IFicheReader Reader() => readers.Require<IFicheReader>();
         TimeZoneInfo Zone() => clock.LocalTimeZone;
+
+        // Security.* and CallSheet.TicketTemplate of Domenia.config.json (FIC-001, R40): read once by the Store, defaults of Domenia 1
+        // when the file or the reader is absent. The provenance is traced once (state and reason only, never the content).
+        async Task<(FicheConfiguration Configuration, FicheSecurityPolicy Policy)> SettingsAsync(CancellationToken ct)
+        {
+            var configuration = settingsReader is null ? FicheConfiguration.Absent : await settingsReader.ReadAsync(ct).ConfigureAwait(false);
+            if (Interlocked.Exchange(ref settingsTraced[0], 1) == 0)
+            {
+                log.Info("Fiche" + FrenchText.Colon + FicheSecurityPolicy.FileText(configuration));
+            }
+            return (configuration, FicheSecurityPolicy.From(configuration, context.Mode));
+        }
+
+        // Freshness durations of the usage profile chosen in Paramètres (local preferences, « settings.collection »).
+        FicheFreshnessTable FreshnessTable() =>
+            FicheFreshnessTable.Read(preferences.TryGet(FicheFreshnessTable.PreferenceKey, out var stored) ? stored : null);
 
         async Task<FicheSheet> SheetAsync(FicheEntry entry, string source, DateTimeOffset readAt, string? controller, bool preview, CancellationToken ct)
         {
             var reader = Reader();
+            var (configuration, policy) = await SettingsAsync(ct).ConfigureAwait(false);
             var relations = await reader.RelationsAsync(entry.Dn, ct).ConfigureAwait(false);
             var dns = new List<string>();
             foreach (var attribute in new[] { "manager", "managedBy" })
@@ -84,19 +107,35 @@ public sealed class FicheOperations : IOperationModule
             {
                 observation = session.WithPing(await reader.ObservationAsync(primary.Dn, ct).ConfigureAwait(false), primary.Dn, primary.Name);
             }
-            int? children = null;
-            if (!preview && entry.Kind is FicheKind.Ou or FicheKind.Container)
-            {
-                children = (await reader.ChildrenAsync(entry.Dn, MaxChildren, ct).ConfigureAwait(false)).Dns.Length;
-            }
+            // The opening reads the object alone (one base request): the number of children comes from the local index; the content
+            // itself is read when the « Contenu » tab opens.
+            int? children = entry.Kind is FicheKind.Ou or FicheKind.Container ? await reader.LocalChildCountAsync(entry.Dn, ct).ConfigureAwait(false) : null;
             var writes = writers.Find<IObjectUpdateExecutor>() is not null;
+            var attempts = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+            void Attempt(string nature, string? subject)
+            {
+                if (session.Attempt(subject, nature) is DateTimeOffset at)
+                {
+                    attempts[nature] = at;
+                }
+            }
+            Attempt("identity", entry.Dn);
+            Attempt("attributes", entry.Dn);
+            var workstation = entry.Kind == FicheKind.Computer ? entry.Dn : relations.Associations.FirstOrDefault()?.Dn;
+            Attempt("presence", workstation);
+            Attempt("console", workstation);
             var sheetContext = new FicheContext(source, readAt, controller, preview, clock.GetUtcNow(), Zone(), RootOf(entry.Dn), index, relations.Associations, observation, children,
-                entry.Kind == FicheKind.User ? relations.Reports.Length : null, writes, writes ? null : NoWritesReason, FicheDiagnostics.Interval(null, simulation ? "absent" : "notRead"), policy);
+                entry.Kind == FicheKind.User ? relations.Reports.Length : null, writes, writes ? null : NoWritesReason, FicheDiagnostics.Interval(null, simulation ? "absent" : "notRead"), policy,
+                FreshnessTable(), attempts, session.History(entry.ObjectGuid), FicheSecurityPolicy.Describe(configuration, context.Mode), FicheSecurityPolicy.FileText(configuration));
             return FicheSheets.Build(entry, sheetContext);
         }
 
         async Task<FicheRead> FreshAsync(string dn, CancellationToken ct)
         {
+            // An attempt is recorded before the read: a read that fails never rejuvenates the identity nor the attributes (FIC-036).
+            var attempt = clock.GetUtcNow();
+            session.KeepAttempt(dn, "identity", attempt);
+            session.KeepAttempt(dn, "attributes", attempt);
             var read = await Reader().ReadAsync(dn, ct).ConfigureAwait(false);
             session.KeepRead(read);
             session.Observe(read.Entry, read.ReadAt);
@@ -109,6 +148,16 @@ public sealed class FicheOperations : IOperationModule
         {
             var reader = Reader();
             var value = text.Trim();
+            // GUID (any usual form) or SID: exact designation in the local index, never a search.
+            if (Guid.TryParse(value.Trim('{', '}'), out _) || value.StartsWith("S-1-", StringComparison.OrdinalIgnoreCase))
+            {
+                var byId = await reader.LocalByIdAsync(value, ct).ConfigureAwait(false);
+                if (byId is not null && (kinds.Count == 0 || kinds.Contains(byId.Kind)))
+                {
+                    return byId;
+                }
+                throw FicheErrors.Error(FicheErrors.NotFound, FicheErrors.NotFoundMessage);
+            }
             if (LooksLikeDn(value))
             {
                 var found = await reader.IndexAsync([value], ct).ConfigureAwait(false);
@@ -118,7 +167,19 @@ public sealed class FicheOperations : IOperationModule
                 }
                 throw FicheErrors.Error(FicheErrors.NotFound, FicheErrors.NotFoundMessage);
             }
-            var login = value.Contains('\\', StringComparison.Ordinal) ? value[(value.LastIndexOf('\\') + 1)..] : value;
+            var login = value;
+            if (value.Contains('\\', StringComparison.Ordinal))
+            {
+                // « DOMAINE\compte »: the prefix must name the connected domain (NetBIOS or DNS name); another domain is refused, never stripped.
+                var prefix = value[..value.LastIndexOf('\\')];
+                var domain = (await context.Directory.GetSessionAsync(ct).ConfigureAwait(false)).Domain;
+                var known = new[] { domain?.NetbiosName, domain?.DnsName, domain?.DnsName?.Split('.')[0] }.Where(n => !string.IsNullOrEmpty(n));
+                if (!known.Any(n => string.Equals(n, prefix, StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw FicheErrors.Error(FicheErrors.NotFound, "Le domaine " + FrenchText.Quote(prefix) + " n’est pas celui de la session (" + (domain?.NetbiosName ?? domain?.DnsName ?? "inconnu") + ")" + FrenchText.Colon + "rien n’a été ouvert. Rien n’a été lu sur le réseau.");
+                }
+                login = value[(value.LastIndexOf('\\') + 1)..];
+            }
             var candidates = await reader.SearchLocalAsync(login, kinds, 50, ct).ConfigureAwait(false);
             var matches = candidates.Where(c => string.Equals(c.Sam, login, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(c.Upn, login, StringComparison.OrdinalIgnoreCase)
@@ -174,7 +235,7 @@ public sealed class FicheOperations : IOperationModule
             }
             catch (DomeniaOperationException ex) when (ex.Code == WriteErrors.ReceiptUnavailable)
             {
-                log.Warning("Fiche d’appel : reçus illisibles pour l’instant.");
+                log.Warning("Fiche d’appel : reçus illisibles pour l’instant.");
             }
             var triageDn = session.TriageTarget(entry.ObjectGuid) ?? relations.Associations.FirstOrDefault()?.Dn;
             FicheInventoryReading? inventory = null;
@@ -186,7 +247,8 @@ public sealed class FicheOperations : IOperationModule
             var input = new FicheCallInput(entry, origin, observedAt, server, policyKept?.View, policyKept?.Reading.ReadAt, policyKept?.Reading.Controller,
                 session.Lockouts(entry.ObjectGuid), relations.Associations, observations, session.Sessions(relations.Associations.Select(a => a.Dn)),
                 session.Baseline(entry.ObjectGuid), groups, receipts, receiptsAt, triageDn, inventory, triageDn is null ? null : observations.GetValueOrDefault(triageDn), pinged);
-            return FicheCallSheets.Build(input, clock.GetUtcNow(), Zone());
+            var (configuration, _) = await SettingsAsync(ct).ConfigureAwait(false);
+            return FicheCallSheets.Build(input, clock.GetUtcNow(), Zone(), FicheCallSheets.ResolveTemplate(configuration.TicketTemplate));
         }
 
         async Task<FicheLockoutDiagnosis> LockoutsAsync(string dn, int hours, CancellationToken ct)
@@ -205,7 +267,9 @@ public sealed class FicheOperations : IOperationModule
             var read = await reader.LockoutEventsAsync(entry.Dn, hours, 200, ct).ConfigureAwait(false);
             var keys = new[] { entry.First("sAMAccountName"), entry.First("userPrincipalName") }.Where(k => k is not null).Select(k => k!).ToList();
             var duration = session.Policy(entry.ObjectGuid)?.Reading.LockoutDuration ?? TimeSpan.Zero;
-            var diagnosis = FicheDiagnostics.Lockouts(entry, read, [], keys, duration, clock.GetUtcNow(), Zone());
+            // Refusals recorded by the account guard of Domenia for this account over the window read (FIC-045), plus the tolerance.
+            var refusals = await reader.RefusalsAsync(entry.Dn, read.ReadAt - TimeSpan.FromHours(read.Hours) - TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
+            var diagnosis = FicheDiagnostics.Lockouts(entry, read, refusals, keys, duration, clock.GetUtcNow(), Zone());
             session.KeepLockouts(entry.ObjectGuid, diagnosis);
             return diagnosis;
         }
@@ -218,7 +282,7 @@ public sealed class FicheOperations : IOperationModule
             }
             var relations = await Reader().RelationsAsync(userDn, ct).ConfigureAwait(false);
             return relations.Associations.FirstOrDefault()?.Dn
-                ?? throw FicheErrors.Error(FicheErrors.NotApplicable, "Aucun poste associé à ce compte : présence, sessions et tri restent inconnus (pas « aucun poste »).");
+                ?? throw FicheErrors.Error(FicheErrors.NotApplicable, "Aucun poste associé à ce compte : présence, sessions et tri restent inconnus (pas « aucun poste »).");
         }
 
         async Task<object?> RecentAsync(CancellationToken ct)
@@ -259,7 +323,13 @@ public sealed class FicheOperations : IOperationModule
 
             new OperationDefinition("fiche.read", readClass, async (args, _, ct) =>
             {
-                var dn = Dn(args);
+                var values = BridgeArguments.ReadObject(args, ReadArguments);
+                var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
+                if (OptionalBool(values, "reread"))
+                {
+                    // « Relire » (FIC-039): only the cache of this object is forgotten, never the list.
+                    session.Forget(dn);
+                }
                 var read = await FreshAsync(dn, ct).ConfigureAwait(false);
                 return await SheetAsync(read.Entry, sourceName, read.ReadAt, read.Controller, false, ct).ConfigureAwait(false);
             }, "Fiche d’un objet lue dans l’annuaire : identité, états, sections, compte, actions, onglets."),
@@ -306,7 +376,8 @@ public sealed class FicheOperations : IOperationModule
             {
                 var dn = Dn(args);
                 var read = await FreshAsync(dn, ct).ConfigureAwait(false);
-                return FicheAttributeRules.Rows(read.Entry, policy, Zone(), read.HiddenSensitive);
+                var (configuration, policy) = await SettingsAsync(ct).ConfigureAwait(false);
+                return FicheAttributeRules.Rows(read.Entry, policy, Zone(), read.HiddenSensitive, FicheSecurityPolicy.Describe(configuration, context.Mode), FicheSecurityPolicy.FileText(configuration));
             }, "Attributs bruts de l’objet, triés, dates converties, attributs sensibles exclus."),
 
             new OperationDefinition("fiche.groups", readClass, async (args, _, ct) =>
@@ -323,7 +394,7 @@ public sealed class FicheOperations : IOperationModule
                 var graph = await Reader().GroupGraphAsync(dn, ct).ConfigureAwait(false);
                 var index = await Reader().IndexAsync([.. graph.Nodes.Keys], ct).ConfigureAwait(false);
                 return FicheMemberships.Nested(graph, index);
-            }, "Groupes atteints par imbrication (2 000 groupes, 16 niveaux), avec le groupe direct « via »."),
+            }, "Groupes atteints par imbrication (2 000 groupes, 16 niveaux), avec le groupe direct « via »."),
 
             new OperationDefinition("fiche.groups.why", readClass, async (args, _, ct) =>
             {
@@ -339,8 +410,14 @@ public sealed class FicheOperations : IOperationModule
                 }
                 var graph = await Reader().GroupGraphAsync(entry.Dn, ct).ConfigureAwait(false);
                 var primary = graph.Primary?.Dn is string primaryDn && FicheValues.SameDn(primaryDn, group);
-                return FicheMemberships.Why(entry.Dn, objectName, group, name, false, graph, primary);
-            }, "« Pourquoi membre ? » : appartenance directe, chemin d’imbrication ou groupe principal."),
+                bool? transitive = null;
+                if (!primary && !FicheMemberships.FindPath(graph.Edges, entry.Dn, group).Found)
+                {
+                    // No path in the groups read: the controller answers with its chaining rule (one base request on the object).
+                    transitive = await Reader().TransitiveMemberAsync(entry.Dn, group, ct).ConfigureAwait(false);
+                }
+                return FicheMemberships.Why(entry.Dn, objectName, group, name, false, graph, primary, transitive);
+            }, "« Pourquoi membre ? » : appartenance directe, chemin d’imbrication ou groupe principal."),
 
             new OperationDefinition("fiche.groups.delta", OperationClass.Local, (args, _, _) =>
             {
@@ -350,6 +427,30 @@ public sealed class FicheOperations : IOperationModule
                 return Task.FromResult<object?>(delta);
             }, "Ajouts et retraits choisis seulement (jamais la liste complète) : un plan d’écriture par groupe."),
 
+            new OperationDefinition("fiche.groups.delta.check", readClass, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, DeltaCheckArguments);
+                var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
+                var steps = DeltaSteps(values, dn);
+                IReadOnlyCollection<string>? observed;
+                DateTimeOffset readAt;
+                try
+                {
+                    // The postcondition is read again on the controller (Test-DomeniaGroupDeltaPostcondition), never deduced from the receipts.
+                    session.Forget(dn);
+                    var read = await FreshAsync(dn, ct).ConfigureAwait(false);
+                    observed = read.Entry.All("memberOf");
+                    readAt = read.ReadAt;
+                }
+                catch (DomeniaOperationException ex) when (ex.Code != DomeniaErrors.SourceUnavailable)
+                {
+                    log.Warning($"Fiche : relecture des appartenances non aboutie ({ex.Code}).");
+                    observed = null;
+                    readAt = clock.GetUtcNow();
+                }
+                return FicheMemberships.DeltaPostcondition(dn, steps, observed, readAt);
+            }, "Vérification d’une modification de groupes en delta : chaque étape comparée aux appartenances relues sur le contrôleur."),
+
             new OperationDefinition("fiche.members", readClass, async (args, _, ct) =>
             {
                 var dn = Dn(args);
@@ -357,9 +458,10 @@ public sealed class FicheOperations : IOperationModule
                 var entry = (await KnownAsync(dn, ct).ConfigureAwait(false)).Entry;
                 if (entry.Kind == FicheKind.Group)
                 {
-                    var members = entry.All("member");
-                    var index = await reader.IndexAsync(members, ct).ConfigureAwait(false);
-                    return FicheMemberships.Members(entry.Dn, "members", members, index, true, null);
+                    // Read by ranges (member;range=…): 2 000 kept for display, 50 000 counted, a partial read says why (FIC-029, FIC-023).
+                    var range = await reader.MembersAsync(entry.Dn, MaxChildren, MaxMembersCounted, ct).ConfigureAwait(false);
+                    var index = await reader.IndexAsync(range.Dns, ct).ConfigureAwait(false);
+                    return FicheMemberships.Members(entry.Dn, "members", range.Dns, index, range.Complete, range.Note, range.Total);
                 }
                 if (entry.Kind is FicheKind.Ou or FicheKind.Container)
                 {
@@ -408,8 +510,9 @@ public sealed class FicheOperations : IOperationModule
                 }
                 catch (DomeniaOperationException ex) when (ex.Code == WriteErrors.ReceiptUnavailable)
                 {
-                    log.Warning("Historique de la fiche : reçus illisibles pour l’instant.");
+                    log.Warning("Historique de la fiche : reçus illisibles pour l’instant.");
                 }
+                session.KeepHistory(entry.ObjectGuid, clock.GetUtcNow());
                 return FicheRelationRules.History(entry, changes, receipts, session.Baseline(entry.ObjectGuid), clock.GetUtcNow(), Zone());
             }, "Historique de l’objet : dates lues, métadonnées de réplication, reçus Domenia, changements vus pendant la session."),
 
@@ -443,6 +546,7 @@ public sealed class FicheOperations : IOperationModule
                 var known = (await reader.IndexAsync([dn], ct).ConfigureAwait(false)).Values.FirstOrDefault() ?? throw FicheErrors.Error(FicheErrors.Unknown, FicheErrors.UnknownMessage);
                 if (known.Kind == FicheKind.Computer)
                 {
+                    session.KeepAttempt(known.Dn, "presence", clock.GetUtcNow());
                     var reading = await reader.PingAsync(known.Dn, ct).ConfigureAwait(false);
                     session.KeepPing(reading);
                     return reading;
@@ -455,8 +559,9 @@ public sealed class FicheOperations : IOperationModule
                 if (relations.Associations.FirstOrDefault() is not FicheAssociation link)
                 {
                     return new FichePresenceReading(null, null, "unknown", "Aucun poste associé", clock.GetUtcNow(), null, null,
-                        "Un compte n’a pas d’adresse : sa présence se mesure sur son poste associé, et aucun n’est connu. Présence inconnue, pas « aucun poste ».", null);
+                        "Un compte n’a pas d’adresse : sa présence se mesure sur son poste associé, et aucun n’est connu. Présence inconnue, pas « aucun poste ».", null);
                 }
+                session.KeepAttempt(link.Dn, "presence", clock.GetUtcNow());
                 var ping = await reader.PingAsync(link.Dn, ct).ConfigureAwait(false);
                 session.KeepPing(ping);
                 return ping with { Via = "Poste associé " + link.Name + " (" + link.EvidenceLabel + (link.Primary ? ", principal" : "") + ")" };
@@ -520,10 +625,14 @@ public sealed class FicheOperations : IOperationModule
                         session.KeepPolicy(entry.ObjectGuid, FicheDiagnostics.Policy(entry, reading, clock.GetUtcNow(), Zone()), reading);
                         break;
                     case "presence":
-                        session.KeepPing(await reader.PingAsync(await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false), ct).ConfigureAwait(false));
+                        var pinged = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
+                        session.KeepAttempt(pinged, "presence", clock.GetUtcNow());
+                        session.KeepPing(await reader.PingAsync(pinged, ct).ConfigureAwait(false));
                         break;
                     case "sessions":
-                        session.KeepSessions(await reader.SessionsAsync(await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false), ct).ConfigureAwait(false));
+                        var host = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
+                        session.KeepAttempt(host, "console", clock.GetUtcNow());
+                        session.KeepSessions(await reader.SessionsAsync(host, ct).ConfigureAwait(false));
                         break;
                     case "triage":
                         var target = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
@@ -565,14 +674,15 @@ public sealed class FicheOperations : IOperationModule
             {
                 var dn = Dn(args);
                 return await PlanAsync(writers.Require<IPasswordExpireExecutor>().PlanAsync(dn, ct), ct).ConfigureAwait(false);
-            }, "Plan de « Imposer un nouveau mot de passe » (pwdLastSet = 0) ; rien n’est écrit."),
+            }, "Plan de « Imposer un nouveau mot de passe » (pwdLastSet = 0) ; rien n’est écrit."),
 
             new OperationDefinition("fiche.options.plan", readClass, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, OptionsArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
                 var options = BoolMap(values, "options");
-                return await PlanAsync(writers.Require<IAccountOptionsExecutor>().PlanAsync(dn, options, ct), ct).ConfigureAwait(false);
+                var (_, policy) = await SettingsAsync(ct).ConfigureAwait(false);
+                return await PlanAsync(writers.Require<IAccountOptionsExecutor>().PlanAsync(dn, options, policy, ct), ct).ConfigureAwait(false);
             }, "Plan des options de sécurité du compte (bits changés seulement) ; rien n’est écrit."),
 
             new OperationDefinition("fiche.rawAttribute.plan", readClass, async (args, _, ct) =>
@@ -585,13 +695,17 @@ public sealed class FicheOperations : IOperationModule
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("value") + " doit faire au plus 4 096 caractères.");
                 }
-                // SE-02, first check: before the plan (the executor applies it again before sending).
+                // SE-02, first check: before the plan (the executor applies it again before sending, with the same policy).
+                var (_, policy) = await SettingsAsync(ct).ConfigureAwait(false);
                 var decision = FicheAttributeRules.RawWriteAllowed(attribute, policy);
                 if (!decision.Allowed)
                 {
                     throw FicheErrors.Error(FicheErrors.Refused, decision.Reason + " Aucune écriture préparée.");
                 }
-                return await PlanAsync(writers.Require<IRawAttributeExecutor>().PlanAsync(dn, attribute, value, ct), ct).ConfigureAwait(false);
+                var executor = writers.Require<IRawAttributeExecutor>();
+                var planned = await PlanAsync(executor.PlanAsync(dn, attribute, value, policy, ct), ct).ConfigureAwait(false);
+                executor.Remember(planned.Plan.Id, planned.Plan.ExpiresAt, policy);
+                return planned;
             }, "Plan d’une écriture brute d’attribut (règle de sécurité appliquée deux fois) ; rien n’est écrit."),
 
             new OperationDefinition("fiche.move.plan", readClass, async (args, _, ct) =>
@@ -599,8 +713,20 @@ public sealed class FicheOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, MoveArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
                 var target = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "target"), "target");
-                return await PlanAsync(writers.Require<IObjectMoveExecutor>().PlanAsync(dn, target, ct), ct).ConfigureAwait(false);
-            }, "Plan du déplacement d’un objet vers une OU du domaine ; rien n’est écrit."),
+                Guid? guid = null;
+                if (BridgeArguments.GetOptionalString(values, "guid") is string text)
+                {
+                    guid = Guid.TryParseExact(text, "D", out var parsed) ? parsed : throw BridgeArguments.Invalid(FrenchText.Quote("guid") + " doit être un GUID (forme D).");
+                }
+                return await PlanAsync(writers.Require<IObjectMoveExecutor>().PlanAsync(dn, target, guid, ct), ct).ConfigureAwait(false);
+            }, "Plan du déplacement d’un objet vers une OU ou un conteneur du domaine (GUID capturé à l’ouverture du sélecteur) ; rien n’est écrit."),
+
+            new OperationDefinition("fiche.destinations", readClass, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, DestinationArguments);
+                var parent = BridgeArguments.GetOptionalString(values, "dn") is string text ? BridgeArguments.RequireDistinguishedName(text, "dn") : null;
+                return await Reader().DestinationsAsync(parent, ct).ConfigureAwait(false);
+            }, "OU et conteneurs d’un niveau (sélecteur du déplacement) ; jamais tout le domaine d’un coup."),
 
             new OperationDefinition("fiche.membership.plan", readClass, async (args, _, ct) =>
             {
@@ -614,7 +740,8 @@ public sealed class FicheOperations : IOperationModule
             new OperationDefinition("fiche.delete.plan", readClass, async (args, _, ct) =>
             {
                 var dn = Dn(args);
-                return await PlanAsync(writers.Require<IObjectDeleteExecutor>().PlanAsync(dn, ct), ct).ConfigureAwait(false);
+                var (_, policy) = await SettingsAsync(ct).ConfigureAwait(false);
+                return await PlanAsync(writers.Require<IObjectDeleteExecutor>().PlanAsync(dn, policy, ct), ct).ConfigureAwait(false);
             }, "Plan de la suppression non récursive d’un objet ; rien n’est écrit."),
 
             new OperationDefinition("fiche.createOu.plan", readClass, async (args, _, ct) =>
@@ -631,8 +758,39 @@ public sealed class FicheOperations : IOperationModule
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
                 var mustChange = BridgeArguments.GetBoolean(values, "mustChange");
                 var unlock = BridgeArguments.GetBoolean(values, "unlock");
-                return await PlanAsync(writers.Require<IPasswordResetExecutor>().PlanAsync(dn, mustChange, unlock, ct), ct).ConfigureAwait(false);
-            }, "Plan de la réinitialisation du mot de passe (généré par le moteur, jamais dans le plan) ; rien n’est écrit."),
+                var generate = OptionalBool(values, "generate");
+                var theme = BridgeArguments.GetOptionalString(values, "theme") switch
+                {
+                    "light" => "light",
+                    "contrast" => "contrast",
+                    _ => "dark",
+                };
+                var executor = writers.Require<IPasswordResetExecutor>();
+                var window = readers.Find<IFichePasswordWindow>()
+                    ?? throw FicheErrors.Error(FicheErrors.Refused, "Fenêtre sécurisée de saisie indisponible dans ce mode d’exécution" + FrenchText.Colon + "aucun mot de passe ne passe par la page. Aucune écriture préparée.");
+                var entry = (await FreshAsync(dn, ct).ConfigureAwait(false)).Entry;
+                if (entry.Kind != FicheKind.User)
+                {
+                    throw FicheErrors.Error(FicheErrors.NotApplicable, "Seul un compte utilisateur a un mot de passe à réinitialiser ici" + FrenchText.Colon + "aucune écriture préparée.");
+                }
+                var (_, policy) = await SettingsAsync(ct).ConfigureAwait(false);
+                // The password is asked in the native window of the host (SecureString), never in the page; cancelling sends nothing.
+                var request = new FichePasswordRequest(entry.First("displayName") ?? entry.Name, entry.First("sAMAccountName") ?? entry.Name, entry.Int32("adminCount") == 1, generate,
+                    policy.GeneratedPasswordLength, policy.ClipboardClearSeconds, theme);
+                var answer = await window.AskAsync(request, ct).ConfigureAwait(false)
+                    ?? throw FicheErrors.Error(FicheErrors.Cancelled, "Fenêtre sécurisée fermée sans mot de passe" + FrenchText.Colon + "rien n’a été préparé ni envoyé.");
+                try
+                {
+                    var planned = await PlanAsync(executor.PlanAsync(dn, mustChange, unlock, answer.Generated, answer.Password.Length, policy, ct), ct).ConfigureAwait(false);
+                    // From now on the executor owns the secret: taken once at the execution of this plan, disposed after, or at expiry.
+                    executor.Hold(planned.Plan.Id, planned.Plan.ExpiresAt, answer.Password.Copy());
+                    return planned;
+                }
+                finally
+                {
+                    answer.Dispose();
+                }
+            }, "Plan de la réinitialisation du mot de passe : mot de passe saisi ou généré dans la fenêtre sécurisée de l’hôte (SecureString), jamais dans la page ni dans le plan ; rien n’est écrit."),
         ];
     }
 
@@ -723,6 +881,50 @@ public sealed class FicheOperations : IOperationModule
         }
         return text;
     }
+
+    private static bool OptionalBool(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        if (!values.TryGetValue(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return false;
+        }
+        return value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit valoir true ou false."),
+        };
+    }
+
+    /// <summary>Steps of a delta to check: 64 at most, each { action: « add » or « remove », group: DN, label? }.</summary>
+    private static ImmutableArray<FicheGroupDeltaStep> DeltaSteps(IReadOnlyDictionary<string, JsonElement> values, string memberDn)
+    {
+        var message = FrenchText.Quote("steps") + " doit être un tableau d’au plus 64 étapes { action, group }.";
+        if (!values.TryGetValue("steps", out var value) || value.ValueKind != JsonValueKind.Array || value.GetArrayLength() > 64)
+        {
+            throw BridgeArguments.Invalid(message);
+        }
+        var steps = ImmutableArray.CreateBuilder<FicheGroupDeltaStep>();
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+            {
+                throw BridgeArguments.Invalid(message);
+            }
+            var fields = BridgeArguments.ReadObject(item, StepArguments);
+            var action = BridgeArguments.GetString(fields, "action");
+            if (action is not ("add" or "remove"))
+            {
+                throw BridgeArguments.Invalid(message);
+            }
+            var group = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(fields, "group"), "group");
+            var name = FicheValues.DisplayName(group);
+            steps.Add(new FicheGroupDeltaStep(action, group, name, memberDn, (action == "add" ? "Ajouter à " : "Retirer de ") + name));
+        }
+        return steps.ToImmutable();
+    }
+
+    private static readonly string[] StepArguments = ["action", "group"];
 
     private static int? OptionalInt(IReadOnlyDictionary<string, JsonElement> values, string name, int min, int max)
     {

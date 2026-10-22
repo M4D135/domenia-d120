@@ -1,6 +1,7 @@
-// Pickers and write helpers of the « Fiche » screen: object picker (manager, group, member, second account), OU picker
-// (move, read level by level), and the write circuit (runWrite of write-flow.js: plan, confirmation, receipt). Nothing
-// here writes by itself: every write is a plan the engine seals, then write.execute once (docs/WRITES.md).
+// Pickers and write helpers of the « Fiche » screen: object picker (manager, group, member, second account), destination picker
+// of a move (OUs and default containers, read level by level), and the write circuit (runWrite of write-flow.js: plan,
+// confirmation, receipt). Nothing here writes by itself: every write is a plan the engine seals, then write.execute once
+// (docs/WRITES.md).
 import { openDrawer, createTree, glyph, debounce, NBSP } from '../../kit/index.js';
 import { esc, errorText, announce } from '../../ui.js';
 import { runWrite } from '../../write-flow.js';
@@ -26,7 +27,7 @@ export function pickObject(ctx, o) {
     body.dataset.page = 'fiche';
     body.innerHTML = `<label class="fi-picker-search">${glyph('search')}<span class="visually-hidden">${esc(o.placeholder ?? 'Rechercher')}</span>
         <input class="input" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="${esc(o.placeholder ?? 'Nom, identifiant ou UPN…')}" aria-controls="fi-picker-list"></label>
-      <p class="fi-picker-hint">${glyph('database')}${esc(o.hint ?? 'Recherche dans la base locale seulement : aucune requête ne part sur le réseau.')}</p>
+      <p class="fi-picker-hint">${glyph('database')}${esc(o.hint ?? 'Recherche dans la base locale seulement : aucune requête ne part sur le réseau.')}</p>
       <div class="fi-picker-list" id="fi-picker-list" role="listbox" aria-label="Résultats"></div>`;
     const input = /** @type {HTMLInputElement} */ (body.querySelector('input'));
     const list = /** @type {HTMLElement} */ (body.querySelector('.fi-picker-list'));
@@ -102,12 +103,13 @@ export function pickObject(ctx, o) {
   });
 }
 
+// A destination of the move picker (fiche.destinations): an OU, or a default container such as CN=Users or CN=Computers.
 const ouNode = (item) => ({
   id: item.dn,
   label: item.name,
-  icon: 'ou',
+  icon: item.kind === 'ou' ? 'ou' : 'folder',
   leaf: !item.hasChildren,
-  hint: item.counts ? `${item.counts.users + item.counts.computers + item.counts.groups}` : '',
+  hint: Number.isFinite(item.objects) ? `${item.objects}` : '',
   data: item,
 });
 
@@ -125,8 +127,8 @@ export function ouPath(dn) {
 }
 
 /**
- * OU picker (FIC-018: opened on the current OU): the tree is read level by level (directory.ou.children), a closed branch is
- * never read, the domain itself is never selectable.
+ * Destination picker (FIC-018: opened on the current OU): OUs and default containers of the domain, read level by level
+ * (fiche.destinations, one level per opening), a closed branch is never read, the domain itself is never selectable.
  * @param {any} ctx
  * @param {{ title: string, subtitle?: string, current?: string, confirm?: string, note?: string }} o
  * @returns {Promise<{ dn: string, name: string, path: string }|null>}
@@ -140,7 +142,7 @@ export function pickOu(ctx, o) {
     body.dataset.page = 'fiche';
     body.innerHTML = `${o.note ? `<p class="fi-picker-hint">${glyph('info')}${esc(o.note)}</p>` : ''}
       <div class="fi-oupick-tree"></div>
-      <div class="fi-oupick-sel" aria-live="polite"><span class="k">Destination</span><b>Aucune OU choisie</b></div>`;
+      <div class="fi-oupick-sel" aria-live="polite"><span class="k">Destination</span><b>Aucune destination choisie</b></div>`;
     const sel = /** @type {HTMLElement} */ (body.querySelector('.fi-oupick-sel b'));
     let tree = null;
     const panel = openDrawer({
@@ -155,18 +157,18 @@ export function pickOu(ctx, o) {
     const sync = () => {
       const b = okButton();
       if (b) { b.disabled = !selected; }
-      sel.textContent = selected ? selected.path : 'Aucune OU choisie';
+      sel.textContent = selected ? selected.path : 'Aucune destination choisie';
     };
     tree = createTree(body.querySelector('.fi-oupick-tree'), {
-      label: 'Unités d’organisation',
+      label: 'Unités d’organisation et conteneurs',
       height: '440px',
       roots: async () => {
-        const r = await ctx.call('directory.ou.children', { dn: null });
-        return (r?.children ?? []).map(ouNode);
+        const r = await ctx.call('fiche.destinations', { dn: null });
+        return (Array.isArray(r) ? r : []).map(ouNode);
       },
       load: async (node) => {
-        const r = await ctx.call('directory.ou.children', { dn: node.id });
-        return (r?.children ?? []).map(ouNode);
+        const r = await ctx.call('fiche.destinations', { dn: node.id });
+        return (Array.isArray(r) ? r : []).map(ouNode);
       },
       onSelect: (node) => {
         selected = { dn: node.id, name: node.label, path: node.data?.path ?? node.label };

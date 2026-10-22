@@ -5,7 +5,7 @@ using System.Text;
 namespace Domenia.Core;
 
 /// <summary>One dated fact with its source and its limit (Domenia 1 New-DomeniaFact): an unknown value stays unknown.</summary>
-public sealed record FicheFact(string Group, string Label, string Value, string State, string Source, string? Limit, string? Hypothesis);
+public sealed record FicheFact(string Group, string Label, string Value, string State, string Source, string? Limit, string? Hypothesis, string? Reader = null, string? DateText = null);
 
 /// <summary>Approximate logon activity from lastLogonTimestamp alone (FIC-041): never a presence measure.</summary>
 public sealed record FicheLogonActivity(string State, DateTimeOffset? Approx, int? AgeDays, string Text, string? Badge, string? BadgeTone);
@@ -94,7 +94,7 @@ public sealed record FicheCapability(string Id, string Capability, string State,
 public sealed record FicheRights(bool Available, string? Reason, string Owner, int MatchingAces, int TokenSids, ImmutableArray<FicheCapability> Rows, string Note, string Report, DateTimeOffset ReadAt);
 
 /// <summary>Freshness of one nature of data (Get-DomeniaFreshness, FIC-036).</summary>
-public sealed record FicheFreshness(string Nature, string Label, string State, DateTimeOffset? ObservedAt, long? AgeSeconds, string Text);
+public sealed record FicheFreshness(string Nature, string Label, string State, DateTimeOffset? ObservedAt, long? AgeSeconds, string Text, long ValiditySeconds = 0, DateTimeOffset? LastAttempt = null, string Validity = "");
 
 /// <summary>Support band of a user fiche (Update-DomeniaUserSupportBand, FIC-048): only what the controller answered.</summary>
 public sealed record FicheBand(string Tone, ImmutableArray<string> Alerts, string? Limits, bool Unlock, bool Lockouts);
@@ -354,7 +354,7 @@ public static class FicheDiagnostics
                 break;
             case "refused":
                 facts.Add(new FicheFact("Journal", "Verrouillages journalisés", "Lecture refusée", "refused", journal,
-                    "Un refus de lecture ne signifie pas qu’aucun verrouillage n’a eu lieu : le compte doit être membre de « Lecteurs des journaux d’événements » du contrôleur.", null));
+                    "Un refus de lecture ne signifie pas qu’aucun verrouillage n’a eu lieu : le compte doit être membre de « Lecteurs des journaux d’événements » du contrôleur.", null));
                 break;
             default:
                 facts.Add(new FicheFact("Journal", "Verrouillages journalisés", "Journal injoignable", "unavailable", journal, "Aucune conclusion sur les verrouillages passés.", null));
@@ -583,17 +583,17 @@ public static class FicheDiagnostics
         // Masks without ReadControl (0x20000, shared by GenericRead and GenericWrite): Domenia 1 combined the generic masks whole,
         // so a mere GenericRead entry read as « Modifier : autorisé ». Only the specific bits decide here (GenericRead = 0x94 +
         // ReadControl, GenericWrite = 0x28 + ReadControl).
-        ("read", "Lecture de l’objet", ReadProperty | ListObject | ListChildren, "Lecture des propriétés, liste et accès générique"),
-        ("edit", "Modifier les attributs", WriteProperty | Self, "WriteProperty ou GenericWrite"),
-        ("account", "Gestion du compte", WriteProperty | Self | ExtendedRight, "Activation, verrouillage, expiration et options"),
-        ("password", "Réinitialiser le mot de passe", 0, "Droit étendu « Réinitialiser le mot de passe »"),
-        ("group", "Gestion des groupes", WriteProperty | Self, "Modification de member / memberOf"),
+        ("read", "Lecture de l’objet", ReadProperty | ListObject | ListChildren, "Lire ses propriétés et le voir dans les listes"),
+        ("edit", "Modifier les attributs", WriteProperty | Self, "Droit d’écrire les propriétés de l’objet"),
+        ("account", "Gestion du compte", WriteProperty | Self | ExtendedRight, "Activer, déverrouiller, fixer l’expiration et les options"),
+        ("password", "Réinitialiser le mot de passe", 0, "Droit étendu " + FrenchText.Quote("Réinitialiser le mot de passe")),
+        ("group", "Gestion des groupes", WriteProperty | Self, "Changer les membres et les appartenances"),
         // Moving or renaming removes the object from its parent: WriteProperty alone never allows it (Domenia 1 counted it).
-        ("move", "Déplacer ou renommer", Delete | DeleteTree, "Delete sur l’objet ; nécessite aussi CreateChild sur la cible"),
-        ("delete", "Supprimer l’objet", Delete | DeleteTree, "Delete ou DeleteTree"),
-        ("create", "Créer un objet enfant", CreateChild, "CreateChild sur le conteneur"),
-        ("secrets", "Lire les secrets", 0, "BitLocker et LAPS utilisent des attributs confidentiels"),
-        ("acl", "Modifier les autorisations", WriteDacl | WriteOwner, "WriteDacl ou WriteOwner"),
+        ("move", "Déplacer ou renommer", Delete | DeleteTree, "Droit de supprimer l’objet de son OU, plus celui de créer dans l’OU de destination"),
+        ("delete", "Supprimer l’objet", Delete | DeleteTree, "Droit de suppression de l’objet ou de son arborescence"),
+        ("create", "Créer un objet enfant", CreateChild, "Droit de créer des objets dans ce conteneur"),
+        ("secrets", "Lire les secrets", 0, "Les mots de passe LAPS et les clés BitLocker sont des attributs confidentiels"),
+        ("acl", "Modifier les autorisations", WriteDacl | WriteOwner, "Droit de changer les autorisations ou le propriétaire"),
     ];
 
     /// <summary>
@@ -670,7 +670,11 @@ public static class FicheDiagnostics
                     ?? reading.Aces.FirstOrDefault(a => !a.Deny && ((a.Rights & mask) != 0 || (a.Rights & GenericAll) == GenericAll));
             }
             var stateLabel = state switch { "allowed" => "Autorisé", "denied" => "Refusé", _ => "Indéterminé" };
-            rows.Add(new FicheCapability(id, label, state, stateLabel, "DACL", detail, state == "unknown" || decisive is null ? null : AceText(decisive)));
+            // An undetermined right says why: no entry of the access list concerns it for the SIDs of the session token.
+            var why = state == "unknown"
+                ? detail + ". Aucune entrée de la liste d’accès ne concerne ce droit pour votre compte ou ses groupes" + C + "le contrôleur décidera, le plus souvent par un refus."
+                : detail;
+            rows.Add(new FicheCapability(id, label, state, stateLabel, "Liste d’accès de l’objet", why, state == "unknown" || decisive is null ? null : AceText(decisive)));
         }
         var result = rows.ToImmutableArray();
         return new FicheRights(true, null, reading.Owner, reading.Aces.Length, reading.TokenSids, result, note, RightsReport(result, reading.Owner, reading.Aces.Length, reading.ReadAt, zone), reading.ReadAt);
@@ -735,28 +739,34 @@ public static class FicheDiagnostics
         return builder.ToString();
     }
 
-    /// <summary>Freshness of one nature (Get-DomeniaFreshness): identity 24 h, attributes 15 min, presence 2 min, console 5 min, history never stale.</summary>
-    public static FicheFreshness Freshness(string nature, DateTimeOffset? observed, DateTimeOffset? lastAttempt, DateTimeOffset now, TimeZoneInfo zone)
+    /// <summary>
+    /// Freshness of one nature (Get-DomeniaFreshness): identity 24 h, attributes 15 min, presence 2 min, console 5 min, history never
+    /// stale; <paramref name="table"/> gives the durations of the usage profile (Resolve-DomeniaFreshnessTable). A failed attempt never
+    /// rejuvenates an observation: it is said beside it when it is more recent.
+    /// </summary>
+    public static FicheFreshness Freshness(string nature, DateTimeOffset? observed, DateTimeOffset? lastAttempt, DateTimeOffset now, TimeZoneInfo zone, FicheFreshnessTable? table = null)
     {
         ArgumentNullException.ThrowIfNull(nature);
         ArgumentNullException.ThrowIfNull(zone);
-        var (label, seconds) = nature switch
+        var label = nature switch
         {
-            "identity" => ("Identité AD", 86400L),
-            "attributes" => ("Attributs AD", 900L),
-            "presence" => ("Présence réseau", 120L),
-            "console" => ("Session console", 300L),
-            _ => ("Historique", 0L),
+            "identity" => "Identité AD",
+            "attributes" => "Attributs AD",
+            "presence" => "Présence réseau",
+            "console" => "Session console",
+            _ => "Historique",
         };
+        var seconds = (table ?? FicheFreshnessTable.Standard).SecondsOf(nature);
+        var validity = nature == "history" ? "sans expiration" : "valable " + FicheFreshnessTable.Duration(seconds);
         if (observed is not DateTimeOffset at)
         {
             var never = lastAttempt is DateTimeOffset attempt
                 ? label + C + "tentative sans résultat le " + FicheValues.ShortDateTime(attempt, zone)
                 : label + C + "jamais observé";
-            return new FicheFreshness(nature, label, "unknown", null, null, never);
+            return new FicheFreshness(nature, label, "unknown", null, null, never, seconds, lastAttempt, validity);
         }
         var age = Math.Max(0, (long)(now - at).TotalSeconds);
-        var state = nature == "history" ? "historical" : age <= seconds ? "fresh" : "stale";
+        var state = nature == "history" ? "historical" : seconds > 0 && age <= seconds ? "fresh" : "stale";
         var text = label + C + FicheValues.LocalDateTime(at, zone);
         if (state == "stale")
         {
@@ -770,7 +780,7 @@ public static class FicheDiagnostics
         {
             text += " · dernière tentative " + FicheValues.ShortDateTime(tried, zone);
         }
-        return new FicheFreshness(nature, label, state, at, age, text);
+        return new FicheFreshness(nature, label, state, at, age, text, seconds, lastAttempt is DateTimeOffset attempted && attempted > at ? attempted : null, validity);
     }
 
     /// <summary>
@@ -855,17 +865,21 @@ public static class FicheDiagnostics
         return user.FileTime("msDS-UserPasswordExpiryTimeComputed");
     }
 
-    /// <summary>Support summary of a user (Get-DomeniaUserSupportSummary): dated facts by rubric, each with its source and limit.</summary>
-    public static ImmutableArray<FicheFact> Support(FicheEntry user, string source, DateTimeOffset now, TimeZoneInfo zone)
+    /// <summary>
+    /// Support summary of a user (Get-DomeniaUserSupportSummary): dated facts by rubric, each with its source, its reader (the
+    /// controller that answered), the date of the read and its limit (replication of 14 days for the approximate logon).
+    /// </summary>
+    public static ImmutableArray<FicheFact> Support(FicheEntry user, string source, DateTimeOffset now, TimeZoneInfo zone, string? reader = null, DateTimeOffset? readAt = null)
     {
         ArgumentNullException.ThrowIfNull(user);
         ArgumentNullException.ThrowIfNull(zone);
         var facts = new List<FicheFact>();
+        var dateText = FicheValues.LocalDateTime(readAt ?? now, zone);
         void Add(string group, string label, string? value, string? limit = null)
         {
             if (!string.IsNullOrWhiteSpace(value))
             {
-                facts.Add(new FicheFact(group, label, value, "known", source, limit, null));
+                facts.Add(new FicheFact(group, label, value, "known", source, limit, null, reader, dateText));
             }
         }
         Add("Identité", "Nom affiché", user.First("displayName") ?? user.Name);

@@ -1,10 +1,11 @@
 // Attributes tab: every attribute read, sorted, dates converted, binary in hexadecimal, sensitive attributes excluded and
 // counted (FIC-002, « Copier tout »), and the raw attribute editor under the SE-02 rule (FIC-001): valid name,
-// Security.AllowRawAttributeWrite, block list shown (improvement), syntax of the chosen attribute, typed confirmation.
-import { createGrid, glyph, pill, writeClipboard, int } from '../../kit/index.js';
+// Security.AllowRawAttributeWrite of Domenia.config.json, block list shown with the provenance of every setting (improvement),
+// syntax of the chosen attribute, typed confirmation.
+import { createGrid, glyph, pill, writeClipboard, startFreshness, NBSP, int } from '../../kit/index.js';
 import { esc, errorText, toast, applyVars } from '../../ui.js';
 import { write } from './actions.js';
-import { tabular } from './common.js';
+import { tabular, freshChip } from './common.js';
 
 const SYNTAX = { dn: 'Nom distinctif', date: 'Date', flags: 'Indicateurs', guid: 'GUID', sid: 'SID', int: 'Entier', bool: 'Booléen', binary: 'Binaire', text: 'Texte' };
 
@@ -18,9 +19,10 @@ export function mountAttributes(panel, S) {
   let token = 0;
 
   panel.innerHTML = `<div class="fi-attrs grid">
-    <div class="span-8 card fi-card fi-attrs-grid"></div>
+    <div class="span-8 card fi-card fi-attrs-grid"><div class="fi-attrs-bar"></div><div class="fi-attrs-host"></div></div>
     <aside class="span-4 fi-raw-host"></aside></div>`;
-  const gridHost = /** @type {HTMLElement} */ (panel.querySelector('.fi-attrs-grid'));
+  const gridHost = /** @type {HTMLElement} */ (panel.querySelector('.fi-attrs-host'));
+  const attrsBar = /** @type {HTMLElement} */ (panel.querySelector('.fi-attrs-bar'));
   const rawHost = /** @type {HTMLElement} */ (panel.querySelector('.fi-raw-host'));
 
   function buildGrid() {
@@ -34,12 +36,14 @@ export function mountAttributes(panel, S) {
       height: '560px',
       density: 'compact',
       quickPlaceholder: 'Filtrer les attributs et leurs valeurs…',
+      // Four columns that fit the panel: « Écriture » says at once whether the raw editor may write the attribute, or why not.
       columns: [
-        { id: 'name', label: 'Attribut', mono: true, required: true, width: 230 },
-        { id: 'display', label: 'Valeur', width: 460 },
-        { id: 'syntax', label: 'Syntaxe', type: 'enum', width: 130, options: Object.entries(SYNTAX).map(([value, label]) => ({ value, label, tone: value === 'date' ? 'info' : value === 'dn' ? 'accent' : 'off' })) },
-        { id: 'multi', label: 'Multivaluée', type: 'bool', width: 110 },
-        { id: 'writable', label: 'Modifiable', type: 'bool', width: 110, tip: 'Selon la liste de blocage et les attributs tenus par l’annuaire' },
+        { id: 'name', label: 'Attribut', mono: true, required: true, width: 200 },
+        { id: 'display', label: 'Valeur', width: 340, html: (v) => `<span class="fi-cell-text" data-tip="${esc(v)}">${esc(v)}</span>` },
+        { id: 'syntax', label: 'Syntaxe', type: 'enum', width: 112, options: Object.entries(SYNTAX).map(([value, label]) => ({ value, label, tone: value === 'date' ? 'info' : value === 'dn' ? 'accent' : 'off' })) },
+        { id: 'write', label: 'Écriture', type: 'enum', width: 126, get: (r) => (!r.writable ? 'blocked' : r.multi ? 'multi' : 'ok'),
+          tip: 'Selon la liste de blocage et les attributs tenus par l’annuaire',
+          options: [{ value: 'ok', label: 'Modifiable', tone: 'ok' }, { value: 'multi', label: 'Multivaluée', tone: 'info' }, { value: 'blocked', label: 'Bloquée', tone: 'off' }] },
       ],
       empty: { icon: 'hash', title: 'Aucun attribut lu', text: 'La lecture de l’objet n’a rendu aucun attribut affichable.' },
       onActivate: (r) => choose(r),
@@ -54,28 +58,36 @@ export function mountAttributes(panel, S) {
     grid.slot.innerHTML = `<div class="fi-grid-actions"><button class="btn sm" type="button" data-a="copyAll">${glyph('copy')}Copier tout</button></div>`;
   }
 
+  function settingsMarkup(rw) {
+    if (!rw?.settings?.length) return '';
+    return `<details class="fi-settings"><summary>${glyph('sliders')}Réglages de sécurité en vigueur</summary>
+      <p class="fi-faint">${esc(rw.fileText ?? '')}</p>
+      <dl class="fi-settings-list">${rw.settings.map((s) => `<div data-source="${esc(s.source)}"><dt>${esc(s.label)}</dt><dd><b>${esc(s.value)}</b><span>${esc(s.sourceLabel)}</span></dd></div>`).join('')}</dl></details>`;
+  }
+
   function rawMarkup() {
     const rw = data?.rawWrite;
     const allowed = rw?.allowed;
+    const raw = rw?.settings?.find((s) => s.key === 'AllowRawAttributeWrite');
     return `<section class="card fi-card fi-raw fi-enter">
       <div class="card-head"><span class="card-icon" data-tone="${allowed ? 'warn' : 'off'}">${glyph('edit')}</span>
         <div class="fi-card-titles"><h3>Écriture brute d’un attribut</h3><p class="fi-card-sub">Règle appliquée par la page puis revérifiée par le moteur</p></div>
         <span class="meta">${pill(allowed ? 'warn' : 'off', allowed ? 'Autorisée' : 'Désactivée', { size: 'sm', icon: allowed ? 'alert' : 'lock' })}</span></div>
-      ${allowed ? '' : `<p class="fi-raw-off">${glyph('lock')}${esc(rw?.reason ?? 'Écriture brute désactivée.')}</p>`}
+      ${allowed ? (raw ? `<p class="fi-raw-on">${glyph('info')}${esc(raw.sourceLabel)}</p>` : '') : `<p class="fi-raw-off">${glyph('lock')}${esc(rw?.reason ?? 'Écriture brute désactivée.')}</p>`}
       <form class="fi-raw-form" novalidate>
         <label class="fi-field-label" for="fi-raw-name">Attribut</label>
         <input id="fi-raw-name" class="input mono" list="fi-raw-names" maxlength="127" autocomplete="off" spellcheck="false" placeholder="description, info, extensionAttribute1…"${allowed ? '' : ' disabled'}>
         <datalist id="fi-raw-names">${(data?.rows ?? []).filter((r) => r.writable).map((r) => `<option value="${esc(r.name)}"></option>`).join('')}</datalist>
-        <p class="fi-raw-syntax fi-faint" aria-live="polite">Choisissez un attribut : sa syntaxe et sa valeur actuelle s’affichent ici.</p>
+        <p class="fi-raw-syntax fi-faint" aria-live="polite">Choisissez un attribut : sa syntaxe et sa valeur actuelle s’affichent ici.</p>
         <label class="fi-field-label" for="fi-raw-value">Nouvelle valeur</label>
         <textarea id="fi-raw-value" class="input mono" rows="3" maxlength="4096" spellcheck="false" placeholder="Vide = effacement"${allowed ? '' : ' disabled'}></textarea>
         <div class="fi-raw-actions">
           <button class="btn sm ghost fi-write" type="button" data-a="clear"${allowed ? '' : ' disabled'}>${glyph('x')}Effacer…</button>
           <button class="btn sm danger fi-write" type="submit"${allowed ? '' : ' disabled'}>${glyph('edit')}Écrire…</button></div>
       </form>
-      <details class="fi-blocklist"><summary>${glyph('shield')}Liste de blocage active (${int(rw?.blockList?.length ?? 0)} attributs)${rw?.blockSensitive ? '' : ' · inactive'}</summary>
+      <details class="fi-blocklist"><summary>${glyph('shield')}Liste de blocage ${rw?.blockSensitive ? 'active' : 'inactive'} (${int(rw?.blockList?.length ?? 0)}${NBSP}attributs)</summary>
         <p class="fi-blocklist-items">${(rw?.blockList ?? []).map((n) => `<span class="mono">${esc(n)}</span>`).join('')}</p></details>
-      <p class="fi-note">${glyph('info')}${esc(data?.note ?? '')}</p>
+      ${settingsMarkup(rw)}
     </section>`;
   }
 
@@ -97,9 +109,9 @@ export function mountAttributes(panel, S) {
     const out = rawHost.querySelector('.fi-raw-syntax');
     if (!name || !out) return;
     const row = (data?.rows ?? []).find((r) => r.name.toLowerCase() === name.value.trim().toLowerCase());
-    if (!name.value.trim()) { out.textContent = 'Choisissez un attribut : sa syntaxe et sa valeur actuelle s’affichent ici.'; return; }
-    if (!row) { out.textContent = 'Attribut absent de l’objet : il sera ajouté (syntaxe vérifiée par le contrôleur).'; return; }
-    out.innerHTML = `${pill(row.writable ? 'info' : 'alert', SYNTAX[row.syntax] ?? row.syntax, { size: 'sm' })} ${row.multi ? 'Multivaluée : l’écriture brute ne remplace qu’une valeur unique.' : `Valeur actuelle : <span class="mono">${esc(row.display)}</span>`}${row.blocked ? ` · <b>${esc(row.blocked)}</b>` : ''}`;
+    if (!name.value.trim()) { out.textContent = 'Choisissez un attribut : sa syntaxe et sa valeur actuelle s’affichent ici.'; return; }
+    if (!row) { out.textContent = 'Attribut absent de l’objet : il sera ajouté (syntaxe vérifiée par le contrôleur).'; return; }
+    out.innerHTML = `${pill(row.writable ? 'info' : 'alert', SYNTAX[row.syntax] ?? row.syntax, { size: 'sm' })} ${row.multi ? 'Multivaluée : l’écriture brute ne remplace qu’une valeur unique.' : `Valeur actuelle : <span class="mono">${esc(row.display)}</span>`}${row.blocked ? ` · <b>${esc(row.blocked)}</b>` : ''}`;
   }
 
   async function submit(clear) {
@@ -123,6 +135,8 @@ export function mountAttributes(panel, S) {
       data = await S.ctx.call('fiche.attributes', { dn: S.sheet.identity.dn });
       if (my !== token || !S.alive) return;
       grid.setRows(data.rows, { keepSelection: true, keepScroll: true });
+      attrsBar.innerHTML = `<span class="fi-faint">${esc(data.note)}</span>${freshChip(S.sheet, 'attributes')}`;
+      startFreshness(attrsBar);
       rawHost.innerHTML = rawMarkup();
       applyVars(rawHost);
     } catch (err) {

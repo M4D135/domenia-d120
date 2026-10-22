@@ -195,7 +195,7 @@ internal static class FicheTests
         var sheet = await ResultAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName });
         string[] fields = [.. sheet.EnumerateObject().Select(p => p.Name)];
         Check.True(fields.SequenceEqual(["identity", "origin", "states", "band", "sections", "edit", "account", "counts", "freshness", "manager", "linked", "presence",
-            "actions", "tabs", "landing", "summary", "support", "signature"]), "champs de la fiche : " + string.Join(", ", fields));
+            "actions", "tabs", "landing", "summary", "support", "signature", "settings"]), "champs de la fiche : " + string.Join(", ", fields));
         var identity = sheet.GetProperty("identity");
         Check.Equal("user", identity.GetProperty("kind").GetString(), "type");
         Check.Equal(camille.ObjectGuid.ToString("D"), identity.GetProperty("guid").GetString(), "GUID");
@@ -403,14 +403,326 @@ internal static class FicheTests
         var attributes = await ResultAsync(bridge, "fiche.attributes", new { dn = camille.DistinguishedName });
         Check.True(attributes.GetProperty("rows").EnumerateArray().Any(r => r.GetProperty("name").GetString() == "info" && r.GetProperty("display").GetString() == "Rappeler après 14 h"), "valeur brute relue");
 
-        var planned = await ResultAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = true });
-        var text = planned.GetRawText();
-        Check.False(text.Contains("unicodePwd\":\"", StringComparison.Ordinal), "aucune valeur de mot de passe dans le plan");
-        var receipt = await WriteAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = true });
+        // Without the secure window of the host (tests, headless runs), a reset is refused: no password ever goes through the page.
+        Check.Equal(FicheErrors.Refused, await ErrorAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = true }), "pas de fenêtre sécurisée : refus");
+    }
+
+    // ---------------------------------------------------------------- round 2: configuration, secure window, ranges, postcondition
+
+    private static readonly System.Reflection.Assembly TestAssembly = typeof(FicheTests).Assembly;
+
+    private static SimulatedBridge WithWindow() => new(readers: [TestAssembly]);
+
+    [Test]
+    public static void Security_settings_of_the_configuration_are_read_strictly_and_bounded()
+    {
+        var read = FicheConfiguration.Parse("""
+            { "security": { "AllowRawAttributeWrite": true, "GeneratedPasswordLength": 80, "ForcePasswordChangeOnReset": "false" },
+              "CallSheet": { "TicketTemplate": [ "Appel de {NomAffiche}", "{Compte}" ] } }
+            """u8);
+        Check.Equal(ConfigurationFileState.Read, read.State, "fichier lu, noms sans casse");
+        Check.Equal(true, read.AllowRawAttributeWrite, "écriture brute demandée");
+        Check.Equal(64, read.GeneratedPasswordLength, "longueur ramenée à 64");
+        Check.True(read.GeneratedPasswordLengthBounded, "bornage signalé");
+        Check.Null(read.ForcePasswordChangeOnReset, "« false » texte ignoré, jamais lu comme booléen");
+        Check.True(read.Warnings.Length >= 2, "valeurs ignorées ou bornées signalées");
+        Check.Equal("Appel de {NomAffiche}\n{Compte}", read.TicketTemplate, "modèle en lignes");
+        Check.Equal(ConfigurationFileState.Invalid, FicheConfiguration.Parse("""{ "Security": {}, "security": {} }"""u8).State, "section en double : fichier ignoré");
+        Check.Equal(ConfigurationFileState.Invalid, FicheConfiguration.Parse("""{ "Security": { "AllowContainerDelete": true, "allowcontainerdelete": false } }"""u8).State, "clé en double");
+        Check.Equal(ConfigurationFileState.Invalid, FicheConfiguration.Parse("{"u8).State, "JSON illisible");
+
+        var directory = FicheSecurityPolicy.From(FicheConfiguration.Absent, AppMode.Directory);
+        Check.False(directory.AllowRawAttributeWrite, "mode annuaire : écriture brute fermée par défaut (Domenia 1)");
+        Check.True(directory.ForcePasswordChangeOnReset && directory.RequireTypedDeleteConfirmation, "défauts de Domenia 1");
+        Check.True(FicheSecurityPolicy.From(FicheConfiguration.Absent, AppMode.Simulation).AllowRawAttributeWrite, "simulation : ouverte sur l’annuaire fictif");
+        var closed = FicheConfiguration.Absent with { AllowRawAttributeWrite = false };
+        Check.False(FicheSecurityPolicy.From(closed, AppMode.Simulation).AllowRawAttributeWrite, "le fichier l’emporte, même en simulation");
+        var provenance = FicheSecurityPolicy.Describe(read, AppMode.Directory);
+        Check.Equal("file", provenance.Single(s => s.Key == "AllowRawAttributeWrite").Source, "provenance : fichier");
+        Check.Equal("fileBounded", provenance.Single(s => s.Key == "GeneratedPasswordLength").Source, "provenance : fichier borné");
+        Check.Equal("default", provenance.Single(s => s.Key == "AllowContainerDelete").Source, "provenance : défaut");
+    }
+
+    [Test]
+    public static void The_ticket_template_is_resolved_like_Domenia_1()
+    {
+        Check.Equal("Défaut", FicheCallSheets.ResolveTemplate(null).Source, "sans modèle");
+        Check.Equal("Défaut", FicheCallSheets.ResolveTemplate("   ").Source, "modèle vide : défaut sans message");
+        Check.Null(FicheCallSheets.ResolveTemplate("   ").Warning, "aucun avertissement pour un modèle vide");
+        Check.Equal("Configuration", FicheCallSheets.ResolveTemplate("Appel de {NomAffiche}\r\n{Compte}").Source, "modèle configuré");
+        Check.Contains("4", FicheCallSheets.ResolveTemplate("{Compte}" + new string('x', 4000)).Warning, "trop long : refusé avec son motif");
+        Check.Contains("aucun champ", FicheCallSheets.ResolveTemplate("Texte fixe").Warning, "sans champ connu");
+        Check.Contains("contrôle", FicheCallSheets.ResolveTemplate("{Compte}\u0007").Warning, "caractère de contrôle");
+        var placeholders = FicheCallSheets.Placeholders;
+        Check.True(placeholders.All(p => FicheCallSheets.DefaultTemplate.Contains("{" + p + "}", StringComparison.Ordinal)), "le modèle par défaut contient tous les champs");
+    }
+
+    [Test]
+    public static void Freshness_follows_the_usage_profile_and_a_failed_attempt_never_rejuvenates()
+    {
+        using var stored = JsonDocument.Parse("""{ "profile": "troubleshooting", "freshness": { "troubleshooting": { "presence": 45 } } }""");
+        var table = FicheFreshnessTable.Read(stored.RootElement);
+        Check.Equal(45, table.Presence, "durée personnalisée du profil");
+        Check.Equal(300, table.Attributes, "les autres durées du profil");
+        Check.True(table.Custom, "durées personnalisées signalées");
+        Check.Equal(900, FicheFreshnessTable.Read(null).Attributes, "Standard sans réglage");
+        var observed = Fixtures.Now - TimeSpan.FromMinutes(10);
+        var attempt = Fixtures.Now - TimeSpan.FromMinutes(1);
+        var presence = FicheDiagnostics.Freshness("presence", observed, attempt, Fixtures.Now, TestClock.Paris, table);
+        Check.Equal("stale", presence.State, "10 min > 45 s : à relire");
+        Check.Equal(observed, presence.ObservedAt, "la tentative ne rajeunit pas l’observation");
+        Check.Equal(attempt, presence.LastAttempt, "dernière tentative montrée");
+        Check.Equal("historical", FicheDiagnostics.Freshness("history", observed, null, Fixtures.Now, TestClock.Paris).State, "historique sans expiration");
+        Check.Equal("unknown", FicheDiagnostics.Freshness("console", null, attempt, Fixtures.Now, TestClock.Paris).State, "jamais observé reste inconnu");
+    }
+
+    [Test]
+    public static void A_delta_postcondition_says_verified_partial_or_to_check()
+    {
+        const string member = "CN=A,OU=X," + Root;
+        const string g1 = "CN=G1,OU=G," + Root;
+        const string g2 = "CN=G2,OU=G," + Root;
+        FicheGroupDeltaStep[] steps = [new("add", g1, "G1", member, "Ajouter à G1"), new("remove", g2, "G2", member, "Retirer de G2")];
+        Check.Equal("verified", FicheMemberships.DeltaPostcondition(member, steps, [g1], Fixtures.Now).Overall, "ajout et retrait constatés");
+        var partial = FicheMemberships.DeltaPostcondition(member, steps, [g1, g2], Fixtures.Now);
+        Check.Equal("partial", partial.Overall, "un retrait non constaté : partiel");
+        Check.Equal("failed", partial.Rows.Single(r => r.GroupDn == g2).Status, "l’étape en échec est nommée");
+        Check.Equal("toCheck", FicheMemberships.DeltaPostcondition(member, steps, null, Fixtures.Now).Overall, "relecture impossible : à vérifier");
+        Check.Equal("none", FicheMemberships.DeltaPostcondition(member, [], [g1], Fixtures.Now).Overall, "aucune étape");
+    }
+
+    [Test]
+    public static void Why_member_uses_the_transitive_answer_when_no_path_was_read()
+    {
+        const string obj = "CN=A,OU=X," + Root;
+        const string group = "CN=Far,OU=G," + Root;
+        var graph = new FicheGroupGraph(obj, ImmutableDictionary<string, ImmutableArray<string>>.Empty.Add(obj, []), ImmutableDictionary<string, FicheGraphNode>.Empty, false, 0, null);
+        var yes = FicheMemberships.Why(obj, "A", group, "Far", false, graph, false, transitive: true);
+        Check.True(yes.Known && yes.Member == true && yes.Basis == "controller", "confirmé par la règle de chaînage du contrôleur");
+        var no = FicheMemberships.Why(obj, "A", group, "Far", false, graph, false, transitive: false);
+        Check.True(no.Known && no.Member == false, "non membre confirmé, lecture complète");
+        var truncated = graph with { Truncated = true };
+        var unknown = FicheMemberships.Why(obj, "A", group, "Far", false, truncated, false, transitive: null);
+        Check.True(!unknown.Known && unknown.Member is null, "lecture tronquée sans réponse : indéterminé, jamais « non membre »");
+    }
+
+    [Test]
+    public static void Members_read_by_ranges_keep_their_total_and_say_a_partial_read()
+    {
+        var dns = Enumerable.Range(0, 2100).Select(i => "CN=U" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",OU=X," + Root).ToList();
+        var list = FicheMemberships.Members("CN=G,OU=G," + Root, "members", dns.Take(2000).ToList(), new Dictionary<string, FicheSummary>(), true, null, 2100);
+        Check.Equal(2100, list.Total, "total compté par plages");
+        Check.Equal(2000, list.Shown, "2 000 affichés");
+        Check.Contains("affichés sur", list.Label, "« 2 000 affichés sur 2 100 »");
+        var partial = FicheMemberships.Members("CN=G,OU=G," + Root, "members", dns.Take(2000).ToList(), new Dictionary<string, FicheSummary>(), false, "lecture arrêtée à 50 000 membres", 50000);
+        Check.False(partial.Complete, "lecture partielle jamais présentée comme complète");
+        Check.Contains("lecture partielle", partial.Label, "motif dit");
+    }
+
+    [Test]
+    public static async Task Arguments_of_the_fiche_are_checked()
+    {
+        var bridge = new SimulatedBridge();
+        var dn = Camille(bridge).DistinguishedName;
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.read", new { dn, autre = 1 }), "propriété inconnue");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.read", new { dn, reread = "oui" }), "reread booléen");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.lockouts", new { dn, hours = 0 }), "fenêtre de 0 h");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.lockouts", new { dn, hours = 721 }), "fenêtre de 721 h");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.rawAttribute.plan", new { dn, attribute = "info", value = new string('x', 4097) }), "valeur de plus de 4 096 caractères");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.pick", new { text = "ber", kinds = new[] { "imprimante" } }), "type inconnu");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.update.plan", new { dn, fields = new Dictionary<string, string>() }), "aucun champ");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.move.plan", new { dn, target = ParentOf(dn), guid = "pas-un-guid" }), "GUID mal formé");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, await ErrorAsync(bridge, "fiche.groups.delta.check", new { dn, steps = new[] { new { action = "remplacer", group = dn } } }), "étape inconnue");
+    }
+
+    [Test]
+    public static async Task Resolve_accepts_guid_and_sid_and_refuses_another_domain()
+    {
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        Check.Equal(camille.DistinguishedName, (await ResultAsync(bridge, "fiche.resolve", new { text = camille.ObjectGuid.ToString("B") })).GetProperty("dn").GetString(), "par GUID");
+        Check.Equal(camille.DistinguishedName, (await ResultAsync(bridge, "fiche.resolve", new { text = camille.Sid })).GetProperty("dn").GetString(), "par SID");
+        Check.Equal(camille.DistinguishedName, (await ResultAsync(bridge, "fiche.resolve", new { text = "EXAMPLE\\" + camille.SamAccountName })).GetProperty("dn").GetString(), "DOMAINE\\compte");
+        Check.Equal(FicheErrors.NotFound, await ErrorAsync(bridge, "fiche.resolve", new { text = "AUTRE\\" + camille.SamAccountName }), "autre domaine : refusé, jamais retiré en silence");
+    }
+
+    [Test]
+    public static async Task Two_reads_of_an_unchanged_object_share_their_signature_and_reread_forgets_one_object_only()
+    {
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        var other = bridge.Source.CurrentDirectory.Users.First(u => u.ObjectGuid != camille.ObjectGuid);
+        var first = await ResultAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName });
+        var second = await ResultAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName });
+        Check.Equal(first.GetProperty("signature").GetString(), second.GetProperty("signature").GetString(), "signature stable sans changement (FIC-031)");
+        await ResultAsync(bridge, "fiche.read", new { dn = other.DistinguishedName });
+        await ResultAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName, reread = true });
+        var session = FicheSession.From(bridge.Context);
+        Check.NotNull(session.LastRead(other.DistinguishedName), "relire une fiche ne vide pas le cache des autres objets (FIC-039)");
+        await WriteAsync(bridge, "fiche.update.plan", new { dn = camille.DistinguishedName, fields = new Dictionary<string, string?> { ["description"] = "Nouvelle description" } });
+        var after = await ResultAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName, reread = true });
+        Check.Equal(first.GetProperty("signature").GetString(), after.GetProperty("signature").GetString(), "un champ d’affichage ne change pas la signature");
+    }
+
+    [Test]
+    public static async Task The_fiche_lands_on_what_is_read_first()
+    {
+        var bridge = new SimulatedBridge();
+        var group = Group(bridge, "GG-Commercial-Lyon");
+        Check.Equal("membres", (await ResultAsync(bridge, "fiche.read", new { dn = group.DistinguishedName })).GetProperty("landing").GetString(), "un groupe s’ouvre sur ses membres");
+        Check.Equal("membres", (await ResultAsync(bridge, "fiche.read", new { dn = ParentOf(group.DistinguishedName) })).GetProperty("landing").GetString(), "une OU sur son contenu");
+        Check.Equal("general", (await ResultAsync(bridge, "fiche.read", new { dn = Camille(bridge).DistinguishedName })).GetProperty("landing").GetString(), "un compte sur son identité");
+    }
+
+    [Test]
+    public static async Task Destinations_list_ous_and_default_containers_but_never_builtin()
+    {
+        var bridge = new SimulatedBridge();
+        var top = await ResultAsync(bridge, "fiche.destinations", new { dn = (string?)null });
+        string[] dns = Strings(top, "dn");
+        Check.True(dns.Contains("CN=Users," + Root) && dns.Contains("CN=Computers," + Root), "conteneurs par défaut proposés");
+        Check.False(dns.Contains("CN=Builtin," + Root), "Builtin jamais proposé");
+        Check.True(top.EnumerateArray().Any(d => d.GetProperty("kind").GetString() == "ou"), "OU proposées");
+    }
+
+    [Test]
+    public static async Task A_move_refuses_an_object_that_changed_while_the_picker_was_open()
+    {
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        var target = "CN=Users," + Root;
+        Check.Equal(FicheErrors.Refused, await ErrorAsync(bridge, "fiche.move.plan", new { dn = camille.DistinguishedName, target, guid = Guid.NewGuid().ToString("D") }), "GUID différent : refus");
+        await WriteAsync(bridge, "fiche.move.plan", new { dn = camille.DistinguishedName, target, guid = camille.ObjectGuid.ToString("D") });
+        Check.Equal("CN=Camille Bernard," + target, Camille(bridge).DistinguishedName, "déplacé vers un conteneur par défaut");
+    }
+
+    [Test]
+    public static async Task Members_of_a_group_are_read_by_ranges()
+    {
+        var bridge = new SimulatedBridge();
+        var group = Group(bridge, "GG-Commercial-Lyon");
+        var members = await ResultAsync(bridge, "fiche.members", new { dn = group.DistinguishedName });
+        Check.Equal(group.Members.Length, members.GetProperty("total").GetInt32(), "total compté");
+        Check.True(members.GetProperty("complete").GetBoolean(), "lecture complète sous 50 000");
+    }
+
+    [Test]
+    public static async Task Lockouts_reconcile_the_refusals_of_Domenia_and_the_delta_is_checked_again()
+    {
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        var lockouts = await ResultAsync(bridge, "fiche.lockouts", new { dn = camille.DistinguishedName, hours = 720 });
+        Check.True(lockouts.GetProperty("rows").GetArrayLength() > 0, "Camille a des verrouillages journalisés");
+        Check.True(lockouts.GetProperty("facts").EnumerateArray().Any(f => f.GetProperty("label").GetString() == "Refus de Domenia avant un verrouillage"), "rapprochement des refus de Domenia (FIC-045)");
+
+        var group = Group(bridge, "GG-Commercial-Lyon");
+        var stepsAdd = new[] { new { action = "add", group = group.DistinguishedName } };
+        var check = await ResultAsync(bridge, "fiche.groups.delta.check", new { dn = camille.DistinguishedName, steps = stepsAdd });
+        Check.Equal(group.Members.Contains(camille.DistinguishedName, StringComparer.OrdinalIgnoreCase) ? "verified" : "partial", check.GetProperty("overall").GetString(), "relu sur le contrôleur");
+    }
+
+    [Test]
+    public static async Task A_reset_takes_the_password_of_the_secure_window_once_and_never_shows_it()
+    {
+        var bridge = WithWindow();
+        var camille = Camille(bridge);
+        ScriptedPasswordWindow.Reset(request => new FichePasswordEntry(TemporaryPassword.Generate(request.GeneratedLength), true));
+        var planned = await ResultAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = true, generate = true, theme = "dark" });
+        Check.Equal(16, ScriptedPasswordWindow.Requests.Single().GeneratedLength, "longueur de la configuration (16 par défaut)");
+        Check.Contains("généré", planned.GetRawText(), "le plan dit l’origine du mot de passe");
+        Check.False(planned.GetRawText().Contains("unicodePwd\":\"", StringComparison.Ordinal), "aucune valeur dans le plan");
+        var receipt = await ResultAsync(bridge, "write.execute", new
+        {
+            planId = planned.GetProperty("plan").GetProperty("id").GetString(),
+            token = planned.GetProperty("token").GetString(),
+            typedName = planned.GetProperty("plan").GetProperty("confirmation").GetProperty("typedName").GetString(),
+        });
         Check.Equal("applied", receipt.GetProperty("result").GetString(), "réinitialisation appliquée");
-        var after = Camille(bridge);
-        Check.Equal(0L, after.PasswordLastSet, "changement imposé à la prochaine ouverture");
-        Check.Equal(0L, after.LockoutTime, "déverrouillé ensuite");
+        Check.Equal(0L, Camille(bridge).PasswordLastSet, "changement imposé");
+        Check.Equal(0L, Camille(bridge).LockoutTime, "déverrouillé ensuite");
         Check.False(bridge.Log.Lines.Any(l => l.Contains("unicodePwd=", StringComparison.OrdinalIgnoreCase)), "aucun secret journalisé");
+
+        ScriptedPasswordWindow.Reset(_ => null);
+        Check.Equal(FicheErrors.Cancelled, await ErrorAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = false }), "fenêtre fermée : rien n’est préparé");
+
+        var admin = bridge.Source.CurrentDirectory.Users.FirstOrDefault(u => u.AdminCount == 1);
+        if (admin is not null)
+        {
+            ScriptedPasswordWindow.Reset(request => new FichePasswordEntry(TemporaryPassword.Generate(request.GeneratedLength), false));
+            var protectedPlan = await ResultAsync(bridge, "fiche.resetPassword.plan", new { dn = admin.DistinguishedName, mustChange = true, unlock = false });
+            Check.True(protectedPlan.GetProperty("plan").GetProperty("confirmation").GetProperty("typedNameRequired").GetBoolean(), "compte protégé : permis avec la saisie du nom (Domenia 1)");
+        }
+    }
+
+    [Test]
+    public static async Task Deleting_an_object_removes_its_local_associations()
+    {
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        var before = await ResultAsync(bridge, "fiche.relations", new { dn = camille.DistinguishedName });
+        var computer = before.GetProperty("associations").EnumerateArray().First(a => a.GetProperty("kind").GetString() == "computer").GetProperty("dn").GetString()!;
+        var planned = await ResultAsync(bridge, "fiche.delete.plan", new { dn = computer });
+        Check.Contains("association", planned.GetRawText(), "le plan annonce les associations locales retirées");
+        await WriteAsync(bridge, "fiche.delete.plan", new { dn = computer });
+        var after = await ResultAsync(bridge, "fiche.relations", new { dn = camille.DistinguishedName });
+        Check.False(after.GetProperty("associations").EnumerateArray().Any(a => a.GetProperty("dn").GetString() == computer), "association retirée de la base locale");
+    }
+
+    [Test]
+    public static void Directory_mode_declares_network_reads_and_refuses_the_plans()
+    {
+        var decision = ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));
+        var source = new UnavailableDirectorySource("cnamts.local", () => @"CNAMTS\degun");
+        using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), TestClock.Fixed(), new RecordingJournal(), ScreenReaders.Discover(source, [typeof(SimulatedDirectorySource).Assembly]));
+        var registry = OperationModules.CreateRegistry(context, OperationModules.Discover([typeof(FicheOperations).Assembly]));
+        foreach (var name in new[] { "fiche.read", "fiche.attributes", "fiche.members", "fiche.groups", "fiche.destinations", "fiche.groups.delta.check", "fiche.lockouts", "fiche.rights" })
+        {
+            Check.True(registry.TryGet(name, out var definition), "déclarée : " + name);
+            Check.Equal(OperationClass.NetworkRead, definition!.Class, "lecture réseau en mode annuaire : " + name);
+        }
+        Check.True(registry.TryGet("fiche.preview", out var preview) && preview!.Class == OperationClass.LocalRead, "l’aperçu reste local");
+    }
+}
+
+/// <summary>Scripted secure window of the fiche for the tests: answers what <see cref="Reset"/> set, records the requests (never a secret).</summary>
+public sealed class ScriptedPasswordWindow : IFichePasswordWindow
+{
+    private static readonly Lock Gate = new();
+    private static Func<FichePasswordRequest, FichePasswordEntry?> answer = _ => null;
+    private static readonly List<FichePasswordRequest> Seen = [];
+
+    public ScriptedPasswordWindow(IDirectorySource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+    }
+
+    public static IReadOnlyList<FichePasswordRequest> Requests
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return [.. Seen];
+            }
+        }
+    }
+
+    public static void Reset(Func<FichePasswordRequest, FichePasswordEntry?> next)
+    {
+        lock (Gate)
+        {
+            answer = next;
+            Seen.Clear();
+        }
+    }
+
+    public Task<FichePasswordEntry?> AskAsync(FichePasswordRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        lock (Gate)
+        {
+            Seen.Add(request);
+            return Task.FromResult(answer(request));
+        }
     }
 }

@@ -1,11 +1,12 @@
-// General tab: sections of the object (identity, organisation, contact details, profile, system, management, object),
-// edit mode with the pencil (FIC-009, FIC-010, FIC-049, FIC-029, FIC-011) and the protected draft (FIC-007), and the side
-// cards: presence (FIC-046), associated workstations (FIC-047), support summary (FIC-044), logon activity (FIC-041),
-// freshness per nature (FIC-036) and the « Résumé » of the object (FIC-039).
-import { kvSection, bindKv, glyph, pill, openDialog, NBSP, writeClipboard } from '../../kit/index.js';
-import { esc, errorText, toast, announce, applyVars, formatDateTime } from '../../ui.js';
+// General tab: sections of the object (identity, organisation, contact details, profile, system, management…), edit mode
+// with the pencil (FIC-009, FIC-010, FIC-049, FIC-029, FIC-011) and the protected draft (FIC-007), and the side column:
+// presence with the associated workstations or users (FIC-046, FIC-047), freshness per nature (FIC-036) and the « Résumé » of
+// the object (FIC-039: type, name, class, GUID, SID, dates, DN, presence and its target, copy and parent). A new read repaints
+// only the rows that changed (FIC-031).
+import { kvSection, bindKv, glyph, pill, openDialog, copyButton, bindCopy, startFreshness } from '../../kit/index.js';
+import { esc, errorText, toast, announce, applyVars } from '../../ui.js';
 import { write, pickObject } from './actions.js';
-import { card, ficheLink, supportGroups, when, plural, kindOf, emptyNote } from './common.js';
+import { card, ficheLink, freshChip, plural, kindOf, emptyNote, stamp, when, nobr, presenceWords, NBSP } from './common.js';
 
 const GROUP_TITLES = {
   identite: ['Identité', 'user'], organisation: ['Organisation', 'users'], coordonnees: ['Coordonnées', 'link'], profil: ['Profil et ouverture de session', 'monitor'],
@@ -23,30 +24,38 @@ export function mountGeneral(panel, S) {
   let baseline = new Map();
   let kv = null;
   let pendingCompare = null;
+  let sideKey = '';
 
-  panel.innerHTML = `<div class="fi-general grid">
-    <div class="fi-main span-8"><div class="fi-gen-bar"></div><div class="fi-sections"></div></div>
-    <aside class="fi-side span-4"></aside>
+  panel.innerHTML = `<div class="fi-general">
+    <div class="fi-main"><div class="fi-gen-bar"></div><div class="fi-sections"></div></div>
+    <aside class="fi-side"></aside>
   </div>`;
   const bar = /** @type {HTMLElement} */ (panel.querySelector('.fi-gen-bar'));
   const sectionsHost = /** @type {HTMLElement} */ (panel.querySelector('.fi-sections'));
   const side = /** @type {HTMLElement} */ (panel.querySelector('.fi-side'));
+  const unbindSideCopy = bindCopy(side);
 
-  function itemHtml(it) {
-    if (it.link) return ficheLink(it.link);
-    return undefined;
-  }
+  // The technical « Objet » section is shown once, in the « Résumé » card of the side column (FIC-039).
+  const leftSections = (sheet) => sheet.sections.filter((s) => s.id !== 'objet');
 
-  function sectionsMarkup(sheet) {
-    return sheet.sections.map((s, n) => `<div class="card fi-card fi-kvcard reveal" data-j="${n}">${kvSection({
+  function sectionMarkup(s, n) {
+    return `<div class="card fi-card fi-kvcard reveal" data-j="${n}" data-section="${esc(s.id)}">${kvSection({
       id: s.id,
       title: s.title,
       icon: s.icon,
       items: s.items.map((it) => ({
         label: it.label, value: it.value, sub: it.sub ?? undefined, mono: it.mono, copy: it.copy, tone: it.tone ?? undefined, wide: it.wide,
-        html: itemHtml(it),
+        html: it.link ? ficheLink(it.link) : undefined,
       })),
-    })}</div>`).join('');
+    })}</div>`;
+  }
+
+  // Each row carries the key of its value, so that a new read repaints that row only.
+  function tagRows(scope, sheet) {
+    for (const s of leftSections(sheet)) {
+      const rows = scope.querySelectorAll(`[data-section="${CSS.escape(s.id)}"] .k-kv-row`);
+      rows.forEach((row, i) => { if (s.items[i]) row.dataset.key = s.items[i].key; });
+    }
   }
 
   function barMarkup(sheet) {
@@ -54,14 +63,15 @@ export function mountGeneral(panel, S) {
     if (editing) {
       return `<div class="fi-editbar editing" role="toolbar" aria-label="Modification de la fiche">
         <span class="fi-editbar-state">${glyph('edit')}<span class="fi-dirty-count">Aucun champ modifié</span></span>
-        <span class="fi-editbar-note">Seuls les champs modifiés partent ; un champ vidé est un effacement explicite.</span>
+        <span class="fi-editbar-note">Seuls les champs modifiés partent${NBSP}; un champ vidé est un effacement explicite.</span>
         <button class="btn sm ghost" type="button" data-edit="cancel">${glyph('undo')}Annuler</button>
         <button class="btn sm primary" type="button" data-edit="save" disabled>${glyph('check')}Enregistrer…</button></div>`;
     }
     return `<div class="fi-editbar" role="toolbar" aria-label="Fiche">
       <span class="fi-editbar-state">${glyph('eye')}<span>Lecture</span></span>
       <span class="fi-editbar-note">${edit.available ? `${plural(edit.fields.length, 'champ modifiable', 'champs modifiables')}, enregistrés par plan, confirmation et reçu.` : esc(edit.reason ?? 'Aucun champ modifiable.')}</span>
-      <button class="btn sm" type="button" data-edit="start"${edit.available ? '' : ` aria-disabled="true" data-tip="${esc(edit.reason ?? '')}"`}>${glyph('edit')}Modifier</button></div>`;
+      ${freshChip(sheet, 'attributes')}
+      <button class="btn sm fi-write" type="button" data-edit="start"${edit.available ? '' : ` aria-disabled="true" data-tip="${esc(edit.reason ?? '')}"`}>${glyph('edit')}Modifier</button></div>`;
   }
 
   function fieldMarkup(f) {
@@ -135,11 +145,53 @@ export function mountGeneral(panel, S) {
       baseline = new Map(sheet.edit.fields.map((f) => [f.attribute, f.value ?? '']));
       syncDirty();
     } else {
-      sectionsHost.innerHTML = sectionsMarkup(sheet);
+      sectionsHost.innerHTML = leftSections(sheet).map(sectionMarkup).join('');
+      tagRows(sectionsHost, sheet);
       kv = bindKv(sectionsHost, { key: `fiche.${sheet.identity.kind}` });
     }
     applyVars(sectionsHost);
     revealNow(sectionsHost);
+    startFreshness(bar);
+  }
+
+  /**
+   * Partial refresh (FIC-031, Get-DomeniaObjectPresentationDelta): a section whose rows are the same keys gets only its changed
+   * rows repainted (with a flash); a section whose shape changed is repainted whole; an unchanged section is left as it is.
+   */
+  function patchSections(sheet, previous) {
+    const before = new Map(leftSections(previous).map((s) => [s.id, s]));
+    const after = leftSections(sheet);
+    if (after.map((s) => s.id).join() !== [...before.keys()].join()) {
+      renderSections();
+      return;
+    }
+    bar.innerHTML = barMarkup(sheet);
+    startFreshness(bar);
+    after.forEach((s, n) => {
+      const old = before.get(s.id);
+      if (JSON.stringify(old) === JSON.stringify(s)) return;
+      const host = sectionsHost.querySelector(`[data-section="${CSS.escape(s.id)}"]`);
+      if (!host) return;
+      const sameShape = old.items.map((i) => i.key).join() === s.items.map((i) => i.key).join();
+      const temp = document.createElement('div');
+      temp.innerHTML = sectionMarkup(s, n);
+      if (!sameShape) {
+        host.replaceWith(temp.firstElementChild);
+        tagRows(sectionsHost, sheet);
+        return;
+      }
+      const fresh = temp.querySelectorAll('.k-kv-row');
+      s.items.forEach((item, i) => {
+        if (JSON.stringify(item) === JSON.stringify(old.items[i])) return;
+        const row = host.querySelector(`.k-kv-row[data-key="${CSS.escape(item.key)}"]`);
+        if (!row || !fresh[i]) return;
+        row.innerHTML = fresh[i].innerHTML;
+        row.classList.remove('fi-flash');
+        void row.offsetWidth;
+        row.classList.add('fi-flash');
+      });
+    });
+    applyVars(sectionsHost);
   }
 
   function startEdit() {
@@ -150,14 +202,14 @@ export function mountGeneral(panel, S) {
     editing = true;
     renderSections();
     sectionsHost.querySelector('input:not([type=hidden]), textarea')?.focus();
-    announce('Mode modification : seuls les champs modifiés seront enregistrés.');
+    announce('Mode modification : seuls les champs modifiés seront enregistrés.');
   }
 
   async function stopEdit(confirm = true) {
     const changed = dirtyFields();
     if (confirm && changed.length) {
       const d = openDialog({
-        title: 'Abandonner les saisies ?', icon: 'undo', size: 'sm',
+        title: 'Abandonner les saisies ?', icon: 'undo', size: 'sm',
         body: `<p class="k-dlg-text">${esc(plural(changed.length, 'champ modifié', 'champs modifiés'))} ne ${changed.length > 1 ? 'seront' : 'sera'} pas enregistré${changed.length > 1 ? 's' : ''}. Les valeurs lues seront rétablies.</p>`,
         actions: [{ id: 'keep', label: 'Continuer la saisie', safe: true }, { id: 'drop', label: 'Abandonner', danger: true }],
       });
@@ -181,7 +233,7 @@ export function mountGeneral(panel, S) {
     if (receipt && (receipt.result === 'applied' || receipt.result === 'noChange')) {
       editing = false;
       S.draft = null;
-      await S.reload({ quiet: true });
+      await S.reload({ quiet: true, reread: true });
       renderSections();
     }
   }
@@ -217,13 +269,13 @@ export function mountGeneral(panel, S) {
     const band = sectionsHost.querySelector('.fi-compare-band');
     if (!band) return;
     band.hidden = false;
-    band.innerHTML = `${glyph('sync')}<span><b>Une relecture plus récente est arrivée</b> : ${esc(plural(differences.length, 'champ a changé', 'champs ont changé'))} dans l’annuaire. Vos saisies sont conservées.</span>
+    band.innerHTML = `${glyph('sync')}<span><b>Une relecture plus récente est arrivée</b>${NBSP}: ${esc(plural(differences.length, 'champ a changé', 'champs ont changé'))} dans l’annuaire. Vos saisies sont conservées.</span>
       <button class="btn sm" type="button" data-compare>${glyph('split')}Comparer les saisies</button>`;
   }
 
   async function compare() {
     if (!pendingCompare) return;
-    const { sheet, differences } = pendingCompare;
+    const { differences } = pendingCompare;
     const rows = differences.map((f) => {
       const read = baseline.get(f.attribute) ?? '';
       const mine = currentValue(f.attribute) ?? '';
@@ -256,76 +308,83 @@ export function mountGeneral(panel, S) {
     const band = sectionsHost.querySelector('.fi-compare-band');
     if (band) band.hidden = true;
     syncDirty();
-    toast('Saisies comparées : la nouvelle lecture devient la référence.', { tone: 'info' });
-    void sheet;
+    toast('Saisies comparées : la nouvelle lecture devient la référence.', { tone: 'info' });
   }
 
-  // ---------- Side cards ----------
+  // ---------- Side column ----------
+
+  function presenceCard(sheet) {
+    const id = sheet.identity;
+    if (id.kind !== 'user' && id.kind !== 'computer') return '';
+    const p = sheet.presence;
+    const linked = sheet.linked ?? [];
+    const tone = p?.state === 'online' ? 'ok' : p?.state === 'offline' ? 'warn' : 'off';
+    const action = sheet.actions.find((a) => a.id === 'presence');
+    const box = p ? `<div class="fi-presence" data-state="${esc(p.state)}"><span class="fi-presence-pulse" aria-hidden="true"></span>
+        <div class="fi-presence-text"><b class="fi-presence-label">${nobr(p.label)}</b><p class="fi-presence-detail">${nobr(p.detail)}</p></div></div>` : '';
+    const list = linked.length
+      ? `<div class="fi-linked">${linked.map((l, n) => `<button type="button" class="fi-linked-row" data-open="${esc(l.dn)}" data-j="${n}" data-tip="${esc(l.rule)}">
+          <span class="fi-linked-ico" data-kind="${esc(l.kind)}">${glyph(kindOf(l.kind).icon)}</span>
+          <span class="fi-linked-body"><span class="fi-linked-name"><span class="fi-nobr">${esc(l.name)}</span>${l.primary ? `<span class="fi-primary" data-tip="Relation principale">${glyph('star')}</span>` : ''}</span>
+            <span class="fi-linked-sub">${esc(l.source)}${l.when ? ` · ${esc(stamp(l.when))}` : ''}</span></span>
+          ${pill(l.evidence === 'declared' ? 'ok' : l.evidence === 'observed' ? 'info' : 'off', l.evidenceLabel, { size: 'sm', dot: true })}</button>`).join('')}</div>`
+      : emptyNote('link', id.kind === 'user' ? 'Aucun poste associé' : 'Aucun utilisateur associé', id.kind === 'user' ? 'Présence inconnue, pas « aucun poste »' + NBSP + ': un compte recréé n’hérite pas des postes de l’ancien.' : 'Aucune association connue de Domenia.');
+    return card({
+      id: 'presence', icon: 'wifi', tone, title: id.kind === 'user' ? 'Présence et postes associés' : 'Présence et utilisateurs associés',
+      sub: id.kind === 'user' ? 'Par le poste associé le plus fiable, jamais un pourcentage' : 'Ping du poste, associations connues',
+      fresh: freshChip(sheet, 'presence'),
+      body: `${box}<h4 class="fi-side-sub">${id.kind === 'user' ? 'Postes associés' : 'Utilisateurs associés'}${linked.length ? `<span class="chip">${linked.length}</span>` : ''}</h4>${list}`,
+      foot: action ? `<button class="btn sm fi-net" type="button" data-side="presence"${action.available ? '' : ` aria-disabled="true" data-tip="${esc(action.reason ?? '')}"`}>${glyph('wifi')}Vérifier la présence</button>
+          <span class="fi-foot-note">Un ping, sur ce clic seulement.</span>` : '',
+    });
+  }
+
+  function freshCard(sheet) {
+    return card({
+      id: 'fresh', icon: 'clock', title: 'Fraîcheur des données', sub: sheet.settings?.freshnessText ?? 'Durée de validité par nature',
+      body: `<ul class="fi-fresh">${sheet.freshness.map((f, n) => `<li data-state="${esc(f.state)}" data-j="${n}" data-tip="${esc(f.text)}"><span class="fi-fresh-dot" data-tone="${FRESH_TONES[f.state] ?? 'off'}" aria-hidden="true"></span>
+        <span class="fi-fresh-label">${esc(f.label)}<span class="fi-fresh-validity">${esc(f.validity ?? '')}</span></span>
+        <span class="fi-fresh-when">${f.observedAt ? `${when(f.observedAt)}${f.state === 'stale' ? '<span class="fi-fresh-flag">à relire</span>' : ''}` : '<span class="fi-none">jamais observé</span>'}
+          ${f.lastAttempt ? `<span class="fi-fresh-attempt">dernière tentative ${esc(stamp(f.lastAttempt))}</span>` : ''}</span></li>`).join('')}</ul>`,
+    });
+  }
+
+  function summaryCard(sheet) {
+    const id = sheet.identity;
+    const row = (label, value, { mono = false, copy = '', wide = false } = {}) => `<div class="${wide ? 'wide' : ''}"><dt>${esc(label)}</dt><dd><span class="fi-summary-val${mono ? ' mono fi-break' : ''}">${value}</span>${copy ? copyButton(copy, { label: `Copier ${label}` }) : ''}</dd></div>`;
+    const presence = sheet.presence ? `${esc(presenceWords(sheet.presence))}${sheet.presence.checkedAt ? `<span class="fi-faint fi-block">relevé le ${esc(stamp(sheet.presence.checkedAt))}</span>` : ''}` : '<span class="fi-none">Non relevée</span>';
+    const target = sheet.presence?.computer ? `<span class="fi-nobr">${esc(sheet.presence.computer)}</span>` : '<span class="fi-none">—</span>';
+    return card({
+      id: 'object', icon: 'object', title: 'Résumé', sub: id.kindLabel,
+      body: `<dl class="fi-mini fi-summary">
+        ${row('Type', esc(id.kindLabel))}
+        ${row('Nom', esc(id.name), { copy: id.name })}
+        ${row('Classe', esc(id.classes?.join(', ') || id.objectClass), { mono: true })}
+        ${row('GUID', esc(id.guid), { mono: true, copy: id.guid })}
+        ${id.sid ? row('SID', esc(id.sid), { mono: true, copy: id.sid }) : ''}
+        ${row('Créé le', when(id.created))}
+        ${row('Modifié le', when(id.changed))}
+        ${id.usn != null ? row('USN', esc(String(id.usn)), { mono: true }) : ''}
+        ${row('DN', esc(id.dn), { mono: true, copy: id.dn, wide: true })}
+        ${id.kind === 'user' || id.kind === 'computer' ? `${row('Présence', presence)}${row('Cible de présence', target)}` : ''}</dl>`,
+      foot: `<button class="btn sm" type="button" data-side="copySummary">${glyph('copy')}Copier le résumé</button>
+        ${id.parentDn && !/^DC=/i.test(id.parentDn) ? `<button class="btn sm ghost" type="button" data-side="openParent">${glyph('ou')}Ouvrir le parent</button>` : ''}
+        ${id.kind === 'user' && sheet.support?.length ? `<button class="btn sm ghost" type="button" data-side="support">${glyph('lifebuoy')}Résumé support</button>` : ''}`,
+    });
+  }
 
   function sideMarkup(sheet) {
-    const out = [];
-    const id = sheet.identity;
-    if (sheet.presence) {
-      const p = sheet.presence;
-      const tone = p.state === 'online' ? 'ok' : p.state === 'offline' ? 'warn' : 'off';
-      const presenceAction = sheet.actions.find((a) => a.id === 'presence');
-      out.push(card({
-        id: 'presence', icon: 'wifi', tone, title: 'Présence', sub: id.kind === 'user' ? 'Par le poste associé le plus fiable' : 'Ping du poste',
-        body: `<div class="fi-presence" data-state="${esc(p.state)}"><span class="fi-presence-pulse" aria-hidden="true"></span>
-          <div><b class="fi-presence-label">${esc(p.label)}</b><p class="fi-presence-detail">${esc(p.detail)}</p></div></div>`,
-        foot: presenceAction ? `<button class="btn sm fi-net" type="button" data-side="presence"${presenceAction.available ? '' : ` aria-disabled="true" data-tip="${esc(presenceAction.reason ?? '')}"`}>${glyph('wifi')}Vérifier la présence</button>
-          <span class="fi-foot-note">Un ping, sur ce clic seulement.</span>` : '',
-      }));
-    }
-    if (id.kind === 'user' || id.kind === 'computer') {
-      const linked = sheet.linked ?? [];
-      out.push(card({
-        id: 'linked', icon: id.kind === 'user' ? 'monitor' : 'user', title: id.kind === 'user' ? 'Postes associés' : 'Utilisateurs associés',
-        sub: linked.length ? 'Déclarée d’abord, sinon la plus récente' : 'Aucune association connue de Domenia',
-        meta: linked.length ? `<span class="chip">${esc(String(linked.length))}</span>` : '',
-        body: linked.length ? `<div class="fi-linked">${linked.map((l, n) => `<button type="button" class="fi-linked-row" data-open="${esc(l.dn)}" data-j="${n}" data-tip="${esc(l.rule)}">
-            <span class="fi-linked-ico" data-kind="${esc(l.kind)}">${glyph(kindOf(l.kind).icon)}</span>
-            <span class="fi-linked-body"><span class="fi-linked-name">${esc(l.name)}${l.primary ? `<span class="fi-primary" data-tip="Relation principale">${glyph('star')}</span>` : ''}</span>
-              <span class="fi-linked-sub">${esc(l.source)}${l.when ? ` · ${esc(formatDateTime(l.when) ?? '')}` : ''}</span></span>
-            ${pill(l.evidence === 'declared' ? 'ok' : l.evidence === 'observed' ? 'info' : 'off', l.evidenceLabel, { size: 'sm', dot: true })}</button>`).join('')}</div>`
-          : emptyNote('link', 'Aucune association', id.kind === 'user' ? 'Un compte recréé sous un ancien identifiant n’hérite pas des postes de l’ancien.' : 'Aucun utilisateur associé à ce poste.'),
-      }));
-    }
-    if (sheet.account) {
-      const logon = sheet.account.logon;
-      out.push(card({
-        id: 'logon', icon: 'clock', tone: logon.badgeTone ?? '', title: 'Activité de connexion', sub: 'lastLogonTimestamp, valeur répliquée',
-        meta: logon.badge ? pill(logon.badgeTone ?? 'off', logon.badge, { size: 'sm' }) : '',
-        body: `<p class="fi-logon-text">${esc(logon.text)}</p>`,
-        foot: `<button class="btn sm fi-net" type="button" data-side="logonByDc">${glyph('server')}Lire sur chaque contrôleur</button>`,
-      }));
-    }
-    if (sheet.support?.length) {
-      out.push(card({ id: 'support', icon: 'lifebuoy', title: 'Résumé support', sub: 'Faits datés, chacun avec sa source', body: `<div class="fi-support">${supportGroups(sheet.support)}</div>` }));
-    }
-    out.push(card({
-      id: 'fresh', icon: 'clock', title: 'Fraîcheur des données', sub: 'Durée de validité par nature',
-      body: `<ul class="fi-fresh">${sheet.freshness.map((f, n) => `<li data-state="${esc(f.state)}" data-j="${n}" data-tip="${esc(f.text)}"><span class="fi-fresh-dot" data-tone="${FRESH_TONES[f.state] ?? 'off'}" aria-hidden="true"></span>
-        <span class="fi-fresh-label">${esc(f.label)}</span><span class="fi-fresh-when">${f.observedAt ? when(f.observedAt) : '<span class="fi-none">jamais observé</span>'}</span></li>`).join('')}</ul>`,
-    }));
-    out.push(card({
-      id: 'object', icon: 'object', title: 'Résumé de l’objet', sub: id.kindLabel,
-      body: `<dl class="fi-mini">
-        <div><dt>Classe</dt><dd class="mono">${esc(id.objectClass)}</dd></div>
-        <div><dt>GUID</dt><dd class="mono fi-break">${esc(id.guid)}</dd></div>
-        ${id.sid ? `<div><dt>SID</dt><dd class="mono fi-break">${esc(id.sid)}</dd></div>` : ''}
-        <div><dt>Créé</dt><dd>${id.created ? when(id.created) : '—'}</dd></div>
-        <div><dt>Modifié</dt><dd>${id.changed ? when(id.changed) : '—'}</dd></div></dl>`,
-      foot: `<button class="btn sm" type="button" data-side="copySummary">${glyph('copy')}Copier le résumé</button>
-        ${id.parentDn ? `<button class="btn sm ghost" type="button" data-side="openParent">${glyph('ou')}Ouvrir le parent</button>` : ''}
-        <button class="btn sm ghost fi-net" type="button" data-side="reread">${glyph('refresh')}Relire</button>`,
-    }));
-    return out.join('');
+    return [presenceCard(sheet), freshCard(sheet), summaryCard(sheet)].join('');
   }
 
-  function renderSide() {
-    side.innerHTML = sideMarkup(S.sheet);
+  function renderSide(force = false) {
+    const sheet = S.sheet;
+    const key = JSON.stringify([sheet.presence, sheet.linked, sheet.freshness.map((f) => [f.state, f.observedAt, f.lastAttempt]), sheet.identity, sheet.actions.find((a) => a.id === 'presence'), sheet.support?.length, sheet.settings?.freshnessText]);
+    if (!force && key === sideKey) return;
+    sideKey = key;
+    side.innerHTML = sideMarkup(sheet);
     applyVars(side);
+    startFreshness(side);
   }
 
   async function checkPresence() {
@@ -338,12 +397,14 @@ export function mountGeneral(panel, S) {
     try {
       const r = await S.ctx.call('fiche.presence', { dn: S.sheet.identity.dn });
       box.dataset.state = r.state;
-      box.querySelector('.fi-presence-label').textContent = r.label + (r.via ? ` · ${r.via}` : '');
-      box.querySelector('.fi-presence-detail').textContent = `${r.detail} Relevé ${formatDateTime(r.checkedAt) ?? ''}.`;
+      box.querySelector('.fi-presence-label').innerHTML = nobr(r.label + (r.via ? ` · ${r.via}` : ''));
+      box.querySelector('.fi-presence-detail').innerHTML = nobr(`${r.detail} Relevé le ${stamp(r.checkedAt)}.`);
+      box.classList.remove('updated');
+      void box.offsetWidth;
       box.classList.add('updated');
-      announce(`Présence : ${r.label}.`);
+      announce(`Présence${NBSP}: ${r.label}.`);
     } catch (err) {
-      toast(`Présence non vérifiée : ${errorText(err)}`, { tone: 'warn' });
+      toast(`Présence non vérifiée${NBSP}: ${errorText(err)}`, { tone: 'warn' });
     } finally {
       button?.removeAttribute('aria-busy');
       box.classList.remove('probing');
@@ -352,13 +413,14 @@ export function mountGeneral(panel, S) {
   }
 
   renderSections();
-  renderSide();
+  renderSide(true);
 
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (!t) return;
     const editBtn = t.closest('[data-edit]');
     if (editBtn) {
+      if (editBtn.getAttribute('aria-disabled') === 'true') { toast(editBtn.dataset.tip || 'Indisponible.', { tone: 'info' }); return; }
       const what = editBtn.dataset.edit;
       if (what === 'start') startEdit();
       else if (what === 'cancel') stopEdit(true);
@@ -389,7 +451,6 @@ export function mountGeneral(panel, S) {
       const what = sideBtn.dataset.side;
       if (sideBtn.getAttribute('aria-disabled') === 'true') { toast(sideBtn.dataset.tip || 'Indisponible.', { tone: 'info' }); return; }
       if (what === 'presence') checkPresence();
-      else if (what === 'copySummary') writeClipboard(S.sheet.summary).then((ok) => toast(ok ? 'Résumé copié.' : 'Copie impossible.', { tone: ok ? 'ok' : 'warn', life: 2600 }));
       else S.act(what);
     }
   };
@@ -399,25 +460,38 @@ export function mountGeneral(panel, S) {
 
   return {
     edit: startEdit,
-    presence: checkPresence,
-    update(sheet) {
+    /** Presence: read now (operator gesture) or only show and highlight the card and its button (route state). */
+    presence({ run = true } = {}) {
+      const target = side.querySelector('[data-card="presence"]');
+      target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target?.classList.remove('fi-focus');
+      void target?.offsetWidth;
+      target?.classList.add('fi-focus');
+      if (run) checkPresence();
+      else side.querySelector('[data-side="presence"]')?.focus({ preventScroll: true });
+    },
+    /** Same object, same values: only the freshness indicators follow the new read. */
+    touch(sheet) {
+      void sheet;
+      const chip = bar.querySelector('.fi-fresh-chip');
+      if (chip && !editing) bar.innerHTML = barMarkup(S.sheet);
+      startFreshness(bar);
+      renderSide();
+    },
+    update(sheet, previous) {
       if (editing) {
         checkNewerRead(sheet);
         renderSide();
         return;
       }
-      const before = new Map([...sectionsHost.querySelectorAll('.k-kv-row')].map((r) => [r.querySelector('dt')?.textContent ?? '', r.querySelector('dd')?.textContent ?? '']));
-      renderSections();
+      if (previous && !previous.origin.preview) patchSections(sheet, previous);
+      else renderSections();
       renderSide();
-      // Display fields that changed since the previous read flash once (partial refresh, FIC-031).
-      sectionsHost.querySelectorAll('.k-kv-row').forEach((r) => {
-        const key = r.querySelector('dt')?.textContent ?? '';
-        if (before.has(key) && before.get(key) !== (r.querySelector('dd')?.textContent ?? '')) r.classList.add('fi-flash');
-      });
     },
     destroy() {
       panel.removeEventListener('click', onClick);
       panel.removeEventListener('input', onInput);
+      unbindSideCopy?.();
       kv?.destroy();
       S.draft = null;
     },
@@ -428,5 +502,3 @@ export function mountGeneral(panel, S) {
 function revealNow(scope) {
   scope.querySelectorAll('.reveal').forEach((el) => { el.classList.remove('reveal'); el.classList.add('revealed', 'fi-enter'); });
 }
-
-export { NBSP };
