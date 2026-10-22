@@ -60,7 +60,7 @@ export function renderReadings(panel, state) {
     const probes = [...new Set((data?.readings ?? []).flatMap((r) => r.probes.map((x) => x.id)))];
     if (confirmFirst) {
       const ok = await confirmDialog({
-        title: `Relever ${count(probes.length, 'sonde', 'sondes')} sur ${state.data.computer.name} ?`,
+        title: `Relever ${count(probes.length, 'sonde', 'sondes')} sur ${state.data.computer.name}${NBSP}?`,
         message: `Lecture seule des seules classes du tableau, une fois, sur ce poste : rien n’est modifié, aucune méthode n’est invoquée. Le relevé est enregistré puis interprété ; « Arrêter » garde ce qui est déjà lu.`,
         confirmLabel: 'Relever les sondes',
       });
@@ -170,11 +170,11 @@ function forecastCard(f, limits) {
       const at = (t) => (100 * (f.interceptBytes + f.slopeBytesPerDay * ((t - t0) / 86_400_000))) / size0;
       trend = `<path class="ps-fc-trend draw" d="M${x(t0).toFixed(1)},${y(at(t0)).toFixed(1)} L${x(t1).toFixed(1)},${y(at(t1)).toFixed(1)}"/>`;
     }
-    const dots = samples.map((s, n) => `<circle class="ps-fc-dot" cx="${x(Date.parse(s.at)).toFixed(1)}" cy="${y(share(s)).toFixed(1)}" r="3.4" data-i="${n}"><title>${esc(`${formatDateTime(s.at)} : ${size(s.freeBytes)} libres (${share(s).toFixed(1).replace('.', ',')} %)`)}</title></circle>`).join('');
+    const dots = samples.map((s, n) => `<circle class="ps-fc-dot" cx="${x(Date.parse(s.at)).toFixed(1)}" cy="${y(share(s)).toFixed(1)}" r="3.4" data-i="${n}"><title>${esc(`${formatDateTime(s.at)}${NBSP}: ${size(s.freeBytes)} libres (${share(s).toFixed(1).replace('.', ',')}${NBSP}%)`)}</title></circle>`).join('');
     const sat = f.status === 'Forecast' && f.saturationAt ? `<line class="ps-fc-sat" x1="${x(tEnd).toFixed(1)}" x2="${x(tEnd).toFixed(1)}" y1="${T}" y2="${H - B}"/><text class="ps-fc-label sat" x="${(x(tEnd) - 6).toFixed(1)}" y="${T + 12}" text-anchor="end">saturation prévue</text>` : '';
-    chart = `<svg class="ps-fc" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`Espace libre de ${f.volume} en pourcentage, seuils ${limits.alert} % et ${limits.warn} % : ${f.text}`)}">
+    chart = `<svg class="ps-fc" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`Espace libre de ${f.volume} en pourcentage, seuils ${limits.alert}${NBSP}% et ${limits.warn}${NBSP}%${NBSP}: ${f.text}`)}">
       <defs><linearGradient id="ps-fc-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></linearGradient></defs>
-      ${grid}${limit(limits.warn, 'warn', `À surveiller : ${limits.warn} % libre`)}${limit(limits.alert, 'alert', `Critique : ${limits.alert} % libre`)}
+      ${grid}${limit(limits.warn, 'warn', `À surveiller${NBSP}: ${limits.warn}${NBSP}% libre`)}${limit(limits.alert, 'alert', `Critique${NBSP}: ${limits.alert}${NBSP}% libre`)}
       <line class="ps-fc-axis" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>${ticks}
       <path class="ps-fc-area" d="${area}" fill="url(#ps-fc-g)"/><path class="ps-fc-line draw" d="M${points.join(' L')}"/>${trend}${sat}${dots}</svg>`;
   }

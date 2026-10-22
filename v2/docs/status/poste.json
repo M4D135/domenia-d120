@@ -138,5 +138,11 @@
       "id": "PST-001",
       "decision": "Décision de David du 22/10 : WAPT est abandonné. Aucun connecteur, aucune option de configuration, aucun service WAPTService dans les diagnostics, aucun fournisseur WAPT dans les faits de mise à jour (Windows Update seul)."
     }
+  ],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : le commit wip(poste) de l’agent précédent (réponse au tour 1 : fenêtre native des secrets, relevés par type, inventaire partiel à l’arrêt, inventaire enregistré réaffiché, renommage du seul CN, redémarrage sans « Maintenant » par défaut, liste de protection « Non lu », filtre BitLocker sur le GUID complet avec contrôle de l’identifiant, lecture de repli consommée, politique de santé de l’OU, récents sans nom d’utilisateur, WAPT retiré) compilé après une correction (LapsAsync), vérifié point par point dans le code.",
+    "Ajouts de la relève : espaces insécables (annonces, étiquettes des disques, graphique de saturation, unités ms).",
+    "À l’intégration : SimulatedDirectoryOverlay.cs (ordinateurs et groupes) à fusionner avec la surcouche de la Fiche (un seul UpdateComputer) ; PST-111 et PST-113 à brancher sur l’écran Requêtes (#/requetes?cible=…).",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés."
   ]
 }

@@ -129,7 +129,7 @@ public sealed partial class PosteOperations : IOperationModule
                 var dn = Dn(args, []);
                 var reading = await Reader().PingAsync(dn.Dn, ct).ConfigureAwait(false);
                 // An unknown round trip is never written « 0 ms ».
-                var answer = reading.Answered != true ? "pas de réponse" : reading.RoundTripMs is > 0 ? "répond en " + FrenchText.Integer(reading.RoundTripMs.Value) + " ms" : "répond";
+                var answer = reading.Answered != true ? "pas de réponse" : reading.RoundTripMs is > 0 ? "répond en " + FrenchText.Integer(reading.RoundTripMs.Value) + FrenchText.Nbsp + "ms" : "répond";
                 Journal("Ping de " + NameOf(dn.Dn) + FrenchText.Colon + answer, reading.Answered == true ? Tone.Ok : Tone.Warn);
                 return reading;
             }, "Un seul écho ICMP vers le poste, enregistré avant affichage."),

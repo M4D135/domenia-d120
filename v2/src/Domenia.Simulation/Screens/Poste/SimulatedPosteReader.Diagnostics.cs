@@ -25,7 +25,7 @@ public sealed partial class SimulatedPosteReader
         void Add(string check, string status, string method, string detail) => checks.Add(new DiagCheck(check, status, method, r.Next(3, reachable ? 160 : 1900), detail));
         var dnsOk = !(stale && !reachable && r.Chance(60));
         Add("Resolution DNS", dnsOk ? "OK" : "ERREUR", "DNS", dnsOk ? machine.DnsName + " → " + machine.Ip : "Aucun enregistrement pour " + machine.DnsName);
-        Add("Ping", answers ? "OK" : "ERREUR", "ICMP", answers ? "Réponse en " + r.Next(1, 14).ToString(CultureInfo.InvariantCulture) + " ms" : "Délai d’attente dépassé (1 écho)");
+        Add("Ping", answers ? "OK" : "ERREUR", "ICMP", answers ? "Réponse en " + r.Next(1, 14).ToString(CultureInfo.InvariantCulture) + FrenchText.Nbsp + "ms" : "Délai d’attente dépassé (1 écho)");
         foreach (var (port, label) in new[] { (135, "RPC"), (445, "SMB"), (3389, "RDP") })
         {
             Add("TCP " + port.ToString(CultureInfo.InvariantCulture), reachable ? "OK" : "INJOIGNABLE", "TCP", reachable ? label + " ouvert" : "Aucune réponse (filtré ou poste éteint)");
@@ -450,7 +450,7 @@ public sealed partial class SimulatedPosteReader
     public async Task<LapsView> LapsAsync(string dn, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dn);
-        var (c, _, _) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
+        var (c, machine, _) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         await Wait("secrets", 200, 500, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         if (PosteSimulation.LapsDenied(machine) && Sim.OtherAccount(c.ObjectGuid, "laps") is null)

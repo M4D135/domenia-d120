@@ -136,7 +136,7 @@ function hardware(host, state) {
       running = false;
       paintHead();
       show();
-      announce(`${result.modeLabel}${result.partial ? ' partiel' : ''} : ${count(result.rows.length, 'ligne', 'lignes')}.`);
+      announce(`${result.modeLabel}${result.partial ? ' partiel' : ''}${NBSP}: ${count(result.rows.length, 'ligne', 'lignes')}.`);
       toast(`${result.modeLabel} de ${state.data.computer.name}${NBSP}: ${result.summary}`, { tone: result.partial || result.notice ? 'info' : 'ok' });
       state.reload();
     } catch (err) {

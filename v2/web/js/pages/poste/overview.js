@@ -249,10 +249,10 @@ function disksCard(b) {
   const center = `<b>${esc(freePct(s.freePercent))}</b><span>libres</span>`;
   return `<section class="card ps-card span-4 reveal" data-section="disques" data-tone="${esc(s.state)}">${cardHead('disk', 'Disques', esc(disks.othersText))}
     <div class="ps-disk">
-      ${donut([{ value: used, tone: s.state === 'ok' ? 'info' : s.state }, { value: s.freePercent ?? 0, tone: 'off' }], { label: `Disque ${s.name} : ${freePct(s.freePercent)} libres`, center })}
+      ${donut([{ value: used, tone: s.state === 'ok' ? 'info' : s.state }, { value: s.freePercent ?? 0, tone: 'off' }], { label: `Disque ${s.name}${NBSP}: ${freePct(s.freePercent)} libres`, center })}
       <div class="ps-disk-text"><b class="mono">${esc(s.name)}</b><span>${esc(s.text)}</span>${chip(s.state, s.state === 'alert' ? 'Critique' : s.state === 'warn' ? 'À surveiller' : 'Espace suffisant')}</div>
     </div>
-    ${disks.others.length ? `<ul class="ps-volumes">${disks.others.map((v) => `<li><span class="mono">${esc(v.name)}</span>${meter(1 - (v.freePercent ?? 0) / 100, v.state === 'ok' ? 'info' : v.state, `${v.name} : ${freePct(v.freePercent)} libres`)}<span>${esc(freePct(v.freePercent))} libres</span></li>`).join('')}</ul>` : ''}
+    ${disks.others.length ? `<ul class="ps-volumes">${disks.others.map((v) => `<li><span class="mono">${esc(v.name)}</span>${meter(1 - (v.freePercent ?? 0) / 100, v.state === 'ok' ? 'info' : v.state, `${v.name}${NBSP}: ${freePct(v.freePercent)} libres`)}<span>${esc(freePct(v.freePercent))} libres</span></li>`).join('')}</ul>` : ''}
   </section>`;
 }
 
