@@ -313,6 +313,8 @@ public sealed class RequetesOperations : IOperationModule
                 var text = FrenchText.Count(evaluation.Matched, "correspondant", "correspondants") + ", " + FrenchText.Count(evaluation.Unknown, "inconnu", "inconnus") + ", "
                     + FrenchText.Count(evaluation.NotMatched, "non correspondant", "non correspondants") + " sur " + FrenchText.Count(evaluation.Population.Length, one, many);
                 context.Journal.Add(new JournalEntry(now, "Requêtes" + FrenchText.Colon + "aperçu « " + compiled.Recipe.Name + " » : " + text, Tone.Info));
+                // Technical journal: counts only, never the name typed by the operator.
+                context.Log.Info("Requêtes" + FrenchText.Colon + "aperçu calculé (" + text + ").");
                 return new QueryPreviewView(evaluation.Id, now, compiled.Fingerprint, evaluation.Description,
                     new QueryCountsView(evaluation.Total, evaluation.Population.Length, evaluation.Matched, evaluation.Unknown, evaluation.NotMatched),
                     RequetesViews.Columns(compiled), page.Rows, page.HasMore, groups, evaluation.Ldap, QueryEngine.Validate(recipe).Warnings, text, verdict, page.Total);
@@ -597,6 +599,7 @@ public sealed class RequetesOperations : IOperationModule
                 var mode = RequetesArgs.Choice(values, "mode", "update", "update", "copy", "migrate");
                 var session = await SessionAsync(ct).ConfigureAwait(false);
                 var saved = await library.SaveAsync(session.Root, recipe, RequetesArgs.OptionalText(values, "category", 80), RequetesArgs.OptionalText(values, "description", 500), expected, mode, null, ct).ConfigureAwait(false);
+                context.Log.Info($"Requêtes{FrenchText.Colon}requête {saved.Record.Id} enregistrée (révision {saved.Record.Revision}).");
                 return SaveView(saved);
             }).ConfigureAwait(false), "Enregistre la requête dans la bibliothèque locale (nouvelle révision, copie ou mise à jour des widgets liés après la revue d’impact) avec un reçu relu sur le disque."),
 
@@ -605,6 +608,7 @@ public sealed class RequetesOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, ["id", "expectedRevision"]);
                 var session = await SessionAsync(ct).ConfigureAwait(false);
                 var (record, receipt, removed) = await library.ArchiveAsync(session.Root, RequetesArgs.RecipeId(values, "id"), RequetesArgs.Long(values, "expectedRevision", 0, long.MaxValue - 1), ct).ConfigureAwait(false);
+                context.Log.Info($"Requêtes{FrenchText.Colon}requête {record.Id} archivée (révision {record.Revision}).");
                 return new { id = record.Id, name = record.Name, revision = record.Revision, receipt, removedWidgets = removed };
             }).ConfigureAwait(false), "Archive une requête (révisions conservées) et retire ses widgets dans la même écriture ; ils restent attachés à l’archive pour une restauration."),
 
@@ -614,6 +618,7 @@ public sealed class RequetesOperations : IOperationModule
                 var session = await SessionAsync(ct).ConfigureAwait(false);
                 var (record, receipt, restored) = await library.RestoreAsync(session.Root, RequetesArgs.RecipeId(values, "id"), RequetesArgs.Long(values, "expectedRevision", 0, long.MaxValue - 1),
                     RequetesArgs.Bool(values, "restoreWidgets", true), ct).ConfigureAwait(false);
+                context.Log.Info($"Requêtes{FrenchText.Colon}requête {record.Id} restaurée (révision {record.Revision}).");
                 return new { id = record.Id, name = record.Name, revision = record.Revision, recipe = record.Recipe, receipt, restoredWidgets = restored };
             }).ConfigureAwait(false), "Restaure une requête archivée avec une nouvelle révision, et les widgets que son archivage avait retirés."),
 
@@ -636,6 +641,7 @@ public sealed class RequetesOperations : IOperationModule
                 var session = await SessionAsync(ct).ConfigureAwait(false);
                 var saved = await library.SaveAsync(session.Root, recipe, RequetesArgs.OptionalText(values, "category", 80), null, RequetesArgs.Long(values, "expectedRevision", 0, long.MaxValue - 1), mode, widget, ct)
                     .ConfigureAwait(false);
+                context.Log.Info($"Requêtes{FrenchText.Colon}requête {saved.Record.Id} enregistrée (révision {saved.Record.Revision}).");
                 return SaveView(saved);
             }).ConfigureAwait(false), "Enregistre la requête et son widget dans la même écriture ; une définition modifiée qui a déjà des widgets exige le choix de la revue d’impact (mise à jour ou copie)."),
 

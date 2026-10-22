@@ -27,7 +27,7 @@
     { "do": "expect", "selector": ".k-dlg .rq-revs li", "count": 2 },
     { "do": "shot", "name": "revisions", "selector": ".k-dlg" },
     { "do": "press", "key": "Escape" },
-    { "do": "journal", "pattern": "Revue des postes inactifs" },
+    { "do": "journal", "pattern": "Requêtes\\s?:\\s?requête \\S+ enregistrée \\(révision 2\\)" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]
 }

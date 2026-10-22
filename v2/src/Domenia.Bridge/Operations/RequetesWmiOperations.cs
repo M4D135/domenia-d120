@@ -179,6 +179,8 @@ public sealed class RequetesWmiOperations : IOperationModule
                 var result = await readers.Require<IQueryWmiReader>().SelectAsync(computer, ns, select, limit, ct).ConfigureAwait(false);
                 workshop.Tested(computer, new WmiTested(ns, select.CanonicalQuery, result.Computer, result.ReadAt), result);
                 context.Journal.Add(new JournalEntry(result.ReadAt, "Requêtes" + FrenchText.Colon + "SELECT WMI exécuté sur " + result.Computer + " (" + FrenchText.Count(result.Rows.Length, "instance", "instances") + (result.Truncated ? ", résultat partiel" : "") + ")", result.Truncated ? Tone.Warn : Tone.Ok));
+                // Technical journal: the count only, never the computer or the SELECT typed by the operator.
+                context.Log.Info("Requêtes" + FrenchText.Colon + "SELECT WMI exécuté (" + FrenchText.Count(result.Rows.Length, "instance", "instances") + (result.Truncated ? ", résultat partiel" : "") + ").");
                 return result;
             }).ConfigureAwait(false), "Exécute le SELECT sur le poste choisi (1 à 2 000 instances), enregistre le résultat et marque la requête testée.", ServedInSimulation: true),
 
