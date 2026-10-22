@@ -101,6 +101,39 @@ internal static class PlatformTests
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
         ("directory.ou.children", OperationClass.LocalRead),
         ("directory.ou.search", OperationClass.LocalRead),
+        ("fiche.attributes", OperationClass.LocalRead),
+        ("fiche.callSheet", OperationClass.LocalRead),
+        ("fiche.callSheet.read", OperationClass.NetworkRead),
+        ("fiche.compare", OperationClass.LocalRead),
+        ("fiche.createOu.plan", OperationClass.LocalRead),
+        ("fiche.delete.plan", OperationClass.LocalRead),
+        ("fiche.enable.plan", OperationClass.LocalRead),
+        ("fiche.expiration.plan", OperationClass.LocalRead),
+        ("fiche.expirePassword.plan", OperationClass.LocalRead),
+        ("fiche.groups", OperationClass.LocalRead),
+        ("fiche.groups.delta", OperationClass.Local),
+        ("fiche.groups.nested", OperationClass.LocalRead),
+        ("fiche.groups.why", OperationClass.LocalRead),
+        ("fiche.history", OperationClass.LocalRead),
+        ("fiche.lockouts", OperationClass.NetworkRead),
+        ("fiche.logonByDc", OperationClass.NetworkRead),
+        ("fiche.members", OperationClass.LocalRead),
+        ("fiche.membership.plan", OperationClass.LocalRead),
+        ("fiche.move.plan", OperationClass.LocalRead),
+        ("fiche.options.plan", OperationClass.LocalRead),
+        ("fiche.pick", OperationClass.LocalRead),
+        ("fiche.presence", OperationClass.NetworkRead),
+        ("fiche.preview", OperationClass.LocalRead),
+        ("fiche.rawAttribute.plan", OperationClass.LocalRead),
+        ("fiche.read", OperationClass.LocalRead),
+        ("fiche.recent", OperationClass.LocalRead),
+        ("fiche.recent.add", OperationClass.LocalWrite),
+        ("fiche.recent.clear", OperationClass.LocalWrite),
+        ("fiche.relations", OperationClass.LocalRead),
+        ("fiche.resetPassword.plan", OperationClass.LocalRead),
+        ("fiche.resolve", OperationClass.LocalRead),
+        ("fiche.rights", OperationClass.NetworkRead),
+        ("fiche.update.plan", OperationClass.LocalRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("write.execute", OperationClass.Write),
@@ -125,7 +158,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "FicheOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

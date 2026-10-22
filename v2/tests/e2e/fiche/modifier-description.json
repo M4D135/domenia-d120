@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : modifier la description par le circuit des écritures",
+  "description": "Ouvre la fiche de Camille Bernard en mode modification, change la description, prépare le plan (un seul champ), le confirme, attend le reçu vérifié, puis vérifie que la fiche relue affiche la nouvelle valeur. En simulation, seule la surcouche en mémoire change.",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&open=edit",
+  "steps": [
+    { "do": "wait", "selector": ".fi-field[data-attr=\"description\"] .input", "title": "Le formulaire de modification est ouvert" },
+    { "do": "type", "selector": ".fi-field[data-attr=\"description\"] .input", "text": "Référente CRM", "clear": true, "title": "Nouvelle description" },
+    { "do": "expect", "contains": "1 champ modifié", "within": ".fi-editbar .fi-dirty-count", "title": "Le compteur de champs modifiés suit la saisie" },
+    { "do": "click", "selector": "[data-edit=\"save\"]", "title": "Préparer l’enregistrement" },
+    { "do": "wait", "contains": "description", "within": "[role=dialog]", "title": "Le plan liste l’attribut description" },
+    { "do": "expect", "contains": "Simulation", "within": "[role=dialog]", "title": "Le plan est marqué simulé" },
+    { "do": "shot", "name": "plan-description", "selector": "[role=dialog]" },
+    { "do": "click", "text": "Confirmer…", "within": "[role=dialog]", "title": "Confirmer le plan" },
+    { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000, "title": "Le reçu dit la relecture après l’écriture" },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Référente CRM", "within": ".fi-page", "title": "La fiche relue affiche la nouvelle description" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

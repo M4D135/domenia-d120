@@ -5,15 +5,20 @@ namespace Domenia.Simulation;
 
 /// <summary>
 /// In-memory overlay of the fictitious directory (decision of David, 21/10: writes testable in simulation, without any real
-/// effect; docs/WRITES.md § 5). It keeps, by object GUID, the objects the writes of the simulation changed; every read of
-/// <see cref="SimulatedDirectorySource"/> (home page, screen readers, write executors) sees the directory through it. Never
-/// persisted: a new session starts from the generated directory again, the generated world itself never changes (its
-/// fingerprint neither). Only the write executors of Domenia.Simulation change it (internal methods). Thread safe.
+/// effect; docs/WRITES.md § 5). It keeps, by object GUID, the objects the writes of the simulation changed, added or removed
+/// (users, computers, groups and OUs); every read of <see cref="SimulatedDirectorySource"/> (home page, screen readers, write
+/// executors) sees the directory through it. Never persisted: a new session starts from the generated directory again, the
+/// generated world itself never changes (its fingerprint neither). Only the write executors of Domenia.Simulation change it
+/// (internal methods). Thread safe.
 /// </summary>
 public sealed class SimulatedDirectoryOverlay
 {
     private readonly Lock gate = new();
     private ImmutableDictionary<Guid, DirectoryUser> users = ImmutableDictionary<Guid, DirectoryUser>.Empty;
+    private ImmutableDictionary<Guid, DirectoryComputer> computers = ImmutableDictionary<Guid, DirectoryComputer>.Empty;
+    private ImmutableDictionary<Guid, DirectoryGroup> groups = ImmutableDictionary<Guid, DirectoryGroup>.Empty;
+    private ImmutableDictionary<Guid, DirectoryOu> ous = ImmutableDictionary<Guid, DirectoryOu>.Empty;
+    private ImmutableHashSet<Guid> removed = ImmutableHashSet<Guid>.Empty;
     private long version;
     private long usn;
     // Last application, so that consecutive reads of an unchanged directory share one snapshot.
@@ -33,14 +38,14 @@ public sealed class SimulatedDirectoryOverlay
         }
     }
 
-    /// <summary>Objects changed by the writes of the session.</summary>
+    /// <summary>Objects changed, added or removed by the writes of the session.</summary>
     public int ChangedObjects
     {
         get
         {
             lock (gate)
             {
-                return users.Count;
+                return users.Count + computers.Count + groups.Count + ous.Count + removed.Count;
             }
         }
     }
@@ -51,24 +56,60 @@ public sealed class SimulatedDirectoryOverlay
         ArgumentNullException.ThrowIfNull(snapshot);
         lock (gate)
         {
-            if (version == 0)
-            {
-                return snapshot;
-            }
-            if (ReferenceEquals(cachedBase, snapshot) && cachedVersion == version && cachedResult is not null)
-            {
-                return cachedResult;
-            }
-            var changed = users;
-            var result = snapshot with
-            {
-                Users = [.. snapshot.Users.Select(u => changed.TryGetValue(u.ObjectGuid, out var replaced) ? replaced : u)],
-            };
-            cachedBase = snapshot;
-            cachedVersion = version;
-            cachedResult = result;
-            return result;
+            return ApplyLocked(snapshot);
         }
+    }
+
+    private DirectorySnapshot ApplyLocked(DirectorySnapshot snapshot)
+    {
+        if (version == 0)
+        {
+            return snapshot;
+        }
+        if (ReferenceEquals(cachedBase, snapshot) && cachedVersion == version && cachedResult is not null)
+        {
+            return cachedResult;
+        }
+        var result = snapshot with
+        {
+            Users = Merge(snapshot.Users, users, removed, u => u.ObjectGuid),
+            Computers = Merge(snapshot.Computers, computers, removed, c => c.ObjectGuid),
+            Groups = Merge(snapshot.Groups, groups, removed, g => g.ObjectGuid),
+            OrganizationalUnits = Merge(snapshot.OrganizationalUnits, ous, removed, o => o.ObjectGuid),
+        };
+        cachedBase = snapshot;
+        cachedVersion = version;
+        cachedResult = result;
+        return result;
+    }
+
+    /// <summary>Base objects replaced by their changed version, removed ones dropped, added ones (unknown GUIDs) appended.</summary>
+    private static ImmutableArray<T> Merge<T>(ImmutableArray<T> source, ImmutableDictionary<Guid, T> changed, ImmutableHashSet<Guid> gone, Func<T, Guid> id)
+    {
+        if (changed.IsEmpty && gone.IsEmpty)
+        {
+            return source;
+        }
+        var known = new HashSet<Guid>();
+        var builder = ImmutableArray.CreateBuilder<T>(source.Length + changed.Count);
+        foreach (var item in source)
+        {
+            var key = id(item);
+            known.Add(key);
+            if (gone.Contains(key))
+            {
+                continue;
+            }
+            builder.Add(changed.TryGetValue(key, out var replaced) ? replaced : item);
+        }
+        foreach (var (key, item) in changed.OrderBy(p => p.Key))
+        {
+            if (!known.Contains(key) && !gone.Contains(key))
+            {
+                builder.Add(item);
+            }
+        }
+        return builder.ToImmutable();
     }
 
     /// <summary>
@@ -80,30 +121,59 @@ public sealed class SimulatedDirectoryOverlay
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(change);
-        lock (gate)
+        DirectoryUser? after = null;
+        Edit(snapshot, edit =>
         {
-            var current = users.TryGetValue(id, out var known) ? known : snapshot.Users.FirstOrDefault(u => u.ObjectGuid == id);
+            var current = edit.Current.Users.FirstOrDefault(u => u.ObjectGuid == id);
             if (current is null)
             {
-                return null;
+                return false;
             }
+            after = current;
+            var next = change(current, edit.NextUsn());
+            if (next is null)
+            {
+                return false;
+            }
+            edit.Put(next);
+            after = next;
+            return true;
+        });
+        return after;
+    }
+
+    /// <summary>
+    /// Applies one write of the simulation as a single change of the overlay (several objects at once when a write touches both
+    /// sides of a link, such as member and memberOf). <paramref name="edit"/> sees the directory as the session sees it and
+    /// returns true to keep its changes, false to drop them. Returns what it returned.
+    /// </summary>
+    internal bool Edit(DirectorySnapshot snapshot, Func<SimulatedDirectoryEdit, bool> edit)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(edit);
+        lock (gate)
+        {
             if (usn == 0)
             {
                 usn = HighestUsn(snapshot);
             }
-            var next = change(current, usn + 1);
-            if (next is null)
+            var work = new SimulatedDirectoryEdit(ApplyLocked(snapshot), usn, users, computers, groups, ous, removed);
+            if (!edit(work))
             {
-                return current;
+                return false;
             }
-            if (next.ObjectGuid != id)
+            if (!work.Changed)
             {
-                throw new InvalidOperationException("A write of the simulation never changes the GUID of an object.");
+                return true;
             }
-            usn++;
-            users = users.SetItem(id, next);
+            usn = work.Usn;
+            users = work.Users;
+            computers = work.Computers;
+            groups = work.Groups;
+            ous = work.Ous;
+            removed = work.Removed;
             version++;
-            return next;
+            return true;
         }
     }
 
@@ -118,5 +188,89 @@ public sealed class SimulatedDirectoryOverlay
             highest = Math.Max(highest, value);
         }
         return highest;
+    }
+}
+
+/// <summary>
+/// One change of the overlay in progress (<see cref="SimulatedDirectoryOverlay.Edit"/>): the directory as the session sees it
+/// before the change, and the objects put or removed by the write. A write never changes the GUID of an object.
+/// </summary>
+internal sealed class SimulatedDirectoryEdit
+{
+    internal SimulatedDirectoryEdit(
+        DirectorySnapshot current,
+        long usn,
+        ImmutableDictionary<Guid, DirectoryUser> users,
+        ImmutableDictionary<Guid, DirectoryComputer> computers,
+        ImmutableDictionary<Guid, DirectoryGroup> groups,
+        ImmutableDictionary<Guid, DirectoryOu> ous,
+        ImmutableHashSet<Guid> removed)
+    {
+        Current = current;
+        Usn = usn;
+        Users = users;
+        Computers = computers;
+        Groups = groups;
+        Ous = ous;
+        Removed = removed;
+    }
+
+    /// <summary>The directory as the session sees it before this change.</summary>
+    public DirectorySnapshot Current { get; }
+
+    public long Usn { get; private set; }
+
+    public bool Changed { get; private set; }
+
+    internal ImmutableDictionary<Guid, DirectoryUser> Users { get; private set; }
+
+    internal ImmutableDictionary<Guid, DirectoryComputer> Computers { get; private set; }
+
+    internal ImmutableDictionary<Guid, DirectoryGroup> Groups { get; private set; }
+
+    internal ImmutableDictionary<Guid, DirectoryOu> Ous { get; private set; }
+
+    internal ImmutableHashSet<Guid> Removed { get; private set; }
+
+    /// <summary>Next update sequence number of the fictitious controller.</summary>
+    public long NextUsn() => ++Usn;
+
+    public void Put(DirectoryUser user)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        Users = Users.SetItem(user.ObjectGuid, user);
+        Changed = true;
+    }
+
+    public void Put(DirectoryComputer computer)
+    {
+        ArgumentNullException.ThrowIfNull(computer);
+        Computers = Computers.SetItem(computer.ObjectGuid, computer);
+        Changed = true;
+    }
+
+    public void Put(DirectoryGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        Groups = Groups.SetItem(group.ObjectGuid, group);
+        Changed = true;
+    }
+
+    public void Put(DirectoryOu ou)
+    {
+        ArgumentNullException.ThrowIfNull(ou);
+        Ous = Ous.SetItem(ou.ObjectGuid, ou);
+        Changed = true;
+    }
+
+    /// <summary>Removes an object of any kind from the directory seen by the session.</summary>
+    public void Remove(Guid id)
+    {
+        Users = Users.Remove(id);
+        Computers = Computers.Remove(id);
+        Groups = Groups.Remove(id);
+        Ous = Ous.Remove(id);
+        Removed = Removed.Add(id);
+        Changed = true;
     }
 }

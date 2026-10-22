@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : ouvrir un compte par son identifiant",
+  "description": "Depuis la page Fiche sans objet, saisit l’identifiant c.bernard, voit la suggestion de la base locale, valide par Entrée et vérifie l’en-tête, les états, le fil du DN et les onglets d’un compte utilisateur. Aucune lecture réseau avant Entrée.",
+  "modes": ["simulation"],
+  "start": "fiche",
+  "steps": [
+    { "do": "expect", "selector": ".fi-search-input", "title": "Le champ de recherche de la fiche est affiché" },
+    { "do": "type", "selector": ".fi-search-input", "text": "c.bernard", "title": "Saisir l’identifiant" },
+    { "do": "wait", "contains": "Camille Bernard", "within": ".fi-suggest", "title": "La base locale propose Camille Bernard" },
+    { "do": "press", "key": "Enter", "title": "Valider : correspondance exacte de la base locale" },
+    { "do": "wait", "ready": "fiche" },
+    { "do": "wait", "text": "Camille Bernard", "within": ".fi-name", "title": "L’en-tête affiche le nom" },
+    { "do": "expect", "contains": "Compte utilisateur", "within": ".fi-hero", "title": "Type de l’objet" },
+    { "do": "expect", "contains": "Verrouillé", "within": ".fi-hero", "title": "État verrouillé en pastille" },
+    { "do": "expect", "contains": "Commercial", "within": ".fi-hero", "title": "Fil du DN jusqu’à l’OU" },
+    { "do": "expect", "contains": "Fiche d’appel", "within": "[role=tablist]", "title": "Onglet « Fiche d’appel » présent pour un compte" },
+    { "do": "shot", "name": "fiche-camille" },
+    { "do": "click", "text": "Groupes", "within": "[role=tablist]", "title": "Ouvrir l’onglet Groupes" },
+    { "do": "wait", "contains": "Groupe principal", "within": ".fi-groups", "title": "Le groupe principal est affiché à part" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

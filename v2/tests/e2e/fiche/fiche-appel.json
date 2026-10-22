@@ -1,0 +1,16 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : fiche d’appel et ticket",
+  "description": "Ouvre l’onglet « Fiche d’appel » de Camille Bernard, vérifie les points d’attention et le ticket construit sans lecture réseau, lance la lecture des verrouillages depuis la fiche d’appel puis copie le ticket.",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&tab=appel",
+  "steps": [
+    { "do": "wait", "selector": ".fi-cs", "title": "La fiche d’appel est construite" },
+    { "do": "expect", "contains": "c.bernard", "within": ".fi-cs", "title": "L’identifiant figure dans la fiche" },
+    { "do": "expect", "selector": ".fi-cs-ticket", "title": "Le ticket est prêt à coller" },
+    { "do": "click", "selector": "[data-read=\"lockouts\"]", "title": "Lire les verrouillages depuis la fiche d’appel" },
+    { "do": "wait", "contains": "4740", "within": ".fi-cs", "timeoutMs": 20000 },
+    { "do": "shot", "name": "fiche-appel" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

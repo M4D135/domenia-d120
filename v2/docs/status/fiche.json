@@ -1,0 +1,70 @@
+{
+  "fait": [
+    "FIC-002",
+    "FIC-006",
+    "FIC-010",
+    "FIC-011",
+    "FIC-012",
+    "FIC-013",
+    "FIC-016",
+    "FIC-017",
+    "FIC-018",
+    "FIC-019",
+    "FIC-020",
+    "FIC-021",
+    "FIC-023",
+    "FIC-024",
+    "FIC-026",
+    "FIC-027",
+    "FIC-028",
+    "FIC-029",
+    "FIC-030",
+    "FIC-034",
+    "FIC-035",
+    "FIC-041",
+    "FIC-043",
+    "FIC-044",
+    "FIC-047",
+    "FIC-049"
+  ],
+  "ameliore": [
+    "FIC-003",
+    "FIC-004",
+    "FIC-005",
+    "FIC-007",
+    "FIC-008",
+    "FIC-009",
+    "FIC-015",
+    "FIC-022",
+    "FIC-025",
+    "FIC-031",
+    "FIC-032",
+    "FIC-033",
+    "FIC-036",
+    "FIC-037",
+    "FIC-038",
+    "FIC-039",
+    "FIC-040",
+    "FIC-042",
+    "FIC-046",
+    "FIC-048"
+  ],
+  "partiel": [
+    {
+      "id": "FIC-001",
+      "reste": "Lire Security.AllowRawAttributeWrite et Security.BlockSensitiveRawAttributes dans la configuration de Domenia 1 (LegacyConfiguration) : en attendant, les valeurs par défaut de Domenia 1 s’appliquent en mode annuaire (écriture brute désactivée) et la simulation l’ouvre. La règle elle-même (double contrôle, liste sensible, attributs opérationnels refusés) est faite."
+    },
+    {
+      "id": "FIC-014",
+      "reste": "Saisie par l’opérateur d’un mot de passe choisi, avec confirmation révélable : la fenêtre sécurisée de l’hôte qui garde le SecureString jusqu’à l’API Windows reste à brancher dans le shell. Aujourd’hui la réinitialisation pose un mot de passe généré par le moteur (options « Déverrouiller ensuite » et « Changement obligatoire » faites), sans le montrer."
+    },
+    {
+      "id": "FIC-045",
+      "reste": "Le rapprochement des événements 4740 avec les refus d’authentification de Domenia (120 s, 5 s de décalage) est écrit et affiché, mais Domenia 2 n’enregistre encore aucun refus d’authentification (pas d’identifiants alternatifs) : la liste des refus est vide."
+    },
+    {
+      "id": "FIC-050",
+      "reste": "Générateur fait (16 caractères, 14 à 64, quatre classes, sans caractères ambigus, mélangé, SecureString) ; l’affichage unique du mot de passe généré à l’opérateur passe par la fenêtre sécurisée de l’hôte, à brancher dans le shell."
+    }
+  ]
+}

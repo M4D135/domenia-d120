@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : lire les verrouillages puis déverrouiller",
+  "description": "Ouvre l’onglet Compte de Camille Bernard, lit les verrouillages (événements 4740) sur geste, vérifie le tableau et la copie du rapport, puis déverrouille par le bandeau ; la pastille « Verrouillé » disparaît après relecture.",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&tab=compte",
+  "steps": [
+    { "do": "wait", "selector": "[data-card=\"lockouts\"]", "title": "La carte des verrouillages est affichée" },
+    { "do": "click", "selector": "[data-acc=\"lockouts\"]", "within": "[data-card=\"lockouts\"]", "title": "Lecture sur geste explicite" },
+    { "do": "wait", "selector": "[data-card=\"lockouts\"] table", "timeoutMs": 20000, "title": "Le tableau des verrouillages est lu" },
+    { "do": "expect", "selector": "[data-copy-report]", "within": "[data-card=\"lockouts\"]", "title": "Le rapport est copiable" },
+    { "do": "shot", "name": "verrouillages", "selector": "[data-card=\"lockouts\"]" },
+    { "do": "click", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "title": "Déverrouiller depuis le bandeau" },
+    { "do": "wait", "contains": "lockoutTime", "within": "[role=dialog]", "title": "Le plan remet lockoutTime à zéro" },
+    { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Verrouillé depuis", "within": ".fi-page", "absent": true, "title": "Le verrouillage disparaît de la fiche relue" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
