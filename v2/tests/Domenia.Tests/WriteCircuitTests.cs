@@ -405,7 +405,7 @@ internal static class WriteCircuitTests
     }
 
     [Test]
-    public static async Task An_unknown_outcome_holds_its_target_until_a_re_read_settles_it()
+    public static async Task An_unknown_outcome_holds_every_new_write_until_a_re_read_settles_it()
     {
         var (context, circuit, executor, _) = FakeCircuit();
         using var owned = context;
@@ -421,8 +421,10 @@ internal static class WriteCircuitTests
 
         var blocked = await Check.ThrowsAsync<DomeniaOperationException>(() => circuit.PlanAsync(FakeWriteExecutor.Draft(), CancellationToken.None), "même cible");
         Check.Equal(WriteErrors.TargetPending, blocked.Code, "cible bloquée");
-        var other = await circuit.PlanAsync(FakeWriteExecutor.Draft(FakeWriteExecutor.OtherGuid), CancellationToken.None);
-        Check.NotNull(other, "une autre cible reste libre");
+        // Domenia 1 Assert-WriteAllowed (OPE-025, OPE-026): a receipt to verify holds every new write back, not only its target.
+        var other = await Check.ThrowsAsync<DomeniaOperationException>(() => circuit.PlanAsync(FakeWriteExecutor.Draft(FakeWriteExecutor.OtherGuid), CancellationToken.None), "autre cible");
+        Check.Equal(WriteErrors.ReceiptsPending, other.Code, "toutes les nouvelles écritures sont bloquées");
+        Check.Contains("Une opération reste à vérifier", other.Message, "message de Domenia 1");
 
         executor.OnVerify = _ => new WriteVerification(VerificationState.Verified, "Description relue conforme.");
         var settled = await circuit.VerifyAsync(receipt.Id, CancellationToken.None);
@@ -431,6 +433,7 @@ internal static class WriteCircuitTests
         Check.Equal(VerificationState.Verified, settled.Verification, "vérifiée");
         Check.Equal(1, executor.Executes, "la relecture ne renvoie rien");
         Check.NotNull(await circuit.PlanAsync(FakeWriteExecutor.Draft(), CancellationToken.None), "cible de nouveau libre");
+        Check.NotNull(await circuit.PlanAsync(FakeWriteExecutor.Draft(FakeWriteExecutor.OtherGuid), CancellationToken.None), "les autres objets aussi");
     }
 
     [Test]
@@ -648,7 +651,8 @@ internal static class WriteCircuitTests
         Check.Equal("Appliquée (simulation)", WriteReceipts.ResultLabel(WriteResult.Applied, simulated: true), "simulée");
         Check.Equal("Appliquée", WriteReceipts.ResultLabel(WriteResult.Applied, simulated: false), "réelle");
         Check.Contains("Aucun reçu d’écriture.", WriteReceipts.ListSummary(0, 0, 0), "aucun reçu");
-        Check.Contains("2 écritures restent à vérifier", WriteReceipts.ListSummary(5, 2, 0), "à vérifier");
+        Check.Contains("2 opérations restent à vérifier", WriteReceipts.ListSummary(5, 2, 0), "à vérifier");
+        Check.Contains("les nouvelles écritures sont bloquées", WriteReceipts.ListSummary(5, 2, 0), "toutes les écritures (Domenia 1)");
         Check.Contains("Un enregistrement illisible ignoré.", WriteReceipts.ListSummary(1, 0, 1), "illisible");
         var list = WriteReceipts.List([sent with { Result = WriteResult.Applied, Verification = VerificationState.Verified, At = TestClock.Reference.AddMinutes(5) }, sent with { Id = WritePlans.NewId() }], 0);
         Check.True(list.Receipts[0].Pending, "les reçus à vérifier d’abord");

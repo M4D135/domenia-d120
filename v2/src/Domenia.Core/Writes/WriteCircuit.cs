@@ -12,8 +12,8 @@ public sealed record WriteStageEvent(WriteStage Stage, string Label);
 /// <item>plan: the screen's executor reads the target and drafts the change; the circuit seals it (identifier, account, mode,
 /// fingerprint, five minutes) and issues a single-use token bound to the fingerprint (<see cref="PlanAsync"/>);</item>
 /// <item>confirmation by the operator in the page (typed name when the plan asks for it, checked again here);</item>
-/// <item>execution (<see cref="ExecuteAsync"/>): token checked then consumed, writes one at a time, uncertain receipts of the
-/// same target refuse it, preconditions read again, receipt written BEFORE sending (nothing is sent without it), write sent
+/// <item>execution (<see cref="ExecuteAsync"/>): token checked then consumed, writes one at a time, any uncertain receipt refuses
+/// it (Domenia 1 Assert-WriteAllowed: a receipt to verify holds every new write back), preconditions read again, receipt written BEFORE sending (nothing is sent without it), write sent
 /// once and never cancelled, outcome recorded, target read again, receipt completed and journalled;</item>
 /// <item>later re-reads from Opérations (<see cref="VerifyAsync"/>): they read, they never write again.</item>
 /// </list>
@@ -75,8 +75,9 @@ public sealed class WriteCircuit : IDisposable
 
     /// <summary>
     /// Seals the draft of an executor into a plan and issues its token. Refused when no executor of this mode runs the kind
-    /// (source.unavailable), when an uncertain receipt holds the target (write.targetPending) or when the receipts cannot be
-    /// read (receipt.unavailable). Nothing is written.
+    /// (source.unavailable), when an uncertain receipt holds the target (write.targetPending) or any other object
+    /// (write.receiptsPending: every new write waits for the receipts to verify, Domenia 1 OPE-025 and OPE-026) or when the receipts
+    /// cannot be read (receipt.unavailable). Nothing is written.
     /// </summary>
     public async Task<PlannedWrite> PlanAsync(WritePlanDraft draft, CancellationToken cancellationToken)
     {
@@ -86,7 +87,7 @@ public sealed class WriteCircuit : IDisposable
             throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
         }
         var account = await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-        await EnsureTargetFreeAsync(draft.Target.ObjectGuid, WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
+        await EnsureWritesFreeAsync(draft.Target.ObjectGuid, WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
         var now = clock.GetUtcNow();
         var plan = WritePlans.Seal(draft, WritePlans.NewId(), account.Account.Login, mode, now, clock.LocalTimeZone);
         var token = tokens.Issue(plan.Id, plan.Fingerprint, plan.ExpiresAt, now);
@@ -102,7 +103,7 @@ public sealed class WriteCircuit : IDisposable
     /// <summary>
     /// write.execute: runs a confirmed plan once and returns its receipt. Refusals before sending: write.planUnknown,
     /// write.tokenUsed, write.tokenInvalid, write.planChanged, write.tokenExpired, write.confirmationMismatch, write.targetPending,
-    /// write.stale, receipt.unavailable. Once the receipt is written, the request leaves and the call always ends with a receipt
+    /// write.receiptsPending, write.stale, receipt.unavailable. Once the receipt is written, the request leaves and the call always ends with a receipt
     /// (applied, already done, refused or unknown), whatever happens.
     /// </summary>
     public async Task<ReceiptView> ExecuteAsync(string planId, string token, string? typedName, Action<WriteStage>? progress, CancellationToken cancellationToken)
@@ -178,7 +179,7 @@ public sealed class WriteCircuit : IDisposable
     /// <summary>
     /// write.receipts.verify: reads the target of a receipt again and records what is observed (a new version). Only a read
     /// leaves; the write is never sent again. An uncertain receipt settled by the re-read (verified or mismatch) stops holding
-    /// back new writes on its target.
+    /// back new writes; the writes are admitted again once no receipt remains to verify.
     /// </summary>
     public async Task<ReceiptView> VerifyAsync(string id, CancellationToken cancellationToken)
     {
@@ -196,6 +197,47 @@ public sealed class WriteCircuit : IDisposable
             await KeepAsync(next).ConfigureAwait(false);
             Note(next.Plan, Outcome(next), WriteReceipts.ToneOf(next), prefix: "Relecture du reçu");
             log.Info($"Relecture du reçu d’une écriture {receipt.Plan.Kind} : {verification.State}.");
+            Settled(all, receipt, next);
+            return WriteReceipts.View(next);
+        }
+        finally
+        {
+            writeGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// operations.receipts.review: records the manual review of an uncertain receipt (Domenia 1 OPE-024). The operator checked the
+    /// object with another tool and describes the control (12 to 240 characters, never anything that looks like a secret); the
+    /// receipt takes a new version « Revue manuelle » that stops holding back new writes (once no other receipt waits). Nothing is read in the
+    /// directory and nothing is ever sent again; a receipt already settled is never changed (receipt.resolved).
+    /// </summary>
+    public async Task<ReceiptView> ReviewAsync(string id, string reason, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(reason);
+        var check = ReceiptReviews.CheckReason(reason);
+        if (!check.Valid)
+        {
+            throw new DomeniaOperationException(ReceiptReviews.ReasonInvalid, ReceiptReviews.ReasonInvalidPrefix + check.Message);
+        }
+        var account = await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var (all, _) = await ReadAsync(WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
+            var receipt = all.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.Ordinal))
+                ?? throw WriteErrors.Refusal(WriteErrors.ReceiptUnknown, WriteErrors.ReceiptUnknownMessage);
+            if (!WriteReceipts.IsPending(receipt))
+            {
+                throw new DomeniaOperationException(ReceiptReviews.Resolved, ReceiptReviews.ResolvedMessage);
+            }
+            var next = WriteReceipts.Reviewed(receipt, check.Text, account.Account.Login, clock.GetUtcNow());
+            await KeepAsync(next).ConfigureAwait(false);
+            Note(next.Plan, "revue manuelle consignée", Tone.Info, prefix: "Revue du reçu");
+            // The motive is the operator's own text: it goes to the receipt only, never to the technical journal.
+            log.Info($"Revue manuelle consignée pour un reçu d’écriture {receipt.Plan.Kind} ({check.Text.Length} caractères).");
+            Settled(all, receipt, next);
             return WriteReceipts.View(next);
         }
         finally
@@ -208,7 +250,7 @@ public sealed class WriteCircuit : IDisposable
 
     private async Task<ReceiptView> RunAsync(WritePlan plan, Action<WriteStage>? progress, CancellationToken cancellationToken)
     {
-        await EnsureTargetFreeAsync(plan.Target.ObjectGuid, WriteErrors.ReceiptUnavailableMessage, cancellationToken).ConfigureAwait(false);
+        await EnsureWritesFreeAsync(plan.Target.ObjectGuid, WriteErrors.ReceiptUnavailableMessage, cancellationToken).ConfigureAwait(false);
         var executor = writers.ForKind(plan.Kind)
             ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
 
@@ -301,16 +343,43 @@ public sealed class WriteCircuit : IDisposable
     }
 
     /// <summary>
-    /// Fail closed (TRV-230): an uncertain receipt of the same target refuses the write; receipts that cannot be read refuse
-    /// every write.
+    /// Fail closed (Domenia 1 Assert-WriteAllowed, TRV-230, OPE-025, OPE-026): an uncertain receipt refuses every new write — its
+    /// own target with write.targetPending, any other object with write.receiptsPending — until a conclusive re-read or a manual
+    /// review settles it, never by time nor by a restart; receipts that cannot be read refuse every write.
     /// </summary>
-    private async Task EnsureTargetFreeAsync(string objectGuid, string unreadableMessage, CancellationToken cancellationToken)
+    private async Task EnsureWritesFreeAsync(string objectGuid, string unreadableMessage, CancellationToken cancellationToken)
     {
         var (all, _) = await ReadAsync(unreadableMessage, cancellationToken).ConfigureAwait(false);
-        if (all.Any(r => WriteReceipts.IsPending(r) && string.Equals(r.Plan.Target.ObjectGuid, objectGuid, StringComparison.OrdinalIgnoreCase)))
+        var pending = all.Where(WriteReceipts.IsPending).ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+        if (pending.Any(r => string.Equals(r.Plan.Target.ObjectGuid, objectGuid, StringComparison.OrdinalIgnoreCase)))
         {
             throw WriteErrors.Refusal(WriteErrors.TargetPending, WriteErrors.TargetPendingMessage);
         }
+        log.Info($"Écriture refusée avant tout envoi : {pending.Count} reçu(s) à vérifier bloquent les nouvelles écritures.");
+        throw WriteErrors.Refusal(WriteErrors.ReceiptsPending, WriteErrors.ReceiptsPendingMessage(pending.Count));
+    }
+
+    /// <summary>
+    /// After a re-read or a review: when it settled the last receipt to verify, the writes are admitted again, which is said in
+    /// both journals (Domenia 1 Complete-DomeniaReceiptRefresh: the uncertainty is lifted only by an explicit check, in WARN).
+    /// </summary>
+    private void Settled(IReadOnlyList<WriteReceipt> before, WriteReceipt previous, WriteReceipt next)
+    {
+        if (!WriteReceipts.IsPending(previous) || WriteReceipts.IsPending(next))
+        {
+            return;
+        }
+        var others = before.Count(r => WriteReceipts.IsPending(r) && !string.Equals(r.Id, previous.Id, StringComparison.Ordinal));
+        if (others > 0)
+        {
+            return;
+        }
+        log.Warning("Incertitude levée uniquement après vérification ou revue explicite des reçus durables : écritures de nouveau admises.");
+        journal.Add(new JournalEntry(clock.GetUtcNow(), "Écritures de nouveau admises" + FrenchText.Colon + "plus aucun reçu à vérifier.", Tone.Info));
     }
 
     /// <summary>Receipts of the store merged with the versions of this session (the latest version of each wins).</summary>
@@ -373,6 +442,7 @@ public sealed class WriteCircuit : IDisposable
         }
         return (receipt.Result, receipt.Verification) switch
         {
+            (_, VerificationState.Reviewed) => "revue manuelle consignée",
             (WriteResult.Applied, VerificationState.Verified) => "relecture conforme",
             (WriteResult.Applied, VerificationState.Mismatch) => "écart à la relecture",
             (WriteResult.Applied, _) => "relecture impossible",

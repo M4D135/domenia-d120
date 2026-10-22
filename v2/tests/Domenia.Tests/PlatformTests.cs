@@ -412,6 +412,30 @@ internal static class PlatformTests
         ("schema.list", OperationClass.Local),
         ("schema.read", OperationClass.NetworkRead),
         ("schema.status", OperationClass.Local),
+        ("operations.activity", OperationClass.Local),
+        ("operations.blockers", OperationClass.LocalRead),
+        ("operations.center", OperationClass.LocalRead),
+        ("operations.check.run", OperationClass.NetworkRead),
+        ("operations.diagnostic.preview", OperationClass.LocalRead),
+        ("operations.diagnostic.save", OperationClass.LocalWrite),
+        ("operations.dossier.save", OperationClass.LocalWrite),
+        ("operations.engine", OperationClass.LocalRead),
+        ("operations.export.save", OperationClass.LocalWrite),
+        ("operations.health", OperationClass.LocalRead),
+        ("operations.interface.report", OperationClass.Local),
+        ("operations.journal", OperationClass.LocalRead),
+        ("operations.overview", OperationClass.LocalRead),
+        ("operations.receipts", OperationClass.LocalRead),
+        ("operations.receipts.detail", OperationClass.LocalRead),
+        ("operations.receipts.review", OperationClass.LocalWrite),
+        ("operations.rules", OperationClass.Local),
+        ("operations.runs", OperationClass.LocalRead),
+        ("operations.stats", OperationClass.LocalRead),
+        ("operations.survey.forget", OperationClass.LocalWrite),
+        ("operations.survey.postpone", OperationClass.Local),
+        ("operations.survey.resume", OperationClass.NetworkRead),
+        ("operations.survey.stop", OperationClass.Local),
+        ("operations.task.stop", OperationClass.Local),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("shell.activity", OperationClass.LocalRead),
@@ -463,7 +487,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AccountsAccessOperations", "AccountsOperations", "AccueilOperations", "AssistanceOperations", "AuditOperations", "DashboardOperations", "DirectoryTreeOperations", "FicheOperations", "MachineOperations", "PosteOperations", "RelationsOperations", "RequetesOperations", "RequetesWmiOperations", "SchemaOperations", "SearchOperations", "SessionOperations", "ShellOperations", "SyncOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AccountsAccessOperations", "AccountsOperations", "AccueilOperations", "AssistanceOperations", "AuditOperations", "DashboardOperations", "DirectoryTreeOperations", "FicheOperations", "MachineOperations", "OperationsOperations", "PosteOperations", "RelationsOperations", "RequetesOperations", "RequetesWmiOperations", "SchemaOperations", "SearchOperations", "SessionOperations", "ShellOperations", "SyncOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

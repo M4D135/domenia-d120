@@ -9,13 +9,13 @@
 // (SIMULATION.md § 4.3); every widget of workstations is computed on the machines of the chosen OU. The LocalWrite
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
-// Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
 // Accueil (accueil.*): mock-accueil.js, a short fixture of the OU « Postes » of the simulation.
 // Search screen (search.*): mock-search.js, in the memory of the page.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page; the
 // operations of the Comptes screen: mock-comptes.js (same shapes and texts as docs/ops/comptes.md).
 // Assistance (assistance.*): mock-assistance.js, in the memory of the page.
 // Audit AD (audit.*): mock-audit.js, read only.
+// Opérations screen (operations.*): mock-operations.js, over the receipts of mock-writes.js and the journal below.
 
 import { createWriteOperations } from './mock-writes.js';
 import { createAccueilOperations } from './mock-accueil.js';
@@ -25,6 +25,7 @@ import { createAccountsOperations } from './mock-comptes.js';
 import { createAssistanceOperations } from './mock-assistance.js';
 import { createAuditOperations } from './mock-audit.js';
 import { createSchemaOperations } from './mock-schema.js';
+import { createOperationsOperations } from './mock-operations.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1060,9 +1061,11 @@ async function setScope(args) {
   return sessionInfo();
 }
 
-const WRITE_OPERATIONS = createWriteOperations({
+const WRITES = createWriteOperations({
   readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
 });
+// The operations of the circuit (wrapped by mock-comptes.js for its plans); WRITES also keeps review() for Opérations.
+const WRITE_OPERATIONS = WRITES.operations;
 
 const OPERATIONS = {
   'app.info': appInfo,
@@ -1090,6 +1093,11 @@ const OPERATIONS = {
   ...createAuditOperations({
     readObject, getString, requireDistinguishedName, requireNone, invalid, fail, quote, int, count, sleep, fold, getBoolean,
     sessionInfo: () => sessionInfo(), findOu, isRoot, NBSP, REF, DOMAIN, ROOT_DN,
+  }),
+  // Opérations screen (docs/ops/operations.md): mock-operations.js, over the receipts of mock-writes.js.
+  ...createOperationsOperations({
+    readObject, getString, getOptionalString, getBoolean, requireNone, invalid, fail, quote, int, count, sleep, log, NBSP, REF,
+    writes: WRITES, journal: () => journalRows(), session: () => sessionInfo(),
   }),
   // Schéma de l’annuaire and Comptes machine (docs/ops/schema.md): mock-schema.js, in the memory of the page.
   ...createSchemaOperations({ readObject, getString, getOptionalString, requireNone, invalid, fail, quote, int, sleep, log, NBSP }),

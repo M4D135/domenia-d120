@@ -27,12 +27,17 @@ public enum WriteResult
     Unknown,
 }
 
-/// <summary>Proof by re-read of the target after the write (never the return code of the request).</summary>
+/// <summary>
+/// Proof by re-read of the target after the write (never the return code of the request). <see cref="Reviewed"/>: the operator
+/// checked the object with another tool and recorded the control in the receipt (Domenia 1 OPE-024, « Revue manuelle »); it
+/// settles an uncertain receipt but is never shown as an automatic success.
+/// </summary>
 public enum VerificationState
 {
     Verified,
     Mismatch,
     Unknown,
+    Reviewed,
 }
 
 /// <summary>Stage of write.execute pushed to the page (event « write.execute:stage »).</summary>

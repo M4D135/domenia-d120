@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : la vérification compte les mêmes lignes dans le rapport, le toast et le journal",
+  "description": "Lance la vérification rapide : les contrôles de la page sont écrits par le moteur, le rapport s’affiche en pleine largeur sous les cartes (aucun défilement imbriqué), et le journal de la session reprend le même résumé.",
+  "modes": ["simulation"],
+  "start": "operations?onglet=diagnostic",
+  "steps": [
+    { "do": "wait", "ready": "operations" },
+    { "do": "click", "text": "Vérification rapide", "title": "Lancer la vérification rapide" },
+    { "do": "expect", "contains": "Rapport de vérification", "within": ".op-report-card", "timeoutMs": 15000, "title": "Le rapport s’affiche sous les cartes" },
+    { "do": "expect", "contains": "Politique de sécurité du contenu", "within": ".op-report-card", "title": "Contrôles de la page dans le rapport du moteur" },
+    { "do": "expect", "contains": "Aucune écriture effectuée", "within": ".op-check-status" },
+    { "do": "shot", "name": "rapport-pleine-largeur", "selector": ".op-diag" },
+    { "do": "click", "selector": "[role=\"tab\"][data-tab=\"journal\"]", "title": "Onglet Journal" },
+    { "do": "expect", "contains": "Vérification de l’application rapide", "within": ".op-jr-body", "title": "Le journal reprend le même résumé" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

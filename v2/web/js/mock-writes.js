@@ -80,8 +80,15 @@ export function createWriteOperations(h) {
     const account = byDn(dn);
     if (!account) throw fail('write.targetUnknown', `Ce nom distinctif ne désigne aucun compte utilisateur de l’annuaire fictif${COLON}aucune écriture préparée.`);
     if (!account.lockedAt) throw fail('write.nothingToDo', `Ce compte n’est pas verrouillé${COLON}aucune écriture à préparer.`);
-    if ([...receipts.values()].some((r) => r.pending && r.target.objectGuid === account.guid)) {
+    // A receipt to verify holds every new write back (Domenia 1 Assert-WriteAllowed, WriteCircuit.EnsureWritesFreeAsync).
+    const waiting = [...receipts.values()].filter((r) => r.pending);
+    if (waiting.some((r) => r.target.objectGuid === account.guid)) {
       throw fail('write.targetPending', `Une écriture précédente sur cet objet reste à vérifier${COLON}relisez son reçu dans Opérations avant d’en préparer une autre.`);
+    }
+    if (waiting.length) {
+      throw fail('write.receiptsPending', waiting.length === 1
+        ? `Une opération reste à vérifier${COLON}les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue dans Opérations. Rien n’a été envoyé.`
+        : `${int(waiting.length)} opérations restent à vérifier${COLON}les nouvelles écritures sont bloquées jusqu’à leur vérification ou leur revue dans Opérations. Rien n’a été envoyé.`);
     }
     const now = second(Date.now());
     const plan = {
@@ -118,14 +125,18 @@ export function createWriteOperations(h) {
     const { pending, result, verification, simulated } = receipt;
     const resultLabel = { sent: 'Envoyée, issue à vérifier', applied: simulated ? 'Appliquée (simulation)' : 'Appliquée', noChange: `Déjà faite${COLON}rien envoyé`, notApplied: 'Non appliquée', unknown: 'Issue inconnue, à vérifier' }[result];
     const verificationLabel = verification === 'verified' ? 'Vérifiée par relecture'
+      : verification === 'reviewed' ? 'Revue manuelle'
       : verification === 'mismatch' ? (result === 'notApplied' ? `Relue${COLON}objet inchangé` : 'Écart à la relecture')
         : result === 'sent' ? 'Relecture en attente' : 'Non vérifiée';
     const note = simulated ? ` Simulation${COLON}annuaire fictif en mémoire, aucun effet réel.` : '';
     let summary;
     let tone;
     if (pending) {
-      summary = `Issue inconnue après l’envoi${COLON}vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures sur cet objet restent bloquées jusqu’à la vérification.`;
+      summary = `Issue inconnue après l’envoi${COLON}vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures restent bloquées jusqu’à sa vérification ou sa revue.`;
       tone = 'warn';
+    } else if (verification === 'reviewed') {
+      summary = `Revue manuelle consignée${COLON}l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Ce reçu ne bloque plus les nouvelles écritures. Rien n’est renvoyé automatiquement.${note}`;
+      tone = 'info';
     } else if (result === 'applied' && verification === 'verified') {
       summary = `Écriture appliquée et vérifiée par relecture.${note}`; tone = 'ok';
     } else if (result === 'applied' && verification === 'mismatch') {
@@ -202,8 +213,8 @@ export function createWriteOperations(h) {
     const pending = all.filter((r) => r.pending).length;
     const total = all.length;
     let summary;
-    if (pending === 1) summary = `Une écriture reste à vérifier${COLON}les nouvelles écritures sur son objet sont bloquées jusqu’à sa relecture. Rien n’est renvoyé automatiquement.`;
-    else if (pending > 1) summary = `${int(pending)} écritures restent à vérifier${COLON}les nouvelles écritures sur leurs objets sont bloquées jusqu’à leur relecture. Rien n’est renvoyé automatiquement.`;
+    if (pending === 1) summary = `Une opération reste à vérifier${COLON}les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue. Rien n’est renvoyé automatiquement.`;
+    else if (pending > 1) summary = `${int(pending)} opérations restent à vérifier${COLON}les nouvelles écritures sont bloquées jusqu’à leur vérification ou leur revue. Rien n’est renvoyé automatiquement.`;
     else if (total === 0) summary = 'Aucun reçu d’écriture. Rien n’est renvoyé automatiquement.';
     else if (total === 1) summary = `Aucune écriture à vérifier. Un reçu conservé${NBSP}; rien n’est renvoyé automatiquement.`;
     else summary = `Aucune écriture à vérifier. ${int(total)} reçus conservés${NBSP}; rien n’est renvoyé automatiquement.`;
@@ -242,11 +253,29 @@ export function createWriteOperations(h) {
     return next;
   }
 
+  // operations.receipts.review (WriteCircuit.ReviewAsync): a new version « Revue manuelle » of a receipt still to verify.
+  async function review(id, reason) {
+    const receipt = receiptId({ id });
+    if (!receipt.pending) throw fail('receipt.resolved', `Ce reçu est déjà résolu${COLON}il ne bloque plus aucune écriture et n’est pas modifié.`);
+    await sleep(120);
+    const at = iso(second(Date.now()));
+    const next = view({
+      ...receipt, at, verification: 'reviewed', pending: false,
+      details: [...receipt.details, { label: 'Revue manuelle', value: `Motif consigné par ${OPERATOR}${COLON}«${NBSP}${reason}${NBSP}».` }],
+    });
+    receipts.set(next.id, next);
+    log(`Revue du reçu${COLON}${next.label} · ${next.target.name} · revue manuelle consignée`, 'info', Date.now());
+    return next;
+  }
+
   return {
-    'accounts.unlock.plan': unlockPlan,
-    'write.execute': execute,
-    'write.receipts.list': list,
-    'write.receipts.get': get,
-    'write.receipts.verify': verify,
+    operations: {
+      'accounts.unlock.plan': unlockPlan,
+      'write.execute': execute,
+      'write.receipts.list': list,
+      'write.receipts.get': get,
+      'write.receipts.verify': verify,
+    },
+    review,
   };
 }

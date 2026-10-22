@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : le motif d’une revue manuelle est borné et jamais un secret",
+  "description": "Sur les reçus d’exemple (aucune donnée réelle, rien n’est envoyé), ouvre la revue manuelle d’un reçu à vérifier : un motif trop court ou ressemblant à un secret est refusé en direct, un motif fréquent se reprend d’un clic.",
+  "modes": ["simulation"],
+  "start": "operations?exemple=1&ouvrir=revue",
+  "steps": [
+    { "do": "wait", "selector": ".op-review", "title": "La revue manuelle s’ouvre" },
+    { "do": "type", "selector": "#op-review-reason", "text": "trop court", "title": "Motif trop court" },
+    { "do": "expect", "contains": "12 au minimum", "within": ".op-review" },
+    { "do": "type", "selector": "#op-review-reason", "text": "Contrôlé, password=<valeur-de-test>", "clear": true, "title": "Motif qui ressemble à un secret" },
+    { "do": "expect", "contains": "ressemble à un secret", "within": ".op-review" },
+    { "do": "click", "selector": ".op-template", "nth": 0, "title": "Reprendre un motif fréquent" },
+    { "do": "expect", "contains": "/ 240 caractères", "within": ".op-review", "title": "Le motif est valable" },
+    { "do": "shot", "name": "revue", "selector": ".k-dlg" },
+    { "do": "press", "key": "Escape", "title": "Fermer sans rien consigner" },
+    { "do": "expect", "selector": ".op-review", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
