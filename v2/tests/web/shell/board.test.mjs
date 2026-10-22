@@ -3,6 +3,7 @@ import { test, eq, ok } from '../harness.mjs';
 import {
   cleanLayout, moveItem, moveGroup, presetLayout, readLayoutDocument, readStored, layoutChange, layoutDocument, widgetText,
   boardSummary, keyGesture, nextSize, searchTerms, matchesCatalog, addItem, updateItem, FORMAT,
+  activeItems, columnsFor, placeholderOf, hasMeasure, PAUSE_TEXT, visualsFor, allowedVisuals,
 } from '../../../web/js/shell/board.js';
 
 const CATALOG = [
@@ -91,4 +92,50 @@ test('recherche du catalogue avec synonymes et filtre d’origine', () => {
   ok(matchesCatalog(CATALOG[2], searchTerms('uptime')), 'uptime trouve « en service »');
   eq(matchesCatalog(CATALOG[0], searchTerms(''), { origin: 'probe' }), false, 'origine filtrée');
   ok(matchesCatalog(CATALOG[1], searchTerms(''), { origin: 'builtin' }), 'origine par défaut : intégrée');
+});
+
+test('colonnes du tableau : paliers de Domenia 1 et 24 px d’hystérésis (TRV-315)', () => {
+  eq([1300, 1100, 1099, 780, 779, 440, 439, 200].map((w) => columnsFor(w)), [4, 4, 3, 3, 2, 2, 1, 1], 'paliers 1 100, 780, 440');
+  eq(columnsFor(1090, 4), 4, 'à moins de 24 px du palier, le nombre en cours est gardé');
+  eq(columnsFor(1070, 4), 3, 'au-delà de 24 px, le palier est franchi');
+  eq(columnsFor(1110, 3), 3, 'en montant aussi');
+  eq(columnsFor(500, 4), 2, 'un saut de deux paliers ne garde rien');
+  eq(columnsFor(Number.NaN, 2), 1, 'largeur illisible : une colonne');
+});
+
+test('mesure suspendue : place gardée, sortie des collectes, réversible (TRV-288)', () => {
+  const base = cleanLayout([{ key: 'disk.free', id: 'd', Paused: true }, { key: 'ram', id: 'r' }], CATALOG);
+  eq(base[0].paused, true, 'Paused de Domenia 1 relu');
+  eq(activeItems(base).map((i) => i.key), ['ram'], 'le widget suspendu ne compte plus parmi les mesures');
+  const resumed = updateItem(base, 'd', { paused: undefined });
+  eq(layoutChange(base, resumed), { keys: ['disk.free', 'ram'], added: ['disk.free'], removed: [] }, 'reprendre rend la clé aux collectes');
+  eq(layoutChange(resumed, base).removed, ['disk.free'], 'suspendre la retire');
+  eq(layoutDocument('poste', base).Layout[0].Paused, true, 'export : la suspension voyage avec la disposition');
+  eq(widgetText('Espace disque', { paused: true, value: 3 }), '', 'rien à copier d’un widget suspendu');
+});
+
+test('place compacte d’un widget sans chiffre, jamais une mesure (TRV-314)', () => {
+  eq(placeholderOf({ paused: true }).action, 'resume', 'suspendu : Reprendre la mesure');
+  eq(placeholderOf({ paused: true }).message, PAUSE_TEXT, 'texte de la suspension par défaut');
+  eq(placeholderOf({ entry: { collecting: 'Collecte 3/12' } }), { state: 'collecting', message: 'Collecte 3/12', action: '', actionText: '' }, 'en collecte, sans bouton');
+  eq(placeholderOf({ entry: undefined, loaded: false }), null, 'première lecture en cours : le squelette le dit');
+  eq(placeholderOf({ entry: undefined, loaded: true }).actionText, 'Collecter', 'jamais collecté');
+  eq(placeholderOf({ entry: undefined, loaded: true, item: { need: 'local' } }).actionText, 'Recalculer', 'calcul local');
+  eq(placeholderOf({ entry: { collected: true }, loaded: true, item: { fleet: true } }).actionText, 'Actualiser', 'absent du dernier calcul du parc');
+  eq(placeholderOf({ entry: { collected: true }, loaded: true }).actionText, 'Relire', 'absent du dernier relevé du poste');
+  eq(placeholderOf({ entry: { value: 0 }, loaded: true }), null, 'zéro est une mesure');
+  eq(placeholderOf({ entry: { value: null }, loaded: true }), null, 'non mesuré : le dessin écrit « — »');
+  ok(hasMeasure({ items: [{ label: 'a', value: 1 }] }) && !hasMeasure({ placeholder: { message: 'x' } }), 'liste = mesure, place = pas de mesure');
+});
+
+test('représentations autorisées par type de donnée (TRV-286)', () => {
+  eq(visualsFor('Timeline'), ['line', 'columns', 'text'], 'la courbe seulement pour des valeurs datées');
+  ok(!visualsFor('Distribution').includes('line'), 'une répartition n’est pas une ligne de temps');
+  eq(visualsFor('Number', true)[0], 'gauge', 'jauge pour un nombre avec maximum');
+  ok(!visualsFor('Number').includes('gauge'), 'pas de jauge sans maximum');
+  eq(allowedVisuals({ dataKind: 'Health' }), ['health', 'score', 'kpi'], 'carte santé d’abord');
+  eq(allowedVisuals({ visuals: ['bars', 'inconnu'] }), ['bars'], 'liste du catalogue, représentations inconnues écartées');
+  const layout = cleanLayout([{ key: 'trend', visual: 'line' }, { key: 'share', visual: 'line' }],
+    [{ key: 'trend', title: 'Tendance', dataKind: 'Timeline', group: 'Parc' }, { key: 'share', title: 'Part', dataKind: 'Distribution', group: 'Parc' }]);
+  eq(layout.map((i) => i.visual), ['line', 'donut'], 'une représentation devenue invalide est corrigée');
 });

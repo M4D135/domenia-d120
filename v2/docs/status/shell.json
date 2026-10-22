@@ -40,18 +40,24 @@
     "TRV-243",
     "TRV-245",
     "TRV-246",
+    "TRV-286",
+    "TRV-288",
     "TRV-293",
     "TRV-295",
     "TRV-296",
     "TRV-298",
     "TRV-299",
     "TRV-300",
+    "TRV-303",
     "TRV-306",
     "TRV-307",
     "TRV-308",
     "TRV-310",
     "TRV-311",
-    "TRV-312"
+    "TRV-312",
+    "TRV-314",
+    "TRV-315",
+    "TRV-316"
   ],
   "ameliore": [
     "TRV-003",
@@ -97,6 +103,8 @@
   "notes": [
     "Tour 1 du critique traité le 22/10 : demande dans la page non modale (TRV-058, TRV-059), règle UI.AllowExpertProfile (shell.policy, TRV-167, TRV-180), palette WCAG sans dette (tokens.css corrigé, TRV-009), bords des séries (TRV-010, TRV-284), cartes score et santé, parts cliquables avec critère et sélection gardée (TRV-298, TRV-300), poste sans DNS dans l’annuaire fictif (TRV-047), emplacements réservés de la barre du haut avec tâche, temps écoulé, Annuler et Accès (TRV-049, TRV-053), feuilles fermées au changement de session, Entrée par défaut, temps bloqué mesuré (TRV-056), infobulles par défaut des feuilles (TRV-057), fautes imbriquées et erreurs ignorées tracées (TRV-064), garde de saisie à la désélection (TRV-050), aide repliée en fenêtre courte (TRV-094), écrans indisponibles grisés et focus de Rechercher (TRV-168), commande « undo » (TRV-175), sélecteur d’OU par GUID, révélation et refus au changement de session (TRV-242), objet déplacé confirmé (TRV-243), mode enregistrement et partages à la demande (TRV-244), favoris désambiguïsés (TRV-245), copie vide refusée (TRV-293), filtre d’origine et confirmation au-delà de 200 postes (TRV-307), onLayout (TRV-308).",
     "TRV-093 : Domenia 2 n’a pas d’interrupteur lecture seule (élévation écriture par écriture, WRITES.md) ; l’état des écritures est une puce de la barre du haut à toutes les largeurs, et le bandeau se condense sous 1 000 px avec sa phrase entière en infobulle.",
-    "Tests écrits, non exécutés (décision du 22/10) : Domenia.Tests (ShellTests, ShellOperationsTests, ShellLocalFilesTests, ShellHostArgumentsTests, ShellStaticChecksTests), tests/web/shell/*.test.mjs (run.html), tests/e2e/shell/*.json."
+    "Tests écrits, non exécutés (décision du 22/10) : Domenia.Tests (ShellTests, ShellOperationsTests, ShellLocalFilesTests, ShellHostArgumentsTests, ShellStaticChecksTests), tests/web/shell/*.test.mjs (run.html), tests/e2e/shell/*.json.",
+    "Critique de parité refaite le 22/10 (relève OpenCode) : les 75 fonctions TRV de la coque vérifiées dans le code ; moteur de tableaux complété pour les fonctions « Tableaux » sans propriétaire : douze représentations de Domenia 1 avec « Liste » et la règle par type de donnée (visualsFor, courbe pour les valeurs datées seulement, représentation devenue invalide corrigée, TRV-286), « Suspendre / Reprendre la mesure » enregistré avec la disposition et annulable, sorti des collectes par onLayout (TRV-288), tableau caché dessiné à sa réapparition ou relu si la session, l’objet ou l’OU ont changé (option context, TRV-303), place compacte d’un widget sans chiffre avec son bouton (placeholderOf, TRV-314), colonnes 4/3/2/1 avec 24 px d’hystérésis et redessin groupé à 300 ms (columnsFor, TRV-315), menu du widget au clic droit et suspension dans le menu (TRV-316). Les tableaux du parc de l’Accueil gardent leur propre moteur (pages/accueil/board.js) : catalogue, contrat de données et collectes par widget (TRV-285, TRV-290 à TRV-292, TRV-302, TRV-305) sont revus avec l’écran Accueil.",
+    "Fichier partagé modifié par ce lot : web/css/tokens.css (jetons de contraste WCAG demandés par la critique, TRV-009 : --text-on-selected, --border-strong, --text-on-accent, --warn, --text-faint). Seul ce lot le touche ; à valider à l’intégration (REPRISE.md § 4)."
   ]
 }

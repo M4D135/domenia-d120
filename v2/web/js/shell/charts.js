@@ -289,6 +289,28 @@ export function listVisual(e) {
   }).join('')}</ul>`;
 }
 
+/**
+ * « Liste » (Domenia 1 Text, TRV-286): the values written as lines, for any kind of data (a value, the parts of a
+ * distribution with their share, the points of a series), 20 lines at most.
+ */
+export function textVisual(e) {
+  const all = e.items ?? [];
+  const items = all.slice(0, 20);
+  const hasValue = e.value !== undefined && e.value !== null && e.value !== '';
+  if (!items.length && !hasValue) return emptyVisual(e.empty ?? 'Aucune valeur.', { icon: e.emptyIcon, action: e.emptyAction });
+  const total = e.kind === 'distribution' ? all.reduce((s, i) => s + (Number(i.value) || 0), 0) : 0;
+  const shown = (v) => (typeof v === 'number' ? num(v) : String(v ?? '—'));
+  const head = hasValue
+    ? `<li class="sh-text-main"><span class="sh-text-l">${esc(e.title ?? 'Valeur')}</span><span class="sh-text-v">${esc(e.display ?? shown(e.value))}${e.unit ? ` ${esc(e.unit)}` : ''}</span></li>`
+    : '';
+  const lines = items.map((i) => {
+    const share = total > 0 ? ` (${Math.round(((Number(i.value) || 0) / total) * 100)}${NBSP}%)` : '';
+    return `<li${i.state ? ` data-tone="${tone(i.state)}"` : ''}><span class="sh-text-l">${esc(i.label ?? i.text ?? '')}</span><span class="sh-text-v">${esc(i.display ?? shown(i.value))}${esc(share)}</span></li>`;
+  }).join('');
+  const more = all.length > 20 ? `<p class="sh-text-more faint">et ${num(all.length - 20)} autre${all.length - 20 > 1 ? 's' : ''}</p>` : '';
+  return `<ul class="sh-textlist">${head}${lines}</ul>${more}`;
+}
+
 export function sheetVisual(e) {
   const items = (e.items ?? []).slice(0, 20);
   if (!items.length) return emptyVisual(e.empty ?? 'Aucune information.', { icon: e.emptyIcon, action: e.emptyAction });
@@ -340,6 +362,7 @@ export function visualMarkup(visual, e, o = {}) {
     case 'columns': return columnsVisual(e);
     case 'line': return lineVisual(e);
     case 'list': return listVisual(e);
+    case 'text': return textVisual(e);
     case 'sheet': return sheetVisual(e);
     case 'checklist': return checklistVisual(e);
     default: return kpiVisual(e);

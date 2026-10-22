@@ -768,6 +768,30 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .sh-widget-head .btn { opacity: .55; transition: opacity var(--t-fast); }
 .sh-widget:hover .sh-widget-head .btn, .sh-widget:focus-within .sh-widget-head .btn { opacity: 1; }
 .sh-widget-body { flex: 1; min-height: 0; display: grid; align-content: start; }
+/* « Liste » (TRV-286): the values written as lines. */
+.sh-textlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: var(--fs-small); }
+.sh-textlist li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); padding: 5px var(--s2); border-radius: var(--r-sm); animation: cascade-in var(--t) var(--ease-out) both; }
+.sh-textlist li:nth-child(odd) { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.sh-textlist .sh-text-l { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.sh-textlist .sh-text-v { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.sh-textlist .sh-text-main .sh-text-v { font-size: var(--fs-body); }
+.sh-textlist li[data-tone="alert"] .sh-text-v { color: var(--alert-text, var(--alert)); }
+.sh-textlist li[data-tone="warn"] .sh-text-v { color: var(--warn-text, var(--warn)); }
+.sh-text-more { margin: var(--s1) 0 0; font-size: var(--fs-caption); }
+:root[data-theme="contrast"] .sh-textlist li:nth-child(odd) { background: none; outline: 1px solid var(--border); }
+/* Compact place of a widget without a figure (TRV-314): why, and the button that acts on it; never a measure. */
+.sh-widget.placed { min-height: 150px; }
+.sh-widget-body:has(> .sh-place) { align-content: center; }
+.sh-place { display: grid; justify-items: center; gap: var(--s2); padding: var(--s3) var(--s2); text-align: center; color: var(--text-muted); animation: cascade-in var(--t) var(--ease-out) both; }
+.sh-place-text { margin: 0; max-width: 34ch; font-size: var(--fs-small); line-height: 1.45; }
+.sh-place-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--accent-text); background: color-mix(in srgb, var(--accent-soft) 70%, transparent); }
+.sh-place-icon svg { width: 18px; height: 18px; }
+.sh-place-icon.spin svg { animation: spin 1.6s linear infinite; }
+.sh-place[data-state="paused"] .sh-place-icon { color: var(--warn-text, var(--warn)); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.sh-place[data-state="absent"] .sh-place-icon, .sh-place[data-state="deep"] .sh-place-icon { color: var(--info-text, var(--info)); background: color-mix(in srgb, var(--info) 14%, transparent); }
+.sh-widget[data-place="paused"] .sh-widget-head h3 { opacity: .78; }
+:root[data-motion="reduced"] .sh-place-icon.spin svg { animation: none; }
+:root[data-theme="contrast"] .sh-place-icon { background: none; outline: 1px solid currentColor; }
 /* Single figures and rings sit in the middle of a tall widget; lists, bars and sheets start at the top. */
 .sh-widget-body:has(> .sh-kpi, > .sh-gauge, > .sh-donut, > .sh-chart-empty, > .sh-zero) { align-content: center; }
 .sh-dates { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); padding-top: var(--s2); border-top: 1px solid color-mix(in srgb, var(--border) 50%, transparent); font-size: var(--fs-caption); color: var(--text-faint); }
@@ -812,6 +836,7 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .sh-thumb-art[data-art="bars"]::before { left: 6px; top: 7px; width: 34px; height: 5px; border-radius: 3px; background: var(--accent); box-shadow: 0 8px 0 -0px var(--c2), -10px 16px 0 0 var(--c3); }
 .sh-thumb-art[data-art="columns"]::before { left: 10px; bottom: 4px; width: 6px; height: 14px; background: var(--accent); box-shadow: 10px -6px 0 0 var(--c2), 20px -2px 0 0 var(--c3); }
 .sh-thumb-art[data-art="line"]::before { left: 6px; right: 6px; top: 14px; height: 2px; background: var(--accent); transform: rotate(-12deg); }
+.sh-thumb-art[data-art="text"]::before { left: 8px; top: 8px; width: 14px; height: 3px; border-radius: 2px; background: var(--text-faint); box-shadow: 18px 0 0 0 var(--accent), 0 7px 0 0 var(--text-faint), 18px 7px 0 0 var(--accent), 0 14px 0 0 var(--text-faint), 18px 14px 0 0 var(--accent); }
 .sh-thumb-art[data-art="list"]::before, .sh-thumb-art[data-art="sheet"]::before, .sh-thumb-art[data-art="checklist"]::before { left: 8px; right: 8px; top: 8px; height: 3px; border-radius: 2px; background: var(--text-faint); box-shadow: 0 7px 0 0 var(--text-faint), 0 14px 0 0 var(--text-faint); }
 .sh-editor-preview { min-height: 160px; display: grid; align-content: center; }
 
