@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Schéma : lire le schéma sur geste, puis ouvrir la classe user",
+  "description": "Avant le geste, rien n’est lu et la carte le dit ; le clic sur « Lire le schéma » suit les étapes, remplit la vue d’ensemble et le catalogue ; la classe user montre sa chaîne d’héritage et ses sept attributs obligatoires d’abord.",
+  "modes": ["simulation"],
+  "start": "schema",
+  "steps": [
+    { "do": "expect", "contains": "Le schéma n’est pas encore lu", "within": ".sch-catalog", "title": "Rien n’est lu au chargement" },
+    { "do": "expect", "contains": "Schéma non lu dans cette session.", "within": ".sch-hero", "title": "Statut de Domenia 1" },
+    { "do": "click", "selector": "[data-read]", "within": ".sch-catalog", "title": "Lire le schéma (geste explicite)" },
+    { "do": "wait", "contains": "47 classes, 244 attributs", "within": ".sch-hero", "timeoutMs": 15000, "title": "Statut : contrôleur, date et nombres" },
+    { "do": "expect", "selector": ".sch-overview .ring", "title": "Vue d’ensemble : anneau des familles de syntaxe" },
+    { "do": "expect", "text": "Classes courantes", "within": ".sch-hero", "title": "Raccourcis vers les classes courantes" },
+    { "do": "click", "text": "user", "within": ".sch-quick", "title": "Ouvrir la classe user depuis le héros" },
+    { "do": "wait", "selector": ".sch-detail.cls", "title": "Détail de la classe" },
+    { "do": "expect", "text": "user", "within": ".sch-dname", "title": "Nom de la classe" },
+    { "do": "expect", "selector": ".sch-chain .sch-node", "count": 4, "title": "top → person → organizationalPerson → user" },
+    { "do": "expect", "contains": "(&(objectCategory=person)(objectClass=user))", "within": ".sch-filterbox", "title": "Filtre recommandé" },
+    { "do": "shot", "name": "classe-user", "selector": ".sch-catalog" },
+    { "do": "journal", "contains": "Schéma lu : 47 classes, 244 attributs" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

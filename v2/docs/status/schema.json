@@ -1,0 +1,22 @@
+{
+  "fait": [
+    "SCH-007",
+    "SCH-008"
+  ],
+  "ameliore": [
+    "SCH-001",
+    "SCH-002",
+    "SCH-003",
+    "SCH-004",
+    "SCH-005",
+    "SCH-006",
+    "MAC-001",
+    "MAC-003"
+  ],
+  "partiel": [
+    {
+      "id": "MAC-002",
+      "reste": "Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites et exportées (web/js/pages/machine/panel.js : machinePill, openMachineAccountPanel ; machine.account.state { target }) ; restent leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir, fichiers de l’équipe Poste."
+    }
+  ]
+}

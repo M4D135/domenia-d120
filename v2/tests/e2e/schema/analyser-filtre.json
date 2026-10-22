@@ -1,0 +1,27 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Schéma : analyser un filtre, ajouter un attribut, reprendre la réécriture",
+  "description": "Sans schéma, l’analyse dit que les index sont inconnus ; après la lecture, le joker en tête est signalé, la structure du filtre montre l’index de chaque critère, la réécriture suggérée est reprise, puis sAMAccountName est ajouté au brouillon. Rien n’est envoyé au contrôleur.",
+  "modes": ["simulation"],
+  "start": "schema",
+  "steps": [
+    { "do": "type", "selector": ".sch-input", "text": "(&(objectClass=user)(description=*stagiaire*))", "title": "Saisir un filtre" },
+    { "do": "press", "key": "Enter", "title": "Analyser (Entrée)" },
+    { "do": "expect", "contains": "Index non vérifiés", "within": ".sch-wb-result", "title": "Sans schéma : index inconnus" },
+    { "do": "click", "selector": "[data-hero=read]", "title": "Lire le schéma" },
+    { "do": "wait", "contains": "47 classes, 244 attributs", "within": ".sch-hero", "timeoutMs": 15000 },
+    { "do": "wait", "text": "Ciblé", "within": ".sch-verdict", "title": "L’analyse est refaite avec les index du schéma lu" },
+    { "do": "expect", "contains": "Joker en tête sur description", "within": ".sch-advice-list", "title": "Joker en tête signalé" },
+    { "do": "expect", "text": "Objet par objet", "within": ".sch-tree", "title": "Le critère sur la description est lu objet par objet" },
+    { "do": "click", "text": "Utiliser cette réécriture", "within": ".sch-suggest", "title": "Reprendre la réécriture suggérée" },
+    { "do": "expect", "selector": ".sch-input", "property": "value", "equals": "(&(objectCategory=person)(objectClass=user)(description=*stagiaire*))", "title": "objectCategory ajouté" },
+    { "do": "click", "selector": "button[data-kind=attributes]", "title": "Basculer sur les attributs" },
+    { "do": "type", "selector": ".sch-list-pane .k-gq", "text": "sAMAccountName", "title": "Filtre local de la grille" },
+    { "do": "click", "text": "sAMAccountName", "within": ".sch-list-pane", "title": "Choisir sAMAccountName" },
+    { "do": "wait", "selector": ".sch-detail.attr" },
+    { "do": "click", "selector": "[data-wb=insert]", "title": "Ajouter l’attribut choisi au filtre" },
+    { "do": "expect", "selector": ".sch-input", "property": "value", "equals": "(&(objectCategory=person)(objectClass=user)(description=*stagiaire*)(sAMAccountName=valeur*))", "title": "Critère ajouté dans le ET, valeur à compléter" },
+    { "do": "shot", "name": "analyse", "selector": ".sch-workbench" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

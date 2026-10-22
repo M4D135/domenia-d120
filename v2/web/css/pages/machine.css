@@ -1,0 +1,324 @@
+/* Domenia 2 · Comptes machine: account of the workstation operations (rule level by level, account in service, pill and
+   « Compte poste » panel, access trial, account of the secrets, safeguards). Declared by pages/machine.js (export const
+   stylesheet), loaded by the router and enabled only on this screen; the panel module loads it as well when it opens from
+   another screen. Every rule starts with [data-page="machine"] (docs/KIT.md § 3): the panel posted in <body> carries the
+   attribute on its own root (.mac-panel). CSP: no style attribute. Motion: transform, opacity and filter only. */
+
+/* Elements styled with a display value would ignore [hidden] without this. */
+[data-page="machine"] [hidden] { display: none !important; }
+
+/* ---------- Rhythm ---------- */
+[data-page="machine"] .mac { display: grid; gap: var(--s5); }
+[data-page="machine"] .mac > .grid { grid-auto-flow: row dense; }
+[data-page="machine"] .mac-sec { display: flex; align-items: center; gap: var(--s3); min-width: 0; margin: var(--s3) 2px calc(-1 * var(--s1)); }
+[data-page="machine"] .mac-sec h2 { flex: none; font-family: var(--font); font-size: var(--fs-small); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+[data-page="machine"] .mac-sec::after {
+  content: ""; order: 2; flex: 1; height: 1px; min-width: 24px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), color-mix(in srgb, var(--border) 50%, transparent) 60%, transparent);
+  transform-origin: left center; animation: mac-line var(--t-chart) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger) + 120ms);
+}
+[data-page="machine"] .mac-sec .sec-note { order: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-caption); color: var(--text-faint); }
+[data-page="machine"] .mac-sec.reveal:not(.in)::after { animation: none; }
+@keyframes mac-line { from { transform: scaleX(0); opacity: 0; } }
+@keyframes mac-up { from { opacity: 0; transform: translateY(8px); } }
+@keyframes mac-pop { from { opacity: 0; transform: scale(.9); } }
+@keyframes mac-turn { to { transform: rotate(1turn); } }
+@keyframes mac-breathe { 0%, 100% { opacity: .5; transform: scale(.94); } 50% { opacity: .95; transform: scale(1.06); } }
+@keyframes mac-flow { from { transform: translateY(-100%); } to { transform: translateY(260%); } }
+@keyframes mac-shine { 0% { opacity: 1; transform: translateX(-120%); } 100% { opacity: 1; transform: translateX(120%); } }
+
+[data-page="machine"] .mac-sk-stack { display: grid; gap: var(--s3); }
+[data-page="machine"] .mac-sk { display: block; height: 12px; }
+[data-page="machine"] .mac-sk.mac-sk-title { height: 30px; border-radius: var(--r); }
+[data-page="machine"] .mac-sk.mac-sk-row { height: 54px; border-radius: var(--r); }
+[data-page="machine"] .mac-sk.mac-sk-avatar { width: 96px; height: 96px; border-radius: 50%; justify-self: center; }
+[data-page="machine"] .mac-sk.w25 { width: 25%; } [data-page="machine"] .mac-sk.w40 { width: 40%; } [data-page="machine"] .mac-sk.w45 { width: 45%; }
+[data-page="machine"] .mac-sk.w55 { width: 55%; } [data-page="machine"] .mac-sk.w70 { width: 70%; } [data-page="machine"] .mac-sk.w85 { width: 85%; }
+[data-page="machine"] .mac-sk.w100 { width: 100%; }
+
+/* ---------- Hero ---------- */
+[data-page="machine"] .mac-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: var(--s8); align-items: start; }
+@media (max-width: 1250px) { [data-page="machine"] .mac-hero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } }
+[data-page="machine"] .mac-hero .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+[data-page="machine"] .mac-hero .chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 60ms + 180ms); }
+[data-page="machine"] .mac-hero .chip svg { width: 14px; height: 14px; flex: none; }
+[data-page="machine"] .mac-net { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 2px; border-radius: 50%; background: rgba(255, 255, 255, .22); }
+[data-page="machine"] .mac-net svg { width: 12px; height: 12px; }
+
+/* Rail of the rule under the actions: six steps, the one in service lit */
+[data-page="machine"] .mac-rail { list-style: none; margin: var(--s6) 0 0; padding: 0; display: flex; align-items: flex-start; gap: 0; max-width: 760px; }
+[data-page="machine"] .mac-rail li { position: relative; flex: 1; min-width: 0; display: grid; justify-items: center; gap: 6px; text-align: center; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 70ms + 260ms); }
+[data-page="machine"] .mac-rail li + li::before {
+  content: ""; position: absolute; top: 17px; right: calc(50% + 20px); width: calc(100% - 40px); height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--border-strong) 80%, transparent); transform-origin: left center; animation: mac-line var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 70ms + 320ms);
+}
+[data-page="machine"] .mac-rail li[data-skipped] + li::before, [data-page="machine"] .mac-rail li[aria-current] + li::before { background: color-mix(in srgb, var(--border-strong) 60%, transparent); }
+[data-page="machine"] .mac-rail li:not([data-skipped]):not([aria-current]) ~ li::before { opacity: .6; }
+[data-page="machine"] .mac-rail .dot { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--bg-sunken); color: var(--text-faint); border: 1.5px solid var(--border); transition: transform var(--t) var(--ease-spring); }
+[data-page="machine"] .mac-rail .dot svg { width: 17px; height: 17px; }
+[data-page="machine"] .mac-rail li:hover .dot { transform: translateY(-2px) scale(1.06); }
+[data-page="machine"] .mac-rail .lbl { font-size: var(--fs-caption); font-weight: 600; color: var(--text-faint); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-page="machine"] .mac-rail li[data-skipped] .dot { opacity: .6; }
+[data-page="machine"] .mac-rail li[data-skipped] .dot::after { content: ""; position: absolute; left: 7px; right: 7px; top: 50%; height: 1.5px; background: var(--text-faint); transform: rotate(-35deg); }
+[data-page="machine"] .mac-rail li[data-state="available"] .dot { color: var(--info); border-color: color-mix(in srgb, var(--info-mark) 50%, transparent); background: var(--info-soft); }
+[data-page="machine"] .mac-rail li[aria-current] .dot { color: var(--on-brand); border-color: transparent; background: var(--brand-gradient); box-shadow: 0 8px 22px var(--accent-glow); }
+[data-page="machine"] .mac-rail li[aria-current] .dot::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); animation: pulse-ring 2.2s var(--ease-out) infinite; }
+[data-page="machine"] .mac-rail li[aria-current] .lbl { color: var(--accent-text); font-weight: 800; }
+[data-page="machine"] .mac-rail li[data-paused] .dot { background: var(--warn-mark); color: #fff; }
+
+/* Account in service: glass card, avatar with a breathing halo and a turning dashed ring */
+[data-page="machine"] .mac-inuse {
+  position: relative; isolation: isolate; overflow: hidden; display: grid; justify-items: center; gap: var(--s2); padding: var(--s6) var(--s5) var(--s5);
+  border-radius: var(--r-lg); text-align: center;
+  background: color-mix(in srgb, var(--bg-elevated) 74%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  box-shadow: var(--shadow-2), inset 0 1px 0 rgba(255, 255, 255, .3);
+  animation: mac-card-in var(--t-slow) var(--ease-spring) both; animation-delay: 200ms;
+}
+[data-page="machine"] .mac-inuse::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--brand-2) 18%, transparent), transparent 62%),
+    radial-gradient(90% 70% at 50% 100%, color-mix(in srgb, var(--brand-3) 12%, transparent), transparent 60%);
+}
+[data-page="machine"] .mac-inuse::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0;
+  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--accent) 24%, transparent) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+[data-page="machine"] .mac-inuse.changed::after { animation: mac-shine 1100ms var(--ease-out); }
+@keyframes mac-card-in { from { opacity: 0; transform: translateY(10px) scale(.97); filter: blur(4px); } }
+[data-page="machine"] .mac-avatar {
+  position: relative; width: 96px; height: 96px; margin-bottom: var(--s2); display: grid; place-items: center; border-radius: 50%;
+  color: var(--on-brand); background: var(--brand-gradient); box-shadow: 0 18px 40px var(--accent-glow);
+}
+[data-page="machine"] .mac-avatar svg { position: relative; width: 40px; height: 40px; }
+[data-page="machine"] .mac-avatar .halo { position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--brand-2) 40%, transparent), transparent 70%); animation: mac-breathe 3.6s var(--ease-in-out) infinite; }
+[data-page="machine"] .mac-avatar .mac-orbit { position: absolute; inset: -7px; border-radius: 50%; border: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent); animation: mac-turn 18s linear infinite; }
+[data-page="machine"] .mac-inuse.paused .mac-avatar { background: linear-gradient(135deg, var(--warn-mark), var(--alert-mark)); box-shadow: 0 18px 40px color-mix(in srgb, var(--warn-mark) 40%, transparent); }
+[data-page="machine"] .mac-k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+[data-page="machine"] .mac-account-name { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 600; overflow-wrap: anywhere; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: 260ms; }
+[data-page="machine"] .mac-origin { font-size: var(--fs-small); color: var(--text-muted); }
+[data-page="machine"] .mac-pill-row { margin-top: var(--s2); }
+[data-page="machine"] .mac-pause { display: flex; gap: var(--s2); align-items: flex-start; text-align: left; padding: var(--s2) var(--s3); border-radius: var(--r); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-small); }
+[data-page="machine"] .mac-pause svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+[data-page="machine"] .mac-sentence { font-size: var(--fs-caption); color: var(--text-faint); line-height: 1.5; max-width: 40ch; }
+
+/* The pill « Compte poste : … ▾ » (reused by the Poste screen) */
+[data-page="machine"] .mac-pill {
+  position: relative; isolation: isolate; overflow: hidden; display: inline-flex; align-items: center; gap: var(--s2); height: 34px; max-width: 100%; padding: 0 12px 0 5px;
+  border-radius: var(--r-pill); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); background: var(--bg-elevated); color: var(--text);
+  font-weight: 600; font-size: var(--fs-small); cursor: pointer; box-shadow: var(--shadow-1);
+  transition: transform var(--t) var(--ease-spring), box-shadow var(--t) var(--ease-out), border-color var(--t-fast);
+}
+[data-page="machine"] .mac-pill:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 22%, transparent); }
+[data-page="machine"] .mac-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-page="machine"] .mac-pill-ico { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--on-brand); background: var(--brand-gradient); }
+[data-page="machine"] .mac-pill-ico svg { width: 14px; height: 14px; }
+[data-page="machine"] .mac-pill-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-page="machine"] .mac-pill-chev { width: 15px; height: 15px; flex: none; color: var(--text-faint); transition: transform var(--t) var(--ease-spring); }
+[data-page="machine"] .mac-pill:hover .mac-pill-chev { transform: translateY(2px); }
+[data-page="machine"] .mac-pill.paused { border-color: color-mix(in srgb, var(--warn-mark) 60%, transparent); background: var(--warn-soft); color: var(--warn); }
+[data-page="machine"] .mac-pill.paused .mac-pill-ico { background: var(--warn-mark); color: #fff; }
+[data-page="machine"] .mac-pill.sm { height: 28px; font-size: var(--fs-caption); }
+[data-page="machine"] .mac-pill.sm .mac-pill-ico { width: 20px; height: 20px; }
+
+/* ---------- Cascade of the rule ---------- */
+[data-page="machine"] .mac-cascade { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+[data-page="machine"] .mac-level {
+  position: relative; display: grid; grid-template-columns: 34px 40px minmax(0, 1fr); align-items: center; gap: var(--s3); padding: var(--s3) var(--s4) var(--s3) var(--s3);
+  border-radius: var(--r-lg); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg-elevated) 55%, transparent);
+  animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 80ms + 120ms);
+  transition: transform var(--t) var(--ease-spring), box-shadow var(--t) var(--ease-out), border-color var(--t);
+}
+[data-page="machine"] .mac-level:hover { transform: translateX(4px); }
+/* Rail between the rank bubbles; the levels above the active one carry a light flowing down to it */
+[data-page="machine"] .mac-level:not(:last-child)::after {
+  content: ""; position: absolute; left: calc(var(--s3) + 16px); top: calc(100% - 6px); width: 2px; height: calc(var(--s2) + 12px); z-index: 1; border-radius: 2px;
+  background: color-mix(in srgb, var(--border-strong) 80%, transparent);
+}
+[data-page="machine"] .mac-level[data-state="empty"]:not([data-shadowed])::after, [data-page="machine"] .mac-level[data-state="notApplicable"]::after, [data-page="machine"] .mac-level[data-state="available"]:not([data-shadowed])::after {
+  background: linear-gradient(var(--accent), color-mix(in srgb, var(--accent) 30%, transparent));
+}
+[data-page="machine"] .mac-rank { position: relative; z-index: 2; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; font-weight: 800; font-size: var(--fs-small); background: var(--bg-sunken); color: var(--text-muted); border: 2px solid var(--border-strong); }
+[data-page="machine"] .mac-level-ico { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; background: var(--off-soft); color: var(--off); }
+[data-page="machine"] .mac-level-ico svg { width: 20px; height: 20px; }
+[data-page="machine"] .mac-level-body { display: grid; gap: 2px; min-width: 0; }
+[data-page="machine"] .mac-level-top { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
+[data-page="machine"] .mac-level-top b { font-weight: 600; }
+[data-page="machine"] .mac-state { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; height: 22px; padding: 0 9px; border-radius: var(--r-pill); font-size: var(--fs-caption); font-weight: 700; background: var(--off-soft); color: var(--off); white-space: nowrap; }
+[data-page="machine"] .mac-state svg { width: 12px; height: 12px; }
+[data-page="machine"] .mac-state.ok { background: var(--ok-soft); color: var(--ok); }
+[data-page="machine"] .mac-state.info { background: var(--info-soft); color: var(--info); }
+[data-page="machine"] .mac-state.warn { background: var(--warn-soft); color: var(--warn); }
+[data-page="machine"] .mac-level-account { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--text); overflow-wrap: anywhere; }
+[data-page="machine"] .mac-level-account.none { color: var(--text-faint); }
+[data-page="machine"] .mac-level-detail { font-size: var(--fs-caption); color: var(--text-faint); line-height: 1.45; }
+[data-page="machine"] .mac-level[data-shadowed] { opacity: .55; }
+[data-page="machine"] .mac-level[data-shadowed]:hover { opacity: .85; }
+[data-page="machine"] .mac-level[data-state="available"] .mac-level-ico { background: var(--info-soft); color: var(--info); }
+[data-page="machine"] .mac-level[data-state="active"] {
+  border-color: transparent; background: linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box, var(--brand-gradient) border-box;
+  border: 1.5px solid transparent; box-shadow: 0 14px 34px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+[data-page="machine"] .mac-level[data-state="active"] .mac-rank { color: var(--on-brand); background: var(--brand-gradient); border-color: transparent; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent); }
+[data-page="machine"] .mac-level[data-state="active"] .mac-rank::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); animation: pulse-ring 2.2s var(--ease-out) infinite; }
+[data-page="machine"] .mac-level[data-state="active"] .mac-level-ico { color: var(--on-brand); background: var(--brand-gradient); }
+[data-page="machine"] .mac-level[data-state="active"] .mac-level-account { font-weight: 700; color: var(--accent-text); }
+[data-page="machine"] .mac-level[data-paused] { border-color: color-mix(in srgb, var(--warn-mark) 55%, transparent); }
+[data-page="machine"] .mac-level[data-paused] .mac-level-detail { color: var(--warn); }
+[data-page="machine"] .mac-level[data-state="active"][data-paused] { background: linear-gradient(var(--bg-elevated), var(--bg-elevated)) padding-box, linear-gradient(120deg, var(--warn-mark), var(--alert-mark)) border-box; }
+/* Light flowing along the rail of the levels skipped before the active one */
+[data-page="machine"] .mac-level:not([data-state="active"]):not([data-shadowed]):not(:last-child) .mac-rank::before {
+  content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 28px; margin-left: -1px; overflow: hidden; border-radius: 2px;
+  background: linear-gradient(transparent, var(--accent), transparent); animation: mac-flow 1.8s var(--ease-in-out) infinite; animation-delay: calc(var(--j, 0) * 160ms);
+}
+[data-page="machine"] .mac-cascade.compact .mac-level { grid-template-columns: 30px 34px minmax(0, 1fr); padding: var(--s2) var(--s3); }
+[data-page="machine"] .mac-cascade.compact .mac-level-ico { width: 34px; height: 34px; border-radius: 10px; }
+[data-page="machine"] .mac-cascade.compact .mac-rank { width: 26px; height: 26px; }
+[data-page="machine"] .mac-cascade.compact .mac-level:not(:last-child)::after { left: calc(var(--s3) + 13px); }
+[data-page="machine"] .mac-cascade.compact .mac-level-top { flex-wrap: nowrap; }
+[data-page="machine"] .mac-cascade.compact .mac-level-top b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); }
+
+/* ---------- Right column: workstation and secrets, stacked beside the rule ---------- */
+[data-page="machine"] .mac-side { display: grid; gap: var(--s5); align-content: start; min-width: 0; }
+@media (max-width: 1400px) { [data-page="machine"] .mac-side { grid-column: span 12; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1000px) { [data-page="machine"] .mac-side { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Target workstation ---------- */
+[data-page="machine"] .mac-target { display: grid; align-content: start; gap: var(--s3); }
+[data-page="machine"] .mac-target .card-head { margin-bottom: 0; }
+[data-page="machine"] .mac-search { position: relative; display: flex; align-items: center; }
+[data-page="machine"] .mac-search > svg { position: absolute; left: 12px; width: 17px; height: 17px; color: var(--text-faint); pointer-events: none; }
+[data-page="machine"] .mac-search-input { width: 100%; padding-left: 38px; }
+[data-page="machine"] .mac-suggest {
+  list-style: none; margin: calc(-1 * var(--s2)) 0 0; padding: 4px; display: grid; gap: 2px; max-height: 280px; overflow: auto;
+  border-radius: var(--r); background: var(--bg-elevated); border: 1px solid var(--border); box-shadow: var(--shadow-3); animation: mac-pop var(--t) var(--ease-spring);
+}
+[data-page="machine"] .mac-suggest li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: var(--s2); padding: 6px var(--s3); border-radius: var(--r-sm); cursor: pointer; animation: mac-up var(--t) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 25ms); }
+[data-page="machine"] .mac-suggest li[aria-selected="true"], [data-page="machine"] .mac-suggest li:hover { background: var(--accent-soft); color: var(--accent-text); }
+[data-page="machine"] .mac-suggest li.none { grid-template-columns: 1fr; cursor: default; color: var(--text-faint); }
+[data-page="machine"] .mac-suggest b { font-family: var(--font-mono); font-size: var(--fs-small); }
+[data-page="machine"] .mac-suggest .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-caption); color: var(--text-faint); }
+[data-page="machine"] .mac-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--off-mark); vertical-align: middle; margin-right: 6px; }
+[data-page="machine"] .mac-dot.ok { background: var(--ok-mark); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok-mark) 22%, transparent); }
+[data-page="machine"] .mac-dot.warn { background: var(--warn-mark); }
+[data-page="machine"] .mac-ws { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: var(--r-lg); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); animation: mac-pop var(--t-slow) var(--ease-spring) both; }
+[data-page="machine"] .mac-ws-ico { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: var(--on-brand); background: linear-gradient(135deg, var(--brand-3), var(--brand-1)); }
+[data-page="machine"] .mac-ws-ico svg { width: 20px; height: 20px; }
+[data-page="machine"] .mac-ws-body { display: grid; gap: 1px; min-width: 0; }
+[data-page="machine"] .mac-ws-body b { font-family: var(--font-mono); font-size: 1.05rem; }
+[data-page="machine"] .mac-ws-body .mono { font-family: var(--font-mono); font-size: var(--fs-caption); color: var(--text-muted); overflow-wrap: anywhere; }
+[data-page="machine"] .mac-ws-body .path { font-size: var(--fs-caption); color: var(--text-faint); }
+[data-page="machine"] .mac-ws-facts { display: grid; gap: var(--s2); margin: 0; }
+[data-page="machine"] .mac-ws-facts > div { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s2) 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); font-size: var(--fs-small); animation: mac-up var(--t-slow) var(--ease-out) both; }
+[data-page="machine"] .mac-ws-facts dt { color: var(--text-faint); }
+[data-page="machine"] .mac-ws-facts dd { margin: 0; font-weight: 600; text-align: right; }
+[data-page="machine"] .mac-ws-facts small { font-weight: 500; color: var(--text-faint); }
+[data-page="machine"] .mac-ws-facts .warn { color: var(--warn); }
+[data-page="machine"] .mac-note { display: flex; gap: var(--s2); align-items: flex-start; padding: var(--s3); border-radius: var(--r); font-size: var(--fs-small); color: var(--text-muted); background: color-mix(in srgb, var(--bg-sunken) 70%, transparent); }
+[data-page="machine"] .mac-note.warn { background: var(--warn-soft); color: var(--warn); }
+[data-page="machine"] .mac-note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+
+[data-page="machine"] .mac-near { display: grid; gap: var(--s2); }
+[data-page="machine"] .mac-near-k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+[data-page="machine"] .mac-near-list { display: flex; flex-wrap: wrap; gap: var(--s2); }
+[data-page="machine"] .mac-near-item { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--bg-elevated); font-family: var(--font-mono); font-size: var(--fs-small); cursor: pointer; animation: mac-pop var(--t) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 40ms); transition: transform var(--t) var(--ease-spring), border-color var(--t-fast); }
+[data-page="machine"] .mac-near-item:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+/* ---------- Trial ---------- */
+[data-page="machine"] .mac-trial-card, [data-page="machine"] .mac-secrets { display: grid; align-content: start; gap: var(--s4); }
+[data-page="machine"] .mac-trial-card .card-head, [data-page="machine"] .mac-secrets .card-head, [data-page="machine"] .mac-safe .card-head, [data-page="machine"] .mac-rule .card-head { margin-bottom: 0; }
+[data-page="machine"] .mac-rule { display: grid; gap: var(--s4); align-content: start; }
+[data-page="machine"] .mac-trial-lead { font-size: var(--fs-small); color: var(--text-muted); line-height: 1.55; }
+[data-page="machine"] .mac-trial-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
+[data-page="machine"] .mac-trial-with { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; font-size: var(--fs-small); color: var(--text-muted); }
+[data-page="machine"] .mac-trial-with svg { width: 16px; height: 16px; flex: none; color: var(--accent-text); }
+[data-page="machine"] .mac-trial { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) var(--s4); border-radius: var(--r-lg); font-size: var(--fs-small); line-height: 1.5; background: var(--off-soft); color: var(--text); animation: mac-up var(--t) var(--ease-out); }
+[data-page="machine"] .mac-trial > svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+[data-page="machine"] .mac-trial div { display: grid; gap: 2px; }
+[data-page="machine"] .mac-trial div span, [data-page="machine"] .mac-trial em { font-size: var(--fs-caption); color: var(--text-muted); font-style: normal; }
+[data-page="machine"] .mac-trial.big { padding: var(--s4) var(--s5); font-size: var(--fs-body); }
+[data-page="machine"] .mac-trial.ok { background: var(--ok-soft); } [data-page="machine"] .mac-trial.ok > svg { color: var(--ok); }
+[data-page="machine"] .mac-trial.warn { background: var(--warn-soft); } [data-page="machine"] .mac-trial.warn > svg { color: var(--warn); }
+[data-page="machine"] .mac-trial.alert { background: var(--alert-soft); } [data-page="machine"] .mac-trial.alert > svg { color: var(--alert); }
+[data-page="machine"] .mac-trial.info { background: var(--info-soft); } [data-page="machine"] .mac-trial.info > svg { color: var(--info); }
+[data-page="machine"] .mac-trial.running { align-items: center; color: var(--accent-text); background: var(--accent-soft); }
+[data-page="machine"] .mac-history { display: grid; gap: var(--s2); }
+[data-page="machine"] .mac-history h4 { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+[data-page="machine"] .mac-trials { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+[data-page="machine"] .mac-trials li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s3); align-items: start; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 55%, transparent); animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 60ms + 80ms); }
+[data-page="machine"] .mac-trials .mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--off-soft); color: var(--off); }
+[data-page="machine"] .mac-trials .mark svg { width: 14px; height: 14px; }
+[data-page="machine"] .mac-trials li.ok .mark { background: var(--ok-mark); color: #fff; }
+[data-page="machine"] .mac-trials li.warn .mark { background: var(--warn-mark); color: #fff; }
+[data-page="machine"] .mac-trials li.alert .mark { background: var(--alert-mark); color: #fff; }
+[data-page="machine"] .mac-trials li.info .mark { background: var(--info-mark); color: #fff; }
+[data-page="machine"] .mac-trials b { font-family: var(--font-mono); font-size: var(--fs-small); }
+[data-page="machine"] .mac-trials .who { font-size: var(--fs-caption); color: var(--text-faint); }
+[data-page="machine"] .mac-trials p { margin-top: 2px; font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.45; }
+[data-page="machine"] .mac-trials time { font-size: var(--fs-caption); color: var(--text-faint); white-space: nowrap; }
+[data-page="machine"] .mac-empty { display: flex; gap: var(--s3); align-items: center; padding: var(--s4); border-radius: var(--r); border: 1px dashed var(--border-strong); font-size: var(--fs-small); color: var(--text-muted); }
+[data-page="machine"] .mac-empty svg { width: 22px; height: 22px; flex: none; color: var(--accent); }
+
+/* ---------- Safeguards ---------- */
+[data-page="machine"] .mac-safe { display: grid; gap: var(--s4); }
+[data-page="machine"] .mac-safeguards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+[data-page="machine"] .mac-safeguards li { display: flex; gap: var(--s2); align-items: flex-start; font-size: var(--fs-small); color: var(--text-muted); line-height: 1.5; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 50ms + 80ms); }
+[data-page="machine"] .mac-safeguards svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--ok); }
+
+/* ---------- « Compte poste » panel (kit drawer body; root .mac-panel carries data-page="machine") ---------- */
+[data-page="machine"].mac-panel { display: grid; gap: var(--s4); }
+[data-page="machine"].mac-panel .mac-intro { font-size: var(--fs-small); color: var(--text-muted); line-height: 1.55; }
+[data-page="machine"].mac-panel .mac-now {
+  position: relative; isolation: isolate; overflow: hidden; display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+[data-page="machine"].mac-panel .mac-now::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--accent) 30%, transparent) 50%, transparent 70%); transform: translateX(-120%); }
+[data-page="machine"].mac-panel .mac-now.changed::after { animation: mac-shine 1000ms var(--ease-out); }
+[data-page="machine"].mac-panel .mac-now.paused { background: var(--warn-soft); border-color: color-mix(in srgb, var(--warn-mark) 45%, transparent); }
+[data-page="machine"].mac-panel .mac-now-ico { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--on-brand); background: var(--brand-gradient); }
+[data-page="machine"].mac-panel .mac-now-ico svg { width: 18px; height: 18px; }
+[data-page="machine"].mac-panel .mac-now-body { display: grid; gap: 2px; min-width: 0; }
+[data-page="machine"].mac-panel .mac-now-body .k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+[data-page="machine"].mac-panel .mac-now-body b { font-weight: 600; overflow-wrap: anywhere; }
+[data-page="machine"].mac-panel .mac-now-pause { display: flex; gap: 4px; align-items: flex-start; font-size: var(--fs-caption); color: var(--warn); }
+[data-page="machine"].mac-panel .mac-now-pause svg { width: 13px; height: 13px; flex: none; margin-top: 2px; }
+[data-page="machine"].mac-panel .mac-fields { display: grid; gap: 6px; }
+[data-page="machine"].mac-panel .mac-label { margin-top: var(--s2); font-size: var(--fs-small); font-weight: 600; color: var(--text-muted); }
+[data-page="machine"].mac-panel .mac-hint { font-size: var(--fs-caption); color: var(--text-faint); line-height: 1.5; }
+[data-page="machine"].mac-panel .mac-msg { min-height: 0; font-size: var(--fs-caption); font-weight: 600; }
+[data-page="machine"].mac-panel .mac-msg:empty { display: none; }
+[data-page="machine"].mac-panel .mac-msg.alert { color: var(--alert); animation: k-shake 360ms var(--ease-out); }
+[data-page="machine"].mac-panel .mac-msg.ok { color: var(--ok); }
+[data-page="machine"].mac-panel .mac-secret { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); }
+[data-page="machine"].mac-panel .mac-password { width: 100%; }
+[data-page="machine"].mac-panel .mac-peek {
+  position: absolute; left: 1px; top: 1px; bottom: 1px; right: calc(38px + var(--s2) + 1px); display: flex; align-items: center; padding: 0 var(--s3);
+  border-radius: calc(var(--r) - 1px); background: var(--bg-input); font-family: var(--font-mono); font-size: var(--fs-small); color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; user-select: none; opacity: 0; transform: translateY(2px);
+  transition: opacity var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+}
+[data-page="machine"].mac-panel .mac-peek.on { opacity: 1; transform: none; }
+[data-page="machine"].mac-panel .mac-eye[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
+[data-page="machine"].mac-panel .mac-panel-actions { display: flex; flex-wrap: wrap; gap: var(--s2); }
+[data-page="machine"].mac-panel .mac-panel-actions svg { width: 16px; height: 16px; }
+[data-page="machine"].mac-panel .mac-trial { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3); border-radius: var(--r); font-size: var(--fs-small); line-height: 1.5; background: var(--off-soft); animation: mac-up var(--t) var(--ease-out); }
+[data-page="machine"].mac-panel .mac-trial > svg { width: 17px; height: 17px; flex: none; margin-top: 1px; }
+[data-page="machine"].mac-panel .mac-trial em { display: block; font-style: normal; font-size: var(--fs-caption); color: var(--text-muted); }
+[data-page="machine"].mac-panel .mac-trial.ok { background: var(--ok-soft); } [data-page="machine"].mac-panel .mac-trial.ok > svg { color: var(--ok); }
+[data-page="machine"].mac-panel .mac-trial.warn { background: var(--warn-soft); } [data-page="machine"].mac-panel .mac-trial.warn > svg { color: var(--warn); }
+[data-page="machine"].mac-panel .mac-trial.alert { background: var(--alert-soft); } [data-page="machine"].mac-panel .mac-trial.alert > svg { color: var(--alert); }
+[data-page="machine"].mac-panel .mac-trial.info { background: var(--info-soft); } [data-page="machine"].mac-panel .mac-trial.info > svg { color: var(--info); }
+[data-page="machine"].mac-panel .mac-trial.running { align-items: center; background: var(--accent-soft); color: var(--accent-text); }
+[data-page="machine"].mac-panel .mac-rules { border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); background: color-mix(in srgb, var(--bg-sunken) 50%, transparent); }
+[data-page="machine"].mac-panel .mac-rules summary { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) var(--s3); cursor: pointer; font-size: var(--fs-small); font-weight: 600; color: var(--text-muted); }
+[data-page="machine"].mac-panel .mac-rules summary svg { width: 15px; height: 15px; color: var(--ok); }
+[data-page="machine"].mac-panel .mac-rules ul { margin: 0; padding: 0 var(--s4) var(--s3) var(--s8); display: grid; gap: 6px; font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.5; }
+
+/* ---------- High contrast ---------- */
+:root[data-theme="contrast"] [data-page="machine"] .mac-level, :root[data-theme="contrast"] [data-page="machine"] .mac-inuse,
+:root[data-theme="contrast"] [data-page="machine"] .mac-pill, :root[data-theme="contrast"] [data-page="machine"] .mac-state,
+:root[data-theme="contrast"] [data-page="machine"] .mac-trial, :root[data-theme="contrast"] [data-page="machine"] .mac-ws,
+:root[data-theme="contrast"] [data-page="machine"].mac-panel .mac-now, :root[data-theme="contrast"] [data-page="machine"].mac-panel .mac-trial { border: 1px solid currentColor; }
+:root[data-theme="contrast"] [data-page="machine"] .mac-level[data-state="active"] { border: 2px solid var(--accent); background: #000; }
+:root[data-theme="contrast"] [data-page="machine"] .mac-level[data-shadowed] { opacity: 1; }
+:root[data-theme="contrast"] [data-page="machine"] .mac-avatar .halo, :root[data-theme="contrast"] [data-page="machine"] .mac-avatar .mac-orbit { display: none; }
