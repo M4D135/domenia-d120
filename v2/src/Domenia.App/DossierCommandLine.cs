@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Text;
+using Domenia.Ad;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Inventory;
 using Domenia.Simulation;
 using Domenia.Store;
 
@@ -47,7 +49,7 @@ internal static partial class DossierCommandLine
         var log = AppTechnicalJournal.Instance;
         IDirectorySource source = decision.Mode == AppMode.Simulation
             ? new SimulatedDirectorySource(SimulationOptions.Default, TimeProvider.System)
-            : new UnavailableDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName);
+            : new AdDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName, TimeProvider.System, new WmiWorkstationProbe(TimeProvider.System, log));
 #pragma warning disable CA1031 // Any failure ends the command with a French reason and an exit code, never a crash dialog.
         try
         {
