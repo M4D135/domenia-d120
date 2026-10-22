@@ -87,6 +87,15 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     internal DirectoryUser? UpdateUser(Guid id, Func<DirectoryUser, long, DirectoryUser?> change) =>
         overlay.UpdateUser(Base().Directory, id, change);
 
+    /// <summary>
+    /// Applies one write of the simulation to the overlay, several objects at once if needed (write executors of the simulation
+    /// only): <paramref name="edit"/> returns true to keep its changes.
+    /// </summary>
+    internal bool EditDirectory(Func<SimulatedDirectoryEdit, bool> edit) => overlay.Edit(Base().Directory, edit);
+
+    /// <summary>Last observations of the workstations (presence rounds of the session included), read at once from memory.</summary>
+    internal FleetObservations CurrentObservations => Base().Observations;
+
     /// <summary>Number of presence rounds run since the start (0 = initial state only).</summary>
     public int PresenceRound
     {

@@ -111,14 +111,19 @@ function activateSheet(id) {
 /**
  * @param {{ main: HTMLElement, nav: HTMLElement, pages: Array<{id: string, label: string, icon?: string, section?: string|null}>,
  *   context: (page: any) => Object, defaultId?: string, onChange?: (page: any) => void, isBusy?: () => boolean }} opts
- * context(page) → object handed to render(main, ctx); the router adds ctx.params (frozen), ctx.route, ctx.link and
- * ctx.navigate(id, params). isBusy() → true while a bridge call of the page is in flight (readiness signal).
+ * context(page) → object handed to render(main, ctx); the router adds ctx.params (frozen), ctx.route, ctx.link,
+ * ctx.navigate(id, params) and ctx.guardLeave(fn). isBusy() → true while a bridge call of the page is in flight (readiness
+ * signal). guardLeave(fn): fn({ hash, same }) → Promise<boolean> is asked before the screen is left or rendered again (unsaved
+ * input, Domenia 1 Test-DomeniaDraftNavigation); false keeps the screen and puts its address back. One guard per screen,
+ * removed when the screen changes.
  */
 export function createRouter({ main, nav, pages, context, defaultId = 'accueil', onChange, isBusy = () => false }) {
   let cleanup = null;
   let token = 0;
   let currentId = null;
   let currentParams = {};
+  let leaveGuard = null;
+  let guarding = false;
 
   const runCleanup = () => {
     const fn = cleanup;
@@ -175,8 +180,14 @@ export function createRouter({ main, nav, pages, context, defaultId = 'accueil',
     activateSheet(page.id);
     let out;
     const route = Object.freeze({ id: page.id, params, hash: link(page.id, params) });
+    leaveGuard = null;
+    const guardLeave = (fn) => {
+      const mine = token;
+      leaveGuard = typeof fn === 'function' ? fn : null;
+      return () => { if (mine === token && leaveGuard === fn) leaveGuard = null; };
+    };
     try {
-      out = mod.render(main, { ...context(page), params, route, link, navigate });
+      out = mod.render(main, { ...context(page), params, route, link, navigate, guardLeave });
     } catch (err) {
       console.error(err);
       errorPage(err).render(main);
@@ -197,7 +208,30 @@ export function createRouter({ main, nav, pages, context, defaultId = 'accueil',
     }
   }
 
-  async function render() {
+  async function render(event) {
+    // Unsaved input of the screen shown: its guard is asked first; a refusal keeps the screen and its address.
+    const previous = event instanceof HashChangeEvent ? new URL(event.oldURL).hash : location.hash;
+    if (guarding) {
+      if (location.hash !== previous) history.replaceState(null, '', previous);
+      return;
+    }
+    if (leaveGuard && currentId !== null) {
+      const fn = leaveGuard;
+      guarding = true;
+      let ok = true;
+      try {
+        ok = await fn({ hash: location.hash, same: location.hash === previous });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        guarding = false;
+      }
+      if (!ok) {
+        if (location.hash !== previous) history.replaceState(null, '', previous);
+        return;
+      }
+      if (leaveGuard === fn) leaveGuard = null;
+    }
     delete docRoot.dataset.ready; // the previous screen is no longer the one being shown
     const { id, params } = parseHash();
     const listed = pages.find((p) => p.id === id);

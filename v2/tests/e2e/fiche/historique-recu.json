@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : historique, puis « Voir le reçu »",
+  "description": "Déverrouille Camille Bernard depuis le bandeau, ouvre l’onglet Historique : un clic dans le panneau garde le filtre « Tout », et « Voir le reçu » ouvre le reçu de l’écriture (défaut du tour 2 : data-kind de la page pris pour un filtre).",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&tab=compte",
+  "steps": [
+    { "do": "wait", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "timeoutMs": 20000 },
+    { "do": "click", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "title": "Déverrouiller depuis le bandeau" },
+    { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "click", "text": "Historique", "within": ".fi-body-host [role=tablist]", "title": "Onglet Historique" },
+    { "do": "wait", "selector": "[data-receipt]", "within": ".fi-history", "timeoutMs": 20000, "title": "L’écriture figure avec son reçu" },
+    { "do": "click", "selector": ".fi-history .fi-note", "title": "Clic hors des filtres" },
+    { "do": "expect", "selector": ".fi-history-kinds [data-kind=\"all\"]", "attribute": "aria-pressed", "equals": "true", "title": "Le filtre reste « Tout »" },
+    { "do": "click", "selector": "[data-receipt]", "within": ".fi-history", "nth": 0, "title": "Voir le reçu" },
+    { "do": "wait", "contains": "Reçu d’écriture", "within": "[role=dialog]", "timeoutMs": 20000, "title": "Le reçu s’ouvre" },
+    { "do": "shot", "name": "historique-recu", "selector": "[role=dialog]" },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : déplacer un compte puis relire le nouveau DN",
+  "description": "Déplace Camille Bernard vers le conteneur Users par le sélecteur de destination, confirme le plan, puis vérifie que la fiche suit l’objet à son nouveau DN, relu avec le même GUID (FIC-018) : ni « Relecture impossible », ni état « Objet remplacé ».",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&open=move&run=1",
+  "steps": [
+    { "do": "wait", "selector": ".fi-oupick .k-ti[data-id=\"CN=Users,DC=example,DC=local\"]", "timeoutMs": 20000, "title": "Le sélecteur de destination liste les conteneurs par défaut" },
+    { "do": "click", "selector": ".fi-oupick .k-ti[data-id=\"CN=Users,DC=example,DC=local\"]", "title": "Destination : Users" },
+    { "do": "click", "text": "Préparer le déplacement", "title": "Plan du déplacement" },
+    { "do": "wait", "text": "Confirmer…", "within": "[role=dialog]", "timeoutMs": 20000 },
+    { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "wait", "contains": "Users", "within": ".fi-crumbs", "timeoutMs": 20000, "title": "Le fil du DN montre le nouvel emplacement" },
+    { "do": "expect", "contains": "Camille Bernard", "within": ".fi-hero" },
+    { "do": "expect", "selector": ".fi-replaced", "absent": true, "title": "Même GUID : pas d’état « Objet remplacé »" },
+    { "do": "expect", "contains": "Relecture impossible", "absent": true, "title": "L’ancien DN n’est jamais relu" },
+    { "do": "shot", "name": "deplace", "selector": ".fi-hero" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
