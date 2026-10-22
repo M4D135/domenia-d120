@@ -1,0 +1,88 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : sujet, graphe, liste et chronologie",
+  "description": "Ouvre les relations de j.martin depuis l’adresse, vérifie la carte d’identité, le poste principal et le graphe animé, puis passe en liste et en chronologie. Aucune lecture réseau : tout vient du magasin local des associations.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?sujet=j.martin",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": ".rel-id h2",
+      "title": "La carte d’identité du sujet est affichée"
+    },
+    {
+      "do": "expect",
+      "contains": "Julien Martin",
+      "within": ".rel-id",
+      "title": "Le sujet est Julien Martin"
+    },
+    {
+      "do": "expect",
+      "contains": "PC-PAR-0012",
+      "within": ".rel-id",
+      "title": "Le poste principal est l’affectation déclarée PC-PAR-0012"
+    },
+    {
+      "do": "expect",
+      "selector": ".rel-graph-svg",
+      "within": ".rel-rel",
+      "title": "Le graphe des relations est dessiné"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-view=\"graphe\"]",
+      "within": ".rel-views",
+      "attribute": "aria-pressed",
+      "equals": "true",
+      "title": "La vue Graphe est active"
+    },
+    {
+      "do": "shot",
+      "name": "sujet-graphe",
+      "selector": ".rel-subject"
+    },
+    {
+      "do": "click",
+      "selector": "[data-view=\"liste\"]",
+      "within": ".rel-views",
+      "title": "Passer en liste"
+    },
+    {
+      "do": "wait",
+      "contains": "PT-PAR-0004",
+      "within": "[data-view-host]",
+      "title": "La liste montre aussi le portable PT-PAR-0004"
+    },
+    {
+      "do": "click",
+      "selector": "[data-view=\"chronologie\"]",
+      "within": ".rel-views",
+      "title": "Passer en chronologie"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-view=\"chronologie\"]",
+      "within": ".rel-views",
+      "attribute": "aria-pressed",
+      "equals": "true",
+      "title": "La vue Chronologie est active"
+    },
+    {
+      "do": "expect",
+      "contains": "Qualifications expliquées",
+      "within": ".rel-why",
+      "title": "Les badges sont expliqués par leur règle"
+    },
+    {
+      "do": "journal",
+      "contains": "Mode E2E actif"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

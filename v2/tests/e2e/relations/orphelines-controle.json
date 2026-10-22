@@ -1,0 +1,63 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : contrôler les associations orphelines",
+  "description": "Ouvre le panneau des orphelines depuis l’adresse, lance le contrôle (lecture réseau servie par la simulation), vérifie que les sources protégées ne sont jamais proposées et prépare le plan de retrait sans le confirmer.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?panneau=orphelines",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"check\"]",
+      "title": "Le panneau des orphelines est ouvert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"check\"]",
+      "title": "Contrôler dans l’annuaire"
+    },
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"remove\"]",
+      "timeoutMs": 20000,
+      "title": "Les orphelines sont listées et sélectionnées"
+    },
+    {
+      "do": "expect",
+      "contains": "jamais proposée",
+      "title": "Les associations protégées sont signalées et écartées"
+    },
+    {
+      "do": "shot",
+      "name": "orphelines",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"remove\"]",
+      "title": "Préparer le plan de retrait"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan est affiché, non confirmé"
+    },
+    {
+      "do": "click",
+      "text": "Annuler",
+      "title": "Abandonner sans écrire"
+    },
+    {
+      "do": "expect",
+      "selector": ".wf-target",
+      "absent": true,
+      "title": "Le plan est abandonné, aucune écriture exécutée"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

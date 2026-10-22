@@ -1,0 +1,50 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : comparer les groupes de deux utilisateurs",
+  "description": "Compare j.martin et son compte d’administration adm-j.martin depuis l’adresse : diagramme, attributs d’organisation, trois colonnes de groupes, alerte de privilège et texte du ticket. Lecture seule : rien n’est appliqué d’un compte à l’autre.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?onglet=comparer&a=j.martin&b=adm-j.martin",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": ".rel-cmp-venn",
+      "title": "Le diagramme de comparaison est dessiné"
+    },
+    {
+      "do": "expect",
+      "contains": "Communs",
+      "within": ".rel-cmp-cols",
+      "title": "La colonne des groupes communs est présente"
+    },
+    {
+      "do": "expect",
+      "contains": "Seulement chez",
+      "within": ".rel-cmp-cols",
+      "title": "Les groupes propres à chaque compte sont séparés"
+    },
+    {
+      "do": "expect",
+      "contains": "Service",
+      "within": ".rel-cmp-out",
+      "title": "Les attributs d’organisation sont comparés"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-ticket]",
+      "within": ".rel-cmp-out",
+      "title": "« Copier pour le ticket » est proposé"
+    },
+    {
+      "do": "shot",
+      "name": "comparaison",
+      "selector": ".rel-cmp-out"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

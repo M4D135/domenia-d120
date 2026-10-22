@@ -101,6 +101,30 @@ internal static class PlatformTests
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
         ("directory.ou.children", OperationClass.LocalRead),
         ("directory.ou.search", OperationClass.LocalRead),
+        ("relations.associate.plan", OperationClass.LocalRead),
+        ("relations.compare", OperationClass.LocalRead),
+        ("relations.computer.read", OperationClass.NetworkRead),
+        ("relations.detect.collect", OperationClass.NetworkRead),
+        ("relations.detect.run", OperationClass.NetworkRead),
+        ("relations.detect.stop", OperationClass.Local),
+        ("relations.harvest.estimate", OperationClass.LocalRead),
+        ("relations.harvest.run", OperationClass.NetworkRead),
+        ("relations.import.plan", OperationClass.LocalRead),
+        ("relations.import.preview", OperationClass.LocalRead),
+        ("relations.import.stage", OperationClass.Local),
+        ("relations.import.undo.plan", OperationClass.LocalRead),
+        ("relations.journal", OperationClass.LocalRead),
+        ("relations.list", OperationClass.LocalRead),
+        ("relations.observations.plan", OperationClass.LocalRead),
+        ("relations.orphans.check", OperationClass.NetworkRead),
+        ("relations.orphans.plan", OperationClass.LocalRead),
+        ("relations.overview", OperationClass.LocalRead),
+        ("relations.remove.plan", OperationClass.LocalRead),
+        ("relations.restore.plan", OperationClass.LocalRead),
+        ("relations.subject", OperationClass.LocalRead),
+        ("relations.subjects.search", OperationClass.LocalRead),
+        ("relations.sweep.plan", OperationClass.LocalRead),
+        ("relations.targets.search", OperationClass.NetworkRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("write.execute", OperationClass.Write),
@@ -125,7 +149,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "RelationsOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

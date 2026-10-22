@@ -1,0 +1,78 @@
+{
+  "fait": [
+    "REL-001",
+    "REL-002",
+    "REL-003",
+    "REL-004",
+    "REL-005",
+    "REL-006",
+    "REL-008",
+    "REL-011",
+    "REL-012",
+    "REL-014",
+    "REL-015",
+    "REL-016",
+    "REL-017",
+    "REL-018",
+    "REL-019",
+    "REL-020",
+    "REL-022",
+    "REL-023",
+    "REL-025",
+    "REL-026",
+    "REL-027",
+    "REL-028",
+    "REL-030",
+    "REL-032",
+    "REL-033",
+    "REL-034",
+    "REL-036",
+    "REL-037",
+    "REL-038",
+    "REL-039",
+    "REL-041",
+    "REL-042",
+    "REL-043",
+    "REL-045",
+    "REL-046",
+    "REL-048",
+    "REL-050",
+    "REL-051",
+    "REL-052",
+    "FIC-006"
+  ],
+  "ameliore": [
+    "REL-007",
+    "REL-009",
+    "REL-010",
+    "REL-021",
+    "REL-024",
+    "REL-035",
+    "REL-040",
+    "REL-044",
+    "REL-049",
+    "FIC-005"
+  ],
+  "partiel": [
+    {
+      "id": "REL-013",
+      "reste": "Lecture et migration de la table SQLite user_machine_links de Domenia 1 (mode annuaire, contrat au § 6 de docs/ops/relations.md) ; la simulation lit son magasin en mémoire au premier usage."
+    },
+    {
+      "id": "REL-029",
+      "reste": "Demande d’un autre compte pour la ressource refusée : l’écran Accès n’existe pas encore dans Domenia 2. Les refus sont comptés et dits, jamais rejoués."
+    },
+    {
+      "id": "REL-031",
+      "reste": "« Oublier les relevés » après sauvegarde vérifiée et ping par lots avant session (mode annuaire) ; file de priorité, report du non réauthentifié et budget faits."
+    },
+    {
+      "id": "REL-047",
+      "reste": "Réinitialisation pendant l’affichage sur un changement de session : le pont ne publie pas encore cet événement. L’état de la page et du moteur suit la source de la session, relu à chaque ouverture."
+    },
+    {
+      "id": "FIC-004",
+      "reste": "Attribut company (Société) : absent du modèle d’annuaire de Domenia 2 ; service, fonction, bureau, responsable et groupes sont comparés."
+    }
+  ]
+}

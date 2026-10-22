@@ -1,0 +1,102 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : associer un poste à l’utilisateur",
+  "description": "Depuis le sujet j.martin, ouvre « Ajouter une association », cherche un poste de Lille, le choisit, prépare le plan (relecture de la cible), confirme l’écriture simulée et vérifie le reçu. Active Directory n’est jamais modifié : l’association est une donnée locale.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?sujet=j.martin",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": ".rel-id h2"
+    },
+    {
+      "do": "click",
+      "selector": "[data-act=\"add\"]",
+      "within": ".rel-id",
+      "title": "Ouvrir « Ajouter une association »"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-add-modes",
+      "title": "Le panneau d’ajout est ouvert"
+    },
+    {
+      "do": "type",
+      "selector": ".rel-panel form.rel-search input",
+      "text": "PC-LIL",
+      "title": "Saisir le début du nom du poste"
+    },
+    {
+      "do": "press",
+      "key": "Enter",
+      "title": "Lancer la recherche"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-result[data-dn]",
+      "title": "Les postes trouvés sont listés"
+    },
+    {
+      "do": "click",
+      "selector": ".rel-result[data-dn]",
+      "nth": 0,
+      "title": "Choisir le premier poste"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-rf=\"associate\"]",
+      "property": "disabled",
+      "equals": false,
+      "title": "« Associer ce poste » est disponible"
+    },
+    {
+      "do": "shot",
+      "name": "ajout-choix",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"associate\"]",
+      "title": "Préparer le plan d’association"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan relu est affiché"
+    },
+    {
+      "do": "expect",
+      "contains": "Simulation",
+      "within": ".wf-target",
+      "title": "Le plan est marqué simulation"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…",
+      "title": "Demander la confirmation"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer l’écriture simulée"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-receipt-title",
+      "timeoutMs": 20000,
+      "title": "Le reçu est affiché"
+    },
+    {
+      "do": "shot",
+      "name": "ajout-recu",
+      "selector": ".wf-receipt"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
