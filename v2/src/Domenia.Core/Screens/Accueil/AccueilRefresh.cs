@@ -478,13 +478,14 @@ public sealed partial class AccueilService
             {
                 outcome = "partial";
             }
-            // Collection runs: only the families really started (a refusal or a stop before any network action records nothing).
+            // Collection runs: only the families really started (a refusal or a stop before any network action records nothing),
+            // each with the depth really measured: a run on the direct children never dates the descendants (ACC-023).
             var finished = Now;
             var recorded = new List<CollectionRun>();
             if (directoryStarted)
             {
                 var status = outcome == "cancelled" && directoryStatus is null ? CollectionStatus.Cancelled : directoryStatus ?? CollectionStatus.Error;
-                recorded.Add(CollectionClocks.Create(CollectionFamily.Directory, domainDn, plan.Scope.Dn, true, status, state.StartedAt, finished,
+                recorded.Add(CollectionClocks.Create(CollectionFamily.Directory, domainDn, plan.Scope.Dn, plan.Scope.Subtree, status, state.StartedAt, finished,
                     status == CollectionStatus.Cancelled ? "Lecture AD arrêtée avant son enregistrement." : directoryError, null, directoryCount, null, null, session.Controller?.DnsName, finished));
             }
             if (collectionApproved && collectionStarted is DateTimeOffset collectStart)
@@ -495,7 +496,7 @@ public sealed partial class AccueilService
                 if (presenceStarted)
                 {
                     var status = presenceDone ? (failed > 0 ? CollectionStatus.Partial : CollectionStatus.Success) : state.Stopping ? CollectionStatus.Cancelled : CollectionStatus.Error;
-                    recorded.Add(CollectionClocks.Create(CollectionFamily.Presence, domainDn, plan.Scope.Dn, true, status, collectStart, finished,
+                    recorded.Add(CollectionClocks.Create(CollectionFamily.Presence, domainDn, plan.Scope.Dn, plan.Scope.Subtree, status, collectStart, finished,
                         status == CollectionStatus.Partial ? FleetBoardCalculator.Plural(failed, "poste avec une lecture non confirmée", "postes avec une lecture non confirmée") + " ; " + FrenchText.Integer(done) + "/" + FrenchText.Integer(targets) + " postes traités."
                         : status == CollectionStatus.Cancelled ? "Relevé arrêté." : null,
                         targets, presenceDone ? done : null, presenceDone ? done - failed : null, presenceDone ? failed : null, null, finished));
@@ -503,7 +504,7 @@ public sealed partial class AccueilService
                 if (inventoryStarted)
                 {
                     var status = inventoryDone ? CollectionStatus.Success : state.Stopping ? CollectionStatus.Cancelled : CollectionStatus.Error;
-                    recorded.Add(CollectionClocks.Create(CollectionFamily.Inventory, domainDn, plan.Scope.Dn, true, status, collectStart, finished,
+                    recorded.Add(CollectionClocks.Create(CollectionFamily.Inventory, domainDn, plan.Scope.Dn, plan.Scope.Subtree, status, collectStart, finished,
                         status == CollectionStatus.Cancelled ? "Relevé arrêté." : null, inventoryOnline, inventoryDone ? inventoryOnline : null, inventoryDone ? inventoryOnline : null, inventoryDone ? 0 : null, null, finished));
                 }
             }

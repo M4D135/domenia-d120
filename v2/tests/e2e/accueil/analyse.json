@@ -1,0 +1,87 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : analyse du parc (instantané, comparaison, tableau croisé)",
+  "description": "Prend un instantané daté de la vue, vérifie que le tableau affiché reste valide (ses chiffres ouvrent encore leurs postes), compare l’instantané à la vue actuelle, puis ouvre un tableau croisé.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil?outil=analyse",
+  "steps": [
+    {
+      "do": "expect",
+      "selector": ".acc-analysis .k-tabs",
+      "title": "L’analyse s’ouvre"
+    },
+    {
+      "do": "click",
+      "text": "Instantané",
+      "within": ".acc-analysis",
+      "title": "Onglet Instantané"
+    },
+    {
+      "do": "click",
+      "text": "Prendre l’instantané",
+      "within": ".acc-analysis",
+      "title": "Prendre un instantané daté"
+    },
+    {
+      "do": "expect",
+      "contains": "il apparaît dans « Comparer ».",
+      "within": ".toasts"
+    },
+    {
+      "do": "click",
+      "text": "Comparer",
+      "within": ".acc-analysis",
+      "title": "Onglet Comparer"
+    },
+    {
+      "do": "click",
+      "text": "Comparer",
+      "selector": "button[type=\"submit\"]",
+      "within": ".acc-analysis",
+      "title": "Comparer l’instantané à la vue actuelle"
+    },
+    {
+      "do": "expect",
+      "selector": ".acc-analysis .an-result *",
+      "title": "Le résultat de la comparaison est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Tableaux croisés",
+      "within": ".acc-analysis",
+      "title": "Onglet Tableaux croisés"
+    },
+    {
+      "do": "expect",
+      "selector": ".acc-analysis .an-matrix",
+      "title": "La matrice est affichée"
+    },
+    {
+      "do": "shot",
+      "name": "analyse",
+      "selector": ".k-drw"
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "click",
+      "selector": ".fw-kpi",
+      "within": "[data-entry=\"fleet.machines\"]",
+      "title": "Un chiffre du tableau ouvre encore ses postes après l’instantané"
+    },
+    {
+      "do": "expect",
+      "selector": ".acc-targets .k-grid",
+      "title": "Pas de « calcul remplacé »"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

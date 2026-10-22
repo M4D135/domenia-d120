@@ -36,7 +36,7 @@ public sealed class AccueilOperations : IOperationModule
         return
         [
             // ---------------------------------------------------------------- board, exact sets, layout, catalogs
-            new OperationDefinition("accueil.board", OperationClass.LocalRead, async (args, _, ct) =>
+            new OperationDefinition("accueil.board", OperationClass.LocalWrite, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 return await service.BoardAsync(ct).ConfigureAwait(false);
@@ -244,7 +244,7 @@ public sealed class AccueilOperations : IOperationModule
             }, "Retire une OU favorite."),
 
             // ---------------------------------------------------------------- first steps, help, last view
-            new OperationDefinition("accueil.firstSteps", OperationClass.LocalRead, async (args, _, ct) =>
+            new OperationDefinition("accueil.firstSteps", OperationClass.LocalWrite, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 return await service.FirstStepsAsync(ct).ConfigureAwait(false);

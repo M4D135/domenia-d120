@@ -232,6 +232,18 @@ function healthRing(h, size = '') {
   });
 }
 
+/**
+ * Badge of the score (ACC-055, ACC-052; Domenia 1 Get-DomeniaBoardHealth): « Base AD incomplète », rules suspended for now and
+ * the coverage line (« X évalués / Y comptes activés ; Z incomplets »), split on « · » into pills under the verdict: warn for
+ * an incomplete base and the suspensions, off for the coverage.
+ */
+export function healthBadges(h) {
+  const parts = String(h?.badge ?? '').split(' · ').map((x) => x.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  const toneOf = (t) => (/incompl[eè]te|suspendue/i.test(t) && !/évalués/.test(t) ? 'warn' : 'off');
+  return `<div class="fw-badges" role="list" aria-label="Limites de l’évaluation">${parts.map((t) => `<span class="k-pill sm ${toneOf(t)}" role="listitem">${esc(t)}</span>`).join('')}</div>`;
+}
+
 function healthSummary(entry, board, item) {
   const h = board?.health;
   if (!h) return empty(entry);
@@ -244,7 +256,7 @@ function healthSummary(entry, board, item) {
   return `<div class="fw-health">
       <div class="fw-health-main">
         <div class="fw-health-top">${healthRing(h, 'lg')}
-          <div class="fw-health-read"><p class="verdict" data-tone="${esc(tone(h.tone) || 'off')}">${esc(h.verdict)}</p><p class="detail">${esc(h.detail)}</p></div></div>
+          <div class="fw-health-read"><p class="verdict" data-tone="${esc(tone(h.tone) || 'off')}">${esc(h.verdict)}</p>${healthBadges(h)}<p class="detail">${esc(h.detail)}</p></div></div>
         <div class="fw-stats">${stat(h.healthyKey, h.healthy, 'Sans problème', 'ok')}${stat(h.problemsKey, h.problems, 'Avec problème', 'alert')}${stat(h.unknownKey, h.unassessed, 'Non évalués', 'off')}</div>
       </div>
       <div class="fw-health-points"><p class="fw-points-title">${esc(h.pointsTitle)}${h.masked ? ` <span class="k-pill sm off" data-tip="Postes dont un contrôle est suspendu ou désactivé">${plural(h.masked, 'masqué', 'masqués')}</span>` : ''}</p>${points(entry, board, limit)}</div>
@@ -265,14 +277,14 @@ export function widgetBody(entry, item, board, uid) {
     return `<div class="fw-pending">${kpi(entry, { big: false })}</div>`;
   }
   switch (v) {
-    case 'Kpi': return entry.kind === 'health' ? `<div class="fw-health-only">${healthRing(board.health, 'lg')}</div>` : kpi(entry, { board });
+    case 'Kpi': return entry.kind === 'health' ? `<div class="fw-health-only">${healthRing(board.health, 'lg')}${healthBadges(board.health)}</div>` : kpi(entry, { board });
     case 'Text': return textList(entry);
     case 'Pie': return pie(entry);
     case 'Bar': return hbars(entry);
     case 'Column': return entry.kind === 'timeline' ? columns({ ...entry, items: (entry.points ?? []).slice(-12).map((p) => ({ label: p.label, value: p.value })) }) : columns(entry);
     case 'Line': return line(entry, uid);
     case 'List': return points(entry, board, item?.size === 'S' ? 4 : item?.size === 'M' ? 6 : 12);
-    case 'Health': return `<div class="fw-health-only">${healthRing(board.health, 'lg')}<p class="verdict" data-tone="${esc(tone(board.health?.tone) || 'off')}">${esc(board.health?.verdict ?? '')}</p></div>`;
+    case 'Health': return `<div class="fw-health-only">${healthRing(board.health, 'lg')}<p class="verdict" data-tone="${esc(tone(board.health?.tone) || 'off')}">${esc(board.health?.verdict ?? '')}</p>${healthBadges(board.health)}</div>`;
     case 'HealthSummary': return healthSummary(entry, board, item);
     default: return kpi(entry, { board });
   }

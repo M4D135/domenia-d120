@@ -41,6 +41,17 @@ const KPI_TEXT = {
   passwordsExpiring: { title: 'Mots de passe', sub: 'Expiration prochaine' },
   diskAlerts: { title: 'Alertes disque', sub: 'Espace libre sur C:' },
 };
+// Top widgets that have a counterpart in the fleet board (design review, tour 2): the indicator measures on demand, the board
+// shows the same population computed from the local base with its exact workstations. A link joins them.
+const RELATED = {
+  workstationsOnline: { key: 'fleet.presence', label: 'Présence détaillée dans le tableau du parc' },
+  diskAlerts: { key: 'fleet.lowdisk', label: 'Postes concernés dans le tableau du parc' },
+  watchlist: { key: 'fleet.health', label: 'Santé et points d’attention dans le tableau du parc' },
+  osDistribution: { key: 'fleet.versions', label: 'Versions de Windows dans le tableau du parc' },
+};
+const relatedButton = (id) => (RELATED[id]
+  ? `<button class="btn ghost icon xs kpi-related" type="button" data-related="${esc(RELATED[id].key)}" aria-label="${esc(RELATED[id].label)}" data-tip="${esc(RELATED[id].label)}">${glyph('layers')}</button>`
+  : '');
 const PANELS = [
   { id: 'session', label: 'Session' },
   { id: 'application', label: 'Application' },
@@ -88,13 +99,13 @@ function skeletonPage() {
       <span class="acc-nav-scope" aria-hidden="true"></span>
       <div class="acc-nav-track">${SECTIONS.map((x, n) => `<button type="button" class="acc-nav-btn" data-nav="${x.id}" data-j="${n}">${glyph(x.icon)}<span>${esc(x.label)}</span></button>`).join('')}<span class="ink acc-nav-ink" aria-hidden="true"></span></div>
       <span class="acc-nav-focus" hidden></span></div></nav>
-    ${secHead('kpis', 'Indicateurs clés', `Comptes${NBSP}: tout le domaine · postes${NBSP}: OU de travail`)}
+    ${secHead('kpis', 'Indicateurs clés', `Mesurés à la demande · comptes${NBSP}: tout le domaine · postes${NBSP}: OU de travail`)}
     <div class="kpi-band" data-in-sec="kpis">${KPI_IDS.map(kpi).join('')}</div>
     ${secHead('fleet', 'Activité de l’OU de travail', 'Calculé localement, sans lecture réseau')}
     ${chart('workstationActivity', 'span-5', sk('sk-block w100'), 'fleet')}
     ${chart('osDistribution', 'span-4', sk('sk-ring'), 'fleet')}
     ${chart('measureFreshness', 'span-3', sk('sk-ring'), 'fleet')}
-    ${secHead('board', 'Tableau du parc', 'Chaque chiffre ouvre ses postes exacts · disposition personnalisable')}
+    ${secHead('board', 'Tableau du parc', 'OU de travail, recalculé depuis la base locale après chaque mesure · chaque chiffre ouvre ses postes exacts')}
     <section class="span-12 board" data-slot="board" data-in-sec="board" aria-labelledby="acc-sec-board"></section>
     ${secHead('follow', 'Suivi', 'Postes à surveiller et journal des opérations')}
     ${chart('watchlist', 'span-7', skStack('sk-line w85', 'sk-line w70', 'sk-line w85', 'sk-line w55'), 'follow')}
@@ -215,7 +226,7 @@ function kpiCard(w) {
   const meta = whenText(w);
   const when = meta ? esc(meta) : rel(w.measuredAt);
   const tip = t.title !== w.title ? ` data-tip="${esc(w.title)}"` : '';
-  const head = `<div class="kpi-top"><span class="card-icon">${icon(WIDGET_ICONS[w.id])}</span>${scopeTag(w)}${staleChip(w)}${w.enabled ? refreshButton() : ''}</div>
+  const head = `<div class="kpi-top"><span class="card-icon">${icon(WIDGET_ICONS[w.id])}</span>${scopeTag(w)}${staleChip(w)}${relatedButton(w.id)}${w.enabled ? refreshButton() : ''}</div>
     <div class="kpi-titles"><h3 class="kpi-title"${tip}>${esc(t.title)}</h3>${t.sub ? `<p class="kpi-sub">${esc(t.sub)}</p>` : ''}</div>`;
   let body;
   if (!d) {
@@ -247,7 +258,7 @@ function cardHead(w, extra = '') {
   const sub = w.data ? tipSpan('head-sub', w.detail, where) : `<span class="head-sub" data-tip="${esc(w.detail)}">${where}</span>`;
   return `<div class="card-head"><span class="card-icon">${icon(WIDGET_ICONS[w.id])}</span>
     <div class="head-titles"><h3>${esc(w.title)}</h3>${sub}</div>
-    <span class="meta">${extra}${staleChip(w)}${w.enabled ? refreshButton() : ''}</span></div>`;
+    <span class="meta">${extra}${staleChip(w)}${relatedButton(w.id)}${w.enabled ? refreshButton() : ''}</span></div>`;
 }
 
 function cardFoot(w, action = '') {
@@ -399,13 +410,26 @@ function leadText(s) {
   return `${where}, comptes de tout le domaine ${dns}. ${safety}`;
 }
 
-function heroChips(s, lastReadAt, sim) {
+function heroChips(s, lastReadAt, sim, dir = null) {
   const chips = [];
   if (s.account?.login) chips.push(`<span class="chip" data-tip="${esc(s.account.displayName ? `Compte utilisé pour l’annuaire · ${s.account.displayName}` : 'Compte utilisé pour l’annuaire')}">${icon('user')}<span class="mono">${esc(s.account.login)}</span></span>`);
   if (s.domain?.dnsName) chips.push(`<span class="chip" data-tip="${esc(s.domain.netbiosName ? `Domaine · NetBIOS ${s.domain.netbiosName}` : 'Domaine')}">${glyph('domain')}${esc(s.domain.dnsName)}</span>`);
   if (s.controller) chips.push(`<span class="chip" data-tip="Contrôleur de domaine">${icon('server')}${esc(s.controller.dnsName)}${s.controller.site ? ` · ${esc(s.controller.site)}` : ''}</span>`);
-  // Freshness of the AD read (ACC-020): green, amber past half a day, red past a day (kit freshness indicator, its tip dates it).
-  if (lastReadAt) {
+  // Freshness of the AD read of the branch (ACC-020): the last complete read covering the working OU, given by accueil.board
+  // (board.directory), never the global date of the base; a partial attempt or a date in the future is said, and a partial
+  // read never replaces the date. Green, amber past half a day, red past a day (kit freshness indicator, its tip dates it).
+  if (dir && dir.status) {
+    const tip = `${dir.text}${dir.sourceDn ? ` · lu depuis ${dir.sourceDn}` : ''} · le nombre de postes compte aussi les comptes désactivés.`;
+    const label = sim ? 'Annuaire fictif lu' : 'Branche lue';
+    if (dir.clockInvalid) {
+      chips.push(`<span class="chip alert" data-tip="${esc(tip)}">${icon('alert')}Date de lecture dans le futur${NBSP}: horloge à vérifier</span>`);
+    }
+    if (dir.at) {
+      chips.push(`<span class="chip ad-fresh${dir.partial ? ' warn' : ''}" data-tip="${esc(tip)}">${freshness(dir.at, { staleAfter: AD_STALE_MS, label, source: sim ? 'lecture fictive, aucune base locale ouverte' : 'dernière lecture complète de la branche' })}${dir.partial ? `<span class="chip-note">${NBSP}· tentative partielle</span>` : ''}</span>`);
+    } else {
+      chips.push(`<span class="chip warn" data-tip="${esc(tip)}">${icon('database')}${dir.partial ? `Lecture AD partielle${NBSP}: aucune lecture complète de la branche` : `Aucune lecture AD complète de la branche`}</span>`);
+    }
+  } else if (lastReadAt) {
     chips.push(`<span class="chip ad-fresh">${freshness(lastReadAt, { staleAfter: AD_STALE_MS, label: sim ? 'Annuaire fictif lu' : 'Annuaire lu', source: sim ? 'lecture fictive, aucune base locale ouverte' : 'lecture complète enregistrée dans la base locale' })}</span>`);
   } else {
     chips.push(`<span class="chip warn">${icon('database')}${sim ? 'Annuaire fictif non lu' : `Base locale vide${NBSP}: aucune lecture de l’annuaire`}</span>`);
@@ -447,13 +471,13 @@ function heroTitle(s) {
 
 // One row of actions: the only primary of the screen (« Tout actualiser » and its menu), the journey (its third step opens the
 // query workshop) and the help « ? »; the status strip of a refresh sits under it. « Choisir l’OU » lives in the OU card.
-function heroMarkup(s, lastReadAt, sim, helpSeen) {
+function heroMarkup(s, lastReadAt, sim, helpSeen, dir = null) {
   return `<div class="hero-grid">
       <div class="hero-main">
         <div class="eyebrow">${icon('sparkles')}<span>Tableau de bord</span><span class="eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
         <h1 class="gradient-text">${esc(heroTitle(s))}</h1>
         <p class="lead">${esc(leadText(s))}</p>
-        <div class="chips">${heroChips(s, lastReadAt, sim)}</div>
+        <div class="chips">${heroChips(s, lastReadAt, sim, dir)}</div>
         <div class="hero-row">
           <div class="hero-actions" data-slot="refresh-actions"></div>
           <span class="spacer"></span>
@@ -590,7 +614,7 @@ export function render(main, ctx) {
   const st = {
     session: null, summary: null, app: null, widgets: {}, alive: true, steps: null, stepsHidden: false, helpSeen: true,
     favorites: [], lastView: null, refreshing: false, stepsRecalled: false, boardState: { state: 'idle' }, details: null,
-    focus: null,
+    focus: null, directory: null,
   };
   const pending = new Map();
   const busy = new Map(); // widget id → measurements in flight
@@ -603,6 +627,24 @@ export function render(main, ctx) {
   let board = null;
   let refresh = null;
   let liveTimer = 0;
+  let boardTimer = 0;
+
+  // A measure of the top widgets (ping, inventory, directory) changes the local state the fleet board is computed from: the
+  // board is computed again once, 1 s after the last measure, so both never show contradictory figures (ACC-033). Local
+  // calculation only, no network; a running OU refresh already recomputes it every 15 s.
+  let measureSyncs = 0;
+  function scheduleBoardReload() {
+    clearTimeout(boardTimer);
+    boardTimer = setTimeout(() => {
+      boardTimer = 0;
+      if (!st.alive || st.refreshing || !board) return;
+      // The number of recomputations after a measure is kept on the board (data-measure-sync) for the E2E scenarios.
+      Promise.resolve(board.load()).then(() => {
+        const slot = main.querySelector('[data-slot="board"]');
+        if (st.alive && slot) slot.dataset.measureSync = String(++measureSyncs);
+      }).catch((err) => console.error(err));
+    }, 1000);
+  }
 
   const sim = () => isSimulated(st.session, st.app);
   const stagger = () => cssMs('--stagger', 55);
@@ -741,6 +783,7 @@ export function render(main, ctx) {
       }
       paintWidget(w, { bump: true });
       restoreFocus(id, key);
+      scheduleBoardReload();
       if (!quiet) ctx.toast(`${w.title} : mesure actualisée.`, { tone: 'ok', life: 3000 });
       return 'ok';
     } catch (err) {
@@ -796,7 +839,7 @@ export function render(main, ctx) {
     if (!hero.querySelector('h1')) {
       // Keep the ring and the orbs of the skeleton: only the content is replaced.
       [...hero.children].forEach((el) => { if (!el.matches('.orbs, .glow-ring')) el.remove(); });
-      hero.insertAdjacentHTML('beforeend', heroMarkup(st.session, lastReadAt, sim(), st.helpSeen));
+      hero.insertAdjacentHTML('beforeend', heroMarkup(st.session, lastReadAt, sim(), st.helpSeen, st.directory));
       const card = hero.querySelector('.scope-card');
       if (card) card.dataset.key = scopeKey(st.session);
       paint(hero);
@@ -819,8 +862,9 @@ export function render(main, ctx) {
         }
       }
     }
+    board?.refreshTools?.();
     const chips = hero.querySelector('.chips');
-    const html = heroChips(st.session, lastReadAt, sim());
+    const html = heroChips(st.session, lastReadAt, sim(), st.directory);
     if (chips.dataset.html !== html) {
       chips.dataset.html = html;
       chips.innerHTML = html;
@@ -1107,15 +1151,35 @@ export function render(main, ctx) {
     if (id === 'bitlocker') readBitLocker();
   }
 
+  // One BitLocker read at a time (the engine refuses a second one too, bitlocker.running): the buttons of the tile wait,
+  // greyed with their reason and a spinner, until the read ends.
+  let bitLockerBusy = false;
+  function setBitLockerButtons(on) {
+    main.querySelectorAll('[data-fw-action="bitlocker"]').forEach((b) => {
+      b.disabled = on;
+      b.classList.toggle('is-busy', on);
+      if (on) { b.dataset.reason = 'Lecture de la présence BitLocker en cours…'; b.setAttribute('aria-busy', 'true'); } else { delete b.dataset.reason; b.removeAttribute('aria-busy'); }
+    });
+  }
   async function readBitLocker() {
+    if (bitLockerBusy) {
+      ctx.toast(`Lecture BitLocker déjà en cours${NBSP}: attendez sa fin.`, { tone: 'info', life: 2600 });
+      return;
+    }
+    bitLockerBusy = true;
+    setBitLockerButtons(true);
     try {
       ctx.toast('Lecture de la présence des clés BitLocker de l’OU…', { tone: 'info', life: 2000 });
       const r = await ctx.call('accueil.bitlocker.read');
       if (!st.alive) return;
       ctx.toast(r.text, { tone: r.withoutKey ? 'warn' : 'ok', life: 5200 });
+      bitLockerBusy = false;
       await board.load();
     } catch (err) {
-      ctx.toast(reported(err), { tone: err?.code === 'scope.tooWide' ? 'warn' : 'alert' });
+      ctx.toast(reported(err), { tone: err?.code === 'scope.tooWide' || err?.code === 'bitlocker.running' ? 'warn' : 'alert' });
+    } finally {
+      bitLockerBusy = false;
+      if (st.alive) setBitLockerButtons(false);
     }
   }
 
@@ -1265,7 +1329,7 @@ export function render(main, ctx) {
     }
     const scope = st.session?.scope;
     if (el.dataset.go === 'rechercher' && scope && !isRootDn(scope.dn)) {
-      return { ou: scope.dn, subtree: scope.subtree ? '1' : '0' };
+      return { ou: scope.dn, sousou: scope.subtree ? '1' : '0', type: 'computers' };
     }
     return {};
   }
@@ -1297,6 +1361,14 @@ export function render(main, ctx) {
       onTargets: (key, label) => openTargetsFor(key, label),
       onAction: onBoardAction,
       onTool: openTool,
+      // « Ouvrir les postes de l’OU dans Rechercher » (Domenia 1, ACC-031): the working OU and its depth, never the domain root.
+      onOpenSearch: (check) => {
+        const scope = st.session?.scope;
+        const ok = Boolean(scope && !isRootDn(scope.dn));
+        if (check || !ok) return ok;
+        ctx.navigate('rechercher', { ou: scope.dn, sousou: scope.subtree ? '1' : '0', type: 'computers', source: 'accueil' });
+        return true;
+      },
       onComputed: (b) => {
         // Remembered for the next start of the same base and OU (counts and date only, never a name); the engine writes it
         // only when its counts change, or once a minute.
@@ -1307,7 +1379,12 @@ export function render(main, ctx) {
       onState: (state, b) => {
         st.boardState = { state, machines: b?.population?.enabled };
         paintSteps();
-        if (state === 'ready') paintPanels();
+        if (state === 'ready') {
+          // Freshness of the branch for the chip of the header (ACC-020), from the calculation just drawn.
+          st.directory = b?.directory ?? null;
+          paintHero();
+          paintPanels();
+        }
       },
     });
   }
@@ -1385,8 +1462,25 @@ export function render(main, ctx) {
 
   // ----- Events (delegated) -----
 
+  // Link of a top widget to its counterpart in the fleet board: scrolls to the card and gives it the focus, or says how to add it.
+  function showRelated(key) {
+    const card = main.querySelector(`[data-slot="board"] [data-entry="${CSS.escape(key)}"]`);
+    if (!card) {
+      ctx.toast(`Ce widget n’est pas dans la disposition du tableau du parc${NBSP}: ajoutez-le depuis «${NBSP}Ajouter un widget${NBSP}».`, { tone: 'info', life: 4200 });
+      return;
+    }
+    card.scrollIntoView({ behavior: motionReduced() ? 'auto' : 'smooth', block: 'center' });
+    card.classList.remove('flash');
+    void card.offsetWidth;
+    card.classList.add('flash');
+    const focusable = card.matches('[tabindex]') ? card : card.querySelector('button, [tabindex]');
+    focusable?.focus({ preventScroll: true });
+  }
+
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
+    const related = t?.closest('[data-related]');
+    if (related) { showRelated(related.dataset.related); return; }
     const refreshBtn = t?.closest('[data-refresh]');
     if (refreshBtn) {
       const id = refreshBtn.closest('[data-widget]')?.dataset.widget;
@@ -1443,6 +1537,7 @@ export function render(main, ctx) {
   start();
 
   return () => {
+    clearTimeout(boardTimer);
     st.alive = false;
     clearInterval(ticker);
     clearInterval(liveTimer);

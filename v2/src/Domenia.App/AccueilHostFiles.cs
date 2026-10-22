@@ -26,7 +26,11 @@ public static class AccueilHostFiles
     }
 
     /// <summary>Last lines of a journal file; a line that continues the previous one (exception detail) is appended to it.</summary>
-    public static async Task<LogTail> TailAsync(string? path, CancellationToken cancellationToken)
+    /// <remarks>
+    /// A journal locked or unreadable for now (antivirus, rotation, rights) gives a clear sentence instead of an error, and
+    /// <paramref name="trace"/> receives the kind of the error only (never a line of the file).
+    /// </remarks>
+    public static async Task<LogTail> TailAsync(string? path, CancellationToken cancellationToken, Action<string>? trace = null)
     {
         const string Display = @"%LOCALAPPDATA%\Domenia\logs\domenia.log";
         if (path is null || !File.Exists(path))
@@ -35,8 +39,9 @@ public static class AccueilHostFiles
         }
         byte[] buffer;
         bool truncated;
-        await using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        try
         {
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             truncated = stream.Length > MaxBytes;
             if (truncated)
             {
@@ -54,6 +59,11 @@ public static class AccueilHostFiles
                 read += n;
             }
             Array.Resize(ref buffer, read);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            trace?.Invoke("accueil.log.tail : journal technique illisible pour l’instant (" + ex.GetType().Name + ").");
+            return new LogTail(Display, false, [], false, "Journal technique illisible pour l’instant (fichier verrouillé ou accès refusé)" + FrenchText.Colon + "réessayez dans un instant.");
         }
         var text = Encoding.UTF8.GetString(buffer);
         var raw = text.Split('\n');

@@ -50,8 +50,8 @@ export function createRefresh(o) {
   let off = null; // unsubscription of the progress event, released by destroy()
 
   o.actions.innerHTML = `<div class="split-btn" role="group" aria-label="Actualiser l’OU de travail">
-      <button class="btn primary split-main" type="button" data-refresh-mode="all" data-tip="${esc(MODES.all.tip)}">${glyph('refresh')}<span class="label-progress">Tout actualiser</span></button>
-      <button class="btn primary split-caret" type="button" data-refresh-menu aria-haspopup="menu" aria-expanded="false" aria-label="Autres actualisations de l’OU" data-tip="Base locale seule, ping et WMI, ping seul, reprise">${glyph('chevronDown')}</button>
+      <button class="btn primary split-main is-net" type="button" data-refresh-mode="all" data-tip="${esc(`${MODES.all.tip} · lecture réseau`)}">${glyph('refresh')}<span class="label-progress">Tout actualiser</span><span class="k-cmd-net" aria-hidden="true"></span><span class="visually-hidden">, lecture réseau</span></button>
+      <button class="btn primary split-caret is-net" type="button" data-refresh-menu aria-haspopup="menu" aria-expanded="false" aria-label="Autres actualisations de l’OU (lectures réseau)" data-tip="Base locale seule, ping et WMI, ping seul, reprise · lectures réseau">${glyph('chevronDown')}</button>
     </div>
     <button class="btn danger ctl-stop" type="button" data-refresh-stop hidden>${glyph('x')}<span>Arrêter</span></button>`;
   o.status.innerHTML = `<div class="ctl-run" hidden>
@@ -69,13 +69,31 @@ export function createRefresh(o) {
 
   const resumable = () => Boolean(st.last?.resumable) && !st.running;
 
+  // A greyed command always says why (KIT § 1.2): a refresh already running, a plan being prepared, no working OU.
+  function blockReason() {
+    if (st.running) return `Actualisation en cours${NBSP}: attendez sa fin ou arrêtez-la.`;
+    if (st.planning) return `Plan de l’actualisation en préparation${NBSP}: un instant.`;
+    if (!o.scopeOk()) return `Choisissez une OU de travail${NBSP}: aucune collecte ne part sur tout le domaine.`;
+    return '';
+  }
+
   function syncButtons() {
-    const blocked = st.running || st.planning || !o.scopeOk();
-    o.actions.querySelectorAll('[data-refresh-mode], [data-refresh-menu]').forEach((b) => { b.disabled = blocked; });
+    const reason = blockReason();
+    const blocked = Boolean(reason);
+    o.actions.querySelectorAll('[data-refresh-mode], [data-refresh-menu]').forEach((b) => {
+      b.disabled = blocked;
+      if (blocked) b.dataset.reason = reason; else delete b.dataset.reason;
+    });
+    const caret = o.actions.querySelector('[data-refresh-menu]');
+    caret.dataset.tip = blocked ? reason : 'Base locale seule, ping et WMI, ping seul, reprise · lectures réseau';
     const main = o.actions.querySelector('.split-main');
+    // One primary action on the screen (KIT § 2.6): without a working OU, « Choisir l’OU » of the OU card is the primary one
+    // and the refresh, greyed with its reason, steps back.
+    const lead = o.scopeOk();
+    [main, caret].forEach((b) => { b.classList.toggle('primary', lead); b.classList.toggle('subtle', !lead); });
     main.classList.toggle('spinning', st.running);
     main.querySelector('.label-progress').textContent = st.running ? 'Actualisation en cours…' : 'Tout actualiser';
-    main.dataset.tip = o.scopeOk() ? MODES.all.tip : 'Choisissez une OU de travail : aucune collecte ne part sur tout le domaine';
+    main.dataset.tip = blocked ? reason : `${MODES.all.tip} · lecture réseau`;
     const stop = o.actions.querySelector('[data-refresh-stop]');
     stop.hidden = !st.running;
     stop.disabled = st.stopping;
@@ -218,7 +236,7 @@ export function createRefresh(o) {
 
   function menu(button) {
     const item = (id) => ({
-      label: MODES[id].label, icon: MODES[id].icon, hint: MODES[id].hint, run: () => plan(id),
+      label: MODES[id].label, icon: MODES[id].icon, hint: MODES[id].hint ? `${MODES[id].hint} · réseau` : 'réseau', run: () => plan(id),
       disabled: id === 'resume' && !resumable(), reason: 'Aucune actualisation interrompue à reprendre pour cette OU.',
     });
     openMenu(button, [

@@ -21,13 +21,16 @@ public sealed partial class AccueilService : IDisposable
     public const string HelpPreference = "accueil.helpSeen";
     public const int MaxFavorites = 12;
     public const int MaxTargets = 2000;
+    public const string BitLockerRunning = "bitlocker.running";
+    public const string BitLockerRunningMessage = "Une lecture de la présence BitLocker est déjà en cours" + FrenchText.Colon + "attendez sa fin. Rien n’a été relancé.";
     public const string BoardReplaced = "board.replaced";
     public const string BoardReplacedMessage = "Ce chiffre vient d’un calcul remplacé : la vue a été recalculée. Cliquez de nouveau sur le chiffre pour ouvrir ses postes exacts.";
     public const string RunsPreference = "accueil.runs.";
     public const string SnapshotsPreference = "accueil.snapshots.";
     public const int MaxStoredRuns = 300;
     public const int MaxManualSnapshots = 20;
-    public const int MaxDailyDays = 35;
+    /// <summary>Days of daily snapshots kept per OU (the fleet.trend* widgets show 90 days; about 200 KiB for 4 OUs).</summary>
+    public const int MaxDailyDays = 90;
     public const int MaxDailyScopes = 4;
     private static readonly TimeSpan LastViewInterval = TimeSpan.FromMinutes(1);
     public const string TargetsUnknown = "targets.unknown";
@@ -107,7 +110,10 @@ public sealed partial class AccueilService : IDisposable
             items, history, Now, Zone);
         var computation = FleetBoardCalculator.Compute(input);
         var revision = Interlocked.Increment(ref revisionCounter).ToString("x8", CultureInfo.InvariantCulture) + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
-        computation = computation with { Board = computation.Board with { Revision = revision }, Explanation = computation.Explanation with { Revision = revision } };
+        // Freshness of the branch for the header (ACC-020): the last complete AD read covering it, never the global date of the
+        // base; a partial read never replaces that date.
+        var freshness = CollectionClocks.Directory(input.Facts.Runs, new StoreStatus(state.Directory.ReadAt, state.Directory.ObjectCount, state.Directory.Complete), scope, domainDn, Now, Zone);
+        computation = computation with { Board = computation.Board with { Revision = revision, Directory = freshness }, Explanation = computation.Explanation with { Revision = revision } };
         watch.Stop();
         var newDay = false;
         lock (gate)
@@ -455,10 +461,14 @@ public sealed partial class AccueilService : IDisposable
         return result.Matrix;
     }
 
-    /// <summary>accueil.snapshot.take: a manual dated snapshot of the current view (improvement of ACC-040: before and after a campaign).</summary>
+    /// <summary>
+    /// accueil.snapshot.take: a manual dated snapshot of the current view (improvement of ACC-040: before and after a campaign).
+    /// It is taken from the calculation shown (CurrentAsync), never from a new one: the board on screen keeps its revision and
+    /// its figures still open their exact workstations afterwards.
+    /// </summary>
     public async Task<SnapshotItem> TakeSnapshotAsync(string? label, CancellationToken cancellationToken)
     {
-        var computation = await ComputeAsync(cancellationToken).ConfigureAwait(false);
+        var computation = await CurrentAsync(cancellationToken).ConfigureAwait(false);
         var text = string.IsNullOrWhiteSpace(label) ? "Instantané manuel" : label.Trim();
         if (text.Length > 80 || text.Any(char.IsControl))
         {
@@ -588,7 +598,21 @@ public sealed partial class AccueilService : IDisposable
     public async Task<HealthExceptions> HealthExceptionsAsync(CancellationToken cancellationToken)
     {
         var (_, _, domainDn) = await ScopeAsync(cancellationToken).ConfigureAwait(false);
-        return new HealthExceptions(HealthRules.Exceptions(HealthBook(domainDn), Now));
+        var rows = HealthRules.Exceptions(HealthBook(domainDn), Now);
+        // An exception whose OU disappeared is signalled (Domenia 1: « OU disparue signalée »), checked in the local OU index
+        // only, never on the network; without an index nothing is claimed missing.
+        var index = context.Readers.Find<IOrganizationalUnitIndex>();
+        if (index is null)
+        {
+            return new HealthExceptions(rows);
+        }
+        var checkedRows = new List<HealthExceptionRow>(rows.Length);
+        foreach (var row in rows)
+        {
+            var known = HealthRules.SameDn(row.ScopeDn, domainDn) || await index.FindLocalAsync(row.ScopeDn, cancellationToken).ConfigureAwait(false) is not null;
+            checkedRows.Add(known ? row : row with { Missing = true });
+        }
+        return new HealthExceptions([.. checkedRows]);
     }
 
     /// <summary>accueil.health.explain: « Comprendre le score » of the current calculation (ACC-030).</summary>
@@ -658,6 +682,12 @@ public sealed partial class AccueilService : IDisposable
             if (run is not null)
             {
                 throw new DomeniaOperationException(RefreshRunning, "Une actualisation de l’OU est en cours" + FrenchText.Colon + "la lecture BitLocker attend sa fin. Rien n’a été lu.");
+            }
+            // One BitLocker read at a time: a second one (double click, two pages) is refused, so the flag that holds the
+            // refreshes back can never be lowered by the first read while another one still runs.
+            if (bitLockerReading)
+            {
+                throw new DomeniaOperationException(BitLockerRunning, BitLockerRunningMessage);
             }
             bitLockerReading = true;
         }
@@ -1204,7 +1234,7 @@ public sealed partial class AccueilService : IDisposable
     }
 
     /// <summary>
-    /// Keeps the daily snapshots (35 days of the 4 most recent OUs) and the manual snapshots (20) of the domain in the local
+    /// Keeps the daily snapshots (90 days of the 4 most recent OUs) and the manual snapshots (20) of the domain in the local
     /// preferences: counts and fingerprints only, never a workstation name.
     /// </summary>
     private async Task PersistSnapshotsAsync(string domainDn, CancellationToken cancellationToken)

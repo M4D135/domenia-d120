@@ -4,6 +4,7 @@
 // Data: accueil.board (LocalRead, computed from the local base, no network) and accueil.layout (docs/ops/accueil.md § 3-5).
 import { glyph } from '../../kit/glyphs.js';
 import { openMenu } from '../../kit/menu.js';
+import { createCommandBar } from '../../kit/commandbar.js';
 import { openDialog } from '../../kit/dialog.js';
 import { field, createForm } from '../../kit/form.js';
 import { esc, formatNumber, countUp, reveal, motionReduced, cssMs, announce } from '../../ui.js';
@@ -49,23 +50,34 @@ export function createBoard(host, o) {
 
   host.innerHTML = `<div class="fw-bar reveal">
       <div class="fw-pop" aria-live="polite">${skStack('sk-line w55', 'sk-line w40')}</div>
-      <div class="fw-tools" role="toolbar" aria-label="Outils du tableau du parc">
-        <button class="btn sm fw-recompute" type="button" data-fw-recompute data-tip="Recalcule le tableau depuis la base locale, sans lecture réseau">${glyph('refresh')}<span>Recalculer la vue</span></button>
-        <button class="btn sm" type="button" data-fw-tool="catalog">${glyph('plus')}Ajouter un widget</button>
-        <button class="btn sm" type="button" data-fw-tool="presets" aria-haspopup="menu">${glyph('layers')}Dispositions${glyph('chevronDown')}</button>
-        <button class="btn sm fw-edit" type="button" data-fw-edit aria-pressed="false">${glyph('sliders')}<span>Personnaliser</span></button>
-        <button class="btn sm ghost fw-undo" type="button" data-fw-undo hidden>${glyph('undo')}Annuler</button>
-        <span class="fw-sep" aria-hidden="true"></span>
-        <button class="btn sm ghost" type="button" data-fw-tool="explain">${glyph('gauge')}Comprendre le score</button>
-        <button class="btn sm ghost" type="button" data-fw-tool="health">${glyph('shield')}Règles de santé</button>
-        <button class="btn sm ghost" type="button" data-fw-tool="analysis">${glyph('split')}Analyse</button>
-        <button class="btn sm ghost" type="button" data-fw-tool="provenance">${glyph('history')}Provenance</button>
-      </div>
+      <div class="fw-tools"></div>
       <p class="fw-edit-note" hidden>${glyph('grip')}<span>Glissez la poignée d’un widget pour le déplacer dans sa section (ou Alt + flèches au clavier) ; son menu change la taille, la représentation, le titre ou le retire. Chaque changement est mémorisé dans les préférences locales.</span></p>
     </div>
     <div class="fw-groups" aria-busy="true">${skeletonGroups()}</div>`;
   const groupsEl = host.querySelector('.fw-groups');
   const popEl = host.querySelector('.fw-pop');
+
+  // Commands of the board (KIT § 4.6): one Tab stop, arrows between the commands, what does not fit goes into « Plus ». No
+  // primary command here: the primary action of the screen is « Tout actualiser » of the header. Everything is local
+  // (calculation from the local base, layout, panels): no network command in this bar.
+  function toolItems() {
+    return [
+      { id: 'recompute', label: st.loading ? 'Calcul en cours…' : 'Recalculer la vue', icon: 'refresh', pinned: true, disabled: st.loading,
+        reason: `Calcul en cours${NBSP}: la vue se met à jour depuis la base locale.`, run: () => load({ quiet: false }) },
+      { id: 'edit', label: st.editing ? 'Terminer' : 'Personnaliser', icon: 'sliders', pinned: true, run: () => setEditing(!st.editing) },
+      ...(st.editing && st.undo.length ? [{ id: 'undo', label: 'Annuler', icon: 'undo', pinned: true, run: () => undo() }] : []),
+      { id: 'catalog', label: 'Ajouter un widget', icon: 'plus', run: () => o.onTool('catalog') },
+      { id: 'presets', label: 'Dispositions', icon: 'layers', items: presetItems() },
+      { id: 'search', label: 'Ouvrir les postes dans Rechercher', icon: 'search', disabled: !o.onOpenSearch?.(true),
+        reason: `Choisissez une OU de travail${NBSP}: Rechercher ne s’ouvre jamais sur tout le domaine.`, run: () => o.onOpenSearch?.(false) },
+      { id: 'explain', label: 'Comprendre le score', icon: 'gauge', run: () => o.onTool('explain') },
+      { id: 'health', label: 'Règles de santé', icon: 'shield', run: () => o.onTool('health') },
+      { id: 'analysis', label: 'Analyse', icon: 'split', run: () => o.onTool('analysis') },
+      { id: 'provenance', label: 'Provenance', icon: 'history', run: () => o.onTool('provenance') },
+    ];
+  }
+  const bar = createCommandBar(host.querySelector('.fw-tools'), { label: 'Outils du tableau du parc', size: 'sm', items: toolItems(), moreLabel: 'Plus d’outils du tableau' });
+  const syncBar = () => { if (st.alive) bar.setItems(toolItems()); };
 
   function skeletonGroups() {
     const card = (size) => `<article class="card fw size-${size}">${skStack('sk-line w40', 'sk-title w55', 'sk-line w85')}</article>`;
@@ -104,12 +116,8 @@ export function createBoard(host, o) {
     st.since = on ? (st.since ?? new Date()) : null;
     if (on) groupsEl.setAttribute('aria-busy', 'true'); else groupsEl.removeAttribute('aria-busy');
     host.classList.toggle('updating', on && Boolean(st.board));
-    const b = host.querySelector('[data-fw-recompute]');
-    if (b) {
-      b.disabled = on;
-      b.classList.toggle('spinning', on);
-      b.querySelector('span').textContent = on ? 'Calcul en cours…' : 'Recalculer la vue';
-    }
+    syncBar();
+    bar.setBusy('recompute', on);
     clearInterval(sinceTimer);
     sinceTimer = 0;
     paintSince();
@@ -159,8 +167,13 @@ export function createBoard(host, o) {
       `${formatNumber(p.disabled ?? 0)}${NBSP}désactivés`,
     ];
     if (p.unknown) parts.push(`${formatNumber(p.unknown)}${NBSP}état inconnu`);
+    // Freshness of the branch (ACC-020): the last complete AD read covering it, a partial attempt or a date in the future.
+    const d = b.directory;
+    const dirTone = d?.clockInvalid ? 'alert' : d?.partial || d?.status === 'missing' ? 'warn' : '';
+    const dirText = !d ? '' : d.at ? `AD lu le ${localStamp(d.at)}${d.partial ? ', tentative partielle depuis' : ''}` : d.partial ? 'lecture AD partielle seulement' : 'aucune lecture AD complète de la branche';
+    const dirPart = dirText ? ` · <span class="fw-pop-dir"${dirTone ? ` data-tone="${dirTone}"` : ''} data-tip="${esc(`${d.text}${d.sourceDn ? ` · lu depuis ${d.sourceDn}` : ''} · le nombre de comptes ordinateur inclut les désactivés.`)}">${esc(dirText)}${d.clockInvalid ? `${NBSP}· date future ignorée` : ''}</span>` : '';
     return `<p class="fw-pop-main">${glyph('ou')}<span>${esc(b.scopeLabel ?? '')}</span><span class="dot-sep" aria-hidden="true"></span>${parts.join('<span class="dot-sep" aria-hidden="true"></span>')}</p>`
-      + `<p class="fw-pop-sub" data-tip="${esc(b.summary ?? '')}">Calculé le ${esc(localStamp(b.computedAt))} depuis la base locale, sans lecture réseau${b.scope?.subtree ? ' · sous-OU comprises' : ' · cette OU seulement'}${st.layout?.customized ? ' · disposition personnalisée' : ''}</p>`
+      + `<p class="fw-pop-sub" data-tip="${esc(b.summary ?? '')}">Calculé le ${esc(localStamp(b.computedAt))} depuis la base locale, sans lecture réseau${b.scope?.subtree ? ' · sous-OU comprises' : ' · cette OU seulement'}${st.layout?.customized ? ' · disposition personnalisée' : ''}${dirPart}</p>`
       + '<p class="fw-since" aria-live="polite" hidden></p>';
   }
 
@@ -202,7 +215,9 @@ export function createBoard(host, o) {
       body = `<div class="fw-empty">${glyph('alert')}<span>Données inattendues${NBSP}: ce widget ne peut pas s’afficher. Les autres widgets ne sont pas concernés.</span></div>`;
     }
     const action = entry.action
-      ? `<button class="btn sm${entry.measured ? ' ghost' : ' primary'}" type="button" data-fw-action="${esc(entry.action.id)}" data-tip="${esc(entry.action.tip)}">${glyph(entry.action.id === 'bitlocker' ? 'lock' : 'refresh')}${esc(entry.action.label)}</button>` : '';
+      // Never a primary button in a card (KIT § 2.6: the primary action of the screen is « Tout actualiser »); the BitLocker
+      // read goes to the directory and wears the network mark of the kit.
+      ? `<button class="btn sm${entry.measured ? ' ghost' : ' subtle'}${entry.action.id === 'bitlocker' ? ' is-net' : ''}" type="button" data-fw-action="${esc(entry.action.id)}" data-tip="${esc(entry.action.id === 'bitlocker' ? `${entry.action.tip} · lecture réseau` : entry.action.tip)}">${glyph(entry.action.id === 'bitlocker' ? 'lock' : 'refresh')}${esc(entry.action.label)}${entry.action.id === 'bitlocker' ? '<span class="k-cmd-net" aria-hidden="true"></span><span class="visually-hidden">, lecture réseau</span>' : ''}</button>` : '';
     const open = entry.targetsKey && (entry.targets ?? 0) > 0 && v !== 'Kpi'
       ? `<button class="btn sm ghost fw-see" type="button" data-targets="${esc(entry.targetsKey)}" data-targets-label="${esc(entry.title)}">${glyph('monitor')}${plural(entry.targets, 'poste', 'postes')}</button>` : '';
     return `<span class="fw-accent" aria-hidden="true"></span>${head(item, entry, uid)}<div class="fw-body">${body}</div>`
@@ -233,7 +248,7 @@ export function createBoard(host, o) {
     return `<header class="fw-head">
         <button class="fw-grip" type="button" data-fw-grip aria-label="Déplacer «${NBSP}${esc(entry.title)}${NBSP}» (Alt + flèches)" data-tip="Glisser pour déplacer · Alt + flèches">${glyph('grip')}</button>
         <span class="fw-ico" aria-hidden="true">${glyph(widgetGlyph(entry, item))}</span>
-        <div class="fw-titles"><h3${uid ? ` id="${uid}-t"` : ''}>${esc(entry.title)}</h3>${chips.length ? `<div class="fw-chips">${chips.join('')}</div>` : ''}</div>
+        <div class="fw-titles"><h4${uid ? ` id="${uid}-t"` : ''}>${esc(entry.title)}</h4>${chips.length ? `<div class="fw-chips">${chips.join('')}</div>` : ''}</div>
         <button class="btn ghost icon sm fw-menu" type="button" data-fw-menu aria-haspopup="menu" aria-label="Options du widget ${esc(entry.title)}" data-tip="Options du widget">${glyph('more')}</button>
       </header>`;
   }
@@ -424,8 +439,7 @@ export function createBoard(host, o) {
   }
 
   function syncUndo() {
-    const b = host.querySelector('[data-fw-undo]');
-    if (b) b.hidden = !st.editing || !st.undo.length;
+    syncBar();
   }
 
   function undo() {
@@ -564,7 +578,7 @@ export function createBoard(host, o) {
     openMenu(button, items, { label: `Options de ${entry?.title ?? it.key}` });
   }
 
-  function presetsMenu(button) {
+  function presetItems() {
     const run = async (preset) => {
       try {
         const before = st.layout?.items;
@@ -584,20 +598,16 @@ export function createBoard(host, o) {
       { id: 'inventory', label: 'Inventaire', hint: 'comptes, systèmes, modèles' },
       { id: 'health', label: 'Santé', hint: 'santé, disques, redémarrages' },
     ];
-    openMenu(button, [
+    return [
       { heading: 'Dispositions prédéfinies' },
       ...presets.map((p) => ({ label: p.label, hint: p.hint, icon: 'layers', run: () => run(p) })),
       '-',
       { label: 'Rétablir la disposition livrée', icon: 'undo', disabled: !st.layout?.customized, reason: 'La disposition livrée est déjà affichée.', run: () => run(null) },
-    ], { label: 'Dispositions du tableau du parc' });
+    ];
   }
 
   function setEditing(on) {
     st.editing = Boolean(on);
-    const b = host.querySelector('[data-fw-edit]');
-    b.setAttribute('aria-pressed', String(st.editing));
-    b.querySelector('span').textContent = st.editing ? 'Terminer' : 'Personnaliser';
-    b.classList.toggle('primary', st.editing);
     host.querySelector('.fw-edit-note').hidden = !st.editing;
     host.classList.toggle('editing', st.editing);
     syncUndo();
@@ -702,16 +712,9 @@ export function createBoard(host, o) {
     }
     const menu = t.closest('[data-fw-menu]');
     if (menu) { cardMenu(menu); return; }
-    if (t.closest('[data-fw-edit]')) { setEditing(!st.editing); return; }
-    if (t.closest('[data-fw-undo]')) { undo(); return; }
     if (t.closest('[data-fw-retry]')) { load(); return; }
-    const recompute = t.closest('[data-fw-recompute]');
-    if (recompute && !recompute.disabled) { load({ quiet: false }); return; }
     const tool = t.closest('[data-fw-tool]');
-    if (tool) {
-      if (tool.dataset.fwTool === 'presets') presetsMenu(tool);
-      else o.onTool(tool.dataset.fwTool);
-    }
+    if (tool) o.onTool(tool.dataset.fwTool);
   });
   host.addEventListener('keydown', (e) => {
     const grip = e.target instanceof Element ? e.target.closest('[data-fw-grip]') : null;
@@ -746,10 +749,13 @@ export function createBoard(host, o) {
     max: () => st.layout?.max ?? 64,
     showLastView,
     loading: () => st.loading,
+    /** Commands of the bar computed again (working OU changed: « Ouvrir les postes dans Rechercher »). */
+    refreshTools: syncBar,
     destroy() {
       st.alive = false;
       stopReveal();
       clearInterval(sinceTimer);
+      bar.destroy();
     },
   };
 }

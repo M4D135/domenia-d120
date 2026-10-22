@@ -41,7 +41,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `accueil.favorites.<sha>` | OU favorites du domaine (12 au plus) |
 | `accueil.lastView.<sha>` | résumé de la dernière vue par base et par OU (comptes et date, jamais un nom) ; réécrit seulement quand ses comptes changent, ou une fois par minute au plus |
 | `accueil.runs.<sha>` | relevés de la session (horloges, ACC-022) : 300 au plus, relus au démarrage et réadmis par `CollectionClocks.Create` (date future ou hors du domaine écartées) ; remplacés par `Domenia.Store` en vague 3 |
-| `accueil.snapshots.<sha>` | instantanés quotidiens (35 jours des quatre OU les plus récentes) et manuels (20) de l’OU : comptes et empreintes seulement, jamais un nom (ACC-040) |
+| `accueil.snapshots.<sha>` | instantanés quotidiens (90 jours des quatre OU les plus récentes, environ 200 Kio) et manuels (20) de l’OU : comptes et empreintes seulement, jamais un nom (ACC-040) |
 
 - **Erreurs propres** (en plus de `OPERATIONS.md` § 1.4) :
 
@@ -69,7 +69,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 
 | Opération | Classe | Arguments | Résultat |
 |---|---|---|---|
-| `accueil.board` | `LocalRead` | aucun | tableau du parc de l’OU de travail (§ 3) |
+| `accueil.board` | `LocalWrite` | aucun | tableau du parc de l’OU de travail (§ 3) ; calculé depuis la base locale, sans réseau : `LocalWrite` parce que le premier calcul du jour garde l’instantané quotidien et marque le tableau vu dans les préférences locales |
 | `accueil.targets` | `LocalRead` | `{ revision, key }` | postes exacts d’un chiffre (§ 4) |
 | `accueil.layout` | `LocalRead` | aucun | disposition (§ 5) |
 | `accueil.layout.save` | `LocalWrite` | `{ items }` | disposition nettoyée et mémorisée |
@@ -96,7 +96,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `accueil.favorites` | `LocalRead` | aucun | OU favorites |
 | `accueil.favorite.save` | `LocalWrite` | `{ name, dn, subtree }` | favorites |
 | `accueil.favorite.drop` | `LocalWrite` | `{ id }` | favorites |
-| `accueil.firstSteps` | `LocalRead` | aucun | premiers pas (§ 13) |
+| `accueil.firstSteps` | `LocalWrite` | aucun | premiers pas (§ 13) ; `LocalWrite` parce qu’il mémorise une fois « premiers pas terminés » dans les préférences locales |
 | `accueil.firstSteps.dismiss` | `LocalWrite` | `{ dismissed }` | premiers pas |
 | `accueil.help.seen` | `LocalWrite` | aucun | `{ helpSeen: true }` |
 | `accueil.lastView` | `LocalRead` | aucun | dernière vue de la même base et OU |
@@ -126,9 +126,16 @@ calcul du jour d’une OU garde son instantané quotidien (ACC-040).
   "health": { … },
   "hints": [ { "group": "Relevés des postes", "text": "…", "action": { "id": "collect", "label": "Relever ce périmètre", "tip": "…" } } ],
   "summary": "…",
-  "snapshot": { "id": "actuel", "kind": "current", "label": "Vue actuelle · 21/10/2026 18:26", "day": "2026-10-21", "computedAt": "…", "figures": { … } }
+  "snapshot": { "id": "actuel", "kind": "current", "label": "Vue actuelle · 21/10/2026 18:26", "day": "2026-10-21", "computedAt": "…", "figures": { … } },
+  "directory": { "status": "complete", "at": "2026-10-21T16:14:00Z", "sourceDn": "OU=Postes,DC=example,DC=local", "attemptAt": null, "partial": false, "clockInvalid": false, "text": "…" }
 }
 ```
+
+- `directory` : fraîcheur de la branche (ACC-020, `CollectionClocks.Directory`) : dernière lecture AD **complète** qui couvre
+  l’OU de travail (`at`, `sourceDn` : l’OU lue, elle-même ou une ancêtre), tentative partielle plus récente (`attemptAt`,
+  `partial`), date dans le futur ou profondeur inconnue (`clockInvalid`) et la phrase `text`. La puce « Annuaire lu… » de
+  l’en-tête et la ligne de population s’en servent (ton `warn` si partielle, `alert` si date future) ; une lecture partielle
+  ne remplace jamais la date.
 
 - `entries` : une entrée par widget de la disposition, clé = clé du widget intégré, `probe:<id>` ou `query:<id>`.
   Champs : `key`, `title`, `group`, `kind` (`value`, `distribution`, `series`, `timeline`, `health`, `list`), `value`
@@ -294,7 +301,9 @@ surveiller), contrôles connus, 32 alertes au plus (une alerte sur requête est 
 suspension `{ ruleId, reason (3 à 240 caractères), hours: 1|24|168|720 }` ou `{ ruleId, reason, untilUtc }`, et
 `endNow: true` pour « Réactiver maintenant » (le motif reste listé). Pour une OU, seule la différence avec la parente est
 gardée ; les suspensions échues depuis plus de 30 jours sont retirées. `accueil.health.revert` `{ dn }` supprime
-l’exception d’une OU. `accueil.health.exceptions` → `{ rows: [{ scopeDn, label, changes, count }] }`.
+l’exception d’une OU. `accueil.health.exceptions` → `{ rows: [{ scopeDn, label, changes, count, missing }] }` ; `missing`
+vaut `true` quand l’OU n’est plus connue de l’index local des OU (supprimée, déplacée ou renommée : « OU introuvable »,
+jamais ouverte comme si elle existait ; vérifié localement, jamais par le réseau).
 `accueil.health.explain` → `{ summary, activeRules, disabledRules, suspendedRules, maskedMachines, population, unknown,
 assessed, rows: [{ id, rule, status, machines, effect, eligible, eligibleCount, exclusive, masked, consequence,
 observationState, missingData, evidence: { source, observed, value, rule, collection }, targetsKey, maskedKey, missingKey,
@@ -307,7 +316,9 @@ donnée du contrôle (« Voir la collecte manquante », ACC-030) : aucune collec
 Sur geste explicite seulement : compte, poste par poste, les objets de récupération BitLocker de l’OU de travail et la date
 du plus récent ; jamais une clé. Refusé à la racine du domaine (`scope.tooWide`). Résultat : `{ scopeLabel, read, withKey,
 withoutKey, at, truncated, classPresent, text }` ; le tableau suivant porte la tuile `fleet.bitlocker` et le contrôle
-`bitlocker.none`. Une lecture tronquée n’écrit jamais « pas de clé ».
+`bitlocker.none`. Une lecture tronquée n’écrit jamais « pas de clé ». Une seule lecture à la fois : une seconde demande
+pendant la première (double clic, deux pages) est refusée (`bitlocker.running`, « Une lecture de la présence BitLocker est
+déjà en cours : attendez sa fin. Rien n’a été relancé. ») ; la page désactive le bouton pendant la lecture.
 
 ## 12. OU de travail : retour au défaut et favorites
 

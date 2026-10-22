@@ -46,7 +46,7 @@ export function openTargets(o) {
         run: (d) => {
           if (root) return;
           d.close();
-          ctx.navigate('rechercher', { ou: o.scope.dn, subtree: o.scope.subtree ? '1' : '0', source: 'accueil', revision: o.revision, cle: o.key });
+          ctx.navigate('rechercher', { ou: o.scope.dn, sousou: o.scope.subtree ? '1' : '0', type: 'computers', source: 'accueil', revision: o.revision, cle: o.key });
         },
       },
       { id: 'close', label: 'Fermer', primary: true, run: (d) => d.close() },
@@ -106,10 +106,13 @@ export function openTargets(o) {
       grid.setRows(rows);
     } catch (err) {
       if (err?.code === 'board.replaced') {
+        // Domenia 1 (point 73): refusal, board drawn again, message. The board behind is recomputed at once; the panel keeps
+        // the message and offers to close and click the figure again on the new calculation.
         host.querySelector('.tg-head').innerHTML = `<div class="acc-err" role="alert">${glyph('refresh')}<span>${esc(reported(err))}</span>`
-          + `<button class="btn sm primary" type="button" data-tg-recompute>${glyph('refresh')}Recalculer le tableau</button></div>`;
+          + `<button class="btn sm" type="button" data-tg-recompute>${glyph('check')}Fermer et revoir le tableau</button></div>`;
         grid.setRows([]);
-        host.querySelector('[data-tg-recompute]').addEventListener('click', () => { drawer.close(); o.onReplaced(); });
+        host.querySelector('[data-tg-recompute]').addEventListener('click', () => drawer.close());
+        try { o.onReplaced(); } catch (e) { console.error(e); }
         return;
       }
       host.querySelector('.tg-head').innerHTML = '';
@@ -465,7 +468,13 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
     const out = panel.querySelector('.an-matrix');
     let matrix = null;
     let view = 'matrix';
-    const csvCell = (v) => (/[;"\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+    // Same rule as the grid of the kit (KIT § 4.1): a cell starting with = + - @ (or a tab, a carriage return) is neutralized
+    // by an apostrophe, labels coming from the directory and WMI (OU, model, BIOS version) never become a formula.
+    const csvCell = (v) => {
+      const raw = String(v ?? '');
+      const safe = /^[=+\-@\t\r]/.test(raw) && !/^-?\d+([.,]\d+)?$/.test(raw) ? `'${raw}` : raw;
+      return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+    };
     // Semicolon separated, as the French spreadsheets expect; totals included.
     const csv = (m) => [
       [`${m.rowTitle} \\ ${m.columnTitle}`, ...m.columns, 'Total'],
@@ -490,7 +499,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
         const cell = (v, key, label) => (v
           ? `<td><button class="an-cell" type="button" data-an-key="${esc(key ?? '')}" data-label="${esc(label)}" data-p="${(v / top).toFixed(4)}">${formatNumber(v)}</button></td>`
           : '<td class="zero">·</td>');
-        out.innerHTML = `<p class="an-cap">${esc(m.title)} · ${plural(m.total, 'poste', 'postes')}${m.folded ? ` · ${plural(m.folded, 'ligne regroupée', 'lignes regroupées')}` : ''}${m.filtered ? ' · filtré' : ''}</p>`
+        out.innerHTML = `<p class="an-cap">${esc(m.title)} · ${plural(m.total, 'poste', 'postes')}${m.folded ? ` · ${plural(m.folded, 'colonne regroupée dans « Autres colonnes »', 'colonnes regroupées dans « Autres colonnes »')}` : ''}${m.filtered ? ' · filtré' : ''}</p>`
           + (view === 'list' ? listView(m) : `<div class="an-scroll"><table class="acc-table an-pivot"><thead><tr><th scope="col">${esc(m.rowTitle)} \\ ${esc(m.columnTitle)}</th>${m.columns.map((c) => `<th scope="col">${esc(c)}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>`
           + m.rows.map((r) => `<tr><th scope="row">${esc(r.label)}</th>${r.counts.map((v, n) => cell(v, r.keys[n], `${r.label} · ${m.columns[n]}`)).join('')}`
             + `<td class="tot"><button class="an-cell tot" type="button" data-an-key="${esc(r.totalKey)}" data-label="${esc(r.label)}">${formatNumber(r.total)}</button></td></tr>`).join('')

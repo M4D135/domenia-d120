@@ -96,7 +96,11 @@ public sealed record FleetFigures(
 /// <summary>One reading of the fleet figures: daily snapshot, manual snapshot or the current view.</summary>
 public sealed record FleetSnapshot(string Id, string Kind, string Label, DateOnly Day, DateTimeOffset ComputedAt, FleetFigures Figures);
 
-/// <summary>Result of accueil.board (docs/ops/accueil.md § 3).</summary>
+/// <summary>
+/// Result of accueil.board (docs/ops/accueil.md § 3). Directory: the last complete AD read that covers the branch, a partial
+/// attempt, an unknown depth or a date in the future (ACC-020, CollectionClocks.Directory), for the freshness chip of the
+/// header and the population line; null only before the service sets it.
+/// </summary>
 public sealed record FleetBoard(
     string Revision,
     DateTimeOffset ComputedAt,
@@ -107,7 +111,8 @@ public sealed record FleetBoard(
     FleetHealth Health,
     ImmutableArray<FleetHint> Hints,
     string Summary,
-    FleetSnapshot Snapshot);
+    FleetSnapshot Snapshot,
+    DirectoryFreshness? Directory = null);
 
 /// <summary>
 /// One workstation of an exact set (« Postes concernés »). <see cref="Score"/> is the score of the workstation (ACC-029,

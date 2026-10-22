@@ -223,8 +223,16 @@ export function openHealthRules(o) {
     panel.innerHTML = loading();
     ctx.call('accueil.health.exceptions').then((r) => {
       const rows = r.rows ?? [];
+      const missing = rows.filter((x) => x.missing).length;
+      // An exception whose OU is no longer known locally (deleted, moved or renamed) is said so (ACC-026): it stays listed so
+      // it can be reviewed and removed (« Revenir aux règles héritées »), never presented as an OU that still exists.
+      const item = (x, n) => `<li data-j="${n}"${x.missing ? ' class="missing"' : ''}><button class="hr-exc-pick" type="button" data-hr-scope="${esc(x.scopeDn)}"${x.missing ? ` data-tip="${esc(`OU introuvable dans l’index local${NBSP}: supprimée, déplacée ou renommée. L’exception est gardée${NBSP}; ouvrez-la pour la retirer.`)}"` : ''}>${glyph(x.missing ? 'alert' : 'ou')}`
+        + `<span><b>${esc(x.label)}</b>${x.missing ? `<span class="k-pill sm warn hr-exc-missing">OU introuvable</span>` : ''}${x.missing ? `<span class="mono hr-exc-dn">${esc(x.scopeDn)}</span>` : ''}<span>${esc(x.changes)}</span></span>`
+        + `<span class="num">${plural(x.count, 'réglage', 'réglages')}</span>${glyph('chevronRight', 'chev')}</button></li>`;
       panel.innerHTML = rows.length
-        ? `<p class="hr-lead">OU qui s’écartent des règles du domaine (seules leurs différences sont gardées).</p><ul class="hr-exc">${rows.map((x, n) => `<li data-j="${n}"><button class="hr-exc-pick" type="button" data-hr-scope="${esc(x.scopeDn)}">${glyph('ou')}<span><b>${esc(x.label)}</b><span>${esc(x.changes)}</span></span><span class="num">${plural(x.count, 'réglage', 'réglages')}</span>${glyph('chevronRight', 'chev')}</button></li>`).join('')}</ul>`
+        ? `<p class="hr-lead">OU qui s’écartent des règles du domaine (seules leurs différences sont gardées).</p>`
+          + (missing ? `<p class="hr-exc-warn">${glyph('alert')}<span>${plural(missing, 'exception porte', 'exceptions portent')} sur une OU introuvable dans l’index local${NBSP}: vérifiez qu’elle n’a pas été renommée, puis retirez l’exception si l’OU n’existe plus.</span></p>` : '')
+          + `<ul class="hr-exc">${rows.map(item).join('')}</ul>`
         : `<div class="acc-empty">${glyph('check')}<p>Aucune exception${NBSP}: toutes les OU suivent les règles du domaine.</p></div>`;
       paint(panel);
     }).catch((err) => { panel.innerHTML = `<div class="acc-err">${glyph('alert')}<span>${esc(reported(err))}</span></div>`; });

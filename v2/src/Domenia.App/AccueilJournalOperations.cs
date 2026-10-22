@@ -24,7 +24,7 @@ public sealed class AccueilJournalOperations : IOperationModule
             new OperationDefinition("accueil.log.tail", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
                 BridgeArguments.RequireNone(args);
-                return await AccueilHostFiles.TailAsync(TechnicalLog.FilePath, cancellationToken).ConfigureAwait(false);
+                return await AccueilHostFiles.TailAsync(TechnicalLog.FilePath, cancellationToken, context.Log.Warning).ConfigureAwait(false);
             }, "Dernières lignes du journal technique de Domenia (lecture locale, bornée)."),
         ];
     }

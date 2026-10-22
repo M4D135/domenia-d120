@@ -87,7 +87,11 @@ public sealed record ResolvedHealthPolicy(HealthPolicy Policy, string ScopeDn, s
 public sealed record HealthOriginRow(string Kind, string Id, string Name, string Value, string? SourceDn, bool Local, string Origin);
 
 /// <summary>A local exception of the domain with its readable differences.</summary>
-public sealed record HealthExceptionRow(string ScopeDn, string Label, string Changes, int Count);
+/// <summary>
+/// A local exception of the health rules (ACC-026). Missing: the OU is no longer known in the local OU index (deleted, moved or
+/// renamed): the exception is kept, said « OU introuvable » and never opened as if the OU still existed.
+/// </summary>
+public sealed record HealthExceptionRow(string ScopeDn, string Label, string Changes, int Count, bool Missing = false);
 
 /// <summary>A scope offered by the rules editor.</summary>
 public sealed record HealthEditorScope(string Name, string? Dn, string Kind);

@@ -167,7 +167,7 @@ public static class FleetBoardCalculator
             var machineDetail = FrenchText.Integer(total) + " activés · " + FrenchText.Integer(disabledMachines.Count) + " désactivés · 0 état inconnu · "
                 + (ScopeRules.IsDomainRoot(scope, input.DomainDn) ? "domaine" : scope.Subtree ? "OU et sous-OU" : "OU directe");
             Entry("fleet.machines", FrenchText.Integer(machineCount), machineCount, null, machineDetail, null, targetsKey: "fleet.machines");
-            Entry("fleet.enabled", FrenchText.Integer(total), total, null, "Comptes AD activés ; ce nombre ne décrit pas la présence réseau.", null, targetsKey: "fleet.enabled");
+            Entry("fleet.enabled", FrenchText.Integer(total), total, null, "Comptes ordinateur activés dans l’AD (postes de l’OU, pas les comptes utilisateurs)" + FrenchText.Colon + "ce nombre ne décrit pas la présence réseau.", null, targetsKey: "fleet.enabled");
             Entry("fleet.accountunknown", "0", 0, null, "État du compte AD non lu ; ne vaut ni activé ni désactivé.", null, targetsKey: "fleet.accountunknown");
             Distribution("fleet.accountstatus", FrenchText.Integer(machineCount), machineDetail, [("Activés", total, Tone.Ok), ("Désactivés", disabledMachines.Count, Tone.Off), ("État inconnu", 0, Tone.Info)],
                 FrenchText.Count(machineCount, "compte", "comptes"), keepEmpty: true);

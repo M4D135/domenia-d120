@@ -45,7 +45,11 @@
     "ACC-061",
     "ACC-062",
     "ACC-063",
-    "ACC-064"
+    "ACC-064",
+    "TRV-285",
+    "TRV-301",
+    "TRV-302",
+    "TRV-305"
   ],
   "ameliore": [
     "ACC-001",
@@ -76,11 +80,11 @@
     },
     {
       "id": "ACC-031",
-      "reste": "Rechercher (autre lot) doit reprendre la liste transmise : la page n’ouvre jamais le domaine entier, libelle honnêtement « Ouvrir l’OU dans Rechercher » et passe déjà la révision et la clé de l’ensemble (source=accueil&revision=…&cle=…, docs/ops/accueil.md § 4) ; « Postes concernés » copie les noms et le CSV de la liste exacte."
+      "reste": "Rechercher (autre lot) doit reprendre la liste exacte transmise (révision et clé de l’ensemble) ; le bouton direct de Domenia 1 « Ouvrir les postes dans Rechercher » est dans la barre du tableau du parc (barre de commandes du kit), et les trois liens vers Rechercher passent ses paramètres à lui (ou, sousou, type = computers) : jamais le domaine entier."
     },
     {
       "id": "ACC-039",
-      "reste": "Ouvrir un chiffre dans l’atelier avec sa recette quand l’atelier de requêtes sera porté ; chaque chiffre ouvre déjà sa liste exacte de postes (grille, filtres, CSV, fiche, Rechercher)."
+      "reste": "Ouvrir un chiffre dans l’atelier avec sa recette quand l’atelier de requêtes sera porté ; chaque chiffre ouvre déjà sa liste exacte de postes (grille, filtres, CSV, fiche, Rechercher), et sur board.replaced le tableau est redessiné de lui-même, le message restant affiché (point 73 de Domenia 1)."
     },
     {
       "id": "ACC-048",
@@ -98,5 +102,9 @@
       "id": "ACC-051",
       "reste": "Ouvrir la sélection figée des GUID dans l’atelier, nommée avec le compte et la date, quand l’atelier sera porté ; « Points d’attention », « Sans problème » et « Non évalués » ouvrent déjà leurs postes exacts."
     }
+  ],
+  "notes": [
+    "Tour 2 de la critique traité le 22/10 (relève OpenCode) : badge du score affiché sous le verdict, en pastilles (ACC-055, ACC-052) ; tableau du parc recalculé une fois après une mesure des indicateurs (ACC-033) ; exception de règles sur une OU introuvable signalée (ACC-026) ; relevés enregistrés avec la profondeur réellement mesurée (ACC-023) ; instantané pris sur le calcul affiché, tableau redessiné de lui-même sur board.replaced (ACC-039) ; fraîcheur de la branche dans l’en-tête et la ligne de population (accueil.board.directory, ACC-020) ; une seule lecture BitLocker à la fois (bitlocker.running) ; CSV des tableaux croisés neutralisé ; accueil.board et accueil.firstSteps déclarées LocalWrite ; 90 jours d’instantanés quotidiens ; journal technique verrouillé dit clairement ; aperçu du navigateur complété ; barre du tableau du parc passée à la barre de commandes du kit, une seule action principale, actions réseau marquées, motif des commandes grisées, titres h2 / h3 / h4, liens des indicateurs vers leur widget du tableau.",
+    "Fonctions transverses du tableau du parc réalisées par cet écran : catalogue intégré des 34 widgets (TRV-285), table des fins de service livrée (TRV-301), seuils et politique de santé appliqués au tableau (TRV-302), contrat de données des widgets (TRV-305). Restent à faire, avec l’ordonnanceur de la vague 3 : collecte immédiate à l’ajout d’un widget, file d’attente et progression par widget (TRV-290 à TRV-292) ; la collecte passe aujourd’hui par l’actualisation explicite de l’OU (plan figé, ACC-001 à ACC-008)."
   ]
 }

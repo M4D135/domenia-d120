@@ -64,7 +64,7 @@ public static class FleetCatalog
         new("fleet.health", "Santé", "Santé du parc", FleetDataKind.Health, "HealthSummary", "L", "Part des postes sans point critique ni à surveiller, et les points à vérifier : un clic déplie les postes concernés.", true),
         new("fleet.attention", "Santé", "Points d’attention", FleetDataKind.List, "List", "L", "Problèmes détectés sur le périmètre : un clic déplie les postes concernés.", false),
         new("fleet.machines", "Inventaire du périmètre", "Comptes ordinateur", FleetDataKind.Value, "Kpi", "S", "Tous les comptes AD : activés, désactivés et état inconnu.", true),
-        new("fleet.enabled", "Inventaire du périmètre", "Comptes AD activés", FleetDataKind.Value, "Kpi", "S", "État AD ; aucune déduction de présence réseau.", true),
+        new("fleet.enabled", "Inventaire du périmètre", "Comptes ordinateur activés", FleetDataKind.Value, "Kpi", "S", "État AD ; aucune déduction de présence réseau.", true),
         new("fleet.accountunknown", "Inventaire du périmètre", "État AD inconnu", FleetDataKind.Value, "Kpi", "S", "userAccountControl non lu.", false),
         new("fleet.accountstatus", "Inventaire du périmètre", "État des comptes AD", FleetDataKind.Distribution, "Pie", "M", "Activés, désactivés et inconnus.", true),
         new("fleet.stale", "Inventaire du périmètre", "Sans connexion AD au-delà du seuil", FleetDataKind.Value, "Kpi", "S", "Seuil réglé dans les règles de santé (90 j par défaut) ; lastLogonTimestamp à 14 jours près.", true),

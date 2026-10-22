@@ -186,7 +186,7 @@ internal static class AccueilTests
         Check.Equal(machines, population.GetProperty("enabled").GetInt32() + population.GetProperty("disabled").GetInt32() + population.GetProperty("unknown").GetInt32(), "population complète");
         Check.Equal(412, population.GetProperty("enabled").GetInt32(), "postes activés de l’OU Postes");
         var entries = board.GetProperty("entries");
-        Check.Equal(412.0, entries.GetProperty("fleet.enabled").GetProperty("number").GetDouble(), "tuile « Comptes AD activés »");
+        Check.Equal(412.0, entries.GetProperty("fleet.enabled").GetProperty("number").GetDouble(), "tuile « Comptes ordinateur activés »");
         Check.Equal("health", entries.GetProperty("fleet.health").GetProperty("kind").GetString(), "carte santé");
         var health = board.GetProperty("health");
         Check.Equal(health.GetProperty("total").GetInt32(), health.GetProperty("assessed").GetInt32() + health.GetProperty("unassessed").GetInt32(), "évalués + non évalués");
@@ -659,6 +659,104 @@ internal static class AccueilTests
         Check.True(cut.Truncated, "plus de 256 Kio : début non affiché");
         Check.Equal(Domenia.App.AccueilHostFiles.MaxLines, cut.Lines.Length, "200 lignes au plus");
         Check.Null(Domenia.App.AccueilHostFiles.FreeBytes(null), "sans dossier de données : non mesuré");
+    }
+
+    // ---------------------------------------------------------------- tour 2 of the critique (written, run at the very end)
+
+    [Test]
+    public static async Task A_locked_journal_gives_a_clear_sentence_and_a_trace()
+    {
+        using var folder = new TemporaryFolder();
+        var path = folder.File("domenia.log");
+        await File.WriteAllTextAsync(path, "2026-10-21T16:00:00Z Démarrage\n");
+        var traces = new List<string>();
+        using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            var tail = await Domenia.App.AccueilHostFiles.TailAsync(path, CancellationToken.None, traces.Add);
+            Check.False(tail.Available, "journal verrouillé : rien n’est lu");
+            Check.Contains("illisible pour l’instant", tail.Summary, "phrase claire, pas une erreur générique");
+            Check.Equal(1, traces.Count, "une trace au journal technique");
+            Check.Contains("IOException", traces[0], "le type d’erreur seulement");
+        }
+    }
+
+    [Test]
+    public static void A_run_on_the_direct_children_does_not_date_the_sub_OUs()
+    {
+        var now = TestClock.Reference;
+        var run = CollectionClocks.Create(CollectionFamily.Presence, Domain, Postes, false, CollectionStatus.Success, now.AddMinutes(-10), now.AddMinutes(-9),
+            null, 0, 0, 0, 0, null, now);
+        var own = CollectionClocks.Clock([run], CollectionFamily.Presence, new ScopeSelection(Postes, "Postes", false), Domain, now, TestClock.Paris);
+        Check.Equal("success", own.State, "la vue « cette OU seulement » est datée");
+        var child = CollectionClocks.Clock([run], CollectionFamily.Presence, new ScopeSelection("OU=Paris," + Postes, "Paris", true), Domain, now, TestClock.Paris);
+        Check.Equal("neverRecorded", child.State, "un relevé des enfants directs ne date jamais les descendants (ACC-023)");
+    }
+
+    [Test]
+    public static async Task A_refresh_records_the_depth_really_measured()
+    {
+        var bridge = new SimulatedBridge();
+        var paris = "OU=Paris," + Postes;
+        await bridge.CallAsync("session.setScope", JsonSerializer.Serialize(new { dn = paris, subtree = false }));
+        static int Count(JsonElement list, string dn, bool subtree) => list.GetProperty("rows").EnumerateArray()
+            .Count(r => string.Equals(r.GetProperty("ouDn").GetString(), dn, StringComparison.OrdinalIgnoreCase) && r.GetProperty("subtree").GetBoolean() == subtree);
+        var before = SimulatedBridge.Json(await bridge.CallAsync("accueil.collections"));
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}"));
+        await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() }));
+        var after = SimulatedBridge.Json(await bridge.CallAsync("accueil.collections"));
+        Check.Equal(Count(before, paris, false) + 1, Count(after, paris, false), "relevé enregistré « sans les sous-OU »");
+        Check.Equal(Count(before, paris, true), Count(after, paris, true), "aucun relevé « sous-OU comprises » inventé");
+    }
+
+    [Test]
+    public static async Task A_snapshot_keeps_the_board_on_screen_valid()
+    {
+        var bridge = new SimulatedBridge();
+        var board = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+        var revision = board.GetProperty("revision").GetString();
+        await bridge.CallAsync("accueil.snapshot.take", "{\"label\":\"Avant\"}");
+        var targets = await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision, key = "fleet.enabled" }));
+        Check.Null(targets.Error, "les chiffres du tableau affiché ouvrent encore leurs postes après un instantané (pas de board.replaced)");
+    }
+
+    [Test]
+    public static async Task The_board_carries_the_badge_and_the_freshness_of_the_branch()
+    {
+        var bridge = new SimulatedBridge();
+        var board = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+        var badge = board.GetProperty("health").GetProperty("badge").GetString();
+        Check.NotNull(badge, "badge du score (ACC-055)");
+        Check.Contains("évalués", badge!, "ligne de couverture « X évalués / Y comptes activés »");
+        var directory = board.GetProperty("directory");
+        Check.Equal("complete", directory.GetProperty("status").GetString(), "annuaire fictif lu en entier (ACC-020)");
+        Check.False(directory.GetProperty("partial").GetBoolean(), "aucune tentative partielle");
+        Check.Equal(JsonValueKind.String, directory.GetProperty("at").ValueKind, "date de la dernière lecture complète de la branche");
+    }
+
+    [Test]
+    public static async Task Two_BitLocker_reads_never_run_together()
+    {
+        var bridge = new SimulatedBridge();
+        var answers = await Task.WhenAll(bridge.CallAsync("accueil.bitlocker.read"), bridge.CallAsync("accueil.bitlocker.read"));
+        Check.True(answers.Any(a => a.Error is null), "au moins une lecture aboutit");
+        Check.True(answers.All(a => a.Error is null || a.Error.Code == "bitlocker.running"), "une seconde lecture simultanée est refusée (bitlocker.running), jamais une autre erreur");
+        Check.Null((await bridge.CallAsync("accueil.bitlocker.read")).Error, "le verrou est rendu : une lecture suivante part");
+    }
+
+    [Test]
+    public static async Task An_exception_on_a_vanished_OU_is_signalled()
+    {
+        var bridge = new SimulatedBridge();
+        var gone = "OU=Disparue," + Postes;
+        var saved = await bridge.CallAsync("accueil.health.save", JsonSerializer.Serialize(new { dn = gone, policy = new { thresholds = new { staleDays = 45 } } }));
+        Check.Null(saved.Error, "exception enregistrée pour une OU absente de l’index (OU supprimée depuis)");
+        var rows = SimulatedBridge.Json(await bridge.CallAsync("accueil.health.exceptions")).GetProperty("rows").EnumerateArray().ToList();
+        var row = rows.Single(r => r.GetProperty("scopeDn").GetString() == gone);
+        Check.True(row.GetProperty("missing").GetBoolean(), "« OU introuvable » signalée (ACC-026)");
+        await bridge.CallAsync("accueil.health.save", JsonSerializer.Serialize(new { dn = "OU=Lyon," + Postes, policy = new { thresholds = new { staleDays = 60 } } }));
+        var lyon = SimulatedBridge.Json(await bridge.CallAsync("accueil.health.exceptions")).GetProperty("rows").EnumerateArray()
+            .Single(r => r.GetProperty("scopeDn").GetString() == "OU=Lyon," + Postes);
+        Check.False(lyon.GetProperty("missing").GetBoolean(), "une OU connue n’est pas signalée");
     }
 
     [Test]

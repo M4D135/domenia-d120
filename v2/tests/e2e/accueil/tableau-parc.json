@@ -17,7 +17,7 @@
     { "do": "expect", "selector": ".card.fw.size-L[data-entry=\"fleet.os\"]", "title": "Le widget est large" },
     { "do": "click", "text": "Personnaliser", "within": ".fw-tools", "title": "Passer en mode Personnaliser" },
     { "do": "expect", "selector": ".board.editing", "title": "Les poignées de déplacement sont affichées" },
-    { "do": "click", "selector": "[data-fw-grip]", "within": "[data-entry=\"fleet.enabled\"]", "title": "Prendre la poignée de « Comptes AD activés »" },
+    { "do": "click", "selector": "[data-fw-grip]", "within": "[data-entry=\"fleet.enabled\"]", "title": "Prendre la poignée de « Comptes ordinateur activés »" },
     { "do": "press", "key": "Alt+ArrowLeft", "title": "Déplacer le widget d’un rang vers le début" },
     { "do": "expect", "selector": ".fw-grid > [data-entry=\"fleet.enabled\"]:first-child", "title": "Le widget est désormais le premier de sa section" },
     { "do": "click", "text": "Annuler", "within": ".fw-tools", "title": "Annuler la dernière modification" },
