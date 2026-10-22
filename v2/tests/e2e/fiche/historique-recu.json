@@ -8,6 +8,7 @@
     { "do": "wait", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "timeoutMs": 20000 },
     { "do": "click", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "title": "Déverrouiller depuis le bandeau" },
     { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
+    { "do": "click", "text": "Confirmer (simulation)", "title": "Confirmer l’écriture simulée" },
     { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
     { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
     { "do": "click", "text": "Historique", "within": ".fi-body-host [role=tablist]", "title": "Onglet Historique" },

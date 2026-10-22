@@ -14,7 +14,7 @@
     { "do": "type", "selector": "[data-sn=\"label\"]", "text": "Essai E2E" },
     { "do": "click", "selector": "[data-sn=\"capture\"]", "title": "Enregistrer un relevé du périmètre" },
     { "do": "click", "text": "Confirmer…" },
-    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "click", "text": "Confirmer (simulation)" },
     { "do": "wait", "contains": "Essai E2E", "within": ".sy-snap-grid", "timeoutMs": 30000, "title": "Le nouveau relevé est relu dans la liste" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]

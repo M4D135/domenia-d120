@@ -10,6 +10,7 @@
     { "do": "click", "text": "Préparer le déplacement", "title": "Plan du déplacement" },
     { "do": "wait", "text": "Confirmer…", "within": "[role=dialog]", "timeoutMs": 20000 },
     { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },
+    { "do": "click", "text": "Confirmer (simulation)", "title": "Confirmer l’écriture simulée" },
     { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000 },
     { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
     { "do": "wait", "contains": "Users", "within": ".fi-crumbs", "timeoutMs": 20000, "title": "Le fil du DN montre le nouvel emplacement" },

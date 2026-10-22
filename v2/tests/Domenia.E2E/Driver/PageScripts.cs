@@ -124,7 +124,7 @@ internal static class PageScripts
     public const string Probe = "(spec) => {" + Prelude + """
           const out = {
             scope: true, count: 0, sample: [], contains: null, hasValue: false, value: null,
-            ready: document.documentElement.dataset.ready ?? null,
+            ready: document.documentElement?.dataset.ready ?? null,
             complete: document.readyState === 'complete' && document.fonts.status === 'loaded',
             origin: performance.timeOrigin,
           };
@@ -160,7 +160,8 @@ internal static class PageScripts
         (route) => {
           const target = '#/' + route;
           if (location.hash === target) return 'same';
-          delete document.documentElement.dataset.ready;
+          // Right after the start, the first document may not have its root element yet.
+          if (document.documentElement) delete document.documentElement.dataset.ready;
           location.hash = target;
           return 'navigated';
         }

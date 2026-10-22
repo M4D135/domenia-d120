@@ -12,7 +12,7 @@
     { "do": "shot", "name": "partage", "selector": "[data-slot=\"shared\"]" },
     { "do": "click", "selector": "[data-pk=\"merge\"]", "title": "Fusionner et écrire" },
     { "do": "click", "text": "Confirmer…" },
-    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "click", "text": "Confirmer (simulation)" },
     { "do": "wait", "selector": "[data-job=\"shared\"]", "absent": true, "timeoutMs": 30000, "title": "Le relevé fusionné est relu" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]

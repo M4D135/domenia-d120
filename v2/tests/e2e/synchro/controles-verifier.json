@@ -13,7 +13,7 @@
     { "do": "shot", "name": "verification", "selector": "[data-slot=\"absences\"]" },
     { "do": "click", "selector": "[data-ct=\"store-check\"]", "title": "Enregistrer les résultats" },
     { "do": "click", "text": "Confirmer…" },
-    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "click", "text": "Confirmer (simulation)" },
     { "do": "wait", "selector": "[data-job=\"check\"]", "absent": true, "timeoutMs": 30000, "title": "Les résultats sont relus depuis la base" },
     { "do": "click", "selector": "[data-abs=\"domain\"]", "title": "Afficher les disparitions de tout le domaine" },
     { "do": "expect", "contains": "De nouveau visible", "within": "[data-slot=\"absences\"]" },

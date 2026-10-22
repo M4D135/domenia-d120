@@ -13,6 +13,7 @@
     { "do": "expect", "contains": "Simulation", "within": "[role=dialog]", "title": "Le plan est marqué simulé" },
     { "do": "shot", "name": "plan-description", "selector": "[role=dialog]" },
     { "do": "click", "text": "Confirmer…", "within": "[role=dialog]", "title": "Confirmer le plan" },
+    { "do": "click", "text": "Confirmer (simulation)", "title": "Confirmer l’écriture simulée" },
     { "do": "wait", "contains": "Vérifiée par relecture", "within": "[role=dialog]", "timeoutMs": 20000, "title": "Le reçu dit la relecture après l’écriture" },
     { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
     { "do": "wait", "contains": "Référente CRM", "within": ".fi-page", "title": "La fiche relue affiche la nouvelle description" },
