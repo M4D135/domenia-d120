@@ -1,0 +1,15 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : identités de l’OU de travail",
+  "description": "Analyse les identités de l’OU de travail (Postes, sous-OU comprises) : chaque constat est « À revoir », rien n’est fusionné ; puis vérifie que le domaine entier avec ses sous-OU n’est pas proposé.",
+  "modes": ["simulation"],
+  "start": "audit?tab=identites",
+  "steps": [
+    { "do": "wait", "contains": "Postes", "within": ".aud-ids-ou", "title": "Le périmètre est l’OU de travail" },
+    { "do": "click", "selector": "[data-scan]", "title": "Analyser les identités de l’OU" },
+    { "do": "wait", "contains": "Nom recyclé ou objet recréé", "within": ".aud-ids-body", "timeoutMs": 20000, "title": "Des noms recyclés sont signalés" },
+    { "do": "expect", "contains": "Aucune fusion ni correction automatique", "within": ".aud-ids-body", "title": "Rien n’est corrigé automatiquement" },
+    { "do": "shot", "name": "identites", "selector": ".aud-ids-body" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : délégations d’un compte et estimation des droits du support",
+  "description": "Lit la liste de contrôle d’accès de Julien Martin, sélectionne l’entrée de GG-Support-N2 et vérifie l’estimation (réinitialisation du mot de passe autorisée par une entrée héritée), sans relecture de l’annuaire.",
+  "modes": ["simulation"],
+  "start": "audit?tab=objet&dn=CN%3DJulien%20Martin%2COU%3DInformatique%2COU%3DParis%2COU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&vue=delegations",
+  "steps": [
+    { "do": "wait", "text": "Julien Martin", "within": ".aud-target-names", "title": "La cible vient de l’adresse" },
+    { "do": "click", "selector": "[data-act=\"acl\"]", "title": "Lire les délégations" },
+    { "do": "wait", "contains": "GG-Support-N2", "within": "[data-grid=\"acl\"]", "timeoutMs": 15000, "title": "Les entrées sont listées" },
+    { "do": "click", "text": "GG-Support-N2", "within": "[data-grid=\"acl\"]", "nth": 0, "title": "Sélectionner l’entrée de GG-Support-N2" },
+    { "do": "wait", "contains": "Réinitialiser le mot de passe", "within": ".aud-estimate", "title": "L’estimation s’affiche" },
+    { "do": "expect", "contains": "entrée héritée", "within": ".aud-estimate", "title": "L’entrée qui décide est nommée" },
+    { "do": "shot", "name": "estimation", "selector": ".aud-estimate" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

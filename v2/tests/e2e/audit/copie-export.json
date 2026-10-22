@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : copier la vue et exporter les constats",
+  "description": "Après l’analyse, « Copier la vue » reprend ce qui est affiché sans relecture ; « Exporter » propose les fichiers (constats en CSV, tableau de la vue, rapport JSON) écrits dans le dossier des exports, et « Copier en Markdown » reste dans « Plus ».",
+  "modes": ["simulation"],
+  "start": "audit?lancer=analyse",
+  "steps": [
+    { "do": "wait", "selector": ".aud-sev-band", "timeoutMs": 20000, "title": "L’analyse portée par l’adresse est faite" },
+    { "do": "expect", "selector": "[data-cmd=\"analyse\"]", "title": "Le paramètre « lancer » a servi une fois" },
+    { "do": "click", "selector": "[data-cmd=\"copy\"]", "within": ".aud-bar", "title": "Copier la vue" },
+    { "do": "wait", "contains": "aucune relecture", "title": "La copie le dit : données déjà affichées" },
+    { "do": "click", "selector": "[data-cmd=\"export\"]", "within": ".aud-bar", "title": "Ouvrir le menu « Exporter »" },
+    { "do": "expect", "contains": "Constats de l’analyse (CSV)", "within": ".k-menu", "title": "Les constats s’exportent en fichier CSV" },
+    { "do": "expect", "contains": "Rapport de la vue (JSON)", "within": ".k-menu", "title": "Le rapport s’exporte en fichier JSON" },
+    { "do": "expect", "contains": "Texte pour un ticket", "within": ".k-menu", "absent": true, "title": "Plus de doublon avec « Copier la vue »" },
+    { "do": "click", "text": "Constats de l’analyse (CSV)", "within": ".k-menu", "title": "Exporter les constats" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

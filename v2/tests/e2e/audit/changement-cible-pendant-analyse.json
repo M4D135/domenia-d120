@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : changer d’objet pendant l’analyse ne l’annule pas",
+  "description": "Lance l’analyse du domaine, passe aussitôt à l’onglet Objet et choisit une suggestion pendant la lecture : seule une lecture de l’objet serait annulée (AUD-003). De retour sur la Synthèse, l’analyse se termine, ses constats s’affichent et la commande « Analyser le domaine » n’est plus occupée.",
+  "modes": ["simulation"],
+  "start": "audit",
+  "steps": [
+    { "do": "click", "selector": "[data-cmd=\"analyse\"]", "within": ".aud-bar", "title": "Lancer l’analyse du domaine" },
+    { "do": "expect", "selector": "[data-cmd=\"analyse\"][aria-busy=\"true\"]", "title": "La commande est occupée pendant la lecture" },
+    { "do": "click", "selector": ".aud-tabs [data-tab=\"objet\"]", "title": "Ouvrir l’onglet Objet pendant l’analyse" },
+    { "do": "wait", "selector": ".aud-suggest-item", "title": "Les suggestions viennent de l’index local" },
+    { "do": "click", "selector": ".aud-suggest-item", "nth": 0, "title": "Choisir la première suggestion (nouvelle cible)" },
+    { "do": "wait", "selector": ".aud-obj-layout[data-mode=\"target\"] .aud-target-names", "title": "La cible est posée, en bandeau au-dessus des vues" },
+    { "do": "click", "selector": ".aud-tabs [data-tab=\"synthese\"]", "title": "Revenir à la Synthèse" },
+    { "do": "wait", "selector": ".aud-sev-band", "timeoutMs": 20000, "title": "L’analyse se termine malgré le changement d’objet" },
+    { "do": "expect", "selector": "[data-cmd=\"analyse\"][aria-busy=\"true\"]", "absent": true, "title": "« Analyser le domaine » n’est plus occupé" },
+    { "do": "expect", "contains": "Analyse en cours", "within": ".aud-ov", "absent": true, "title": "Plus aucun « Analyse en cours… »" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
