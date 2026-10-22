@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 12 h 10, relève passée à OpenCode en pleine vague 2**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 12 h 40, relève OpenCode en cours (vague 2, écrans un par un : shell terminé)**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell terminé |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -52,7 +52,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 
 | Écran (id) | Situation au 22/10, 12 h 10 (branches poussées sur GitHub) | À faire en premier |
 |---|---|---|
-| shell | Complément du tour 1 interrompu : commit `wip(shell)`, possiblement non compilable | Compiler, terminer `shell-tour1.md`, puis critique complète |
+| shell | **Terminé** (`f4a0c5d`, relève OpenCode) : `wip` compilé, tour 1 vérifié point par point, parité refaite, moteur de tableaux complété (TRV-286, 288, 303, 314, 315, 316) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | accueil | Complété une fois ; critique du tour 2 rendue | Traiter `accueil-tour2.md` (13 manques, 9 défauts de design, 13 de code) |
 | rechercher | Complété une fois ; critique du tour 2 rendue | Traiter `rechercher-tour2.md` (6, 10, 12) |
 | fiche | Complété une fois ; critique du tour 2 rendue | Traiter `fiche-tour2.md` (6, 10, 11) |
@@ -66,6 +66,15 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | synchro | Complété (30/30 selon l'agent) | Critique complète puis compléments |
 | operations | Complément du tour 1 commité en partie (`e0385ab`) | Terminer `operations-tour1.md`, critique complète |
 | parametres | Complément du tour 1 interrompu : commit `wip(parametres)` | Compiler, terminer `parametres-tour1.md`, critique complète |
+
+Fichiers partagés déjà modifiés par des branches d’écran (avant la relève OpenCode), à revoir à l’intégration :
+`tokens.css` (shell : jetons de contraste WCAG demandés par sa critique), `app.js` (shell, et fiche pour quelques lignes),
+`kit.css`, `kit/glyphs.js`, `kit/menu.js`, `router.js` (fiche), `Composition.cs`, `Program.cs` (assistance), `kit/grid.js`
+(synchro), `write-flow.js` (comptes, synchro, opérations), `mock.js` et `mock-writes.js` (plusieurs écrans). La relève
+n’en modifie aucun depuis un écran.
+
+Agent Spark encore actif au début de la relève (22/10, 12 h 04) : `_pilotage/oc-v2/run.sh` (OpenCode, modèle local) travaille
+sur `v2-audit` (limite de 4 h) ; l’écran audit est repris après son arrêt, en gardant ce qu’il a laissé de bon.
 
 Pour chaque écran, le travail suit la même boucle :
 1. Lire le rapport critique.
@@ -113,6 +122,10 @@ Ensuite :
   - Accès SSH par l'alias `domenia-vm` (ProxyJump via l'hôte 192.168.1.173, port 2225, compte `Administrateur`, clé).
   - SDK .NET hors ligne dans `C:\DomeniaDev\dotnet`.
   - Une session de bureau `CNAMTS\Administrateur` est ouverte sur la console : ne pas la fermer.
+  - 22/10 : le relais SSH 192.168.1.173 refuse les connexions en rafale (« Exceeded MaxStartups ») ; la connexion vers la
+    VM est mutualisée (`ControlMaster auto`, `ControlPath ~/.ssh/cm/%C`, `ControlPersist 30m` dans le bloc `domenia-vm` de
+    `~/.ssh/config`, sauvegarde `config.bak-20261022-domenia-mux`) : une seule négociation avec le relais, puis `vm.sh`
+    passe par cette connexion.
 - **Ne jamais compiler ni lancer sur le Mac ni sur l'hôte.**
 - **Commandes** (depuis un arbre de travail, verrou exclusif de la VM) :
   - `bash v2/tools/vm.sh <lot> build` : synchronise vers `C:\DomeniaDev\src\<lot>` et compile ;
