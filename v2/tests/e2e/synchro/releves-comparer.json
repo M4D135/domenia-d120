@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : comparer deux relevés puis en enregistrer un nouveau",
+  "description": "Onglet Relevés : comparaison des deux relevés de l’OU Postes (totaux exacts, migration Windows 10 → 11), filtre par nature, puis nouveau relevé daté par le circuit d’écriture.",
+  "modes": ["simulation"],
+  "start": "synchro?onglet=releves",
+  "steps": [
+    { "do": "wait", "contains": "relevés enregistrés pour ce domaine", "title": "Les relevés sont lus" },
+    { "do": "click", "selector": "[data-sn=\"compare\"]", "title": "Comparer les deux relevés proposés" },
+    { "do": "wait", "selector": ".sy-diff-counter[data-nature=\"changed\"]", "title": "Le rapport est affiché" },
+    { "do": "click", "selector": ".sy-diff-counter[data-nature=\"changed\"]", "title": "Filtrer les valeurs modifiées" },
+    { "do": "expect", "contains": "Windows 10 Entreprise", "within": ".sy-diff-grid" },
+    { "do": "shot", "name": "comparaison", "selector": "[data-slot=\"compare\"]" },
+    { "do": "type", "selector": "[data-sn=\"label\"]", "text": "Essai E2E" },
+    { "do": "click", "selector": "[data-sn=\"capture\"]", "title": "Enregistrer un relevé du périmètre" },
+    { "do": "click", "text": "Confirmer…" },
+    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "wait", "contains": "Essai E2E", "within": ".sy-snap-grid", "timeoutMs": 30000, "title": "Le nouveau relevé est relu dans la liste" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

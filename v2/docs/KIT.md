@@ -201,6 +201,12 @@ Colonnes (`GridColumn`) : `type` `text` | `number` | `date` | `bool` | `enum` ; 
 `decimals`, `dateStyle` (`relative`, `datetime`, `date`), `sortable`, `filterable`, `hidden`, `required`, `secret`,
 `mono`, `tip`. Une date illisible trie comme la plus ancienne ; une valeur vide reste en fin de tri dans les deux sens.
 
+Tri par le moteur (`remoteSort: true`, `onSortChange(sort)`) : quand la page ne tient qu’une page d’une population triée
+ailleurs (base locale paginée), un clic sur un en-tête (ou son menu, ou Ctrl Z) ne trie plus les lignes chargées ; la grille
+garde leur ordre, affiche la flèche et rend le tri choisi (une colonne) à `onSortChange`, qui relance la lecture triée.
+`getSort()` le lit, `setSort(sort)` l’affiche sans le rendre (tri choisi ailleurs dans la page). Exemple : onglet Données
+de la synchronisation.
+
 Filtres par colonne : texte (plusieurs mots en ET, sans accents ni casse), nombre (`> 10`, `<= 5`, `5..20`, `=3`),
 liste pour `enum` et `bool`, périodes pour `date` (24 h, 7 j, 30 j, plus de 90 j, jamais). Filtre rapide : toutes les
 colonnes visibles non secrètes, 180 ms après la frappe. Un filtre qui masque tout le dit et propose « Effacer les

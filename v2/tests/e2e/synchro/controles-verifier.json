@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : vérifier les disparitions puis enregistrer les résultats",
+  "description": "Onglet Contrôles : la vérification demande une confirmation, relit les objets non revus du domaine par leur GUID (suppression prouvée seulement par isDeleted), puis les résultats passent par le circuit d’écriture ; la liste se lit pour le périmètre ou pour tout le domaine.",
+  "modes": ["simulation"],
+  "start": "synchro?onglet=controles",
+  "steps": [
+    { "do": "wait", "contains": "objets non revus par une lecture complète", "within": "[data-slot=\"absences\"]", "title": "La liste des disparitions est lue dans la base" },
+    { "do": "click", "selector": "[data-ct=\"check\"]", "title": "Vérifier les disparitions" },
+    { "do": "click", "text": "Lancer la vérification", "title": "Confirmer la lecture par GUID" },
+    { "do": "wait", "contains": "Vérification terminée", "within": "[data-job=\"check\"]", "timeoutMs": 30000 },
+    { "do": "expect", "contains": "Suppression constatée", "within": "[data-job=\"check\"]", "title": "Une suppression prouvée par isDeleted" },
+    { "do": "shot", "name": "verification", "selector": "[data-slot=\"absences\"]" },
+    { "do": "click", "selector": "[data-ct=\"store-check\"]", "title": "Enregistrer les résultats" },
+    { "do": "click", "text": "Confirmer…" },
+    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "wait", "selector": "[data-job=\"check\"]", "absent": true, "timeoutMs": 30000, "title": "Les résultats sont relus depuis la base" },
+    { "do": "click", "selector": "[data-abs=\"domain\"]", "title": "Afficher les disparitions de tout le domaine" },
+    { "do": "expect", "contains": "De nouveau visible", "within": "[data-slot=\"absences\"]" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

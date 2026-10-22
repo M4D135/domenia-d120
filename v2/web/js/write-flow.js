@@ -13,8 +13,16 @@ const STAGES = [
   { id: 'verifying', label: 'Relecture après l’écriture', icon: 'shield' },
 ];
 
-const KIND_ICONS = { user: 'user', computer: 'monitor', group: 'group', ou: 'ou' };
+const KIND_ICONS = { user: 'user', computer: 'monitor', group: 'group', ou: 'ou', database: 'database' };
 const TONE_ICONS = { ok: 'check', warn: 'eye', alert: 'alert', info: 'info', off: 'info' };
+
+/** Where the plan writes: the fictitious directory (simulation), the local base of this workstation, or the real directory. */
+function targetPill(plan) {
+  if (plan.simulated) return pill('accent', 'Simulation · aucun effet réel', { icon: 'sparkles', size: 'sm' });
+  // Plans of the local base (target « database ») never touch Active Directory.
+  if (plan.target?.kind === 'database') return pill('info', 'Base locale · ce poste', { icon: 'database', size: 'sm' });
+  return pill('alert', 'Annuaire réel', { icon: 'zap', size: 'sm' });
+}
 
 /** Refusals that happen before anything is sent: a new plan (an explicit gesture) is the way forward. */
 const REPLAN = new Set(['write.stale', 'write.tokenExpired', 'write.planUnknown', 'write.tokenUsed', 'write.planChanged', 'write.tokenInvalid', 'write.confirmationMismatch']);
@@ -469,7 +477,7 @@ function planMarkup(plan) {
         <b class="wf-target-name">${esc(t.name)}</b>
         <span class="wf-dn mono" data-tip="${esc(t.dn)}">${esc(t.dn)}</span>
       </div>
-      <div class="wf-target-pills">${plan.simulated ? pill('accent', 'Simulation · aucun effet réel', { icon: 'sparkles', size: 'sm' }) : pill('alert', 'Annuaire réel', { icon: 'zap', size: 'sm' })}${confirmation}${reversible}</div>
+      <div class="wf-target-pills">${targetPill(plan)}${confirmation}${reversible}</div>
     </section>
     <p class="wf-summary">${esc(plan.summary)}</p>
     <section class="wf-block" aria-labelledby="${id}-c">
