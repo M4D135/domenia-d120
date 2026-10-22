@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : relations et historique du compte de la session",
+  "description": "Ouvre l’audit de Julien Martin sur la vue Relations : la synthèse des associations (mémoire locale) se lit à l’ouverture, puis l’historique enregistré (base locale de Domenia, aucune lecture réseau) s’affiche en frise, filtrable par source, sans double état vide.",
+  "modes": ["simulation"],
+  "start": "audit?tab=objet&dn=CN%3DJulien%20Martin%2COU%3DInformatique%2COU%3DParis%2COU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&vue=relations",
+  "steps": [
+    { "do": "wait", "text": "Julien Martin", "within": ".aud-target-names", "title": "La cible vient de l’adresse" },
+    { "do": "wait", "selector": ".aud-rel-lines li", "timeoutMs": 10000, "title": "La synthèse des associations est lue sans geste réseau" },
+    { "do": "expect", "contains": "Affectation", "within": ".aud-rel-card", "title": "L’affectation déclarée est nommée avec son origine" },
+    { "do": "click", "selector": "[data-act=\"history\"]", "title": "Lire l’historique enregistré" },
+    { "do": "wait", "selector": ".aud-hist-card .k-tl-list", "timeoutMs": 10000, "title": "La frise de l’historique s’affiche" },
+    { "do": "expect", "contains": "ne prouve pas une session actuelle", "within": ".aud-hist-card", "title": "La limite de l’historique est dite" },
+    { "do": "expect", "contains": "Aucune association enregistrée", "within": ".aud-hist-card", "absent": true, "title": "Aucun état vide contradictoire sous l’historique" },
+    { "do": "shot", "name": "relations", "selector": ".aud-views" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

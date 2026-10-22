@@ -53,7 +53,7 @@ public static class AuditFindings
             "userAccountControl:1.2.840.113556.1.4.803:=4194304",
             "Comptes utilisateurs du domaine, 60 au plus.",
             "Réactiver la pré-authentification : sans elle, un attaquant obtient de quoi casser le mot de passe hors ligne (AS-REP roasting).",
-            "compte", "comptes", r => Any(r, r.Objects.Any(o => o.Detail?.Contains("privilège", StringComparison.Ordinal) == true) ? Severity.Critical : Severity.High)),
+            "compte", "comptes", r => Any(r, r.Objects.Any(o => o.Privileged) ? Severity.Critical : Severity.High)),
         new("passwordNotRequired", "Mots de passe", "Mot de passe non requis (PASSWD_NOTREQD)", AuditObjectKind.User,
             "userAccountControl:1.2.840.113556.1.4.803:=32, comptes actifs",
             "Comptes utilisateurs actifs du domaine, 60 au plus.",
@@ -68,7 +68,7 @@ public static class AuditFindings
             "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))",
             "Comptes utilisateurs du domaine, 60 au plus ; krbtgt exclu.",
             "Préférer des comptes de service gérés (gMSA) ou des mots de passe longs et aléatoires ; jamais de SPN sur un compte à privilèges.",
-            "compte", "comptes", r => Any(r, r.Objects.Any(o => o.Detail?.Contains("privilège", StringComparison.Ordinal) == true) ? Severity.High : Severity.Medium)),
+            "compte", "comptes", r => Any(r, r.Objects.Any(o => o.Privileged) ? Severity.High : Severity.Medium)),
         new("domainPasswordPolicy", "Mots de passe", "Stratégie de mot de passe du domaine", null,
             "minPwdLength, lockoutThreshold et pwdProperties de la racine du domaine",
             "Stratégie du domaine seulement ; les stratégies fines sont dans la section dédiée.",
@@ -312,12 +312,18 @@ public static class AuditFindings
                 : (delta > 0 ? "En hausse de " : "En baisse de ") + FrenchText.Count(Math.Abs(delta), "point", "points") + " depuis la vue précédente";
             previousView = new AuditPrevious(previous.ReadAt, previous.Score.Value, delta, label);
         }
-        var summary = "Analyse de " + read.Controller + " : " + FrenchText.Count(counted.Count, "constat", "constats") + " ("
-            + FrenchText.Integer(counts.Critical) + " critique" + (counts.Critical > 1 ? "s" : string.Empty) + ", "
-            + FrenchText.Integer(counts.High) + " élevé" + (counts.High > 1 ? "s" : string.Empty) + ", "
-            + FrenchText.Integer(counts.Medium) + " moyen" + (counts.Medium > 1 ? "s" : string.Empty) + "), "
+        var total = counts.Critical + counts.High + counts.Medium + counts.Low + counts.Info;
+        var summary = "Analyse de " + read.Controller + FrenchText.Colon + FrenchText.Count(total, "constat", "constats") + " ("
+            + string.Join(", ", new[]
+            {
+                (counts.Critical, "critique", "critiques"),
+                (counts.High, "élevé", "élevés"),
+                (counts.Medium, "moyen", "moyens"),
+                (counts.Low, "faible", "faibles"),
+                (counts.Info, "information", "informations"),
+            }.Select(c => FrenchText.Count(c.Item1, c.Item2, c.Item3))) + "), "
             + FrenchText.Count(counts.Passed, "contrôle sans écart", "contrôles sans écart") + ", "
-            + FrenchText.Count(sections.Length, "section", "sections") + ", " + FrenchText.Count(refused, "refus", "refus") + ". Lecture seule : l’annuaire n’est jamais compté en entier.";
+            + FrenchText.Count(sections.Length, "section", "sections") + ", " + FrenchText.Count(refused, "refus", "refus") + ". Lecture seule" + FrenchText.Colon + "l’annuaire n’est jamais compté en entier.";
         return new AuditOverview(read.ReadAt, read.Controller, read.DurationMs, score, counts, order, sections, refused, anomalies, summary, previousView);
     }
 

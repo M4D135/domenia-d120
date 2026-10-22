@@ -12,8 +12,8 @@ public static class AuditPolicyRules
 {
     private const string ResultantSource = "msDS-ResultantPSO";
 
-    public static AuditFact Fact(string label, string value, FactState state = FactState.Observed, string? source = null, string? limit = null) =>
-        new(label, value, state, AuditText.FactStateLabel(state), source, string.IsNullOrWhiteSpace(limit) ? null : limit);
+    public static AuditFact Fact(string label, string value, FactState state = FactState.Observed, string? source = null, string? limit = null, string? id = null) =>
+        new(label, value, state, AuditText.FactStateLabel(state), source, string.IsNullOrWhiteSpace(limit) ? null : limit, id);
 
     public static AuditPolicy View(PasswordPolicyRead read, DateTimeOffset now, TimeZoneInfo zone)
     {
@@ -174,7 +174,7 @@ public static class AuditPolicyRules
         {
             text += " (échu)";
         }
-        facts.Add(Fact("Expiration du mot de passe", text, expiryState, "Compte utilisateur", limit));
+        facts.Add(Fact("Expiration du mot de passe", text, expiryState, "Compte utilisateur", limit, "expiry"));
         if (account.SmartCardRequired)
         {
             facts.Add(Fact("Restriction", "Carte à puce exigée : le mot de passe n’est pas utilisable pour ouvrir une session interactive.", FactState.Observed, "userAccountControl"));

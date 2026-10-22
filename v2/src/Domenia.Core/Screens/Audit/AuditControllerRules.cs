@@ -72,6 +72,34 @@ public static class AuditControllerRules
         return list;
     }
 
+    /// <summary>
+    /// Every chosen name must be a controller of the last list of the domain (DNS name, or short name when unique); the
+    /// names come back as the list writes them. A host outside the list is never contacted (audit.controllersInvalid).
+    /// </summary>
+    public static ImmutableArray<string> RequireKnown(IReadOnlyList<string> chosen, ControllerListRead list)
+    {
+        ArgumentNullException.ThrowIfNull(chosen);
+        ArgumentNullException.ThrowIfNull(list);
+        var result = ImmutableArray.CreateBuilder<string>(chosen.Count);
+        foreach (var name in chosen)
+        {
+            var match = list.Controllers.FirstOrDefault(c => string.Equals(c.DnsHostName, name, StringComparison.OrdinalIgnoreCase))
+                ?? (list.Controllers.Count(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)) == 1
+                    ? list.Controllers.First(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase)) : null);
+            if (match is null)
+            {
+                throw new DomeniaOperationException(AuditErrors.ControllersInvalid,
+                    FrenchText.Quote(name.Length > 80 ? name[..80] + "…" : name) + " n’est pas un contrôleur de la liste du domaine : aucune lecture. Relisez la liste des contrôleurs.");
+            }
+            var canonical = string.IsNullOrEmpty(match.DnsHostName) ? match.Name : match.DnsHostName;
+            if (!result.Contains(canonical, StringComparer.OrdinalIgnoreCase))
+            {
+                result.Add(canonical);
+            }
+        }
+        return result.ToImmutable();
+    }
+
     /// <summary>« ^[A-Za-z0-9][A-Za-z0-9.-]{0,253}$ », as the probes of Domenia 1.</summary>
     public static bool IsHostName(string name) =>
         name.Length is > 0 and <= 254 && char.IsAsciiLetterOrDigit(name[0]) && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-');

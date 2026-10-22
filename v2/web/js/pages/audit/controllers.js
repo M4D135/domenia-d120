@@ -4,12 +4,11 @@
 // unreachable controller is « Non lu », never « en panne »; nothing runs on the controllers.
 import { icon } from '../../icons.js';
 import { glyph } from '../../kit/glyphs.js';
-import { pill } from '../../kit/status.js';
 import { createTabs } from '../../kit/tabs.js';
 import { createGrid } from '../../kit/grid.js';
 import { confirmDialog } from '../../kit/dialog.js';
 import { esc } from '../../ui.js';
-import { num, plural, when, factsMarkup, statusMarkup, emptyMarkup, skeletonMarkup, paint, reported, gridHeight } from './shared.js';
+import { num, plural, when, factsMarkup, statusMarkup, emptyMarkup, skeletonMarkup, paint, reported, tonePill, fitGrid } from './shared.js';
 
 const MAX = 10;
 
@@ -18,9 +17,9 @@ const MAX = 10;
  * @param {any} app  Page context.
  */
 export function createControllersTab(panel, app) {
-  const st = { list: null, chosen: new Set(), health: null, services: null, comparison: null, busy: new Set(), status: null, statusTone: 'info', result: 'synthese' };
+  const st = { list: null, chosen: new Set(), health: null, services: null, comparison: null, busy: new Map(), status: null, statusTone: 'info', result: 'synthese' };
   let tabs = null;
-  let grids = [];
+  const grids = new Map();
   const cleanups = [];
 
   panel.innerHTML = `<div class="aud-dc">
@@ -72,7 +71,7 @@ export function createControllersTab(panel, app) {
       <span class="aud-dc-check" aria-hidden="true">${glyph('check')}</span>
       <div class="aud-dc-top"><span class="aud-dc-ico" aria-hidden="true">${icon('server')}</span>
         <div class="aud-dc-names"><b>${esc(dc.name)}</b><span class="mono">${esc(dc.dnsName)}</span></div>
-        ${h ? `<span class="aud-dc-verdict">${pill(h.tone, h.verdictLabel, { size: 'sm', icon: h.verdict === 'clear' ? 'check' : h.verdict === 'check' ? 'eye' : 'wifiOff' })}</span>` : ''}</div>
+        ${h ? `<span class="aud-dc-verdict">${tonePill(h.tone, h.verdictLabel, { icon: h.verdict === 'clear' ? 'check' : h.verdict === 'check' ? 'eye' : 'wifiOff' })}</span>` : ''}</div>
       <div class="aud-dc-meta">${glyph('domain')}<span>${esc(dc.site ?? 'Site non lu')}</span><span class="sep">·</span><span>${esc(dc.operatingSystem ?? '—')}</span></div>
       <div class="aud-dc-roles">${dc.roles.map((r) => `<span class="chip">${esc(r)}</span>`).join('') || '<span class="aud-muted">Aucun rôle particulier</span>'}</div>
       ${h ? `<ul class="aud-dc-metrics" role="list">
@@ -104,8 +103,18 @@ export function createControllersTab(panel, app) {
 
   function destroyGrids() {
     grids.forEach((g) => g.destroy());
-    grids = [];
+    grids.clear();
   }
+
+  /** A grid sized to the rows it shows, kept for « Copier la vue » (rows as displayed). */
+  function resultGrid(name, host, options, rows, max) {
+    const fit = fitGrid(max);
+    const grid = fit.bind(createGrid(host, { ...options, height: '240px', onFilterChange: fit.onFilterChange }), rows.length);
+    grid.setRows(rows);
+    grids.set(name, grid);
+    return grid;
+  }
+  const shownRows = (name, rows) => grids.get(name)?.getVisibleRows() ?? rows;
 
   function renderResults() {
     destroyGrids();
@@ -129,7 +138,7 @@ export function createControllersTab(panel, app) {
   function renderHealth(p) {
     const h = st.health;
     p.innerHTML = `<div class="aud-health-cards">${h.rows.map((r, n) => `<article class="aud-health reveal" data-tone="${esc(r.tone)}" data-i="${n}">
-        <header>${pill(r.tone, r.verdictLabel, { size: 'sm' })}<b class="mono">${esc(r.controller)}</b></header>
+        <header>${tonePill(r.tone, r.verdictLabel)}<b class="mono">${esc(r.controller)}</b></header>
         <dl><div><dt>Joignable</dt><dd>${esc(r.reach)}</dd></div><div><dt>Heure</dt><dd>${esc(r.time)}</dd></div><div><dt>Synchronisé</dt><dd>${esc(r.synchronized)}</dd></div>
           <div><dt>Réplication entrante</dt><dd>${esc(r.replication)}</dd></div><div><dt>DNS</dt><dd>${esc(r.dns)}</dd></div></dl>
         ${r.reasons.length ? `<ul class="aud-reasons${r.verdict === 'notRead' ? '' : ' warn'}" role="list">${r.reasons.map((x) => `<li>${glyph(r.verdict === 'notRead' ? 'wifiOff' : 'alert')}${esc(x)}</li>`).join('')}</ul>` : `<p class="aud-ok-line">${glyph('check')}Aucun écart constaté.</p>`}
@@ -142,36 +151,32 @@ export function createControllersTab(panel, app) {
 
   function renderReplication(p) {
     p.innerHTML = '<div class="aud-grid-host"></div><p class="aud-foot-note">Liens de réplication entrants lus sur chaque contrôleur. 1601 = « Jamais » ; un refus de lecture n’est pas une panne.</p>';
-    const grid = createGrid(p.querySelector('.aud-grid-host'), {
-      key: 'audit.replication', label: 'Liens de réplication entrants', rowId: (r) => `${r.controller}|${r.partner}|${r.partition}`, selection: 'none', height: gridHeight(st.health.neighbors.length, 480),
+    resultGrid('replication', p.querySelector('.aud-grid-host'), {
+      key: 'audit.replication.v2', label: 'Liens de réplication entrants', rowId: (r) => `${r.controller}|${r.partner}|${r.partition}`, selection: 'none',
       columns: [
-        { id: 'controller', label: 'Contrôleur', width: 180, mono: true },
-        { id: 'partner', label: 'Partenaire', width: 120 },
-        { id: 'partition', label: 'Partition', width: 300, mono: true },
-        { id: 'lastSuccess', label: 'Dernier succès', type: 'date', width: 160, format: (v, r) => (r.never ? 'Jamais' : r.lastSuccessLabel) },
-        { id: 'lastAttempt', label: 'Dernière tentative', type: 'date', width: 160 },
-        { id: 'result', label: 'Résultat', width: 260, html: (v, r) => pill(r.tone, v, { size: 'sm' }) },
-        { id: 'failures', label: 'Échecs consécutifs', type: 'number', width: 150 },
+        { id: 'controller', label: 'Contrôleur', width: 170, mono: true },
+        { id: 'partner', label: 'Partenaire', width: 110 },
+        { id: 'partition', label: 'Partition', width: 250, mono: true },
+        { id: 'result', label: 'Résultat', width: 240, html: (v, r) => tonePill(r.tone, v, { fit: true }) },
+        { id: 'lastSuccess', label: 'Dernier succès', type: 'date', width: 140, format: (v, r) => (r.never ? 'Jamais' : r.lastSuccessLabel) },
+        { id: 'lastAttempt', label: 'Dernière tentative', type: 'date', width: 150 },
+        { id: 'failures', label: 'Échecs', type: 'number', width: 100, tip: 'Échecs consécutifs' },
       ],
-    });
-    grid.setRows(st.health.neighbors);
-    grids.push(grid);
+    }, st.health.neighbors, 480);
   }
 
   function renderServices(p) {
     p.innerHTML = `${statusMarkup(st.services.summary, st.services.skipped ? 'warn' : 'info')}<div class="aud-grid-host"></div>`;
-    const grid = createGrid(p.querySelector('.aud-grid-host'), {
-      key: 'audit.services', label: 'Services de l’annuaire des contrôleurs', rowId: (r) => `${r.controller}|${r.service}`, selection: 'none', height: gridHeight(st.services.rows.length, 520),
+    resultGrid('services', p.querySelector('.aud-grid-host'), {
+      key: 'audit.services.v2', label: 'Services de l’annuaire des contrôleurs', rowId: (r) => `${r.controller}|${r.service}`, selection: 'none',
       columns: [
         { id: 'controller', label: 'Contrôleur', width: 190, mono: true },
         { id: 'service', label: 'Service', width: 120, mono: true },
-        { id: 'state', label: 'État', width: 200 },
+        { id: 'state', label: 'État', width: 170 },
         { id: 'startMode', label: 'Démarrage', width: 130 },
-        { id: 'finding', label: 'Constat', width: 380, html: (v, r) => pill(r.tone, v, { size: 'sm' }) },
+        { id: 'finding', label: 'Constat', width: 360, html: (v, r) => tonePill(r.tone, v, { fit: true }) },
       ],
-    });
-    grid.setRows(st.services.rows);
-    grids.push(grid);
+    }, st.services.rows, 520);
   }
 
   function renderComparison(p) {
@@ -201,8 +206,9 @@ export function createControllersTab(panel, app) {
 
   async function call(action, op, args, apply, label) {
     if (st.busy.has(action)) return;
+    // Guard of its own kind (« dc-probe »…): a newer list replaces only an older list; a new target never cancels it (AUD-003).
     const token = app.guard.next(`dc-${action}`);
-    st.busy.add(action);
+    st.busy.set(action, token);
     st.status = label;
     st.statusTone = 'info';
     app.busy(action, true);
@@ -219,7 +225,8 @@ export function createControllersTab(panel, app) {
       st.statusTone = 'alert';
       app.toast(st.status, { tone: 'alert' });
     } finally {
-      if (app.alive() && app.guard.current(token)) {
+      // The busy state is released by the read that set it, even when its result is no longer applied.
+      if (app.alive() && st.busy.get(action) === token) {
         st.busy.delete(action);
         app.busy(action, false);
         renderAll();
@@ -338,11 +345,11 @@ export function createControllersTab(panel, app) {
         out.push({ title: 'Réplication', columns: [
           { label: 'Contrôleur', get: (r) => r.controller }, { label: 'Partenaire', get: (r) => r.partner }, { label: 'Partition', get: (r) => r.partition }, { label: 'Dernier succès', get: (r) => r.lastSuccessLabel },
           { label: 'Dernière tentative', get: (r) => r.lastAttemptLabel }, { label: 'Résultat', get: (r) => r.result }, { label: 'Échecs consécutifs', get: (r) => r.failures },
-        ], rows: st.health.neighbors });
+        ], rows: shownRows('replication', st.health.neighbors) });
       }
       if (st.services) out.push({ title: 'Services', summary: st.services.summary, columns: [
         { label: 'Contrôleur', get: (r) => r.controller }, { label: 'Service', get: (r) => r.service ?? '' }, { label: 'État', get: (r) => r.state }, { label: 'Démarrage', get: (r) => r.startMode }, { label: 'Constat', get: (r) => r.finding },
-      ], rows: st.services.rows });
+      ], rows: shownRows('services', st.services.rows) });
       if (st.comparison) out.push({ title: `Comparaison · ${st.comparison.name}`, summary: st.comparison.summary, columns: [
         { label: 'Attribut', get: (r) => r.attribute }, ...st.comparison.controllers.map((dc) => ({ label: dc, get: (r) => r.values.find((v) => v.controller === dc)?.value ?? 'Non lu' })),
       ], rows: st.comparison.rows });

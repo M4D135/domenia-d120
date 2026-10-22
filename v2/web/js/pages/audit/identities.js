@@ -5,7 +5,7 @@ import { glyph } from '../../kit/glyphs.js';
 import { createGrid } from '../../kit/grid.js';
 import { esc } from '../../ui.js';
 import { debounce } from '../../kit/util.js';
-import { num, plural, when, statusMarkup, emptyMarkup, skeletonMarkup, paint, reported, gridHeight } from './shared.js';
+import { num, plural, when, statusMarkup, emptyMarkup, skeletonMarkup, paint, reported, fitGrid } from './shared.js';
 
 const CATEGORY_ICONS = {
   'Valeur en double': 'copy', 'Nom DNS partagé': 'domain', 'Nom AD et nom DNS divergents': 'split', 'Nom recyclé ou objet recréé': 'history',
@@ -17,7 +17,7 @@ const CATEGORIES = Object.keys(CATEGORY_ICONS);
  * @param {any} app  Page context.
  */
 export function createIdentitiesTab(panel, app) {
-  const st = { scope: null, subtree: true, result: null, busy: false, error: null, hits: [], category: null };
+  const st = { scope: null, subtree: true, result: null, busy: false, scanToken: null, error: null, hits: [], category: null };
   let grid = null;
   const cleanups = [];
 
@@ -75,22 +75,25 @@ export function createIdentitiesTab(panel, app) {
     paint(body);
     app.reveal(body);
     if (r.findings.length) {
-      grid = createGrid(body.querySelector('[data-grid="ids"]'), {
-        key: 'audit.identites', label: 'Constats d’identité à revoir', rowId: (f) => f.id, selection: 'single', height: gridHeight(r.findings.length),
+      const rows = filtered();
+      const fit = fitGrid(460);
+      grid = fit.bind(createGrid(body.querySelector('[data-grid="ids"]'), {
+        key: 'audit.identites.v2', label: 'Constats d’identité à revoir', rowId: (f) => f.id, selection: 'single', height: '240px',
+        onFilterChange: fit.onFilterChange,
         columns: [
-          { id: 'category', label: 'Catégorie', width: 230, html: (v) => `<span class="aud-obj">${glyph(CATEGORY_ICONS[v] ?? 'info')}${esc(v)}</span>` },
-          { id: 'element', label: 'Élément', width: 360 },
-          { id: 'objectsText', label: 'Objets', width: 260 },
-          { id: 'conclusion', label: 'Conclusion', width: 120, type: 'enum', options: [{ value: 'À revoir', label: 'À revoir', tone: 'warn' }] },
-          { id: 'limit', label: 'Limite', width: 420 },
+          { id: 'category', label: 'Catégorie', width: 230, html: (v) => `<span class="aud-obj">${glyph(CATEGORY_ICONS[v] ?? 'info')}<span class="aud-obj-name">${esc(v)}</span></span>` },
+          { id: 'element', label: 'Élément', width: 300 },
+          { id: 'objectsText', label: 'Objets', width: 250 },
+          { id: 'conclusion', label: 'Conclusion', width: 140, type: 'enum', options: [{ value: 'À revoir', label: 'À revoir', tone: 'warn' }] },
+          { id: 'limit', label: 'Limite', width: 280 },
         ],
         onActivate: (f) => { if (f.objects[0]?.dn) app.target(f.objects[0].dn); },
         contextMenu: ({ row }) => [
           ...(row?.objects ?? []).filter((o) => o.dn).slice(0, 4).map((o) => ({ label: `Auditer ${o.name}`, icon: 'shield', run: () => app.target(o.dn) })),
           ...(row?.objects ?? []).filter((o) => o.dn).slice(0, 2).map((o) => ({ label: `Ouvrir la fiche de ${o.name}`, icon: 'object', run: () => app.ctx.navigate('fiche', { dn: o.dn }) })),
         ],
-      });
-      grid.setRows(filtered());
+      }), rows.length);
+      grid.setRows(rows);
     }
   }
 
@@ -100,6 +103,7 @@ export function createIdentitiesTab(panel, app) {
     if (!st.scope || st.busy || (st.scope.root && st.subtree)) return;
     const token = app.guard.next('identities');
     st.busy = true;
+    st.scanToken = token;
     st.error = null;
     app.busy('identities', true);
     renderScope();
@@ -115,8 +119,10 @@ export function createIdentitiesTab(panel, app) {
       st.error = reported(err);
       app.toast(st.error, { tone: err?.code === 'audit.scopeTooWide' ? 'warn' : 'alert' });
     } finally {
-      if (app.alive() && app.guard.current(token)) {
+      // Released by the scan that set it, even when its result is no longer applied (a new target never cancels it).
+      if (app.alive() && st.scanToken === token) {
         st.busy = false;
+        st.scanToken = null;
         app.busy('identities', false);
         renderScope();
         renderBody();
@@ -180,6 +186,11 @@ export function createIdentitiesTab(panel, app) {
       grid?.setRows(filtered());
     }
   };
+  const columns = () => [
+    { label: 'Catégorie', get: (f) => f.category }, { label: 'Élément', get: (f) => f.element }, { label: 'Objets', get: (f) => f.objectsText },
+    { label: 'Conclusion', get: (f) => f.conclusion }, { label: 'Limite', get: (f) => f.limit },
+  ];
+  const shown = () => grid?.getVisibleRows() ?? filtered();
   const onChange = (e) => {
     if (e.target instanceof HTMLInputElement && e.target.matches('[data-subtree]')) { st.subtree = e.target.checked; renderScope(); }
   };
@@ -207,13 +218,12 @@ export function createIdentitiesTab(panel, app) {
       renderScope();
       await scan();
     },
+    /** « Copier la vue »: the findings as the grid shows them (category tile, quick filter, sort). */
     sections() {
       if (!st.result) return [{ title: 'Identités', summary: 'Identités non analysées : rien à copier.' }];
-      return [{ title: `Identités · ${st.result.path}`, summary: st.result.summary, columns: [
-        { label: 'Catégorie', get: (f) => f.category }, { label: 'Élément', get: (f) => f.element }, { label: 'Objets', get: (f) => f.objectsText },
-        { label: 'Conclusion', get: (f) => f.conclusion }, { label: 'Limite', get: (f) => f.limit },
-      ], rows: filtered() }];
+      return [{ title: `Identités · ${st.result.path}`, summary: `${st.result.summary}\n${st.result.localIndexText ?? ''}`.trim(), columns: columns(), rows: shown() }];
     },
+    table: () => (st.result ? { name: `identites-${st.result.path}`, columns: columns(), rows: shown() } : null),
     destroy() {
       grid?.destroy();
       cleanups.forEach((fn) => fn());

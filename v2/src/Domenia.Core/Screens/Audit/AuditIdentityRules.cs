@@ -100,8 +100,8 @@ public static class AuditIdentityRules
         var localText = localState switch
         {
             ReadState.Read when local!.Compared >= 0 && local.Compared < local.Total =>
-                FrenchText.Integer(local.Compared) + " noms sur " + FrenchText.Integer(local.Total) + " comparés avec la base locale de ce poste : les autres ne sont pas recherchés, analysez une OU plus petite.",
-            ReadState.Read => local!.Simulated ? "Noms comparés avec la copie locale fictive de la simulation." : "Noms comparés avec la base locale de ce poste.",
+                FrenchText.Integer(local.Compared) + " noms sur " + FrenchText.Integer(local.Total) + " comparés avec la base locale de Domenia : les autres ne sont pas recherchés, analysez une OU plus petite.",
+            ReadState.Read => local!.Simulated ? "Noms comparés avec la copie locale fictive de la simulation." : "Noms comparés avec la base locale de Domenia.",
             ReadState.Unavailable => "Base locale non lue (" + (string.IsNullOrWhiteSpace(local?.Message) ? "raison non renvoyée" : local!.Message!.Trim().TrimEnd('.')) + ") : noms recyclés non recherchés.",
             ReadState.Empty => "Base locale absente : noms recyclés non recherchés.",
             ReadState.Refused => "Base locale occupée : noms recyclés non recherchés, relancez l’analyse.",
@@ -138,7 +138,7 @@ public static class AuditIdentityRules
         {
             warnings.Add("Nom AD (" + samName + ") et dNSHostName (" + dnsName + ") diffèrent : renommage ou mise à jour en attente.");
         }
-        facts.Add(AuditPolicyRules.Fact("Nom dans l’annuaire", dnsName.Length > 0 ? dnsName : samName, expected.Length > 0 ? FactState.Observed : FactState.Unknown, "Attributs sAMAccountName et dNSHostName"));
+        facts.Add(AuditPolicyRules.Fact("Nom dans l’annuaire", dnsName.Length > 0 ? dnsName : samName, expected.Length > 0 ? FactState.Observed : FactState.Unknown, "Attributs sAMAccountName et dNSHostName", id: "adName"));
         var state = IdentityCoherence.Coherent;
         if (expected.Length == 0)
         {
@@ -153,11 +153,15 @@ public static class AuditIdentityRules
                 state = IdentityCoherence.Unverified;
             }
             reasons.Add("Résolution DNS non obtenue : aucune adresse à confronter.");
-            facts.Add(AuditPolicyRules.Fact("Résolution DNS", "Non obtenue", read.Resolution.State == ReadState.Read ? FactState.Unknown : FactState.Unavailable, "DNS", read.Resolution.Message));
+            facts.Add(AuditPolicyRules.Fact("Résolution DNS", "Non obtenue", read.Resolution.State == ReadState.Read ? FactState.Unknown : FactState.Unavailable, "DNS", read.Resolution.Message, "dnsForward"));
+            facts.Add(AuditPolicyRules.Fact("Nom inverse (PTR)", "Non interrogé", FactState.Unknown, "DNS inverse", "Sans adresse, aucun enregistrement inverse n’est cherché.", "dnsReverse"));
         }
         else
         {
-            facts.Add(AuditPolicyRules.Fact("Résolution DNS", string.Join(", ", read.Resolution.Addresses), FactState.Observed, "DNS", "Un enregistrement DNS peut être périmé."));
+            facts.Add(AuditPolicyRules.Fact("Résolution DNS", string.Join(", ", read.Resolution.Addresses), FactState.Observed, "DNS", "Un enregistrement DNS peut être périmé.", "dnsForward"));
+            facts.Add(string.IsNullOrEmpty(read.Resolution.PtrName)
+                ? AuditPolicyRules.Fact("Nom inverse (PTR)", "Aucun enregistrement inverse", FactState.Unknown, "DNS inverse de " + address, "Une absence d’enregistrement inverse ne prouve rien sur le poste.", "dnsReverse")
+                : AuditPolicyRules.Fact("Nom inverse (PTR)", read.Resolution.PtrName.Trim().TrimEnd('.'), FactState.Observed, "DNS inverse de " + address, "Un enregistrement inverse peut être périmé.", "dnsReverse"));
             if (!string.IsNullOrEmpty(read.Resolution.PtrName) && expected.Length > 0 && ShortName(read.Resolution.PtrName) != expected)
             {
                 warnings.Add("L’enregistrement inverse de " + address + " désigne " + read.Resolution.PtrName + " : DNS inverse périmé possible.");
@@ -178,11 +182,11 @@ public static class AuditIdentityRules
                 ReadState.Unavailable => FactState.Unavailable,
                 _ => FactState.Unknown,
             };
-            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", "Non lue", reportedState, "CIM Win32_ComputerSystem", read.Reported.Message));
+            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", "Non lue", reportedState, "CIM Win32_ComputerSystem", read.Reported.Message, "reported"));
         }
         else
         {
-            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", reportedName, FactState.Observed, "CIM Win32_ComputerSystem"));
+            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", reportedName, FactState.Observed, "CIM Win32_ComputerSystem", id: "reported"));
             if (expected.Length > 0 && reportedShort != expected)
             {
                 state = IdentityCoherence.Incoherent;
@@ -287,7 +291,7 @@ public static class AuditIdentityRules
         var (stateLabel, summary) = read.State switch
         {
             ReadState.Refused => ("Occupée", "Base locale occupée : relancez la lecture dans un instant."),
-            ReadState.Empty => ("Vide", "Aucun historique enregistré dans la base locale de ce poste."),
+            ReadState.Empty => ("Vide", "Aucun historique enregistré dans la base locale de Domenia pour cet objet."),
             ReadState.Unavailable => ("Non lue", "Lecture de l’historique impossible : " + read.Message),
             _ => ("Lu", FrenchText.Count(rows.Length, "ligne affichée", "lignes affichées") + " sur " + FrenchText.Count(read.Total, "enregistrée", "enregistrées")
                 + " dans la base locale. La présence dans l’historique ne prouve pas une session actuelle."),

@@ -66,7 +66,11 @@ public sealed record AuditTarget(
     int? PrimaryGroupId,
     string? Description);
 
-/// <summary>Object named by a security check, a scan or a group (bounded list of the analysis, never the whole directory).</summary>
+/// <summary>
+/// Object named by a security check, a scan or a group (bounded list of the analysis, never the whole directory). Privileged:
+/// an account protected by AdminSDHolder (adminCount = 1) or a member of a privileged group, as the reader established it; the
+/// grading of a check reads this flag, never the wording of Detail.
+/// </summary>
 public sealed record AuditObjectRef(
     string Dn,
     string Name,
@@ -75,7 +79,8 @@ public sealed record AuditObjectRef(
     bool? Enabled,
     DateTimeOffset? LastLogon,
     DateTimeOffset? PasswordLastSet,
-    string? Detail);
+    string? Detail,
+    bool Privileged = false);
 
 // ---------------------------------------------------------------- domain overview (AUD-023) and local totals (AUD-022)
 

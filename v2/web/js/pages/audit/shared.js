@@ -2,7 +2,6 @@
 // ticket). Local only: nothing here calls the bridge.
 import { icon } from '../../icons.js';
 import { glyph } from '../../kit/glyphs.js';
-import { pill } from '../../kit/status.js';
 import { esc, formatNumber, formatDateTime, relTime, errorText, applyVars } from '../../ui.js';
 
 export const NB = ' ';
@@ -16,6 +15,30 @@ export const SEVERITIES = [
   { id: 'info', label: 'Information', plural: 'Informations', tone: 'off', icon: 'file', hint: 'À connaître, sans écart en soi.' },
 ];
 export const severityOf = (id) => SEVERITIES.find((s) => s.id === id) ?? SEVERITIES[4];
+
+/** Tone shown for a finding: its severity when read, « ok » without gap, « off » when not read (never counted). */
+export function findingTone(f) {
+  if (f.passed) return 'ok';
+  if (f.state !== 'read' && f.state !== 'empty') return 'off';
+  return severityOf(f.severity).tone;
+}
+
+const PILL_TONES = ['ok', 'warn', 'alert', 'info', 'off', 'accent'];
+
+/**
+ * Pill of the kit (same classes) with the tone « crit » of the screen and, with fit, a label cut with an ellipsis in a narrow
+ * cell, the full text as a tip (the kit pill never shrinks).
+ * @param {string} tone @param {string} label
+ * @param {{ size?: 'sm'|'md', icon?: string, tip?: string, fit?: boolean, dot?: boolean }} [o]
+ */
+export function tonePill(tone, label, o = {}) {
+  const crit = tone === 'crit';
+  const t = crit ? 'alert' : PILL_TONES.includes(tone) ? tone : 'off';
+  const mark = o.icon ? glyph(o.icon, 'k-pill-ico') : o.dot === false ? '' : '<span class="k-pill-dot" aria-hidden="true"></span>';
+  const tip = o.tip ?? (o.fit ? label : '');
+  const text = o.fit ? `<span class="aud-pill-text">${esc(label)}</span>` : esc(label);
+  return `<span class="k-pill ${t}${(o.size ?? 'sm') === 'sm' ? ' sm' : ''}${crit ? ' aud-crit' : ''}${o.fit ? ' aud-fit' : ''}"${tip ? ` data-tip="${esc(tip)}"` : ''}>${mark}${text}</span>`;
+}
 
 /** State of a fact (Domenia 1 New-DomeniaFact): Constaté, Estimé, Refusé, Indisponible, Inconnu. */
 const FACT_TONES = { observed: 'ok', estimated: 'warn', refused: 'alert', unavailable: 'off', unknown: 'off' };
@@ -52,7 +75,7 @@ export function factsMarkup(facts, { compact = false } = {}) {
     <li class="aud-fact" data-tone="${FACT_TONES[f.state] ?? 'off'}" data-i="${n}">
       <span class="aud-fact-mark" aria-hidden="true">${glyph(FACT_ICONS[f.state] ?? 'info')}</span>
       <div class="aud-fact-body">
-        <div class="aud-fact-top"><span class="aud-fact-label">${esc(f.label)}</span>${pill(FACT_TONES[f.state] ?? 'off', f.stateLabel, { size: 'sm', dot: false })}</div>
+        <div class="aud-fact-top"><span class="aud-fact-label">${esc(f.label)}</span>${tonePill(FACT_TONES[f.state] ?? 'off', f.stateLabel, { dot: false })}</div>
         <div class="aud-fact-value">${esc(f.value)}</div>
         ${f.source || f.limit ? `<div class="aud-fact-meta">${f.source ? `<span>${glyph('database')}${esc(f.source)}</span>` : ''}${f.limit ? `<span class="limit">${glyph('info')}${esc(f.limit)}</span>` : ''}</div>` : ''}
       </div>
@@ -84,9 +107,33 @@ export function statChips(items) {
   return `<ul class="aud-stats" role="list">${items.filter(Boolean).map((s, n) => `<li class="aud-stat" data-tone="${esc(s.tone ?? 'off')}" data-j="${n}">${s.icon ? glyph(s.icon) : ''}<b>${esc(s.value)}</b><span>${esc(s.label)}</span></li>`).join('')}</ul>`;
 }
 
-/** Height of a grid for n rows: no empty well under a short list, a scroll beyond about ten rows. */
-export function gridHeight(n, max = 460) {
-  return `${Math.min(max, Math.max(170, 96 + Math.max(1, n) * 40))}px`;
+const ROW_HEIGHTS = { compact: 32, normal: 40, comfortable: 48 };
+
+/**
+ * Height of the scrolling area of a grid for n rows shown (header, rows, room for a horizontal scroll bar): no empty well
+ * under a short list, a scroll beyond max. With no row shown (a filter hides them all), room for the empty state of the kit.
+ */
+export function gridHeight(n, max = 460, density = 'normal') {
+  if (n <= 0) return '240px';
+  const row = ROW_HEIGHTS[density] ?? 40;
+  return `${Math.min(max, 42 + n * row + 14)}px`;
+}
+
+/**
+ * Keeps a grid of the kit sized to the rows it shows: give onFilterChange to createGrid, then bind(grid, rows.length).
+ * The height is a CSS variable set through the CSSOM (CSP: no style attribute in the markup).
+ * @param {number} [max]
+ */
+export function fitGrid(max = 460) {
+  let grid = null;
+  const apply = (n) => {
+    const el = grid?.el;
+    if (el) el.style.setProperty('--k-grid-h', gridHeight(n, max, el.dataset.density));
+  };
+  return {
+    onFilterChange: (info) => apply(info.shown),
+    bind(g, n) { grid = g; apply(n); return g; },
+  };
 }
 
 /** Paints vars (--i, --tone…) of fresh markup. */
@@ -96,24 +143,35 @@ export function paint(scope) {
 }
 
 /**
- * Guard of concurrent reads (AUD-003): one counter per kind, so a newer read replaces only the read of the same kind; a
- * new target (or a new session) cancels them all.
+ * Guard of concurrent reads (AUD-003, Domenia 1 New-DomeniaAdAuditRequestState): one counter per kind, so a newer read
+ * replaces only the read of the same kind (a services read started during a probe never discards the probe). A kind may
+ * belong to a scope (« object:acl »): reset('object') cancels the reads of that scope only (a new target clears the results
+ * of the object, never the analysis, the diagnosis or the identities); reset() with no scope cancels them all (new session,
+ * screen left).
  */
 export function createGuard() {
   const counters = new Map();
+  const epochs = new Map();
   let epoch = 0;
+  const scopeOf = (kind) => (kind.includes(':') ? kind.slice(0, kind.indexOf(':')) : '');
   return {
     next(kind) {
       const n = (counters.get(kind) ?? 0) + 1;
       counters.set(kind, n);
-      return { kind, n, epoch };
+      return { kind, n, epoch, scoped: epochs.get(scopeOf(kind)) ?? 0 };
     },
     current(token) {
-      return token.epoch === epoch && counters.get(token.kind) === token.n;
+      return Boolean(token) && token.epoch === epoch && (epochs.get(scopeOf(token.kind)) ?? 0) === token.scoped && counters.get(token.kind) === token.n;
     },
-    reset() {
+    reset(scope) {
+      if (scope) {
+        epochs.set(scope, (epochs.get(scope) ?? 0) + 1);
+        for (const kind of [...counters.keys()]) if (scopeOf(kind) === scope) counters.delete(kind);
+        return;
+      }
       epoch += 1;
       counters.clear();
+      epochs.clear();
     },
   };
 }

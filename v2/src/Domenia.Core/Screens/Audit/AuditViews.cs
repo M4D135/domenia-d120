@@ -53,10 +53,16 @@ public enum IdentityCoherence
     Incoherent,
 }
 
-/// <summary>One explainable fact: value, state, source and limit (New-DomeniaFact, AUD-002).</summary>
-public sealed record AuditFact(string Label, string Value, FactState State, string StateLabel, string? Source, string? Limit);
+/// <summary>
+/// One explainable fact: value, state, source and limit (New-DomeniaFact, AUD-002). Id is a stable key for the facts the page
+/// places on its own (expiry, adName, dnsForward, dnsReverse, reported), null for the others: the page never matches a label.
+/// </summary>
+public sealed record AuditFact(string Label, string Value, FactState State, string StateLabel, string? Source, string? Limit, string? Id = null);
 
 public sealed record AuditAvailability(bool Allowed, string? Reason);
+
+/// <summary>Object proposed before any search (audit.suggestions): why it is proposed, and the target as audit.target gives it.</summary>
+public sealed record AuditSuggestion(string Id, string Label, string Detail, AuditTargetView Target);
 
 public sealed record AuditReadsAvailability(
     AuditAvailability Policy,
@@ -266,7 +272,8 @@ public sealed record AuditAceRow(
     bool Explicit,
     bool OnObject,
     bool DomainAccount,
-    string? Risk);
+    string? Risk,
+    string? RiskLabel = null);
 
 public sealed record AuditTrustee(string Sid, string Name, int Entries, bool DomainAccount);
 

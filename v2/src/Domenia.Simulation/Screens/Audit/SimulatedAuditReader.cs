@@ -222,9 +222,9 @@ public sealed class SimulatedAuditReader : IAuditReader
 
     private static bool IsServer(DirectoryComputer c) => c.OperatingSystem?.Contains("Server", StringComparison.OrdinalIgnoreCase) == true;
 
-    private static AuditObjectRef Ref(DirectoryUser u, string? detail = null) =>
+    private static AuditObjectRef Ref(DirectoryUser u, string? detail = null, bool privileged = false) =>
         new(u.DistinguishedName, u.DisplayName ?? u.Cn, AuditObjectKind.User, u.SamAccountName, !AdValues.IsDisabled(u.UserAccountControl),
-            AdValues.FromFileTime(u.LastLogonTimestamp), AdValues.FromFileTime(u.PasswordLastSet), detail);
+            AdValues.FromFileTime(u.LastLogonTimestamp), AdValues.FromFileTime(u.PasswordLastSet), detail, privileged);
 
     private static AuditObjectRef Ref(DirectoryComputer c, string? detail = null) =>
         new(c.DistinguishedName, c.Name, AuditObjectKind.Computer, c.SamAccountName, !AdValues.IsDisabled(c.UserAccountControl),
@@ -279,6 +279,14 @@ public sealed class SimulatedAuditReader : IAuditReader
         }
         Consider(index.Root, index.Directory.Domain.DnsName, index.Directory.Domain.NetbiosName);
         return [.. candidates.OrderBy(c => c.Rank).ThenBy(c => c.Sort, StringComparer.Ordinal).ThenBy(c => c.Target.Dn, StringComparer.Ordinal).Take(limit).Select(c => c.Target)];
+    }
+
+    public Task<AuditTarget?> FindDomainGroupAsync(int rid, CancellationToken cancellationToken)
+    {
+        // The local index of the session, by SID: answered at once, never a network read.
+        cancellationToken.ThrowIfCancellationRequested();
+        var index = Current();
+        return Task.FromResult(index.GroupBySid(index.Rid(rid)) is { } group ? index.Target(group.DistinguishedName) : null);
     }
 
     // ================================================================ domain overview
@@ -426,11 +434,11 @@ public sealed class SimulatedAuditReader : IAuditReader
         }
         var delegating = index.UsersBySam.GetValueOrDefault(SimulatedAuditData.ConstrainedDelegationAccount);
         checks.Add(Found("constrainedDelegation", delegating is null ? [] : [Ref(delegating, "Vers " + SimulatedAuditData.ConstrainedDelegationTarget + ", avec transition de protocole")]));
-        checks.Add(Found("asrepRoast", activeUsers.Where(u => AdValues.HasFlag(u.UserAccountControl, 0x400000)).Select(u => Ref(u, u.AdminCount == 1 ? "Compte à privilèges" : null))));
+        checks.Add(Found("asrepRoast", activeUsers.Where(u => AdValues.HasFlag(u.UserAccountControl, 0x400000)).Select(u => Ref(u, u.AdminCount == 1 ? "Compte à privilèges" : null, u.AdminCount == 1))));
         checks.Add(Found("passwordNotRequired", activeUsers.Where(u => AdValues.HasFlag(u.UserAccountControl, AdValues.PasswordNotRequired)).Select(u => Ref(u))));
         checks.Add(Found("reversibleEncryption", activeUsers.Where(u => AdValues.HasFlag(u.UserAccountControl, 0x80)).Select(u => Ref(u))));
         checks.Add(Found("kerberoast", activeUsers.Where(u => SimulatedAuditData.ServicePrincipalNames.ContainsKey(u.SamAccountName))
-            .Select(u => Ref(u, (u.AdminCount == 1 ? "Compte à privilèges · " : string.Empty) + string.Join(", ", SimulatedAuditData.ServicePrincipalNames[u.SamAccountName])))));
+            .Select(u => Ref(u, (u.AdminCount == 1 ? "Compte à privilèges · " : string.Empty) + string.Join(", ", SimulatedAuditData.ServicePrincipalNames[u.SamAccountName]), u.AdminCount == 1))));
         var policy = directory.Domain.PasswordPolicy;
         var gaps = (policy.MinPasswordLength < 12 ? 1 : 0) + (policy.LockoutThreshold == 0 ? 1 : 0);
         checks.Add(new SecurityCheckRead("domainPasswordPolicy", ReadState.Read, null, [], gaps, 0, null,
@@ -915,7 +923,30 @@ public sealed class SimulatedAuditReader : IAuditReader
                 result[c.ObjectGuid] = pool[random.Next(pool.Count)];
             }
         }
+        if (SessionWorkstation(index) is { } own && index.UsersBySam.TryGetValue(SimulationProfile.SessionLogin, out var sessionUser))
+        {
+            result[own.ObjectGuid] = sessionUser;
+        }
         return result;
+    }
+
+    /// <summary>
+    /// Workstation of the account of the session (Julien Martin in the default world), so that the examples of the screen and
+    /// of the guides show its relations and its history: the first desktop of its site, by name, without managedBy, that
+    /// answered the presence survey. Null when the account is unknown or disabled (writes of the session).
+    /// </summary>
+    private DirectoryComputer? SessionWorkstation(Index index)
+    {
+        if (!index.UsersBySam.TryGetValue(SimulationProfile.SessionLogin, out var user) || !Active(user))
+        {
+            return null;
+        }
+        var code = SimulationProfile.Sites.FirstOrDefault(s => string.Equals(s.Name, user.Office, StringComparison.Ordinal))?.Code;
+        return index.Directory.Computers
+            .Where(c => !IsController(c) && !IsServer(c) && c.ManagedByDn is null && !AdValues.IsDisabled(c.UserAccountControl) && Answers(c)
+                && (code is null || c.Name.Contains("-" + code + "-", StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(c => c.Name, StringComparer.Ordinal)
+            .FirstOrDefault();
     }
 
     private List<RelationHistoryRow> HistoryRows(Index index, DirectoryComputer computer, DirectoryUser user)
@@ -953,8 +984,13 @@ public sealed class SimulatedAuditReader : IAuditReader
         {
             pairs.AddRange(main.Where(p => p.Value.ObjectGuid == target.ObjectGuid).Select(p => (index.Directory.Computers.First(x => x.ObjectGuid == p.Key), p.Value)));
         }
+        var own = SessionWorkstation(index);
         foreach (var (computer, user) in pairs)
         {
+            if (own is not null && computer.ObjectGuid == own.ObjectGuid)
+            {
+                records.Add(new RelationRecord(RelationKind.Declared, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Affectation saisie dans Domenia", Reference - TimeSpan.FromDays(41)));
+            }
             if (computer.ManagedByDn is not null)
             {
                 records.Add(new RelationRecord(RelationKind.Clue, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Attribut managedBy de l’annuaire", computer.WhenChanged));

@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Audit AD (audit.*): mock-audit.js, read only.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createAuditOperations } from './mock-audit.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1057,6 +1059,10 @@ const OPERATIONS = {
   'directory.ou.search': ouSearch,
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  }),
+  ...createAuditOperations({
+    readObject, getString, requireDistinguishedName, requireNone, invalid, fail, quote, int, count, sleep, fold, getBoolean,
+    sessionInfo: () => sessionInfo(), findOu, isRoot, NBSP, REF, DOMAIN, ROOT_DN,
   }),
 };
 

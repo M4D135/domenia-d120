@@ -16,6 +16,9 @@ public sealed class AuditOperations : IOperationModule
     public const int MaxIdLength = 64;
     public const int MaxSidLength = 184;
 
+    /// <summary>Sanity bound of the « controllers » array; the rule of 10 controllers at most is the audit's own (audit.controllersInvalid).</summary>
+    public const int MaxControllerItems = 100;
+
     private static readonly string[] DnArguments = ["dn"];
     private static readonly string[] TextArguments = ["text"];
     private static readonly string[] IdArguments = ["id"];
@@ -39,11 +42,11 @@ public sealed class AuditOperations : IOperationModule
         OperationDefinition LocalRead(string name, Func<JsonElement, CancellationToken, Task<object?>> run, string description) =>
             new(name, OperationClass.LocalRead, (args, _, ct) => run(args, ct), description);
 
-        OperationDefinition Local(string name, Func<JsonElement, object?> run, string description) =>
+        OperationDefinition Local(string name, Func<JsonElement, CancellationToken, Task<object?>> run, string description) =>
             new(name, OperationClass.Local, (args, _, ct) =>
             {
                 ct.ThrowIfCancellationRequested();
-                return Task.FromResult(run(args));
+                return run(args, ct);
             }, description);
 
         return
@@ -60,18 +63,23 @@ public sealed class AuditOperations : IOperationModule
                 }
                 return await audit.SearchAsync(text, ct).ConfigureAwait(false);
             }, "Au plus 20 objets dont le nom, le compte ou le nom DNS contient le texte (index local)."),
-
-            Local("audit.catalogue", args =>
+            LocalRead("audit.suggestions", async (args, ct) =>
             {
                 BridgeArguments.RequireNone(args);
-                return AuditFindings.Checks();
+                return await audit.SuggestionsAsync(ct).ConfigureAwait(false);
+            }, "Objets proposés avant toute recherche (compte de la session, OU de travail, racine, Admins du domaine par son RID), vérifiés dans l’index local."),
+
+            Local("audit.catalogue", (args, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(AuditFindings.Checks());
             }, "Contrôles de l’analyse du domaine, avec leur gravité quand ils trouvent un écart ; aucune lecture."),
             Network("audit.overview", async (args, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 return await audit.OverviewAsync(ct).ConfigureAwait(false);
             }, "Vue du domaine section par section et constats de sécurité par gravité, après le geste « Analyser le domaine »."),
-            Local("audit.finding.objects", args =>
+            Local("audit.finding.objects", async (args, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, IdArguments);
                 var id = BridgeArguments.GetString(values, "id");
@@ -79,7 +87,7 @@ public sealed class AuditOperations : IOperationModule
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("id") + " doit être un identifiant de constat.");
                 }
-                return audit.FindingObjects(id);
+                return await audit.FindingObjectsAsync(id, ct).ConfigureAwait(false);
             }, "Objets d’un constat lus par la dernière analyse, sans relecture."),
             LocalRead("audit.localTotals", async (args, ct) =>
             {
@@ -109,10 +117,10 @@ public sealed class AuditOperations : IOperationModule
                 "Stratégie de mot de passe applicable à un compte utilisateur (msDS-ResultantPSO, domaine, échéance)."),
             Network("audit.object.groups", async (args, ct) => await audit.GroupsAsync(Dn(args), ct).ConfigureAwait(false),
                 "Appartenances directes et imbriquées, cycles, groupe principal : 2 000 groupes, 16 niveaux au plus."),
-            Local("audit.object.groupPath", args =>
+            Local("audit.object.groupPath", async (args, ct) =>
             {
                 var (dn, group) = GroupArgs(args);
-                return audit.GroupPath(dn, group);
+                return await audit.GroupPathAsync(dn, group, ct).ConfigureAwait(false);
             }, "Plus court chemin d’appartenance dans les groupes déjà lus, sans relecture."),
             Network("audit.object.membership", async (args, ct) =>
             {
@@ -121,10 +129,10 @@ public sealed class AuditOperations : IOperationModule
             }, "Appartenance directe ou imbriquée confirmée par le contrôleur pour un groupe."),
             Network("audit.object.acl", async (args, ct) => await audit.DelegationsAsync(Dn(args), ct).ConfigureAwait(false),
                 "Propriétaire et liste de contrôle d’accès (sans SACL), 1 000 entrées au plus."),
-            Local("audit.object.estimate", args =>
+            Local("audit.object.estimate", async (args, ct) =>
             {
                 var (dn, sid) = SidArgs(args);
-                return audit.Estimate(dn, sid);
+                return await audit.EstimateAsync(dn, sid, ct).ConfigureAwait(false);
             }, "Estimation de neuf droits pour un bénéficiaire, sur les entrées déjà lues."),
             Network("audit.object.tokenGroups", async (args, ct) =>
             {
@@ -190,26 +198,26 @@ public sealed class AuditOperations : IOperationModule
         return (dn, sid);
     }
 
-    /// <summary>« controllers »: array of 1 to 10 texts (names checked by the audit rules); anything else is arguments.invalid.</summary>
+    /// <summary>
+    /// « controllers »: an array of texts (100 items at most, 254 characters each), else arguments.invalid. The rules of the
+    /// audit decide the rest with audit.controllersInvalid (docs/ops/audit.md § 3): none chosen, more than 10, an invalid name,
+    /// or a host that is not a controller of the last list of the domain.
+    /// </summary>
     private static ImmutableArray<string> Controllers(IReadOnlyDictionary<string, JsonElement> values)
     {
-        const string Message = " doit être un tableau de 1 à 10 noms de contrôleurs.";
-        if (!values.TryGetValue("controllers", out var raw) || raw.ValueKind != JsonValueKind.Array)
+        const string Message = " doit être un tableau de noms de contrôleurs.";
+        if (!values.TryGetValue("controllers", out var raw) || raw.ValueKind != JsonValueKind.Array || raw.GetArrayLength() > MaxControllerItems)
         {
             throw BridgeArguments.Invalid(FrenchText.Quote("controllers") + Message);
         }
         var names = ImmutableArray.CreateBuilder<string>();
         foreach (var item in raw.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.String || item.GetString() is not { Length: > 0 and <= 254 } name || names.Count >= AuditControllerRules.MaxControllers)
+            if (item.ValueKind != JsonValueKind.String || item.GetString() is not { Length: <= 254 } name)
             {
                 throw BridgeArguments.Invalid(FrenchText.Quote("controllers") + Message);
             }
             names.Add(name);
-        }
-        if (names.Count == 0)
-        {
-            throw BridgeArguments.Invalid(FrenchText.Quote("controllers") + Message);
         }
         return names.ToImmutable();
     }

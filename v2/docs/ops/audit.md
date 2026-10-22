@@ -3,8 +3,8 @@
 Écran `audit` (`#/audit`), lot VM `audit`. Il porte l’**audit Active Directory** de Domenia 1 (Outils › Audit AD :
 `Domenia-AdAudit.Model.ps1`, `.UI.ps1`, `.Worker.ps1`, `.xaml`) et la **vue du domaine** (onglet « Domaine » :
 `Start-DomeniaDomainOverview`, `Start-DomeniaDomainLocalTotals`), soit les 23 fonctions AUD-001 à AUD-023, avec des
-améliorations. Rédigé le 22 octobre 2026 ; tests écrits, non exécutés (décision de David du 21/10 : à la toute fin) ;
-compilation Debug vérifiée dans la VM, 0 avertissement ; captures en simulation, thèmes sombre et clair.
+améliorations. Rédigé le 22 octobre 2026, repris le même jour après la première critique (CRITIQUE-1.md) ; tests écrits, non
+exécutés (décisions de David du 21/10 et du 22/10 : tests et captures à la toute fin, la VM ne sert qu’à compiler).
 
 Le contrat commun (enveloppe, règles JSON, classes, admission) est celui de [`OPERATIONS.md`](../OPERATIONS.md) § 1 ;
 l’organisation du moteur est dans [`PLATFORM.md`](../PLATFORM.md). Les opérations sont dans le module
@@ -23,16 +23,16 @@ seules des dates circulent. Les correctifs se font dans les écrans qui écriven
 
 | Id | Fonction de Domenia 1 | Dans Domenia 2 |
 |---|---|---|
-| AUD-001 | Copier la vue pour un ticket | « Copier la vue » (texte tabulé, 2 000 lignes par section, cellules à 400 caractères) ; **amélioré** : export Markdown et CSV des constats, tout depuis la barre de l’écran |
+| AUD-001 | Copier la vue pour un ticket | « Copier la vue » (texte tabulé, lignes **telles que les grilles les affichent** : filtres et tri compris, 2 000 lignes par section, cellules à 400 caractères) ; **amélioré** : « Copier en Markdown », et « Exporter » écrit un **fichier** dans le dossier des exports (constats en CSV, tableau de la vue en CSV, rapport de la vue en JSON) par le service d’export de l’enveloppe (`ctx.exportCsvText`, `ctx.exportJson`) ; sans ce service, le contenu va au presse-papiers et le message le dit |
 | AUD-002 | Faits explicables | `AuditFact` : valeur, état (Constaté, Estimé, Refusé, Indisponible, Inconnu), source, limite ; liste animée avec pastille d’état |
-| AUD-003 | Garde des lectures concurrentes | compteur par type de lecture (`createGuard` de la page) ; une nouvelle cible ou une sortie d’écran les annule toutes |
+| AUD-003 | Garde des lectures concurrentes | compteur par type de lecture (`createGuard` de la page) : une lecture plus récente ne remplace que celle de même type ; une **nouvelle cible n’annule que les lectures de l’objet** (portée `object`, Domenia 1 `Clear-DomeniaAdAuditObjectResults`), jamais l’analyse, le diagnostic, les services ni les identités ; une sortie d’écran les annule toutes. L’état « occupé » appartient à la lecture qui l’a posé : il est rendu même quand son résultat n’est plus appliqué |
 | AUD-004 | Lister les contrôleurs | `audit.dc.list` ; tuiles sélectionnables (10 au plus), rôles PDC et RODC |
 | AUD-005 | Diagnostic des contrôleurs | `audit.dc.probe` ; verdict Sans écart, À vérifier, Non lu ; métriques sur la tuile |
 | AUD-006 | Réplication par partenaire | `audit.dc.probe` (`neighbors`), onglet Réplication ; XML lu sans DTD (`AuditControllerRules.ParseNeighbor`) |
 | AUD-007 | Services des contrôleurs | `audit.dc.services`, après confirmation (droits d’administration), budget 60 s + 25 s par contrôleur |
 | AUD-008 | Comparaison d’un objet entre contrôleurs (non raccordée) | **raccordée** : `audit.dc.compare`, onglet Comparaison, objet audité de l’onglet Objet |
 | AUD-009 | Analyse des identités d’une OU | `audit.identities.scan` ; **amélioré** : objets d’un constat ouverts directement (Auditer, Ouvrir la fiche), tuiles par catégorie |
-| AUD-010 | Cible = objet de la fiche | `audit.target` (`?dn=` venu de la fiche), **amélioré** : recherche dans l’index local et suggestions ; nouvelle cible = résultats effacés |
+| AUD-010 | Cible = objet de la fiche | `audit.target` (`?dn=` venu de la fiche), figée au geste ; « Reprendre la sélection » reprend l’objet choisi dans Rechercher (sujet partagé par l’enveloppe, `ctx.subject`), sinon celui de l’adresse ; grisé avec son motif sans sélection ; même objet : rien n’est effacé (« la cible est déjà… ») ; **amélioré** : recherche dans l’index local et suggestions vérifiées (`audit.suggestions`, Admins du domaine trouvé par son RID 512) ; nouvelle cible = résultats de l’objet effacés |
 | AUD-011 | Stratégie de mot de passe applicable | `audit.object.policy` |
 | AUD-012 | Groupes imbriqués et cycles | `audit.object.groups` ; **amélioré** : graphe visuel des imbrications (chemin éclairé au survol) |
 | AUD-013 | Pourquoi membre de ce groupe ? | `audit.object.groupPath` (sans relecture), `audit.object.membership` (confirmation du contrôleur) |
@@ -43,7 +43,7 @@ seules des dates circulent. Les correctifs se font dans les écrans qui écriven
 | AUD-018 | Identité du poste | `audit.object.machineIdentity` ; verdict et trois sources côte à côte (annuaire, DNS, poste) |
 | AUD-019 | Synthèse des relations | `audit.object.relations` (lue à l’ouverture de la vue : mémoire locale, aucune lecture réseau) |
 | AUD-020 | Historique des associations | `audit.object.history` ; **amélioré** : frise chronologique et filtre par source |
-| AUD-021 | Délégations (ACE) | `audit.object.acl` ; **amélioré** : colonne « À examiner » (réplication hors administrateurs, écriture large à tous) |
+| AUD-021 | Délégations (ACE) | `audit.object.acl` ; filtre texte = filtre rapide de la grille, « posées sur l’objet seulement » ; **amélioré** : colonne « À examiner » (réplication hors administrateurs, écriture large à tous ; forme courte `riskLabel` dans la colonne, phrase entière en info-bulle) |
 | AUD-022 | Totaux de la copie locale | `audit.localTotals`, au geste « Analyser le domaine », avec la date de la copie |
 | AUD-023 | Vue du domaine | `audit.overview` ; **amélioré** : constats par gravité (catalogue de 25 contrôles), score de santé, comparaison avec la vue précédente, exploration des objets (`audit.finding.objects`) |
 
@@ -53,6 +53,7 @@ seules des dates circulent. Les correctifs se font dans les écrans qui écriven
 |---|---|---|---|
 | `audit.target` | `LocalRead` | `{ dn }` | objet audité et lectures possibles (§ 4) |
 | `audit.objects.search` | `LocalRead` | `{ text }` (100 caractères au plus) | 20 objets au plus (§ 4) |
+| `audit.suggestions` | `LocalRead` | aucun | objets proposés avant toute recherche (§ 4) |
 | `audit.catalogue` | `Local` | aucun | contrôles de l’analyse (§ 5) |
 | `audit.overview` | `NetworkRead`, servie en simulation | aucun | vue du domaine et constats (§ 5) |
 | `audit.finding.objects` | `Local` | `{ id }` | objets d’un constat de la dernière analyse (§ 5) |
@@ -78,8 +79,12 @@ seules des dates circulent. Les correctifs se font dans les écrans qui écriven
 Les lectures réseau ne partent que sur un geste : un bouton de l’écran, ou une adresse explicite (§ 9). Les opérations
 `Local` réutilisent ce que la session a déjà lu (dernière analyse, dernière liste d’accès, derniers groupes) et ne lisent
 jamais l’annuaire ; avant la lecture correspondante, elles refusent avec `audit.overviewNotRead`, `audit.aclNotRead` ou
-`audit.groupsNotRead`. Ces résultats sont gardés en mémoire pour la session seulement (`AuditService`), par DN : rien de
-ce qui a été lu pour un objet n’est montré pour un autre.
+`audit.groupsNotRead`. Ces résultats sont gardés en mémoire pour la session seulement (`AuditService`) : la dernière analyse,
+la dernière liste des contrôleurs, et les lectures de **l’objet courant seulement** (délégations, groupes du bénéficiaire,
+appartenances, liens GPO, RSoP), comme Domenia 1 (`Reset`/`Clear-DomeniaAdAuditObjectResults`). L’objet courant est celui de
+la **dernière demande** (`audit.target` ou une lecture d’objet) : une lecture lente d’une ancienne cible qui se termine après
+ne garde rien et n’efface jamais les lectures de la nouvelle. Un changement de session (domaine, contrôleur ou compte) vide
+tout. Rien de ce qui a été lu pour un objet n’est montré pour un autre.
 
 ## 3. Erreurs propres
 
@@ -93,12 +98,13 @@ ce qui a été lu pour un objet n’est montré pour un autre.
 | `audit.groupsNotRead` | Lisez d’abord les appartenances de cet objet, puis choisissez un groupe. | `groupPath` ou `membership` sans `audit.object.groups` sur ce DN. |
 | `audit.trusteeUnknown` | Ce bénéficiaire ne figure dans aucune entrée lue : rien n’est estimé. | SID absent des entrées lues. |
 | `audit.builtinTrustee` | Les groupes se lisent pour un compte ou un groupe d’un domaine, pas pour une identité intégrée. | `tokenGroups` pour un SID qui n’est pas `S-1-5-21-…`. |
-| `audit.controllersInvalid` | Choisissez au moins un contrôleur…, Diagnostic borné à 10 contrôleurs…, Nom de contrôleur invalide : aucune lecture. | Noms vides, plus de 10 ou hors `^[A-Za-z0-9][A-Za-z0-9.-]{0,253}$`. |
+| `audit.controllersInvalid` | Choisissez au moins un contrôleur dans la liste., Diagnostic borné à 10 contrôleurs : *n* sont choisis., Nom de contrôleur invalide : aucune lecture., « *nom* » n’est pas un contrôleur de la liste du domaine : aucune lecture. Relisez la liste des contrôleurs. | Aucun nom, plus de 10, un nom hors `^[A-Za-z0-9][A-Za-z0-9.-]{0,253}$`, ou un hôte absent de la dernière liste des contrôleurs du domaine (lue à ce moment si la session n’en a pas) : un diagnostic, une lecture des services (droits d’administration) ou une comparaison ne contacte jamais un hôte arbitraire. |
 | `audit.scopeTooWide` | Le domaine entier n’est pas analysé : choisissez une OU, ou décochez « Inclure les sous-OU ». | `audit.identities.scan` sur la racine avec ses sous-OU. |
 | `audit.outsideDomain` | Objet hors du domaine connecté : aucun lien à lire. | Chaîne GPO qui n’atteint pas la racine du domaine de la session. |
 
-Communs : `arguments.invalid` (précisions du § 1.4 de `OPERATIONS.md`, plus « « controllers » doit être un tableau de 1 à
-10 noms de contrôleurs. », « « sid » doit être un identifiant de sécurité (S-1-…). », « « limit » doit être un entier de 1
+Communs : `arguments.invalid` (précisions du § 1.4 de `OPERATIONS.md`, plus « « controllers » doit être un tableau de
+noms de contrôleurs. » pour autre chose qu’un tableau de textes de 254 caractères au plus, 100 éléments au plus,
+« « sid » doit être un identifiant de sécurité (S-1-…). », « « limit » doit être un entier de 1
 à 1 000 ou null. », « « id » doit être un identifiant de constat. »), `ou.unknown` (OU inconnue de l’analyse des
 identités), `source.unavailable` (mode annuaire tant que `Domenia.Ad` n’est pas branché : aucun lecteur),
 `simulation.unavailable` (jamais : toutes les lectures réseau de l’écran sont servies par l’annuaire fictif),
@@ -123,6 +129,11 @@ identités), `source.unavailable` (mode annuaire tant que `Domenia.Ad` n’est p
 
 `audit.objects.search` : tableau d’au plus 20 `AuditTargetView` dont le nom, le compte ou le nom DNS contient le texte
 (sans accent ni casse) ; correspondance exacte d’abord, puis début, puis contenu ; texte vide : `[]`.
+
+`audit.suggestions` : tableau de `{ id, label, detail, target }` (`target` : `AuditTargetView`), dans l’ordre : `account`
+(compte de la session), `scope` (OU de travail, sauf la racine), `root` (racine du domaine), `domainAdmins` (groupe dont le
+SID finit par `-512`, trouvé dans l’index local quel que soit son nom ou sa langue). Chaque objet est vérifié dans l’index
+local et omis s’il est introuvable ; aucun doublon ; jamais une lecture réseau.
 
 ## 5. Domaine : `audit.catalogue`, `audit.overview`, `audit.finding.objects`, `audit.localTotals`
 
@@ -198,6 +209,9 @@ en mémoire (`simulated` = `true`), aucune base ouverte.
 ## 6. Contrôleurs : `audit.dc.list`, `audit.dc.probe`, `audit.dc.services`, `audit.dc.compare`
 
 - `audit.dc.list` : `{ controllers: [{ dnsName, name, site, operatingSystem, roles, pdc, readOnly, dn }], pdc, truncated, summary, readAt }`.
+- Les noms choisis doivent figurer dans la dernière liste des contrôleurs du domaine (nom DNS, ou nom court s’il est
+  unique) ; ils reviennent écrits comme la liste les écrit. Un hôte absent de la liste n’est jamais contacté
+  (`audit.controllersInvalid`).
 - `audit.dc.probe` : `{ rows, neighbors, facts, summary, readAt }`. Ligne : `controller`, `verdict` (`clear`, `check`,
   `notRead`), `verdictLabel`, `tone`, `ldap`, `kerberos`, `reach`, `time`, `skewSeconds`, `synchronized`, `replication`,
   `failures`, `dns`, `reasons`, `detail`. Lien : `controller`, `partner`, `partition`, `lastSuccess`, `lastSuccessLabel`
@@ -232,7 +246,8 @@ Bornes : 2 000 groupes, 16 niveaux, 10 s, 20 cycles ; une lecture bornée ne pro
 `audit.object.acl` : `{ dn, state, stateLabel, owner, ownerSid, protected, total, truncated, maxAces (1 000), explicit, inherited, deny, rows, trustees, summary, limit, controller, readAt }`.
 Ligne : `index`, `trustee`, `sid`, `allow`, `type`, `rights` (en français), `target`, `appliesTo`, `origin`, `scope`,
 `explicit`, `onObject`, `domainAccount`, `risk` (amélioration : « Réplication de l’annuaire hors administrateurs (DCSync) »,
-« Écriture large accordée à tous les comptes », ou `null`).
+« Écriture large accordée à tous les comptes », ou `null`), `riskLabel` (forme courte pour une colonne étroite : « DCSync hors
+administrateurs », « Écriture large à tous », ou `null`).
 
 `audit.object.estimate` et `audit.object.tokenGroups` : `{ dn, sid, trustee, includesGroups, groupsState, groupsMessage, groupCount, rows: [{ id, label, result (allowed, denied, partial, notGranted), resultLabel, tone, decidedBy }], limits, summary }`.
 Neuf droits (contrôle total, lire, modifier des attributs, réinitialiser le mot de passe, modifier les membres, créer,
@@ -250,7 +265,11 @@ jamais « rien d’appliqué ». Les deux lectures se complètent : la seconde r
 ### 7.5 `audit.object.machineIdentity`
 
 `{ dn, state (coherent, unverified, incoherent), stateLabel, tone, summary, reasons, warnings, facts, address, expected, reported, readAt }`.
-Rien n’est attribué, fusionné ni renommé ; incohérente : aucune observation ni relation attribuée.
+Rien n’est attribué, fusionné ni renommé ; incohérente : aucune observation ni relation attribuée. Les faits que la page place
+elle-même portent un identifiant stable (`AuditFact.id`) : `adName`, `dnsForward`, `dnsReverse` (nom inverse PTR, ou «
+Aucun enregistrement inverse »), `reported` ; de même `expiry` pour l’expiration du mot de passe (§ 7.1). Les autres faits ont
+`id` à `null` : la page ne retrouve jamais un fait par son libellé. Les comptes d’un contrôle (`AuditObjectRef.Privileged`)
+portent un drapeau typé « à privilèges » : la gravité d’`asrepRoast` et de `kerberoast` le lit, jamais le texte du détail.
 
 ### 7.6 `audit.object.relations`, `audit.object.history`
 
@@ -275,11 +294,27 @@ Onglets : Synthèse, Objet, Contrôleurs, Identités. Paramètres de l’adresse
 `poste`, `relations`), `groupe` (groupe expliqué après la lecture des groupes), `constat` (constat exploré après
 l’analyse), `ou` (OU des identités), et `lancer` : **geste explicite porté par l’adresse** (lien d’un autre écran, palette,
 captures) qui lance la lecture du bouton de l’onglet, une fois : `analyse` (Synthèse), `1` (Objet : la lecture de la vue ;
-Identités : l’analyse de l’OU), `liste` ou `diagnostic` (Contrôleurs). Le paramètre est retiré de l’adresse après usage.
+Identités : l’analyse de l’OU), `liste` ou `diagnostic` (Contrôleurs). Le paramètre est retiré de l’adresse **avant** la
+lecture : un rechargement pendant une analyse longue ne rejoue jamais une lecture réseau sans nouveau geste. Sans `dn`,
+l’onglet Objet prend l’objet choisi dans Rechercher (sujet partagé par l’enveloppe), sans aucune lecture réseau.
 
-Composants locaux (le kit n’en a pas) : graphe des imbrications (`audit/graph.js`), bandeau de gravités, cartes de constats,
-échelle des liens GPO, tuiles de contrôleurs. Les panneaux latéraux de l’écran portent `data-page="audit"` pour garder la
-feuille de style de l’écran hors de `.main`.
+Disposition : une seule action principale par onglet (KIT § 2.6) — « Analyser le domaine » sur la Synthèse (aucun doublon dans
+l’état vide), la lecture de l’onglet ailleurs. Onglet Objet : sans cible, la recherche et les suggestions sont à côté des six
+lectures ; dès qu’un objet est choisi, il devient un **bandeau** au-dessus des vues (nom, emplacement, identifiants en pastilles
+jamais coupées en plein milieu, lectures possibles), la recherche à côté, et les vues prennent toute la largeur (estimation à
+côté de la grille des délégations, graphe à côté de « Pourquoi membre ? » dès 1 100 px). Les grilles ont la hauteur de leurs
+lignes (aucun puits sous une liste courte, place pour l’état vide quand un filtre masque tout), des colonnes dimensionnées pour
+tenir sans défilement horizontal à 1 600 px (colonnes secondaires repliées, à rouvrir par « Colonnes »), des pastilles coupées
+avec points de suspension et leur texte entier en info-bulle. Vue du domaine en colonnes équilibrées (chaque carte dans la
+colonne la plus courte), sections ouvertes. Gravité critique : teinte propre (`crit`), plus intense que « Élevée ». Le badge
+de la Synthèse, le titre « Constats », le bandeau et la phrase comptent les mêmes constats lus (information comprise) ; les
+contrôles non lus sont à part (« Contrôles non lus »), jamais comptés. Animations en `transform` et `opacity` seulement (les
+arêtes du graphe reprennent le tracé partagé des graphiques).
+
+Composants locaux (le kit n’en a pas) : graphe des imbrications (`audit/graph.js`, cases à la largeur du nom le plus long, 300 px
+au plus), bandeau de gravités, cartes de constats, échelle des liens GPO, tuiles de contrôleurs. Les panneaux latéraux de
+l’écran portent `data-page="audit"` pour garder la feuille de style de l’écran hors de `.main`. Aperçu dans un navigateur :
+`web/js/mock-audit.js` (branché par `mock.js`) répond aux 24 opérations avec les mêmes formes, contrôles et messages.
 
 ## 10. Simulation
 
@@ -294,7 +329,9 @@ GG-Admins-Postes et GG-Admins-Serveurs, donc Julien Martin par GG-Support-N2 ; `
 liens (Sécurité de base forcée sur Postes, blocage d’héritage sur Quarantaine, BitLocker filtré sur les postes fixes, GPO de
 site visible seulement dans RSoP). Les postes qui n’ont pas répondu au relevé de présence ne répondent ni à RSoP ni à CIM ;
 deux postes répondent sous le nom d’un autre (identité incohérente). La copie locale fictive associe un ou deux noms de
-chaque OU analysée à un autre GUID (objets recréés).
+chaque OU analysée à un autre GUID (objets recréés). Le compte de la session (Julien Martin) a un poste attitré : le premier
+poste fixe de son site qui a répondu au relevé de présence, avec une affectation déclarée, sa dernière session et son
+historique (exemples de la vue Relations).
 
 ## 11. Mode annuaire (vague 3)
 
@@ -345,12 +382,19 @@ pour la base locale et l’index, `Local` pour les calculs sur ce qui a été lu
 
 ## 12. Tests (écrits, non exécutés)
 
-`tests/Domenia.Tests/AuditTests.cs` : registre (classes, servies en simulation, aucune écriture), refus en mode annuaire
-sans lecteur, formes JSON exactes, catalogue sans lecture, analyse (gravités, score, vue précédente), exploration sans
-relecture, totaux de la copie, contrôleurs (verdicts, refus de plus de 10 noms et des noms invalides), services, stratégie de
-mot de passe (PSO par imbrication), groupes et « pourquoi membre », délégations (DCSync, refus, AdminSDHolder),
-estimation, GPO, identités (domaine entier refusé), et règles pures (cycles, gPLink, refus prioritaire, stratégie illisible,
-poste incohérent, score, chaîne GPO, XML sans DTD). Scénarios E2E : `tests/e2e/audit/*.json` ([`E2E.md`](../E2E.md)).
+`tests/Domenia.Tests/AuditTests.cs` : registre (classes, servies en simulation, aucune écriture, 24 opérations), refus en mode
+annuaire sans lecteur, formes JSON exactes, cible et suggestions (Admins du domaine par son RID), catalogue sans lecture,
+analyse (gravités, score, vue précédente), exploration sans relecture, totaux de la copie, contrôleurs (verdicts, nom court
+rendu comme la liste l’écrit), **contrôleurs hors de la liste du domaine jamais contactés** (sonde, services, comparaison),
+plus de 10 noms et aucun nom refusés par `audit.controllersInvalid`, comparaison entre contrôleurs (USN jamais comparés),
+services, stratégie de mot de passe (PSO par imbrication), groupes et « pourquoi membre », délégations (DCSync, refus,
+AdminSDHolder), estimation, `audit.trusteeUnknown`, objet courant (nouvelle cible = lectures de l’ancienne oubliées, la
+dernière demande décide), relations et historique du compte de la session, identité du poste (identifiants stables des
+faits), GPO, `audit.outsideDomain` (lecteur d’essai `OutsideDomainAuditReader`), identités (domaine entier refusé), et règles
+pures (cycles, gPLink, refus prioritaire, stratégie illisible, poste incohérent, score, chaîne GPO, XML sans DTD).
+`PlatformTests` énumère `AuditOperations` et les 24 opérations `audit.*` (fait dans la branche de l’écran).
 
-**Intégration** : `PlatformTests.SimulationOperations` et la liste des modules attendus (`Modules_of_the_bridge_are_found…`)
-énumèrent le registre exact ; ils devront recevoir les 23 opérations `audit.*` et `AuditOperations` à la fusion des écrans.
+Scénarios E2E (`tests/e2e/audit/*.json`, [`E2E.md`](../E2E.md)) : analyse du domaine (commande principale, teinte du critique,
+phrase complète), exploration d’un constat, changement d’objet pendant l’analyse (l’analyse se termine, plus d’état occupé),
+groupes et « pourquoi membre », délégations et estimation, liens GPO et résultat sur un poste, relations et historique,
+copie et export, contrôleurs et services, identités.

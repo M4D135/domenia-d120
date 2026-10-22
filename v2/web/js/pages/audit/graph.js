@@ -4,15 +4,16 @@
 // attribute in the markup); positions are SVG attributes.
 import { esc, applyVars } from '../../ui.js';
 
-const NODE_W = 184;
+const MIN_NODE_W = 184;
+const MAX_NODE_W = 300;
+const CHAR_W = 7.4; // average width of a 13 px semibold character
+const TEXT_X = 20;
+const BADGE_ROOM = 26;
 const NODE_H = 40;
 const GAP_X = 58;
 const GAP_Y = 14;
 const PAD = 16;
-const MAX_LABEL = 24;
 const MAX_NODES = 160;
-
-const cut = (text) => (text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1)}…` : text);
 
 /**
  * Renders the graph into host. onPick(id) is called when a group is chosen (click or Enter).
@@ -30,6 +31,11 @@ export function renderGraph(host, graph, o = {}) {
     if (!columns.has(n.depth)) columns.set(n.depth, []);
     columns.get(n.depth).push(n);
   }
+  // Boxes as wide as the longest name needs (within bounds): a name is cut only when it really does not fit.
+  const longest = Math.max(0, ...nodes.map((n) => String(n.label ?? '').length));
+  const NODE_W = Math.round(Math.min(MAX_NODE_W, Math.max(MIN_NODE_W, TEXT_X + BADGE_ROOM + longest * CHAR_W)));
+  const maxLabel = Math.max(8, Math.floor((NODE_W - TEXT_X - BADGE_ROOM) / CHAR_W));
+  const cut = (text) => (text.length > maxLabel ? `${text.slice(0, maxLabel - 1)}…` : text);
   const depths = [...columns.keys()].sort((a, b) => a - b);
   depths.forEach((d) => columns.get(d).sort((a, b) => (a.kind === 'primary') - (b.kind === 'primary') || a.label.localeCompare(b.label, 'fr')));
   const rows = Math.max(1, ...depths.map((d) => columns.get(d).length));
@@ -62,7 +68,7 @@ export function renderGraph(host, graph, o = {}) {
   const nodeMarkup = nodes.map((n, i) => {
     const p = pos.get(n.id);
     const cls = ['gnode', n.kind, n.privileged ? 'privileged' : '', n.cycle ? 'cycle' : '', n.unread ? 'unread' : ''].filter(Boolean).join(' ');
-    const badge = n.privileged ? '<text class="gbadge" x="172" y="16" text-anchor="end">★</text>' : n.cycle ? '<text class="gbadge" x="172" y="16" text-anchor="end">↻</text>' : '';
+    const badge = n.privileged ? `<text class="gbadge" x="${NODE_W - 12}" y="16" text-anchor="end">★</text>` : n.cycle ? `<text class="gbadge" x="${NODE_W - 12}" y="16" text-anchor="end">↻</text>` : '';
     const kind = n.kind === 'start' ? 'Objet audité' : n.kind === 'primary' ? 'Groupe principal' : `Profondeur ${n.depth}${n.privileged ? ' · privilégié' : ''}${n.cycle ? ' · dans un cycle' : ''}`;
     const focusable = n.kind !== 'start';
     return `<g class="${cls}" transform="translate(${p.x},${p.y})" data-id="${esc(n.id)}" data-i="${Math.min(i, 24)}"${focusable ? ' tabindex="0" role="button"' : ''} aria-label="${esc(`${n.label}, ${kind}`)}">

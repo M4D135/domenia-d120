@@ -90,6 +90,7 @@ public static class AuditAclRules
             {
                 target = string.Empty;
             }
+            var risk = RiskOf(ace, rights);
             var appliesTo = ace.InheritedObjectType is Guid inherited && inherited != Guid.Empty ? GuidText(inherited, read.GuidNames) : "Tous les objets";
             rows.Add(new AuditAceRow(
                 i,
@@ -105,7 +106,8 @@ public static class AuditAclRules
                 !ace.IsInherited,
                 AppliesToObject(ace),
                 AuditText.IsDomainAccountSid(ace.Sid),
-                RiskOf(ace, rights)));
+                risk,
+                RiskLabel(risk)));
         }
         var all = rows.ToImmutable();
         var owner = read.OwnerSid is null ? null : TrusteeName(read.OwnerSid, read.SidNames);
@@ -182,14 +184,26 @@ public static class AuditAclRules
             || sid.EndsWith("-519", StringComparison.Ordinal) || sid.EndsWith("-521", StringComparison.Ordinal);
         if (replication && !expected)
         {
-            return "Réplication de l’annuaire hors administrateurs (DCSync)";
+            return DcsyncRisk;
         }
         var everyone = sid is "S-1-1-0" or "S-1-5-7" or "S-1-5-11" or "S-1-5-32-545" or "S-1-5-32-546"
             || sid.EndsWith("-513", StringComparison.Ordinal) || sid.EndsWith("-514", StringComparison.Ordinal) || sid.EndsWith("-515", StringComparison.Ordinal);
         var broadWrite = rights.Contains("GenericAll") || rights.Contains("GenericWrite") || rights.Contains("WriteDacl") || rights.Contains("WriteOwner")
             || (rights.Contains("WriteProperty") && ace.ObjectType is null);
-        return everyone && broadWrite ? "Écriture large accordée à tous les comptes" : null;
+        return everyone && broadWrite ? BroadWriteRisk : null;
     }
+
+    private const string DcsyncRisk = "Réplication de l’annuaire hors administrateurs (DCSync)";
+    private const string BroadWriteRisk = "Écriture large accordée à tous les comptes";
+
+    /// <summary>Short form of a risk for a narrow column (the full sentence stays in Risk, shown as a tip).</summary>
+    public static string? RiskLabel(string? risk) => risk switch
+    {
+        null => null,
+        DcsyncRisk => "DCSync hors administrateurs",
+        BroadWriteRisk => "Écriture large à tous",
+        _ => risk,
+    };
 
     /// <summary>Local filter of the entries: explicit only, and a text on trustee, SID, rights, target, objects (Select-DomeniaDelegationRows).</summary>
     public static IEnumerable<AuditAceRow> Select(IEnumerable<AuditAceRow> rows, bool explicitOnly, string? text)

@@ -16,6 +16,9 @@ public interface IAuditReader : IScreenReader
     /// <summary>Objects whose name, account or DNS name contains the text (accent and case insensitive), at most the limit.</summary>
     Task<ImmutableArray<AuditTarget>> SearchObjectsAsync(string text, int limit, CancellationToken cancellationToken);
 
+    /// <summary>Group of the domain whose SID ends with this relative identifier (512: Domain Admins), from the local index; null when unknown.</summary>
+    Task<AuditTarget?> FindDomainGroupAsync(int rid, CancellationToken cancellationToken);
+
     /// <summary>Domain overview, section by section, and the bounded searches of the security checks (AUD-023).</summary>
     Task<DomainOverviewRead> DomainOverviewAsync(CancellationToken cancellationToken);
 
