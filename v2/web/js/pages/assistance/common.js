@@ -1,10 +1,12 @@
-// Assistance · shared pieces: local icons, tones, avatars, empty states, skeletons, date words and the route of a view.
-// Everything returns trusted markup built with esc(); nothing here calls the bridge.
+// Assistance · shared pieces: local icons, kit pills, avatars, empty states, skeletons, buttons that say why they are greyed,
+// readable values and DN that break at their commas. Everything returns trusted markup built with esc(); nothing here calls
+// the bridge.
 import { glyph } from '../../kit/glyphs.js';
-import { esc, formatDateTime, formatTime, relTime } from '../../ui.js';
+import { pill, freshness } from '../../kit/index.js';
+import { esc, formatDateTime, reveal } from '../../ui.js';
+import { NBSP, COLON, plural, initials, dnParts, readableValue, isIdentifier } from './format.js';
 
-export const NBSP = ' ';
-export const COLON = `${NBSP}: `;
+export { NBSP, COLON, plural, initials };
 
 // Icons the application set does not have (same 24 px grid and 1.8 stroke as icons.js).
 const LOCAL = {
@@ -20,6 +22,7 @@ const LOCAL = {
   fingerprint: '<path d="M12 11v3.5a6.5 6.5 0 0 1-1.2 3.8"/><path d="M8.5 9.2A4 4 0 0 1 16 11v1.5"/><path d="M5.5 15.5A10 10 0 0 0 6 11a6 6 0 0 1 10.8-3.6"/><path d="M18.4 14.5a14 14 0 0 1-.9 4"/><path d="M15.4 16.7a12 12 0 0 1-1.3 3.3"/><path d="M3.6 8.5A9 9 0 0 1 12 3a9 9 0 0 1 8.5 6.2"/>',
   upload: '<path d="M12 16V5M7 9.5l5-5 5 5"/><path d="M4.5 19.5h15"/>',
   save: '<path d="M5.5 3.5h10l4 4v11a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4.5 18.5v-13A2 2 0 0 1 5.5 3.5Z"/><path d="M8 3.5v5h7v-5M8 20v-6h8v6"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2"/><circle cx="4.5" cy="12" r="1.2"/><circle cx="4.5" cy="18" r="1.2"/>',
 };
 
 /** Icon by name: local set first, then the kit glyphs and the application icons. */
@@ -29,26 +32,30 @@ export function ico(name, cls = '') {
   return `<svg class="${cls}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-/** Tones of the bridge (ok, warn, alert, info, off) in camelCase; anything else becomes off. */
+/** Tones of the bridge (ok, warn, alert, info, off, accent); anything else becomes off. */
 export function tone(value) {
   return ['ok', 'warn', 'alert', 'info', 'off', 'accent'].includes(value) ? value : 'off';
 }
 
-/** A toned pill drawn by this screen (dot or icon, label). */
-export function chip(t, label, { icon: name = '', tip = '', cls = '' } = {}) {
-  const mark = name ? ico(name) : '<span class="as-dot" aria-hidden="true"></span>';
-  return `<span class="as-chip ${tone(t)}${cls ? ` ${cls}` : ''}"${tip ? ` data-tip="${esc(tip)}"` : ''}>${mark}<span>${esc(label)}</span></span>`;
+/** A toned pill of the kit (docs/KIT.md § 4.12), small size; icons of this screen are accepted too. */
+export function chip(t, label, { icon: name = '', tip = '', size = 'sm' } = {}) {
+  if (!LOCAL[name]) return pill(tone(t), label, { icon: name || undefined, tip: tip || undefined, size });
+  return `<span class="k-pill ${tone(t)}${size === 'sm' ? ' sm' : ''}"${tip ? ` data-tip="${esc(tip)}"` : ''}>${ico(name, 'k-pill-ico')}${esc(label)}</span>`;
 }
 
-/** Initials of a person, or the code of a workstation (« PC-LYO-0042 » → « 42 »). */
-export function initials(name, kind) {
-  const text = String(name ?? '').trim();
-  if (kind === 'computer') {
-    const m = /(\d{1,4})$/.exec(text);
-    return m ? String(Number(m[1])) : text.slice(0, 2).toUpperCase();
-  }
-  const parts = text.split(/[\s'’-]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
+/**
+ * A button of the screen. A greyed button stays focusable and says why (aria-disabled, tooltip and accessible description,
+ * docs/KIT.md § 1.2); the page ignores its clicks.
+ * @param {{ label: string, icon?: string, cls?: string, data?: Object<string,string>, disabled?: boolean, reason?: string, tip?: string, aria?: string, iconOnly?: boolean, spin?: boolean }} b
+ */
+export function button(b) {
+  const data = Object.entries(b.data ?? {}).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
+  const tip = b.disabled && b.reason ? b.reason : b.tip ?? (b.iconOnly ? b.label : '');
+  const mark = b.spin ? '<span class="k-spin" aria-hidden="true"></span>' : b.icon ? ico(b.icon) : '';
+  const text = b.iconOnly ? `<span class="visually-hidden">${esc(b.label)}</span>` : esc(b.label);
+  const why = b.disabled && b.reason ? `<span class="visually-hidden">${COLON}${esc(b.reason)}</span>` : '';
+  return `<button class="btn ${b.cls ?? 'subtle sm'}${b.iconOnly ? ' icon' : ''}" type="button"${data}${b.disabled ? ' aria-disabled="true"' : ''}`
+    + `${tip ? ` data-tip="${esc(tip)}"` : ''}${b.aria ? ` aria-label="${esc(b.aria)}"` : ''}>${mark}${text}${why}</button>`;
 }
 
 export function avatar(name, kind, size = '') {
@@ -56,18 +63,9 @@ export function avatar(name, kind, size = '') {
   return `<span class="as-avatar ${cls}${size ? ` ${size}` : ''}" aria-hidden="true">${kind === 'computer' ? ico('monitor') : ''}<b>${esc(initials(name, kind))}</b></span>`;
 }
 
-export const KIND_ICON = { user: 'user', computer: 'monitor', group: 'group', object: 'object' };
-export const KIND_LABEL = { user: 'Compte', computer: 'Poste' };
-
-/** « il y a 3 min » with the full date in the tip; « — » without a date. */
-export function when(iso, prefix = '') {
-  const rel = relTime(iso);
-  if (!rel) return '<span class="as-faint">—</span>';
-  return `<time datetime="${esc(iso)}" data-tip="${esc(formatDateTime(iso) ?? '')}">${esc(prefix + rel)}</time>`;
-}
-
-export function clock(iso) {
-  return esc(formatTime(iso) ?? '—');
+/** « Lu il y a 3 min » that keeps itself up to date (kit freshness, startFreshness on the page). */
+export function fresh(iso, label = 'Lu', staleAfter = 15 * 60_000) {
+  return freshness(iso ?? null, { label, staleAfter });
 }
 
 /** Empty state of a card: icon tile, title, text and optional actions (trusted markup). */
@@ -75,15 +73,9 @@ export function empty(iconName, title, text, actions = '') {
   return `<div class="as-empty"><div class="as-empty-art">${ico(iconName)}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${actions ? `<div class="as-empty-actions">${actions}</div>` : ''}</div>`;
 }
 
-const sk = (cls) => `<span class="skeleton as-sk ${cls}"></span>`;
 /** Skeleton lines while a read runs (the capture host waits for them to disappear). */
 export function skeleton(lines = ['w40', 'w85', 'w70', 'w55']) {
-  return `<div class="as-sk-stack" aria-busy="true">${lines.map(sk).join('')}</div>`;
-}
-
-/** Plural with the French rule (0 and 1 singular). */
-export function plural(n, one, many) {
-  return `${new Intl.NumberFormat('fr-FR').format(n)}${NBSP}${Math.abs(n) >= 2 ? many : one}`;
+  return `<div class="as-sk-stack" aria-busy="true">${lines.map((cls) => `<span class="skeleton as-sk ${cls}"></span>`).join('')}</div>`;
 }
 
 /** Short fingerprint: first 12 hexadecimal characters, full value in the tip. */
@@ -95,4 +87,45 @@ export function shortHash(sha) {
 /** Bridge error code of a refusal, or ''. */
 export function codeOf(err) {
   return err && typeof err.code === 'string' ? err.code : '';
+}
+
+/** A DN that breaks only between its RDN (after each comma), never inside a word. */
+export function dnHtml(dn) {
+  return dnParts(dn).map((p) => `<span class="as-rdn">${esc(p)}</span>`).join(',<wbr>');
+}
+
+/** Text of a monospace preview whose DN break after their commas (the copied text stays the original). */
+export function breakableText(text) {
+  return esc(text).replace(/,(?=\S)/g, ',<wbr>');
+}
+
+/**
+ * One captured value as the operator reads it: a local date (raw value in the tip), « jamais », the name of a DN (full DN in
+ * the tip), an identifier kept on one line, or the text.
+ */
+export function valueHtml(attribute, value) {
+  const v = readableValue(attribute, value);
+  if (v.kind === 'date') return `<time class="as-val-date" datetime="${esc(v.iso)}" data-tip="${esc(`${formatDateTime(v.iso) ?? v.text} · valeur brute${COLON}${v.raw}`)}">${esc(v.text)}</time>`;
+  if (v.kind === 'special') return `<span class="as-val-special" data-tip="${esc(`Valeur brute${COLON}${v.raw}`)}">${esc(v.text)}</span>`;
+  if (v.kind === 'dn') return v.text === v.raw ? `<span class="mono as-dn">${dnHtml(v.raw)}</span>` : `<span class="as-val-dn" data-tip="${esc(v.raw)}">${esc(v.text)}</span>`;
+  return isIdentifier(v.text) ? `<span class="mono as-ident" data-tip="${esc(v.text)}">${esc(v.text)}</span>` : `<span class="mono">${esc(v.text)}</span>`;
+}
+
+/** A fact tile value: identifiers (DNS names, accounts) stay on one line with the full value in the tip. */
+export function factValue(value) {
+  return isIdentifier(value) && /[-.]/.test(value) ? `<b class="as-ident" data-tip="${esc(value)}">${esc(value)}</b>` : `<b>${esc(value)}</b>`;
+}
+
+/**
+ * Entrance of a view: the cards come in once, on the first paint; a repaint (new incident, new answer, typing) shows the new
+ * content at once instead of replaying the entrance.
+ * @returns {() => void} cleanup of the observer
+ */
+export function enter(host, state) {
+  if (state.painted) {
+    host.querySelectorAll('.reveal').forEach((node) => node.classList.remove('reveal'));
+    return () => {};
+  }
+  state.painted = true;
+  return reveal(host);
 }

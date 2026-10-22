@@ -147,7 +147,7 @@ public static class SupportFindings
         if (rows.Count == 0)
         {
             rows.Add(Finding("NO_FINDING", FindingLevel.Information, "Aucun signal dans les règles appliquées",
-                "Analyse locale de " + FrenchText.Count(snapshot.FieldCount, "attribut fourni", "attributs fournis") + ".",
+                "Analyse locale de " + AssistanceText.Count(snapshot.FieldCount, "attribut fourni", "attributs fournis") + ".",
                 "Ce résultat ne valide ni la santé du poste, ni les droits effectifs, ni une session distante.", FindingBasis.Limit));
         }
         return rows.ToImmutable();
@@ -252,7 +252,7 @@ public static class SupportFindings
         }
         if (signals.LastBootAt is DateTimeOffset boot && (now - boot).TotalDays > 30)
         {
-            rows.Add(Finding("UPTIME_LONG", FindingLevel.ToCheck, "Sans redémarrage depuis " + FrenchText.Count((long)(now - boot).TotalDays, "jour", "jours"),
+            rows.Add(Finding("UPTIME_LONG", FindingLevel.ToCheck, "Sans redémarrage depuis " + AssistanceText.Count((long)(now - boot).TotalDays, "jour", "jours"),
                 "Dernier démarrage relevé le " + Date(boot, zone) + ".", "Un redémarrage planifié règle souvent la lenteur" + FrenchText.Nbsp + "; prévenez l’utilisateur avant."));
         }
         if (signals.LastLogonAt is DateTimeOffset logon && (now - logon).TotalDays > 90)
@@ -371,7 +371,7 @@ public static class SupportComparison
         var undetermined = all.Count(r => r.Status == CompareStatus.Undetermined);
         var identical = all.Count(r => r.Status == CompareStatus.Identical);
         var mode = same ? "Même objet" + FrenchText.Colon + "avant et après capture." : "Objets différents" + FrenchText.Colon + "comparaison de référence, pas un historique.";
-        var summary = mode + " " + FrenchText.Count(different, "différence", "différences") + ", " + FrenchText.Count(undetermined, "indéterminé", "indéterminés") + ".";
+        var summary = mode + " " + AssistanceText.Count(different, "différence", "différences") + ", " + AssistanceText.Count(undetermined, "indéterminé", "indéterminés") + ".";
         return new SnapshotComparison(true, same, summary, null, different, undetermined, identical, all);
     }
 }

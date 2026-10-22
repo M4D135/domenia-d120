@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace Domenia.Core;
 
@@ -41,6 +42,17 @@ public static class AssistanceErrors
     public const string ExportFailed = "assistance.exportFailed";
     public const string ExportTooLarge = "assistance.exportTooLarge";
     public const string ExportTooLargeMessage = "Document trop volumineux (1 Mio au plus)" + FrenchText.Nbsp + ": rien n’a été enregistré.";
+    public const string ExportMissing = "assistance.exportMissing";
+    public const string ExportMissingMessage = "Document introuvable dans le dossier des exports" + FrenchText.Nbsp + ": seuls les documents enregistrés pendant cette session s’ouvrent ici.";
+    public const string EngineBusy = "assistance.engineBusy";
+    public const string SessionChanged = "assistance.sessionChanged";
+    public const string SessionChangedMessage = "Réponse d’une autre session ignorée" + FrenchText.Nbsp + ": la session a changé pendant la lecture. Rien n’a été gardé.";
+    public const string DossierStaleMessage = "Réponse d’une autre session ignorée" + FrenchText.Nbsp + ": la session a changé pendant la préparation. Aucun dossier n’est créé.";
+    public const string DocumentBusy = "assistance.documentBusy";
+    public const string DocumentBusyMessage = "Un document est déjà en cours d’enregistrement" + FrenchText.Nbsp + ": attendez sa fin.";
+    public const string DocumentTimeout = "assistance.documentTimeout";
+    public const string DocumentTimeoutMessage = "Document non enregistré" + FrenchText.Nbsp + ": l’écriture a dépassé 30 secondes. Rien n’a été remplacé.";
+    public const string TicketRefused = "assistance.ticketRefused";
 }
 
 /// <summary>One fact of a step reading (label, value and tone), shown in the row of the step.</summary>
@@ -52,6 +64,8 @@ public sealed record StepItem(string Title, string? Detail, Tone Tone);
 /// <summary>
 /// Summary of the single read a step started (improvement of Domenia 1 ASS-014: the result is shown in the row). It describes
 /// what was read, never that the problem is solved; <see cref="Limit"/> says what the read does not prove.
+/// <see cref="Mentions"/> are the names of other objects the read cites (workstations, controllers, groups, accounts): the
+/// keyed pseudonyms of the documents replace them too. Kept by the engine, never sent to the page.
 /// </summary>
 public sealed record StepReading(
     string Action,
@@ -63,7 +77,13 @@ public sealed record StepReading(
     ImmutableArray<StepFact> Facts,
     ImmutableArray<StepItem> Items,
     int More,
-    string Limit);
+    string Limit,
+    [property: JsonIgnore] ImmutableArray<KnownName> Mentions = default)
+{
+    /// <summary>Names cited by the read (never default).</summary>
+    [JsonIgnore]
+    public ImmutableArray<KnownName> Cited => Mentions.IsDefault ? [] : Mentions;
+}
 
 /// <summary>A fact of the subject card (state, last logon, system…).</summary>
 public sealed record SubjectFact(string Label, string Value, Tone Tone);
@@ -92,6 +112,15 @@ public sealed record SubjectRecord(
 
 /// <summary>One answer of the subject search: an account or a workstation.</summary>
 public sealed record SubjectHit(string Dn, AssistanceSubject Kind, string Name, string Login, string Detail, string Path, Tone Tone, string StateLabel);
+
+/// <summary>A workstation found for a name of a list (offline dossier « liste de postes »): the name as given, its GUID and its row.</summary>
+public sealed record NamedComputer(string Name, Guid Guid, SubjectHit Computer);
+
+/// <summary>
+/// Result of assistance.computers.resolve: the workstations of a pasted list known to the local index, each once, and the names
+/// that matched none (shown to the operator, never guessed). 500 names at most are read.
+/// </summary>
+public sealed record ComputerListView(ImmutableArray<SubjectHit> Found, ImmutableArray<string> Unknown, int Names, bool Truncated);
 
 /// <summary>A suggested subject (locked account, workstation to watch…) with the reason of the suggestion.</summary>
 public sealed record SubjectSuggestion(SubjectHit Subject, string Reason);
@@ -184,7 +213,11 @@ public sealed record PinLocation(PinView Pin, string Dn, AssistanceSubject Kind,
 /// <summary>Incidents of the session, most recent first, with the sentence above the list.</summary>
 public sealed record IncidentsView(int Total, int Limit, string Summary, ImmutableArray<SupportIncident> Items);
 
-/// <summary>Whole state of the workshop (captures, comparison, pins, incidents).</summary>
+/// <summary>
+/// Whole state of the workshop (captures, comparison, pins, incidents). <see cref="Session"/> identifies the session the
+/// workshop belongs to (a fingerprint of domain, account and connection generation, nothing readable): the page forgets what
+/// it kept of another session when it changes.
+/// </summary>
 public sealed record WorkshopView(
     CaptureSlotView? A,
     CaptureSlotView? B,
@@ -193,7 +226,11 @@ public sealed record WorkshopView(
     int PinLimit,
     IncidentsView Incidents,
     long Revision,
-    string Summary);
+    string Summary,
+    string Session);
+
+/// <summary>Result of assistance.workshop.poll: enough for the page to know whether the workshop changed, without the workshop itself.</summary>
+public sealed record WorkshopPoll(long Revision, string Session, int Incidents, int Running, int Queued);
 
 public sealed record AssistanceLimits(int Pins, int Incidents, int TicketReference, int CaptureFields, int CaptureValues, int DossierComputers, int PseudonymKey);
 
@@ -225,37 +262,49 @@ public sealed record ExportResult(bool Saved, string? Path, string Name, string?
 
 public sealed record DossierSectionSummary(string Section, int Elements, bool Truncated, int ExcludedFields);
 
-public sealed record DossierFileView(string Name, string Sha256, int Characters);
+/// <summary>One file of an offline dossier: name, SHA-256 of its UTF-8 bytes, size in bytes and that size for the operator.</summary>
+public sealed record DossierFileView(string Name, string Sha256, long Bytes, string Size);
 
-/// <summary>Result of assistance.dossier.prepare.</summary>
+/// <summary>Result of assistance.dossier.prepare (and of the offline dossier command).</summary>
 public sealed record DossierResult(
     bool Saved,
     string? Path,
     string Name,
     string Perimeter,
     bool Truncated,
+    int Unresolved,
     ImmutableArray<DossierSectionSummary> Sections,
     ImmutableArray<DossierFileView> Files,
     ImmutableArray<string> Excluded,
     string Message,
     DateTimeOffset CreatedAt);
 
-/// <summary>Result of assistance.engine.state: what the engine knows without any probe.</summary>
+/// <summary>One thing the engine can or cannot do in this mode, in the operator's words (« Lecture des fiches et des étapes »).</summary>
+public sealed record EngineCapability(string Label, bool Available, string Detail);
+
+/// <summary>
+/// Result of assistance.engine.state: what the engine knows without any probe. The reads of the Assistance (subject reads,
+/// steps, pins found again) come from its scheduler; the measures of the home page from the dashboard. The incident counts
+/// are those of the « Incidents expliqués » view, never another tally.
+/// </summary>
 public sealed record EngineStateView(
     string Mode,
     string ModeLabel,
     string Source,
-    ImmutableArray<string> Readers,
-    ImmutableArray<string> Writers,
-    int TasksRunning,
-    int TasksQueued,
+    ImmutableArray<EngineCapability> Capabilities,
+    ImmutableArray<string> Writes,
+    int ReadsRunning,
+    int ReadsQueued,
+    int ReadsLimit,
+    int MeasuresRunning,
+    int MeasuresQueued,
+    int IncidentWarnings,
+    int IncidentErrors,
     int JournalEntries,
-    int JournalWarnings,
-    int JournalAlerts,
     int Captures,
     int Pins,
-    int Incidents,
     int StepsRead,
     bool ReceiptsPersistent,
     bool ExportsPersistent,
+    string ExportsLabel,
     string Summary);

@@ -1,10 +1,5 @@
 {
-  "fait": ["ASS-001", "ASS-004", "ASS-005", "ASS-006", "ASS-010", "ASS-011", "ASS-016", "TRV-184", "TRV-185"],
-  "ameliore": ["ASS-002", "ASS-003", "ASS-007", "ASS-008", "ASS-009", "ASS-013", "ASS-014", "ASS-015"],
-  "partiel": [
-    {
-      "id": "ASS-012",
-      "reste": "Commande en ligne équivalente à « Domenia-Automate.ps1 dossier » (entrée dans Program, hors de ce lot) ; en mode annuaire, lecture de la base locale SQLite par AdAssistanceReader (vague 3). Le dossier, son manifeste, ses empreintes et ses exclusions sont faits et servis en simulation."
-    }
-  ]
+  "fait": ["ASS-001", "ASS-004", "ASS-005", "ASS-006", "ASS-011", "ASS-016", "TRV-184", "TRV-185"],
+  "ameliore": ["ASS-002", "ASS-003", "ASS-007", "ASS-008", "ASS-009", "ASS-010", "ASS-012", "ASS-013", "ASS-014", "ASS-015"],
+  "partiel": []
 }

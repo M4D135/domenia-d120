@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -7,12 +8,18 @@ using System.Text.RegularExpressions;
 
 namespace Domenia.Core;
 
-/// <summary>Perimeter choices of the offline dossier in Domenia 2: the workstation of the session, the working OU, the pinned workstations.</summary>
+/// <summary>
+/// Perimeter choices of the offline dossier: the workstation of the session, the working OU, an OU chosen in the tree (Domenia 1
+/// « OU sélectionnée »), the pinned workstations, or the workstations of a list of names (Domenia 1 « postes des résultats
+/// affichés », 500 at most: names pasted or exported from a result list, or sent by another screen).
+/// </summary>
 public enum DossierScope
 {
     Subject,
     WorkingOu,
+    Branch,
     Pins,
+    List,
 }
 
 /// <summary>
@@ -39,8 +46,8 @@ public sealed record DossierData(
     JsonArray Queries,
     ImmutableArray<string> Notes);
 
-/// <summary>One file of a dossier: its name, its UTF-8 text and its SHA-256 (lower-case hexadecimal).</summary>
-public sealed record DossierFile(string Name, string Text, string Sha256, int Characters);
+/// <summary>One file of a dossier: its name, its text, its UTF-8 bytes (no byte order mark) and their SHA-256 (lower-case hexadecimal).</summary>
+public sealed record DossierFile(string Name, string Text, byte[] Bytes, string Sha256);
 
 public sealed record DossierBuild(string FolderName, ImmutableArray<DossierFile> Files, ImmutableArray<DossierSectionSummary> Sections, ImmutableArray<string> Excluded);
 
@@ -93,16 +100,28 @@ public static partial class OfflineDossiers
     /// <summary>A workstation chosen on the screen (the computer subject of the session, a pinned workstation).</summary>
     public sealed record Workstation(string Guid, string Name);
 
-    public static DossierPerimeter Perimeter(DossierScope scope, Workstation? subject, ScopeSelection? workingOu, string? domainRootDn, IEnumerable<Workstation> pins)
+    /// <summary>
+    /// Perimeter of a dossier (Domenia 1 Get-DomeniaOfflineDossierPerimeter). <paramref name="workingOu"/> is the working OU,
+    /// <paramref name="branch"/> the OU chosen in the tree; <paramref name="listed"/> the workstations found for the names of a
+    /// list and <paramref name="unresolved"/> the names that matched none. Never the whole domain, 500 workstations at most.
+    /// </summary>
+    public static DossierPerimeter Perimeter(
+        DossierScope scope,
+        Workstation? subject,
+        ScopeSelection? workingOu,
+        string? domainRootDn,
+        IEnumerable<Workstation> pins,
+        ScopeSelection? branch = null,
+        IEnumerable<Workstation>? listed = null,
+        int unresolved = 0)
     {
         ArgumentNullException.ThrowIfNull(pins);
-        static DossierPerimeter Fail(string why) => new(false, why, "", [], null, "", 0, false);
         switch (scope)
         {
             case DossierScope.Subject:
                 if (subject is null)
                 {
-                    return Fail("Choisissez d’abord le poste concerné, ou prenez l’OU de travail ou les postes épinglés.");
+                    return Fail("Choisissez d’abord le poste concerné, ou prenez une OU, les postes épinglés ou une liste de postes.");
                 }
                 if (!Guid.TryParse(subject.Guid, out var guid) || guid == Guid.Empty)
                 {
@@ -110,48 +129,78 @@ public static partial class OfflineDossiers
                 }
                 return new DossierPerimeter(true, null, "Guids", [guid.ToString("D")], null, subject.Name.Length > 0 ? subject.Name : "poste choisi", 1, false);
             case DossierScope.Pins:
-                var guids = new List<string>();
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                var truncated = false;
-                foreach (var pin in pins)
-                {
-                    if (!Guid.TryParse(pin.Guid, out var pinGuid) || pinGuid == Guid.Empty || !seen.Add(pinGuid.ToString("D")))
-                    {
-                        continue;
-                    }
-                    if (guids.Count >= MaxNames)
-                    {
-                        truncated = true;
-                        break;
-                    }
-                    guids.Add(pinGuid.ToString("D"));
-                }
-                if (guids.Count == 0)
-                {
-                    return Fail("Aucun poste épinglé" + FrenchText.Colon + "épinglez des postes, ou prenez le poste choisi ou l’OU de travail.");
-                }
-                var label = FrenchText.Count(guids.Count, "poste épinglé", "postes épinglés") + (truncated ? ", limité aux " + FrenchText.Integer(MaxNames) + " premiers" : "");
-                return new DossierPerimeter(true, null, "Guids", [.. guids], null, label, guids.Count, truncated);
+                return Workstations(pins, "poste épinglé", "postes épinglés",
+                    "Aucun poste épinglé" + FrenchText.Colon + "épinglez des postes, ou prenez le poste choisi, une OU ou une liste de postes.", 0);
+            case DossierScope.List:
+                return Workstations(listed ?? [], "poste de la liste", "postes de la liste",
+                    unresolved > 0
+                        ? "Aucun poste de la liste n’est connu de l’index local" + FrenchText.Colon + AssistanceText.Count(unresolved, "nom inconnu", "noms inconnus") + "."
+                        : "Liste de postes vide" + FrenchText.Colon + "collez des noms de postes, un par ligne (500 au plus).",
+                    unresolved);
+            case DossierScope.Branch:
+                return Ou(branch, domainRootDn, "Aucune OU choisie" + FrenchText.Colon + "choisissez une OU dans l’arborescence.", "L’OU choisie");
             default:
-                if (workingOu is null || string.IsNullOrWhiteSpace(workingOu.Dn))
-                {
-                    return Fail("Aucune OU de travail" + FrenchText.Colon + "choisissez-en une depuis l’Accueil.");
-                }
-                if (domainRootDn is not null && ScopeRules.IsDomainRoot(workingOu, domainRootDn))
-                {
-                    return Fail("L’OU de travail est tout le domaine" + FrenchText.Colon + "un dossier n’est jamais préparé sur tout le domaine. Choisissez une OU.");
-                }
-                if (!workingOu.Dn.StartsWith("OU=", StringComparison.OrdinalIgnoreCase))
-                {
-                    return Fail("L’OU de travail n’est pas une OU" + FrenchText.Colon + "choisissez une OU depuis l’Accueil.");
-                }
-                return new DossierPerimeter(true, null, "OU", [], workingOu.Dn, "OU " + workingOu.Label, 0, false);
+                return Ou(workingOu, domainRootDn, "Aucune OU de travail" + FrenchText.Colon + "choisissez-en une depuis l’Accueil.", "L’OU de travail");
         }
     }
 
-    /// <summary>Folder name: Domenia-Diagnostic-&lt;sujet&gt;-AAAAMMJJ-HHmm, letters, digits, dot, dash and underscore only.</summary>
-    public static string FolderName(string? subject, DateTimeOffset now)
+    private static DossierPerimeter Fail(string why) => new(false, why, "", [], null, "", 0, false);
+
+    private static DossierPerimeter Workstations(IEnumerable<Workstation> items, string singular, string plural, string empty, int unresolved)
     {
+        var guids = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var truncated = false;
+        foreach (var item in items)
+        {
+            if (!Guid.TryParse(item.Guid, out var itemGuid) || itemGuid == Guid.Empty || !seen.Add(itemGuid.ToString("D")))
+            {
+                continue;
+            }
+            if (guids.Count >= MaxNames)
+            {
+                truncated = true;
+                break;
+            }
+            guids.Add(itemGuid.ToString("D"));
+        }
+        if (guids.Count == 0)
+        {
+            return Fail(empty);
+        }
+        var label = AssistanceText.Count(guids.Count, singular, plural) + (truncated ? ", limité aux " + FrenchText.Integer(MaxNames) + " premiers" : "")
+            + (unresolved > 0 ? " (" + AssistanceText.Count(unresolved, "nom inconnu ignoré", "noms inconnus ignorés") + ")" : "");
+        return new DossierPerimeter(true, null, "Guids", [.. guids], null, label, guids.Count, truncated);
+    }
+
+    private static DossierPerimeter Ou(ScopeSelection? ou, string? domainRootDn, string missing, string what)
+    {
+        if (ou is null || string.IsNullOrWhiteSpace(ou.Dn))
+        {
+            return Fail(missing);
+        }
+        if (domainRootDn is not null && ScopeRules.IsDomainRoot(ou, domainRootDn))
+        {
+            return Fail(what + " est tout le domaine" + FrenchText.Colon + "un dossier n’est jamais préparé sur tout le domaine. Choisissez une OU.");
+        }
+        if (!ou.Dn.StartsWith("OU=", StringComparison.OrdinalIgnoreCase))
+        {
+            return Fail(what + " n’est pas une OU" + FrenchText.Colon + "choisissez une OU.");
+        }
+        if (domainRootDn is not null && !ScopeRules.Contains(new ScopeSelection(domainRootDn, "", true), ou.Dn))
+        {
+            return Fail(what + " n’appartient pas au domaine de la session" + FrenchText.Colon + "choisissez une OU de ce domaine.");
+        }
+        return new DossierPerimeter(true, null, "OU", [], ou.Dn, "OU " + ou.Label, 0, false);
+    }
+
+    /// <summary>
+    /// Folder name: Domenia-Diagnostic-&lt;sujet&gt;-AAAAMMJJ-HHmm at the local time of <paramref name="zone"/> (as every other
+    /// export of the screen), letters, digits, dot, dash and underscore only.
+    /// </summary>
+    public static string FolderName(string? subject, DateTimeOffset now, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
         var clean = SubjectCharacters().Replace((subject ?? "").Trim(), "-").Trim('-', '.');
         if (clean.Length > 60)
         {
@@ -161,7 +210,7 @@ public static partial class OfflineDossiers
         {
             clean = "perimetre";
         }
-        return "Domenia-Diagnostic-" + clean + "-" + now.ToUniversalTime().ToString("yyyyMMdd'-'HHmm", CultureInfo.InvariantCulture);
+        return "Domenia-Diagnostic-" + clean + "-" + TimeZoneInfo.ConvertTime(now, zone).ToString("yyyyMMdd'-'HHmm", CultureInfo.InvariantCulture);
     }
 
     /// <summary>A field whose name says it carries a secret is never exported, whatever its value (pwdLastSet is a date, kept).</summary>
@@ -232,8 +281,9 @@ public static partial class OfflineDossiers
     /// The files of one dossier, as texts: one envelope per section, the readme, the manifest (with the SHA-256 of every file
     /// as written, UTF-8 without BOM) and SHA256SUMS.txt. More than 64 Mio of text is refused.
     /// </summary>
-    public static DossierBuild Build(DossierRequest request, DossierData data, string subjectName, string build, DateTimeOffset now)
+    public static DossierBuild Build(DossierRequest request, DossierData data, string subjectName, string build, DateTimeOffset now, TimeZoneInfo zone)
     {
+        ArgumentNullException.ThrowIfNull(zone);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(data);
         var files = new List<DossierFile>();
@@ -273,7 +323,7 @@ public static partial class OfflineDossiers
         var perimeterText = request.Perimeter.Kind == "OU" ? "OU " + request.Perimeter.OrganizationalUnit : request.Perimeter.Label;
         var readme = string.Join("\r\n",
             "Dossier de diagnostic hors ligne Domenia",
-            "Créé le " + now.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm", CultureInfo.InvariantCulture) + " UTC" + (build.Length > 0 ? " par la version " + build : "") + ".",
+            "Créé le " + AssistanceText.Stamp(now, zone) + (build.Length > 0 ? " par la version " + build : "") + ".",
             "Périmètre choisi" + FrenchText.Colon + perimeterText + ".",
             "",
             "Contenu : état de la base locale, postes, dernières observations enregistrées, associations et requêtes enregistrées,",
@@ -291,7 +341,7 @@ public static partial class OfflineDossiers
         var entries = new JsonArray();
         foreach (var file in files)
         {
-            entries.Add((JsonNode?)new JsonObject { ["Fichier"] = file.Name, ["Sha256"] = file.Sha256.ToUpperInvariant(), ["Caracteres"] = file.Characters });
+            entries.Add((JsonNode?)new JsonObject { ["Fichier"] = file.Name, ["Sha256"] = file.Sha256.ToUpperInvariant(), ["Caracteres"] = file.Text.Length, ["Octets"] = file.Bytes.Length });
         }
         var sections = new JsonArray();
         foreach (var item in summary)
@@ -314,10 +364,16 @@ public static partial class OfflineDossiers
         files.Add(File("manifeste.json", manifest.ToJsonString(Indented)));
         var sums = string.Join("\r\n", files.Select(f => f.Sha256 + "  " + f.Name)) + "\r\n";
         files.Add(File("SHA256SUMS.txt", sums));
-        return new DossierBuild(FolderName(subjectName, now), [.. files], [.. summary], [.. excludedAll]);
+        return new DossierBuild(FolderName(subjectName, now, zone), [.. files], [.. summary], [.. excludedAll]);
     }
 
-    private static DossierFile File(string name, string text) => new(name, text, TicketReport.Hash(text), text.Length);
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
+    private static DossierFile File(string name, string text)
+    {
+        var bytes = Utf8.GetBytes(text);
+        return new DossierFile(name, text, bytes, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)));
+    }
 
     private static JsonObject PerimeterJson(DossierPerimeter perimeter)
     {

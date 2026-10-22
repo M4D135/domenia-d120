@@ -63,8 +63,13 @@ internal sealed class SimulatedAssistanceSteps(
 
     private string Date(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, zone).ToString("dd'/'MM'/'yyyy' à 'HH':'mm", CultureInfo.InvariantCulture);
 
-    private static StepReading Reading(AssistanceAction action, DateTimeOffset at, Tone tone, string summary, IEnumerable<StepFact> facts, IReadOnlyList<StepItem> items, int shown, string limit) =>
-        new(action.Id, action.Operation, action.Label, at, tone, summary, [.. facts], [.. items.Take(shown)], Math.Max(0, items.Count - shown), limit);
+    /// <param name="mentions">Names of other objects the read cites (pseudonymised in the documents, never sent to the page).</param>
+    private static StepReading Reading(AssistanceAction action, DateTimeOffset at, Tone tone, string summary, IEnumerable<StepFact> facts, IReadOnlyList<StepItem> items, int shown, string limit,
+        IEnumerable<KnownName>? mentions = null) =>
+        new(action.Id, action.Operation, action.Label, at, tone, summary, [.. facts], [.. items.Take(shown)], Math.Max(0, items.Count - shown), limit,
+            [.. (mentions ?? []).Where(m => !string.IsNullOrWhiteSpace(m.Value)).DistinctBy(m => m.Value, StringComparer.OrdinalIgnoreCase)]);
+
+    private static KnownName Machine(string name) => new(name, "Machine", "Machine");
 
     private static string SiteOf(string dn)
     {
@@ -149,10 +154,11 @@ internal sealed class SimulatedAssistanceSteps(
         };
         var summary = events.Count == 0
             ? "Aucun verrouillage de ce compte sur 7 jours dans le journal de l’émulateur PDC."
-            : FrenchText.Count(events.Count, "verrouillage", "verrouillages") + " en 7 jours, le plus souvent depuis " + dominant
+            : AssistanceText.Count(events.Count, "verrouillage", "verrouillages") + " en 7 jours, le plus souvent depuis " + dominant
               + Colon + "cherchez une session, un lecteur réseau ou un service qui garde l’ancien mot de passe.";
         return Reading(action, now, events.Count > 0 ? Tone.Alert : Tone.Ok, summary, facts, items, 8,
-            "Journal Sécurité de l’émulateur PDC seulement" + FrenchText.Nbsp + "; un journal purgé ne montre pas les verrouillages anciens.");
+            "Journal Sécurité de l’émulateur PDC seulement" + FrenchText.Nbsp + "; un journal purgé ne montre pas les verrouillages anciens.",
+            [.. events.Select(e => Machine(e.Caller)), Machine(pdc), Machine(pdc.Split('.')[0])]);
     }
 
     private StepReading Policy(AssistanceAction action, DirectoryUser user)
@@ -179,15 +185,15 @@ internal sealed class SimulatedAssistanceSteps(
         var facts = new[]
         {
             new StepFact("Stratégie applicable", name, privileged ? Tone.Info : Tone.Off),
-            new StepFact("Durée maximale", FrenchText.Count((long)maxAge.TotalDays, "jour", "jours"), Tone.Off),
-            new StepFact("Longueur minimale", FrenchText.Count(minLength, "caractère", "caractères"), Tone.Off),
-            new StepFact("Historique", FrenchText.Count(history, "mot de passe retenu", "mots de passe retenus"), Tone.Off),
-            new StepFact("Seuil de verrouillage", threshold == 0 ? "Aucun" : FrenchText.Count(threshold, "essai", "essais"), Tone.Off),
-            new StepFact("Durée de verrouillage", FrenchText.Count((long)duration.TotalMinutes, "minute", "minutes"), Tone.Off),
+            new StepFact("Durée maximale", AssistanceText.Count((long)maxAge.TotalDays, "jour", "jours"), Tone.Off),
+            new StepFact("Longueur minimale", AssistanceText.Count(minLength, "caractère", "caractères"), Tone.Off),
+            new StepFact("Historique", AssistanceText.Count(history, "mot de passe retenu", "mots de passe retenus"), Tone.Off),
+            new StepFact("Seuil de verrouillage", threshold == 0 ? "Aucun" : AssistanceText.Count(threshold, "essai", "essais"), Tone.Off),
+            new StepFact("Durée de verrouillage", AssistanceText.Count((long)duration.TotalMinutes, "minute", "minutes"), Tone.Off),
             new StepFact("Échéance du mot de passe", dueText, dueTone),
         };
-        var summary = name + Colon + "mot de passe valable " + FrenchText.Count((long)maxAge.TotalDays, "jour", "jours") + ", verrouillage après "
-            + FrenchText.Count(threshold, "essai", "essais") + ". " + dueText + ".";
+        var summary = name + Colon + "mot de passe valable " + AssistanceText.Count((long)maxAge.TotalDays, "jour", "jours") + ", verrouillage après "
+            + AssistanceText.Count(threshold, "essai", "essais") + ". " + dueText + ".";
         return Reading(action, now, dueTone == Tone.Alert ? Tone.Alert : dueTone == Tone.Warn ? Tone.Warn : Tone.Ok, summary, facts, [], 0,
             "Échéance calculée par le contrôleur (msDS-UserPasswordExpiryTimeComputed)" + FrenchText.Nbsp + "; aucun mot de passe n’est lu.");
     }
@@ -223,10 +229,11 @@ internal sealed class SimulatedAssistanceSteps(
             new StepFact("Groupe principal", primary ?? "—", Tone.Off),
             new StepFact("Groupes à privilèges", privileged.Count == 0 ? "Aucun" : string.Join(", ", privileged), privileged.Count == 0 ? Tone.Ok : Tone.Warn),
         };
-        var summary = FrenchText.Count(direct.Count, "groupe direct", "groupes directs") + ", " + FrenchText.Count(nested.Count, "imbriqué", "imbriqués")
-            + " pour ce " + kind + FrenchText.Nbsp + "; " + (privileged.Count == 0 ? "aucun groupe à privilèges." : FrenchText.Count(privileged.Count, "groupe à privilèges", "groupes à privilèges") + " à examiner.");
+        var summary = AssistanceText.Count(direct.Count, "groupe direct", "groupes directs") + ", " + AssistanceText.Count(nested.Count, "imbriqué", "imbriqués")
+            + " pour ce " + kind + FrenchText.Nbsp + "; " + (privileged.Count == 0 ? "aucun groupe à privilèges." : AssistanceText.Count(privileged.Count, "groupe à privilèges", "groupes à privilèges") + " à examiner.");
         return Reading(action, now, privileged.Count == 0 ? Tone.Ok : Tone.Warn, summary, facts, items, 12,
-            "Appartenances lues dans l’annuaire, bornées à 2 000" + FrenchText.Nbsp + "; elles ne disent pas les droits effectifs sur une ressource.");
+            "Appartenances lues dans l’annuaire, bornées à 2 000" + FrenchText.Nbsp + "; elles ne disent pas les droits effectifs sur une ressource.",
+            [.. direct.Concat(nested.Values.Select(n => n.Group)).Select(g => new KnownName(g.Name, "Groupe", "Groupe"))]);
     }
 
     // ---------------------------------------------------------------- group policy
@@ -290,8 +297,8 @@ internal sealed class SimulatedAssistanceSteps(
             new StepFact("Liens désactivés", FrenchText.Integer(disabled), disabled > 0 ? Tone.Warn : Tone.Off),
             new StepFact("Héritage bloqué", "Non", Tone.Off),
         };
-        var summary = FrenchText.Count(links.Count - disabled, "stratégie liée", "stratégies liées") + " sur " + FrenchText.Count(levels, "niveau", "niveaux")
-            + (disabled > 0 ? ", " + FrenchText.Count(disabled, "lien désactivé", "liens désactivés") : "") + ". Le résultat réel dépend des filtres et de l’application sur le poste.";
+        var summary = AssistanceText.Count(links.Count - disabled, "stratégie liée", "stratégies liées") + " sur " + AssistanceText.Count(levels, "niveau", "niveaux")
+            + (disabled > 0 ? ", " + AssistanceText.Count(disabled, "lien désactivé", "liens désactivés") : "") + ". Le résultat réel dépend des filtres et de l’application sur le poste.";
         return Reading(action, now, disabled > 0 ? Tone.Info : Tone.Ok, summary, facts, items, 12,
             "Liens lus dans l’annuaire" + FrenchText.Nbsp + "; ils ne prouvent pas que la stratégie a été appliquée (étape « Stratégies appliquées »).");
     }
@@ -328,7 +335,7 @@ internal sealed class SimulatedAssistanceSteps(
         };
         var summary = stale
             ? "Les stratégies n’ont pas été appliquées depuis le " + Date(last) + Colon + "le poste ne joint peut-être plus le contrôleur."
-            : FrenchText.Count(applied.Count, "stratégie appliquée", "stratégies appliquées") + " le " + Date(last) + (filtered.Count > 0 ? ", " + FrenchText.Count(filtered.Count, "filtrée", "filtrées") : "") + ".";
+            : AssistanceText.Count(applied.Count, "stratégie appliquée", "stratégies appliquées") + " le " + Date(last) + (filtered.Count > 0 ? ", " + AssistanceText.Count(filtered.Count, "filtrée", "filtrées") : "") + ".";
         return Reading(action, now, stale ? Tone.Warn : Tone.Ok, summary, facts, [.. applied, .. filtered], 12,
             "Dernier résultat enregistré par le poste (RSoP), sans actualisation des stratégies.");
     }
@@ -360,7 +367,8 @@ internal sealed class SimulatedAssistanceSteps(
             ? "Le poste répond en " + FrenchText.Integer(latency) + FrenchText.Nbsp + "ms" + (refused ? Colon + "SMB filtré, les lectures d’administration risquent d’être refusées." : " et ses ports d’administration sont ouverts.")
             : "Aucune réponse au ping ni sur les ports d’administration" + Colon + "le poste semble hors réseau, ou il est filtré.";
         return Reading(action, now, answered ? (refused ? Tone.Warn : Tone.Ok) : Tone.Alert, summary, facts, items, 8,
-            "Un ping filtré n’est pas un poste arrêté" + FrenchText.Nbsp + "; un port ouvert ne prouve pas que les droits suffisent.");
+            "Un ping filtré n’est pas un poste arrêté" + FrenchText.Nbsp + "; un port ouvert ne prouve pas que les droits suffisent.",
+            [Machine(computer.DnsHostName ?? computer.Name)]);
     }
 
     private StepReading Identity(AssistanceAction action, DirectoryComputer computer)
@@ -376,13 +384,14 @@ internal sealed class SimulatedAssistanceSteps(
             new StepFact("Nom DNS", computer.DnsHostName ?? "—", Tone.Off),
             new StepFact("Adresse résolue", address, Tone.Ok),
             new StepFact("Nom renvoyé par le poste (CIM)", returned, mismatch ? Tone.Alert : Tone.Ok),
-            new StepFact("Âge de l’enregistrement DNS", FrenchText.Count(recordAge, "jour", "jours"), recordAge > 14 ? Tone.Warn : Tone.Off),
+            new StepFact("Âge de l’enregistrement DNS", AssistanceText.Count(recordAge, "jour", "jours"), recordAge > 14 ? Tone.Warn : Tone.Off),
         };
         var summary = mismatch
             ? "Le nom " + computer.DnsHostName + " résout en " + address + ", mais le poste qui répond s’appelle " + returned + Colon + "enregistrement DNS périmé ou poste renommé."
             : "Le nom " + computer.DnsHostName + " résout en " + address + " et le poste renvoie bien le nom " + computer.Name + ".";
         return Reading(action, now, mismatch ? Tone.Alert : recordAge > 14 ? Tone.Warn : Tone.Ok, summary, facts, [], 0,
-            "Résolution faite depuis ce poste" + FrenchText.Nbsp + "; un autre site peut voir un autre enregistrement.");
+            "Résolution faite depuis ce poste" + FrenchText.Nbsp + "; un autre site peut voir un autre enregistrement.",
+            [Machine(computer.DnsHostName ?? computer.Name), Machine(returned)]);
     }
 
     private StepReading Inventory(AssistanceAction action, DirectoryComputer computer, WorkstationObservation? observation, bool deep)
@@ -407,7 +416,7 @@ internal sealed class SimulatedAssistanceSteps(
             new("Modèle", model, Tone.Off),
             new("Mémoire", FrenchText.Decimal(memory / gib, 0) + FrenchText.Nbsp + "Go · " + FrenchText.Integer(memoryUsed) + FrenchText.Nbsp + "% utilisés", memoryUsed > 85 ? Tone.Warn : Tone.Ok),
             new("Disque C:", FrenchText.Percent(freePercent) + " libre sur " + FrenchText.Decimal(size / 1e9, 0) + FrenchText.Nbsp + "Go", freePercent < 10 ? Tone.Alert : freePercent < 20 ? Tone.Warn : Tone.Ok),
-            new("Dernier démarrage", Date(boot) + " (" + FrenchText.Count((long)uptime, "jour", "jours") + ")", uptime > 30 ? Tone.Warn : Tone.Off),
+            new("Dernier démarrage", Date(boot) + " (" + AssistanceText.Count((long)uptime, "jour", "jours") + ")", uptime > 30 ? Tone.Warn : Tone.Off),
             new("Écart d’horloge", skewText + " avec le contrôleur", Math.Abs(skew) > 300 ? Tone.Alert : Tone.Ok),
         };
         var items = new List<StepItem>();
@@ -435,7 +444,7 @@ internal sealed class SimulatedAssistanceSteps(
         }
         if (uptime > 30)
         {
-            problems.Add("pas de redémarrage depuis " + FrenchText.Count((long)uptime, "jour", "jours"));
+            problems.Add("pas de redémarrage depuis " + AssistanceText.Count((long)uptime, "jour", "jours"));
         }
         if (Math.Abs(skew) > 300)
         {
@@ -493,7 +502,7 @@ internal sealed class SimulatedAssistanceSteps(
             new StepFact("Le plus volumineux", largest.Name + " (" + FrenchText.Decimal(largest.SizeMb / 1000.0, 1) + FrenchText.Nbsp + "Go)", Tone.Off),
             new StepFact("Dernière installation", Date(lastInstall), Tone.Off),
         };
-        var summary = FrenchText.Count(ordered.Count, "logiciel installé", "logiciels installés") + ", dont " + FrenchText.Count(drivers, "pilote d’impression", "pilotes d’impression")
+        var summary = AssistanceText.Count(ordered.Count, "logiciel installé", "logiciels installés") + ", dont " + AssistanceText.Count(drivers, "pilote d’impression", "pilotes d’impression")
             + Colon + "le plus volumineux est " + largest.Name + ".";
         return Reading(action, now, Tone.Ok, summary, facts, items, 12, "Lu dans le registre du poste (clés Uninstall)" + FrenchText.Nbsp + "; un logiciel portable n’y figure pas.");
     }
@@ -504,21 +513,21 @@ internal sealed class SimulatedAssistanceSteps(
         var disconnected = 0;
         if (computer.ManagedByDn is { } owner && random.Chance(75) && directory.Users.FirstOrDefault(u => u.DistinguishedName.Equals(owner, StringComparison.OrdinalIgnoreCase)) is { } user)
         {
-            items.Add(new StepItem("Console · " + user.SamAccountName, "Active · inactive depuis " + FrenchText.Count(random.Next(1, 25), "minute", "minutes"), Tone.Ok));
+            items.Add(new StepItem("Console · " + user.SamAccountName, "Active · inactive depuis " + AssistanceText.Count(random.Next(1, 25), "minute", "minutes"), Tone.Ok));
         }
         else if (random.Chance(55))
         {
             var people = directory.Users.Where(u => u.DistinguishedName.Contains("OU=" + SiteOf(computer.DistinguishedName) + ",OU=Utilisateurs", StringComparison.OrdinalIgnoreCase)).ToList();
             if (people.Count > 0)
             {
-                items.Add(new StepItem("Console · " + random.Pick(people).SamAccountName, "Active · inactive depuis " + FrenchText.Count(random.Next(1, 90), "minute", "minutes"), Tone.Ok));
+                items.Add(new StepItem("Console · " + random.Pick(people).SamAccountName, "Active · inactive depuis " + AssistanceText.Count(random.Next(1, 90), "minute", "minutes"), Tone.Ok));
             }
         }
         if (random.Chance(30))
         {
             disconnected++;
             var admin = random.Pick(SimulationProfile.AdminPeople).Sam;
-            items.Add(new StepItem("RDP · " + admin, "Déconnectée depuis " + FrenchText.Count(random.Next(1, 6), "jour", "jours"), Tone.Warn));
+            items.Add(new StepItem("RDP · " + admin, "Déconnectée depuis " + AssistanceText.Count(random.Next(1, 6), "jour", "jours"), Tone.Warn));
         }
         var facts = new[]
         {
@@ -527,7 +536,8 @@ internal sealed class SimulatedAssistanceSteps(
         };
         var summary = items.Count == 0
             ? "Aucune session ouverte sur ce poste."
-            : FrenchText.Count(items.Count, "session ouverte", "sessions ouvertes") + (disconnected > 0 ? ", dont " + FrenchText.Count(disconnected, "déconnectée", "déconnectées") + " qui garde mémoire et profil." : ".");
-        return Reading(action, now, disconnected > 0 ? Tone.Warn : Tone.Ok, summary, facts, items, 8, "Sessions lues sans en fermer aucune.");
+            : AssistanceText.Count(items.Count, "session ouverte", "sessions ouvertes") + (disconnected > 0 ? ", dont " + AssistanceText.Count(disconnected, "déconnectée", "déconnectées") + " qui garde mémoire et profil." : ".");
+        return Reading(action, now, disconnected > 0 ? Tone.Warn : Tone.Ok, summary, facts, items, 8, "Sessions lues sans en fermer aucune.",
+            [.. items.Select(i => new KnownName(i.Title[(i.Title.IndexOf('·', StringComparison.Ordinal) + 1)..].Trim(), "Compte", "Compte"))]);
     }
 }

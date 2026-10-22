@@ -1,13 +1,16 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Domenia.Core;
 
 /// <summary>
 /// The support workshop of the session (Domenia 1 $script:SupportState and $script:AssistanceLaunched): last objects read, captures
 /// A and B, pins, explained incidents and the launches of the recipe steps. Memory only: nothing is written on disk, nothing
-/// survives the application. Isolated by session (TRV-185): a change of domain or account empties it. One instance per engine
-/// context (<see cref="From"/>), thread safe.
+/// survives the application. Isolated by session (TRV-185, Domenia 1 Get-DomeniaSupportSessionKey): a change of domain, of
+/// account or of connection generation (<see cref="SessionSnapshot.Epoch"/>, a reconnection with the same account included)
+/// empties it. One instance per engine context (<see cref="From"/>), thread safe.
 /// </summary>
 public sealed class SupportWorkshop
 {
@@ -25,6 +28,9 @@ public sealed class SupportWorkshop
     private (SupportSnapshot Snapshot, bool Historical)? slotA;
     private (SupportSnapshot Snapshot, bool Historical)? slotB;
     private string? sessionKey;
+    private string token = "";
+    // After a change of session, the journal entries written before it belong to the former session: never collected again.
+    private DateTimeOffset? collectFrom;
     private bool sourceIncidentsLoaded;
     private long revision;
 
@@ -43,21 +49,66 @@ public sealed class SupportWorkshop
     /// <summary>Domain root of the session (lower case), used as the scope of the captures and pins.</summary>
     public string Scope { get; private set; } = "";
 
-    /// <summary>Empties the workshop when the session changed (other domain or account): data never crosses sessions.</summary>
-    public async Task SyncAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Fingerprint of the session the workshop belongs to (domain, account, connection generation), for the page: nothing of
+    /// the account can be read from it. Empty before the first <see cref="SyncAsync"/>.
+    /// </summary>
+    public string Token
+    {
+        get
+        {
+            lock (gate)
+            {
+                return token;
+            }
+        }
+    }
+
+    /// <summary>Key of a session: domain root, account and connection generation (Domenia 1 epoch + BaseDn + bind account).</summary>
+    public static string SessionKey(SessionSnapshot session)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var root = (session.Domain?.RootDn ?? session.Domain?.DnsName ?? "").Trim().ToLowerInvariant();
+        return root + "|" + session.Account.Login.ToLowerInvariant() + "|" + session.Epoch.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Empties the workshop when the session changed (other domain, other account, or a new connection with the same account):
+    /// data never crosses sessions. Returns the token of the current session.
+    /// </summary>
+    public async Task<string> SyncAsync(CancellationToken cancellationToken)
     {
         var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
         var root = (session.Domain?.RootDn ?? session.Domain?.DnsName ?? "").Trim().ToLowerInvariant();
-        var key = root + "|" + session.Account.Login;
+        var key = SessionKey(session);
         lock (gate)
         {
             if (sessionKey == key)
             {
-                return;
+                return token;
+            }
+            if (sessionKey is not null)
+            {
+                collectFrom = Now;
             }
             sessionKey = key;
+            token = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes("domenia-assistance-session|" + key)))[..16];
             Scope = root;
             ResetLocked(all: true);
+            return token;
+        }
+    }
+
+    /// <summary>
+    /// A read started in the session <paramref name="startedIn"/> answers: if the session changed meanwhile, its answer is
+    /// ignored (Domenia 1 Test-DomeniaOfflineDossierState) and nothing of it is kept.
+    /// </summary>
+    public async Task EnsureSameSessionAsync(string startedIn, string message, CancellationToken cancellationToken)
+    {
+        var now = await SyncAsync(cancellationToken).ConfigureAwait(false);
+        if (!string.Equals(now, startedIn, StringComparison.Ordinal))
+        {
+            throw new DomeniaOperationException(AssistanceErrors.SessionChanged, message);
         }
     }
 
@@ -169,6 +220,11 @@ public sealed class SupportWorkshop
         var snapshot = known.Snapshot;
         lock (gate)
         {
+            // A pin belongs to the domain of the session (Domenia 1 Add-DomeniaSupportPin): another scope is refused.
+            if (!string.Equals(snapshot.Scope, Scope, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new DomeniaOperationException(AssistanceErrors.PinOtherScope, AssistanceErrors.PinOtherScopeMessage);
+            }
             pins.RemoveAll(p => string.Equals(p.Identity, snapshot.Identity, StringComparison.OrdinalIgnoreCase));
             if (pins.Count >= PinLimit)
             {
@@ -238,9 +294,14 @@ public sealed class SupportWorkshop
     {
         ArgumentNullException.ThrowIfNull(sourceIncidents);
         var fresh = new List<RawIncident>();
+        DateTimeOffset? from;
+        lock (gate)
+        {
+            from = collectFrom;
+        }
         foreach (var entry in context.Journal.Snapshot())
         {
-            if (entry.Tone is Tone.Warn or Tone.Alert)
+            if ((entry.Tone is Tone.Warn or Tone.Alert) && (from is null || entry.At >= from))
             {
                 fresh.Add(new RawIncident("journal|" + entry.At.UtcTicks.ToString(CultureInfo.InvariantCulture) + "|" + entry.Label, entry.At, entry.Tone, "Session", entry.Label, "session"));
             }
@@ -378,13 +439,31 @@ public sealed class SupportWorkshop
             var items = incidents.AsEnumerable().Reverse().ToImmutableArray();
             var incidentSummary = items.Length == 0
                 ? "Aucun avertissement ni erreur dans cette session."
-                : FrenchText.Count(items.Length, "incident", "incidents") + " en mémoire, plafond de " + FrenchText.Integer(SupportIncidents.Limit)
+                : AssistanceText.Count(items.Length, "incident", "incidents") + " en mémoire, plafond de " + FrenchText.Integer(SupportIncidents.Limit)
                   + ". Session complète, toutes cibles confondues" + FrenchText.Colon + "aucun rattachement automatique à une fiche.";
             var captures = (slotA is null ? 0 : 1) + (slotB is null ? 0 : 1);
-            var summary = FrenchText.Count(captures, "capture", "captures") + ", " + FrenchText.Count(pins.Count, "repère", "repères") + ", "
-                + FrenchText.Count(items.Length, "incident", "incidents") + FrenchText.Nbsp + "; en mémoire seulement, rien n’est écrit sur le disque.";
+            var summary = AssistanceText.Count(captures, "capture", "captures") + ", " + AssistanceText.Count(pins.Count, "repère", "repères") + ", "
+                + AssistanceText.Count(items.Length, "incident", "incidents") + FrenchText.Nbsp + "; en mémoire seulement, rien n’est écrit sur le disque.";
             return new WorkshopView(SlotView("a", slotA), SlotView("b", slotB), comparison, [.. pins], PinLimit,
-                new IncidentsView(items.Length, SupportIncidents.Limit, incidentSummary, items), revision, summary);
+                new IncidentsView(items.Length, SupportIncidents.Limit, incidentSummary, items), revision, summary, token);
+        }
+    }
+
+    /// <summary>Revision, session and number of incidents: what the page compares every second while the screen is shown.</summary>
+    public (long Revision, string Session, int Incidents) Poll()
+    {
+        lock (gate)
+        {
+            return (revision, token, incidents.Count);
+        }
+    }
+
+    /// <summary>Incidents of the workshop by level, the same ones the « Incidents expliqués » view lists.</summary>
+    public (int Warnings, int Errors) IncidentLevels()
+    {
+        lock (gate)
+        {
+            return (incidents.Count(i => i.Tone == Tone.Warn), incidents.Count(i => i.Tone == Tone.Alert));
         }
     }
 
@@ -448,7 +527,7 @@ public sealed class SupportWorkshop
             _ => "Origine non confirmée",
         };
         var time = TimeZoneInfo.ConvertTime(snapshot.ObservedAt, zone).ToString("HH':'mm':'ss", CultureInfo.InvariantCulture);
-        var text = FrenchText.Count(snapshot.FieldCount, "attribut fourni", "attributs fournis") + " sur " + FrenchText.Integer(snapshot.Fields.Length)
+        var text = AssistanceText.Count(snapshot.FieldCount, "attribut fourni", "attributs fournis") + " sur " + FrenchText.Integer(snapshot.Fields.Length)
             + " · " + source + " · lecture à " + time;
         return new CoverageView(provided, partial, missing, snapshot.Fields.Length, source, snapshot.ObservedAt, text);
     }

@@ -40,6 +40,11 @@ internal static class Program
             TechnicalLog.Error("Tâche en échec jamais observée.", e.Exception);
             e.SetObserved();
         };
+        // « Domenia.exe dossier … » writes the offline diagnostic dossier and ends: no window, no WebView2, no profile.
+        if (OfflineDossierCommand.IsRequested(args))
+        {
+            return DossierCommandLine.Run(args);
+        }
         // --capture <folder> and --e2e-port <n> are taken out first: without them, the command line reaches the mode
         // resolver unchanged.
         var request = CaptureArguments.Parse(args);

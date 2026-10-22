@@ -91,6 +91,42 @@ public static partial class Pseudonyms
     }
 
     /// <summary>
+    /// Safety net after <see cref="Mask"/>: any « CN=… » value still in clear in the text (the name of a manager, of a group or
+    /// of any object a distinguished name cites) is replaced by its keyed pseudonym of family « Objet », and added to the
+    /// correspondence table. A value that is already a pseudonym is kept as it is.
+    /// </summary>
+    public static (string Text, ImmutableArray<PseudonymEntry> Map) MaskRemainingNames(string? text, IReadOnlyList<PseudonymEntry> map, string key)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        var result = text ?? "";
+        var entries = map.ToList();
+        var known = new HashSet<string>(entries.Select(e => e.Original), StringComparer.OrdinalIgnoreCase);
+        var added = new List<PseudonymEntry>();
+        foreach (Match match in CommonName().Matches(result))
+        {
+            var value = match.Groups["value"].Value.Trim();
+            if (value.Length == 0 || IsPseudonym().IsMatch(value) || !known.Add(value))
+            {
+                continue;
+            }
+            added.Add(new PseudonymEntry("Objet", value, Of(value, key, "Objet")));
+        }
+        if (added.Count == 0)
+        {
+            return (result, [.. entries]);
+        }
+        // Inside a DN only: « CN=Cédric Carré, » becomes « CN=Objet-1A2B3C4D, », never a word elsewhere in the text.
+        result = CommonName().Replace(result, m =>
+        {
+            var value = m.Groups["value"].Value.Trim();
+            var entry = added.FirstOrDefault(e => string.Equals(e.Original, value, StringComparison.OrdinalIgnoreCase));
+            return entry is null ? m.Value : m.Value[..(m.Groups["value"].Index - m.Index)] + entry.Pseudonym;
+        });
+        entries.AddRange(added);
+        return (result, [.. entries.OrderByDescending(e => e.Original.Length)]);
+    }
+
+    /// <summary>
     /// The only way a free text enters a ticket (Domenia 1 ConvertTo-DomeniaInsightText): one line, known names replaced on the
     /// whole text, secrets masked twice, and only then bounded, so that a cut never leaves part of a known name in clear.
     /// </summary>
@@ -111,6 +147,12 @@ public static partial class Pseudonyms
 
     [GeneratedRegex(@"[\x00-\x20\x7F\s]+", RegexOptions.CultureInvariant, 100)]
     private static partial Regex Spaces();
+
+    [GeneratedRegex(@"(?<![\p{L}\p{N}_])CN=(?<value>(?:\\.|[^,;\r\n])+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, 250)]
+    private static partial Regex CommonName();
+
+    [GeneratedRegex(@"^(Utilisateur|Machine|Groupe|Objet|Compte|Identifiant|Valeur)-[0-9A-F]{6,32}$", RegexOptions.CultureInvariant, 100)]
+    private static partial Regex IsPseudonym();
 }
 
 /// <summary>Closed vocabulary of a ticket: attempted, confirmed, refused, not tested (Domenia 1 ConvertTo-DomeniaInsightStepStatus).</summary>
@@ -198,9 +240,11 @@ public static class TicketReport
         string? key,
         IReadOnlyCollection<string>? kinds,
         IEnumerable<KnownName>? identifiers,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(zone);
         ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(sections);
         var chosen = SectionIds.Where(s => sections.Contains(s)).ToImmutableArray();
@@ -251,7 +295,7 @@ public static class TicketReport
             {
                 known.Add(new KnownName(reader, "Compte", "Compte"));
             }
-            var when = step.When is DateTimeOffset at ? at.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm", CultureInfo.InvariantCulture) + " UTC" : "date inconnue";
+            var when = step.When is DateTimeOffset at ? AssistanceText.StampMinutes(at, zone) : "date inconnue";
             kept.Add((status, when, step, reader, status == TicketStatus.Attempted ? OutcomeText(step.Status) : ""));
             switch (status)
             {
@@ -265,7 +309,7 @@ public static class TicketReport
         var lines = new List<string>
         {
             "DOMENIA | COMPTE RENDU DE TICKET",
-            "Généré" + FrenchText.Colon + now.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm", CultureInfo.InvariantCulture) + " UTC",
+            "Généré" + FrenchText.Colon + AssistanceText.Stamp(now, zone),
             "Aperçu local" + FrenchText.Colon + "relire avant tout envoi.",
         };
         if (chosen.Contains("context"))
@@ -326,10 +370,14 @@ public static class TicketReport
             lines.Add("Un refus n’est pas une absence" + FrenchText.Nbsp + "; un élément non testé reste inconnu.");
             if (other + unlinked > 0)
             {
-                lines.Add(FrenchText.Count(other + unlinked, "élément écarté", "éléments écartés") + FrenchText.Colon + "autre objet ou rattachement non vérifiable.");
+                lines.Add(AssistanceText.Count(other + unlinked, "élément écarté", "éléments écartés") + FrenchText.Colon + "autre objet ou rattachement non vérifiable.");
             }
         }
         var text = string.Join("\r\n", lines);
+        if (pseudonymize)
+        {
+            (text, map) = Pseudonyms.MaskRemainingNames(text, map, key!);
+        }
         return new TicketReportResult(Format, true, "", text, Hash(text), chosen, new TicketCounts(attempted, confirmed, refused, notTested),
             new TicketExcluded(other, unlinked), pseudonymize, map);
     }

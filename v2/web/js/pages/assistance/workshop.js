@@ -1,32 +1,23 @@
 // Assistance · support workshop (Domenia 1 Domenia-Support, ASS-001 and ASS-003 to ASS-007): local findings of a fiche,
 // comparison of two captures A and B, explained incidents of the session and pins. Memory of the session only; nothing here
-// reads the network except « Relire la fiche » and « Ouvrir » a pin, on a click.
-import { esc, errorText, applyVars, reveal, announce, formatDateTime } from '../../ui.js';
-import { copyButton, confirmDialog } from '../../kit/index.js';
-import { ico, chip, tone, avatar, empty, when, plural, clock, COLON, NBSP } from './common.js';
+// reads the network except « Relire la fiche » and the opening of a pin, on a click.
+import { esc, errorText, applyVars, reveal, announce, formatDateTime, formatTime } from '../../ui.js';
+import { copyButton, confirmDialog, createTabs, createSplit } from '../../kit/index.js';
+import { ico, chip, tone, avatar, empty, plural, button, fresh, valueHtml, factValue, enter, COLON, NBSP } from './common.js';
+import { dnPath } from './format.js';
+
+export { dnPath };
 
 const LEVEL_ORDER = { attention: 0, toCheck: 1, undetermined: 2, information: 3 };
-const capitalize = (text) => (text ? text[0].toLocaleUpperCase('fr') + text.slice(1) : text);
 const LEVEL_ICON = { attention: 'alert', toCheck: 'eye', undetermined: 'info', information: 'info' };
 const COVERAGE = { provided: ['ok', 'Fourni'], partial: ['warn', 'Partiel'], notProvided: ['off', 'Non fourni'] };
-const MAX_FILE = 1_048_576;
+const capitalize = (text) => (text ? text[0].toLocaleUpperCase('fr') + text.slice(1) : text);
+// The bridge refuses a message beyond 1 Mio; a capture file must leave room for its JSON envelope (escapes included).
+const MAX_ENVELOPE = 1_048_576 - 4096;
+const NOT_PROVIDED = '[non fourni]';
+const PARTIAL = ' [partiel]';
 
-/** Readable path of a DN, without the domain nor the object itself: « Utilisateurs › Lyon › Commercial ». */
-export function dnPath(dn) {
-  const parts = [];
-  let cur = '';
-  const text = String(dn ?? '');
-  for (let n = 0; n < text.length; n++) {
-    const c = text[n];
-    if (c === '\\' && n + 1 < text.length) { cur += text[n + 1]; n += 1; continue; }
-    if (c === ',') { parts.push(cur.trim()); cur = ''; continue; }
-    cur += c;
-  }
-  if (cur.trim()) parts.push(cur.trim());
-  return parts.slice(1).filter((p) => !/^DC=/i.test(p)).map((p) => p.slice(p.indexOf('=') + 1)).reverse().join(`${NBSP}› `);
-}
-
-function noSubject(app, what) {
+function noSubject(what) {
   return empty('user', 'Aucune fiche à comprendre', `Choisissez le compte ou le poste concerné dans la session d’assistance${NBSP}: ${what}`,
     '<button class="btn primary" type="button" data-focus-search>Choisir un compte</button>');
 }
@@ -41,103 +32,161 @@ function bindFocusSearch(host) {
   });
 }
 
+function facts(list) {
+  return (list ?? []).map((f, n) => `<div class="as-fact ${tone(f.tone)}" data-j="${n}"><span>${esc(f.label)}</span>${factValue(f.value)}</div>`).join('');
+}
+
+/** One value of a capture or a comparison, as the operator reads it (several values: one per line). */
+function captured(attribute, text) {
+  const value = String(text ?? '');
+  if (!value || value === NOT_PROVIDED) return `<span class="as-faint">${value === NOT_PROVIDED ? 'non fourni' : '—'}</span>`;
+  const partial = value.endsWith(PARTIAL);
+  const values = (partial ? value.slice(0, -PARTIAL.length) : value).split(' ; ');
+  const body = values.length > 3
+    ? `<details><summary>${esc(plural(values.length, 'valeur', 'valeurs'))}</summary><ul>${values.map((v) => `<li>${valueHtml(attribute, v)}</li>`).join('')}</ul></details>`
+    : values.map((v) => valueHtml(attribute, v)).join('<br>');
+  return `${body}${partial ? ` ${chip('warn', 'partiel')}` : ''}`;
+}
+
 // ---------------------------------------------------------------- findings (ASS-003, ASS-004)
 
 export function renderFindings(host, app) {
   const offs = [];
-  let selected = null;
-  let providedOnly = false;
+  const selected = { user: null, computer: null };
+  const providedOnly = { user: false, computer: false };
+  let tabs = null;
   bindFocusSearch(host);
 
-  function focusKind() {
-    if (app.subject(app.memory.focus)) return app.memory.focus;
-    return app.subject('user') ? 'user' : app.subject('computer') ? 'computer' : null;
-  }
-
   function paint() {
-    const kind = focusKind();
-    const view = kind ? app.subject(kind) : null;
-    if (!view) {
-      host.innerHTML = `<section class="card as-panel reveal">${noSubject(app, 'Domenia analyse localement ce qui a été lu, sans nouvelle lecture ni réparation.')}</section>`;
+    tabs?.destroy();
+    tabs = null;
+    const kinds = ['user', 'computer'].filter((k) => app.subject(k));
+    if (!kinds.length) {
+      host.innerHTML = `<section class="card as-panel reveal">${noSubject('Domenia analyse localement ce qui a été lu, sans nouvelle lecture ni réparation.')}</section>`;
       reveal(host);
       return;
     }
-    const both = app.subject('user') && app.subject('computer');
+    if (!app.subject(app.memory.focus)) app.memory.focus = kinds[0];
+    host.innerHTML = '<div class="as-findings-tabs reveal"></div>';
+    tabs = createTabs(host.firstElementChild, {
+      label: 'Fiche analysée',
+      selected: app.memory.focus,
+      tabs: ['user', 'computer'].map((k) => {
+        const view = app.subject(k);
+        const count = view?.findings?.filter((f) => f.level !== 'information').length;
+        return {
+          id: k,
+          label: view ? `${k === 'user' ? 'Compte' : 'Poste'}${NBSP}· ${view.card.name}` : k === 'user' ? 'Compte' : 'Poste',
+          icon: k === 'user' ? 'user' : 'monitor',
+          count: view ? count : undefined,
+          tone: view?.findings?.some((f) => f.level === 'attention') ? 'alert' : count ? 'warn' : 'ok',
+          disabled: !view,
+          reason: k === 'user' ? 'Choisissez d’abord le compte dans la session d’assistance.' : 'Choisissez d’abord le poste dans la session d’assistance.',
+          render: (panel) => paintPanel(panel, k),
+        };
+      }),
+      onChange: (id) => { app.memory.focus = id; app.emit('focus'); },
+    });
+    reveal(host);
+  }
+
+  function paintPanel(panel, kind) {
+    const view = app.subject(kind);
+    if (!view) return;
     const findings = [...(view.findings ?? [])].sort((a, b) => (LEVEL_ORDER[a.level] ?? 9) - (LEVEL_ORDER[b.level] ?? 9));
-    if (!findings.some((f) => f.code === selected)) selected = findings[0]?.code ?? null;
+    if (!findings.some((f) => f.code === selected[kind])) selected[kind] = findings[0]?.code ?? null;
     const counts = Object.keys(LEVEL_ORDER).map((level) => [level, findings.filter((f) => f.level === level)]).filter(([, list]) => list.length);
     const cov = view.coverage;
     const c = view.card;
-    const facts = (c.facts ?? []).map((f, n) => `<div class="as-fact ${tone(f.tone)}" data-j="${n}"><span>${esc(f.label)}</span><b>${esc(f.value)}</b></div>`).join('');
-    host.innerHTML = `<div class="as-stack">
-      ${both ? `<div class="as-switch reveal" role="group" aria-label="Fiche analysée">
-          ${['user', 'computer'].map((k) => `<button type="button" data-kind="${k}" aria-pressed="${k === kind}">${ico(k === 'user' ? 'user' : 'monitor')}${esc(app.subject(k).card.name)}</button>`).join('')}
-        </div>` : ''}
+    const ws = app.workshop;
+    const pinsFull = (ws?.pins?.length ?? 0) >= (ws?.pinLimit ?? 24) && !ws?.pins?.some((p) => p.dn === c.dn);
+    panel.innerHTML = `<div class="as-stack">
       <section class="card as-cover reveal">
         <div class="as-cover-id">${avatar(c.name, c.kind)}
-          <div><span class="as-k">${esc(c.kindLabel)}${NBSP}· ${esc(cov.sourceLabel)}</span><h2>${esc(c.name)}</h2><p class="as-faint"><span class="mono">${esc(c.login)}</span>${c.path ? `${NBSP}· ${esc(c.path)}` : ''}</p></div>
-          <div class="as-cover-pills">${(c.pills ?? []).map((p) => chip(tone(p.tone), p.label)).join('')}</div>
+          <div class="as-cover-name"><span class="as-k">${esc(c.kindLabel)}${NBSP}· ${esc(cov.sourceLabel)}</span><h2>${esc(c.name)}</h2>
+            <p class="as-faint"><span class="mono">${esc(c.login)}</span>${c.path ? `${NBSP}· ${esc(c.path)}` : ''}</p></div>
+          <div class="as-cover-side"><div class="as-cover-pills">${(c.pills ?? []).map((p) => chip(tone(p.tone), p.label, { size: 'md' })).join('')}</div>${fresh(c.readAt)}</div>
         </div>
         <div class="as-cover-actions">
-            <button class="btn subtle sm" type="button" data-act="analyse" data-tip="Recalcule les constats sur la même lecture, sans rien relire">${ico('refresh')}Recalculer</button>
-            <button class="btn subtle sm" type="button" data-act="reread" data-tip="Relit la fiche (geste explicite)">${ico('scan')}Relire la fiche</button>
-            <button class="btn subtle sm" type="button" data-act="pin">${ico('pin')}Épingler</button>
-            <button class="btn subtle sm" type="button" data-act="a">${ico('compare')}Capturer → A</button>
-            <button class="btn subtle sm" type="button" data-act="b">${ico('compare')}Capturer → B</button>
+          ${button({ label: 'Recalculer', icon: 'refresh', data: { act: 'analyse' }, tip: 'Recalcule les constats sur la même lecture, sans rien relire' })}
+          ${button({ label: 'Relire la fiche', icon: 'scan', data: { act: 'reread' }, tip: 'Une nouvelle lecture de l’objet (geste explicite)' })}
+          ${button({ label: 'Épingler', icon: 'pin', data: { act: 'pin' }, disabled: pinsFull, reason: `${ws?.pinLimit ?? 24}${NBSP}repères sont déjà présents : retirez-en un dans « Repères ».` })}
+          ${button({ label: 'Capturer en A', icon: 'compare', data: { act: 'a' } })}
+          ${button({ label: 'Capturer en B', icon: 'compare', data: { act: 'b' } })}
         </div>
         <div class="as-coverage">
-          <div class="as-coverage-head"><b>${cov.provided + cov.partial}</b><span>attributs fournis sur ${cov.total}${NBSP}· lecture ${when(cov.observedAt)}</span></div>
+          <div class="as-coverage-head"><b>${cov.provided + cov.partial}</b><span>attributs fournis sur ${cov.total}</span></div>
           <div class="as-coverage-bar" role="img" aria-label="${esc(cov.text)}">
             <span class="ok" data-grow="${cov.provided}" data-tip="Fournis${COLON}${cov.provided}"></span>
             <span class="warn" data-grow="${cov.partial}" data-tip="Partiels${COLON}${cov.partial}"></span>
             <span class="off" data-grow="${cov.notProvided}" data-tip="Non fournis${COLON}${cov.notProvided}"></span>
           </div>
-          <div class="as-coverage-legend">${chip('ok', `${cov.provided} fournis`)}${chip('warn', `${cov.partial} partiels`)}${chip('off', `${cov.notProvided} non fournis`)}</div>
+          <div class="as-coverage-legend">${chip('ok', plural(cov.provided, 'fourni', 'fournis'))}${chip('warn', plural(cov.partial, 'partiel', 'partiels'))}${chip('off', plural(cov.notProvided, 'non fourni', 'non fournis'))}</div>
         </div>
-        ${facts ? `<div class="as-facts wide">${facts}</div>` : ''}
+        ${c.facts?.length ? `<div class="as-facts wide">${facts(c.facts)}</div>` : ''}
       </section>
       <section class="card as-panel reveal">
         <div class="as-panel-head"><span class="as-panel-ico">${ico('bulb')}</span><div><h2>Constats</h2><p>Règles locales${COLON}chaque constat cite son indice${NBSP}; une donnée absente reste indéterminée, rien n’est réparé.</p></div>
           <div class="as-panel-meta">${counts.map(([level, list]) => chip(tone(list[0].tone), `${list.length}${NBSP}${list[0].levelLabel.toLowerCase()}`, { icon: LEVEL_ICON[level] })).join('')}</div></div>
-        <div class="as-master">
-          <div class="as-master-list" role="listbox" aria-label="Constats">${findings.map((f, n) => `
-            <button type="button" role="option" class="as-row ${tone(f.tone)}" data-code="${esc(f.code)}" aria-selected="${f.code === selected}" data-j="${n}">
-              <span class="as-row-mark">${ico(LEVEL_ICON[f.level] ?? 'info')}</span>
-              <span class="as-row-body"><b>${esc(f.title)}</b><small><span class="mono">${esc(f.code)}</span>${NBSP}· ${esc(f.basisLabel)}</small></span>
-              ${chip(tone(f.tone), f.levelLabel)}
-            </button>`).join('')}</div>
-          <div class="as-master-detail" data-detail aria-live="polite"></div>
-        </div>
+        <div class="as-split" data-split></div>
       </section>
       <section class="card as-panel reveal">
-        <div class="as-panel-head"><span class="as-panel-ico">${ico('layers')}</span><div><h2>Capture filtrée et masquée</h2><p>Liste fermée de ${cov.total} attributs, sans secret ni certificat ni note${NBSP}; 1${NBSP}024 caractères et 128 valeurs au plus par attribut.</p></div>
-          <label class="as-toggle"><input type="checkbox" class="switch" data-provided${providedOnly ? ' checked' : ''}><span>Fournis seulement</span></label></div>
-        <div class="as-attrs" role="table" aria-label="Attributs de la capture">${attributes(view.snapshot, providedOnly)}</div>
+        <div class="as-panel-head"><span class="as-panel-ico">${ico('layers')}</span><div><h2>Capture filtrée et masquée</h2><p>Liste fermée de ${cov.total}${NBSP}attributs, sans secret ni certificat ni note${NBSP}; dates lisibles, valeur brute en info-bulle.</p></div>
+          <label class="as-toggle"><input type="checkbox" class="switch" data-provided${providedOnly[kind] ? ' checked' : ''}><span>Fournis seulement</span></label></div>
+        <div class="as-attrs" role="table" aria-label="Attributs de la capture">${attributes(view.snapshot, providedOnly[kind])}</div>
       </section>
     </div>`;
-    paintDetail(findings);
-    applyVars(host);
-    reveal(host);
+    const list = document.createElement('div');
+    list.className = 'as-list';
+    list.setAttribute('role', 'listbox');
+    list.setAttribute('aria-label', 'Constats');
+    list.innerHTML = findings.map((f, n) => `
+      <button type="button" role="option" class="as-row ${tone(f.tone)}" data-code="${esc(f.code)}" aria-selected="${f.code === selected[kind]}" data-j="${n}" aria-label="${esc(`${f.levelLabel} : ${f.title}`)}">
+        <span class="as-row-mark">${ico(LEVEL_ICON[f.level] ?? 'info')}</span>
+        <span class="as-row-body"><b>${esc(f.title)}</b><small>${esc(f.levelLabel)}${NBSP}· ${esc(f.basisLabel)}</small></span>
+      </button>`).join('');
+    const box = document.createElement('div');
+    box.className = 'as-list-detail';
+    box.setAttribute('aria-live', 'polite');
+    const split = createSplit(panel.querySelector('[data-split]'), { a: list, b: box, key: 'assistance.constats', fixed: 'a', size: 340, min: 260, max: 560, label: 'Largeur de la liste des constats' });
+    paintDetail(box, findings.find((f) => f.code === selected[kind]));
+    list.addEventListener('click', (e) => {
+      const row = e.target instanceof Element ? e.target.closest('[data-code]') : null;
+      if (!row) return;
+      selected[kind] = row.dataset.code;
+      list.querySelectorAll('[data-code]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.code === selected[kind])));
+      paintDetail(box, findings.find((f) => f.code === selected[kind]));
+    });
+    list.addEventListener('keydown', (e) => {
+      if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+      const rows = [...list.querySelectorAll('[data-code]')];
+      const at = rows.indexOf(document.activeElement);
+      if (at < 0) return;
+      e.preventDefault();
+      const next = rows[(at + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length];
+      next.focus();
+      next.click();
+    });
+    applyVars(panel);
+    reveal(panel);
+    app.freshen(panel);
+    return () => split.destroy?.();
   }
 
   function attributes(snapshot, only) {
     return (snapshot.fields ?? []).filter((f) => !only || f.coverage !== 'notProvided').map((f) => {
       const [t, label] = COVERAGE[f.coverage] ?? COVERAGE.notProvided;
-      const many = f.values.length > 3;
       const value = f.values.length === 0 ? '<span class="as-faint">—</span>'
-        : many ? `<details><summary>${esc(plural(f.values.length, 'valeur', 'valeurs'))}</summary><ul>${f.values.map((v) => `<li class="mono">${esc(v)}</li>`).join('')}</ul></details>`
-          : f.values.map((v) => `<span class="mono">${esc(v)}</span>`).join('<br>');
-      return `<div class="as-attr" role="row"><span role="cell" class="as-attr-name mono">${esc(f.name)}</span><span role="cell">${chip(t, label)}</span><span role="cell" class="as-attr-value">${value}</span></div>`;
+        : f.values.length > 3 ? `<details><summary>${esc(plural(f.values.length, 'valeur', 'valeurs'))}</summary><ul>${f.values.map((v) => `<li>${valueHtml(f.name, v)}</li>`).join('')}</ul></details>`
+          : f.values.map((v) => valueHtml(f.name, v)).join('<br>');
+      return `<div class="as-attr" role="row"><span role="cell" class="as-attr-name mono" data-tip="${esc(f.name)}">${esc(f.name)}</span><span role="cell">${chip(t, label)}</span><span role="cell" class="as-attr-value">${value}</span></div>`;
     }).join('');
   }
 
-  function paintDetail(findings) {
-    const box = host.querySelector('[data-detail]');
-    const f = findings.find((x) => x.code === selected);
-    if (!box) return;
-    if (!f) { box.innerHTML = '<p class="as-faint">Choisissez un constat.</p>'; return; }
+  function paintDetail(box, f) {
+    if (!f) { box.innerHTML = '<p class="as-faint as-pad">Choisissez un constat.</p>'; return; }
     box.innerHTML = `<div class="as-detail ${tone(f.tone)} enter">
-      <div class="as-detail-head">${chip(tone(f.tone), f.levelLabel, { icon: LEVEL_ICON[f.level] })}${chip('off', f.basisLabel)}<code class="as-code">${esc(f.code)}</code></div>
+      <div class="as-detail-head">${chip(tone(f.tone), f.levelLabel, { icon: LEVEL_ICON[f.level], size: 'md' })}${chip('off', f.basisLabel)}<code class="as-code">${esc(f.code)}</code></div>
       <h3>${esc(f.title)}</h3>
       <div class="as-detail-block"><span>${ico('scan')}Élément observé</span><p>${esc(f.evidence)}</p></div>
       <div class="as-detail-block next"><span>${ico('route')}Vérification proposée</span><p>${esc(f.next)}</p></div>
@@ -146,19 +195,8 @@ export function renderFindings(host, app) {
 
   host.addEventListener('click', async (e) => {
     const t = e.target instanceof Element ? e.target : null;
-    if (!t) return;
-    const kindButton = t.closest('.as-switch [data-kind]');
-    if (kindButton) { app.memory.focus = kindButton.dataset.kind; selected = null; paint(); app.emit('focus'); return; }
-    const row = t.closest('[data-code]');
-    if (row) {
-      selected = row.dataset.code;
-      host.querySelectorAll('[data-code]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.code === selected)));
-      const kind = focusKind();
-      paintDetail([...(app.subject(kind)?.findings ?? [])]);
-      return;
-    }
-    const act = t.closest('[data-act]')?.dataset.act;
-    const kind = focusKind();
+    const act = t?.closest('[data-act]')?.dataset.act;
+    const kind = tabs?.current();
     const view = kind ? app.subject(kind) : null;
     if (!act || !view) return;
     const dn = view.card.dn;
@@ -178,23 +216,25 @@ export function renderFindings(host, app) {
     }
   });
   host.addEventListener('change', (e) => {
-    if (e.target instanceof HTMLInputElement && e.target.matches('[data-provided]')) {
-      providedOnly = e.target.checked;
-      const view = app.subject(focusKind());
-      const box = host.querySelector('.as-attrs');
-      if (view && box) box.innerHTML = attributes(view.snapshot, providedOnly);
-    }
+    if (!(e.target instanceof HTMLInputElement) || !e.target.matches('[data-provided]')) return;
+    const kind = tabs?.current();
+    const view = kind ? app.subject(kind) : null;
+    if (!view) return;
+    providedOnly[kind] = e.target.checked;
+    const box = e.target.closest('.as-panel')?.querySelector('.as-attrs');
+    if (box) box.innerHTML = attributes(view.snapshot, providedOnly[kind]);
   });
 
   paint();
   offs.push(app.on('subjects', paint));
-  return () => offs.forEach((off) => off());
+  return () => { offs.forEach((off) => off()); tabs?.destroy(); };
 }
 
 // ---------------------------------------------------------------- comparison (ASS-001, ASS-005)
 
 export function renderCompare(host, app) {
   const offs = [];
+  const view = { painted: false };
   let lastExport = { a: null, b: null };
 
   function slotCard(letter) {
@@ -202,53 +242,54 @@ export function renderCompare(host, app) {
     const user = app.subject('user');
     const computer = app.subject('computer');
     const takes = `
-      <button class="btn subtle sm" type="button" data-take="user" data-slot="${letter}"${user ? '' : ' disabled data-tip="Choisissez d’abord le compte"'}>${ico('user')}Capturer le compte</button>
-      <button class="btn subtle sm" type="button" data-take="computer" data-slot="${letter}"${computer ? '' : ' disabled data-tip="Choisissez d’abord le poste"'}>${ico('monitor')}Capturer le poste</button>
-      <button class="btn ghost sm" type="button" data-load="${letter}">${ico('upload')}Charger un fichier…</button>`;
+      ${button({ label: 'Capturer le compte', icon: 'user', data: { take: 'user', slot: letter }, disabled: !user, reason: 'Choisissez d’abord le compte dans la session d’assistance.' })}
+      ${button({ label: 'Capturer le poste', icon: 'monitor', data: { take: 'computer', slot: letter }, disabled: !computer, reason: 'Choisissez d’abord le poste dans la session d’assistance.' })}
+      ${button({ label: 'Charger un fichier…', icon: 'upload', cls: 'ghost sm', data: { load: letter }, tip: 'Capture Domenia.Capture.1 enregistrée (Domenia 1 ou 2), du même domaine' })}`;
     if (!s) {
-      return `<div class="as-slotcard empty reveal" data-slotcard="${letter}">
+      return `<div class="as-slotcard is-empty reveal" data-slotcard="${letter}">
         <span class="as-letter">${letter.toUpperCase()}</span>
         <div class="as-slotcard-body"><b>Emplacement ${letter.toUpperCase()} vide</b><p>Capturez la fiche actuelle, ou chargez une capture historique enregistrée.</p></div>
         <div class="as-slotcard-actions">${takes}</div>
       </div>`;
     }
     const saved = lastExport[letter];
-    return `<div class="as-slotcard filled reveal" data-slotcard="${letter}">
+    return `<div class="as-slotcard is-filled reveal" data-slotcard="${letter}">
       <span class="as-letter">${letter.toUpperCase()}</span>
       <div class="as-slotcard-body">
         <span class="as-k">${esc(s.kindLabel)}${NBSP}· ${s.historical ? 'capture historique' : 'capture de la session'}</span>
-        <b>${esc(s.name)}</b>
-        <p class="as-faint">Capturée ${when(s.capturedAt)}${NBSP}· ${esc(plural(s.fieldCount, 'attribut fourni', 'attributs fournis'))}</p>
+        <b data-tip="${esc(s.name)}">${esc(s.name)}</b>
+        <p class="as-faint">${fresh(s.capturedAt, 'Capturée', 60 * 60_000)}${NBSP}· ${esc(plural(s.fieldCount, 'attribut fourni', 'attributs fournis'))}</p>
         <div class="as-slot-pills">${chip(s.source === 'live' ? 'ok' : 'warn', capitalize(s.sourceLabel), { icon: s.source === 'live' ? 'check' : 'history' })}${s.historical ? chip('info', 'Jamais une lecture actuelle', { icon: 'info' }) : ''}</div>
         ${saved ? `<p class="as-saved ${saved.saved ? 'ok' : 'off'}">${ico(saved.saved ? 'check' : 'info')}<span>${esc(saved.message)}</span>${saved.path ? copyButton(saved.path, { label: 'Copier le chemin', done: 'Chemin copié' }) : ''}</p>` : ''}
       </div>
       <div class="as-slotcard-actions">
         ${takes}
-        <button class="btn ghost sm" type="button" data-save="${letter}" data-tip="Nouveau fichier Domenia.Capture.1 dans le dossier des exports">${ico('save')}Enregistrer</button>
-        <button class="btn ghost sm" type="button" data-clear="${letter}">${ico('x')}Effacer</button>
+        ${button({ label: 'Enregistrer', icon: 'save', cls: 'ghost sm', data: { save: letter }, tip: 'Nouveau fichier Domenia.Capture.1 daté dans le dossier des exports' })}
+        ${button({ label: 'Effacer', icon: 'x', cls: 'ghost sm', data: { clear: letter } })}
       </div>
     </div>`;
   }
 
   function paint() {
     const ws = app.workshop;
-    if (!ws) { host.innerHTML = `<section class="card as-panel">${'<div class="as-sk-stack" aria-busy="true"><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w40"></span></div>'}</section>`; return; }
+    if (!ws) { host.innerHTML = '<section class="card as-panel"><div class="as-sk-stack" aria-busy="true"><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w40"></span></div></section>'; return; }
     const cmp = ws.comparison;
     const rows = (cmp.rows ?? []).filter((r) => !app.memory.diffOnly || r.status !== 'identical');
+    const swapReason = ws.a || ws.b ? '' : 'Capturez d’abord une fiche en A ou en B.';
     const banner = cmp.ready
       ? `<div class="as-banner ${cmp.sameObject ? 'info' : 'accent'} reveal">${ico(cmp.sameObject ? 'history' : 'compare')}<div><b>${esc(cmp.summary)}</b>
           <p>memberOf compare les groupes directs fournis, pas les droits effectifs ni les groupes imbriqués. Un attribut manquant n’est jamais compté comme une suppression.</p></div>
-          <div class="as-banner-chips">${chip('warn', plural(cmp.different, 'différence', 'différences'))}${chip('off', plural(cmp.undetermined, 'indéterminé', 'indéterminés'))}${chip('ok', plural(cmp.identical, 'identique', 'identiques'))}</div></div>`
+          <div class="as-banner-chips">${chip('warn', plural(cmp.different, 'différence', 'différences'), { size: 'md' })}${chip('off', plural(cmp.undetermined, 'indéterminé', 'indéterminés'), { size: 'md' })}${chip('ok', plural(cmp.identical, 'identique', 'identiques'), { size: 'md' })}</div></div>`
       : `<div class="as-banner ${cmp.refusal ? 'warn' : 'off'} reveal">${ico(cmp.refusal ? 'alert' : 'info')}<div><b>${esc(cmp.summary)}</b><p>${cmp.refusal ? 'Comparez deux captures du même domaine et du même type d’objet.' : 'Une capture fige la fiche telle qu’elle a été lue, sans nouvelle lecture.'}</p></div></div>`;
     host.innerHTML = `<div class="as-stack">
       <div class="as-slots-row">
         ${slotCard('a')}
-        <button class="as-swap reveal" type="button" data-swap aria-label="Inverser A et B" data-tip="Inverser A et B"${ws.a || ws.b ? '' : ' disabled'}>${ico('swap')}</button>
+        ${button({ label: 'Inverser A et B', icon: 'swap', cls: 'as-swap reveal', iconOnly: true, data: { swap: '1' }, disabled: Boolean(swapReason), reason: swapReason })}
         ${slotCard('b')}
       </div>
       ${banner}
       ${cmp.ready ? `<section class="card as-panel reveal">
-        <div class="as-panel-head"><span class="as-panel-ico">${ico('compare')}</span><div><h2>Attribut par attribut</h2><p>Identique, différent ou indéterminé. La casse et l’ordre de memberOf sont ignorés.</p></div>
+        <div class="as-panel-head"><span class="as-panel-ico">${ico('compare')}</span><div><h2>Attribut par attribut</h2><p>Dates lisibles (valeur brute en info-bulle), nom des objets cités${NBSP}; la casse et l’ordre de memberOf sont ignorés.</p></div>
           <label class="as-toggle"><input type="checkbox" class="switch" data-diffonly${app.memory.diffOnly ? ' checked' : ''}><span>Différences et inconnues seulement</span></label></div>
         ${rows.length ? `<div class="as-diff" role="table" aria-label="Comparaison A et B">
           <div class="as-diff-row head" role="row"><span role="columnheader">Attribut</span><span role="columnheader">État</span><span role="columnheader">A</span><span role="columnheader">B</span></div>
@@ -264,23 +305,21 @@ export function renderCompare(host, app) {
       <input type="file" accept="application/json,.json" data-file hidden>
     </div>`;
     applyVars(host);
-    reveal(host);
+    enter(host, view);
+    app.freshen(host);
   }
 
   function diffRow(r, n) {
     const changes = r.attribute === 'memberOf' && (r.added?.length || r.removed?.length)
-      ? `<div class="as-groups">${(r.removed ?? []).map((g) => `<span class="as-group minus" data-tip="Présent seulement en A">−${NBSP}${esc(dnName(g))}</span>`).join('')}${(r.added ?? []).map((g) => `<span class="as-group plus" data-tip="Présent seulement en B">+${NBSP}${esc(dnName(g))}</span>`).join('')}</div>`
+      ? `<div class="as-groups">${(r.removed ?? []).map((g) => `<span class="as-group minus" data-tip="${esc(`Présent seulement en A${COLON}${g}`)}">−${NBSP}${valueHtml('memberOf', g)}</span>`).join('')}${(r.added ?? []).map((g) => `<span class="as-group plus" data-tip="${esc(`Présent seulement en B${COLON}${g}`)}">+${NBSP}${valueHtml('memberOf', g)}</span>`).join('')}</div>`
       : '';
     return `<div class="as-diff-row ${esc(r.status)}" role="row" data-j="${n}">
-      <span role="cell" class="mono as-attr-name">${esc(r.attribute)}</span>
+      <span role="cell" class="mono as-attr-name" data-tip="${esc(r.attribute)}">${esc(r.attribute)}</span>
       <span role="cell">${chip(tone(r.tone), r.statusLabel)}</span>
       ${changes ? `<span role="cell" class="as-diff-val span2">${changes}</span>`
-        : `<span role="cell" class="as-diff-val"><span class="mono">${esc(clip(r.before))}</span></span><span role="cell" class="as-diff-val"><span class="mono">${esc(clip(r.after))}</span></span>`}
+        : `<span role="cell" class="as-diff-val">${captured(r.attribute, r.before)}</span><span role="cell" class="as-diff-val">${captured(r.attribute, r.after)}</span>`}
     </div>`;
   }
-
-  const clip = (text) => (String(text ?? '').length > 300 ? `${String(text).slice(0, 299)}…` : String(text ?? '') || '—');
-  const dnName = (dn) => { const m = /^CN=((?:\\.|[^,])+)/i.exec(String(dn)); return m ? m[1].replace(/\\(.)/g, '$1') : String(dn); };
 
   let pendingSlot = 'a';
   host.addEventListener('click', async (e) => {
@@ -325,8 +364,11 @@ export function renderCompare(host, app) {
       const file = t.files?.[0];
       t.value = '';
       if (!file) return;
-      if (file.size > MAX_FILE) { app.toast(`Capture refusée${COLON}fichier trop volumineux (1${NBSP}Mio au plus). Rien n’a été chargé.`, { tone: 'warn' }); return; }
+      const tooBig = `Capture refusée${COLON}fichier trop volumineux (1${NBSP}Mio au plus). Rien n’a été chargé.`;
+      if (file.size > MAX_ENVELOPE) { app.toast(tooBig, { tone: 'warn' }); return; }
       const content = await file.text();
+      // The message to the engine escapes the text (quotes, accents, line breaks): its real size is checked before sending.
+      if (JSON.stringify({ op: 'assistance.capture.import', args: { slot: pendingSlot, content } }).length > MAX_ENVELOPE) { app.toast(tooBig, { tone: 'warn' }); return; }
       // Read locally by the page, checked by the engine (format, domain, dates, allowlist): nothing else is read.
       const view = await app.workshopCall('assistance.capture.import', { slot: pendingSlot, content }, `Capture historique chargée en ${pendingSlot.toUpperCase()}${COLON}elle ne devient jamais une lecture actuelle.`);
       if (view) announce(`Capture chargée en ${pendingSlot.toUpperCase()}.`);
@@ -342,49 +384,68 @@ export function renderCompare(host, app) {
 
 export function renderIncidents(host, app) {
   const offs = [];
+  const view = { painted: false };
   let selected = null;
+  let split = null;
+  let shownRevision = -1;
 
   function visible() {
     const query = app.memory.incidentFilter.trim().toLowerCase();
     return (app.workshop?.incidents?.items ?? []).filter((i) => !query || `${i.title} ${i.codes} ${i.area}`.toLowerCase().includes(query));
   }
 
+  function rowsHtml(items) {
+    return items.length ? items.map((i, n) => `
+      <button type="button" role="option" class="as-row ${tone(i.tone)}" data-id="${esc(i.id)}" aria-selected="${i.id === selected}" data-j="${n}" aria-label="${esc(`${i.levelLabel}, ${formatTime(i.at) ?? ''} : ${i.title}`)}">
+        <span class="as-row-mark" data-tip="${esc(i.levelLabel)}">${ico(i.tone === 'alert' ? 'alert' : 'info')}</span>
+        <span class="as-row-body"><b class="as-two-lines">${esc(i.title)}</b><small data-tip="${esc(i.codes)}"><span class="as-row-time">${esc(formatTime(i.at) ?? '—')}</span>${NBSP}· ${esc(i.area)}${NBSP}· <span class="mono">${esc(i.codes)}</span></small></span>
+      </button>`).join('') : '<p class="as-faint as-pad">Aucun incident ne correspond au filtre.</p>';
+  }
+
   function paint() {
     const inc = app.workshop?.incidents;
+    split?.destroy?.();
+    split = null;
     if (!inc) { host.innerHTML = '<section class="card as-panel"><div class="as-sk-stack" aria-busy="true"><span class="skeleton as-sk w70"></span></div></section>'; return; }
+    shownRevision = app.workshop.revision;
     const items = visible();
     if (!items.some((i) => i.id === selected)) selected = items[0]?.id ?? null;
     host.innerHTML = `<section class="card as-panel reveal">
-      <div class="as-panel-head"><span class="as-panel-ico">${ico('alert')}</span><div><h2>Incidents expliqués</h2><p>${esc(inc.summary)}</p></div>
+      <div class="as-panel-head"><span class="as-panel-ico">${ico('alert')}</span><div><h2>Incidents expliqués</h2><p data-summary>${esc(inc.summary)}</p></div>
         <div class="as-panel-tools">
-          <div class="as-filter">${ico('filter')}<input class="input" type="search" data-filter placeholder="Filtrer : titre, code ou zone" value="${esc(app.memory.incidentFilter)}" aria-label="Filtrer les incidents" maxlength="100"></div>
-          <button class="btn ghost sm" type="button" data-refresh>${ico('refresh')}Actualiser</button>
-          <button class="btn ghost sm" type="button" data-clear${inc.total ? '' : ' disabled'}>${ico('trash')}Effacer</button>
+          <div class="as-filter">${ico('filter')}<input class="input" type="search" data-filter placeholder="Filtrer${NBSP}: titre, code ou zone" value="${esc(app.memory.incidentFilter)}" aria-label="Filtrer les incidents" maxlength="100"></div>
+          ${chip('info', 'Suivi chaque seconde', { icon: 'activity', tip: 'Les nouveaux avertissements et erreurs de la session s’ajoutent seuls tant que l’écran est affiché.' })}
+          ${button({ label: 'Effacer', icon: 'trash', cls: 'ghost sm', data: { clear: '1' }, disabled: !inc.total, reason: 'Aucun incident à effacer.' })}
         </div></div>
       ${inc.total === 0 ? empty('check', 'Aucun incident', 'Aucun avertissement ni erreur dans cette session. Les lectures refusées ou en échec apparaîtront ici, expliquées.')
-        : `<div class="as-master">
-          <div class="as-master-list" role="listbox" aria-label="Incidents">${items.length ? items.map((i, n) => `
-            <button type="button" role="option" class="as-row ${tone(i.tone)}" data-id="${esc(i.id)}" aria-selected="${i.id === selected}" data-j="${n}">
-              <span class="as-row-time">${clock(i.at)}</span>
-              <span class="as-row-body"><b>${esc(i.title)}</b><small>${esc(i.area)}${NBSP}· <span class="mono">${esc(i.codes)}</span></small></span>
-              ${chip(tone(i.tone), i.levelLabel)}
-            </button>`).join('') : '<p class="as-faint as-pad">Aucun incident ne correspond au filtre.</p>'}</div>
-          <div class="as-master-detail" data-detail aria-live="polite"></div>
-        </div>`}
+        : '<div class="as-split" data-split></div>'}
     </section>`;
-    paintDetail();
+    const host2 = host.querySelector('[data-split]');
+    if (host2) {
+      const list = document.createElement('div');
+      list.className = 'as-list';
+      list.setAttribute('role', 'listbox');
+      list.setAttribute('aria-label', 'Incidents');
+      list.innerHTML = rowsHtml(items);
+      const box = document.createElement('div');
+      box.className = 'as-list-detail';
+      box.setAttribute('aria-live', 'polite');
+      split = createSplit(host2, { a: list, b: box, key: 'assistance.incidents', fixed: 'a', size: 380, min: 280, max: 600, label: 'Largeur de la liste des incidents' });
+      paintDetail();
+    }
     applyVars(host);
-    reveal(host);
+    enter(host, view);
   }
 
   function paintDetail() {
-    const box = host.querySelector('[data-detail]');
+    const box = host.querySelector('.as-list-detail');
     if (!box) return;
     const i = (app.workshop?.incidents?.items ?? []).find((x) => x.id === selected);
-    if (!i) { box.innerHTML = '<p class="as-faint">Choisissez un incident.</p>'; return; }
+    if (!i) { box.innerHTML = '<p class="as-faint as-pad">Choisissez un incident.</p>'; return; }
     box.innerHTML = `<div class="as-detail ${tone(i.tone)} enter">
-      <div class="as-detail-head">${chip(tone(i.tone), i.levelLabel)}${chip('off', i.area, { icon: 'tag' })}<span class="as-faint">${esc(formatDateTime(i.at) ?? '')}</span></div>
-      <p class="as-note">${ico('info')}Session complète${COLON}cet incident n’est pas lié automatiquement à une fiche. Les pistes sont des règles locales, pas une cause prouvée.</p>
+      <div class="as-detail-head">${chip(tone(i.tone), i.levelLabel, { size: 'md' })}${chip('off', i.area, { icon: 'tag' })}<span class="as-faint">${esc(formatDateTime(i.at) ?? '')}</span></div>
+      <h3>${esc(i.title)}</h3>
+      <p class="as-note">${ico('info')}<span>Session complète${COLON}cet incident n’est pas lié automatiquement à une fiche. Les pistes sont des règles locales, pas une cause prouvée.</span></p>
       ${i.hints.map((h, n) => `<div class="as-hint" data-j="${n}">
         <div class="as-hint-head"><b>${esc(h.title)}</b><code class="as-code">${esc(h.code)}</code></div>
         <p><span>Indice${COLON}</span>${esc(h.evidence)}</p>
@@ -392,7 +453,7 @@ export function renderIncidents(host, app) {
         <button class="btn ghost xs" type="button" data-route="${esc(h.route)}">${ico('external')}${esc(h.routeLabel)}</button>
       </div>`).join('')}
       <div class="as-raw"><span>${ico('lock')}Message local, exclu du dossier exporté</span><pre>${esc(i.detail)}</pre></div>
-      <div class="as-detail-actions"><button class="btn subtle sm" type="button" data-attach>${ico('ticket')}Joindre au dossier support</button></div>
+      <div class="as-detail-actions">${button({ label: 'Joindre au dossier support', icon: 'ticket', data: { attach: '1' } })}</div>
     </div>`;
   }
 
@@ -406,7 +467,6 @@ export function renderIncidents(host, app) {
       paintDetail();
       return;
     }
-    if (t.closest('[data-refresh]')) { await app.refreshWorkshop(); return; }
     if (t.closest('[data-clear]')) {
       const ok = await confirmDialog({ title: 'Effacer les incidents ?', message: 'La liste des incidents expliqués de l’atelier sera vidée. Le journal des opérations n’est pas touché.', confirmLabel: 'Effacer', icon: 'trash' });
       if (ok) await app.workshopCall('assistance.incidents.clear', {}, 'Incidents effacés.');
@@ -420,59 +480,112 @@ export function renderIncidents(host, app) {
       app.go('dossier');
     }
   });
+  host.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key) || !(e.target instanceof Element) || !e.target.closest('.as-list')) return;
+    const rows = [...host.querySelectorAll('.as-list [data-id]')];
+    const at = rows.indexOf(document.activeElement);
+    if (at < 0) return;
+    e.preventDefault();
+    const next = rows[(at + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length];
+    next.focus();
+    next.click();
+  });
   let timer = 0;
   host.addEventListener('input', (e) => {
     if (!(e.target instanceof HTMLInputElement) || !e.target.matches('[data-filter]')) return;
     app.memory.incidentFilter = e.target.value;
     clearTimeout(timer);
     timer = setTimeout(() => {
-      const caret = e.target.selectionStart;
-      paint();
-      const input = host.querySelector('[data-filter]');
-      input?.focus();
-      input?.setSelectionRange(caret, caret);
+      const list = host.querySelector('.as-list');
+      if (!list) return;
+      const items = visible();
+      if (!items.some((i) => i.id === selected)) selected = items[0]?.id ?? null;
+      list.innerHTML = rowsHtml(items);
+      paintDetail();
     }, 180);
   });
 
   paint();
   app.refreshWorkshop();
-  offs.push(app.on('workshop', paint));
-  return () => { clearTimeout(timer); offs.forEach((off) => off()); };
+  // The workshop is compared every second by the page: a new incident repaints the list, never the filter being typed.
+  offs.push(app.on('workshop', () => {
+    if (app.workshop?.revision === shownRevision) return;
+    const typing = document.activeElement instanceof HTMLInputElement && document.activeElement.matches('[data-filter]');
+    if (typing && host.querySelector('.as-list')) {
+      shownRevision = app.workshop.revision;
+      host.querySelector('.as-list').innerHTML = rowsHtml(visible());
+      const summary = host.querySelector('[data-summary]');
+      if (summary) summary.textContent = app.workshop.incidents.summary;
+      return;
+    }
+    paint();
+  }));
+  return () => { clearTimeout(timer); split?.destroy?.(); offs.forEach((off) => off()); };
 }
 
 // ---------------------------------------------------------------- pins (ASS-007)
 
 export function renderPins(host, app) {
   const offs = [];
+  const view = { painted: false };
 
   function paint() {
     const ws = app.workshop;
     if (!ws) { host.innerHTML = '<section class="card as-panel"><div class="as-sk-stack" aria-busy="true"><span class="skeleton as-sk w70"></span></div></section>'; return; }
     const pins = ws.pins ?? [];
-    const user = app.subject('user');
-    const computer = app.subject('computer');
+    const full = pins.length >= ws.pinLimit;
+    const pinButton = (kind) => {
+      const view = app.subject(kind);
+      const label = kind === 'user' ? 'Épingler le compte' : 'Épingler le poste';
+      const reason = !view ? (kind === 'user' ? 'Choisissez d’abord le compte dans la session d’assistance.' : 'Choisissez d’abord le poste dans la session d’assistance.')
+        : full && !pins.some((p) => p.dn === view.card.dn) ? `${ws.pinLimit}${NBSP}repères sont déjà présents : retirez-en un.` : '';
+      return button({ label, icon: kind === 'user' ? 'user' : 'monitor', data: { pin: kind }, disabled: Boolean(reason), reason });
+    };
     host.innerHTML = `<section class="card as-panel reveal">
-      <div class="as-panel-head"><span class="as-panel-ico">${ico('pin')}</span><div><h2>Repères de session</h2><p>${ws.pinLimit} fiches au plus, en mémoire seulement${NBSP}; vidés à la fermeture. Un repère se retrouve par son GUID, même déplacé.</p></div>
+      <div class="as-panel-head"><span class="as-panel-ico">${ico('pin')}</span><div><h2>Repères de session</h2><p>${ws.pinLimit}${NBSP}fiches au plus, en mémoire seulement${NBSP}; vidés à la fermeture ou à une nouvelle session. Un repère se retrouve par son GUID, même déplacé.</p></div>
         <div class="as-panel-tools">
           <div class="as-capacity" role="meter" aria-valuemin="0" aria-valuemax="${ws.pinLimit}" aria-valuenow="${pins.length}" aria-label="Repères utilisés">
             <span class="as-capacity-bar"><span data-p="${(pins.length / ws.pinLimit).toFixed(3)}"></span></span><b>${pins.length}<small>/${ws.pinLimit}</small></b></div>
-          <button class="btn subtle sm" type="button" data-pin="user"${user ? '' : ' disabled'}>${ico('user')}Épingler le compte</button>
-          <button class="btn subtle sm" type="button" data-pin="computer"${computer ? '' : ' disabled'}>${ico('monitor')}Épingler le poste</button>
+          ${pinButton('user')}${pinButton('computer')}
         </div></div>
       ${pins.length === 0 ? empty('pin', 'Aucun repère', 'Épinglez le compte ou le poste de la session pour y revenir en un clic pendant l’intervention.')
         : `<div class="as-pins">${pins.map((p, n) => `
-          <article class="as-pin reveal" data-identity="${esc(p.identity)}" data-j="${n}">
+          <article class="as-pin reveal" data-identity="${esc(p.identity)}" data-j="${n}" data-tip="Double clic${COLON}ouvrir la fiche">
             ${avatar(p.name, p.kind)}
-            <div class="as-pin-body"><b>${esc(p.name)}</b><span class="as-pin-meta">${esc(p.kindLabel)}${NBSP}· épinglé ${when(p.pinnedAt)}</span></div>
-            <small class="as-pin-path">${ico('ou')}${esc(dnPath(p.dn))}</small>
+            <div class="as-pin-body"><b>${esc(p.name)}</b><span class="as-pin-meta">${esc(p.kindLabel)}${NBSP}· ${fresh(p.pinnedAt, 'Épinglé', 4 * 60 * 60_000)}</span></div>
+            <small class="as-pin-path" data-tip="${esc(p.dn)}">${ico('ou')}${esc(dnPath(p.dn) || p.dn)}</small>
             <div class="as-pin-actions">
-              <button class="btn subtle sm" type="button" data-open>${ico('external')}Ouvrir</button>
-              <button class="btn ghost icon sm" type="button" data-remove aria-label="Retirer ${esc(p.name)}" data-tip="Retirer le repère">${ico('x')}</button>
+              ${button({ label: 'Ouvrir la fiche', icon: 'external', data: { open: 'fiche' }, tip: 'Retrouve l’objet par son GUID puis ouvre sa fiche, avec ses lectures habituelles' })}
+              ${button({ label: 'Reprendre ici', icon: 'lifebuoy', cls: 'ghost sm', data: { open: 'here' }, tip: 'Retrouve l’objet par son GUID et en fait le sujet de la session d’assistance' })}
+              ${button({ label: `Retirer ${p.name}`, icon: 'x', cls: 'ghost sm', iconOnly: true, data: { remove: '1' }, tip: 'Retirer le repère' })}
             </div>
           </article>`).join('')}</div>`}
     </section>`;
     applyVars(host);
-    reveal(host);
+    enter(host, view);
+    app.freshen(host);
+  }
+
+  async function open(card, where) {
+    const identity = card.dataset.identity;
+    card.classList.add('opening');
+    card.setAttribute('aria-busy', 'true');
+    try {
+      const found = await app.call('assistance.pin.locate', { identity });
+      app.toast(found.message, { tone: found.moved ? 'info' : 'ok' });
+      if (where === 'fiche') {
+        // Domenia 1 OpenAdObject: the pin opens as a fiche, with the usual reads of the fiche (on its own screen).
+        app.ctx.navigate('fiche', { dn: found.dn });
+        return;
+      }
+      await app.readSubject(found.kind === 'computer' ? 'computer' : 'user', found.dn, { quiet: true });
+      app.refreshWorkshop();
+    } catch (err) {
+      app.toast(errorText(err), { tone: 'warn' });
+    } finally {
+      card.classList.remove('opening');
+      card.removeAttribute('aria-busy');
+    }
   }
 
   host.addEventListener('click', async (e) => {
@@ -486,22 +599,13 @@ export function renderPins(host, app) {
     }
     const card = t.closest('[data-identity]');
     if (!card) return;
-    const identity = card.dataset.identity;
-    if (t.closest('[data-remove]')) { await app.workshopCall('assistance.pin.remove', { identity }); return; }
-    if (t.closest('[data-open]')) {
-      card.classList.add('opening');
-      try {
-        const where = await app.call('assistance.pin.locate', { identity });
-        const kind = where.kind === 'computer' ? 'computer' : 'user';
-        await app.readSubject(kind, where.dn, { quiet: true });
-        app.toast(where.message, { tone: where.moved ? 'info' : 'ok' });
-        app.refreshWorkshop();
-      } catch (err) {
-        app.toast(errorText(err), { tone: 'warn' });
-      } finally {
-        card.classList.remove('opening');
-      }
-    }
+    if (t.closest('[data-remove]')) { await app.workshopCall('assistance.pin.remove', { identity: card.dataset.identity }); return; }
+    const opener = t.closest('[data-open]');
+    if (opener) await open(card, opener.dataset.open);
+  });
+  host.addEventListener('dblclick', (e) => {
+    const card = e.target instanceof Element && !e.target.closest('button') ? e.target.closest('[data-identity]') : null;
+    if (card) open(card, 'fiche');
   });
 
   paint();

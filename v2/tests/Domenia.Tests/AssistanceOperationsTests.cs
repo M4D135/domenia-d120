@@ -206,7 +206,9 @@ internal static class AssistanceOperationsTests
         var bridge = new SimulatedBridge();
         var state = SimulatedBridge.Json(await bridge.CallAsync("assistance.engine.state"));
         Check.Equal("simulation", state.GetProperty("mode").GetString(), "mode");
-        Check.True(state.GetProperty("readers").EnumerateArray().Any(r => r.GetString() == "IAssistanceReader"), "lecteur servi");
+        Check.True(state.GetProperty("capabilities").EnumerateArray().All(c => c.GetProperty("available").GetBoolean()), "tout est servi en simulation");
+        Check.False(state.GetProperty("capabilities").EnumerateArray().Any(c => c.GetProperty("detail").GetString()!.Contains("IAssistance", StringComparison.Ordinal)), "aucun nom d’interface montré à l’opérateur");
+        Check.True(state.GetProperty("writes").EnumerateArray().All(w => !w.GetString()!.Contains('.', StringComparison.Ordinal)), "écritures dites en français, jamais « account.unlock »");
         Check.True(bridge.Registry.TryGet("assistance.step.run", out var run) && run!.ServedInSimulation, "lecture d’étape servie par l’annuaire fictif");
 
         var decision = ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));

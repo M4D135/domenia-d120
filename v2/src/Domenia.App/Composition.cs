@@ -45,7 +45,8 @@ internal sealed class Composition : IDisposable
             : new UnavailableDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName);
         var assemblies = OperationModules.LoadDomeniaAssemblies();
         var context = new EngineContext(decision, source, CreatePreferences(decision.Mode, capture, e2e, log), TimeProvider.System, log, ScreenReaders.Discover(source, assemblies),
-            writers: WriteExecutors.Discover(source, assemblies), receipts: CreateReceipts(decision.Mode, capture || e2e, log));
+            writers: WriteExecutors.Discover(source, assemblies), receipts: CreateReceipts(decision.Mode, capture || e2e, log),
+            documents: CreateDocuments(decision.Mode, capture || e2e, log));
         try
         {
             var modules = OperationModules.Discover(assemblies);
@@ -86,6 +87,25 @@ internal sealed class Composition : IDisposable
             return new MemoryReceiptStore();
         }
         return new FileReceiptStore(path, log);
+    }
+
+    /// <summary>
+    /// Documents of the operator (docs/PLATFORM.md § 3.3): Exports or Exports-simulation under the user data folder. Capture and
+    /// E2E modes write nothing: their images and scenarios never add a file to the operator's folder.
+    /// </summary>
+    private static IDocumentStore CreateDocuments(AppMode mode, bool memoryOnly, ITechnicalJournal log)
+    {
+        if (memoryOnly)
+        {
+            log.Info("Documents en mémoire seulement (capture ou E2E) : rien n’est écrit dans le dossier des exports.");
+            return new MemoryDocumentStore();
+        }
+        if (AppPaths.Exports(mode) is not string folder)
+        {
+            log.Warning("Dossier de données introuvable : documents en mémoire pour cette session.");
+            return new MemoryDocumentStore();
+        }
+        return new FileDocumentStore(folder, log);
     }
 
     private static IPreferenceStore CreatePreferences(AppMode mode, bool capture, bool e2e, ITechnicalJournal log)

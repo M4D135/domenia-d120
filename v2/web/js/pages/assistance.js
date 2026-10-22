@@ -1,12 +1,14 @@
 // Assistance: guided support paths and support workshop (Domenia 1 Domenia-Assistance, Domenia-Support, Insight, Dossier and
-// Automation). A hero holds the session of assistance (the account and the workstation concerned); a vertical rail groups
-// the views: Guider (guided paths), Comprendre (findings, A/B comparison, incidents), Garder (pins), Transmettre (support
-// dossier and ticket, offline dossier). Data contract: docs/ops/assistance.md (assistance.*). Nothing here reads the network
-// on its own: every read follows a click, the subject named in the address (a navigation from another screen) or, in
-// simulation only, a demonstration parameter of the address used by the captures.
+// Automation). The hero holds the session of assistance (the account and the workstation concerned); once a subject is chosen
+// or another view is open it folds into a compact session bar. A vertical rail is the only navigation of the screen: Guider
+// (guided paths), Comprendre (findings, A/B comparison, incidents), Garder (pins), Transmettre (support dossier and ticket,
+// offline dossier). Data contract: docs/ops/assistance.md (assistance.*). Nothing here reads the network on its own: every
+// read follows a click, a subject named exactly in the address (a navigation from another screen, read once, then taken out
+// of the address) or, in simulation only, a demonstration parameter of the address used by the captures.
 import { esc, errorText, reveal, applyVars, announce, motionReduced } from '../ui.js';
-import { bindCopy, openDrawer, kvSection, bindKv, confirmDialog } from '../kit/index.js';
-import { ico, chip, COLON, NBSP } from './assistance/common.js';
+import { call as backgroundCall } from '../bridge.js';
+import { bindCopy, openDrawer, confirmDialog, startFreshness } from '../kit/index.js';
+import { ico, chip, tone, button, plural, COLON, NBSP } from './assistance/common.js';
 import { renderSession, resolveSubject } from './assistance/subjects.js';
 import { renderRecipes } from './assistance/recipes.js';
 import { renderFindings, renderCompare, renderIncidents, renderPins } from './assistance/workshop.js';
@@ -18,34 +20,37 @@ export const stylesheet = true;
 const VIEWS = [
   { id: 'parcours', group: 'Guider', label: 'Parcours guidés', icon: 'route', render: renderRecipes, hint: 'Pas à pas, par symptôme' },
   { id: 'constats', group: 'Comprendre', label: 'Constats', icon: 'bulb', render: renderFindings, hint: 'Analyse locale de la fiche' },
-  { id: 'comparer', group: 'Comprendre', label: 'Comparer A / B', icon: 'compare', render: renderCompare, hint: 'Deux captures, attribut par attribut' },
-  { id: 'incidents', group: 'Comprendre', label: 'Incidents expliqués', icon: 'alert', render: renderIncidents, hint: 'Avertissements et erreurs de la session' },
-  { id: 'reperes', group: 'Garder', label: 'Repères', icon: 'pin', render: renderPins, hint: 'Fiches épinglées de la session' },
-  { id: 'dossier', group: 'Transmettre', label: 'Dossier et ticket', icon: 'ticket', render: renderDossier, hint: 'Texte relisible, pseudonymes au choix' },
-  { id: 'horsligne', group: 'Transmettre', label: 'Dossier hors ligne', icon: 'archive', render: renderOffline, hint: 'Manifeste et empreintes SHA-256' },
+  { id: 'comparer', group: 'Comprendre', label: 'Comparer A / B', icon: 'compare', render: renderCompare, hint: 'Deux captures côte à côte' },
+  { id: 'incidents', group: 'Comprendre', label: 'Incidents expliqués', icon: 'alert', render: renderIncidents, hint: 'Erreurs de la session' },
+  { id: 'reperes', group: 'Garder', label: 'Repères', icon: 'pin', render: renderPins, hint: 'Fiches épinglées' },
+  { id: 'dossier', group: 'Transmettre', label: 'Dossier et ticket', icon: 'ticket', render: renderDossier, hint: 'Texte relu, pseudonymes' },
+  { id: 'horsligne', group: 'Transmettre', label: 'Dossier hors ligne', icon: 'archive', render: renderOffline, hint: 'Manifeste et SHA-256' },
 ];
 
-// The session of assistance survives a visit to another screen (the engine keeps the workshop; the page keeps its choices).
+const POLL_MS = 1000;
+
+const defaults = () => ({
+  report: { kind: 'support', ticket: '', template: 'text', subject: 'user', subjectChosen: false, incident: null, pseudonymize: false, sections: null },
+  offline: { scope: 'subject', scopeChosen: false, sections: ['observations', 'associations', 'requetes'], ou: null, names: '' },
+});
+
+// The session of assistance survives a visit to another screen of the same session (the engine keeps the workshop; the
+// page keeps its choices). It is forgotten as soon as the engine reports another session (TRV-185).
 const memory = {
+  session: null, // fingerprint of the session of the workshop (WorkshopView.session)
   user: null, // SubjectView of the account
   computer: null, // SubjectView of the workstation
   focus: 'user',
   view: 'parcours',
   recipe: 'logon',
-  report: { kind: 'support', ticket: '', template: 'text', subject: 'user', incident: null, pseudonymize: false, sections: null },
-  offline: { scope: 'subject', sections: ['observations', 'associations', 'requetes'] },
+  ...defaults(),
   diffOnly: true,
   incidentFilter: '',
-  visited: new Set(),
-  transmitted: false,
 };
 
-const FLOW = [
-  { id: 'sujet', title: 'Choisir le sujet', sub: 'Compte et poste concernés' },
-  { id: 'parcours', title: 'Suivre un parcours', sub: 'Une lecture par clic' },
-  { id: 'comprendre', title: 'Comprendre', sub: 'Constats, A / B, incidents' },
-  { id: 'transmettre', title: 'Transmettre', sub: 'Dossier et ticket' },
-];
+function forgetSession() {
+  Object.assign(memory, { user: null, computer: null, focus: 'user', incidentFilter: '', diffOnly: true, ...defaults() });
+}
 
 export function render(main, ctx) {
   const params = ctx.params ?? {};
@@ -53,6 +58,8 @@ export function render(main, ctx) {
   const cleanups = [];
   let disposed = false;
   let viewCleanup = null;
+  let pollTimer = 0;
+  let polling = false;
 
   const app = {
     ctx,
@@ -61,6 +68,7 @@ export function render(main, ctx) {
     overview: null,
     recipes: null,
     workshop: null,
+    load: { running: 0, queued: 0 },
     running: new Set(),
     call: (op, args) => ctx.call(op, args),
     toast: (message, opts) => ctx.toast(message, opts),
@@ -78,6 +86,8 @@ export function render(main, ctx) {
     },
     subject: (kind) => (kind === 'computer' ? memory.computer : memory.user),
     dnOf: (kind) => app.subject(kind)?.card?.dn ?? null,
+    /** Keeps the freshness indicators of a newly painted scope up to date (one shared ticker of the kit). */
+    freshen(scope) { startFreshness(scope); },
     /** Reads a subject (an explicit gesture or the address) and makes it the account or the workstation of the session. */
     async readSubject(kind, dn, { quiet = false } = {}) {
       app.setBusy(kind, true);
@@ -88,12 +98,14 @@ export function render(main, ctx) {
         memory[actual] = view;
         if (actual === kind || !app.subject(kind)) memory.focus = actual;
         app.emit('subjects');
+        paintMode();
         await app.refreshRecipes();
         if (!quiet) announce(`${actual === 'computer' ? 'Poste' : 'Compte'} choisi${COLON}${view.card.name}.`);
         return view;
       } catch (err) {
         console.error(err);
-        app.toast(`Lecture impossible${COLON}${errorText(err)}`, { tone: 'alert' });
+        app.toast(`Lecture impossible${COLON}${errorText(err)}`, { tone: err?.code === 'assistance.sessionChanged' ? 'info' : 'alert' });
+        if (err?.code === 'assistance.sessionChanged') checkSession(true);
         return null;
       } finally {
         app.setBusy(kind, false);
@@ -103,6 +115,7 @@ export function render(main, ctx) {
       memory[kind] = null;
       if (memory.focus === kind) memory.focus = kind === 'user' ? 'computer' : 'user';
       app.emit('subjects');
+      paintMode();
       app.refreshRecipes();
     },
     busy: { user: false, computer: false },
@@ -121,13 +134,14 @@ export function render(main, ctx) {
     },
     setWorkshop(view) {
       if (!view) return;
+      adoptSession(view.session);
       app.workshop = view;
       app.emit('workshop');
       updateCounts();
     },
-    async refreshWorkshop() {
+    async refreshWorkshop({ background = false } = {}) {
       try {
-        app.setWorkshop(await app.call('assistance.workshop.get'));
+        app.setWorkshop(await (background ? backgroundCall('assistance.workshop.get') : app.call('assistance.workshop.get')));
       } catch (err) {
         console.error(err);
       }
@@ -155,9 +169,24 @@ export function render(main, ctx) {
   const rail = page.querySelector('.as-rail');
   const viewHost = page.querySelector('.as-view');
   cleanups.push(bindCopy(page));
+  // Hero and rail enter once (the views reveal their own cards).
+  cleanups.push(reveal(page));
+  // A greyed action stays focusable to say why (aria-disabled); its clicks never reach the handlers of the views.
+  page.addEventListener('click', (e) => {
+    const off = e.target instanceof Element ? e.target.closest('[aria-disabled="true"]') : null;
+    if (off && page.contains(off)) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
 
-  // ---------- Hero: the session of assistance ----------
+  // ---------- Hero: the session of assistance, compact once at work ----------
   cleanups.push(renderSession(page.querySelector('[data-slot="session"]'), app));
+  function paintMode() {
+    const compact = memory.view !== 'parcours' || Boolean(memory.user || memory.computer);
+    if (page.classList.contains('compact') === compact) return;
+    page.classList.toggle('compact', compact);
+    const hero = page.querySelector('.as-hero');
+    hero.classList.remove('morph');
+    if (!motionReduced()) { void hero.offsetWidth; hero.classList.add('morph'); }
+  }
 
   // ---------- Rail ----------
   rail.addEventListener('click', (e) => {
@@ -202,50 +231,61 @@ export function render(main, ctx) {
     }
     const summary = rail.querySelector('[data-rail-summary]');
     if (summary && ws) summary.textContent = ws.summary;
+    const load = rail.querySelector('[data-rail-load]');
+    if (load) {
+      const busy = app.load.running + app.load.queued;
+      load.hidden = busy === 0;
+      load.innerHTML = busy ? chip('info', `${plural(app.load.running, 'lecture en cours', 'lectures en cours')}${app.load.queued ? `, ${app.load.queued}${NBSP}en attente` : ''}`, { icon: 'activity' }) : '';
+    }
   }
   cleanups.push(app.on('subjects', updateCounts), app.on('recipes', updateCounts));
 
-  // ---------- Hero flow: where the assistance stands ----------
-  const flow = page.querySelector('[data-flow]');
-  function paintFlow() {
-    const ws = app.workshop;
-    const done = {
-      sujet: Boolean(app.subject('user') || app.subject('computer')),
-      parcours: (app.recipes?.recipes ?? []).some((r) => r.done > 0),
-      comprendre: ['constats', 'comparer', 'incidents'].some((v) => memory.visited.has(v)) || Boolean(ws?.a || ws?.b || ws?.pins?.length),
-      transmettre: memory.transmitted,
-    };
-    const current = FLOW.find((f) => !done[f.id])?.id ?? null;
-    flow.querySelectorAll('[data-flow-step]').forEach((li) => {
-      const id = li.dataset.flowStep;
-      li.classList.toggle('done', done[id]);
-      li.classList.toggle('current', id === current);
-      li.querySelector('button').setAttribute('aria-label', `${FLOW.find((f) => f.id === id).title}${COLON}${done[id] ? 'fait' : id === current ? 'en cours' : 'à venir'}`);
-    });
-  }
-  flow.addEventListener('click', (e) => {
-    const b = e.target instanceof Element ? e.target.closest('[data-flow-go]') : null;
-    if (!b) return;
-    const go = b.dataset.flowGo;
-    if (go === 'sujet') {
-      const input = page.querySelector('.as-slot input');
-      if (input) input.focus(); else showView('parcours');
+  // ---------- Session of the workshop (TRV-185) ----------
+  function adoptSession(token) {
+    if (!token) return;
+    if (memory.session && memory.session !== token) {
+      // Another session (domain, account or a new connection with the same account): nothing of the former one is kept.
+      forgetSession();
+      app.suggestions = null;
+      app.suggestionsPromise = null;
+      memory.session = token;
+      app.emit('subjects');
+      app.emit('reset');
+      paintMode();
+      app.refreshRecipes();
+      app.toast(`Nouvelle session${COLON}la session d’assistance et l’atelier repartent de zéro.`, { tone: 'info' });
       return;
     }
-    showView(go === 'parcours' ? 'parcours' : go === 'comprendre' ? 'constats' : 'dossier');
-  });
-  for (const event of ['subjects', 'recipes', 'workshop', 'flow']) cleanups.push(app.on(event, paintFlow));
+    memory.session = token;
+  }
+
+  // While the screen is shown, the workshop is compared every second (Domenia 1 timer of the support view): new incidents of
+  // the session and the reads in progress appear without a click. A background call: no busy line, nothing read from the
+  // directory (assistance.workshop.poll is a Local operation).
+  async function checkSession(force = false) {
+    if (disposed || polling || (!force && document.visibilityState !== 'visible')) return;
+    polling = true;
+    try {
+      const p = await backgroundCall('assistance.workshop.poll');
+      if (disposed) return;
+      const loadChanged = p.running !== app.load.running || p.queued !== app.load.queued;
+      app.load = { running: p.running, queued: p.queued };
+      if (p.session !== memory.session || p.revision !== app.workshop?.revision) await app.refreshWorkshop({ background: true });
+      else if (loadChanged) updateCounts();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      polling = false;
+    }
+  }
 
   // ---------- Views ----------
   function keepAddress(extra = {}) {
-    // The address follows the screen without a new render (the router only renders on hashchange).
+    // The address follows the screen without a new render (the router only renders on hashchange). The subjects are never
+    // written in it: a reload never reads again without a new gesture.
     const query = new URLSearchParams();
     query.set('vue', memory.view);
     if (memory.view === 'parcours') query.set('recette', memory.recipe);
-    const user = app.subject('user')?.card?.login;
-    const computer = app.subject('computer')?.card?.login?.replace(/\$$/, '');
-    if (user) query.set('compte', user);
-    if (computer) query.set('poste', computer);
     for (const [k, v] of Object.entries(extra)) if (v) query.set(k, v);
     const hash = `#/assistance?${query}`;
     if (location.hash !== hash) history.replaceState(null, '', hash);
@@ -254,14 +294,13 @@ export function render(main, ctx) {
   function showView(id, extra = {}) {
     const def = VIEWS.find((v) => v.id === id) ?? VIEWS[0];
     memory.view = def.id;
-    memory.visited.add(def.id);
-    app.emit('flow');
     rail.querySelectorAll('[data-view]').forEach((b) => {
       const on = b.dataset.view === def.id;
       b.setAttribute('aria-selected', String(on));
       b.tabIndex = on ? 0 : -1;
     });
     moveInk();
+    paintMode();
     if (typeof viewCleanup === 'function') { try { viewCleanup(); } catch (err) { console.error(err); } }
     viewCleanup = null;
     viewHost.setAttribute('aria-labelledby', `as-tab-${def.id}`);
@@ -272,6 +311,7 @@ export function render(main, ctx) {
     viewCleanup = typeof out === 'function' ? out : null;
     applyVars(viewHost);
     reveal(viewHost);
+    startFreshness(viewHost);
     keepAddress();
   }
 
@@ -287,10 +327,14 @@ export function render(main, ctx) {
   cleanups.push(() => window.removeEventListener('resize', onResize));
 
   // ---------- Engine state (no probe) and workshop reset ----------
+  function tile(label, value, t, sub = '') {
+    return `<div class="as-kpi ${tone(t)}"><span>${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+  }
+
   async function openEngine() {
     const panel = openDrawer({
-      title: 'État du moteur', subtitle: 'Lu sans aucune sonde réseau', icon: 'activity', key: 'assistance.moteur', width: 460,
-      body: '<div class="k-kv-skeleton" aria-busy="true"><span class="skeleton"></span><span class="skeleton"></span><span class="skeleton"></span></div>',
+      title: 'État du moteur', subtitle: 'Lu sans aucune sonde réseau', icon: 'activity', key: 'assistance.moteur', width: 500,
+      body: '<div class="as-engine" aria-busy="true"><span class="skeleton as-sk w85"></span><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w55"></span></div>',
       actions: [
         { id: 'accounts', label: 'Voir les comptes', run: (p) => { p.close(); ctx.navigate('comptes'); } },
         { id: 'close', label: 'Fermer', primary: true, run: (p) => p.close() },
@@ -300,30 +344,24 @@ export function render(main, ctx) {
     try {
       const s = await app.call('assistance.engine.state');
       const body = document.createElement('div');
-      body.innerHTML = `<p class="k-drawer-lead">${esc(s.summary)}</p>`
-        + kvSection({ id: 'mode', title: 'Mode et source', icon: 'server', items: [
-          { label: 'Mode', value: s.modeLabel },
-          { label: 'Source', value: s.source },
-          { label: 'Lecteurs d’écran', value: s.readers.join(', ') || 'Aucun dans ce mode', wide: true },
-          { label: 'Écritures servies', value: s.writers.join(', ') || 'Aucune dans ce mode', wide: true },
-        ] })
-        + kvSection({ id: 'tasks', title: 'Tâches et journal', icon: 'activity', items: [
-          { label: 'Lectures en cours', value: s.tasksRunning },
-          { label: 'En attente', value: s.tasksQueued },
-          { label: 'Entrées du journal', value: s.journalEntries },
-          { label: 'Avertissements', value: s.journalWarnings, tone: s.journalWarnings ? 'warn' : undefined },
-          { label: 'Erreurs', value: s.journalAlerts, tone: s.journalAlerts ? 'alert' : undefined },
-        ] })
-        + kvSection({ id: 'workshop', title: 'Atelier d’assistance', icon: 'lifebuoy', items: [
-          { label: 'Captures', value: s.captures },
-          { label: 'Repères', value: s.pins },
-          { label: 'Incidents', value: s.incidents },
-          { label: 'Étapes lues', value: s.stepsRead },
-          { label: 'Reçus d’écriture', value: s.receiptsPersistent ? 'Enregistrés sur le disque' : 'En mémoire seulement' },
-          { label: 'Documents', value: s.exportsPersistent ? 'Enregistrés dans Exports' : 'En mémoire seulement' },
-        ] });
+      body.className = 'as-engine';
+      body.innerHTML = `<p class="as-engine-lead">${ico('activity')}<span>${esc(s.summary)}</span></p>
+        <div class="as-kpis">
+          ${tile('Lectures en cours', `${s.readsRunning} / ${s.readsLimit}`, s.readsRunning ? 'info' : 'off', 'une à la fois par objet')}
+          ${tile('En attente', String(s.readsQueued), s.readsQueued ? 'warn' : 'off', 'rien ne part seul')}
+          ${tile('Avertissements', String(s.incidentWarnings), s.incidentWarnings ? 'warn' : 'ok', 'incidents de la session')}
+          ${tile('Erreurs', String(s.incidentErrors), s.incidentErrors ? 'alert' : 'ok', 'incidents de la session')}
+        </div>
+        <section class="as-engine-block"><h3>${ico('server')}Mode${COLON}${esc(s.modeLabel)}</h3><p>${esc(s.source)}</p></section>
+        <section class="as-engine-block"><h3>${ico('check')}Ce que le moteur sert</h3>
+          <ul class="as-caps">${s.capabilities.map((c) => `<li class="${c.available ? 'ok' : 'off'}">${ico(c.available ? 'check' : 'x')}<div><b>${esc(c.label)}</b><small>${esc(c.detail)}</small></div></li>`).join('')}</ul></section>
+        <section class="as-engine-block"><h3>${ico('lifebuoy')}Atelier de la session</h3>
+          <div class="as-mini">${[['Captures', s.captures], ['Repères', s.pins], ['Étapes lues', s.stepsRead], ['Journal', s.journalEntries]].map(([k, v]) => `<div><b>${esc(String(v))}</b><span>${esc(k)}</span></div>`).join('')}</div></section>
+        <section class="as-engine-block"><h3>${ico('shield')}Écritures et documents</h3>
+          <p class="as-inline">${s.writes.length ? s.writes.map((w) => chip('accent', w, { icon: 'lock' })).join('') : chip('off', 'Aucune écriture dans ce mode')}</p>
+          <p>${esc(s.exportsLabel)}</p>
+          <p class="as-faint">Mesures de l’Accueil${COLON}${esc(plural(s.measuresRunning, 'en cours', 'en cours'))}, ${esc(plural(s.measuresQueued, 'en attente', 'en attente'))}.</p></section>`;
       panel.body.replaceChildren(body);
-      bindKv(body, { key: 'assistance.moteur' });
     } catch (err) {
       app.toast(`État du moteur indisponible${COLON}${errorText(err)}`, { tone: 'warn' });
       panel.close();
@@ -339,7 +377,7 @@ export function render(main, ctx) {
       confirmLabel: 'Vider l’atelier', icon: 'trash',
     });
     if (!ok) return;
-    const view = await app.workshopCall('assistance.workshop.reset', {}, 'Atelier vidé : captures, repères et incidents effacés.');
+    const view = await app.workshopCall('assistance.workshop.reset', {}, `Atelier vidé${COLON}captures, repères et incidents effacés.`);
     if (view) app.emit('reset');
   }
 
@@ -363,39 +401,51 @@ export function render(main, ctx) {
     }
     if (VIEWS.some((v) => v.id === params.vue)) memory.view = params.vue;
     if (params.recette) memory.recipe = params.recette;
-    const wanted = [];
-    if (params.compte) wanted.push(['user', params.compte]);
-    if (params.poste) wanted.push(['computer', params.poste]);
     showView(memory.view);
-    for (const [kind, value] of wanted) {
-      // A subject named in the address comes from a navigation (another screen, a bookmark): it is the operator's gesture.
-      const dn = await resolveSubject(app, kind, value);
-      if (disposed) return;
-      if (dn && app.dnOf(kind) !== dn) await app.readSubject(kind, dn, { quiet: true });
-    }
-    if (wanted.length) app.emit('subjects');
+    await subjectsFromAddress();
+    if (disposed) return;
     await app.refreshRecipes();
     await demonstration();
     if (params.etat === 'moteur') openEngine();
+    pollTimer = setInterval(() => checkSession(), POLL_MS);
   }
 
-  // Demonstration of the address, honoured in simulation only (captures): run steps, capture A and B. In directory mode these
-  // parameters are ignored: a read never starts without a click.
+  // A subject named in the address comes from a navigation (another screen, a link): it is read when it names exactly one
+  // object of the local index, then the address forgets it, so that a reload reads nothing without a new gesture.
+  async function subjectsFromAddress() {
+    for (const [kind, value] of [['user', params.compte], ['computer', params.poste]]) {
+      if (!value || disposed) continue;
+      try {
+        const found = await resolveSubject(app, kind, value);
+        if (disposed) return;
+        if (found.dn) {
+          if (app.dnOf(kind) !== found.dn) await app.readSubject(kind, found.dn, { quiet: true });
+        } else {
+          app.offerSubject?.(kind, value);
+          app.toast(found.candidates.length
+            ? `${kind === 'computer' ? 'Poste' : 'Compte'} «${NBSP}${value}${NBSP}»${COLON}${plural(found.candidates.length, 'correspondance', 'correspondances')}, aucune exacte. Choisissez dans la liste${NBSP}; rien n’a été lu.`
+            : `${kind === 'computer' ? 'Poste' : 'Compte'} introuvable${COLON}${value}. Rien n’a été lu.`, { tone: 'warn' });
+        }
+      } catch (err) {
+        app.toast(`Recherche impossible${COLON}${errorText(err)}`, { tone: 'alert' });
+      }
+    }
+    keepAddress();
+  }
+
+  // Demonstration of the address, honoured in simulation only (captures): run steps, capture A and B, pin, prepare. In
+  // directory mode these parameters are ignored: a read never starts without a click.
   async function demonstration() {
     if (!app.simulation || disposed) return;
-    if (params.a || params.b) {
-      for (const slot of ['a', 'b']) {
-        const value = params[slot];
-        if (!value) continue;
-        const kind = /^(PC|PT)-/i.test(value) ? 'computer' : 'user';
-        const dn = await resolveSubject(app, kind, value);
-        if (!dn) continue;
-        try {
-          await app.call('assistance.subject.read', { dn });
-          app.setWorkshop(await app.call('assistance.capture.take', { slot, dn }));
-        } catch (err) { console.error(err); }
-      }
-      app.emit('workshop');
+    for (const slot of ['a', 'b']) {
+      const value = params[slot];
+      if (!value) continue;
+      try {
+        const found = await resolveSubject(app, null, value);
+        if (!found.dn) continue;
+        await app.call('assistance.subject.read', { dn: found.dn });
+        app.setWorkshop(await app.call('assistance.capture.take', { slot, dn: found.dn }));
+      } catch (err) { console.error(err); }
     }
     if (params.epingler) {
       for (const kind of ['user', 'computer']) {
@@ -411,14 +461,20 @@ export function render(main, ctx) {
       }
     }
     if (params.document === 'ticket') { memory.report.kind = 'ticket'; if (memory.view === 'dossier') showView('dossier'); }
-    if (params.preparer && memory.view === 'horsligne') page.querySelector('[data-prepare]')?.click();
+    if (params.preparer && memory.view === 'horsligne') app.prepareDossier?.({ demonstration: true });
     if (params.vue === 'dossier' || params.vue === 'constats') app.emit('subjects');
   }
 
+  const onVisible = () => { if (document.visibilityState === 'visible') checkSession(); };
+  document.addEventListener('visibilitychange', onVisible);
+  cleanups.push(() => document.removeEventListener('visibilitychange', onVisible));
+
+  paintMode();
   start();
 
   return () => {
     disposed = true;
+    clearInterval(pollTimer);
     if (typeof viewCleanup === 'function') { try { viewCleanup(); } catch (err) { console.error(err); } }
     cleanups.forEach((fn) => { try { fn(); } catch (err) { console.error(err); } });
     listeners.clear();
@@ -428,7 +484,7 @@ export function render(main, ctx) {
 function heroModeChip(app) {
   const span = document.createElement('span');
   span.innerHTML = app.simulation
-    ? chip('info', 'Simulation : annuaire fictif', { icon: 'sparkles', tip: 'Les lectures portent sur l’annuaire fictif en mémoire ; aucune requête ne part.' })
+    ? chip('info', 'Simulation', { icon: 'sparkles', tip: 'Les lectures portent sur l’annuaire fictif en mémoire ; aucune requête ne part.' })
     : chip('ok', 'Annuaire de la session', { icon: 'server' });
   return span.firstElementChild;
 }
@@ -447,20 +503,14 @@ function layout() {
       <div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>
       <div class="as-hero-grid">
         <div class="as-hero-main">
-          <div class="eyebrow">${ico('lifebuoy')}Assistance${NBSP}· support guidé</div>
-          <h1 class="gradient-text">Assistance</h1>
-          <p class="lead">Parcours guidés par symptôme, atelier de diagnostic et dossiers de ticket. Chaque étape dit ce qu’elle lit, pourquoi et à quel coût${NBSP}; rien ne part sans votre clic, rien n’écrit dans l’annuaire.</p>
+          <div class="eyebrow as-eyebrow">${ico('lifebuoy')}Support guidé${NBSP}· lecture seule</div>
+          <div class="as-title-row"><h1 class="gradient-text">Assistance</h1><span data-hero-mode></span></div>
+          <p class="lead as-lead">Parcours guidés par symptôme, atelier de diagnostic et dossiers de ticket. Chaque étape dit ce qu’elle lit, pourquoi et à quel coût${NBSP}; rien ne part sans votre clic, rien n’écrit dans l’annuaire.</p>
           <div class="as-hero-chips">
-            ${chip('accent', 'Lecture seule', { icon: 'shield', tip: 'Aucune étape n’écrit dans l’annuaire ni sur un poste.' })}
-            ${chip('off', 'Aucune étape ne part seule', { icon: 'play', tip: 'Chaque lecture part sur un clic, pour l’objet choisi seulement.' })}
-            ${chip('off', 'Atelier en mémoire', { icon: 'layers', tip: 'Captures, repères et incidents restent en mémoire et disparaissent à la fermeture.' })}
-            <span data-hero-mode></span>
+            ${chip('accent', 'Lecture seule', { icon: 'shield', tip: 'Aucune étape n’écrit dans l’annuaire ni sur un poste.', size: 'md' })}
+            ${chip('off', 'Une lecture par clic', { icon: 'play', tip: 'Chaque lecture part sur un clic, pour l’objet choisi seulement.', size: 'md' })}
+            ${chip('off', 'Atelier en mémoire', { icon: 'layers', tip: 'Captures, repères et incidents restent en mémoire et disparaissent à la fermeture.', size: 'md' })}
           </div>
-          <ol class="as-flow" data-flow aria-label="Déroulé d’une assistance">${FLOW.map((f, n) => `
-            <li class="as-flow-step" data-flow-step="${f.id}"><button type="button" data-flow-go="${f.id}">
-              <span class="as-flow-dot" aria-hidden="true"><b>${n + 1}</b>${ico('check')}</span>
-              <span class="as-flow-text"><b>${esc(f.title)}</b><small>${esc(f.sub)}</small></span></button></li>`).join('')}
-          </ol>
         </div>
         <div class="as-session" data-slot="session"></div>
       </div>
@@ -472,11 +522,12 @@ function layout() {
           ${rail}
         </div>
         <div class="as-rail-foot">
+          <div class="as-rail-load" data-rail-load hidden></div>
           <p class="as-rail-summary" data-rail-summary>Atelier en mémoire${NBSP}: rien n’est écrit sur le disque.</p>
           <div class="as-rail-actions">
-            <button class="btn subtle sm" type="button" data-rail-action="engine">${ico('activity')}État du moteur</button>
-            <button class="btn subtle sm" type="button" data-rail-action="accounts">${ico('users')}Voir les comptes</button>
-            <button class="btn ghost sm as-danger-ghost" type="button" data-rail-action="reset">${ico('trash')}Vider l’atelier</button>
+            ${button({ label: 'État du moteur', icon: 'activity', cls: 'subtle sm', data: { 'rail-action': 'engine' } })}
+            ${button({ label: 'Voir les comptes', icon: 'users', cls: 'subtle sm', data: { 'rail-action': 'accounts' } })}
+            ${button({ label: 'Vider l’atelier', icon: 'trash', cls: 'ghost sm as-danger-ghost', data: { 'rail-action': 'reset' } })}
           </div>
         </div>
       </nav>
@@ -484,4 +535,3 @@ function layout() {
     </div>
   </div>`;
 }
-

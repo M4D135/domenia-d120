@@ -51,7 +51,11 @@ public sealed record RightsInfo(RightsLevel Level, string Label, bool Estimated,
 /// <summary>State of the local base: last directory read, objects held, and whether the read stopped at its limit.</summary>
 public sealed record StoreStatus(DateTimeOffset? LastReadAt, int Objects, bool Complete);
 
-/// <summary>What a source knows about the session, without any read.</summary>
+/// <summary>
+/// What a source knows about the session, without any read. <see cref="Epoch"/> is the connection generation: it changes at
+/// every connection of the session, even with the same account and domain (Domenia 1 $script:DomeniaSessionEpoch); 0 while the
+/// session is fixed for the life of the process.
+/// </summary>
 public sealed record SessionSnapshot(
     ConnectionState Connection,
     DomainIdentity? Domain,
@@ -61,7 +65,8 @@ public sealed record SessionSnapshot(
     ScopeSelection? Scope,
     RightsInfo Rights,
     bool ReadOnly,
-    StoreStatus Store);
+    StoreStatus Store,
+    long Epoch = 0);
 
 public sealed record SessionConnection(ConnectionState State, string Label);
 

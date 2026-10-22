@@ -137,6 +137,24 @@ export function render(main, ctx) {
 }
 ```
 
+### 3.1 Contrat des adresses entre écrans
+
+Un écran qui en ouvre un autre passe les paramètres que **l’écran d’arrivée** lit, dans son vocabulaire ; un paramètre
+inconnu est ignoré, jamais deviné. Paramètres admis à ce jour (une ligne par écran, à compléter par son lot) :
+
+| Écran | Paramètres lus | Valeurs |
+|---|---|---|
+| `fiche` | `dn` ou `guid`, `tab`, `open` | `tab` : `compte`, `groupes`, `membres`, `relations`, `droits`, `attributs`, `historique`, `appel` |
+| `poste` | `dn` ou `nom`, `onglet`, `vue`, `panneau`, `verifier` | `onglet` : `materiel`, `logiciels`, `services`, `processus`, `sessions`, `reseau`, `rapide`, `lent`, `evenements`, `wmi`, `jonction` et les anciens onglets de Domenia 1 (`TabComputerHealth`…) |
+| `audit` | `tab`, `dn`, `vue`, `lancer`, `constat`, `ou` | `tab` : `synthese`, `objet`, `controleurs`, `identites` ; avec `tab=objet` : `vue` = `motdepasse`, `groupes`, `delegations`, `gpo`, `poste`, `relations` |
+| `comptes` | `vue`, `ou`, `sousou`, `perimetre` | — |
+| `assistance` | `vue`, `recette`, `compte`, `poste`, `etat`, `document` | `vue` : `parcours`, `constats`, `comparer`, `incidents`, `reperes`, `dossier`, `horsligne` ; `compte` et `poste` : identifiant, nom ou DN, lus **une fois** puis retirés de l’adresse ([`ops/assistance.md`](ops/assistance.md) § 11) |
+
+Un geste porté par l’adresse (`lancer`, `verifier`, `compte`…) est consommé à l’arrivée et retiré de l’adresse
+(`history.replaceState`) : un rechargement ne relit rien sans nouveau geste. Le routeur affiche « en portage » pour un
+écran de la navigation sans module ; un écran qui veut le dire lui-même vérifie l’existence du module par
+`import(`../<écran>.js`)` avant de naviguer (c’est ce que fait le routeur).
+
 ## 4. Composants
 
 ### 4.1 Grille de données — `createGrid(host, options)`

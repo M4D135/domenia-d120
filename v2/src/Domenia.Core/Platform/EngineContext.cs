@@ -4,7 +4,8 @@ namespace Domenia.Core;
 
 /// <summary>
 /// Services given to every operation module (docs/PLATFORM.md): mode, directory source, local preferences, clock,
-/// technical journal, screen readers, write executors, write receipts and the operations journal of the session. Shared
+/// technical journal, screen readers, write executors, write receipts, the documents of the operator and the operations journal
+/// of the session. Shared
 /// engine services (dashboard, working scope, write circuit…) are created on first use by <see cref="Shared{T}"/> and
 /// disposed with the context.
 /// </summary>
@@ -22,7 +23,8 @@ public sealed class EngineContext : IDisposable
         ScreenReaders? readers = null,
         OperationJournal? journal = null,
         WriteExecutors? writers = null,
-        IReceiptStore? receipts = null)
+        IReceiptStore? receipts = null,
+        IDocumentStore? documents = null)
     {
         ArgumentNullException.ThrowIfNull(decision);
         ArgumentNullException.ThrowIfNull(directory);
@@ -38,6 +40,7 @@ public sealed class EngineContext : IDisposable
         Journal = journal ?? new OperationJournal();
         Writers = writers ?? WriteExecutors.None;
         Receipts = receipts ?? new MemoryReceiptStore();
+        Documents = documents ?? new MemoryDocumentStore();
     }
 
     /// <summary>Startup decision (mode, reason, banner).</summary>
@@ -70,6 +73,12 @@ public sealed class EngineContext : IDisposable
 
     /// <summary>Durable write receipts of the mode (receipts.jsonl, receipts-simulation.jsonl; memory only in capture mode).</summary>
     public IReceiptStore Receipts { get; }
+
+    /// <summary>
+    /// Documents the operator asks for (exports, reports, offline dossiers) in the exports folder of the mode (Exports,
+    /// Exports-simulation); memory only in capture and E2E modes, or without a data folder (nothing is written).
+    /// </summary>
+    public IDocumentStore Documents { get; }
 
     /// <summary>
     /// One instance per context of an engine service, created by <paramref name="factory"/> on first use. Each service

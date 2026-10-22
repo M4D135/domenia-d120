@@ -11,8 +11,10 @@ namespace Domenia.Simulation;
 /// disk. Data that the generated world does not hold (lockout events, GPO, software, sessions…) comes from the named sub-stream
 /// « screen/assistance » of the seed, one fork per read and object: the same seed always gives the same answers, and these
 /// draws never move the directory nor another screen. Every read waits a short realistic delay (« latency/screen/assistance/… »).
+/// It serves both interfaces of the screen, like the OU tree reader: <see cref="IAssistanceIndex"/> (what the local base holds
+/// in directory mode) and <see cref="IAssistanceReader"/> (what is read from the directory or a workstation).
 /// </summary>
-public sealed class SimulatedAssistanceReader : IAssistanceReader
+public sealed class SimulatedAssistanceReader : IAssistanceReader, IAssistanceIndex
 {
     private const string Screen = "assistance";
     private readonly SimulatedDirectorySource source;
@@ -60,6 +62,32 @@ public sealed class SimulatedAssistanceReader : IAssistanceReader
             .Take(Math.Clamp(limit, 1, 50)).Select(h => h.Hit)];
     }
 
+    public async Task<ImmutableArray<NamedComputer>> ComputersNamedAsync(IReadOnlyList<string> names, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        await source.SimulateScreenLatencyAsync(Screen + "/search", 40, 120, cancellationToken).ConfigureAwait(false);
+        var byName = new Dictionary<string, DirectoryComputer>(StringComparer.OrdinalIgnoreCase);
+        foreach (var computer in source.CurrentDirectory.Computers)
+        {
+            byName.TryAdd(computer.Name, computer);
+            byName.TryAdd(computer.SamAccountName.TrimEnd('$'), computer);
+            if (computer.DnsHostName is { } dns)
+            {
+                byName.TryAdd(dns, computer);
+            }
+        }
+        var found = new List<NamedComputer>();
+        foreach (var name in names)
+        {
+            var key = (name ?? "").Trim().TrimEnd('$');
+            if (key.Length > 0 && byName.TryGetValue(key, out var computer))
+            {
+                found.Add(new NamedComputer(name!.Trim(), computer.ObjectGuid, ComputerHit(computer, null)));
+            }
+        }
+        return [.. found];
+    }
+
     public async Task<ImmutableArray<SubjectSuggestion>> SuggestionsAsync(ScopeSelection? scope, CancellationToken cancellationToken)
     {
         var state = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
@@ -72,7 +100,7 @@ public sealed class SimulatedAssistanceReader : IAssistanceReader
             .OrderByDescending(u => u.SamAccountName == "c.bernard").ThenByDescending(u => u.LockoutTime).Take(2);
         foreach (var user in locked)
         {
-            suggestions.Add(new SubjectSuggestion(UserHit(user, directory, now), "Compte verrouillé" + (user.BadPasswordCount is int bad ? " après " + FrenchText.Count(bad, "échec", "échecs") : "")));
+            suggestions.Add(new SubjectSuggestion(UserHit(user, directory, now), "Compte verrouillé" + (user.BadPasswordCount is int bad ? " après " + AssistanceText.Count(bad, "échec", "échecs") : "")));
         }
         var expired = people.Where(u => AccountState.ClassifyPassword(u, policy.MaxPasswordAge, now, TimeSpan.FromDays(7)) == PasswordClass.Expired)
             .OrderBy(u => u.SamAccountName, StringComparer.Ordinal).Take(1);
@@ -107,7 +135,7 @@ public sealed class SimulatedAssistanceReader : IAssistanceReader
             }
             else if (observation.Inventory.LastBootAt is DateTimeOffset boot && (now - boot).TotalDays > 30)
             {
-                watch.Add((2, computer, observation, "Sans redémarrage depuis " + FrenchText.Count((long)(now - boot).TotalDays, "jour", "jours")));
+                watch.Add((2, computer, observation, "Sans redémarrage depuis " + AssistanceText.Count((long)(now - boot).TotalDays, "jour", "jours")));
             }
         }
         foreach (var group in watch.GroupBy(w => w.Order).OrderBy(g => g.Key))
@@ -508,7 +536,7 @@ public sealed class SimulatedAssistanceReader : IAssistanceReader
         }
         if (user.BadPasswordCount is > 0 && tone != Tone.Alert)
         {
-            pills.Add(new SubjectPill(Tone.Warn, FrenchText.Count(user.BadPasswordCount.Value, "échec récent", "échecs récents")));
+            pills.Add(new SubjectPill(Tone.Warn, AssistanceText.Count(user.BadPasswordCount.Value, "échec récent", "échecs récents")));
         }
         var related = directory.Computers.Where(c => c.ManagedByDn is { } owner && SameDn(owner, user.DistinguishedName))
             .OrderBy(c => c.Name, StringComparer.Ordinal).Select(c => ComputerHit(c, null)).ToImmutableArray();

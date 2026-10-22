@@ -16,7 +16,11 @@ public enum AssistanceSubject
 /// </summary>
 public sealed record AssistanceAction(string Id, string Operation, string Label, ImmutableArray<AssistanceSubject> Subjects);
 
-/// <summary>Screen where a step shows its information: route of the page (« fiche », « poste », « audit ») and its section.</summary>
+/// <summary>
+/// Screen where a step shows its information: route of the page (« fiche », « poste », « audit ») and its section, in the
+/// vocabulary of that screen (route contract of docs/ops/assistance.md § 11.1: Fiche « tab », Poste « onglet », Audit AD
+/// « tab=objet » and « vue »).
+/// </summary>
 public sealed record AssistanceView(string Screen, string Section, string Label);
 
 /// <summary>
@@ -99,9 +103,11 @@ public static class AssistanceRecipes
         new("sessions", "SessionsList", "Sessions ouvertes", [AssistanceSubject.Computer]),
     ];
 
+    // Fiche: « tab » of the screen (onglet Compte). Audit AD: the « Objet » tab and its inner view (« vue »), the internal tabs
+    // Domenia 1 opened (AuditTab TabAdAuditPolicy, Machine, Groupes, Gpo).
     private static readonly AssistanceView UserView = new("fiche", "compte", "Fiche du compte");
-    private static readonly AssistanceView AuditPolicy = new("audit", "strategie", "Audit AD · Stratégie de mot de passe");
-    private static readonly AssistanceView AuditMachine = new("audit", "machine", "Audit AD · Identité du poste");
+    private static readonly AssistanceView AuditPolicy = new("audit", "motdepasse", "Audit AD · Stratégie de mot de passe");
+    private static readonly AssistanceView AuditMachine = new("audit", "poste", "Audit AD · Identité du poste");
     private static readonly AssistanceView AuditGroups = new("audit", "groupes", "Audit AD · Groupes");
     private static readonly AssistanceView AuditGpo = new("audit", "gpo", "Audit AD · Stratégies de groupe");
     // Sections of the Poste screen accept the former tabs of Domenia 1 (TabComputerHealth…) and these short names.
@@ -313,20 +319,29 @@ public static class AssistanceRecipes
         var user = reads.Count(s => s.Subject == AssistanceSubject.User);
         var privileged = reads.Count(s => s.Privileged);
         var optional = steps.Count(s => s.Optional);
-        var text = FrenchText.Count(steps.Length, "étape", "étapes") + FrenchText.Colon
-            + FrenchText.Count(user, "lecture", "lectures") + " pour le compte, " + FrenchText.Integer(computer) + " pour le poste";
+        // « 6 étapes, dont 2 lectures pour le compte, 3 pour le poste et 1 sans lecture. » — no colon: the page shows the plan
+        // under its own title (« Avant le premier clic »).
+        var parts = new List<string>();
+        if (user > 0)
+        {
+            parts.Add(AssistanceText.Count(user, "lecture pour le compte", "lectures pour le compte"));
+        }
+        if (computer > 0)
+        {
+            parts.Add(user > 0 ? FrenchText.Integer(computer) + FrenchText.Nbsp + "pour le poste" : AssistanceText.Count(computer, "lecture pour le poste", "lectures pour le poste"));
+        }
         if (none > 0)
         {
-            text += ", " + FrenchText.Integer(none) + " sans lecture";
+            parts.Add(FrenchText.Integer(none) + FrenchText.Nbsp + "sans lecture");
         }
-        text += ".";
+        var text = AssistanceText.Count(steps.Length, "étape", "étapes") + (parts.Count > 0 ? ", dont " + AssistanceText.List(parts) : "") + ".";
         if (privileged > 0)
         {
-            text += " " + FrenchText.Integer(privileged) + (privileged > 1 ? " demandent" : " demande") + " les droits d’administration du poste.";
+            text += " " + FrenchText.Integer(privileged) + FrenchText.Nbsp + (privileged > 1 ? "demandent" : "demande") + " les droits d’administration du poste.";
         }
         if (optional > 0)
         {
-            text += " " + FrenchText.Count(optional, "facultative", "facultatives") + ".";
+            text += " " + AssistanceText.Count(optional, "étape facultative", "étapes facultatives") + ".";
         }
         return text + " Aucune étape ne part seule" + FrenchText.Nbsp + "; aucune n’écrit.";
     }

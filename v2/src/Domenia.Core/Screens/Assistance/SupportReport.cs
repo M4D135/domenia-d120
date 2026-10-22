@@ -63,7 +63,7 @@ public static class SupportReport
             w.Line("Référence du ticket" + c + reference);
         }
         w.Line("Version" + c + SupportText.Clean(input.Build, 128));
-        w.Line("Généré" + c + Local(input.Now, input.Zone) + " (" + input.Now.ToUniversalTime().ToString("yyyy'-'MM'-'dd' 'HH':'mm'Z'", CultureInfo.InvariantCulture) + ")");
+        w.Line("Généré" + c + Local(input.Now, input.Zone));
         w.Line("Analyse locale" + c + "aucune écriture dans l’annuaire ni sonde réseau lancée par ce dossier.");
         w.Line("Document interne" + c + "il contient des identifiants et des métadonnées du parc. Relisez-le avant tout partage.");
         if (input.Snapshot is { } snapshot)
@@ -83,7 +83,8 @@ public static class SupportReport
             w.Section("Attributs fournis (liste limitée)");
             foreach (var field in snapshot.Fields.Where(f => f.Coverage != FieldCoverage.NotProvided))
             {
-                w.Item(field.Name + " = " + string.Join(" ; ", field.Values) + " [" + CoverageLabel(field.Coverage) + "]");
+                var readable = string.Join(" ; ", field.Values.Select(v => WithReadable(field.Name, v, input.Zone)));
+                w.Item(field.Name + " = " + readable + " [" + CoverageLabel(field.Coverage) + "]");
             }
         }
         if (input.Before is { } before && input.After is { } after)
@@ -107,8 +108,8 @@ public static class SupportReport
                 foreach (var row in differences)
                 {
                     w.Item("[" + row.StatusLabel + "] " + row.Attribute);
-                    w.Sub("A" + c + row.Before);
-                    w.Sub("B" + c + row.After);
+                    w.Sub("A" + c + WithReadable(row.Attribute, row.Before, input.Zone));
+                    w.Sub("B" + c + WithReadable(row.Attribute, row.After, input.Zone));
                     if (row.Added.Length > 0)
                     {
                         w.Sub("Groupes directs présents seulement en B" + c + string.Join(" ; ", row.Added));
@@ -141,7 +142,12 @@ public static class SupportReport
         return w.ToString();
     }
 
-    /// <summary>The names of the dossier that keyed pseudonyms replace (subject and captures).</summary>
+    /// <summary>
+    /// The names of the dossier that keyed pseudonyms replace: the subject and the captures (names, logins, UPN, mail, DNS name,
+    /// GUID), and the objects their distinguished names cite: the manager or the person in charge (manager, managedBy:
+    /// « Utilisateur ») and the groups (memberOf: « Groupe »). Anything left in a « CN=… » afterwards is caught by
+    /// <see cref="Pseudonyms.MaskRemainingNames"/>.
+    /// </summary>
     public static IEnumerable<KnownName> KnownNames(params SupportSnapshot?[] snapshots)
     {
         foreach (var snapshot in snapshots)
@@ -157,12 +163,45 @@ public static class SupportReport
                 foreach (var value in snapshot.Field(field)?.Values ?? [])
                 {
                     yield return new KnownName(value, kind, kind);
+                    if (field == "sAMAccountName" && value.EndsWith('$'))
+                    {
+                        // A computer account (« PC-LYO-0042$ ») is also written without its dollar.
+                        yield return new KnownName(value.TrimEnd('$'), kind, kind);
+                    }
                 }
             }
             foreach (var value in snapshot.Field("objectGUID")?.Values ?? [])
             {
                 yield return new KnownName(value, kind, "Identifiant");
             }
+            foreach (var (field, family) in new[] { ("manager", "Utilisateur"), ("managedBy", "Utilisateur"), ("memberOf", "Groupe") })
+            {
+                foreach (var value in snapshot.Field(field)?.Values ?? [])
+                {
+                    if (CommonName(value) is { } name)
+                    {
+                        yield return new KnownName(name, family, family);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Value of the first RDN of a distinguished name (« CN=Cédric Carré,OU=… » → « Cédric Carré »); null when unreadable.</summary>
+    public static string? CommonName(string? dn)
+    {
+        if (string.IsNullOrWhiteSpace(dn))
+        {
+            return null;
+        }
+        try
+        {
+            var first = DistinguishedName.Parse(dn).FirstOrDefault();
+            return first.Value is { Length: > 0 } value ? value : null;
+        }
+        catch (FormatException)
+        {
+            return null;
         }
     }
 
@@ -204,8 +243,11 @@ public static class SupportReport
         _ => "non fourni",
     };
 
-    private static string Local(DateTimeOffset at, TimeZoneInfo zone) =>
-        TimeZoneInfo.ConvertTime(at, zone).ToString("dd'/'MM'/'yyyy' 'HH':'mm':'ss", CultureInfo.InvariantCulture);
+    private static string Local(DateTimeOffset at, TimeZoneInfo zone) => AssistanceText.Stamp(at, zone);
+
+    /// <summary>A raw value followed by its readable date when it is one: « 134371043600000000 → 19/09/2026 21:49:20 (UTC+02:00) ».</summary>
+    private static string WithReadable(string attribute, string value, TimeZoneInfo zone) =>
+        AttributeValues.Readable(attribute, value, zone) is { } text ? value + " → " + text : value;
 
     /// <summary>Lines of one layout: section headings and items written the way each ticketing tool reads them.</summary>
     private sealed class Writer(ReportTemplate template)

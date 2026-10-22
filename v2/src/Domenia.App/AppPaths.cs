@@ -54,6 +54,13 @@ internal static class AppPaths
     public static string? Receipts(AppMode mode) =>
         UserData is null ? null : Path.Combine(UserData, Domenia.Store.FileReceiptStore.FileNameFor(mode));
 
+    /// <summary>
+    /// Documents of the operator (LocalWrite, docs/PLATFORM.md § 3.3): Exports, or Exports-simulation in simulation; null when
+    /// there is no data folder (the documents then stay in memory).
+    /// </summary>
+    public static string? Exports(AppMode mode) =>
+        UserData is null ? null : Path.Combine(UserData, Domenia.Store.FileDocumentStore.FolderNameFor(mode));
+
     private static string? ResolveUserData()
     {
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create);

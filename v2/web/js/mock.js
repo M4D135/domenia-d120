@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Assistance (assistance.*): mock-assistance.js, in the memory of the page.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createAssistanceOperations } from './mock-assistance.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1058,6 +1060,7 @@ const OPERATIONS = {
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
   }),
+  ...createAssistanceOperations({ readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength

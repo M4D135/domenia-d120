@@ -66,10 +66,12 @@ internal static class AssistanceRulesTests
     {
         var logon = AssistanceRecipes.Find("logon")!;
         var nb = FrenchText.Nbsp;
-        Check.Equal("6 étapes" + nb + ": 2 lectures pour le compte, 3 pour le poste, 1 sans lecture. 2 demandent les droits d’administration du poste. 1 facultative. Aucune étape ne part seule" + nb + "; aucune n’écrit.",
-            AssistanceRecipes.PlanText(logon), "plan de « Connexion impossible »");
+        // One colon only (the page writes « Avant le premier clic » as a title) and a number never alone at the end of a line.
+        Check.Equal("6" + nb + "étapes, dont 2" + nb + "lectures pour le compte, 3" + nb + "pour le poste et 1" + nb + "sans lecture. 2" + nb + "demandent les droits d’administration du poste. 1"
+            + nb + "étape facultative. Aucune étape ne part seule" + nb + "; aucune n’écrit.", AssistanceRecipes.PlanText(logon), "plan de « Connexion impossible »");
         var disk = AssistanceRecipes.Find("disk")!;
-        Check.Contains("3 étapes" + nb + ": 0 lecture pour le compte, 3 pour le poste.", AssistanceRecipes.PlanText(disk), "singulier pour zéro");
+        Check.Contains("3" + nb + "étapes, dont 3" + nb + "lectures pour le poste.", AssistanceRecipes.PlanText(disk), "aucune lecture pour le compte : rien n’est dit");
+        Check.False(AssistanceRecipes.PlanText(logon).Contains(':', StringComparison.Ordinal), "aucun deux-points dans le plan");
     }
 
     [Test]
@@ -257,19 +259,19 @@ internal static class AssistanceRulesTests
         ];
         var subject = new TicketSubject(guid, "user", "Camille Bernard", ["c.bernard"]);
         var all = TicketReport.SectionIds;
-        var refusedNoGuid = TicketReport.Build(subject with { Guid = null }, steps, all, false, null, null, null, Now);
+        var refusedNoGuid = TicketReport.Build(subject with { Guid = null }, steps, all, false, null, null, null, Now, TestClock.Paris);
         Check.False(refusedNoGuid.Ready, "objet sans GUID refusé");
-        var refusedKey = TicketReport.Build(subject, steps, all, true, "court", null, null, Now);
+        var refusedKey = TicketReport.Build(subject, steps, all, true, "court", null, null, Now, TestClock.Paris);
         Check.False(refusedKey.Ready, "pseudonymisation sans clé refusée");
         Check.Equal("", refusedKey.Text, "aucun aperçu en clair à la place");
-        var plain = TicketReport.Build(subject, steps, all, false, null, null, null, Now);
+        var plain = TicketReport.Build(subject, steps, all, false, null, null, null, Now, TestClock.Paris);
         Check.True(plain.Ready, "compte rendu produit");
         Check.Equal(new TicketCounts(2, 1, 1, 1), plain.Counts!, "tenté (envoyé, échec), confirmé, refusé, non testé");
         Check.Equal(new TicketExcluded(1, 1), plain.Excluded!, "autre objet et non rattaché écartés");
         Check.Contains("[détail sensible retiré]", plain.Text, "détail sensible retiré");
         Check.Contains("Envoyé, issue non confirmée", plain.Text, "envoyé n’est pas fait");
         Check.False(plain.Text.Contains("secret", StringComparison.OrdinalIgnoreCase) && !plain.Text.Contains("password=***", StringComparison.Ordinal), "secret masqué");
-        var masked = TicketReport.Build(subject, steps, all, true, "cle-de-test-1", null, [new KnownName("EXAMPLE\\adm-j.martin", "Compte", "Compte")], Now);
+        var masked = TicketReport.Build(subject, steps, all, true, "cle-de-test-1", null, [new KnownName("EXAMPLE\\adm-j.martin", "Compte", "Compte")], Now, TestClock.Paris);
         Check.False(masked.Text.Contains("Camille", StringComparison.Ordinal) || masked.Text.Contains("c.bernard", StringComparison.Ordinal), "noms pseudonymisés");
         Check.True(masked.Map.Length > 0 && masked.Map.All(e => !masked.Text.Contains(e.Original, StringComparison.Ordinal)), "table hors du texte");
         Check.Equal(TicketReport.Hash(masked.Text), masked.Sha256, "empreinte du texte");
@@ -313,12 +315,13 @@ internal static class AssistanceRulesTests
         Check.Equal(1, OfflineDossiers.Perimeter(DossierScope.Pins, null, null, Root, pins).Count, "postes épinglés");
         var ou = OfflineDossiers.Perimeter(DossierScope.WorkingOu, null, new ScopeSelection("OU=Lyon,OU=Postes," + Root, "Lyon", true), Root, pins);
         Check.True(ou.Valid && ou.Kind == "OU", "OU de travail");
-        Check.Equal("Domenia-Diagnostic-PC-LYO-0042-20261021-1626", OfflineDossiers.FolderName("PC LYO/0042", Now).Replace("PC-LYO-0042", "PC-LYO-0042", StringComparison.Ordinal), "nom du dossier");
+        // Local time of the operator, as every other export (16:26 UTC is 18:26 in Paris on 21 October 2026).
+        Check.Equal("Domenia-Diagnostic-PC-LYO-0042-20261021-1826", OfflineDossiers.FolderName("PC LYO/0042", Now, TestClock.Paris), "nom du dossier à l’heure locale");
         Check.True(OfflineDossiers.IsSecretName("ms-Mcs-AdmPwd") && OfflineDossiers.IsSecretName("BitLockerRecoveryKey") && !OfflineDossiers.IsSecretName("pwdLastSet"), "noms secrets");
         var computers = new JsonArray((JsonNode?)new JsonObject { ["Nom"] = "PC-1", ["LapsPassword"] = "x", ["Systeme"] = "Windows 11" });
         var data = new DossierData(new JsonObject { ["Base"] = "test" }, new JsonObject { ["Objets"] = 1 }, computers, false, new JsonArray(), false, new JsonArray(), new JsonArray(), []);
         var request = new DossierRequest(ou, OfflineDossiers.Sections(["requetes"]), 1000);
-        var build = OfflineDossiers.Build(request, data, "Lyon", "2.0.0-dev", Now);
+        var build = OfflineDossiers.Build(request, data, "Lyon", "2.0.0-dev", Now, TestClock.Paris);
         string[] names = [.. build.Files.Select(f => f.Name)];
         Check.True(names.SequenceEqual(["etat.json", "postes.json", "requetes.json", "LISEZMOI.txt", "manifeste.json", "SHA256SUMS.txt"]), "fichiers : " + string.Join(",", names));
         Check.False(build.Files.Single(f => f.Name == "postes.json").Text.Contains("LapsPassword", StringComparison.Ordinal), "champ secret retiré");
