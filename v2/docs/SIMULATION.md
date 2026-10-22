@@ -226,7 +226,7 @@ dates FILETIME), pour que les mêmes règles servent la simulation et le vrai an
 | SID du domaine | `S-1-5-21-a-b-c`, trois entiers tirés de la sous-suite `domain` |
 | Contrôleurs | `DC01.example.local` (site Paris, contrôleur de la session), `DC02.example.local` (site Lyon), Windows Server 2022 Datacenter, `OU=Domain Controllers` |
 | Stratégie de mot de passe | `maxPwdAge` 90 jours, longueur minimale 12, historique 24, verrouillage après 5 essais, durée et fenêtre d’observation 30 minutes |
-| Compte de la session | `EXAMPLE\j.martin`, Julien Martin, `CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,DC=example,DC=local`, membre de `GG-Support-N2` |
+| Compte de la session | compte d’administration `EXAMPLE\adm-j.martin`, « Julien Martin (administration) », `CN=adm-j.martin,OU=Comptes à privilèges,DC=example,DC=local`, membre de `Admins du domaine`, `GG-Admins-Postes`, `GG-Admins-Serveurs` et `Protected Users` : droits estimés « Administration » (décision de David du 21/10 : jamais le compte de tous les jours). Le compte personnel de Julien Martin reste `EXAMPLE\j.martin` (`OU=Informatique,OU=Paris`, membre de `GG-Support-N2`) |
 | OU de travail | `OU=Postes,DC=example,DC=local`, sous-arborescence |
 | Base locale fictive | lue à référence − 12 minutes, complète |
 
@@ -281,7 +281,7 @@ Noms :
   restant identique ;
 - `sAMAccountName` = initiales du prénom (une par partie : Jean-Pierre → `jp`), un point, nom sans accents, espaces,
   apostrophes ni tirets, en minuscules ; 20 caractères au plus ; doublons suffixés `2`, `3`… (`j.martin`, `j.martin2`) ;
-  le compte de session est créé en premier et garde `j.martin` ;
+  le compte personnel de Julien Martin est réservé en premier et garde `j.martin` ; le compte de la session est `adm-j.martin` ;
 - `userPrincipalName` = `sAMAccountName@example.local` ; `mail` = `prenom.nom@example.local` (sans accents) ;
 - `title` selon le service, accordé au genre du prénom (Comptable, Contrôleuse de gestion, Chargée de recrutement,
   Gestionnaire de paie, Technicien support, Administratrice systèmes, Juriste, Chargé de communication, Acheteuse,
@@ -732,7 +732,7 @@ fuseau fixés) et une référence par défaut `2026-10-21T16:26:00Z`, fuseau de 
     63 postes à surveiller ; `store.objects` = 1 826.
 32. Noms de propriétés exacts par type de widget (`JsonDocument`), dates au format `yyyy-MM-ddTHH:mm:ssZ`, champs nuls
     présents.
-33. `session.info` : forme exacte, `EXAMPLE\j.martin`, `Julien`, étape `dashboard` faite après un premier résumé.
+33. `session.info` : forme exacte, `EXAMPLE\adm-j.martin`, « Julien Martin (administration) », droits « Administration », étape `dashboard` faite après un premier résumé.
 34. `dashboard.widget.refresh` : `widget.unknown`, `arguments.invalid` (id absent, non texte, propriété en trop,
     `args` non objet).
 35. Widget désactivé : `widget.disabled`, aucune manche n’avance.

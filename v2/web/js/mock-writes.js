@@ -34,7 +34,7 @@ export function createWriteOperations(h) {
   const isToken = (v) => typeof v === 'string' && /^[A-Za-z0-9_-]{43}$/.test(v);
   const keyOf = (dn) => String(dn).toLowerCase();
   const CONTROLLER = 'DC01.example.local';
-  const OPERATOR = 'EXAMPLE\\j.martin';
+  const OPERATOR = 'EXAMPLE\\adm-j.martin';
 
   // Accounts of the preview; the overlay is this array itself (memory of the page).
   const accounts = [

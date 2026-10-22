@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Accueil (accueil.*): mock-accueil.js, a short fixture of the OU « Postes » of the simulation.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createAccueilOperations } from './mock-accueil.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -894,12 +896,13 @@ function sessionInfo(args) {
     domain: { dnsName: DOMAIN, netbiosName: 'EXAMPLE', rootDn: ROOT_DN },
     controller: { dnsName: `DC01.${DOMAIN}`, site: 'Paris' },
     account: {
-      login: 'EXAMPLE\\j.martin', displayName: 'Julien Martin', givenName: 'Julien',
-      dn: `CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,${ROOT_DN}`,
+      // Administration account, as the engine (decision of David, 21/10: never the everyday account).
+      login: 'EXAMPLE\\adm-j.martin', displayName: 'Julien Martin (administration)', givenName: 'Julien',
+      dn: `CN=adm-j.martin,OU=Comptes à privilèges,${ROOT_DN}`,
     },
     authentication: { method: 'none', protocol: null, label: 'Aucune (simulation)' },
     scope: { ...state.scope },
-    rights: { level: 'read', label: 'Lecture', estimated: true, detail: `Simulation${COLON}les droits sont fictifs${NBSP}; les écritures ne modifient que l’annuaire fictif, en mémoire.` },
+    rights: { level: 'admin', label: 'Administration', estimated: true, detail: `Simulation${COLON}droits estimés depuis les groupes du compte fictif (Admins du domaine)${NBSP}; les écritures ne modifient que l’annuaire fictif, en mémoire.` },
     // Writes are admitted in simulation, on the in-memory overlay only (decision of 21/10): same as the engine.
     readOnly: false,
     tasks: { running: state.running, queued: state.queued },
@@ -1057,6 +1060,10 @@ const OPERATIONS = {
   'directory.ou.search': ouSearch,
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  }),
+  // Accueil (docs/ops/accueil.md): mock-accueil.js, a short fixture of the OU « Postes ».
+  ...createAccueilOperations({
+    readObject, getString, getOptionalString, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF, DOMAIN, ROOT_DN, scope: () => ({ ...state.scope }),
   }),
 };
 

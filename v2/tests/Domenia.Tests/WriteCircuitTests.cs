@@ -164,7 +164,7 @@ internal static class WriteCircuitTests
         Check.Equal(JsonValueKind.Null, confirmation.GetProperty("typedName").ValueKind, "aucun nom à saisir");
         Check.False(plan.GetProperty("reversibility").GetProperty("reversible").GetBoolean(), "déverrouillage sans retour arrière");
         Check.Equal("DC01.example.local", plan.GetProperty("controller").GetString(), "contrôleur");
-        Check.Equal(@"EXAMPLE\j.martin", plan.GetProperty("operator").GetString(), "opérateur");
+        Check.Equal(@"EXAMPLE\adm-j.martin", plan.GetProperty("operator").GetString(), "opérateur (compte d’administration)");
         Check.Equal("simulation", plan.GetProperty("mode").GetString(), "mode");
         Check.True(plan.GetProperty("simulated").GetBoolean(), "plan simulé");
         Check.Equal("2026-10-21T16:26:00Z", plan.GetProperty("createdAt").GetString(), "préparé maintenant");
@@ -195,7 +195,7 @@ internal static class WriteCircuitTests
         Check.Equal("ok", receipt.GetProperty("tone").GetString(), "ton");
         Check.True(receipt.GetProperty("simulated").GetBoolean(), "reçu marqué simulé");
         Check.Equal("simulation", receipt.GetProperty("mode").GetString(), "mode");
-        Check.Equal(@"EXAMPLE\j.martin", receipt.GetProperty("operator").GetString(), "opérateur");
+        Check.Equal(@"EXAMPLE\adm-j.martin", receipt.GetProperty("operator").GetString(), "opérateur (compte d’administration)");
         Check.Contains("aucun effet réel", receipt.GetProperty("summary").GetString(), "la simulation est dite");
         Check.Equal(JsonValueKind.Null, receipt.GetProperty("error").ValueKind, "aucune erreur");
         Check.Equal(planned.GetProperty("plan").GetProperty("id").GetString(), receipt.GetProperty("plan").GetProperty("id").GetString(), "le plan exécuté");

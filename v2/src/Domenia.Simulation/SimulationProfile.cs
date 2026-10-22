@@ -17,7 +17,14 @@ public static class SimulationProfile
     public const string DnsName = "example.local";
     public const string NetbiosName = "EXAMPLE";
     public const string RootDn = "DC=example,DC=local";
-    public const string SessionLogin = "j.martin";
+    /// <summary>
+    /// Account of the session: an administration account (decision of David, 21/10: the operator signs in with an
+    /// administration account, never under his own name; Domenia shows the scope as title and the account as a chip).
+    /// </summary>
+    public const string SessionLogin = "adm-j.martin";
+
+    /// <summary>Personal account of the operator (Julien Martin, IT support), created first so it keeps « j.martin ».</summary>
+    public const string PersonLogin = "j.martin";
     public const string WorkingOuName = "Postes";
 
     public static ImmutableArray<SiteSpec> Sites { get; } =

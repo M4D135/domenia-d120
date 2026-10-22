@@ -4,7 +4,8 @@ Ce document fixe, opération par opération, ce que la page web peut demander au
 réponse. Il couvre le shell, la page Accueil et l’OU de travail : `app.info`, `session.info`, `dashboard.summary`,
 `dashboard.widget.refresh`, `dashboard.widget.setEnabled`, `directory.ou.children`, `directory.ou.search` et
 `session.setScope`. Le circuit des écritures (§ 12, [`WRITES.md`](WRITES.md)) ajoute `accounts.unlock.plan`,
-`write.execute`, `write.receipts.list`, `write.receipts.get` et `write.receipts.verify`. La conception du mode simulation
+`write.execute`, `write.receipts.list`, `write.receipts.get` et `write.receipts.verify`. Les opérations propres à un
+écran sont décrites dans `docs/ops/<écran>.md` : l’Accueil (`accueil.*`) dans [`ops/accueil.md`](ops/accueil.md). La conception du mode simulation
 qui sert ces opérations sans Active Directory est dans
 [`SIMULATION.md`](SIMULATION.md) ; l’organisation du moteur en modules (un par écran, trouvés tout seuls) est dans
 [`PLATFORM.md`](PLATFORM.md).
@@ -152,6 +153,7 @@ est la seule opération de classe `Write`, admise dans les deux modes.
 | `write.receipts.list` | `LocalRead` | aucun | reçus du mode, à vérifier d’abord (§ 12.4) |
 | `write.receipts.get` | `LocalRead` | `{ id }` | un reçu complet (§ 12.5) |
 | `write.receipts.verify` | `NetworkRead` (servie en simulation) | `{ id }` | le reçu après relecture de son objet (§ 12.5) |
+| `accueil.*` (36 opérations) | `Local`, `LocalRead`, `LocalWrite` ; `NetworkRead` servie en simulation pour `accueil.refresh.run` et `accueil.bitlocker.read` | voir [`ops/accueil.md`](ops/accueil.md) § 2 | tableau du parc, ensembles exacts, disposition, actualisation de l’OU, règles de santé, analyse, outils |
 
 ---
 
@@ -264,18 +266,18 @@ L’étape `dashboard` est faite dès qu’un `dashboard.summary` a réussi dans
   "domain": { "dnsName": "example.local", "netbiosName": "EXAMPLE", "rootDn": "DC=example,DC=local" },
   "controller": { "dnsName": "DC01.example.local", "site": "Paris" },
   "account": {
-    "login": "EXAMPLE\\j.martin",
-    "displayName": "Julien Martin",
+    "login": "EXAMPLE\\adm-j.martin",
+    "displayName": "Julien Martin (administration)",
     "givenName": "Julien",
-    "dn": "CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,DC=example,DC=local"
+    "dn": "CN=adm-j.martin,OU=Comptes à privilèges,DC=example,DC=local"
   },
   "authentication": { "method": "none", "protocol": null, "label": "Aucune (simulation)" },
   "scope": { "dn": "OU=Postes,DC=example,DC=local", "label": "Postes", "subtree": true },
   "rights": {
-    "level": "read",
-    "label": "Lecture",
+    "level": "admin",
+    "label": "Administration",
     "estimated": true,
-    "detail": "Simulation : les droits sont fictifs ; les écritures ne modifient que l’annuaire fictif, en mémoire."
+    "detail": "Simulation : droits estimés depuis les groupes du compte fictif (Admins du domaine, GG-Admins-Postes, GG-Admins-Serveurs, Protected Users) ; les écritures ne modifient que l’annuaire fictif, en mémoire."
   },
   "readOnly": false,
   "tasks": { "running": 0, "queued": 0 },
@@ -1123,7 +1125,7 @@ plan, valable jusqu’à `plan.expiresAt` (5 minutes) ; il n’apparaît dans au
 | `confirmation` | objet | `typedNameRequired` (booléen), `typedName` (nom exact à saisir, texte ou `null`), `reason` (phrase). |
 | `reversibility` | objet | `reversible` (booléen), `label`, `detail`. |
 | `controller` | texte ou `null` | Contrôleur destinataire (celui qui a été lu). |
-| `operator` | texte | Compte de la session (`EXAMPLE\j.martin`). |
+| `operator` | texte | Compte de la session (`EXAMPLE\adm-j.martin`). |
 | `mode` | texte | `simulation` ou `annuaire`. |
 | `simulated` | booléen | `true` en simulation. |
 | `createdAt`, `expiresAt` | date-heure | Préparation et fin de validité (5 minutes plus tard). |
@@ -1172,7 +1174,7 @@ Exemple (simulation, graine par défaut ; heures, identifiant, empreinte et jeto
     "confirmation": { "typedNameRequired": false, "typedName": null, "reason": "Confirmation simple : compte standard ; ni droit ni mot de passe modifié." },
     "reversibility": { "reversible": false, "label": "Sans retour arrière", "detail": "Un déverrouillage ne se défait pas : le compte ne se verrouille de nouveau qu’après de nouveaux essais erronés. Aucune compensation n’est proposée, comme dans Domenia 1." },
     "controller": "DC01.example.local",
-    "operator": "EXAMPLE\\j.martin",
+    "operator": "EXAMPLE\\adm-j.martin",
     "mode": "simulation",
     "simulated": true,
     "createdAt": "2026-10-21T16:26:00Z",
@@ -1269,7 +1271,7 @@ Exemple (réponse de `write.execute`, simulation ; extrait) :
   "sentAt": "2026-10-21T16:27:01Z",
   "completedAt": "2026-10-21T16:27:02Z",
   "verifiedAt": "2026-10-21T16:27:02Z",
-  "operator": "EXAMPLE\\j.martin",
+  "operator": "EXAMPLE\\adm-j.martin",
   "controller": "DC01.example.local",
   "mode": "simulation",
   "simulated": true,

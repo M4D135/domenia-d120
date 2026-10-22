@@ -92,18 +92,32 @@ internal sealed class WorldBuilder
         var (observations, presence) = BuildObservations();
         var history = BuildHistory(snapshot);
         var journal = BuildJournal(snapshot);
+        // The session runs under the administration account of Julien Martin (decision of David, 21/10), not his own name.
+        var operatorAccount = users.First(u => u.Sam == SimulationProfile.SessionLogin);
+        var rights = OperatorRights(operatorAccount);
         var session = new SessionSnapshot(
             ConnectionState.Simulated,
             new DomainIdentity(SimulationProfile.DnsName, SimulationProfile.NetbiosName, SimulationProfile.RootDn),
             new ControllerIdentity("DC01." + SimulationProfile.DnsName, "Paris"),
-            new AccountIdentity(SimulationProfile.NetbiosName + "\\" + julien.Sam, julien.DisplayName, julien.Given, julien.Dn),
+            new AccountIdentity(SimulationProfile.NetbiosName + "\\" + operatorAccount.Sam, operatorAccount.DisplayName, operatorAccount.Given, operatorAccount.Dn),
             new AuthenticationInfo(AuthenticationMethod.None, null, "Aucune (simulation)"),
             new ScopeSelection(ouDn["Postes"], SimulationProfile.WorkingOuName, true),
-            new RightsInfo(RightsLevel.Read, SessionTexts.RightsLabel(RightsLevel.Read), true, "Simulation : les droits sont fictifs ; les écritures ne modifient que l’annuaire fictif, en mémoire."),
+            rights,
             // Writes are admitted in simulation, on the in-memory overlay only (decision of David, 21/10): not read only.
             false,
             new StoreStatus(snapshot.ReadAt, snapshot.ObjectCount, snapshot.Complete));
         return new SimulatedWorld(reference, timeZone, Weekend, snapshot, observations, history, journal, session, presence);
+    }
+
+    /// <summary>Rights estimated from the groups of the session account (Admins du domaine, then GG-Admins-*), never verified.</summary>
+    private RightsInfo OperatorRights(UserDraft account)
+    {
+        var domainAdmins = groupByName["Admins du domaine"].Dn;
+        var names = groups.Where(g => account.MemberOf.Contains(g.Dn)).Select(g => g.Name).Order(StringComparer.Ordinal).ToList();
+        var level = account.MemberOf.Contains(domainAdmins) ? RightsLevel.Admin
+            : names.Any(n => n.StartsWith("GG-Admins-", StringComparison.Ordinal)) ? RightsLevel.Delegated : RightsLevel.Read;
+        var detail = "Simulation\u00A0: droits estimés depuis les groupes du compte fictif (" + string.Join(", ", names) + ")\u00A0; les écritures ne modifient que l’annuaire fictif, en mémoire.";
+        return new RightsInfo(level, SessionTexts.RightsLabel(level), true, detail);
     }
 
     // ---------------------------------------------------------------- OUs
@@ -243,7 +257,7 @@ internal sealed class WorldBuilder
     {
         var names = root.Fork("users/names");
         var ids = root.Fork("users/ids");
-        samTaken.Add(SimulationProfile.SessionLogin);
+        samTaken.Add(SimulationProfile.PersonLogin);
         var usersContainer = "CN=Users," + SimulationProfile.RootDn;
 
         // Built-in accounts first, as in a new domain.
@@ -270,7 +284,7 @@ internal sealed class WorldBuilder
                     (given, surname, female) = (previous.Given!, previous.Surname!, previous.Female);
                 }
                 var isJulien = service.Site == "Paris" && service.Name == "Informatique" && p == 1;
-                var user = NewPerson(given, surname, female, imported, service.Site, service.Name, parent, ids, isJulien ? SimulationProfile.SessionLogin : null);
+                var user = NewPerson(given, surname, female, imported, service.Site, service.Name, parent, ids, isJulien ? SimulationProfile.PersonLogin : null);
                 user.Title = isJulien ? "Technicien support" : titles.Pick(names, female, p == 0);
                 user.IsManager = p == 0;
                 user.ServiceIndex = s;

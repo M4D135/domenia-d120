@@ -1,0 +1,33 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : exceptions des règles de santé",
+  "description": "Ouvre les règles de santé, onglet Exceptions : une exception sur une OU introuvable dans l’index local porte la pastille « OU introuvable » et reste ouvrable pour être retirée ; sans exception, l’état vide le dit.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil?outil=sante",
+  "steps": [
+    {
+      "do": "expect",
+      "selector": ".acc-health .hr-rules",
+      "title": "Les règles sont affichées"
+    },
+    {
+      "do": "click",
+      "text": "Exceptions",
+      "within": ".acc-health",
+      "title": "Onglet Exceptions"
+    },
+    {
+      "do": "expect",
+      "contains": "Aucune exception",
+      "within": ".acc-health",
+      "title": "État vide : toutes les OU suivent les règles du domaine"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

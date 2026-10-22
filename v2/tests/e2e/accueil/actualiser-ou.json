@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : mettre à jour la base locale de l’OU",
+  "description": "Ouvre le menu de « Tout actualiser » dans l’en-tête, prépare le plan de « Mettre à jour la base locale de l’OU » (figé au clic, rien n’est contacté), vérifie ses étapes dans la fenêtre de confirmation, le lance une fois, attend le compte rendu, puis relit les étapes : deux terminées et la sauvegarde « sans objet » en simulation.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "timeoutMs": 20000,
+  "steps": [
+    { "do": "click", "selector": "[data-refresh-menu]", "within": ".hero", "title": "Ouvrir le menu de « Tout actualiser »" },
+    { "do": "click", "text": "Mettre à jour la base locale de l’OU", "within": ".k-menu", "title": "Préparer la mise à jour de la base locale" },
+    { "do": "expect", "selector": ".k-dlg[role=dialog]", "title": "La confirmation présente le plan" },
+    { "do": "expect", "contains": "Sauvegarde vérifiée de la base locale", "within": ".k-dlg", "title": "Le plan commence par la sauvegarde" },
+    { "do": "expect", "contains": "Sans objet en simulation", "within": ".k-dlg", "title": "Le plan ne promet pas de sauvegarde en simulation" },
+    { "do": "expect", "contains": "Reçu d’enregistrement local", "within": ".k-dlg" },
+    { "do": "shot", "name": "plan-actualisation", "selector": ".k-dlg" },
+    { "do": "click", "text": "Lancer la mise à jour", "within": ".k-dlg-foot", "title": "Confirmer : le plan part une seule fois" },
+    { "do": "wait", "contains": "Terminée", "within": ".hero-status .ctl-last", "title": "Le compte rendu est affiché" },
+    { "do": "click", "text": "Étapes", "within": ".hero-status .ctl-last", "title": "Relire les étapes" },
+    { "do": "wait", "selector": ".ctl-stage[data-state=done]", "within": ".hero-status", "count": 2, "title": "Lecture AD et reçu terminés" },
+    { "do": "wait", "selector": ".ctl-stage[data-state=na]", "within": ".hero-status", "count": 1, "title": "Sauvegarde « sans objet »" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

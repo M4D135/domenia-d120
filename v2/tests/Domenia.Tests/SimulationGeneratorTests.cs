@@ -115,8 +115,12 @@ internal static class SimulationGeneratorTests
         Check.True(employees.All(e => e.Length == 6 && e.All(char.IsAsciiDigit)), "employeeID à six chiffres");
         var julien = d.Users.Single(u => u.SamAccountName == "j.martin");
         Check.Equal("Julien Martin", julien.DisplayName, "j.martin est Julien Martin");
-        Check.Equal(@"EXAMPLE\j.martin", World.Session.Account.Login, "compte de session");
-        Check.Equal(julien.DistinguishedName, World.Session.Account.Dn, "DN du compte de session");
+        // The session runs under the administration account adm-j.martin (decision of David, 21/10).
+        var admin = d.Users.Single(u => u.SamAccountName == "adm-j.martin");
+        Check.Equal(@"EXAMPLE\adm-j.martin", World.Session.Account.Login, "compte de session d’administration");
+        Check.Equal(admin.DistinguishedName, World.Session.Account.Dn, "DN du compte de session");
+        Check.True(admin.DistinguishedName.Contains("OU=Comptes à privilèges", StringComparison.Ordinal), "compte de session dans les comptes à privilèges");
+        Check.Equal(RightsLevel.Admin, World.Session.Rights.Level, "droits estimés depuis Admins du domaine");
     }
 
     [Test]
@@ -190,7 +194,7 @@ internal static class SimulationGeneratorTests
         Check.Equal(48, departures.Count, "départs");
         Check.True(departures.All(u => u.MemberOf.IsEmpty && AdValues.IsDisabled(u.UserAccountControl)), "départs désactivés et sans groupe");
         Check.Equal(6, d.Groups.Single(g => g.Name == "GG-Support-N2").Members.Length, "GG-Support-N2");
-        Check.True(d.Groups.Single(g => g.Name == "GG-Support-N2").Members.Contains(World.Session.Account.Dn!), "Julien Martin dans GG-Support-N2");
+        Check.True(d.Groups.Single(g => g.Name == "GG-Support-N2").Members.Contains(d.Users.Single(u => u.SamAccountName == "j.martin").DistinguishedName), "Julien Martin dans GG-Support-N2");
         Check.True(d.Groups.Single(g => g.Name == "Utilisateurs du domaine").Members.All(m => groupByDn.ContainsKey(m)), "groupe principal hors de member");
     }
 

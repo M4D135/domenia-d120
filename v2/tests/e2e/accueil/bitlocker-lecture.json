@@ -1,0 +1,49 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : lecture de la présence BitLocker de l’OU",
+  "description": "Lance la lecture de la présence des clés BitLocker depuis la tuile du tableau du parc (geste explicite, lecture réseau signalée), vérifie que le bouton attend la fin de la lecture, puis le message qui ne montre aucune clé.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-entry=\"fleet.bitlocker\"] [data-fw-action=\"bitlocker\"]",
+      "title": "La tuile BitLocker propose la lecture"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-entry=\"fleet.bitlocker\"] [data-fw-action=\"bitlocker\"].is-net",
+      "title": "Le bouton porte la marque « lecture réseau » du kit"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-entry=\"fleet.bitlocker\"] .btn.primary",
+      "absent": true,
+      "title": "Aucune action principale dans une carte"
+    },
+    {
+      "do": "click",
+      "selector": "[data-fw-action=\"bitlocker\"]",
+      "within": "[data-entry=\"fleet.bitlocker\"]",
+      "title": "Lire la présence des clés"
+    },
+    {
+      "do": "expect",
+      "contains": "Aucune clé n’est lue ni affichée.",
+      "within": ".toasts",
+      "title": "Le résultat ne montre jamais une clé"
+    },
+    {
+      "do": "shot",
+      "name": "bitlocker-lu",
+      "selector": "[data-entry=\"fleet.bitlocker\"]"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
