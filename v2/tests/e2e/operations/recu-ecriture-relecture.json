@@ -1,0 +1,26 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : le reçu d’une écriture s’ouvre depuis le toast, puis se relit",
+  "description": "Déverrouille le compte d’exemple depuis l’écran de référence du circuit (#/ecritures), suit le lien « Voir dans Opérations » du reçu, vérifie le détail (preuve attendue, compensation) puis relit l’objet : seule une lecture part, rien n’est renvoyé.",
+  "modes": ["simulation"],
+  "start": "ecritures",
+  "steps": [
+    { "do": "click", "text": "Déverrouiller…", "within": ".wfd-form", "title": "Préparer le déverrouillage de Camille Bernard" },
+    { "do": "wait", "selector": ".wf-plan", "title": "Le plan s’affiche" },
+    { "do": "click", "selector": ".wf-foot [data-wf=\"confirm\"]", "title": "Confirmer…" },
+    { "do": "click", "text": "Confirmer (simulation)", "within": ".k-dlg", "title": "Confirmer l’écriture simulée" },
+    { "do": "wait", "selector": ".wf-receipt", "timeoutMs": 15000, "title": "Le reçu s’affiche" },
+    { "do": "click", "selector": ".wf-foot [data-wf-link=\"ops\"]", "title": "Voir dans Opérations" },
+    { "do": "wait", "ready": "operations", "title": "Opérations s’ouvre sur le reçu" },
+    { "do": "expect", "contains": "Appliquée (simulation)", "within": ".op-rc-detail", "title": "Le détail dit le résultat" },
+    { "do": "expect", "contains": "Preuve attendue", "within": ".op-rc-detail", "title": "La relecture qui prouve l’écriture est dite" },
+    { "do": "expect", "contains": "Un déverrouillage ne se compense pas.", "within": ".op-rc-detail", "title": "Compensation non proposée, raison dite" },
+    { "do": "shot", "name": "detail-recu", "selector": ".op-rc-split" },
+    { "do": "click", "selector": "[data-dt-act=\"reread\"]", "title": "Relire l’objet…" },
+    { "do": "click", "text": "Relire maintenant", "within": ".k-dlg", "title": "Confirmer la relecture" },
+    { "do": "expect", "contains": "Relecture", "within": ".toasts", "title": "La relecture est annoncée" },
+    { "do": "expect", "contains": "Vérifiée par relecture", "within": ".op-rc-detail" },
+    { "do": "journal", "contains": "Relecture du reçu d’une écriture account.unlock", "title": "Journal technique : une lecture, rien de renvoyé" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

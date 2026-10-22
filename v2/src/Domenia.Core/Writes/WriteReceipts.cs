@@ -55,8 +55,39 @@ public static class WriteReceipts
             Version = receipt.Version + 1,
             At = when,
             VerifiedAt = when,
-            Verification = verification.State,
+            // A manual review stays the reference until a re-read concludes (verified or mismatch): a later read that proves
+            // nothing never brings the receipt back to « to verify ».
+            Verification = receipt.Verification == VerificationState.Reviewed && verification.State == VerificationState.Unknown
+                ? VerificationState.Reviewed
+                : verification.State,
             Details = receipt.Details.Add(new ReceiptDetail("Relecture", verification.Detail)),
+        };
+    }
+
+    /// <summary>
+    /// Next version with a manual review of the operator (Domenia 1 OPE-024): the control made with another tool, in the operator's
+    /// own words (already checked by <see cref="ReceiptReviews.CheckReason"/>), quoted in the details. It settles an uncertain
+    /// receipt; it is never an automatic success (tone info, label « Revue manuelle »).
+    /// </summary>
+    public static WriteReceipt Reviewed(WriteReceipt receipt, string reason, string reviewer, DateTimeOffset at)
+    {
+        ArgumentNullException.ThrowIfNull(receipt);
+        ArgumentNullException.ThrowIfNull(reason);
+        ArgumentNullException.ThrowIfNull(reviewer);
+        var when = WritePlans.TruncateToSecond(at);
+        // One final period stays outside the quotes (one period, never an ellipsis: Domenia 1 Get-DomeniaReceiptActionView).
+        var quoted = reason.Trim();
+        if (quoted.EndsWith('.') && !quoted.EndsWith("..", StringComparison.Ordinal))
+        {
+            quoted = quoted[..^1];
+        }
+        return receipt with
+        {
+            Version = receipt.Version + 1,
+            At = when,
+            VerifiedAt = when,
+            Verification = VerificationState.Reviewed,
+            Details = receipt.Details.Add(new ReceiptDetail("Revue manuelle", "Motif consigné par " + reviewer + FrenchText.Colon + FrenchText.Quote(quoted) + ".")),
         };
     }
 
@@ -79,6 +110,7 @@ public static class WriteReceipts
     public static string VerificationLabel(WriteResult result, VerificationState verification) => verification switch
     {
         VerificationState.Verified => "Vérifiée par relecture",
+        VerificationState.Reviewed => "Revue manuelle",
         VerificationState.Mismatch => result == WriteResult.NotApplied ? "Relue : objet inchangé" : "Écart à la relecture",
         _ => result == WriteResult.Sent ? "Relecture en attente" : "Non vérifiée",
     };
@@ -92,6 +124,8 @@ public static class WriteReceipts
         }
         return (receipt.Result, receipt.Verification) switch
         {
+            // A manual review is recorded, never an automatic success.
+            (_, VerificationState.Reviewed) => Tone.Info,
             (WriteResult.Applied or WriteResult.NoChange, VerificationState.Verified) => Tone.Ok,
             (WriteResult.Applied or WriteResult.NoChange, VerificationState.Mismatch) => Tone.Alert,
             (WriteResult.Applied or WriteResult.NoChange, _) => Tone.Warn,
@@ -116,6 +150,7 @@ public static class WriteReceipts
         }
         return (receipt.Result, receipt.Verification) switch
         {
+            (_, VerificationState.Reviewed) => "Revue manuelle consignée : l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Les nouvelles écritures sur cet objet ne sont plus bloquées." + NoReplay + simulated,
             (WriteResult.Applied, VerificationState.Verified) => "Écriture appliquée et vérifiée par relecture." + simulated,
             (WriteResult.Applied, VerificationState.Mismatch) => "Écriture acceptée, mais la relecture montre un autre état : vérifiez l’objet avant toute nouvelle écriture." + NoReplay + simulated,
             (WriteResult.Applied, _) => "Écriture acceptée, relecture impossible : relisez ce reçu depuis Opérations pour la vérifier." + simulated,

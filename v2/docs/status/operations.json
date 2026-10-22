@@ -1,0 +1,12 @@
+{
+  "fait": ["OPE-002", "OPE-004", "OPE-006", "OPE-007", "OPE-013", "OPE-014", "OPE-015", "OPE-016", "OPE-017", "OPE-018", "OPE-019", "OPE-020", "OPE-021", "OPE-027", "OPE-029", "OPE-033", "OPE-034", "OPE-035", "OPE-036"],
+  "ameliore": ["OPE-003", "OPE-005", "OPE-008", "OPE-009", "OPE-012", "OPE-022", "OPE-023", "OPE-024", "OPE-028", "OPE-030", "OPE-031"],
+  "partiel": [
+    { "id": "OPE-001", "reste": "Files d’attente par classe (médiane et P95), promotions, lectures identiques partagées et requêtes WMI évitées : à brancher sur l’ordonnanceur de Domenia.Engine et la collecte de Domenia.Inventory (vague 3). Aujourd’hui : absence de file pour les lectures, attente mesurée du canal d’écriture, sources en reprise et profil de collecte." },
+    { "id": "OPE-010", "reste": "Le reçu dit si la compensation est possible et montre les changements inverses ; « Préparer l’annulation » ouvre la fiche de l’objet avec ces changements en rappel. Le pré-remplissage du plan inverse dans la fiche attend un paramètre de route convenu avec l’écran Fiche." },
+    { "id": "OPE-011", "reste": "Règles des séquences Arrivée, Changement de service et Suspension portées et affichées avec la disponibilité de chaque étape (comme en Domenia 1, règle non raccordée). Exécution étape par étape et assistant par service quand les écritures groupes, attributs, déplacement et activation seront servies." },
+    { "id": "OPE-025", "reste": "Levée de l’incertitude assurée par le circuit (relecture conclusive ou revue manuelle, jamais par le temps) et visible dans l’écran (carte Circuit d’écriture, tuile, onglet). La pastille et le bouton de la barre supérieure relèvent de l’écran shell (app.js) : operations.overview expose « pill » pour elle." },
+    { "id": "OPE-026", "reste": "Pastille « N opérations à vérifier » (jamais « 0 opération ») dans l’en-tête de l’écran, la tuile et l’onglet, filtre « À vérifier ». La pastille globale de la barre supérieure, avec au survol l’objet et l’opération du reçu le plus ancien, attend l’écran shell (app.js)." },
+    { "id": "OPE-032", "reste": "Règle (5 s d’attente au plus) et phrase de synthèse portées dans ActivityRules ; la base locale SQLite n’existe pas encore dans Domenia 2 : le compteur sera alimenté par Domenia.Store (vague 3). L’écran dit aujourd’hui qu’aucune base n’est ouverte." }
+  ]
+}

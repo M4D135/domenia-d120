@@ -204,6 +204,45 @@ public sealed class WriteCircuit : IDisposable
         }
     }
 
+    /// <summary>
+    /// operations.receipts.review: records the manual review of an uncertain receipt (Domenia 1 OPE-024). The operator checked the
+    /// object with another tool and describes the control (12 to 240 characters, never anything that looks like a secret); the
+    /// receipt takes a new version « Revue manuelle » that stops holding back new writes on its target. Nothing is read in the
+    /// directory and nothing is ever sent again; a receipt already settled is never changed (receipt.resolved).
+    /// </summary>
+    public async Task<ReceiptView> ReviewAsync(string id, string reason, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(reason);
+        var check = ReceiptReviews.CheckReason(reason);
+        if (!check.Valid)
+        {
+            throw new DomeniaOperationException(ReceiptReviews.ReasonInvalid, ReceiptReviews.ReasonInvalidPrefix + check.Message);
+        }
+        var account = await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var (all, _) = await ReadAsync(WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
+            var receipt = all.FirstOrDefault(r => string.Equals(r.Id, id, StringComparison.Ordinal))
+                ?? throw WriteErrors.Refusal(WriteErrors.ReceiptUnknown, WriteErrors.ReceiptUnknownMessage);
+            if (!WriteReceipts.IsPending(receipt))
+            {
+                throw new DomeniaOperationException(ReceiptReviews.Resolved, ReceiptReviews.ResolvedMessage);
+            }
+            var next = WriteReceipts.Reviewed(receipt, check.Text, account.Account.Login, clock.GetUtcNow());
+            await KeepAsync(next).ConfigureAwait(false);
+            Note(next.Plan, "revue manuelle consignée", Tone.Info, prefix: "Revue du reçu");
+            // The motive is the operator's own text: it goes to the receipt only, never to the technical journal.
+            log.Info($"Revue manuelle consignée pour un reçu d’écriture {receipt.Plan.Kind} ({check.Text.Length} caractères).");
+            return WriteReceipts.View(next);
+        }
+        finally
+        {
+            writeGate.Release();
+        }
+    }
+
     public void Dispose() => writeGate.Dispose();
 
     private async Task<ReceiptView> RunAsync(WritePlan plan, Action<WriteStage>? progress, CancellationToken cancellationToken)
@@ -373,6 +412,7 @@ public sealed class WriteCircuit : IDisposable
         }
         return (receipt.Result, receipt.Verification) switch
         {
+            (_, VerificationState.Reviewed) => "revue manuelle consignée",
             (WriteResult.Applied, VerificationState.Verified) => "relecture conforme",
             (WriteResult.Applied, VerificationState.Mismatch) => "écart à la relecture",
             (WriteResult.Applied, _) => "relecture impossible",

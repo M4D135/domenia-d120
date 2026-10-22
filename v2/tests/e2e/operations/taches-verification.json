@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : la vérification de l’application apparaît dans les tâches avec ses étapes",
+  "description": "Lance la vérification rapide (lecture seule) depuis l’en-tête, lit son rapport, puis retrouve la tâche dans « Dernières opérations » et ouvre ses étapes mesurées.",
+  "modes": ["simulation"],
+  "start": "operations",
+  "steps": [
+    { "do": "click", "text": "Vérifier l’application", "within": ".op-hero", "title": "Ouvrir le diagnostic depuis l’en-tête" },
+    { "do": "click", "text": "Vérification rapide", "title": "Lancer la vérification rapide" },
+    { "do": "expect", "contains": "Aucune écriture effectuée", "within": ".op-check-result", "timeoutMs": 15000, "title": "Le rapport dit qu’aucune écriture n’a été faite" },
+    { "do": "expect", "contains": "Politique d’écriture", "within": ".op-check-result" },
+    { "do": "shot", "name": "rapport", "selector": ".op-check-card" },
+    { "do": "click", "selector": "[role=\"tab\"][data-tab=\"taches\"]", "title": "Onglet Tâches" },
+    { "do": "expect", "contains": "Vérification de l’application", "within": ".op-tk-grid", "timeoutMs": 6000, "title": "La tâche est listée" },
+    { "do": "click", "text": "Vérification de l’application", "within": ".op-tk-grid", "clickCount": 2, "title": "Ouvrir ses étapes" },
+    { "do": "expect", "contains": "Étapes de l’opération", "within": ".k-drw", "title": "Le panneau montre les étapes mesurées" },
+    { "do": "expect", "contains": "Traitement dans le moteur", "within": ".k-drw" },
+    { "do": "shot", "name": "etapes", "selector": ".k-drw" },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau" },
+    { "do": "expect", "selector": ".k-drw", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
