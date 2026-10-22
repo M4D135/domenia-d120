@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : groupes imbriqués d’un compte et « pourquoi membre »",
+  "description": "Cherche le compte j.martin dans l’index local, lit ses appartenances imbriquées, choisit GG-Admins-Postes dans le graphe (chemin calculé sans relecture), puis fait confirmer l’appartenance par le contrôleur.",
+  "modes": ["simulation"],
+  "start": "audit?tab=objet",
+  "steps": [
+    { "do": "type", "selector": "#aud-find-input", "text": "j.martin", "title": "Chercher « j.martin »" },
+    { "do": "wait", "selector": ".aud-hit", "within": "#aud-find-list", "title": "Des objets sont trouvés dans l’index local" },
+    { "do": "press", "key": "Enter", "title": "Choisir le premier résultat" },
+    { "do": "wait", "text": "Julien Martin", "within": ".aud-target-names", "title": "La cible est Julien Martin" },
+    { "do": "click", "text": "Groupes", "within": ".aud-views [role=\"tablist\"]", "title": "Ouvrir la vue des groupes" },
+    { "do": "click", "selector": "[data-act=\"groups\"]", "title": "Lire les appartenances imbriquées" },
+    { "do": "wait", "selector": ".aud-graph .gnode", "timeoutMs": 15000, "title": "Le graphe des imbrications est tracé" },
+    { "do": "expect", "contains": "Utilisateurs du domaine", "within": ".aud-graph", "title": "Le groupe principal figure dans le graphe" },
+    { "do": "click", "text": "GG-Admins-Postes", "within": ".aud-graph", "title": "Choisir GG-Admins-Postes dans le graphe" },
+    { "do": "wait", "contains": "GG-Support-N2", "within": ".aud-path", "title": "Le chemin passe par GG-Support-N2" },
+    { "do": "shot", "name": "pourquoi-membre", "selector": ".aud-why" },
+    { "do": "click", "selector": "[data-act=\"membership\"]", "title": "Confirmer sur le contrôleur" },
+    { "do": "wait", "contains": "confirmé par le contrôleur", "within": ".aud-why", "title": "Le contrôleur confirme l’appartenance" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

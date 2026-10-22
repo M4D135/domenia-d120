@@ -1,0 +1,5 @@
+{
+  "fait": ["AUD-002", "AUD-003", "AUD-004", "AUD-005", "AUD-006", "AUD-007", "AUD-011", "AUD-013", "AUD-014", "AUD-015", "AUD-017", "AUD-018", "AUD-019", "AUD-022"],
+  "ameliore": ["AUD-001", "AUD-008", "AUD-009", "AUD-010", "AUD-012", "AUD-016", "AUD-020", "AUD-021", "AUD-023"],
+  "partiel": []
+}

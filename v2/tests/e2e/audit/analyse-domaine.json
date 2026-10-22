@@ -1,0 +1,25 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : analyser le domaine et explorer un constat critique",
+  "description": "Lance l’analyse du domaine depuis l’état « non analysé », vérifie le bandeau des gravités, le score de santé et le constat critique DCSync, filtre sur « Critique », explore les objets du constat dans le panneau latéral (sans relecture) puis le referme.",
+  "modes": ["simulation"],
+  "start": "audit",
+  "steps": [
+    { "do": "expect", "contains": "Le domaine n’est pas encore analysé", "within": ".aud-ov", "title": "État de départ : domaine non analysé, aucune lecture" },
+    { "do": "expect", "contains": "Droits de réplication (DCSync) hors administrateurs", "within": ".aud-catalogue", "title": "Le catalogue des contrôles est affiché sans lecture" },
+    { "do": "click", "selector": "[data-run]", "within": ".aud-idle", "title": "Cliquer « Analyser le domaine »" },
+    { "do": "wait", "selector": ".aud-sev-band", "timeoutMs": 20000, "title": "Le bandeau des gravités apparaît" },
+    { "do": "expect", "contains": "À améliorer", "within": ".aud-score", "title": "Le score de santé est calculé" },
+    { "do": "expect", "contains": "Droits de réplication (DCSync) hors administrateurs", "within": ".aud-group[data-sev=\"critical\"]", "title": "Le constat critique DCSync est en tête" },
+    { "do": "click", "selector": ".aud-sev[data-sev=\"critical\"]", "title": "Filtrer sur la gravité « Critique »" },
+    { "do": "expect", "selector": ".aud-group[data-sev=\"medium\"]", "absent": true, "title": "Seuls les constats critiques restent" },
+    { "do": "shot", "name": "constats-critiques", "selector": ".aud-board" },
+    { "do": "click", "selector": "[data-explore=\"dcsyncRights\"]", "title": "Explorer les objets du constat" },
+    { "do": "wait", "contains": "svc-annuaire", "within": ".k-drw", "title": "Le panneau liste svc-annuaire" },
+    { "do": "expect", "contains": "Exploration sans relecture", "within": ".k-drw", "title": "Le panneau dit qu’aucune relecture n’a eu lieu" },
+    { "do": "shot", "name": "exploration", "selector": ".k-drw" },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau" },
+    { "do": "expect", "selector": ".k-drw", "absent": true, "title": "Le panneau est fermé" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

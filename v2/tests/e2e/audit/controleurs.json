@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Audit AD : diagnostic des contrôleurs et lecture confirmée des services",
+  "description": "Liste les contrôleurs, choisit DC01 et DC02, lance le diagnostic (DC02 à vérifier pour sa réplication), puis lit les services après la confirmation (droits d’administration) : ADWS arrêté sur DC02.",
+  "modes": ["simulation"],
+  "start": "audit?tab=controleurs",
+  "steps": [
+    { "do": "click", "selector": "[data-dc=\"list\"]", "within": ".aud-dc-actions", "title": "Lister les contrôleurs" },
+    { "do": "wait", "selector": ".aud-dc-tile", "count": 2, "title": "Deux contrôleurs sont listés" },
+    { "do": "click", "selector": ".aud-dc-tile[data-pick=\"DC01.example.local\"]", "title": "Choisir DC01" },
+    { "do": "click", "selector": ".aud-dc-tile[data-pick=\"DC02.example.local\"]", "title": "Choisir DC02" },
+    { "do": "click", "selector": "[data-dc=\"probe\"]", "title": "Diagnostiquer la sélection" },
+    { "do": "wait", "contains": "À vérifier", "within": ".aud-dc-tile[data-pick=\"DC02.example.local\"]", "timeoutMs": 15000, "title": "DC02 est à vérifier" },
+    { "do": "expect", "contains": "Sans écart constaté", "within": ".aud-dc-tile[data-pick=\"DC01.example.local\"]", "title": "DC01 est sans écart" },
+    { "do": "click", "selector": "[data-dc=\"services\"]", "title": "Lire les services" },
+    { "do": "click", "text": "Lire les services", "within": ".k-dlg", "title": "Confirmer la sonde privilégiée" },
+    { "do": "wait", "contains": "Non démarré : à vérifier", "within": ".aud-dc-res", "timeoutMs": 15000, "title": "ADWS est arrêté sur DC02" },
+    { "do": "shot", "name": "services", "selector": ".aud-dc-res" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
