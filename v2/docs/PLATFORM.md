@@ -117,7 +117,7 @@ l’opération avec `source.unavailable`, comme `dashboard.summary`.
 | `Local` | état en mémoire | admise |
 | `LocalRead` | base locale, fichiers de l’application, annuaire fictif en mémoire | admise |
 | `NetworkRead` | annuaire, WMI, DNS, ping, après un geste explicite, borné à une OU | admise seulement si `ServedInSimulation` |
-| `LocalWrite` | **préférences locales seulement** (`%LOCALAPPDATA%\Domenia`), jamais l’annuaire ni un poste | admise |
+| `LocalWrite` | **données locales de l’application seulement** (`%LOCALAPPDATA%\Domenia`) : préférences, reçus, documents demandés par l’opérateur (`Documents`, § 3.3) ; jamais l’annuaire ni un poste | admise |
 | `Write` | écriture AD ou action distante, **seulement `write.execute`** : plan, confirmation, reçu, relecture ([`WRITES.md`](WRITES.md)) | admise pour `write.execute` seulement, sur la surcouche en mémoire (décision du 21/10) |
 
 La classe déclarée est celle du mode le plus exigeant ; elle peut dépendre du mode (`directory.ou.children` est
@@ -142,11 +142,20 @@ pas : un module découvert automatiquement ne peut donc pas brancher une écritu
 | `Journal` | journal des opérations de la session, affiché par l’Accueil (« Dernières opérations ») |
 | `Writers` | exécuteurs d’écriture servis par la source du mode (`Find<T>()`, `Require<T>()`, `ForKind(type)`), lancés par `WriteCircuit` seulement |
 | `Receipts` | reçus d’écriture du mode (`IReceiptStore` : `receipts.jsonl`, `receipts-simulation.jsonl`, mémoire en capture et en E2E) |
+| `Documents` | documents demandés par l’opérateur (`IDocumentStore` : `Exports`, `Exports-simulation` ; mémoire en capture, en E2E ou sans dossier de données). Chaque document est neuf et daté par l’écran (un nom pris reçoit `-2`, `-3`…), écrit atomiquement (fichier ou dossier temporaire renommé), un dossier lien est refusé ; `RevealAsync` montre un document dans l’Explorateur. Implémentation `FileDocumentStore` (`Domenia.Store`), chemin donné par `AppPaths.Exports` |
 | `Shared<T>(fabrique)` | service partagé du contexte, créé au premier usage, libéré avec le contexte |
 
 Un service partagé expose **un seul** accès statique qui passe sa propre fabrique : `DashboardService.From(context)`,
 `WorkingScope.From(context)`. Deux modules obtiennent donc la même instance (l’Accueil et la session partagent le même
 état des widgets et la même OU de travail).
+
+### 3.3 bis Génération de session
+
+`SessionSnapshot.Epoch` est la génération de connexion : elle change à chaque connexion de la session, même avec le même
+compte et le même domaine (Domenia 1 `$script:DomeniaSessionEpoch`). Un service qui garde des données de session (l’atelier
+de l’Assistance, TRV-185) les indexe sur domaine, compte **et** génération, et ignore la réponse d’une lecture commencée
+dans une autre génération. La source simulée et la source indisponible gardent 0 pour toute la vie du processus ;
+`Domenia.Ad` l’incrémentera à chaque connexion.
 
 ### 3.4 OU de travail
 

@@ -62,7 +62,7 @@ Réponse du moteur, réussite puis échec :
 | `Local` | Calcul ou état en mémoire ; ni disque, ni réseau. |
 | `LocalRead` | Lecture de la base locale ou des fichiers de l’application. |
 | `NetworkRead` | Lecture annuaire, WMI, DNS ou ping, seulement après un geste explicite de l’opérateur, bornée à une OU. |
-| `LocalWrite` | Écriture des **données locales de l’application seulement** : préférences (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation) et reçus d’écriture (`receipts.jsonl`, ou `receipts-simulation.jsonl`, § 12.6), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
+| `LocalWrite` | Écriture des **données locales de l’application seulement** : préférences (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation), reçus d’écriture (`receipts.jsonl`, ou `receipts-simulation.jsonl`, § 12.6) et documents demandés par l’opérateur (`Exports`, ou `Exports-simulation`, toujours un nouveau fichier daté, jamais remplacé, rien en capture ni en E2E : `EngineContext.Documents`, [`PLATFORM.md`](PLATFORM.md) § 3.3), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
 | `Write` | Écriture AD ou action distante, **seulement par `write.execute`** (§ 12) : plan, confirmation, reçu, relecture. **Admise en simulation sur la surcouche en mémoire de l’annuaire fictif, sans effet réel** (§ 1.5, décision du 21/10) ; toute autre opération `Write` est refusée dans les deux modes. |
 
 La classe déclarée est celle du **mode annuaire** (le cas le plus exigeant). En simulation, le même nom d’opération

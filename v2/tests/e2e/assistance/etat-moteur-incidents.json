@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Assistance : état du moteur et refus expliqué dans Incidents",
+  "description": "Ouvre l’état du moteur depuis le rail (sans aucune sonde), puis tente une capture sur une fiche non lue par l’adresse de démonstration : le refus entre dans la vue Incidents (ASS-006) avec sa piste ; « Voir l’état du moteur » rouvre le panneau de l’écran.",
+  "modes": ["simulation"],
+  "start": "assistance?vue=incidents&etat=moteur",
+  "motion": "reduced",
+  "steps": [
+    { "do": "wait", "contains": "Ce que le moteur sert", "within": "[role=dialog]", "title": "L’état du moteur s’affiche sans sonde" },
+    { "do": "expect", "contains": "Lectures en cours", "within": "[role=dialog]" },
+    { "do": "click", "text": "Fermer", "within": "[role=dialog]" },
+    { "do": "wait", "selector": ".as-list", "title": "La liste des incidents est affichée" },
+    { "do": "type", "selector": "[data-filter]", "text": "assistance" },
+    { "do": "wait", "ms": 400 },
+    { "do": "expect", "selector": "[data-filter]", "property": "value", "equals": "assistance", "title": "Le filtre tapé reste en place pendant le suivi d’une seconde" },
+    { "do": "shot", "name": "incidents", "selector": ".as-view" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

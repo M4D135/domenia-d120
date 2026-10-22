@@ -14,12 +14,14 @@
 // Search screen (search.*): mock-search.js, in the memory of the page.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page; the
 // operations of the Comptes screen: mock-comptes.js (same shapes and texts as docs/ops/comptes.md).
+// Assistance (assistance.*): mock-assistance.js, in the memory of the page.
 
 import { createWriteOperations } from './mock-writes.js';
 import { createAccueilOperations } from './mock-accueil.js';
 import { createSearchOperations } from './mock-search.js';
 import { createFicheOperations } from './mock-fiche.js';
 import { createAccountsOperations } from './mock-comptes.js';
+import { createAssistanceOperations } from './mock-assistance.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1081,6 +1083,7 @@ const OPERATIONS = {
   // Search screen (docs/ops/rechercher.md): mock-search.js, in the memory of the page.
   ...createSearchOperations({ readObject, getString, getOptionalString, requireDistinguishedName, invalid, fail, quote, int, sleep, NBSP, REF }),
   ...createFicheOperations({ readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, int, sleep, NBSP, REF }),
+  ...createAssistanceOperations({ readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength
