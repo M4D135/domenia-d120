@@ -14,6 +14,8 @@
     { "do": "click", "selector": "[data-ct=\"store-check\"]", "title": "Enregistrer les résultats" },
     { "do": "click", "text": "Confirmer…" },
     { "do": "click", "text": "Confirmer (simulation)" },
+    { "do": "wait", "selector": ".wf-receipt-title", "timeoutMs": 20000, "title": "Le reçu de l’enregistrement est affiché" },
+    { "do": "press", "key": "Escape", "title": "Fermer le panneau du reçu" },
     { "do": "wait", "selector": "[data-job=\"check\"]", "absent": true, "timeoutMs": 30000, "title": "Les résultats sont relus depuis la base" },
     { "do": "click", "selector": "[data-abs=\"domain\"]", "title": "Afficher les disparitions de tout le domaine" },
     { "do": "expect", "contains": "De nouveau visible", "within": "[data-slot=\"absences\"]" },
