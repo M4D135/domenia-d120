@@ -82,5 +82,11 @@
       "id": "REQ-048",
       "reste": "Fait : sélection figée des correspondants (GUID, date, empreinte, inconnus exclus), puis ouverture de Rechercher comme Domenia 1 (#/rechercher?requete=selection), favoris déclarables par requetes.consumer.bind. Reste : l’écran Rechercher (autre lot) doit lire requetes.search.selection pour filtrer ses résultats ; la sélection reste en mémoire de session, comme dans Domenia 1."
     }
+  ],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : le commit wip(requetes) de l’agent précédent (réponse au tour 1 : bibliothèque dans son propre fichier par domaine à écriture atomique, widget lié après revue d’impact, brouillon repris avec sa révision, négations LDAP fidèles au contrôleur, exports préparés par le moteur sans aller-retour par la page, company retiré de l’évaluateur, aide des cmdlets, confirmation des lectures WMI, « Utiliser » désactivé sur une archive, aperçu ouvert sur les correspondants avec filtre et tri côté moteur, h1) compile sans erreur et a été vérifié par sondage dans le code.",
+    "Nettoyage : journaux de compilation .tmp-oc retirés de la branche (outillage de l’agent précédent, hors v2).",
+    "Fichiers partagés modifiés par ce lot (à revoir à l’intégration) : OPERATIONS.md et PLATFORM.md (classe des fichiers d’export, opérations servies en simulation, renvoi vers docs/ops/requetes.md).",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C#, web et E2E écrits sans être exécutés."
   ]
 }

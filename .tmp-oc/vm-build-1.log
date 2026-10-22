@@ -1,6 +1,0 @@
-vm.sh : lot requetes, build — VM réservée.
-kex_exchange_identification: read: Connection reset by peer
-Connection reset by 192.168.1.173 port 22
-Connection closed by UNKNOWN port 65535
-vm.sh : synchronisation en échec (lot requetes).
-EXIT=1
