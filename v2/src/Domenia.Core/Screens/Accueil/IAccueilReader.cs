@@ -70,4 +70,11 @@ public interface IAccueilReader : IScreenReader
     /// controller.
     /// </summary>
     Task<ProbeReadings> CollectProbesAsync(ImmutableArray<string> probeIds, ScopeSelection scope, IReadOnlyCollection<Guid> online, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the inventory (WMI/CIM) again on the given active workstations of an OU only: the ones that answered the ping of the
+    /// same refresh and still need a reading (ACC-004, ACC-038). NetworkRead in directory mode, part of the explicit refresh of the
+    /// OU; never the domain root. Returns the new local state; the other workstations keep their earlier reading and its date.
+    /// </summary>
+    Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken);
 }

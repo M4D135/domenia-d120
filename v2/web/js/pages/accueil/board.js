@@ -5,8 +5,9 @@
 import { glyph } from '../../kit/glyphs.js';
 import { openMenu } from '../../kit/menu.js';
 import { openDialog } from '../../kit/dialog.js';
+import { field, createForm } from '../../kit/form.js';
 import { esc, formatNumber, countUp, reveal, motionReduced, cssMs, announce } from '../../ui.js';
-import { NBSP, plural, tone, paint, reported, sk, skStack, localStamp } from './shared.js';
+import { NBSP, plural, tone, paint, reported, sk, skStack, localStamp, isNum } from './shared.js';
 import { widgetBody, widgetGlyph, visualFor } from './charts.js';
 
 const SIZE_LABEL = { S: 'Compacte', M: 'Moyenne', L: 'Large' };
@@ -32,17 +33,24 @@ const wire = (i) => ({ id: i.id || null, source: i.source, key: i.key, visual: i
  *   onAction: (id: string, entry: any) => void,
  *   onTool: (id: string) => void,
  *   onComputed: (board: any, layout: any) => void,
+ *   onState?: (state: 'running'|'ready'|'error', board?: any, err?: any) => void,
  * }} o
  */
 export function createBoard(host, o) {
   const { ctx } = o;
-  const st = { board: null, layout: null, editing: false, undo: [], busy: false, alive: true, token: 0, saving: Promise.resolve() };
-  const stops = [];
+  const st = {
+    board: null, layout: null, editing: false, undo: [], busy: false, alive: true, token: 0, saving: Promise.resolve(),
+    loading: false, since: null, error: null, lastView: null,
+  };
+  const sigs = new Map(); // item id → signature of what its card shows (unchanged cards are left alone)
+  let stopReveal = () => {};
   let seq = 0;
+  let sinceTimer = 0;
 
   host.innerHTML = `<div class="fw-bar reveal">
       <div class="fw-pop" aria-live="polite">${skStack('sk-line w55', 'sk-line w40')}</div>
       <div class="fw-tools" role="toolbar" aria-label="Outils du tableau du parc">
+        <button class="btn sm fw-recompute" type="button" data-fw-recompute data-tip="Recalcule le tableau depuis la base locale, sans lecture réseau">${glyph('refresh')}<span>Recalculer la vue</span></button>
         <button class="btn sm" type="button" data-fw-tool="catalog">${glyph('plus')}Ajouter un widget</button>
         <button class="btn sm" type="button" data-fw-tool="presets" aria-haspopup="menu">${glyph('layers')}Dispositions${glyph('chevronDown')}</button>
         <button class="btn sm fw-edit" type="button" data-fw-edit aria-pressed="false">${glyph('sliders')}<span>Personnaliser</span></button>
@@ -53,7 +61,7 @@ export function createBoard(host, o) {
         <button class="btn sm ghost" type="button" data-fw-tool="analysis">${glyph('split')}Analyse</button>
         <button class="btn sm ghost" type="button" data-fw-tool="provenance">${glyph('history')}Provenance</button>
       </div>
-      <p class="fw-edit-note" hidden>${glyph('grip')}<span>Glissez la poignée d’un widget pour le déplacer dans sa section (ou Alt + flèches au clavier) ; son menu change la taille, la représentation, le titre ou le retire. Chaque changement est mémorisé dans les préférences locales.</span></p>
+      <p class="fw-edit-note" hidden>${glyph('grip')}<span>Glissez la poignée d’un widget pour le déplacer dans sa section (ou Alt + flèches au clavier) ; son menu change la taille, la représentation, le titre ou le retire. Chaque changement est mémorisé dans les préférences locales.</span></p>
     </div>
     <div class="fw-groups" aria-busy="true">${skeletonGroups()}</div>`;
   const groupsEl = host.querySelector('.fw-groups');
@@ -61,39 +69,84 @@ export function createBoard(host, o) {
 
   function skeletonGroups() {
     const card = (size) => `<article class="card fw size-${size}">${skStack('sk-line w40', 'sk-title w55', 'sk-line w85')}</article>`;
-    return `<section class="fw-group"><h3 class="fw-group-title">${sk('sk-line w25')}</h3><div class="fw-grid">${['S', 'S', 'S', 'S', 'M', 'M', 'M'].map(card).join('')}</div></section>`;
+    return `<section class="fw-skeleton"><h3 class="fw-group-title">${sk('sk-line w25')}</h3><div class="fw-grid">${['S', 'S', 'S', 'S', 'M', 'M', 'M'].map(card).join('')}</div></section>`;
   }
 
   // ---------- Loading ----------
 
   async function load({ quiet = true } = {}) {
     const my = ++st.token;
-    groupsEl.setAttribute('aria-busy', 'true');
-    host.classList.add('updating');
+    setLoading(true);
+    o.onState?.('running');
     try {
       const [board, layout] = await Promise.all([ctx.call('accueil.board'), ctx.call('accueil.layout')]);
       if (!st.alive || my !== st.token) return;
       st.board = board;
       st.layout = layout;
+      st.error = null;
       paintAll();
       o.onComputed?.(board, layout);
-      if (!quiet) ctx.toast('Tableau du parc recalculé depuis la base locale.', { tone: 'ok', life: 2400 });
+      o.onState?.('ready', board);
+      if (!quiet) ctx.toast('Tableau du parc recalculé depuis la base locale, sans lecture réseau.', { tone: 'ok', life: 2400 });
     } catch (err) {
       if (!st.alive || my !== st.token) return;
+      st.error = err;
       paintError(err);
+      o.onState?.('error', null, err);
     } finally {
-      if (my === st.token) {
-        groupsEl.removeAttribute('aria-busy');
-        host.classList.remove('updating');
-      }
+      if (my === st.token && st.alive) setLoading(false);
     }
+  }
+
+  // « Calcul en cours depuis » (improvement of ACC-032): the bar says since when, the cards stay readable underneath.
+  function setLoading(on) {
+    st.loading = on;
+    st.since = on ? (st.since ?? new Date()) : null;
+    if (on) groupsEl.setAttribute('aria-busy', 'true'); else groupsEl.removeAttribute('aria-busy');
+    host.classList.toggle('updating', on && Boolean(st.board));
+    const b = host.querySelector('[data-fw-recompute]');
+    if (b) {
+      b.disabled = on;
+      b.classList.toggle('spinning', on);
+      b.querySelector('span').textContent = on ? 'Calcul en cours…' : 'Recalculer la vue';
+    }
+    clearInterval(sinceTimer);
+    sinceTimer = 0;
+    paintSince();
+    if (on) sinceTimer = setInterval(paintSince, 1000);
+  }
+
+  function paintSince() {
+    const el = host.querySelector('.fw-since');
+    if (!el) return;
+    if (!st.loading || !st.since) { el.hidden = true; return; }
+    const secs = Math.max(0, Math.round((Date.now() - st.since.getTime()) / 1000));
+    el.hidden = false;
+    el.textContent = `Calcul en cours depuis ${new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(st.since)} (${formatNumber(secs)}${NBSP}s)`;
   }
 
   function paintError(err) {
     popEl.innerHTML = '';
+    sigs.clear();
     groupsEl.innerHTML = `<div class="card fw-error reveal" role="alert">${glyph('alert')}<div><h3>Tableau du parc indisponible</h3><p>${esc(reported(err))}</p>`
-      + `${err?.code ? `<span class="code">${esc(err.code)}</span>` : ''}</div><button class="btn sm" type="button" data-fw-retry>${glyph('refresh')}Réessayer</button></div>`;
-    stops.push(reveal(groupsEl));
+      + `${err?.code ? `<span class="code">${esc(err.code)}</span>` : ''}${st.board ? '<p class="fw-error-note">Les chiffres affichés auparavant peuvent dater de la lecture précédente.</p>' : ''}</div>`
+      + `<button class="btn sm" type="button" data-fw-retry>${glyph('refresh')}Réessayer</button></div>`;
+    stopReveal();
+    stopReveal = reveal(groupsEl);
+  }
+
+  /**
+   * Last view of the same base and OU (ACC-035, cache first): while the first calculation runs, its figures fill grey tiles
+   * presented as not recalculated; they go away as soon as the board arrives.
+   */
+  function showLastView(v) {
+    st.lastView = v;
+    if (st.board || st.error || !v?.available || !st.loading) return;
+    const tile = (label, value, sub) => `<div class="fw-last-tile"><span class="fw-last-k">${esc(label)}</span><b class="num">${isNum(value) && value >= 0 ? formatNumber(value) : '—'}</b>${sub ? `<span class="fw-last-sub">${esc(sub)}</span>` : ''}</div>`;
+    groupsEl.innerHTML = `<section class="fw-last" aria-label="Dernière vue enregistrée, non recalculée">
+        <p class="fw-last-head">${glyph('history')}<span><b>Dernière vue</b> · ${esc(localStamp(v.computedAt))} · non recalculée</span><span class="k-spin" aria-hidden="true"></span><span class="fw-last-run">Calcul en cours depuis la base locale…</span></p>
+        <div class="fw-last-tiles">${tile('Postes actifs', v.machines, v.scopeLabel ?? '')}${tile('À traiter', v.problems, 'au calcul enregistré')}</div>
+        <p class="fw-last-note">${esc(String(v.text ?? '').split('\n').slice(1, 2).join(' '))}</p></section>${skeletonGroups()}`;
   }
 
   // ---------- Painting ----------
@@ -107,7 +160,8 @@ export function createBoard(host, o) {
     ];
     if (p.unknown) parts.push(`${formatNumber(p.unknown)}${NBSP}état inconnu`);
     return `<p class="fw-pop-main">${glyph('ou')}<span>${esc(b.scopeLabel ?? '')}</span><span class="dot-sep" aria-hidden="true"></span>${parts.join('<span class="dot-sep" aria-hidden="true"></span>')}</p>`
-      + `<p class="fw-pop-sub" data-tip="${esc(b.summary ?? '')}">Calculé le ${esc(localStamp(b.computedAt))} depuis la base locale, sans lecture réseau${b.scope?.subtree ? ' · sous-OU comprises' : ' · cette OU seulement'}${st.layout?.customized ? ' · disposition personnalisée' : ''}</p>`;
+      + `<p class="fw-pop-sub" data-tip="${esc(b.summary ?? '')}">Calculé le ${esc(localStamp(b.computedAt))} depuis la base locale, sans lecture réseau${b.scope?.subtree ? ' · sous-OU comprises' : ' · cette OU seulement'}${st.layout?.customized ? ' · disposition personnalisée' : ''}</p>`
+      + '<p class="fw-since" aria-live="polite" hidden></p>';
   }
 
   function groupsOf(items) {
@@ -121,67 +175,189 @@ export function createBoard(host, o) {
     return order.map((g) => ({ name: g, items: map.get(g) }));
   }
 
-  function cardMarkup(item, n) {
+  /** Signature of what a card shows: an unchanged card is never repainted (no flicker, no counter from 0). */
+  function signature(item, entry) {
     const b = st.board;
-    const entry = b.entries?.[entryKey(item)];
-    seq += 1;
-    const uid = `fwg-${seq}`;
+    const wide = entry && (entry.kind === 'health' || entry.kind === 'list' || entry.kind === 'value');
+    return JSON.stringify([item, entry ?? null, wide ? [b.health, b.population] : null]);
+  }
+
+  function cardClass(item, entry) {
+    if (!entry) return `card fw size-${item.size}`;
+    const v = visualFor(entry, item);
+    return [`card fw spot size-${item.size} v-${v.toLowerCase()} k-${entry.kind}`, entry.tone === 'off' || !entry.measured ? 'is-dim' : '', item.paused ? 'is-paused' : ''].filter(Boolean).join(' ');
+  }
+
+  function cardInner(item, entry, uid) {
+    const b = st.board;
     if (!entry) {
-      return `<article class="card fw size-${esc(item.size)} reveal" data-item="${esc(item.id)}" data-j="${n}">${head(item, { title: item.title ?? item.key, kind: 'value' })}`
-        + `<div class="fw-body"><div class="fw-empty">${glyph('info')}<span>Widget non calculé pour ce périmètre.</span></div></div></article>`;
+      return `${head(item, { title: item.title ?? item.key, kind: 'value' })}<div class="fw-body"><div class="fw-empty">${glyph('info')}<span>Widget non calculé pour ce périmètre.</span></div></div>`;
     }
     const v = visualFor(entry, item);
-    const cls = [`card fw spot size-${esc(item.size)} v-${v.toLowerCase()} k-${entry.kind}`, entry.tone === 'off' || !entry.measured ? 'is-dim' : '', item.paused ? 'is-paused' : '', 'reveal'].filter(Boolean).join(' ');
-    const toneAttr = entry.tone && entry.tone !== 'off' ? ` data-tone="${esc(tone(entry.tone))}"` : '';
     let body;
     try {
       body = widgetBody(entry, item, b, uid);
     } catch (err) {
-      console.error(`Widget « ${item.key} » : affichage impossible`, err, entry);
-      body = `<div class="fw-empty">${glyph('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher. Les autres widgets ne sont pas concernés.</span></div>`;
+      console.error(`Widget « ${item.key} » : affichage impossible`, err, entry);
+      body = `<div class="fw-empty">${glyph('alert')}<span>Données inattendues${NBSP}: ce widget ne peut pas s’afficher. Les autres widgets ne sont pas concernés.</span></div>`;
     }
     const action = entry.action
       ? `<button class="btn sm${entry.measured ? ' ghost' : ' primary'}" type="button" data-fw-action="${esc(entry.action.id)}" data-tip="${esc(entry.action.tip)}">${glyph(entry.action.id === 'bitlocker' ? 'lock' : 'refresh')}${esc(entry.action.label)}</button>` : '';
     const open = entry.targetsKey && (entry.targets ?? 0) > 0 && v !== 'Kpi'
       ? `<button class="btn sm ghost fw-see" type="button" data-targets="${esc(entry.targetsKey)}" data-targets-label="${esc(entry.title)}">${glyph('monitor')}${plural(entry.targets, 'poste', 'postes')}</button>` : '';
-    return `<article class="${cls}" data-item="${esc(item.id)}" data-entry="${esc(entry.key)}" data-j="${n}"${toneAttr} aria-labelledby="${uid}-t"><span class="fw-accent" aria-hidden="true"></span>${head(item, entry, uid)}`
-      + `<div class="fw-body">${body}</div>`
-      + `<footer class="fw-foot">${v === 'HealthSummary' ? '<span class="fw-detail"></span>' : `<p class="fw-detail">${esc(entry.detail)}</p>`}${action || open ? `<div class="fw-foot-act">${action}${open}</div>` : ''}</footer></article>`;
+    return `<span class="fw-accent" aria-hidden="true"></span>${head(item, entry, uid)}<div class="fw-body">${body}</div>`
+      + `<footer class="fw-foot">${v === 'HealthSummary' ? '<span class="fw-detail"></span>' : `<p class="fw-detail">${esc(entry.detail)}</p>`}${action || open ? `<div class="fw-foot-act">${action}${open}</div>` : ''}</footer>`;
+  }
+
+  /** Writes the card of one item (new article, or the same article updated in place). */
+  function fillCard(card, item, n) {
+    const entry = st.board.entries?.[entryKey(item)] ?? null;
+    seq += 1;
+    const uid = `fwg-${seq}`;
+    const fresh = !card.dataset.item;
+    const keep = card.classList.contains('revealed') || card.classList.contains('in') ? (card.classList.contains('revealed') ? ' revealed' : ' reveal in') : (fresh ? ' reveal' : '');
+    card.className = cardClass(item, entry) + keep;
+    card.dataset.item = item.id;
+    card.dataset.j = String(n);
+    if (entry) { card.dataset.entry = entry.key; card.setAttribute('aria-labelledby', `${uid}-t`); } else { delete card.dataset.entry; card.removeAttribute('aria-labelledby'); }
+    if (entry?.tone && entry.tone !== 'off') card.dataset.tone = tone(entry.tone); else delete card.dataset.tone;
+    card.innerHTML = cardInner(item, entry, uid);
+    sigs.set(item.id, signature(item, entry));
   }
 
   function head(item, entry, uid = '') {
     const chips = [];
-    if (item.paused) chips.push('<span class="k-pill sm warn" data-tip="Non relevé à la prochaine actualisation ; la dernière valeur reste affichée">En pause</span>');
+    if (item.paused) chips.push('<span class="k-pill sm warn" data-tip="Non relevé à la prochaine actualisation ; la dernière valeur reste affichée">En pause</span>');
     else if (entry.tone === 'off' && entry.measured) chips.push('<span class="k-pill sm off" data-tip="Mesure ancienne ou couverture partielle">Ancien</span>');
     if (entry.subtitle && entry.measured) chips.push(`<span class="fw-cov" data-tip="${esc(entry.subtitle)}">${esc(entry.subtitle)}</span>`);
     return `<header class="fw-head">
-        <button class="fw-grip" type="button" data-fw-grip aria-label="Déplacer « ${esc(entry.title)} » (Alt + flèches)" data-tip="Glisser pour déplacer · Alt + flèches">${glyph('grip')}</button>
+        <button class="fw-grip" type="button" data-fw-grip aria-label="Déplacer «${NBSP}${esc(entry.title)}${NBSP}» (Alt + flèches)" data-tip="Glisser pour déplacer · Alt + flèches">${glyph('grip')}</button>
         <span class="fw-ico" aria-hidden="true">${glyph(widgetGlyph(entry, item))}</span>
         <div class="fw-titles"><h3${uid ? ` id="${uid}-t"` : ''}>${esc(entry.title)}</h3>${chips.length ? `<div class="fw-chips">${chips.join('')}</div>` : ''}</div>
         <button class="btn ghost icon sm fw-menu" type="button" data-fw-menu aria-haspopup="menu" aria-label="Options du widget ${esc(entry.title)}" data-tip="Options du widget">${glyph('more')}</button>
       </header>`;
   }
 
+  /**
+   * Fills the rows of a section (« remplir la rangée automatiquement »): items are placed in order on a 12-column grid, then the
+   * room left on each row goes to its smallest cards, each one growing to twice its size at most. Three grids, one per width
+   * band of the stylesheet (--span-w ≥ 1500 px, --span-m ≥ 1000 px, --span-n below).
+   */
+  function rowSpans(items, base) {
+    const spans = items.map((i) => base[i.size] ?? base.M);
+    const rows = [];
+    let row = [];
+    let used = 0;
+    spans.forEach((span, n) => {
+      if (used + span > 12 && row.length) { rows.push(row); row = []; used = 0; }
+      row.push(n);
+      used += span;
+    });
+    if (row.length) rows.push(row);
+    for (const r of rows) {
+      let left = 12 - r.reduce((sum, n) => sum + spans[n], 0);
+      while (left > 0) {
+        const grow = r.filter((n) => spans[n] < Math.min(12, 2 * (base[items[n].size] ?? base.M)));
+        if (!grow.length) break;
+        const n = grow.reduce((a, b) => (spans[b] <= spans[a] ? b : a));
+        spans[n] += 1;
+        left -= 1;
+      }
+    }
+    return spans;
+  }
+
+  function applySpans(grid, items) {
+    const wide = rowSpans(items, { S: 3, M: 6, L: 12 });
+    const mid = rowSpans(items, { S: 4, M: 6, L: 12 });
+    const narrow = rowSpans(items, { S: 6, M: 12, L: 12 });
+    [...grid.children].forEach((card, n) => {
+      if (n >= items.length) return;
+      card.style.setProperty('--span-w', String(wide[n]));
+      card.style.setProperty('--span-m', String(mid[n]));
+      card.style.setProperty('--span-n', String(narrow[n]));
+    });
+  }
+
+  /**
+   * Board painted from its data, keeping the DOM (ACC-037: computed again every 15 s during a refresh): sections and cards are
+   * matched by name and item id; an unchanged card is left alone; a changed one is rewritten in place without its entrance and
+   * its figures count from their previous value; only new cards enter.
+   */
   function paintAll() {
     const b = st.board;
     const items = st.layout?.items ?? [];
     popEl.innerHTML = populationLine(b);
     paint(popEl);
+    paintSince();
+    groupsEl.querySelector('.fw-last')?.remove();
+    groupsEl.querySelectorAll(':scope > .fw-skeleton, :scope > .fw-error, :scope > .fw-empty-board').forEach((x) => x.remove());
     if (!items.length) {
-      groupsEl.innerHTML = `<div class="card fw-error reveal">${glyph('layers')}<div><h3>Aucun widget</h3><p>La disposition est vide : ajoutez des widgets du catalogue ou rétablissez la disposition livrée.</p></div>`
+      sigs.clear();
+      groupsEl.innerHTML = `<div class="card fw-error fw-empty-board reveal">${glyph('layers')}<div><h3>Aucun widget</h3><p>La disposition est vide${NBSP}: ajoutez des widgets du catalogue ou rétablissez la disposition livrée.</p></div>`
         + `<button class="btn sm primary" type="button" data-fw-tool="catalog">${glyph('plus')}Ajouter un widget</button></div>`;
-      stops.push(reveal(groupsEl));
+      stopReveal();
+      stopReveal = reveal(groupsEl);
       return;
     }
     const hints = Array.isArray(b.hints) ? b.hints : [];
-    groupsEl.innerHTML = groupsOf(items).map((g, gi) => {
-      const hint = hints.filter((h) => h.group === g.name).map((h) => `<div class="fw-hint">${glyph('info')}<span>${esc(h.text)}</span>`
+    const groups = groupsOf(items);
+    const wanted = new Set(groups.map((g) => g.name));
+    groupsEl.querySelectorAll(':scope > .fw-group').forEach((sec) => { if (!wanted.has(sec.dataset.group)) sec.remove(); });
+    const changed = [];
+    const added = [];
+    let prev = null;
+    groups.forEach((g, gi) => {
+      let sec = [...groupsEl.querySelectorAll(':scope > .fw-group')].find((x) => x.dataset.group === g.name);
+      if (!sec) {
+        sec = document.createElement('section');
+        sec.className = 'fw-group';
+        sec.dataset.group = g.name;
+        sec.innerHTML = `<h3 class="fw-group-title"><span></span><span class="fw-group-count"></span></h3><div class="fw-hints"></div><div class="fw-grid"></div>`;
+      }
+      if ((prev ? prev.nextElementSibling : groupsEl.firstElementChild) !== sec) {
+        if (prev) prev.after(sec); else groupsEl.prepend(sec);
+      }
+      prev = sec;
+      sec.dataset.i = String(gi);
+      sec.setAttribute('aria-labelledby', `fwg-h-${gi}`);
+      const title = sec.querySelector('.fw-group-title');
+      title.id = `fwg-h-${gi}`;
+      title.firstElementChild.textContent = g.name;
+      title.lastElementChild.textContent = plural(g.items.length, 'widget', 'widgets');
+      const hintsEl = sec.querySelector('.fw-hints');
+      const hintHtml = hints.filter((h) => h.group === g.name).map((h) => `<div class="fw-hint">${glyph('info')}<span>${esc(h.text)}</span>`
         + `${h.action ? `<button class="btn sm" type="button" data-fw-action="${esc(h.action.id)}" data-tip="${esc(h.action.tip)}">${glyph('refresh')}${esc(h.action.label)}</button>` : ''}</div>`).join('');
-      return `<section class="fw-group" data-group="${esc(g.name)}" data-i="${gi}" aria-labelledby="fwg-h-${gi}">
-          <h3 class="fw-group-title" id="fwg-h-${gi}"><span>${esc(g.name)}</span><span class="fw-group-count">${plural(g.items.length, 'widget', 'widgets')}</span></h3>
-          ${hint}<div class="fw-grid">${g.items.map((it, n) => cardMarkup(it, n)).join('')}</div></section>`;
-    }).join('');
+      if (hintsEl.innerHTML !== hintHtml) hintsEl.innerHTML = hintHtml;
+      const grid = sec.querySelector('.fw-grid');
+      const ids = new Set(g.items.map((i) => i.id));
+      grid.querySelectorAll(':scope > .card.fw').forEach((c) => { if (!ids.has(c.dataset.item)) { sigs.delete(c.dataset.item); c.remove(); } });
+      let before = null;
+      g.items.forEach((item, n) => {
+        let card = [...grid.children].find((c) => c.dataset.item === item.id);
+        const entry = b.entries?.[entryKey(item)] ?? null;
+        if (!card) {
+          card = document.createElement('article');
+          fillCard(card, item, n);
+          added.push(card);
+        } else if (sigs.get(item.id) !== signature(item, entry)) {
+          const previous = currentValues(card);
+          fillCard(card, item, n);
+          // Kept until the next change: the rewritten content never replays its entrance (no flicker every 15 s).
+          card.classList.add('is-update');
+          changed.push([card, previous]);
+        } else {
+          card.dataset.j = String(n);
+        }
+        if ((before ? before.nextElementSibling : grid.firstElementChild) !== card) {
+          if (before) before.after(card); else grid.prepend(card);
+        }
+        before = card;
+      });
+      applySpans(grid, g.items);
+    });
     // Hints of a section without widget on the board stay visible under the last section.
+    groupsEl.querySelector(':scope > .fw-hints-rest')?.remove();
     const orphan = hints.filter((h) => !items.some((i) => (i.group || 'Autres widgets') === h.group));
     if (orphan.length) {
       groupsEl.insertAdjacentHTML('beforeend', `<div class="fw-hints-rest">${orphan.map((h) => `<div class="fw-hint">${glyph('info')}<span><b>${esc(h.group)}</b> · ${esc(h.text)}</span>`
@@ -189,15 +365,26 @@ export function createBoard(host, o) {
     }
     paint(groupsEl);
     host.classList.toggle('editing', st.editing);
-    stops.push(reveal(groupsEl, { onIn: (el, n) => runCounters(el, n) }));
-    // Cards already shown (reduced motion, or the reveal released them) count at once.
-    groupsEl.querySelectorAll('.card.fw:not(.reveal)').forEach((el) => runCounters(el, 0));
+    changed.forEach(([card, previous]) => runCounters(card, 0, previous));
+    // Only the new cards enter (one observer at a time: the previous one is stopped first).
+    if (added.length) {
+      stopReveal();
+      stopReveal = reveal(groupsEl, { onIn: (el, n) => runCounters(el, n) });
+    }
+    added.filter((el) => !el.classList.contains('reveal')).forEach((el) => runCounters(el, 0));
   }
 
-  function runCounters(card, n) {
-    const delay = n * cssMs('--stagger', 55) + 160;
-    card.querySelectorAll('[data-count]').forEach((el) => {
-      countUp(el, Number(el.dataset.count), { decimals: Number(el.dataset.dec ?? 0), suffix: el.dataset.suffix ?? '', delay });
+  function currentValues(card) {
+    const map = new Map();
+    card.querySelectorAll('[data-count]').forEach((el, k) => map.set(k, Number(el.textContent.replace(/[^\d,.-]/g, '').replace(',', '.'))));
+    return map;
+  }
+
+  function runCounters(card, n, previous = null) {
+    const delay = previous ? 0 : n * cssMs('--stagger', 55) + 160;
+    card.querySelectorAll('[data-count]').forEach((el, k) => {
+      const from = previous?.get(k);
+      countUp(el, Number(el.dataset.count), { decimals: Number(el.dataset.dec ?? 0), suffix: el.dataset.suffix ?? '', delay, from: Number.isFinite(from) ? from : 0 });
     });
   }
 
@@ -258,8 +445,8 @@ export function createBoard(host, o) {
     const it = itemOf(id);
     if (!it) return;
     const title = cardTitle(id);
-    save(st.layout.items.filter((i) => i.id !== id), { recompute: false, message: `Widget « ${title} » retiré.` });
-    ctx.toast(`Widget « ${title} » retiré du tableau. « Annuler » le remet${st.editing ? '' : ' (mode Personnaliser)'}.`, { tone: 'info', life: 3600 });
+    save(st.layout.items.filter((i) => i.id !== id), { recompute: false, message: `Widget « ${title} » retiré.` });
+    ctx.toast(`Widget « ${title} » retiré du tableau. « Annuler » le remet${st.editing ? '' : ' (mode Personnaliser)'}.`, { tone: 'info', life: 3600 });
   }
 
   /** Moves an item within its section; delta -1 / +1. */
@@ -318,18 +505,22 @@ export function createBoard(host, o) {
     const original = entry && it.title ? null : entry?.title;
     const form = document.createElement('form');
     form.dataset.page = 'accueil';
-    form.className = 'acc-surface fw-rename';
-    form.innerHTML = `<label class="fw-field"><span>Titre affiché</span><input class="input" type="text" maxlength="80" autocomplete="off" spellcheck="true" value="${esc(it.title ?? entry?.title ?? '')}"></label>
-      <p class="fw-field-note">Vide : titre d’origine${original ? ` («${NBSP}${esc(original)}${NBSP}»)` : ''}. 80 caractères au plus.</p>`;
+    form.className = 'acc-surface k-form fw-rename';
+    form.innerHTML = field({
+      name: 'title', label: 'Titre affiché', value: it.title ?? entry?.title ?? '', maxLength: 80,
+      hint: `Vide${NBSP}: titre d’origine${original ? ` («${NBSP}${original}${NBSP}»)` : ''}. 80 caractères au plus.`,
+    });
+    let text = null;
     const d = openDialog({
       title: 'Renommer le widget', icon: 'edit', size: 'sm', body: form,
-      actions: [{ id: 'cancel', label: 'Annuler' }, { id: 'ok', label: 'Renommer', primary: true }],
+      actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: 'Renommer', primary: true }],
     });
-    form.querySelector('input').select();
-    form.addEventListener('submit', (e) => { e.preventDefault(); d.close('ok'); });
+    const f = createForm(form, { onSubmit: (values) => { text = String(values.title ?? '').trim(); d.close('ok'); } });
+    form.querySelector('input')?.select();
     const r = await d.result;
-    if (r !== 'ok') return;
-    const text = form.querySelector('input').value.trim();
+    if (r === 'ok' && text === null && f.validate()) text = String(f.values().title ?? '').trim();
+    f.destroy?.();
+    if (r !== 'ok' || text === null) return;
     patch(id, { title: text || null }, { message: 'Titre du widget changé.' });
   }
 
@@ -343,11 +534,11 @@ export function createBoard(host, o) {
     const current = entry ? visualFor(entry, it) : it.visual;
     const visuals = (VISUALS[kind] ?? ['Kpi']).map((v) => ({
       label: VISUAL_LABEL[v] ?? v, radio: `v-${id}`, checked: v === current,
-      run: () => { if (v !== current) patch(id, { visual: v }, { message: `Représentation : ${VISUAL_LABEL[v]}.` }); },
+      run: () => { if (v !== current) patch(id, { visual: v }, { message: `Représentation : ${VISUAL_LABEL[v]}.` }); },
     }));
     const sizes = ['S', 'M', 'L'].map((s) => ({
       label: SIZE_LABEL[s], radio: `s-${id}`, checked: it.size === s,
-      run: () => { if (s !== it.size) patch(id, { size: s }, { message: `Taille : ${SIZE_LABEL[s]}.` }); },
+      run: () => { if (s !== it.size) patch(id, { size: s }, { message: `Taille : ${SIZE_LABEL[s]}.` }); },
     }));
     const items = [];
     if (entry?.targetsKey && (entry.targets ?? 0) > 0) {
@@ -383,7 +574,7 @@ export function createBoard(host, o) {
         st.layout = layout;
         syncUndo();
         await load();
-        ctx.toast(preset ? `Disposition « ${preset.label} » appliquée : ses widgets passent en tête.` : 'Disposition livrée rétablie.', { tone: 'ok', life: 3000 });
+        ctx.toast(preset ? `Disposition « ${preset.label} » appliquée : ses widgets passent en tête.` : 'Disposition livrée rétablie.', { tone: 'ok', life: 3000 });
       } catch (err) {
         ctx.toast(reported(err), { tone: 'alert' });
       }
@@ -410,7 +601,7 @@ export function createBoard(host, o) {
     host.querySelector('.fw-edit-note').hidden = !st.editing;
     host.classList.toggle('editing', st.editing);
     syncUndo();
-    announce(st.editing ? 'Mode personnalisation : poignées de déplacement affichées.' : 'Personnalisation terminée.');
+    announce(st.editing ? 'Mode personnalisation : poignées de déplacement affichées.' : 'Personnalisation terminée.');
   }
 
   // ---------- Dragging (pointer) ----------
@@ -514,6 +705,8 @@ export function createBoard(host, o) {
     if (t.closest('[data-fw-edit]')) { setEditing(!st.editing); return; }
     if (t.closest('[data-fw-undo]')) { undo(); return; }
     if (t.closest('[data-fw-retry]')) { load(); return; }
+    const recompute = t.closest('[data-fw-recompute]');
+    if (recompute && !recompute.disabled) { load({ quiet: false }); return; }
     const tool = t.closest('[data-fw-tool]');
     if (tool) {
       if (tool.dataset.fwTool === 'presets') presetsMenu(tool);
@@ -551,9 +744,12 @@ export function createBoard(host, o) {
     has: (source, key) => Boolean(st.layout?.items.some((i) => i.source === source && i.key === key)),
     count: () => st.layout?.items.length ?? 0,
     max: () => st.layout?.max ?? 64,
+    showLastView,
+    loading: () => st.loading,
     destroy() {
       st.alive = false;
-      stops.forEach((s) => s());
+      stopReveal();
+      clearInterval(sinceTimer);
     },
   };
 }

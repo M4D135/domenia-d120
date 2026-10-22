@@ -1,6 +1,8 @@
+using System.Collections.Immutable;
 using System.Text.Json;
 using Domenia.Core;
 using Domenia.Core.Accueil;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
@@ -374,6 +376,317 @@ internal static class AccueilTests
         Check.Equal(412, view.GetProperty("machines").GetInt32(), "compte des postes, jamais un nom");
     }
 
+    // ---------------------------------------------------------------- tour 1 (critique du 22/10): refresh rules, sets, records
+
+    [Test]
+    public static void Refresh_admission_refuses_new_collections()
+    {
+        Check.Null(RefreshRules.Refusal(new RefreshAdmission(false, 0, false, 0, 10L * 1024 * 1024 * 1024)), "aucun refus");
+        Check.Contains("mesure de widget", RefreshRules.Refusal(new RefreshAdmission(true, 1, false, 0, null)), "mesure en cours");
+        Check.Contains("BitLocker", RefreshRules.Refusal(new RefreshAdmission(true, 0, true, 0, null)), "lecture BitLocker en cours");
+        Check.Contains("Enregistrement local suspendu", RefreshRules.Refusal(new RefreshAdmission(true, 0, false, 3, null)), "trois échecs d’écriture");
+        Check.Null(RefreshRules.Refusal(new RefreshAdmission(true, 0, false, 2, null)), "deux échecs : encore admis");
+        Check.Contains("insuffisant", RefreshRules.Refusal(new RefreshAdmission(false, 0, false, 0, 400L * 1024 * 1024)), "moins de 512 Mio");
+        Check.Contains("critique", RefreshRules.Refusal(new RefreshAdmission(false, 0, false, 0, 10L * 1024 * 1024)), "moins de 32 Mio");
+        Check.Null(RefreshRules.Refusal(new RefreshAdmission(true, 0, false, 0, 10L * 1024 * 1024)), "la simulation n’écrit rien sur le disque");
+        Check.Null(RefreshRules.Refusal(new RefreshAdmission(false, 0, false, 0, null)), "espace non mesuré : rien n’est bloqué");
+    }
+
+    [Test]
+    public static void Only_what_is_missing_is_collected()
+    {
+        var now = TestClock.Reference;
+        Guid G(int n) => new("00000000-0000-4000-8000-" + n.ToString("D12", System.Globalization.CultureInfo.InvariantCulture));
+        WorkstationObservation O(int n, InventoryMeasure inventory) => new(G(n), PresenceMeasure.Unread, inventory);
+        var fresh = InventoryMeasure.Unread with { State = MeasureState.Known, CheckedAt = now - TimeSpan.FromDays(3) };
+        var old = fresh with { CheckedAt = now - TimeSpan.FromDays(40) };
+        var failed = fresh with { State = MeasureState.Error };
+        var future = fresh with { CheckedAt = now + TimeSpan.FromMinutes(10) };
+        var observations = new Dictionary<Guid, WorkstationObservation> { [G(1)] = O(1, fresh), [G(2)] = O(2, old), [G(3)] = O(3, failed), [G(5)] = O(5, future) };
+        var since = now - TimeSpan.FromDays(RefreshRules.ReuseDays);
+        var missing = RefreshRules.Missing([G(1), G(2), G(3), G(4), G(5)], observations, ProbeReadings.Empty, [], since, now);
+        Check.True(missing.SequenceEqual([G(2), G(3), G(4), G(5)]), "ancien, en erreur, absent et daté dans le futur : relus ; récent : réutilisé");
+        Check.Equal(5, RefreshRules.Missing([G(1), G(2), G(3), G(4), G(5)], observations, ProbeReadings.Empty, [], null, now).Length, "« Tout relire » : rien n’est réutilisé");
+        var probes = ProbeReadings.Empty.Merge(new ProbeReadings(ImmutableDictionary<string, ImmutableDictionary<Guid, ProbeReading>>.Empty.Add("disk.free",
+            ImmutableDictionary<Guid, ProbeReading>.Empty.Add(G(9), new ProbeReading(MeasureState.Known, now - TimeSpan.FromDays(1), ["42"], null)))));
+        observations[G(9)] = O(9, fresh);
+        Check.True(RefreshRules.Missing([G(1), G(9)], observations, probes, ["disk.free"], since, now).SequenceEqual([G(1)]), "sonde du plan absente : poste contacté");
+    }
+
+    [Test]
+    public static async Task Wmi_reads_only_the_workstations_that_answered_the_ping()
+    {
+        var bridge = new SimulatedBridge();
+        var before = await bridge.Source.ReadLocalAsync(CancellationToken.None);
+        bridge.Clock.Advance(TimeSpan.FromDays(40));
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"inventory\"}"));
+        var report = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() })));
+        Check.Equal("success", report.GetProperty("status").GetString(), "relevé réussi");
+        var after = await bridge.Source.ReadLocalAsync(CancellationToken.None);
+        var start = TestClock.Reference + TimeSpan.FromDays(40);
+        var redated = after.Observations.Workstations.Where(o => o.Inventory.CheckedAt >= start).ToList();
+        Check.True(redated.Count > 0, "des inventaires relus");
+        Check.True(redated.All(o => o.Presence.Answered == true && o.Presence.CheckedAt >= start), "WMI relu seulement sur les postes qui ont répondu au ping de ce relevé");
+        var silent = after.Observations.Workstations.Where(o => o.Presence.HasReading && o.Presence.Answered == false && o.Inventory.HasReading).ToList();
+        Check.True(silent.All(o => o.Inventory.CheckedAt == before.Observations.Workstations.First(b => b.ComputerGuid == o.ComputerGuid).Inventory.CheckedAt),
+            "poste sans réponse au ping : date WMI inchangée");
+    }
+
+    [Test]
+    public static async Task Up_to_date_workstations_are_not_contacted_unless_forced()
+    {
+        var bridge = new SimulatedBridge();
+        var first = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"inventory\"}"));
+        await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = first.GetProperty("id").GetString() }));
+        var second = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"inventory\"}"));
+        Check.True(second.GetProperty("reused").GetInt32() > 0, "postes déjà à jour comptés au plan");
+        var report = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = second.GetProperty("id").GetString() })));
+        var stage = report.GetProperty("stages").EnumerateArray().First(st => st.GetProperty("id").GetString() == "inventory");
+        Check.Contains("déjà à jour", stage.GetProperty("detail").GetString(), "« déjà à jour, non contactés »");
+        var third = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"inventory\"}"));
+        var forced = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = third.GetProperty("id").GetString(), force = true })));
+        Check.True(forced.GetProperty("forced").GetBoolean(), "« Tout relire »");
+        var forcedStage = forced.GetProperty("stages").EnumerateArray().First(st => st.GetProperty("id").GetString() == "inventory");
+        Check.False(forcedStage.GetProperty("detail").GetString()!.Contains("déjà à jour", StringComparison.Ordinal), "rien n’est réutilisé");
+        Check.Equal("arguments.invalid", (await bridge.CallAsync("accueil.refresh.run", "{\"planId\":\"" + new string('a', 32) + "\",\"force\":\"oui\"}")).Error!.Code, "force booléen");
+    }
+
+    [Test]
+    public static async Task A_refresh_plan_expires_and_follows_the_working_OU()
+    {
+        var bridge = new SimulatedBridge();
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}"));
+        bridge.Clock.Advance(TimeSpan.FromMinutes(6));
+        Check.Equal("refresh.planExpired", (await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() }))).Error!.Code, "plan expiré après 5 min");
+        var other = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}"));
+        await bridge.CallAsync("session.setScope", JsonSerializer.Serialize(new { dn = "OU=Lyon," + Postes, subtree = true }));
+        Check.Equal("refresh.scopeChanged", (await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = other.GetProperty("id").GetString() }))).Error!.Code, "OU changée depuis le plan");
+        Check.Equal("arguments.invalid", (await bridge.CallAsync("accueil.refresh.run", "{\"planId\":\"ABC\"}")).Error!.Code, "identifiant de plan : 32 caractères hexadécimaux");
+        Check.Equal("arguments.invalid", (await bridge.CallAsync("accueil.refresh.run", "{\"planId\":\"" + new string('A', 32) + "\"}")).Error!.Code, "minuscules seulement");
+    }
+
+    [Test]
+    public static async Task Directory_mode_refuses_an_AD_read_without_a_verified_backup()
+    {
+        var bridge = new SimulatedBridge();
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"all\"}"));
+        var backup = plan.GetProperty("stages")[0];
+        Check.Equal("backup", backup.GetProperty("id").GetString(), "sauvegarde en tête");
+        Check.Contains("Sans objet en simulation", backup.GetProperty("detail").GetString(), "le plan ne promet pas de sauvegarde en simulation");
+        var report = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() })));
+        Check.Equal("na", report.GetProperty("stages")[0].GetProperty("state").GetString(), "étape « sans objet », jamais « terminée »");
+        Check.Equal(AccueilService.RefreshBackupUnavailable, "refresh.backupUnavailable", "code du refus en mode annuaire");
+    }
+
+    [Test]
+    public static async Task A_query_widget_refuses_the_WMI_collection()
+    {
+        var bridge = new SimulatedBridge();
+        var layout = SimulatedBridge.Json(await bridge.CallAsync("accueil.layout"));
+        var items = layout.GetProperty("items").EnumerateArray().Select(i => new { id = i.GetProperty("id").GetString()!, source = i.GetProperty("source").GetString()!, key = i.GetProperty("key").GetString()!, visual = i.GetProperty("visual").GetString()!, size = i.GetProperty("size").GetString()! }).ToList();
+        items.Add(new { id = "q-1", source = "query", key = "mes.postes", visual = "Kpi", size = "S" });
+        await bridge.CallAsync("accueil.layout.save", JsonSerializer.Serialize(new { items }));
+        Check.Equal("refresh.queryMissing", (await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"inventory\"}")).Error!.Code, "requête absente : refus explicite");
+        Check.Equal("result", (await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}")).Kind, "le ping seul reste possible");
+    }
+
+    [Test]
+    public static async Task Layout_save_is_bounded_to_64_widgets()
+    {
+        var bridge = new SimulatedBridge();
+        var items = Enumerable.Range(0, 65).Select(n => new { id = "b-" + n, source = "builtin", key = "fleet.machines", visual = "Kpi", size = "S" });
+        Check.Equal("arguments.invalid", (await bridge.CallAsync("accueil.layout.save", JsonSerializer.Serialize(new { items }))).Error!.Code, "65 widgets refusés");
+        var ok = SimulatedBridge.Json(await bridge.CallAsync("accueil.layout.save", JsonSerializer.Serialize(new { items = items.Take(64) })));
+        Check.Equal(64, ok.GetProperty("items").GetArrayLength(), "64 widgets admis");
+    }
+
+    [Test]
+    public static async Task Exact_sets_refuse_a_replaced_or_unknown_calculation()
+    {
+        var bridge = new SimulatedBridge();
+        var board = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+        var revision = board.GetProperty("revision").GetString();
+        var rows = SimulatedBridge.Json(await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision, key = "fleet.enabled" })));
+        var row = rows.GetProperty("rows")[0];
+        Check.True(row.TryGetProperty("score", out _) && row.TryGetProperty("alerts", out _), "score du poste dans la liste exacte");
+        Check.Equal("targets.unknown", (await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision, key = "inconnu" }))).Error!.Code, "ensemble inconnu");
+        await bridge.CallAsync("accueil.board");
+        Check.Equal("board.replaced", (await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision, key = "fleet.enabled" }))).Error!.Code, "calcul remplacé");
+    }
+
+    [Test]
+    public static async Task Machine_scores_and_missing_collection_follow_the_health_rules()
+    {
+        Check.Equal(100, FleetBoardCalculator.MachineScore(0, 0), "sans point");
+        Check.Equal(65, FleetBoardCalculator.MachineScore(1, 1), "100 − 25 − 10");
+        Check.Equal(0, FleetBoardCalculator.MachineScore(5, 0), "jamais sous 0");
+        var bridge = new SimulatedBridge();
+        var board = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+        var explain = SimulatedBridge.Json(await bridge.CallAsync("accueil.health.explain"));
+        Check.Equal(board.GetProperty("revision").GetString(), explain.GetProperty("revision").GetString(), "explication liée au calcul affiché");
+        Check.False(explain.GetProperty("summary").GetString()!.Contains("Évaluables", StringComparison.Ordinal), "colonne nommée comme à l’écran");
+        var lacking = explain.GetProperty("rows").EnumerateArray().FirstOrDefault(r => r.GetProperty("missing").GetInt32() > 0);
+        if (lacking.ValueKind == JsonValueKind.Object)
+        {
+            var set = SimulatedBridge.Json(await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision = explain.GetProperty("revision").GetString(), key = lacking.GetProperty("missingKey").GetString() })));
+            Check.Equal(lacking.GetProperty("missing").GetInt32(), set.GetProperty("total").GetInt32(), "« Voir la collecte manquante » : les postes exacts, sans collecte");
+        }
+        var problems = SimulatedBridge.Json(await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision = board.GetProperty("revision").GetString(), key = "fleet.health|Problèmes" })));
+        Check.True(problems.GetProperty("rows").EnumerateArray().All(r => r.GetProperty("score").GetInt32() < 100), "un poste avec problème a un score sous 100");
+        var unknown = SimulatedBridge.Json(await bridge.CallAsync("accueil.targets", JsonSerializer.Serialize(new { revision = board.GetProperty("revision").GetString(), key = "fleet.health|Incomplets" })));
+        Check.True(unknown.GetProperty("rows").EnumerateArray().All(r => r.GetProperty("score").ValueKind == JsonValueKind.Null), "poste non évalué : aucun score");
+    }
+
+    [Test]
+    public static async Task A_stopped_refresh_skips_its_stages_and_can_be_resumed()
+    {
+        var bridge = new SimulatedBridge(SimulationLatency.Realistic);
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"all\"}"));
+        var running = bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() }));
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!bridge.Events.Any(e => e.Operation == "accueil.refresh.run:progress") && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+        Check.Equal("refresh.running", (await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}")).Error!.Code, "une seule actualisation à la fois");
+        var stop = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.stop"));
+        Check.True(stop.GetProperty("stopping").GetBoolean(), "arrêt demandé");
+        var report = SimulatedBridge.Json(await running);
+        Check.Equal("cancelled", report.GetProperty("status").GetString(), "compte rendu « arrêtée »");
+        Check.True(report.GetProperty("stages").EnumerateArray().Any(st => st.GetProperty("state").GetString() is "skipped" or "stopped"), "étapes non lancées publiées");
+        Check.True(report.GetProperty("resumable").GetBoolean(), "reprise proposée");
+        var resume = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"resume\"}"));
+        Check.True(resume.GetProperty("stages").GetArrayLength() > 0, "étapes restantes seulement");
+        Check.Equal(report.GetProperty("id").GetString(), resume.GetProperty("resumeOf").GetString(), "reprise de l’actualisation interrompue");
+    }
+
+    [Test]
+    public static async Task Nothing_to_resume_after_a_finished_refresh()
+    {
+        var bridge = new SimulatedBridge();
+        Check.Equal("refresh.nothingToResume", (await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"resume\"}")).Error!.Code, "aucune actualisation");
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}"));
+        await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() }));
+        Check.Equal("refresh.nothingToResume", (await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"resume\"}")).Error!.Code, "actualisation terminée : rien à reprendre");
+    }
+
+    [Test]
+    public static async Task First_steps_go_away_for_good_once_finished()
+    {
+        var preferences = new MemoryPreferenceStore();
+        var bridge = new SimulatedBridge(preferences: preferences);
+        await bridge.CallAsync("accueil.board");
+        var steps = SimulatedBridge.Json(await bridge.CallAsync("accueil.firstSteps"));
+        Check.True(steps.GetProperty("finished").GetBoolean(), "quatre étapes faites : carte terminée");
+        var again = new SimulatedBridge(preferences: preferences);
+        Check.True(SimulatedBridge.Json(await again.CallAsync("accueil.firstSteps")).GetProperty("finished").GetBoolean(), "mémorisé (Home.FirstStepsDone)");
+    }
+
+    [Test]
+    public static async Task Last_view_is_written_when_it_changes_or_once_a_minute()
+    {
+        var preferences = new CountingPreferenceStore();
+        var bridge = new SimulatedBridge(preferences: preferences);
+        for (var k = 0; k < 3; k++)
+        {
+            var board = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+            await bridge.CallAsync("accueil.lastView.save", JsonSerializer.Serialize(new { revision = board.GetProperty("revision").GetString() }));
+        }
+        Check.Equal(1, preferences.Writes.Count(k => k.StartsWith("accueil.lastView.", StringComparison.Ordinal)), "mêmes chiffres : une seule écriture");
+        bridge.Clock.Advance(TimeSpan.FromMinutes(2));
+        var later = SimulatedBridge.Json(await bridge.CallAsync("accueil.board"));
+        await bridge.CallAsync("accueil.lastView.save", JsonSerializer.Serialize(new { revision = later.GetProperty("revision").GetString() }));
+        Check.Equal(2, preferences.Writes.Count(k => k.StartsWith("accueil.lastView.", StringComparison.Ordinal)), "une minute plus tard : réécrite");
+    }
+
+    [Test]
+    public static async Task Runs_and_snapshots_are_kept_in_the_local_preferences()
+    {
+        var preferences = new MemoryPreferenceStore();
+        var bridge = new SimulatedBridge(preferences: preferences);
+        var before = SimulatedBridge.Json(await bridge.CallAsync("accueil.collections")).GetProperty("total").GetInt32();
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}"));
+        await bridge.CallAsync("accueil.refresh.run", JsonSerializer.Serialize(new { planId = plan.GetProperty("id").GetString() }));
+        await bridge.CallAsync("accueil.snapshot.take", "{\"label\":\"Avant\"}");
+        var again = new SimulatedBridge(preferences: preferences);
+        Check.Equal(before + 1, SimulatedBridge.Json(await again.CallAsync("accueil.collections")).GetProperty("total").GetInt32(), "relevé relu au démarrage suivant");
+        var list = SimulatedBridge.Json(await again.CallAsync("accueil.analysis.snapshots"));
+        Check.True(list.GetProperty("items").EnumerateArray().Any(i => i.GetProperty("kind").GetString() == "manual" && i.GetProperty("label").GetString()!.StartsWith("Avant", StringComparison.Ordinal)), "instantané manuel relu");
+    }
+
+    [Test]
+    public static async Task Failed_local_writes_suspend_new_collections()
+    {
+        var bridge = new SimulatedBridge(preferences: new FailingPreferenceStore());
+        for (var k = 0; k < 3; k++)
+        {
+            await bridge.CallAsync("accueil.firstSteps.dismiss", "{\"dismissed\":true}");
+        }
+        var refused = await bridge.CallAsync("accueil.refresh.plan", "{\"mode\":\"presence\"}");
+        Check.Equal(RefreshRules.Refused, refused.Error!.Code, "trois échecs : nouvelles collectes suspendues");
+        var details = SimulatedBridge.Json(await bridge.CallAsync("accueil.session.details"));
+        Check.True(details.GetProperty("localWriteFailures").GetInt32() >= 3, "échecs montrés dans les détails de la session");
+    }
+
+    [Test]
+    public static async Task Session_details_name_links_check_and_calculations()
+    {
+        var bridge = new SimulatedBridge();
+        await bridge.CallAsync("accueil.board");
+        await bridge.CallAsync("accueil.selfCheck");
+        var details = SimulatedBridge.Json(await bridge.CallAsync("accueil.session.details"));
+        Check.True(details.GetProperty("associations").GetInt32() >= 0, "liens utilisateur–poste");
+        Check.Equal(JsonValueKind.Object, details.GetProperty("lastCheck").ValueKind, "dernière vérification");
+        Check.True(details.GetProperty("calculations").GetArrayLength() is > 0 and <= 5, "cinq derniers calculs au plus");
+    }
+
+    [Test]
+    public static async Task Journal_tail_is_bounded_and_joins_continuation_lines()
+    {
+        var absent = await Domenia.App.AccueilHostFiles.TailAsync(null, CancellationToken.None);
+        Check.False(absent.Available, "journal absent");
+        using var folder = new TemporaryFolder();
+        var path = folder.File("domenia.log");
+        await File.WriteAllTextAsync(path, "2026-10-21T16:00:00Z [WARN] Préférences non enregistrées\n   à la ligne suivante\n2026-10-21T16:01:00Z Démarrage\n");
+        var tail = await Domenia.App.AccueilHostFiles.TailAsync(path, CancellationToken.None);
+        Check.Equal(2, tail.Lines.Length, "deux entrées");
+        Check.Equal("Démarrage", tail.Lines[0].Text, "la plus récente d’abord");
+        Check.Contains("à la ligne suivante", tail.Lines[1].Text, "ligne de suite rattachée");
+        Check.Equal("WARN", tail.Lines[1].Level, "niveau lu");
+        var big = string.Concat(Enumerable.Range(0, 6000).Select(n => "2026-10-21T16:00:00Z ligne " + n + new string('x', 40) + "\n"));
+        await File.WriteAllTextAsync(path, big);
+        var cut = await Domenia.App.AccueilHostFiles.TailAsync(path, CancellationToken.None);
+        Check.True(cut.Truncated, "plus de 256 Kio : début non affiché");
+        Check.Equal(Domenia.App.AccueilHostFiles.MaxLines, cut.Lines.Length, "200 lignes au plus");
+        Check.Null(Domenia.App.AccueilHostFiles.FreeBytes(null), "sans dossier de données : non mesuré");
+    }
+
+    [Test]
+    public static void Accueil_texts_use_french_no_break_spaces()
+    {
+        // Messages of the engine (constants) and visible strings of the page: no ordinary space before « : ; ! ? » nor inside « ».
+        var messages = new[] { typeof(AccueilService), typeof(RefreshRules), typeof(HealthRules) }
+            .SelectMany(t => t.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static))
+            .Where(f => f.IsLiteral && f.FieldType == typeof(string)).Select(f => (Name: f.Name, Text: (string)f.GetRawConstantValue()!));
+        foreach (var (name, text) in messages)
+        {
+            Check.Null(FrenchSpacing.Fault(text), "message " + name);
+        }
+        var root = FrenchSpacing.WebRoot();
+        if (root is null)
+        {
+            return; // Sources not beside the binaries (pack): the page check runs from the repository only.
+        }
+        var files = Directory.GetFiles(Path.Combine(root, "js", "pages", "accueil"), "*.js").Append(Path.Combine(root, "js", "pages", "accueil.js"));
+        foreach (var file in files)
+        {
+            foreach (var literal in FrenchSpacing.JsLiterals(File.ReadAllText(file)))
+            {
+                Check.Null(FrenchSpacing.Fault(literal), Path.GetFileName(file) + " : " + literal[..Math.Min(80, literal.Length)]);
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static string ProbeIdOf() => AccueilService.Catalog().Probes.SelectMany(c => c.Probes).First().Id;
@@ -382,5 +695,181 @@ internal static class AccueilTests
     {
         using var document = JsonDocument.Parse(text);
         return document.RootElement.Clone();
+    }
+}
+
+/// <summary>Preference store that counts its writes (last view written at most once a minute).</summary>
+internal sealed class CountingPreferenceStore : IPreferenceStore
+{
+    private readonly MemoryPreferenceStore memory = new();
+    private readonly List<string> writes = [];
+
+    public bool Persistent => true;
+
+    public IReadOnlyList<string> Writes
+    {
+        get
+        {
+            lock (writes)
+            {
+                return [.. writes];
+            }
+        }
+    }
+
+    public bool TryGet(string key, out JsonElement value) => memory.TryGet(key, out value);
+
+    public Task SetAsync(string key, JsonElement? value, CancellationToken cancellationToken)
+    {
+        lock (writes)
+        {
+            writes.Add(key);
+        }
+        return memory.SetAsync(key, value, cancellationToken);
+    }
+}
+
+/// <summary>
+/// French spacing of visible texts (KIT.md § 6, point 8): string literals of a page (template expressions and comments left out)
+/// and the fault of one text.
+/// </summary>
+internal static class FrenchSpacing
+{
+    private static readonly System.Text.RegularExpressions.Regex Before = new(@"[0-9A-Za-zÀ-ÖØ-öø-ÿ’»)\]] [:;!?](?=[ \t\n""'`<$]|$)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    public static string? Fault(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (Before.Match(text) is { Success: true } m)
+        {
+            return "espace ordinaire avant « " + m.Value[^1] + " »";
+        }
+        if (text.Contains("« ", StringComparison.Ordinal) || text.Contains(" »", StringComparison.Ordinal))
+        {
+            return "espace ordinaire à l’intérieur de « »";
+        }
+        return null;
+    }
+
+    /// <summary>The web folder of the sources, found from the binaries upwards (null outside the repository).</summary>
+    public static string? WebRoot()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var web = Path.Combine(dir.FullName, "web");
+            if (File.Exists(Path.Combine(web, "js", "pages", "accueil.js")) && Directory.Exists(Path.Combine(dir.FullName, "src")))
+            {
+                return web;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Text parts of the string and template literals of a script: code, comments, regular expressions and ${…} skipped.</summary>
+    public static IEnumerable<string> JsLiterals(string src)
+    {
+        ArgumentNullException.ThrowIfNull(src);
+        var result = new List<string>();
+        var depth = new Stack<int>();
+        var buffer = new System.Text.StringBuilder();
+        var state = 'c';
+        var last = ' ';
+        for (var i = 0; i < src.Length; i++)
+        {
+            var c = src[i];
+            if (state == 'c')
+            {
+                if (c == '/' && i + 1 < src.Length && src[i + 1] == '/')
+                {
+                    i = src.IndexOf('\n', i) is var j and >= 0 ? j : src.Length;
+                    continue;
+                }
+                if (c == '/' && i + 1 < src.Length && src[i + 1] == '*')
+                {
+                    i = src.IndexOf("*/", i + 2, StringComparison.Ordinal) is var j and >= 0 ? j + 1 : src.Length;
+                    continue;
+                }
+                if (c is '\'' or '"')
+                {
+                    state = c;
+                    continue;
+                }
+                if (c == '`')
+                {
+                    state = 't';
+                    continue;
+                }
+                if (c == '{' && depth.Count > 0)
+                {
+                    depth.Push(depth.Pop() + 1);
+                }
+                else if (c == '}' && depth.Count > 0)
+                {
+                    if (depth.Peek() == 0)
+                    {
+                        depth.Pop();
+                        state = 't';
+                        continue;
+                    }
+                    depth.Push(depth.Pop() - 1);
+                }
+                else if (c == '/' && "(,=:[!&|?{};+-*%<>~^".Contains(last, StringComparison.Ordinal))
+                {
+                    var cls = false;
+                    for (i++; i < src.Length && src[i] != '\n'; i++)
+                    {
+                        if (src[i] == '\\')
+                        {
+                            i++;
+                            continue;
+                        }
+                        if (src[i] == '[')
+                        {
+                            cls = true;
+                        }
+                        else if (src[i] == ']')
+                        {
+                            cls = false;
+                        }
+                        else if (src[i] == '/' && !cls)
+                        {
+                            break;
+                        }
+                    }
+                    last = 'x';
+                    continue;
+                }
+                if (!char.IsWhiteSpace(c))
+                {
+                    last = c;
+                }
+                continue;
+            }
+            if (c == '\\' && i + 1 < src.Length)
+            {
+                buffer.Append(c).Append(src[++i]);
+                continue;
+            }
+            if ((state is '\'' or '"' && c == state) || (state == 't' && c == '`'))
+            {
+                result.Add(buffer.ToString());
+                buffer.Clear();
+                state = 'c';
+                last = 'x';
+                continue;
+            }
+            if (state == 't' && c == '$' && i + 1 < src.Length && src[i + 1] == '{')
+            {
+                result.Add(buffer.ToString());
+                buffer.Clear();
+                depth.Push(0);
+                state = 'c';
+                last = '{';
+                i++;
+                continue;
+            }
+            buffer.Append(c);
+        }
+        return result;
     }
 }

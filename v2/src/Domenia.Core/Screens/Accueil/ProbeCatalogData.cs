@@ -51,9 +51,9 @@ sec.shares|Sécurité|Partages de fichiers déclarés|root\cimv2|Win32_Share|Nam
 sec.defender|Sécurité|Antivirus Defender actif|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusEnabled||First|Map:True=Oui;False=Non|Pie
 sec.realtime|Sécurité|Protection en temps réel de Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|RealTimeProtectionEnabled||First|Map:True=Oui;False=Non|Pie
 sec.behavior|Sécurité|Surveillance comportementale de Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|BehaviorMonitorEnabled||First|Map:True=Oui;False=Non|Pie
-sec.signatures|Sécurité|Âge des signatures Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusSignatureAge||First|Number|Column
-sec.quickscan|Sécurité|Âge de l’analyse rapide Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|QuickScanAge||First|Number|Column
-sec.fullscan|Sécurité|Âge de l’analyse complète Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|FullScanAge||First|Number|Column
+sec.signatures|Sécurité|Âge des signatures Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AntivirusSignatureAge||First|Number|Column
+sec.quickscan|Sécurité|Âge de l’analyse rapide Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|QuickScanAge||First|Number|Column
+sec.fullscan|Sécurité|Âge de l’analyse complète Defender (j, 65535 : jamais)|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|FullScanAge||First|Number|Column
 sec.defenderversion|Sécurité|Version du produit Defender|root\Microsoft\Windows\Defender|MSFT_MpComputerStatus|AMProductVersion||First|Text|Bar
 sec.tpmversion|Sécurité|Spécification TPM|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|SpecVersion||First|Text|Pie
 sec.tpmenabled|Sécurité|TPM activé au relevé|root\CIMV2\Security\MicrosoftTpm|Win32_Tpm|IsEnabled_InitialValue||First|Map:True=Oui;False=Non|Pie
@@ -92,7 +92,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
 {
   "SchemaVersion": 1,
   "DocumentationReviewedUtc": "2026-10-13",
-  "Qualification": "Documentation vérifiée ; qualification des fournisseurs Windows à réaliser.",
+  "Qualification": "Documentation vérifiée ; qualification des fournisseurs Windows à réaliser.",
   "Probes": [
     {
       "Id": "hw.memorymodules",
@@ -117,10 +117,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Une ligne par barrette mémoire exposée par le firmware.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Une VM ou un firmware incomplet peut masquer des barrettes ; aucun emplacement libre n’est déduit de cette seule classe.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une VM ou un firmware incomplet peut masquer des barrettes ; aucun emplacement libre n’est déduit de cette seule classe.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemory"
       ],
@@ -171,7 +171,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "code SMBIOS",
-          "Description": "Type mémoire ; 0 = inconnu"
+          "Description": "Type mémoire ; 0 = inconnu"
         },
         {
           "Name": "ConfiguredClockSpeed",
@@ -179,7 +179,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "MHz",
-          "Description": "Vitesse configurée ; 0 = non renseigné"
+          "Description": "Vitesse configurée ; 0 = non renseigné"
         },
         {
           "Name": "FormFactor",
@@ -213,9 +213,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Groupes mémoire, emplacements et capacité maximale déclarés dans SMBIOS.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "MaxCapacityEx : Windows 10 / Windows Server 2016 ou ultérieur selon le fournisseur.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "MaxCapacityEx : Windows 10 / Windows Server 2016 ou ultérieur selon le fournisseur.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "MaxCapacityEx est en kilo-octets. La capacité firmware n’est pas une garantie de compatibilité avec une barrette donnée. Seuls les groupes d’usage 3 (mémoire système) comptent pour les emplacements de barrettes.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-physicalmemoryarray"
@@ -243,7 +243,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "Ko",
-          "Description": "Capacité maximale déclarée ; 0 = inconnue"
+          "Description": "Capacité maximale déclarée ; 0 = inconnue"
         },
         {
           "Name": "MemoryErrorCorrection",
@@ -259,7 +259,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "code",
-          "Description": "Usage du groupe : 3 = mémoire système ; 4 vidéo, 5 flash, 6 NVRAM, 7 cache"
+          "Description": "Usage du groupe : 3 = mémoire système ; 4 vidéo, 5 flash, 6 NVRAM, 7 cache"
         }
       ],
       "DocumentationReviewedUtc": "2026-10-13",
@@ -267,7 +267,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "disk.volumes",
-      "Name": "Volumes locaux : capacité et espace libre",
+      "Name": "Volumes locaux : capacité et espace libre",
       "Category": "Disques",
       "Namespace": "root\\cimv2",
       "Class": "Win32_LogicalDisk",
@@ -285,9 +285,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Chaque volume local fixe et ses capacités au moment du relevé.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "La tendance et une prévision de saturation demandent plusieurs relevés historiques comparables. Les volumes sans lettre ne sont pas exhaustivement couverts.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-logicaldisk"
@@ -339,7 +339,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "disk.physical",
-      "Name": "Disques physiques : modèle, bus et santé",
+      "Name": "Disques physiques : modèle, bus et santé",
       "Category": "Disques",
       "Namespace": "root\\Microsoft\\Windows\\Storage",
       "Class": "MSFT_PhysicalDisk",
@@ -361,9 +361,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Tous les disques physiques visibles du fournisseur de stockage.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur Storage et pilote compatibles.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur Storage et pilote compatibles.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les contrôleurs RAID, VM et pilotes peuvent ne pas exposer la santé réelle du support. Un statut inconnu ne vaut pas sain.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-physicaldisk"
@@ -447,7 +447,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "disk.reliability",
-      "Name": "Stockage : compteurs de fiabilité rapportés",
+      "Name": "Stockage : compteurs de fiabilité rapportés",
       "Category": "Disques",
       "Namespace": "root\\Microsoft\\Windows\\Storage",
       "Class": "MSFT_StorageReliabilityCounter",
@@ -468,10 +468,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": true,
       "SkipOnDc": false,
       "Description": "Compteurs fournis par les pilotes de stockage compatibles.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; support dépendant du disque et du pilote.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Disponibilité variable ; aucun diagnostic SMART universel, aucune durée de vie restante calculée à partir d’une valeur absente.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; support dépendant du disque et du pilote.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Disponibilité variable ; aucun diagnostic SMART universel, aucune durée de vie restante calculée à partir d’une valeur absente.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows-hardware/drivers/storage/msft-storagereliabilitycounter"
       ],
@@ -498,7 +498,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "%",
-          "Description": "Usure rapportée ; 100 = limite estimée atteinte"
+          "Description": "Usure rapportée ; 100 = limite estimée atteinte"
         },
         {
           "Name": "PowerOnHours",
@@ -546,7 +546,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.batteries",
-      "Name": "Batteries : charge et capacités rapportées",
+      "Name": "Batteries : charge et capacités rapportées",
       "Category": "Matériel",
       "Namespace": "root\\cimv2",
       "Class": "Win32_Battery",
@@ -566,10 +566,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Une ligne par batterie exposée, avec ses estimations et capacités.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "DesignCapacity et FullChargeCapacity à zéro signifient non exposé. Le nombre de cycles n’est pas une propriété de Win32_Battery ; aucune usure n’est calculée sans deux capacités valides.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "DesignCapacity et FullChargeCapacity à zéro signifient non exposé. Le nombre de cycles n’est pas une propriété de Win32_Battery ; aucune usure n’est calculée sans deux capacités valides.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-battery"
       ],
@@ -612,7 +612,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "mWh",
-          "Description": "Capacité nominale ; 0 = non prise en charge"
+          "Description": "Capacité nominale ; 0 = non prise en charge"
         },
         {
           "Name": "FullChargeCapacity",
@@ -620,7 +620,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "mWh",
-          "Description": "Capacité à pleine charge ; 0 = non prise en charge"
+          "Description": "Capacité à pleine charge ; 0 = non prise en charge"
         },
         {
           "Name": "EstimatedRunTime",
@@ -636,7 +636,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.biosdetails",
-      "Name": "BIOS : identité, version et date",
+      "Name": "BIOS : identité, version et date",
       "Category": "Matériel",
       "Namespace": "root\\cimv2",
       "Class": "Win32_BIOS",
@@ -655,9 +655,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Identité et version du BIOS déclarées par le firmware.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Une date ancienne ne prouve pas une vulnérabilité. Une référence approuvée par modèle est nécessaire avant de conclure qu’une mise à jour est attendue.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-bios"
@@ -717,7 +717,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.processors",
-      "Name": "Tous les processeurs : architecture et capacités",
+      "Name": "Tous les processeurs : architecture et capacités",
       "Category": "Matériel",
       "Namespace": "root\\cimv2",
       "Class": "Win32_Processor",
@@ -740,9 +740,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Toutes les instances processeur, plutôt que seulement le premier socket.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les valeurs d’une VM décrivent le matériel présenté au système invité. Ces capacités ne prouvent pas qu’un hyperviseur est actuellement exécuté. La charge est une mesure instantanée datée, pas un usage habituel.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-processor"
@@ -834,7 +834,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.monitors",
-      "Name": "Écrans : identifiants EDID rapportés",
+      "Name": "Écrans : identifiants EDID rapportés",
       "Category": "Matériel",
       "Namespace": "root\\wmi",
       "Class": "WmiMonitorID",
@@ -855,9 +855,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Identifiants EDID de chaque écran visible par Windows.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
       "Compatibility": "Windows avec fournisseur WmiMonitorID et pilote d’affichage compatible.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les tableaux de codes sont conservés sans perdre leurs éléments. EDID absent, moniteur virtuel ou station d’accueil ne sont pas assimilés à un écran physique identifié.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorid"
@@ -954,10 +954,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Toutes les interfaces, y compris virtuelles et déconnectées, identifiées séparément.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Une adresse MAC peut changer ou être dupliquée ; elle n’est jamais utilisée pour fusionner des identités AD. Une vitesse déclarée n’est pas un débit mesuré.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Une adresse MAC peut changer ou être dupliquée ; elle n’est jamais utilisée pour fusionner des identités AD. Une vitesse déclarée n’est pas un débit mesuré.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapter"
       ],
@@ -1055,10 +1055,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Visual": "Bar",
       "Slow": false,
       "SkipOnDc": false,
-      "Description": "Configuration complète des interfaces IP activées ; les listes ne sont pas réduites au premier élément.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Description": "Configuration complète des interfaces IP activées ; les listes ne sont pas réduites au premier élément.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "La configuration ne prouve ni la résolution DNS réussie ni l’accessibilité d’un service.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-networkadapterconfiguration"
@@ -1158,7 +1158,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.printerdetails",
-      "Name": "Imprimantes : pilote, port et état",
+      "Name": "Imprimantes : pilote, port et état",
       "Category": "Logiciels et services",
       "Namespace": "root\\cimv2",
       "Class": "Win32_Printer",
@@ -1180,9 +1180,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Imprimantes visibles du contexte distant et leur état rapporté.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les imprimantes propres à une autre session utilisateur peuvent ne pas apparaître. Le pilote peut rapporter un état obsolète.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-printer"
@@ -1285,9 +1285,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Périphériques dont ConfigManagerErrorCode est différent de zéro au relevé.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Une lecture refusée ou interrompue n’est pas un inventaire vide. Le code indique l’état du gestionnaire de périphériques, pas une cause certaine.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-pnpentity"
@@ -1347,7 +1347,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.servicedetails",
-      "Name": "Services : état, démarrage et processus",
+      "Name": "Services : état, démarrage et processus",
       "Category": "Logiciels et services",
       "Namespace": "root\\cimv2",
       "Class": "Win32_Service",
@@ -1366,10 +1366,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": true,
       "SkipOnDc": false,
       "Description": "État et mode de démarrage de chaque service, sans commande ni mot de passe.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Un service automatique arrêté peut être déclenché à la demande ; aucune panne n’est déduite sans profil attendu. Les dépendances nécessitent une lecture d’association distincte.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un service automatique arrêté peut être déclenché à la demande ; aucune panne n’est déduite sans profil attendu. Les dépendances nécessitent une lecture d’association distincte.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-service"
       ],
@@ -1445,9 +1445,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": true,
       "SkipOnDc": false,
       "Description": "Correctifs exposés par Win32_QuickFixEngineering, sans conclure à la conformité globale.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Cette source ne couvre pas toutes les mises à jour Windows ni MSI. InstalledOn reste un texte brut car son format peut varier.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-quickfixengineering"
@@ -1491,7 +1491,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.processdetails",
-      "Name": "Processus : mémoire et compteurs instantanés",
+      "Name": "Processus : mémoire et compteurs instantanés",
       "Category": "Logiciels et services",
       "Namespace": "root\\cimv2",
       "Class": "Win32_Process",
@@ -1510,10 +1510,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Visual": "Bar",
       "Slow": true,
       "SkipOnDc": false,
-      "Description": "Photographie des processus ; mémoire et compteurs sont datés.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Description": "Photographie des processus ; mémoire et compteurs sont datés.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les processus évoluent pendant la lecture. Aucun taux CPU n’est calculé sur un échantillon unique. Les lignes de commande et paramètres ne sont pas collectés.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-process"
@@ -1581,7 +1581,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.scheduledtasks",
-      "Name": "Tâches planifiées : identité et état",
+      "Name": "Tâches planifiées : identité et état",
       "Category": "Logiciels et services",
       "Namespace": "root\\Microsoft\\Windows\\TaskScheduler",
       "Class": "MSFT_ScheduledTask",
@@ -1599,10 +1599,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": true,
       "SkipOnDc": false,
       "Description": "Inventaire des tâches visibles, sans lire actions, arguments, déclencheurs ou comptes enregistrés.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
       "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur avec fournisseur TaskScheduler.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Dernière exécution et dernier résultat ne sont pas des propriétés de cette classe ; une lecture dédiée est nécessaire. Certaines tâches restent invisibles selon les ACL.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Dernière exécution et dernier résultat ne sont pas des propriétés de cette classe ; une lecture dédiée est nécessaire. Certaines tâches restent invisibles selon les ACL.",
       "SourceUrls": [
         "https://github.com/microsoft/wmi/blob/master/server23h2/root/microsoft/windows/taskscheduler/MSFT_ScheduledTask.go"
       ],
@@ -1653,7 +1653,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.startupdetails",
-      "Name": "Démarrage automatique : nom et origine",
+      "Name": "Démarrage automatique : nom et origine",
       "Category": "Logiciels et services",
       "Namespace": "root\\cimv2",
       "Class": "Win32_StartupCommand",
@@ -1669,9 +1669,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Entrées de démarrage automatique visibles du fournisseur.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les commandes et arguments sont volontairement exclus. Ce fournisseur ne représente pas toutes les persistances possibles ni tous les profils non chargés.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-startupcommand"
@@ -1707,7 +1707,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "soft.installed",
-      "Name": "Applications installées : nom, éditeur et version",
+      "Name": "Applications installées : nom, éditeur et version",
       "Category": "Logiciels et services",
       "Namespace": "root\\cimv2",
       "Class": "Win32_InstalledWin32Program",
@@ -1724,10 +1724,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": true,
       "Description": "Une ligne par application de bureau recensée par lʼinventaire des applications de Windows, sans passer par Windows Installer.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Postes Windows 7 ou ultérieur ; la documentation ne couvre aucune version serveur : la classe peut être absente dʼun serveur, ce qui reste inconnu.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Inventaire du fournisseur Application and Device Inventory : il ne sollicite pas Windows Installer et ne déclenche aucune vérification MSI. Les applications du Store relèvent dʼune autre classe, aucune date dʼinstallation nʼest fournie et une installation propre à un profil peut ne pas y figurer.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Postes Windows 7 ou ultérieur ; la documentation ne couvre aucune version serveur : la classe peut être absente dʼun serveur, ce qui reste inconnu.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Inventaire du fournisseur Application and Device Inventory : il ne sollicite pas Windows Installer et ne déclenche aucune vérification MSI. Les applications du Store relèvent dʼune autre classe, aucune date dʼinstallation nʼest fournie et une installation propre à un profil peut ne pas y figurer.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/wmisdk/win32-installedwin32program"
       ],
@@ -1770,7 +1770,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "sec.defenderdetails",
-      "Name": "Defender : protections et signatures rapportées",
+      "Name": "Defender : protections et signatures rapportées",
       "Category": "Sécurité",
       "Namespace": "root\\Microsoft\\Windows\\Defender",
       "Class": "MSFT_MpComputerStatus",
@@ -1793,9 +1793,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "État déclaré par le fournisseur Microsoft Defender installé sur le poste.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Système équipé du fournisseur Defender ; propriétés dépendantes de la plateforme de protection.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Système équipé du fournisseur Defender ; propriétés dépendantes de la plateforme de protection.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Un antivirus tiers peut désactiver Defender ou rendre cette classe indisponible. Cette lecture ne mesure pas la couverture d’un autre produit.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/previous-versions/windows/desktop/defender/msft-mpcomputerstatus"
@@ -1863,7 +1863,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "jours",
-          "Description": "Ancienneté ; 65535 = jamais"
+          "Description": "Ancienneté ; 65535 = jamais"
         },
         {
           "Name": "QuickScanAge",
@@ -1871,7 +1871,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "jours",
-          "Description": "Ancienneté analyse rapide ; 65535 = jamais"
+          "Description": "Ancienneté analyse rapide ; 65535 = jamais"
         },
         {
           "Name": "FullScanAge",
@@ -1879,7 +1879,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "jours",
-          "Description": "Ancienneté analyse complète ; 65535 = jamais"
+          "Description": "Ancienneté analyse complète ; 65535 = jamais"
         }
       ],
       "DocumentationReviewedUtc": "2026-10-13",
@@ -1887,7 +1887,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "sec.firewallprofiles",
-      "Name": "Pare-feu : configuration des profils déclarés",
+      "Name": "Pare-feu : configuration des profils déclarés",
       "Category": "Sécurité",
       "Namespace": "root\\StandardCimv2",
       "Class": "MSFT_NetFirewallProfile",
@@ -1906,9 +1906,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Paramètres des profils retournés par le fournisseur de pare-feu.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur NetSecurity.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 8 / Windows Server 2012 ou ultérieur ; fournisseur NetSecurity.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Cette énumération WMI ne prouve pas le profil effectivement actif ni l’origine GPO. Le magasin actif et la source de stratégie nécessitent une lecture NetSecurity dédiée.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/fwp/wmi/wfascimprov/msft-netfirewallprofile"
@@ -1928,7 +1928,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "code",
-          "Description": "État du paramètre : 0 faux, 1 vrai, 2 non configuré"
+          "Description": "État du paramètre : 0 faux, 1 vrai, 2 non configuré"
         },
         {
           "Name": "DefaultInboundAction",
@@ -1968,7 +1968,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "sec.deviceguard",
-      "Name": "Sécurité matérielle : VBS et services déclarés",
+      "Name": "Sécurité matérielle : VBS et services déclarés",
       "Category": "Sécurité",
       "Namespace": "root\\Microsoft\\Windows\\DeviceGuard",
       "Class": "Win32_DeviceGuard",
@@ -1989,10 +1989,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Capacités, configuration et exécution VBS sont conservées séparément.",
-      "Rights": "Lecture WMI/CIM du namespace DeviceGuard ; élévation et droits distants selon les ACL.",
-      "Compatibility": "Windows 10 / Windows Server 2016 ou ultérieur ; propriétés selon la version.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "AvailableSecurityProperties contenant 2 indique la disponibilité de Secure Boot ; ce n’est pas une preuve de son activation. Aucun état absent n’est traduit en désactivé.",
+      "Rights": "Lecture WMI/CIM du namespace DeviceGuard ; élévation et droits distants selon les ACL.",
+      "Compatibility": "Windows 10 / Windows Server 2016 ou ultérieur ; propriétés selon la version.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "AvailableSecurityProperties contenant 2 indique la disponibilité de Secure Boot ; ce n’est pas une preuve de son activation. Aucun état absent n’est traduit en désactivé.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/security/hardware-security/enable-virtualization-based-protection-of-code-integrity"
       ],
@@ -2067,7 +2067,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "sec.bitlockervolumes",
-      "Name": "BitLocker : protection et conversion des volumes",
+      "Name": "BitLocker : protection et conversion des volumes",
       "Category": "Sécurité",
       "Namespace": "root\\cimv2\\Security\\MicrosoftVolumeEncryption",
       "Class": "Win32_EncryptableVolume",
@@ -2087,9 +2087,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "SkipOnDc": false,
       "Description": "Protection active, état de conversion et algorithme, séparés pour chaque volume visible.",
       "Rights": "Droits administrateur et accès distant chiffré compatibles avec le fournisseur BitLocker.",
-      "Compatibility": "Windows avec fournisseur BitLocker installé ; accès chiffré au namespace.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Un volume chiffré peut avoir une protection suspendue. Les valeurs sont celles de l’instanciation WMI ; aucune clé, aucun protecteur secret ni mot de passe de récupération ne sont lus.",
+      "Compatibility": "Windows avec fournisseur BitLocker installé ; accès chiffré au namespace.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un volume chiffré peut avoir une protection suspendue. Les valeurs sont celles de l’instanciation WMI ; aucune clé, aucun protecteur secret ni mot de passe de récupération ne sont lus.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/secprov/win32-encryptablevolume"
       ],
@@ -2148,7 +2148,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "sec.tpmdetails",
-      "Name": "TPM : version, fabricant et états initiaux",
+      "Name": "TPM : version, fabricant et états initiaux",
       "Category": "Sécurité",
       "Namespace": "root\\CIMV2\\Security\\MicrosoftTpm",
       "Class": "Win32_Tpm",
@@ -2168,9 +2168,9 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Caractéristiques et états du TPM au moment de l’instanciation du fournisseur.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows 7 / Windows Server 2008 R2 ou ultérieur pour les propriétés InitialValue ; matériel TPM compatible.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows 7 / Windows Server 2008 R2 ou ultérieur pour les propriétés InitialValue ; matériel TPM compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Les états InitialValue ne remplacent pas une nouvelle lecture. Aucun appel de méthode, secret, effacement ou provisionnement TPM.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/secprov/win32-tpm"
@@ -2255,10 +2255,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Mémoire physique visible par Windows et mémoire libre, mesurées au même instant.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Mesure instantanée : elle ne décrit pas l’usage habituel. La mémoire visible exclut la part réservée au matériel ; la capacité installée se lit dans les barrettes.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Mesure instantanée : elle ne décrit pas l’usage habituel. La mémoire visible exclut la part réservée au matériel ; la capacité installée se lit dans les barrettes.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-operatingsystem"
       ],
@@ -2301,7 +2301,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.computersystem",
-      "Name": "Système déclaré : modèle, fabricant et hyperviseur",
+      "Name": "Système déclaré : modèle, fabricant et hyperviseur",
       "Category": "Matériel",
       "Namespace": "root\\cimv2",
       "Class": "Win32_ComputerSystem",
@@ -2322,10 +2322,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Identité matérielle déclarée par le firmware et présence d’un hyperviseur signalée par Windows.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "HypervisorPresent indique qu’un hyperviseur est actif, y compris Hyper-V ou la sécurité basée sur la virtualisation d’une machine physique : seul, il ne prouve pas une machine virtuelle. Le modèle déclaré peut être générique.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; propriétés selon la version et le matériel.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "HypervisorPresent indique qu’un hyperviseur est actif, y compris Hyper-V ou la sécurité basée sur la virtualisation d’une machine physique : seul, il ne prouve pas une machine virtuelle. Le modèle déclaré peut être générique.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-computersystem"
       ],
@@ -2400,7 +2400,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.batterystatic",
-      "Name": "Batteries : capacité nominale et identité",
+      "Name": "Batteries : capacité nominale et identité",
       "Category": "Matériel",
       "Namespace": "root\\wmi",
       "Class": "BatteryStaticData",
@@ -2418,10 +2418,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Données fixes déclarées par le pilote de chaque batterie, dont la capacité nominale.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Capacité en mWh, ou en unités relatives quand le pilote le signale ; une capacité nulle ou inconnue n’autorise aucun calcul d’usure. Le numéro de série peut être générique.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Capacité en mWh, ou en unités relatives quand le pilote le signale ; une capacité nulle ou inconnue n’autorise aucun calcul d’usure. Le numéro de série peut être générique.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
       ],
@@ -2472,7 +2472,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.batteryfullcharge",
-      "Name": "Batteries : capacité à pleine charge",
+      "Name": "Batteries : capacité à pleine charge",
       "Category": "Matériel",
       "Namespace": "root\\wmi",
       "Class": "BatteryFullChargedCapacity",
@@ -2487,10 +2487,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Capacité actuelle à pleine charge de chaque batterie, rapportée par son pilote.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "À comparer à la capacité nominale de la même instance ; une valeur nulle ou absente reste inconnue. La valeur évolue avec la calibration de la batterie.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "À comparer à la capacité nominale de la même instance ; une valeur nulle ou absente reste inconnue. La valeur évolue avec la calibration de la batterie.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
       ],
@@ -2517,7 +2517,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.batterycycles",
-      "Name": "Batteries : cycles de charge",
+      "Name": "Batteries : cycles de charge",
       "Category": "Matériel",
       "Namespace": "root\\wmi",
       "Class": "BatteryCycleCount",
@@ -2532,10 +2532,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Nombre de cycles de charge déclaré par le pilote de chaque batterie.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Beaucoup de batteries ne rapportent pas ce compteur : zéro est traité comme non renseigné, jamais comme une batterie neuve.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Pilote de batterie Windows (root\\wmi) ; classe absente sur un poste sans batterie ou sans pilote compatible.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Beaucoup de batteries ne rapportent pas ce compteur : zéro est traité comme non renseigné, jamais comme une batterie neuve.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/power/battery-information-str"
       ],
@@ -2562,7 +2562,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.monitorconnections",
-      "Name": "Écrans : type de raccordement",
+      "Name": "Écrans : type de raccordement",
       "Category": "Matériel",
       "Namespace": "root\\wmi",
       "Class": "WmiMonitorConnectionParams",
@@ -2577,11 +2577,11 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Visual": "Pie",
       "Slow": false,
       "SkipOnDc": false,
-      "Description": "Technologie de raccordement de chaque écran : interne, HDMI, DisplayPort, VGA…",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec pilote d’affichage WDDM ; propriétés selon le pilote.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Un écran raccordé par une station d’accueil apparaît avec la technologie vue par la carte graphique ; aucune classe Windows normalisée n’identifie la station d’accueil elle-même.",
+      "Description": "Technologie de raccordement de chaque écran : interne, HDMI, DisplayPort, VGA…",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec pilote d’affichage WDDM ; propriétés selon le pilote.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Un écran raccordé par une station d’accueil apparaît avec la technologie vue par la carte graphique ; aucune classe Windows normalisée n’identifie la station d’accueil elle-même.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/wmicoreprov/wmimonitorconnectionparams"
       ],
@@ -2616,7 +2616,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
     },
     {
       "Id": "hw.dockhints",
-      "Name": "Stations dʼaccueil : indices parmi les périphériques",
+      "Name": "Stations dʼaccueil : indices parmi les périphériques",
       "Category": "Matériel",
       "Namespace": "root\\cimv2",
       "Class": "Win32_PnPEntity",
@@ -2633,11 +2633,11 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Visual": "Bar",
       "Slow": false,
       "SkipOnDc": false,
-      "Description": "Périphériques Plug and Play de la classe Dock, ou dont le nom évoque une station dʼaccueil, Thunderbolt, USB4 ou DisplayLink, présents au relevé : des indices de station dʼaccueil, pas une identification.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows avec fournisseur CIMWin32 ; noms fournis par les pilotes, selon le fabricant et la langue du système.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Indices seulement : aucune classe Windows normalisée nʼidentifie une station dʼaccueil. Une station USB-C ou Thunderbolt peut nʼapparaître que comme concentrateur USB, carte réseau ou carte audio sans nom évocateur : lʼabsence dʼindice ne prouve pas lʼabsence de station. Un contrôleur Thunderbolt ou USB4 intégré au portable, ou un adaptateur DisplayLink seul, nʼest pas une station. Seuls les périphériques présents au relevé sont listés.",
+      "Description": "Périphériques Plug and Play de la classe Dock, ou dont le nom évoque une station dʼaccueil, Thunderbolt, USB4 ou DisplayLink, présents au relevé : des indices de station dʼaccueil, pas une identification.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows avec fournisseur CIMWin32 ; noms fournis par les pilotes, selon le fabricant et la langue du système.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Indices seulement : aucune classe Windows normalisée nʼidentifie une station dʼaccueil. Une station USB-C ou Thunderbolt peut nʼapparaître que comme concentrateur USB, carte réseau ou carte audio sans nom évocateur : lʼabsence dʼindice ne prouve pas lʼabsence de station. Un contrôleur Thunderbolt ou USB4 intégré au portable, ou un adaptateur DisplayLink seul, nʼest pas une station. Seuls les périphériques présents au relevé sont listés.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-pnpentity"
       ],
@@ -2706,10 +2706,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Visual": "Pie",
       "Slow": false,
       "SkipOnDc": false,
-      "Description": "Catégorie de réseau de chaque connexion active : elle désigne le profil de pare-feu appliqué.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Description": "Catégorie de réseau de chaque connexion active : elle désigne le profil de pare-feu appliqué.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
       "Compatibility": "Windows 8 et suivants, fournisseur NetConnection.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
       "Limitations": "Seules les connexions actives ont un profil. La catégorie Domaine suppose l’authentification réseau du domaine au moment du relevé.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/powershell/module/netconnection/get-netconnectionprofile"
@@ -2721,7 +2721,7 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
           "Kind": "Number",
           "IsArray": false,
           "Unit": "code",
-          "Description": "Catégorie : 0 public, 1 privé, 2 domaine"
+          "Description": "Catégorie : 0 public, 1 privé, 2 domaine"
         },
         {
           "Name": "InterfaceAlias",
@@ -2786,10 +2786,10 @@ evt.unexpected|Événements|Arrêts inattendus (7 j)|root\cimv2|Win32_NTLogEvent
       "Slow": false,
       "SkipOnDc": false,
       "Description": "Produits antivirus enregistrés auprès du Centre de sécurité Windows, Defender compris.",
-      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
-      "Compatibility": "Windows client uniquement : le Centre de sécurité n’existe pas sur Windows Server.",
-      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
-      "Limitations": "Le décodage de productState n’est pas documenté par Microsoft : l’état actif et la fraîcheur des signatures qui en sont tirés restent des estimations. Un produit absent de cette liste peut exister sans s’y déclarer.",
+      "Rights": "Lecture distante du fournisseur WMI/CIM ; droits de namespace et accès au poste requis.",
+      "Compatibility": "Windows client uniquement : le Centre de sécurité n’existe pas sur Windows Server.",
+      "UnknownMeaning": "Valeur absente, non exposée, refusée ou non entièrement conservée : inconnue. Aucune valeur saine ni zéro ne sont fabriqués.",
+      "Limitations": "Le décodage de productState n’est pas documenté par Microsoft : l’état actif et la fraîcheur des signatures qui en sont tirés restent des estimations. Un produit absent de cette liste peut exister sans s’y déclarer.",
       "SourceUrls": [
         "https://learn.microsoft.com/en-us/windows/win32/api/iwscapi/ne-iwscapi-wsc_security_product_state"
       ],

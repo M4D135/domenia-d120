@@ -138,8 +138,8 @@ public static class HealthRules
         new("StaleDays", "Connexion AD ancienne (jours, date approximative)", 90, 1, 3650),
         new("PasswordDays", "Mot de passe machine ancien (jours)", 60, 1, 3650),
         new("UptimeDays", "Redémarrage ancien (jours)", 30, 1, 365),
-        new("DiskFreeAlert", "Disque critique : espace libre inférieur à (%)", 10, 1, 99),
-        new("DiskFreeWarn", "Disque à surveiller : espace libre inférieur à (%)", 20, 1, 100),
+        new("DiskFreeAlert", "Disque critique : espace libre inférieur à (%)", 10, 1, 99),
+        new("DiskFreeWarn", "Disque à surveiller : espace libre inférieur à (%)", 20, 1, 100),
         new("MemoryUsedWarn", "Mémoire utilisée supérieure à (%)", 90, 1, 100),
         new("BatteryWarn", "Batterie inférieure à (%)", 20, 1, 100),
     ];
@@ -258,7 +258,7 @@ public static class HealthRules
         return policy with { Suspensions = [.. policy.Suspensions.Select(s => s with { Reason = s.Reason.Trim(), UntilUtc = s.UntilUtc.ToUniversalTime() })] };
     }
 
-    public const string SuspensionMessage = "Suspension invalide : contrôle unique, motif de 3 à 240 caractères et échéance UTC obligatoires (64 maximum).";
+    public const string SuspensionMessage = "Suspension invalide : contrôle unique, motif de 3 à 240 caractères et échéance UTC obligatoires (64 maximum).";
 
     public static bool IsCustomId(string id) => id.Length == 39 && id.StartsWith("custom.", StringComparison.Ordinal) && id[7..].All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
 

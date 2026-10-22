@@ -348,14 +348,14 @@ public static partial class ProbeCatalog
             || probe.Class is "Win32_EncryptableVolume" or "Win32_Tpm";
         var privilegeLevel = local ? "AdministrateurLocal" : "LectureDistanteWmi";
         var privilegeText = (probe.Rights.Length > 0 ? probe.Rights + " " : "") + (local
-            ? "Administrateur local du poste : ce fournisseur refuse les autres comptes, même délégués sur l’espace de noms."
-            : "Administrateur du poste, ou compte délégué « Activer à distance » sur l’espace de noms et autorisé en DCOM ou WinRM.");
+            ? "Administrateur local du poste : ce fournisseur refuse les autres comptes, même délégués sur l’espace de noms."
+            : "Administrateur du poste, ou compte délégué « Activer à distance » sur l’espace de noms et autorisé en DCOM ou WinRM.");
         string costLevel;
         string costReason;
         if (probe.Slow)
         {
             costLevel = "Lourd";
-            costReason = "Requête signalée lente : journal, liste volumineuse ou fournisseur coûteux. Collecte explicite sur une liste courte.";
+            costReason = "Requête signalée lente : journal, liste volumineuse ou fournisseur coûteux. Collecte explicite sur une liste courte.";
         }
         else if (SingleInstanceClasses.Contains(probe.Class, StringComparer.Ordinal))
         {
@@ -380,16 +380,16 @@ public static partial class ProbeCatalog
         var tests = new List<(string Id, string Text)>
         {
             ("Projection", "Une ligne lue produit la valeur transformée attendue."),
-            ("Inconnu", "Erreur, refus ou absence de ligne : aucune valeur, jamais zéro."),
-            ("Refus", "Accès refusé : erreur conservée, poste non compté."),
+            ("Inconnu", "Erreur, refus ou absence de ligne : aucune valeur, jamais zéro."),
+            ("Refus", "Accès refusé : erreur conservée, poste non compté."),
         };
         if (probe.Mode != "Count")
         {
-            tests.Add(("Troncature", "Lecture tronquée : aucune valeur partielle présentée comme complète."));
+            tests.Add(("Troncature", "Lecture tronquée : aucune valeur partielle présentée comme complète."));
         }
         if (probe.SkipOnDc)
         {
-            tests.Add(("Contrôleur", "Contrôleur de domaine : lecture ignorée et signalée, jamais comptée."));
+            tests.Add(("Contrôleur", "Contrôleur de domaine : lecture ignorée et signalée, jamais comptée."));
         }
         if (probe.Filter.Contains("{SINCE_", StringComparison.Ordinal))
         {
@@ -423,7 +423,7 @@ public static partial class ProbeCatalog
         }
         if (probe.Class is "Win32_UserAccount" or "Win32_Group" or "Win32_GroupUser" && !probe.SkipOnDc && !LocalAccountFilter().IsMatch(probe.Filter))
         {
-            errors.Add("Comptes et groupes : lecture limitée aux comptes locaux ou exclue des contrôleurs requise.");
+            errors.Add("Comptes et groupes : lecture limitée aux comptes locaux ou exclue des contrôleurs requise.");
         }
         if (probe.Mode is not ("First" or "All" or "Count"))
         {
@@ -439,7 +439,7 @@ public static partial class ProbeCatalog
         }
         if (!FilterPattern().IsMatch(probe.Filter))
         {
-            errors.Add("Filtre : caractère non admis.");
+            errors.Add("Filtre : caractère non admis.");
         }
         foreach (Match token in TokenPattern().Matches(probe.Filter))
         {
@@ -457,13 +457,13 @@ public static partial class ProbeCatalog
         }
         foreach (var field in probe.Fields.Where(f => f.CimType.Length == 0))
         {
-            warnings.Add("Type CIM de " + field.Name + " à qualifier : valeur gardée en texte.");
+            warnings.Add("Type CIM de " + field.Name + " à qualifier : valeur gardée en texte.");
         }
         if (probe.SourceUrls.Length == 0)
         {
             if (probe.Origin == "Intégrée")
             {
-                warnings.Add("Aucune référence documentaire propre : documentation de la classe à rattacher.");
+                warnings.Add("Aucune référence documentaire propre : documentation de la classe à rattacher.");
             }
             else
             {
@@ -485,19 +485,19 @@ public static partial class ProbeCatalog
             new("Types", typed),
             new("Privilèges", privilegeText),
             new("Coût", costLevel + FrenchText.Colon + costReason),
-            new("Comportement", "Lecture CIM déclarative : aucune écriture, aucun code, aucune méthode WMI ; cible : poste choisi ou liste affichée."),
+            new("Comportement", "Lecture CIM déclarative : aucune écriture, aucun code, aucune méthode WMI ; cible : poste choisi ou liste affichée."),
             new("Limites", probe.Limitations + " Inconnu" + FrenchText.Colon + probe.UnknownMeaning),
             new("Sources", probe.SourceUrls.Length > 0 ? string.Join(" · ", probe.SourceUrls) : "Aucune référence propre à cette sonde."),
             new("Qualification", probe.Qualification),
             new("Tests attendus", string.Join(" · ", tests.Select(t => t.Id + FrenchText.Colon + t.Text))),
-            new("Isolement", "Isolement : moteur de Domenia, hors interface. Aucun code fourni par la sonde : le collecteur construit une lecture SELECT à partir de noms validés. "
-                + "Aucune écriture : aucune méthode WMI n’est appelée. Lecture hors du fil d’interface, délai de requête d’au moins 10 s, tâche plafonnée à 300 s ; détails bornés à 2 000 instances et 256 Kio"
-                + (probe.SkipOnDc ? " ; contrôleurs de domaine exclus (type de système lu avant la requête)" : "") + ". Non garanti : le fournisseur WMI du poste exécute la requête avec les droits du compte utilisé ; aucun bac à sable PowerShell."),
+            new("Isolement", "Isolement : moteur de Domenia, hors interface. Aucun code fourni par la sonde : le collecteur construit une lecture SELECT à partir de noms validés. "
+                + "Aucune écriture : aucune méthode WMI n’est appelée. Lecture hors du fil d’interface, délai de requête d’au moins 10 s, tâche plafonnée à 300 s ; détails bornés à 2 000 instances et 256 Kio"
+                + (probe.SkipOnDc ? " ; contrôleurs de domaine exclus (type de système lu avant la requête)" : "") + ". Non garanti : le fournisseur WMI du poste exécute la requête avec les droits du compte utilisé ; aucun bac à sable PowerShell."),
         };
         lines.AddRange(warnings.Select(w => new ProbeContractLine("Avertissement", w)));
         lines.AddRange(errors.Select(e => new ProbeContractLine("Refus", e)));
         var summary = "Droits" + FrenchText.Colon + (local ? "administrateur local du poste" : "lecture WMI distante (administrateur ou délégation)")
-            + ". Coût" + FrenchText.Colon + costLevel + " — " + costReason + " Lecture déclarative : aucune écriture, aucun code.";
+            + ". Coût" + FrenchText.Colon + costLevel + " — " + costReason + " Lecture déclarative : aucune écriture, aucun code.";
         return new ProbeContract(probe.Id, probe.Name, probe.Origin, summary, privilegeLevel, costLevel, errors.Count == 0, [.. lines], [.. warnings], [.. errors]);
     }
 
@@ -522,11 +522,11 @@ public static partial class ProbeCatalog
             var classPeer = peers.FirstOrDefault();
             var covering = peers.FirstOrDefault(e => properties.All(x => e.Properties.Contains(x, StringComparer.OrdinalIgnoreCase)));
             var fieldsByName = peers.SelectMany(e => e.Fields).GroupBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            var fields = properties.Select(name => fieldsByName.GetValueOrDefault(name) ?? new ProbeField(name, "", "Text", false, "Valeur brute", "Propriété du fournisseur ; type détaillé à qualifier.")).ToImmutableArray();
-            var limits = covering?.Limitations ?? "Disponibilité selon fournisseur et droits. La lecture conserve une date ; elle ne prouve pas un état courant après expiration.";
+            var fields = properties.Select(name => fieldsByName.GetValueOrDefault(name) ?? new ProbeField(name, "", "Text", false, "Valeur brute", "Propriété du fournisseur ; type détaillé à qualifier.")).ToImmutableArray();
+            var limits = covering?.Limitations ?? "Disponibilité selon fournisseur et droits. La lecture conserve une date ; elle ne prouve pas un état courant après expiration.";
             if (p[7] == "First")
             {
-                limits += " Résumé fondé sur la première instance ; le choix de cette instance dépend du fournisseur.";
+                limits += " Résumé fondé sur la première instance ; le choix de cette instance dépend du fournisseur.";
             }
             if (flags.Contains("NoDC"))
             {
@@ -535,9 +535,9 @@ public static partial class ProbeCatalog
             result.Add(new ProbeDefinition(
                 p[0], p[1], p[2], p[3], p[4], properties, p[6], p[7], p[8], p[9], flags.Contains("Slow"), flags.Contains("NoDC"), "Intégrée",
                 p[2] + ". Source" + FrenchText.Colon + p[4] + ".",
-                classPeer?.Rights ?? "Lecture distante du namespace WMI/CIM ; compte et accès au poste autorisés.",
-                classPeer?.Compatibility ?? "Fournisseur Windows requis ; présence et version à qualifier sur la cible.",
-                "Absence, refus, erreur, donnée périmée ou incomplète restent inconnus ; un résultat vide n’est zéro qu’après une énumération complète.",
+                classPeer?.Rights ?? "Lecture distante du namespace WMI/CIM ; compte et accès au poste autorisés.",
+                classPeer?.Compatibility ?? "Fournisseur Windows requis ; présence et version à qualifier sur la cible.",
+                "Absence, refus, erreur, donnée périmée ou incomplète restent inconnus ; un résultat vide n’est zéro qu’après une énumération complète.",
                 limits, classPeer?.SourceUrls ?? [], fields, "À qualifier sous Windows"));
         }
         result.AddRange(extended);

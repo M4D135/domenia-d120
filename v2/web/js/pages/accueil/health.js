@@ -1,14 +1,18 @@
 // Accueil: « Règles de santé » editor (Domenia 1 points 74 to 77): checks on or off, thresholds, personal alerts and
 // dated suspensions, for the whole domain or as an exception of one OU (only its differences are kept). Saved in the
 // local preferences (accueil.health.save, LocalWrite); nothing reaches the directory. docs/ops/accueil.md § 7.
+// Fields are the kit's (field(), createForm()): same gestures and messages as every screen. Changes not saved are never lost
+// silently: « Fermer », Échap, the cross and the backdrop ask first; leaving the screen keeps them as a draft of the window,
+// offered at the next opening.
 import { openDrawer } from '../../kit/drawer.js';
 import { openDialog } from '../../kit/dialog.js';
 import { createTabs } from '../../kit/tabs.js';
 import { glyph } from '../../kit/glyphs.js';
 import { pill } from '../../kit/status.js';
 import { openMenu } from '../../kit/menu.js';
+import { field, createForm } from '../../kit/form.js';
 import { esc, formatNumber } from '../../ui.js';
-import { plural, paint, reported, surface, localStamp, sk, pathOf, PATH_SEP } from './shared.js';
+import { NBSP, plural, paint, reported, surface, localStamp, sk, pathOf, PATH_SEP } from './shared.js';
 
 const camel = (id) => id.charAt(0).toLowerCase() + id.slice(1);
 const HOURS_LABEL = { 1: '1 heure', 24: '24 heures', 168: '7 jours', 720: '30 jours' };
@@ -16,11 +20,29 @@ const MEASURES = { DiskFree: 'Espace libre sur C: (%)', UptimeDays: 'Jours depui
 const OPERATORS = { LessThan: 'inférieur à', GreaterThan: 'supérieur à' };
 const SEVERITY = { Warn: 'À surveiller', Alert: 'Critique' };
 const STATE = { on: { label: 'Actif', tone: 'ok' }, disabled: { label: 'Désactivé', tone: 'off' }, suspended: { label: 'Suspendu', tone: 'warn' } };
+const DRAFT_KEY = 'domenia.accueil.healthDraft.v1';
 // Readable name of a scope: « Postes › Lyon » for an OU (the engine label is a relative DN), « le domaine » otherwise.
 const friendly = (v) => (v?.scopeDn ? pathOf(v.scopeDn, null).split(PATH_SEP).slice(1).join(PATH_SEP) || v.scopeLabel : 'le domaine');
 // Option of the scope list: the engine wording before the colon, then the readable path of the OU.
-const scopeName = (s) => (s.dn && s.name.includes(':') ? `${s.name.slice(0, s.name.indexOf(':')).trim()}\u00a0: ${friendly({ scopeDn: s.dn, scopeLabel: s.name })}` : s.name);
+const scopeName = (s) => (s.dn && s.name.includes(':') ? `${s.name.slice(0, s.name.indexOf(':')).trim()}${NBSP}: ${friendly({ scopeDn: s.dn, scopeLabel: s.name })}` : s.name);
 const loading = () => `<div class="acc-loading" aria-busy="true">${[85, 70, 55, 70, 85].map((w) => sk(`sk-line w${w}`)).join('')}</div>`;
+
+function readDraft() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null');
+    return d && typeof d === 'object' && d.policy ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(value) {
+  try {
+    if (value) sessionStorage.setItem(DRAFT_KEY, JSON.stringify(value)); else sessionStorage.removeItem(DRAFT_KEY);
+  } catch (err) {
+    console.warn('Brouillon des règles de santé non gardé (stockage de la fenêtre indisponible).', err?.name);
+  }
+}
 
 /**
  * @param {{ ctx: any, dn?: string|null, onSaved: () => void }} o
@@ -33,17 +55,52 @@ export function openHealthRules(o) {
   let dirty = false;
   let tabs = null;
   let selectedTab = 'rules';
+  let saved = false;
+  const forms = [];
 
   const drawer = openDrawer({
-    title: 'Règles de santé', subtitle: 'Contrôles, seuils, alertes et suspensions ; gardés dans les préférences locales, jamais dans l’annuaire.',
+    title: 'Règles de santé', subtitle: 'Contrôles, seuils, alertes et suspensions ; gardés dans les préférences locales, jamais dans l’annuaire.',
     icon: 'shield', key: 'accueil.health', width: 860, minWidth: 460, body: host,
     actions: [
-      { id: 'cancel', label: 'Fermer', run: (d) => d.close() },
+      { id: 'cancel', label: 'Fermer', run: () => closeSafely() },
       { id: 'save', label: 'Enregistrer', icon: 'check', primary: true, run: () => save() },
     ],
-    onClose: () => tabs?.destroy?.(),
+    onClose: () => {
+      tabs?.destroy?.();
+      forms.splice(0).forEach((f) => f.destroy?.());
+      // Closed without asking (screen left): the changes stay as a draft of the window, offered at the next opening.
+      if (dirty && view && !saved) writeDraft({ scopeDn: view.scopeDn ?? null, policy: draft, at: new Date().toISOString() });
+      window.removeEventListener('hashchange', onLeave, true);
+    },
   });
   const saveBtn = () => drawer.foot?.querySelector('[data-id="save"]');
+
+  // Guard of the closing gestures the drawer handles itself: Échap (bubbling, before the panel's own handler), the cross and the
+  // backdrop (capture phase on the layer, before its click handler).
+  const panel = drawer.el;
+  const layer = panel?.parentElement;
+  panel?.querySelector('.k-drw-body')?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || !dirty) return;
+    e.preventDefault();
+    closeSafely();
+  });
+  layer?.addEventListener('click', (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t || !dirty || !(t.classList.contains('k-drw-backdrop') || t.closest('.k-drw-x'))) return;
+    e.stopPropagation();
+    e.preventDefault();
+    closeSafely();
+  }, true);
+  const onLeave = () => { /* the drawer closes itself on hashchange; onClose keeps the draft */ };
+  window.addEventListener('hashchange', onLeave, true);
+
+  async function closeSafely() {
+    if (await confirmDiscard()) {
+      dirty = false;
+      writeDraft(null);
+      drawer.close();
+    }
+  }
 
   function markDirty(on = true) {
     dirty = on;
@@ -56,7 +113,7 @@ export function openHealthRules(o) {
     thresholds: { ...p.thresholds },
     disabledRules: [...p.disabledRules],
     customRules: p.customRules.map((r) => ({ ...r })),
-    suspensions: p.suspensions.map((s) => ({ ruleId: s.ruleId, reason: s.reason, untilUtc: s.untilUtc })),
+    suspensions: p.suspensions.map((s) => ({ ruleId: s.ruleId, reason: s.reason, untilUtc: s.untilUtc, hours: s.hours, endNow: s.endNow })),
   });
 
   const activeSuspension = (ruleId) => draft.suspensions.find((s) => s.ruleId === ruleId && !s.endNow && (s.hours || Date.parse(s.untilUtc) > Date.now()));
@@ -68,7 +125,7 @@ export function openHealthRules(o) {
 
   function suspensionText(s) {
     if (!s) return '';
-    if (s.hours) return `Suspendu ${HOURS_LABEL[s.hours] ?? `${s.hours} h`} à l’enregistrement · ${s.reason}`;
+    if (s.hours) return `Suspendu ${HOURS_LABEL[s.hours] ?? `${s.hours}${NBSP}h`} à l’enregistrement · ${s.reason}`;
     return `Suspendu jusqu’au ${localStamp(s.untilUtc)} · ${s.reason}`;
   }
 
@@ -84,49 +141,76 @@ export function openHealthRules(o) {
         ${pill(STATE[state].tone, STATE[state].label, { size: 'sm' })}
         <button class="btn ghost sm" type="button" data-hr-suspend="${esc(r.id)}" aria-haspopup="menu"${state === 'disabled' ? ' disabled' : ''}>${glyph(s ? 'play' : 'pause')}${s ? 'Réactiver' : 'Suspendre'}</button></li>`;
     }).join('');
-    panel.innerHTML = `<p class="hr-lead">Un contrôle désactivé ne compte plus dans le score ; une suspension a un motif et une échéance, puis le contrôle revient seul. Les postes masqués restent comptés à part.</p><ul class="hr-rules cascade">${rows}</ul>`;
+    panel.innerHTML = `<p class="hr-lead">Un contrôle désactivé ne compte plus dans le score ; une suspension a un motif et une échéance, puis le contrôle revient seul. Les postes masqués restent comptés à part.</p><ul class="hr-rules cascade">${rows}</ul>`;
     paint(panel);
   }
 
   function thresholdsPanel(panel) {
     const origin = (id) => view.origins.find((x) => x.kind === 'Seuil' && x.id === id)?.origin ?? '';
-    panel.innerHTML = `<p class="hr-lead">Seuils de cette portée ; une OU sans exception hérite de sa parente puis du domaine.</p><div class="hr-thresholds">${view.thresholds.map((t, n) => `
-      <label class="hr-th" data-j="${n}"><span class="hr-th-name">${esc(t.name)}</span>
-        <span class="hr-th-input"><input class="input num" type="number" inputmode="numeric" min="${t.minimum}" max="${t.maximum}" step="1" value="${draft.thresholds[camel(t.id)]}" data-hr-th="${esc(camel(t.id))}">
-        <button class="btn ghost icon sm" type="button" data-hr-th-reset="${esc(camel(t.id))}" data-default="${t.default}" aria-label="Valeur par défaut : ${t.default}" data-tip="Défaut : ${t.default}">${glyph('undo')}</button></span>
-        <span class="hr-th-note">De ${formatNumber(t.minimum)} à ${formatNumber(t.maximum)} · défaut ${formatNumber(t.default)} · ${esc(origin(t.id))}</span></label>`).join('')}</div>`;
+    panel.innerHTML = `<p class="hr-lead">Seuils de cette portée ; une OU sans exception hérite de sa parente puis du domaine.</p><form class="k-form hr-th-form">${view.thresholds.map((t) => field({
+      name: camel(t.id), label: t.name, type: 'number', value: draft.thresholds[camel(t.id)], min: t.minimum, max: t.maximum, step: 1, required: true, width: 'half',
+      hint: `De ${formatNumber(t.minimum)} à ${formatNumber(t.maximum)} · défaut ${formatNumber(t.default)} · ${origin(t.id)}`,
+    })).join('')}<div class="k-form-actions"><button class="btn ghost sm" type="button" data-hr-th-defaults>${glyph('undo')}Valeurs par défaut</button></div></form>`;
+    const form = panel.querySelector('form');
+    const f = createForm(form, {
+      rules: Object.fromEntries(view.thresholds.map((t) => [camel(t.id), (v) => (Number.isInteger(v) ? null : 'Nombre entier attendu.')])),
+      onChange: (values) => {
+        let changed = false;
+        for (const t of view.thresholds) {
+          const k = camel(t.id);
+          const v = values[k];
+          if (Number.isInteger(v) && v >= t.minimum && v <= t.maximum && draft.thresholds[k] !== v) { draft.thresholds[k] = v; changed = true; }
+        }
+        if (changed) markDirty();
+      },
+    });
+    forms.push(f);
+    form.querySelector('[data-hr-th-defaults]').addEventListener('click', () => {
+      for (const t of view.thresholds) {
+        const input = form.elements.namedItem(camel(t.id));
+        if (input instanceof HTMLInputElement) input.value = String(t.default);
+        draft.thresholds[camel(t.id)] = t.default;
+      }
+      f.validate();
+      markDirty();
+    });
     paint(panel);
   }
 
   function alertsPanel(panel) {
     const list = draft.customRules;
-    panel.innerHTML = `<p class="hr-lead">Alertes personnelles sur les mesures relevées par WMI (32 au plus). ${view.queryAlertsAvailable ? '' : 'Les alertes sur requête enregistrée arriveront avec l’atelier de requêtes.'}</p>
+    panel.innerHTML = `<p class="hr-lead">Alertes personnelles sur les mesures relevées par WMI (${formatNumber(view.maxCustomRules)} au plus). ${view.queryAlertsAvailable ? '' : 'Les alertes sur requête enregistrée arriveront avec l’atelier de requêtes.'}</p>
       ${list.length ? `<ul class="hr-alerts">${list.map((r, n) => `<li data-j="${n}"><label class="hr-switch"><input class="switch" type="checkbox" role="switch" data-hr-alert-on="${n}"${r.enabled ? ' checked' : ''} aria-label="Activer ${esc(r.name)}"></label>
         <div class="hr-t"><h4>${esc(r.name)}</h4><p>${esc(MEASURES[r.measure] ?? r.measure)} ${esc(OPERATORS[r.operator] ?? r.operator)} ${formatNumber(r.threshold)}</p></div>
         ${pill(r.severity === 'Alert' ? 'alert' : 'warn', SEVERITY[r.severity] ?? r.severity, { size: 'sm' })}
         <button class="btn ghost icon sm" type="button" data-hr-alert-drop="${n}" aria-label="Supprimer l’alerte ${esc(r.name)}" data-tip="Supprimer">${glyph('trash')}</button></li>`).join('')}</ul>` : '<p class="faint">Aucune alerte personnelle.</p>'}
-      <form class="hr-alert-form"><h4>Nouvelle alerte</h4>
-        <label><span>Nom</span><input class="input" name="name" type="text" maxlength="80" required placeholder="Disque sous 15 %"></label>
-        <label><span>Mesure</span><select class="input acc-select" name="measure">${Object.entries(MEASURES).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
-        <label><span>Condition</span><select class="input acc-select" name="operator">${Object.entries(OPERATORS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
-        <label><span>Seuil</span><input class="input num" name="threshold" type="number" step="1" min="0" max="3650" value="15" required></label>
-        <label><span>Niveau</span><select class="input acc-select" name="severity">${Object.entries(SEVERITY).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
-        <button class="btn sm" type="submit">${glyph('plus')}Ajouter l’alerte</button></form>`;
+      <form class="k-form hr-alert-form"><h4 class="hr-form-title">Nouvelle alerte</h4>
+        ${field({ name: 'name', label: 'Nom', required: true, maxLength: 80, placeholder: 'Disque sous 15 %', width: 'full' })}
+        ${field({ name: 'measure', label: 'Mesure', type: 'select', value: 'DiskFree', options: Object.entries(MEASURES).map(([value, label]) => ({ value, label })), width: 'third' })}
+        ${field({ name: 'operator', label: 'Condition', type: 'select', value: 'LessThan', options: Object.entries(OPERATORS).map(([value, label]) => ({ value, label })), width: 'third' })}
+        ${field({ name: 'threshold', label: 'Seuil', type: 'number', value: 15, min: 0, max: 3650, step: 1, required: true, width: 'third' })}
+        ${field({ name: 'severity', label: 'Niveau', type: 'radio', value: 'Warn', options: Object.entries(SEVERITY).map(([value, label]) => ({ value, label })) })}
+        <div class="k-form-actions"><button class="btn sm primary" type="submit">${glyph('plus')}Ajouter l’alerte</button></div></form>`;
     paint(panel);
-    panel.querySelector('form').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const f = e.currentTarget;
-      if (draft.customRules.length >= view.maxCustomRules) { ctx.toast(`${formatNumber(view.maxCustomRules)} alertes au plus.`, { tone: 'warn' }); return; }
-      const threshold = Number(f.threshold.value);
-      const max = f.measure.value === 'UptimeDays' ? 3650 : 100;
-      if (!f.name.value.trim() || !Number.isFinite(threshold) || threshold < 0 || threshold > max) {
-        ctx.toast(`Alerte incomplète : nom et seuil de 0 à ${formatNumber(max)}.`, { tone: 'warn' });
-        return;
-      }
-      draft.customRules.push({ name: f.name.value.trim(), measure: f.measure.value, operator: f.operator.value, threshold, severity: f.severity.value, enabled: true });
-      markDirty();
-      alertsPanel(panel);
+    const form = panel.querySelector('form');
+    const f = createForm(form, {
+      rules: {
+        threshold: (v, values) => {
+          const max = values.measure === 'UptimeDays' ? 3650 : 100;
+          return Number.isFinite(v) && (v < 0 || v > max) ? `De 0 à ${formatNumber(max)} pour cette mesure.` : null;
+        },
+        name: (v) => (draft.customRules.some((r) => r.name.trim().toLowerCase() === String(v ?? '').trim().toLowerCase()) ? { warn: 'Une alerte porte déjà ce nom.' } : null),
+      },
+      onSubmit: (values) => {
+        if (draft.customRules.length >= view.maxCustomRules) { ctx.toast(`${formatNumber(view.maxCustomRules)} alertes au plus.`, { tone: 'warn' }); return; }
+        draft.customRules.push({ name: String(values.name).trim(), measure: values.measure, operator: values.operator, threshold: values.threshold, severity: values.severity || 'Warn', enabled: true });
+        markDirty();
+        f.destroy?.();
+        alertsPanel(panel);
+        ctx.toast(`Alerte «${NBSP}${String(values.name).trim()}${NBSP}» ajoutée${NBSP}: enregistrez pour l’appliquer.`, { tone: 'info', life: 2600 });
+      },
     });
+    forms.push(f);
   }
 
   function originPanel(panel) {
@@ -141,7 +225,7 @@ export function openHealthRules(o) {
       const rows = r.rows ?? [];
       panel.innerHTML = rows.length
         ? `<p class="hr-lead">OU qui s’écartent des règles du domaine (seules leurs différences sont gardées).</p><ul class="hr-exc">${rows.map((x, n) => `<li data-j="${n}"><button class="hr-exc-pick" type="button" data-hr-scope="${esc(x.scopeDn)}">${glyph('ou')}<span><b>${esc(x.label)}</b><span>${esc(x.changes)}</span></span><span class="num">${plural(x.count, 'réglage', 'réglages')}</span>${glyph('chevronRight', 'chev')}</button></li>`).join('')}</ul>`
-        : `<div class="acc-empty">${glyph('check')}<p>Aucune exception : toutes les OU suivent les règles du domaine.</p></div>`;
+        : `<div class="acc-empty">${glyph('check')}<p>Aucune exception${NBSP}: toutes les OU suivent les règles du domaine.</p></div>`;
       paint(panel);
     }).catch((err) => { panel.innerHTML = `<div class="acc-err">${glyph('alert')}<span>${esc(reported(err))}</span></div>`; });
   }
@@ -150,12 +234,13 @@ export function openHealthRules(o) {
 
   function paintAll() {
     const scopes = view.scopes ?? [];
+    forms.splice(0).forEach((f) => f.destroy?.());
     host.innerHTML = `<div class="hr-scope">
-        <label><span>Portée</span><select class="input acc-select" data-hr-scope-select>${scopes.map((s) => `<option value="${esc(s.dn ?? '')}"${(s.dn ?? null) === (view.scopeDn ?? null) ? ' selected' : ''}>${esc(scopeName(s))}</option>`).join('')}</select></label>
-        <p class="hr-scope-note">${view.scopeDn ? (view.local ? `${glyph('edit')}<span>Exception de l’OU ${esc(friendly(view))} : seules ses différences sont gardées.</span>` : `${glyph('info')}<span>L’OU ${esc(friendly(view))} hérite ; enregistrer crée une exception pour elle.</span>`) : `${glyph('domain')}<span>Règles de tout le domaine, héritées par les OU sans exception.</span>`}</p>
+        <form class="k-form hr-scope-form">${field({ name: 'scope', label: 'Portée', type: 'select', value: view.scopeDn ?? '', options: scopes.map((s) => ({ value: s.dn ?? '', label: scopeName(s) })) })}</form>
+        <p class="hr-scope-note">${view.scopeDn ? (view.local ? `${glyph('edit')}<span>Exception de l’OU ${esc(friendly(view))}${NBSP}: seules ses différences sont gardées.</span>` : `${glyph('info')}<span>L’OU ${esc(friendly(view))} hérite ; enregistrer crée une exception pour elle.</span>`) : `${glyph('domain')}<span>Règles de tout le domaine, héritées par les OU sans exception.</span>`}</p>
         ${view.scopeDn && view.local ? `<button class="btn ghost sm" type="button" data-hr-revert>${glyph('undo')}Revenir aux règles héritées</button>` : ''}
         <span class="hr-dirty k-pill sm warn" hidden><span class="k-pill-dot pulse" aria-hidden="true"></span>Modifications non enregistrées</span>
-      </div><div class="hr-tabs"></div>`;
+      </div><div class="hr-draft" hidden></div><div class="hr-tabs"></div>`;
     tabs?.destroy?.();
     const disabled = draft.disabledRules.length;
     const suspended = view.rules.filter((r) => activeSuspension(r.id)).length;
@@ -172,6 +257,17 @@ export function openHealthRules(o) {
     });
     paint(host);
     markDirty(dirty);
+    offerDraft();
+  }
+
+  // A draft kept when the screen was left with changes not saved: offered for the same scope, never applied by itself.
+  function offerDraft() {
+    const d = readDraft();
+    const slot = host.querySelector('.hr-draft');
+    if (!slot || !d || (d.scopeDn ?? null) !== (view.scopeDn ?? null) || dirty) return;
+    slot.hidden = false;
+    slot.innerHTML = `${glyph('history')}<span>Modifications non enregistrées du ${esc(localStamp(d.at))} pour cette portée.</span>`
+      + `<button class="btn sm" type="button" data-hr-draft="use">${glyph('undo')}Reprendre</button><button class="btn ghost sm" type="button" data-hr-draft="drop">Abandonner</button>`;
   }
 
   async function load(dn) {
@@ -199,7 +295,10 @@ export function openHealthRules(o) {
       view = await ctx.call('accueil.health.save', { ...(view.scopeDn ? { dn: view.scopeDn } : {}), policy });
       draft = clone(view.policy);
       dirty = false;
+      saved = true;
+      writeDraft(null);
       paintAll();
+      saved = false;
       ctx.toast(`Règles de santé enregistrées pour ${view.scopeDn ? `l’OU ${friendly(view)}` : 'le domaine'}. Le tableau du parc est recalculé.`, { tone: 'ok' });
       o.onSaved();
     } catch (err) {
@@ -212,7 +311,7 @@ export function openHealthRules(o) {
   async function confirmDiscard() {
     if (!dirty) return true;
     const d = openDialog({
-      title: 'Abandonner les modifications ?', icon: 'alert', size: 'sm',
+      title: 'Abandonner les modifications ?', icon: 'alert', size: 'sm',
       body: '<p class="k-dlg-text">Les réglages changés pour cette portée ne sont pas enregistrés.</p>',
       actions: [{ id: 'cancel', label: 'Rester', safe: true }, { id: 'ok', label: 'Abandonner', danger: true }],
     });
@@ -222,16 +321,26 @@ export function openHealthRules(o) {
   async function askReason(ruleName, hours) {
     const form = document.createElement('form');
     form.dataset.page = 'accueil';
-    form.className = 'acc-surface hr-reason';
-    form.innerHTML = `<label class="fw-field"><span>Motif (3 à 240 caractères)</span><input class="input" type="text" minlength="3" maxlength="240" required placeholder="Campagne de remplacement des disques" autocomplete="off"></label>
-      <p class="fw-field-note">« ${esc(ruleName)} » sera suspendu ${esc(HOURS_LABEL[hours] ?? `${hours} h`)} à partir de l’enregistrement, puis reviendra seul.</p>`;
-    const d = openDialog({ title: 'Suspendre le contrôle', icon: 'pause', size: 'sm', body: form, actions: [{ id: 'cancel', label: 'Annuler' }, { id: 'ok', label: 'Suspendre', primary: true }] });
-    form.addEventListener('submit', (e) => { e.preventDefault(); d.close('ok'); });
+    form.className = 'acc-surface k-form hr-reason';
+    form.innerHTML = field({
+      name: 'reason', label: 'Motif', required: true, minLength: 3, maxLength: 240, placeholder: 'Campagne de remplacement des disques',
+      hint: `«${NBSP}${ruleName}${NBSP}» sera suspendu ${HOURS_LABEL[hours] ?? `${hours}${NBSP}h`} à partir de l’enregistrement, puis reviendra seul.`,
+    });
+    let reason = null;
+    const d = openDialog({ title: 'Suspendre le contrôle', icon: 'pause', size: 'sm', body: form, actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: 'Suspendre', primary: true }] });
+    const f = createForm(form, { onSubmit: (values) => { reason = String(values.reason).trim(); d.close('ok'); } });
+    form.querySelector('input')?.focus();
     const r = await d.result;
-    const text = form.querySelector('input').value.trim();
-    if (r !== 'ok') return null;
-    if (text.length < 3) { ctx.toast('Motif trop court : 3 caractères au moins.', { tone: 'warn' }); return null; }
-    return text;
+    if (r === 'ok' && reason === null) {
+      // « Suspendre » of the footer: the same checks as a submit; an invalid reason keeps nothing.
+      if (f.validate()) reason = String(f.values().reason).trim();
+    }
+    f.destroy?.();
+    if (r === 'ok' && !(reason && reason.length >= 3)) {
+      ctx.toast(`Motif obligatoire${NBSP}: 3 à 240 caractères. Rien n’a été suspendu.`, { tone: 'warn' });
+      return null;
+    }
+    return r === 'ok' ? reason : null;
   }
 
   // ---------- Events ----------
@@ -239,9 +348,10 @@ export function openHealthRules(o) {
   host.addEventListener('change', async (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
-    if (t.matches('[data-hr-scope-select]')) {
+    if (t.matches('.hr-scope-form select')) {
       const value = /** @type {HTMLSelectElement} */ (t).value;
-      if (!(await confirmDiscard())) { t.value = view.scopeDn ?? ''; return; }
+      if (!(await confirmDiscard())) { /** @type {HTMLSelectElement} */ (t).value = view.scopeDn ?? ''; return; }
+      dirty = false;
       load(value || null);
       return;
     }
@@ -256,20 +366,6 @@ export function openHealthRules(o) {
       panel?.querySelector(`[data-hr-toggle="${CSS.escape(id)}"]`)?.focus();
       return;
     }
-    if (t.matches('[data-hr-th]')) {
-      const input = /** @type {HTMLInputElement} */ (t);
-      const n = Number(input.value);
-      const def = view.thresholds.find((x) => camel(x.id) === input.dataset.hrTh);
-      if (!def || !Number.isInteger(n) || n < def.minimum || n > def.maximum) {
-        input.classList.add('invalid');
-        ctx.toast(`${def?.name ?? 'Seuil'} : valeur attendue de ${def?.minimum} à ${def?.maximum}.`, { tone: 'warn' });
-        return;
-      }
-      input.classList.remove('invalid');
-      draft.thresholds[input.dataset.hrTh] = n;
-      markDirty();
-      return;
-    }
     if (t.matches('[data-hr-alert-on]')) {
       const r = draft.customRules[Number(t.dataset.hrAlertOn)];
       if (r) { r.enabled = /** @type {HTMLInputElement} */ (t).checked; markDirty(); }
@@ -280,6 +376,20 @@ export function openHealthRules(o) {
     const t = e.target instanceof Element ? e.target : null;
     if (!t) return;
     if (t.closest('[data-hr-retry]')) { load(o.dn ?? null); return; }
+    const use = t.closest('[data-hr-draft]');
+    if (use) {
+      const d = readDraft();
+      writeDraft(null);
+      if (use.dataset.hrDraft === 'use' && d?.policy) {
+        draft = clone({ ...view.policy, ...d.policy, suspensions: d.policy.suspensions ?? [] });
+        dirty = true;
+        paintAll();
+        ctx.toast('Brouillon repris : relisez puis enregistrez.', { tone: 'info', life: 2600 });
+      } else {
+        host.querySelector('.hr-draft')?.setAttribute('hidden', '');
+      }
+      return;
+    }
     if (t.closest('[data-hr-revert]')) {
       try {
         view = await ctx.call('accueil.health.revert', { dn: view.scopeDn });
@@ -296,14 +406,9 @@ export function openHealthRules(o) {
     const scope = t.closest('[data-hr-scope]');
     if (scope) {
       if (!(await confirmDiscard())) return;
+      dirty = false;
       selectedTab = 'rules';
       load(scope.dataset.hrScope || null);
-      return;
-    }
-    const reset = t.closest('[data-hr-th-reset]');
-    if (reset) {
-      const input = host.querySelector(`[data-hr-th="${CSS.escape(reset.dataset.hrThReset)}"]`);
-      if (input) { input.value = reset.dataset.default; input.dispatchEvent(new Event('change', { bubbles: true })); }
       return;
     }
     const drop = t.closest('[data-hr-alert-drop]');
@@ -330,7 +435,7 @@ export function openHealthRules(o) {
       openMenu(suspend, [
         { heading: 'Suspendre pendant' },
         ...view.suspensionHours.map((h) => ({
-          label: HOURS_LABEL[h] ?? `${h} h`, icon: 'clock',
+          label: HOURS_LABEL[h] ?? `${h}${NBSP}h`, icon: 'clock',
           run: async () => {
             const reason = await askReason(rule?.name ?? id, h);
             if (!reason) return;
@@ -348,4 +453,3 @@ export function openHealthRules(o) {
   load(o.dn ?? null);
   return drawer;
 }
-

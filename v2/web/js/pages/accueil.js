@@ -1,18 +1,20 @@
-// Accueil: overview of the working OU — hero (scope title, account chip, working OU and first steps), « Contrôles du parc »
-// (explicit refresh of the OU), KPI band, charts, the fleet board (widgets with their exact workstations, layout shaped by
-// the operator, health rules, analysis, provenance), watchlist, timeline, session and its tools. The « Choisir l’OU »
-// panel is the kit drawer with the kit tree (pages/accueil/ou-picker.js).
+// Accueil: overview of the working OU — hero (scope title, account chip, freshness of the AD read, « Tout actualiser » with its
+// menu and its status strip, journey, help, working OU, first steps), sticky section index, KPI band, charts, the fleet board
+// (widgets with their exact workstations, layout shaped by the operator, health rules, analysis, provenance), watchlist,
+// timeline, session and its tools. The « Choisir l’OU » panel is the kit drawer with the kit tree (pages/accueil/ou-picker.js).
+// #/accueil?section=<id> shows one section alone (links, guides, captures of a section at the top of the screen).
 // Data contract: docs/OPERATIONS.md (app.info, session.info, session.setScope, dashboard.summary, dashboard.widget.*,
 // directory.ou.*) and docs/ops/accueil.md (accueil.*).
 import { icon } from '../icons.js';
 import { glyph } from '../kit/glyphs.js';
+import { freshness, startFreshness } from '../kit/freshness.js';
 import {
-  esc, applyVars, reveal, countUp, donut, inkFollow, copyText, announce, relTime, formatNumber, formatDateTime, formatTime,
+  esc, applyVars, reveal, countUp, donut, inkFollow, copyText, relTime, formatNumber, formatDateTime, formatTime,
   cssMs, motionReduced,
 } from '../ui.js';
 import {
   NBSP, pct, isNum, numAttr, plural, capitalize, isSimulated, reported, dnChain, pathOf, isRootDn, paint, sk, skStack,
-  localStamp, sameDn,
+  localStamp, sameDn, rememberObject, lastObject,
 } from './accueil/shared.js';
 import { createOuPicker } from './accueil/ou-picker.js';
 import { createBoard } from './accueil/board.js';
@@ -45,13 +47,16 @@ const PANELS = [
   { id: 'store', label: 'Base locale', simulated: 'Données fictives' },
 ];
 const SECTIONS = [
-  { id: 'controles', label: 'Contrôles', icon: 'zap' },
-  { id: 'kpis', label: 'Indicateurs', icon: 'gauge' },
-  { id: 'fleet', label: 'Activité', icon: 'activity' },
-  { id: 'board', label: 'Tableau du parc', icon: 'layers' },
-  { id: 'follow', label: 'Suivi', icon: 'eye' },
-  { id: 'session', label: 'Session', icon: 'shield' },
+  { id: 'kpis', label: 'Indicateurs', icon: 'gauge', link: 'indicateurs' },
+  { id: 'fleet', label: 'Activité', icon: 'activity', link: 'activite' },
+  { id: 'board', label: 'Tableau du parc', icon: 'layers', link: 'tableau' },
+  { id: 'follow', label: 'Suivi', icon: 'eye', link: 'suivi' },
+  { id: 'session', label: 'Session', icon: 'shield', link: 'session' },
 ];
+// ?section=<link> of the address → section id.
+const SECTION_LINKS = new Map(SECTIONS.map((x) => [x.link, x.id]));
+// Age after which the AD read of the hero turns red (amber from half of it): one day (ACC-020, badge coloured by age).
+const AD_STALE_MS = 24 * 3_600_000;
 const DAY_MS = 86_400_000;
 const countText = (v) => (isNum(v) ? formatNumber(v) : 'non mesuré');
 const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
@@ -59,39 +64,42 @@ const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><s
 const longDate = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 const panelLabel = (p, sim) => (sim && p.simulated ? p.simulated : p.label);
 // lastSeenAt is null when no answer to the presence check (ping) is recorded, even if WMI answered (OPERATIONS.md § 4.7).
-const NO_PING_TIP = 'Aucune réponse au relevé de présence (ping) n’est enregistrée pour ce poste. Le ping peut être filtré : '
+const NO_PING_TIP = 'Aucune réponse au relevé de présence (ping) n’est enregistrée pour ce poste. Le ping peut être filtré : '
   + 'une absence de réponse n’est jamais un verdict d’arrêt.';
 const INVENTORY_RULES = new Set(['lowDisk', 'diskTight', 'uptime']);
 // Tools opened from the address (#/accueil?outil=…), for links from other screens, guides and the capture mode.
-const TOOLS = new Set(['widgets', 'sante', 'score', 'analyse', 'provenance', 'journal', 'verifier', 'aide', 'actualiser', 'base', 'wmi']);
+const TOOLS = new Set(['widgets', 'sante', 'score', 'analyse', 'provenance', 'journal', 'verifier', 'aide', 'actualiser', 'base', 'wmi', 'ping', 'reprendre']);
 
 // ---------- Skeletons ----------
 
-const secHead = (id, title, note) => `<div class="home-sec reveal" data-sec="${id}" id="acc-sec-${id}"><h2>${esc(title)}</h2><span class="sec-note">${esc(note)}</span></div>`;
+const secHead = (id, title, note) => `<div class="home-sec reveal" data-sec="${id}" data-in-sec="${id}" id="acc-sec-${id}"><h2>${esc(title)}</h2><span class="sec-note">${esc(note)}</span></div>`;
 
 function skeletonPage() {
   const kpi = (id) => `<article class="card kpi spot tilt reveal" data-widget="${id}">${skStack('sk-line w40', 'sk-title w70', 'sk-value w55', 'sk-line w85', 'sk-line w70')}</article>`;
-  const chart = (id, span, body) => `<section class="card widget ${span} spot reveal" data-widget="${id}"><div class="sk-stack">${sk('sk-line w40')}${body}</div></section>`;
+  const chart = (id, span, body, sec) => `<section class="card widget ${span} spot reveal" data-widget="${id}" data-in-sec="${sec}"><div class="sk-stack">${sk('sk-line w40')}${body}</div></section>`;
   return `<div class="page home"><div class="grid">
     <section class="hero span-12 reveal" data-slot="hero">
       ${RING}${ORBS}
       <div class="hero-grid"><div class="hero-main">${skStack('sk-line w25', 'sk-title w40', 'sk-line w70', 'sk-line w55')}</div>
         <div class="scope-card">${skStack('sk-line w40', 'sk-title w55', 'sk-line w85', 'sk-line w70')}</div></div>
     </section>
-    <nav class="acc-nav span-12 reveal" aria-label="Sections de l’Accueil"><div class="acc-nav-track">${SECTIONS.map((s, n) => `<button type="button" class="acc-nav-btn" data-nav="${s.id}" data-j="${n}">${glyph(s.icon)}<span>${esc(s.label)}</span></button>`).join('')}<span class="ink acc-nav-ink" aria-hidden="true"></span></div></nav>
-    <section class="card span-12 controls spot reveal" data-slot="controls" id="acc-sec-controles">${skStack('sk-line w25', 'sk-line w55', 'sk-block w100')}</section>
-    ${secHead('kpis', 'Indicateurs clés', 'Comptes : tout le domaine · postes : OU de travail')}
-    <div class="kpi-band">${KPI_IDS.map(kpi).join('')}</div>
+    <span class="acc-nav-sentinel span-12" aria-hidden="true"></span>
+    <nav class="acc-nav span-12" aria-label="Sections de l’Accueil"><div class="acc-nav-band">
+      <span class="acc-nav-scope" aria-hidden="true"></span>
+      <div class="acc-nav-track">${SECTIONS.map((x, n) => `<button type="button" class="acc-nav-btn" data-nav="${x.id}" data-j="${n}">${glyph(x.icon)}<span>${esc(x.label)}</span></button>`).join('')}<span class="ink acc-nav-ink" aria-hidden="true"></span></div>
+      <span class="acc-nav-focus" hidden></span></div></nav>
+    ${secHead('kpis', 'Indicateurs clés', `Comptes${NBSP}: tout le domaine · postes${NBSP}: OU de travail`)}
+    <div class="kpi-band" data-in-sec="kpis">${KPI_IDS.map(kpi).join('')}</div>
     ${secHead('fleet', 'Activité de l’OU de travail', 'Calculé localement, sans lecture réseau')}
-    ${chart('workstationActivity', 'span-5', sk('sk-block w100'))}
-    ${chart('osDistribution', 'span-4', sk('sk-ring'))}
-    ${chart('measureFreshness', 'span-3', sk('sk-ring'))}
+    ${chart('workstationActivity', 'span-5', sk('sk-block w100'), 'fleet')}
+    ${chart('osDistribution', 'span-4', sk('sk-ring'), 'fleet')}
+    ${chart('measureFreshness', 'span-3', sk('sk-ring'), 'fleet')}
     ${secHead('board', 'Tableau du parc', 'Chaque chiffre ouvre ses postes exacts · disposition personnalisable')}
-    <section class="span-12 board" data-slot="board" aria-labelledby="acc-sec-board"></section>
+    <section class="span-12 board" data-slot="board" data-in-sec="board" aria-labelledby="acc-sec-board"></section>
     ${secHead('follow', 'Suivi', 'Postes à surveiller et journal des opérations')}
-    ${chart('watchlist', 'span-7', skStack('sk-line w85', 'sk-line w70', 'sk-line w85', 'sk-line w55'))}
-    ${chart('recentOperations', 'span-5', skStack('sk-line w70', 'sk-line w55', 'sk-line w70', 'sk-line w40'))}
-    <section class="card span-12 spot reveal session-card" data-slot="session" id="acc-sec-session">${skStack('sk-line w25', 'sk-line w100', 'sk-line w85')}</section>
+    ${chart('watchlist', 'span-7', skStack('sk-line w85', 'sk-line w70', 'sk-line w85', 'sk-line w55'), 'follow')}
+    ${chart('recentOperations', 'span-5', skStack('sk-line w70', 'sk-line w55', 'sk-line w70', 'sk-line w40'), 'follow')}
+    <section class="card span-12 spot reveal session-card" data-slot="session" data-in-sec="session" id="acc-sec-session">${skStack('sk-line w25', 'sk-line w100', 'sk-line w85')}</section>
   </div></div>`;
 }
 
@@ -332,7 +340,7 @@ function watchBody(d) {
     const more = r.otherReasons > 0
       ? `<span class="more" data-tip="Autres points d’attention">+${formatNumber(r.otherReasons)}<span class="visually-hidden"> ${r.otherReasons > 1 ? 'autres points' : 'autre point'} d’attention</span></span>` : '';
     const alert = r.severity === 'alert';
-    return `<button class="list-row watch-row" type="button" data-go="poste" data-dn="${esc(r.dn)}" data-sev="${alert ? 'alert' : 'warn'}" data-j="${n}" data-tip="${esc(r.dn)}">
+    return `<button class="list-row watch-row" type="button" data-go="poste" data-dn="${esc(r.dn)}" data-name="${esc(r.name)}" data-sev="${alert ? 'alert' : 'warn'}" data-j="${n}" data-tip="${esc(r.dn)}">
       <span class="sev-mark" aria-hidden="true"></span>
       <span class="avatar pc">${icon('monitor')}</span>
       <span class="body"><span class="title">${esc(r.name)}${more}</span><span class="sub">${esc(r.reason)}</span></span>
@@ -364,7 +372,8 @@ function chartCard(w) {
   else if (w.id === 'watchlist') {
     extra = `<span class="head-chip">${formatNumber(d.shown)} sur ${formatNumber(d.total)}</span>`;
     body = watchBody(d);
-    if (d.total > d.shown) action = `<button class="btn sm" type="button" data-go="rechercher">${icon('search')}Voir les ${formatNumber(d.total)} postes dans Rechercher</button>`;
+    // Rechercher receives the working OU (never the whole domain, ACC-031); the exact list of the board is under « Points d’attention ».
+    if (d.total > d.shown) action = `<button class="btn sm" type="button" data-go="rechercher" data-tip="${esc(`Ouvre Rechercher sur l’OU de travail ; les ${formatNumber(d.total)} postes exacts sont dans «${NBSP}Points d’attention${NBSP}» du tableau du parc`)}">${icon('search')}Ouvrir l’OU dans Rechercher</button>`;
   } else {
     extra = `<span class="head-chip">${formatNumber(d.rows.length)} sur ${formatNumber(d.total)}</span>`;
     body = timelineBody(d);
@@ -376,15 +385,16 @@ function chartCard(w) {
 // ---------- Hero, working OU, first steps and session panels ----------
 
 // session.info in directory mode without a connection still names the join domain (domain.dnsName may also be null).
+// The OU is named by the title and the card: the lead says what is measured where, without repeating it.
 function leadText(s) {
-  const safety = s.readOnly ? 'Lecture seule : aucune modification de l’annuaire n’est possible.'
-    : 'Rien n’est modifié sans votre geste : toute écriture demande une confirmation explicite.';
+  const safety = s.readOnly ? `Lecture seule${NBSP}: aucune modification de l’annuaire n’est possible.`
+    : `Rien n’est modifié sans votre geste${NBSP}: toute écriture demande une confirmation explicite.`;
   const dns = s.domain?.dnsName;
   if (s.connection?.state === 'disconnected' || !dns) {
-    return `Annuaire non connecté${dns ? ` (domaine ${dns})` : ''} : les lectures de l’annuaire reprendront à la connexion. ${safety}`;
+    return `Annuaire non connecté${dns ? ` (domaine ${dns})` : ''}${NBSP}: les lectures de l’annuaire reprendront à la connexion. ${safety}`;
   }
   const where = s.scope
-    ? `Postes de l’OU ${s.scope.label}${s.scope.subtree ? ' et de ses sous-OU' : ''}`
+    ? `Postes mesurés dans l’OU de travail${s.scope.subtree ? ' et ses sous-OU' : ' seule'}`
     : 'Aucune OU de travail choisie pour mesurer les postes';
   return `${where}, comptes de tout le domaine ${dns}. ${safety}`;
 }
@@ -394,35 +404,31 @@ function heroChips(s, lastReadAt, sim) {
   if (s.account?.login) chips.push(`<span class="chip" data-tip="${esc(s.account.displayName ? `Compte utilisé pour l’annuaire · ${s.account.displayName}` : 'Compte utilisé pour l’annuaire')}">${icon('user')}<span class="mono">${esc(s.account.login)}</span></span>`);
   if (s.domain?.dnsName) chips.push(`<span class="chip" data-tip="${esc(s.domain.netbiosName ? `Domaine · NetBIOS ${s.domain.netbiosName}` : 'Domaine')}">${glyph('domain')}${esc(s.domain.dnsName)}</span>`);
   if (s.controller) chips.push(`<span class="chip" data-tip="Contrôleur de domaine">${icon('server')}${esc(s.controller.dnsName)}${s.controller.site ? ` · ${esc(s.controller.site)}` : ''}</span>`);
-  const date = formatDateTime(lastReadAt);
+  // Freshness of the AD read (ACC-020): green, amber past half a day, red past a day (kit freshness indicator, its tip dates it).
   if (lastReadAt) {
-    const tip = sim
-      ? `Lecture fictive du ${date ?? '—'} : en simulation, aucune base locale n’est ouverte et aucun annuaire n’est interrogé.`
-      : `Dernière lecture de l’annuaire enregistrée dans la base locale : ${date ?? '—'}. L’Accueil se calcule depuis cette base, sans lecture réseau.`;
-    chips.push(`<span class="chip info" data-tip="${esc(tip)}">${icon(sim ? 'sparkles' : 'database')}${rel(lastReadAt, sim ? 'Annuaire fictif · lu ' : 'Annuaire lu ')}</span>`);
+    chips.push(`<span class="chip ad-fresh">${freshness(lastReadAt, { staleAfter: AD_STALE_MS, label: sim ? 'Annuaire fictif lu' : 'Annuaire lu', source: sim ? 'lecture fictive, aucune base locale ouverte' : 'lecture complète enregistrée dans la base locale' })}</span>`);
   } else {
-    chips.push(`<span class="chip warn">${icon('database')}${sim ? 'Annuaire fictif non lu' : 'Base locale vide : aucune lecture de l’annuaire'}</span>`);
+    chips.push(`<span class="chip warn">${icon('database')}${sim ? 'Annuaire fictif non lu' : `Base locale vide${NBSP}: aucune lecture de l’annuaire`}</span>`);
   }
   return chips.map((c, n) => c.replace('<span class="chip', `<span data-j="${n}" class="chip`)).join('');
 }
 
-// Working OU: name, path (each level opens the OU panel on it, ACC-013), depth and the button of the panel.
+// Working OU: name, the path of its parents (each level opens the OU panel on it, ACC-013), depth and the button of the panel.
 function scopeCardMarkup(s) {
   const scope = s?.scope ?? null;
   const chain = scope ? dnChain(scope.dn, s.domain?.dnsName) : null;
   let crumbs = '';
   if (chain) {
-    const steps = [{ ...chain.root, root: true }, ...chain.chain];
-    crumbs = `<nav class="crumbs" aria-label="Chemin de l’OU de travail"><ol>${steps.map((c, n) => {
-      const last = n === steps.length - 1;
-      const inner = last ? `<span class="crumb now" aria-current="location">${esc(c.name)}</span>`
-        : `<button type="button" class="crumb" data-reveal="${esc(c.dn)}"${c.root ? ' data-root="1"' : ''} data-tip="${esc(c.root ? 'Ouvrir le choix de l’OU à la racine du domaine (tout le domaine se confirme)' : `Choisir ${c.name} comme OU de travail, même profondeur`)}">${esc(c.name)}</button>`;
+    // The OU itself is the name above: the path shows where it lives, from the domain.
+    const steps = [{ ...chain.root, root: true }, ...chain.chain.slice(0, -1)];
+    crumbs = `<nav class="crumbs" aria-label="Emplacement de l’OU de travail"><span class="crumbs-k">Dans</span><ol>${steps.map((c, n) => {
+      const inner = `<button type="button" class="crumb" data-reveal="${esc(c.dn)}"${c.root ? ' data-root="1"' : ''} data-tip="${esc(c.root ? 'Ouvrir le choix de l’OU à la racine du domaine (tout le domaine se confirme)' : `Choisir ${c.name} comme OU de travail, même profondeur`)}">${esc(c.name)}</button>`;
       return `<li data-j="${n}">${inner}</li>`;
     }).join('')}</ol></nav>`;
   }
   const depth = scope ? `<span class="chip ${scope.subtree ? 'info' : ''} depth">${scope.subtree ? 'Sous-OU comprises' : 'Cette OU seulement'}</span>` : '';
-  const note = scope ? 'Défaut de toutes les sections : postes mesurés dans cette OU, comptes sur tout le domaine.'
-    : 'Choisissez une OU : la mesure des postes n’est jamais lancée sur tout le domaine.';
+  const note = scope ? `Défaut de toutes les sections${NBSP}: postes mesurés dans cette OU, comptes sur tout le domaine.`
+    : `Choisissez une OU${NBSP}: la mesure des postes n’est jamais lancée sur tout le domaine.`;
   return `<div class="scope-top"><span class="scope-ico">${glyph('ou')}</span><span class="scope-k" id="scope-card-k">OU de travail</span>${depth}</div>
     <div class="scope-name">${scope ? esc(scope.label) : 'Aucune OU choisie'}</div>
     ${crumbs}
@@ -439,36 +445,53 @@ function heroTitle(s) {
   return `Vue d’ensemble · ${root ? `Domaine ${s.scope.label}` : `OU ${s.scope.label}`}`;
 }
 
-function heroMarkup(s, lastReadAt, sim) {
+// One row of actions: the only primary of the screen (« Tout actualiser » and its menu), the journey (its third step opens the
+// query workshop) and the help « ? »; the status strip of a refresh sits under it. « Choisir l’OU » lives in the OU card.
+function heroMarkup(s, lastReadAt, sim, helpSeen) {
   return `<div class="hero-grid">
       <div class="hero-main">
-        <div class="eyebrow">${icon('sparkles')}<span>Vue d’ensemble</span><span class="eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
+        <div class="eyebrow">${icon('sparkles')}<span>Tableau de bord</span><span class="eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
         <h1 class="gradient-text">${esc(heroTitle(s))}</h1>
         <p class="lead">${esc(leadText(s))}</p>
         <div class="chips">${heroChips(s, lastReadAt, sim)}</div>
         <div class="hero-row">
-          <button class="btn primary" type="button" data-act="refresh-all" data-tip="Base locale de l’OU, puis ping et WMI des postes actifs, après confirmation">${icon('refresh')}<span class="label-progress">Tout actualiser</span></button>
-          <button class="btn" type="button" data-act="scope" aria-haspopup="dialog">${glyph('ou')}Choisir l’OU</button>
-          <button class="btn ghost" type="button" data-act="queries">${icon('database')}Ouvrir l’atelier de requêtes</button>
+          <div class="hero-actions" data-slot="refresh-actions"></div>
+          <span class="spacer"></span>
+          <div class="hero-journey" data-slot="journey">${journeyMarkup(lastObject())}</div>
+          ${helpButton(helpSeen)}
         </div>
+        <div class="hero-status" data-slot="refresh-status"></div>
       </div>
       <aside class="scope-card" data-slot="scope" aria-labelledby="scope-card-k">${scopeCardMarkup(s)}</aside>
     </div>
     <div class="steps-slot" data-slot="steps"></div>`;
 }
 
+// « ? » of the screen with its « Nouveau » mark until the help is opened once (ACC-017, UxHelpBadge).
+function helpButton(helpSeen) {
+  const tip = helpSeen ? 'Aide de l’Accueil' : `Nouveau${NBSP}: aide disponible`;
+  return `<button class="btn ghost icon help-btn" type="button" data-act="help" aria-label="${esc(tip)}" data-tip="${esc(tip)}">${glyph('lifebuoy')}`
+    + `${helpSeen ? '' : '<span class="new-dot" aria-hidden="true"></span>'}</button>`;
+}
+
 // A DN only breaks after its commas (<wbr>), never in the middle of a name.
 const breakable = (text) => esc(text).replace(/,/g, ',<wbr>');
 const looksDn = (v) => typeof v === 'string' && /^(?:[A-Za-z]+=[^,]+,)+[A-Za-z]+=/.test(v);
-const kv = (label, value, sub = '') => `<div><dt>${esc(label)}</dt><dd>${looksDn(value) ? breakable(value) : esc(value ?? '—')}`
-  + `${sub ? `<span class="sub">${looksDn(sub) ? breakable(sub) : esc(sub)}</span>` : ''}</dd></div>`;
+// A long explanation goes under the line, across the whole group (« wide »), instead of wrapping in the narrow value column.
+const kv = (label, value, sub = '', wide = '') => `<div${wide ? ' class="has-note"' : ''}><dt>${esc(label)}</dt><dd>${looksDn(value) ? breakable(value) : esc(value ?? '—')}`
+  + `${sub ? `<span class="sub">${looksDn(sub) ? breakable(sub) : esc(sub)}</span>` : ''}</dd>${wide ? `<p class="kv-note">${esc(wide)}</p>` : ''}</div>`;
 
 const ENGINES = { embarque: 'Moteur fixe du pack', windows: 'Moteur WebView2 de Windows', apercu: 'Navigateur (aperçu)' };
 
 // Each tab groups its lines by subject (same lines as before, more air between them).
-function panelGroups(id, s, app, summary, sim) {
+function panelGroups(id, s, app, summary, sim, extra = {}) {
   if (id === 'session') {
     if (!s) return [{ title: 'Session', icon: 'shield', rows: [['Session', 'Indisponible']] }];
+    const d = extra.details;
+    const b = extra.board;
+    const obj = extra.object;
+    const calcs = d?.calculations ?? [];
+    const lastCalc = calcs.at(-1);
     return [
       { title: 'Annuaire', icon: 'server', rows: [
         ['Domaine', s.domain?.dnsName ?? 'Non connecté', s.domain?.netbiosName ? `NetBIOS ${s.domain.netbiosName}` : ''],
@@ -479,13 +502,25 @@ function panelGroups(id, s, app, summary, sim) {
       { title: 'Compte et droits', icon: 'user', rows: [
         ['Compte utilisé pour l’annuaire', s.account?.login, s.account?.displayName ?? ''],
         ['Mode de connexion', s.authentication?.label],
-        ['Estimation des droits', s.rights?.label, s.rights?.detail ?? ''],
+        ['Estimation des droits', s.rights?.label, '', s.rights?.detail ?? ''],
         ['Lecture seule', s.readOnly ? 'Activée' : 'Désactivée'],
       ] },
       { title: 'Périmètre et tâches', icon: 'folder', rows: [
         ['OU de travail', s.scope?.label ?? 'Aucune OU choisie', s.scope ? pathOf(s.scope.dn, s.domain?.dnsName) : ''],
         ['Branche affichée', s.scope?.dn ?? 'Aucune OU choisie', s.scope ? (s.scope.subtree ? 'Sous-OU comprises' : 'Cette OU seulement') : ''],
         ['Tâches', `${formatNumber(s.tasks?.running ?? 0)} en cours · ${formatNumber(s.tasks?.queued ?? 0)} en attente`],
+      ] },
+      // « Détails de la session » of Domenia 1 (ACC-019): what is displayed, its statistics, the links and the last check.
+      { title: 'Vue affichée et vérifications', icon: 'activity', wide: true, rows: [
+        ['Résultats affichés', b ? `${plural(extra.widgets ?? 0, 'widget', 'widgets')} · ${plural(b.population?.enabled ?? 0, 'poste actif calculé', 'postes actifs calculés')}` : 'Tableau du parc en cours de calcul',
+          b ? `Calcul du ${localStamp(b.computedAt)}${lastCalc ? ` en ${formatNumber(lastCalc.milliseconds)}${NBSP}ms` : ''}` : ''],
+        ['Statistiques de la liste', b ? `${plural(b.population?.machines ?? 0, 'compte ordinateur', 'comptes ordinateur')} · ${formatNumber(b.population?.enabled ?? 0)} activés · ${formatNumber(b.population?.disabled ?? 0)} désactivés` : '—',
+          b?.health ? `Santé${NBSP}: ${b.health.verdict}${isNum(b.health.score) ? ` (${b.health.score}${NBSP}%)` : ''} · ${plural(b.health.problems ?? 0, 'poste à traiter', 'postes à traiter')}` : ''],
+        ['Liens utilisateur–poste', d ? d.associationsText : '—'],
+        ['Dernière vérification', d?.lastCheck ? d.lastCheck.summary : 'Pas encore lancée dans cette session', d?.lastCheck ? `Le ${localStamp(d.lastCheck.checkedAt)}` : '« Vérifier l’application » ci-dessous'],
+        ['Objet sélectionné', obj ? obj.name : 'Aucun objet choisi depuis l’Accueil', obj ? `${obj.kind === 'poste' ? 'Poste' : 'Objet'} · ${pathOf(obj.dn, s.domain?.dnsName) || obj.dn}` : ''],
+        ['Derniers calculs', calcs.length ? calcs.map((c) => `${formatNumber(c.milliseconds)}${NBSP}ms`).join(' · ') : '—', calcs.length ? `${plural(calcs.length, 'calcul gardé', 'calculs gardés')} pour comparer (cinq au plus)` : ''],
+        ...(d?.localWriteFailures ? [['Écritures locales', `${plural(d.localWriteFailures, 'échec', 'échecs')} d’écriture des préférences`, 'Les choix valent pour la session ; trois échecs suspendent les collectes']] : []),
       ] },
     ];
   }
@@ -536,7 +571,8 @@ function sessionMarkup(sim) {
   const tabs = PANELS.map((p, n) => `<button type="button" role="tab" id="tab-${p.id}" aria-controls="panel-${p.id}" aria-selected="${n === 0}" tabindex="${n === 0 ? 0 : -1}">${esc(panelLabel(p, sim))}</button>`).join('');
   const panels = PANELS.map((p, n) => `<div class="tab-panel" role="tabpanel" id="panel-${p.id}" aria-labelledby="tab-${p.id}"${n ? ' hidden' : ''}><div class="kv-groups"></div></div>`).join('');
   return `<div class="card-head"><span class="card-icon">${icon('shield')}</span>
-      <div class="head-titles"><h3>Session et vérifications</h3><span class="head-sub">Informations déjà chargées, sans lecture réseau</span></div></div>
+      <div class="head-titles"><h3>Session et vérifications</h3><span class="head-sub">Informations déjà chargées, sans lecture réseau</span></div>
+      <span class="meta"><button class="btn ghost sm" type="button" data-act="help">${glyph('lifebuoy')}Aide</button></span></div>
     <div class="tabs" role="tablist" aria-label="Session et vérifications">${tabs}<span class="ink" aria-hidden="true"></span></div>
     ${panels}
     <div class="card-actions">
@@ -553,7 +589,8 @@ function sessionMarkup(sim) {
 export function render(main, ctx) {
   const st = {
     session: null, summary: null, app: null, widgets: {}, alive: true, steps: null, stepsHidden: false, helpSeen: true,
-    favorites: [], lastView: null, refreshing: false,
+    favorites: [], lastView: null, refreshing: false, stepsRecalled: false, boardState: { state: 'idle' }, details: null,
+    focus: null,
   };
   const pending = new Map();
   const busy = new Map(); // widget id → measurements in flight
@@ -561,6 +598,7 @@ export function render(main, ctx) {
   const stops = [];
   let ink = null;
   let navInk = null;
+  let detailsAsked = false;
   let ticker = 0;
   let board = null;
   let refresh = null;
@@ -612,7 +650,7 @@ export function render(main, ctx) {
       if (w.id === 'osDistribution') bindLegend(card);
     } catch (err) {
       // One unexpected widget must not take the whole dashboard down: only its own card shows the problem.
-      console.error(`Widget « ${w.id} » : affichage impossible`, err, w);
+      console.error(`Widget « ${w.id} » : affichage impossible`, err, w);
       paintBroken(card, w);
       syncCard(w.id);
       return;
@@ -628,7 +666,7 @@ export function render(main, ctx) {
     card.dataset.tone = 'warn';
     const retry = w.enabled ? `<button class="btn sm" type="button" data-refresh>${icon('refresh')}Actualiser</button>` : '';
     card.innerHTML = `<div class="card-head"><span class="card-icon">${icon('alert')}</span><div class="head-titles"><h3>${esc(w.title ?? 'Widget')}</h3></div></div>
-      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
+      <div class="card-body"><div class="off-note">${icon('alert')}<span>Données inattendues : ce widget ne peut pas s’afficher.
         Les autres widgets ne sont pas concernés.</span>${retry}</div></div>`;
     applyVars(card);
   }
@@ -733,8 +771,8 @@ export function render(main, ctx) {
       paintWidget(w);
       syncCard(id);
       settle(w.enabled);
-      ctx.toast(enabled ? `Mesure réactivée : ${w.title}. Ce choix est mémorisé.`
-        : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget, et ce choix est mémorisé.`, { tone: 'info', life: 3600 });
+      ctx.toast(enabled ? `Mesure réactivée : ${w.title}. Ce choix est mémorisé.`
+        : `Mesure désactivée : ${w.title}. Aucune lecture n’est faite pour ce widget, et ce choix est mémorisé.`, { tone: 'info', life: 3600 });
     } catch (err) {
       if (!st.alive) return;
       toggling.delete(id);
@@ -751,12 +789,6 @@ export function render(main, ctx) {
   // entrance; a new OU chosen in the panel also gets a short highlight.
   const scopeKey = (s) => JSON.stringify([s?.scope?.dn ?? null, s?.scope?.label ?? null, s?.scope?.subtree ?? null, s?.domain?.dnsName ?? null]);
 
-  function lastViewChip() {
-    const v = st.lastView;
-    if (!v?.available) return '';
-    return `<span class="chip last-view" data-tip="${esc(v.text)}">${glyph('history')}<span>Vue précédente · ${esc(localStamp(v.computedAt))}</span></span>`;
-  }
-
   function paintHero({ scopeChanged = false } = {}) {
     const hero = main.querySelector('[data-slot="hero"]');
     if (!hero || !st.session) return;
@@ -764,10 +796,11 @@ export function render(main, ctx) {
     if (!hero.querySelector('h1')) {
       // Keep the ring and the orbs of the skeleton: only the content is replaced.
       [...hero.children].forEach((el) => { if (!el.matches('.orbs, .glow-ring')) el.remove(); });
-      hero.insertAdjacentHTML('beforeend', heroMarkup(st.session, lastReadAt, sim()));
+      hero.insertAdjacentHTML('beforeend', heroMarkup(st.session, lastReadAt, sim(), st.helpSeen));
       const card = hero.querySelector('.scope-card');
       if (card) card.dataset.key = scopeKey(st.session);
       paint(hero);
+      mountRefresh();
     } else {
       hero.querySelector('h1').textContent = heroTitle(st.session);
       hero.querySelector('.lead').textContent = leadText(st.session);
@@ -787,14 +820,21 @@ export function render(main, ctx) {
       }
     }
     const chips = hero.querySelector('.chips');
-    chips.innerHTML = heroChips(st.session, lastReadAt, sim()) + lastViewChip();
-    applyVars(chips);
+    const html = heroChips(st.session, lastReadAt, sim());
+    if (chips.dataset.html !== html) {
+      chips.dataset.html = html;
+      chips.innerHTML = html;
+      applyVars(chips);
+      startFreshness(chips);
+    }
     paintFavorites();
     paintSteps();
     const fleet = main.querySelector('[data-sec="fleet"] h2');
     if (fleet) fleet.textContent = st.session.scope ? `Activité de l’OU ${st.session.scope.label}` : 'Activité de l’OU de travail';
     const boardHead = main.querySelector('[data-sec="board"] h2');
     if (boardHead) boardHead.textContent = st.session.scope ? `Tableau du parc · OU ${st.session.scope.label}` : 'Tableau du parc';
+    const navScope = main.querySelector('.acc-nav-scope');
+    if (navScope) navScope.textContent = st.session.scope ? heroTitle(st.session).replace(/^Vue d’ensemble · /, '') : '';
     syncHeroActions();
   }
 
@@ -818,12 +858,17 @@ export function render(main, ctx) {
     paint(host);
   }
 
+  // The card of the first steps goes away for good once the four steps are done (Home.FirstStepsDone, ACC-015); the help shows it
+  // again for the visit. It is rebuilt only when what it shows changes.
   function paintSteps() {
     const slot = main.querySelector('[data-slot="steps"]');
     if (!slot) return;
     const info = st.steps;
-    const showSteps = info && !info.dismissed && !st.stepsHidden;
-    slot.innerHTML = `${showSteps ? stepsMarkup(info, { helpSeen: st.helpSeen }) : ''}${journeyMarkup()}`;
+    const showSteps = Boolean(info) && (st.stepsRecalled || (!info.finished && !info.dismissed && !st.stepsHidden));
+    const html = showSteps ? stepsMarkup(info, { helpSeen: st.helpSeen, board: { state: st.boardState.state, machines: st.boardState.machines } }) : '';
+    if (slot.dataset.html === html) return;
+    slot.dataset.html = html;
+    slot.innerHTML = html;
     paint(slot);
     if (showSteps) animateSteps(slot, info);
   }
@@ -837,6 +882,7 @@ export function render(main, ctx) {
       st.stepsHidden = info.dismissed;
       paintSteps();
       syncHelpDot();
+      if (info.done && !st.stepsRecalled) slotJourney();
     } catch (err) {
       reported(err);
     }
@@ -845,18 +891,29 @@ export function render(main, ctx) {
   function syncHelpDot() {
     main.querySelectorAll('[data-act="help"]').forEach((b) => {
       b.querySelector('.new-dot')?.remove();
-      b.querySelector('.visually-hidden')?.remove();
-      if (!st.helpSeen) b.insertAdjacentHTML('beforeend', '<span class="new-dot" aria-hidden="true"></span><span class="visually-hidden"> (nouveau)</span>');
+      if (!st.helpSeen) b.insertAdjacentHTML('beforeend', '<span class="new-dot" aria-hidden="true"></span>');
+      if (b.classList.contains('icon')) {
+        const tip = st.helpSeen ? 'Aide de l’Accueil' : `Nouveau${NBSP}: aide disponible`;
+        b.setAttribute('aria-label', tip);
+        b.dataset.tip = tip;
+      }
     });
+  }
+
+  // « Consulter » names the object last chosen from the Accueil.
+  function slotJourney() {
+    const slot = main.querySelector('[data-slot="journey"]');
+    if (slot) slot.innerHTML = journeyMarkup(lastObject());
   }
 
   async function setStepsHidden(hidden) {
     st.stepsHidden = hidden;
+    st.stepsRecalled = !hidden;
     paintSteps();
     try {
       const info = await ctx.call('accueil.firstSteps.dismiss', { dismissed: hidden });
       if (st.alive && info) { st.steps = info; paintSteps(); }
-      ctx.toast(hidden ? 'Premiers pas masqués : l’aide de l’Accueil les réaffiche.' : 'Premiers pas réaffichés.', { tone: 'info', life: 2600 });
+      ctx.toast(hidden ? `Premiers pas masqués${NBSP}: l’aide de l’Accueil (?) les réaffiche.` : 'Premiers pas réaffichés.', { tone: 'info', life: 2600 });
     } catch (err) {
       ctx.toast(reported(err), { tone: 'alert' });
     }
@@ -866,17 +923,15 @@ export function render(main, ctx) {
     if (id === 'connect') { scrollToSection('session'); return; }
     if (id === 'scope') { picker.open(); return; }
     if (id === 'firstRead') { refresh?.plan('directory'); return; }
-    if (id === 'dashboard') { scrollToSection('board'); return; }
+    if (id === 'dashboard') {
+      // First calculation followed in the button (ACC-016): an error offers « Réessayer », which computes again.
+      if (st.boardState.state === 'error') board?.load({ quiet: false }); else scrollToSection('board');
+      return;
+    }
     if (id === 'rights') openSelfCheck({ ctx, onDone: () => loadSteps() });
   }
 
   function syncHeroActions() {
-    const b = main.querySelector('[data-act="refresh-all"]');
-    if (b) {
-      b.disabled = st.refreshing || !scopeOk();
-      b.classList.toggle('spinning', st.refreshing);
-      b.querySelector('.label-progress').textContent = st.refreshing ? 'Actualisation en cours…' : 'Tout actualiser';
-    }
     refresh?.sync();
   }
 
@@ -887,16 +942,30 @@ export function render(main, ctx) {
       slot.innerHTML = sessionMarkup(sim());
       bindTabs(slot);
     }
+    const extra = { details: st.details, board: board?.board() ?? null, widgets: board?.layout()?.items?.length ?? 0, object: lastObject() };
     PANELS.forEach((p) => {
       const tab = slot.querySelector(`#tab-${p.id}`);
       if (tab && tab.textContent !== panelLabel(p, sim())) tab.textContent = panelLabel(p, sim());
       const host = slot.querySelector(`#panel-${p.id} .kv-groups`);
-      host.innerHTML = panelGroups(p.id, st.session, st.app, st.summary, sim()).map((g, n) => `<section class="kv-group" data-j="${n}">`
+      const html = panelGroups(p.id, st.session, st.app, st.summary, sim(), extra).map((g, n) => `<section class="kv-group${g.wide ? ' wide' : ''}" data-j="${n}">`
         + `<h4>${icon(g.icon)}${esc(g.title)}</h4><dl class="kv">${g.rows.map((r) => kv(...r)).join('')}</dl></section>`).join('');
+      if (host.dataset.html === html) return;
+      host.dataset.html = html;
+      host.innerHTML = html;
       host.querySelectorAll('.kv > div').forEach((div, n) => { div.dataset.j = String(Math.min(n, 12)); });
       applyVars(host);
     });
     ink?.update();
+  }
+
+  // « Détails de la session » (ACC-019) are read when the session card shows, then after a check or a refresh.
+  async function loadDetails() {
+    try {
+      st.details = await ctx.call('accueil.session.details');
+      if (st.alive) paintPanels();
+    } catch (err) {
+      reported(err);
+    }
   }
 
   function selectTab(slot, id, focus = false) {
@@ -934,9 +1003,9 @@ export function render(main, ctx) {
     const lines = [`Domenia — vue d’ensemble du ${formatDateTime(st.summary?.generatedAt ?? new Date().toISOString())}`];
     if (typeof st.app?.banner === 'string' && st.app.banner) lines.push(st.app.banner);
     if (s) {
-      lines.push(`Domaine : ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur : ${s.controller?.dnsName ?? 'non connecté'}`,
-        `Compte : ${s.account?.login ?? '—'}`,
-        `OU de travail : ${s.scope ? `${pathOf(s.scope.dn, s.domain?.dnsName) || s.scope.label} (${s.scope.subtree ? 'sous-OU comprises' : 'cette OU seulement'}) — ${s.scope.dn}` : 'aucune'}`);
+      lines.push(`Domaine${NBSP}: ${s.domain?.dnsName ?? 'non connecté'}`, `Contrôleur${NBSP}: ${s.controller?.dnsName ?? 'non connecté'}`,
+        `Compte${NBSP}: ${s.account?.login ?? '—'}`,
+        `OU de travail${NBSP}: ${s.scope ? `${pathOf(s.scope.dn, s.domain?.dnsName) || s.scope.label} (${s.scope.subtree ? 'sous-OU comprises' : 'cette OU seulement'}) — ${s.scope.dn}` : 'aucune'}`);
     }
     for (const w of Object.values(st.widgets)) {
       const d = w.data;
@@ -946,23 +1015,23 @@ export function render(main, ctx) {
         else if (d && w.kind === 'gauge') value = `${pct(d.percent)} (${formatNumber(d.fresh)} / ${formatNumber(d.total)})`;
         else if (d && w.kind === 'distribution') value = d.segments.length ? d.segments.map((x) => `${x.label} ${pct(x.percent)}`).join(', ') : 'aucun ordinateur';
         else if (d && w.kind === 'series') value = d.points.map((p) => `${p.label} ${p.value ?? '—'}`).join(', ');
-        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes : ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
+        else if (d && w.kind === 'list') value = `${formatNumber(d.total)} postes${NBSP}: ${d.rows.map((r) => `${r.name} (${r.reason})`).join(' ; ')}`;
         else if (d && w.kind === 'timeline') value = d.rows.map((r) => r.label).join(' ; ');
       } catch (err) {
-        console.error(`Widget « ${w.id} » : copie impossible`, err, w);
+        console.error(`Widget « ${w.id} » : copie impossible`, err, w);
         value = 'données inattendues';
       }
-      lines.push(`${w.title} — ${w.scopeLabel} : ${value}`);
+      lines.push(`${w.title} — ${w.scopeLabel}${NBSP}: ${value}`);
     }
     if (b) {
       lines.push('', `Tableau du parc — ${b.scopeLabel} (calculé le ${localStamp(b.computedAt)})`, b.summary,
-        `Santé du parc : ${b.health.verdict}${isNum(b.health.score) ? ` (${b.health.score} %)` : ''} · ${b.health.pointsTitle}`);
+        `Santé du parc${NBSP}: ${b.health.verdict}${isNum(b.health.score) ? ` (${b.health.score}${NBSP}%)` : ''} · ${b.health.pointsTitle}`);
       for (const item of board.layout()?.items ?? []) {
         const e = b.entries[item.source === 'probe' ? `probe:${item.key}` : item.source === 'query' ? `query:${item.key}` : item.key];
-        if (e && e.kind !== 'health' && e.kind !== 'list') lines.push(`${e.title} : ${e.value}${e.unit ? ` ${String(e.unit).trim()}` : ''}`);
+        if (e && e.kind !== 'health' && e.kind !== 'list') lines.push(`${e.title}${NBSP}: ${e.value}${e.unit ? ` ${String(e.unit).trim()}` : ''}`);
       }
     }
-    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Vue d’ensemble copiée dans le presse-papiers.' : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn' }));
+    copyText(lines.join('\n')).then((ok) => ctx.toast(ok ? 'Vue d’ensemble copiée dans le presse-papiers.' : `Copie impossible${NBSP}: le presse-papiers est indisponible.`, { tone: ok ? 'ok' : 'warn' }));
   }
 
   // ----- Working OU -----
@@ -981,7 +1050,7 @@ export function render(main, ctx) {
     try {
       await Promise.all([reload({ silent: true }), loadLastView(), loadFavorites()]);
       if (!st.alive) return;
-      const where = scope ? `OU de travail : ${scope.label}${scope.subtree ? ' et ses sous-OU' : ' seule'}.` : 'OU de travail retirée.';
+      const where = scope ? `OU de travail${NBSP}: ${scope.label}${scope.subtree ? ' et ses sous-OU' : ' seule'}.` : 'OU de travail retirée.';
       ctx.toast(`${where} Accueil recalculé depuis ${sim() ? 'l’annuaire fictif en mémoire' : 'la base locale'}, sans lecture réseau.`, { tone: 'ok' });
     } catch (err) {
       if (st.alive) ctx.toast(reported(err), { tone: 'alert' });
@@ -1030,7 +1099,7 @@ export function render(main, ctx) {
   function openTargetsFor(key, label, revision) {
     const b = board?.board();
     if (!b) return;
-    openTargets({ ctx, revision: revision ?? b.revision, key, label, scope: st.session?.scope ?? null, onReplaced: () => board.load() });
+    openTargets({ ctx, revision: revision ?? b.revision, key, label, scope: st.session?.scope ?? null, onReplaced: () => board.load({ quiet: false }) });
   }
 
   function onBoardAction(id) {
@@ -1057,18 +1126,20 @@ export function render(main, ctx) {
     else if (id === 'analysis' || id === 'analyse') openAnalysis({ ctx, onTargets: openTargetsFor });
     else if (id === 'provenance') openProvenance({ ctx });
     else if (id === 'journal') openJournal({ ctx });
-    else if (id === 'verifier') openSelfCheck({ ctx, onDone: () => loadSteps() });
+    else if (id === 'verifier') openSelfCheck({ ctx, onDone: () => { loadSteps(); loadDetails(); } });
     else if (id === 'aide') openHelpPanel();
     else if (id === 'actualiser') refresh?.plan('all');
     else if (id === 'base') refresh?.plan('directory');
     else if (id === 'wmi') refresh?.plan('inventory');
+    else if (id === 'ping') refresh?.plan('presence');
+    else if (id === 'reprendre') refresh?.plan('resume');
     else if (id.startsWith('probe:')) openProbeContract(ctx, id.slice(6));
   }
 
   function openHelpPanel() {
     openHelp({
       ctx,
-      stepsHidden: st.stepsHidden || st.steps?.dismissed,
+      stepsHidden: !st.stepsRecalled && Boolean(st.stepsHidden || st.steps?.dismissed || st.steps?.finished),
       onSeen: (seen) => { st.helpSeen = seen; syncHelpDot(); },
       onShowSteps: () => setStepsHidden(false),
     });
@@ -1076,14 +1147,31 @@ export function render(main, ctx) {
 
   // ----- Sections: sticky index with its ink on the section in view -----
 
+  const sectionTarget = (id) => (id === 'session' ? main.querySelector('[data-slot="session"]') : main.querySelector(`[data-sec="${CSS.escape(id)}"]`));
+
   function scrollToSection(id) {
-    const target = id === 'controles' ? main.querySelector('[data-slot="controls"]')
-      : id === 'session' ? main.querySelector('[data-slot="session"]') : main.querySelector(`[data-sec="${CSS.escape(id)}"]`);
+    if (st.focus && st.focus !== id) setFocus(null);
+    const target = sectionTarget(id);
     if (!target) return;
     const nav = main.querySelector('.acc-nav');
     const top = target.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - (nav?.offsetHeight ?? 0) - 12;
     main.scrollTo({ top, behavior: motionReduced() ? 'auto' : 'smooth' });
     setNav(id);
+  }
+
+  // One section alone (#/accueil?section=…): the others fold away, the band offers to show them all again.
+  function setFocus(id) {
+    st.focus = id && SECTIONS.some((x) => x.id === id) ? id : null;
+    const page = main.querySelector('.home');
+    if (!page) return;
+    if (st.focus) page.dataset.focus = st.focus; else delete page.dataset.focus;
+    const chip = main.querySelector('.acc-nav-focus');
+    if (chip) {
+      chip.hidden = !st.focus;
+      chip.innerHTML = st.focus ? `${glyph('eye')}<span>${esc(SECTIONS.find((x) => x.id === st.focus).label)} seul</span><button class="btn ghost sm" type="button" data-act="focus-off">${glyph('layers')}Tout afficher</button>` : '';
+    }
+    if (st.focus) setNav(st.focus);
+    navInk?.update();
   }
 
   function setNav(id) {
@@ -1098,8 +1186,7 @@ export function render(main, ctx) {
     if (!track) return;
     navInk = inkFollow(track, '.acc-nav-btn', '[aria-current="true"]');
     stops.push(() => navInk?.stop());
-    const targets = () => SECTIONS.map((sec) => [sec.id, sec.id === 'controles' ? main.querySelector('[data-slot="controls"]') : sec.id === 'session' ? main.querySelector('[data-slot="session"]') : main.querySelector(`[data-sec="${sec.id}"]`)])
-      .filter(([, el]) => el && el.offsetParent !== null);
+    const targets = () => SECTIONS.map((sec) => [sec.id, sectionTarget(sec.id)]).filter(([, el]) => el && el.offsetParent !== null);
     // The section in view is the last one whose top passed the upper third of the screen; the bottom of the page is the last.
     let frame = 0;
     const update = () => {
@@ -1116,14 +1203,21 @@ export function render(main, ctx) {
     main.addEventListener('scroll', onScroll, { passive: true });
     stops.push(() => { main.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); });
     update();
+    // The band becomes opaque and names the OU once it sticks under the top bar.
+    const sentinel = main.querySelector('.acc-nav-sentinel');
+    const nav = main.querySelector('.acc-nav');
+    if (sentinel && nav && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(([e]) => nav.classList.toggle('stuck', !e.isIntersecting), { root: main, threshold: 0 });
+      io.observe(sentinel);
+      stops.push(() => io.disconnect());
+    }
   }
 
   function onAction(btn) {
     const act = btn.dataset.act;
-    if (act === 'refresh-all') refresh?.plan('all');
-    else if (act === 'scope') picker.open();
-    else if (act === 'queries') ctx.go('requetes');
-    else if (act === 'check') openSelfCheck({ ctx, onDone: () => loadSteps() });
+    if (act === 'scope') picker.open();
+    else if (act === 'focus-off') setFocus(null);
+    else if (act === 'check') openSelfCheck({ ctx, onDone: () => { loadSteps(); loadDetails(); } });
     else if (act === 'cache') clearCache({ ctx, onCleared: () => { board?.load(); reload({ silent: true }).catch(reported); } });
     else if (act === 'journal') openJournal({ ctx });
     else if (act === 'copy') copySummary();
@@ -1140,6 +1234,7 @@ export function render(main, ctx) {
     linkOpened = true;
     const p = ctx.params ?? {};
     if (p.ou === 'choisir') { picker.open(); return; }
+    if (typeof p.section === 'string' && SECTION_LINKS.has(p.section)) setFocus(SECTION_LINKS.get(p.section));
     if (p.personnaliser === '1') board?.setEditing(true);
     if (typeof p.outil === 'string' && TOOLS.has(p.outil)) { openTool(p.outil); return; }
     if (typeof p.postes === 'string' && p.postes) openTargetsFor(p.postes, board?.board()?.entries?.[p.postes]?.title ?? p.postes);
@@ -1164,7 +1259,10 @@ export function render(main, ctx) {
   // Parameters of a link of the page: the object of a watchlist row; for Rechercher, the working OU (never the whole
   // domain, ACC-031).
   function goParams(el) {
-    if (el.dataset.dn) return { dn: el.dataset.dn };
+    if (el.dataset.dn) {
+      rememberObject({ dn: el.dataset.dn, name: el.dataset.name ?? '', kind: el.dataset.go === 'poste' ? 'poste' : 'objet' });
+      return { dn: el.dataset.dn };
+    }
     const scope = st.session?.scope;
     if (el.dataset.go === 'rechercher' && scope && !isRootDn(scope.dn)) {
       return { ou: scope.dn, subtree: scope.subtree ? '1' : '0' };
@@ -1184,6 +1282,7 @@ export function render(main, ctx) {
     paintHero();
     paintPanels();
     await Promise.all([board?.load(), loadSteps()]);
+    if (detailsAsked) loadDetails();
     if (!silent) {
       ctx.toast(sim() ? 'Accueil actualisé depuis l’annuaire fictif en mémoire.' : 'Accueil actualisé depuis la base locale.', { tone: 'ok', life: 2600 });
     }
@@ -1192,29 +1291,47 @@ export function render(main, ctx) {
   function mountParts() {
     const boardHost = main.querySelector('[data-slot="board"]');
     board?.destroy();
+    let lastSaved = null;
     board = createBoard(boardHost, {
       ctx,
       onTargets: (key, label) => openTargetsFor(key, label),
       onAction: onBoardAction,
       onTool: openTool,
       onComputed: (b) => {
-        // Remembered for the next start of the same base and OU (counts and date only, never a name).
+        // Remembered for the next start of the same base and OU (counts and date only, never a name); the engine writes it
+        // only when its counts change, or once a minute.
+        if (b.revision === lastSaved) return;
+        lastSaved = b.revision;
         ctx.call('accueil.lastView.save', { revision: b.revision }).catch((err) => reported(err));
       },
+      onState: (state, b) => {
+        st.boardState = { state, machines: b?.population?.enabled };
+        paintSteps();
+        if (state === 'ready') paintPanels();
+      },
     });
-    const controls = main.querySelector('[data-slot="controls"]');
+  }
+
+  // The refresh lives in the hero: mounted once its slots exist (first painting of the hero).
+  function mountRefresh() {
+    const actions = main.querySelector('[data-slot="refresh-actions"]');
+    const status = main.querySelector('[data-slot="refresh-status"]');
+    if (!actions || !status) return;
     refresh?.destroy();
-    refresh = createRefresh(controls, {
+    refresh = createRefresh({
+      actions,
+      status,
       ctx,
       scopeOk,
       onRunning: (on) => {
         st.refreshing = on;
-        syncHeroActions();
         // During a collection the board is computed again from the measures already recorded, every 15 s at most (ACC-037).
         clearInterval(liveTimer);
         liveTimer = on ? setInterval(() => { if (st.alive && !document.hidden) board?.load(); }, 15_000) : 0;
       },
-      onFinished: () => { reload({ silent: true }).catch((err) => ctx.toast(reported(err), { tone: 'alert' })); },
+      onFinished: () => {
+        reload({ silent: true }).catch((err) => ctx.toast(reported(err), { tone: 'alert' }));
+      },
     });
   }
 
@@ -1246,7 +1363,9 @@ export function render(main, ctx) {
       st.summary = await summaryCall;
       if (!st.alive) return;
       Object.values(st.summary.widgets).forEach((w) => paintWidget(w));
-      await board.load();
+      const computing = board.load();
+      board.showLastView(st.lastView);
+      await computing;
       if (!st.alive) return;
       // Session and first steps read again once the summary and the board are done: their reads no longer count among the
       // running tasks, and the « Tableau de bord » step shows as done.
@@ -1256,6 +1375,9 @@ export function render(main, ctx) {
       paintHero();
       paintPanels();
       openFromLink();
+      // Session details when the session card first shows (Domenia 1: built only when the fold is open).
+      const card = main.querySelector('[data-slot="session"]');
+      if (card) whenShown(card, () => { detailsAsked = true; loadDetails(); });
     } catch (err) {
       if (st.alive) showError(err);
     }
@@ -1279,8 +1401,9 @@ export function render(main, ctx) {
     const journey = t?.closest('[data-journey]');
     if (journey) {
       const id = journey.dataset.journey;
+      const obj = lastObject();
       if (id === 'find') ctx.navigate('rechercher', goParams({ dataset: { go: 'rechercher' } }));
-      else if (id === 'view') ctx.go('fiche');
+      else if (id === 'view') { if (obj) ctx.navigate(obj.kind === 'poste' ? 'poste' : 'fiche', { dn: obj.dn }); else ctx.go('fiche'); }
       else ctx.go('requetes');
       return;
     }
@@ -1305,9 +1428,11 @@ export function render(main, ctx) {
     if (!main.querySelector('[data-widget]')) { start(); return; }
     reload().catch((err) => ctx.toast(reported(err), { tone: 'alert' }));
   };
+  const onObject = () => { slotJourney(); if (detailsAsked) paintPanels(); };
   main.addEventListener('click', onClick);
   main.addEventListener('change', onChange);
   window.addEventListener('domenia:refresh-home', onRefreshHome);
+  window.addEventListener('domenia:object-selected', onObject);
   ticker = setInterval(() => {
     main.querySelectorAll('[data-rel]').forEach((el) => {
       const text = relTime(el.dataset.rel);
@@ -1324,6 +1449,7 @@ export function render(main, ctx) {
     main.removeEventListener('click', onClick);
     main.removeEventListener('change', onChange);
     window.removeEventListener('domenia:refresh-home', onRefreshHome);
+    window.removeEventListener('domenia:object-selected', onObject);
     stops.forEach((stop) => stop());
     board?.destroy();
     refresh?.destroy();

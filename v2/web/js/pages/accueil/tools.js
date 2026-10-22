@@ -10,7 +10,7 @@ import { pill } from '../../kit/status.js';
 import { highlight } from '../../kit/util.js';
 import { esc, fold, formatNumber, countUp } from '../../ui.js';
 import {
-  NBSP, isNum, plural, paint, reported, surface, localStamp, copyWithToast, sk, skStack,
+  NBSP, isNum, plural, paint, reported, surface, localStamp, copyWithToast, sk, skStack, isRootDn, rememberObject,
 } from './shared.js';
 
 const PRESENCE_TONE = { 'En ligne': 'ok', 'Sans réponse': 'warn', 'Non vérifié': 'off' };
@@ -23,8 +23,12 @@ const failed = (err, retry = 'data-acc-retry') => `<div class="acc-err" role="al
 
 // ---------- « Postes concernés » ----------
 
+const SCORE_TONE = (v) => (!isNum(v) ? 'off' : v >= 90 ? 'ok' : v >= 60 ? 'warn' : 'alert');
+
 /**
- * Exact workstations of one figure, from the calculation that produced it (accueil.targets).
+ * Exact workstations of one figure, from the calculation that produced it (accueil.targets), with the score of each workstation
+ * (ACC-029: 100 − 25 per critical point − 10 per point to watch). « Ouvrir l’OU dans Rechercher » never sends the domain root
+ * (ACC-031) and passes the calculation and the key of the set, for Rechercher to take the exact list once it reads it.
  * @param {{ ctx: any, revision: string, key: string, label: string, scope: any, onReplaced: () => void }} o
  */
 export function openTargets(o) {
@@ -32,40 +36,59 @@ export function openTargets(o) {
   const host = surface('acc-targets', `<div class="tg-head">${skStack('sk-line w55', 'sk-line w40')}</div><div class="tg-grid"></div>`);
   let grid = null;
   let rows = [];
+  const root = !o.scope || isRootDn(o.scope.dn);
   const drawer = openDrawer({
-    title: 'Postes concernés', subtitle: o.label, icon: 'monitor', key: 'accueil.targets', width: 760, minWidth: 420, body: host,
+    title: 'Postes concernés', subtitle: o.label, icon: 'monitor', key: 'accueil.targets.v2', width: 980, minWidth: 460, body: host,
     actions: [
       { id: 'copy', label: 'Copier les noms', icon: 'copy', run: () => { if (rows.length) copyWithToast(ctx, rows.map((r) => r.name).join('\r\n'), `${plural(rows.length, 'nom de poste copié', 'noms de postes copiés')} dans le presse-papiers.`); } },
-      { id: 'search', label: 'Ouvrir dans Rechercher', icon: 'search', run: (d) => { d.close(); ctx.navigate('rechercher', o.scope ? { ou: o.scope.dn, subtree: o.scope.subtree ? '1' : '0' } : {}); } },
+      {
+        id: 'search', label: 'Ouvrir l’OU dans Rechercher', icon: 'search',
+        run: (d) => {
+          if (root) return;
+          d.close();
+          ctx.navigate('rechercher', { ou: o.scope.dn, subtree: o.scope.subtree ? '1' : '0', source: 'accueil', revision: o.revision, cle: o.key });
+        },
+      },
       { id: 'close', label: 'Fermer', primary: true, run: (d) => d.close() },
     ],
     onClose: () => grid?.destroy?.(),
   });
+  const searchBtn = drawer.foot?.querySelector('[data-id="search"]');
+  if (searchBtn) {
+    searchBtn.disabled = root;
+    searchBtn.dataset.tip = root ? 'Jamais pour le domaine entier : choisissez une OU de travail.'
+      : 'Rechercher s’ouvre sur l’OU de travail ; la liste exacte lui est transmise (calcul et clé de l’ensemble).';
+  }
   const gridHost = host.querySelector('.tg-grid');
   grid = createGrid(gridHost, {
-    label: `Postes concernés : ${o.label}`,
-    key: 'accueil.targets',
+    label: `Postes concernés${NBSP}: ${o.label}`,
+    key: 'accueil.targets.v2',
     selection: 'multi',
     height: 'fill',
     loading: true,
     rowId: (r) => r.guid,
     quickPlaceholder: 'Filtrer ces postes',
     columns: [
-      { id: 'name', label: 'Nom', required: true, width: 170, html: (v) => `<span class="tg-name">${glyph('monitor')}${esc(v)}</span>` },
-      { id: 'ou', label: 'OU', width: 150 },
-      { id: 'state', label: 'Compte AD', type: 'enum', width: 132, options: Object.entries(STATE_TONE).map(([value, t]) => ({ value, label: value, tone: t })) },
-      { id: 'presence', label: 'Présence', type: 'enum', width: 130, options: Object.entries(PRESENCE_TONE).map(([value, t]) => ({ value, label: value, tone: t })) },
-      { id: 'system', label: 'Système', width: 190 },
-      { id: 'lastLogon', label: 'Dernière connexion', type: 'date', dateStyle: 'date', width: 140, tip: 'lastLogonTimestamp, répliqué à 14 jours près' },
-      { id: 'diskFree', label: 'Libre sur C:', type: 'number', decimals: 0, width: 110, align: 'end', format: (v) => (isNum(v) ? `${formatNumber(v)}${NBSP}%` : '—') },
-      { id: 'uptimeDays', label: 'Démarré depuis', type: 'number', width: 120, align: 'end', format: (v) => (isNum(v) ? plural(v, 'jour', 'jours') : '—') },
-      { id: 'model', label: 'Modèle', width: 160 },
-      { id: 'user', label: 'Utilisateur vu', width: 140 },
+      { id: 'name', label: 'Nom', required: true, width: 150, html: (v) => `<span class="tg-name">${glyph('monitor')}${esc(v)}</span>` },
+      {
+        id: 'score', label: 'Score', type: 'number', width: 92, align: 'center', tip: 'Score du poste : 100 − 25 par point critique − 10 par point à surveiller ; « — » si le poste n’est pas évalué',
+        html: (v, r) => (isNum(v) ? `<span class="tg-score" data-tone="${SCORE_TONE(v)}" data-tip="${esc(`${plural(r.alerts ?? 0, 'point critique', 'points critiques')} · ${plural(r.warnings ?? 0, 'point à surveiller', 'points à surveiller')}`)}"><b class="num">${formatNumber(v)}</b></span>` : '<span class="faint" data-tip="Poste non évalué : données incomplètes">—</span>'),
+        csv: (v) => (isNum(v) ? String(v) : ''),
+      },
+      { id: 'presence', label: 'Présence', type: 'enum', width: 136, options: Object.entries(PRESENCE_TONE).map(([value, t]) => ({ value, label: value, tone: t })) },
+      { id: 'system', label: 'Système', width: 224 },
+      { id: 'lastLogon', label: 'Dernière connexion', type: 'date', dateStyle: 'date', width: 136, tip: 'lastLogonTimestamp, répliqué à 14 jours près' },
+      { id: 'diskFree', label: 'Libre sur C:', type: 'number', decimals: 0, width: 104, align: 'end', format: (v) => (isNum(v) ? `${formatNumber(v)}${NBSP}%` : '—') },
+      { id: 'state', label: 'Compte AD', type: 'enum', width: 120, hidden: true, options: Object.entries(STATE_TONE).map(([value, t]) => ({ value, label: value, tone: t })) },
+      { id: 'ou', label: 'OU', width: 150, hidden: true },
+      { id: 'uptimeDays', label: 'Démarré depuis', type: 'number', width: 120, align: 'end', hidden: true, format: (v) => (isNum(v) ? plural(v, 'jour', 'jours') : '—') },
+      { id: 'model', label: 'Modèle', width: 160, hidden: true },
+      { id: 'user', label: 'Utilisateur vu', width: 140, hidden: true },
       { id: 'dn', label: 'DN', mono: true, hidden: true, width: 320 },
       { id: 'guid', label: 'GUID', mono: true, hidden: true, width: 280 },
     ],
     empty: { icon: 'check', title: 'Aucun poste', text: 'Ce chiffre ne compte aucun poste dans le calcul affiché.' },
-    onActivate: (row) => { drawer.close(); ctx.navigate('poste', { dn: row.dn }); },
+    onActivate: (row) => { rememberObject({ dn: row.dn, name: row.name, kind: 'poste' }); drawer.close(); ctx.navigate('poste', { dn: row.dn }); },
     onExport: (csv, info) => copyWithToast(ctx, csv, `${plural(info.rows, 'ligne copiée', 'lignes copiées')} au format CSV.`),
   });
 
@@ -74,9 +97,11 @@ export function openTargets(o) {
       const r = await ctx.call('accueil.targets', { revision: o.revision, key: o.key });
       rows = Array.isArray(r?.rows) ? r.rows : [];
       drawer.setTitle('Postes concernés', r.label || o.label);
+      const scored = rows.filter((x) => isNum(x.score));
+      const mean = scored.length ? Math.round(scored.reduce((a, x) => a + x.score, 0) / scored.length) : null;
       host.querySelector('.tg-head').innerHTML = `<p class="tg-count"><b class="num" data-count="${r.total}">0</b> ${r.total > 1 ? 'postes' : 'poste'}`
-        + `${r.truncated ? ` · ${formatNumber(rows.length)} affichés (liste bornée)` : ''}</p>`
-        + `<p class="tg-note">${glyph('info')}<span>Liste exacte du calcul affiché (révision ${esc(String(r.revision).slice(0, 8))}) : la même population que le chiffre, sans nouvelle lecture.</span></p>`;
+        + `${r.truncated ? ` · ${formatNumber(rows.length)} affichés (liste bornée)` : ''}${mean !== null ? `<span class="tg-mean" data-tone="${SCORE_TONE(mean)}">Score moyen ${formatNumber(mean)}</span>` : ''}</p>`
+        + `<p class="tg-note">${glyph('info')}<span>Liste exacte du calcul affiché${NBSP}: la même population que le chiffre, sans nouvelle lecture. Double-cliquez sur un poste pour ouvrir sa fiche.</span></p>`;
       countUp(host.querySelector('[data-count]'), r.total, { delay: 80 });
       grid.setRows(rows);
     } catch (err) {
@@ -105,7 +130,7 @@ export function openCatalog(o) {
   let catalog = null;
   let tabs = null;
   const drawer = openDrawer({
-    title: 'Ajouter un widget', subtitle: 'Widgets du parc, sondes WMI et requêtes ; la disposition est gardée dans les préférences locales.',
+    title: 'Ajouter un widget', subtitle: 'Widgets du parc, sondes WMI et requêtes ; la disposition est gardée dans les préférences locales.',
     icon: 'plus', key: 'accueil.catalog', width: 720, minWidth: 420, body: host,
     actions: [{ id: 'close', label: 'Fermer', primary: true, run: (d) => d.close() }],
     onClose: () => tabs?.destroy?.(),
@@ -134,7 +159,7 @@ export function openCatalog(o) {
 
   function probesPanel(panel) {
     panel.innerHTML = `<div class="cat-probe-bar"><label class="cat-search">${glyph('search')}<span class="visually-hidden">Filtrer les sondes</span><input type="search" maxlength="80" placeholder="Filtrer les ${formatNumber(catalog.probeCount)} sondes (nom, classe, catégorie)" autocomplete="off" spellcheck="false"></label>`
-      + `<p class="cat-lead">Lues par WMI sur les postes en ligne lors de « Actualiser ping et WMI » ; une sonde en pause n’est plus relevée. Le contrat dit les droits, le coût et les limites.</p></div><div class="cat-probes"></div>`;
+      + `<p class="cat-lead">Lues par WMI sur les postes en ligne lors de « Actualiser ping et WMI » ; une sonde en pause n’est plus relevée. Le contrat dit les droits, le coût et les limites.</p></div><div class="cat-probes"></div>`;
     const list = panel.querySelector('.cat-probes');
     const input = panel.querySelector('input');
     const draw = () => {
@@ -187,7 +212,7 @@ export function openCatalog(o) {
     if (probe) { o.onProbe(probe.dataset.catProbe); return; }
     const add = t.closest('[data-cat-add]');
     if (!add || add.disabled) return;
-    if (full()) { ctx.toast(`Le tableau compte déjà ${formatNumber(board.max())} widgets : retirez-en un avant d’en ajouter.`, { tone: 'warn' }); return; }
+    if (full()) { ctx.toast(`Le tableau compte déjà ${formatNumber(board.max())} widgets : retirez-en un avant d’en ajouter.`, { tone: 'warn' }); return; }
     const [source, key] = add.dataset.catAdd.split('|');
     let def;
     if (source === 'builtin') {
@@ -204,7 +229,7 @@ export function openCatalog(o) {
     add.classList.remove('spinning', 'primary');
     add.classList.add('ghost', 'done');
     add.innerHTML = `${glyph('check')}Affiché`;
-    ctx.toast(`« ${def.title} » ajouté au tableau du parc${source === 'probe' ? ' : relevé au prochain « Actualiser ping et WMI »' : ''}.`, { tone: 'ok', life: 3200 });
+    ctx.toast(`« ${def.title} » ajouté au tableau du parc${source === 'probe' ? ' : relevé au prochain « Actualiser ping et WMI »' : ''}.`, { tone: 'ok', life: 3200 });
   });
 
   load();
@@ -225,7 +250,7 @@ export async function openProbeContract(ctx, id) {
     }
     body.innerHTML = `<header class="ct-head"><h3>${esc(c.name)}</h3><p>${esc(c.summary)}</p><div class="ct-pills">`
       + `${pill(c.valid ? 'ok' : 'alert', c.valid ? 'Contrat valide' : 'Contrat incomplet', { icon: c.valid ? 'check' : 'alert' })}`
-      + `${pill('info', `Droits : ${c.privilegeLevel}`, { icon: 'key' })}${pill(c.costLevel === 'Lourd' ? 'warn' : 'off', `Coût : ${c.costLevel}`, { icon: 'gauge' })}${pill('accent', c.origin, { dot: false })}</div></header>`
+      + `${pill('info', `Droits : ${c.privilegeLevel}`, { icon: 'key' })}${pill(c.costLevel === 'Lourd' ? 'warn' : 'off', `Coût : ${c.costLevel}`, { icon: 'gauge' })}${pill('accent', c.origin, { dot: false })}</div></header>`
       + `${(c.errors ?? []).map((x) => `<p class="ct-msg alert">${glyph('alert')}${esc(x)}</p>`).join('')}${(c.warnings ?? []).map((x) => `<p class="ct-msg warn">${glyph('info')}${esc(x)}</p>`).join('')}`
       + `<div class="ct-sections">${[...sections].map(([title, values], n) => `<section data-j="${n}"><h4>${esc(title)}</h4><ul>${values.map((v) => `<li>${esc(v)}</li>`).join('')}</ul></section>`).join('')}</div>`;
     paint(body);
@@ -244,10 +269,12 @@ export function openExplain({ ctx, onTargets }) {
     actions: [{ id: 'close', label: 'Fermer', primary: true, run: (d) => d.close() }],
   });
   const STATUS = { Activée: 'ok', 'Selon l’OU': 'info', Désactivée: 'off', Suspendue: 'warn' };
+  let revision = null;
   async function load() {
     host.innerHTML = loading(6);
     try {
       const x = await ctx.call('accueil.health.explain');
+      revision = x.revision || null;
       const stat = (v, label, cls = '') => `<div class="ex-stat ${cls}"><b class="num" data-count="${v}">0</b><span>${esc(label)}</span></div>`;
       host.innerHTML = `<p class="ex-summary">${esc(x.summary)}</p>
         <div class="ex-stats">${stat(x.population, 'postes du périmètre')}${stat(x.assessed, 'évalués', 'ok')}${stat(x.unknown, 'non évalués', 'off')}${stat(x.activeRules, 'contrôles actifs')}${stat(x.suspendedRules, 'suspendus', 'warn')}${stat(x.disabledRules, 'désactivés', 'off')}${stat(x.maskedMachines, 'postes masqués', 'warn')}</div>
@@ -258,6 +285,7 @@ export function openExplain({ ctx, onTargets }) {
           <dl class="ex-facts"><div><dt>Postes éligibles</dt><dd>${esc(r.eligible)}</dd></div><div><dt>Seul motif pour</dt><dd>${plural(r.exclusive, 'poste', 'postes')}</dd></div>
             <div><dt>Masqués</dt><dd>${r.maskedKey && r.masked ? `<button class="link-btn" type="button" data-ex-targets="${esc(r.maskedKey)}" data-label="${esc(`${r.rule} · masqués`)}">${plural(r.masked, 'poste', 'postes')}</button>` : plural(r.masked, 'poste', 'postes')}</dd></div>
             <div><dt>Observation</dt><dd>${esc(r.observationState)}${r.missingData ? ' · données manquantes' : ''}</dd></div></dl>
+          ${r.missingKey && r.missing ? `<div class="ex-missing"><button class="btn sm ghost" type="button" data-ex-targets="${esc(r.missingKey)}" data-label="${esc(`${r.rule} · collecte manquante`)}" data-tip="Ouvre les postes sans la donnée de ce contrôle ; aucune collecte n’est lancée">${glyph('history')}Voir la collecte manquante · ${plural(r.missing, 'poste', 'postes')}</button></div>` : ''}
           <details class="ex-ev"><summary>D’où vient la donnée</summary><dl><div><dt>Source</dt><dd>${esc(r.evidence.source)}</dd></div><div><dt>Observé</dt><dd>${esc(r.evidence.observed)}</dd></div>
             <div><dt>Valeur</dt><dd>${esc(r.evidence.value)}</dd></div><div><dt>Règle</dt><dd>${esc(r.evidence.rule)}</dd></div><div><dt>Relevé</dt><dd>${esc(r.evidence.collection)}</dd></div></dl></details></li>`).join('')}</ol>
         ${x.policies?.length ? `<section class="ex-policies"><h3>Règles appliquées par OU</h3><table class="acc-table"><thead><tr><th scope="col">Portée</th><th scope="col">Postes</th><th scope="col">Suspendus</th><th scope="col">Seuils</th></tr></thead><tbody>`
@@ -268,11 +296,12 @@ export function openExplain({ ctx, onTargets }) {
       host.innerHTML = failed(err);
     }
   }
+  // The sets are opened with the calculation this panel explains: a view recomputed meanwhile refuses them (board.replaced).
   host.addEventListener('click', (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (t?.closest('[data-acc-retry]')) { load(); return; }
     const b = t?.closest('[data-ex-targets]');
-    if (b) { drawer.close(); onTargets(b.dataset.exTargets, b.dataset.label ?? ''); }
+    if (b) { drawer.close(); onTargets(b.dataset.exTargets, b.dataset.label ?? '', revision); }
   });
   load();
   return drawer;
@@ -295,18 +324,19 @@ export function openProvenance({ ctx }) {
 
   const family = (f, label, ic) => {
     const share = f.total ? f.count / f.total : 0;
-    return `<article class="pv-fam"><header>${glyph(ic)}<h4>${esc(label)}</h4><span class="num">${formatNumber(f.count)} / ${formatNumber(f.total)}</span></header>`
+    return `<article class="pv-fam"><header>${glyph(ic)}<h4>${esc(label)}</h4><span class="num">${formatNumber(f.count)}${NBSP}/${NBSP}${formatNumber(f.total)}</span></header>`
       + `<div class="pv-meter" role="meter" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="${f.total}" aria-valuenow="${f.count}"><span data-p="${share.toFixed(4)}"></span></div>`
       + `<p>${esc(f.text)}</p>${Object.keys(f.states ?? {}).length ? `<ul class="pv-states">${Object.entries(f.states).map(([k, v]) => `<li><span>${esc(STATE_LABEL[k] ?? k)}</span><b class="num">${formatNumber(v)}</b></li>`).join('')}</ul>` : ''}</article>`;
   };
 
+  // Same four rows in every clock card (head, state, dates, detail), aligned across the cards by the subgrid of the stylesheet.
   const clock = (c, n) => {
     const t = c.warning ? 'warn' : CLOCK_TONE[c.state] ?? (c.success ? 'ok' : 'off');
     const side = (v, label) => (v ? `<div><dt>${esc(label)}</dt><dd>${esc(localStamp(v.at))}${v.inherited ? ' · relevé d’une OU parente' : ''}${v.controller ? ` · ${esc(v.controller)}` : ''}`
-      + `${v.targets != null ? ` · ${formatNumber(v.done ?? 0)} / ${formatNumber(v.targets)}` : ''}${v.error ? `<span class="sub">${esc(v.error)}</span>` : ''}</dd></div>` : `<div><dt>${esc(label)}</dt><dd>Jamais</dd></div>`);
+      + `${v.targets != null ? ` · ${formatNumber(v.done ?? 0)}${NBSP}/${NBSP}${formatNumber(v.targets)}` : ''}${v.error ? `<span class="sub">${esc(v.error)}</span>` : ''}</dd></div>` : `<div><dt>${esc(label)}</dt><dd>Jamais</dd></div>`);
     return `<article class="pv-clock" data-tone="${t}" data-j="${n}"><header><span class="pv-ico">${glyph('clock')}</span><h4>${esc(c.label)}</h4>${pill(t, CLOCK_LABEL[c.state] ?? 'Inconnu', { size: 'sm' })}</header>`
-      + `${c.text ? `<p class="pv-state">${esc(c.text)}</p>` : ''}`
-      + `<dl>${side(c.success, 'Dernier succès')}${side(c.attempt, 'Dernière tentative')}</dl><p>${esc(c.detail)}</p></article>`;
+      + `<p class="pv-state">${esc(c.text || (c.state === 'success' ? 'Aucun écart signalé.' : CLOCK_LABEL[c.state] ?? ''))}</p>`
+      + `<dl>${side(c.success, 'Dernier succès')}${side(c.attempt, 'Dernière tentative')}</dl><p class="pv-detail">${esc(c.detail)}</p></article>`;
   };
 
   function overview(panel, p) {
@@ -389,7 +419,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
   function comparePanel(panel) {
     const items = list.items ?? [];
     if (items.length < 2) {
-      panel.innerHTML = `<div class="acc-empty wide">${glyph('calendar')}<h3>Un seul relevé</h3><p>Deux relevés au moins sont nécessaires : un instantané quotidien est gardé au premier calcul de chaque jour, et « Instantané » en garde un à la demande.</p></div>`;
+      panel.innerHTML = `<div class="acc-empty wide">${glyph('calendar')}<h3>Un seul relevé</h3><p>Deux relevés au moins sont nécessaires : un instantané quotidien est gardé au premier calcul de chaque jour, et « Instantané » en garde un à la demande.</p></div>`;
       return;
     }
     panel.innerHTML = `<form class="an-pick"><label><span>Avant</span><select class="input acc-select" name="before">${items.map(option).join('')}</select></label>
@@ -466,7 +496,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
             + `<td class="tot"><button class="an-cell tot" type="button" data-an-key="${esc(r.totalKey)}" data-label="${esc(r.label)}">${formatNumber(r.total)}</button></td></tr>`).join('')
           + `</tbody><tfoot><tr><th scope="row">Total</th>${m.columnTotals.map((v, n) => `<td><button class="an-cell tot" type="button" data-an-key="${esc(m.columnKeys[n])}" data-label="${esc(m.columns[n])}">${formatNumber(v)}</button></td>`).join('')}`
           + `<td class="tot"><button class="an-cell tot grand" type="button" data-an-key="${esc(m.grandKey)}" data-label="${esc(m.title)}">${formatNumber(m.grandTotal)}</button></td></tr></tfoot></table></div>`)
-          + `<p class="pv-note">${glyph('info')}<span>Chaque poste est dans une seule cellule ; un clic ouvre ses postes exacts.</span></p>`;
+          + `<p class="pv-note">${glyph('info')}<span>Chaque poste est dans une seule cellule ; un clic ouvre ses postes exacts.</span></p>`;
         paint(out);
       } catch (err) {
         out.innerHTML = `<div class="acc-err" role="alert">${glyph('alert')}<span>${esc(reported(err))}</span></div>`;
@@ -477,7 +507,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
     panel.querySelector('.an-view').addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest('button') : null;
       if (!b) return;
-      if (b.dataset.anCsv !== undefined) { if (matrix) copyWithToast(ctx, csv(matrix), `Tableau « ${matrix.title} » copié au format CSV.`); return; }
+      if (b.dataset.anCsv !== undefined) { if (matrix) copyWithToast(ctx, csv(matrix), `Tableau « ${matrix.title} » copié au format CSV.`); return; }
       view = b.dataset.anView;
       panel.querySelectorAll('[data-an-view]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       run();
@@ -492,7 +522,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
   function snapshotPanel(panel) {
     const manual = (list.items ?? []).filter((x) => x.kind === 'manual');
     panel.innerHTML = `<div class="an-snap"><span class="an-snap-ico">${glyph('pin')}</span><div><h3>Instantané daté de la vue actuelle</h3>
-      <p>À prendre avant et après une campagne (migration, nettoyage) : il garde les chiffres et les empreintes du périmètre, de la couverture et des règles, pour une comparaison honnête. Rien n’est lu sur le réseau ; il est gardé pendant la session.</p></div></div>
+      <p>À prendre avant et après une campagne (migration, nettoyage)${NBSP}: il garde les chiffres et les empreintes du périmètre, de la couverture et des règles, pour une comparaison honnête. Rien n’est lu sur le réseau ; il est gardé dans les préférences locales de ce poste (vingt au plus).</p></div></div>
       <form class="an-pick"><label class="grow"><span>Libellé</span><input class="input" name="label" type="text" maxlength="80" placeholder="Avant la migration Windows 11" autocomplete="off"></label>
       <button class="btn primary sm" type="submit">${glyph('pin')}Prendre l’instantané</button></form>
       <h4 class="pv-h">Instantanés manuels</h4>${manual.length ? `<ul class="an-snaps">${manual.map((s) => `<li>${glyph('pin')}<b>${esc(s.label)}</b><span>${esc(localStamp(s.computedAt))}</span></li>`).join('')}</ul>` : '<p class="faint">Aucun instantané manuel pour cette OU.</p>'}`;
@@ -503,7 +533,7 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
       b.disabled = true;
       try {
         const snap = await ctx.call('accueil.snapshot.take', form.label.value.trim() ? { label: form.label.value.trim() } : {});
-        ctx.toast(`Instantané « ${snap.label} » gardé pour cette session : il apparaît dans « Comparer ».`, { tone: 'ok' });
+        ctx.toast(`Instantané «${NBSP}${snap.label}${NBSP}» enregistré${NBSP}: il apparaît dans «${NBSP}Comparer${NBSP}».`, { tone: 'ok' });
         onSnapshot?.(snap);
         await reload('snapshot');
       } catch (err) {

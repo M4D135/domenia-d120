@@ -8,43 +8,60 @@ import { glyph } from '../../kit/glyphs.js';
 import { pill } from '../../kit/status.js';
 import { timeline, bindTimeline } from '../../kit/timeline.js';
 import { esc, formatNumber, countUp, progressTo } from '../../ui.js';
-import { plural, paint, reported, surface, localStamp, copyWithToast, sk } from './shared.js';
+import { NBSP, plural, paint, reported, surface, localStamp, copyWithToast, sk } from './shared.js';
 
 const loading = () => `<div class="acc-loading" aria-busy="true">${[85, 70, 55, 70].map((w) => sk(`sk-line w${w}`)).join('')}</div>`;
 const LEVEL_TONE = { ERROR: 'alert', ERR: 'alert', WARN: 'warn', WARNING: 'warn', INFO: 'info', DEBUG: 'off' };
 
 // ---------- First steps ----------
 
-/** Markup of the first steps (buttons: each step runs its action on click, never by itself). */
-export function stepsMarkup(info, { helpSeen = true } = {}) {
+/**
+ * Markup of the first steps (buttons: each step runs its action on click, never by itself). The four steps carry the count; the
+ * optional check of the application is a link beside them, outside the count. `board` follows the first calculation for the last
+ * step (ACC-016): running, ready with N workstations, or failed with « Réessayer ».
+ * @param {any} info @param {{ helpSeen?: boolean, board?: { state: string, machines?: number } }} [o]
+ */
+export function stepsMarkup(info, { helpSeen = true, board = null } = {}) {
   if (!info) return '';
-  const steps = info.steps.filter((s) => s.id !== 'rights' || !info.done || !s.done);
+  const steps = info.steps.filter((s) => s.id !== 'rights');
+  const rights = info.steps.find((s) => s.id === 'rights');
   const all = info.completed >= info.total;
   const items = steps.map((s, n) => {
+    let action = s.done ? 'Fait' : s.actionLabel;
+    let busy = false;
+    let retry = false;
+    if (s.id === 'dashboard' && board && !s.done && s.enabled) {
+      if (board.state === 'running') { action = 'Calcul en cours…'; busy = true; } else if (board.state === 'ready') action = `Prête · ${plural(board.machines ?? 0, 'poste', 'postes')}`;
+      else if (board.state === 'error') { action = 'Erreur · Réessayer'; retry = true; }
+    }
     const state = s.done ? 'terminée' : s.current ? 'étape en cours' : s.enabled ? 'à faire' : 'pas encore disponible';
-    return `<li class="step${s.done ? ' done' : ''}${s.current ? ' current' : ''}${s.id === 'rights' ? ' optional' : ''}" data-step="${esc(s.id)}" data-j="${n}"${s.current ? ' aria-current="step"' : ''}>`
+    return `<li class="step${s.done ? ' done' : ''}${s.current ? ' current' : ''}${busy ? ' busy' : ''}${retry ? ' retry' : ''}" data-step="${esc(s.id)}" data-j="${n}"${s.current ? ' aria-current="step"' : ''}>`
       + `<button class="step-btn" type="button" data-step-act="${esc(s.id)}"${s.enabled ? '' : ' disabled'} data-tip="${esc(s.text)}">`
-      + `<span class="mark" aria-hidden="true">${s.done ? glyph('check') : esc(String(s.number))}</span>`
-      + `<span class="step-t"><span class="label">${esc(s.label)}</span><span class="step-a">${esc(s.done ? (s.id === 'rights' ? 'Faite' : 'Fait') : s.actionLabel)}</span></span>`
+      + `<span class="mark" aria-hidden="true">${s.done ? glyph('check') : busy ? '<span class="k-spin"></span>' : esc(String(s.number))}</span>`
+      + `<span class="step-t"><span class="label">${esc(s.label)}</span><span class="step-a">${esc(action)}</span></span>`
       + `<span class="visually-hidden">, ${esc(state)}. ${esc(s.text)}</span></button></li>`;
   }).join('');
+  const optional = rights ? `<button class="step-optional${rights.done ? ' done' : ''}" type="button" data-step-act="rights" data-tip="${esc(rights.text)}">${glyph(rights.done ? 'check' : 'shield')}<span>${rights.done ? 'Application vérifiée' : 'Facultatif · Vérifier l’application'}</span></button>` : '';
   return `<div class="stepper${all ? ' complete' : ''}" role="group" aria-labelledby="stepper-title">
-      <div class="stepper-head">${glyph('sparkles')}<span class="title" id="stepper-title">${all ? 'Premiers pas terminés' : 'Premiers pas'}</span><span class="count num">${formatNumber(info.completed)} / ${formatNumber(info.total)}</span>
-        <span class="stepper-tools"><button class="btn ghost sm help-btn" type="button" data-act="help">${glyph('lifebuoy')}Aide${helpSeen ? '' : '<span class="new-dot" aria-hidden="true"></span><span class="visually-hidden"> (nouveau)</span>'}</button>
-        <button class="btn ghost sm" type="button" data-act="steps-hide" data-tip="La carte se réaffiche depuis l’aide">${glyph('eyeOff')}Masquer</button></span></div>
-      <div class="progress" role="progressbar" aria-label="Progression des premiers pas" aria-valuemin="0" aria-valuemax="${info.total}" aria-valuenow="${info.completed}" aria-valuetext="${esc(`${plural(info.completed, 'étape faite', 'étapes faites')} sur ${formatNumber(info.total)}`)}"><span></span></div>
+      <div class="stepper-head">${glyph('sparkles')}<span class="title" id="stepper-title">${all ? 'Premiers pas terminés' : 'Premiers pas'}</span><span class="count num">${formatNumber(info.completed)}${NBSP}/${NBSP}${formatNumber(info.total)}</span>
+        <div class="progress" role="progressbar" aria-label="Progression des premiers pas" aria-valuemin="0" aria-valuemax="${info.total}" aria-valuenow="${info.completed}" aria-valuetext="${esc(`${plural(info.completed, 'étape faite', 'étapes faites')} sur ${formatNumber(info.total)}`)}"><span></span></div>
+        <span class="stepper-tools">${optional}<button class="btn ghost sm" type="button" data-act="steps-hide" data-tip="La carte se réaffiche depuis l’aide (?)">${glyph('eyeOff')}Masquer</button></span></div>
       <ol class="steps">${items}</ol>
       ${all ? '' : `<p class="stepper-note">${glyph('clock')}<span>${esc(info.deferred)}</span></p>`}
-      ${info.offline ? `<p class="stepper-note warn">${glyph('wifiOff')}<span>Hors connexion : reconnectez-vous pour poursuivre ; les données locales sont conservées.</span></p>` : ''}
+      ${info.offline ? `<p class="stepper-note warn">${glyph('wifiOff')}<span>Hors connexion${NBSP}: reconnectez-vous pour poursuivre ; les données locales sont conservées.</span></p>` : ''}
     </div>`;
 }
 
-/** « 1. Trouver, 2. Consulter, 3. Préparer » (Domenia 1, ACC-018): three shortcuts, none of them reads anything by itself. */
-export function journeyMarkup() {
+/**
+ * « 1. Trouver, 2. Consulter, 3. Préparer » (Domenia 1, ACC-018): three shortcuts of the hero, none of them reads anything by itself.
+ * « Consulter » opens the object last chosen from the Accueil when there is one.
+ * @param {{ name?: string }|null} [object]
+ */
+export function journeyMarkup(object = null) {
   const step = (n, id, label, tip, ic) => `<button class="journey-btn" type="button" data-journey="${id}" data-tip="${esc(tip)}"><span class="journey-n" aria-hidden="true">${n}</span>${glyph(ic)}<span>${esc(label)}</span></button>`;
   return `<nav class="journey" aria-label="Parcours"><span class="journey-k">Parcours</span>`
     + `${step(1, 'find', 'Trouver', 'Ouvrir Rechercher sur l’OU de travail', 'search')}<span class="journey-sep" aria-hidden="true"></span>`
-    + `${step(2, 'view', 'Consulter', 'Ouvrir la fiche de l’objet déjà chargé', 'object')}<span class="journey-sep" aria-hidden="true"></span>`
+    + `${step(2, 'view', 'Consulter', object?.name ? `Ouvrir la fiche de ${object.name}, dernier objet choisi depuis l’Accueil` : 'Ouvrir la fiche de l’objet déjà chargé', 'object')}<span class="journey-sep" aria-hidden="true"></span>`
     + `${step(3, 'prepare', 'Préparer', 'Ouvrir l’atelier de requêtes pour comparer ou préparer un dossier', 'database')}</nav>`;
 }
 
@@ -59,14 +76,14 @@ export function openHelp({ ctx, onSeen, onShowSteps, stepsHidden }) {
   const host = surface('acc-help', `
     <section class="hp-journey"><h3>Le parcours en trois temps</h3><ol>
       <li data-j="0"><span class="hp-n">1</span><div><b>Trouver</b><p>Rechercher un compte, un poste ou un groupe dans l’OU de travail, ou ouvrir les postes exacts d’un chiffre du tableau du parc.</p><button class="btn sm ghost" type="button" data-hp-go="rechercher">${glyph('search')}Rechercher</button></div></li>
-      <li data-j="1"><span class="hp-n">2</span><div><b>Consulter</b><p>La fiche d’un objet rassemble ce que la base locale sait de lui ; les lectures réseau partent seulement sur votre clic.</p></div></li>
-      <li data-j="2"><span class="hp-n">3</span><div><b>Préparer</b><p>Une écriture se prépare, se relit, se confirme, puis se vérifie : chaque étape laisse un reçu, rien n’est rejoué automatiquement.</p><button class="btn sm ghost" type="button" data-hp-go="ecritures">${glyph('edit')}Écritures</button></div></li>
+      <li data-j="1"><span class="hp-n">2</span><div><b>Consulter</b><p>La fiche d’un objet rassemble ce que la base locale sait de lui ; les lectures réseau partent seulement sur votre clic.</p></div></li>
+      <li data-j="2"><span class="hp-n">3</span><div><b>Préparer</b><p>Une écriture se prépare, se relit, se confirme, puis se vérifie : chaque étape laisse un reçu, rien n’est rejoué automatiquement.</p><button class="btn sm ghost" type="button" data-hp-go="ecritures">${glyph('edit')}Écritures</button></div></li>
     </ol></section>
     <section class="hp-grid">
-      <article data-j="3"><h4>${glyph('ou')}OU de travail</h4><p>Défaut de toutes les sections : les postes sont mesurés dans cette OU, les comptes sur tout le domaine. Le domaine entier n’est jamais mesuré sans garde.</p></article>
-      <article data-j="4"><h4>${glyph('database')}Base locale</h4><p>L’Accueil se calcule depuis la base locale, sans lecture réseau. « Contrôles du parc » la met à jour, après confirmation.</p></article>
+      <article data-j="3"><h4>${glyph('ou')}OU de travail</h4><p>Défaut de toutes les sections : les postes sont mesurés dans cette OU, les comptes sur tout le domaine. Le domaine entier n’est jamais mesuré sans garde.</p></article>
+      <article data-j="4"><h4>${glyph('database')}Base locale</h4><p>L’Accueil se calcule depuis la base locale, sans lecture réseau. «${NBSP}Tout actualiser${NBSP}» et son menu la mettent à jour, après confirmation ; seul ce qui manque est relevé.</p></article>
       <article data-j="5"><h4>${glyph('monitor')}Chiffres exacts</h4><p>Chaque chiffre du tableau du parc ouvre la liste exacte de ses postes, tirée du calcul affiché.</p></article>
-      <article data-j="6"><h4>${glyph('shield')}Santé du parc</h4><p>Part des postes évalués sans point critique ni à surveiller ; les postes non évalués sont comptés à part, jamais sains.</p></article>
+      <article data-j="6"><h4>${glyph('shield')}Santé du parc</h4><p>Part des postes évalués sans point critique ni à surveiller ; les postes non évalués sont comptés à part, jamais sains.</p></article>
       <article data-j="7"><h4>${glyph('lock')}Lecture seule</h4><p>Domenia démarre en lecture seule. Les préférences (OU, disposition, règles) restent sur ce poste, jamais dans l’annuaire.</p></article>
       <article data-j="8"><h4>${glyph('command')}Raccourcis</h4><p><kbd>Ctrl</kbd> <kbd>K</kbd> palette de commandes · <kbd>Alt</kbd> + flèches déplace un widget · <kbd>Échap</kbd> ferme un panneau.</p></article>
     </section>
@@ -92,7 +109,7 @@ export function openHelp({ ctx, onSeen, onShowSteps, stepsHidden }) {
 export function openSelfCheck({ ctx, onDone }) {
   const host = surface('acc-check', loading());
   const drawer = openDrawer({
-    title: 'Vérifier l’application', subtitle: 'Session, base locale, préférences, reçus et catalogues ; lecture locale seulement.',
+    title: 'Vérifier l’application', subtitle: 'Session, base locale, préférences, reçus et catalogues ; lecture locale seulement.',
     icon: 'shield', key: 'accueil.check', width: 640, minWidth: 380, body: host,
     actions: [
       { id: 'copy', label: 'Copier le résultat', icon: 'copy', run: () => { if (last) copyWithToast(ctx, text(last), 'Résultat de la vérification copié dans le presse-papiers.'); } },
@@ -132,7 +149,7 @@ export function openSelfCheck({ ctx, onDone }) {
 
 export async function clearCache({ ctx, onCleared }) {
   const ok = await confirmDialog({
-    title: 'Vider le cache de l’Accueil ?', icon: 'trash', confirmLabel: 'Vider le cache',
+    title: 'Vider le cache de l’Accueil ?', icon: 'trash', confirmLabel: 'Vider le cache',
     message: 'Les calculs gardés en mémoire (tableau du parc, listes de postes, historique recalculé) seront refaits à la prochaine lecture. Aucune mesure enregistrée n’est perdue et aucun objet Active Directory n’est modifié.',
   });
   if (!ok) return;

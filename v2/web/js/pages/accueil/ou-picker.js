@@ -79,7 +79,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
 
     drawer = openDrawer({
       title: 'Choisir l’OU de travail',
-      subtitle: 'Défaut de toutes les sections sans choix propre ; gardé dans les préférences de Domenia, jamais dans l’annuaire.',
+      subtitle: 'Défaut de toutes les sections sans choix propre ; gardé dans les préférences de Domenia, jamais dans l’annuaire.',
       icon: 'ou', side: 'right', key: 'accueil.ou', width: 540, minWidth: 380, body,
       actions: [
         { id: 'cancel', label: 'Annuler', run: (d) => d.close() },
@@ -125,7 +125,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
           <span class="ou-pick-path"><span class="txt" data-tip="${esc(selected.dn)}">${esc(path)}</span>
           <button class="btn ghost icon sm" type="button" data-ou-copy aria-label="Copier le DN de l’OU sélectionnée" data-tip="Copier le chemin LDAP (DN)">${glyph('copy')}</button></span>`;
       } else {
-        pick.innerHTML = '<span class="ou-k">Sélection</span><span class="ou-pick-none">Aucune OU sélectionnée : choisissez-en une dans l’arborescence, par la recherche ou parmi les favorites.</span>';
+        pick.innerHTML = '<span class="ou-k">Sélection</span><span class="ou-pick-none">Aucune OU sélectionnée : choisissez-en une dans l’arborescence, par la recherche ou parmi les favorites.</span>';
       }
       paint(pick);
       // Whole domain: always with its sub-OU (session.setScope forces it); the switch says so.
@@ -136,13 +136,13 @@ export function createOuPicker({ ctx, current, onApplied }) {
       if (b) b.disabled = !selected || same || busy;
       const effect = body.querySelector('.ou-effect');
       if (!selected) effect.textContent = '';
-      else if (same) effect.textContent = 'C’est déjà l’OU de travail : rien à changer.';
+      else if (same) effect.textContent = 'C’est déjà l’OU de travail : rien à changer.';
       else if (selected.root) {
-        effect.textContent = `Tout le domaine : l’Accueil se calcule depuis ${sim ? 'l’annuaire fictif en mémoire' : 'la base locale'} pour l’ensemble des postes, mais aucune mesure réseau `
-          + '(ping, WMI, BitLocker) ne partira sur tout le domaine : choisissez une OU pour actualiser le parc. Une confirmation est demandée.';
+        effect.textContent = `Tout le domaine : l’Accueil se calcule depuis ${sim ? 'l’annuaire fictif en mémoire' : 'la base locale'} pour l’ensemble des postes, mais aucune mesure réseau `
+          + '(ping, WMI, BitLocker) ne partira sur tout le domaine : choisissez une OU pour actualiser le parc. Une confirmation est demandée.';
       } else {
         effect.textContent = `Les postes mesurés seront ceux de l’OU ${selected.name}${subtree ? ' et de ses sous-OU' : ' seule, sans ses sous-OU'} ; `
-          + `les comptes restent comptés sur tout le domaine. Aucune lecture réseau : l’Accueil se recalcule depuis ${sim ? 'l’annuaire fictif en mémoire' : 'la base locale'}.`;
+          + `les comptes restent comptés sur tout le domaine. Aucune lecture réseau : l’Accueil se recalcule depuis ${sim ? 'l’annuaire fictif en mémoire' : 'la base locale'}.`;
       }
       effect.classList.remove('flash');
       void effect.offsetWidth;
@@ -153,7 +153,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
       hideError();
       selected = { dn: o.dn, name: o.name, path: o.path ?? '', counts: validCounts(o.counts) ? o.counts : null, root: isRootDn(o.dn) };
       updateFoot();
-      if (announceIt) announce(`OU sélectionnée : ${o.name}`);
+      if (announceIt) announce(`OU sélectionnée : ${o.name}`);
     }
 
     // ----- Tree (kit) -----
@@ -271,7 +271,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
       searchToken += 1;
       showTree();
       await reveal(o.dn);
-      announce(`OU sélectionnée : ${o.name}`);
+      announce(`OU sélectionnée : ${o.name}`);
     }
 
     // ----- Favourites -----
@@ -280,7 +280,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
       const items = favorites.items ?? [];
       favList.removeAttribute('aria-busy');
       if (!items.length) {
-        favList.innerHTML = '<p class="ou-fav-none">Aucune favorite : sélectionnez une OU puis « Ajouter la sélection » pour y revenir en un clic.</p>';
+        favList.innerHTML = '<p class="ou-fav-none">Aucune favorite : sélectionnez une OU puis « Ajouter la sélection » pour y revenir en un clic.</p>';
         return;
       }
       const c = current().session?.scope;
@@ -309,7 +309,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
         favorites = await ctx.call('accueil.favorite.save', { name, dn: selected.dn, subtree });
         favForm.hidden = true;
         paintFavorites();
-        ctx.toast(`Favorite « ${name} » enregistrée dans les préférences locales.`, { tone: 'ok', life: 2600 });
+        ctx.toast(`Favorite « ${name} » enregistrée dans les préférences locales.`, { tone: 'ok', life: 2600 });
       } catch (err) {
         showError(reported(err));
       }
@@ -320,7 +320,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
       try {
         favorites = await ctx.call('accueil.favorite.drop', { id });
         paintFavorites();
-        if (f) ctx.toast(`Favorite « ${f.name} » retirée.`, { tone: 'info', life: 2400 });
+        if (f) ctx.toast(`Favorite « ${f.name} » retirée.`, { tone: 'info', life: 2400 });
       } catch (err) {
         showError(reported(err));
       }
@@ -329,7 +329,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
     async function pickFavorite(id) {
       const f = favorites.items.find((x) => x.id === id);
       if (!f) return;
-      if (!f.exists) { showError(`L’OU « ${f.name} » est absente de la base locale : elle a peut-être été renommée ou déplacée.`, 'info'); return; }
+      if (!f.exists) { showError(`L’OU « ${f.name} » est absente de la base locale : elle a peut-être été renommée ou déplacée.`, 'info'); return; }
       subtree = f.subtree;
       subBox.checked = subtree;
       choose({ dn: f.dn, name: f.name, path: f.path });
@@ -345,9 +345,9 @@ export function createOuPicker({ ctx, current, onApplied }) {
       // The whole domain is an explicit choice (Domenia 1, ACC-012): confirmed, and measures stay refused on it.
       if (selected.root) {
         const ok = await confirmDialog({
-          title: 'Travailler sur tout le domaine ?', icon: 'domain', confirmLabel: 'Tout le domaine',
+          title: 'Travailler sur tout le domaine ?', icon: 'domain', confirmLabel: 'Tout le domaine',
           message: `L’Accueil et les sections sans choix propre porteront sur tout le domaine ${selected.name}, calculés depuis la base locale. `
-            + 'Aucune mesure réseau des postes (ping, WMI, BitLocker) ne partira sur tout le domaine : il faudra choisir une OU pour actualiser le parc.',
+            + 'Aucune mesure réseau des postes (ping, WMI, BitLocker) ne partira sur tout le domaine : il faudra choisir une OU pour actualiser le parc.',
         });
         if (!ok || !drawer) return;
       }
@@ -397,7 +397,7 @@ export function createOuPicker({ ctx, current, onApplied }) {
       if (t.closest('[data-ou-fav-add]')) {
         if (!selected) { showError('Sélectionnez d’abord une OU à garder en favorite.', 'info'); return; }
         if ((favorites.items?.length ?? 0) >= (favorites.max ?? 12) && !favorites.items.some((f) => sameDn(f.dn, selected.dn) && f.subtree === subtree)) {
-          showError(`Douze favorites au plus : retirez-en une avant d’en ajouter une autre.`, 'info');
+          showError(`Douze favorites au plus : retirez-en une avant d’en ajouter une autre.`, 'info');
           return;
         }
         favForm.hidden = false;

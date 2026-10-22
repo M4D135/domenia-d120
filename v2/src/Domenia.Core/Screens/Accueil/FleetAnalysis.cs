@@ -143,7 +143,7 @@ public static class FleetAnalysis
         if (a.FormatVersion != b.FormatVersion)
         {
             policyHash = "unknown";
-            limits.Add("Empreinte des règles relevée dans un format différent entre les deux relevés : comparaison des règles limitée aux compteurs.");
+            limits.Add("Empreinte des règles relevée dans un format différent entre les deux relevés : comparaison des règles limitée aux compteurs.");
         }
         var policyStatus = policyHash switch { "same" => "Inchangé", "changed" => "Modifié", _ => "Inconnu" };
         var policyText = policyHash switch
@@ -168,31 +168,31 @@ public static class FleetAnalysis
         if (unknown > 0)
         {
             category = "Limitée";
-            summary = "Comparaison limitée aux compteurs : un des relevés ne décrit pas sa population, sa couverture ou ses règles. Ne pas lire la variation du score comme un gain ou une dégradation du parc.";
+            summary = "Comparaison limitée aux compteurs : un des relevés ne décrit pas sa population, sa couverture ou ses règles. Ne pas lire la variation du score comme un gain ou une dégradation du parc.";
         }
         else if (causes.Count == 0)
         {
             (category, summary) = stateStatus == "Inchangé"
-                ? ("Stable", "Aucun changement : même population, même couverture, mêmes règles et même état observé.")
-                : ("Réel", "Changement réel de l’état observé : même population, mêmes données et mêmes règles. Ce constat ne dit pas pourquoi l’état a changé.");
+                ? ("Stable", "Aucun changement : même population, même couverture, mêmes règles et même état observé.")
+                : ("Réel", "Changement réel de l’état observé : même population, mêmes données et mêmes règles. Ce constat ne dit pas pourquoi l’état a changé.");
         }
         else if (causes.Count > 1)
         {
             category = "Mixte";
-            summary = "Effets mêlés (" + string.Join(", ", causes.Select(c => c.ToLowerInvariant())) + " modifiés) : ne pas lire la variation du score comme un gain ou une dégradation du parc.";
+            summary = "Effets mêlés (" + string.Join(", ", causes.Select(c => c.ToLowerInvariant())) + " modifiés) : ne pas lire la variation du score comme un gain ou une dégradation du parc.";
         }
         else
         {
             (category, summary) = causes[0] switch
             {
-                "Périmètre" => ("Périmètre", "Évolution du périmètre : des postes sont entrés ou sortis ; la variation ne décrit pas un changement d’état des mêmes postes."),
+                "Périmètre" => ("Périmètre", "Évolution du périmètre : des postes sont entrés ou sortis ; la variation ne décrit pas un changement d’état des mêmes postes."),
                 "Couverture" => ("Couverture", direction switch
                 {
-                    "up" => "Amélioration de la couverture : davantage de postes ou de données évalués ; une baisse du score peut révéler des problèmes jusque-là non mesurés.",
-                    "down" => "Couverture réduite : moins de postes ou de données évalués ; une hausse du score peut venir de postes qui ne sont plus mesurés.",
-                    _ => "Couverture modifiée : les données disponibles ne sont plus les mêmes ; la variation ne décrit pas seulement l’état du parc.",
+                    "up" => "Amélioration de la couverture : davantage de postes ou de données évalués ; une baisse du score peut révéler des problèmes jusque-là non mesurés.",
+                    "down" => "Couverture réduite : moins de postes ou de données évalués ; une hausse du score peut venir de postes qui ne sont plus mesurés.",
+                    _ => "Couverture modifiée : les données disponibles ne sont plus les mêmes ; la variation ne décrit pas seulement l’état du parc.",
                 }),
-                _ => ("Règles", "Règles modifiées : la variation peut venir des seuils, des contrôles activés ou des suspensions, pas du parc."),
+                _ => ("Règles", "Règles modifiées : la variation peut venir des seuils, des contrôles activés ou des suspensions, pas du parc."),
             };
         }
         var rows = new List<FleetComparisonRow>

@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Accueil (accueil.*): mock-accueil.js, a short fixture of the OU « Postes » of the simulation.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createAccueilOperations } from './mock-accueil.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1058,6 +1060,10 @@ const OPERATIONS = {
   'directory.ou.search': ouSearch,
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  }),
+  // Accueil (docs/ops/accueil.md): mock-accueil.js, a short fixture of the OU « Postes ».
+  ...createAccueilOperations({
+    readObject, getString, getOptionalString, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF, DOMAIN, ROOT_DN, scope: () => ({ ...state.scope }),
   }),
 };
 

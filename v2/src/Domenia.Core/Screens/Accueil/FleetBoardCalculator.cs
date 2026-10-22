@@ -87,6 +87,10 @@ public static class FleetBoardCalculator
         private readonly Dictionary<string, (HealthPolicy Policy, string Source)> policies = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<Guid>> targets = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> labels = new(StringComparer.Ordinal);
+        // Points of each workstation by level, and the workstations assessed (ACC-029: score of a workstation).
+        private readonly Dictionary<Guid, int> machineAlerts = new();
+        private readonly Dictionary<Guid, int> machineWarnings = new();
+        private readonly HashSet<Guid> assessedIds = new();
         private readonly Dictionary<string, FleetEntry> entries = new(StringComparer.Ordinal);
         private readonly List<FleetHint> hints = [];
         private HealthPolicy boardPolicy = HealthPolicy.Default;
@@ -163,12 +167,12 @@ public static class FleetBoardCalculator
             var machineDetail = FrenchText.Integer(total) + " activés · " + FrenchText.Integer(disabledMachines.Count) + " désactivés · 0 état inconnu · "
                 + (ScopeRules.IsDomainRoot(scope, input.DomainDn) ? "domaine" : scope.Subtree ? "OU et sous-OU" : "OU directe");
             Entry("fleet.machines", FrenchText.Integer(machineCount), machineCount, null, machineDetail, null, targetsKey: "fleet.machines");
-            Entry("fleet.enabled", FrenchText.Integer(total), total, null, "Comptes AD activés ; ce nombre ne décrit pas la présence réseau.", null, targetsKey: "fleet.enabled");
-            Entry("fleet.accountunknown", "0", 0, null, "État du compte AD non lu ; ne vaut ni activé ni désactivé.", null, targetsKey: "fleet.accountunknown");
+            Entry("fleet.enabled", FrenchText.Integer(total), total, null, "Comptes AD activés ; ce nombre ne décrit pas la présence réseau.", null, targetsKey: "fleet.enabled");
+            Entry("fleet.accountunknown", "0", 0, null, "État du compte AD non lu ; ne vaut ni activé ni désactivé.", null, targetsKey: "fleet.accountunknown");
             Distribution("fleet.accountstatus", FrenchText.Integer(machineCount), machineDetail, [("Activés", total, Tone.Ok), ("Désactivés", disabledMachines.Count, Tone.Off), ("État inconnu", 0, Tone.Info)],
                 FrenchText.Count(machineCount, "compte", "comptes"), keepEmpty: true);
             Entry("fleet.stale", FrenchText.Integer(staleMachines.Count), staleMachines.Count, null,
-                "lastLogonTimestamp approximatif ; " + FrenchText.Count(activityUnknown, "date inconnue", "dates inconnues") + ", sans rapport avec le ping.",
+                "lastLogonTimestamp approximatif ; " + FrenchText.Count(activityUnknown, "date inconnue", "dates inconnues") + ", sans rapport avec le ping.",
                 staleMachines.Count > 0 ? Tone.Warn : Tone.Ok, title: "Sans connexion AD depuis " + FrenchText.Integer(limits.StaleDays) + " j", targetsKey: "fleet.stale");
             var kindItems = KindNames.Select(k => (k, active.Count(m => m.Kind == k), (Tone?)null)).ToList();
             var servers = active.Count(m => m.Kind == "Serveurs");
@@ -180,8 +184,8 @@ public static class FleetBoardCalculator
                 disabledMachines.Count > 0 ? Tone.Warn : Tone.Ok, targetsKey: "fleet.disabled");
             if (factsKnown == 0 && total > 0)
             {
-                Entry("fleet.created", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
-                Entry("fleet.pwdold", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
+                Entry("fleet.created", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
+                Entry("fleet.pwdold", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
             }
             else
             {
@@ -196,11 +200,11 @@ public static class FleetBoardCalculator
             var lapsExpired = active.Count(m => m.Laps == 'E');
             if (total == 0 || active.All(m => m.Laps == ' '))
             {
-                Entry("fleet.laps", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
+                Entry("fleet.laps", "Non lu", null, null, "Non lu : mettez à jour la base locale de l’OU pour lire cet attribut.", Tone.Off, measured: false);
             }
             else if (lapsCount + lapsMissing == 0)
             {
-                Entry("fleet.laps", "Non disponible", null, null, "Non disponible dans ce domaine : attributs LAPS absents du schéma.", Tone.Off, measured: false);
+                Entry("fleet.laps", "Non disponible", null, null, "Non disponible dans ce domaine : attributs LAPS absents du schéma.", Tone.Off, measured: false);
             }
             else if (lapsCount == 0)
             {
@@ -220,11 +224,11 @@ public static class FleetBoardCalculator
             var bitlockerCoverage = bitlockerRead ? Coverage(active.Count(m => m.BitLocker is 'K' or 'N'), total, input.BitLocker!.At) : "";
             if (!bitlockerRead)
             {
-                Entry("fleet.bitlocker", "Non lu", null, null, isRoot ? "Choisissez une OU : lecture refusée à la racine du domaine." : "Présence des clés non lue pour cette OU.", Tone.Off, action: bitlockerAction, measured: false);
+                Entry("fleet.bitlocker", "Non lu", null, null, isRoot ? "Choisissez une OU : lecture refusée à la racine du domaine." : "Présence des clés non lue pour cette OU.", Tone.Off, action: bitlockerAction, measured: false);
             }
             else if (!input.BitLocker!.ClassPresent)
             {
-                Entry("fleet.bitlocker", "Non disponible", null, null, "Non disponible dans ce domaine : classe de récupération BitLocker absente du schéma.", Tone.Off, action: bitlockerAction, measured: false);
+                Entry("fleet.bitlocker", "Non disponible", null, null, "Non disponible dans ce domaine : classe de récupération BitLocker absente du schéma.", Tone.Off, action: bitlockerAction, measured: false);
             }
             else if (bitlockerKeys == 0)
             {
@@ -232,7 +236,7 @@ public static class FleetBoardCalculator
             }
             else
             {
-                Entry("fleet.bitlocker", FrenchText.Integer(bitlockerMissing), bitlockerMissing, null, bitlockerCoverage + (input.BitLocker.Truncated ? " · lecture tronquée : aucun « pas de clé » n’est déduit des postes non lus" : ""),
+                Entry("fleet.bitlocker", FrenchText.Integer(bitlockerMissing), bitlockerMissing, null, bitlockerCoverage + (input.BitLocker.Truncated ? " · lecture tronquée : aucun « pas de clé » n’est déduit des postes non lus" : ""),
                     bitlockerMissing > 0 ? Tone.Warn : Tone.Ok, action: bitlockerAction, targetsKey: "fleet.bitlocker");
             }
 
@@ -246,7 +250,7 @@ public static class FleetBoardCalculator
             }
             var soonCount = soon.Count;
             Entry("fleet.eos", FrenchText.Integer(ended.Count), ended.Count, null,
-                soonCount > 0 ? FrenchText.Integer(soonCount) + " à surveiller (fin dans 90 jours ou moins)" : ended.Count > 0 ? "Versions plus maintenues : à migrer." : "Aucune version en fin de service.",
+                soonCount > 0 ? FrenchText.Integer(soonCount) + " à surveiller (fin dans 90 jours ou moins)" : ended.Count > 0 ? "Versions plus maintenues : à migrer." : "Aucune version en fin de service.",
                 ended.Count > 0 ? Tone.Alert : soonCount > 0 ? Tone.Warn : Tone.Ok, targetsKey: "fleet.eos");
             var win10End = windows10.Select(m => m.Release.End).Where(e => e is not null).Max();
             var win10Tone = windows10.Count == 0 ? Tone.Ok
@@ -278,7 +282,7 @@ public static class FleetBoardCalculator
             }
             else
             {
-                hints.Add(new FleetHint("Répartition", "Aucun poste actif dans ce périmètre de la base locale : mettez à jour la base locale de l’OU.", Collect()));
+                hints.Add(new FleetHint("Répartition", "Aucun poste actif dans ce périmètre de la base locale : mettez à jour la base locale de l’OU.", Collect()));
             }
 
             // ---------------------------------------------------------------- observations
@@ -343,7 +347,7 @@ public static class FleetBoardCalculator
             List<Machine> longUptime;
             if (inventories.Count == 0)
             {
-                hints.Add(new FleetHint("Relevés des postes", "« Relever ce périmètre » recueille les modèles, la mémoire, les disques, les versions et les démarrages des postes actifs de l’OU choisie.", Collect()));
+                hints.Add(new FleetHint("Relevés des postes", "« Relever ce périmètre » recueille les modèles, la mémoire, les disques, les versions et les démarrages des postes actifs de l’OU choisie.", Collect()));
             }
             else
             {
@@ -530,7 +534,7 @@ public static class FleetBoardCalculator
             if (partialBase)
             {
                 var h = new RuleHits();
-                Point("index.partial", "warn", "Base locale incomplète : dernière lecture arrêtée à sa limite. Les chiffres peuvent être sous-estimés : utilisez « Mettre à jour la base locale de l’OU ».", h);
+                Point("index.partial", "warn", "Base locale incomplète : dernière lecture arrêtée à sa limite. Les chiffres peuvent être sous-estimés : utilisez « Mettre à jour la base locale de l’OU ».", h);
             }
             Simple("pwdold", "warn", n => Plural(n, "poste avec un mot de passe machine", "postes avec un mot de passe machine") + " de plus de " + FrenchText.Integer(limits.PasswordDays) + " jours.");
             Simple("laps.none", "warn", n => Plural(n, "poste sans expiration LAPS visible.", "postes sans expiration LAPS visible."));
@@ -615,6 +619,15 @@ public static class FleetBoardCalculator
                     unknown.Add(m);
                 }
             }
+            foreach (var (point, h) in visible.Where(v => v.Point.Level is "alert" or "warn"))
+            {
+                var counts = point.Level == "alert" ? machineAlerts : machineWarnings;
+                foreach (var g in h.Active.Distinct())
+                {
+                    counts[g] = counts.GetValueOrDefault(g) + 1;
+                }
+            }
+            assessedIds.UnionWith(healthy.Concat(problems).Select(m => m.Guid));
             Set("fleet.health", active);
             Set("fleet.attention", problems);
             Set("fleet.health|Sans problème", healthy);
@@ -628,7 +641,7 @@ public static class FleetBoardCalculator
             var badges = new List<string>();
             if (partialBase)
             {
-                badges.Add("Base AD incomplète : couverture partielle");
+                badges.Add("Base AD incomplète : couverture partielle");
                 score = null;
                 if (alerts == 0)
                 {
@@ -670,7 +683,7 @@ public static class FleetBoardCalculator
             Trends(input.History, snapshot, limits.StaleDays);
             if (!entries.ContainsKey("fleet.trend"))
             {
-                hints.Add(new FleetHint("Évolution", "Deux relevés datés du même indicateur sont nécessaires pour afficher une évolution. Un instantané local est conservé au premier calcul de chaque jour ; aucun jour manquant n’est remplacé par zéro.", null));
+                hints.Add(new FleetHint("Évolution", "Deux relevés datés du même indicateur sont nécessaires pour afficher une évolution. Un instantané local est conservé au premier calcul de chaque jour ; aucun jour manquant n’est remplacé par zéro.", null));
             }
 
             // ---------------------------------------------------------------- probe and query widgets of the layout
@@ -681,7 +694,7 @@ public static class FleetBoardCalculator
             foreach (var item in input.Layout.Where(i => i.Source == FleetWidgetSource.Query).GroupBy(i => i.Key).Select(g => g.First()))
             {
                 entries["query:" + item.Key] = new FleetEntry("query:" + item.Key, item.Title ?? "Requête enregistrée", item.Group, FleetDataKind.Distribution, "Requête absente", null, null,
-                    "Requête absente de la bibliothèque : l’atelier de requêtes n’est pas encore disponible dans cette version. Retirez ce widget ou attendez l’atelier ; rien n’est calculé.",
+                    "Requête absente de la bibliothèque : l’atelier de requêtes n’est pas encore disponible dans cette version. Retirez ce widget ou attendez l’atelier ; rien n’est calculé.",
                     Tone.Off, null, "Bibliothèque non lue", [], [], null, null, null, false);
             }
 
@@ -691,7 +704,7 @@ public static class FleetBoardCalculator
                 targets.TryAdd(key, []);
             }
             var scopeLabel = isRoot ? "Domaine " + input.DomainName : "OU " + scope.Label;
-            var population = new FleetPopulation(machineCount, total, disabledMachines.Count, 0, "comptes ordinateur recensés : activés, désactivés et état inconnu", input.Facts.StoreId);
+            var population = new FleetPopulation(machineCount, total, disabledMachines.Count, 0, "comptes ordinateur recensés : activés, désactivés et état inconnu", input.Facts.StoreId);
             var board = new FleetBoard("", now, scope, scopeLabel, population, entries.ToImmutableSortedDictionary(StringComparer.Ordinal), health, [.. hints],
                 FrenchText.Count(machineCount, "compte ordinateur", "comptes ordinateur") + " dans le périmètre" + FrenchText.Colon + machineDetail + ".", snapshot);
             var rows = machines.ToImmutableDictionary(m => m.Guid, Row);
@@ -938,6 +951,20 @@ public static class FleetBoardCalculator
                 ["disk.tight"] = active.Count(m => m.DiskFree is not null),
                 ["uptime"] = active.Count(m => m.UptimeDays is not null),
             };
+            // Workstations whose data a rule needs is missing (« Voir la collecte manquante », ACC-030): nothing is collected here.
+            var hasDataFor = new Dictionary<string, Func<Machine, bool>>(StringComparer.Ordinal)
+            {
+                ["eos.ended"] = m => m.Release.End is not null,
+                ["eos.soon"] = m => m.Release.End is not null,
+                ["stale"] = m => m.Logon is not null,
+                ["pwdold"] = m => m.PasswordSet is not null,
+                ["laps.none"] = m => m.Laps is 'O' or 'E' or 'N',
+                ["laps.expired"] = m => m.Laps is 'O' or 'E',
+                ["bitlocker.none"] = m => m.BitLocker is 'K' or 'N',
+                ["lowdisk"] = m => m.DiskFree is not null,
+                ["disk.tight"] = m => m.DiskFree is not null,
+                ["uptime"] = m => m.UptimeDays is not null,
+            };
             var measures = new Dictionary<string, int>(StringComparer.Ordinal) { ["DiskFree"] = eligible["lowdisk"], ["UptimeDays"] = eligible["uptime"] };
             // Every rule id: catalog, custom alerts, and the diagnostics of the view.
             var customRules = active.SelectMany(m => m.Policy.CustomRules).GroupBy(r => r.Id).Select(g => g.First()).ToDictionary(r => r.Id, StringComparer.Ordinal);
@@ -1027,31 +1054,41 @@ public static class FleetBoardCalculator
                 }
                 else if (status is "Désactivée" or "Suspendue" && isRule)
                 {
-                    consequence = eligibleCount is > 0 ? "Aucun poste concerné dans les données disponibles" : "Donnée non mesurée : effet inconnu";
+                    consequence = eligibleCount is > 0 ? "Aucun poste concerné dans les données disponibles" : "Donnée non mesurée : effet inconnu";
                 }
                 var unmeasured = eligibleCount is not int known || known == 0 || known < total;
                 var missing = unmeasured && isRule;
                 var observationState = count + maskedSet.Count > 0 ? "Problème" : unmeasured ? "Inconnu" : "Sain";
                 if (count == 0 && missing && status is not ("Désactivée" or "Suspendue"))
                 {
-                    effect = "Non évalué sur toutes les données : aucun bon état déduit";
+                    effect = "Non évalué sur toutes les données : aucun bon état déduit";
                 }
                 var hitKey = "rule:" + id;
                 var maskedKey = "masked:" + id;
+                var missingKey = "missing:" + id;
                 Set(hitKey, active.Where(m => hitSet.Contains(m.Guid)));
                 Set(maskedKey, active.Where(m => maskedSet.Contains(m.Guid)));
                 labels[hitKey] = name + FrenchText.Colon + "postes signalés";
                 labels[maskedKey] = name + FrenchText.Colon + "postes masqués";
+                Func<Machine, bool>? hasData = hasDataFor.GetValueOrDefault(id);
+                if (hasData is null && custom is not null)
+                {
+                    hasData = custom.Measure switch { "DiskFree" => m => m.DiskFree is not null, "UptimeDays" => m => m.UptimeDays is not null, _ => null };
+                }
+                var lacking = isRule && fleetRule && hasData is { } test ? active.Where(m => !test(m)).ToList() : new List<Machine>();
+                Set(missingKey, lacking);
+                labels[missingKey] = name + FrenchText.Colon + "collecte manquante";
                 rows.Add(new FleetExplanationRow(id, name, status, count, effect, eligibleText, eligibleCount, exclusive, maskedSet.Count, consequence, observationState, missing,
-                    Evidence(id, custom, visible, ping, inventory, inventories), hitSet.Count > 0 ? hitKey : null, maskedSet.Count > 0 ? maskedKey : null));
+                    Evidence(id, custom, visible, ping, inventory, inventories), hitSet.Count > 0 ? hitKey : null, maskedSet.Count > 0 ? maskedKey : null,
+                    lacking.Count > 0 ? missingKey : null, lacking.Count));
             }
             var activeRules = rows.Count(r => r.Status is "Activée" or "Selon l’OU" && (HealthRules.IsKnownRule(r.Id) || customRules.ContainsKey(r.Id)));
             var assessedCount = Math.Max(0, total - unknown);
             var summary = "Score = part des postes évalués sans problème" + FrenchText.Colon + FrenchText.Integer(healthy) + " / " + FrenchText.Integer(assessedCount) + ". "
                 + Plural(unknown, "poste incomplet exclu", "postes incomplets exclus") + " du dénominateur, jamais considérés sains. Un poste touché par plusieurs règles compte une fois dans le score. "
-                + "La colonne « Évaluables » donne, pour chaque règle, les postes dont la donnée est connue. Une règle désactivée ou suspendue ne retire aucun poste du score ; ce qu’elle aurait signalé reste affiché.";
+                + "« Postes éligibles » donne, pour chaque règle, les postes dont la donnée est connue ; « Voir la collecte manquante » ouvre les autres, sans rien relever. Une règle désactivée ou suspendue ne retire aucun poste du score ; ce qu’elle aurait signalé reste affiché.";
             var policyRows = distinctPolicies.Select(p => new FleetPolicyRow(
-                p.Scope.Length > 0 ? HealthRules.ScopeLabel(p.Scope, input.DomainDn) : "Domaine : règles par défaut", p.Count, p.Policy.Suspensions.Count(s => s.UntilUtc > now),
+                p.Scope.Length > 0 ? HealthRules.ScopeLabel(p.Scope, input.DomainDn) : "Domaine : règles par défaut", p.Count, p.Policy.Suspensions.Count(s => s.UntilUtc > now),
                 "AD " + FrenchText.Integer(p.Policy.Thresholds.StaleDays) + " j · mot de passe " + FrenchText.Integer(p.Policy.Thresholds.PasswordDays) + " j · disque "
                 + p.Policy.Thresholds.DiskFreeAlert + "/" + p.Policy.Thresholds.DiskFreeWarn + FrenchText.Nbsp + "%")).ToImmutableArray();
             return new FleetExplanation(summary, activeRules, rows.Count(r => r.Status == "Désactivée"), suspendedRules, maskedAll.Count, total, unknown, assessedCount, [.. rows], policyRows, input.Scope.Dn);
@@ -1095,8 +1132,8 @@ public static class FleetBoardCalculator
                 _ => custom is not null ? custom.Name : "Contrôle " + id,
             } + " ; voir les règles appliquées par OU pour les exceptions";
             var collection = directory
-                ? "Lancez « Mettre à jour la base locale de l’OU » dans « Contrôles du parc » pour actualiser explicitement la lecture de cette OU."
-                : "Lancez explicitement le relevé ping puis WMI de l’OU depuis « Contrôles du parc » ; rien n’est collecté depuis cette fenêtre.";
+                ? "Lancez « Mettre à jour la base locale de l’OU » depuis le menu de « Tout actualiser » pour actualiser explicitement la lecture de cette OU."
+                : "Lancez explicitement le relevé ping puis WMI de l’OU depuis le menu de « Tout actualiser » ; rien n’est collecté depuis cette fenêtre.";
             _ = inventories;
             return new FleetEvidence(source, observed, value, rule, collection);
         }
@@ -1153,7 +1190,7 @@ public static class FleetBoardCalculator
             if (probe is null)
             {
                 entries[key] = new FleetEntry(key, item.Title ?? item.Key, item.Group, FleetDataKind.Distribution, "Sonde inconnue", null, null,
-                    "Sonde absente du catalogue de cette version : retirez ce widget.", Tone.Off, null, null, [], [], null, null, null, false);
+                    "Sonde absente du catalogue de cette version : retirez ce widget.", Tone.Off, null, null, [], [], null, null, null, false);
                 return;
             }
             var readings = input.Probes.ByProbe.GetValueOrDefault(probe.Id) ?? ImmutableDictionary<Guid, ProbeReading>.Empty;
@@ -1162,7 +1199,7 @@ public static class FleetBoardCalculator
             if (measure.Machines == 0)
             {
                 entries[key] = new FleetEntry(key, item.Title ?? probe.Name, item.Group, FleetDataKind.Distribution, "À relever", null, null,
-                    "Valeur non relevée sur ce périmètre : lancez le relevé WMI de l’OU, la sonde fait partie du plan des sondes figé au clic." + (probe.Slow ? " Sonde lente : collecte explicite sur une liste courte." : ""),
+                    "Valeur non relevée sur ce périmètre : lancez le relevé WMI de l’OU, la sonde fait partie du plan des sondes figé au clic." + (probe.Slow ? " Sonde lente : collecte explicite sur une liste courte." : ""),
                     Tone.Off, null, "À calculer", [], [], 0, null, new FleetAction("collect", "Relever ce périmètre", "Prépare le relevé ping puis WMI des postes actifs de l’OU, avec confirmation."), false);
                 return;
             }
@@ -1227,9 +1264,16 @@ public static class FleetBoardCalculator
 
         private static FleetAction Collect() => new("collect", "Relever ce périmètre", "Prépare la collecte des postes actifs de ce tableau de bord (ping puis WMI), avec confirmation.");
 
-        private FleetTargetRow Row(Machine m) => new(
-            m.Name, m.Dn, m.Guid, OuPath(m.Parent), m.Enabled ? "Activé" : "Désactivé", m.Os == "Système non renseigné" ? null : m.VersionLabel != "Version non lue" ? m.VersionLabel : m.Os,
-            m.Logon, m.Presence, m.DiskFree is double d ? Math.Round(d, 1) : null, m.UptimeDays is double u ? (int)Math.Floor(u) : null, m.Model, m.User);
+        private FleetTargetRow Row(Machine m)
+        {
+            var alerts = machineAlerts.GetValueOrDefault(m.Guid);
+            var warnings = machineWarnings.GetValueOrDefault(m.Guid);
+            return new(
+                m.Name, m.Dn, m.Guid, OuPath(m.Parent), m.Enabled ? "Activé" : "Désactivé", m.Os == "Système non renseigné" ? null : m.VersionLabel != "Version non lue" ? m.VersionLabel : m.Os,
+                m.Logon, m.Presence, m.DiskFree is double d ? Math.Round(d, 1) : null, m.UptimeDays is double u ? (int)Math.Floor(u) : null, m.Model, m.User,
+                assessedIds.Contains(m.Guid) ? MachineScore(alerts, warnings) : null, alerts, warnings);
+        }
+
 
         private string OuPath(string parent)
         {
@@ -1305,5 +1349,8 @@ public static class FleetBoardCalculator
     };
 
     /// <summary>« 1 poste », « 3 postes »: the French plural (0 and 1 take the singular).</summary>
+    /// <summary>Score of one workstation (Get-DomeniaBoardHealth): 100 − 25 per critical point − 10 per point to watch, never below 0.</summary>
+    public static int MachineScore(int alerts, int warnings) => Math.Max(0, 100 - 25 * Math.Max(0, alerts) - 10 * Math.Max(0, warnings));
+
     public static string Plural(long n, string singular, string plural) => FrenchText.Integer(n) + " " + (n >= 2 ? plural : singular);
 }

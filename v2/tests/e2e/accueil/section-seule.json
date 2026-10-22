@@ -1,0 +1,15 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Accueil : une section seule depuis l’adresse",
+  "description": "#/accueil?section=tableau montre le tableau du parc seul sous l’en-tête ; « Tout afficher » rend les autres sections.",
+  "modes": ["simulation"],
+  "start": "accueil?section=tableau",
+  "steps": [
+    { "do": "wait", "selector": "[data-entry=\"fleet.machines\"]", "title": "Le tableau du parc est calculé" },
+    { "do": "expect", "selector": ".home[data-focus=board]", "title": "Section seule" },
+    { "do": "expect", "contains": "Tableau du parc seul", "within": ".acc-nav-focus" },
+    { "do": "click", "text": "Tout afficher", "within": ".acc-nav-focus" },
+    { "do": "expect", "selector": ".home[data-focus]", "absent": true, "title": "Toutes les sections sont rendues" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

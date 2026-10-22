@@ -9,7 +9,10 @@ public sealed record RefreshStage(string Id, string Label, string Detail);
 
 /// <summary>
 /// Plan of an explicit OU refresh, frozen at the click (Domenia 1, Invoke-DomeniaOuRefresh): mode, OU, workstations, stages, the
-/// probe plan of the active widgets, and the estimate. Valid five minutes, used once; never replayed.
+/// probe plan of the active widgets, and the estimate. Valid five minutes, used once; never replayed. <see cref="Online"/> and
+/// <see cref="Reused"/> count, at the last readings, the workstations in line and those already up to date (ACC-038: collect only
+/// what is missing; « Tout relire » at the confirmation reads them too). <see cref="ResumeOf"/>: the interrupted refresh a « resume »
+/// plan completes; <see cref="OnlineSince"/>: the ping it relies on when its own plan has no ping stage.
 /// </summary>
 public sealed record RefreshPlan(
     string Id,
@@ -26,7 +29,13 @@ public sealed record RefreshPlan(
     ImmutableArray<string> Warnings,
     string Confirm,
     DateTimeOffset CreatedAt,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt,
+    int Online,
+    int Reused,
+    int ReuseDays,
+    DateTimeOffset? ReuseSince,
+    string? ResumeOf,
+    DateTimeOffset? OnlineSince);
 
 /// <summary>Progress of one stage, pushed to the page by the event « accueil.refresh.run:progress ».</summary>
 public sealed record RefreshProgress(string RunId, string Stage, string State, string Label, string Detail, int Index, int Count, int Percent);
@@ -34,7 +43,10 @@ public sealed record RefreshProgress(string RunId, string Stage, string State, s
 /// <summary>A stage of a finished or running refresh.</summary>
 public sealed record RefreshStageResult(string Id, string Label, string State, string Detail, DateTimeOffset? StartedAt, DateTimeOffset? FinishedAt);
 
-/// <summary>Report of one OU refresh: status, stages, collection runs recorded.</summary>
+/// <summary>
+/// Report of one OU refresh: status, stages, collection runs recorded. <see cref="Resumable"/>: an interrupted refresh whose
+/// remaining stages « Reprendre » can plan (improvement of ACC-001); <see cref="Forced"/>: every workstation in line was read again.
+/// </summary>
 public sealed record RefreshReport(
     string Id,
     string Mode,
@@ -45,7 +57,9 @@ public sealed record RefreshReport(
     DateTimeOffset? FinishedAt,
     ImmutableArray<RefreshStageResult> Stages,
     ImmutableArray<CollectionRunRow> Runs,
-    bool Stopping);
+    bool Stopping,
+    bool Forced = false,
+    bool Resumable = false);
 
 /// <summary>Result of accueil.refresh.state.</summary>
 public sealed record RefreshState(bool Running, RefreshReport? Current, RefreshReport? Last);
@@ -58,7 +72,10 @@ public sealed record RefreshStopResult(bool Stopping, string Label);
 /// <summary>One step of the first run guide (Get-DomeniaFirstRunPlan, point 148).</summary>
 public sealed record FirstStep(string Id, int Number, string Label, string Text, bool Done, bool Enabled, bool Current, string ActionLabel);
 
-/// <summary>Result of accueil.firstSteps.</summary>
+/// <summary>
+/// Result of accueil.firstSteps. <see cref="Finished"/>: the four steps were all done once (Home.FirstStepsDone): the card is gone
+/// for good and only the help shows it again; <see cref="Dismissed"/>: hidden by the operator before the end.
+/// </summary>
 public sealed record FirstStepsInfo(
     ImmutableArray<FirstStep> Steps,
     string? Next,
@@ -69,7 +86,8 @@ public sealed record FirstStepsInfo(
     bool ReadInterrupted,
     bool Offline,
     int Completed,
-    int Total);
+    int Total,
+    bool Finished = false);
 
 // ---------------------------------------------------------------- scope, favourites, last view
 
@@ -144,6 +162,25 @@ public sealed record FleetLayoutView(ImmutableArray<FleetLayoutItem> Items, bool
 public sealed record SelfCheckItem(string Id, string Label, Tone Tone, string Detail);
 
 public sealed record SelfCheckResult(DateTimeOffset CheckedAt, int Ok, int Warnings, int Failures, string Summary, ImmutableArray<SelfCheckItem> Checks);
+
+/// <summary>Duration of one calculation of the board (improvement of ACC-032: the last five are kept to compare).</summary>
+public sealed record CalculationTime(DateTimeOffset At, int Milliseconds);
+
+/// <summary>Last « Vérifier l’application » of the session.</summary>
+public sealed record SelfCheckSummary(DateTimeOffset CheckedAt, string Summary, Tone Tone);
+
+/// <summary>
+/// Result of accueil.session.details (ACC-019, « Détails de la session »): what the session tab adds to session.info, all read in
+/// memory or in the local base: user–workstation links, last check, last calculations and the local writes that failed.
+/// </summary>
+public sealed record SessionDetails(
+    int Associations,
+    string AssociationsText,
+    SelfCheckSummary? LastCheck,
+    ImmutableArray<CalculationTime> Calculations,
+    int LocalWriteFailures,
+    int Runs,
+    int Snapshots);
 
 public sealed record CacheClearItem(string Label, int Count);
 

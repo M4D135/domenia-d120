@@ -17,7 +17,7 @@ public sealed class AccueilOperations : IOperationModule
     private static readonly string[] PresetArguments = ["preset"];
     private static readonly string[] IdArguments = ["id"];
     private static readonly string[] ModeArguments = ["mode"];
-    private static readonly string[] PlanArguments = ["planId"];
+    private static readonly string[] PlanArguments = ["planId", "force"];
     private static readonly string[] CompareArguments = ["before", "after"];
     private static readonly string[] PivotArguments = ["table", "filter"];
     private static readonly string[] LabelArguments = ["label"];
@@ -40,7 +40,7 @@ public sealed class AccueilOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await service.BoardAsync(ct).ConfigureAwait(false);
-            }, "Tableau du parc de l’OU de travail, calculé depuis la base locale ; aucune lecture réseau."),
+            }, "Tableau du parc de l’OU de travail, calculé depuis la base locale ; aucune lecture réseau."),
 
             new OperationDefinition("accueil.targets", OperationClass.LocalRead, (args, _, _) =>
             {
@@ -82,14 +82,14 @@ public sealed class AccueilOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, IdArguments);
                 return Task.FromResult<object?>(AccueilService.Probe(Bounded(BridgeArguments.GetString(values, "id"), "id", 128)));
-            }, "Contrat d’une sonde WMI : droits, coût, comportement, limites, sources et tests."),
+            }, "Contrat d’une sonde WMI : droits, coût, comportement, limites, sources et tests."),
 
             // ---------------------------------------------------------------- explicit refresh of the OU
             new OperationDefinition("accueil.refresh.plan", OperationClass.LocalRead, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, ModeArguments);
                 return await service.PlanRefreshAsync(BridgeArguments.GetString(values, "mode"), ct).ConfigureAwait(false);
-            }, "Plan d’une actualisation de l’OU, figé au clic ; rien n’est contacté."),
+            }, "Plan d’une actualisation de l’OU, figé au clic ; rien n’est contacté."),
 
             // NetworkRead: AD read of the OU, ping and WMI of its workstations, after the operator's confirmation; bounded to the
             // working OU (never the domain root). Served by the fictitious directory in simulation.
@@ -101,14 +101,24 @@ public sealed class AccueilOperations : IOperationModule
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("planId") + " doit être un identifiant de plan (32 caractères hexadécimaux).");
                 }
-                return await service.RunRefreshAsync(planId, progress => bridge.Publish("progress", progress), ct).ConfigureAwait(false);
-            }, "Exécute une fois un plan d’actualisation confirmé ; jamais rejoué.", ServedInSimulation: true),
+                var force = false;
+                if (values.TryGetValue("force", out var f))
+                {
+                    force = f.ValueKind switch
+                    {
+                        JsonValueKind.True => true,
+                        JsonValueKind.False => false,
+                        _ => throw BridgeArguments.Invalid(FrenchText.Quote("force") + " doit être un booléen."),
+                    };
+                }
+                return await service.RunRefreshAsync(planId, force, progress => bridge.Publish("progress", progress), ct).ConfigureAwait(false);
+            }, "Exécute une fois un plan d’actualisation confirmé ; jamais rejoué. « force » relit aussi les postes déjà à jour.", ServedInSimulation: true),
 
             new OperationDefinition("accueil.refresh.stop", OperationClass.Local, (args, _, _) =>
             {
                 BridgeArguments.RequireNone(args);
                 return Task.FromResult<object?>(service.StopRefresh());
-            }, "Arrête l’actualisation en cours ; les mesures déjà enregistrées sont conservées."),
+            }, "Arrête l’actualisation en cours ; les mesures déjà enregistrées sont conservées."),
 
             new OperationDefinition("accueil.refresh.state", OperationClass.Local, (args, _, _) =>
             {
@@ -139,7 +149,7 @@ public sealed class AccueilOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, CompareArguments);
                 return await service.CompareAsync(Bounded(BridgeArguments.GetString(values, "before"), "before", 64), Bounded(BridgeArguments.GetString(values, "after"), "after", 64), ct).ConfigureAwait(false);
-            }, "Compare deux relevés : périmètre, couverture, règles et état observé."),
+            }, "Compare deux relevés : périmètre, couverture, règles et état observé."),
 
             new OperationDefinition("accueil.analysis.pivots", OperationClass.LocalRead, async (args, _, ct) =>
             {
@@ -150,13 +160,14 @@ public sealed class AccueilOperations : IOperationModule
                     throw BridgeArguments.Invalid(FrenchText.Quote("filter") + " doit faire au plus 100 caractères.");
                 }
                 return await service.PivotsAsync(Bounded(BridgeArguments.GetString(values, "table"), "table", 32), filter, ct).ConfigureAwait(false);
-            }, "Tableau croisé du parc ; chaque cellule ouvre ses postes exacts."),
+            }, "Tableau croisé du parc ; chaque cellule ouvre ses postes exacts."),
 
+            // LocalWrite: the manual snapshot is kept in the local preferences of the application (counts and fingerprints only).
             new OperationDefinition("accueil.snapshot.take", OperationClass.LocalWrite, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, LabelArguments);
                 return await service.TakeSnapshotAsync(BridgeArguments.GetOptionalString(values, "label"), ct).ConfigureAwait(false);
-            }, "Instantané manuel daté de la vue actuelle (avant ou après une campagne)."),
+            }, "Instantané manuel daté de la vue actuelle (avant ou après une campagne), gardé dans les préférences locales."),
 
             // ---------------------------------------------------------------- health rules
             new OperationDefinition("accueil.health.policy", OperationClass.LocalRead, async (args, _, ct) =>
@@ -195,14 +206,14 @@ public sealed class AccueilOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await service.ExplainAsync(ct).ConfigureAwait(false);
-            }, "Comprendre le score : effet de chaque contrôle."),
+            }, "Comprendre le score : effet de chaque contrôle."),
 
             // ---------------------------------------------------------------- BitLocker presence
             new OperationDefinition("accueil.bitlocker.read", OperationClass.NetworkRead, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 return await service.ReadBitLockerAsync(ct).ConfigureAwait(false);
-            }, "Présence des clés de récupération BitLocker de l’OU de travail ; jamais une clé.", ServedInSimulation: true),
+            }, "Présence des clés de récupération BitLocker de l’OU de travail ; jamais une clé.", ServedInSimulation: true),
 
             // ---------------------------------------------------------------- working OU: root and favourites
             new OperationDefinition("accueil.scope.reset", OperationClass.LocalWrite, async (args, _, ct) =>
@@ -237,7 +248,7 @@ public sealed class AccueilOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await service.FirstStepsAsync(ct).ConfigureAwait(false);
-            }, "Premiers pas : connexion, OU, première lecture, tableau de bord."),
+            }, "Premiers pas : connexion, OU, première lecture, tableau de bord."),
 
             new OperationDefinition("accueil.firstSteps.dismiss", OperationClass.LocalWrite, async (args, _, ct) =>
             {
@@ -268,13 +279,19 @@ public sealed class AccueilOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await service.SelfCheckAsync(ct).ConfigureAwait(false);
-            }, "Vérifier l’application : session, base, préférences, reçus, catalogues."),
+            }, "Vérifier l’application : session, base, préférences, reçus, catalogues."),
+
+            new OperationDefinition("accueil.session.details", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await service.SessionDetailsAsync(ct).ConfigureAwait(false);
+            }, "Détails de la session : liens utilisateur–poste, dernière vérification, derniers calculs, écritures locales."),
 
             new OperationDefinition("accueil.cache.clear", OperationClass.Local, (args, _, _) =>
             {
                 BridgeArguments.RequireNone(args);
                 return Task.FromResult<object?>(service.ClearCache());
-            }, "Vide les caches de l’Accueil en mémoire ; aucune mesure perdue."),
+            }, "Vide les caches de l’Accueil en mémoire ; aucune mesure perdue."),
 
             new OperationDefinition("accueil.journal", OperationClass.LocalRead, async (args, _, ct) =>
             {

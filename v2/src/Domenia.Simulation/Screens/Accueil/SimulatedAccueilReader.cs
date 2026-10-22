@@ -102,7 +102,7 @@ public sealed class SimulatedAccueilReader : IAccueilReader
                 var refused = probe.Namespace.Contains("Security", StringComparison.OrdinalIgnoreCase) && draw.Next(100) < 3;
                 if (refused)
                 {
-                    readings[computer.ObjectGuid] = new ProbeReading(MeasureState.Refused, now, [], "Accès refusé (0x80070005) : le fournisseur exige un administrateur local du poste.");
+                    readings[computer.ObjectGuid] = new ProbeReading(MeasureState.Refused, now, [], "Accès refusé (0x80070005) : le fournisseur exige un administrateur local du poste.");
                     continue;
                 }
                 var inventory = inventories.GetValueOrDefault(computer.ObjectGuid) ?? InventoryMeasure.Unread;
@@ -113,6 +113,9 @@ public sealed class SimulatedAccueilReader : IAccueilReader
         }
         return new ProbeReadings(result.ToImmutable());
     }
+
+    public Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken) =>
+        source.RefreshInventoryAsync(scope, targets, cancellationToken);
 
     // ---------------------------------------------------------------- facts
 
@@ -167,7 +170,7 @@ public sealed class SimulatedAccueilReader : IAccueilReader
                 case MeasureState.Error:
                     state = MeasureState.Error;
                     wmiAt = reference - TimeSpan.FromHours(draw.Next(2, 30));
-                    error = "Délai dépassé : le service WMI du poste ne répond pas (RPC indisponible).";
+                    error = "Délai dépassé : le service WMI du poste ne répond pas (RPC indisponible).";
                     break;
                 case MeasureState.Expired:
                     state = MeasureState.Expired;
@@ -204,10 +207,10 @@ public sealed class SimulatedAccueilReader : IAccueilReader
             Run(CollectionFamily.Presence, Ou("Lyon"), CollectionStatus.Success, reference - TimeSpan.FromMinutes(302), TimeSpan.FromSeconds(9), null, 82, 82, 0),
             Run(CollectionFamily.Directory, domain, CollectionStatus.Success, reference - TimeSpan.FromHours(25), TimeSpan.FromSeconds(44), null, null, directory.ObjectCount - 2, null),
             Run(CollectionFamily.Inventory, Ou("Paris"), CollectionStatus.Success, reference - TimeSpan.FromHours(26), TimeSpan.FromMinutes(7), null, 186, 171, 0),
-            Run(CollectionFamily.Presence, Ou("Marseille"), CollectionStatus.Partial, reference - TimeSpan.FromHours(28), TimeSpan.FromSeconds(12), "3 postes avec une lecture non confirmée (sondes refusées) ; 64/64 postes traités.", 64, 64, 3),
+            Run(CollectionFamily.Presence, Ou("Marseille"), CollectionStatus.Partial, reference - TimeSpan.FromHours(28), TimeSpan.FromSeconds(12), "3 postes avec une lecture non confirmée (sondes refusées) ; 64/64 postes traités.", 64, 64, 3),
             Run(CollectionFamily.Directory, domain, CollectionStatus.Success, reference - TimeSpan.FromHours(51), TimeSpan.FromSeconds(39), null, null, directory.ObjectCount - 5, null),
             Run(CollectionFamily.Directory, postes, CollectionStatus.Success, reference - TimeSpan.FromDays(3), TimeSpan.FromSeconds(16), null, null, 431 + 6, null),
-            Run(CollectionFamily.Inventory, postes, CollectionStatus.Partial, reference - TimeSpan.FromDays(6), TimeSpan.FromMinutes(14), "41 postes sans relevé utilisable (absents, sondes en erreur ou refusées) ; 412/412 postes traités.", 412, 412, 41),
+            Run(CollectionFamily.Inventory, postes, CollectionStatus.Partial, reference - TimeSpan.FromDays(6), TimeSpan.FromMinutes(14), "41 postes sans relevé utilisable (absents, sondes en erreur ou refusées) ; 412/412 postes traités.", 412, 412, 41),
             Run(CollectionFamily.Presence, postes, CollectionStatus.Success, morning, TimeSpan.FromSeconds(31), null, 412, 412, 0),
         };
         var associations = directory.Computers.Count(c => c.ManagedByDn is not null);

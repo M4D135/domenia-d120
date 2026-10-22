@@ -38,6 +38,8 @@ public sealed class DashboardService : IDisposable
     private long stateVersion;
     private int running;
     private int queued;
+    // Widget refreshes and OU measures holding (or waiting for) the refresh gate; the summary's own read is not counted.
+    private int measuring;
     private bool summaryDone;
 
     /// <param name="workingScope">Working OU of the session; without it, the default scope of the source.</param>
@@ -158,9 +160,15 @@ public sealed class DashboardService : IDisposable
             throw new DomeniaOperationException(DomeniaErrors.WidgetDisabled, DomeniaErrors.WidgetDisabledMessage);
         }
         Interlocked.Increment(ref queued);
+        Interlocked.Increment(ref measuring);
         try
         {
             await refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            Interlocked.Decrement(ref measuring);
+            throw;
         }
         finally
         {
@@ -202,6 +210,7 @@ public sealed class DashboardService : IDisposable
         finally
         {
             Interlocked.Decrement(ref running);
+            Interlocked.Decrement(ref measuring);
             refreshGate.Release();
         }
     }
@@ -211,12 +220,26 @@ public sealed class DashboardService : IDisposable
     /// gate as the widget refreshes (one after another) and same state in memory, so every widget sees the new readings. Bounded
     /// to the working OU by the source (never the domain root). Returns the new state; the caller writes the journal.
     /// </summary>
-    public async Task<DirectoryState> MeasureAsync(MeasureFamily family, CancellationToken cancellationToken)
+    public Task<DirectoryState> MeasureAsync(MeasureFamily family, CancellationToken cancellationToken) =>
+        MeasureAsync((session, token) => source.RefreshAsync(family, session.Scope, token), cancellationToken);
+
+    /// <summary>
+    /// Runs a measure of the explicit OU refresh that the source alone cannot express (WMI of the workstations that answered the
+    /// ping only, ACC-004), under the same gate as every other measure, and keeps its state as the last known one.
+    /// </summary>
+    public async Task<DirectoryState> MeasureAsync(Func<SessionSnapshot, CancellationToken, Task<DirectoryState>> measure, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(measure);
         Interlocked.Increment(ref queued);
+        Interlocked.Increment(ref measuring);
         try
         {
             await refreshGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            Interlocked.Decrement(ref measuring);
+            throw;
         }
         finally
         {
@@ -226,7 +249,7 @@ public sealed class DashboardService : IDisposable
         try
         {
             var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
-            var state = await source.RefreshAsync(family, session.Scope, cancellationToken).ConfigureAwait(false);
+            var state = await measure(session, cancellationToken).ConfigureAwait(false);
             lock (gate)
             {
                 lastState = state;
@@ -237,9 +260,13 @@ public sealed class DashboardService : IDisposable
         finally
         {
             Interlocked.Decrement(ref running);
+            Interlocked.Decrement(ref measuring);
             refreshGate.Release();
         }
     }
+
+    /// <summary>Widget refreshes and OU measures running or waiting: an explicit OU refresh is refused meanwhile (ACC-001).</summary>
+    public int Measuring => Volatile.Read(ref measuring);
 
     /// <summary>
     /// dashboard.widget.setEnabled: idempotent; a change is remembered in the preferences (LocalWrite) and kept for the

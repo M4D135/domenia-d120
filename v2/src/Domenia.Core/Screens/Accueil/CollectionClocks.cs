@@ -163,7 +163,7 @@ public static class CollectionClocks
         var latest = now + ClockTolerance;
         if (startedAt > latest || finishedAt > latest)
         {
-            throw new ArgumentException("Date de collecte dans le futur : vérifiez l’horloge de ce poste.", nameof(finishedAt));
+            throw new ArgumentException("Date de collecte dans le futur : vérifiez l’horloge de ce poste.", nameof(finishedAt));
         }
         if (finishedAt < startedAt)
         {
@@ -178,7 +178,7 @@ public static class CollectionClocks
         {
             message = status switch
             {
-                CollectionStatus.Partial => "Collecte partielle : certaines lectures ne sont pas confirmées.",
+                CollectionStatus.Partial => "Collecte partielle : certaines lectures ne sont pas confirmées.",
                 CollectionStatus.Cancelled => "Collecte arrêtée avant la fin.",
                 _ => "Collecte non confirmée.",
             };
@@ -508,7 +508,7 @@ public static class CollectionClocks
         var issues = new List<string>();
         if (run.StartedAt > now + ClockTolerance || run.FinishedAt > now + ClockTolerance)
         {
-            issues.Add("date future : horloge à vérifier");
+            issues.Add("date future : horloge à vérifier");
         }
         if (run.FinishedAt < run.StartedAt)
         {
@@ -558,7 +558,7 @@ public static class CollectionClocks
             if (attempt is not null && attempt.Done is > 0)
             {
                 // A stopped or incomplete survey stays usable: the workstations it read are named (decision of 19/10/2026).
-                var text = "relevé partiel le " + Local(attempt.At, zone) + " (" + ViewCounts(attempt, family) + ", " + StatusText(attempt.Status) + ") ; les postes lus sont exploitables";
+                var text = "relevé partiel le " + Local(attempt.At, zone) + " (" + ViewCounts(attempt, family) + ", " + StatusText(attempt.Status) + ") ; les postes lus sont exploitables";
                 if (attempt.Inherited)
                 {
                     text += " via une OU englobante";

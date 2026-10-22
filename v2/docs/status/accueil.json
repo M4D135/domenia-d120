@@ -9,10 +9,12 @@
     "ACC-013",
     "ACC-014",
     "ACC-016",
+    "ACC-017",
     "ACC-018",
     "ACC-019",
     "ACC-020",
     "ACC-021",
+    "ACC-022",
     "ACC-023",
     "ACC-024",
     "ACC-025",
@@ -20,12 +22,11 @@
     "ACC-028",
     "ACC-029",
     "ACC-030",
-    "ACC-032",
     "ACC-033",
     "ACC-034",
-    "ACC-035",
     "ACC-036",
     "ACC-037",
+    "ACC-038",
     "ACC-041",
     "ACC-042",
     "ACC-043",
@@ -51,28 +52,23 @@
     "ACC-010",
     "ACC-011",
     "ACC-015",
+    "ACC-032",
+    "ACC-035",
+    "ACC-040",
     "ACC-054"
   ],
   "partiel": [
     {
       "id": "ACC-003",
-      "reste": "Sauvegarde vérifiée réelle de la base locale avant la relecture AD avec Domenia.Store (vague 3) ; l’étape est planifiée, suivie et affichée, « sans objet » en simulation (aucune base ouverte)."
+      "reste": "Sauvegarde vérifiée réelle de la base locale avant la relecture AD, avec Domenia.Store (vague 3). D’ici là, le mode annuaire refuse toute relecture AD (refresh.backupUnavailable : aucune lecture AD sans sauvegarde) ; en simulation, le plan et l’étape disent « sans objet » (état na), jamais « sauvegardée »."
     },
     {
       "id": "ACC-006",
-      "reste": "Reçu IndexBulk réel de Domenia.Store (OU, base, session, complétude) avant la collecte (vague 3) ; l’étape « Reçu d’enregistrement local » et l’attente sont en place, servies par l’annuaire fictif en simulation."
+      "reste": "Reçu IndexBulk réel de Domenia.Store (OU, base, session, complétude) avant la collecte (vague 3) ; l’étape « Reçu d’enregistrement local », l’attente et l’échec d’une lecture partielle sont en place, servis par l’annuaire fictif en simulation."
     },
     {
       "id": "ACC-007",
-      "reste": "Ajouter au plan figé les sondes des widgets du tableau Poste et celles des requêtes enregistrées quand ces écrans seront portés ; les sondes des widgets actifs du tableau du parc sont figées au clic."
-    },
-    {
-      "id": "ACC-017",
-      "reste": "Pastille « Nouveau » sur le bouton d’aide de la barre du haut (app.js, fichier partagé hors lot) ; elle est en place sur l’aide de l’Accueil et marquée vue (accueil.help.seen)."
-    },
-    {
-      "id": "ACC-022",
-      "reste": "Persistance des relevés dans Domenia.Store (vague 3) ; règles d’admission (CollectionClocks.Create), liste « Relevés par OU » (300 lignes) et horloges en place, relevés gardés en mémoire en simulation."
+      "reste": "Sondes des widgets du tableau Poste (écran Poste, autre lot) et de leurs requêtes enregistrées (atelier, autre lot) à ajouter au plan figé quand ces écrans exposeront leur disposition ; les sondes des widgets actifs du tableau du parc sont figées au clic et un widget de requête refuse le relevé WMI (refresh.queryMissing)."
     },
     {
       "id": "ACC-027",
@@ -80,19 +76,11 @@
     },
     {
       "id": "ACC-031",
-      "reste": "L’écran Rechercher (autre lot) doit reprendre la liste transmise : la page navigue vers Rechercher avec l’OU et la profondeur (ou=…&subtree=…), et « Postes concernés » copie les noms et le CSV de la liste exacte."
-    },
-    {
-      "id": "ACC-038",
-      "reste": "Collecter seulement ce qui manque : relire par tranches les mesures enregistrées et ne contacter que les postes sans mesure récente, avec Domenia.Inventory (vague 3) ; la simulation relève toute l’OU."
+      "reste": "Rechercher (autre lot) doit reprendre la liste transmise : la page n’ouvre jamais le domaine entier, libelle honnêtement « Ouvrir l’OU dans Rechercher » et passe déjà la révision et la clé de l’ensemble (source=accueil&revision=…&cle=…, docs/ops/accueil.md § 4) ; « Postes concernés » copie les noms et le CSV de la liste exacte."
     },
     {
       "id": "ACC-039",
       "reste": "Ouvrir un chiffre dans l’atelier avec sa recette quand l’atelier de requêtes sera porté ; chaque chiffre ouvre déjà sa liste exacte de postes (grille, filtres, CSV, fiche, Rechercher)."
-    },
-    {
-      "id": "ACC-040",
-      "reste": "Enregistrer les instantanés quotidiens et manuels dans la base locale (Domenia.Store, vague 3) ; en simulation, historique dérivé du monde fictif, instantané du jour et instantanés manuels (amélioration) gardés en mémoire pour la session."
     },
     {
       "id": "ACC-048",

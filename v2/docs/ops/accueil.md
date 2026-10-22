@@ -10,10 +10,11 @@ des classes d’opération et de l’admission (§ 1). L’état de chaque fonct
 |---|---|
 | Modèles et calculs purs | `src/Domenia.Core/Screens/Accueil/` (`FleetCatalog`, `FleetBoardCalculator`, `HealthPolicy`, `CollectionClocks`, `ProbeCatalog`, `FleetAnalysis`, `WindowsLifecycle`) |
 | Service de l’écran | `AccueilService` (partagé par contexte, `AccueilService.From(context)`), `AccueilRefresh.cs` (actualisation de l’OU) |
-| Interface de lecture | `IAccueilReader` (`FactsAsync`, `HistoryAsync`, `ReadBitLockerAsync`, `CollectProbesAsync`) |
+| Interface de lecture | `IAccueilReader` (`FactsAsync`, `HistoryAsync`, `ReadBitLockerAsync`, `CollectProbesAsync`, `ReadInventoryAsync`) |
+| Règles de l’actualisation | `RefreshRules` (refus d’une nouvelle collecte, « collecter seulement ce qui manque ») |
 | Simulation | `src/Domenia.Simulation/Screens/Accueil/` (`SimulatedAccueilReader`, `SimulatedProbeValues`) |
-| Module du pont | `src/Domenia.Bridge/Operations/AccueilOperations.cs` (35 opérations) ; `src/Domenia.App/AccueilJournalOperations.cs` (`accueil.log.tail`, journal technique de l’hôte) |
-| Page | `web/js/pages/accueil.js` et `web/js/pages/accueil/*.js` ; `web/css/pages/accueil.css` |
+| Module du pont | `src/Domenia.Bridge/Operations/AccueilOperations.cs` (36 opérations) ; `src/Domenia.App/AccueilJournalOperations.cs` (`accueil.log.tail`, journal technique de l’hôte ; mesure de l’espace libre du volume des données) et `AccueilHostFiles.cs` (lecture du journal, espace libre ; compilé aussi dans les tests) |
+| Page | `web/js/pages/accueil.js` et `web/js/pages/accueil/*.js` ; `web/css/pages/accueil.css` ; aperçu du navigateur `web/js/mock-accueil.js` |
 | Tests | `tests/Domenia.Tests/AccueilTests.cs` ; scénarios `tests/e2e/accueil/*.json` |
 
 En mode annuaire, tant que `Domenia.Ad`, `Domenia.Inventory` et `Domenia.Store` ne servent pas `IAccueilReader`, toute
@@ -34,11 +35,13 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | Clé | Contenu |
 |---|---|
 | `accueil.layout` | disposition du tableau du parc (`{ v: 1, items: [...] }`) |
-| `accueil.firstSteps` | `{ dashboardSeen, dismissed }` |
+| `accueil.firstSteps` | `{ dashboardSeen, dismissed, finished }` (`finished` : les quatre étapes faites une fois, Home.FirstStepsDone) |
 | `accueil.helpSeen` | `true` une fois l’aide ouverte |
 | `accueil.health.<sha>` | carnet des règles de santé du domaine (`<sha>` : SHA-256 du DN de la racine) |
 | `accueil.favorites.<sha>` | OU favorites du domaine (12 au plus) |
-| `accueil.lastView.<sha>` | résumé de la dernière vue par base et par OU (comptes et date, jamais un nom) |
+| `accueil.lastView.<sha>` | résumé de la dernière vue par base et par OU (comptes et date, jamais un nom) ; réécrit seulement quand ses comptes changent, ou une fois par minute au plus |
+| `accueil.runs.<sha>` | relevés de la session (horloges, ACC-022) : 300 au plus, relus au démarrage et réadmis par `CollectionClocks.Create` (date future ou hors du domaine écartées) ; remplacés par `Domenia.Store` en vague 3 |
+| `accueil.snapshots.<sha>` | instantanés quotidiens (35 jours des quatre OU les plus récentes) et manuels (20) de l’OU : comptes et empreintes seulement, jamais un nom (ACC-040) |
 
 - **Erreurs propres** (en plus de `OPERATIONS.md` § 1.4) :
 
@@ -53,6 +56,9 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `refresh.planExpired` | Plan d’actualisation expiré (plus de 5 min)… | plan trop ancien |
 | `refresh.scopeChanged` | L’OU de travail a changé depuis le plan… | OU changée entre plan et exécution |
 | `refresh.queryMissing` | Un widget de requête est absent de la bibliothèque… | relevé WMI avec un widget de requête actif |
+| `refresh.refused` | Une mesure de widget est en cours… / Une lecture AD de la présence BitLocker est en cours… / Enregistrement local suspendu… / Espace disque insuffisant (ou critique)… | nouvelle collecte refusée (ACC-001) : mesure ou lecture en cours, trois échecs d’écriture locale, moins de 512 Mio libres sur le volume des données (mode annuaire seulement) ; vérifié au plan puis à la confirmation |
+| `refresh.backupUnavailable` | Sauvegarde vérifiée de la base locale indisponible dans cette version… | relecture AD demandée en mode annuaire tant que la sauvegarde vérifiée de `Domenia.Store` n’existe pas (aucune lecture AD sans sauvegarde, Domenia 1 FI-13) |
+| `refresh.nothingToResume` | Aucune actualisation interrompue à reprendre pour cette OU… | `mode: "resume"` sans actualisation interrompue de la même OU |
 | `scope.tooWide` | (commun) | actualisation ou BitLocker demandés sur la racine du domaine |
 | `snapshot.unknown`, `snapshot.same`, `snapshot.label` | Relevé introuvable… / deux relevés différents / nom invalide | analyse |
 | `pivot.unknown` | Tableau croisé inconnu… | `accueil.analysis.pivots` |
@@ -71,7 +77,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `accueil.widgets.catalog` | `Local` | aucun | widgets, représentations, tailles, sondes (§ 6) |
 | `accueil.probe` | `Local` | `{ id }` | contrat d’une sonde |
 | `accueil.refresh.plan` | `LocalRead` | `{ mode }` | plan figé (§ 7) |
-| `accueil.refresh.run` | `NetworkRead` (servie en simulation) | `{ planId }` | compte rendu ; événements `accueil.refresh.run:progress` |
+| `accueil.refresh.run` | `NetworkRead` (servie en simulation) | `{ planId, force? }` | compte rendu ; événements `accueil.refresh.run:progress` |
 | `accueil.refresh.stop` | `Local` | aucun | arrêt demandé |
 | `accueil.refresh.state` | `Local` | aucun | actualisation en cours et dernier compte rendu |
 | `accueil.provenance` | `LocalRead` | aucun | fraîcheur, mesures, horloges (§ 8) |
@@ -79,7 +85,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `accueil.analysis.snapshots` | `LocalRead` | aucun | relevés et tableaux croisés (§ 9) |
 | `accueil.analysis.compare` | `LocalRead` | `{ before, after }` | comparaison |
 | `accueil.analysis.pivots` | `LocalRead` | `{ table, filter? }` | matrice et clés des cellules |
-| `accueil.snapshot.take` | `LocalWrite` | `{ label? }` | instantané manuel |
+| `accueil.snapshot.take` | `LocalWrite` | `{ label? }` | instantané manuel (gardé dans les préférences locales) |
 | `accueil.health.policy` | `LocalRead` | `{ dn? }` | règles d’une portée (§ 10) |
 | `accueil.health.save` | `LocalWrite` | `{ dn?, policy }` | règles enregistrées |
 | `accueil.health.revert` | `LocalWrite` | `{ dn }` | retour aux règles héritées |
@@ -96,6 +102,7 @@ opération qui en a besoin répond `source.unavailable` (§ 16 pour ce qu’il f
 | `accueil.lastView` | `LocalRead` | aucun | dernière vue de la même base et OU |
 | `accueil.lastView.save` | `LocalWrite` | `{ revision }` | dernière vue |
 | `accueil.selfCheck` | `LocalRead` | aucun | « Vérifier l’application » (§ 14) |
+| `accueil.session.details` | `LocalRead` | aucun | détails de la session (§ 14) |
 | `accueil.cache.clear` | `Local` | aucun | caches vidés |
 | `accueil.journal` | `LocalRead` | aucun | journal des opérations |
 | `accueil.log.tail` | `LocalRead` | aucun | dernières lignes du journal technique |
@@ -148,11 +155,24 @@ calcul du jour d’une OU garde son instantané quotidien (ACC-040).
 ## 4. `accueil.targets`
 
 `{ "revision": "0000000c", "key": "fleet.disabled" }` → `{ key, label, total, truncated, rows, revision }` ; `rows` :
-`[{ name, dn, guid, ou, state, system, lastLogon, presence, diskFree, uptimeDays, model, user }]`, 2 000 lignes au plus
-(`truncated`). Les clés valent pour le calcul qui les a produites : un widget (`fleet.x`), une part (`fleet.x|<libellé>`),
-un point (`point:<id>`), une règle (`rule:<id>`), des postes masqués (`masked:<id>`), une cellule de tableau croisé
+`[{ name, dn, guid, ou, state, system, lastLogon, presence, diskFree, uptimeDays, model, user, score, alerts, warnings }]`,
+2 000 lignes au plus (`truncated`). `score` est le score du poste (ACC-029, Get-DomeniaBoardHealth) : 100 − 25 par point
+critique − 10 par point à surveiller, jamais sous 0, `null` pour un poste non évalué ; `alerts` et `warnings` comptent ses
+points. Les clés valent pour le calcul qui les a produites : un widget (`fleet.x`), une part (`fleet.x|<libellé>`),
+un point (`point:<id>`), une règle (`rule:<id>`), des postes masqués (`masked:<id>`), les postes sans la donnée d’un contrôle
+(`missing:<id>`, « Voir la collecte manquante »), une cellule de tableau croisé
 (`pivot:<table>:cell:<ligne>|<colonne>`, `:row:`, `:column:`, `:all`, avec la révision de la matrice). Une révision
 remplacée répond `board.replaced` : la page recalcule et l’opérateur clique de nouveau (jamais une liste d’un autre calcul).
+
+**Transmission à Rechercher** (ACC-031). « Ouvrir l’OU dans Rechercher » n’est jamais proposé pour le domaine entier ; la page
+navigue vers `#/rechercher?ou=<DN>&subtree=1|0&source=accueil&revision=<révision>&cle=<clé>`. Rechercher (autre lot) pourra
+relire la liste exacte avec `accueil.targets { revision, key }` et la refuser si le calcul a été remplacé (`board.replaced`) ;
+tant qu’il ne le fait pas, il s’ouvre sur l’OU et le libellé du bouton le dit.
+
+**Objet choisi depuis l’Accueil** (« Objet sélectionné », ACC-019 ; « Consulter », ACC-018). Ouvrir un poste (liste
+« Postes à surveiller », double clic dans « Postes concernés ») le garde pour la fenêtre : `sessionStorage`
+`domenia.selection.v1` = `{ dn, name, kind, at }` (jamais un secret), et l’événement `domenia:object-selected` le signale aux
+autres écrans. Un stockage indisponible n’empêche rien.
 
 ## 5. Disposition
 
@@ -175,10 +195,11 @@ catalogue de Domenia 1 (intégrées et détaillées), avec leurs représentation
 `accueil.probe` `{ id }` → `{ id, name, origin, summary, privilegeLevel, costLevel, valid, lines: [{ section, value }],
 warnings, errors }` (droits, coût, comportement, entrées, types, limites, sources, tests : ACC-063).
 
-## 7. Actualisation de l’OU (« Contrôles du parc »)
+## 7. Actualisation de l’OU (« Tout actualiser » et son menu, dans l’en-tête)
 
 `accueil.refresh.plan` `{ mode }` — `directory` (base locale de l’OU), `presence` (ping), `inventory` (ping puis WMI),
-`all` (tout). Rien n’est contacté : le plan est figé au clic, valable cinq minutes, utilisable une seule fois.
+`all` (tout), `resume` (les étapes qu’une actualisation interrompue de la même OU n’a pas terminées, amélioration
+d’ACC-001). Rien n’est contacté : le plan est figé au clic, valable cinq minutes, utilisable une seule fois.
 
 ```json
 {
@@ -187,24 +208,43 @@ warnings, errors }` (droits, coût, comportement, entrées, types, limites, sour
   "stages": [ { "id": "backup", "label": "Sauvegarde vérifiée de la base locale", "detail": "…" }, { "id": "directory", … },
               { "id": "commit", … }, { "id": "presence", … }, { "id": "inventory", … } ],
   "probes": ["…"], "probeNames": ["…"], "estimateSeconds": 155, "estimateText": "Durée estimée en mode annuaire : …",
-  "warnings": ["…"], "confirm": "Tout actualiser", "createdAt": "…", "expiresAt": "…"
+  "warnings": ["…"], "confirm": "Tout actualiser", "createdAt": "…", "expiresAt": "…",
+  "online": 314, "reused": 287, "reuseDays": 30, "reuseSince": "…", "resumeOf": null, "onlineSince": null
 }
 ```
 
+- **Collecter seulement ce qui manque** (ACC-038, décision du 14/10/2026) : `online` compte les postes actifs en ligne au
+  dernier relevé, `reused` ceux dont l’inventaire et chaque sonde du plan ont une lecture utilisable (ni erreur ni refus, pas
+  dans le futur) datée depuis `reuseSince` (30 jours) : ils ne sont pas contactés (« déjà à jour, non contactés »). Les
+  erreurs sont toujours relues. `accueil.refresh.run { planId, force: true }` (« Tout relire » dans la confirmation) relit
+  aussi les postes à jour.
+- **Reprise** (`resume`) : `resumeOf` est l’actualisation reprise ; ses étapes non terminées seulement ; si elle ne repingue
+  pas, le WMI s’appuie sur le ping de l’actualisation interrompue (`onlineSince`). Une actualisation forcée reste forcée
+  (rien de plus ancien que son début n’est réutilisé).
+- **Sauvegarde** : en simulation l’étape `backup` dit « sans objet » dès le plan (aucune base ouverte) et finit à l’état
+  `na` ; en mode annuaire, toute relecture AD est refusée (`refresh.backupUnavailable`) tant que la sauvegarde vérifiée de
+  `Domenia.Store` n’existe pas.
+
 - Refus : racine du domaine (`scope.tooWide`), actualisation en cours (`refresh.running`), widget de requête actif pour un
-  relevé WMI (`refresh.queryMissing`).
+  relevé WMI (`refresh.queryMissing`), nouvelle collecte non admise (`refresh.refused` : mesure de widget ou lecture BitLocker
+  en cours, trois échecs d’écriture locale, moins de 512 Mio libres sur le volume des données en mode annuaire ; vérifié au
+  plan puis de nouveau à la confirmation), relecture AD sans sauvegarde (`refresh.backupUnavailable`).
 - Sondes : celles des widgets de sonde actifs (non en pause) de la disposition, figées dans le plan (ACC-007).
 - Estimation (amélioration d’ACC-001) : budgets de Domenia 1 — ping par lots de 64 (800 ms), WMI `Async.MaxThreads` (6)
   à la fois, environ 3 s par poste et 1 s par sonde ; lecture AD selon le nombre d’objets.
 
-`accueil.refresh.run` `{ planId }` exécute le plan une fois, étape par étape, et publie `accueil.refresh.run:progress` :
-`{ runId, stage, state: "running"|"done"|"failed"|"skipped"|"stopped", label, detail, index, count, percent }`.
-Règles : sauvegarde vérifiée avant la relecture AD (en simulation : « sans objet », aucune base ouverte) ; la collecte
-attend le reçu d’enregistrement (`commit`) ; WMI seulement sur les postes qui ont répondu au ping, sans nouvel écho ; si la
+`accueil.refresh.run` `{ planId, force? }` exécute le plan une fois, étape par étape, et publie `accueil.refresh.run:progress` :
+`{ runId, stage, state: "running"|"done"|"na"|"failed"|"skipped"|"stopped", label, detail, index, count, percent }`.
+Règles : sauvegarde vérifiée avant la relecture AD (en simulation : « sans objet », état `na`) ; la collecte attend le reçu
+d’enregistrement (`commit`) ; WMI seulement sur les postes qui ont répondu au ping **de ce relevé** (ACC-004 : la liste des
+postes en ligne est passée à `IAccueilReader.ReadInventoryAsync`, les autres gardent leur lecture et sa date), sans nouvel
+écho, et seulement ce qui manque (ACC-038) ; si la
 lecture AD échoue en mode `all`, ping et WMI partent sur les postes déjà connus (`partial`) ; un changement d’OU arrête
 l’actualisation entre deux étapes. Résultat : `{ id, mode, status: "success"|"partial"|"cancelled"|"error", label, scope,
-startedAt, finishedAt, stages: [{ id, label, state, detail, startedAt, finishedAt }], runs, stopping }` ; les relevés
-vraiment lancés sont enregistrés (horloges, § 8) ; le journal des opérations reçoit une ligne.
+startedAt, finishedAt, stages: [{ id, label, state, detail, startedAt, finishedAt }], runs, stopping, forced, resumable }` ;
+`resumable` : actualisation interrompue dont une étape n’est pas terminée (« Reprendre »). Les relevés vraiment lancés sont
+enregistrés (horloges, § 8, gardés dans les préférences locales) ; le journal des opérations reçoit une ligne. Un arrêt
+entre deux étapes marque les suivantes `skipped` et le compte rendu `cancelled`.
 
 `accueil.refresh.stop` → `{ stopping, label }` : l’étape en cours se termine sans lancer de nouvelle collecte ; les mesures
 déjà enregistrées sont gardées. `accueil.refresh.state` → `{ running, current, last }` (reprise de l’affichage au retour sur
@@ -237,7 +277,7 @@ keys, total, totalKey }], columnTotals, columnKeys, grandTotal, grandKey, folded
 chaque poste est dans une seule cellule ; chaque clé ouvre ses postes avec `accueil.targets` et `revision`.
 
 `accueil.snapshot.take` `{ label? }` (80 caractères) → `{ id, kind: "manual", label, day, computedAt }` : instantané daté
-de la vue actuelle, gardé pendant la session (la base locale le conservera en mode annuaire).
+de la vue actuelle, gardé dans les préférences locales (20 au plus ; la base locale le conservera en vague 3).
 
 ## 10. Règles de santé
 
@@ -257,8 +297,10 @@ gardée ; les suspensions échues depuis plus de 30 jours sont retirées. `accue
 l’exception d’une OU. `accueil.health.exceptions` → `{ rows: [{ scopeDn, label, changes, count }] }`.
 `accueil.health.explain` → `{ summary, activeRules, disabledRules, suspendedRules, maskedMachines, population, unknown,
 assessed, rows: [{ id, rule, status, machines, effect, eligible, eligibleCount, exclusive, masked, consequence,
-observationState, missingData, evidence: { source, observed, value, rule, collection }, targetsKey, maskedKey }],
-policies, scope }`.
+observationState, missingData, evidence: { source, observed, value, rule, collection }, targetsKey, maskedKey, missingKey,
+missing }], policies, scope, revision }`. `revision` est le calcul expliqué : la page ouvre les ensembles avec elle, si bien
+qu’une vue recalculée pendant la consultation refuse l’action (`board.replaced`). `missingKey` ouvre les postes sans la
+donnée du contrôle (« Voir la collecte manquante », ACC-030) : aucune collecte n’est lancée.
 
 ## 11. `accueil.bitlocker.read`
 
@@ -278,12 +320,17 @@ par `session.setScope` (choix explicite confirmé dans la page, ACC-012) ; aucun
 ## 13. Premiers pas, aide, dernière vue
 
 `accueil.firstSteps` → `{ steps: [{ id: "connect"|"scope"|"firstRead"|"dashboard"|"rights", number, label, text, done,
-enabled, current, actionLabel }], next, done, deferred, dismissed, helpSeen, readInterrupted, offline, completed, total }`.
-`rights` (« Vérifier l’application ») est facultative. `accueil.firstSteps.dismiss` `{ dismissed }` masque ou réaffiche la
-carte ; `accueil.help.seen` retire la pastille « Nouveau » de l’aide.
+enabled, current, actionLabel }], next, done, deferred, dismissed, helpSeen, readInterrupted, offline, completed, total,
+finished }`. `rights` (« Vérifier l’application ») est facultative et hors du compte (lien à côté des quatre étapes). Une fois
+les quatre étapes faites, `finished` est mémorisé et la carte disparaît pour de bon (Home.FirstStepsDone) ; l’aide la
+réaffiche pour la visite. La dernière étape suit le premier calcul (ACC-016 : « Calcul en cours… », « Prête · N postes »,
+« Erreur · Réessayer »). `accueil.firstSteps.dismiss` `{ dismissed }` masque ou réaffiche la carte ; `accueil.help.seen`
+retire la pastille « Nouveau » du « ? » de l’Accueil.
 
 `accueil.lastView` → `{ available, text, computedAt, machines, problems, scopeLabel }` pour la même base et la même OU ;
-`accueil.lastView.save` `{ revision }` mémorise le calcul affiché (comptes et date seulement, ACC-035).
+pendant le premier calcul, la page en montre les chiffres dans des tuiles grises « non recalculées », retirées à l’arrivée du
+tableau. `accueil.lastView.save` `{ revision }` mémorise le calcul affiché (comptes et date seulement, ACC-035) quand ses
+comptes changent, ou une fois par minute au plus.
 
 ## 14. Outils de session
 
@@ -295,6 +342,24 @@ carte ; `accueil.help.seen` retire la pastille « Nouveau » de l’aide.
 - `accueil.journal` → `{ total, rows: [{ at, label, tone }] }` (session et source, le plus récent d’abord).
 - `accueil.log.tail` → `{ path: "%LOCALAPPDATA%\\Domenia\\logs\\domenia.log", available, lines: [{ at, level, text }],
   truncated, summary }` : 256 Kio et 200 lignes au plus, le plus récent d’abord ; le journal ne contient ni saisie ni secret.
+- `accueil.session.details` → `{ associations, associationsText, lastCheck: { checkedAt, summary, tone } | null,
+  calculations: [{ at, milliseconds }], localWriteFailures, runs, snapshots }` : ce que l’onglet « Session » ajoute à
+  `session.info` (ACC-019 : liens utilisateur–poste, dernier résultat de la vérification, cinq derniers calculs, écritures
+  locales en échec). La page y joint ce qu’elle affiche déjà : résultats affichés et statistiques de la liste (tableau du
+  parc), objet sélectionné (ci-dessus, § 4). Lu quand la carte de la session s’affiche, puis après une vérification.
+
+## 14 bis. Adresses de l’écran
+
+Liens des guides, des autres écrans et des captures (une fois par visite, l’écran affiché) :
+
+| Adresse | Effet |
+|---|---|
+| `#/accueil?ou=choisir` | ouvre « Choisir l’OU » |
+| `#/accueil?outil=widgets\|sante\|score\|analyse\|provenance\|journal\|verifier\|aide` | ouvre l’outil (catalogue, règles de santé, comprendre le score, analyse, provenance, journal, vérification, aide) |
+| `#/accueil?outil=actualiser\|base\|wmi\|ping\|reprendre` | prépare le plan de « Tout actualiser », de la base locale, de ping et WMI, du ping seul ou de la reprise, et ouvre sa confirmation : rien ne part sans le clic de confirmation |
+| `#/accueil?postes=<clé>` | ouvre « Postes concernés » sur un ensemble du calcul affiché |
+| `#/accueil?personnaliser=1` | mode Personnaliser du tableau du parc |
+| `#/accueil?section=indicateurs\|activite\|tableau\|suivi\|session` | montre cette section seule sous l’en-tête ; « Tout afficher » rend les autres (captures d’une section en haut d’écran) |
 
 ## 15. Simulation
 
@@ -306,8 +371,17 @@ carte ; `accueil.help.seen` retire la pastille « Nouveau » de l’aide.
 - BitLocker : 8 % des postes sans clé, délai de 350 à 800 ms ; sondes : valeurs générées par sonde, délai de 400 à 1 100 ms,
   3 % de refus sur les espaces de noms de sécurité.
 - Actualisation : l’annuaire fictif est relu en mémoire, les postes répondent selon des manches déterministes ; la
-  sauvegarde de la base est « sans objet » (aucune base ouverte) ; aucune connexion réelle.
-- Compte de la session : compte d’administration `EXAMPLE\adm-j.martin` (décision de David du 21/10).
+  sauvegarde de la base est « sans objet » (aucune base ouverte) ; aucune connexion réelle. L’inventaire relu
+  (`SimulatedDirectorySource.RefreshInventoryAsync`, par `ReadInventoryAsync`) ne redate que les postes passés par le moteur :
+  ceux qui ont répondu au ping de ce relevé et dont une mesure manque.
+- Préférences : `preferences-simulation.json` reçoit aussi les relevés et instantanés de l’Accueil (§ 1), jamais le fichier
+  du mode annuaire ; en capture et en E2E, tout reste en mémoire.
+- Compte de la session : compte d’administration `EXAMPLE\adm-j.martin` (décision de David du 21/10). **À reporter à la
+  fusion** : ce lot a changé dans les fichiers partagés le compte de la session simulée (`j.martin` → `adm-j.martin`, droits
+  « Administration » au lieu de « Lecture », `SimulatedWorldGenerator`, `SimulationProfile`), ajouté
+  `DashboardService.MeasureAsync` (deux surcharges) et le compteur `Measuring`, et
+  `SimulatedDirectorySource.RefreshInventoryAsync` : les lots qui vérifient `j.martin`, `RightsLevel.Read` ou l’opérateur des
+  plans d’écriture sont à relire avant la fusion.
 
 ## 16. Mode annuaire (vague 3)
 
@@ -323,8 +397,8 @@ Ce que `Domenia.Ad`, `Domenia.Inventory` et `Domenia.Store` devront servir à `I
 | Instantanés | `Domenia.Store` | `FleetSnapshot` quotidiens et manuels de l’OU | un par jour et par OU (premier calcul) ; 90 jours affichés |
 
 Les calculs (`FleetBoardCalculator`, `HealthRules`, `CollectionClocks`, `FleetAnalysis`, `ProbeCatalog`) restent les
-mêmes : seules les sources changent. Collecter seulement ce qui manque (ACC-038) se branchera avec `Domenia.Inventory`
-(tranches de mesures relues avant tout réseau).
+mêmes : seules les sources changent. « Collecter seulement ce qui manque » (ACC-038) est une règle pure (`RefreshRules.Missing`) :
+`Domenia.Inventory` lui fournira les mesures relues par tranches avant tout réseau.
 
 ## 17. Sécurité
 

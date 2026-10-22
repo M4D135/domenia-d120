@@ -143,6 +143,33 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         }
     }
 
+    /// <summary>
+    /// Inventory read again on the given workstations only (explicit OU refresh, ACC-004 and ACC-038): the workstations of the
+    /// working OU that answered the ping and still need a reading. The others keep their earlier reading and its date, so the
+    /// provenance never shows a fresh WMI date for a workstation that was not contacted. Never the domain root.
+    /// </summary>
+    public async Task<DirectoryState> RefreshInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(targets);
+        var generated = World;
+        ScopeRules.EnsureNotDomainRoot(scope, generated.Directory.Domain.RootDn);
+        await DelayAsync("refresh", ref refreshDraws, 400, 900, cancellationToken).ConfigureAwait(false);
+        var now = timeProvider.GetUtcNow();
+        lock (gate)
+        {
+            var state = current ?? generated.InitialState;
+            var inScope = generated.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName)).Select(c => c.ObjectGuid).ToHashSet();
+            state = state with
+            {
+                Observations = new FleetObservations(now, [.. state.Observations.Workstations.Select(o =>
+                    inScope.Contains(o.ComputerGuid) && targets.Contains(o.ComputerGuid) && o.Inventory.HasReading ? o with { Inventory = o.Inventory with { CheckedAt = now } } : o)]),
+            };
+            current = state;
+            return WithOverlay(state);
+        }
+    }
+
     /// <summary>Last known state as the session sees it (writes of the session applied).</summary>
     private DirectoryState Current() => WithOverlay(Base());
 

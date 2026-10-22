@@ -130,13 +130,13 @@ public static class HealthPolicyJson
         ArgumentNullException.ThrowIfNull(current);
         if (value.ValueKind != JsonValueKind.Object)
         {
-            throw HealthRules.Invalid("Règles de santé illisibles : un objet est attendu.");
+            throw HealthRules.Invalid("Règles de santé illisibles : un objet est attendu.");
         }
         foreach (var property in value.EnumerateObject())
         {
             if (!PolicyNames.Contains(property.Name, StringComparer.Ordinal))
             {
-                throw HealthRules.Invalid("Règles de santé illisibles : propriété non admise.");
+                throw HealthRules.Invalid("Règles de santé illisibles : propriété non admise.");
             }
         }
         var thresholds = current.Thresholds;
@@ -144,7 +144,7 @@ public static class HealthPolicyJson
         {
             if (t.ValueKind != JsonValueKind.Object)
             {
-                throw HealthRules.Invalid("Seuils illisibles : un objet est attendu.");
+                throw HealthRules.Invalid("Seuils illisibles : un objet est attendu.");
             }
             foreach (var property in t.EnumerateObject())
             {
@@ -170,7 +170,7 @@ public static class HealthPolicyJson
         {
             if (cr.ValueKind != JsonValueKind.Array)
             {
-                throw HealthRules.Invalid("Alertes personnalisées illisibles : une liste est attendue.");
+                throw HealthRules.Invalid("Alertes personnalisées illisibles : une liste est attendue.");
             }
             custom = [.. cr.EnumerateArray().Select(StrictCustom)];
         }
@@ -202,7 +202,7 @@ public static class HealthPolicyJson
         }
         if (Text("measure") == "Query")
         {
-            throw HealthRules.Invalid("Alerte sur requête enregistrée : la bibliothèque de l’atelier de requêtes n’est pas encore disponible dans cette version.");
+            throw HealthRules.Invalid("Alerte sur requête enregistrée : la bibliothèque de l’atelier de requêtes n’est pas encore disponible dans cette version.");
         }
         var threshold = x.TryGetProperty("threshold", out var th) && th.ValueKind == JsonValueKind.Number ? th.GetDouble() : double.NaN;
         var enabled = !x.TryGetProperty("enabled", out var en) || en.ValueKind != JsonValueKind.False;
@@ -226,7 +226,7 @@ public static class HealthPolicyJson
         {
             if (!h.TryGetInt32(out var hours) || !HealthRules.SuspensionHours.Contains(hours))
             {
-                throw HealthRules.Invalid("Durée de suspension invalide : 1 h, 24 h, 7 j ou 30 j.");
+                throw HealthRules.Invalid("Durée de suspension invalide : 1 h, 24 h, 7 j ou 30 j.");
             }
             until = now + TimeSpan.FromHours(hours);
         }

@@ -109,7 +109,10 @@ public sealed record FleetBoard(
     string Summary,
     FleetSnapshot Snapshot);
 
-/// <summary>One workstation of an exact set (« Postes concernés »).</summary>
+/// <summary>
+/// One workstation of an exact set (« Postes concernés »). <see cref="Score"/> is the score of the workstation (ACC-029,
+/// Get-DomeniaBoardHealth): 100 − 25 per critical point − 10 per point to watch, floored at 0; null when it is not assessed.
+/// </summary>
 public sealed record FleetTargetRow(
     string Name,
     string Dn,
@@ -122,7 +125,10 @@ public sealed record FleetTargetRow(
     double? DiskFree,
     int? UptimeDays,
     string? Model,
-    string? User);
+    string? User,
+    int? Score,
+    int Alerts,
+    int Warnings);
 
 /// <summary>Dimensions of one workstation for the cross tables (point 79).</summary>
 public sealed record FleetPivotFacts(string Site, string Version, string Model, string Ram, string Presence, string Bios, bool Ping, bool Inventory);
@@ -146,12 +152,17 @@ public sealed record FleetExplanationRow(
     bool MissingData,
     FleetEvidence Evidence,
     string? TargetsKey,
-    string? MaskedKey);
+    string? MaskedKey,
+    string? MissingKey,
+    int Missing);
 
 /// <summary>Rules applied by OU in a view.</summary>
 public sealed record FleetPolicyRow(string Scope, int Machines, int Suspended, string Thresholds);
 
-/// <summary>Result of accueil.health.explain.</summary>
+/// <summary>
+/// Result of accueil.health.explain. <see cref="Revision"/> is the calculation it explains: the page opens its sets with it, so a
+/// view recomputed meanwhile refuses the action (board.replaced) instead of showing other workstations.
+/// </summary>
 public sealed record FleetExplanation(
     string Summary,
     int ActiveRules,
@@ -163,7 +174,8 @@ public sealed record FleetExplanation(
     int Assessed,
     ImmutableArray<FleetExplanationRow> Rows,
     ImmutableArray<FleetPolicyRow> Policies,
-    string Scope);
+    string Scope,
+    string Revision = "");
 
 /// <summary>Everything one calculation of the board produced; only <see cref="Board"/> goes to the page as is.</summary>
 public sealed record FleetComputation(

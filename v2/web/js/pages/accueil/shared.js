@@ -160,5 +160,35 @@ export function localDay(iso) {
 
 /** Copies plain text and says so in a toast (done: the sentence shown once copied). */
 export function copyWithToast(ctx, text, done) {
-  copyText(text).then((ok) => ctx.toast(ok ? done : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn', life: 2800 }));
+  copyText(text).then((ok) => ctx.toast(ok ? done : 'Copie impossible : le presse-papiers est indisponible.', { tone: ok ? 'ok' : 'warn', life: 2800 }));
+}
+
+// ---------- Object chosen from the Accueil (« Objet sélectionné », ACC-019; « Consulter », ACC-018) ----------
+
+const OBJECT_KEY = 'domenia.selection.v1';
+
+/**
+ * Remembers the object last opened from the Accueil for this window (sessionStorage: name, DN and kind only, never a secret)
+ * and tells the other screens (event « domenia:object-selected »). Storage may be unavailable: then only the event goes out.
+ * @param {{ dn: string, name: string, kind: string }} object
+ */
+export function rememberObject(object) {
+  if (!object?.dn) return;
+  const value = { dn: String(object.dn).slice(0, 2048), name: String(object.name ?? '').slice(0, 256), kind: String(object.kind ?? 'objet').slice(0, 32), at: new Date().toISOString() };
+  try {
+    sessionStorage.setItem(OBJECT_KEY, JSON.stringify(value));
+  } catch (err) {
+    console.warn('Objet sélectionné non mémorisé (stockage de la fenêtre indisponible).', err?.name);
+  }
+  window.dispatchEvent(new CustomEvent('domenia:object-selected', { detail: value }));
+}
+
+/** Object last chosen in this window, or null (unreadable or absent storage). */
+export function lastObject() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(OBJECT_KEY) ?? 'null');
+    return v && typeof v.dn === 'string' && typeof v.name === 'string' ? v : null;
+  } catch {
+    return null;
+  }
 }

@@ -160,7 +160,7 @@ const dayNumber = (iso) => {
 
 function line(entry, uid) {
   const pts = (Array.isArray(entry.points) ? entry.points : []).filter((p) => isNum(p.value) && Number.isFinite(dayNumber(p.date)));
-  if (pts.length < 2) return empty(entry, 'Deux relevés datés au moins sont nécessaires pour tracer une évolution ; aucun jour manquant n’est remplacé par zéro.');
+  if (pts.length < 2) return empty(entry, 'Deux relevés datés au moins sont nécessaires pour tracer une évolution ; aucun jour manquant n’est remplacé par zéro.');
   const W = 600; const H = 180; const PAD = 14;
   const xs = pts.map((p) => dayNumber(p.date));
   const x0 = Math.min(...xs); const x1 = Math.max(...xs);
@@ -217,7 +217,7 @@ function pointRows(points, limit) {
 function points(entry, board, limit = 12) {
   const list = Array.isArray(board?.health?.points) ? board.health.points : [];
   if (!list.length) return `<div class="fw-calm">${glyph('check')}<span>Aucun point d’attention sur le périmètre évalué.</span></div>`;
-  const more = list.length > limit ? `<p class="fw-more">${plural(list.length - limit, 'autre point', 'autres points')} : ${limit >= 10 ? '' : 'agrandissez le widget ou '}ouvrez « Comprendre le score ».</p>` : '';
+  const more = list.length > limit ? `<p class="fw-more">${plural(list.length - limit, 'autre point', 'autres points')} : ${limit >= 10 ? '' : 'agrandissez le widget ou '}ouvrez « Comprendre le score ».</p>` : '';
   return `<ul class="fw-points cascade">${pointRows(list, limit)}</ul>${more}`;
 }
 
@@ -225,7 +225,7 @@ function healthRing(h, size = '') {
   const score = isNum(h.score) ? h.score : null;
   return donut([{ value: score ?? 0, cls: 'toned', tone: tone(h.tone) || 'off' }], {
     total: 100, single: true, size,
-    label: `Santé du parc : ${score === null ? h.verdict : `${score}${NBSP}%`}`,
+    label: `Santé du parc : ${score === null ? h.verdict : `${score}${NBSP}%`}`,
     center: score === null
       ? '<div><b class="fw-word">—</b><span>non calculé</span></div>'
       : `<div><b data-count="${score}" data-suffix="${NBSP}%">0</b><span>sans problème</span></div>`,
