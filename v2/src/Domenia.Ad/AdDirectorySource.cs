@@ -29,6 +29,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     private readonly IWorkstationProbe? probe;
     private readonly SemaphoreSlim connecting = new(1, 1);
     private readonly SemaphoreSlim refreshing = new(1, 1);
+    private readonly SemaphoreSlim loadingLocal = new(1, 1);
+    private bool localLoaded;
     private readonly Lock gate = new();
     private DomainInfo? domain;
     private AccountIdentity? account;
@@ -39,7 +41,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     private DirectoryState? state;
     private long epoch;
 
-    public AdDirectorySource(string? joinedDomain, Func<string> accountLogin, TimeProvider clock, IWorkstationProbe? probe = null, IAdConnection? connection = null)
+    public AdDirectorySource(string? joinedDomain, Func<string> accountLogin, TimeProvider clock, IWorkstationProbe? probe = null, IAdConnection? connection = null, IDirectoryCache? localStore = null)
     {
         ArgumentNullException.ThrowIfNull(accountLogin);
         ArgumentNullException.ThrowIfNull(clock);
@@ -47,6 +49,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         this.accountLogin = accountLogin;
         this.probe = probe;
         Clock = clock;
+        LocalStore = localStore;
         Connection = connection ?? AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain));
     }
 
@@ -56,6 +59,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     public IAdConnection Connection { get; }
 
     public TimeProvider Clock { get; }
+
+    public IDirectoryCache? LocalStore { get; }
 
     internal long Epoch
     {
@@ -108,9 +113,9 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         }
     }
 
-    public Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken)
+    public async Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        await LoadLocalAsync(cancellationToken).ConfigureAwait(false);
         lock (gate)
         {
             var directory = state?.Directory;
@@ -118,9 +123,9 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             var login = account?.Login ?? accountLogin();
             if (domain is null)
             {
-                return Task.FromResult(new SessionSnapshot(
+                return new SessionSnapshot(
                     ConnectionState.Disconnected,
-                    joinedDomain is null ? null : new DomainIdentity(joinedDomain, null, null),
+                    directory is not null ? new DomainIdentity(directory.Domain.DnsName, directory.Domain.NetbiosName, directory.Domain.RootDn) : joinedDomain is null ? null : new DomainIdentity(joinedDomain, null, null),
                     null,
                     account ?? new AccountIdentity(login, null, null, null),
                     new AuthenticationInfo(AuthenticationMethod.WindowsSession, null, "Session Windows"),
@@ -128,10 +133,10 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                     new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, failure ?? "Droits évalués à la connexion à l’annuaire."),
                     false,
                     store,
-                    epoch));
+                    epoch);
             }
             var controller = ControllerName is { } server ? new ControllerIdentity(server, domain.Controllers.FirstOrDefault(c => string.Equals(c.DnsName, server, StringComparison.OrdinalIgnoreCase))?.Site) : null;
-            return Task.FromResult(new SessionSnapshot(
+            return new SessionSnapshot(
                 ConnectionState.Connected,
                 new DomainIdentity(domain.DnsName, domain.NetbiosName, domain.RootDn),
                 controller,
@@ -141,7 +146,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                 rights ?? new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Droits déduits des groupes à la connexion."),
                 false,
                 store,
-                epoch));
+                epoch);
         }
     }
 
@@ -151,14 +156,36 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         return await GetSessionAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
+    public async Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        await LoadLocalAsync(cancellationToken).ConfigureAwait(false);
         lock (gate)
         {
+            if (state is not null) { return state; }
             var known = domain ?? throw new DomeniaOperationException(AdErrors.NotConnected, failure ?? AdErrors.NotConnectedMessage);
-            return Task.FromResult(state ??= Empty(known));
+            return state = Empty(known);
         }
+    }
+
+    private async Task LoadLocalAsync(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (LocalStore is null) { return; }
+        await loadingLocal.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            lock (gate) { if (localLoaded) { return; } }
+            var loaded = await LocalStore.ReadAsync(token).ConfigureAwait(false);
+            lock (gate)
+            {
+                if (loaded is not null && state is null)
+                {
+                    state = Empty(domain ?? loaded.Domain) with { Directory = domain is null ? loaded : loaded with { Domain = domain } };
+                }
+                localLoaded = true;
+            }
+        }
+        finally { loadingLocal.Release(); }
     }
 
     public async Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken)
@@ -181,9 +208,13 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             {
                 case MeasureFamily.Directory:
                     {
+                        var generation = Epoch;
                         var snapshot = await AdDirectoryReader.ReadSnapshotAsync(Connection, known, scope, MaxObjectsPerKind, Clock, cancellationToken).ConfigureAwait(false);
+                        if (Epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "La session a changé pendant la lecture ; recommencez le geste."); }
+                        if (LocalStore is not null) { await LocalStore.SaveAsync(snapshot, scope, ControllerName, cancellationToken).ConfigureAwait(false); }
                         lock (gate)
                         {
+                            if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "La session a changé avant la publication du relevé."); }
                             var current = state ?? Empty(known);
                             state = current with
                             {
@@ -215,6 +246,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         Connection.Dispose();
         connecting.Dispose();
         refreshing.Dispose();
+        loadingLocal.Dispose();
     }
 
     /// <summary>Forgets the connection state so that the next call connects again (« Reconnecter », account changed).</summary>
@@ -228,6 +260,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             failure = null;
             failedAt = null;
             state = null;
+            localLoaded = false;
             epoch++;
         }
     }

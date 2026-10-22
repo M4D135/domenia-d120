@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><RootNamespace>Domenia.Store</RootNamespace></PropertyGroup>
   <ItemGroup><ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" /></ItemGroup>
+  <ItemGroup><EmbeddedResource Include="Sqlite/schema-11.sql" /></ItemGroup>
 </Project>

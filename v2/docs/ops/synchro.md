@@ -277,6 +277,12 @@ n’envoie jamais une saisie de la page dans un filtre (GUID et DN échappés, t
 
 ### 9.1 Base locale (SQLite, `winsqlite3`)
 
+État du raccordement C# au 23/10/2026 : le socle natif et la sauvegarde/migration 11/1 sont dans
+`Domenia.Store/Sqlite`. `AdDirectorySource` conserve les relectures explicites par ce socle, et les recharge localement
+au démarrage. Le stockage historique et les tests E2E utilisent des dossiers distincts. Les opérations propres à
+l’écran Synchronisation, les observations, la bibliothèque et les plans de maintenance restent en cours de raccordement ;
+la seule compilation de ce socle ne vaut pas recette fonctionnelle.
+
 | Table (Domenia 1, schéma 11) | Usage |
 |---|---|
 | `ad_objects` (`object_guid`, `object_type` Utilisateur/Machine, `name`, `login`, `upn`, `display_name`, `description`, `extra`, `state`, `distinguished_name`, `when_changed`, `usn_changed`, `last_logon`, `search_key`, faits des postes et expiration LAPS) | index, recherche (exacte `=` NOCASE, préfixe `LIKE ?2 ESCAPE '!'`, contenu `search_key LIKE ?3`), paramètres liés (`?1`, `?2`, `?3`), tri par expressions figées (dates françaises ou ISO comparées par `julianday`), `count(*)` et page dans la même transaction (`BEGIN … COMMIT`) |

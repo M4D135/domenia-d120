@@ -1,0 +1,95 @@
+-- Domenia 1 schema 11/1, copied from dev/wad/Domenia-Core.ps1 and storage/query modules.
+CREATE TABLE IF NOT EXISTS schema_info(key TEXT PRIMARY KEY,value TEXT NOT NULL);
+INSERT OR IGNORE INTO schema_info(key,value) VALUES('schema_version','11');
+CREATE TABLE IF NOT EXISTS ad_objects(
+ object_key TEXT PRIMARY KEY, object_guid TEXT, object_type TEXT NOT NULL,
+ name TEXT COLLATE NOCASE, login TEXT COLLATE NOCASE, upn TEXT COLLATE NOCASE,
+ display_name TEXT, description TEXT, extra TEXT, state TEXT, distinguished_name TEXT,
+ when_changed TEXT, usn_changed INTEGER DEFAULT 0, last_logon TEXT, search_key TEXT,
+ source_dc TEXT, synced_at TEXT);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_guid ON ad_objects(object_guid);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_name ON ad_objects(name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_login ON ad_objects(login COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_upn ON ad_objects(upn COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_dn ON ad_objects(distinguished_name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_usn ON ad_objects(usn_changed);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_type ON ad_objects(object_type);
+CREATE INDEX IF NOT EXISTS ix_ad_objects_type_name ON ad_objects(object_type,name COLLATE NOCASE);
+CREATE TABLE IF NOT EXISTS user_machine_links(
+ computer_key TEXT PRIMARY KEY,user_login TEXT,computer TEXT,source TEXT,confidence INTEGER,
+ verified_in_ad INTEGER,observed_at TEXT,details TEXT,user_guid TEXT,computer_guid TEXT,user_dn TEXT,computer_dn TEXT);
+CREATE INDEX IF NOT EXISTS ix_links_user ON user_machine_links(user_login COLLATE NOCASE);
+CREATE TABLE IF NOT EXISTS user_machine_history(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,user_login TEXT,computer_key TEXT,computer TEXT,source TEXT,
+ confidence INTEGER,verified_in_ad INTEGER,observed_at TEXT,details TEXT,user_guid TEXT,computer_guid TEXT);
+CREATE INDEX IF NOT EXISTS ix_history_computer ON user_machine_history(computer_key,observed_at);
+CREATE INDEX IF NOT EXISTS ix_history_user ON user_machine_history(user_login COLLATE NOCASE,observed_at);
+CREATE TABLE IF NOT EXISTS park_state(computer_key TEXT PRIMARY KEY,computer TEXT,last_probe TEXT,status TEXT,user_login TEXT,attempts INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS presence_cache(object_key TEXT PRIMARY KEY,state TEXT,target TEXT,checked_at TEXT);
+CREATE TABLE IF NOT EXISTS sync_state(scope TEXT PRIMARY KEY,server TEXT,base_dn TEXT,highest_usn INTEGER DEFAULT 0,last_sync TEXT,item_count INTEGER DEFAULT 0,details TEXT);
+CREATE TABLE IF NOT EXISTS user_scan_history(
+ login_key TEXT PRIMARY KEY,login TEXT,scanned_at TEXT,scanned INTEGER DEFAULT 0,
+ candidates INTEGER DEFAULT 0,reachable INTEGER DEFAULT 0,probed INTEGER DEFAULT 0,found TEXT);
+CREATE TABLE IF NOT EXISTS secret_state(
+ computer_key TEXT PRIMARY KEY,computer TEXT,checked_at TEXT,bitlocker_keys INTEGER DEFAULT 0,
+ bitlocker_last TEXT,laps_scheme TEXT,laps_expiry TEXT,verdict TEXT,detail TEXT);
+CREATE TABLE IF NOT EXISTS operation_runs(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,operation TEXT NOT NULL,mode TEXT,item_count INTEGER DEFAULT 0,
+ duration_ms INTEGER DEFAULT 0,bytes_estimated INTEGER DEFAULT 0,ad_queries INTEGER DEFAULT 0,
+ remote_attempts INTEGER DEFAULT 0,fallback_tasks INTEGER DEFAULT 0,success_count INTEGER DEFAULT 0,
+ failure_count INTEGER DEFAULT 0,started_at TEXT,finished_at TEXT,notes TEXT);
+CREATE INDEX IF NOT EXISTS ix_runs_operation ON operation_runs(operation,finished_at);
+CREATE VIEW IF NOT EXISTS operation_stats AS
+ SELECT operation,count(*) AS samples,avg(duration_ms) AS avg_duration_ms,min(duration_ms) AS min_duration_ms,max(duration_ms) AS max_duration_ms,
+        avg(bytes_estimated) AS avg_bytes,avg(CASE WHEN remote_attempts>0 THEN fallback_tasks*1.0/remote_attempts ELSE NULL END) AS fallback_ratio,
+        sum(success_count) AS successes,sum(failure_count) AS failures
+ FROM operation_runs GROUP BY operation;
+CREATE TABLE IF NOT EXISTS domenia_provenance(object_guid TEXT PRIMARY KEY,domain_dn TEXT,reader TEXT,source_dc TEXT,invocation_id TEXT,usn_changed INTEGER,observed_at TEXT);
+CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
+CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));
+CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS domenia_store_state(id INTEGER PRIMARY KEY CHECK(id=1),store_id TEXT NOT NULL,domain_dn TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS domenia_store_batches(batch_id TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,request_id TEXT NOT NULL,sequence INTEGER NOT NULL,revision INTEGER NOT NULL,committed_at TEXT NOT NULL,changes_json TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_store_batches_revision ON domenia_store_batches(revision);
+CREATE TABLE IF NOT EXISTS domenia_directory_data(object_guid TEXT PRIMARY KEY,payload TEXT NOT NULL,field_times TEXT NOT NULL,revision INTEGER NOT NULL,observed_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS domenia_observations(object_guid TEXT NOT NULL,family TEXT NOT NULL,dn TEXT NOT NULL,definition_hash TEXT NOT NULL DEFAULT '',attempt_at TEXT NOT NULL,status TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',success_at TEXT NOT NULL DEFAULT '',payload TEXT,attempt_payload TEXT,summary_payload TEXT,attempt_summary TEXT,revision INTEGER NOT NULL,PRIMARY KEY(object_guid,family));
+CREATE INDEX IF NOT EXISTS idx_store_observations_dn ON domenia_observations(dn);
+CREATE TABLE IF NOT EXISTS domenia_legacy_observation_imports(object_guid TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,imported_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS domenia_account_preferences(domain_dn TEXT NOT NULL,scope TEXT NOT NULL,user_name TEXT NOT NULL,updated_at TEXT NOT NULL,revision INTEGER NOT NULL,PRIMARY KEY(domain_dn,scope));
+CREATE TABLE IF NOT EXISTS domenia_details(object_guid TEXT NOT NULL,result_kind TEXT NOT NULL,request_key TEXT NOT NULL,dn TEXT NOT NULL,attempt_at TEXT NOT NULL,status TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',success_at TEXT NOT NULL DEFAULT '',payload TEXT,attempt_payload TEXT,summary_payload TEXT,attempt_summary TEXT,revision INTEGER NOT NULL,PRIMARY KEY(object_guid,result_kind,request_key));
+CREATE TABLE IF NOT EXISTS domenia_domain_metadata(domain_dn TEXT NOT NULL,family TEXT NOT NULL,request_key TEXT NOT NULL,attempt_at TEXT NOT NULL,status TEXT NOT NULL,error TEXT NOT NULL DEFAULT '',success_at TEXT NOT NULL DEFAULT '',payload TEXT,attempt_payload TEXT,revision INTEGER NOT NULL,PRIMARY KEY(domain_dn,family,request_key));
+CREATE TABLE IF NOT EXISTS domenia_query_recipes (
+ id TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, name TEXT NOT NULL, name_fold TEXT NOT NULL,
+ category TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision > 0), definition_version INTEGER NOT NULL,
+ definition_json TEXT NOT NULL, definition_sha256 TEXT NOT NULL, created_utc TEXT NOT NULL,
+ updated_utc TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1))
+);
+CREATE INDEX IF NOT EXISTS ix_domenia_query_recipes_page ON domenia_query_recipes(archived,name_fold,id);
+CREATE INDEX IF NOT EXISTS ix_domenia_query_recipes_category ON domenia_query_recipes(archived,category,name_fold,id);
+CREATE TABLE IF NOT EXISTS domenia_query_recipe_revisions (
+ id TEXT NOT NULL, revision INTEGER NOT NULL, definition_version INTEGER NOT NULL,
+ definition_json TEXT NOT NULL, definition_sha256 TEXT NOT NULL, at_utc TEXT NOT NULL,
+ PRIMARY KEY(id,revision)
+);
+CREATE TABLE IF NOT EXISTS domenia_query_migrations (
+ source_hash TEXT PRIMARY KEY NOT NULL, domain_dn TEXT NOT NULL, imported_at TEXT NOT NULL, revision INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS domenia_query_recipe_provenance (
+ recipe_id TEXT NOT NULL, revision INTEGER NOT NULL, provenance_json TEXT NOT NULL,
+ PRIMARY KEY(recipe_id,revision)
+);
+CREATE TABLE IF NOT EXISTS domenia_query_recipe_dependencies (
+ recipe_id TEXT NOT NULL, consumer_kind TEXT NOT NULL, consumer_id TEXT NOT NULL,
+ bound_revision INTEGER NOT NULL, PRIMARY KEY(recipe_id,consumer_kind,consumer_id)
+);
+UPDATE ad_objects SET search_key=COALESCE(search_key,'')||' '||lower(extra) WHERE NOT EXISTS(SELECT 1 FROM sync_state WHERE scope='repair:search_key_extra') AND object_type IN ('Utilisateur','Machine') AND COALESCE(extra,'')<>'' AND instr(lower(COALESCE(search_key,'')),lower(extra))=0;
+INSERT OR IGNORE INTO sync_state(scope,details) VALUES('repair:search_key_extra','CO-26');
+INSERT OR IGNORE INTO schema_info(key,value) VALUES('domenia_schema','1');
+CREATE TABLE IF NOT EXISTS park_session_cache(object_key TEXT PRIMARY KEY,checked_utc TEXT NOT NULL,payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS domenia_legacy_observation_imports(object_guid TEXT PRIMARY KEY,payload_hash TEXT NOT NULL,imported_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ad_computer_facts(object_guid TEXT PRIMARY KEY,object_key TEXT,os_version TEXT,when_created TEXT,pwd_last_set TEXT,laps_kind TEXT,laps_expiry TEXT,read_at TEXT);
+CREATE TABLE IF NOT EXISTS fleet_snapshots(scope_key TEXT NOT NULL,snapshot_day TEXT NOT NULL,taken_at TEXT,scope_dn TEXT,machines INTEGER DEFAULT 0,figures TEXT,PRIMARY KEY(scope_key,snapshot_day));
+CREATE TABLE IF NOT EXISTS ad_absences(object_key TEXT PRIMARY KEY,object_guid TEXT,object_type TEXT,name TEXT,last_dn TEXT,scope_dn TEXT,last_synced_at TEXT,noticed_at TEXT,server TEXT,status TEXT NOT NULL,checked_at TEXT,found_dn TEXT,detail TEXT);
+CREATE TABLE IF NOT EXISTS ad_census_gaps(object_guid TEXT PRIMARY KEY,dn TEXT NOT NULL,usn INTEGER NOT NULL DEFAULT 0,noticed_at TEXT,server TEXT);
+CREATE TABLE IF NOT EXISTS ad_snapshots(snapshot_id TEXT PRIMARY KEY,label TEXT NOT NULL,domain_dn TEXT NOT NULL,scope_dn TEXT NOT NULL,subtree INTEGER NOT NULL,captured_at TEXT NOT NULL,object_count INTEGER NOT NULL,coverage_state TEXT,coverage_at TEXT,coverage_source TEXT,coverage_text TEXT,rows_sha256 TEXT);
+CREATE TABLE IF NOT EXISTS ad_snapshot_rows(snapshot_id TEXT NOT NULL,object_guid TEXT NOT NULL,object_type TEXT,name TEXT,login TEXT,upn TEXT,display_name TEXT,description TEXT,extra TEXT,state TEXT,distinguished_name TEXT,when_changed TEXT,last_logon TEXT,source_dc TEXT,synced_at TEXT,PRIMARY KEY(snapshot_id,object_guid));
