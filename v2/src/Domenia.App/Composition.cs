@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using Domenia.Ad;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Inventory;
 using Domenia.Simulation;
 using Domenia.Store;
 
@@ -42,7 +44,7 @@ internal sealed class Composition : IDisposable
         var log = AppTechnicalJournal.Instance;
         IDirectorySource source = decision.Mode == AppMode.Simulation
             ? new SimulatedDirectorySource(SimulationOptions.Default, TimeProvider.System)
-            : new UnavailableDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName);
+            : new AdDirectorySource(decision.JoinedDomain, static () => Environment.UserDomainName + "\\" + Environment.UserName, TimeProvider.System, new WmiWorkstationProbe());
         var assemblies = OperationModules.LoadDomeniaAssemblies();
         var context = new EngineContext(decision, source, CreatePreferences(decision.Mode, capture, e2e, log), TimeProvider.System, log, ScreenReaders.Discover(source, assemblies),
             writers: WriteExecutors.Discover(source, assemblies), receipts: CreateReceipts(decision.Mode, capture || e2e, log),
