@@ -14,6 +14,8 @@ public sealed class SimulatedDirectoryOverlay
 {
     private readonly Lock gate = new();
     private ImmutableDictionary<Guid, DirectoryUser> users = ImmutableDictionary<Guid, DirectoryUser>.Empty;
+    private ImmutableDictionary<Guid, DirectoryComputer> computers = ImmutableDictionary<Guid, DirectoryComputer>.Empty;
+    private ImmutableDictionary<Guid, DirectoryGroup> groups = ImmutableDictionary<Guid, DirectoryGroup>.Empty;
     private long version;
     private long usn;
     // Last application, so that consecutive reads of an unchanged directory share one snapshot.
@@ -40,7 +42,7 @@ public sealed class SimulatedDirectoryOverlay
         {
             lock (gate)
             {
-                return users.Count;
+                return users.Count + computers.Count + groups.Count;
             }
         }
     }
@@ -60,9 +62,13 @@ public sealed class SimulatedDirectoryOverlay
                 return cachedResult;
             }
             var changed = users;
+            var changedComputers = computers;
+            var changedGroups = groups;
             var result = snapshot with
             {
                 Users = [.. snapshot.Users.Select(u => changed.TryGetValue(u.ObjectGuid, out var replaced) ? replaced : u)],
+                Computers = changedComputers.IsEmpty ? snapshot.Computers : [.. snapshot.Computers.Select(c => changedComputers.TryGetValue(c.ObjectGuid, out var replaced) ? replaced : c)],
+                Groups = changedGroups.IsEmpty ? snapshot.Groups : [.. snapshot.Groups.Select(g => changedGroups.TryGetValue(g.ObjectGuid, out var replaced) ? replaced : g)],
             };
             cachedBase = snapshot;
             cachedVersion = version;
@@ -102,6 +108,74 @@ public sealed class SimulatedDirectoryOverlay
             }
             usn++;
             users = users.SetItem(id, next);
+            version++;
+            return next;
+        }
+    }
+
+    /// <summary>
+    /// Changes one computer of <paramref name="snapshot"/> (the generated directory, before the overlay), as
+    /// <see cref="UpdateUser"/> does for a user (workstation screen: account state, profile, rename, move). Null when no
+    /// computer has this GUID.
+    /// </summary>
+    internal DirectoryComputer? UpdateComputer(DirectorySnapshot snapshot, Guid id, Func<DirectoryComputer, long, DirectoryComputer?> change)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(change);
+        lock (gate)
+        {
+            var current = computers.TryGetValue(id, out var known) ? known : snapshot.Computers.FirstOrDefault(c => c.ObjectGuid == id);
+            if (current is null)
+            {
+                return null;
+            }
+            if (usn == 0)
+            {
+                usn = HighestUsn(snapshot);
+            }
+            var next = change(current, usn + 1);
+            if (next is null)
+            {
+                return current;
+            }
+            if (next.ObjectGuid != id)
+            {
+                throw new InvalidOperationException("A write of the simulation never changes the GUID of an object.");
+            }
+            usn++;
+            computers = computers.SetItem(id, next);
+            version++;
+            return next;
+        }
+    }
+
+    /// <summary>Changes one group (membership of a computer, with the symmetric memberOf of that computer); null when unknown.</summary>
+    internal DirectoryGroup? UpdateGroup(DirectorySnapshot snapshot, Guid id, Func<DirectoryGroup, long, DirectoryGroup?> change)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(change);
+        lock (gate)
+        {
+            var current = groups.TryGetValue(id, out var known) ? known : snapshot.Groups.FirstOrDefault(g => g.ObjectGuid == id);
+            if (current is null)
+            {
+                return null;
+            }
+            if (usn == 0)
+            {
+                usn = HighestUsn(snapshot);
+            }
+            var next = change(current, usn + 1);
+            if (next is null)
+            {
+                return current;
+            }
+            if (next.ObjectGuid != id)
+            {
+                throw new InvalidOperationException("A write of the simulation never changes the GUID of an object.");
+            }
+            usn++;
+            groups = groups.SetItem(id, next);
             version++;
             return next;
         }

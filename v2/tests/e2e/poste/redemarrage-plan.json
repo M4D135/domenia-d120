@@ -1,0 +1,45 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer un redémarrage différé",
+  "description": "Ouvre le panneau de redémarrage depuis la vue Intervenir, vérifie la lecture des sessions ouvertes puis prépare le plan d’un redémarrage différé de 5 minutes (rien n’est envoyé sans confirmation).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    {
+      "do": "click",
+      "selector": ".ps-action[data-act=restart]",
+      "title": "Redémarrer…"
+    },
+    {
+      "do": "expect",
+      "selector": ".poste-drw .ps-restart-sessions",
+      "title": "Le panneau lit d’abord les sessions"
+    },
+    {
+      "do": "wait",
+      "selector": ".poste-drw .ps-restart-sessions[data-tone]",
+      "title": "Les sessions sont résumées"
+    },
+    {
+      "do": "shot",
+      "name": "panneau-redemarrage",
+      "selector": ".poste-drw"
+    },
+    {
+      "do": "click",
+      "text": "Préparer le redémarrage"
+    },
+    {
+      "do": "wait",
+      "contains": "Redémarrer PC-PAR-0001",
+      "title": "Le plan du redémarrage est présenté"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
