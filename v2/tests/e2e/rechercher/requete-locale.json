@@ -1,0 +1,17 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : requête locale et choix du verdict",
+  "description": "Ouvre la requête locale « Disque C presque plein » sur l’OU de travail depuis la route, vérifie les trois totaux (correspondants, inconnus, non correspondants) puis bascule l’affichage sur les seuls correspondants sans lecture de l’annuaire ni des postes.",
+  "modes": ["simulation"],
+  "start": "rechercher?requete=lowdisk&verdict=all",
+  "steps": [
+    { "do": "wait", "contains": "Disque C presque plein", "within": ".rch-res-title", "title": "La requête locale est appliquée" },
+    { "do": "expect", "contains": "Correspondants", "within": ".rch-verdicts", "title": "Les totaux sont affichés" },
+    { "do": "expect", "selector": ".rch-verdict[data-act=\"all\"]", "attribute": "aria-pressed", "equals": "true", "title": "« Tous » est le choix courant" },
+    { "do": "click", "selector": ".rch-verdict[data-act=\"match\"]", "title": "Afficher les seuls correspondants" },
+    { "do": "wait", "selector": ".rch-verdict[data-act=\"match\"][aria-pressed=\"true\"]", "title": "« Correspondants » devient le choix courant" },
+    { "do": "expect", "contains": "Correspond", "within": ".rch-results .k-gbody", "title": "Les lignes portent leur verdict" },
+    { "do": "shot", "name": "requete-correspondants" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

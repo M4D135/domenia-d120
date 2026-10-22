@@ -101,6 +101,33 @@ internal static class PlatformTests
         ("dashboard.widget.setEnabled", OperationClass.LocalWrite),
         ("directory.ou.children", OperationClass.LocalRead),
         ("directory.ou.search", OperationClass.LocalRead),
+        ("search.browse", OperationClass.LocalRead),
+        ("search.catalog", OperationClass.LocalRead),
+        ("search.compare", OperationClass.LocalRead),
+        ("search.containers", OperationClass.LocalRead),
+        ("search.dns.reverse", OperationClass.NetworkRead),
+        ("search.favorite.move", OperationClass.LocalWrite),
+        ("search.favorite.pin", OperationClass.LocalWrite),
+        ("search.favorite.unpin", OperationClass.LocalWrite),
+        ("search.localQuery", OperationClass.LocalRead),
+        ("search.memory", OperationClass.LocalRead),
+        ("search.more", OperationClass.LocalRead),
+        ("search.netdiag", OperationClass.NetworkRead),
+        ("search.preview", OperationClass.LocalRead),
+        ("search.query.favorite", OperationClass.LocalWrite),
+        ("search.recent.add", OperationClass.LocalWrite),
+        ("search.recent.clear", OperationClass.LocalWrite),
+        ("search.recheck", OperationClass.NetworkRead),
+        ("search.revalidate", OperationClass.LocalRead),
+        ("search.run", OperationClass.LocalRead),
+        ("search.suggest", OperationClass.LocalRead),
+        ("search.survey.plan", OperationClass.LocalRead),
+        ("search.survey.run", OperationClass.NetworkRead),
+        ("search.survey.stop", OperationClass.Local),
+        ("search.view", OperationClass.LocalRead),
+        ("search.workspace.remove", OperationClass.LocalWrite),
+        ("search.workspace.save", OperationClass.LocalWrite),
+        ("search.workspace.undo", OperationClass.LocalWrite),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("write.execute", OperationClass.Write),
@@ -125,7 +152,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SearchOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

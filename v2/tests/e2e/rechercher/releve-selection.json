@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : relevé confirmé d’une sélection de postes",
+  "description": "Affiche le contenu de l’OU Paris, sélectionne deux postes, ouvre le menu contextuel et demande un ping de la sélection : la confirmation dit les cibles exactes et la durée estimée ; l’annulation ne lit rien.",
+  "modes": ["simulation"],
+  "start": "rechercher?ou=OU%3DParis%2COU%3DPostes%2CDC%3Dexample%2CDC%3Dlocal",
+  "steps": [
+    { "do": "wait", "contains": "PC-PAR-0001", "within": ".rch-results .k-gbody", "title": "Le contenu de Paris est listé" },
+    { "do": "click", "text": "PC-PAR-0001", "within": ".rch-results .k-gbody" },
+    { "do": "press", "key": "Shift+ArrowDown", "title": "Étendre la sélection au poste suivant" },
+    { "do": "expect", "contains": "2 sélectionnées", "within": ".rch-results", "title": "Deux postes sélectionnés" },
+    { "do": "press", "key": "Shift+F10", "title": "Ouvrir le menu contextuel au clavier" },
+    { "do": "wait", "selector": ".k-menu", "title": "Le menu contextuel de Domenia 1 est ouvert" },
+    { "do": "expect", "contains": "Vérifier", "within": ".k-menu" },
+    { "do": "press", "key": "Escape" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
