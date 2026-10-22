@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 12, relève OpenCode en cours (vague 2, écrans un par un : shell, accueil, rechercher, fiche, comptes, relations et poste terminés)**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 27, relève OpenCode en cours (vague 2, écrans un par un : shell, accueil, rechercher, fiche, comptes, relations, poste et assistance terminés)**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes, relations et poste terminés |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes, relations, poste et assistance terminés |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -59,7 +59,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | comptes | **Terminé** (`2c6fc68`, relève OpenCode) : critique du tour 1 (traitée par `9dedf45`) vérifiée dans le code, parité refaite sur CPT-001 à 021 ; compteur « Accès » de la barre du haut par `ctx.access.report` ; partiels : vague 3 (Domenia.Ad : CPT-007, 008), shell à l’intégration (CPT-001 relecture hors écran, CPT-012 panneau d’aide), coffre Windows (CPT-017, question ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | relations | **Terminé** (`d13f98b`, relève OpenCode) : tour 2 traité (WAPT retiré, REL-050 export d’échange relu par l’import, aperçu d’import, relevé d’une liste sans OU, observations conservées, détection annulable, journal complet, barre de commandes du kit, une seule action principale, vue mise à jour sur place, transitions) ; tests écrits ; partiels : REL-013 (Domenia.Store), REL-029 (brancher sur les demandes d’accès de Comptes à l’intégration), REL-014, 017, 018, 030 (décision ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | poste | **Terminé** (`bc97977`, relève OpenCode) : `wip(poste)` compilé (une correction), tour 1 vérifié dans le code (secrets par fenêtre native, relevés par type, inventaire partiel et réaffiché, renommage du CN seul, redémarrage sans « Maintenant » par défaut, protection « Non lu », BitLocker par GUID complet), WAPT absent de `src` et `web` ; partiels : PST-023 et 066 (vague 3), PST-111 et 113 (écran Requêtes, à brancher à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégration (surcouche partagée avec la Fiche) |
-| assistance | Complété une fois ; critique du tour 2 rendue | Traiter `assistance-tour2.md` (2, 7, 8) |
+| assistance | **Terminé** (`fd4c205`, relève OpenCode) : tour 2 traité (refus de l’écran expliqués dans Incidents, commande `Domenia.exe dossier` attachée à la console, contrat d’arrivée `postes=`, capture refusée pendant une lecture, suivi arrêté après trois échecs, bandeau sans lecteur, vues mises à jour sur place, CSS des panneaux préfixée) ; tests et E2E écrits ; partiels : ASS-006 (refus des autres écrans : `BridgeDispatcher` à l’intégration), ASS-012 (lien à poser dans les écrans de liste) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | requetes | Complément du tour 1 interrompu : commit `wip(requetes)` | Compiler, terminer `requetes-tour1.md`, critique complète |
 | audit | Complément du tour 1 interrompu : commit `wip(audit)` | Compiler, terminer `audit-tour1.md`, critique complète |
 | schema | Complété (10/11 selon l'agent) | Critique complète puis compléments |
@@ -81,7 +81,8 @@ Questions pour David (la relève ne tranche pas, elle continue) :
 À faire à l’intégration (petits branchements de la coque, `app.js`) : relire `accounts.access.revision` (local, 2 s) pour
 l’emplacement « Accès » hors de l’écran Comptes (CPT-001) ; montrer les trois identités (`accounts.access.state`) dans
 le panneau d’aide avec le raccourci vers Comptes (CPT-012). Relations : brancher les refus de la détection sur les
-demandes d’accès de Comptes (REL-029).
+demandes d’accès de Comptes (REL-029). Assistance : journaliser les refus de tous les écrans dans `BridgeDispatcher`
+(ASS-006) ; lien « Dossier hors ligne de ces postes » (`#/assistance?postes=…`) dans Rechercher (ASS-012).
 
 Fichiers partagés déjà modifiés par des branches d’écran (avant la relève OpenCode), à revoir à l’intégration :
 `tokens.css` (shell : jetons de contraste WCAG demandés par sa critique), `app.js` (shell ; la fiche n’y touche plus),
