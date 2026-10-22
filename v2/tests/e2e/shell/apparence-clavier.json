@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : choix d’apparence au clavier sans perte du focus",
+  "description": "Dans l’onglet Apparence, choisit les animations aux flèches : le choix suit, le focus reste sur le bouton choisi (le panneau n’est pas reconstruit), Début revient au premier choix.",
+  "modes": ["simulation"],
+  "start": "shell?onglet=apparence",
+  "steps": [
+    { "do": "click", "selector": "[data-group=\"motion\"] [data-value=\"full\"]", "title": "Animations riches" },
+    { "do": "press", "key": "ArrowRight", "title": "Choix suivant au clavier" },
+    { "do": "expect", "selector": "[data-group=\"motion\"] [data-value=\"reduced\"]", "attribute": "aria-checked", "equals": "true", "title": "Animations réduites choisies" },
+    { "do": "expect", "selector": "[data-group=\"motion\"] [data-value=\"reduced\"]:focus", "title": "Le focus reste sur le choix" },
+    { "do": "expect", "selector": "[data-group=\"motion\"] [tabindex=\"0\"]", "count": 1, "title": "Un seul arrêt de tabulation dans le groupe" },
+    { "do": "press", "key": "Home", "title": "Premier choix" },
+    { "do": "expect", "selector": "[data-group=\"motion\"] [data-value=\"full\"]:focus", "title": "Riches a le focus" },
+    { "do": "expect", "selector": "[data-group=\"motion\"] [data-value=\"full\"]", "attribute": "aria-checked", "equals": "true" },
+    { "do": "expect", "selector": ".sh-contrast-row[data-passed=\"false\"]", "absent": true, "title": "Toutes les paires de couleurs du thème sont conformes" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

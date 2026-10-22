@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : export d’exemple en mémoire et bouton grisé avec son motif",
+  "description": "Exporte la liste d’exemple : la bannière annonce les lignes exportées et la valeur masquée, l’export reste en mémoire (mode E2E). « Ouvrir le dossier » est grisé avec son motif, lu dans l’infobulle et dans le panneau d’aide F1 (TRV-054, TRV-055, TRV-006).",
+  "modes": ["simulation"],
+  "start": "shell?onglet=outils",
+  "steps": [
+    { "do": "wait", "contains": "Mémoire de la session", "within": "[data-result=\"exports\"]", "title": "Les exports de cette session restent en mémoire" },
+    { "do": "click", "selector": "[data-tool=\"export\"]", "title": "Exporter la liste d’exemple" },
+    { "do": "wait", "contains": "lignes exportées", "within": ".toasts", "title": "La bannière annonce l’export" },
+    { "do": "expect", "contains": "ressemblant à un secret", "within": ".toasts", "title": "La valeur ressemblant à un secret est masquée" },
+    { "do": "expect", "contains": "Domenia-exemple-interface-", "within": "[data-result=\"exports\"]", "title": "L’export apparaît dans la liste" },
+    { "do": "expect", "selector": "[data-tool=\"open\"]", "attribute": "aria-disabled", "equals": "true", "title": "« Ouvrir le dossier » est grisé" },
+    { "do": "hover", "selector": "[data-tool=\"open\"]", "title": "Survoler le bouton grisé" },
+    { "do": "wait", "contains": "Cette session ne garde rien sur le disque", "within": ".flytip", "title": "L’infobulle donne le motif" },
+    { "do": "press", "key": "F1", "title": "Ouvrir l’aide" },
+    { "do": "hover", "selector": "[data-tool=\"open\"]" },
+    { "do": "wait", "contains": "Prérequis non rempli", "within": ".sh-help .sh-help-element", "title": "Le panneau d’aide explique le motif" },
+    { "do": "shot", "name": "bouton-grise-motif" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

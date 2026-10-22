@@ -1,4 +1,4 @@
-// Shared UI helpers: escaping, CSS variables, entrances, counters, charts, pointer effects, toasts.
+// Shared UI helpers: escaping, CSS variables, entrances, counters, charts, pointer effects, toasts (banners of the shell).
 import { icon } from './icons.js';
 
 const root = document.documentElement;
@@ -414,8 +414,22 @@ export function announce(text, { assertive = false } = {}) {
 // ---------- Toasts ----------
 
 // The toast itself is not a live region (its close button would be read too): its text goes to announce().
+// Once the shell is built, toasts become the banners of the notification centre (shell/notify.js, TRV-172): same call,
+// same .toasts region, plus the journal of the session, the INC codes, the occurrences and the actions.
 const MAX_TOASTS = 4;
-export function toast(message, { tone = 'info', life = 4800 } = {}) {
+let toastImpl = null;
+
+/** The shell installs its banners here (app.js); every screen keeps calling toast() or ctx.toast(). */
+export function setToastImpl(fn) {
+  toastImpl = typeof fn === 'function' ? fn : null;
+}
+
+export function toast(message, options = {}) {
+  if (toastImpl) return toastImpl(message, options);
+  return basicToast(message, options);
+}
+
+function basicToast(message, { tone = 'info', life = 4800 } = {}) {
   const host = document.querySelector('.toasts');
   if (!host) return null;
   while (host.children.length >= MAX_TOASTS) host.firstElementChild.remove();

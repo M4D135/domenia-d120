@@ -669,7 +669,8 @@ internal sealed class WorldBuilder
             computers.Add(NewWorkstation(ComputerKind.Quarantined, site, random.Chance(SimulationProfile.LaptopPercent), number, ouDn["Postes/Quarantaine"], os, ids));
         }
 
-        // Just joined, still in CN=Computers (outside the working OU).
+        // Just joined, still in CN=Computers (outside the working OU). The last one has not registered its DNS name yet
+        // (Domenia 1 TRV-047: « un poste sans DNS »); the draws are unchanged, so nothing else of the world moves.
         const string Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         for (var k = 0; k < SimulationProfile.JustJoinedWorkstations; k++)
         {
@@ -680,7 +681,7 @@ internal sealed class WorldBuilder
                 Kind = ComputerKind.JustJoined,
                 Guid = NewGuid(ids),
                 Name = name,
-                DnsHostName = name.ToLowerInvariant() + "." + SimulationProfile.DnsName,
+                DnsHostName = k == SimulationProfile.JustJoinedWorkstations - 1 ? null : name.ToLowerInvariant() + "." + SimulationProfile.DnsName,
                 ParentDn = "CN=Computers," + SimulationProfile.RootDn,
                 OperatingSystem = "Windows 11 Professionnel",
                 OperatingSystemVersion = "10.0 (26100)",
