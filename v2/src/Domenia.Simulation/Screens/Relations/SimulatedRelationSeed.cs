@@ -215,7 +215,7 @@ internal static class SimulatedRelationSeed
         var legacy = random.Fork("legacy");
         var legacyPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         legacy.Shuffle(legacyPool);
-        var recent = workstations.OrderByDescending(c => c.WhenCreated).Where(c => owners.ContainsKey(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).Take(2).ToList();
+        var recent = workstations.OrderByDescending(c => c.WhenCreated).Where(c => owners.ContainsKey(c.ObjectGuid)).Take(2).ToList();
         foreach (var computer in legacyPool.Take(LegacyRows - recent.Count).Concat(recent))
         {
             var owner = owners[computer.ObjectGuid];
@@ -261,7 +261,7 @@ internal static class SimulatedRelationSeed
             journal.Add(new RelationJournalRecord(NewId(), RelationJournalAction.Added, relation.When!.Value, relation.Declarant,
                 "Association déclarée depuis Relations.", RelationRules.Key(relation), relation));
         }
-        var removedPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid) && c.Name.StartsWith("PC-MRS-", StringComparison.Ordinal)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        var removedPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && c.Name.StartsWith("PC-MRS-", StringComparison.Ordinal)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         var removed = Relation(owners[removedPool[4].ObjectGuid], removedPool[4], RelationKind.Console, RelationRules.ConsoleSource, Ago(TimeSpan.FromDays(19)),
             "Lecture de la console à cette date ; sessions RDP non recensées.", true, null);
         store.Remove(RelationRules.Key(removed));

@@ -56,9 +56,14 @@
       "title": "Aucun bandeau d’observations en attente"
     },
     {
-      "do": "journal",
-      "contains": "mémorisées automatiquement",
-      "title": "Mémorisation tracée au journal technique"
+      "do": "go",
+      "route": "relations?onglet=journal",
+      "title": "Journal des associations"
+    },
+    {
+      "do": "wait",
+      "contains": "Mémorisation automatique, lot 2",
+      "title": "Chaque lot mémorisé est tracé au journal des associations"
     },
     {
       "do": "journal",
