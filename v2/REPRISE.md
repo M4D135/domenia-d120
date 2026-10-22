@@ -174,11 +174,11 @@ relit, compile et vérifie (un jet du Spark n’est jamais une preuve).
 
 **Spark** : outils et prompts dans `docs/reprise/spark/` (`ask.sh <tâche>` assemble `common.md`, `<tâche>.md` et les
 fichiers de `<tâche>.files`, puis écrit `<tâche>.out` dans `$TMPDIR/opencode/spark/` ; `extract.py <tâche>` extrait les
-blocs FILE ; `apply_patch.py <tâche> [--apply]` applique les blocs PATCH). Tâches lancées le 22/10 : s1-sqlite (Store par
-`winsqlite3.dll`, schéma 11), s3-reader, s4-adwrites (écritures des comptes), s6-probe, p-accounts, p-accueil, p-search,
-p-fiche (lecteurs du mode annuaire), s5-relbatch (plan collectif scellé des relations), t-rel, t-req. Prompts prêts, non
-relancés : p-schema, p-machine. Si les processus `kbza ask` ont été interrompus avec la session, relancer `ask.sh` (une
-tâche par appel en arrière-plan) : chaque tâche raisonne 40 à 80 k jetons, soit environ une heure.
+blocs FILE ; `apply_patch.py <tâche> [--apply]` applique les blocs PATCH). Seule s2-ldap a rendu sa réponse (intégrée). **Toutes les autres tâches ont été interrompues (SIGTERM) à la fin de la
+session, sans réponse : les relancer** avec `ask.sh`, une tâche par appel en arrière-plan, dans cet ordre : s3-reader,
+s6-probe (nécessaires à la compilation), t-rel, t-req, s4-adwrites, p-accueil, p-accounts, p-search, p-fiche, s1-sqlite,
+s5-relbatch, p-schema, p-machine. Chaque tâche raisonne 40 à 80 k jetons, soit environ une heure ; le Spark en traite
+environ quatre à la fois.
 
 **Suite, dans l’ordre**
 1. Intégrer s3 et s6, compiler (`vm.sh main build --config Debug`, puis Release), fusionner `v2-wip-annuaire` dans `v2` ;
