@@ -1,0 +1,43 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : inventaire rapide avec sa progression",
+  "description": "Lance l’inventaire rapide de PC-PAR-0001 depuis la vue Inventaire, suit la progression, puis vérifie le détail par source et la grille des lignes.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=inventaire",
+  "timeoutMs": 30000,
+  "steps": [
+    {
+      "do": "expect",
+      "text": "Inventaire rapide",
+      "within": ".ps-inv-actions",
+      "title": "Le bouton de l’inventaire rapide est présent"
+    },
+    {
+      "do": "click",
+      "text": "Inventaire rapide",
+      "within": ".ps-inv-actions"
+    },
+    {
+      "do": "wait",
+      "selector": ".ps-access li",
+      "timeoutMs": 60000,
+      "title": "Le détail par source est rempli"
+    },
+    {
+      "do": "expect",
+      "selector": ".ps-cats .chip",
+      "title": "Les catégories filtrent la grille"
+    },
+    {
+      "do": "shot",
+      "name": "inventaire-rapide"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

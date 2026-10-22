@@ -1,0 +1,17 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer l’enregistrement de la fiche (emplacement)",
+  "description": "Ouvre « Modifier la fiche… » dans Intervenir, change l’emplacement physique de PC-PAR-0001 et prépare le plan : seul l’attribut modifié part, rien n’est écrit sans confirmation.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    { "do": "click", "selector": "[data-act=profile]", "title": "Modifier la fiche…" },
+    { "do": "type", "selector": ".poste-drw [name=location]", "text": "Bâtiment B, salle 12", "clear": true, "title": "Nouvel emplacement" },
+    { "do": "click", "text": "Préparer l’enregistrement", "title": "Préparer le plan" },
+    { "do": "wait", "contains": "Enregistrer la fiche du poste", "title": "Le plan de la fiche est présenté" },
+    { "do": "expect", "contains": "Emplacement", "title": "Seul l’emplacement change" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

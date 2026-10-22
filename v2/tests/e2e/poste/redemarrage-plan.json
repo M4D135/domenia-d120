@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer un redémarrage différé, jamais « maintenant » par défaut",
+  "description": "Ouvre le panneau de redémarrage depuis la vue Intervenir, vérifie la lecture des sessions ouvertes, que le mode immédiat n’est pas coché d’office, puis prépare le plan d’un redémarrage différé (rien n’est envoyé sans confirmation).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    { "do": "click", "selector": ".ps-action[data-act=restart]", "title": "Redémarrer…" },
+    { "do": "expect", "selector": ".poste-drw .ps-restart-sessions", "title": "Le panneau lit d’abord les sessions" },
+    { "do": "wait", "selector": ".poste-drw .ps-restart-sessions[data-tone]", "title": "Les sessions sont résumées" },
+    { "do": "expect", "selector": ".poste-drw input[name=mode][value=now]", "property": "checked", "equals": false, "title": "« Immédiat » n’est jamais choisi d’office" },
+    { "do": "expect", "selector": ".poste-drw input[name=mode][value=delayed]", "property": "checked", "equals": true, "title": "Différé par défaut quand WinRM le permet" },
+    { "do": "shot", "name": "panneau-redemarrage", "selector": ".poste-drw" },
+    { "do": "click", "text": "Préparer le redémarrage" },
+    { "do": "wait", "contains": "Redémarrer PC-PAR-0001", "title": "Le plan du redémarrage est présenté" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

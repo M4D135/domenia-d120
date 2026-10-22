@@ -98,6 +98,14 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     /// <summary>Last observations of the workstations (presence rounds of the session included), read at once from memory.</summary>
     internal FleetObservations CurrentObservations => Base().Observations;
 
+    /// <summary>Changes one computer in the overlay (write executors of the simulation only); null when no computer has this GUID.</summary>
+    internal DirectoryComputer? UpdateComputer(Guid id, Func<DirectoryComputer, long, DirectoryComputer?> change) =>
+        overlay.UpdateComputer(Base().Directory, id, change);
+
+    /// <summary>Changes one group in the overlay (write executors of the simulation only); null when no group has this GUID.</summary>
+    internal DirectoryGroup? UpdateGroup(Guid id, Func<DirectoryGroup, long, DirectoryGroup?> change) =>
+        overlay.UpdateGroup(Base().Directory, id, change);
+
     /// <summary>Number of presence rounds run since the start (0 = initial state only).</summary>
     public int PresenceRound
     {

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Core.Poste;
 using Domenia.Simulation;
 
 namespace Domenia.Tests;
@@ -534,6 +535,10 @@ internal static class WriteCircuitTests
         var simulated = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = SimulationLatency.None }, TestClock.Fixed());
         var writers = WriteExecutors.Discover(simulated, [typeof(SimulatedDirectorySource).Assembly, typeof(WriteCircuitTests).Assembly]);
         Check.True(new[] { AccountUnlock.Kind, RelationChange.Kind, RelationSweepReset.Kind }.All(writers.Kinds.Contains), "écritures servies : " + string.Join(", ", writers.Kinds));
+        // Every screen brings its own kinds (prefixed by the screen); the unlock of the platform stays served.
+        Check.True(writers.Kinds.Contains(AccountUnlock.Kind), "écritures servies : " + string.Join(", ", writers.Kinds));
+        Check.True(writers.Kinds.All(k => k.IndexOf('.', StringComparison.Ordinal) > 0), "types préfixés par leur écran : " + string.Join(", ", writers.Kinds));
+        Check.True(writers.Kinds.Contains(PosteRemoteWrites.RestartKind) && writers.Kinds.Contains(PosteDirectoryWrites.MoveKind), "écritures du poste servies");
         Check.True(writers.Find<IAccountUnlockExecutor>() is SimulatedAccountUnlockExecutor, "déverrouillage simulé trouvé");
         Check.True(ReferenceEquals(writers.ForKind(AccountUnlock.Kind), writers.Find<IAccountUnlockExecutor>()), "même instance par type");
         var field = typeof(SimulatedDirectorySource).GetField("world", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

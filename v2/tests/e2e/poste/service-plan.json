@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer le redémarrage d’un service depuis la barre du service choisi",
+  "description": "Lit les services de PC-PAR-0001, filtre sur le spouleur d’impression, choisit la ligne puis « Redémarrer… » dans la barre du service : le plan est présenté, rien n’est envoyé sans confirmation.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=inventaire&onglet=services",
+  "timeoutMs": 20000,
+  "steps": [
+    { "do": "click", "selector": ".ps-inventory [data-act=read]", "title": "Lire les services" },
+    { "do": "wait", "contains": "Spouleur", "within": ".k-grid", "title": "Liste lue" },
+    { "do": "type", "selector": "[data-filter]", "text": "Spooler", "title": "Filtre local, rien n’est relu" },
+    { "do": "click", "text": "Spooler", "within": ".k-grid", "title": "Choisir le service" },
+    { "do": "expect", "selector": "[data-svc=restart]", "property": "disabled", "equals": false, "title": "Redémarrer est proposé pour un service en cours" },
+    { "do": "click", "selector": "[data-svc=restart]", "title": "Redémarrer…" },
+    { "do": "wait", "contains": "service", "within": ".k-drw", "title": "Le plan du service est présenté" },
+    { "do": "press", "key": "Escape", "title": "Fermer sans rien envoyer" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

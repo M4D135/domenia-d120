@@ -142,6 +142,69 @@ public sealed class SimulatedDirectoryOverlay
         return after;
     }
 
+    /// <summary>
+    /// Changes one computer, as <see cref="UpdateUser"/> does for a user (« Poste » screen: account state, profile, rename,
+    /// move), through the generic edit of the overlay. Null when no computer has this GUID.
+    /// </summary>
+    internal DirectoryComputer? UpdateComputer(DirectorySnapshot snapshot, Guid id, Func<DirectoryComputer, long, DirectoryComputer?> change)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(change);
+        DirectoryComputer? after = null;
+        Edit(snapshot, edit =>
+        {
+            var current = edit.Current.Computers.FirstOrDefault(c => c.ObjectGuid == id);
+            if (current is null)
+            {
+                return false;
+            }
+            after = current;
+            var next = change(current, edit.NextUsn());
+            if (next is null)
+            {
+                return false;
+            }
+            if (next.ObjectGuid != id)
+            {
+                throw new InvalidOperationException("A write of the simulation never changes the GUID of an object.");
+            }
+            edit.Put(next);
+            after = next;
+            return true;
+        });
+        return after;
+    }
+
+    /// <summary>Changes one group (« Poste »: membership of a computer, with the symmetric memberOf of that computer); null when unknown.</summary>
+    internal DirectoryGroup? UpdateGroup(DirectorySnapshot snapshot, Guid id, Func<DirectoryGroup, long, DirectoryGroup?> change)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(change);
+        DirectoryGroup? after = null;
+        Edit(snapshot, edit =>
+        {
+            var current = edit.Current.Groups.FirstOrDefault(g => g.ObjectGuid == id);
+            if (current is null)
+            {
+                return false;
+            }
+            after = current;
+            var next = change(current, edit.NextUsn());
+            if (next is null)
+            {
+                return false;
+            }
+            if (next.ObjectGuid != id)
+            {
+                throw new InvalidOperationException("A write of the simulation never changes the GUID of an object.");
+            }
+            edit.Put(next);
+            after = next;
+            return true;
+        });
+        return after;
+    }
+
     // ---------------------------------------------------------------- generic edit
     // Added for the « Fiche » screen (wave 2): computers, groups, OUs and deletions, besides the users of UpdateUser. Other
     // screens that change computers or groups (« Poste ») can go through Edit too instead of a method per kind; the integrator
