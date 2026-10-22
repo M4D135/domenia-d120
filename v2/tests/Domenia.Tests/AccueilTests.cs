@@ -138,7 +138,7 @@ internal static class AccueilTests
         var now = TestClock.Reference;
         Check.Throws<ArgumentException>(() => CollectionClocks.Create(CollectionFamily.Presence, Domain, Postes, true, CollectionStatus.Success, now.AddMinutes(5), now.AddMinutes(6),
             null, 10, 10, 10, 0, null, now), "date future");
-        Check.Throws<ArgumentException>(() => CollectionClocks.Create(CollectionFamily.Presence, "DC=autre,DC=local", "DC=autre,DC=local", true, CollectionStatus.Success, now.AddMinutes(-5), now,
+        Check.Throws<ArgumentException>(() => CollectionClocks.Create(CollectionFamily.Presence, Domain, "OU=Postes,DC=autre,DC=local", true, CollectionStatus.Success, now.AddMinutes(-5), now,
             null, 10, 10, 10, 0, null, now), "autre domaine");
     }
 

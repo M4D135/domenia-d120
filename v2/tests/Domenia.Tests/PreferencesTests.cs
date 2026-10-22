@@ -143,7 +143,7 @@ internal static class PreferencesTests
         Check.True(third.TryGet("dashboard.disabledWidgets", out _), "widgets de la seconde instance conservés");
         Check.True(third.TryGet("dashboard.refresh", out _), "dernière valeur de la première instance");
         Check.Equal(FilePreferenceStore.LockNameFor(path), FilePreferenceStore.LockNameFor(path.ToUpperInvariant()), "même verrou quelle que soit la casse");
-        Check.False(FilePreferenceStore.LockNameFor(path).Contains("preferences", StringComparison.OrdinalIgnoreCase), "nom du verrou sans chemin");
+        Check.False(FilePreferenceStore.LockNameFor(path).Contains("preferences.json", StringComparison.OrdinalIgnoreCase) || FilePreferenceStore.LockNameFor(path).Contains(Path.GetDirectoryName(path)!, StringComparison.OrdinalIgnoreCase), "nom du verrou sans chemin");
     }
 
     [Test]

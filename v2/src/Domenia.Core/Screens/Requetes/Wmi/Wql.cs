@@ -60,7 +60,7 @@ public static partial class WqlRules
     [GeneratedRegex("(?i)password|passwd|pwd|secret|token|credential|recoverykey|privatekey|productkey|cleartext", RegexOptions.CultureInvariant, 1000)]
     private static partial Regex SecretName();
 
-    [GeneratedRegex(@"^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$", RegexOptions.CultureInvariant, 1000)]
+    [GeneratedRegex(@"^root(?:\\[A-Za-z_][A-Za-z0-9_]*)*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, 1000)]
     private static partial Regex NamespacePattern();
 
     [GeneratedRegex(@"^[A-Za-z_][A-Za-z0-9_]{0,126}\*?$", RegexOptions.CultureInvariant, 1000)]

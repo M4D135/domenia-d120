@@ -85,7 +85,7 @@ internal static class AuditTests
         var registry = OperationModules.CreateRegistry(context, [new AuditOperations()]);
         Check.True(registry.TryGet("audit.overview", out var overview), "analyse déclarée");
         using var none = JsonDocument.Parse("{}");
-        var thrown = await Check.ThrowsAsync<DomeniaOperationException>(() => overview!.Handler(none.RootElement, null!, CancellationToken.None), "sans lecteur");
+        var thrown = await Check.ThrowsAsync<DomeniaOperationException>(() => overview!.Handler(none.RootElement, new BridgeContext(_ => { }, "test", "audit.overview"), CancellationToken.None), "sans lecteur");
         Check.Equal(DomeniaErrors.SourceUnavailable, thrown.Code, "source indisponible");
     }
 
@@ -427,7 +427,7 @@ internal static class AuditTests
         var registry = OperationModules.CreateRegistry(context, [new AuditOperations()]);
         Check.True(registry.TryGet("audit.object.gpoLinks", out var links), "liens GPO déclarés");
         using var args = JsonDocument.Parse(Args(new { dn = OutsideDomainAuditReader.OutsideDn }));
-        var thrown = await Check.ThrowsAsync<DomeniaOperationException>(() => links!.Handler(args.RootElement, null!, CancellationToken.None), "hors du domaine");
+        var thrown = await Check.ThrowsAsync<DomeniaOperationException>(() => links!.Handler(args.RootElement, new BridgeContext(_ => { }, "test", "audit.object.gpoLinks"), CancellationToken.None), "hors du domaine");
         Check.Equal(AuditErrors.OutsideDomain, thrown.Code, "audit.outsideDomain");
         Check.Equal(AuditErrors.OutsideDomainMessage, thrown.Message, "message du contrat");
     }

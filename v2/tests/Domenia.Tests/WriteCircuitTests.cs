@@ -601,7 +601,7 @@ internal static class WriteCircuitTests
             (plan with { Operator = @"TEST\autre" }, "autre opérateur"),
             (plan with { Changes = [plan.Changes[0] with { AfterValue = "Autre" }] }, "autre valeur"),
             (plan with { ExpiresAt = plan.ExpiresAt.AddMinutes(10) }, "autre échéance"),
-            (plan with { Confirmation = new WriteConfirmation(false, null, "x") }, "autre confirmation"),
+            (plan with { Confirmation = new WriteConfirmation(true, "autre", "x") }, "autre confirmation"),
         })
         {
             Check.False(WritePlans.ComputeFingerprint(changed) == plan.Fingerprint, "empreinte changée : " + why);

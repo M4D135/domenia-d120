@@ -725,14 +725,15 @@ public static class LocalStoreRules
         {
             return "Chemin relatif refusé" + FrenchText.Colon + "indiquez le chemin complet.";
         }
-        if (!path.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
-        {
-            return "La destination doit être un fichier .db.";
-        }
+        // The active base and its journals first: « Domenia.db-wal » is refused as the journal it is, not for its extension.
         string[] journals = ["", "-wal", "-shm", "-journal"];
         if (journals.Any(j => string.Equals(path, activePath + j, StringComparison.OrdinalIgnoreCase)))
         {
             return "La base active et ses journaux ne peuvent pas servir de destination.";
+        }
+        if (!path.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+        {
+            return "La destination doit être un fichier .db.";
         }
         return null;
     }

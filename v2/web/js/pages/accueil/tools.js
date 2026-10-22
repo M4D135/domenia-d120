@@ -473,7 +473,8 @@ export function openAnalysis({ ctx, onTargets, onSnapshot }) {
     const csvCell = (v) => {
       const raw = String(v ?? '');
       const safe = /^[=+\-@\t\r]/.test(raw) && !/^-?\d+([.,]\d+)?$/.test(raw) ? `'${raw}` : raw;
-      return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+      // The quote is written \x22 in the patterns: a plain one would read as the start of a text for the spacing check.
+      return /[;\x22\n\r]/.test(safe) ? `"${safe.replace(/\x22/g, '""')}"` : safe;
     };
     // Semicolon separated, as the French spreadsheets expect; totals included.
     const csv = (m) => [

@@ -326,7 +326,10 @@ internal static class AssistanceRulesTests
         var build = OfflineDossiers.Build(request, data, "Lyon", "2.0.0-dev", Now, TestClock.Paris);
         string[] names = [.. build.Files.Select(f => f.Name)];
         Check.True(names.SequenceEqual(["etat.json", "postes.json", "requetes.json", "LISEZMOI.txt", "manifeste.json", "SHA256SUMS.txt"]), "fichiers : " + string.Join(",", names));
-        Check.False(build.Files.Single(f => f.Name == "postes.json").Text.Contains("LapsPassword", StringComparison.Ordinal), "champ secret retiré");
+        // The field is left out (its name is listed in ExcludedFields, never its value).
+        var postes = build.Files.Single(f => f.Name == "postes.json").Text;
+        Check.False(postes.Contains("\"LapsPassword\"", StringComparison.Ordinal), "champ secret retiré");
+        Check.Contains("postes[0].LapsPassword", postes, "champ retiré nommé");
         Check.True(build.Excluded.Contains("postes[0].LapsPassword"), "exclusion dite");
         foreach (var file in build.Files)
         {

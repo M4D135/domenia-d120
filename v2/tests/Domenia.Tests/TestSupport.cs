@@ -297,6 +297,11 @@ internal sealed class SimulatedBridge
     }
 
     /// <summary>Data of a result, serialized with the contract options and read back.</summary>
+    /// <summary>JSON text of a value with its accents as they are (the bridge escapes them: « é » is written \u00E9).</summary>
+    public static string Text(JsonElement value) => JsonSerializer.Serialize(value, ReadableJson);
+
+    private static readonly JsonSerializerOptions ReadableJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     public static JsonElement Json(BridgeResponse response)
     {
         Check.Equal("result", response.Kind, "réponse attendue : " + (response.Error?.Code ?? ""));

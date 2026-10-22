@@ -685,7 +685,7 @@ internal static class FicheTests
         ScriptedPasswordWindow.Reset(request => new FichePasswordEntry(TemporaryPassword.Generate(request.GeneratedLength), true));
         var planned = await ResultAsync(bridge, "fiche.resetPassword.plan", new { dn = camille.DistinguishedName, mustChange = true, unlock = true, generate = true, theme = "dark" });
         Check.Equal(16, ScriptedPasswordWindow.Requests.Single().GeneratedLength, "longueur de la configuration (16 par défaut)");
-        Check.Contains("généré", planned.GetRawText(), "le plan dit l’origine du mot de passe");
+        Check.Contains("généré", SimulatedBridge.Text(planned), "le plan dit l’origine du mot de passe");
         Check.False(planned.GetRawText().Contains("unicodePwd\":\"", StringComparison.Ordinal), "aucune valeur dans le plan");
         var receipt = await ResultAsync(bridge, "write.execute", new
         {

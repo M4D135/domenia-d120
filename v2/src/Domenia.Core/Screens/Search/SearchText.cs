@@ -551,7 +551,7 @@ public static partial class SearchText
 
     private static SearchPlan Invalid(string reason, string text) => new(SearchPlanKind.Default, false, reason, reason, [], [], null, null, "", false, text);
 
-    [GeneratedRegex(@"(?<prefix>\p{L}+):(?:""(?<quoted>[^""]*)""|(?<bare>\S*))|""(?<phrase>[^""]*)""|(?<word>\S+)", RegexOptions.CultureInvariant, 1000)]
+    [GeneratedRegex(@"(?<prefix>\p{L}+):[ \t\u00A0]?(?:""(?<quoted>[^""]*)""|(?<bare>\S*))|""(?<phrase>[^""]*)""|(?<word>\S+)", RegexOptions.CultureInvariant, 1000)]
     private static partial Regex SyntaxPattern();
 
     [GeneratedRegex(@"^(?i)(CN|OU|DC)=", RegexOptions.CultureInvariant, 1000)]

@@ -125,15 +125,18 @@ public static partial class PosteDirectoryWrites
     public static WritePlanDraft Profile(DirectoryComputer c, string? description, string? location, string? managedByDn, string? managedByName, string? controller)
     {
         ArgumentNullException.ThrowIfNull(c);
+        // A field left out (null) keeps its value; an empty one is cleared; the page sends the changed fields only.
         static string? Clean(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
-        var desc = Clean(description);
-        var loc = Clean(location);
-        var manager = Clean(managedByDn);
-        if (desc?.Length > MaxDescription || loc?.Length > MaxLocation)
+        var typedDesc = description is null ? null : Clean(description);
+        var typedLoc = location is null ? null : Clean(location);
+        var desc = description is null ? c.Description : typedDesc;
+        var loc = location is null ? c.Location : typedLoc;
+        var manager = managedByDn is null ? c.ManagedByDn : Clean(managedByDn);
+        if (typedDesc?.Length > MaxDescription || typedLoc?.Length > MaxLocation)
         {
             throw WriteErrors.Refusal(PosteErrors.Refused, "Description ou emplacement trop long (1 024 caractères au plus) : aucune écriture préparée.");
         }
-        if ((desc ?? "").Any(char.IsControl) || (loc ?? "").Any(char.IsControl))
+        if ((typedDesc ?? "").Any(char.IsControl) || (typedLoc ?? "").Any(char.IsControl))
         {
             throw WriteErrors.Refusal(PosteErrors.Refused, "Retour à la ligne ou caractère de contrôle refusé : aucune écriture préparée.");
         }

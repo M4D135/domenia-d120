@@ -246,9 +246,11 @@ public static class CollectionSettingsRules
             }
         }
         var budgets = Default.Budgets.ToBuilder();
+        // Budgets are stored at the root (ToJson); a nested « budgets » object (the shape the page sends) is read as well.
+        var budgetSource = root.TryGetProperty("budgets", out var nested) && nested.ValueKind == JsonValueKind.Object ? nested : root;
         foreach (var definition in BudgetDefinitions)
         {
-            if (!root.TryGetProperty(definition.Id, out var value))
+            if (!budgetSource.TryGetProperty(definition.Id, out var value))
             {
                 continue;
             }

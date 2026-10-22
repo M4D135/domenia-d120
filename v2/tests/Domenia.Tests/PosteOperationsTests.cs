@@ -221,7 +221,7 @@ internal static class PosteOperationsTests
         var data = SimulatedBridge.Json(result);
         Check.True(data.GetProperty("partial").GetBoolean(), "résultat partiel");
         Check.True(data.GetProperty("access").EnumerateArray().Any(a => a.GetProperty("statusLabel").GetString() == "Interrompu"), "sources non lues « Interrompu »");
-        Check.True(data.GetProperty("access").EnumerateArray().Any(a => a.GetProperty("statusLabel").GetString() is "OK" or "Vide"), "sources lues gardées");
+        Check.True(data.GetProperty("access").EnumerateArray().Any(a => a.GetProperty("statusLabel").GetString() == PosteLabels.SourceStatusLabel(SourceStatus.Ok) || a.GetProperty("statusLabel").GetString() == PosteLabels.SourceStatusLabel(SourceStatus.Empty)), "sources lues gardées");
         Check.Contains("Résultat partiel", data.GetProperty("notice").GetString(), "le partiel est dit");
         var console = SimulatedBridge.Json(await bridge.CallAsync("poste.open", Args(new { dn })));
         Check.True(console.GetProperty("inventory").ValueKind == JsonValueKind.Object, "le résultat partiel est enregistré");
@@ -248,7 +248,7 @@ internal static class PosteOperationsTests
             throw new TestFailureException("aucun poste au CIM refusé dans les 400 premiers postes de la simulation");
         }
         Check.Equal("readFallback", refused.GetProperty("noticeAction").GetString(), "l’autorisation de repli est proposée");
-        Check.False(refused.GetProperty("access").EnumerateArray().Any(a => a.GetProperty("statusLabel").GetString() == "OK"), "rien n’est lu sans autorisation (« non lu »)");
+        Check.False(refused.GetProperty("access").EnumerateArray().Any(a => a.GetProperty("statusLabel").GetString() == PosteLabels.SourceStatusLabel(SourceStatus.Ok)), "rien n’est lu sans autorisation (« non lu »)");
         var granted = SimulatedBridge.Json(await bridge.CallAsync("poste.consent.grant", Args(new { dn = blocked.DistinguishedName, kind = "readFallback", minutes = 5 })));
         Check.True(granted.GetProperty("consent").GetProperty("readFallback").GetProperty("active").GetBoolean(), "lecture de repli autorisée");
         var read = SimulatedBridge.Json(await bridge.CallAsync("poste.inventory", Args(new { dn = blocked.DistinguishedName, deep = false })));
@@ -266,7 +266,8 @@ internal static class PosteOperationsTests
         var c = Workstations(bridge).First(x => x.Laps == LapsKind.Windows && x.LapsExpiration is not null && PosteSimLaps(x));
         var view = SimulatedBridge.Json(await bridge.CallAsync("poste.laps", Args(new { dn = c.DistinguishedName })));
         Check.True(view.GetProperty("canReveal").GetBoolean(), "mot de passe lisible");
-        Check.False(view.GetRawText().Contains("\"value\"", StringComparison.Ordinal), "les métadonnées ne portent aucune valeur");
+        // The facts of the view have a « value » each (dates, states): the view itself carries no password field.
+        Check.False(view.TryGetProperty("value", out _) || view.TryGetProperty("password", out _), "les métadonnées ne portent aucune valeur");
         var reveal = await bridge.CallAsync("poste.laps.reveal", Args(new { dn = c.DistinguishedName }));
         Check.Equal(PosteErrors.HostUnavailable, reveal.Error!.Code, "sans fenêtre sécurisée : refus avant toute lecture");
         Check.False(bridge.Context.Journal.Snapshot().Any(e => e.Label.Contains("affiché", StringComparison.Ordinal)), "rien n’est affiché ni journalisé");
@@ -380,7 +381,7 @@ internal static class PosteOperationsTests
         _ = await bridge.CallAsync("poste.consent.grant", Args(new { dn = c.DistinguishedName, kind = "intervention", minutes = 5 }));
         var planned = SimulatedBridge.Json(await bridge.CallAsync("poste.run.plan", Args(new { dn = c.DistinguishedName, mode = "system", command = @"C:\Outils\maj.exe", arguments = Secret })));
         Check.False(planned.GetRawText().Contains("SECRET-NE-PAS-GARDER", StringComparison.Ordinal), "le plan ne porte pas les arguments");
-        Check.Contains("non conservés", planned.GetRawText(), "le plan dit leur longueur seulement");
+        Check.Contains("non conservés", SimulatedBridge.Text(planned), "le plan dit leur longueur seulement");
         var receipt = SimulatedBridge.Json(await bridge.CallAsync("write.execute", Execute(planned, PosteDirectoryWrites.TypedName(c))));
         Check.Equal("applied", receipt.GetProperty("result").GetString(), "tâche créée (simulation)");
         Check.False(receipt.GetRawText().Contains("SECRET-NE-PAS-GARDER", StringComparison.Ordinal), "le reçu ne porte pas les arguments");

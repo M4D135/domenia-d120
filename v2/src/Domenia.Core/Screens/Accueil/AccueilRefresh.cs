@@ -33,7 +33,8 @@ public sealed partial class AccueilService
     {
         public RefreshPlan Plan { get; } = plan;
         public CancellationTokenSource Cancellation { get; } = cancellation;
-        public string Id { get; } = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8));
+        // The run is named by its plan: a plan runs once (« jamais rejoué »), its report and its progress carry the same id.
+        public string Id { get; } = plan.Id;
         public DateTimeOffset StartedAt { get; init; }
         public List<RefreshStageResult> Stages { get; } = [];
         public List<CollectionRunRow> Runs { get; } = [];

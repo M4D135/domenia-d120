@@ -191,7 +191,7 @@ public static partial class OfflineDossierCommand
     }
 
     private static IEnumerable<string> Split(string value) =>
-        value.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static string Bounded(string text) => text.Length > 80 ? text[..79] + "…" : text;
 

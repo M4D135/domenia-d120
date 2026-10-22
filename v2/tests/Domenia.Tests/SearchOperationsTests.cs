@@ -414,13 +414,13 @@ internal static class SearchOperationsTests
         const string computers = "CN=Computers," + Root;
         var browsed = await Ok(bridge, "search.browse", Args(new { dn = computers, subtree = true }));
         Check.Equal(computers, browsed.GetProperty("scope").GetProperty("dn").GetString(), "contenu du conteneur");
-        var found = await Ok(bridge, "search.run", Args(new { text = "a", scope = computers, type = "all", match = "contains" }));
+        var found = await Ok(bridge, "search.run", Args(new { text = "pc", scope = computers, type = "all", match = "contains" }));
         Check.Equal(computers, found.GetProperty("scope").GetProperty("dn").GetString(), "recherche dans « Computers » : jamais « OU inconnue »");
         var view = await bridge.CallAsync("search.view", Args(new { id = "oucomputers", dn = computers, subtree = true, wholeDomain = false }));
         Check.True(view.Error is null || view.Error.Code != "ou.unknown", "vue sur un conteneur de la racine admise");
         var local = await bridge.CallAsync("search.localQuery", Args(new { id = "local.lowdisk", dn = computers, subtree = true }));
         Check.True(local.Error is null || local.Error.Code != "ou.unknown", "requête locale sur un conteneur de la racine admise");
-        Check.Equal("ou.unknown", await Refused(bridge, "search.run", Args(new { text = "a", scope = "CN=Inconnu," + Root })), "un conteneur inconnu reste refusé");
+        Check.Equal("ou.unknown", await Refused(bridge, "search.run", Args(new { text = "pc", scope = "CN=Inconnu," + Root })), "un conteneur inconnu reste refusé");
     }
 
     [Test]

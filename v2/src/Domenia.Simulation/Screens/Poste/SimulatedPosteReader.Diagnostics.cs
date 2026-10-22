@@ -520,7 +520,8 @@ public sealed partial class SimulatedPosteReader
         var (c, machine, _) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         await Wait("secrets", 200, 500, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
-        if (PosteSimulation.BitLockerDenied(machine))
+        // The refusal is lifted for this resource once another account was accepted for it (poste.account.other, PST-062).
+        if (PosteSimulation.BitLockerDenied(machine) && Sim.OtherAccount(c.ObjectGuid, "bitlocker") is null)
         {
             return new BitLockerList(c.Name, now, FactState.Refused, "Lecture BitLocker refusée pour ce compte : aucune conclusion sur la présence de clés. Un autre compte sera proposé (invite Windows) avant toute nouvelle lecture.",
                 [], PosteSecrets.ColumnHeader(true, false), Sim.Reader, true,

@@ -77,7 +77,7 @@ internal sealed record CaptureArguments(
             themes = CaptureThemes.ParseList(themeList, out var themesError);
             error = themesError ?? (routes.IsDefaultOrEmpty ? CaptureTexts.ThemesWithoutRoutes : null);
         }
-        if (error is null && !found.ContainsKey(Option))
+        if (error is null && requested && !found.ContainsKey(Option))
         {
             // Screens or themes without a folder: nothing would know where to write.
             error = CaptureTexts.FolderMissing;
