@@ -3,7 +3,19 @@
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
 OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 18 h, Claude Code (crédit presque épuisé) : état figé pour la relève**.
 
-## 0. À lire en premier (22/10, 18 h, Claude Code)
+## 0. À lire en premier (22/10, 18 h, Claude Code ; étape 1 faite le 22/10 au soir)
+
+- **Étape 1 faite (22/10 au soir, Claude Code)** : `v2-wip-annuaire` terminée, compilée et fusionnée dans `v2`.
+  - Ajouts : `Domenia.Ad/AdDirectoryReader.cs` (domaine : RootDSE, objet domaine, crossRef, contrôleurs des sites,
+    conteneurs ; image de l’annuaire : 4 recherches paginées par 1 000, bornées à 50 000 par type, image incomplète
+    signalée), `Domenia.Ad/AdDirectoryMapper.cs` (attributs de `SIMULATION.md` § 3.3 vers `Domenia.Core`, LAPS : dates
+    seulement), `Domenia.Inventory/WmiWorkstationProbe.cs` (ping, inventaire léger WMI en lecture : OS, ordinateur,
+    disque système ; délais bornés ; refus distingué de l’erreur ; traces au journal).
+  - `AdConnection.TechnicalTrace` branché sur `TechnicalLog.Warning` dans `Program.Main` ; jet Spark s2 corrigé
+    (`Controls`, `connection.Timeout`, ordre du constructeur de `SearchRequest`, `Aliases`, `DirectoryAttributeOperation`).
+  - Compilation VM : lot `v3-annuaire` Debug et Release, puis `main` Debug et Release : 0 erreur, 0 avertissement.
+    Aucun test exécuté ; aucun essai réel sur `cnamts.local`. Simulation non modifiée.
+  - Reste de l’ordre ci-dessous : points 2 à 5.
 
 - **Spark arrêté** : les 14 tâches `ask.sh` lancées par la relève sont stoppées (17 h 55).
   - Neuf attendaient depuis 30 à 80 minutes sans rien recevoir.
@@ -16,11 +28,11 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
   3. **Exports de fichiers** : créer une classe d'opération `LocalFile` (fichier choisi par l'opérateur, ouverture par Windows), distincte de `LocalWrite`, à documenter dans `PLATFORM.md` et `OPERATIONS.md`.
   4. **Statut `partiel`** : on le garde. L'ajouter à `v2/CLAUDE.md` (cinq statuts).
 - **État Git** :
-  - `v2` = `6b4fcba` (poussé, compile) ;
-  - `v2-wip-annuaire` = `c25b8bc` (poussé, ne compile pas encore) ;
+  - `v2` = fusion de `v2-wip-annuaire` (poussé, compile) ;
+  - `v2-wip-annuaire` = `705db1f` (poussé, compile, fusionnée ; arbre `../Domenia-D120-team/v3-annuaire`) ;
   - VM : 20 Go libres, `out\\plateforme` supprimé.
 - **Ordre de reprise conseillé** : § 4 bis « Suite, dans l'ordre », sans le Spark.
-  1. Terminer `AdDirectoryReader`, `AdDirectoryMapper` et `WmiWorkstationProbe` dans `v2-wip-annuaire`, compiler, fusionner.
+  1. ~~Terminer `AdDirectoryReader`, `AdDirectoryMapper` et `WmiWorkstationProbe` dans `v2-wip-annuaire`, compiler, fusionner.~~ Fait.
   2. Corriger les 4 tests C# restants, puis les échecs E2E de simulation (`docs/reprise/e2e-sim-1-echecs.txt`).
   3. Vrai moteur écran par écran, avec les écritures de Comptes et de la Fiche et la base SQLite.
   4. E2E en mode annuaire sur `cnamts.local` (`OU=Domenia-Tests`).
