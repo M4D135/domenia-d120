@@ -239,7 +239,7 @@ export function createOverview(panel, app) {
     root.dataset.state = 'ready';
     const view = st.view;
     const c = view.counts;
-    body.innerHTML = `${statusMarkup(view.summary, c.critical ? 'alert' : c.high ? 'warn' : 'ok')}
+    body.innerHTML = `${statusMarkup(view.summary, c.critical ? 'crit' : c.high ? 'warn' : 'ok')}
       ${bandMarkup(view)}<div class="aud-board-host">${boardMarkup()}</div>${sectionsMarkup(view)}`;
     paint(body);
     kvBinding?.destroy();

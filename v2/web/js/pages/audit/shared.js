@@ -8,7 +8,7 @@ export const NB = ' ';
 
 /** Severities of the findings, from the worst (docs/ops/audit.md § 3). */
 export const SEVERITIES = [
-  { id: 'critical', label: 'Critique', plural: 'Critiques', tone: 'alert', icon: 'zap', hint: 'Exploitable tout de suite : à traiter en priorité.' },
+  { id: 'critical', label: 'Critique', plural: 'Critiques', tone: 'crit', icon: 'zap', hint: 'Exploitable tout de suite : à traiter en priorité.' },
   { id: 'high', label: 'Élevée', plural: 'Élevées', tone: 'alert', icon: 'alert', hint: 'Risque important, souvent une étape d’attaque connue.' },
   { id: 'medium', label: 'Moyenne', plural: 'Moyennes', tone: 'warn', icon: 'eye', hint: 'Écart aux bonnes pratiques, à planifier.' },
   { id: 'low', label: 'Faible', plural: 'Faibles', tone: 'info', icon: 'info', hint: 'Hygiène de l’annuaire, à revoir à l’occasion.' },
@@ -86,7 +86,7 @@ export function factsMarkup(facts, { compact = false } = {}) {
 export function statusMarkup(text, tone = 'info', { busy = false } = {}) {
   const lines = String(text ?? '').split('\n').filter(Boolean);
   if (!lines.length) return '';
-  return `<div class="aud-status" data-tone="${esc(tone)}">${busy ? '<span class="k-spin" aria-hidden="true"></span>' : `<span class="aud-status-ico" aria-hidden="true">${icon(tone === 'alert' ? 'alert' : tone === 'warn' ? 'alert' : tone === 'ok' ? 'check' : 'info')}</span>`}
+  return `<div class="aud-status" data-tone="${esc(tone)}">${busy ? '<span class="k-spin" aria-hidden="true"></span>' : `<span class="aud-status-ico" aria-hidden="true">${icon(tone === 'alert' || tone === 'crit' ? 'alert' : tone === 'warn' ? 'alert' : tone === 'ok' ? 'check' : 'info')}</span>`}
     <div class="aud-status-text">${lines.map((l) => `<p>${esc(l)}</p>`).join('')}</div></div>`;
 }
 
