@@ -44,7 +44,7 @@ Pour chaque tâche :
 
 ## TA MISSION 2 : quand le Spark a fini
 
-Le Spark a fini quand `SUIVI-SPARK.md` n'affiche plus aucune tâche en `running` ni en `pending`. Arrête le démon s'il tourne encore (`pkill -f "python3 auto.py"`), puis :
+Le Spark a fini quand `SUIVI-SPARK.md` n'affiche plus aucune tâche en `running` ni en `pending`. Arrête le démon s'il tourne encore (`pkill -f auto.py`), puis :
 
 1. Sur `v2`, fusionne :
    - `origin/v2-spark`, qui contient les tâches du Spark validées ;
