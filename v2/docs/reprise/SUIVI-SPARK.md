@@ -17,10 +17,10 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:14. Ce fic
 
 | Tâche | État | Essais | Vérification | Note |
 |---|---|---|---|---|
-| 01-e2e | merged | 1 | PASS | fusionnée dans v2-spark |
-| 02-ad-accueil-rechercher | merged | 1 | PASS | fusionnée dans v2-spark |
-| 03-ad-fiche-comptes | pending | 1 | FAIL | relance après échec de vérification |
-| 04-ad-relations-poste | pending | 1 | FAIL | relance après échec de vérification |
-| 05-ad-requetes-audit-schema | running | 1 |  |  |
-| 06-store-synchro | running | 1 |  |  |
+| 01-e2e | pending | 1 |  | relance : la première tentative n’avait rien produit |
+| 02-ad-accueil-rechercher | pending | 1 |  | relance : la première tentative n’avait rien produit |
+| 03-ad-fiche-comptes | verifying | 1 |  |  |
+| 04-ad-relations-poste | ended | 1 |  |  |
+| 05-ad-requetes-audit-schema | pending | 0 |  |  |
+| 06-store-synchro | pending | 0 |  |  |
 | 07-ops-assist-param | pending | 0 |  |  |
