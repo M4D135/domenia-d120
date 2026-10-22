@@ -16,8 +16,9 @@ internal static class PageScripts
 
     /// <summary>Shared helpers, placed at the top of each function body (compile-time constant).</summary>
     private const string Prelude = """
-        const norm = (s) => String(s ?? '').replace(/[\s  ]+/g, ' ').trim();
-        const squash = (s) => String(s ?? '').replace(/[\s  ]+/g, '');
+        // A non-breaking hyphen (U+2011, kept in identifiers such as PC-LYO-0002) reads as a hyphen.
+        const norm = (s) => String(s ?? '').replace(/\u2011/g, '-').replace(/[\s  ]+/g, ' ').trim();
+        const squash = (s) => String(s ?? '').replace(/\u2011/g, '-').replace(/[\s  ]+/g, '');
         // innerText applies CSS text-transform (table headers, captions in capitals): the visible text is compared without
         // case, while the exact case is still required in the DOM text (textContent), so a label must be written as asked.
         const fold = (s) => norm(s).toLocaleLowerCase('fr');

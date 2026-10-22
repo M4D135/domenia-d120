@@ -226,7 +226,10 @@ export function openCatalog(o) {
       def = p && { source, key, visual: p.visual, size: 'M', group: 'Relevés des postes', title: p.name };
     }
     if (!def) return;
+    // A disabled button drops the focus to the body, where Échap no longer reaches the panel: keep the focus inside it.
+    const panel = add.closest('.k-drw');
     add.disabled = true;
+    if (panel instanceof HTMLElement) panel.focus({ preventScroll: true });
     add.classList.add('spinning');
     await board.add([def]);
     add.classList.remove('spinning', 'primary');
