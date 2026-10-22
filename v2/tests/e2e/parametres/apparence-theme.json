@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : changer de thème et revenir",
+  "description": "Ouvre la section Apparence, choisit le thème clair sur sa carte, vérifie que toute l’application passe en clair et que la tuile Apparence le dit, puis revient au thème sombre. Aucune lecture réseau, rien d’enregistré hors du poste.",
+  "modes": ["simulation", "annuaire"],
+  "start": "parametres?section=apparence",
+  "theme": "dark",
+  "steps": [
+    { "do": "wait", "ready": "parametres", "title": "L’écran Paramètres est prêt" },
+    { "do": "expect", "selector": "[data-section=\"apparence\"][aria-current=\"page\"]", "title": "La section Apparence est active dans le rail" },
+    { "do": "click", "selector": "[data-theme-choice=\"light\"]", "title": "Choisir la carte du thème clair" },
+    { "do": "expect", "selector": "[data-theme-choice=\"light\"]", "attribute": "aria-checked", "equals": "true", "title": "La carte du thème clair est cochée" },
+    { "do": "expect", "selector": "html[data-theme=\"light\"]", "title": "L’application est passée en clair" },
+    { "do": "expect", "contains": "Clair", "within": "[data-pulse=\"appearance\"]", "title": "La tuile Apparence du bandeau le dit" },
+    { "do": "shot", "name": "apparence-clair" },
+    { "do": "click", "selector": "[data-theme-choice=\"dark\"]", "title": "Revenir au thème sombre" },
+    { "do": "expect", "selector": "html[data-theme=\"dark\"]", "title": "L’application est revenue en sombre" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

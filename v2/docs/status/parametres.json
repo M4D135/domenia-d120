@@ -1,0 +1,116 @@
+{
+  "fait": [
+    "PAR-006",
+    "PAR-010",
+    "PAR-011",
+    "PAR-013",
+    "PAR-014",
+    "PAR-018",
+    "PAR-019",
+    "PAR-027",
+    "PAR-032",
+    "PAR-034",
+    "PAR-047"
+  ],
+  "ameliore": [
+    "PAR-001",
+    "PAR-002",
+    "PAR-003",
+    "PAR-008",
+    "PAR-009",
+    "PAR-016",
+    "PAR-017",
+    "PAR-020",
+    "PAR-022",
+    "PAR-023",
+    "PAR-024",
+    "PAR-025",
+    "PAR-026",
+    "PAR-028",
+    "PAR-029",
+    "PAR-030",
+    "PAR-031",
+    "PAR-033",
+    "PAR-035",
+    "PAR-042",
+    "PAR-050"
+  ],
+  "partiel": [
+    {
+      "id": "PAR-004",
+      "reste": "Densité confort ou compacte enregistrée et appliquée par le shell (data-density sur la racine, aperçu dans la page) ; la grille du kit et les listes des autres écrans doivent lire data-density (demande au kit)."
+    },
+    {
+      "id": "PAR-005",
+      "reste": "Profil Essentiel ou Expert enregistré, appliqué par le shell (data-profile) et soumis à UI.AllowExpertProfile ; les éléments experts des autres écrans doivent porter une règle partagée (.expert-only) à ajouter au kit."
+    },
+    {
+      "id": "PAR-007",
+      "reste": "Choix « Panneau d’aide à droite » mémorisé (domenia.ui.v1.helpVisible) ; le panneau d’aide contextuelle du shell n’existe pas encore (app.js, hors lot)."
+    },
+    {
+      "id": "PAR-012",
+      "reste": "Assistant et règles faits : bascule interrompue ou base illisible → seules reprise, retour ou restauration vérifiée sont proposées (simulation) ; la détection au démarrage par lecture du marqueur de redirection demande la base SQLite de Domenia.Store (vague 3)."
+    },
+    {
+      "id": "PAR-015",
+      "reste": "Ouverture du dossier par l’Explorateur faite pour les données, journaux, préférences, reçus et profil ; la base fictive de la simulation n’a pas de fichier et la base SQLite du mode annuaire arrive en vague 3 (settings.folderUnavailable dit pourquoi)."
+    },
+    {
+      "id": "PAR-021",
+      "reste": "Règle faite : base déclarée illisible → toute écriture refusée sauf la restauration d’une sauvegarde vérifiée (StorageWritePlans.EnsureWritable, assistant) ; la preuve de corruption (SQLITE_CORRUPT, NOTADB, quick_check) viendra de la base SQLite (vague 3)."
+    },
+    {
+      "id": "PAR-036",
+      "reste": "Réglage (1 à 720 h, 2 à 30 copies, désactivé par défaut), échéance, prochaine heure et raison du report calculés et affichés ; le déclenchement automatique pendant que Domenia est ouvert (contrôle chaque minute, plan « scheduled ») reste à brancher dans le moteur avec Domenia.Store."
+    },
+    {
+      "id": "PAR-037",
+      "reste": "Plafond des widgets, essais WMI et premier délai réglables, bornés et enregistrés (settings.collection) ; les relevés de l’Accueil et des postes doivent les lire au début de chaque relevé (CollectionSettingsRules.Read), non raccordé hors de Paramètres."
+    },
+    {
+      "id": "PAR-038",
+      "reste": "Trois profils de Domenia 1 avec leurs durées et leur fenêtre, enregistrés ; la collecte des autres écrans doit lire le profil actif (non raccordé hors de Paramètres)."
+    },
+    {
+      "id": "PAR-039",
+      "reste": "Durées par famille et par profil, bornées de 0 à 7 jours, retour aux durées du profil ; à lire par la collecte des autres écrans pour réutiliser les mesures (non raccordé)."
+    },
+    {
+      "id": "PAR-040",
+      "reste": "Fenêtre analysée en direct (jetons fautifs nommés), état ouvert ou fermé et prochain changement, éditeur graphique de la semaine (amélioration) ; les travaux de fond des autres écrans doivent la respecter (non raccordé hors de Paramètres)."
+    },
+    {
+      "id": "PAR-041",
+      "reste": "Parallélisme (1 à 8), réutilisation (0 à 1 440 min) et plafond de cibles (1 à 20 000) enregistrés ; à appliquer par les relevés des autres écrans (non raccordé)."
+    },
+    {
+      "id": "PAR-043",
+      "reste": "Commutateurs Features.* lus, bornés et montrés avec leur défaut, leur provenance et leur usage ; les comportements qu’ils commandent ne sont pas encore portés en Domenia 2."
+    },
+    {
+      "id": "PAR-044",
+      "reste": "GuiElementPolicy lue, validée (Default, Disabled, Hidden ; valeur inconnue signalée) et montrée ; l’application aux contrôles des écrans demande une convention partagée du shell et du kit."
+    },
+    {
+      "id": "PAR-045",
+      "reste": "Réglages de sécurité lus, bornés et montrés (provenance, bornes, usage) ; BlockProtectedObjects et la confirmation saisie s’appliquent, les autres seront lus par les écrans de secrets et de mots de passe quand ils seront portés."
+    },
+    {
+      "id": "PAR-046",
+      "reste": "Réglages réseau, accès distant et budgets lus, bornés et montrés ; appliqués par les lectures réseau de la vague 3."
+    },
+    {
+      "id": "PAR-048",
+      "reste": "OU de travail mémorisée par domaine (session.setScope), suivie par l’Accueil ; les sections qui la prennent par défaut sont listées dans la page. Chaque écran porté doit la lire comme défaut, et le remplacement confirmé (Remplacer / Conserver) d’une OU propre plus étroite viendra quand une section aura sa propre OU."
+    },
+    {
+      "id": "PAR-049",
+      "reste": "« Se souvenir de mon identifiant » (décoché par défaut, jamais de mot de passe) et « Oublier » faits, refusés en simulation ; le dernier identifiant et le compte du coffre seront écrits par la connexion explicite (vague 3), dans les préférences de Domenia 2 et non plus HKCU."
+    },
+    {
+      "id": "PAR-051",
+      "reste": "Réglages de l’interface (thème, animations, menu, zoom, densité, profil) réappliqués au démarrage sans lecture ni collecte ; la taille, la position et l’état maximisé de la fenêtre relèvent de MainForm (fichier partagé hors lot)."
+    }
+  ]
+}

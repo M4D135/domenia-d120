@@ -103,6 +103,32 @@ internal static class PlatformTests
         ("directory.ou.search", OperationClass.LocalRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
+        ("settings.collection", OperationClass.LocalRead),
+        ("settings.collection.set", OperationClass.LocalWrite),
+        ("settings.collection.window.check", OperationClass.Local),
+        ("settings.connection", OperationClass.LocalRead),
+        ("settings.connection.forget", OperationClass.LocalWrite),
+        ("settings.connection.set", OperationClass.LocalWrite),
+        ("settings.demo", OperationClass.LocalRead),
+        ("settings.preferences.reset", OperationClass.LocalWrite),
+        ("settings.storage", OperationClass.LocalRead),
+        ("settings.storage.backup.plan", OperationClass.LocalRead),
+        ("settings.storage.backup.schedule.set", OperationClass.LocalWrite),
+        ("settings.storage.backupCopy.plan", OperationClass.LocalRead),
+        ("settings.storage.integrity", OperationClass.LocalRead),
+        ("settings.storage.legacy.plan", OperationClass.LocalRead),
+        ("settings.storage.legacy.preview", OperationClass.LocalRead),
+        ("settings.storage.measure", OperationClass.LocalRead),
+        ("settings.storage.move.plan", OperationClass.LocalRead),
+        ("settings.storage.purge.plan", OperationClass.LocalRead),
+        ("settings.storage.purge.preview", OperationClass.LocalRead),
+        ("settings.storage.restore.plan", OperationClass.LocalRead),
+        ("settings.storage.resume.plan", OperationClass.LocalRead),
+        ("settings.storage.retention.plan", OperationClass.LocalRead),
+        ("settings.storage.retention.preview", OperationClass.LocalRead),
+        ("settings.storage.retention.set", OperationClass.LocalWrite),
+        ("settings.storage.rollback.plan", OperationClass.LocalRead),
+        ("settings.storage.writerResume.plan", OperationClass.LocalRead),
         ("write.execute", OperationClass.Write),
         ("write.receipts.get", OperationClass.LocalRead),
         ("write.receipts.list", OperationClass.LocalRead),
@@ -125,7 +151,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "SettingsOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");
