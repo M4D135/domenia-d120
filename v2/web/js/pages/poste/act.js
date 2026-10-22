@@ -5,6 +5,7 @@
 // (Pesto, FILPRO) only receive declared, validated context fields, after their fingerprint is checked.
 import { openDrawer, openDialog, confirmDialog, field, writeClipboard, debounce } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
+import { mountMachineAccount } from '../machine/panel.js';
 import { reveal, toast, announce } from '../../ui.js';
 import { esc, ico, rel, chip, empty, failure, cardHead, section, facts, paintMeters, errorText, NBSP, int, count, formatDateTime } from './common.js';
 
@@ -22,7 +23,7 @@ const TOOLS = [
 export function renderAct(panel, state) {
   let alive = true;
   const off = [];
-  const local = { commands: null, span: null };
+  const local = { commands: null, span: null, account: null };
 
   const paint = () => {
     const d = state.data;
@@ -46,6 +47,10 @@ export function renderAct(panel, state) {
       </div>
     </div>`;
     paintConsentCard();
+    // MAC-002: the sentence « Opérations poste : … » in the card of the connection tools, mounted again with the card.
+    local.account?.destroy();
+    const accountHost = panel.querySelector('[data-slot="machine-account"]');
+    local.account = accountHost ? mountMachineAccount(accountHost, state.ctx, { target: d.computer.name, show: 'sentence' }) : null;
     reveal(panel);
   };
 
@@ -190,6 +195,7 @@ export function renderAct(panel, state) {
     alive = false;
     clearInterval(timer);
     off.forEach((fn) => fn());
+    local.account?.destroy();
     panel.removeEventListener('click', onClick);
     panel.removeEventListener('change', onChange);
   };
@@ -303,6 +309,7 @@ function toolsCard(state, local) {
   return `${cardHead('terminal', 'Outils Windows et PowerShell', 'Ouverts depuis le poste d’administration, ou commandes prêtes à coller ; jamais de mot de passe copié')}
     <ul class="ps-tools">${TOOLS.map(row).join('')}</ul>
     <div class="ps-ps">
+      <div class="ps-ps-account" data-slot="machine-account"></div>
       <div class="ps-ps-line"><span class="ps-ps-label">${ico('terminal')}Session PowerShell distante</span><button class="btn sm" type="button" data-act="copy" data-key="psRemote" data-label="Enter-PSSession">${ico('copy')}Copier Enter-PSSession</button></div>
       <div class="ps-ps-line"><span class="ps-ps-label">${ico('play')}Commande ponctuelle</span><button class="btn sm" type="button" data-act="copy" data-key="invokeCommand" data-label="Invoke-Command">${ico('copy')}Copier Invoke-Command</button></div>
       <p class="ps-note">${ico('lock')}${o.operationsAccount ? `Avec le compte ${esc(o.operationsAccount)}${NBSP}: Windows demandera son mot de passe, qui n’est jamais copié ni enregistré.` : 'Aucun compte d’exploitation déclaré : la commande utilise votre session Windows.'}</p>

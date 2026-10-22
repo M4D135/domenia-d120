@@ -15,6 +15,7 @@ import { renderInventory } from './poste/inventory.js';
 import { renderDiagnostic } from './poste/diagnostic.js';
 import { renderReadings } from './poste/readings.js';
 import { renderAct } from './poste/act.js';
+import { mountMachineAccount } from './machine/panel.js';
 import { renderSecrets } from './poste/secrets.js';
 import { reveal as revealCards, toast, announce } from '../ui.js';
 
@@ -161,12 +162,17 @@ function renderConsole(main, ctx, params) {
           <div class="ps-hero-main" data-slot="hero-main"></div>
           <div class="ps-hero-score" data-slot="hero-score"></div>
           <div class="ps-hero-bar" data-slot="bar"></div>
+          <div class="ps-hero-account" data-slot="machine-account"></div>
         </div>
       </section>
       <div class="ps-kpis" data-slot="kpis" role="list" aria-label="Indicateurs du poste"></div>
       <div class="ps-views reveal" data-slot="views"></div>
     </div>`;
     createBar(main, state, cleanups);
+    // MAC-002: the « Compte poste » pill names the account of the next operation on this workstation (machine.account.watch);
+    // its slot is never repainted by the header, so the pill keeps its state and its side panel.
+    const machineAccount = mountMachineAccount(main.querySelector('[data-slot="machine-account"]'), ctx, { target: state.data.computer.name, show: 'pill' });
+    cleanups.push(() => machineAccount.destroy());
     paintHeader(main, state);
     bindHeader(main, state, cleanups);
     const route = ROUTES[params.onglet] ?? null;

@@ -1,0 +1,43 @@
+/* Widgets of saved queries on a board (web/js/pages/requetes/board-widgets.js): Accueil and Poste. Loaded once by the component. */
+[data-page="requetes-widgets"].qw-board { display: grid; gap: var(--s3); margin-top: var(--s5); }
+[data-page="requetes-widgets"].qw-board[hidden] { display: none; }
+[data-page="requetes-widgets"] .qw-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+[data-page="requetes-widgets"] .qw-head h2 { display: flex; align-items: center; gap: var(--s2); margin: 0; font-size: var(--fs-h3, 1.05rem); }
+[data-page="requetes-widgets"] .qw-head h2 svg { width: 18px; height: 18px; color: var(--accent); }
+[data-page="requetes-widgets"] .qw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s3); }
+[data-page="requetes-widgets"] .qw-card {
+  display: grid; gap: var(--s2); align-content: start; padding: var(--s4); border-radius: var(--r-lg);
+  background: var(--bg-raised, var(--bg)); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  animation: qw-in var(--t-slow, 420ms) var(--ease-out, ease-out) both;
+}
+[data-page="requetes-widgets"] .qw-card[data-tone="warn"] { border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); }
+[data-page="requetes-widgets"] .qw-card[data-tone="ok"] { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+[data-page="requetes-widgets"] .qw-card header { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+[data-page="requetes-widgets"] .qw-card h3 { flex: 1; min-width: 0; margin: 0; font-size: var(--fs-body); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-page="requetes-widgets"] .qw-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); flex: none; }
+[data-page="requetes-widgets"] .qw-ico svg { width: 16px; height: 16px; }
+[data-page="requetes-widgets"] .qw-rev { font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+[data-page="requetes-widgets"] .qw-kpi { display: flex; align-items: baseline; gap: var(--s2); margin: 0; }
+[data-page="requetes-widgets"] .qw-kpi b { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+[data-page="requetes-widgets"] .qw-kpi span { color: var(--text-muted); }
+[data-page="requetes-widgets"] .qw-text { margin: 0; color: var(--text-muted); font-size: var(--fs-small); }
+[data-page="requetes-widgets"] .qw-verdict { display: grid; gap: 2px; margin: 0; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 70%, transparent); font-size: var(--fs-small); }
+[data-page="requetes-widgets"] .qw-verdict[data-tone="ok"] b { color: var(--ok); }
+[data-page="requetes-widgets"] .qw-verdict[data-tone="warn"] b { color: var(--warn); }
+[data-page="requetes-widgets"] .qw-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+[data-page="requetes-widgets"] .qw-bars li { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: var(--s2); align-items: center; font-size: var(--fs-caption); }
+[data-page="requetes-widgets"] .qw-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-page="requetes-widgets"] .qw-bar-track { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; }
+[data-page="requetes-widgets"] .qw-bar-fill {
+  display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--brand-1, var(--accent)), var(--brand-2, var(--accent)));
+  transform-origin: left center; transform: scaleX(var(--p, 0)); animation: qw-grow var(--t-chart, 700ms) var(--ease-out, ease-out) both;
+  animation-delay: calc(var(--i, 0) * 50ms + 120ms);
+}
+[data-page="requetes-widgets"] .qw-bar-value { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+[data-page="requetes-widgets"] .qw-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); font-size: var(--fs-caption); }
+@keyframes qw-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes qw-grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-page="requetes-widgets"] .qw-card, [data-page="requetes-widgets"] .qw-bar-fill { animation: none; }
+}
+:root[data-motion="reduced"] [data-page="requetes-widgets"] .qw-card, :root[data-motion="reduced"] [data-page="requetes-widgets"] .qw-bar-fill { animation: none; }

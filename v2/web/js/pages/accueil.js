@@ -18,6 +18,7 @@ import {
 } from './accueil/shared.js';
 import { createOuPicker } from './accueil/ou-picker.js';
 import { createBoard } from './accueil/board.js';
+import { mountQueryWidgets } from './requetes/board-widgets.js';
 import { createRefresh } from './accueil/refresh.js';
 import { openTargets, openCatalog, openProbeContract, openExplain, openProvenance, openAnalysis } from './accueil/tools.js';
 import { openHealthRules } from './accueil/health.js';
@@ -107,6 +108,7 @@ function skeletonPage() {
     ${chart('measureFreshness', 'span-3', sk('sk-ring'), 'fleet')}
     ${secHead('board', 'Tableau du parc', 'OU de travail, recalculé depuis la base locale après chaque mesure · chaque chiffre ouvre ses postes exacts')}
     <section class="span-12 board" data-slot="board" data-in-sec="board" aria-labelledby="acc-sec-board"></section>
+    <div class="span-12" data-slot="query-widgets" data-in-sec="board"></div>
     ${secHead('follow', 'Suivi', 'Postes à surveiller et journal des opérations')}
     ${chart('watchlist', 'span-7', skStack('sk-line w85', 'sk-line w70', 'sk-line w85', 'sk-line w55'), 'follow')}
     ${chart('recentOperations', 'span-5', skStack('sk-line w70', 'sk-line w55', 'sk-line w70', 'sk-line w40'), 'follow')}
@@ -1412,6 +1414,7 @@ export function render(main, ctx) {
     });
   }
 
+  let queryWidgets = null;
   async function start() {
     pending.clear();
     st.widgets = {};
@@ -1422,6 +1425,10 @@ export function render(main, ctx) {
     startReveal(main);
     watchSections();
     mountParts();
+    // REQ-039: widgets of saved queries of the general board, evaluated locally on the revision they are bound to.
+    queryWidgets?.destroy();
+    const widgetsHost = main.querySelector('[data-slot="query-widgets"]');
+    queryWidgets = widgetsHost ? mountQueryWidgets(widgetsHost, ctx, { board: 'fleet' }) : null;
     ctx.app.then((app) => {
       if (!st.alive) return;
       st.app = app;
@@ -1539,6 +1546,7 @@ export function render(main, ctx) {
   return () => {
     clearTimeout(boardTimer);
     st.alive = false;
+    queryWidgets?.destroy();
     clearInterval(ticker);
     clearInterval(liveTimer);
     main.removeEventListener('click', onClick);

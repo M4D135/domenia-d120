@@ -317,6 +317,10 @@
   color: var(--tc-text); background: color-mix(in srgb, var(--tc) 15%, transparent);
 }
 .main[data-page="poste"] .ps-hero-bar { grid-column: 1 / -1; display: flex; min-width: 0; padding-top: var(--s4); border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+.main[data-page="poste"] .ps-hero-account { grid-column: 1 / -1; display: flex; justify-content: flex-end; min-width: 0; }
+.main[data-page="poste"] .ps-hero-account:empty { display: none; }
+.main[data-page="poste"] .ps-ps-account { margin-bottom: var(--s2); font-size: var(--fs-small); color: var(--text-muted); }
+.main[data-page="poste"] .ps-ps-account:empty { display: none; }
 @container ps (max-width: 980px) {
   .main[data-page="poste"] .ps-hero-grid { grid-template-columns: minmax(0, 1fr); }
   .main[data-page="poste"] .ps-hero-score { justify-self: start; }

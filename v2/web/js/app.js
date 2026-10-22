@@ -695,7 +695,7 @@ function boot() {
     if (t.closest('.search-trigger')) { palette.open(); return; }
     if (t.closest('.mode-chip') || t.closest('.live')) { openSession(t.closest('.mode-chip, .live')); return; }
     if (t.closest('.sh-activity')) { openActivity(anchorOf('.sh-activity'), refreshActivity); return; }
-    if (t.closest('.sh-access')) { router.go('comptes'); return; }
+    if (t.closest('.sh-access')) { router.go('comptes', { vue: 'acces' }); return; }
     if (t.closest('.notif')) { openCentreAt('notifications'); return; }
     if (t.closest('.sh-help-btn')) { toggleHelpPanel(); return; }
     const theme = t.closest('.theme-switch button[data-set]');
@@ -821,6 +821,22 @@ function boot() {
   };
   on('access', paintAccess);
   paintAccess();
+
+  // CPT-001: the slot follows accounts.access.revision (local, names and counts only) every 2 s on every screen; the Comptes
+  // screen reports it itself while it is shown. Three failures in a row stop the follow-up (preview without the operation).
+  let accessFailures = 0;
+  const accessTimer = setInterval(() => {
+    if (document.hidden || router?.current?.() === 'comptes') return;
+    quietCall('accounts.access.revision').then((r) => {
+      accessFailures = 0;
+      const pending = Math.max(0, Number(r?.pending) || 0);
+      const label = pending === 1 ? '1 accès à revoir' : `${pending} accès à revoir`;
+      const detail = pending ? `${label}${r.oldestPendingLabel ? ` · plus ancien${NBSP}: ${r.oldestPendingLabel}` : ''}` : '';
+      if (state.access?.suspended === pending && (state.access?.detail ?? '') === detail) return;
+      state.access = { suspended: pending, detail: detail.slice(0, 160) };
+      emit('access', state.access);
+    }).catch(() => { accessFailures += 1; if (accessFailures >= 3) clearInterval(accessTimer); });
+  }, 2000);
 
   // ---------- Help ----------
 
@@ -1029,7 +1045,7 @@ function boot() {
   function journalShortcut() {
     // Ctrl+L never changes the profile (TRV-180): the Opérations screen in Expert (when the administrator allows it), the
     // journal panel of the session in Essentiel.
-    if (effectiveProfile() === 'expert') router.go('operations');
+    if (effectiveProfile() === 'expert') router.go('operations', { onglet: 'journal' });
     else openCentreAt('journal');
   }
 

@@ -103,7 +103,13 @@ export function render(main, ctx) {
     get preview() { return preview; },
     open: (row) => openObject(row),
     // Each screen names its subject its own way: Assistance takes « poste » (or « compte »), the others « dn ».
-    go: (route, row) => { recentObject(row); ctx.navigate(route, route === 'assistance' ? { [row.kind === 'user' ? 'compte' : 'poste']: row.dn, vue: 'intervenir' } : { dn: row.dn }); },
+    go: (route, row, extra = {}) => { recentObject(row); ctx.navigate(route, route === 'assistance' ? { [row.kind === 'user' ? 'compte' : 'poste']: row.dn, ...extra } : { dn: row.dn, ...extra }); },
+    // ASS-012: the computers of the rows (500 at most) open the offline dossier of the Assistance with their names; nothing is
+    // read nor written before « Préparer le dossier… » there.
+    offlineDossier: (rows) => {
+      const names = [...new Set(rows.filter((r) => r.kind === 'computer' && r.name).map((r) => String(r.name).replace(/\$$/, '')))].slice(0, 500);
+      if (names.length) ctx.navigate('assistance', { postes: names.join(','), vue: 'horsligne' });
+    },
     browse: (dn) => browse(dn, leafOf(dn), side?.subtree ?? true),
     searchAssociated: (row) => searchAssociated(row),
     pin: (dn) => pin({ data: { kind: 'ou', dn, name: leafOf(dn) } }, true),

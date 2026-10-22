@@ -27,5 +27,5 @@ ne concernent que `dev/` (Domenia 1).
 
 ## Parité
 
-Chaque fonction de Domenia 1 est dans `docs/FEATURES.md` avec son statut (`a-faire`, `fait`, `ameliore`, `abandonne` —
-ce dernier seulement sur décision écrite de David). Ne rien retirer sans décision.
+Chaque fonction de Domenia 1 est dans `docs/FEATURES.md` avec son statut (`a-faire`, `fait`, `ameliore`, `partiel` — ce
+qui reste à faire est écrit sous la fonction —, `abandonne` — ce dernier seulement sur décision écrite de David). Ne rien retirer sans décision.

@@ -637,6 +637,9 @@ button.list-row { width: 100%; border: 0; background: none; text-align: left; cu
 .sh-help-count { color: var(--accent-text); }
 .sh-help-chapter { display: flex; gap: var(--s2); margin-bottom: var(--s2); font-weight: 600; font-size: var(--fs-small); }
 .sh-help-chapter svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--accent); }
+.sh-help-ids { list-style: none; margin: 0 0 var(--s2); padding: 0; display: grid; gap: var(--s2); }
+.sh-help-ids li { display: grid; gap: 1px; font-size: var(--fs-small); }
+.sh-help-ids .mono { overflow-wrap: anywhere; }
 .sh-help-guide { margin-bottom: var(--s3); display: grid; gap: var(--s2); justify-items: start; }
 .sh-help-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1); padding: var(--s3) var(--s4); border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
 .sh-help-tips { margin-left: auto; display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--fs-caption); color: var(--text-muted); cursor: pointer; }

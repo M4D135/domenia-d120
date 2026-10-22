@@ -5,6 +5,7 @@
 // share their height, the stacked ones share the height of their column.
 import { gauge, animateGauges, bindCopy, timeline, bindTimeline, writeClipboard } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
+import { mountQueryWidgets } from '../requetes/board-widgets.js';
 import {
   esc, ico, rel, fact, facts, cardHead, section, empty, failure, chip, meter, paintMeters, donut, paintDonuts, sheetLines,
   progressMarkup, setProgress, NBSP, int, count, pct, freePct, size, errorText,
@@ -17,6 +18,7 @@ const VIEW_LABEL = { ensemble: 'Vue d’ensemble', inventaire: 'Inventaire', dia
 export function renderOverview(panel, state) {
   let alive = true;
   const off = [];
+  let queryWidgets = null;
   panel.classList.add('ps-overview');
 
   const paint = () => {
@@ -38,7 +40,12 @@ export function renderOverview(panel, state) {
       ${b.sections?.length ? section('Détails de la protection', 'BitLocker, pare-feu, antivirus, redémarrage, mises à jour, Secure Boot, certificats') : ''}
       ${b.sections?.length ? `<div class="ps-sections span-12">${b.sections.map(sectionCard).join('')}</div>` : ''}
       ${d.notes?.length ? `<section class="card ps-card span-12 reveal">${cardHead('info', 'Notes', 'Ce que la console sait de plus')}${facts(d.notes)}</section>` : ''}
+      <div class="span-12" data-slot="query-widgets"></div>
     </div>`;
+    // PST-113: widgets of saved queries of the workstation board, evaluated on this workstation only (local data, no network).
+    queryWidgets?.destroy();
+    const widgetsHost = panel.querySelector('[data-slot="query-widgets"]');
+    queryWidgets = widgetsHost && d.computer.guid ? mountQueryWidgets(widgetsHost, state.ctx, { board: 'computer', computer: d.computer.guid }) : null;
     paintMeters(panel);
     paintDonuts(panel);
     animateGauges(panel);
@@ -133,7 +140,7 @@ export function renderOverview(panel, state) {
   if (state.essai === 'live') live();
   else if (state.essai === 'detection') detect();
   else if (state.essai === 'connexions') logons();
-  return () => { alive = false; off.forEach((fn) => fn()); };
+  return () => { alive = false; off.forEach((fn) => fn()); queryWidgets?.destroy(); };
 }
 
 // ---------- Cards ----------

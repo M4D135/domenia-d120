@@ -128,7 +128,7 @@ async function paintJournal(list) {
   }
   list.innerHTML = `<ol class="sh-journal">${lines.map((l) => `<li data-tone="${esc(l.tone)}"><span class="dot" aria-hidden="true"></span><span class="sh-journal-label">${esc(l.label)}</span><time datetime="${esc(l.at)}" title="${esc(formatDateTime(l.at) ?? '')}">${esc(formatTime(l.at) ?? '')}</time></li>`).join('')}</ol>
     <div class="sh-pop-foot"><button class="btn sm subtle" type="button" data-act-ops>${icon('activity')}Ouvrir Opérations</button></div>`;
-  list.querySelector('[data-act-ops]').addEventListener('click', () => { closePopover(); go('operations'); });
+  list.querySelector('[data-act-ops]').addEventListener('click', () => { closePopover(); go('operations', { onglet: 'journal' }); });
 }
 
 // ---------- Operations of the session ----------
@@ -141,6 +141,18 @@ export function openActivity(anchor, refresh) {
     width: 400,
     render(body, ctl) {
       body.innerHTML = '<div class="sh-loading" aria-busy="true"><span class="k-spin"></span>Lecture de l’activité…</div>';
+      // OPE-015: the tasks of the engine come from operations.center (live duration, counters of the batches, stop of a read;
+      // a write is never stopped); OPE-026: the pill says the object and the operation of the oldest receipt to verify.
+      let center = null;
+      const engineTasks = () => (center?.open ?? []).filter((t) => t.state !== 'completed').slice(0, 6);
+      const taskRow = (t) => {
+        const since = Date.parse(t.startedAt);
+        const live = Number.isFinite(since) ? elapsedText(Math.max(0, Date.now() - since)) : t.durationText;
+        const counters = t.progress ? ` · ${t.progress.counters || `${t.progress.done}/${t.progress.total}`}` : '';
+        const stop = t.canStop ? `<button class="btn xs ghost" type="button" data-engine-stop="${esc(t.id)}" aria-label="Demander l’arrêt de ${esc(t.label)}">${icon('x')}Arrêter</button>`
+          : (t.stopReason ? `<span class="faint" data-tip="${esc(t.stopReason)}">${icon('lock')}</span>` : '');
+        return `<li data-tone="${esc(t.tone)}"><span class="sh-task-l" data-tip="${esc(t.detail || t.label)}">${esc(t.label)}<span class="faint">${NBSP}· ${esc(t.stateLabel)}${esc(counters)}</span></span><span class="sh-task-t mono">${esc(live)}</span><span class="sh-task-p">${stop}</span></li>`;
+      };
       const paint = (a) => {
         if (!a) {
           body.innerHTML = `<div class="sh-empty-mini">${icon('activity')}<p><strong>Activité indisponible</strong> dans cet aperçu.</p></div>`;
@@ -159,24 +171,33 @@ export function openActivity(anchor, refresh) {
           </div>
           ${a.tasks.running ? '<div class="sh-progress" role="progressbar" aria-label="Lectures en cours"><span></span></div>' : ''}
           <p class="sh-activity-detail">${esc(a.detail)}</p>
+          ${engineTasks().length ? `<h3 class="sh-sub">Tâches du moteur</h3><ol class="sh-tasks">${engineTasks().map(taskRow).join('')}</ol>` : ''}
           ${tasks.length ? `<h3 class="sh-sub">Tâches de l’interface</h3><ol class="sh-tasks">${tasks.map((t) => `<li><span class="sh-task-l">${t.stopping ? 'Arrêt demandé · ' : ''}${esc(t.label)}</span><span class="sh-task-p mono">${t.progress === null ? '' : `${Math.round(t.progress * 100)} %`}</span><span class="sh-task-t mono">${esc(elapsedText(Date.now() - t.started))}</span></li>`).join('')}</ol>${tasks.some((t) => t.cancellable && !t.stopping) ? `<button class="btn sm subtle" type="button" data-task-stop>${icon('x')}Demander l’arrêt de la première tâche</button>` : ''}` : ''}
           <h3 class="sh-sub">Dernières opérations</h3>
           ${a.journal.length ? `<ol class="sh-journal">${a.journal.slice(0, 8).map((l) => `<li data-tone="${esc(l.tone)}"><span class="dot" aria-hidden="true"></span><span class="sh-journal-label">${esc(l.label)}</span><time datetime="${esc(l.at)}">${esc(formatTime(l.at) ?? '')}</time></li>`).join('')}</ol>` : `<div class="sh-empty-mini">${icon('activity')}<p><strong>Aucune opération</strong> dans cette session.</p></div>`}
           ${blocked.count ? `<p class="faint sh-activity-blocked">${blocked.count} panneau${blocked.count > 1 ? 'x' : ''} modal${blocked.count > 1 ? 'aux' : ''} cette session, interface bloquée ${Math.round(blocked.ms / 1000)} s au total.</p>` : ''}
           <div class="sh-pop-foot">
-            <button class="btn sm subtle" type="button" data-go="verifier"${r.pending ? '' : ' aria-disabled="true" data-reason="Aucun reçu à vérifier."'}>${icon('shield')}Vérifier les reçus</button>
+            <button class="btn sm subtle" type="button" data-go="verifier"${r.pending ? (center?.pill?.oldest ? ` data-tip="${esc(`Plus ancien${NBSP}: ${center.pill.oldest.label} · ${center.pill.oldest.target}`)}"` : '') : ' aria-disabled="true" data-reason="Aucun reçu à vérifier."'}>${icon('shield')}Vérifier les reçus</button>
             <button class="btn sm primary" type="button" data-go="operations">${icon('activity')}Ouvrir Opérations</button>
           </div>
         </div>`;
       };
+      const reload = () => Promise.all([refresh(), quietCall('operations.center').catch(() => null)])
+        .then(([a, c]) => { center = c; paint(a); }).catch(() => paint(null));
       body.addEventListener('click', (e) => {
-        if (e.target instanceof Element && e.target.closest('[data-task-stop]')) { stopFirstTask(); refresh().then(paint).catch(() => paint(null)); return; }
+        if (e.target instanceof Element && e.target.closest('[data-task-stop]')) { stopFirstTask(); reload(); return; }
+        const engineStop = e.target instanceof Element ? e.target.closest('[data-engine-stop]') : null;
+        if (engineStop) {
+          engineStop.setAttribute('aria-disabled', 'true');
+          quietCall('operations.task.stop', { id: engineStop.dataset.engineStop }).then((r) => announce(r?.text ?? 'Arrêt demandé.')).catch(() => announce('Arrêt impossible pour cette tâche.')).finally(reload);
+          return;
+        }
         const b = e.target instanceof Element ? e.target.closest('[data-go]') : null;
         if (!b || b.getAttribute('aria-disabled') === 'true') return;
         ctl.close();
-        if (b.dataset.go === 'verifier') go('operations', { filtre: 'verifier' }); else go('operations');
+        if (b.dataset.go === 'verifier') go('operations', { filtre: 'verifier' }); else go('operations', { onglet: engineTasks().length ? 'taches' : 'recus' });
       });
-      refresh().then(paint).catch(() => paint(null));
+      reload();
     },
   });
 }

@@ -46,6 +46,11 @@ function markup() {
         <div class="sh-help-guide"></div>
         <ol class="sh-help-topics"></ol>
       </section>
+      <section class="sh-help-block" data-block="identities" hidden>
+        <h3>Comptes utilisés</h3>
+        <ul class="sh-help-ids"></ul>
+        <button class="btn xs subtle" type="button" data-help-act="comptes">${icon('users')}Ouvrir Comptes</button>
+      </section>
     </div>
     <div class="sh-help-foot">
       <button class="btn sm ghost" type="button" data-help-act="keys">${icon('command')}Raccourcis</button>
@@ -83,6 +88,7 @@ function ensure() {
     if (act === 'keys') actions.openShortcuts();
     if (act === 'centre') actions.go('shell', { onglet: 'aide' });
     if (act === 'guide') openGuide();
+    if (act === 'comptes') actions.go('comptes', { vue: 'acces' });
   });
   const tips = panel.querySelector('[data-help-tips]');
   tips.checked = state.prefs.helpTips !== false;
@@ -178,12 +184,25 @@ async function paintScreen() {
        <button class="btn xs subtle" type="button" data-help-act="guide"${guide.found ? '' : ` aria-disabled="true" data-reason="${esc(guide.message)}"`}>${icon('external')}Ouvrir le guide</button>
        ${guide.found ? '' : `<p class="faint">${esc(guide.message)}</p>`}`
     : '<p class="faint">Guides : disponibles dans le pack, dossier DOC.</p>';
+  paintIdentities();
   try { await loadHelp(); } catch { /* registered topics only */ }
   const area = page?.id === 'shell' || !page ? 'interface' : page.id;
   const topics = topicsOfArea(area, 8);
   panel.querySelector('.sh-help-topics').innerHTML = topics.length
     ? topics.map((t) => hit(t, esc(t.title), KIND_LABELS[t.kind] ?? 'Zone')).join('')
     : `<li class="faint">${helpLoaded() ? `${helpSource()?.count ?? 820} sujets dans le catalogue : cherchez par mot ci-dessus.` : 'Catalogue en cours de lecture…'}</li>`;
+}
+
+// CPT-012 (Domenia 1 panel of help): the three identities Domenia uses (connection, workstations, secrets), names and origins
+// only, read locally from accounts.access.state; the block stays hidden when the operation is not served (preview).
+async function paintIdentities() {
+  const block = panel.querySelector('[data-block="identities"]');
+  let overview = null;
+  try { overview = await quietCall('accounts.access.state'); } catch { /* not served here */ }
+  const ids = overview?.identities ?? [];
+  block.hidden = ids.length === 0;
+  if (!ids.length) return;
+  block.querySelector('.sh-help-ids').innerHTML = ids.map((i) => `<li><b>${esc(i.label)}</b><span class="mono">${esc(i.account)}</span><span class="faint">${esc(i.origin)}</span></li>`).join('');
 }
 
 async function openGuide() {

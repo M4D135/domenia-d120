@@ -107,7 +107,7 @@ export function createActions(ctx, S) {
       { heading: one ? one.name : selectionText(list.length, list.filter((r) => r.kind === 'computer').length) },
       { label: one ? 'Ouvrir la fiche' : 'Ouvrir la fiche (une ligne)', icon: 'object', kbd: 'Entrée', disabled: !one, reason: many, run: () => S.open(one) },
       { label: 'Ouvrir dans', icon: 'external', disabled: !one, reason: many, items: one ? [
-        { label: 'Assistance poste (Intervenir)', icon: 'lifebuoy', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('assistance', one) },
+        { label: 'Assistance poste (Intervenir)', icon: 'lifebuoy', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('poste', one, { vue: 'intervenir' }) },
         { label: 'Poste', icon: 'monitor', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('poste', one) },
         { label: 'Utilisateurs et postes', icon: 'link', disabled: !linkable, reason: 'Réservé aux utilisateurs et aux postes.', run: () => S.go('relations', one) },
         '-',
@@ -155,6 +155,7 @@ export function createActions(ctx, S) {
       { label: 'Diagnostic réseau', icon: 'activity', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => netdiag(sel) },
       ...(S.actionMode?.('export') === 'hidden' ? [] : [{ label: 'Exporter…', icon: 'csv', disabled: S.actionMode?.('export') === 'disabled', reason: 'Fonction désactivée dans la configuration de l’application.', run: () => S.exportList('selected') }]),
       { label: 'Copier pour un ticket', icon: 'copy', run: (sel) => copyTicket(sel) },
+      { label: 'Dossier hors ligne de ces postes', icon: 'folder', disabled: !rows.some((r) => r.kind === 'computer'), reason: 'Aucun poste dans la sélection.', run: (sel) => S.offlineDossier(sel) },
     ];
   }
 
@@ -169,6 +170,7 @@ export function createActions(ctx, S) {
       ...MODES.map((m) => ({ label: m.label, icon: m.icon, hint: m.id === S.lastMode && S.chosen ? 'dernier choix' : '', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la liste.', run: () => { S.chosen = true; survey(m.id, null, 'list'); } })),
       '-',
       { label: 'Relire les mesures enregistrées', icon: 'database', disabled: !r, reason: 'Aucune liste.', run: () => S.rereadMeasures() },
+      { label: 'Dossier hors ligne des postes affichés', icon: 'folder', disabled: !rows.some((x) => x.kind === 'computer'), reason: 'Aucun poste affiché.', run: () => S.offlineDossier(rows) },
       { label: 'Ce que lit chaque relevé', icon: 'info', run: () => openDialog({ title: 'Relevés de la liste', icon: 'wifi', size: 'md',
         body: `<ul data-page="rechercher" class="rch-modes">${MODES.map((m) => `<li>${glyph(m.icon)}<span><b>${esc(m.label)}</b><small>${esc(m.detail)}</small></span></li>`).join('')}</ul><p data-page="rechercher" class="rch-dlg-note">${glyph('info')}Une confirmation chiffrée précède toute lecture ; jamais tout le domaine, 500 postes au plus ; arrêt possible à tout moment.</p>` }) },
     ];

@@ -86,8 +86,9 @@ public static class OperationModules
                     throw new InvalidOperationException($"Operation {definition.Name} is outside the screen {screen} of {module.GetType().FullName}.");
                 }
                 // Every operation is followed in the activity of the session (Opérations, docs/ops/operations.md § 3): same
-                // handler, same answer, same exceptions; reads become stoppable by the operator, writes never.
-                definitions.Add(OperationTracking.Track(context, definition));
+                // handler, same answer, same exceptions; reads become stoppable by the operator, writes never. Its refusals reach
+                // the journal of the session (OperationRefusals, ASS-006).
+                definitions.Add(OperationTracking.Track(context, OperationRefusals.Journal(context, definition)));
             }
         }
         return new OperationRegistry(definitions);

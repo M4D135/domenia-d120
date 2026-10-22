@@ -114,7 +114,7 @@ l’opération avec `source.unavailable`, comme `dashboard.summary`.
 
 | Classe | Usage | Simulation |
 |---|---|---|
-| `Local` | état en mémoire | admise |
+| `Local` | état en mémoire ; ouvrir ou montrer un document déjà écrit (association de Windows, Explorateur) | admise |
 | `LocalRead` | base locale, fichiers de l’application, annuaire fictif en mémoire | admise |
 | `NetworkRead` | annuaire, WMI, DNS, ping, après un geste explicite, borné à une OU | admise seulement si `ServedInSimulation` |
 | `LocalWrite` | **données locales de l’application seulement** (`%LOCALAPPDATA%\Domenia`) : préférences, reçus, documents demandés par l’opérateur (`Documents`, § 3.3), fichiers propres d’un écran déclarés dans son contrat, comme la bibliothèque et les exports de l’atelier de requêtes ([`ops/requetes.md`](ops/requetes.md)) ; jamais l’annuaire ni un poste | admise |
