@@ -4,6 +4,8 @@ import { icon } from '../icons.js';
 import { esc, relTime, formatDateTime, formatTime, copyText, announce } from '../ui.js';
 import { openDrawer } from '../kit/index.js';
 import { state, quietCall, on, simulation } from './store.js';
+import { runningTasks, stopFirstTask, elapsedText } from './tasks.js';
+import { blockedTime } from './sheets.js';
 import { openPopover, closePopover } from './popover.js';
 import { notes, markAllRead, clearNotes, supportText, unreadCount } from './notify.js';
 import { followRoute } from './help.js';
@@ -145,17 +147,22 @@ export function openActivity(anchor, refresh) {
           return;
         }
         const r = a.receipts;
-        const tile = (label, value, tone, sub) => `<div class="sh-tile" data-tone="${tone}"><span class="sh-tile-v">${esc(value)}</span><span class="sh-tile-l">${esc(label)}</span>${sub ? `<span class="sh-tile-s">${esc(sub)}</span>` : ''}</div>`;
+        // Short labels of one line each: the three tiles keep the same height.
+        const tile = (label, value, tone, sub, tip) => `<div class="sh-tile" data-tone="${tone}"${tip ? ` data-tip="${esc(tip)}"` : ''}><span class="sh-tile-v">${esc(value)}</span><span class="sh-tile-l">${esc(label)}</span><span class="sh-tile-s">${esc(sub ?? '')}</span></div>`;
+        const tasks = runningTasks();
+        const blocked = blockedTime();
         body.innerHTML = `<div class="sh-activity">
           <div class="sh-tiles">
-            ${tile('Lectures en cours', a.tasks.running, a.tasks.running ? 'info' : 'off')}
-            ${tile('En attente', a.tasks.queued, a.tasks.queued ? 'info' : 'off')}
-            ${tile('Reçus à vérifier', r.available ? r.pending : '—', !r.available ? 'warn' : r.pending ? 'warn' : 'ok', r.available ? `${r.total} conservé${r.total > 1 ? 's' : ''}` : 'illisibles')}
+            ${tile('En cours', a.tasks.running, a.tasks.running ? 'info' : 'off', a.tasks.running > 1 ? 'lectures' : 'lecture', 'Lectures en cours dans le moteur')}
+            ${tile('En attente', a.tasks.queued, a.tasks.queued ? 'info' : 'off', a.tasks.queued > 1 ? 'lectures' : 'lecture', 'Lectures qui attendent leur tour')}
+            ${tile('À vérifier', r.available ? r.pending : '—', !r.available ? 'warn' : r.pending ? 'warn' : 'ok', r.available ? `${r.total} reçu${r.total > 1 ? 's' : ''}` : 'illisibles', 'Reçus d’écriture qui attendent leur relecture')}
           </div>
           ${a.tasks.running ? '<div class="sh-progress" role="progressbar" aria-label="Lectures en cours"><span></span></div>' : ''}
           <p class="sh-activity-detail">${esc(a.detail)}</p>
+          ${tasks.length ? `<h3 class="sh-sub">Tâches de l’interface</h3><ol class="sh-tasks">${tasks.map((t) => `<li><span class="sh-task-l">${t.stopping ? 'Arrêt demandé · ' : ''}${esc(t.label)}</span><span class="sh-task-p mono">${t.progress === null ? '' : `${Math.round(t.progress * 100)} %`}</span><span class="sh-task-t mono">${esc(elapsedText(Date.now() - t.started))}</span></li>`).join('')}</ol>${tasks.some((t) => t.cancellable && !t.stopping) ? `<button class="btn sm subtle" type="button" data-task-stop>${icon('x')}Demander l’arrêt de la première tâche</button>` : ''}` : ''}
           <h3 class="sh-sub">Dernières opérations</h3>
-          ${a.journal.length ? `<ol class="sh-journal">${a.journal.slice(0, 8).map((l) => `<li data-tone="${esc(l.tone)}"><span class="dot" aria-hidden="true"></span><span class="sh-journal-label">${esc(l.label)}</span><time datetime="${esc(l.at)}">${esc(formatTime(l.at) ?? '')}</time></li>`).join('')}</ol>` : '<p class="faint">Aucune opération dans cette session.</p>'}
+          ${a.journal.length ? `<ol class="sh-journal">${a.journal.slice(0, 8).map((l) => `<li data-tone="${esc(l.tone)}"><span class="dot" aria-hidden="true"></span><span class="sh-journal-label">${esc(l.label)}</span><time datetime="${esc(l.at)}">${esc(formatTime(l.at) ?? '')}</time></li>`).join('')}</ol>` : `<div class="sh-empty-mini">${icon('activity')}<p><strong>Aucune opération</strong> dans cette session.</p></div>`}
+          ${blocked.count ? `<p class="faint sh-activity-blocked">${blocked.count} panneau${blocked.count > 1 ? 'x' : ''} modal${blocked.count > 1 ? 'aux' : ''} cette session, interface bloquée ${Math.round(blocked.ms / 1000)} s au total.</p>` : ''}
           <div class="sh-pop-foot">
             <button class="btn sm subtle" type="button" data-go="verifier"${r.pending ? '' : ' aria-disabled="true" data-reason="Aucun reçu à vérifier."'}>${icon('shield')}Vérifier les reçus</button>
             <button class="btn sm primary" type="button" data-go="operations">${icon('activity')}Ouvrir Opérations</button>
@@ -163,6 +170,7 @@ export function openActivity(anchor, refresh) {
         </div>`;
       };
       body.addEventListener('click', (e) => {
+        if (e.target instanceof Element && e.target.closest('[data-task-stop]')) { stopFirstTask(); refresh().then(paint).catch(() => paint(null)); return; }
         const b = e.target instanceof Element ? e.target.closest('[data-go]') : null;
         if (!b || b.getAttribute('aria-disabled') === 'true') return;
         ctl.close();
@@ -193,7 +201,9 @@ export function openSession(anchor) {
         ? { tone: 'alert', text: `Annuaire injoignable${reach.since ? ` depuis ${formatTime(new Date(reach.since).toISOString())}` : ''} · données déjà lues seulement` }
         : reach.slow ? { tone: 'warn', text: 'Dernière requête de l’annuaire : délai dépassé (ce n’est pas une coupure).' }
           : { tone: s.connection.state === 'disconnected' ? 'off' : 'ok', text: s.connection.label };
-      const row = (label, value, sub = '', mono = false) => `<div class="sh-kv-row"><dt>${esc(label)}</dt><dd${mono ? ' class="mono"' : ''}>${value ? esc(value) : '<span class="faint">—</span>'}${sub ? `<span class="sh-kv-sub">${esc(sub)}</span>` : ''}</dd></div>`;
+      // The identifier is in the monospaced font; the display name under it keeps the font of the text.
+      const row = (label, value, sub = '', mono = false) => `<div class="sh-kv-row"><dt>${esc(label)}</dt><dd>${value ? `<span${mono ? ' class="mono"' : ''}>${esc(value)}</span>` : '<span class="faint">—</span>'}${sub ? `<span class="sh-kv-sub">${esc(sub)}</span>` : ''}</dd></div>`;
+      const sim = simulation();
       const cache = s.cache;
       body.innerHTML = `<div class="sh-session">
         <div class="sh-session-state" data-tone="${status.tone}"><span class="dot pulse" aria-hidden="true"></span><span>${esc(status.text)}</span></div>
@@ -203,8 +213,8 @@ export function openSession(anchor) {
           ${row('Contrôleur interrogé', s.controller?.dnsName ?? '', s.controller?.site ? `Site ${s.controller.site}` : '')}
           ${row('Compte', s.account?.login ?? '', s.account?.displayName ?? '', true)}
           ${row('Authentification', s.authentication?.label ?? '')}
-          ${row('Droits', s.rights?.label ?? '', s.rights?.estimated ? `Estimés${NBSP}: ${s.rights.detail}` : s.rights?.detail ?? '')}
-          ${row('Écritures', s.readOnly ? 'Lecture seule' : (simulation() ? 'Écritures d’essai sur l’annuaire fictif' : 'Écritures admises'), s.readOnly ? 'Aucune écriture n’est admise dans ce mode.' : 'Chaque écriture passe par un plan, une confirmation, un reçu et une relecture.')}
+          ${row('Droits estimés du compte', s.rights?.label ?? '', s.rights?.estimated ? `Déduits des groupes, non vérifiés par l’annuaire${s.rights.detail ? ` · ${s.rights.detail}` : ''}` : s.rights?.detail ?? '')}
+          ${row('Écritures de la session', s.readOnly ? 'Aucune (lecture seule)' : (sim ? 'Essai sur l’annuaire fictif' : 'Admises, une à une'), s.readOnly ? 'Aucune écriture n’est admise dans ce mode.' : sim ? `Surcouche en mémoire, indépendante des droits du compte : rien n’atteint un annuaire réel.` : 'Chaque écriture passe par un plan, une confirmation, un reçu et une relecture.')}
           ${row('OU de travail', s.scope ? s.scope.label : '', s.scope ? (s.scope.subtree ? 'Sous-OU comprises' : 'Sans les sous-OU') : '')}
           ${row('Base locale', cache ? `${cache.label}${cache.lastReadAt ? ` · lue ${relTime(cache.lastReadAt)}` : ''}` : '', cache ? `${new Intl.NumberFormat('fr-FR').format(cache.objects)} objets${cache.complete ? '' : ' · lecture incomplète'}` : '')}
         </dl>

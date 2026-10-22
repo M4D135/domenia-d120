@@ -60,6 +60,33 @@ public static class ShellTexts
         return flat.Length <= max ? flat : flat[..(max - 1)].TrimEnd() + "…";
     }
 
+    /// <summary>
+    /// « #RRGGBB » as a Windows COLORREF (0x00BBGGRR) for the frame of the window (Domenia 1 TRV-011), or null when the text is
+    /// not exactly a hash and six hexadecimal digits (named colours, short forms, alpha and system colours are refused).
+    /// </summary>
+    public static int? ColorRef(string? hex)
+    {
+        if (hex is not { Length: 7 } || hex[0] != '#')
+        {
+            return null;
+        }
+        foreach (var c in hex.AsSpan(1))
+        {
+            if (!char.IsAsciiHexDigit(c))
+            {
+                return null;
+            }
+        }
+        if (!int.TryParse(hex.AsSpan(1), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var rgb))
+        {
+            return null;
+        }
+        var r = (rgb >> 16) & 0xFF;
+        var g = (rgb >> 8) & 0xFF;
+        var b = rgb & 0xFF;
+        return (b << 16) | (g << 8) | r;
+    }
+
     /// <summary>Sentence of the activity button (Domenia 1 TRV-049).</summary>
     public static string ActivityDetail(TaskCounters tasks, ShellReceiptCounts receipts)
     {
@@ -129,6 +156,59 @@ public static class GuideChapters
         !string.IsNullOrEmpty(page) && page.Length <= 30 && char.IsAsciiLetterLower(page[0]) && page.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-');
 }
 
+/// <summary>
+/// Interface policy of the administrator read from Domenia.config.json (Domenia 1 UI.AllowExpertProfile, TRV-167, TRV-180):
+/// whether the Expert profile may be offered. <see cref="Source"/> says where the value comes from (« configuration » or
+/// « défaut »); <see cref="Problem"/> is a short reason when the file could not be used (never its content).
+/// </summary>
+public sealed record ShellPolicy(bool ExpertAllowed, string Source, string? Problem);
+
+/// <summary>Pure reading of the interface policy of the configuration file.</summary>
+public static class ShellPolicies
+{
+    /// <summary>No file, or no UI.AllowExpertProfile: Expert offered (default of Domenia 1).</summary>
+    public static ShellPolicy Default { get; } = new(true, "défaut", null);
+
+    /// <summary>
+    /// UI.AllowExpertProfile (section and key names without case, as Domenia 1): only the JSON boolean false or the number 0
+    /// hide Expert; true, another value or an absent key keep the default. An unreadable file keeps the default, as Domenia 1
+    /// (Test-DomeniaUxExpertAllowed answers true on an error), with its reason.
+    /// </summary>
+    public static ShellPolicy Parse(ReadOnlySpan<byte> utf8)
+    {
+        if (utf8.IsEmpty)
+        {
+            return Default;
+        }
+        if (utf8.Length > LegacyConfiguration.MaxBytes)
+        {
+            return Default with { Problem = "fichier de plus de 1 Mo" };
+        }
+        if (utf8.Length >= 3 && utf8[0] == 0xEF && utf8[1] == 0xBB && utf8[2] == 0xBF)
+        {
+            utf8 = utf8[3..];
+        }
+        try
+        {
+            using var document = JsonDocument.Parse(utf8.ToArray());
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !TeamLayouts.TryGetProperty(document.RootElement, "UI", out var section)
+                || section.ValueKind != JsonValueKind.Object
+                || !TeamLayouts.TryGetProperty(section, "AllowExpertProfile", out var value))
+            {
+                return Default;
+            }
+            var hidden = value.ValueKind == JsonValueKind.False
+                || (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && number == 0);
+            return new ShellPolicy(!hidden, "configuration", null);
+        }
+        catch (JsonException)
+        {
+            return Default with { Problem = "JSON illisible" };
+        }
+    }
+}
+
 /// <summary>Team layout of a board read from Domenia.config.json (Domenia 1 Dashboard.DefaultLayout&lt;Board&gt;, TRV-311).</summary>
 /// <param name="Text">JSON text of the layout (exported document or plain list), handed to the page that cleans it.</param>
 /// <param name="Problem">Short reason when the configuration holds a value that cannot be used; never its content.</param>
@@ -171,9 +251,9 @@ public static class TeamLayouts
         {
             using var document = JsonDocument.Parse(utf8.ToArray());
             if (document.RootElement.ValueKind != JsonValueKind.Object
-                || !TryGet(document.RootElement, "Dashboard", out var section)
+                || !TryGetProperty(document.RootElement, "Dashboard", out var section)
                 || section.ValueKind != JsonValueKind.Object
-                || !TryGet(section, "DefaultLayout" + board, out var value))
+                || !TryGetProperty(section, "DefaultLayout" + board, out var value))
             {
                 return new ShellTeamLayout(board, key, null, null);
             }
@@ -197,7 +277,8 @@ public static class TeamLayouts
         }
     }
 
-    private static bool TryGet(JsonElement element, string name, out JsonElement value)
+    /// <summary>Property of a JSON object whose name matches without case (the first one), as ConvertFrom-Json reads it.</summary>
+    public static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
     {
         foreach (var property in element.EnumerateObject())
         {

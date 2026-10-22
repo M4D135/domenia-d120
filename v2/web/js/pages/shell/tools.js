@@ -1,5 +1,5 @@
-// Tabs « Sélecteurs et exports » (TRV-242 to TRV-246, TRV-054, TRV-055), « Automatisation » (TRV-067 to TRV-069) and
-// « Démonstration » (TRV-047, TRV-048) of the shell centre.
+// Tabs « Outils partagés » (pickers TRV-242 to TRV-246, request in the page TRV-058 and TRV-059, exports TRV-054 and TRV-055),
+// « Automatisation » (TRV-067 to TRV-069) and « Démonstration » (TRV-047, TRV-048) of the centre of the interface.
 import { icon } from '../../icons.js';
 import { esc, errorText, relTime } from '../../ui.js';
 import { state, quietCall, trackedCall } from '../../shell/store.js';
@@ -8,6 +8,7 @@ import { exportRows, importCsv } from '../../shell/exports.js';
 import { notify } from '../../shell/notify.js';
 import { statusBadge } from '../../shell/glyphs.js';
 import { operationSummary } from '../../shell/summary.js';
+import { ask, requestBlocks } from '../../shell/guards.js';
 
 const NBSP = ' ';
 
@@ -18,7 +19,7 @@ function sizeText(bytes) {
   return `${bytes}${NBSP}octets`;
 }
 
-export function renderTools(panel) {
+export function renderTools(panel, ctx) {
   panel.innerHTML = `<div class="sh-tools">
     <section class="card sh-tool">
       <header class="card-head"><span class="card-icon">${icon('folder')}</span><h3>Sélecteur d’OU partagé</h3></header>
@@ -32,27 +33,37 @@ export function renderTools(panel) {
       <div class="sh-tool-actions"><button class="btn sm primary" type="button" data-tool="object">${icon('search')}Chercher un objet</button></div>
       <div class="sh-tool-result" data-result="object"></div>
     </section>
+    <section class="card sh-tool sh-tool-request">
+      <header class="card-head"><span class="card-icon">${icon('shield')}</span><h3>Demande dans la page</h3><span class="meta" data-request-state></span></header>
+      <p class="muted">Une confirmation se pose en haut du contenu, sans fenêtre${NBSP}: vous pouvez changer d’écran, lire et choisir pendant qu’elle attend${NBSP}; seules les écritures de sa cible attendent votre réponse. La réponse sûre a le focus, Échap annule.</p>
+      <div class="sh-tool-actions"><button class="btn sm primary" type="button" data-tool="request">${icon('shield')}Essayer une demande</button><button class="btn sm ghost" type="button" data-tool="request-typed">${icon('lock')}Avec saisie du nom</button></div>
+      <div class="sh-tool-result" data-result="request"></div>
+    </section>
     <section class="card sh-tool">
       <header class="card-head"><span class="card-icon">${icon('file')}</span><h3>Importer un CSV</h3></header>
-      <p class="muted">Fichier choisi dans le sélecteur intégré (dossiers locaux seulement, 500 entrées) ; séparateur détecté : point-virgule de Domenia ou virgule d’un autre outil.</p>
+      <p class="muted">Fichier choisi dans le sélecteur intégré (dossiers locaux, 500 entrées${NBSP}; un partage réseau seulement à votre demande, 15${NBSP}s au plus)${NBSP}; séparateur détecté${NBSP}: point-virgule de Domenia ou virgule d’un autre outil.</p>
       <div class="sh-tool-actions"><button class="btn sm primary" type="button" data-tool="import">${icon('file')}Choisir un fichier CSV</button><button class="btn sm ghost" type="button" data-tool="file">${icon('folder')}Parcourir les fichiers</button></div>
       <div class="sh-tool-result" data-result="import"></div>
     </section>
     <section class="card sh-tool">
       <header class="card-head"><span class="card-icon">${icon('download')}</span><h3>Exports</h3>
-        <span class="meta"><button class="btn sm ghost" type="button" data-tool="open">${icon('folder')}Ouvrir le dossier</button></span></header>
-      <p class="muted">CSV à point-virgule en UTF-8 avec BOM, en-têtes français, formules neutralisées, colonnes secrètes retenues et textes ressemblant à un secret masqués ; jamais d’écrasement.</p>
-      <div class="sh-tool-actions"><button class="btn sm subtle" type="button" data-tool="export">${icon('download')}Exporter un exemple</button><button class="btn sm ghost" type="button" data-tool="summary">${icon('eye')}Résumé d’opération</button></div>
+        <span class="meta"><button class="btn sm ghost" type="button" data-tool="open" data-command="exports">${icon('folder')}Ouvrir le dossier</button></span></header>
+      <p class="muted">CSV à point-virgule en UTF-8 avec BOM, en-têtes français, formules neutralisées, colonnes secrètes retenues et textes ressemblant à un secret masqués${NBSP}; jamais d’écrasement sans «${NBSP}Remplacer${NBSP}» explicite.</p>
+      <div class="sh-tool-actions"><button class="btn sm subtle" type="button" data-tool="export">${icon('download')}Exporter un exemple</button><button class="btn sm ghost" type="button" data-tool="export-as">${icon('download')}Exporter sous…</button><button class="btn sm ghost" type="button" data-tool="summary">${icon('eye')}Résumé d’opération</button></div>
       <div class="sh-tool-result" data-result="exports" aria-busy="true"><p class="sh-loading"><span class="k-spin"></span>Dossier des exports…</p></div>
     </section>
   </div>`;
   const result = (name) => panel.querySelector(`[data-result="${name}"]`);
+  const openButton = panel.querySelector('[data-tool="open"]');
   const paintExports = async () => {
     const box = result('exports');
     try {
       const listing = await quietCall('shell.export.list');
       box.removeAttribute('aria-busy');
       if (!listing) { box.innerHTML = '<p class="faint">Exports indisponibles dans cet aperçu.</p>'; return; }
+      // Exports kept in memory (capture, essai): no folder to open, said by the reason of the greyed button.
+      if (listing.stored === 'mémoire') ctx.help.disabled(openButton, { action: 'Ouvrir le dossier', reason: 'prerequisite', detail: 'memoryOnly' });
+      else ctx.help.enable(openButton);
       box.innerHTML = `<p class="sh-folder-line">${icon('folder')}<span>${esc(listing.folder)}</span></p>${listing.items.length
         ? `<ol class="sh-file-list">${listing.items.slice(0, 8).map((f) => `<li>${icon('file')}<span class="mono">${esc(f.fileName)}</span><span class="faint">${esc(sizeText(f.size))} · ${esc(relTime(f.at) ?? '')}</span></li>`).join('')}</ol>`
         : '<p class="faint">Aucun export pour l’instant.</p>'}`;
@@ -61,6 +72,11 @@ export function renderTools(panel) {
       box.innerHTML = `<p class="sh-pick-error">${esc(errorText(err))}</p>`;
     }
   };
+  const paintRequestState = () => {
+    const box = panel.querySelector('[data-request-state]');
+    if (box) box.innerHTML = requestBlocks('write', 'exemple-demande') ? statusBadge('en cours', { label: 'Demande en attente' }) : '';
+  };
+  const requestTimer = setInterval(paintRequestState, 1000);
   panel.addEventListener('click', async (e) => {
     const b = e.target instanceof Element ? e.target.closest('[data-tool]') : null;
     if (!b) return;
@@ -75,7 +91,7 @@ export function renderTools(panel) {
     }
     if (tool === 'import') {
       const table = await importCsv();
-      result('import').innerHTML = table ? `<p>${statusBadge('confirmé', { label: `${table.total} ligne${table.total > 1 ? 's' : ''} · séparateur « ${table.delimiter} »` })}${table.truncated ? ' <span class="faint">(lignes au-delà de 5 000 non reprises, signalé)</span>' : ''}</p>
+      result('import').innerHTML = table ? `<p>${statusBadge('confirmé', { label: `${table.total} ligne${table.total > 1 ? 's' : ''} · séparateur « ${table.delimiter} »` })}${table.truncated ? ' <span class="faint">(lignes au-delà de 5 000 non reprises, signalé)</span>' : ''}</p>
         <div class="sh-table-scroll"><table class="table"><thead><tr>${table.headers.slice(0, 8).map((h) => `<th scope="col">${esc(h)}</th>`).join('')}</tr></thead><tbody>${table.rows.slice(0, 6).map((r) => `<tr>${r.slice(0, 8).map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="faint">Aucun fichier lu.</p>';
     }
     if (tool === 'file') {
@@ -83,12 +99,33 @@ export function renderTools(panel) {
       result('import').innerHTML = f ? `<p class="mono">${esc(f.path)}</p>` : '<p class="faint">Aucun fichier choisi.</p>';
     }
     if (tool === 'open') {
+      if (b.getAttribute('aria-disabled') === 'true') return;
       const r = await quietCall('shell.export.open', { fileName: null }).catch(() => null);
-      if (r && !r.opened) notify('Dossier des exports indisponible : cette session ne garde rien sur le disque (capture ou essai).', { tone: 'info' });
+      if (r && !r.opened) notify(`Dossier des exports indisponible${NBSP}: cette session ne garde rien sur le disque (capture ou essai).`, { tone: 'info' });
     }
-    if (tool === 'export') {
+    if (tool === 'request' || tool === 'request-typed') {
+      const typed = tool === 'request-typed';
+      const box = result('request');
+      box.innerHTML = `<p class="faint">${icon('clock')}Demande posée en haut du contenu${NBSP}: changez d’écran pour vérifier que la page reste libre.</p>`;
+      const answer = await ask({
+        scope: 'exemple-demande', scopeLabel: 'EXEMPLE-0001',
+        title: typed ? 'Désactiver le poste EXEMPLE-0001 (exemple)' : 'Vider la liste des derniers messages (exemple)',
+        message: typed
+          ? `Exemple de demande d’écriture${NBSP}: rien n’est envoyé, quelle que soit la réponse. Saisissez le nom exact pour activer la confirmation.`
+          : `Exemple de demande${NBSP}: rien n’est modifié, quelle que soit la réponse. La navigation et les lectures restent libres pendant l’attente.`,
+        write: typed ? { target: 'EXEMPLE-0001', targetKind: 'Poste', targetDetail: 'CN=EXEMPLE-0001,OU=Postes,DC=example,DC=local' } : undefined,
+        changes: typed ? [{ label: 'État du compte', before: 'Activé', after: 'Désactivé' }] : undefined,
+        details: typed ? `Exemple de détails techniques${NBSP}: plan, contrôleur, empreinte (réservés à la vue experte).` : undefined,
+        detailsExpert: true,
+        impact: typed ? '1 objet' : undefined,
+        confirmLabel: typed ? 'Confirmer l’exemple' : 'Confirmer',
+      });
+      box.innerHTML = `<p>${statusBadge(answer === 'confirm' ? 'confirmé' : 'vide', { label: answer === 'confirm' ? 'Confirmé (exemple)' : 'Annulé ou retiré' })} <span class="faint">Rien n’a été écrit${NBSP}: c’est un exemple.</span></p>`;
+    }
+    if (tool === 'export' || tool === 'export-as') {
       const session = state.session;
       await exportRows({
+        chooseLocation: tool === 'export-as',
         name: 'exemple-interface',
         headers: ['Réglage', 'Valeur', 'Remarque'],
         rows: [
@@ -97,6 +134,7 @@ export function renderTools(panel) {
           ['Domaine', session?.domain?.dnsName ?? '', ''],
           ['Compte', session?.account?.login ?? '', ''],
           ['Formule neutralisée', '=1+1', 'commence par « = » : apostrophe ajoutée'],
+          ['Nombre négatif', -5, 'un nombre reste un nombre : aucune apostrophe'],
           ['Texte masqué', 'password=exemple', 'ressemble à un secret : masqué'],
         ],
       });
@@ -113,6 +151,8 @@ export function renderTools(panel) {
     }
   });
   paintExports();
+  paintRequestState();
+  return () => clearInterval(requestTimer);
 }
 
 export function renderAutomation(panel) {
@@ -140,7 +180,8 @@ export function renderAutomation(panel) {
       <div class="sh-auto-grid">
         <div><h4 class="sh-sub">Commandes</h4><table class="table"><thead><tr><th scope="col">Commande</th><th scope="col">Nature</th><th scope="col">Formats</th><th scope="col">Périmètre</th></tr></thead>
           <tbody>${c.commands.map((cmd) => `<tr><td class="mono"><strong>${esc(cmd.name)}</strong><span class="sh-auto-desc">${esc(cmd.description)}</span></td><td>${esc(cmd.kind)}</td><td>${esc(cmd.formats.join(', '))}</td><td>${cmd.perimeter ? statusBadge('attention', { label: 'Exigé' }) : statusBadge('vide', { label: 'Aucun' })}</td></tr>`).join('')}</tbody></table></div>
-        <div><h4 class="sh-sub">Codes de sortie</h4><dl class="sh-kv">${c.exitCodes.map((x) => `<div class="sh-kv-row"><dt><strong class="mono">${x.code}</strong> ${esc(x.name)}</dt><dd>${esc(x.meaning)}</dd></div>`).join('')}</dl>
+        <div><h4 class="sh-sub">Codes de sortie</h4><dl class="sh-exits">${c.exitCodes.map((x) => `<div class="sh-exit"><dt><span class="sh-exit-code mono" data-code="${x.code}">${x.code}</span><span class="sh-exit-name">${esc(x.name)}</span></dt><dd>${esc(x.meaning)}</dd></div>`).join('')}</dl>
+          ${(c.options ?? []).length ? `<h4 class="sh-sub">Options de la ligne de commande</h4><table class="table sh-auto-options"><thead><tr><th scope="col">Option</th><th scope="col">Sens</th><th scope="col">Exemple</th></tr></thead><tbody>${c.options.map((o) => `<tr><td><code class="sh-auto-opt">${esc(o.name)}</code></td><td>${esc(o.meaning)}</td><td><code class="sh-auto-ex">${esc(o.example)}</code></td></tr>`).join('')}</tbody></table>` : ''}
           <h4 class="sh-sub">Bornes</h4><p>${esc(`${new Intl.NumberFormat('fr-FR').format(c.limits.defaultRows)} lignes par défaut, ${new Intl.NumberFormat('fr-FR').format(c.limits.maxRows)} au plus, ${c.limits.maxNames} noms au plus.`)}</p>
           <h4 class="sh-sub">Règles</h4><ul class="sh-bullets">${c.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ul></div>
       </div>`;

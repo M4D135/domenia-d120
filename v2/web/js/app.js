@@ -12,7 +12,7 @@ import { openMenu, openDrawer, setLayoutStore } from './kit/index.js';
 import { modalOpen, isTextEntry } from './kit/util.js';
 import {
   state, on, emit, setTrackedCall, quietCall, setPrefs, adoptEngine, setLayout, setLists, mirrorAllPrefs, writeActive,
-  simulation, NAV_MIN, NAV_MAX, NAV_DEFAULT,
+  simulation, markEngineRead, expertAllowed, effectiveProfile, sessionMark, NAV_MIN, NAV_MAX, NAV_DEFAULT,
 } from './shell/store.js';
 import { notify, setCentreOpener, unreadCount, exampleNote } from './shell/notify.js';
 import {
@@ -21,13 +21,15 @@ import {
 import { initTips } from './shell/tips.js';
 import { openHelpPanel, closeHelpPanel, toggleHelpPanel, helpPanelOpen, setHelpActions } from './shell/help-panel.js';
 import { openShortcuts } from './shell/shortcuts.js';
-import { CATALOGUE, judge, decide, controlOf } from './shell/commands.js';
+import { CATALOGUE, judge, decide, controlOf, screenCommand } from './shell/commands.js';
 import {
   aliasOf, trackHash, canBack, canForward, back, forward, describeHash, setSubject, clearSubject, subjectChip, subjectSummary,
   expertDecision, recentAddress,
 } from './shell/navigation.js';
-import { beginRequest, requestBlocks, installFaultHandlers, ask } from './shell/guards.js';
-import { applyLayoutPlan, watchForcedColors, syncWindowChrome } from './shell/environment.js';
+import {
+  beginRequest, requestBlocks, installFaultHandlers, ask, withdrawRequest, setExpertProbe, swallowed,
+} from './shell/guards.js';
+import { applyLayoutPlan, watchForcedColors, syncWindowChrome, foldPlan } from './shell/environment.js';
 import { announceOnce, auditAccessibility } from './shell/a11y.js';
 import { closePopover } from './shell/popover.js';
 import { openCentre, openActivity, openSession, openAbout, setNavigator } from './shell/panels.js';
@@ -36,6 +38,8 @@ import { exportRows, exportCsvText, exportJson, gridExporter, importCsv, importJ
 import { operationSummary } from './shell/summary.js';
 import { statusBadge } from './shell/glyphs.js';
 import { createBoard } from './shell/board.js';
+import { beginTask, runningTasks, stopFirstTask, elapsedText } from './shell/tasks.js';
+import { installSheets } from './shell/sheets.js';
 
 const root = document.documentElement;
 const NBSP = ' ';
@@ -155,6 +159,8 @@ function navMarkup() {
 
 function topbarMarkup() {
   const themes = THEMES.map((t) => `<button type="button" data-set="${t.id}" aria-pressed="false" aria-label="${esc(t.label)}" data-tip="${esc(t.label)}">${icon(t.icon)}</button>`).join('');
+  // Reserved slots (TRV-053, TRV-092): every slot keeps its place whether it shows something or not (hidden, never removed),
+  // so 0, 1 or 100 tasks, the mode known late or a long message never move the other controls.
   return `<header class="topbar">
     <div class="sh-history" role="group" aria-label="Historique des écrans">
       <button class="btn ghost icon sm" type="button" data-history="back" aria-label="Écran précédent" aria-keyshortcuts="Alt+ArrowLeft" data-tip="Écran précédent (Alt ←)" disabled>${icon('chevronRight')}</button>
@@ -167,9 +173,21 @@ function topbarMarkup() {
       <button class="sh-subject-open" type="button" data-tip="Ouvrir la fiche de l’objet choisi"><span class="sh-subject-text"></span></button>
       <button class="sh-subject-clear" type="button" aria-label="Désélectionner l’objet" data-tip="Désélectionner : rien n’est relu">${icon('x')}</button>
     </span>
+    <span class="sh-expert-chip" hidden>
+      <span class="sh-expert-text">${icon('zap')}<span>Vue experte · cette consultation</span></span>
+      <button class="sh-expert-leave" type="button" aria-label="Quitter la vue experte" data-tip="Revenir à la vue du profil Essentiel : rien n’est relu">${icon('x')}</button>
+    </span>
     <div class="topbar-spacer"></div>
-    <button class="mode-chip" type="button" hidden aria-haspopup="dialog"><span class="glow-ring" aria-hidden="true"></span><span class="dot pulse"></span><span class="txt"></span><span class="visually-hidden detail"></span></button>
+    <div class="sh-strip" role="group" aria-label="Tâche en cours">
+      <span class="sh-strip-task" aria-live="polite"><span class="sh-strip-ring" aria-hidden="true"><svg viewBox="0 0 20 20"><circle class="track" cx="10" cy="10" r="8"/><circle class="fill" cx="10" cy="10" r="8" pathLength="100"/></svg></span><span class="sh-strip-label"></span><span class="sh-strip-time mono"></span></span>
+      <button class="btn ghost xs sh-strip-cancel" type="button" data-tip="Demande l’arrêt de la tâche : ce n’est pas une annulation confirmée tant qu’elle ne s’est pas arrêtée.">${icon('x')}<span>Annuler</span></button>
+    </div>
+    <button class="mode-chip pending" type="button" aria-haspopup="dialog"><span class="glow-ring" aria-hidden="true"></span><span class="dot pulse"></span><span class="txt">Mode…</span><span class="visually-hidden detail"></span></button>
     <button class="live" type="button" data-state="unknown" aria-haspopup="dialog"><span class="dot pulse"></span><span class="label">Connexion…</span></button>
+    <span class="sh-slot sh-slot-access">
+      <button class="btn ghost icon sh-access" type="button" aria-label="Accès suspendus" data-tip="Accès suspendus par la garde d’authentification">${icon('key')}</button>
+      <span class="sh-counter" aria-hidden="true"></span>
+    </span>
     <span class="sh-slot sh-slot-activity">
       <button class="btn ghost icon sh-activity" type="button" aria-haspopup="dialog" aria-label="Opérations de la session" data-tip="Opérations de la session">${icon('activity')}</button>
       <span class="sh-counter" aria-hidden="true"></span>
@@ -197,7 +215,9 @@ function shellMarkup() {
       <span class="sh-banner-icon">${icon('info')}</span>
       <span class="text"></span>
       <button class="btn ghost xs sh-banner-more" type="button" aria-haspopup="dialog">${icon('info')}Détails</button>
+      <button class="btn ghost icon xs sh-banner-hide" type="button" aria-label="Masquer le bandeau" data-tip="Masquer le bandeau : le mode reste affiché dans la barre du haut">${icon('x')}</button>
     </div>
+    <div class="sh-request-host"></div>
     <main class="main" id="main" tabindex="-1"></main>
   </div>
   <div class="toasts" role="region" aria-label="Notifications"></div>`;
@@ -211,21 +231,32 @@ function showVersion(info) {
 }
 
 // The browser preview is recognised by its engine (OPERATIONS.md § 2: webViewRuntime "apercu"); it also reports mode
-// "simulation", so the preview wording wins. The chip names the mode in one word; the banner below explains it.
+// "simulation", so the preview wording wins. The chip names the write state of the session in one word (Simulation,
+// Aperçu, Lecture seule, Écriture AD active) at every width (TRV-093: the state moves into the top bar instead of a switch in
+// the page); its slot is reserved from the start, so its arrival moves nothing (TRV-053).
+function modeState(info = state.app) {
+  if (!info) return null;
+  if (info.webViewRuntime === 'apercu') return { id: 'preview', text: 'Aperçu', detail: info.modeDetail || `Aperçu dans un navigateur${NBSP}: données de démonstration intégrées à la page.` };
+  if (info.mode === 'simulation') return { id: 'simulation', text: 'Simulation', detail: info.modeDetail || `Annuaire fictif${NBSP}: aucune requête ne part.` };
+  if (writeActive()) return { id: 'write', text: 'Écriture AD active', detail: 'Chaque écriture passe par un plan, une confirmation, un reçu écrit avant l’envoi et une relecture.' };
+  return { id: 'readonly', text: 'Lecture seule', detail: `Mode annuaire en lecture seule${NBSP}: aucune écriture n’est admise dans cette session.` };
+}
+
 function showMode(info) {
-  const preview = info?.webViewRuntime === 'apercu';
-  const sim = info?.mode === 'simulation';
-  const chip = document.querySelector('.mode-chip');
-  if (sim || preview) {
-    const detail = info.modeDetail || (preview ? `Aperçu dans un navigateur${NBSP}: données de démonstration intégrées à la page.` : `Annuaire fictif${NBSP}: aucune requête ne part.`);
-    chip.querySelector('.txt').textContent = preview ? 'Aperçu' : 'Simulation';
-    const writes = 'Écritures d’essai sur l’annuaire fictif seulement, sans aucun effet réel.';
-    chip.querySelector('.detail').textContent = `${NBSP}: ${detail} ${writes}`;
-    chip.dataset.tip = `${detail} ${writes} Cliquez pour le détail de la session.`;
-    chip.dataset.mode = preview ? 'preview' : 'simulation';
-    chip.hidden = false;
-  }
+  paintMode(info);
   paintBanner();
+}
+
+function paintMode(info = state.app) {
+  const chip = document.querySelector('.mode-chip');
+  const m = modeState(info);
+  if (!chip || !m) return;
+  const writes = m.id === 'simulation' || m.id === 'preview' ? ' Écritures d’essai sur l’annuaire fictif seulement, sans aucun effet réel.' : '';
+  chip.classList.remove('pending');
+  chip.querySelector('.txt').textContent = m.text;
+  chip.querySelector('.detail').textContent = `${NBSP}: ${m.detail}${writes}`;
+  chip.dataset.tip = `${m.detail}${writes} Cliquez pour le détail de la session.`;
+  chip.dataset.mode = m.id;
 }
 
 /** Mode banner (SIMULATION.md § 2.3): simulation, browser preview, or directory writes admitted. */
@@ -238,18 +269,25 @@ function paintBanner() {
   let text = info?.banner ?? (preview ? `Aperçu dans un navigateur${NBSP}: données fictives intégrées à la page, aucune requête ne part.` : null);
   let tone = preview ? 'preview' : 'info';
   if (!text && writeActive()) {
-    text = `Écriture AD active${NBSP}: chaque écriture passe par un plan, une confirmation, un reçu écrit avant l’envoi et une relecture ; rien n’est rejoué automatiquement.`;
+    text = `Écriture AD active${NBSP}: chaque écriture passe par un plan, une confirmation, un reçu écrit avant l’envoi et une relecture${NBSP}; rien n’est rejoué automatiquement.`;
     tone = 'warn';
   }
-  if (!text) {
+  // The operator may fold the information banner (simulation, preview) into the chip of the top bar; the warning of the
+  // directory writes always stays.
+  const folded = tone !== 'warn' && state.prefs.bannerCompact;
+  if (!text || folded) {
     banner.hidden = true;
     shell.classList.remove('has-banner');
     return;
   }
   banner.dataset.tone = tone;
-  // One sentence and one button: the launch detail, the fictitious domain and the write circuit are in « Détails ».
-  banner.querySelector('.text').textContent = text;
+  // One sentence and one button: the launch detail, the fictitious domain and the write circuit are in « Détails ». The
+  // whole sentence stays in the tooltip when a narrow window cuts it (TRV-092).
+  const line = banner.querySelector('.text');
+  line.textContent = text;
+  line.dataset.tip = text;
   banner.querySelector('.sh-banner-more').dataset.tip = info?.modeDetail ? `${info.modeDetail} Détail de la session et du mode.` : 'Détail de la session et du mode.';
+  banner.querySelector('.sh-banner-hide').hidden = tone === 'warn';
   banner.hidden = false;
   shell.classList.add('has-banner');
 }
@@ -303,16 +341,36 @@ function paintAccount() {
   button.setAttribute('aria-label', login ? `Compte de la session${NBSP}: ${login}` : 'Compte de la session');
 }
 
-/** Screens call it after session.info or session.setScope: badge, account, banner and title follow. */
+let lastSessionMark = null;
+
+/**
+ * Screens call it after session.info or session.setScope: badge, account, banner and title follow. A change of account,
+ * domain or root DN (TRV-056: « si la session change ou si la BaseDn change ») withdraws the request shown, closes the
+ * panels and dialogs and drops the panels waiting behind them, then the screen is drawn again for the new session.
+ */
 export function showConnection(session) {
   if (!session?.connection) return;
+  const mark = sessionMark(session);
+  const changed = lastSessionMark !== null && mark !== lastSessionMark;
+  lastSessionMark = mark;
   state.session = session;
   paintLive();
   paintAccount();
+  paintMode();
   paintBanner();
   syncWindowChrome();
   emit('session', session);
   window.dispatchEvent(new CustomEvent('domenia:session', { detail: session }));
+  if (changed) closeForSessionChange();
+}
+
+function closeForSessionChange() {
+  withdrawRequest();
+  closePopover();
+  // The panels and dialogs of the kit close themselves, and drop the requests waiting behind them, when the address
+  // changes: the same signal is given here, and the router then draws the screen again for the new session.
+  window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: location.href, newURL: location.href }));
+  notify(`La session a changé${NBSP}: panneaux et demandes en attente fermés sans rien exécuter, écran relu pour la nouvelle session.`, { tone: 'warn', key: 'session-changed' });
 }
 
 // ---------- Boot ----------
@@ -371,7 +429,8 @@ function paintActivity(a) {
   slot.classList.toggle('running', (a?.tasks?.running ?? 0) > 0);
   slot.classList.toggle('pending', (a?.receipts?.pending ?? 0) > 0);
   const button = slot.querySelector('.sh-activity');
-  button.dataset.tip = a ? `Opérations de la session${NBSP}: ${a.detail}` : 'Opérations de la session';
+  const shortcut = button.dataset.tipShortcut ?? '';
+  button.dataset.tip = a ? `Opérations de la session${NBSP}: ${a.detail}${shortcut}` : `Opérations de la session${shortcut}`;
   button.setAttribute('aria-label', a?.active ? `Opérations de la session${NBSP}: ${a.detail}` : 'Opérations de la session');
 }
 
@@ -406,6 +465,7 @@ function boot() {
   setTrackedCall(trackedCall);
   setToastImpl((message, o = {}) => notify(message, { tone: o.tone, life: o.life, detail: o.detail, key: o.key, route: o.route, actions: o.actions })?.el ?? null);
   installFaultHandlers();
+  installSheets();
   themeInk = inkFollow(host.querySelector('.theme-switch'), 'button', 'button[aria-pressed="true"]');
   applyTheme();
   initPointerEffects();
@@ -438,8 +498,22 @@ function boot() {
     adoptEngine(snapshot, true);
     if (first) mirrorAllPrefs();
     applyPrefsToShell();
-  }).catch((err) => { if (err?.code !== 'operation.unknown') console.warn('Préférences de l’interface non lues', err); });
-  refreshActivity().catch(() => {});
+  }).catch((err) => {
+    if (err?.code !== 'operation.unknown') console.warn('Préférences de l’interface non lues', err);
+    // The copy of the WebView2 profile becomes the reference: the boards may now save.
+    markEngineRead();
+  });
+  // Rules of the administrator (UI.AllowExpertProfile): Expert is never applied when they hide it (TRV-167, TRV-180).
+  quietCall('shell.policy').then((policy) => {
+    if (!policy) return;
+    state.policy = { expertAllowed: policy.expertAllowed !== false, source: policy.source ?? 'défaut' };
+    if (!expertAllowed() && state.prefs.profile === 'expert') {
+      setPrefs({ profile: 'essentiel' });
+      notify(`Profil Expert masqué par l’administrateur${NBSP}: le profil Essentiel est appliqué. Les droits ne changent pas.`, { tone: 'info', key: 'policy-expert' });
+    }
+    emit('policy', state.policy);
+  }).catch((err) => console.warn('Règles de l’interface non lues', err));
+  refreshActivity().catch((err) => swallowed('shell.activity.boot', err));
 
   let router = null;
 
@@ -490,14 +564,35 @@ function boot() {
   });
   applyLayoutPlan();
   if (document.documentElement.dataset.narrow !== undefined && !state.prefs.navCollapsed) { autoFold = true; setCollapsed(true, false); }
-  // The help panel sits beside the work: when the content column would fall under 1 100 px, the menu folds for as long as
-  // the panel stays open (never saved), and comes back when it closes.
+  // The help panel sits beside the work: when the content column would fall under 1 280 px (a row of five indicators of the
+  // Accueil keeps its words), the menu folds for as long as the panel stays open (never saved) and comes back when it closes
+  // or when the window grows enough. Evaluated at every change of size, not only when the panel opens.
   let helpFold = false;
-  on('help', (open) => {
-    const helpWidth = parseFloat(getComputedStyle(shell).getPropertyValue('--help-w')) || 380;
-    if (open && !isCollapsed() && main.clientWidth - helpWidth < 1100) { helpFold = true; setCollapsed(true, false); }
-    else if (!open && helpFold) { helpFold = false; if (!autoFold) setCollapsed(state.prefs.navCollapsed, false); }
+  const evaluateHelpFold = () => {
+    const decision = foldPlan({
+      helpOpen: helpPanelOpen(), helpFold, collapsed: isCollapsed(),
+      content: main.clientWidth, help: parseFloat(getComputedStyle(shell).getPropertyValue('--help-w')) || 380,
+      navExpanded: state.prefs.navWidth ?? NAV_DEFAULT, navCollapsed: parseFloat(getComputedStyle(shell).getPropertyValue('--nav-w-collapsed')) || 72,
+    });
+    if (decision === 'fold') { helpFold = true; setCollapsed(true, false); }
+    else if (decision === 'unfold') { helpFold = false; if (!autoFold) setCollapsed(state.prefs.navCollapsed, false); }
+  };
+  on('help', () => requestAnimationFrame(evaluateHelpFold));
+  if ('ResizeObserver' in window) new ResizeObserver(() => { if (helpPanelOpen() || helpFold) evaluateHelpFold(); }).observe(shell);
+  // Short window (TRV-094, Domenia 1 Set-DomeniaUxShortLayout): the help panel closes for as long as the window is short,
+  // and opens again once it is tall enough, unless the operator opened it meanwhile. Display state only, never saved.
+  let helpSuspended = false;
+  on('layout', (plan) => {
+    if (plan.short && helpPanelOpen() && !helpSuspended) {
+      helpSuspended = true;
+      closeHelpPanel(false);
+      announce('Aide repliée le temps que la fenêtre retrouve sa hauteur.');
+    } else if (!plan.short && helpSuspended) {
+      helpSuspended = false;
+      if (!helpPanelOpen()) openHelpPanel('', false);
+    }
   });
+  on('help', (open) => { if (open) helpSuspended = false; });
 
   const grip = nav.querySelector('.nav-grip');
   grip.addEventListener('pointerdown', (e) => {
@@ -549,15 +644,20 @@ function boot() {
   applyPrefsToShell();
 
   nav.querySelector('.nav-account').addEventListener('click', (e) => {
-    const profile = state.prefs.profile;
+    const profile = effectiveProfile();
+    const hidden = !expertAllowed();
     openMenu(e.currentTarget, [
       { heading: state.session?.account?.login ?? 'Compte de la session' },
       { label: 'Changer de compte', icon: 'users', hint: 'Comptes', run: () => router.go('comptes') },
       { label: 'Session et connexion', icon: 'wifi', run: () => openSession(document.querySelector('.live:not([hidden])') ?? document.querySelector('.mode-chip')) },
       '-',
       { heading: 'Profil d’affichage' },
-      { label: 'Essentiel', radio: 'profile', checked: profile !== 'expert', run: () => { setPrefs({ profile: 'essentiel' }); notify('Profil Essentiel : les vues expertes restent accessibles ponctuellement depuis la palette.', { tone: 'info', life: 3200 }); } },
-      { label: 'Expert', radio: 'profile', checked: profile === 'expert', run: () => { setPrefs({ profile: 'expert' }); notify('Profil Expert : vues détaillées affichées par défaut.', { tone: 'info', life: 3200 }); } },
+      { label: 'Essentiel', radio: 'profile', checked: profile !== 'expert', run: () => setProfile('essentiel') },
+      {
+        label: 'Expert', radio: 'profile', checked: profile === 'expert', disabled: hidden,
+        reason: hidden ? `Profil Expert masqué par l’administrateur${NBSP}: UI.AllowExpertProfile vaut faux dans Domenia.config.json.` : '',
+        run: () => setProfile('expert'),
+      },
       '-',
       { label: 'À propos de Domenia', icon: 'info', run: () => openAbout() },
     ], { label: 'Compte de la session', placement: 'top-start' });
@@ -595,12 +695,18 @@ function boot() {
     if (t.closest('.search-trigger')) { palette.open(); return; }
     if (t.closest('.mode-chip') || t.closest('.live')) { openSession(t.closest('.mode-chip, .live')); return; }
     if (t.closest('.sh-activity')) { openActivity(anchorOf('.sh-activity'), refreshActivity); return; }
+    if (t.closest('.sh-access')) { router.go('comptes'); return; }
     if (t.closest('.notif')) { openCentreAt('notifications'); return; }
     if (t.closest('.sh-help-btn')) { toggleHelpPanel(); return; }
     const theme = t.closest('.theme-switch button[data-set]');
     if (theme) { setTheme(theme.dataset.set); return; }
-    if (t.closest('.sh-subject-clear')) { clearSubject(); announce('Objet désélectionné partout ; rien n’a été relu.'); return; }
+    if (t.closest('.sh-subject-clear')) { clearSubjectGuarded(); return; }
     if (t.closest('.sh-subject-open') && state.subject) { router.go(state.subject.kind === 'computer' ? 'poste' : 'fiche', { dn: state.subject.dn }); return; }
+    if (t.closest('.sh-expert-leave')) { leaveExpertView(); return; }
+    if (t.closest('.sh-strip-cancel')) {
+      if (stopFirstTask()) announce('Arrêt demandé : la tâche s’arrête dès que possible, ce n’est pas encore une annulation confirmée.');
+      return;
+    }
     const more = t.closest('.sh-more');
     if (more) {
       openMenu(more, [
@@ -617,6 +723,12 @@ function boot() {
     }
   });
   host.querySelector('.sh-banner-more').addEventListener('click', (e) => openSession(e.currentTarget));
+  host.querySelector('.sh-banner-hide').addEventListener('click', () => {
+    setPrefs({ bannerCompact: true });
+    paintBanner();
+    announce('Bandeau masqué : le mode reste affiché dans la barre du haut.');
+    notify('Bandeau du mode masqué : la puce de la barre du haut garde le mode et son détail. « Apparence » le réaffiche.', { tone: 'info', life: 4000, key: 'banner-hidden' });
+  });
 
   // Reserved layout of the top bar (TRV-053, TRV-092): fixed slots, an overflow menu when the width runs short.
   const fitTopbar = () => {
@@ -644,6 +756,72 @@ function boot() {
     syncWindowChrome();
   });
 
+  // Ctrl L follows the profile (TRV-180): the journal panel in Essentiel, the Opérations screen in Expert. The tooltips say
+  // where it leads, so the bell never announces a shortcut that opens something else.
+  const paintShortcutTips = () => {
+    const expert = effectiveProfile() === 'expert';
+    const bell = topbar.querySelector('.notif');
+    const activity = topbar.querySelector('.sh-activity');
+    bell.dataset.tip = expert ? 'Centre de notifications' : 'Centre de notifications et journal de la session (Ctrl L)';
+    if (expert) bell.removeAttribute('aria-keyshortcuts'); else bell.setAttribute('aria-keyshortcuts', 'Control+L');
+    activity.dataset.tipShortcut = expert ? ' · Ctrl L : écran Opérations' : '';
+    if (expert) activity.setAttribute('aria-keyshortcuts', 'Control+L'); else activity.removeAttribute('aria-keyshortcuts');
+    paintActivity(lastActivity);
+  };
+  on('prefs', paintShortcutTips);
+  on('policy', paintShortcutTips);
+  paintShortcutTips();
+
+  // Expert view of this consultation only (TRV-167): said in the top bar, one click goes back without changing the profile.
+  const paintExpertChip = () => {
+    const chip = topbar.querySelector('.sh-expert-chip');
+    chip.hidden = !(router?.params().vue === 'expert' && effectiveProfile() !== 'expert' && expertAllowed());
+  };
+  on('page', paintExpertChip);
+  on('prefs', paintExpertChip);
+
+  // Task strip (TRV-049, TRV-053): label of the first task, its progress (ring filled when known, turning otherwise), the
+  // elapsed time and « Annuler » when its screen can stop it; hidden but reserved when nothing runs.
+  const strip = topbar.querySelector('.sh-strip');
+  let stripTimer = 0;
+  const paintStrip = () => {
+    const list = runningTasks();
+    const first = list[0];
+    strip.classList.toggle('on', !!first);
+    clearInterval(stripTimer);
+    stripTimer = 0;
+    if (!first) { strip.querySelector('.sh-strip-label').textContent = ''; return; }
+    const more = list.length > 1 ? ` (+${list.length - 1})` : '';
+    strip.querySelector('.sh-strip-label').textContent = `${first.stopping ? 'Arrêt demandé · ' : ''}${first.label}${more}`;
+    strip.dataset.tip = `${first.label}${first.detail ? ` · ${first.detail}` : ''}${list.length > 1 ? ` · ${list.length} tâches en cours` : ''}`;
+    const ring = strip.querySelector('.sh-strip-ring');
+    ring.classList.toggle('known', first.progress !== null);
+    ring.style.setProperty('--dash', String(Math.round((first.progress ?? 0.25) * 100)));
+    const cancel = strip.querySelector('.sh-strip-cancel');
+    cancel.classList.toggle('on', first.cancellable && !first.stopping);
+    const tick = () => { strip.querySelector('.sh-strip-time').textContent = elapsedText(Date.now() - first.started); };
+    tick();
+    stripTimer = setInterval(tick, 1000);
+  };
+  on('tasks', paintStrip);
+  paintStrip();
+
+  // Access suspended by the guard of authentication (Domenia 1 BtnAccessRecovery): reserved slot, shown with its counter
+  // only when a screen reports suspended accesses (ctx.access.report).
+  const paintAccess = () => {
+    const slot = topbar.querySelector('.sh-slot-access');
+    const n = state.access?.suspended ?? 0;
+    slot.classList.toggle('on', n > 0);
+    const counter = slot.querySelector('.sh-counter');
+    counter.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+    counter.classList.toggle('on', n > 0);
+    const button = slot.querySelector('.sh-access');
+    button.dataset.tip = n > 0 ? `${state.access.detail || `${n} accès suspendu${n > 1 ? 's' : ''} par la garde d’authentification`} · ouvrir Comptes` : 'Aucun accès suspendu';
+    button.setAttribute('aria-label', n > 0 ? `Accès suspendus${NBSP}: ${n}` : 'Aucun accès suspendu');
+  };
+  on('access', paintAccess);
+  paintAccess();
+
   // ---------- Help ----------
 
   setHelpActions({ openShortcuts, go: (id, params) => router.go(id, params) });
@@ -659,7 +837,7 @@ function boot() {
 
   // ---------- Palette ----------
 
-  const screenOf = { current: { id: '', commands: [], selectionType: '', machineRows: 0 } };
+  const screenOf = { current: { id: '', commands: [], selectionType: '', machineRows: 0, expert: null } };
 
   function judgeContext() {
     const s = state.session;
@@ -671,26 +849,59 @@ function boot() {
       readOnly: s ? s.readOnly === true : true,
       simulation: simulation(),
       control: (id) => controlOf(id, main),
-      blocked: () => (requestBlocks('write', screen.scope ?? '') ? 'Une demande attend votre réponse sur cette cible : répondez-y d’abord.' : ''),
+      blocked: () => (requestBlocks('write', screen.scope ?? '') ? `Une demande attend votre réponse sur cette cible${NBSP}: répondez-y d’abord.` : ''),
     };
   }
 
+  /** Decision on the expert view of the screen shown (TRV-167): profile, rule of the administrator, view of the screen. */
+  function expertNow() {
+    const view = screenOf.current.expert;
+    return expertDecision({ profile: effectiveProfile(), allowExpert: expertAllowed(), applies: view?.applies !== false, reason: view?.reason ?? '' });
+  }
+
   function shellActions() {
+    const expert = expertNow();
     return [
       ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: t.label, icon: t.icon, keywords: 'thème apparence couleurs', group: 'Présentation', effect: 'local', active: state.prefs.theme === t.id, run: () => setTheme(t.id) })),
       ...MOTIONS.map((m) => ({ id: `motion-${m.id}`, label: m.label, icon: m.icon, keywords: 'animations mouvement', group: 'Présentation', effect: 'local', active: state.prefs.motion === m.id, run: () => setMotion(m.id) })),
       { id: 'nav', label: isCollapsed() ? 'Déplier le menu' : 'Replier le menu', icon: 'panel', kbd: 'Ctrl B', keywords: 'navigation barre latérale', group: 'Présentation', effect: 'local', run: () => setCollapsed(!isCollapsed()) },
+      { id: 'banner', label: state.prefs.bannerCompact ? 'Réafficher le bandeau du mode' : 'Masquer le bandeau du mode', icon: 'info', keywords: 'bandeau simulation mode', group: 'Présentation', effect: 'local', run: () => { setPrefs({ bannerCompact: !state.prefs.bannerCompact }); paintBanner(); } },
       { id: 'help-panel', label: helpPanelOpen() ? 'Fermer l’aide' : 'Ouvrir l’aide de cet écran', icon: 'info', kbd: 'F1', keywords: 'aide f1 guide', group: 'Aide', effect: 'local', run: () => toggleHelpPanel() },
       { id: 'help-centre', label: 'Centre d’aide : les 820 sujets', icon: 'sparkles', keywords: 'aide catalogue sujets', group: 'Aide', effect: 'navigate', run: () => router.go('shell', { onglet: 'aide' }) },
-      { id: 'notifications', label: 'Ouvrir le centre de notifications', icon: 'bell', kbd: 'Ctrl L', keywords: 'messages bannières journal', group: 'Navigation', effect: 'local', run: () => openCentreAt('notifications') },
+      { id: 'notifications', label: 'Ouvrir le centre de notifications', icon: 'bell', kbd: effectiveProfile() === 'expert' ? '' : 'Ctrl L', keywords: 'messages bannières journal', group: 'Navigation', effect: 'local', run: () => openCentreAt('notifications') },
       { id: 'session', label: 'Afficher la session et la connexion', icon: 'wifi', keywords: 'contrôleur domaine compte droits kerberos', group: 'Navigation', effect: 'local', run: () => openSession(sessionAnchor()) },
       { id: 'about', label: 'À propos de Domenia', icon: 'info', keywords: 'version compatibilité', group: 'Application', effect: 'local', run: () => openAbout() },
       { id: 'audit', label: 'Contrôler l’accessibilité de cet écran', icon: 'eye', keywords: 'accessibilité lecteur écran contraste noms', group: 'Application', effect: 'local', run: () => showAudit() },
-      { id: 'expert-once', label: 'Afficher la vue experte pour cette consultation', icon: 'zap', keywords: 'expert détails avancé', group: 'Présentation', effect: 'local', run: () => expertOnce() },
+      {
+        id: 'expert-once', label: 'Afficher la vue experte pour cette consultation', icon: 'zap', keywords: 'expert détails avancé', group: 'Présentation', effect: 'local',
+        disabled: expert.show ? (effectiveProfile() === 'expert' ? 'Le profil Expert montre déjà les vues détaillées.' : false) : expert.reason,
+        run: () => expertOnce(),
+      },
       { id: 'pick-ou', label: 'Choisir une OU (sélecteur partagé)', icon: 'folder', keywords: 'ou arborescence favoris', group: 'Sélecteurs', effect: 'read', run: () => pickOu({ title: 'Parcourir les OU' }).then((r) => r && notify(`OU choisie${NBSP}: ${r.path}`, { tone: 'info', life: 3600 })) },
       { id: 'pick-object', label: 'Chercher un objet (sélecteur intégré)', icon: 'search', keywords: 'utilisateur poste ou trouver', group: 'Sélecteurs', effect: 'read', run: () => pickObject({ title: 'Chercher un objet' }).then((r) => r && notify(`${r.kindLabel}${NBSP}: ${r.name} (${r.path})`, { tone: 'info', life: 3600 })) },
-      { id: 'exports', label: 'Ouvrir le dossier des exports', icon: 'folder', keywords: 'csv export fichier', group: 'Application', effect: 'local', run: () => quietCall('shell.export.open', { fileName: null }).then((r) => { if (r && !r.opened) notify('Dossier des exports indisponible dans cette session (rien n’est écrit sur le disque).', { tone: 'info' }); }) },
+      { id: 'exports', label: 'Ouvrir le dossier des exports', icon: 'folder', keywords: 'csv export fichier', group: 'Application', effect: 'local', run: () => quietCall('shell.export.open', { fileName: null }).then((r) => { if (r && !r.opened) notify(`Dossier des exports indisponible dans cette session${NBSP}: rien n’est écrit sur le disque.`, { tone: 'info' }); }) },
     ];
+  }
+
+  /** The list or board of the screen that last had the focus (undo of the presentation, palette command « undo »). */
+  let lastList = null;
+  main.addEventListener('focusin', (e) => {
+    const box = e.target instanceof Element ? e.target.closest('.k-grid, .sh-board') : null;
+    if (box) lastList = box;
+  });
+  const currentList = () => (lastList?.isConnected && main.contains(lastList) ? lastList : main.querySelector('.k-grid, .sh-board'));
+
+  /**
+   * « Annuler la dernière présentation de la liste » (catalogue command « undo »): the screen may handle it itself
+   * (domenia:undo-presentation, cancelable); otherwise Ctrl Z is given to the list or board that had the focus last.
+   */
+  function undoPresentation() {
+    const event = new CustomEvent('domenia:undo-presentation', { cancelable: true });
+    if (!window.dispatchEvent(event)) return;
+    const list = currentList();
+    if (!list) { notify(`Aucune liste ni tableau sur cet écran${NBSP}: rien à annuler.`, { tone: 'info' }); return; }
+    list.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', code: 'KeyZ', ctrlKey: true, bubbles: true, cancelable: true }));
+    announce('Dernier changement de présentation annulé, s’il y en avait un.');
   }
 
   function catalogueCommand(c) {
@@ -702,19 +913,22 @@ function boot() {
       tools: () => openHelpPanel(),
       shortcuts: () => openShortcuts(),
       theme: () => toggleTheme(),
+      undo: () => undoPresentation(),
       summary: () => copySummary(),
       selfcheck: () => openAbout(),
       parent: () => { const dn = state.subject?.dn ?? ''; const parent = dn.split(/(?<!\\),/).slice(1).join(','); if (parent) router.go('rechercher', { ou: parent }); },
     };
     const run = runners[c.id] ?? (c.route ? () => { const [id, q] = c.route.split('?'); router.go(id, Object.fromEntries(new URLSearchParams(q ?? ''))); } : null);
-    return { ...c, icon: { navigate: 'chevronRight', local: 'command', read: 'wifi', sensitive: 'key', write: 'lock' }[c.effect], kbd: shortcuts[c.shortcut] ?? '', run };
+    const disabled = c.id === 'undo' && !currentList() ? 'Aucune liste ni tableau sur cet écran.' : false;
+    return { ...c, icon: { navigate: 'chevronRight', local: 'command', read: 'wifi', sensitive: 'key', write: 'lock' }[c.effect], kbd: shortcuts[c.shortcut] ?? '', run, disabled };
   }
 
   function sources() {
     const ctx = judgeContext();
     const pages = PAGES.map((p, n) => ({
       id: `page:${p.id}`, kind: 'page', label: p.label, icon: p.icon, keywords: p.keywords, group: p.section ?? 'Application',
-      hint: p.section ?? '', kbd: n < 9 ? `Alt ${n + 1}` : '', active: router?.current() === p.id, effect: 'navigate', available: true,
+      hint: p.section ?? 'Application', kbd: n < 9 ? `Alt ${n + 1}` : '', active: router?.current() === p.id, effect: 'navigate',
+      available: !navUnavailable.has(p.id), reason: navUnavailable.get(p.id) ?? '',
       run: () => router.go(p.id),
     }));
     // Recent places only when they name something more than a screen (a DN, an OU, a tab): plain screens are in « Aller à ».
@@ -724,9 +938,11 @@ function boot() {
       const d = describeHash(h, PAGES);
       return { id: `recent:${h}`, kind: 'page', label: d.label, icon: d.icon, group: 'Écran récent', hint: 'Récent', effect: 'navigate', available: true, recentPlace: true, run: () => { location.hash = h; } };
     });
-    const screen = screenOf.current.commands.map((c, n) => {
+    // A command of the screen declares its effect; without one it is handled as a write (its button is only brought forward).
+    const screen = screenOf.current.commands.map((raw, n) => {
+      const c = screenCommand(raw);
       const j = judge({ ...c, catalogue: false }, ctx);
-      return { order: n + 1, group: 'Sur cet écran', effect: 'local', ...c, id: `screen:${c.id}`, kind: 'command', available: j.available, reason: j.reason };
+      return { order: n + 1, group: 'Sur cet écran', ...c, id: `screen:${c.id}`, kind: 'command', available: j.available, reason: j.reason };
     });
     const commands = [...CATALOGUE.map(catalogueCommand), ...shellActions().map((a, n) => ({ ...a, order: 100 + n }))].map((c) => {
       const j = judge(c, ctx);
@@ -739,7 +955,7 @@ function boot() {
     inertTarget: shell,
     sources,
     help: async (q) => {
-      try { await loadHelp(); } catch { /* registered topics only */ }
+      try { await loadHelp(); } catch (err) { swallowed('palette.help', err); }
       return searchTopics(q, { limit: 6 }).items.map((t) => ({ id: `help:${t.name}`, kind: 'help', label: t.title, text: t.text, icon: 'info', group: 'Aide', hint: 'Aide', effect: 'local', available: true, run: () => openHelpPanel(t.name) }));
     },
     lookup: async (text) => {
@@ -764,7 +980,7 @@ function boot() {
     if (decision.action === 'none') { notify(decision.status, { tone: 'info' }); return; }
     if (decision.action === 'focus' || decision.action === 'click') {
       const control = entry.target ? (typeof entry.target === 'function' ? entry.target() : main.querySelector(entry.target)) : controlOf(entry.id.replace(/^screen:/, ''), main)?.el;
-      if (!control) { notify('Action absente de cet écran : rien n’a été lancé.', { tone: 'info' }); return; }
+      if (!control) { notify(`Action absente de cet écran${NBSP}: rien n’a été lancé.`, { tone: 'info' }); return; }
       control.scrollIntoView({ block: 'center', behavior: motionReduced() ? 'auto' : 'smooth' });
       control.classList.remove('sh-spotlight');
       void control.offsetWidth;
@@ -772,7 +988,7 @@ function boot() {
       setTimeout(() => control.classList.remove('sh-spotlight'), 2400);
       if (decision.action === 'click') {
         // Re-checked at the last moment: a button disabled since the palette opened is not clicked.
-        if (control.disabled || control.getAttribute('aria-disabled') === 'true') { notify('Action devenue indisponible : rien n’a été lancé.', { tone: 'info' }); return; }
+        if (control.disabled || control.getAttribute('aria-disabled') === 'true') { notify(`Action devenue indisponible${NBSP}: rien n’a été lancé.`, { tone: 'info' }); return; }
         control.click();
       } else {
         control.focus({ preventScroll: true });
@@ -789,25 +1005,68 @@ function boot() {
     const field = main.querySelector('input[type="search"], input[type="text"]');
     field?.focus();
     field?.select?.();
+    return !!field;
+  }
+
+  /** Puts the focus in the search field of Rechercher once its screen is drawn (menu, Ctrl F, routes; TRV-168). */
+  function focusSearchWhenReady() {
+    const started = Date.now();
+    const tryFocus = () => {
+      if (router.current() !== 'rechercher') return;
+      if (main.querySelector('input[type="search"], input[type="text"]')) { focusSearchField(); return; }
+      if (Date.now() - started < 3000) setTimeout(tryFocus, 80);
+    };
+    setTimeout(tryFocus, 60);
   }
 
   function focusSearch() {
     const event = new CustomEvent('domenia:focus-search', { cancelable: true });
     if (!window.dispatchEvent(event)) return;
     if (router.current() === 'rechercher') focusSearchField();
-    else { router.go('rechercher'); setTimeout(focusSearchField, 450); }
+    else { router.go('rechercher'); focusSearchWhenReady(); }
   }
 
   function journalShortcut() {
-    // Ctrl+L never changes the profile: expert profile opens the Opérations screen, the essential one the journal panel.
-    if (state.prefs.profile === 'expert') router.go('operations');
+    // Ctrl+L never changes the profile (TRV-180): the Opérations screen in Expert (when the administrator allows it), the
+    // journal panel of the session in Essentiel.
+    if (effectiveProfile() === 'expert') router.go('operations');
     else openCentreAt('journal');
+  }
+
+  /** Explicit choice of the profile (menu of the account, Apparence): Expert is never applied when the administrator hides it. */
+  function setProfile(id) {
+    if (id === 'expert' && !expertAllowed()) {
+      notify(`Profil Expert masqué par l’administrateur${NBSP}: le profil Essentiel reste appliqué.`, { tone: 'info', key: 'policy-expert' });
+      return;
+    }
+    setPrefs({ profile: id });
+    notify(id === 'expert'
+      ? `Profil Expert${NBSP}: vues détaillées affichées par défaut. Les droits ne changent pas.`
+      : `Profil Essentiel${NBSP}: les vues expertes restent accessibles ponctuellement depuis la palette.`, { tone: 'info', life: 3200, key: 'profile' });
   }
 
   function copySummary() {
     const text = subjectSummary();
-    if (!text) { notify('Aucun objet choisi : ouvrez d’abord une fiche depuis Rechercher.', { tone: 'info', route: 'rechercher' }); return; }
+    if (!text) { notify(`Aucun objet choisi${NBSP}: ouvrez d’abord une fiche depuis Rechercher.`, { tone: 'info', route: 'rechercher' }); return; }
     copyText(text).then((ok) => announce(ok ? 'Résumé de l’objet copié.' : 'Copie impossible.'));
+  }
+
+  /**
+   * Clears the global subject from its chip (TRV-050, TRV-171). The guard of unsaved input applies: a screen that declared
+   * unsaved input (ctx.dirty) gets a request in the page first; nothing is read either way.
+   */
+  async function clearSubjectGuarded() {
+    if (state.dirty) {
+      const answer = await ask({
+        scope: 'saisie', scopeLabel: state.page?.label ?? '',
+        title: 'Désélectionner malgré la saisie non enregistrée ?',
+        message: `${state.dirty.label || 'Une saisie de cet écran'} n’est pas enregistrée. Désélectionner l’objet la laisse telle quelle à l’écran, mais elle ne portera plus sur cet objet.`,
+        confirmLabel: 'Désélectionner', cancelLabel: 'Garder l’objet',
+      });
+      if (answer !== 'confirm') return;
+    }
+    clearSubject();
+    announce('Objet désélectionné partout ; rien n’a été relu.');
   }
 
   function refreshScreen() {
@@ -819,12 +1078,18 @@ function boot() {
   }
 
   function expertOnce() {
-    const allow = state.app?.expertAllowed !== false;
-    const d = expertDecision({ profile: state.prefs.profile, allowExpert: allow });
+    const d = expertNow();
     if (!d.show) { notify(d.reason, { tone: 'info' }); return; }
     state.expertOnce = true;
     router.go(router.current() ?? 'accueil', { ...router.params(), vue: 'expert' });
-    if (d.reason) notify(d.reason, { tone: 'info', life: 4000 });
+    if (d.reason) notify(d.reason, { tone: 'info', life: 4000, key: 'expert-once' });
+  }
+
+  function leaveExpertView() {
+    const params = { ...router.params() };
+    delete params.vue;
+    router.go(router.current() ?? 'accueil', params);
+    announce('Vue du profil Essentiel rétablie.');
   }
 
   function showAudit() {
@@ -834,7 +1099,7 @@ function boot() {
       title: 'Accessibilité de cet écran', subtitle: `${state.page?.label ?? ''} · ${findings.length ? `${findings.length} point${findings.length > 1 ? 's' : ''} à revoir` : 'aucun point relevé'}`,
       icon: 'eye', key: 'shell.audit', width: 520,
       body: findings.length
-        ? `<p class="muted">${alerts ? `${alerts} point${alerts > 1 ? 's' : ''} bloquant${alerts > 1 ? 's' : ''} pour un lecteur d’écran.` : 'Aucun point bloquant ; quelques améliorations possibles.'}</p><ol class="sh-audit">${findings.map((f) => `<li data-tone="${f.severity}"><strong>${esc(f.text)}</strong>${f.target ? `<span class="mono">${esc(f.target)}</span>` : ''}</li>`).join('')}</ol>`
+        ? `<p class="muted">${alerts ? `${alerts} point${alerts > 1 ? 's' : ''} bloquant${alerts > 1 ? 's' : ''} pour un lecteur d’écran.` : `Aucun point bloquant${NBSP}; quelques améliorations possibles.`}</p><ol class="sh-audit">${findings.map((f) => `<li data-tone="${f.severity}"><strong>${esc(f.text)}</strong>${f.target ? `<span class="mono">${esc(f.target)}</span>` : ''}</li>`).join('')}</ol>`
         : `<div class="sh-empty-mini">${icon('check')}<p><strong>Aucun point relevé</strong> sur cet écran.</p><p class="faint">Noms accessibles, motifs des contrôles grisés, étiquettes et identifiants vérifiés localement.</p></div>`,
       actions: [{ id: 'close', label: 'Fermer', primary: true, run: (p) => p.close() }],
     });
@@ -849,6 +1114,42 @@ function boot() {
   };
   window.addEventListener('hashchange', redirect);
   redirect();
+
+  // Screens unavailable for now (TRV-168: « une page indisponible est grisée avec son motif »): a screen whose module could
+  // not be opened is greyed in the menu with its reason; « Réessayer » of its notice gives it back.
+  const navUnavailable = new Map();
+  const paintNavAvailability = () => {
+    nav.querySelectorAll('.nav-item[data-id]').forEach((a) => {
+      const reason = navUnavailable.get(a.dataset.id);
+      if (reason) { a.setAttribute('aria-disabled', 'true'); a.dataset.navReason = reason; a.dataset.tip = `${a.getAttribute('aria-label')}${NBSP}: ${reason}`; }
+      else if (a.dataset.navReason) { a.removeAttribute('aria-disabled'); delete a.dataset.navReason; a.dataset.tip = a.getAttribute('aria-label'); }
+    });
+  };
+  nav.addEventListener('click', (e) => {
+    const a = e.target instanceof Element ? e.target.closest('.nav-item[data-id]') : null;
+    if (!a) return;
+    if (a.dataset.navReason) {
+      e.preventDefault();
+      const id = a.dataset.id;
+      notify(a.dataset.navReason, {
+        tone: 'info', key: `nav-unavailable|${id}`,
+        actions: [{ label: 'Réessayer', icon: 'refresh', run: () => { navUnavailable.delete(id); paintNavAvailability(); router.go(id); } }],
+      });
+      return;
+    }
+    // « Rechercher » of the menu puts the focus in its search field once the screen is drawn.
+    if (a.dataset.id === 'rechercher') focusSearchWhenReady();
+  }, true);
+  const checkScreenOpened = (id) => {
+    setTimeout(() => {
+      if (router.current() !== id) return;
+      const failed = !!main.querySelector(':scope > .page > .error-card[role="alert"]');
+      const had = navUnavailable.has(id);
+      if (failed) navUnavailable.set(id, `Écran indisponible pour le moment${NBSP}: son module n’a pas pu s’ouvrir. Le détail est dans le journal.`);
+      else navUnavailable.delete(id);
+      if (failed !== had) paintNavAvailability();
+    }, 700);
+  };
 
   const help = {
     attach: (el, key) => { if (el instanceof Element && key) el.dataset.help = key; },
@@ -876,22 +1177,31 @@ function boot() {
     routes: ROUTES,
   };
 
+  // The expert view of a screen follows the route being mounted (?vue=expert), never the previous navigation (TRV-167).
+  const expertFor = (params) => (params?.vue === 'expert' && expertAllowed() && screenOf.current.expert?.applies !== false) || effectiveProfile() === 'expert';
+  setExpertProbe(() => expertFor(router?.params()));
+
   router = createRouter({
     main,
     nav,
     pages: PAGES,
     isBusy: () => inflight > 0,
     context: (page) => {
-      // A fresh registry per mounted screen: its commands, target and scope never leak to the next screen.
-      const screen = { id: page.id, commands: [], selectionType: '', machineRows: 0, scope: '' };
+      // A fresh registry per mounted screen: its commands, target, scope, unsaved input and expert view never leak to the
+      // next screen.
+      const screen = { id: page.id, commands: [], selectionType: '', machineRows: 0, scope: '', expert: null };
       screenOf.current = screen;
       state.target = null;
+      state.dirty = null;
       const live = () => screenOf.current === screen;
+      // The router hands the parameters of the route it mounts before calling render (router.params() is already the new
+      // route here, even when the screen is mounted at once: first render, reduced motion).
+      const params = router.params();
       return {
         page,
         pages: PAGES,
         call: trackedCall,
-        go: (id, params) => router.go(id, params),
+        go: (id, params2) => router.go(id, params2),
         toast: (message, o) => notify(message, o ?? {})?.el ?? null,
         notify,
         app: appInfo,
@@ -923,8 +1233,16 @@ function boot() {
         summary: operationSummary,
         statusBadge,
         createBoard: (hostEl, opts) => createBoard(hostEl, opts),
-        expert: state.expertOnce || state.prefs.profile === 'expert',
-        profile: state.prefs.profile,
+        tasks: { begin: (o) => beginTask({ ...o, screen: page.id }) },
+        dirty: {
+          set: (on, label = '') => { if (live()) state.dirty = on ? { label: String(label ?? '').slice(0, 120) } : null; },
+          get: () => (live() ? state.dirty : null),
+        },
+        expertView: ({ applies = true, reason = '' } = {}) => { if (live()) { screen.expert = { applies: applies !== false, reason: String(reason ?? '').slice(0, 160) }; palette.refresh(); } },
+        access: { report: ({ suspended = 0, detail = '' } = {}) => { state.access = { suspended: Math.max(0, Number(suspended) || 0), detail: String(detail ?? '').slice(0, 160) }; emit('access', state.access); } },
+        swallowed,
+        expert: expertFor(params),
+        profile: effectiveProfile(),
       };
     },
     onChange: (page) => {
@@ -936,6 +1254,7 @@ function boot() {
       emit('page', state.page);
       syncWindowChrome();
       handleShellParam(params.coque);
+      checkScreenOpened(page.id);
     },
   });
 
@@ -975,6 +1294,8 @@ function boot() {
   const follow = () => { if (state.prefs.theme === 'system') applyTheme(); };
   mqDark.addEventListener('change', follow);
   mqContrast.addEventListener('change', follow);
+  // The banner folded or shown again from Apparence or the palette.
+  on('prefs', (changed) => { if ('bannerCompact' in changed) paintBanner(); });
 
   // Keyboard (TRV-178 to TRV-180): the catalogue is in shell/shortcuts.js. A dialog or a modal panel keeps its own keys.
   document.addEventListener('keydown', (e) => {
@@ -1002,10 +1323,10 @@ function boot() {
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (e.altKey && !mod && digit) {
       const page = PAGES[Number(digit[1]) - 1];
-      if (page) { e.preventDefault(); router.go(page.id); }
+      if (page) { e.preventDefault(); if (navUnavailable.has(page.id)) notify(navUnavailable.get(page.id), { tone: 'info' }); else router.go(page.id); }
       return;
     }
-    if (e.key === 'Escape' && helpPanelOpen() && !inText) closeHelpPanel(true);
+    if (e.key === 'Escape' && helpPanelOpen() && !inText && !e.defaultPrevented) closeHelpPanel(true);
   });
 
   router.start();

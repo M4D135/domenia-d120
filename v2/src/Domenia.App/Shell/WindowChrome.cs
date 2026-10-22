@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.InteropServices;
 using Domenia.Core;
 
@@ -28,8 +27,8 @@ internal static partial class WindowChrome
         {
             return false;
         }
-        var captionColor = ColorRef(caption);
-        var textColor = ColorRef(text);
+        var captionColor = ShellTexts.ColorRef(caption);
+        var textColor = ShellTexts.ColorRef(text);
         try
         {
             form.BeginInvoke(() =>
@@ -59,19 +58,6 @@ internal static partial class WindowChrome
             TechnicalLog.Warning($"Barre de titre non mise à jour : fenêtre fermée ({ex.GetType().Name}).");
             return false;
         }
-    }
-
-    /// <summary>« #RRGGBB » as a COLORREF (0x00BBGGRR), or null.</summary>
-    public static int? ColorRef(string? hex)
-    {
-        if (hex is not { Length: 7 } || hex[0] != '#' || !int.TryParse(hex.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
-        {
-            return null;
-        }
-        var r = (rgb >> 16) & 0xFF;
-        var g = (rgb >> 8) & 0xFF;
-        var b = rgb & 0xFF;
-        return (b << 16) | (g << 8) | r;
     }
 
     private static void SetFrame(IntPtr handle, bool dark, int? caption, int? text)

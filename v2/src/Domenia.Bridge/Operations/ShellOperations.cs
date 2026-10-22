@@ -24,7 +24,9 @@ public sealed class ShellOperations : IOperationModule
     private static readonly string[] SetArguments = ["interface", "layouts", "boards", "ouFavourites"];
     private static readonly string[] LookupArguments = ["text", "kinds"];
     private static readonly string[] VerifyArguments = ["dn", "objectGuid"];
-    private static readonly string[] FaultArguments = ["kind", "route", "count"];
+    private static readonly string[] FaultArguments = ["kind", "route", "count", "place"];
+    private static readonly string[] MetricArguments = ["kind", "route", "count", "milliseconds"];
+    private static readonly string[] ResolveArguments = ["dn"];
     private static readonly string[] PreviewArguments = ["command", "ou", "computers", "guids", "limit", "format"];
 
     public string Screen => "shell";
@@ -35,6 +37,7 @@ public sealed class ShellOperations : IOperationModule
         var store = ShellInterfaceStore.From(context);
         var activity = ShellActivityService.From(context);
         var faults = ShellFaultTracer.From(context);
+        var metrics = ShellMetricTracer.From(context);
         var readers = context.Readers;
         var source = context.Directory;
         // The picker reads the fictitious directory in memory in simulation, the directory itself in directory mode.
@@ -97,6 +100,14 @@ public sealed class ShellOperations : IOperationModule
                 return await readers.Require<IShellReader>().VerifyAsync(dn, guid, cancellationToken).ConfigureAwait(false);
             }, "Revérifie qu’un objet choisi existe toujours avec ce nom distinctif et ce GUID."),
 
+            // Same class as the picker: the fictitious directory in memory, a base read of the OU in directory mode.
+            new OperationDefinition("shell.ou.resolve", lookupClass, async (args, _, cancellationToken) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ResolveArguments);
+                var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
+                return await readers.Require<IShellReader>().ResolveOuAsync(dn, cancellationToken).ConfigureAwait(false);
+            }, "Relit une OU choisie dans le sélecteur partagé : nom distinctif et GUID, avant sa revérification."),
+
             // LocalRead: the fictitious directory in memory; nothing in directory mode.
             new OperationDefinition("shell.demo.coverage", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
@@ -113,21 +124,38 @@ public sealed class ShellOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, FaultArguments);
                 var kind = BridgeArguments.GetString(values, "kind");
-                if (kind is not ("error" or "rejection"))
+                if (kind is not ("error" or "rejection" or "nested" or "swallowed"))
                 {
-                    throw BridgeArguments.Invalid(FrenchText.Quote("kind") + " doit valoir error ou rejection.");
+                    throw BridgeArguments.Invalid(FrenchText.Quote("kind") + " doit valoir error, rejection, nested ou swallowed.");
                 }
-                var route = BridgeArguments.GetString(values, "route");
-                if (!GuideChapters.IsPageName(route))
+                var route = RouteArgument(values);
+                var count = CountArgument(values, "count", 10_000);
+                var place = BridgeArguments.GetOptionalString(values, "place");
+                if (place is not null && !ShellFaultTracer.IsPlace(place))
                 {
-                    throw BridgeArguments.Invalid(FrenchText.Quote("route") + " doit être un nom d’écran.");
+                    throw BridgeArguments.Invalid(FrenchText.Quote("place") + " doit être un identifiant du code de la page (64 caractères au plus).");
                 }
-                var count = values.TryGetValue("count", out var raw) && raw.ValueKind == JsonValueKind.Number && raw.TryGetInt32(out var n) && n is >= 1 and <= 10_000
-                    ? n
-                    : throw BridgeArguments.Invalid(FrenchText.Quote("count") + " doit être un entier de 1 à 10 000.");
-                var traced = faults.Report(kind, route, count);
-                return Task.FromResult<object?>(new { traced, total = faults.Total });
-            }, "Signale des erreurs de l’interface (nature, écran, nombre) au journal technique, une fois par minute au plus."),
+                var traced = faults.Report(kind, route, count, place);
+                return Task.FromResult<object?>(new { traced, total = faults.Total, swallowed = faults.Swallowed });
+            }, "Signale des erreurs de l’interface (nature, écran, endroit du code, nombre) au journal technique, une fois par minute au plus."),
+
+            // LocalWrite: counts and durations only, in the technical journal at most once a minute per screen.
+            new OperationDefinition("shell.metric", OperationClass.LocalWrite, (args, _, _) =>
+            {
+                var values = BridgeArguments.ReadObject(args, MetricArguments);
+                var kind = BridgeArguments.GetString(values, "kind");
+                if (kind != "sheet")
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("kind") + " doit valoir sheet.");
+                }
+                var route = RouteArgument(values);
+                var count = CountArgument(values, "count", 1000);
+                var milliseconds = values.TryGetValue("milliseconds", out var raw) && raw.ValueKind == JsonValueKind.Number && raw.TryGetInt64(out var ms) && ms is >= 0 and <= 86_400_000L
+                    ? ms
+                    : throw BridgeArguments.Invalid(FrenchText.Quote("milliseconds") + " doit être une durée de 0 à 86 400 000 ms.");
+                var traced = metrics.Report(route, count, milliseconds);
+                return Task.FromResult<object?>(new { traced, panels = metrics.Panels, totalMilliseconds = metrics.TotalMilliseconds });
+            }, "Temps pendant lequel un panneau modal a bloqué l’interface (nombre et durée seulement), au journal technique."),
 
             new OperationDefinition("shell.automation.contract", OperationClass.Local, (args, _, _) =>
             {
@@ -202,6 +230,17 @@ public sealed class ShellOperations : IOperationModule
                     "Commande valide. Aperçu non disponible dans l’application" + FrenchText.Colon + "la ligne de commande la sert depuis la base locale.");
         }
     }
+
+    private static string RouteArgument(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        var route = BridgeArguments.GetString(values, "route");
+        return GuideChapters.IsPageName(route) ? route : throw BridgeArguments.Invalid(FrenchText.Quote("route") + " doit être un nom d’écran.");
+    }
+
+    private static int CountArgument(IReadOnlyDictionary<string, JsonElement> values, string name, int max) =>
+        values.TryGetValue(name, out var raw) && raw.ValueKind == JsonValueKind.Number && raw.TryGetInt32(out var n) && n >= 1 && n <= max
+            ? n
+            : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un entier de 1 à " + FrenchText.Integer(max) + ".");
 
     private static JsonElement? OptionalObject(IReadOnlyDictionary<string, JsonElement> values, string name)
     {

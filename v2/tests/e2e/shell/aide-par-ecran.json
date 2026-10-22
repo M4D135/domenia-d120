@@ -1,0 +1,15 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : un écran du tableau d’aide ouvre ses sujets",
+  "description": "Sur la vue d’ensemble, la ligne d’un écran du widget « Aide par écran » porte un critère : un clic ouvre l’onglet Aide filtré sur cet écran (TRV-298 : partie cliquable seulement si elle porte un critère).",
+  "modes": ["simulation"],
+  "start": "shell",
+  "steps": [
+    { "do": "wait", "selector": ".sh-widget[data-key=\"help.coverage\"] [data-seg]", "title": "Les écrans du widget sont cliquables" },
+    { "do": "expect", "selector": ".sh-widget[data-key=\"notes.unread\"] [data-seg]", "absent": true, "title": "Un widget sans critère n’a aucune partie cliquable" },
+    { "do": "click", "selector": ".sh-widget[data-key=\"help.coverage\"] [data-seg]", "nth": 0, "title": "Ouvrir les sujets du premier écran" },
+    { "do": "wait", "selector": ".sh-helpb", "title": "L’onglet Aide est affiché" },
+    { "do": "expect", "selector": "[data-hb-area=\"\"]", "attribute": "aria-pressed", "equals": "false", "title": "Le filtre « Tous » n’est plus choisi" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -19,6 +19,25 @@ export function heightPlan(height, width) {
   return { short, low, tiny, narrow, foldNavigation: narrow || (short && width > 0 && width < 1200) };
 }
 
+/** Width the content column keeps beside the help panel before the menu folds (five indicators of the Accueil in a row). */
+export const HELP_CONTENT_MIN = 1280;
+
+/**
+ * Fold of the menu while the help panel is open (Domenia 1: « le menu se replie », improved): 'fold' when the content beside
+ * the panel would fall under 1 280 px, 'unfold' when the panel closed or the window grew enough for the menu to come back
+ * (40 px of margin, so a width near the threshold does not swing), 'none' otherwise. `content` is the width of the content
+ * column, the panel included (it is laid over it); `navExpanded` and `navCollapsed` are the two widths of the menu.
+ * @param {{ helpOpen: boolean, helpFold: boolean, collapsed: boolean, content: number, help: number, navExpanded: number, navCollapsed: number }} o
+ * @returns {'fold'|'unfold'|'none'}
+ */
+export function foldPlan({ helpOpen, helpFold, collapsed, content, help, navExpanded, navCollapsed }) {
+  const room = content - help;
+  if (helpOpen && !collapsed && room < HELP_CONTENT_MIN) return 'fold';
+  if (!helpOpen && helpFold) return 'unfold';
+  if (helpOpen && helpFold && collapsed && room - (navExpanded - navCollapsed) >= HELP_CONTENT_MIN + 40) return 'unfold';
+  return 'none';
+}
+
 let lastPlan = null;
 
 /** Applies the plan to <html data-short|data-low|data-tiny|data-narrow>; emits « layout » when it changes. */

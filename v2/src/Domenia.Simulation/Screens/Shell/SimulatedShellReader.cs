@@ -89,6 +89,17 @@ public sealed class SimulatedShellReader : IShellReader
             : new ShellLookupCheck("moved", "Objet déplacé ou renommé depuis votre choix" + FrenchText.Colon + "son nouveau nom distinctif est repris.", item);
     }
 
+    public async Task<ShellLookupCheck> ResolveOuAsync(string dn, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        await WaitAsync(cancellationToken).ConfigureAwait(false);
+        var directory = source.CurrentDirectory;
+        var ou = directory.OrganizationalUnits.FirstOrDefault(o => DistinguishedName.AreEqual(o.DistinguishedName, dn));
+        return ou is null
+            ? new ShellLookupCheck("missing", "OU introuvable dans l’annuaire fictif" + FrenchText.Colon + "supprimée, renommée ou hors de portée. Choisissez-la de nouveau.", null)
+            : new ShellLookupCheck("ok", "OU revérifiée" + FrenchText.Colon + "même nom distinctif, GUID relu.", OuItem(directory, ou));
+    }
+
     public Task<ShellDemoCoverage> CoverageAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -17,9 +17,10 @@ const SCREENS = [
   ['synchro', 'Synchronisation'], ['machine', 'Comptes machine'], ['operations', 'Opérations'], ['parametres', 'Paramètres'],
 ];
 
-export function renderHelpBrowser(panel) {
+export function renderHelpBrowser(panel, ctx) {
   let query = '';
-  let area = '';
+  // « ?ecran=<id> » opens the topics of one screen (the help coverage of the overview leads here).
+  let area = /^[a-z]{3,20}$/.test(ctx?.params?.ecran ?? '') ? ctx.params.ecran : '';
   let selected = '';
   let limit = 60;
   panel.innerHTML = `<div class="sh-helpb">
@@ -52,7 +53,7 @@ export function renderHelpBrowser(panel) {
   const paintList = () => {
     const { total, items } = searchTopics(query, { area, limit });
     const f = fold(query.trim());
-    count.textContent = `${total} sujet${total > 1 ? 's' : ''}${query ? ` pour « ${query.trim()} »` : ''}${area ? ` · ${areaLabel(area)}` : ''} sur ${helpSource()?.count ?? 820}.`;
+    count.textContent = `${total} sujet${total > 1 ? 's' : ''}${query ? ` pour « ${query.trim()} »` : ''}${area ? ` · ${areaLabel(area)}` : ''} sur ${helpSource()?.count ?? 820}.`;
     list.removeAttribute('aria-busy');
     list.innerHTML = items.length
       ? items.map((t) => `<li><button type="button" class="sh-helpb-item" data-hb-key="${esc(t.name)}" aria-pressed="${t.name === selected}">${icon(KIND_ICONS[t.kind] ?? 'info')}<span><strong>${highlight(t.title, f)}</strong><span class="sh-pick-path">${esc(areaLabel(t.area))} · ${esc(KIND_LABELS[t.kind] ?? 'Zone')}</span></span></button></li>`).join('')
@@ -106,9 +107,11 @@ export function renderHelpBrowser(panel) {
     }
   });
   loadHelp().then(() => {
+    if (area && !helpAreas().some(([a]) => a === area)) area = '';
     paintAreas();
     paintList();
     intro();
+    if (area) panel.querySelector(`[data-hb-area="${CSS.escape(area)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }).catch(() => { count.textContent = 'Catalogue d’aide indisponible.'; list.removeAttribute('aria-busy'); });
   Promise.all(SCREENS.map(([id]) => quietCall('shell.guide.info', { page: id }).catch(() => null))).then((guides) => {
     panel.querySelector('[data-hb-guides]').innerHTML = SCREENS.map(([id, label], n) => {

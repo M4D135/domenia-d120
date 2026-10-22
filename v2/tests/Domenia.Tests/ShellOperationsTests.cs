@@ -122,6 +122,54 @@ internal static class ShellOperationsTests
     }
 
     [Test]
+    public static async Task Ou_picker_reads_the_guid_of_an_ou_then_rechecks_it()
+    {
+        var bridge = new SimulatedBridge();
+        var children = await ResultAsync(bridge, "directory.ou.children", "{\"dn\":null}");
+        var ou = children.GetProperty("children").EnumerateArray().First();
+        var dn = ou.GetProperty("dn").GetString()!;
+        var resolved = await ResultAsync(bridge, "shell.ou.resolve", JsonSerializer.Serialize(new { dn }));
+        Check.Equal("ok", resolved.GetProperty("state").GetString(), "OU relue");
+        var item = resolved.GetProperty("item");
+        Check.Equal("ou", item.GetProperty("kind").GetString(), "nature");
+        var guid = item.GetProperty("objectGuid").GetString()!;
+        Check.True(Guid.TryParseExact(guid, "D", out _), "GUID au format 8-4-4-4-12");
+        var check = await ResultAsync(bridge, "shell.lookup.verify", JsonSerializer.Serialize(new { dn, objectGuid = guid }));
+        Check.Equal("ok", check.GetProperty("state").GetString(), "revérification par DN et GUID");
+        var missing = await ResultAsync(bridge, "shell.ou.resolve", JsonSerializer.Serialize(new { dn = "OU=Inexistante," + Root }));
+        Check.Equal("missing", missing.GetProperty("state").GetString(), "OU introuvable");
+        Check.Equal(JsonValueKind.Null, missing.GetProperty("item").ValueKind, "aucun objet rendu");
+        var user = await ResultAsync(bridge, "shell.lookup", "{\"text\":\"ma\",\"kinds\":[\"user\"]}");
+        var userDn = user.GetProperty("items")[0].GetProperty("dn").GetString()!;
+        var notOu = await ResultAsync(bridge, "shell.ou.resolve", JsonSerializer.Serialize(new { dn = userDn }));
+        Check.Equal("missing", notOu.GetProperty("state").GetString(), "un compte n’est pas une OU");
+        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.ou.resolve", "{\"dn\":\"pas un DN\"}"), "DN vérifié");
+        var ous = await ResultAsync(bridge, "shell.lookup", "{\"text\":\"p\",\"kinds\":[\"ou\"]}");
+        Check.True(ous.GetProperty("items").GetArrayLength() <= ShellOperations.LookupLimit, "recherche d’OU : 100 au plus");
+    }
+
+    [Test]
+    public static async Task Faults_name_their_place_and_swallowed_errors_are_apart()
+    {
+        var bridge = new SimulatedBridge();
+        var swallowed = await ResultAsync(bridge, "shell.fault", "{\"kind\":\"swallowed\",\"route\":\"shell\",\"count\":1,\"place\":\"board.copy\"}");
+        Check.True(swallowed.GetProperty("traced").GetBoolean(), "tracée");
+        Check.Equal(0, swallowed.GetProperty("total").GetInt32(), "pas une erreur de l’interface");
+        Check.Equal(1, swallowed.GetProperty("swallowed").GetInt32(), "erreur ignorée comptée");
+        var nested = await ResultAsync(bridge, "shell.fault", "{\"kind\":\"nested\",\"route\":\"shell\",\"count\":2,\"place\":null}");
+        Check.Equal(2, nested.GetProperty("total").GetInt32(), "erreurs imbriquées comptées");
+        Check.True(bridge.Log.Lines.Any(l => l.Contains("(board.copy)", StringComparison.Ordinal)), "endroit du code au journal");
+        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.fault", "{\"kind\":\"swallowed\",\"route\":\"shell\",\"count\":1,\"place\":\"mot de passe=x\"}"), "endroit : identifiant seulement");
+        var metric = await ResultAsync(bridge, "shell.metric", "{\"kind\":\"sheet\",\"route\":\"shell\",\"count\":2,\"milliseconds\":4200}");
+        Check.True(metric.GetProperty("traced").GetBoolean(), "temps bloqué tracé");
+        Check.Equal(2, metric.GetProperty("panels").GetInt32(), "panneaux");
+        Check.Equal(4200L, metric.GetProperty("totalMilliseconds").GetInt64(), "durée");
+        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"other\",\"route\":\"shell\",\"count\":1,\"milliseconds\":1}"), "nature fermée");
+        Check.Equal("argument.invalid", await ErrorAsync(bridge, "shell.metric", "{\"kind\":\"sheet\",\"route\":\"shell\",\"count\":1,\"milliseconds\":-1}"), "durée positive");
+        Check.True(bridge.Log.Lines.Any(l => l.Contains("panneau(x) modal(aux)", StringComparison.Ordinal)), "ligne du journal technique");
+    }
+
+    [Test]
     public static async Task Lookup_arguments_are_checked_before_any_read()
     {
         var bridge = new SimulatedBridge();
@@ -145,10 +193,12 @@ internal static class ShellOperationsTests
         Check.Equal(13, coverage.GetProperty("total").GetInt32(), "total");
         Check.Equal(fixtures.Count(f => f.GetProperty("present").GetBoolean()), coverage.GetProperty("present").GetInt32(), "présents comptés");
         Check.True(fixtures.All(f => f.GetProperty("present").GetBoolean() == f.GetProperty("count").GetInt32() > 0), "présent si au moins un objet");
-        foreach (var id in new[] { "ous", "locked", "disabled" })
+        foreach (var id in new[] { "ous", "locked", "disabled", "noDns", "refused" })
         {
             Check.True(fixtures.Single(f => f.GetProperty("id").GetString() == id).GetProperty("present").GetBoolean(), "cas présent : " + id);
         }
+        // TRV-047: the last workstation just joined has no DNS name yet; every category of the demonstration is present.
+        Check.Equal(1, fixtures.Single(f => f.GetProperty("id").GetString() == "noDns").GetProperty("count").GetInt32(), "un poste sans nom DNS");
     }
 
     [Test]
@@ -204,6 +254,6 @@ internal static class ShellOperationsTests
             .Select(n => bridge.Registry.TryGet(n, out var d) ? d : throw new TestFailureException("opération absente : " + n)).ToList();
         Check.True(shell.Count >= 9, "opérations de la coque enregistrées");
         Check.True(shell.All(o => o.Class != OperationClass.Write), "aucune écriture d’annuaire");
-        Check.True(shell.Where(o => o.Class == OperationClass.LocalWrite).Select(o => o.Name).Order(StringComparer.Ordinal).SequenceEqual(["shell.fault", "shell.interface.set"]), "écritures locales connues");
+        Check.True(shell.Where(o => o.Class == OperationClass.LocalWrite).Select(o => o.Name).Order(StringComparer.Ordinal).SequenceEqual(["shell.fault", "shell.interface.set", "shell.metric"]), "écritures locales connues");
     }
 }

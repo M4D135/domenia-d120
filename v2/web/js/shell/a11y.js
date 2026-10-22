@@ -42,7 +42,7 @@ function describe(el) {
   const name = accessibleName(el);
   const tag = el.tagName.toLowerCase();
   const role = el.getAttribute('role');
-  return `${role ?? tag}${name ? ` « ${name.slice(0, 50)} »` : ''}${el.id ? ` #${el.id}` : ''}${el.dataset?.command ? ` [${el.dataset.command}]` : ''}`;
+  return `${role ?? tag}${name ? ` « ${name.slice(0, 50)} »` : ''}${el.id ? ` #${el.id}` : ''}${el.dataset?.command ? ` [${el.dataset.command}]` : ''}`;
 }
 
 /**

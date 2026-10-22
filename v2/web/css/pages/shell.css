@@ -3,29 +3,29 @@
 
 .main[data-page="shell"] .sh-centre-page { display: grid; gap: var(--s6); }
 
-/* ---------- Hero ---------- */
-.main[data-page="shell"] .sh-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: var(--s8); align-items: center; }
-@media (max-width: 1250px) { .main[data-page="shell"] .sh-hero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } }
-.main[data-page="shell"] .sh-hero h1 { font-size: var(--fs-display); }
-.main[data-page="shell"] .sh-hero-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
-.main[data-page="shell"] .sh-hero-chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; }
-.main[data-page="shell"] .sh-hero-chips .chip:nth-child(2) { animation-delay: 60ms; }
-.main[data-page="shell"] .sh-hero-chips .chip:nth-child(3) { animation-delay: 120ms; }
-.main[data-page="shell"] .sh-hero-chips .chip:nth-child(4) { animation-delay: 180ms; }
-.main[data-page="shell"] .sh-hero-chips .chip:nth-child(5) { animation-delay: 240ms; }
-.main[data-page="shell"] .sh-hero-chips .chip svg { width: 14px; height: 14px; }
-.main[data-page="shell"] .sh-hero-chips.quiet .chip { animation: none; }
-.main[data-page="shell"] .sh-hero .hero-row .btn kbd { margin-left: var(--s1); background: color-mix(in srgb, var(--bg-elevated) 30%, transparent); color: inherit; border-color: color-mix(in srgb, currentColor 35%, transparent); }
-.main[data-page="shell"] .sh-hero-side { padding: var(--s5); background: color-mix(in srgb, var(--bg-elevated) 62%, transparent); }
-.main[data-page="shell"] .sh-side-title { display: flex; align-items: center; gap: var(--s2); margin-bottom: var(--s3); font-size: var(--fs-subtitle); }
-.main[data-page="shell"] .sh-side-title svg { width: 18px; height: 18px; color: var(--accent); }
-.main[data-page="shell"] .sh-side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s3); }
-.main[data-page="shell"] .sh-side-list li { display: flex; align-items: flex-start; gap: 4px; font-size: var(--fs-small); color: var(--text-muted); animation: cascade-in var(--t-slow) var(--ease-out) both; }
-.main[data-page="shell"] .sh-side-list li:nth-child(2) { animation-delay: 70ms; }
-.main[data-page="shell"] .sh-side-list li:nth-child(3) { animation-delay: 140ms; }
-.main[data-page="shell"] .sh-side-list li:nth-child(4) { animation-delay: 210ms; }
-.main[data-page="shell"] .sh-side-list kbd { flex: none; }
-.main[data-page="shell"] .sh-side-list span { margin-left: var(--s2); }
+/* ---------- Header: compact, the same on every tab (the content of a tab starts right under the tabs) ---------- */
+.main[data-page="shell"] .sh-page-head { margin-bottom: 0; align-items: center; }
+.main[data-page="shell"] .sh-page-head .subtitle { font-size: var(--fs-body); }
+.main[data-page="shell"] .sh-page-head .actions .btn kbd { margin-left: var(--s1); background: color-mix(in srgb, var(--bg-elevated) 30%, transparent); color: inherit; border-color: color-mix(in srgb, currentColor 35%, transparent); }
+@media (max-width: 1100px) { .main[data-page="shell"] .sh-page-head .actions { margin-left: 0; } }
+
+/* ---------- Welcome band of the overview ---------- */
+.main[data-page="shell"] .sh-welcome { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); gap: var(--s6); align-items: center; margin-bottom: var(--s5); padding: var(--s5) var(--s6); background: linear-gradient(120deg, color-mix(in srgb, var(--accent-soft) 70%, transparent), color-mix(in srgb, var(--bg-elevated) 80%, transparent) 60%); }
+@media (max-width: 1200px) { .main[data-page="shell"] .sh-welcome { grid-template-columns: minmax(0, 1fr); gap: var(--s4); } }
+.main[data-page="shell"] .sh-welcome h2 { font-size: var(--fs-section); margin-bottom: var(--s1); }
+.main[data-page="shell"] .sh-welcome .muted { max-width: 70ch; text-wrap: pretty; }
+.main[data-page="shell"] .sh-welcome-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.main[data-page="shell"] .sh-welcome-chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; }
+.main[data-page="shell"] .sh-welcome-chips .chip:nth-child(2) { animation-delay: 60ms; }
+.main[data-page="shell"] .sh-welcome-chips .chip:nth-child(3) { animation-delay: 120ms; }
+.main[data-page="shell"] .sh-welcome-chips .chip svg { width: 14px; height: 14px; }
+.main[data-page="shell"] .sh-gestures { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s2) var(--s4); }
+@media (max-width: 760px) { .main[data-page="shell"] .sh-gestures { grid-template-columns: minmax(0, 1fr); } }
+.main[data-page="shell"] .sh-gestures li { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: var(--s2); align-items: center; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-elevated) 70%, transparent); font-size: var(--fs-small); color: var(--text-muted); animation: cascade-in var(--t-slow) var(--ease-out) both; }
+.main[data-page="shell"] .sh-gestures li:nth-child(2) { animation-delay: 50ms; }
+.main[data-page="shell"] .sh-gestures li:nth-child(3) { animation-delay: 100ms; }
+.main[data-page="shell"] .sh-gestures li:nth-child(4) { animation-delay: 150ms; }
+.main[data-page="shell"] .sh-gesture-keys { display: inline-flex; gap: 3px; }
 
 /* ---------- Tabs ---------- */
 .main[data-page="shell"] .sh-tabs-host .k-tabs-scroll { position: sticky; top: 0; z-index: 3; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(16px); box-shadow: 0 8px 16px -14px rgb(0 0 0 / .45); border-radius: var(--r-lg) var(--r-lg) 0 0; }
@@ -39,7 +39,7 @@
 .main[data-page="shell"] .sh-helpb-areas { display: flex; flex-wrap: wrap; gap: var(--s1); }
 .main[data-page="shell"] .sh-helpb-areas .k-facet { height: 26px; font-size: var(--fs-caption); }
 .main[data-page="shell"] .sh-helpb-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 58vh; overflow: auto; }
-.main[data-page="shell"] .sh-helpb-item { display: flex; align-items: center; gap: var(--s3); width: 100%; padding: var(--s2) var(--s3); border: 1px solid transparent; border-radius: var(--r); background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; animation: cascade-in var(--t) var(--ease-out) both; transition: background var(--t-fast), transform var(--t) var(--ease-out); }
+.main[data-page="shell"] .sh-helpb-item { display: flex; align-items: center; gap: var(--s3); width: 100%; padding: var(--s2) var(--s3); border: 1px solid transparent; border-radius: var(--r); background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; animation: cascade-in var(--t) var(--ease-out) both; transition: transform var(--t) var(--ease-out); }
 .main[data-page="shell"] .sh-helpb-item:hover { background: var(--bg-hover); transform: translateX(2px); }
 .main[data-page="shell"] .sh-helpb-item[aria-pressed="true"] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .main[data-page="shell"] .sh-helpb-item > svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
@@ -54,7 +54,7 @@
 .main[data-page="shell"] .sh-helpb-actions { display: flex; gap: var(--s2); margin-top: var(--s4); }
 .main[data-page="shell"] .sh-helpb-featured-title { margin: var(--s2) 0 var(--s2); font-size: var(--fs-caption); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
 .main[data-page="shell"] .sh-helpb-featured { display: flex; flex-wrap: wrap; gap: var(--s2); }
-.main[data-page="shell"] .sh-helpb-featured .chip { cursor: pointer; animation: chip-in var(--t-slow) var(--ease-spring) both; transition: transform var(--t-fast) var(--ease-spring), border-color var(--t-fast); }
+.main[data-page="shell"] .sh-helpb-featured .chip { cursor: pointer; animation: chip-in var(--t-slow) var(--ease-spring) both; transition: transform var(--t-fast) var(--ease-spring); }
 .main[data-page="shell"] .sh-helpb-featured .chip:hover { transform: translateY(-2px); border-color: var(--accent); }
 .main[data-page="shell"] .sh-helpb-featured .chip svg { width: 14px; height: 14px; color: var(--accent); }
 .main[data-page="shell"] .sh-helpb-tips { list-style: none; margin: var(--s5) 0 0; padding: var(--s3) 0 0; display: grid; gap: var(--s2); border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); font-size: var(--fs-small); color: var(--text-muted); }
@@ -160,6 +160,21 @@
 .main[data-page="shell"] .sh-auto-out { margin-top: var(--s4); display: grid; gap: var(--s3); }
 .main[data-page="shell"] .sh-auto-out p { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .main[data-page="shell"] .sh-auto-pre { margin: 0; padding: var(--s4); max-height: 420px; overflow: auto; border-radius: var(--r-lg); background: var(--bg-sunken); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); font-size: var(--fs-caption); white-space: pre; animation: k-fade-up var(--t-slow) var(--ease-out) both; }
+
+/* Exit codes and options of the command line: a badge per code, names kept on one line. */
+.main[data-page="shell"] .sh-exits { display: grid; gap: var(--s2); margin: 0; }
+.main[data-page="shell"] .sh-exit { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--s3); align-items: center; padding: var(--s2) 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.main[data-page="shell"] .sh-exit:last-child { border-bottom: 0; }
+.main[data-page="shell"] .sh-exit dt { display: flex; align-items: center; gap: var(--s2); font-weight: 700; }
+.main[data-page="shell"] .sh-exit dd { margin: 0; color: var(--text-muted); font-size: var(--fs-small); }
+.main[data-page="shell"] .sh-exit-code { display: inline-grid; place-items: center; min-width: 30px; height: 30px; border-radius: 9px; font-size: var(--fs-subtitle); font-weight: 800; font-variant-numeric: tabular-nums; background: var(--info-soft); color: var(--info); }
+.main[data-page="shell"] .sh-exit-code[data-code="0"] { background: var(--ok-soft); color: var(--ok); }
+.main[data-page="shell"] .sh-exit-code[data-code="4"], .main[data-page="shell"] .sh-exit-code[data-code="2"] { background: var(--warn-soft); color: var(--warn); }
+.main[data-page="shell"] .sh-exit-code[data-code="5"], .main[data-page="shell"] .sh-exit-code[data-code="3"] { background: var(--alert-soft); color: var(--alert); }
+.main[data-page="shell"] .sh-auto-options { margin-top: var(--s2); }
+.main[data-page="shell"] .sh-auto-opt, .main[data-page="shell"] .sh-auto-ex { font-family: var(--font-mono); font-size: var(--fs-caption); white-space: nowrap; }
+.main[data-page="shell"] .sh-auto-ex { color: var(--text-muted); overflow-wrap: anywhere; white-space: normal; }
+.main[data-page="shell"] .sh-auto-desc { overflow-wrap: normal; hyphens: none; }
 
 /* ---------- Demonstration ---------- */
 .main[data-page="shell"] .sh-demo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }

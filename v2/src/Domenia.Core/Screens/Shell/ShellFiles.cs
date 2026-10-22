@@ -14,12 +14,59 @@ public sealed record ShellExportResult(string FileName, string Folder, int Rows,
 /// <summary>Files of the exports folder, most recent first.</summary>
 public sealed record ShellExportListing(string Folder, string Stored, ImmutableArray<ShellExportEntry> Items);
 
+/// <summary>Size and last write time of a file as the picker listed it: « Remplacer » is bound to them (Domenia 1 TRV-244).</summary>
+public sealed record ShellFileSignature(long Size, DateTimeOffset At)
+{
+    /// <summary>Gap tolerated between the date listed and the date read again (the page keeps milliseconds only).</summary>
+    public static readonly TimeSpan Tolerance = TimeSpan.FromMilliseconds(1);
+
+    /// <summary>True when the file still has this size and this date.</summary>
+    public bool Matches(long size, DateTimeOffset at) => size == Size && (at - At).Duration() < Tolerance;
+}
+
+/// <summary>Place chosen in the save mode of the picker: a folder of the starting places, a file name, « Remplacer » or not.</summary>
+public sealed record ShellSaveTarget(string Folder, string FileName, ShellFileSignature? Replace);
+
+/// <summary>File names typed in the save mode of the picker (Windows rules, kind of the export).</summary>
+public static class ShellFileNames
+{
+    private static readonly string[] Reserved =
+    [
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+
+    /// <summary>
+    /// A plain file name (no folder), 120 characters at most, without the characters Windows refuses nor a control character,
+    /// not ending with a space or a dot, not a reserved device name, with the extension of the kind (« .csv », « .json »).
+    /// </summary>
+    public static bool IsSafe(string? name, string kind)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        if (string.IsNullOrEmpty(name) || name.Length > 120 || name.EndsWith(' ') || name.EndsWith('.')
+            || name.Any(c => char.IsControl(c) || c is '\\' or '/' or ':' or '*' or '?' or '"' or '<' or '>' or '|'))
+        {
+            return false;
+        }
+        var extension = "." + kind;
+        if (!name.EndsWith(extension, StringComparison.OrdinalIgnoreCase) || name.Length == extension.Length)
+        {
+            return false;
+        }
+        var stem = name[..name.IndexOf('.', StringComparison.Ordinal)].Trim();
+        return stem.Length > 0 && !Reserved.Contains(stem, StringComparer.OrdinalIgnoreCase);
+    }
+}
+
 /// <summary>One entry of the embedded file picker (Domenia 1 TRV-244).</summary>
 /// <param name="Kind">« folder », « file » or « root » (a starting place).</param>
 public sealed record ShellFileEntry(string Name, string Path, string Kind, long? Size, DateTimeOffset? At);
 
-/// <summary>A folder as the embedded file picker shows it; <see cref="Folder"/> is null for the list of starting places.</summary>
-public sealed record ShellFolderListing(string? Folder, string? Label, string? Parent, ImmutableArray<ShellFileEntry> Entries, bool Truncated, string? Note);
+/// <summary>
+/// A folder as the embedded file picker shows it; <see cref="Folder"/> is null for the list of starting places.
+/// <see cref="Share"/> is true for a network share listed on the explicit request of the operator.
+/// </summary>
+public sealed record ShellFolderListing(string? Folder, string? Label, string? Parent, ImmutableArray<ShellFileEntry> Entries, bool Truncated, string? Note, bool Share = false);
 
 /// <summary>A file read for an import: a CSV table (delimiter found) or a JSON text.</summary>
 public sealed record ShellFileContent(

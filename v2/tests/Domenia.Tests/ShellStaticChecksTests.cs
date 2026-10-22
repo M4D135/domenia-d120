@@ -5,26 +5,15 @@ namespace Domenia.Tests;
 
 /// <summary>
 /// Architecture rules of the interface checked on the sources (Domenia 1 TRV-060 and TRV-009, TRV-063 improvements): no native
-/// window or modal loop, no dynamic code, the help catalogue generated as a whole, and the WCAG contrast of the colour pairs
-/// the interface really paints, measured on tokens.css for each theme.
+/// window or modal loop, no dynamic code, the help catalogue generated as a whole, the WCAG contrast of the colour pairs the
+/// interface really paints (tokens.css, every theme, no accepted debt: Domenia 1 refused a palette that failed), the edges of
+/// the chart series, motion in transform and opacity only, the rules of the screen sheet scoped to its screen, and no trace
+/// of WAPT (abandoned on David’s decision of 22 October 2026, PST-001).
 /// </summary>
 internal static partial class ShellStaticChecksTests
 {
-    /// <summary>
-    /// Pairs below their WCAG threshold in tokens.css on 22 October 2026 (owner: the kit). Listed so the debt stays visible:
-    /// the test fails when a new pair fails, and also when a listed pair passes again (remove it from this list then).
-    /// </summary>
-    private static readonly (string Theme, string Pair)[] KnownContrastDebts =
-    [
-        ("clair", "Légende discrète sur une carte"),
-        ("clair", "Pastille attention"),
-        ("clair", "Bordure de saisie"),
-        ("clair", "Marque confirmée"),
-        ("clair", "Marque attention"),
-        ("sombre", "Bouton principal"),
-        ("sombre", "Bordure de saisie"),
-        ("contraste", "Ligne sélectionnée"),
-    ];
+    /// <summary>Properties a transition or a keyframe of the shell may animate (compositor only).</summary>
+    private static readonly string[] AnimatedProperties = ["transform", "opacity", "filter", "translate", "scale", "rotate"];
 
     private static string V2Root()
     {
@@ -156,10 +145,138 @@ internal static partial class ShellStaticChecksTests
                 }
             }
         }
-        var unexpected = failures.Except(KnownContrastDebts).ToList();
-        var repaid = KnownContrastDebts.Except(failures).ToList();
-        Check.True(unexpected.Count == 0, "contraste insuffisant : " + string.Join(" | ", report.Where(r => unexpected.Any(u => r.StartsWith(u.Theme + " · " + u.Pair + " ", StringComparison.Ordinal)))));
-        Check.True(repaid.Count == 0, "dette de contraste remboursée, à retirer de la liste : " + string.Join(" | ", repaid.Select(r => r.Theme + " · " + r.Pair)));
+        Check.True(failures.Count == 0, "contraste insuffisant : " + string.Join(" | ", report));
+    }
+
+    [Test]
+    public static void Chart_series_have_an_edge_of_three_to_one_on_the_light_card()
+    {
+        var root = V2Root();
+        var tokens = File.ReadAllText(Path.Combine(root, "web", "css", "tokens.css"));
+        var shell = File.ReadAllText(Path.Combine(root, "web", "css", "shell.css"));
+        var card = Parse(Tokens(Block(tokens, ":root {"))["--bg-elevated"]) ?? throw new TestFailureException("--bg-elevated illisible");
+        var light = Tokens(Block(tokens, ":root {"));
+        var problems = new List<string>();
+        for (var i = 1; i <= 8; i++)
+        {
+            var name = "--c" + i.ToString(CultureInfo.InvariantCulture) + "-edge";
+            var m = Regex.Match(shell, Regex.Escape(name) + @"\s*:\s*(#[0-9a-fA-F]{6})");
+            if (!m.Success || Parse(m.Groups[1].Value) is not { } edge)
+            {
+                problems.Add(name + " absent");
+                continue;
+            }
+            var ratio = Ratio(edge, card);
+            if (ratio < 3.0)
+            {
+                problems.Add(name + " " + ratio.ToString("0.00", CultureInfo.InvariantCulture));
+            }
+            if (light.TryGetValue("--c" + i.ToString(CultureInfo.InvariantCulture), out var fill) && Parse(fill) is { } pastel && Ratio(edge, pastel) < 1.5)
+            {
+                problems.Add(name + " trop proche de sa série");
+            }
+        }
+        Check.True(problems.Count == 0, "bords des séries : " + string.Join(" | ", problems));
+    }
+
+    [Test]
+    public static void Shell_motion_uses_transform_and_opacity_only()
+    {
+        var root = V2Root();
+        var problems = new List<string>();
+        foreach (var rel in new[] { "web/css/shell.css", "web/css/pages/shell.css", "web/css/layout.css" })
+        {
+            var css = BlockComment().Replace(File.ReadAllText(Path.Combine(root, rel)), "");
+            foreach (Match m in Transition().Matches(css))
+            {
+                foreach (var item in m.Groups[1].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var property = item.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+                    if (property != "none" && !AnimatedProperties.Contains(property, StringComparer.Ordinal))
+                    {
+                        problems.Add(rel + " transition " + property);
+                    }
+                }
+            }
+            foreach (Match m in Keyframes().Matches(css))
+            {
+                var body = BlockAt(css, m.Index + m.Length - 1);
+                foreach (Match d in Declaration().Matches(body))
+                {
+                    if (!AnimatedProperties.Contains(d.Groups[1].Value, StringComparer.Ordinal))
+                    {
+                        problems.Add(rel + " @keyframes " + m.Groups[1].Value + " " + d.Groups[1].Value);
+                    }
+                }
+            }
+        }
+        Check.True(problems.Count == 0, "animations hors transform, opacity et filter : " + string.Join(" | ", problems));
+    }
+
+    [Test]
+    public static void Rules_of_the_screen_sheet_are_scoped_to_the_screen()
+    {
+        var root = V2Root();
+        var css = BlockComment().Replace(File.ReadAllText(Path.Combine(root, "web", "css", "pages", "shell.css")), "");
+        var problems = new List<string>();
+        foreach (Match m in RuleSelector().Matches(css))
+        {
+            var selector = m.Groups[1].Value.Trim();
+            if (selector.StartsWith('@') || selector.Length == 0 || Regex.IsMatch(selector, @"^(from|to|\d+%)"))
+            {
+                continue;
+            }
+            foreach (var part in selector.Split(',', StringSplitOptions.TrimEntries))
+            {
+                if (!part.StartsWith(".main[data-page=\"shell\"]", StringComparison.Ordinal))
+                {
+                    problems.Add(part);
+                }
+            }
+        }
+        Check.True(problems.Count == 0, "règles hors de l’écran : " + string.Join(" | ", problems.Take(10)));
+    }
+
+    [Test]
+    public static void No_trace_of_wapt_in_the_code_of_domenia_2()
+    {
+        var root = V2Root();
+        var problems = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories)
+                     .Concat(Directory.EnumerateFiles(Path.Combine(root, "web"), "*.*", SearchOption.AllDirectories)))
+        {
+            var rel = Relative(root, file);
+            if (rel.Contains("/obj/", StringComparison.Ordinal) || rel.Contains("/bin/", StringComparison.Ordinal) || rel.EndsWith("parite.js", StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (File.ReadAllText(file).Contains("wapt", StringComparison.OrdinalIgnoreCase))
+            {
+                problems.Add(rel);
+            }
+        }
+        Check.True(problems.Count == 0, "WAPT abandonné (PST-001) : " + string.Join(" | ", problems));
+    }
+
+    [Test]
+    public static void No_inline_style_nor_script_in_the_markup_of_the_shell()
+    {
+        var root = V2Root();
+        var problems = new List<string>();
+        var files = Directory.EnumerateFiles(Path.Combine(root, "web", "js", "shell"), "*.js")
+            .Concat(Directory.EnumerateFiles(Path.Combine(root, "web", "js", "pages", "shell"), "*.js"))
+            .Append(Path.Combine(root, "web", "js", "app.js"))
+            .Append(Path.Combine(root, "web", "js", "palette.js"))
+            .Append(Path.Combine(root, "web", "js", "pages", "shell.js"));
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            foreach (Match m in InlineMarkup().Matches(text))
+            {
+                problems.Add(Relative(root, file) + " " + m.Value.Trim());
+            }
+        }
+        Check.True(problems.Count == 0, "style ou script en ligne : " + string.Join(" | ", problems.Take(10)));
     }
 
     // ---------- Helpers of the contrast check ----------
@@ -189,6 +306,24 @@ internal static partial class ShellStaticChecksTests
             }
         }
         throw new TestFailureException("Bloc non fermé : " + selector);
+    }
+
+    /// <summary>Body of the block whose opening brace is at <paramref name="open"/>.</summary>
+    private static string BlockAt(string css, int open)
+    {
+        var depth = 0;
+        for (var i = open; i < css.Length; i++)
+        {
+            if (css[i] == '{')
+            {
+                depth++;
+            }
+            else if (css[i] == '}' && --depth == 0)
+            {
+                return css[(open + 1)..i];
+            }
+        }
+        return css[(open + 1)..];
     }
 
     private static Dictionary<string, string> Tokens(string block) =>
@@ -273,4 +408,23 @@ internal static partial class ShellStaticChecksTests
 
     [GeneratedRegex(@"^rgba?\(([^)]+)\)$")]
     private static partial Regex RgbColour();
+
+    [GeneratedRegex(@"/\*.*?\*/", RegexOptions.Singleline)]
+    private static partial Regex BlockComment();
+
+    [GeneratedRegex(@"transition\s*:\s*([^;}]+)")]
+    private static partial Regex Transition();
+
+    [GeneratedRegex(@"@keyframes\s+([\w-]+)\s*\{")]
+    private static partial Regex Keyframes();
+
+    [GeneratedRegex(@"([a-z-]+)\s*:")]
+    private static partial Regex Declaration();
+
+    [GeneratedRegex(@"(?:^|})\s*([^{}@]+)\{", RegexOptions.Multiline)]
+    private static partial Regex RuleSelector();
+
+    // An attribute style="…" or an event handler on…="…" written in markup, or a <script> element.
+    [GeneratedRegex(@"\sstyle=""|\son[a-z]+=""|<script\b")]
+    private static partial Regex InlineMarkup();
 }

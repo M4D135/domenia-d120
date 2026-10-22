@@ -245,7 +245,18 @@ public static class ShellInterfaceRules
         !string.IsNullOrEmpty(id) && id.Length <= 64 && char.IsAsciiLetterLower(id[0])
         && id.All(c => char.IsAsciiLetterOrDigit(c) || c is ':' or '.' or '_' or '-');
 
-    /// <summary>Addresses of recent screens: « #/fiche?dn=… », 300 characters at most, printable ASCII only (encoded query).</summary>
+    /// <summary>
+    /// Parameters of an address that name an object of the directory or what the operator typed: an address that holds one stays
+    /// in the memory of the session (history, palette) and is never written to the preferences file (Domenia 1 kept its
+    /// history in memory only).
+    /// </summary>
+    private static readonly string[] PrivateParameters = ["dn", "ou", "q", "guid", "objectguid", "sam", "upn", "nom", "cible", "poste", "user", "compte"];
+
+    /// <summary>
+    /// Addresses of recent screens kept in the preferences: « #/shell?onglet=aide », 300 characters at most, printable ASCII
+    /// only (encoded query), and no parameter that names an object of the directory or a typed text (dn, ou, q…) nor any
+    /// encoded « = » (the mark of a distinguished name).
+    /// </summary>
     public static bool IsRecentPage(string? hash)
     {
         if (string.IsNullOrEmpty(hash) || hash.Length > 300 || !hash.StartsWith("#/", StringComparison.Ordinal))
@@ -254,10 +265,32 @@ public static class ShellInterfaceRules
         }
         var query = hash.IndexOf('?', StringComparison.Ordinal);
         var route = query < 0 ? hash[2..] : hash[2..query];
-        return route.Length is > 0 and <= 30
-            && char.IsAsciiLetterLower(route[0])
-            && route.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
-            && hash.All(c => c > ' ' && c < '\u007f');
+        if (route.Length is 0 or > 30
+            || !char.IsAsciiLetterLower(route[0])
+            || !route.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')
+            || !hash.All(c => c > ' ' && c < '\u007f'))
+        {
+            return false;
+        }
+        if (query < 0)
+        {
+            return true;
+        }
+        var text = hash[(query + 1)..];
+        if (text.Contains("%3d", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        foreach (var pair in text.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var equals = pair.IndexOf('=', StringComparison.Ordinal);
+            var name = equals < 0 ? pair : pair[..equals];
+            if (PrivateParameters.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static int Size(JsonElement value) => Encoding.UTF8.GetByteCount(value.GetRawText());

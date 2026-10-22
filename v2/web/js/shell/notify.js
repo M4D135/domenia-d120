@@ -149,17 +149,21 @@ function show(n, life) {
 function renderActions(n) {
   const box = n.el?.querySelector('.sh-note-actions');
   if (!box) return;
+  // One row: the actions that lead somewhere keep their words; « Copier pour le support » and « Ouvrir le journal » are
+  // compact icon buttons at the end of the row (their names stay for the screen reader and in the tooltip).
   const buttons = [];
   if (n.route) buttons.push({ id: 'route', label: `Aller à ${n.routeLabel}`, icon: 'chevronRight', tip: `Ouvre ${n.routeLabel}. Rien n’est autorisé ni lancé par ce clic.` });
   for (const [i, a] of n.actions.entries()) buttons.push({ id: `custom-${i}`, label: a.label, icon: a.icon });
   if (n.folder) buttons.push({ id: 'folder', label: n.folderLabel, icon: 'folder', tip: 'Ouvre l’Explorateur sur le dossier des exports.' });
   if (n.detail) buttons.push({ id: 'detail', label: 'Voir le détail', icon: 'eye', tip: 'Affiche ou masque le détail de ce message.' });
   if (n.tone === 'warn' || n.tone === 'alert') {
-    buttons.push({ id: 'support', label: 'Copier pour le support', icon: 'copy', tip: 'Copie le code, l’heure, le message et son détail. Les secrets connus sont masqués.' });
-    buttons.push({ id: 'journal', label: 'Ouvrir le journal', icon: 'activity', tip: 'Ouvre le journal des notifications de la session.' });
+    buttons.push({ id: 'support', label: 'Copier pour le support', icon: 'copy', tip: 'Copier pour le support : code, heure, message et détail, secrets connus masqués.', compact: true });
+    buttons.push({ id: 'journal', label: 'Ouvrir le journal', icon: 'activity', tip: 'Ouvrir le journal des notifications de la session.', compact: true });
   }
   box.hidden = !buttons.length;
-  box.innerHTML = buttons.map((b) => `<button class="btn xs subtle" type="button" data-act="${b.id}"${b.tip ? ` data-tip="${esc(b.tip)}"` : ''}>${b.icon ? icon(b.icon) : ''}${esc(b.label)}</button>`).join('');
+  box.innerHTML = buttons.map((b) => (b.compact
+    ? `<button class="btn xs ghost icon sh-note-mini" type="button" data-act="${b.id}" aria-label="${esc(b.label)}" data-tip="${esc(b.tip)}">${icon(b.icon)}</button>`
+    : `<button class="btn xs subtle" type="button" data-act="${b.id}"${b.tip ? ` data-tip="${esc(b.tip)}"` : ''}>${b.icon ? icon(b.icon) : ''}<span>${esc(b.label)}</span></button>`)).join('');
   box.onclick = (e) => {
     const b = e.target instanceof Element ? e.target.closest('button[data-act]') : null;
     if (b) runAction(n, b.dataset.act, b);
@@ -175,7 +179,9 @@ function runAction(n, act, button) {
     const pre = n.el.querySelector('.sh-note-detail');
     pre.textContent = n.detail;
     pre.hidden = !pre.hidden;
-    button.lastChild.textContent = pre.hidden ? 'Voir le détail' : 'Masquer le détail';
+    const label = button.querySelector('span');
+    if (label) label.textContent = pre.hidden ? 'Voir le détail' : 'Masquer le détail';
+    button.setAttribute('aria-expanded', String(!pre.hidden));
     // A detail being read keeps its banner open.
     n.pinned = true;
     pause(n);
@@ -249,12 +255,12 @@ export function routeNotice(text, routeCode, tone = 'warn') {
  * no real data, nothing read nor written.
  */
 export function exampleNote(tone) {
-  if (tone === 'info') return notify('Exemple d’information : ce message se ferme seul après 5 secondes, sauf sous le pointeur.', { tone: 'info' });
-  if (tone === 'ok') return notify('Exemple de réussite : 12 lignes exportées dans Domenia-OU-Postes-exemple.csv.', { tone: 'ok' });
-  if (tone === 'warn') return notify('Exemple d’avertissement : une écriture précédente reste à vérifier sur cet objet ; relisez son reçu avant d’en préparer une autre.', { tone: 'warn', route: 'operations-verifier' });
+  if (tone === 'info') return notify(`Exemple d’information : ce message se ferme seul après 5 secondes, sauf sous le pointeur.`, { tone: 'info' });
+  if (tone === 'ok') return notify(`Exemple de réussite : 12 lignes exportées dans Domenia-OU-Postes-exemple.csv.`, { tone: 'ok' });
+  if (tone === 'warn') return notify(`Exemple d’avertissement : une écriture précédente reste à vérifier sur cet objet ; relisez son reçu avant d’en préparer une autre.`, { tone: 'warn', route: 'operations-verifier' });
   if (tone === 'alert') {
-    return notify('Exemple d’erreur INC-4F2A : la lecture n’a pas abouti.\n\nRien n’a été modifié ; réessayez ou copiez le message pour le support.', {
-      tone: 'alert', detail: 'Détail technique d’exemple (aucune donnée réelle) : code 0x8007203A, contrôleur DC01.example.local, durée 8 s.',
+    return notify(`Exemple d’erreur INC-4F2A : la lecture n’a pas abouti.\n\nRien n’a été modifié ; réessayez ou copiez le message pour le support.`, {
+      tone: 'alert', detail: `Détail technique d’exemple (aucune donnée réelle) : code 0x8007203A, contrôleur DC01.example.local, durée 8 s.`,
     });
   }
   return null;

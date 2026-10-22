@@ -15,6 +15,12 @@ public interface IShellReader : IScreenReader
     /// <summary>Checks that a picked object still exists with this DN and this GUID (moved, missing or refused otherwise).</summary>
     Task<ShellLookupCheck> VerifyAsync(string dn, Guid objectGuid, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The OU of this DN with its GUID, so that the OU picker can check DN and GUID again before handing the choice over
+    /// (« ok », « missing » or « denied »). An object of the DN that is not an OU answers « missing ».
+    /// </summary>
+    Task<ShellLookupCheck> ResolveOuAsync(string dn, CancellationToken cancellationToken);
+
     /// <summary>What the demonstration directory holds, category by category (simulation only).</summary>
     Task<ShellDemoCoverage> CoverageAsync(CancellationToken cancellationToken);
 
@@ -41,4 +47,19 @@ public static class ShellErrors
 
     public const string FolderUnavailable = "folder.unavailable";
     public const string FolderUnavailableMessage = "Dossier indisponible : il n’existe plus ou ne peut pas être lu.";
+
+    public const string FileExists = "file.exists";
+    public const string FileExistsMessage = "Un fichier de ce nom existe déjà dans ce dossier : choisissez « Remplacer » dans le sélecteur, ou un autre nom.";
+
+    public const string FileChanged = "file.changed";
+    public const string FileChangedMessage = "Le fichier à remplacer a changé depuis votre choix (taille ou date) : rien n’a été écrit. Choisissez-le de nouveau.";
+
+    public const string ExportTooLarge = "export.tooLarge";
+    public const string ExportTooLargeMessage = "Export refusé : la liste dépasse 200 000 lignes ou 1 000 colonnes. Filtrez-la avant d’exporter.";
+
+    public const string ShareTimeout = "share.timeout";
+    public const string ShareTimeoutMessage = "Le partage n’a pas répondu dans les 15 secondes : il est lent ou injoignable. Rien n’a été relancé.";
+
+    public const string ShareRefused = "share.refused";
+    public const string ShareRefusedMessage = "Partage refusé : saisissez le chemin complet d’un dossier partagé (\\\\serveur\\partage\\dossier), ni périphérique, ni lien, ni « .. ».";
 }

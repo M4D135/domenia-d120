@@ -3,15 +3,20 @@
 // drop or by the keyboard, resize, change of representation, removal, ten undo steps with redo, ready-made layouts, the
 // delivered or team layout, export and import of the layout (JSON), persistence with its five previous versions, copy of a
 // widget or of the whole board for a ticket (text, Markdown or HTML), « Comprendre ce chiffre », dates of the data and an
-// accessible table for every chart. Layout rules are pure functions (tests/web/shell/board.test.mjs).
+// accessible table for every chart, selection of a part that carries a criterion (« Autres » keeps its members), actions
+// of a widget, removal that suspends the collections of the widget (onLayout). The stored layout is always read before the
+// first save (the engine answers after the first screen may already be shown). Layout rules are pure functions
+// (tests/web/shell/board.test.mjs).
 import { icon } from '../icons.js';
 import { esc, fold, copyText, announce, motionReduced } from '../ui.js';
-import { openMenu, openDrawer, confirmDialog } from '../kit/index.js';
-import { state, setBoard, quietCall } from './store.js';
+import { openMenu, openDrawer, confirmDialog, glyph } from '../kit/index.js';
+import { isTextEntry } from '../kit/util.js';
+import { state, setBoard, readBoard, quietCall, on } from './store.js';
 import { notify } from './notify.js';
 import { visualMarkup, paintCharts, dataDates, dataTable, num, sizeText } from './charts.js';
 import { exportJson, importJson } from './exports.js';
 import { protectText } from './summary.js';
+import { ask } from './guards.js';
 
 const NBSP = ' ';
 export const FORMAT = 'Domenia.BoardLayout.1';
@@ -21,9 +26,13 @@ const HISTORY_MAX = 5;
 const SIZES = ['S', 'M', 'L'];
 export const SIZE_LABELS = { S: 'Compacte', M: 'Moyenne', L: 'Large' };
 export const VISUAL_LABELS = {
-  kpi: 'Chiffre clé', gauge: 'Jauge', donut: 'Anneau', bars: 'Barres', columns: 'Histogramme', line: 'Courbe',
-  list: 'Liste de points', sheet: 'Fiche', checklist: 'Liste d’état',
+  kpi: 'Chiffre clé', gauge: 'Jauge', score: 'Carte score', health: 'Santé : score et points', donut: 'Anneau', bars: 'Barres',
+  columns: 'Histogramme', line: 'Courbe', list: 'Liste de points', sheet: 'Fiche', checklist: 'Liste d’état',
 };
+/** Origins of the widgets of a catalogue (filter of the editor, Domenia 1 Show-DomeniaBoardEditor). */
+export const ORIGIN_LABELS = { builtin: 'Intégrés', team: 'Équipe', query: 'Requêtes enregistrées', probe: 'Sondes du poste' };
+/** A fleet widget reads every workstation of the scope when refreshed: beyond this many, adding it asks first. */
+export const FLEET_CONFIRM_ABOVE = 200;
 /** Search synonyms of the catalogue (Domenia 1 $DomeniaBoardSearchSynonyms). */
 export const SYNONYMS = {
   ram: ['memoire'], memory: ['memoire'], ssd: ['disque', 'stockage'], hdd: ['disque'], stockage: ['disque', 'volume'],
@@ -47,14 +56,18 @@ export function matchesCatalog(item, terms, { origin = '', category = '' } = {})
   return terms.every((t) => t.forms.some((f) => hay.includes(f)));
 }
 
-/** Cleans a layout read, imported or delivered: unknown widgets dropped, representation and size corrected, ids unique. */
-export function cleanLayout(items, catalog, prefix = 'w') {
+/**
+ * Cleans a layout read, imported or delivered: unknown widgets dropped, representation and size corrected, ids unique. Keys
+ * of Domenia 1 (team layouts, exported documents) are translated through `legacyKeys` ({ 'DiskSpace': 'disk.free' }).
+ */
+export function cleanLayout(items, catalog, prefix = 'w', legacyKeys = {}) {
   const byKey = new Map(catalog.map((c) => [c.key, c]));
   const seen = new Set();
   const out = [];
   (Array.isArray(items) ? items : []).forEach((raw, position) => {
     if (!raw || typeof raw !== 'object') return;
-    const key = String(raw.key ?? raw.Key ?? '');
+    const given = String(raw.key ?? raw.Key ?? '');
+    const key = byKey.has(given) ? given : String(legacyKeys?.[given] ?? given);
     const c = byKey.get(key);
     if (!c) return;
     let id = String(raw.id ?? raw.Id ?? '');
@@ -175,15 +188,19 @@ export function layoutDocument(board, layout, at = new Date()) {
   };
 }
 
-/** Reads an imported text or a team layout: a document of this board or a plain list. { valid, items, reason }. */
+/**
+ * Reads an imported text or a team layout: a document of this board or a plain list. { valid, items, reason }. `board` is the
+ * name or the list of names the board answers to (its team name and its identifier: « Computer » and « poste »).
+ */
 export function readLayoutDocument(board, text) {
+  const names = (Array.isArray(board) ? board : [board]).filter(Boolean).map((b) => String(b).toLowerCase());
   if (!String(text ?? '').trim()) return { valid: false, items: [], reason: 'Fichier vide.' };
   let parsed;
   try { parsed = JSON.parse(text); } catch { return { valid: false, items: [], reason: 'Texte JSON illisible.' }; }
   let items = parsed;
   if (parsed && !Array.isArray(parsed) && typeof parsed === 'object' && 'Layout' in parsed) {
     if (parsed.Format && parsed.Format !== FORMAT) return { valid: false, items: [], reason: `Format inconnu${NBSP}: ${String(parsed.Format).slice(0, 40)}.` };
-    if (parsed.Board && String(parsed.Board).toLowerCase() !== String(board).toLowerCase()) return { valid: false, items: [], reason: `Disposition du tableau « ${String(parsed.Board).slice(0, 40)} », pas de celui-ci.` };
+    if (parsed.Board && !names.includes(String(parsed.Board).toLowerCase())) return { valid: false, items: [], reason: `Disposition du tableau « ${String(parsed.Board).slice(0, 40)} », pas de celui-ci.` };
     items = parsed.Layout;
   }
   items = Array.isArray(items) ? items.filter((i) => i && typeof i === 'object') : [];
@@ -192,24 +209,37 @@ export function readLayoutDocument(board, text) {
 }
 
 /** Stored document of a board: the layout and its five previous versions (TRV-313 improvement). */
-export function readStored(doc, catalog) {
+export function readStored(doc, catalog, legacyKeys = {}) {
   if (doc && typeof doc === 'object' && doc.format === DOC_FORMAT && Array.isArray(doc.layout)) {
-    return { layout: cleanLayout(doc.layout, catalog), history: Array.isArray(doc.history) ? doc.history.slice(0, HISTORY_MAX) : [], customized: true };
+    return { layout: cleanLayout(doc.layout, catalog, 'w', legacyKeys), history: Array.isArray(doc.history) ? doc.history.slice(0, HISTORY_MAX) : [], customized: true };
   }
   // Version 1: a plain list (Domenia 1 Dashboard.<Board>.Layout); « [] » is a board emptied on purpose and stays empty.
-  if (Array.isArray(doc)) return { layout: cleanLayout(doc, catalog), history: [], customized: true };
+  if (Array.isArray(doc)) return { layout: cleanLayout(doc, catalog, 'w', legacyKeys), history: [], customized: true };
   return null;
 }
 
-/** Plain text of a widget for a ticket (Domenia 1 ConvertTo-DomeniaWidgetText): 20 lines at most, then « et N autres ». */
+/** Keys shown, added and removed between two layouts (onLayout: the screen suspends the collections of removed widgets). */
+export function layoutChange(before, after) {
+  const was = new Set((before ?? []).map((i) => i.key));
+  const now = new Set((after ?? []).map((i) => i.key));
+  return { keys: [...now], added: [...now].filter((k) => !was.has(k)), removed: [...was].filter((k) => !now.has(k)) };
+}
+
+/**
+ * Plain text of a widget for a ticket (Domenia 1 ConvertTo-DomeniaWidgetText): 20 lines at most, then « et N autres ». A
+ * widget without data or suspended gives '' (nothing is copied).
+ */
 export function widgetText(title, e) {
-  if (!e) return '';
-  const lines = [e.value !== undefined && e.value !== null && e.value !== '' ? `${title}${NBSP}: ${e.display ?? (typeof e.value === 'number' ? num(e.value) : e.value)}${e.unit ? ` ${e.unit}` : ''}` : title];
-  for (const k of ['subtitle', 'detail', 'badge']) if (e[k] && e[k] !== e.value) lines.push(String(e[k]));
+  if (!e || e.paused) return '';
+  const hasValue = e.value !== undefined && e.value !== null && e.value !== '';
+  if (!hasValue && !(e.items ?? []).length && !e.verdict && !Number.isFinite(Number(e.number))) return '';
+  const value = hasValue ? (e.display ?? (typeof e.value === 'number' ? num(e.value) : e.value)) : Number.isFinite(Number(e.number)) ? num(e.number) : '';
+  const lines = [value !== '' ? `${title}${NBSP}: ${value}${e.unit ? ` ${e.unit}` : ''}` : title];
+  for (const k of ['verdict', 'subtitle', 'detail', 'badge']) if (e[k] && e[k] !== e.value) lines.push(String(e[k]));
   const items = e.items ?? [];
   const total = e.kind === 'distribution' ? items.reduce((s, i) => s + (Number(i.value) || 0), 0) : 0;
   for (const i of items.slice(0, 20)) {
-    if (i.level) { lines.push(`- ${({ alert: 'Critique', warn: 'À surveiller', ok: 'Conforme' })[i.level] ?? 'Information'}${NBSP}: ${i.text ?? i.label}`); continue; }
+    if (i.level) { lines.push(`- ${({ alert: 'Critique', warn: 'À surveiller', ok: 'Conforme' })[i.level] ?? 'Information'}${NBSP}: ${i.text ?? i.label}${i.detail ? ` (${i.detail})` : ''}`); continue; }
     const value = i.display ?? (i.value !== undefined && i.value !== null ? num(i.value) : '');
     const share = total > 0 ? ` (${Math.round(((Number(i.value) || 0) / total) * 100)}${NBSP}%)` : '';
     lines.push(`- ${i.label}${value !== '' ? `${NBSP}: ${value}${share}` : ''}${i.detail ? ` (${i.detail})` : ''}`);
@@ -253,6 +283,15 @@ export function keyGesture(e, editing) {
   return steps[key] ? { action: 'move', value: steps[key] } : null;
 }
 
+/** Parts of a ring as drawn (8 at most, then « Autres »), for the selection. */
+function groupOthersOf(entry) {
+  const valid = (entry.items ?? []).filter((i) => i && Number(i.value) > 0);
+  if (valid.length <= 8) return valid;
+  const tail = valid.slice(7);
+  const criteria = tail.flatMap((i) => (i.criteria ?? (i.criterion ? [i.criterion] : [])));
+  return [...valid.slice(0, 7), { label: `Autres (${tail.length} catégories)`, other: true, members: tail.map((i) => i.label), criteria, criterion: criteria.join('|') || undefined }];
+}
+
 // ---------- Board UI ----------
 
 /**
@@ -260,14 +299,23 @@ export function keyGesture(e, editing) {
  * @param {HTMLElement} host
  * @param {{ id: string, team?: string, title: string, catalog: Array<object>, defaults: Array<object>,
  *   presets?: Array<{ id: string, label: string, keys: string[] }>, load: () => Promise<Record<string, object>>,
- *   refreshItem?: (key: string) => Promise<object>, explain?: (key: string, entry: object) => object, summaryHead?: () => string }} o
+ *   refreshItem?: (key: string) => Promise<object>, explain?: (key: string, entry: object) => object, summaryHead?: () => string,
+ *   legacyKeys?: Record<string, string>, fleetSize?: () => number,
+ *   onLayout?: (change: { keys: string[], added: string[], removed: string[] }) => void,
+ *   onSegment?: (key: string, part: { label: string, criterion?: string, criteria?: string[], members?: string[], selected: boolean }) => void,
+ *   onAction?: (key: string, action: string) => void }} o
  */
 export function createBoard(host, o) {
   const catalog = o.catalog;
-  const delivered = () => cleanLayout(o.defaults, catalog, 'b');
-  const stored = readStored(state.engine?.boards?.[o.id], catalog);
+  const legacy = o.legacyKeys ?? {};
+  const delivered = () => cleanLayout(o.defaults, catalog, 'b', legacy);
+  // The stored layout is known only once the engine answered (or failed): until then the board shows the delivered layout
+  // and never saves, so a stored layout is never overwritten by the delivered one.
+  let ready = state.engineRead;
+  const stored = ready ? readStored(readBoard(o.id), catalog, legacy) : null;
   let layout = stored ? stored.layout : delivered();
   let history = stored?.history ?? [];
+  let gestured = false;
   let editing = false;
   let undo = [];
   let redo = [];
@@ -276,14 +324,15 @@ export function createBoard(host, o) {
   let alive = true;
   let columns = 4;
   let dragId = null;
+  const selection = {}; // widget key → label of the part selected (kept across reloads, « Autres » included)
 
   host.innerHTML = `<div class="sh-board" data-board="${esc(o.id)}">
     <div class="sh-board-bar" role="toolbar" aria-label="Commandes du tableau">
       <button class="btn sm" type="button" data-b="edit" aria-pressed="false">${icon('settings')}<span>Personnaliser</span></button>
       <button class="btn sm subtle" type="button" data-b="add">${icon('sparkles')}Ajouter un widget</button>
       <button class="btn sm ghost" type="button" data-b="presets" aria-haspopup="menu">${icon('panel')}Dispositions prêtes</button>
-      <button class="btn sm ghost" type="button" data-b="undo" hidden>${icon('refresh')}<span>Annuler</span></button>
-      <button class="btn sm ghost" type="button" data-b="redo" hidden>${icon('refresh')}<span>Rétablir</span></button>
+      <button class="btn sm ghost" type="button" data-b="undo" hidden aria-keyshortcuts="Control+Z">${glyph('undo')}<span>Annuler</span></button>
+      <button class="btn sm ghost" type="button" data-b="redo" hidden aria-keyshortcuts="Control+Y">${glyph('undo')}<span>Rétablir</span></button>
       <span class="sh-board-spacer"></span>
       <button class="btn sm ghost" type="button" data-b="copy" aria-haspopup="menu">${icon('copy')}Copier le résumé</button>
       <button class="btn sm ghost icon" type="button" data-b="more" aria-haspopup="menu" aria-label="Plus de commandes du tableau" data-tip="Par défaut, exporter, importer, versions">${icon('more')}</button>
@@ -299,6 +348,12 @@ export function createBoard(host, o) {
 
   function save(next, label, { undoable = true } = {}) {
     if (JSON.stringify(next) === JSON.stringify(layout)) return;
+    if (!ready) {
+      notify('Disposition enregistrée en cours de lecture : réessayez dans un instant, rien n’a été changé.', { tone: 'info', key: `board-wait|${o.id}` });
+      return;
+    }
+    gestured = true;
+    const change = layoutChange(layout, next);
     if (undoable) {
       undo.push({ layout, label });
       if (undo.length > UNDO_MAX) undo.shift();
@@ -309,7 +364,35 @@ export function createBoard(host, o) {
     setBoard(o.id, { format: DOC_FORMAT, version: 2, savedAt: new Date().toISOString(), layout, history });
     render();
     if (label) announce(label);
+    if (change.added.length || change.removed.length) tellLayout(change);
   }
+
+  function tellLayout(change) {
+    try { o.onLayout?.(change); } catch (err) { console.error(err); }
+    // A widget added after the first read has no data yet: the screen reads it once (it was not part of the collection).
+    if (change.added.length && Object.keys(data).length) {
+      for (const key of change.added) {
+        if (data[key] === undefined) { const item = layout.find((i) => i.key === key); if (item) refreshItem(item, { quiet: true }); }
+      }
+    }
+  }
+
+  // The stored layout arrives after the board was shown: adopted as long as the operator changed nothing.
+  const offEngine = ready ? () => {} : on('engine', () => {
+    if (ready || !alive) return;
+    ready = true;
+    offEngine();
+    if (gestured) return;
+    const late = readStored(readBoard(o.id), catalog, legacy);
+    if (late) {
+      const change = layoutChange(layout, late.layout);
+      layout = late.layout;
+      history = late.history;
+      render();
+      if (change.added.length || change.removed.length) tellLayout(change);
+    }
+    syncBar();
+  });
 
   function undoStep() {
     const step = undo.pop();
@@ -326,6 +409,10 @@ export function createBoard(host, o) {
   }
 
   function syncBar() {
+    root.classList.toggle('reading', !ready);
+    root.querySelectorAll('.sh-board-bar [data-b="edit"], .sh-board-bar [data-b="add"], .sh-board-bar [data-b="presets"]').forEach((b) => {
+      if (ready) { b.removeAttribute('aria-disabled'); delete b.dataset.reason; } else { b.setAttribute('aria-disabled', 'true'); b.dataset.reason = 'Lecture de la disposition enregistrée…'; }
+    });
     const edit = root.querySelector('[data-b="edit"]');
     edit.setAttribute('aria-pressed', String(editing));
     edit.querySelector('span').textContent = editing ? 'Terminer' : 'Personnaliser';
@@ -343,7 +430,8 @@ export function createBoard(host, o) {
     const title = titleOf(item);
     const span = Math.min(columns, { S: 1, M: 2, L: 3 }[item.size] ?? 2);
     const body = !entry ? '<div class="skeleton sk sk-block"></div>'
-      : tables.has(item.id) ? dataTable({ ...entry, title }) : visualMarkup(item.visual, { ...entry, title });
+      : tables.has(item.id) ? dataTable({ ...entry, title })
+        : visualMarkup(item.visual, { ...entry, title }, { selectable: typeof o.onSegment === 'function', selected: selection[item.key] ?? null });
     return `<article class="sh-widget card spot" tabindex="0" data-id="${esc(item.id)}" data-key="${esc(item.key)}" data-span="${span}" data-size="${item.size}"
         aria-label="${esc(`${title}${entry?.value !== undefined ? `${NBSP}: ${entry.display ?? entry.value}` : ''}`)}" draggable="${editing}">
       <header class="sh-widget-head">
@@ -400,19 +488,38 @@ export function createBoard(host, o) {
     if (!settleTimer) settleTimer = setTimeout(() => root.classList.add('settled'), 1200);
   }
 
-  async function refreshItem(item) {
+  async function refreshItem(item, { quiet = false } = {}) {
     if (!o.refreshItem) { await load(); return; }
     try {
       data[item.key] = await o.refreshItem(item.key);
       render();
-      announce(`Widget actualisé${NBSP}: ${titleOf(item)}.`);
+      if (!quiet) announce(`Widget actualisé${NBSP}: ${titleOf(item)}.`);
     } catch (err) {
       notify(err?.message ?? 'Actualisation impossible.', { tone: 'warn' });
     }
   }
 
   function copyItem(item) {
-    copyText(widgetText(titleOf(item), data[item.key])).then((ok) => announce(ok ? `Widget copié${NBSP}: ${titleOf(item)}.` : 'Copie impossible.'));
+    const text = widgetText(titleOf(item), data[item.key]);
+    // A widget without data, or suspended, copies nothing: the clipboard keeps what it held.
+    if (!text) { announce(`Rien à copier${NBSP}: ce widget n’a pas encore de données.`); notify(`Rien à copier${NBSP}: «${NBSP}${titleOf(item)}${NBSP}» n’a pas encore de données.`, { tone: 'info', life: 3000, key: `copy-empty|${item.key}` }); return; }
+    copyText(text).then((ok) => announce(ok ? `Widget copié${NBSP}: ${titleOf(item)}.` : 'Copie impossible.'));
+  }
+
+  function selectPart(item, index) {
+    const entry = data[item.key];
+    if (!entry) return;
+    const parts = item.visual === 'donut' ? groupOthersOf(entry) : (entry.items ?? []).slice(0, 12);
+    const part = parts[index];
+    if (!part) return;
+    const was = selection[item.key];
+    const on = was !== part.label && !(part.other && (part.members ?? []).includes(was));
+    if (on) selection[item.key] = part.label; else delete selection[item.key];
+    render();
+    announce(on ? `Part choisie${NBSP}: ${part.label}.` : 'Choix de la part retiré.');
+    try {
+      o.onSegment?.(item.key, { label: part.label, criterion: part.criterion, criteria: part.criteria ?? (part.criterion ? [part.criterion] : []), members: part.members, selected: on });
+    } catch (err) { console.error(err); }
   }
 
   function explainItem(item) {
@@ -468,8 +575,8 @@ export function createBoard(host, o) {
     if (source === 'team' && o.team) {
       try {
         const team = await quietCall('shell.board.team', { board: o.team });
-        const doc = team?.text ? readLayoutDocument(o.id, team.text) : null;
-        const clean = doc?.valid ? cleanLayout(doc.items, catalog, 't') : [];
+        const doc = team?.text ? readLayoutDocument([o.team, o.id], team.text) : null;
+        const clean = doc?.valid ? cleanLayout(doc.items, catalog, 't', legacy) : [];
         if (clean.length) { next = clean; label = 'Disposition d’équipe appliquée'; } else {
           notify(team?.problem ? `Disposition d’équipe ignorée (${team.problem})${NBSP}: la disposition livrée s’applique.` : 'Aucune disposition d’équipe connue de ce tableau : la disposition livrée s’applique.', { tone: 'info' });
         }
@@ -481,9 +588,9 @@ export function createBoard(host, o) {
   async function importLayout() {
     const file = await importJson('Importer une disposition');
     if (!file) return;
-    const doc = readLayoutDocument(o.id, file.text);
+    const doc = readLayoutDocument([o.team, o.id], file.text);
     if (!doc.valid) { notify(`Disposition non importée${NBSP}: ${doc.reason}`, { tone: 'warn' }); return; }
-    const clean = cleanLayout(doc.items, catalog, 'i');
+    const clean = cleanLayout(doc.items, catalog, 'i', legacy);
     const ignored = doc.items.length - clean.length;
     if (!clean.length) { notify('Aucun widget connu de ce tableau dans ce fichier.', { tone: 'warn' }); return; }
     save(clean, `Disposition importée${NBSP}: ${file.fileName}${ignored ? ` (${ignored} widget${ignored > 1 ? 's' : ''} inconnu${ignored > 1 ? 's' : ''} ignoré${ignored > 1 ? 's' : ''})` : ''}`);
@@ -493,7 +600,7 @@ export function createBoard(host, o) {
     if (!history.length) { notify('Aucune version précédente de ce tableau pour l’instant.', { tone: 'info' }); return; }
     openMenu(anchor, [
       { heading: 'Versions précédentes' },
-      ...history.map((h, n) => ({ label: new Date(h.savedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' }), hint: `${h.layout?.length ?? 0} widget${(h.layout?.length ?? 0) > 1 ? 's' : ''}`, run: () => save(cleanLayout(h.layout, catalog), `Version ${n + 1} restaurée`) })),
+      ...history.map((h, n) => ({ label: new Date(h.savedAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' }), hint: `${h.layout?.length ?? 0} widget${(h.layout?.length ?? 0) > 1 ? 's' : ''}`, run: () => save(cleanLayout(h.layout, catalog, 'w', legacy), `Version ${n + 1} restaurée`) })),
     ], { label: 'Versions précédentes', placement: 'bottom-end' });
   }
 
@@ -509,6 +616,7 @@ export function createBoard(host, o) {
     const body = document.createElement('div');
     body.className = 'sh-editor';
     const categories = [...new Set(catalog.map((c) => c.group))];
+    const origins = [...new Set(catalog.map((c) => c.origin ?? 'builtin'))];
     const draw = () => {
       const terms = searchTerms(search);
       const list = catalog.filter((c) => matchesCatalog(c, terms, { origin, category }));
@@ -518,8 +626,9 @@ export function createBoard(host, o) {
       body.innerHTML = `<div class="sh-editor-cols">
         <div class="sh-editor-list">
           <label class="sh-pick-find">${icon('search')}<span class="visually-hidden">Chercher une information</span><input class="input" type="search" data-e="q" value="${esc(search)}" placeholder="Chercher : notifications, aide, contraste…" autocomplete="off"></label>
-          <div class="sh-editor-facets" role="group" aria-label="Catégories"><button class="k-facet" type="button" data-e-cat="" aria-pressed="${!category}">Toutes</button>${categories.map((g) => `<button class="k-facet" type="button" data-e-cat="${esc(g)}" aria-pressed="${category === g}">${esc(g)}</button>`).join('')}</div>
-          <ol class="sh-editor-items">${list.map((c) => `<li><button type="button" class="sh-editor-item" data-e-key="${esc(c.key)}" aria-pressed="${selected?.key === c.key}">${icon(c.icon ?? 'gauge')}<span><strong>${esc(c.title)}</strong><span class="sh-pick-path">${esc(c.description ?? c.group)}</span></span>${shown.has(c.key) ? '<span class="k-badge info">Déjà affiché</span>' : ''}${c.network ? '<span class="k-badge warn">Interroge le poste</span>' : ''}</button></li>`).join('') || '<li class="faint">Aucune information ne correspond.</li>'}</ol>
+          <div class="sh-editor-facets" role="group" aria-label="Origine"><span class="sh-editor-facet-l">Origine</span><button class="k-facet" type="button" data-e-origin="" aria-pressed="${!origin}">Toutes</button>${origins.map((g) => `<button class="k-facet" type="button" data-e-origin="${esc(g)}" aria-pressed="${origin === g}">${esc(ORIGIN_LABELS[g] ?? g)}<span class="k-facet-n">${catalog.filter((c) => (c.origin ?? 'builtin') === g).length}</span></button>`).join('')}</div>
+          <div class="sh-editor-facets" role="group" aria-label="Catégories"><span class="sh-editor-facet-l">Catégorie</span><button class="k-facet" type="button" data-e-cat="" aria-pressed="${!category}">Toutes</button>${categories.map((g) => `<button class="k-facet" type="button" data-e-cat="${esc(g)}" aria-pressed="${category === g}">${esc(g)}</button>`).join('')}</div>
+          <ol class="sh-editor-items">${list.map((c) => `<li><button type="button" class="sh-editor-item" data-e-key="${esc(c.key)}" aria-pressed="${selected?.key === c.key}">${icon(c.icon ?? 'gauge')}<span><strong>${esc(c.title)}</strong><span class="sh-pick-path">${esc(c.description ?? c.group)}</span></span>${shown.has(c.key) ? '<span class="k-badge info">Déjà affiché</span>' : ''}${c.network ? '<span class="k-badge warn">Interroge le poste</span>' : ''}${c.fleet ? '<span class="k-badge warn">Interroge le parc</span>' : ''}</button></li>`).join('') || '<li class="faint">Aucune information ne correspond.</li>'}</ol>
         </div>
         <div class="sh-editor-form">${selected ? `
           <h3 class="sh-sub">Représentation</h3>
@@ -540,8 +649,18 @@ export function createBoard(host, o) {
       title: existing ? 'Modifier le widget' : 'Ajouter un widget', subtitle: o.title, icon: 'sparkles', key: 'shell.board.editor', width: 860, maxWidth: 1100, body,
       actions: [
         { id: 'cancel', label: 'Annuler', run: (p) => p.close() },
-        { id: 'ok', label: existing ? 'Enregistrer' : 'Ajouter', primary: true, run: (p) => {
+        { id: 'ok', label: existing ? 'Enregistrer' : 'Ajouter', primary: true, run: async (p) => {
           if (!selected) { announce('Choisissez d’abord une information.'); return; }
+          const fleet = selected.fleet ? (o.fleetSize?.() ?? 0) : 0;
+          if (!existing && fleet > FLEET_CONFIRM_ABOVE) {
+            // Domenia 1: a fleet widget beyond 200 workstations asks before it joins the board (nothing is read here).
+            const answer = await ask({
+              scope: `board:${o.id}`, scopeLabel: o.title, title: `Ajouter un widget qui interroge ${num(fleet)} postes${NBSP}?`,
+              message: `«${NBSP}${selected.title}${NBSP}» lira chaque poste du périmètre à chaque actualisation. Rien n’est lu à l’ajout${NBSP}; la première lecture part sur votre geste «${NBSP}Actualiser${NBSP}».`,
+              confirmLabel: 'Ajouter quand même', impact: `${num(fleet)} postes`,
+            });
+            if (answer !== 'confirm') return;
+          }
           const groupName = (section || selected.group).trim().slice(0, 60) || selected.group;
           if (existing) save(updateItem(layout, existing.id, { key: selected.key, visual, size, group: groupName, title: title.trim() }), `Widget modifié${NBSP}: ${title || selected.title}`);
           else {
@@ -566,6 +685,8 @@ export function createBoard(host, o) {
       const t = e.target instanceof Element ? e.target : null;
       const cat = t?.closest('[data-e-cat]');
       if (cat) { category = cat.dataset.eCat; draw(); return; }
+      const org = t?.closest('[data-e-origin]');
+      if (org) { origin = org.dataset.eOrigin; draw(); return; }
       const k = t?.closest('[data-e-key]');
       if (k) { selected = catalogOf(k.dataset.eKey); visual = selected.visuals[0]; size = selected.size ?? 'M'; draw(); return; }
       const v = t?.closest('[data-e-visual]');
@@ -606,6 +727,7 @@ export function createBoard(host, o) {
           { label: 'Versions précédentes…', icon: 'clock', run: () => versions(b) },
           '-',
           { label: 'Exporter la disposition (JSON)', icon: 'download', run: () => exportJson(`disposition-${o.id}`, layoutDocument(o.team ?? o.id, layout)) },
+          { label: 'Exporter la disposition sous…', icon: 'download', run: () => exportJson(`disposition-${o.id}`, layoutDocument(o.team ?? o.id, layout), { chooseLocation: true }) },
           { label: 'Importer une disposition…', icon: 'file', run: () => importLayout() },
         ], { label: 'Plus de commandes du tableau', placement: 'bottom-end' });
       }
@@ -619,6 +741,19 @@ export function createBoard(host, o) {
     }
     const addHere = t?.closest('[data-add-group]');
     if (addHere) { editor(null, addHere.dataset.addGroup); return; }
+    const seg = t?.closest('[data-seg]');
+    const segCard = seg?.closest('.sh-widget');
+    if (seg && segCard && !editing) {
+      const item = layout.find((i) => i.id === segCard.dataset.id);
+      if (item) selectPart(item, Number(seg.dataset.seg));
+      return;
+    }
+    const action = t?.closest('[data-w-action]');
+    const actCard = action?.closest('.sh-widget');
+    if (action && actCard) {
+      try { o.onAction?.(actCard.dataset.key, action.dataset.wAction); } catch (err) { console.error(err); }
+      return;
+    }
     const w = t?.closest('[data-w]');
     const card = t?.closest('.sh-widget');
     if (!w || !card) return;
@@ -635,7 +770,7 @@ export function createBoard(host, o) {
 
   root.addEventListener('keydown', (e) => {
     const card = e.target instanceof Element ? e.target.closest('.sh-widget') : null;
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !(e.target instanceof HTMLInputElement)) {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !isTextEntry(e.target)) {
       if (e.key.toLowerCase() === 'z' && !e.shiftKey && undo.length) { e.preventDefault(); undoStep(); return; }
       if ((e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey)) && redo.length) { e.preventDefault(); redoStep(); return; }
     }
@@ -694,13 +829,16 @@ export function createBoard(host, o) {
   root.style.setProperty('--cols', String(columns));
 
   render();
-  load();
+  load().then(() => { try { o.onLayout?.(layoutChange([], layout)); } catch (err) { console.error(err); } });
 
   return {
     reload: load,
     layout: () => layout,
+    ready: () => ready,
+    selection: () => ({ ...selection }),
+    clearSelection(key) { if (key) delete selection[key]; else Object.keys(selection).forEach((k) => delete selection[k]); render(); },
     setEditing(on) { editing = !!on; render(); },
-    destroy() { alive = false; clearTimeout(settleTimer); ro?.disconnect(); },
+    destroy() { alive = false; clearTimeout(settleTimer); ro?.disconnect(); offEngine(); },
     sizeText,
   };
 }

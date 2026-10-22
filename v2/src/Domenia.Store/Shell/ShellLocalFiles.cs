@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Text;
 using Domenia.Core;
@@ -144,7 +145,9 @@ public sealed record ShellFileRoot(string Label, string Path);
 /// <summary>
 /// Embedded file picker (TRV-244): local folders below fixed starting places only (Documents, Bureau, Téléchargements, the
 /// exports folder; the exports of the simulation only in simulation). Network paths, mapped drives and links are refused; a
-/// folder lists 500 entries at most, folders first. Read only: nothing is created, nothing is written.
+/// folder lists 500 entries at most, folders first. Read only: nothing is created, nothing is written (the save mode writes
+/// through <see cref="LocalFileWriter"/>). A network share is listed only on an explicit request of the operator
+/// (<see cref="BrowseShareAsync"/>, 15 s at most), and a file of a share is read only from a folder listed that way.
 /// </summary>
 public sealed class LocalFileBrowser
 {
@@ -154,12 +157,45 @@ public sealed class LocalFileBrowser
     /// <summary>Largest file read for an import.</summary>
     public const int MaxFileBytes = 1_048_576;
 
-    private readonly ImmutableArray<ShellFileRoot> roots;
+    /// <summary>Longest wait for a network share (Domenia 1: 15 s).</summary>
+    public static readonly TimeSpan ShareTimeout = TimeSpan.FromSeconds(15);
 
-    public LocalFileBrowser(IEnumerable<ShellFileRoot> roots)
+    private readonly ImmutableArray<ShellFileRoot> roots;
+    private readonly Func<string, DriveType> driveType;
+    private readonly ConcurrentDictionary<string, byte> grantedShares = new(StringComparer.OrdinalIgnoreCase);
+
+    public LocalFileBrowser(IEnumerable<ShellFileRoot> roots) : this(roots, DriveTypeOf)
+    {
+    }
+
+    /// <summary>
+    /// Starting places kept: absolute, not a network path, and on a fixed or removable local drive. The type of the drive is
+    /// asked here, once (a mapped drive is filtered before any listing could touch the network); tests inject it.
+    /// </summary>
+    public LocalFileBrowser(IEnumerable<ShellFileRoot> roots, Func<string, DriveType> driveType)
     {
         ArgumentNullException.ThrowIfNull(roots);
-        this.roots = [.. roots.Where(r => Path.IsPathFullyQualified(r.Path) && !IsNetworkPath(r.Path))];
+        ArgumentNullException.ThrowIfNull(driveType);
+        this.driveType = driveType;
+        this.roots = [.. roots.Where(r => Path.IsPathFullyQualified(r.Path) && !IsNetworkPath(r.Path) && IsLocalDrive(r.Path))];
+    }
+
+    private bool IsLocalDrive(string path)
+    {
+        var root = Path.GetPathRoot(path);
+        return root is not null && driveType(root) is DriveType.Fixed or DriveType.Removable or DriveType.Ram or DriveType.CDRom;
+    }
+
+    private static DriveType DriveTypeOf(string root)
+    {
+        try
+        {
+            return new DriveInfo(root).DriveType;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return DriveType.NoRootDirectory;
+        }
     }
 
     public ImmutableArray<ShellFileRoot> Roots => roots;
@@ -185,24 +221,30 @@ public sealed class LocalFileBrowser
         }
         try
         {
-            var directories = info.EnumerateDirectories()
-                .Where(d => !d.Attributes.HasFlag(FileAttributes.ReparsePoint) && !d.Attributes.HasFlag(FileAttributes.Hidden) && !d.Attributes.HasFlag(FileAttributes.System))
-                .OrderBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Select(d => new ShellFileEntry(d.Name, d.FullName, "folder", null, new DateTimeOffset(d.LastWriteTimeUtc, TimeSpan.Zero)));
-            var files = info.EnumerateFiles()
-                .Where(f => !f.Attributes.HasFlag(FileAttributes.ReparsePoint) && !f.Attributes.HasFlag(FileAttributes.Hidden) && Accepts(f.Name, filter))
-                .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Select(f => new ShellFileEntry(f.Name, f.FullName, "file", f.Length, new DateTimeOffset(f.LastWriteTimeUtc, TimeSpan.Zero)));
-            var all = directories.Concat(files).Take(MaxEntries + 1).ToList();
+            var all = Entries(info, filter).Take(MaxEntries + 1).ToList();
             var parent = string.Equals(full.TrimEnd('\\'), root.Path.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) ? null : Path.GetDirectoryName(full);
-            var label = string.Equals(full.TrimEnd('\\'), root.Path.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) ? root.Label : root.Label + FrenchText.PathSeparator + Path.GetRelativePath(root.Path, full).Replace("\\", FrenchText.PathSeparator, StringComparison.Ordinal);
-            return new ShellFolderListing(full, label, parent, [.. all.Take(MaxEntries)], all.Count > MaxEntries, null);
+            return new ShellFolderListing(full, Label(full, root), parent, [.. all.Take(MaxEntries)], all.Count > MaxEntries, null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new DomeniaOperationException(ShellErrors.FolderUnavailable, ShellErrors.FolderUnavailableMessage);
         }
     }
+
+    /// <summary>
+    /// Readable place of a folder below a starting place (« Documents › Rapports »): never the full path, which holds the user
+    /// name. « Emplacement choisi » for a folder outside the starting places.
+    /// </summary>
+    public string LabelOf(string folder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        return Resolve(folder) is { } found ? Label(found.Full, found.Root) : "Emplacement choisi";
+    }
+
+    private static string Label(string full, ShellFileRoot root) =>
+        string.Equals(full.TrimEnd('\\'), root.Path.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)
+            ? root.Label
+            : root.Label + FrenchText.PathSeparator + Path.GetRelativePath(root.Path, full).Replace("\\", FrenchText.PathSeparator, StringComparison.Ordinal);
 
     /// <summary>Reads a file chosen in the picker (CSV with its delimiter, or JSON text), 1 MB at most.</summary>
     public ShellFileContent Read(string path, string kind)
@@ -214,6 +256,11 @@ public sealed class LocalFileBrowser
         {
             throw new DomeniaOperationException(ShellErrors.FileRefused, ShellErrors.FileRefusedMessage);
         }
+        return ReadFile(full, kind);
+    }
+
+    private static ShellFileContent ReadFile(string full, string kind)
+    {
         try
         {
             var info = new FileInfo(full);
@@ -264,13 +311,110 @@ public sealed class LocalFileBrowser
             {
                 continue;
             }
-            if (IsNetworkDrive(full) || CrossesLink(top, full))
+            if (!IsLocalDrive(full) || CrossesLink(top, full))
             {
                 return null;
             }
             return (full, root);
         }
         return null;
+    }
+
+    /// <summary>
+    /// « \\serveur\partage » or a folder below it: a server name and a share name of letters, digits, dots, dashes, underscores
+    /// or « $ », then plain folder names. Device paths (« \\?\ », « \\.\ »), « .. » segments and the characters Windows
+    /// refuses are not shares.
+    /// </summary>
+    public static bool IsShareFolder(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || path.Length > 1024 || !path.StartsWith(@"\\", StringComparison.Ordinal))
+        {
+            return false;
+        }
+        var parts = path[2..].TrimEnd('\\').Split('\\');
+        if (parts.Length < 2 || parts[0] is "?" or ".")
+        {
+            return false;
+        }
+        static bool Name(string p, bool server) => p.Length is > 0 and <= 255 && p is not ("." or "..") && !p.EndsWith(' ') && !p.EndsWith('.')
+            && p.All(c => server ? char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' : !char.IsControl(c) && c is not ('/' or ':' or '*' or '?' or '"' or '<' or '>' or '|'));
+        return Name(parts[0], true) && parts.Skip(1).All(p => Name(p, false));
+    }
+
+    /// <summary>
+    /// Lists a network share on the explicit request of the operator (Domenia 1 TRV-244: « un partage réseau n’est interrogé
+    /// qu’à la demande »): 15 s at most, 500 entries, no link, nothing created. The folder is then admitted for the reading of
+    /// one of its files during this session.
+    /// </summary>
+    public async Task<ShellFolderListing> BrowseShareAsync(string folder, string filter, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        if (!IsShareFolder(folder))
+        {
+            throw new DomeniaOperationException(ShellErrors.ShareRefused, ShellErrors.ShareRefusedMessage);
+        }
+        var clean = folder.TrimEnd('\\');
+        var listing = await WithTimeoutAsync(() => ListShare(clean, filter), cancellationToken).ConfigureAwait(false);
+        grantedShares[clean] = 0;
+        return listing;
+    }
+
+    /// <summary>Reads a file of a share folder listed during this session (same bounds as a local file), 15 s at most.</summary>
+    public async Task<ShellFileContent> ReadShareAsync(string path, string kind, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        var folder = IsShareFolder(path) ? Path.GetDirectoryName(path) : null;
+        if (folder is null || !grantedShares.ContainsKey(folder.TrimEnd('\\')) || !Accepts(path, kind))
+        {
+            throw new DomeniaOperationException(ShellErrors.ShareRefused, ShellErrors.ShareRefusedMessage);
+        }
+        return await WithTimeoutAsync(() => ReadFile(path, kind), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<T> WithTimeoutAsync<T>(Func<T> work, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await Task.Run(work, cancellationToken).WaitAsync(ShareTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            throw new DomeniaOperationException(ShellErrors.ShareTimeout, ShellErrors.ShareTimeoutMessage);
+        }
+    }
+
+    private static ShellFolderListing ListShare(string folder, string filter)
+    {
+        var info = new DirectoryInfo(folder);
+        try
+        {
+            if (!info.Exists)
+            {
+                throw new DomeniaOperationException(ShellErrors.FolderUnavailable, ShellErrors.FolderUnavailableMessage);
+            }
+            var all = Entries(info, filter).Take(MaxEntries + 1).ToList();
+            var parts = folder[2..].Split('\\');
+            var parent = parts.Length > 2 ? Path.GetDirectoryName(folder) : null;
+            var label = string.Join(FrenchText.PathSeparator, parts);
+            return new ShellFolderListing(folder, label, parent, [.. all.Take(MaxEntries)], all.Count > MaxEntries, "Partage réseau interrogé à votre demande.", Share: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            throw new DomeniaOperationException(ShellErrors.FolderUnavailable, ShellErrors.FolderUnavailableMessage);
+        }
+    }
+
+    private static IEnumerable<ShellFileEntry> Entries(DirectoryInfo info, string filter)
+    {
+        var directories = info.EnumerateDirectories()
+            .Where(d => !d.Attributes.HasFlag(FileAttributes.ReparsePoint) && !d.Attributes.HasFlag(FileAttributes.Hidden) && !d.Attributes.HasFlag(FileAttributes.System))
+            .OrderBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(d => new ShellFileEntry(d.Name, d.FullName, "folder", null, new DateTimeOffset(d.LastWriteTimeUtc, TimeSpan.Zero)));
+        var files = info.EnumerateFiles()
+            .Where(f => !f.Attributes.HasFlag(FileAttributes.ReparsePoint) && !f.Attributes.HasFlag(FileAttributes.Hidden) && Accepts(f.Name, filter))
+            .OrderBy(f => f.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(f => new ShellFileEntry(f.Name, f.FullName, "file", f.Length, new DateTimeOffset(f.LastWriteTimeUtc, TimeSpan.Zero)));
+        return directories.Concat(files);
     }
 
     private static bool Accepts(string name, string filter) => filter switch
@@ -286,19 +430,6 @@ public sealed class LocalFileBrowser
         ArgumentNullException.ThrowIfNull(path);
         var text = path.Trim();
         return text.StartsWith(@"\\", StringComparison.Ordinal) || text.StartsWith("//", StringComparison.Ordinal);
-    }
-
-    private static bool IsNetworkDrive(string full)
-    {
-        try
-        {
-            var drive = Path.GetPathRoot(full);
-            return drive is null || new DriveInfo(drive).DriveType is DriveType.Network or DriveType.NoRootDirectory;
-        }
-        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
-        {
-            return true;
-        }
     }
 
     /// <summary>True when a folder between the starting place and the target (included) is a link or a junction.</summary>
@@ -332,14 +463,52 @@ public sealed class LocalFileBrowser
     }
 }
 
-/// <summary>Guides delivered next to the pack (TRV-005): a DOC folder beside Domenia, its parent or the delivery folder.</summary>
-public static class GuideLocator
+/// <summary>
+/// Guides delivered next to the pack (TRV-005): a DOC folder beside Domenia, its parent or the delivery folder. The network
+/// is tested first: when the application runs from a share or a mapped drive, the folders are looked at once and the answer
+/// is kept for the session (no network access at each change of screen while the help panel is open). On a local disk a
+/// found guide is kept, an absent one is looked for again (« placez le PDF, puis réessayez »).
+/// </summary>
+public sealed class GuideLocator
 {
+    private readonly string appDirectory;
+    private readonly bool remote;
+    private readonly ConcurrentDictionary<string, string?> cache = new(StringComparer.Ordinal);
+
+    public GuideLocator(string appDirectory) : this(appDirectory, root => new DriveInfo(root).DriveType)
+    {
+    }
+
+    /// <summary>Tests inject the type of the drive.</summary>
+    public GuideLocator(string appDirectory, Func<string, DriveType> driveType)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(appDirectory);
+        ArgumentNullException.ThrowIfNull(driveType);
+        this.appDirectory = appDirectory;
+        remote = LocalFileBrowser.IsNetworkPath(appDirectory) || IsRemoteDrive(appDirectory, driveType);
+    }
+
+    /// <summary>True when the application folder is on a network share or a mapped drive.</summary>
+    public bool Remote => remote;
+
     /// <summary>The first existing file of the chapter's guide, or null.</summary>
-    public static string? Find(GuideChapter chapter, string appDirectory)
+    public string? Find(GuideChapter chapter)
     {
         ArgumentNullException.ThrowIfNull(chapter);
-        ArgumentException.ThrowIfNullOrEmpty(appDirectory);
+        if (cache.TryGetValue(chapter.Guide, out var known) && (known is not null || remote))
+        {
+            return known;
+        }
+        var found = Look(chapter);
+        if (found is not null || remote)
+        {
+            cache[chapter.Guide] = found;
+        }
+        return found;
+    }
+
+    private string? Look(GuideChapter chapter)
+    {
         foreach (var folder in Folders(appDirectory))
         {
             foreach (var file in chapter.Files)
@@ -348,7 +517,7 @@ public static class GuideLocator
                 try
                 {
                     var info = new FileInfo(path);
-                    if (info.Exists && !info.Attributes.HasFlag(FileAttributes.ReparsePoint) && !LocalFileBrowser.IsNetworkPath(path))
+                    if (info.Exists && !info.Attributes.HasFlag(FileAttributes.ReparsePoint))
                     {
                         return info.FullName;
                     }
@@ -362,6 +531,19 @@ public static class GuideLocator
         return null;
     }
 
+    private static bool IsRemoteDrive(string folder, Func<string, DriveType> driveType)
+    {
+        try
+        {
+            var root = Path.GetPathRoot(folder);
+            return root is null || driveType(root) is DriveType.Network or DriveType.NoRootDirectory;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return true;
+        }
+    }
+
     private static IEnumerable<string> Folders(string appDirectory)
     {
         var current = new DirectoryInfo(appDirectory);
@@ -369,6 +551,121 @@ public static class GuideLocator
         {
             yield return current.FullName;
             current = current.Parent;
+        }
+    }
+}
+
+/// <summary>
+/// Save mode of the embedded file picker (Domenia 1 TRV-244): writes a file the operator placed in a folder of the starting
+/// places (local only, no link), next to its final name then moved; an existing file is replaced only on « Remplacer », and
+/// only while it keeps the size and date the picker listed. Nothing partial ever stays under the final name.
+/// </summary>
+public sealed class LocalFileWriter(LocalFileBrowser browser)
+{
+    private readonly LocalFileBrowser browser = browser ?? throw new ArgumentNullException(nameof(browser));
+
+    /// <summary>Readable place of a folder (see <see cref="LocalFileBrowser.LabelOf"/>).</summary>
+    public string LabelOf(string folder) => browser.LabelOf(folder);
+
+    /// <summary>Writes the content; returns the full path written.</summary>
+    public async Task<string> SaveAsync(ShellSaveTarget target, string kind, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(kind);
+        var resolved = ShellFileNames.IsSafe(target.FileName, kind) ? browser.Resolve(target.Folder) : null;
+        if (resolved is null || !Directory.Exists(resolved.Value.Full))
+        {
+            throw new DomeniaOperationException(ShellErrors.FileRefused, ShellErrors.FileRefusedMessage);
+        }
+        var folder = resolved.Value.Full;
+        var path = Path.Combine(folder, target.FileName);
+        if (!string.Equals(Path.GetDirectoryName(path)?.TrimEnd('\\'), folder.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomeniaOperationException(ShellErrors.FileRefused, ShellErrors.FileRefusedMessage);
+        }
+        CheckTarget(path, target.Replace);
+        var temporary = Path.Combine(folder, ".domenia-" + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536, FileOptions.WriteThrough))
+            {
+                await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            // Checked again at the last moment: another program may have written the file meanwhile.
+            CheckTarget(path, target.Replace);
+            try
+            {
+                File.Move(temporary, path, overwrite: target.Replace is not null);
+            }
+            catch (IOException) when (target.Replace is null && File.Exists(path))
+            {
+                throw new DomeniaOperationException(ShellErrors.FileExists, ShellErrors.FileExistsMessage);
+            }
+            return path;
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(temporary))
+                {
+                    File.Delete(temporary);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A temporary file still held is hidden and never listed; it is left for later.
+            }
+        }
+    }
+
+    private static void CheckTarget(string path, ShellFileSignature? replace)
+    {
+        var info = new FileInfo(path);
+        if (!info.Exists)
+        {
+            if (replace is not null)
+            {
+                throw new DomeniaOperationException(ShellErrors.FileChanged, ShellErrors.FileChangedMessage);
+            }
+            return;
+        }
+        if (replace is null)
+        {
+            throw new DomeniaOperationException(ShellErrors.FileExists, ShellErrors.FileExistsMessage);
+        }
+        if (info.Attributes.HasFlag(FileAttributes.ReparsePoint) || info.Attributes.HasFlag(FileAttributes.ReadOnly)
+            || !replace.Matches(info.Length, new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero)))
+        {
+            throw new DomeniaOperationException(ShellErrors.FileChanged, ShellErrors.FileChangedMessage);
+        }
+    }
+}
+
+/// <summary>Interface policy of Domenia.config.json next to the executable (UI.AllowExpertProfile), read on demand, never written.</summary>
+public static class ShellPolicyFile
+{
+    public static ShellPolicy Read(string folder)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(folder);
+        var file = Path.Combine(folder, LegacyConfiguration.FileName);
+        try
+        {
+            var info = new FileInfo(file);
+            if (!info.Exists)
+            {
+                return ShellPolicies.Default;
+            }
+            if (info.Length > LegacyConfiguration.MaxBytes)
+            {
+                return ShellPolicies.Default with { Problem = "fichier de plus de 1 Mo" };
+            }
+            return ShellPolicies.Parse(File.ReadAllBytes(file));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ShellPolicies.Default with { Problem = "lecture impossible, " + ex.GetType().Name };
         }
     }
 }

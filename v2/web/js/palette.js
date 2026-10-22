@@ -140,8 +140,10 @@ export function createPalette(o) {
         const hint = off ? `<span class="hint pal-reason">${esc(c.reason ?? 'Indisponible')}</span>` : c.hint ? `<span class="hint">${esc(c.hint)}</span>` : '';
         const kbd = c.kbd ? `<kbd>${esc(c.kbd)}</kbd>` : '';
         const effect = c.effect === 'write' ? `<span class="pal-effect" data-effect="write" aria-hidden="true">${icon('lock')}</span>` : c.effect === 'read' && c.kind !== 'help' ? '<span class="pal-effect" data-effect="read" aria-hidden="true"></span>' : '';
+        // Fixed columns: icon, label, then one right column (effect, hint or reason, mark, shortcut) of the same width on
+        // every line, so the hints line up whatever the label.
         return `<div class="item${off ? ' unavailable' : ''}" role="option" id="pal-opt-${k}" data-n="${k}" data-j="${k}" aria-selected="${k === selected}"${off ? ' aria-disabled="true"' : ''}>`
-          + `${icon(c.icon ?? 'chevronRight')}<span class="label">${highlight(c.label, query)}</span>${effect}${hint}${mark}${kbd}</div>`;
+          + `${icon(c.icon ?? 'chevronRight')}<span class="label">${highlight(c.label, query)}</span><span class="pal-right">${effect}${hint}${mark}${kbd ? kbd : '<span class="pal-kbd-gap" aria-hidden="true"></span>'}</span></div>`;
       }).join('') + '</div>').join('')
       || '<div class="none" role="presentation">Aucun résultat. Essayez un autre mot.</div>';
     results.querySelectorAll('[data-j]').forEach((el) => el.style.setProperty('--j', String(Math.min(Number(el.dataset.j), 20))));

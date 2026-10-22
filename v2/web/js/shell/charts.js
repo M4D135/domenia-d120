@@ -1,8 +1,12 @@
-// Native charts of the boards (TRV-297 to TRV-300, TRV-284): key figure, three-quarter gauge, ring with « Autres », horizontal
-// bars, columns with their values, curve with its area and last point, lists, sheets and checklists, and an accessible
-// table for every chart. Graduations are rounded (1, 2, 5 × 10^n, whole steps for counts), numbers are French, sizes in
-// Mo/Go/To, ages « il y a N min ». Each mark carries its value in a tooltip. Markup builders only (call paintCharts after).
+// Native charts of the boards (TRV-297 to TRV-300, TRV-284): key figure, three-quarter gauge, score card, health card (score
+// and points, stacked under 520 px), ring with « Autres », horizontal bars, columns with their values, curve with its area and
+// last point, lists, sheets and checklists, and an accessible table for every chart. Graduations are rounded (1, 2, 5 × 10^n,
+// whole steps for counts), numbers are French, sizes in Mo/Go/To, ages « il y a N min ». Each mark carries its value in a
+// tooltip; the pastel series have a darker edge (3:1 in the light theme). A part is clickable only when it carries a
+// criterion (Domenia 1: « partie cliquable seulement si elle porte un critère »), and « Autres » keeps the criteria of the
+// categories it gathers, so a selection is never lost. Markup builders only (call paintCharts after).
 import { esc } from '../ui.js';
+import { icon } from '../icons.js';
 
 const NBSP = ' ';
 const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
@@ -41,9 +45,10 @@ export function groupOthers(items, max = 8) {
   const keep = Math.max(0, max - 1);
   const head = valid.slice(0, keep);
   const tail = valid.slice(keep);
+  const criteria = tail.flatMap((i) => (i.criteria ?? (i.criterion ? [i.criterion] : [])));
   return [...head, {
     label: `Autres (${tail.length} catégories)`, value: tail.reduce((s, i) => s + Number(i.value), 0), other: true,
-    members: tail.map((i) => i.label), items: tail,
+    members: tail.map((i) => i.label), items: tail, criteria, criterion: criteria.length ? criteria.join('|') : undefined,
   }];
 }
 
@@ -102,6 +107,21 @@ export function dataDates(sources = []) {
 const TONES = ['ok', 'warn', 'alert', 'info', 'off'];
 const tone = (t) => (TONES.includes(t) ? t : 'info');
 
+/**
+ * Part of a chart that matches a selection kept by its label: the part itself, or « Autres » when the category selected is
+ * now gathered there (its members are kept). -1 when nothing matches.
+ * @param {Array<{ label: string, other?: boolean, members?: string[] }>} parts @param {string|null} label
+ */
+export function selectedIndex(parts, label) {
+  if (!label) return -1;
+  const direct = parts.findIndex((p) => p.label === label);
+  if (direct >= 0) return direct;
+  return parts.findIndex((p) => p.other && (p.members ?? []).includes(label));
+}
+
+/** True when a part may be clicked: the board listens for selections and the part carries a criterion. */
+const clickable = (part, o) => !!(o?.selectable && (part.criterion || part.criteria?.length));
+
 // ---------- Visuals ----------
 
 export function kpiVisual(e) {
@@ -123,39 +143,102 @@ export function gaugeVisual(e) {
   </div>`;
 }
 
-export function donutVisual(e) {
+/** Ring of a score out of 100 (score and health cards): track, arc coloured by the state, value and « sur 100 ». */
+function scoreRing(e, size = 'md') {
+  const value = Number(e.number);
+  const known = Number.isFinite(value);
+  const p = known ? Math.max(0, Math.min(1, value / 100)) : 0;
+  return `<div class="sh-score-ring ${size}" data-tone="${tone(e.state)}" role="meter" aria-valuemin="0" aria-valuemax="100"${known ? ` aria-valuenow="${Math.round(value)}"` : ''} aria-label="${esc(`${e.title ?? 'Score'}${known ? ` : ${Math.round(value)} sur 100` : ' : non mesuré'}`)}">
+    <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="sh-score-track" cx="60" cy="60" r="50"/>${known && p > 0.004 ? `<circle class="sh-score-arc" cx="60" cy="60" r="50" pathLength="100" data-gauge="${(p * 100).toFixed(2)}" transform="rotate(-90 60 60)"/>` : ''}</svg>
+    <span class="sh-score-v"><b>${known ? Math.round(value) : '—'}</b><small>sur 100</small></span>
+  </div>`;
+}
+
+function actionButton(a) {
+  return a?.id ? `<button class="btn sm subtle" type="button" data-w-action="${esc(a.id)}"${a.tip ? ` data-tip="${esc(a.tip)}"` : ''}>${a.icon ? icon(a.icon) : ''}${esc(a.label ?? a.text ?? 'Voir')}</button>` : '';
+}
+
+/** Score card (Domenia 1 New-DomeniaHealthCard): ring, verdict coloured by the state, detail, warning badge, an action. */
+export function scoreVisual(e) {
+  const verdictTone = e.state === 'warn' || e.state === 'alert' ? ` data-tone="${tone(e.state)}"` : '';
+  return `<div class="sh-score">${scoreRing(e)}
+    ${e.verdict ? `<p class="sh-score-verdict"${verdictTone}>${esc(e.verdict)}</p>` : ''}
+    ${e.subtitle ? `<p class="sh-score-detail">${esc(e.subtitle)}</p>` : ''}
+    ${e.badge ? `<span class="sh-score-badge">${esc(e.badge)}</span>` : ''}
+    ${actionButton(e.action)}</div>`;
+}
+
+/**
+ * Health card (Domenia 1 New-DomeniaHealthSummaryCard): the score on one side, the points to check on the other, most
+ * serious first (9 at most); under 520 px the list goes under the score. With nothing to check, one green line, only when
+ * the score is established (`reliable`).
+ */
+export function healthVisual(e) {
+  const order = { alert: 0, warn: 1, info: 2, ok: 3 };
+  const points = [...(e.items ?? [])].sort((a, b) => (order[a.level] ?? 2) - (order[b.level] ?? 2)).slice(0, 9);
+  const more = Math.max(0, (e.items ?? []).length - points.length);
+  const list = points.length
+    ? `<ul class="sh-points">${points.map((i) => {
+      const [t, word] = LEVELS[i.level] ?? LEVELS.info;
+      return `<li data-tone="${t}"><span class="sh-point-mark" aria-hidden="true"></span><span class="visually-hidden">${esc(word)}${NBSP}: </span><span>${esc(i.text ?? i.label)}</span>${i.detail ? `<span class="sh-point-d">${esc(i.detail)}</span>` : ''}</li>`;
+    }).join('')}${more ? `<li class="sh-points-more">et ${more} autre${more > 1 ? 's' : ''} point${more > 1 ? 's' : ''}</li>` : ''}</ul>`
+    : e.reliable !== false ? `<p class="sh-health-clear"><span aria-hidden="true">✓</span>${esc(e.clearText ?? 'Rien à vérifier.')}</p>` : '';
+  const verdictTone = e.state === 'warn' || e.state === 'alert' ? ` data-tone="${tone(e.state)}"` : '';
+  return `<div class="sh-health">
+    <div class="sh-health-score">${scoreRing(e, 'sm')}<div class="sh-health-words">
+      ${e.verdict ? `<p class="sh-score-verdict"${verdictTone}>${esc(e.verdict)}</p>` : ''}
+      ${e.subtitle ? `<p class="sh-score-detail">${esc(e.subtitle)}</p>` : ''}
+      ${e.badge ? `<span class="sh-score-badge">${esc(e.badge)}</span>` : ''}
+      ${actionButton(e.action)}</div></div>
+    <div class="sh-health-points">${e.pointsTitle ? `<h4 class="sh-health-title">${esc(e.pointsTitle)}</h4>` : ''}${list}</div>
+  </div>`;
+}
+
+export function donutVisual(e, o = {}) {
   const parts = groupOthers(e.items ?? [], 8);
   const total = parts.reduce((s, i) => s + Number(i.value), 0);
-  if (!total) return emptyVisual('Aucune valeur à répartir.');
+  if (!total) return emptyVisual(e.empty ?? 'Aucune valeur à répartir.', e.emptyAction ? { icon: e.emptyIcon, action: e.emptyAction } : { icon: e.emptyIcon });
+  const selected = selectedIndex(parts, o.selected ?? null);
   let start = 0;
   const arcs = parts.map((part, n) => {
     const pct = (Number(part.value) / total) * 100;
     const len = Math.max(0, pct - (parts.length > 1 ? 0.8 : 0));
-    const arc = `<circle class="seg draw ${part.other ? 'other' : `s${(n % 8) + 1}`}" cx="60" cy="60" r="50" pathLength="100" data-len="${len.toFixed(2)}" data-i="${n}" data-key="${n}" transform="rotate(${(start * 3.6).toFixed(2)} 60 60)"/>`;
+    const series = part.other ? 'other' : `s${(n % 8) + 1}`;
+    const rotate = `rotate(${(start * 3.6).toFixed(2)} 60 60)`;
     start += pct;
-    return arc;
+    // The darker edge sits under the segment, a little wider: the pastel keeps a 3:1 outline on the light card.
+    return `<circle class="seg-edge ${series}" cx="60" cy="60" r="50" pathLength="100" data-len="${len.toFixed(2)}" transform="${rotate}"/>`
+      + `<circle class="seg ${series}${n === selected ? ' selected' : ''}" cx="60" cy="60" r="50" pathLength="100" data-len="${len.toFixed(2)}" data-i="${n}" data-key="${n}" transform="${rotate}"/>`;
   }).join('');
   const legend = parts.map((part, n) => {
     const share = Math.round((Number(part.value) / total) * 100);
     const tip = part.other ? `${part.label}${NBSP}: ${part.members.slice(0, 12).join(', ')}${part.members.length > 12 ? '…' : ''}` : `${part.label}${NBSP}: ${num(part.value)} (${share}${NBSP}%)`;
-    return `<li><button type="button" class="sh-legend-item" data-key="${n}" data-tip="${esc(tip)}"><span class="sh-swatch ${part.other ? 'other' : `s${(n % 8) + 1}`}" aria-hidden="true"></span><span class="sh-legend-l">${esc(part.label)}</span><span class="sh-legend-v">${share}${NBSP}%</span></button></li>`;
+    const inner = `<span class="sh-swatch ${part.other ? 'other' : `s${(n % 8) + 1}`}" aria-hidden="true"></span><span class="sh-legend-l">${esc(part.label)}</span><span class="sh-legend-v">${share}${NBSP}%</span>`;
+    return clickable(part, o)
+      ? `<li><button type="button" class="sh-legend-item" data-key="${n}" data-seg="${n}" aria-pressed="${n === selected}" data-tip="${esc(`${tip} · cliquez pour ne garder que cette part`)}">${inner}</button></li>`
+      : `<li class="sh-legend-item static" data-key="${n}" data-tip="${esc(tip)}">${inner}</li>`;
   }).join('');
-  return `<div class="sh-donut"><div class="ring donut sm" role="img" aria-label="${esc(`${e.title ?? 'Répartition'} : ${parts.map((p) => `${p.label} ${num(p.value)}`).join(', ')}`)}"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="50"/>${arcs}</svg><div class="center"><b>${esc(num(total))}</b><span>${esc(e.unit ?? 'au total')}</span></div></div><ul class="sh-legend">${legend}</ul></div>`;
+  return `<div class="sh-donut${selected >= 0 ? ' has-selection' : ''}"><div class="ring donut sm" role="img" aria-label="${esc(`${e.title ?? 'Répartition'} : ${parts.map((p) => `${p.label} ${num(p.value)}`).join(', ')}`)}"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="50"/>${arcs}</svg><div class="center"><b>${esc(num(total))}</b><span>${esc(e.unit ?? 'au total')}</span></div></div><ul class="sh-legend">${legend}</ul></div>`;
 }
 
-export function barsVisual(e) {
+export function barsVisual(e, o = {}) {
   const items = (e.items ?? []).slice(0, 12);
-  if (!items.length) return emptyVisual('Aucune valeur.');
+  if (!items.length) return emptyVisual(e.empty ?? 'Aucune valeur.', { icon: e.emptyIcon, action: e.emptyAction });
   const max = Math.max(1, ...items.map((i) => Number(i.value) || 0));
+  const selected = selectedIndex(items, o.selected ?? null);
   return `<ol class="sh-hbars">${items.map((i, n) => {
     const p = (Number(i.value) || 0) / max;
-    return `<li data-tip="${esc(`${i.label}${NBSP}: ${i.display ?? num(i.value)}`)}"><span class="sh-hbar-l">${esc(i.label)}</span><span class="sh-hbar-track"><span class="sh-hbar" data-p="${p.toFixed(3)}" data-i="${n}"${i.state ? ` data-tone="${tone(i.state)}"` : ''}></span></span><span class="sh-hbar-v">${esc(i.display ?? num(i.value))}</span></li>`;
+    const tip = `${i.label}${NBSP}: ${i.display ?? num(i.value)}`;
+    const inner = `<span class="sh-hbar-l">${esc(i.label)}</span><span class="sh-hbar-track"><span class="sh-hbar" data-p="${p.toFixed(3)}" data-i="${n}"${i.state ? ` data-tone="${tone(i.state)}"` : ''}></span></span><span class="sh-hbar-v">${esc(i.display ?? num(i.value))}</span>`;
+    return clickable(i, o)
+      ? `<li><button type="button" class="sh-hbar-row" data-seg="${n}" aria-pressed="${n === selected}" data-tip="${esc(`${tip} · cliquez pour ouvrir`)}">${inner}</button></li>`
+      : `<li class="sh-hbar-row static" data-tip="${esc(tip)}">${inner}</li>`;
   }).join('')}</ol>`;
 }
 
 export function columnsVisual(e) {
   const items = (e.items ?? []).slice(-12);
-  if (!items.length) return emptyVisual('Aucune valeur.');
+  if (!items.length) return emptyVisual(e.empty ?? 'Aucune valeur.', { icon: e.emptyIcon, action: e.emptyAction });
   // Every known value at zero: a row of calm tiles instead of an empty plot with a meaningless axis.
   const isKnown = (i) => i.value !== null && i.value !== undefined && Number.isFinite(Number(i.value));
   if (items.some(isKnown) && items.filter(isKnown).every((i) => Number(i.value) === 0)) {
@@ -173,7 +256,7 @@ export function columnsVisual(e) {
 
 export function lineVisual(e) {
   const items = (e.items ?? []).filter((i) => Number.isFinite(Number(i.value)));
-  if (items.length < 2) return emptyVisual('Pas assez de points pour une courbe.');
+  if (items.length < 2) return emptyVisual(e.empty ?? 'Pas assez de points pour une courbe.', { icon: e.emptyIcon ?? 'activity', action: e.emptyAction });
   const w = 300;
   const h = 110;
   const pad = 8;
@@ -191,7 +274,7 @@ export function lineVisual(e) {
   const area = `${d} L${last[0].toFixed(1)},${h} L${pts[0][0].toFixed(1)},${h} Z`;
   const marks = items.map((i, n) => `<circle class="sh-line-hit" cx="${pts[n][0].toFixed(1)}" cy="${pts[n][1].toFixed(1)}" r="6"><title>${esc(`${i.label} : ${i.display ?? num(i.value)}`)}</title></circle>`).join('');
   return `<div class="sh-line"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="${esc(`${e.title ?? 'Courbe'} : ${items.map((i) => `${i.label} ${num(i.value)}`).join(', ')}`)}">
-      <path class="sh-line-area" d="${area}"/><path class="sh-line-path draw" d="${d}"/>${marks}<circle class="sh-line-last" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4"/></svg>
+      <path class="sh-line-area" d="${area}"/><path class="sh-line-path" d="${d}"/>${marks}<circle class="sh-line-last" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4"/></svg>
     <div class="sh-line-x" aria-hidden="true"><span>${esc(items[0].label)}</span><span>${esc(items.at(-1).label)} · ${esc(items.at(-1).display ?? num(items.at(-1).value))}</span></div></div>`;
 }
 
@@ -199,7 +282,7 @@ const LEVELS = { alert: ['alert', 'Critique'], warn: ['warn', 'À surveiller'], 
 
 export function listVisual(e) {
   const items = (e.items ?? []).slice(0, 20);
-  if (!items.length) return emptyVisual(e.empty ?? 'Aucun point à signaler.');
+  if (!items.length) return emptyVisual(e.empty ?? 'Aucun point à signaler.', { icon: e.emptyIcon ?? 'check', action: e.emptyAction, calm: true });
   return `<ul class="sh-points">${items.map((i) => {
     const [t, word] = LEVELS[i.level] ?? LEVELS.info;
     return `<li data-tone="${t}"><span class="sh-point-mark" aria-hidden="true"></span><span class="visually-hidden">${esc(word)}${NBSP}: </span><span>${esc(i.text ?? i.label)}</span>${i.detail ? `<span class="sh-point-d">${esc(i.detail)}</span>` : ''}</li>`;
@@ -208,7 +291,7 @@ export function listVisual(e) {
 
 export function sheetVisual(e) {
   const items = (e.items ?? []).slice(0, 20);
-  if (!items.length) return emptyVisual('Aucune information.');
+  if (!items.length) return emptyVisual(e.empty ?? 'Aucune information.', { icon: e.emptyIcon, action: e.emptyAction });
   return `<dl class="sh-sheet">${items.map((i) => `<div><dt>${esc(i.label)}</dt><dd${i.state ? ` data-tone="${tone(i.state)}"` : ''}>${esc(i.display ?? i.value ?? '—')}${i.detail ? `<span class="sh-sheet-d">${esc(i.detail)}</span>` : ''}</dd></div>`).join('')}</dl>`;
 }
 
@@ -216,15 +299,19 @@ const MARKS = { ok: ['✓', 'OK'], warn: ['!', 'À vérifier'], alert: ['✕', '
 
 export function checklistVisual(e) {
   const items = (e.items ?? []).slice(0, 20);
-  if (!items.length) return emptyVisual('Aucun contrôle.');
+  if (!items.length) return emptyVisual(e.empty ?? 'Aucun contrôle.', { icon: e.emptyIcon, action: e.emptyAction });
   return `<ul class="sh-checks">${items.map((i) => {
     const [g, word] = MARKS[i.state] ?? MARKS.info;
     return `<li data-tone="${tone(i.state)}"><span class="sh-check-mark" aria-hidden="true">${g}</span><span class="sh-check-l">${esc(i.label)}<span class="visually-hidden"> (${esc(word)})</span></span><span class="sh-check-v">${esc(i.display ?? i.value ?? '')}</span></li>`;
   }).join('')}</ul>`;
 }
 
-export function emptyVisual(text) {
-  return `<div class="sh-chart-empty"><span aria-hidden="true">∅</span><p>${esc(text)}</p></div>`;
+/**
+ * Empty state of a widget: an illustration, one sentence and, when the screen gives one, the action that fills it
+ * (`{ id, label, icon? }`, handled by the board through onAction). `calm`: nothing to report is good news (green mark).
+ */
+export function emptyVisual(text, { icon: name = '', action = null, calm = false } = {}) {
+  return `<div class="sh-chart-empty${calm ? ' calm' : ''}"><span class="sh-empty-art" aria-hidden="true">${icon(name || (calm ? 'check' : 'sparkles'))}</span><p>${esc(text)}</p>${actionButton(action)}</div>`;
 }
 
 /** Accessible table of a widget (alternative to its chart). */
@@ -238,13 +325,18 @@ export function dataTable(e) {
     <tbody>${items.map((i) => `<tr><th scope="row">${esc(i.label ?? i.text ?? '')}</th><td>${esc(i.display ?? (i.value !== undefined ? num(i.value) : ''))}</td>${share ? `<td>${Math.round(((Number(i.value) || 0) / total) * 100)}${NBSP}%</td>` : ''}</tr>`).join('')}</tbody></table>`;
 }
 
-/** Visual of an entry for a representation. */
-export function visualMarkup(visual, e) {
+/**
+ * Visual of an entry for a representation. `o.selectable`: the board listens for selections (parts with a criterion become
+ * buttons); `o.selected`: label of the part selected.
+ */
+export function visualMarkup(visual, e, o = {}) {
   switch (visual) {
     case 'kpi': return kpiVisual(e);
     case 'gauge': return gaugeVisual(e);
-    case 'donut': return donutVisual(e);
-    case 'bars': return barsVisual(e);
+    case 'score': return scoreVisual(e);
+    case 'health': return healthVisual(e);
+    case 'donut': return donutVisual(e, o);
+    case 'bars': return barsVisual(e, o);
     case 'columns': return columnsVisual(e);
     case 'line': return lineVisual(e);
     case 'list': return listVisual(e);
@@ -260,9 +352,6 @@ export function paintCharts(scope) {
   scope.querySelectorAll('[data-i]').forEach((el) => el.style.setProperty('--i', el.dataset.i));
   scope.querySelectorAll('[data-len]').forEach((el) => el.style.setProperty('--len', el.dataset.len));
   scope.querySelectorAll('[data-gauge]').forEach((el) => el.style.setProperty('--g', el.dataset.gauge));
-  scope.querySelectorAll('path.draw').forEach((p) => {
-    try { p.style.setProperty('--len', String(Math.ceil(p.getTotalLength()) + 1)); } catch { p.style.setProperty('--len', '1000'); }
-  });
   scope.querySelectorAll('.sh-donut').forEach((box) => {
     const ring = box.querySelector('.ring');
     const focus = (key) => {
@@ -271,6 +360,11 @@ export function paintCharts(scope) {
       box.querySelectorAll('.sh-legend-item').forEach((b) => b.classList.toggle('dim', key !== null && b.dataset.key !== key));
     };
     box.addEventListener('pointerover', (e) => { const k = e.target instanceof Element ? e.target.closest('[data-key]')?.dataset.key : null; focus(k ?? null); });
+    // Hovering a segment shows its share in the legend (and the reverse); the legend line names it for the tooltip.
+    ring.querySelectorAll('circle.seg').forEach((c) => {
+      const item = box.querySelector(`.sh-legend-item[data-key="${c.dataset.key}"]`);
+      if (item?.dataset.tip) c.dataset.tip = item.dataset.tip;
+    });
     box.addEventListener('pointerleave', () => focus(null));
     box.addEventListener('focusin', (e) => { const k = e.target instanceof Element ? e.target.closest('[data-key]')?.dataset.key : null; focus(k ?? null); });
     box.addEventListener('focusout', () => focus(null));

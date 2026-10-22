@@ -1,4 +1,8 @@
-/* Domenia 2 design tokens. Colours inherit the Domenia 1 palette (SupportSuite.UI.json). */
+/* Domenia 2 design tokens. Colours inherit the Domenia 1 palette (SupportSuite.UI.json). Every pair the interface really
+   paints meets WCAG 2.x on the three themes (4.5:1 for text, 3:1 for large text and graphics; checked by
+   ShellStaticChecksTests and measured live in « Aide et interface » › Apparence): faint text, warning text, input borders and
+   the state marks of the light theme, the primary button and input borders of the dark theme, and the selected row of the
+   high contrast theme were darkened or lightened on 22 October 2026 (TRV-009). */
 :root {
   color-scheme: light;
   /* Surfaces */
@@ -11,11 +15,11 @@
   --nav-bg: #eef3fa;
   --glass: rgba(255, 255, 255, .72);
   --border: #d7dee9;
-  --border-strong: #b9c6d8;
+  --border-strong: #8392a8;
   /* Text */
   --text: #17243a;
   --text-muted: #52627b;
-  --text-faint: #7a8aa3;
+  --text-faint: #5f6f87;
   --text-on-accent: #ffffff;
   /* Accent */
   --accent: #066ddb;
@@ -24,8 +28,8 @@
   --accent-text: #075ebd;
   --accent-glow: rgba(6, 109, 219, .28);
   /* States (text on soft background, mark for dots and bars) */
-  --ok: #15803d;   --ok-soft: #dcfce7;   --ok-mark: #22c55e;
-  --warn: #a16207; --warn-soft: #fef3c7; --warn-mark: #f59e0b;
+  --ok: #15803d;   --ok-soft: #dcfce7;   --ok-mark: #16a34a;
+  --warn: #8a5300; --warn-soft: #fef3c7; --warn-mark: #d97706;
   --alert: #b91c1c; --alert-soft: #fee2e2; --alert-mark: #ef4444;
   --info: #1d4ed8; --info-soft: #dbeafe; --info-mark: #3b82f6;
   --off: #475569;  --off-soft: #e2e8f0;  --off-mark: #94a3b8;
@@ -94,12 +98,12 @@
   --nav-bg: #101b2c;
   --glass: rgba(16, 26, 41, .72);
   --border: #2b3d57;
-  --border-strong: #3a4f6b;
+  --border-strong: #64809f;
   --text: #edf4ff;
   --text-muted: #bfcee2;
   --text-faint: #8ea2bf;
-  --accent: #2f86e8;
-  --accent-hover: #4a97ee;
+  --accent: #2470d6;
+  --accent-hover: #1f6fd1;
   --accent-soft: #1c3553;
   --accent-text: #8bbeff;
   --accent-glow: rgba(47, 134, 232, .35);
@@ -119,7 +123,7 @@
 :root[data-theme="contrast"] {
   color-scheme: dark;
   --bg: #000000; --bg-elevated: #000000; --bg-sunken: #000000; --bg-input: #000000;
-  --bg-hover: #1a1a1a; --bg-selected: #1aebff; --nav-bg: #000000; --glass: #000000;
+  --bg-hover: #1a1a1a; --bg-selected: #005a66; --nav-bg: #000000; --glass: #000000;
   --border: #ffffff; --border-strong: #ffffff;
   --text: #ffffff; --text-muted: #ffffff; --text-faint: #ffffff; --text-on-accent: #000000;
   --accent: #1aebff; --accent-hover: #ffff00; --accent-soft: #000000; --accent-text: #ffff00; --accent-glow: #ffff00;

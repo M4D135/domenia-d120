@@ -135,6 +135,22 @@ export function decide(entry) {
   return { action: 'run', status: entry.effect === 'read' ? `${entry.label} : lecture demandée.` : '' };
 }
 
+const EFFECTS = ['navigate', 'local', 'read', 'sensitive', 'write'];
+
+/**
+ * A command declared by a screen (ctx.commands.set), made safe: its effect must be one of the five. Without an effect (or
+ * with an unknown one) it is handled as a write — the palette only brings its button forward, never runs it — and the
+ * omission is said in the console for the author of the screen. Fail closed: an action that writes is never run by mistake.
+ * @param {object} c
+ */
+export function screenCommand(c) {
+  if (EFFECTS.includes(c?.effect)) return { ...c };
+  console.warn(`Commande d’écran sans effet déclaré : « ${c?.id ?? '?'} » est traitée comme une écriture (bouton seulement).`);
+  const { run, ...rest } = c ?? {};
+  void run;
+  return { ...rest, effect: 'write' };
+}
+
 /**
  * State of the button of a catalogue command in the page: tagged data-command="<id>" (screens of Domenia 2).
  * @param {string} id @param {ParentNode} [scope]

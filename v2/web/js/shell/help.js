@@ -175,6 +175,8 @@ export const DISABLED_DETAILS = Object.freeze({
   featureDisabled: 'Fonction désactivée dans la configuration.',
   requiredFieldEmpty: 'Un champ obligatoire est vide.',
   simulation: 'Non disponible en simulation : aucune connexion au poste ni à l’annuaire.',
+  memoryOnly: 'Cette session ne garde rien sur le disque (capture ou essai) : aucun dossier à ouvrir.',
+  policyHidden: 'Masqué par l’administrateur dans Domenia.config.json.',
 });
 
 /**

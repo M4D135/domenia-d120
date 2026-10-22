@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Domenia.Bridge;
 using Domenia.Core;
 
 namespace Domenia.Tests;
@@ -79,13 +80,52 @@ internal static class ShellTests
     {
         Check.Equal("'=1+1", ShellCsv.Neutralize("=1+1"), "égal");
         Check.Equal("'+33 6", ShellCsv.Neutralize("+33 6"), "plus");
-        Check.Equal("'-2", ShellCsv.Neutralize("-2"), "moins");
+        Check.Equal("'-2+3", ShellCsv.Neutralize("-2+3"), "moins suivi d’une formule");
+        Check.Equal("'-cmd|' /C calc'!A0", ShellCsv.Neutralize("-cmd|' /C calc'!A0"), "moins d’une injection");
         Check.Equal("'@SOMME(A1)", ShellCsv.Neutralize("@SOMME(A1)"), "arobase");
         Check.Equal("'＝HYPERLINK()", ShellCsv.Neutralize("＝HYPERLINK()"), "pleine chasse");
         Check.Equal("'  =x", ShellCsv.Neutralize("  =x"), "après des blancs");
         Check.Equal("'\tx", ShellCsv.Neutralize("\tx"), "tabulation en tête");
         Check.Equal("Camille", ShellCsv.Neutralize("Camille"), "texte ordinaire");
         Check.Equal("", ShellCsv.Neutralize(null), "null");
+    }
+
+    [Test]
+    public static void Numbers_keep_their_sign_without_an_apostrophe()
+    {
+        Check.Equal("-5", ShellCsv.Neutralize("-5"), "entier négatif");
+        Check.Equal("−12,5", ShellCsv.Neutralize("−12,5"), "signe moins typographique et virgule");
+        Check.Equal("-1\u202F234,50", ShellCsv.Neutralize("-1\u202F234,50"), "milliers à espace fine");
+        Check.Equal("-3.25", ShellCsv.Neutralize("-3.25"), "point décimal");
+        Check.True(ShellCsv.IsNumber("1 234"), "milliers à espace");
+        Check.False(ShellCsv.IsNumber("1 23"), "groupe de deux chiffres : pas un nombre");
+        Check.False(ShellCsv.IsNumber("-5 "), "blanc final : pas un nombre");
+        Check.Equal("'-5 ", ShellCsv.Neutralize("-5 "), "blanc final : neutralisé");
+        Check.False(ShellCsv.IsNumber("+5"), "plus : jamais un nombre pour la neutralisation");
+        Check.Equal("-5", ShellHostArguments.Cell(System.Text.Json.JsonDocument.Parse("-5").RootElement), "nombre de la page : texte « -5 »");
+        var csv = ShellCsv.Build(["Écart"], [["-5"]]);
+        Check.Contains("\r\n-5\r\n", csv.Text, "nombre négatif écrit tel quel");
+    }
+
+    [Test]
+    public static void Rebuild_writes_a_page_csv_with_the_engine_rules()
+    {
+        var text = "\uFEFFNom;Note;Code\n\"Martin, C\";\" =1+1\";\"＝HYPERLINK()\"\nDurand;\"ligne 1\nligne 2\";password=Secret42\n";
+        var doc = ShellCsv.Rebuild(text)!;
+        Check.NotNull(doc, "relu");
+        Check.Equal(2, doc.Rows, "lignes comptées par enregistrement (une cellule sur deux lignes)");
+        Check.Contains("' =1+1", doc.Text, "formule après un blanc neutralisée");
+        Check.Contains("'＝HYPERLINK()", doc.Text, "forme pleine chasse neutralisée");
+        Check.False(doc.Text.Contains("Secret42", StringComparison.Ordinal), "secret masqué cellule par cellule");
+        Check.Equal(1, doc.Masked, "une valeur masquée");
+        Check.True(doc.Text.StartsWith("Nom;Note;Code\r\n", StringComparison.Ordinal), "en-tête, CRLF, BOM retiré");
+        Check.Contains("\"ligne 1\nligne 2\"", doc.Text, "saut de ligne cité");
+        var wide = string.Join(";", Enumerable.Range(0, ShellCsv.MaxExportColumns + 1).Select(i => "c" + i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Check.Null(ShellCsv.Rebuild(wide + "\n"), "trop de colonnes : refusé, jamais tronqué en silence");
+        Check.Equal(0, ShellCsv.Rebuild("")!.Rows, "texte vide : document vide");
+        var bounded = ShellCsv.Parse("a;b\n1;2\n3;4\n", 1, 10);
+        Check.Equal(1, bounded.Rows.Length, "bornes explicites : lignes");
+        Check.True(bounded.Truncated, "bornes explicites : troncature signalée");
     }
 
     [Test]
@@ -254,15 +294,20 @@ internal static class ShellTests
     {
         var merged = ShellInterfaceRules.MergeInterface(
             Json("""{"theme":"light","navWidth":240,"helpTips":true}"""),
-            Json("""{"theme":"dark","navWidth":999,"unknown":1,"helpTips":null,"profile":"expert","recentPages":["#/fiche?dn=x","#/../x","#/fiche?dn=x"],"recentCommands":["page:accueil","Bad Id"]}"""));
+            Json("""{"theme":"dark","navWidth":999,"unknown":1,"helpTips":null,"profile":"expert","recentPages":["#/shell?onglet=aide","#/../x","#/shell?onglet=aide","#/fiche?dn=x"],"recentCommands":["page:accueil","Bad Id"]}"""));
         Check.Equal("dark", merged.GetProperty("theme").GetString(), "thème changé");
         Check.Equal(240, merged.GetProperty("navWidth").GetInt32(), "largeur hors bornes refusée, ancienne gardée");
         Check.False(merged.TryGetProperty("unknown", out _), "champ inconnu ignoré");
         Check.False(merged.TryGetProperty("helpTips", out _), "null retire le champ");
         Check.Equal("expert", merged.GetProperty("profile").GetString(), "profil");
-        Check.Equal(1, merged.GetProperty("recentPages").GetArrayLength(), "adresses valides et uniques");
+        Check.Equal(1, merged.GetProperty("recentPages").GetArrayLength(), "adresses valides, uniques et sans objet de l’annuaire");
         Check.Equal(1, merged.GetProperty("recentCommands").GetArrayLength(), "identifiants valides");
-        Check.True(ShellInterfaceRules.IsRecentPage("#/fiche?dn=CN%3DCamille"), "adresse encodée");
+        Check.True(ShellInterfaceRules.IsRecentPage("#/parametres?section=stockage"), "onglet d’écran gardé");
+        Check.True(ShellInterfaceRules.IsRecentPage("#/accueil"), "écran seul gardé");
+        Check.False(ShellInterfaceRules.IsRecentPage("#/fiche?dn=CN%3DCamille"), "DN : session seulement, jamais enregistré");
+        Check.False(ShellInterfaceRules.IsRecentPage("#/rechercher?q=martin"), "texte saisi : session seulement");
+        Check.False(ShellInterfaceRules.IsRecentPage("#/rechercher?OU=x"), "paramètre d’OU, casse ignorée");
+        Check.False(ShellInterfaceRules.IsRecentPage("#/poste?vue=x%3dy"), "« = » encodé refusé");
         Check.False(ShellInterfaceRules.IsRecentPage("#/fiche?dn=Camille Martin"), "espace refusé");
         Check.False(ShellInterfaceRules.IsRecentPage("https://exemple"), "adresse externe refusée");
     }
@@ -295,6 +340,99 @@ internal static class ShellTests
         Check.True(key.StartsWith(ShellInterfaceRules.FavouritesPrefix, StringComparison.Ordinal), "préfixe");
         Check.False(key.Contains("example", StringComparison.OrdinalIgnoreCase), "aucun nom de domaine dans la clé");
         Check.Equal(key, ShellInterfaceRules.FavouritesKey("DC=EXAMPLE,DC=LOCAL"), "clé sans casse");
+    }
+
+    // ---------- Window frame and interface policy (TRV-011, TRV-167, TRV-180) ----------
+
+    [Test]
+    public static void Color_ref_accepts_exactly_six_hexadecimal_digits()
+    {
+        Check.Equal(0x00332211, ShellTexts.ColorRef("#112233"), "rouge, vert, bleu inversés (COLORREF)");
+        Check.Equal(0x00FFFFFF, ShellTexts.ColorRef("#FFFFFF"), "majuscules");
+        Check.Null(ShellTexts.ColorRef("#fff"), "forme courte refusée");
+        Check.Null(ShellTexts.ColorRef("#11223344"), "alpha refusé");
+        Check.Null(ShellTexts.ColorRef("# 12345"), "blanc refusé");
+        Check.Null(ShellTexts.ColorRef("#12345g"), "chiffre non hexadécimal");
+        Check.Null(ShellTexts.ColorRef("Canvas"), "couleur système refusée");
+        Check.Null(ShellTexts.ColorRef(null), "null");
+    }
+
+    [Test]
+    public static void Interface_policy_reads_allow_expert_profile_like_domenia_1()
+    {
+        Check.True(ShellPolicies.Parse(""u8).ExpertAllowed, "sans fichier : Expert proposé");
+        Check.Equal("défaut", ShellPolicies.Parse("{}"u8).Source, "sans clé : défaut");
+        var hidden = ShellPolicies.Parse("""{"ui":{"allowExpertProfile":false}}"""u8);
+        Check.False(hidden.ExpertAllowed, "false masque Expert (casse des noms ignorée)");
+        Check.Equal("configuration", hidden.Source, "source");
+        Check.False(ShellPolicies.Parse("""{"UI":{"AllowExpertProfile":0}}"""u8).ExpertAllowed, "0 masque Expert");
+        Check.True(ShellPolicies.Parse("""{"UI":{"AllowExpertProfile":"false"}}"""u8).ExpertAllowed, "le texte « false » ne masque rien (seul le booléen compte)");
+        Check.True(ShellPolicies.Parse("""{"UI":{"AllowExpertProfile":true}}"""u8).ExpertAllowed, "true");
+        var broken = ShellPolicies.Parse("{"u8);
+        Check.True(broken.ExpertAllowed, "JSON illisible : valeur par défaut, comme Domenia 1");
+        Check.Equal("JSON illisible", broken.Problem, "motif court");
+        Check.True(ShellPolicies.Parse("\uFEFF{\"UI\":{}}"u8).ExpertAllowed, "BOM ignoré");
+    }
+
+    [Test]
+    public static void File_names_of_the_save_mode_follow_windows_rules()
+    {
+        Check.True(ShellFileNames.IsSafe("Domenia-Postes-20261022-0905.csv", "csv"), "nom d’export");
+        Check.True(ShellFileNames.IsSafe("Rapport du parc.json", "json"), "espaces admis");
+        Check.False(ShellFileNames.IsSafe("rapport.csv", "json"), "extension de la nature");
+        Check.False(ShellFileNames.IsSafe(".csv", "csv"), "extension seule");
+        Check.False(ShellFileNames.IsSafe("..\\x.csv", "csv"), "dossier refusé");
+        Check.False(ShellFileNames.IsSafe("a/b.csv", "csv"), "barre oblique refusée");
+        Check.False(ShellFileNames.IsSafe("a:b.csv", "csv"), "deux-points refusé");
+        Check.False(ShellFileNames.IsSafe("CON.csv", "csv"), "nom de périphérique refusé");
+        Check.False(ShellFileNames.IsSafe("lpt1.csv", "csv"), "nom de périphérique, casse ignorée");
+        Check.False(ShellFileNames.IsSafe("rapport.csv ", "csv"), "blanc final refusé");
+        Check.False(ShellFileNames.IsSafe(new string('a', 117) + ".csv", "csv"), "121 caractères refusés");
+        Check.False(ShellFileNames.IsSafe("a\u0007.csv", "csv"), "caractère de contrôle refusé");
+        var at = new DateTimeOffset(2026, 10, 22, 9, 5, 0, 123, TimeSpan.Zero);
+        var signature = new ShellFileSignature(42, at);
+        Check.True(signature.Matches(42, at.AddTicks(4_000)), "moins d’une milliseconde d’écart : même fichier");
+        Check.False(signature.Matches(42, at.AddMilliseconds(2)), "date changée");
+        Check.False(signature.Matches(43, at), "taille changée");
+    }
+
+    // ---------- Faults and blocked time (TRV-064, TRV-056) ----------
+
+    [Test]
+    public static void Swallowed_errors_are_traced_apart_from_the_faults()
+    {
+        var log = new RecordingJournal();
+        var clock = TestClock.Fixed();
+        var tracer = new ShellFaultTracer(log, clock);
+        Check.True(tracer.Report("swallowed", "accueil", 1, "board.copy"), "première trace");
+        Check.False(tracer.Report("swallowed", "accueil", 1, "board.copy"), "même endroit dans la minute : compté seulement");
+        Check.True(tracer.Report("swallowed", "accueil", 1, "help-panel.guide"), "autre endroit : sa propre trace");
+        Check.Equal(0, tracer.Total, "jamais compté parmi les erreurs");
+        Check.Equal(3, tracer.Swallowed, "erreurs ignorées comptées");
+        Check.True(tracer.Report("nested", "accueil", 2), "erreur imbriquée tracée");
+        Check.Equal(2, tracer.Total, "erreur imbriquée comptée");
+        Check.True(log.Lines.Any(l => l.Contains("erreur volontairement ignorée (board.copy)", StringComparison.Ordinal)), "endroit du code dans la trace");
+        Check.True(log.Lines.Any(l => l.Contains("pendant le traitement d’une autre", StringComparison.Ordinal)), "nature de l’erreur imbriquée");
+        Check.True(ShellFaultTracer.IsPlace("board.copy"), "endroit valide");
+        Check.False(ShellFaultTracer.IsPlace("mot de passe=x"), "texte libre refusé");
+        Check.False(ShellFaultTracer.IsPlace(new string('a', 65)), "65 caractères refusés");
+    }
+
+    [Test]
+    public static void Blocked_time_of_the_panels_is_summed_and_traced_once_a_minute()
+    {
+        var log = new RecordingJournal();
+        var clock = TestClock.Fixed();
+        var tracer = new ShellMetricTracer(log, clock);
+        Check.True(tracer.Report("accueil", 1, 2500), "première ligne");
+        Check.False(tracer.Report("accueil", 2, 1500), "dans la minute : additionné");
+        clock.Advance(TimeSpan.FromMinutes(1));
+        Check.True(tracer.Report("accueil", 1, 1000), "une minute après : nouvelle ligne");
+        Check.Equal(4, tracer.Panels, "panneaux de la session");
+        Check.Equal(5000L, tracer.TotalMilliseconds, "temps total");
+        Check.True(log.Lines.Any(l => l.Contains("3 panneau(x) modal(aux) fermé(s) sur l’écran accueil, interface bloquée 2.5 s", StringComparison.Ordinal)), "somme de la minute écoulée");
+        tracer.Report("poste", 1, 99_999_999);
+        Check.Equal(5000L + ShellMetricTracer.MaxMilliseconds, tracer.TotalMilliseconds, "un panneau compte une heure au plus");
     }
 
     // ---------- Team layouts and exports (TRV-311, TRV-054) ----------

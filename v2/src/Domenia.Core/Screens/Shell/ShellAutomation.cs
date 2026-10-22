@@ -19,7 +19,7 @@ public static partial class ShellAutomation
 
     public static AutomationLimits Limits { get; } = new(1000, 5000, 500, 2048);
 
-    private static readonly string Perimeter = "Périmètre" + FrenchText.Colon + "-OrganizationalUnit (DN d’une OU), -Computers (noms) ou -Guids (GUID de postes).";
+    private static readonly string Perimeter = "Périmètre exigé" + FrenchText.Colon + "une OU, des noms de postes ou des GUID de postes, un seul à la fois.";
 
     /// <summary>The contract, as the command line answers « version ».</summary>
     public static AutomationContract Contract { get; } = new(
@@ -49,6 +49,13 @@ public static partial class ShellAutomation
             "Périmètre obligatoire et unique pour les commandes de postes (OU, noms ou GUID)" + FrenchText.Colon + "jamais tout le domaine implicitement.",
             "Bornes explicites (1 000 lignes par défaut, 5 000 au plus, 500 noms)" + FrenchText.Colon + "une troncature est toujours signalée.",
             "CSV neutralisé, écrit en UTF-8 avec BOM, à côté puis renommé" + FrenchText.Colon + "chemins réseau, lecteurs mappés et liens refusés.",
+        ],
+        [
+            new AutomationOption("-OrganizationalUnit", "OU du périmètre, par son nom distinctif", "OU=Paris,OU=Postes,DC=example,DC=local"),
+            new AutomationOption("-Computers", "Noms de postes, séparés par des virgules (500 au plus)", "PC-PAR-0001,PC-PAR-0002"),
+            new AutomationOption("-Guids", "GUID de postes, séparés par des virgules (500 au plus)", "3f2504e0-4f89-11d3-9a0c-0305e82c3301"),
+            new AutomationOption("-Limit", "Nombre de lignes (1" + FrenchText.ThousandsSeparator + "000 par défaut, 5" + FrenchText.ThousandsSeparator + "000 au plus)", "500"),
+            new AutomationOption("-Format", "Format de la réponse (Json ou Csv selon la commande)", "Csv"),
         ]);
 
     /// <summary>

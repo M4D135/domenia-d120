@@ -107,7 +107,10 @@ public sealed record AutomationExitCode(int Code, string Name, string Meaning);
 /// <summary>Bounds of one command; a bound reached is always reported, never hidden.</summary>
 public sealed record AutomationLimits(int DefaultRows, int MaxRows, int MaxNames, int MaxOuLength);
 
-/// <summary>The local automation contract (Domenia 1 TRV-067): versioned commands, bounds and exit codes.</summary>
+/// <summary>An option of the command line: its name as typed, what it means, an example value.</summary>
+public sealed record AutomationOption(string Name, string Meaning, string Example);
+
+/// <summary>The local automation contract (Domenia 1 TRV-067): versioned commands, bounds, exit codes and options.</summary>
 public sealed record AutomationContract(
     string Contract,
     int Version,
@@ -115,7 +118,8 @@ public sealed record AutomationContract(
     ImmutableArray<AutomationCommand> Commands,
     ImmutableArray<AutomationExitCode> ExitCodes,
     AutomationLimits Limits,
-    ImmutableArray<string> Rules);
+    ImmutableArray<string> Rules,
+    ImmutableArray<AutomationOption> Options);
 
 /// <summary>
 /// Check of a command line of the contract, with the answer it would give when the local data can serve it

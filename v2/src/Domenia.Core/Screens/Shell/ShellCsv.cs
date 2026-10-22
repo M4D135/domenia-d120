@@ -26,12 +26,19 @@ public static partial class ShellCsv
     /// <summary>Columns read back from a file at most.</summary>
     public const int MaxReadColumns = 200;
 
+    /// <summary>Rows of a CSV text built by the page (grid of the kit) re-read before an export at most.</summary>
+    public const int MaxExportRows = 200_000;
+
+    /// <summary>Columns of a CSV text built by the page re-read before an export at most.</summary>
+    public const int MaxExportColumns = 1000;
+
     private static readonly char[] QuoteTriggers = [Separator, '"', '\r', '\n'];
     private static readonly char[] LineBreaks = ['\r', '\n'];
 
     /// <summary>
     /// A text cell that a spreadsheet would read as a formula (« = + - @ », their full-width forms, after blanks or format
-    /// characters, or a leading tab or line break) gets a leading apostrophe. Numbers, booleans and dates are written as they are.
+    /// characters, or a leading tab or line break) gets a leading apostrophe. A number written in French (« -5 », « −12,5 »,
+    /// « 1 234 ») is a value, not a formula: it is written as it is, so a negative number keeps its sign without an apostrophe.
     /// </summary>
     public static string Neutralize(string? value)
     {
@@ -39,8 +46,15 @@ public static partial class ShellCsv
         {
             return value ?? "";
         }
+        if (FrenchNumber().IsMatch(value))
+        {
+            return value;
+        }
         return FormulaStart().IsMatch(value) || value[0] is '\t' or '\r' or '\n' ? "'" + value : value;
     }
+
+    /// <summary>True for a number written in French or invariant form: optional minus, digits grouped by three, decimal part.</summary>
+    public static bool IsNumber(string? value) => !string.IsNullOrEmpty(value) && FrenchNumber().IsMatch(value);
 
     /// <summary>One cell, quoted when it holds the separator, a quote or a line break (quotes doubled).</summary>
     public static string Quote(string value)
@@ -137,9 +151,14 @@ public static partial class ShellCsv
     /// and line breaks, at most <see cref="MaxReadRows"/> rows of <see cref="MaxReadColumns"/> columns; the count of rows
     /// left out is reported, never hidden. The leading apostrophe of a neutralized cell is kept (the text is shown as written).
     /// </summary>
-    public static CsvTable Parse(string text)
+    public static CsvTable Parse(string text) => Parse(text, MaxReadRows, MaxReadColumns);
+
+    /// <summary>Reads a CSV text with explicit bounds (rows after the header, columns of every record).</summary>
+    public static CsvTable Parse(string text, int maxRows, int maxColumns)
     {
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxRows);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxColumns, 1);
         var end = text.IndexOfAny(LineBreaks);
         var delimiter = DetectDelimiter(end < 0 ? text : text[..end]);
         var records = new List<List<string>>();
@@ -185,7 +204,7 @@ public static partial class ShellCsv
                     i++;
                 }
                 AddCell(current, cell);
-                total += AddRecord(records, current);
+                total += AddRecord(records, current, maxRows);
                 current = [];
             }
             else
@@ -196,16 +215,38 @@ public static partial class ShellCsv
         if (cell.Length > 0 || current.Count > 0)
         {
             AddCell(current, cell);
-            total += AddRecord(records, current);
+            total += AddRecord(records, current, maxRows);
         }
         if (records.Count == 0)
         {
             return new CsvTable(delimiter, [], [], 0, false);
         }
-        var headers = records[0].Take(MaxReadColumns).ToImmutableArray();
-        var rows = records.Skip(1).Select(r => r.Take(MaxReadColumns).ToImmutableArray()).ToImmutableArray();
+        var headers = records[0].Take(maxColumns).ToImmutableArray();
+        var rows = records.Skip(1).Select(r => r.Take(maxColumns).ToImmutableArray()).ToImmutableArray();
         var dataRows = Math.Max(0, total - 1);
-        return new CsvTable(delimiter, headers, rows, dataRows, dataRows > rows.Length || records[0].Count > MaxReadColumns);
+        return new CsvTable(delimiter, headers, rows, dataRows, dataRows > rows.Length || records.Any(r => r.Count > maxColumns));
+    }
+
+    /// <summary>
+    /// A CSV text built by the page (grid of the kit, already neutralized with its own rule) read again and written by the
+    /// rules of the engine: every cell neutralized (blanks, format characters and full-width forms included), every
+    /// secret-looking cell masked, secret columns withheld, rows counted as records (a cell may hold a line break). Null when
+    /// the text holds more rows or columns than an export admits.
+    /// </summary>
+    public static CsvDocument? Rebuild(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var table = Parse(text.TrimStart('\uFEFF'), MaxExportRows, MaxExportColumns);
+        if (table.Truncated)
+        {
+            return null;
+        }
+        if (table.Headers.IsEmpty)
+        {
+            return new CsvDocument("", 0, 0, []);
+        }
+        var rows = table.Rows.Select(r => (IReadOnlyList<string?>)r).ToList();
+        return Build(table.Headers, rows);
     }
 
     private static void AddCell(List<string> record, StringBuilder cell)
@@ -214,14 +255,14 @@ public static partial class ShellCsv
         cell.Clear();
     }
 
-    /// <summary>Keeps the record within the bound (header plus <see cref="MaxReadRows"/> rows); blank lines are not records.</summary>
-    private static int AddRecord(List<List<string>> records, List<string> record)
+    /// <summary>Keeps the record within the bound (header plus <paramref name="maxRows"/> rows); blank lines are not records.</summary>
+    private static int AddRecord(List<List<string>> records, List<string> record, int maxRows)
     {
         if (record.Count == 1 && record[0].Length == 0)
         {
             return 0;
         }
-        if (records.Count <= MaxReadRows)
+        if (records.Count <= maxRows)
         {
             records.Add(record);
         }
@@ -233,4 +274,9 @@ public static partial class ShellCsv
 
     [GeneratedRegex(@"[^\p{L}\p{Nd}._-]+")]
     private static partial Regex Unsafe();
+
+    // Optional minus (ASCII or U+2212), digits grouped by three with a space, a no-break space or a narrow no-break space (or
+    // not grouped), optional decimal part with a comma or a dot. Nothing before nor after: « -5 + 1 » stays a formula.
+    [GeneratedRegex(@"^[-\u2212]?(?:\d{1,3}(?:[ \u00A0\u202F]\d{3})+|\d+)(?:[,.]\d+)?$")]
+    private static partial Regex FrenchNumber();
 }

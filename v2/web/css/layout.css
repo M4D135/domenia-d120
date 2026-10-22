@@ -3,8 +3,9 @@
   --help-w: 380px;
   display: grid;
   grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  grid-template-rows: var(--topbar-h) 1fr;
-  grid-template-areas: "nav top" "nav main";
+  /* Rows: top bar, mode banner, request waiting in the page (TRV-058), content. An empty row takes no height. */
+  grid-template-rows: var(--topbar-h) auto auto minmax(0, 1fr);
+  grid-template-areas: "nav top" "nav banner" "nav request" "nav main";
   height: 100vh;
   /* No transition on the columns (it would lay the whole window out on every frame): app.js slides the content
      column with a transform after the switch. */
@@ -48,7 +49,7 @@
   color: var(--text-faint);
 }
 .nav-item {
-  position: relative;
+  position: relative; isolation: isolate;
   display: flex; align-items: center; gap: var(--s3);
   height: 40px; padding: 0 var(--s3);
   border-radius: var(--r);
@@ -56,10 +57,14 @@
   font-weight: 500;
   cursor: pointer; user-select: none;
   border: 0; background: none; width: 100%; text-align: left;
-  transition: background var(--t-fast) ease, color var(--t-fast) ease;
 }
+/* Hover surface: a layer that fades in (opacity only, no animated colour). */
+.nav-item::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--bg-hover); opacity: 0; transition: opacity var(--t-fast) ease; pointer-events: none; }
+.nav-item:hover::before { opacity: 1; }
+.nav-item[aria-disabled="true"] { color: var(--text-faint); cursor: not-allowed; }
+.nav-item[aria-disabled="true"] svg { opacity: .55; }
 .nav-item svg { flex: none; width: 20px; height: 20px; }
-.nav-item:hover { background: var(--bg-hover); color: var(--text); }
+.nav-item:hover { color: var(--text); }
 .nav-item { z-index: 1; }
 .nav-item svg { transition: transform var(--t) var(--ease-spring); }
 .nav-item:hover svg { transform: scale(1.12) rotate(-4deg); }
@@ -118,7 +123,6 @@
   background: var(--bg-input);
   color: var(--text-faint);
   cursor: text;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
 }
 .topbar .search-trigger:hover { border-color: var(--accent); box-shadow: var(--ring); }
 .topbar .search-trigger svg { width: 18px; height: 18px; flex: none; }

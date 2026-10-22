@@ -1,0 +1,23 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : demande dans la page, la navigation reste libre",
+  "description": "Pose une demande d’exemple depuis « Outils partagés », vérifie qu’elle s’affiche en haut du contenu sans rendre la page inerte, change d’écran pendant l’attente (la demande reste posée), revient puis répond « Annuler » : rien n’est exécuté (TRV-058, TRV-059).",
+  "modes": ["simulation"],
+  "start": "shell?onglet=outils",
+  "steps": [
+    { "do": "click", "selector": "[data-tool=\"request\"]", "title": "Poser une demande d’exemple" },
+    { "do": "wait", "selector": ".sh-request", "title": "La demande s’affiche en haut du contenu" },
+    { "do": "expect", "selector": ".sh-request [data-req=\"cancel\"]:focus", "title": "La réponse sûre a le focus" },
+    { "do": "expect", "selector": ".shell", "attribute": "inert", "equals": null, "title": "La page n’est pas inerte (aucune fenêtre modale)" },
+    { "do": "expect", "contains": "seules les écritures de cette cible attendent", "within": ".sh-request", "title": "La demande dit ce qui attend" },
+    { "do": "shot", "name": "demande-posee", "selector": ".shell" },
+    { "do": "click", "selector": ".nav-item[data-id=\"accueil\"]", "title": "Changer d’écran pendant l’attente" },
+    { "do": "wait", "ready": "accueil", "title": "L’Accueil s’affiche" },
+    { "do": "expect", "selector": ".sh-request", "title": "La demande reste posée au-dessus du nouvel écran" },
+    { "do": "click", "selector": ".nav-item[data-id=\"shell\"]", "title": "Revenir à « Aide et interface »" },
+    { "do": "wait", "ready": "shell" },
+    { "do": "click", "selector": ".sh-request [data-req=\"cancel\"]", "title": "Répondre « Annuler »" },
+    { "do": "expect", "selector": ".sh-request", "absent": true, "title": "La demande est retirée" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

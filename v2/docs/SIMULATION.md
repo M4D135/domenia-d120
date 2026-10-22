@@ -320,7 +320,7 @@ ces 30 derniers jours ; `adminCount` = 1 pour Administrateur, krbtgt et les `adm
 |---|---|---|---|
 | Postes actifs | 412 | `OU=Postes`, par site : Paris 186, Lyon 82, Marseille 64, Lille 44, Bordeaux 36 | `PC-PAR-0001` (fixe), `PT-PAR-0001` (portable, 30 %) ; `PAR`, `LYO`, `MRS`, `LIL`, `BDX` |
 | Postes désactivés | 19 | `OU=Quarantaine` | numérotation à la suite |
-| Postes juste joints | 3 | `CN=Computers` (hors périmètre) | `DESKTOP-` + 7 caractères tirés |
+| Postes juste joints | 3 | `CN=Computers` (hors périmètre) | `DESKTOP-` + 7 caractères tirés ; le dernier n’a pas encore inscrit son nom DNS |
 | Serveurs | 18 | `OU=Serveurs` | `SRV-APP-01…06`, `SRV-SQL-01…03`, `SRV-WEB-01…03` (Applications), `SRV-FIC-01…04` (Fichiers), `SRV-IMP-01…02` (Impression) |
 | Contrôleurs | 2 | `OU=Domain Controllers` | `DC01`, `DC02` |
 
@@ -338,7 +338,7 @@ Systèmes des 412 postes actifs (`operatingSystem`, `operatingSystemVersion`) :
 Serveurs : Windows Server 2022 Standard ou Datacenter (`20348`) 10, Windows Server 2025 Standard (`26100`) 4,
 Windows Server 2019 Standard (`17763`) 4 ; contrôleurs en 2022 Datacenter.
 
-Attributs : `dNSHostName` = nom en minuscules + `.example.local` ; `userAccountControl` 4096 (actif), 4098 (désactivé),
+Attributs : `dNSHostName` = nom en minuscules + `.example.local`, absent pour le dernier poste juste joint (cas « poste sans DNS » de l’annuaire de démonstration, Domenia 1 TRV-047, ajouté le 22/10 sans déplacer aucun tirage) ; `userAccountControl` 4096 (actif), 4098 (désactivé),
 532480 (contrôleur) ; `primaryGroupID` 515 (516 pour les contrôleurs) ; `description` « Poste de *Prénom Nom* » pour
 40 % des postes fixes avec `managedBy` correspondant ; `location` « *Site* – bâtiment *A à C*, étage *0 à 4* ».
 
