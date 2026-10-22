@@ -1,0 +1,47 @@
+{
+  "fait": [
+    "SYN-003",
+    "SYN-004",
+    "SYN-007",
+    "SYN-008",
+    "SYN-015",
+    "SYN-018",
+    "SYN-019",
+    "SYN-020",
+    "SYN-021",
+    "SYN-022",
+    "SYN-023",
+    "SYN-024",
+    "SYN-026",
+    "SYN-027",
+    "SYN-030"
+  ],
+  "ameliore": [
+    "SYN-001",
+    "SYN-002",
+    "SYN-005",
+    "SYN-006",
+    "SYN-009",
+    "SYN-010",
+    "SYN-011",
+    "SYN-013",
+    "SYN-014",
+    "SYN-025",
+    "SYN-028",
+    "SYN-029"
+  ],
+  "partiel": [
+    {
+      "id": "SYN-012",
+      "reste": "Métadonnées, couverture, échecs par OU, repère et avis sur l’âge de la base sont servis par synchro.overview et affichés par l’écran ; au démarrage, l’Accueil doit reprendre synchro.overview.notices dans son journal (avis de première construction et d’âge de la base). Mode annuaire : lecture SQLite de Domenia.Store en vague 3."
+    },
+    {
+      "id": "SYN-016",
+      "reste": "Coupures par volume, temps, contrôleur et arrêt traitées (passe partielle, repère inchangé, marqueur nommant la limite) et quota ou budget réglables par passe dans l’estimation ; la lecture des clés Index.MaxObjects et Index.BudgetMs de Domenia.config.json attend la configuration héritée complète (elle ne lit que Auth.DemoProvider), et l’avertissement de l’Accueil doit reprendre synchro.overview.partial."
+    },
+    {
+      "id": "SYN-017",
+      "reste": "Une seule passe à la fois et refus pendant un enregistrement en place ; le refus pendant une maintenance, un rédacteur suspendu ou un disque presque plein dépend du stockage SQLite (Domenia.Store, vague 3)."
+    }
+  ]
+}

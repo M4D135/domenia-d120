@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : fusionner le relevé partagé du parc",
+  "description": "Onglet Parc : lecture du relevé partagé sous verrou après confirmation, aperçu de la fusion (la ligne la plus récente gagne), puis écriture par le circuit d’écriture.",
+  "modes": ["simulation"],
+  "start": "synchro?onglet=parc",
+  "steps": [
+    { "do": "wait", "contains": "des postes actifs", "within": "[data-slot=\"coverage\"]", "title": "La couverture du relevé est affichée" },
+    { "do": "click", "selector": "[data-pk=\"shared\"]", "title": "Lire le relevé partagé" },
+    { "do": "click", "text": "Lire le partage" },
+    { "do": "wait", "contains": "Partage lu", "within": "[data-job=\"shared\"]", "timeoutMs": 30000 },
+    { "do": "shot", "name": "partage", "selector": "[data-slot=\"shared\"]" },
+    { "do": "click", "selector": "[data-pk=\"merge\"]", "title": "Fusionner et écrire" },
+    { "do": "click", "text": "Confirmer…" },
+    { "do": "click", "text": "Confirmer l’écriture" },
+    { "do": "wait", "selector": "[data-job=\"shared\"]", "absent": true, "timeoutMs": 30000, "title": "Le relevé fusionné est relu" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

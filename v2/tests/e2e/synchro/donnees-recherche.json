@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : rechercher dans la base locale et ouvrir un objet",
+  "description": "Onglet Données : saisie d’un terme (délai de 250 ms, aucune lecture à la frappe), tri par nom sur toute la population, page suivante, fiche locale de l’objet choisi.",
+  "modes": ["simulation"],
+  "start": "synchro?onglet=donnees",
+  "steps": [
+    { "do": "wait", "contains": "correspondants dans la base", "within": ".sy-data-status", "title": "Le périmètre est listé" },
+    { "do": "type", "selector": ".sy-search input", "text": "pc-lyo", "title": "Saisir « pc-lyo »" },
+    { "do": "wait", "contains": "page 1 sur", "within": ".sy-data-status", "title": "La recherche répond" },
+    { "do": "expect", "contains": "PC-LYO", "within": ".sy-grid-host", "title": "Des postes de Lyon sont listés" },
+    { "do": "click", "selector": "[data-d=\"order\"]", "title": "Ordre décroissant" },
+    { "do": "expect", "selector": "[data-d=\"order\"]", "attribute": "aria-pressed", "equals": "true" },
+    { "do": "expect", "contains": "Poste", "within": ".sy-detail", "title": "La fiche locale de la première ligne est affichée" },
+    { "do": "shot", "name": "donnees", "selector": ".sy-data" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

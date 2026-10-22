@@ -1,0 +1,25 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Synchronisation : lire l’OU de travail puis enregistrer la lecture",
+  "description": "Ouvre l’estimation de « Mettre à jour l’OU Postes » (rien n’est lu avant), lance la lecture, suit ses étapes jusqu’à l’aperçu de l’enregistrement, puis enregistre par le circuit d’écriture (plan, confirmation, reçu, relecture de la base). Simulation : base locale en mémoire, aucune connexion.",
+  "modes": ["simulation"],
+  "start": "synchro",
+  "steps": [
+    { "do": "expect", "text": "Synchronisation", "within": ".sy-hero h1", "title": "Le titre de l’écran est affiché" },
+    { "do": "expect", "contains": "Postes", "within": ".sy-scope", "title": "Le périmètre est l’OU de travail" },
+    { "do": "click", "selector": "[data-act=\"read-ou\"]", "title": "Mettre à jour l’OU choisie" },
+    { "do": "wait", "contains": "Objets attendus", "within": ".sy-estimate", "title": "L’estimation est affichée avant toute lecture" },
+    { "do": "shot", "name": "estimation", "selector": ".sy-estimate" },
+    { "do": "click", "text": "Lancer la lecture", "title": "Confirmer la lecture" },
+    { "do": "wait", "contains": "Lecture terminée", "within": ".sy-run", "timeoutMs": 30000, "title": "La lecture se termine" },
+    { "do": "expect", "contains": "Rien n’est encore écrit", "within": ".sy-run", "title": "Rien n’est écrit avant la confirmation" },
+    { "do": "shot", "name": "resultat", "selector": ".sy-run" },
+    { "do": "click", "selector": "[data-run=\"store\"]", "title": "Enregistrer dans la base locale" },
+    { "do": "wait", "text": "Confirmer…", "title": "Le plan de l’enregistrement est prêt" },
+    { "do": "click", "text": "Confirmer…" },
+    { "do": "click", "text": "Confirmer l’écriture", "title": "Confirmer l’enregistrement" },
+    { "do": "wait", "contains": "Base locale mise à jour", "within": ".sy-run", "timeoutMs": 30000, "title": "Le reçu est relu" },
+    { "do": "expect", "contains": "Génération 2", "within": ".sy-hero", "title": "La génération de la base avance" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
