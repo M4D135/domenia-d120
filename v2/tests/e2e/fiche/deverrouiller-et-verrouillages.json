@@ -7,9 +7,9 @@
   "steps": [
     { "do": "wait", "selector": "[data-card=\"lockouts\"]", "title": "La carte des verrouillages est affichée" },
     { "do": "click", "selector": "[data-acc=\"lockouts\"]", "within": "[data-card=\"lockouts\"]", "title": "Lecture sur geste explicite" },
-    { "do": "wait", "selector": "[data-card=\"lockouts\"] table", "timeoutMs": 20000, "title": "Le tableau des verrouillages est lu" },
-    { "do": "expect", "selector": "[data-copy-report]", "within": "[data-card=\"lockouts\"]", "title": "Le rapport est copiable" },
-    { "do": "shot", "name": "verrouillages", "selector": "[data-card=\"lockouts\"]" },
+    { "do": "wait", "selector": "[data-card=\"lockoutsResult\"] table", "timeoutMs": 20000, "title": "Le tableau des verrouillages est lu" },
+    { "do": "expect", "selector": "[data-copy-report]", "within": "[data-card=\"lockoutsResult\"]", "title": "Le rapport est copiable" },
+    { "do": "shot", "name": "verrouillages", "selector": "[data-card=\"lockoutsResult\"]" },
     { "do": "click", "selector": "[data-band=\"unlock\"]", "within": ".fi-band", "title": "Déverrouiller depuis le bandeau" },
     { "do": "wait", "contains": "lockoutTime", "within": "[role=dialog]", "title": "Le plan remet lockoutTime à zéro" },
     { "do": "click", "text": "Confirmer…", "within": "[role=dialog]" },

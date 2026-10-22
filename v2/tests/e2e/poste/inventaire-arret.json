@@ -10,7 +10,6 @@
   "steps": [
     { "do": "click", "selector": "[data-act=deep]", "within": ".ps-inv-actions", "title": "Inventaire complet" },
     { "do": "wait", "selector": "[data-act=stop]:not([hidden])", "within": ".ps-inv-actions", "title": "L’inventaire est en cours" },
-    { "do": "wait", "ms": 1200 },
     { "do": "click", "selector": "[data-act=stop]", "within": ".ps-inv-actions", "title": "Arrêter" },
     { "do": "wait", "contains": "Résultat partiel", "title": "Le résultat partiel est dit" },
     { "do": "expect", "contains": "Interrompu", "within": ".ps-access", "title": "Les sources non lues sont « Interrompu »" },
