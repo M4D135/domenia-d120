@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : choisir le périmètre depuis l’OU de travail sans comptes",
+  "description": "L’OU de travail par défaut (Postes) ne contient aucun utilisateur : l’écran le dit et propose les OU qui contiennent des comptes. Un clic sur « Utilisateurs » choisit le périmètre de la section (préférences en mémoire en mode E2E), puis la liste, les indicateurs et le détail du compte le plus urgent s’affichent.",
+  "modes": ["simulation"],
+  "start": "comptes",
+  "steps": [
+    { "do": "expect", "contains": "Aucun compte utilisateur dans Postes", "within": ".cpt-scope-empty", "title": "L’OU de travail ne contient aucun compte" },
+    { "do": "expect", "selector": ".cpt-workspace", "absent": true, "title": "La liste est masquée tant que le périmètre est vide" },
+    { "do": "click", "text": "Utilisateurs", "within": ".cpt-suggs", "title": "Choisir l’OU Utilisateurs proposée" },
+    { "do": "expect", "text": "Utilisateurs", "within": ".cpt-scope-card .cpt-scope-name", "title": "La carte du périmètre affiche Utilisateurs" },
+    { "do": "expect", "contains": "Choix de la section", "within": ".cpt-scope-card", "title": "Le choix est celui de la section, pas l’OU de travail" },
+    { "do": "expect", "contains": "7", "within": "[data-tile=\"locked\"] .cpt-ktile-value", "title": "Sept comptes verrouillés dans l’annuaire fictif" },
+    { "do": "expect", "selector": ".cpt-detail .cpt-band", "title": "Le détail du compte le plus urgent est ouvert" },
+    { "do": "shot", "name": "liste", "selector": ".cpt-workspace" },
+    { "do": "click", "text": "Revenir à l’OU de travail", "within": ".cpt-scope-card" },
+    { "do": "expect", "contains": "Aucun compte utilisateur dans Postes", "within": ".cpt-scope-empty", "title": "Retour à l’OU de travail" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

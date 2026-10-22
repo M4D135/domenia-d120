@@ -1,0 +1,21 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : déverrouiller Camille Bernard depuis le bandeau support",
+  "description": "Le bandeau support annonce le verrouillage relu sur le contrôleur ; « Déverrouiller maintenant » prépare le plan (une lecture), la confirmation du kit l’exécute une fois sur la surcouche en mémoire, le reçu est vérifié par relecture et le compte relu n’est plus verrouillé.",
+  "modes": ["simulation"],
+  "start": "comptes?ou=OU%3DUtilisateurs%2CDC%3Dexample%2CDC%3Dlocal&compte=c.bernard",
+  "steps": [
+    { "do": "expect", "selector": ".cpt-band.alert", "title": "Bandeau support en alerte : compte verrouillé" },
+    { "do": "expect", "contains": "Compte verrouillé depuis", "within": ".cpt-band", "title": "Heure du verrouillage relue sur le contrôleur" },
+    { "do": "click", "text": "Déverrouiller maintenant…", "within": ".cpt-band" },
+    { "do": "wait", "contains": "Déverrouiller le compte", "within": ".k-drw", "title": "Le plan est prêt" },
+    { "do": "expect", "contains": "lockoutTime", "within": ".k-drw", "title": "Le changement technique est dit" },
+    { "do": "click", "text": "Confirmer…", "within": ".k-drw-foot" },
+    { "do": "click", "text": "Confirmer (simulation)", "within": ".k-dlg", "title": "Confirmer l’écriture simulée" },
+    { "do": "wait", "contains": "vérifiée par relecture", "within": ".toasts", "timeoutMs": 20000, "title": "Reçu vérifié par relecture" },
+    { "do": "click", "text": "Fermer", "within": ".k-drw-foot" },
+    { "do": "expect", "contains": "Rien à signaler", "within": ".cpt-detail", "title": "Le compte relu n’est plus verrouillé" },
+    { "do": "expect", "contains": "6", "within": "[data-tile=\"locked\"] .cpt-ktile-value", "title": "Les indicateurs sont relus : six verrouillés" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes : utiliser un autre compte après un refus de lecture LAPS",
+  "description": "L’accès refusé fictif de la simulation est listé ; un compte local est refusé avant tout essai ; un compte du domaine est validé une fois, gardé pour la seule ressource LAPS avec son bail, puis oublié.",
+  "modes": ["simulation"],
+  "start": "comptes?vue=acces",
+  "steps": [
+    { "do": "expect", "contains": "Lecture du mot de passe LAPS", "within": ".cpt-pending", "title": "Un accès est à revoir" },
+    { "do": "click", "text": "Utiliser un autre compte…", "within": ".cpt-pending" },
+    { "do": "type", "selector": "#cpt-rec-login", "text": ".\\administrateur" },
+    { "do": "type", "selector": "#cpt-rec-pwd", "text": "essai-local" },
+    { "do": "click", "text": "Valider et utiliser", "within": ".k-drw-foot" },
+    { "do": "expect", "contains": "Un compte local ne peut pas lire l’annuaire, LAPS ou BitLocker.", "within": ".k-drw", "title": "Compte local refusé avant tout essai" },
+    { "do": "type", "selector": "#cpt-rec-login", "text": "EXAMPLE\\adm-j.martin", "clear": true },
+    { "do": "type", "selector": "#cpt-rec-pwd", "text": "essai-domaine", "clear": true },
+    { "do": "click", "text": "Valider et utiliser", "within": ".k-drw-foot" },
+    { "do": "wait", "contains": "Compte validé et gardé pour", "within": ".toasts", "timeoutMs": 15000 },
+    { "do": "expect", "contains": "adm-j.martin", "within": ".cpt-memory", "title": "Le compte temporaire est en mémoire" },
+    { "do": "click", "text": "Tout oublier", "within": ".cpt-memory" },
+    { "do": "expect", "contains": "Aucun compte temporaire ni secondaire en mémoire", "within": ".cpt-memory" },
+    { "do": "journal", "contains": "essai-domaine", "absent": true, "title": "Aucun mot de passe dans le journal technique" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
