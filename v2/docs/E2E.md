@@ -195,8 +195,9 @@ capture. Pour vérifier un résultat, enchaîner un `expect` : il attend ce qu�
    `Runtime`, `Log`, `Page` et de l’émulation du focus (la fenêtre peut ne pas être au premier plan).
 3. **Mode réellement choisi** : la ligne « Démarrage de Domenia … : mode Simulation » (ou `Directory`) du journal doit
    correspondre au mode demandé, sinon le scénario échoue.
-4. Préférences de la page (`theme`, `motion`) posées avant tout script, puis **rechargement** sur l’écran de départ : la
-   console est suivie dès le premier script ; attente de `data-ready` (30 s), capture `00-depart.png`.
+4. Préférences de la page (`theme`, `motion`) posées avant tout script, adresse pointée sur l’écran de départ sans
+   l’afficher (`history.replaceState`, aucun `hashchange`), puis **rechargement** : l’écran de départ s’affiche une seule
+   fois, comme à l’ouverture d’une session ; la console est suivie dès le premier script ; attente de `data-ready` (30 s), capture `00-depart.png`.
 5. Les étapes, chacune suivie de sa capture `<n°>-<action>.png` (`<n°>-<name>.png` pour `shot`). Une étape en échec
    arrête le scénario ; les suivantes sont « non exécutées ». Un Domenia qui se ferme pendant une étape la fait échouer.
 6. Fin : fermeture de la fenêtre comme un opérateur (`WM_CLOSE`), 15 s d’attente, sinon arrêt de l’arbre de processus ;

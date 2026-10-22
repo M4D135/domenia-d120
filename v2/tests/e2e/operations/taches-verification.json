@@ -7,8 +7,8 @@
   "steps": [
     { "do": "click", "text": "Vérifier l’application", "within": ".op-hero", "title": "Ouvrir le diagnostic depuis l’en-tête" },
     { "do": "click", "text": "Vérification rapide", "title": "Lancer la vérification rapide" },
-    { "do": "expect", "contains": "Aucune écriture effectuée", "within": ".op-check-result", "timeoutMs": 15000, "title": "Le rapport dit qu’aucune écriture n’a été faite" },
-    { "do": "expect", "contains": "Politique d’écriture", "within": ".op-check-result" },
+    { "do": "expect", "contains": "Aucune écriture effectuée", "within": ".op-check-status", "timeoutMs": 15000, "title": "Le rapport dit qu’aucune écriture n’a été faite" },
+    { "do": "expect", "contains": "Politique d’écriture", "within": ".op-check-status" },
     { "do": "shot", "name": "rapport", "selector": ".op-check-card" },
     { "do": "click", "selector": "[role=\"tab\"][data-tab=\"taches\"]", "title": "Onglet Tâches" },
     { "do": "expect", "contains": "Vérification de l’application", "within": ".op-tk-grid", "timeoutMs": 6000, "title": "La tâche est listée" },

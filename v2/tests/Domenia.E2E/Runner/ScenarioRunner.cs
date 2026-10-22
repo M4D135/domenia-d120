@@ -167,7 +167,7 @@ internal sealed partial class ScenarioRunner(RunOptions options, RunReport repor
         }
         var before = await session.Page.ProbeAsync(new JsonObject(), cancellationToken).ConfigureAwait(false);
         var origin = Number(before, "origin");
-        await session.Page.CallAsync(PageScripts.Go, JsonValue.Create(scenario.Start), cancellationToken).ConfigureAwait(false);
+        await session.Page.CallAsync(PageScripts.Start, JsonValue.Create(scenario.Start), cancellationToken).ConfigureAwait(false);
         await session.Page.ReloadAsync(cancellationToken).ConfigureAwait(false);
         var ready = await PollAsync(async () =>
         {

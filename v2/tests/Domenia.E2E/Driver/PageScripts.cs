@@ -168,6 +168,19 @@ internal static class PageScripts
         """;
 
     /// <summary>
+    /// Points the address at the start route of a scenario without leaving the current screen: no hashchange, so the
+    /// start screen is first displayed by the reload that follows, as at the opening of a session (an « already seen »
+    /// mark of the session is never set by a display the scenario did not ask for).
+    /// </summary>
+    public const string Start = """
+        (route) => {
+          if (document.documentElement) delete document.documentElement.dataset.ready;
+          history.replaceState(history.state, '', '#/' + route);
+          return 'replaced';
+        }
+        """;
+
+    /// <summary>
     /// Run before any script of each new document (Page.addScriptToEvaluateOnNewDocument): theme and animation preferences
     /// of the page (same key as web/js/app.js), in the emptied E2E profile only.
     /// </summary>

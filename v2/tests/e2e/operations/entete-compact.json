@@ -7,7 +7,7 @@
   "steps": [
     { "do": "wait", "ready": "operations", "title": "L’écran est prêt" },
     { "do": "expect", "selector": ".op-hero", "attribute": "data-compact", "equals": "true", "title": "En-tête compact" },
-    { "do": "expect", "selector": ".op-hero-lead", "property": "offsetHeight", "equals": 0, "title": "La phrase d’introduction est repliée" },
+    { "do": "expect", "selector": ".op-hero-lead", "absent": true, "title": "La phrase d’introduction est repliée" },
     { "do": "shot", "name": "entete-compact", "selector": ".op-page" },
     { "do": "click", "selector": "[data-act=\"fold\"]", "title": "Afficher l’en-tête complet" },
     { "do": "expect", "selector": ".op-hero", "attribute": "data-compact", "equals": "false", "title": "En-tête complet" },
