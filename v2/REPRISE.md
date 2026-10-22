@@ -50,6 +50,12 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
     Aucun test exécuté ; aucun essai réel sur `cnamts.local`. Simulation non modifiée.
   - Reste de l’ordre ci-dessous : points 2 à 5.
 
+- **Spark autonome (22/10, 20 h 15)** : le démon `../Domenia-D120-team/_pilotage/spark/auto.py` tourne sur le Mac.
+  - Il fait passer les tâches `_pilotage/spark/tasks/*.md` par OpenCode et le modèle local, deux à la fois, avec vérification automatique (`verify.sh`) et une relance après échec.
+  - Les tâches validées sont fusionnées dans la branche **`v2-spark`**, recompilées et retestées, puis poussées.
+  - **Suivi de relève : `v2/docs/reprise/SUIVI-SPARK.md` sur `v2-spark`**, plus `v2/docs/reprise/spark/<tâche>.md` sur chaque branche `spark/<tâche>`.
+  - Pour reprendre, relire `git log origin/v2..origin/v2-spark`, puis fusionner `v2-spark` dans `v2`.
+  - Pour relancer le démon : `cd ../Domenia-D120-team/_pilotage/spark && nohup python3 auto.py &`. Son état est dans `state.json`, son journal dans `auto.log`.
 - **Spark arrêté** : les 14 tâches `ask.sh` lancées par la relève sont stoppées (17 h 55).
   - Neuf attendaient depuis 30 à 80 minutes sans rien recevoir.
   - s1-sqlite, s3-reader et s4-adwrites tournaient en boucle de raisonnement (135 000 à 167 000 jetons, aucune sortie), s6-probe aussi sans sortie.
