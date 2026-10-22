@@ -512,3 +512,6 @@ public sealed partial class RelationsOperations : IOperationModule
         }
     }
 }
+
+/// <summary>Answer of relations.detect.stop.</summary>
+public sealed record RelationStopAnswer(bool Stopping, string Message);
