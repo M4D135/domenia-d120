@@ -6745,7 +6745,8 @@
   ],
   "safeguards": "https seulement, sans user:password@, requête ni fragment ; seule l'origine est affichée. Lecture uniquement sur geste explicite (jamais sur sélection, minuterie ni démarrage) ; aucun connecteur n'écrit.",
   "improvement": "Brancher réellement ce plan en D2 (règles écrites mais non appelées par l'interface D1) et l'étendre à GLPI et osquery en lecture.",
-  "status": "a-faire"
+  "status": "abandonne",
+  "decision": "David, 22/10/2026 : vire cette histoire de WAPT"
  },
  {
   "id": "PST-002",

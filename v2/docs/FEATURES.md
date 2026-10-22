@@ -3253,6 +3253,8 @@ Contrôle les liens contre l'annuaire et liste les orphelins avec leur motif et 
 
 #### PST-001 · Connecteurs en lecture seule (WAPT)
 
+> Abandonnée sur décision de David du 22/10/2026 (« vire cette histoire de WAPT »).
+
 `a-faire` · lecture réseau
 
 Sources de lecture optionnelles ; seul WAPT est prévu, en lecture seule, depuis la section WAPT de la configuration (Enabled, ServerUrl). La fiche lit toujours l'annuaire d'abord : un connecteur absent, refusé ou injoignable ne retire que sa propre ligne. Un enregistrement WAPT n'est « Constaté » que s'il est récent et correspond au poste AD, sinon « Estimé ».
