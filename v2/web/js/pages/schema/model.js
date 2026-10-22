@@ -18,8 +18,8 @@ export const KIND_ICONS = {
   dn: 'link', text: 'file', bool: 'check', int: 'hash', largeInt: 'hash', time: 'calendar', binary: 'chip', sid: 'key', other: 'info',
 };
 
-/** Colour series of a syntax family in the overview ring (categorical palette of the tokens). */
-export const KIND_SERIES = { text: 's1', dn: 's2', int: 's3', largeInt: 's4', time: 's5', bool: 's6', binary: 's7', sid: 's8', other: 's8' };
+/** Colour series of a syntax family in the overview ring (categorical palette of the tokens; « other » in neutral grey). */
+export const KIND_SERIES = { text: 's1', dn: 's2', int: 's3', largeInt: 's4', time: 's5', bool: 's6', binary: 's7', sid: 's8', other: 'sx' };
 
 /** Tone of an index text (SchemaRules.IndexText). */
 export function indexTone(text) {
@@ -29,15 +29,22 @@ export function indexTone(text) {
   return 'off';
 }
 
+/** Tones of the class categories: one table for the grid pills and the chips of the detail, so both always agree. */
+export const CATEGORY_TONES = {
+  Structurelle: 'accent', Auxiliaire: 'info', Abstraite: 'off', 'Classe 88': 'off', Obsolète: 'alert', Inconnue: 'off',
+};
+
 /** Tone of a class category label. */
 export function categoryTone(label) {
-  switch (label) {
-    case 'Structurelle': return 'accent';
-    case 'Auxiliaire': return 'info';
-    case 'Obsolète': return 'alert';
-    default: return 'off';
-  }
+  return CATEGORY_TONES[label] ?? 'off';
 }
+
+/** Stages of a schema read, in the order of the engine (schema.read:stage). */
+export const STAGES = [
+  { id: 'context', label: 'Contexte du schéma', short: 'Contexte', text: 'CN=Schema,CN=Configuration du contrôleur de la session' },
+  { id: 'attributes', label: 'Définitions des attributs', short: 'Attributs', text: 'attributeSchema · 8 000 au plus' },
+  { id: 'classes', label: 'Définitions des classes', short: 'Classes', text: 'classSchema · 3 000 au plus' },
+];
 
 /** Small pill (kit look, local class so that the page keeps its own rhythm). */
 export function chip(tone, label, { icon, tip, cls = '' } = {}) {

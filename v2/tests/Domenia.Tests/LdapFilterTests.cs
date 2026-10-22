@@ -19,7 +19,13 @@ internal static class LdapFilterTests
                 A("createTimeStamp", "2.5.5.11", 0, 4), A("whenCreated", "2.5.5.11", 0), A("ms-Mcs-AdmPwd", "2.5.5.12", 128 | 8),
                 A("sAMAccountName", "2.5.5.12", 1 | 4 | 8), A("pwdLastSet", "2.5.5.16", 0),
             ],
-            [new SchemaClassDefinition("user", null, null, "top", [], [], ["cn"], 1, false)],
+            [
+                new SchemaClassDefinition("person", null, null, "top", [], ["cn"], [], 0, false),
+                new SchemaClassDefinition("organizationalPerson", null, null, "person", [], [], [], 0, false),
+                new SchemaClassDefinition("user", null, null, "organizationalPerson", [], [], ["cn"], 1, false),
+                new SchemaClassDefinition("computer", null, null, "user", [], [], [], 1, false),
+                new SchemaClassDefinition("contact", null, null, "organizationalPerson", [], [], [], 1, false),
+            ],
             "DC1.test.local", TestClock.Reference, false, 12, "DC=test,DC=local", "CN=Schema,CN=Configuration,DC=test,DC=local");
         return SchemaRules.BuildCatalog(read);
     }
@@ -142,6 +148,29 @@ internal static class LdapFilterTests
         Check.Null(negation.Suggestion?.Filter, "négation : conseil seulement");
         Check.True(negation.Suggestion!.Reasons.Any(r => r.Contains("négation", StringComparison.Ordinal)), "raison donnée");
         Check.Null(LdapFilter.Analyze("(cn=Dupont)", catalog).Suggestion, "rien à proposer");
+    }
+
+    [Test]
+    public static void Category_rewriting_names_what_it_leaves_out()
+    {
+        var catalog = Catalog();
+        // objectCategory=person leaves out computer, which derives from user with another category: the reason says so.
+        var user = LdapFilter.Analyze("(objectClass=user)", catalog).Suggestion!;
+        Check.Contains("écarte computer, qui dérive de user avec une autre catégorie", user.Reasons[0], "raison de user");
+        var person = LdapFilter.Analyze("(objectClass=person)", catalog).Suggestion!;
+        Check.Equal("(&(objectCategory=person)(objectClass=person))", person.Filter, "réécriture proposée");
+        Check.Contains("écarte computer", person.Reasons[0], "person : le sens change, et c’est dit");
+        Check.False(person.Reasons[0].Contains("limite les objets examinés", StringComparison.Ordinal), "jamais présenté comme un simple gain d’index");
+        // contact: every object of the class has the category person, objectClass is indexed: nothing to propose.
+        Check.Null(LdapFilter.Analyze("(objectClass=contact)", catalog).Suggestion, "contact : rien à proposer");
+        Check.True(SchemaRules.CategoryExclusions("contact", catalog).IsEmpty, "contact : aucune classe écartée");
+        Check.True(SchemaRules.CategoryExclusions("organizationalPerson", catalog).SequenceEqual(["computer"]), "organizationalPerson : computer écarté");
+        Check.True(SchemaRules.CategoryExclusions("person", null).Contains("computer"), "sans schéma lu : schéma de base");
+        Check.Contains("écarte computer, qui dérive de user", SchemaRules.RecommendedNote("user", catalog), "note du filtre recommandé");
+        Check.Null(SchemaRules.RecommendedNote("contact", catalog), "contact : aucune note");
+        Check.Null(SchemaRules.RecommendedNote("site", catalog), "classe sans catégorie usuelle : aucune note");
+        Check.Equal("a, b, c et " + FrenchText.Count(2, "autre", "autres"), SchemaRules.ClassList(["a", "b", "c", "d", "e"]), "liste bornée à trois noms");
+        Check.Equal("a et b", SchemaRules.ClassList(["a", "b"]), "deux noms");
     }
 
     [Test]

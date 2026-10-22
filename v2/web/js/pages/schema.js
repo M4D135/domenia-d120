@@ -1,15 +1,15 @@
 // Schéma de l’annuaire (Domenia 1 points 28 and 29, SCH-001 to SCH-008): hero with the status of the schema read in this
 // session and its overview, the catalog of classes and attributes with their detail (master-detail), and the workbench that
 // analyses the cost of an LDAP filter on this workstation. The schema is read once, on an explicit gesture (schema.read,
-// NetworkRead in directory mode), kept in memory for the session and never used for another domain; nothing changes the
-// schema, nothing reads an object value. Contract: docs/ops/schema.md.
+// NetworkRead in directory mode), kept in memory for the session and never used for another session or domain; nothing changes
+// the schema, nothing reads an object value. Contract: docs/ops/schema.md.
 //
 // Parameters: vue=classes|attributs · classe=<lDAPDisplayName> · attribut=<lDAPDisplayName> · filtre=<filtre LDAP> ·
 // lire=1 (simulation only: reads the fictitious schema at once, for captures and scenarios; in directory mode the read
 // always waits for the click).
 import { onEvent } from '../bridge.js';
 import { openDrawer } from '../kit/drawer.js';
-import { applyVars, reveal, countUp, donut, toast } from '../ui.js';
+import { applyVars, reveal, countUp, donut, toast, announce } from '../ui.js';
 import { glyph, esc, int, count, NBSP, errText, sk, shortDateTime, KIND_SERIES } from './schema/model.js';
 import { createCatalog } from './schema/catalog.js';
 import { createWorkbench } from './schema/workbench.js';
@@ -39,14 +39,14 @@ function statusChips(status, app) {
   if (status.read) {
     chips.push(`<span class="chip ${status.truncated ? 'warn' : 'ok'}" data-tip="${esc(status.text)}">${glyph(status.truncated ? 'alert' : 'check')}${esc(status.truncated ? 'Lecture incomplète' : 'Schéma lu')}</span>`);
     chips.push(`<span class="chip" data-tip="Contrôleur qui a répondu">${glyph('server')}${esc(status.server ?? '—')}</span>`);
-    chips.push(`<span class="chip" data-tip="Date de la lecture, gardée pour la session">${glyph('clock')}${esc(shortDateTime(status.readAt))}</span>`);
+    chips.push(`<span class="chip" data-tip="Date de la lecture, gardée pour cette session">${glyph('clock')}${esc(shortDateTime(status.readAt))}</span>`);
   } else {
     chips.push(`<span class="chip${status.lastError ? ' alert' : ''}">${glyph(status.lastError ? 'alert' : 'info')}${esc(status.lastError ? 'Dernière lecture en échec' : 'Schéma non lu')}</span>`);
   }
   if (status.simulated || app?.mode === 'simulation') {
     chips.push(`<span class="chip info" data-tip="Schéma de l’annuaire fictif : aucune connexion à un contrôleur">${glyph('sparkles')}Annuaire fictif</span>`);
   }
-  chips.push(`<span class="chip" data-tip="Aucune écriture possible depuis cet écran">${glyph('lock')}Lecture seule</span>`);
+  chips.push(`<span class="chip" data-tip="Aucune écriture possible depuis cet écran${NBSP}: Domenia ne modifie jamais le schéma et ne lit aucune valeur d’objet.">${glyph('lock')}Lecture seule</span>`);
   return chips.map((c, n) => c.replace('class="chip', `data-j="${n}" class="chip`)).join('');
 }
 
@@ -64,50 +64,55 @@ function overviewMarkup(status) {
         <li data-j="0">${glyph('check')}<span>Aucune valeur d’objet n’est lue.</span></li>
         <li data-j="1">${glyph('check')}<span>Le schéma n’est jamais modifié.</span></li>
         <li data-j="2">${glyph('check')}<span>Gardé en mémoire pour cette session, avec son contrôleur et sa date.</span></li>
-        <li data-j="3">${glyph('check')}<span>Jamais utilisé pour un autre domaine.</span></li>
+        <li data-j="3">${glyph('check')}<span>Jamais utilisé pour une autre session ni un autre domaine.</span></li>
       </ul>
     </aside>`;
   }
   const st = status.statistics;
-  const segments = st.syntaxes.map((s) => ({ value: s.count, cls: KIND_SERIES[s.id] ?? 's8', key: s.id }));
+  const segments = st.syntaxes.map((s) => ({ value: s.count, cls: KIND_SERIES[s.id] ?? 'sx', key: s.id }));
   const categories = Object.fromEntries(st.categories.map((c) => [c.id, c.count]));
+  // Figures on one line each: icon, number, words (« 73 au catalogue global »); the detail in the tip.
+  const stat = (j, icon, label, value, { tip = '', tone = '', bar = null, countTo = null } = {}) => `<div class="sch-stat-mini${tone ? ` ${tone}` : ''}" data-j="${j}"${tip ? ` data-tip="${esc(tip)}"` : ''}>
+      <span class="ico" aria-hidden="true">${glyph(icon)}</span><b${countTo === null ? '' : ` data-count="${countTo}"`}>${countTo === null ? esc(value) : '0'}</b><span class="k">${esc(label)}</span>
+      ${bar === null ? '' : `<span class="bar" aria-hidden="true"><span data-p="${bar.toFixed(3)}"></span></span>`}
+    </div>`;
   return `<aside class="sch-overview" aria-label="Vue d’ensemble du schéma lu">
     <div class="sch-ov-top">
       ${donut(segments, { total: status.attributes, center: `<b class="num" data-count="${status.attributes}">0</b><span>attributs</span>`, label: `Familles de syntaxe des ${status.attributes} attributs`, size: 'sch-ring' })}
-      <ul class="sch-ov-legend">${st.syntaxes.slice(0, 6).map((s, j) => `<li data-j="${j}"><span class="sw ${KIND_SERIES[s.id] ?? 's8'}" aria-hidden="true"></span><span class="name">${esc(s.label)}</span><b>${esc(int(s.count))}</b></li>`).join('')}</ul>
+      <ul class="sch-ov-legend" aria-label="Familles de syntaxe">${st.syntaxes.map((s, j) => `<li data-j="${j}"><span class="sw ${KIND_SERIES[s.id] ?? 'sx'}" aria-hidden="true"></span><span class="name">${esc(s.label)}</span><b>${esc(int(s.count))}</b></li>`).join('')}</ul>
     </div>
-    <div class="sch-ov-tiles">
-      <div class="sch-tile" data-j="0"><span class="k">${glyph('layers')}Classes</span><b data-count="${status.classes}">0</b><small>${esc(`${int(categories.structural ?? 0)} structurelles · ${int(categories.auxiliary ?? 0)} auxiliaires`)}</small></div>
-      <div class="sch-tile ok" data-j="1"><span class="k">${glyph('zap')}Indexés</span><b>${esc(String(st.indexedPercent).replace('.', ','))}${NBSP}%</b><small>${esc(count(st.indexed, 'attribut', 'attributs'))}</small><span class="bar" aria-hidden="true"><span data-p="${(st.indexedPercent / 100).toFixed(3)}"></span></span></div>
-      <div class="sch-tile" data-j="2"><span class="k">${glyph('domain')}Catalogue global</span><b data-count="${st.inGlobalCatalog}">0</b><small>attributs répliqués dans la forêt</small></div>
-      <div class="sch-tile warn" data-j="3"><span class="k">${glyph('lock')}Sensibles</span><b>${esc(int(st.confidential))}</b><small>${esc(`confidentiels · ${int(st.constructed)} calculés · ${int(st.defunct)} obsolètes`)}</small></div>
+    <div class="sch-ov-stats">
+      ${stat(0, 'layers', status.classes > 1 ? 'classes' : 'classe', int(status.classes), { countTo: status.classes, tip: `${int(categories.structural ?? 0)} structurelles, ${int(categories.auxiliary ?? 0)} auxiliaires, ${int(categories.abstract ?? 0)} abstraites, ${int(categories.class88 ?? 0)} de 1988` })}
+      ${stat(1, 'zap', 'indexés', `${String(st.indexedPercent).replace('.', ',')}${NBSP}%`, { tone: 'ok', bar: st.indexedPercent / 100, tip: `${count(st.indexed, 'attribut indexé', 'attributs indexés')} sur ${int(status.attributes)}` })}
+      ${stat(2, 'domain', 'au catalogue global', int(st.inGlobalCatalog), { countTo: st.inGlobalCatalog, tip: 'Attributs répliqués dans le catalogue global de la forêt' })}
+      ${stat(3, 'lock', st.confidential > 1 ? 'confidentiels' : 'confidentiel', int(st.confidential), { tone: st.confidential ? 'warn' : '', tip: 'Attributs lisibles seulement avec un droit particulier' })}
+      ${stat(4, 'sparkles', st.constructed > 1 ? 'calculés' : 'calculé', int(st.constructed), { tip: `Attributs calculés par le contrôleur à la lecture${NBSP}: jamais un critère de filtre` })}
+      ${stat(5, 'alert', st.defunct > 1 ? 'obsolètes' : 'obsolète', int(st.defunct), { tone: st.defunct ? 'alert' : '', tip: 'Attributs et classes désactivés dans le schéma' })}
     </div>
   </aside>`;
 }
 
 function heroMarkup(status, app, reading) {
   const readLabel = status.read ? 'Relire le schéma' : 'Lire le schéma';
-  return `<div class="sch-hero-grid">
+  // The status sentence repeats the chips once read: shown only when it says more (incomplete read, last failure).
+  const sentence = status.lastError ?? (!status.read || status.truncated ? status.text : '');
+  return `<div class="sch-hero-grid${status.read ? ' read' : ''}">
     <div class="sch-hero-main">
       <div class="eyebrow">${glyph('tree')}<span>Annuaire · lecture seule</span></div>
       <h1 class="gradient-text">Schéma de l’annuaire</h1>
-      <p class="lead">${esc(LEAD)}</p>
+      ${status.read ? '' : `<p class="lead">${esc(LEAD)}</p>`}
       <div class="chips">${statusChips(status, app)}</div>
-      <p class="sch-status-text${status.lastError ? ' alert' : ''}" aria-live="polite">${esc(status.lastError ?? status.text)}</p>
+      ${sentence ? `<p class="sch-status-text${status.lastError ? ' alert' : status.truncated ? ' warn' : ''}">${esc(sentence)}</p>` : ''}
       <div class="hero-row">
         <button class="btn primary" type="button" data-hero="read"${reading ? ' aria-busy="true" aria-disabled="true"' : ''} data-tip="Lecture explicite des définitions du schéma sur le contrôleur de la session (lecture réseau en mode annuaire)">
           ${reading ? '<span class="k-spin" aria-hidden="true"></span>Lecture en cours…' : `${glyph(status.read ? 'refresh' : 'download')}${readLabel}<span class="sch-net" aria-hidden="true">${glyph('wifi')}</span>`}</button>
         <button class="btn" type="button" data-hero="filter">${glyph('gauge')}Analyser un filtre</button>
         <button class="btn ghost icon" type="button" data-hero="help" aria-label="Comprendre le schéma" data-tip="Comprendre le schéma">${glyph('info')}</button>
       </div>
-      ${status.read ? `<div class="sch-quick"><span class="sch-quick-k">${glyph('layers')}Classes courantes</span>${QUICK_CLASSES.map((name, j) => `<button class="sch-node" type="button" data-j="${j}" data-hero-class="${esc(name)}">${esc(name)}</button>`).join('')}</div>` : ''}
     </div>
     ${overviewMarkup(status)}
   </div>`;
 }
-
-/** Shortcuts of the hero once the schema is read: the classes an administrator opens most. */
-const QUICK_CLASSES = ['user', 'computer', 'group', 'organizationalUnit', 'contact', 'msDS-GroupManagedServiceAccount'];
 
 const HELP = [
   ['zap', 'Indexé', 'Le contrôleur répond à une égalité ou à un début de valeur à partir de l’index, sans examiner chaque objet.'],
@@ -116,7 +121,7 @@ const HELP = [
   ['lock', 'Confidentiel', 'Lisible seulement avec un droit particulier : sans lui, un filtre sur cet attribut ne retient aucun objet.'],
   ['sparkles', 'Calculé', 'Calculé par le contrôleur à la lecture : il se lit, il ne sert jamais de critère de filtre.'],
   ['link', 'Lié', 'Lien direct (pair) et lien retour (impair) : le contrôleur tient le lien retour à jour tout seul.'],
-  ['layers', 'objectClass ou objectCategory', 'objectClass=user retient aussi les ordinateurs, qui en dérivent ; objectCategory=person cible les personnes.'],
+  ['layers', 'objectClass ou objectCategory', 'objectClass=user retient aussi les ordinateurs, qui en dérivent ; objectCategory=person cible les personnes et écarte les ordinateurs.'],
 ];
 
 function openHelp() {
@@ -154,7 +159,6 @@ export function render(main, ctx) {
     kind: ctx.params.vue === 'attributs' ? 'attributes' : 'classes',
     className: ctx.params.classe ?? null,
     attributeName: ctx.params.attribut ?? null,
-    onRead: () => read(),
     onRoute: (change) => remember(change),
     onSelected: () => workbench?.refreshInsert(),
     onAnalyze: (filter) => { workbench.setFilter(filter, { focus: false }); scrollToWorkbench(); },
@@ -164,7 +168,7 @@ export function render(main, ctx) {
 
   workbench = createWorkbench(page.querySelector('.sch-workbench'), ctx, {
     rootDn: () => session?.domain?.rootDn ?? '',
-    schemaRead: () => !!status?.read,
+    status: () => status,
     selected: () => catalog.chosen(),
     onAttribute: (name) => { catalog.goToAttribute(name); page.querySelector('.sch-catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   });
@@ -177,9 +181,9 @@ export function render(main, ctx) {
   function paintHero() {
     hero.querySelector('.sch-hero-grid')?.remove();
     hero.insertAdjacentHTML('beforeend', heroMarkup(status, app, reading));
+    hero.classList.toggle('compact', !!status?.read);
     applyVars(hero);
     hero.querySelectorAll('[data-count]').forEach((el) => countUp(el, Number(el.getAttribute('data-count')) || 0, { delay: 200 }));
-    hero.querySelectorAll('.sch-tile .bar > span').forEach((bar) => bar.style.setProperty('--p', bar.getAttribute('data-p') ?? '0'));
   }
 
   async function read() {
@@ -192,18 +196,25 @@ export function render(main, ctx) {
       status = await ctx.call('schema.read');
       if (!alive) return;
       reading = false;
+      catalog.setStage(null);
       paintHero();
       await catalog.setStatus(status);
       workbench.refreshInsert();
-      if (workbench.value().trim()) workbench.analyze();
-      toast(`Schéma lu : ${count(status.classes, 'classe', 'classes')}, ${count(status.attributes, 'attribut', 'attributs')}${status.truncated ? ' (lecture incomplète)' : ''}.`, { tone: status.truncated ? 'warn' : 'ok', life: 3600 });
+      workbench.refreshHint();
+      if (workbench.value().trim()) workbench.analyze({ quiet: true });
+      // The hero and the catalog show the result: no notification over the detail, the screen reader hears it.
+      const text = `Schéma lu${NBSP}: ${count(status.classes, 'classe', 'classes')}, ${count(status.attributes, 'attribut', 'attributs')}.`;
+      if (status.truncated) toast(`${text} Lecture incomplète${NBSP}: limite atteinte.`, { tone: 'warn', life: 3600 });
+      else announce(text);
     } catch (err) {
       if (!alive) return;
       reading = false;
+      catalog.setStage(null);
       try { status = await ctx.call('schema.status'); } catch { /* keep the previous status */ }
       if (!alive) return;
       paintHero();
       if (!status?.read) catalog.readFailed({ ...status, lastError: status?.lastError ?? errText(err) });
+      workbench.refreshHint();
       toast(errText(err, 'Lecture du schéma impossible.'), { tone: 'alert' });
     } finally {
       off();
@@ -211,12 +222,6 @@ export function render(main, ctx) {
   }
 
   hero.addEventListener('click', (e) => {
-    const quick = e.target instanceof Element ? e.target.closest('[data-hero-class]') : null;
-    if (quick) {
-      catalog.goToClass(quick.getAttribute('data-hero-class'));
-      page.querySelector('.sch-catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
     const b = e.target instanceof Element ? e.target.closest('[data-hero]') : null;
     if (!b || b.getAttribute('aria-disabled') === 'true') return;
     const what = b.getAttribute('data-hero');
@@ -235,6 +240,7 @@ export function render(main, ctx) {
       if (!alive) return;
       paintHero();
       await catalog.setStatus(status);
+      workbench.refreshHint();
       if (ctx.params.filtre) workbench.setFilter(ctx.params.filtre);
       // lire=1: in simulation only (captures, scenarios); the directory mode always waits for the click.
       if (ctx.params.lire === '1' && !status.read) {

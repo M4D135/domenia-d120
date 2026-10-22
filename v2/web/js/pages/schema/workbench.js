@@ -112,11 +112,12 @@ function verdictMarkup(a) {
  * Creates the workbench in host.
  * @param {HTMLElement} host
  * @param {any} ctx  Page context (ctx.call, ctx.navigate).
- * @param {{ rootDn: () => string, schemaRead: () => boolean, selected: () => ({ name: string, insertable: boolean, reason: string|null }|null),
+ * @param {{ rootDn: () => string, status: () => any, selected: () => ({ name: string, insertable: boolean, reason: string|null }|null),
  *   onAttribute: (name: string) => void }} o
  */
 export function createWorkbench(host, ctx, o) {
   const id = uid('sch-f');
+  const schemaRead = () => !!o.status()?.read;
   host.innerHTML = `<div class="sch-wb">
     <div class="sch-wb-editor">
       <div class="sch-wb-top"><label class="sch-label" for="${id}">Filtre LDAP (RFC 4515)</label><span class="sch-wb-count" aria-live="off"></span></div>
@@ -133,7 +134,7 @@ export function createWorkbench(host, ctx, o) {
         <span class="sch-wb-spacer"></span>
         <button class="btn ghost sm" type="button" data-wb="send" data-tip="Ouvre l’atelier de requêtes avec ce filtre en brouillon : rien n’est exécuté">${glyph('external')}Atelier de requêtes</button>
       </div>
-      <p class="sch-wb-hint" id="${id}-hint">${glyph('shield')}<span>L’analyse se fait sur ce poste, sans interroger l’annuaire${NBSP}: attributs indexés ou non, joker en tête, négation, attribut calculé. Sans schéma lu, les index restent inconnus.</span></p>
+      <p class="sch-wb-hint" id="${id}-hint">${glyph('shield')}<span></span></p>
     </div>
     <div class="sch-wb-result" aria-live="polite">
       <div class="sch-wb-idle">${glyph('gauge')}<div><b>Aucun filtre analysé</b><span>Saisissez un filtre, choisissez un exemple, ou ajoutez l’attribut choisi dans le catalogue.</span></div></div>
@@ -192,7 +193,7 @@ export function createWorkbench(host, ctx, o) {
 
   async function insert(name) {
     if (!name) return;
-    if (!o.schemaRead()) {
+    if (!schemaRead()) {
       toast('Lisez d’abord le schéma : l’exemple de critère dépend du type de l’attribut.', { tone: 'info' });
       return;
     }
@@ -218,9 +219,19 @@ export function createWorkbench(host, ctx, o) {
     }
   }
 
+  /** The hint under the editor says which index knowledge the analysis uses (schema read or not). */
+  function refreshHint() {
+    const status = o.status();
+    const base = `L’analyse se fait sur ce poste, sans interroger l’annuaire${NBSP}: attributs indexés ou non, joker en tête, négation, attribut calculé.`;
+    const tail = status?.read
+      ? ` Index du schéma lu sur ${status.server ?? 'le contrôleur'}${status.truncated ? ' (lecture incomplète)' : ''}.`
+      : ' Sans schéma lu, les index restent inconnus.';
+    host.querySelector('.sch-wb-hint span').textContent = base + tail;
+  }
+
   function refreshInsert() {
     const sel = o.selected();
-    const read = o.schemaRead();
+    const read = schemaRead();
     let reason = '';
     if (!read) reason = 'Lisez d’abord le schéma.';
     else if (!sel) reason = 'Choisissez d’abord un attribut dans le catalogue ou dans les attributs d’une classe.';
@@ -283,17 +294,19 @@ export function createWorkbench(host, ctx, o) {
       return;
     }
     const attr = t.closest('[data-open-attr]');
-    if (attr && o.schemaRead()) o.onAttribute(attr.getAttribute('data-open-attr'));
+    if (attr && schemaRead()) o.onAttribute(attr.getAttribute('data-open-attr'));
   });
 
   paint();
   refreshInsert();
+  refreshHint();
 
   return {
     setFilter,
     insert,
     analyze,
     refreshInsert,
+    refreshHint,
     focus: () => input.focus(),
     value: () => input.value,
     destroy() { alive = false; live.cancel?.(); },

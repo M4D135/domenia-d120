@@ -492,8 +492,9 @@ public static partial class LdapFilter
         var edits = new List<(int At, int Remove, string Insert)>();
         var leaves = Leaves(root).ToList();
 
-        // 1. objectClass without objectCategory: derived classes match too (a computer is also of class user), and the
-        //    category is indexed. Proposed when the class has another usual category, or when no index serves the filter.
+        // 1. objectClass without objectCategory: the category is indexed. Proposed when no index serves the filter, or when the
+        //    category leaves derived classes out (a computer is also of class user): the reason then names what it leaves out,
+        //    so that the rewriting never changes the meaning of the filter silently.
         var level = root.Kind == LdapFilterNodeKind.And ? root.Children : [root];
         var classLeaf = level.FirstOrDefault(n => n.Kind == LdapFilterNodeKind.Equality && string.Equals(n.Attribute, "objectClass", StringComparison.OrdinalIgnoreCase)
             && SchemaRules.UsualCategory(n.Value) is not null);
@@ -502,8 +503,8 @@ public static partial class LdapFilter
         if (classLeaf is not null && !hasCategory && (catalog is null || categoryAttribute is { Indexed: true }))
         {
             var category = SchemaRules.UsualCategory(classLeaf.Value)!;
-            var narrows = !string.Equals(category, classLeaf.Value, StringComparison.OrdinalIgnoreCase);
-            if (narrows || IndexUse(root, catalog) != LdapIndexUse.Yes)
+            var excluded = SchemaRules.CategoryExclusions(classLeaf.Value, catalog);
+            if (!excluded.IsEmpty || IndexUse(root, catalog) != LdapIndexUse.Yes)
             {
                 var clause = "(objectCategory=" + category + ")";
                 if (root.Kind == LdapFilterNodeKind.And)
@@ -515,9 +516,11 @@ public static partial class LdapFilter
                     edits.Add((root.Start, 0, "(&" + clause));
                     edits.Add((root.End, 0, ")"));
                 }
-                reasons.Add(narrows
-                    ? "objectClass=" + classLeaf.Value + " retient aussi les classes dérivées (un poste est aussi de classe user) : " + clause + " cible la catégorie, indexée."
-                    : clause + " est indexé : il limite les objets examinés par le contrôleur.");
+                reasons.Add(excluded.IsEmpty
+                    ? clause + " est indexé" + FrenchText.Colon + "il limite les objets examinés par le contrôleur, sans changer le résultat."
+                    : clause + " cible la catégorie, indexée, mais écarte " + SchemaRules.ClassList(excluded)
+                        + (excluded.Length > 1 ? ", qui dérivent de " : ", qui dérive de ") + classLeaf.Value + " avec une autre catégorie"
+                        + FrenchText.Colon + "gardez objectClass seul pour " + (excluded.Length > 1 ? "les inclure." : "l’inclure."));
             }
         }
 

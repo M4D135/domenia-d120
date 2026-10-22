@@ -45,27 +45,6 @@
 [data-page="machine"] .mac-net { display: inline-grid; place-items: center; width: 18px; height: 18px; margin-left: 2px; border-radius: 50%; background: rgba(255, 255, 255, .22); }
 [data-page="machine"] .mac-net svg { width: 12px; height: 12px; }
 
-/* Rail of the rule under the actions: six steps, the one in service lit */
-[data-page="machine"] .mac-rail { list-style: none; margin: var(--s6) 0 0; padding: 0; display: flex; align-items: flex-start; gap: 0; max-width: 760px; }
-[data-page="machine"] .mac-rail li { position: relative; flex: 1; min-width: 0; display: grid; justify-items: center; gap: 6px; text-align: center; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 70ms + 260ms); }
-[data-page="machine"] .mac-rail li + li::before {
-  content: ""; position: absolute; top: 17px; right: calc(50% + 20px); width: calc(100% - 40px); height: 2px; border-radius: 2px;
-  background: color-mix(in srgb, var(--border-strong) 80%, transparent); transform-origin: left center; animation: mac-line var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 70ms + 320ms);
-}
-[data-page="machine"] .mac-rail li[data-skipped] + li::before, [data-page="machine"] .mac-rail li[aria-current] + li::before { background: color-mix(in srgb, var(--border-strong) 60%, transparent); }
-[data-page="machine"] .mac-rail li:not([data-skipped]):not([aria-current]) ~ li::before { opacity: .6; }
-[data-page="machine"] .mac-rail .dot { position: relative; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--bg-sunken); color: var(--text-faint); border: 1.5px solid var(--border); transition: transform var(--t) var(--ease-spring); }
-[data-page="machine"] .mac-rail .dot svg { width: 17px; height: 17px; }
-[data-page="machine"] .mac-rail li:hover .dot { transform: translateY(-2px) scale(1.06); }
-[data-page="machine"] .mac-rail .lbl { font-size: var(--fs-caption); font-weight: 600; color: var(--text-faint); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-[data-page="machine"] .mac-rail li[data-skipped] .dot { opacity: .6; }
-[data-page="machine"] .mac-rail li[data-skipped] .dot::after { content: ""; position: absolute; left: 7px; right: 7px; top: 50%; height: 1.5px; background: var(--text-faint); transform: rotate(-35deg); }
-[data-page="machine"] .mac-rail li[data-state="available"] .dot { color: var(--info); border-color: color-mix(in srgb, var(--info-mark) 50%, transparent); background: var(--info-soft); }
-[data-page="machine"] .mac-rail li[aria-current] .dot { color: var(--on-brand); border-color: transparent; background: var(--brand-gradient); box-shadow: 0 8px 22px var(--accent-glow); }
-[data-page="machine"] .mac-rail li[aria-current] .dot::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--accent); animation: pulse-ring 2.2s var(--ease-out) infinite; }
-[data-page="machine"] .mac-rail li[aria-current] .lbl { color: var(--accent-text); font-weight: 800; }
-[data-page="machine"] .mac-rail li[data-paused] .dot { background: var(--warn-mark); color: #fff; }
-
 /* Account in service: glass card, avatar with a breathing halo and a turning dashed ring */
 [data-page="machine"] .mac-inuse {
   position: relative; isolation: isolate; overflow: hidden; display: grid; justify-items: center; gap: var(--s2); padding: var(--s6) var(--s5) var(--s5);
@@ -95,12 +74,11 @@
 [data-page="machine"] .mac-avatar .mac-orbit { position: absolute; inset: -7px; border-radius: 50%; border: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent); animation: mac-turn 18s linear infinite; }
 [data-page="machine"] .mac-inuse.paused .mac-avatar { background: linear-gradient(135deg, var(--warn-mark), var(--alert-mark)); box-shadow: 0 18px 40px color-mix(in srgb, var(--warn-mark) 40%, transparent); }
 [data-page="machine"] .mac-k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
-[data-page="machine"] .mac-account-name { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 600; overflow-wrap: anywhere; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: 260ms; }
 [data-page="machine"] .mac-origin { font-size: var(--fs-small); color: var(--text-muted); }
-[data-page="machine"] .mac-pill-row { margin-top: var(--s2); }
+[data-page="machine"] .mac-pill-row { margin-top: var(--s1); max-width: 100%; }
+[data-page="machine"] .mac-inuse .mac-origin { font-family: var(--font-mono); font-size: var(--fs-small); overflow-wrap: anywhere; }
 [data-page="machine"] .mac-pause { display: flex; gap: var(--s2); align-items: flex-start; text-align: left; padding: var(--s2) var(--s3); border-radius: var(--r); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-small); }
 [data-page="machine"] .mac-pause svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
-[data-page="machine"] .mac-sentence { font-size: var(--fs-caption); color: var(--text-faint); line-height: 1.5; max-width: 40ch; }
 
 /* The pill « Compte poste : … ▾ » (reused by the Poste screen) */
 [data-page="machine"] .mac-pill {
@@ -120,6 +98,18 @@
 [data-page="machine"] .mac-pill.paused .mac-pill-ico { background: var(--warn-mark); color: #fff; }
 [data-page="machine"] .mac-pill.sm { height: 28px; font-size: var(--fs-caption); }
 [data-page="machine"] .mac-pill.sm .mac-pill-ico { width: 20px; height: 20px; }
+[data-page="machine"] .mac-pill.lg { height: 42px; padding: 0 16px 0 6px; font-size: var(--fs-body); }
+[data-page="machine"] .mac-pill.lg .mac-pill-ico { width: 30px; height: 30px; }
+[data-page="machine"] .mac-pill.lg .mac-pill-ico svg { width: 16px; height: 16px; }
+
+/* Pill and sentence mounted on another screen (Poste, Intervenir): the root carries data-page="machine" */
+[data-page="machine"].mac-mount { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--s2); max-width: 100%; vertical-align: middle; }
+[data-page="machine"].mac-mount.sentence, [data-page="machine"].mac-mount.both { display: flex; }
+[data-page="machine"].mac-mount.changed > * { animation: mac-up var(--t) var(--ease-out); }
+[data-page="machine"].mac-mount .mac-pill { flex: none; max-width: 100%; }
+[data-page="machine"] .mac-mount-sentence { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-small); color: var(--text-muted); overflow-wrap: anywhere; }
+[data-page="machine"] .mac-mount-sentence svg { width: 14px; height: 14px; flex: none; }
+[data-page="machine"] .mac-mount-sentence.paused { color: var(--warn); }
 
 /* ---------- Cascade of the rule ---------- */
 [data-page="machine"] .mac-cascade { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
@@ -150,7 +140,6 @@
 [data-page="machine"] .mac-state.info { background: var(--info-soft); color: var(--info); }
 [data-page="machine"] .mac-state.warn { background: var(--warn-soft); color: var(--warn); }
 [data-page="machine"] .mac-level-account { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--text); overflow-wrap: anywhere; }
-[data-page="machine"] .mac-level-account.none { color: var(--text-faint); }
 [data-page="machine"] .mac-level-detail { font-size: var(--fs-caption); color: var(--text-faint); line-height: 1.45; }
 [data-page="machine"] .mac-level[data-shadowed] { opacity: .55; }
 [data-page="machine"] .mac-level[data-shadowed]:hover { opacity: .85; }
@@ -171,20 +160,38 @@
   content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 28px; margin-left: -1px; overflow: hidden; border-radius: 2px;
   background: linear-gradient(transparent, var(--accent), transparent); animation: mac-flow 1.8s var(--ease-in-out) infinite; animation-delay: calc(var(--j, 0) * 160ms);
 }
+/* A level with nothing configured: one line (title and state), its explanation on demand */
+[data-page="machine"] .mac-level.quiet { grid-template-columns: 34px 40px minmax(0, 1fr); padding: 6px var(--s4) 6px var(--s3); background: color-mix(in srgb, var(--bg-elevated) 30%, transparent); border-style: dashed; }
+[data-page="machine"] .mac-level.quiet .mac-rank { width: 26px; height: 26px; margin: 0 2px; font-size: var(--fs-caption); }
+[data-page="machine"] .mac-level.quiet .mac-level-ico { width: 30px; height: 30px; margin: 0 5px; border-radius: 9px; background: transparent; color: var(--text-faint); }
+[data-page="machine"] .mac-level.quiet .mac-level-ico svg { width: 16px; height: 16px; }
+[data-page="machine"] .mac-level.quiet .mac-level-top b { font-weight: 500; color: var(--text-muted); }
+[data-page="machine"] .mac-level.quiet:hover { transform: none; }
+[data-page="machine"] .mac-level.quiet.open { background: color-mix(in srgb, var(--bg-elevated) 55%, transparent); }
+[data-page="machine"] .mac-level-more { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--text-faint); cursor: pointer; transition: transform var(--t) var(--ease-spring), color var(--t-fast); }
+[data-page="machine"] .mac-level-more svg { width: 15px; height: 15px; }
+[data-page="machine"] .mac-level-more:hover, [data-page="machine"] .mac-level-more[aria-expanded="true"] { color: var(--accent-text); transform: scale(1.12); }
+[data-page="machine"] .mac-level-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+[data-page="machine"] .mac-level.quiet .mac-level-detail { animation: mac-up var(--t) var(--ease-out); }
+[data-page="machine"] .mac-level.quiet .mac-rank::before { display: none; }
 [data-page="machine"] .mac-cascade.compact .mac-level { grid-template-columns: 30px 34px minmax(0, 1fr); padding: var(--s2) var(--s3); }
+[data-page="machine"] .mac-cascade.compact .mac-level.quiet { padding: 4px var(--s3); }
 [data-page="machine"] .mac-cascade.compact .mac-level-ico { width: 34px; height: 34px; border-radius: 10px; }
 [data-page="machine"] .mac-cascade.compact .mac-rank { width: 26px; height: 26px; }
 [data-page="machine"] .mac-cascade.compact .mac-level:not(:last-child)::after { left: calc(var(--s3) + 13px); }
 [data-page="machine"] .mac-cascade.compact .mac-level-top { flex-wrap: nowrap; }
 [data-page="machine"] .mac-cascade.compact .mac-level-top b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); }
 
-/* ---------- Right column: workstation and secrets, stacked beside the rule ---------- */
-[data-page="machine"] .mac-side { display: grid; gap: var(--s5); align-content: start; min-width: 0; }
-@media (max-width: 1400px) { [data-page="machine"] .mac-side { grid-column: span 12; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 1000px) { [data-page="machine"] .mac-side { grid-template-columns: minmax(0, 1fr); } }
+/* ---------- Rule card: operations cascade and secrets cascade side by side ---------- */
+[data-page="machine"] .mac-rule-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: var(--s8); align-items: start; }
+@media (max-width: 1150px) { [data-page="machine"] .mac-rule-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s6); } }
+[data-page="machine"] .mac-rule-ops, [data-page="machine"] .mac-rule-secrets { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+[data-page="machine"] .mac-rule-secrets { padding-left: var(--s8); border-left: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+@media (max-width: 1150px) { [data-page="machine"] .mac-rule-secrets { padding-left: 0; border-left: 0; padding-top: var(--s5); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); } }
+[data-page="machine"] .mac-rule .card-head { margin-bottom: 0; }
 
 /* ---------- Target workstation ---------- */
-[data-page="machine"] .mac-target { display: grid; align-content: start; gap: var(--s3); }
+[data-page="machine"] .mac-target { display: grid; align-content: start; gap: var(--s3); min-width: 0; }
 [data-page="machine"] .mac-target .card-head { margin-bottom: 0; }
 [data-page="machine"] .mac-search { position: relative; display: flex; align-items: center; }
 [data-page="machine"] .mac-search > svg { position: absolute; left: 12px; width: 17px; height: 17px; color: var(--text-faint); pointer-events: none; }
@@ -225,9 +232,8 @@
 [data-page="machine"] .mac-near-item:hover { transform: translateY(-2px); border-color: var(--accent); }
 
 /* ---------- Trial ---------- */
-[data-page="machine"] .mac-trial-card, [data-page="machine"] .mac-secrets { display: grid; align-content: start; gap: var(--s4); }
-[data-page="machine"] .mac-trial-card .card-head, [data-page="machine"] .mac-secrets .card-head, [data-page="machine"] .mac-safe .card-head, [data-page="machine"] .mac-rule .card-head { margin-bottom: 0; }
-[data-page="machine"] .mac-rule { display: grid; gap: var(--s4); align-content: start; }
+[data-page="machine"] .mac-trial-card { display: grid; align-content: start; gap: var(--s4); }
+[data-page="machine"] .mac-safe .card-head { margin-bottom: 0; }
 [data-page="machine"] .mac-trial-lead { font-size: var(--fs-small); color: var(--text-muted); line-height: 1.55; }
 [data-page="machine"] .mac-trial-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); }
 [data-page="machine"] .mac-trial-with { display: inline-flex; align-items: center; gap: var(--s2); min-width: 0; font-size: var(--fs-small); color: var(--text-muted); }
@@ -242,8 +248,22 @@
 [data-page="machine"] .mac-trial.alert { background: var(--alert-soft); } [data-page="machine"] .mac-trial.alert > svg { color: var(--alert); }
 [data-page="machine"] .mac-trial.info { background: var(--info-soft); } [data-page="machine"] .mac-trial.info > svg { color: var(--info); }
 [data-page="machine"] .mac-trial.running { align-items: center; color: var(--accent-text); background: var(--accent-soft); }
-[data-page="machine"] .mac-history { display: grid; gap: var(--s2); }
-[data-page="machine"] .mac-history h4 { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+/* Trial card: choose a workstation, try, read the trials of the session (three columns, one flow) */
+[data-page="machine"] .mac-trial-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--s6); align-items: start; }
+[data-page="machine"] .mac-trial-grid > * + * { padding-left: var(--s6); border-left: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+@media (max-width: 1300px) {
+  [data-page="machine"] .mac-trial-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  [data-page="machine"] .mac-trial-grid > .mac-history { grid-column: 1 / -1; padding-left: 0; border-left: 0; padding-top: var(--s5); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+}
+@media (max-width: 900px) {
+  [data-page="machine"] .mac-trial-grid { grid-template-columns: minmax(0, 1fr); }
+  [data-page="machine"] .mac-trial-grid > * + * { padding-left: 0; border-left: 0; padding-top: var(--s5); border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+}
+[data-page="machine"] .mac-trial-grid .card-head { margin-bottom: 0; }
+[data-page="machine"] .mac-trial-main { display: grid; gap: var(--s4); align-content: start; min-width: 0; }
+[data-page="machine"] .mac-trial-result:empty { display: none; }
+[data-page="machine"] .mac-history { display: grid; gap: var(--s3); align-content: start; min-width: 0; }
+[data-page="machine"] .mac-history .card-head .n { min-width: 22px; height: 22px; padding: 0 7px; display: inline-grid; place-items: center; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--accent-text); font-size: var(--fs-caption); font-weight: 800; }
 [data-page="machine"] .mac-trials { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
 [data-page="machine"] .mac-trials li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s3); align-items: start; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 55%, transparent); animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 60ms + 80ms); }
 [data-page="machine"] .mac-trials .mark { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--off-soft); color: var(--off); }
@@ -261,7 +281,7 @@
 
 /* ---------- Safeguards ---------- */
 [data-page="machine"] .mac-safe { display: grid; gap: var(--s4); }
-[data-page="machine"] .mac-safeguards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+[data-page="machine"] .mac-safeguards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--s3) var(--s6); }
 [data-page="machine"] .mac-safeguards li { display: flex; gap: var(--s2); align-items: flex-start; font-size: var(--fs-small); color: var(--text-muted); line-height: 1.5; animation: mac-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 50ms + 80ms); }
 [data-page="machine"] .mac-safeguards svg { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--ok); }
 
@@ -322,3 +342,7 @@
 :root[data-theme="contrast"] [data-page="machine"] .mac-level[data-state="active"] { border: 2px solid var(--accent); background: #000; }
 :root[data-theme="contrast"] [data-page="machine"] .mac-level[data-shadowed] { opacity: 1; }
 :root[data-theme="contrast"] [data-page="machine"] .mac-avatar .halo, :root[data-theme="contrast"] [data-page="machine"] .mac-avatar .mac-orbit { display: none; }
+:root[data-theme="contrast"] [data-page="machine"].mac-panel .input::placeholder, :root[data-theme="contrast"] [data-page="machine"] .mac-search-input::placeholder { font-style: italic; opacity: .7; }
+:root[data-theme="contrast"] [data-page="machine"].mac-panel .input:disabled { border-style: dashed; opacity: .75; }
+:root[data-theme="contrast"] [data-page="machine"] .mac-level.quiet { border-style: dashed; }
+

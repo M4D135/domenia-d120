@@ -105,6 +105,7 @@ internal static class PlatformTests
         ("machine.account.state", OperationClass.LocalRead),
         ("machine.account.trial", OperationClass.NetworkRead),
         ("machine.account.use", OperationClass.Local),
+        ("machine.account.watch", OperationClass.Local),
         ("machine.workstations.search", OperationClass.LocalRead),
         ("schema.attribute", OperationClass.Local),
         ("schema.class", OperationClass.Local),

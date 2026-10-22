@@ -380,6 +380,7 @@ public sealed record SchemaClassDetail(
     string Summary,
     string Filter,
     string RecommendedFilter,
+    string? RecommendedNote,
     string FilterAdvice);
 
 /// <summary>One flag of an attribute, as a labelled switch for the detail sheet.</summary>
@@ -509,4 +510,7 @@ public static class SchemaErrors
     public const string UnknownAttributeMessage = "Attribut inconnu du schéma lu : rien n’a été affiché.";
 
     public const string ReadFailed = "schema.readFailed";
+
+    public const string ReadBusy = "schema.readBusy";
+    public const string ReadBusyMessage = "Une lecture du schéma est déjà en cours : attendez sa fin (une seule lecture à la fois).";
 }

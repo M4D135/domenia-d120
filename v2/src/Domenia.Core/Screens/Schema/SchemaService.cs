@@ -4,9 +4,11 @@ namespace Domenia.Core;
 
 /// <summary>
 /// The schema read in this session (Domenia 1 $script:DomeniaAdSchema): read once on an explicit gesture, kept in memory
-/// with its controller and date, and used only for the domain it was read for (Get-DomeniaAdSchemaCatalogForAnalysis: a
-/// schema of another session or domain never judges an index). One read at a time; a failed read keeps the previous schema.
-/// Every other operation of the screen works on this catalog in memory, without any read.
+/// with its controller and date, and used only for the session and the domain it was read for
+/// (Get-DomeniaAdSchemaCatalogForAnalysis compares SessionEpoch and the domain: a schema of another session or domain never
+/// judges an index). One read at a time: a second one is refused while the first runs; the read is cut beyond its budget
+/// (90 seconds for the reader, the operation stopped at 150 seconds like the Domenia 1 job); a failed read keeps the previous
+/// schema. Every other operation of the screen works on this catalog in memory, without any read.
 /// </summary>
 public sealed partial class SchemaService : IDisposable
 {
@@ -14,6 +16,7 @@ public sealed partial class SchemaService : IDisposable
     private readonly SemaphoreSlim reading = new(1, 1);
     private readonly Lock gate = new();
     private SchemaCatalog? catalog;
+    private string? catalogSession;
     private string? lastError;
 
     private SchemaService(EngineContext context) => this.context = context;
@@ -28,18 +31,28 @@ public sealed partial class SchemaService : IDisposable
     [GeneratedRegex("^CN=Schema,CN=Configuration,DC=", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SchemaContextPattern();
 
-    /// <summary>Status of the schema for the domain of the session (schema.status).</summary>
-    public async Task<SchemaStatus> StatusAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Hard stop of one read: its budget and two thirds more (90 s → 150 s, the Domenia 1 job), in case a reader overruns the
+    /// budget it was given.
+    /// </summary>
+    public static TimeSpan HardLimit(SchemaReadLimits limits)
     {
-        var root = await RootAsync(cancellationToken).ConfigureAwait(false);
-        return Status(For(root));
+        ArgumentNullException.ThrowIfNull(limits);
+        return limits.Budget + (limits.Budget * 2 / 3);
     }
 
-    /// <summary>The catalog of this session for its domain, or null (never the schema of another domain).</summary>
+    /// <summary>Status of the schema for the session (schema.status).</summary>
+    public async Task<SchemaStatus> StatusAsync(CancellationToken cancellationToken)
+    {
+        var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        return Status(For(session));
+    }
+
+    /// <summary>The catalog of this session for its domain, or null (never the schema of another session or domain).</summary>
     public async Task<SchemaCatalog?> CatalogAsync(CancellationToken cancellationToken)
     {
-        var root = await RootAsync(cancellationToken).ConfigureAwait(false);
-        return For(root);
+        var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        return For(session);
     }
 
     /// <summary>The catalog, or schema.notRead.</summary>
@@ -47,40 +60,59 @@ public sealed partial class SchemaService : IDisposable
         await CatalogAsync(cancellationToken).ConfigureAwait(false)
         ?? throw new DomeniaOperationException(SchemaErrors.NotRead, SchemaErrors.NotReadMessage);
 
+    /// <summary>Reads the schema once with the limits of Domenia 1 (<see cref="SchemaReadLimits.Default"/>).</summary>
+    public Task<SchemaStatus> ReadAsync(IProgress<SchemaReadStage>? progress, CancellationToken cancellationToken) =>
+        ReadAsync(SchemaReadLimits.Default, progress, cancellationToken);
+
     /// <summary>
-    /// Reads the schema once (Start-DomeniaAdSchemaRead): never automatic, never a write; bounded to 8 000 attributes, 3 000
-    /// classes and 90 seconds. A read for another domain or an unexpected schema context is refused; a failure keeps the schema
-    /// read before.
+    /// Reads the schema once (Start-DomeniaAdSchemaRead): never automatic, never a write; bounded by <paramref name="limits"/>
+    /// (8 000 attributes, 3 000 classes and 90 seconds for the screen). A second read while one runs is refused
+    /// (schema.readBusy); a read that overruns <see cref="HardLimit"/> is stopped (schema.readFailed); a read for another domain
+    /// or an unexpected schema context is refused; a failure keeps the schema read before.
     /// </summary>
-    public async Task<SchemaStatus> ReadAsync(IProgress<SchemaReadStage>? progress, CancellationToken cancellationToken)
+    public async Task<SchemaStatus> ReadAsync(SchemaReadLimits limits, IProgress<SchemaReadStage>? progress, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(limits);
         var reader = context.Readers.Require<ISchemaReader>();
-        var root = await RootAsync(cancellationToken).ConfigureAwait(false)
+        var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        var root = session.Domain?.RootDn
             ?? throw new DomeniaOperationException(SchemaErrors.ReadFailed, "Connectez-vous à un domaine avant de lire son schéma.");
-        await reading.WaitAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reading.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            throw new DomeniaOperationException(SchemaErrors.ReadBusy, SchemaErrors.ReadBusyMessage);
+        }
         try
         {
+            var hardLimit = HardLimit(limits);
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            budget.CancelAfter(hardLimit);
             SchemaReadResult result;
             try
             {
-                result = await reader.ReadDefinitionsAsync(SchemaReadLimits.Default, progress, cancellationToken).ConfigureAwait(false);
+                result = await reader.ReadDefinitionsAsync(limits, progress, budget.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && budget.IsCancellationRequested)
+            {
+                throw Failed(session, "lecture interrompue au-delà de " + FrenchText.Integer((long)hardLimit.TotalSeconds) + " secondes (budget de "
+                    + FrenchText.Integer((long)limits.Budget.TotalSeconds) + " secondes dépassé).");
             }
             catch (DomeniaOperationException ex) when (ex.Code != DomeniaErrors.SourceUnavailable)
             {
-                throw Failed(root, ex.Message);
+                throw Failed(session, ex.Message);
             }
             if (!DistinguishedName.AreEqual(result.DomainDn, root))
             {
-                throw Failed(root, "schéma lu pour un autre domaine.");
+                throw Failed(session, "schéma lu pour un autre domaine.");
             }
             if (!SchemaContextPattern().IsMatch(result.SchemaNamingContext))
             {
-                throw Failed(root, "contexte de schéma inattendu, lecture refusée.");
+                throw Failed(session, "contexte de schéma inattendu, lecture refusée.");
             }
             var built = SchemaRules.BuildCatalog(result);
             lock (gate)
             {
                 catalog = built;
+                catalogSession = SessionIdentity.Key(session);
                 lastError = null;
             }
             context.Log.Info($"Schéma lu : {built.ClassCount} classes, {built.AttributeCount} attributs, {result.DurationMs} ms{(built.Truncated ? ", lecture tronquée" : "")}.");
@@ -98,14 +130,14 @@ public sealed partial class SchemaService : IDisposable
 
     public void Dispose() => reading.Dispose();
 
-    private DomeniaOperationException Failed(string root, string reason)
+    private DomeniaOperationException Failed(SessionSnapshot session, string reason)
     {
         var text = "Lecture du schéma impossible" + FrenchText.Colon + reason.TrimEnd();
         if (!text.EndsWith('.'))
         {
             text += ".";
         }
-        if (For(root) is not null)
+        if (For(session) is not null)
         {
             text += " Le schéma lu précédemment reste affiché.";
         }
@@ -117,18 +149,16 @@ public sealed partial class SchemaService : IDisposable
         return new DomeniaOperationException(SchemaErrors.ReadFailed, text);
     }
 
-    private SchemaCatalog? For(string? root)
+    /// <summary>The catalog when it was read for this very session and its domain; otherwise null.</summary>
+    private SchemaCatalog? For(SessionSnapshot session)
     {
+        var root = session.Domain?.RootDn;
+        var key = SessionIdentity.Key(session);
         lock (gate)
         {
-            return catalog is not null && root is not null && DistinguishedName.AreEqual(catalog.DomainDn, root) ? catalog : null;
+            return catalog is not null && root is not null && DistinguishedName.AreEqual(catalog.DomainDn, root)
+                && string.Equals(catalogSession, key, StringComparison.Ordinal) ? catalog : null;
         }
-    }
-
-    private async Task<string?> RootAsync(CancellationToken cancellationToken)
-    {
-        var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-        return session.Domain?.RootDn;
     }
 
     private SchemaStatus Status(SchemaCatalog? current)

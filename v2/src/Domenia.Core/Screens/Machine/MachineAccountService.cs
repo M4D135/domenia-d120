@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Security;
 
 namespace Domenia.Core;
@@ -10,20 +11,41 @@ namespace Domenia.Core;
 /// moves the account generation (point 44) so that an operation started with the previous account stops instead of mixing two.
 /// The machine screen sets the typed account; the slots of the Comptes page (Postes, Secrets) and of the access recovery
 /// (temporary accounts) are set through the same service.
+/// <para>
+/// Temporary accounts carry a lease (Domenia 1 D054): bound to the session and the domain they were given for, spent by one use,
+/// at the end of the session or after a delay without use; an unusable lease is forgotten at the next check (Get-DomeniaRetryCredential).
+/// A refusal pauses one place of the cascade (its source and the account generation that filled it), never every account of the
+/// same name; the next operation with a paused account is refused until a trial validates it.
+/// </para>
 /// </summary>
 public sealed class MachineAccountService : IDisposable
 {
+    /// <summary>Longest wait of machine.account.watch before it answers « unchanged ».</summary>
+    public static readonly TimeSpan WatchTimeout = TimeSpan.FromSeconds(25);
+
+    private const string TemporaryLocalKind = "temporaryLocal";
+    private const string TemporaryKind = "temporary";
+    private const string TypedKind = "typed";
+    private const string RemoteKind = "remote";
+    private const string SecretsKind = "secrets";
+    private const string SecretsTemporaryKind = "secretsTemporary";
+
     private readonly EngineContext context;
     private readonly Lock gate = new();
     private readonly Dictionary<string, Slot> temporaryLocal = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, MachineAccountPause> pauses = new(StringComparer.OrdinalIgnoreCase);
+
+    // Pauses by place of the cascade (Slot.Place, or the connection, Windows and directory accounts by name and source).
+    private readonly Dictionary<string, MachineAccountPause> pauses = new(StringComparer.Ordinal);
     private readonly List<MachineTrialResult> trials = [];
+    private TaskCompletionSource changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Slot? typed;
     private Slot? remote;
     private Slot? temporary;
     private Slot? secrets;
     private Slot? secretsTemporary;
     private long generation;
+    private long version;
+    private long slotIds;
     private bool disposed;
 
     private MachineAccountService(EngineContext context) => this.context = context;
@@ -47,6 +69,18 @@ public sealed class MachineAccountService : IDisposable
         }
     }
 
+    /// <summary>Change counter: moves with every change the page may show (accounts, leases, pauses, trials).</summary>
+    public long Version
+    {
+        get
+        {
+            lock (gate)
+            {
+                return version;
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- reads
 
     /// <summary>The state of the cascade, for the workstation <paramref name="target"/> when one is chosen.</summary>
@@ -66,29 +100,111 @@ public sealed class MachineAccountService : IDisposable
     public MachineAccountLabel Resolve(SessionSnapshot session, string? target)
     {
         ArgumentNullException.ThrowIfNull(session);
-        var (_, inUse) = MachineAccountRules.Cascade(Input(session, target));
+        var now = context.Clock.GetUtcNow();
+        var sessionKey = MachineAccountRules.SessionKey(session);
+        MachineAccountRules.CascadeInput input;
+        List<(Slot Slot, string Reason)> dropped;
+        lock (gate)
+        {
+            dropped = SweepLocked(sessionKey, now);
+            input = InputLocked(session, MachineAccountRules.MachineKey(target), sessionKey, now);
+        }
+        Forget(dropped);
+        var (_, inUse) = MachineAccountRules.Cascade(input);
         return MachineAccountRules.Label(inUse.Source, inUse.Account);
     }
 
     /// <summary>
-    /// Account and password copy for an operation on <paramref name="target"/> (vague 3: workers of the workstations). The caller
-    /// disposes the copy; null for the Windows session, which needs no password. Never sent to the page.
+    /// Account and password copy for one operation on <paramref name="target"/> (vague 3: workers of the workstations), with the
+    /// place of the cascade it comes from, so that a refusal pauses that place only (<see cref="RecordRefusal"/>). A paused account is
+    /// refused (machine.accountPaused) unless <paramref name="forTrial"/>: the access trial is the way to validate it. A temporary
+    /// account leaves with the operation: this use extends its lease, and spends a one-shot lease. The caller disposes the copy;
+    /// null for the Windows session, which needs no password. Never sent to the page.
     /// </summary>
-    public (string Account, SecureString? Password) CredentialFor(SessionSnapshot session, string? target)
+    public MachineOperationCredential CredentialFor(SessionSnapshot session, string? target, bool forTrial = false)
     {
         ArgumentNullException.ThrowIfNull(session);
-        var label = Resolve(session, target);
-        lock (gate)
+        var now = context.Clock.GetUtcNow();
+        var sessionKey = MachineAccountRules.SessionKey(session);
+        var key = MachineAccountRules.MachineKey(target);
+        List<(Slot Slot, string Reason)> dropped = [];
+        try
         {
-            var slot = label.Source switch
+            lock (gate)
             {
-                MachineAccountSource.TemporaryLocal => MachineAccountRules.MachineKey(target) is { } key ? temporaryLocal.GetValueOrDefault(key) : null,
-                MachineAccountSource.Temporary => temporary,
-                MachineAccountSource.Typed => typed,
-                MachineAccountSource.Remote => remote,
-                _ => null,
-            };
-            return (MachineAccountRules.ForTarget(label.Account, target), slot?.CopyPassword());
+                ObjectDisposedException.ThrowIf(disposed, this);
+                dropped = SweepLocked(sessionKey, now);
+                var input = InputLocked(session, key, sessionKey, now);
+                var (_, inUse) = MachineAccountRules.Cascade(input);
+                if (inUse.Paused && !forTrial)
+                {
+                    throw new DomeniaOperationException(MachineErrors.AccountPaused, MachineErrors.AccountPausedMessage);
+                }
+                var slot = inUse.Source switch
+                {
+                    MachineAccountSource.TemporaryLocal => key is null ? null : temporaryLocal.GetValueOrDefault(key),
+                    MachineAccountSource.Temporary => temporary,
+                    MachineAccountSource.Typed => typed,
+                    MachineAccountSource.Remote => remote,
+                    _ => null,
+                };
+                if (slot?.Lease is { } lease)
+                {
+                    slot.Lease = MachineAccountRules.UseLease(lease, now);
+                    BumpLocked();
+                }
+                var place = slot?.Place ?? NamedPlace(inUse.Source, inUse.Account);
+                return new MachineOperationCredential(inUse.Source, MachineAccountRules.ForTarget(inUse.Account, target), slot?.CopyPassword(), place);
+            }
+        }
+        finally
+        {
+            Forget(dropped);
+        }
+    }
+
+    /// <summary>
+    /// Waits until the change counter differs from <paramref name="since"/> (null: answers at once), <paramref name="timeout"/> at
+    /// most, and returns it. An inactivity lease that expires meanwhile is forgotten and counts as a change. Memory only: no read.
+    /// </summary>
+    public async Task<long> WaitForChangeAsync(long? since, SessionSnapshot session, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var sessionKey = MachineAccountRules.SessionKey(session);
+        var started = Stopwatch.GetTimestamp();
+        while (true)
+        {
+            var now = context.Clock.GetUtcNow();
+            Task signal;
+            long current;
+            DateTimeOffset? expiry;
+            List<(Slot Slot, string Reason)> dropped;
+            lock (gate)
+            {
+                if (disposed)
+                {
+                    return version;
+                }
+                dropped = SweepLocked(sessionKey, now);
+                current = version;
+                signal = changed.Task;
+                expiry = NextExpiryLocked();
+            }
+            Forget(dropped);
+            var left = timeout - Stopwatch.GetElapsedTime(started);
+            if (since is null || current != since.Value || left <= TimeSpan.Zero)
+            {
+                return current;
+            }
+            // Wake up at the next lease expiry (one second after it, at least one second from now), never after the timeout.
+            var wait = expiry is { } at
+                ? TimeSpan.FromTicks(Math.Clamp((at - now).Ticks + TimeSpan.TicksPerSecond, Math.Min(TimeSpan.TicksPerSecond, left.Ticks), left.Ticks))
+                : left;
+            using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var delay = Task.Delay(wait, stop.Token);
+            await Task.WhenAny(signal, delay).ConfigureAwait(false);
+            await stop.CancelAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 
@@ -96,137 +212,150 @@ public sealed class MachineAccountService : IDisposable
 
     /// <summary>
     /// Uses a typed account for the workstation operations, in memory only (Set-MachineCredentialFromUi). The password is a
-    /// read-only SecureString owned by the service from now on (null in simulation, which asks for none).
+    /// read-only SecureString owned by the service from now on (null in simulation, which asks for none). A new place: a pause of
+    /// the previous typed account does not follow it.
     /// </summary>
     public void UseTyped(string account, SecureString? password)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
-        password?.MakeReadOnly();
-        Slot? previous;
-        lock (gate)
-        {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            previous = typed;
-            typed = new Slot(account.Trim(), password, context.Clock.GetUtcNow());
-            generation++;
-        }
-        previous?.Dispose();
+        Replace(ref typed, TypedKind, account, password, null);
         context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Compte poste saisi pour la session (en mémoire seulement)", Tone.Info));
     }
 
     /// <summary>Forgets the typed account (Clear-MachineCredential); the next level of the cascade takes over.</summary>
     public bool ForgetTyped()
     {
-        Slot? previous;
-        lock (gate)
-        {
-            previous = typed;
-            typed = null;
-            if (previous is not null)
-            {
-                generation++;
-            }
-        }
-        if (previous is null)
+        if (!Replace(ref typed, TypedKind, null, null, null))
         {
             return false;
         }
-        previous.Dispose();
-        context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Compte poste oublié : retour au compte configuré", Tone.Info));
+        context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Compte poste oublié" + FrenchText.Colon + "retour au compte configuré", Tone.Info));
         return true;
     }
 
     // ---------------------------------------------------------------- slots of the Comptes page and of the access recovery
 
     /// <summary>Postes account of the Comptes page (CPT-013), after its validation by that page.</summary>
-    public void UseRemote(string account, SecureString? password) => Replace(ref remote, account, password);
-
-    public void ClearRemote() => Replace(ref remote, null, null);
-
-    /// <summary>Secrets account of the Comptes page (CPT-014).</summary>
-    public void UseSecrets(string account, SecureString? password) => Replace(ref secrets, account, password);
-
-    public void ClearSecrets() => Replace(ref secrets, null, null);
-
-    /// <summary>Temporary account accepted after a refusal: for one workstation (local account) or for every workstation.</summary>
-    public void AcceptTemporary(string? computer, string account, SecureString? password)
+    public void UseRemote(string account, SecureString? password)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        Replace(ref remote, RemoteKind, account, password, null);
+    }
+
+    public void ClearRemote() => Replace(ref remote, RemoteKind, null, null, null);
+
+    /// <summary>Secrets account of the Comptes page (CPT-014).</summary>
+    public void UseSecrets(string account, SecureString? password)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        Replace(ref secrets, SecretsKind, account, password, null);
+    }
+
+    public void ClearSecrets() => Replace(ref secrets, SecretsKind, null, null, null);
+
+    /// <summary>
+    /// Temporary account accepted after a refusal: for one workstation (local account) or for every workstation, with its lease
+    /// bound to <paramref name="session"/> (one use, the session, or <paramref name="idleMinutes"/> without use).
+    /// </summary>
+    public void AcceptTemporary(
+        SessionSnapshot session, string? computer, string account, SecureString? password,
+        MachineLeaseMode mode = MachineLeaseMode.Inactivity, int idleMinutes = MachineAccountRules.DefaultIdleMinutes)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        var lease = MachineAccountRules.NewLease(mode, idleMinutes, MachineAccountRules.SessionKey(session), context.Clock.GetUtcNow());
+        if (MachineAccountRules.MachineKey(computer) is not { } key)
+        {
+            Replace(ref temporary, TemporaryKind, account, password, lease);
+            return;
+        }
         password?.MakeReadOnly();
         Slot? previous;
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            var slot = new Slot(account.Trim(), password, context.Clock.GetUtcNow());
-            if (MachineAccountRules.MachineKey(computer) is { } key)
+            previous = temporaryLocal.GetValueOrDefault(key);
+            temporaryLocal[key] = NewSlotLocked(TemporaryLocalKind, account, password, lease);
+            if (previous is not null)
             {
-                previous = temporaryLocal.GetValueOrDefault(key);
-                temporaryLocal[key] = slot;
-            }
-            else
-            {
-                previous = temporary;
-                temporary = slot;
+                pauses.Remove(previous.Place);
             }
             generation++;
+            BumpLocked();
         }
         previous?.Dispose();
     }
 
     public void ForgetTemporary(string? computer)
     {
+        if (MachineAccountRules.MachineKey(computer) is not { } key)
+        {
+            Replace(ref temporary, TemporaryKind, null, null, null);
+            return;
+        }
         Slot? previous;
         lock (gate)
         {
-            if (MachineAccountRules.MachineKey(computer) is { } key)
-            {
-                temporaryLocal.Remove(key, out previous);
-            }
-            else
-            {
-                previous = temporary;
-                temporary = null;
-            }
+            temporaryLocal.Remove(key, out previous);
             if (previous is not null)
             {
+                pauses.Remove(previous.Place);
                 generation++;
+                BumpLocked();
             }
         }
         previous?.Dispose();
     }
 
-    /// <summary>Temporary account of the secrets reads, accepted after a refusal of LAPS or BitLocker.</summary>
-    public void AcceptSecretsTemporary(string account, SecureString? password) => Replace(ref secretsTemporary, account, password);
+    /// <summary>Temporary account of the secrets reads, accepted after a refusal of LAPS or BitLocker, with its lease.</summary>
+    public void AcceptSecretsTemporary(
+        SessionSnapshot session, string account, SecureString? password,
+        MachineLeaseMode mode = MachineLeaseMode.Inactivity, int idleMinutes = MachineAccountRules.DefaultIdleMinutes)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentException.ThrowIfNullOrWhiteSpace(account);
+        var lease = MachineAccountRules.NewLease(mode, idleMinutes, MachineAccountRules.SessionKey(session), context.Clock.GetUtcNow());
+        Replace(ref secretsTemporary, SecretsTemporaryKind, account, password, lease);
+    }
 
-    public void ForgetSecretsTemporary() => Replace(ref secretsTemporary, null, null);
+    public void ForgetSecretsTemporary() => Replace(ref secretsTemporary, SecretsTemporaryKind, null, null, null);
 
     // ---------------------------------------------------------------- refusals and trials
 
-    /// <summary>A refusal pauses the account (credential guard): it stays paused until a trial validates it.</summary>
-    public void RecordRefusal(string account, string reason)
+    /// <summary>
+    /// A refusal pauses one place of the cascade (<see cref="MachineOperationCredential.Place"/>, credential guard): it stays paused
+    /// until a trial validates it. Another place holding the same name is not touched.
+    /// </summary>
+    public void RecordRefusal(string place, string account, string reason)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(place);
         ArgumentException.ThrowIfNullOrWhiteSpace(account);
         lock (gate)
         {
-            pauses[account.Trim()] = new MachineAccountPause(account.Trim(), context.Clock.GetUtcNow(), reason);
+            pauses[place] = new MachineAccountPause(account.Trim(), context.Clock.GetUtcNow(), reason);
+            BumpLocked();
         }
     }
 
-    /// <summary>A success validates the account: its pause ends.</summary>
-    public void ClearPause(string account)
+    /// <summary>A success validates the place: its pause ends.</summary>
+    public void ClearPause(string place)
     {
-        ArgumentNullException.ThrowIfNull(account);
+        ArgumentNullException.ThrowIfNull(place);
         lock (gate)
         {
-            pauses.Remove(account.Trim());
+            if (pauses.Remove(place))
+            {
+                BumpLocked();
+            }
         }
     }
 
     /// <summary>
-    /// Records a trial of the session (newest first, eight kept): a refusal of the identifiers or of the account pauses it, an
-    /// administrator access validates it.
+    /// Records a trial of the session (newest first, eight kept). With the place of the account in service, a refusal of the
+    /// identifiers or of the account pauses that place and an administrator access validates it; a candidate account (to
+    /// validate, not in service) has no place: its verdict never pauses nor releases the account in service, even of the same name.
     /// </summary>
-    public void RecordTrial(MachineTrialResult trial, string accountTried)
+    public void RecordTrial(MachineTrialResult trial, string? place, string accountTried)
     {
         ArgumentNullException.ThrowIfNull(trial);
         ArgumentNullException.ThrowIfNull(accountTried);
@@ -237,18 +366,18 @@ public sealed class MachineAccountService : IDisposable
             {
                 trials.RemoveRange(MachineAccountRules.MaxTrials, trials.Count - MachineAccountRules.MaxTrials);
             }
-        }
-        if (accountTried.Length == 0)
-        {
-            return;
-        }
-        if (trial.Verdict is MachineTrialVerdict.Rejected or MachineTrialVerdict.AccountState)
-        {
-            RecordRefusal(accountTried, trial.Text);
-        }
-        else if (trial.Verdict == MachineTrialVerdict.AdminOk)
-        {
-            ClearPause(accountTried);
+            if (place is not null && accountTried.Length > 0)
+            {
+                if (trial.Verdict is MachineTrialVerdict.Rejected or MachineTrialVerdict.AccountState)
+                {
+                    pauses[place] = new MachineAccountPause(accountTried.Trim(), trial.At, trial.Text);
+                }
+                else if (trial.Verdict == MachineTrialVerdict.AdminOk)
+                {
+                    pauses.Remove(place);
+                }
+            }
+            BumpLocked();
         }
     }
 
@@ -265,6 +394,7 @@ public sealed class MachineAccountService : IDisposable
             slots = [.. new[] { typed, remote, temporary, secrets, secretsTemporary }.OfType<Slot>(), .. temporaryLocal.Values];
             typed = remote = temporary = secrets = secretsTemporary = null;
             temporaryLocal.Clear();
+            changed.TrySetResult();
         }
         foreach (var slot in slots)
         {
@@ -279,48 +409,142 @@ public sealed class MachineAccountService : IDisposable
     {
         ArgumentNullException.ThrowIfNull(session);
         var simulation = context.Directory.Kind == DirectorySourceKind.Simulation;
-        CascadeSnapshot snapshot;
+        var now = context.Clock.GetUtcNow();
+        var sessionKey = MachineAccountRules.SessionKey(session);
+        var directoryAccount = DirectoryAccount(session);
+        MachineAccountRules.CascadeInput input;
+        SecretsAccountState secretsState;
+        MachineTypedAccount? typedAccount;
+        long generationNow;
+        long versionNow;
+        ImmutableArray<MachineTrialResult> trialsNow;
+        List<(Slot Slot, string Reason)> dropped;
         lock (gate)
         {
-            snapshot = new CascadeSnapshot(
-                typed is null ? null : new MachineTypedAccount(typed.Account, typed.Since, typed.HasPassword),
-                secretsTemporary?.Account, secrets?.Account, generation, [.. trials], new Dictionary<string, MachineAccountPause>(pauses, StringComparer.OrdinalIgnoreCase));
+            dropped = SweepLocked(sessionKey, now);
+            input = InputLocked(session, MachineAccountRules.MachineKey(target), sessionKey, now);
+            ImmutableArray<MachineAccountPause?> secretsPauses =
+            [
+                secretsTemporary is null ? null : pauses.GetValueOrDefault(secretsTemporary.Place),
+                secrets is null ? null : pauses.GetValueOrDefault(secrets.Place),
+                pauses.GetValueOrDefault(NamedPlace("directory", directoryAccount)),
+            ];
+            secretsState = MachineAccountRules.SecretsCascade(
+                secretsTemporary?.Account, secrets?.Account, directoryAccount, secretsPauses,
+                secretsTemporary is null ? null : MachineAccountRules.LeaseRemaining(secretsTemporary.Lease, sessionKey, now).Text);
+            typedAccount = typed is null ? null : new MachineTypedAccount(typed.Account, typed.Since, typed.HasPassword);
+            generationNow = generation;
+            versionNow = version;
+            trialsNow = [.. trials];
         }
-        var input = Input(session, target);
+        Forget(dropped);
         var (levels, inUse) = MachineAccountRules.Cascade(input);
-        var secretsState = MachineAccountRules.SecretsCascade(snapshot.SecretsTemporary, snapshot.Secrets, DirectoryAccount(session), snapshot.Pauses);
         var label = MachineAccountRules.Label(inUse.Source, inUse.Account);
         return new MachineAccountState(
             inUse, MachineAccountRules.Sentence(label), MachineAccountRules.MachineKey(target) is null ? null : target!.Trim(), workstation, levels, secretsState,
-            snapshot.Typed, !simulation, CredentialNote(simulation), snapshot.Generation, simulation, snapshot.Trials, Safeguards(simulation));
+            typedAccount, !simulation, CredentialNote(simulation), generationNow, versionNow, simulation, trialsNow, Safeguards(simulation));
     }
 
-    private sealed record CascadeSnapshot(
-        MachineTypedAccount? Typed,
-        string? SecretsTemporary,
-        string? Secrets,
-        long Generation,
-        ImmutableArray<MachineTrialResult> Trials,
-        IReadOnlyDictionary<string, MachineAccountPause> Pauses);
-
-    private MachineAccountRules.CascadeInput Input(SessionSnapshot session, string? target)
+    private MachineAccountRules.CascadeInput InputLocked(SessionSnapshot session, string? key, string sessionKey, DateTimeOffset now)
     {
-        var key = MachineAccountRules.MachineKey(target);
-        lock (gate)
+        var connection = session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? session.Account.Login : null;
+        var windows = WindowsAccount(session);
+        var local = key is null ? null : temporaryLocal.GetValueOrDefault(key);
+        string?[] places =
+        [
+            local?.Place, temporary?.Place, typed?.Place, remote?.Place,
+            connection is null ? null : NamedPlace(MachineAccountSource.Connection, connection), NamedPlace(MachineAccountSource.Windows, windows),
+        ];
+        return new MachineAccountRules.CascadeInput(
+            local?.Account, temporary?.Account, typed?.Account, remote?.Account, connection, windows,
+            key is not null, context.Directory.Kind == DirectorySourceKind.Simulation,
+            [.. places.Select(p => p is null ? null : pauses.GetValueOrDefault(p))],
+            local is null ? null : MachineAccountRules.LeaseRemaining(local.Lease, sessionKey, now).Text,
+            temporary is null ? null : MachineAccountRules.LeaseRemaining(temporary.Lease, sessionKey, now).Text);
+    }
+
+    /// <summary>
+    /// Forgets the temporary accounts whose lease no longer allows a new use (another session or domain, spent, idle too long),
+    /// like Get-DomeniaRetryCredential; returns them so that the caller disposes them outside the lock.
+    /// </summary>
+    private List<(Slot Slot, string Reason)> SweepLocked(string sessionKey, DateTimeOffset now)
+    {
+        List<(Slot Slot, string Reason)> dropped = [];
+        foreach (var (key, slot) in temporaryLocal.ToList())
         {
-            var connection = session.Authentication.Method == AuthenticationMethod.ExplicitCredentials ? session.Account.Login : null;
-            return new MachineAccountRules.CascadeInput(
-                key is null ? null : temporaryLocal.GetValueOrDefault(key)?.Account,
-                temporary?.Account,
-                typed?.Account,
-                remote?.Account,
-                connection,
-                WindowsAccount(session),
-                key is not null,
-                context.Directory.Kind == DirectorySourceKind.Simulation,
-                new Dictionary<string, MachineAccountPause>(pauses, StringComparer.OrdinalIgnoreCase));
+            var check = MachineAccountRules.CheckLease(slot.Lease, sessionKey, now);
+            if (!check.Usable)
+            {
+                temporaryLocal.Remove(key);
+                dropped.Add((slot, check.Reason));
+            }
+        }
+        if (temporary is not null)
+        {
+            var check = MachineAccountRules.CheckLease(temporary.Lease, sessionKey, now);
+            if (!check.Usable)
+            {
+                dropped.Add((temporary, check.Reason));
+                temporary = null;
+            }
+        }
+        if (secretsTemporary is not null)
+        {
+            var check = MachineAccountRules.CheckLease(secretsTemporary.Lease, sessionKey, now);
+            if (!check.Usable)
+            {
+                dropped.Add((secretsTemporary, check.Reason));
+                secretsTemporary = null;
+            }
+        }
+        if (dropped.Count > 0)
+        {
+            foreach (var (slot, _) in dropped)
+            {
+                pauses.Remove(slot.Place);
+            }
+            generation++;
+            BumpLocked();
+        }
+        return dropped;
+    }
+
+    /// <summary>Disposes the temporary accounts forgotten by a check and says so in the journal (without their names).</summary>
+    private void Forget(List<(Slot Slot, string Reason)> dropped)
+    {
+        foreach (var (slot, reason) in dropped)
+        {
+            slot.Dispose();
+            context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Compte temporaire oublié" + FrenchText.Colon + reason.TrimEnd('.'), Tone.Info));
         }
     }
+
+    /// <summary>Earliest instant an inactivity lease stops being usable, if nothing uses it before.</summary>
+    private DateTimeOffset? NextExpiryLocked()
+    {
+        DateTimeOffset? next = null;
+        List<Slot?> slots = [.. temporaryLocal.Values, temporary, secretsTemporary];
+        foreach (var slot in slots)
+        {
+            if (slot?.Lease is { } lease && MachineAccountRules.LeaseExpiry(lease) is { } at && (next is null || at < next))
+            {
+                next = at;
+            }
+        }
+        return next;
+    }
+
+    private void BumpLocked()
+    {
+        version++;
+        var previous = changed;
+        changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        previous.TrySetResult();
+    }
+
+    private static string NamedPlace(MachineAccountSource source, string account) => NamedPlace(source.ToString(), account);
+
+    private static string NamedPlace(string source, string account) => source.ToLowerInvariant() + "|" + account.Trim().ToLowerInvariant();
 
     /// <summary>
     /// Account of the Windows session: the session account in simulation (never the real Windows account, so captures show no
@@ -341,18 +565,19 @@ public sealed class MachineAccountService : IDisposable
 
     private static string CredentialNote(bool simulation) => simulation
         ? "Simulation : aucun mot de passe n’est demandé. Le compte est gardé par son nom, en mémoire, pour essayer la règle et l’essai d’accès sur l’annuaire fictif."
-        : "Le mot de passe part directement au moteur, qui le garde chiffré en mémoire (SecureString) jusqu’à l’API Windows : il n’est ni affiché, ni renvoyé, ni enregistré.";
+        : "Le mot de passe part au moteur dans le message de la page, puis devient aussitôt une SecureString en lecture seule, gardée en mémoire jusqu’à l’API Windows : le champ est vidé, rien n’est journalisé, renvoyé ni enregistré.";
 
     private static ImmutableArray<string> Safeguards(bool simulation)
     {
         var list = new List<string>
         {
             "Le compte poste vaut pour cette session : jamais enregistré sur le disque, jamais journalisé.",
-            "Le mot de passe reste en SecureString jusqu’à l’API Windows : ni affiché, ni renvoyé à la page, ni passé en ligne de commande.",
+            "Le mot de passe quitte la page dans un seul message, devient aussitôt une SecureString en lecture seule jusqu’à l’API Windows, et n’est ni affiché, ni renvoyé à la page, ni passé en ligne de commande.",
             "Fermer le panneau, Échap ou un clic à côté ne changent rien : un mot de passe saisi sans " + FrenchText.Quote("Utiliser ce compte") + " est effacé.",
             "Chaque changement de compte ouvre une nouvelle génération : une opération lancée avec l’ancien compte s’arrête au lieu de mélanger deux comptes.",
             "L’essai d’accès lit seulement le système du poste choisi, sur votre clic : un seul poste, aucun balayage, aucune autre méthode.",
-            "Un refus met le compte en pause : la prochaine opération avec lui est refusée tant qu’un essai réussi ne l’a pas validé.",
+            "Un refus met en pause ce compte, à cette place de la règle : la prochaine opération avec lui est refusée tant qu’un essai réussi ne l’a pas validé.",
+            "Un compte temporaire accepté après un refus a un bail : une seule utilisation, la session, ou 30 min sans utilisation ; il ne sert jamais dans une autre session ni pour un autre domaine.",
         };
         if (simulation)
         {
@@ -361,7 +586,8 @@ public sealed class MachineAccountService : IDisposable
         return [.. list];
     }
 
-    private void Replace(ref Slot? slot, string? account, SecureString? password)
+    /// <summary>Replaces one slot (null account: forgets it). Returns whether something changed.</summary>
+    private bool Replace(ref Slot? slot, string kind, string? account, SecureString? password, MachineLease? lease)
     {
         password?.MakeReadOnly();
         Slot? previous;
@@ -369,21 +595,38 @@ public sealed class MachineAccountService : IDisposable
         {
             ObjectDisposedException.ThrowIf(disposed, this);
             previous = slot;
-            slot = string.IsNullOrWhiteSpace(account) ? null : new Slot(account.Trim(), password, context.Clock.GetUtcNow());
-            if (previous is not null || slot is not null)
+            slot = string.IsNullOrWhiteSpace(account) ? null : NewSlotLocked(kind, account, password, lease);
+            if (previous is null && slot is null)
             {
-                generation++;
+                return false;
             }
+            if (previous is not null)
+            {
+                pauses.Remove(previous.Place);
+            }
+            generation++;
+            BumpLocked();
         }
         previous?.Dispose();
+        return true;
     }
 
-    /// <summary>One account in memory: its name, its read-only password and since when it is used.</summary>
-    private sealed class Slot(string account, SecureString? password, DateTimeOffset since) : IDisposable
+    private Slot NewSlotLocked(string kind, string account, SecureString? password, MachineLease? lease) =>
+        new(kind, ++slotIds, account.Trim(), password, context.Clock.GetUtcNow()) { Lease = lease };
+
+    /// <summary>
+    /// One account in memory: its place in the cascade (kind and id: a new account of the same name is a new place), its name, its
+    /// read-only password, since when it is used and its lease (temporary accounts only).
+    /// </summary>
+    private sealed class Slot(string kind, long id, string account, SecureString? password, DateTimeOffset since) : IDisposable
     {
+        public string Place { get; } = kind + "#" + id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         public string Account { get; } = account;
 
         public DateTimeOffset Since { get; } = since;
+
+        public MachineLease? Lease { get; set; }
 
         public bool HasPassword => password is not null;
 

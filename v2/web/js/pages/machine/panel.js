@@ -1,9 +1,15 @@
-// « Compte poste » pill and side panel (MAC-002, MAC-003; Domenia 1 UX-15, SE-16, FO-19). Reusable by the Poste screen:
-// import { machinePill, openMachineAccountPanel } from './machine/panel.js'. The panel lives in the page (kit drawer, never a
-// window): identifier, password with a 5-second read-only reveal, « Utiliser ce compte » (Enter) in memory only, « Revenir au
-// compte de connexion », « Valider sur ce poste » (one light read of one workstation), « Fermer ». Échap or a click beside close
-// it without changing anything, and the password typed is cleared. The password goes to the engine only, which turns it into
-// a read-only SecureString at once (docs/ops/schema.md § 12); no reply ever carries it back.
+// « Compte poste » pill and side panel (MAC-002, MAC-003; Domenia 1 UX-15, SE-16, FO-19). Reusable by the Poste screen and
+// by the « Se connecter » card of Intervenir:
+//   import { mountMachineAccount } from './machine/panel.js';
+//   const account = mountMachineAccount(headerSlot, ctx, { target: 'PC-PAR-0042', show: 'pill' });   // or 'sentence', 'both'
+//   account.setTarget('PC-PAR-0043'); account.destroy();
+// The mounted pill and sentence follow the engine (machine.account.watch, Domenia 1 Timer:Accounts) and are repainted only
+// when their text changes. The panel lives in the page (kit drawer, never a window): identifier, password with a 5-second
+// read-only reveal, « Utiliser ce compte » (Enter) in memory only, « Revenir au compte de connexion », « Valider sur ce
+// poste » (one light read of one workstation), « Fermer ». Échap or a click beside close it without changing anything, and
+// the password typed is cleared. The password leaves the page in one message to the engine, which turns it into a read-only
+// SecureString at once (docs/ops/schema.md § 12); the field is emptied, no variable keeps it, no reply carries it back.
+import { call } from '../../bridge.js';
 import { openDrawer } from '../../kit/drawer.js';
 import { glyph } from '../../kit/glyphs.js';
 import { esc, uid, NBSP } from '../../kit/util.js';
@@ -21,11 +27,11 @@ function errText(err, fallback) {
  * The pill « Compte poste : … ▾ » (Pill of machine.account.state.inUse), with its origin in the tip; paused after a refusal:
  * warning tone and pause glyph.
  * @param {any} inUse  MachineAccountInUse
- * @param {{ size?: 'sm'|'md' }} [o]
+ * @param {{ size?: 'sm'|'md'|'lg' }} [o]
  */
 export function machinePill(inUse, o = {}) {
   const icon = inUse.paused ? 'pause' : SOURCE_ICONS[inUse.source] ?? 'user';
-  return `<button class="mac-pill${inUse.paused ? ' paused' : ''}${o.size === 'sm' ? ' sm' : ''}" type="button" data-machine-pill
+  return `<button class="mac-pill${inUse.paused ? ' paused' : ''}${o.size === 'sm' || o.size === 'lg' ? ` ${o.size}` : ''}" type="button" data-machine-pill
     aria-label="${esc(`Compte poste${NBSP}: ${inUse.short}`)}" aria-haspopup="dialog" data-tip="${esc(inUse.tip)}">
     <span class="mac-pill-ico" aria-hidden="true">${glyph(icon)}</span><span class="mac-pill-text">${esc(inUse.pill.replace(/\s*▾$/, ''))}</span>${glyph('chevronDown', 'mac-pill-chev')}</button>`;
 }
@@ -243,4 +249,93 @@ export function openMachineAccountPanel(ctx, o) {
   panel.foot?.querySelector('[data-id="use"]')?.setAttribute('data-policy', 'BtnSetMachineCredential');
   panel.foot?.querySelector('[data-id="close"]')?.setAttribute('data-policy', 'BtnMachineAccountClose');
   return panel;
+}
+
+const WATCH_RETRY_MS = 2000;
+const WATCH_MAX_FAILURES = 3;
+
+/**
+ * Follows the account of the workstation operations (machine.account.watch: the engine answers when it changes, 25 s at
+ * most, memory only). onChange receives { version, changed, inUse, sentence, generation }, the first time at once. The calls
+ * go through the bridge without the busy counter of the screens: a watch never holds the « ready » signal of a capture.
+ * Returns the function that stops it.
+ * @param {{ target?: string|null, since?: number|null, onChange: (w: any, first: boolean) => void }} o
+ */
+export function watchMachineAccount(o) {
+  let stopped = false;
+  let version = Number.isInteger(o.since) ? o.since : null;
+  (async () => {
+    let failures = 0;
+    while (!stopped) {
+      try {
+        const first = version === null;
+        const w = await call('machine.account.watch', { since: version, target: o.target ?? null });
+        if (stopped) return;
+        failures = 0;
+        version = w.version;
+        if (first || w.changed) o.onChange(w, first);
+      } catch (err) {
+        if (stopped) return;
+        failures += 1;
+        if (failures >= WATCH_MAX_FAILURES) { console.error(err); return; }
+        await new Promise((resolve) => { setTimeout(resolve, WATCH_RETRY_MS * failures); });
+      }
+    }
+  })();
+  return () => { stopped = true; };
+}
+
+/**
+ * Mounts the pill « Compte poste : … ▾ » and/or the sentence « Opérations poste : … » in host (header of the Poste screen,
+ * « Se connecter » card of Intervenir), kept up to date and repainted only when its text changes. A click on the pill opens
+ * the « Compte poste » panel for the same workstation. Names only, never a password.
+ * @param {HTMLElement} host
+ * @param {any} ctx  Page context (ctx.call).
+ * @param {{ target?: string|null, show?: 'pill'|'sentence'|'both', size?: 'sm'|'md'|'lg' }} [o]
+ * @returns {{ setTarget: (target: string|null) => void, destroy: () => void }}
+ */
+export function mountMachineAccount(host, ctx, o = {}) {
+  ensureStyles();
+  const show = o.show ?? 'pill';
+  let target = o.target ?? null;
+  let painted = '';
+  let stop = () => {};
+  let panelOpen = false;
+  const root = document.createElement('span');
+  root.className = `mac-mount ${show}`;
+  root.dataset.page = 'machine';
+  host.appendChild(root);
+
+  function paint(w) {
+    const key = JSON.stringify([w.inUse.pill, w.inUse.tip, w.inUse.paused, w.sentence]);
+    if (key === painted) return;
+    painted = key;
+    root.innerHTML = (show !== 'sentence' ? machinePill(w.inUse, { size: o.size }) : '')
+      + (show !== 'pill' ? `<span class="mac-mount-sentence${w.inUse.paused ? ' paused' : ''}">${w.inUse.paused ? glyph('pause') : ''}${esc(w.sentence)}</span>` : '');
+    root.classList.remove('changed'); void root.offsetWidth; root.classList.add('changed');
+  }
+
+  function start() {
+    stop();
+    painted = '';
+    stop = watchMachineAccount({ target, onChange: (w) => paint(w) });
+  }
+
+  root.addEventListener('click', async (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest('[data-machine-pill]') || panelOpen) return;
+    panelOpen = true;
+    try {
+      const state = await ctx.call('machine.account.state', { target });
+      openMachineAccountPanel(ctx, { state, target }).closed.then(() => { panelOpen = false; });
+    } catch (err) {
+      panelOpen = false;
+      toast(errText(err, 'État du compte poste illisible.'), { tone: 'alert' });
+    }
+  });
+  start();
+
+  return {
+    setTarget(next) { target = next ?? null; start(); },
+    destroy() { stop(); root.remove(); },
+  };
 }

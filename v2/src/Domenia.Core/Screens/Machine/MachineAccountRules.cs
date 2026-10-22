@@ -184,7 +184,11 @@ public static partial class MachineAccountRules
 
     // ---------------------------------------------------------------- cascades
 
-    /// <summary>Accounts known at each level for one operation (names only; a pause is looked up by name).</summary>
+    /// <summary>
+    /// Accounts known at each level for one operation (names only), the pause recorded for each level (index = rank − 1, never
+    /// looked up by name: two places may hold the same name with different passwords) and the remaining lease of the temporary
+    /// levels in words.
+    /// </summary>
     public sealed record CascadeInput(
         string? TemporaryLocal,
         string? Temporary,
@@ -194,7 +198,9 @@ public static partial class MachineAccountRules
         string Windows,
         bool TargetChosen,
         bool Simulation,
-        IReadOnlyDictionary<string, MachineAccountPause> Pauses);
+        ImmutableArray<MachineAccountPause?> Pauses,
+        string? TemporaryLocalLease = null,
+        string? TemporaryLease = null);
 
     private static readonly (MachineAccountSource Source, string Title, string Detail)[] Levels =
     [
@@ -220,7 +226,7 @@ public static partial class MachineAccountRules
         {
             var (source, title, detail) = Levels[i];
             var account = string.IsNullOrWhiteSpace(accounts[i]) ? null : accounts[i]!.Trim();
-            var pause = account is null ? null : input.Pauses.GetValueOrDefault(account);
+            var pause = account is null ? null : PauseAt(input.Pauses, i);
             MachineLevelState state;
             if (i == active)
             {
@@ -241,13 +247,23 @@ public static partial class MachineAccountRules
             var levelDetail = source == MachineAccountSource.Connection && input.Simulation && account is null
                 ? "Simulation : aucune connexion par identifiants ; l’annuaire fictif n’en demande pas."
                 : detail;
+            var lease = source switch
+            {
+                MachineAccountSource.TemporaryLocal => input.TemporaryLocalLease,
+                MachineAccountSource.Temporary => input.TemporaryLease,
+                _ => null,
+            };
+            if (account is not null && lease is not null)
+            {
+                levelDetail += " Bail" + FrenchText.Colon + lease + ".";
+            }
             levels.Add(new MachineAccountLevel(
                 i + 1, Camel(source.ToString()), title, Origin(source), account, state, StateLabel(state, pause is not null),
                 pause is not null ? Tone.Warn : StateTone(state), levelDetail, pause is not null, pause?.Reason));
         }
         var chosen = Levels[active < 0 ? Levels.Length - 1 : active].Source;
         var label = Label(chosen, accounts[active < 0 ? Levels.Length - 1 : active]);
-        var paused = label.Account.Length > 0 ? input.Pauses.GetValueOrDefault(label.Account) : null;
+        var paused = label.Account.Length > 0 ? PauseAt(input.Pauses, active < 0 ? Levels.Length - 1 : active) : null;
         var inUse = new MachineAccountInUse(
             label.Source, label.Account, label.Origin, label.Short, label.Long, label.Pill, Tip(label, paused), (active < 0 ? Levels.Length - 1 : active) + 1,
             paused is not null, paused?.Reason, paused is not null ? Tone.Warn : Tone.Ok);
@@ -255,9 +271,8 @@ public static partial class MachineAccountRules
     }
 
     /// <summary>The account of the secrets reads: temporary, Secrets account, otherwise the directory account.</summary>
-    public static SecretsAccountState SecretsCascade(string? temporary, string? secrets, string directory, IReadOnlyDictionary<string, MachineAccountPause> pauses)
+    public static SecretsAccountState SecretsCascade(string? temporary, string? secrets, string directory, ImmutableArray<MachineAccountPause?> pauses, string? temporaryLease = null)
     {
-        ArgumentNullException.ThrowIfNull(pauses);
         (SecretsAccountSource Source, string Title, string Origin, string Detail, string? Account)[] rows =
         [
             (SecretsAccountSource.Temporary, "Compte temporaire Secrets", "compte temporaire accepté après un refus", "Accepté après un refus de lecture LAPS ou BitLocker ; bail en mémoire.", Clean(temporary)),
@@ -272,9 +287,12 @@ public static partial class MachineAccountRules
         var levels = rows.Select((r, i) =>
         {
             var state = i == active ? MachineLevelState.Active : r.Account is not null ? MachineLevelState.Available : MachineLevelState.Empty;
-            var pause = r.Account is null ? null : pauses.GetValueOrDefault(r.Account);
+            var pause = r.Account is null ? null : PauseAt(pauses, i);
+            var detail = r.Source == SecretsAccountSource.Temporary && r.Account is not null && temporaryLease is not null
+                ? r.Detail + " Bail" + FrenchText.Colon + temporaryLease + "."
+                : r.Detail;
             return new MachineAccountLevel(i + 1, Camel(r.Source.ToString()), r.Title, r.Origin, r.Account, state, StateLabel(state, pause is not null),
-                pause is not null ? Tone.Warn : StateTone(state), r.Detail, pause is not null, pause?.Reason);
+                pause is not null ? Tone.Warn : StateTone(state), detail, pause is not null, pause?.Reason);
         }).ToImmutableArray();
         var chosen = rows[active];
         var account = chosen.Account ?? "";
@@ -283,6 +301,98 @@ public static partial class MachineAccountRules
     }
 
     private static string? Clean(string? account) => string.IsNullOrWhiteSpace(account) ? null : account.Trim();
+
+    private static MachineAccountPause? PauseAt(ImmutableArray<MachineAccountPause?> pauses, int index) =>
+        !pauses.IsDefault && index >= 0 && index < pauses.Length ? pauses[index] : null;
+
+    // ---------------------------------------------------------------- leases of the temporary accounts (Domenia 1 D054)
+
+    /// <summary>Default delay without use of a temporary account (Security.AlternateCredentialIdleMinutes).</summary>
+    public const int DefaultIdleMinutes = 30;
+
+    /// <summary>Bounds of the delay without use.</summary>
+    public const int MinIdleMinutes = 1;
+
+    public const int MaxIdleMinutes = 480;
+
+    /// <summary>
+    /// The session a lease belongs to: domain root, account and method of the connection (Domenia 1 compares SessionEpoch and
+    /// BaseDn). Another domain, another account or another way of connecting makes every lease of the previous one unusable.
+    /// </summary>
+    public static string SessionKey(SessionSnapshot session) => SessionIdentity.Key(session);
+
+    /// <summary>A new lease (New-DomeniaCredentialLease): delay without use bounded to 1 to 480 minutes.</summary>
+    public static MachineLease NewLease(MachineLeaseMode mode, int idleMinutes, string sessionKey, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(sessionKey);
+        return new MachineLease(mode, Math.Clamp(idleMinutes, MinIdleMinutes, MaxIdleMinutes), sessionKey, now, now, 0);
+    }
+
+    /// <summary>
+    /// Whether a NEW use of the account is allowed (Test-DomeniaCredentialLease with ForNewCall): same session, not spent, not
+    /// idle for longer than its delay. An operation already sent keeps running whatever the answer.
+    /// </summary>
+    public static (bool Usable, string Reason) CheckLease(MachineLease? lease, string sessionKey, DateTimeOffset now)
+    {
+        if (lease is null)
+        {
+            return (true, "");
+        }
+        if (!string.Equals(lease.SessionKey, sessionKey, StringComparison.Ordinal))
+        {
+            return (false, "Compte fourni dans une session précédente.");
+        }
+        if (lease.Mode == MachineLeaseMode.OneShot && lease.Uses >= 1)
+        {
+            return (false, "Compte à usage unique déjà utilisé.");
+        }
+        if (lease.Mode == MachineLeaseMode.Inactivity && (now - lease.LastUsed).TotalMinutes > lease.InactivityMinutes)
+        {
+            return (false, "Compte expiré après " + FrenchText.Integer(lease.InactivityMinutes) + " min sans utilisation.");
+        }
+        return (true, "");
+    }
+
+    /// <summary>
+    /// How long a temporary account stays usable (Get-DomeniaLeaseRemainingText), in whole minutes rounded up so that the text
+    /// changes once a minute.
+    /// </summary>
+    public static (bool Usable, int Minutes, string Text) LeaseRemaining(MachineLease? lease, string sessionKey, DateTimeOffset now)
+    {
+        if (lease is null)
+        {
+            return (true, -1, "jusqu’à la fin de la session");
+        }
+        if (!CheckLease(lease, sessionKey, now).Usable)
+        {
+            return (false, 0, "expiré : oublié au prochain contrôle");
+        }
+        switch (lease.Mode)
+        {
+            case MachineLeaseMode.OneShot:
+                return (true, -1, "une seule utilisation");
+            case MachineLeaseMode.Session:
+                return (true, -1, "jusqu’à la fin de la session");
+            default:
+                var left = lease.InactivityMinutes - (now - lease.LastUsed).TotalMinutes;
+                var minutes = Math.Max(1, (int)Math.Ceiling(Math.Max(0.0, left)));
+                return (true, minutes, "encore " + FrenchText.Integer(minutes) + " min sans utilisation");
+        }
+    }
+
+    /// <summary>The lease after one use by an operation (Use-DomeniaCredentialLease): the only use that extends it.</summary>
+    public static MachineLease UseLease(MachineLease lease, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        return lease with { Uses = lease.Uses + 1, LastUsed = now };
+    }
+
+    /// <summary>When an inactivity lease stops being usable, if nothing uses it before; null for the other modes.</summary>
+    public static DateTimeOffset? LeaseExpiry(MachineLease lease)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        return lease.Mode == MachineLeaseMode.Inactivity ? lease.LastUsed + TimeSpan.FromMinutes(lease.InactivityMinutes) : null;
+    }
 
     private static string StateLabel(MachineLevelState state, bool paused) => paused
         ? "En pause après un refus"

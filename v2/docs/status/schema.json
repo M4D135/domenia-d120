@@ -16,7 +16,7 @@
   "partiel": [
     {
       "id": "MAC-002",
-      "reste": "Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites et exportées (web/js/pages/machine/panel.js : machinePill, openMachineAccountPanel ; machine.account.state { target }) ; restent leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir, fichiers de l’équipe Poste."
+      "reste": "Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites, tenues à jour par la veille du moteur (machine.account.watch, équivalent de Timer:Accounts, repeintes seulement quand le texte change) et livrées prêtes à poser : mountMachineAccount(hôte, ctx, { target, show: 'pill' | 'sentence' | 'both' }) dans web/js/pages/machine/panel.js. Reste leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir : ces écrans appartiennent aux équipes Poste et Assistance et n’existent pas sur cette branche."
     }
   ]
 }

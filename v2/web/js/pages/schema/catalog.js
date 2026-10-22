@@ -1,55 +1,64 @@
 // Catalog of the schema screen (SCH-001 to SCH-003): classes or attributes of the schema read in this session in a virtual
-// grid (local filter on name and description, every match counted), and the detail of the chosen entry beside it, in a
-// resizable master-detail split. Before the read, the same card shows what will be read and follows the read stage by stage.
+// grid, filtered like Domenia 1 Find-DomeniaAdSchemaEntries (a substring of the name OR of the description, case ignored, after
+// a pause of 250 ms, every match counted by the engine), and the detail of the chosen entry beside it, in a resizable
+// master-detail split. Before the read, the same card shows what the read goes through and follows it stage by stage; a read
+// again shows its stages in the head of the card.
 import { createGrid } from '../../kit/grid.js';
 import { createSplit } from '../../kit/split.js';
-import { debounce, writeClipboard } from '../../kit/util.js';
+import { debounce, writeClipboard, uid, clamp } from '../../kit/util.js';
 import { applyVars, toast, announce } from '../../ui.js';
-import { glyph, esc, int, count, NBSP, errText, categoryTone } from './model.js';
+import { glyph, esc, int, count, NBSP, quote, errText, CATEGORY_TONES, STAGES } from './model.js';
 import { placeholder, skeleton, renderClass, renderAttribute } from './detail.js';
 
-/** Rows asked at once: the whole catalog of a usual schema; beyond, the filter goes back to the engine. */
+/** Rows asked at once: the whole catalog of a usual schema; the total stays exact beyond. */
 const LIST_LIMIT = 5000;
+/** Longest filter text (SchemaRules.MaxListText). */
+const TEXT_MAX = 128;
+/** Pause after typing, as Domenia 1 (Request-DomeniaAdSchemaListUpdate). */
+const FILTER_DELAY_MS = 250;
 const DETAIL_DELAY_MS = 120;
 
+/** Shortcuts once the schema is read: the classes an administrator opens most. */
+const QUICK_CLASSES = ['user', 'computer', 'group', 'organizationalUnit', 'contact', 'msDS-GroupManagedServiceAccount'];
+
 const CLASS_COLUMNS = [
-  { id: 'name', label: 'Classe', required: true, width: 220, mono: true },
+  { id: 'name', label: 'Classe', required: true, width: 230, mono: true },
   {
-    id: 'nature', label: 'Catégorie', type: 'enum', width: 140,
-    options: [
-      { value: 'Structurelle', label: 'Structurelle', tone: 'info' }, { value: 'Auxiliaire', label: 'Auxiliaire', tone: 'ok' },
-      { value: 'Abstraite', label: 'Abstraite', tone: 'off' }, { value: 'Classe 88', label: 'Classe 88', tone: 'off' },
-      { value: 'Obsolète', label: 'Obsolète', tone: 'alert' }, { value: 'Inconnue', label: 'Inconnue', tone: 'off' },
-    ],
+    id: 'nature', label: 'Catégorie', type: 'enum', width: 132,
+    options: Object.entries(CATEGORY_TONES).map(([value, tone]) => ({ value, label: value, tone })),
   },
-  { id: 'subClassOf', label: 'Hérite de', width: 170, mono: true },
-  { id: 'description', label: 'Description', width: 320 },
+  { id: 'subClassOf', label: 'Hérite de', width: 170, mono: true, hidden: true },
+  { id: 'description', label: 'Description', width: 240 },
 ];
 
+/** Glyphs after the name of an attribute: catalogue global, confidential, constructed (columns hidden by default). */
+function attributeName(v, r) {
+  const marks = [
+    r.inGlobalCatalog ? `<span class="m gc" data-tip="Répliqué dans le catalogue global">${glyph('domain')}</span>` : '',
+    r.confidential ? `<span class="m conf" data-tip="Confidentiel">${glyph('lock')}</span>` : '',
+    r.constructed ? `<span class="m calc" data-tip="Calculé${NBSP}: ne se filtre pas">${glyph('sparkles')}</span>` : '',
+  ].join('');
+  return `<span class="sch-attr-cell${r.defunct ? ' defunct' : ''}"><span class="n">${esc(v)}</span>${marks ? `<span class="sch-marks">${marks}</span>` : ''}</span>`;
+}
+
 const ATTRIBUTE_COLUMNS = [
-  { id: 'name', label: 'Attribut', required: true, width: 230, mono: true },
-  { id: 'nature', label: 'Type', width: 170, html: (v, r) => (r.defunct ? '<span class="sch-defunct">Obsolète</span>' : esc(v)) },
-  { id: 'values', label: 'Valeurs', width: 104, get: (r) => (r.singleValued ? 'Une' : 'Plusieurs') },
+  { id: 'name', label: 'Attribut', required: true, width: 204, mono: true, html: attributeName },
+  { id: 'nature', label: 'Type', width: 130, html: (v, r) => (r.defunct ? '<span class="sch-defunct">Obsolète</span>' : esc(v)) },
+  { id: 'values', label: 'Valeurs', width: 112, get: (r) => (r.singleValued ? 'Une' : 'Plusieurs') },
   {
-    id: 'indexText', label: 'Index', type: 'enum', width: 150,
+    id: 'indexText', label: 'Index', type: 'enum', width: 134,
     options: [
-      { value: 'Indexé', label: 'Indexé', tone: 'ok' }, { value: 'Indexé, sous-chaîne comprise', label: 'Indexé, sous-chaîne', tone: 'ok' },
+      { value: 'Indexé', label: 'Indexé', tone: 'ok' }, { value: 'Indexé, sous-chaîne comprise', label: 'Sous-chaîne', tone: 'ok' },
       { value: 'Non indexé', label: 'Non indexé', tone: 'off' }, { value: 'Calculé, non filtrable', label: 'Calculé', tone: 'warn' },
     ],
   },
-  { id: 'inGlobalCatalog', label: 'Catalogue global', type: 'bool', width: 120 },
+  { id: 'inGlobalCatalog', label: 'Catalogue global', type: 'bool', width: 120, hidden: true },
   { id: 'confidential', label: 'Confidentiel', type: 'bool', width: 116, hidden: true },
   { id: 'constructed', label: 'Calculé', type: 'bool', width: 100, hidden: true },
-  { id: 'description', label: 'Description', width: 360 },
+  { id: 'description', label: 'Description', width: 200 },
 ];
 
-const STAGES = [
-  { id: 'context', label: 'Contexte du schéma', text: 'CN=Schema,CN=Configuration du contrôleur de la session' },
-  { id: 'attributes', label: 'Définitions des attributs', text: 'attributeSchema · 8 000 au plus' },
-  { id: 'classes', label: 'Définitions des classes', text: 'classSchema · 3 000 au plus' },
-];
-
-function emptyMarkup(status) {
+function unreadMarkup(status) {
   const failed = status?.lastError;
   return `<div class="sch-unread">
     <div class="sch-unread-art" aria-hidden="true">
@@ -57,14 +66,13 @@ function emptyMarkup(status) {
       <span class="link l1"></span><span class="link l2"></span><span class="core">${glyph('tree')}</span>
     </div>
     <div class="sch-unread-body">
-      <h3>Le schéma n’est pas encore lu</h3>
-      <p>Une seule lecture, sur votre geste, des définitions de classes et d’attributs du contrôleur de la session. Aucune valeur d’objet n’est lue, rien n’est modifié, et le schéma reste en mémoire pour cette session seulement.</p>
-      ${failed ? `<p class="sch-note alert" role="alert">${glyph('alert')}<span>${esc(failed)}</span></p>` : ''}
-      <ol class="sch-steps" aria-label="Étapes de la lecture">${STAGES.map((s, n) => `<li data-stage="${s.id}" data-j="${n}"><span class="dot" aria-hidden="true"></span><div><b>${esc(s.label)}</b><span>${esc(s.text)}</span></div></li>`).join('')}</ol>
-      <div class="sch-unread-actions">
-        <button class="btn primary" type="button" data-read>${glyph('download')}Lire le schéma<span class="sch-net" aria-hidden="true">${glyph('wifi')}</span></button>
-        <span class="sch-reason">${esc(`Lecture bornée${NBSP}: ${int(status?.limits?.attributes ?? 8000)} attributs, ${int(status?.limits?.classes ?? 3000)} classes, ${int(status?.limits?.seconds ?? 90)} secondes.`)}</span>
+      <div class="sch-unread-head">
+        <h3>Le catalogue apparaîtra ici</h3>
+        <p>Après la lecture, sur votre geste («${NBSP}Lire le schéma${NBSP}» en haut de l’écran)${NBSP}: les classes et les attributs du contrôleur de la session, filtrables par nom ou description, avec le détail de chacun.</p>
       </div>
+      ${failed ? `<p class="sch-note alert" role="alert">${glyph('alert')}<span>${esc(failed)}</span></p>` : ''}
+      <ol class="sch-steps" aria-label="Étapes de la lecture">${STAGES.map((s, n) => `<li data-stage="${s.id}" data-j="${n}"><span class="num" aria-hidden="true">${n + 1}</span><div><b>${esc(s.label)}</b><span>${esc(s.text)}</span></div><span class="dot" aria-hidden="true"></span></li>`).join('')}</ol>
+      <p class="sch-reason">${glyph('shield')}<span>${esc(`Lecture bornée${NBSP}: ${int(status?.limits?.attributes ?? 8000)} attributs, ${int(status?.limits?.classes ?? 3000)} classes et ${int(status?.limits?.seconds ?? 90)} secondes au plus.`)}</span></p>
     </div>
   </div>`;
 }
@@ -73,38 +81,52 @@ function emptyMarkup(status) {
  * Creates the catalog card in host.
  * @param {HTMLElement} host
  * @param {any} ctx
- * @param {{ kind: string, className: string|null, attributeName: string|null, onRead: () => void,
- *   onRoute: (change: Object) => void, onSelected: () => void, onAnalyze: (filter: string) => void, onInsert: (name: string) => void }} o
+ * @param {{ kind: string, className: string|null, attributeName: string|null, onRoute: (change: Object) => void,
+ *   onSelected: () => void, onAnalyze: (filter: string) => void, onInsert: (name: string) => void }} o
  */
 export function createCatalog(host, ctx, o) {
+  const id = uid('sch-cat');
   host.innerHTML = `<div class="sch-cat">
     <div class="sch-cat-head">
       <div class="segmented sch-kind" role="group" aria-label="Classes ou attributs"><span class="thumb" aria-hidden="true"></span>
         <button type="button" data-kind="classes" aria-pressed="false">${glyph('layers')}Classes<span class="k-badge" data-count="classes">—</span></button>
         <button type="button" data-kind="attributes" aria-pressed="false">${glyph('tag')}Attributs<span class="k-badge" data-count="attributes">—</span></button>
       </div>
-      <p class="sch-cat-note">${glyph('shield')}<span>Filtre local sur le nom et la description${NBSP}: aucune lecture réseau.</span></p>
+      <label class="sch-search" for="${id}-q">${glyph('search')}<span class="visually-hidden">Filtrer sur le nom ou la description, sans lecture réseau</span>
+        <input id="${id}-q" class="sch-search-input" type="search" maxlength="${TEXT_MAX}" autocomplete="off" spellcheck="false" disabled
+          aria-describedby="${id}-found" placeholder="Filtrer${NBSP}: nom ou description"></label>
+      <span class="sch-found" id="${id}-found" aria-live="polite"></span>
+      <span class="sch-cat-note" data-tip="Comme Domenia 1${NBSP}: le texte est cherché dans le nom et la description, sur ce poste, dans le schéma déjà lu.">${glyph('shield')}<span>Filtre local, aucune lecture réseau</span></span>
+      <ol class="sch-progress" aria-label="Lecture du schéma en cours" hidden>${STAGES.map((s) => `<li data-stage="${s.id}"><span class="dot" aria-hidden="true"></span>${esc(s.short)}</li>`).join('')}</ol>
+    </div>
+    <div class="sch-cat-quick" hidden>
+      <span class="sch-quick-k">${glyph('layers')}Classes courantes</span>
+      ${QUICK_CLASSES.map((name, j) => `<button class="sch-node" type="button" data-j="${j}" data-quick-class="${esc(name)}">${esc(name)}</button>`).join('')}
     </div>
     <div class="sch-cat-body"></div>
   </div>`;
   const body = /** @type {HTMLElement} */ (host.querySelector('.sch-cat-body'));
   const kindBar = /** @type {HTMLElement} */ (host.querySelector('.sch-kind'));
   const thumb = /** @type {HTMLElement} */ (kindBar.querySelector('.thumb'));
+  const search = /** @type {HTMLInputElement} */ (host.querySelector('.sch-search-input'));
+  const found = /** @type {HTMLElement} */ (host.querySelector('.sch-found'));
+  const progress = /** @type {HTMLElement} */ (host.querySelector('.sch-progress'));
+  const quick = /** @type {HTMLElement} */ (host.querySelector('.sch-cat-quick'));
   let alive = true;
   let kind = o.kind === 'attributes' ? 'attributes' : 'classes';
   let read = false;
   let grid = null;
-  let split = null;
   let detailHost = null;
   let detailCleanup = null;
   let detailRequest = 0;
+  let listRequest = 0;
+  // Unfiltered results, for the counts of the switch and the first view of each kind.
   const lists = { classes: null, attributes: null };
-  const totals = { classes: null, attributes: null };
   // What the detail shows: { kind: 'class'|'attribute', name, backClass }.
   let shown = null;
   // Attribute offered to the filter workbench: { name, insertable, reason }.
   let chosenAttribute = null;
-  let pendingSelect = { classes: o.className, attributes: o.attributeName };
+  const pendingSelect = { classes: o.className, attributes: o.attributeName };
 
   function moveThumb() {
     const active = kindBar.querySelector('button[aria-pressed="true"]');
@@ -115,11 +137,11 @@ export function createCatalog(host, ctx, o) {
 
   function markKind() {
     kindBar.querySelectorAll('button[data-kind]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === kind)));
+    search.placeholder = kind === 'classes' ? `Filtrer les classes${NBSP}: nom ou description` : `Filtrer les attributs${NBSP}: nom ou description`;
     requestAnimationFrame(moveThumb);
   }
 
   function setCount(which, total) {
-    totals[which] = total;
     const badge = kindBar.querySelector(`[data-count="${which}"]`);
     if (badge) {
       badge.textContent = total === null ? '—' : int(total);
@@ -128,30 +150,37 @@ export function createCatalog(host, ctx, o) {
     }
   }
 
+  /** « 47 classes » without a filter, the summary of the engine with one (« 12 classes trouvées. »). */
+  function showFound(result) {
+    if (!result) { found.textContent = ''; found.className = 'sch-found'; return; }
+    const filtered = !!result.text;
+    found.textContent = filtered ? result.summary : count(result.total, kind === 'classes' ? 'classe' : 'attribut', kind === 'classes' ? 'classes' : 'attributs');
+    found.className = `sch-found${filtered ? ' on' : ''}${result.total > result.shown ? ' warn' : ''}`;
+  }
+
   // ---------------------------------------------------------------- unread / reading
 
   function showUnread(status) {
     destroyBrowser();
-    body.innerHTML = emptyMarkup(status);
+    body.innerHTML = unreadMarkup(status);
     applyVars(body);
-    body.querySelector('[data-read]')?.addEventListener('click', () => o.onRead());
+    quick.hidden = true;
+    search.disabled = true;
+    showFound(null);
   }
 
-  /** Follows the read: the stage under way pulses, the previous ones are ticked. */
+  /** Follows a read: the stage under way pulses, the previous ones are ticked; null ends it. */
   function setStage(stage) {
-    const steps = [...body.querySelectorAll('.sch-steps li')];
     const at = STAGES.findIndex((s) => s.id === stage);
-    steps.forEach((li, n) => {
-      li.classList.toggle('done', at >= 0 && n < at);
-      li.classList.toggle('now', n === at);
-    });
-    const button = body.querySelector('[data-read]');
-    if (button) {
-      button.setAttribute('aria-busy', 'true');
-      button.setAttribute('aria-disabled', 'true');
-      button.innerHTML = `<span class="k-spin" aria-hidden="true"></span>Lecture en cours…`;
+    progress.hidden = !read || stage === null;
+    for (const list of [progress, body.querySelector('.sch-steps')]) {
+      if (!list) continue;
+      [...list.querySelectorAll('li')].forEach((li, n) => {
+        li.classList.toggle('done', at >= 0 && n < at);
+        li.classList.toggle('now', n === at);
+      });
     }
-    body.querySelector('.sch-unread')?.classList.add('reading');
+    body.querySelector('.sch-unread')?.classList.toggle('reading', stage !== null);
   }
 
   function readFailed(status) {
@@ -165,7 +194,6 @@ export function createCatalog(host, ctx, o) {
     detailCleanup = null;
     grid?.destroy();
     grid = null;
-    split = null;
     detailHost = null;
   }
 
@@ -176,11 +204,14 @@ export function createCatalog(host, ctx, o) {
     detailHost = document.createElement('div');
     detailHost.className = 'sch-detail-pane';
     body.innerHTML = '<div class="sch-split"></div>';
-    split = createSplit(body.querySelector('.sch-split'), {
-      a: list, b: detailHost, fixed: 'b', size: 560, min: 420, max: 980, key: 'schema.detail', label: 'Largeur du détail', collapsible: false,
+    // Detail proportional to the card (about a third), so the list keeps its columns without a sideways scroll.
+    const width = body.clientWidth || 1200;
+    createSplit(body.querySelector('.sch-split'), {
+      a: list, b: detailHost, fixed: 'b', size: clamp(Math.round(width * 0.36), 380, 520), min: 340, max: 900,
+      key: 'schema.detail.v2', label: 'Largeur du détail', collapsible: false,
     });
     grid = createGrid(list, {
-      key: `schema.${kind}`,
+      key: `schema.${kind}.v2`,
       label: kind === 'classes' ? 'Classes du schéma lu' : 'Attributs du schéma lu',
       columns: kind === 'classes' ? CLASS_COLUMNS : ATTRIBUTE_COLUMNS,
       rowId: (r) => r.name,
@@ -188,15 +219,21 @@ export function createCatalog(host, ctx, o) {
       density: 'compact',
       height: 'fill',
       loading: true,
-      quickPlaceholder: kind === 'classes' ? 'Filtrer les classes (nom ou description)…' : 'Filtrer les attributs (nom ou description)…',
+      // The page filters like Domenia 1 (name or description, through the engine): the quick filter of the grid, which looks
+      // in every visible column, is not offered. The filters per column stay (explicit, one column each).
+      quickFilter: false,
       empty: { icon: 'search', title: 'Aucune entrée', text: 'Le schéma lu ne contient aucune entrée de ce type.' },
       onSelectionChange: (rows) => { if (rows[0]) queueDetail(rows[0]); },
       onActivate: (row) => { queueDetail(row, 0); detailHost?.querySelector('.sch-detail')?.focus?.(); },
-      onFilterChange: (info) => filterChanged(info),
       contextMenu: ({ row }) => [
-        { label: 'Copier le nom LDAP', icon: 'copy', disabled: !row, run: () => copy(row.name) },
-        ...(kind === 'attributes' ? [{ label: 'Ajouter au filtre', icon: 'plus', disabled: !row || row.constructed || row.defunct, reason: row?.constructed ? 'Attribut calculé : il ne se filtre pas.' : 'Attribut obsolète.', run: () => o.onInsert(row.name) }] : []),
-        ...(kind === 'classes' ? [{ label: 'Analyser le filtre de la classe', icon: 'gauge', disabled: !row, run: () => o.onAnalyze(`(objectClass=${row.name})`) }] : []),
+        { label: 'Copier le nom LDAP', icon: 'copy', disabled: !row, reason: 'Choisissez une ligne.', run: () => copy(row.name) },
+        ...(kind === 'attributes' ? [{
+          label: 'Ajouter au filtre', icon: 'plus',
+          disabled: !row || row.constructed || row.defunct,
+          reason: !row ? 'Choisissez une ligne.' : row.constructed ? 'Attribut calculé : il ne se filtre pas.' : row.defunct ? 'Attribut obsolète : il ne sert pas dans une nouvelle requête.' : undefined,
+          run: () => o.onInsert(row.name),
+        }] : []),
+        ...(kind === 'classes' ? [{ label: 'Analyser le filtre de la classe', icon: 'gauge', disabled: !row, reason: 'Choisissez une ligne.', run: () => o.onAnalyze(`(objectClass=${row.name})`) }] : []),
       ],
     });
     detailHost.innerHTML = placeholder(kind);
@@ -204,7 +241,7 @@ export function createCatalog(host, ctx, o) {
   }
 
   async function loadList(which, text = '') {
-    const result = await ctx.call('schema.list', { kind: which, text, limit: LIST_LIMIT });
+    const result = await ctx.call('schema.list', { kind: which, text: text || null, limit: LIST_LIMIT });
     if (!alive) return null;
     if (!text) {
       lists[which] = result;
@@ -213,18 +250,36 @@ export function createCatalog(host, ctx, o) {
     return result;
   }
 
-  // A catalog larger than the rows sent (more than 5 000 entries) filters through the engine, like Domenia 1.
-  const remoteFilter = debounce(async (text) => {
-    const result = await loadList(kind, text).catch((err) => { toast(errText(err), { tone: 'alert' }); return null; });
-    if (!result || !grid) return;
-    grid.setRows(result.rows, { keepSelection: true });
-    announce(result.summary);
-  }, 250);
-
-  function filterChanged(info) {
-    const full = lists[kind];
-    if (full && full.total > full.shown) remoteFilter(info.quick);
+  /** The text of the field, trimmed, at most 128 characters (the field refuses more; a pasted text is cut, and the page says so). */
+  function filterText() {
+    const raw = search.value.trim();
+    if (raw.length > TEXT_MAX) {
+      search.value = raw.slice(0, TEXT_MAX);
+      toast(`Filtre limité à ${int(TEXT_MAX)} caractères${NBSP}: la suite est ignorée.`, { tone: 'warn', life: 3200 });
+    }
+    return search.value.trim();
   }
+
+  // Domenia 1: the list follows the text after a pause of 250 ms; the engine counts every match.
+  async function applyFilter() {
+    if (!read || !grid) return;
+    const text = filterText();
+    const my = ++listRequest;
+    try {
+      const result = text ? await loadList(kind, text) : lists[kind] ?? await loadList(kind);
+      if (!alive || !grid || my !== listRequest || !result) return;
+      grid.setEmpty(text
+        ? { icon: 'search', title: 'Aucune entrée', text: `Aucun${kind === 'classes' ? 'e classe' : ' attribut'} ne contient ${quote(text)} dans son nom ou sa description.` }
+        : { icon: 'search', title: 'Aucune entrée', text: 'Le schéma lu ne contient aucune entrée de ce type.' });
+      grid.setRows(result.rows, { keepSelection: true });
+      showFound(result);
+      if (text) announce(result.summary);
+    } catch (err) {
+      if (!alive || my !== listRequest) return;
+      toast(errText(err, 'Filtre impossible.'), { tone: 'alert' });
+    }
+  }
+  const filterLater = debounce(applyFilter, FILTER_DELAY_MS);
 
   async function showKind(next, { select } = {}) {
     kind = next;
@@ -232,17 +287,23 @@ export function createCatalog(host, ctx, o) {
     o.onRoute({ vue: kind === 'attributes' ? 'attributs' : null });
     if (!read) return;
     buildBrowser();
+    const text = filterText();
+    const my = ++listRequest;
     try {
-      const result = lists[kind] ?? await loadList(kind);
-      if (!alive || !grid || !result) return;
+      const all = lists[kind] ?? await loadList(kind);
+      const result = text ? await loadList(kind, text) : all;
+      if (!alive || !grid || !result || my !== listRequest) return;
       grid.setRows(result.rows);
+      showFound(result);
       if (result.total > result.shown) toast(result.summary, { tone: 'warn' });
       const wanted = select ?? pendingSelect[kind];
       pendingSelect[kind] = null;
-      if (wanted && result.rows.some((r) => r.name.toLowerCase() === wanted.toLowerCase())) {
-        const exact = result.rows.find((r) => r.name.toLowerCase() === wanted.toLowerCase()).name;
-        grid.select(exact);
-        queueDetail({ name: exact }, 0);
+      const exact = wanted ? result.rows.find((r) => r.name.toLowerCase() === wanted.toLowerCase()) : null;
+      if (exact) {
+        grid.select([exact.name]);
+        queueDetail({ name: exact.name }, 0);
+      } else if (wanted) {
+        queueDetail({ name: wanted }, 0);
       }
     } catch (err) {
       grid?.setError(errText(err, 'Liste illisible.'), { retry: () => showKind(kind) });
@@ -279,7 +340,7 @@ export function createCatalog(host, ctx, o) {
       });
       detailCleanup = view.destroy;
       detailHost.scrollTop = 0;
-      announce(`Classe ${d.name} : ${count(d.attributes.length, 'attribut possible', 'attributs possibles')}.`);
+      announce(`Classe ${d.name}${NBSP}: ${count(d.attributes.length, 'attribut possible', 'attributs possibles')}.`);
     } catch (err) {
       if (!alive || my !== detailRequest || !detailHost) return;
       detailHost.innerHTML = `<div class="sch-detail-empty">${glyph('alert')}<h3>Détail indisponible</h3><p>${esc(errText(err))}</p></div>`;
@@ -299,9 +360,9 @@ export function createCatalog(host, ctx, o) {
       chosenAttribute = { name: d.name, insertable: d.insertable, reason: d.insertReason };
       o.onSelected();
       o.onRoute(backClass ? { classe: backClass, attribut: d.name } : { attribut: d.name, classe: null });
-      detailCleanup = renderAttribute(detailHost, d, { backClass, canInsert: true }).destroy;
+      detailCleanup = renderAttribute(detailHost, d, { backClass }).destroy;
       detailHost.scrollTop = 0;
-      announce(`Attribut ${d.name} : ${d.summary}.`);
+      announce(`Attribut ${d.name}${NBSP}: ${d.summary}.`);
     } catch (err) {
       if (!alive || my !== detailRequest || !detailHost) return;
       detailHost.innerHTML = `<div class="sch-detail-empty">${glyph('alert')}<h3>Détail indisponible</h3><p>${esc(errText(err))}</p></div>`;
@@ -329,23 +390,31 @@ export function createCatalog(host, ctx, o) {
   function goToClass(name) {
     if (!name) return;
     if (kind !== 'classes') { showKind('classes', { select: name }); return; }
-    if (grid && lists.classes?.rows.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
-      grid.select(lists.classes.rows.find((r) => r.name.toLowerCase() === name.toLowerCase()).name);
-    }
+    const row = grid?.getVisibleRows?.().find((r) => r.name.toLowerCase() === name.toLowerCase());
+    if (row) grid.select([row.name]);
     openClass(name);
   }
 
   function goToAttribute(name) {
     if (!name) return;
-    if (kind === 'attributes' && grid && lists.attributes?.rows.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
-      grid.select(lists.attributes.rows.find((r) => r.name.toLowerCase() === name.toLowerCase()).name);
-    }
+    const row = kind === 'attributes' ? grid?.getVisibleRows?.().find((r) => r.name.toLowerCase() === name.toLowerCase()) : null;
+    if (row) grid.select([row.name]);
     openAttribute(name, kind === 'classes' && shown?.kind === 'class' ? shown.name : shown?.backClass ?? null);
   }
 
   kindBar.addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('button[data-kind]') : null;
     if (b && b.dataset.kind !== kind) showKind(b.dataset.kind);
+  });
+  quick.addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('[data-quick-class]') : null;
+    if (b) goToClass(b.getAttribute('data-quick-class'));
+  });
+  search.addEventListener('input', () => filterLater());
+  search.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); filterLater.cancel?.(); applyFilter(); }
+    else if (e.key === 'Escape' && search.value) { e.preventDefault(); e.stopPropagation(); search.value = ''; filterLater.cancel?.(); applyFilter(); }
+    else if (e.key === 'ArrowDown' && grid) { e.preventDefault(); grid.focus(); }
   });
   markKind();
   const ro = 'ResizeObserver' in window ? new ResizeObserver(moveThumb) : null;
@@ -358,6 +427,9 @@ export function createCatalog(host, ctx, o) {
       if (!read) { setCount('classes', null); setCount('attributes', null); showUnread(status); return; }
       lists.classes = null;
       lists.attributes = null;
+      quick.hidden = false;
+      search.disabled = false;
+      applyVars(quick);
       await showKind(kind);
       // The other count, for the switch, without building its view.
       const other = kind === 'classes' ? 'attributes' : 'classes';
@@ -373,11 +445,9 @@ export function createCatalog(host, ctx, o) {
     destroy() {
       alive = false;
       clearTimeout(detailTimer);
-      remoteFilter.cancel();
+      filterLater.cancel?.();
       ro?.disconnect();
       destroyBrowser();
-      split = null;
     },
-    categoryTone,
   };
 }

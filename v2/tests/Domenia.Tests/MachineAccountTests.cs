@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Security;
 using System.Text.Json;
 using Domenia.Bridge;
@@ -9,11 +10,11 @@ namespace Domenia.Tests;
 internal static class MachineAccountTests
 {
     private const string Nbsp = " ";
-    private static readonly Dictionary<string, MachineAccountPause> NoPause = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ImmutableArray<MachineAccountPause?> NoPause = [];
 
     private static MachineAccountRules.CascadeInput Input(
         string? temporaryLocal = null, string? temporary = null, string? typed = null, string? remote = null, string? connection = null,
-        bool target = false, IReadOnlyDictionary<string, MachineAccountPause>? pauses = null) =>
+        bool target = false, ImmutableArray<MachineAccountPause?>? pauses = null) =>
         new(temporaryLocal, temporary, typed, remote, connection, @"EXAMPLE\j.martin", target, true, pauses ?? NoPause);
 
     [Test]
@@ -90,12 +91,42 @@ internal static class MachineAccountTests
         var local = MachineAccountRules.Cascade(Input(temporaryLocal: @"PC-1\admin", typed: @"EXAMPLE\x", target: true)).InUse;
         Check.Equal(MachineAccountSource.TemporaryLocal, local.Source, "le compte local du poste passe en premier");
 
-        var pauses = new Dictionary<string, MachineAccountPause>(StringComparer.OrdinalIgnoreCase) { [@"example\X"] = new(@"EXAMPLE\x", TestClock.Reference, "Identifiants refusés.") };
+        ImmutableArray<MachineAccountPause?> pauses = [null, null, new(@"EXAMPLE\x", TestClock.Reference, "Identifiants refusés."), null, null, null];
         var paused = MachineAccountRules.Cascade(Input(typed: @"EXAMPLE\x", pauses: pauses));
         Check.True(paused.InUse.Paused, "en pause après un refus");
         Check.Equal(Tone.Warn, paused.InUse.Tone, "ton d’avertissement");
         Check.True(paused.Levels[2].Paused, "niveau marqué");
         Check.Contains("En pause après un refus", paused.InUse.Tip, "infobulle");
+        var samePlaceOnly = MachineAccountRules.Cascade(Input(typed: @"EXAMPLE\x", remote: @"EXAMPLE\x", pauses: pauses));
+        Check.False(samePlaceOnly.Levels[3].Paused, "le compte Postes de même nom n’est pas en pause : la pause suit la place, pas le nom");
+
+        var leased = MachineAccountRules.Cascade(Input(temporary: @"EXAMPLE\tmp") with { TemporaryLease = "encore 12 min sans utilisation" });
+        Check.Contains("Bail" + Nbsp + ": encore 12 min sans utilisation.", leased.Levels[1].Detail, "bail du compte temporaire dans son niveau");
+    }
+
+    [Test]
+    public static void Leases_follow_Domenia_1()
+    {
+        const string key = @"dc=example,dc=local|example\j.martin|windowssession";
+        var now = TestClock.Reference;
+        var idle = MachineAccountRules.NewLease(MachineLeaseMode.Inactivity, 30, key, now);
+        Check.True(MachineAccountRules.CheckLease(idle, key, now.AddMinutes(30)).Usable, "30 min tout juste : encore utilisable");
+        var expired = MachineAccountRules.CheckLease(idle, key, now.AddMinutes(31));
+        Check.False(expired.Usable, "31 min sans utilisation : expiré");
+        Check.Equal("Compte expiré après 30 min sans utilisation.", expired.Reason, "raison");
+        Check.False(MachineAccountRules.CheckLease(idle, @"dc=autre,dc=local|example\j.martin|windowssession", now).Usable, "autre domaine : inutilisable");
+        Check.Equal("encore 30 min sans utilisation", MachineAccountRules.LeaseRemaining(idle, key, now).Text, "temps restant");
+        Check.Equal("encore 1 min sans utilisation", MachineAccountRules.LeaseRemaining(idle, key, now.AddMinutes(29.5)).Text, "arrondi à la minute supérieure");
+        Check.Equal("expiré" + Nbsp + ": oublié au prochain contrôle", MachineAccountRules.LeaseRemaining(idle, key, now.AddMinutes(40)).Text, "expiré");
+        var used = MachineAccountRules.UseLease(idle, now.AddMinutes(20));
+        Check.True(MachineAccountRules.CheckLease(used, key, now.AddMinutes(45)).Usable, "une utilisation prolonge le bail");
+        var once = MachineAccountRules.NewLease(MachineLeaseMode.OneShot, 30, key, now);
+        Check.Equal("une seule utilisation", MachineAccountRules.LeaseRemaining(once, key, now).Text, "usage unique");
+        Check.False(MachineAccountRules.CheckLease(MachineAccountRules.UseLease(once, now), key, now).Usable, "usage unique dépensé");
+        var session = MachineAccountRules.NewLease(MachineLeaseMode.Session, 30, key, now);
+        Check.True(MachineAccountRules.CheckLease(session, key, now.AddDays(2)).Usable, "bail de session : sans délai");
+        Check.Equal(480, MachineAccountRules.NewLease(MachineLeaseMode.Inactivity, 9000, key, now).InactivityMinutes, "480 min au plus");
+        Check.Equal(1, MachineAccountRules.NewLease(MachineLeaseMode.Inactivity, 0, key, now).InactivityMinutes, "1 min au moins");
     }
 
     [Test]
@@ -172,7 +203,10 @@ internal static class MachineAccountTests
 
         var rejected = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\",\"account\":\"EXAMPLE\\\\licorne\",\"password\":null}"));
         Check.Equal("rejected", rejected.GetProperty("trial").GetProperty("verdict").GetString(), "compte inconnu : identifiants refusés");
+        Check.False(rejected.GetProperty("state").GetProperty("inUse").GetProperty("paused").GetBoolean(), "un compte à valider refusé ne met rien en pause");
         SimulatedBridge.Json(await bridge.CallAsync("machine.account.use", "{\"account\":\"EXAMPLE\\\\licorne\",\"password\":null}"));
+        var inService = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\"}"));
+        Check.Equal("rejected", inService.GetProperty("trial").GetProperty("verdict").GetString(), "compte en service refusé");
         var state = SimulatedBridge.Json(await bridge.CallAsync("machine.account.state", "{}"));
         Check.True(state.GetProperty("inUse").GetProperty("paused").GetBoolean(), "le compte refusé est en pause");
 
@@ -212,18 +246,22 @@ internal static class MachineAccountTests
         service.UseRemote(@"EXAMPLE\svc-postes", password.Copy());
         var session = bridge.Source.GetSessionAsync(CancellationToken.None).GetAwaiter().GetResult();
         Check.Equal(MachineAccountSource.Remote, service.Resolve(session, null).Source, "compte Postes en service");
-        var (account, copy) = service.CredentialFor(session, null);
-        using (copy)
+        using (var credential = service.CredentialFor(session, null))
         {
-            Check.Equal(@"EXAMPLE\svc-postes", account, "nom du compte");
-            Check.NotNull(copy, "copie du mot de passe");
-            Check.True(copy!.IsReadOnly(), "copie en lecture seule");
-            Check.Equal(3, copy.Length, "longueur conservée");
+            Check.Equal(@"EXAMPLE\svc-postes", credential.Account, "nom du compte");
+            Check.Equal(MachineAccountSource.Remote, credential.Source, "source");
+            Check.NotNull(credential.Password, "copie du mot de passe");
+            Check.True(credential.Password!.IsReadOnly(), "copie en lecture seule");
+            Check.Equal(3, credential.Password.Length, "longueur conservée");
+            Check.Contains("remote#", credential.Place, "place du compte dans la règle");
         }
-        service.AcceptTemporary("PC-1", @"PC-1\admin", null);
+        service.AcceptTemporary(session, "PC-1", @"PC-1\admin", null);
         Check.Equal(MachineAccountSource.TemporaryLocal, service.Resolve(session, "pc-1.example.local").Source, "compte local du poste pour ce poste");
         Check.Equal(MachineAccountSource.Remote, service.Resolve(session, "PC-2").Source, "un autre poste garde le compte Postes");
-        Check.Equal(@"PC-1\admin", service.CredentialFor(session, "PC-1").Account, "compte local");
+        using (var local = service.CredentialFor(session, "PC-1"))
+        {
+            Check.Equal(@"PC-1\admin", local.Account, "compte local");
+        }
         service.ClearRemote();
         service.ForgetTemporary("PC-1");
         Check.Equal(MachineAccountSource.Windows, service.Resolve(session, "PC-1").Source, "retour à la session Windows");
@@ -247,6 +285,111 @@ internal static class MachineAccountTests
         using var document = JsonDocument.Parse(JsonSerializer.Serialize(sent.Last().Data, BridgeJson.Options));
         Check.True(document.RootElement.GetProperty("typed").GetProperty("withCredential").GetBoolean(), "mot de passe gardé côté moteur");
         Check.False(document.RootElement.GetRawText().Contains("\"x\"", StringComparison.Ordinal), "le mot de passe ne revient jamais");
+    }
+
+    [Test]
+    public static async Task Pauses_follow_the_place_and_refuse_the_next_operation()
+    {
+        var bridge = new SimulatedBridge();
+        var service = MachineAccountService.From(bridge.Context);
+        var session = await bridge.Source.GetSessionAsync(CancellationToken.None);
+
+        // A candidate refused with the name of the account in service never pauses it.
+        SimulatedBridge.Json(await bridge.CallAsync("machine.account.use", "{\"account\":\"SRV-FIC-02\\\\admin\",\"password\":null}"));
+        var candidate = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\",\"account\":\"SRV-FIC-02\\\\admin\",\"password\":null}"));
+        Check.Equal("rejected", candidate.GetProperty("trial").GetProperty("verdict").GetString(), "compte local d’un autre poste : refusé");
+        Check.False(candidate.GetProperty("state").GetProperty("inUse").GetProperty("paused").GetBoolean(), "le compte en service de même nom reste hors pause");
+
+        // The account in service refused: paused, and the next operation with it is refused (the trial may still validate it).
+        var refused = SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\"}"));
+        Check.Equal("rejected", refused.GetProperty("trial").GetProperty("verdict").GetString(), "compte en service refusé");
+        Check.True(refused.GetProperty("state").GetProperty("inUse").GetProperty("paused").GetBoolean(), "en pause après le refus");
+        var paused = Check.Throws<DomeniaOperationException>(() => service.CredentialFor(session, "SRV-FIC-01"), "opération refusée pendant la pause");
+        Check.Equal(MachineErrors.AccountPaused, paused.Code, "code machine.accountPaused");
+        string place;
+        using (var forTrial = service.CredentialFor(session, "SRV-FIC-01", forTrial: true))
+        {
+            Check.Equal(@"SRV-FIC-02\admin", forTrial.Account, "l’essai peut partir avec le compte en pause");
+            place = forTrial.Place;
+        }
+
+        // A candidate validated with the same name (another password) does not release the account in service.
+        var success = new MachineTrialResult(
+            MachineTrialVerdict.AdminOk, true, "Accès administrateur OK.", Tone.Ok, "SRV-FIC-02", @"SRV-FIC-02\admin", "compte à valider", null, true, true, TestClock.Reference);
+        service.RecordTrial(success, null, @"SRV-FIC-02\admin");
+        Check.True(service.Build(session, null, null).InUse.Paused, "un compte à valider réussi ne lève pas la pause du compte en service");
+
+        // The account in service validated by a trial: released.
+        service.RecordTrial(success with { Candidate = false }, place, @"SRV-FIC-02\admin");
+        Check.False(service.Build(session, null, null).InUse.Paused, "pause levée par l’essai réussi du compte en service");
+
+        // A new account typed with a refused name is a new place: it starts without pause.
+        SimulatedBridge.Json(await bridge.CallAsync("machine.account.use", "{\"account\":\"EXAMPLE\\\\licorne\",\"password\":null}"));
+        SimulatedBridge.Json(await bridge.CallAsync("machine.account.trial", "{\"target\":\"SRV-FIC-01\"}"));
+        var again = SimulatedBridge.Json(await bridge.CallAsync("machine.account.use", "{\"account\":\"EXAMPLE\\\\licorne\",\"password\":null}"));
+        Check.False(again.GetProperty("inUse").GetProperty("paused").GetBoolean(), "nouvelle saisie : nouvelle place, sans pause");
+    }
+
+    [Test]
+    public static async Task Temporary_accounts_keep_a_lease_bound_to_the_session()
+    {
+        var bridge = new SimulatedBridge();
+        var service = MachineAccountService.From(bridge.Context);
+        var session = await bridge.Source.GetSessionAsync(CancellationToken.None);
+
+        service.AcceptTemporary(session, null, @"EXAMPLE\tmp-postes", null);
+        var state = service.Build(session, null, null);
+        Check.Equal(MachineAccountSource.Temporary, state.InUse.Source, "compte temporaire en service");
+        Check.Contains("encore 30 min sans utilisation", state.Levels[1].Detail, "temps restant du bail");
+        bridge.Clock.Advance(TimeSpan.FromMinutes(20));
+        using (service.CredentialFor(session, null))
+        {
+            // A use by an operation extends the lease.
+        }
+        bridge.Clock.Advance(TimeSpan.FromMinutes(25));
+        Check.Equal(MachineAccountSource.Temporary, service.Resolve(session, null).Source, "prolongé par l’utilisation");
+        bridge.Clock.Advance(TimeSpan.FromMinutes(31));
+        Check.Equal(MachineAccountSource.Windows, service.Resolve(session, null).Source, "31 min sans utilisation : oublié");
+        Check.True(bridge.Context.Journal.Snapshot().Any(j => j.Label.StartsWith("Compte temporaire oublié", StringComparison.Ordinal) && !j.Label.Contains("tmp-postes", StringComparison.Ordinal)), "journal sans le nom");
+
+        service.AcceptTemporary(session, null, @"EXAMPLE\une-fois", null, MachineLeaseMode.OneShot);
+        using (var once = service.CredentialFor(session, null))
+        {
+            Check.Equal(@"EXAMPLE\une-fois", once.Account, "usage unique : première utilisation");
+        }
+        Check.Equal(MachineAccountSource.Windows, service.Resolve(session, null).Source, "usage unique dépensé");
+
+        service.AcceptTemporary(session, "PC-1", @"PC-1\admin", null, MachineLeaseMode.Session);
+        var otherDomain = session with { Domain = new DomainIdentity("autre.local", "AUTRE", "DC=autre,DC=local") };
+        Check.Equal(MachineAccountSource.Windows, service.Resolve(otherDomain, "PC-1").Source, "jamais pour un autre domaine");
+        Check.Equal(MachineAccountSource.Windows, service.Resolve(session, "PC-1").Source, "oublié au contrôle : il ne revient pas");
+    }
+
+    [Test]
+    public static async Task Watch_answers_when_the_account_changes()
+    {
+        var bridge = new SimulatedBridge();
+        var first = SimulatedBridge.Json(await bridge.CallAsync("machine.account.watch", "{\"since\":null}"));
+        Check.True(first.GetProperty("changed").GetBoolean(), "sans valeur connue : réponse immédiate");
+        Check.Equal("windows", first.GetProperty("inUse").GetProperty("source").GetString(), "pastille de la session Windows");
+        Check.Contains("Opérations poste", first.GetProperty("sentence").GetString(), "phrase de Domenia 1");
+        var version = first.GetProperty("version").GetInt64();
+        var state = SimulatedBridge.Json(await bridge.CallAsync("machine.account.state", "{}"));
+        Check.Equal(version, state.GetProperty("version").GetInt64(), "même compteur que l’état");
+
+        var waiting = bridge.CallAsync("machine.account.watch", "{\"since\":" + version.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+        await Task.Delay(50);
+        Check.False(waiting.IsCompleted, "aucun changement : la veille attend");
+        SimulatedBridge.Json(await bridge.CallAsync("machine.account.use", "{\"account\":\"EXAMPLE\\\\adm-j.martin\",\"password\":null}"));
+        var done = await Task.WhenAny(waiting, Task.Delay(5000));
+        Check.True(ReferenceEquals(done, waiting), "le changement réveille la veille");
+        var changed = SimulatedBridge.Json(await waiting);
+        Check.True(changed.GetProperty("changed").GetBoolean(), "changement signalé");
+        Check.Equal("typed", changed.GetProperty("inUse").GetProperty("source").GetString(), "nouvelle pastille");
+        AssertNoSecretName(changed);
+
+        var invalid = await bridge.CallAsync("machine.account.watch", "{\"since\":-1}");
+        Check.Equal("arguments.invalid", invalid.Error!.Code, "compteur négatif refusé");
     }
 
     private static void AssertNoSecretName(JsonElement element)

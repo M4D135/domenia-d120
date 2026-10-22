@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
@@ -110,6 +111,82 @@ internal static class SchemaTests
     }
 
     [Test]
+    public static async Task List_filter_matches_the_name_or_the_description_only()
+    {
+        var bridge = await ReadAsync();
+        // Domenia 1 Find-DomeniaAdSchemaEntries: a substring of the name or of the description, never another column. « top »
+        // must not list every class that inherits from top.
+        var top = SimulatedBridge.Json(await bridge.CallAsync("schema.list", "{\"kind\":\"classes\",\"text\":\"top\"}"));
+        var rows = top.GetProperty("rows").EnumerateArray().ToList();
+        Check.True(rows.Any(r => r.GetProperty("name").GetString() == "top"), "la classe top");
+        Check.False(rows.Any(r => r.GetProperty("name").GetString() == "user"), "user hérite de top mais ne contient pas « top »");
+        Check.True(rows.All(r => r.GetProperty("name").GetString()!.Contains("top", StringComparison.OrdinalIgnoreCase)
+            || r.GetProperty("description").GetString()!.Contains("top", StringComparison.OrdinalIgnoreCase)), "nom ou description seulement");
+        Check.Equal(rows.Count, top.GetProperty("total").GetInt32(), "total exact");
+        Check.Equal(SchemaRules.ListSummary(false, rows.Count, rows.Count), top.GetProperty("summary").GetString(), "résumé de Domenia 1");
+        // « une » would match « Une valeur » of the cardinality column: only names and descriptions count.
+        var single = SimulatedBridge.Json(await bridge.CallAsync("schema.list", "{\"kind\":\"attributes\",\"text\":\"Une valeur\"}"));
+        Check.True(single.GetProperty("total").GetInt32() < 20, "la colonne Valeurs n’est pas filtrée");
+        var tooLong = await bridge.CallAsync("schema.list", "{\"kind\":\"classes\",\"text\":\"" + new string('x', 129) + "\"}");
+        Check.Equal("arguments.invalid", tooLong.Error!.Code, "128 caractères au plus");
+    }
+
+    [Test]
+    public static async Task A_second_read_is_refused_while_the_first_runs()
+    {
+        var bridge = new SimulatedBridge(SimulationLatency.Realistic);
+        var first = bridge.CallAsync("schema.read");
+        await Task.Delay(30);
+        var second = await bridge.CallAsync("schema.read");
+        Check.Equal(SchemaErrors.ReadBusy, second.Error!.Code, "une seule lecture à la fois : la seconde est refusée, pas mise en attente");
+        Check.Equal("result", (await first).Kind, "la première lecture se termine");
+        Check.True(SimulatedBridge.Json(await bridge.CallAsync("schema.status")).GetProperty("read").GetBoolean(), "schéma lu");
+    }
+
+    [Test]
+    public static async Task Read_is_stopped_beyond_its_hard_limit()
+    {
+        Check.Equal(TimeSpan.FromSeconds(150), SchemaService.HardLimit(SchemaReadLimits.Default), "90 s de budget, arrêt à 150 s comme Domenia 1");
+        var (context, source) = ScriptedContext();
+        using (context)
+        {
+            source.Stall = true;
+            var service = SchemaService.From(context);
+            var limits = new SchemaReadLimits(10, 10, TimeSpan.FromMilliseconds(30));
+            var failed = await Check.ThrowsAsync<DomeniaOperationException>(() => service.ReadAsync(limits, null, CancellationToken.None), "lecture arrêtée");
+            Check.Equal(SchemaErrors.ReadFailed, failed.Code, "schema.readFailed");
+            Check.Contains("interrompue au-delà de", failed.Message, "raison donnée");
+            Check.False((await service.StatusAsync(CancellationToken.None)).Read, "rien n’est gardé");
+        }
+    }
+
+    [Test]
+    public static async Task Catalog_is_bound_to_the_session_it_was_read_for()
+    {
+        var (context, source) = ScriptedContext();
+        using (context)
+        {
+            var service = SchemaService.From(context);
+            await service.ReadAsync(null, CancellationToken.None);
+            Check.True((await service.StatusAsync(CancellationToken.None)).Read, "schéma lu pour cette session");
+            source.Session = s => s with { Account = s.Account with { Login = @"EXAMPLE\autre-compte" } };
+            Check.False((await service.StatusAsync(CancellationToken.None)).Read, "autre compte : schéma non lu pour cette session");
+            Check.Null(await service.CatalogAsync(CancellationToken.None), "jamais utilisé pour une autre session");
+            source.Session = null;
+            Check.True((await service.StatusAsync(CancellationToken.None)).Read, "même session : de nouveau disponible");
+        }
+    }
+
+    private static (EngineContext Context, ScriptedSchemaSource Source) ScriptedContext()
+    {
+        var clock = TestClock.Fixed();
+        var source = new ScriptedSchemaSource(new SimulatedDirectorySource(SimulationOptions.Default with { Latency = SimulationLatency.None }, clock));
+        var context = new EngineContext(
+            SimulatedBridge.Decision, source, new MemoryPreferenceStore(), clock, new RecordingJournal(), ScreenReaders.Discover(source, [typeof(ScriptedSchemaReader).Assembly]));
+        return (context, source);
+    }
+
+    [Test]
     public static async Task Class_detail_walks_superclasses_and_auxiliary_classes()
     {
         var bridge = await ReadAsync();
@@ -131,6 +208,9 @@ internal static class SchemaTests
         Check.Equal("(objectClass=user)", json.GetProperty("filter").GetString(), "filtre direct");
         Check.Equal("(&(objectCategory=person)(objectClass=user))", json.GetProperty("recommendedFilter").GetString(), "filtre recommandé");
         Check.Contains("un poste est aussi de classe user", json.GetProperty("filterAdvice").GetString(), "conseil objectClass ou objectCategory");
+        Check.Contains("écarte computer, msDS-GroupManagedServiceAccount et msDS-ManagedServiceAccount", json.GetProperty("recommendedNote").GetString(), "ce que le filtre recommandé écarte");
+        var contact = SimulatedBridge.Json(await bridge.CallAsync("schema.class", "{\"name\":\"contact\"}"));
+        Check.Equal(JsonValueKind.Null, contact.GetProperty("recommendedNote").ValueKind, "contact : la catégorie person ne change pas le résultat");
         string[] subclasses = [.. json.GetProperty("subclasses").EnumerateArray().Select(e => e.GetString()!)];
         Check.True(subclasses.SequenceEqual(["computer", "inetOrgPerson"]), "classes dérivées : " + string.Join(", ", subclasses));
         Check.Contains("user · classe structurelle · chaîne" + Nbsp + ": user → organizationalPerson", json.GetProperty("summary").GetString(), "résumé de Domenia 1");
@@ -253,5 +333,43 @@ internal static class SchemaTests
         Check.True(detail.Superclasses.SequenceEqual(["a", "b"]), "superclasses bornées");
         Check.True(detail.Missing.SequenceEqual(["absent"]), "attribut absent signalé");
         Check.True(detail.Lineage.Any(l => l.Name == "ghost" && !l.Known), "auxiliaire absente signalée");
+    }
+}
+
+/// <summary>Simulated source whose session can be changed and whose schema read can stall (tests of SchemaService).</summary>
+public sealed class ScriptedSchemaSource(SimulatedDirectorySource inner) : IDirectorySource
+{
+    public SimulatedDirectorySource Inner { get; } = inner;
+
+    /// <summary>Transforms the session of the simulation (another account, another domain).</summary>
+    public Func<SessionSnapshot, SessionSnapshot>? Session { get; set; }
+
+    /// <summary>The schema read waits until it is cancelled.</summary>
+    public bool Stall { get; set; }
+
+    public DirectorySourceKind Kind => Inner.Kind;
+
+    public async Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken)
+    {
+        var session = await Inner.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        return Session is { } transform ? transform(session) : session;
+    }
+
+    public Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken) => Inner.ReadLocalAsync(cancellationToken);
+
+    public Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken) =>
+        Inner.RefreshAsync(family, scope, cancellationToken);
+}
+
+/// <summary>Schema reader of <see cref="ScriptedSchemaSource"/>: the simulated read, or a read that never ends by itself.</summary>
+public sealed class ScriptedSchemaReader(ScriptedSchemaSource source) : ISchemaReader
+{
+    public async Task<SchemaReadResult> ReadDefinitionsAsync(SchemaReadLimits limits, IProgress<SchemaReadStage>? progress, CancellationToken cancellationToken)
+    {
+        if (source.Stall)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+        }
+        return await new SimulatedSchemaReader(source.Inner).ReadDefinitionsAsync(limits, progress, cancellationToken).ConfigureAwait(false);
     }
 }

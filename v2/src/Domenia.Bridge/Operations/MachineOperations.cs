@@ -17,6 +17,7 @@ public sealed class MachineOperations : IOperationModule
     private static readonly string[] UseArguments = ["account", "password", "target"];
     private static readonly string[] TrialArguments = ["target", "account", "password"];
     private static readonly string[] SearchArguments = ["text"];
+    private static readonly string[] WatchArguments = ["since", "target"];
 
     /// <summary>Longest search text of a workstation.</summary>
     public const int MaxSearchLength = 64;
@@ -82,6 +83,8 @@ public sealed class MachineOperations : IOperationModule
                 MachineAccountSource source;
                 string account;
                 SecureString? secret;
+                // The place of the account in service: its verdict pauses or validates that place only. A candidate has none.
+                string? place = null;
                 if (candidate is not null)
                 {
                     source = MachineAccountSource.Typed;
@@ -90,8 +93,9 @@ public sealed class MachineOperations : IOperationModule
                 }
                 else
                 {
-                    source = service.Resolve(session, target).Source;
-                    (account, secret) = service.CredentialFor(session, target);
+                    // The trial is how a paused account is validated: it may leave with it.
+                    var credential = service.CredentialFor(session, target, forTrial: true);
+                    (source, account, secret, place) = (credential.Source, credential.Account, credential.Password, credential.Place);
                 }
                 MachineTrialObservation observation;
                 try
@@ -115,11 +119,22 @@ public sealed class MachineOperations : IOperationModule
                 var result = new MachineTrialResult(
                     verdict, verdict == MachineTrialVerdict.AdminOk, text, tone, computer, label.Source == MachineAccountSource.Windows ? label.Long : account,
                     origin, observation.Caption, candidate is not null, simulation, context.Clock.GetUtcNow());
-                service.RecordTrial(result, label.Account);
+                service.RecordTrial(result, place, label.Account);
                 context.Journal.Add(new JournalEntry(result.At, "Essai du compte poste sur " + computer + FrenchText.Colon + VerdictWords(verdict) + (simulation ? " (simulation)" : ""), tone));
                 context.Log.Info("Essai du compte poste : verdict " + verdict + ".");
                 return new MachineTrialOutcome(result, service.Build(session, target, observation.Workstation));
             }, "Essai d’accès sur un seul poste avec le compte des opérations (ou un compte à valider) : une lecture légère du système, sur clic.", ServedInSimulation: true),
+
+            new OperationDefinition("machine.account.watch", OperationClass.Local, async (args, _, cancellationToken) =>
+            {
+                var values = BridgeArguments.ReadObject(args, WatchArguments);
+                var since = OptionalVersion(values);
+                var target = Target(values);
+                var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+                await service.WaitForChangeAsync(since, session, MachineAccountService.WatchTimeout, cancellationToken).ConfigureAwait(false);
+                var state = service.Build(session, target, null);
+                return new MachineAccountWatch(state.Version, since is null || state.Version != since.Value, state.InUse, state.Sentence, state.Generation);
+            }, "Attend un changement du compte des opérations poste (25 s au plus) : pastille et phrase à jour sur tout écran, mémoire seulement."),
 
             new OperationDefinition("machine.workstations.search", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
@@ -183,6 +198,18 @@ public sealed class MachineOperations : IOperationModule
         }
         secure.MakeReadOnly();
         return secure;
+    }
+
+    /// <summary>« since »: the change counter the page knows (an integer from 0), or null to get the words at once.</summary>
+    private static long? OptionalVersion(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        if (!values.TryGetValue("since", out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        return value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number) && number >= 0
+            ? number
+            : throw BridgeArguments.Invalid(FrenchText.Quote("since") + " doit être un entier positif ou null.");
     }
 
     private static string? OptionalTarget(JsonElement args, IReadOnlyCollection<string> allowed)

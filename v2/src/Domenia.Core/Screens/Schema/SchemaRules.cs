@@ -444,7 +444,7 @@ public static partial class SchemaRules
         return new SchemaClassDetail(
             root.Name, root.Oid, root.Description, root.Category, root.CategoryLabel, root.Defunct, root.SubClassOf, root.Auxiliary,
             [.. chain], Superclasses(catalog, root), [.. lineage], catalog.SubclassesOf(root.Name), ordered, [.. missing], required, ordered.Length - required, walkTruncated,
-            summary, filter, RecommendedFilter(root.Name, catalog), ClassFilterAdvice(root.Name));
+            summary, filter, RecommendedFilter(root.Name, catalog), RecommendedNote(root.Name, catalog), ClassFilterAdvice(root.Name));
     }
 
     /// <summary>The class and its superclasses up to top, following subClassOf (bounded, a loop never hangs).</summary>
@@ -488,6 +488,86 @@ public static partial class SchemaRules
         return string.Equals(category, className, StringComparison.OrdinalIgnoreCase)
             ? "(objectCategory=" + category + ")"
             : "(&(objectCategory=" + category + ")(objectClass=" + className + "))";
+    }
+
+    /// <summary>
+    /// Structural classes derived from <paramref name="className"/> whose usual category differs from the one that targets it: a
+    /// filter on that category leaves their objects out (objectCategory=person leaves out computer, which derives from user, and
+    /// the managed service accounts, which derive from computer). Read from the schema when it is known (walk bounded to 256
+    /// classes), otherwise from the base schema. Empty when the class has no usual category.
+    /// </summary>
+    public static ImmutableArray<string> CategoryExclusions(string className, SchemaCatalog? catalog)
+    {
+        ArgumentNullException.ThrowIfNull(className);
+        var category = UsualCategory(className);
+        if (category is null)
+        {
+            return [];
+        }
+        if (catalog is null)
+        {
+            return className.ToLowerInvariant() switch
+            {
+                "person" or "organizationalperson" or "user" => ["computer", "msDS-GroupManagedServiceAccount", "msDS-ManagedServiceAccount"],
+                "computer" => ["msDS-GroupManagedServiceAccount", "msDS-ManagedServiceAccount"],
+                _ => [],
+            };
+        }
+        var found = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { className };
+        var queue = new Queue<string>(catalog.SubclassesOf(className));
+        while (queue.Count > 0 && seen.Count < MaxClassWalk)
+        {
+            var name = queue.Dequeue();
+            if (!seen.Add(name))
+            {
+                continue;
+            }
+            foreach (var child in catalog.SubclassesOf(name))
+            {
+                queue.Enqueue(child);
+            }
+            var derived = catalog.FindClass(name);
+            if (derived is null || derived.Defunct || derived.Category is not (SchemaClassCategory.Structural or SchemaClassCategory.Class88))
+            {
+                continue;
+            }
+            if (!string.Equals(UsualCategory(name) ?? name, category, StringComparison.OrdinalIgnoreCase))
+            {
+                found.Add(derived.Name);
+            }
+        }
+        return [.. found];
+    }
+
+    /// <summary>« computer », « computer et msDS-ManagedServiceAccount », « a, b, c et 2 autres ».</summary>
+    public static string ClassList(IReadOnlyList<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        if (names.Count <= 3)
+        {
+            return names.Count <= 1 ? string.Join("", names) : string.Join(", ", names.Take(names.Count - 1)) + " et " + names[^1];
+        }
+        return string.Join(", ", names.Take(3)) + " et " + FrenchText.Count(names.Count - 3, "autre", "autres");
+    }
+
+    /// <summary>
+    /// What the recommended filter of a class leaves out, when its category does not cover every derived class; null otherwise.
+    /// </summary>
+    public static string? RecommendedNote(string className, SchemaCatalog? catalog)
+    {
+        var recommended = RecommendedFilter(className, catalog);
+        if (recommended.StartsWith("(objectClass=", StringComparison.Ordinal))
+        {
+            return null;
+        }
+        var excluded = CategoryExclusions(className, catalog);
+        if (excluded.IsEmpty)
+        {
+            return null;
+        }
+        return "Le filtre recommandé écarte " + ClassList(excluded) + (excluded.Length > 1 ? ", qui dérivent de " : ", qui dérive de ") + className
+            + " avec une autre catégorie" + FrenchText.Colon + "gardez (objectClass=" + className + ") pour " + (excluded.Length > 1 ? "les inclure." : "l’inclure.");
     }
 
     /// <summary>Usual objectCategory of the common classes (defaultObjectCategory of the base schema).</summary>
