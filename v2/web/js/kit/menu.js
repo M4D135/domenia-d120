@@ -108,6 +108,16 @@ export function openMenu(target, items, opts = {}) {
   const onBlur = () => close(false);
   const onScroll = (e) => {
     if (e.target instanceof Element && e.target.closest('.k-menu')) return;
+    // A layout shift (a header that shrinks, content that loads) scrolls the page too: while its button stays in view, the
+    // menu follows it (a submenu closes); it closes when the button leaves the window.
+    if (anchor?.isConnected) {
+      const r = anchor.getBoundingClientRect();
+      if (r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth) {
+        root.closeChild();
+        placeFloating(root.el, anchor, { placement: opts.placement ?? 'bottom-start' });
+        return;
+      }
+    }
     close(false);
   };
   const ctl = { close: () => close(true), el: root.el, closeQuiet: () => close(false) };
