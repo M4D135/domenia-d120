@@ -11,7 +11,7 @@
     { "do": "click", "selector": "[data-hero=read]", "within": ".sch-hero", "title": "Lire le schéma (geste explicite)" },
     { "do": "wait", "selector": ".sch-hero.compact", "timeoutMs": 15000, "title": "Schéma lu : l’en-tête se resserre" },
     { "do": "expect", "selector": ".sch-overview .ring", "title": "Vue d’ensemble : anneau des familles de syntaxe" },
-    { "do": "expect", "selector": ".sch-ov-legend li", "count": 9, "title": "Toutes les familles dans la légende" },
+    { "do": "expect", "selector": ".sch-ov-legend li", "count": 8, "title": "Les huit familles présentes dans l’annuaire fictif sont dans la légende" },
     { "do": "expect", "text": "Classes courantes", "within": ".sch-cat-quick", "title": "Raccourcis vers les classes courantes" },
     { "do": "click", "text": "user", "within": ".sch-cat-quick", "title": "Ouvrir la classe user" },
     { "do": "wait", "selector": ".sch-detail.cls", "title": "Détail de la classe" },

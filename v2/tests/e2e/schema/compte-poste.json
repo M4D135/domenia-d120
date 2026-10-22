@@ -6,7 +6,7 @@
   "start": "machine",
   "steps": [
     { "do": "expect", "text": "Session Windows", "within": ".mac-level[data-state=active]", "title": "Session Windows en service" },
-    { "do": "expect", "selector": ".mac-rule .mac-level.quiet", "count": 5, "title": "Les niveaux sans compte tiennent sur une ligne" },
+    { "do": "expect", "selector": ".mac-rule .mac-level.quiet", "count": 7, "title": "Les niveaux sans compte tiennent sur une ligne" },
     { "do": "click", "selector": "[data-machine-pill]", "title": "Ouvrir le panneau par la pastille" },
     { "do": "expect", "selector": ".k-drw .mac-panel", "title": "Panneau dans la page, jamais une fenêtre" },
     { "do": "expect", "selector": ".mac-password", "property": "disabled", "equals": true, "title": "Aucun mot de passe en simulation" },
