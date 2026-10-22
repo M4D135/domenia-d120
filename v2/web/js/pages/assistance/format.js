@@ -119,3 +119,45 @@ export function isIdentifier(text) {
   const value = String(text ?? '');
   return value.length > 0 && value.length <= 80 && !/\s/.test(value);
 }
+
+/** Names of a pasted list: one per line, or separated by commas, semicolons or spaces; blanks and duplicates removed. */
+export function parseNames(text) {
+  const seen = new Set();
+  const names = [];
+  for (const raw of String(text ?? '').split(/[\s,;]+/)) {
+    const name = raw.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Address of the view of a step on another screen (route contract of docs/KIT.md § 3.1): Fiche « tab », Poste « onglet »,
+ * Audit AD « tab=objet » and its inner view « vue ».
+ */
+export function stepRoute(view, dn) {
+  if (view.screen === 'fiche') return { screen: 'fiche', params: { dn, tab: view.section } };
+  if (view.screen === 'audit') return { screen: 'audit', params: { tab: 'objet', dn, vue: view.section } };
+  return { screen: view.screen, params: { dn, onglet: view.section } };
+}
+
+/** An argument of the shown command, quoted when it holds a space or a quote. */
+export const quoteArg = (text) => (/[\s"]/.test(text) ? `"${String(text).replace(/"/g, '\\"')}"` : String(text));
+
+/**
+ * The command line equivalent to an offline dossier (docs/ops/assistance.md § 6.1). perimeter: { postes?: string[],
+ * ou?: string, guids?: string[] } (one of them); sections: the optional sections chosen among all (null = all, so no
+ * « --sections »); « etat,postes » alone writes none of them. Empty without a perimeter.
+ */
+export function dossierCommand(perimeter, sections, allSections, simulation) {
+  let scope = '';
+  if (perimeter?.postes?.length) scope = `--postes ${perimeter.postes.map(quoteArg).join(',')}`;
+  else if (perimeter?.ou) scope = `--ou ${quoteArg(perimeter.ou)}`;
+  else if (perimeter?.guids?.length) scope = `--guids ${perimeter.guids.join(',')}`;
+  if (!scope) return '';
+  const all = !sections || sections.length === allSections.length;
+  const chosen = all ? '' : ` --sections ${sections.length ? sections.join(',') : 'etat,postes'}`;
+  return `Domenia.exe dossier --sortie "<dossier local>" ${scope}${chosen}${simulation ? ' --simulation' : ''}`;
+}

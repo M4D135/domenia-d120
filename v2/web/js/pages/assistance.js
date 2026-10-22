@@ -13,6 +13,7 @@ import { renderSession, resolveSubject } from './assistance/subjects.js';
 import { renderRecipes } from './assistance/recipes.js';
 import { renderFindings, renderCompare, renderIncidents, renderPins } from './assistance/workshop.js';
 import { renderDossier, renderOffline } from './assistance/documents.js';
+import { parseNames } from './assistance/format.js';
 
 /** The screen has its own stylesheet (css/pages/assistance.css), loaded by the router. */
 export const stylesheet = true;
@@ -196,6 +197,7 @@ export function render(main, ctx) {
     if (action?.dataset.railAction === 'engine') openEngine();
     if (action?.dataset.railAction === 'accounts') ctx.navigate('comptes');
     if (action?.dataset.railAction === 'reset') resetWorkshop();
+    if (e.target instanceof Element && e.target.closest('[data-poll-resume]')) resumePolling();
   });
   rail.addEventListener('keydown', (e) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
@@ -262,18 +264,42 @@ export function render(main, ctx) {
   // While the screen is shown, the workshop is compared every second (Domenia 1 timer of the support view): new incidents of
   // the session and the reads in progress appear without a click. A background call: no busy line, nothing read from the
   // directory (assistance.workshop.poll is a Local operation).
+  // TRV-185 (Domenia 1 « dégradation inerte »): after three failures in a row the follow-up stops by itself and says so in the
+  // rail, with « Reprendre »; the first success resets the count. Never an error per second in the console.
+  let pollFailures = 0;
+  function pollStopped(stopped) {
+    const host = main.querySelector('.as-rail-foot');
+    host?.querySelector('[data-poll-resume]')?.remove();
+    if (!stopped || !host) return;
+    host.insertAdjacentHTML('afterbegin', `<button class="chip warn as-poll-stopped" type="button" data-poll-resume data-tip="Le suivi de l’atelier a échoué trois fois de suite${COLON}il s’est arrêté. Reprendre le relance.">${ico('pause')}Suivi arrêté · Reprendre</button>`);
+  }
+  function resumePolling() {
+    pollFailures = 0;
+    pollStopped(false);
+    clearInterval(pollTimer);
+    pollTimer = setInterval(() => checkSession(), POLL_MS);
+    checkSession(true);
+  }
+
   async function checkSession(force = false) {
     if (disposed || polling || (!force && document.visibilityState !== 'visible')) return;
     polling = true;
     try {
       const p = await backgroundCall('assistance.workshop.poll');
       if (disposed) return;
+      pollFailures = 0;
       const loadChanged = p.running !== app.load.running || p.queued !== app.load.queued;
       app.load = { running: p.running, queued: p.queued };
       if (p.session !== memory.session || p.revision !== app.workshop?.revision) await app.refreshWorkshop({ background: true });
       else if (loadChanged) updateCounts();
     } catch (err) {
-      console.error(err);
+      pollFailures += 1;
+      if (pollFailures === 1) console.error(err);
+      if (pollFailures >= 3 && pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = 0;
+        pollStopped(true);
+      }
     } finally {
       polling = false;
     }
@@ -305,6 +331,7 @@ export function render(main, ctx) {
     viewCleanup = null;
     viewHost.setAttribute('aria-labelledby', `as-tab-${def.id}`);
     viewHost.classList.remove('entering');
+    viewHost.removeAttribute('aria-busy');
     viewHost.replaceChildren();
     if (!motionReduced()) { void viewHost.offsetWidth; viewHost.classList.add('entering'); }
     const out = def.render(viewHost, app, extra);
@@ -331,10 +358,15 @@ export function render(main, ctx) {
     return `<div class="as-kpi ${tone(t)}"><span>${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
   }
 
+  app.openEngine = () => openEngine();
   async function openEngine() {
+    // The panel lives in <body>, outside the screen: its host carries data-page so that the rules of the screen apply.
+    const engineHost = document.createElement('div');
+    engineHost.dataset.page = 'assistance';
+    engineHost.innerHTML = '<div class="as-engine" aria-busy="true"><span class="skeleton as-sk w85"></span><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w55"></span></div>';
     const panel = openDrawer({
       title: 'État du moteur', subtitle: 'Lu sans aucune sonde réseau', icon: 'activity', key: 'assistance.moteur', width: 500,
-      body: '<div class="as-engine" aria-busy="true"><span class="skeleton as-sk w85"></span><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w55"></span></div>',
+      body: engineHost,
       actions: [
         { id: 'accounts', label: 'Voir les comptes', run: (p) => { p.close(); ctx.navigate('comptes'); } },
         { id: 'close', label: 'Fermer', primary: true, run: (p) => p.close() },
@@ -361,7 +393,7 @@ export function render(main, ctx) {
           <p class="as-inline">${s.writes.length ? s.writes.map((w) => chip('accent', w, { icon: 'lock' })).join('') : chip('off', 'Aucune écriture dans ce mode')}</p>
           <p>${esc(s.exportsLabel)}</p>
           <p class="as-faint">Mesures de l’Accueil${COLON}${esc(plural(s.measuresRunning, 'en cours', 'en cours'))}, ${esc(plural(s.measuresQueued, 'en attente', 'en attente'))}.</p></section>`;
-      panel.body.replaceChildren(body);
+      engineHost.replaceChildren(body);
     } catch (err) {
       app.toast(`État du moteur indisponible${COLON}${errorText(err)}`, { tone: 'warn' });
       panel.close();
@@ -390,7 +422,12 @@ export function render(main, ctx) {
       app.overview = overview;
       app.recipes = { recipes: overview.recipes };
       app.setWorkshop(overview.workshop);
-      if (!overview.readerAvailable) page.classList.add('no-reader');
+      if (!overview.readerAvailable) {
+        // Directory mode of this version (wave 3 to come): said once, in words, above the work, not only by greyed slots.
+        page.classList.add('no-reader');
+        page.querySelector('.as-layout')?.insertAdjacentHTML('beforebegin', `<div class="as-banner warn as-no-reader reveal" role="status">${ico('info')}<div><b>Lecture de l’annuaire pas encore branchée dans cette version</b>
+          <p>Le choix d’un compte ou d’un poste, les étapes et les constats attendent le lecteur de l’annuaire et la base locale (mode annuaire, vague 3). Les parcours, l’atelier et l’état du moteur restent consultables${NBSP}; rien n’est lu ni écrit.</p></div></div>`);
+      }
       page.querySelector('[data-hero-mode]')?.replaceWith(heroModeChip(app));
     } catch (err) {
       console.error(err);
@@ -401,6 +438,15 @@ export function render(main, ctx) {
     }
     if (VIEWS.some((v) => v.id === params.vue)) memory.view = params.vue;
     if (params.recette) memory.recipe = params.recette;
+    // Arrival contract of a list screen (ASS-012, Domenia 1 « postes des résultats affichés »): « postes=PC-01,PC-02,… »
+    // (500 names at most, the cleanup of the pasted list) fills the « Liste de postes » perimeter of the offline dossier and
+    // selects it; nothing is read nor written before « Préparer le dossier… ». The address then forgets the names.
+    if (typeof params.postes === 'string' && params.postes) {
+      memory.offline.names = parseNames(params.postes).slice(0, 500).join('\n');
+      memory.offline.scope = 'list';
+      memory.offline.scopeChosen = true;
+      memory.view = 'horsligne';
+    }
     showView(memory.view);
     await subjectsFromAddress();
     if (disposed) return;
@@ -531,7 +577,7 @@ function layout() {
           </div>
         </div>
       </nav>
-      <section class="as-view" id="as-view" role="tabpanel" tabindex="-1"></section>
+      <section class="as-view" id="as-view" role="tabpanel" tabindex="-1" aria-busy="true"><div class="card as-panel as-view-sk" aria-label="Lecture de l’atelier"><span class="skeleton as-sk w55"></span><span class="skeleton as-sk w85"></span><span class="skeleton as-sk w70"></span><span class="skeleton as-sk w40"></span></div></section>
     </div>
   </div>`;
 }

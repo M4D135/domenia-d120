@@ -218,6 +218,35 @@ internal static class AssistanceSessionTests
         await pending;
     }
 
+    [Test]
+    public static async Task A_refusal_of_the_screen_is_journaled_and_explained_in_incidents()
+    {
+        // ASS-006: every refusal of an operation of the screen reaches the journal of the session, then the Incidents view.
+        var bridge = new SimulatedBridge();
+        var dn = bridge.Source.CurrentDirectory.Users.First().DistinguishedName;
+        Check.Equal(AssistanceErrors.NotRead, ErrorCode(await bridge.CallAsync("assistance.capture.take", Args(new { slot = "a", dn }))), "capture d’une fiche non lue refusée");
+        Check.True(bridge.Context.Journal.Snapshot().Any(e => e.Label.Contains("refus " + AssistanceErrors.NotRead, StringComparison.Ordinal)), "refus inscrit au journal de la session");
+        var workshop = SimulatedBridge.Json(await bridge.CallAsync("assistance.workshop.get"));
+        Check.True(workshop.GetProperty("incidents").GetProperty("items").EnumerateArray()
+            .Any(i => (i.GetProperty("detail").GetString() ?? "").Contains(AssistanceErrors.NotRead, StringComparison.Ordinal)), "refus expliqué dans la vue Incidents");
+    }
+
+    [Test]
+    public static async Task A_capture_or_a_pin_is_refused_while_the_same_object_is_read()
+    {
+        // Domenia 1 ASS-003, ASS-004: no capture during the load of the same object (the previous read would be frozen).
+        var bridge = new SimulatedBridge();
+        var dn = bridge.Source.CurrentDirectory.Users.First().DistinguishedName;
+        SimulatedBridge.Json(await bridge.CallAsync("assistance.subject.read", Args(new { dn })));
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reading = AssistanceScheduler.From(bridge.Context).RunAsync(dn, _ => gate.Task, CancellationToken.None);
+        Check.Equal(AssistanceErrors.SubjectReading, ErrorCode(await bridge.CallAsync("assistance.capture.take", Args(new { slot = "a", dn }))), "capture refusée pendant la lecture");
+        Check.Equal(AssistanceErrors.SubjectReading, ErrorCode(await bridge.CallAsync("assistance.pin.add", Args(new { dn }))), "repère refusé pendant la lecture");
+        gate.SetResult(0);
+        await reading;
+        Check.Equal("result", (await bridge.CallAsync("assistance.capture.take", Args(new { slot = "a", dn }))).Kind, "capture acceptée après la lecture");
+    }
+
     // ---------------------------------------------------------------- documents
 
     [Test]

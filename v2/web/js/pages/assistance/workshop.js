@@ -100,6 +100,9 @@ export function renderFindings(host, app) {
     const c = view.card;
     const ws = app.workshop;
     const pinsFull = (ws?.pins?.length ?? 0) >= (ws?.pinLimit ?? 24) && !ws?.pins?.some((p) => p.dn === c.dn);
+    // Domenia 1 (ASS-003, ASS-004): while the object is read again, a capture or a pin would freeze the previous read.
+    const reading = Boolean(app.busy?.[kind]);
+    const readingReason = `Lecture de ${c.name} en cours${COLON}attendez sa fin pour capturer ou épingler.`;
     panel.innerHTML = `<div class="as-stack">
       <section class="card as-cover reveal">
         <div class="as-cover-id">${avatar(c.name, c.kind)}
@@ -110,9 +113,9 @@ export function renderFindings(host, app) {
         <div class="as-cover-actions">
           ${button({ label: 'Recalculer', icon: 'refresh', data: { act: 'analyse' }, tip: 'Recalcule les constats sur la même lecture, sans rien relire' })}
           ${button({ label: 'Relire la fiche', icon: 'scan', data: { act: 'reread' }, tip: 'Une nouvelle lecture de l’objet (geste explicite)' })}
-          ${button({ label: 'Épingler', icon: 'pin', data: { act: 'pin' }, disabled: pinsFull, reason: `${ws?.pinLimit ?? 24}${NBSP}repères sont déjà présents : retirez-en un dans « Repères ».` })}
-          ${button({ label: 'Capturer en A', icon: 'compare', data: { act: 'a' } })}
-          ${button({ label: 'Capturer en B', icon: 'compare', data: { act: 'b' } })}
+          ${button({ label: 'Épingler', icon: 'pin', data: { act: 'pin' }, disabled: pinsFull || reading, reason: reading ? readingReason : `${ws?.pinLimit ?? 24}${NBSP}repères sont déjà présents${COLON}retirez-en un dans «${NBSP}Repères${NBSP}».` })}
+          ${button({ label: 'Capturer en A', icon: 'compare', data: { act: 'a' }, disabled: reading, reason: readingReason })}
+          ${button({ label: 'Capturer en B', icon: 'compare', data: { act: 'b' }, disabled: reading, reason: readingReason })}
         </div>
         <div class="as-coverage">
           <div class="as-coverage-head"><b>${cov.provided + cov.partial}</b><span>attributs fournis sur ${cov.total}</span></div>
@@ -141,7 +144,7 @@ export function renderFindings(host, app) {
     list.setAttribute('role', 'listbox');
     list.setAttribute('aria-label', 'Constats');
     list.innerHTML = findings.map((f, n) => `
-      <button type="button" role="option" class="as-row ${tone(f.tone)}" data-code="${esc(f.code)}" aria-selected="${f.code === selected[kind]}" data-j="${n}" aria-label="${esc(`${f.levelLabel} : ${f.title}`)}">
+      <button type="button" role="option" class="as-row ${tone(f.tone)}" data-code="${esc(f.code)}" aria-selected="${f.code === selected[kind]}" data-j="${n}" aria-label="${esc(`${f.levelLabel}${COLON}${f.title}`)}">
         <span class="as-row-mark">${ico(LEVEL_ICON[f.level] ?? 'info')}</span>
         <span class="as-row-body"><b>${esc(f.title)}</b><small>${esc(f.levelLabel)}${NBSP}· ${esc(f.basisLabel)}</small></span>
       </button>`).join('');
@@ -174,7 +177,8 @@ export function renderFindings(host, app) {
   }
 
   function attributes(snapshot, only) {
-    return (snapshot.fields ?? []).filter((f) => !only || f.coverage !== 'notProvided').map((f) => {
+    const head = '<div class="as-attr head" role="row"><span role="columnheader">Attribut</span><span role="columnheader">Couverture</span><span role="columnheader">Valeur</span></div>';
+    return head + (snapshot.fields ?? []).filter((f) => !only || f.coverage !== 'notProvided').map((f) => {
       const [t, label] = COVERAGE[f.coverage] ?? COVERAGE.notProvided;
       const value = f.values.length === 0 ? '<span class="as-faint">—</span>'
         : f.values.length > 3 ? `<details><summary>${esc(plural(f.values.length, 'valeur', 'valeurs'))}</summary><ul>${f.values.map((v) => `<li>${valueHtml(f.name, v)}</li>`).join('')}</ul></details>`
@@ -208,6 +212,8 @@ export function renderFindings(host, app) {
       } catch (err) { app.toast(errorText(err), { tone: 'warn' }); }
     } else if (act === 'reread') {
       await app.readSubject(kind, dn);
+    } else if ((act === 'pin' || act === 'a' || act === 'b') && app.busy?.[kind]) {
+      app.toast(`Lecture de ${view.card.name} en cours${COLON}attendez sa fin pour capturer ou épingler.`, { tone: 'info' });
     } else if (act === 'pin') {
       await app.workshopCall('assistance.pin.add', { dn }, `${view.card.name} épinglé dans les repères.`);
     } else if (act === 'a' || act === 'b') {
@@ -225,8 +231,9 @@ export function renderFindings(host, app) {
     if (box) box.innerHTML = attributes(view.snapshot, providedOnly[kind]);
   });
 
+  // A read that starts or ends greys or frees « Épingler » and « Capturer » (the next read repaints the findings anyway).
   paint();
-  offs.push(app.on('subjects', paint));
+  offs.push(app.on('subjects', paint), app.on('busy', paint));
   return () => { offs.forEach((off) => off()); tabs?.destroy(); };
 }
 
@@ -302,8 +309,8 @@ export function renderCompare(host, app) {
           <li><span>3</span><div><b>Capturez B</b><p>La comparaison s’affiche aussitôt, attribut par attribut.</p></div></li>
         </ol>
       </section>`}
-      <input type="file" accept="application/json,.json" data-file hidden>
     </div>`;
+    host.append(fileInput);
     applyVars(host);
     enter(host, view);
     app.freshen(host);
@@ -322,6 +329,13 @@ export function renderCompare(host, app) {
   }
 
   let pendingSlot = 'a';
+  // One file input for the whole life of the view, moved back after each repaint: a choice dialog left open across a
+  // repaint still delivers its file (a replaced input would lose it without a word).
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/json,.json';
+  fileInput.hidden = true;
+  fileInput.dataset.file = '';
   host.addEventListener('click', async (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (!t) return;
@@ -339,7 +353,7 @@ export function renderCompare(host, app) {
     const clear = t.closest('[data-clear]');
     if (clear) { lastExport[clear.dataset.clear] = null; await app.workshopCall('assistance.capture.clear', { slot: clear.dataset.clear }); return; }
     const load = t.closest('[data-load]');
-    if (load) { pendingSlot = load.dataset.load; host.querySelector('[data-file]')?.click(); return; }
+    if (load) { pendingSlot = load.dataset.load; fileInput.click(); return; }
     const save = t.closest('[data-save]');
     if (save) {
       const slot = save.dataset.save;
@@ -375,8 +389,13 @@ export function renderCompare(host, app) {
     }
   });
 
+  // The view follows what it shows (captures, comparison, subjects that can be captured), not every new incident.
+  const shownOf = () => JSON.stringify([app.workshop?.a ?? null, app.workshop?.b ?? null, app.workshop?.comparison ?? null, app.subject('user')?.card?.dn ?? null, app.subject('computer')?.card?.dn ?? null]);
+  let shown = '';
+  const repaint = () => { const now = shownOf(); if (now === shown) return; shown = now; paint(); };
   paint();
-  offs.push(app.on('workshop', paint), app.on('subjects', paint), app.on('reset', () => { lastExport = { a: null, b: null }; }));
+  shown = shownOf();
+  offs.push(app.on('workshop', repaint), app.on('subjects', repaint), app.on('reset', () => { lastExport = { a: null, b: null }; }));
   return () => offs.forEach((off) => off());
 }
 
@@ -396,7 +415,7 @@ export function renderIncidents(host, app) {
 
   function rowsHtml(items) {
     return items.length ? items.map((i, n) => `
-      <button type="button" role="option" class="as-row ${tone(i.tone)}" data-id="${esc(i.id)}" aria-selected="${i.id === selected}" data-j="${n}" aria-label="${esc(`${i.levelLabel}, ${formatTime(i.at) ?? ''} : ${i.title}`)}">
+      <button type="button" role="option" class="as-row ${tone(i.tone)}" data-id="${esc(i.id)}" aria-selected="${i.id === selected}" data-j="${n}" aria-label="${esc(`${i.levelLabel}, ${formatTime(i.at) ?? ''}${COLON}${i.title}`)}">
         <span class="as-row-mark" data-tip="${esc(i.levelLabel)}">${ico(i.tone === 'alert' ? 'alert' : 'info')}</span>
         <span class="as-row-body"><b class="as-two-lines">${esc(i.title)}</b><small data-tip="${esc(i.codes)}"><span class="as-row-time">${esc(formatTime(i.at) ?? '—')}</span>${NBSP}· ${esc(i.area)}${NBSP}· <span class="mono">${esc(i.codes)}</span></small></span>
       </button>`).join('') : '<p class="as-faint as-pad">Aucun incident ne correspond au filtre.</p>';
@@ -473,7 +492,8 @@ export function renderIncidents(host, app) {
       return;
     }
     const route = t.closest('[data-route]');
-    if (route) { app.ctx.navigate(route.dataset.route); return; }
+    // « moteur » is the engine state of this screen (its own panel), the other routes open their screen.
+    if (route) { if (route.dataset.route === 'moteur') app.openEngine?.(); else app.ctx.navigate(route.dataset.route); return; }
     if (t.closest('[data-attach]') && selected) {
       app.memory.report.incident = selected;
       app.memory.report.kind = 'support';
@@ -508,17 +528,23 @@ export function renderIncidents(host, app) {
   paint();
   app.refreshWorkshop();
   // The workshop is compared every second by the page: a new incident repaints the list, never the filter being typed.
+  // A new revision updates the list, its summary and the detail in place: the filter being typed, the keyboard focus on a row
+  // and the scroll of the master-detail stay where they are. Only the first display (or an emptied workshop) repaints.
   offs.push(app.on('workshop', () => {
     if (app.workshop?.revision === shownRevision) return;
-    const typing = document.activeElement instanceof HTMLInputElement && document.activeElement.matches('[data-filter]');
-    if (typing && host.querySelector('.as-list')) {
-      shownRevision = app.workshop.revision;
-      host.querySelector('.as-list').innerHTML = rowsHtml(visible());
-      const summary = host.querySelector('[data-summary]');
-      if (summary) summary.textContent = app.workshop.incidents.summary;
-      return;
-    }
-    paint();
+    const list = host.querySelector('.as-list');
+    if (!list || !app.workshop?.incidents) { paint(); return; }
+    shownRevision = app.workshop.revision;
+    const focusedId = document.activeElement instanceof Element && list.contains(document.activeElement) ? document.activeElement.closest('[data-id]')?.dataset.id : null;
+    const scroll = list.scrollTop;
+    const items = visible();
+    if (!items.some((i) => i.id === selected)) selected = items[0]?.id ?? null;
+    list.innerHTML = rowsHtml(items);
+    list.scrollTop = scroll;
+    if (focusedId) /** @type {HTMLElement|null} */ (list.querySelector(`[data-id="${CSS.escape(focusedId)}"]`))?.focus({ preventScroll: true });
+    const summary = host.querySelector('[data-summary]');
+    if (summary) summary.textContent = app.workshop.incidents.summary;
+    paintDetail();
   }));
   return () => { clearTimeout(timer); split?.destroy?.(); offs.forEach((off) => off()); };
 }

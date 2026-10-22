@@ -1,9 +1,10 @@
-// Tests of the pure helpers of the Assistance page (web/js/pages/assistance/format.js and the list parser of documents.js).
+// Tests of the pure helpers of the Assistance page (web/js/pages/assistance/format.js: formatting, the list parser of the
+// offline dossier, the routes of the steps and the command line shown).
 // Written with the code, run at the very end (decision of 21/10): « node tests/web/assistance-format.test.mjs » from v2/,
 // or by the WebView2 engine. No DOM, no bridge: format.js imports nothing.
 import assert from 'node:assert/strict';
 import {
-  NBSP, plural, int, initials, dnParts, dnPath, dnName, isDn, fileTimeToIso, readableValue, isIdentifier,
+  NBSP, plural, int, initials, dnParts, dnPath, dnName, isDn, fileTimeToIso, readableValue, isIdentifier, parseNames, stepRoute, dossierCommand,
 } from '../../web/js/pages/assistance/format.js';
 
 const tests = [];
@@ -66,6 +67,29 @@ test('identifiers stay on one line, sentences may wrap', () => {
   assert.ok(isIdentifier('pc-bdx-0006.example.local'));
   assert.ok(!isIdentifier('Windows 11 Entreprise'));
   assert.ok(!isIdentifier(''));
+});
+
+test('parseNames: lines, commas, semicolons and spaces; blanks and duplicates removed, order kept', () => {
+  assert.deepEqual(parseNames('PC-01\nPC-02, pc-01;PC-03  PC-04\n\n'), ['PC-01', 'PC-02', 'PC-03', 'PC-04']);
+  assert.deepEqual(parseNames(''), []);
+  assert.deepEqual(parseNames(null), []);
+});
+
+test('stepRoute: Fiche « tab », Audit « tab=objet » and « vue », Poste « onglet »', () => {
+  const dn = 'CN=PC-01,OU=Postes,DC=example,DC=local';
+  assert.deepEqual(stepRoute({ screen: 'fiche', section: 'compte' }, dn), { screen: 'fiche', params: { dn, tab: 'compte' } });
+  assert.deepEqual(stepRoute({ screen: 'audit', section: 'acl' }, dn), { screen: 'audit', params: { tab: 'objet', dn, vue: 'acl' } });
+  assert.deepEqual(stepRoute({ screen: 'poste', section: 'inventaire' }, dn), { screen: 'poste', params: { dn, onglet: 'inventaire' } });
+});
+
+test('dossierCommand: one perimeter, quoted arguments, --sections only when not all, « etat,postes » for none', () => {
+  const all = [{ id: 'observations' }, { id: 'associations' }, { id: 'requetes' }];
+  assert.equal(dossierCommand({ postes: ['PC-01', 'PC-02'] }, ['observations', 'associations', 'requetes'], all, false),
+    'Domenia.exe dossier --sortie "<dossier local>" --postes PC-01,PC-02');
+  assert.equal(dossierCommand({ ou: 'OU=Postes Lyon,DC=example,DC=local' }, ['observations'], all, true),
+    'Domenia.exe dossier --sortie "<dossier local>" --ou "OU=Postes Lyon,DC=example,DC=local" --sections observations --simulation');
+  assert.equal(dossierCommand({ guids: ['a', 'b'] }, [], all, false), 'Domenia.exe dossier --sortie "<dossier local>" --guids a,b --sections etat,postes');
+  assert.equal(dossierCommand(null, [], all, false), '');
 });
 
 let failed = 0;

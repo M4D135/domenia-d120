@@ -6,20 +6,13 @@ import { esc, errorText, applyVars, reveal, announce, motionReduced } from '../.
 import { confirmDialog, pill } from '../../kit/index.js';
 import { ico, chip, tone, avatar, plural, button, factValue, COLON, NBSP } from './common.js';
 import { loadSuggestions } from './subjects.js';
+import { stepRoute } from './format.js';
 
 const ICONS = { key: 'key', gauge: 'gauge', disk: 'disk', layers: 'layers', printer: 'printer', folder: 'folder', domain: 'domain' };
 const PHASE_ICON = { viewOnly: 'eye', ready: 'play', read: 'check', refused: 'lock', failed: 'alert' };
 const SUBJECT_ICON = { user: 'user', computer: 'monitor' };
 
-/**
- * Address of the view of a step on another screen (route contract of docs/KIT.md § 3.1): Fiche « tab », Poste « onglet »,
- * Audit AD « tab=objet » and its inner view « vue ».
- */
-export function stepRoute(view, dn) {
-  if (view.screen === 'fiche') return { screen: 'fiche', params: { dn, tab: view.section } };
-  if (view.screen === 'audit') return { screen: 'audit', params: { tab: 'objet', dn, vue: view.section } };
-  return { screen: view.screen, params: { dn, onglet: view.section } };
-}
+export { stepRoute };
 
 function ring(done, total, label) {
   const p = total > 0 ? done / total : 0;
@@ -155,7 +148,9 @@ export function renderRecipes(host, app) {
     grid.removeAttribute('aria-busy');
     grid.innerHTML = list.length ? list.slice(0, 8).map((s, n) => `<button type="button" class="as-suggestion reveal" data-dn="${esc(s.subject.dn)}" data-kind="${esc(s.subject.kind)}" data-j="${n}" data-tip="${esc(s.reason)}">
         ${avatar(s.subject.name, s.subject.kind, 'sm')}<span class="as-sug-body"><b>${esc(s.subject.name)}</b><small class="${s.subject.kind === 'computer' ? 'warn' : tone(s.subject.tone)}"><span class="as-dot" aria-hidden="true"></span><span class="as-sug-reason">${esc(s.reason)}</span></small></span></button>`).join('')
-      : '<p class="as-faint">Aucune suggestion dans les données locales.</p>';
+      : app.overview?.readerAvailable === false
+        ? `<p class="as-faint">Aucune piste${NBSP}: la lecture de l’annuaire et la base locale ne sont pas encore branchées dans cette version (mode annuaire). Les parcours et les documents restent consultables.</p>`
+        : '<p class="as-faint">Aucune suggestion dans les données locales.</p>';
     applyVars(grid);
     reveal(grid);
   }

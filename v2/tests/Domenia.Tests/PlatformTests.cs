@@ -102,7 +102,7 @@ internal static class PlatformTests
         ("assistance.capture.swap", OperationClass.Local),
         ("assistance.capture.take", OperationClass.Local),
         ("assistance.computers.resolve", OperationClass.LocalRead),
-        ("assistance.document.reveal", OperationClass.LocalRead),
+        ("assistance.document.reveal", OperationClass.Local),
         ("assistance.dossier.prepare", OperationClass.LocalWrite),
         ("assistance.engine.state", OperationClass.Local),
         ("assistance.incidents.clear", OperationClass.Local),

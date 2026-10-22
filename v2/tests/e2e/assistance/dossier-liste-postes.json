@@ -1,0 +1,67 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Assistance : dossier hors ligne d’une liste de postes reçue d’un autre écran",
+  "description": "Arrive par le contrat postes= (ASS-012) : la vue Dossier hors ligne s’ouvre, le périmètre « Liste de postes » est choisi et rempli, la ligne de commande équivalente l’affiche ; « Préparer le dossier… » demande une confirmation avant d’écrire, puis le résultat liste les fichiers et leurs empreintes.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "assistance?postes=PC-LYO-0002%2CPC-PAR-0012",
+  "motion": "reduced",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "input[name=\"as-off-scope\"][value=\"list\"]:checked",
+      "title": "Le périmètre « Liste de postes » est choisi"
+    },
+    {
+      "do": "expect",
+      "contains": "2 noms collés",
+      "within": ".as-choices",
+      "title": "Les deux noms sont repris"
+    },
+    {
+      "do": "expect",
+      "contains": "--postes PC-LYO-0002,PC-PAR-0012",
+      "within": ".as-cli",
+      "title": "La commande équivalente cite la liste"
+    },
+    {
+      "do": "expect",
+      "contains": "Start-Process -Wait -PassThru",
+      "within": ".as-cli",
+      "title": "L’attente du code de sortie est expliquée"
+    },
+    {
+      "do": "click",
+      "selector": "[data-prepare]",
+      "title": "Préparer le dossier"
+    },
+    {
+      "do": "wait",
+      "contains": "Périmètre",
+      "within": "[role=dialog]",
+      "title": "Une confirmation est demandée avant toute écriture"
+    },
+    {
+      "do": "click",
+      "text": "Préparer le dossier",
+      "within": "[role=dialog]"
+    },
+    {
+      "do": "wait",
+      "selector": ".as-files",
+      "timeoutMs": 20000,
+      "title": "Fichiers et empreintes du dossier"
+    },
+    {
+      "do": "shot",
+      "name": "dossier-liste",
+      "selector": ".as-view"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

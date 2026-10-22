@@ -199,7 +199,11 @@ export function renderSession(host, app) {
         if (items.length) setActive(0);
       } catch (err) {
         if (my !== seq) return;
-        list.innerHTML = `<li class="as-options-empty" role="presentation">${esc(errorText(err))}</li>`;
+        // Without the reader of the directory (directory mode of this version), the reason is said in words, never a raw code.
+        const why = err?.code === 'source.unavailable' || app.overview?.readerAvailable === false
+          ? 'Lecture de l’annuaire pas encore branchée dans cette version : aucune recherche possible ici.'
+          : errorText(err);
+        list.innerHTML = `<li class="as-options-empty" role="presentation">${esc(why)}</li>`;
         open(true);
       } finally {
         if (my === seq) spin.hidden = true;

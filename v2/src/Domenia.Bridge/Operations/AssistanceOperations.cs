@@ -42,7 +42,7 @@ public sealed class AssistanceOperations : IOperationModule
         var service = new Service(context);
         // Reads of the directory: memory in simulation, the controller in directory mode (after the operator's gesture).
         var directoryRead = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
-        return
+        return Journaled(context,
         [
             new OperationDefinition("assistance.overview", OperationClass.Local, async (args, _, ct) =>
             {
@@ -211,7 +211,7 @@ public sealed class AssistanceOperations : IOperationModule
                 return await service.DossierAsync(request, ct).ConfigureAwait(false);
             }, "Écrit un dossier de diagnostic hors ligne daté (manifeste et empreintes SHA-256) à partir des données locales."),
 
-            new OperationDefinition("assistance.document.reveal", OperationClass.LocalRead, async (args, _, ct) =>
+            new OperationDefinition("assistance.document.reveal", OperationClass.Local, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, NameArguments);
                 var name = BridgeArguments.GetString(values, "name");
@@ -227,8 +227,32 @@ public sealed class AssistanceOperations : IOperationModule
                 BridgeArguments.RequireNone(args);
                 return await service.EngineStateAsync(ct).ConfigureAwait(false);
             }, "État du moteur sans aucune sonde : mode, capacités, lectures en cours et en attente, atelier."),
-        ];
+        ]);
     }
+
+    /// <summary>
+    /// Every refusal of the screen reaches the journal of the session, so that the Incidents view explains it (Domenia 1
+    /// Add-DomeniaSupportIncidentFromLog took every WARN and ERROR line): engine busy, session changed, subject unknown, export
+    /// or document failures, offline dossier refusals… The message is the one shown to the operator (no secret, no payload);
+    /// the refusals of step.run already journaled by the service are not written twice.
+    /// </summary>
+    private static IEnumerable<OperationDefinition> Journaled(EngineContext context, IEnumerable<OperationDefinition> definitions) =>
+        definitions.Select(definition => definition with
+        {
+            Handler = async (args, bridge, ct) =>
+            {
+                try
+                {
+                    return await definition.Handler(args, bridge, ct).ConfigureAwait(false);
+                }
+                catch (DomeniaOperationException ex) when (ex.Code is not (AssistanceErrors.ReadRefused or AssistanceErrors.ReadFailed))
+                {
+                    context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Assistance · refus " + ex.Code + FrenchText.Colon + SupportText.Flat(ex.Message, 300),
+                        ex.Code == DomeniaErrors.ArgumentsInvalid ? Tone.Warn : Tone.Alert));
+                    throw;
+                }
+            },
+        });
 
     // ---------------------------------------------------------------- arguments
 
@@ -401,6 +425,16 @@ public sealed class AssistanceOperations : IOperationModule
 
         private void Journal(string label, Tone tone) => context.Journal.Add(new JournalEntry(Now, label, tone));
 
+        // Domenia 1 (ASS-003, ASS-004): while another read of the same object runs, a capture or a pin is refused, never taken
+        // silently from the previous read.
+        private void RefuseWhileReading(string dn)
+        {
+            if (scheduler.IsReading(dn))
+            {
+                throw new DomeniaOperationException(AssistanceErrors.SubjectReading, AssistanceErrors.SubjectReadingMessage);
+            }
+        }
+
         private async Task CollectAsync(CancellationToken ct)
         {
             await workshop.SyncAsync(ct).ConfigureAwait(false);
@@ -563,6 +597,7 @@ public sealed class AssistanceOperations : IOperationModule
         public async Task<WorkshopView> CaptureAsync(string slot, string dn, CancellationToken ct)
         {
             await workshop.SyncAsync(ct).ConfigureAwait(false);
+            RefuseWhileReading(dn);
             workshop.Capture(slot, dn);
             return workshop.View();
         }
@@ -606,6 +641,7 @@ public sealed class AssistanceOperations : IOperationModule
         public async Task<WorkshopView> PinAsync(string dn, CancellationToken ct)
         {
             await workshop.SyncAsync(ct).ConfigureAwait(false);
+            RefuseWhileReading(dn);
             workshop.Pin(dn);
             return workshop.View();
         }

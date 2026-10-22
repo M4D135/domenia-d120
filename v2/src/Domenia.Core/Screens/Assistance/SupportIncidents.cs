@@ -69,14 +69,19 @@ public static partial class SupportIncidents
     {
         "accounts" => "Ouvrir Comptes",
         "computer" => "Ouvrir Poste",
+        "health" => "Voir l’état du moteur",
         _ => "Ouvrir Opérations",
     };
 
-    /// <summary>Screen of the application a route of the rules opens.</summary>
+    /// <summary>
+    /// Screen of the application a route of the rules opens. « health » is the engine state of this screen (Domenia 1:
+    /// « consultez l’état du moteur »), opened in place by the page (« moteur »), never another screen.
+    /// </summary>
     public static string RouteScreen(string route) => route switch
     {
         "accounts" => "comptes",
         "computer" => "poste",
+        "health" => "moteur",
         _ => "operations",
     };
 
@@ -176,7 +181,7 @@ public static partial class SupportIncidents
     [GeneratedRegex(@"(no such host|h[oô]te inconnu|name.*resolv|network path.*not found|chemin r[eé]seau.*introuvable|0x80070035)", Options, 100)]
     private static partial Regex DnsNetwork();
 
-    [GeneratedRegex(@"(limite physique|workers.*annulation|ex[eé]cute d[eé]j[aà].*t[aâ]che)", Options, 100)]
+    [GeneratedRegex(@"(limite physique|workers.*annulation|ex[eé]cute d[eé]j[aà].*t[aâ]che|moteur occup[eé]|assistance\.engineBusy)", Options, 100)]
     private static partial Regex EngineBusy();
 
     [GeneratedRegex(@"(SYSINTERNALS SOFTWARE LICENSE|PsExec.*code 1)", Options, 100)]

@@ -29,6 +29,8 @@ public static class AssistanceErrors
     public const string PinOtherScope = "assistance.pinOtherScope";
     public const string PinOtherScopeMessage = "Repère d’un autre périmètre refusé" + FrenchText.Nbsp + ": il ne concerne pas le domaine de la session.";
     public const string CaptureInvalid = "assistance.captureInvalid";
+    public const string SubjectReading = "assistance.subjectReading";
+    public const string SubjectReadingMessage = "Lecture de cet objet en cours" + FrenchText.Nbsp + ": attendez sa fin pour le capturer ou l’épingler (la capture figerait la lecture précédente).";
     public const string IncidentUnknown = "assistance.incidentUnknown";
     public const string IncidentUnknownMessage = "Incident introuvable" + FrenchText.Nbsp + ": choisissez-en un autre ou décochez son inclusion.";
     public const string KeyMissing = "assistance.keyMissing";

@@ -6,6 +6,9 @@
 import { esc, errorText, applyVars, reveal, formatTime } from '../../ui.js';
 import { copyButton, confirmDialog, writeClipboard, debounce, createTabs, field, openDrawer, createTree } from '../../kit/index.js';
 import { ico, chip, empty, plural, shortHash, button, breakableText, enter, COLON, NBSP } from './common.js';
+import { parseNames, dossierCommand } from './format.js';
+
+export { parseNames };
 
 const SECTIONS = [
   { id: 'context', label: 'Contexte' }, { id: 'attempted', label: 'Tenté' }, { id: 'confirmed', label: 'Confirmé' },
@@ -268,24 +271,10 @@ function documentPanel(panel, app, kind) {
 
 // ---------------------------------------------------------------- offline dossier (ASS-012)
 
-/** Names of a pasted list: one per line, or separated by commas, semicolons or spaces; blanks and duplicates removed. */
-export function parseNames(text) {
-  const seen = new Set();
-  const names = [];
-  for (const raw of String(text ?? '').split(/[\s,;]+/)) {
-    const name = raw.trim();
-    if (!name || seen.has(name.toLowerCase())) continue;
-    seen.add(name.toLowerCase());
-    names.push(name);
-  }
-  return names;
-}
-
 // Shown command: it breaks between its arguments and after the commas of a list, never at a hyphen of a name (the copied
 // text stays the command itself).
 const cliText = (cmd) => breakableText(cmd).replace(/(?<=[A-Za-z0-9])-(?=[A-Za-z0-9])/g, '\u2011').replace('&lt;dossier local&gt;', '&lt;dossier\u00A0local&gt;');
 
-const quoteArg = (text) => (/[\s"]/.test(text) ? `"${String(text).replace(/"/g, '\\"')}"` : text);
 
 export function renderOffline(host, app) {
   const offs = [];
@@ -305,15 +294,19 @@ export function renderOffline(host, app) {
     const pins = pinsOf();
     const names = parseNames(m.names);
     const working = session?.scope;
+    // The working OU may be the whole domain: never a dossier perimeter (the engine refuses it), so the card says why.
+    const wholeDomain = Boolean(working?.dn && session?.domain?.rootDn && working.dn.toLowerCase() === session.domain.rootDn.toLowerCase());
     const list = [
       { id: 'subject', icon: 'monitor', title: 'Poste de la session', text: computer ? computer.card.name : 'Choisissez d’abord le poste concerné.', ok: Boolean(computer) },
-      { id: 'workingOu', icon: 'ou', title: 'OU de travail', text: working ? `OU ${working.label}, sous-OU comprises` : 'OU choisie sur l’Accueil', ok: true },
+      { id: 'workingOu', icon: 'ou', title: 'OU de travail', ok: !wholeDomain,
+        text: wholeDomain ? `L’OU de travail est tout le domaine${NBSP}: jamais en dossier, choisissez une OU sur l’Accueil ou dans l’arborescence.`
+          : working ? `OU ${working.label}, sous-OU comprises` : 'OU choisie sur l’Accueil' },
       { id: 'branch', icon: 'tree', title: 'Une OU de l’arborescence', text: m.ou ? `OU ${m.ou.label}, sous-OU comprises` : 'Choisissez une OU, jamais tout le domaine.', ok: true },
       { id: 'pins', icon: 'pin', title: 'Postes épinglés', text: pins.length ? plural(pins.length, 'poste épinglé', 'postes épinglés') : 'Aucun poste épinglé dans les repères.', ok: pins.length > 0 },
       { id: 'list', icon: 'list', title: 'Liste de postes', text: names.length ? plural(names.length, 'nom collé', 'noms collés') : `Collez des noms (résultats d’une liste, ${MAX_NAMES}${NBSP}au plus).`, ok: true },
     ];
     // Until the operator picks one, the perimeter follows the session: its workstation, else the working OU.
-    if (!m.scopeChosen) m.scope = computer ? 'subject' : 'workingOu';
+    if (!m.scopeChosen) m.scope = computer ? 'subject' : wholeDomain ? 'branch' : 'workingOu';
     if (!list.find((c) => c.id === m.scope)?.ok) m.scope = list.find((c) => c.ok)?.id ?? 'workingOu';
     return list.map((c, n) => `<label class="as-choice${c.ok ? '' : ' disabled'}" data-j="${n}">
       <input type="radio" name="as-off-scope" value="${c.id}"${m.scope === c.id ? ' checked' : ''}${c.ok ? '' : ' disabled'}>
@@ -343,16 +336,16 @@ export function renderOffline(host, app) {
   }
 
   function command() {
+    const computer = app.subject('computer');
+    const rootDn = String(session?.domain?.rootDn ?? '').toLowerCase();
+    let perimeter = null;
+    if (m.scope === 'subject' && computer) perimeter = { postes: [computer.card.name] };
+    else if (m.scope === 'workingOu' && session?.scope?.dn && session.scope.dn.toLowerCase() !== rootDn) perimeter = { ou: session.scope.dn };
+    else if (m.scope === 'branch' && m.ou) perimeter = { ou: m.ou.dn };
+    else if (m.scope === 'pins' && pinsOf().length) perimeter = { guids: pinsOf().map((p) => p.identity.slice(5)) };
+    else if (m.scope === 'list' && parseNames(m.names).length) perimeter = { postes: parseNames(m.names).slice(0, MAX_NAMES) };
     // Without --sections every optional section is written (Domenia 1); « etat,postes » alone writes none of them.
-    const sections = m.sections.length === OPTIONS.length ? '' : ` --sections ${m.sections.length ? m.sections.join(',') : 'etat,postes'}`;
-    let perimeter = '';
-    if (m.scope === 'subject' && app.subject('computer')) perimeter = `--postes ${quoteArg(app.subject('computer').card.name)}`;
-    else if (m.scope === 'workingOu' && session?.scope?.dn) perimeter = `--ou ${quoteArg(session.scope.dn)}`;
-    else if (m.scope === 'branch' && m.ou) perimeter = `--ou ${quoteArg(m.ou.dn)}`;
-    else if (m.scope === 'pins' && pinsOf().length) perimeter = `--guids ${pinsOf().map((p) => p.identity.slice(5)).join(',')}`;
-    else if (m.scope === 'list' && parseNames(m.names).length) perimeter = `--postes ${parseNames(m.names).slice(0, MAX_NAMES).join(',')}`;
-    if (!perimeter) return '';
-    return `Domenia.exe dossier --sortie "<dossier local>" ${perimeter}${sections}${app.simulation ? ' --simulation' : ''}`;
+    return dossierCommand(perimeter, m.sections, OPTIONS, app.simulation);
   }
 
   function resultCard() {
@@ -385,7 +378,7 @@ export function renderOffline(host, app) {
           </fieldset>
           <div class="as-doc-actions">${button({ label: 'Préparer le dossier…', icon: 'archive', cls: 'primary', spin: running, data: { prepare: '1' }, disabled: running, reason: 'Un dossier est déjà en préparation.' })}</div>
           ${cmd ? `<div class="as-cli"><span>${ico('command')}Même dossier en ligne de commande, sans ouvrir la fenêtre</span><div class="as-cli-line"><code class="mono">${cliText(cmd)}</code>${copyButton(cmd, { label: 'Copier la commande', done: 'Commande copiée' })}</div>
-            <small>Codes de sortie de Domenia${NBSP}1${COLON}0 réussi, 2 commande invalide, 3 base locale indisponible, 4 périmètre refusé, 5 non écrit. Le dossier de sortie doit être local.</small></div>` : ''}
+            <small>Codes de sortie de Domenia${NBSP}1${COLON}0 réussi, 2 commande invalide, 3 base locale indisponible, 4 périmètre refusé, 5 non écrit. Le dossier de sortie doit être local. Pour attendre la fin et lire le code, lancez-la par <code class="as-code">Start-Process -Wait -PassThru</code> dans PowerShell ou <code class="as-code">start /wait</code> dans cmd.</small></div>` : ''}
         </section>
         <section class="card as-panel as-off-result reveal"><div class="as-panel-head"><span class="as-panel-ico">${ico('fingerprint')}</span><div><h2>Résultat</h2><p>Fichiers, tailles en octets et empreintes, à vérifier avec Get-FileHash.</p></div></div>
           <div data-result aria-live="polite">${resultCard()}</div></section>
@@ -447,6 +440,7 @@ export function renderOffline(host, app) {
       let chosen = null;
       const body = document.createElement('div');
       body.className = 'as-ou-picker';
+      body.dataset.page = 'assistance';
       body.innerHTML = '<p class="as-faint">Le dossier couvre l’OU choisie et ses sous-OU. La racine du domaine n’est pas proposée.</p><div class="as-ou-tree"></div>';
       const toNode = (ou) => ({ id: ou.dn, label: ou.name, hint: ou.path, leaf: !ou.hasChildren, icon: 'ou', data: ou });
       const panel = openDrawer({
@@ -485,12 +479,39 @@ export function renderOffline(host, app) {
     m.names = t.value;
     resolved = null;
     clearTimeout(typing);
+    // Typing never repaints the view (undo history, caret and scroll of a long list stay): only the count of names, the
+    // verification, the « Vérifier la liste » button, the card of the perimeter and the command follow the text.
     typing = setTimeout(() => {
-      const caret = t.selectionStart;
-      paint();
-      const area = host.querySelector('textarea[name="names"]');
-      area?.focus();
-      area?.setSelectionRange(caret, caret);
+      if (app.disposed()) return;
+      const names = parseNames(m.names);
+      const over = names.length > MAX_NAMES;
+      const count = host.querySelector('[data-resolve]')?.parentElement?.querySelector('small.as-faint');
+      if (count) count.textContent = `${plural(names.length, 'nom', 'noms')}${over ? ` (plus de ${MAX_NAMES})` : ''}`;
+      const check = host.querySelector('[data-resolve]');
+      if (check) {
+        const off = names.length === 0 || over;
+        if (off) check.setAttribute('aria-disabled', 'true'); else check.removeAttribute('aria-disabled');
+        if (off) check.dataset.tip = over ? `${MAX_NAMES}${NBSP}noms au plus${COLON}choisissez une OU ou découpez la liste.` : 'Collez d’abord des noms de postes.';
+        else delete check.dataset.tip;
+      }
+      const verdict = host.querySelector('[data-resolved]');
+      if (verdict) verdict.innerHTML = '';
+      const card = host.querySelector('input[name="as-off-scope"][value="list"]')?.closest('.as-choice')?.querySelector('.as-choice-body small');
+      if (card) card.textContent = names.length ? plural(names.length, 'nom collé', 'noms collés') : `Collez des noms (résultats d’une liste, ${MAX_NAMES}${NBSP}au plus).`;
+      const line = host.querySelector('.as-cli-line');
+      const cmd = command();
+      if (line && cmd) {
+        line.querySelector('code').innerHTML = cliText(cmd);
+        line.querySelector('[data-copy]')?.setAttribute('data-copy', cmd);
+      } else if (Boolean(line) !== Boolean(cmd)) {
+        // The command appears or disappears (first name typed, list emptied): the only case that needs the full view.
+        const area = host.querySelector('textarea[name="names"]');
+        const caret = area?.selectionStart ?? 0;
+        paint();
+        const fresh = host.querySelector('textarea[name="names"]');
+        fresh?.focus();
+        fresh?.setSelectionRange(caret, caret);
+      }
     }, 500);
   });
   host.addEventListener('click', async (e) => {
@@ -500,6 +521,7 @@ export function renderOffline(host, app) {
     if (shown) { revealDocument(app, shown.dataset.reveal); return; }
     if (t.closest('[data-pick-ou]')) { pickOu(); return; }
     if (t.closest('[data-resolve]')) {
+      if (t.closest('[data-resolve]').getAttribute('aria-disabled') === 'true') return;
       try {
         resolved = await app.call('assistance.computers.resolve', { names: parseNames(m.names).slice(0, MAX_NAMES) });
         if (!app.disposed()) paint();

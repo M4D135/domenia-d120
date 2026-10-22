@@ -211,6 +211,8 @@ internal static class AssistanceRulesTests
             ("Délai dépassé après 60 s", "TIMEOUT"),
             ("Hôte inconnu : pc.example.local", "DNS_NETWORK"),
             ("Le moteur exécute déjà 8 tâches", "ENGINE_BUSY"),
+            ("Moteur occupé" + FrenchText.Colon + "3 lectures en cours et 12 en attente. Rien n’a été lancé", "ENGINE_BUSY"),
+            ("Assistance · refus assistance.engineBusy" + FrenchText.Colon + "réessayez après la fin des lectures", "ENGINE_BUSY"),
             ("PsExec code 1", "PSEXEC_LICENSE"),
             ("Lecture BitLocker refusée pour l’OU Marseille", "READ_REFUSED"),
             ("Tout va bien", "UNCLASSIFIED"),

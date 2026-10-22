@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text;
 using Domenia.Bridge;
 using Domenia.Core;
@@ -14,11 +15,20 @@ namespace Domenia.App;
 /// the dossier is the same as the screen writes (<see cref="OfflineDossierRunner"/>), in a new dated folder under the local
 /// folder the operator names (a share, a network drive or a link is refused). The summary goes to the standard output in UTF-8;
 /// the exit codes are those of Domenia 1: 0 success, 2 invalid command, 3 local base unavailable, 4 refusal, 5 not written.
+/// Domenia.exe is a window application: typed in a console, it attaches to the console of its parent so that the summary is
+/// shown there; PowerShell waits for it with « Start-Process -Wait -PassThru » (or « cmd /c start /wait ») to read the code.
 /// </summary>
-internal static class DossierCommandLine
+internal static partial class DossierCommandLine
 {
+    private const int AttachParentProcess = -1;
+
     public static int Run(IReadOnlyList<string> args)
     {
+        // A redirected output (pipe, file) is used as is; otherwise the summary goes to the console of the parent, if any.
+        if (!Console.IsOutputRedirected && !AttachConsole(AttachParentProcess))
+        {
+            TechnicalLog.Info("Commande dossier : aucune console parente, le résumé ira à la sortie standard si elle est redirigée.");
+        }
         var request = OfflineDossierCommand.Parse(args);
         if (!request.Valid)
         {
@@ -137,4 +147,9 @@ internal static class DossierCommandLine
             TechnicalLog.Warning($"Sortie standard non écrite : {ex.GetType().Name}.");
         }
     }
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool AttachConsole(int processId);
 }

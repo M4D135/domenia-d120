@@ -66,7 +66,7 @@ documents, dossier hors ligne) dans `Domenia.Core/Screens/Assistance/` ; la simu
 | `assistance.ticket.preview` | `Local` | `{ dn, sections, pseudonymize, key }` | aperçu du compte rendu |
 | `assistance.ticket.export` | `LocalWrite` | idem | document texte |
 | `assistance.dossier.prepare` | `LocalWrite` | `{ scope, dn, ou, names, sections }` | dossier hors ligne |
-| `assistance.document.reveal` | `LocalRead` | `{ name }` | `true` : document de la session montré dans l’Explorateur |
+| `assistance.document.reveal` | `Local` | `{ name }` | `true` : document de la session montré dans l’Explorateur (lance explorer.exe, effet local, aucune lecture ni écriture) |
 | `assistance.engine.state` | `Local` | aucun | état du moteur, sans sonde |
 
 27 opérations, aucune de classe `Write` : l’écran n’écrit jamais dans l’annuaire. Les seules écritures sont les documents
@@ -238,6 +238,10 @@ Domenia.exe dossier --sortie <dossier local> (--ou <DN> | --postes PC-01,PC-02 |
   n’est pas branchée : code 3.
 - Résumé en UTF-8 sur la sortie standard (message, chemin, empreinte et taille de chaque fichier). Codes de sortie de
   Domenia 1 : 0 réussi, 2 commande ou paramètre invalide, 3 base locale indisponible, 4 refus (périmètre), 5 non écrit.
+- `Domenia.exe` est une application fenêtrée : tapée dans une console, la commande s’attache à la console parente
+  (`AttachConsole`) pour y écrire son résumé ; une sortie redirigée (tube, fichier) est utilisée telle quelle. Pour attendre
+  la fin et lire le code de sortie : `$p = Start-Process .\Domenia.exe -ArgumentList 'dossier', … -Wait -PassThru;
+  $p.ExitCode` dans PowerShell, `start /wait Domenia.exe dossier …` puis `echo %ERRORLEVEL%` dans cmd.
 - L’écran « Dossier hors ligne » affiche la commande équivalente au périmètre choisi, prête à copier.
 
 ## 7. Dossier des exports
@@ -293,6 +297,7 @@ Huit incidents de session réalistes (délai WMI, accès refusé, RPC, 1219, DNS
 | `assistance.subjectUnknown` | Objet introuvable dans l’annuaire : rien n’a été lu. |
 | `assistance.readRefused` / `readFailed` | message de la cible (jamais un secret) — enregistrés dans l’étape, pas renvoyés en erreur |
 | `assistance.notRead` | Lisez d’abord la fiche de cet objet dans l’Assistance … |
+| `assistance.subjectReading` | Lecture de cet objet en cours : attendez sa fin pour le capturer ou l’épingler (la capture figerait la lecture précédente). |
 | `assistance.slotEmpty` | Cet emplacement est vide : capturez d’abord une fiche. |
 | `assistance.pinsFull` / `pinUnknown` / `pinOtherScope` | 24 repères … / Repère introuvable … / Repère d’un autre périmètre refusé … |
 | `assistance.captureInvalid` | Capture refusée : *raison fixe*. Rien n’a été chargé. |
@@ -341,7 +346,7 @@ RPC (`0x800706BA`), DNS, délai → `readFailed` ; un refus d’identifiants sus
 | logiciels (`SoftwareInventory`) | `StdRegProv` sur `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall` et `WOW6432Node` ; **jamais** `Win32_Product` (réparation MSI) | `DisplayName`, `Publisher`, `DisplayVersion`, `InstallDate`, `EstimatedSize` | 60 s ; droits d’administration |
 | sessions (`SessionsList`) | `WTSEnumerateSessions` sur le poste (ou CIM `Win32_LogonSession` + `Win32_LoggedOnUser`), sans rien fermer | — | 15 s |
 | dossier hors ligne | base locale en lecture seule : mêmes requêtes que `Get-DomeniaAutomationQuery` (postes par GUID ou préfixe d’OU, dernières observations par famille, associations, requêtes non archivées) ; tables `secret_state` et `domenia_details` jamais lues | — | 1 000 lignes par section, 64 Mio, 300 s, aucun réseau |
-| incidents | journal des opérations de la session et refus du pont (codes) ; `SessionIncidentsAsync` renvoie une liste vide | — | — |
+| incidents | journal des opérations de la session : étapes refusées ou en échec, et **tout refus d’une opération de l’écran** (moteur occupé, session changée, sujet inconnu, export ou document en échec, dossier refusé… message montré à l’opérateur, sans secret ; `AssistanceOperations.Journaled`). Les refus des autres écrans n’y entrent que s’ils écrivent au journal : les journaliser tous demande un ajout dans `BridgeDispatcher` (fichier partagé, à l’intégration). `SessionIncidentsAsync` renvoie une liste vide | — | — |
 
 ## 11. Page
 
@@ -364,6 +369,10 @@ RPC (`0x800706BA`), DNS, délai → `readFailed` ; un refus d’identifiants sus
   désignent exactement un objet** de l’index local, sinon les correspondances sont proposées dans la session et rien n’est
   lu ; puis ils sont retirés de l’adresse, et la page ne les y écrit jamais : un rechargement ne relit rien. `etat=moteur`
   ouvre l’état du moteur ; `document=ticket` ouvre le compte rendu.
+- **Contrat d’arrivée d’une liste de postes (ASS-012).** Un écran de liste (Rechercher, Comptes machine…) envoie ses résultats
+  par `#/assistance?postes=PC-01,PC-02,…` (500 noms au plus, nettoyés comme une liste collée : domaine et `$` retirés,
+  doublons ôtés) : la vue « Dossier hors ligne » s’ouvre avec le périmètre « Liste de postes » rempli et choisi.
+  Rien n’est lu ni écrit avant « Préparer le dossier… » et sa confirmation ; les noms quittent l’adresse aussitôt.
 - Session (TRV-185) : la page garde sa mémoire (sujets, choix des documents) pour la même session seulement ; quand
   l’empreinte `session` de l’atelier change, elle l’oublie et le dit. Tant que l’écran est affiché, `workshop.poll` compare
   l’atelier chaque seconde (appel de fond, sans ligne d’activité) : nouveaux incidents et lectures en cours apparaissent sans
@@ -393,8 +402,8 @@ RPC (`0x800706BA`), DNS, délai → `readFailed` ; un refus d’identifiants sus
 
 - `AdAssistanceIndex` et `AdAssistanceReader` (vague 3, § 10), génération de connexion incrémentée par `Domenia.Ad`, et
   essais réels dans `OU=Domenia-Tests` (vague 4).
-- Envoi d’une sélection depuis les écrans de liste vers « Liste de postes » (aujourd’hui : coller les noms) ; boîte
-  « Enregistrer sous » de l’hôte.
+- Le contrat d’arrivée `postes=` existe (§ 11) : reste aux écrans de liste (Rechercher, Comptes machine) à poser le lien
+  « Dossier hors ligne de ces postes » avec leurs résultats affichés (500 au plus) ; boîte « Enregistrer sous » de l’hôte.
 - Export PDF du dossier support (`PrintToPdfAsync` de l’hôte, hors de ce lot) ; le HTML exporté s’imprime en PDF.
 - Chiffrement facultatif des captures et du dossier hors ligne (amélioration listée, demande une décision sur la méthode).
 - Recettes déclaratives signées (JSON) : le catalogue est aujourd’hui du code validé au démarrage.

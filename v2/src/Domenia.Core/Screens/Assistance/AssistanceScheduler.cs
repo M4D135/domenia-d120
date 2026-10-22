@@ -36,6 +36,16 @@ public sealed class AssistanceScheduler : IDisposable
         }
     }
 
+    /// <summary>True while a read of <paramref name="objectKey"/> runs or waits (Domenia 1: no capture during a load).</summary>
+    public bool IsReading(string objectKey)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(objectKey);
+        lock (gate)
+        {
+            return objects.TryGetValue(objectKey, out var known) && known.Users > 0;
+        }
+    }
+
     /// <summary>
     /// Runs one read of <paramref name="objectKey"/> (its DN or identity) when its object is free and a slot is available.
     /// Refused at once (<see cref="AssistanceErrors.EngineBusy"/>) when the waiting list is full; cancellable while waiting.
