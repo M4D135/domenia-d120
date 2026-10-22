@@ -165,7 +165,7 @@ public static class PosteEvents
                 var limit = status == SourceStatus.Partial ? "Lecture partielle du journal : liste incomplète."
                     : partial ? "Volume plafonné à " + FrenchText.Integer(query.MaxEvents) + " événements : liste partielle."
                     : "Fenêtre de " + FrenchText.Integer(query.WindowHours) + " h.";
-                facts.Add(PosteText.Fact(label, FrenchText.Count(rows.Count, "événement", "événements") + FrenchText.Colon + FrenchText.Integer(attributed) + " attribué(s) au poste, " + FrenchText.Integer(general) + " général(aux)",
+                facts.Add(PosteText.Fact(label, FrenchText.Count(rows.Count, "événement", "événements") + FrenchText.Colon + FrenchText.Count(attributed, "attribué", "attribués") + " au poste, " + FrenchText.Integer(general) + " général(aux)",
                     FactState.Observed, source, limit, at: query.End, tone: rows.Any(r => r.Noise == AttentionLevel.Warn) ? Tone.Warn : Tone.Info));
             }
         }

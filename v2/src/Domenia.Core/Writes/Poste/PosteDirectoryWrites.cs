@@ -182,7 +182,7 @@ public static partial class PosteDirectoryWrites
                 return WritePrecheck.Stale(change.Label + " a changé depuis le plan" + FrenchText.Colon + "relisez la fiche puis préparez de nouveau l’écriture. Rien n’a été envoyé.");
             }
         }
-        return WritePrecheck.Valid("Fiche relue" + (plan.Controller is null ? "" : " sur " + plan.Controller) + FrenchText.Colon + "valeurs « avant » inchangées, DN et GUID inchangés.");
+        return WritePrecheck.Valid("Fiche relue" + (plan.Controller is null ? "" : " sur " + plan.Controller) + FrenchText.Colon + "valeurs « avant » inchangées, DN et GUID inchangés.");
     }
 
     public static DirectoryComputer ApplyProfile(DirectoryComputer c, WritePlan plan, DateTimeOffset now, long usn)
@@ -203,37 +203,52 @@ public static partial class PosteDirectoryWrites
 
     // ------------------------------------------------------------------ rename
 
+    /// <summary>Longest object name (CN) of a computer accepted by the rename (Domenia 1 Rename-ComputerObject).</summary>
+    public const int MaxObjectName = 63;
+
+    /// <summary>
+    /// Rename of the object (Domenia 1 Rename-ComputerObject: Rename-ADObject of the CN only, 1 to 63 letters, digits and
+    /// hyphens, a DNS label). The sAMAccountName and dNSHostName stay as they are, so the workstation keeps authenticating
+    /// under its Windows name; the Windows name itself is never changed.
+    /// </summary>
     public static WritePlanDraft Rename(DirectoryComputer c, string newName, IEnumerable<DirectoryComputer> all, string? controller)
     {
         ArgumentNullException.ThrowIfNull(c);
         ArgumentNullException.ThrowIfNull(newName);
         ArgumentNullException.ThrowIfNull(all);
         var name = newName.Trim().ToUpperInvariant();
-        if (!ComputerName().IsMatch(name) || name.Length > 15)
+        if (name.Length is 0 or > MaxObjectName || !ComputerName().IsMatch(name))
         {
-            throw WriteErrors.Refusal(PosteErrors.Refused, "Nom invalide : 1 à 15 caractères (NetBIOS), lettres, chiffres et tirets, sans tiret au début ni à la fin. Aucune écriture préparée.");
+            throw WriteErrors.Refusal(PosteErrors.Refused, "Nom invalide : 1 à 63 caractères (étiquette DNS), lettres, chiffres et tirets, sans tiret au début ni à la fin. Aucune écriture préparée.");
         }
         if (string.Equals(name, c.Name, StringComparison.OrdinalIgnoreCase))
         {
-            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Le poste porte déjà ce nom : aucune écriture à préparer.");
-        }
-        if (all.Any(o => o.ObjectGuid != c.ObjectGuid && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)))
-        {
-            throw WriteErrors.Refusal(PosteErrors.Refused, "Un autre compte ordinateur porte déjà ce nom dans le domaine : aucune écriture préparée.");
+            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "L’objet porte déjà ce nom : aucune écriture à préparer.");
         }
         var parent = DistinguishedName.Parent(c.DistinguishedName) ?? "";
         var newDn = DistinguishedName.Child("CN", name, parent);
+        var others = all.Where(o => o.ObjectGuid != c.ObjectGuid).ToList();
+        if (others.Any(o => SameDn(o.DistinguishedName, newDn)))
+        {
+            throw WriteErrors.Refusal(PosteErrors.Refused, "Un objet porte déjà ce nom dans la même OU : aucune écriture préparée.");
+        }
+        var risks = ImmutableArray.CreateBuilder<WriteRisk>();
+        risks.Add(new WriteRisk(Tone.Info, "Seul le nom de l’objet (CN) change : le nom de compte " + c.SamAccountName + " et le nom DNS " + (c.DnsHostName ?? "du poste") + " restent, le poste continue de s’authentifier sous son nom Windows."));
+        risks.Add(new WriteRisk(Tone.Warn, "Le nom Windows du poste n’est pas changé : les listes affichent désormais " + name + " pour un poste qui s’appelle toujours " + c.SamAccountName.TrimEnd('$') + "."));
+        if (name.Length > 15)
+        {
+            risks.Add(new WriteRisk(Tone.Warn, "Plus de 15 caractères : ce nom ne pourra pas devenir le nom NetBIOS du poste s’il est renommé ensuite."));
+        }
+        if (others.Any(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase) || string.Equals(o.SamAccountName.TrimEnd('$'), name, StringComparison.OrdinalIgnoreCase)))
+        {
+            risks.Add(new WriteRisk(Tone.Alert, "Un autre compte ordinateur du domaine porte déjà ce nom (autre OU ou nom de compte) : deux objets se confondront dans les listes."));
+        }
+        risks.Add(new WriteRisk(Tone.Info, "Les références au nom (scripts, partages, inventaires) ne suivent pas ; l’objet garde son GUID et ses groupes."));
         return new WritePlanDraft(RenameKind, "Renommer l’objet ordinateur", "Renommage de l’objet ordinateur",
-            c.Name + " devient " + name + " dans l’annuaire seulement" + FrenchText.Colon + "le nom Windows du poste n’est pas changé.",
+            c.Name + " devient " + name + " dans l’annuaire seulement (CN) : nom de compte, nom DNS et nom Windows du poste inchangés.",
             Target(c),
-            [
-                new WriteChange("cn", "Nom de l’objet", WriteChangeKind.Move, c.Name, name, c.DistinguishedName, newDn),
-                new WriteChange("sAMAccountName", "Nom de compte", WriteChangeKind.Replace, c.SamAccountName, name + "$", c.SamAccountName, name + "$"),
-            ],
-            [
-                new WriteRisk(Tone.Alert, "Le nom Windows du poste reste " + c.Name + " : tant qu’il n’est pas renommé lui aussi (Rename-Computer), le poste et son objet ne correspondent plus."),
-                new WriteRisk(Tone.Warn, "Les enregistrements DNS et les références au nom (scripts, partages, inventaires) ne suivent pas."),
-            ],
+            [new WriteChange("cn", "Nom de l’objet (CN)", WriteChangeKind.Move, c.Name, name, c.DistinguishedName, newDn)],
+            risks.ToImmutable(),
             Typed(c, "le nom de l’objet change."),
             new WriteReversibility(true, "Réversible par un nouveau plan", "Renommer de nouveau l’objet est une nouvelle écriture, jamais automatique."),
             controller);
@@ -241,13 +256,13 @@ public static partial class PosteDirectoryWrites
 
     public static WritePrecheck CheckRename(WritePlan plan, DirectoryComputer? c) => CheckIdentity(plan, c);
 
+    /// <summary>The CN and the DN change (ModifyDN); sAMAccountName and dNSHostName are left as they are.</summary>
     public static DirectoryComputer ApplyRename(DirectoryComputer c, WritePlan plan, DateTimeOffset now, long usn)
     {
         ArgumentNullException.ThrowIfNull(c);
         ArgumentNullException.ThrowIfNull(plan);
-        var name = plan.Changes[0].After!;
-        var dnsSuffix = c.DnsHostName is { } dns && dns.Contains('.', StringComparison.Ordinal) ? dns[dns.IndexOf('.', StringComparison.Ordinal)..] : "";
-        return c with { Name = name, SamAccountName = name + "$", DistinguishedName = plan.Changes[0].AfterValue!, DnsHostName = c.DnsHostName is null ? null : name.ToLowerInvariant() + dnsSuffix, WhenChanged = now, UsnChanged = usn };
+        var change = plan.Changes.First(ch => ch.Attribute == "cn");
+        return c with { Name = change.After!, DistinguishedName = change.AfterValue!, WhenChanged = now, UsnChanged = usn };
     }
 
     // ------------------------------------------------------------------ group membership
@@ -379,7 +394,8 @@ public static partial class PosteDirectoryWrites
         {
             AccountStateKind => string.Equals(c.UserAccountControl.ToString(CultureInfo.InvariantCulture), plan.Changes[0].AfterValue, StringComparison.Ordinal),
             ProfileKind => plan.Changes.All(ch => string.Equals((ch.Attribute switch { "description" => c.Description, "location" => c.Location, _ => c.ManagedByDn }) ?? "", ch.AfterValue ?? "", StringComparison.Ordinal)),
-            RenameKind => string.Equals(c.Name, plan.Changes[0].After, StringComparison.OrdinalIgnoreCase),
+            RenameKind => string.Equals(c.Name, plan.Changes[0].After, StringComparison.OrdinalIgnoreCase) && SameDn(c.DistinguishedName, plan.Changes[0].AfterValue ?? "")
+                && string.Equals(c.SamAccountName, plan.Target.SamAccountName, StringComparison.OrdinalIgnoreCase),
             MoveKind => SameDn(c.DistinguishedName, plan.Changes[0].AfterValue ?? ""),
             GroupKind => group is not null && (plan.Changes[0].Kind == WriteChangeKind.Add) == group.Members.Any(m => SameDn(m, c.DistinguishedName)),
             _ => false,

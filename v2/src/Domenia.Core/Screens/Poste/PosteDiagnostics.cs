@@ -89,7 +89,7 @@ public static class PosteDiagnostics
     ];
 
     /// <summary>Services read by the quick diagnosis.</summary>
-    public static ImmutableArray<string> QuickServices { get; } = ["Winmgmt", "RpcSs", "WinRM", "LanmanServer", "WAPTService"];
+    public static ImmutableArray<string> QuickServices { get; } = ["Winmgmt", "RpcSs", "WinRM", "LanmanServer"];
 
     public static int QuickBudgetSeconds => QuickPlan.Sum(c => c.TimeoutSeconds);
 
@@ -104,10 +104,18 @@ public static class PosteDiagnostics
         "Systeme" => "Système",
         "Disque systeme" => "Disque système",
         "Redemarrage en attente" => "Redémarrage en attente",
-        "Service de deploiement (WAPT)" => "Service de déploiement (WAPT)",
         "Transport Task Scheduler" => "Transport par tâche planifiée",
+        "Transport PsExec" => "Transport par PsExec",
         "Ping" => "Ping (ICMP)",
         var other => other,
+    };
+
+    /// <summary>Short name of a fallback transport inside a sentence (« PsExec », « tâche planifiée »).</summary>
+    public static string FallbackLabel(string? check) => (check ?? "").Trim() switch
+    {
+        "Transport PsExec" => "PsExec",
+        "Transport Task Scheduler" => "tâche planifiée",
+        var other => CheckLabel(other),
     };
 
     /// <summary>Label of a code (Get-DomeniaDiagStatusLabel); an unknown code comes back as it is.</summary>
@@ -169,8 +177,8 @@ public static class PosteDiagnostics
         {
             "Resolution DNS" => "Vérifiez l’enregistrement DNS du poste (dNSHostName, zone de recherche directe) ou attendez son renouvellement DHCP.",
             "Ping" => "ICMP peut être filtré : un port de gestion ouvert suffit à joindre le poste.",
-            "Session CIM" => "Vérifiez le pare-feu (règle « Infrastructure de gestion Windows (WMI) ») et les droits DCOM du compte utilisé.",
-            "Partage C$" => "Vérifiez le service Serveur (LanmanServer) et la règle « Partage de fichiers et d’imprimantes » du pare-feu.",
+            "Session CIM" => "Vérifiez le pare-feu (règle « Infrastructure de gestion Windows (WMI) ») et les droits DCOM du compte utilisé.",
+            "Partage C$" => "Vérifiez le service Serveur (LanmanServer) et la règle « Partage de fichiers et d’imprimantes » du pare-feu.",
             "TCP 135" => "Port RPC fermé ou filtré : la lecture CIM par DCOM échouera.",
             "TCP 445" => "Port SMB fermé ou filtré : ni C$, ni ADMIN$, ni PsExec.",
             "TCP 3389" => "Bureau à distance fermé : service TermService arrêté ou règle de pare-feu absente.",
@@ -268,7 +276,7 @@ public static class PosteDiagnostics
         var (layers, blocking, reachable, sentence) = Layers(checks);
         if (rows.IsEmpty)
         {
-            return new DiagnosticResult(computer, at, "Aucun contrôle exécuté : lancez « Lancer le diagnostic » pour lire le poste.", 0, 0, 0, 0, 0, false, layers, rows, "", durationMs, BudgetSeconds);
+            return new DiagnosticResult(computer, at, "Aucun contrôle exécuté : lancez « Lancer le diagnostic » pour lire le poste.", 0, 0, 0, 0, 0, false, layers, rows, "", durationMs, BudgetSeconds);
         }
         var subject = string.IsNullOrWhiteSpace(computer) ? "Le poste" : computer.Trim();
         var failed = rows.Where(r => r.Severity == DiagSeverity.Failed).ToList();
@@ -303,7 +311,7 @@ public static class PosteDiagnostics
         if (failed.Count > 0)
         {
             var names = string.Join(", ", failed.Take(3).Select(r => r.Check));
-            points.Add(FrenchText.Count(failed.Count, "contrôle en échec", "contrôles en échec") + FrenchText.Colon + names + (failed.Count > 3 ? " (et " + FrenchText.Integer(failed.Count - 3) + " autre(s))." : "."));
+            points.Add(FrenchText.Count(failed.Count, "contrôle en échec", "contrôles en échec") + FrenchText.Colon + names + (failed.Count > 3 ? " (et " + FrenchText.Count(failed.Count - 3, "autre", "autres") + ")." : "."));
         }
         var optional = rows.Where(r => r.Severity == DiagSeverity.Information).ToList();
         if (optional.Count > 0)
@@ -320,7 +328,7 @@ public static class PosteDiagnostics
             }
             if (fallbacks.Count > 0)
             {
-                points.Add("Transports de repli non disponibles : " + string.Join(", ", fallbacks.Take(3).Select(r => CheckLabel(r.Check))) + ".");
+                points.Add((fallbacks.Count == 1 ? "Repli indisponible : " : "Replis indisponibles : ") + string.Join(", ", fallbacks.Take(3).Select(r => FallbackLabel(r.Check))) + ".");
             }
         }
         var verdict = string.Join(" ", points);
@@ -490,9 +498,9 @@ public static class PosteDiagnostics
         var duration = raw.ElapsedMs is int elapsed
             ? FrenchText.Decimal(elapsed / 1000d, 1) + "\u00A0s pour un budget de " + FrenchText.Integer(QuickBudgetSeconds) + "\u00A0s." + (overrun ? " Budget dépassé\u00A0: les contrôles en retard doivent être interrompus." : "")
             : "Durée non mesurée.";
-        var summary = FrenchText.Integer(counts.GetValueOrDefault(FactState.Observed)) + " constaté(s), " + FrenchText.Integer(counts.GetValueOrDefault(FactState.Refused)) + " refusé(s), "
-            + FrenchText.Integer(counts.GetValueOrDefault(FactState.Unavailable)) + " indisponible(s), " + FrenchText.Integer(counts.GetValueOrDefault(FactState.Unknown) + counts.GetValueOrDefault(FactState.Estimated))
-            + " non concluant(s) sur " + FrenchText.Integer(QuickPlan.Length) + " contrôles.";
+        var summary = FrenchText.Count(counts.GetValueOrDefault(FactState.Observed), "constaté", "constatés") + ", " + FrenchText.Count(counts.GetValueOrDefault(FactState.Refused), "refusé", "refusés") + ", "
+            + FrenchText.Count(counts.GetValueOrDefault(FactState.Unavailable), "indisponible", "indisponibles") + ", " + FrenchText.Count(counts.GetValueOrDefault(FactState.Unknown) + counts.GetValueOrDefault(FactState.Estimated), "non concluant", "non concluants")
+            + " sur " + FrenchText.Integer(QuickPlan.Length) + " contrôles.";
         return new QuickDiagResult(computer, now, facts.ToImmutable(), summary, counts.GetValueOrDefault(FactState.Observed) == QuickPlan.Length, overrun, duration, QuickCostText, QuickFallback);
     }
 }

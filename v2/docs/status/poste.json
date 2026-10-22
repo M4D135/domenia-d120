@@ -1,14 +1,15 @@
 {
   "fait": [
-    "PST-001",
     "PST-004",
     "PST-006",
+    "PST-009",
     "PST-011",
     "PST-012",
     "PST-015",
-    "PST-016",
     "PST-017",
     "PST-019",
+    "PST-020",
+    "PST-022",
     "PST-024",
     "PST-025",
     "PST-026",
@@ -21,7 +22,6 @@
     "PST-033",
     "PST-034",
     "PST-036",
-    "PST-037",
     "PST-038",
     "PST-039",
     "PST-043",
@@ -32,13 +32,14 @@
     "PST-049",
     "PST-050",
     "PST-051",
-    "PST-052",
     "PST-053",
     "PST-054",
-    "PST-055",
     "PST-057",
+    "PST-058",
     "PST-059",
+    "PST-060",
     "PST-061",
+    "PST-062",
     "PST-063",
     "PST-064",
     "PST-065",
@@ -90,13 +91,17 @@
     "PST-010",
     "PST-013",
     "PST-014",
+    "PST-016",
     "PST-018",
     "PST-021",
     "PST-035",
+    "PST-037",
     "PST-040",
     "PST-041",
     "PST-042",
     "PST-048",
+    "PST-052",
+    "PST-055",
     "PST-056",
     "PST-069",
     "PST-077",
@@ -112,44 +117,26 @@
   ],
   "partiel": [
     {
-      "id": "PST-009",
-      "reste": "Bureau à distance et partage C$ ouverts par le lanceur du poste d’administration (vague 3) ; en attendant, ping et fiche de l’utilisateur dans l’en-tête, commandes mstsc et UNC copiées depuis Intervenir."
-    },
-    {
-      "id": "PST-020",
-      "reste": "Lancement réel de Pesto et FILPRO (lecture de suite-contract.json, empreinte et signature Authenticode) par le lanceur hôte en vague 3 ; le plan d’ouverture (champs déclarés et validés) est fait."
-    },
-    {
-      "id": "PST-022",
-      "reste": "Ouverture des outils Windows (mstsc, C$ authentifié avec le compte d’exploitation, Gestion, Observateur, Services) par le lanceur hôte en vague 3 ; poste.tool.open répond source.unavailable, les commandes se copient."
-    },
-    {
       "id": "PST-023",
-      "reste": "Transports de repli réels (PsExec portable, tâche planifiée par l’API COM et ADMIN$) avec Domenia.Ad en vague 3 ; l’autorisation de lecture de repli (une lecture, 1 à 15 min) est faite."
-    },
-    {
-      "id": "PST-058",
-      "reste": "Vidage conditionnel du presse-papiers côté hôte (seulement si la valeur copiée n’a pas changé, hors historique Windows) ; la page vide le presse-papiers après 30 s sans pouvoir le vérifier."
-    },
-    {
-      "id": "PST-060",
-      "reste": "Proposition d’un autre compte (invite Windows, mot de passe en SecureString jusqu’à l’API) et bouton vers la page du prérequis manquant en vague 3 ; état, identité et refus sont expliqués."
-    },
-    {
-      "id": "PST-062",
-      "reste": "Levée du refus mémorisé quand un autre compte est accepté pour la ressource (invite d’identifiants de l’hôte) en vague 3 ; le refus BitLocker est mémorisé et affiché par poste."
+      "reste": "PsExec portable non livré (aucune dépendance sans accord de David) et transports réels (tâche planifiée RunOnce par l’API COM, ADMIN$) avec Domenia.Inventory en vague 3 ; la lecture de repli autorisée une fois, consommée par l’inventaire, les logiciels, le diagnostic ou la détection de l’utilisateur, et « non lu » sans elle, sont en place (simulation)."
     },
     {
       "id": "PST-066",
-      "reste": "Index BitLocker et LAPS pour toute une OU (50 000 lignes au plus) à brancher avec l’Accueil ou l’écran Requêtes ; l’index par poste (nombre de clés, dates, schéma LAPS, jamais de valeur) est fait."
+      "reste": "Enregistrement durable de l’index dans la base locale (Domenia.Store) avec le mode annuaire en vague 3 ; l’index de l’OU de travail (50 000 postes au plus, aucune valeur), l’index par poste et l’écart d’un ancien détenteur du nom sont en place, sur la base fictive de la session en simulation."
     },
     {
       "id": "PST-111",
-      "reste": "Boutons « Atelier » et « Ouvrir dans l’atelier » à brancher sur l’écran Requêtes quand il existera ; les détails enregistrés d’une sonde s’ouvrent déjà dans un panneau."
+      "reste": "L’atelier de requêtes est l’écran Requêtes (autre lot) : les boutons « Atelier » (vue Sondes et relevés) et « Ouvrir dans l’atelier » (détails d’une sonde) y mènent avec le poste et la sonde en paramètres (#/requetes?cible=poste&dn=…&sonde=…) ; la destination d’affichage reste à brancher de ce côté."
     },
     {
       "id": "PST-113",
-      "reste": "Widget d’une requête enregistrée évaluée sur ce seul poste : dépend du moteur de requêtes de l’écran Requêtes."
+      "reste": "Widget d’une requête enregistrée évalué sur ce seul poste : dépend du moteur et du stockage des requêtes enregistrées de l’écran Requêtes (autre lot), absents de cet arbre."
+    }
+  ],
+  "abandonne": [
+    {
+      "id": "PST-001",
+      "decision": "Décision de David du 22/10 : WAPT est abandonné. Aucun connecteur, aucune option de configuration, aucun service WAPTService dans les diagnostics, aucun fournisseur WAPT dans les faits de mise à jour (Windows Update seul)."
     }
   ]
 }

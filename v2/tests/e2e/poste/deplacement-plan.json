@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : préparer le déplacement vers une autre OU",
+  "description": "Ouvre « Déplacer… » dans Intervenir, cherche une OU par son nom, la choisit et prépare le plan du déplacement de PC-PAR-0001 (nom tapé à la confirmation, rien n’est envoyé avant).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=intervenir",
+  "steps": [
+    { "do": "click", "selector": "[data-act=move]", "title": "Déplacer…" },
+    { "do": "type", "selector": ".poste-drw [name=q]", "text": "Lyon", "title": "Chercher l’OU de destination" },
+    { "do": "wait", "selector": ".poste-drw .ps-pick li[data-dn]", "title": "Des OU sont proposées" },
+    { "do": "click", "selector": ".poste-drw .ps-pick li[data-dn]:not([aria-disabled=true])", "nth": 0, "title": "Choisir la première OU" },
+    { "do": "click", "text": "Préparer le déplacement", "title": "Préparer le plan" },
+    { "do": "wait", "contains": "Déplacer le poste", "title": "Le plan du déplacement est présenté" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

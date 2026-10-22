@@ -106,7 +106,7 @@ public static class PosteSlow
             {
                 Tone.Alert => new SlowFinding("disk.free", AttentionLevel.Alert, "Disque système presque plein", evidence, "Libérez de l’espace (fichiers temporaires, téléchargements, profils anciens) : la pagination et les mises à jour en souffrent.", DiskAction, 25),
                 Tone.Warn => new SlowFinding("disk.free", AttentionLevel.Warn, "Peu d’espace sur le disque système", evidence, "Prévoyez un nettoyage avant qu’il ne devienne critique.", DiskAction, 10),
-                _ => new SlowFinding("disk.free", null, "Espace disque", evidence, "Espace suffisant sur C:.", null, 0),
+                _ => new SlowFinding("disk.free", null, "Espace disque", evidence, "Espace suffisant sur C:", null, 0),
             });
         }
         else
@@ -205,7 +205,7 @@ public static class PosteSlow
         if (main is null)
         {
             verdict = unread.Count > 0
-                ? "Aucune cause de lenteur établie sur ce qui a été lu ; " + FrenchText.Count(unread.Count, "contrôle n’a", "contrôles n’ont") + " pas pu être lu(s)."
+                ? "Aucune cause de lenteur établie sur ce qui a été lu ; " + FrenchText.Count(unread.Count, "contrôle n’a", "contrôles n’ont") + (unread.Count >= 2 ? " pas pu être lus." : " pas pu être lu.")
                 : "Aucune cause de lenteur établie : mémoire, processeur, disque et redémarrage sont normaux. Faites décrire la lenteur à l’utilisateur (application, moment).";
             tone = unread.Count > 0 ? Tone.Off : Tone.Ok;
         }

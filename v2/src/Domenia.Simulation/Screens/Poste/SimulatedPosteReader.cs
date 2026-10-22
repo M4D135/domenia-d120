@@ -32,9 +32,6 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ["10.0.0.0/8"],
         300,
         PosteRemote.RestartMinutes,
-        true,
-        "https://wapt.example.local",
-        "Connecteur WAPT fictif de la simulation, en lecture seule.",
         SimulationProfile.NetbiosName + "\\adm-" + SimulationProfile.SessionLogin,
         [
             new SuiteTool("pesto", "Pesto", false, "Chemin de Pesto non configuré (Suite.Pesto) : rien n’est lancé en simulation.", PosteRemote.SuiteFields),
@@ -111,8 +108,8 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         var shown = sorted.Take(bounded).ToImmutableArray();
         var online = rows.Count(r => r.Presence == PresenceState.Online);
         var watch = rows.Count(r => r.Health.Level is Tone.Warn or Tone.Alert);
-        var summary = FrenchText.Count(rows.Count, "poste", "postes") + (needle.Length > 0 ? " trouvé(s)" : "") + (scope is null ? "" : " · OU de travail " + scope.Label)
-            + " · " + FrenchText.Integer(online) + " répond(ent) au dernier relevé · " + FrenchText.Integer(watch) + " à surveiller ; liste locale, aucune requête au poste.";
+        var summary = FrenchText.Count(rows.Count, "poste", "postes") + (needle.Length > 0 ? (rows.Count >= 2 ? " trouvés" : " trouvé") : "") + (scope is null ? "" : " · OU de travail " + scope.Label)
+            + " · " + FrenchText.Count(online, "répond", "répondent") + " au dernier relevé · " + FrenchText.Integer(watch) + " à surveiller ; liste locale, aucune requête au poste.";
         return new PosteList(scope, rows.Count, shown.Length, sorted.Count > bounded, text, summary, shown);
     }
 
@@ -277,19 +274,39 @@ public sealed partial class SimulatedPosteReader : IPosteReader
 
     private SecretsSummary Secrets(PosteMachine machine, PosteComputer computer, DateTimeOffset now, TimeZoneInfo zone)
     {
-        var bitlocker = Sim.BitLockerIndex(machine.Computer.ObjectGuid);
-        var lapsRead = Sim.LapsIndex(machine.Computer.ObjectGuid);
-        var denied = PosteSimulation.BitLockerDenied(machine);
-        var (identity, reason) = PosteSecrets.Identity(Sim.Reader, denied && bitlocker is null);
+        var id = machine.Computer.ObjectGuid;
+        var session = Sim.BitLockerIndex(id);
+        var lapsRead = Sim.LapsIndex(id);
+        var bitLockerDenied = PosteSimulation.BitLockerDenied(machine) && Sim.OtherAccount(id, "bitlocker") is null;
+        var lapsDenied = PosteSimulation.LapsDenied(machine) && Sim.OtherAccount(id, "laps") is null;
+        var (identity, reason) = PosteSecrets.Identity(Sim.Reader, bitLockerDenied || lapsDenied);
         var parts = new List<string>();
-        parts.Add(bitlocker is { } b ? FrenchText.Count(b.Keys, "clé BitLocker", "clés BitLocker") + " (lu le " + PosteText.LocalDateTime(b.At, zone) + ")" : "Clés BitLocker non lues dans cette session");
+        (int Keys, DateTimeOffset At)? index = session;
+        string? discarded = null;
+        if (index is null && Sim.StoredBitLockerIndex(machine) is { } stored)
+        {
+            // The index of the local base is checked by GUID and creation date: an older holder of the name is left out (PST-065).
+            if (PosteSecrets.IndexApplies(stored.Holder, stored.At, id, machine.Computer.WhenCreated))
+            {
+                index = (Keys(machine.Computer, machine).Length, stored.At);
+            }
+            else
+            {
+                discarded = "métadonnées BitLocker du " + PosteText.LocalDate(stored.At, zone) + " écartées : elles concernent un ancien détenteur du nom (poste actuel créé le " + PosteText.LocalDate(machine.Computer.WhenCreated, zone) + ")";
+            }
+        }
+        parts.Add(index is { } b ? FrenchText.Count(b.Keys, "clé BitLocker", "clés BitLocker") + " (" + (session is null ? "base locale, " : "") + "lu le " + PosteText.LocalDateTime(b.At, zone) + ")" : "Clés BitLocker non lues");
         parts.Add(computer.LapsExpiration is DateTimeOffset exp ? computer.LapsKind + ", expiration le " + PosteText.LocalDateTime(exp, zone) + (exp < now ? " (échue)" : "") : "Aucune expiration LAPS visible");
         if (lapsRead is DateTimeOffset at)
         {
             parts.Add("métadonnées LAPS lues le " + PosteText.LocalDateTime(at, zone));
         }
-        return new SecretsSummary(string.Join(" · ", parts) + ". Jamais une clé ni un mot de passe.", bitlocker?.Keys, bitlocker?.At, computer.LapsKind, computer.LapsExpiration,
-            computer.LapsExpiration is DateTimeOffset e && e < now, identity, reason, denied, false);
+        if (discarded is not null)
+        {
+            parts.Add(discarded);
+        }
+        return new SecretsSummary(string.Join(" · ", parts) + ". Jamais une clé ni un mot de passe.", index?.Keys, index?.At, computer.LapsKind, computer.LapsExpiration,
+            computer.LapsExpiration is DateTimeOffset e && e < now, identity, reason, bitLockerDenied, lapsDenied);
     }
 
     // ------------------------------------------------------------------ presence and live state
@@ -355,18 +372,95 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
         var categories = deep ? InventoryCategories.Quick.AddRange(InventoryCategories.DeepOnly) : InventoryCategories.Quick;
-        for (var i = 0; i < categories.Length; i++)
+        var label = deep ? "inventaire complet" : "inventaire rapide";
+        var computer = PosteHeaderRules.Computer(c, source.CurrentDirectory, UserNames());
+        var transport = InventoryTransport.Dcom;
+        if (Sim.CimBlocked(machine))
         {
-            progress?.Report(new PosteProgress(i, categories.Length, "Lecture : " + categories[i]));
-            await Wait(deep ? "inventory/deep" : "inventory/quick", deep ? 40 : 25, deep ? 90 : 60, cancellationToken).ConfigureAwait(false);
+            // CIM refused: never a silent switch to an intrusive transport; one fallback read only with its authorization.
+            if (!PosteSession.For(source).ConsumeReadFallback(c.DistinguishedName, label, Sim.Now))
+            {
+                await Wait("inventory/refused", 300, 700, cancellationToken).ConfigureAwait(false);
+                var refusedAt = Sim.Now;
+                var refused = LiveSnapshot(machine, deep, observation, refusedAt).WithStatus(categories, SourceStatus.Refused, CimRefusedDetail);
+                var refusedBoard = PosteBoardBuilder.Build(computer, refused, policy, refusedAt, Sim.Zone);
+                return InventoryRows.Build(refused, refusedBoard, "Non lu : CIM refusé", refusedAt, Sim.Zone, FallbackNotice(c.Name), InventoryRows.FallbackAction);
+            }
+            transport = InventoryTransport.ScheduledTask;
         }
-        progress?.Report(new PosteProgress(categories.Length, categories.Length, "Mise en forme du tableau"));
+        var budgetSeconds = deep ? 150 : 55;
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(TimeSpan.FromSeconds(budgetSeconds));
+        var read = 0;
+        string? interrupted = null;
+        try
+        {
+            for (var i = 0; i < categories.Length; i++)
+            {
+                progress?.Report(new PosteProgress(i, categories.Length, "Lecture : " + categories[i]));
+                await Wait(deep ? "inventory/deep" : "inventory/quick", deep ? 40 : 25, deep ? 90 : 60, budget.Token).ConfigureAwait(false);
+                read = i + 1;
+            }
+        }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested)
+        {
+            interrupted = cancellationToken.IsCancellationRequested ? "relevé arrêté à votre demande" : "budget de " + FrenchText.Integer(budgetSeconds) + " s atteint";
+        }
+        if (interrupted is not null && read == 0)
+        {
+            throw cancellationToken.IsCancellationRequested
+                ? new DomeniaOperationException(PosteErrors.Cancelled, PosteErrors.CancelledMessage)
+                : new DomeniaOperationException(PosteErrors.Unreachable, "Budget de " + FrenchText.Integer(budgetSeconds) + " s atteint avant toute lecture : rien n’a été lu ni enregistré.");
+        }
+        progress?.Report(new PosteProgress(categories.Length, categories.Length, interrupted is null ? "Mise en forme du tableau" : "Résultat partiel : mise en forme"));
         var now = Sim.Now;
         var snapshot = LiveSnapshot(machine, deep, observation, now);
+        if (transport != InventoryTransport.Dcom)
+        {
+            snapshot = snapshot.By(transport);
+        }
+        if (interrupted is not null)
+        {
+            // Partial result rather than loss (PST-037): what was read is kept and recorded, the rest is « Interrompu ».
+            snapshot = snapshot.WithStatus(categories.Skip(read), SourceStatus.Interrupted, interrupted);
+        }
         Sim.RecordInventory(c.ObjectGuid, snapshot);
-        var computer = PosteHeaderRules.Computer(c, source.CurrentDirectory, UserNames());
         var board = PosteBoardBuilder.Build(computer, snapshot, policy, now, Sim.Zone);
-        return InventoryRows.Build(snapshot, board, "Lu maintenant (session)", now, Sim.Zone);
+        var origin = transport == InventoryTransport.Dcom ? "Lu maintenant (session)" : "Lu maintenant par la lecture de repli (tâche planifiée, autorisation consommée)";
+        return InventoryRows.Build(snapshot, board, origin, now, Sim.Zone,
+            transport == InventoryTransport.Dcom ? null : "Lecture de repli utilisée : CIM refusé, une tâche planifiée unique a lu le poste puis a été supprimée. L’autorisation est consommée.", null);
+    }
+
+    private const string CimRefusedDetail = "CIM refusé (DCOM et WinRM) : non lu, aucun transport de repli sans autorisation";
+
+    private static string FallbackNotice(string computer) =>
+        "CIM refuse la lecture de " + computer + " (DCOM filtré, WinRM fermé) : rien n’a été lu. Une seule lecture de repli (tâche planifiée) est possible si vous l’autorisez ; elle laisse une trace sur le poste.";
+
+    public async Task<InventoryResult?> CachedInventoryAsync(string dn, PosteHealthPolicy policy, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dn);
+        ArgumentNullException.ThrowIfNull(policy);
+        var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
+        await Wait("inventory/cached", 40, 120, cancellationToken).ConfigureAwait(false);
+        var inventory = StoredInventory(machine, observation);
+        if (inventory is null)
+        {
+            return null;
+        }
+        var now = Sim.Now;
+        var session = Sim.SessionInventory(c.ObjectGuid) is not null;
+        var computer = PosteHeaderRules.Computer(c, source.CurrentDirectory, UserNames());
+        var board = PosteBoardBuilder.Build(computer, inventory, policy, now, Sim.Zone);
+        return InventoryRows.Build(inventory, board, session ? "Lu dans cette session" : "Base locale (dernier inventaire validé)", now, Sim.Zone);
+    }
+
+    /// <summary>A read that has no fallback (services, processes, events, sessions, WMI) on a workstation whose CIM refuses.</summary>
+    private void RequireCim(DirectoryComputer c, PosteMachine machine)
+    {
+        if (Sim.CimBlocked(machine))
+        {
+            throw new DomeniaOperationException(PosteErrors.CimRefused, "CIM refuse la lecture de " + c.Name + " (DCOM filtré, WinRM fermé) : rien n’a été lu. Seuls l’inventaire, les logiciels et la détection de l’utilisateur peuvent passer par une lecture de repli autorisée (vue Intervenir).");
+        }
     }
 
     // ------------------------------------------------------------------ software
@@ -377,6 +471,15 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ArgumentNullException.ThrowIfNull(request);
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
+        var fallback = false;
+        if (Sim.CimBlocked(machine))
+        {
+            if (!PosteSession.For(source).ConsumeReadFallback(c.DistinguishedName, "logiciels", Sim.Now))
+            {
+                throw new DomeniaOperationException(PosteErrors.CimRefused, FallbackNotice(c.Name));
+            }
+            fallback = true;
+        }
         await Wait("software", 600, 1200, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         var winRm = Sim.ServiceStates(c.ObjectGuid).TryGetValue("WinRM", out var winrm) ? winrm == "Running" : machine.Services.Any(s => s.Name == "WinRM" && s.State == "Running");
@@ -390,16 +493,16 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         access.Add(new SoftwareScopeAccess("Machine", SourceStatus.Ok, "Lu", rows.Count(r => r.Scope == "Machine"), "Registre Uninstall 64 et 32 bits (StdRegProv), inventaire SCCM ; jamais Win32_Product"));
         access.Add(request.PerUser
             ? new SoftwareScopeAccess("Utilisateur", rows.Any(r => r.Scope == "Utilisateur") ? SourceStatus.Ok : SourceStatus.Empty, rows.Any(r => r.Scope == "Utilisateur") ? "Lu" : "Lu, rien trouvé", rows.Count(r => r.Scope == "Utilisateur"), "Ruches HKU chargées (profils ouverts seulement)")
-            : new SoftwareScopeAccess("Utilisateur", SourceStatus.Skipped, "Non demandé", 0, "Cochez « Profils » pour lire les ruches chargées"));
+            : new SoftwareScopeAccess("Utilisateur", SourceStatus.Skipped, "Non demandé", 0, "Cochez « Profils » pour lire les ruches chargées"));
         access.Add(!request.Store
-            ? new SoftwareScopeAccess("Store", SourceStatus.Skipped, "Non demandé", 0, "Cochez « Store » pour lire les applications Appx (WinRM)")
+            ? new SoftwareScopeAccess("Store", SourceStatus.Skipped, "Non demandé", 0, "Cochez « Store » pour lire les applications Appx (WinRM)")
             : winRm
                 ? new SoftwareScopeAccess("Store", SourceStatus.Ok, "Lu", rows.Count(r => r.Scope == "Store"), "Appx par WinRM")
                 : new SoftwareScopeAccess("Store", SourceStatus.Unavailable, "Indisponible", 0, "WinRM arrêté sur le poste : les applications du Store ne sont pas lues (aucun repli)"));
         var built = access.ToImmutable();
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, Sim.Zone).DateTime);
         var facts = ImmutableArray.Create(PosteText.Fact("Logiciels", FrenchText.Count(rows.Length, "entrée lue", "entrées lues"), FactState.Observed, "Registre et SCCM", "Une ligne par entrée ; rien n’est fusionné.", at: now, tone: Tone.Info));
-        return new SoftwareResult(c.Name, now, "Lu maintenant (session)", "Liste lue sur le poste le " + PosteText.LocalDateTime(now, Sim.Zone) + " (portée machine" + (request.PerUser ? ", profils" : "") + (request.Store ? ", Store" : "") + ").",
+        return new SoftwareResult(c.Name, now, fallback ? "Lu maintenant par la lecture de repli (tâche planifiée)" : "Lu maintenant (session)", "Liste lue sur le poste le " + PosteText.LocalDateTime(now, Sim.Zone) + " (portée machine" + (request.PerUser ? ", profils" : "") + (request.Store ? ", Store" : "") + ").",
             true, rows.Length, rows, built, PosteSoftware.AccessSummary(built), PosteSoftware.NotCovered(built, request), PosteSoftware.Columns(rows), PosteSoftware.Board(rows, today), facts);
     }
 
@@ -432,6 +535,7 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ArgumentNullException.ThrowIfNull(dn);
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
+        RequireCim(c, machine);
         await Wait("services", 300, 700, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         var states = Sim.ServiceStates(c.ObjectGuid);
@@ -448,6 +552,7 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ArgumentNullException.ThrowIfNull(dn);
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
+        RequireCim(c, machine);
         await Wait("processes", 700, 1200, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         var (first, second) = TwoReads(machine, observation);
@@ -489,6 +594,7 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         var definition = PosteEvents.Preset(preset) ?? throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Arguments invalides : préréglage d’événements inconnu.");
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
+        RequireCim(c, machine);
         await Wait("events", 300, 800, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         var query = PosteEvents.Query(definition, hours, maxEvents, now);
@@ -502,6 +608,7 @@ public sealed partial class SimulatedPosteReader : IPosteReader
         ArgumentNullException.ThrowIfNull(dn);
         var (c, machine, observation) = await ResolveAsync(dn, cancellationToken).ConfigureAwait(false);
         Sim.Unreachable(c, observation);
+        RequireCim(c, machine);
         await Wait("sessions", 200, 500, cancellationToken).ConfigureAwait(false);
         var now = Sim.Now;
         var user = User(machine);

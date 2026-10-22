@@ -34,6 +34,7 @@ internal sealed class PosteSimulation
     private readonly Dictionary<Guid, (int Keys, DateTimeOffset At)> bitLockerIndex = [];
     private readonly Dictionary<Guid, DateTimeOffset> lapsIndex = [];
     private readonly Dictionary<Guid, DateTimeOffset> wakes = [];
+    private readonly Dictionary<(Guid Id, string Resource), string> otherAccounts = [];
 
     private PosteSimulation(SimulatedDirectorySource source)
     {
@@ -350,4 +351,59 @@ internal sealed class PosteSimulation
 
     /// <summary>The BitLocker read of the postes of Marseille is refused (journal of the simulation: « Lecture BitLocker refusée pour l’OU Marseille »).</summary>
     public static bool BitLockerDenied(PosteMachine machine) => machine.Site == "Marseille";
+
+    /// <summary>The LAPS read of the postes of Lille is refused for the session account (PST-062: refusal remembered per workstation).</summary>
+    public static bool LapsDenied(PosteMachine machine) => machine.Site == "Lille";
+
+    /// <summary>
+    /// CIM refused on 4 % of the reachable workstations (RPC filtered by a local firewall and WinRM closed): a read of the
+    /// inventory, the software or the last user needs the single fallback read authorized in the session (PST-011, PST-023).
+    /// </summary>
+    public bool CimBlocked(PosteMachine machine)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+        return !ErrorProbe(machine.Computer.ObjectGuid) && !PingFiltered(machine.Computer.ObjectGuid) && new SeededRandom(machine.Seed).Fork("cim/blocked").Chance(4);
+    }
+
+    /// <summary>The other account accepted for a secret resource of a workstation (« laps », « bitlocker »), or null.</summary>
+    public string? OtherAccount(Guid id, string resource)
+    {
+        lock (gate)
+        {
+            return otherAccounts.TryGetValue((id, resource), out var account) ? account : null;
+        }
+    }
+
+    public void AcceptOtherAccount(Guid id, string resource, string account)
+    {
+        lock (gate)
+        {
+            otherAccounts[(id, resource)] = account;
+        }
+    }
+
+    /// <summary>
+    /// The non-secret index of the local base for one workstation (Domenia 1 SecretMeta): BitLocker keys counted at the last
+    /// stored read. On 3 % of the computers the entry was written for an older holder of the same name (another GUID, before
+    /// the creation of the current object): the console must leave it out (PST-065).
+    /// </summary>
+    public (int Keys, DateTimeOffset At, Guid Holder)? StoredBitLockerIndex(PosteMachine machine)
+    {
+        ArgumentNullException.ThrowIfNull(machine);
+        var r = new SeededRandom(machine.Seed).Fork("secrets/stored");
+        if (!initial.Value.TryGetValue(machine.Computer.ObjectGuid, out var observation) || observation.Inventory.CheckedAt is not DateTimeOffset checkedAt)
+        {
+            return null;
+        }
+        if (r.Chance(3))
+        {
+            var holder = new Guid(BitConverter.GetBytes(r.NextUInt64()).Concat(BitConverter.GetBytes(r.NextUInt64())).ToArray());
+            return (1 + r.Next(2), machine.Computer.WhenCreated.AddDays(-r.Next(30, 400)), holder);
+        }
+        if (machine.BitLockerConversion == 0 || !r.Chance(70))
+        {
+            return null;
+        }
+        return (r.Chance(30) ? 2 : 1, checkedAt.AddDays(-r.Next(1, 20)), machine.Computer.ObjectGuid);
+    }
 }

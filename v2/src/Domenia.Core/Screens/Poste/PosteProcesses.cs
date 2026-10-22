@@ -52,7 +52,7 @@ public static class PosteProcesses
         var sorted = rows.ToImmutable().OrderByDescending(r => r.CpuPercent ?? -1).ThenByDescending(r => r.WorkingSetBytes ?? 0).ThenBy(r => r.Name, StringComparer.Ordinal).ToImmutableArray();
         var busiest = sorted.FirstOrDefault(r => r.CpuPercent is not null);
         var summary = FrenchText.Count(sorted.Length, "processus lu", "processus lus") + " à " + PosteText.LocalTime(at, zone) + ", parts mesurées sur " + FrenchText.Decimal(intervalMs / 1000d, 1) + " s et "
-            + FrenchText.Count(logicalProcessors, "processeur logique", "processeurs logiques") + (ended > 0 ? " ; " + FrenchText.Integer(ended) + " terminé(s) entre les lectures" : "") + ".";
+            + FrenchText.Count(logicalProcessors, "processeur logique", "processeurs logiques") + (ended > 0 ? " ; " + FrenchText.Count(ended, "terminé", "terminés") + " entre les lectures" : "") + ".";
         var facts = ImmutableArray.Create(
             PosteText.Fact("Charge mesurée", FrenchText.Percent(Math.Min(100, total), 0) + " pour " + FrenchText.Count(measured, "processus mesuré", "processus mesurés"), FactState.Observed, "Win32_Process (deux lectures)",
                 "Mesure sur un intervalle court : une photographie de quelques secondes, pas une moyenne de la journée.", at: at, tone: total >= 85 ? Tone.Warn : Tone.Ok),

@@ -230,7 +230,7 @@ public sealed class SimulatedPosteGpUpdateExecutor : SimulatedPosteRemoteExecuto
     {
         ArgumentNullException.ThrowIfNull(plan);
         await Wait("verify", 90, 200, cancellationToken).ConfigureAwait(false);
-        return new WriteVerification(VerificationState.Unknown, "Effet à vérifier : relisez les stratégies appliquées (RSoP) ou les événements « Stratégie de groupe » du poste.");
+        return new WriteVerification(VerificationState.Unknown, "Effet à vérifier : relisez les stratégies appliquées (RSoP) ou les événements « Stratégie de groupe » du poste.");
     }
 }
 
@@ -316,7 +316,7 @@ public sealed class SimulatedPosteServiceExecutor : SimulatedPosteRemoteExecutor
         var row = Rows(Sim.Machine(c)).FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
         return row is not null && string.Equals(row.State, change.AfterValue, StringComparison.Ordinal)
             ? new WriteVerification(VerificationState.Verified, "État relu : " + row.StateLabel.ToLowerInvariant() + ".")
-            : new WriteVerification(VerificationState.Mismatch, "État relu différent de l’état attendu" + (row is null ? "" : " (" + row.StateLabel + ")") + " : un reçu « à vérifier » reste ouvert.");
+            : new WriteVerification(VerificationState.Mismatch, "État relu différent de l’état attendu" + (row is null ? "" : " (" + row.StateLabel + ")") + " : un reçu « à vérifier » reste ouvert.");
     }
 }
 
@@ -342,7 +342,14 @@ public sealed class SimulatedPosteRunExecutor : SimulatedPosteRemoteExecutor, IP
         RequireReach(c, observation);
         await Wait("plan", 90, 220, cancellationToken).ConfigureAwait(false);
         var until = session.State(c.DistinguishedName, now).Intervention.Until ?? now;
-        return PosteRemoteWrites.Run(c, request, until, Sim.Zone);
+        var draft = PosteRemoteWrites.Run(c, request, until, Sim.Zone);
+        var digest = PosteRemote.ArgumentsDigest(request.Arguments);
+        if (digest.Length > 0)
+        {
+            // Kept in memory only, under their fingerprint, for the life of the plan (never in the plan nor in the receipt).
+            session.KeepRunArguments(digest, request.Arguments, now + WritePlans.Lifetime, now);
+        }
+        return draft;
     }
 
     public async Task<WritePrecheck> CheckAsync(WritePlan plan, CancellationToken cancellationToken)
@@ -355,14 +362,26 @@ public sealed class SimulatedPosteRunExecutor : SimulatedPosteRemoteExecutor, IP
         {
             return WritePrecheck.Stale("L’autorisation d’intervention a expiré ou a été retirée : rien n’a été envoyé. Accordez-la de nouveau puis préparez l’action.");
         }
+        var digest = PosteRemoteWrites.RunDigest(plan);
+        if (check.Current && digest.Length > 0 && !PosteSession.For(Source).HasRunArguments(digest, Sim.Now))
+        {
+            return WritePrecheck.Stale("Les arguments du programme ne sont plus en mémoire (plan expiré ou session changée) : rien n’a été envoyé. Préparez de nouveau l’exécution.");
+        }
         return check;
     }
 
     public async Task<WriteOutcome> ExecuteAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        var digest = PosteRemoteWrites.RunDigest(plan);
+        // The arguments are taken (and forgotten) from the memory of the session: the receipt only ever had their fingerprint.
+        var arguments = digest.Length == 0 ? "" : PosteSession.For(Source).TakeRunArguments(digest, Sim.Now);
+        if (arguments is null)
+        {
+            throw WriteErrors.Refusal(PosteErrors.Refused, "Arguments du programme introuvables en mémoire : rien n’a été envoyé. Préparez de nouveau l’exécution.");
+        }
         await Wait("execute", 500, 1100, cancellationToken).ConfigureAwait(false);
-        return new WriteOutcome(WriteResult.Applied, "Tâche planifiée unique créée, lancée puis supprimée (simulation : aucun programme réel lancé).");
+        return new WriteOutcome(WriteResult.Applied, "Tâche planifiée unique créée, lancée puis supprimée (simulation : aucun programme réel lancé ; " + PosteRemote.ArgumentsText(arguments) + ").");
     }
 
     public async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)

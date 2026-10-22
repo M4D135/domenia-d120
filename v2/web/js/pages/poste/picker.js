@@ -1,13 +1,13 @@
 // Picker of the workstation console: the workstations of the working OU (poste.list, local base only), searched and
-// filtered locally, opened with a click (the click is the gesture: the console then reads nothing on the network until
-// the operator asks). Also the side switcher of an open console and the list of recently opened workstations.
-import { createGrid, openDrawer, createFilterBar, readLayout, writeLayout, debounce } from '../../kit/index.js';
-import { esc, ico, empty, failure, sk, skLines, NBSP, int, formatNumber } from './common.js';
+// filtered locally, opened with a click (the click is the gesture: the console then sends one ping, and reads the console
+// user when the option is on, Domenia 1 PST-051). Also the side switcher of an open console and the workstations opened
+// recently, kept in the memory of the page only (never written to disk, never a user name).
+import { createGrid, openDrawer, createFilterBar, debounce } from '../../kit/index.js';
+import { esc, ico, empty, failure, sk, skLines, NBSP, int, count, formatNumber, errorText } from './common.js';
 import { reveal as revealCards, toast } from '../../ui.js';
 
-const RECENT_KEY = 'poste.recents';
 const PRESENCE = {
-  online: { label: 'Répond', tone: 'ok' }, offline: { label: 'Muet', tone: 'warn' }, error: { label: 'Erreur', tone: 'alert' },
+  online: { label: 'Répond', tone: 'ok' }, offline: { label: 'Muet', tone: 'warn' }, error: { label: 'Test impossible', tone: 'alert' },
   unknown: { label: 'Non vérifié', tone: 'off' }, pending: { label: 'Test…', tone: 'info' }, remembered: { label: 'Mémoire', tone: 'info' },
 };
 const FACETS = [
@@ -17,36 +17,37 @@ const FACETS = [
   { id: 'laptop', label: 'Portables' },
 ];
 
-function recents() {
-  const saved = readLayout(RECENT_KEY);
-  return saved?.v === 1 && Array.isArray(saved.items) ? saved.items.slice(0, 6) : [];
-}
+// Workstations opened in this run of the application (memory of the page: DN and computer name only, six at most).
+const RECENTS = [];
 
 export function rememberRecent(row) {
-  const items = recents().filter((r) => r.dn !== row.dn);
-  items.unshift({ dn: row.dn, name: row.name, user: row.user?.name ?? null });
-  writeLayout(RECENT_KEY, { v: 1, items: items.slice(0, 6) });
+  if (!row?.dn) return;
+  const at = RECENTS.findIndex((r) => r.dn === row.dn);
+  if (at >= 0) RECENTS.splice(at, 1);
+  RECENTS.unshift({ dn: row.dn, name: row.name });
+  RECENTS.length = Math.min(RECENTS.length, 6);
 }
 
 function columns() {
   return [
-    { id: 'name', label: 'Poste', required: true, width: 170, mono: true },
-    { id: 'presence', label: 'Présence', type: 'enum', width: 130, options: Object.entries(PRESENCE).map(([value, p]) => ({ value, label: p.label, tone: p.tone })) },
-    { id: 'health', label: 'Santé', type: 'enum', width: 150, get: (r) => r.health.level, options: [
+    { id: 'name', label: 'Poste', required: true, width: 150, mono: true },
+    { id: 'presence', label: 'Présence', type: 'enum', width: 120, options: Object.entries(PRESENCE).map(([value, p]) => ({ value, label: p.label, tone: p.tone })) },
+    { id: 'health', label: 'Santé', type: 'enum', width: 140, get: (r) => r.health.level, options: [
       { value: 'ok', label: 'Rien à signaler', tone: 'ok' }, { value: 'warn', label: 'À surveiller', tone: 'warn' },
       { value: 'alert', label: 'Critique', tone: 'alert' }, { value: 'off', label: 'Sans inventaire', tone: 'off' }] },
-    { id: 'points', label: 'Points', type: 'number', width: 110, get: (r) => r.health.points },
-    { id: 'user', label: 'Utilisateur', width: 200, get: (r) => r.user?.name ?? '' },
-    { id: 'release', label: 'Système', width: 190, get: (r) => [r.os?.replace('Windows ', 'Win ').replace(' Entreprise', ' Ent.'), r.release].filter(Boolean).join(' · ') },
-    { id: 'site', label: 'Site', width: 110 },
-    { id: 'kind', label: 'Type', type: 'enum', width: 110, options: [{ value: 'desktop', label: 'Fixe' }, { value: 'laptop', label: 'Portable' }, { value: 'server', label: 'Serveur' }, { value: 'unknown', label: 'Autre' }] },
-    { id: 'presenceAt', label: 'Dernier test', type: 'date', width: 150 },
-    { id: 'inventoryAt', label: 'Dernier inventaire', type: 'date', width: 160 },
+    // No inventory: the points are not known (« — »), never 0.
+    { id: 'points', label: 'Points', type: 'number', width: 90, get: (r) => (r.inventoryAt ? r.health.points : null) },
+    { id: 'user', label: 'Utilisateur', width: 180, get: (r) => r.user?.name ?? '' },
+    { id: 'release', label: 'Système', width: 160, get: (r) => [r.os?.replace('Windows ', 'Win ').replace(' Entreprise', ' Ent.'), r.release].filter(Boolean).join(' · ') },
+    { id: 'site', label: 'Site', width: 100 },
+    { id: 'kind', label: 'Type', type: 'enum', width: 110, hidden: true, options: [{ value: 'desktop', label: 'Fixe' }, { value: 'laptop', label: 'Portable' }, { value: 'server', label: 'Serveur' }, { value: 'unknown', label: 'Autre' }] },
+    { id: 'presenceAt', label: 'Dernier test', type: 'date', width: 130 },
+    { id: 'inventoryAt', label: 'Inventaire', type: 'date', width: 130, tip: 'Date du dernier inventaire enregistré' },
     { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
   ];
 }
 
-/** Landing page of the screen: hero, search, facets, the grid of the workstations of the working OU. */
+/** Landing page of the screen: hero, search, option, facets, the grid of the workstations of the working OU. */
 export function renderPicker(main, ctx) {
   let alive = true;
   main.innerHTML = `<div class="page ps-page ps-picker">
@@ -54,10 +55,11 @@ export function renderPicker(main, ctx) {
       <span class="glow-ring hero-ring" aria-hidden="true"></span>
       <div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>
       <div class="ps-pick-head">
-        <p class="eyebrow">${ico('monitor')}Console d’un poste</p>
+        <p class="eyebrow">${ico('monitor')}<span>Console d’un poste</span></p>
         <h1 class="gradient-text">Choisir un poste</h1>
         <p class="lead">État en direct, inventaire, logiciels, services, diagnostic, sondes, interventions et secrets d’un poste. Rien n’est lu sur le réseau sans votre geste.</p>
         <label class="ps-search"><span class="visually-hidden">Rechercher un poste</span>${ico('search')}<input class="input" type="search" data-search placeholder="Nom du poste, utilisateur, site, système…" autocomplete="off" spellcheck="false"><kbd>Entrée</kbd></label>
+        <label class="ps-check-opt ps-open-opt"><input type="checkbox" data-opt="console" disabled> Lire aussi l’utilisateur connecté à l’ouverture d’un poste <span class="ps-faint">(un ping et une lecture de la console)</span></label>
         <div class="ps-recents" data-slot="recents"></div>
       </div>
       <div class="ps-pick-stats" data-slot="stats">${skLines('w55', 'w70', 'w40')}</div>
@@ -80,7 +82,7 @@ export function renderPicker(main, ctx) {
     loading: true,
     height: '560px',
     columns: columns(),
-    empty: { icon: 'search', title: 'Aucun poste', text: 'Aucun poste de l’OU de travail ne correspond : changez la recherche ou l’OU de travail (Accueil).' },
+    empty: { icon: 'search', title: 'Aucun poste', text: 'Aucun poste de l’OU de travail ne correspond : changez la recherche ou l’OU de travail (Accueil).' },
     onActivate: (row) => open(row),
     contextMenu: ({ row }) => [
       { label: 'Ouvrir la console', icon: 'monitor', kbd: 'Entrée', disabled: !row, run: () => open(row) },
@@ -95,9 +97,11 @@ export function renderPicker(main, ctx) {
   });
 
   const searchInput = main.querySelector('[data-search]');
+  const option = main.querySelector('[data-opt="console"]');
   function open(row) {
     rememberRecent(row);
-    // Opening from the list is the gesture of Domenia 1 (PST-051): the console then sends one ping, nothing heavier.
+    // Opening from the list is the gesture of Domenia 1 (PST-051): the console then sends one ping, nothing heavier
+    // (and reads the console user when the option is on).
     ctx.navigate('poste', { dn: row.dn, verifier: '1' });
   }
   function matches(r) {
@@ -110,7 +114,7 @@ export function renderPicker(main, ctx) {
   function apply() {
     const shown = rows.filter(matches);
     grid.setRows(shown, { keepSelection: true });
-    main.querySelector('[data-slot="summary"]').textContent = `${int(shown.length)} poste${shown.length > 1 ? 's' : ''} affiché${shown.length > 1 ? 's' : ''} sur ${int(rows.length)} · double-cliquez ou appuyez sur Entrée pour ouvrir la console.`;
+    main.querySelector('[data-slot="summary"]').textContent = `${count(shown.length, 'poste affiché', 'postes affichés')} sur ${int(rows.length)} · double-cliquez ou appuyez sur Entrée pour ouvrir la console.`;
   }
   function stats(list) {
     // Same counting as the Accueil: active computer accounts of the working OU, presence read less than 30 days ago.
@@ -121,8 +125,8 @@ export function renderPicker(main, ctx) {
     const noinv = active.filter((r) => !r.inventoryAt).length;
     const tile = (icon, value, label, tone) => `<div class="ps-stat" data-tone="${tone}"><span class="ps-stat-ico">${ico(icon)}</span><b>${esc(formatNumber(value))}</b><span>${esc(label)}</span></div>`;
     const scope = list.scope ? ` · OU ${list.scope.label}` : '';
-    main.querySelector('[data-slot="stats"]').innerHTML = `${tile('monitor', active.length, `postes actifs${scope}${disabled ? ` · ${formatNumber(disabled)} désactivé${disabled > 1 ? 's' : ''}` : ''}`, 'accent')}
-      ${tile('wifi', online, 'répondent (relevé de moins de 30 jours)', 'ok')}${tile('alert', watch, 'à surveiller', 'warn')}${tile('layers', noinv, 'postes actifs sans inventaire', 'off')}`;
+    main.querySelector('[data-slot="stats"]').innerHTML = `${tile('monitor', active.length, `${active.length > 1 ? 'postes actifs' : 'poste actif'}${scope}${disabled ? ` · ${count(disabled, 'désactivé', 'désactivés')}` : ''}`, 'accent')}
+      ${tile('wifi', online, `${online > 1 ? 'répondent' : 'répond'} (relevé de moins de 30 jours)`, 'ok')}${tile('alert', watch, 'à surveiller', 'warn')}${tile('layers', noinv, `${noinv > 1 ? 'postes actifs' : 'poste actif'} sans inventaire`, 'off')}`;
     bar.setFacets(FACETS.map((f) => ({ id: f.id, label: f.label, pressed: pressed.has(f.id),
       count: f.id === 'online' ? online : f.id === 'watch' ? watch : f.id === 'noinv' ? noinv : list.rows.filter((r) => r.kind === 'laptop').length })));
   }
@@ -138,7 +142,7 @@ export function renderPicker(main, ctx) {
     } catch (err) {
       console.error(err);
       if (!alive) return;
-      grid.setError(err?.message ?? 'Liste indisponible.', { retry: () => load(text) });
+      grid.setError(errorText(err, 'Liste indisponible.'), { retry: () => load(text) });
       main.querySelector('[data-slot="stats"]').innerHTML = failure(err, { retry: null });
     }
   }
@@ -152,10 +156,24 @@ export function renderPicker(main, ctx) {
     const first = grid.getVisibleRows?.()[0];
     if (first && alive) open(first);
   });
-  const recent = recents();
+  // The option of Domenia 1 (« lire aussi l’utilisateur console ») is a local preference of the application.
+  ctx.call('poste.host').then((host) => {
+    if (!alive || !host) return;
+    option.checked = host.openReadsConsole === true;
+    option.disabled = false;
+  }).catch((err) => console.error(err));
+  option.addEventListener('change', async () => {
+    try {
+      await ctx.call('poste.option.set', { name: 'openReadsConsole', value: option.checked });
+      toast(option.checked ? 'À l’ouverture d’un poste depuis la liste : un ping, puis l’utilisateur connecté.' : 'À l’ouverture d’un poste depuis la liste : un ping seulement.', { tone: 'info' });
+    } catch (err) {
+      option.checked = !option.checked;
+      toast(errorText(err), { tone: 'alert' });
+    }
+  });
   const recentsHost = main.querySelector('[data-slot="recents"]');
-  recentsHost.innerHTML = recent.length
-    ? `<span class="ps-recents-label">Récents${NBSP}:</span>${recent.map((r) => `<a class="chip ps-recent" href="#/poste?dn=${encodeURIComponent(r.dn)}&verifier=1">${ico('monitor')}${esc(r.name)}${r.user ? `<small>${esc(r.user)}</small>` : ''}</a>`).join('')}`
+  recentsHost.innerHTML = RECENTS.length
+    ? `<span class="ps-recents-label">Ouverts récemment${NBSP}:</span>${RECENTS.map((r) => `<a class="chip ps-recent" href="#/poste?dn=${encodeURIComponent(r.dn)}&verifier=1">${ico('monitor')}${esc(r.name)}</a>`).join('')}`
     : `<span class="ps-recents-label">Astuce${NBSP}: tapez le début du nom puis Entrée pour ouvrir le premier poste trouvé.</span>`;
   load('');
   revealCards(main);
@@ -182,7 +200,7 @@ export function openSwitcher(state) {
     list.removeAttribute('aria-busy');
     list.innerHTML = shown.length ? shown.map((r) => `<a class="ps-switch-row${r.dn === state.dn ? ' current' : ''}" href="#/poste?dn=${encodeURIComponent(r.dn)}&verifier=1" data-dn="${esc(r.dn)}">
       <span class="ps-dot" data-tone="${esc(PRESENCE[r.presence]?.tone ?? 'off')}" aria-hidden="true"></span><span class="ps-switch-name mono">${esc(r.name)}</span>
-      <span class="ps-switch-user">${esc(r.user?.name ?? '—')}</span>${r.health.points ? `<span class="chip ${esc(r.health.level)}">${int(r.health.points)}</span>` : ''}</a>`).join('')
+      <span class="ps-switch-user">${esc(r.user?.name ?? '—')}</span>${r.inventoryAt && r.health.points ? `<span class="chip ${esc(r.health.level)}">${int(r.health.points)}</span>` : ''}</a>`).join('')
       : empty({ icon: 'search', title: 'Aucun poste', text: 'Aucun poste ne correspond à la recherche.' });
   };
   state.call('poste.list', { limit: 1000 }).then((r) => {

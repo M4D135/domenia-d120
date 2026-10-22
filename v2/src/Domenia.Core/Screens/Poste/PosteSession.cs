@@ -13,13 +13,27 @@ public enum ConsentKind
     ReadFallback,
 }
 
+/// <summary>A stoppable collection of one workstation (relevé, Domenia 1 PST-052): each kind has its own scope.</summary>
+public enum CollectionKind
+{
+    Inventory,
+    Diagnostic,
+    Probes,
+    Detection,
+}
+
 /// <summary>One line of the journal of the authorizations (improvement of PST-010): granted, withdrawn, expired, used.</summary>
 public sealed record ConsentEvent(DateTimeOffset At, ConsentKind Kind, string Computer, string Action, string Detail);
 
+/// <summary>A collection running in the session: which workstation, which kind, since when (PST-052, named in the page).</summary>
+public sealed record RunningCollection(string Dn, string Computer, CollectionKind Kind, string Label, DateTimeOffset Since);
+
 /// <summary>
-/// Authorizations and running collections of the session, per workstation, shared by the module of the screen and the write
-/// executors of the same source (a program run checks the intervention again just before sending). Memory only: cleared with
-/// the session (never written to disk), never valid for another workstation. Thread safe.
+/// Authorizations, running collections and sealed program arguments of the session, per workstation, shared by the module of
+/// the screen, the readers and the write executors of the same source (a program run checks the intervention again just
+/// before sending; a read refused by CIM consumes the single fallback read). Memory only: cleared when the session changes
+/// (another account or domain) and with the application (never written to disk), never valid for another workstation.
+/// Thread safe.
 /// </summary>
 public sealed class PosteSession
 {
@@ -27,12 +41,17 @@ public sealed class PosteSession
 
     private readonly Lock gate = new();
     private readonly Dictionary<(ConsentKind Kind, string Dn), (DateTimeOffset Until, string Name)> consents = [];
-    private readonly Dictionary<string, CancellationTokenSource> collections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<(string Dn, CollectionKind Kind), (CancellationTokenSource Source, string Name, DateTimeOffset Since)> collections = [];
+    private readonly Dictionary<string, (string Arguments, DateTimeOffset Until)> runArguments = new(StringComparer.Ordinal);
     private readonly List<ConsentEvent> history = [];
+    private string? sessionKey;
 
     public const int DefaultMinutes = 5;
     public const int MinMinutes = 1;
     public const int MaxMinutes = 15;
+
+    /// <summary>Most program arguments kept waiting for their plan (one per pending plan of the circuit at most).</summary>
+    public const int MaxKeptArguments = 16;
 
     /// <summary>The session of a directory source (one per application session).</summary>
     public static PosteSession For(IDirectorySource source)
@@ -42,6 +61,49 @@ public sealed class PosteSession
     }
 
     private static string Key(string dn) => dn.Trim().ToUpperInvariant();
+
+    /// <summary>French label of a kind of collection.</summary>
+    public static string Label(CollectionKind kind) => kind switch
+    {
+        CollectionKind.Inventory => "Inventaire",
+        CollectionKind.Diagnostic => "Diagnostic",
+        CollectionKind.Probes => "Relevé des sondes",
+        _ => "Détection de l’utilisateur",
+    };
+
+    /// <summary>
+    /// Binds the session to the account and domain of the directory session (Domenia 1: authorizations are cleared when the
+    /// session changes). A different key withdraws every authorization, stops every collection and forgets sealed arguments.
+    /// </summary>
+    public bool EnsureSession(string key, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        lock (gate)
+        {
+            if (sessionKey is null)
+            {
+                sessionKey = key;
+                return false;
+            }
+            if (string.Equals(sessionKey, key, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            foreach (var consent in consents)
+            {
+                history.Add(new ConsentEvent(now, consent.Key.Kind, consent.Value.Name, "Retirée", "Effacée : changement de session (autre compte ou autre domaine)."));
+            }
+            consents.Clear();
+            foreach (var running in collections.Values)
+            {
+                running.Source.Cancel();
+            }
+            collections.Clear();
+            runArguments.Clear();
+            sessionKey = key;
+            return true;
+        }
+    }
 
     /// <summary>Grants an authorization on one workstation for 1 to 15 minutes (5 by default); replaces the previous one of that kind.</summary>
     public ConsentWindow Grant(ConsentKind kind, string dn, string name, int minutes, DateTimeOffset now)
@@ -60,6 +122,17 @@ public sealed class PosteSession
             consents[(kind, Key(dn))] = (now.AddMinutes(span), name);
             history.Add(new ConsentEvent(now, kind, name, "Accordée", FrenchText.Count(span, "minute", "minutes") + (kind == ConsentKind.ReadFallback ? ", une seule lecture" : "")));
             return Window(kind, dn, now);
+        }
+    }
+
+    /// <summary>Records a refused grant in the journal (an uncertain write on the workstation holds it back, Domenia 1 PST-010).</summary>
+    public void NoteRefusal(ConsentKind kind, string name, string reason, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(reason);
+        lock (gate)
+        {
+            history.Add(new ConsentEvent(now, kind, name, "Refusée", reason));
         }
     }
 
@@ -88,10 +161,14 @@ public sealed class PosteSession
         }
     }
 
-    /// <summary>Consumes the single fallback read of a workstation (true when one was granted and still valid).</summary>
-    public bool ConsumeReadFallback(string dn, DateTimeOffset now)
+    /// <summary>
+    /// Consumes the single fallback read of a workstation (true when one was granted and still valid). Called by a reader only
+    /// when CIM refused: without it the read returns « non lu » instead of switching transport (Domenia 1 PST-011, PST-023).
+    /// </summary>
+    public bool ConsumeReadFallback(string dn, string reading, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
+        ArgumentNullException.ThrowIfNull(reading);
         lock (gate)
         {
             if (!consents.TryGetValue((ConsentKind.ReadFallback, Key(dn)), out var c) || c.Until <= now)
@@ -99,7 +176,7 @@ public sealed class PosteSession
                 return false;
             }
             consents.Remove((ConsentKind.ReadFallback, Key(dn)));
-            history.Add(new ConsentEvent(now, ConsentKind.ReadFallback, c.Name, "Utilisée", "Lecture de repli consommée."));
+            history.Add(new ConsentEvent(now, ConsentKind.ReadFallback, c.Name, "Utilisée", "Lecture de repli consommée par : " + reading + "."));
             return true;
         }
     }
@@ -128,68 +205,136 @@ public sealed class PosteSession
             {
                 var remaining = (int)Math.Ceiling((c.Until - now).TotalSeconds);
                 var text = kind == ConsentKind.Intervention
-                    ? "Intervention autorisée sur ce poste pour " + FrenchText.Integer(remaining / 60) + " min " + FrenchText.Integer(remaining % 60).PadLeft(2, '0') + " s"
-                    : "Une lecture de repli autorisée (PsExec ou tâche planifiée), " + FrenchText.Integer(remaining / 60) + " min restantes";
+                    ? "Intervention autorisée sur ce poste pour " + FrenchText.Integer(remaining / 60) + " min " + FrenchText.Integer(remaining % 60).PadLeft(2, '0') + " s"
+                    : "Une lecture de repli autorisée (PsExec ou tâche planifiée) pendant " + FrenchText.Count((int)Math.Ceiling(remaining / 60d), "minute", "minutes") + ", consommée par la prochaine lecture refusée par CIM";
                 return new ConsentWindow(true, c.Until, remaining, text, null);
             }
             return new ConsentWindow(false, null, 0,
-                kind == ConsentKind.Intervention ? "Aucune autorisation d’intervention : accordez-la (5 min) pour exécuter un programme." : "Aucune lecture de repli autorisée : sans elle, une lecture refusée par CIM rend « non lu ».",
+                kind == ConsentKind.Intervention ? "Aucune autorisation d’intervention : accordez-la (5 min) pour exécuter un programme." : "Aucune lecture de repli autorisée : sans elle, une lecture refusée par CIM rend « non lu ».",
                 other);
         }
     }
 
-    /// <summary>Starts a stoppable collection of one workstation (relevé, PST-052); a previous one of the same workstation is stopped.</summary>
-    public CancellationTokenSource BeginCollection(string dn, CancellationToken outer)
+    // ------------------------------------------------------------------ collections (relevés)
+
+    /// <summary>
+    /// Starts a stoppable collection of one workstation and one kind (relevé, PST-052). Each kind has its own scope: a
+    /// diagnosis never stops an inventory. A second collection of the same kind on the same workstation is refused with a
+    /// clear message (nothing is replaced behind the operator's back).
+    /// </summary>
+    public CancellationTokenSource BeginCollection(string dn, string name, CollectionKind kind, DateTimeOffset now, CancellationToken outer)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
-        var source = CancellationTokenSource.CreateLinkedTokenSource(outer);
+        ArgumentNullException.ThrowIfNull(name);
         lock (gate)
         {
-            if (collections.Remove(Key(dn), out var previous))
+            if (collections.ContainsKey((Key(dn), kind)))
             {
-                previous.Cancel();
+                throw new DomeniaOperationException(PosteErrors.Busy, Label(kind) + " déjà en cours sur " + name + " : attendez sa fin ou arrêtez-le. Rien n’a été relancé.");
             }
-            collections[Key(dn)] = source;
+            var source = CancellationTokenSource.CreateLinkedTokenSource(outer);
+            collections[(Key(dn), kind)] = (source, name, now);
+            return source;
         }
-        return source;
     }
 
     /// <summary>Ends a collection (finished or stopped); disposes its token source.</summary>
-    public void EndCollection(string dn, CancellationTokenSource source)
+    public void EndCollection(string dn, CollectionKind kind, CancellationTokenSource source)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         ArgumentNullException.ThrowIfNull(source);
         lock (gate)
         {
-            if (collections.TryGetValue(Key(dn), out var current) && ReferenceEquals(current, source))
+            if (collections.TryGetValue((Key(dn), kind), out var current) && ReferenceEquals(current.Source, source))
             {
-                collections.Remove(Key(dn));
+                collections.Remove((Key(dn), kind));
             }
         }
         source.Dispose();
     }
 
-    /// <summary>Asks the running collection of a workstation to stop; values already read are kept. False when none runs.</summary>
-    public bool StopCollection(string dn)
+    /// <summary>
+    /// Asks the running collection of one kind (or of every kind when null) of a workstation to stop; what was already read
+    /// is returned as a partial result. Returns the kinds asked to stop (empty when none ran).
+    /// </summary>
+    public ImmutableArray<CollectionKind> StopCollection(string dn, CollectionKind? kind)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         lock (gate)
         {
-            if (!collections.TryGetValue(Key(dn), out var source))
+            var stopped = ImmutableArray.CreateBuilder<CollectionKind>();
+            foreach (var entry in collections.Where(c => c.Key.Dn == Key(dn) && (kind is null || c.Key.Kind == kind)).ToList())
             {
-                return false;
+                entry.Value.Source.Cancel();
+                stopped.Add(entry.Key.Kind);
             }
-            source.Cancel();
-            return true;
+            return stopped.ToImmutable();
         }
     }
 
-    public bool IsCollecting(string dn)
+    /// <summary>Collections running in the session, every workstation (the page names the ones of another workstation).</summary>
+    public ImmutableArray<RunningCollection> Running()
+    {
+        lock (gate)
+        {
+            return [.. collections.OrderBy(c => c.Value.Since).Select(c => new RunningCollection(c.Key.Dn, c.Value.Name, c.Key.Kind, Label(c.Key.Kind), c.Value.Since))];
+        }
+    }
+
+    public bool IsCollecting(string dn, CollectionKind kind)
     {
         ArgumentException.ThrowIfNullOrEmpty(dn);
         lock (gate)
         {
-            return collections.ContainsKey(Key(dn));
+            return collections.ContainsKey((Key(dn), kind));
+        }
+    }
+
+    // ------------------------------------------------------------------ program arguments (sealed in memory, PST-016, PST-028)
+
+    /// <summary>
+    /// Keeps the arguments of a program run in memory until its plan expires, under their SHA-256 fingerprint: the plan and the
+    /// receipt only carry the fingerprint and the length, never the text (a secret passed as an argument is never kept).
+    /// </summary>
+    public void KeepRunArguments(string digest, string arguments, DateTimeOffset until, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(digest);
+        ArgumentNullException.ThrowIfNull(arguments);
+        lock (gate)
+        {
+            foreach (var old in runArguments.Where(a => a.Value.Until <= now).Select(a => a.Key).ToList())
+            {
+                runArguments.Remove(old);
+            }
+            while (runArguments.Count >= MaxKeptArguments)
+            {
+                runArguments.Remove(runArguments.MinBy(a => a.Value.Until).Key);
+            }
+            runArguments[digest] = (arguments, until);
+        }
+    }
+
+    /// <summary>Takes (and forgets) the arguments of a sealed plan; null when they expired or were never kept.</summary>
+    public string? TakeRunArguments(string digest, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(digest);
+        lock (gate)
+        {
+            if (!runArguments.Remove(digest, out var kept) || kept.Until <= now)
+            {
+                return null;
+            }
+            return kept.Arguments;
+        }
+    }
+
+    /// <summary>True when the arguments of a sealed plan are still kept (checked again just before sending).</summary>
+    public bool HasRunArguments(string digest, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(digest);
+        lock (gate)
+        {
+            return runArguments.TryGetValue(digest, out var kept) && kept.Until > now;
         }
     }
 }

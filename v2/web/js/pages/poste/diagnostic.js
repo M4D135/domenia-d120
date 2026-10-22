@@ -3,7 +3,8 @@
 // workstation, event presets, the read-only WMI explorer and the analysis of a pasted dsregcmd /status. Each read on its button.
 import { createTabs, createGrid, writeClipboard, field } from '../../kit/index.js';
 import {
-  esc, ico, rel, facts, cardHead, empty, failure, chip, progressMarkup, setProgress, NBSP, int, errorText, formatDateTime,
+  esc, ico, rel, facts, cardHead, empty, failure, chip, progressMarkup, setProgress, NBSP, int, count, errorText, formatDateTime,
+  fitGrid, saveExport, cimDate,
 } from './common.js';
 import { reveal as revealCards, toast, announce } from '../../ui.js';
 
@@ -38,15 +39,17 @@ const LAYER = { passed: { tone: 'ok', label: 'Réussi' }, failed: { tone: 'alert
 function network(host, state) {
   let alive = true;
   let report = '';
-  host.innerHTML = `<div class="ps-grid">
+  host.innerHTML = `<div class="grid ps-grid">
     <section class="card ps-card span-12 reveal">${cardHead('wifi', 'Diagnostic du poste', 'Résolution DNS, ping, ports 135, 445, 3389, 5985, 5986, session CIM, partage C$, WinRM, transports de repli, système et disque', `<button class="btn primary" type="button" data-act="run">${ico('activity')}Lancer le diagnostic</button><button class="btn ghost" type="button" data-act="stop" hidden>${ico('pause')}Arrêter</button><button class="btn ghost" type="button" data-act="copy" disabled data-tip="Copier le rapport avec les codes bruts, pour un collègue">${ico('copy')}Copier pour un collègue</button>`)}
-      <div data-slot="body">${empty({ icon: 'activity', title: 'Aucun contrôle exécuté', text: 'Contrôles non modifiants, budget de 45 s ; les tests lents sont ignorés si les ports ne répondent pas.', action: { id: 'run', label: 'Lancer le diagnostic', icon: 'activity' }, actionKind: 'primary' })}</div></section></div>`;
+      <div data-slot="body">${empty({ icon: 'activity', title: 'Aucun contrôle exécuté', text: 'Contrôles non modifiants, budget de 45 s ; les tests lents sont ignorés si les ports ne répondent pas.', action: { id: 'run', label: 'Lancer le diagnostic', icon: 'activity' } })}</div></section></div>`;
   const body = host.querySelector('[data-slot="body"]');
   async function run() {
     body.setAttribute('aria-busy', 'true');
     body.innerHTML = progressMarkup();
     host.querySelector('[data-act="stop"]').hidden = false;
+    host.querySelector('[data-act="run"]').disabled = true;
     const stop = state.progress('poste.diagnostic', (p) => setProgress(body, p));
+    setTimeout(() => state.refreshRunning(), 120);
     try {
       const r = await state.call('poste.diagnostic', { dn: state.dn });
       if (!alive) return;
@@ -60,12 +63,13 @@ function network(host, state) {
         <ul class="ps-diag-rows">${r.rows.map((x) => `<li data-tone="${SEVERITY[x.severity].tone}"><span class="ps-diag-mark" aria-hidden="true">${ico(SEVERITY[x.severity].icon)}</span><div class="ps-diag-main"><b>${esc(x.label ?? x.check)}</b><span>${esc(x.detail)}</span>${x.remedy ? `<em>${ico('zap')}${esc(x.remedy)}</em>` : ''}</div>
           <span class="ps-diag-meta"><span class="chip ${SEVERITY[x.severity].tone}">${esc(x.statusLabel)}</span><code>${esc(x.status)}</code><small>${esc(x.method)} · ${int(x.durationMs)}${NBSP}ms</small></span></li>`).join('')}</ul>`;
       revealCards(host);
-      announce(`Diagnostic terminé : ${r.verdict}`);
+      announce(`Diagnostic terminé : ${r.verdict}`);
     } catch (err) {
       if (alive) { body.removeAttribute('aria-busy'); body.innerHTML = failure(err, { retry: 'run' }); }
     } finally {
       stop();
-      if (alive) host.querySelector('[data-act="stop"]').hidden = true;
+      state.refreshRunning();
+      if (alive) { host.querySelector('[data-act="stop"]').hidden = true; host.querySelector('[data-act="run"]').disabled = false; }
     }
   }
   host.addEventListener('click', (e) => {
@@ -73,7 +77,7 @@ function network(host, state) {
     if (!t) return;
     if (t.dataset.act === 'run' || t.dataset.act === 'retry') run();
     else if (t.dataset.act === 'copy') writeClipboard(report).then(() => toast('Rapport copié avec les codes bruts.', { tone: 'ok' }));
-    else if (t.dataset.act === 'stop') state.call('poste.collect.stop', { dn: state.dn }).then((r) => toast(r.text, { tone: 'info' }));
+    else if (t.dataset.act === 'stop') state.stop('diagnostic');
   });
   const off = state.on('run', (r) => { if (r.what === 'diagnostic') run(); });
   if (state.essai === 'diagnostic') run();
@@ -84,8 +88,8 @@ function network(host, state) {
 
 function quick(host, state) {
   let alive = true;
-  host.innerHTML = `<div class="ps-grid"><section class="card ps-card span-12 reveal">${cardHead('zap', 'Diagnostic rapide borné', 'Système, dernier démarrage, disque C:, ports 135/445/5985, services de gestion : cinq lectures seules, 20 s annoncées, aucun repli', `<button class="btn primary" type="button" data-act="run">${ico('zap')}Lire</button>`)}
-    <div data-slot="body">${empty({ icon: 'zap', title: 'Un seul poste, sur votre geste', text: 'Ni PsExec, ni tâche planifiée, ni modification du poste ; un refus ou une indisponibilité ne concluent rien.' })}</div></section></div>`;
+  host.innerHTML = `<div class="grid ps-grid"><section class="card ps-card span-12 reveal">${cardHead('zap', 'Diagnostic rapide borné', 'Système, dernier démarrage, disque C:, ports 135/445/5985, services de gestion : cinq lectures seules, 20 s annoncées, aucun repli', `<button class="btn primary" type="button" data-act="run">${ico('zap')}Lire</button>`)}
+    <div data-slot="body">${empty({ icon: 'zap', title: 'Un seul poste, sur votre geste', text: 'Ni PsExec, ni tâche planifiée, ni modification du poste ; un refus ou une indisponibilité ne concluent rien.' })}</div></section></div>`;
   const body = host.querySelector('[data-slot="body"]');
   async function run() {
     body.setAttribute('aria-busy', 'true');
@@ -110,8 +114,8 @@ const LEVEL = { alert: { tone: 'alert', label: 'Critique' }, warn: { tone: 'warn
 
 function slow(host, state) {
   let alive = true;
-  host.innerHTML = `<div class="ps-grid"><section class="card ps-card span-12 ps-slow reveal">${cardHead('slow', 'Tri d’un poste lent', 'Mémoire, processeur mesuré, disques, redémarrage, démarrage automatique, journaux de 72 h et lien réseau ; seuils des règles de santé', `<button class="btn primary" type="button" data-act="run">${ico('slow')}Analyser la lenteur</button>`)}
-    <div data-slot="body">${empty({ icon: 'slow', title: 'L’utilisateur trouve son poste lent ?', text: 'Une lecture rapide du poste désigne la cause la plus probable et l’action utile ; rien n’est lancé sans votre confirmation.', action: { id: 'run', label: 'Analyser la lenteur', icon: 'slow' }, actionKind: 'primary' })}</div></section></div>`;
+  host.innerHTML = `<div class="grid ps-grid"><section class="card ps-card span-12 ps-slow reveal">${cardHead('slow', 'Tri d’un poste lent', 'Mémoire, processeur mesuré, disques, redémarrage, démarrage automatique, journaux de 72 h et lien réseau ; seuils des règles de santé', `<button class="btn primary" type="button" data-act="run">${ico('slow')}Analyser la lenteur</button>`)}
+    <div data-slot="body">${empty({ icon: 'slow', title: 'L’utilisateur trouve son poste lent ?', text: 'Une lecture rapide du poste désigne la cause la plus probable et l’action utile ; rien n’est lancé sans votre confirmation.', action: { id: 'run', label: 'Analyser la lenteur', icon: 'slow' } })}</div></section></div>`;
   const body = host.querySelector('[data-slot="body"]');
   async function run() {
     body.setAttribute('aria-busy', 'true');
@@ -125,8 +129,8 @@ function slow(host, state) {
         ${f.action ? `<button class="btn sm" type="button" data-slow="${esc(f.action.kind)}|${esc(f.action.view ?? '')}|${esc(f.action.tab ?? '')}">${esc(f.action.label)}${ico('chevronRight')}</button>` : ''}</li>`;
       body.innerHTML = `<div class="ps-verdict-hero" data-tone="${esc(r.tone)}">${ico(r.tone === 'ok' ? 'check' : r.tone === 'off' ? 'info' : 'slow')}<p>${esc(r.verdict)}</p></div>
         ${r.findings.length ? `<h4 class="ps-mini-title">Pistes, de la plus probable à la moins probable</h4><ol class="ps-findings">${r.findings.map(finding).join('')}</ol>` : ''}
-        ${r.passed.length ? `<details class="ps-more" open><summary>${int(r.passed.length)} contrôle(s) sans anomalie</summary><ul class="ps-findings ok">${r.passed.map(finding).join('')}</ul></details>` : ''}
-        ${r.unread.length ? `<details class="ps-more"><summary>${int(r.unread.length)} contrôle(s) non lu(s)</summary><ul class="ps-findings">${r.unread.map(finding).join('')}</ul></details>` : ''}
+        ${r.passed.length ? `<details class="ps-more" open><summary>${esc(count(r.passed.length, 'contrôle sans anomalie', 'contrôles sans anomalie'))}</summary><ul class="ps-findings ok">${r.passed.map(finding).join('')}</ul></details>` : ''}
+        ${r.unread.length ? `<details class="ps-more"><summary>${esc(count(r.unread.length, 'contrôle non lu', 'contrôles non lus'))}</summary><ul class="ps-findings">${r.unread.map(finding).join('')}</ul></details>` : ''}
         <p class="ps-faint">${esc(r.method)}</p>`;
       revealCards(host);
     } catch (err) {
@@ -158,7 +162,7 @@ const PRESETS = [
 function events(host, state) {
   let alive = true;
   let preset = 'Startup';
-  host.innerHTML = `<div class="ps-grid"><section class="card ps-card span-12 reveal">${cardHead('clock', 'Événements du poste', 'Préréglages bornés : 1 à 720 h, 1 à 200 événements ; un refus ou une lecture partielle ne deviennent jamais « aucun événement »')}
+  host.innerHTML = `<div class="grid ps-grid"><section class="card ps-card span-12 reveal">${cardHead('clock', 'Événements du poste', 'Préréglages bornés : 1 à 720 h, 1 à 200 événements ; un refus ou une lecture partielle ne deviennent jamais « aucun événement »')}
     <div class="ps-ev-bar"><div class="segmented ps-seg" role="group" aria-label="Préréglage">${PRESETS.map((p) => `<button type="button" data-preset="${p.id}" aria-pressed="${p.id === preset}">${esc(p.label)}</button>`).join('')}</div>
       <label class="ps-inline">Fenêtre <input class="input sm" type="number" min="1" max="720" value="72" data-hours> h</label>
       <label class="ps-inline">Au plus <input class="input sm" type="number" min="1" max="200" value="50" data-max> événements</label>
@@ -168,17 +172,16 @@ function events(host, state) {
     key: 'poste.evenements',
     label: 'Événements',
     rowId: (r) => `${r.at}|${r.id}|${r.provider}|${r.message.slice(0, 30)}`,
-    height: '380px',
     columns: [
       { id: 'at', label: 'Date', type: 'date', dateStyle: 'datetime', width: 170 },
       { id: 'id', label: 'ID', type: 'number', width: 80 },
-      { id: 'provider', label: 'Source', width: 230 },
+      { id: 'provider', label: 'Source', width: 200 },
       { id: 'level', label: 'Niveau', width: 120 },
       { id: 'noise', label: 'Tableau', type: 'enum', width: 140, options: [{ value: 'warn', label: 'À surveiller', tone: 'warn' }, { value: 'info', label: 'Information', tone: 'info' }] },
-      { id: 'attribution', label: 'Attribution', width: 150 },
-      { id: 'message', label: 'Message', width: 520 },
+      { id: 'attribution', label: 'Attribution', width: 130 },
+      { id: 'message', label: 'Message', width: 360 },
     ],
-    empty: { icon: 'clock', title: 'Événements non lus', text: 'Choisissez un préréglage et une fenêtre, puis « Lire les événements ».' },
+    empty: { icon: 'clock', title: 'Événements non lus', text: 'Choisissez un préréglage et une fenêtre, puis « Lire les événements ».' },
   });
   async function read() {
     grid.setLoading(true);
@@ -191,12 +194,14 @@ function events(host, state) {
       // An empty result says what it proves: confirmed absence, or a refused or partial read that concludes nothing.
       grid.setEmpty(r.noEventsConfirmed
         ? { icon: 'check', title: 'Aucun événement', text: `Aucun événement de ce préréglage dans les ${r.query.windowHours} dernières heures.` }
-        : { icon: 'alert', title: 'Aucune conclusion', text: 'Lecture refusée ou partielle : l’absence de ligne ne prouve pas l’absence d’événement.' });
+        : { icon: 'alert', title: 'Aucune conclusion', text: 'Lecture refusée ou partielle : l’absence de ligne ne prouve pas l’absence d’événement.' });
       grid.setRows(r.rows);
+      fitGrid(grid, r.rows.length, { max: 480 });
     } catch (err) {
       if (alive) grid.setError(errorText(err), { retry: read });
     }
   }
+  fitGrid(grid, 0);
   host.addEventListener('click', (e) => {
     const t = e.target instanceof Element ? e.target.closest('[data-act],[data-preset]') : null;
     if (!t) return;
@@ -218,8 +223,8 @@ function wmi(host, state) {
   let ns = 'root\\cimv2';
   let classes = [];
   let last = null;
-  host.innerHTML = `<div class="ps-grid ps-wmi">
-    <section class="card ps-card span-4 reveal">${cardHead('database', 'Espaces et classes', 'Aucune méthode invoquée ; classes du fournisseur MSI bloquées', `<button class="btn sm" type="button" data-act="ns">${ico('refresh')}Charger</button>`)}
+  host.innerHTML = `<div class="grid ps-grid ps-wmi">
+    <section class="card ps-card span-4 reveal">${cardHead('database', 'Espaces et classes', 'Aucune méthode invoquée ; classes du fournisseur MSI bloquées', `<button class="btn sm" type="button" data-act="ns">${ico('refresh')}Charger</button>`)}
       <div class="ps-wmi-ns" data-slot="ns">${empty({ icon: 'database', title: 'Espaces de noms non lus', text: 'Le chargement interroge le poste (ping d’abord).' })}</div>
       <label class="ps-search sm"><span class="visually-hidden">Filtrer les classes</span>${ico('filter')}<input class="input" type="search" data-filter placeholder="Filtrer les classes…" autocomplete="off"></label>
       <ul class="ps-wmi-classes" data-slot="classes"></ul></section>
@@ -280,11 +285,16 @@ function wmi(host, state) {
         key: `poste.wmi.${r.class}`,
         label: `Instances de ${r.class}`,
         rowId: (row) => row.__i,
-        height: '340px',
-        columns: r.schema.map((p, n) => ({ id: `c${n}`, label: p.name, width: 170, mono: p.type !== 'string', get: (row) => row[`c${n}`] })),
+        // CIM dates (LastBootUpTime, InstallDate…) are shown in local time, the raw value in the tip, the copy and the export.
+        columns: r.schema.map((p, n) => ({
+          id: `c${n}`, label: p.name, width: p.type === 'datetime' ? 190 : 170, mono: p.type !== 'string' && p.type !== 'datetime', get: (row) => row[`c${n}`],
+          html: (v) => { const at = cimDate(v); return at ? `<span data-tip="${esc(`Valeur brute : ${v}`)}">${esc(formatDateTime(at) ?? v)}</span>` : esc(v); },
+          csv: (v) => String(v ?? ''),
+        })),
         empty: { icon: 'database', title: 'Aucune instance', text: r.status },
       });
       grid.setRows(r.instances.map((inst, i) => Object.fromEntries([['__i', String(i)], ...inst.map((v, n) => [`c${n}`, v ?? ''])])));
+      fitGrid(grid, r.instances.length, { max: 420 });
       host.querySelector('[data-act="copy"]').disabled = false;
       host.querySelector('[data-act="export"]').disabled = false;
     } catch (err) {
@@ -298,7 +308,8 @@ function wmi(host, state) {
     if (t.dataset.class) { host.querySelector('[data-cls]').value = t.dataset.class; query(); return; }
     if (t.dataset.act === 'ns' || t.dataset.act === 'retry') loadNs();
     else if (t.dataset.act === 'copy' && grid) writeClipboard(grid.toCsv({ scope: 'visible' })).then(() => toast(`Instances copiées (réponse de ${last?.computer}).`, { tone: 'ok' }));
-    else if (t.dataset.act === 'export' && grid) grid.exportCsv('visible');
+    // The file is named after the workstation that answered (Domenia 1 Export-DomeniaWmi).
+    else if (t.dataset.act === 'export' && grid) saveExport(state, 'wmi', [{ part: 'liste', csv: grid.toCsv({ scope: 'visible' }) }]);
   });
   host.querySelector('[data-filter]').addEventListener('input', paintClasses);
   host.querySelector('[data-form]').addEventListener('submit', (e) => { e.preventDefault(); query(); });
@@ -310,7 +321,7 @@ function wmi(host, state) {
 
 function join(host, state) {
   let alive = true;
-  host.innerHTML = `<div class="ps-grid"><section class="card ps-card span-6 reveal">${cardHead('link', 'Analyse de dsregcmd /status', 'Collez la sortie complète (128 Kio au plus) : rien n’est exécuté ni réparé')}
+  host.innerHTML = `<div class="grid ps-grid"><section class="card ps-card span-6 reveal">${cardHead('link', 'Analyse de dsregcmd /status', 'Collez la sortie complète (128 Kio au plus) : rien n’est exécuté ni réparé')}
       <form class="ps-dsreg" data-form>
         <textarea class="input mono" rows="12" data-text placeholder="+----------------------------------------------------------------------+&#10;| Device State                                                         |&#10;+----------------------------------------------------------------------+&#10;             AzureAdJoined : YES&#10;              DomainJoined : YES" aria-label="Texte de dsregcmd /status"></textarea>
         <fieldset class="ps-radio"><legend>Collecté</legend>

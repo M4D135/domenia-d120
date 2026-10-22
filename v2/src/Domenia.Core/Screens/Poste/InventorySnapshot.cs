@@ -16,6 +16,9 @@ public enum SourceStatus
     Unreachable,
     Skipped,
     Error,
+
+    /// <summary>Not read because the collection was stopped by the operator or reached its budget (partial result).</summary>
+    Interrupted,
 }
 
 /// <summary>Transport that answered a source (DCOM first; WinRM, PsExec and the scheduled task are fallbacks).</summary>
@@ -71,7 +74,7 @@ public sealed record DefenderStatus(bool? AntivirusEnabled, bool? RealTime, bool
 public sealed record Hotfix(string Id, string? Description, DateTimeOffset? InstalledOn);
 
 /// <summary>Windows Update configuration: WSUS address and whether it is really used (UseWUServer = 1), last CBS update.</summary>
-public sealed record UpdateConfig(string? WsusServer, bool? UseWsus, string? Source, DateTimeOffset? LastSuccess, string? LastResult, bool? WaptAgent, DateTimeOffset? WaptLastUpdate, string? WaptResult);
+public sealed record UpdateConfig(string? WsusServer, bool? UseWsus, string? Source, DateTimeOffset? LastSuccess, string? LastResult);
 
 /// <summary>One software entry as an uninstall key, SCCM, a user hive or an Appx package declares it.</summary>
 public sealed record SoftwareEntry(
@@ -177,6 +180,73 @@ public sealed record InventorySnapshot(
 
     /// <summary>True when a category answered (OK, empty or partial): its arrays then describe the workstation.</summary>
     public bool Read(string category) => StatusOf(category) is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial;
+
+    /// <summary>True when the collection was stopped or reached its budget before every source was read (partial result).</summary>
+    public bool Interrupted => Access.Any(a => a.Status == SourceStatus.Interrupted);
+
+    /// <summary>
+    /// The same reading where <paramref name="categories"/> were not read: their status becomes <paramref name="status"/> with
+    /// <paramref name="detail"/>, and their values are emptied, so nothing unread is ever shown (a partial result keeps what
+    /// was read before the stop or the budget, Domenia 1 PST-037; a refusal keeps nothing of the refused sources).
+    /// </summary>
+    public InventorySnapshot WithStatus(IEnumerable<string> categories, SourceStatus status, string detail)
+    {
+        ArgumentNullException.ThrowIfNull(categories);
+        ArgumentNullException.ThrowIfNull(detail);
+        var set = categories.ToHashSet(StringComparer.Ordinal);
+        if (set.Count == 0)
+        {
+            return this;
+        }
+        bool Off(string category) => set.Contains(category);
+        var access = Access.Select(a => set.Contains(a.Category) ? a with { Status = status, Detail = detail, Items = 0, DurationMs = 0 } : a).ToImmutableArray();
+        return this with
+        {
+            Access = access,
+            Os = Off(InventoryCategories.System) ? null : Os,
+            System = Off(InventoryCategories.System) ? null : System,
+            Memory = Off(InventoryCategories.System) ? null : Memory,
+            ClockSkewSeconds = Off(InventoryCategories.System) ? null : ClockSkewSeconds,
+            Bios = Off(InventoryCategories.Bios) ? null : Bios,
+            SecureBoot = Off(InventoryCategories.Bios) ? null : SecureBoot,
+            Processors = Off(InventoryCategories.Processor) ? [] : Processors,
+            MemoryModules = Off(InventoryCategories.Memory) ? [] : MemoryModules,
+            MemoryArray = Off(InventoryCategories.Memory) ? null : MemoryArray,
+            Volumes = Off(InventoryCategories.Volumes) ? [] : Volumes,
+            PhysicalDisks = Off(InventoryCategories.PhysicalDisks) ? [] : PhysicalDisks,
+            BitLocker = Off(InventoryCategories.BitLocker) ? [] : BitLocker,
+            Tpm = Off(InventoryCategories.Tpm) ? null : Tpm,
+            Network = Off(InventoryCategories.Network) ? [] : Network,
+            Firewall = Off(InventoryCategories.Firewall) ? [] : Firewall,
+            Antivirus = Off(InventoryCategories.Antivirus) ? [] : Antivirus,
+            Defender = Off(InventoryCategories.Antivirus) ? null : Defender,
+            Hotfixes = Off(InventoryCategories.Hotfixes) ? [] : Hotfixes,
+            Updates = Off(InventoryCategories.Updates) ? null : Updates,
+            Software = Off(InventoryCategories.Software) ? [] : Software,
+            Startup = Off(InventoryCategories.Startup) ? [] : Startup,
+            Services = Off(InventoryCategories.Services) ? [] : Services,
+            Devices = Off(InventoryCategories.Devices) ? [] : Devices,
+            Displays = Off(InventoryCategories.Displays) ? [] : Displays,
+            Batteries = Off(InventoryCategories.Batteries) ? [] : Batteries,
+            UnsignedDrivers = Off(InventoryCategories.Drivers) ? [] : UnsignedDrivers,
+            Sessions = Off(InventoryCategories.Sessions) ? [] : Sessions,
+            LocalAdmins = Off(InventoryCategories.Admins) ? [] : LocalAdmins,
+            Shares = Off(InventoryCategories.Shares) ? [] : Shares,
+            Printers = Off(InventoryCategories.Printers) ? [] : Printers,
+            PendingReboot = Off(InventoryCategories.Reboot) ? null : PendingReboot,
+            Site = Off(InventoryCategories.Site) ? null : Site,
+            Proxy = Off(InventoryCategories.Site) ? null : Proxy,
+            Processes = Off(InventoryCategories.Processes) ? [] : Processes,
+            SystemEvents = Off(InventoryCategories.Events) ? [] : SystemEvents,
+            Tasks = Off(InventoryCategories.Tasks) ? [] : Tasks,
+            Certificates = Off(InventoryCategories.Certificates) ? [] : Certificates,
+            Connections = Off(InventoryCategories.Connections) ? [] : Connections,
+        };
+    }
+
+    /// <summary>The same reading answered by another transport (a fallback read: every source says so).</summary>
+    public InventorySnapshot By(InventoryTransport transport) =>
+        this with { Transport = transport, Access = [.. Access.Select(a => a with { Transport = transport })] };
 }
 
 /// <summary>Category names of the access report, shared by the collector, the board and the inventory grid.</summary>

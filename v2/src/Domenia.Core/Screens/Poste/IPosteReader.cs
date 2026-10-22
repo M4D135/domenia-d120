@@ -8,7 +8,7 @@ namespace Domenia.Core.Poste;
 /// </summary>
 public interface IPosteReader : IScreenReader
 {
-    /// <summary>Remote settings of the mode (WinRM, Wake-on-LAN, restart delay, WAPT connector, suite tools).</summary>
+    /// <summary>Remote settings of the mode (WinRM, Wake-on-LAN, restart delay, operations account, suite tools).</summary>
     PosteOptions Options { get; }
 
     /// <summary>Workstations of the working OU, filtered locally by a text (name, user, OS, site); local base only.</summary>
@@ -23,8 +23,18 @@ public interface IPosteReader : IScreenReader
     /// <summary>Live state: presence, uptime, console user and sessions count (one gesture, one bounded read).</summary>
     Task<PosteLive> LiveAsync(string dn, CancellationToken cancellationToken);
 
-    /// <summary>Quick (about 1 min, 55 s budget) or full (about 3 min, 150 s budget) inventory, recorded as the last one.</summary>
+    /// <summary>
+    /// Quick (about 1 min, 55 s budget) or full (about 3 min, 150 s budget) inventory, recorded as the last one. A stop or the
+    /// budget gives a partial result (sources not reached « Interrompu »), never a loss; a workstation whose CIM refuses is
+    /// read once by the fallback transport only with the fallback authorization of the session, otherwise « non lu ».
+    /// </summary>
     Task<InventoryResult> InventoryAsync(string dn, bool deep, PosteHealthPolicy policy, IProgress<PosteProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The last inventory of the workstation as rows (the reading of this session first, else the last one validated in the
+    /// local base), with its date and provenance (PST-029, PST-036); null without any. No network read.
+    /// </summary>
+    Task<InventoryResult?> CachedInventoryAsync(string dn, PosteHealthPolicy policy, CancellationToken cancellationToken);
 
     /// <summary>Installed software of the workstation (registry Uninstall, SCCM, user hives, Appx), never Win32_Product.</summary>
     Task<SoftwareResult> SoftwareAsync(string dn, SoftwareRequest request, CancellationToken cancellationToken);
@@ -60,8 +70,8 @@ public interface IPosteReader : IScreenReader
     /// <summary>Probe readings stored for the workstation (local base); no network read.</summary>
     Task<ProbeStore> ProbeStoreAsync(string dn, CancellationToken cancellationToken);
 
-    /// <summary>Collects once the probes of the board for this workstation (PST-110), then stores them.</summary>
-    Task<ProbeStore> CollectProbesAsync(string dn, IProgress<PosteProgress>? progress, CancellationToken cancellationToken);
+    /// <summary>Collects once the given probes of the board for this workstation (PST-110: only the fields the board needs), then stores them.</summary>
+    Task<ProbeStore> CollectProbesAsync(string dn, System.Collections.Immutable.ImmutableArray<string> probes, IProgress<PosteProgress>? progress, CancellationToken cancellationToken);
 
     /// <summary>Quick reading for the triage of a slow workstation.</summary>
     Task<SlowTriage> SlowTriageAsync(string dn, PosteHealthPolicy policy, CancellationToken cancellationToken);
@@ -75,18 +85,33 @@ public interface IPosteReader : IScreenReader
     /// <summary>LAPS metadata of the workstation; the password is not part of it.</summary>
     Task<LapsView> LapsAsync(string dn, CancellationToken cancellationToken);
 
-    /// <summary>The LAPS password, read on an explicit gesture for one reveal of 30 s.</summary>
-    Task<SecretReveal> RevealLapsAsync(string dn, CancellationToken cancellationToken);
+    /// <summary>The LAPS password, read on an explicit gesture for one reveal of 30 s in the secure window of the host.</summary>
+    Task<SecretReading> RevealLapsAsync(string dn, CancellationToken cancellationToken);
 
     /// <summary>BitLocker recovery objects under the computer: metadata only.</summary>
     Task<BitLockerList> BitLockerListAsync(string dn, CancellationToken cancellationToken);
 
-    /// <summary>One recovery key, a direct child of the computer, read by a Base search on its DN.</summary>
-    Task<SecretReveal> RevealBitLockerAsync(string dn, string keyDn, CancellationToken cancellationToken);
+    /// <summary>
+    /// One recovery key, a direct child of the computer, read by a Base search on its DN; the recovery identifier read with it
+    /// must be <paramref name="expectedId"/> (Domenia 1 Mismatch), otherwise no value (poste.keyMismatch).
+    /// </summary>
+    Task<SecretReading> RevealBitLockerAsync(string dn, string keyDn, string expectedId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Proposes another account for a refused secret resource (« laps » or « bitlocker », PST-060, PST-062): accepted, the
+    /// refusal remembered for the workstation is lifted for that resource. Simulation: a fictitious account, no password.
+    /// </summary>
+    Task<OtherAccountResult> UseOtherAccountAsync(string dn, string resource, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Non-secret index of the secrets of the working OU (PST-066): BitLocker presence (number of recovery objects, never a key)
+    /// and LAPS expiration of each workstation, 50 000 at most, bounded to the OU, on an explicit gesture.
+    /// </summary>
+    Task<SecretsIndex> SecretsIndexAsync(ScopeSelection scope, IProgress<PosteProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>The user account of a session login (sAMAccountName, domain removed) to open its card (PST-073); null when none.</summary>
+    Task<UserRef?> FindAccountAsync(string login, CancellationToken cancellationToken);
 
     /// <summary>Groups of the directory whose name holds the text (50 at most), to choose a membership; local base only.</summary>
     Task<System.Collections.Immutable.ImmutableArray<DnRef>> GroupsAsync(string? text, CancellationToken cancellationToken);
-
-    /// <summary>The WAPT record of the workstation (read-only connector, PST-001).</summary>
-    Task<WaptRecord> WaptAsync(string dn, CancellationToken cancellationToken);
 }

@@ -33,9 +33,6 @@ public sealed record WmiQueryResult(string Computer, string Namespace, string Cl
 /// <summary>Validated WMI request (Assert-DomeniaWmiReadQuery): SELECT only, no method, MSI provider classes blocked.</summary>
 public sealed record WmiRequest(string Namespace, string Class, string? Where, int Limit);
 
-/// <summary>Result of poste.wapt (Domenia 1 PST-001): read-only connector, « Constaté » only when recent and matching the AD computer.</summary>
-public sealed record WaptRecord(bool Configured, string? Origin, FactState State, string StateLabel, string Text, DateTimeOffset? LastSeen, ImmutableArray<PosteFact> Facts);
-
 /// <summary>Rules of the WMI explorer (Domenia 1 Assert-DomeniaWmiReadQuery): names validated, filter bounded, no method.</summary>
 public static partial class PosteWmi
 {

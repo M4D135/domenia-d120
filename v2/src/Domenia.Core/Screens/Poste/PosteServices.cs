@@ -77,13 +77,13 @@ public static class PosteServices
     /// <summary>Services expected to run on a workstation joined to the domain (Get-DomeniaServiceProfile).</summary>
     public static ImmutableArray<(string Name, string Reason)> Profile { get; } =
     [
-        ("Winmgmt", "Instrumentation WMI : nécessaire aux lectures à distance"),
+        ("Winmgmt", "Instrumentation WMI : nécessaire aux lectures à distance"),
         ("RpcSs", "Appel de procédure distante (RPC)"),
         ("RpcEptMapper", "Mappeur de points de terminaison RPC"),
         ("Dnscache", "Client DNS"),
         ("Dhcp", "Client DHCP (actif même avec une adresse fixe)"),
-        ("NlaSvc", "Connaissance des emplacements réseau : choix du profil de pare-feu"),
-        ("LanmanWorkstation", "Station de travail : accès aux partages et à SYSVOL"),
+        ("NlaSvc", "Connaissance des emplacements réseau : choix du profil de pare-feu"),
+        ("LanmanWorkstation", "Station de travail : accès aux partages et à SYSVOL"),
         ("Netlogon", "Ouverture de session réseau du domaine"),
         ("gpsvc", "Client de stratégie de groupe"),
         ("EventLog", "Journal d’événements Windows"),
@@ -221,7 +221,7 @@ public static class PosteServices
             + " ; " + FrenchText.Count(autoStopped, "automatique arrêté", "automatiques arrêtés") + " en défaut";
         if (expected > 0)
         {
-            text += ", " + FrenchText.Integer(expected) + " sur déclencheur ou différé(s), sans défaut";
+            text += ", " + FrenchText.Count(expected, "service sur déclencheur ou différé", "services sur déclencheur ou différés") + ", sans défaut";
         }
         if (capped)
         {

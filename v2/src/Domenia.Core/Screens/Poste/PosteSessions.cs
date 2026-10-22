@@ -179,7 +179,7 @@ public static class PosteSessions
             SourceStatus.Unreachable or SourceStatus.Unavailable or SourceStatus.Error => "Poste injoignable ou lecture WTS impossible : aucune conclusion sur les sessions ouvertes.",
             SourceStatus.Partial => "Lecture WTS partielle : liste incomplète, aucune conclusion sur les sessions non listées. Une console vide ne signifie pas absence de session RDP.",
             SourceStatus.Skipped => "Sessions non lues. La lecture WTS se lance par le bouton Lire.",
-            _ when unread > 0 => "Lecture WTS partielle : " + FrenchText.Integer(unread) + " session(s) dont le compte n’a pas pu être lu. Aucune conclusion sur ces sessions.",
+            _ when unread > 0 => "Lecture WTS partielle : " + FrenchText.Count(unread, "session", "sessions") + " dont le compte n’a pas pu être lu. Aucune conclusion sur ces sessions.",
             _ when users <= 0 => "Aucune session utilisateur ouverte lors de la lecture WTS.",
             _ when !consoleOccupied && rdp > 0 => "Console vide : cela ne signifie pas absence de session RDP. " + FrenchText.Count(rdp, "session RDP ouverte", "sessions RDP ouvertes") + ".",
             _ => "",
@@ -207,12 +207,13 @@ public static class PosteSessions
         var text = count switch
         {
             0 => "Aucune session utilisateur ouverte lors de la lecture.",
-            1 => "1 session ouverte : le travail non enregistré de cet utilisateur sera perdu sans délai.",
-            _ => FrenchText.Integer(count) + " sessions ouvertes : le travail non enregistré de ces utilisateurs sera perdu sans délai.",
+            // The mode is chosen after this reading: the sentence holds for both (Domenia 1 Get-DomeniaRestartSessionSummary).
+            1 => "1 session ouverte : en différé, l’utilisateur voit le message et le délai ; en immédiat, son travail non enregistré est perdu.",
+            _ => FrenchText.Integer(count) + " sessions ouvertes : en différé, chaque utilisateur voit le message et le délai ; en immédiat, leur travail non enregistré est perdu.",
         };
         if (view.UnreadSessions > 0)
         {
-            text += " " + FrenchText.Integer(view.UnreadSessions) + " session(s) dont le compte n’a pas pu être lu.";
+            text += " " + FrenchText.Count(view.UnreadSessions, "session", "sessions") + " dont le compte n’a pas pu être lu.";
         }
         if (view.Partial)
         {

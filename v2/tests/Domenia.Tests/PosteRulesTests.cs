@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json;
 using Domenia.Core;
 using Domenia.Core.Poste;
 
@@ -260,5 +261,128 @@ internal static class PosteRulesTests
         var other = PosteDsreg.Analyze(Text, DsregCollector.EndUserSession, @"EXAMPLE\j.martin", "PC-PAR-0001", null);
         Check.Equal("NonEvaluable", other.SsoVerdict, "compte exécutant différent de l’utilisateur final");
         Check.False(PosteDsreg.Analyze("bonjour", DsregCollector.EndUserSession, null, null, null).Recognized, "texte quelconque non reconnu");
+    }
+
+    [Test]
+    public static void Recovery_identifier_read_back_must_be_the_one_chosen()
+    {
+        const string Guid = "AB12CD34-1111-2222-3333-444455556666";
+        Check.True(PosteSecrets.MatchesExpected(Guid, "{ab12cd34-1111-2222-3333-444455556666}"), "accolades, tirets et casse ignorés");
+        Check.False(PosteSecrets.MatchesExpected(Guid, "AB12CD34"), "les 8 premiers caractères ne suffisent pas pour lire une valeur");
+        Check.False(PosteSecrets.MatchesExpected(Guid, "AB12CD34-1111-2222-3333-444455556667"), "identifiant différent : aucune valeur");
+        Check.False(PosteSecrets.MatchesExpected(null, Guid), "identifiant absent : aucune valeur");
+        var keys = ImmutableArray.Create(new BitLockerKeyInfo("AB12CD34", Guid, "CN=a,CN=PC,DC=example,DC=local", null, "", "C:"));
+        Check.True(PosteSecrets.Find(keys, Guid).Unique, "l’identifiant complet lu sur l’écran du poste retrouve la clé");
+    }
+
+    [Test]
+    public static void Secrets_index_of_an_older_holder_of_the_name_is_left_out()
+    {
+        var computer = System.Guid.NewGuid();
+        var created = new DateTimeOffset(2025, 3, 1, 8, 0, 0, TimeSpan.Zero);
+        Check.True(PosteSecrets.IndexApplies(computer, created.AddDays(10), computer, created), "même GUID, écrit après la création");
+        Check.False(PosteSecrets.IndexApplies(System.Guid.NewGuid(), created.AddDays(10), computer, created), "autre GUID : ancien détenteur du nom");
+        Check.False(PosteSecrets.IndexApplies(computer, created.AddDays(-1), computer, created), "écrit avant la création du poste actuel");
+    }
+
+    [Test]
+    public static void Health_policy_follows_the_ou_of_the_computer()
+    {
+        const string Root = "DC=example,DC=local";
+        const string Computer = "CN=PC-PAR-0001,OU=Paris,OU=Postes," + Root;
+        var now = new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero);
+        var book = JsonDocument.Parse("""
+            {
+              "domainDn": "DC=example,DC=local",
+              "default": { "thresholds": { "diskFreeAlert": 8, "diskFreeWarn": 25 }, "disabledRules": ["lowdisk"],
+                           "customRules": [ { "id": "custom.uptime", "name": "Redémarrage trop ancien", "measure": "UptimeDays", "operator": "GreaterThan", "threshold": 20, "severity": "Warn" },
+                                            { "id": "custom.query", "name": "Requête", "measure": "Query" } ] },
+              "scopes": [ { "scopeDn": "OU=Postes,DC=example,DC=local", "overrides": { "thresholds": { "diskFreeWarn": 30 } } },
+                          { "scopeDn": "OU=Paris,OU=Postes,DC=example,DC=local", "overrides": { "ruleStates": { "lowdisk": true },
+                            "suspensions": [ { "ruleId": "disk.tight", "untilUtc": "2026-10-30T00:00:00Z", "reason": "Migration des disques" },
+                                             { "ruleId": "certificates", "untilUtc": "2026-10-01T00:00:00Z", "reason": "Terminée" } ] } } ]
+            }
+            """).RootElement.Clone();
+        var policy = PosteHealthPolicies.Resolve(book, Root, Computer, now, TimeZoneInfo.Utc);
+        Check.Equal(8, policy.DiskFreeAlert, "seuil du domaine");
+        Check.Equal(30, policy.DiskFreeWarn, "seuil de l’OU ancêtre, le plus proche l’emporte");
+        Check.True(policy.IsEnabled("lowdisk"), "règle réactivée par l’OU du poste");
+        Check.False(policy.Counts("disk.tight"), "règle suspendue jusqu’au 30/10 : ne compte pas");
+        Check.True(policy.Counts("certificates"), "suspension échue : la règle compte de nouveau");
+        Check.Equal(1, policy.CustomRules.Length, "une alerte personnalisée sur une mesure");
+        Check.Equal(1, policy.QueryRules, "une alerte sur requête, évaluée par l’atelier");
+        Check.Contains("Paris", policy.Origin, "origine dite (OU du poste)");
+
+        var other = PosteHealthPolicies.Resolve(JsonDocument.Parse("""{ "domainDn": "DC=autre,DC=local", "default": { "thresholds": { "diskFreeAlert": 5 } } }""").RootElement.Clone(), Root, Computer, now, TimeZoneInfo.Utc);
+        Check.Equal(PosteHealthPolicy.Default.DiskFreeAlert, other.DiskFreeAlert, "règles d’un autre domaine ignorées");
+        var damaged = PosteHealthPolicies.Resolve(JsonDocument.Parse("""{ "default": { "thresholds": { "diskFreeAlert": 40, "diskFreeWarn": 20 } } }""").RootElement.Clone(), Root, Computer, now, TimeZoneInfo.Utc);
+        Check.Equal(PosteHealthPolicy.Default.DiskFreeAlert, damaged.DiskFreeAlert, "critique au-dessus de la surveillance : seuils livrés");
+        Check.Equal(PosteHealthPolicy.Default.DiskFreeAlert, PosteHealthPolicies.Resolve(null, Root, Computer, now, TimeZoneInfo.Utc).DiskFreeAlert, "sans règles : seuils livrés avec Domenia 1");
+    }
+
+    [Test]
+    public static void Session_authorizations_and_collections_are_scoped()
+    {
+        var session = new PosteSessionProbe();
+        var s = session.Session;
+        var now = new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero);
+        const string Dn = "CN=PC-PAR-0001,OU=Paris,DC=example,DC=local";
+        Check.False(s.EnsureSession("adm|example.local", now), "première liaison");
+        s.Grant(ConsentKind.Intervention, Dn, "PC-PAR-0001", 5, now);
+        s.Grant(ConsentKind.ReadFallback, Dn, "PC-PAR-0001", 5, now);
+        Check.True(s.ConsumeReadFallback(Dn, "inventaire", now.AddMinutes(1)), "une lecture de repli consommée");
+        Check.False(s.ConsumeReadFallback(Dn, "inventaire", now.AddMinutes(1)), "une seule");
+        Check.True(s.EnsureSession("autre|example.local", now.AddMinutes(2)), "autre compte : changement de session");
+        Check.False(s.Covers(ConsentKind.Intervention, Dn, now.AddMinutes(2)), "autorisations effacées au changement de session");
+
+        using var inventory = s.BeginCollection(Dn, "PC-PAR-0001", CollectionKind.Inventory, now, CancellationToken.None);
+        using var diagnostic = s.BeginCollection(Dn, "PC-PAR-0001", CollectionKind.Diagnostic, now, CancellationToken.None);
+        var busy = Check.Throws<DomeniaOperationException>(() => s.BeginCollection(Dn, "PC-PAR-0001", CollectionKind.Inventory, now, CancellationToken.None), "même type sur le même poste");
+        Check.Equal(PosteErrors.Busy, busy.Code, "refus clair, rien n’est remplacé");
+        var stopped = s.StopCollection(Dn, CollectionKind.Diagnostic);
+        Check.Equal(1, stopped.Length, "seul le diagnostic est arrêté");
+        Check.True(diagnostic.IsCancellationRequested, "diagnostic arrêté");
+        Check.False(inventory.IsCancellationRequested, "l’inventaire continue");
+        Check.Equal(2, s.Running().Length, "les deux relevés restent listés jusqu’à leur fin");
+    }
+
+    [Test]
+    public static void Program_arguments_are_sealed_by_their_fingerprint_only()
+    {
+        Check.Equal("sans argument", PosteRemote.ArgumentsText(null), "aucun argument");
+        Check.Contains("non conservés", PosteRemote.ArgumentsText("--mot-de-passe=x"), "longueur seulement");
+        Check.False(PosteRemote.ArgumentsText("--mot-de-passe=x").Contains("mot-de-passe", StringComparison.Ordinal), "jamais le texte");
+        Check.Equal(64, PosteRemote.ArgumentsDigest("a b c").Length, "empreinte SHA-256");
+        Check.Equal("", PosteRemote.ArgumentsDigest(""), "pas d’empreinte sans argument");
+        var (_, request) = PosteRemote.Run("PC-PAR-0001", "system", @"C:\Outils\maj.exe", "--jeton=SECRET", null, true);
+        Check.False(request!.Summary.Contains("SECRET", StringComparison.Ordinal), "le résumé ne cite pas les arguments");
+        var probe = new PosteSessionProbe();
+        var now = new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero);
+        var digest = PosteRemote.ArgumentsDigest("--jeton=SECRET");
+        probe.Session.KeepRunArguments(digest, "--jeton=SECRET", now.AddMinutes(5), now);
+        Check.True(probe.Session.HasRunArguments(digest, now.AddMinutes(1)), "gardés en mémoire jusqu’à l’envoi");
+        Check.Equal("--jeton=SECRET", probe.Session.TakeRunArguments(digest, now.AddMinutes(1)), "remis à l’exécuteur");
+        Check.Null(probe.Session.TakeRunArguments(digest, now.AddMinutes(1)), "puis oubliés");
+    }
+
+    [Test]
+    public static void Texts_of_the_board_say_what_they_read()
+    {
+        Check.Equal("TPM 2.0 (niveau 0, révision 1.59) · activé, opérationnel", PosteLabels.TpmText(new TpmInfo("2.0, 0, 1.59", true, true, true)), "TPM lisible");
+        Check.Contains("non lu", PosteLabels.TpmText(new TpmInfo(null, null, null, null)), "TPM non lu");
+        Check.Equal("4096 · compte de poste de travail", PosteLabels.UacText(4096), "userAccountControl d’un poste");
+        Check.Contains("désactivé", PosteLabels.UacText(4098), "compte désactivé");
+        var restart = PosteSessions.ForRestart(null, null);
+        Check.False(restart.Known, "lecture en cours");
+        Check.Equal(4, PosteDiagnostics.QuickServices.Length, "quatre services du diagnostic rapide (aucun service WAPT)");
+        var updates = PosteUpdates.Facts(new UpdateConfig("http://wsus.example.local:8530", true, "WSUS", null, "Succeeded"), new DateTimeOffset(2026, 10, 22, 8, 0, 0, TimeSpan.Zero), TimeZoneInfo.Utc);
+        Check.Equal(1, updates.Length, "un seul fournisseur : Windows Update");
+        Check.Equal("Windows Update", updates[0].Label, "Windows Update seul");
+    }
+
+    /// <summary>A fresh session of the workstation console, outside any directory source (rules only).</summary>
+    private sealed class PosteSessionProbe
+    {
+        public PosteSession Session { get; } = PosteSession.For(new UnavailableDirectorySource(null, () => "adm-test"));
     }
 }

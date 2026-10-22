@@ -261,6 +261,7 @@ public static class PosteLabels
         SourceStatus.Unavailable => "Indisponible",
         SourceStatus.Unreachable => "Injoignable",
         SourceStatus.Skipped => "Non tenté",
+        SourceStatus.Interrupted => "Interrompu",
         _ => "En échec",
     };
 
@@ -281,4 +282,53 @@ public static class PosteLabels
         InventoryTransport.ScheduledTask => "Tâche planifiée",
         _ => "Local",
     };
+
+    /// <summary>
+    /// TPM in one readable line: version from SpecVersion (« 2.0, 0, 1.59 » is version, level, revision), then its two
+    /// states. A value not read stays « non lu ».
+    /// </summary>
+    public static string TpmText(TpmInfo tpm)
+    {
+        ArgumentNullException.ThrowIfNull(tpm);
+        var parts = (tpm.Specification ?? "").Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var version = parts.Length == 0 ? "TPM, version non lue" : "TPM " + parts[0] + (parts.Length >= 3 ? " (niveau " + parts[1] + ", révision " + parts[2] + ")" : "");
+        var enabled = tpm.Enabled switch { true => "activé", false => "désactivé", _ => "activation non lue" };
+        var ready = tpm.Activated switch { true => "opérationnel", false => "non opérationnel", _ => "état non lu" };
+        return version + " · " + enabled + ", " + ready;
+    }
+
+    /// <summary>userAccountControl of a computer account: the raw value and the flags that matter, in French (never guessed).</summary>
+    public static string UacText(int value)
+    {
+        var flags = new List<string>();
+        if ((value & AdValues.WorkstationTrustAccount) != 0)
+        {
+            flags.Add("compte de poste de travail");
+        }
+        if ((value & AdValues.ServerTrustAccount) != 0)
+        {
+            flags.Add("contrôleur de domaine");
+        }
+        if ((value & AdValues.AccountDisabled) != 0)
+        {
+            flags.Add("désactivé");
+        }
+        if ((value & AdValues.PasswordNotRequired) != 0)
+        {
+            flags.Add("mot de passe non exigé");
+        }
+        if ((value & AdValues.DontExpirePassword) != 0)
+        {
+            flags.Add("mot de passe sans expiration");
+        }
+        if ((value & AdValues.TrustedForDelegation) != 0)
+        {
+            flags.Add("approuvé pour la délégation");
+        }
+        if ((value & 0x1000000) != 0)
+        {
+            flags.Add("délégation contrainte avec transition de protocole");
+        }
+        return value.ToString(CultureInfo.InvariantCulture) + (flags.Count == 0 ? "" : " · " + string.Join(", ", flags));
+    }
 }

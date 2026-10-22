@@ -38,9 +38,9 @@
     },
     {
       "do": "expect",
-      "selector": ".ps-live .ps-live-tile",
-      "nth": 3,
-      "title": "Le bandeau en direct a ses quatre tuiles"
+      "selector": ".ps-kpis .ps-kpi",
+      "count": 4,
+      "title": "Le bandeau a ses quatre indicateurs (disque, mémoire, démarrage, LAPS)"
     },
     {
       "do": "wait",

@@ -27,7 +27,10 @@ public sealed record InventoryResult(
     ImmutableArray<InventoryCategory> Categories,
     ImmutableArray<InventoryRow> Rows,
     PosteBoard Board,
-    string Report);
+    string Report,
+    bool Partial,
+    string? Notice,
+    string? NoticeAction);
 
 /// <summary>
 /// The inventory grid of Domenia 1 (Get-DomeniaInventoryValueText, Apply-DomeniaInventoryFilter, Get-DomeniaInventoryReportText):
@@ -35,24 +38,35 @@ public sealed record InventoryResult(
 /// </summary>
 public static class InventoryRows
 {
-    public static InventoryResult Build(InventorySnapshot inv, PosteBoard board, string origin, DateTimeOffset now, TimeZoneInfo zone)
+    /// <summary>Action the page offers with a notice: grant the single fallback read (CIM refused).</summary>
+    public const string FallbackAction = "readFallback";
+
+    public static InventoryResult Build(InventorySnapshot inv, PosteBoard board, string origin, DateTimeOffset now, TimeZoneInfo zone, string? notice = null, string? noticeAction = null)
     {
         ArgumentNullException.ThrowIfNull(inv);
         ArgumentNullException.ThrowIfNull(board);
         ArgumentNullException.ThrowIfNull(zone);
-        var rows = Rows(inv, zone).ToImmutableArray();
+        var rows = Rows(inv, zone).Where(r => inv.Read(r.Category) || inv.StatusOf(r.Category) == SourceStatus.Skipped).ToImmutableArray();
         var access = inv.Access.Select(a => new AccessRow(a.Category, a.Status, PosteLabels.SourceStatusLabel(a.Status), PosteLabels.SourceStatusTone(a.Status), a.Detail, a.DurationMs, a.Items, PosteLabels.TransportLabel(a.Transport))).ToImmutableArray();
         var categories = inv.Access.Select(a => new InventoryCategory(a.Category, rows.Count(r => r.Category == a.Category), a.Status, PosteLabels.SourceStatusLabel(a.Status))).ToImmutableArray();
         var read = inv.Access.Count(a => a.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial);
         var refused = inv.Access.Count(a => a.Status is SourceStatus.Refused);
         var mode = inv.Deep ? "Inventaire complet" : "Inventaire rapide";
         var summary = mode + " · " + FrenchText.Count(read, "source lue", "sources lues") + " sur " + FrenchText.Integer(inv.Access.Length)
-            + (refused > 0 ? ", " + FrenchText.Integer(refused) + " refusée(s)" : "") + " · " + FrenchText.Decimal(inv.DurationMs / 1000d, 1) + " s par " + PosteLabels.TransportLabel(inv.Transport)
+            + (refused > 0 ? ", " + FrenchText.Count(refused, "refusée", "refusées") : "") + " · " + FrenchText.Decimal(inv.DurationMs / 1000d, 1) + " s par " + PosteLabels.TransportLabel(inv.Transport)
             + " · " + FrenchText.Count(rows.Length, "ligne", "lignes") + ".";
         var age = "Inventaire " + PosteText.Age(inv.CollectedAt, now) + " (" + PosteText.LocalDateTime(inv.CollectedAt, zone) + ")";
         var report = mode + " de " + inv.Computer + " · " + PosteText.LocalDateTime(inv.CollectedAt, zone) + Environment.NewLine
             + string.Join(Environment.NewLine, rows.Select(r => r.Category + "\t" + r.Item + "\t" + r.Label + (r.Label != r.Value ? " [" + r.Value + "]" : "")));
-        return new InventoryResult(inv.Computer, inv.CollectedAt, inv.Deep, mode, inv.DurationMs, PosteLabels.TransportLabel(inv.Transport), summary, age, origin, access, categories, rows, board, report);
+        var interrupted = inv.Access.Where(a => a.Status == SourceStatus.Interrupted).ToList();
+        if (notice is null && interrupted.Count > 0)
+        {
+            // Partial result rather than loss (Domenia 1 PST-037): what was read is kept, the rest is said.
+            notice = "Résultat partiel : " + interrupted[0].Detail + ". " + FrenchText.Count(read, "source lue gardée", "sources lues gardées") + ", "
+                + FrenchText.Count(interrupted.Count, "source non lue", "sources non lues") + " (" + string.Join(", ", interrupted.Take(4).Select(a => a.Category)) + (interrupted.Count > 4 ? "…" : "") + ").";
+        }
+        return new InventoryResult(inv.Computer, inv.CollectedAt, inv.Deep, mode, inv.DurationMs, PosteLabels.TransportLabel(inv.Transport), summary, age, origin, access, categories, rows, board, report,
+            interrupted.Count > 0, notice, noticeAction);
     }
 
     private static IEnumerable<InventoryRow> Rows(InventorySnapshot d, TimeZoneInfo zone)
@@ -161,7 +175,6 @@ public static class InventoryRows
         {
             yield return R(InventoryCategories.Updates, "Serveur WSUS", u.WsusServer ?? "", u.WsusServer is null ? "Aucun (Windows Update)" : u.WsusServer + (u.UseWsus == true ? "" : " (non appliqué)"));
             yield return R(InventoryCategories.Updates, "Dernière réussite", date(u.LastSuccess));
-            yield return R(InventoryCategories.Updates, "Agent WAPT", u.WaptAgent?.ToString(CultureInfo.InvariantCulture) ?? "", u.WaptAgent == true ? "Présent" : "Absent");
         }
         foreach (var s in d.Software.Take(400))
         {
@@ -174,7 +187,7 @@ public static class InventoryRows
         foreach (var s in d.Services.Where(s => s.StartMode == "Auto" && s.State == "Stopped"))
         {
             var expected = PosteServices.StopExpected(s.Name, out _);
-            yield return R(InventoryCategories.Services, s.DisplayName, s.Name, "Automatique arrêté" + (expected ? " (attendu : déclencheur ou différé)" : ""));
+            yield return R(InventoryCategories.Services, s.DisplayName, s.Name, "Automatique arrêté" + (expected ? " (attendu : déclencheur ou différé)" : ""));
         }
         foreach (var dev in d.Devices)
         {

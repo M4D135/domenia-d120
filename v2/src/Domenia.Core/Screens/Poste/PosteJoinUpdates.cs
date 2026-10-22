@@ -186,7 +186,7 @@ public static partial class PosteDsreg
     }
 }
 
-/// <summary>Facts of the update providers (Domenia 1 ConvertTo-DomeniaUpdateFacts): date, source and result, old after 30 days.</summary>
+/// <summary>Facts of the update provider (Domenia 1 ConvertTo-DomeniaUpdateFacts): Windows Update, date, source and result, old after 30 days.</summary>
 public static class PosteUpdates
 {
     public const int StaleDays = 30;
@@ -197,9 +197,6 @@ public static class PosteUpdates
         ArgumentNullException.ThrowIfNull(zone);
         var facts = ImmutableArray.CreateBuilder<PosteFact>();
         facts.Add(Provider("Windows Update", config.LastSuccess, config.LastResult, config.Source ?? "Client Windows Update", true, now, zone));
-        facts.Add(config.WaptAgent == true
-            ? Provider("Agent WAPT", config.WaptLastUpdate, config.WaptResult, "Agent WAPT du poste", true, now, zone)
-            : PosteText.Fact("Agent WAPT", "Non détecté sur ce poste", FactState.Observed, "Services du poste", "Fournisseur absent ou non installé : ce n’est ni une panne, ni un échec de mise à jour.", at: now, tone: Tone.Off));
         return facts.ToImmutable();
     }
 

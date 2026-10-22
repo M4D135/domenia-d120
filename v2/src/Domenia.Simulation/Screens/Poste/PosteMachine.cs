@@ -56,8 +56,6 @@ internal sealed record PosteMachine
     public required bool FirewallPublicOff { get; init; }
     public required int SignatureAge { get; init; }
     public required ImmutableArray<Hotfix> Hotfixes { get; init; }
-    public required bool Wapt { get; init; }
-    public required DateTimeOffset WaptLast { get; init; }
     public required ImmutableArray<SoftwareEntry> Software { get; init; }
     public required ImmutableArray<StartupEntry> Startup { get; init; }
     public required ImmutableArray<ServiceEntry> Services { get; init; }
@@ -159,7 +157,7 @@ internal sealed record PosteMachine
             Read(InventoryCategories.Antivirus) ? [new AntivirusProduct("Microsoft Defender Antivirus", SignatureAge > 7 ? 397584 : 397568, at.AddHours(-live.Next(1, 30)))] : [],
             Read(InventoryCategories.Antivirus) ? new DefenderStatus(true, true, true, SignatureAge, live.Next(0, 6), live.Next(4, 30), "4.18.25090.3009", false, Slow == SlowCause.Cpu) : null,
             Hotfixes,
-            new UpdateConfig("http://wsus.example.local:8530", true, "WSUS (stratégie de groupe)", Hotfixes.IsEmpty ? null : Hotfixes.Max(h => h.InstalledOn), "Succeeded", Wapt, Wapt ? WaptLast : null, Wapt ? "OK" : null),
+            new UpdateConfig("http://wsus.example.local:8530", true, "WSUS (stratégie de groupe)", Hotfixes.IsEmpty ? null : Hotfixes.Max(h => h.InstalledOn), "Succeeded"),
             [.. Software.Where(s => s.Scope == "Machine").Select(s => s with { Publisher = null, InstallDate = null, SizeBytes = null, Location = null, Uninstall = null, Source = "Inventaire rapide" })],
             Startup,
             services,

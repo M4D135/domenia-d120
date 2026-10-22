@@ -1,18 +1,19 @@
 // Intervenir: what acts on the workstation or on its account, always through the write circuit (plan, confirmation,
 // receipt, re-read) and never replayed automatically. The authorization of intervention (1 to 15 min, this workstation
-// only) gates the program run; the Windows tools and the PowerShell commands are copied, never run with a password; the
-// suite tools (Pesto, FILPRO) only receive declared, validated context fields.
+// only) gates the program run; the Windows tools are opened by the launcher of the administration workstation (Windows
+// asks the password of the operations account itself) or their command is copied, never with a password; the suite tools
+// (Pesto, FILPRO) only receive declared, validated context fields, after their fingerprint is checked.
 import { openDrawer, openDialog, confirmDialog, field, writeClipboard, debounce } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
 import { reveal, toast, announce } from '../../ui.js';
-import { esc, ico, rel, chip, empty, failure, cardHead, section, facts, paintMeters, errorText, NBSP, int, formatDateTime } from './common.js';
+import { esc, ico, rel, chip, empty, failure, cardHead, section, facts, paintMeters, errorText, NBSP, int, count, formatDateTime } from './common.js';
 
 const MINUTES = [1, 2, 5, 10, 15];
 
 const TOOLS = [
-  { id: 'rdp', label: 'Bureau à distance', icon: 'monitor', key: 'mstsc', hint: 'Ouvre une session à distance : l’utilisateur connecté est déconnecté sur un poste client.' },
-  { id: 'c', label: 'Dossier C$', icon: 'folder', key: 'unc', hint: 'Partage administratif du disque système (lecture et écriture selon vos droits).' },
-  { id: 'compmgmt', label: 'Gestion de l’ordinateur', icon: 'settings', key: 'computerManagement', hint: 'Console MMC : disques, utilisateurs locaux, partages.' },
+  { id: 'rdp', label: 'Bureau à distance', icon: 'monitor', key: 'mstsc', hint: 'Ouvre une session à distance : l’utilisateur connecté est déconnecté sur un poste client.' },
+  { id: 'c', label: 'Dossier C$', icon: 'folder', key: 'unc', hint: 'Partage administratif du disque système, avec le compte d’exploitation quand il est déclaré (invite Windows).' },
+  { id: 'compmgmt', label: 'Gestion de l’ordinateur', icon: 'settings', key: 'computerManagement', hint: 'Console MMC : disques, utilisateurs locaux, partages.' },
   { id: 'eventvwr', label: 'Observateur d’événements', icon: 'file', key: 'eventViewer', hint: 'Journaux du poste à distance (RPC requis).' },
   { id: 'services', label: 'Services', icon: 'tools', key: 'services', hint: 'Console des services du poste à distance (RPC requis).' },
 ];
@@ -21,30 +22,27 @@ const TOOLS = [
 export function renderAct(panel, state) {
   let alive = true;
   const off = [];
-  const local = { commands: null, wapt: null, waptError: null, waptBusy: false, span: null };
+  const local = { commands: null, span: null };
 
   const paint = () => {
     const d = state.data;
     const o = d.options;
     panel.innerHTML = `<div class="ps-act">
       ${section('Autorisation et actions sur le poste', 'Chaque action prépare un plan, demande votre confirmation, puis relit le résultat')}
-      <div class="ps-grid">
+      <div class="grid ps-grid">
         <section class="card ps-card ps-consent-card span-5 reveal" data-slot="consent"></section>
         <section class="card ps-card span-7 reveal">${cardHead('zap', 'Actions à distance', `Sur ${esc(d.computer.name)} · ${presenceText(d)}`)}
           <div class="ps-actions" data-slot="actions">${actionTiles(state)}</div></section>
       </div>
       ${section('Compte ordinateur dans l’annuaire', 'Écritures dans l’annuaire, relues après l’envoi')}
-      <div class="ps-grid">
+      <div class="grid ps-grid">
         <section class="card ps-card span-6 reveal">${accountCard(state)}</section>
         <section class="card ps-card span-6 reveal">${groupsCard(state)}</section>
       </div>
       ${section('Outils et commandes', o.operationsAccount ? `Compte d’exploitation${NBSP}: ${o.operationsAccount}` : 'Sans compte d’exploitation déclaré')}
-      <div class="ps-grid">
+      <div class="grid ps-grid">
         <section class="card ps-card span-7 reveal" data-slot="tools">${toolsCard(state, local)}</section>
-        <div class="ps-stack span-5">
-          <section class="card ps-card reveal" data-slot="suite">${suiteCard(state)}</section>
-          <section class="card ps-card reveal" data-slot="wapt">${waptCard(state, local)}</section>
-        </div>
+        <section class="card ps-card span-5 reveal" data-slot="suite">${suiteCard(state)}</section>
       </div>
     </div>`;
     paintConsentCard();
@@ -87,7 +85,7 @@ export function renderAct(panel, state) {
       title: isRun ? `Autoriser une intervention sur ce poste (${minutes}${NBSP}min)${NBSP}?` : 'Autoriser une seule lecture de repli\u00A0?',
       message: isRun
         ? `Pendant ${minutes}${NBSP}min, et sur ${state.data.computer.name} seulement, les actions qui laissent une trace sur le poste (tâche planifiée unique pour exécuter un programme) deviennent possibles. Chacune demandera encore sa propre confirmation. Rien n’est lancé maintenant.`
-        : `Une seule lecture, sur ${state.data.computer.name} seulement, pourra passer par PsExec ou une tâche planifiée si WMI et WinRM refusent. Elle laisse une trace sur le poste. Rien n’est lancé maintenant.`,
+        : `Une seule lecture, sur ${state.data.computer.name} seulement, pourra passer par une tâche planifiée unique si CIM (DCOM et WinRM) refuse : inventaire, logiciels, diagnostic ou détection de l’utilisateur. Elle laisse une trace sur le poste. Rien n’est lancé maintenant.`,
       confirmLabel: 'Autoriser',
       icon: isRun ? 'zap' : 'shield',
     });
@@ -114,28 +112,10 @@ export function renderAct(panel, state) {
     }
   };
 
-  const readWapt = async () => {
-    local.waptBusy = true;
-    local.waptError = null;
-    const host = panel.querySelector('[data-slot="wapt"]');
-    if (host) host.innerHTML = waptCard(state, local);
-    try {
-      local.wapt = await state.call('poste.wapt', { dn: state.dn });
-    } catch (err) {
-      local.waptError = err;
-    } finally {
-      local.waptBusy = false;
-      if (alive) {
-        const h = panel.querySelector('[data-slot="wapt"]');
-        if (h) h.innerHTML = waptCard(state, local);
-      }
-    }
-  };
-
   const copyCommand = async (key, label) => {
     try {
       local.commands ??= await state.call('poste.commands', { dn: state.dn });
-      if (!(await writeClipboard(local.commands[key]))) { toast('Copie impossible : le presse-papiers a refusé la commande.', { tone: 'alert' }); return; }
+      if (!(await writeClipboard(local.commands[key]))) { toast('Copie impossible : le presse-papiers a refusé la commande.', { tone: 'alert' }); return; }
       toast(key === 'psRemote' ? local.commands.psStatus : `${label}${NBSP}: commande copiée.`, { tone: 'ok' });
     } catch (err) {
       toast(errorText(err), { tone: 'alert' });
@@ -144,7 +124,8 @@ export function renderAct(panel, state) {
 
   const openTool = async (tool) => {
     try {
-      await state.call('poste.tool.open', { dn: state.dn, tool });
+      const r = await state.call('poste.tool.open', { dn: state.dn, tool });
+      toast(r.text, { tone: r.launched ? 'ok' : 'info', life: r.simulated ? 7000 : 4800 });
     } catch (err) {
       toast(errorText(err), { tone: 'warn' });
     }
@@ -152,7 +133,8 @@ export function renderAct(panel, state) {
 
   const onClick = async (e) => {
     const b = e.target instanceof Element ? e.target.closest('[data-act]') : null;
-    if (!b || !panel.contains(b) || b.disabled || b.getAttribute('aria-disabled') === 'true') return;
+    if (!b || !panel.contains(b) || b.disabled) return;
+    if (b.getAttribute('aria-disabled') === 'true') { if (b.dataset.tip) toast(b.dataset.tip, { tone: 'info' }); return; }
     const act = b.dataset.act;
     const d = state.data;
     if (act === 'grant') grant(b.dataset.kind ?? 'intervention');
@@ -180,7 +162,7 @@ export function renderAct(panel, state) {
     else if (act === 'copy') copyCommand(b.dataset.key, b.dataset.label ?? '');
     else if (act === 'tool') openTool(b.dataset.tool);
     else if (act === 'suite') openSuite(state, b.dataset.tool);
-    else if (act === 'wapt') readWapt();
+    else if (act === 'suiteLaunch') launchSuite(state, b.dataset.tool);
     else if (act === 'fiche') state.ctx.navigate('fiche', { dn: state.dn });
   };
   const onChange = (e) => {
@@ -240,8 +222,8 @@ function consentCard(state, local) {
        <button class="btn primary sm" type="button" data-act="grant" data-kind="intervention">${ico('zap')}Autoriser une intervention</button></div>`;
   return `${cardHead('shield', 'Autorisation d’intervention', 'Pour ce poste, de 1 à 15 minutes', `<button class="btn ghost xs" type="button" data-act="history">${ico('history')}Historique</button>`, run.active ? 'ok' : 'info')}
     <div class="ps-consent-body">${ring}<div class="ps-consent-main">${body}</div></div>
-    <div class="ps-consent-fallback" data-active="${fallback.active ? 'true' : 'false'}">${ico('layers')}<div><b>Lecture de repli</b><span>${esc(fallback.active ? fallback.text : 'Si WMI et WinRM refusent, une seule lecture peut passer par PsExec ou une tâche planifiée, sur autorisation.')}</span></div>
-      ${fallback.active ? `<button class="btn ghost xs" type="button" data-act="revoke" data-kind="readFallback">Retirer</button>` : `<button class="btn ghost xs" type="button" data-act="grant" data-kind="readFallback">Autoriser une fois</button>`}</div>`;
+    <div class="ps-consent-fallback" data-active="${fallback.active ? 'true' : 'false'}">${ico('layers')}<div><b>Lecture de repli</b><span>${esc(fallback.active ? fallback.text : 'Si CIM (DCOM et WinRM) refuse, une seule lecture peut passer par une tâche planifiée unique, qui laisse une trace sur le poste. Sans cette autorisation, la lecture rend « non lu ».')}</span></div>
+      ${fallback.active ? `<button class="btn sm" type="button" data-act="revoke" data-kind="readFallback">${ico('x')}Retirer</button>` : `<button class="btn sm ps-fallback-btn" type="button" data-act="grant" data-kind="readFallback" data-tip="Laisse une trace sur le poste : une tâche planifiée unique, créée puis supprimée">${ico('shield')}Autoriser une lecture de repli…</button>`}</div>`;
 }
 
 function formatTime(iso) {
@@ -257,13 +239,13 @@ function actionTiles(state) {
   const consent = d.consent?.intervention?.active === true;
   const tiles = [
     { act: 'restart', icon: 'restart', tone: 'alert', title: 'Redémarrer…', text: 'Différé avec message (5 à 60 min) ou immédiat. Les sessions ouvertes sont lues avant.',
-      chips: [chip(o.useWinRm ? 'info' : 'warn', o.useWinRm ? 'WinRM' : 'Immédiat seulement', o.useWinRm ? 'Le redémarrage différé passe par WinRM.' : 'WinRM désactivé par la configuration : seul le redémarrage immédiat est possible.')] },
+      chips: [chip(o.useWinRm ? 'info' : 'warn', o.useWinRm ? 'WinRM' : 'Immédiat seulement', o.useWinRm ? 'Le redémarrage différé passe par WinRM.' : 'WinRM désactivé par la configuration : seul le redémarrage immédiat est possible.')] },
     { act: 'restartCancel', icon: 'undo', tone: 'info', title: 'Annuler un redémarrage', text: 'Annule un redémarrage différé encore en attente (shutdown /a).', chips: [] },
     { act: 'gpupdate', icon: 'gpo', tone: 'accent', title: 'Actualiser les stratégies', text: 'gpupdate /force par WinRM, sans fermer la session de l’utilisateur.',
       disabled: !o.useWinRm, reason: 'WinRM est désactivé par la configuration (Remote.UseWinRM).', chips: [] },
     { act: 'run', icon: 'terminal', tone: consent ? 'ok' : 'warn', title: 'Exécuter un programme…', text: 'Tâche planifiée unique, créée puis supprimée, en arrière-plan ou dans la session ouverte.',
       chips: [consent ? chip('ok', 'Autorisé') : chip('warn', 'Autorisation requise', 'Accordez l’autorisation d’intervention pour ce poste.')] },
-    { act: 'wake', icon: 'wake', tone: 'info', title: 'Réveiller le poste', text: online ? 'Le poste répond déjà au ping : un réveil est inutile.' : 'Paquet Wake-on-LAN vers ce seul poste, sous-réseau autorisé.',
+    { act: 'wake', icon: 'wake', tone: 'info', title: 'Réveiller le poste', text: online ? 'Le poste répond déjà au ping : un réveil est inutile.' : 'Paquet Wake-on-LAN vers ce seul poste, sous-réseau autorisé.',
       disabled: !o.wakeOnLan, reason: o.wakeReason, chips: o.wakeOnLan ? [chip('info', `${o.wakeNetworks.length} réseau${o.wakeNetworks.length > 1 ? 'x' : ''} autorisé${o.wakeNetworks.length > 1 ? 's' : ''}`, o.wakeNetworks.join(', '))] : [] },
     { act: 'services', icon: 'tools', tone: 'accent', title: 'Services du poste', text: 'Démarrer, redémarrer ou arrêter un service depuis la liste lue.', chips: [], nav: true },
   ];
@@ -280,7 +262,7 @@ function accountCard(state) {
   const status = enabled === true ? chip('ok', 'Compte actif') : enabled === false ? chip('alert', 'Compte désactivé') : chip('warn', 'État non lu');
   const action = enabled === true
     ? `<button class="btn sm danger" type="button" data-act="account" data-enable="false">${ico('power')}Désactiver le compte…</button>`
-    : enabled === false ? `<button class="btn sm primary" type="button" data-act="account" data-enable="true">${ico('power')}Activer le compte…</button>` : '';
+    : enabled === false ? `<button class="btn sm" type="button" data-act="account" data-enable="true">${ico('power')}Activer le compte…</button>` : `<span class="ps-note warn">${ico('alert')}userAccountControl illisible : relisez la fiche avant toute action sur le compte.</span>`;
   const line = (label, value, tip = '') => `<div class="ps-kv"><span>${esc(label)}</span><b${tip ? ` data-tip="${esc(tip)}"` : ''}>${value}</b></div>`;
   return `${cardHead('monitor', 'Objet ordinateur', esc(c.accountText), status, enabled === false ? 'alert' : 'info')}
     <div class="ps-kvs">
@@ -304,46 +286,42 @@ function groupsCard(state) {
     ? `<ul class="ps-groups">${groups.map((g, n) => `<li class="ps-group reveal" data-i="${n}"><span class="ps-group-ico">${ico('group')}</span><span class="ps-group-name" data-tip="${esc(g.dn)}">${esc(g.name)}</span>
         <button class="btn ghost xs icon-only" type="button" data-act="groupRemove" data-group="${esc(g.dn)}" aria-label="Retirer ${esc(c.name)} du groupe ${esc(g.name)}" data-tip="Retirer du groupe…">${ico('minus')}</button></li>`).join('')}</ul>`
     : empty({ icon: 'group', title: 'Aucun groupe explicite', text: 'Le poste n’est membre que de son groupe principal (Ordinateurs du domaine), qui n’est pas listé ici.' });
-  return `${cardHead('group', 'Groupes du poste', `${int(groups.length)} groupe${groups.length > 1 ? 's' : ''} explicite${groups.length > 1 ? 's' : ''} (memberOf)`, `<button class="btn sm" type="button" data-act="groupAdd">${ico('plus')}Ajouter…</button>`)}
+  return `${cardHead('group', 'Groupes du poste', `${count(groups.length, 'groupe explicite', 'groupes explicites')} (memberOf)`, `<button class="btn sm" type="button" data-act="groupAdd">${ico('plus')}Ajouter…</button>`)}
     ${list}
     <p class="ps-note">${ico('info')}Une appartenance s’applique au prochain démarrage du poste (jeton Kerberos de l’ordinateur).</p>`;
 }
 
 function toolsCard(state, local) {
-  const sim = state.simulation;
+  const launcher = state.host.toolLauncher === true;
   const o = state.data.options;
+  const why = 'Aucun lanceur d’outils dans cet affichage : copiez la commande.';
+  const tip = state.simulation ? 'Simulation : la commande qui serait lancée est montrée, rien n’est ouvert vers un poste fictif.' : 'Ouvert depuis ce poste d’administration';
   const row = (t) => `<li class="ps-tool"><span class="ps-tool-ico">${ico(t.icon)}</span>
       <div class="ps-tool-body"><b>${esc(t.label)}</b><span>${esc(t.hint)}</span></div>
-      <div class="ps-tool-actions"><button class="btn ghost xs" type="button" data-act="copy" data-key="${t.key}" data-label="${esc(t.label)}">${ico('copy')}Copier</button>
-      <button class="btn xs" type="button" data-act="tool" data-tool="${t.id}"${sim ? ` aria-disabled="true" data-tip="Aucun outil Windows n’est ouvert en simulation : copiez la commande."` : ''}>${ico('external')}Ouvrir</button></div></li>`;
-  return `${cardHead('terminal', 'Outils Windows et PowerShell', 'Commandes prêtes à coller, jamais de mot de passe copié')}
+      <div class="ps-tool-actions"><button class="btn ghost sm" type="button" data-act="copy" data-key="${t.key}" data-label="${esc(t.label)}">${ico('copy')}Copier</button>
+      <button class="btn sm" type="button" data-act="tool" data-tool="${t.id}"${launcher ? ` data-tip="${esc(tip)}"` : ` aria-disabled="true" data-tip="${esc(why)}"`}>${ico('external')}Ouvrir</button></div></li>`;
+  return `${cardHead('terminal', 'Outils Windows et PowerShell', 'Ouverts depuis le poste d’administration, ou commandes prêtes à coller ; jamais de mot de passe copié')}
     <ul class="ps-tools">${TOOLS.map(row).join('')}</ul>
     <div class="ps-ps">
-      <div class="ps-ps-line"><span class="ps-ps-label">${ico('terminal')}Session PowerShell distante</span><button class="btn sm primary" type="button" data-act="copy" data-key="psRemote" data-label="Enter-PSSession">${ico('copy')}Copier Enter-PSSession</button></div>
+      <div class="ps-ps-line"><span class="ps-ps-label">${ico('terminal')}Session PowerShell distante</span><button class="btn sm" type="button" data-act="copy" data-key="psRemote" data-label="Enter-PSSession">${ico('copy')}Copier Enter-PSSession</button></div>
       <div class="ps-ps-line"><span class="ps-ps-label">${ico('play')}Commande ponctuelle</span><button class="btn sm" type="button" data-act="copy" data-key="invokeCommand" data-label="Invoke-Command">${ico('copy')}Copier Invoke-Command</button></div>
-      <p class="ps-note">${ico('lock')}${o.operationsAccount ? `Avec le compte ${esc(o.operationsAccount)}${NBSP}: Windows demandera son mot de passe, qui n’est jamais copié ni enregistré.` : 'Aucun compte d’exploitation déclaré : la commande utilise votre session Windows.'}</p>
+      <p class="ps-note">${ico('lock')}${o.operationsAccount ? `Avec le compte ${esc(o.operationsAccount)}${NBSP}: Windows demandera son mot de passe, qui n’est jamais copié ni enregistré.` : 'Aucun compte d’exploitation déclaré : la commande utilise votre session Windows.'}</p>
     </div>`;
 }
 
 function suiteCard(state) {
   const tools = state.data.options.suiteTools ?? [];
-  return `${cardHead('sparkles', 'Outils de la suite', 'Ouverture avec le contexte du poste, champs déclarés seulement')}
-    <ul class="ps-suite">${tools.map((t) => `<li class="ps-suite-row" data-configured="${t.configured ? 'true' : 'false'}"><span class="ps-suite-logo" aria-hidden="true">${esc(t.label.slice(0, 1))}</span>
-      <div><b>${esc(t.label)}</b><span>${esc(t.configured ? `Champs${NBSP}: ${t.fields.join(', ')}` : t.reason)}</span></div>
-      <button class="btn sm" type="button" data-act="suite" data-tool="${esc(t.id)}">${ico('eye')}Voir le plan</button></li>`).join('')}</ul>`;
-}
-
-function waptCard(state, local) {
-  const o = state.data.options;
-  const head = cardHead('database', 'Déploiement WAPT', o.waptConfigured ? esc(o.waptOrigin ?? '') : 'Connecteur non configuré',
-    o.waptConfigured ? `<button class="btn ghost xs" type="button" data-act="wapt"${local.waptBusy ? ' disabled aria-busy="true"' : ''}>${ico('refresh')}${local.wapt ? 'Relire' : 'Lire'}</button>` : '');
-  if (!o.waptConfigured) return `${head}<p class="ps-note">${ico('info')}${esc(o.waptReason)}</p>`;
-  if (local.waptBusy) return `${head}<div class="ps-sk-stack" aria-busy="true"><span class="skeleton ps-sk w70"></span><span class="skeleton ps-sk w55"></span></div>`;
-  if (local.waptError) return `${head}${failure(local.waptError, { retry: 'wapt' })}`;
-  if (!local.wapt) return `${head}<p class="ps-note">${ico('info')}Lecture seule de l’enregistrement du poste dans WAPT, sur votre demande.</p>`;
-  const w = local.wapt;
-  return `${head}<p class="ps-wapt-state">${chip(w.state === 'observed' ? 'ok' : 'warn', w.stateLabel)} ${esc(w.text)}</p>${facts(w.facts, { compact: true })}
-    ${w.lastSeen ? `<p class="ps-note">${ico('clock')}Dernier contact ${rel(w.lastSeen)}</p>` : ''}`;
+  const launcher = state.host.toolLauncher === true;
+  return `${cardHead('sparkles', 'Outils de la suite', 'Ouverture avec le contexte du poste : champs déclarés par l’outil seulement')}
+    <ul class="ps-suite">${tools.map((t) => {
+      const canOpen = t.configured && launcher;
+      const why = !t.configured ? t.reason : 'Aucun lanceur d’outils dans cet affichage.';
+      return `<li class="ps-suite-row" data-configured="${t.configured ? 'true' : 'false'}"><span class="ps-suite-logo" aria-hidden="true">${esc(t.label.slice(0, 1))}</span>
+      <div><b>${esc(t.label)}</b><span>${esc(t.configured ? `Champs possibles${NBSP}: ${t.fields.join(', ')}` : t.reason)}</span></div>
+      <div class="ps-suite-actions"><button class="btn ghost sm" type="button" data-act="suite" data-tool="${esc(t.id)}">${ico('eye')}Voir le plan</button>
+      <button class="btn sm" type="button" data-act="suiteLaunch" data-tool="${esc(t.id)}"${canOpen ? '' : ` aria-disabled="true" data-tip="${esc(why)}"`}>${ico('external')}Ouvrir</button></div></li>`;
+    }).join('')}</ul>
+    <p class="ps-note">${ico('shield')}Avant toute ouverture : empreinte SHA-256 de l’exécutable comparée à la configuration, contrat suite-contract.json relu${NBSP}; sans contrat reconnu, l’outil s’ouvre sans argument.</p>`;
 }
 
 // ---------- Drawers ----------
@@ -379,23 +357,29 @@ function openRestart(state) {
     ],
   });
   dr.el.classList.add('poste-drw');
+  // « Maintenant » is never chosen by default (Domenia 1 PST-013): delayed when WinRM allows it, otherwise nothing.
   dr.body.innerHTML = `<form class="k-form ps-form" data-form="restart" novalidate>
       <div class="ps-restart-sessions" data-slot="sessions" aria-busy="true">${ico('users')}<div><b>Sessions ouvertes</b><span>Lecture des sessions du poste…</span></div></div>
-      ${field({ name: 'mode', label: 'Mode', type: 'radio', value: o.useWinRm ? 'delayed' : 'now', options: [
+      ${field({ name: 'mode', label: 'Mode', type: 'radio', value: o.useWinRm ? 'delayed' : '', options: [
         { value: 'delayed', label: 'Différé, avec un message à l’utilisateur', disabled: !o.useWinRm },
-        { value: 'now', label: 'Immédiat (le travail non enregistré est perdu)' },
+        { value: 'now', label: 'Immédiat et forcé, sans message (le travail non enregistré est perdu)' },
       ] })}
       <div class="ps-delayed" data-slot="delayed">
         ${field({ name: 'minutes', label: 'Délai', type: 'select', value: String(minutes.includes(def) ? def : minutes[0]), options: minutes.map((m) => ({ value: String(m), label: `${m}${NBSP}minutes` })), width: 'half' })}
         ${field({ name: 'message', label: 'Message affiché sur le poste', type: 'textarea', maxLength: 400, placeholder: 'Laisser vide pour le message par défaut (délai et conseil d’enregistrer).', hint: 'Affiché par Windows dans la session ouverte. 400 caractères au plus.' })}
       </div>
-      ${o.useWinRm ? '' : `<p class="ps-note warn">${ico('alert')}WinRM est désactivé par la configuration : seul le redémarrage immédiat est possible.</p>`}
+      ${o.useWinRm ? '' : `<p class="ps-note warn">${ico('alert')}WinRM est désactivé par la configuration : le redémarrage différé est indisponible. Choisissez explicitement « Immédiat » si l’utilisateur est prévenu.</p>`}
       <p class="ps-note">${ico('shield')}Rien n’est envoyé avant la confirmation du plan. Un redémarrage immédiat demande de taper le nom du poste.</p>
     </form>`;
   const form = dr.body.querySelector('form');
+  const go = dr.foot?.querySelector('[data-id="go"]');
   const sync = () => {
-    const mode = form.querySelector('input[name="mode"]:checked')?.value ?? 'now';
+    const mode = form.querySelector('input[name="mode"]:checked')?.value ?? '';
     form.querySelector('[data-slot="delayed"]').hidden = mode !== 'delayed';
+    if (go) {
+      go.disabled = !mode;
+      if (mode) go.removeAttribute('data-tip'); else go.dataset.tip = 'Choisissez d’abord le mode du redémarrage.';
+    }
   };
   form.addEventListener('change', sync);
   form.addEventListener('submit', (e) => e.preventDefault());
@@ -413,7 +397,8 @@ function openRestart(state) {
   });
 
   function submit(ctl) {
-    const mode = form.querySelector('input[name="mode"]:checked')?.value ?? 'now';
+    const mode = form.querySelector('input[name="mode"]:checked')?.value ?? '';
+    if (!mode) { toast('Choisissez d’abord le mode du redémarrage : rien n’est choisi pour vous.', { tone: 'warn' }); return; }
     const args = { dn: state.dn, mode };
     if (mode === 'delayed') {
       args.minutes = Number(form.querySelector('select[name="minutes"]').value);
@@ -444,14 +429,14 @@ function openRun(state) {
   dr.el.classList.add('poste-drw');
   dr.body.innerHTML = `<form class="k-form ps-form" novalidate>
       ${field({ name: 'command', label: 'Programme', required: true, mono: true, maxLength: 260, placeholder: 'C:\\Windows\\System32\\notepad.exe', hint: 'Chemin complet d’un exécutable (.exe, .cmd, .bat, .ps1) présent sur le poste.' })}
-      ${field({ name: 'arguments', label: 'Arguments', mono: true, maxLength: 1024, hint: 'Aucun mot de passe ni secret : les arguments sont visibles dans la tâche planifiée.' })}
+      ${field({ name: 'arguments', label: 'Arguments', mono: true, maxLength: 1024, hint: 'Gardés en mémoire jusqu’à l’envoi seulement : ni le plan ni le reçu ne les contiennent (longueur seule). Évitez tout secret : la tâche planifiée les voit pendant son exécution.' })}
       ${field({ name: 'mode', label: 'Où', type: 'radio', value: 'system', options: [
         { value: 'system', label: 'En arrière-plan, compte système, sans fenêtre' },
         { value: 'interactive', label: 'Dans la session ouverte d’un utilisateur' },
       ] })}
       <div data-slot="user">${field({ name: 'user', label: 'Compte de la session', value: user, mono: true, maxLength: 120, placeholder: 'DOMAINE\\identifiant', width: 'half' })}</div>
       ${field({ name: 'elevated', label: 'Niveau le plus élevé', type: 'switch', value: true })}
-      <p class="ps-note">${ico('info')}L’exécution du programme n’est pas vérifiée : seul l’envoi de la tâche l’est.</p>
+      <p class="ps-note">${ico('info')}L’exécution du programme n’est pas vérifiée : seul l’envoi de la tâche l’est.</p>
     </form>`;
   const form = dr.body.querySelector('form');
   const sync = () => { form.querySelector('[data-slot="user"]').hidden = form.querySelector('input[name="mode"]:checked')?.value !== 'interactive'; };
@@ -489,16 +474,17 @@ function openRename(state) {
   });
   dr.el.classList.add('poste-drw');
   dr.body.innerHTML = `<form class="k-form ps-form" novalidate>
-      ${field({ name: 'name', label: 'Nouveau nom', value: c.name, required: true, mono: true, maxLength: 15, pattern: '[A-Za-z0-9][A-Za-z0-9-]{0,14}', patternMessage: 'Lettres, chiffres et tirets, 15 caractères au plus.' })}
-      <p class="ps-note warn">${ico('alert')}Le nom Windows du poste n’est pas changé : renommez aussi le poste lui-même, sinon il ne pourra plus s’authentifier sous son ancien nom.</p>
+      ${field({ name: 'name', label: 'Nouveau nom de l’objet (CN)', value: c.name, required: true, mono: true, maxLength: 63, pattern: '[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?', patternMessage: 'Lettres, chiffres et tirets, 63 caractères au plus, sans tiret au début ni à la fin.' })}
+      <p class="ps-note">${ico('info')}Seul le nom de l’objet change dans l’annuaire : le nom de compte (${esc(c.samAccountName)}), le nom DNS et le nom Windows du poste restent, il continue de s’authentifier.</p>
+      <p class="ps-note warn">${ico('alert')}Les listes afficheront le nouveau nom pour un poste qui garde son nom Windows : renommez le poste lui-même par ailleurs si c’est le but.</p>
     </form>`;
   const form = dr.body.querySelector('form');
   form.addEventListener('submit', (e) => e.preventDefault());
   function submit(ctl) {
     const input = form.querySelector('input[name="name"]');
     const name = input.value.trim();
-    if (!/^[A-Za-z0-9][A-Za-z0-9-]{0,14}$/.test(name)) { input.focus(); toast('Nom refusé : lettres, chiffres et tirets, 15 caractères au plus.', { tone: 'warn' }); return; }
-    if (name.toUpperCase() === c.name.toUpperCase()) { toast('Le nom est inchangé : rien à préparer.', { tone: 'info' }); return; }
+    if (!/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(name)) { input.focus(); toast('Nom refusé : lettres, chiffres et tirets, 63 caractères au plus, sans tiret au début ni à la fin.', { tone: 'warn' }); return; }
+    if (name.toUpperCase() === c.name.toUpperCase()) { toast('Le nom est inchangé : rien à préparer.', { tone: 'info' }); return; }
     ctl.close();
     runWrite(state.ctx, { plan: 'poste.rename.plan', args: { dn: state.dn, name }, subtitle: c.name, onDone: () => afterMove(state) });
   }
@@ -651,8 +637,8 @@ function openProfile(state) {
       ${field({ name: 'description', label: 'Description', value: c.description ?? '', maxLength: 1024, hint: 'Visible dans l’annuaire et dans les listes de Domenia.' })}
       ${field({ name: 'location', label: 'Emplacement physique', value: c.location ?? '', maxLength: 1024, placeholder: 'Bâtiment, étage, bureau' })}
       ${field({ name: 'managedBy', label: 'Géré par', type: 'select', value: c.managedBy?.dn ?? '', options })}
-      ${assoc && !assoc.dn ? `<p class="ps-note">${ico('info')}L’utilisateur associé (${esc(assoc.name)}) n’a pas de nom distinctif connu : il ne peut pas être choisi comme gestionnaire.</p>` : ''}
-      <p class="ps-note">${ico('shield')}Seuls les attributs modifiés sont envoyés ; l’objet est relu juste avant et juste après.</p>
+      ${assoc && !assoc.dn ? `<p class="ps-note">${ico('info')}L’utilisateur associé (${esc(assoc.name)}) n’a pas de nom distinctif connu : il ne peut pas être choisi comme gestionnaire.</p>` : ''}
+      <p class="ps-note">${ico('shield')}Seuls les attributs modifiés sont envoyés ; l’objet est relu juste avant et juste après.</p>
     </form>`;
   const form = dr.body.querySelector('form');
   form.addEventListener('submit', (e) => e.preventDefault());
@@ -662,7 +648,7 @@ function openProfile(state) {
     if (v('description') !== (c.description ?? '')) args.description = v('description');
     if (v('location') !== (c.location ?? '')) args.location = v('location');
     if (v('managedBy') !== (c.managedBy?.dn ?? '')) args.managedBy = v('managedBy');
-    if (Object.keys(args).length === 1) { toast('Aucun changement : rien à préparer.', { tone: 'info' }); return; }
+    if (Object.keys(args).length === 1) { toast('Aucun changement : rien à préparer.', { tone: 'info' }); return; }
     ctl.close();
     runWrite(state.ctx, { plan: 'poste.profile.plan', args, subtitle: c.name, onDone: () => state.reload() });
   }
@@ -674,17 +660,31 @@ async function openSuite(state, tool) {
     const p = r.plan;
     const rows = p.arguments.length
       ? `<ul class="ps-suite-args">${p.arguments.map((a) => `<li class="mono">${esc(a)}</li>`).join('')}</ul>`
-      : `<p class="ps-note">${ico('info')}Aucun argument : l’outil s’ouvrirait sans contexte.</p>`;
+      : `<p class="ps-note">${ico('info')}Aucun argument : l’outil s’ouvrirait sans contexte.</p>`;
     const omitted = p.omitted.length ? `<p class="ps-note warn">${ico('alert')}Champs écartés${NBSP}: ${esc(p.omitted.join(' · '))}</p>` : '';
-    openDialog({
+    const dialog = openDialog({
       title: `Ouvrir ${r.tool.label} avec ce poste`,
       subtitle: r.tool.configured ? 'Plan d’ouverture' : 'Outil non configuré',
       icon: 'sparkles',
       size: 'md',
       body: `<div class="poste-drw ps-dlg"><p class="k-dlg-text">${esc(r.text)}</p>${p.reason ? `<p class="ps-note">${ico('info')}${esc(p.reason)}</p>` : ''}${rows}${omitted}</div>`,
-      actions: [{ id: 'close', label: 'Fermer', safe: true, primary: true }],
+      actions: r.canLaunch
+        ? [{ id: 'close', label: 'Fermer', safe: true }, { id: 'launch', label: `Ouvrir ${r.tool.label}`, primary: true }]
+        : [{ id: 'close', label: 'Fermer', safe: true, primary: true }],
     });
+    const answer = await dialog.result;
+    if (answer === 'launch') launchSuite(state, tool);
   } catch (err) {
     toast(errorText(err), { tone: 'alert' });
+  }
+}
+
+/** Opens a suite tool through the launcher of the host (fingerprint and contract checked there); nothing in simulation. */
+async function launchSuite(state, tool) {
+  try {
+    const r = await state.call('poste.suite.launch', { dn: state.dn, tool });
+    toast([r.text, ...(r.checks ?? [])].join(' '), { tone: r.launched ? 'ok' : 'info', life: 7000 });
+  } catch (err) {
+    toast(errorText(err), { tone: 'warn' });
   }
 }

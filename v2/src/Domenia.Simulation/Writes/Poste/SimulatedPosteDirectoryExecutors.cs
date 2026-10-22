@@ -174,9 +174,9 @@ public sealed class SimulatedPosteRenameExecutor : SimulatedPosteDirectoryExecut
         ArgumentNullException.ThrowIfNull(plan);
         await Wait("check", 60, 140, cancellationToken).ConfigureAwait(false);
         var check = PosteDirectoryWrites.CheckRename(plan, FindByGuid(plan.Target.ObjectGuid));
-        if (check.Current && Source.CurrentDirectory.Computers.Any(c => string.Equals(c.Name, plan.Changes[0].After, StringComparison.OrdinalIgnoreCase) && !string.Equals(c.ObjectGuid.ToString("D"), plan.Target.ObjectGuid, StringComparison.OrdinalIgnoreCase)))
+        if (check.Current && Source.CurrentDirectory.Computers.Any(c => PosteDirectoryWrites.SameDn(c.DistinguishedName, plan.Changes[0].AfterValue ?? "") && !string.Equals(c.ObjectGuid.ToString("D"), plan.Target.ObjectGuid, StringComparison.OrdinalIgnoreCase)))
         {
-            return WritePrecheck.Stale("Le nom est maintenant pris par un autre compte ordinateur : rien n’a été envoyé.");
+            return WritePrecheck.Stale("Le nom est maintenant pris par un autre objet de la même OU : rien n’a été envoyé.");
         }
         return check;
     }

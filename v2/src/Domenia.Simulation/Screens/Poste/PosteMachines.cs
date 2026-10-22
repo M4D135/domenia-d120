@@ -118,8 +118,6 @@ internal static class PosteMachines
             FirewallPublicOff = sec.Chance(2),
             SignatureAge = sec.Chance(4) ? sec.Next(9, 21) : sec.Next(0, 3),
             Hotfixes = hotfixes,
-            Wapt = software.Any(s => s.Name == "Agent WAPT"),
-            WaptLast = now.AddHours(-net.Next(2, 90)),
             Software = software,
             Startup = startup,
             Services = services,
@@ -251,10 +249,6 @@ internal static class PosteMachines
         var list = ImmutableArray.CreateBuilder<ServiceEntry>();
         foreach (var s in PosteCatalogs.Services)
         {
-            if (s.Name == "WAPTService" && !software.Any(x => x.Name == "Agent WAPT"))
-            {
-                continue;
-            }
             if (s.Name == "WlanSvc" && !laptop)
             {
                 continue;
@@ -346,7 +340,7 @@ internal static class PosteMachines
             new(6005, "EventLog", "System", "Information", boot.AddSeconds(40), c.Name, null, "Le service Journal des événements a été démarré."),
             new(10016, "Microsoft-Windows-DistributedCOM", "System", "Erreur", now.AddHours(-r.Next(2, 40)), c.Name, "S-1-5-18", "Les paramètres d’autorisation propres à l’application n’accordent pas l’autorisation Activation locale."),
             new(7016, "Microsoft-Windows-GroupPolicy", "System", "Information", now.AddHours(-r.Next(1, 8)), c.Name, "S-1-5-18", "Fin du traitement de l’extension de stratégie de groupe Registre."),
-            new(19, "Microsoft-Windows-WindowsUpdateClient", "System", "Information", now.AddDays(-r.Next(5, 9)), c.Name, "S-1-5-18", "Installation réussie : Windows a installé la mise à jour suivante : KB5066835."),
+            new(19, "Microsoft-Windows-WindowsUpdateClient", "System", "Information", now.AddDays(-r.Next(5, 9)), c.Name, "S-1-5-18", "Installation réussie : Windows a installé la mise à jour suivante : KB5066835."),
         };
         if (r.Chance(10))
         {
@@ -362,7 +356,7 @@ internal static class PosteMachines
         {
             for (var i = 0; i < r.Next(3, 6); i++)
             {
-                list.Add(new EventEntry(1000, "Application Error", "Application", "Erreur", now.AddHours(-r.Next(1, 70)), c.Name, null, "Nom de l’application défaillante : ms-teams.exe, version : 25275.2601.4002.2815."));
+                list.Add(new EventEntry(1000, "Application Error", "Application", "Erreur", now.AddHours(-r.Next(1, 70)), c.Name, null, "Nom de l’application défaillante : ms-teams.exe, version : 25275.2601.4002.2815."));
             }
         }
         if (r.Chance(6))
@@ -385,7 +379,7 @@ internal static class PosteMachines
         return
         [
             new CertificateEntry("CN=" + (c.DnsHostName ?? c.Name), "CN=EXAMPLE-CA, DC=example, DC=local", expiry, ["Authentification du client", "Authentification du serveur"], Convert.ToHexString(BitConverter.GetBytes(r.NextUInt64()))),
-            new CertificateEntry("CN=WAPT-" + c.Name, "CN=WAPT Root, O=Example", now.AddDays(r.Next(200, 1500)), ["Authentification du client"], Convert.ToHexString(BitConverter.GetBytes(r.NextUInt64()))),
+            new CertificateEntry("CN=" + c.Name + "-VPN", "CN=EXAMPLE-VPN-CA, O=Example", now.AddDays(r.Next(200, 1500)), ["Authentification du client"], Convert.ToHexString(BitConverter.GetBytes(r.NextUInt64()))),
         ];
     }
 }

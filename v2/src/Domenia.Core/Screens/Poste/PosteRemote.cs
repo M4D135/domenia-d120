@@ -142,9 +142,23 @@ public static partial class PosteRemote
             }
         }
         var how = interactive ? "dans la session ouverte de " + user : "en arrière-plan sous le compte système, sans fenêtre visible";
-        var line = program + (args.Length > 0 ? " " + args : "");
+        // The arguments never reach a summary, a plan or a receipt (Domenia 1 PST-028): only their length is said.
         return (RemoteCheck.Ok, new RunRequest(interactive, program, args, interactive ? user : null, elevated, "Exécuter un programme sur " + target + " ?",
-            "Lance " + FrenchText.Quote(line) + " " + how + (elevated ? ", avec le niveau le plus élevé" : "") + ". Une tâche planifiée unique est créée puis supprimée ; l’exécution du programme n’est pas vérifiée."));
+            "Lance " + FrenchText.Quote(program) + " (" + ArgumentsText(args) + ") " + how + (elevated ? ", avec le niveau le plus élevé" : "") + ". Une tâche planifiée unique est créée puis supprimée ; l’exécution du programme n’est pas vérifiée."));
+    }
+
+    /// <summary>SHA-256 of the arguments of a program run (lower-case hexadecimal), empty without argument.</summary>
+    public static string ArgumentsDigest(string? arguments)
+    {
+        var text = arguments ?? "";
+        return text.Length == 0 ? "" : Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+    }
+
+    /// <summary>How the arguments are told in a plan or a receipt: their length only, never their text.</summary>
+    public static string ArgumentsText(string? arguments)
+    {
+        var length = (arguments ?? "").Length;
+        return length == 0 ? "sans argument" : "arguments : " + FrenchText.Count(length, "caractère", "caractères") + ", non conservés";
     }
 
     /// <summary>Commands for the technician's console (Get-DomeniaPsRemoteCommand and variants): values quoted, never a password.</summary>

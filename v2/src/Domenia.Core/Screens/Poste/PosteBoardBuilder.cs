@@ -12,12 +12,19 @@ namespace Domenia.Core.Poste;
 public static class PosteBoardBuilder
 {
     private static readonly PosteRoute Secrets = new("secrets", null, null, "Vue Secrets du poste");
-    private static readonly PosteRoute Restart = new("intervenir", null, "redemarrer", "Redémarrer : vue Intervenir");
-    private static readonly PosteRoute DiskTools = new("intervenir", null, "outils", "Ouvrir le disque C : vue Intervenir");
-    private static readonly PosteRoute ServicesView = new("inventaire", "services", null, "Services : vue Inventaire");
+    private static readonly PosteRoute Restart = new("intervenir", null, "redemarrer", "Redémarrer : vue Intervenir");
+    private static readonly PosteRoute DiskTools = new("intervenir", null, "outils", "Ouvrir le disque C : vue Intervenir");
+    private static readonly PosteRoute ServicesView = new("inventaire", "services", null, "Services : vue Inventaire");
 
     public const string QuickAction = "inventory.quick";
     public const string DeepAction = "inventory.deep";
+
+    /// <summary>The six checks of the protection list (Domenia 1 computer.status), in their order.</summary>
+    public static ImmutableArray<(string Key, string Label)> ProtectionChecks { get; } =
+    [
+        ("computer.bitlocker", "BitLocker"), ("computer.secureboot", "Démarrage sécurisé"), ("computer.firewall", "Pare-feu"),
+        ("computer.antivirus", "Antivirus"), ("computer.reboot", "Redémarrage en attente"), ("computer.hotfix", "Dernier correctif"),
+    ];
 
     public static PosteBoard Build(PosteComputer computer, InventorySnapshot? inventory, PosteHealthPolicy policy, DateTimeOffset now, TimeZoneInfo zone)
     {
@@ -33,7 +40,8 @@ public static class PosteBoardBuilder
                 new BoardHint("ressources", "Lancez un inventaire pour mesurer la mémoire, le processeur et les disques.", "Inventaire rapide", QuickAction),
                 new BoardHint("activite", "L’inventaire complet ajoute les processus et les erreurs système.", "Inventaire complet", DeepAction),
                 new BoardHint("securite", "Lancez un inventaire pour lire BitLocker, le pare-feu et l’antivirus.", "Inventaire rapide", QuickAction));
-            var protectionEmpty = Checklist([], new Dictionary<string, SheetLine>(StringComparer.Ordinal));
+            // Without inventory the six checks are listed « Non lu »: nothing read is never told « Rien à signaler » (PST-100).
+            var protectionEmpty = Checklist(ProtectionChecks, new Dictionary<string, SheetLine>(StringComparer.Ordinal));
             var healthAdOnly = Health(points, policy, "Aucun inventaire dans cette session ni dans la base locale : seuls les attributs de l’annuaire sont évalués", QuickAction);
             return new PosteBoard(healthAdOnly, null, ad, protectionEmpty, null, null, null, [], [], hints,
                 "Aucun inventaire : le tableau ne montre que le compte du poste dans l’annuaire.", null, false);
@@ -46,12 +54,8 @@ public static class PosteBoardBuilder
         var activity = Activity(inventory, policy, points, now);
         var counts = Counts(inventory, policy, points);
         var sections = Sections(inventory, policy, now, zone, points, lines);
-        var protection = Checklist(
-            [
-                ("computer.bitlocker", "BitLocker"), ("computer.secureboot", "Démarrage sécurisé"), ("computer.firewall", "Pare-feu"),
-                ("computer.antivirus", "Antivirus"), ("computer.reboot", "Redémarrage en attente"), ("computer.hotfix", "Dernier correctif"),
-            ],
-            lines);
+        CustomPoints(inventory, resources, disks, policy, points, now);
+        var protection = Checklist(ProtectionChecks, lines);
         var securityRead = inventory.Read(InventoryCategories.Antivirus) && inventory.Read(InventoryCategories.Firewall) && inventory.Read(InventoryCategories.BitLocker);
         var health = Health(points, policy, securityRead ? null : "Partiel : antivirus, pare-feu ou BitLocker non lu", securityRead ? null : DeepAction);
         var boardHints = ImmutableArray.CreateBuilder<BoardHint>();
@@ -88,11 +92,16 @@ public static class PosteBoardBuilder
         {
             if (!enabled)
             {
-                Note(points, policy, AttentionLevel.Alert, "Compte ordinateur désactivé dans l’annuaire : le poste ne peut plus s’authentifier.", "ad.disabled", new PosteRoute("intervenir", null, "compte", "Compte AD : vue Intervenir"));
+                Note(points, policy, AttentionLevel.Alert, "Compte ordinateur désactivé dans l’annuaire : le poste ne peut plus s’authentifier.", "ad.disabled", new PosteRoute("intervenir", null, "compte", "Compte AD : vue Intervenir"));
             }
             lines.Add(new SheetLine("computer.ad.account", "Compte ordinateur", enabled ? "Activé" : "Désactivé", "Compte AD ; créé le " + created, enabled ? Tone.Ok : Tone.Alert, false));
         }
         lines.Add(new SheetLine("computer.ad.ou", "Unité d’organisation", computer.Ou.Name, computer.Ou.Path, null, false));
+        lines.Add(new SheetLine("computer.ad.dns", "Nom DNS", computer.DnsName ?? "Non renseigné", computer.DnsName is null ? "dNSHostName absent : le poste n’a peut-être jamais démarré dans le domaine" : "dNSHostName", computer.DnsName is null ? Tone.Off : null, computer.DnsName is not null));
+        lines.Add(new SheetLine("computer.ad.sid", "SID", computer.Sid, "objectSid du compte ordinateur", null, true));
+        lines.Add(new SheetLine("computer.ad.uac", "userAccountControl", computer.UserAccountControl is int uac ? PosteLabels.UacText(uac) : "Illisible", "Indicateurs du compte (valeur brute puis lecture)", computer.UserAccountControl is null ? Tone.Off : null, computer.UserAccountControl is not null));
+        lines.Add(new SheetLine("computer.ad.description", "Description", string.IsNullOrWhiteSpace(computer.Description) ? "Non renseignée" : computer.Description!, "Attribut description", string.IsNullOrWhiteSpace(computer.Description) ? Tone.Off : null, false));
+        lines.Add(new SheetLine("computer.ad.location", "Emplacement", string.IsNullOrWhiteSpace(computer.Location) ? "Non renseigné" : computer.Location!, "Attribut location", string.IsNullOrWhiteSpace(computer.Location) ? Tone.Off : null, false));
         if (computer.PasswordLastSet is DateTimeOffset pwd)
         {
             var days = (int)(now - pwd).TotalDays;
@@ -156,7 +165,7 @@ public static class PosteBoardBuilder
         }
         var built = lines.ToImmutable();
         var toCheck = built.Count(l => l.State is Tone.Warn or Tone.Alert);
-        return new PosteSheet("computer.adaccount", "Compte machine dans Active Directory", FrenchText.Count(built.Length, "information", "informations"),
+        return new PosteSheet("computer.adaccount", "Compte machine dans Active Directory", FrenchText.Count(built.Count(l => l.State != Tone.Off), "information", "informations"),
             toCheck > 0 ? FrenchText.Integer(toCheck) + " à vérifier" : null, built.Any(l => l.State == Tone.Alert) ? Tone.Alert : toCheck > 0 ? Tone.Warn : null, built);
     }
 
@@ -408,7 +417,7 @@ public static class PosteBoardBuilder
             {
                 points.Add(new AttentionPoint(AttentionLevel.Info, FrenchText.Count(generic, "autre erreur", "autres erreurs") + " dans le journal Système sur 3 jours.", "events.info", null, null));
             }
-            eventsText = recent.Count == 0 ? "Aucune erreur dans le journal Système sur 3 jours" : FrenchText.Count(critical + generic, "erreur retenue", "erreurs retenues") + (ignored > 0 ? ", " + FrenchText.Integer(ignored) + " ignorée(s) (bruit connu)" : "");
+            eventsText = recent.Count == 0 ? "Aucune erreur dans le journal Système sur 3 jours" : FrenchText.Count(critical + generic, "erreur retenue", "erreurs retenues") + (ignored > 0 ? ", " + FrenchText.Count(ignored, "ignorée", "ignorées") + " (bruit connu)" : "");
         }
         var hint = inv.Deep ? null : "L’inventaire complet ajoute les processus et les erreurs système.";
         return new ActivityBoard(services, total, processes, measure, events, ignored, eventsText, hint);
@@ -438,7 +447,7 @@ public static class PosteBoardBuilder
             tiles.Add(new CountTile(key, label, count, state, detail, category));
         }
         var devices = inv.Devices.Where(d => !PosteLabels.DeviceCodeIsChoice(d.Code)).ToList();
-        Tile("computer.devices", "Périphériques en erreur", InventoryCategories.Devices, devices.Count, devices.Count == 0 ? "Aucun" : devices[0].Name + (devices.Count > 1 ? " et " + FrenchText.Integer(devices.Count - 1) + " autre(s)" : "") + " · " + PosteLabels.DeviceError(devices[0].Code), true, "devices");
+        Tile("computer.devices", "Périphériques en erreur", InventoryCategories.Devices, devices.Count, devices.Count == 0 ? "Aucun" : devices[0].Name + (devices.Count > 1 ? " et " + FrenchText.Count(devices.Count - 1, "autre", "autres") : "") + " · " + PosteLabels.DeviceError(devices[0].Code), true, "devices");
         Tile("computer.drivers", "Pilotes non signés", InventoryCategories.Drivers, inv.UnsignedDrivers.Length, inv.UnsignedDrivers.IsEmpty ? "Aucun" : inv.UnsignedDrivers[0].Name, true, "drivers");
         Tile("computer.admins", "Administrateurs locaux", InventoryCategories.Admins, inv.LocalAdmins.Length, inv.LocalAdmins.IsEmpty ? "Groupe non lu" : string.Join(", ", inv.LocalAdmins.Take(3)), false, "");
         Tile("computer.sessions", "Sessions et comptes locaux", InventoryCategories.Sessions, inv.Sessions.Count(s => !string.IsNullOrEmpty(s.User)), inv.Sessions.Any(s => !string.IsNullOrEmpty(s.User)) ? string.Join(", ", inv.Sessions.Where(s => !string.IsNullOrEmpty(s.User)).Select(s => s.User!).Take(2)) : "Aucune", false, "");
@@ -450,7 +459,7 @@ public static class PosteBoardBuilder
         if (inv.Read(InventoryCategories.Displays))
         {
             var first = inv.Displays.FirstOrDefault();
-            tiles.Add(new CountTile("computer.display", "Affichage", inv.Displays.Length, null, first is null ? "Aucun écran identifié" : first.Name + " · " + first.Connection + (inv.Displays.Length > 1 ? " et " + FrenchText.Integer(inv.Displays.Length - 1) + " autre(s)" : ""), InventoryCategories.Displays));
+            tiles.Add(new CountTile("computer.display", "Affichage", inv.Displays.Length, null, first is null ? "Aucun écran identifié" : first.Name + " · " + first.Connection + (inv.Displays.Length > 1 ? " et " + FrenchText.Count(inv.Displays.Length - 1, "autre", "autres") : ""), InventoryCategories.Displays));
         }
         if (inv.Read(InventoryCategories.PhysicalDisks))
         {
@@ -513,7 +522,7 @@ public static class PosteBoardBuilder
                 }
             }
             lines["computer.bitlocker"] = new SheetLine("computer.bitlocker", "BitLocker", value, system?.Drive is string d ? "Volume " + d : null, state, false);
-            sections.Add(new BoardSection("bitlocker", "BitLocker du volume système", value, "Le mot « Protection » seul ne prouve rien : état de protection et de chiffrement lus ensemble.", state, facts.ToImmutable()));
+            sections.Add(new BoardSection("bitlocker", "BitLocker du volume système", value, "Le mot « Protection » seul ne prouve rien : état de protection et de chiffrement lus ensemble.", state, facts.ToImmutable()));
         }
 
         // Firewall by effective profile (PST-101): the policy wins over the local key.
@@ -668,7 +677,7 @@ public static class PosteBoardBuilder
                 Note(points, policy, AttentionLevel.Warn, FrenchText.Count(soon.Count, "certificat machine expirant", "certificats machine expirant") + " dans les 30 jours.", "certificates", null);
             }
             var partial = inv.StatusOf(InventoryCategories.Certificates) == SourceStatus.Partial;
-            var detail = FrenchText.Integer(expired.Count) + " expiré(s), " + FrenchText.Integer(soon.Count) + " sous 30 jours, " + FrenchText.Integer(valid) + " valide(s)" + (partial ? " · lecture partielle" : "");
+            var detail = FrenchText.Count(expired.Count, "expiré", "expirés") + ", " + FrenchText.Integer(soon.Count) + " sous 30 jours, " + FrenchText.Count(valid, "valide", "valides") + (partial ? " · lecture partielle" : "");
             var state = expired.Count > 0 || soon.Count > 0 ? Tone.Warn : partial ? Tone.Off : Tone.Ok;
             sections.Add(new BoardSection("certificates", "Certificats machine", FrenchText.Count(inv.Certificates.Length, "certificat", "certificats"), detail, state,
                 [
@@ -694,7 +703,7 @@ public static class PosteBoardBuilder
         var read = built.Count(l => l.State != Tone.Off || l.Value != "Non lu");
         var toCheck = built.Count(l => l.State is Tone.Warn or Tone.Alert);
         var unread = built.Count(l => l.State == Tone.Off && l.Value == "Non lu");
-        var value = toCheck > 0 ? FrenchText.Integer(toCheck) + " à vérifier" : unread > 0 ? "Rien à signaler sur ce qui est lu" : "Rien à signaler";
+        var value = read == 0 ? "Non lu" : toCheck > 0 ? FrenchText.Integer(toCheck) + " à vérifier" : unread > 0 ? "Rien à signaler sur ce qui est lu" : "Rien à signaler";
         return new PosteSheet("computer.status", "État de la protection", value, FrenchText.Count(read, "contrôle lu", "contrôles lus") + " sur " + FrenchText.Integer(built.Length),
             built.Any(l => l.State == Tone.Alert) ? Tone.Alert : toCheck > 0 ? Tone.Warn : null, built);
     }
@@ -722,7 +731,7 @@ public static class PosteBoardBuilder
             state = Tone.Off;
             detail = "Aucun problème établi ; contrôles incomplets.";
         }
-        var enabledRules = PosteHealthPolicy.Rules.Count(r => policy.IsEnabled(r.Id));
+        var enabledRules = PosteHealthPolicy.Rules.Count(r => policy.Counts(r.Id)) + policy.CustomRules.Count(r => r.Enabled && policy.Counts(r.Id));
         if (enabledRules == 0)
         {
             score = null;
@@ -730,9 +739,32 @@ public static class PosteBoardBuilder
             state = Tone.Off;
             detail = "Activez un contrôle dans les règles de santé.";
         }
-        if (!suppressed.IsEmpty)
+        var disabledPoints = suppressed.Count(p => p.Reason!.StartsWith("Règle désactivée", StringComparison.Ordinal) || p.Reason.StartsWith("Alerte personnalisée", StringComparison.Ordinal));
+        if (disabledPoints > 0)
         {
-            badge = string.Join(" · ", new[] { badge, FrenchText.Count(suppressed.Length, "point non compté (règle désactivée)", "points non comptés (règles désactivées)") }.Where(t => t is not null));
+            badge = string.Join(" · ", new[] { badge, FrenchText.Count(disabledPoints, "point non compté (règle désactivée)", "points non comptés (règles désactivées)") }.Where(t => t is not null));
+        }
+        var suspendedRules = policy.Suspensions.Count(s => policy.SuspensionOf(s.RuleId) is not null);
+        if (suspendedRules > 0)
+        {
+            badge = string.Join(" · ", new[] { badge, FrenchText.Count(suspendedRules, "règle suspendue temporairement", "règles suspendues temporairement") }.Where(t => t is not null));
+        }
+        var notes = ImmutableArray.CreateBuilder<string>();
+        foreach (var s in policy.Suspensions.Where(s => policy.SuspensionOf(s.RuleId) is not null))
+        {
+            notes.Add(RuleName(s.RuleId, policy) + " : suspendue " + s.Text + ".");
+        }
+        foreach (var rule in PosteHealthPolicy.Rules.Where(r => !policy.IsEnabled(r.Id)))
+        {
+            notes.Add(rule.Name + " : désactivée.");
+        }
+        foreach (var rule in policy.CustomRules)
+        {
+            notes.Add("Alerte personnalisée « " + rule.Name + " »" + (rule.Enabled ? "" : " (désactivée)") + ".");
+        }
+        if (policy.QueryRules > 0)
+        {
+            notes.Add(FrenchText.Count(policy.QueryRules, "alerte sur requête enregistrée", "alertes sur requêtes enregistrées") + " : évaluée" + (policy.QueryRules >= 2 ? "s" : "") + " par l’atelier de requêtes, pas sur ce tableau.");
         }
         var pointsCount = alerts + warnings;
         var info = information > 0 ? FrenchText.Count(information, "information", "informations") : null;
@@ -740,8 +772,11 @@ public static class PosteBoardBuilder
             : score is null || badge is not null ? "Aucun problème établi" : info is not null ? "Aucun point à vérifier" : "Rien à signaler";
         var title = string.Join(" · ", new[] { head, info }.Where(t => t is not null));
         var sorted = active.OrderBy(p => p.Level).ToImmutableArray();
-        return new PosteHealth(score, verdict, state, alerts, warnings, information, title, detail, badge, badgeAction, sorted, suppressed, policy.Thresholds, policy.Origin);
+        return new PosteHealth(score, verdict, state, alerts, warnings, information, title, detail, badge, badgeAction, sorted, suppressed, policy.Thresholds, policy.Origin, notes.ToImmutable());
     }
+
+    private static string RuleName(string id, PosteHealthPolicy policy) =>
+        PosteHealthPolicy.Rules.FirstOrDefault(r => r.Id == id)?.Name ?? policy.CustomRules.FirstOrDefault(r => r.Id == id)?.Name ?? id;
 
     /// <summary>Adds a point; a disabled rule never scores nor lists, what it would flag stays explainable (Domenia 1 point 75).</summary>
     private static void Note(List<AttentionPoint> points, PosteHealthPolicy policy, AttentionLevel level, string text, string rule, PosteRoute? route)
@@ -754,6 +789,50 @@ public static class PosteBoardBuilder
             }
             return;
         }
+        if (rule.Length > 0 && policy.SuspensionOf(rule) is { } suspension)
+        {
+            // A suspended rule never scores; what it would flag stays explainable (Domenia 1 point 75, Suspensions).
+            if (level != AttentionLevel.Info)
+            {
+                points.Add(new AttentionPoint(level, text, rule, route, "Règle suspendue " + suspension.Text));
+            }
+            return;
+        }
         points.Add(new AttentionPoint(level, text, rule, route, null));
+    }
+
+    /// <summary>
+    /// Custom alerts of the policy on the measures of this inventory (Domenia 1 Add-DomeniaCustomHealthAttention): free space
+    /// of the system volume, days since the last start, used memory. A measure that was not read flags nothing.
+    /// </summary>
+    private static void CustomPoints(InventorySnapshot inv, ResourceGauges resources, DiskBoard disks, PosteHealthPolicy policy, List<AttentionPoint> points, DateTimeOffset now)
+    {
+        foreach (var rule in policy.CustomRules)
+        {
+            double? measure = rule.Measure switch
+            {
+                "DiskFree" => disks.System?.FreePercent,
+                "UptimeDays" => inv.Os?.LastBoot is DateTimeOffset boot ? Math.Floor((now - boot).TotalDays) : null,
+                "MemoryUsed" => resources.Memory?.Percent,
+                _ => null,
+            };
+            if (measure is not double value)
+            {
+                continue;
+            }
+            var hit = rule.Operator == "LessThan" ? value < rule.Threshold : value > rule.Threshold;
+            if (!hit)
+            {
+                continue;
+            }
+            var unit = rule.Measure == "UptimeDays" ? " j" : " %";
+            var text = rule.Name + " (" + FrenchText.Decimal(value, rule.Measure == "UptimeDays" ? 0 : 1) + unit + (rule.Operator == "LessThan" ? ", seuil inférieur à " : ", seuil supérieur à ") + FrenchText.Decimal(rule.Threshold, 0) + unit + ").";
+            if (!rule.Enabled)
+            {
+                points.Add(new AttentionPoint(rule.Severity, text, rule.Id, null, "Alerte personnalisée désactivée"));
+                continue;
+            }
+            Note(points, policy, rule.Severity, text, rule.Id, null);
+        }
     }
 }

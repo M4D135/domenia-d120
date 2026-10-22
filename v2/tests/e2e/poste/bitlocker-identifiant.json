@@ -1,0 +1,18 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Poste : filtre des clés BitLocker sur l’identifiant complet",
+  "description": "Liste les clés de récupération de PC-PAR-0001 (métadonnées seulement) : chaque ligne montre l’identifiant de récupération complet. Un identifiant de plus de 8 caractères qui ne correspond à aucune clé est dit clairement ; l’effacer rend la liste.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "poste?nom=PC-PAR-0001&vue=secrets",
+  "steps": [
+    { "do": "click", "selector": "[data-slot=bitlocker] [data-act=keys]", "title": "Lire les clés du poste" },
+    { "do": "wait", "selector": "[data-slot=bitlocker] .ps-key-search, [data-slot=bitlocker] .ps-empty", "title": "Liste ou absence de clé" },
+    { "do": "type", "selector": "[data-input=filter]", "text": "00000000-0000-0000", "title": "Identifiant de plus de 8 caractères" },
+    { "do": "expect", "contains": "Aucune clé ne correspond", "within": "[data-slot=bitlocker]", "title": "Aucune clé ne correspond, sans erreur" },
+    { "do": "type", "selector": "[data-input=filter]", "text": "", "clear": true, "title": "Effacer le filtre" },
+    { "do": "expect", "contains": "Aucune clé ne correspond", "within": "[data-slot=bitlocker]", "absent": true, "title": "La liste revient" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

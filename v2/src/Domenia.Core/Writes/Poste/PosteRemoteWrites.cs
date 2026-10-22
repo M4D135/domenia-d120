@@ -40,7 +40,8 @@ public interface IPosteWakeExecutor : IWriteExecutor
 }
 
 /// <summary>
-/// Pure rules of the remote actions of the workstation screen: drafts with the raw command in the change (never a secret),
+/// Pure rules of the remote actions of the workstation screen: drafts with the raw command in the change (never a secret, never
+/// the arguments of a program run),
 /// risks, typed confirmation for the dangerous ones, reversibility in plain words. The receipt then says what left and what
 /// the re-read saw; an effect that cannot be read back stays « à vérifier ».
 /// </summary>
@@ -207,19 +208,45 @@ public static class PosteRemoteWrites
         ArgumentNullException.ThrowIfNull(c);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(zone);
-        var line = request.Command + (request.Arguments.Length > 0 ? " " + request.Arguments : "");
         var mode = request.Interactive ? "Session de " + request.RunUser : "Compte système (arrière-plan)";
+        var digest = PosteRemote.ArgumentsDigest(request.Arguments);
+        // Only the program, the mode and the fingerprint of the arguments are sealed: the arguments themselves stay in the
+        // memory of the session until the plan runs or expires (PosteSession.KeepRunArguments), never in the receipt.
+        var sealedValue = (request.Interactive ? "interactive|" + request.RunUser : "system") + "|" + (request.Elevated ? "elevated" : "limited") + "|" + request.Command
+            + "|" + (digest.Length == 0 ? "args:none" : "args:" + digest + ":" + request.Arguments.Length.ToString(CultureInfo.InvariantCulture));
         return new WritePlanDraft(RunKind, "Exécuter un programme", "Exécution d’un programme", request.Summary, Target(c),
-            [new WriteChange("scheduledTask", "Tâche planifiée unique", WriteChangeKind.Add, "Aucune tâche Domenia", mode + (request.Elevated ? ", niveau le plus élevé" : "") + FrenchText.Colon + line,
-                null, (request.Interactive ? "interactive|" + request.RunUser : "system") + "|" + (request.Elevated ? "elevated" : "limited") + "|" + line)],
+            [new WriteChange("scheduledTask", "Tâche planifiée unique", WriteChangeKind.Add, "Aucune tâche Domenia",
+                mode + (request.Elevated ? ", niveau le plus élevé" : "") + FrenchText.Colon + request.Command + " (" + PosteRemote.ArgumentsText(request.Arguments) + ")",
+                null, sealedValue)],
             [
                 new WriteRisk(Tone.Alert, "L’exécution réelle du programme n’est pas vérifiée : seule la création puis la suppression de la tâche le sont."),
                 new WriteRisk(Tone.Warn, "Autorisation d’intervention valable jusqu’à " + PosteText.LocalTime(consentUntil, zone) + " pour ce poste seulement ; revérifiée juste avant l’envoi."),
-                new WriteRisk(Tone.Info, "Aucun secret en argument : la commande est gardée dans le reçu telle que saisie ; la tâche est supprimée dans tous les cas."),
+                new WriteRisk(Tone.Info, request.Arguments.Length == 0
+                    ? "Aucun argument ; la tâche est supprimée dans tous les cas."
+                    : "Les arguments ne sont gardés ni dans ce plan ni dans le reçu (empreinte et longueur seulement) ; ils restent en mémoire jusqu’à l’envoi ou l’expiration du plan. La tâche est supprimée dans tous les cas."),
             ],
             Typed(c, "programme lancé à distance."),
             new WriteReversibility(false, "Sans retour arrière", "Ce que fait le programme sur le poste ne se défait pas depuis Domenia."),
             null);
+    }
+
+    /// <summary>Fingerprint of the arguments sealed in a program run plan (empty when the program has no argument).</summary>
+    public static string RunDigest(WritePlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        var value = plan.Changes.Length > 0 ? plan.Changes[0].AfterValue ?? "" : "";
+        var marker = value.LastIndexOf("|args:", StringComparison.Ordinal);
+        if (marker < 0)
+        {
+            return "";
+        }
+        var tail = value[(marker + 6)..];
+        if (tail == "none")
+        {
+            return "";
+        }
+        var colon = tail.IndexOf(':', StringComparison.Ordinal);
+        return colon > 0 ? tail[..colon] : tail;
     }
 
     public static WritePlanDraft Wake(DirectoryComputer c, WakeDecision decision, PresenceReading? presence, TimeZoneInfo zone)

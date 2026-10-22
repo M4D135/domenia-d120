@@ -156,8 +156,8 @@ public static class PosteReadings
             }
             views.Add(new ReadingView(id, title, icon, state, label, at, StaleAfterSeconds, facts.ToImmutable(), probeViews, forecast, bios));
         }
-        var summary = FrenchText.Count(fresh, "lecture récente", "lectures récentes") + ", " + FrenchText.Integer(aging) + " vieillissante(s), "
-            + FrenchText.Integer(stale) + " périmée(s), " + FrenchText.Integer(unread) + " non lue(s) ; relevés de la base locale, aucune requête au poste.";
+        var summary = FrenchText.Count(fresh, "lecture récente", "lectures récentes") + ", " + FrenchText.Count(aging, "vieillissante", "vieillissantes") + ", "
+            + FrenchText.Count(stale, "périmée", "périmées") + ", " + FrenchText.Count(unread, "non lue", "non lues") + " ; relevés de la base locale, aucune requête au poste.";
         return new ReadingsResult(store.Computer, store.CollectedAt, views.ToImmutable(), ProbeCatalog.Probes, summary, fresh, aging, stale, unread, StaleAfterSeconds);
     }
 
@@ -166,7 +166,7 @@ public static class PosteReadings
         ProbeState.Refused => PosteText.Fact(probe.Name, "Lecture refusée", FactState.Refused, source, "Un refus ne dit rien de l’état du poste.", at: probe.LastAttempt),
         ProbeState.Absent => PosteText.Fact(probe.Name, "Fournisseur absent sur ce poste", FactState.Unavailable, source, "Classe ou espace de noms absent : ce n’est ni un état sain ni une panne.", at: probe.LastAttempt),
         ProbeState.Failed => PosteText.Fact(probe.Name, "Lecture en échec" + (probe.Error is null ? "" : FrenchText.Colon + PosteText.Flat(probe.Error, 120)), FactState.Unavailable, source, "Aucune conclusion.", at: probe.LastAttempt),
-        _ => PosteText.Fact(probe.Name, "Non lu", FactState.Unknown, source, "Aucun relevé enregistré pour cette sonde : « Actualiser les sondes » le lit une fois.", at: probe.LastAttempt),
+        _ => PosteText.Fact(probe.Name, "Non lu", FactState.Unknown, source, "Aucun relevé enregistré pour cette sonde : « Actualiser les sondes » le lit une fois.", at: probe.LastAttempt),
     };
 
     private static void Memory(InventorySnapshot d, DateTimeOffset at, ImmutableArray<PosteFact>.Builder facts)
@@ -184,7 +184,7 @@ public static class PosteReadings
             var slots = string.Join(" ; ", d.MemoryModules.Where(m => m.CapacityBytes is > 0).Select(m => m.Slot + " " + PosteText.Size(m.CapacityBytes!.Value) + (m.SpeedMhz is int mhz ? " " + FrenchText.Integer(mhz) + " MHz" : "")));
             if (unknown > 0)
             {
-                facts.Add(PosteText.Fact("Mémoire installée (barrettes)", "Au moins " + PosteText.Size(total) + " (" + FrenchText.Integer(d.MemoryModules.Length) + " barrette(s) lue(s), " + FrenchText.Integer(unknown) + " sans capacité déclarée)",
+                facts.Add(PosteText.Fact("Mémoire installée (barrettes)", "Au moins " + PosteText.Size(total) + " (" + FrenchText.Count(d.MemoryModules.Length, "barrette lue", "barrettes lues") + ", " + FrenchText.Count(unknown, "sans capacité déclarée", "sans capacité déclarée") + ")",
                     FactState.Estimated, "Win32_PhysicalMemory", "Total minimal : une barrette sans capacité n’est pas comptée.", at: at));
             }
             else
@@ -201,11 +201,11 @@ public static class PosteReadings
             }
             else if (d.MemoryModules.Length > slotCount)
             {
-                facts.Add(PosteText.Fact("Emplacements mémoire", FrenchText.Integer(d.MemoryModules.Length) + " barrette(s) pour " + FrenchText.Integer(slotCount) + " emplacement(s) déclaré(s)", FactState.Unknown, "Win32_PhysicalMemoryArray", "Tables du firmware incohérentes : aucun emplacement libre n’est déduit.", at: at));
+                facts.Add(PosteText.Fact("Emplacements mémoire", FrenchText.Count(d.MemoryModules.Length, "barrette", "barrettes") + " pour " + FrenchText.Count(slotCount, "emplacement déclaré", "emplacements déclarés"), FactState.Unknown, "Win32_PhysicalMemoryArray", "Tables du firmware incohérentes : aucun emplacement libre n’est déduit.", at: at));
             }
             else
             {
-                facts.Add(PosteText.Fact("Emplacements mémoire", FrenchText.Count(slotCount, "emplacement", "emplacements") + FrenchText.Colon + FrenchText.Integer(d.MemoryModules.Length) + " occupé(s), " + FrenchText.Integer(slotCount - d.MemoryModules.Length) + " libre(s)",
+                facts.Add(PosteText.Fact("Emplacements mémoire", FrenchText.Count(slotCount, "emplacement", "emplacements") + FrenchText.Colon + FrenchText.Count(d.MemoryModules.Length, "occupé", "occupés") + ", " + FrenchText.Count(slotCount - d.MemoryModules.Length, "libre", "libres") ,
                     FactState.Observed, "Win32_PhysicalMemoryArray, Win32_PhysicalMemory", "Table SMBIOS du firmware ; une mémoire soudée compte comme un emplacement occupé.", at: at, tone: Tone.Info));
             }
             facts.Add(array.MaxCapacityBytes is long max && max > 0
@@ -244,7 +244,7 @@ public static class PosteReadings
         var spanText = FrenchText.Integer((long)Math.Floor(span));
         if (sorted.Length < minSamples || span < minSpanDays)
         {
-            return Result("Insufficient", "Aucune prévision : " + FrenchText.Count(sorted.Length, "relevé", "relevés") + " sur " + spanText + " jour(s) ; il en faut au moins 4 sur 14 jours.", Tone.Off);
+            return Result("Insufficient", "Aucune prévision : " + FrenchText.Count(sorted.Length, "relevé", "relevés") + " sur " + spanText + (spanText is "0" or "1" ? " jour" : " jours") + " ; il en faut au moins 4 sur 14 jours.", Tone.Off);
         }
         if (sorted.Select(s => Math.Round(s.SizeBytes / 1048576d)).Distinct().Count() > 1)
         {
@@ -508,7 +508,7 @@ public static class PosteReadings
             facts.Add(PosteText.Fact(line.Name, line.Text + " " + line.Reason, FactState.Observed, "Win32_Service", "Un écart est une piste, aucun service n’est modifié.", at: at, tone: line.Tone));
         }
         var expectedOk = PosteServices.Profile.Length - facts.Count;
-        facts.Insert(0, PosteText.Fact("Profil attendu (15 services)", FrenchText.Integer(expectedOk) + " conforme(s) sur " + FrenchText.Integer(PosteServices.Profile.Length), FactState.Observed, "Win32_Service", "Services attendus sur un poste du domaine.", at: at, tone: expectedOk == PosteServices.Profile.Length ? Tone.Ok : Tone.Warn));
+        facts.Insert(0, PosteText.Fact("Profil attendu (15 services)", FrenchText.Count(expectedOk, "conforme", "conformes") + " sur " + FrenchText.Integer(PosteServices.Profile.Length), FactState.Observed, "Win32_Service", "Services attendus sur un poste du domaine.", at: at, tone: expectedOk == PosteServices.Profile.Length ? Tone.Ok : Tone.Warn));
         foreach (var row in rows.Where(r => r.AutoStopped).Take(10))
         {
             facts.Add(PosteText.Fact(row.DisplayName, "Automatique arrêté" + (row.ExitCode is int code and not 0 ? " (code " + code.ToString(CultureInfo.InvariantCulture) + ")" : ""), FactState.Observed, "Win32_Service", "Code 1077 normal pour un démarrage sur déclencheur.", at: at, tone: Tone.Warn));
@@ -552,7 +552,7 @@ public static class PosteReadings
             facts.Add(PosteText.Fact("Defender · protections", "Antivirus " + Yes(def.AntivirusEnabled) + ", temps réel " + Yes(def.RealTime) + ", comportement " + Yes(def.Behavior) + (def.Passive == true ? " · mode passif" : ""),
                 FactState.Observed, "MSFT_MpComputerStatus", def.Passive == true ? "Defender passif : un autre antivirus est déclaré." : null, at: at, tone: def.RealTime == true ? Tone.Ok : Tone.Warn));
             facts.Add(PosteText.Fact("Defender · signatures et analyses", "Signatures de " + Days(def.SignatureAgeDays) + ", analyse rapide " + Days(def.QuickScanAgeDays) + ", complète " + Days(def.FullScanAgeDays) + (def.Version is null ? "" : " · version " + def.Version),
-                FactState.Observed, "MSFT_MpComputerStatus", "65535 jours signifie « jamais ».", def.SignatureAgeDays is > 7 ? "Signatures de plus de 7 jours : vérifier la source des mises à jour." : null, at, def.SignatureAgeDays is > 7 ? Tone.Warn : Tone.Info));
+                FactState.Observed, "MSFT_MpComputerStatus", "65535 jours signifie « jamais ».", def.SignatureAgeDays is > 7 ? "Signatures de plus de 7 jours : vérifier la source des mises à jour." : null, at, def.SignatureAgeDays is > 7 ? Tone.Warn : Tone.Info));
         }
     }
 
@@ -584,7 +584,7 @@ public static class PosteReadings
         }
         if (d.Tpm is { } tpm)
         {
-            facts.Add(PosteText.Fact("TPM", (tpm.Specification is null ? "spécification non lue" : "spécification " + tpm.Specification) + " · activé " + Yes(tpm.Enabled) + ", opérationnel " + Yes(tpm.Activated),
+            facts.Add(PosteText.Fact("TPM", PosteLabels.TpmText(tpm),
                 FactState.Observed, "Win32_Tpm", "États initiaux du fournisseur : ils ne remplacent pas une nouvelle lecture.", at: at, tone: tpm.Enabled == true && tpm.Activated == true ? Tone.Ok : Tone.Warn));
         }
         if (d.SecureBoot is { } sb)

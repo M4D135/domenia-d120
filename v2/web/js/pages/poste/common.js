@@ -1,10 +1,10 @@
 // Shared pieces of the workstation console (screen « poste », docs/ops/poste.md): formatting, facts, empty and loading
 // states, local icons the kit does not have yet, small charts. Nothing here calls the bridge.
 import { icon } from '../../icons.js';
-import { glyph, pill, NBSP, int } from '../../kit/index.js';
-import { esc, relTime, formatDateTime, formatNumber, errorText } from '../../ui.js';
+import { glyph, pill, NBSP, int, count, setVars, writeClipboard } from '../../kit/index.js';
+import { esc, relTime, formatDateTime, formatNumber, errorText, toast } from '../../ui.js';
 
-export { esc, NBSP, int, glyph, pill, icon, relTime, formatDateTime, formatNumber, errorText };
+export { esc, NBSP, int, count, glyph, pill, icon, relTime, formatDateTime, formatNumber, errorText };
 
 /** Local icons of the screen (requested from the kit: battery, cpu, terminal, restart, plug, ping, memory, slow, probe, wake, gpo, laptop). */
 const LOCAL = {
@@ -139,6 +139,50 @@ export function size(bytes) {
 }
 
 export const pct = (v, d = 0) => (Number.isFinite(v) ? `${formatNumber(v, d)}${NBSP}%` : '—');
+
+/** Free space of a volume: one decimal under 20 % (9,8 % never reads « 10 % » at the critical threshold), whole above. */
+export const freePct = (v) => (Number.isFinite(v) ? pct(v, v < 20 ? 1 : 0) : '—');
+
+/**
+ * Sizes a grid to its rows (no tall empty rectangle): header, rows at the height of the chosen density, a margin for the
+ * scroll bar; at least the room of the empty state, at most max.
+ */
+export function fitGrid(grid, rows, { max = 520, min = 200 } = {}) {
+  if (!grid?.el) return;
+  const row = Number.parseFloat(getComputedStyle(grid.el).getPropertyValue('--k-row')) || 40;
+  const h = Math.max(min, Math.min(max, 46 + Math.max(0, rows) * row + 16));
+  setVars(grid.el, { '--k-grid-h': `${Math.round(h)}px` });
+}
+
+/**
+ * Saves an export through the « Enregistrer sous » of the host (poste.export.save, file named after the workstation);
+ * without it (preview, tests) the first file is copied to the clipboard instead and the operator is told so.
+ */
+export async function saveExport(state, kind, files) {
+  try {
+    const r = await state.call('poste.export.save', { dn: state.dn, kind, files });
+    if (r.saved) toast(r.text, { tone: 'ok' });
+    else toast(r.text, { tone: 'info' });
+    return r.saved;
+  } catch (err) {
+    if (err?.code === 'poste.hostUnavailable') {
+      const ok = await writeClipboard(files[0].csv.replace(/^\uFEFF/, ''));
+      toast(ok ? `Pas d’enregistrement de fichier dans cet affichage${NBSP}: la liste est copiée dans le presse-papiers.` : 'Copie impossible : le presse-papiers a refusé la liste.', { tone: ok ? 'info' : 'alert' });
+      return false;
+    }
+    toast(errorText(err), { tone: 'alert' });
+    return false;
+  }
+}
+
+/** A CIM date (« 20261021073012.500000+120 ») as a local date and time; any other value comes back as it is. */
+export function cimDate(value) {
+  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\.\d{6}([+-])(\d{3})$/.exec(String(value ?? ''));
+  if (!m) return null;
+  const offset = (m[7] === '-' ? -1 : 1) * Number(m[8]);
+  const utc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) - offset * 60_000;
+  return Number.isFinite(utc) ? new Date(utc).toISOString() : null;
+}
 
 /** Fixed-size SVG donut of parts (values), drawn in by dashoffset; returns markup. */
 export function donut(parts, { label = '', center = '' } = {}) {

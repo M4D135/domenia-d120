@@ -23,6 +23,16 @@ public sealed record HealthThreshold(string Id, string Label, int Value, string 
 /// <summary>One health rule of the catalog (Domenia-HealthRules: identifier and name).</summary>
 public sealed record HealthRule(string Id, string Name);
 
+/// <summary>A rule suspended for a while (Domenia 1 Suspensions): until when, why, and the sentence the page shows.</summary>
+public sealed record HealthSuspension(string RuleId, string Reason, DateTimeOffset Until, string Text);
+
+/// <summary>
+/// A custom alert of the health policy (Domenia 1 CustomRules): free space of C: (« DiskFree »), days since the last start
+/// (« UptimeDays ») or used memory (« MemoryUsed »), compared with a threshold; an alert on a saved query is counted in
+/// <see cref="PosteHealthPolicy.QueryRules"/> and evaluated by the query workshop, never here.
+/// </summary>
+public sealed record PosteCustomRule(string Id, string Name, string Measure, string Operator, double Threshold, AttentionLevel Severity, bool Enabled);
+
 /// <summary>
 /// Health policy of a workstation (Domenia 1 Domenia-HealthRules): the shared thresholds of the drawings, tiles and attention
 /// points, and the rules switched off. <see cref="Default"/> holds the values shipped with Domenia 1.
@@ -39,7 +49,26 @@ public sealed record PosteHealthPolicy(
     FrozenSet<string> DisabledRules,
     string Origin)
 {
-    public static PosteHealthPolicy Default { get; } = new(90, 60, 30, 10, 20, 90, 20, 60, FrozenSet<string>.Empty, "Seuils livrés avec Domenia 1 (règles de santé par défaut)");
+    public static PosteHealthPolicy Default { get; } = new(90, 60, 30, 10, 20, 90, 20, 60, FrozenSet<string>.Empty, "Seuils livrés avec Domenia 1 : aucune règle de santé enregistrée pour ce domaine");
+
+    /// <summary>Suspensions still running at <see cref="EvaluatedAt"/> (an ended suspension is never applied).</summary>
+    public ImmutableArray<HealthSuspension> Suspensions { get; init; } = [];
+
+    /// <summary>Custom alerts on a measure of the workstation (32 at most), evaluated on this board.</summary>
+    public ImmutableArray<PosteCustomRule> CustomRules { get; init; } = [];
+
+    /// <summary>Alerts on a saved query: evaluated by the query workshop (screen Requêtes), announced here, never guessed.</summary>
+    public int QueryRules { get; init; }
+
+    /// <summary>Instant the suspensions are compared with (null: every listed suspension applies).</summary>
+    public DateTimeOffset? EvaluatedAt { get; init; }
+
+    /// <summary>Running suspension of a rule, or null.</summary>
+    public HealthSuspension? SuspensionOf(string rule) =>
+        Suspensions.FirstOrDefault(s => string.Equals(s.RuleId, rule, StringComparison.Ordinal) && (EvaluatedAt is not DateTimeOffset at || s.Until > at));
+
+    /// <summary>A rule counts when it is switched on and not suspended (Domenia 1 Test-DomeniaHealthRuleEnabled).</summary>
+    public bool Counts(string rule) => IsEnabled(rule) && SuspensionOf(rule) is null;
 
     /// <summary>Rules of Domenia 1, in catalog order (Get-DomeniaHealthRuleCatalog).</summary>
     public static ImmutableArray<HealthRule> Rules { get; } =
@@ -77,8 +106,8 @@ public sealed record PosteHealthPolicy(
         new("StaleDays", "Connexion AD ancienne (jours, date approximative)", StaleDays, "j"),
         new("PasswordDays", "Mot de passe machine ancien (jours)", PasswordDays, "j"),
         new("UptimeDays", "Redémarrage ancien (jours)", UptimeDays, "j"),
-        new("DiskFreeAlert", "Disque critique : espace libre inférieur à", DiskFreeAlert, "%"),
-        new("DiskFreeWarn", "Disque à surveiller : espace libre inférieur à", DiskFreeWarn, "%"),
+        new("DiskFreeAlert", "Disque critique : espace libre inférieur à", DiskFreeAlert, "%"),
+        new("DiskFreeWarn", "Disque à surveiller : espace libre inférieur à", DiskFreeWarn, "%"),
         new("MemoryUsedWarn", "Mémoire utilisée supérieure à", MemoryUsedWarn, "%"),
         new("BatteryWarn", "Batterie inférieure à", BatteryWarn, "%"),
         new("HotfixDays", "Dernier correctif plus ancien que (jours)", HotfixDays, "j"),
@@ -109,7 +138,8 @@ public sealed record PosteHealth(
     ImmutableArray<AttentionPoint> Points,
     ImmutableArray<AttentionPoint> Suppressed,
     ImmutableArray<HealthThreshold> Thresholds,
-    string PolicyOrigin);
+    string PolicyOrigin,
+    ImmutableArray<string> PolicyNotes);
 
 /// <summary>One line of a sheet: what was read, never a guess (« Non lu » greyed for a checklist line not read).</summary>
 public sealed record SheetLine(string Key, string Label, string Value, string? Detail, Tone? State, bool Copy);

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace Domenia.Core.Poste;
@@ -30,17 +31,45 @@ public sealed record BitLockerList(string Computer, DateTimeOffset ReadAt, FactS
 public sealed record SecretBlock(int Index, string Label, string Digits);
 
 /// <summary>
-/// One revealed secret (a LAPS password or a BitLocker recovery key), shown alone for <see cref="RevealSeconds"/> seconds,
-/// extended once at most. Never journalled, cached, exported nor written in a receipt; the page wipes it at the deadline.
-/// <see cref="Value"/> is null for a BitLocker key, whose value only travels as <see cref="Blocks"/>.
+/// One secret read on an explicit gesture (a LAPS password or a BitLocker recovery key). It never leaves the engine: the
+/// bridge hands it to the secure window of the host (<see cref="IPosteSecretWindow"/>) and answers the page with a
+/// <see cref="SecretShown"/> that holds no value (OPERATIONS.md § 1.2). Never journalled, cached, exported nor written in a
+/// receipt. <see cref="Value"/> is null for a BitLocker key, whose digits are in <see cref="Blocks"/>; both are excluded from
+/// any JSON form by construction.
 /// </summary>
-public sealed record SecretReveal(
+public sealed record SecretReading(
     string Kind,
     string Computer,
     string Identifier,
     string? KeyGuid,
-    string? Value,
-    ImmutableArray<SecretBlock> Blocks,
+    [property: JsonIgnore] string? Value,
+    [property: JsonIgnore] ImmutableArray<SecretBlock> Blocks,
+    int RevealSeconds,
+    int ExtensionSeconds,
+    int Extensions,
+    string ClipboardLimit,
+    string Notice,
+    bool Simulated,
+    DateTimeOffset ReadAt)
+{
+    /// <summary>The value as it is copied: the password, or the eight blocks joined by dashes.</summary>
+    public string CopyText() => Value ?? string.Join("-", Blocks.Select(b => b.Digits));
+
+    /// <summary>Never the value: a secret printed by mistake (journal, exception) shows its identifier only.</summary>
+    public override string ToString() => Kind + " " + Computer + " " + Identifier;
+}
+
+/// <summary>
+/// Answer of poste.laps.reveal and poste.bitlocker.reveal: where the value is shown (the secure window of the host), until
+/// when, and its non-secret identity. The value itself is never part of it.
+/// </summary>
+public sealed record SecretShown(
+    string Kind,
+    string Computer,
+    string Identifier,
+    string? KeyGuid,
+    string Where,
+    DateTimeOffset Until,
     int RevealSeconds,
     int ExtensionSeconds,
     int Extensions,
@@ -209,6 +238,25 @@ public static partial class PosteSecrets
         return (found, found.Length == 1, message);
     }
 
+    /// <summary>
+    /// True when the recovery identifier read back with the key is the one the operator chose (Domenia 1 Mismatch): dashes,
+    /// braces and case ignored, the whole GUID compared. A different identifier gives no value.
+    /// </summary>
+    public static bool MatchesExpected(string? keyGuid, string? expected)
+    {
+        static string Norm(string? v) => new string((v ?? "").Where(char.IsAsciiHexDigit).ToArray()).ToUpperInvariant();
+        var read = Norm(keyGuid);
+        var wanted = Norm(expected);
+        return read.Length == 32 && string.Equals(read, wanted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Index entries of an older holder of the same name are left out (Domenia 1 PST-065): an entry written for another GUID,
+    /// or before the creation of the computer read by GUID, describes another object.
+    /// </summary>
+    public static bool IndexApplies(Guid entryGuid, DateTimeOffset entryAt, Guid computerGuid, DateTimeOffset whenCreated) =>
+        entryGuid == computerGuid && entryAt >= whenCreated;
+
     /// <summary>The eight numbered blocks of a recovery password; any other shape gives no block (never dictated).</summary>
     public static ImmutableArray<SecretBlock> Blocks(string? value)
     {
@@ -251,3 +299,12 @@ public static partial class PosteSecrets
             ? (account, "Un refus est mémorisé pour ce poste : un autre compte sera proposé (invite Windows) avant toute nouvelle lecture.")
             : (account, "Jeton Windows de la session (" + account + ") tant qu’il n’est pas refusé ; aucun compte privilégié n’est exigé d’avance. Le contrôleur décide.");
 }
+
+/// <summary>Result of the proposal of another account for a refused secret resource (no password ever in it).</summary>
+public sealed record OtherAccountResult(string Computer, string Resource, bool Accepted, string Identity, string Text, bool Simulated);
+
+/// <summary>One workstation of the secrets index of the OU (metadata only).</summary>
+public sealed record SecretsIndexRow(string Dn, string Computer, int? BitLockerKeys, FactState BitLockerState, DateTimeOffset? LapsExpiration, bool LapsExpired, string LapsKind);
+
+/// <summary>Result of poste.secrets.index: counts, the sentence above the list and the rows (no value, no key).</summary>
+public sealed record SecretsIndex(ScopeSelection Scope, DateTimeOffset ReadAt, int Total, int WithKeys, int WithoutKeys, int Refused, int LapsExpired, int LapsMissing, bool Truncated, string Summary, ImmutableArray<SecretsIndexRow> Rows);

@@ -107,8 +107,18 @@ public sealed record ConsentWindow(bool Active, DateTimeOffset? Until, int Remai
 
 public sealed record ConsentState(ConsentWindow Intervention, ConsentWindow ReadFallback);
 
-/// <summary>A suite tool (Pesto, FILPRO) and whether it can be opened with context (Domenia 1 point D080).</summary>
-public sealed record SuiteTool(string Id, string Label, bool Configured, string Reason, ImmutableArray<string> Fields);
+/// <summary>
+/// A suite tool (Pesto, FILPRO) and whether it can be opened with context (Domenia 1 point D080, PST-020): its executable
+/// (Suite.Pesto, Suite.FilPro) and the SHA-256 expected for it, both checked by the launcher of the host before anything runs.
+/// </summary>
+public sealed record SuiteTool(string Id, string Label, bool Configured, string Reason, ImmutableArray<string> Fields)
+{
+    /// <summary>Full path of the executable of the tool (configuration), null when it is not configured.</summary>
+    public string? Path { get; init; }
+
+    /// <summary>SHA-256 expected for the executable (configuration), null when none is declared (the launch is then refused).</summary>
+    public string? Sha256 { get; init; }
+}
 
 /// <summary>Remote settings of the mode (Domenia.config.json in directory mode; fixed values in simulation).</summary>
 public sealed record PosteOptions(
@@ -118,9 +128,6 @@ public sealed record PosteOptions(
     ImmutableArray<string> WakeNetworks,
     int RestartDelaySeconds,
     ImmutableArray<int> RestartMinutes,
-    bool WaptConfigured,
-    string? WaptOrigin,
-    string WaptReason,
     string? OperationsAccount,
     ImmutableArray<SuiteTool> SuiteTools,
     string SimulationNote);

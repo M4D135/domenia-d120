@@ -29,11 +29,19 @@ public sealed partial class PosteOperations
             var dn = Dn(args, ["kind", "minutes"]);
             var kind = Kind(dn.Values);
             var minutes = OptionalInt(dn.Values, "minutes", PosteSession.MinMinutes, PosteSession.MaxMinutes) ?? PosteSession.DefaultMinutes;
-            var name = await NameAsync(dn.Dn, ct).ConfigureAwait(false);
+            await BindSessionAsync(context, session, ct).ConfigureAwait(false);
+            var console = await readers.Require<IPosteReader>().OpenAsync(dn.Dn, PosteHealthPolicy.Default, session.State(dn.Dn, Now()), ct).ConfigureAwait(false);
+            var name = console.Computer.Name;
+            // An uncertain write on this workstation holds every authorization back (Domenia 1 PST-010, PST-011).
+            if (await PendingWriteAsync(context, console.Computer.Guid, ct).ConfigureAwait(false))
+            {
+                session.NoteRefusal(kind, name, "Une écriture sur ce poste reste « à vérifier ».", Now());
+                throw new DomeniaOperationException(PosteErrors.Pending, PosteErrors.PendingMessage);
+            }
             session.Grant(kind, dn.Dn, name, minutes, Now());
             context.Journal.Add(new JournalEntry(Now(), (kind == ConsentKind.Intervention ? "Intervention autorisée sur " : "Lecture de repli autorisée sur ") + name + " (" + FrenchText.Count(minutes, "minute", "minutes") + ")", Tone.Info));
             return new { consent = session.State(dn.Dn, Now()), history = session.History(Now()) };
-        }, "Autorise pour 1 à 15 min (5 par défaut), sur ce seul poste, l’intervention ou une seule lecture de repli ; ne lance rien.");
+        }, "Autorise pour 1 à 15 min (5 par défaut), sur ce seul poste, l’intervention ou une seule lecture de repli ; refusé pendant une écriture à vérifier ; ne lance rien.");
 
         yield return new OperationDefinition("poste.consent.revoke", OperationClass.Local, (args, _, _) =>
         {
@@ -69,19 +77,17 @@ public sealed partial class PosteOperations
             var definition = reader.Options.SuiteTools.FirstOrDefault(t => t.Id == tool) ?? throw BridgeArguments.Invalid(FrenchText.Quote("tool") + " doit valoir pesto ou filpro.");
             var console = await reader.OpenAsync(dn.Dn, PosteHealthPolicy.Default, session.State(dn.Dn, Now()), ct).ConfigureAwait(false);
             var info = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
-            var fields = new Dictionary<string, string?>(StringComparer.Ordinal)
-            {
-                ["ComputerName"] = console.Computer.Name,
-                ["ComputerGuid"] = console.Computer.Guid.ToString("D"),
-                ["UserLogin"] = console.Association.User?.Login,
-                ["UserGuid"] = console.Association.User?.Guid?.ToString("D"),
-                ["Domain"] = info.Domain?.DnsName,
-            };
-            var plan = PosteRemote.Suite(definition.Label, null, fields, explicitGesture: true);
-            return new { tool = definition, plan, launched = false, text = definition.Configured ? "Lancement par le poste d’administration (vague 3)." : definition.Reason };
-        }, "Plan d’ouverture de Pesto ou FILPRO avec le contexte du poste (champs déclarés et validés seulement) ; rien n’est lancé sans configuration.");
+            var plan = PosteRemote.Suite(definition.Label, null, SuiteContext(console, info), explicitGesture: true);
+            var launcher = readers.Find<IPosteToolLauncher>() is not null;
+            var text = !definition.Configured ? definition.Reason
+                : launcher ? "Ouverture par le poste d’administration après contrôle du contrat (suite-contract.json) et de l’empreinte de l’outil."
+                : "Aucun lanceur dans cet affichage : le plan reste consultable, rien n’est lancé.";
+            return new { tool = definition, plan, launched = false, canLaunch = definition.Configured && launcher, text };
+        }, "Plan d’ouverture de Pesto ou FILPRO avec le contexte du poste (champs déclarés et validés seulement) ; rien n’est lancé.");
 
-        yield return new OperationDefinition("poste.groups.search", OperationClass.LocalRead, async (args, _, ct) =>
+        // Local base in simulation; in directory mode the fallback search under the root is a directory read (docs/ops/poste.md § 8.1).
+        var groupsClass = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
+        yield return new OperationDefinition("poste.groups.search", groupsClass, async (args, _, ct) =>
         {
             var values = ReadOptionalObject(args, ["text"]);
             var text = BridgeArguments.GetOptionalString(values, "text");
@@ -90,7 +96,7 @@ public sealed partial class PosteOperations
                 throw BridgeArguments.Invalid(FrenchText.Quote("text") + " doit faire au plus " + FrenchText.Integer(MaxTextLength) + " caractères.");
             }
             return await readers.Require<IPosteReader>().GroupsAsync(text, ct).ConfigureAwait(false);
-        }, "Groupes de l’annuaire dont le nom contient le texte (50 au plus), pour choisir une appartenance\u00A0; base locale.");
+        }, "Groupes de l’annuaire dont le nom contient le texte (50 au plus), pour choisir une appartenance\u00A0; base locale d’abord.");
 
         yield return new OperationDefinition("poste.dsreg.analyze", OperationClass.Local, async (args, _, ct) =>
         {
@@ -149,6 +155,24 @@ public sealed partial class PosteOperations
         }, "Approuve la version BIOS du poste pour son modèle, ou retire la référence (réglage local du domaine, aucune action sur le poste).");
     }
 
+    /// <summary>True when a receipt of this mode is still « à vérifier » for the workstation (by GUID).</summary>
+    private static async Task<bool> PendingWriteAsync(EngineContext context, Guid computer, CancellationToken cancellationToken)
+    {
+        ReceiptLog log;
+        try
+        {
+            log = await context.Receipts.ReadAllAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Receipts unreadable for now: nothing is granted while an uncertain write cannot be ruled out (fail closed).
+            context.Log.Warning($"Reçus illisibles avant une autorisation du poste : {ex.GetType().Name}.");
+            return true;
+        }
+        var id = computer.ToString("D");
+        return log.Receipts.Any(r => WriteReceipts.IsPending(r) && string.Equals(r.Plan.Target.ObjectGuid, id, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<OperationDefinition> PlanOperations(EngineContext context, OperationClass planClass, ScreenReaders readers)
     {
         var writers = context.Writers;
@@ -179,12 +203,12 @@ public sealed partial class PosteOperations
         {
             var dn = Dn(args, ["name"]);
             var name = BridgeArguments.GetString(dn.Values, "name");
-            if (name.Length is 0 or > 15)
+            if (name.Length is 0 or > PosteDirectoryWrites.MaxObjectName)
             {
-                throw BridgeArguments.Invalid(FrenchText.Quote("name") + " doit faire de 1 à 15 caractères.");
+                throw BridgeArguments.Invalid(FrenchText.Quote("name") + " doit faire de 1 à 63 caractères.");
             }
             return Seal(writers.Require<IPosteRenameExecutor>().PlanAsync(dn.Dn, name, ct), ct);
-        }, "Plan du renommage de l’objet ordinateur dans l’annuaire (le poste Windows n’est pas renommé) ; rien n’est écrit.");
+        }, "Plan du renommage de l’objet ordinateur dans l’annuaire (CN seulement : nom de compte, nom DNS et nom Windows inchangés) ; rien n’est écrit.");
 
         yield return new OperationDefinition("poste.group.plan", planClass, (args, _, ct) =>
         {

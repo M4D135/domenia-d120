@@ -42,10 +42,22 @@ public static class PosteErrors
     public const string KeyNotChild = "poste.keyNotChild";
     public const string KeyNotChildMessage = "Cette clé n’est pas un enfant direct du poste ouvert : aucune valeur n’est lue.";
 
+    public const string KeyMismatch = "poste.keyMismatch";
+    public const string KeyMismatchMessage = "L’identifiant de récupération relu ne correspond pas à la clé choisie : aucune valeur n’est affichée. Relisez la liste des clés.";
+
     public const string Disabled = "poste.disabled";
 
+    public const string Busy = "poste.busy";
+
+    public const string Pending = "poste.writePending";
+    public const string PendingMessage = "Une écriture sur ce poste est encore « à vérifier » : relisez son reçu dans Opérations avant d’accorder une autorisation. Rien n’a été accordé.";
+
     public const string Cancelled = "poste.cancelled";
-    public const string CancelledMessage = "Relevé arrêté à votre demande : les valeurs déjà lues sont conservées, rien n’est relancé.";
+    public const string CancelledMessage = "Relevé arrêté à votre demande avant toute lecture : rien n’a été lu ni enregistré, rien n’est relancé.";
+
+    public const string HostUnavailable = "poste.hostUnavailable";
+
+    public const string CimRefused = "poste.cimRefused";
 }
 
 /// <summary>French texts shared by the rules of the workstation screen; never culture dependent.</summary>
