@@ -123,7 +123,7 @@ public sealed class AdConnection : IAdConnection
             var pageControl = cookie is null
                 ? new PageResultRequestControl(pageLimit)
                 : new PageResultRequestControl(pageLimit) { Cookie = cookie };
-            searchRequest.RequestControls.Add(pageControl);
+            searchRequest.Controls.Add(pageControl);
 
             var response = await SendRequestAsync<SearchResponse>(connection, searchRequest, timeout, "search", cancellationToken).ConfigureAwait(false);
 
@@ -448,7 +448,7 @@ public sealed class AdConnection : IAdConnection
         session.Signing = true;
         session.Sealing = true;
         session.ReferralChasing = ReferralChasingOptions.None;
-        session.Timeout = NormalizeTimeout(options.ConnectTimeout, TimeSpan.FromSeconds(15));
+        connection.Timeout = NormalizeTimeout(options.ConnectTimeout, TimeSpan.FromSeconds(15));
 
         return connection;
     }
@@ -685,9 +685,9 @@ public sealed class AdConnection : IAdConnection
         ArgumentException.ThrowIfNullOrWhiteSpace(filter, nameof(filter));
         ArgumentNullException.ThrowIfNull(attributes);
 
-        var request = new SearchRequest(baseDn, ToLdapScope(scope), filter, attributes);
+        var request = new SearchRequest(baseDn, filter, ToLdapScope(scope), attributes);
         request.TimeLimit = timeout;
-        request.DerefAliases = DerefAliasesOption.Never;
+        request.Aliases = DereferenceAlias.Never;
         return request;
     }
 
@@ -699,11 +699,11 @@ public sealed class AdConnection : IAdConnection
         _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null),
     };
 
-    private static DirectoryAttributeModificationOperation ToLdapOperation(AdModificationKind kind) => kind switch
+    private static DirectoryAttributeOperation ToLdapOperation(AdModificationKind kind) => kind switch
     {
-        AdModificationKind.Replace => DirectoryAttributeModificationOperation.Replace,
-        AdModificationKind.Add => DirectoryAttributeModificationOperation.Add,
-        AdModificationKind.Delete => DirectoryAttributeModificationOperation.Delete,
+        AdModificationKind.Replace => DirectoryAttributeOperation.Replace,
+        AdModificationKind.Add => DirectoryAttributeOperation.Add,
+        AdModificationKind.Delete => DirectoryAttributeOperation.Delete,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
@@ -820,13 +820,17 @@ public sealed class AdConnection : IAdConnection
         ArgumentNullException.ThrowIfNull(attribute);
         ArgumentNullException.ThrowIfNull(value);
 
-        if (value is string || value is byte[])
+        switch (value)
         {
-            attribute.Add(value);
-        }
-        else
-        {
-            attribute.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+            case string text:
+                attribute.Add(text);
+                break;
+            case byte[] bytes:
+                attribute.Add(bytes);
+                break;
+            default:
+                attribute.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+                break;
         }
     }
 
@@ -835,13 +839,17 @@ public sealed class AdConnection : IAdConnection
         ArgumentNullException.ThrowIfNull(modification);
         ArgumentNullException.ThrowIfNull(value);
 
-        if (value is string || value is byte[])
+        switch (value)
         {
-            modification.Add(value);
-        }
-        else
-        {
-            modification.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+            case string text:
+                modification.Add(text);
+                break;
+            case byte[] bytes:
+                modification.Add(bytes);
+                break;
+            default:
+                modification.Add(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+                break;
         }
     }
 

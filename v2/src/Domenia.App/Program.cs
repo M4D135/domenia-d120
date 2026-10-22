@@ -1,4 +1,5 @@
 using System.Text;
+using Domenia.Ad;
 using Domenia.App.Capture;
 using Domenia.App.E2e;
 using Domenia.Core;
@@ -40,6 +41,8 @@ internal static class Program
             TechnicalLog.Error("Tâche en échec jamais observée.", e.Exception);
             e.SetObserved();
         };
+        // LDAP failures of Domenia.Ad (operation and result code only, never a DN, a value or a secret) go to the technical journal.
+        AdConnection.TechnicalTrace += TechnicalLog.Warning;
         // « Domenia.exe dossier … » writes the offline diagnostic dossier and ends: no window, no WebView2, no profile.
         if (OfflineDossierCommand.IsRequested(args))
         {
