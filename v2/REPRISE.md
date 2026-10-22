@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 05, relève OpenCode en cours (vague 2, écrans un par un : shell, accueil, rechercher, fiche et comptes terminés)**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 08, relève OpenCode en cours (vague 2, écrans un par un : shell, accueil, rechercher, fiche, comptes et relations terminés)**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche et comptes terminés |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes et relations terminés |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -57,7 +57,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | rechercher | **Terminé** (`4d6f395`, relève OpenCode) : tour 2 traité (RCH-005, 097, 126, 127, 020, réglages de l’administrateur et de Paramètres par `search.policy`, conteneurs de la racine, notices, une seule action principale), tests et E2E écrits ; partiels : vague 3 (base locale, enregistrement en fichier) et atelier de requêtes | Intégration |
 | fiche | **Terminé** (`4cceb1a`, relève OpenCode) : tour 2 traité (FIC-033 état bloquant, FIC-018 nouveau DN relu par GUID, FIC-007 brouillon Compte et discard, FIC-046 et FIC-037 session par GUID, FIC-048 bandeau, Historique, concurrence de l’aperçu), défauts de design corrigés (une action principale, colonnes des groupes, exemples de la page vide, racine du domaine, couleur des OU, présence propagée, champ DN, sélecteur, insécables) ; `app.js` et `kit/glyphs.js` remis à `84a7ebf` (palette par `ctx.commands.set` du shell) ; tests et E2E écrits ; Debug et Release : 0 erreur, 0 avertissement | Intégration (surcouche de simulation à fusionner avec poste) |
 | comptes | **Terminé** (`2c6fc68`, relève OpenCode) : critique du tour 1 (traitée par `9dedf45`) vérifiée dans le code, parité refaite sur CPT-001 à 021 ; compteur « Accès » de la barre du haut par `ctx.access.report` ; partiels : vague 3 (Domenia.Ad : CPT-007, 008), shell à l’intégration (CPT-001 relecture hors écran, CPT-012 panneau d’aide), coffre Windows (CPT-017, question ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| relations | Complété une fois ; critique du tour 2 rendue | Traiter `relations-tour2.md` (3, 7, 12) |
+| relations | **Terminé** (`d13f98b`, relève OpenCode) : tour 2 traité (WAPT retiré, REL-050 export d’échange relu par l’import, aperçu d’import, relevé d’une liste sans OU, observations conservées, détection annulable, journal complet, barre de commandes du kit, une seule action principale, vue mise à jour sur place, transitions) ; tests écrits ; partiels : REL-013 (Domenia.Store), REL-029 (brancher sur les demandes d’accès de Comptes à l’intégration), REL-014, 017, 018, 030 (décision ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | poste | Complément du tour 1 interrompu : commit `wip(poste)` ; WAPT à retirer entièrement | Compiler, terminer `poste-tour1.md`, retirer WAPT, critique complète |
 | assistance | Complété une fois ; critique du tour 2 rendue | Traiter `assistance-tour2.md` (2, 7, 8) |
 | requetes | Complément du tour 1 interrompu : commit `wip(requetes)` | Compiler, terminer `requetes-tour1.md`, critique complète |
@@ -71,10 +71,17 @@ Questions pour David (la relève ne tranche pas, elle continue) :
 - **CPT-017, coffre Windows** : brancher le Gestionnaire d’identification de Windows (CredRead, CredWrite, CredDelete) pour
   les comptes Postes et Secrets, comme Domenia 1 (« Mémoriser sur ce PC », « Utiliser le coffre », « Oublier le mot de
   passe », gestes explicites seulement, indisponible en simulation) ? En attendant, la case reste grisée avec sa raison.
+- **Relations, mémorisation automatique** (REL-014, 017, 018, 030) : Domenia 1 enregistrait les consoles relevées et la
+  moisson sans confirmation, par lots de 64. Domenia 2 fait un plan confirmé par lot (circuit des écritures). Garder ce
+  plan par lot, autoriser une mémorisation sans confirmation (à écrire dans `DECISIONS.md`), ou un plan collectif scellé ?
+- **Relations, classe des exports de fichiers** : `relations.export.save` est `LocalWrite` (réservée aux préférences par
+  `PLATFORM.md` § 3.2) et `relations.export.open` est `Local` alors qu’elle ouvre le CSV par l’association de Windows.
+  Créer une classe pour les fichiers d’export, ou admettre ces deux usages ?
 
 À faire à l’intégration (petits branchements de la coque, `app.js`) : relire `accounts.access.revision` (local, 2 s) pour
 l’emplacement « Accès » hors de l’écran Comptes (CPT-001) ; montrer les trois identités (`accounts.access.state`) dans
-le panneau d’aide avec le raccourci vers Comptes (CPT-012).
+le panneau d’aide avec le raccourci vers Comptes (CPT-012). Relations : brancher les refus de la détection sur les
+demandes d’accès de Comptes (REL-029).
 
 Fichiers partagés déjà modifiés par des branches d’écran (avant la relève OpenCode), à revoir à l’intégration :
 `tokens.css` (shell : jetons de contraste WCAG demandés par sa critique), `app.js` (shell ; la fiche n’y touche plus),
