@@ -3,7 +3,38 @@
   "date": "2026-10-22",
   "branche": "v2-page/audit",
   "note": "Tour 1 du critique (CRITIQUE-1.md) traité : garde des lectures restreinte à l’objet (AUD-003), sélection de Rechercher et suggestions vérifiées par RID (AUD-010), contrôleurs limités à la liste du domaine, objet courant seul en mémoire, export en fichier, disposition et teinte du critique revues. Simulation complète ; mode annuaire décrit dans docs/ops/audit.md § 11 (vague 3). Tests C# et scénarios E2E écrits, non exécutés (décision du 22/10 : la VM ne sert qu’à compiler). Compilation Debug et Release réussies dans la VM, 0 erreur 0 avertissement ; captures sombre et clair produites (12/12).",
-  "fait": ["AUD-002", "AUD-003", "AUD-004", "AUD-005", "AUD-006", "AUD-007", "AUD-011", "AUD-013", "AUD-014", "AUD-015", "AUD-017", "AUD-018", "AUD-019", "AUD-022"],
-  "ameliore": ["AUD-001", "AUD-008", "AUD-009", "AUD-010", "AUD-012", "AUD-016", "AUD-020", "AUD-021", "AUD-023"],
-  "partiel": []
+  "fait": [
+    "AUD-002",
+    "AUD-003",
+    "AUD-004",
+    "AUD-005",
+    "AUD-006",
+    "AUD-007",
+    "AUD-011",
+    "AUD-013",
+    "AUD-014",
+    "AUD-015",
+    "AUD-017",
+    "AUD-018",
+    "AUD-019",
+    "AUD-022"
+  ],
+  "ameliore": [
+    "AUD-001",
+    "AUD-008",
+    "AUD-009",
+    "AUD-010",
+    "AUD-012",
+    "AUD-016",
+    "AUD-020",
+    "AUD-021",
+    "AUD-023"
+  ],
+  "partiel": [],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : wip(audit) de l’agent précédent et revue de l’agent Spark (5250fc2) compilés et vérifiés par sondage (garde des lectures limitée à l’objet, contrôleurs bornés à la liste du domaine, paramètre « lancer » retiré avant la lecture, transitions sur transform et opacity, règles préfixées) ; branche poussée.",
+    "Réserve : l’agent Spark a lancé une capture dans la VM (vm.sh audit capture), contraire à la règle actuelle (la VM ne sert qu’à compiler) ; rien d’autre n’a été exécuté.",
+    "À l’intégration : opérations audit.* dans mock.js et PlatformTests (fichiers partagés).",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests C# et E2E écrits sans être exécutés."
+  ]
 }
