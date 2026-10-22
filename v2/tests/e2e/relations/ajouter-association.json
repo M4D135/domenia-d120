@@ -108,8 +108,8 @@
       "do": "expect",
       "selector": ".rel-steps li.done",
       "within": ".rel-panel",
-      "count": 4,
-      "title": "Les étapes Recherche, Choix, Confirmation et Vérification sont faites"
+      "count": 5,
+      "title": "Les cinq étapes, de Recherche à Enregistrée, sont faites"
     },
     {
       "do": "journal",
