@@ -17,7 +17,7 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:14. Ce fic
 
 | Tâche | État | Essais | Vérification | Note |
 |---|---|---|---|---|
-| 01-e2e | pending | 1 |  | relance : la première tentative n’avait rien produit |
+| 01-e2e | running | 2 |  | relance : la première tentative n’avait rien produit |
 | 02-ad-accueil-rechercher | pending | 1 |  | relance : la première tentative n’avait rien produit |
 | 03-ad-fiche-comptes | verifying | 1 |  |  |
 | 04-ad-relations-poste | verifying | 1 |  |  |
