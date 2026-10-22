@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
-  "name": "Utilisateurs et postes : moisson du journal et enregistrement par lots",
-  "description": "Estime puis lance la moisson du journal du contrôleur (simulation), vérifie que les nouveaux couples restent en mémoire, enregistre le premier lot de 64 par le circuit des écritures et vérifie que le panneau reste ouvert avec le reste à enregistrer.",
+  "name": "Utilisateurs et postes : moisson du journal et mémorisation automatique",
+  "description": "Estime puis lance la moisson du journal du contrôleur (simulation), vérifie que les nouveaux couples sont mémorisés automatiquement dans la base locale par lots de 64, sans confirmation (choix du 22/10), et que le panneau reste ouvert avec l’avancement.",
   "modes": [
     "simulation"
   ],
@@ -39,65 +39,26 @@
       "selector": ".rel-panel"
     },
     {
+      "do": "wait",
+      "contains": "mémorisés",
+      "within": ".rel-harvest-progress",
+      "title": "Les nouveaux couples sont mémorisés automatiquement, sans confirmation"
+    },
+    {
+      "do": "expect",
+      "contains": "Tout est mémorisé",
+      "title": "Plus rien à mémoriser"
+    },
+    {
       "do": "expect",
       "selector": ".rel-pending",
-      "title": "Le bandeau des observations à enregistrer apparaît"
+      "absent": true,
+      "title": "Aucun bandeau d’observations en attente"
     },
     {
-      "do": "click",
-      "selector": "[data-rf=\"all\"]",
-      "title": "Tout enregistrer, lot par lot"
-    },
-    {
-      "do": "wait",
-      "selector": ".wf-target",
-      "title": "Le plan du premier lot est affiché"
-    },
-    {
-      "do": "expect",
-      "contains": "resteront",
-      "title": "Le reste est annoncé dans le plan"
-    },
-    {
-      "do": "shot",
-      "name": "moisson-plan",
-      "selector": ".k-drw-layer.modal .k-drw"
-    },
-    {
-      "do": "click",
-      "text": "Confirmer…"
-    },
-    {
-      "do": "click",
-      "text": "Confirmer (simulation)"
-    },
-    {
-      "do": "wait",
-      "selector": ".wf-receipt-title",
-      "timeoutMs": 20000,
-      "title": "Le reçu du premier lot est affiché"
-    },
-    {
-      "do": "press",
-      "key": "Escape",
-      "title": "Fermer le reçu : le lot suivant se prépare"
-    },
-    {
-      "do": "wait",
-      "selector": ".wf-target",
-      "title": "Le plan du lot suivant attend sa confirmation"
-    },
-    {
-      "do": "click",
-      "text": "Annuler",
-      "within": ".k-drw-layer.modal",
-      "title": "Arrêter après le premier lot"
-    },
-    {
-      "do": "wait",
-      "contains": "enregistrés",
-      "within": ".rel-harvest-progress",
-      "title": "Le panneau resté ouvert montre l’avancement"
+      "do": "journal",
+      "contains": "mémorisées automatiquement",
+      "title": "Mémorisation tracée au journal technique"
     },
     {
       "do": "journal",

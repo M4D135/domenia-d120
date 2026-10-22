@@ -24,10 +24,11 @@ internal static class RequetesOperationsTests
         return response.Error!.Code;
     }
 
-    private static async Task<string> FirstOuAsync(SimulatedBridge bridge)
+    /// <summary>The OU of the workstations (« Postes »): the first OU in name order (« Comptes de service ») holds no computer.</summary>
+    internal static async Task<string> WorkstationsOuAsync(SimulatedBridge bridge)
     {
         var tree = await Ok(bridge, "directory.ou.children", "{\"dn\":null}");
-        return tree.GetProperty("children")[0].GetProperty("dn").GetString()!;
+        return tree.GetProperty("children").EnumerateArray().First(c => c.GetProperty("name").GetString() == "Postes").GetProperty("dn").GetString()!;
     }
 
     [Test]
@@ -179,7 +180,7 @@ internal static class RequetesOperationsTests
     {
         var bridge = new SimulatedBridge();
         Check.Equal("query.collectRefused", await Refused(bridge, "requetes.collect.plan", "{\"recipe\":" + RecipeJson("template.all") + "}"), "annuaire seul : rien à collecter");
-        var ou = await FirstOuAsync(bridge);
+        var ou = await WorkstationsOuAsync(bridge);
         var scope = await Ok(bridge, "requetes.scope.set", Args(new { dn = ou, subtree = true }));
         Check.False(scope.GetProperty("scope").GetProperty("wholeDomain").GetBoolean(), "périmètre borné à une OU");
         var planned = await Ok(bridge, "requetes.collect.plan", "{\"recipe\":" + RecipeJson("template.active.lowdisk") + "}");

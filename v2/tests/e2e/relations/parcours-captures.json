@@ -74,38 +74,19 @@
       "name": "moisson-couples"
     },
     {
-      "do": "click",
-      "selector": "[data-rf=\"all\"]",
-      "title": "Tout enregistrer, lot par lot"
-    },
-    {
       "do": "wait",
-      "selector": ".wf-target",
-      "title": "Plan du premier lot"
+      "contains": "mémorisés",
+      "within": ".rel-harvest-progress",
+      "title": "Nouveaux couples mémorisés automatiquement"
     },
     {
       "do": "shot",
-      "name": "moisson-plan-lot"
-    },
-    {
-      "do": "click",
-      "text": "Annuler",
-      "within": ".k-drw-layer.modal",
-      "title": "Ne rien écrire"
+      "name": "moisson-memorisee"
     },
     {
       "do": "click",
       "selector": "[data-rf=\"close\"]",
       "title": "Fermer la moisson"
-    },
-    {
-      "do": "wait",
-      "selector": ".rel-pending",
-      "title": "Bandeau des observations en mémoire"
-    },
-    {
-      "do": "shot",
-      "name": "bandeau-observations"
     },
     {
       "do": "go",

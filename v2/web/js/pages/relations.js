@@ -146,14 +146,13 @@ function compactHeroMarkup(o) {
 function pendingMarkup(p) {
   const session = p.sets.find((s) => s.resultId === SESSION_RESULT);
   const sources = (session?.sources ?? []).slice(0, 4);
-  return `<section class="rel-pending" role="region" aria-label="Observations à enregistrer">
+  return `<section class="rel-pending" role="region" aria-label="Observations en attente de mémorisation">
     <span class="rel-pending-ico" aria-hidden="true">${glyph('clock')}<span class="rel-pending-pulse"></span></span>
-    <div class="rel-pending-text"><b>${esc(nouns(p.total, 'observation en mémoire', 'observations en mémoire'))}, pas encore enregistrée${p.total > 1 ? 's' : ''}</b>
+    <div class="rel-pending-text"><b>${esc(nouns(p.total, 'observation en mémoire', 'observations en mémoire'))}, mémorisation automatique en attente</b>
       <span>${sources.map((s) => `<span class="rel-pending-src">${esc(s.source)} · ${int(s.count)}</span>`).join('')}${(session?.sources.length ?? 0) > 4 ? `<span class="rel-pending-src">…</span>` : ''}</span>
-      <small>${esc(nouns(p.batches, 'lot', 'lots'))} de 64 au plus${NBSP}: chaque lot est un plan relu, confirmé et tracé par un reçu. Rien n’est enregistré sans votre confirmation.</small></div>
+      <small>${esc(nouns(p.batches, 'lot', 'lots'))} de 64 au plus, mémorisés dans la base locale sans confirmation et tracés au journal des associations. Active Directory n’est jamais modifié.</small></div>
     <div class="rel-pending-actions">
-      <button class="btn sm" type="button" data-pending="next">${glyph('check')}Enregistrer ${p.total > 64 ? 'les 64 premières' : p.total > 1 ? `les ${int(p.total)}` : 'l’observation'}<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button>
-      ${p.batches > 1 ? `<button class="btn subtle sm" type="button" data-pending="all">${glyph('layers')}Tout enregistrer, lot par lot (${int(p.batches)})<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button>` : ''}
+      <button class="btn sm" type="button" data-pending="all">${glyph('check')}Mémoriser maintenant<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture locale</span></button>
     </div>
   </section>`;
 }
@@ -179,6 +178,8 @@ export function render(main, ctx) {
   let journalLoaded = false;
   let work = null; // { name, ctl } — the docked work panel
   let saving = false;
+  let autoTimer = 0;
+  let autoStuckAt = -1;
   const exportListeners = new Set();
   const handedList = loadedList(ctx.params.liste);
   const routeParams = { ...ctx.params };
@@ -250,7 +251,20 @@ export function render(main, ctx) {
     if (!p || p.total === 0) { host.innerHTML = ''; return; }
     host.innerHTML = pendingMarkup(p);
     host.querySelectorAll('[data-pending]').forEach((b) => { b.disabled = saving; });
+    scheduleAutoSave(p.total);
   }
+
+  // Observations handed by another screen wait in the engine: they are memorized after 1.5 s of calm (Domenia 1 REL-014). A
+  // memorization that saved nothing is not retried for the same count (the banner keeps « Mémoriser maintenant »).
+  function scheduleAutoSave(total) {
+    clearTimeout(autoTimer);
+    if (saving || total === autoStuckAt) return;
+    autoTimer = setTimeout(() => {
+      if (!app.alive) return;
+      saveBatches(SESSION_RESULT, { origin: 'Observations de la session', quiet: true }).then((saved) => { if (saved === 0) autoStuckAt = total; });
+    }, 1500);
+  }
+  stops.push(() => clearTimeout(autoTimer));
 
   // ---------- Data ----------
   async function loadOverview() {
@@ -370,32 +384,28 @@ export function render(main, ctx) {
   function undoImport(batchId) { return plan('relations.import.undo.plan', { batch: batchId ?? null }); }
 
   /**
-   * Saves the observations of a result by batches of 64 (Domenia 1 REL-014). Each batch is its own plan, confirmed and traced
-   * by its receipt; with « all », the next plan opens once the receipt panel of the previous one is closed, until nothing is
-   * left or the operator cancels a plan. Resolves with the number of batches saved.
+   * Memorizes the observations kept by the engine (choice of 22/10, Domenia 1 REL-014): the engine saves them into the local
+   * base by batches of 64, without confirmation, each change traced in the journal of the associations; Active Directory is
+   * never written. Every observation of the session leaves at once (resultId only names the read that asked). Resolves with the
+   * number of observations memorized.
    */
-  async function saveBatches(resultId, { all = false, origin = 'Observations' } = {}) {
-    if (saving) { toast('Un enregistrement est déjà en cours : attendez son reçu.', { tone: 'info' }); return 0; }
+  async function saveBatches(resultId, { origin = 'Observations', quiet = false } = {}) {
+    if (saving) { if (!quiet) toast('Une mémorisation est déjà en cours.', { tone: 'info' }); return 0; }
     saving = true;
     paintPending();
     let saved = 0;
     try {
-      for (;;) {
-        const receipt = await plan('relations.observations.plan', { resultId, keys: [] }, `${origin} · lot ${saved + 1}${all ? ' · par lots de 64' : ''}`);
-        if (!receipt || !app.alive) break;
-        saved += 1;
-        if (!all) break;
-        const pending = await ctx.call('relations.observations.pending').catch((err) => { console.error(err); return null; });
-        const set = pending?.sets.find((s) => s.resultId === resultId);
-        if (!set || set.remaining === 0) {
-          toast(`${origin}${NBSP}: tout est enregistré (${nouns(saved, 'lot', 'lots')}).`, { tone: 'ok' });
-          break;
-        }
-        announce(`${nouns(set.remaining, 'observation reste', 'observations restent')} à enregistrer${NBSP}: lot suivant à confirmer.`);
-      }
+      const res = await ctx.call('relations.observations.save');
+      saved = res?.saved ?? 0;
+      if (!app.alive) return saved;
+      if (saved > 0 || !quiet) toast(`${origin}${NBSP}: ${res?.text ?? ''}`, { tone: res?.remaining > 0 ? 'warn' : 'ok' });
+      announce(res?.text ?? '');
+    } catch (err) {
+      console.error(err);
+      if (app.alive) toast(`${origin}${NBSP}: mémorisation refusée. Les observations restent en mémoire pour la session.`, { tone: 'warn' });
     } finally {
       saving = false;
-      if (app.alive) paintPending();
+      if (app.alive) refreshAll();
     }
     return saved;
   }
@@ -562,7 +572,7 @@ export function render(main, ctx) {
     const t = e.target instanceof Element ? e.target : null;
     const pending = t?.closest('[data-pending]');
     if (pending) {
-      saveBatches(SESSION_RESULT, { all: pending.dataset.pending === 'all', origin: 'Observations de la session' });
+      saveBatches(SESSION_RESULT, { origin: 'Observations de la session' });
       return;
     }
     const b = t?.closest('[data-hero]');

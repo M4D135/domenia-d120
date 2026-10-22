@@ -76,8 +76,8 @@ const ORPHAN_STEPS = [
 ];
 const HARVEST_STEPS = [
   ['Impact estimé', 'Nombre d’événements et durée estimés, avant toute lecture du journal.'],
-  ['Couples lus', 'Utilisateur → poste trouvés, déjà connus signalés : les nouveaux restent en mémoire pour la session.'],
-  ['Enregistrement par lots', 'Lots de 64, chacun relu, confirmé et tracé par un reçu ; une association existante n’est jamais écrasée.'],
+  ['Couples lus', 'Utilisateur → poste trouvés, déjà connus signalés : les nouveaux sont mémorisés automatiquement.'],
+  ['Mémorisation par lots', 'Lots de 64 mémorisés dans la base locale sans confirmation, chaque changement tracé au journal ; une association existante n’est jamais écrasée.'],
 ];
 const DETECT_STEPS = [
   ['Lecture de l’annuaire', 'Compte relu (même GUID, même identifiant), associations connues, managedBy et mentions du compte : aucun poste contacté.'],
@@ -87,7 +87,7 @@ const DETECT_STEPS = [
 const SWEEP_STEPS = [
   ['Postes à relever', 'La liste exacte des postes, avant tout contact.'],
   ['Ping puis relevé', 'Ping groupé par lots de 8, puis la console des seuls postes qui répondent ; compteurs en direct, arrêt possible à tout moment.'],
-  ['Enregistrement par lots', 'Les consoles relevées, par lots de 64 : plan, confirmation et reçu.'],
+  ['Mémorisation par lots', 'Les consoles relevées sont mémorisées dans la base locale par lots de 64, sans confirmation, et tracées au journal.'],
 ];
 
 /** Remaining observations of one result, read from the engine (they leave the memory as they are saved). */
@@ -101,12 +101,13 @@ async function remainingOf(app, resultId) {
   }
 }
 
-/** Footer button that saves the observations of a result by batches of 64 (Domenia 1 REL-014), with what remains. */
+/**
+ * Footer button shown only when observations are still waiting (a memorization was refused): the engine memorizes them at once
+ * into the local base, by batches of 64, without confirmation (choice of 22/10, Domenia 1 REL-014).
+ */
 function saveButton(remaining, origin) {
-  const batches = Math.ceil(remaining / 64);
-  return remaining > 64
-    ? { id: 'save', label: `Tout enregistrer, lot par lot (${int(batches)})`, icon: 'layers', primary: true, kind: 'write', reason: `${nouns(remaining, 'observation', 'observations')} de ${origin.toLowerCase()} : un plan relu, confirmé et tracé par lot de 64.` }
-    : { id: 'save', label: `Enregistrer ${nouns(remaining, 'observation', 'observations')}`, icon: 'check', primary: true, kind: 'write' };
+  return { id: 'save', label: `Mémoriser maintenant (${int(remaining)})`, icon: 'check', primary: true,
+    reason: `${nouns(remaining, 'observation', 'observations')} de ${origin.toLowerCase()} en attente : mémorisation dans la base locale par lots de 64, tracée au journal des associations.` };
 }
 
 /**
@@ -593,7 +594,7 @@ function detectMode(app, ctl, host, foot, subject) {
       bindRefusal(probeHost, (id, p) => app.ctx.navigate(id, p));
       announce(res.message);
       app.touch();
-      resultFoot(res.savable);
+      remainingOf(app, res.resultId).then((left) => { if (ctl.body?.isConnected) resultFoot(left ?? res.savable); });
     });
   }
 
@@ -605,7 +606,7 @@ function detectMode(app, ctl, host, foot, subject) {
 
   async function save() {
     if (!resultId) return;
-    await app.saveBatches(resultId, { all: true, origin: 'Détection' });
+    await app.saveBatches(resultId, { origin: 'Détection' });
   }
 
   function bindCandidates(scope) {
@@ -655,7 +656,10 @@ function sessionMode(app, ctl, host, foot, subject) {
       bindRefusal(out, (id, p) => app.ctx.navigate(id, p));
       app.touch();
       announce(res.message);
-      paintFoot(res.savable ? 1 : 0);
+      const left = res.savable ? await remainingOf(app, res.resultId) : 0;
+      if (!ctl.body?.isConnected) return;
+      if (res.savable && left === 0) out.querySelector('.rel-session-card')?.insertAdjacentHTML('beforeend', `<p class="rel-confirm-done">${glyph('check')}Observation mémorisée dans la base locale et tracée au journal des associations.</p>`);
+      paintFoot(left ?? 1);
     } catch (err) {
       if (!ctl.body?.isConnected) return;
       out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
@@ -664,7 +668,7 @@ function sessionMode(app, ctl, host, foot, subject) {
   }
   function paintFoot(remaining) {
     set(remaining > 0
-      ? [{ id: 'save', label: 'Enregistrer l’observation', icon: 'check', primary: true, kind: 'write', run: () => app.saveBatches(resultId, { origin: 'Lecture de session' }) },
+      ? [{ ...saveButton(remaining, 'la lecture de session'), run: () => app.saveBatches(resultId, { origin: 'Lecture de session' }) },
         { id: 'again', label: 'Relire', icon: 'refresh', kind: 'network', run: read }]
       : [{ id: 'again', label: resultId ? 'Relire' : 'Lire de nouveau', icon: 'refresh', primary: true, kind: 'network', run: read }]);
   }
@@ -675,7 +679,7 @@ function sessionMode(app, ctl, host, foot, subject) {
       if (!resultId) return;
       const remaining = await remainingOf(app, resultId);
       if (remaining !== null && ctl.body?.isConnected) {
-        if (remaining === 0) out.querySelector('.rel-session-card')?.insertAdjacentHTML('beforeend', `<p class="rel-confirm-done">${glyph('check')}Observation enregistrée, relue et tracée par un reçu.</p>`);
+        if (remaining === 0 && !out.querySelector('.rel-confirm-done')) out.querySelector('.rel-session-card')?.insertAdjacentHTML('beforeend', `<p class="rel-confirm-done">${glyph('check')}Observation mémorisée dans la base locale et tracée au journal des associations.</p>`);
         paintFoot(remaining);
       }
     },
@@ -939,7 +943,7 @@ export function openHarvestPanel(app) {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() },
           { id: 'selection', label: `Enregistrer la sélection (${int(selected)})`, icon: 'check', kind: 'write', disabled: selected === 0 || selected > 64,
             reason: selected > 64 ? '64 au plus par enregistrement : « Tout enregistrer » procède par lots.' : 'Cochez les couples à enregistrer.', run: saveSelection },
-          remaining > 0 ? { ...saveButton(remaining, 'la moisson'), id: 'all', run: saveAll } : { id: 'done', label: 'Tout est enregistré', icon: 'check', disabled: true }]);
+          remaining > 0 ? { ...saveButton(remaining, 'la moisson'), id: 'all', run: saveAll } : { id: 'done', label: 'Tout est mémorisé', icon: 'check', disabled: true }]);
       } else if (estimate) {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'run', label: 'Lancer la moisson', icon: 'play', primary: true, kind: 'network', run }]);
       } else {
@@ -967,9 +971,9 @@ export function openHarvestPanel(app) {
         result = await app.ctx.call('relations.harvest.run', { estimateId: estimate.id });
         if (!ctl.body?.isConnected) return;
         remaining = result.newCount;
-        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples lus · nouveaux en mémoire</h3>
+        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples lus · nouveaux mémorisés</h3>
           <p class="rel-status">${esc(result.message)}</p>
-          <div class="rel-harvest-progress"><div class="rel-bar"><span class="rel-bar-fill"></span></div><span class="rel-harvest-left">${esc(nouns(remaining, 'nouveau couple à enregistrer', 'nouveaux couples à enregistrer'))}</span></div>
+          <div class="rel-harvest-progress"><div class="rel-bar"><span class="rel-bar-fill"></span></div><span class="rel-harvest-left">${esc(nouns(remaining, 'nouveau couple', 'nouveaux couples'))}</span></div>
           <div class="rel-harvest-grid"></div></section>`;
         grid = createGrid(out.querySelector('.rel-harvest-grid'), {
           key: 'relations.moisson', label: 'Couples utilisateur-poste du journal', rowId: (r) => r.key, selection: 'multi', height: '380px',
@@ -985,11 +989,10 @@ export function openHarvestPanel(app) {
           onExport: (csv) => app.exportCsv('moisson', csv),
         });
         grid.setRows(result.couples);
-        const fresh = result.couples.filter((c) => !c.known).slice(0, 64).map((c) => c.key);
-        grid.select(fresh);
-        selected = fresh.length;
+        selected = 0;
         paint();
         app.touch();
+        await refresh();
         announce(result.message);
       } catch (err) {
         out.querySelector('.rel-harvest-run').outerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
@@ -1012,7 +1015,7 @@ export function openHarvestPanel(app) {
     }
     function saveAll() {
       if (!result) return;
-      app.saveBatches(result.resultId, { all: true, origin: 'Moisson du journal' });
+      app.saveBatches(result.resultId, { origin: 'Moisson du journal' });
     }
     refresh = async () => {
       if (!result) return;
@@ -1022,7 +1025,7 @@ export function openHarvestPanel(app) {
       const total = Math.max(1, result.newCount);
       progressTo(out.querySelector('.rel-harvest-progress .rel-bar-fill'), (total - remaining) / total);
       const text = out.querySelector('.rel-harvest-left');
-      if (text) text.textContent = remaining > 0 ? `${int(total - remaining)} sur ${int(total)} enregistrés · ${nouns(remaining, 'reste', 'restent')} ${int(remaining)}` : `${nouns(total, 'nouveau couple enregistré', 'nouveaux couples enregistrés')}`;
+      if (text) text.textContent = remaining > 0 ? `${int(total - remaining)} sur ${int(total)} mémorisés · ${nouns(remaining, 'reste', 'restent')} ${int(remaining)}` : `${nouns(total, 'nouveau couple mémorisé', 'nouveaux couples mémorisés')} automatiquement`;
       paint();
     };
     ctl.closed.then(() => grid?.destroy());
@@ -1097,12 +1100,12 @@ export function openSweepPanel(app) {
         bindRefusal(probeHost, (id, p) => app.ctx.navigate(id, p));
         probeHost.querySelectorAll('[data-fiche]').forEach((b) => b.addEventListener('click', () => app.openFiche({ dn: b.dataset.fiche })));
         app.touch();
-        resultFoot(res.savable);
+        remainingOf(app, res.resultId).then((left) => { if (ctl.body?.isConnected) resultFoot(left ?? res.savable); });
       });
     }
     function resultFoot(remaining) {
       set(remaining > 0
-        ? [{ ...saveButton(remaining, 'le relevé'), run: () => app.saveBatches(resultId, { all: true, origin: 'Relevé du parc' }) }, { id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', run: prepare }]
+        ? [{ ...saveButton(remaining, 'le relevé'), run: () => app.saveBatches(resultId, { origin: 'Relevé du parc' }) }, { id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', run: prepare }]
         : [forget, { id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', primary: true, run: prepare }]);
     }
     refresh = async () => {
@@ -1125,7 +1128,7 @@ export function openHelpPanel() {
     ['alert', 'Contradictions conservées', 'Quand l’affectation déclarée et la session observée désignent des comptes différents, les deux gardent leur nature et portent la marque « Contradiction » : rien n’est fusionné ni retiré.'],
     ['key', 'Identité par GUID', 'Un lien porteur de GUID n’appartient qu’à cet objet ; un nom recyclé n’hérite jamais de l’historique d’un autre. Sans GUID, l’identité est dite non vérifiable. Une association préparée vérifie que le sujet et la cible portent encore le GUID affiché.'],
     ['wifi', 'Aucune sonde sans geste', 'La détection lit d’abord l’annuaire, montre la liste exacte des postes, puis seulement « Lancer la détection » contacte les postes, 50 au plus, sans jamais substituer le domaine entier ; elle s’arrête au premier refus d’identifiants.'],
-    ['layers', 'Enregistrement par lots', 'Les observations (détection, relevé, moisson) restent en mémoire pour la session ; elles s’enregistrent par lots de 64, chaque lot étant un plan relu, confirmé et tracé par un reçu.'],
+    ['layers', 'Mémorisation par lots', 'Les observations (détection, lecture de session, relevé, moisson) sont mémorisées automatiquement dans la base locale par lots de 64, sans confirmation, chaque changement tracé au journal des associations ; Active Directory n’est jamais modifié.'],
     ['edit', 'Chaque changement a son reçu', 'Ajouter, retirer, restaurer, importer, annuler un import, nettoyer, oublier les relevés : un plan relu, une confirmation, un reçu, une relecture. Jamais rejoué automatiquement.'],
     ['undo', 'Tout se restaure', 'Chaque retrait est journalisé et restaurable ; un import porte un lot qui s’annule même après un redémarrage.'],
   ].map(([i, t, x]) => [i, t, x.replace(/ ([:;!?])/g, `${NBSP}$1`)]);

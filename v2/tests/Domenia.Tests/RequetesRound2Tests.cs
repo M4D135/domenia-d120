@@ -317,8 +317,7 @@ internal static class RequetesRound2Tests
         const string query = "SELECT DeviceID, FreeSpace FROM Win32_LogicalDisk";
         await Ok(bridge, "requetes.wmi.run", Args(new { computer, @namespace = "root\\cimv2", query, limit = 100 }));
         var recipe = await Ok(bridge, "requetes.wmi.recipe", Args(new { computer, @namespace = "root\\cimv2", query, limit = 100 }));
-        var tree = await Ok(bridge, "directory.ou.children", "{\"dn\":null}");
-        await Ok(bridge, "requetes.scope.set", Args(new { dn = tree.GetProperty("children")[0].GetProperty("dn").GetString(), subtree = true }));
+        await Ok(bridge, "requetes.scope.set", Args(new { dn = await RequetesOperationsTests.WorkstationsOuAsync(bridge), subtree = true }));
         var plan = await Ok(bridge, "requetes.collect.plan", "{\"recipe\":" + recipe.GetProperty("recipe").GetRawText() + "}");
         Check.True(plan.GetProperty("plan").GetProperty("workload").GetProperty("detailReads").GetInt64() > 0, "SELECT mémorisé relu sur les postes du plan");
         Check.NotNull(plan.GetProperty("plan").GetProperty("detail").GetProperty("requestKey").GetString(), "définition jointe au plan");

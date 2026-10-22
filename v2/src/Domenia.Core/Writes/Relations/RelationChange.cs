@@ -38,7 +38,19 @@ public interface IRelationChangeExecutor : IWriteExecutor
     /// says how many remain, and the same call saves the following batch (Domenia 1 REL-014).
     /// </summary>
     Task<WritePlanDraft> PlanObservationsAsync(string resultId, IReadOnlyList<string> keys, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Automatic memorization (REL-014, REL-017, REL-018, REL-030; choice of 22/10, like Domenia 1): every observation of the
+    /// session not saved yet joins the local store by batches of 64, without confirmation (the store is local to Domenia, Active
+    /// Directory is never written). Each batch is sealed and applied with the rules of a plan (an observation never replaces a
+    /// declared assignment, an association changed elsewhere is never overwritten) and leaves one journal line per change. The
+    /// loop stops at the first refused batch and says what remains.
+    /// </summary>
+    Task<RelationAutoSave> SaveObservationsAsync(CancellationToken cancellationToken);
 }
+
+/// <summary>Result of the automatic memorization of the observations: changes saved, batches, observations left, plain words.</summary>
+public sealed record RelationAutoSave(int Saved, int Batches, int Remaining, string Text);
 
 /// <summary>Operation of one change of the store.</summary>
 public enum RelationChangeOperation
@@ -73,6 +85,30 @@ public static class RelationChange
     /// relations.observations.plan: 32 zeros, never issued for a real result.
     /// </summary>
     public const string SessionResultId = "00000000000000000000000000000000";
+
+    /// <summary>Bound of one automatic memorization: 4 096 observations (64 batches of 64); the rest leaves with the next one.</summary>
+    public const int MaxAutoSaveBatches = 64;
+
+    /// <summary>Origin written in the journal note of each change of an automatic batch.</summary>
+    public static string AutoSaveOrigin(int batch) => "Mémorisation automatique, lot " + FrenchText.Integer(batch);
+
+    /// <summary>Plain words of an automatic memorization (technical journal and page).</summary>
+    public static RelationAutoSave AutoSaved(int saved, int batches, int remaining, string? stopped)
+    {
+        var text = saved == 0
+            ? "Aucune observation à mémoriser."
+            : FrenchText.Count(saved, "observation mémorisée", "observations mémorisées") + " automatiquement dans la base locale ("
+                + FrenchText.Count(batches, "lot", "lots") + " de " + FrenchText.Integer(WritePlans.MaxChanges) + " au plus, tracés au journal des associations).";
+        if (stopped is not null)
+        {
+            text += " Mémorisation interrompue" + FrenchText.Colon + stopped;
+        }
+        if (remaining > 0)
+        {
+            text += " " + FrenchText.Count(remaining, "observation reste", "observations restent") + " en mémoire pour la session.";
+        }
+        return new RelationAutoSave(saved, batches, remaining, text);
+    }
 
     /// <summary>Attribute of every change: one association of the local store.</summary>
     public const string Attribute = "association";

@@ -273,6 +273,7 @@ internal static class PlatformTests
         ("relations.list", OperationClass.LocalRead),
         ("relations.observations.pending", OperationClass.LocalRead),
         ("relations.observations.plan", OperationClass.LocalRead),
+        ("relations.observations.save", OperationClass.LocalWrite),
         ("relations.orphans.check", OperationClass.NetworkRead),
         ("relations.orphans.plan", OperationClass.LocalRead),
         ("relations.overview", OperationClass.LocalRead),

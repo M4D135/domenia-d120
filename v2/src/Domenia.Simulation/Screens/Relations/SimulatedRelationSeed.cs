@@ -10,8 +10,9 @@ namespace Domenia.Simulation;
 /// independent draws, so the figures of the screen depend only on the seed: declared assignments, observed consoles (with
 /// exactly <see cref="Contradictions"/> workstations where the session and the assignment name different accounts), history
 /// relevés, an import batch (« Annuler l’import »), clues, remote sessions on servers, legacy rows without GUID (two of them for
-/// a recycled workstation name) and orphan links (some of them protected). The journal holds the import, a few declarations,
-/// a removal still restorable and one already restored.
+/// a recycled workstation name) and orphan links (some of them protected); <see cref="UnassignedShare"/> percent of the
+/// workstations have no seeded row, for an import or a harvest. The journal holds the import, a few declarations, a removal
+/// still restorable and one already restored.
 /// </summary>
 internal static class SimulatedRelationSeed
 {
@@ -22,6 +23,12 @@ internal static class SimulatedRelationSeed
     public const int LegacyRows = 14;
     public const int OrphanRows = 11;
     public const int ProtectedOrphans = 3;
+
+    /// <summary>
+    /// Share of the workstations (percent) left without any seeded association: an import or a harvest of the controller journal
+    /// finds them (more than one batch of 64 new couples), as on a parc where the relations are being built.
+    /// </summary>
+    public const int UnassignedShare = 30;
 
     private static readonly string[] HistorySources =
     [
@@ -89,7 +96,11 @@ internal static class SimulatedRelationSeed
         owners[camillePc.ObjectGuid] = camille;
         var reserved = new HashSet<Guid> { julienPc.ObjectGuid, julienLaptop.ObjectGuid, julienOld.ObjectGuid, camillePc.ObjectGuid };
 
-        var order = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid)).ToList();
+        // Workstations without any seeded row, chosen by a shuffle; the import batch below takes some of them.
+        var candidates = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        random.Fork("unassigned").Shuffle(candidates);
+        var unassigned = candidates.Take(candidates.Count * UnassignedShare / 100).Select(c => c.ObjectGuid).ToHashSet();
+        var order = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).ToList();
         random.Fork("order").Shuffle(order);
         var declaredCount = order.Count * 45 / 100;
         var declared = order.Take(declaredCount).ToList();
@@ -181,7 +192,7 @@ internal static class SimulatedRelationSeed
         }
 
         // Clues: inventory lines and mentions, never an observed session.
-        var cluePool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid)).ToList();
+        var cluePool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).ToList();
         random.Fork("clues").Shuffle(cluePool);
         foreach (var computer in cluePool.Take(Clues))
         {
@@ -202,9 +213,9 @@ internal static class SimulatedRelationSeed
 
         // Legacy rows of Domenia 1 before RC1.14: names only. Two of them predate the current object of their name.
         var legacy = random.Fork("legacy");
-        var legacyPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        var legacyPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !reserved.Contains(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         legacy.Shuffle(legacyPool);
-        var recent = workstations.OrderByDescending(c => c.WhenCreated).Where(c => owners.ContainsKey(c.ObjectGuid)).Take(2).ToList();
+        var recent = workstations.OrderByDescending(c => c.WhenCreated).Where(c => owners.ContainsKey(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid)).Take(2).ToList();
         foreach (var computer in legacyPool.Take(LegacyRows - recent.Count).Concat(recent))
         {
             var owner = owners[computer.ObjectGuid];
@@ -226,7 +237,7 @@ internal static class SimulatedRelationSeed
             var computerGone = i % 3 != 2;
             var user = computerGone ? orphanDraw.Pick(peopleBySite[site.Name]) : null;
             var login = user?.SamAccountName ?? goneUsers[i % goneUsers.Length];
-            var computer = computerGone ? null : workstations[orphanDraw.Next(workstations.Count)];
+            var computer = computerGone ? null : order[orphanDraw.Next(order.Count)];
             var kind = i % 2 == 0 ? RelationKind.Console : RelationKind.History;
             var source = kind == RelationKind.Console ? RelationRules.ConsoleSource : "Journal du contrôleur 4624";
             Put(new StoredRelation(login, user?.ObjectGuid ?? GuidOf(orphanDraw), user?.DistinguishedName,
@@ -250,7 +261,7 @@ internal static class SimulatedRelationSeed
             journal.Add(new RelationJournalRecord(NewId(), RelationJournalAction.Added, relation.When!.Value, relation.Declarant,
                 "Association déclarée depuis Relations.", RelationRules.Key(relation), relation));
         }
-        var removedPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && c.Name.StartsWith("PC-MRS-", StringComparison.Ordinal)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
+        var removedPool = workstations.Where(c => owners.ContainsKey(c.ObjectGuid) && !unassigned.Contains(c.ObjectGuid) && c.Name.StartsWith("PC-MRS-", StringComparison.Ordinal)).OrderBy(c => c.Name, StringComparer.Ordinal).ToList();
         var removed = Relation(owners[removedPool[4].ObjectGuid], removedPool[4], RelationKind.Console, RelationRules.ConsoleSource, Ago(TimeSpan.FromDays(19)),
             "Lecture de la console à cette date ; sessions RDP non recensées.", true, null);
         store.Remove(RelationRules.Key(removed));

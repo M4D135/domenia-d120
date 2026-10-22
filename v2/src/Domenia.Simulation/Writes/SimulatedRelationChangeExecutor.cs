@@ -266,20 +266,81 @@ public sealed class SimulatedRelationChangeExecutor : IRelationChangeExecutor
         }
         await WaitAsync("plan", 100, 220, cancellationToken).ConfigureAwait(false);
         var state = State;
-        var set = resultId == RelationChange.SessionResultId
-            ? new SimulatedObservationSet { Origin = "Observations de la session", Relations = state.Session.ToImmutableDictionary(RelationRules.Key, StringComparer.Ordinal) }
-            : state.Recall<SimulatedObservationSet>(resultId, extend: true);
+        var set = resultId == RelationChange.SessionResultId ? SessionSet(state, "Observations de la session") : state.Recall<SimulatedObservationSet>(resultId, extend: true);
+        return DraftObservations(state, set, keys);
+    }
+
+    public async Task<RelationAutoSave> SaveObservationsAsync(CancellationToken cancellationToken)
+    {
+        await WaitAsync("save", 60, 160, cancellationToken).ConfigureAwait(false);
+        var state = State;
+        var saved = 0;
+        var batches = 0;
+        string? stopped = null;
+        // One sealed batch of 64 at most per pass, applied under the lock of the store with the checks of a plan; bounded, and a
+        // pass that saves nothing ends the loop.
+        for (var pass = 0; pass < RelationChange.MaxAutoSaveBatches; pass++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var set = SessionSet(state, RelationChange.AutoSaveOrigin(batches + 1));
+            if (Waiting(state, set).Count == 0)
+            {
+                break;
+            }
+            WritePlanDraft draft;
+            try
+            {
+                draft = DraftObservations(state, set, []);
+            }
+            catch (DomeniaOperationException error) when (error.Code == WriteErrors.NothingToDo)
+            {
+                break;
+            }
+            var plan = WritePlans.Seal(draft, WritePlans.NewId(), Operator, AppMode.Simulation, state.Now, state.Zone);
+            RelationChangeResult result;
+            try
+            {
+                result = state.Commit(plan);
+            }
+            catch (DomeniaOperationException error) when (error.Code == WriteErrors.Stale)
+            {
+                stopped = error.Message;
+                break;
+            }
+            if (result.Applied == 0)
+            {
+                break;
+            }
+            saved += result.Applied;
+            batches++;
+        }
+        var remaining = Waiting(state, SessionSet(state, "")).Count;
+        return RelationChange.AutoSaved(saved, batches, remaining, stopped);
+    }
+
+    private static SimulatedObservationSet SessionSet(SimulatedRelationState state, string origin) =>
+        new() { Origin = origin, Relations = state.Session.ToImmutableDictionary(RelationRules.Key, StringComparer.Ordinal) };
+
+    /// <summary>Keys of the observations of the set not saved yet (a known relation with the same fingerprint is saved), most recent first.</summary>
+    private static List<string> Waiting(SimulatedRelationState state, SimulatedObservationSet set)
+    {
         var store = state.Store;
-        // Without keys: the observations of the set not saved yet, most recent first, 64 at most; the following ones stay for the
-        // next plan (Domenia 1 REL-014: the rest of a partial batch leaves with the next one).
         bool Unsaved(StoredRelation observation)
         {
             var (refresh, existing, _) = RelationRules.Upsert(store.Values, observation);
             return !(refresh && existing is not null && RelationRules.Fingerprint(existing) == RelationRules.Fingerprint(observation));
         }
-        var waiting = keys.Count == 0
-            ? set.Relations.Where(p => Unsaved(p.Value)).OrderByDescending(p => p.Value.When).ThenBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key).ToList()
-            : new List<string>();
+        return [.. set.Relations.Where(p => Unsaved(p.Value)).OrderByDescending(p => p.Value.When).ThenBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key)];
+    }
+
+    /// <summary>
+    /// Draft of the saving of observations of a set: the named keys, or without keys the next 64 not saved yet, most recent first;
+    /// the following ones stay for the next batch (Domenia 1 REL-014: the rest of a partial batch leaves with the next one).
+    /// </summary>
+    private static WritePlanDraft DraftObservations(SimulatedRelationState state, SimulatedObservationSet set, IReadOnlyList<string> keys)
+    {
+        var store = state.Store;
+        var waiting = keys.Count == 0 ? Waiting(state, set) : new List<string>();
         var chosen = keys.Count == 0 ? waiting.Take(WritePlans.MaxChanges).ToList() : keys.Distinct(StringComparer.Ordinal).ToList();
         var items = new List<RelationChangeItem>();
         foreach (var key in chosen)

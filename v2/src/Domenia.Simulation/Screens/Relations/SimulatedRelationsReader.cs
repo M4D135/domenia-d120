@@ -490,7 +490,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
             }
             if (found.Count > 0)
             {
-                message += " " + FrenchText.Count(found.Count, "observation visible", "observations visibles") + " pour la session ; « Enregistrer » les garde par lots de 64, sans retirer aucune association.";
+                message += " " + FrenchText.Count(found.Count, "observation est mémorisée", "observations sont mémorisées") + " automatiquement dans la base locale, par lots de 64, sans retirer aucune association.";
             }
             if (counters.Refused > 0)
             {
@@ -545,7 +545,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
                 state.Observe([relation]);
                 resultId = state.Remember(new SimulatedObservationSet { Origin = "Lecture de session", Relations = ImmutableDictionary.CreateRange(StringComparer.Ordinal, [KeyValuePair.Create(RelationRules.Key(relation), relation)]) });
                 savable = true;
-                message = "Session observée sur " + computer.Name + C + user.Login + " (" + RelationRules.ConsoleSource + " · " + badge.Label + "). « Enregistrer l’observation » la garde à côté des associations existantes.";
+                message = "Session observée sur " + computer.Name + C + user.Login + " (" + RelationRules.ConsoleSource + " · " + badge.Label + "). Elle est mémorisée automatiquement dans la base locale, à côté des associations existantes.";
             }
             else
             {
@@ -616,8 +616,8 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         var newCount = all.Count(r => !r.Known);
         var message = FrenchText.Count(events, "événement lu", "événements lus") + " sur " + estimate.Controller + C + FrenchText.Count(all.Length, "couple utilisateur-poste", "couples utilisateur-poste")
             + ", dont " + FrenchText.Count(newCount, "nouveau", "nouveaux") + ". " + FrenchText.Count(machines, "événement de compte machine ignoré", "événements de comptes machines ignorés")
-            + ", " + FrenchText.Count(unresolved, "compte introuvable", "comptes introuvables") + " dans l’annuaire. Aucun poste contacté. Les nouveaux couples sont en mémoire pour la session"
-            + C + "« Enregistrer » les garde par lots de " + FrenchText.Integer(WritePlans.MaxChanges) + ", chaque lot confirmé et tracé par un reçu.";
+            + ", " + FrenchText.Count(unresolved, "compte introuvable", "comptes introuvables") + " dans l’annuaire. Aucun poste contacté. Les nouveaux couples sont mémorisés automatiquement dans la base locale, par lots de "
+            + FrenchText.Integer(WritePlans.MaxChanges) + ", chaque changement tracé au journal des associations.";
         if (truncated)
         {
             message += " Limite de " + FrenchText.Integer(estimate.MaxEvents) + " événements atteinte" + C + "les couples les plus récents sont gardés.";
@@ -989,7 +989,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         var text = unsaved.Count == 0
             ? "Aucune observation en attente" + C + "tout ce qui a été lu est enregistré."
             : FrenchText.Count(unsaved.Count, "observation en mémoire", "observations en mémoire") + " pour cette session, pas encore enregistrée" + (unsaved.Count > 1 ? "s" : "") + C
-                + FrenchText.Count(batches, "lot", "lots") + " de " + FrenchText.Integer(WritePlans.MaxChanges) + " au plus, chacun confirmé et tracé par un reçu.";
+                + FrenchText.Count(batches, "lot", "lots") + " de " + FrenchText.Integer(WritePlans.MaxChanges) + " au plus, mémorisés automatiquement et tracés au journal des associations.";
         return new RelationPendingObservations(unsaved.Count, batches, sets.ToImmutable(), text);
     }
 

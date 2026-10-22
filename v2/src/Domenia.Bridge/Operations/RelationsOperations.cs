@@ -58,6 +58,28 @@ public sealed partial class RelationsOperations : IOperationModule
         var exports = RelationExports.From(context);
         // Reads that the simulation serves from memory and that directory mode makes on the controller after a gesture.
         var freshRead = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
+
+        // Automatic memorization of the observations (REL-014, choice of 22/10, like Domenia 1): after each read that brings
+        // observations, by batches of 64, without confirmation; local store only, traced in the technical journal. A refusal
+        // never hides the read: it is traced and the observations stay in memory for the session.
+        async Task<RelationAutoSave?> MemorizeAsync(CancellationToken ct)
+        {
+            try
+            {
+                var saved = await writers.Require<IRelationChangeExecutor>().SaveObservationsAsync(ct).ConfigureAwait(false);
+                if (saved.Saved > 0 || saved.Remaining > 0)
+                {
+                    context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Utilisateurs et postes" + FrenchText.Colon + saved.Text, saved.Remaining > 0 ? Tone.Warn : Tone.Ok));
+                }
+                return saved;
+            }
+            catch (DomeniaOperationException error)
+            {
+                context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), "Utilisateurs et postes" + FrenchText.Colon + "mémorisation automatique refusée (" + error.Code + ")" + FrenchText.Colon + error.Message, Tone.Warn));
+                return null;
+            }
+        }
+
         return
         [
             new OperationDefinition("relations.overview", OperationClass.LocalRead, async (args, _, ct) =>
@@ -147,13 +169,14 @@ public sealed partial class RelationsOperations : IOperationModule
                 {
                     var detection = await readers.Require<IRelationsReader>().ProbeAsync(planId, new Publisher(bridge), stop.Token, ct).ConfigureAwait(false);
                     ReportRefusals(context, detection);
+                    await MemorizeAsync(ct).ConfigureAwait(false);
                     return detection;
                 }
                 finally
                 {
                     probes.Finish(planId, stop);
                 }
-            }, "Phase 2 : lecture de la console des seuls postes du périmètre confirmé, compteurs en direct ; rien n’est enregistré sans plan.", ServedInSimulation: true),
+            }, "Phase 2 : lecture de la console des seuls postes du périmètre confirmé, compteurs en direct ; les comptes observés sont mémorisés automatiquement dans la base locale, par lots de 64.", ServedInSimulation: true),
 
             new OperationDefinition("relations.detect.stop", OperationClass.Local, (args, _, _) =>
             {
@@ -169,8 +192,10 @@ public sealed partial class RelationsOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, DnArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
-                return await readers.Require<IRelationsReader>().ComputerSessionAsync(dn, ct).ConfigureAwait(false);
-            }, "Lit la session console d’un poste (geste explicite) et contrôle l’identité du compte lu.", ServedInSimulation: true),
+                var reading = await readers.Require<IRelationsReader>().ComputerSessionAsync(dn, ct).ConfigureAwait(false);
+                await MemorizeAsync(ct).ConfigureAwait(false);
+                return reading;
+            }, "Lit la session console d’un poste (geste explicite) et contrôle l’identité du compte lu ; un compte de l’annuaire est mémorisé automatiquement dans la base locale.", ServedInSimulation: true),
 
             new OperationDefinition("relations.harvest.estimate", OperationClass.LocalRead, async (args, _, ct) =>
             {
@@ -183,8 +208,10 @@ public sealed partial class RelationsOperations : IOperationModule
             new OperationDefinition("relations.harvest.run", OperationClass.NetworkRead, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, EstimateArguments);
-                return await readers.Require<IRelationsReader>().HarvestAsync(Id(values, "estimateId"), ct).ConfigureAwait(false);
-            }, "Moisson confirmée du journal Sécurité du contrôleur (4768, 4769, 4624) : couples utilisateur-poste, rien d’enregistré.", ServedInSimulation: true),
+                var harvest = await readers.Require<IRelationsReader>().HarvestAsync(Id(values, "estimateId"), ct).ConfigureAwait(false);
+                await MemorizeAsync(ct).ConfigureAwait(false);
+                return harvest;
+            }, "Moisson confirmée du journal Sécurité du contrôleur (4768, 4769, 4624) : couples utilisateur-poste, nouveaux couples mémorisés automatiquement dans la base locale par lots de 64.", ServedInSimulation: true),
 
             new OperationDefinition("relations.journal", OperationClass.LocalRead, async (args, _, ct) =>
             {
@@ -268,6 +295,13 @@ public sealed partial class RelationsOperations : IOperationModule
                 BridgeArguments.RequireNone(args);
                 return await readers.Require<IRelationsReader>().PendingAsync(ct).ConfigureAwait(false);
             }, "Observations gardées par le moteur et pas encore enregistrées, par lecture et par source (lots de 64)."),
+
+            new OperationDefinition("relations.observations.save", OperationClass.LocalWrite, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await MemorizeAsync(ct).ConfigureAwait(false)
+                    ?? throw new DomeniaOperationException(WriteErrors.Stale, "Mémorisation refusée" + FrenchText.Colon + "les observations restent en mémoire pour la session ; le journal technique dit pourquoi.");
+            }, "Mémorise tout de suite les observations de la session dans la base locale, par lots de 64, sans confirmation ; chaque changement est tracé au journal des associations."),
 
             new OperationDefinition("relations.export.save", OperationClass.LocalWrite, async (args, _, ct) =>
             {

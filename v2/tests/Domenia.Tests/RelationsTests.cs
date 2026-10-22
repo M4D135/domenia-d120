@@ -408,7 +408,7 @@ internal static class RelationsTests
             ("relations.orphans.check", OperationClass.NetworkRead), ("relations.compare", OperationClass.LocalRead), ("relations.sweep.plan", OperationClass.LocalRead),
             ("relations.associate.plan", OperationClass.LocalRead), ("relations.remove.plan", OperationClass.LocalRead), ("relations.restore.plan", OperationClass.LocalRead),
             ("relations.import.plan", OperationClass.LocalRead), ("relations.import.undo.plan", OperationClass.LocalRead), ("relations.orphans.plan", OperationClass.LocalRead),
-            ("relations.observations.plan", OperationClass.LocalRead), ("relations.observations.pending", OperationClass.LocalRead),
+            ("relations.observations.plan", OperationClass.LocalRead), ("relations.observations.pending", OperationClass.LocalRead), ("relations.observations.save", OperationClass.LocalWrite),
             ("relations.sweep.forget.plan", OperationClass.LocalRead), ("relations.export.save", OperationClass.LocalWrite), ("relations.export.open", OperationClass.Local),
         ];
         foreach (var (name, operationClass) in expected)
@@ -563,8 +563,8 @@ internal static class RelationsTests
         Check.Equal(planned, bridge.Events.Count(e => e.Operation == "relations.detect.run:progress"), "progression poste par poste");
         if (run.GetProperty("savable").GetInt32() > 0)
         {
-            var save = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = run.GetProperty("resultId").GetString(), keys = Array.Empty<string>() })));
-            Check.Equal("verified", (await ExecuteAsync(bridge, save)).GetProperty("verification").GetString(), "consoles enregistrées");
+            var pending = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
+            Check.Equal(0, pending.GetProperty("total").GetInt32(), "consoles mémorisées automatiquement dans la base locale");
         }
         var root = bridge.Source.World.Directory.Domain.RootDn;
         var refused = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid, login = "j.martin", scope = "ou", ouDn = root, computers = Array.Empty<string>(), limit = 20, kerberos = false })));
@@ -707,25 +707,30 @@ internal static class RelationsTests
     [Test]
     public static async Task Session_observations_are_saved_by_batches_of_64()
     {
+        // Choice of 22/10 (REPRISE.md § 0): the observations join the local store automatically, by batches of 64, without
+        // confirmation, each change traced in the journal of the associations.
         var bridge = new SimulatedBridge();
         var estimate = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.estimate", Args(new { days = 7, maxEvents = 20_000 })));
         var harvest = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.run", Args(new { estimateId = estimate.GetProperty("id").GetString() })));
         var fresh = harvest.GetProperty("newCount").GetInt32();
         Check.True(fresh > WritePlans.MaxChanges, "la moisson apporte plus de 64 nouveaux couples (postes sans association) : " + fresh);
         var pending = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
-        Check.Equal(fresh, pending.GetProperty("total").GetInt32(), "nouveaux couples en mémoire pour la session");
-        Check.True(pending.GetProperty("sets").EnumerateArray().Any(s => s.GetProperty("resultId").GetString() == harvest.GetProperty("resultId").GetString()), "la moisson est listée");
-        var first = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = RelationChange.SessionResultId, keys = Array.Empty<string>() })));
-        Check.Equal(WritePlans.MaxChanges, first.GetProperty("plan").GetProperty("changes").GetArrayLength(), "un lot de 64");
-        Check.True(first.GetProperty("plan").GetProperty("risks").EnumerateArray().Any(r => r.GetProperty("text").GetString()!.Contains("resteront", StringComparison.Ordinal)), "le reste est annoncé");
-        Check.Equal("verified", (await ExecuteAsync(bridge, first)).GetProperty("verification").GetString(), "premier lot relu");
-        var after = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
-        Check.Equal(fresh - WritePlans.MaxChanges, after.GetProperty("total").GetInt32(), "64 de moins en mémoire");
-        var second = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = harvest.GetProperty("resultId").GetString(), keys = Array.Empty<string>() })));
-        Check.True(second.GetProperty("plan").GetProperty("changes").GetArrayLength() > 0, "le lot suivant part avec le même résultat");
-        var keys = second.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]).ToHashSet(StringComparer.Ordinal);
-        var firstKeys = first.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]);
-        Check.False(firstKeys.Any(keys.Contains), "aucune observation enregistrée deux fois");
+        Check.Equal(0, pending.GetProperty("total").GetInt32(), "mémorisés sans confirmation : plus rien en attente");
+        var notes = SimulatedBridge.Json(await bridge.CallAsync("relations.journal")).GetProperty("entries").EnumerateArray()
+            .Select(e => e.GetProperty("note").GetString() ?? "")
+            .Where(n => n.StartsWith(RelationChange.AutoSaveOrigin(1)[..^1], StringComparison.Ordinal))
+            .ToList();
+        Check.Equal(fresh, notes.Count, "une ligne du journal par couple mémorisé");
+        var batches = notes.GroupBy(n => n[..n.IndexOf(FrenchText.Colon, StringComparison.Ordinal)], StringComparer.Ordinal).ToList();
+        Check.Equal((fresh + WritePlans.MaxChanges - 1) / WritePlans.MaxChanges, batches.Count, "lots de 64");
+        Check.True(batches.All(b => b.Count() <= WritePlans.MaxChanges), "64 changements par lot au plus");
+        var newKeys = harvest.GetProperty("couples").EnumerateArray().Where(r => !r.GetProperty("known").GetBoolean()).Select(r => r.GetProperty("key").GetString()).ToHashSet(StringComparer.Ordinal);
+        var rows = SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray().Where(r => newKeys.Contains(r.GetProperty("key").GetString())).ToList();
+        Check.Equal(newKeys.Count, rows.Count, "chaque nouveau couple est listé");
+        Check.True(rows.All(r => r.GetProperty("persistence").GetString() == "stored"), "enregistrés dans la base locale, plus « Session uniquement »");
+        Check.True(bridge.Context.Journal.Snapshot().Any(j => j.Label.Contains("mémorisées automatiquement", StringComparison.Ordinal)), "journal technique");
+        var again = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.save"));
+        Check.Equal(0, again.GetProperty("saved").GetInt32(), "aucune observation mémorisée deux fois");
     }
 
     [Test]
