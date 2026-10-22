@@ -21,3 +21,15 @@ public interface IDirectoryRefreshPreparation
     bool CanPrepareDirectoryRefresh { get; }
     Task<DirectoryBackupReceipt> PrepareDirectoryRefreshAsync(CancellationToken cancellationToken);
 }
+
+/// <summary>Partial object reads never replace a census checkpoint or remove unseen identities.</summary>
+public interface IObjectDirectoryCache : IDirectoryCache
+{
+    Task<DirectorySnapshot?> ReadKnownAsync(CancellationToken cancellationToken);
+    Task<DirectorySnapshot> SaveObjectsAsync(DirectorySnapshot objects, string? controller, CancellationToken cancellationToken);
+}
+
+public interface ILegacySearchCache
+{
+    Task<System.Collections.Immutable.ImmutableArray<SearchLegacySaved>> ReadLegacySearchesAsync(CancellationToken cancellationToken);
+}

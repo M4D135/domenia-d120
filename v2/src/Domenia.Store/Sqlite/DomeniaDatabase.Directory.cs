@@ -14,15 +14,16 @@ public sealed partial class DomeniaDatabase
 {
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, MaxDepth = 40 };
     private sealed record StoredObject(Guid Guid, string Kind, string Dn, string Json);
-    private sealed record StoredDirectoryHeader(DomainInfo Domain, ScopeSelection Scope, DateTimeOffset ReadAt, bool Complete, string? Controller = null);
+    private sealed record StoredDirectoryHeader(DomainInfo Domain, ScopeSelection Scope, DateTimeOffset ReadAt, bool Complete, string? Controller = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool PointRead = false);
 
     /// <summary>Immutable, hashed JSONL stage; one transaction; a replay returns the original receipt.</summary>
-    public async Task<DirectoryCommitReceipt> SaveDirectoryAsync(string batchId, DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken)
+    public async Task<DirectoryCommitReceipt> SaveDirectoryAsync(string batchId, DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken, bool preserveCoverage = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(scope);
         if (!Guid.TryParseExact(batchId, "D", out _) || !string.Equals(snapshot.Domain.RootDn, DomainDn, StringComparison.OrdinalIgnoreCase)
-            || !InDomain(scope.Dn) || snapshot.ReadAt == DateTimeOffset.MinValue || snapshot.ReadAt > clock.GetUtcNow().AddMinutes(2))
+            || !InDomain(scope.Dn) || !preserveCoverage && snapshot.Coverage is not null && !ScopeRules.SameScope(snapshot.Coverage, scope)
+            || snapshot.ReadAt == DateTimeOffset.MinValue || snapshot.ReadAt > clock.GetUtcNow().AddMinutes(2) || preserveCoverage && snapshot.Complete)
         {
             throw new ArgumentException("Identité ou périmètre du lot de stockage invalide.");
         }
@@ -34,7 +35,7 @@ public sealed partial class DomeniaDatabase
         {
             throw new InvalidDataException("Lot hors périmètre ou identités dupliquées : aucune écriture.");
         }
-        var header = new StoredDirectoryHeader(snapshot.Domain, scope, snapshot.ReadAt, snapshot.Complete, controller);
+        var header = new StoredDirectoryHeader(snapshot.Domain, scope, snapshot.ReadAt, snapshot.Complete, controller, preserveCoverage);
         var payload = JsonSerializer.Serialize(header, Json) + "\n" + string.Join("\n", objects.Select(o => JsonSerializer.Serialize(o, Json))) + "\n";
         var bytes = Encoding.UTF8.GetBytes(payload);
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
@@ -85,7 +86,7 @@ public sealed partial class DomeniaDatabase
                 }
                 var oldHeaderJson = db.Scalar("SELECT payload FROM domenia_v2_metadata WHERE key='directory';") as string;
                 var oldHeader = oldHeaderJson is null ? null : JsonSerializer.Deserialize<StoredDirectoryHeader>(oldHeaderJson, Json);
-                if (oldHeader is null || oldHeader.ReadAt <= header.ReadAt)
+                if (oldHeader is null || !preserveCoverage && oldHeader.ReadAt <= header.ReadAt)
                 {
                     db.Execute("INSERT OR REPLACE INTO domenia_v2_metadata(key,payload) VALUES('directory',?1);", JsonSerializer.Serialize(header, Json));
                 }
@@ -107,7 +108,7 @@ public sealed partial class DomeniaDatabase
         finally { writer.Release(); }
     }
 
-    public Task<DirectorySnapshot?> ReadDirectoryAsync(CancellationToken cancellationToken) => Task.Run(() =>
+    public Task<DirectorySnapshot?> ReadDirectoryAsync(CancellationToken cancellationToken, bool allKnown = false) => Task.Run(() =>
     {
         CompatibleDirectoryCache.ValidateLocalPath(Path);
         if (!File.Exists(Path)) { return null; }
@@ -119,6 +120,7 @@ public sealed partial class DomeniaDatabase
         if (raw is null) { db.Commit(); return null; }
         var header = JsonSerializer.Deserialize<StoredDirectoryHeader>(raw, Json) ?? throw new InvalidDataException("Contexte du relevé illisible.");
         if (!string.Equals(header.Domain.RootDn, DomainDn, StringComparison.OrdinalIgnoreCase) || !InDomain(header.Scope.Dn)) { throw new InvalidDataException("Relevé d’un autre domaine."); }
+        var observedAt = ImmutableDictionary.CreateBuilder<Guid, DateTimeOffset>();
         var ous = ImmutableArray.CreateBuilder<DirectoryOu>();
         var users = ImmutableArray.CreateBuilder<DirectoryUser>();
         var computers = ImmutableArray.CreateBuilder<DirectoryComputer>();
@@ -127,7 +129,7 @@ public sealed partial class DomeniaDatabase
         {
             var dn = (string)row["dn"]!;
             if (!InDomain(dn)) { throw new InvalidDataException("Projection locale hors domaine."); }
-            if (!InReadScope(header.Scope, dn)) { continue; }
+            if (!allKnown && !InReadScope(header.Scope, dn)) { continue; }
             var json = (string)row["payload"]!;
             object? item = (string)row["kind"]! switch
             {
@@ -144,6 +146,9 @@ public sealed partial class DomeniaDatabase
                 _ => throw new InvalidDataException("Projection locale vide."),
             };
             if (identity.Item1.ToString("D") != (string)row["object_guid"]! || identity.Item2 != dn) { throw new InvalidDataException("Identité de projection incohérente."); }
+            if (!DateTimeOffset.TryParse((string?)row["observed_at"], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var seen)
+                || seen == DateTimeOffset.MinValue || seen > clock.GetUtcNow().AddMinutes(2)) { throw new InvalidDataException("Date de projection locale invalide."); }
+            observedAt.Add(identity.Item1, seen);
             switch (item)
             {
                 case DirectoryOu o: ous.Add(o); break;
@@ -154,7 +159,7 @@ public sealed partial class DomeniaDatabase
         }
         db.Commit();
         // Retained objects can predate the last pass; the union is never presented as a complete fresh census.
-        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Coverage = header.Scope };
+        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Coverage = header.Scope, ObjectReadAt = observedAt.ToImmutable() };
     }, cancellationToken);
 
     private void EnsureBackup(SqliteDatabase db, CancellationToken token)

@@ -1,10 +1,14 @@
 using System.Collections.Immutable;
+using Domenia.Core.Poste;
 
 namespace Domenia.Core.Accueil;
 
 /// <summary>Typed local readings, separate from the AD object cache and from UI preferences.</summary>
 public sealed record CachedFleet(FleetObservations Observations, AccueilFacts Facts, ProbeReadings Probes)
 {
+    public ImmutableDictionary<Guid, ImmutableArray<SearchAddressReading>> Addresses { get; init; } = ImmutableDictionary<Guid, ImmutableArray<SearchAddressReading>>.Empty;
+    public ImmutableDictionary<Guid, InventorySnapshot> Inventories { get; init; } = ImmutableDictionary<Guid, InventorySnapshot>.Empty;
+
     public static CachedFleet Empty(string storeId) => new(FleetObservations.Empty, AccueilFacts.Empty(storeId), ProbeReadings.Empty);
 
     public CachedFleet Merge(FleetCachePatch patch)
@@ -41,12 +45,25 @@ public sealed record CachedFleet(FleetObservations Observations, AccueilFacts Fa
             else if (next.At >= bitlocker[index].At) { bitlocker[index] = next; }
         }
         var at = patch.Observations.TakenAt >= Observations.TakenAt || Observations.TakenAt is null ? patch.Observations.TakenAt : Observations.TakenAt;
-        return new(new(at, [.. observations.Values]), Facts with { Machines = machines, BitLocker = [.. bitlocker] }, Probes.Merge(patch.Probes));
+        var addresses = Addresses;
+        foreach (var (id, next) in patch.Addresses)
+        {
+            if (!addresses.TryGetValue(id, out var old) || next.Max(a => a.ObservedAt) >= old.Max(a => a.ObservedAt)) { addresses = addresses.SetItem(id, next); }
+        }
+        var inventories = Inventories;
+        foreach (var (id, next) in patch.Inventories)
+        {
+            if (!inventories.TryGetValue(id, out var old) || next.CollectedAt >= old.CollectedAt) { inventories = inventories.SetItem(id, next); }
+        }
+        return new(new(at, [.. observations.Values]), Facts with { Machines = machines, BitLocker = [.. bitlocker] }, Probes.Merge(patch.Probes)) { Addresses = addresses, Inventories = inventories };
     }
 }
 
 public sealed record FleetCachePatch(FleetObservations Observations, ImmutableDictionary<Guid, MachineFacts> Machines, ImmutableArray<BitLockerPresence> BitLocker, ProbeReadings Probes)
 {
+    public ImmutableDictionary<Guid, ImmutableArray<SearchAddressReading>> Addresses { get; init; } = ImmutableDictionary<Guid, ImmutableArray<SearchAddressReading>>.Empty;
+    public ImmutableDictionary<Guid, InventorySnapshot> Inventories { get; init; } = ImmutableDictionary<Guid, InventorySnapshot>.Empty;
+
     public static FleetCachePatch Empty { get; } = new(FleetObservations.Empty, ImmutableDictionary<Guid, MachineFacts>.Empty, [], ProbeReadings.Empty);
 }
 

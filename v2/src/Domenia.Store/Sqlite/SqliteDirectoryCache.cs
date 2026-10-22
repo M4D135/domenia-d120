@@ -5,7 +5,7 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache
 {
     public Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) => Database.ReadFleetHistoryAsync(scope, cancellationToken);
 
@@ -25,6 +25,16 @@ public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDi
         await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
         var backup = await Database.PrepareReadAsync(cancellationToken).ConfigureAwait(false);
         return new(Database.StoreId, backup.Sha256, backup.At);
+    }
+
+    public Task<DirectorySnapshot?> ReadKnownAsync(CancellationToken cancellationToken) => Database.ReadDirectoryAsync(cancellationToken, allKnown: true);
+
+    public async Task<DirectorySnapshot> SaveObjectsAsync(DirectorySnapshot objects, string? controller, CancellationToken cancellationToken)
+    {
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        var scope = new ScopeSelection(objects.Domain.RootDn, objects.Domain.DnsName, true);
+        await Database.SaveDirectoryAsync(Guid.NewGuid().ToString("D"), objects with { Complete = false }, scope, controller, cancellationToken, preserveCoverage: true).ConfigureAwait(false);
+        return await ReadKnownAsync(cancellationToken).ConfigureAwait(false) ?? throw new InvalidDataException("Projection absente après stockage du relevé.");
     }
 
     public async Task SaveAsync(DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken)

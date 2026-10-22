@@ -200,7 +200,7 @@ une recherche texte sur tout le domaine n’a pas d’OU à épingler ; la liste
 
 ## 7. Mode annuaire
 
-Lectures faites par `Domenia.Ad` (non branché dans cette version : `source.unavailable`), toujours hors du fil de
+Lectures raccordées par `Domenia.Ad/AdSearchReader` le 23 octobre 2026 (compilées, recette fonctionnelle encore à effectuer), toujours hors du fil de
 l’interface, annulables, sur le contrôleur lié à la session. Les budgets sont des plafonds : une lecture tronquée le dit
 (`limitReached`, `absence`).
 
@@ -273,3 +273,13 @@ Aucun relevé ne porte sur tout le domaine.
   (aujourd’hui la page intercepte le menu), colonnes exclues du sélecteur, colonnes extensibles ; état déplié de l’arbre
   et rappel à l’ouverture ou à la fermeture d’une branche (RCH-045) ; opération hôte d’enregistrement de fichier (export
   CSV en fichier, RCH-069) ; évènement moteur `session.changed` (RCH-136 : la page relit la session au retour du focus).
+
+### Raccordement du 23 octobre 2026
+
+Les pages LDAP utilisent une reprise opaque `phase:nom AD brut` ; les noms identiques déjà affichés sont écartés par GUID, sans repli des accents dans la clé envoyée au contrôleur. La borne inclut les identités déjà affichées pour permettre une sentinelle même parmi des homonymes. Les trois passes partagent un budget total de 30 s (60 s pour « contient »), préparation locale incluse. La réponse du contrôle de tri est vérifiée. Un budget dépassé ne publie pas de liste présentée complète.
+
+Le stockage des lectures ciblées ne remplace pas le dernier repère de census de l’OU. Chaque objet garde sa date d’observation ; le cache peut réunir des objets de lectures différentes et reste explicitement partiel. Une relecture GUID retourne seulement les objets réellement retrouvés, même si une ancienne projection est conservée pour consultation.
+
+Les relevés de recherche passent par des périmètres CIM de 15 ou 30 s et vérifient le nom retourné par le poste avant de mémoriser l’inventaire. Ils conservent le ping terminé avant de commencer CIM. Le disque système est celui de `Win32_OperatingSystem.SystemDrive`, les adresses sont les IPv4 observées et datées. Le mode complet n’interroge ni les processus ni MSI. La sauvegarde locale des résultats est relue avant publication. La prise en charge du compte secondaire et du transport WSMan reste à raccorder au service partagé des comptes ; les requêtes présentes utilisent le contexte Windows de la session.
+
+Validation actuelle : compilation Debug/Release sans avertissement, 11 tests nouveaux compilés ; tests et recette VM/AD à exécuter en fin de développement. Les repères `invocationId`/USN de réconciliation et l’import des anciennes observations D1 seront finalisés avec Synchronisation.

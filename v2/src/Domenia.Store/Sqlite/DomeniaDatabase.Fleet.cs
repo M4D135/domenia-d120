@@ -37,6 +37,7 @@ public sealed partial class DomeniaDatabase
                 var identities = db.Query("SELECT object_guid,dn FROM domenia_v2_objects WHERE kind='computer';")
                     .ToDictionary(r => Guid.Parse((string)r["object_guid"]!), r => (string)r["dn"]!);
                 var ids = patch.Observations.Workstations.Select(o => o.ComputerGuid).Concat(patch.Machines.Keys)
+                    .Concat(patch.Addresses.Keys).Concat(patch.Inventories.Keys)
                     .Concat(patch.Probes.ByProbe.Values.SelectMany(p => p.Keys)).Concat(patch.BitLocker.SelectMany(p => p.Machines.Keys));
                 if (ids.Any(id => !identities.TryGetValue(id, out var dn) || !InDomain(dn)))
                 { throw new InvalidDataException("Relevé d’un poste inconnu ou d’un autre domaine : aucune écriture."); }
@@ -45,9 +46,13 @@ public sealed partial class DomeniaDatabase
                 var dates = patch.Observations.Workstations.SelectMany(o => new[] { o.Presence.CheckedAt, o.Presence.LastOnlineAt, o.Inventory.CheckedAt })
                     .Concat(patch.Machines.Values.SelectMany(m => new[] { m.ConsoleAt, m.BiosAt, m.WmiAt }))
                     .Concat(patch.Probes.ByProbe.Values.SelectMany(p => p.Values.Select(v => v.At)))
-                    .Concat(patch.BitLocker.Select(b => (DateTimeOffset?)b.At)).Append(patch.Observations.TakenAt);
+                    .Concat(patch.BitLocker.Select(b => (DateTimeOffset?)b.At)).Concat(patch.Addresses.Values.SelectMany(v => v.Select(a => a.ObservedAt)))
+                    .Concat(patch.Inventories.Values.Select(v => (DateTimeOffset?)v.CollectedAt)).Append(patch.Observations.TakenAt);
                 if (dates.Any(d => d == DateTimeOffset.MinValue || d > clock.GetUtcNow().AddMinutes(2)))
                 { throw new InvalidDataException("Date de relevé invalide ou future."); }
+                if (patch.Addresses.Values.Any(v => v.IsDefaultOrEmpty || v.Length > 256 || v.Any(a => a.ObservedAt is null
+                    || a.Ip is not null && SearchText.ParseAddress(a.Ip)?.Kind != "ipv4" || a.Mac is not null && SearchText.ParseAddress(a.Mac)?.Kind != "mac")))
+                { throw new InvalidDataException("Adresses de poste invalides ou non datées."); }
                 foreach (var presence in patch.BitLocker)
                 {
                     var scope = new ScopeSelection(presence.ScopeDn, "", presence.Subtree);

@@ -133,6 +133,10 @@ public sealed record DirectorySnapshot(
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ScopeSelection? Coverage { get; init; }
 
+    /// <summary>Per-object observation times of a retained local union; absent on a single fresh read.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableDictionary<Guid, DateTimeOffset>? ObjectReadAt { get; init; }
+
     /// <summary>Whether the recorded branch includes the requested branch and its depth, independently of truncation.</summary>
     public bool IncludesScope(ScopeSelection requested) => Coverage is null
         || ScopeRules.SameScope(Coverage, requested)

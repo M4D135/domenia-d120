@@ -34,7 +34,11 @@ public enum InventoryTransport
 /// <summary>Access report line of one source (Domenia 1 DgInventoryAccess).</summary>
 public sealed record SourceAccess(string Category, SourceStatus Status, string Detail, int DurationMs, int Items, InventoryTransport Transport);
 
-public sealed record OsInfo(string Caption, string Version, string Build, int? Revision, string Architecture, int? Language, DateTimeOffset? InstallDate, DateTimeOffset? LastBoot, int? DomainRole, string? Domain, DateTimeOffset? LocalClock);
+public sealed record OsInfo(string Caption, string Version, string Build, int? Revision, string Architecture, int? Language, DateTimeOffset? InstallDate, DateTimeOffset? LastBoot, int? DomainRole, string? Domain, DateTimeOffset? LocalClock)
+{
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? SystemDrive { get; init; }
+}
 
 public sealed record SystemInfo(string Manufacturer, string Model, string? SerialNumber, ImmutableArray<int> ChassisTypes, int? PcSystemType, long? TotalPhysicalMemory, int? LogicalProcessors, string? Hypervisor, string? UserName);
 
@@ -174,6 +178,10 @@ public sealed record InventorySnapshot(
     ImmutableArray<CertificateEntry> Certificates,
     ImmutableArray<ConnectionEntry> Connections)
 {
+    /// <summary>Machine identity returned by CIM, separate from the requested DNS target.</summary>
+    [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReportedName { get; init; }
+
     /// <summary>Status of one category of the access report (Skipped when the category was not part of this reading).</summary>
     public SourceStatus StatusOf(string category) =>
         Access.FirstOrDefault(a => string.Equals(a.Category, category, StringComparison.Ordinal))?.Status ?? SourceStatus.Skipped;

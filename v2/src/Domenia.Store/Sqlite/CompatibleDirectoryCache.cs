@@ -8,7 +8,7 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Deferred local discovery of the Domenia 1 layout. No disk or network in the constructor.</summary>
-public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache
+public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, ILegacySearchCache
 {
     private readonly SemaphoreSlim loading = new(1, 1);
     private SqliteDirectoryCache? cache;
@@ -30,6 +30,24 @@ public sealed class CompatibleDirectoryCache(string appFolder, string userFolder
 
     public async Task SaveAsync(DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).SaveAsync(snapshot, scope, controller, cancellationToken).ConfigureAwait(false);
+
+    public async Task<DirectorySnapshot?> ReadKnownAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadKnownAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<DirectorySnapshot> SaveObjectsAsync(DirectorySnapshot objects, string? controller, CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).SaveObjectsAsync(objects, controller, cancellationToken).ConfigureAwait(false);
+
+    public async Task<ImmutableArray<SearchLegacySaved>> ReadLegacySearchesAsync(CancellationToken cancellationToken)
+    {
+        if (isolated) { return []; }
+        var db = await DatabaseAsync(cancellationToken).ConfigureAwait(false);
+        var parent = System.IO.Path.GetDirectoryName(db.Path)!;
+        var data = string.Equals(System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(parent)), "Domains", StringComparison.OrdinalIgnoreCase)
+            ? System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(parent))! : parent;
+        return await Task.Run(() => LegacySearchFile.Read([
+            System.IO.Path.Combine(data, "Preferences", "Domenia.settings.json"), System.IO.Path.Combine(data, "Domenia.settings.json"),
+            System.IO.Path.Combine(appFolder, "Domenia.settings.json"), System.IO.Path.Combine(data, "ADCC.settings.json"), System.IO.Path.Combine(appFolder, "ADCC.settings.json")], db.DomainDn, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<DomeniaDatabase> DatabaseAsync(CancellationToken cancellationToken) => (await CacheAsync(cancellationToken).ConfigureAwait(false)).Database;
 

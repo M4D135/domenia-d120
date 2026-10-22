@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Net;
+using System.Net.Sockets;
 using Domenia.Core;
 using Domenia.Core.Poste;
 
@@ -13,6 +15,12 @@ public enum WorkstationReading
 {
     /// <summary>Live state (10 s): uptime, console account, sessions.</summary>
     Live,
+
+    /// <summary>Search survey: system, volumes and addresses in 15 seconds.</summary>
+    Survey,
+
+    /// <summary>Search survey plus BIOS, TPM, hotfixes and automatic stopped services, in 30 seconds.</summary>
+    SurveyComplete,
 
     /// <summary>Quick inventory (55 s): system, hardware, disks, BitLocker, TPM, network, protection, updates, services.</summary>
     Quick,
@@ -58,7 +66,7 @@ public sealed class WmiWorkstationReader
     private const string SecurityCenter = @"root\SecurityCenter2";
 
     private const string OperatingSystemQuery =
-        "SELECT Caption, Version, BuildNumber, OSLanguage, OSArchitecture, InstallDate, LastBootUpTime, LocalDateTime, TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem";
+        "SELECT Caption, Version, BuildNumber, OSLanguage, OSArchitecture, InstallDate, LastBootUpTime, LocalDateTime, TotalVisibleMemorySize, FreePhysicalMemory, SystemDrive FROM Win32_OperatingSystem";
 
     private const string ComputerSystemQuery =
         "SELECT Name, Domain, Manufacturer, Model, TotalPhysicalMemory, NumberOfLogicalProcessors, UserName, DomainRole, SystemType, PCSystemType FROM Win32_ComputerSystem";
@@ -95,7 +103,7 @@ public sealed class WmiWorkstationReader
         }
 
         var budget = Budget(reading);
-        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var workToken = stop.Token;
         var latest = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, InventoryTransport.Dcom);
         var work = Task.Run(() => Read(host, reading, progress, workToken, value => Volatile.Write(ref latest, value)), CancellationToken.None);
@@ -115,6 +123,7 @@ public sealed class WmiWorkstationReader
             journal?.Info("Lecture de " + host + " abandonnée : budget dépassé (" + reading + ").");
             return Interrupted(Volatile.Read(ref latest), reading, "lecture arrêtée ou budget atteint");
         }
+        finally { DisposeAfter(work, stop); }
     }
 
     /// <summary>
@@ -132,7 +141,7 @@ public sealed class WmiWorkstationReader
             return null;
         }
 
-        using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var workToken = stop.Token;
         var work = Task.Run(() =>
         {
@@ -152,11 +161,20 @@ public sealed class WmiWorkstationReader
             journal?.Info("Session de " + host + " non lue : délai dépassé.");
             return new ConsoleAccountReading(host, SourceStatus.Interrupted, null, null);
         }
+        finally { DisposeAfter(work, stop); }
+    }
+
+    private static void DisposeAfter(Task work, CancellationTokenSource stop)
+    {
+        if (work.IsCompleted) { stop.Dispose(); }
+        else { _ = work.ContinueWith(t => { _ = t.Exception; stop.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default); }
     }
 
     /// <summary>Budget announced to the operator for one scope (docs/ops/poste.md § 8.3).</summary>
     public static TimeSpan Budget(WorkstationReading reading) => reading switch
     {
+        WorkstationReading.Survey => TimeSpan.FromSeconds(15),
+        WorkstationReading.SurveyComplete => TimeSpan.FromSeconds(30),
         WorkstationReading.Live => CimBudgets.Live,
         WorkstationReading.Quick => CimBudgets.QuickInventory,
         WorkstationReading.Full => CimBudgets.FullInventory,
@@ -219,6 +237,19 @@ public sealed class WmiWorkstationReader
     /// <summary>The sources of one scope, in reading order (Domenia 1 worker order, quick first and deep last).</summary>
     private static List<Step> Steps(WorkstationReading reading) => reading switch
     {
+        WorkstationReading.Survey or WorkstationReading.SurveyComplete =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
+            new(InventoryCategories.Volumes, "Disques logiques", static (session, current, access, token) => ReadVolumes(session, current, access, token)),
+            new(InventoryCategories.Network, "Cartes réseau", static (session, current, access, token) => ReadNetwork(session, current, access, token)),
+            .. reading == WorkstationReading.SurveyComplete ? new[]
+            {
+                new Step(InventoryCategories.Bios, "BIOS", static (session, current, access, token) => ReadBios(session, current, access, token)),
+                new Step(InventoryCategories.Tpm, "TPM", static (session, current, access, token) => ReadTpm(session, current, access, token)),
+                new Step(InventoryCategories.Hotfixes, "Correctifs", static (session, current, access, token) => ReadHotfixes(session, current, access, token)),
+                new Step(InventoryCategories.Services, "Services automatiques arrêtés", static (session, current, access, token) => ReadServices(session, current, access, token, automaticStopped: true)),
+            } : [],
+        ],
         WorkstationReading.Live =>
         [
             new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),
@@ -321,6 +352,7 @@ public sealed class WmiWorkstationReader
         token.ThrowIfCancellationRequested();
         return current with
         {
+            ReportedName = cs?.Text("Name"),
             Os = os is null && cs is null
                 ? null
                 : new OsInfo(
@@ -334,7 +366,7 @@ public sealed class WmiWorkstationReader
                     os?.Dmtf("LastBootUpTime"),
                     cs?.Int("DomainRole"),
                     cs?.Text("Domain"),
-                    os?.Dmtf("LocalDateTime")),
+                    os?.Dmtf("LocalDateTime")) { SystemDrive = os?.Text("SystemDrive") },
             System = cs is null && chassis.Length == 0
                 ? null
                 : new SystemInfo(
@@ -568,11 +600,10 @@ public sealed class WmiWorkstationReader
             {
                 var mac = adapter.Text("MACAddress");
                 var configuration = mac is null ? null : byMac.GetValueOrDefault(mac);
-                int? prefix = null;
-                if (configuration?.Strings("IPSubnet").FirstOrDefault() is { Length: > 0 } mask && int.TryParse(mask, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-                {
-                    prefix = parsed;
-                }
+                var addresses = configuration?.Strings("IPAddress") ?? [];
+                var masks = configuration?.Strings("IPSubnet") ?? [];
+                var first = Array.FindIndex(addresses, a => IPAddress.TryParse(a, out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork);
+                var prefix = first >= 0 && first < masks.Length ? Ipv4Prefix(masks[first]) : null;
 
                 rows.Add(new NetworkAdapter(
                     adapter.Text("Name") ?? "",
@@ -581,7 +612,7 @@ public sealed class WmiWorkstationReader
                     mac,
                     true,
                     false,
-                    [.. configuration?.Strings("IPAddress") ?? Array.Empty<string>()],
+                    [.. addresses.Where(a => IPAddress.TryParse(a, out var parsed) && parsed.AddressFamily == AddressFamily.InterNetwork)],
                     prefix,
                     configuration?.Strings("DefaultIPGateway").FirstOrDefault(),
                     [.. configuration?.Strings("DNSServerSearchOrder") ?? Array.Empty<string>()],
@@ -592,6 +623,24 @@ public sealed class WmiWorkstationReader
 
         token.ThrowIfCancellationRequested();
         return current with { Network = [.. rows] };
+    }
+
+    internal static int? Ipv4Prefix(string mask)
+    {
+        if (int.TryParse(mask, NumberStyles.None, CultureInfo.InvariantCulture, out var prefix)) { return prefix is >= 0 and <= 32 ? prefix : null; }
+        if (!IPAddress.TryParse(mask, out var address) || address.AddressFamily != AddressFamily.InterNetwork) { return null; }
+        var zeros = false;
+        var ones = 0;
+        foreach (var octet in address.GetAddressBytes())
+        {
+            for (var bit = 7; bit >= 0; bit--)
+            {
+                if ((octet & (1 << bit)) == 0) { zeros = true; }
+                else if (zeros) { return null; }
+                else { ones++; }
+            }
+        }
+        return ones;
     }
 
     private static InventorySnapshot ReadAntivirus(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
@@ -640,9 +689,9 @@ public sealed class WmiWorkstationReader
         return current with { Updates = null };
     }
 
-    private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token)
+    private static InventorySnapshot ReadServices(CimSession session, InventorySnapshot current, List<SourceAccess> access, CancellationToken token, bool automaticStopped = false)
     {
-        var reading = session.Read(InventoryCategories.Services, Cimv2, "SELECT Name, DisplayName, State, StartMode, DelayedAutoStart, ProcessId, StartName, ExitCode, Description FROM Win32_Service", CimBudgets.ServicesCap, CimBudgets.Services);
+        var reading = session.Read(InventoryCategories.Services, Cimv2, "SELECT Name, DisplayName, State, StartMode, DelayedAutoStart, ProcessId, StartName, ExitCode, Description FROM Win32_Service" + (automaticStopped ? " WHERE StartMode='Auto' AND State<>'Running'" : ""), CimBudgets.ServicesCap, CimBudgets.Services);
         AddAccess(access, session, InventoryCategories.Services, reading);
         if (!reading.Answered)
         {

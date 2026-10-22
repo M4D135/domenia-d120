@@ -215,7 +215,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         {
             lock (gate) { if (localLoaded) { return; } }
             var generation = Epoch;
-            var loaded = await LocalStore.ReadAsync(token).ConfigureAwait(false);
+            var loaded = LocalStore is IObjectDirectoryCache objects ? await objects.ReadKnownAsync(token).ConfigureAwait(false) : await LocalStore.ReadAsync(token).ConfigureAwait(false);
             var readings = LocalStore is IAccueilCache cache ? await cache.ReadFleetAsync(token).ConfigureAwait(false) : CachedFleet.Empty("session");
             lock (gate)
             {
@@ -230,6 +230,54 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         }
         finally { loadingLocal.Release(); }
     }
+
+    /// <summary>Publishes a point read only after its durable acknowledgement; shares the refresh lock with census reads.</summary>
+    internal async Task RememberObjectsAsync(DirectorySnapshot objects, long generation, CancellationToken token)
+    {
+        await LoadLocalAsync(token).ConfigureAwait(false);
+        await refreshing.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            if (Epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée pendant la lecture : publication annulée."); }
+            DirectorySnapshot saved;
+            if (LocalStore is IObjectDirectoryCache cache)
+            {
+                saved = await cache.SaveObjectsAsync(objects, ControllerName, token).ConfigureAwait(false);
+            }
+            else if (LocalStore is not null)
+            {
+                throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "La base locale ne permet pas de conserver les lectures ciblées.");
+            }
+            else
+            {
+                var old = CurrentDirectory;
+                if (old is null) { saved = objects; }
+                else
+                {
+                    var dates = old.ObjectReadAt ?? SearchRowFactory.Candidates(old).ToImmutableDictionary(c => c.Id, _ => old.ReadAt);
+                    var next = SearchRowFactory.Candidates(objects).Where(c => objects.ReadAt >= dates.GetValueOrDefault(c.Id, DateTimeOffset.MinValue)).Select(c => c.Id).ToHashSet();
+                    foreach (var id in next) { dates = dates.SetItem(id, objects.ReadAt); }
+                    saved = old with
+                    {
+                        Complete = false, ObjectReadAt = dates,
+                        OrganizationalUnits = Merge(old.OrganizationalUnits, [.. objects.OrganizationalUnits.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
+                        Users = Merge(old.Users, [.. objects.Users.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
+                        Computers = Merge(old.Computers, [.. objects.Computers.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
+                        Groups = Merge(old.Groups, [.. objects.Groups.Where(o => next.Contains(o.ObjectGuid))], o => o.ObjectGuid),
+                    };
+                }
+            }
+            lock (gate)
+            {
+                if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée avant la publication du relevé."); }
+                state = (state ?? Empty(objects.Domain)) with { Directory = saved };
+            }
+        }
+        finally { refreshing.Release(); }
+    }
+
+    private static ImmutableArray<T> Merge<T>(ImmutableArray<T> before, ImmutableArray<T> after, Func<T, Guid> identity) =>
+        [.. before.Concat(after).GroupBy(identity).Select(g => g.Last())];
 
     public async Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken)
     {
