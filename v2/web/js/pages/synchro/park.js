@@ -90,7 +90,7 @@ function sharedResultMarkup(r) {
       <ul class="sy-res-chips"><li data-tone="info">${glyph('download')}<b>${int(r.received)}</b><span>Lignes reçues</span></li><li data-tone="ok">${glyph('plus')}<b>${int(r.added)}</b><span>Postes ajoutés</span></li><li data-tone="accent">${glyph('refresh')}<b>${int(r.updated)}</b><span>Relevés actualisés</span></li><li data-tone="off">${glyph('layers')}<b>${int(r.kept)}</b><span>À partager</span></li></ul>
       <p class="sy-muted">${icon('info')}<span>${esc(r.text)}</span></p>
       ${rows ? `<details class="sy-res-details"><summary>${glyph('eye')}${esc(`${count(r.rows.length, 'poste diffère', 'postes diffèrent')} entre les deux relevés`)}</summary><ul class="sy-res-list">${rows}</ul></details>` : ''}
-      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { pk: 'dismiss' } })}${button('Fusionner et écrire…', { icon: 'database', primary: true, kind: 'write', data: { pk: 'merge' }, disabled: !r.storable })}</div>
+      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { pk: 'dismiss' } })}${button('Fusionner et écrire…', { icon: 'database', subtle: true, kind: 'write', data: { pk: 'merge' }, disabled: !r.storable })}</div>
     </div>`;
 }
 

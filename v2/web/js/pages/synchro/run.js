@@ -102,7 +102,7 @@ export function createRunPanel(host, screen) {
     show(`<section class="card sy-run sy-pending reveal in" aria-label="Lecture en attente d’enregistrement">
         <div class="sy-run-head"><span class="sy-run-badge" data-tone="warn">${glyph('download')}</span>
           <div class="sy-run-titles"><h2>Une lecture attend son enregistrement</h2><p>${esc(pending.label)} · ${count(pending.count, 'objet', 'objets')} · gardée jusqu’à ${esc(hour(pending.expiresAt))}</p></div>
-          <div class="sy-run-actions">${button('Écarter', { ghost: true, data: { run: 'discard-pending' }, tip: 'Ne plus proposer cette lecture à l’enregistrement (rien n’est écrit).' })}${button('Revoir et enregistrer…', { icon: 'database', primary: true, kind: 'write', data: { run: 'store-pending' } })}</div></div>
+          <div class="sy-run-actions">${button('Écarter', { ghost: true, data: { run: 'discard-pending' }, tip: 'Ne plus proposer cette lecture à l’enregistrement (rien n’est écrit).' })}${button('Revoir et enregistrer…', { icon: 'database', subtle: true, kind: 'write', data: { run: 'store-pending' } })}</div></div>
       </section>`);
   }
 
@@ -176,7 +176,7 @@ export function createRunPanel(host, screen) {
         </div>
         <footer class="sy-run-foot">
           <p>${icon('shield')}<span>Rien n’est encore écrit. L’enregistrement passe par un plan à confirmer, avec reçu et relecture de la base${NBSP}; Active Directory n’est jamais modifié.</span></p>
-          <div class="sy-run-foot-actions">${button('Ignorer cette lecture', { ghost: true, data: { run: 'discard' }, tip: 'Écarte la lecture du moteur : elle ne sera plus proposée à l’enregistrement.' })}${button('Enregistrer dans la base locale…', { icon: 'database', primary: true, kind: 'write', data: { run: 'store' } })}</div>
+          <div class="sy-run-foot-actions">${button('Ignorer cette lecture', { ghost: true, data: { run: 'discard' }, tip: 'Écarte la lecture du moteur : elle ne sera plus proposée à l’enregistrement.' })}${button('Enregistrer dans la base locale…', { icon: 'database', subtle: true, kind: 'write', data: { run: 'store' } })}</div>
         </footer>
       </section>`);
     announce(`${r.complete ? 'Lecture terminée' : 'Lecture partielle'}${NBSP}: ${r.summary}`);
@@ -267,7 +267,7 @@ export function createRunPanel(host, screen) {
         if (!panel.el?.isConnected) return;
         body.innerHTML = `<div class="sy-error" role="alert">${icon('alert')}<div><b>Estimation impossible</b><p>${esc(errorText(err))}</p></div></div>`;
         if (err?.code === 'synchro.scopeRoot') {
-          body.insertAdjacentHTML('beforeend', `<div class="sy-estimate-actions">${button('Choisir une OU…', { icon: 'tree', primary: true, data: { est: 'scope' } })}</div>`);
+          body.insertAdjacentHTML('beforeend', `<div class="sy-estimate-actions">${button('Choisir une OU…', { icon: 'tree', subtle: true, data: { est: 'scope' } })}</div>`);
         }
       } finally {
         panel.setBusy?.(false);

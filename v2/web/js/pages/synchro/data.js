@@ -75,7 +75,7 @@ function detailMarkup(row, now) {
     { label: 'Correspondance', value: `${row.reason} (score ${row.score})` },
   ] });
   return `${head}<div class="sy-detail-kv">${identity}${ad}${where}</div>
-    <div class="sy-detail-actions">${button('Ouvrir la fiche', { icon: 'object', primary: true, sm: true, data: { dt: 'open' }, tip: 'Ouvre la fiche de l’objet (lecture fraîche de l’annuaire)' })}${button('Copier le DN', { icon: 'copy', sm: true, ghost: true, data: { dt: 'copy-dn' } })}</div>`;
+    <div class="sy-detail-actions">${button('Ouvrir la fiche', { icon: 'object', subtle: true, sm: true, data: { dt: 'open' }, tip: 'Ouvre la fiche de l’objet (lecture fraîche de l’annuaire)' })}${button('Copier le DN', { icon: 'copy', sm: true, ghost: true, data: { dt: 'copy-dn' } })}</div>`;
 }
 
 /** Renders the workspace in its panel; returns its cleanup. */

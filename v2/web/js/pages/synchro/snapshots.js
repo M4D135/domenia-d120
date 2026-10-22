@@ -79,7 +79,7 @@ export function renderSnapshots(panel, screen) {
           <label class="sy-field-inline"><span>Avant</span><span class="k-select"><select class="input" data-sn="before" aria-label="Relevé le plus ancien"></select></span></label>
           <button class="btn ghost icon sm" type="button" data-sn="swap" aria-label="Échanger avant et après" data-tip="Échanger avant et après (la comparaison est refaite)">${glyph('split')}</button>
           <label class="sy-field-inline"><span>Après</span><span class="k-select"><select class="input" data-sn="after" aria-label="Relevé le plus récent"></select></span></label>
-          ${button('Comparer', { icon: 'split', primary: true, data: { sn: 'compare' }, tip: 'Compare les deux relevés dans la base locale. Aucune lecture de l’annuaire.' })}
+          ${button('Comparer', { icon: 'split', subtle: true, data: { sn: 'compare' }, tip: 'Compare les deux relevés dans la base locale. Aucune lecture de l’annuaire.' })}
         </div>
         <div class="sy-report" data-slot="report"><div class="sy-report-empty">${emptyBlock('split', 'Choisissez deux relevés du même périmètre', `Ajouts, disparitions, déplacements, renommages et valeurs modifiées${NBSP}: aucune disparition n’est une preuve de suppression.`)}</div></div>
       </section>
@@ -129,7 +129,7 @@ export function renderSnapshots(panel, screen) {
         <label class="sy-capture-label"><span>Nom du relevé <small>(facultatif)</small></span><input class="input" type="text" maxlength="120" data-sn="label" placeholder="Par exemple «${NBSP}Avant migration${NBSP}»" autocomplete="off"></label>
         <div class="sy-capture-scope" data-slot="capture-scope"></div>
         <div class="sy-capture-meter" data-slot="capture-meter"></div>
-        ${button('Enregistrer un relevé du périmètre', { icon: 'layers', primary: true, kind: 'write', data: { sn: 'capture' } })}
+        ${button('Enregistrer un relevé du périmètre', { icon: 'layers', subtle: true, kind: 'write', data: { sn: 'capture' } })}
       </div>`;
   }
 

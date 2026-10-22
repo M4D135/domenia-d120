@@ -99,7 +99,7 @@ function checkResultMarkup(r) {
       <ul class="sy-res-chips">${chips}</ul>
       <p class="sy-muted">${icon('shield')}<span>${esc(r.deletedProbeText)} Contrôleur${NBSP}: ${esc(r.server)}.</span></p>
       <details class="sy-res-details"><summary>${glyph('eye')}Détail des ${int(r.checked)} vérifications</summary><ul class="sy-res-list">${rows}</ul></details>
-      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { ct: 'dismiss-check' } })}${button('Enregistrer les résultats…', { icon: 'database', primary: true, kind: 'write', data: { ct: 'store-check' } })}</div>
+      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { ct: 'dismiss-check' } })}${button('Enregistrer les résultats…', { icon: 'database', subtle: true, kind: 'write', data: { ct: 'store-check' } })}</div>
     </div>`;
 }
 
@@ -109,7 +109,7 @@ function gapResultMarkup(r) {
       <div class="sy-job-head"><span class="sy-run-badge pop sm" data-tone="ok">${glyph('check')}</span><b>${esc(r.summary)}</b></div>
       <ul class="sy-res-chips"><li data-tone="ok">${glyph('plus')}<b>${int(r.added)}</b><span>À ajouter</span></li><li data-tone="off">${glyph('eyeOff')}<b>${int(r.gone)}</b><span>Plus visibles</span></li><li data-tone="warn">${glyph('clock')}<b>${int(r.unread)}</b><span>Non lus</span></li></ul>
       <details class="sy-res-details"><summary>${glyph('eye')}Détail des ${int(r.asked)} lectures</summary><ul class="sy-res-list">${rows}</ul></details>
-      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { ct: 'dismiss-gaps' } })}${button('Ajouter à la base…', { icon: 'database', primary: true, kind: 'write', data: { ct: 'store-gaps' }, disabled: !r.storable })}</div>
+      <div class="sy-card-actions">${button('Ignorer', { ghost: true, sm: true, data: { ct: 'dismiss-gaps' } })}${button('Ajouter à la base…', { icon: 'database', subtle: true, kind: 'write', data: { ct: 'store-gaps' }, disabled: !r.storable })}</div>
     </div>`;
 }
 

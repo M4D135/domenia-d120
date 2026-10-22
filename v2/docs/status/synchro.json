@@ -33,5 +33,11 @@
     "SYN-025",
     "SYN-028"
   ],
-  "partiel": []
+  "partiel": [],
+  "notes": [
+    "Relève OpenCode (22/10/2026) : tour 1 du critique traité par 0ceac1d, vérifié (typographie, règles préfixées, transitions conformes, aucun WAPT).",
+    "Ajout de la relève : une seule action principale par écran (« Mettre à jour l’OU » dans l’en-tête) ; les actions des cartes de résultat (enregistrer, fusionner, comparer, ouvrir la fiche) passent en boutons secondaires avec leur marque d’écriture.",
+    "Fichiers partagés modifiés par ce lot (à revoir à l’intégration) : kit/grid.js (+30 lignes) et write-flow.js (+12 lignes).",
+    "Compilation sur la VM : Debug et Release, 0 erreur, 0 avertissement. Tests écrits sans être exécutés."
+  ]
 }
