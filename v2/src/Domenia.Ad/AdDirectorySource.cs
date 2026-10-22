@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Net;
 using System.Security.Principal;
 using Domenia.Core;
 
@@ -38,6 +39,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     private DateTimeOffset? failedAt;
     private DirectoryState? state;
     private long epoch;
+    private IAdConnection connection;
+    private NetworkCredential? credential;
 
     public AdDirectorySource(string? joinedDomain, Func<string> accountLogin, TimeProvider clock, IWorkstationProbe? probe = null, IAdConnection? connection = null)
     {
@@ -47,13 +50,74 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         this.accountLogin = accountLogin;
         this.probe = probe;
         Clock = clock;
-        Connection = connection ?? AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain));
+        this.connection = connection ?? AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain));
     }
 
     public DirectorySourceKind Kind => DirectorySourceKind.ActiveDirectory;
 
-    /// <summary>The LDAP connection of the session (opened on first use).</summary>
-    public IAdConnection Connection { get; }
+    /// <summary>The LDAP connection of the session (opened on first use; replaced by « Changer de compte »).</summary>
+    public IAdConnection Connection
+    {
+        get
+        {
+            lock (gate)
+            {
+                return connection;
+            }
+        }
+    }
+
+    /// <summary>The probe of the workstations (presence, light inventory), or null when this build has none.</summary>
+    public IWorkstationProbe? Probe => probe;
+
+    /// <summary>
+    /// The credential « Changer de compte » gave to this session (CPT-007), or null when the session runs on the Windows
+    /// session itself. Only the name is ever shown; the secret stays inside the credential and reaches the API as a SecureString.
+    /// </summary>
+    public NetworkCredential? ConnectionCredential
+    {
+        get
+        {
+            lock (gate)
+            {
+                return credential;
+            }
+        }
+    }
+
+    /// <summary>SID of the account of the session as the directory read it, or null before that read.</summary>
+    public string? SessionSid { get; private set; }
+
+    /// <summary>When this session connected to the directory (the « since » of the connection card), or null before.</summary>
+    public DateTimeOffset? ConnectedAt { get; private set; }
+
+    /// <summary>
+    /// « Changer de compte » (CPT-007): the session takes another account. The former connection is closed, nothing of the
+    /// former session is kept (picture, observations, journal of the source, rights), and the next read connects with the new
+    /// credential. Nothing is replayed and no request is retried with the new identity.
+    /// </summary>
+    public void UseCredential(NetworkCredential? credential)
+    {
+        lock (gate)
+        {
+            if (!ReferenceEquals(connection, null))
+            {
+                connection.Dispose();
+            }
+
+            this.credential = credential;
+            connection = AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain) { Credential = credential });
+            domain = null;
+            account = null;
+            rights = null;
+            failure = null;
+            failedAt = null;
+            state = null;
+            SessionSid = null;
+            ConnectedAt = null;
+            epoch++;
+        }
+    }
 
     public TimeProvider Clock { get; }
 
@@ -211,6 +275,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             rights = null;
             failure = null;
             failedAt = null;
+            SessionSid = null;
+            ConnectedAt = null;
             epoch++;
         }
     }
@@ -258,6 +324,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                     rights = level;
                     failure = null;
                     failedAt = null;
+                    ConnectedAt = Clock.GetUtcNow();
                     epoch++;
                 }
             }
@@ -291,6 +358,11 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         {
             return (new AccountIdentity(login, null, null, null), new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Compte de la session sans SID lisible."));
         }
+        lock (gate)
+        {
+            SessionSid = sid;
+        }
+
         var found = await Connection.SearchAsync(new AdSearchRequest(known.RootDn, "(objectSid=" + sid + ")", AdSearchScope.Subtree, ["displayName", "givenName", "distinguishedName", "adminCount", "memberOf"]) { SizeLimit = 1 }, cancellationToken).ConfigureAwait(false);
         if (found.Count == 0)
         {

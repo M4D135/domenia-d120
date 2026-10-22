@@ -4,5 +4,7 @@
     <ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" />
     <PackageReference Include="System.DirectoryServices" Version="10.0.12" />
     <PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.12" />
+    <!-- CIM over DCOM, for the one light read of a workstation with the account of the operator (docs/ops/comptes.md § 7.4). -->
+    <PackageReference Include="System.Management" Version="10.0.12" />
   </ItemGroup>
 </Project>
