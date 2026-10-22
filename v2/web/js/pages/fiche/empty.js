@@ -6,21 +6,39 @@ import { esc, errorText, toast, applyVars, reveal } from '../../ui.js';
 import { avatar, kindOf, stamp } from './common.js';
 
 /**
+ * What the search field accepts, with examples (a click only fills the field). The fictitious names exist only in the
+ * simulation: in directory mode the examples come from the session (its own account, its working OU), never a name the
+ * directory shown may not hold.
+ * @param {any} s  session.info, or null while it is unknown.
+ */
+function guideOf(s) {
+  const simulated = s?.connection?.state === 'simulated';
+  const login = String(s?.account?.login ?? '');
+  const sam = login.includes('\\') ? login.slice(login.indexOf('\\') + 1) : login;
+  const live = (...values) => values.filter((v) => typeof v === 'string' && v !== '');
+  return [
+    { icon: 'user', title: 'Identifiant ou nom', text: 'Compte, poste, groupe ou contact de la base locale.',
+      examples: simulated ? ['c.bernard', 'PC-LYO-0002', 'GG-Support-N2'] : live(sam) },
+    { icon: 'key', title: 'DOMAINE\\compte ou UPN', text: 'Le domaine doit être celui de la session.',
+      examples: simulated ? ['EXAMPLE\\j.martin', 'j.martin@example.local'] : live(login.includes('\\') ? login : '') },
+    { icon: 'hash', title: 'DN, GUID ou SID', text: 'Désignation exacte, jamais une recherche approchée.',
+      examples: simulated ? ['OU=Distribution,OU=Groupes,DC=example,DC=local'] : live(s?.scope?.dn) },
+  ];
+}
+
+/**
  * @param {HTMLElement} main
  * @param {any} ctx
  */
-// What the search field accepts, with examples of the fictitious directory (a click only fills the field).
-const GUIDE = [
-  { icon: 'user', title: 'Identifiant ou nom', text: 'Compte, poste, groupe ou contact de la base locale.', examples: ['c.bernard', 'PC-LYO-0002', 'GG-Support-N2'] },
-  { icon: 'key', title: 'DOMAINE\\compte ou UPN', text: 'Le domaine doit être celui de la session.', examples: ['EXAMPLE\\j.martin', 'j.martin@example.local'] },
-  { icon: 'hash', title: 'DN, GUID ou SID', text: 'Désignation exacte, jamais une recherche approchée.', examples: ['OU=Distribution,OU=Groupes,DC=example,DC=local'] },
-];
-
 export function renderEmpty(main, ctx) {
   let alive = true;
   let token = 0;
   let suggestions = [];
   let active = -1;
+  let guide = guideOf(null);
+  // One local read of the session serves the quick accesses and the examples of the guide.
+  const session = ctx.call('session.info');
+  session.catch(() => {});
   main.innerHTML = `<div class="page fi-page fi-empty-page" data-kind="empty">
     <section class="fi-hero fi-search-hero reveal">
       <span class="glow-ring fi-ring" aria-hidden="true"></span>
@@ -70,7 +88,7 @@ export function renderEmpty(main, ctx) {
     recentHost.innerHTML = items.length
       ? items.map((it, n) => row(it, n, it.at ? `<time datetime="${esc(it.at)}">${esc(stamp(it.at))}</time>` : '')).join('')
       : `<div class="fi-empty"><span class="fi-empty-art">${glyph('history')}</span><div class="fi-empty-text"><strong>Aucune fiche récente</strong><p>Les fiches ouvertes s’ajoutent ici, dans la mémoire locale de Domenia.</p></div></div>
-        <div class="fi-guide" role="list" aria-label="Ce que le champ de recherche accepte">${GUIDE.map((g, n) => `<div class="fi-guide-row" role="listitem" data-j="${n}"><span class="fi-guide-ico">${glyph(g.icon)}</span>
+        <div class="fi-guide" role="list" aria-label="Ce que le champ de recherche accepte">${guide.map((g, n) => `<div class="fi-guide-row" role="listitem" data-j="${n}"><span class="fi-guide-ico">${glyph(g.icon)}</span>
           <span class="fi-guide-text"><b>${esc(g.title)}</b><span>${esc(g.text)}</span></span>
           <span class="fi-guide-ex">${g.examples.map((x) => `<button type="button" class="chip mono" data-example="${esc(x)}" data-tip="Placer dans le champ (rien n’est lu avant Entrée)">${esc(x)}</button>`).join('')}</span></div>`).join('')}</div>`;
     applyVars(recentHost);
@@ -79,6 +97,7 @@ export function renderEmpty(main, ctx) {
   async function loadRecent() {
     try {
       const items = await ctx.call('fiche.recent');
+      guide = guideOf(await session.catch(() => null));
       if (alive) paintRecent(Array.isArray(items) ? items : []);
     } catch (err) {
       if (!alive) return;
@@ -89,12 +108,12 @@ export function renderEmpty(main, ctx) {
 
   async function loadQuick() {
     try {
-      const s = await ctx.call('session.info');
+      const s = await session;
       if (!alive) return;
       const items = [];
       if (s?.account?.dn) items.push({ dn: s.account.dn, name: s.account.displayName ?? s.account.login, kind: 'user', detail: `Compte de session · ${s.account.login}` });
       if (s?.scope?.dn) items.push({ dn: s.scope.dn, name: s.scope.label, kind: 'ou', detail: 'OU de travail' });
-      if (s?.domain?.rootDn) items.push({ dn: s.domain.rootDn, name: s.domain.dnsName ?? s.domain.rootDn, kind: 'container', detail: 'Racine du domaine (lecture seule)' });
+      if (s?.domain?.rootDn) items.push({ dn: s.domain.rootDn, name: s.domain.dnsName ?? s.domain.rootDn, kind: 'container', detail: 'Racine du domaine' });
       quickHost.removeAttribute('aria-busy');
       quickHost.innerHTML = items.length ? items.map((it, n) => row(it, n)).join('') : '<p class="fi-faint">Aucun accès rapide.</p>';
       applyVars(quickHost);

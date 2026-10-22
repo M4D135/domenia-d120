@@ -39,8 +39,11 @@ test('La présence se dit en quelques mots, « à relire » quand elle a vieilli
 
 const DN = 'CN=Camille Bernard,OU=Commercial,OU=Lyon,OU=Utilisateurs,DC=example,DC=local';
 
-/** Mounts the fiche page on a scripted bridge (the answers of the browser preview, mock-fiche.js). */
-async function mountFiche(params, mode = 'directory') {
+/**
+ * Mounts the fiche page on a scripted bridge (the answers of the browser preview, mock-fiche.js); `overrides` replaces some
+ * answers. The palette commands go through the API of the shell (ctx.commands.set, docs/SHELL.md).
+ */
+async function mountFiche(params, mode = 'directory', overrides = {}) {
   const { render } = await import('../../web/js/pages/fiche.js');
   const { createFicheOperations } = await import('../../web/js/mock-fiche.js');
   const fail = (code, message) => Object.assign(new Error(message), { code });
@@ -50,18 +53,22 @@ async function mountFiche(params, mode = 'directory') {
   };
   const operations = createFicheOperations(helpers);
   const calls = [];
-  const call = async (op, args) => { calls.push({ op, args }); return operations[op](args); };
+  const commands = [];
+  const navigations = [];
+  const call = async (op, args) => { calls.push({ op, args }); return (overrides[op] ?? operations[op])(args); };
   let guard = null;
   const main = document.createElement('main');
   main.dataset.page = 'fiche';
   document.body.append(main);
   const cleanup = render(main, {
-    params: Object.freeze({ dn: DN, ...params }), call, navigate: () => {}, link: () => '#/fiche', app: Promise.resolve({ mode }),
-    guardLeave: (fn) => { guard = fn; return () => { guard = null; }; }, commands: () => () => {},
+    params: Object.freeze({ dn: DN, ...params }), call, navigate: (page, p) => navigations.push({ page, params: p }), link: () => '#/fiche', app: Promise.resolve({ mode }),
+    guardLeave: (fn) => { guard = fn; return () => { guard = null; }; }, commands: { set: (list) => commands.push(list) },
   });
   await tick(500);
-  return { main, calls, guard: () => guard, cleanup: () => { cleanup?.(); main.remove(); } };
+  return { main, calls, commands, navigations, guard: () => guard, cleanup: () => { cleanup?.(); main.remove(); } };
 }
+
+const headers = (root) => [...root.querySelectorAll('.k-gh')].map((h) => h.textContent.trim());
 
 test('Un état de route ne lit rien sur le réseau hors simulation et quitte l’adresse', async () => {
   location.hash = `#/fiche?dn=${encodeURIComponent(DN)}&tab=compte&open=lockouts`;
@@ -96,6 +103,96 @@ test('F5 laisse la main au panneau ou au dialogue ouvert', async () => {
   assert(page.calls.filter((c) => c.op === 'fiche.read').length === before, 'la fiche n’est pas relue derrière le panneau');
   modal.remove();
   page.cleanup();
+});
+
+// ---------------------------------------------------------------- tour 2 of the critique
+
+test('GUID différent : la fiche reste indisponible jusqu’au choix explicite (FIC-033)', async () => {
+  const page = await mountFiche({ guid: '00000000-0000-4000-8000-0000000000ff' });
+  assert(page.main.querySelector('.fi-replaced'), 'état bloquant « Objet remplacé depuis la sélection »');
+  assert(!page.main.querySelector('.fi-cmd') && !page.main.querySelector('[data-tab]'), 'ni commande ni onglet sur l’objet relu');
+  page.main.querySelector('[data-open-read]').click();
+  await tick(300);
+  assert(page.main.querySelector('.fi-cmd'), 'la fiche de l’objet relu s’affiche sur demande');
+  page.cleanup();
+});
+
+test('Historique : « Voir le reçu » ouvre le reçu, un clic ailleurs garde le filtre', async () => {
+  const history = async (args) => ({ dn: args.dn, pending: 1, note: 'Test.',
+    events: [{ when: new Date().toISOString(), title: 'Déverrouillage', text: 'Reçu', tone: 'warn', icon: 'shield', actor: null, meta: null, kind: 'domenia', receiptId: 'r-1' }] });
+  const receipt = async (args) => ({ id: args.id, operation: 'accounts.unlock', result: 'unknown', verification: 'unknown', pending: true, steps: [] });
+  const page = await mountFiche({ tab: 'historique' }, 'directory', { 'fiche.history': history, 'write.receipts.get': receipt });
+  await tick(300);
+  page.main.querySelector('.fi-history')?.click();
+  await tick(50);
+  assert(page.main.querySelector('.fi-history-kinds [aria-pressed="true"]')?.dataset.kind === 'all', 'le filtre reste « Tout »');
+  page.main.querySelector('[data-receipt="r-1"]').click();
+  await tick(100);
+  assert(page.calls.some((c) => c.op === 'write.receipts.get' && c.args.id === 'r-1'), 'le reçu est lu');
+  document.querySelectorAll('[aria-modal="true"]').forEach((d) => d.remove());
+  page.cleanup();
+});
+
+test('Groupes : « Via » et « Niveau » n’apparaissent qu’après la lecture des imbriqués', async () => {
+  const page = await mountFiche({ tab: 'groupes' });
+  await tick(300);
+  const grid = page.main.querySelector('.fi-groups-grid');
+  assert(!headers(grid).some((h) => h.startsWith('Via') || h.startsWith('Niveau')), headers(grid).join(' | '));
+  page.main.querySelector('[data-g="nested"]').click();
+  await tick(400);
+  assert(headers(grid).some((h) => h.startsWith('Via')) && headers(grid).some((h) => h.startsWith('Niveau')), headers(grid).join(' | '));
+  page.cleanup();
+});
+
+test('Vérifier la présence met à jour l’en-tête et le point de l’avatar', async () => {
+  const page = await mountFiche({});
+  assert(page.main.querySelector('.fi-avatar-wrap')?.dataset.presence === 'stale', 'présence lue : à relire');
+  page.main.querySelector('[data-side="presence"]').click();
+  await tick(800);
+  assert(page.main.querySelector('.fi-avatar-wrap')?.dataset.presence === 'offline', 'point de l’avatar : nouveau relevé');
+  assert([...page.main.querySelectorAll('.fi-stat')].some((t) => t.textContent.includes('Sans réponse')), 'tuile du poste associé à jour');
+  page.cleanup();
+});
+
+test('Les commandes de palette passent par l’API du shell', async () => {
+  const page = await mountFiche({});
+  const last = page.commands.at(-1) ?? [];
+  assert(last.some((c) => c.id === 'fiche-reread'), 'Relire proposé dans la palette');
+  page.cleanup();
+  assert((page.commands.at(-1) ?? []).length === 0, 'commandes retirées en quittant la fiche');
+});
+
+test('Sélecteur d’objets : deux caractères au moins avant toute recherche', async () => {
+  const { pickObject } = await import('../../web/js/pages/fiche/actions.js');
+  const calls = [];
+  const pending = pickObject({ call: async (op, args) => { calls.push({ op, args }); return []; } }, { title: 'Test' });
+  const input = document.querySelector('.fi-picker input');
+  input.value = 'c';
+  input.dispatchEvent(new Event('input'));
+  await tick(300);
+  assert(document.querySelector('.fi-picker-empty')?.textContent.includes('Tapez au moins deux caractères'), 'consigne, pas « aucun objet »');
+  assert(!calls.length, 'aucune recherche pour un caractère');
+  document.querySelector('.fi-picker')?.closest('[role="dialog"]')?.querySelector('[data-id="cancel"]')?.click();
+  await pending;
+});
+
+test('Page vide : les exemples fictifs restent à la simulation', async () => {
+  const { renderEmpty } = await import('../../web/js/pages/fiche/empty.js');
+  for (const state of ['connected', 'simulated']) {
+    const main = document.createElement('main');
+    main.dataset.page = 'fiche';
+    document.body.append(main);
+    const session = { connection: { state }, account: { login: 'CORP\\a.dupont', dn: 'CN=A Dupont,OU=IT,DC=corp,DC=test', displayName: 'A Dupont' },
+      scope: { dn: 'OU=IT,DC=corp,DC=test', label: 'IT' }, domain: { rootDn: 'DC=corp,DC=test', dnsName: 'corp.test' } };
+    const answers = { 'session.info': session, 'fiche.recent': [] };
+    const stop = renderEmpty(main, { call: async (op) => answers[op], navigate: () => {} });
+    await tick(100);
+    const examples = [...main.querySelectorAll('[data-example]')].map((b) => b.dataset.example);
+    if (state === 'connected') assert(examples.includes('a.dupont') && !examples.includes('c.bernard'), examples.join(' | '));
+    else assert(examples.includes('c.bernard'), examples.join(' | '));
+    stop();
+    main.remove();
+  }
 });
 
 /** Runs every case; returns [{ name, ok, error? }]. */

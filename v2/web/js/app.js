@@ -301,8 +301,6 @@ function boot() {
   trackedCall('session.info').then(showConnection).catch((err) => console.error(err));
 
   let router = null;
-  // Commands of the screen shown (ctx.commands): listed first among the actions of the palette, removed with the screen.
-  let screenCommands = [];
   // The grid column snaps (no layout animation); the content column then slides from its old place with a
   // transform-only animation (FLIP), so only the compositor works during the movement.
   const slideColumn = (change) => {
@@ -340,7 +338,6 @@ function boot() {
         run: () => router.go(p.id),
       })),
       actions: [
-        ...screenCommands.map((c) => ({ ...c, hint: c.hint ?? 'Écran affiché' })),
         ...THEMES.map((t) => ({ id: `theme-${t.id}`, label: t.label, icon: t.icon, keywords: 'thème apparence couleurs', active: prefs.theme === t.id, run: () => setTheme(t.id) })),
         ...MOTIONS.map((m) => ({ id: `motion-${m.id}`, label: m.label, icon: m.icon, keywords: 'animations mouvement', active: prefs.motion === m.id, run: () => setMotion(m.id) })),
         { id: 'nav', label: prefs.navCollapsed ? 'Déplier le menu' : 'Replier le menu', icon: 'panel', kbd: 'Ctrl B', keywords: 'navigation barre latérale', run: () => setCollapsed(!prefs.navCollapsed) },
@@ -359,25 +356,16 @@ function boot() {
     nav,
     pages: PAGES,
     isBusy: () => inflight > 0,
-    context: (page) => {
-      screenCommands = [];
-      return {
-        page,
-        pages: PAGES,
-        call: trackedCall,
-        go: (id, params) => router.go(id, params),
-        toast,
-        app: appInfo,
-        showConnection,
-        openPalette: () => palette.open(),
-        /** Palette commands of this screen ({ id, label, icon, keywords, run }); returns the function that removes them. */
-        commands: (list) => {
-          const mine = Array.isArray(list) ? list : [];
-          screenCommands = mine;
-          return () => { if (screenCommands === mine) screenCommands = []; };
-        },
-      };
-    },
+    context: (page) => ({
+      page,
+      pages: PAGES,
+      call: trackedCall,
+      go: (id, params) => router.go(id, params),
+      toast,
+      app: appInfo,
+      showConnection,
+      openPalette: () => palette.open(),
+    }),
   });
 
   // Events

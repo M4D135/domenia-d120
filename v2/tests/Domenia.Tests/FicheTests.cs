@@ -597,6 +597,62 @@ internal static class FicheTests
     }
 
     [Test]
+    public static async Task A_moved_object_is_read_again_at_its_new_dn_with_the_same_guid()
+    {
+        // FIC-018: after an applied move the page opens RDN + destination with the GUID of the object; that read must succeed.
+        var bridge = new SimulatedBridge();
+        var camille = Camille(bridge);
+        var target = "CN=Users," + Root;
+        var receipt = await WriteAsync(bridge, "fiche.move.plan", new { dn = camille.DistinguishedName, target, guid = camille.ObjectGuid.ToString("D") });
+        Check.Equal("applied", receipt.GetProperty("result").GetString(), "déplacement appliqué");
+        var movedDn = camille.DistinguishedName[..camille.DistinguishedName.IndexOf(',', StringComparison.Ordinal)] + "," + target;
+        var sheet = await ResultAsync(bridge, "fiche.read", new { dn = movedDn });
+        var identity = sheet.GetProperty("identity");
+        Check.Equal(camille.ObjectGuid.ToString("D"), identity.GetProperty("guid").GetString(), "même objet relu au nouveau DN (même GUID)");
+        Check.True(FicheValues.SameDn(movedDn, identity.GetProperty("dn").GetString() ?? ""), "DN relu : RDN + destination");
+        Check.True(FicheValues.SameDn(target, identity.GetProperty("parentDn").GetString() ?? ""), "parent relu : la destination");
+        Check.Equal(FicheErrors.Unknown, await ErrorAsync(bridge, "fiche.read", new { dn = camille.DistinguishedName, reread = true }), "l’ancien DN est introuvable, jamais relu par erreur");
+    }
+
+    [Test]
+    public static async Task Presence_readings_are_kept_under_the_guid_and_forgotten_with_the_object()
+    {
+        // FIC-046 and FIC-037: a ping is kept under the objectGUID of the workstation; « Relire » forgets every entry of the object
+        // (GUID first, DN only to find it) and says how many were removed.
+        var bridge = new SimulatedBridge();
+        var computer = bridge.Source.CurrentDirectory.Computers.First(c => c.Name.StartsWith("PC-", StringComparison.Ordinal));
+        await ResultAsync(bridge, "fiche.read", new { dn = computer.DistinguishedName });
+        var ping = await ResultAsync(bridge, "fiche.presence", new { dn = computer.DistinguishedName });
+        Check.True(FicheValues.SameDn(computer.DistinguishedName, ping.GetProperty("computerDn").GetString() ?? ""), "ping du poste ouvert");
+        var session = FicheSession.From(bridge.Context);
+        Check.NotNull(session.Ping(computer.ObjectGuid), "relevé rangé sous le GUID du poste");
+        Check.True(session.Ping(Guid.NewGuid()) is null, "un autre GUID (poste recréé sous le même DN) n’hérite de rien");
+
+        var removed = session.Forget(computer.DistinguishedName, computer.ObjectGuid);
+        Check.True(removed >= 2, "lecture gardée et relevé de présence retirés, et comptés (" + removed + ")");
+        Check.True(session.Ping(computer.ObjectGuid) is null && session.LastRead(computer.DistinguishedName) is null, "plus rien de l’objet en session");
+        Check.Equal(0, session.Forget(computer.DistinguishedName, computer.ObjectGuid), "un second oubli ne retire rien");
+
+        await ResultAsync(bridge, "fiche.presence", new { dn = computer.DistinguishedName });
+        await ResultAsync(bridge, "fiche.read", new { dn = computer.DistinguishedName, reread = true });
+        Check.True(session.Ping(computer.ObjectGuid) is null, "« Relire » oublie aussi le relevé de présence du poste, par son GUID");
+    }
+
+    [Test]
+    public static async Task The_domain_root_opens_and_only_its_children_have_a_parent_to_open()
+    {
+        var bridge = new SimulatedBridge();
+        static string[] Actions(JsonElement sheet) => Strings(sheet.GetProperty("actions"), "id");
+        var root = await ResultAsync(bridge, "fiche.read", new { dn = Root });
+        Check.Equal("container", root.GetProperty("identity").GetProperty("kind").GetString(), "la racine s’ouvre en fiche");
+        Check.False(Actions(root).Contains("openParent"), "la racine n’a pas de parent dans le domaine");
+        Check.True(Actions(root).Contains("setScope"), "la racine peut devenir l’OU de travail");
+        Check.False(Actions(root).Contains("delete"), "la racine ne se supprime jamais");
+        var users = await ResultAsync(bridge, "fiche.read", new { dn = "CN=Users," + Root });
+        Check.True(Actions(users).Contains("openParent"), "un objet placé sous la racine ouvre la racine");
+    }
+
+    [Test]
     public static async Task Members_of_a_group_are_read_by_ranges()
     {
         var bridge = new SimulatedBridge();

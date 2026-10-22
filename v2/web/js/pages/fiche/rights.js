@@ -23,7 +23,7 @@ export function mountRights(panel, S) {
         <span class="card-icon">${glyph('shield')}</span>
         <div class="fi-card-titles"><h3>Droits effectifs du compte de session</h3><p class="fi-card-sub">Estimation d’après la liste d’accès de l’objet et les groupes de votre compte (y compris Tout le monde et Utilisateurs authentifiés)</p></div>
         <div class="fi-rights-actions">${data && !data.error ? `<button class="btn sm ghost" type="button" data-r="copy">${glyph('copy')}Copier le rapport</button>` : ''}
-          <button class="btn sm${data ? '' : ' primary'} fi-net" type="button" data-r="run"${off}>${glyph('refresh')}${data ? 'Estimer de nouveau' : 'Estimer les droits effectifs'}</button></div>
+          ${data ? `<button class="btn sm fi-net" type="button" data-r="run"${off}>${glyph('refresh')}Estimer de nouveau</button>` : ''}</div>
       </div>`;
     let body;
     if (busy) body = `<div class="fi-caps">${Array.from({ length: 10 }, () => `<div class="fi-cap">${skeleton(2)}</div>`).join('')}</div>`;
@@ -45,7 +45,7 @@ export function mountRights(panel, S) {
         <p class="fi-note">${glyph('info')}${esc(d.note)}</p>`;
     } else {
       body = `<section class="card fi-card fi-rights-empty">${emptyNote('shield', 'Estimation non demandée', 'La lecture de la liste d’accès part seulement sur votre clic. Le contrôleur reste l’autorité finale : seul un refus réel verrouille une action.',
-        `<button class="btn primary fi-net" type="button" data-r="run"${off}>${glyph('shield')}Estimer les droits effectifs</button>`)}</section>`;
+        `<button class="btn subtle fi-net" type="button" data-r="run"${off}>${glyph('shield')}Estimer les droits effectifs</button>`)}</section>`;
     }
     panel.innerHTML = `<div class="fi-rights">${head}${body}</div>`;
     applyVars(panel);

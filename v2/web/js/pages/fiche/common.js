@@ -5,6 +5,20 @@
 import { glyph, pill, freshness, NBSP, int, quote } from '../../kit/index.js';
 import { esc, errorText } from '../../ui.js';
 
+// Icons of the fiche that the kit does not hold (phone, mail, company): drawn here, so the shared glyphs stay unchanged.
+const FICHE_PATHS = {
+  phone: '<path d="M21 16.4v2.8a1.9 1.9 0 0 1-2.1 1.9 18.7 18.7 0 0 1-8.1-2.9 18.4 18.4 0 0 1-5.7-5.7A18.7 18.7 0 0 1 2.2 4.4 1.9 1.9 0 0 1 4.1 2.3h2.8A1.9 1.9 0 0 1 8.8 4c.1.9.4 1.7.7 2.5a1.9 1.9 0 0 1-.4 2L7.9 9.7a15 15 0 0 0 5.7 5.7l1.2-1.2a1.9 1.9 0 0 1 2-.4c.8.3 1.6.6 2.5.7a1.9 1.9 0 0 1 1.7 1.9Z"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/>',
+  building: '<path d="M4 21V5.5A1.5 1.5 0 0 1 5.5 4h8A1.5 1.5 0 0 1 15 5.5V21"/><path d="M15 10h3.5a1.5 1.5 0 0 1 1.5 1.5V21M3 21h18M8 8h3M8 12h3M8 16h3"/>',
+};
+
+/** Glyph of the kit, or one of the icons of the fiche (phone, mail, building), with the same drawing rules. */
+export function ficon(name, cls = '') {
+  const body = FICHE_PATHS[name];
+  if (!body) return glyph(name, cls);
+  return `<svg class="${cls}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
 /** Kinds of the contract and how the screen shows them. */
 export const KINDS = {
   user: { icon: 'user', label: 'Utilisateur', hue: 'user' },

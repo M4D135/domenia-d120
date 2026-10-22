@@ -101,11 +101,11 @@ public sealed class FicheOperations : IOperationModule
             FicheObservation? observation = null;
             if (entry.Kind == FicheKind.Computer)
             {
-                observation = session.WithPing(await reader.ObservationAsync(entry.Dn, ct).ConfigureAwait(false), entry.Dn, entry.Name);
+                observation = session.WithPing(await reader.ObservationAsync(entry.Dn, ct).ConfigureAwait(false), entry.ObjectGuid, entry.Dn, entry.Name);
             }
             else if (entry.Kind == FicheKind.User && relations.Associations.FirstOrDefault() is FicheAssociation primary)
             {
-                observation = session.WithPing(await reader.ObservationAsync(primary.Dn, ct).ConfigureAwait(false), primary.Dn, primary.Name);
+                observation = session.WithPing(await reader.ObservationAsync(primary.Dn, ct).ConfigureAwait(false), primary.ObjectGuid, primary.Dn, primary.Name);
             }
             // The opening reads the object alone (one base request): the number of children comes from the local index; the content
             // itself is read when the « Contenu » tab opens.
@@ -219,8 +219,8 @@ public sealed class FicheOperations : IOperationModule
             var pinged = false;
             foreach (var link in relations.Associations)
             {
-                pinged |= session.Ping(link.Dn) is not null;
-                if (session.WithPing(await reader.ObservationAsync(link.Dn, ct).ConfigureAwait(false), link.Dn, link.Name) is FicheObservation observation)
+                pinged |= session.Ping(link.ObjectGuid) is not null;
+                if (session.WithPing(await reader.ObservationAsync(link.Dn, ct).ConfigureAwait(false), link.ObjectGuid, link.Dn, link.Name) is FicheObservation observation)
                 {
                     observations[link.Dn] = observation;
                 }
@@ -241,11 +241,12 @@ public sealed class FicheOperations : IOperationModule
             FicheInventoryReading? inventory = null;
             if (triageDn is not null)
             {
-                inventory = session.Inventory(triageDn) ?? await reader.StoredInventoryAsync(triageDn, ct).ConfigureAwait(false);
+                var triageGuid = await GuidOfAsync(triageDn, ct).ConfigureAwait(false);
+                inventory = (triageGuid is Guid g ? session.Inventory(g) : null) ?? await reader.StoredInventoryAsync(triageDn, ct).ConfigureAwait(false);
             }
             var policyKept = session.Policy(entry.ObjectGuid);
             var input = new FicheCallInput(entry, origin, observedAt, server, policyKept?.View, policyKept?.Reading.ReadAt, policyKept?.Reading.Controller,
-                session.Lockouts(entry.ObjectGuid), relations.Associations, observations, session.Sessions(relations.Associations.Select(a => a.Dn)),
+                session.Lockouts(entry.ObjectGuid), relations.Associations, observations, session.Sessions(relations.Associations.Select(a => (a.ObjectGuid, a.Dn))),
                 session.Baseline(entry.ObjectGuid), groups, receipts, receiptsAt, triageDn, inventory, triageDn is null ? null : observations.GetValueOrDefault(triageDn), pinged);
             var (configuration, _) = await SettingsAsync(ct).ConfigureAwait(false);
             return FicheCallSheets.Build(input, clock.GetUtcNow(), Zone(), FicheCallSheets.ResolveTemplate(configuration.TicketTemplate));
@@ -273,6 +274,10 @@ public sealed class FicheOperations : IOperationModule
             session.KeepLockouts(entry.ObjectGuid, diagnosis);
             return diagnosis;
         }
+
+        // objectGUID of an object from the local index (the readings of a workstation are kept under it, FIC-046); null if unknown.
+        async Task<Guid?> GuidOfAsync(string dn, CancellationToken ct) =>
+            (await Reader().IndexAsync([dn], ct).ConfigureAwait(false)).Values.FirstOrDefault()?.ObjectGuid;
 
         async Task<string> ComputerOfAsync(string userDn, string? computer, CancellationToken ct)
         {
@@ -328,7 +333,7 @@ public sealed class FicheOperations : IOperationModule
                 if (OptionalBool(values, "reread"))
                 {
                     // « Relire » (FIC-039): only the cache of this object is forgotten, never the list.
-                    session.Forget(dn);
+                    session.Forget(dn, await GuidOfAsync(dn, ct).ConfigureAwait(false));
                 }
                 var read = await FreshAsync(dn, ct).ConfigureAwait(false);
                 return await SheetAsync(read.Entry, sourceName, read.ReadAt, read.Controller, false, ct).ConfigureAwait(false);
@@ -437,7 +442,7 @@ public sealed class FicheOperations : IOperationModule
                 try
                 {
                     // The postcondition is read again on the controller (Test-DomeniaGroupDeltaPostcondition), never deduced from the receipts.
-                    session.Forget(dn);
+                    session.Forget(dn, await GuidOfAsync(dn, ct).ConfigureAwait(false));
                     var read = await FreshAsync(dn, ct).ConfigureAwait(false);
                     observed = read.Entry.All("memberOf");
                     readAt = read.ReadAt;
@@ -548,7 +553,7 @@ public sealed class FicheOperations : IOperationModule
                 {
                     session.KeepAttempt(known.Dn, "presence", clock.GetUtcNow());
                     var reading = await reader.PingAsync(known.Dn, ct).ConfigureAwait(false);
-                    session.KeepPing(reading);
+                    session.KeepPing(reading, known.ObjectGuid);
                     return reading;
                 }
                 if (known.Kind != FicheKind.User)
@@ -563,7 +568,7 @@ public sealed class FicheOperations : IOperationModule
                 }
                 session.KeepAttempt(link.Dn, "presence", clock.GetUtcNow());
                 var ping = await reader.PingAsync(link.Dn, ct).ConfigureAwait(false);
-                session.KeepPing(ping);
+                session.KeepPing(ping, link.ObjectGuid);
                 return ping with { Via = "Poste associé " + link.Name + " (" + link.EvidenceLabel + (link.Primary ? ", principal" : "") + ")" };
             }, "Présence d’un poste, ou d’un compte par son poste associé le plus fiable (un ping).", ServedInSimulation: true),
 
@@ -627,18 +632,18 @@ public sealed class FicheOperations : IOperationModule
                     case "presence":
                         var pinged = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
                         session.KeepAttempt(pinged, "presence", clock.GetUtcNow());
-                        session.KeepPing(await reader.PingAsync(pinged, ct).ConfigureAwait(false));
+                        session.KeepPing(await reader.PingAsync(pinged, ct).ConfigureAwait(false), await GuidOfAsync(pinged, ct).ConfigureAwait(false) ?? Guid.Empty);
                         break;
                     case "sessions":
                         var host = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
                         session.KeepAttempt(host, "console", clock.GetUtcNow());
-                        session.KeepSessions(await reader.SessionsAsync(host, ct).ConfigureAwait(false));
+                        session.KeepSessions(await reader.SessionsAsync(host, ct).ConfigureAwait(false), await GuidOfAsync(host, ct).ConfigureAwait(false) ?? Guid.Empty);
                         break;
                     case "triage":
                         var target = await ComputerOfAsync(dn, computer, ct).ConfigureAwait(false);
                         var user = (await KnownAsync(dn, ct).ConfigureAwait(false)).Entry;
                         session.ChooseTriage(user.ObjectGuid, target);
-                        session.KeepInventory(await reader.InventoryAsync(target, ct).ConfigureAwait(false));
+                        session.KeepInventory(await reader.InventoryAsync(target, ct).ConfigureAwait(false), await GuidOfAsync(target, ct).ConfigureAwait(false) ?? Guid.Empty);
                         break;
                     default:
                         throw BridgeArguments.Invalid(FrenchText.Quote("read") + " doit valoir lockouts, policy, presence, sessions ou triage.");

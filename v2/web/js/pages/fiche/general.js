@@ -82,9 +82,9 @@ export function mountGeneral(panel, S) {
     if (f.type === 'dn') {
       return `<div class="fi-field dn" data-attr="${esc(f.attribute)}" data-type="dn">${label}
         <div class="fi-dn-field"><input id="${id}" type="hidden" value="${esc(value)}">
-          <span class="fi-dn-name" data-tip="${esc(value)}">${value ? `${glyph('user')}${esc(f.display ?? value)}` : '<span class="fi-none">Aucun</span>'}</span>
+          <span class="fi-dn-name" data-tip="${esc(value)}">${dnName(value, f.display, linkKind(f.attribute, value))}</span>
           <button class="btn sm" type="button" data-pick="${esc(f.attribute)}">${glyph('search')}Choisir…</button>
-          ${value ? `<button class="btn sm ghost" type="button" data-clear="${esc(f.attribute)}">${glyph('x')}Retirer</button>` : ''}
+          <button class="btn sm ghost" type="button" data-clear="${esc(f.attribute)}"${value ? '' : ' hidden'}>${glyph('x')}Retirer</button>
           ${reset}</div>
         ${f.hint ? `<span class="fi-field-hint">${esc(f.hint)}</span>` : ''}</div>`;
     }
@@ -246,17 +246,36 @@ export function mountGeneral(panel, S) {
       exclude: [S.sheet.identity.dn],
     });
     if (!chosen) return;
-    setDn(attr, chosen.dn, chosen.name);
+    setDn(attr, chosen.dn, chosen.name, chosen.kind);
   }
 
-  function setDn(attr, dn, name) {
+  // Kind of the object a DN field points to (a manager is a person, managedBy may be a group): the icon follows it.
+  function linkKind(attr, dn) {
+    if (!dn) return 'user';
+    const item = S.sheet.sections.flatMap((s) => s.items ?? []).find((i) => i.key === attr && i.link?.dn === dn);
+    return item?.link?.kind ?? (S.sheet.manager?.dn === dn ? S.sheet.manager.kind : null) ?? 'user';
+  }
+
+  /** The name shown in a DN field, with the icon of its kind, or « Aucun ». */
+  function dnName(dn, name, kind) {
+    return dn ? `${glyph(kindOf(kind).icon)}${esc(name ?? dn)}` : '<span class="fi-none">Aucun</span>';
+  }
+
+  // « Retirer » exists only while the field holds a value; when it disappears under the focus, the focus goes to « Choisir… ».
+  function setDn(attr, dn, name, kind) {
     const wrap = sectionsHost.querySelector(`.fi-field[data-attr="${CSS.escape(attr)}"]`);
     if (!wrap) return;
     const input = /** @type {HTMLInputElement} */ (wrap.querySelector('input[type=hidden]'));
     input.value = dn ?? '';
     const label = wrap.querySelector('.fi-dn-name');
-    label.innerHTML = dn ? `${glyph('user')}${esc(name ?? dn)}` : '<span class="fi-none">Aucun</span>';
+    label.innerHTML = dnName(dn, name, kind ?? linkKind(attr, dn));
     label.setAttribute('data-tip', dn ?? '');
+    const clear = /** @type {HTMLButtonElement|null} */ (wrap.querySelector('[data-clear]'));
+    if (clear) {
+      const hadFocus = document.activeElement === clear;
+      clear.hidden = !dn;
+      if (hadFocus && !dn) /** @type {HTMLElement|null} */ (wrap.querySelector('[data-pick]'))?.focus();
+    }
     syncDirty();
   }
 
@@ -368,7 +387,7 @@ export function mountGeneral(panel, S) {
         ${row('DN', esc(id.dn), { mono: true, copy: id.dn, wide: true })}
         ${id.kind === 'user' || id.kind === 'computer' ? `${row('Présence', presence)}${row('Cible de présence', target)}` : ''}</dl>`,
       foot: `<button class="btn sm" type="button" data-side="copySummary">${glyph('copy')}Copier le résumé</button>
-        ${id.parentDn && !/^DC=/i.test(id.parentDn) ? `<button class="btn sm ghost" type="button" data-side="openParent">${glyph('ou')}Ouvrir le parent</button>` : ''}
+        ${id.parentDn && !/^DC=/i.test(id.dn) ? `<button class="btn sm ghost" type="button" data-side="openParent">${glyph('ou')}Ouvrir le parent</button>` : ''}
         ${id.kind === 'user' && sheet.support?.length ? `<button class="btn sm ghost" type="button" data-side="support">${glyph('lifebuoy')}Résumé support</button>` : ''}`,
     });
   }
@@ -377,9 +396,11 @@ export function mountGeneral(panel, S) {
     return [presenceCard(sheet), freshCard(sheet), summaryCard(sheet)].join('');
   }
 
+  const sideKeyOf = (sheet) => JSON.stringify([sheet.presence, sheet.linked, sheet.freshness.map((f) => [f.state, f.observedAt, f.lastAttempt]), sheet.identity, sheet.actions.find((a) => a.id === 'presence'), sheet.support?.length, sheet.settings?.freshnessText]);
+
   function renderSide(force = false) {
     const sheet = S.sheet;
-    const key = JSON.stringify([sheet.presence, sheet.linked, sheet.freshness.map((f) => [f.state, f.observedAt, f.lastAttempt]), sheet.identity, sheet.actions.find((a) => a.id === 'presence'), sheet.support?.length, sheet.settings?.freshnessText]);
+    const key = sideKeyOf(sheet);
     if (!force && key === sideKey) return;
     sideKey = key;
     side.innerHTML = sideMarkup(sheet);
@@ -402,6 +423,15 @@ export function mountGeneral(panel, S) {
       box.classList.remove('updated');
       void box.offsetWidth;
       box.classList.add('updated');
+      // The header (tile, avatar dot) and the freshness of the presence follow the new observation, not only this card.
+      S.notePresence?.(r);
+      const chip = side.querySelector('[data-card="presence"] .fi-fresh-chip');
+      if (chip) chip.outerHTML = freshChip(S.sheet, 'presence');
+      const freshHost = side.querySelector('[data-card="fresh"]');
+      if (freshHost) freshHost.outerHTML = freshCard(S.sheet);
+      applyVars(side);
+      startFreshness(side);
+      sideKey = sideKeyOf(S.sheet);
       announce(`Présence${NBSP}: ${r.label}.`);
     } catch (err) {
       toast(`Présence non vérifiée${NBSP}: ${errorText(err)}`, { tone: 'warn' });
@@ -460,6 +490,8 @@ export function mountGeneral(panel, S) {
 
   return {
     edit: startEdit,
+    /** Abandon confirmed by the screen guard (F5, another fiche, leaving): edit mode left, the values read come back. */
+    discard() { if (editing) stopEdit(false); },
     /** Presence: read now (operator gesture) or only show and highlight the card and its button (route state). */
     presence({ run = true } = {}) {
       const target = side.querySelector('[data-card="presence"]');

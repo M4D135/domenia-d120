@@ -14,9 +14,11 @@ public sealed class FicheSession
     private readonly Dictionary<Guid, FicheGroupBaseline> baselines = new();
     private readonly Dictionary<Guid, (FicheLockoutDiagnosis Diagnosis, DateTimeOffset At)> lockouts = new();
     private readonly Dictionary<Guid, (FichePolicyView View, FichePolicyReading Reading)> policies = new();
-    private readonly Dictionary<string, FichePresenceReading> pings = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, FicheSessionsReading> sessions = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, FicheInventoryReading> inventories = new(StringComparer.OrdinalIgnoreCase);
+    // Readings of a workstation are kept under its objectGUID (Domenia 1, FIC-046): a workstation recreated or renamed under the
+    // same DN never inherits the ping, the sessions or the inventory of the previous one during the session.
+    private readonly Dictionary<Guid, FichePresenceReading> pings = new();
+    private readonly Dictionary<Guid, FicheSessionsReading> sessions = new();
+    private readonly Dictionary<Guid, FicheInventoryReading> inventories = new();
     private readonly Dictionary<Guid, string> triageTargets = new();
     private readonly Dictionary<string, FicheRead> reads = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string Subject, string Nature), DateTimeOffset> attempts = new();
@@ -149,61 +151,77 @@ public sealed class FicheSession
         }
     }
 
-    public void KeepPing(FichePresenceReading reading)
+    /// <summary>Keeps the explicit ping of a workstation under its objectGUID (FIC-046); a reading without a workstation is not kept.</summary>
+    public void KeepPing(FichePresenceReading reading, Guid computer)
     {
         ArgumentNullException.ThrowIfNull(reading);
-        if (reading.ComputerDn is null)
+        if (reading.ComputerDn is null || computer == Guid.Empty)
         {
             return;
         }
         lock (gate)
         {
-            pings[reading.ComputerDn] = reading;
+            pings[computer] = reading;
         }
     }
 
-    public FichePresenceReading? Ping(string computerDn)
+    public FichePresenceReading? Ping(Guid computer)
     {
         lock (gate)
         {
-            return pings.GetValueOrDefault(computerDn);
+            return pings.GetValueOrDefault(computer);
         }
     }
 
-    public void KeepSessions(FicheSessionsReading reading)
-    {
-        ArgumentNullException.ThrowIfNull(reading);
-        lock (gate)
-        {
-            sessions[reading.ComputerDn] = reading;
-        }
-    }
-
-    /// <summary>Sessions read in this session for the given workstations.</summary>
-    public IReadOnlyDictionary<string, FicheSessionsReading> Sessions(IEnumerable<string> computerDns)
-    {
-        ArgumentNullException.ThrowIfNull(computerDns);
-        lock (gate)
-        {
-            return computerDns.Where(sessions.ContainsKey).Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(d => d, d => sessions[d], StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    public void KeepInventory(FicheInventoryReading reading)
+    public void KeepSessions(FicheSessionsReading reading, Guid computer)
     {
         ArgumentNullException.ThrowIfNull(reading);
+        if (computer == Guid.Empty)
+        {
+            return;
+        }
         lock (gate)
         {
-            inventories[reading.ComputerDn] = reading;
+            sessions[computer] = reading;
         }
     }
 
-    public FicheInventoryReading? Inventory(string computerDn)
+    /// <summary>Sessions read in this session for the given workstations (GUID and DN), returned by the DN of each workstation.</summary>
+    public IReadOnlyDictionary<string, FicheSessionsReading> Sessions(IEnumerable<(Guid Computer, string Dn)> computers)
+    {
+        ArgumentNullException.ThrowIfNull(computers);
+        lock (gate)
+        {
+            var found = new Dictionary<string, FicheSessionsReading>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (computer, dn) in computers)
+            {
+                if (sessions.TryGetValue(computer, out var reading))
+                {
+                    found[dn] = reading;
+                }
+            }
+            return found;
+        }
+    }
+
+    public void KeepInventory(FicheInventoryReading reading, Guid computer)
+    {
+        ArgumentNullException.ThrowIfNull(reading);
+        if (computer == Guid.Empty)
+        {
+            return;
+        }
+        lock (gate)
+        {
+            inventories[computer] = reading;
+        }
+    }
+
+    public FicheInventoryReading? Inventory(Guid computer)
     {
         lock (gate)
         {
-            return inventories.GetValueOrDefault(computerDn);
+            return inventories.GetValueOrDefault(computer);
         }
     }
 
@@ -226,9 +244,9 @@ public sealed class FicheSession
     }
 
     /// <summary>The observation of a workstation with the explicit ping of this session applied when it is more recent.</summary>
-    public FicheObservation? WithPing(FicheObservation? observation, string computerDn, string computerName)
+    public FicheObservation? WithPing(FicheObservation? observation, Guid computer, string computerDn, string computerName)
     {
-        var ping = Ping(computerDn);
+        var ping = Ping(computer);
         if (ping is null)
         {
             return observation;
@@ -251,21 +269,32 @@ public sealed class FicheSession
     }
 
     /// <summary>
-    /// « Relire » of one fiche (FIC-039: only the cache of this object, never the list): forgets the read kept for this DN and the
-    /// explicit reads of its object (lockouts, policy), so that the next read and the next call sheet start from the directory.
+    /// « Relire » of one fiche (FIC-039: only the cache of this object, never the list; Domenia 1 FIC-037): forgets every entry of
+    /// the object, designated by its objectGUID (the DN only finds the reads kept for it): the reads kept under any DN, the
+    /// explicit reads (lockouts, policy) and, for a workstation, its ping, sessions and inventory. Returns the number of entries
+    /// removed.
     /// </summary>
-    public void Forget(string dn)
+    public int Forget(string dn, Guid? objectGuid = null)
     {
         ArgumentNullException.ThrowIfNull(dn);
         lock (gate)
         {
-            var kept = reads.Where(r => FicheValues.SameDn(r.Key, dn)).ToList();
-            foreach (var (key, read) in kept)
+            var guids = reads.Where(r => FicheValues.SameDn(r.Key, dn)).Select(r => r.Value.Entry.ObjectGuid).ToHashSet();
+            if (objectGuid is Guid given && given != Guid.Empty)
             {
-                reads.Remove(key);
-                lockouts.Remove(read.Entry.ObjectGuid);
-                policies.Remove(read.Entry.ObjectGuid);
+                guids.Add(given);
             }
+            var removed = 0;
+            foreach (var key in reads.Where(r => FicheValues.SameDn(r.Key, dn) || guids.Contains(r.Value.Entry.ObjectGuid)).Select(r => r.Key).ToList())
+            {
+                removed += reads.Remove(key) ? 1 : 0;
+            }
+            foreach (var guid in guids)
+            {
+                removed += (lockouts.Remove(guid) ? 1 : 0) + (policies.Remove(guid) ? 1 : 0) + (pings.Remove(guid) ? 1 : 0)
+                    + (sessions.Remove(guid) ? 1 : 0) + (inventories.Remove(guid) ? 1 : 0);
+            }
+            return removed;
         }
     }
 

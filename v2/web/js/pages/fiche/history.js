@@ -56,13 +56,15 @@ export function mountHistory(panel, S) {
     }
   }
 
+  // The page itself carries data-kind (« user », « computer »…): only the filter chips of this tab are filters. The receipt and
+  // « Réessayer » come first, so a click anywhere else in the tab never repaints an empty filter.
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
-    const k = t?.closest('[data-kind]');
-    if (k) { kind = k.dataset.kind; render(); return; }
     const r = t?.closest('[data-receipt]');
     if (r) { openReceipt(S.ctx, r.dataset.receipt, { onChange: () => load() }); return; }
-    if (t?.closest('[data-retry]')) load();
+    if (t?.closest('[data-retry]')) { load(); return; }
+    const k = t?.closest('.fi-history-kinds [data-kind]');
+    if (k && !k.disabled) { kind = k.dataset.kind; render(); }
   };
   panel.addEventListener('click', onClick);
   load();

@@ -39,7 +39,7 @@ export function pickObject(ctx, o) {
     });
     const excluded = new Set((o.exclude ?? []).map((d) => d.toLowerCase()));
     const paint = () => {
-      if (!input.value.trim()) {
+      if (input.value.trim().length < 2) {
         list.innerHTML = `<div class="fi-picker-empty">${glyph('search')}<span>Tapez au moins deux caractères.</span></div>`;
         return;
       }

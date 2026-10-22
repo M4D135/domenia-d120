@@ -4,7 +4,7 @@
 // shown on every tab with the tile of the current tab highlighted. Updated in place when the fiche is read again (FIC-031).
 import { createCommandBar, createDnBreadcrumb, freshness, startFreshness, glyph, openMenu, writeClipboard, NBSP, int } from '../../kit/index.js';
 import { esc, applyVars, toast } from '../../ui.js';
-import { avatar, kindOf, statePills, plural, day, stamp, nobr, presenceWords } from './common.js';
+import { avatar, kindOf, statePills, plural, day, stamp, nobr, presenceWords, ficon } from './common.js';
 
 const ACTION_ICONS = {
   edit: 'edit', unlock: 'lock', resetPassword: 'key', expirePassword: 'key', expiration: 'calendar', options: 'sliders', enable: 'power',
@@ -72,8 +72,10 @@ export function mountHeader(host, S) {
 
   function origin(sheet) {
     const o = sheet.origin;
+    // FIC-030: the date of the local values stays visible while the directory read runs.
     if (o.preview) {
-      return `<span class="fi-origin preview" data-tip="${esc(o.detail)}">${glyph('database')}<span>Aperçu local</span><span class="fi-origin-pulse" aria-hidden="true"></span></span>`;
+      const at = o.readAt ? ` · valeurs du ${esc(stamp(o.readAt))}` : '';
+      return `<span class="fi-origin preview" data-tip="${esc(o.detail)}">${glyph('database')}<span>Aperçu local${at}, relecture en cours</span><span class="fi-origin-pulse" aria-hidden="true"></span></span>`;
     }
     const label = o.source === 'simulation' ? 'Annuaire fictif' : 'Annuaire';
     return `<span class="fi-origin live" data-tip="${esc(o.detail)}">${glyph(o.source === 'simulation' ? 'sparkles' : 'server')}<span>${esc(label)}${o.controller ? ` · ${esc(o.controller)}` : ''}</span></span>`
@@ -83,12 +85,15 @@ export function mountHeader(host, S) {
   function band(sheet) {
     const b = sheet.band;
     if (!b) return '';
-    // Information only: the unlock is the primary command of the header, the 4740 read is on the account tab (one place each).
+    // FIC-048: the band offers the unlock and the 4740 read as subtle shortcuts; the header command bar keeps the primary action.
     return `<section class="fi-band reveal" data-tone="${esc(b.tone)}" role="status">
       <span class="fi-band-ico">${glyph(b.tone === 'alert' ? 'alert' : 'eye')}</span>
       <div class="fi-band-body"><p class="fi-band-alerts">${b.alerts.map((a, n) => `<span class="fi-band-alert" data-j="${n}">${esc(a)}</span>`).join('<span class="fi-band-dot" aria-hidden="true">·</span>')}</p>
         ${b.limits ? `<p class="fi-band-limits">${esc(b.limits)}</p>` : ''}</div>
-      ${b.unlock || b.lockouts ? `<div class="fi-band-actions"><button class="btn sm ghost" type="button" data-band="lockCard">${glyph('chevronRight')}Voir le verrouillage</button></div>` : ''}
+      ${b.unlock || b.lockouts ? `<div class="fi-band-actions">
+        ${b.unlock ? `<button class="btn sm subtle fi-write" type="button" data-band="unlock" data-tip="Écriture${NBSP}: plan, confirmation, reçu et relecture">${glyph('lock')}Déverrouiller maintenant…<span class="fi-write-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button>` : ''}
+        ${b.lockouts ? `<button class="btn sm ghost is-net" type="button" data-band="lockouts" data-tip="Lit le journal Sécurité des contrôleurs (4740)${NBSP}: lecture réseau, sur ce clic seulement">${glyph('history')}Lire les verrouillages (4740)<span class="k-cmd-net" aria-hidden="true"></span><span class="visually-hidden">, lecture réseau</span></button>` : ''}
+        <button class="btn sm ghost" type="button" data-band="lockCard">${glyph('chevronRight')}Voir le verrouillage</button></div>` : ''}
     </section>`;
   }
 
@@ -133,7 +138,7 @@ export function mountHeader(host, S) {
       tile('group', 'Listes de diffusion', c.groups != null ? int(c.groups) : '—', 'Groupes dont le contact est membre', 'off', 'groupes');
     }
     return `<div class="fi-stats" data-count="${tiles.length}">${tiles.map((t, n) => `<button type="button" class="fi-stat spot reveal" data-tab="${esc(t.tab)}" data-tone="${esc(t.tone)}" data-j="${n}" aria-label="${esc(`${t.label}${NBSP}: ${t.value}${t.sub ? `, ${t.sub}` : ''}. Ouvre l’onglet correspondant.`)}">
-      <span class="fi-stat-top"><span class="fi-stat-ico">${glyph(t.icon)}</span><span class="fi-stat-label">${esc(t.label)}</span></span>
+      <span class="fi-stat-top"><span class="fi-stat-ico">${ficon(t.icon)}</span><span class="fi-stat-label">${esc(t.label)}</span></span>
       <span class="fi-stat-value">${nobr(t.value)}</span>
       <span class="fi-stat-sub">${nobr(t.sub || ' ')}</span>
       <span class="fi-stat-bar" aria-hidden="true"></span></button>`).join('')}</div>`;
@@ -143,7 +148,7 @@ export function mountHeader(host, S) {
     const id = sheet.identity;
     const chips = [];
     if (id.sam) chips.push(`<span class="fi-idchip mono" data-tip="Identifiant (sAMAccountName)">${glyph('user')}${esc(id.sam)}</span>`);
-    if (id.upn) chips.push(`<span class="fi-idchip mono" data-tip="Nom de connexion (UPN)">${glyph('mail')}${esc(id.upn)}</span>`);
+    if (id.upn) chips.push(`<span class="fi-idchip mono" data-tip="Nom de connexion (UPN)">${ficon('mail')}${esc(id.upn)}</span>`);
     return chips.join('');
   }
 
@@ -195,7 +200,7 @@ export function mountHeader(host, S) {
       { heading: 'Nom distinctif' },
       { label: 'Copier le DN', icon: 'copy', run: () => copy(id.dn, 'DN copié.') },
       { label: 'Copier le nom', icon: 'copy', run: () => copy(id.name, 'Nom copié.') },
-      { label: 'Ouvrir le parent', icon: 'ou', disabled: !id.parentDn || /^DC=/i.test(id.parentDn), reason: 'Le parent est la racine du domaine, qui ne s’ouvre pas en fiche.', run: () => S.open(id.parentDn) },
+      { label: 'Ouvrir le parent', icon: 'ou', disabled: !id.parentDn || /^DC=/i.test(id.dn), reason: 'La racine du domaine n’a pas de parent dans l’annuaire.', run: () => S.open(id.parentDn) },
     ], { label: 'Menu du nom distinctif', placement: 'bottom-end' });
   }
 
@@ -209,7 +214,8 @@ export function mountHeader(host, S) {
     const stat = t.closest('.fi-stat[data-tab]');
     if (stat) { S.selectTab(stat.dataset.tab, { scroll: true }); return; }
     const b = t.closest('[data-band]');
-    if (b) { S.act('lockCard'); return; }
+    // Domenia 1 (FIC-048): « Déverrouiller maintenant » and « Lire les verrouillages (4740) » act from the band directly.
+    if (b) { S.act(b.dataset.band); return; }
     const dn = t.closest('.fi-dn-menu');
     if (dn) dnMenu(dn);
   };

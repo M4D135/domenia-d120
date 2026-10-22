@@ -44,7 +44,7 @@ export function mountCallSheet(panel, S) {
         <div class="fi-cs-who"><span class="card-icon" data-tone="${s.attention.length ? 'warn' : 'ok'}">${glyph('lifebuoy')}</span>
           <div><h3>Fiche d’appel · ${esc(s.subject.displayName)}</h3><p class="fi-card-sub"><span class="mono">${esc(s.subject.login)}</span>${s.subject.upn ? ` · <span class="mono">${esc(s.subject.upn)}</span>` : ''}</p></div>
           <div class="fi-cs-tools"><button class="btn sm ghost" type="button" data-cs="recompute">${glyph('refresh')}Recalculer</button>
-            <button class="btn sm primary" type="button" data-cs="ticket">${glyph('copy')}Copier pour le ticket</button></div></div>
+            <button class="btn sm subtle" type="button" data-cs="ticket">${glyph('copy')}Copier pour le ticket</button></div></div>
         <div class="fi-cs-attn-wrap"><span class="fi-cs-attn-title">${glyph('eye')}Points d’attention${s.attention.length ? `<span class="chip warn">${int(s.attention.length)}</span>` : ''}</span>${attention}</div>
         <p class="fi-note">${glyph(s.originState === 'known' ? 'database' : 'alert')}${esc(s.origin)} Lecture seule${NBSP}: rien n’est lu sur le réseau sans un clic sur un des boutons de lecture.</p>
       </section>

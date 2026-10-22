@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Fiche : objet remplacé depuis la sélection (GUID différent)",
+  "description": "Ouvre la fiche de Camille Bernard avec un GUID de sélection qui n’est pas le sien (FIC-033) : la fiche reste indisponible, sans commande ni onglet, avec les deux GUID. « Ouvrir l’objet relu » affiche ensuite la fiche sur choix explicite.",
+  "modes": ["simulation"],
+  "start": "fiche?q=c.bernard&guid=00000000-0000-4000-8000-0000000000ff",
+  "steps": [
+    { "do": "wait", "selector": ".fi-replaced", "timeoutMs": 20000, "title": "État bloquant à la place de la fiche" },
+    { "do": "expect", "contains": "Objet remplacé depuis la sélection", "within": ".fi-replaced" },
+    { "do": "expect", "contains": "00000000-0000-4000-8000-0000000000ff", "within": ".fi-replaced", "title": "Le GUID attendu est affiché" },
+    { "do": "expect", "selector": ".fi-cmd", "absent": true, "title": "Aucune commande sur l’objet relu" },
+    { "do": "expect", "selector": ".fi-body-host [role=tab]", "absent": true, "title": "Aucun onglet" },
+    { "do": "shot", "name": "guid-different", "selector": ".fi-replaced" },
+    { "do": "click", "text": "Ouvrir l’objet relu", "within": ".fi-replaced", "title": "Choix explicite de l’opérateur" },
+    { "do": "wait", "selector": ".fi-cmd", "timeoutMs": 20000, "title": "La fiche de l’objet relu s’affiche" },
+    { "do": "expect", "contains": "Camille Bernard", "within": ".fi-hero" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

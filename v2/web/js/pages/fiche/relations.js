@@ -2,7 +2,7 @@
 // workstations or users on the right, what it manages below — drawn with animated links (transform only), each node opening
 // its fiche; then the detail of what exists only: associations with their evidence badge and rule, never a percentage
 // (FIC-046, FIC-047, Domenia-Relations), the team and the managed objects. Local base only: nothing read on the network.
-import { glyph, pill, int } from '../../kit/index.js';
+import { glyph, pill, int, NBSP } from '../../kit/index.js';
 import { esc, errorText, applyVars } from '../../ui.js';
 import { avatar, emptyNote, failure, kindOf, skeleton, initialsOf, stamp, plural } from './common.js';
 
@@ -65,7 +65,7 @@ export function mountRelations(panel, S) {
         <div class="fi-card-titles"><h3>${me.kind === 'computer' ? 'Utilisateurs associés' : 'Postes associés'}</h3><p class="fi-card-sub">Badge et règle de chaque association, jamais un pourcentage</p></div>
         <span class="meta"><span class="chip">${int(assoc.length)}</span></span></div>
         <div class="fi-rel-list">${assoc.map((a, n) => linkRow({ dn: a.dn, name: a.name, kind: a.kind, detail: `${a.source}${a.when ? ` · ${stamp(a.when)}` : ''} · ${a.rule}` }, n,
-          `${a.primary ? `<span class="fi-primary" data-tip="Relation principale${' '}: déclarée d’abord, sinon la plus récente">${glyph('star')}</span>` : ''}${pill(evidenceTone(a.evidence), a.evidenceLabel, { size: 'sm', tip: a.rule })}`)).join('')}</div></section>`);
+          `${a.primary ? `<span class="fi-primary" data-tip="Relation principale${NBSP}: déclarée d’abord, sinon la plus récente">${glyph('star')}</span>` : ''}${pill(evidenceTone(a.evidence), a.evidenceLabel, { size: 'sm', tip: a.rule })}`)).join('')}</div></section>`);
     }
     if (upper) {
       details.push(`<section class="card fi-card fi-enter" data-j="2"><div class="card-head"><span class="card-icon">${glyph('user')}</span><div class="fi-card-titles"><h3>${person ? 'Responsable' : 'Géré par'}</h3>

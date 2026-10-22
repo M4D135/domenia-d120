@@ -4,10 +4,10 @@
 // (Domenia-CallSheet). Contract: docs/ops/fiche.md. The local projection is shown first (fiche.preview), the directory read
 // replaces it (fiche.read); nothing is read on the network without the operator’s gesture: a route state (« open ») shows and
 // highlights its card and button only (the read itself runs from a route in simulation only, with « run=1 », for captures).
-import { createTabs, confirmDialog, openDialog, openDrawer, writeClipboard, glyph, NBSP } from '../kit/index.js';
+import { createTabs, confirmDialog, openDialog, openDrawer, writeClipboard, glyph, NBSP, dnParent, parseDn } from '../kit/index.js';
 import { esc, errorText, toast, announce, applyVars, reveal } from '../ui.js';
 import { write, pickObject, pickOu } from './fiche/actions.js';
-import { failure, skeleton, supportGroups, supportText, plural } from './fiche/common.js';
+import { failure, skeleton, supportGroups, supportText, plural, stamp } from './fiche/common.js';
 import { mountHeader } from './fiche/header.js';
 import { mountGeneral } from './fiche/general.js';
 import { mountAccount } from './fiche/account.js';
@@ -55,6 +55,10 @@ export function render(main, ctx) {
     mounted: new Map(),
     draft: null,
     routeDone: false,
+    // A directory read answered (success or failure): the local preview, slower, is then ignored (never drawn over the read).
+    settled: false,
+    // GUID refused (FIC-033): the operator chose to open the object read anyway.
+    acceptGuid: '',
     stopReveal: () => {},
     /** Opens another fiche (or this one with other parameters); unsaved input is guarded by the router (FIC-007). */
     open(target, params = {}) {
@@ -79,27 +83,49 @@ export function render(main, ctx) {
       S.selectTab(id);
       requestAnimationFrame(() => { const m = S.mounted.get(id); if (m && S.alive) fn(m); });
     },
+    /**
+     * A ping measured from the fiche (« Vérifier la présence ») is a newer observation than the read: the header tile, the
+     * avatar dot and the freshness of the presence follow it at once, without another read. Nothing changes without a ping.
+     */
+    notePresence(r) {
+      if (!S.sheet || !r?.computerDn || !r.checkedAt) return;
+      const via = S.sheet.identity.kind === 'user' && r.computer ? ` (poste associé ${r.computer})` : '';
+      const presence = { state: r.state, label: `${r.label}${via}`, checkedAt: r.checkedAt, computer: r.computer ?? null, computerDn: r.computerDn, detail: `${r.detail} Relevé le ${stamp(r.checkedAt)}.` };
+      const freshness = S.sheet.freshness.map((f) => (f.nature === 'presence'
+        ? { ...f, state: 'fresh', observedAt: r.checkedAt, ageSeconds: 0, lastAttempt: null, text: `${f.label}${NBSP}: ${stamp(r.checkedAt)}` } : f));
+      S.sheet = { ...S.sheet, presence, freshness };
+      S.header?.update(S.sheet);
+    },
   };
 
-  // Unsaved input (FIC-007, Test-DomeniaDraftNavigation): changing fiche, leaving the screen or reading again asks first.
+  // Unsaved input (FIC-007, Test-DomeniaDraftNavigation): changing fiche, leaving the screen or reading again asks first. The
+  // draft counts the general fields and the account options (UAC, expiry date, password change and unlock boxes); an abandon
+  // confirmed puts every tab back to the values read (discard), so the guard is never disarmed while typed values stay shown.
+  const draftCount = () => (S.draft?.count ?? 0) + (S.accountDraft?.count ?? 0);
   const dropDraft = () => {
-    if (!S.draft?.count) return Promise.resolve(true);
+    const count = draftCount();
+    if (!count) return Promise.resolve(true);
     return confirmDialog({
       title: 'Saisies non enregistrées',
-      message: `${plural(S.draft.count, 'champ de la fiche a été modifié', 'champs de la fiche ont été modifiés')} sans enregistrement. Abandonner ces saisies pour changer de fiche ou la recharger${NBSP}? Rien n’est envoyé à l’annuaire.`,
+      message: `${plural(count, 'champ de la fiche a été modifié', 'champs de la fiche ont été modifiés')} sans enregistrement. Abandonner ces saisies pour changer de fiche ou la recharger${NBSP}? Rien n’est envoyé à l’annuaire.`,
       confirmLabel: 'Abandonner les saisies', cancelLabel: 'Continuer la saisie', danger: true, icon: 'undo',
     }).then((ok) => {
-      if (ok) S.draft = null;
+      if (ok) {
+        for (const m of S.mounted.values()) m.discard?.();
+        S.draft = null;
+        S.accountDraft = null;
+      }
       return !!ok;
     });
   };
+  S.dropDraft = dropDraft;
   const releaseGuard = typeof ctx.guardLeave === 'function' ? ctx.guardLeave(() => dropDraft()) : () => {};
 
   async function load({ again = false, quiet = false, reread = false } = {}) {
     if (!again) {
       // Local projection first (FIC-030): shown at once, marked as such, without probes nor writes.
       ctx.call('fiche.preview', { dn }).then((preview) => {
-        if (!S.alive || S.live || !preview) return;
+        if (!S.alive || S.live || S.settled || !preview) return;
         show(preview);
       }).catch((err) => console.error(err));
     } else {
@@ -108,20 +134,27 @@ export function render(main, ctx) {
     try {
       const sheet = await ctx.call('fiche.read', reread ? { dn, reread: true } : { dn });
       if (!S.alive) return;
-      // Identity check (FIC-033): the GUID captured at the selection (route « guid ») or shown by the local preview must be the
-      // one read; otherwise the DN now names another object, which is said, never silently swapped.
+      S.settled = true;
+      // Identity check (FIC-033, Domenia 1 Assert-DomeniaObjectResultIdentity): the GUID captured at the selection (route
+      // « guid ») or shown by the local preview must be the one read; otherwise the DN now names another object. The fiche stays
+      // unavailable (no tab, no write) until the operator explicitly opens the object read.
       const expected = String(S.params.guid || (!S.live && S.sheet ? S.sheet.identity.guid : '')).toLowerCase();
-      if (expected && sheet.identity.guid.toLowerCase() !== expected) {
-        toast(`Objet remplacé depuis la sélection${NBSP}: ce DN désigne maintenant un autre objet (GUID différent). La fiche affiche l’objet relu${NBSP}; actualisez la liste d’origine.`, { tone: 'warn', life: 10000 });
+      if (expected && sheet.identity.guid.toLowerCase() !== expected && S.acceptGuid !== sheet.identity.guid.toLowerCase()) {
+        replaced(sheet, expected);
+        return;
       }
       S.live = true;
       show(sheet, { again, quiet });
       if (!again) ctx.call('fiche.recent.add', { dn: sheet.identity.dn }).catch((err) => console.error(err));
     } catch (err) {
       if (!S.alive) return;
+      S.settled = true;
       console.error(err);
       if (S.sheet && again) {
-        toast(`Relecture impossible${NBSP}: ${errorText(err)} Rien n’a été modifié.`, { tone: 'warn' });
+        // A read again that fails says only that: after a write, something may well have changed (never « nothing changed »).
+        toast(err?.code === 'fiche.unknown'
+          ? `Relecture impossible${NBSP}: l’objet n’est plus à ce DN (déplacé, renommé ou supprimé). La fiche affichée date de la lecture précédente.`
+          : `Relecture impossible${NBSP}: ${errorText(err)} La fiche affichée date de la lecture précédente.`, { tone: 'warn', life: 8000 });
         S.header?.setBusy(false);
         return;
       }
@@ -129,6 +162,35 @@ export function render(main, ctx) {
     } finally {
       S.header?.setBusy(false);
     }
+  }
+
+  // FIC-033: the DN now names another object than the one chosen. Nothing of it is shown nor writable until the operator asks.
+  function replaced(sheet, expected) {
+    S.header?.destroy();
+    S.tabs?.destroy();
+    for (const m of S.mounted.values()) m.destroy?.();
+    S.mounted.clear();
+    S.header = null;
+    S.tabs = null;
+    S.sheet = null;
+    page.dataset.kind = 'error';
+    headHost.innerHTML = '';
+    bodyHost.innerHTML = `<section class="card fi-card fi-fatal fi-replaced" role="alert">
+      <div class="fi-replaced-ico">${glyph('alert')}</div>
+      <h2>Objet remplacé depuis la sélection</h2>
+      <p>Ce DN désigne maintenant un autre objet (GUID différent)${NBSP}: <b>${esc(sheet.identity.name)}</b>, ${esc(sheet.identity.kindLabel.toLowerCase())}. L’objet choisi a été supprimé, déplacé ou recréé. Actualisez la liste d’origine${NBSP}; aucune action n’est proposée sur l’objet relu tant que vous ne l’ouvrez pas explicitement.</p>
+      <dl class="fi-replaced-ids"><dt>GUID attendu</dt><dd class="mono">${esc(expected)}</dd><dt>GUID relu</dt><dd class="mono">${esc(sheet.identity.guid)}</dd></dl>
+      <div class="fi-fatal-actions"><button class="btn" type="button" data-back>${glyph('search')}Rechercher un objet</button>
+        <button class="btn subtle" type="button" data-open-read>${glyph('object')}Ouvrir l’objet relu</button></div></section>`;
+    bodyHost.querySelector('[data-back]')?.addEventListener('click', () => ctx.navigate('fiche', {}));
+    bodyHost.querySelector('[data-open-read]')?.addEventListener('click', () => {
+      S.acceptGuid = sheet.identity.guid.toLowerCase();
+      S.live = true;
+      bodyHost.innerHTML = tabsSkeleton();
+      headHost.innerHTML = headSkeleton();
+      show(sheet);
+    });
+    announce(`Objet remplacé depuis la sélection${NBSP}: la fiche reste indisponible.`, { assertive: true });
   }
 
   // A fiche that cannot be read: header and tabs are destroyed (timers, command bar) before the error is shown.
@@ -241,11 +303,11 @@ export function render(main, ctx) {
     }).catch((err) => console.error(err));
   }
 
-  // Palette commands of this fiche (FIC-040: palette:lockouts of Domenia 1), replaced at each read.
-  let dropCommands = () => {};
+  // Palette commands of this fiche (FIC-040: palette:lockouts of Domenia 1), replaced at each read, through the API of the shell
+  // (ctx.commands.set, docs/SHELL.md § 3); without the shell they are simply not offered.
+  const dropCommands = () => ctx.commands?.set?.([]);
   function commands(sheet) {
-    if (typeof ctx.commands !== 'function') return;
-    dropCommands();
+    if (typeof ctx.commands?.set !== 'function') return;
     const id = sheet.identity;
     const list = [
       { id: 'fiche-reread', label: `Relire la fiche ${id.name}`, icon: 'refresh', kbd: 'F5', keywords: 'fiche relire actualiser annuaire', run: () => S.act('reread') },
@@ -258,7 +320,7 @@ export function render(main, ctx) {
       list.push({ id: 'fiche-compare', label: 'Comparer les droits avec un autre compte…', icon: 'split', keywords: 'comparer droits groupes', run: () => S.act('compare') });
     }
     if (id.kind === 'computer') list.push({ id: 'fiche-poste', label: 'Ouvrir dans l’écran Poste', icon: 'monitor', keywords: 'poste ordinateur', run: () => S.act('openPoste') });
-    dropCommands = ctx.commands(list) ?? (() => {});
+    ctx.commands.set(list.map((c) => ({ effect: c.id === 'fiche-lockouts' || c.id === 'fiche-reread' ? 'read' : 'local', ...c })));
   }
 
   load();
@@ -269,7 +331,7 @@ export function render(main, ctx) {
     if (document.querySelector('[aria-modal="true"]')) return;
     e.preventDefault();
     if (!S.sheet) return;
-    dropDraft().then((ok) => { if (ok && S.alive) S.act('reread'); });
+    S.act('reread');
   };
   document.addEventListener('keydown', onKey);
   return () => {
@@ -326,6 +388,15 @@ function tabsSkeleton() {
 /** Plan of one write, then a re-read of the fiche once the receipt is in (the receipt panel stays open). */
 function writeAndReload(S, plan, args, subtitle) {
   return write(S.ctx, plan, args, { subtitle, onDone: () => S.reload({ quiet: true, reread: true }) });
+}
+
+/**
+ * DN of an object once moved (FIC-018): its own RDN under the destination. The fiche opens there with the GUID captured, so
+ * the read checks it is the same object (FIC-033); the old DN is never read again.
+ */
+export function movedDn(dn, target) {
+  const parts = parseDn(dn);
+  return parts.length && target ? `${parts[0].rdn},${target}` : '';
 }
 
 /** Résumé support of a user (FIC-044): dated facts by rubric, each with its source, reader and date, copyable. */
@@ -418,7 +489,16 @@ async function runAction(S, id, arg) {
         current: sheet.identity.parentDn ?? undefined,
         note: 'Le DN et le GUID de l’objet sont capturés maintenant et revérifiés par le plan puis avant l’envoi.',
       });
-      if (target) await writeAndReload(S, 'fiche.move.plan', { dn, target: target.dn, guid }, subtitle);
+      if (!target) return;
+      // After a move applied (or already done), the fiche follows the object to its new DN, read again by its GUID.
+      await write(S.ctx, 'fiche.move.plan', { dn, target: target.dn, guid }, {
+        subtitle,
+        onDone: (receipt) => {
+          const moved = receipt && (receipt.result === 'applied' || receipt.result === 'noChange') ? movedDn(dn, target.dn) : '';
+          if (moved && moved.toLowerCase() !== dn.toLowerCase()) S.open(moved, { guid });
+          else S.reload({ quiet: true, reread: true });
+        },
+      });
       return;
     }
     case 'groupAdd': {
@@ -482,7 +562,8 @@ async function runAction(S, id, arg) {
       S.ctx.navigate('poste', { dn });
       return;
     case 'reread':
-      await S.reload({ reread: true });
+      // Every read again goes through the same rule (header, palette, F5): unsaved input asks first.
+      if (await S.dropDraft()) await S.reload({ reread: true });
       return;
     case 'copySummary':
       writeClipboard(sheet.summary).then((ok) => toast(ok ? 'Résumé copié.' : 'Copie impossible.', { tone: ok ? 'ok' : 'warn', life: 2600 }));

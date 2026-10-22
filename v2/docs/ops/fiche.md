@@ -29,12 +29,27 @@ Parité : `FIC-001` à `FIC-050` et lot R40 (fiche d’appel, `Domenia-CallSheet
 - **Arguments.** Objet JSON fermé (propriété inconnue refusée), DN conformes à la RFC 4514 (2 048 caractères au plus),
   textes de 256 caractères au plus (`text`, `other`), valeurs d’attribut de 4 096 caractères au plus.
 - **Aperçu puis lecture (FIC-030, FIC-035).** La page appelle `fiche.preview` (base locale, immédiat, marqué
-  « Aperçu ») puis `fiche.read` qui le remplace. Le GUID de l’aperçu, ou celui de la route (`guid`), doit être celui
-  de la lecture (FIC-033), sinon la page le dit.
+  « Aperçu local · valeurs du JJ/MM/AAAA HH:mm, relecture en cours ») puis `fiche.read` qui le remplace. Dès qu’une
+  lecture de l’annuaire a abouti ou échoué, un aperçu arrivé plus tard est ignoré (jamais dessiné par-dessus).
+- **Identité vérifiée (FIC-033).** Le GUID de l’aperçu, ou celui de la route (`guid`), doit être celui de la lecture.
+  Sinon la fiche reste indisponible, comme dans Domenia 1 (Assert-DomeniaObjectResultIdentity) : état bloquant « Objet
+  remplacé depuis la sélection (GUID différent) », GUID attendu et GUID relu, sans aucune action sur l’objet relu. Les
+  gestes proposés sont « Rechercher un objet » et « Ouvrir l’objet relu » (choix explicite : la fiche de l’objet relu
+  s’affiche alors, et ses relectures acceptent ce GUID).
+- **Déplacement (FIC-018).** Quand le reçu de `fiche.move.plan` vaut `applied` ou `noChange`, la page ouvre le nouveau DN
+  (RDN de l’objet + DN de destination) avec le GUID de l’objet : la relecture vise l’objet déplacé, jamais l’ancien DN.
+  Une relecture qui échoue après une écriture appliquée ne dit jamais « Rien n’a été modifié ».
 - **Rafraîchissement partiel (FIC-031).** `signature` résume identité, états, appartenances et liens : à signature égale,
   la page ne repeint que les champs d’affichage.
-- **Invalidation ciblée (FIC-037).** Le moteur garde par session la dernière lecture de chaque objet ; quand une lecture
-  montre un autre `uSNChanged` ou un autre DN, seules les lectures rangées sous ce GUID sont oubliées.
+- **Invalidation ciblée (FIC-037, FIC-046).** Le moteur garde par session la dernière lecture de chaque objet ; quand une
+  lecture montre un autre `uSNChanged` ou un autre DN, seules les lectures rangées sous ce GUID sont oubliées. Les relevés
+  de présence, de sessions et d’inventaire d’un poste sont rangés sous son `objectGUID` (un poste recréé ou renommé
+  n’hérite pas du relevé de l’ancien). `FicheSession.Forget(dn, guid)` retire toutes les clés de l’objet (GUID avec ou
+  sans tirets, DN à défaut) et rend le nombre d’entrées retirées.
+- **Présence mesurée depuis la fiche.** Après « Vérifier la présence », la tuile de l’en-tête, le point de présence de
+  l’avatar et la fraîcheur « Présence réseau » suivent le nouveau relevé sans autre lecture.
+- **Racine du domaine.** Elle s’ouvre en fiche (accès rapides, fil du DN, « Ouvrir le parent » d’un objet placé
+  directement sous elle) ; seule la racine elle-même n’a pas de parent à ouvrir. Sa suppression reste refusée.
 - **Secrets.** Aucun attribut sensible n’est lu ni renvoyé (`unicodePwd`, `ms-Mcs-AdmPwd`, `msLAPS-Password`,
   `msFVE-RecoveryPassword`…). Le mot de passe d’une réinitialisation se saisit (deux fois, champs révélables) ou se génère
   (`TemporaryPassword`, longueur de la configuration, révélé une fois pour être lu) dans la **fenêtre sécurisée native de
@@ -168,8 +183,15 @@ Aucun relevé ne porte sur tout le domaine : chaque lecture vise l’objet ouver
   de l’état de route en simulation seulement, § 1), `other` (compte comparé), `guid` (contrôle d’identité).
 - Composants locaux (demandes au kit) : sélecteur d’objets, sélecteur de destination (OU et conteneurs), tableau de faits,
   carte des relations, tuiles de chiffres, tableau de la fiche d’appel, pastille de fraîcheur d’un bloc.
-- Partagé (petits ajouts) : garde de sortie du routeur `ctx.guardLeave(fn)` (saisies non enregistrées, FIC-007),
-  commandes de palette de l’écran affiché `ctx.commands(list)` (FIC-040), marques écriture et réseau des entrées de menu
-  (`kind`), glyphes `phone`, `mail`, `building`, aperçu navigateur `web/js/mock-fiche.js`.
+- Partagé (petits ajouts, à revoir à l’intégration) : garde de sortie du routeur `ctx.guardLeave(fn)` (saisies non
+  enregistrées, FIC-007, indispensable), marques écriture et réseau des entrées de menu (`kind`, `kit/menu.js` et
+  `kit.css`), branchement de l’aperçu navigateur `web/js/mock-fiche.js` dans `mock.js` (2 lignes), surcouche de simulation
+  `SimulatedDirectoryOverlay.cs` (à fusionner avec l’écran Poste). Les commandes de palette passent par l’API de l’écran
+  shell `ctx.commands.set(list)` (docs/SHELL.md) : `app.js` n’est plus modifié par la fiche. Les icônes `phone`, `mail`
+  et `building` sont dessinées dans la page (`ficon()`, `fiche/common.js`) : `kit/glyphs.js` n’est plus modifié.
+- Groupes : les colonnes « Via » et « Niveau » n’apparaissent qu’après la lecture des groupes imbriqués (disposition
+  mémorisée à part), pour rester sans défilement horizontal.
+- Exemples de la page vide : noms de l’annuaire fictif en simulation seulement ; en mode annuaire, ceux de la session
+  (son compte, son OU de travail).
 - Fenêtre sécurisée : `src/Domenia.App/Secrets/` (`HostPasswordWindow`, `PasswordWindow`, `SecureEntry`). Fenêtre native
   modale au-dessus de l’application, couleurs du thème de la page ; la capture (surface WebView2 seule) ne la montre pas.

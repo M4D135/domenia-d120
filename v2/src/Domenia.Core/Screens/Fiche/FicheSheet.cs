@@ -859,7 +859,9 @@ public static class FicheSheets
         Add("rights", "Estimer les droits effectifs", "network", probe);
         Add("reread", "Relire depuis l’annuaire", "network", null);
         Add("copySummary", "Copier le résumé", "local", null);
-        if (DistinguishedName.Parent(entry.Dn) is string parent && !parent.StartsWith("DC=", StringComparison.OrdinalIgnoreCase))
+        // The domain root opens in the fiche (quick accesses, working OU): an object placed directly under it has a parent to
+        // open; only the root itself has none inside the domain.
+        if (DistinguishedName.Parent(entry.Dn) is not null && !entry.Dn.StartsWith("DC=", StringComparison.OrdinalIgnoreCase))
         {
             Add("openParent", "Ouvrir le parent", "local", null);
         }

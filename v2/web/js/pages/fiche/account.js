@@ -37,7 +37,8 @@ export function mountAccount(panel, S) {
         <dl class="fi-mini"><div><dt>Options (userAccountControl)</dt><dd>${esc(a.uacLabel)}</dd></div>
           <div><dt>Valeur brute</dt><dd class="mono">${a.uac != null ? esc(String(a.uac)) : '—'}</dd></div>
           ${a.protected ? `<div><dt>Protection</dt><dd>${pill('accent', 'adminCount = 1', { size: 'sm' })} Objet protégé par AdminSDHolder</dd></div>` : ''}</dl>`,
-      foot: disabled ? button('enable', 'Activer le compte…', 'power', { primary: true }) : button('disable', 'Désactiver le compte…', 'power', { danger: true }),
+      // A write is never the primary button of a card (KIT § 2.6): the primary command stays that of the header.
+      foot: disabled ? button('enable', 'Activer le compte…', 'power') : button('disable', 'Désactiver le compte…', 'power', { danger: true }),
     });
   }
 
@@ -181,6 +182,50 @@ export function mountAccount(panel, S) {
     panel.querySelectorAll('.fi-card').forEach((c, n) => { c.classList.add('fi-enter'); c.dataset.j = String(n); });
     applyVars(panel);
     startFreshness(panel);
+    restoreTyped();
+  }
+
+  // ---------- Protected draft of the account (FIC-007, Domenia 1 Test-DomeniaDraftNavigation: the 11 options followed) ----------
+  // UAC options, the expiry date typed and the two boxes of the reset are kept across every repaint (render) and counted in
+  // S.accountDraft, which the screen guard asks about before leaving or reading again. A newer read never wipes them.
+  let kept = null; // { options: {id: bool}, expiry: string|null, reset: {mustChange?: bool, unlock?: bool} }
+
+  function readTyped() {
+    const sheet = S.sheet;
+    const a = sheet?.account;
+    if (!a || sheet.identity.kind === 'computer') return null;
+    const options = changedOptions();
+    const input = /** @type {HTMLInputElement|null} */ (panel.querySelector('#fi-expiry-date'));
+    const expiry = input && input.value.trim() !== toFrench(a.accountExpires) ? input.value : null;
+    const reset = {};
+    const must = /** @type {HTMLInputElement|null} */ (panel.querySelector('[data-reset-opt="mustChange"]'));
+    const unl = /** @type {HTMLInputElement|null} */ (panel.querySelector('[data-reset-opt="unlock"]'));
+    if (must && must.checked !== ((sheet.settings ?? {}).forcePasswordChange !== false)) reset.mustChange = must.checked;
+    if (unl && unl.checked !== (a.lock === 'locked')) reset.unlock = unl.checked;
+    const count = Object.keys(options).length + (expiry !== null ? 1 : 0) + Object.keys(reset).length;
+    return count ? { options, expiry, reset, count } : null;
+  }
+
+  function syncDraft() {
+    kept = readTyped();
+    S.accountDraft = kept ? { count: kept.count } : null;
+  }
+
+  /** Puts back the values typed before a repaint (the read values stay those of the card otherwise). */
+  function restoreTyped() {
+    if (!kept) return;
+    for (const [id, on] of Object.entries(kept.options)) {
+      const box = /** @type {HTMLInputElement|null} */ (panel.querySelector(`[data-opt="${CSS.escape(id)}"]`));
+      if (box) box.checked = on;
+    }
+    const input = /** @type {HTMLInputElement|null} */ (panel.querySelector('#fi-expiry-date'));
+    if (input && kept.expiry !== null) input.value = kept.expiry;
+    for (const [id, on] of Object.entries(kept.reset)) {
+      const box = /** @type {HTMLInputElement|null} */ (panel.querySelector(`[data-reset-opt="${CSS.escape(id)}"]`));
+      if (box) box.checked = on;
+    }
+    syncOptions();
+    syncDraft();
   }
 
   function changedOptions() {
@@ -263,7 +308,7 @@ export function mountAccount(panel, S) {
         const unlock = /** @type {HTMLInputElement} */ (panel.querySelector('[data-reset-opt="unlock"]')).checked;
         const theme = document.documentElement.dataset.theme === 'light' ? 'light' : document.documentElement.dataset.theme === 'contrast' ? 'contrast' : 'dark';
         const receipt = await write(S.ctx, 'fiche.resetPassword.plan', { dn, mustChange, unlock, generate: b.dataset.acc === 'resetGenerate', theme }, { subtitle: subtitle(), onDone: done });
-        if (receipt) { resetOpen = false; render(); }
+        if (receipt) { if (kept) kept.reset = {}; resetOpen = false; render(); }
         break;
       }
       case 'expirySet': {
@@ -271,7 +316,7 @@ export function mountAccount(panel, S) {
         const value = fromFrench(input.value);
         if (!value) { toast('Saisissez une date valide au format jj/mm/aaaa, à partir d’aujourd’hui.', { tone: 'warn' }); input.focus(); input.setAttribute('aria-invalid', 'true'); return; }
         input.removeAttribute('aria-invalid');
-        await write(S.ctx, 'fiche.expiration.plan', { dn, date: value }, { subtitle: subtitle(), onDone: done });
+        if (await write(S.ctx, 'fiche.expiration.plan', { dn, date: value }, { subtitle: subtitle(), onDone: done }) && kept) kept.expiry = null;
         break;
       }
       case 'expiryNever':
@@ -280,7 +325,7 @@ export function mountAccount(panel, S) {
       case 'optionsGo': {
         const options = changedOptions();
         if (!Object.keys(options).length) return;
-        await write(S.ctx, 'fiche.options.plan', { dn, options }, { subtitle: subtitle(), onDone: done });
+        if (await write(S.ctx, 'fiche.options.plan', { dn, options }, { subtitle: subtitle(), onDone: done }) && kept) kept.options = {};
         break;
       }
       default:
@@ -292,9 +337,12 @@ export function mountAccount(panel, S) {
     if (!t) return;
     if (t.matches('[data-opt]')) syncOptions();
     if (t.matches('[data-hours]')) hours = Number(/** @type {HTMLSelectElement} */ (t).value) || 168;
+    if (t.matches('[data-opt], [data-reset-opt], #fi-expiry-date')) syncDraft();
   };
+  const onInput = (e) => { if (e.target instanceof Element && e.target.matches('#fi-expiry-date')) syncDraft(); };
   panel.addEventListener('click', onClick);
   panel.addEventListener('change', onChange);
+  panel.addEventListener('input', onInput);
   render();
 
   return {
@@ -315,11 +363,21 @@ export function mountAccount(panel, S) {
       if (id === 'expiration') panel.querySelector('#fi-expiry-date')?.focus();
     },
     touch() { startFreshness(panel); },
-    update() { render(); },
+    update(sheet, previous) {
+      // A newer read under typed options: the choices stay, and the operator is told to check them before saving.
+      if (kept && previous && JSON.stringify(previous.account?.options) !== JSON.stringify(sheet.account?.options)) {
+        toast(`Relecture plus récente${NBSP}: vos choix d’options sont gardés${NBSP}; vérifiez-les avant d’enregistrer.`, { tone: 'info', life: 6000 });
+      }
+      render();
+    },
     refresh() { render(); },
+    /** Abandon confirmed (screen guard): the values read come back, nothing is sent. */
+    discard() { kept = null; S.accountDraft = null; resetOpen = false; render(); },
     destroy() {
       panel.removeEventListener('click', onClick);
       panel.removeEventListener('change', onChange);
+      panel.removeEventListener('input', onInput);
+      S.accountDraft = null;
     },
   };
 }

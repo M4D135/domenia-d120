@@ -56,28 +56,37 @@ export function mountGroups(panel, S) {
     return list;
   }
 
+  // « Via » and « Niveau » only mean something once the nested groups are read: before that they stay out of the grid (no
+  // empty columns, no horizontal scroll), and each set of columns keeps its own layout memory. The location column also
+  // carries the DN, so that the quick filter (which searches the visible columns) finds it, as Domenia 1 does
+  // (Test-DomeniaMembershipRow).
+  const layoutKey = () => `fiche.groups.${S.sheet.identity.kind}${nested ? '.nested' : ''}`;
+  function columns() {
+    return [
+      { id: 'name', label: 'Groupe', required: true, width: nested ? 220 : 260, html: (v, r) => `<span class="fi-gname">${r.privileged ? `<span class="fi-priv" data-tip="Groupe à privilèges">${glyph('shield')}</span>` : glyph('group')}${esc(v)}</span>` },
+      { id: 'type', label: 'Type', width: nested ? 168 : 196 },
+      { id: 'membership', label: 'Appartenance', type: 'enum', width: 140, options: [
+        { value: 'Directe', label: 'Directe', tone: 'ok' }, { value: 'Imbriquée', label: 'Imbriquée', tone: 'off' }] },
+      ...(nested ? [
+        { id: 'via', label: 'Via', width: 150, get: (r) => r.via ?? '' },
+        { id: 'depth', label: 'Niveau', type: 'number', width: 88 },
+      ] : []),
+      { id: 'ou', label: 'Emplacement', width: nested ? 200 : 280, get: (r) => `${r.ou}\u2003${r.dn}`, html: (v, r) => `<span class="fi-path-cell" data-tip="${esc(r.dn)}">${esc(r.ou)}</span>`, csv: (v, r) => r.ou, sortKey: (v, r) => r.ou },
+      { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
+    ];
+  }
+
   function buildGrid() {
     grid?.destroy();
     grid = createGrid(gridHost, {
-      key: `fiche.groups.${S.sheet.identity.kind}`,
+      key: layoutKey(),
       label: isGroup() ? 'Groupes dont ce groupe est membre' : 'Groupes de l’objet',
       rowId: (r) => r.dn,
       selection: 'single',
       loading: true,
       height: gridHeight(S.sheet.counts.groups, { max: 520 }),
-      quickPlaceholder: `Filtrer${NBSP}: nom, type, OU, DN, appartenance, via…`,
-      // Widths fit the panel: no horizontal scroll. The location column also carries the DN, so that the quick filter (which
-      // searches the visible columns) finds it, as Domenia 1 does (Test-DomeniaMembershipRow).
-      columns: [
-        { id: 'name', label: 'Groupe', required: true, width: 240, html: (v, r) => `<span class="fi-gname">${r.privileged ? `<span class="fi-priv" data-tip="Groupe à privilèges">${glyph('shield')}</span>` : glyph('group')}${esc(v)}</span>` },
-        { id: 'type', label: 'Type', width: 196 },
-        { id: 'membership', label: 'Appartenance', type: 'enum', width: 158, options: [
-          { value: 'Directe', label: 'Directe', tone: 'ok' }, { value: 'Imbriquée', label: 'Imbriquée', tone: 'off' }] },
-        { id: 'via', label: 'Via', width: 150, get: (r) => r.via ?? '' },
-        { id: 'depth', label: 'Niveau', type: 'number', width: 98 },
-        { id: 'ou', label: 'Emplacement', width: 262, get: (r) => `${r.ou}\u2003${r.dn}`, html: (v, r) => `<span class="fi-path-cell" data-tip="${esc(r.dn)}">${esc(r.ou)}</span>`, csv: (v, r) => r.ou, sortKey: (v, r) => r.ou },
-        { id: 'dn', label: 'Chemin (DN)', mono: true, hidden: true, width: 420 },
-      ],
+      quickPlaceholder: `Filtrer${NBSP}: nom, type, appartenance, OU, DN…`,
+      columns: columns(),
       empty: { icon: 'group', title: isGroup() ? 'Membre d’aucun groupe' : 'Aucun groupe direct', text: 'Le groupe principal (primaryGroupID) n’apparaît pas dans memberOf : il est affiché au-dessus.' },
       onActivate: (r) => S.open(r.dn),
       contextMenu: ({ row }) => menuFor(row),
@@ -130,6 +139,7 @@ export function mountGroups(panel, S) {
       nested = await S.ctx.call('fiche.groups.nested', { dn: S.sheet.identity.dn });
       if (!S.alive) return;
       paintTop();
+      grid.setColumns(columns(), { key: layoutKey() });
       grid.setRows(rows(), { keepSelection: true, keepScroll: true });
       announce(nested.summary);
       if (b) { b.disabled = true; b.innerHTML = `${glyph('check')}Imbriqués lus`; }
