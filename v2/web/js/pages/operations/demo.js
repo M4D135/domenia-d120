@@ -19,13 +19,13 @@ const TARGETS = {
 const PROFILES = [
   { key: 'pending', kind: 'account.unlock', title: 'Déverrouiller le compte', label: 'Déverrouillage du compte', target: TARGETS.lucas, minutes: 7,
     result: 'unknown', resultLabel: 'Issue inconnue, à vérifier', verification: 'unknown', verificationLabel: 'Non vérifiée', pending: true, tone: 'warn',
-    summary: `Issue inconnue après l’envoi${C} vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures sur cet objet restent bloquées jusqu’à la vérification.`,
+    summary: `Issue inconnue après l’envoi${C} vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures restent bloquées jusqu’à sa vérification ou sa revue.`,
     error: { code: 'write.outcomeUnknown', message: `Issue inconnue après l’envoi${C} vérifiez l’objet par une relecture avant toute nouvelle écriture. Rien n’est renvoyé automatiquement.` },
     details: [['Préconditions', `Compte relu sur DC01.example.local${C} toujours verrouillé, DN et GUID inchangés.`], ['Envoi', `Aucune réponse du contrôleur dans le délai${C} issue inconnue.`], ['Relecture', `Relecture impossible${C} contrôleur injoignable au moment de la relecture.`]],
     change: ['lockoutTime', 'Verrouillage', 'clear', 'Verrouillé depuis 09:41', 'Déverrouillé'] },
   { key: 'sent', kind: 'account.enabled', title: 'Activer le compte', label: 'Activation du compte', target: TARGETS.hugo, minutes: 62,
     result: 'sent', resultLabel: 'Envoyée, issue à vérifier', verification: 'unknown', verificationLabel: 'Relecture en attente', pending: true, tone: 'warn',
-    summary: `Écriture envoyée sans confirmation (application fermée ou interrompue)${C} issue à vérifier par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures sur cet objet restent bloquées jusqu’à la vérification.`,
+    summary: `Écriture envoyée sans confirmation (application fermée ou interrompue)${C} issue à vérifier par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures restent bloquées jusqu’à sa vérification ou sa revue.`,
     error: null, details: [['Préconditions', `Compte relu sur DC01.example.local${C} désactivé, DN et GUID inchangés.`]],
     change: ['userAccountControl', 'État du compte', 'replace', 'Désactivé', 'Activé'] },
   { key: 'ok', kind: 'account.unlock', title: 'Déverrouiller le compte', label: 'Déverrouillage du compte', target: TARGETS.camille, minutes: 18,
@@ -45,7 +45,7 @@ const PROFILES = [
     change: ['member', 'Membres', 'add', '—', 'Hugo Lambert'] },
   { key: 'reviewed', kind: 'account.unlock', title: 'Déverrouiller le compte', label: 'Déverrouillage du compte', target: TARGETS.camille, minutes: 1500,
     result: 'unknown', resultLabel: 'Issue inconnue, à vérifier', verification: 'reviewed', verificationLabel: 'Revue manuelle', pending: false, tone: 'info',
-    summary: `Revue manuelle consignée${C} l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Les nouvelles écritures sur cet objet ne sont plus bloquées. Rien n’est renvoyé automatiquement.`,
+    summary: `Revue manuelle consignée${C} l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Ce reçu ne bloque plus les nouvelles écritures. Rien n’est renvoyé automatiquement.`,
     error: { code: 'write.outcomeUnknown', message: 'Issue inconnue après l’envoi.' },
     details: [['Préconditions', `Compte relu${C} toujours verrouillé.`], ['Envoi', `Issue inconnue après l’envoi${C} à vérifier.`], ['Revue manuelle', `Motif consigné par EXAMPLE\\j.martin${C} « Vérifié dans la console Utilisateurs et ordinateurs Active Directory sur DC01.example.local${C} état attendu constaté ».`]],
     change: ['lockoutTime', 'Verrouillage', 'clear', 'Verrouillé depuis 08:12', 'Déverrouillé'] },
@@ -81,8 +81,25 @@ export function sampleReceipts(now = Date.now()) {
   });
   return {
     total: rows.length, pending: rows.filter((r) => r.pending).length, unreadable: 0, truncated: false,
-    summary: `2 écritures restent à vérifier${C} les nouvelles écritures sur leurs objets sont bloquées jusqu’à leur relecture. Rien n’est renvoyé automatiquement.`,
+    summary: `2 opérations restent à vérifier${C} les nouvelles écritures sont bloquées jusqu’à leur vérification ou leur revue. Rien n’est renvoyé automatiquement.`,
     receipts: rows,
+  };
+}
+
+/** The pill of the sample receipts, in the shape of operations.overview.pill (with its oldest receipt). */
+export function samplePill(list) {
+  const pending = list.receipts.filter((r) => r.pending).sort((a, b) => (a.sentAt < b.sentAt ? -1 : 1));
+  const first = pending[0];
+  const when = first ? new Date(first.sentAt) : null;
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    visible: pending.length > 0,
+    text: pending.length === 1 ? '1 opération à vérifier' : `${pending.length} opérations à vérifier`,
+    help: `Une écriture envoyée attend une vérification ou une revue${C} les nouvelles écritures restent bloquées. Ouvre la liste des reçus${NBSP}; rien n’est rejoué.`,
+    oldest: first ? {
+      id: first.id, label: first.label, target: first.target.name, targetKind: first.target.kindLabel, at: first.sentAt,
+      text: `Le plus ancien${C} ${first.label} · ${first.target.name}, envoyée le ${pad(when.getDate())}/${pad(when.getMonth() + 1)}/${when.getFullYear()} à ${pad(when.getHours())}:${pad(when.getMinutes())}.`,
+    } : null,
   };
 }
 
@@ -156,13 +173,15 @@ export function sampleActivity(now = Date.now()) {
     const write = kind === 'write';
     const phases = [
       { phase: 'request', label: 'Demande', atMs: 0, durationMs: null, durationText: 'non mesurée', measured: false, detail: null, outcome: null },
-      { phase: 'engine', label: 'Traitement dans le moteur', atMs: 0, durationMs: ms, durationText: dur(ms), measured: true, detail: volume >= 0 ? `${volume} élément${volume > 1 ? 's' : ''}` : null, outcome: null },
       ...(write ? [
         { phase: 'queue', label: 'File d’attente du canal d’écriture et contrôles du plan', atMs: 0, durationMs: 140, durationText: dur(140), measured: true, detail: null, outcome: null },
         { phase: 'step', label: 'Relecture de l’objet avant l’envoi', atMs: 140, durationMs: 120, durationText: dur(120), measured: true, detail: null, outcome: null },
         { phase: 'step', label: 'Reçu enregistré, envoi du changement', atMs: 260, durationMs: ms - 420, durationText: dur(ms - 420), measured: true, detail: null, outcome: null },
         { phase: 'step', label: 'Relecture après l’écriture', atMs: ms - 160, durationMs: 160, durationText: dur(160), measured: true, detail: null, outcome: null },
-      ] : []),
+      ] : [
+        { phase: 'work', label: 'Traitement dans le moteur', atMs: 0, durationMs: ms, durationText: dur(ms), measured: true, detail: volume >= 0 ? `${volume} élément${volume > 1 ? 's' : ''}` : null, outcome: null },
+      ]),
+      { phase: 'publish', label: 'Publication dans l’interface', atMs: ms, durationMs: null, durationText: 'non mesurée', measured: false, detail: 'affichage par l’écran qui a demandé', outcome: null },
       { phase: 'end', label: `Fin${C} ${outcomeLabel}`, atMs: ms, durationMs: null, durationText: '—', measured: false, detail: category, outcome },
     ];
     const advice = outcome === 'succeeded' ? null
@@ -177,7 +196,8 @@ export function sampleActivity(now = Date.now()) {
       durationMs: ms, durationText: dur(ms), dominantLabel: dominant, dominantMs: write ? ms - 420 : ms, volume: volume >= 0 ? volume : null,
       volumeText: volume >= 0 ? `${volume} élément${volume > 1 ? 's' : ''}` : null, canStop: false, stopReason: `Tâche terminée${C} rien à arrêter.`,
       detail: `${outcome === 'succeeded' ? 'Terminée' : 'Fin'} après ${dur(ms)}${volume >= 0 ? `, ${volume} élément${volume > 1 ? 's' : ''}` : ''}.`, access: write ? 'Écriture sur l’annuaire fictif en mémoire, sans aucun effet réel.' : 'Lecture locale.',
-      advice, category, text: phases.map((p) => (p.durationMs ? `${p.label} ${p.durationText}` : p.label)).join(' → '), dropped: 0, phases, progress: null, sample: true,
+      advice, next: advice ?? (write ? `Le reçu de l’écriture est dans l’onglet Reçus d’écriture${C} une nouvelle relecture reste possible, seule une lecture part.` : `Aucune suite nécessaire${C} la tâche s’est terminée sans incident.`),
+      category, text: `${phases.map((p) => (p.durationMs ? `${p.label} ${p.durationText}` : p.label)).join(' → ')} · total ${dur(ms)}`, dropped: 0, phases, progress: null, sample: true,
     };
   });
   const open = [
@@ -186,17 +206,29 @@ export function sampleActivity(now = Date.now()) {
       kindLabel: 'Lot de collecte', foreground: true, listed: true, state: 'running', stateLabel: 'En cours', tone: 'info', icon: 'activity', outcome: null, outcomeLabel: null,
       startedAt: iso(now - 6400), endedAt: null, durationMs: 6400, durationText: '6,4 s', dominantLabel: null, dominantMs: null, volume: 9, volumeText: '9 éléments',
       canStop: true, stopReason: null, detail: '9/15 postes traités · 0 lecture non confirmée · 1 lecture en cours · 0 enregistrement en attente.',
-      access: `Relevé fictif des postes${C} aucune sonde ne part.`, advice: null, category: null, text: 'Lot WMI · Bordeaux et sous-OU → En cours', dropped: 0,
+      access: `Relevé fictif des postes${C} aucune sonde ne part.`, advice: null, next: `Attendre la fin ou arrêter la lecture${C} ce qui est déjà lu est conservé.`, category: null,
+      text: 'Lot WMI · Bordeaux et sous-OU → En cours', dropped: 0,
       phases: [{ phase: 'request', label: 'Demande confirmée par l’opérateur', atMs: 0, durationMs: null, durationText: 'non mesurée', measured: false, detail: null, outcome: null }],
-      progress: { done: 9, total: 15, failed: 0, phase: 'En cours', header: 'WMI · 9/15', counters: '9/15 postes traités · 0 lecture non confirmée · 1 lecture en cours · 0 enregistrement en attente.' }, sample: true,
+      progress: {
+        done: 9, total: 15, failed: 1, phase: 'En cours', header: 'WMI · 9/15', pingErrors: 0, inFlight: 1, pendingSaves: 0, skipped: 0,
+        counters: '9/15 postes traités · 1 lecture non confirmée · 0 erreur de ping · 1 lecture en cours · 0 enregistrement en attente · 0 poste non relu faute de capacité.',
+        steps: [
+          { phase: 'preparing', label: 'Préparation', state: 'done' }, { phase: 'readingDirectory', label: 'Lecture AD', state: 'done' },
+          { phase: 'confirming', label: 'À confirmer', state: 'done' }, { phase: 'running', label: 'En cours', state: 'current' },
+          { phase: 'saving', label: 'Enregistrement', state: 'todo' },
+        ],
+      }, sample: true,
     },
     {
       id: hex(201), reference: hex(201).slice(0, 8), operation: 'operations.check.run', screen: 'operations', label: 'Vérification de l’application', kind: 'networkRead',
       kindLabel: 'Lecture (annuaire fictif)', foreground: true, listed: true, state: 'running', stateLabel: 'En cours', tone: 'info', icon: 'activity', outcome: null, outcomeLabel: null,
       startedAt: iso(now - 1300), endedAt: null, durationMs: 1300, durationText: '1,3 s', dominantLabel: null, dominantMs: null, volume: null, volumeText: null, canStop: true, stopReason: null,
       detail: `Traitement actif. Aucun résultat final annoncé. Accès requis${C} lecture de l’annuaire fictif${C} aucune requête ne part.`, access: `Lecture de l’annuaire fictif${C} aucune requête ne part.`,
-      advice: null, category: null, text: 'Demande → Traitement dans le moteur', dropped: 0,
-      phases: [{ phase: 'request', label: 'Demande', atMs: 0, durationMs: null, durationText: 'non mesurée', measured: false, detail: null, outcome: null }], progress: null, sample: true,
+      advice: null, next: `Attendre la fin ou arrêter la lecture${C} ce qui est déjà lu est conservé.`, category: null, text: 'Demande → Traitement dans le moteur 1,3 s (en cours) · total 1,3 s (en cours)', dropped: 0,
+      phases: [
+        { phase: 'request', label: 'Demande', atMs: 0, durationMs: null, durationText: 'non mesurée', measured: false, detail: null, outcome: null },
+        { phase: 'work', label: 'Traitement dans le moteur', atMs: 0, durationMs: null, durationText: '1,3 s (en cours)', measured: false, detail: null, outcome: null },
+      ], progress: null, sample: true,
     },
   ];
   return {

@@ -11,9 +11,10 @@ namespace Domenia.Bridge;
 /// dated: nothing is ever overwritten (a name already taken gets « -2 », « -3 »…). A file is written beside its target in a
 /// temporary file (write-through, flushed) then renamed, so a stop never leaves half a document under its final name; a link in place
 /// of the folder is refused. Where the receipts of the mode live in memory (capture, E2E, no data folder), nothing is written: the
-/// result says so and keeps the fingerprint.
+/// result says so and keeps the fingerprint. The folder is handed in (<see cref="DefaultFolder"/> for the application), so the
+/// rules (no overwrite, link refused, size limit, temporary file removed) are tested on a folder of the test.
 /// </summary>
-internal sealed class OperationsExports
+public sealed class OperationsExports
 {
     public const int MaxDocumentBytes = 4 * 1024 * 1024;
 
@@ -23,11 +24,24 @@ internal sealed class OperationsExports
     private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
     private readonly EngineContext context;
 
-    public OperationsExports(EngineContext context)
+    /// <param name="context">Engine context (clock and journal).</param>
+    /// <param name="folder">Folder of the documents; null when nothing may be written in this mode.</param>
+    public OperationsExports(EngineContext context, string? folder)
     {
+        ArgumentNullException.ThrowIfNull(context);
         this.context = context;
+        Folder = folder is not null && Path.IsPathFullyQualified(folder) ? folder : null;
+    }
+
+    /// <summary>
+    /// Folder of the documents of the application: %LOCALAPPDATA%\Domenia\Exports (Exports-simulation in simulation), only when the
+    /// receipts of the mode live on the disk; null in capture, E2E or without a data folder.
+    /// </summary>
+    public static string? DefaultFolder(EngineContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
         var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify);
-        Folder = context.Receipts.Persistent && Path.IsPathFullyQualified(root)
+        return context.Receipts.Persistent && Path.IsPathFullyQualified(root)
             ? Path.Combine(root, ProductInfo.Name, context.Mode == AppMode.Simulation ? "Exports-simulation" : "Exports")
             : null;
     }

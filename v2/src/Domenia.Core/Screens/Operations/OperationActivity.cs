@@ -24,7 +24,15 @@ public sealed class OperationActivity
     private readonly Lock gate = new();
     private readonly List<Trace> traces = [];
     private readonly Dictionary<string, Declaration> declared = new(StringComparer.Ordinal);
-    private readonly Dictionary<TaskKind, Queue<double>> categories = [];
+    private readonly Dictionary<string, Queue<double>> categories = new(StringComparer.Ordinal);
+    private readonly Dictionary<bool, Queue<double>> classes = [];
+    private ImmutableArray<ResponseCategory>? categoriesCache;
+    private long categoriesVersion;
+    private long categoriesCachedVersion = -1;
+    private DateTimeOffset? lastStall;
+    private int stallsSilenced;
+    private int sqliteBusy;
+    private DateTimeOffset? sqliteBusyLast;
     private readonly Dictionary<string, Queue<OperationSample>> samples = new(StringComparer.Ordinal);
     private readonly Queue<SlowEvent> slow = new();
     private readonly Dictionary<string, int> errors = new(StringComparer.Ordinal);
@@ -182,28 +190,158 @@ public sealed class OperationActivity
         }
     }
 
-    /// <summary>Response times per category of the session (Domenia 1 OPE-031), one measure never counted twice.</summary>
+    /// <summary>
+    /// Response times of the six categories of Domenia 1 (Get-DomeniaResponseTimeCategories, OPE-031): a measure is never counted
+    /// twice, an unmeasured category says so, and the summaries are computed again only when a series moved.
+    /// </summary>
     public ImmutableArray<ResponseCategory> Categories()
     {
-        (TaskKind Kind, string Id, string Label)[] list =
-        [
-            (TaskKind.Local, "local", "Calcul local et état de la session"),
-            (TaskKind.LocalRead, "localRead", simulation ? "Lectures locales (annuaire fictif en mémoire, reçus, préférences)" : "Lectures locales (base, reçus, préférences)"),
-            (TaskKind.NetworkRead, "networkRead", simulation ? "Lectures de l’annuaire fictif (gestes de l’opérateur)" : "Lectures de l’annuaire et des postes"),
-            (TaskKind.LocalWrite, "localWrite", "Écritures locales (préférences, reçus, documents)"),
-            (TaskKind.Write, "write", simulation ? "Écritures sur l’annuaire fictif" : "Écritures dans l’annuaire et actions sur les postes"),
-        ];
         lock (gate)
         {
-            return
+            if (categoriesCache is ImmutableArray<ResponseCategory> cached && categoriesCachedVersion == categoriesVersion)
+            {
+                return cached;
+            }
+            ImmutableArray<ResponseCategory> result =
             [
-                .. list.Select(c =>
+                .. ActivityRules.CategoryLabels(simulation).Select(c =>
                 {
-                    var values = categories.TryGetValue(c.Kind, out var q) ? q.ToArray() : [];
+                    var values = categories.TryGetValue(c.Id, out var q) ? q.ToArray() : [];
                     var summary = ActivityRules.Latency(values);
                     return new ResponseCategory(c.Id, c.Label, summary, ActivityRules.LatencyText(c.Label, summary), ActivityRules.Histogram(values), ActivityRules.HistogramLabels);
                 }),
             ];
+            categoriesCache = result;
+            categoriesCachedVersion = categoriesVersion;
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Indicators of the collection by class of request (Domenia 1 Get-DomeniaCollectionHealthLines, OPE-001): explicit actions of the
+    /// operator, automatic reads and writes, with what Domenia 2 measures of each. There is no queue for the reads (each request
+    /// leaves at once on the pool of the engine): no wait, no promotion is invented; the single write channel has its own wait.
+    /// </summary>
+    public ImmutableArray<string> ClassLines()
+    {
+        lock (gate)
+        {
+            var explicitValues = classes.TryGetValue(true, out var e) ? e.ToArray() : [];
+            var backgroundValues = classes.TryGetValue(false, out var b) ? b.ToArray() : [];
+            var waits = ActivityRules.Latency(writeWaits);
+            return
+            [
+                ClassLine("Actions explicites de l’opérateur", explicitValues),
+                ClassLine("Lectures automatiques (affichage, actualisations)", backgroundValues),
+                waits.Count > 0
+                    ? ActivityRules.LatencyText("Écritures, une à la fois sur le canal unique" + FrenchText.Colon + "attente du canal", waits)
+                    : "Écritures" + FrenchText.Colon + "canal unique, une à la fois ; aucune écriture dans cette session.",
+                "Sélection" + FrenchText.Colon + "pas de file propre dans Domenia 2 ; une lecture déclenchée par une sélection compte parmi les actions explicites.",
+                "Promotions après longue attente" + FrenchText.Colon + "aucune, faute de file d’attente pour les lectures.",
+            ];
+        }
+    }
+
+    private static string ClassLine(string label, double[] values)
+    {
+        if (values.Length == 0)
+        {
+            return label + FrenchText.Colon + "aucune demande terminée dans cette session ; départ immédiat, sans file d’attente.";
+        }
+        var summary = ActivityRules.Latency(values);
+        var text = label + FrenchText.Colon + FrenchText.Count(values.Length, "demande terminée", "demandes terminées") + ", départ immédiat sans file d’attente ; traitement médian "
+            + ActivityRules.Duration(summary.P50 ?? -1);
+        return text + (summary.P95Stated ? ", 95" + FrenchText.Nbsp + "% sous " + ActivityRules.Duration(summary.P95 ?? -1) + "." : " (trop peu de mesures pour un 95e centile).");
+    }
+
+    /// <summary>
+    /// Interface work measured by the page (Domenia 1 Register-DomeniaJobPublication, OPE-031, OPE-034): each sample enters the
+    /// « Traitement des résultats dans l’interface » category; one above 120 ms enters the explained slowness. Closed codes only.
+    /// </summary>
+    public int RecordInterface(IEnumerable<InterfaceSample> samples)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        var now = clock.GetUtcNow();
+        var kept = 0;
+        lock (gate)
+        {
+            foreach (var sample in samples)
+            {
+                if (ActivityRules.InterfaceWorkLabel(sample.Work) is not string label || !double.IsFinite(sample.Ms) || sample.Ms < 0)
+                {
+                    continue;
+                }
+                kept++;
+                Push(categories.TryGetValue("render", out var q) ? q : categories["render"] = new Queue<double>(), sample.Ms);
+                categoriesVersion++;
+                var verdict = ActivityRules.Slowness(label, -1, -1, -1, interfaceMs: sample.Ms);
+                if (verdict.Slow)
+                {
+                    slow.Enqueue(new SlowEvent(now, "interface." + sample.Work, "", verdict.Phase, verdict.DurationMs, verdict.TotalMs, "Interface lente" + FrenchText.Colon + verdict.Text));
+                    while (slow.Count > ActivityRules.MaxSlowEvents)
+                    {
+                        slow.Dequeue();
+                    }
+                }
+            }
+        }
+        return kept;
+    }
+
+    /// <summary>
+    /// A stall of the interface reported by the page (Domenia 1 Register-DomeniaDispatcherLateness, OPE-035): one line in the
+    /// technical journal at most every 5 s, attributed or said unattributed (never guessed); the others are counted. Returns true
+    /// when a line was written.
+    /// </summary>
+    public bool RecordStall(StallReport stall)
+    {
+        ArgumentNullException.ThrowIfNull(stall);
+        if (!double.IsFinite(stall.LateMs) || stall.LateMs < ActivityRules.StallThresholdMs)
+        {
+            return false;
+        }
+        var now = clock.GetUtcNow();
+        int silenced;
+        lock (gate)
+        {
+            if (lastStall is DateTimeOffset last && now - last < ActivityRules.StallInterval)
+            {
+                stallsSilenced++;
+                return false;
+            }
+            lastStall = now;
+            silenced = stallsSilenced;
+            stallsSilenced = 0;
+        }
+        var more = silenced > 0 ? " (" + silenced.ToString(CultureInfo.InvariantCulture) + " autre(s) depuis la ligne précédente)" : "";
+        log.Warning(ActivityRules.StallText(stall) + more);
+        return true;
+    }
+
+    /// <summary>
+    /// A wait for a lock of the local SQLite base that ran out (Domenia 1 Register-DomeniaSqliteBusyOutcome, OPE-032): counted for
+    /// the session, with the time of the last one. Called by the local base (Domenia.Store) when it answers « busy ».
+    /// </summary>
+    public void RecordSqliteBusy()
+    {
+        var now = clock.GetUtcNow();
+        lock (gate)
+        {
+            sqliteBusy++;
+            sqliteBusyLast = now;
+        }
+        log.Warning("Base locale occupée : attente de verrou SQLite dépassée (comptée, rien n’est rejoué).");
+    }
+
+    /// <summary>Lock waits of the local base that ran out in this session, and the last one.</summary>
+    public (int Count, DateTimeOffset? Last) SqliteBusy
+    {
+        get
+        {
+            lock (gate)
+            {
+                return (sqliteBusy, sqliteBusyLast);
+            }
         }
     }
 
@@ -310,7 +448,7 @@ public sealed class OperationActivity
         }
     }
 
-    internal void Complete(Trace trace, TaskOutcome outcome, string? category, long volume)
+    internal void Complete(Trace trace, TaskOutcome outcome, string? category, long volume, long? bytes)
     {
         var engineMs = clock.GetElapsedTime(trace.StartTimestamp).TotalMilliseconds;
         var now = clock.GetUtcNow();
@@ -331,9 +469,14 @@ public sealed class OperationActivity
             trace.Volume = volume;
             if (outcome != TaskOutcome.Stopped)
             {
-                Push(categories.TryGetValue(trace.Kind, out var q) ? q : categories[trace.Kind] = new Queue<double>(), engineMs);
+                var id = ActivityRules.CategoryOf(trace.Operation, trace.Kind);
+                Push(categories.TryGetValue(id, out var q) ? q : categories[id] = new Queue<double>(), engineMs);
+                Push(classes.TryGetValue(trace.Foreground, out var c) ? c : classes[trace.Foreground] = new Queue<double>(), engineMs);
+                categoriesVersion++;
+                // A remote request leaves once, never retried (no fallback transport in Domenia 2); the simulation reaches nothing.
+                var remote = !simulation && trace.Kind is TaskKind.NetworkRead or TaskKind.Write ? 1 : 0;
                 var perOperation = samples.TryGetValue(trace.Operation, out var s) ? s : samples[trace.Operation] = new Queue<OperationSample>();
-                perOperation.Enqueue(new OperationSample(trace.Operation, now, engineMs, Math.Max(0, volume), outcome == TaskOutcome.Succeeded, true));
+                perOperation.Enqueue(new OperationSample(trace.Operation, now, engineMs, Math.Max(0, volume), outcome == TaskOutcome.Succeeded, true, bytes, remote, 0));
                 while (perOperation.Count > ActivityRules.SamplesPerSeries)
                 {
                     perOperation.Dequeue();
@@ -347,7 +490,9 @@ public sealed class OperationActivity
             {
                 lastLocalWrite = now;
             }
-            var verdict = ActivityRules.Slowness(trace.Label, trace.QueueMs ?? -1, engineMs, volume);
+            // The wait of the write channel is part of the time in the engine: counted once, as its own phase.
+            var processing = trace.QueueMs is double waited ? Math.Max(0, engineMs - waited) : engineMs;
+            var verdict = ActivityRules.Slowness(trace.Label, trace.QueueMs ?? -1, processing, volume);
             if (verdict.Slow)
             {
                 slowEvent = new SlowEvent(now, trace.Operation, trace.Reference, verdict.Phase, verdict.DurationMs, verdict.TotalMs, verdict.Text);
@@ -394,14 +539,18 @@ public sealed class OperationActivity
             TaskState.Running or TaskState.Queued => (Tone.Info, "activity"),
             _ => info is not null ? (info.Tone, info.Icon) : (Tone.Ok, "check"),
         };
-        var phases = new List<TaskPhaseRow>
-        {
-            new("request", "Demande", 0, null, "non mesurée", false, null, null),
-            new("engine", "Traitement dans le moteur", 0, elapsed, t.Open ? ActivityRules.Duration(elapsed) + " (en cours)" : ActivityRules.Duration(elapsed), !t.Open, t.Volume >= 0 ? ActivityRules.Volume(t.Volume) : null, null),
-        };
+        // Phases in time order (Domenia 1 OPE-019): request, wait of the write channel, the stages the operation published (or, without
+        // them, its processing in the engine as a whole), publication in the interface, end. The total is given apart (DurationMs).
+        var phases = new List<TaskPhaseRow> { new("request", "Demande", 0, null, "non mesurée", false, null, null) };
         if (t.QueueMs is double queue)
         {
             phases.Add(new TaskPhaseRow("queue", "File d’attente du canal d’écriture et contrôles du plan", 0, queue, ActivityRules.Duration(queue), true, null, null));
+        }
+        var sequential = t.Steps.Any(step => step.Sequential);
+        if (!sequential)
+        {
+            phases.Add(new TaskPhaseRow("work", "Traitement dans le moteur", 0, t.Open ? null : elapsed, t.Open ? ActivityRules.Duration(elapsed) + " (en cours)" : ActivityRules.Duration(elapsed),
+                !t.Open, t.Volume >= 0 ? ActivityRules.Volume(t.Volume) : null, null));
         }
         for (var i = 0; i < t.Steps.Count; i++)
         {
@@ -410,13 +559,17 @@ public sealed class OperationActivity
             double? duration = step.Sequential && until is double u ? Math.Max(0, u - step.AtMs) : null;
             phases.Add(new TaskPhaseRow("step", step.Label, step.AtMs, duration, duration is double d ? ActivityRules.Duration(d) : t.Open && i == t.Steps.Count - 1 ? "en cours" : "non mesurée", duration is not null, null, null));
         }
+        if (!t.Open)
+        {
+            phases.Add(new TaskPhaseRow("publish", "Publication dans l’interface", t.EngineMs ?? elapsed, null, "non mesurée", false, "affichage par l’écran qui a demandé", null));
+        }
         if (!t.Open && info is not null)
         {
             phases.Add(new TaskPhaseRow("end", "Fin" + FrenchText.Colon + info.Label, t.EngineMs ?? elapsed, null, "—", false, t.Category, info.Code));
         }
-        var measured = phases.Where(p => p.Measured && p.Phase is "queue" or "step").ToList();
-        var dominant = measured.Count > 0 ? measured.MaxBy(p => p.DurationMs ?? -1) : !t.Open ? phases[1] : null;
-        var text = string.Join(" → ", phases.Select(PhaseText));
+        var measured = phases.Where(p => p.Measured && p.Phase is "queue" or "step" or "work").ToList();
+        var dominant = measured.Count > 0 ? measured.MaxBy(p => p.DurationMs ?? -1) : null;
+        var text = string.Join(" → ", phases.Select(PhaseText)) + " · total " + ActivityRules.Duration(elapsed) + (t.Open ? " (en cours)" : "");
         if (t.Dropped > 0)
         {
             text += " (" + FrenchText.Integer(t.Dropped) + " événement(s) non conservé(s))";
@@ -427,6 +580,7 @@ public sealed class OperationActivity
             : !t.Open ? "Tâche terminée" + FrenchText.Colon + "rien à arrêter."
             : t.StopRequested ? ActivityRules.CancelText(t.Label, TaskState.StopRequested, t.Kind)
             : ActivityRules.CancelText(t.Label, t.State, t.Kind);
+        var advice = ActivityRules.Advice(outcome, t.Kind, t.Category, t.Reference);
         var detail = t.Open
             ? ActivityRules.OpenDetail(t.Kind, t.State, simulation)
             : (outcome == TaskOutcome.Succeeded ? "Terminée" : "Fin") + " après " + ActivityRules.Duration(elapsed) + (t.Volume >= 0 ? ", " + ActivityRules.Volume(t.Volume) : "") + ".";
@@ -435,13 +589,14 @@ public sealed class OperationActivity
             t.State, ActivityRules.StateLabel(t.State, outcome), tone, icon, outcome, info?.Label, t.StartedAt, t.EndedAt,
             Math.Round(elapsed, 1), ActivityRules.Duration(elapsed), dominant?.Label, dominant?.DurationMs is double dm ? Math.Round(dm, 1) : null,
             t.Volume >= 0 ? t.Volume : null, t.Volume >= 0 ? ActivityRules.Volume(t.Volume) : null, canStop, stopReason, detail,
-            ActivityRules.Access(t.Kind, simulation), ActivityRules.Advice(outcome, t.Kind, t.Category, t.Reference), t.Category, text, t.Dropped, [.. phases], null);
+            ActivityRules.Access(t.Kind, simulation), advice, ActivityRules.Next(outcome, t.Kind, t.Operation, advice), t.Category, text, t.Dropped, [.. phases], null);
     }
 
     private static string PhaseText(TaskPhaseRow phase) => phase.Phase switch
     {
         "request" => phase.Label,
         "end" => phase.Label,
+        "publish" => phase.Label + " non mesurée",
         _ when phase.DurationMs is double => phase.Label + " " + phase.DurationText + (phase.Detail is string d ? ", " + d : ""),
         _ => phase.Label + (phase.Detail is string detail ? " " + detail : ""),
     };
@@ -539,11 +694,12 @@ public sealed class ActivityTask : IDisposable
     /// <summary>Gives the task a more precise label once known (the label of the plan of a write).</summary>
     public void Rename(string label) => activity.Rename(trace, label);
 
-    public void Complete(TaskOutcome outcome, string? category, long volume)
+    /// <summary>Records the end once: its outcome, its code (never a message), its volume and the estimated bytes received (null when not measured).</summary>
+    public void Complete(TaskOutcome outcome, string? category, long volume, long? bytes = null)
     {
         if (Interlocked.Exchange(ref completed, 1) == 0)
         {
-            activity.Complete(trace, outcome, category, volume);
+            activity.Complete(trace, outcome, category, volume, bytes);
         }
     }
 
@@ -551,7 +707,7 @@ public sealed class ActivityTask : IDisposable
     {
         if (Interlocked.Exchange(ref completed, 1) == 0)
         {
-            activity.Complete(trace, TaskOutcome.Failed, "operation.failed", -1);
+            activity.Complete(trace, TaskOutcome.Failed, "operation.failed", -1, null);
         }
     }
 }

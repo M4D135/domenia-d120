@@ -19,11 +19,12 @@ const TONE_ICONS = { ok: 'check', warn: 'eye', alert: 'alert', info: 'info', off
 /** Refusals that happen before anything is sent: a new plan (an explicit gesture) is the way forward. */
 const REPLAN = new Set(['write.stale', 'write.tokenExpired', 'write.planUnknown', 'write.tokenUsed', 'write.planChanged', 'write.tokenInvalid', 'write.confirmationMismatch']);
 /** Refusals of the engine that mean nothing was sent either. */
-const NOTHING_SENT = new Set([...REPLAN, 'write.targetPending', 'write.nothingToDo', 'write.targetUnknown', 'receipt.unavailable',
+const NOTHING_SENT = new Set([...REPLAN, 'write.targetPending', 'write.receiptsPending', 'write.nothingToDo', 'write.targetUnknown', 'receipt.unavailable',
   'simulation.readOnly', 'write.unavailable', 'source.unavailable', 'arguments.invalid', 'operation.unknown', 'message.size', 'message.json']);
 
 const ADVICE = {
   'write.targetPending': 'Ouvrez Opérations et relisez le reçu en attente\u00A0: la cible sera de nouveau libre dès que la relecture aura tranché.',
+  'write.receiptsPending': 'Ouvrez Opérations et relisez ou revoyez le reçu en attente\u00A0: tant qu’une opération reste à vérifier, aucune nouvelle écriture ne part (comme dans Domenia\u00A01).',
   'receipt.unavailable': 'Le reçu doit être enregistré avant tout envoi. Vérifiez l’espace disque et les droits du dossier de données, puis préparez de nouveau l’écriture.',
   'write.nothingToDo': 'L’objet est déjà dans l’état demandé\u00A0: aucune écriture n’est nécessaire.',
   'write.targetUnknown': 'Relisez l’objet depuis l’écran d’origine\u00A0: il a peut-être été supprimé ou déplacé.',
@@ -346,8 +347,8 @@ class WriteFlow {
     panel.setTitle(sent ? 'Issue à vérifier' : 'Rien n’a été envoyé', this.planned?.plan?.target?.name ?? this.options.subtitle ?? '');
     panel.body.innerHTML = failureMarkup(err, { title: sent ? 'Issue incertaine' : 'Rien n’a été envoyé', sent });
     const buttons = [{ id: 'close', label: 'Fermer', safe: true, run: () => panel.close() }];
-    if (code === 'write.targetPending' || sent) {
-      buttons.push({ id: 'ops', label: 'Ouvrir Opérations', icon: 'activity', href: '#/operations' });
+    if (code === 'write.targetPending' || code === 'write.receiptsPending' || sent) {
+      buttons.push({ id: 'ops', label: 'Ouvrir Opérations', icon: 'activity', href: code === 'write.receiptsPending' || code === 'write.targetPending' ? '#/operations?onglet=recus&filtre=a-verifier' : '#/operations' });
     }
     if (REPLAN.has(code) || code === 'receipt.unavailable') {
       buttons.push({ id: 'replan', label: 'Préparer de nouveau', icon: 'refresh', primary: true, run: () => this.plan() });
@@ -516,7 +517,7 @@ function receiptMarkup(r) {
   const pills = [
     pill(r.tone, r.verificationLabel, { icon: r.verification === 'verified' ? 'shield' : r.pending ? 'eye' : 'info', size: 'sm' }),
     r.simulated ? pill('accent', 'Simulation · aucun effet réel', { icon: 'sparkles', size: 'sm' }) : '',
-    r.pending ? pill('warn', 'Bloque les écritures sur cet objet', { icon: 'lock', size: 'sm', pulse: true }) : '',
+    r.pending ? pill('warn', 'Bloque toutes les nouvelles écritures', { icon: 'lock', size: 'sm', pulse: true }) : '',
   ].join('');
   const trail = (r.details ?? []).map((d, n) => `<li class="wf-trail-item" data-i="${n}"><span class="wf-trail-dot" aria-hidden="true"></span>
       <div><b>${esc(d.label)}</b><p>${esc(d.value)}</p></div></li>`).join('');

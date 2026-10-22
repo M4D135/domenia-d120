@@ -1,6 +1,7 @@
-// Tab « Relevés » (Domenia 1 OPE-027 to OPE-029): the survey in progress with its stop, the interrupted survey that can be resumed
-// (only its remaining workstations, after the confirmation of their count and scope), abandoned or postponed, and the last run of
-// each family and OU of the local base. Measures already received are kept; nothing is replayed.
+// Tab « Relevés » (Domenia 1 OPE-017, OPE-027 to OPE-029): the survey in progress with its phases (Préparation, Lecture AD,
+// À confirmer, En cours, Enregistrement), its counters and its stop, the interrupted survey that can be resumed (only its remaining
+// workstations, after the confirmation of their count and scope), abandoned or postponed, and the last run of each family and OU
+// of the local base. Measures already received are kept; nothing is replayed.
 import { esc, errorText, toast, announce } from '../../ui.js';
 import { createGrid, createFilterBar, confirmDialog, pill, glyph, writeClipboard, NBSP } from '../../kit/index.js';
 import { count, int, cardHead, emptyState, errorBox, fullDate, repaint, unpaint, skeletonLines } from './common.js';
@@ -21,9 +22,9 @@ const COLUMNS = [
   { id: 'ou', label: 'OU', width: 198, required: true, html: (v, r) => `<span class="op-cell-target"><span class="op-cell-ico" aria-hidden="true">${glyph('ou')}</span><span data-tip="${esc(r.ouDn)}">${esc(v)}</span></span>` },
   { id: 'family', label: 'Type', type: 'enum', width: 108, options: TYPE_OPTIONS },
   { id: 'status', label: 'État', type: 'enum', width: 116, options: STATUS_OPTIONS },
-  { id: 'counts', label: 'Postes ou objets lus', width: 222 },
-  { id: 'successAt', label: 'Dernière réussite', type: 'date', width: 178 },
-  { id: 'reason', label: 'Motif', width: 260, html: (v) => (v ? `<span data-tip="${esc(v)}">${esc(v)}</span>` : '—') },
+  { id: 'counts', label: 'Postes ou objets lus', width: 240, html: (v) => (v ? `<span class="op-cell-2l" data-tip="${esc(v)}">${esc(v)}</span>` : '—') },
+  { id: 'successAt', label: 'Dernière réussite', type: 'date', width: 170 },
+  { id: 'reason', label: 'Motif', width: 340, html: (v) => (v ? `<span class="op-cell-2l" data-tip="${esc(v)}">${esc(v)}</span>` : '—') },
   { id: 'ouDn', label: 'Chemin (DN)', width: 300, mono: true, hidden: true },
 ];
 const FACETS = [
@@ -193,12 +194,18 @@ function currentMarkup(view) {
     return `${cardHead('wifi', 'Relevé en cours', 'Actualisation d’OU ou relevé de liste')}${emptyState('check', 'Aucun relevé en cours', 'Un relevé lancé depuis un écran apparaît ici avec sa progression et son arrêt.')}${ended}`;
   }
   const p = s.total ? s.done / s.total : 0;
+  const order = [['preparing', 'Préparation'], ['readingDirectory', 'Lecture AD'], ['confirming', 'À confirmer'], ['running', 'En cours'], ['saving', 'Enregistrement']];
+  const at = s.phase === 'stopping' ? 3 : order.findIndex(([code]) => code === s.phase);
+  const steps = order.map(([code, label], n) => `<li data-state="${n < at ? 'done' : n === at ? 'current' : 'todo'}" data-i="${n}"><span class="op-batch-dot" aria-hidden="true">${n < at ? glyph('check') : ''}</span><span>${esc(label)}</span></li>`).join('');
+  const counters = [['Non confirmés', s.failed], ['Erreurs de ping', s.pingErrors], ['En cours', s.inFlight], ['Enregistrements en attente', s.pendingSaves], ['Non relus faute de capacité', s.skipped]]
+    .map(([label, value]) => `<li data-zero="${Number(value ?? 0) === 0}"><b>${esc(int(value ?? 0))}</b><span>${esc(label)}</span></li>`).join('');
   return `${cardHead('wifi', 'Relevé en cours', `${s.type} · ${s.scopeName}`, pill(s.stopRequested ? 'warn' : 'info', s.phaseLabel, { spin: !s.stopRequested, size: 'sm' }))}
+    <div class="op-batch op-survey-batch"><ol class="op-batch-steps" aria-label="Phases du relevé">${steps}</ol><ul class="op-batch-counters" aria-label="Compteurs du relevé">${counters}</ul></div>
     <div class="op-survey">
       <div class="op-survey-ring" data-phase="${esc(s.phase)}">${ring(p)}<div class="op-survey-center"><b>${int(s.done)}<small>/${int(s.total)}</small></b><span>postes</span></div></div>
       <div class="op-survey-text">
         <p>${esc(s.status)}</p>
-        <dl class="op-facts compact"><div><dt>Lancé le</dt><dd>${esc(fullDate(s.startedAt))}</dd></div><div><dt>Non confirmés</dt><dd>${int(s.failed)}</dd></div></dl>
+        <dl class="op-facts compact"><div><dt>Lancé le</dt><dd>${esc(fullDate(s.startedAt))}</dd></div><div><dt>Postes du lot</dt><dd>${int(s.total)}</dd></div></dl>
         <div class="op-survey-actions"><button class="btn subtle sm" type="button" data-run-act="stop"${s.stopRequested ? ' disabled' : ''}>${glyph('pause')}${s.stopRequested ? 'Arrêt demandé' : 'Arrêter le relevé'}</button></div>
       </div>
     </div>`;

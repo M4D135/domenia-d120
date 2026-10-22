@@ -16,6 +16,18 @@ public sealed record InterfaceFigures(string? WebView, string? Theme, double? In
 /// <summary>One file of the diagnostic dossier (ZIP).</summary>
 public sealed record DossierFile(string Name, string Text);
 
+/// <summary>Identity of the process and folders of its profile, replaced by pseudonyms in an anonymised dossier.</summary>
+public sealed record LocalIdentity(string Domain, string User, string Machine, string? UserProfile, string? LocalAppData)
+{
+    /// <summary>The identity of this process (read once per dossier, never sent anywhere).</summary>
+    public static LocalIdentity Current => new(
+        Environment.UserDomainName,
+        Environment.UserName,
+        Environment.MachineName,
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.DoNotVerify),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify));
+}
+
 /// <summary>
 /// The redacted support diagnostic (Domenia 1 New-DomeniaRedactedDiagnostic, OPE-004) and the diagnostic dossier (Domenia 1
 /// Export-SelfCheckReport, OPE-008), built on allow-lists. The diagnostic never holds a name, a message, a DN, an address, a path
@@ -148,7 +160,7 @@ public static partial class OperationsDiagnostics
                 w.WriteBoolean("open", row.State is not TaskState.Completed);
                 w.WriteNumber("totalMs", Math.Round(row.DurationMs, 1));
                 w.WriteStartArray("phases");
-                foreach (var phase in row.Phases.Where(p => p.Phase is "queue" or "engine" or "step"))
+                foreach (var phase in row.Phases.Where(p => p.Phase is "queue" or "work" or "step" or "publish"))
                 {
                     w.WriteStartObject();
                     w.WriteString("phase", phase.Phase);
@@ -165,7 +177,7 @@ public static partial class OperationsDiagnostics
             {
                 w.WriteStartObject();
                 w.WriteString("operation", item.Operation);
-                w.WriteString("phase", item.Phase is "queue" or "engine" ? item.Phase : "");
+                w.WriteString("phase", item.Phase is "queue" or "engine" or "interface" ? item.Phase : "");
                 w.WriteNumber("durationMs", Math.Round(item.DurationMs, 1));
                 w.WriteNumber("totalMs", Math.Round(item.TotalMs, 1));
                 w.WriteEndObject();
@@ -201,8 +213,10 @@ public static partial class OperationsDiagnostics
     /// <summary>
     /// The files of the diagnostic dossier (Domenia 1 Export-SelfCheckReport): runtime.json (versions, mode, identities, domain,
     /// controller, read only, tasks, stores), configuration-expurgee.json (decision of the mode, sensitive keys masked),
-    /// verification.csv (last check of the application) and LISEZMOI.txt. No raw journal. With <paramref name="anonymize"/>,
-    /// identities, domain, controller and workstation names are replaced by stable pseudonyms in every file (improvement of OPE-008).
+    /// verification.csv (last check of the application) and LISEZMOI.txt. No raw journal. With <paramref name="anonymize"/> (improvement
+    /// of OPE-008), every name is replaced by a stable pseudonym in every file: process identity and Windows user name, workstation,
+    /// account, domain, NetBIOS name, root DN, controller; the profile folders become %USERPROFILE% and %LOCALAPPDATA%; the free
+    /// details of the directory checks (examples of users, workstations, groups) are left out.
     /// </summary>
     public static ImmutableArray<DossierFile> Dossier(
         DateTimeOffset at,
@@ -216,11 +230,29 @@ public static partial class OperationsDiagnostics
         bool preferencesPersistent,
         IReadOnlyCollection<string> writeKinds,
         CheckReport? check,
-        bool anonymize)
+        bool anonymize) =>
+        Dossier(at, decision, session, page, memoryMb, tasksOpen, receiptsPending, receiptsPersistent, preferencesPersistent, writeKinds, check, anonymize, LocalIdentity.Current);
+
+    /// <summary>Same as above with the identity of the process given (tests).</summary>
+    public static ImmutableArray<DossierFile> Dossier(
+        DateTimeOffset at,
+        ModeDecision decision,
+        SessionSnapshot? session,
+        InterfaceFigures page,
+        double? memoryMb,
+        int tasksOpen,
+        int receiptsPending,
+        bool receiptsPersistent,
+        bool preferencesPersistent,
+        IReadOnlyCollection<string> writeKinds,
+        CheckReport? check,
+        bool anonymize,
+        LocalIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(decision);
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(writeKinds);
+        ArgumentNullException.ThrowIfNull(identity);
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var counters = new Dictionary<string, int>(StringComparer.Ordinal);
         string Hide(string? value, string kind)
@@ -237,14 +269,34 @@ public static partial class OperationsDiagnostics
             }
             return pseudonym;
         }
-        var process = Hide(Environment.UserDomainName + "\\" + Environment.UserName, "identite");
-        var machine = Hide(Environment.MachineName, "poste");
+        // Folders first (longest first when replaced): a path under the profile keeps its shape, never the user name.
+        var folders = new List<(string Path, string Name)>();
+        if (anonymize)
+        {
+            if (identity.LocalAppData is { Length: > 3 } local)
+            {
+                folders.Add((local, "%LOCALAPPDATA%"));
+            }
+            if (identity.UserProfile is { Length: > 3 } profile)
+            {
+                folders.Add((profile, "%USERPROFILE%"));
+            }
+        }
+        var process = Hide(identity.Domain + "\\" + identity.User, "identite");
+        _ = Hide(identity.User, "identite");
+        var machine = Hide(identity.Machine, "poste");
         var account = Hide(session?.Account.Login, "compte");
+        if (session?.Account.Login is string login && login.Contains('\\', StringComparison.Ordinal))
+        {
+            // « EXAMPLE\j.martin » also appears as « j.martin » alone.
+            _ = Hide(login[(login.LastIndexOf('\\') + 1)..], "compte");
+        }
         var domain = Hide(session?.Domain?.DnsName, "domaine");
         var netbios = Hide(session?.Domain?.NetbiosName, "netbios");
         var rootDn = Hide(session?.Domain?.RootDn, "racine");
         var controller = Hide(session?.Controller?.DnsName, "controleur");
         var joined = Hide(decision.JoinedDomain, "domaine");
+        string Clean(string text) => Pseudonymize(text, names, folders);
 
         var runtime = new StringBuilder();
         using (var buffer = new MemoryStream())
@@ -298,11 +350,11 @@ public static partial class OperationsDiagnostics
                 w.WriteString("source", LegacyConfiguration.FileName);
                 w.WriteString("mode", decision.Mode == AppMode.Simulation ? "simulation" : "annuaire");
                 w.WriteString("reason", decision.Reason.ToString());
-                w.WriteString("detail", ReceiptReviews.Mask(Pseudonymize(decision.Detail, names)));
+                w.WriteString("detail", ReceiptReviews.Mask(Clean(decision.Detail)));
                 w.WriteStartArray("warnings");
                 foreach (var warning in decision.Warnings)
                 {
-                    w.WriteStringValue(ReceiptReviews.Mask(Pseudonymize(warning, names)));
+                    w.WriteStringValue(ReceiptReviews.Mask(Clean(warning)));
                 }
                 w.WriteEndArray();
                 w.WriteString("note", "Seul Auth.DemoProvider est lu par Domenia 2 ; les clés sensibles (mot de passe, secret, jeton, clé) seraient masquées.");
@@ -317,7 +369,7 @@ public static partial class OperationsDiagnostics
             foreach (var row in check.Rows)
             {
                 csv.Append(Cell(row.Category)).Append(';').Append(Cell(row.Test)).Append(';').Append(Cell(StatusText(row.Status))).Append(';')
-                    .Append(Math.Round(row.DurationMs).ToString(CultureInfo.InvariantCulture)).Append(';').Append(Cell(ReceiptReviews.Mask(Pseudonymize(row.Detail, names)))).Append("\r\n");
+                    .Append(Math.Round(row.DurationMs).ToString(CultureInfo.InvariantCulture)).Append(';').Append(Cell(ReceiptReviews.Mask(DetailOf(row, anonymize, Clean)))).Append("\r\n");
             }
         }
         var readme = string.Join("\r\n",
@@ -325,7 +377,7 @@ public static partial class OperationsDiagnostics
             "Généré le " + at.UtcDateTime.ToString("yyyy'-'MM'-'dd' 'HH':'mm", CultureInfo.InvariantCulture) + " UTC.",
             "Journaux bruts exclus. Aucun mot de passe, aucune clé ni aucun jeton.",
             anonymize
-                ? "Identités, domaine, contrôleur et noms de postes remplacés par des pseudonymes stables (compte-1, domaine-1…)."
+                ? "Identités, nom d’utilisateur Windows, poste, domaine et contrôleur remplacés par des pseudonymes stables (compte-1, domaine-1…) ; dossiers du profil écrits %USERPROFILE% et %LOCALAPPDATA% ; exemples d’objets des contrôles de l’annuaire omis."
                 : "Les identités, noms de postes, domaines et chemins ne sont pas anonymisés : relisez avant tout partage.",
             check is null ? "Aucune vérification de l’application dans cette session : verification.csv est vide." : "verification.csv : dernière vérification de l’application (" + check.Summary + ").",
             "");
@@ -387,13 +439,75 @@ public static partial class OperationsDiagnostics
         }
     }
 
-    private static string Pseudonymize(string text, Dictionary<string, string> names)
+    /// <summary>
+    /// Replaces the folders of the profile, then every known name, as whole words only (a short name never cuts another word),
+    /// whatever the case.
+    /// </summary>
+    private static string Pseudonymize(string text, Dictionary<string, string> names, IReadOnlyList<(string Path, string Name)> folders)
     {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text ?? "";
+        }
+        foreach (var (path, name) in folders.OrderByDescending(f => f.Path.Length))
+        {
+            text = text.Replace(path, name, StringComparison.OrdinalIgnoreCase);
+        }
         foreach (var (value, pseudonym) in names.OrderByDescending(p => p.Key.Length))
         {
-            text = text.Replace(value, pseudonym, StringComparison.OrdinalIgnoreCase);
+            if (value.Length < 2)
+            {
+                continue;
+            }
+            text = Regex.Replace(text, @"(?<![\p{L}\p{N}])" + Regex.Escape(value) + @"(?![\p{L}\p{N}])", pseudonym.Replace("$", "$$", StringComparison.Ordinal),
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
         }
         return text;
+    }
+
+    /// <summary>Detail of a check row in verification.csv: with pseudonyms, the free details naming directory objects are left out.</summary>
+    private static string DetailOf(CheckRow row, bool anonymize, Func<string, string> clean)
+    {
+        if (!anonymize)
+        {
+            return row.Detail;
+        }
+        return row.Category is "Annuaire" or "Mesure" && row.Test is not "Session"
+            ? "Détail omis avec les pseudonymes (exemples d’objets de l’annuaire)."
+            : clean(row.Detail);
+    }
+
+    /// <summary>The rows of the checks of the page itself (OPE-007), written by the engine from the closed facts the page reports.</summary>
+    public static ImmutableArray<CheckRow> PageRows(PageChecks? page)
+    {
+        if (page is null)
+        {
+            return [new CheckRow("Interface", "Contrôles de la page", CheckStatus.Info, 0, "Non transmis par la page" + FrenchText.Colon + "seuls les contrôles du moteur figurent dans ce rapport.")];
+        }
+        var rows = new List<CheckRow>
+        {
+            page.StrictPolicy switch
+            {
+                true => new CheckRow("Interface", "Politique de sécurité du contenu", CheckStatus.Ok, 0, "Stricte" + FrenchText.Colon + "scripts et styles de la page seulement, aucune connexion sortante, aucun style en ligne."),
+                false => new CheckRow("Interface", "Politique de sécurité du contenu", CheckStatus.Error, 0, "Politique de sécurité du contenu absente ou affaiblie."),
+                _ => new CheckRow("Interface", "Politique de sécurité du contenu", CheckStatus.Info, 0, "Non lue par la page."),
+            },
+        };
+        if (page.Structure is int found && page.StructureTotal is int total && total > 0)
+        {
+            rows.Add(new CheckRow("Interface", "Structure de l’application", found >= total ? CheckStatus.Ok : CheckStatus.Error, 0,
+                FrenchText.Integer(Math.Max(0, found)) + "/" + FrenchText.Integer(total) + " éléments présents (navigation, barre supérieure, contenu, notifications)."));
+        }
+        rows.Add(new CheckRow("Interface", "Animations", CheckStatus.Ok, 0, page.Motion switch
+        {
+            "reduced" => "Animations réduites (réglage de l’opérateur).",
+            "system" => "Animations" + FrenchText.Colon + "réglage de Windows suivi.",
+            _ => "Animations riches" + FrenchText.Colon + "transform, opacity et filter seulement.",
+        }));
+        rows.Add(IsVersion(page.WebView)
+            ? new CheckRow("Interface", "Moteur web", CheckStatus.Ok, 0, "WebView2 " + page.WebView + ".")
+            : new CheckRow("Interface", "Moteur web", CheckStatus.Info, 0, "Version du moteur web non lue."));
+        return [.. rows];
     }
 
     /// <summary>CSV cell: quoted when needed, formulas neutralised (« = + - @ » at the start), like the kit.</summary>

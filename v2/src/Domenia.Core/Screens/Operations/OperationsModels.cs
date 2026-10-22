@@ -51,10 +51,15 @@ public sealed record CollectionRunRow(
     DateTimeOffset? SuccessAt,
     string Reason);
 
-/// <summary>Phase of a running collection batch (Domenia 1 Get-DomeniaExperienceBatchRows).</summary>
+/// <summary>
+/// Phase of a running collection batch (Domenia 1 Get-DomeniaExperienceBatchRows: Préparation, Lecture AD, À confirmer, En cours,
+/// Enregistrement), plus the stop asked and the end.
+/// </summary>
 public enum SurveyPhase
 {
     Preparing,
+    ReadingDirectory,
+    Confirming,
     Running,
     Saving,
     Stopping,
@@ -77,7 +82,11 @@ public sealed record SurveyState(
     bool StopRequested,
     DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt,
-    string Status);
+    string Status,
+    int PingErrors = 0,
+    int InFlight = 0,
+    int PendingSaves = 0,
+    int Skipped = 0);
 
 /// <summary>
 /// The interrupted survey that can be resumed (Domenia 1 Get-DomeniaCampaignResumeStatus, OPE-029): offered once per session;
@@ -116,6 +125,13 @@ public enum CheckStatus
 
 /// <summary>One line of « Vérifier l’application » (Domenia 1 Start-SelfCheck).</summary>
 public sealed record CheckRow(string Category, string Test, CheckStatus Status, double DurationMs, string Detail);
+
+/// <summary>
+/// Facts of the page itself handed to operations.check.run (closed values only, checked again by the engine): content security
+/// policy strict or not, shell elements found, motion setting and version of the web engine. The engine writes the rows, so the
+/// report, its summary, the journal and the dossier count the same lines.
+/// </summary>
+public sealed record PageChecks(bool? StrictPolicy, int? Structure, int? StructureTotal, string? Motion, string? WebView);
 
 /// <summary>Result of operations.check.run.</summary>
 public sealed record CheckReport(DateTimeOffset At, bool Full, int Ok, int Errors, int Warnings, double TotalMs, string Summary, ImmutableArray<CheckRow> Rows);
@@ -194,7 +210,27 @@ public sealed record OperationsOverview(
     double? SuccessPercent,
     LatencySummary Engine,
     ImmutableArray<string> WriteKinds,
+    int HiddenAutomatic,
     string Note);
+
+/// <summary>
+/// Result of operations.center: what a panel of the shell needs from anywhere (Domenia 1 OPE-015, OPE-025, OPE-026): the pill of
+/// the receipts to verify with its oldest receipt, the tasks in progress (64 at most, collection batches first), the summary and
+/// the number of recent operations to review. Memory and local receipts only.
+/// </summary>
+public sealed record OperationsCenter(
+    DateTimeOffset At,
+    PendingPill Pill,
+    bool ReceiptsReadable,
+    string WriteState,
+    Tone WriteTone,
+    TaskSummary Summary,
+    ImmutableArray<ActivityRow> Open,
+    int Attention,
+    string Note);
+
+/// <summary>Result of operations.interface.report: samples kept and whether a stall line was written in the technical journal.</summary>
+public sealed record InterfaceReportResult(int Kept, bool Logged);
 
 /// <summary>A document written by Opérations (CSV, diagnostic, dossier) or kept in memory when the mode writes nothing.</summary>
 public sealed record ExportResult(bool Saved, string? Path, string Name, string? Folder, string Sha256, long Bytes, string Message, DateTimeOffset At);

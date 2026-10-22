@@ -15,6 +15,8 @@
     { "do": "click", "text": "Vérification de l’application", "within": ".op-tk-grid", "clickCount": 2, "title": "Ouvrir ses étapes" },
     { "do": "expect", "contains": "Étapes de l’opération", "within": ".k-drw", "title": "Le panneau montre les étapes mesurées" },
     { "do": "expect", "contains": "Traitement dans le moteur", "within": ".k-drw" },
+    { "do": "expect", "contains": "Publication dans l’interface", "within": ".k-drw", "title": "La publication est dite, non mesurée" },
+    { "do": "expect", "contains": "Suite possible", "within": ".k-drw", "title": "La suite possible est donnée" },
     { "do": "shot", "name": "etapes", "selector": ".k-drw" },
     { "do": "press", "key": "Escape", "title": "Fermer le panneau" },
     { "do": "expect", "selector": ".k-drw", "absent": true },

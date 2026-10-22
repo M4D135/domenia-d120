@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Opérations screen (operations.*): mock-operations.js, over the receipts of mock-writes.js and the journal below.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createOperationsOperations } from './mock-operations.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1046,6 +1048,10 @@ async function setScope(args) {
   return sessionInfo();
 }
 
+const WRITES = createWriteOperations({
+  readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+});
+
 const OPERATIONS = {
   'app.info': appInfo,
   'session.info': sessionInfo,
@@ -1055,8 +1061,10 @@ const OPERATIONS = {
   'dashboard.widget.setEnabled': setEnabled,
   'directory.ou.children': ouChildren,
   'directory.ou.search': ouSearch,
-  ...createWriteOperations({
-    readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
+  ...WRITES.operations,
+  ...createOperationsOperations({
+    readObject, getString, getOptionalString, getBoolean, requireNone, invalid, fail, quote, int, count, sleep, log, NBSP, REF,
+    writes: WRITES, journal: () => journalRows(), session: () => sessionInfo(),
   }),
 };
 

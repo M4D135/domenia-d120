@@ -8,7 +8,7 @@
     { "do": "wait", "selector": ".op-review", "title": "La revue manuelle s’ouvre" },
     { "do": "type", "selector": "#op-review-reason", "text": "trop court", "title": "Motif trop court" },
     { "do": "expect", "contains": "12 au minimum", "within": ".op-review" },
-    { "do": "type", "selector": "#op-review-reason", "text": "Contrôlé, password=Azerty123", "clear": true, "title": "Motif qui ressemble à un secret" },
+    { "do": "type", "selector": "#op-review-reason", "text": "Contrôlé, password=<valeur-de-test>", "clear": true, "title": "Motif qui ressemble à un secret" },
     { "do": "expect", "contains": "ressemble à un secret", "within": ".op-review" },
     { "do": "click", "selector": ".op-template", "nth": 0, "title": "Reprendre un motif fréquent" },
     { "do": "expect", "contains": "/ 240 caractères", "within": ".op-review", "title": "Le motif est valable" },

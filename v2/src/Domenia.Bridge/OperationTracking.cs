@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Domenia.Core;
 
 namespace Domenia.Bridge;
@@ -37,7 +38,7 @@ public static class OperationTracking
                 try
                 {
                     var result = await inner(arguments, forward, task.Token).ConfigureAwait(false);
-                    Settle(activity, task, result);
+                    Settle(activity, task, definition, result);
                     return result;
                 }
                 catch (Exception exception)
@@ -86,10 +87,15 @@ public static class OperationTracking
         bridge.Publish(name, response.Data);
     }
 
-    /// <summary>End of a request that answered: a receipt says how the write really ended (an unknown outcome is never a success).</summary>
-    private static void Settle(OperationActivity activity, ActivityTask task, object? result) => Guard(activity, () =>
+    /// <summary>
+    /// End of a request that answered. Only the receipt of write.execute says how a write really ended (an unknown outcome is never a
+    /// success); a read that hands back a receipt (write.receipts.get, write.receipts.verify, even on a receipt still to verify) is a
+    /// read that answered, with its own label. Remote requests (network reads, writes) also record the estimated bytes received.
+    /// </summary>
+    private static void Settle(OperationActivity activity, ActivityTask task, OperationDefinition definition, object? result) => Guard(activity, () =>
     {
-        if (result is ReceiptView receipt)
+        var bytes = definition.Class is OperationClass.NetworkRead or OperationClass.Write ? BytesOf(result) : null;
+        if (result is ReceiptView receipt && string.Equals(definition.Name, WriteCircuit.ExecuteOperation, StringComparison.Ordinal))
         {
             task.Rename(receipt.Label);
             var (outcome, category) = receipt.Pending
@@ -99,11 +105,68 @@ public static class OperationTracking
                     : receipt.Verification == VerificationState.Mismatch
                         ? (TaskOutcome.Unknown, "write.mismatch")
                         : (TaskOutcome.Succeeded, (string?)null);
-            task.Complete(outcome, category, 1);
+            task.Complete(outcome, category, 1, bytes);
             return;
         }
-        task.Complete(TaskOutcome.Succeeded, null, VolumeOf(result));
+        task.Complete(TaskOutcome.Succeeded, null, VolumeOf(result), bytes);
     });
+
+    /// <summary>
+    /// Estimated volume received by a remote request (Domenia 1 BytesEstimated): the size of its answer in the JSON of the contract,
+    /// counted without keeping the text. Null when it cannot be measured (never 0 invented).
+    /// </summary>
+    public static long? BytesOf(object? result)
+    {
+        if (result is null)
+        {
+            return null;
+        }
+        try
+        {
+            using var counter = new CountingStream();
+            JsonSerializer.Serialize(counter, result, result.GetType(), BridgeJson.Options);
+            return counter.Length;
+        }
+        catch (Exception exception) when (exception is NotSupportedException or InvalidOperationException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>A write-only stream that only counts the bytes written to it.</summary>
+    private sealed class CountingStream : Stream
+    {
+        private long length;
+
+        public override bool CanRead => false;
+
+        public override bool CanSeek => false;
+
+        public override bool CanWrite => true;
+
+        public override long Length => length;
+
+        public override long Position
+        {
+            get => length;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush()
+        {
+            // Nothing is kept: nothing to flush.
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
+
+        public override void Write(byte[] buffer, int offset, int count) => length += count;
+
+        public override void Write(ReadOnlySpan<byte> buffer) => length += buffer.Length;
+    }
 
     private static void Record(OperationActivity activity, ActivityTask task, Exception exception) => Guard(activity, () =>
     {

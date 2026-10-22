@@ -49,7 +49,7 @@ function sample(state) {
     verification: pending ? 'unknown' : 'verified', verificationLabel: pending ? 'Non vérifiée' : 'Vérifiée par relecture',
     pending, tone: pending ? 'warn' : 'ok',
     summary: pending
-      ? `Issue inconnue après l’envoi${NBSP}: vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures sur cet objet restent bloquées jusqu’à la vérification.`
+      ? `Issue inconnue après l’envoi${NBSP}: vérifiez par une relecture. Rien n’est renvoyé automatiquement. Les nouvelles écritures restent bloquées jusqu’à sa vérification ou sa revue.`
       : `Écriture appliquée et vérifiée par relecture. Simulation${NBSP}: annuaire fictif en mémoire, aucun effet réel.`,
     error: pending ? { code: 'write.outcomeUnknown', message: `Issue inconnue après l’envoi${NBSP}: vérifiez l’objet par une relecture avant toute nouvelle écriture. Rien n’est renvoyé automatiquement.` } : null,
     details: [

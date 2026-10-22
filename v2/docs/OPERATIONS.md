@@ -1131,7 +1131,8 @@ plan, valable jusqu’à `plan.expiresAt` (5 minutes) ; il n’apparaît dans au
 | `details` | texte | Détails techniques repliés, une ligne par fait (cible, DN, GUID, contrôleur, opérateur, mode, changements, dates, 12 premiers caractères de l’empreinte). |
 
 Refus communs d’un plan : `source.unavailable` (aucun exécuteur de ce type dans ce mode : mode annuaire tant que
-`Domenia.Ad` n’est pas branché), `write.targetPending`, `receipt.unavailable` (§ 12.7). Un plan n’écrit rien.
+`Domenia.Ad` n’est pas branché), `write.targetPending`, `write.receiptsPending` (un reçu à vérifier bloque toutes les nouvelles
+écritures), `receipt.unavailable` (§ 12.7). Un plan n’écrit rien.
 
 ### 12.2 `accounts.unlock.plan`
 
@@ -1193,16 +1194,16 @@ Exécute **une fois** un plan confirmé et renvoie son reçu (forme du § 12.6, 
   caractères base64url) obligatoires ; `typedName` texte (256 caractères au plus) ou `null`, obligatoire et identique au nom
   du plan (casse comprise) quand `confirmation.typedNameRequired` est vrai, ignoré sinon ; aucune autre propriété.
 - **Déroulé** (`WRITES.md` § 3) : contrôles du plan et du jeton, nom saisi, jeton consommé (un refus après ce point dépense
-  le plan), une écriture à la fois, aucune écriture incertaine sur la cible, préconditions relues, **reçu version 1 écrit
+  le plan), une écriture à la fois, aucune écriture incertaine (ni sur la cible, ni ailleurs), préconditions relues, **reçu version 1 écrit
   avant l’envoi** (sans lui rien ne part), envoi unique jamais interrompu, résultat enregistré, relecture de l’objet, reçu
   complété, journal des opérations (« Déverrouillage du compte (simulation) : Camille Bernard · relecture conforme »).
 - **Événements** : `write.execute:stage` avec `{ "stage": "checking" | "sending" | "verifying", "label": "…" }` (« Relecture
   de l’objet avant l’envoi », « Reçu enregistré, envoi du changement », « Relecture après l’écriture »), dans cet ordre.
 - **Résultat** : une fois le reçu écrit, la réponse est **toujours** un reçu, quelle que soit l’issue : `applied`,
   `noChange` (objet déjà dans l’état demandé : rien envoyé), `notApplied` (refus attendu avant tout changement, `error`
-  renseignée), `unknown` (issue inconnue après l’envoi : à vérifier, bloque la cible).
+  renseignée), `unknown` (issue inconnue après l’envoi : à vérifier, bloque toutes les nouvelles écritures).
 - **Erreurs** (rien n’a été envoyé) : `arguments.invalid`, `write.planUnknown`, `write.tokenUsed`, `write.tokenInvalid`,
-  `write.planChanged`, `write.tokenExpired`, `write.confirmationMismatch`, `write.targetPending`, `write.stale`,
+  `write.planChanged`, `write.tokenExpired`, `write.confirmationMismatch`, `write.targetPending`, `write.receiptsPending`, `write.stale`,
   `receipt.unavailable`, `source.unavailable`, `operation.cancelled` (fermeture pendant l’attente d’une autre écriture).
 - **Simulation** : préconditions 60 à 140 ms, envoi 280 à 620 ms, relecture 90 à 200 ms (`latency/screen/write/…`).
 
@@ -1217,7 +1218,7 @@ ancien ; 500 lignes au plus (les reçus à vérifier toujours compris).
 | Champ | Type | Contenu |
 |---|---|---|
 | `total` | entier | Reçus connus. |
-| `pending` | entier | Reçus à vérifier (chacun bloque les écritures sur sa cible). |
+| `pending` | entier | Reçus à vérifier (tant qu’il y en a un, toutes les nouvelles écritures sont bloquées). |
 | `unreadable` | entier | Enregistrements illisibles ignorés. |
 | `truncated` | booléen | `true` si des reçus ne sont pas renvoyés (au-delà de 500). |
 | `summary` | texte | Phrase de la liste (« Aucune écriture à vérifier. Un reçu conservé ; rien n’est renvoyé automatiquement. »). |
@@ -1230,7 +1231,7 @@ ancien ; 500 lignes au plus (les reçus à vérifier toujours compris).
 - `write.receipts.verify` (`NetworkRead`, servie en simulation) : `{ "id": "…" }` → relit l’objet du reçu (mémoire en
   simulation, contrôleur en mode annuaire, après le geste de l’opérateur) et renvoie le reçu avec une version de plus
   (`verification`, `verifiedAt`, détail « Relecture »). **Seule une lecture part** : l’écriture n’est jamais renvoyée. Un
-  reçu à vérifier tranché par la relecture (`verified` ou `mismatch`) cesse de bloquer sa cible. Erreurs :
+  reçu à vérifier tranché par la relecture (`verified` ou `mismatch`) cesse de bloquer les écritures. Erreurs :
   `arguments.invalid`, `receipt.unknown`, `receipt.unavailable`, `source.unavailable`, `operation.cancelled`.
 
 ### 12.6 Reçu
@@ -1247,13 +1248,13 @@ ancien ; 500 lignes au plus (les reçus à vérifier toujours compris).
 | `operator`, `controller`, `mode`, `simulated` | | Ceux du plan. |
 | `result` | texte | `sent` (envoyée, issue à vérifier : application fermée pendant l’envoi), `applied`, `noChange`, `notApplied`, `unknown`. |
 | `resultLabel` | texte | « Envoyée, issue à vérifier », « Appliquée » (« Appliquée (simulation) »), « Déjà faite : rien envoyé », « Non appliquée », « Issue inconnue, à vérifier ». |
-| `verification` | texte | `verified`, `mismatch` ou `unknown`. |
-| `verificationLabel` | texte | « Vérifiée par relecture », « Écart à la relecture » (« Relue : objet inchangé » après un refus), « Relecture en attente », « Non vérifiée ». |
-| `pending` | booléen | `true` si la requête est partie sans issue connue (`sent`, `unknown`) et qu’aucune relecture n’a tranché : le reçu bloque les écritures sur sa cible. |
+| `verification` | texte | `verified`, `mismatch`, `unknown` ou `reviewed` (revue manuelle consignée depuis Opérations : ton `info`, jamais un succès ; gardée après une relecture qui ne conclut pas, remplacée par une relecture conclusive). |
+| `verificationLabel` | texte | « Vérifiée par relecture », « Écart à la relecture » (« Relue : objet inchangé » après un refus), « Revue manuelle », « Relecture en attente », « Non vérifiée ». |
+| `pending` | booléen | `true` si la requête est partie sans issue connue (`sent`, `unknown`) et qu’aucune relecture ni revue n’a tranché : le reçu bloque toutes les nouvelles écritures. |
 | `tone` | texte | `ok`, `warn`, `alert` ou `info` (`WRITES.md` § 4.1). |
 | `summary` | texte | Phrase pour l’opérateur ; en simulation, elle dit « aucun effet réel ». |
 | `error` | objet ou `null` | `{ code, message }` d’un refus ou d’une issue inconnue (`write.outcomeUnknown`). |
-| `details` | tableau | `{ label, value }` dans l’ordre : « Préconditions », « Envoi », puis une « Relecture » par relecture. Absent des lignes de la liste. |
+| `details` | tableau | `{ label, value }` dans l’ordre : « Préconditions », « Envoi », puis une « Relecture » par relecture et une « Revue manuelle » (motif et compte) par revue. Absent des lignes de la liste. |
 | `plan` | objet | Le plan exécuté (§ 12.1, sans jeton). Absent des lignes de la liste. |
 
 Exemple (réponse de `write.execute`, simulation ; extrait) :
@@ -1304,6 +1305,7 @@ Stockage (`LocalWrite`) : une ligne JSON par version dans `receipts.jsonl` (mode
 | `write.tokenExpired` | Confirmation expirée (plan de plus de 5 min) : rien n’a été envoyé. Préparez de nouveau l’écriture pour relire l’objet. | `expiresAt` atteint. |
 | `write.confirmationMismatch` | Le nom saisi ne correspond pas à la cible : rien n’a été envoyé. Préparez de nouveau l’écriture. | `typedName` différent du nom exigé (le plan est dépensé). |
 | `write.targetPending` | Une écriture précédente sur cet objet reste à vérifier : relisez son reçu dans Opérations avant d’en préparer une autre. | Reçu à vérifier sur la même cible (GUID). |
+| `write.receiptsPending` | Une opération reste à vérifier : les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue dans Opérations. Rien n’a été envoyé. (« N opérations restent à vérifier… leur vérification ou leur revue… » au pluriel) | Reçu à vérifier sur un autre objet (Domenia 1 `Assert-WriteAllowed`). |
 | `write.stale` | *Raison de l’exécuteur*, qui finit toujours par « Rien n’a été envoyé. » | Préconditions changées depuis le plan (objet déplacé, renommé, supprimé, valeur « avant » différente). |
 | `write.nothingToDo` | *Phrase de l’exécuteur* (« Ce compte n’est pas verrouillé : aucune écriture à préparer. »). | Objet déjà dans l’état demandé au moment du plan. |
 | `write.targetUnknown` | *Phrase de l’exécuteur* (« Objet introuvable dans l’annuaire : aucune écriture préparée. » par défaut). | DN qui ne désigne pas un objet du type attendu. |

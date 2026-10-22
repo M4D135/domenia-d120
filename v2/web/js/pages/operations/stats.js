@@ -1,6 +1,7 @@
 // Tab « Statistiques » (Domenia 1 OPE-002): one row per operation of the bridge with its measures (session and, when the source
-// keeps them, earlier sessions): count, average and median duration, 95th percentile, time per item, success rate, last run;
-// exportable in CSV. The grid runs no action.
+// keeps them, earlier sessions): count, average and median duration, 95th percentile, time per item, estimated network volume,
+// throughput, fallback rate and remote attempts (Domenia 1 Complete-DomeniaOperationStatsUi), success rate, last run; exportable
+// in CSV. A column with nothing measured stays empty, never 0. The grid runs no action.
 import { esc, errorText, toast } from '../../ui.js';
 import { createGrid, glyph, writeClipboard, NBSP } from '../../kit/index.js';
 import { duration, count, int, cardHead } from './common.js';
@@ -14,6 +15,22 @@ const KIND_OPTIONS = [
   { value: 'batch', label: 'Lot de collecte', tone: 'info' },
 ];
 const ms = (v) => (Number.isFinite(v) ? duration(v) : '—');
+
+/** « 820 o », « 12,4 ko », « 3,1 Mo » (Domenia 1 Format-DomeniaByteEstimate), or « — » when not measured. */
+function bytes(v) {
+  if (!Number.isFinite(v)) return '—';
+  if (v < 1024) return `${int(Math.round(v))}${NBSP}o`;
+  if (v < 1024 * 1024) return `${(v / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}${NBSP}ko`;
+  return `${(v / (1024 * 1024)).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}${NBSP}Mo`;
+}
+
+/** Throughput like Domenia 1: « 1,25 Mbit/s » from 125 000 octets per second, « 64,0 kbit/s » below. */
+function bandwidth(v) {
+  if (!Number.isFinite(v) || v <= 0) return '—';
+  return v >= 125_000
+    ? `${((v * 8) / 1_000_000).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${NBSP}Mbit/s`
+    : `${((v * 8) / 1000).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${NBSP}kbit/s`;
+}
 
 const COLUMNS = [
   { id: 'label', label: 'Opération', width: 210, required: true, html: (v, r) => `<span data-tip="${esc(r.operation)}">${esc(v)}</span>` },
@@ -34,6 +51,10 @@ const COLUMNS = [
       : '—'),
     csv: (v) => (Number.isFinite(v) ? String(v).replace('.', ',') : ''),
   },
+  { id: 'averageBytes', label: 'Réseau (estimé)', type: 'number', width: 140, align: 'end', format: bytes, tip: 'Volume moyen reçu par une lecture distante ou une écriture, estimé d’après la taille de sa réponse.', csv: (v) => (Number.isFinite(v) ? String(Math.round(v)) : '') },
+  { id: 'bytesPerSecond', label: 'Débit', type: 'number', width: 122, align: 'end', format: bandwidth, csv: (v) => (Number.isFinite(v) ? String(Math.round(v)) : '') },
+  { id: 'fallbackPercent', label: '% de repli', type: 'number', width: 116, align: 'end', format: (v) => (Number.isFinite(v) ? `${v.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}${NBSP}%` : '—'), tip: 'Transports de repli sur les tentatives distantes : Domenia 2 n’en utilise aucun.', csv: (v) => (Number.isFinite(v) ? String(v).replace('.', ',') : '') },
+  { id: 'remoteAttempts', label: 'Tentatives distantes', type: 'number', width: 160, align: 'end', format: (v) => (v > 0 ? int(v) : '—'), tip: 'Requêtes parties vers l’annuaire ou un poste ; jamais de nouvelle tentative automatique.' },
   { id: 'lastRun', label: 'Dernière', type: 'date', width: 108 },
 ];
 

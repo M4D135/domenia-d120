@@ -4,7 +4,7 @@
 // pseudonyms. Nothing is ever sent: documents go to the documents folder of the application, after a confirmation.
 import { esc, errorText, toast, announce } from '../../ui.js';
 import { confirmDialog, pill, glyph, writeClipboard, NBSP } from '../../kit/index.js';
-import { cardHead, errorBox, skeletonLines, toneMark, count, duration, int, maskSecrets, paintVars } from './common.js';
+import { cardHead, errorBox, skeletonLines, toneMark, duration, int, maskSecrets, paintVars } from './common.js';
 
 const STATUS = {
   ok: ['ok', 'OK', 'check'], warn: ['warn', 'À savoir', 'eye'], error: ['alert', 'Erreur', 'alert'], info: ['info', 'Sans objet', 'info'],
@@ -16,25 +16,23 @@ export function webViewVersion() {
   return m ? m[1] : null;
 }
 
-/** Checks of the page itself (structure, content security policy, motion): local, nothing is read elsewhere. */
-function clientChecks() {
-  const rows = [];
-  const t0 = performance.now();
+/**
+ * Facts of the page itself handed to the check (closed values only): content security policy, elements of the shell, motion
+ * setting, version of the web engine. The engine writes the rows, so the report, its summary, the journal and the dossier count
+ * the same lines.
+ */
+function pageFacts() {
   const csp = document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content') ?? '';
   const strict = /connect-src 'none'/.test(csp) && /script-src 'self'/.test(csp) && /style-src 'self'/.test(csp) && !/unsafe-inline/.test(csp);
-  rows.push({ category: 'Interface', test: 'Politique de sécurité du contenu', status: strict ? 'ok' : 'error', durationMs: 0,
-    detail: strict ? `Stricte${NBSP}: scripts et styles de la page seulement, aucune connexion sortante, aucun style en ligne.` : 'Politique de sécurité du contenu absente ou affaiblie.' });
   const parts = ['.nav', '.topbar', '#main', '.toasts'];
-  const found = parts.filter((s) => document.querySelector(s)).length;
-  rows.push({ category: 'Interface', test: 'Structure de l’application', status: found === parts.length ? 'ok' : 'error', durationMs: 0,
-    detail: `${found}/${parts.length} éléments présents (navigation, barre supérieure, contenu, notifications).` });
-  const motion = document.documentElement.dataset.motion ?? 'full';
-  rows.push({ category: 'Interface', test: 'Animations', status: 'ok', durationMs: 0,
-    detail: motion === 'reduced' ? 'Animations réduites (réglage de l’opérateur).' : motion === 'system' ? 'Animations : réglage de Windows suivi.' : `Animations riches${NBSP}: transform, opacity et filter seulement.` });
-  const version = webViewVersion();
-  rows.push({ category: 'Interface', test: 'Moteur web', status: version ? 'ok' : 'info', durationMs: Math.round((performance.now() - t0) * 10) / 10,
-    detail: version ? `WebView2 ${version}.` : 'Version du moteur web non lue.' });
-  return rows;
+  const motion = document.documentElement.dataset.motion;
+  return {
+    strictPolicy: csp ? strict : false,
+    structure: parts.filter((sel) => document.querySelector(sel)).length,
+    structureTotal: parts.length,
+    motion: ['full', 'reduced', 'system'].includes(motion) ? motion : 'full',
+    webView: webViewVersion(),
+  };
 }
 
 /**
@@ -48,17 +46,18 @@ export function createDiagnostics(host, env) {
   let preview = null;
 
   host.innerHTML = `<div class="grid op-diag">
-    <section class="card span-7 op-why-card spot" data-card="why" aria-busy="true">${skeletonLines(5)}</section>
-    <section class="card span-5 op-check-card spot" data-card="check">
+    <section class="card span-6 op-why-card spot" data-card="why" aria-busy="true">${skeletonLines(5)}</section>
+    <section class="card span-6 op-check-card spot" data-card="check">
       ${cardHead('shield', 'Vérifier l’application', 'Lecture seule · aucune écriture effectuée')}
       <p class="op-card-lead">Contrôle le moteur, la politique d’écriture, le stockage local, l’annuaire de la session, les outils Windows et la page elle-même.</p>
-      <ul class="op-check-scope" aria-label="Ce qui est vérifié">${[['chip', 'Moteur'], ['shield', 'Politique d’écriture'], ['database', 'Stockage local'], ['edit', 'Exécuteurs'], ['domain', 'Annuaire'], ['tools', 'Outils Windows'], ['layers', 'WAPT'], ['monitor', 'Interface']].map(([i, t], n) => `<li data-i="${n}">${glyph(i)}${t}</li>`).join('')}</ul>
+      <ul class="op-check-scope" aria-label="Ce qui est vérifié">${[['chip', 'Moteur'], ['shield', 'Politique d’écriture'], ['database', 'Stockage local'], ['edit', 'Exécuteurs'], ['domain', 'Annuaire'], ['tools', 'Outils Windows'], ['monitor', 'Interface']].map(([i, t], n) => `<li data-i="${n}">${glyph(i)}${t}</li>`).join('')}</ul>
       <div class="op-check-actions op-card-actions">
         <button class="btn subtle sm" type="button" data-check="quick">${glyph('zap')}Vérification rapide</button>
         <button class="btn subtle sm" type="button" data-check="full">${glyph('gauge')}Vérification complète</button>
       </div>
-      <div class="op-check-result" aria-live="polite"><p class="op-check-idle">${glyph('info')}Aucune vérification dans cette session. La complète mesure aussi des recherches répétées.</p></div>
+      <div class="op-check-status" aria-live="polite"><p class="op-check-idle">${glyph('info')}Aucune vérification dans cette session. La complète mesure aussi des recherches répétées.</p></div>
     </section>
+    <section class="card span-12 op-report-card" data-card="report" hidden></section>
     <section class="card span-6 op-redacted-card spot" data-card="redacted">
       ${cardHead('file', 'Diagnostic expurgé', 'Pour le support · construit sur liste blanche')}
       <p class="op-card-lead">Versions, compteurs, mesures, codes d’erreur et traces par référence courte. Vous voyez ce qu’il contient avant tout enregistrement${NBSP}; rien n’est envoyé.</p>
@@ -124,33 +123,29 @@ export function createDiagnostics(host, env) {
   }
 
   async function runCheck(full, button) {
-    const box = host.querySelector('.op-check-result');
+    const status = host.querySelector('.op-check-status');
+    const card = host.querySelector('[data-card="report"]');
     host.querySelectorAll('[data-check]').forEach((b) => { b.disabled = true; });
     button.setAttribute('aria-busy', 'true');
-    box.setAttribute('aria-busy', 'true');
-    box.innerHTML = `<div class="op-check-run"><span class="k-spin" aria-hidden="true"></span><span>${full ? 'Vérification complète' : 'Vérification rapide'} en lecture seule…</span></div>`;
+    status.setAttribute('aria-busy', 'true');
+    status.innerHTML = `<div class="op-check-run"><span class="k-spin" aria-hidden="true"></span><span>${full ? 'Vérification complète' : 'Vérification rapide'} en lecture seule…</span></div>`;
     try {
-      const server = await ctx.call('operations.check.run', { full });
+      // One report, written by the engine with the facts of the page: the same counts everywhere (toast, report, journal, dossier).
+      report = await ctx.call('operations.check.run', { full, page: pageFacts() });
       if (!alive) return;
-      const client = clientChecks();
-      const rows = [...server.rows, ...client];
-      const ok = rows.filter((r) => r.status === 'ok').length;
-      const errors = rows.filter((r) => r.status === 'error').length;
-      const warns = rows.filter((r) => r.status === 'warn').length;
-      const infos = rows.filter((r) => r.status === 'info').length;
-      const total = rows.reduce((s, r) => s + (r.durationMs || 0), 0);
-      report = { ...server, rows, ok, errors, warnings: warns, totalMs: total,
-        summary: `${int(ok)} OK · ${count(errors, 'erreur', 'erreurs')} · ${count(warns, 'point à savoir', 'points à savoir')}${infos ? ` · ${int(infos)} pour information` : ''} · ${duration(total)}. Aucune écriture effectuée.` };
-      box.innerHTML = reportMarkup(report);
-      paintVars(box);
+      status.innerHTML = summaryMarkup(report);
+      paintVars(status);
+      card.hidden = false;
+      card.innerHTML = reportMarkup(report);
+      paintVars(card);
       announce(report.summary);
-      toast(`Vérification ${full ? 'complète' : 'rapide'}${NBSP}: ${report.summary}`, { tone: errors ? 'warn' : 'ok', life: 6000 });
+      toast(`Vérification ${full ? 'complète' : 'rapide'}${NBSP}: ${report.summary}`, { tone: report.errors ? 'warn' : 'ok', life: 6000 });
     } catch (err) {
       console.error(err);
       if (!alive) return;
-      box.innerHTML = errorBox(errorText(err, 'Vérification impossible.'));
+      status.innerHTML = errorBox(errorText(err, 'Vérification impossible.'));
     } finally {
-      box.removeAttribute('aria-busy');
+      status.removeAttribute('aria-busy');
       button.removeAttribute('aria-busy');
       host.querySelectorAll('[data-check]').forEach((b) => { b.disabled = false; });
     }
@@ -267,14 +262,19 @@ export function createDiagnostics(host, env) {
   };
 }
 
-function reportMarkup(report) {
-  const groups = new Map();
-  report.rows.forEach((r) => { if (!groups.has(r.category)) groups.set(r.category, []); groups.get(r.category).push(r); });
+function summaryMarkup(report) {
   const bar = (n, cls) => (n ? `<i class="${cls}" data-grow="${n}"></i>` : '');
   return `<div class="op-check-summary">
       <div class="op-check-meter" aria-hidden="true">${bar(report.ok, 'ok')}${bar(report.warnings, 'warn')}${bar(report.errors, 'alert')}${bar(report.rows.length - report.ok - report.warnings - report.errors, 'info')}</div>
-      <p><b>${esc(report.summary)}</b></p></div>
-    <div class="op-check-groups">${[...groups.entries()].map(([cat, rows]) => `<section class="op-check-group"><h4>${esc(cat)}</h4><ul>${rows.map((r) => {
+      <p><b>${esc(report.summary)}</b></p>
+      <p class="op-check-hint">${glyph('chevronRight')}Rapport détaillé ci-dessous, par catégorie.</p></div>`;
+}
+
+function reportMarkup(report) {
+  const groups = new Map();
+  report.rows.forEach((r) => { if (!groups.has(r.category)) groups.set(r.category, []); groups.get(r.category).push(r); });
+  return `${cardHead('shield', 'Rapport de vérification', `${report.full ? 'Vérification complète' : 'Vérification rapide'} · ${report.summary}`)}
+    <div class="op-check-groups">${[...groups.entries()].map(([cat, rows], g) => `<section class="op-check-group" data-i="${g}"><h4>${esc(cat)}</h4><ul>${rows.map((r) => {
       const [tone, label, iconName] = STATUS[r.status] ?? STATUS.info;
       return `<li data-tone="${tone}">${pill(tone, label, { icon: iconName, size: 'sm' })}<div><b>${esc(r.test)}</b><p>${esc(r.detail)}</p></div><time>${esc(duration(r.durationMs))}</time></li>`;
     }).join('')}</ul></section>`).join('')}</div>

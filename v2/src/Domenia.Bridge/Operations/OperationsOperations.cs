@@ -17,7 +17,14 @@ public sealed class OperationsOperations : IOperationModule
 {
     private static readonly string[] IdArgument = ["id"];
     private static readonly string[] ReviewArguments = ["id", "reason"];
-    private static readonly string[] FullArgument = ["full"];
+    private static readonly string[] CheckArguments = ["full", "page"];
+    private static readonly string[] PageArguments = ["strictPolicy", "structure", "structureTotal", "motion", "webView"];
+    private static readonly string[] InterfaceArguments = ["renders", "stall"];
+    private static readonly string[] RenderArguments = ["work", "ms"];
+    private static readonly string[] StallArguments = ["lateMs", "work", "workMs", "longTaskMs"];
+
+    /// <summary>Most interface samples accepted in one report (the page sends them every few seconds).</summary>
+    public const int MaxInterfaceSamples = 64;
     private static readonly string[] RemainingArgument = ["remaining"];
     private static readonly string[] FigureArguments = ["webView", "theme", "interfaceP50Ms", "interfaceP95Ms", "interfaceSamples"];
     private static readonly string[] DossierArguments = ["anonymize", "webView"];
@@ -47,6 +54,27 @@ public sealed class OperationsOperations : IOperationModule
                 BridgeArguments.RequireNone(args);
                 return await desk.OverviewAsync(ct).ConfigureAwait(false);
             }, "Tête de l’écran Opérations : reçus, tâches et mesures de la session, sans lecture réseau."),
+
+            // LocalRead, not followed (operations screen): the receipts list of the circuit for the refreshes of the screen, so its
+            // background reads never fill the activity, the statistics or the categories.
+            new OperationDefinition("operations.receipts", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await desk.ReceiptsAsync(ct).ConfigureAwait(false);
+            }, "Reçus d’écriture du mode pour l’écran Opérations, ceux à vérifier d’abord."),
+
+            new OperationDefinition("operations.center", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await desk.CenterAsync(ct).ConfigureAwait(false);
+            }, "Centre des opérations : pastille des reçus à vérifier, tâches en cours, opérations à revoir."),
+
+            // Local: closed codes and numbers measured by the page, kept in memory; a stall writes one line in the technical journal.
+            new OperationDefinition("operations.interface.report", OperationClass.Local, (args, _, _) =>
+            {
+                var (renders, stall) = InterfaceReport(BridgeArguments.ReadObject(args, InterfaceArguments));
+                return Task.FromResult<object?>(desk.Interface(renders, stall));
+            }, "Mesures de l’interface : traitements de la page et battements en retard."),
 
             new OperationDefinition("operations.activity", OperationClass.Local, (args, _, _) =>
             {
@@ -91,7 +119,8 @@ public sealed class OperationsOperations : IOperationModule
                 return await desk.HealthAsync(ct).ConfigureAwait(false);
             }, "Santé du moteur : mémoire, temps de réponse, lenteurs, enregistrement local, sources suspendues."),
 
-            new OperationDefinition("operations.engine", OperationClass.Local, async (args, _, ct) =>
+            // LocalRead: reads the receipts of the mode and the session of the source.
+            new OperationDefinition("operations.engine", OperationClass.LocalRead, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
                 return await desk.EngineAsync(ct).ConfigureAwait(false);
@@ -151,11 +180,13 @@ public sealed class OperationsOperations : IOperationModule
             // NetworkRead: the directory checks read the directory of the session (the fictitious one in simulation).
             new OperationDefinition("operations.check.run", OperationClass.NetworkRead, async (args, _, ct) =>
             {
-                var full = BridgeArguments.GetBoolean(BridgeArguments.ReadObject(args, FullArgument), "full");
-                return await desk.CheckAsync(full, ct).ConfigureAwait(false);
-            }, "Vérifie l’application en lecture seule : moteur, sécurité, stockage local, annuaire, outils.", ServedInSimulation: true),
+                var values = BridgeArguments.ReadObject(args, CheckArguments);
+                var full = BridgeArguments.GetBoolean(values, "full");
+                return await desk.CheckAsync(full, Page(values), ct).ConfigureAwait(false);
+            }, "Vérifie l’application en lecture seule : moteur, sécurité, stockage local, annuaire, outils, page.", ServedInSimulation: true),
 
-            new OperationDefinition("operations.diagnostic.preview", OperationClass.Local, async (args, _, ct) =>
+            // LocalRead: reads the receipts of the mode and the session of the source.
+            new OperationDefinition("operations.diagnostic.preview", OperationClass.LocalRead, async (args, _, ct) =>
             {
                 var figures = Figures(BridgeArguments.ReadObject(args, FigureArguments));
                 return await desk.DiagnosticAsync(figures, ct).ConfigureAwait(false);
@@ -229,12 +260,71 @@ public sealed class OperationsOperations : IOperationModule
         return new InterfaceFigures(webView, theme, OptionalNumber(values, "interfaceP50Ms"), OptionalNumber(values, "interfaceP95Ms"), samples is double s ? (int)Math.Min(s, 100_000) : null);
     }
 
+    private static PageChecks? Page(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        if (!values.TryGetValue("page", out var page) || page.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        var facts = BridgeArguments.ReadObject(page, PageArguments);
+        bool? strict = facts.TryGetValue("strictPolicy", out var policy) && policy.ValueKind is JsonValueKind.True or JsonValueKind.False ? policy.GetBoolean() : null;
+        var motion = BridgeArguments.GetOptionalString(facts, "motion");
+        var webView = BridgeArguments.GetOptionalString(facts, "webView");
+        if (motion is not (null or "full" or "reduced" or "system") || webView is { Length: > 40 })
+        {
+            throw BridgeArguments.Invalid(FrenchText.Quote("page") + " ne contient que des valeurs fermées et courtes.");
+        }
+        return new PageChecks(strict, SmallCount(facts, "structure"), SmallCount(facts, "structureTotal"), motion, webView);
+    }
+
+    private static int? SmallCount(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        if (!values.TryGetValue(name, out var value) || value.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+        return value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) && number is >= 0 and <= 64
+            ? number
+            : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un entier de 0 à 64 ou null.");
+    }
+
+    private static (ImmutableArray<InterfaceSample> Renders, StallReport? Stall) InterfaceReport(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        var renders = ImmutableArray.CreateBuilder<InterfaceSample>();
+        if (values.TryGetValue("renders", out var list) && list.ValueKind != JsonValueKind.Null)
+        {
+            if (list.ValueKind != JsonValueKind.Array || list.GetArrayLength() > MaxInterfaceSamples)
+            {
+                throw BridgeArguments.Invalid(FrenchText.Quote("renders") + " doit être une liste de " + FrenchText.Integer(MaxInterfaceSamples) + " mesures au plus.");
+            }
+            foreach (var item in list.EnumerateArray())
+            {
+                var sample = BridgeArguments.ReadObject(item, RenderArguments);
+                var ms = OptionalNumber(sample, "ms") ?? throw BridgeArguments.Invalid(FrenchText.Quote("ms") + " est obligatoire.");
+                renders.Add(new InterfaceSample(WorkCode(BridgeArguments.GetString(sample, "work")), ms));
+            }
+        }
+        StallReport? stall = null;
+        if (values.TryGetValue("stall", out var raw) && raw.ValueKind != JsonValueKind.Null)
+        {
+            var facts = BridgeArguments.ReadObject(raw, StallArguments);
+            var work = BridgeArguments.GetOptionalString(facts, "work");
+            var late = OptionalNumber(facts, "lateMs") ?? throw BridgeArguments.Invalid(FrenchText.Quote("lateMs") + " est obligatoire.");
+            stall = new StallReport(late, work is null ? null : WorkCode(work), OptionalNumber(facts, "workMs"), OptionalNumber(facts, "longTaskMs"));
+        }
+        return (renders.ToImmutable(), stall);
+    }
+
+    private static string WorkCode(string code) => ActivityRules.InterfaceWorkLabel(code) is not null
+        ? code
+        : throw BridgeArguments.Invalid(FrenchText.Quote("work") + " doit désigner un travail connu de l’interface.");
+
     /// <summary>The services of the screen over one engine context; created once, when the registry is built.</summary>
     private sealed class Desk(EngineContext context)
     {
         private readonly OperationActivity activity = OperationActivity.From(context);
         private readonly bool simulation = context.Mode == AppMode.Simulation;
-        private readonly OperationsExports exports = new(context);
+        private readonly OperationsExports exports = new(context, OperationsExports.DefaultFolder(context));
         private CheckReport? lastCheck;
 
         private WriteCircuit Circuit => WriteCircuit.From(context);
@@ -250,8 +340,11 @@ public sealed class OperationsOperations : IOperationModule
             var (list, readable) = await ListAsync(ct).ConfigureAwait(false);
             var snapshot = Activity();
             var session = activity.Samples();
-            var failures = snapshot.Recent.Count(r => r.Outcome is TaskOutcome.Refused or TaskOutcome.Failed or TaskOutcome.Unknown or TaskOutcome.TimedOut);
-            double? success = session.Length == 0 ? null : Math.Round(100.0 * session.Count(s => s.Succeeded) / session.Length, 1);
+            // The tile reads like the grid shown by default: the requests of the operator and the automatic reads that ended badly;
+            // the automatic reads that went well are counted apart (hidden by default, as in Domenia 1).
+            var listed = snapshot.Recent.Where(r => r.Listed).ToList();
+            var failures = listed.Count(r => r.Outcome is TaskOutcome.Refused or TaskOutcome.Failed or TaskOutcome.Unknown or TaskOutcome.TimedOut);
+            double? success = listed.Count == 0 ? null : Math.Round(100.0 * listed.Count(r => r.Outcome == TaskOutcome.Succeeded) / listed.Count, 1);
             var pending = list?.Pending ?? 0;
             var note = simulation
                 ? "Simulation" + FrenchText.Colon + "les écritures ne touchent que l’annuaire fictif en mémoire ; reçus marqués « simulé »."
@@ -259,9 +352,48 @@ public sealed class OperationsOperations : IOperationModule
                     ? "Mode annuaire" + FrenchText.Colon + "aucune écriture n’est servie dans cette version (Domenia.Ad, vague 3)."
                     : "Mode annuaire" + FrenchText.Colon + "chaque écriture passe par son plan, sa confirmation, son reçu et sa relecture.";
             return new OperationsOverview(Now, simulation ? "simulation" : "annuaire", simulation, list?.Total ?? 0, pending, list?.Unreadable ?? 0, readable,
-                context.Receipts.Persistent, list?.Summary ?? WriteErrors.ReceiptsUnreadableMessage, ReceiptReviews.Pill(pending), snapshot.Summary,
-                snapshot.Recent.Length + snapshot.Open.Length, failures, success, ActivityRules.Latency(session.Select(s => s.DurationMs)),
-                [.. context.Writers.Kinds], note);
+                context.Receipts.Persistent, list?.Summary ?? WriteErrors.ReceiptsUnreadableMessage, Pill(list), snapshot.Summary,
+                listed.Count + snapshot.Open.Length, failures, success, ActivityRules.Latency(session.Select(s => s.DurationMs)),
+                [.. context.Writers.Kinds], snapshot.Recent.Length - listed.Count, note);
+        }
+
+        /// <summary>operations.receipts: the list of the circuit, for the screen (not followed).</summary>
+        public async Task<ReceiptList> ReceiptsAsync(CancellationToken ct) => await Circuit.ListAsync(ct).ConfigureAwait(false);
+
+        /// <summary>operations.center: the pill and the tasks in progress, for a panel of the shell (Domenia 1 OPE-015, OPE-026).</summary>
+        public async Task<OperationsCenter> CenterAsync(CancellationToken ct)
+        {
+            var (list, readable) = await ListAsync(ct).ConfigureAwait(false);
+            var snapshot = Activity();
+            var attention = snapshot.Recent.Count(r => r.Listed && r.Outcome is TaskOutcome.Refused or TaskOutcome.Failed or TaskOutcome.Unknown or TaskOutcome.TimedOut);
+            var (state, tone) = WriteState(list, readable);
+            return new OperationsCenter(Now, Pill(list), readable, state, tone, snapshot.Summary, [.. snapshot.Open.Take(ActivityRules.MaxTraces)], attention,
+                "Tâches de cette session seulement" + FrenchText.Colon + "une lecture s’arrête, une écriture jamais ; rien n’est relancé automatiquement.");
+        }
+
+        /// <summary>operations.interface.report: interface work and stalls measured by the page.</summary>
+        public InterfaceReportResult Interface(ImmutableArray<InterfaceSample> renders, StallReport? stall)
+        {
+            var kept = activity.RecordInterface(renders);
+            var logged = stall is not null && activity.RecordStall(stall);
+            return new InterfaceReportResult(kept, logged);
+        }
+
+        private PendingPill Pill(ReceiptList? list) =>
+            list is null ? ReceiptReviews.Pill(0) : ReceiptReviews.Pill(list.Pending, ReceiptReviews.Oldest(list.Receipts), context.Clock.LocalTimeZone);
+
+        /// <summary>State of the writes in one sentence (Domenia 1 WriteState: au repos, en cours, inconnu tant qu’un reçu attend).</summary>
+        private (string Text, Tone Tone) WriteState(ReceiptList? list, bool readable)
+        {
+            var pending = list?.Pending ?? 0;
+            return !readable
+                ? ("Reçus illisibles" + FrenchText.Colon + "aucune écriture n’est admise tant qu’ils ne sont pas relus.", Tone.Alert)
+                : pending > 0
+                    ? (FrenchText.Count(pending, "opération à vérifier", "opérations à vérifier") + FrenchText.Colon + "les nouvelles écritures restent bloquées jusqu’à "
+                        + (pending == 1 ? "sa vérification ou sa revue." : "leur vérification ou leur revue."), Tone.Warn)
+                    : activity.OpenWrites > 0
+                        ? ("Écriture en cours" + FrenchText.Colon + "les suivantes attendent leur tour.", Tone.Info)
+                        : (context.Writers.Kinds.Count == 0 ? "Aucune écriture servie dans ce mode." : "Au repos" + FrenchText.Colon + "aucune écriture incertaine.", Tone.Ok);
         }
 
         public ActivitySnapshot Activity()
@@ -274,7 +406,13 @@ public sealed class OperationsOperations : IOperationModule
         {
             if (id.StartsWith("batch:", StringComparison.Ordinal) && id.Length <= 64)
             {
-                var state = FindReader()?.StopSurvey() ?? throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
+                // The right to stop is checked again on the real batch (Domenia 1 OPE-016): a row of an older batch never stops a new one.
+                var reader = FindReader();
+                if (reader?.CurrentSurvey() is not { Open: true } running || !string.Equals(running.Id, id["batch:".Length..], StringComparison.Ordinal))
+                {
+                    throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
+                }
+                var state = reader.StopSurvey() ?? throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
                 context.Journal.Add(new JournalEntry(Now, "Arrêt demandé" + FrenchText.Colon + "relevé " + state.Type + " de l’OU " + state.ScopeName, Tone.Warn));
                 return BatchRow(state);
             }
@@ -320,19 +458,20 @@ public sealed class OperationsOperations : IOperationModule
             var now = Now;
             var zone = context.Clock.LocalTimeZone;
             var waits = activity.WriteWaits();
-            var collection = new List<string>
+            var collection = new List<string>(activity.ClassLines())
             {
-                "Aucune file d’attente pour les lectures" + FrenchText.Colon + "chaque demande part aussitôt sur le pool du moteur, après votre geste.",
-                waits.Count > 0
-                    ? ActivityRules.LatencyText("Attente du canal d’écriture (une écriture à la fois)", waits)
-                    : "Attente du canal d’écriture" + FrenchText.Colon + "aucune écriture dans cette session.",
-                reader?.CollectionProfile ?? ("Collecte sur les postes" + FrenchText.Colon + "arrive avec Domenia.Inventory (vague 3) ; aucune sonde ne part dans cette version."),
+                "Lectures identiques partagées et requêtes WMI évitées" + FrenchText.Colon + "comptées par l’ordonnanceur de collecte à venir (Domenia.Engine et Domenia.Inventory, vague 3) ; aucune n’est estimée ici.",
+                reader?.CollectionProfile ?? ("Collecte sur les postes" + FrenchText.Colon + "arrive avec Domenia.Inventory (vague 3) ; aucune sonde ne part dans cette version."),
             };
             var (localSave, tone) = LocalSave(zone);
-            var sqlite = simulation
-                ? "Base locale" + FrenchText.Colon + "aucune base SQLite ouverte en simulation (annuaire fictif en mémoire)."
-                : "Base locale" + FrenchText.Colon + "base SQLite non branchée dans cette version" + FrenchText.Colon + "aucune attente de verrou possible (délai prévu "
-                    + FrenchText.Integer(ActivityRules.SqliteBusyTimeout(null)) + FrenchText.Nbsp + "ms).";
+            var (busy, last) = activity.SqliteBusy;
+            var timeout = ActivityRules.SqliteBusyTimeout(null);
+            var sqlite = busy > 0
+                ? ActivityRules.SqliteBusySummary(busy, last, timeout, zone)
+                : simulation
+                    ? "Base locale" + FrenchText.Colon + "aucune base SQLite ouverte en simulation (annuaire fictif en mémoire) ; aucune attente de verrou possible."
+                    : "Base locale" + FrenchText.Colon + "base SQLite non branchée dans cette version ; le compteur des attentes de verrou (délai "
+                        + FrenchText.Integer(timeout) + FrenchText.Nbsp + "ms, borné de 100 à " + FrenchText.Integer(5000) + FrenchText.Nbsp + "ms) est prêt et reste à zéro.";
             return new EngineHealth(now, MemoryMb(), activity.Categories(), activity.Slow(), activity.Faults, localSave, tone, sqlite,
                 ActivityRules.ProviderLines(providers, now, zone), [.. collection], waits,
                 "Mesures locales de cette session seulement, 512 dernières par catégorie" + FrenchText.Colon + "ce n’est pas un test du réseau. Rien ne quitte le processus.");
@@ -353,14 +492,7 @@ public sealed class OperationsOperations : IOperationModule
             var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
             var (list, readable) = await ListAsync(ct).ConfigureAwait(false);
             var snapshot = Activity();
-            var pending = list?.Pending ?? 0;
-            var (writeState, writeTone) = !readable
-                ? ("Reçus illisibles" + FrenchText.Colon + "aucune écriture n’est admise tant qu’ils ne sont pas relus.", Tone.Alert)
-                : pending > 0
-                    ? (FrenchText.Count(pending, "écriture à vérifier", "écritures à vérifier") + FrenchText.Colon + "leurs objets restent bloqués jusqu’à la relecture ou la revue.", Tone.Warn)
-                    : activity.OpenWrites > 0
-                        ? ("Écriture en cours" + FrenchText.Colon + "les suivantes attendent leur tour.", Tone.Info)
-                        : (context.Writers.Kinds.Count == 0 ? "Aucune écriture servie dans ce mode." : "Au repos" + FrenchText.Colon + "aucune écriture incertaine.", Tone.Ok);
+            var (writeState, writeTone) = WriteState(list, readable);
             var lines = snapshot.Open.Select(r => new EngineTaskLine(r.Reference,
                 r.Label + " (" + r.Operation + ")" + FrenchText.Colon + r.KindLabel.ToLowerInvariant() + ", depuis " + ActivityRules.Duration(r.DurationMs)
                 + (r.State == TaskState.StopRequested ? ", arrêt demandé" : "") + ". Réf. " + r.Reference)).ToImmutableArray();
@@ -389,20 +521,31 @@ public sealed class OperationsOperations : IOperationModule
                 var items = list.Where(s => s.Items > 0).ToList();
                 var declaration = activity.DeclarationOf(g.Key);
                 var kind = declaration?.Kind ?? TaskKind.LocalRead;
+                // Network columns of Domenia 1 (Complete-DomeniaOperationStatsUi): estimated bytes, throughput over the samples that
+                // measured them, fallbacks over the remote attempts; a column with nothing measured stays empty, never 0.
+                var sized = list.Where(s => s.Bytes is not null).ToList();
+                double? bytes = sized.Count == 0 ? null : Math.Round(sized.Average(s => (double)s.Bytes!.Value), 0);
+                var sizedMs = sized.Sum(s => s.DurationMs);
+                double? throughput = sized.Count == 0 || sizedMs <= 0 ? null : Math.Round(sized.Sum(s => (double)s.Bytes!.Value) / (sizedMs / 1000.0), 0);
+                var attempts = list.Sum(s => s.RemoteAttempts);
+                double? fallback = attempts == 0 ? null : Math.Round(100.0 * list.Sum(s => s.Fallbacks) / attempts, 1);
                 return new OperationStatsRow(g.Key, activity.LabelOf(g.Key), declaration?.Screen ?? g.Key.Split('.')[0], kind, ActivityRules.KindLabel(kind, simulation),
                     list.Count, list.Count(s => s.Session), Math.Round(list.Average(s => s.DurationMs), 1), summary.P50, summary.P95,
                     items.Count == 0 ? null : Math.Round(items.Sum(s => s.DurationMs) / items.Sum(s => s.Items), 1),
-                    Math.Round(list.Average(s => (double)s.Items), 1), Math.Round(100.0 * list.Count(s => s.Succeeded) / list.Count, 1), list.Max(s => s.At));
+                    Math.Round(list.Average(s => (double)s.Items), 1), Math.Round(100.0 * list.Count(s => s.Succeeded) / list.Count, 1), list.Max(s => s.At),
+                    bytes, throughput, attempts, fallback);
             }).OrderByDescending(r => r.Samples).ThenBy(r => r.Operation, StringComparer.Ordinal).ToImmutableArray();
             var summaryText = all.Count == 0
                 ? "Aucune mesure pour l’instant" + FrenchText.Colon + "chaque opération en ajoute une à sa fin."
                 : FrenchText.Count(all.Count, "mesure", "mesures") + " sur " + FrenchText.Count(rows.Length, "type d’opération", "types d’opération")
                     + " (dont " + FrenchText.Integer(session.Length) + " de cette session).";
-            var note = reader is null
-                ? "Mesures de cette session seulement" + FrenchText.Colon + "l’historique de la base locale arrive avec elle (vague 3)."
-                : simulation
-                    ? "Historique fictif des 14 derniers jours ouvrés (simulation) et mesures de cette session. Volume réseau et replis non mesurés dans cette version."
-                    : "Historique de la base locale et mesures de cette session. Volume réseau et replis non mesurés dans cette version.";
+            var note = (reader is null
+                    ? "Mesures de cette session seulement" + FrenchText.Colon + "l’historique de la base locale arrive avec elle (vague 3)."
+                    : simulation
+                        ? "Historique fictif des 14 derniers jours ouvrés (simulation) et mesures de cette session."
+                        : "Historique de la base locale et mesures de cette session.")
+                + " Réseau estimé d’après la taille des réponses des lectures distantes et des écritures ; aucune nouvelle tentative ni aucun transport de repli dans Domenia 2"
+                + (simulation ? " (simulation" + FrenchText.Colon + "aucune tentative distante)." : ".");
             return new OperationStats(Now, all.Count, rows.Length, history.Length > 0, summaryText, note, rows);
         }
 
@@ -442,6 +585,7 @@ public sealed class OperationsOperations : IOperationModule
 
         public async Task<BlockerReport> BlockersAsync(CancellationToken ct)
         {
+            // Domenia 1 Get-DomeniaUnavailableReasonLines: one line per common blocking, with a safe route; facts of the session only.
             var lines = new List<BlockerLine>();
             var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
             if (simulation)
@@ -459,17 +603,17 @@ public sealed class OperationsOperations : IOperationModule
             var (list, readable) = await ListAsync(ct).ConfigureAwait(false);
             if (!readable)
             {
-                lines.Add(new BlockerLine(Tone.Alert, "Reçus d’écriture illisibles" + FrenchText.Colon + "toute nouvelle écriture est refusée tant qu’ils ne sont pas relus.", "Ouvrir les reçus", "operations?onglet=recus"));
+                lines.Add(new BlockerLine(Tone.Alert, "Reçus d’écriture non confirmés" + FrenchText.Colon + "les nouvelles écritures sont bloquées tant qu’ils ne sont pas relus.", "Ouvrir les reçus", "operations?onglet=recus"));
             }
             else if (list is { Pending: > 0 } l)
             {
-                lines.Add(new BlockerLine(Tone.Warn, (l.Pending == 1 ? "Une écriture reste à vérifier" : FrenchText.Integer(l.Pending) + " écritures restent à vérifier")
-                    + FrenchText.Colon + "les nouvelles écritures sur leurs objets sont bloquées jusqu’à leur relecture ou leur revue. Rien n’est rejoué.",
+                lines.Add(new BlockerLine(Tone.Warn, (l.Pending == 1 ? "Une opération précédente reste à vérifier" : FrenchText.Integer(l.Pending) + " opérations précédentes restent à vérifier")
+                    + FrenchText.Colon + "toutes les nouvelles écritures sont bloquées jusqu’à leur relecture ou leur revue. Consultez les reçus, pas une relance automatique.",
                     "Ouvrir les reçus à vérifier", "operations?onglet=recus&filtre=a-verifier"));
             }
             if (activity.OpenWrites > 0)
             {
-                lines.Add(new BlockerLine(Tone.Info, "Une écriture est en cours" + FrenchText.Colon + "les suivantes attendent leur tour (une à la fois).", "Voir les tâches", "operations?onglet=taches"));
+                lines.Add(new BlockerLine(Tone.Info, "Une écriture est en cours" + FrenchText.Colon + "les suivantes attendent leur tour (une à la fois) ; changer d’OU de travail attend sa fin.", "Voir les tâches", "operations?onglet=taches"));
             }
             if (!context.Receipts.Persistent)
             {
@@ -482,13 +626,26 @@ public sealed class OperationsOperations : IOperationModule
             }
             catch (DomeniaOperationException ex)
             {
-                context.Log.Info($"Opérations : OU de travail non lue ({ex.Code}).");
+                context.Log.Info($"Opérations : OU de travail non lue ({ex.Code}).");
             }
             if (scope is null)
             {
                 lines.Add(new BlockerLine(Tone.Warn, "Aucune OU de travail" + FrenchText.Colon + "la mesure des postes n’est jamais lancée sur tout le domaine.", "Choisir l’OU", "accueil?ou=choisir"));
             }
-            lines.Add(new BlockerLine(Tone.Info, "Lectures LAPS et BitLocker" + FrenchText.Colon + "pas encore servies dans cette version ; aucun secret n’est jamais affiché ni exporté par Opérations.", null, null));
+            // Selection: Domenia 2 keeps no selected object between screens; the actions of an object start from it.
+            lines.Add(new BlockerLine(Tone.Info, "Actions d’un objet (fiche, déverrouillage, mot de passe, groupes)" + FrenchText.Colon
+                + "elles demandent un objet choisi dans Rechercher ou dans une liste ; aucune sélection n’est gardée d’un écran à l’autre.", "Rechercher un objet", "rechercher"));
+            var kinds = context.Writers.Kinds;
+            string[] keys = ["object.update", "computer.restart", "attribute.raw"];
+            var missing = keys.Where(k => !kinds.Contains(k)).Select(k => WriteKindRules.Of(k).Label.ToLowerInvariant()).ToList();
+            if (missing.Count > 0)
+            {
+                lines.Add(new BlockerLine(Tone.Info, "Boutons clés indisponibles dans ce mode (" + string.Join(", ", missing) + ")" + FrenchText.Colon
+                    + "leur écriture n’est pas encore servie ; ils restent grisés avec cette raison en infobulle.", "Règles du circuit", "operations?onglet=recus"));
+            }
+            lines.Add(new BlockerLine(Tone.Info, "Boutons LAPS et BitLocker" + FrenchText.Colon + "lectures de secrets pas encore servies dans cette version ; aucun secret n’est jamais affiché, copié ni exporté par Opérations.", null, null));
+            lines.Add(new BlockerLine(Tone.Info, "Identité des lectures LAPS et BitLocker" + FrenchText.Colon + "compte de la session (" + session.Account.Login
+                + "), sans autre identité ni élévation ; un refus de droits ne suspend que la lecture concernée.", null, null));
             if (!lines.Any(x => x.Tone is Tone.Warn or Tone.Alert))
             {
                 lines.Insert(0, new BlockerLine(Tone.Ok, "Aucun blocage commun observé. Un droit précis reste vérifié par la ressource lors de l’action" + FrenchText.Colon + "consultez son infobulle ou son message.", null, null));
@@ -510,7 +667,7 @@ public sealed class OperationsOperations : IOperationModule
             return new BlockerReport(Now, [.. lines], transports, "Ce bilan lit uniquement les états de la session" + FrenchText.Colon + "il ne teste ni ne modifie aucun droit.");
         }
 
-        public async Task<CheckReport> CheckAsync(bool full, CancellationToken ct)
+        public async Task<CheckReport> CheckAsync(bool full, PageChecks? page, CancellationToken ct)
         {
             var rows = new List<CheckRow>();
             void Add(string category, string test, Func<(CheckStatus, string)> action)
@@ -566,13 +723,17 @@ public sealed class OperationsOperations : IOperationModule
                     + (simulation ? " (annuaire fictif)." : "."))
                 : (CheckStatus.Info, "Aucun exécuteur dans ce mode" + FrenchText.Colon + "les écritures réelles arrivent avec Domenia.Ad (vague 3)."));
             var reader = FindReader();
-            if (reader is null)
+            if (reader is not null)
             {
-                rows.Add(new CheckRow("Annuaire", "Lecture de l’annuaire", CheckStatus.Info, 0, "Non branchée dans cette version (Domenia.Ad, vague 3)" + FrenchText.Colon + "rien n’est lu."));
+                rows.AddRange(await reader.CheckDirectoryAsync(full, ct).ConfigureAwait(false));
+            }
+            else if (context.Readers.Find<IDirectoryChecks>() is { } checks)
+            {
+                rows.AddRange(await checks.CheckDirectoryAsync(full, ct).ConfigureAwait(false));
             }
             else
             {
-                rows.AddRange(await reader.CheckDirectoryAsync(full, ct).ConfigureAwait(false));
+                rows.Add(new CheckRow("Annuaire", "Lecture de l’annuaire", CheckStatus.Info, 0, "Non branchée pour cette source" + FrenchText.Colon + "rien n’est lu."));
             }
             Add("Outils", "Outils Windows", () =>
             {
@@ -582,19 +743,11 @@ public sealed class OperationsOperations : IOperationModule
                 return (found.Count == tools.Length ? CheckStatus.Ok : CheckStatus.Warn,
                     FrenchText.Integer(found.Count) + "/" + FrenchText.Integer(tools.Length) + " présents" + (found.Count > 0 ? FrenchText.Colon + string.Join(", ", found) : "") + ".");
             });
-            Add("WAPT", "wapt-get", () =>
-            {
-                string[] candidates =
-                [
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "wapt", "wapt-get.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "wapt", "wapt-get.exe"),
-                ];
-                var hit = candidates.FirstOrDefault(c => c.Length > 12 && File.Exists(c));
-                return hit is null ? (CheckStatus.Info, "Non détecté" + FrenchText.Colon + "fonction WAPT facultative.") : (CheckStatus.Ok, "Détecté" + FrenchText.Colon + hit);
-            });
+            // The checks of the page itself are written here from its closed facts: report, journal and dossier count the same rows.
+            rows.AddRange(OperationsDiagnostics.PageRows(page));
             var report = OperationsDiagnostics.Report(Now, full, rows);
             lastCheck = report;
-            context.Journal.Add(new JournalEntry(Now, "Vérification de l’application" + (full ? " complète" : " rapide") + " (contrôles du moteur)" + FrenchText.Colon + report.Summary,
+            context.Journal.Add(new JournalEntry(Now, "Vérification de l’application" + (full ? " complète" : " rapide") + FrenchText.Colon + report.Summary,
                 report.Errors > 0 ? Tone.Warn : Tone.Ok));
             return report;
         }
@@ -663,19 +816,44 @@ public sealed class OperationsOperations : IOperationModule
             var elapsed = Math.Max(0, (Now - started).TotalMilliseconds);
             var state = s.StopRequested ? TaskState.StopRequested : TaskState.Running;
             var label = "Lot " + s.Type + " · " + s.ScopeName;
-            var header = s.Type + " · " + (s.Phase == SurveyPhase.Preparing ? "préparation" : FrenchText.Integer(s.Done) + "/" + FrenchText.Integer(s.Total));
+            var header = s.Type + " · " + (s.Phase is SurveyPhase.Preparing or SurveyPhase.ReadingDirectory or SurveyPhase.Confirming
+                ? s.PhaseLabel.ToLowerInvariant()
+                : FrenchText.Integer(s.Done) + "/" + FrenchText.Integer(s.Total));
             var reference = ActivityRules.Reference(s.Id.Replace("-", "", StringComparison.Ordinal).PadRight(8, '0'));
             ImmutableArray<TaskPhaseRow> phases =
             [
                 new("request", "Demande confirmée par l’opérateur", 0, null, "non mesurée", false, null, null),
-                new("step", s.PhaseLabel, 0, elapsed, ActivityRules.Duration(elapsed) + " (en cours)", false, s.Status, null),
+                new("work", s.PhaseLabel, 0, null, ActivityRules.Duration(elapsed) + " (en cours)", false, s.Status, null),
             ];
+            var stopText = s.StopRequested ? ActivityRules.CancelText(label, TaskState.StopRequested, TaskKind.Batch) : null;
+            var progress = new BatchProgress(s.Done, s.Total, s.Failed, s.PhaseLabel, header, s.Status, s.PingErrors, s.InFlight, s.PendingSaves, s.Skipped, BatchSteps(s.Phase));
             return new ActivityRow("batch:" + s.Id, reference, "operations.survey.resume", "operations", label, TaskKind.Batch, ActivityRules.KindLabel(TaskKind.Batch, simulation),
                 true, true, state, s.PhaseLabel, s.StopRequested ? Tone.Warn : Tone.Info, s.StopRequested ? "pause" : "activity", null, null, started, null,
                 Math.Round(elapsed, 1), ActivityRules.Duration(elapsed), null, null, s.Done, ActivityRules.Volume(s.Done), !s.StopRequested,
-                s.StopRequested ? ActivityRules.CancelText(label, TaskState.StopRequested, TaskKind.Batch) : null, s.Status, ActivityRules.Access(TaskKind.Batch, simulation),
-                null, null, label + " → " + s.PhaseLabel + " (" + s.Status + ")", 0, phases,
-                new BatchProgress(s.Done, s.Total, s.Failed, s.PhaseLabel, header, s.Status));
+                stopText, s.Status, ActivityRules.Access(TaskKind.Batch, simulation), null,
+                ActivityRules.Next(null, TaskKind.Batch, "operations.survey.resume", null), null,
+                label + " → " + s.PhaseLabel + " (" + s.Status + ")", 0, phases, progress);
+        }
+
+        /// <summary>The stepper of a batch (Domenia 1 OPE-017): Préparation, Lecture AD, À confirmer, En cours, Enregistrement.</summary>
+        private static ImmutableArray<BatchStep> BatchSteps(SurveyPhase phase)
+        {
+            (SurveyPhase Phase, string Code, string Label)[] order =
+            [
+                (SurveyPhase.Preparing, "preparing", "Préparation"),
+                (SurveyPhase.ReadingDirectory, "readingDirectory", "Lecture AD"),
+                (SurveyPhase.Confirming, "confirming", "À confirmer"),
+                (SurveyPhase.Running, "running", "En cours"),
+                (SurveyPhase.Saving, "saving", "Enregistrement"),
+            ];
+            // A stop asked keeps the batch on its reading phase until the reads in flight end; a finished batch has done them all.
+            var current = phase switch
+            {
+                SurveyPhase.Done => order.Length,
+                SurveyPhase.Stopping => Array.FindIndex(order, o => o.Phase == SurveyPhase.Running),
+                _ => Array.FindIndex(order, o => o.Phase == phase),
+            };
+            return [.. order.Select((o, n) => new BatchStep(o.Code, o.Label, n < current ? "done" : n == current ? "current" : "todo"))];
         }
 
         private static double? MemoryMb()

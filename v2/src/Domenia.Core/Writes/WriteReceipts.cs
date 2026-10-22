@@ -146,11 +146,11 @@ public static class WriteReceipts
             var start = receipt.Result == WriteResult.Sent
                 ? "Écriture envoyée sans confirmation (application fermée ou interrompue) : issue à vérifier par une relecture."
                 : "Issue inconnue après l’envoi : vérifiez par une relecture.";
-            return start + NoReplay + " Les nouvelles écritures sur cet objet restent bloquées jusqu’à la vérification.";
+            return start + NoReplay + " Les nouvelles écritures restent bloquées jusqu’à sa vérification ou sa revue.";
         }
         return (receipt.Result, receipt.Verification) switch
         {
-            (_, VerificationState.Reviewed) => "Revue manuelle consignée : l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Les nouvelles écritures sur cet objet ne sont plus bloquées." + NoReplay + simulated,
+            (_, VerificationState.Reviewed) => "Revue manuelle consignée : l’objet a été contrôlé avec un autre outil, ce n’est pas une vérification automatique. Ce reçu ne bloque plus les nouvelles écritures." + NoReplay + simulated,
             (WriteResult.Applied, VerificationState.Verified) => "Écriture appliquée et vérifiée par relecture." + simulated,
             (WriteResult.Applied, VerificationState.Mismatch) => "Écriture acceptée, mais la relecture montre un autre état : vérifiez l’objet avant toute nouvelle écriture." + NoReplay + simulated,
             (WriteResult.Applied, _) => "Écriture acceptée, relecture impossible : relisez ce reçu depuis Opérations pour la vérifier." + simulated,
@@ -213,13 +213,16 @@ public static class WriteReceipts
         return new ReceiptList(all.Count, pending, unreadable, shown.Length < all.Count, ListSummary(all.Count, pending, unreadable), shown);
     }
 
-    /// <summary>Sentence above the receipts (Domenia 1 Get-DomeniaReceiptSummary, blocking per target).</summary>
+    /// <summary>
+    /// Sentence above the receipts (Domenia 1 Get-DomeniaReceiptSummary): a receipt to verify holds every new write back until its
+    /// verification or its review.
+    /// </summary>
     public static string ListSummary(int total, int pending, int unreadable)
     {
         var text = pending switch
         {
-            1 => "Une écriture reste à vérifier : les nouvelles écritures sur son objet sont bloquées jusqu’à sa relecture." + NoReplay,
-            > 1 => FrenchText.Integer(pending) + " écritures restent à vérifier : les nouvelles écritures sur leurs objets sont bloquées jusqu’à leur relecture." + NoReplay,
+            1 => "Une opération reste à vérifier\u00A0: les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue." + NoReplay,
+            > 1 => FrenchText.Integer(pending) + " opérations restent à vérifier\u00A0: les nouvelles écritures sont bloquées jusqu’à leur vérification ou leur revue." + NoReplay,
             _ => total switch
             {
                 0 => "Aucun reçu d’écriture." + NoReplay,

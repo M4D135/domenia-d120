@@ -12,8 +12,15 @@ public sealed record ReviewReasonCheck(bool Valid, string Text, int Length, stri
 /// </summary>
 public sealed record ReceiptActions(string Selection, bool CanVerify, string? VerifyWhy, bool CanReview, string? ReviewWhy, ImmutableArray<string> Templates);
 
-/// <summary>The header pill « opérations à vérifier » (Domenia 1 Get-DomeniaPendingOperationsView): never « 0 opération ».</summary>
-public sealed record PendingPill(bool Visible, string Text, string Help);
+/// <summary>The oldest receipt to verify, shown when the pill is hovered (Domenia 1 OPE-026 improvement).</summary>
+/// <param name="Text">« Le plus ancien : Déverrouillage du compte · Lucas Moreau, envoyée le 22/10/2026 à 09:41. »</param>
+public sealed record PendingOldest(string Id, string Label, string Target, string TargetKind, DateTimeOffset At, string Text);
+
+/// <summary>
+/// The header pill « opérations à vérifier » (Domenia 1 Get-DomeniaPendingOperationsView): never « 0 opération ». While it is
+/// visible, every new write stays blocked (Domenia 1 Assert-WriteAllowed, OPE-025, OPE-026).
+/// </summary>
+public sealed record PendingPill(bool Visible, string Text, string Help, PendingOldest? Oldest);
 
 /// <summary>
 /// Manual reviews of uncertain receipts and the masking of what looks like a secret (Domenia 1 Domenia-Safety.Model.ps1 and
@@ -135,16 +142,41 @@ public static partial class ReceiptReviews
         ];
     }
 
+    /// <summary>Help of the pill, word for word Domenia 1 (Get-DomeniaPendingOperationsView).</summary>
+    public const string PillHelp = "Une écriture envoyée attend une vérification ou une revue\u00A0: les nouvelles écritures restent bloquées. Ouvre la liste des reçus\u00A0; rien n’est rejoué.";
+
     /// <summary>The pill of the header: visible only while a receipt waits for a check.</summary>
-    public static PendingPill Pill(int pending)
+    public static PendingPill Pill(int pending) => Pill(pending, null, TimeZoneInfo.Utc);
+
+    /// <summary>
+    /// The pill with its oldest receipt to verify (<paramref name="oldest"/>, or null): its operation, its object and when it left,
+    /// in the local time of <paramref name="zone"/>.
+    /// </summary>
+    public static PendingPill Pill(int pending, ReceiptRow? oldest, TimeZoneInfo zone)
     {
+        ArgumentNullException.ThrowIfNull(zone);
         if (pending <= 0)
         {
-            return new PendingPill(false, "", "");
+            return new PendingPill(false, "", "", null);
         }
         var text = pending == 1 ? "1 opération à vérifier" : FrenchText.Integer(pending) + " opérations à vérifier";
-        return new PendingPill(true, text,
-            "Une écriture envoyée attend une relecture ou une revue : les nouvelles écritures sur son objet restent bloquées. Ouvre la liste des reçus ; rien n’est rejoué.");
+        PendingOldest? first = null;
+        if (oldest is not null)
+        {
+            var local = TimeZoneInfo.ConvertTime(oldest.SentAt, zone);
+            var when = local.ToString("dd'/'MM'/'yyyy", System.Globalization.CultureInfo.InvariantCulture) + " à "
+                + local.ToString("HH':'mm", System.Globalization.CultureInfo.InvariantCulture);
+            first = new PendingOldest(oldest.Id, oldest.Label, oldest.Target.Name, oldest.Target.KindLabel, oldest.SentAt,
+                (pending == 1 ? "À vérifier" : "Le plus ancien") + FrenchText.Colon + oldest.Label + " · " + oldest.Target.Name + ", envoyée le " + when + ".");
+        }
+        return new PendingPill(true, text, PillHelp, first);
+    }
+
+    /// <summary>The oldest receipt still to verify among <paramref name="rows"/> (first sent first), or null.</summary>
+    public static ReceiptRow? Oldest(IEnumerable<ReceiptRow> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        return rows.Where(r => r.Pending).OrderBy(r => r.SentAt).ThenBy(r => r.Id, StringComparer.Ordinal).FirstOrDefault();
     }
 
     [GeneratedRegex(@"(?<!\d)(?:\d{6}-){7}\d{6}(?!\d)", RegexOptions.CultureInvariant, 1000)]

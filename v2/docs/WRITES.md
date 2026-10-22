@@ -18,7 +18,7 @@ Les règles de sécurité de Domenia 1 sont reprises telles quelles et resserré
 | Reçu de chaque écriture | Le reçu est écrit **avant** l’envoi : sans reçu durable, rien ne part (TRV-281, fail closed). Il est complété par le résultat puis par la relecture. |
 | Relecture ensuite | Chaque écriture se termine par une relecture de la cible (postcondition, OPE-009) : `verified`, `mismatch` ou `unknown`. Le code de retour n’est jamais une preuve. |
 | Jamais rejouée | Ni le moteur, ni la page, ni un redémarrage, ni un reçu ne renvoient une écriture. Un jeton ne sert qu’une fois, même si l’écriture est refusée ensuite ; un double clic part une fois (TRV-232). La page ne réessaie jamais `write.execute`. |
-| Incertitude bloquante | Une écriture partie sans issue connue (application fermée, erreur après l’envoi) **bloque sa propre cible** jusqu’à une relecture qui tranche, jamais toute l’application (TRV-230, TRV-231). |
+| Incertitude bloquante | Une écriture partie sans issue connue (application fermée, erreur après l’envoi) **bloque toutes les nouvelles écritures** jusqu’à une relecture qui tranche ou une revue manuelle, jamais levée par le temps ni par un redémarrage (Domenia 1 `Assert-WriteAllowed`, `Get-DomeniaReceiptSummary`, OPE-025, OPE-026, TRV-230, TRV-231) ; sa propre cible est refusée en premier (`write.targetPending`), les autres objets avec `write.receiptsPending`. Les lectures, la relecture et la revue restent possibles. |
 | Préconditions relues | Juste avant l’envoi, l’exécuteur relit la cible : même objet, même place, mêmes valeurs « avant » ; sinon rien n’est envoyé (`write.stale`, TRV-228, TRV-235). |
 | Une écriture à la fois | Le circuit sérialise les écritures (canal unique, TRV-214) ; une écriture commencée n’est jamais interrompue (elle reçoit `CancellationToken.None`). |
 | Aucun secret | Un plan ne contient jamais de secret ; le jeton n’est écrit nulle part (ni reçu, ni journal) ; le journal technique ne reçoit que des codes et des nombres (ni DN, ni nom). Les mots de passe des écritures à venir restent en `SecureString` jusqu’à l’API Windows (§ 6, étape 9). |
@@ -62,7 +62,8 @@ est le service partagé du contexte, comme `DashboardService.From`.
    (`WriteConfirmation` : saisie exigée ou non, nom à saisir, raison), réversibilité (`WriteReversibility`), contrôleur.
    Il ne lève que des refus attendus : `write.targetUnknown`, `write.nothingToDo`.
 3. `WriteCircuit.PlanAsync` refuse si aucun exécuteur de ce mode ne sert le type (`source.unavailable`), si un reçu
-   incertain tient la cible (`write.targetPending`) ou si les reçus sont illisibles (`receipt.unavailable`) ; sinon il
+   incertain tient la cible (`write.targetPending`) ou un autre objet (`write.receiptsPending` : toutes les nouvelles écritures
+   attendent), ou si les reçus sont illisibles (`receipt.unavailable`) ; sinon il
    **scelle** le plan (`WritePlans.Seal`) : identifiant (32 hexadécimaux aléatoires), opérateur (compte de la session), mode,
    `createdAt` à la seconde, `expiresAt` = `createdAt` + 5 min, empreinte, détails techniques repliés (TRV-225).
 4. L’empreinte est le SHA-256 d’un JSON canonique de tout ce dont l’écriture dépend : identifiant, type, cible (DN, GUID,
@@ -83,6 +84,7 @@ est le service partagé du contexte, comme `DashboardService.From`.
 | nom saisi identique, casse comprise, quand le plan l’exige (le plan est alors dépensé) | `write.confirmationMismatch` |
 | premier à consommer le jeton (double clic, deux pages) | `write.tokenUsed` |
 | aucune écriture incertaine sur la cible | `write.targetPending` |
+| aucune écriture incertaine sur un autre objet | `write.receiptsPending` |
 | préconditions relues juste avant l’envoi | `write.stale` (message de l’exécuteur) |
 | reçu version 1 durablement écrit | `receipt.unavailable` |
 
@@ -100,17 +102,22 @@ Un reçu est une suite de **versions** du même identifiant ; la plus récente f
 | 1 | **avant** l’envoi | plan complet, `result` = `sent`, `verification` = `unknown`, détail « Préconditions » |
 | 2 | après l’envoi | `result` = `applied` (écrit), `noChange` (déjà dans l’état demandé : rien envoyé), `notApplied` (refus attendu avant tout changement, avec `error`) ou `unknown` (issue inconnue, `error` = `write.outcomeUnknown`) ; détail « Envoi » |
 | 3 et suivantes | après chaque relecture | `verification` = `verified`, `mismatch` ou `unknown`, `verifiedAt` ; détail « Relecture » |
+| 3 et suivantes | après une revue manuelle (`operations.receipts.review`, `WriteCircuit.ReviewAsync`) | `verification` = `reviewed` (« Revue manuelle », ton `info`, jamais un succès), détail « Revue manuelle » avec le motif (12 à 240 caractères, jamais un secret) et le compte de la session ; seulement pour un reçu à vérifier (`receipt.resolved` sinon) |
 
 Un reçu est **à vérifier** (`pending`) tant que sa requête est partie sans issue connue (`sent` ou `unknown`) et qu’aucune
-relecture n’a tranché (`verification` = `unknown`). Il bloque alors les nouvelles écritures **sur sa cible seulement**
-(`write.targetPending`) ; `write.receipts.verify` relit l’objet et le débloque dès que la relecture conclut (`verified` :
-l’écriture a bien eu lieu, `mismatch` : elle n’a pas eu lieu). Un reçu `sent` retrouvé au démarrage suivant est donc
-incertain et bloquant, jamais renvoyé (TRV-231).
+relecture n’a tranché (`verification` = `unknown`). Il bloque alors **toutes** les nouvelles écritures (sa cible :
+`write.targetPending`, les autres objets : `write.receiptsPending`, comme Domenia 1) ; `write.receipts.verify` relit l’objet
+et le débloque dès que la relecture conclut (`verified` : l’écriture a bien eu lieu, `mismatch` : elle n’a pas eu lieu), ou une
+revue manuelle le résout (`reviewed`). Une relecture ultérieure qui ne prouve rien garde la revue ; une relecture conclusive la
+remplace. Quand le dernier reçu à vérifier est tranché, le journal technique écrit « Incertitude levée uniquement après
+vérification ou revue explicite des reçus durables » (WARN) et le journal des opérations « Écritures de nouveau admises ». Un
+reçu `sent` retrouvé au démarrage suivant est donc incertain et bloquant, jamais renvoyé (TRV-231).
 
 Tons et libellés (`WriteReceipts`, pur) : `applied`/`noChange` + `verified` → `ok` ; + `mismatch` → `alert` ; + `unknown`
-→ `warn` ; `notApplied` → `alert` (ou `info` si la relecture trouve l’état attendu) ; à vérifier → `warn`. Chaque reçu a
-une phrase pour l’opérateur ; la liste a la sienne (« Aucune écriture à vérifier. 3 reçus conservés ; rien n’est renvoyé
-automatiquement. », Domenia 1 `Get-DomeniaReceiptSummary`).
+→ `warn` ; `reviewed` → `info` (« Revue manuelle ») ; `notApplied` → `alert` (ou `info` si la relecture trouve l’état attendu) ;
+à vérifier → `warn`. Chaque reçu a une phrase pour l’opérateur ; la liste a la sienne (Domenia 1 `Get-DomeniaReceiptSummary` :
+« Une opération reste à vérifier : les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue. Rien n’est renvoyé
+automatiquement. », « Aucune écriture à vérifier. 3 reçus conservés ; rien n’est renvoyé automatiquement. »).
 
 ### 4.2 Stockage (`FileReceiptStore`, classe `LocalWrite`)
 
@@ -247,10 +254,10 @@ composition.
 
 ## 9. Reste à faire
 
-- Écran Opérations : liste des reçus (grille du kit), filtre « à vérifier », ouverture par `?recu=<id>` (`openReceipt`),
-  pastille d’en-tête « opérations à vérifier » (OPE-025, OPE-026).
-- Revue manuelle d’un reçu (OPE-024 : motif de 12 à 240 caractères, jamais un secret), compensation honnête par un nouveau
-  plan (OPE-010), compaction et archive des reçus (TRV-283), protection du dossier des reçus (TRV-282).
+- Pastille « opérations à vérifier » de la barre supérieure (écran shell, sur `operations.center`) ; l’écran Opérations la porte
+  déjà dans son en-tête, sa tuile et son onglet (OPE-025, OPE-026, `docs/ops/operations.md`).
+- Compensation pré-remplie dans la fiche (`compenser=<reçu>`, OPE-010), compaction et archive des reçus (TRV-283), protection du
+  dossier des reçus (TRV-282).
 - Écritures suivantes des écrans (fiche, activation, mot de passe, groupes, déplacement, actions distantes), chacune par la
   recette du § 6 ; surcouche étendue aux ordinateurs, groupes et OU au premier besoin.
 - Mode écriture global de Domenia 1 (TRV-186) : remplacé ici par la confirmation de chaque écriture ; à confirmer par David.

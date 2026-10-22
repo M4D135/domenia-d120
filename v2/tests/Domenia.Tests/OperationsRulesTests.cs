@@ -180,7 +180,7 @@ internal static class OperationsRulesTests
         Check.Contains("12 au minimum", ReceiptReviews.CheckReason("trop court").Message, "trop court");
         Check.Contains("240 au maximum", ReceiptReviews.CheckReason(new string('a', 241)).Message, "trop long");
         Check.True(ReceiptReviews.CheckReason("  Vérifié dans ADUC sur DC01 : compte déverrouillé.  ").Valid, "motif valable, espaces retirés");
-        var secret = ReceiptReviews.CheckReason("Vérifié avec password=Azerty123! sur DC01");
+        var secret = ReceiptReviews.CheckReason("Vérifié avec password=<valeur-de-test> sur DC01");
         Check.False(secret.Valid, "ressemble à un secret");
         Check.Contains("ressemble à un secret", secret.Message, "raison dite");
         Check.True(ReceiptReviews.LooksSecret("clé 123456-123456-123456-123456-123456-123456-123456-123456"), "clé de récupération BitLocker");
@@ -191,12 +191,21 @@ internal static class OperationsRulesTests
     }
 
     [Test]
-    public static void The_pending_pill_never_says_zero_operation()
+    public static void The_pending_pill_never_says_zero_operation_and_names_the_oldest_receipt()
     {
         Check.False(ReceiptReviews.Pill(0).Visible, "invisible sans reçu à vérifier");
         Check.Equal("1 opération à vérifier", ReceiptReviews.Pill(1).Text, "singulier");
         Check.Equal("3 opérations à vérifier", ReceiptReviews.Pill(3).Text, "pluriel");
         Check.Contains("rien n’est rejoué", ReceiptReviews.Pill(2).Help, "rien n’est rejoué");
+        Check.Contains("les nouvelles écritures restent bloquées", ReceiptReviews.Pill(2).Help, "texte de Domenia 1 : blocage de toutes les écritures");
+        var older = WriteReceipts.Row(WriteReceipts.Sent(Plan("account.unlock"), WritePlans.NewId(), TestClock.Reference.AddMinutes(-30), new ReceiptDetail("Préconditions", "Relu.")));
+        var newer = WriteReceipts.Row(WriteReceipts.Sent(Plan("account.enabled"), WritePlans.NewId(), TestClock.Reference, new ReceiptDetail("Préconditions", "Relu.")));
+        Check.Equal(older.Id, ReceiptReviews.Oldest([newer, older])!.Id, "le plus ancien envoyé");
+        var pill = ReceiptReviews.Pill(2, older, TestClock.Paris);
+        Check.Contains("Le plus ancien", pill.Oldest!.Text, "au survol");
+        Check.Contains("Objet d’essai", pill.Oldest.Text, "son objet");
+        Check.Contains("Libellé", pill.Oldest.Text, "son opération");
+        Check.Contains("21/10/2026 à 17:56", pill.Oldest.Text, "heure locale d’envoi");
     }
 
     [Test]
@@ -323,6 +332,36 @@ internal static class OperationsRulesTests
     }
 
     [Test]
+    public static void The_dossier_with_pseudonyms_leaves_no_user_name_profile_path_workstation_nor_directory_example()
+    {
+        var session = new SessionSnapshot(ConnectionState.Simulated, new DomainIdentity("example.local", "EXAMPLE", "DC=example,DC=local"), new ControllerIdentity("DC01.example.local", "Paris"),
+            new AccountIdentity(@"EXAMPLE\j.martin", "Julien Martin", "Julien", null), new AuthenticationInfo(AuthenticationMethod.None, null, "—"), null,
+            new RightsInfo(RightsLevel.Read, "Lecture", true, ""), true, new StoreStatus(null, 0, true));
+        var identity = new LocalIdentity("CNAMTS", "jdupont", "PC-ADM-007", @"C:\Users\jdupont", @"C:\Users\jdupont\AppData\Local");
+        var check = OperationsDiagnostics.Report(TestClock.Reference, false,
+        [
+            new CheckRow("Stockage local", "Dossier des documents", CheckStatus.Ok, 1, @"Présent : C:\Users\jdupont\AppData\Local\Domenia\Exports"),
+            new CheckRow("Annuaire", "Recherche utilisateur", CheckStatus.Ok, 2, "Exemple : Camille Bernard."),
+            new CheckRow("Annuaire", "Recherche machine", CheckStatus.Ok, 2, "Exemple : PC-LYO-0042."),
+            new CheckRow("Annuaire", "Session", CheckStatus.Ok, 3, @"Compte EXAMPLE\j.martin · domaine example.local · contrôleur DC01.example.local"),
+            new CheckRow("Moteur", "Poste", CheckStatus.Ok, 1, "Lancé sur PC-ADM-007 par jdupont."),
+        ]);
+        var files = OperationsDiagnostics.Dossier(TestClock.Reference, SimulatedBridge.Decision, session, new InterfaceFigures(null, null, null, null, null), 100, 0, 0, true, true,
+            ["account.unlock"], check, anonymize: true, identity);
+        var all = string.Concat(files.Select(f => f.Text));
+        Check.False(all.Contains("jdupont", StringComparison.OrdinalIgnoreCase), "nom d’utilisateur Windows remplacé partout, chemins compris");
+        Check.False(all.Contains("PC-ADM-007", StringComparison.OrdinalIgnoreCase), "poste remplacé partout");
+        Check.False(all.Contains("Camille", StringComparison.Ordinal) || all.Contains("PC-LYO-0042", StringComparison.Ordinal), "exemples d’objets de l’annuaire omis");
+        Check.False(all.Contains("j.martin", StringComparison.OrdinalIgnoreCase), "compte remplacé, seul ou avec son domaine");
+        Check.Contains("%LOCALAPPDATA%", all, "dossier du profil écrit comme variable");
+        Check.Contains("Détail omis avec les pseudonymes", all, "détails libres de l’annuaire omis, et dit");
+        Check.Contains("poste-1", all, "pseudonyme du poste");
+        var plain = OperationsDiagnostics.Dossier(TestClock.Reference, SimulatedBridge.Decision, session, new InterfaceFigures(null, null, null, null, null), 100, 0, 0, true, true,
+            ["account.unlock"], check, anonymize: false, identity);
+        Check.Contains("jdupont", string.Concat(plain.Select(f => f.Text)), "sans pseudonymes, rien n’est remplacé (et c’est dit)");
+    }
+
+    [Test]
     public static void The_dossier_can_replace_every_name_by_a_pseudonym()
     {
         var session = new SessionSnapshot(ConnectionState.Simulated, new DomainIdentity("example.local", "EXAMPLE", "DC=example,DC=local"), new ControllerIdentity("DC01.example.local", "Paris"),
@@ -339,6 +378,85 @@ internal static class OperationsRulesTests
         var plain = OperationsDiagnostics.Dossier(TestClock.Reference, SimulatedBridge.Decision, session, new InterfaceFigures(null, null, null, null, null), 100, 0, 0, false, false,
             [], null, anonymize: false);
         Check.Contains("ne sont pas anonymisés", plain[^1].Text, "avertissement sans pseudonymes");
+    }
+
+    // ---------------------------------------------------------------- categories, interface, phases
+
+    [Test]
+    public static void Six_categories_of_Domenia_1_and_a_measure_never_counted_twice()
+    {
+        Check.Equal("writes", ActivityRules.CategoryOf("write.execute", TaskKind.Write), "écritures à part");
+        Check.Equal("computers", ActivityRules.CategoryOf("operations.survey.resume", TaskKind.NetworkRead), "collecte sur les postes");
+        Check.Equal("computers", ActivityRules.CategoryOf("poste.inventory.read", TaskKind.NetworkRead), "écran Poste");
+        Check.Equal("directory", ActivityRules.CategoryOf("dashboard.widget.refresh", TaskKind.NetworkRead), "lectures de l’annuaire");
+        Check.Equal("localSearch", ActivityRules.CategoryOf("directory.ou.search", TaskKind.LocalRead), "recherche locale");
+        Check.Equal("local", ActivityRules.CategoryOf("dashboard.summary", TaskKind.LocalRead), "autres lectures locales");
+        Check.Equal("local", ActivityRules.CategoryOf("session.setScope", TaskKind.LocalWrite), "écritures locales");
+        var activity = new OperationActivity(TestClock.Fixed(), new RecordingJournal(), simulation: false);
+        using (var task = activity.Begin("directory.ou.search", TaskKind.LocalRead, CancellationToken.None))
+        {
+            task.Complete(TaskOutcome.Succeeded, null, 3);
+        }
+        activity.RecordInterface([new InterfaceSample("liste", 40), new InterfaceSample("inconnu", 50)]);
+        var categories = activity.Categories();
+        Check.True(categories.Select(c => c.Id).SequenceEqual(["localSearch", "render", "local", "directory", "computers", "writes"]), "ordre de Domenia 1");
+        Check.Equal(1, categories.Single(c => c.Id == "localSearch").Summary.Count, "une recherche locale");
+        Check.Equal(1, categories.Single(c => c.Id == "render").Summary.Count, "un traitement d’interface (code inconnu écarté)");
+        Check.Equal(2, categories.Sum(c => c.Summary.Count), "jamais compté deux fois : une opération, un traitement d’interface");
+        Check.True(categories == activity.Categories(), "recalculé seulement si une série a bougé (même tableau)");
+        Check.Contains("aucune mesure dans cette session", categories.Single(c => c.Id == "writes").Text, "catégorie sans mesure dite, jamais 0 ms");
+    }
+
+    [Test]
+    public static void An_interface_work_above_120_ms_is_a_slowness_and_a_stall_is_never_guessed()
+    {
+        var slow = ActivityRules.Slowness("Affichage d’un écran", -1, -1, -1, interfaceMs: 180);
+        Check.True(slow.Slow, "traitement d’interface au-dessus de son seuil");
+        Check.Equal("interface", slow.Phase, "phase dominante : l’interface");
+        var quick = ActivityRules.Slowness("Affichage d’un écran", -1, -1, -1, interfaceMs: 80);
+        Check.False(quick.Slow, "sous 120 ms");
+        var attributed = ActivityRules.StallText(new StallReport(812, "ecran", 640, null));
+        Check.Contains("attribué à " + FrenchText.Quote("Affichage d’un écran"), attributed, "attribué au travail suivi");
+        var unattributed = ActivityRules.StallText(new StallReport(812, null, null, 700));
+        Check.Contains("non attribué", unattributed, "sans chevauchement : non attribué");
+        Check.Contains("cause non établie", unattributed, "une tâche longue du navigateur n’est jamais une cause");
+        Check.Null(ActivityRules.InterfaceWorkLabel("texte de la page"), "codes fermés seulement");
+        var log = new RecordingJournal();
+        var clock = TestClock.Fixed();
+        var activity = new OperationActivity(clock, log, simulation: true);
+        Check.False(activity.RecordStall(new StallReport(300, null, null, null)), "sous 400 ms : rien");
+        Check.True(activity.RecordStall(new StallReport(900, "onglet", 500, null)), "première explication écrite");
+        Check.False(activity.RecordStall(new StallReport(900, null, null, null)), "pas deux en 5 s");
+        clock.Advance(TimeSpan.FromSeconds(5));
+        Check.True(activity.RecordStall(new StallReport(900, null, null, null)), "de nouveau après 5 s");
+        Check.True(log.Lines.Any(l => l.Contains("1 autre(s) depuis la ligne précédente", StringComparison.Ordinal)), "les blocages tus sont comptés");
+    }
+
+    [Test]
+    public static void Phases_are_in_time_order_with_the_total_apart_and_a_next_step()
+    {
+        var activity = new OperationActivity(TestClock.Fixed(), new RecordingJournal(), simulation: true);
+        using (var read = activity.Begin("dashboard.widget.refresh", TaskKind.NetworkRead, CancellationToken.None))
+        {
+            read.Complete(TaskOutcome.Succeeded, null, 1);
+        }
+        using (var write = activity.Begin("write.execute", TaskKind.Write, CancellationToken.None))
+        {
+            write.Step("Relecture de l’objet avant l’envoi", sequential: true);
+            write.Step("Reçu enregistré, envoi du changement", sequential: true);
+            write.Step("Relecture après l’écriture", sequential: true);
+            write.Complete(TaskOutcome.Succeeded, null, 1);
+        }
+        var recent = activity.Snapshot().Recent;
+        var readRow = recent.Single(r => r.Operation == "dashboard.widget.refresh");
+        Check.True(readRow.Phases.Select(p => p.Phase).SequenceEqual(["request", "work", "publish", "end"]), "lecture : traitement, publication non mesurée, fin");
+        Check.Equal("Traitement dans le moteur", readRow.DominantLabel, "étape dominante");
+        Check.Contains("Aucune suite nécessaire", readRow.Next, "suite possible");
+        var writeRow = recent.Single(r => r.Operation == "write.execute");
+        Check.True(writeRow.Phases.Select(p => p.Phase).SequenceEqual(["request", "queue", "step", "step", "step", "publish", "end"]), "écriture : le total n’est pas une étape");
+        Check.False(writeRow.Phases.Any(p => p.Phase == "work"), "jamais le temps lu deux fois");
+        Check.False(writeRow.Phases.Single(p => p.Phase == "publish").Measured, "publication non mesurée");
+        Check.Contains("total", writeRow.Text, "total donné à part");
     }
 
     // ---------------------------------------------------------------- activity

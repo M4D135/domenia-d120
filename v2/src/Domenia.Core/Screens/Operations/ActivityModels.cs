@@ -60,8 +60,27 @@ public sealed record TaskPhaseRow(
     string? Detail,
     TaskOutcome? Outcome);
 
-/// <summary>Progress of a collection batch (Domenia 1 Get-DomeniaExperienceBatchRows): scalar fields only, never a target list.</summary>
-public sealed record BatchProgress(int Done, int Total, int Failed, string Phase, string Header, string Counters);
+/// <summary>One phase of a collection batch in its stepper (Domenia 1 OPE-017): « done », « current » or « todo ».</summary>
+public sealed record BatchStep(string Phase, string Label, string State);
+
+/// <summary>
+/// Progress of a collection batch (Domenia 1 Get-DomeniaExperienceBatchRows): scalar fields only, never a target list. The
+/// counters are those of Domenia 1: unconfirmed reads (<see cref="Failed"/>), ping errors, reads in flight, saves waiting and
+/// workstations not read for lack of capacity; <see cref="Steps"/> places the batch among its phases (Préparation, Lecture AD,
+/// À confirmer, En cours, Enregistrement).
+/// </summary>
+public sealed record BatchProgress(
+    int Done,
+    int Total,
+    int Failed,
+    string Phase,
+    string Header,
+    string Counters,
+    int PingErrors,
+    int InFlight,
+    int PendingSaves,
+    int Skipped,
+    ImmutableArray<BatchStep> Steps);
 
 /// <summary>
 /// One task of the session as the page reads it (Domenia 1 Get-DomeniaExperienceTaskRow and Get-DomeniaOperationTraceSummary):
@@ -96,6 +115,7 @@ public sealed record ActivityRow(
     string Detail,
     string Access,
     string? Advice,
+    string Next,
     string? Category,
     string Text,
     int Dropped,
@@ -155,8 +175,22 @@ public enum ProviderStateKind
 /// <param name="Target">A workstation name, « group:&lt;site&gt; » for a whole site, or null for every target of the provider.</param>
 public sealed record ProviderState(string Provider, string? Target, ProviderStateKind Kind, DateTimeOffset? Until, int RecoveryLimit);
 
-/// <summary>Per operation statistics (Domenia 1 OPE-002): samples of the session and, when the source keeps them, of earlier sessions.</summary>
-public sealed record OperationSample(string Operation, DateTimeOffset At, double DurationMs, long Items, bool Succeeded, bool Session);
+/// <summary>
+/// Per operation statistics (Domenia 1 OPE-002, Register-DomeniaOperationSample): samples of the session and, when the source keeps
+/// them, of earlier sessions. <see cref="Bytes"/> is the estimated volume received (null when not measured, never 0 invented);
+/// <see cref="RemoteAttempts"/> counts the requests that left for the directory or a workstation (Domenia 2 never retries: one per
+/// remote request, none in simulation); <see cref="Fallbacks"/> counts the fallback transports used (none exist in Domenia 2).
+/// </summary>
+public sealed record OperationSample(
+    string Operation,
+    DateTimeOffset At,
+    double DurationMs,
+    long Items,
+    bool Succeeded,
+    bool Session,
+    long? Bytes = null,
+    int RemoteAttempts = 0,
+    int Fallbacks = 0);
 
 /// <summary>One row of the statistics grid.</summary>
 public sealed record OperationStatsRow(
@@ -173,7 +207,24 @@ public sealed record OperationStatsRow(
     double? PerItemMs,
     double? AverageItems,
     double? SuccessPercent,
-    DateTimeOffset? LastRun);
+    DateTimeOffset? LastRun,
+    double? AverageBytes,
+    double? BytesPerSecond,
+    int RemoteAttempts,
+    double? FallbackPercent);
+
+/// <summary>
+/// One piece of work of the interface measured by the page (Domenia 1 Register-DomeniaUiWork): a closed code
+/// (<see cref="ActivityRules.InterfaceWorkLabel"/>) and its duration, never a text of the page.
+/// </summary>
+public sealed record InterfaceSample(string Work, double Ms);
+
+/// <summary>
+/// A beat of the interface late by 400 ms or more (Domenia 1 Register-DomeniaDispatcherLateness), as the page reports it: the
+/// lateness, the tracked work that overlapped it (closed code and duration) or none, and the long tasks the browser saw (counted,
+/// never taken for a cause).
+/// </summary>
+public sealed record StallReport(double LateMs, string? Work, double? WorkMs, double? LongTaskMs);
 
 /// <summary>Result of operations.stats.</summary>
 public sealed record OperationStats(

@@ -1,0 +1,19 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Opérations : un reçu à vérifier bloque toutes les nouvelles écritures, le plus ancien est nommé",
+  "description": "Sur les reçus d’exemple (aucune donnée réelle, rien n’est envoyé), le circuit d’écriture dit que les nouvelles écritures restent bloquées (texte de Domenia 1), nomme l’objet et l’opération du reçu le plus ancien, et l’onglet des reçus ne montre jamais « 0 ».",
+  "modes": ["simulation"],
+  "start": "operations?exemple=1",
+  "steps": [
+    { "do": "wait", "ready": "operations" },
+    { "do": "expect", "selector": ".op-hero", "attribute": "data-compact", "equals": "false", "title": "Premier affichage de la session : en-tête complet" },
+    { "do": "expect", "contains": "2 opérations à vérifier", "within": ".op-circuit", "title": "Pastille du circuit" },
+    { "do": "expect", "contains": "les nouvelles écritures restent bloquées", "within": ".op-circuit", "title": "Toutes les écritures attendent (Domenia 1)" },
+    { "do": "expect", "contains": "Le plus ancien", "within": ".op-circuit-oldest", "title": "Le reçu le plus ancien est nommé" },
+    { "do": "expect", "contains": "Toutes les nouvelles écritures attendent", "within": "[data-kpi=\"pending\"]", "title": "La tuile le dit aussi" },
+    { "do": "shot", "name": "blocage-global", "selector": ".op-hero" },
+    { "do": "click", "selector": "[data-act=\"pending\"]", "title": "Voir les reçus à vérifier" },
+    { "do": "expect", "contains": "Bloque toutes les nouvelles écritures", "within": ".op-rc-detail", "title": "Le détail du reçu le dit" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

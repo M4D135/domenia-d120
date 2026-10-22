@@ -24,8 +24,20 @@ public static class WriteErrors
     /// <summary>Preconditions changed since the plan; the message is the executor's reason, which always ends by saying nothing was sent.</summary>
     public const string Stale = "write.stale";
 
+    /// <summary>An uncertain receipt of this very target (GUID): its re-read or review comes first (Domenia 1 TRV-230).</summary>
     public const string TargetPending = "write.targetPending";
     public const string TargetPendingMessage = "Une écriture précédente sur cet objet reste à vérifier : relisez son reçu dans Opérations avant d’en préparer une autre.";
+
+    /// <summary>
+    /// An uncertain receipt of another object: while one receipt waits for a check or a review, every new write stays blocked
+    /// (Domenia 1 Assert-WriteAllowed, Get-DomeniaReceiptSummary: « a pending receipt holds every new write of the domain back »).
+    /// </summary>
+    public const string ReceiptsPending = "write.receiptsPending";
+
+    /// <summary>Message of <see cref="ReceiptsPending"/>, with the number of receipts to verify.</summary>
+    public static string ReceiptsPendingMessage(int pending) => pending <= 1
+        ? "Une opération reste à vérifier\u00A0: les nouvelles écritures sont bloquées jusqu’à sa vérification ou sa revue dans Opérations. Rien n’a été envoyé."
+        : FrenchText.Integer(pending) + " opérations restent à vérifier\u00A0: les nouvelles écritures sont bloquées jusqu’à leur vérification ou leur revue dans Opérations. Rien n’a été envoyé.";
 
     /// <summary>The target is already in the requested state; the message is the executor's (« Ce compte n’est pas verrouillé… »).</summary>
     public const string NothingToDo = "write.nothingToDo";

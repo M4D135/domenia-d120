@@ -1,7 +1,8 @@
 // Tab « Reçus d’écriture » (Domenia 1 OPE-009, OPE-010, OPE-011, OPE-022 to OPE-026): receipts of the write circuit, uncertain
 // ones first, filtered by state, in a grid with the detail of the selected receipt beside it (what the re-read proves, the
-// re-read itself, the manual review, the compensation, the trail of the receipt), and the rules of the circuit below. A re-read is
-// a read: the write is never sent again. Nothing here is ever replayed.
+// re-read itself, the manual review, the compensation, the trail of the receipt), and the rules of the circuit below. While one
+// receipt waits for its check, every new write stays blocked. A re-read is a read: the write is never sent again. Nothing here is
+// ever replayed. The list is read through operations.receipts (a read of the screen itself, never counted in the activity).
 import { esc, errorText, toast, announce, applyVars, reveal } from '../../ui.js';
 import {
   createGrid, createSplit, createFilterBar, openDialog, confirmDialog, pill, glyph, writeClipboard, NBSP,
@@ -76,6 +77,7 @@ export function createReceipts(host, env) {
   let selectedId = env.params?.recu ?? null;
   let detailToken = 0;
   let current = null; // detail of the selected receipt
+  let served = null; // write kinds whose executor runs in this mode (re-read possible), from the rules of the circuit
 
   host.innerHTML = `<div class="op-receipts">
     <div class="op-rc-summary" aria-live="polite"><span class="op-rc-summary-ico">${glyph('shield')}</span><span class="op-rc-summary-text">Lecture des reçus…</span></div>
@@ -108,11 +110,16 @@ export function createReceipts(host, env) {
     onActivate: (row) => select(row.id, true),
     contextMenu: ({ row }) => [
       { label: 'Afficher le détail', icon: 'eye', disabled: !row, run: () => select(row.id, true) },
-      { label: 'Relire l’objet…', icon: 'refresh', disabled: !row || demo, reason: demo ? 'Exemple local : rien n’est relu.' : '', run: () => reread(row.id) },
+      {
+        label: 'Relire l’objet…', icon: 'refresh', disabled: !row || demo || (served !== null && !served.has(row.kind)),
+        reason: demo ? `Exemple local${NBSP}: rien n’est relu.` : `Relecture indisponible dans ce mode${NBSP}: aucun lecteur de ce type d’écriture n’est branché. Contrôlez l’objet avec un autre outil, puis consignez votre revue.`,
+        run: () => reread(row.id),
+      },
       { label: 'Consigner une revue…', icon: 'edit', disabled: !row?.pending, reason: 'Seul un reçu à vérifier se revoit.', run: () => openReview(row.id) },
       '-',
       { label: 'Copier le détail', icon: 'copy', disabled: !row, run: () => copyDetail(row) },
       { label: 'Ouvrir la fiche de l’objet', icon: 'object', disabled: !row?.target?.dn, run: () => ctx.navigate('fiche', { dn: row.target.dn }) },
+      { label: 'Copier l’identifiant du reçu', icon: 'hash', disabled: !row, run: () => writeClipboard(row.id).then(() => toast('Identifiant du reçu copié.', { tone: 'ok', life: 2400 })) },
     ],
     onExport: (csv, info) => exportCsv(csv, info),
   });
@@ -134,7 +141,8 @@ export function createReceipts(host, env) {
 
   function fetchList(silent) {
     if (demo) return Promise.resolve(sampleReceipts());
-    return silent ? silentCall('write.receipts.list') : ctx.call('write.receipts.list');
+    // The screen's own read of the receipts: never followed as an operation of the session (it refreshes every 15 s).
+    return silent ? silentCall('operations.receipts') : ctx.call('operations.receipts');
   }
 
   function load(silent = false) {
@@ -269,10 +277,21 @@ export function createReceipts(host, env) {
     }
   }
 
+  /** The review of a receipt: its own detail is read first, so the frequent motives name its own controller, never a sample. */
   function openReview(id) {
     const receipt = all.find((r) => r.id === id) ?? current?.receipt;
     if (!receipt?.pending) { toast(`Ce reçu est déjà résolu${NBSP}: aucune revue n’est nécessaire.`, { tone: 'info' }); return null; }
-    const templates = (current?.receipt?.id === id ? current.actions.templates : null) ?? sampleDetail(receipt).actions.templates;
+    if (demo) return reviewDialog(id, receipt, sampleDetail(receipt).actions.templates);
+    if (current?.receipt?.id === id) return reviewDialog(id, current.receipt, current.actions.templates);
+    ctx.call('operations.receipts.detail', { id }).then((detail) => {
+      if (!alive) return;
+      if (!detail.actions.canReview) { toast(detail.actions.reviewWhy ?? `Ce reçu est déjà résolu${NBSP}: aucune revue n’est nécessaire.`, { tone: 'info' }); return; }
+      reviewDialog(id, detail.receipt, detail.actions.templates);
+    }).catch((err) => toast(`Reçu illisible${NBSP}: ${errorText(err)}`, { tone: 'alert' }));
+    return true;
+  }
+
+  function reviewDialog(id, receipt, templates) {
     const body = document.createElement('div');
     body.className = 'op-review';
     body.dataset.page = 'operations';
@@ -289,7 +308,7 @@ export function createReceipts(host, env) {
       <p class="op-review-note">${glyph('lock')}<span>Jamais de mot de passe, de clé ni de jeton dans un motif${NBSP}: le moteur refuse ce qui y ressemble.</span></p>`;
     const dialog = openDialog({
       title: 'Consigner une revue manuelle',
-      subtitle: 'Le reçu cessera de bloquer les écritures sur cet objet.',
+      subtitle: 'Le reçu cessera de bloquer les nouvelles écritures.',
       icon: 'edit',
       size: 'md',
       body,
@@ -334,7 +353,7 @@ export function createReceipts(host, env) {
       if (demo) { toast(`Exemple local${NBSP}: aucune revue n’est consignée.`, { tone: 'info' }); return; }
       try {
         const detail = await ctx.call('operations.receipts.review', { id, reason: area.value.trim() });
-        toast(`Revue consignée${NBSP}: ${detail.receipt.label} · ${detail.receipt.target.name}. Le reçu ne bloque plus l’objet.`, { tone: 'info', life: 6000 });
+        toast(`Revue consignée${NBSP}: ${detail.receipt.label} · ${detail.receipt.target.name}. Ce reçu ne bloque plus les nouvelles écritures.`, { tone: 'info', life: 6000 });
         await load(true);
         selectedId = id;
         current = detail;
@@ -364,12 +383,23 @@ export function createReceipts(host, env) {
       : `Copie impossible${NBSP}: le presse-papiers est indisponible.`, { tone: ok ? 'ok' : 'warn' }));
   }
 
-  function compensate() {
+  /**
+   * « Préparer l’annulation » (OPE-010): the inverse changes are shown and confirmed, then the fiche of the object opens with the
+   * receipt to compensate (compenser=<id>), where the new write gets its own plan read on the controller, its confirmation, its
+   * receipt and its re-read. Nothing is written from here; never automatic.
+   */
+  async function compensate() {
     const detail = current;
     if (!detail?.compensation?.offered) return;
-    const changes = detail.compensation.changes.map((c) => `${c.label}${NBSP}: ${c.before ?? '—'} → ${c.after ?? '—'}`).join(' ; ');
-    toast(`Préparez la compensation dans la fiche${NBSP}: ${changes}. Elle passera par son propre plan, sa confirmation, son reçu et sa relecture.`, { tone: 'info', life: 9000 });
-    ctx.navigate('fiche', { dn: detail.receipt.target.dn });
+    const r = detail.receipt;
+    const ok = await confirmDialog({
+      title: 'Préparer l’annulation dans la fiche ?',
+      message: `${r.label} · ${r.target.name}${NBSP}: ${detail.compensation.changes.map((c) => `${c.label} ${c.before ?? '(vide)'} → ${c.after ?? '(vide)'}`).join(`${NBSP}; `)}. La fiche relira l’objet sur le contrôleur et préparera une nouvelle écriture avec son plan, sa confirmation, son reçu et sa relecture. Rien n’est écrit d’ici.`,
+      confirmLabel: 'Ouvrir la fiche',
+      icon: 'undo',
+    });
+    if (!ok || !alive) return;
+    ctx.navigate('fiche', { dn: r.target.dn, compenser: r.id });
   }
 
   function exportCsv(csv, info) {
@@ -386,9 +416,17 @@ export function createReceipts(host, env) {
     ctx.call('operations.rules').then((rules) => {
       if (!alive) return;
       box.removeAttribute('aria-busy');
+      served = new Set(rules.kinds.filter((k) => k.available).map((k) => k.kind));
       box.innerHTML = rulesMarkup(rules);
       applyVars(box);
       reveal(box);
+      box.querySelector('[data-more-kinds]')?.addEventListener('click', (e) => {
+        const list = box.querySelector('.op-kinds');
+        const more = list.dataset.more !== 'true';
+        list.dataset.more = String(more);
+        e.currentTarget.setAttribute('aria-expanded', String(more));
+        e.currentTarget.querySelector('span').textContent = more ? 'Réduire la liste' : e.currentTarget.dataset.label;
+      });
     }).catch((err) => {
       console.error(err);
       if (!alive) return;
@@ -456,7 +494,7 @@ function detailMarkup(detail, demo) {
   const pills = [
     pill(r.tone, r.verificationLabel, { icon: r.verification === 'verified' ? 'shield' : r.pending ? 'eye' : r.verification === 'reviewed' ? 'edit' : 'info', size: 'sm' }),
     r.simulated ? pill('accent', 'Simulation · aucun effet réel', { icon: 'sparkles', size: 'sm' }) : pill('warn', 'Annuaire réel', { icon: 'zap', size: 'sm' }),
-    r.pending ? pill('warn', 'Bloque les écritures sur cet objet', { icon: 'lock', size: 'sm', pulse: true }) : '',
+    r.pending ? pill('warn', 'Bloque toutes les nouvelles écritures', { icon: 'lock', size: 'sm', pulse: true }) : '',
     demo ? pill('off', 'Exemple local', { icon: 'info', size: 'sm' }) : '',
   ].join('');
   const trail = (r.details ?? []).map((d, n) => `<li class="op-trail-item" data-i="${n}" data-kind="${esc(d.label === 'Revue manuelle' ? 'review' : d.label === 'Relecture' ? 'read' : d.label === 'Envoi' ? 'send' : 'check')}">
@@ -469,6 +507,10 @@ function detailMarkup(detail, demo) {
         <span class="op-diff-before">${esc(c.before ?? '(vide)')}</span><span class="op-diff-arrow" aria-hidden="true">${glyph('undo')}</span><span class="op-diff-after">${esc(c.after ?? '(vide)')}</span></div>`).join('')}</div>`
     : '';
   const verifyReason = actions.canVerify ? '' : ` aria-disabled="true" data-tip="${esc(actions.verifyWhy ?? '')}"`;
+  // The error is said once: the summary already speaks for a receipt to verify (its code goes to the facts); a refusal keeps its
+  // own reason, in the tone of the receipt.
+  const error = r.error && !r.pending && r.error.message && !r.summary.includes(r.error.message)
+    ? `<p class="op-dt-error" data-tone="${esc(r.tone)}" role="note">${glyph(r.tone === 'alert' ? 'alert' : 'info')}<span>${esc(r.error.message)}</span></p>` : '';
   const reviewReason = actions.canReview ? '' : ` aria-disabled="true" data-tip="${esc(actions.reviewWhy ?? '')}"`;
   const id = `op-dt-${r.id.slice(0, 8)}`;
   return `<article class="op-dt" data-tone="${esc(r.tone)}" aria-labelledby="${id}-t">
@@ -480,9 +522,9 @@ function detailMarkup(detail, demo) {
     </header>
     <div class="op-dt-pills">${pills}</div>
     <p class="op-dt-summary">${esc(r.summary)}</p>
-    ${r.error ? `<p class="op-dt-error" role="note">${glyph('alert')}<span>${esc(r.error.message)}</span></p>` : ''}
+    ${error}
     <div class="op-dt-actions">
-      <button class="btn ${r.pending ? 'primary' : 'subtle'} sm" type="button" data-dt-act="reread"${verifyReason}>${glyph('refresh')}${r.pending ? 'Relire pour trancher…' : 'Relire l’objet…'}</button>
+      <button class="btn ${r.pending && actions.canVerify ? 'primary' : 'subtle'} sm" type="button" data-dt-act="reread"${verifyReason}>${glyph('refresh')}${r.pending ? 'Relire pour trancher…' : 'Relire l’objet…'}</button>
       <button class="btn subtle sm" type="button" data-dt-act="review"${reviewReason}>${glyph('edit')}Consigner une revue…</button>
       <button class="btn ghost sm" type="button" data-dt-act="copy">${glyph('copy')}Copier</button>
       <button class="btn ghost sm" type="button" data-dt-act="fiche">${glyph('object')}Fiche</button>
@@ -501,6 +543,7 @@ function detailMarkup(detail, demo) {
       <div><dt>Envoyée le</dt><dd>${esc(fullDate(r.sentAt))}</dd></div>
       <div><dt>Relue le</dt><dd>${esc(r.verifiedAt ? fullDate(r.verifiedAt) : '—')}</dd></div>
       <div class="wide"><dt>Chemin (DN)</dt><dd class="mono op-dn">${breakable(r.target.dn)}</dd></div>
+      ${r.error ? `<div><dt>Code</dt><dd class="mono">${esc(r.error.code)}</dd></div>` : ''}
       <div class="wide"><dt>Reçu</dt><dd class="mono">${esc(r.id)}</dd></div>
     </dl>
     <section class="op-comp" data-offered="${comp.offered ? 'true' : 'false'}" aria-labelledby="${id}-c">
@@ -514,7 +557,8 @@ function detailMarkup(detail, demo) {
 }
 
 function rulesMarkup(rules) {
-  const kinds = rules.kinds.map((k, n) => `<li class="op-kind" data-i="${n}"><span class="op-kind-proof">${esc(k.proof)}</span>
+  const FIRST = 8;
+  const kinds = rules.kinds.map((k, n) => `<li class="op-kind" data-i="${Math.min(n, FIRST)}"${n >= FIRST ? ' data-extra="true"' : ''}><span class="op-kind-proof">${esc(k.proof)}</span>
       <div class="op-kind-main"><b>${esc(k.label)}</b><span class="mono">${esc(k.kind)}</span><p>${esc(k.check)}</p></div>
       ${k.available ? pill('ok', 'Servie', { size: 'sm', tip: 'Son exécuteur est branché dans ce mode.' }) : pill('off', 'À venir', { size: 'sm', tip: 'Aucun exécuteur dans ce mode pour l’instant.' })}</li>`).join('');
   const compensable = rules.kinds.filter((k) => k.compensable);
@@ -528,7 +572,8 @@ function rulesMarkup(rules) {
         ${v.available[i] ? '' : `<span class="op-cycle-soon" data-tip="${esc('Écriture ' + s.writeKind + ' à venir dans ce mode.')}">à venir</span>`}</li>`).join('')}</ol>
       <p class="op-cycle-note">${esc(v.note)}</p></article>`).join('');
   return `<p class="op-rules-note">${esc(rules.note)}</p><div class="grid">
-    <section class="card span-5 op-rule-card reveal">${cardHead('eye', 'Preuves par relecture', 'Ce que relit chaque type d’écriture')}<ul class="op-kinds">${kinds}</ul></section>
+    <section class="card span-5 op-rule-card reveal">${cardHead('eye', 'Preuves par relecture', 'Ce que relit chaque type d’écriture')}<ul class="op-kinds" data-more="false">${kinds}</ul>
+      ${rules.kinds.length > FIRST ? `<button class="op-more op-kinds-more" type="button" data-more-kinds aria-expanded="false" data-label="${esc(`Afficher les ${rules.kinds.length - FIRST} autres types`)}">${glyph('chevronRight')}<span>${esc(`Afficher les ${rules.kinds.length - FIRST} autres types`)}</span></button>` : ''}</section>
     <section class="card span-3 op-rule-card reveal">${cardHead('undo', 'Compensations', 'Nouvelle écriture, jamais automatique')}${comps}</section>
     <section class="card span-4 op-rule-card reveal">${cardHead('layers', 'Séquences de cycle de vie', 'Une étape incertaine bloque la suite, jamais rejouée')}<div class="op-cycles">${cycles}</div></section>
   </div>`;

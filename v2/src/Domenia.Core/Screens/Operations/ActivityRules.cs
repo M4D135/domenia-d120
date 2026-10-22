@@ -295,6 +295,7 @@ public static class ActivityRules
         DomeniaErrors.ArgumentsInvalid => "Demande mal formée par l’interface" + FrenchText.Colon + "signalez-la avec sa référence.",
         DomeniaErrors.ScopeTooWide => "Choisissez une OU de travail" + FrenchText.Colon + "la mesure des postes ne vise jamais tout le domaine.",
         WriteErrors.TargetPending => "Une écriture précédente sur cet objet reste à vérifier" + FrenchText.Colon + "relisez son reçu ou consignez une revue.",
+        WriteErrors.ReceiptsPending => "Une opération reste à vérifier" + FrenchText.Colon + "les nouvelles écritures restent bloquées jusqu’à la relecture ou la revue de son reçu (onglet Reçus d’écriture, filtre " + FrenchText.Quote("À vérifier") + ").",
         WriteErrors.ReceiptUnavailable => "Reçus d’écriture illisibles" + FrenchText.Colon + "aucune écriture n’est admise tant qu’ils ne sont pas relus.",
         WriteErrors.NothingToDo => "L’objet était déjà dans l’état demandé" + FrenchText.Colon + "aucune écriture n’était nécessaire.",
         string code when code.StartsWith("write.", StringComparison.Ordinal) => "Préparez de nouveau l’écriture depuis son écran" + FrenchText.Colon + "l’objet sera relu.",
@@ -406,15 +407,17 @@ public static class ActivityRules
 
     /// <summary>
     /// Explains a slowness by the operation, its phases and its volume (Domenia 1 Get-DomeniaSlownessVerdict). A phase that was not
-    /// measured is said so, never counted as zero. Slow: the measured phases together exceed <paramref name="totalThresholdMs"/>.
+    /// measured is said so, never counted as zero. Slow: the interface processing exceeded <paramref name="interfaceThresholdMs"/>
+    /// (Domenia 1: 120 ms), or the measured phases together exceed <paramref name="totalThresholdMs"/>.
     /// </summary>
     public static (bool Slow, string Phase, double DurationMs, double TotalMs, string Text) Slowness(
-        string name, double queueMs, double engineMs, long volume, double totalThresholdMs = 5000)
+        string name, double queueMs, double engineMs, long volume, double totalThresholdMs = 5000, double interfaceMs = -1, double interfaceThresholdMs = InterfaceThresholdMs)
     {
         (string Code, string Label, double Value)[] segments =
         [
             ("queue", "l’attente du canal d’écriture", queueMs),
             ("engine", "le traitement dans le moteur", engineMs),
+            ("interface", "le traitement dans l’interface", interfaceMs),
         ];
         double total = 0;
         var count = 0;
@@ -436,15 +439,155 @@ public static class ActivityRules
                 label = segmentLabel;
             }
         }
+        var slowInterface = interfaceMs >= 0 && interfaceMs > interfaceThresholdMs;
+        if (slowInterface)
+        {
+            phase = "interface";
+            label = "le traitement dans l’interface";
+            max = interfaceMs;
+        }
         var title = string.IsNullOrWhiteSpace(name) ? "Opération" : Flat(name, NameLength);
         if (count == 0)
         {
             return (false, "", -1, -1, title + FrenchText.Colon + "durée non mesurée.");
         }
         var text = title + FrenchText.Colon + Duration(total) + ", surtout " + label + " (" + Duration(max) + ")";
-        text += volume >= 0 ? " pour " + Volume(volume) : " ; volume non mesuré";
-        text += " (file " + Duration(queueMs) + ", moteur " + Duration(engineMs) + ", interface non mesurée).";
-        return (total > totalThresholdMs, phase, max, total, text);
+        if (volume >= 0)
+        {
+            text += " pour " + Volume(volume);
+            if (phase == "interface" && volume > 1)
+            {
+                text += ", soit " + Duration(interfaceMs / volume) + " par élément";
+            }
+        }
+        else
+        {
+            text += " ; volume non mesuré";
+        }
+        text += " (file " + Duration(queueMs) + ", moteur " + Duration(engineMs) + ", interface " + Duration(interfaceMs) + ").";
+        return (slowInterface || total > totalThresholdMs, phase, max, total, text);
+    }
+
+    /// <summary>A piece of work of the interface above this cost is a slowness (Domenia 1 Register-DomeniaJobPublication: 120 ms).</summary>
+    public const double InterfaceThresholdMs = 120;
+
+    /// <summary>Interface work shorter than this is not kept for the attribution of a late beat (Domenia 1: 30 ms).</summary>
+    public const double InterfaceWorkMinimumMs = 30;
+
+    /// <summary>A beat later than this is a stall to explain (Domenia 1 OPE-035: 400 ms).</summary>
+    public const double StallThresholdMs = 400;
+
+    /// <summary>At most one explanation of a stall every this (Domenia 1 OPE-035: 5 s).</summary>
+    public static readonly TimeSpan StallInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>Closed codes of the interface work the page measures, and their French labels.</summary>
+    private static readonly Dictionary<string, string> InterfaceWork = new(StringComparer.Ordinal)
+    {
+        ["ecran"] = "Affichage d’un écran",
+        ["onglet"] = "Affichage d’un onglet d’Opérations",
+        ["actualisation"] = "Actualisation d’Opérations",
+        ["liste"] = "Rendu d’une liste",
+        ["panneau"] = "Ouverture d’un panneau",
+    };
+
+    /// <summary>The codes the page may send (anything else is refused by operations.interface.report).</summary>
+    public static IReadOnlyCollection<string> InterfaceWorkCodes => InterfaceWork.Keys;
+
+    /// <summary>French label of a closed interface work code; null for an unknown code.</summary>
+    public static string? InterfaceWorkLabel(string? code) => code is not null && InterfaceWork.TryGetValue(code, out var label) ? label : null;
+
+    /// <summary>
+    /// The line written in the technical journal for a stall (Domenia 1 Get-DomeniaStallAttribution, OPE-035): attributed to the
+    /// tracked work that overlapped the late window, otherwise said unattributed; a long task of the browser is counted, never taken
+    /// for a cause.
+    /// </summary>
+    public static string StallText(StallReport stall)
+    {
+        ArgumentNullException.ThrowIfNull(stall);
+        var head = "Interface en retard de " + Duration(stall.LateMs);
+        var browser = stall.LongTaskMs is double lt && lt > 0 ? " ; tâche longue du navigateur de " + Duration(lt) + ", cause non établie" : "";
+        return InterfaceWorkLabel(stall.Work) is string work && stall.WorkMs is double ms && ms >= 0
+            ? head + FrenchText.Colon + "attribué à " + FrenchText.Quote(work) + " (" + Duration(ms) + ")" + browser + "."
+            : head + FrenchText.Colon + "non attribué (mise en page, rendu ou appel hors du moteur)" + browser + ".";
+    }
+
+    /// <summary>
+    /// The six response time categories of Domenia 1 (Get-DomeniaResponseTimeCategories), by stable id and French label. The page
+    /// measures « render »; the engine classifies every other operation (<see cref="CategoryOf"/>). A measure is never counted twice.
+    /// </summary>
+    public static ImmutableArray<(string Id, string Label)> CategoryLabels(bool simulation) =>
+    [
+        ("localSearch", "Recherche locale"),
+        ("render", "Traitement des résultats dans l’interface"),
+        ("local", simulation ? "Autres lectures et écritures locales (annuaire fictif en mémoire, reçus, préférences, documents)" : "Autres lectures et écritures de la base locale (reçus, préférences, documents)"),
+        ("directory", simulation ? "Lectures de l’annuaire fictif" : "Lectures de l’annuaire"),
+        ("computers", simulation ? "Collecte fictive sur les postes" : "Collecte sur les postes (réseau et WMI)"),
+        ("writes", simulation ? "Écritures sur l’annuaire fictif" : "Écritures dans l’annuaire et actions sur les postes"),
+    ];
+
+    /// <summary>
+    /// Category of an operation of the engine: writes on their own; network reads of the workstations (collection batches, ping,
+    /// WMI, inventory, presence, workstation screens) apart from the directory reads; local searches apart from the other local reads
+    /// and writes (in-memory computations included). Never « render », which only the page measures.
+    /// </summary>
+    public static string CategoryOf(string operation, TaskKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (kind == TaskKind.Write)
+        {
+            return "writes";
+        }
+        if (kind is TaskKind.NetworkRead or TaskKind.Batch)
+        {
+            return IsCollection(operation) || kind == TaskKind.Batch ? "computers" : "directory";
+        }
+        var last = operation[(operation.LastIndexOf('.') + 1)..];
+        return kind is TaskKind.Local or TaskKind.LocalRead && (last.Contains("search", StringComparison.OrdinalIgnoreCase) || last.Contains("query", StringComparison.OrdinalIgnoreCase)
+            || last.Contains("lookup", StringComparison.OrdinalIgnoreCase) || last.Contains("find", StringComparison.OrdinalIgnoreCase))
+            ? "localSearch"
+            : "local";
+    }
+
+    /// <summary>A read of the workstations rather than of the directory: survey, ping, WMI, inventory, presence, workstation screens.</summary>
+    public static bool IsCollection(string operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        var screen = operation.Split('.')[0];
+        if (screen is "poste" || screen.StartsWith("inventory", StringComparison.Ordinal) || screen.StartsWith("fleet", StringComparison.Ordinal)
+            || screen.StartsWith("presence", StringComparison.Ordinal) || screen.StartsWith("workstation", StringComparison.Ordinal))
+        {
+            return true;
+        }
+        return operation.Contains(".survey", StringComparison.Ordinal) || operation.Contains(".ping", StringComparison.Ordinal)
+            || operation.Contains(".wmi", StringComparison.Ordinal) || operation.Contains(".probe", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The possible next step after the end of a task (Domenia 1 OPE-019 « la suite possible »): the advice of an end that did not go
+    /// well, otherwise what follows a success. Never a retry proposed by the engine.
+    /// </summary>
+    public static string Next(TaskOutcome? outcome, TaskKind kind, string operation, string? advice)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (outcome is null)
+        {
+            return kind == TaskKind.Write
+                ? "Attendre la fin" + FrenchText.Colon + "l’écriture va jusqu’au bout puis l’objet est relu ; son reçu s’ouvrira dans Reçus d’écriture."
+                : IsStoppable(kind) ? "Attendre la fin ou arrêter la lecture" + FrenchText.Colon + "ce qui est déjà lu est conservé." : "Attendre la fin" + FrenchText.Colon + "elle se termine d’elle-même.";
+        }
+        if (advice is not null)
+        {
+            return advice;
+        }
+        if (kind == TaskKind.Write)
+        {
+            return "Le reçu de l’écriture est dans l’onglet Reçus d’écriture" + FrenchText.Colon + "une nouvelle relecture reste possible, seule une lecture part.";
+        }
+        if (operation.EndsWith(".plan", StringComparison.Ordinal))
+        {
+            return "Plan préparé" + FrenchText.Colon + "rien n’est écrit tant que l’opérateur ne l’a pas confirmé dans son écran.";
+        }
+        return "Aucune suite nécessaire" + FrenchText.Colon + "la tâche s’est terminée sans incident.";
     }
 
     /// <summary>
@@ -612,6 +755,8 @@ public static class ActivityRules
         ["operations.export.save"] = "Export CSV",
         ["operations.survey.resume"] = "Reprise d’un relevé interrompu",
         ["operations.survey.forget"] = "Abandon d’un relevé interrompu",
+        ["operations.receipts"] = "Liste des reçus (Opérations)",
+        ["operations.center"] = "Centre des opérations",
     };
 
     private static string LowerFirst(string text) =>

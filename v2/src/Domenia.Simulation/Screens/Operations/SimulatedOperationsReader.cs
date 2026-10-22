@@ -21,6 +21,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
     public const string SurveyChangedMessage = "Le relevé interrompu a changé depuis son affichage : relisez-le avant de le reprendre. Rien n’a été lu.";
 
     private const int PreparingMs = 600;
+    private const int ReadingDirectoryMs = 450;
     private const int SavingMs = 700;
     private const int StoppingMs = 400;
 
@@ -116,16 +117,26 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             surveys++;
             var random = source.ScreenStream("operations").Fork("survey/" + surveys.ToString(CultureInfo.InvariantCulture));
             var steps = new int[count];
-            var total = PreparingMs;
+            var total = PreparingMs + ReadingDirectoryMs;
             for (var i = 0; i < count; i++)
             {
                 total += random.Next(350, 901);
                 steps[i] = total;
             }
-            // One workstation of the resumed survey does not answer WMI (switched off since), as in the recorded runs.
+            // One workstation of the resumed survey does not answer WMI (switched off since), as in the recorded runs; on a longer list,
+            // another one does not answer the ping at all (counted apart, never read by WMI).
             var silent = count > 3 ? random.Next(count) : -1;
+            var unreachable = -1;
+            if (count > 6)
+            {
+                unreachable = random.Next(count - 1);
+                if (unreachable >= silent)
+                {
+                    unreachable++;
+                }
+            }
             survey = new Survey(
-                "releve-" + surveys.ToString("00", CultureInfo.InvariantCulture), data.Interrupted, steps, silent, source.Clock.GetUtcNow(), source.Clock.GetTimestamp());
+                "releve-" + surveys.ToString("00", CultureInfo.InvariantCulture), data.Interrupted, steps, silent, unreachable, source.Clock.GetUtcNow(), source.Clock.GetTimestamp());
             offered = true;
             return State()!;
         }
@@ -295,8 +306,17 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         if (elapsed >= s.Steps[^1] + SavingMs)
         {
             var failed = s.Silent >= 0 ? 1 : 0;
-            Finish(s, s.Steps.Length, failed > 0 ? CollectionStatus.Partial : CollectionStatus.Success,
-                failed > 0 ? "1 poste sans réponse WMI (éteint ou filtré)." : "");
+            var ping = s.Unreachable >= 0 ? 1 : 0;
+            var reasons = new List<string>();
+            if (failed > 0)
+            {
+                reasons.Add("1 poste sans réponse WMI (éteint ou filtré)");
+            }
+            if (ping > 0)
+            {
+                reasons.Add("1 poste sans réponse au ping");
+            }
+            Finish(s, s.Steps.Length, failed + ping > 0 ? CollectionStatus.Partial : CollectionStatus.Success, reasons.Count > 0 ? string.Join(" · ", reasons) + "." : "");
         }
     }
 
@@ -310,13 +330,14 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         s.Status = status;
         var failed = status == CollectionStatus.Cancelled ? s.FailedBy(done) : s.Silent >= 0 ? 1 : 0;
         s.Failed = failed;
+        s.PingErrors = status == CollectionStatus.Cancelled ? s.PingErrorsBy(done) : s.Unreachable >= 0 ? 1 : 0;
         var previous = Remaining(data);
         remaining = status == CollectionStatus.Cancelled ? Math.Max(0, previous - done) : 0;
         var interrupted = data.Interrupted;
         var total = interrupted.Targets ?? s.Steps.Length;
         var read = total - remaining;
         sessionRuns.Add(new CollectionRun(interrupted.Family, interrupted.ScopeDn, interrupted.ScopeName, interrupted.Subtree, now, status, read, total,
-            failed, status is CollectionStatus.Success or CollectionStatus.Partial ? now : null, reason));
+            failed + s.PingErrors, status is CollectionStatus.Success or CollectionStatus.Partial ? now : null, reason));
     }
 
     private SurveyState? State()
@@ -330,15 +351,23 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         var (phase, label) = !s.Open ? (SurveyPhase.Done, StatusLabel(s.Status))
             : s.StopTimestamp is not null ? (SurveyPhase.Stopping, "Arrêt demandé")
             : elapsed < PreparingMs ? (SurveyPhase.Preparing, "Préparation")
+            : elapsed < PreparingMs + ReadingDirectoryMs ? (SurveyPhase.ReadingDirectory, "Lecture AD")
             : done >= s.Steps.Length ? (SurveyPhase.Saving, "Enregistrement")
             : (SurveyPhase.Running, "En cours");
         var failed = s.Open ? s.FailedBy(done) : s.Failed;
+        var ping = s.Open ? s.PingErrorsBy(done) : s.PingErrors;
+        var inFlight = s.Open && phase == SurveyPhase.Running ? 1 : 0;
+        var saves = phase == SurveyPhase.Saving ? 1 : 0;
+        // The budget of the simulation always has room: no workstation is left unread for lack of capacity.
+        const int Skipped = 0;
         var status = FrenchText.Integer(done) + "/" + FrenchText.Integer(s.Steps.Length) + " postes traités · " + FrenchText.Count(failed, "lecture non confirmée", "lectures non confirmées")
-            + " · " + FrenchText.Count(s.Open && phase == SurveyPhase.Running ? 1 : 0, "lecture en cours", "lectures en cours")
-            + " · " + FrenchText.Count(phase == SurveyPhase.Saving ? 1 : 0, "enregistrement en attente", "enregistrements en attente") + ".";
+            + " · " + FrenchText.Count(ping, "erreur de ping", "erreurs de ping")
+            + " · " + FrenchText.Count(inFlight, "lecture en cours", "lectures en cours")
+            + " · " + FrenchText.Count(saves, "enregistrement en attente", "enregistrements en attente")
+            + " · " + FrenchText.Count(Skipped, "poste non relu faute de capacité", "postes non relus faute de capacité") + ".";
         var r = s.Run;
         return new SurveyState(s.Id, r.Family, TypeOf(r.Family), r.ScopeDn, OuText(r), s.Steps.Length, done, failed, phase, label, s.Open,
-            s.StopTimestamp is not null, s.StartedAt, s.EndedAt, status);
+            s.StopTimestamp is not null, s.StartedAt, s.EndedAt, status, ping, inFlight, saves, Skipped);
     }
 
     private SurveyOffer Offer(Derived data)
@@ -524,6 +553,8 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             ("write.receipts.list", 2, 15, 60, 0, 24, 0),
         ];
         var list = new List<OperationSample>();
+        // Sizes of the answers of the remote reads and writes, from their own sub-stream (the dates and durations stay as they were).
+        var sizes = random.Fork("sizes");
         var zone = world.TimeZone;
         var today = LocalDays.DateOf(world.Reference, zone);
         for (var back = 14; back >= 1; back--)
@@ -542,7 +573,9 @@ public sealed class SimulatedOperationsReader : IOperationsReader
                     var at = start + TimeSpan.FromMinutes(random.Next(8 * 60, 18 * 60));
                     var duration = random.Next(p.MinMs, p.MaxMs + 1) + random.NextDouble();
                     var items = random.Next(p.MinItems, p.MaxItems + 1);
-                    list.Add(new OperationSample(p.Operation, at, Math.Round(duration, 1), items, !random.Chance(p.FailPercent), false));
+                    long? bytes = p.Operation is "dashboard.widget.refresh" or "write.execute" or "write.receipts.verify" ? 600L + (items * (long)sizes.Next(700, 2400)) : null;
+                    // The simulation reaches nothing: no remote attempt, no fallback.
+                    list.Add(new OperationSample(p.Operation, at, Math.Round(duration, 1), items, !random.Chance(p.FailPercent), false, bytes, 0, 0));
                 }
             }
         }
@@ -560,12 +593,14 @@ public sealed class SimulatedOperationsReader : IOperationsReader
     }
 
     /// <summary>A resumed survey: cumulative end of each workstation (ms from the start), the silent one, its stop and its end.</summary>
-    private sealed class Survey(string id, CollectionRun run, int[] steps, int silent, DateTimeOffset startedAt, long startTimestamp)
+    private sealed class Survey(string id, CollectionRun run, int[] steps, int silent, int unreachable, DateTimeOffset startedAt, long startTimestamp)
     {
         public string Id { get; } = id;
         public CollectionRun Run { get; } = run;
         public int[] Steps { get; } = steps;
         public int Silent { get; } = silent;
+        public int Unreachable { get; } = unreachable;
+        public int PingErrors { get; set; }
         public DateTimeOffset StartedAt { get; } = startedAt;
         public long StartTimestamp { get; } = startTimestamp;
         public bool Open { get; set; } = true;
@@ -577,5 +612,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         public DateTimeOffset? EndedAt { get; set; }
 
         public int FailedBy(int done) => Silent >= 0 && Silent < done ? 1 : 0;
+
+        public int PingErrorsBy(int done) => Unreachable >= 0 && Unreachable < done ? 1 : 0;
     }
 }

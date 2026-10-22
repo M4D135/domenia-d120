@@ -1,9 +1,11 @@
 // Opérations (docs/ops/operations.md): journal of the session — write receipts with their re-read and their manual review, tasks
-// in progress and finished, journal, health of the engine, statistics, collection runs and diagnostics — under a hero that says
-// at a glance whether a write waits for a check. Read only by default; every write leaves a receipt written before it is sent;
-// nothing is ever replayed. Route parameters: onglet (recus, taches, journal, sante, statistiques, releves, diagnostic), recu=<id>
-// (opens that receipt: link of the toast of the write circuit), filtre=a-verifier, tache=<id>, exemple=1 (local sample data for
-// the captures and the preview), ouvrir=revue|tache (open states for the captures; nothing is ever sent by them).
+// in progress and finished, journal, health of the engine, statistics, collection runs and diagnostics — under a header that says
+// at a glance whether a write waits for a check (and then every new write stays blocked, as in Domenia 1). Read only by default;
+// every write leaves a receipt written before it is sent; nothing is ever replayed. The header is full on the first display of the
+// session and compact afterwards (and as soon as the operator works in a tab), so every tab starts high on the screen.
+// Route parameters: onglet (recus, taches, journal, sante, statistiques, releves, diagnostic), recu=<id> (opens that receipt: link
+// of the toast of the write circuit), filtre=a-verifier (or verifier), tache=<id>, exemple=1 (local sample data for the captures
+// and the preview), ouvrir=revue|tache|verification|apercu (open states for the captures; nothing is ever sent by them).
 import { icon } from '../icons.js';
 import { esc, errorText, toast, applyVars, reveal, motionReduced } from '../ui.js';
 import { createTabs, pill, glyph, writeLayout, NBSP } from '../kit/index.js';
@@ -15,8 +17,8 @@ import { createHealth } from './operations/health.js';
 import { createStats } from './operations/stats.js';
 import { createRuns } from './operations/runs.js';
 import { createDiagnostics } from './operations/diagnostics.js';
-import { createPulse } from './operations/pulse.js';
-import { sampleActivity, sampleReceipts } from './operations/demo.js';
+import { startPulse } from './operations/pulse.js';
+import { sampleActivity, sampleReceipts, samplePill } from './operations/demo.js';
 
 export const stylesheet = true;
 
@@ -25,22 +27,32 @@ const OVERVIEW_MS = 15_000;
 const HEALTH_MS = 5000;
 const RUNS_MS = 10_000;
 const RUNS_LIVE_MS = 1500;
+const HERO_KEY = 'domenia.operations.hero';
+const REVIEW = ['refused', 'failed', 'unknown', 'timedOut'];
 const longDate = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
-const PILL_HELP = `Une écriture envoyée attend une relecture ou une revue${NBSP}: les nouvelles écritures sur son objet restent bloquées. Ouvre la liste des reçus${NBSP}; rien n’est rejoué.`;
-const KPI_NAMES = { pending: 'Reçus à vérifier : ouvrir les reçus', tasks: 'Tâches en cours : ouvrir les tâches', session: 'Opérations de la session : ouvrir les tâches', pulse: 'Réactivité de l’interface : ouvrir la santé du moteur' };
+const KPI_NAMES = { pending: 'Reçus à vérifier : ouvrir les reçus', tasks: 'Tâches en cours : ouvrir les tâches', session: 'Opérations de la session : ouvrir les tâches', pulse: 'Réactivité de l’interface : ouvrir la santé du moteur' };
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 
-function skeleton(demo) {
+/** Header remembered for the session: the operator's own choice wins, then « already seen » makes it compact. */
+function heroState() {
+  try { return sessionStorage.getItem(HERO_KEY); } catch { return null; }
+}
+function saveHero(value) {
+  try { sessionStorage.setItem(HERO_KEY, value); } catch { /* storage unavailable: this display only */ }
+}
+
+function skeleton(demo, compact) {
   const sk = (cls) => `<span class="skeleton op-sk-line ${cls}"></span>`;
   const kpi = (id) => `<article class="card kpi op-kpi spot tilt reveal" data-kpi="${id}" tabindex="0" role="button" aria-label="${esc(KPI_NAMES[id])}"><div class="op-sk">${sk('w40')}${sk('w55 tall')}${sk('w70')}</div></article>`;
   return `<div class="page op-page">
-    <section class="hero op-hero reveal" data-slot="hero">${RING}${ORBS}
+    <section class="hero op-hero reveal" data-slot="hero" data-compact="${compact}">${RING}${ORBS}
       <div class="op-hero-grid">
         <div class="op-hero-main">
-          <div class="eyebrow">${icon('activity')}<span>Journal des opérations</span><span class="op-eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
-          <h1 class="gradient-text">Opérations</h1>
-          <p class="lead">Tâches du moteur, reçus d’écriture et santé de la session. Chaque écriture laisse un reçu écrit avant l’envoi, puis relu${NBSP}; rien n’est jamais rejoué automatiquement.</p>
+          <div class="eyebrow op-hero-eyebrow">${icon('activity')}<span>Journal des opérations</span><span class="op-eyebrow-date">${esc(longDate.format(new Date()))}</span></div>
+          <div class="op-hero-title"><h1 class="gradient-text">Opérations</h1>
+            <button class="btn ghost icon sm op-hero-fold" type="button" data-act="fold" aria-expanded="${!compact}" aria-controls="op-hero-more" data-tip="${compact ? 'Afficher l’en-tête complet' : 'Réduire l’en-tête'}" aria-label="${compact ? 'Afficher l’en-tête complet' : 'Réduire l’en-tête'}">${glyph('chevronRight')}</button></div>
+          <p class="lead op-hero-lead" id="op-hero-more">Tâches du moteur, reçus d’écriture et santé de la session. Chaque écriture laisse un reçu écrit avant l’envoi, puis relu${NBSP}; tant qu’un reçu attend sa vérification, les nouvelles écritures restent bloquées. Rien n’est jamais rejoué automatiquement.</p>
           <div class="op-hero-chips" data-slot="chips">${demo ? pill('off', 'Exemple local · aucune donnée réelle', { icon: 'info' }) : ''}<span class="skeleton op-sk-chip"></span><span class="skeleton op-sk-chip"></span></div>
           <div class="hero-row op-hero-actions">
             <button class="btn primary" type="button" data-act="refresh">${icon('refresh')}Actualiser</button>
@@ -48,7 +60,7 @@ function skeleton(demo) {
             <button class="btn" type="button" data-act="check">${icon('shield')}Vérifier l’application</button>
           </div>
         </div>
-        <aside class="op-circuit" data-slot="circuit" aria-live="polite"><div class="op-sk">${sk('w40')}${sk('w70 tall')}${sk('w85')}${sk('w55')}</div></aside>
+        <aside class="op-circuit" data-slot="circuit" aria-live="polite"><div class="op-sk">${sk('w40')}${sk('w70 tall')}${sk('w85')}</div></aside>
       </div>
     </section>
     <div class="op-offer-banner" data-slot="offer" hidden></div>
@@ -61,37 +73,59 @@ function skeleton(demo) {
 export function render(main, ctx) {
   const params = ctx.params ?? {};
   const demo = params.exemple === '1';
+  const filter = params.filtre === 'a-verifier' || params.filtre === 'verifier' ? 'a-verifier' : null;
   let alive = true;
   let overview = null;
   let activity = null;
-  let simulation = true;
   const timers = [];
   const modules = {};
   const taskHistory = [];
   const blocks = new WeakMap();
 
-  main.innerHTML = skeleton(demo);
+  // Full header on the first display of the session (unless the operator chose), compact afterwards or when the address
+  // already points into a tab (a link of the toast, of the shell, of a capture).
+  const chosen = heroState();
+  const deep = !!(params.onglet || params.recu || filter || params.tache || params.ouvrir);
+  let compact = chosen === 'compact' || (chosen !== 'full' && (chosen === 'seen' || deep));
+  if (!chosen) saveHero('seen');
+
+  main.innerHTML = skeleton(demo, compact);
   applyVars(main);
   const stopReveal = reveal(main);
   const page = main.querySelector('.op-page');
+  const hero = main.querySelector('.op-hero');
 
-  // The heartbeat of the page (OPE-030): measured while the screen is shown, drawn by the health tab and the last tile.
-  const pulse = createPulse({
-    onBeat: (state) => {
-      if (!alive) return;
-      modules.sante?.beat(state);
-      paintPulseTile(state);
-    },
+  // The heartbeat of the interface (OPE-030): global and continuous once started; this screen only listens to it.
+  const pulse = startPulse();
+  const unsubscribe = pulse.subscribe((state) => {
+    if (!alive) return;
+    modules.sante?.beat(state);
+    paintPulseTile(state);
   });
+
+  function setCompact(on, remember) {
+    if (compact === on) return;
+    compact = on;
+    hero.dataset.compact = String(on);
+    hero.classList.remove('op-swap');
+    void hero.offsetWidth;
+    hero.classList.add('op-swap');
+    const fold = hero.querySelector('[data-act="fold"]');
+    const label = on ? 'Afficher l’en-tête complet' : 'Réduire l’en-tête';
+    fold.setAttribute('aria-expanded', String(!on));
+    fold.setAttribute('aria-label', label);
+    fold.dataset.tip = label;
+    if (remember) saveHero(on ? 'compact' : 'full');
+  }
 
   // ---------------------------------------------------------------- tabs
 
   const wanted = TABS.some((t) => t.id === params.onglet) ? params.onglet
-    : params.recu || params.filtre || params.ouvrir === 'revue' ? 'recus'
+    : params.recu || filter || params.ouvrir === 'revue' ? 'recus'
       : params.tache || params.ouvrir === 'tache' ? 'taches'
         : params.ouvrir === 'verification' || params.ouvrir === 'apercu' ? 'diagnostic' : null;
   if (wanted) writeLayout('tabs:operations.onglet', { v: 1, selected: wanted });
-  const env = { ctx, demo, params, silent: silentCall, pulse };
+  const env = { ctx, demo, params: { ...params, filtre: filter }, silent: silentCall, pulse };
   const factories = {
     recus: (panel) => (modules.recus = createReceipts(panel, { ...env, onCounts: (c) => paintReceiptCounts(c) })),
     taches: (panel) => {
@@ -105,6 +139,7 @@ export function render(main, ctx) {
     releves: (panel) => (modules.releves = createRuns(panel, { ...env, onOffer: (offer, current) => paintOffer(offer, current) })),
     diagnostic: (panel) => (modules.diagnostic = createDiagnostics(panel, env)),
   };
+  let firstTab = true;
   const tabs = createTabs(main.querySelector('.op-tabs'), {
     label: 'Sections de l’écran Opérations',
     key: 'operations.onglet',
@@ -115,17 +150,20 @@ export function render(main, ctx) {
       render: (panel) => {
         panel.classList.add('op-panel');
         panel.dataset.tab = t.id;
-        const module = pulse.measure(`Affichage de l’onglet ${t.label}`, () => factories[t.id](panel));
+        const module = pulse.measure('onglet', () => factories[t.id](panel));
         return () => module?.destroy?.();
       },
     })),
     onChange: (id) => {
-      // The tab stays in the address (a reload keeps it) without rendering the screen again.
+      // The tab stays in the address (a reload keeps it) without rendering the screen again; working in a tab folds the header.
       history.replaceState(null, '', ctx.link('operations', { onglet: id, ...(demo ? { exemple: '1' } : {}) }));
+      if (!firstTab && heroState() !== 'full') setCompact(true, false);
+      firstTab = false;
       if (id === 'sante') modules.sante?.refresh(true);
       if (id === 'releves') modules.releves?.refresh(true);
     },
   });
+  firstTab = false;
 
   // ---------------------------------------------------------------- head of the screen
 
@@ -134,11 +172,9 @@ export function render(main, ctx) {
     return read.then((o) => {
       if (!alive) return;
       overview = o;
-      simulation = o.simulation;
       if (demo) {
         const sample = sampleReceipts();
-        overview = { ...o, receiptsTotal: sample.total, receiptsPending: sample.pending, receiptsSummary: sample.summary,
-          pill: { visible: true, text: `${sample.pending} opérations à vérifier`, help: PILL_HELP } };
+        overview = { ...o, receiptsTotal: sample.total, receiptsPending: sample.pending, receiptsSummary: sample.summary, pill: samplePill(sample) };
       }
       paintHero();
       paintKpis();
@@ -156,11 +192,11 @@ export function render(main, ctx) {
     const chips = [
       demo ? pill('off', 'Exemple local · aucune donnée réelle', { icon: 'info' }) : '',
       o.simulation ? pill('accent', 'Simulation · annuaire fictif', { icon: 'sparkles' }) : pill('warn', 'Annuaire Active Directory', { icon: 'zap' }),
-      pill(o.receiptsPersistent ? 'ok' : 'info', o.receiptsPersistent ? 'Reçus enregistrés sur le disque' : 'Reçus en mémoire seulement', { icon: 'file', tip: o.receiptsPersistent ? 'Fichier des reçus du mode, ajout atomique.' : 'Mode capture, E2E ou sans dossier de données : les reçus disparaîtront à la fermeture.' }),
+      pill(o.receiptsPersistent ? 'ok' : 'info', o.receiptsPersistent ? 'Reçus enregistrés sur le disque' : 'Reçus en mémoire seulement', { icon: 'file', tip: o.receiptsPersistent ? 'Fichier des reçus du mode, ajout atomique.' : 'Mode capture, E2E ou sans dossier de données : les reçus disparaîtront à la fermeture.' }),
       pill(o.writeKinds.length ? 'info' : 'off', o.writeKinds.length ? count(o.writeKinds.length, 'type d’écriture servi', 'types d’écriture servis') : 'Aucune écriture servie', { icon: 'edit', tip: o.writeKinds.join(', ') || 'Les écritures réelles arrivent avec Domenia.Ad (vague 3).' }),
       `<span class="op-chip-live" data-live-tasks>${pill((activity?.summary ?? o.tasks).active > 0 ? 'info' : 'ok', (activity?.summary ?? o.tasks).text, { icon: 'activity' })}</span>`,
     ].filter(Boolean);
-    paintBlock(main.querySelector('[data-slot="chips"]'), chips.map((c, n) => `<span class="op-chip" data-j="${n}">${c}</span>`).join(''));
+    paintBlock(main.querySelector('[data-slot="chips"]'), chips.map((c, n) => `<span class="op-chip" data-j="${n}">${c}</span>`).join(''), true);
     paintCircuit();
   }
 
@@ -168,34 +204,32 @@ export function render(main, ctx) {
     const o = overview;
     const host = main.querySelector('[data-slot="circuit"]');
     const pending = o.receiptsPending;
-    let tone; let title; let text; let action = '';
+    let tone; let title; let text; let action = ''; let oldest = '';
     if (!o.receiptsReadable) {
       tone = 'alert'; title = 'Reçus illisibles'; text = o.receiptsSummary;
     } else if (pending > 0) {
       tone = 'warn'; title = o.pill.text; text = o.pill.help;
+      oldest = o.pill.oldest ? `<p class="op-circuit-oldest" data-tip="${esc(o.pill.oldest.text)}">${glyph('clock')}<span>${esc(o.pill.oldest.text)}</span></p>` : '';
       action = `<button class="btn primary sm" type="button" data-act="pending">${glyph('eye')}Voir les reçus à vérifier</button>`;
     } else {
-      tone = 'ok'; title = 'Au repos'; text = `Aucune écriture incertaine${NBSP}: rien ne bloque les écritures. Rien n’est jamais rejoué automatiquement.`;
+      tone = 'ok'; title = 'Au repos'; text = `Aucune écriture incertaine${NBSP}: les écritures sont admises. Rien n’est jamais rejoué automatiquement.`;
     }
     host.dataset.tone = tone;
-    paintBlock(host, `<div class="op-circuit-top"><span class="op-circuit-k">Circuit d’écriture</span>${pill(tone, tone === 'ok' ? 'Au repos' : tone === 'warn' ? 'À vérifier' : 'Bloqué', { size: 'sm', pulse: tone !== 'ok' })}</div>
+    paintBlock(host, `<div class="op-circuit-top"><span class="op-circuit-k">Circuit d’écriture</span>${pill(tone, tone === 'ok' ? 'Au repos' : tone === 'warn' ? 'Écritures bloquées' : 'Bloqué', { size: 'sm', pulse: tone !== 'ok', icon: tone === 'ok' ? 'check' : 'lock' })}</div>
       <div class="op-circuit-main">
         <span class="op-medal big" data-tone="${tone}" aria-hidden="true"><span class="op-medal-halo"></span><span class="op-medal-ring"></span><span class="op-medal-icon">${glyph(tone === 'ok' ? 'shield' : tone === 'warn' ? 'eye' : 'alert')}</span><span class="op-orbit"><i></i><i></i><i></i></span></span>
-        <div class="op-circuit-text"><b>${esc(title)}</b><p>${esc(text)}</p></div>
+        <div class="op-circuit-text"><b>${esc(title)}</b><p>${esc(text)}</p>${oldest}</div>
       </div>
       <ol class="op-circuit-steps" aria-label="Les temps d’une écriture">${['Plan', 'Confirmation', 'Reçu', 'Envoi', 'Relecture'].map((s, n) => `<li data-j="${n}"><span>${n + 1}</span>${esc(s)}</li>`).join('')}</ol>
-      <div class="op-circuit-foot"><span>${esc(count(o.receiptsTotal, 'reçu conservé', 'reçus conservés'))}${o.receiptsUnreadable ? ` · ${esc(count(o.receiptsUnreadable, 'illisible', 'illisibles'))}` : ''}</span>${action}</div>`);
+      <div class="op-circuit-foot"><span>${esc(count(o.receiptsTotal, 'reçu conservé', 'reçus conservés'))}${o.receiptsUnreadable ? ` · ${esc(count(o.receiptsUnreadable, 'illisible', 'illisibles'))}` : ''}</span>${action}</div>`, true);
   }
 
   function paintReceiptCounts(c) {
-    tabs.setCount('recus', c.pending > 0 ? c.pending : c.total, c.pending > 0 ? 'warn' : 'off');
-    if (overview && !demo) {
-      overview = {
-        ...overview, receiptsPending: c.pending, receiptsTotal: c.total, receiptsUnreadable: c.unreadable, receiptsReadable: c.readable,
-        pill: c.pending > 0 ? { visible: true, text: c.pending === 1 ? '1 opération à vérifier' : `${int(c.pending)} opérations à vérifier`, help: PILL_HELP } : { visible: false, text: '', help: '' },
-      };
-      paintCircuit();
-      paintKpis();
+    // The tab carries a number only when it says something: receipts to verify (amber), else the receipts kept; never « 0 ».
+    tabs.setCount('recus', c.pending > 0 ? c.pending : c.total > 0 ? c.total : null, c.pending > 0 ? 'warn' : 'off');
+    // A re-read or a review changed the receipts: the head is read again (pill, oldest receipt, state of the writes).
+    if (overview && !demo && (c.pending !== overview.receiptsPending || c.total !== overview.receiptsTotal || c.readable !== overview.receiptsReadable)) {
+      loadOverview(true);
     }
   }
 
@@ -233,7 +267,7 @@ export function render(main, ctx) {
     tile('pending', {
       iconName: 'shield', tone: pending > 0 ? 'warn' : 'ok', title: 'Reçus à vérifier', value: int(pending),
       sub: `sur ${count(o.receiptsTotal, 'reçu conservé', 'reçus conservés')}`,
-      foot: pending > 0 ? `${glyph('lock')}<span>Bloquent les écritures sur leurs objets</span>` : `${glyph('check')}<span>Aucune écriture bloquée</span>`,
+      foot: pending > 0 ? `${glyph('lock')}<span>Toutes les nouvelles écritures attendent</span>` : `${glyph('check')}<span>Aucune écriture bloquée</span>`,
       art: `<span class="op-kpi-badge" aria-hidden="true">${glyph(pending > 0 ? 'eye' : 'check')}</span>`,
     });
     const a = activity;
@@ -244,12 +278,16 @@ export function render(main, ctx) {
       foot: `${glyph('pause')}<span>Une lecture s’arrête, une écriture jamais</span>`,
       art: taskBars(),
     });
-    const sessionCount = a ? a.recent.length + a.open.length : o.sessionTasks;
-    const failures = a ? a.recent.filter((r) => ['refused', 'failed', 'unknown', 'timedOut'].includes(r.outcome)).length : o.sessionFailures;
-    const success = a && a.recent.length ? (100 * a.recent.filter((r) => r.outcome === 'succeeded').length) / a.recent.length : o.successPercent;
+    // Like the grid shown by default: the requests of the operator and the automatic reads that ended badly; the automatic
+    // reads that went well are counted apart, never in the percentage.
+    const listed = a ? a.recent.filter((r) => r.listed) : null;
+    const sessionCount = listed ? listed.length + a.open.length : o.sessionTasks;
+    const failures = listed ? listed.filter((r) => REVIEW.includes(r.outcome)).length : o.sessionFailures;
+    const success = listed ? (listed.length ? (100 * listed.filter((r) => r.outcome === 'succeeded').length) / listed.length : null) : o.successPercent;
+    const hidden = a ? a.recent.length - listed.length : o.hiddenAutomatic ?? 0;
     tile('session', {
       iconName: 'layers', tone: failures > 0 ? 'warn' : 'ok', title: 'Opérations de la session', value: int(sessionCount),
-      sub: success == null ? 'Aucune opération terminée' : `${Math.round(success).toLocaleString('fr-FR')}${NBSP}% terminées sans incident`,
+      sub: success == null ? 'Aucune opération terminée' : `${Math.round(success).toLocaleString('fr-FR')}${NBSP}% terminées sans incident${hidden > 0 ? ` · ${count(hidden, 'lecture automatique à part', 'lectures automatiques à part')}` : ''}`,
       foot: failures > 0 ? `${glyph('alert')}<span>${esc(count(failures, 'opération à revoir', 'opérations à revoir'))}</span>` : `${glyph('check')}<span>Aucune opération à revoir</span>`,
       art: successRing(success),
     });
@@ -261,17 +299,17 @@ export function render(main, ctx) {
     if (!el || !overview) return;
     const value = state.p95 ?? state.p50;
     const tone = value == null ? 'info' : value >= 400 ? 'alert' : value >= 120 ? 'warn' : 'ok';
-    const label = state.p95 != null ? '95 % des battements' : 'retard habituel';
+    const label = state.p95 != null ? '95 % des battements' : 'retard habituel';
     if (!el.querySelector('.op-kpi-spark')) {
       tile('pulse', {
         iconName: 'gauge', tone, title: 'Réactivité de l’interface', value: value == null ? '—' : duration(value),
-        sub: `${label} · mesure locale de la page`, foot: `${glyph('info')}<span>Pas un test du réseau</span>`,
+        sub: `${label} · toute l’interface`, foot: `${glyph('info')}<span>Mesure locale, pas un test du réseau</span>`,
         art: `<svg class="op-kpi-spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><path class="op-kpi-spark-area" d=""/><path class="op-kpi-spark-line" d=""/></svg>`,
       });
     } else {
       el.dataset.tone = tone;
       el.querySelector('.value').textContent = value == null ? '—' : duration(value);
-      el.querySelector('.op-kpi-sub').textContent = `${label} · mesure locale de la page`;
+      el.querySelector('.op-kpi-sub').textContent = `${label} · toute l’interface`;
     }
     const values = state.samples.slice(-60);
     if (values.length > 1) {
@@ -324,7 +362,8 @@ export function render(main, ctx) {
     while (taskHistory.length > 60) taskHistory.shift();
     tabs.setCount('taches', activity.summary.active > 0 ? activity.summary.active : null, 'info');
     const live = main.querySelector('[data-live-tasks]');
-    if (live) live.innerHTML = pill(activity.summary.active > 0 ? 'info' : 'ok', activity.summary.text, { icon: 'activity', spin: activity.summary.active > 0 && !motionReduced() });
+    const liveHtml = pill(activity.summary.active > 0 ? 'info' : 'ok', activity.summary.text, { icon: 'activity', spin: activity.summary.active > 0 && !motionReduced() });
+    if (live && live.innerHTML !== liveHtml) live.innerHTML = liveHtml;
     modules.taches?.update(activity);
     paintKpis();
   }
@@ -349,22 +388,30 @@ export function render(main, ctx) {
 
   // ---------------------------------------------------------------- events
 
+  function toWorkspace() {
+    if (heroState() !== 'full') setCompact(true, false);
+    main.querySelector('.op-workspace')?.scrollIntoView({ behavior: motionReduced() ? 'auto' : 'smooth', block: 'start' });
+  }
+
   page.addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('[data-act],[data-offer],[data-kpi]') : null;
     if (!b) return;
-    if (b.dataset.act === 'refresh') refreshAll();
+    if (b.dataset.act === 'fold') setCompact(!compact, true);
+    else if (b.dataset.act === 'refresh') refreshAll();
     else if (b.dataset.act === 'why' || b.dataset.act === 'check') {
       tabs.select('diagnostic');
-      main.querySelector('.op-workspace')?.scrollIntoView({ behavior: motionReduced() ? 'auto' : 'smooth', block: 'start' });
+      toWorkspace();
       if (b.dataset.act === 'check') setTimeout(() => main.querySelector('[data-check="quick"]')?.focus(), 200);
     } else if (b.dataset.act === 'pending' || b.dataset.kpi === 'pending') {
       tabs.select('recus');
       modules.recus?.showPending();
-      main.querySelector('.op-workspace')?.scrollIntoView({ behavior: motionReduced() ? 'auto' : 'smooth', block: 'start' });
+      toWorkspace();
     } else if (b.dataset.kpi === 'tasks' || b.dataset.kpi === 'session') {
       tabs.select('taches');
+      toWorkspace();
     } else if (b.dataset.kpi === 'pulse') {
       tabs.select('sante');
+      toWorkspace();
     } else if (b.dataset.offer === 'open') {
       tabs.select('releves');
     } else if (b.dataset.offer === 'later') {
@@ -384,10 +431,12 @@ export function render(main, ctx) {
   });
 
   function refreshAll() {
-    loadOverview(false);
-    pollActivity(true);
-    const id = tabs.current();
-    modules[id]?.refresh?.(false);
+    pulse.measure('actualisation', () => {
+      loadOverview(false);
+      pollActivity(true);
+      const id = tabs.current();
+      modules[id]?.refresh?.(false);
+    });
     toast('Opérations actualisées.', { tone: 'info', life: 2200 });
   }
 
@@ -433,7 +482,7 @@ export function render(main, ctx) {
   return () => {
     alive = false;
     timers.forEach((t) => clearInterval(t));
-    pulse.stop();
+    unsubscribe();
     stopReveal();
     tabs.destroy();
   };
