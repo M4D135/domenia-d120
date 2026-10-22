@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 12 h 40, relève OpenCode en cours (vague 2, écrans un par un : shell terminé)**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 13 h 40, relève OpenCode en cours (vague 2, écrans un par un : shell et accueil terminés)**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell terminé |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell et accueil terminés |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -53,7 +53,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | Écran (id) | Situation au 22/10, 12 h 10 (branches poussées sur GitHub) | À faire en premier |
 |---|---|---|
 | shell | **Terminé** (`f4a0c5d`, relève OpenCode) : `wip` compilé, tour 1 vérifié point par point, parité refaite, moteur de tableaux complété (TRV-286, 288, 303, 314, 315, 316) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| accueil | Complété une fois ; critique du tour 2 rendue | Traiter `accueil-tour2.md` (13 manques, 9 défauts de design, 13 de code) |
+| accueil | **Terminé** (`82087a5`, relève OpenCode) : tour 2 traité (ACC-055, 033, 026, 023, 020, 031, 039, barre du kit, une seule action principale, titres, aperçu), tests et E2E écrits ; partiels restants : vague 3 (Domenia.Store) et atelier de requêtes ; TRV-290 à 292 (collecte par widget) à faire avec l’ordonnanceur | Intégration |
 | rechercher | Complété une fois ; critique du tour 2 rendue | Traiter `rechercher-tour2.md` (6, 10, 12) |
 | fiche | Complété une fois ; critique du tour 2 rendue | Traiter `fiche-tour2.md` (6, 10, 11) |
 | comptes | Complété (24/31 selon l'agent) | Critique complète puis compléments |
