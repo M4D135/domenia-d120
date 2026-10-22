@@ -1,0 +1,54 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : détecter les postes d’un utilisateur",
+  "description": "Lit l’annuaire pour j.martin, montre le périmètre exact avant toute sonde, lance la détection bornée (consoles CIM servies par la simulation), suit la progression et propose d’enregistrer les consoles confirmées.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?sujet=j.martin&panneau=detecter",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"collect\"]",
+      "title": "Le panneau de détection est ouvert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"collect\"]",
+      "title": "Lire l’annuaire"
+    },
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"run\"]",
+      "timeoutMs": 20000,
+      "title": "Le périmètre est affiché avant toute sonde"
+    },
+    {
+      "do": "shot",
+      "name": "detection-perimetre",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Lancer la détection"
+    },
+    {
+      "do": "wait",
+      "contains": "Résultat",
+      "within": ".rel-panel",
+      "timeoutMs": 30000,
+      "title": "Le résultat de la détection est affiché"
+    },
+    {
+      "do": "shot",
+      "name": "detection-resultat",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

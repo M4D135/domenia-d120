@@ -1,0 +1,56 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : annuler le dernier import",
+  "description": "Le harnais ne peut pas choisir un fichier dans la boîte de dialogue de Windows : le scénario ouvre le panneau d’import, vérifie le dernier lot GLPI et l’annule par le circuit des écritures (plan, confirmation, reçu). L’aperçu d’un fichier est couvert par les tests du moteur (Import_preview_plan_and_undo).",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?panneau=import",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": ".rel-lastimport",
+      "title": "Le dernier import est rappelé"
+    },
+    {
+      "do": "expect",
+      "contains": "GLPI",
+      "within": ".rel-lastimport",
+      "title": "C’est le lot GLPI de la simulation"
+    },
+    {
+      "do": "shot",
+      "name": "import-panneau",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-undo]",
+      "title": "Annuler l’import"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan d’annulation est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-receipt-title",
+      "timeoutMs": 20000,
+      "title": "Le reçu est affiché"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

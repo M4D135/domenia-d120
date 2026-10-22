@@ -533,7 +533,7 @@ internal static class WriteCircuitTests
     {
         var simulated = new SimulatedDirectorySource(SimulationOptions.Default with { Latency = SimulationLatency.None }, TestClock.Fixed());
         var writers = WriteExecutors.Discover(simulated, [typeof(SimulatedDirectorySource).Assembly, typeof(WriteCircuitTests).Assembly]);
-        Check.True(writers.Kinds.SequenceEqual([AccountUnlock.Kind]), "écritures servies : " + string.Join(", ", writers.Kinds));
+        Check.True(new[] { AccountUnlock.Kind, RelationChange.Kind, RelationSweepReset.Kind }.All(writers.Kinds.Contains), "écritures servies : " + string.Join(", ", writers.Kinds));
         Check.True(writers.Find<IAccountUnlockExecutor>() is SimulatedAccountUnlockExecutor, "déverrouillage simulé trouvé");
         Check.True(ReferenceEquals(writers.ForKind(AccountUnlock.Kind), writers.Find<IAccountUnlockExecutor>()), "même instance par type");
         var field = typeof(SimulatedDirectorySource).GetField("world", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
