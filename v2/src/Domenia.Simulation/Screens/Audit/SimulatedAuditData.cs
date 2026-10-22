@@ -134,12 +134,12 @@ internal static class SimulatedAuditData
     ];
 
     /// <summary>Sources of the stored relation history (user_machine_history), with their nature.</summary>
-    public static readonly (string Source, RelationKind Kind)[] HistorySources =
+    public static readonly (string Source, AuditRelationKind Kind)[] HistorySources =
     [
-        ("Session console (relevé WMI de Domenia)", RelationKind.Console),
-        ("Journal de sécurité (événement 4624)", RelationKind.History),
-        ("Profil utilisateur (C:\\Users)", RelationKind.History),
-        ("Session distante (relevé de Domenia)", RelationKind.RemoteSession),
-        ("Import CSV du parc (inventaire 2026)", RelationKind.Imported),
+        ("Session console (relevé WMI de Domenia)", AuditRelationKind.Console),
+        ("Journal de sécurité (événement 4624)", AuditRelationKind.History),
+        ("Profil utilisateur (C:\\Users)", AuditRelationKind.History),
+        ("Session distante (relevé de Domenia)", AuditRelationKind.RemoteSession),
+        ("Import CSV du parc (inventaire 2026)", AuditRelationKind.Imported),
     ];
 }

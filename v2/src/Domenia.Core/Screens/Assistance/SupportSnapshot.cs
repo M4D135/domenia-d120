@@ -154,7 +154,7 @@ public static partial class SupportText
 }
 
 /// <summary>Masks of secret-looking text before a log, a trace or an export (Domenia 1 Protect-DomeniaSecretText).</summary>
-public static partial class SecretMask
+public static partial class SupportSecretMask
 {
     public static string Protect(string? text)
     {

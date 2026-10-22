@@ -259,9 +259,6 @@ public sealed record DocumentPreview(
     TicketCounts? Counts,
     TicketExcluded? Excluded);
 
-/// <summary>Result of an export: written or kept in memory only (capture, E2E, no data folder), with its fingerprint.</summary>
-public sealed record ExportResult(bool Saved, string? Path, string Name, string? Folder, string Sha256, long Bytes, string Message, DateTimeOffset At);
-
 public sealed record DossierSectionSummary(string Section, int Elements, bool Truncated, int ExcludedFields);
 
 /// <summary>One file of an offline dossier: name, SHA-256 of its UTF-8 bytes, size in bytes and that size for the operator.</summary>

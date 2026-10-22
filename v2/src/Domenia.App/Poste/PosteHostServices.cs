@@ -336,7 +336,7 @@ public sealed partial class PosteHostServices : IPosteSecretWindow, IPosteToolLa
 
     // ------------------------------------------------------------------ exports (« Enregistrer sous »)
 
-    public async Task<ExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken)
+    public async Task<PosteExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         var path = await OnUiAsync(() =>
@@ -355,7 +355,7 @@ public sealed partial class PosteHostServices : IPosteSecretWindow, IPosteToolLa
         }, interactive: true).ConfigureAwait(false);
         if (path is null)
         {
-            return new ExportResult(false, [], "Enregistrement annulé : aucun fichier écrit.");
+            return new PosteExportResult(false, [], "Enregistrement annulé : aucun fichier écrit.");
         }
         var names = ImmutableArray.CreateBuilder<string>();
         var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
@@ -374,7 +374,7 @@ public sealed partial class PosteHostServices : IPosteSecretWindow, IPosteToolLa
             TechnicalLog.Warning($"Export non enregistré : {ex.GetType().Name}.");
             throw new DomeniaOperationException(PosteErrors.Refused, "Fichier non enregistré (dossier en lecture seule, disque plein ou fichier ouvert ailleurs) : choisissez un autre emplacement.");
         }
-        return new ExportResult(true, names.ToImmutable(), FrenchText.Count(names.Count, "fichier enregistré", "fichiers enregistrés") + " : " + string.Join(", ", names) + ".");
+        return new PosteExportResult(true, names.ToImmutable(), FrenchText.Count(names.Count, "fichier enregistré", "fichiers enregistrés") + " : " + string.Join(", ", names) + ".");
     }
 
     // ------------------------------------------------------------------ native

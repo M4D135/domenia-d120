@@ -182,26 +182,8 @@ public sealed class SimulatedAccountEnabledExecutor : SimulatedFicheWriteExecuto
     private protected override string Describe(WritePlan plan) => "Bit ACCOUNTDISABLE de userAccountControl écrit";
 }
 
-/// <summary>Expiry of a user account in simulation (« account.expiration »).</summary>
-public sealed class SimulatedAccountExpirationExecutor : SimulatedFicheWriteExecutor, IAccountExpirationExecutor
-{
-    public SimulatedAccountExpirationExecutor(SimulatedDirectorySource source) : base(source)
-    {
-    }
-
-    public string Kind => ObjectWrites.ExpirationKind;
-
-    public async Task<WritePlanDraft> PlanAsync(string dn, DateOnly? day, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(dn);
-        await PlanDelayAsync(cancellationToken).ConfigureAwait(false);
-        return ObjectWrites.Expiration(Read(dn), day, Controller, Now, World.Zone);
-    }
-
-    private protected override bool Apply(WritePlan plan, FicheEntry current, Guid id) => WritePlain(plan, id);
-
-    private protected override string Describe(WritePlan plan) => "accountExpires écrit";
-}
+// « account.expiration » (FIC-016) is served by SimulatedAccountExpirationExecutor of SimulatedAccountWriteExecutors.cs (Comptes):
+// a kind has a single executor (WriteExecutors.Discover), Fiche and Comptes plan it through the same contract.
 
 /// <summary>« Expirer le mot de passe » in simulation (« password.expire »).</summary>
 public sealed class SimulatedPasswordExpireExecutor : SimulatedFicheWriteExecutor, IPasswordExpireExecutor

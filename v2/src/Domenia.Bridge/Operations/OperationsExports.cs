@@ -62,7 +62,7 @@ public sealed class OperationsExports
     }
 
     /// <summary>A ZIP archive of text files (the diagnostic dossier).</summary>
-    public Task<ExportResult> SaveZipAsync(string name, IReadOnlyList<DossierFile> files, CancellationToken cancellationToken)
+    public Task<ExportResult> SaveZipAsync(string name, IReadOnlyList<DiagnosticDossierFile> files, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(files);
         using var buffer = new MemoryStream();

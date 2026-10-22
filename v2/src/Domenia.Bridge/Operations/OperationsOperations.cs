@@ -549,7 +549,7 @@ public sealed class OperationsOperations : IOperationModule
             return new OperationStats(Now, all.Count, rows.Length, history.Length > 0, summaryText, note, rows);
         }
 
-        public async Task<JournalView> JournalAsync(CancellationToken ct)
+        public async Task<OperationsJournalView> JournalAsync(CancellationToken ct)
         {
             var session = context.Journal.Snapshot();
             ImmutableArray<JournalEntry> source = [];
@@ -569,7 +569,7 @@ public sealed class OperationsOperations : IOperationModule
             var note = simulation
                 ? "Journal de la session (en mémoire) et journal fictif de la simulation. Le journal technique (Domenia.log) garde les codes et les références des tâches."
                 : "Journal de la session (en mémoire) et journal de la base locale. Le journal technique (Domenia.log) garde les codes et les références des tâches.";
-            return new JournalView(Now, session.Length, source.Length, lines, note);
+            return new OperationsJournalView(Now, session.Length, source.Length, lines, note);
         }
 
         public async Task<CollectionRunsView> RunsAsync(CancellationToken ct)

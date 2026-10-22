@@ -158,12 +158,12 @@ public static partial class AuditText
     public static string FormatRights(string? rights) =>
         string.Join(", ", RightNames(rights).Select(n => RightLabels.TryGetValue(n, out var label) ? label : n));
 
-    public static string FactStateLabel(FactState state) => state switch
+    public static string FactStateLabel(AuditFactState state) => state switch
     {
-        FactState.Observed => "Constaté",
-        FactState.Estimated => "Estimé",
-        FactState.Refused => "Refusé",
-        FactState.Unavailable => "Indisponible",
+        AuditFactState.Observed => "Constaté",
+        AuditFactState.Estimated => "Estimé",
+        AuditFactState.Refused => "Refusé",
+        AuditFactState.Unavailable => "Indisponible",
         _ => "Inconnu",
     };
 

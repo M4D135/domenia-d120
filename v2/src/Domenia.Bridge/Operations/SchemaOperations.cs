@@ -11,7 +11,7 @@ public sealed record SchemaReadStageEvent(SchemaReadStage Stage, string Label);
 /// read itself on an explicit gesture (NetworkRead, served by the simulation), then the catalog, the class and attribute
 /// details, the analysis of an LDAP filter and the draft insertion of an attribute, all computed in memory (Local). Nothing here
 /// changes the schema; nothing reads an object value. Handlers only validate the arguments and delegate to
-/// <see cref="SchemaService"/>, <see cref="SchemaRules"/> and <see cref="LdapFilter"/>.
+/// <see cref="SchemaService"/>, <see cref="SchemaRules"/> and <see cref="LdapFilterAnalyzer"/>.
 /// </summary>
 public sealed class SchemaOperations : IOperationModule
 {
@@ -79,7 +79,7 @@ public sealed class SchemaOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, AnalyzeArguments);
                 var filter = BridgeArguments.GetString(values, "filter");
                 var catalog = await service.CatalogAsync(cancellationToken).ConfigureAwait(false);
-                return LdapFilter.Analyze(filter, catalog);
+                return LdapFilterAnalyzer.Analyze(filter, catalog);
             }, "Analyse locale du coût d’un filtre LDAP (RFC 4515) selon les index du schéma lu ; rien n’est envoyé au contrôleur."),
 
             new OperationDefinition("schema.filter.insert", OperationClass.Local, async (args, _, cancellationToken) =>
@@ -90,7 +90,7 @@ public sealed class SchemaOperations : IOperationModule
                 var catalog = await service.RequireCatalogAsync(cancellationToken).ConfigureAwait(false);
                 var attribute = catalog.FindAttribute(name)
                     ?? throw new DomeniaOperationException(SchemaErrors.UnknownAttribute, SchemaErrors.UnknownAttributeMessage);
-                return LdapFilter.Insert(filter, attribute, catalog);
+                return LdapFilterAnalyzer.Insert(filter, attribute, catalog);
             }, "Ajoute au brouillon de filtre un exemple de critère sur l’attribut choisi, puis l’analyse ; rien n’est exécuté."),
         ];
     }

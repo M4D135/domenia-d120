@@ -525,7 +525,7 @@ internal static class AuditTests
         Check.Equal(PolicyState.Unreadable, view.State, "inconnue");
         Check.False(view.PolicyKnown, "non connue");
         Check.True(view.Facts.Any(f => f.Label == "Pourquoi inconnue"), "raison dite");
-        Check.True(view.Facts.Where(f => f.Label.StartsWith("Domaine (référence)", StringComparison.Ordinal)).All(f => f.State == FactState.Unknown), "domaine en référence seulement");
+        Check.True(view.Facts.Where(f => f.Label.StartsWith("Domaine (référence)", StringComparison.Ordinal)).All(f => f.State == AuditFactState.Unknown), "domaine en référence seulement");
         Check.Equal("Inconnue", view.Facts.Single(f => f.Label == "Expiration du mot de passe").Value, "aucune échéance déduite");
     }
 

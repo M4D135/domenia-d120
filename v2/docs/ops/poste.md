@@ -76,7 +76,7 @@ monde fictif, latence simulée) ; les plans sont `LocalRead` en simulation et `N
 | `poste.secret.hide` | `Local` | `{}` | Ferme la fenêtre sécurisée et efface la valeur (changement de vue ou de poste, « Masquer maintenant »). |
 | `poste.dsreg.analyze` | `Local` | `{ dn, text, collectedAs: endUser\|admin\|unknown, endUser? }` | `DsregAnalysis` (128 Kio au plus) : jonction, mode, SSO évaluable seulement pour un texte collecté sous l’utilisateur final (PST-033). |
 | `poste.bios.reference` | `LocalWrite` | `{ dn, action: approve\|remove }` | Préférence locale `poste.biosReferences.<sha256 du domaine>` ; aucune action sur le poste (PST-080). |
-| `poste.export.save` | `LocalWrite` | `{ dn, kind, files: [{ part: lignes\|sources\|liste, csv }] }` (1 ou 2 parties, 8 Mio au plus) | `ExportResult` : fichier choisi par l’opérateur dans la boîte « Enregistrer sous » de Windows, nommé `Domenia-<poste>-<kind>-AAAAMMJJ-HHmm.csv`, la seconde partie à côté (`…-sources.csv`), UTF-8 avec BOM (PST-006, PST-039, PST-047). Sans hôte : `poste.hostUnavailable`, la page copie la liste. |
+| `poste.export.save` | `LocalWrite` | `{ dn, kind, files: [{ part: lignes\|sources\|liste, csv }] }` (1 ou 2 parties, 8 Mio au plus) | `PosteExportResult` : fichier choisi par l’opérateur dans la boîte « Enregistrer sous » de Windows, nommé `Domenia-<poste>-<kind>-AAAAMMJJ-HHmm.csv`, la seconde partie à côté (`…-sources.csv`), UTF-8 avec BOM (PST-006, PST-039, PST-047). Sans hôte : `poste.hostUnavailable`, la page copie la liste. |
 
 ### 3.2 Lectures réseau (servies en simulation)
 

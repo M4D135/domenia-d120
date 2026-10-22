@@ -58,7 +58,7 @@ public sealed record ExportFile(string Part, string Csv);
 public sealed record ExportRequest(string SuggestedName, ImmutableArray<ExportFile> Files);
 
 /// <summary>What the save did: saved or not (cancelled), the file names written (never their folder in a journal), and why.</summary>
-public sealed record ExportResult(bool Saved, ImmutableArray<string> Names, string Text);
+public sealed record PosteExportResult(bool Saved, ImmutableArray<string> Names, string Text);
 
 /// <summary>
 /// The « Enregistrer sous » of the host (Domenia.App): the Windows save dialog, the operator chooses the folder and the
@@ -67,5 +67,5 @@ public sealed record ExportResult(bool Saved, ImmutableArray<string> Names, stri
 /// </summary>
 public interface IPosteFileExport : IScreenReader
 {
-    Task<ExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken);
+    Task<PosteExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken);
 }

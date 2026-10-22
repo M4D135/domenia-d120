@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace Domenia.Core;
 
 /// <summary>Family of a collection run (Domenia 1 domenia_domain_metadata): directory objects, presence (ping) or inventory (WMI).</summary>
-public enum CollectionFamily
+public enum OperationsCollectionFamily
 {
     Directory,
     Presence,
@@ -11,7 +11,7 @@ public enum CollectionFamily
 }
 
 /// <summary>Recorded status of a run (Domenia 1 Get-DomeniaCollectionStatusText): réussi, partiel, en échec, arrêté.</summary>
-public enum CollectionStatus
+public enum OperationsCollectionStatus
 {
     Success,
     Partial,
@@ -23,13 +23,13 @@ public enum CollectionStatus
 /// One run of the local base as recorded (Domenia 1 ConvertFrom-DomeniaCollectionRunRecord): only what was recorded, nothing
 /// guessed. <see cref="Done"/>, <see cref="Targets"/> and <see cref="Failed"/> are null when not measured.
 /// </summary>
-public sealed record CollectionRun(
-    CollectionFamily Family,
+public sealed record OperationsCollectionRun(
+    OperationsCollectionFamily Family,
     string ScopeDn,
     string ScopeName,
     bool Subtree,
     DateTimeOffset AttemptAt,
-    CollectionStatus Status,
+    OperationsCollectionStatus Status,
     int? Done,
     int? Targets,
     int? Failed,
@@ -37,14 +37,14 @@ public sealed record CollectionRun(
     string? Reason);
 
 /// <summary>One row of « Derniers relevés par OU » (Domenia 1 ConvertTo-DomeniaCollectionRunListRows).</summary>
-public sealed record CollectionRunRow(
+public sealed record OperationsCollectionRunRow(
     string Id,
-    CollectionFamily Family,
+    OperationsCollectionFamily Family,
     string Type,
     string Ou,
     string OuDn,
     DateTimeOffset AttemptAt,
-    CollectionStatus Status,
+    OperationsCollectionStatus Status,
     string StatusLabel,
     Tone Tone,
     string Counts,
@@ -69,7 +69,7 @@ public enum SurveyPhase
 /// <summary>A collection batch in progress or just ended (scalar fields only: no target list ever leaves the reader).</summary>
 public sealed record SurveyState(
     string Id,
-    CollectionFamily Family,
+    OperationsCollectionFamily Family,
     string Type,
     string ScopeDn,
     string ScopeName,
@@ -96,7 +96,7 @@ public sealed record SurveyOffer(
     bool Resumable,
     int Remaining,
     int Total,
-    CollectionFamily Family,
+    OperationsCollectionFamily Family,
     string Type,
     string ScopeName,
     string ScopeDn,
@@ -108,7 +108,7 @@ public sealed record SurveyOffer(
 public sealed record CollectionRunsView(
     DateTimeOffset GeneratedAt,
     bool Available,
-    ImmutableArray<CollectionRunRow> Rows,
+    ImmutableArray<OperationsCollectionRunRow> Rows,
     SurveyState? Current,
     SurveyOffer? Offer,
     string CurrentText,
@@ -184,7 +184,7 @@ public sealed record EngineHealth(
 public sealed record JournalLine(DateTimeOffset At, string Label, Tone Tone, string Origin);
 
 /// <summary>Result of operations.journal (Domenia 1 OPE-014).</summary>
-public sealed record JournalView(DateTimeOffset At, int Session, int Source, ImmutableArray<JournalLine> Lines, string Note);
+public sealed record OperationsJournalView(DateTimeOffset At, int Session, int Source, ImmutableArray<JournalLine> Lines, string Note);
 
 /// <summary>Result of operations.rules: write kinds (postconditions, compensations) and life-cycle sequences.</summary>
 public sealed record WriteRulesView(ImmutableArray<WriteKindRow> Kinds, ImmutableArray<LifecycleView> Lifecycles, string Note);
@@ -231,9 +231,6 @@ public sealed record OperationsCenter(
 
 /// <summary>Result of operations.interface.report: samples kept and whether a stall line was written in the technical journal.</summary>
 public sealed record InterfaceReportResult(int Kept, bool Logged);
-
-/// <summary>A document written by Opérations (CSV, diagnostic, dossier) or kept in memory when the mode writes nothing.</summary>
-public sealed record ExportResult(bool Saved, string? Path, string Name, string? Folder, string Sha256, long Bytes, string Message, DateTimeOffset At);
 
 /// <summary>Result of operations.diagnostic.preview: the redacted diagnostic, its JSON text and what it contains or never contains.</summary>
 public sealed record DiagnosticPreview(string Format, string Json, ImmutableArray<string> Preview, int Bytes, string Sha256, DateTimeOffset At);

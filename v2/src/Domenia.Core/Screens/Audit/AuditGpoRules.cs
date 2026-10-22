@@ -45,27 +45,27 @@ public static partial class AuditGpoRules
         _ => "État non lu",
     };
 
-    private sealed record Outcome(GpoOutcome Result, string Text, FactState State);
+    private sealed record Outcome(GpoOutcome Result, string Text, AuditFactState State);
 
     private static Outcome RsopOutcome(RsopGpoRead entry, IReadOnlyList<long?> orders, bool linksRead)
     {
         if (entry.AccessDenied == true)
         {
-            return new(GpoOutcome.Filtered, "Non appliquée : refusée par le filtrage de sécurité selon RSoP", FactState.Observed);
+            return new(GpoOutcome.Filtered, "Non appliquée : refusée par le filtrage de sécurité selon RSoP", AuditFactState.Observed);
         }
         if (entry.FilterAllowed == false)
         {
-            return new(GpoOutcome.Filtered, "Non appliquée : filtre WMI non satisfait selon RSoP", FactState.Observed);
+            return new(GpoOutcome.Filtered, "Non appliquée : filtre WMI non satisfait selon RSoP", AuditFactState.Observed);
         }
         if (entry.Enabled == false)
         {
-            return new(GpoOutcome.Disabled, "Non appliquée : GPO désactivée selon RSoP", FactState.Observed);
+            return new(GpoOutcome.Disabled, "Non appliquée : GPO désactivée selon RSoP", AuditFactState.Observed);
         }
         if (linksRead)
         {
             if (orders.Count == 0)
             {
-                return new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP sans lien enregistré (RSOP_GPLink)", FactState.Unknown);
+                return new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP sans lien enregistré (RSOP_GPLink)", AuditFactState.Unknown);
             }
             var best = -1L;
             var unreadable = 0;
@@ -82,24 +82,24 @@ public static partial class AuditGpoRules
             }
             if (best > 0)
             {
-                return new(GpoOutcome.Applied, "Appliquée selon RSoP du poste (ordre d’application " + FrenchText.Integer(best) + ")", FactState.Observed);
+                return new(GpoOutcome.Applied, "Appliquée selon RSoP du poste (ordre d’application " + FrenchText.Integer(best) + ")", AuditFactState.Observed);
             }
             return unreadable == 0
-                ? new(GpoOutcome.NotApplied, "Non appliquée selon RSoP : ordre d’application nul (GPO vide, lien désactivé ou bloqué)", FactState.Observed)
-                : new(GpoOutcome.Unproven, "Non prouvé : ordre d’application illisible dans RSoP", FactState.Unknown);
+                ? new(GpoOutcome.NotApplied, "Non appliquée selon RSoP : ordre d’application nul (GPO vide, lien désactivé ou bloqué)", AuditFactState.Observed)
+                : new(GpoOutcome.Unproven, "Non prouvé : ordre d’application illisible dans RSoP", AuditFactState.Unknown);
         }
         var favourable = entry.AccessDenied == false && entry.FilterAllowed == true && entry.Enabled == true;
         return favourable
-            ? new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP, filtrage favorable, ordre d’application non lu", FactState.Unknown)
-            : new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP, filtrage non lu", FactState.Unknown);
+            ? new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP, filtrage favorable, ordre d’application non lu", AuditFactState.Unknown)
+            : new(GpoOutcome.Unproven, "Non prouvé : présente dans RSoP, filtrage non lu", AuditFactState.Unknown);
     }
 
-    private static FactState StateOf(ReadState state) => state switch
+    private static AuditFactState StateOf(ReadState state) => state switch
     {
-        ReadState.Read or ReadState.Empty => FactState.Observed,
-        ReadState.Refused => FactState.Refused,
-        ReadState.Unavailable => FactState.Unavailable,
-        _ => FactState.Unknown,
+        ReadState.Read or ReadState.Empty => AuditFactState.Observed,
+        ReadState.Refused => AuditFactState.Refused,
+        ReadState.Unavailable => AuditFactState.Unavailable,
+        _ => AuditFactState.Unknown,
     };
 
     /// <summary>The links (or none read yet) and, for a workstation, the RSoP result: one row per link, then RSoP-only GPOs.</summary>
@@ -113,23 +113,23 @@ public static partial class AuditGpoRules
             names[gpo.Guid] = gpo.Name;
             flags[gpo.Guid] = gpo.Flags;
         }
-        var rsopState = rsop is null ? FactState.Unknown : StateOf(rsop.State);
+        var rsopState = rsop is null ? AuditFactState.Unknown : StateOf(rsop.State);
         var unproven = rsop is null ? "Non prouvé : résultat RSoP non demandé"
             : rsopState switch
             {
-                FactState.Refused => "Non prouvé : lecture RSoP refusée",
-                FactState.Unavailable => "Non prouvé : RSoP injoignable",
-                FactState.Observed => "Non prouvé : résultat RSoP non demandé",
+                AuditFactState.Refused => "Non prouvé : lecture RSoP refusée",
+                AuditFactState.Unavailable => "Non prouvé : RSoP injoignable",
+                AuditFactState.Observed => "Non prouvé : résultat RSoP non demandé",
                 _ => "Non prouvé : lecture RSoP partielle ou au statut non reconnu",
             };
         var inRsop = new Dictionary<Guid, RsopGpoRead>();
         var orders = new Dictionary<Guid, List<long?>>();
         var linksRead = false;
-        if (rsop is not null && rsopState == FactState.Observed)
+        if (rsop is not null && rsopState == AuditFactState.Observed)
         {
             if (rsop.Gpos is not ImmutableArray<RsopGpoRead> gpos)
             {
-                rsopState = FactState.Unknown;
+                rsopState = AuditFactState.Unknown;
                 unproven = "Non prouvé : réponse RSoP incomplète";
             }
             else
@@ -140,12 +140,12 @@ public static partial class AuditGpoRules
                 }
                 if (gpos.Length == 0)
                 {
-                    rsopState = FactState.Unknown;
+                    rsopState = AuditFactState.Unknown;
                     unproven = "Non prouvé : résultat RSoP vide (journalisation RSoP désactivée ou aucun traitement enregistré)";
                 }
             }
         }
-        if (rsop is not null && rsopState == FactState.Observed && rsop.Links is ImmutableArray<RsopLinkRead> rsopLinks)
+        if (rsop is not null && rsopState == AuditFactState.Observed && rsop.Links is ImmutableArray<RsopLinkRead> rsopLinks)
         {
             foreach (var link in rsopLinks.Where(l => l.Guid is not null))
             {
@@ -169,7 +169,7 @@ public static partial class AuditGpoRules
         foreach (var container in links?.Containers ?? [])
         {
             containerCount++;
-            if (StateOf(container.State) != FactState.Observed)
+            if (StateOf(container.State) != AuditFactState.Observed)
             {
                 // Links and inheritance flag unknown for this level, and therefore for every level above it.
                 linksComplete = false;
@@ -197,13 +197,13 @@ public static partial class AuditGpoRules
                 if (link.Guid is not Guid guid)
                 {
                     unidentified++;
-                    outcome = new Outcome(GpoOutcome.Unproven, "Non prouvé : GPO du lien non identifiée", FactState.Unknown);
+                    outcome = new Outcome(GpoOutcome.Unproven, "Non prouvé : GPO du lien non identifiée", AuditFactState.Unknown);
                 }
-                else if (rsopState == FactState.Observed)
+                else if (rsopState == AuditFactState.Observed)
                 {
                     outcome = inRsop.TryGetValue(guid, out var entry)
                         ? RsopOutcome(entry, orders.TryGetValue(guid, out var o) ? o : [], linksRead)
-                        : new Outcome(GpoOutcome.NotApplied, "Absente du résultat RSoP du poste", FactState.Observed);
+                        : new Outcome(GpoOutcome.NotApplied, "Absente du résultat RSoP du poste", AuditFactState.Observed);
                 }
                 string name;
                 if (link.Guid is Guid id)
@@ -228,7 +228,7 @@ public static partial class AuditGpoRules
                     outcome.Result,
                     outcome.Text,
                     outcome.State,
-                    outcome.State == FactState.Observed ? RsopSource : "Liens AD (gPLink) seulement",
+                    outcome.State == AuditFactState.Observed ? RsopSource : "Liens AD (gPLink) seulement",
                     status,
                     ToneOf(outcome.Result, expected, link.LinkEnabled)));
             }
@@ -254,10 +254,10 @@ public static partial class AuditGpoRules
         if (links is not null)
         {
             var linkLimit = "Un lien ne prouve pas l’application : filtrage de sécurité, filtre WMI, blocage d’héritage, réplication ou poste non redémarré.";
-            var linkState = FactState.Observed;
+            var linkState = AuditFactState.Observed;
             if (!linksComplete)
             {
-                linkState = FactState.Estimated;
+                linkState = AuditFactState.Estimated;
                 linkLimit = "Certains conteneurs n’ont pas été lus : liste de liens incomplète. " + linkLimit;
             }
             if (unidentified > 0)
@@ -268,7 +268,7 @@ public static partial class AuditGpoRules
         }
         var appliedValue = unproven;
         var appliedState = rsopState;
-        if (rsop is not null && rsopState == FactState.Observed)
+        if (rsop is not null && rsopState == AuditFactState.Observed)
         {
             if (linksRead)
             {
@@ -277,17 +277,17 @@ public static partial class AuditGpoRules
             else
             {
                 appliedValue = "Application non prouvée : ordre d’application (RSOP_GPLink) non lu";
-                appliedState = FactState.Unknown;
+                appliedState = AuditFactState.Unknown;
             }
         }
         facts.Add(AuditPolicyRules.Fact("Résultat appliqué sur le poste", appliedValue, appliedState, RsopSource, "Résultat du dernier traitement des stratégies enregistré par le poste, pas une simulation."));
-        facts.Add(AuditPolicyRules.Fact("Liens de site", "Non lus", FactState.Unknown, "Sites Active Directory", "Une GPO liée au site du poste s’applique aussi ; elle n’apparaît ici que dans le résultat RSoP."));
+        facts.Add(AuditPolicyRules.Fact("Liens de site", "Non lus", AuditFactState.Unknown, "Sites Active Directory", "Une GPO liée au site du poste s’applique aussi ; elle n’apparaît ici que dans le résultat RSoP."));
         if (links is not null && links.NamesState is not ReadState.Read and not ReadState.Empty)
         {
-            facts.Add(AuditPolicyRules.Fact("Noms des GPO", "Non lus", FactState.Unavailable, "CN=Policies,CN=System", links.NamesError));
+            facts.Add(AuditPolicyRules.Fact("Noms des GPO", "Non lus", AuditFactState.Unavailable, "CN=Policies,CN=System", links.NamesError));
         }
 
-        var appliedProven = rsop is not null && rsopState == FactState.Observed && linksRead;
+        var appliedProven = rsop is not null && rsopState == AuditFactState.Observed && linksRead;
         var parts = new List<string>();
         if (links is null)
         {

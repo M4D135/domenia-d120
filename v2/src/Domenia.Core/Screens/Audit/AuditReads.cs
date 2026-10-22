@@ -28,7 +28,7 @@ public enum ReadState
 }
 
 /// <summary>State of a fact (New-DomeniaFact): Constaté, Estimé, Refusé, Indisponible, Inconnu.</summary>
-public enum FactState
+public enum AuditFactState
 {
     Observed,
     Estimated,
@@ -255,7 +255,7 @@ public sealed record MachineIdentityRead(string Name, DnsResolutionRead Resoluti
 // ---------------------------------------------------------------- relations (AUD-019, AUD-020)
 
 /// <summary>Nature of an association, from its source (Get-DomeniaRelationKind).</summary>
-public enum RelationKind
+public enum AuditRelationKind
 {
     Declared,
     Console,
@@ -265,9 +265,9 @@ public enum RelationKind
     Clue,
 }
 
-public sealed record RelationRecord(RelationKind Kind, string UserLogin, Guid? UserGuid, string Computer, Guid? ComputerGuid, string Source, DateTimeOffset? When);
+public sealed record RelationRecord(AuditRelationKind Kind, string UserLogin, Guid? UserGuid, string Computer, Guid? ComputerGuid, string Source, DateTimeOffset? When);
 
-public sealed record RelationHistoryRow(string UserLogin, string Computer, string Source, RelationKind Kind, bool? VerifiedInAd, DateTimeOffset? ObservedAt, string? Details);
+public sealed record RelationHistoryRow(string UserLogin, string Computer, string Source, AuditRelationKind Kind, bool? VerifiedInAd, DateTimeOffset? ObservedAt, string? Details);
 
 public sealed record RelationHistoryRead(ReadState State, string? Message, int Total, int Limit, ImmutableArray<RelationHistoryRow> Rows);
 

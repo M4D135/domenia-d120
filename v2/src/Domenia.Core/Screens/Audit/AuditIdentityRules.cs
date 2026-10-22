@@ -138,7 +138,7 @@ public static class AuditIdentityRules
         {
             warnings.Add("Nom AD (" + samName + ") et dNSHostName (" + dnsName + ") diffèrent : renommage ou mise à jour en attente.");
         }
-        facts.Add(AuditPolicyRules.Fact("Nom dans l’annuaire", dnsName.Length > 0 ? dnsName : samName, expected.Length > 0 ? FactState.Observed : FactState.Unknown, "Attributs sAMAccountName et dNSHostName", id: "adName"));
+        facts.Add(AuditPolicyRules.Fact("Nom dans l’annuaire", dnsName.Length > 0 ? dnsName : samName, expected.Length > 0 ? AuditFactState.Observed : AuditFactState.Unknown, "Attributs sAMAccountName et dNSHostName", id: "adName"));
         var state = IdentityCoherence.Coherent;
         if (expected.Length == 0)
         {
@@ -153,15 +153,15 @@ public static class AuditIdentityRules
                 state = IdentityCoherence.Unverified;
             }
             reasons.Add("Résolution DNS non obtenue : aucune adresse à confronter.");
-            facts.Add(AuditPolicyRules.Fact("Résolution DNS", "Non obtenue", read.Resolution.State == ReadState.Read ? FactState.Unknown : FactState.Unavailable, "DNS", read.Resolution.Message, "dnsForward"));
-            facts.Add(AuditPolicyRules.Fact("Nom inverse (PTR)", "Non interrogé", FactState.Unknown, "DNS inverse", "Sans adresse, aucun enregistrement inverse n’est cherché.", "dnsReverse"));
+            facts.Add(AuditPolicyRules.Fact("Résolution DNS", "Non obtenue", read.Resolution.State == ReadState.Read ? AuditFactState.Unknown : AuditFactState.Unavailable, "DNS", read.Resolution.Message, "dnsForward"));
+            facts.Add(AuditPolicyRules.Fact("Nom inverse (PTR)", "Non interrogé", AuditFactState.Unknown, "DNS inverse", "Sans adresse, aucun enregistrement inverse n’est cherché.", "dnsReverse"));
         }
         else
         {
-            facts.Add(AuditPolicyRules.Fact("Résolution DNS", string.Join(", ", read.Resolution.Addresses), FactState.Observed, "DNS", "Un enregistrement DNS peut être périmé.", "dnsForward"));
+            facts.Add(AuditPolicyRules.Fact("Résolution DNS", string.Join(", ", read.Resolution.Addresses), AuditFactState.Observed, "DNS", "Un enregistrement DNS peut être périmé.", "dnsForward"));
             facts.Add(string.IsNullOrEmpty(read.Resolution.PtrName)
-                ? AuditPolicyRules.Fact("Nom inverse (PTR)", "Aucun enregistrement inverse", FactState.Unknown, "DNS inverse de " + address, "Une absence d’enregistrement inverse ne prouve rien sur le poste.", "dnsReverse")
-                : AuditPolicyRules.Fact("Nom inverse (PTR)", read.Resolution.PtrName.Trim().TrimEnd('.'), FactState.Observed, "DNS inverse de " + address, "Un enregistrement inverse peut être périmé.", "dnsReverse"));
+                ? AuditPolicyRules.Fact("Nom inverse (PTR)", "Aucun enregistrement inverse", AuditFactState.Unknown, "DNS inverse de " + address, "Une absence d’enregistrement inverse ne prouve rien sur le poste.", "dnsReverse")
+                : AuditPolicyRules.Fact("Nom inverse (PTR)", read.Resolution.PtrName.Trim().TrimEnd('.'), AuditFactState.Observed, "DNS inverse de " + address, "Un enregistrement inverse peut être périmé.", "dnsReverse"));
             if (!string.IsNullOrEmpty(read.Resolution.PtrName) && expected.Length > 0 && ShortName(read.Resolution.PtrName) != expected)
             {
                 warnings.Add("L’enregistrement inverse de " + address + " désigne " + read.Resolution.PtrName + " : DNS inverse périmé possible.");
@@ -178,15 +178,15 @@ public static class AuditIdentityRules
             reasons.Add("Identité renvoyée par le poste non lue : les observations ne sont pas attribuées.");
             var reportedState = read.Reported.State switch
             {
-                ReadState.Refused => FactState.Refused,
-                ReadState.Unavailable => FactState.Unavailable,
-                _ => FactState.Unknown,
+                ReadState.Refused => AuditFactState.Refused,
+                ReadState.Unavailable => AuditFactState.Unavailable,
+                _ => AuditFactState.Unknown,
             };
             facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", "Non lue", reportedState, "CIM Win32_ComputerSystem", read.Reported.Message, "reported"));
         }
         else
         {
-            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", reportedName, FactState.Observed, "CIM Win32_ComputerSystem", id: "reported"));
+            facts.Add(AuditPolicyRules.Fact("Identité renvoyée par le poste", reportedName, AuditFactState.Observed, "CIM Win32_ComputerSystem", id: "reported"));
             if (expected.Length > 0 && reportedShort != expected)
             {
                 state = IdentityCoherence.Incoherent;
@@ -219,13 +219,13 @@ public static class AuditIdentityRules
             reportedName.Length > 0 ? reportedName : null, read.ReadAt);
     }
 
-    public static (string Badge, string Label, string Rule) Badge(RelationKind kind) => kind switch
+    public static (string Badge, string Label, string Rule) Badge(AuditRelationKind kind) => kind switch
     {
-        RelationKind.Declared => ("declared", "Déclarée", "Association déclarée par un opérateur dans Domenia."),
-        RelationKind.Console => ("observed", "Observée", "Session console lue sur le poste à la date indiquée. Une observation ne vaut pas affectation."),
-        RelationKind.RemoteSession => ("observed", "Observée", "Session distante lue sur le poste à la date indiquée. Une observation ne vaut pas affectation."),
-        RelationKind.History => ("history", "Historique", "Ouverture de session ancienne relevée dans un journal ou un profil. Historique, pas présence actuelle."),
-        RelationKind.Imported => ("imported", "Importée", "Ligne reprise d’un fichier importé. Exactitude dépendante du fichier source."),
+        AuditRelationKind.Declared => ("declared", "Déclarée", "Association déclarée par un opérateur dans Domenia."),
+        AuditRelationKind.Console => ("observed", "Observée", "Session console lue sur le poste à la date indiquée. Une observation ne vaut pas affectation."),
+        AuditRelationKind.RemoteSession => ("observed", "Observée", "Session distante lue sur le poste à la date indiquée. Une observation ne vaut pas affectation."),
+        AuditRelationKind.History => ("history", "Historique", "Ouverture de session ancienne relevée dans un journal ou un profil. Historique, pas présence actuelle."),
+        AuditRelationKind.Imported => ("imported", "Importée", "Ligne reprise d’un fichier importé. Exactitude dépendante du fichier source."),
         _ => ("clue", "Indice", "Attribut AD ou inventaire qui suggère un lien, sans observation de session."),
     };
 
@@ -244,9 +244,9 @@ public static class AuditIdentityRules
             var guid = target.Kind == AuditObjectKind.User ? r.UserGuid : r.ComputerGuid;
             return guid is null || target.ObjectGuid is null || guid == target.ObjectGuid;
         }).ToList();
-        var declared = kept.Where(r => r.Kind == RelationKind.Declared).ToList();
-        var observed = kept.Where(r => r.Kind is RelationKind.Console or RelationKind.RemoteSession).ToList();
-        var history = kept.Where(r => r.Kind == RelationKind.History).ToList();
+        var declared = kept.Where(r => r.Kind == AuditRelationKind.Declared).ToList();
+        var observed = kept.Where(r => r.Kind is AuditRelationKind.Console or AuditRelationKind.RemoteSession).ToList();
+        var history = kept.Where(r => r.Kind == AuditRelationKind.History).ToList();
         var clues = kept.Count - declared.Count - observed.Count - history.Count;
         string Describe(RelationRecord r)
         {
@@ -263,15 +263,15 @@ public static class AuditIdentityRules
         static RelationRecord Latest(List<RelationRecord> list) => list.OrderByDescending(r => r.When ?? DateTimeOffset.MinValue).First();
         var lines = ImmutableArray.CreateBuilder<AuditRelationLine>();
         var declaredText = declared.Count == 0 ? "Aucune affectation déclarée" : Describe(Latest(declared)) + (declared.Count > 1 ? " (" + FrenchText.Integer(declared.Count) + " affectations déclarées)" : string.Empty);
-        var (b1, l1, r1) = Badge(RelationKind.Declared);
+        var (b1, l1, r1) = Badge(AuditRelationKind.Declared);
         lines.Add(new AuditRelationLine("Affectation déclarée", declaredText, b1, l1, r1));
-        var (b2, l2, r2) = Badge(RelationKind.Console);
+        var (b2, l2, r2) = Badge(AuditRelationKind.Console);
         lines.Add(new AuditRelationLine("Dernière session observée", observed.Count == 0 ? "Aucune session observée en mémoire" : Describe(Latest(observed)), b2, l2, r2));
-        var (b3, l3, r3) = Badge(RelationKind.History);
+        var (b3, l3, r3) = Badge(AuditRelationKind.History);
         lines.Add(new AuditRelationLine("Historique", history.Count == 0 ? "Aucune ouverture de session ancienne relevée" : FrenchText.Count(history.Count, "relevé", "relevés") + ", le plus récent : " + Describe(Latest(history)), b3, l3, r3));
         if (clues > 0)
         {
-            var (b4, l4, r4) = Badge(RelationKind.Clue);
+            var (b4, l4, r4) = Badge(AuditRelationKind.Clue);
             lines.Add(new AuditRelationLine("Autres indices", FrenchText.Count(clues, "indice ou ligne importée", "indices ou lignes importées") + ", à confirmer", b4, l4, r4));
         }
         var all = lines.ToImmutable();

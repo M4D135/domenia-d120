@@ -33,7 +33,7 @@ tests écrits et non exécutés (décision de David du 21/10 : à la toute fin).
 | `synchro.read.discard` | `Local` | `{ batchId }` | `SyncDiscard` (`discarded`, `message`) : le lot (lecture, vérification, objets manquants, partage) n’est plus proposé à l’enregistrement ; rien n’est écrit |
 | `synchro.absences.check` | `NetworkRead` (servie) | aucun | `AbsenceCheckResult` ; événements `synchro.absences.check:progress` |
 | `synchro.gaps.read` | `NetworkRead` (servie) | aucun | `GapReadResult` ; événements `synchro.gaps.read:progress` |
-| `synchro.snapshot.compare` | `LocalRead` | `{ before, after }` | `SnapshotComparison` |
+| `synchro.snapshot.compare` | `LocalRead` | `{ before, after }` | `SyncSnapshotComparison` |
 | `synchro.snapshot.export` | `LocalWrite` | `{ before, after }` | `SyncExport` |
 | `synchro.park.state` | `LocalRead` | aucun | `ParkState` |
 | `synchro.park.shared.read` | `NetworkRead` (servie) | aucun | `ParkSharedRead` |
@@ -117,7 +117,7 @@ sont écrits ; dates UTC à la seconde ; énumérations en camelCase.
   `proof`, `text`), `summary`, `storable`, `expiresAt`. **`GapReadResult`** : `batchId`, `asked`, `added`, `gone`, `unread`,
   `rows` (`guid`, `name`, `status` ∈ `visible|notFound|unconfirmed`, `label`, `tone`, `foundDn`, `location`, `text`),
   `summary`, `storable`, `expiresAt`.
-- **`SnapshotComparison`** : `before`, `after` (`SnapshotRow`), `comparable`, `reasons`, `warnings`, `counts` (`added`,
+- **`SyncSnapshotComparison`** : `before`, `after` (`SnapshotRow`), `comparable`, `reasons`, `warnings`, `counts` (`added`,
   `disappeared`, `common`, `differing`, `unchanged`, `moved`, `renamed`, `changed`, `distinct` = communs + ajouts +
   disparitions), `limit` (500), `truncated`, `rows` (`nature` ∈ `added|disappeared|moved|renamed|changed`, `natureLabel`,
   `name`, `guid`, `detail`, `before` et `after` lisibles : emplacement pour un ajout, une disparition ou un déplacement, nom

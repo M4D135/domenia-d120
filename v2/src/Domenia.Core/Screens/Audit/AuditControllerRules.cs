@@ -274,7 +274,7 @@ public static class AuditControllerRules
                 if (Math.Abs(delta) > MaxSkewSeconds)
                 {
                     facts.Add(AuditPolicyRules.Fact("Écart avec l’émulateur PDC · " + row.Controller, FrenchText.Integer((long)Math.Round(delta)) + FrenchText.Nbsp + "s",
-                        FactState.Estimated, "currentTime des RootDSE", "Calculé à travers l’horloge de ce poste, à quelques secondes près."));
+                        AuditFactState.Estimated, "currentTime des RootDSE", "Calculé à travers l’horloge de ce poste, à quelques secondes près."));
                 }
             }
         }
@@ -284,13 +284,13 @@ public static class AuditControllerRules
                 var extra = srv.Where(n => !probed.Contains(n)).Order(StringComparer.OrdinalIgnoreCase).ToList();
                 facts.Add(AuditPolicyRules.Fact("Enregistrements SRV des contrôleurs",
                     FrenchText.Count(srv.Count, "nom", "noms") + (extra.Count > 0 ? " dont non diagnostiqués : " + string.Join(", ", extra) : string.Empty),
-                    FactState.Observed, "_ldap._tcp.dc._msdcs", "Résolution faite depuis ce poste, avec son serveur DNS."));
+                    AuditFactState.Observed, "_ldap._tcp.dc._msdcs", "Résolution faite depuis ce poste, avec son serveur DNS."));
                 break;
             case ReadState.Refused or ReadState.Unavailable:
-                facts.Add(AuditPolicyRules.Fact("Enregistrements SRV des contrôleurs", "Lecture impossible", FactState.Unavailable, "DNS", probe.SrvError));
+                facts.Add(AuditPolicyRules.Fact("Enregistrements SRV des contrôleurs", "Lecture impossible", AuditFactState.Unavailable, "DNS", probe.SrvError));
                 break;
             default:
-                facts.Add(AuditPolicyRules.Fact("Enregistrements SRV des contrôleurs", "Non vérifiés", FactState.Unknown, "DNS", "Nom DNS du domaine inconnu."));
+                facts.Add(AuditPolicyRules.Fact("Enregistrements SRV des contrôleurs", "Non vérifiés", AuditFactState.Unknown, "DNS", "Nom DNS du domaine inconnu."));
                 break;
         }
         var all = rows.ToImmutable();

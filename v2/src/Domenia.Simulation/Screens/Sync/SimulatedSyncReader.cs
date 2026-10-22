@@ -177,7 +177,7 @@ public sealed class SimulatedSyncReader : ISyncReader
         }
     }
 
-    public async Task<SnapshotComparison> CompareSnapshotsAsync(string beforeId, string afterId, CancellationToken cancellationToken)
+    public async Task<SyncSnapshotComparison> CompareSnapshotsAsync(string beforeId, string afterId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(beforeId);
         ArgumentNullException.ThrowIfNull(afterId);

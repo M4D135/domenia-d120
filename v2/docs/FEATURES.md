@@ -9,7 +9,8 @@ Ce catalogue est la liste de contrôle de la réécriture : chaque fonction de D
 | `a-faire` | Statut par défaut : la fonction existe dans Domenia 1 et n'est pas encore reprise dans Domenia 2. |
 | `fait` | Domenia 2 fait déjà ce que faisait Domenia 1 ; vérifié dans `v2/src` ou `v2/web` (la preuve est donnée plus bas). |
 | `ameliore` | Domenia 2 fait la fonction et l'améliore (réservé aux fonctions livrées avec une amélioration de la liste « Nouveautés »). |
-| `abandonne` | La fonction n'est pas reprise. Ce statut n'est posé que sur une décision écrite et datée de David ; aucune fonction n'est dans ce cas aujourd'hui. |
+| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
+| `abandonne` | La fonction n'est pas reprise. Ce statut n'est posé que sur une décision écrite et datée de David : PST-001 (WAPT, décision du 22/10/2026). |
 
 Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préférence), **lecture locale** (base SQLite, fichier, mémoire), **lecture réseau** (annuaire, poste, DNS, contrôleur), **écriture** (annuaire, poste ou base locale). Une fonction qui réunit plusieurs fiches prend la classe la plus engageante.
 
@@ -19,31 +20,33 @@ Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préfér
 2. **Dédoublonnage.** Les fiches qui décrivent la même fonction ont été repérées par leurs références communes (contrôles XAML, fonctions PowerShell, opérations) et par la proximité des titres, puis vérifiées une à une. 168 fonctions réunissent plusieurs fiches ; 192 fiches ont disparu dans ces fusions ou ont été réparties (les fiches de simple inventaire d'écran du cœur, dont chaque contrôle est décrit ailleurs). Une fusion garde la description la plus complète et réunit références, opérations, garde-fous et améliorations.
 3. **Complétude.** Le résultat a été comparé à l'inventaire des 1 164 contrôles WPF (`dev/web/PARITE.json`), à la table des 111 opérations (`Get-DomeniaOperationTable`) et aux 820 sujets du catalogue d'aide (`Domenia-UX.help.json`). Les contrôles non référencés ont été rattachés à la fonction qui les porte et 4 fonctions manquantes ont été ajoutées après lecture du code. Les chiffres sont dans la dernière section.
 4. **Identifiants.** Chaque page a son préfixe (ACC, RCH, FIC, CPT, REL, PST, MAC, ASS, REQ, AUD, SCH, SYN, OPE, PAR, TRV). Les numéros suivent l'ordre alphabétique des groupes, puis l'ordre de lecture. Ils sont attribués une fois pour toutes : une fonction ajoutée plus tard prend le numéro libre suivant de sa page, sans renuméroter les autres.
-5. **Statut.** Tout est `a-faire` par défaut. 13 fonctions sont `fait` après vérification du code de Domenia 2 ; aucune n'est `abandonne`.
+5. **Statut.** Tout est `a-faire` par défaut. 13 fonctions sont `fait` après vérification du code de Domenia 2 ; aucune n'est `abandonne`. À l'intégration de la vague 2 (22/10/2026), les statuts des fonctions des écrans ont été repris des fichiers `docs/status/<page>.json` (le fichier de la page propriétaire l'emporte quand deux écrans citent la même fonction) ; PST-001 est `abandonne` sur décision de David du 22/10/2026.
 6. **Pages.** Les pages sont celles de la navigation de Domenia 2 (`web/js/app.js`). Une fonction utilisée par plusieurs écrans est rangée dans « Transverse ». La page « Comptes machine » correspond à la vue `MachineAccount` de Domenia 1, le panneau « Compte poste ».
 
 ## Synthèse par page
 
-| Page | Préfixe | Fonctions | Faites | Améliorées | À faire |
-|---|---|---:|---:|---:|---:|
-| [Accueil](#acc) | ACC | 64 | 0 | 0 | 64 |
-| [Rechercher](#rch) | RCH | 137 | 0 | 0 | 137 |
-| [Fiche](#fic) | FIC | 50 | 0 | 0 | 50 |
-| [Comptes](#cpt) | CPT | 21 | 0 | 0 | 21 |
-| [Utilisateurs et postes](#rel) | REL | 52 | 0 | 0 | 52 |
-| [Poste](#pst) | PST | 117 | 0 | 0 | 117 |
-| [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 0 | 0 | 3 |
-| [Assistance](#ass) | ASS | 16 | 0 | 0 | 16 |
-| [Atelier de requêtes](#req) | REQ | 69 | 0 | 0 | 69 |
-| [Audit AD](#aud) | AUD | 23 | 0 | 0 | 23 |
-| [Schéma de l'annuaire](#sch) | SCH | 8 | 0 | 0 | 8 |
-| [Synchronisation et base autonome](#syn) | SYN | 30 | 0 | 0 | 30 |
-| [Opérations](#ope) | OPE | 36 | 0 | 0 | 36 |
-| [Paramètres](#par) | PAR | 51 | 2 | 0 | 49 |
-| [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 11 | 0 | 305 |
-| **Total** | | **993** | **13** | **0** | **980** |
+| Page | Préfixe | Fonctions | Faites | Améliorées | Partielles | À faire | Abandonnées |
+|---|---|---:|---:|---:|---:|---:|---:|
+| [Accueil](#acc) | ACC | 64 | 46 | 8 | 10 | 0 | 0 |
+| [Rechercher](#rch) | RCH | 137 | 116 | 14 | 7 | 0 | 0 |
+| [Fiche](#fic) | FIC | 50 | 23 | 27 | 0 | 0 | 0 |
+| [Comptes](#cpt) | CPT | 21 | 9 | 7 | 5 | 0 | 0 |
+| [Utilisateurs et postes](#rel) | REL | 52 | 33 | 13 | 6 | 0 | 0 |
+| [Poste](#pst) | PST | 117 | 81 | 31 | 4 | 0 | 1 |
+| [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 0 | 2 | 1 | 0 | 0 |
+| [Assistance](#ass) | ASS | 16 | 5 | 9 | 2 | 0 | 0 |
+| [Atelier de requêtes](#req) | REQ | 69 | 29 | 37 | 3 | 0 | 0 |
+| [Audit AD](#aud) | AUD | 23 | 14 | 9 | 0 | 0 | 0 |
+| [Schéma de l'annuaire](#sch) | SCH | 8 | 2 | 6 | 0 | 0 | 0 |
+| [Synchronisation et base autonome](#syn) | SYN | 30 | 17 | 13 | 0 | 0 | 0 |
+| [Opérations](#ope) | OPE | 36 | 16 | 10 | 10 | 0 | 0 |
+| [Paramètres](#par) | PAR | 51 | 5 | 9 | 37 | 0 | 0 |
+| [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 66 | 21 | 5 | 224 | 0 |
+| **Total** | | **993** | **462** | **216** | **90** | **224** | **1** |
 
 ## Fonctions déjà faites dans Domenia 2
+
+Ce tableau date de l'établissement du catalogue (21/10/2026). Depuis l'intégration de la vague 2 (22/10/2026), les preuves des fonctions des écrans sont dans leurs contrats `docs/ops/<page>.md` et dans les notes de `docs/status/<page>.json`.
 
 | ID | Fonction | Preuve dans Domenia 2 |
 |---|---|---|
@@ -67,13 +70,13 @@ L'Accueil de Domenia 2 affiche déjà dix widgets calculés par `src/Domenia.Cor
 
 ## Accueil (ACC)
 
-64 fonctions, dont 0 faites.
+64 fonctions : 46 faites, 8 améliorées, 10 partielles.
 
 ### Actualiser l'OU
 
 #### ACC-001 · Actualiser le périmètre depuis l'accueil (Objets AD, Ping, WMI, Tout)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Boutons qui relisent l'annuaire de l'OU (puis enregistrent la copie locale), mesurent la présence par ping, relisent console, inventaire léger et sondes des widgets sur les comptes actifs, ou enchaînent le tout ; bouton Arrêter et ligne de progression.
 
@@ -83,7 +86,7 @@ Boutons qui relisent l'annuaire de l'OU (puis enregistrent la copie locale), mes
 
 #### ACC-002 · Relever ce périmètre (lien sous section vide)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lien proposé sous les sections Répartition et Relevés des postes quand elles sont vides : prépare la collecte ping puis inventaire léger des postes actifs de l'OU choisie.
 
@@ -93,7 +96,9 @@ Lien proposé sous les sections Répartition et Relevés des postes quand elles 
 
 #### ACC-003 · Sauvegarde vérifiée avant relecture AD
 
-`a-faire` · écriture
+> Reste à faire : Sauvegarde vérifiée réelle de la base locale avant la relecture AD, avec Domenia.Store (vague 3). D’ici là, le mode annuaire refuse toute relecture AD (refresh.backupUnavailable : aucune lecture AD sans sauvegarde) ; en simulation, le plan et l’étape disent « sans objet » (état na), jamais « sauvegardée ».
+
+`partiel` · écriture
 
 Une relecture AD de l'OU (qui réécrit l'OU dans la base) est précédée d'une sauvegarde vérifiée ; l'actualisation repart de son reçu et revérifie OU, base et session confirmées au clic.
 
@@ -103,7 +108,7 @@ Une relecture AD de l'OU (qui réécrit l'OU dans la base) est précédée d'une
 
 #### ACC-004 · Ping puis WMI des seuls postes en ligne
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 « Tout actualiser » et WMI pingent d'abord chaque poste une fois puis lisent WMI uniquement sur ceux qui ont répondu, sans nouvel écho ni seconde confirmation.
 
@@ -113,7 +118,7 @@ Une relecture AD de l'OU (qui réécrit l'OU dans la base) est précédée d'une
 
 #### ACC-005 · Repli quand la lecture AD échoue
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Si la lecture AD de « Tout actualiser » échoue ou est partielle, ping et WMI partent sur les postes déjà connus de la base locale ; l'échec AD reste enregistré et affiché.
 
@@ -123,7 +128,9 @@ Si la lecture AD de « Tout actualiser » échoue ou est partielle, ping et WMI 
 
 #### ACC-006 · Reçu d'enregistrement avant collecte
 
-`a-faire` · lecture locale
+> Reste à faire : Reçu IndexBulk réel de Domenia.Store (OU, base, session, complétude) avant la collecte (vague 3) ; l’étape « Reçu d’enregistrement local », l’attente et l’échec d’une lecture partielle sont en place, servis par l’annuaire fictif en simulation.
+
+`partiel` · lecture locale
 
 La fin de la lecture AD n'est pas un reçu : la collecte des postes attend le reçu IndexBulk de la base (OU, base, session, complétude) avant de lire les postes actifs depuis la base locale.
 
@@ -133,7 +140,9 @@ La fin de la lecture AD n'est pas un reçu : la collecte des postes attend le re
 
 #### ACC-007 · Plan des sondes figé au clic
 
-`a-faire` · lecture locale
+> Reste à faire : Sondes des widgets du tableau Poste (écran Poste, autre lot) et de leurs requêtes enregistrées (atelier, autre lot) à ajouter au plan figé quand ces écrans exposeront leur disposition ; les sondes des widgets actifs du tableau du parc sont figées au clic et un widget de requête refuse le relevé WMI (refresh.queryMissing).
+
+`partiel` · lecture locale
 
 Les sondes lues par l'actualisation WMI sont celles des widgets actifs des tableaux Parc et Poste et de leurs requêtes enregistrées, figées au moment du clic.
 
@@ -142,7 +151,7 @@ Les sondes lues par l'actualisation WMI sont celles des widgets actifs des table
 
 #### ACC-008 · Arrêter l'actualisation de l'OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Arrête la lecture AD, la préparation et le relevé en cours ; un changement d'OU, de base ou de session arrête aussi l'actualisation.
 
@@ -153,7 +162,7 @@ Arrête la lecture AD, la préparation et le relevé en cours ; un changement d'
 
 #### ACC-009 · Analyser la vue : comparer deux relevés
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Compare deux relevés quotidiens (ou la vue actuelle) et sépare les causes d'une variation : périmètre (empreinte des GUID), couverture (postes et familles évalués), règles (seuils, contrôles, suspensions actives) et état observé ; verdict Stable, Réel, Périmètre, Couverture, Règles, Mixte ou Limitée, tableau des compteurs avec variation.
 
@@ -162,7 +171,7 @@ Compare deux relevés quotidiens (ou la vue actuelle) et sépare les causes d'un
 
 #### ACC-010 · Analyser la vue : tableaux croisés
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Tableaux OU × version de Windows, modèle × RAM, OU/site × couverture ping et inventaire WMI, modèle × version de BIOS, en matrice avec totaux ou en liste des cellules ; filtre texte ; chaque cellule ou total ouvre ses postes exacts dans l'atelier.
 
@@ -173,7 +182,7 @@ Tableaux OU × version de Windows, modèle × RAM, OU/site × couverture ping et
 
 #### ACC-011 · Choisir l'OU du tableau de bord (périmètre propre)
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Sélecteur d'OU partagé (arbre, recherche, favoris, profondeur avec ou sans sous-OU) qui fixe le périmètre de l'accueil et de l'atelier, indépendamment de Rechercher et de ses filtres ; recalcul depuis la base locale sans collecte.
 
@@ -182,7 +191,7 @@ Sélecteur d'OU partagé (arbre, recherche, favoris, profondeur avec ou sans sou
 
 #### ACC-012 · Mémoriser l'OU du tableau de bord par domaine
 
-`a-faire` · écriture
+`fait` · écriture
 
 Enregistre l'OU, la profondeur et le choix explicite « tout le domaine » dans une préférence propre au domaine (Fleet.Scope.&lt;SHA-256 du DN de base>) et la restaure une fois par connexion.
 
@@ -191,7 +200,7 @@ Enregistre l'OU, la profondeur et le choix explicite « tout le domaine » dans 
 
 #### ACC-013 · Fil d'Ariane de l'OU affichée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Affiche le chemin d'OU du domaine vers l'OU courante (« Postes › Lyon ») ; chaque segment est un lien qui choisit cette OU comme périmètre, en gardant la profondeur.
 
@@ -200,7 +209,7 @@ Affiche le chemin d'OU du domaine vers l'OU courante (« Postes › Lyon ») ; c
 
 #### ACC-014 · Revenir à l'OU racine sur le tableau de bord
 
-`a-faire` · écriture
+`fait` · écriture
 
 Remet le périmètre du tableau de bord sur l'OU racine enregistrée (ou le domaine entier) et recalcule depuis la base locale.
 
@@ -212,7 +221,7 @@ Remet le périmètre du tableau de bord sur l'OU racine enregistrée (ou le doma
 
 #### ACC-015 · Premiers pas de l'accueil
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Guide du premier usage : connexion à l'annuaire, choix de l'OU de travail, première lecture de cette OU dans la base locale, puis vue d'ensemble calculée localement. Chaque étape dit si elle est faite ou disponible et indique la suivante. Une lecture interrompue ou incomplète, ou le mode hors ligne, sont signalés. Le compte poste et les sauvegardes sont reportés au moment où ils servent.
 
@@ -221,7 +230,7 @@ Guide du premier usage : connexion à l'annuaire, choix de l'OU de travail, prem
 
 #### ACC-016 · Première vue d'ensemble préparée automatiquement
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Après la première lecture de base, lance le premier calcul local de la vue d'ensemble et suit son état (en cours, prête avec N postes, erreur avec Réessayer) dans le bouton de la dernière étape.
 
@@ -231,7 +240,7 @@ Après la première lecture de base, lance le premier calcul local de la vue d'e
 
 #### ACC-017 · Pastille « Nouveau » sur l'aide au premier lancement
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Au premier lancement, tant que l'aide est fermée, un point sur ? signale les explications (statut « Nouveau : aide disponible »). Il est marqué vu dans les préférences (UxHelpIntroSeen) et disparaît à la première ouverture de l'aide.
 
@@ -239,7 +248,7 @@ Au premier lancement, tant que l'aide est fermée, un point sur ? signale les ex
 
 #### ACC-018 · Raccourcis « 1. Trouver, 2. Consulter, 3. Préparer »
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Trois boutons d'étapes : ouvrir la recherche, ouvrir la fiche déjà chargée, ouvrir l'Atelier pour comparer ou préparer un dossier. Ils ne lancent aucun scan.
 
@@ -248,7 +257,7 @@ Trois boutons d'étapes : ouvrir la recherche, ouvrir la fiche déjà chargée, 
 
 #### ACC-019 · Détails de la session
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Repli « Détails de la session et outils de vérification » : domaine, serveur/DC, compte d'exécution AD, mode, base DN, branche, résultats affichés, module AD, droits, tâches, cache, self-check, liens user-machine, statistiques de la liste, objet sélectionné ; Copier, Vérifier l'application, Vider le cache, Ouvrir le journal.
 
@@ -259,7 +268,7 @@ Repli « Détails de la session et outils de vérification » : domaine, serveur
 
 #### ACC-020 · Libellé périmètre et fraîcheur AD
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Nomme l'OU (et sous-OU ou non), le nombre de postes recensés et la date de la dernière lecture AD complète couvrant cette branche ; signale tentative partielle, profondeur historique inconnue ou date future (horloge à vérifier). Info-bulle : DN, source de la lecture, rappel que le nombre inclut les désactivés.
 
@@ -268,7 +277,7 @@ Nomme l'OU (et sous-OU ou non), le nombre de postes recensés et la date de la d
 
 #### ACC-021 · Trois horloges de provenance des mesures
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Sous le tableau : mesures des postes actifs (ping N/M et inventaire WMI N/M avec intervalle du… au…, raisons des postes sans mesure, mesures conservées après échec), horloges des collectes d'OU (dernier succès et échec plus récent), puis date du calcul local qui ne date jamais les données ; l'info-bulle ajoute la provenance des relevés.
 
@@ -277,7 +286,7 @@ Sous le tableau : mesures des postes actifs (ping N/M et inventaire WMI N/M avec
 
 #### ACC-022 · Enregistrement des horloges de collecte
 
-`a-faire` · écriture
+`fait` · écriture
 
 Pour chaque OU et chaque famille (annuaire, ping, WMI) : dernière tentative, dernière réussite et erreur. Elles sont admises par le stockage (statut Success, Partial, Error ou Cancelled, fin postérieure au début) et listées dans Outils > Relevés, 300 lignes au plus, la plus récente en premier.
 
@@ -287,7 +296,7 @@ Pour chaque OU et chaque famille (annuaire, ping, WMI) : dernière tentative, de
 
 #### ACC-023 · Horloges AD, ping et WMI d'une vue
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Pour l'OU affichée : dernière réussite et dernière tentative de chaque famille, héritées d'une OU englobante en sous-arbre, avec provenance en infobulle.
 
@@ -299,7 +308,7 @@ Pour l'OU affichée : dernière réussite et dernière tentative de chaque famil
 
 #### ACC-024 · Éditeur des règles de santé
 
-`a-faire` · écriture
+`fait` · écriture
 
 Onglets Contrôles (25 règles : fin de service, connexion ancienne, LAPS, BitLocker, Secure Boot, certificats, disque, redémarrage, mémoire, batterie, pare-feu, services, pilotes, correctifs, événements…), Seuils (7 seuils bornés), Mes alertes, Suspensions, Exceptions par OU ; Appliquer ou Annuler.
 
@@ -308,7 +317,7 @@ Onglets Contrôles (25 règles : fin de service, connexion ancienne, LAPS, BitLo
 
 #### ACC-025 · Portée et héritage des règles par OU
 
-`a-faire` · écriture
+`fait` · écriture
 
 Règles par défaut du domaine, OU ancêtres et OU courante ; seule la différence avec le parent est stockée, chaque réglage montre son origine ; « Revenir aux règles héritées ».
 
@@ -317,7 +326,7 @@ Règles par défaut du domaine, OU ancêtres et OU courante ; seule la différen
 
 #### ACC-026 · Exceptions par OU
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Liste toutes les exceptions locales du domaine avec leurs différences lisibles ; « Modifier cette exception » ouvre l'OU comme portée.
 
@@ -326,7 +335,9 @@ Liste toutes les exceptions locales du domaine avec leurs différences lisibles 
 
 #### ACC-027 · Alertes personnalisées
 
-`a-faire` · écriture
+> Reste à faire : Alertes sur une requête enregistrée figée à sa révision, quand l’atelier de requêtes sera porté ; les 32 alertes sur mesures du poste (disque, démarrage, mémoire) sont en place.
+
+`partiel` · écriture
 
 Jusqu'à 32 alertes sur une mesure du poste (espace disque, jours depuis démarrage, mémoire utilisée ; inférieur ou supérieur à un seuil ; à surveiller ou critique) ou sur une requête enregistrée figée à sa révision.
 
@@ -335,7 +346,7 @@ Jusqu'à 32 alertes sur une mesure du poste (espace disque, jours depuis démarr
 
 #### ACC-028 · Suspensions temporaires avec motif
 
-`a-faire` · écriture
+`fait` · écriture
 
 Suspendre un contrôle 1 h, 24 h, 7 j ou 30 j avec motif obligatoire (3 à 240 caractères) ; « Réactiver maintenant » termine la suspension et garde la trace 30 jours.
 
@@ -344,7 +355,7 @@ Suspendre un contrôle 1 h, 24 h, 7 j ou 30 j avec motif obligatoire (3 à 240 c
 
 #### ACC-029 · Score de santé par OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Évalue chaque poste avec la politique héritée de son OU : score parc = postes évalués sans point ÷ postes évalués ; score poste = 100 − 25 par critique − 10 par point à surveiller.
 
@@ -354,7 +365,7 @@ Suspendre un contrôle 1 h, 24 h, 7 j ou 30 j avec motif obligatoire (3 à 240 c
 
 #### ACC-030 · Comprendre le score
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Par contrôle : état de la règle, constat, postes évaluables, postes signalés (uniques), effet sur le score, ce qu'une règle masquée aurait signalé ; onglet des règles appliquées par OU ; boutons Afficher les postes signalés/masqués et Voir la collecte manquante.
 
@@ -365,7 +376,9 @@ Par contrôle : état de la règle, constat, postes évaluables, postes signalé
 
 #### ACC-031 · Ouvrir les postes de l'OU dans Rechercher
 
-`a-faire` · lecture locale
+> Reste à faire : Rechercher (autre lot) doit reprendre la liste exacte transmise (révision et clé de l’ensemble) ; le bouton direct de Domenia 1 « Ouvrir les postes dans Rechercher » est dans la barre du tableau du parc (barre de commandes du kit), et les trois liens vers Rechercher passent ses paramètres à lui (ou, sousou, type = computers) : jamais le domaine entier.
+
+`partiel` · lecture locale
 
 Transfère tous les postes recensés de l'OU de l'accueil (désactivés compris) comme liste de Rechercher depuis la base locale, sans requête ; Pinger, Détecter ou Analyser la liste se lancent ensuite à la main.
 
@@ -376,7 +389,7 @@ Transfère tous les postes recensés de l'OU de l'accueil (désactivés compris)
 
 #### ACC-032 · Recalculer la vue d'ensemble depuis la base locale
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Les agrégats de l'accueil sont calculés dans le worker depuis l'index local : OU filtrée en SQL, faits des postes et présence BitLocker joints par GUID et par nom, postes regroupés selon le plan reçu. Seules les observations des postes actifs de l'OU sont analysées. Une métadonnée BitLocker écrite avant la création du poste reste inconnue.
 
@@ -386,7 +399,7 @@ Les agrégats de l'accueil sont calculés dans le worker depuis l'index local : 
 
 #### ACC-033 · Recalcul automatique quand les données changent
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Marque la vue périmée (analyse terminée, base enregistrée, nouvelle session, OU changée) et la recalcule seulement si l'accueil (ou l'atelier) est affiché ; sinon au prochain affichage. Un calcul terminé pendant qu'une écriture est survenue est relancé au lieu d'afficher des chiffres obsolètes.
 
@@ -396,7 +409,7 @@ Marque la vue périmée (analyse terminée, base enregistrée, nouvelle session,
 
 #### ACC-034 · Plan de requête du parc (bornes des règles)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Fournit au worker les bornes de regroupement SQL : tranches lastLogonTimestamp (7/30/90/180 j), créés depuis 30 j, mot de passe au-delà du seuil de la politique, âge maximal des observations, historique sur 400 j. Le worker ne fait que grouper ; aucune règle n'est copiée dans son corps épinglé.
 
@@ -406,7 +419,7 @@ Fournit au worker les bornes de regroupement SQL : tranches lastLogonTimestamp (
 
 #### ACC-035 · Dernière vue enregistrée au démarrage (cache d'abord)
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Au démarrage, avant tout calcul, affiche le résumé daté de la dernière vue calculée pour la même base et la même OU (postes actifs, à traiter, ligne de mesures), présenté comme non recalculé avec invitation à « Recalculer la vue ».
 
@@ -415,7 +428,7 @@ Au démarrage, avant tout calcul, affiche le résumé daté de la dernière vue 
 
 #### ACC-036 · Population de référence et ensembles exacts par chiffre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque calcul conserve la population (domaine, OU, profondeur, révision de la base, StoreId) et, pour chaque tuile et chaque part de graphique, la liste exacte des postes (GUID) qu'ils comptent, utilisée par les clics, exports et « Afficher les postes ».
 
@@ -424,7 +437,7 @@ Chaque calcul conserve la population (domaine, OU, profondeur, révision de la b
 
 #### ACC-037 · Vue recalculée pendant un relevé
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Pendant un relevé, la vue d'ensemble et ses widgets sont recalculés depuis les mesures déjà enregistrées toutes les 15 s au plus.
 
@@ -436,7 +449,7 @@ Pendant un relevé, la vue d'ensemble et ses widgets sont recalculés depuis les
 
 #### ACC-038 · Collecter seulement ce qui manque
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Avant tout réseau, vérifie par tranches les mesures enregistrées de chaque poste et ne contacte que ceux dont une mesure manque, est en erreur ou plus vieille que l'âge de réutilisation (« déjà à jour, non contactés »).
 
@@ -448,7 +461,9 @@ Avant tout réseau, vérifie par tranches les mesures enregistrées de chaque po
 
 #### ACC-039 · Ouvrir un chiffre dans l'atelier
 
-`a-faire` · lecture locale
+> Reste à faire : Ouvrir un chiffre dans l’atelier avec sa recette quand l’atelier de requêtes sera porté ; chaque chiffre ouvre déjà sa liste exacte de postes (grille, filtres, CSV, fiche, Rechercher), et sur board.replaced le tableau est redessiné de lui-même, le message restant affiché (point 73 de Domenia 1).
+
+`partiel` · lecture locale
 
 Un clic sur un widget ou une de ses parts ouvre l'atelier avec la recette équivalente (inactifs, LAPS, BitLocker, cycle, disque, RAM, OS, OU, modèles…) ou la liste exacte de GUID calculée, puis lance l'aperçu.
 
@@ -460,7 +475,7 @@ Un clic sur un widget ou une de ses parts ouvre l'atelier avec la recette équiv
 
 #### ACC-040 · Instantané quotidien local du parc
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Au premier calcul du jour pour une OU, enregistre localement les chiffres (postes, sains, à traiter, inactifs et seuil utilisé, fin de service, désactivés, Windows 10, disques presque pleins) qui alimentent courbes et comparaisons.
 
@@ -470,7 +485,7 @@ Au premier calcul du jour pour une OU, enregistre localement les chiffres (poste
 
 #### ACC-041 · Évolution sur 90 jours
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Courbes quotidiennes des postes à traiter, Windows 10, inactifs et disques presque pleins à partir des instantanés locaux de l'OU, à partir de deux jours relevés.
 
@@ -481,7 +496,7 @@ Courbes quotidiennes des postes à traiter, Windows 10, inactifs et disques pres
 
 #### ACC-042 · Inventaire des comptes ordinateur du périmètre
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Tuiles et anneau : tous les comptes (activés, désactivés, état inconnu), activés (sans déduction de présence), état AD inconnu, répartition des états, sans connexion AD au-delà du seuil (dates inconnues à part), désactivés encore dans l'OU, créés ces 30 j, mot de passe machine au-delà du seuil, serveurs/postes.
 
@@ -492,7 +507,7 @@ Tuiles et anneau : tous les comptes (activés, désactivés, état inconnu), act
 
 #### ACC-043 · Présence réseau et dernier ping
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Anneau En ligne / Sans réponse / Non vérifié sur les comptes actifs, tuile Dernier ping et tuile Utilisateurs distincts vus en session console ; couverture « N analysés sur M ».
 
@@ -501,7 +516,7 @@ Anneau En ligne / Sans réponse / Non vérifié sur les comptes actifs, tuile De
 
 #### ACC-044 · Réponse WMI indépendante du ping
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Anneau WMI a répondu / non confirmé / non relevé à partir des familles CIM datées (console, inventaire, sondes), avec raisons des postes sans réponse utilisable (refusé, erreur, expiré, non lu, absent).
 
@@ -510,7 +525,7 @@ Anneau WMI a répondu / non confirmé / non relevé à partir des familles CIM d
 
 #### ACC-045 · Ping et WMI comparés
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Barres par combinaison : ping et WMI répondent, WMI sans ping (ICMP probablement filtré), ping sans WMI confirmé, ni l'un ni l'autre, un seul canal relevé, aucun relevé.
 
@@ -519,7 +534,7 @@ Barres par combinaison : ping et WMI répondent, WMI sans ping (ICMP probablemen
 
 #### ACC-046 · Inventaire léger des postes (modèles, versions, mémoire, disque, redémarrage)
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Modèles, versions relevées par WMI, postes par mémoire (≤4, 5-8, 9-16, 17-32, >32 Go), par espace libre de C: selon les seuils, tuile C: presque plein (&lt;10 %) et tuile non redémarrés au-delà du seuil.
 
@@ -530,7 +545,7 @@ Modèles, versions relevées par WMI, postes par mémoire (≤4, 5-8, 9-16, 17-3
 
 #### ACC-047 · Répartition des systèmes, connexions et OU
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Systèmes d'exploitation (6 premiers + Autres), ancienneté de la dernière connexion au domaine (6 tranches, vides comprises), postes par OU ou par sous-OU de l'OU choisie.
 
@@ -541,7 +556,9 @@ Systèmes d'exploitation (6 premiers + Autres), ancienneté de la dernière conn
 
 #### ACC-048 · Sondes WMI et requêtes enregistrées sur l'accueil
 
-`a-faire` · lecture locale
+> Reste à faire : Widgets issus de « Mes requêtes » quand l’atelier de requêtes sera porté ; les widgets de sondes WMI (catalogue, « À relever », couverture) sont en place.
+
+`partiel` · lecture locale
 
 Widgets issus du catalogue de sondes ou de « Mes requêtes » évalués localement en arrière-plan sur l'instantané de l'OU (« À calculer » en attendant), avec sous-titre de couverture.
 
@@ -550,7 +567,9 @@ Widgets issus du catalogue de sondes ou de « Mes requêtes » évalués localem
 
 #### ACC-049 · Widget de requête du tableau de bord général
 
-`a-faire` · lecture locale
+> Reste à faire : Widget de requête enregistrée (10 premières valeurs, « Autres valeurs », « Valeur inconnue ») : dépend de la bibliothèque de requêtes de l’atelier, non portée ; la clé query:<id> est réservée et un widget de requête affiche « Requête absente ».
+
+`partiel` · lecture locale
 
 Affiche le compte ou la répartition d'une requête enregistrée sur l'OU (10 premières valeurs, « Autres valeurs » exact, « Valeur inconnue »), avec détail correspondants/inconnus/non correspondants et dates des sources.
 
@@ -560,7 +579,9 @@ Affiche le compte ou la répartition d'une requête enregistrée sur l'OU (10 pr
 
 #### ACC-050 · Révision évaluée affichée sur le widget
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Révision évaluée et avertissements de lien sur le widget de requête : dépend de l’atelier de requêtes ; le refus d’un relevé WMI avec un widget de requête actif (refresh.queryMissing) est en place.
+
+`partiel` · locale (aucune lecture)
 
 Le widget dit quelle révision il évalue et avertit si son lien est en retard, si la requête est archivée, modifiée, absente de la bibliothèque ou si la bibliothèque n'est pas lue.
 
@@ -569,7 +590,9 @@ Le widget dit quelle révision il évalue et avertit si son lien est en retard, 
 
 #### ACC-051 · Points d'attention vers une sélection figée
 
-`a-faire` · lecture locale
+> Reste à faire : Ouvrir la sélection figée des GUID dans l’atelier, nommée avec le compte et la date, quand l’atelier sera porté ; « Points d’attention », « Sans problème » et « Non évalués » ouvrent déjà leurs postes exacts.
+
+`partiel` · lecture locale
 
 « Postes concernés par les points d'attention » et « Sans point détecté » ouvrent l'atelier sur la sélection figée des GUID concernés, nommée avec le compte et la date.
 
@@ -581,7 +604,7 @@ Le widget dit quelle révision il évalue et avertit si son lien est en retard, 
 
 #### ACC-052 · Santé du parc (score et points)
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Carte Santé : part des postes évalués sans point critique ni à surveiller (Bon état ≥90 %, À surveiller ≥75 %, Dégradé sinon, Critique dès un point critique) à côté de la liste des points ; postes non évalués comptés à part, couverture affichée.
 
@@ -590,7 +613,7 @@ Carte Santé : part des postes évalués sans point critique ni à surveiller (B
 
 #### ACC-053 · Points d'attention du parc
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Liste triée du plus grave au moins grave : fin de service dépassée/proche, inactifs au-delà du seuil, jamais connectés, base incomplète, mot de passe machine ancien, LAPS absent ou expiré, BitLocker absent, disques C: critiques ou serrés, non redémarrés, créés récemment, désactivés encore dans l'OU, sans réponse ping, WMI non confirmé, relevés ignorés ; informations comptées à part (« 4 points à vérifier · 1 information »).
 
@@ -599,7 +622,7 @@ Liste triée du plus grave au moins grave : fin de service dépassée/proche, in
 
 #### ACC-054 · Déplier les postes d'un point d'attention
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Un clic sur un point affiche jusqu'à 20 postes concernés (nom, OU, date de connexion ou de relevé) depuis la mémoire, avec Copier (noms, un par ligne) et Détailler les postes (sélection complète dans l'atelier avec filtres, export et fiche).
 
@@ -608,7 +631,7 @@ Un clic sur un point affiche jusqu'à 20 postes concernés (nom, OU, date de con
 
 #### ACC-055 · Base locale incomplète signalée
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Quand la dernière lecture du périmètre s'est arrêtée à sa limite, badge « Base AD incomplète : couverture partielle » sous le score et point « chiffres peut-être sous-estimés : Mettre à jour cette OU ».
 
@@ -617,7 +640,7 @@ Quand la dernière lecture du périmètre s'est arrêtée à sa limite, badge «
 
 #### ACC-056 · Relevés invalides écartés
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Compte les relevés ignorés (contenu illisible ou identité AD différente) et le signale comme point à surveiller ; les postes restent dans la base et peuvent être relevés à nouveau.
 
@@ -628,7 +651,7 @@ Compte les relevés ignorés (contenu illisible ou identité AD différente) et 
 
 #### ACC-057 · Présence des clés BitLocker des postes d'une OU
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Sur geste explicite depuis l'accueil, compte par poste les objets de récupération BitLocker d'une OU et la date du plus récent, en distinguant « classe absente du domaine » et « aucun objet visible avec ce compte ».
 
@@ -638,7 +661,7 @@ Sur geste explicite depuis l'accueil, compte par poste les objets de récupérat
 
 #### ACC-058 · Tuile LAPS du parc
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Compte les postes actifs sans expiration LAPS visible (et ceux expirés), lue avec la base, jamais le mot de passe ; états Non lu, À relire, Non disponible (schéma sans LAPS) ou Non déterminé (rien de visible avec ce compte).
 
@@ -647,7 +670,7 @@ Compte les postes actifs sans expiration LAPS visible (et ceux expirés), lue av
 
 #### ACC-059 · Tuile BitLocker du parc
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Compte les postes actifs sans clé de récupération visible avec couverture « N postes analysés sur M, le jj/MM » ; états Non lu (avec bouton de lecture), Non disponible, Non déterminé ; refus à la racine du domaine expliqué.
 
@@ -658,7 +681,7 @@ Compte les postes actifs sans clé de récupération visible avec couverture « 
 
 #### ACC-060 · Catalogue des sondes WMI
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 77 sondes intégrées (matériel, système, disques, sécurité, réseau, logiciels et services, utilisateurs, événements) et 33 sondes détaillées documentées du fichier JSON, chacune avec classe, propriétés, filtre, mode First/Count/All, transformation et représentation.
 
@@ -667,7 +690,7 @@ Compte les postes actifs sans clé de récupération visible avec couverture « 
 
 #### ACC-061 · Représentations proposées par sonde
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un poste seul : chiffre ou texte ; une mesure numérique sur le parc : colonnes, chiffre, texte ; une valeur textuelle : camembert, barres, texte, chiffre.
 
@@ -675,7 +698,7 @@ Un poste seul : chiffre ou texte ; une mesure numérique sur le parc : colonnes,
 
 #### ACC-062 · Agrégation d'une sonde sur le parc
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Valeurs transformées (Go, Mo, Mbit/s, jours depuis, année, % libre, version commerciale, table de correspondance) puis catégories comptées (8 + Autres) ou tranches avec unités (≤ 4 Go, 5 à 8 Go, > 512 Go), résumé moyenne/min/max et couverture.
 
@@ -685,7 +708,7 @@ Valeurs transformées (Go, Mo, Mbit/s, jours depuis, année, % libre, version co
 
 #### ACC-063 · Résumé du contrat d'une sonde
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une ligne dans l'éditeur de widget et un volet détaillé dans les détails de sonde : droits, coût, comportement, entrées, types, limites, sources, tests attendus, isolement, avertissements et refus.
 
@@ -695,7 +718,7 @@ Une ligne dans l'éditeur de widget et un volet détaillé dans les détails de 
 
 #### ACC-064 · Versions de Windows et fin de service
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Anneau des versions commerciales (operatingSystemVersion, édition Pro/Entreprise précisée), tuile Fin de service (dépassée = critique, à 90 j = à surveiller), tuile Windows 10 hors LTSC/LTSB/IoT avec sa date de fin.
 
@@ -706,13 +729,13 @@ Anneau des versions commerciales (operatingSystemVersion, édition Pro/Entrepris
 
 ## Rechercher (RCH)
 
-137 fonctions, dont 0 faites.
+137 fonctions : 116 faites, 14 améliorées, 7 partielles.
 
 ### Aperçu et comparaison
 
 #### RCH-001 · Aperçu local latéral de la fiche enregistrée
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Panneau de 400 px montrant la fiche de la ligne courante lue dans la base locale : champs AD datés, 80 attributs max, familles Présence/Utilisateur connecté/Inventaire d'un poste.
 
@@ -722,7 +745,7 @@ Panneau de 400 px montrant la fiche de la ligne courante lue dans la base locale
 
 #### RCH-002 · Comparer deux à huit postes
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Tableau propriété × poste (valeur et date UTC) depuis la base locale : identité, système, création, mot de passe machine, présence, console, inventaire ; Identique, Différent, Dates seules, Incomplet ; case « Différences seulement ».
 
@@ -734,7 +757,7 @@ Tableau propriété × poste (valeur et date UTC) depuis la base locale : identi
 
 #### RCH-003 · Favoris d'OU épinglés au-dessus de l'arborescence
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 « Épingler cette OU » / « Retirer des favoris » ; section des favoris au-dessus de l'arbre avec étoile dans l'arbre, bouton × pour retirer et libellés distingués par leurs parents quand deux OU portent le même nom ; un clic affiche l'OU (sous-arborescence, type, terme en filtre local visible), lance la recherche de cette OU et révèle l'arbre.
 
@@ -744,7 +767,9 @@ Tableau propriété × poste (valeur et date UTC) depuis la base locale : identi
 
 #### RCH-004 · Reprise unique des anciennes recherches enregistrées
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Reprise branchée : au premier affichage d’un domaine, search.memory transforme une seule fois les recherches enregistrées d’OU en favoris (règle ImportLegacy, drapeau par domaine, journal, liste d’origine intacte), lues par ISearchReader.LegacySavedSearchesAsync (échantillon fixe en simulation). Reste la lecture du fichier Domenia.settings.json de Domenia 1 par le lecteur du mode annuaire (Domenia.Ad, vague 3).
+
+`partiel` · locale (aucune lecture)
 
 Au premier affichage, les anciennes recherches enregistrées (bloc Fiabilité retiré) deviennent des favoris d'OU une seule fois ; les recherches texte sur tout le domaine, sans OU, ne sont pas reprises et la liste d'origine est conservée.
 
@@ -753,7 +778,7 @@ Au premier affichage, les anciennes recherches enregistrées (bloc Fiabilité re
 
 #### RCH-005 · Défaut de Rechercher depuis l'OU racine
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Tant que l'opérateur n'a pas choisi de branche ni de signet, recherches et actualisation d'OU utilisent l'OU racine ; l'arbre reste sur le domaine ; message unique en barre d'état.
 
@@ -762,7 +787,7 @@ Tant que l'opérateur n'a pas choisi de branche ni de signet, recherches et actu
 
 #### RCH-006 · Arbre des OU virtualisé à chargement paresseux
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 L'arbre lit un niveau à la fois en arrière-plan, rend les grandes branches par lots (16 éléments / 20 ms, quota partagé), regroupe les conteneurs système sous la racine, se virtualise et se rafraîchit par F5 ou Actualiser.
 
@@ -772,7 +797,9 @@ L'arbre lit un niveau à la fois en arrière-plan, rend les grandes branches par
 
 #### RCH-007 · Sous-branches publiées depuis la base locale
 
-`a-faire` · lecture locale
+> Reste à faire : Publication des sous-branches dans la base locale SQLite (pages de 250, OU et conteneurs) puis relecture : la base locale arrive avec la vague 3. L’arbre lit directory.ou.children ; les conteneurs de la racine ne sont plus comptés sans demande (search.containers, counts).
+
+`partiel` · lecture locale
 
 Les enfants lus dans l'AD sont enregistrés puis relus en SQLite (pages de 250, types OU/Conteneur) avant affichage ; une énumération vide réussie reste vide.
 
@@ -782,7 +809,7 @@ Les enfants lus dans l'AD sont enregistrés puis relus en SQLite (pages de 250, 
 
 #### RCH-008 · Conteneurs système regroupés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Sous la racine, System, Program Data, ForeignSecurityPrincipals, LostAndFound, Infrastructure, NTDS Quotas, TPM Devices, Keys, Managed Service Accounts et Builtin sont repliés sous « Conteneurs système » ; Users et Computers restent visibles.
 
@@ -791,7 +818,7 @@ Sous la racine, System, Program Data, ForeignSecurityPrincipals, LostAndFound, I
 
 #### RCH-009 · Filtre local de l'arbre des OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Filtre littéral insensible à la casse et aux accents sur le nom des branches déjà lues, parents conservés, branches correspondantes dépliées ; traitement par tranches de 8 ms.
 
@@ -800,7 +827,7 @@ Filtre littéral insensible à la casse et aux accents sur le nom des branches d
 
 #### RCH-010 · Temporisation clavier de l'arbre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un clic souris lit l'OU aussitôt ; un parcours au clavier ou un changement de type attend 300 ms et seul le dernier arrêt est lu.
 
@@ -810,7 +837,7 @@ Un clic souris lit l'OU aussitôt ; un parcours au clavier ou un changement de t
 
 #### RCH-011 · Révélation d'une branche dans l'arbre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Fait défiler et sélectionne un nœud déjà lu niveau par niveau (tic 35 ms, 8 ms de budget, 60 s max), interrompu par toute action souris/clavier.
 
@@ -819,7 +846,7 @@ Fait défiler et sélectionne un nœud déjà lu niveau par niveau (tic 35 ms, 8
 
 #### RCH-012 · Fil d'Ariane de l'OU
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Affiche domaine › OU › sous-OU ; chaque niveau intermédiaire est un bouton qui ouvre cette branche (une lecture) ; info-bulle du chemin complet.
 
@@ -829,7 +856,7 @@ Affiche domaine › OU › sous-OU ; chaque niveau intermédiaire est un bouton 
 
 #### RCH-013 · Copier le chemin LDAP de l'OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le DN devient un nom lisible, un fil d'Ariane (« … / a / b / c ») et un chemin complet, en décodant les octets UTF-8 et les séparateurs échappés. Le périmètre affiche « Dans : OU (dans parent) · Sous-OU incluses / Enfants directs ». Le DN exact se copie dans le presse-papiers.
 
@@ -838,7 +865,7 @@ Le DN devient un nom lisible, un fil d'Ariane (« … / a / b / c ») et un chem
 
 #### RCH-014 · Menu d'en-tête de l'arbre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Regroupe profondeur, domaine entier, épinglage et chemin LDAP pour laisser toute la hauteur à l'arbre.
 
@@ -847,7 +874,7 @@ Regroupe profondeur, domaine entier, épinglage et chemin LDAP pour laisser tout
 
 #### RCH-015 · Restauration d'une OU mémorisée sans substitution
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Si le parent est chargé sans l'OU mémorisée, l'avis dit qu'elle est absente (supprimée ou déplacée). Un délai, un refus ou une branche non lue donnent au contraire une lecture à refaire. L'avis s'affiche dans la page avec « Réessayer » et « Ignorer », sans toucher à la branche ni aux résultats affichés.
 
@@ -857,7 +884,7 @@ Si le parent est chargé sans l'OU mémorisée, l'avis dit qu'elle est absente (
 
 #### RCH-016 · Parcours d'OU séparé de la recherche globale
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Choisir une OU démarre un parcours avec son propre filtre vide ; le texte global est conservé mais non appliqué ; libellé « Dans cette OU : X · Sous-OU incluses / Enfants directs ».
 
@@ -867,7 +894,7 @@ Choisir une OU démarre un parcours avec son propre filtre vide ; le texte globa
 
 #### RCH-017 · Profondeur de lecture de l'OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Case « Inclure les sous-OU » : sous-arbre ou enfants directs, mémorisée par l'historique et les vues.
 
@@ -876,7 +903,7 @@ Case « Inclure les sous-OU » : sous-arbre ou enfants directs, mémorisée par 
 
 #### RCH-018 · Type d'objet de la liste d'OU
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Filtre Tous, Utilisateurs, Machines, Groupes, OU et conteneurs, traduit en filtre LDAP et retrouvé à partir du filtre pour l'historique.
 
@@ -886,7 +913,7 @@ Filtre Tous, Utilisateurs, Machines, Groupes, OU et conteneurs, traduit en filtr
 
 #### RCH-019 · Mémoire de l'arbre de l'annuaire
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Mémorise l'OU sélectionnée, les branches dépliées (128 au plus) et l'option sous-arbre, puis les restaure au démarrage avec la recherche de contenu de l'OU. Le tableau de bord attend la fin de cette restauration, OU trouvée ou non.
 
@@ -896,7 +923,7 @@ Mémorise l'OU sélectionnée, les branches dépliées (128 au plus) et l'option
 
 #### RCH-020 · Révéler un favori dans l'arbre
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 À l'ouverture d'un favori, sa recherche de contenu a déjà été lancée ; l'arbre est ensuite déplié pas à pas jusqu'à l'élément, en suivant les frontières de RDN, échappements compris.
 
@@ -906,7 +933,7 @@ Mémorise l'OU sélectionnée, les branches dépliées (128 au plus) et l'option
 
 #### RCH-021 · Menu contextuel de l'arborescence
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Afficher le contenu de la branche, Actualiser l'arborescence, Copier le chemin (DN), Nouveau > Unité d'organisation (amène sur l'onglet de création), Analyser les droits sur cette branche.
 
@@ -918,7 +945,7 @@ Afficher le contenu de la branche, Actualiser l'arborescence, Copier le chemin (
 
 #### RCH-022 · Barre de recherche : récents et suggestions locales
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Bouton ✕ pour vider. Un clic ou la flèche bas affiche les 8 dernières recherches et fiches. Pendant la saisie, après 300 ms de pause et à partir de 2 caractères, des objets de la base locale sont suggérés (8 au plus, source indiquée). Les flèches choisissent, Échap ferme, un clic recopie le texte. Seule Entrée ou Rechercher interroge l'annuaire.
 
@@ -928,7 +955,7 @@ Bouton ✕ pour vider. Un clic ou la flèche bas affiche les 8 dernières recher
 
 #### RCH-023 · Mémoire des recherches et fiches récentes
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les 8 dernières recherches (au moins 2 caractères) et les 8 dernières fiches réellement chargées (une par DN) sont gardées dans les préférences locales de ce poste. Le JSON illisible ou étranger est ignoré.
 
@@ -937,7 +964,7 @@ Les 8 dernières recherches (au moins 2 caractères) et les 8 dernières fiches 
 
 #### RCH-024 · Recherche globale de la barre du haut
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Barre du haut : passe d'identité exacte, préfixe sur nom, displayName, prénom, nom, sAMAccountName, dNSHostName, mail, puis ANR ; jokers seulement s'ils sont saisis ; texte fait de seuls astérisques refusé ; limite 100 par défaut jusqu'à 20 000, budget d'inactivité 120 s et plafond 900 s.
 
@@ -947,7 +974,7 @@ Barre du haut : passe d'identité exacte, préfixe sur nom, displayName, prénom
 
 #### RCH-025 · Longueur minimale et refus de l'étoile seule
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Avant tout envoi, refuse un texte fait uniquement d'étoiles (il listerait tout le domaine) ou plus court que le minimum (2 par défaut) ; en mode OU, vide ou \* liste l'OU.
 
@@ -956,7 +983,7 @@ Avant tout envoi, refuse un texte fait uniquement d'étoiles (il listerait tout 
 
 #### RCH-026 · Indice de lecture de la saisie
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Sous la barre, explique à chaque frappe ce qui sera cherché : jetons reconnus, identifiant collé, adresse IP/MAC, joker en tête, refus de l'étoile. Analyse de texte seulement.
 
@@ -965,7 +992,7 @@ Sous la barre, explique à chaque frappe ce qui sera cherché : jetons reconnus,
 
 #### RCH-027 · Syntaxe explicite optionnelle par préfixes
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Préfixes utilisateur:/user:/u:, poste:/pc:/machine:/ordinateur:, groupe:/group:/g:, mail:/email:/courriel: (valeurs entre guillemets possibles) ; un préfixe inconnu reste du texte et est signalé, plusieurs types cherchent chacun dans son type.
 
@@ -975,7 +1002,7 @@ Préfixes utilisateur:/user:/u:, poste:/pc:/machine:/ordinateur:, groupe:/group:
 
 #### RCH-028 · Filtre LDAP par mots en début de valeur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque mot doit correspondre (ET) au début d'un des attributs cn, sAMAccountName, displayName, sn, givenName, userPrincipalName, mail, dNSHostName (OU) ; joker en tête seulement s'il est tapé. Filtre multi-mots dédié construit sans appel.
 
@@ -985,7 +1012,7 @@ Chaque mot doit correspondre (ET) au début d'un des attributs cn, sAMAccountNam
 
 #### RCH-029 · Avertissement de joker en tête
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un mot commençant par \* déclenche une note : recherche par sous-chaîne sans index, potentiellement longue sur un grand domaine.
 
@@ -994,7 +1021,7 @@ Un mot commençant par \* déclenche une note : recherche par sous-chaîne sans 
 
 #### RCH-030 · Reconnaissance d'identifiants collés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 GUID, SID et DN (RDN par RDN, virgules échappées) deviennent une recherche exacte ; DOMAINE\compte, UPN/adresse et FQDN sont reconnus et expliqués mais cherchés avec les autres correspondances.
 
@@ -1004,7 +1031,7 @@ GUID, SID et DN (RDN par RDN, virgules échappées) deviennent une recherche exa
 
 #### RCH-031 · Puce de périmètre Partout / Dans l'OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Choisit entre tout le domaine et l'OU sélectionnée dans l'arbre (sous-OU incluses) ; revient à Partout si l'OU n'est plus utilisable (aucune, racine, autre domaine).
 
@@ -1013,7 +1040,7 @@ Choisit entre tout le domaine et l'OU sélectionnée dans l'arbre (sous-OU inclu
 
 #### RCH-032 · Sélecteur de type de la barre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Restreint la barre à Tout, Personnes, Postes ou Groupes, avec les mêmes filtres LDAP que la liste d'OU.
 
@@ -1022,7 +1049,7 @@ Restreint la barre à Tout, Personnes, Postes ou Groupes, avec les mêmes filtre
 
 #### RCH-033 · Texte d'attente et résumé de la barre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le champ vide annonce ce qui sera cherché (« Poste, dans « Postes » et ses sous-OU… ») ; un résumé « Recherche · Partout · Tous les types » et un nom accessible de la puce sont produits.
 
@@ -1030,7 +1057,7 @@ Le champ vide annonce ce qui sera cherché (« Poste, dans « Postes » et ses s
 
 #### RCH-034 · Chercher aussi les noms qui contiennent
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Pour une recherche globale terminée et complète de texte simple avec 5 résultats ou moins, une puce propose de relancer en « contient » (1 à 4 mots de 2 caractères min) sur name, displayName, sAMAccountName, dNSHostName, même périmètre, type et limite.
 
@@ -1040,7 +1067,7 @@ Pour une recherche globale terminée et complète de texte simple avec 5 résult
 
 #### RCH-035 · Recherche par adresse IP ou MAC dans les relevés locaux
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Retrouve un poste par une adresse IPv4 ou MAC dans les relevés réseau stockés. Le SQL préfiltre, puis chaque candidat est analysé et l'adresse comparée exactement. Base locale seulement, sans appel réseau.
 
@@ -1050,7 +1077,7 @@ Retrouve un poste par une adresse IPv4 ou MAC dans les relevés réseau stockés
 
 #### RCH-036 · Date du relevé sur les postes trouvés par adresse
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 La cellule Description affiche « adresse relevée le jj/mm/aaaa · adresse IP … » (date inconnue dite comme telle) et la colonne est révélée pour cette liste seulement.
 
@@ -1059,7 +1086,7 @@ La cellule Description affiche « adresse relevée le jj/mm/aaaa · adresse IP �
 
 #### RCH-037 · Repli DNS inverse explicite
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Si une IPv4 ne donne aucun poste local, le bouton « Chercher dans le DNS » fait une résolution inverse (15 s), place le nom trouvé dans la barre puis lance une recherche normale.
 
@@ -1069,7 +1096,7 @@ Si une IPv4 ne donne aucun poste local, le bouton « Chercher dans le DNS » fai
 
 #### RCH-038 · Garde de la recherche à la frappe
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Recherche automatique pendant la saisie (option, désactivée par défaut) refusée sous 3 caractères significatifs ou avec un joker en tête.
 
@@ -1079,7 +1106,7 @@ Recherche automatique pendant la saisie (option, désactivée par défaut) refus
 
 #### RCH-039 · Identifiants collés et syntaxe explicite
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Un DN, GUID ou SID collé est cherché comme identifiant exact sans être coupé ; une syntaxe explicite optionnelle et un repli multi-mots s'appliquent à la barre globale.
 
@@ -1090,7 +1117,7 @@ Un DN, GUID ou SID collé est cherché comme identifiant exact sans être coupé
 
 #### RCH-040 · Pastilles des critères de la liste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque critère (périmètre, type, requête, sélection d'atelier, ping mémorisé, « contient ») est une pastille avec sa portée [Annuaire]/[Base locale]/[Liste chargée] et une phrase de combinaison « → N lignes affichées sur M ».
 
@@ -1099,7 +1126,7 @@ Chaque critère (périmètre, type, requête, sélection d'atelier, ping mémori
 
 #### RCH-041 · Retirer un critère par sa pastille
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le × d'une pastille passe par le contrôle visible : filtre local et présence sans réseau, type relit l'OU (dit), requête efface sa liste, sélection d'atelier réaffiche tout.
 
@@ -1109,7 +1136,7 @@ Le × d'une pastille passe par le contrôle visible : filtre local et présence 
 
 #### RCH-042 · Filtre de présence mémorisée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Filtre les listes d'OU par état de présence (en ligne, sans réponse, erreur de ping, non vérifié) par clés d'état, y compris pour les lignes anciennes au libellé texte.
 
@@ -1120,7 +1147,7 @@ Filtre les listes d'OU par état de présence (en ligne, sans réponse, erreur d
 
 #### RCH-043 · Précédent / Suivant
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Historique de 40 lieux (page, onglet, mode, texte, OU, vue, puce, type, mode « contient ») ; boutons et Alt+Gauche / Alt+Droite.
 
@@ -1129,7 +1156,7 @@ Historique de 40 lieux (page, onglet, mode, texte, OU, vue, puce, type, mode « 
 
 #### RCH-044 · Retour exact à une étape
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Restaure lignes, tri, sélection (500 lignes par GUID/DN), défilements vertical et horizontal, onglet interne, type, présence, filtre local, limite et puce, sans lecture.
 
@@ -1138,7 +1165,9 @@ Restaure lignes, tri, sélection (500 lignes par GUID/DN), défilements vertical
 
 #### RCH-045 · Branches de l'arbre rouvertes sans lecture
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Une étape de l’historique rouvre sans lecture les branches qu’elle avait lues, replie celles lues depuis, sélectionne son OU et compte les branches non lues ou disparues. Le kit ne publie pas l’état replié d’une branche déjà lue : une branche lue puis repliée avant l’étape est rouverte (demande au kit : état déplié et rappel d’ouverture ou de fermeture).
+
+`partiel` · locale (aucune lecture)
 
 Rouvre les branches ouvertes à l'étape si déjà lues, replie celles ouvertes depuis, sélectionne l'OU ; compte les branches non lues ou disparues de leur parent.
 
@@ -1147,7 +1176,7 @@ Rouvre les branches ouvertes à l'étape si déjà lues, replie celles ouvertes 
 
 #### RCH-046 · Bandeau « Liste de l'historique · Actualiser »
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Tant que la liste restaurée est affichée, un bandeau permet de la relire avec son périmètre, sa vue, son mode et ses filtres (requête locale incluse).
 
@@ -1159,7 +1188,7 @@ Tant que la liste restaurée est affichée, un bandeau permet de la relire avec 
 
 #### RCH-047 · Revérification du périmètre consulté en arrière-plan
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Case « Revérifier le périmètre consulté en arrière-plan » : relit périodiquement (180 s par défaut, 120 à 900, première après 3 min) la dernière recherche explicite, avec le même filtre et la même portée, et met à jour la liste.
 
@@ -1169,7 +1198,9 @@ Case « Revérifier le périmètre consulté en arrière-plan » : relit périod
 
 #### RCH-048 · Application des changements détectés par la revérification
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : search.reconcile relit la liste avec son filtre, sa portée et sa taille : nouvelles lignes injectées et marquées « nouveau » avec un éclat, lignes changées repeintes, objets sortis du périmètre suivis par leur GUID, absents « à revérifier », point de reprise numéroté. Reste le point de reprise incrémental réel du mode annuaire (contrôleur, invocationId, USN : ne relire que les changements), avec Domenia.Ad.
+
+`partiel` · locale (aucune lecture)
 
 Seules les lignes nouvelles ou changées (nom, login, UPN, état, OS, dernière connexion, description, modification, DN) sont réinjectées ; un objet déplacé garde sa ligne par GUID, un objet absent du dernier retour est marqué « à revérifier » sans suppression, et un point de reprise incrémental (DC, invocationId) est tenu.
 
@@ -1179,7 +1210,7 @@ Seules les lignes nouvelles ou changées (nom, login, UPN, état, OS, dernière 
 
 #### RCH-049 · Annuler la présentation de la liste de résultats
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Historique de 10 étapes de la présentation (ordre et largeur des colonnes, tri, filtre local après 900 ms sans frappe, filtre de présence) ; Ctrl+Z dans la liste ou la puce « ↶ Annuler : &lt;colonnes, tri…> » rétablit l'étape précédente et enregistre la disposition des colonnes ; une nouvelle liste devient la référence sans effacer l'historique.
 
@@ -1188,7 +1219,7 @@ Historique de 10 étapes de la présentation (ordre et largeur des colonnes, tri
 
 #### RCH-050 · Filtre local de la liste de résultats
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Filtre les lignes déjà chargées, plusieurs mots en ET, sur les champs Type, Nom, Login, UPN, Association, Présence et utilisateur console. Texte limité à 120 caractères, champs à 2048. Le filtre s'applique 180 ms après la saisie et un bouton l'efface.
 
@@ -1197,7 +1228,7 @@ Filtre les lignes déjà chargées, plusieurs mots en ET, sur les champs Type, N
 
 #### RCH-051 · État vide de la liste de résultats
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une seule zone explique pourquoi la liste est vide : rien interrogé, lecture en cours, aucun résultat dans le périmètre, filtre local, lecture refusée, partielle ou sans source, ou liste d'une autre origine. Elle ajoute un indice sur le périmètre, le type, la complétude et la limite, et propose une action suivante (Effacer le filtre, Élargir, Comptes, Relire les sources) qui ne se lance que sur clic.
 
@@ -1206,7 +1237,7 @@ Une seule zone explique pourquoi la liste est vide : rien interrogé, lecture en
 
 #### RCH-052 · « Le filtre masque N lignes » et Effacer le filtre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand le filtre texte ou le filtre de présence masque toutes les lignes chargées, la liste indique combien et quel filtre. « Effacer le filtre » remet le texte et la présence à « Tous » et réaffiche les lignes sans requête, en gardant la recherche.
 
@@ -1215,7 +1246,7 @@ Quand le filtre texte ou le filtre de présence masque toutes les lignes chargé
 
 #### RCH-053 · Vues de colonnes explicites (mixte, utilisateurs, postes)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Trois vues de la grille, chacune avec ses colonnes : pas de colonnes de console ni d'OS pour une liste d'utilisateurs, pas de mail pour une liste de postes. Largeur (40 à 1600), ordre et tri sont mémorisés par colonne et conservés pour la vue suivante. On ne change de vue qu'explicitement, et jamais pendant une saisie ou l'arrivée d'un lot (la demande est alors différée).
 
@@ -1224,7 +1255,7 @@ Trois vues de la grille, chacune avec ses colonnes : pas de colonnes de console 
 
 #### RCH-054 · Choix des colonnes affichées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Catalogue de 16 colonnes, dont 6 affichées par défaut (Type, Nom, Utilisateur connecté, Association mémorisée, Présence réseau, État). Nom ne peut pas être masqué. Une colonne n'apparaît que si elle concerne la liste (poste, associable, compte). Le choix est stocké en JSON {Version:1;Visible} avec migration des anciennes clés (LinkSource, LinkConfidence, LastLogon, Changed).
 
@@ -1233,7 +1264,7 @@ Catalogue de 16 colonnes, dont 6 affichées par défaut (Type, Nom, Utilisateur 
 
 #### RCH-055 · Chargement progressif des résultats
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Pour une recherche simple (préfixe sans espace, \*, ( ou ), type connu), les lignes de la base SQLite locale sont injectées progressivement pendant que la lecture AD se poursuit. Elles sont marquées Cached et SQLite avec leur date d'observation.
 
@@ -1243,7 +1274,7 @@ Pour une recherche simple (préfixe sans espace, \*, ( ou ), type connu), les li
 
 #### RCH-056 · Lignes hors périmètre écartées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une ligne (cache ou résultat tardif) n'est affichée que si son DN appartient à la base et à la profondeur de la recherche (OneLevel avec virgules échappées).
 
@@ -1252,7 +1283,7 @@ Une ligne (cache ou résultat tardif) n'est affichée que si son DN appartient �
 
 #### RCH-057 · Objet déplacé ou renommé suivi par GUID
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une ligne AD dont le GUID est déjà listé sous un autre DN met à jour la ligne existante (état de déplacement affiché), sans doublon et en gardant présence et session.
 
@@ -1262,7 +1293,7 @@ Une ligne AD dont le GUID est déjà listé sous un autre DN met à jour la lign
 
 #### RCH-058 · Quota de lignes : le cache cède la place
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 À la limite de la liste, les lignes venues du cache sont retirées pour laisser entrer les lignes fraîches d'AD.
 
@@ -1270,7 +1301,7 @@ Une ligne AD dont le GUID est déjà listé sous un autre DN met à jour la lign
 
 #### RCH-059 · Charger la suite / jusqu'à 1 000, 5 000, 20 000
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 « Charger la suite » et « Charger jusqu'à 1 000 » lisent seulement les lignes suivantes du même filtre, triées par nom depuis le dernier lu, sans doublon ni nouvelle entrée d'historique, en gardant sélection et filtre.
 
@@ -1280,7 +1311,7 @@ Une ligne AD dont le GUID est déjà listé sous un autre DN met à jour la lign
 
 #### RCH-060 · Sélection conservée après relecture
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Après rechargement, la ligne du DN précédemment sélectionné est resélectionnée ; si elle a disparu, la sélection est effacée partout.
 
@@ -1288,7 +1319,7 @@ Après rechargement, la ligne du DN précédemment sélectionné est resélectio
 
 #### RCH-061 · Colonnes conditionnelles de la liste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 La colonne Compte n'apparaît que si une ligne a un compte (login, compte associé d'un poste) ; colonnes poste seulement avec un poste, colonnes association et connexion avec utilisateurs ou postes, toujours selon le choix « Colonnes… ».
 
@@ -1296,7 +1327,7 @@ La colonne Compte n'apparaît que si une ligne a un compte (login, compte associ
 
 #### RCH-062 · Actions poste grisées hors poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 « Revérifier ce poste » n'est actif que pour une seule ligne de type poste ; les autres actions de relevé suivent la liste.
 
@@ -1304,7 +1335,7 @@ La colonne Compte n'apparaît que si une ligne a un compte (login, compte associ
 
 #### RCH-063 · Classement de pertinence et dédoublonnage
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Rangs : identifiant exact, nom exact, préfixe d'identifiant, mot entier du nom, préfixe du nom, préfixe de mot, sous-chaîne, reste ; dédoublonnage par GUID sinon DN, jamais par libellé.
 
@@ -1312,7 +1343,7 @@ Rangs : identifiant exact, nom exact, préfixe d'identifiant, mot entier du nom,
 
 #### RCH-064 · Repérage des comptes d'administration
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une ligne avec adminCount=1 ou un identifiant adm-, -adm, admin… est reconnue comme compte d'administration dans la liste.
 
@@ -1321,7 +1352,7 @@ Une ligne avec adminCount=1 ou un identifiant adm-, -adm, admin… est reconnue 
 
 #### RCH-065 · Compteur complet / limité / en cours
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Indique « N résultat(s) · liste complète », « liste limitée à N : affinez ou chargez la suite », « lecture en cours » et le nombre visible après filtre local.
 
@@ -1330,7 +1361,7 @@ Indique « N résultat(s) · liste complète », « liste limitée à N : affine
 
 #### RCH-066 · Limite de lignes de la liste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Nombre maximum de lignes lues (100 par défaut, 1 à 20 000), mémorisé par l'historique et les vues.
 
@@ -1339,7 +1370,7 @@ Nombre maximum de lignes lues (100 par défaut, 1 à 20 000), mémorisé par l'h
 
 #### RCH-067 · Menu « ⋯ » de la liste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Regroupe Actualiser, Exporter CSV et Colonnes… en déclenchant les boutons d'origine (états et politique d'affichage conservés).
 
@@ -1348,7 +1379,7 @@ Regroupe Actualiser, Exporter CSV et Colonnes… en déclenchant les boutons d'o
 
 #### RCH-068 · Actualiser la liste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relit la liste courante avec ses critères.
 
@@ -1358,7 +1389,9 @@ Relit la liste courante avec ses critères.
 
 #### RCH-069 · Exporter la liste en CSV
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Export CSV de la liste affichée ou de la sélection (portée choisie, colonnes visibles, association éclatée en trois colonnes, formules neutralisées) après une confirmation qui dit la portée, ce qui est exclu et la complétude ; il part dans le presse-papiers. L’enregistrement en fichier (CSV, XLSX) attend une opération hôte de sauvegarde (demande à la plateforme).
+
+`partiel` · locale (aucune lecture)
 
 Exporte la liste affichée après filtres ou les seules lignes sélectionnées selon la portée choisie à côté des résultats, avec les colonnes visibles ; la confirmation rappelle ce qui est exclu et la complétude connue de la liste.
 
@@ -1367,7 +1400,7 @@ Exporte la liste affichée après filtres ou les seules lignes sélectionnées s
 
 #### RCH-070 · Colonne Association mémorisée des résultats
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Enrichit chaque ligne poste/utilisateur avec l'utilisateur ou les postes associés, la source et la qualification du meilleur lien, avec note d'identité non vérifiable.
 
@@ -1376,7 +1409,7 @@ Enrichit chaque ligne poste/utilisateur avec l'utilisateur ou les postes associ�
 
 #### RCH-071 · Panneau « Actions, filtres et vues » replié
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le panneau d'outils de la liste démarre replié pour ne plus couvrir les résultats.
 
@@ -1384,7 +1417,7 @@ Le panneau d'outils de la liste démarre replié pour ne plus couvrir les résul
 
 #### RCH-072 · Ligne d'affichage canonique d'un objet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Type, nom, compte (sans $), UPN ou DNS, mail, description, modifié, DN, état (Actif/Désactivé, Verrouillé, MDP expiré, Verrouillage à vérifier), système, dernière connexion, GUID, adminCount.
 
@@ -1393,7 +1426,7 @@ Type, nom, compte (sans $), UPN ou DNS, mail, description, modifié, DN, état (
 
 #### RCH-073 · Revalidation des changements de la liste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Désactivée par défaut. Un administrateur peut l'activer (Streaming.RevalidateListedObjects), et l'interrupteur de la page peut ensuite l'arrêter pour la session. Elle relit les GUID listés dans leur propre périmètre toutes les 60 s (30 à 600), met à jour déplacements et renommages sous le même GUID et affiche « Liste vérifiée à HH:mm ».
 
@@ -1403,7 +1436,7 @@ Désactivée par défaut. Un administrateur peut l'activer (Streaming.Revalidate
 
 #### RCH-074 · Mise à jour des grilles cellule par cellule
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un lot entrant est fusionné avec les lignes affichées par GUID : seules les cellules changées sont mises à jour et les nouvelles lignes ajoutées. Tri, position de défilement et sélection survivent. La liste n'est remplacée que si le contexte de recherche a changé.
 
@@ -1412,7 +1445,7 @@ Un lot entrant est fusionné avec les lignes affichées par GUID : seules les ce
 
 #### RCH-075 · Grille de résultats
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Colonnes Type, Nom, Utilisateur connecté (console), Vérification utilisateur, Fraîcheur AD, Compte, UPN/DNS, Association mémorisée, Présence réseau, État, OS, Dernière connexion, Mail, Description, Modifié, Chemin complet ; tri, redimensionnement, sélection multiple, virtualisation, dates triées par clé et affichées en relatif.
 
@@ -1421,7 +1454,7 @@ Colonnes Type, Nom, Utilisateur connecté (console), Vérification utilisateur, 
 
 #### RCH-076 · Menu contextuel des résultats
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Ouvrir la fiche, Assistance poste (vue Intervenir), Revérifier ce poste (un ping), Rechercher l'utilisateur ou le poste associé, Ouvrir l'OU parente, Copier (pour un ticket, nom, compte, UPN/DNS, DN, toutes les valeurs, résumé de fiche), Exporter en CSV selon la portée.
 
@@ -1431,7 +1464,7 @@ Ouvrir la fiche, Assistance poste (vue Intervenir), Revérifier ce poste (un pin
 
 #### RCH-077 · Synchronisation fiche vers ligne de résultats
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand une fiche est relue depuis AD, ses valeurs visibles et son association sont recopiées dans la ligne déjà affichée sans relancer de recherche ni changer la sélection.
 
@@ -1442,7 +1475,7 @@ Quand une fiche est relue depuis AD, ses valeurs visibles et son association son
 
 #### RCH-078 · Vérifier au clic (+ utilisateur connecté)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Deux cases mémorisées : un clic sur un poste envoie un ping (et lit l'utilisateur console si la sous-option est cochée) ; sans case, le clic précharge seulement la fiche AD.
 
@@ -1452,7 +1485,7 @@ Deux cases mémorisées : un clic sur un poste envoie un ping (et lit l'utilisat
 
 #### RCH-079 · Revérifier ce poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ping et lecture de l'utilisateur console du seul poste sélectionné, une tentative par geste.
 
@@ -1462,7 +1495,7 @@ Ping et lecture de l'utilisateur console du seul poste sélectionné, une tentat
 
 #### RCH-080 · Colonnes Présence et Session avec âge
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Chaque poste montre sa présence (pastille par clé d'état, « il y a 2 h ») et son compte console, avec infobulle : dernière tentative non confirmée à côté de la dernière réussite, transport réel, source, identité, fraîcheur selon le profil.
 
@@ -1471,7 +1504,7 @@ Chaque poste montre sa présence (pastille par clé d'état, « il y a 2 h ») e
 
 #### RCH-081 · Association historique dans la liste
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Sans observation, un poste associé affiche « compte (historique) » avec l'origine de l'association.
 
@@ -1480,7 +1513,7 @@ Sans observation, un poste associé affiche « compte (historique) » avec l'ori
 
 #### RCH-082 · Suspension après rejet d'un compte
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un compte distant rejeté suspend les vérifications sur sélection ; des identifiants AD refusés à la validation du compte console suspendent la validation AD ; la ligne d'état le dit.
 
@@ -1490,7 +1523,7 @@ Un compte distant rejeté suspend les vérifications sur sélection ; des identi
 
 #### RCH-083 · Relecture paginée des mesures de la liste
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Pour la liste courante, relit les observations enregistrées du périmètre par pages de 250 et rafraîchit les lignes concernées.
 
@@ -1500,7 +1533,7 @@ Pour la liste courante, relit les observations enregistrées du périmètre par 
 
 #### RCH-084 · Présence colorée par clé d'état
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Couleur verte en ligne, rouge sans réponse, ambre en cours ou erreur de ping, grise sinon ou pour une valeur d'une session antérieure ; l'âge de la mesure remplace « (cache) » et la couleur est recalculée au changement de thème.
 
@@ -1509,7 +1542,7 @@ Couleur verte en ligne, rouge sans réponse, ambre en cours ou erreur de ping, g
 
 #### RCH-085 · Présence de liste héritée non appelée
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ancienne fonction qui pingait chaque machine nouvellement listée (un écho ICMP) ; elle n'a plus d'appelant (un test vérifie l'absence d'appel) et ne doit pas être reprise telle quelle.
 
@@ -1521,7 +1554,7 @@ Ancienne fonction qui pingait chaque machine nouvellement listée (un écho ICMP
 
 #### RCH-086 · Vérifier la liste ▾ (trois lectures graduées)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Bouton unique qui lance la dernière lecture choisie dans la session ou ouvre les choix « Qui répond ? » (ping), « Qui est connecté ? » (ping + console CIM), « Matériel et widgets » ; il devient « Arrêter (12/48) » pendant le relevé et s'applique aux lignes sélectionnées si cette portée est choisie.
 
@@ -1531,7 +1564,7 @@ Bouton unique qui lance la dernière lecture choisie dans la session ou ouvre le
 
 #### RCH-087 · Analyser la liste (matériel et widgets)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ping, utilisateur console, relevé WMI léger et requêtes des widgets des tableaux de bord pour les postes affichés ou sélectionnés, WMI seulement sur les postes qui répondent.
 
@@ -1541,7 +1574,7 @@ Ping, utilisateur console, relevé WMI léger et requêtes des widgets des table
 
 #### RCH-088 · Relevé complet de la liste (correctifs)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relevé léger plus correctifs, démarrage, services automatiques arrêtés, TPM, BIOS et numéro de série des postes affichés.
 
@@ -1551,7 +1584,7 @@ Relevé léger plus correctifs, démarrage, services automatiques arrêtés, TPM
 
 #### RCH-089 · Relire les postes sans adresse
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relevé qui ne vise que les postes sans adresse connue, laissés après les autres dans un relevé normal.
 
@@ -1561,7 +1594,7 @@ Relevé qui ne vise que les postes sans adresse connue, laissés après les autr
 
 #### RCH-090 · Garde de périmètre d'un relevé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Refuse un relevé au-delà du plafond (Park.MaxTargets, 500 par défaut, 5 000 max), d'une liste de la racine du domaine sans autre filtre, d'une recherche globale sans terme, ou d'une vue de travail listée sur tout le domaine.
 
@@ -1570,7 +1603,7 @@ Refuse un relevé au-delà du plafond (Park.MaxTargets, 500 par défaut, 5 000 m
 
 #### RCH-091 · Confirmation chiffrée et aperçu exact
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Avant toute lecture : trois lignes (quels postes et pourquoi le nombre diffère, ce qui sera lu, durée estimée et parallélisme), liste exacte des postes à lire et des lignes écartées avec leur motif, bouton chiffré « Pinger 48 postes ».
 
@@ -1580,7 +1613,7 @@ Avant toute lecture : trois lignes (quels postes et pourquoi le nombre diffère,
 
 #### RCH-092 · Ping massif par lots
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Échos ICMP en parallèle par lots de 192 (256 max), délai 1 s (250 à 3 000 ms), résolution DNS parallèle bornée à 2,5 s en IPv4 d'abord, résultats remontés par lot et enregistrés par transactions de 32 (4 lots en vol).
 
@@ -1590,7 +1623,7 @@ Avant toute lecture : trois lignes (quels postes et pourquoi le nombre diffère,
 
 #### RCH-093 · Lecture console et WMI des postes de la liste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lecture CIM des postes, 4 à la fois par défaut (Collection.Concurrency 1 à 8), éventuellement après ping obligatoire, avec délai d'inactivité et durée totale bornés.
 
@@ -1600,7 +1633,7 @@ Lecture CIM des postes, 4 à la fois par défaut (Collection.Concurrency 1 à 8)
 
 #### RCH-094 · Barre et compteur court du relevé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Barre fine et texte « 12/48 · 9 joignables » puis « 48/48 · 30 en ligne · 15 sans réponse · 3 erreurs » ; un relevé WMI compte des postes lus.
 
@@ -1609,7 +1642,7 @@ Barre fine et texte « 12/48 · 9 joignables » puis « 48/48 · 30 en ligne · 
 
 #### RCH-095 · Pastilles de résultat qui filtrent
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 En fin de ping, trois pastilles (en ligne, sans réponse, erreurs) filtrent la liste par présence ; second clic pour retirer.
 
@@ -1618,7 +1651,7 @@ En fin de ping, trois pastilles (en ligne, sans réponse, erreurs) filtrent la l
 
 #### RCH-096 · Lignes « relevé en cours »
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque ligne lue porte la marque « relevé en cours » jusqu'à l'enregistrement de sa mesure, puis reçoit la valeur relue après COMMIT.
 
@@ -1627,7 +1660,7 @@ Chaque ligne lue porte la marque « relevé en cours » jusqu'à l'enregistremen
 
 #### RCH-097 · Barre de sélection multiple
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 À partir de deux lignes sélectionnées : « n postes sélectionnés : Pinger · Qui est connecté ? · Copier · Exporter », relevés limités aux lignes sélectionnées visibles.
 
@@ -1637,7 +1670,7 @@ Chaque ligne lue porte la marque « relevé en cours » jusqu'à l'enregistremen
 
 #### RCH-098 · Arrêter un relevé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Arrête le relevé de la liste (ou d'une portée) : les mesures déjà reçues sont enregistrées, une demande de confirmation encore affichée est retirée.
 
@@ -1646,7 +1679,7 @@ Arrête le relevé de la liste (ou d'une portée) : les mesures déjà reçues s
 
 #### RCH-099 · Détail de l'état d'un relevé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Texte détaillé : résultats validés et attente réelle, sources ralenties ou suspendues, nouveaux essais, capacités mémorisées, requêtes CIM évitées, plan de reprise.
 
@@ -1657,7 +1690,7 @@ Texte détaillé : résultats validés et attente réelle, sources ralenties ou 
 
 #### RCH-100 · Effacer la requête appliquée à Recherche
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Retire le filtre de requête des résultats affichés dans Rechercher.
 
@@ -1665,7 +1698,9 @@ Retire le filtre de requête des résultats affichés dans Rechercher.
 
 #### RCH-101 · Filtrer les lignes de Recherche par la sélection de requête
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Filtre des lignes par la sélection d’une requête de l’Atelier (par GUID) : l’écran Atelier de requêtes n’existe pas encore et ne publie pas sa sélection ; Rechercher filtre déjà par verdict les requêtes locales livrées.
+
+`partiel` · locale (aucune lecture)
 
 Règle invisible : quand une requête est appliquée, seules les lignes de type Machine dont le GUID figure dans la sélection restent visibles.
 
@@ -1674,7 +1709,9 @@ Règle invisible : quand une requête est appliquée, seules les lignes de type 
 
 #### RCH-102 · Exécuter une requête dans Recherche
 
-`a-faire` · lecture locale
+> Reste à faire : Les requêtes locales livrées (9) s’exécutent dans Rechercher sur l’OU choisie (ou, explicitement, sur tout le domaine), avec leurs trois verdicts, « Tous » triés correspondants d’abord, et leur couverture ; restent les requêtes enregistrées de l’Atelier (SELECT mémorisés) quand l’écran Requêtes les publiera.
+
+`partiel` · lecture locale
 
 Le moteur de requêtes sert aussi Recherche (mode SearchOutput) sur l'OU de Recherche, jusqu'à 20 000 postes en deux pages de la même population, avec les SELECT mémorisés et verdicts de collection.
 
@@ -1684,7 +1721,7 @@ Le moteur de requêtes sert aussi Recherche (mode SearchOutput) sur l'OU de Rech
 
 #### RCH-103 · Modèles livrés dans les vues de Recherche
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les modèles livrés, préparés une fois hors interface, alimentent la liste des vues de Recherche dès qu'ils sont prêts.
 
@@ -1694,7 +1731,7 @@ Les modèles livrés, préparés une fois hors interface, alimentent la liste de
 
 #### RCH-104 · Requête : comptes expirant sous 30 jours
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Utilisateurs dont accountExpires tombe dans les 30 prochains jours (date d'expiration du compte, pas du mot de passe).
 
@@ -1704,7 +1741,7 @@ Utilisateurs dont accountExpires tombe dans les 30 prochains jours (date d'expir
 
 #### RCH-105 · Requête : comptes désactivés
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Utilisateurs avec le bit 2 de userAccountControl.
 
@@ -1714,7 +1751,7 @@ Utilisateurs avec le bit 2 de userAccountControl.
 
 #### RCH-106 · Requête : comptes à expiration dépassée
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 accountExpires passé (0 et valeur maximale exclus) ; rappel que l'expiration bloque l'ouverture sans désactiver.
 
@@ -1724,7 +1761,7 @@ accountExpires passé (0 et valeur maximale exclus) ; rappel que l'expiration bl
 
 #### RCH-107 · Requête : verrouillage enregistré
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 lockoutTime non nul ; avertit qu'un verrouillage échu peut figurer et que l'état réel se confirme sur la fiche.
 
@@ -1734,7 +1771,7 @@ lockoutTime non nul ; avertit qu'un verrouillage échu peut figurer et que l'ét
 
 #### RCH-108 · Requête : comptes actifs sans connexion depuis 90 jours
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Comptes activés dont lastLogonTimestamp (à 14 jours près) date d'au moins 90 jours ; aucun compte déclaré supprimable.
 
@@ -1744,7 +1781,7 @@ Comptes activés dont lastLogonTimestamp (à 14 jours près) date d'au moins 90 
 
 #### RCH-109 · Requête : comptes actifs jamais connectés
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Comptes activés sans lastLogonTimestamp : neuf, de service ou oublié, sans conclusion.
 
@@ -1754,7 +1791,7 @@ Comptes activés sans lastLogonTimestamp : neuf, de service ou oublié, sans con
 
 #### RCH-110 · Requête : mots de passe sans expiration
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Option « Le mot de passe n'expire jamais » (bit 65536) ; option à revoir, pas une compromission.
 
@@ -1764,7 +1801,7 @@ Option « Le mot de passe n'expire jamais » (bit 65536) ; option à revoir, pas
 
 #### RCH-111 · Requête : mot de passe non exigé
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Option PASSWD_NOTREQD (bit 32) de userAccountControl.
 
@@ -1774,7 +1811,7 @@ Option PASSWD_NOTREQD (bit 32) de userAccountControl.
 
 #### RCH-112 · Requête : mots de passe inchangés depuis un an
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Comptes activés dont pwdLastSet a au moins 365 jours ; renvoie vers Audit AD pour la stratégie.
 
@@ -1784,7 +1821,7 @@ Comptes activés dont pwdLastSet a au moins 365 jours ; renvoie vers Audit AD po
 
 #### RCH-113 · Requête : changement de mot de passe demandé
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 pwdLastSet = 0 : changement imposé à la prochaine ouverture de session.
 
@@ -1794,7 +1831,7 @@ pwdLastSet = 0 : changement imposé à la prochaine ouverture de session.
 
 #### RCH-114 · Requête : objets modifiés depuis 7 jours
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 whenChanged des 7 derniers jours (valeur propre à chaque contrôleur).
 
@@ -1804,7 +1841,7 @@ whenChanged des 7 derniers jours (valeur propre à chaque contrôleur).
 
 #### RCH-115 · Requête : postes de cette OU
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Tous les objets ordinateur du périmètre choisi.
 
@@ -1814,7 +1851,7 @@ Tous les objets ordinateur du périmètre choisi.
 
 #### RCH-116 · Requête : postes sans connexion depuis 90 jours
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ordinateurs dont lastLogonTimestamp a 90 jours ou plus, jamais connectés inclus (« Jamais »).
 
@@ -1824,7 +1861,7 @@ Ordinateurs dont lastLogonTimestamp a 90 jours ou plus, jamais connectés inclus
 
 #### RCH-117 · Périmètre des requêtes : OU ou domaine entier
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une requête s'applique à l'OU de l'arbre (« Requêtes · Postes ») ; le domaine entier est un choix secondaire explicite qui bloque tout relevé des postes (ping, détection, analyse).
 
@@ -1833,7 +1870,7 @@ Une requête s'applique à l'OU de l'arbre (« Requêtes · Postes ») ; le doma
 
 #### RCH-118 · Catalogue unifié des requêtes
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Une liste réunit les requêtes Annuaire, les modèles livrés (préparés en arrière-plan à l'ouverture) et les requêtes locales personnelles par catégorie ; filtre texte et case Favoris.
 
@@ -1843,7 +1880,7 @@ Une liste réunit les requêtes Annuaire, les modèles livrés (préparés en ar
 
 #### RCH-119 · Favoris de requête
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Étoile ☆/★ pour épingler une requête, 200 favoris au plus, enregistrés immédiatement.
 
@@ -1852,7 +1889,7 @@ Une liste réunit les requêtes Annuaire, les modèles livrés (préparés en ar
 
 #### RCH-120 · Détail d'une requête : source, périmètre, coût, couverture
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Indique la source (annuaire ou base locale), le type, l'OU et la profondeur, le coût LDAP estimé avec le schéma lu, et pour une requête locale la date de la dernière lecture complète couvrante.
 
@@ -1861,7 +1898,7 @@ Indique la source (annuaire ou base locale), le type, l'OU et la profondeur, le 
 
 #### RCH-121 · Exécuter une requête Annuaire
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lance la vue choisie après réinitialisation des filtres de liste (présence, type, filtre local, sélection d'atelier).
 
@@ -1871,7 +1908,7 @@ Lance la vue choisie après réinitialisation des filtres de liste (présence, t
 
 #### RCH-122 · Exécuter une requête locale sur les postes
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Évalue une recette sur les postes recensés de l'OU dans la base locale et affiche Correspondants, Inconnus ou Non correspondants avec totaux et limite.
 
@@ -1883,7 +1920,7 @@ Lance la vue choisie après réinitialisation des filtres de liste (présence, t
 
 #### RCH-123 · Export CSV avec colonnes d'association détaillées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 L'association affichée en une seule cellule redevient trois colonnes dans le CSV : Association mémorisée, Source lien et Qualification. Elles suivent la position choisie pour l'association, sans doublon.
 
@@ -1892,7 +1929,7 @@ L'association affichée en une seule cellule redevient trois colonnes dans le CS
 
 #### RCH-124 · Aperçu de la ligne sélectionnée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ligne fixe sous les résultats et infobulle détaillée : type et nom, état de lecture (non lue, chargement, lue, erreur, refusée), lignes lues (identifiant, système, état, emplacement, présence) et destinations Fiche, Utilisateurs et postes, Poste avec la raison de chaque indisponibilité. Le détail d'une autre sélection ou d'une autre génération n'est jamais affiché.
 
@@ -1901,7 +1938,7 @@ Ligne fixe sous les résultats et infobulle détaillée : type et nom, état de 
 
 #### RCH-125 · Copier la sélection pour un ticket
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une ligne lisible par objet sélectionné : type, nom, compte, présence et son âge, utilisateur console, OU lisible (« Lyon / Postes »). Ni GUID ni DN, aucune valeur sur plusieurs lignes, masquage des secrets.
 
@@ -1910,7 +1947,7 @@ Une ligne lisible par objet sélectionné : type, nom, compte, présence et son 
 
 #### RCH-126 · Portée collective explicite des exports et relevés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Choix Liste affichée / Lignes sélectionnées ; la phrase dit les lignes traitées, celles masquées par filtre exclues et la complétude (complète, limitée, partielle, en cours, inconnue).
 
@@ -1919,7 +1956,7 @@ Choix Liste affichée / Lignes sélectionnées ; la phrase dit les lignes trait�
 
 #### RCH-127 · Énoncé de la sélection multiple
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 « 3 postes sélectionnés », « 3 lignes sélectionnées dont 1 poste », identique dans la barre de sélection et avant un export ou un relevé.
 
@@ -1927,7 +1964,7 @@ Choix Liste affichée / Lignes sélectionnées ; la phrase dit les lignes trait�
 
 #### RCH-128 · Avertissement d'absence dans une liste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Info-bulle : portée, type retenu, filtre local actif et couverture ; une absence de résultat ne prouve pas l'absence dans l'annuaire.
 
@@ -1935,7 +1972,7 @@ Info-bulle : portée, type retenu, filtre local actif et couverture ; une absenc
 
 #### RCH-129 · Préchargement de la fiche à la sélection
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Un clic sur une ligne unique précharge sa fiche AD (aperçu d'état dans la barre), double-clic ouvre ; les lectures liées à l'ancienne sélection (fiche, secrets, diagnostic, permissions, présence, inventaire, logiciels, WMI, dernier utilisateur) sont arrêtées.
 
@@ -1945,7 +1982,7 @@ Un clic sur une ligne unique précharge sa fiche AD (aperçu d'état dans la bar
 
 #### RCH-130 · Rétablir la sélection après un refus
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Si un changement de sélection est refusé (brouillon, écriture), la ligne d'origine est resélectionnée sans événement.
 
@@ -1953,7 +1990,7 @@ Si un changement de sélection est refusé (brouillon, écriture), la ligne d'or
 
 #### RCH-131 · Diagnostic réseau groupé
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Pour les postes sélectionnés (50 max), un écho ICMP puis les ports TCP 445, 135, 5985 et 5986, poste après poste ; aperçu des cibles exactes et des lignes exclues avec motif, confirmation en page, rapport tabulé copié et synthèse.
 
@@ -1965,7 +2002,7 @@ Pour les postes sélectionnés (50 max), un écho ICMP puis les ports TCP 445, 1
 
 #### RCH-132 · Enregistrer une vue personnelle
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Mémorise OU, profondeur, type, présence, filtre local, limite, colonnes (ordre, largeur) et tri sous un nom unique par domaine (100 vues, 1 Mio).
 
@@ -1974,7 +2011,7 @@ Mémorise OU, profondeur, type, présence, filtre local, limite, colonnes (ordre
 
 #### RCH-133 · Ouvrir une vue personnelle
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Prépare OU, filtres, colonnes et tri sans rien lire ; le tri s'applique à la prochaine liste ; l'opérateur lance ensuite Actualiser ou une requête.
 
@@ -1983,7 +2020,7 @@ Prépare OU, filtres, colonnes et tri sans rien lire ; le tri s'applique à la p
 
 #### RCH-134 · Retirer une vue et annuler le retrait
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Retire la vue choisie du domaine ; Annuler la restaure tant que les vues n'ont pas changé.
 
@@ -1992,7 +2029,7 @@ Retire la vue choisie du domaine ; Annuler la restaure tant que les vues n'ont p
 
 #### RCH-135 · Libellé distinctif des vues
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque vue est listée « nom · OU et sous-OU/seulement · type ».
 
@@ -2000,7 +2037,7 @@ Chaque vue est listée « nom · OU et sous-OU/seulement · type ».
 
 #### RCH-136 · Vues par session et domaine
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Au changement de session, les vues du nouveau domaine sont relues, l'annulation et le tri en attente sont abandonnés, l'aperçu est vidé.
 
@@ -2008,7 +2045,7 @@ Au changement de session, les vues du nouveau domaine sont relues, l'annulation 
 
 #### RCH-137 · Nom de favori et vue enregistrée en liste blanche (règles non raccordées)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Construit le nom d'une recherche enregistrée à partir de ce qui est visible (« Vue : … », « Domaine entier : … », « OU : texte ») et réduit une vue enregistrée à une liste blanche de champs (nom, texte, type, OU, sous-arbre, limite de 1 à 20 000). Règles écrites et testées, sans appelant dans l'interface de Domenia 1.
 
@@ -2019,13 +2056,13 @@ Construit le nom d'une recherche enregistrée à partir de ce qui est visible (�
 
 ## Fiche (FIC)
 
-50 fonctions, dont 0 faites.
+50 fonctions : 23 faites, 27 améliorées.
 
 ### Attributs et droits
 
 #### FIC-001 · Écriture brute d'un attribut
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Une écriture d'attribut brut exige Security.AllowRawAttributeWrite, un nom LDAP valide et, avec Security.BlockSensitiveRawAttributes, que l'attribut ne soit pas dans la liste des attributs sensibles ; la même règle est appliquée par l'interface puis par le worker WriteAttributes.
 
@@ -2035,7 +2072,7 @@ Une écriture d'attribut brut exige Security.AllowRawAttributeWrite, un nom LDAP
 
 #### FIC-002 · Attributs bruts de l'objet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Grille Attribut/Valeur de tous les attributs lus, dates converties, binaires en hexadécimal, attributs sensibles exclus, calculée seulement quand l'onglet est affiché ; Copier tout.
 
@@ -2044,7 +2081,7 @@ Grille Attribut/Valeur de tous les attributs lus, dates converties, binaires en 
 
 #### FIC-003 · Estimation des droits effectifs
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit la DACL et le propriétaire, compare aux SID du jeton (objectSid, tokenGroups, Everyone, Authenticated Users) et rend dix capacités (lecture, modifier, gestion compte, reset mot de passe, groupes, déplacer/renommer, supprimer, créer enfant, secrets, ACL) en Autorisé/Refusé/Indéterminé ; aussi pour une branche ; copie du rapport.
 
@@ -2056,7 +2093,7 @@ Lit la DACL et le propriétaire, compare aux SID du jeton (objectSid, tokenGroup
 
 #### FIC-004 · Comparaison simple de deux utilisateurs (règle non raccordée)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Compare service, fonction, société, bureau, responsable et groupes directs, avec alerte sur les groupes à privilèges. Règle écrite et testée, non branchée dans l'interface D1.
 
@@ -2065,7 +2102,7 @@ Compare service, fonction, société, bureau, responsable et groupes directs, av
 
 #### FIC-005 · Droits comparés de deux utilisateurs
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Compare les groupes directs, imbriqués et principal de l'utilisateur de la fiche et d'un second (identifiant, DOMAINE\compte, UPN ou DN) : seulement chez A, seulement chez B, communs, avec chemin, origine et alerte de privilège.
 
@@ -2075,7 +2112,7 @@ Compare les groupes directs, imbriqués et principal de l'utilisateur de la fich
 
 #### FIC-006 · Copier la comparaison pour le ticket
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Texte prêt à coller : deux DN, date, groupes par catégorie avec DN, chemin, principal, privilège, limites.
 
@@ -2086,7 +2123,7 @@ Texte prêt à coller : deux DN, date, groupes par catégorie avec DN, chemin, p
 
 #### FIC-007 · Comparer les saisies d'une fiche (brouillon protégé)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 À l'ouverture d'une fiche éditable, mémorise ses 29 champs texte et 11 options ; changer de fiche ou la recharger avec des saisies non enregistrées demande confirmation ; si une relecture plus récente arrive, les saisies sont conservées et un bandeau propose « Comparer les saisies » (valeur lue, votre saisie, nouvelle lecture).
 
@@ -2095,7 +2132,7 @@ Texte prêt à coller : deux DN, date, groupes par catégorie avec DN, chemin, p
 
 #### FIC-008 · Supprimer l'objet
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Dans « Plus… », suppression non récursive après deux confirmations en page (nom de l'objet puis SUPPRIMER) ; racine du domaine et OU/conteneurs interdits par défaut ; absence relue ; associations locales de l'objet retirées.
 
@@ -2105,7 +2142,7 @@ Dans « Plus… », suppression non récursive après deux confirmations en page
 
 #### FIC-009 · Édition de fiche avec crayon
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 « Modifier » ouvre la saisie des seuls champs enregistrables, surligne chaque champ modifié, « Annuler » remet les valeurs lues ; quitter une fiche modifiée signale une fois sur la suivante que les saisies ne sont pas parties.
 
@@ -2114,7 +2151,7 @@ Dans « Plus… », suppression non récursive après deux confirmations en page
 
 #### FIC-010 · Enregistrer la fiche utilisateur
 
-`a-faire` · écriture
+`fait` · écriture
 
 Écrit givenName, sn, displayName, userPrincipalName, mail, telephoneNumber, physicalDeliveryOfficeName, description, title, department, company et manager ; seuls les champs changés partent, un champ vidé est un effacement explicite.
 
@@ -2124,7 +2161,7 @@ Dans « Plus… », suppression non récursive après deux confirmations en page
 
 #### FIC-011 · Choisir le responsable
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Responsable (manager) d'un utilisateur ou managedBy d'un poste choisi par le sélecteur d'objets du domaine ; la fiche montre un nom, le DN reste interne ; Ouvrir et Retirer apparaissent quand un responsable est posé.
 
@@ -2134,7 +2171,7 @@ Responsable (manager) d'un utilisateur ou managedBy d'un poste choisi par le sé
 
 #### FIC-012 · Déverrouiller le compte
 
-`a-faire` · écriture
+`fait` · écriture
 
 Remet lockoutTime à zéro et vérifie que le compte n'est plus verrouillé.
 
@@ -2144,7 +2181,7 @@ Remet lockoutTime à zéro et vérifie que le compte n'est plus verrouillé.
 
 #### FIC-013 · Activer ou désactiver un compte
 
-`a-faire` · écriture
+`fait` · écriture
 
 Bascule l'état Enabled/Disabled d'un utilisateur ou d'un ordinateur, confirmation renforcée (risque Danger) pour la désactivation, état relu après écriture.
 
@@ -2154,7 +2191,7 @@ Bascule l'état Enabled/Disabled d'un utilisateur ou d'un ordinateur, confirmati
 
 #### FIC-014 · Réinitialiser le mot de passe
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Nouveau mot de passe et confirmation (révélables), « Déverrouiller ensuite » et « Changement obligatoire » (coché par Security.ForcePasswordChangeOnReset) ; le mot de passe est relu des champs à la confirmation puis effacé.
 
@@ -2164,7 +2201,7 @@ Nouveau mot de passe et confirmation (révélables), « Déverrouiller ensuite �
 
 #### FIC-015 · Options de sécurité du compte (UAC)
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Mot de passe sans expiration, carte à puce, non délégable ; options avancées : mot de passe non requis, chiffrement réversible, sans pré-authentification, DES, délégation approuvée, délégation contrainte ; seuls les bits changés partent.
 
@@ -2174,7 +2211,7 @@ Mot de passe sans expiration, carte à puce, non délégable ; options avancées
 
 #### FIC-016 · Expiration du compte
 
-`a-faire` · écriture
+`fait` · écriture
 
 Fixer une date d'expiration ou « Jamais », date relue et comparée au jour local.
 
@@ -2184,7 +2221,7 @@ Fixer une date d'expiration ou « Jamais », date relue et comparée au jour loc
 
 #### FIC-017 · Imposer un nouveau mot de passe
 
-`a-faire` · écriture
+`fait` · écriture
 
 « Expirer le mot de passe » met pwdLastSet à zéro : l'utilisateur devra en choisir un nouveau, l'actuel n'est pas modifié.
 
@@ -2194,7 +2231,7 @@ Fixer une date d'expiration ou « Jamais », date relue et comparée au jour loc
 
 #### FIC-018 · Déplacer un objet vers une OU
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Sélecteur d'OU ouvert sur l'OU actuelle, pour un utilisateur, un poste ou une ligne de résultats sans fiche ; cible OU/conteneur du domaine connecté, nouveau DN relu.
 
@@ -2204,7 +2241,7 @@ Sélecteur d'OU ouvert sur l'OU actuelle, pour un utilisateur, un poste ou une l
 
 #### FIC-019 · Ajouter ou retirer d'un groupe
 
-`a-faire` · écriture
+`fait` · écriture
 
 Depuis la fiche utilisateur ou poste, ajoute ou retire l'appartenance directe à un groupe saisi (nom ou DN), vérifiée après écriture.
 
@@ -2214,7 +2251,7 @@ Depuis la fiche utilisateur ou poste, ajoute ou retire l'appartenance directe à
 
 #### FIC-020 · Créer une unité d'organisation
 
-`a-faire` · écriture
+`fait` · écriture
 
 Onglet OU : la branche parente réellement visée est affichée, le nom est validé et l'unicité vérifiée ; la protection contre la suppression accidentelle n'est posée que par la voie module AD.
 
@@ -2226,7 +2263,7 @@ Onglet OU : la branche parente réellement visée est affichée, le nom est vali
 
 #### FIC-021 · Chemin et réponse d'appartenance
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Parcours en largeur des arêtes memberOf (16 niveaux, 5 000 nœuds, cycles) et réponse : membre confirmé par le contrôleur, chemin trouvé, indéterminé si tronqué, ou aucun chemin dans les lectures.
 
@@ -2236,7 +2273,7 @@ Parcours en largeur des arêtes memberOf (16 niveaux, 5 000 nœuds, cycles) et r
 
 #### FIC-022 · Modification des groupes en delta (règle non raccordée)
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Ne produit que les ajouts et retraits choisis (contradictions ignorées, déjà membre ou non membre revérifiés), puis vérifie chaque effet relu sur le contrôleur (Vérifié, Échec, À vérifier, Partiel).
 
@@ -2246,7 +2283,7 @@ Ne produit que les ajouts et retraits choisis (contradictions ignorées, déjà 
 
 #### FIC-023 · Grilles d'appartenance lisibles
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Groupes de l'objet et membres d'un groupe en Nom, Type, OU (DN en info-bulle), 2 000 lignes max avec total et note de lecture partielle.
 
@@ -2255,7 +2292,7 @@ Groupes de l'objet et membres d'un groupe en Nom, Type, OU (DN en info-bulle), 2
 
 #### FIC-024 · Type des membres depuis la copie locale
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Le type et le nom des membres d'un groupe affiché dans une fiche sont résolus par DN exact dans l'index local : 2000 au plus, par paquets de 200.
 
@@ -2265,7 +2302,7 @@ Le type et le nom des membres d'un groupe affiché dans une fiche sont résolus 
 
 #### FIC-025 · Filtre local des appartenances
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Chaque mot doit figurer dans nom, type, OU, DN, appartenance ou via ; compteur directs, imbriqués lus, affichés après filtre.
 
@@ -2274,7 +2311,7 @@ Chaque mot doit figurer dans nom, type, OU, DN, appartenance ou via ; compteur d
 
 #### FIC-026 · Groupes imbriqués à la demande
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit les groupes atteints par imbrication (2 000 groupes, 16 niveaux, 10 s, 40 DN par requête) et les ajoute avec profondeur et groupe direct « via » ; groupes non lus et groupe principal expliqués.
 
@@ -2284,7 +2321,7 @@ Lit les groupes atteints par imbrication (2 000 groupes, 16 niveaux, 10 s, 40 DN
 
 #### FIC-027 · Pourquoi membre ?
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Explique l'appartenance à un groupe : directe (attribut member), chemin d'imbrication « A → B → C (n niveaux) », ou réponse transitive du contrôleur ; indéterminé si lecture incomplète.
 
@@ -2294,7 +2331,7 @@ Explique l'appartenance à un groupe : directe (attribut member), chemin d'imbri
 
 #### FIC-028 · Menus contextuels des appartenances
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Rechercher cet objet, Copier le DN, Pourquoi membre ?, Afficher les groupes imbriqués.
 
@@ -2303,7 +2340,7 @@ Rechercher cet objet, Copier le DN, Pourquoi membre ?, Afficher les groupes imbr
 
 #### FIC-029 · Fiche groupe et membres
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Nom, description enregistrable, membres lus par plages (jusqu'à 50 000, 2 000 affichés avec le total et le motif d'une lecture partielle), ajout et retrait de membre.
 
@@ -2315,7 +2352,7 @@ Nom, description enregistrable, membres lus par plages (jusqu'à 50 000, 2 000 a
 
 #### FIC-030 · Aperçu local d'une fiche
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 À l'ouverture d'une fiche, la version stockée dans la base locale est affichée tout de suite, sans sondes distantes, avec sa date. La lecture AD la remplace ensuite. Une erreur de lecture différée n'est présentée qu'après la fin de l'aperçu.
 
@@ -2325,7 +2362,7 @@ Nom, description enregistrable, membres lus par plages (jusqu'à 50 000, 2 000 a
 
 #### FIC-031 · Rafraîchissement partiel de la fiche
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 À la relecture, si seuls des champs d'affichage simples ont changé (prénom, nom, mail, téléphone, bureau, adresse, description, OS…), seuls ces champs sont mis à jour. Si rien n'a changé, la fiche n'est pas redessinée. L'identité, l'état du compte, les appartenances et les liens prennent toujours le chemin complet.
 
@@ -2334,7 +2371,7 @@ Nom, description enregistrable, membres lus par plages (jusqu'à 50 000, 2 000 a
 
 #### FIC-032 · Pages Fiche et Poste vides
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Sans sujet, Fiche et Poste restent ouvertes et proposent un champ de recherche et les dernières fiches (ou les derniers postes) de la mémoire locale. Un clic recopie le nom, et Entrée lance la recherche globale.
 
@@ -2343,7 +2380,7 @@ Sans sujet, Fiche et Poste restent ouvertes et proposent un champ de recherche e
 
 #### FIC-033 · Contrôle d'identité du résultat lu
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 La fiche lue doit avoir le DN et le GUID attendus et celui capturé à la sélection ; sinon « objet remplacé depuis la recherche, actualisez la liste ».
 
@@ -2353,7 +2390,7 @@ La fiche lue doit avoir le DN et le GUID attendus et celui capturé à la sélec
 
 #### FIC-034 · Réessayer la lecture AD de la fiche
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relance seulement la lecture AD de l'objet sélectionné après un échec.
 
@@ -2363,7 +2400,7 @@ Relance seulement la lecture AD de l'objet sélectionné après un échec.
 
 #### FIC-035 · Fiche affichée depuis la relecture locale
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 La fiche s'affiche à partir de la ligne relue en SQLite (révision, source démo signalée), avec contrôle d'identité.
 
@@ -2373,7 +2410,7 @@ La fiche s'affiche à partir de la ligne relue en SQLite (révision, source dém
 
 #### FIC-036 · Fraîcheur par nature de donnée
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Chaque nature a sa durée de validité : identité AD 24 h, attributs AD 15 min, présence réseau 2 min, session console 5 min, historique sans expiration. Le libellé donne la date, « (à relire) » ou « jamais observé », et la dernière tentative si elle est plus récente. Les durées peuvent venir du profil d'usage, et une tentative échouée ne rajeunit jamais une observation.
 
@@ -2382,7 +2419,7 @@ Chaque nature a sa durée de validité : identité AD 24 h, attributs AD 15 min,
 
 #### FIC-037 · Invalidation ciblée du cache de visite
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Quand un objet change, seules ses lectures en cache sont oubliées : toutes les clés portant son GUID (avec ou sans tirets), ou son DN à défaut de GUID. Les autres objets et listes restent en cache.
 
@@ -2391,7 +2428,7 @@ Quand un objet change, seules ses lectures en cache sont oubliées : toutes les 
 
 #### FIC-038 · Ouverture d'un objet AD
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit l'objet dans un worker avec une liste d'attributs sûrs, affiche d'abord la projection locale SQLite puis la lecture fraîche, choisit les onglets selon le type et la page d'atterrissage (Utilisateur, Vue d'ensemble poste, Groupe, OU, Résumé).
 
@@ -2401,7 +2438,7 @@ Lit l'objet dans un worker avec une liste d'attributs sûrs, affiche d'abord la 
 
 #### FIC-039 · Onglet Résumé
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Type, Nom, Classe, GUID, Créé, Modifié, DN, Présence et cible de présence ; menu du DN (Copier le DN, Copier le nom, Ouvrir le parent), Copier le résumé, Ouvrir le parent, Relire depuis l'annuaire.
 
@@ -2413,7 +2450,7 @@ Type, Nom, Classe, GUID, Créé, Modifié, DN, Présence et cible de présence ;
 
 #### FIC-040 · Lire les verrouillages du compte (événements 4740)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Sur geste explicite, lit dans le journal Sécurité de l'émulateur PDC (résolu par fSMORoleOwner, sinon le contrôleur lié, ce qui est dit) les événements 4740 du seul SID du compte sur 7 jours, puis affiche chaque verrouillage (heure, poste à l'origine, refus de Domenia juste avant) et les faits « Postes à l'origine » et « Refus de Domenia avant un verrouillage ». Bouton dans la fiche Utilisateur.
 
@@ -2423,7 +2460,7 @@ Sur geste explicite, lit dans le journal Sécurité de l'émulateur PDC (résolu
 
 #### FIC-041 · Activité de connexion approximative expliquée (utilisateur)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 À l'ouverture de la fiche, explique lastLogonTimestamp déjà chargé : date approximative répliquée, mise à jour seulement quand elle a plus de « intervalle − 5 jours » (14 jours par défaut), ne prouve pas une présence ; une valeur vide ne prouve pas l'absence de connexion ; une date future signale une horloge à vérifier.
 
@@ -2432,7 +2469,7 @@ Sur geste explicite, lit dans le journal Sécurité de l'émulateur PDC (résolu
 
 #### FIC-042 · Lire la connexion exacte sur chaque contrôleur (utilisateur)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Sur geste explicite et pour l'objet ouvert seulement, lit lastLogon (et logonCount) sur chaque contrôleur du domaine (RWDC et RODC) et msDS-LogonTimeSyncInterval sur la tête du domaine, puis donne la connexion la plus récente, la couverture « n lus sur m recensés », les contrôleurs non lus et le retard de lastLogonTimestamp.
 
@@ -2442,7 +2479,7 @@ Sur geste explicite et pour l'objet ouvert seulement, lit lastLogon (et logonCou
 
 #### FIC-043 · État du compte calculé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Désactivé, verrouillé et mot de passe expiré selon msDS-User-Account-Control-Computed ; « verrouillage à vérifier » si seul lockoutTime est lu ; options n'expire jamais, carte à puce, mot de passe non requis.
 
@@ -2451,7 +2488,7 @@ Désactivé, verrouillé et mot de passe expiré selon msDS-User-Account-Control
 
 #### FIC-044 · Résumé support d'un utilisateur
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Faits datés par rubrique : identité, service (service, fonction, société, bureau, responsable), contact, état et expiration du compte, création, mot de passe, dernière ouverture approximative.
 
@@ -2461,7 +2498,7 @@ Faits datés par rubrique : identité, service (service, fonction, société, bu
 
 #### FIC-045 · Refus Domenia juste avant un verrouillage
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Rapproche chaque événement 4740 des refus d'authentification enregistrés par Domenia pour ce compte (120 s, 5 s de décalage toléré) : piste à vérifier.
 
@@ -2471,7 +2508,7 @@ Rapproche chaque événement 4740 des refus d'authentification enregistrés par 
 
 #### FIC-046 · Présence d'un utilisateur via son poste associé
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Un compte n'ayant pas d'adresse, la présence est testée sur le poste associé le plus fiable (affectation déclarée puis relation la plus récente), sans pinger les postes d'un ancien titulaire du login ; le résultat est stocké sous le GUID du poste.
 
@@ -2481,7 +2518,7 @@ Un compte n'ayant pas d'adresse, la présence est testée sur le poste associé 
 
 #### FIC-047 · Fiche utilisateur
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Prénom, nom, nom affiché, sAMAccountName, UPN, mail, téléphone, bureau, description, fonction, service, société, responsable, présence, état, dernière connexion (approximative, lecture par contrôleur proposée), dernier changement de mot de passe, expiration, options UAC lisibles, postes associés avec « Ouvrir le poste ».
 
@@ -2491,7 +2528,7 @@ Prénom, nom, nom affiché, sAMAccountName, UPN, mail, téléphone, bureau, desc
 
 #### FIC-048 · Bandeau support du compte
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Annonce uniquement ce que le contrôleur a répondu : verrouillé depuis, état non confirmé, mot de passe expiré ou expirant sous 14 jours, mauvais mots de passe, verrouillage récent levé ; boutons « Déverrouiller maintenant » et « Lire les verrouillages (4740) » quand pertinent.
 
@@ -2501,7 +2538,7 @@ Annonce uniquement ce que le contrôleur a répondu : verrouillé depuis, état 
 
 #### FIC-049 · Coordonnées et profil utilisateur
 
-`a-faire` · écriture
+`fait` · écriture
 
 Onglet Coordonnées : adresse, ville, région, code postal, pays, téléphones domicile/mobile/fax/IP, page web, matricule, chemin de profil, script de connexion, dossier de base et lecteur, postes autorisés ; enregistrement par le même canal.
 
@@ -2511,7 +2548,7 @@ Onglet Coordonnées : adresse, ville, région, code postal, pays, téléphones d
 
 #### FIC-050 · Générer un mot de passe temporaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Mot de passe de 16 caractères (14 à 64) tiré par générateur cryptographique, quatre classes obligatoires, sans caractères ambigus (0/O, 1/l/I), mélangé, injecté dans les champs existants pour être lu une fois.
 
@@ -2522,13 +2559,15 @@ Mot de passe de 16 caractères (14 à 64) tiré par générateur cryptographique
 
 ## Comptes (CPT)
 
-21 fonctions, dont 0 faites.
+21 fonctions : 9 faites, 7 améliorées, 5 partielles.
 
 ### Accès
 
 #### CPT-001 · Bouton Accès et accès à revoir
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Emplacement « Accès » de la barre du haut alimenté par ctx.access.report (docs/SHELL.md § 9) à chaque relecture de l’écran Comptes, clic vers Comptes ; pastille de l’en-tête de l’écran (badge, info-bulle, clic qui ouvre la plus ancienne demande) et onglet Accès faits. Reste au shell, à l’intégration : relire accounts.access.revision (local, 2 s) hors de l’écran Comptes.
+
+`partiel` · locale (aucune lecture)
 
 Badge du nombre d'accès refusés en attente (16 max, un par ressource et cible) et info-bulle ; clic pour traiter la plus ancienne demande.
 
@@ -2537,7 +2576,7 @@ Badge du nombre d'accès refusés en attente (16 max, un par ressource et cible)
 
 #### CPT-002 · Utiliser un autre compte après un refus
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Question puis panneau « Utiliser un autre compte » : DOMAINE\compte ou compte@domaine, ou POSTE\compte pour le poste ; un seul essai de validation (AD ou CIM/DCOM, 14 s).
 
@@ -2547,7 +2586,7 @@ Question puis panneau « Utiliser un autre compte » : DOMAINE\compte ou compte@
 
 #### CPT-003 · Contrôle du contexte d'un compte proposé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un compte local n'est accepté que pour son poste et jamais pour l'annuaire, LAPS ou BitLocker ; un compte d'un autre poste ou domaine inconnu est refusé avant tout appel.
 
@@ -2556,7 +2595,7 @@ Un compte local n'est accepté que pour son poste et jamais pour l'annuaire, LAP
 
 #### CPT-004 · Durée de vie des comptes temporaires
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bail par inactivité (30 min par défaut, 1 à 480, mesuré depuis le dernier départ de worker), par session ou à usage unique ; balayage régulier.
 
@@ -2565,7 +2604,7 @@ Bail par inactivité (30 min par défaut, 1 à 480, mesuré depuis le dernier d�
 
 #### CPT-005 · Consulter et oublier les comptes temporaires
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Sans demande en attente, le bouton Accès liste les comptes temporaires actifs et propose de les oublier tous.
 
@@ -2576,7 +2615,7 @@ Sans demande en attente, le bouton Accès liste les comptes temporaires actifs e
 
 #### CPT-006 · Carte Annuaire en lecture seule
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Affiche l'identité qui s'est réellement liée (BindUser), le mode (session Windows, compte saisi, démonstration), le contrôleur et le domaine ; sans connexion, « Aucune identité active » et renvoi vers « Changer de compte ». Aucun champ n'est éditable.
 
@@ -2585,7 +2624,9 @@ Affiche l'identité qui s'est réellement liée (BindUser), le mode (session Win
 
 #### CPT-007 · Changer de compte sans fermer Domenia
 
-`a-faire` · lecture réseau
+> Reste à faire : Changer de compte fait en simulation (validation unique, nouvelle époque, comptes, accès, pauses et refus oubliés, formulaire prérempli, écran relu). Relecture de la barre supérieure sur domenia:session-changed par le shell ; ouverture réelle de la session par Domenia.Ad (IAccountsAccessReader.OpenSessionAsync, vague 3).
+
+`partiel` · lecture réseau
 
 Sauvegarde les données en attente, purge vues, grilles, observations et cibles de la session, rouvre le formulaire prérempli avec le compte courant puis ouvre la base du domaine de la nouvelle session.
 
@@ -2595,7 +2636,9 @@ Sauvegarde les données en attente, purge vues, grilles, observations et cibles 
 
 #### CPT-008 · Corriger le mot de passe du compte de connexion sans reconnecter
 
-`a-faire` · lecture réseau
+> Reste à faire : Règles et contrat faits (même identité, pause du seul compte levée sauf autre copie du mot de passe refusé, refus en simulation et en session Windows) ; remplacement réel du secret de la session et arrêt des lectures parties avec l’ancien par Domenia.Ad (SwapConnectionPasswordAsync, vague 3).
+
+`partiel` · lecture réseau
 
 Après un changement de mot de passe dans l'annuaire, l'opérateur saisit le mot de passe actuel ; une seule validation du même compte est faite puis le nouveau mot de passe remplace l'ancien en mémoire, les lectures parties avec l'ancien sont arrêtées et la protection levée pour ce compte seulement. Refusé en démonstration, en session Windows (à corriger dans Windows) ou si l'identité validée diffère de celle de la session.
 
@@ -2604,7 +2647,7 @@ Après un changement de mot de passe dans l'annuaire, l'opérateur saisit le mot
 
 #### CPT-009 · Route « compte de connexion refusé » vers la correction
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand le compte de connexion est refusé, ouvre la page Comptes, place le curseur dans le champ de correction et affiche la consigne (saisir le mot de passe actuel puis « Corriger le mot de passe », ou « Changer de compte »).
 
@@ -2615,7 +2658,7 @@ Quand le compte de connexion est refusé, ouvre la page Comptes, place le curseu
 
 #### CPT-010 · « En ce moment » : compte utilisé par chaque ressource
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Grille Ressource / Compte / Origine / État : Annuaire, chaque opération annuaire ayant son compte temporaire (recherche, arborescence, fiches…), Postes (WMI, C$, consoles), Secrets LAPS et Secrets BitLocker. L'état dit « Aucun refus enregistré », « En pause après un refus : &lt;où le corriger> » ou « Même compte que … (SID confirmé par l'annuaire) » ; rien n'y est testé.
 
@@ -2624,7 +2667,7 @@ Grille Ressource / Compte / Origine / État : Annuaire, chaque opération annuai
 
 #### CPT-011 · Comptes gardés en mémoire et « Oublier »
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Liste le compte poste saisi et les comptes temporaires acceptés après un refus (y compris compte local d'un poste) avec leur durée restante (« une seule utilisation », « jusqu'à la fin de la session », « encore N min sans utilisation », « expiré ») et leur état ; « Oublier » rend la main au compte configuré et efface les refus liés.
 
@@ -2633,7 +2676,9 @@ Liste le compte poste saisi et les comptes temporaires acceptés après un refus
 
 #### CPT-012 · Comptes utilisés (AD, postes, secrets)
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Les trois identités sont dans l’écran Comptes (accounts.access.state.identities) ; leur rappel dans le panneau d’aide du shell (F1), avec le raccourci vers Comptes, reste au shell à l’intégration (ctx.help.register n’admet que des textes fixes).
+
+`partiel` · locale (aucune lecture)
 
 Le panneau d'aide affiche les noms des trois identités : AD courante, compte pour les postes, compte pour les secrets (« Compte AD courant » par défaut). Un raccourci ouvre la page Comptes.
 
@@ -2644,7 +2689,7 @@ Le panneau d'aide affiche les noms des trois identités : AD courante, compte po
 
 #### CPT-013 · Compte Postes (compte secondaire des opérations distantes)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Saisie d'un identifiant administrateur des postes et de son mot de passe, « Activer » après validation AD, « Effacer » pour revenir au compte de connexion ; l'activation remplace seulement les comptes temporaires de la ressource Postes et leurs refus, puis passe par la correction centralisée (génération, protection de ce compte seul).
 
@@ -2653,7 +2698,7 @@ Saisie d'un identifiant administrateur des postes et de son mot de passe, « Act
 
 #### CPT-014 · Compte Secrets (LAPS et BitLocker)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Identifiant autorisé à lire LAPS et BitLocker, avec « Tester » (validation seule), « Activer » et « Effacer » ; l'activation ne remplace que les comptes temporaires LAPS/BitLocker (D051) et efface les refus laps|/bitlocker| enregistrés pour l'identité précédente, le compte annuaire et le compte poste restent.
 
@@ -2662,7 +2707,7 @@ Identifiant autorisé à lire LAPS et BitLocker, avec « Tester » (validation s
 
 #### CPT-015 · Essayer le compte poste sur le poste sélectionné
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Sur clic explicite, une seule lecture CIM/DCOM légère (Win32_OperatingSystem.Caption) du poste ouvert dans Assistance poste, avec le compte que prendront les opérations poste ; verdict : accès administrateur OK (avec le système), accès refusé, identifiants refusés, compte verrouillé/expiré, poste injoignable ou essai non concluant. Bouton grisé sans poste ouvert ou pendant un essai.
 
@@ -2672,7 +2717,7 @@ Sur clic explicite, une seule lecture CIM/DCOM légère (Win32_OperatingSystem.C
 
 #### CPT-016 · Mémoriser l'identifiant (nom seulement) dans la base locale
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Après activation, le nom du compte (jamais le mot de passe) est enregistré par usage (Directory, Remote, Laps, BitLocker, AD:&lt;opération>, RemoteLocal:&lt;poste>) et par domaine dans SQLite, puis relu pour préremplir les champs Postes et Secrets. Une lecture asynchrone n'écrase jamais un texte tapé entre-temps.
 
@@ -2682,7 +2727,9 @@ Après activation, le nom du compte (jamais le mot de passe) est enregistré par
 
 #### CPT-017 · Coffre Windows pour les comptes Postes et Secrets
 
-`a-faire` · lecture locale
+> Reste à faire : Coffre Windows (Gestionnaire d’identification) : question posée à David dans REPRISE.md (§ 4) ; branchement natif (CredRead, CredWrite, CredDelete) ensuite ; indisponible en simulation comme dans Domenia 1 (case grisée avec sa raison).
+
+`partiel` · lecture locale
 
 Case « Mémoriser sur ce PC » (enregistre après validation), « Utiliser le coffre » (lit le mot de passe pour l'identifiant affiché puis lance une seule validation) et « Oublier le mot de passe » (supprime l'entrée pour cet usage) ; le compte Secrets est enregistré et oublié pour LAPS et BitLocker à la fois.
 
@@ -2691,7 +2738,7 @@ Case « Mémoriser sur ce PC » (enregistre après validation), « Utiliser le c
 
 #### CPT-018 · Vérification d'un compte poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Valide un compte pour un poste précis en ouvrant une session CIM DCOM (5 s) et en lisant Win32_ComputerSystem.Name ; « .\compte » est complété par le nom du poste.
 
@@ -2703,7 +2750,7 @@ Valide un compte pour un poste précis en ouvrant une session CIM DCOM (5 s) et 
 
 #### CPT-019 · Droits, comptes et ports requis par opération
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Pour chaque opération : ressource, compte utilisé, droit nécessaire et accès réseau (LDAP 389, CIM/DCOM 135+RPC, WSMan, SMB 445, journal distant, ICMP) ; opération inconnue = droit non documenté.
 
@@ -2713,7 +2760,7 @@ Pour chaque opération : ressource, compte utilisé, droit nécessaire et accès
 
 #### CPT-020 · Politique de transport visible
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Tableau LDAP, CIM/DCOM, CIM/WSMan, WTS, ADMIN$, Planificateur, PsExec : usage, ports, état selon configuration et consentement, règle, intrusif ; note du consentement en cours (un poste, 5 min).
 
@@ -2724,7 +2771,7 @@ Tableau LDAP, CIM/DCOM, CIM/WSMan, WTS, ADMIN$, Planificateur, PsExec : usage, p
 
 #### CPT-021 · Validation asynchrone d'un compte (une à la fois)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Valide un identifiant/mot de passe dans un runspace d'authentification dédié, sans attente du Dispatcher, avec un délai de 12 s ; les champs et boutons de la page Comptes sont occupés pendant la validation et la fenêtre reste utilisable. Le résultat doit être une authentification explicite, avec BindUser et le même domaine ; sinon « Identité AD non confirmée ».
 
@@ -2735,13 +2782,13 @@ Valide un identifiant/mot de passe dans un runspace d'authentification dédié, 
 
 ## Utilisateurs et postes (REL)
 
-52 fonctions, dont 0 faites.
+52 fonctions : 33 faites, 13 améliorées, 6 partielles.
 
 ### Association manuelle
 
 #### REL-001 · Recherche manuelle d'une cible
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Cherche un poste (ou un utilisateur pour un sujet poste) dans tout le domaine par nom, identifiant ou DNS (2 caractères min, Entrée).
 
@@ -2751,7 +2798,7 @@ Cherche un poste (ou un utilisateur pour un sujet poste) dans tout le domaine pa
 
 #### REL-002 · Association manuelle confirmée et revérifiée
 
-`a-faire` · écriture
+`fait` · écriture
 
 Après choix d'une ligne, panneau « utilisateur → poste » ; Associer revérifie la cible dans l'AD puis enregistre une affectation déclarée (Saisie manuelle).
 
@@ -2761,7 +2808,7 @@ Après choix d'une ligne, panneau « utilisateur → poste » ; Associer revéri
 
 #### REL-003 · États de l'association et refus expliqués
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Parcours Idle → Recherche → Candidat → En attente → Vérification → Enregistrée/Échec ; chaque étape refusée est expliquée en une phrase.
 
@@ -2772,7 +2819,7 @@ Parcours Idle → Recherche → Candidat → En attente → Vérification → En
 
 #### REL-004 · Associer un utilisateur sans fenêtre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 L'association se fait désormais dans Relations, panneau Ajouter > Rechercher, à partir du poste sélectionné. Il n'y a plus de fenêtre séparée et rien n'est sondé à cette étape.
 
@@ -2781,7 +2828,7 @@ L'association se fait désormais dans Relations, panneau Ajouter > Rechercher, �
 
 #### REL-005 · Relations rattachées au GUID du poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ne reprend pour un poste que les relations de son GUID ; même adresse ou même nom sur un autre objet = exclu, sans GUID = à vérifier. Règle écrite, non raccordée.
 
@@ -2790,7 +2837,7 @@ Ne reprend pour un poste que les relations de son GUID ; même adresse ou même 
 
 #### REL-006 · Associations de la sélection
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Grille des associations du sujet avec qualification, date locale triable, provenance et persistance (Enregistrée / Session uniquement) ; contexte chiffré et contradictions comptées.
 
@@ -2799,7 +2846,7 @@ Grille des associations du sujet avec qualification, date locale triable, proven
 
 #### REL-007 · Synthèse déclaré / observé / historique
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Trois énoncés séparés avec origine et date : affectation déclarée, dernière session observée, historique des ouvertures anciennes, plus le nombre d'autres indices.
 
@@ -2808,7 +2855,7 @@ Trois énoncés séparés avec origine et date : affectation déclarée, derniè
 
 #### REL-008 · Supprimer une association locale
 
-`a-faire` · écriture
+`fait` · écriture
 
 Retire l'association choisie du stockage local ou de la session après confirmation en page.
 
@@ -2818,7 +2865,7 @@ Retire l'association choisie du stockage local ou de la session après confirmat
 
 #### REL-009 · Restaurer la dernière suppression
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Bouton nommé « Restaurer jdupont → PC01 » qui remet la dernière association supprimée non encore restaurée, depuis la mémoire ou le journal disque.
 
@@ -2828,7 +2875,7 @@ Bouton nommé « Restaurer jdupont → PC01 » qui remet la dernière associatio
 
 #### REL-010 · Journal local des relations
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Historique en mémoire (500 entrées) des ajouts, retraits, restaurations, rafraîchissements ; retraits et restaurations aussi écrits en JSONL à côté de la base.
 
@@ -2838,7 +2885,7 @@ Historique en mémoire (500 entrées) des ajouts, retraits, restaurations, rafra
 
 #### REL-011 · Garde de stockage des associations
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Avant tout changement, vérifie que l'enregistrement précédent est terminé et qu'au plus 64 postes changent ; sinon raison nommée, rien n'est appliqué à moitié.
 
@@ -2847,7 +2894,7 @@ Avant tout changement, vérifie que l'enregistrement précédent est terminé et
 
 #### REL-012 · Conflits d'associations entre consoles
 
-`a-faire` · écriture
+`fait` · écriture
 
 Une association modifiée par une autre console n'est pas écrasée : la version du disque est gardée, la nôtre reste en mémoire avec le message « Association modifiée ailleurs… Rechargez les associations ». Le chemin d'arrière-plan ne resoumet jamais une clé en conflit, et le rechargement (Comptes > Changer de compte, ou un redémarrage) clôt le conflit. La file d'écriture abstraite D028 (New-DomeniaWriteQueue, Add-DomeniaWriteRequest, Resolve-DomeniaWriteConflict) existe mais n'est pas branchée.
 
@@ -2857,7 +2904,9 @@ Une association modifiée par une autre console n'est pas écrasée : la version
 
 #### REL-013 · Associations chargées depuis la base
 
-`a-faire` · lecture locale
+> Reste à faire : Lecture et migration de la table SQLite user_machine_links de Domenia 1 (schéma 11) par Domenia.Store, mode annuaire (contrat au § 6.1 de docs/ops/relations.md) ; la simulation lit son magasin en mémoire au premier usage.
+
+`partiel` · lecture locale
 
 Les associations poste-utilisateur de la base sont lues par worker au démarrage, au changement de compte et après une bascule de base. Une modification faite pendant la lecture reste en mémoire et s'enregistre à la fin, car la référence de l'écrivain doit être le contenu de la base, jamais une liste vide.
 
@@ -2867,7 +2916,9 @@ Les associations poste-utilisateur de la base sont lues par worker au démarrage
 
 #### REL-014 · Enregistrement groupé des associations
 
-`a-faire` · écriture
+> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
+
+`partiel` · écriture
 
 Les changements d'associations sont comparés à leur dernier état connu et envoyés par lots de 64 au plus. Les observations d'arrière-plan sont regroupées après 1,5 s de calme, et la suite d'un lot partiel part au tour suivant. Un geste explicite de plus de 64 changements est refusé.
 
@@ -2877,7 +2928,7 @@ Les changements d'associations sont comparés à leur dernier état connu et env
 
 #### REL-015 · Associations utilisateur-poste mémorisées
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Index en mémoire des liens, lu par poste ou par utilisateur avec la règle d'identité par GUID et date de création ; badge de qualification (jamais un pourcentage), date en heure locale, statistiques ; ouverture de l'objet associé.
 
@@ -2887,7 +2938,7 @@ Index en mémoire des liens, lu par poste ou par utilisateur avec la règle d'id
 
 #### REL-016 · Ajouter une association
 
-`a-faire` · écriture
+`fait` · écriture
 
 Depuis un utilisateur ou un poste sélectionné, ouvre le panneau Ajouter de Relations (recherche du poste ou de l'utilisateur) ; une relation par utilisateur, poste et nature, une affectation déclarée n'est jamais remplacée par une observation.
 
@@ -2899,7 +2950,9 @@ Depuis un utilisateur ou un poste sélectionné, ouvre le panneau Ajouter de Rel
 
 #### REL-017 · Association mémorisée du compte console
 
-`a-faire` · écriture
+> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
+
+`partiel` · écriture
 
 Un compte console observé et validé dans AD rejoint les relations du poste (source « Console CIM/DCOM », date UTC) par la règle d'upsert.
 
@@ -2909,7 +2962,9 @@ Un compte console observé et validé dans AD rejoint les relations du poste (so
 
 #### REL-018 · Association console créée par un relevé
 
-`a-faire` · écriture
+> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
+
+`partiel` · écriture
 
 Le compte console observé par un relevé devient une association utilisateur-poste, enregistrée par lots.
 
@@ -2919,7 +2974,7 @@ Le compte console observé par un relevé devient une association utilisateur-po
 
 #### REL-019 · Détecter les postes d'un utilisateur : lecture annuaire
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Phase 1 sans contact de poste : relit le compte exact, puis les associations connues, les postes dont il est managedBy et ceux qui le mentionnent (description, location).
 
@@ -2929,7 +2984,7 @@ Phase 1 sans contact de poste : relit le compte exact, puis les associations con
 
 #### REL-020 · Périmètre de détection confirmé avant toute sonde
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Candidats connus, liste chargée ou OU explicite ; limite 1 à 50 ; la liste exacte des postes à interroger est montrée, puis « Lancer la détection » ou « Annuler ».
 
@@ -2938,7 +2993,7 @@ Candidats connus, liste chargée ou OU explicite ; limite 1 à 50 ; la liste exa
 
 #### REL-021 · Sonde des consoles bornée avec compteurs
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit l'utilisateur console (Win32_ComputerSystem par CIM/DCOM, 4 s) des seuls postes confirmés ; compteurs interrogés, confirmés, refusés, injoignables, restants en direct.
 
@@ -2948,7 +3003,7 @@ Lit l'utilisateur console (Win32_ComputerSystem par CIM/DCOM, 4 s) des seuls pos
 
 #### REL-022 · Indices Kerberos du contrôleur (7 jours)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Option : lit jusqu'à 100 événements 4768 du SID sur le contrôleur et liste les adresses IP comme indices.
 
@@ -2958,7 +3013,7 @@ Option : lit jusqu'à 100 événements 4768 du SID sur le contrôleur et liste l
 
 #### REL-023 · Arrêter la détection
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Arrête la recherche inverse en cours, résultat partiel déclaré.
 
@@ -2968,7 +3023,7 @@ Arrête la recherche inverse en cours, résultat partiel déclaré.
 
 #### REL-024 · Enregistrement des consoles confirmées
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Les consoles confirmées (50 max) s'ajoutent aux relations sans en retirer ; une affectation déclarée reste enregistrée et l'observation reste visible pour la session.
 
@@ -2978,7 +3033,7 @@ Les consoles confirmées (50 max) s'ajoutent aux relations sans en retirer ; une
 
 #### REL-025 · Candidats construits à partir de plusieurs preuves
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Regroupe association connue, observation, indice AD et inventaire par GUID ; chaque candidat dit pourquoi il est proposé et s'il est associable.
 
@@ -2987,7 +3042,7 @@ Regroupe association connue, observation, indice AD et inventaire par GUID ; cha
 
 #### REL-026 · Ouvrir ou associer un poste candidat
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ouvre la fiche du poste candidat ou prépare son association déclarée.
 
@@ -2997,7 +3052,7 @@ Ouvre la fiche du poste candidat ou prépare son association déclarée.
 
 #### REL-027 · Contrôle d'identité du compte observé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Compare le compte lu à la cible : SID identique, compte local du poste, autre autorité, nom non qualifié, UPN, domaine et identifiant.
 
@@ -3006,7 +3061,7 @@ Compare le compte lu à la cible : SID identique, compte local du poste, autre a
 
 #### REL-028 · Détail des tentatives de recherche
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Grille des méthodes essayées (compte, associations, indices, journal, consoles) avec statut, cible, durée, détail et ressource.
 
@@ -3015,7 +3070,9 @@ Grille des méthodes essayées (compte, associations, indices, journal, consoles
 
 #### REL-029 · Reprise d'accès après refus pendant la détection
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Demande d’un autre compte pour la ressource refusée : le canal existe dans l’écran Comptes (demandes d’accès, « Utiliser un autre compte », accounts.access.*) ; brancher les refus de la détection sur ces demandes à l’intégration, les lectures réelles en vague 3. Fait : arrêt au premier refus d’identifiants (RelationProbeLoop), ressources refusées nommées et copiables dans la carte « Reprise d’accès », jamais rejouées.
+
+`partiel` · locale (aucune lecture)
 
 Un rejet ou refus de l'annuaire ou d'un poste ouvre une demande d'autre compte pour la ressource concernée, sans rejouer la recherche.
 
@@ -3025,7 +3082,9 @@ Un rejet ou refus de l'annuaire ou d'un poste ouvre une demande d'autre compte p
 
 #### REL-030 · Moisson du journal du contrôleur
 
-`a-faire` · lecture réseau
+> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
+
+`partiel` · lecture réseau
 
 Une requête sur le journal Sécurité du DC de la session (événements 4768, 4769, 4624, 7 jours par défaut, 1 à 30 ; 5 000 événements, 200 à 20 000) rend des milliers de couples utilisateur-poste sans contacter de poste ; comptes machines ignorés.
 
@@ -3035,7 +3094,7 @@ Une requête sur le journal Sécurité du DC de la session (événements 4768, 4
 
 #### REL-031 · Relevé incrémentiel du parc
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 File de priorité : postes jamais relevés, puis relevés périmés du plus ancien ; un poste non réauthentifié (lastLogonTimestamp) depuis le dernier relevé n'est pas redemandé ; ping parallèle par lots avant toute session ; « Oublier les relevés » après sauvegarde vérifiée.
 
@@ -3047,7 +3106,7 @@ File de priorité : postes jamais relevés, puis relevés périmés du plus anci
 
 #### REL-032 · Correspondance d'identité des lignes importées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Rejette un compte d'un autre domaine, un suffixe UPN différent, un poste FQDN d'un autre domaine, une adresse IP ou un UUID matériel à la place d'un nom.
 
@@ -3056,7 +3115,7 @@ Rejette un compte d'un autre domaine, un suffixe UPN différent, un poste FQDN d
 
 #### REL-033 · Dates et priorité dans un fichier importé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Lit les dates ISO ou Unix (date future au-delà de 60 min ignorée), garde le plus récent par poste, et décide Retenue, Doublon, Remplacée ou Conflit (aucune des lignes en conflit importée).
 
@@ -3065,7 +3124,7 @@ Lit les dates ISO ou Unix (date future au-delà de 60 min ignorée), garde le pl
 
 #### REL-034 · Lots d'import réversibles
 
-`a-faire` · écriture
+`fait` · écriture
 
 Chaque import porte un jeton de lot (horodatage + 8 hex) dans les détails des associations, ce qui permet de lister les lots et d'annuler un import après redémarrage.
 
@@ -3075,7 +3134,7 @@ Chaque import porte un jeton de lot (horodatage + 8 hex) dans les détails des a
 
 #### REL-035 · Import d'associations avec aperçu
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Trois adaptateurs pour importer des associations utilisateur-poste : CSV générique, export GLPI (Usager/Login, date du dernier inventaire, série, entité), résultats osquery logged_in_users (journal ou tableau JSON).
 
@@ -3085,7 +3144,7 @@ Trois adaptateurs pour importer des associations utilisateur-poste : CSV génér
 
 #### REL-036 · Vérification de l'import dans l'index local
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Avant un import, vérifie en lecture seule que les comptes et postes du fichier existent dans l'index local : noms exacts (login, poste ou compte), 1000 de chaque au plus, interrogés par paquets de 200.
 
@@ -3095,7 +3154,7 @@ Avant un import, vérifie en lecture seule que les comptes et postes du fichier 
 
 #### REL-037 · Confirmer l'import
 
-`a-faire` · écriture
+`fait` · écriture
 
 Ajoute au plus 64 associations par import avec la source forcée (Import CSV/GLPI/osquery, badge Importé), date ISO du fichier ou de l'import, lot de retour arrière.
 
@@ -3105,7 +3164,7 @@ Ajoute au plus 64 associations par import avec la source forcée (Import CSV/GLP
 
 #### REL-038 · Annuler l'import
 
-`a-faire` · écriture
+`fait` · écriture
 
 Retire les associations ajoutées par le dernier import (lot retrouvé même après redémarrage), après confirmation nommant le nombre.
 
@@ -3117,7 +3176,7 @@ Retire les associations ajoutées par le dernier import (lot retrouvé même apr
 
 #### REL-039 · Empreinte d'une association utilisateur-poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Calcule l'empreinte et l'enregistrement normalisé d'une association utilisateur-poste (login, poste, source, confiance, vérifiée dans AD, date, détails, GUID et DN des deux objets) pour détecter un changement ou un doublon.
 
@@ -3126,7 +3185,7 @@ Calcule l'empreinte et l'enregistrement normalisé d'une association utilisateur
 
 #### REL-040 · Qualification explicable des liens
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Badges Déclaré, Observé, Historique, Importé, Indice, Contradictoire, À vérifier avec la règle qui les produit et la provenance ; jamais de pourcentage.
 
@@ -3135,7 +3194,7 @@ Badges Déclaré, Observé, Historique, Importé, Indice, Contradictoire, À vé
 
 #### REL-041 · Contradictions affectation / session observée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Signale les postes dont l'affectation déclarée et une session observée désignent des comptes différents ; les deux sont conservées.
 
@@ -3144,7 +3203,7 @@ Signale les postes dont l'affectation déclarée et une session observée désig
 
 #### REL-042 · Identité des liens à travers renommages et noms recyclés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un lien porteur de GUID n'appartient qu'à cet objet ; même nom autre GUID ou lien antérieur à la création = autre détenteur, historique non repris ; sans GUID = identité non vérifiable.
 
@@ -3153,7 +3212,7 @@ Un lien porteur de GUID n'appartient qu'à cet objet ; même nom autre GUID ou l
 
 #### REL-043 · Sources d'association protégées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les associations déclarées ou importées (Manual, Saisie manuelle, Import CSV, Import GLPI, Import osquery) ne sont jamais retirées par un contrôle automatique (orphelins) ni remplacées par une détection. Ni la purge de l'historique ni la conservation ne les touchent.
 
@@ -3165,7 +3224,7 @@ Les associations déclarées ou importées (Manual, Saisie manuelle, Import CSV,
 
 #### REL-044 · Sujet des relations dans les deux sens
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Un utilisateur ou un poste choisi dans Rechercher devient le sujet ; les libellés et actions s'adaptent (Associer ce poste / Associer cet utilisateur, Détecter les postes / Lire la session).
 
@@ -3174,7 +3233,7 @@ Un utilisateur ou un poste choisi dans Rechercher devient le sujet ; les libell�
 
 #### REL-045 · Sujet conservé pendant une recherche de cible
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Tant qu'une cible est cherchée ou qu'une association attend confirmation, une nouvelle sélection ne remplace pas le sujet ; la raison est affichée.
 
@@ -3182,7 +3241,7 @@ Tant qu'une cible est cherchée ou qu'une association attend confirmation, une n
 
 #### REL-046 · Page Relations rafraîchie seulement visible
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Tant que la page est masquée, rien n'est lié ni qualifié ; le rafraîchissement noté s'exécute à son ouverture ; qualification mémoïsée par contenu.
 
@@ -3190,7 +3249,7 @@ Tant que la page est masquée, rien n'est lié ni qualifié ; le rafraîchisseme
 
 #### REL-047 · Réinitialisation des relations au changement de session
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Arrête les recherches, vide sujet, observations de session et journal mémoire, ferme aperçu d'import, annulation d'import et orphelines avec message.
 
@@ -3199,7 +3258,7 @@ Arrête les recherches, vide sujet, observations de session et journal mémoire,
 
 #### REL-048 · Aide et panneau Ajouter des relations
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bouton « ? » qui affiche les précautions ; panneau Ajouter avec sélecteur Détecter | Rechercher.
 
@@ -3209,7 +3268,7 @@ Bouton « ? » qui affiche les précautions ; panneau Ajouter avec sélecteur D�
 
 #### REL-049 · Toutes les associations filtrables
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Grille complète filtrée par texte (utilisateur, poste, source, détail, libellé) et puces Déclaré, Observé, Historique, Contradictoire, avec compteur.
 
@@ -3217,7 +3276,7 @@ Grille complète filtrée par texte (utilisateur, poste, source, détail, libell
 
 #### REL-050 · Exporter les associations
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 « Exporter tout » efface d'abord visiblement filtres et puces puis exporte toutes les associations ; « Exporter » exporte les liens visibles du sujet.
 
@@ -3225,7 +3284,7 @@ Grille complète filtrée par texte (utilisateur, poste, source, détail, libell
 
 #### REL-051 · Ouvrir la fiche depuis une association
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Double-clic sur la colonne utilisateur ou poste, ou clic droit « Ouvrir l'utilisateur / Ouvrir le poste » ; DN gardé ou recherche par nom.
 
@@ -3235,7 +3294,7 @@ Double-clic sur la colonne utilisateur ou poste, ou clic droit « Ouvrir l'utili
 
 #### REL-052 · Nettoyer les associations orphelines
 
-`a-faire` · écriture
+`fait` · écriture
 
 Contrôle les liens contre l'annuaire et liste les orphelins avec leur motif et une case chacun ; le retrait est confirmé en page, journalisé et restaurable.
 
@@ -3247,7 +3306,7 @@ Contrôle les liens contre l'annuaire et liste les orphelins avec leur motif et 
 
 ## Poste (PST)
 
-117 fonctions, dont 0 faites.
+117 fonctions : 81 faites, 31 améliorées, 4 partielles, 1 abandonnée.
 
 ### Connecteurs
 
@@ -3267,7 +3326,7 @@ Sources de lecture optionnelles ; seul WAPT est prévu, en lecture seule, depuis
 
 #### PST-002 · Verdict du diagnostic du poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Transforme les lignes du diagnostic (Résolution DNS, Ping, TCP 135/445/3389/5985/5986, Session CIM, Partage C$, WinRM, transports PsExec et planificateur) en une phrase de verdict et en compteurs réussis/échecs/informations/non tentés. Un transport de repli absent ou WinRM fermé est classé Information, pas échec ; le code brut reste dans la ligne et le rapport copié.
 
@@ -3277,7 +3336,7 @@ Transforme les lignes du diagnostic (Résolution DNS, Ping, TCP 135/445/3389/598
 
 #### PST-003 · Diagnostic par couche réseau
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Lit les contrôles couche par couche (nom, ICMP, transport TCP, protocole utile CIM/C$) et désigne la première étape bloquante avec une phrase explicative (pare-feu probable, RPC dynamiques filtrés, CIM refusée au compte). Un ping filtré avec un port de gestion ouvert reste un poste joignable.
 
@@ -3287,7 +3346,7 @@ Lit les contrôles couche par couche (nom, ICMP, transport TCP, protocole utile 
 
 #### PST-004 · Diagnostic rapide borné (5 contrôles)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Plan fixe de cinq lectures seules (système, dernier démarrage, disque C:, ports 135/445/5985 sans envoi de données, services Winmgmt/RpcSs/WinRM/LanmanServer/WAPTService) avec un budget annoncé de 20 s et des faits datés (alerte sous 10 % libre, horloge postérieure). Règle écrite et testée, non raccordée à l'interface D1.
 
@@ -3297,7 +3356,7 @@ Plan fixe de cinq lectures seules (système, dernier démarrage, disque C:, port
 
 #### PST-005 · Diagnostic du poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Résolution DNS, ping, ports 445/135/5985/5986/3389, transport PsExec (sonde SYSTEM), Task Scheduler (/query), partage C$ ouvert avec le compte poste, WinRM, session CIM, système, OS, disque système, redémarrage en attente, service de déploiement (WAPT) ; lignes classées réussi, échec, facultatif, non tenté avec verdict ; copie du rapport.
 
@@ -3307,7 +3366,7 @@ Résolution DNS, ping, ports 445/135/5985/5986/3389, transport PsExec (sonde SYS
 
 #### PST-006 · Explorateur WMI en lecture seule
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Charge root et ses espaces enfants directs, liste les classes d'un espace (filtrables), interroge une classe en SELECT avec WHERE optionnel et limite 1 à 500 (25 par défaut), affiche schéma (type, clé, qualificateurs) et instances ; copie et export CSV au nom du poste qui a répondu.
 
@@ -3319,7 +3378,7 @@ Charge root et ses espaces enfants directs, liste les classes d'un espace (filtr
 
 #### PST-007 · En-tête fixe du poste
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Bandeau commun aux cinq vues : nom, système et version, pastille de présence, utilisateur associé (bouton ou « aucun ») et âge du dernier inventaire. Il est construit à partir des champs de la fiche et de la mémoire de session, sans lecture ni sonde, et chaque texte dit quand il ne sait pas.
 
@@ -3328,7 +3387,7 @@ Bandeau commun aux cinq vues : nom, système et version, pastille de présence, 
 
 #### PST-008 · Pastille de présence avec heure et état mémorisé
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Pastille colorée qui traduit l'état de présence : répond au ping, ne répond pas, test en cours, test impossible, non vérifiée. Elle indique l'heure du dernier test (le plus récent entre la tentative et la réponse) et « (mémoire) » pour un état repris du cache, sans heure. L'infobulle rappelle qu'une absence d'ICMP ne prouve pas que le poste est éteint.
 
@@ -3337,7 +3396,7 @@ Pastille colorée qui traduit l'état de présence : répond au ping, ne répond
 
 #### PST-009 · Actions rapides de l'en-tête (RDP, C$, ping, utilisateur)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Boutons de l'en-tête : Bureau à distance (mstsc), ouverture du partage C$ avec le compte des opérations poste, « Tester la réponse » (un seul ping, qui met la pastille à jour), et ouverture de la fiche de l'utilisateur associé sans écriture ni sonde.
 
@@ -3349,7 +3408,7 @@ Boutons de l'en-tête : Bureau à distance (mstsc), ouverture du partage C$ avec
 
 #### PST-010 · Autoriser une intervention sur ce poste (5 min)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Après confirmation, autorise pendant 5 minutes, sur le seul poste ouvert (nom DNS et nom court), les transports qui déposent un script, un service ou une tâche, pour les actions volontaires suivantes ; une pastille « Intervention autorisée m:ss · Retirer » décompte le temps, et « Retirer » révoque tout de suite.
 
@@ -3359,7 +3418,7 @@ Après confirmation, autorise pendant 5 minutes, sur le seul poste ouvert (nom D
 
 #### PST-011 · Autoriser une seule lecture par tâche planifiée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand CIM ne répond pas, l'opérateur autorise explicitement la prochaine lecture de ce poste par PsExec ou tâche planifiée (5 min, une seule lecture) ; sans cette demande, le worker rend « non lu » au lieu de basculer.
 
@@ -3368,7 +3427,7 @@ Quand CIM ne répond pas, l'opérateur autorise explicitement la prochaine lectu
 
 #### PST-012 · Carte du compte AD du poste (activer ou désactiver)
 
-`a-faire` · écriture
+`fait` · écriture
 
 Un seul bouton est proposé selon userAccountControl lu avec la fiche : Activer si le compte est désactivé, Désactiver sinon. Si l'UAC est illisible, aucun des deux boutons n'est montré et la carte demande de relire la fiche.
 
@@ -3377,7 +3436,7 @@ Un seul bouton est proposé selon userAccountControl lu avec la fiche : Activer 
 
 #### PST-013 · Redémarrage du poste préparé dans la page
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Le panneau de redémarrage s'ouvre dans Intervenir. Deux choix : différé avec message à l'utilisateur (délai Restart.DefaultDelaySeconds, borné de 1 à 60 min, 5 min par défaut) ou immédiat forcé sans message. Les sessions ouvertes sont lues d'abord, puis la confirmation dans la page affiche le plan et ces sessions.
 
@@ -3387,7 +3446,7 @@ Le panneau de redémarrage s'ouvre dans Intervenir. Deux choix : différé avec 
 
 #### PST-014 · Sessions lues avant le redémarrage
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Le panneau résume les sessions lues juste avant : aucune, 1 ou N sessions (utilisateur, protocole, état, heure d'ouverture, inactivité), les sessions dont le compte n'a pas été lu et une lecture partielle. Une lecture refusée ou en échec ne conclut rien et recommande le redémarrage différé.
 
@@ -3397,7 +3456,7 @@ Le panneau résume les sessions lues juste avant : aucune, 1 ou N sessions (util
 
 #### PST-015 · Actualisation des stratégies (GPUpdate) confirmée dans la page
 
-`a-faire` · écriture
+`fait` · écriture
 
 gpupdate /force est demandé une seule fois, par WinRM, après une confirmation dans la page qui remplace l'ancienne fenêtre. Il n'y a ni redémarrage ni fermeture de session.
 
@@ -3407,7 +3466,7 @@ gpupdate /force est demandé une seule fois, par WinRM, après une confirmation 
 
 #### PST-016 · Exécuter un programme sur le poste
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Lancement d'un programme du poste soit en arrière-plan sous SYSTEM sans fenêtre, soit dans la session ouverte d'un utilisateur, avec ou sans le niveau le plus élevé. Il passe par une tâche planifiée unique, créée puis supprimée. Le compte de session est prérempli avec l'utilisateur associé (DOMAINE\identifiant), et l'exécution réelle du programme n'est pas vérifiée.
 
@@ -3417,7 +3476,7 @@ Lancement d'un programme du poste soit en arrière-plan sous SYSTEM sans fenêtr
 
 #### PST-017 · État de l'autorisation d'intervention dans le panneau d'exécution
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le panneau d'exécution affiche l'état de l'autorisation d'intervention de 5 minutes : active jusqu'à HH:mm, ou absente avec l'endroit où l'accorder. Sans elle, le bouton amène à l'écran « Autoriser une intervention (5 min) » mais n'accorde jamais l'autorisation lui-même.
 
@@ -3426,7 +3485,7 @@ Le panneau d'exécution affiche l'état de l'autorisation d'intervention de 5 mi
 
 #### PST-018 · Copier la commande PowerShell à distance
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Produit la commande Enter-PSSession -ComputerName 'poste', complétée de -Credential 'compte' quand un compte poste est configuré, à coller dans la console du technicien. Le mot de passe n'y figure jamais.
 
@@ -3435,7 +3494,7 @@ Produit la commande Enter-PSSession -ComputerName 'poste', complétée de -Crede
 
 #### PST-019 · Wake-on-LAN volontaire
 
-`a-faire` · écriture
+`fait` · écriture
 
 Envoi d'un paquet magique (102 octets, port 9) vers la diffusion dirigée du sous-réseau connu d'un seul poste, et texte d'état qui ne prétend jamais que le poste est allumé. Règle écrite, non raccordée.
 
@@ -3445,7 +3504,7 @@ Envoi d'un paquet magique (102 octets, port 9) vers la diffusion dirigée du sou
 
 #### PST-020 · Ouvrir Pesto ou FILPRO avec le contexte
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Lit le contrat suite-contract.json (DomeniaSuiteContract/1) de l'outil et ne transmet que les champs déclarés et validés (nom et GUID du poste, login et GUID de l'utilisateur, domaine) ; sans contrat, ouverture sans argument.
 
@@ -3454,7 +3513,7 @@ Lit le contrat suite-contract.json (DomeniaSuiteContract/1) de l'outil et ne tra
 
 #### PST-021 · Enregistrer la fiche poste
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Écrit description, location et managedBy du compte ordinateur.
 
@@ -3464,7 +3523,7 @@ Lit le contrat suite-contract.json (DomeniaSuiteContract/1) de l'outil et ne tra
 
 #### PST-022 · Outils Windows ouverts sur le poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Bureau à distance (mstsc /v), Ouvrir le disque C (connexion SMB préalable avec le compte des opérations poste), Gestion de l'ordinateur, Observateur d'événements et Services (via IPC$), Copier la commande PowerShell distante.
 
@@ -3474,7 +3533,9 @@ Bureau à distance (mstsc /v), Ouvrir le disque C (connexion SMB préalable avec
 
 #### PST-023 · Replis distants PsExec puis tâche planifiée
 
-`a-faire` · lecture réseau
+> Reste à faire : PsExec portable non livré (aucune dépendance sans accord de David) et transports réels (tâche planifiée RunOnce par l’API COM, ADMIN$) avec Domenia.Inventory en vague 3 ; la lecture de repli autorisée une fois, consommée par l’inventaire, les logiciels, le diagnostic ou la détection de l’utilisateur, et « non lu » sans elle, sont en place (simulation).
+
+`partiel` · lecture réseau
 
 Quand WMI/WinRM échouent : d'abord PsExec portable (≈35 % du budget, 10–15 s), puis tâche planifiée RunOnce via l'API COM du planificateur et ADMIN$ authentifié ; le budget total couvre les deux et l'échec cite les trois méthodes.
 
@@ -3484,7 +3545,7 @@ Quand WMI/WinRM échouent : d'abord PsExec portable (≈35 % du budget, 10–15 
 
 #### PST-024 · Compte ordinateur dans AD
 
-`a-faire` · écriture
+`fait` · écriture
 
 Activer/désactiver, ajouter/retirer à un groupe, renommer l'objet dans AD (nom 1 à 63 caractères alphanumériques et tirets, le poste Windows n'est pas renommé), déplacer vers une OU.
 
@@ -3496,7 +3557,7 @@ Activer/désactiver, ajouter/retirer à un groupe, renommer l'objet dans AD (nom
 
 #### PST-025 · Logiciels tirés de l'inventaire déjà lu
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Remplit l'onglet Logiciels avec les noms et versions déjà lus par l'inventaire rapide, avec un texte de provenance et une synthèse déclarée non calculée.
 
@@ -3506,7 +3567,7 @@ Remplit l'onglet Logiciels avec les noms et versions déjà lus par l'inventaire
 
 #### PST-026 · Libellés lisibles de l'inventaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Traduit les codes CIM de la colonne Valeur : rôle dans le domaine, type de châssis (liste), langue (LANGID), état et vitesse des cartes réseau (« Connectée, 1 Gb/s »), méthode BitLocker, état SMART, résultat des tâches planifiées.
 
@@ -3516,7 +3577,7 @@ Traduit les codes CIM de la colonne Valeur : rôle dans le domaine, type de châ
 
 #### PST-027 · Décodage des tâches planifiées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Interprète le dernier résultat d'une tâche (codes SCHED_S_\* : prête, en cours, désactivée, jamais exécutée…) et décode les dates d'enregistrement et de dernier démarrage du cache registre DynamicInfo quand WinRM manque.
 
@@ -3526,7 +3587,7 @@ Interprète le dernier résultat d'une tâche (codes SCHED_S_\* : prête, en cou
 
 #### PST-028 · Démarrage automatique sans arguments
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ne conserve que l'exécutable d'une commande de démarrage (premier jeton ou chemin entre guillemets), jamais ses arguments.
 
@@ -3536,7 +3597,7 @@ Ne conserve que l'exécutable d'une commande de démarrage (premier jeton ou che
 
 #### PST-029 · Relecture de l'inventaire mémorisé
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 À l'ouverture du poste, réaffiche le dernier inventaire classique validé en base locale avec sa date de collecte.
 
@@ -3546,7 +3607,7 @@ Ne conserve que l'exécutable d'une commande de démarrage (premier jeton ou che
 
 #### PST-030 · Détection inventaire rapide ou complet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Reconnaît un inventaire complet aux catégories qu'il est seul à lire (Processus, Événements système, Tâches planifiées, Certificats machine) pour signaler les widgets qui exigent l'inventaire complet.
 
@@ -3555,7 +3616,7 @@ Reconnaît un inventaire complet aux catégories qu'il est seul à lire (Process
 
 #### PST-031 · Préréglages d'événements bornés
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Cinq préréglages (démarrage/arrêt 6005/6006/6008/41/1074, plantages 1000/1001, disque 7/11/51/153, stratégie de groupe 1085/1125/7016, mises à jour 19/20/43), fenêtre 1 à 720 h, 1 à 200 événements, attribution à l'utilisateur par SID ou au poste par nom. Règle écrite, non raccordée en D1.
 
@@ -3565,7 +3626,7 @@ Cinq préréglages (démarrage/arrêt 6005/6006/6008/41/1074, plantages 1000/100
 
 #### PST-032 · Bruit des erreurs système du tableau du poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Règles en données : DCOM 10016 ignoré, disque, NTFS et Kernel-Power 41 en point à surveiller, toute autre erreur du journal Système en information.
 
@@ -3575,7 +3636,7 @@ Règles en données : DCOM 10016 ignoré, disque, NTFS et Kernel-Power 41 en poi
 
 #### PST-033 · Analyse de dsregcmd /status
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Analyse un texte dsregcmd collé (128 Kio max) : jonction AD, Entra ID, mode hybride, authentification de l'appareil, nom du poste du texte ; état SSO (PRT, Windows Hello, Workplace) seulement si collecté dans la session de l'utilisateur final sous son compte. Règle écrite, non raccordée.
 
@@ -3585,7 +3646,7 @@ Analyse un texte dsregcmd collé (128 Kio max) : jonction AD, Entra ID, mode hyb
 
 #### PST-034 · Faits de mise à jour par fournisseur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Pour Windows Update, l'agent WAPT ou un autre fournisseur : date, source et résultat de la dernière information, marquée ancienne au-delà de 30 jours (1 à 3650). Règle écrite, non raccordée.
 
@@ -3595,7 +3656,7 @@ Pour Windows Update, l'agent WAPT ou un autre fournisseur : date, source et rés
 
 #### PST-035 · Charge processeur par processus
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Part du processeur de chaque processus entre deux lectures de Win32_Process espacées (temps CPU / intervalle × processeurs logiques).
 
@@ -3605,7 +3666,7 @@ Part du processeur de chaque processus entre deux lectures de Win32_Process espa
 
 #### PST-036 · Reprise de l'inventaire déjà lu du poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 À la sélection d'un poste déjà inventorié dans la session, sa dernière lecture est réaffichée avec son âge.
 
@@ -3614,7 +3675,7 @@ Part du processeur de chaque processus entre deux lectures de Win32_Process espa
 
 #### PST-037 · Inventaire rapide ou complet du poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Ping d'abord, sonde TCP DCOM/WinRM, puis sources isolées : système, BIOS et Secure Boot, carte mère, processeur, mémoire, OS, site AD et proxy, disques logiques et physiques, BitLocker, TPM, réseau, pare-feu, antivirus, correctifs, WSUS, logiciels, démarrage auto, services en défaut, périphériques en erreur, affichage, batterie, pilotes non signés, sessions, administrateurs locaux, partages, imprimantes, redémarrage en attente ; le complet ajoute processus, événements système, tâches planifiées, certificats machine et connexions réseau.
 
@@ -3624,7 +3685,7 @@ Ping d'abord, sonde TCP DCOM/WinRM, puis sources isolées : système, BIOS et Se
 
 #### PST-038 · Rapport d'accès par source d'inventaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque source rend OK, VIDE, PARTIEL, REFUSE, INDISPONIBLE, INJOIGNABLE, IGNORE ou ERREUR avec détail, durée, nombre d'éléments et transport (DCOM, WinRM, PsExec, tâche).
 
@@ -3633,7 +3694,7 @@ Chaque source rend OK, VIDE, PARTIEL, REFUSE, INDISPONIBLE, INJOIGNABLE, IGNORE 
 
 #### PST-039 · Affichage, copie et export de l'inventaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Filtre par catégorie, valeurs CIM traduites en libellés (valeur brute en info-bulle et à l'export), ligne d'âge « Inventaire d'il y a n », reprise de la dernière lecture de la session, copie texte, export CSV (deux fichiers nommés avec le poste).
 
@@ -3644,7 +3705,7 @@ Filtre par catégorie, valeurs CIM traduites en libellés (valeur brute en info-
 
 #### PST-040 · Synthèse des logiciels du poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Tuiles : nombre de logiciels et d'éditeurs, taille déclarée totale, installés ces 30 jours (dernier nommé), installés en plusieurs versions, en double (même nom et version sur plusieurs architectures/portées/profils), sans éditeur, composants d'exécution (Visual C++, .NET, WebView2), navigateurs et versions majeures.
 
@@ -3654,7 +3715,7 @@ Tuiles : nombre de logiciels et d'éditeurs, taille déclarée totale, installé
 
 #### PST-041 · Répartition des logiciels
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Anneaux éditeurs (6 + Autres), architecture 32/64 bits, portée machine/utilisateur, et barres des 8 plus gros logiciels (libellés distingués par version, portée puis architecture, taille lisible).
 
@@ -3663,7 +3724,7 @@ Anneaux éditeurs (6 + Autres), architecture 32/64 bits, portée machine/utilisa
 
 #### PST-042 · Filtrer la liste des logiciels par clic sur un graphique
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Un clic sur une part (éditeur, architecture) ou une barre (nom) filtre la liste ; second clic sur la même part le retire ; la portée pilote son sélecteur ; pastille « Filtré : … » avec bouton ✕.
 
@@ -3672,7 +3733,7 @@ Un clic sur une part (éditeur, architecture) ou une barre (nom) filtre la liste
 
 #### PST-043 · Colonnes de la grille Logiciels
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une table unique décide les colonnes visibles : colonnes techniques (Emplacement, Désinstallation, Source) derrière « Colonnes », colonnes non lues masquées quand la liste vient de l'inventaire.
 
@@ -3681,7 +3742,7 @@ Une table unique décide les colonnes visibles : colonnes techniques (Emplacemen
 
 #### PST-044 · Détail par portée de lecture des logiciels
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Résume en une ligne ce qui a été lu par portée (Machine, Utilisateur, Store) : lu, lu rien trouvé, partiel, refusé, injoignable, avec le nombre d'éléments.
 
@@ -3691,7 +3752,7 @@ Résume en une ligne ce qui a été lu par portée (Machine, Utilisateur, Store)
 
 #### PST-045 · Sources et couverture de l'inventaire logiciel
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Catalogue des sources admises (Uninstall 64 et 32 bits, SCCM Win32Reg_AddRemovePrograms, ruches HKU chargées, Appx par WinRM) et calcul des catégories non couvertes après lecture. Règle écrite, raccordement partiel.
 
@@ -3701,7 +3762,7 @@ Catalogue des sources admises (Uninstall 64 et 32 bits, SCCM Win32Reg_AddRemoveP
 
 #### PST-046 · Logiciels installés
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Portée machine (registre Uninstall x64/x86 via WinRM, inventaire SCCM, registre unitaire StdRegProv), portée utilisateur (ruches HKU chargées), applications Store (Appx via WinRM), option mises à jour ; une ligne par entrée, profils par SID, déduplication SCCM ; repli tâche locale seulement si l'inventaire machine est vide.
 
@@ -3711,7 +3772,7 @@ Portée machine (registre Uninstall x64/x86 via WinRM, inventaire SCCM, registre
 
 #### PST-047 · Vues et filtres des logiciels
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Affichage Liste ou Synthèse (graphiques), clic sur une part filtrant la liste avec pastille et ✕, colonnes techniques à la demande, filtre texte, portée (Toutes, Machine, Utilisateur, Store), détail par portée, reprise de la liste de l'inventaire à l'ouverture de l'onglet, copie et export (fichier nommé selon la provenance).
 
@@ -3722,7 +3783,7 @@ Affichage Liste ou Synthèse (graphiques), clic sur une part filtrant la liste a
 
 #### PST-048 · Cinq vues du poste et anciennes routes
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Assistance poste est organisée en cinq vues (Vue d'ensemble, Intervenir, Détails, Diagnostic, Secrets). Les anciens noms d'onglets (TabSessions, TabComputerServices, TabInventory, TabSoftware, TabWmi, TabComputerChecks, TabComputerDashboard) mènent à la bonne vue, au bon onglet interne et à la bonne section. Un nom inconnu laisse la vue actuelle.
 
@@ -3731,7 +3792,7 @@ Assistance poste est organisée en cinq vues (Vue d'ensemble, Intervenir, Détai
 
 #### PST-049 · Retrait des actions préparées au changement de poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 À chaque nouvelle sélection, les panneaux de redémarrage et d'exécution du poste précédent sont fermés, les demandes en attente (GPUpdate, service) sont retirées et la liste des services est vidée.
 
@@ -3742,7 +3803,7 @@ Assistance poste est organisée en cinq vues (Vue d'ensemble, Intervenir, Détai
 
 #### PST-050 · Tester la réponse du poste (ping enregistré)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ping sans compte du poste sélectionné (ou du poste associé depuis la fiche utilisateur), enregistré en base avant affichage ; la pastille d'en-tête prend l'heure de l'observation.
 
@@ -3752,7 +3813,7 @@ Ping sans compte du poste sélectionné (ou du poste associé depuis la fiche ut
 
 #### PST-051 · Vérification à l'ouverture de la fiche du poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Ouvrir la fiche d'un poste sélectionné dans la liste lance son ping (et l'utilisateur console si l'option est cochée) et met à jour présence, utilisateur associé, origine et date de l'association.
 
@@ -3762,7 +3823,7 @@ Ouvrir la fiche d'un poste sélectionné dans la liste lance son ping (et l'util
 
 #### PST-052 · Relevé du poste ouvert et son arrêt
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Le poste ouvert dans Poste a sa propre portée de relevé (requêtes de son tableau), avec état et bouton Arrêter, indépendante du relevé de la liste.
 
@@ -3774,7 +3835,7 @@ Le poste ouvert dans Poste a sa propre portée de relevé (requêtes de son tabl
 
 #### PST-053 · Lister les clés BitLocker (métadonnées seulement)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Liste les objets de récupération sous le poste (nom, DN, identifiant de récupération, date de création) sans demander msFVE-RecoveryPassword ; aucune clé n'est lue ni affichée, la ligne indique « Métadonnées : clé non lue ».
 
@@ -3784,7 +3845,7 @@ Liste les objets de récupération sous le poste (nom, DN, identifiant de récup
 
 #### PST-054 · Retrouver une clé par son identifiant de récupération
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Champ de saisie des premiers caractères de l'identifiant affiché par le poste (8 suffisent) : filtre local sur les métadonnées déjà lues, et sélection automatique de la ligne si la correspondance est unique.
 
@@ -3793,7 +3854,7 @@ Champ de saisie des premiers caractères de l'identifiant affiché par le poste 
 
 #### PST-055 · Lire une seule clé BitLocker choisie
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Sur geste explicite (« Lire et afficher cette clé » ou « Copier la clé BitLocker »), lit uniquement la clé sélectionnée par une recherche Base sur son DN, après avoir vérifié qu'elle est un enfant direct du poste sélectionné et porte l'identifiant attendu ; les autres clés ne sont pas lues.
 
@@ -3803,7 +3864,7 @@ Sur geste explicite (« Lire et afficher cette clé » ou « Copier la clé BitL
 
 #### PST-056 · Carte de la clé BitLocker (8 blocs, compte à rebours)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 La clé révélée s'affiche seule dans une carte en huit blocs numérotés avec son identifiant de récupération (et GUID) à comparer avec l'écran du poste avant de dicter, un anneau et un compte à rebours de 30 s, « Prolonger 30 s » une seule fois et « Masquer maintenant ».
 
@@ -3813,7 +3874,7 @@ La clé révélée s'affiche seule dans une carte en huit blocs numérotés avec
 
 #### PST-057 · Révélation d'une seule valeur à la fois
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Révèle une seule valeur LAPS ou BitLocker choisie pendant la durée de la politique (30 s), la masque à l'échéance, sur « Masquer », à une autre sélection, à la désactivation de la fenêtre ou sur « Vider » ; la ligne reste sélectionnée, masquée, pour la réafficher d'un clic sans nouvelle lecture. « Copier tout » est désactivé.
 
@@ -3822,7 +3883,7 @@ Révèle une seule valeur LAPS ou BitLocker choisie pendant la durée de la poli
 
 #### PST-058 · Copier la clé BitLocker
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 « Copier la clé BitLocker » lit la seule clé choisie puis la place dans le presse-papiers protégé avec effacement automatique ; le journal note la copie avec l'identifiant de récupération, jamais la valeur.
 
@@ -3832,7 +3893,7 @@ Révèle une seule valeur LAPS ou BitLocker choisie pendant la durée de la poli
 
 #### PST-059 · Identité utilisée pour une lecture LAPS ou BitLocker
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Indique quelle identité servira à la lecture (jeton Windows courant tant qu'il n'est pas refusé, compte temporaire ou compte Secrets) et si un autre compte sera demandé après un refus ; aucun compte privilégié n'est exigé d'avance.
 
@@ -3842,7 +3903,7 @@ Indique quelle identité servira à la lecture (jeton Windows courant tant qu'il
 
 #### PST-060 · Boutons Secrets expliqués et route vers le prérequis
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les boutons « Lire le mot de passe LAPS » et « Lister les clés BitLocker » disent leur état (pas de poste sélectionné, lecture en cours, écriture à vérifier, refusé : cliquer propose un autre compte, droit estimé refusé mais le DC décide, disponible même en lecture seule) avec l'identité utilisée ; un bouton « Ouvrir : &lt;prérequis> » mène à la page qui manque.
 
@@ -3852,7 +3913,7 @@ Les boutons « Lire le mot de passe LAPS » et « Lister les clés BitLocker » 
 
 #### PST-061 · Colonne d'identité adaptée aux secrets
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 L'en-tête de la colonne d'identité de la grille des secrets devient « identifiant de récupération » pour BitLocker ou « compte » pour LAPS selon les lignes affichées.
 
@@ -3860,7 +3921,7 @@ L'en-tête de la colonne d'identité de la grille des secrets devient « identif
 
 #### PST-062 · Refus LAPS/BitLocker mémorisés par objet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un refus de lecture LAPS ou BitLocker est mémorisé par poste et levé quand un autre compte est accepté pour cette ressource.
 
@@ -3869,7 +3930,7 @@ Un refus de lecture LAPS ou BitLocker est mémorisé par poste et levé quand un
 
 #### PST-063 · Vue LAPS : lecture et déchiffrement distincts
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Source (Windows LAPS ou historique), publication, expiration (échue), compte géré, déchiffreur autorisé ; états refus de lecture, prérequis, non confirmé, non publié, disponible, déchiffrement refusé, en attente.
 
@@ -3879,7 +3940,7 @@ Source (Windows LAPS ou historique), publication, expiration (échue), compte g�
 
 #### PST-064 · Boutons Afficher / Copier une valeur à la fois
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Libellés, disponibilité et info-bulles décidés en un point (« Lire et afficher cette clé », « Copier la clé BitLocker ») ; copie suivie de l'effacement programmé du presse-papiers ; copie groupée masquée par défaut.
 
@@ -3889,7 +3950,7 @@ Libellés, disponibilité et info-bulles décidés en un point (« Lire et affic
 
 #### PST-065 · Résumé non secret de BitLocker et LAPS du poste
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Sur la fiche d'un poste, LblSecretsStatus résume la dernière lecture enregistrée : nombre de clés BitLocker et date, schéma LAPS et expiration, verdict d'accès. Les métadonnées écrites avant la création du poste actuel (ancien détenteur du même nom, contrôlé par la date de création lue par GUID) sont écartées.
 
@@ -3899,7 +3960,9 @@ Sur la fiche d'un poste, LblSecretsStatus résume la dernière lecture enregistr
 
 #### PST-066 · Index des secrets sans secret
 
-`a-faire` · écriture
+> Reste à faire : Enregistrement durable de l’index dans la base locale (Domenia.Store) avec le mode annuaire en vague 3 ; l’index de l’OU de travail (50 000 postes au plus, aucune valeur), l’index par poste et l’écart d’un ancien détenteur du nom sont en place, sur la base fictive de la session en simulation.
+
+`partiel` · écriture
 
 Enregistre pour un poste, ou pour toute une OU (présence BitLocker, 50 000 lignes au plus), le nombre de clés BitLocker, les dates et le schéma LAPS. Un compte déjà lu n'est jamais remplacé par le zéro d'une lecture qui ne voit rien, et une lecture LAPS seule garde le compte BitLocker connu.
 
@@ -3911,7 +3974,7 @@ Enregistre pour un poste, ou pour toute une OU (présence BitLocker, 50 000 lign
 
 #### PST-067 · Lire les services du poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Win32_Service est lu au clic, en lecture seule, limité à 500 instances, puis mis en forme : libellés français de l'état et du type de démarrage (dont « Automatique (différé) »), automatiques arrêtés en tête. Le résumé donne le nombre lu, l'heure, les automatiques arrêtés, le plafond atteint et les valeurs écartées comme secrets.
 
@@ -3921,7 +3984,7 @@ Win32_Service est lu au clic, en lecture seule, limité à 500 instances, puis m
 
 #### PST-068 · Filtrer la liste des services
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Filtre local sur la liste déjà lue : « automatiques arrêtés seulement » et texte cherché dans le nom ou le libellé, sans tenir compte de la casse. Rien n'est relu.
 
@@ -3930,7 +3993,7 @@ Filtre local sur la liste déjà lue : « automatiques arrêtés seulement » et
 
 #### PST-069 · Démarrer ou redémarrer un service
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Démarre un service arrêté ou redémarre un service en cours, par CIM. Le plan est confirmé dans la page, puis l'état est relu (preuve : Running). Les codes de retour du gestionnaire de services sont traduits en français et la ligne reprend l'état relu.
 
@@ -3940,7 +4003,7 @@ Démarre un service arrêté ou redémarre un service en cours, par CIM. Le plan
 
 #### PST-070 · Services automatiques arrêtés attendus
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Liste des services à démarrage différé ou sur déclencheur (gupdate, edgeupdate, sppsvc, RemoteRegistry, BITS, wuauserv, DoSvc, UsoSvc, OneSyncSvc_\*…) qui ne sont pas comptés comme arrêtés en faute.
 
@@ -3952,7 +4015,7 @@ Liste des services à démarrage différé ou sur déclencheur (gupdate, edgeupd
 
 #### PST-071 · Lecture des sessions Windows (WTS)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit à la demande les sessions du poste sélectionné par l'API WTS (Id, station, compte, domaine, état, protocole Console/RDP, heure d'ouverture locale, inactivité « 12 min »), sous le compte poste par LogonUser si fourni, puis les enregistre durablement avant affichage.
 
@@ -3962,7 +4025,7 @@ Lit à la demande les sessions du poste sélectionné par l'API WTS (Id, station
 
 #### PST-072 · Interprétation honnête des sessions
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Vue des sessions qui masque les lignes sans compte (services, écran de connexion, écouteur RDP) en les comptant, distingue refus, injoignable, lecture partielle, réponse sans liste et statut inconnu, et produit une ligne d'état « Lu à … · n session(s) · lu par … ».
 
@@ -3971,7 +4034,7 @@ Vue des sessions qui masque les lignes sans compte (services, écran de connexio
 
 #### PST-073 · Ouvrir la fiche du compte d'une session
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Double-clic ou menu contextuel « Ouvrir la fiche du compte » sur une ligne de session : cherche le compte AD par sAMAccountName (domaine WTS retiré).
 
@@ -3983,7 +4046,7 @@ Double-clic ou menu contextuel « Ouvrir la fiche du compte » sur une ligne de 
 
 #### PST-074 · Détails d'une sonde du poste
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Fenêtre qui lit seulement les familles enregistrées de la sonde et de sa lecture pour le GUID du poste : lecture interprétée (Point, Valeur, État, Date, Source, Limite, Piste), contrat de la sonde, valeurs brutes « Dernière réussite » ou « Dernière tentative », pagination par 100, provenance.
 
@@ -3993,7 +4056,7 @@ Fenêtre qui lit seulement les familles enregistrées de la sonde et de sa lectu
 
 #### PST-075 · Catalogue des lectures interprétées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quinze lectures qui combinent des sondes : mémoire, volumes, stockage, batteries, BIOS, processeurs, écrans, réseau, périphériques, services, tâches, antivirus, pare-feu, protection, processus ; chaque sonde historique ouvre sa lecture.
 
@@ -4002,7 +4065,7 @@ Quinze lectures qui combinent des sondes : mémoire, volumes, stockage, batterie
 
 #### PST-076 · Lecture Mémoire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Capacité installée par barrettes (emplacement, taille, fréquence), emplacements occupés/libres, capacité maximale déclarée, mémoire visible et utilisée au relevé.
 
@@ -4012,7 +4075,7 @@ Capacité installée par barrettes (emplacement, taille, fréquence), emplacemen
 
 #### PST-077 · Volumes et prévision de saturation
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Espace libre de chaque volume fixe avec seuils de la politique, puis prévision par régression linéaire sur l'historique (≥ 4 relevés sur ≥ 14 jours, taille constante, R² ≥ 0,6, horizon 730 jours).
 
@@ -4022,7 +4085,7 @@ Espace libre de chaque volume fixe avec seuils de la politique, puis prévision 
 
 #### PST-078 · Santé du stockage
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Disques physiques (type, bus, taille, santé déclarée) et compteurs de fiabilité (température, usure, erreurs non corrigées).
 
@@ -4032,7 +4095,7 @@ Disques physiques (type, bus, taille, santé déclarée) et compteurs de fiabili
 
 #### PST-079 · Batteries
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Charge, état, capacité nominale, capacité à pleine charge, usure estimée et cycles (classes du pilote root\wmi jointes par instance).
 
@@ -4042,7 +4105,7 @@ Charge, état, capacité nominale, capacité à pleine charge, usure estimée et
 
 #### PST-080 · BIOS et référence approuvée par modèle
 
-`a-faire` · écriture
+`fait` · écriture
 
 Version, date et spécification SMBIOS du BIOS, modèle du poste, comparaison à la version approuvée pour le modèle ; boutons « Approuver cette version pour ce modèle » et « Retirer la référence du modèle ».
 
@@ -4051,7 +4114,7 @@ Version, date et spécification SMBIOS du BIOS, modèle du poste, comparaison à
 
 #### PST-081 · Processeurs et virtualisation
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Processeurs (architecture, cœurs, logiques, capacités), charge instantanée datée et estimation machine physique ou virtuelle (signature d'hyperviseur dans le modèle).
 
@@ -4061,7 +4124,7 @@ Processeurs (architecture, cœurs, logiques, capacités), charge instantanée da
 
 #### PST-082 · Écrans, raccordements et stations d'accueil
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Écrans identifiés par EDID (nom, fabricant, produit, n° de série, année), raccordement interne/externe (technologie de sortie), changements d'écrans entre relevés, indices de station d'accueil parmi les périphériques PnP.
 
@@ -4071,7 +4134,7 @@ Processeurs (architecture, cœurs, logiques, capacités), charge instantanée da
 
 #### PST-083 · Interfaces réseau
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Cartes physiques d'abord (état, vitesse, MAC, configuration IP jointe par index), cartes virtuelles à part.
 
@@ -4081,7 +4144,7 @@ Cartes physiques d'abord (état, vitesse, MAC, configuration IP jointe par index
 
 #### PST-084 · Imprimantes et périphériques en erreur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Imprimantes hors ligne ou en erreur (pilote, port, réseau/locale, par défaut) et périphériques avec code du gestionnaire (désactivé/déconnecté distingués d'une anomalie), 25 listés au plus.
 
@@ -4091,7 +4154,7 @@ Imprimantes hors ligne ou en erreur (pilote, port, réseau/locale, par défaut) 
 
 #### PST-085 · Services et profil attendu
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Compare état et mode de démarrage à un profil de 15 services attendus sur un poste du domaine (Winmgmt, RpcSs, Netlogon, gpsvc, mpssvc…) et liste les automatiques arrêtés avec code d'erreur.
 
@@ -4101,7 +4164,7 @@ Compare état et mode de démarrage à un profil de 15 services attendus sur un 
 
 #### PST-086 · Tâches planifiées et démarrage automatique
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Inventaire des tâches (auteur, état), tâches hors Microsoft listées, entrées de démarrage par emplacement.
 
@@ -4111,7 +4174,7 @@ Inventaire des tâches (auteur, état), tâches hors Microsoft listées, entrée
 
 #### PST-087 · Antivirus et Defender
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Produits déclarés au Centre de sécurité (état estimé par productState) et état détaillé Defender (protections, âge des signatures, analyses).
 
@@ -4121,7 +4184,7 @@ Produits déclarés au Centre de sécurité (état estimé par productState) et 
 
 #### PST-088 · Pare-feu et profils réseau
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Configuration des profils du magasin local et profil appliqué à chaque connexion active.
 
@@ -4131,7 +4194,7 @@ Configuration des profils du magasin local et profil appliqué à chaque connexi
 
 #### PST-089 · BitLocker, TPM et sécurité du démarrage
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chiffrement et protection de chaque volume, états initiaux du TPM, VBS et services Device Guard.
 
@@ -4141,7 +4204,7 @@ Chiffrement et protection de chaque volume, états initiaux du TPM, VBS et servi
 
 #### PST-090 · Processus au relevé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Plus gros ensembles de travail au moment du relevé.
 
@@ -4151,7 +4214,7 @@ Plus gros ensembles de travail au moment du relevé.
 
 #### PST-091 · Historique borné des volumes et des écrans
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Conserve dans la dernière mesure réussie un historique : disk.volumes en série (un relevé / 6 h, 60 au plus, 400 jours), hw.monitors en changements (20 au plus).
 
@@ -4163,7 +4226,7 @@ Conserve dans la dernière mesure réussie un historique : disk.volumes en séri
 
 #### PST-092 · Tableau de bord du poste depuis l'inventaire
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Remplit le tableau du poste sélectionné à partir de l'inventaire rapide (~1 min) ou complet (~3 min : processus, erreurs système, tâches, certificats, connexions) et des attributs de sa fiche, sans nouvelle requête ; résumé daté.
 
@@ -4173,7 +4236,7 @@ Remplit le tableau du poste sélectionné à partir de l'inventaire rapide (~1 m
 
 #### PST-093 · Score de santé du poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Score 100 − 25 par point critique − 10 par point à surveiller, verdict Bon état / À surveiller / Dégradé / Critique ; badge « Partiel : antivirus, pare-feu ou BitLocker non lu » avec bouton Inventaire complet.
 
@@ -4182,7 +4245,7 @@ Score 100 − 25 par point critique − 10 par point à surveiller, verdict Bon 
 
 #### PST-094 · Points d'attention du poste avec lien vers l'action utile
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Fin de service, mot de passe machine ancien, inactivité AD, compte désactivé (critique), LAPS expiré, horloge décalée (>5 min avec le DC = critique Kerberos), redémarrage long ou en attente, mémoire, batterie, disques, erreurs système, pare-feu, BitLocker, services, périphériques, pilotes, certificats, correctif ancien (>60 j), Secure Boot ; certains points ouvrent l'onglet Intervenir ou Secrets sans rien lancer.
 
@@ -4191,7 +4254,7 @@ Fin de service, mot de passe machine ancien, inactivité AD, compte désactivé 
 
 #### PST-095 · Fiche identité du poste
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Fiche (et tuiles séparées au catalogue) : version commerciale et build avec fin de service, fabricant/modèle/numéro de série, processeur cœurs/threads, mémoire avec barrettes/emplacements (VM signalée), durée de fonctionnement, utilisateur console, première IPv4 et passerelle, domaine et rôle.
 
@@ -4200,7 +4263,7 @@ Fiche (et tuiles séparées au catalogue) : version commerciale et build avec fi
 
 #### PST-096 · Fiche compte machine dans AD
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 État du compte et date de création, OU, âge du mot de passe machine, dernière connexion (±14 j), expiration LAPS (Windows LAPS ou legacy), managedBy, écart d'horloge avec le contrôleur ou le poste d'administration.
 
@@ -4209,7 +4272,7 @@ Fiche (et tuiles séparées au catalogue) : version commerciale et build avec fi
 
 #### PST-097 · Ressources : mémoire, processeur, batterie
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Jauges mémoire utilisée (sur total CIM), charge processeur et batterie au moment de l'inventaire, colorées par l'état des seuils ; « Aucune batterie » en clair pour un poste fixe.
 
@@ -4218,7 +4281,7 @@ Jauges mémoire utilisée (sur total CIM), charge processeur et batterie au mome
 
 #### PST-098 · Disques du poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Anneau du disque système (C:, sinon premier volume) utilisé/libre et barres d'espace libre des autres volumes (le moins libre en valeur), ou « Aucun autre volume ».
 
@@ -4227,7 +4290,7 @@ Anneau du disque système (C:, sinon premier volume) utilisé/libre et barres d'
 
 #### PST-099 · Activité : services, processus, journal Système
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Anneau des services (en cours, automatiques arrêtés, déclencheur ou différé attendus, manuels, désactivés), processus les plus actifs en % processeur mesuré sur intervalle (sinon mémoire en Mo), erreurs du journal Système sur 3 jours par source.
 
@@ -4236,7 +4299,7 @@ Anneau des services (en cours, automatiques arrêtés, déclencheur ou différé
 
 #### PST-100 · Liste d'état de la protection du poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Une ligne par contrôle (BitLocker, Démarrage sécurisé, Pare-feu, Antivirus, Redémarrage en attente, Dernier correctif) marquée OK, À vérifier, Critique ou Non lu, avec « N contrôles lus sur M ».
 
@@ -4245,7 +4308,7 @@ Une ligne par contrôle (BitLocker, Démarrage sécurisé, Pare-feu, Antivirus, 
 
 #### PST-101 · Pare-feu par profil effectif
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un état par profil (domaine, privé, public), la stratégie primant sur la clé locale, avec les connexions actives auxquelles chaque profil est appliqué ; profil désactivé appliqué nommé en premier.
 
@@ -4254,7 +4317,7 @@ Un état par profil (domaine, privé, public), la stratégie primant sur la clé
 
 #### PST-102 · BitLocker du volume système et suspension
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 État de protection et de chiffrement du volume C: en premier ; volume chiffré avec protection désactivée signalé comme suspendu, pas comme non chiffré ; lien vers Secrets.
 
@@ -4263,7 +4326,7 @@ Un état par profil (domaine, privé, public), la stratégie primant sur la clé
 
 #### PST-103 · Windows Update, WSUS, correctifs et build
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Serveur WSUS réellement utilisé (adresse sans UseWUServer=1 non retenue), build/révision/dernier correctif CBS et source des mises à jour sans verdict de conformité, ancienneté du dernier correctif QFE.
 
@@ -4273,7 +4336,7 @@ Serveur WSUS réellement utilisé (adresse sans UseWUServer=1 non retenue), buil
 
 #### PST-104 · Redémarrage en attente confirmé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Classe les indicateurs du registre en obligation confirmée (CBS, Windows Update…), indice partiel ou absent, avec reclassement des inventaires anciens.
 
@@ -4283,7 +4346,7 @@ Classe les indicateurs du registre en obligation confirmée (CBS, Windows Update
 
 #### PST-105 · Démarrage sécurisé (Secure Boot)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 État Secure Boot lu dans le registre et type de micrologiciel ; point d'attention seulement s'il est désactivé sur UEFI.
 
@@ -4292,7 +4355,7 @@ Classe les indicateurs du registre en obligation confirmée (CBS, Windows Update
 
 #### PST-106 · Certificats machine
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Classe les certificats du magasin Personnel de l'ordinateur : expirés, expirant sous 30 jours, valides, avec émetteur et usages ; lecture partielle au-delà de 50 certificats signalée.
 
@@ -4302,7 +4365,7 @@ Classe les certificats du magasin Personnel de l'ordinateur : expirés, expirant
 
 #### PST-107 · Tuiles de comptage de l'inventaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Périphériques en erreur et pilotes non signés (à surveiller), administrateurs locaux, comptes et sessions locaux, programmes au démarrage, partages, imprimantes, affichage, disque physique, services automatiques arrêtés (attendus exclus).
 
@@ -4311,7 +4374,7 @@ Périphériques en erreur et pilotes non signés (à surveiller), administrateur
 
 #### PST-108 · Indications et bouton sous une section vide
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une section sans donnée affiche pourquoi et le bouton de l'action existante qui la remplit (Inventaire rapide, Inventaire complet, Ouvrir la fiche, lien Rechercher sur l'accueil).
 
@@ -4320,7 +4383,7 @@ Une section sans donnée affiche pourquoi et le bouton de l'action existante qui
 
 #### PST-109 · Observation stockée du poste sélectionné
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Un poste hors de l'OU de l'accueil reçoit ses propres observations (ping, console, inventaire, sondes) depuis la base locale, une fois par poste, session et révision.
 
@@ -4330,7 +4393,7 @@ Un poste hors de l'OU de l'accueil reçoit ses propres observations (ping, conso
 
 #### PST-110 · Actualiser les requêtes du poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Bouton de la barre d'outils du tableau poste : collecte seulement les champs distants requis par les sondes et requêtes enregistrées placées sur le tableau, une fois pour le poste.
 
@@ -4340,7 +4403,9 @@ Bouton de la barre d'outils du tableau poste : collecte seulement les champs dis
 
 #### PST-111 · Atelier et détails enregistrés depuis le tableau poste
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : L’atelier de requêtes est l’écran Requêtes (autre lot) : les boutons « Atelier » (vue Sondes et relevés) et « Ouvrir dans l’atelier » (détails d’une sonde) y mènent avec le poste et la sonde en paramètres (#/requetes?cible=poste&dn=…&sonde=…) ; la destination d’affichage reste à brancher de ce côté.
+
+`partiel` · locale (aucune lecture)
 
 Bouton Atelier (requête réutilisable et destination d'affichage) et bouton rond « Détails enregistrés » d'une sonde ou « Ouvrir dans l'atelier » d'une requête enregistrée.
 
@@ -4348,7 +4413,7 @@ Bouton Atelier (requête réutilisable et destination d'affichage) et bouton ron
 
 #### PST-112 · Oubli des tableaux au changement d'objet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand un autre objet est sélectionné, les tableaux poste et logiciels oublient leurs données et leur pile d'annulation et affichent l'invitation à lancer un inventaire ou charger les logiciels.
 
@@ -4357,7 +4422,9 @@ Quand un autre objet est sélectionné, les tableaux poste et logiciels oublient
 
 #### PST-113 · Widget de requête sur le tableau du poste
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Widget d’une requête enregistrée évalué sur ce seul poste : dépend du moteur et du stockage des requêtes enregistrées de l’écran Requêtes (autre lot), absents de cet arbre.
+
+`partiel` · locale (aucune lecture)
 
 Évalue une requête enregistrée sur le seul poste de la fiche ouverte à partir de l'instantané du parc, des attributs de la fiche et des observations en mémoire.
 
@@ -4368,7 +4435,7 @@ Quand un autre objet est sélectionné, les tableaux poste et logiciels oublient
 
 #### PST-114 · Activité de connexion du compte ordinateur (approx. et par contrôleur)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Même explication de lastLogonTimestamp pour le compte ordinateur du poste ouvert, et même lecture explicite de lastLogon sur chaque contrôleur, avec couverture et contrôleurs non lus.
 
@@ -4378,7 +4445,7 @@ Même explication de lastLogonTimestamp pour le compte ordinateur du poste ouver
 
 #### PST-115 · Ligne d'association d'un poste
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Résumé sur une ligne de l'association mémorisée : utilisateur, source, date, badge (Déclaré, Observé, Historique, Contradictoire) et règle qui le produit. Elle signale une détection en cours et une identité non vérifiable (lien hérité sans GUID qui ne précède pas le poste, point 9). Source : la mémoire locale seulement.
 
@@ -4387,7 +4454,7 @@ Résumé sur une ligne de l'association mémorisée : utilisateur, source, date,
 
 #### PST-116 · Vue d'ensemble du poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Nom, DNS, présence, OS et version, description, emplacement, géré par, état, dernière connexion, UAC, utilisateur associé avec badge, source et date locale, identité non prouvée signalée ; Ouvrir la fiche utilisateur, Détecter à nouveau, tableau de bord du dernier inventaire.
 
@@ -4397,7 +4464,7 @@ Nom, DNS, présence, OS et version, description, emplacement, géré par, état,
 
 #### PST-117 · Détection du dernier utilisateur d'un poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Local d'abord (association connue immédiatement), puis pipeline : CIM utilisateur courant et LogonUI, WinRM si plausible, registre distant si autorisé, profils CIM, journal 4624 si activé, enfin tâche SYSTEM unique ; candidat vérifié par identité AD exacte, association existante jamais écrasée.
 
@@ -4409,13 +4476,13 @@ Local d'abord (association connue immédiatement), puis pipeline : CIM utilisate
 
 ## Comptes machine (panneau Compte poste) (MAC)
 
-3 fonctions, dont 0 faites.
+3 fonctions : 2 améliorées, 1 partielle.
 
 ### Panneau Compte poste
 
 #### MAC-001 · Ordre de choix du compte des opérations poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Règle unique, identique au contexte des workers : compte local accepté pour ce poste, puis compte temporaire Postes accepté après un refus, compte poste saisi, compte Postes de la page Comptes, compte de connexion, enfin session Windows ; pour les secrets : temporaire, compte Secrets, sinon compte de l'annuaire.
 
@@ -4424,7 +4491,9 @@ Règle unique, identique au contexte des workers : compte local accepté pour ce
 
 #### MAC-002 · Pastille « Compte poste : … ▾ » d'Assistance poste
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Pastille « Compte poste : … ▾ » (couleur et glyphe de pause après un refus compris) et phrase « Opérations poste : … » faites, tenues à jour par la veille du moteur (machine.account.watch, équivalent de Timer:Accounts, repeintes seulement quand le texte change) et livrées prêtes à poser : mountMachineAccount(hôte, ctx, { target, show: 'pill' | 'sentence' | 'both' }) dans web/js/pages/machine/panel.js. Reste leur pose dans l’en-tête de l’écran Poste et dans la carte « Se connecter » d’Intervenir : ces écrans appartiennent aux équipes Poste et Assistance et n’existent pas sur cette branche.
+
+`partiel` · locale (aucune lecture)
 
 Dans l'en-tête d'Assistance poste, une pastille nomme le compte que prendra la prochaine opération sur le poste ouvert (court) avec son origine en infobulle ; la même phrase « Opérations poste : … » s'affiche dans le panneau et dans la carte « Se connecter » d'Intervenir. Un clic ouvre le panneau Compte poste.
 
@@ -4433,7 +4502,7 @@ Dans l'en-tête d'Assistance poste, une pastille nomme le compte que prendra la 
 
 #### MAC-003 · Panneau latéral Compte poste
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Panneau dans la page (pas de fenêtre) : identifiant DOMAINE\nom ou POSTE\nom, mot de passe avec œil 5 s, « Utiliser ce compte » (Entrée) en mémoire seulement, « Revenir au compte de connexion », « Fermer » ; Échap ou un clic à côté ferment sans rien changer.
 
@@ -4444,13 +4513,13 @@ Panneau dans la page (pas de fenêtre) : identifiant DOMAINE\nom ou POSTE\nom, m
 
 ## Assistance (ASS)
 
-16 fonctions, dont 0 faites.
+16 fonctions : 5 faites, 9 améliorées, 2 partielles.
 
 ### Atelier support
 
 #### ASS-001 · Captures historiques A/B : enregistrer et charger
 
-`a-faire` · écriture
+`fait` · écriture
 
 Enregistre la capture A ou B dans un fichier JSON (format Domenia.Capture.1) après confirmation, ou recharge une capture du même domaine dans un emplacement. Une capture chargée reste historique et ne devient jamais une lecture AD actuelle.
 
@@ -4460,7 +4529,7 @@ Enregistre la capture A ou B dans un fichier JSON (format Domenia.Capture.1) apr
 
 #### ASS-002 · Compte rendu de ticket pseudonymisé (modèle)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Produit un compte rendu relisible des étapes tentées, confirmées, refusées et non testées pour un objet identifié par GUID, sections au choix, pseudonymes HMAC-SHA256 sous clé de l'opérateur, table de correspondance hors du texte.
 
@@ -4469,7 +4538,7 @@ Produit un compte rendu relisible des étapes tentées, confirmées, refusées e
 
 #### ASS-003 · Atelier support : comprendre la fiche (constats)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Analyse locale de la fiche déjà chargée. Règles appliquées : données non fraîches, lecture de plus de 15 min, UAC inconnu, compte désactivé, verrouillé, mot de passe expiré, trace de verrouillage, changement de mot de passe exigé, pwdLastSet à zéro, non-expiration, compte expiré ou expirant sous 7 jours, date illisible, DNS absent, adminCount=1, capture partielle, aucun signal. Chaque constat porte un niveau, un indice, une vérification proposée et une nature (Observation, Couverture, Limite).
 
@@ -4478,7 +4547,7 @@ Analyse locale de la fiche déjà chargée. Règles appliquées : données non f
 
 #### ASS-004 · Capture d'une fiche filtrée et masquée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 La capture fige une liste fermée de 30 attributs (sans secrets, certificats ni notes) avec leur couverture (fourni, partiel, non fourni). Chaque valeur est limitée à 1024 caractères et 128 valeurs. Mots de passe, jetons, Bearer et clés de récupération sont masqués, et un memberOf ranged ou incomplet est marqué partiel. L'identité repose sur le GUID, sinon sur le DN.
 
@@ -4487,7 +4556,7 @@ La capture fige une liste fermée de 30 attributs (sans secrets, certificats ni 
 
 #### ASS-005 · Comparer deux captures A et B
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Compare deux captures du même périmètre et du même type d'objet, attribut par attribut : Identique, Différent ou Indéterminé. Pour memberOf, affiche les groupes directs présents seulement en A ou en B. On peut capturer la fiche actuelle vers A ou B, inverser, effacer, et choisir « différences et inconnues seulement ». La comparaison distingue un même objet avant/après et deux objets différents (référence, pas un historique).
 
@@ -4496,7 +4565,9 @@ Compare deux captures du même périmètre et du même type d'objet, attribut pa
 
 #### ASS-006 · Incidents expliqués de la session
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Les refus de l’écran Assistance entrent tous dans Incidents (journal de session, AssistanceOperations.Journaled, « Moteur occupé » reconnu) ; ceux des autres écrans n’y entrent que s’ils écrivent au journal : les journaliser tous demande un ajout dans BridgeDispatcher (fichier partagé), à l’intégration.
+
+`partiel` · locale (aucune lecture)
 
 Collecte les avertissements et erreurs de la session et les classe par règles fixes : conflit SMB 1219, annulation, authentification refusée, accès refusé, RPC indisponible, délai dépassé, nom DNS ou chemin non résolu, moteur occupé, PsExec. Chaque piste propose une vérification. La liste est plafonnée à 200, les doublons adjacents de moins de 2 s sont ignorés, et un filtre littéral porte sur le titre, le code et la zone.
 
@@ -4505,7 +4576,7 @@ Collecte les avertissements et erreurs de la session et les classe par règles f
 
 #### ASS-007 · Repères de session (fiches épinglées)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Épingle jusqu'à 24 fiches en mémoire (type, nom, DN mémorisé), sans doublon d'identité. On les rouvre par double-clic ou par bouton, avec les lectures habituelles de la fiche, et on peut les retirer. Elles sont vidées à la fermeture ou à la reconnexion.
 
@@ -4515,7 +4586,7 @@ Collecte les avertissements et erreurs de la session et les classe par règles f
 
 #### ASS-008 · Dossier support et ticket
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Compose un texte : référence de ticket facultative (80 caractères), objet observé, constats, attributs fournis, comparaison A/B, explications d'un incident choisi (sans son message brut) et limites. On peut le prévisualiser ou le copier dans le presse-papiers.
 
@@ -4524,7 +4595,7 @@ Compose un texte : référence de ticket facultative (80 caractères), objet obs
 
 #### ASS-009 · Export HTML autonome du dossier support
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Après confirmation, écrit le dossier dans un fichier HTML autonome (CSP stricte, sans script ni ressource externe, thème clair et sombre) nommé Domenia-Support-AAAAMMJJ-HHmmss.html.
 
@@ -4534,7 +4605,7 @@ Après confirmation, écrit le dossier dans un fichier HTML autonome (CSP strict
 
 #### ASS-010 · Raccourcis de l'atelier (comptes, état du moteur)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 « Voir les comptes » ouvre la page Comptes. « État moteur » affiche les tâches et l'état de fonctionnement, sans sonde réseau.
 
@@ -4543,7 +4614,7 @@ Après confirmation, écrit le dossier dans un fichier HTML autonome (CSP strict
 
 #### ASS-011 · Vider l'atelier
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Après confirmation, efface les captures, repères et incidents de l'atelier. Domenia.db et AD ne sont pas touchés.
 
@@ -4554,7 +4625,9 @@ Après confirmation, efface les captures, repères et incidents de l'atelier. Do
 
 #### ASS-012 · Dossier de diagnostic hors ligne
 
-`a-faire` · écriture
+> Reste à faire : Contrat d’arrivée défini et branché (#/assistance?postes=…, 500 noms, périmètre « Liste de postes » rempli, rien lu ni écrit avant la confirmation) ; reste aux écrans de liste (Rechercher, Comptes machine) à poser le lien « Dossier hors ligne de ces postes » avec leurs résultats affichés, à l’intégration.
+
+`partiel` · écriture
 
 Écrit un nouveau dossier daté dans Exports pour une intervention sans Domenia, sur un périmètre au choix : poste sélectionné, postes des résultats affichés (500 au plus) ou OU sélectionnée. Options : observations, associations, requêtes enregistrées. Le dossier contient un manifeste et des empreintes SHA-256 ; il s'obtient aussi en ligne de commande (Domenia-Automate.ps1 dossier).
 
@@ -4566,7 +4639,7 @@ Après confirmation, efface les captures, repères et incidents de l'atelier. Do
 
 #### ASS-013 · Recettes d'assistance guidées
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Quatre parcours par symptôme : Connexion impossible (6 étapes), Poste lent (4), Manque d'espace (3), Logiciel absent (5). Chaque étape indique ce qu'elle lit, pourquoi, son coût, si elle est facultative et si elle demande les droits d'administration du poste. Avant le premier clic, un texte de plan résume la recette entière.
 
@@ -4575,7 +4648,7 @@ Quatre parcours par symptôme : Connexion impossible (6 étapes), Poste lent (4)
 
 #### ASS-014 · Grille des étapes de recette
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Grille aux colonnes N°, Étape (marquée facultatif), Pour (Poste ou Utilisateur), Ce qui est lu, Pourquoi, Coût et État. L'état vaut « Sélectionnez le poste/compte concerné », « À lancer », « Sans lecture : ouvrir la vue » ou « Lancée à HH:mm : résultat dans sa vue ». Le détail de l'étape choisie s'affiche en dessous.
 
@@ -4584,7 +4657,7 @@ Grille aux colonnes N°, Étape (marquée facultatif), Pour (Poste ou Utilisateu
 
 #### ASS-015 · Lancer une étape de recette
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Un clic sur une étape ouvre sa vue puis démarre sa seule lecture explicite pour l'objet sélectionné. La lecture doit faire partie de la liste fermée : verrouillages 4740, stratégie de mot de passe, groupes, liens GPO, GPO appliquées, identité machine, diagnostic, inventaire rapide ou complet, logiciels, sessions. Le lancement n'est marqué que si une tâche du moteur est réellement partie (nouvelle tâche ou abonné de plus).
 
@@ -4594,7 +4667,7 @@ Un clic sur une étape ouvre sa vue puis démarre sa seule lecture explicite pou
 
 #### ASS-016 · Ouvrir la vue d'une étape
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ouvre la vue où l'étape présente ses informations (fiche, Audit AD et son onglet interne, vues du poste), sans rien lire. Une vue absente de cette version est signalée.
 
@@ -4605,13 +4678,13 @@ Ouvre la vue où l'étape présente ses informations (fiche, Audit AD et son ong
 
 ## Atelier de requêtes (REQ)
 
-69 fonctions, dont 0 faites.
+69 fonctions : 29 faites, 37 améliorées, 3 partielles.
 
 ### 1. Créer
 
 #### REQ-001 · Recherche d'une information à filtrer
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Filtre la liste des informations interrogeables par mots, sans tenir compte de la casse ni des accents (fr-FR), sur le nom, la source, la catégorie, la description et les détails techniques.
 
@@ -4620,7 +4693,7 @@ Filtre la liste des informations interrogeables par mots, sans tenir compte de l
 
 #### REQ-002 · Condition typée : champ, opérateur, valeur
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Construit un critère avec opérateurs adaptés au type : texte (égal, différent, contient, commence par, se termine par), nombre (>, >=, &lt;, &lt;=), oui/non, plus « est absent » / « est renseigné ». Les valeurs codées (LAPS O/E/N/X, BitLocker K/N/X, cycle Windows, présence, famille OS, sondes à correspondance) sont proposées en liste.
 
@@ -4629,7 +4702,7 @@ Construit un critère avec opérateurs adaptés au type : texte (égal, différe
 
 #### REQ-003 · Conversion d'unités en direct
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Montre avant l'ajout la valeur retenue après conversion (8192 Mo = 8 Go, 48 h = 2 j) ou le motif du refus. Accepte Go/Mo/To/Ko, jours/heures/minutes, %, Mbit/s-Gbit/s-kbit/s, MHz/GHz et la virgule décimale.
 
@@ -4638,7 +4711,7 @@ Montre avant l'ajout la valeur retenue après conversion (8192 Mo = 8 Go, 48 h =
 
 #### REQ-004 · Aide contextuelle du champ choisi
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Affiche sous l'éditeur la source (AD, calcul local, relevé, sonde WMI), l'unité, la description, le coût de lecture et la règle de fraîcheur de l'information sélectionnée.
 
@@ -4646,7 +4719,7 @@ Affiche sous l'éditeur la source (AD, calcul local, relevé, sonde WMI), l'unit
 
 #### REQ-005 · Ajouter ou retirer un critère simple
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ajoute le critère courant à la liste « Vos critères » (Champ, Condition, Valeur) ou retire la ligne sélectionnée ; combinaison ET (toutes) ou OU (au moins une).
 
@@ -4655,7 +4728,7 @@ Ajoute le critère courant à la liste « Vos critères » (Champ, Condition, Va
 
 #### REQ-006 · Nouvelle requête, nom et chargement rapide
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 « Nouvelle » repart d'un brouillon vide, le nom se saisit librement et « Charger » reprend une des 100 requêtes enregistrées les plus récentes (date de révision UTC) ou le brouillon courant.
 
@@ -4664,7 +4737,7 @@ Ajoute le critère courant à la liste « Vos critères » (Champ, Condition, Va
 
 #### REQ-007 · Répartition (compteur ou regroupement)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Choisit si la requête produit un simple compteur de postes ou une répartition par une information (OS, version, OU, modèle, sonde…), réutilisée par l'aperçu et par le widget.
 
@@ -4675,7 +4748,7 @@ Choisit si la requête produit un simple compteur de postes ou une répartition 
 
 #### REQ-008 · Arbre de conditions ET / OU / NON
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Ajoute des groupes imbriqués combinés en ET avec les critères simples, y insère le critère choisi, réordonne (↑ ↓), retire un nœud ou efface l'arbre ; l'arbre s'affiche indenté avec un libellé français par nœud.
 
@@ -4684,7 +4757,7 @@ Ajoute des groupes imbriqués combinés en ET avec les critères simples, y ins�
 
 #### REQ-009 · Condition sur une collection d'instances
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Vérifie plusieurs propriétés sur une même instance d'une sonde (disque, service, carte…) avec le quantificateur « au moins une », « toutes » ou « aucune », via des critères d'instance typés.
 
@@ -4694,7 +4767,7 @@ Vérifie plusieurs propriétés sur une même instance d'une sonde (disque, serv
 
 #### REQ-010 · Paramètres réutilisables de requête
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Transforme un critère simple en paramètre nommé, dont la valeur se change dans un formulaire typé (liste pour Oui/Non et codes, texte contrôlé en direct sinon) puis « Appliquer la valeur », sans recréer la requête.
 
@@ -4703,7 +4776,7 @@ Transforme un critère simple en paramètre nommé, dont la valeur se change dan
 
 #### REQ-011 · Paramètre rempli avec l'OU du tableau de bord
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Pour un paramètre portant sur le chemin AD ou l'OU, « OU du tableau de bord » insère le DN ou le nom de l'OU suivie.
 
@@ -4712,7 +4785,7 @@ Pour un paramètre portant sur le chemin AD ou l'OU, « OU du tableau de bord »
 
 #### REQ-012 · Figer les valeurs des paramètres
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 « Fixer les valeurs actuelles » remplace chaque paramètre par sa valeur courante et retire le formulaire de paramètres du brouillon.
 
@@ -4721,7 +4794,7 @@ Pour un paramètre portant sur le chemin AD ou l'OU, « OU du tableau de bord »
 
 #### REQ-013 · Fenêtre de cohérence des dates sources
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Écart maximal en heures entre les dates des informations d'un poste ; au-delà, ou si une date manque, le verdict devient Inconnu.
 
@@ -4732,7 +4805,7 @@ Pour un paramètre portant sur le chemin AD ou l'OU, « OU du tableau de bord »
 
 #### REQ-014 · Vérifier la couverture des informations
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Compte, pour chaque information demandée, les postes où elle est disponible, expirée, en erreur, incomplète ou non lue, et combien de postes ont tout ; aucune collecte n'est lancée.
 
@@ -4742,7 +4815,7 @@ Compte, pour chaque information demandée, les postes où elle est disponible, e
 
 #### REQ-015 · Dates de chaque source
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Tableau des horloges distinctes (annuaire, ping, console, inventaire, chaque sonde, SELECT mémorisé) avec les informations concernées, postes datés/sans date, date la plus ancienne et la plus récente.
 
@@ -4752,7 +4825,7 @@ Tableau des horloges distinctes (annuaire, ping, console, inventaire, chaque son
 
 #### REQ-016 · Proposition de fenêtre commune
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Propose la plus petite fenêtre usuelle (1 h à 1 an) couvrant au moins 90 % des postes entièrement datés, limitée à 24 h si une mesure instantanée est en jeu ; un bouton l'applique au brouillon.
 
@@ -4761,7 +4834,7 @@ Propose la plus petite fenêtre usuelle (1 h à 1 an) couvrant au moins 90 % des
 
 #### REQ-017 · Collecter seulement les données manquantes
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Prépare localement un plan listant les postes actifs dont les mesures demandées manquent, sont en erreur, incomplètes ou trop anciennes, les familles (ping, console, inventaire, sondes) et le coût compté (Faible/Modéré/Élevé selon 100/500 postes et sondes lentes), puis lance le relevé ciblé.
 
@@ -4771,7 +4844,7 @@ Prépare localement un plan listant les postes actifs dont les mesures demandée
 
 #### REQ-018 · Fenêtres de réutilisation des mesures
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Règle invisible : une mesure est réutilisée si elle a moins de 1 min (volatile), 5 min (inventaire léger) ou la durée de cache choisie (24 h max), ou moins de N jours en mode « âge de réutilisation ».
 
@@ -4782,7 +4855,7 @@ Règle invisible : une mesure est réutilisée si elle a moins de 1 min (volatil
 
 #### REQ-019 · Liste locale des postes du périmètre
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Grille des comptes ordinateur du dernier calcul (nom, état Activé/Désactivé/État inconnu, dernière connexion, DN) avec filtre texte sur nom ou DN, filtre d'état et compteur « N affichés sur M — base locale ». Bascule sur l'évaluation de l'atelier quand une requête est liée.
 
@@ -4791,7 +4864,7 @@ Grille des comptes ordinateur du dernier calcul (nom, état Activé/Désactivé/
 
 #### REQ-020 · Aperçu local de la requête
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Évalue la requête sur les données locales du périmètre et affiche correspondants, inconnus, non correspondants, postes filtrés et recensés, par pages de 200, avec la définition (révision) évaluée et la population décrite.
 
@@ -4801,7 +4874,7 @@ Grille des comptes ordinateur du dernier calcul (nom, état Activé/Désactivé/
 
 #### REQ-021 · Filtres d'affichage de l'aperçu
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Restreint la liste par texte (nom ou DN), par état de compte (tous, actifs, désactivés) et par verdict (correspondants, inconnus, non correspondants).
 
@@ -4811,7 +4884,7 @@ Restreint la liste par texte (nom ou DN), par état de compte (tous, actifs, dé
 
 #### REQ-022 · Colonnes, tri et pagination des résultats
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Grille des postes : présence (●/○/?), poste, état, système AD, version AD, connexion AD (jours), âge du relevé, valeurs interrogées, chemin AD ; tri serveur par colonne et pages précédente/suivante de 200.
 
@@ -4821,7 +4894,7 @@ Grille des postes : présence (●/○/?), poste, état, système AD, version AD
 
 #### REQ-023 · Segment actif et retrait du segment
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Indique le segment qui restreint la requête (conditions de raffinement ET, segment de sonde ou sélection figée de GUID) et le retire d'un clic.
 
@@ -4829,7 +4902,7 @@ Indique le segment qui restreint la requête (conditions de raffinement ET, segm
 
 #### REQ-024 · Fiche locale du poste sélectionné
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Pour la ligne choisie (ou double-clic), liste chaque information du parc avec sa valeur locale, sa disponibilité et la date du relevé, plus GUID, DN et date de calcul.
 
@@ -4838,7 +4911,7 @@ Pour la ligne choisie (ou double-clic), liste chaque information du parc avec sa
 
 #### REQ-025 · Pourquoi ce résultat ?
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Explique le verdict du poste choisi : chaque condition, segment, nœud d'arbre, collection et contrainte de cohérence avec sa valeur, son verdict (Vrai/Faux/Inconnu), sa disponibilité et la date de la source.
 
@@ -4847,7 +4920,7 @@ Explique le verdict du poste choisi : chaque condition, segment, nœud d'arbre, 
 
 #### REQ-026 · Ouvrir la fiche AD depuis l'aperçu
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 « Fiche AD et actions… » ouvre l'objet sélectionné par son DN et son GUID, sans lancer de sonde distante automatique.
 
@@ -4857,7 +4930,7 @@ Explique le verdict du poste choisi : chaque condition, segment, nœud d'arbre, 
 
 #### REQ-027 · Actualiser ce poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lance un relevé explicite du seul poste sélectionné pour rafraîchir ses mesures.
 
@@ -4867,7 +4940,7 @@ Lance un relevé explicite du seul poste sélectionné pour rafraîchir ses mesu
 
 #### REQ-028 · Copier le chemin AD
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Copie dans le presse-papiers le DN du poste sélectionné.
 
@@ -4876,7 +4949,7 @@ Copie dans le presse-papiers le DN du poste sélectionné.
 
 #### REQ-029 · Répartition complète et exacte
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Liste toutes les valeurs de la répartition (rang, valeur, postes, part en %) pour tout le périmètre, filtrable par libellé et paginée par 100, avec la catégorie « Valeur inconnue ».
 
@@ -4886,7 +4959,7 @@ Liste toutes les valeurs de la répartition (rang, valeur, postes, part en %) po
 
 #### REQ-030 · Afficher les postes d'une valeur de répartition
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Crée un segment pour la valeur choisie (ou « Valeur inconnue », ou « Autres valeurs » par exclusions) et relance l'aperçu sur ces postes.
 
@@ -4896,7 +4969,7 @@ Crée un segment pour la valeur choisie (ou « Valeur inconnue », ou « Autres 
 
 #### REQ-031 · Exporter tous les résultats en CSV
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Écrit dans Exports un CSV (UTF-8 BOM, « ; ») de tous les postes du verdict choisi, rejouant l'instantané figé de l'aperçu, et un fichier .metadata.json (population, critères, horloges des données, révision, SHA-256).
 
@@ -4906,7 +4979,7 @@ Crée un segment pour la valeur choisie (ou « Valeur inconnue », ou « Autres 
 
 #### REQ-032 · Population décrite de l'aperçu
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Le résumé de publication nomme la population comptée : domaine, OU, profondeur, types, requête et empreinte de définition, verdict, filtres, révision locale, et la date du calcul.
 
@@ -4915,7 +4988,7 @@ Le résumé de publication nomme la population comptée : domaine, OU, profondeu
 
 #### REQ-033 · Journal des aperçus
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque aperçu calculé laisse une ligne « Requêtes » dans le journal de l'interface (nom, compteurs, date du calcul local).
 
@@ -4925,7 +4998,9 @@ Chaque aperçu calculé laisse une ligne « Requêtes » dans le journal de l'in
 
 #### REQ-034 · Enregistrer la requête (révision SQLite)
 
-`a-faire` · écriture
+> Reste à faire : Fait : bibliothèque dans son propre fichier par domaine (verrou machine, relecture sous le verrou, révision vérifiée sur le disque, écriture atomique, reçu « relue » seulement après relecture du disque, 16 Mio et 5 000 requêtes, enregistrements illisibles conservés), brouillon repris avec sa révision, brouillon modifié pendant l’écriture jamais écrasé. Reste : la migration de la bibliothèque SQLite de Domenia 1 (domenia_query_recipes, révisions, provenance, dépendances) passe par Domenia.Store (vague 3) ; d’ici là, un pack exporté par Domenia 1 s’importe sans perte (examen, provenance, point de restauration).
+
+`partiel` · écriture
 
 Enregistre la définition dans la bibliothèque locale du domaine avec une nouvelle révision ; un modèle livré est d'abord copié en requête personnelle.
 
@@ -4935,7 +5010,7 @@ Enregistre la définition dans la bibliothèque locale du domaine avec une nouve
 
 #### REQ-035 · Catégorie de rangement
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Choisit ou saisit la catégorie de la bibliothèque personnelle (« Mes requêtes » par défaut) ; laisser la catégorie affichée garde celle déjà enregistrée.
 
@@ -4944,7 +5019,7 @@ Choisit ou saisit la catégorie de la bibliothèque personnelle (« Mes requête
 
 #### REQ-036 · Revue d'impact avant modification
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Avant d'enregistrer une définition modifiée ou d'archiver, liste les éléments qui l'utilisent : widgets des tableaux général et poste avec leur révision liée, liens orphelins, favori de Recherche, règles de santé (qui gardent leur révision).
 
@@ -4953,7 +5028,7 @@ Avant d'enregistrer une définition modifiée ou d'archiver, liste les élément
 
 #### REQ-037 · Mettre à jour, garder une copie, archiver ou annuler
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Choix de la revue : lier les éléments à la nouvelle définition, garder l'ancienne intacte et enregistrer une copie « (nouvelle version) », archiver et retirer les widgets, ou annuler.
 
@@ -4963,7 +5038,7 @@ Choix de la revue : lier les éléments à la nouvelle définition, garder l'anc
 
 #### REQ-038 · Archiver une requête
 
-`a-faire` · écriture
+`fait` · écriture
 
 Archive la définition (révisions et données conservées) et retire ses widgets des tableaux de bord avec possibilité d'annulation de disposition.
 
@@ -4973,7 +5048,9 @@ Archive la définition (révisions et données conservées) et retire ses widget
 
 #### REQ-039 · Créer une sonde (widget) de tableau de bord
 
-`a-faire` · écriture
+> Reste à faire : Fait : recette et widget dans la même écriture, revue d’impact exigée par le moteur (jamais de migration imposée), plan de collecte ouvert aussitôt le widget ajouté (confirmé avant toute lecture), requetes.widget.evaluate (révision liée, chiffres, répartition, verdict d’un poste) et aperçu vivant des widgets dans l’atelier. Reste : l’affichage sur l’Accueil et la Fiche, écrans d’autres lots, qui liront requetes.widget.list puis requetes.widget.evaluate (docs/ops/requetes.md § 6.4).
+
+`partiel` · écriture
 
 Enregistre la requête et l'ajoute (ou met à jour) en widget du tableau général ou du tableau du poste, en indicateur, texte, barres, camembert ou colonnes ; un widget ajouté collecte aussitôt ses données manquantes.
 
@@ -4983,7 +5060,7 @@ Enregistre la requête et l'ajoute (ou met à jour) en widget du tableau génér
 
 #### REQ-040 · Tester la requête sur le poste sélectionné
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Évalue le brouillon sur le seul poste de la fiche ouverte et dit s'il correspond, ne correspond pas, reste inconnu ou est hors sélection.
 
@@ -4994,7 +5071,7 @@ Enregistre la requête et l'ajoute (ou met à jour) en widget du tableau génér
 
 #### REQ-041 · Bibliothèque de requêtes paginée
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Liste modèles livrés, requêtes personnelles et archives (colonnes Requête, Catégorie, Informations nécessaires), recherche sans accents, filtres de catégorie et de source, pages de 100.
 
@@ -5004,7 +5081,7 @@ Liste modèles livrés, requêtes personnelles et archives (colonnes Requête, C
 
 #### REQ-042 · Détail d'usage d'une requête
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Affiche description, source des données (base AD locale, relevé, inventaire, nombre de sondes), nécessité éventuelle de collecte et provenance déclarée (pack, version, recette source, définition modifiée localement).
 
@@ -5013,7 +5090,7 @@ Affiche description, source des données (base AD locale, relevé, inventaire, n
 
 #### REQ-043 · Utiliser une requête de la bibliothèque
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Charge la requête choisie dans le compositeur pour l'adapter, la prévisualiser ou en faire un widget, sans collecte.
 
@@ -5022,7 +5099,7 @@ Charge la requête choisie dans le compositeur pour l'adapter, la prévisualiser
 
 #### REQ-044 · Restaurer une requête archivée
 
-`a-faire` · écriture
+`fait` · écriture
 
 Réactive une définition archivée avec une nouvelle révision dans sa catégorie ; les révisions précédentes restent conservées.
 
@@ -5032,7 +5109,7 @@ Réactive une définition archivée avec une nouvelle révision dans sa catégor
 
 #### REQ-045 · Catalogue de modèles livrés
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Plus de 120 filtres simples (comptes AD, LAPS, BitLocker, cycle Windows, matériel, disques, Defender/TPM, réseau, services, utilisateurs, événements, qualité des données), 25 répartitions, 4 vérifications croisées, modèles générés (couverture, répartitions détaillées, états codés, seuils sur 19 informations) et 7 modèles paramétrés (disque, RAM, connexion, inventaire, OU, version, service).
 
@@ -5044,7 +5121,7 @@ Plus de 120 filtres simples (comptes AD, LAPS, BitLocker, cycle Windows, matéri
 
 #### REQ-046 · Catalogue des informations interrogeables
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Onglet « Informations » : chaque champ du parc et chaque sonde WMI avec source, type, unité, description, exemples/codes, comment l'obtenir, disponibilité, coût, fraîcheur et détails techniques (espace de noms, classe, propriétés, filtre, mode, conversion), filtrable par texte, source et catégorie.
 
@@ -5053,7 +5130,7 @@ Onglet « Informations » : chaque champ du parc et chaque sonde WMI avec source
 
 #### REQ-047 · Utiliser une information du catalogue
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Prépare l'éditeur de condition avec l'information choisie et place le focus sur la valeur, sans toucher aux conditions existantes.
 
@@ -5064,7 +5141,9 @@ Prépare l'éditeur de condition avec l'information choisie et place le focus su
 
 #### REQ-048 · Appliquer la requête aux résultats de Recherche
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Fait : sélection figée des correspondants (GUID, date, empreinte, inconnus exclus), puis ouverture de Rechercher comme Domenia 1 (#/rechercher?requete=selection), favoris déclarables par requetes.consumer.bind. Reste : l’écran Rechercher (autre lot) doit lire requetes.search.selection pour filtrer ses résultats ; la sélection reste en mémoire de session, comme dans Domenia 1.
+
+`partiel` · locale (aucune lecture)
 
 Fige les GUID des postes correspondants (inconnus exclus) de l'aperçu courant comme filtre daté des résultats de Recherche, puis ouvre Rechercher.
 
@@ -5075,7 +5154,7 @@ Fige les GUID des postes correspondants (inconnus exclus) de l'aperçu courant c
 
 #### REQ-049 · Lecture paginée des SELECT mémorisés et verdicts de collection
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Avant chaque calcul, lit dans la base les résumés des SELECT WMI mémorisés et projette les verdicts de collections par pages de 250 pour l'atelier et Recherche.
 
@@ -5087,7 +5166,7 @@ Avant chaque calcul, lit dans la base les résumés des SELECT WMI mémorisés e
 
 #### REQ-050 · Ouvrir l'atelier de requêtes avec retour à l'origine
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ouvre l'atelier (Outils > Atelier de requêtes) en mémorisant la page, l'onglet et le contrôle d'origine ; « Retour » y revient et rend le focus. La vue XAML est chargée à la première ouverture et réaffiche le périmètre à chaque retour visible.
 
@@ -5096,7 +5175,7 @@ Ouvre l'atelier (Outils > Atelier de requêtes) en mémorisant la page, l'onglet
 
 #### REQ-051 · Périmètre de l'atelier = OU du tableau de bord
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 L'atelier évalue l'OU suivie par le tableau de bord (ou tout le domaine indexé en consultation), affichée en tête, et la change avec le même sélecteur d'OU partagé. Il est indépendant de l'OU utilisée par Rechercher.
 
@@ -5105,7 +5184,7 @@ L'atelier évalue l'OU suivie par le tableau de bord (ou tout le domaine indexé
 
 #### REQ-052 · Modifier la requête dans l'atelier
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ouvre l'atelier de requêtes sur le compositeur (requête locale) ou la bibliothèque (requête Annuaire, filtre LDAP dédié).
 
@@ -5113,7 +5192,7 @@ Ouvre l'atelier de requêtes sur le compositeur (requête locale) ou la biblioth
 
 #### REQ-053 · Parcours en trois étapes : Créer, Aperçu, Enregistrer
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 L'atelier se parcourt en trois onglets numérotés (1. Créer, 2. Aperçu, 3. Enregistrer) ; « Enregistrer ou réutiliser → » passe de l'aperçu à l'enregistrement et « Modifier les critères » revient au compositeur, sans perdre le brouillon.
 
@@ -5124,7 +5203,7 @@ L'atelier se parcourt en trois onglets numérotés (1. Créer, 2. Aperçu, 3. En
 
 #### REQ-054 · Exporter la bibliothèque en pack versionné
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Exporte les requêtes personnelles en pack JSON Domenia.QueryPack/2 nommé et versionné (identité stable, empreinte de contenu) ; la version proposée s'incrémente après l'export.
 
@@ -5134,7 +5213,7 @@ Exporte les requêtes personnelles en pack JSON Domenia.QueryPack/2 nommé et ve
 
 #### REQ-055 · Exporter une requête en script PowerShell
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Génère un script commenté (conditions, sources, paramètres, limites) qui évalue la requête sur un instantané fourni, avec -Selection, -ParameterValues et -ShowDefinition.
 
@@ -5144,7 +5223,7 @@ Génère un script commenté (conditions, sources, paramètres, limites) qui év
 
 #### REQ-056 · Examiner un pack avant import
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Lit un pack et affiche provenance, version, intégrité vérifiée, version déjà importée, et pour chaque recette son état (Nouvelle, Identique, Conflit, Archivée localement, Domaine différent) avec ses différences avant/après.
 
@@ -5154,7 +5233,7 @@ Lit un pack et affiche provenance, version, intégrité vérifiée, version déj
 
 #### REQ-057 · Choisir et appliquer l'import
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Choisit par recette Ignorer, Créer, Nouvelle copie ou Remplacer (« Choisir les nouvelles » coche toutes les nouvelles), puis applique ; les créations vont dans « Import · &lt;pack> » avec la provenance.
 
@@ -5164,7 +5243,7 @@ Choisit par recette Ignorer, Créer, Nouvelle copie ou Remplacer (« Choisir les
 
 #### REQ-058 · Historique des imports et retour arrière
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Liste les imports restaurables de cette base et « Restaurer avant cet import… » remet les définitions remplacées (ou retire les créations), y compris la reprise d'une restauration interrompue.
 
@@ -5176,7 +5255,7 @@ Liste les imports restaurables de cette base et « Restaurer avant cet import…
 
 #### REQ-059 · Référence des cmdlets AD et LAPS (onglet masqué)
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Charge les cmdlets des modules ActiveDirectory et LAPS (type, paramètre Credential, nombre et liste des paramètres, synopsis), filtre texte et module, aide détaillée à la sélection, copie de la commande, de la syntaxe ou de l'aide ; onglet retiré de l'interface (décision du 07/10/2026) mais code actif.
 
@@ -5188,7 +5267,7 @@ Charge les cmdlets des modules ActiveDirectory et LAPS (type, paramètre Credent
 
 #### REQ-060 · Relecture WMI mémorisée d'une requête enregistrée
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relit la lecture WMI unique enregistrée avec une requête (jamais un WQL arbitraire) sur la population du tableau, une tâche bornée par poste ; valeurs enregistrées en base avant affichage, puis date réelle annoncée.
 
@@ -5200,7 +5279,7 @@ Relit la lecture WMI unique enregistrée avec une requête (jamais un WQL arbitr
 
 #### REQ-061 · Explorer les espaces de noms WMI d'un poste
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Liste les espaces de noms enfants directs d'un espace (un seul niveau) sur le poste de la fiche ouverte.
 
@@ -5210,7 +5289,7 @@ Liste les espaces de noms enfants directs d'un espace (un seul niveau) sur le po
 
 #### REQ-062 · Lister les classes d'un espace WMI
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Liste les définitions de classes (nom, nombre de propriétés et de clés, remarque : fournisseur MSI refusé, abstraite, association), filtrables par un nom éventuellement terminé par \*.
 
@@ -5220,7 +5299,7 @@ Liste les définitions de classes (nom, nombre de propriétés et de clés, rema
 
 #### REQ-063 · Lire le schéma d'une classe WMI
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Affiche les propriétés (type CIM, clé, unité, description localisée) et la description de la classe ; double-clic sur une classe pour la lire ; les propriétés se cochent pour préparer un SELECT.
 
@@ -5230,7 +5309,7 @@ Affiche les propriétés (type CIM, clé, unité, description localisée) et la 
 
 #### REQ-064 · Métadonnées WMI en cache ou relues
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Espaces, classes et schémas déjà lus pour ce poste sont repris de la base avec leur date ; « Relire sur le poste » force une lecture et « Lire sur le poste… » est proposé s'il n'existe rien.
 
@@ -5240,7 +5319,7 @@ Espaces, classes et schémas déjà lus pour ce poste sont repris de la base ave
 
 #### REQ-065 · Préparer un SELECT depuis les propriétés cochées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Écrit « SELECT p1, p2 FROM Classe » à partir des propriétés cochées du schéma enregistré.
 
@@ -5249,7 +5328,7 @@ Espaces, classes et schémas déjà lus pour ce poste sont repris de la base ave
 
 #### REQ-066 · Analyse locale d'un SELECT WQL
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Analyse sans réseau le SELECT : classe, propriétés et clés ajoutées, condition WHERE, préconditions (poste, CIM, droits, schéma), limites, prudence sur fournisseurs coûteux et état « testé sur ce poste ».
 
@@ -5258,7 +5337,7 @@ Analyse sans réseau le SELECT : classe, propriétés et clés ajoutées, condit
 
 #### REQ-067 · Exécuter le SELECT sur le poste
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit les instances sur le poste de la fiche, enregistre le résultat dans la base avant affichage (identité fournisseur, valeurs, couverture) et marque la requête testée pour cette identité AD.
 
@@ -5268,7 +5347,7 @@ Lit les instances sur le poste de la fiche, enregistre le résultat dans la base
 
 #### REQ-068 · Lire une relation d'instance WMI
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Depuis une instance enregistrée, lit une association déclarée (disque↔partition, partition↔volume, carte↔configuration IP, services dépendants) ou une référence prévue (service→processus hôte, processus→services), ou une association saisie librement.
 
@@ -5278,7 +5357,7 @@ Depuis une instance enregistrée, lit une association déclarée (disque↔parti
 
 #### REQ-069 · Recette locale depuis un SELECT testé
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Transforme un SELECT testé sous cette forme sur ce poste en recette « WMI · Classe » dont les champs « au moins une instance » et « nombre » portent sur les résultats mémorisés.
 
@@ -5289,13 +5368,13 @@ Transforme un SELECT testé sous cette forme sur ce poste en recette « WMI · C
 
 ## Audit AD (AUD)
 
-23 fonctions, dont 0 faites.
+23 fonctions : 14 faites, 9 améliorées.
 
 ### Commun à l'audit
 
 #### AUD-001 · Copier la vue d'audit pour un ticket
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Copie en texte la vue affichée (titre, résumé, colonnes et lignes séparées par tabulation) de l'onglet courant, sans aucune relecture.
 
@@ -5304,7 +5383,7 @@ Copie en texte la vue affichée (titre, résumé, colonnes et lignes séparées 
 
 #### AUD-002 · Faits explicables de l'audit
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque constat est un fait avec valeur, état (Constaté, Estimé, Refusé, Indisponible, Inconnu), source, limite et date, textes historiques remis en français accentué.
 
@@ -5313,7 +5392,7 @@ Chaque constat est un fait avec valeur, état (Constaté, Estimé, Refusé, Indi
 
 #### AUD-003 · Garde des lectures concurrentes de l'audit
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Compteur par type de demande (liste, diagnostic, services, analyse) : une lecture plus récente ne remplace que celle de même type, et une nouvelle session les annule toutes.
 
@@ -5324,7 +5403,7 @@ Compteur par type de demande (liste, diagnostic, services, analyse) : une lectur
 
 #### AUD-004 · Lister les contrôleurs du domaine
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Liste les contrôleurs (nom DNS, site, système, rôle émulateur PDC ou RODC), à sélectionner (Ctrl/Maj) pour le diagnostic.
 
@@ -5334,7 +5413,7 @@ Liste les contrôleurs (nom DNS, site, système, rôle émulateur PDC ou RODC), 
 
 #### AUD-005 · Diagnostic des contrôleurs choisis
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Pour 1 à 10 contrôleurs : résolution DNS, ports LDAP 389 et Kerberos 88, heure du RootDSE comparée au poste et à l'émulateur PDC, isSynchronized, réplication entrante, présence dans les SRV ; verdict Sans écart / À vérifier / Non lu.
 
@@ -5344,7 +5423,7 @@ Pour 1 à 10 contrôleurs : résolution DNS, ports LDAP 389 et Kerberos 88, heur
 
 #### AUD-006 · Réplication par partenaire
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Détaille chaque lien entrant : contrôleur, partenaire, partition, dernier succès, dernière tentative, résultat traduit, échecs consécutifs.
 
@@ -5354,7 +5433,7 @@ Détaille chaque lien entrant : contrôleur, partenaire, partition, dernier succ
 
 #### AUD-007 · Services des contrôleurs
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit par CIM l'état et le démarrage de NTDS, Netlogon, KDC, W32Time, ADWS, DNS, DFSR et NtFrs et rend un constat (conforme, à vérifier, DNS hébergé ailleurs, réplication SYSVOL).
 
@@ -5364,7 +5443,7 @@ Lit par CIM l'état et le démarrage de NTDS, Netlogon, KDC, W32Time, ADWS, DNS,
 
 #### AUD-008 · Comparaison d'un objet entre contrôleurs (règle non raccordée)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Valeurs par contrôleur avec version, date et contrôleur d'origine (msDS-ReplAttributeMetaData), contrôleurs injoignables listés.
 
@@ -5376,7 +5455,7 @@ Valeurs par contrôleur avec version, date et contrôleur d'origine (msDS-ReplAt
 
 #### AUD-009 · Analyse des identités d'une OU
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Sur l'OU de l'arbre de Rechercher (sous-OU en option), relève doublons (mail, UPN, matricule), noms DNS partagés, nom AD et DNS divergents et noms recyclés ou objets recréés par rapport à la base locale ; chaque constat est « À revoir ».
 
@@ -5388,7 +5467,7 @@ Sur l'OU de l'arbre de Rechercher (sous-OU en option), relève doublons (mail, U
 
 #### AUD-010 · Cible de l'audit = objet de la fiche
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 L'audit porte sur l'objet de la fiche ouverte, figé au geste ; « Reprendre la sélection » la resynchronise et chaque lecture n'est proposée que pour les types concernés, avec le motif sinon.
 
@@ -5397,7 +5476,7 @@ L'audit porte sur l'objet de la fiche ouverte, figé au geste ; « Reprendre la 
 
 #### AUD-011 · Stratégie de mot de passe applicable
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Pour un utilisateur, lit msDS-ResultantPSO, l'expiration calculée, la stratégie fine désignée (priorité), le nombre de stratégies fines visibles et la stratégie du domaine, et dit laquelle s'applique ou pourquoi c'est inconnu.
 
@@ -5407,7 +5486,7 @@ Pour un utilisateur, lit msDS-ResultantPSO, l'expiration calculée, la stratégi
 
 #### AUD-012 · Groupes imbriqués et cycles
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Liste les groupes de l'objet avec profondeur, chemin d'arrivée, état de lecture, appartenance à un cycle et caractère privilégié, plus le groupe principal et les cycles détectés.
 
@@ -5417,7 +5496,7 @@ Liste les groupes de l'objet avec profondeur, chemin d'arrivée, état de lectur
 
 #### AUD-013 · Pourquoi membre de ce groupe ?
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Pour un groupe choisi, montre le plus court chemin d'appartenance lu (ou l'appartenance par groupe principal) et permet de faire confirmer l'appartenance imbriquée par le contrôleur.
 
@@ -5427,7 +5506,7 @@ Pour un groupe choisi, montre le plus court chemin d'appartenance lu (ou l'appar
 
 #### AUD-014 · Estimation des droits d'un bénéficiaire
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Pour l'entrée choisie, estime neuf droits (contrôle total, lire, modifier des attributs, réinitialiser le mot de passe, modifier les membres, créer, supprimer, modifier les autorisations, changer le propriétaire) avec l'entrée qui décide.
 
@@ -5436,7 +5515,7 @@ Pour l'entrée choisie, estime neuf droits (contrôle total, lire, modifier des 
 
 #### AUD-015 · Inclure les groupes du bénéficiaire
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit les groupes de sécurité transitifs (tokenGroups) du bénéficiaire choisi pour affiner l'estimation.
 
@@ -5446,7 +5525,7 @@ Lit les groupes de sécurité transitifs (tokenGroups) du bénéficiaire choisi 
 
 #### AUD-016 · Liens GPO de l'objet
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit gPLink et gPOptions de chaque niveau d'OU jusqu'à la racine, puis noms et états des GPO, et affiche GPO, liée à, lien, forcée, héritage, attendue par les liens, état de la GPO.
 
@@ -5456,7 +5535,7 @@ Lit gPLink et gPOptions de chaque niveau d'OU jusqu'à la racine, puis noms et �
 
 #### AUD-017 · Résultat GPO appliqué sur le poste (RSoP)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit par CIM le dernier résultat appliqué (RSOP_GPO, RSOP_GPLink) et le confronte aux liens attendus dans la colonne « Résultat sur le poste ».
 
@@ -5466,7 +5545,7 @@ Lit par CIM le dernier résultat appliqué (RSOP_GPO, RSOP_GPLink) et le confron
 
 #### AUD-018 · Identité du poste (AD, DNS, poste)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Confronte sAMAccountName/dNSHostName, la résolution DNS (et l'inverse) et l'identité renvoyée par le poste : cohérente, non vérifiée ou incohérente (DNS périmé, adresse réattribuée, poste renommé, homonyme d'un autre domaine).
 
@@ -5476,7 +5555,7 @@ Confronte sAMAccountName/dNSHostName, la résolution DNS (et l'inverse) et l'ide
 
 #### AUD-019 · Synthèse des relations poste ↔ utilisateur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Résume les associations en mémoire (stockées et de la session) de l'utilisateur ou du poste ciblé.
 
@@ -5485,7 +5564,7 @@ Résume les associations en mémoire (stockées et de la session) de l'utilisate
 
 #### AUD-020 · Historique enregistré des associations
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Lit dans la base locale l'historique user_machine_history du sujet : date, utilisateur, poste, nature de la preuve (badge), source, vérifié dans AD, détails.
 
@@ -5495,7 +5574,7 @@ Lit dans la base locale l'historique user_machine_history du sujet : date, utili
 
 #### AUD-021 · Lecture des délégations (ACE)
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Lit propriétaire et DACL (sans SACL) et liste chaque entrée : bénéficiaire nommé, autoriser/refuser, droits en français, cible (propriété, droit étendu, classe), objets visés, origine héritée ou posée, portée ; filtrable par texte et « posées sur l'objet seulement ».
 
@@ -5507,7 +5586,7 @@ Lit propriétaire et DACL (sans SACL) et liste chaque entrée : bénéficiaire n
 
 #### AUD-022 · Totaux de la copie locale du domaine
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Au geste « Analyser le domaine », affiche les totaux par type de la copie locale avec la date de sa dernière synchronisation, jamais un dénombrement de l'annuaire.
 
@@ -5517,7 +5596,7 @@ Au geste « Analyser le domaine », affiche les totaux par type de la copie loca
 
 #### AUD-023 · Vue du domaine
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Analyse en lecture seule, section par section : annuaire (contextes, DC, niveaux fonctionnels, heure, USN), contrôleurs, rôles FSMO et RID restants, stratégie de mot de passe, stratégies affinées, comptes à surveiller (désactivés, sans expiration, sans pré-auth, SPN, délégation non contrainte, krbtgt), groupes privilégiés, corbeille AD, approbations, sites et sous-réseaux, GPO ; totaux pris dans la copie locale datée ; copie du rapport.
 
@@ -5529,13 +5608,13 @@ Analyse en lecture seule, section par section : annuaire (contextes, DC, niveaux
 
 ## Schéma de l'annuaire (SCH)
 
-8 fonctions, dont 0 faites.
+8 fonctions : 2 faites, 6 améliorées.
 
 ### Catalogue
 
 #### SCH-001 · Catalogue des classes et attributs filtrable
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Liste Classes ou Attributs filtrée sur nom ou description (pause 250 ms), 500 lignes affichées, total exact.
 
@@ -5544,7 +5623,7 @@ Liste Classes ou Attributs filtrée sur nom ou description (pause 250 ms), 500 l
 
 #### SCH-002 · Détail d'un attribut
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Syntaxe en clair, une ou plusieurs valeurs, index (sous-chaîne), catalogue global, confidentiel, calculé, non répliqué, lié, obsolète, description.
 
@@ -5552,7 +5631,7 @@ Syntaxe en clair, une ou plusieurs valeurs, index (sous-chaîne), catalogue glob
 
 #### SCH-003 · Attributs possibles d'une classe
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 mustContain et mayContain de la classe, de ses superclasses jusqu'à top et des auxiliaires, obligatoires d'abord, avec chaîne d'héritage et absents du schéma lu ; conseil objectClass vs objectCategory.
 
@@ -5563,7 +5642,7 @@ mustContain et mayContain de la classe, de ses superclasses jusqu'à top et des 
 
 #### SCH-004 · Exemple de critère et conseils par attribut
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Exemple de clause selon la syntaxe (booléen, DN, entier, FILETIME, date, SID, octets) et notes : indexé ou non, joker en tête, multivalué, confidentiel, non répliqué, lié, obsolète, calculé non filtrable.
 
@@ -5571,7 +5650,7 @@ Exemple de clause selon la syntaxe (booléen, DN, entier, FILETIME, date, SID, o
 
 #### SCH-005 · Ajouter l'attribut choisi au filtre
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Insère l'exemple de critère dans le filtre en cours (dans le ET existant ou en créant un ET), à compléter par l'opérateur, puis l'analyse.
 
@@ -5580,7 +5659,7 @@ Insère l'exemple de critère dans le filtre en cours (dans le ET existant ou en
 
 #### SCH-006 · Analyse locale du coût d'un filtre LDAP
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Analyse un filtre RFC 4515 (32 768 caractères, 64 niveaux, 2 000 éléments) : ciblé, large ou inconnu selon les index du schéma lu ; joker en tête, négation, règle extensible, attribut calculé ou confidentiel.
 
@@ -5591,7 +5670,7 @@ Analyse un filtre RFC 4515 (32 768 caractères, 64 niveaux, 2 000 éléments) : 
 
 #### SCH-007 · Lecture du schéma AD sur geste explicite
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lit une fois les définitions attributeSchema et classSchema du contrôleur de session (8 000 attributs, 3 000 classes, 90 s) et les garde en mémoire avec serveur et date.
 
@@ -5601,7 +5680,7 @@ Lit une fois les définitions attributeSchema et classSchema du contrôleur de s
 
 #### SCH-008 · Statut du schéma lu
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 « Schéma lu le … sur DC : N classes, M attributs », lecture incomplète signalée ; schéma d'une autre session ou domaine jamais utilisé.
 
@@ -5611,13 +5690,13 @@ Lit une fois les définitions attributeSchema et classSchema du contrôleur de s
 
 ## Synchronisation et base autonome (SYN)
 
-30 fonctions, dont 0 faites.
+30 fonctions : 17 faites, 13 améliorées.
 
 ### Base autonome · données
 
 #### SYN-001 · Recherche dans l'index local
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Saisie dans TxtIndexSearch avec un délai de 250 ms : aucun accès SQLite à la frappe elle-même. La requête part dans le worker LocalIndexRead (correspondance exacte, préfixe ou contenu, dans le périmètre de l'OU). Elle cherche dans les noms, identifiants, descriptions et services, et une demande plus récente remplace l'ancienne.
 
@@ -5627,7 +5706,7 @@ Saisie dans TxtIndexSearch avec un délai de 250 ms : aucun accès SQLite à la 
 
 #### SYN-002 · Pagination de l'index local
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Pages de 200 lignes (500 au plus) avec Page précédente et Page suivante. Le total et la page viennent du même instantané SQLite : la pagination borne l'affichage, pas la population.
 
@@ -5637,7 +5716,7 @@ Pages de 200 lignes (500 au plus) avec Page précédente et Page suivante. Le to
 
 #### SYN-003 · Tri de l'index sur toute la population
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Le clic sur un en-tête trie toute la population filtrée avant LIMIT et OFFSET, avec une identité stable pour départager, et les dates françaises ou ISO sont comparées comme des dates. « Tri par pertinence » revient à l'ordre de correspondance.
 
@@ -5647,7 +5726,7 @@ Le clic sur un en-tête trie toute la population filtrée avant LIMIT et OFFSET,
 
 #### SYN-004 · Base occupée pendant une recherche locale
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Une base verrouillée n'est pas un résultat vide : un nouvel essai court est fait (« Base locale occupée : nouvel essai dans un instant »), puis un message demande de réessayer.
 
@@ -5657,7 +5736,7 @@ Une base verrouillée n'est pas un résultat vide : un nouvel essai court est fa
 
 #### SYN-005 · Ouvrir ou exporter depuis l'index local
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Un double-clic ou « Ouvrir l'objet » ouvre la fiche de l'objet dans l'annuaire, et « Exporter CSV » exporte les résultats. Le branchement de ces boutons est dans le cœur (hors périmètre de cette liste).
 
@@ -5669,7 +5748,7 @@ Un double-clic ou « Ouvrir l'objet » ouvre la fiche de l'objet dans l'annuaire
 
 #### SYN-006 · Liste des objets disparus du périmètre
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Objets qu'une lecture complète n'a pas revus : état, nom, type, dernier emplacement connu (→ nouveau), non revu le, vérifié le, détail ; totaux par état, les plus récents affichés.
 
@@ -5679,7 +5758,7 @@ Objets qu'une lecture complète n'a pas revus : état, nom, type, dernier emplac
 
 #### SYN-007 · Vérifier les disparitions
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Relit jusqu'à 200 objets non revus par GUID dans le domaine (lots de 24, 60 s) puis parmi les objets supprimés visibles : de nouveau visible, déplacé, suppression constatée (date, dernier parent, recyclé), introuvable, invisible pour ce compte, vérification impossible.
 
@@ -5689,7 +5768,7 @@ Relit jusqu'à 200 objets non revus par GUID dans le domaine (lots de 24, 60 s) 
 
 #### SYN-008 · Interprétation des déplacements et renommages
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Qualifie un changement de DN : inchangé, renommé au même endroit, déplacé dans le périmètre, sorti, entré, déplacé hors périmètre ; emplacement lisible « Lyon › Postes » ; aussi utilisé pour l'état des lignes de la liste.
 
@@ -5700,7 +5779,7 @@ Qualifie un changement de DN : inchangé, renommé au même endroit, déplacé d
 
 #### SYN-009 · Oublier les relevés
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 « Oublier les relevés » efface l'état de balayage du parc de cette base (dernière sonde, statut, tentatives), après la sauvegarde vérifiée prise avant le geste. Associations, observations et historique ne sont pas touchés.
 
@@ -5710,7 +5789,7 @@ Qualifie un changement de DN : inchangé, renommé au même endroit, déplacé d
 
 #### SYN-010 · Reçu de stockage puis relecture des contrôles
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Après un lot (vérification, relevé, mise à jour d'index), la liste est relue depuis la base, jamais corrigée en mémoire ; échec explicité et rien relancé automatiquement.
 
@@ -5720,7 +5799,7 @@ Après un lot (vérification, relevé, mise à jour d'index), la liste est relue
 
 #### SYN-011 · Tuiles de la base locale
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Quatre tuiles : Comptes (comptes utilisateurs), Postes (actifs et désactivés), Associations (liens utilisateur-poste) et Dernière mise à jour du périmètre choisi (« il y a 2 h », date, ou « Jamais »). Chiffres au format français ; « — » et « base illisible » si la lecture échoue.
 
@@ -5730,7 +5809,7 @@ Quatre tuiles : Comptes (comptes utilisateurs), Postes (actifs et désactivés),
 
 #### SYN-012 · Métadonnées de l'index et avis de démarrage
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Le point de reprise de l'annuaire, la couverture et les échecs par OU, les compteurs de la page et les identités du recensement encore absentes sont lus par worker. Ils sont relus seulement si la dernière lecture a échoué ou n'a jamais répondu, y compris au retour sur Outils (Ctrl+I). Au démarrage, ils servent aux avis sur l'âge de la base et à la première construction.
 
@@ -5740,7 +5819,7 @@ Le point de reprise de l'annuaire, la couverture et les échecs par OU, les comp
 
 #### SYN-013 · Lot d'index transféré sur disque et réconcilié
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Une lecture d'OU ou du domaine arrive sous forme de fichier .jsonl haché, relu et vérifié avant l'enregistrement, puis réconcilié en une transaction. Les objets absents d'une lecture complète sortent de la copie locale comme non revus, et les lignes modifiées plus récemment ailleurs ne sont jamais écrasées.
 
@@ -5750,7 +5829,7 @@ Une lecture d'OU ou du domaine arrive sous forme de fichier .jsonl haché, relu 
 
 #### SYN-014 · Mise à jour de la base autonome par OU
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 « Mettre à jour l'OU choisie » relit l'OU et ses sous-OU, les autres branches sont conservées ; une portée vide ou la racine sont refusées, la date de couverture de l'OU est propre et ne déplace pas le repère du domaine.
 
@@ -5760,7 +5839,7 @@ Une lecture d'OU ou du domaine arrive sous forme de fichier .jsonl haché, relu 
 
 #### SYN-015 · Mise à jour incrémentielle du domaine
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Le point de reprise (contrôleur, invocationID, USN, périmètre) n'avance qu'avec les données qu'il décrit, jamais après une réponse partielle ou sans invocationID. Il n'est réutilisé que sur la même instance, avec un USN réellement validé et une base qui contient encore ce qu'il comptait. Une absence dans une réponse ne devient jamais une suppression AD.
 
@@ -5770,7 +5849,7 @@ Le point de reprise (contrôleur, invocationID, USN, périmètre) n'avance qu'av
 
 #### SYN-016 · Budgets et coupures d'une passe d'index
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Index.MaxObjects (0 = sans quota) et Index.BudgetMs (20 min, partagé entre plans) ; une passe coupée par volume, temps ou ServerTimeLimit du DC ne remplace jamais une base plus complète, ne déplace pas le repère et l'Accueil avertit en nommant la limite.
 
@@ -5780,7 +5859,7 @@ Index.MaxObjects (0 = sans quota) et Index.BudgetMs (20 min, partagé entre plan
 
 #### SYN-017 · Garde d'écriture de la base avant passe
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une nouvelle passe annuaire attend le repère validé de la précédente et est refusée pendant une maintenance, un writer suspendu ou un disque presque plein.
 
@@ -5789,7 +5868,7 @@ Une nouvelle passe annuaire attend le repère validé de la précédente et est 
 
 #### SYN-018 · Expiration LAPS lue avec les ordinateurs
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 La date d'expiration LAPS (hérité et Windows LAPS) est indexée avec les postes, jamais le mot de passe ; une lecture du schéma distingue « absent du domaine » de « non visible avec ce compte ».
 
@@ -5801,7 +5880,7 @@ La date d'expiration LAPS (hérité et Windows LAPS) est indexée avec les poste
 
 #### SYN-019 · Conseil de recensement complet du périmètre
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Dit si l'OU ou le domaine choisi a besoin d'une lecture complète : récent, dû (seuil Index.FullRebuildDays, 7 j), partiel, absent, horloge douteuse, ou identités manquantes du dernier recensement du domaine.
 
@@ -5810,7 +5889,7 @@ Dit si l'OU ou le domaine choisi a besoin d'une lecture complète : récent, dû
 
 #### SYN-020 · Relire l'OU choisie en entier
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Lecture complète des utilisateurs et postes de l'OU et de ses sous-OU, comme « Mettre à jour l'OU choisie » ; seule une lecture complète repère disparus et déplacés.
 
@@ -5820,7 +5899,7 @@ Lecture complète des utilisateurs et postes de l'OU et de ses sous-OU, comme «
 
 #### SYN-021 · Lire les objets manquants du recensement
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Les identités vues par le dernier recensement du domaine mais absentes de la base sont relues par GUID (200 au plus) ; trouvées : ajoutées ; absentes : retirées de la liste sans conclusion ; non lues : restent.
 
@@ -5832,7 +5911,7 @@ Les identités vues par le dernier recensement du domaine mais absentes de la ba
 
 #### SYN-022 · Enregistrer un relevé daté du périmètre
 
-`a-faire` · écriture
+`fait` · écriture
 
 Copie datée de la base locale pour le périmètre (identité, emplacement, quelques attributs) avec preuve de couverture ; nom facultatif ; 50 relevés par domaine, 300 000 objets.
 
@@ -5842,7 +5921,7 @@ Copie datée de la base locale pour le périmètre (identité, emplacement, quel
 
 #### SYN-023 · Liste des relevés enregistrés
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Nom, date, nombre d'objets, périmètre, couverture ; empreinte SHA-256 des lignes conservée.
 
@@ -5851,7 +5930,7 @@ Nom, date, nombre d'objets, périmètre, couverture ; empreinte SHA-256 des lign
 
 #### SYN-024 · Supprimer un relevé
 
-`a-faire` · écriture
+`fait` · écriture
 
 Supprime le relevé choisi de la base locale après confirmation.
 
@@ -5861,7 +5940,7 @@ Supprime le relevé choisi de la base locale après confirmation.
 
 #### SYN-025 · Comparer deux relevés
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Ajouts, disparitions, déplacements, renommages et valeurs modifiées (type, nom, identifiant, UPN/DNS, nom affiché, description, service/système, état) ; totaux exacts, 500 lignes par catégorie.
 
@@ -5871,7 +5950,7 @@ Ajouts, disparitions, déplacements, renommages et valeurs modifiées (type, nom
 
 #### SYN-026 · Notice des relevés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Rappelle qu'un relevé ne contient ni mot de passe, ni droit, ni appartenance, ne restaure pas l'annuaire et qu'une disparition n'est pas une preuve de suppression.
 
@@ -5879,7 +5958,7 @@ Rappelle qu'un relevé ne contient ni mot de passe, ni droit, ni appartenance, n
 
 #### SYN-027 · Recensement, objets non revus et relevés d'annuaire
 
-`a-faire` · écriture
+`fait` · écriture
 
 Stocke les objets qu'une lecture complète n'a pas rendus (enregistrés comme non revus, jamais comme supprimés), les écarts du recensement relus par GUID et les relevés datés d'un périmètre (capture SQL en une instruction, empreinte SHA-256, état de couverture). Les worker DirectorySync et SnapshotCompare listent ces éléments et comparent deux relevés, totaux exacts et lignes bornées.
 
@@ -5891,7 +5970,7 @@ Stocke les objets qu'une lecture complète n'a pas rendus (enregistrés comme no
 
 #### SYN-028 · Couverture du relevé du parc
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Le texte de LblParkStatus donne la couverture du relevé stocké sans comptage synchrone. Le nombre de postes actifs vient de l'index en mémoire, des chiffres de la base ou du relevé stocké, et un texte d'attente est remplacé à l'arrivée des chiffres.
 
@@ -5901,7 +5980,7 @@ Le texte de LblParkStatus donne la couverture du relevé stocké sans comptage s
 
 #### SYN-029 · Relevé partagé du parc entre consoles
 
-`a-faire` · écriture
+`fait` · écriture
 
 Un fichier de relevé partagé, éventuellement en UNC, est lu, fusionné (la ligne la plus récente gagne par poste) puis réécrit dans le worker ParkSharedSync, sous un fichier .lock avec 12 essais. Une demande pendant une synchronisation en cours est faite à la suite.
 
@@ -5911,7 +5990,7 @@ Un fichier de relevé partagé, éventuellement en UNC, est lu, fusionné (la li
 
 #### SYN-030 · Rechargement de l'état du parc stocké
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 L'état du relevé du parc est relu depuis la base par worker. Un résultat de poste arrivé avant la fin de cette lecture est appliqué ensuite, pour que ses compteurs de tentatives partent des compteurs stockés.
 
@@ -5923,13 +6002,15 @@ L'état du relevé du parc est relu depuis la base par worker. Un résultat de p
 
 ## Opérations (OPE)
 
-36 fonctions, dont 0 faites.
+36 fonctions : 16 faites, 10 améliorées, 10 partielles.
 
 ### Charge et statistiques
 
 #### OPE-001 · Indicateurs de collecte du moteur
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Indicateurs par classe de demande (actions explicites, lectures automatiques, écritures, sélection, promotions) en place, sans file inventée pour les lectures. Lectures identiques partagées et requêtes WMI évitées : à compter par l’ordonnanceur de Domenia.Engine et la collecte de Domenia.Inventory (vague 3).
+
+`partiel` · locale (aucune lecture)
 
 Attente en file médiane et P95 par classe (actions explicites, sélection, fond), promotions après longue attente, lectures identiques partagées, requêtes WMI évitées, état des fournisseurs, profil et fenêtre de collecte.
 
@@ -5938,7 +6019,7 @@ Attente en file médiane et P95 par classe (actions explicites, sélection, fond
 
 #### OPE-002 · Statistiques des opérations
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Chaque opération enregistre une mesure (éléments, durée, octets estimés, tentatives distantes, replis, réussites) ; l'onglet Charge & stats affiche moyenne par élément, durée, réseau, débit, % de repli, % de réussite et dernière mesure, exportable en CSV.
 
@@ -5950,7 +6031,7 @@ Chaque opération enregistre une mesure (éléments, durée, octets estimés, te
 
 #### OPE-003 · Pourquoi une action est indisponible ?
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Une ligne par blocage commun (lecture seule, reçus non confirmés, opération à vérifier, écriture active, sans sélection, secrets, boutons clés) avec route, plus l'identité des lectures LAPS/BitLocker et les transports.
 
@@ -5959,7 +6040,7 @@ Une ligne par blocage commun (lecture seule, reçus non confirmés, opération �
 
 #### OPE-004 · Diagnostic expurgé
 
-`a-faire` · écriture
+`fait` · écriture
 
 Diagnostic de support au format Domenia.Diagnostic.2, construit sur liste blanche : versions, compatibilité du poste, jusqu'à 200 séries de mesures, 200 codes d'erreur (nombre, type .NET, ligne de script), 64 traces et 16 lenteurs expliquées. Un aperçu dit ce qu'il contient et ce qu'il ne contient jamais avant l'enregistrement.
 
@@ -5969,7 +6050,7 @@ Diagnostic de support au format Domenia.Diagnostic.2, construit sur liste blanch
 
 #### OPE-005 · Santé du moteur
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Mesures locales de la session : mémoire du processus, réactivité de l'interface (p50/p95), temps de réponse par catégorie (512 dernières mesures, p95 à partir de 20 mesures), trois dernières lenteurs expliquées, incidents de trace, dernière sauvegarde locale, files d'attente, lectures partagées, requêtes CIM évitées, sources en pause, attentes de verrou SQLite.
 
@@ -5978,7 +6059,7 @@ Mesures locales de la session : mémoire du processus, réactivité de l'interfa
 
 #### OPE-006 · État du moteur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Version, build, PowerShell, mémoire privée, lecture seule et état d'écriture, base active, tâches actives et détachées avec une phrase par tâche (lecture/écriture, âge, arrêt demandé, référence courte du journal).
 
@@ -5987,7 +6068,7 @@ Version, build, PowerShell, mémoire privée, lecture seule et état d'écriture
 
 #### OPE-007 · Vérification de l'application
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Vérification rapide ou complète : PowerShell 5.1+, thread STA, contrôles WPF collectés et critiques, fonctions critiques, politique d'écriture, audit statique, self-check non destructif, source du module AD, moteur user-machine, runspaces, stockage local, bind RootDSE, lecture de base, recherches utilisateur/machine/groupe, arborescence, DACL de base, outils Windows, wapt-get ; benchmark LDAP répété en complet ; copie du rapport.
 
@@ -5997,7 +6078,7 @@ Vérification rapide ou complète : PowerShell 5.1+, thread STA, contrôles WPF 
 
 #### OPE-008 · Export du diagnostic ZIP
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Archive avec runtime.json (build, version, OS, dossiers, identités, domaine, DC, lecture seule, moteur, sources du module, intégrité), configuration expurgée et self-check.csv, sans journaux bruts.
 
@@ -6008,7 +6089,7 @@ Archive avec runtime.json (build, version, OS, dossiers, identités, domaine, DC
 
 #### OPE-009 · Postconditions : preuve par relecture de chaque opération
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Une règle par opération dit quelle relecture prouve son effet (membres d'un groupe, emplacement par GUID, attributs, userAccountControl, lockoutTime, pwdLastSet, accountExpires, OU créée, absence par GUID, dernier démarrage, dernière application des stratégies, état d'un service, présence après réveil) et donne un statut Vérifié / Partiel / À vérifier avec la preuve rédigée.
 
@@ -6018,7 +6099,9 @@ Une règle par opération dit quelle relecture prouve son effet (membres d'un gr
 
 #### OPE-010 · Compensation limitée et honnête
 
-`a-faire` · écriture
+> Reste à faire : Changements inverses confirmés puis fiche ouverte avec compenser=<reçu> ; le pré-remplissage du plan inverse revient à l’écran Fiche (lecture de operations.receipts.detail).
+
+`partiel` · écriture
 
 Après une écriture vérifiée ou partielle, propose une compensation (nouvelle écriture inverse avec son propre plan, confirmation, reçu et vérification) seulement pour modification de fiche, membres/groupes, déplacement, activation, expiration et options du compte, et seulement si la relecture montre que les valeurs sont encore celles de l'opération.
 
@@ -6028,7 +6111,9 @@ Après une écriture vérifiée ou partielle, propose une compensation (nouvelle
 
 #### OPE-011 · Plans de cycle de vie d'un compte (règle non raccordée)
 
-`a-faire` · écriture
+> Reste à faire : Règles des séquences Arrivée, Changement de service et Suspension portées et affichées avec la disponibilité de chaque étape (comme en Domenia 1, règle non raccordée). Exécution étape par étape quand les écritures groupes, attributs, déplacement et activation seront servies.
+
+`partiel` · écriture
 
 Séquences Arrivée, Changement de service, Suspension (vérifier, groupes du modèle, activer/désactiver, attributs, déplacement) ; une étape incertaine ou en échec bloque la suite, jamais rejouée.
 
@@ -6040,7 +6125,7 @@ Séquences Arrivée, Changement de service, Suspension (vérifier, groupes du mo
 
 #### OPE-012 · Dernières opérations et leurs étapes
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Une ligne par requête suivie, la plus récente en haut : état lisible par un glyphe et un mot (Terminée, Remplacée, Retirée de la file, Arrêtée, Délai dépassé, Refusée avant envoi, Échec, Résultat inconnu, En cours), nom, type, durée, phase dominante et référence courte. Les demandes de l'opérateur sont toutes listées, les automatiques seulement si elles finissent mal ; 64 traces au plus, lignes mises à jour en place chaque seconde.
 
@@ -6049,7 +6134,7 @@ Une ligne par requête suivie, la plus récente en haut : état lisible par un g
 
 #### OPE-013 · Copier le détail d'une opération
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Copie le détail de l'opération sélectionnée, masqué par Protect-DomeniaLogText, avec l'avertissement que le nom de la cible peut y figurer.
 
@@ -6058,7 +6143,9 @@ Copie le détail de l'opération sélectionnée, masqué par Protect-DomeniaLogT
 
 #### OPE-014 · Ouvrir le journal depuis les opérations
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Onglet Journal ouvert par onglet=journal. Le raccourci Ctrl L depuis n’importe quel écran relève de l’écran shell (app.js) : il doit viser operations?onglet=journal en profil expert.
+
+`partiel` · locale (aucune lecture)
 
 Ferme le panneau et suit la même route que Ctrl+L : le journal de session en mode Essentiel, Outils > Journal en mode Expert.
 
@@ -6068,7 +6155,9 @@ Ferme le panneau et suit la même route que Ctrl+L : le journal de session en mo
 
 #### OPE-015 · Panneau des opérations en cours
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Tâches en cours dans l’onglet Tâches (durée vivante, phases et compteurs des lots, arrêt d’une lecture) et operations.center prêt pour le panneau déroulant de la barre supérieure ; ce panneau (Échap, clic à côté) relève de l’écran shell (app.js).
+
+`partiel` · locale (aucune lecture)
 
 Panneau déroulant sous le bouton Opérations. Il liste les tâches en cours, en attente (rien n'est encore envoyé), avec arrêt demandé, à vérifier et en nettoyage, ainsi que les lots de collecte. Pour chaque ligne : type (Lecture, Écriture, Cache local), état, durée rafraîchie chaque seconde sans perdre la sélection, détail et accès requis. Jusqu'à 64 lignes.
 
@@ -6077,7 +6166,7 @@ Panneau déroulant sous le bouton Opérations. Il liste les tâches en cours, en
 
 #### OPE-016 · Arrêter une lecture
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bouton Arrêter sur chaque ligne ou touche Suppr sur la ligne choisie. Le droit d'arrêter est revérifié sur la vraie tâche : jamais une écriture AD envoyée, jamais un enregistrement local protégé, jamais une tâche d'une autre session. Un lot de collecte (relevé ou actualisation d'OU) s'arrête en bloc.
 
@@ -6086,7 +6175,7 @@ Bouton Arrêter sur chaque ligne ou touche Suppr sur la ligne choisie. Le droit 
 
 #### OPE-017 · Lots de collecte visibles
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les lots de ping, de WMI, de postes et d'objets AD restent visibles entre deux workers et jusqu'à la dernière sauvegarde locale. Chaque lot affiche sa phase (Préparation, Lecture AD, À confirmer, En cours, Enregistrement), sa progression et ses compteurs (non confirmés, erreurs de ping, en cours, enregistrements en attente, postes non relus faute de capacité).
 
@@ -6096,7 +6185,7 @@ Les lots de ping, de WMI, de postes et d'objets AD restent visibles entre deux w
 
 #### OPE-018 · États exacts d'annulation
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les états possibles sont En attente, En cours, Arrêt demandé, Nettoyage (lecture détachée dont l'appel natif vit encore) et Terminé. Un job dont l'appel natif est vivant n'est jamais dit terminé. Les textes d'annulation sont fixes : « Demande retirée de la file avant tout envoi », « Arrêt demandé… La lecture est encore active », « Écriture … non annulable après envoi. Attente de la relecture de vérification ».
 
@@ -6105,7 +6194,9 @@ Les états possibles sont En attente, En cours, Arrêt demandé, Nettoyage (lect
 
 #### OPE-019 · Étapes détaillées d'une opération
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Étapes dans l’ordre, total, volume et étape dominante à part, suite possible, panneau mis à jour en place. La publication dans l’interface est dite « non mesurée » : la mesurer par tâche demande un point d’accroche dans bridge.js (fichier partagé).
+
+`partiel` · locale (aucune lecture)
 
 Pour l'opération choisie, les phases s'affichent dans l'ordre avec leur mesure propre : Demande, File d'attente, Lecture partagée, Collecte, Validation, Lecture locale, Publication dans l'interface, Fin. S'y ajoutent le total, le volume (« au moins » si incomplet) et la suite possible. Une phase non mesurée est dite non mesurée.
 
@@ -6114,7 +6205,7 @@ Pour l'opération choisie, les phases s'affichent dans l'ordre avec leur mesure 
 
 #### OPE-020 · Conseil après la fin d'une opération
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une phrase dit quoi faire selon l'issue et la catégorie (compte refusé, droit insuffisant, cible injoignable, prérequis absent…), avec la référence à chercher dans Domenia.log. Pour une écriture non confirmée, elle renvoie à « opérations à vérifier » et rappelle que Domenia ne rejoue jamais une écriture.
 
@@ -6123,7 +6214,7 @@ Une phrase dit quoi faire selon l'issue et la catégorie (compte refusé, droit 
 
 #### OPE-021 · Résumé des tâches et des ressources
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Résumé du type « 2 en cours · 1 en attente · 1 arrêt demandé · 1 nettoyage », ou « Aucune tâche », avec le nombre de ressources détenues par type (minuteries, pools, jobs).
 
@@ -6134,7 +6225,7 @@ Résumé du type « 2 en cours · 1 en attente · 1 arrêt demandé · 1 nettoya
 
 #### OPE-022 · Liste des reçus d'opérations
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Liste des reçus du domaine en mots clairs (étape avec pastille de ton, opération, objet par son nom, DN en infobulle, compte, contrôleur, date), ceux à vérifier d'abord ; une phrase de synthèse dit combien restent à vérifier et que les nouvelles écritures sont bloquées. Actualisée au démarrage et automatiquement, ou par « Actualiser les reçus ».
 
@@ -6144,7 +6235,7 @@ Liste des reçus du domaine en mots clairs (étape avec pastille de ton, opérat
 
 #### OPE-023 · Vérifier un reçu par relecture
 
-`a-faire` · lecture réseau
+`ameliore` · lecture réseau
 
 Après confirmation dans la page (« Relire maintenant »), relit sur le contrôleur initial et sous verrou l'état attendu : valeurs d'attributs (par empreinte, GUID vérifié) ou, pour les autres écritures, options userAccountControl, lockoutTime à 0, pwdLastSet à 0 ou postérieur à l'envoi (marge 120 s), jour d'expiration, conteneur parent, nouveau nom, appartenance directe, OU présente, absence par GUID ; le reçu passe à « Vérifié » ou reste à vérifier avec la raison.
 
@@ -6154,7 +6245,7 @@ Après confirmation dans la page (« Relire maintenant »), relit sur le contrô
 
 #### OPE-024 · Consigner une revue manuelle d'un reçu
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 L'opérateur décrit le contrôle réalisé avec un autre outil (12 à 240 caractères, compteur en direct), confirme dans la page, et le reçu devient « Revue manuelle » avec ce motif, jamais un succès automatique.
 
@@ -6164,7 +6255,9 @@ L'opérateur décrit le contrôle réalisé avec un autre outil (12 à 240 carac
 
 #### OPE-025 · Levée de l'incertitude d'écriture et pastille « opérations à vérifier »
 
-`a-faire` · écriture
+> Reste à faire : Blocage de toutes les nouvelles écritures restauré dans WriteCircuit (write.receiptsPending), levée par relecture conclusive ou revue seulement, tracée en WARN, visible dans l’écran (circuit, tuile, onglet, bilan). Le bouton du panneau Opérations de la barre supérieure relève de l’écran shell (operations.center).
+
+`partiel` · écriture
 
 L'état d'écriture inconnu ne redevient « au repos » qu'après vérification ou revue explicite de tous les reçus en attente ; la pastille d'en-tête et le bouton du panneau Opérations comptent les reçus à vérifier, et les droits d'interface sont recalculés.
 
@@ -6174,7 +6267,9 @@ L'état d'écriture inconnu ne redevient « au repos » qu'après vérification 
 
 #### OPE-026 · Opérations à vérifier (reçus d'écriture)
 
-`a-faire` · lecture locale
+> Reste à faire : Pastille « N opérations à vérifier » (jamais « 0 opération »), aide de Domenia 1 et reçu le plus ancien au survol dans l’en-tête de l’écran, la tuile, l’onglet et operations.center. La pastille de la barre supérieure relève de l’écran shell (app.js).
+
+`partiel` · lecture locale
 
 Pastille d'en-tête visible seulement quand un reçu durable attend une vérification ou une revue (jamais « 0 opération »). Un clic ouvre la liste des reçus (route TabGuard) et ne rejoue rien. Tant qu'elle est visible, les nouvelles écritures restent bloquées.
 
@@ -6186,7 +6281,7 @@ Pastille d'en-tête visible seulement quand un reçu durable attend une vérific
 
 #### OPE-027 · Relevé en cours (Outils > Relevés)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Montre l'actualisation d'OU ou le relevé de liste en cours avec son état et un bouton Arrêter.
 
@@ -6195,7 +6290,7 @@ Montre l'actualisation d'OU ou le relevé de liste en cours avec son état et un
 
 #### OPE-028 · Derniers relevés par OU
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Grille des relevés enregistrés du domaine, le plus récent en haut : date, OU (et sous-OU), type (Objets AD, Ping, WMI), état, postes lus, dernière réussite, motif.
 
@@ -6205,7 +6300,7 @@ Grille des relevés enregistrés du domaine, le plus récent en haut : date, OU 
 
 #### OPE-029 · Reprise d'un relevé interrompu
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Propose une fois par session de reprendre (ou abandonner, ou plus tard) un relevé interrompu du domaine ; « Reprendre » ne lit que les postes restants après la confirmation habituelle.
 
@@ -6217,7 +6312,9 @@ Propose une fois par session de reprendre (ou abandonner, ou plus tard) un relev
 
 #### OPE-030 · Mesures de réactivité de l'interface
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Battement de toute l’interface, continu dès le premier affichage d’Opérations (pulse.js, startPulse). Le démarrer dès le lancement de l’application revient à l’écran shell (une ligne dans app.js).
+
+`partiel` · locale (aucune lecture)
 
 Un battement de cœur d'une seconde mesure le retard du Dispatcher (240 derniers échantillons, p50/p95), l'attribue au travail d'interface qui l'a chevauché, et affiche dans Fiabilité le p50/p95, le nombre de tâches et l'état de l'enregistrement local.
 
@@ -6226,7 +6323,7 @@ Un battement de cœur d'une seconde mesure le retard du Dispatcher (240 derniers
 
 #### OPE-031 · Temps de réponse par catégorie
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Médiane, 95e centile (affiché à partir de 20 mesures) et maximum pour six catégories : Recherche locale, Traitement des résultats dans l'interface, Autres lectures et écritures de la base locale, Lectures de l'annuaire, Collecte sur les postes, Écritures dans l'annuaire et actions sur les postes. Une catégorie sans mesure le dit, sans inventer 0 ms ; le recalcul n'a lieu que si une série a bougé.
 
@@ -6235,7 +6332,9 @@ Médiane, 95e centile (affiché à partir de 20 mesures) et maximum pour six cat
 
 #### OPE-032 · Attente de verrou SQLite bornée et comptée
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Règle, phrase et compteur (OperationActivity.RecordSqliteBusy : nombre et heure de la dernière attente) en place et affichés ; la base locale SQLite n’existe pas encore dans Domenia 2 : Domenia.Store appellera le compteur (vague 3).
+
+`partiel` · locale (aucune lecture)
 
 Attente de verrou SQLite LocalStore.DatabaseBusyTimeoutMs : 2500 ms par défaut, bornée de 100 à 5000 ms, commune à l'interface et aux workers. Chaque fin de worker dont l'attente a expiré (SQLITE_BUSY ou LOCKED, lecture locale répondue Busy) est comptée, et le panneau Opérations affiche le nombre et l'heure de la dernière.
 
@@ -6245,7 +6344,7 @@ Attente de verrou SQLite LocalStore.DatabaseBusyTimeoutMs : 2500 ms par défaut,
 
 #### OPE-033 · État d'enregistrement local en une phrase
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une seule phrase décrit l'enregistrement local, sans jamais annoncer une sauvegarde qui n'a pas eu lieu : stockage indisponible, suspendu, conflits, échecs, en attente (éléments en file, changements collectés et taille) ou enregistré (dernière fois). Elle est affichée dans Fiabilité et sur la ligne d'état Live.
 
@@ -6254,7 +6353,7 @@ Une seule phrase décrit l'enregistrement local, sans jamais annoncer une sauveg
 
 #### OPE-034 · Lenteurs expliquées
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une lenteur est expliquée par l'opération, ses phases mesurées, son volume et le traitement dans l'interface. Une opération de plus de 5 s ou un traitement d'interface au-dessus de son seuil entrent dans la liste des 16 dernières lenteurs, affichées dans le bloc Santé, la plus récente en premier.
 
@@ -6263,7 +6362,7 @@ Une lenteur est expliquée par l'opération, ses phases mesurées, son volume et
 
 #### OPE-035 · Blocages de l'interface attribués
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un battement en retard de 400 ms ou plus est expliqué par le travail d'interface suivi qui chevauche la fenêtre de retard (rappels, ticks), au plus une explication toutes les 5 s. Sans chevauchement, la cause est déclarée non attribuée (mise en page, rendu ou appel hors moteur).
 
@@ -6272,7 +6371,7 @@ Un battement en retard de 400 ms ou plus est expliqué par le travail d'interfac
 
 #### OPE-036 · Sources suspendues et reprises progressives
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Lignes en clair pour chaque source qui n'est pas saine : « annuaire · site X : lectures de fond suspendues jusqu'à HH:mm:ss », « WMI · 12 cibles (…) : reprise progressive », « identifiants rejetés, reprise après un changement de compte explicite ». Les postes isolés sont comptés par fournisseur et par état, avec quelques noms.
 
@@ -6283,13 +6382,13 @@ Lignes en clair pour chaque source qui n'est pas saine : « annuaire · site X :
 
 ## Paramètres (PAR)
 
-51 fonctions, dont 2 faites.
+51 fonctions : 5 faites, 9 améliorées, 37 partielles.
 
 ### À propos
 
 #### PAR-001 · Compatibilité du poste dans À propos
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Une matrice livrée, jamais téléchargée, est comparée aux faits du poste lus dans le registre et le processus : Windows (build, client ou serveur), PowerShell (édition, version, 64 bits), .NET Framework, winsqlite3.dll ; annuaire et CIM sont documentés. Statuts Qualifié, Testé, Attendu ou Non pris en charge, sinon Inconnu. La phrase d'À propos donne le statut global, l'infobulle le détail par dimension.
 
@@ -6298,7 +6397,7 @@ Une matrice livrée, jamais téléchargée, est comparée aux faits du poste lus
 
 #### PAR-002 · Inventaire des composants livrés
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Une ligne par fichier livré. Une version n'est affichée que si elle est liée à ce fichier précis : ressource de version d'un fichier au même SHA-256, version déclarée par le contrat pour ce SHA-256, ou build du manifeste pour les fichiers texte produits par le build.
 
@@ -6309,7 +6408,7 @@ Une ligne par fichier livré. Une version n'est affichée que si elle est liée 
 
 #### PAR-003 · Réglages de lecture du journal
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Options : Suivre (défilement automatique), Erreurs seulement (vue lisible), retour à la ligne (vue brute), taille du texte 10, 11, 12, 14, 16 ou 18. Le retour à la ligne et la taille sont mémorisés.
 
@@ -6318,7 +6417,9 @@ Options : Suivre (défilement automatique), Erreurs seulement (vue lisible), ret
 
 #### PAR-004 · Densité des résultats
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Densité compacte, normale ou confort dans le magasin de la coque (domenia.prefs.v1, valeurs alignées sur le lot shell), appliquée aux tableaux et listes de Paramètres ; la grille du kit (createGrid) doit prendre cette densité par défaut pour les listes sans choix propre (demande au kit et à la coque).
+
+`partiel` · locale (aucune lecture)
 
 Deux réglages mémorisés : Confort (lignes de 36 unités) ou Compact (28 unités).
 
@@ -6327,7 +6428,9 @@ Deux réglages mémorisés : Confort (lignes de 36 unités) ou Compact (28 unit�
 
 #### PAR-005 · Profil Essentiel ou Expert
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Profil Essentiel ou Expert dans le magasin de la coque, soumis à UI.AllowExpertProfile ; parties expertes de Paramètres (vue brute du journal, empreintes, plans SQLite, noms des réglages, détails des contrôles) masquées en Essentiel et jamais laissées sélectionnées ; les vues Brut, Permissions, WMI, Autodiagnostic, Classe et GUID des autres écrans suivent ctx.expert de la coque.
+
+`partiel` · locale (aucune lecture)
 
 Sélecteur au pied du menu. Expert affiche Brut, Permissions, WMI (postes), Autodiagnostic, Journal, les options de compte à haut risque, Classe et GUID, la colonne Source de l'inventaire, Méthode et Durée du diagnostic, Score et Correspondance de la base autonome. L'administrateur peut masquer Expert (UI.AllowExpertProfile=false), ce qui force Essentiel.
 
@@ -6335,6 +6438,8 @@ Sélecteur au pied du menu. Expert affiche Brut, Permissions, WMI (postes), Auto
 - Références D1 : `Domenia-UX.UI.ps1:Update-DomeniaUxProfileVisibility`, `Domenia-UX.UI.ps1:Update-DomeniaUxProfileSwitch`, `Domenia-UX.UI.ps1:Test-DomeniaUxExpertAllowed`, `LstUiProfile`, `LstUiProfileTech`, `LstUiProfileExpert`, `TabRaw`, `TabPermissions`, `TabWmi`, `TabSelfCheck`, `TabLog`, `ExpAccountSecurityOptions`, `DgInventory`, `DgComputerDiag`, `DgIndex`, `Domenia-Core.ps1:Load-DomeniaUiProfile`, `Domenia-Core.ps1:Save-DomeniaUiProfile`, `Domenia-Core.ps1:Apply-DomeniaUiProfile`, `Domenia-Main.xaml:LstUiProfile`
 
 #### PAR-006 · Menu replié en icônes
+
+> Réévaluée à l’intégration (22/10/2026) : le reste déclaré par Paramètres (repli temporaire du menu sur un écran étroit, dépliage pour la session sans changer la préférence) est fait par la coque fusionnée (`web/js/app.js`, `foldNavigation`, `autoReleased`).
 
 `fait` · locale (aucune lecture)
 
@@ -6345,7 +6450,9 @@ Replie le menu en icônes (68 unités au lieu de 204), choix mémorisé. Sur un 
 
 #### PAR-007 · Panneau d'aide à droite
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Infobulles d’aide (helpTips de la coque) et bouton « Ouvrir l’aide » raccordés à ctx.help ; la colonne de 300, la superposition sous 1 040 et le retour du focus sur « ? » sont ceux du panneau F1 de la coque (lot shell, absent de cette branche avant fusion).
+
+`partiel` · locale (aucune lecture)
 
 Colonne d'aide de 300 unités, à afficher ou masquer, choix mémorisé. Quand la zone utile fait moins de 1040 unités, elle s'ouvre en superposition. Sur un écran court, elle s'ouvre pour la session seulement. Le focus revient au bouton ? quand elle se ferme.
 
@@ -6353,6 +6460,8 @@ Colonne d'aide de 300 unités, à afficher ou masquer, choix mémorisé. Quand l
 - Références D1 : `Domenia-UX.UI.ps1:Switch-DomeniaUxHelp`, `Domenia-UX.UI.ps1:Get-DomeniaUxLayoutPlan`, `Domenia-UX.UI.ps1:Update-DomeniaUxLayout`, `BtnUxHelpToggle`, `BtnUxHelpClose`, `UxHelpPanel`, `UxHelpColumn`
 
 #### PAR-008 · Thème clair, sombre ou automatique
+
+> Réévaluée à l’intégration (22/10/2026) : le reste déclaré par Paramètres (Ctrl T, listé dans les raccourcis) est fait par la coque fusionnée (`web/js/app.js`, `toggleTheme`, liste des raccourcis).
 
 `fait` · locale (aucune lecture)
 
@@ -6363,7 +6472,7 @@ Choix Light, Dark ou Auto (suit le réglage Windows AppsUseLightTheme, contraste
 
 #### PAR-009 · Zoom de l'interface
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Zoom de 80 à 150 % par pas de 10, avec retour à 100 %, mémorisé (Ui.ZoomPercent). Les dimensions sont alignées sur la grille de pixels pour éviter l'oscillation des barres de défilement, et réajustées après un changement de DPI ou de taille de fenêtre.
 
@@ -6374,7 +6483,9 @@ Zoom de 80 à 150 % par pas de 10, avec retour à 100 %, mémorisé (Ui.ZoomPerc
 
 #### PAR-010 · Reprendre les sauvegardes locales
 
-`a-faire` · écriture
+> Reste à faire : Écrivain suspendu (trois échecs, manque d’espace), avis sous le bandeau et « Reprendre les sauvegardes » par le circuit, refusé tant qu’un enregistrement est actif ; démontré par le scénario « Enregistrement suspendu ». Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Après trois échecs ou un manque d'espace, l'écrivain est suspendu et un avis l'annonce avec le bouton « Reprendre les sauvegardes » (BtnGuardStoreResume), qui réarme la file sans rien perdre de la mémoire.
 
@@ -6384,7 +6495,9 @@ Après trois échecs ou un manque d'espace, l'écrivain est suspendu et un avis 
 
 #### PAR-011 · Réserve d'espace disque de la base
 
-`a-faire` · lecture locale
+> Reste à faire : Seuils de 32 Mo, 512 Mo et 2 Go relevés de quatre fois la file, état et alerte ; scénario « Disque presque plein ». Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Les écritures sont refusées sous 32 Mio libres plus quatre fois le lot entrant. Les nouvelles collectes sont suspendues sous 512 Mio plus quatre fois la file, ce qui est déjà collecté continuant de s'écrire, et une alerte apparaît sous 2 Gio. LblStorageSpace donne l'état (Ok, À surveiller, Insuffisant, Critique, Non mesuré) et signale une mesure de plus de 30 min.
 
@@ -6394,7 +6507,9 @@ Les écritures sont refusées sous 32 Mio libres plus quatre fois le lot entrant
 
 #### PAR-012 · Reprise d'une maintenance interrompue au démarrage
 
-`a-faire` · lecture locale
+> Reste à faire : Bascule interrompue ou base illisible : seules reprise, retour ou restauration vérifiée proposées (scénarios « Bascule interrompue » et « Base illisible ») ; la détection au démarrage par lecture du marqueur de redirection attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Au démarrage, une bascule interrompue (marqueur de redirection) ou une base illisible est détectée par une lecture seule (ReadRedirect). L'assistant ne propose alors que la reprise ou le retour arrière, ou la restauration d'une sauvegarde vérifiée, et les collectes restent suspendues.
 
@@ -6404,7 +6519,9 @@ Au démarrage, une bascule interrompue (marqueur de redirection) ou une base ill
 
 #### PAR-013 · Emplacement lisible de la base locale
 
-`a-faire` · lecture locale
+> Reste à faire : Ligne de l’emplacement, même total partout (base et journal), alerte douce sans sauvegarde ou au-delà de 7 jours. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Une ligne remplace le chemin : « Base du domaine X · 4,2 Mo · sauvegardée il y a 2 h », ou « Base de démonstration », ou « Aucune base locale pour ce domaine ». Le chemin reste dans l'infobulle. Une alerte douce s'affiche s'il n'y a aucune sauvegarde ou si la dernière date de plus de 7 jours.
 
@@ -6413,7 +6530,9 @@ Une ligne remplace le chemin : « Base du domaine X · 4,2 Mo · sauvegardée il
 
 #### PAR-014 · Copier le chemin de la base
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Copie du chemin de la base. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · locale (aucune lecture)
 
 Copie dans le presse-papiers le chemin complet de la base du contexte actif.
 
@@ -6422,7 +6541,9 @@ Copie dans le presse-papiers le chemin complet de la base du contexte actif.
 
 #### PAR-015 · Ouvrir l'emplacement de la base
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Ouverture du dossier par l’Explorateur pour les données, journaux, préférences, reçus et profil ; « Ouvrir l’emplacement » de la base grisé avec sa raison tant que la base n’a pas de fichier (base fictive, mode annuaire de cette version).
+
+`partiel` · locale (aucune lecture)
 
 Ouvre l'Explorateur sur le dossier de la base, fichier sélectionné.
 
@@ -6433,7 +6554,9 @@ Ouvre l'Explorateur sur le dossier de la base, fichier sélectionné.
 
 #### PAR-016 · Déplacer la base locale
 
-`a-faire` · écriture
+> Reste à faire : Assistant : destination choisie dans la page (dossiers proposés, explorateur des dossiers locaux, contrôle en direct du disque, du dossier, des liens et de la réserve), copie vérifiée, bascule et retour. L’exécution réelle (vidage de 120 s, test d’écriture réel, copie SQLite) attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Assistant en étapes : suspension des nouvelles collectes, vidage de la file (120 s au plus), inspection en lecture seule de la source et de la destination (nouveau .db local, dossier existant, test d'écriture réel, réserve de deux fois la base plus 32 Mo), aperçu détaillé, confirmation « Copier, vérifier puis utiliser la nouvelle base », copie, vérification et bascule. L'original est gardé en lecture seule avec un marqueur.
 
@@ -6443,7 +6566,9 @@ Assistant en étapes : suspension des nouvelles collectes, vidage de la file (12
 
 #### PAR-017 · Restaurer une sauvegarde
 
-`a-faire` · écriture
+> Reste à faire : Restauration d’une sauvegarde du registre, d’une copie publiée ou d’un fichier .db choisi (dossier Backups proposé), aperçu du dernier lot, de la dernière mesure, du contenu et des écarts ; annexe des préférences réappliquée après la bascule vérifiée. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Choix d'une sauvegarde .db (dossier Backups proposé), puis restauration dans un nouveau fichier local. L'aperçu montre la date d'écriture, le dernier lot, la dernière mesure, le contenu et les écarts de volume avec la base active (objets, mesures, associations). La sauvegarde n'est jamais modifiée et la base active jamais écrasée ; les préférences jointes sont réappliquées après la bascule.
 
@@ -6453,7 +6578,9 @@ Choix d'une sauvegarde .db (dossier Backups proposé), puis restauration dans un
 
 #### PAR-018 · Reprendre une bascule interrompue
 
-`a-faire` · écriture
+> Reste à faire : « Reprendre la bascule » termine le passage vers la copie désignée par le marqueur relu (scénario « Bascule interrompue »). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Si une bascule a été interrompue (marqueur présent), « Reprendre la bascule » termine le passage vers la copie vérifiée désignée par le marqueur.
 
@@ -6463,7 +6590,9 @@ Si une bascule a été interrompue (marqueur présent), « Reprendre la bascule 
 
 #### PAR-019 · Revenir à la base précédente
 
-`a-faire` · écriture
+> Reste à faire : Retour à la base précédente tant que la nouvelle n’a rien reçu, ou abandon d’une bascule interrompue. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Annule une bascule terminée dans la session (déplacement, restauration ou reprise), tant que la nouvelle base n'a reçu aucune écriture. Le worker retire le marqueur de l'original et la session y revient.
 
@@ -6473,7 +6602,9 @@ Annule une bascule terminée dans la session (déplacement, restauration ou repr
 
 #### PAR-020 · État et texte de l'assistant de stockage
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Quatre actions suivant l’état de la maintenance, chaque refus expliqué ; base illisible : restauration seule. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · locale (aucune lecture)
 
 Les quatre boutons (Déplacer, Restaurer, Reprendre, Revenir) suivent l'état de la maintenance, et LblStorageMaintenance l'explique : base locale par défaut, démonstration, aucune base, copie en attente, étape en cours, base illisible, bascule à terminer, retour possible. Une annulation à la confirmation ne copie rien et relance les collectes.
 
@@ -6482,7 +6613,9 @@ Les quatre boutons (Déplacer, Restaurer, Reprendre, Revenir) suivent l'état de
 
 #### PAR-021 · Base déclarée illisible : restauration seule
 
-`a-faire` · lecture locale
+> Reste à faire : Base déclarée illisible : toute écriture refusée sauf la restauration d’une sauvegarde vérifiée (scénario « Base illisible », quick_check SQLITE_CORRUPT 11) ; la preuve réelle viendra de la base SQLite (vague 3). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Seule une corruption prouvée (SQLITE_CORRUPT 11, NOTADB 26, quick_check échoué) rend la base illisible ; un verrou, un schéma ou un domaine différent ne le font pas. La seule action proposée est alors la restauration d'une sauvegarde vérifiée, les collectes et les saisies restant refusées.
 
@@ -6494,7 +6627,7 @@ Seule une corruption prouvée (SQLITE_CORRUPT 11, NOTADB 26, quick_check échou�
 
 #### PAR-022 · Réglages de conservation des mesures
 
-`a-faire` · écriture
+`ameliore` · écriture
 
 Âge maximal par famille, de 0 (sans limite) à 36 500 jours : présence ping (30), utilisateur connecté (90), inventaire (180), sondes WMI (90), détails (30), historique des associations (0, conservé en entier). Ils sont enregistrés dans Storage.PolicyJson avec les réglages de sauvegarde.
 
@@ -6503,7 +6636,9 @@ Seule une corruption prouvée (SQLITE_CORRUPT 11, NOTADB 26, quick_check échou�
 
 #### PAR-023 · Prévisualiser la conservation
 
-`a-faire` · lecture locale
+> Reste à faire : Prévisualisation par famille, ce qui part et ce qui reste, empreinte exigée par le plan. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Simulation dans une transaction annulée : pour chaque famille, le nombre de mesures antérieures à la date limite, ce que les postes perdront (dernier état de présence, dernier utilisateur, dernier inventaire…) et ce qui est toujours gardé (objets AD, comptes, associations actuelles et déclarées, requêtes, journaux, reçus, dates illisibles, tentatives récentes).
 
@@ -6513,7 +6648,9 @@ Simulation dans une transaction annulée : pour chaque famille, le nombre de mes
 
 #### PAR-024 · Appliquer la conservation
 
-`a-faire` · écriture
+> Reste à faire : Conservation après sauvegarde vérifiée préalable, compaction de l’historique, relecture. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Après confirmation, une sauvegarde vérifiée préalable est faite (copie autonome, quick_check, identité de la base et révision contrôlées), puis les mesures trop anciennes sont retirées. L'historique des associations est compacté : seules les observations identiques répétées partent, chaque changement d'utilisateur et la première et dernière observation de chaque période restent. La place libérée est réutilisable mais le fichier ne rétrécit pas.
 
@@ -6525,7 +6662,9 @@ Après confirmation, une sauvegarde vérifiée préalable est faite (copie auton
 
 #### PAR-025 · Mesurer le stockage local
 
-`a-faire` · lecture locale
+> Reste à faire : Mesure en lecture seule : fichier, journal WAL, total, catégories, lectures types (plans SQLite en Expert). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Mesure en lecture seule : taille de la base et de son journal WAL, lignes et octets par catégorie (octets par table si le module dbstat existe, sinon inconnus) et temps de lectures types sur cette base (page d'index par type, postes actifs triés, page de mesures, recherche de texte), avec le plan SQLite (index, tri en mémoire, parcours complet).
 
@@ -6535,7 +6674,9 @@ Mesure en lecture seule : taille de la base et de son journal WAL, lignes et oct
 
 #### PAR-026 · Contrôler l'intégrité de la base
 
-`a-faire` · lecture locale
+> Reste à faire : Neuf contrôles, verdict, et en cas de défaut le bouton « Restaurer une sauvegarde… » dans la carte. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · lecture locale
 
 Neuf contrôles en lecture seule : ouverture, schéma, tables et colonnes, identité de la base, bascule en attente, reçus, références (clés étrangères), quick_check, journal SQLite. Verdict Sain, À surveiller, Incomplet ou Défaut, avec détail par contrôle ; en cas de défaut, renvoi vers « Restaurer une sauvegarde… ».
 
@@ -6545,7 +6686,7 @@ Neuf contrôles en lecture seule : ouverture, schéma, tables et colonnes, ident
 
 #### PAR-027 · Limites déclarées du stockage local
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Énonce les bornes : file d'écriture de 4096 changements ou 32 Mo, lots de 250 changements ou 4 Mo, 256 éléments en attente, recherches de 20 000 lignes, concurrence du moteur, seuils d'espace, conservation par famille, 10 000 mesures de performance, 400 jours d'instantanés du parc, cache de recherche (20 requêtes par périmètre) et nombre de sauvegardes. S'y ajoutent les trois collections les plus volumineuses à la dernière mesure.
 
@@ -6556,7 +6697,9 @@ Neuf contrôles en lecture seule : ouverture, schéma, tables et colonnes, ident
 
 #### PAR-028 · Reprendre les anciennes données
 
-`a-faire` · écriture
+> Reste à faire : Reprise de la base de Domenia 1 (schéma 11, révision 1, même domaine, règle par partie), de ses réglages et des fichiers de l’ancienne version (objets.tsv, parc.tsv, recherches.tsv, secrets-etat.tsv, liens) avec les garde-fous de Domenia 1 (128 Mo, 250 000 lignes, lecture sous verrou, quatre tables vides, un seul domaine, doublons refusés), idempotente par marqueur, sauvegarde de migration avant. La lecture réelle des fichiers et de la base attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Bouton « Reprendre les anciennes données » : simulation des anciens fichiers (objets.tsv, parc.tsv, recherches.tsv, secrets-etat.tsv, liens poste-utilisateur) affichée dans LblGuardMigration, confirmation « Oui, reprendre », sauvegarde de migration puis import par la file unique. Les quatre tables cibles doivent être vides, les associations existantes ne sont jamais remplacées et la reprise est idempotente.
 
@@ -6568,7 +6711,7 @@ Bouton « Reprendre les anciennes données » : simulation des anciens fichiers 
 
 #### PAR-029 · Politique des données locales
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Tableau en lecture seule, une ligne par type de donnée gardée sur le poste (index de l'annuaire, relevés de l'annuaire, horloges de collecte, présence, utilisateur connecté, inventaire, sondes, détails, associations, bibliothèque de requêtes, instantanés, sauvegardes, journaux, exports CSV, dossiers hors ligne, diagnostics, anciennes données, reçus, préférences, comptes mémorisés) : contenu, emplacement, durée, export et suppression. S'y ajoute l'engagement : aucune donnée envoyée hors du poste, ni télémétrie ni service en ligne.
 
@@ -6577,7 +6720,9 @@ Tableau en lecture seule, une ligne par type de donnée gardée sur le poste (in
 
 #### PAR-030 · Catalogue du cache par périmètre (règle non raccordée)
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Catalogue du cache par périmètre (source, contrôleur, compte, objets, âge, usage permis). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · locale (aucune lecture)
 
 Produit une ligne lisible par périmètre conservé en cache : périmètre, source, contrôleur, compte lecteur, nombre d'objets, date et âge de l'observation, et l'usage permis (« Consultation historique. Aucune modification sans relecture AD. »). Règle écrite, sans appelant dans l'interface de Domenia 1.
 
@@ -6588,7 +6733,9 @@ Produit une ligne lisible par périmètre conservé en cache : périmètre, sour
 
 #### PAR-031 · Simuler puis purger des données locales
 
-`a-faire` · écriture
+> Reste à faire : Purge par catégories fermées, lignes comptées pour chaque table, simulation exigée, nom du domaine saisi, sauvegarde vérifiée avant. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Purge volontaire par catégories fermées : toutes les observations et relevés du parc, tous les instantanés de recherche, tout l'index local de l'annuaire (objets, faits, relevés et horloges d'annuaire ; le point de reprise du domaine est réinitialisé), ou l'historique plus ancien que N jours (730 par défaut, de 1 à 36 500). La simulation compte les lignes par table ; la purge exige une confirmation et la même empreinte. Les vues concernées sont ensuite invalidées.
 
@@ -6598,7 +6745,7 @@ Purge volontaire par catégories fermées : toutes les observations et relevés 
 
 #### PAR-032 · Ce qu'une purge ne touche jamais
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le journal d'audit, la configuration et les préférences, les associations déclarées et leur historique, et les reçus d'opérations ne sont jamais purgeables. La purge de l'historique garde l'historique complet d'un poste dont l'association actuelle est déclarée. Les métadonnées BitLocker et LAPS (secret_state) ne sont jamais une cible de l'index.
 
@@ -6610,7 +6757,9 @@ Le journal d'audit, la configuration et les préférences, les associations déc
 
 #### PAR-033 · Sauvegarder maintenant
 
-`a-faire` · écriture
+> Reste à faire : Copie vérifiée (quick_check, SHA-256, date de vérification) relue par son nom, rotation. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Copie à chaud cohérente par l'API de sauvegarde SQLite dans le worker StorageBackup, budget LocalStore.BackupTimeoutSeconds (30 s). La copie publiée est autonome (journal en mode delete), passe quick_check et reçoit son SHA-256. Elle est rangée dans Backups\Domenia-\*.db avec rotation (« Copies à conserver ») et joint les préférences approuvées.
 
@@ -6620,7 +6769,9 @@ Copie à chaud cohérente par l'API de sauvegarde SQLite dans le worker StorageB
 
 #### PAR-034 · Préférences jointes aux sauvegardes
 
-`a-faire` · écriture
+> Reste à faire : Annexe Domenia.BackupPreferences.1 des préférences approuvées jointe à chaque sauvegarde (même vide), liée au SHA-256 de la copie, exigée par la relecture, réappliquée après une restauration vérifiée (reçu à l’appui), sans identité de connexion ni fenêtre de ce poste. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Les sauvegardes faites depuis l'interface emportent un instantané des préférences approuvées (choix de requêtes, dispositions) au format Domenia.BackupPreferences.1, lié au SHA-256 de la base. Les chemins de base, les reçus de sauvegarde et les noms de comptes distants ou secrets en sont exclus. À la restauration, elles ne sont réappliquées qu'après la bascule vérifiée.
 
@@ -6630,7 +6781,9 @@ Les sauvegardes faites depuis l'interface emportent un instantané des préfére
 
 #### PAR-035 · Copier une sauvegarde vers un fichier choisi
 
-`a-faire` · écriture
+> Reste à faire : Sauvegarde vérifiée publiée vers un fichier choisi dans la page, nom proposé Domenia-AAAAMMJJ-HHmm.db, copie locale gardée si la publication échoue. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Fait une sauvegarde vérifiée puis la publie atomiquement vers un fichier .db choisi (nom proposé Domenia-AAAAMMJJ-HHmm.db). Si l'export échoue, la sauvegarde locale vérifiée reste disponible.
 
@@ -6640,7 +6793,9 @@ Fait une sauvegarde vérifiée puis la publie atomiquement vers un fichier .db c
 
 #### PAR-036 · Sauvegarde automatique planifiée
 
-`a-faire` · écriture
+> Reste à faire : Réglage, échéance et raison du report affichés ; contrôle chaque minute dans une session persistante, différé pendant un enregistrement, 15 min entre deux essais, arrêté par une date future ; chaque copie planifiée passe par le circuit avec son reçu. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable.
+
+`partiel` · écriture
 
 Case « Sauvegarder automatiquement pendant que Domenia est ouvert », intervalle de 1 à 720 h (24 par défaut), 2 à 30 copies conservées (7). Le contrôle a lieu chaque minute. La copie est différée tant qu'une opération ou un enregistrement local est en cours, 15 min séparent deux essais et une date future arrête la planification. LblStorageBackupSchedule donne la prochaine échéance, la dernière sauvegarde vérifiée (taille, début du SHA-256) et le dernier échec de la session.
 
@@ -6652,7 +6807,9 @@ Case « Sauvegarder automatiquement pendant que Domenia est ouvert », intervall
 
 #### PAR-037 · Plafond des widgets
 
-`a-faire` · écriture
+> Reste à faire : Plafond des widgets, essais WMI et premier délai réglables, bornés et enregistrés (settings.collection) ; les relevés de l’Accueil et des postes doivent les lire au début de chaque relevé (CollectionSettingsRules.Read), non raccordé hors de Paramètres.
+
+`partiel` · écriture
 
 Réglages « Plafond des widgets » (0 = aucun), « Nouveaux essais WMI » (0 à 4, défaut 2) et « Premier délai » (10 à 120 s, défaut 30, puis ×4 jusqu'à 5 min).
 
@@ -6661,7 +6818,9 @@ Réglages « Plafond des widgets » (0 = aucun), « Nouveaux essais WMI » (0 à
 
 #### PAR-038 · Profil de collecte
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Trois profils de Domenia 1 avec leurs durées et leur fenêtre, enregistrés ; la collecte des autres écrans doit lire le profil actif (non raccordé hors de Paramètres).
+
+`partiel` · locale (aucune lecture)
 
 Trois profils : Standard, Réseau lent ou site distant (heures creuses par défaut), Dépannage en direct, chacun avec ses durées de réutilisation des mesures.
 
@@ -6670,7 +6829,9 @@ Trois profils : Standard, Réseau lent ou site distant (heures creuses par défa
 
 #### PAR-039 · Durées de fraîcheur par famille
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Durées par famille et par profil, bornées de 0 à 7 jours, retour aux durées du profil ; à lire par la collecte des autres écrans pour réutiliser les mesures (non raccordé).
+
+`partiel` · locale (aucune lecture)
 
 Durée de réutilisation de la présence, de l'utilisateur console, des attributs AD, de l'inventaire léger, des sondes stables et variables, modifiable par profil, avec retour aux durées du profil.
 
@@ -6679,7 +6840,9 @@ Durée de réutilisation de la présence, de l'utilisateur console, des attribut
 
 #### PAR-040 · Fenêtre de collecte
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Fenêtre analysée en direct (jetons fautifs nommés), état et prochain changement, éditeur graphique de la semaine aligné sur son échelle ; les travaux de fond des autres écrans doivent la respecter (non raccordé hors de Paramètres).
+
+`partiel` · locale (aucune lecture)
 
 Syntaxe « lun-ven 07:30-12:00 13:30-18:00; sam », « toujours » ou « jamais » ; les travaux de fond (réconciliation, changements d'objets, parc, index) ne lisent le réseau que fenêtre ouverte, avec phrase d'état et prochain changement.
 
@@ -6688,7 +6851,9 @@ Syntaxe « lun-ven 07:30-12:00 13:30-18:00; sam », « toujours » ou « jamais 
 
 #### PAR-041 · Parallélisme, réutilisation et plafond des relevés
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Parallélisme (1 à 8), réutilisation (0 à 1 440 min) et plafond de cibles (1 à 20 000) enregistrés ; à appliquer par les relevés des autres écrans (non raccordé).
+
+`partiel` · locale (aucune lecture)
 
 Postes lus en même temps (Collection.Concurrency 1 à 8, défaut 4), réutilisation des mesures fraîches (Collection.CacheMinutes 0 à 1 440, défaut 15), plafond d'un relevé de liste (Park.MaxTargets, défaut 500).
 
@@ -6699,7 +6864,7 @@ Postes lus en même temps (Collection.Concurrency 1 à 8, défaut 4), réutilisa
 
 #### PAR-042 · Configuration livrée et réglages avancés
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Domenia.config.json livre Auth.LoginWindowMode=Standard, Streaming.VerifyUserOnSelection=true et Streaming.AutoDetectLoggedUser=false. Les modules lisent aussi Async (MaxThreads 6, MaxOutstandingWorkers 12, MaxQueued 32, ReservedForeground 2, MaxQueueWaitSeconds 120, TickBudgetMs 25, BackgroundAgingSeconds 30, TreeTimeoutSeconds 30), LocalStore (DatabaseBusyTimeoutMs 2500, BackupTimeoutSeconds 30, DatabaseBackupCount 7) et Streaming (RevalidateListedObjects=false, RevalidateIntervalSeconds 60), chaque valeur bornée.
 
@@ -6708,7 +6873,9 @@ Domenia.config.json livre Auth.LoginWindowMode=Standard, Streaming.VerifyUserOnS
 
 #### PAR-043 · Commutateurs de fonctionnalités
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Commutateurs Features.* lus, bornés et montrés avec leur défaut, leur provenance et leur usage ; les comportements qu’ils commandent ne sont pas encore portés en Domenia 2.
+
+`partiel` · locale (aucune lecture)
 
 Features.\* active ou désactive des comportements de remplacement : ordonnanceur, politique d'inactivité, sélection d'une clé BitLocker, copie unique de secret, verrous ciblés, syntaxe et classement de recherche, profils de colonnes, confirmation en page ; lectures isolées, Wake-on-LAN, assistant local et trace de lecture sont désactivés par défaut.
 
@@ -6718,7 +6885,9 @@ Features.\* active ou désactive des comportements de remplacement : ordonnanceu
 
 #### PAR-044 · Politique centrale des éléments d'interface
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : GuiElementPolicy lue, validée et appliquée aux contrôles de Paramètres qui ont un équivalent dans Domenia 1 (Disabled grise avec sa raison, Hidden masque, Default n’active rien) ; les autres écrans l’appliqueront à leurs contrôles (convention partagée à porter dans le kit).
+
+`partiel` · locale (aucune lecture)
 
 Table GuiElementPolicy indexée par x:Name (Default, Disabled, Hidden) appliquée à la fenêtre et au login : un administrateur peut griser ou masquer un contrôle sans toucher au code ; Visible ne force jamais l'activation.
 
@@ -6727,7 +6896,9 @@ Table GuiElementPolicy indexée par x:Name (Default, Disabled, Hidden) appliqué
 
 #### PAR-045 · Réglages de sécurité configurables
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Réglages de sécurité lus, bornés et montrés (provenance, bornes, usage) ; BlockProtectedObjects et la confirmation saisie s’appliquent, les autres seront lus par les écrans de secrets et de mots de passe quand ils seront portés.
+
+`partiel` · locale (aucune lecture)
 
 Security.\* : droits évalués à l'ouverture, contrôles refusés grisés, durée en mémoire des secrets (300 s), effacement du presse-papiers (30 s), changement de mot de passe imposé, longueur du mot de passe généré (16), retour en lecture seule (15 min), objets protégés bloqués, suppression de conteneur interdite, écriture d'attribut brut interdite, confirmations saisies, canal d'écriture unique, jamais de persistance LAPS/BitLocker.
 
@@ -6736,7 +6907,9 @@ Security.\* : droits évalués à l'ouverture, contrôles refusés grisés, dur�
 
 #### PAR-046 · Réglages réseau, accès distant et budgets
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Réglages réseau, accès distant et budgets lus, bornés et montrés ; appliqués par les lectures réseau de la vague 3.
+
+`partiel` · locale (aucune lecture)
 
 Remote.\* (PortTimeoutMs 1200, WinRM, CIM, registre distant, partage profils, journal Sécurité, replis tâche/PsExec, artefacts distants), Async.\* (2 à 6 threads, file 32, 2 places réservées, timeouts recherche 120 s, objet 35 s, distant 45 s, écriture 90/300 s), Cache.\*, Browser.\*, Index.\*, LocalStore.\*, UserMachineLink.\*.
 
@@ -6747,7 +6920,7 @@ Remote.\* (PortTimeoutMs 1200, WinRM, CIM, registre distant, partage profils, jo
 
 #### PAR-047 · OU racine du domaine
 
-`a-faire` · écriture
+`fait` · écriture
 
 Choisit l'OU de travail du domaine (avec ou sans sous-OU), défaut du tableau de bord, de Rechercher, de l'explorateur d'OU et des périmètres sans choix propre ; Revenir au domaine la retire ; libellé du choix courant.
 
@@ -6756,7 +6929,9 @@ Choisit l'OU de travail du domaine (avec ou sans sous-OU), défaut du tableau de
 
 #### PAR-048 · Propagation de l'OU racine aux sections
 
-`a-faire` · écriture
+> Reste à faire : OU de travail mémorisée par domaine (session.setScope), suivie par l’Accueil ; les sections qui la prennent par défaut sont listées. Le remplacement confirmé (Remplacer / Conserver) d’une OU propre plus étroite viendra quand une section aura sa propre OU.
+
+`partiel` · écriture
 
 Les sections qui suivaient l'ancienne racine (tableau de bord, Rechercher, base autonome) suivent la nouvelle ; celles qui ont une OU plus étroite sont listées et remplacées seulement après confirmation dans la page (Remplacer / Conserver).
 
@@ -6767,7 +6942,9 @@ Les sections qui suivaient l'ancienne racine (tableau de bord, Rechercher, base 
 
 #### PAR-049 · Préférences de connexion HKCU
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : « Se souvenir de mon identifiant » (décoché par défaut, jamais de mot de passe) et « Oublier » faits, refusés en simulation ; le dernier identifiant et le compte du coffre seront écrits par la connexion explicite (vague 3), dans les préférences de Domenia 2 et non plus HKCU.
+
+`partiel` · locale (aucune lecture)
 
 Mémorise dans HKCU\Software\DOMENIA le choix « se souvenir de mon identifiant », le dernier identifiant et l'identité du coffre (domaine, compte) ; jamais de mot de passe.
 
@@ -6776,7 +6953,7 @@ Mémorise dans HKCU\Software\DOMENIA le choix « se souvenir de mon identifiant 
 
 #### PAR-050 · Préférences utilisateur persistées
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Domenia.settings.json garde favoris d'OU, mises en page de grilles et colonnes, état du menu et de l'aide, journal (hauteur, police, retour ligne), densité, 8 récents, thème, profil, type et limite de recherche, portées logiciels, limite WMI, zoom, géométrie, noms des comptes secondaires, tableaux de bord, widgets, bibliothèque de requêtes, réglages de collecte, avis Accueil, vérification au clic.
 
@@ -6785,7 +6962,7 @@ Domenia.settings.json garde favoris d'OU, mises en page de grilles et colonnes, 
 
 #### PAR-051 · Restauration de l'interface et de la géométrie
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Réapplique les réglages aux contrôles sans déclencher de recherche ni de collecte, et restaure taille, position et état maximisé en ramenant la fenêtre sur l'écran si un moniteur a disparu.
 
@@ -6796,7 +6973,7 @@ Réapplique les réglages aux contrôles sans déclencher de recherche ni de col
 
 ## Transverse : moteur, sécurité, stockage, interface commune (TRV)
 
-316 fonctions, dont 11 faites.
+316 fonctions : 66 faites, 21 améliorées, 5 partielles, 224 à faire.
 
 ### Accessibilité
 
@@ -6820,7 +6997,7 @@ Régions dites polies : titre de page, dernière ligne du journal (avertissement
 
 #### TRV-003 · Noms accessibles des contrôles dynamiques
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Puces, pastilles, fil d'Ariane, menus de colonnes, onglets Schéma et Contrôles, étoiles de favoris reçoivent nom, aide et statut d'automatisation (« Menu ouvert », « Favori »).
 
@@ -6830,7 +7007,7 @@ Puces, pastilles, fil d'Ariane, menus de colonnes, onglets Schéma et Contrôles
 
 #### TRV-004 · Catalogue d'aide des contrôles
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Le catalogue JSON compte 820 entrées (Name, Title, Text, Kind, Source, Shortcut, Sensitive) et sert de source unique des infobulles, des noms d'accessibilité, des textes d'aide et du panneau d'aide au survol ou au focus clavier. L'infobulle dépend du rôle : aucune sur un conteneur, première phrase pour un bouton icône, texte entier sinon. Elle reste visible désactivée, avec délais 350/100 ms et durée 20 s. Les motifs de sécurité de l'infobulle existante sont conservés en complément.
 
@@ -6839,7 +7016,7 @@ Le catalogue JSON compte 820 entrées (Name, Title, Text, Kind, Source, Shortcut
 
 #### TRV-005 · Chapitre du guide et ouverture du PDF
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Le panneau d'aide indique le chapitre du guide (technicien ou administrateur) qui décrit la page affichée, y compris l'Atelier de requêtes dans Outils. « Ouvrir le guide » cherche le PDF dans un dossier DOC à côté de Domenia, de son parent ou du dossier de livraison, et l'ouvre avec le lecteur associé. Si le fichier manque, l'aide dit où le placer.
 
@@ -6848,7 +7025,7 @@ Le panneau d'aide indique le chapitre du guide (technicien ou administrateur) qu
 
 #### TRV-006 · Pourquoi ce bouton est grisé
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Chaque contrôle grisé donne un motif court, visible en infobulle (ShowOnDisabled) et dans le panneau d'aide (F1). Le motif vient d'un catalogue fermé (lecture seule, aucune sélection, mauvais type, occupé, refusé, périmé, hors ligne, prérequis, reçu en attente, en cours), éventuellement précisé par un code de détail, avec une route vers l'endroit qui débloque.
 
@@ -6857,7 +7034,7 @@ Chaque contrôle grisé donne un motif court, visible en infobulle (ShowOnDisabl
 
 #### TRV-007 · Routes vers le réglage concerné
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Navigation sûre depuis une explication vers Rechercher, Comptes, Fiche > Permissions, Opérations à vérifier, Base autonome > Stockage, Comparer les saisies, Assistance poste > Intervenir, lecture seule, Relire, panneau Opérations.
 
@@ -6868,7 +7045,7 @@ Navigation sûre depuis une explication vers Rechercher, Comptes, Fiche > Permis
 
 #### TRV-008 · Glyphes d'état (mot, symbole, couleur)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 14 états normalisés (Confirmé, Constaté, Estimé, Attention, Partiel, Erreur, Refusé, À vérifier, En cours, Inconnu, Indisponible, Vide, Aucun changement, Information), chacun avec un glyphe Segoe UI Symbol, un mot et une couleur de renfort. Les alias FR et EN sont reconnus sans tenir compte de la casse ni des accents ; un état non reconnu devient Inconnu, jamais un succès.
 
@@ -6877,7 +7054,7 @@ Navigation sûre depuis une explication vers Rechercher, Comptes, Fiche > Permis
 
 #### TRV-009 · Palette unique validée et contraste WCAG
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 SupportSuite.UI.json est l'unique source des couleurs (deux palettes, métriques d'espacement et de rayon). Il est rejeté s'il dépasse 32 KiB, si sa version n'est pas prise en charge, si une couleur n'est pas au format #RRGGBB ou si un jeton requis manque. Une quarantaine de paires texte/fond réellement peintes sont testées selon WCAG 2.x (4,5:1 pour le texte, 3:1 pour le grand texte et le graphique), avec ratio tronqué.
 
@@ -6886,7 +7063,7 @@ SupportSuite.UI.json est l'unique source des couleurs (deux palettes, métriques
 
 #### TRV-010 · Couleurs des séries de graphiques
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Huit séries pastel (bleu, violet, sarcelle, rose, ciel, pêche, lilas, sauge), chacune avec un bord plus foncé. Elles évitent les teintes d'état (jaune, vert, rouge), qui ne désignent jamais une catégorie.
 
@@ -6895,7 +7072,7 @@ Huit séries pastel (bleu, violet, sarcelle, rose, ciel, pêche, lilas, sauge), 
 
 #### TRV-011 · Application de la palette et barre de titre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 La palette est peinte dans les ressources de la fenêtre, y compris les couleurs système locales des listes déroulantes et le journal. La barre de titre Windows suit le thème (DWM), appliquée dès que la fenêtre possède son handle.
 
@@ -7237,7 +7414,7 @@ Une trentaine d'objets fidèles aux types AD (GUID et SID en octets, dates, Int6
 
 #### TRV-048 · Worker de démonstration
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Il répond aux opérations TreeChildren, GlobalSearch (analyse de filtres LDAP), OpenAdObject, IndexBuild, BitLockerPresence, StartupWarmCache et ReceiptStore List, dans les formes exactes des lecteurs réels. Il simule la latence annulable, les refus d'accès (0x80070005) et les objets introuvables (0x80072030). Toute autre opération est refusée explicitement.
 
@@ -7249,7 +7426,7 @@ Il répond aux opérations TreeChildren, GlobalSearch (analyse de filtres LDAP),
 
 #### TRV-049 · Bouton Opérations avec compteur
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bouton icône de l'en-tête avec un compteur en pastille (99+ au-delà, masqué à zéro) et une progression du premier lot. Son infobulle donne les nombres d'actives, en attente et en nettoyage, les lots et les reçus à vérifier.
 
@@ -7258,7 +7435,7 @@ Bouton icône de l'en-tête avec un compteur en pastille (99+ au-delà, masqué 
 
 #### TRV-050 · Titre de page, titre de fenêtre et puce du sujet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le titre suit la forme « Page · cible » (« Fiche · Camille Martin »), et le titre de fenêtre « … — Domenia », complété de [ÉCRITURE AD ACTIVE] quand les écritures sont autorisées. Sans cible, le titre l'indique (« Aucun poste sélectionné ») et ne garde jamais l'ancien nom. Une puce « Poste · nom » avec ✕ désélectionne sans rien relire.
 
@@ -7267,7 +7444,7 @@ Le titre suit la forme « Page · cible » (« Fiche · Camille Martin »), et l
 
 #### TRV-051 · Badge de session AD
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Badge « Connecté à domaine » avec le contrôleur interrogé en infobulle. « AD injoignable depuis HH:mm · données déjà lues seulement » s'affiche en cas de coupure, « Dernière requête AD : délai dépassé » quand une requête est lente, et la bannière s'affiche en démonstration. Le badge revient seul à la prochaine lecture réussie.
 
@@ -7276,7 +7453,7 @@ Badge « Connecté à domaine » avec le contrôleur interrogé en infobulle. «
 
 #### TRV-052 · Compte connecté et À propos au pied du menu
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Le pied du menu affiche le compte et le domaine utilisés. Son menu propose « Changer de compte » (page Comptes) et « À propos de Domenia » : version, compatibilité du poste (Windows, PowerShell, .NET, SQLite) lue localement une fois par session.
 
@@ -7285,7 +7462,7 @@ Le pied du menu affiche le compte et le domaine utilisés. Son menu propose « C
 
 #### TRV-053 · Bandeau d'activité à emplacements fixes
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les emplacements de l'en-tête sont réservés : barre de progression, Annuler, temps écoulé, bandeau d'écriture, Accès, Opérations et leurs compteurs. Un emplacement vide est Hidden et non Collapsed : 0, 1, 10 ou 100 tâches ou un long message ne déplacent rien. Compteurs : vide à zéro, 99+ au-delà.
 
@@ -7296,7 +7473,7 @@ Les emplacements de l'en-tête sont réservés : barre de progression, Annuler, 
 
 #### TRV-054 · Moteur d'export CSV commun
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Point-virgule, UTF-8 avec BOM, colonnes visibles dans l'ordre avec en-têtes français, cellules de type formule neutralisées, nom Domenia-&lt;OU ou poste>-AAAAMMJJ-HHmm.csv dans Exports, jamais écrasé, nombre de lignes et valeurs masquées annoncés avec « Ouvrir le dossier ».
 
@@ -7305,7 +7482,7 @@ Point-virgule, UTF-8 avec BOM, colonnes visibles dans l'ordre avec en-têtes fra
 
 #### TRV-055 · Import de CSV à séparateur détecté
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Détecte le séparateur (point-virgule de Domenia ou virgule d'un autre outil) sur la première ligne avant import.
 
@@ -7315,7 +7492,7 @@ Détecte le séparateur (point-virgule de Domenia ou virgule d'un autre outil) s
 
 #### TRV-056 · Panneaux intégrés à la place des fenêtres
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Toute fenêtre métier s'affiche comme une feuille posée à droite sur un voile, dans la fenêtre principale. Une seule à la fois : une autre demande est reportée. Tab circule dans la feuille, Échap annule, Entrée active le bouton par défaut hors texte multiligne. Les raccourcis de la page dessous sont bloqués hors champs texte. Le focus est restauré, les mots de passe sont effacés à la fermeture, et le temps bloqué est mesuré.
 
@@ -7324,7 +7501,7 @@ Toute fenêtre métier s'affiche comme une feuille posée à droite sur un voile
 
 #### TRV-057 · Thème et accessibilité des panneaux intégrés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Les contrôles d'une feuille prennent les couleurs de la palette (styles RunButton et BaseButton, couleurs locales anciennes retirées). Infobulles par défaut selon le type (mot de passe jamais enregistré, Annuler ne valide rien…), affichées même désactivées (délai 350 ms), nom et aide d'accessibilité renseignés.
 
@@ -7334,7 +7511,7 @@ Les contrôles d'une feuille prennent les couleurs de la palette (styles RunButt
 
 #### TRV-058 · Confirmation dans la page (demande avec suite)
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Panneau posé en haut du contenu, sans fenêtre ni boucle modale. Il contient : titre, message (2000 caractères au plus), changements avant et après en puces, détails techniques repliés (réservables à Expert), confirmation par texte exact, troisième réponse facultative, style Danger ou Normal. Le focus est sur la réponse sûre et Échap annule. Une seule suite s'exécute une seule fois ; une nouvelle demande retire la précédente. Sans fenêtre principale, une boîte classique sert de repli.
 
@@ -7343,7 +7520,7 @@ Panneau posé en haut du contenu, sans fenêtre ni boucle modale. Il contient : 
 
 #### TRV-059 · Blocage limité au périmètre de la demande
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Pendant qu'une demande attend, la navigation, les lectures, la sélection et les autres cibles restent disponibles. Seules les écritures et modifications de son périmètre attendent ; une demande sans périmètre les bloque toutes.
 
@@ -7352,7 +7529,7 @@ Pendant qu'une demande attend, la navigation, les lectures, la sélection et les
 
 #### TRV-060 · Contrôle statique des gestionnaires (pas de fenêtre modale)
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Analyse un code de gestionnaire à la recherche de fenêtres WPF ou WinForms, de fenêtres XAML, de boucles modales, de MessageBox, de Get-Credential ou d'Out-GridView, et des enveloppes modales de Domenia. Sert aux tests du contrat « aucune fenêtre ».
 
@@ -7361,7 +7538,7 @@ Analyse un code de gestionnaire à la recherche de fenêtres WPF ou WinForms, de
 
 #### TRV-061 · Résumé de l'opération avant exécution
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Liste chaque option qui change l'effet d'une opération, y compris les options avancées repliées, avec sa valeur en clair (Oui/Non, dates, listes). Les valeurs sensibles affichent « (masqué) » même si l'appelant ne les a pas signalées : détection par nom ou libellé (passe, clé, PIN, LAPS, BitLocker…).
 
@@ -7372,7 +7549,7 @@ Liste chaque option qui change l'effet d'une opération, y compris les options a
 
 #### TRV-062 · Disposition des colonnes mémorisée
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Pour chaque DataGrid de l'application, l'ordre et la largeur des colonnes (100 colonnes au plus, unités Pixel 32..2000 ou Star 0,1..20, Auto, SizeToCells, SizeToHeader) sont mémorisés dans les préférences et restaurés.
 
@@ -7381,7 +7558,7 @@ Pour chaque DataGrid de l'application, l'ordre et la largeur des colonnes (100 c
 
 #### TRV-063 · Kit d'interface partagé de la suite
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 SupportSuite.UI.json, commun à DOMENIA, GP et RBP, définit les palettes sombre et claire (tokens de fond, texte, accent, danger, états, graphiques, pastilles, infobulles), les métriques (espacements 8/12/18, champs 40, boutons 36, rayon 12) et le vocabulaire d'état (Prêt, En cours, Arrêt demandé, À vérifier, Échec, Vérifié). Il pose cinq règles : l'apparence ne donne aucun droit, aucun mot de passe dans l'aide, les journaux ou les préférences, un arrêt demandé n'est pas une annulation confirmée, terminé ne veut pas dire vérifié, aucune mutation rejouée automatiquement.
 
@@ -7390,7 +7567,7 @@ SupportSuite.UI.json, commun à DOMENIA, GP et RBP, définit les palettes sombre
 
 #### TRV-064 · Gestionnaire global des exceptions d'interface
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Toute exception du Dispatcher est journalisée et comptée ; une exception levée pendant l'affichage d'une erreur est annoncée ensuite ; une erreur répétée n'ouvre pas de nouvelle boîte modale ; les erreurs volontairement avalées sont tracées une fois par minute.
 
@@ -7398,7 +7575,7 @@ Toute exception du Dispatcher est journalisée et comptée ; une exception levé
 
 #### TRV-065 · Menus de copie des grilles de rapport
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Clic droit sur les grilles associations, tentatives, attributs, diagnostic, droits, vérification, inventaire, accès, logiciels, WMI, domaine, base, commandes : copier les lignes sélectionnées ou une colonne précise ; grilles d'appartenance : rechercher l'objet, copier le DN, pourquoi membre.
 
@@ -7407,7 +7584,7 @@ Clic droit sur les grilles associations, tentatives, attributs, diagnostic, droi
 
 #### TRV-066 · Navigation entre espaces et onglets
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Amène sur l'espace et l'onglet demandés (anciens noms d'onglets redirigés), affiche les onglets selon le type d'objet, bascule sur le premier espace visible si l'actif est masqué ; Fiabilité et Opérations n'apparaissent que sur route explicite.
 
@@ -7418,7 +7595,9 @@ Amène sur l'espace et l'onglet demandés (anciens noms d'onglets redirigés), a
 
 #### TRV-067 · Interface automatisable locale (ligne de commande)
 
-`a-faire` · lecture locale
+> Reste à faire : Contrat Domenia.Automation/1 (commandes, options, bornes, codes de sortie), validation de la ligne de commande et aperçu en place (shell.automation.contract, shell.automation.preview) ; reste l’entrée en ligne de commande de Domenia.exe (Program.cs, fichier partagé de la composition) et la lecture de la base SQLite locale de Domenia 1 (Domenia.Store, schéma 11).
+
+`partiel` · lecture locale
 
 Domenia-Automate.ps1 (contrat Domenia.Automation/1) : commandes version, etat (identité, révision, synchronisations, volumes), postes, observations (familles Presence, Console, Inventory, Probe:\*), associations et requetes, sur la base SQLite locale en lecture seule ; JSON ou CSV, sur la sortie ou dans un fichier.
 
@@ -7427,7 +7606,9 @@ Domenia-Automate.ps1 (contrat Domenia.Automation/1) : commandes version, etat (i
 
 #### TRV-068 · Dossier de diagnostic hors ligne (CLI)
 
-`a-faire` · lecture locale
+> Reste à faire : Règles du dossier de diagnostic écrites (dossier daté jamais réutilisé, empreintes SHA-256, écriture à côté puis renommage) ; reste la commande « dossier » de la ligne de commande, qui attend Program.cs (fichier partagé) et la base locale.
+
+`partiel` · lecture locale
 
 Commande dossier : écrit dans un nouveau dossier daté (jamais réutilisé) l'état, les postes, observations, associations et requêtes du périmètre (OU, noms ou GUID) avec empreintes SHA-256, écrit à côté puis renommé.
 
@@ -7437,7 +7618,9 @@ Commande dossier : écrit dans un nouveau dossier daté (jamais réutilisé) l'�
 
 #### TRV-069 · Garde-fous de l'interface automatisable
 
-`a-faire` · locale (aucune lecture)
+> Reste à faire : Codes de sortie, bornes, refus des partages, lecteurs mappés et liens, et champs secrets exclus en place dans ShellAutomation et ShellLocalFiles ; reste la vérification de l’empreinte des modules contre le manifeste du pack au lancement en ligne de commande (avec Program.cs, fichier partagé).
+
+`partiel` · locale (aucune lecture)
 
 Exige Windows PowerShell 5.1 64 bits, vérifie l'empreinte du cœur et des modèles contre le manifeste, réutilise le lecteur SQLite du cœur extrait par arbre syntaxique, refuse une base ou une destination sur partage réseau, lecteur mappé ou lien ; codes de sortie 0, 2, 3, 4, 5 ; écriture atomique UTF-8 (BOM pour CSV).
 
@@ -7651,7 +7834,7 @@ Dates stockées en ISO 8601 UTC ; les anciennes dates sans décalage sont lues e
 
 #### TRV-092 · Disposition réservée avec menu de débordement
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 La taille des emplacements dépend de l'échelle (1 à 4) et de la largeur, jamais du nombre de tâches. Si la largeur manque, les actions passent dans un menu de débordement et le message est tronqué avec points de suspension et infobulle complète. Une largeur minimale est calculée. L'indication de la barre de recherche est alignée sur le texte saisi.
 
@@ -7660,7 +7843,7 @@ La taille des emplacements dépend de l'échelle (1 à 4) et de la largeur, jama
 
 #### TRV-093 · Position de l'interrupteur selon la largeur
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Quand la zone principale fait moins de 1000 unités, l'interrupteur lecture seule passe de l'en-tête de page à la barre du haut, pour laisser la place au titre sans ajouter de ligne.
 
@@ -7669,7 +7852,7 @@ Quand la zone principale fait moins de 1000 unités, l'interrupteur lecture seul
 
 #### TRV-094 · Mise en page écran court ou étroit
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Sous 940 unités de hauteur : légendes des filtres masquées (infobulles conservées), journal replié temporairement, aide fermée, badge de session à côté du titre. Sous 700 : espacements réduits. Sous 560 : options de requête compactes, panneaux optionnels repliés. Le menu se replie sous 1280 de largeur. Rien de tout cela ne modifie les préférences enregistrées.
 
@@ -7678,7 +7861,7 @@ Sous 940 unités de hauteur : légendes des filtres masquées (infobulles conser
 
 #### TRV-095 · Panneaux redimensionnables
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Séparateurs glissants entre l'arbre des OU et la liste, entre la liste et l'aperçu latéral, et entre les panneaux de l'inventaire, de l'explorateur WMI et de la référence des commandes ; la largeur de l'arbre et la hauteur du journal sont mémorisées dans les préférences (valeurs bornées).
 
@@ -8342,7 +8525,7 @@ Découpe les DN en RDN (virgules échappées, guillemets), décode les paires he
 
 #### TRV-166 · Bouton de route « Assistance poste > Intervenir » dans les messages
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Un message qui envoie l'opérateur vers Assistance poste > Intervenir (intervention ou lecture autorisée) reçoit dans son bandeau un bouton qui ouvre cette vue.
 
@@ -8351,7 +8534,7 @@ Un message qui envoie l'opérateur vers Assistance poste > Intervenir (intervent
 
 #### TRV-167 · Vue Expert ponctuelle depuis Essentiel
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un raccourci, un menu ou la palette peut montrer une vue Expert pour cette seule consultation, sans changer le profil enregistré. La demande est refusée, avec sa raison, si Expert est masqué par l'administrateur ou si la vue ne s'applique pas (pas de fiche, pas un poste, vue retirée).
 
@@ -8360,7 +8543,7 @@ Un raccourci, un menu ou la palette peut montrer une vue Expert pour cette seule
 
 #### TRV-168 · Menu de navigation latéral
 
-`fait` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Huit rubriques (Accueil, Rechercher, Fiche, Poste, Utilisateurs et postes, Atelier support, Comptes, Outils) avec icône et libellé. La rubrique active est annoncée « Page actuelle ». Une page indisponible est grisée avec son motif. Seules les destinations listées sont autorisées ; Rechercher met le focus dans la barre.
 
@@ -8369,7 +8552,7 @@ Huit rubriques (Accueil, Rechercher, Fiche, Poste, Utilisateurs et postes, Ateli
 
 #### TRV-169 · Seules Rechercher et Parcourir choisissent le sujet
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Règle : seules Rechercher et Parcourir changent le sujet global. Relations peut chercher une cible d'association sans changer le sujet. Les autres pages affichent la sélection globale.
 
@@ -8378,7 +8561,7 @@ Règle : seules Rechercher et Parcourir changent le sujet global. Relations peut
 
 #### TRV-170 · Changements de page enregistrés dans l'historique
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque changement d'onglet principal et chaque recherche deviennent des étapes ; la page quittée est capturée dans son état réel.
 
@@ -8386,7 +8569,7 @@ Chaque changement d'onglet principal et chaque recherche deviennent des étapes 
 
 #### TRV-171 · Effacement de la sélection partout
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Quand la liste ne contient plus la ligne choisie, plus rien de l'ancien objet ne reste affiché (barre, fiche, Assistance poste, Relations).
 
@@ -8397,7 +8580,7 @@ Quand la liste ne contient plus la ligne choisie, plus rien de l'ancien objet ne
 
 #### TRV-172 · Bannières d'information et d'erreur dans la page
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Les messages deviennent des bannières dans la page, plus jamais des fenêtres. Information et Succès se ferment après 5 s, sauf avec un détail ou plusieurs paragraphes, et restent sous le pointeur. Attention et Erreur restent jusqu'à fermeture. Trois bannières au plus, la plus ancienne part. Un même message met sa bannière à jour (×N ou heure de mise à jour). Le code INC-XXXX est extrait.
 
@@ -8406,7 +8589,7 @@ Les messages deviennent des bannières dans la page, plus jamais des fenêtres. 
 
 #### TRV-173 · Actions des bannières
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Boutons possibles : « Copier pour le support » (code, date, occurrences, message, détail, chemin du journal, secrets masqués), « Ouvrir le journal », « Voir/Masquer le détail » (épingle la bannière), « Ouvrir le dossier » dans l'Explorateur, « Aller à » vers l'endroit de l'action, déduit du texte d'un refus si besoin.
 
@@ -8415,7 +8598,7 @@ Boutons possibles : « Copier pour le support » (code, date, occurrences, messa
 
 #### TRV-174 · Avis avec bouton de destination
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Message d'état dont la destination est un bouton (route) et non un chemin écrit. Sans fenêtre principale, la ligne d'état porte seule le message et le nom de l'action.
 
@@ -8426,7 +8609,7 @@ Message d'état dont la destination est un bouton (route) et non un chemin écri
 
 #### TRV-175 · Catalogue des commandes et règles de disponibilité
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Catalogue fermé de 44 commandes (navigation : recherche, accueil, opérations, journal, index, requêtes, comptes, relations, outils ; local : raccourcis, thème, annuler présentation, copier résumé, diagnostic ; lectures : relire l'objet, auto-vérification, arborescence, diagnostic réseau des postes sélectionnés, ping, sessions, diagnostic, inventaire, logiciels, dernier utilisateur, verrouillages 4740, permissions ; lectures protégées : LAPS, BitLocker ; écritures préparées : modifier fiche, déverrouiller, réinitialiser le mot de passe, activer/désactiver, déplacer, ajouter à un groupe, ajouter/retirer un membre, fiche poste, activer/désactiver/déplacer le poste, gpupdate, redémarrer). Chaque commande est jugée selon la connexion, la sélection, le type d'objet, le mode lecture seule, la démonstration et l'état réel de son bouton (affiché, activé, infobulle).
 
@@ -8435,7 +8618,7 @@ Catalogue fermé de 44 commandes (navigation : recherche, accueil, opérations, 
 
 #### TRV-176 · Décision de la palette : jamais d'écriture
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Pour une écriture préparée ou une lecture protégée, la palette amène seulement le bouton à l'écran (ouvre l'espace, les onglets et les expandeurs, donne le focus) sans cliquer ; pour une lecture, elle clique le bouton après avoir revérifié qu'il est activé ; les actions du shell sont exécutées directement.
 
@@ -8444,7 +8627,7 @@ Pour une écriture préparée ou une lecture protégée, la palette amène seule
 
 #### TRV-177 · Palette de commandes (Ctrl+K)
 
-`fait` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Panneau d'actions filtré par la fiche ouverte, la sélection et les droits. La recherche ignore accents et majuscules et exige que tous les mots soient présents. Les actions disponibles viennent d'abord, puis le rang de correspondance et l'ordre du catalogue (40 au plus). Chaque action affiche son glyphe, son raccourci et, si elle est indisponible, sa raison (celle de l'infobulle du bouton). Flèches pour choisir, Entrée pour exécuter, Échap pour fermer.
 
@@ -8456,7 +8639,7 @@ Panneau d'actions filtré par la fiche ouverte, la sélection et les droits. La 
 
 #### TRV-178 · Raccourcis clavier
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Ctrl+K palette, Ctrl+F recherche, Ctrl+D accueil, Ctrl+L journal de session, Ctrl+I index local, Ctrl+T thème, Ctrl+Maj+C copier le résumé de l'objet, F5 actualiser l'arborescence, F1 outils et aide, Échap fermer le panneau ou effacer la saisie, Ctrl+Z (dans la liste) annuler la présentation ; la liste complète est consultable dans la palette (« Afficher les raccourcis clavier »).
 
@@ -8465,7 +8648,7 @@ Ctrl+K palette, Ctrl+F recherche, Ctrl+D accueil, Ctrl+L journal de session, Ctr
 
 #### TRV-179 · Raccourcis clavier des tableaux
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Widget focalisable (Tab) : F5 actualiser, Ctrl+C copier, Maj+F10 menu ; en personnalisation Alt+flèches et Alt+Début/Fin déplacer, Alt+Maj+flèches taille, Suppr retirer ; Ctrl+Z annuler ; focus rendu au bon contrôle après redessin.
 
@@ -8474,7 +8657,7 @@ Widget focalisable (Tab) : F5 actualiser, Ctrl+C copier, Maj+F10 menu ; en perso
 
 #### TRV-180 · Raccourci Ctrl+L vers le journal
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Ctrl+L ne change jamais le profil. En Expert (si autorisé), il ouvre Outils > Journal. En Essentiel, il déplie le journal de session et lui donne le focus.
 
@@ -8512,7 +8695,7 @@ Règle commune aux panneaux distants : écriture interdite en lecture seule, en 
 
 #### TRV-184 · Contrat de validation des recettes
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Avant d'afficher la vue, le contrat des recettes est vérifié : identifiants uniques, symptôme présent, champs Titre, Lit, Pourquoi et Coût remplis, action autorisée et cohérente, effet de l'opération égal à « Read ». Une recette invalide bloque l'ouverture de la vue.
 
@@ -8521,7 +8704,7 @@ Avant d'afficher la vue, le contrat des recettes est vérifié : identifiants un
 
 #### TRV-185 · Isolation de l'atelier par session
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 L'état de l'atelier est indexé par l'époque de session, la BaseDn et le compte de liaison. Une reconnexion, même avec le même compte, vide l'atelier. Une minuterie d'une seconde rafraîchit la vue quand elle est visible et s'arrête seule en cas d'erreur.
 
@@ -8930,7 +9113,9 @@ Juste avant l'envoi, compare ce qui part au plan confirmé : même objet, même 
 
 #### TRV-229 · Aperçu exact d'une opération collective
 
-`a-faire` · écriture
+> Reste à faire : Fait pour les comptes : aperçu exact scellé par le moteur, nombre revérifié, un plan par cible scellée, cibles décochables, copie en CSV. Reste aux écrans Postes : diagnostic réseau d’une liste, relevé du parc.
+
+`partiel` · écriture
 
 Avant une opération sur plusieurs objets, liste exacte des cibles avec ce que chacune reçoit, les exclusions motivées (type hors périmètre, DN ou GUID absent, doublon, au-delà de la limite de 20 000), l'impact, et une confirmation proportionnée au risque : saisir le nombre de cibles pour une écriture ou action distante dès 2 cibles, ou pour une lecture au-delà de 200.
 
@@ -9054,7 +9239,7 @@ Copie une valeur bornée (8192 caractères, 1024 pour une clé BitLocker) avec u
 
 #### TRV-242 · Sélecteur d'OU arborescent partagé
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Sélecteur d'OU unique pour le tableau de bord, l'Atelier, les Outils et la fiche. L'arbre se lit à l'expansion (1000 enfants par niveau, tri par nom côté serveur). Il offre une recherche d'OU par nom (100 résultats) avec branches parentes de contexte, les favoris de Rechercher, l'affichage d'une OU (favori ou choix courant) en lisant les parents un par un, et la portée « Inclure les sous-OU » imposée ou au choix. Une ligne de confirmation décrit l'effet et le chemin complet est copiable. Seules les OU avec GUID se choisissent ; les conteneurs servent à naviguer.
 
@@ -9064,7 +9249,7 @@ Sélecteur d'OU unique pour le tableau de bord, l'Atelier, les Outils et la fich
 
 #### TRV-243 · Sélecteur d'objet intégré (utilisateur, poste, OU)
 
-`a-faire` · lecture réseau
+`fait` · lecture réseau
 
 Recherche d'un utilisateur, d'un poste ou d'une OU sur tout le domaine, indépendamment des filtres de la page principale : au moins 2 caractères (sauf OU), 160 au plus, 100 résultats. La correspondance porte sur le nom, sAMAccountName, displayName, givenName, sn, mail, UPN et le DNS. Le choix est revérifié avant d'être transmis au formulaire.
 
@@ -9074,7 +9259,7 @@ Recherche d'un utilisateur, d'un poste ou d'une OU sur tout le domaine, indépen
 
 #### TRV-244 · Sélecteur de fichier intégré
 
-`a-faire` · lecture locale
+`ameliore` · lecture locale
 
 Choix d'un fichier à ouvrir ou d'un emplacement d'enregistrement dans la page. Le dossier est parcouru en arrière-plan (500 entrées au plus), avec Parent, double-clic sur un dossier et saisie directe d'un chemin complet. Un fichier existant demande un clic explicite sur « Remplacer », aucun dossier n'est créé, et un partage réseau n'est interrogé qu'à la demande.
 
@@ -9084,7 +9269,7 @@ Choix d'un fichier à ouvrir ou d'un emplacement d'enregistrement dans la page. 
 
 #### TRV-245 · Favoris proposés dans les sélecteurs d'OU
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Tout sélecteur d'OU propose les favoris du domaine de session (jamais la racine), dans leur ordre, avec chemin complet et libellé désambiguïsé.
 
@@ -9093,7 +9278,7 @@ Tout sélecteur d'OU propose les favoris du domaine de session (jamais la racine
 
 #### TRV-246 · Résumé du choix d'OU avant validation
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Le sélecteur partagé affiche le chemin lisible, la portée (imposée ou choisie, avec ou sans sous-OU), l'effet de la page appelante et rappelle que l'OU est revérifiée avant application.
 
@@ -9471,7 +9656,7 @@ Au-delà de 384 reçus, les reçus terminés (Vérifié, Non envoyé, Revue, Liv
 
 #### TRV-284 · Accessibilité des tableaux
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Noms et aides d'automatisation sur widgets, boutons, listes et sections, éléments de catalogue lus par ToString (nom, section, déjà affiché, interroge le poste), contrastes 4,5:1 des marques et 3:1 des contours.
 
@@ -9481,7 +9666,7 @@ Noms et aides d'automatisation sur widgets, boutons, listes et sections, éléme
 
 #### TRV-285 · Catalogue de widgets intégré
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Catalogue figé par tableau (parc, poste, logiciels) : clé, section, titre, type de donnée, représentation, taille, description, présence dans la disposition livrée ; lu par l'éditeur et le dessin.
 
@@ -9490,7 +9675,7 @@ Catalogue figé par tableau (parc, poste, logiciels) : clé, section, titre, typ
 
 #### TRV-286 · Représentations autorisées par type de donnée
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Douze représentations (chiffre clé, jauge, anneau, barres, histogramme, courbe, liste, liste de points, score et points, score, fiche, liste d'état) proposées selon le type ; la courbe seulement pour des valeurs datées ; une représentation enregistrée devenue invalide est corrigée.
 
@@ -9509,7 +9694,7 @@ Liste les informations du tableau, les sondes WMI prêtes (description, limites,
 
 #### TRV-288 · Suspendre / reprendre la mesure d'un widget
 
-`a-faire` · écriture
+`fait` · écriture
 
 Le widget garde sa place, sa taille et son titre, s'affiche « suspendu » et sort de toutes les collectes et calculs ; le texte explique ce qui reste lu pour les autres (inventaire, copie AD, ping, WMI de la santé) ; reprendre collecte ce qui manque.
 
@@ -9558,7 +9743,7 @@ Ligne de progression mise à jour chaque seconde (en file, recherche des mesures
 
 #### TRV-293 · Copier un widget en texte
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Menu Copier ou Ctrl+C : titre et valeur, sous-titre, détail, badge, lignes (points, fiche, parts avec %), date des données, en texte brut pour un ticket.
 
@@ -9567,7 +9752,7 @@ Menu Copier ou Ctrl+C : titre et valeur, sous-titre, détail, badge, lignes (poi
 
 #### TRV-294 · Copier le résumé du tableau
 
-`fait` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Bouton de barre d'outils : objet ou OU et date (inventaire, calcul, liste), santé avec score, verdict, badge et points, puis faits principaux (fiches poste ; comptes et sécurité de l'OU ; synthèse logiciels).
 
@@ -9578,7 +9763,7 @@ Bouton de barre d'outils : objet ou OU et date (inventaire, calcul, liste), sant
 
 #### TRV-295 · Comprendre ce chiffre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Explication d'un widget sans rien relire : valeur affichée, formule, périmètre, critères, exclusions, couverture, dates, postes du total, ce que relit son actualisation ; table documentée d'environ 90 widgets intégrés et description dérivée pour les widgets de sonde.
 
@@ -9587,7 +9772,7 @@ Explication d'un widget sans rien relire : valeur affichée, formule, périmètr
 
 #### TRV-296 · Dates des données en pied de widget
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Chaque widget affiche, par source (AD, AD · BitLocker, Ping, WMI · console, WMI · inventaire, WMI / registre, Registre · logiciels, WMI · sonde, requête mémorisée), la date ou l'intervalle des données et le nombre non lus ; pendant un relevé des listes, « Relevé en cours · partiel · N/M ».
 
@@ -9598,7 +9783,7 @@ Chaque widget affiche, par source (AD, AD · BitLocker, Ping, WMI · console, WM
 
 #### TRV-297 · Animations d'entrée respectueuses du réglage Windows
 
-`fait` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Cartes qui apparaissent l'une après l'autre, anneaux et barres qui se dessinent, chiffres qui comptent ; désactivées si les animations Windows sont coupées (accessibilité, session distante).
 
@@ -9607,7 +9792,7 @@ Cartes qui apparaissent l'une après l'autre, anneaux et barres qui se dessinent
 
 #### TRV-298 · Graphiques natifs des tableaux
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Anneau (8 parts max + Autres, survol lié légende/segment, légende cliquable), jauge trois-quarts colorée par l'état, barres horizontales (12 lignes), histogramme (valeurs sur colonnes jusqu'à 12), courbe avec aire et dernier point, tuile chiffre clé (27 px chiffre, 18 px texte), carte score, carte Santé score + points (empilée sous 520 px), fiche, liste d'état, liste de valeurs, carte vide.
 
@@ -9616,7 +9801,7 @@ Anneau (8 parts max + Autres, survol lié légende/segment, légende cliquable),
 
 #### TRV-299 · Graduations, nombres et durées lisibles
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Graduations arrondies 1/2/5×10^n (pas entiers pour les comptes), nombres à la française, tailles en Mo/Go/To, âges « il y a N min/h/j », couverture « N postes analysés sur M, le jj/MM ».
 
@@ -9625,7 +9810,7 @@ Graduations arrondies 1/2/5×10^n (pas entiers pour les comptes), nombres à la 
 
 #### TRV-300 · Regroupement « Autres » sans perte de sélection
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Limite les catégories dessinées et regroupe le reste en « Autres (N catégories) » qui conserve les postes et critères de chaque catégorie regroupée.
 
@@ -9636,7 +9821,7 @@ Limite les catégories dessinées et regroupe le reste en « Autres (N catégori
 
 #### TRV-301 · Table des fins de service livrée
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 Table livrée des fins de service par build et famille (Pro, Entreprise, LTSC, IoT, Serveur ; 45 entrées, revue 2026-10-08) utilisée par les règles et widgets de fin de service.
 
@@ -9645,7 +9830,7 @@ Table livrée des fins de service par build et famille (Pro, Entreprise, LTSC, I
 
 #### TRV-302 · Seuils et politique de santé appliqués aux tableaux
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Une seule table de seuils pour dessin, tuile et point (disque libre critique/à surveiller, mémoire utilisée, batterie, jours de mot de passe, d'inactivité, de redémarrage), lue dans la politique de santé, éventuellement par OU (livre de politiques), avec règles personnalisées (mesures et requêtes).
 
@@ -9654,7 +9839,7 @@ Une seule table de seuils pour dessin, tuile et point (disque libre critique/à 
 
 #### TRV-303 · Rendu différé des tableaux cachés
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un tableau mis à jour pendant qu'il est caché se dessine à sa prochaine apparition, seulement si la session, l'objet ou l'OU sont restés les mêmes ; sinon il est vidé.
 
@@ -9672,7 +9857,7 @@ Clair, sombre, automatique ou contraste élevé : tous les tableaux déjà dessi
 
 #### TRV-305 · Contrat de données des widgets
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Format commun fournisseur → rendu : entrée (Value, Number, Distribution, Measure, Series, List, Health, Timeline, Sheet, Checklist) avec état, unité, sous-titre, badge et action optionnelle ; données de tableau avec points, points supprimés, indications et actions de section.
 
@@ -9683,7 +9868,7 @@ Format commun fournisseur → rendu : entrée (Value, Number, Distribution, Meas
 
 #### TRV-306 · Mode Personnaliser
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Bascule Personnaliser/Terminer : boutons ronds toujours visibles, tuile « Ajouter ici » en fin de section, Monter/Descendre une section entière, aide clavier dans la barre, dispositions prêtes, Par défaut, Exporter, Importer.
 
@@ -9692,7 +9877,7 @@ Bascule Personnaliser/Terminer : boutons ronds toujours visibles, tuile « Ajout
 
 #### TRV-307 · Ajouter ou modifier un widget
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Panneau dans la page : recherche sans accents avec synonymes (RAM, SSD, Defender, reboot, IP, uptime, MAJ…), filtres par origine et catégorie, badges « Déjà affiché » et « Interroge le poste », vignettes de représentation, titre, taille, section ou nouvelle section, aperçu en direct (vraies données ou exemple) ; Annuler / Ajouter ou Enregistrer.
 
@@ -9701,7 +9886,7 @@ Panneau dans la page : recherche sans accents avec synonymes (RAM, SSD, Defender
 
 #### TRV-308 · Déplacer, redimensionner, changer de représentation, retirer
 
-`a-faire` · écriture
+`fait` · écriture
 
 Glisser-déposer d'un widget sur un autre ou dans une section (défilement auto près des bords), menu Déplacer (début, gauche, droite, fin), Taille, Représentation, Retirer du tableau de bord.
 
@@ -9710,7 +9895,7 @@ Glisser-déposer d'un widget sur un autre ou dans une section (défilement auto 
 
 #### TRV-309 · Annuler les changements de disposition
 
-`a-faire` · locale (aucune lecture)
+`ameliore` · locale (aucune lecture)
 
 Pile des 10 derniers changements par tableau avec bouton Annuler et libellé du changement ; Ctrl+Z sur le tableau (hors champ texte).
 
@@ -9719,7 +9904,7 @@ Pile des 10 derniers changements par tableau avec bouton Annuler et libellé du 
 
 #### TRV-310 · Dispositions prêtes Support, Inventaire, Santé
 
-`a-faire` · écriture
+`fait` · écriture
 
 Place en tête les informations utiles au cas d'usage en ajoutant les widgets manquants, sans retirer les widgets personnalisés ni changer leurs tailles.
 
@@ -9728,7 +9913,7 @@ Place en tête les informations utiles au cas d'usage en ajoutant les widgets ma
 
 #### TRV-311 · Revenir à la disposition par défaut ou d'équipe
 
-`a-faire` · lecture locale
+`fait` · lecture locale
 
 « Par défaut » applique la disposition d'équipe définie par l'administrateur (clé Dashboard.DefaultLayout&lt;Board> de Domenia.config.json) si elle contient au moins un widget connu, sinon la disposition livrée.
 
@@ -9737,7 +9922,7 @@ Place en tête les informations utiles au cas d'usage en ajoutant les widgets ma
 
 #### TRV-312 · Exporter / importer une disposition JSON
 
-`a-faire` · écriture
+`fait` · écriture
 
 Exporte la disposition du tableau (Format Domenia.BoardLayout.1, horodatée, nom Domenia-disposition-&lt;poste|accueil|logiciels>-AAAAMMJJ-HHmm.json) dans le dossier des exports avec bannière « Ouvrir le dossier » ; importe un fichier choisi dans le sélecteur intégré, vérifié puis appliqué en un changement annulable.
 
@@ -9747,7 +9932,9 @@ Exporte la disposition du tableau (Format Domenia.BoardLayout.1, horodatée, nom
 
 #### TRV-313 · Persistance et migration des dispositions
 
-`a-faire` · écriture
+> Reste à faire : Disposition par tableau enregistrée dans les préférences du moteur (shell.boards) avec ses cinq versions restaurables et une copie de secours dans le profil WebView2, lue avant toute sauvegarde (écran monté avant la réponse du moteur : disposition enregistrée adoptée tant que rien n’a changé), liste simple de la version 1 reprise, clés de widgets de Domenia 1 traduites (legacyKeys) ; reste la reprise des clés Dashboard.<Board>.Layout et Widgets.<Board> de la base SQLite de Domenia 1, quand Domenia.Store lira le schéma 11.
+
+`partiel` · écriture
 
 Enregistre la disposition par tableau (Dashboard.&lt;Board>.Layout) ; reprend les widgets de la première version (Widgets.&lt;Board>) ; remplace une disposition livrée antérieure restée inchangée (RC1.13.0, paire score/points, poste complet avant et après W11) ; nettoie widgets inconnus, représentations, tailles et identifiants déterministes.
 
@@ -9758,7 +9945,7 @@ Enregistre la disposition par tableau (Dashboard.&lt;Board>.Layout) ; reprend le
 
 #### TRV-314 · Places compactes des widgets sans chiffre
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Un widget sans valeur garde une petite place qui dit pourquoi (suspendu, en collecte, lu par l'inventaire complet seulement, absent du dernier relevé, pas encore collecté ou calculé) avec le bouton Collecter, Relire, Recalculer ou Reprendre la mesure.
 
@@ -9767,7 +9954,7 @@ Un widget sans valeur garde une petite place qui dit pourquoi (suspendu, en coll
 
 #### TRV-315 · Grille adaptative et tailles des widgets
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Grille de 4, 3, 2 ou 1 colonnes selon la largeur (1100/780/440 px, hystérésis 24 px), widgets Compacte/Moyenne/Large sur 1/2/3 colonnes, tuiles compactes empilées par deux à côté d'une carte haute, hauteurs alignées par rangée, redessin groupé 300 ms après redimensionnement, réduction d'échelle (≥0,6) si trop étroit, arrondi de mise en page en DPI fractionnaire.
 
@@ -9776,7 +9963,7 @@ Grille de 4, 3, 2 ou 1 colonnes selon la largeur (1100/780/440 px, hystérésis 
 
 #### TRV-316 · Menu contextuel du widget
 
-`a-faire` · locale (aucune lecture)
+`fait` · locale (aucune lecture)
 
 Clic droit ou Maj+F10 : Actualiser ce widget, Comprendre ce chiffre / le score, Copier, Suspendre/Reprendre la mesure, Modifier…, Représentation, Taille, Déplacer, Retirer ; boutons ronds équivalents au survol ou au focus.
 

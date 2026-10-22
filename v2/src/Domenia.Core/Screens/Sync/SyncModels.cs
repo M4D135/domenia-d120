@@ -306,10 +306,10 @@ public sealed record SnapshotRow(
     string RowsSha256,
     string Display);
 
-public sealed record SnapshotList(int Count, int Max, int MaxObjects, string Text, string Notice, ImmutableArray<SnapshotRow> Rows);
+public sealed record SyncSnapshotList(int Count, int Max, int MaxObjects, string Text, string Notice, ImmutableArray<SnapshotRow> Rows);
 
 /// <summary>Result of synchro.controls: census, census gaps, disappeared objects and snapshots of the domain.</summary>
-public sealed record SyncControls(SyncScope Scope, CensusAdvice Census, CensusGapList Gaps, AbsenceList Absences, SnapshotList Snapshots, long Generation, DateTimeOffset Now);
+public sealed record SyncControls(SyncScope Scope, CensusAdvice Census, CensusGapList Gaps, AbsenceList Absences, SyncSnapshotList Snapshots, long Generation, DateTimeOffset Now);
 
 /// <summary>Target of a read: the chosen OU with its sub-OUs, or the changes of the whole domain.</summary>
 public enum SyncTarget
@@ -466,7 +466,7 @@ public sealed record SnapshotDiffRow(SnapshotDiffNature Nature, string NatureLab
 /// </summary>
 public sealed record SnapshotDiffCounts(int Added, int Disappeared, int Common, int Differing, int Unchanged, int Moved, int Renamed, int Changed, int Distinct);
 
-public sealed record SnapshotComparison(
+public sealed record SyncSnapshotComparison(
     SnapshotRow Before,
     SnapshotRow After,
     bool Comparable,

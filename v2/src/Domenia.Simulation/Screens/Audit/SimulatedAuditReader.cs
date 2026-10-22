@@ -960,8 +960,8 @@ public sealed class SimulatedAuditReader : IAuditReader
             var (src, kind) = SimulatedAuditData.HistorySources[random.Next(SimulatedAuditData.HistorySources.Length)];
             var who = i == count - 1 && random.Chance(30) ? other : user;
             var at = Reference - TimeSpan.FromDays(random.Next(0, 75)) - TimeSpan.FromMinutes(random.Next(0, 600));
-            rows.Add(new RelationHistoryRow(who.SamAccountName, computer.Name, src, kind, kind == RelationKind.Imported ? null : random.Chance(85),
-                at, kind == RelationKind.History ? "Ouverture de session interactive" : kind == RelationKind.Imported ? "Ligne 214 du fichier d’inventaire" : null));
+            rows.Add(new RelationHistoryRow(who.SamAccountName, computer.Name, src, kind, kind == AuditRelationKind.Imported ? null : random.Chance(85),
+                at, kind == AuditRelationKind.History ? "Ouverture de session interactive" : kind == AuditRelationKind.Imported ? "Ligne 214 du fichier d’inventaire" : null));
         }
         return rows;
     }
@@ -989,23 +989,23 @@ public sealed class SimulatedAuditReader : IAuditReader
         {
             if (own is not null && computer.ObjectGuid == own.ObjectGuid)
             {
-                records.Add(new RelationRecord(RelationKind.Declared, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Affectation saisie dans Domenia", Reference - TimeSpan.FromDays(41)));
+                records.Add(new RelationRecord(AuditRelationKind.Declared, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Affectation saisie dans Domenia", Reference - TimeSpan.FromDays(41)));
             }
             if (computer.ManagedByDn is not null)
             {
-                records.Add(new RelationRecord(RelationKind.Clue, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Attribut managedBy de l’annuaire", computer.WhenChanged));
+                records.Add(new RelationRecord(AuditRelationKind.Clue, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Attribut managedBy de l’annuaire", computer.WhenChanged));
                 if (SeededRandom.Fnv1a64("declared/" + computer.Name) % 2 == 0)
                 {
-                    records.Add(new RelationRecord(RelationKind.Declared, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Affectation saisie dans Domenia", computer.WhenChanged + TimeSpan.FromDays(2)));
+                    records.Add(new RelationRecord(AuditRelationKind.Declared, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Affectation saisie dans Domenia", computer.WhenChanged + TimeSpan.FromDays(2)));
                 }
             }
             if (Answers(computer) && source.World.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == computer.ObjectGuid)?.Presence.CheckedAt is DateTimeOffset seen)
             {
-                records.Add(new RelationRecord(RelationKind.Console, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Session console (relevé de présence)", seen));
+                records.Add(new RelationRecord(AuditRelationKind.Console, user.SamAccountName, user.ObjectGuid, computer.Name, computer.ObjectGuid, "Session console (relevé de présence)", seen));
             }
-            foreach (var row in HistoryRows(index, computer, user).Where(r => r.Kind == RelationKind.History && r.UserLogin == user.SamAccountName))
+            foreach (var row in HistoryRows(index, computer, user).Where(r => r.Kind == AuditRelationKind.History && r.UserLogin == user.SamAccountName))
             {
-                records.Add(new RelationRecord(RelationKind.History, row.UserLogin, user.ObjectGuid, row.Computer, computer.ObjectGuid, row.Source, row.ObservedAt));
+                records.Add(new RelationRecord(AuditRelationKind.History, row.UserLogin, user.ObjectGuid, row.Computer, computer.ObjectGuid, row.Source, row.ObservedAt));
             }
         }
         return records.ToImmutable();

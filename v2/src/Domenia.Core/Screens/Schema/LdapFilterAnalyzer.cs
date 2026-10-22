@@ -26,7 +26,7 @@ public sealed record LdapFilterParse(bool Valid, string? Error, int? ErrorPositi
 /// 32 768 characters, 64 levels and 2 000 elements, index use from the schema read in this session, advice, and the draft
 /// insertion of an attribute (SCH-005). Nothing here contacts a controller; nothing ever throws for a bad filter.
 /// </summary>
-public static partial class LdapFilter
+public static partial class LdapFilterAnalyzer
 {
     public const int MaxLength = 32768;
     public const int MaxDepth = 64;

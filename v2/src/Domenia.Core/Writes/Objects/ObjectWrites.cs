@@ -18,11 +18,8 @@ public interface IAccountEnabledExecutor : IWriteExecutor
     Task<WritePlanDraft> PlanAsync(string dn, bool enabled, CancellationToken cancellationToken);
 }
 
-/// <summary>Expiry of a user account, a day or never (FIC-016): « account.expiration ».</summary>
-public interface IAccountExpirationExecutor : IWriteExecutor
-{
-    Task<WritePlanDraft> PlanAsync(string dn, DateOnly? day, CancellationToken cancellationToken);
-}
+// Expiry of a user account (FIC-016, « account.expiration »): one contract for Fiche and Comptes since the integration,
+// IAccountExpirationExecutor in Writes/Accounts/AccountExpiration.cs (a kind is served by a single executor).
 
 /// <summary>Force a new password at next logon, pwdLastSet = 0 (FIC-017): « password.expire ».</summary>
 public interface IPasswordExpireExecutor : IWriteExecutor

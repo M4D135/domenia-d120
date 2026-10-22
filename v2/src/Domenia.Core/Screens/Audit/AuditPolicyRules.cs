@@ -12,7 +12,7 @@ public static class AuditPolicyRules
 {
     private const string ResultantSource = "msDS-ResultantPSO";
 
-    public static AuditFact Fact(string label, string value, FactState state = FactState.Observed, string? source = null, string? limit = null, string? id = null) =>
+    public static AuditFact Fact(string label, string value, AuditFactState state = AuditFactState.Observed, string? source = null, string? limit = null, string? id = null) =>
         new(label, value, state, AuditText.FactStateLabel(state), source, string.IsNullOrWhiteSpace(limit) ? null : limit, id);
 
     public static AuditPolicy View(PasswordPolicyRead read, DateTimeOffset now, TimeZoneInfo zone)
@@ -61,11 +61,11 @@ public static class AuditPolicyRules
         var facts = resolved.Facts.ToBuilder();
         if (reason is not null)
         {
-            facts.Insert(Math.Min(1, facts.Count), Fact("Pourquoi inconnue", reason, FactState.Unknown, "msDS-ResultantPSO et conteneur des stratégies fines"));
+            facts.Insert(Math.Min(1, facts.Count), Fact("Pourquoi inconnue", reason, AuditFactState.Unknown, "msDS-ResultantPSO et conteneur des stratégies fines"));
         }
         if (state == PolicyState.Applies && read.Pso!.Precedence is int precedence)
         {
-            facts.Add(Fact("Priorité de la stratégie fine", FrenchText.Integer(precedence), FactState.Observed, "msDS-PasswordSettingsPrecedence",
+            facts.Add(Fact("Priorité de la stratégie fine", FrenchText.Integer(precedence), AuditFactState.Observed, "msDS-PasswordSettingsPrecedence",
                 "La plus petite valeur gagne quand plusieurs stratégies visent le compte ; le contrôleur a déjà fait ce choix."));
         }
         if (state == PolicyState.Unreadable && read.Domain is not null)
@@ -73,7 +73,7 @@ public static class AuditPolicyRules
             // Shown as a reference only: never presented as the policy of this account.
             foreach (var fact in PolicyFacts(DomainBag(read.Domain), "Stratégie du domaine"))
             {
-                facts.Add(Fact("Domaine (référence) · " + fact.Label, fact.Value, FactState.Unknown, "Stratégie du domaine",
+                facts.Add(Fact("Domaine (référence) · " + fact.Label, fact.Value, AuditFactState.Unknown, "Stratégie du domaine",
                     "Référence seulement : ne s’applique à ce compte que si aucune stratégie fine ne le vise."));
             }
         }
@@ -114,12 +114,12 @@ public static class AuditPolicyRules
         var known = bag is not null;
         if (!known)
         {
-            facts.Add(Fact("Stratégie applicable", "Inconnue", FactState.Unknown, ResultantSource,
+            facts.Add(Fact("Stratégie applicable", "Inconnue", AuditFactState.Unknown, ResultantSource,
                 "Stratégie non lisible avec ce compte : aucune valeur n’est déduite de la stratégie du domaine."));
         }
         else
         {
-            facts.Add(Fact("Stratégie applicable", source, FactState.Observed, ResultantSource));
+            facts.Add(Fact("Stratégie applicable", source, AuditFactState.Observed, ResultantSource));
             facts.AddRange(PolicyFacts(bag!, source));
         }
 
@@ -127,7 +127,7 @@ public static class AuditPolicyRules
         var account = AccountState.Evaluate(read.UserAccountControl, read.ComputedAccountControl, null);
         DateTimeOffset? expiry = null;
         string? text = null;
-        var expiryState = FactState.Observed;
+        var expiryState = AuditFactState.Observed;
         string? limit = null;
         if (account.PasswordNeverExpires)
         {
@@ -160,14 +160,14 @@ public static class AuditPolicyRules
             {
                 expiry = set + maxAge;
                 text = AuditText.LocalDateTime(expiry.Value, zone);
-                expiryState = FactState.Estimated;
+                expiryState = AuditFactState.Estimated;
                 limit = "Calculé à partir de la stratégie lue ; valeur du contrôleur non disponible.";
             }
         }
         if (text is null)
         {
             text = "Inconnue";
-            expiryState = FactState.Unknown;
+            expiryState = AuditFactState.Unknown;
             limit = "Stratégie ou date de changement non lisible.";
         }
         else if (expiry is DateTimeOffset e && e < now)
@@ -177,15 +177,15 @@ public static class AuditPolicyRules
         facts.Add(Fact("Expiration du mot de passe", text, expiryState, "Compte utilisateur", limit, "expiry"));
         if (account.SmartCardRequired)
         {
-            facts.Add(Fact("Restriction", "Carte à puce exigée : le mot de passe n’est pas utilisable pour ouvrir une session interactive.", FactState.Observed, "userAccountControl"));
+            facts.Add(Fact("Restriction", "Carte à puce exigée : le mot de passe n’est pas utilisable pour ouvrir une session interactive.", AuditFactState.Observed, "userAccountControl"));
         }
         if (account.PasswordNotRequired)
         {
-            facts.Add(Fact("Restriction", "Mot de passe non requis (PASSWD_NOTREQD) : à revoir.", FactState.Observed, "userAccountControl"));
+            facts.Add(Fact("Restriction", "Mot de passe non requis (PASSWD_NOTREQD) : à revoir.", AuditFactState.Observed, "userAccountControl"));
         }
         if (account.Disabled)
         {
-            facts.Add(Fact("Restriction", "Compte désactivé.", FactState.Observed, "userAccountControl"));
+            facts.Add(Fact("Restriction", "Compte désactivé.", AuditFactState.Observed, "userAccountControl"));
         }
         return new Resolved(known, expiry, facts.ToImmutable());
     }
@@ -194,27 +194,27 @@ public static class AuditPolicyRules
     {
         if (bag.MinLength is int length)
         {
-            yield return Fact("Longueur minimale", FrenchText.Count(length, "caractère", "caractères"), FactState.Observed, source);
+            yield return Fact("Longueur minimale", FrenchText.Count(length, "caractère", "caractères"), AuditFactState.Observed, source);
         }
         if (bag.Complexity is string complexity)
         {
-            yield return Fact("Complexité exigée", complexity, FactState.Observed, source);
+            yield return Fact("Complexité exigée", complexity, AuditFactState.Observed, source);
         }
         if (bag.History is int history)
         {
-            yield return Fact("Historique", FrenchText.Count(history, "mot de passe", "mots de passe"), FactState.Observed, source);
+            yield return Fact("Historique", FrenchText.Count(history, "mot de passe", "mots de passe"), AuditFactState.Observed, source);
         }
         // An absent or unreadable duration is not « no limit »: only an explicit 0 (or Int64.MinValue) means never.
         yield return bag.MaxAge.State switch
         {
-            AdIntervalState.Value => Fact("Durée de validité", AuditText.Interval(bag.MaxAge), FactState.Observed, source),
-            AdIntervalState.Never => Fact("Durée de validité", "Sans limite", FactState.Observed, source),
-            _ => Fact("Durée de validité", "Non lue", FactState.Unknown, source, "Durée absente de la lecture ou illisible : aucune absence de limite n’est déduite."),
+            AdIntervalState.Value => Fact("Durée de validité", AuditText.Interval(bag.MaxAge), AuditFactState.Observed, source),
+            AdIntervalState.Never => Fact("Durée de validité", "Sans limite", AuditFactState.Observed, source),
+            _ => Fact("Durée de validité", "Non lue", AuditFactState.Unknown, source, "Durée absente de la lecture ou illisible : aucune absence de limite n’est déduite."),
         };
         if (bag.LockoutThreshold is int threshold)
         {
             var value = threshold == 0 ? "Aucun verrouillage" : FrenchText.Count(threshold, "échec", "échecs");
-            var state = FactState.Observed;
+            var state = AuditFactState.Observed;
             string? limit = null;
             if (threshold != 0)
             {
@@ -228,7 +228,7 @@ public static class AuditPolicyRules
                         break;
                     default:
                         value += ", durée de verrouillage non lue";
-                        state = FactState.Unknown;
+                        state = AuditFactState.Unknown;
                         limit = "lockoutDuration absent de la lecture ou illisible.";
                         break;
                 }

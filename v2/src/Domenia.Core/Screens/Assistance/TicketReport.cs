@@ -141,7 +141,7 @@ public static partial class Pseudonyms
         {
             source = Mask(source, map);
         }
-        var text = SecretMask.Protect(SupportText.Clean(source, 8192));
+        var text = SupportSecretMask.Protect(SupportText.Clean(source, 8192));
         return SupportText.Flat(text, maximum);
     }
 

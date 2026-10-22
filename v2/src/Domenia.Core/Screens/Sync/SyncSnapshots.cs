@@ -145,14 +145,14 @@ public static class SyncSnapshots
             record.CoverageState, record.CoverageAt, record.CoverageText, record.RowsSha256, record.Label + " · " + date + " · " + scopeText);
     }
 
-    public static SnapshotList List(IReadOnlyCollection<SnapshotRecord> records, TimeZoneInfo zone)
+    public static SyncSnapshotList List(IReadOnlyCollection<SnapshotRecord> records, TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(records);
         var rows = records.OrderByDescending(r => r.CapturedAt).Select(r => Row(r, zone)).ToImmutableArray();
         var text = rows.IsEmpty
             ? "Aucun relevé enregistré pour ce domaine."
             : FrenchText.Count(rows.Length, "relevé enregistré", "relevés enregistrés") + " pour ce domaine (" + FrenchText.Integer(MaxPerDomain) + " au plus).";
-        return new SnapshotList(rows.Length, MaxPerDomain, MaxObjects, text, Notice, rows);
+        return new SyncSnapshotList(rows.Length, MaxPerDomain, MaxObjects, text, Notice, rows);
     }
 
     /// <summary>Same domain and same scope are required; an incomplete coverage or a reversed order are said (Domenia 1 Test-DomeniaSnapshotComparable).</summary>
@@ -198,7 +198,7 @@ public static class SyncSnapshots
     /// Readable comparison (Domenia 1 ConvertTo-DomeniaSnapshotReport): exact totals, rows bounded per category, moves and
     /// renames explained, values compared field by field (whenChanged and lastLogonTimestamp move on their own: not compared).
     /// </summary>
-    public static SnapshotComparison Compare(SnapshotRecord before, SnapshotRecord after, TimeZoneInfo zone, int limit = CompareLimit)
+    public static SyncSnapshotComparison Compare(SnapshotRecord before, SnapshotRecord after, TimeZoneInfo zone, int limit = CompareLimit)
     {
         ArgumentNullException.ThrowIfNull(before);
         ArgumentNullException.ThrowIfNull(after);
@@ -208,7 +208,7 @@ public static class SyncSnapshots
         var bound = Math.Clamp(limit, 1, 5000);
         if (!comparable)
         {
-            return new SnapshotComparison(beforeRow, afterRow, false, reasons, warnings, new SnapshotDiffCounts(0, 0, 0, 0, 0, 0, 0, 0, 0), bound, false, [],
+            return new SyncSnapshotComparison(beforeRow, afterRow, false, reasons, warnings, new SnapshotDiffCounts(0, 0, 0, 0, 0, 0, 0, 0, 0), bound, false, [],
                 ["Comparaison impossible" + SyncText.C + string.Join(" ", reasons)], Notice, "Comparaison impossible", "");
         }
         var c = SyncText.C;
@@ -304,7 +304,7 @@ public static class SyncSnapshots
         {
             summary.Add("À noter" + c + warning);
         }
-        return new SnapshotComparison(beforeRow, afterRow, true, reasons, warnings, counts, bound, truncated, rows.ToImmutable(), summary.ToImmutable(), Notice, headline, overlap);
+        return new SyncSnapshotComparison(beforeRow, afterRow, true, reasons, warnings, counts, bound, truncated, rows.ToImmutable(), summary.ToImmutable(), Notice, headline, overlap);
     }
 
     /// <summary>Readable place of a DN in a comparison (« Postes › Lyon »), the domain root named as such.</summary>

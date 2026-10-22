@@ -28,7 +28,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
     private readonly SimulatedDirectorySource source;
     private readonly Lazy<Derived> derived;
     private readonly Lock gate = new();
-    private readonly List<CollectionRun> sessionRuns = [];
+    private readonly List<OperationsCollectionRun> sessionRuns = [];
     private Survey? survey;
     private int remaining = -1;
     private bool offered;
@@ -51,7 +51,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         lock (gate)
         {
             Advance();
-            var latest = new Dictionary<(CollectionFamily, string), CollectionRun>();
+            var latest = new Dictionary<(OperationsCollectionFamily, string), OperationsCollectionRun>();
             foreach (var run in data.Runs.Concat(sessionRuns))
             {
                 var key = (run.Family, run.ScopeDn.ToUpperInvariant());
@@ -299,7 +299,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             {
                 return;
             }
-            Finish(s, s.DoneAtStop, CollectionStatus.Cancelled, "Arrêté sur demande" + FrenchText.Colon + "les mesures reçues sont gardées, les postes restants seront proposés de nouveau.");
+            Finish(s, s.DoneAtStop, OperationsCollectionStatus.Cancelled, "Arrêté sur demande" + FrenchText.Colon + "les mesures reçues sont gardées, les postes restants seront proposés de nouveau.");
             return;
         }
         var elapsed = Elapsed(s);
@@ -316,11 +316,11 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             {
                 reasons.Add("1 poste sans réponse au ping");
             }
-            Finish(s, s.Steps.Length, failed + ping > 0 ? CollectionStatus.Partial : CollectionStatus.Success, reasons.Count > 0 ? string.Join(" · ", reasons) + "." : "");
+            Finish(s, s.Steps.Length, failed + ping > 0 ? OperationsCollectionStatus.Partial : OperationsCollectionStatus.Success, reasons.Count > 0 ? string.Join(" · ", reasons) + "." : "");
         }
     }
 
-    private void Finish(Survey s, int done, CollectionStatus status, string reason)
+    private void Finish(Survey s, int done, OperationsCollectionStatus status, string reason)
     {
         var data = derived.Value;
         var now = source.Clock.GetUtcNow();
@@ -328,16 +328,16 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         s.EndedAt = now;
         s.Done = done;
         s.Status = status;
-        var failed = status == CollectionStatus.Cancelled ? s.FailedBy(done) : s.Silent >= 0 ? 1 : 0;
+        var failed = status == OperationsCollectionStatus.Cancelled ? s.FailedBy(done) : s.Silent >= 0 ? 1 : 0;
         s.Failed = failed;
-        s.PingErrors = status == CollectionStatus.Cancelled ? s.PingErrorsBy(done) : s.Unreachable >= 0 ? 1 : 0;
+        s.PingErrors = status == OperationsCollectionStatus.Cancelled ? s.PingErrorsBy(done) : s.Unreachable >= 0 ? 1 : 0;
         var previous = Remaining(data);
-        remaining = status == CollectionStatus.Cancelled ? Math.Max(0, previous - done) : 0;
+        remaining = status == OperationsCollectionStatus.Cancelled ? Math.Max(0, previous - done) : 0;
         var interrupted = data.Interrupted;
         var total = interrupted.Targets ?? s.Steps.Length;
         var read = total - remaining;
-        sessionRuns.Add(new CollectionRun(interrupted.Family, interrupted.ScopeDn, interrupted.ScopeName, interrupted.Subtree, now, status, read, total,
-            failed + s.PingErrors, status is CollectionStatus.Success or CollectionStatus.Partial ? now : null, reason));
+        sessionRuns.Add(new OperationsCollectionRun(interrupted.Family, interrupted.ScopeDn, interrupted.ScopeName, interrupted.Subtree, now, status, read, total,
+            failed + s.PingErrors, status is OperationsCollectionStatus.Success or OperationsCollectionStatus.Partial ? now : null, reason));
     }
 
     private SurveyState? State()
@@ -391,7 +391,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
 
     // ---------------------------------------------------------------- rows
 
-    private static CollectionRunRow Row(CollectionRun run)
+    private static OperationsCollectionRunRow Row(OperationsCollectionRun run)
     {
         var id = run.Family.ToString().ToLowerInvariant() + ":" + run.ScopeDn.ToLowerInvariant();
         var reason = (run.Reason ?? "").Trim();
@@ -401,24 +401,24 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         }
         var tone = run.Status switch
         {
-            CollectionStatus.Success => Tone.Ok,
-            CollectionStatus.Partial => Tone.Warn,
-            CollectionStatus.Cancelled => Tone.Off,
+            OperationsCollectionStatus.Success => Tone.Ok,
+            OperationsCollectionStatus.Partial => Tone.Warn,
+            OperationsCollectionStatus.Cancelled => Tone.Off,
             _ => Tone.Alert,
         };
-        return new CollectionRunRow(id, run.Family, TypeOf(run.Family), OuText(run), run.ScopeDn, run.AttemptAt, run.Status, StatusLabel(run.Status), tone,
+        return new OperationsCollectionRunRow(id, run.Family, TypeOf(run.Family), OuText(run), run.ScopeDn, run.AttemptAt, run.Status, StatusLabel(run.Status), tone,
             Counts(run), run.SuccessAt, reason);
     }
 
     /// <summary>« 198/200 postes, 2 non confirmés »: only measured counters are written (Domenia 1 Format-DomeniaCollectionCounts).</summary>
-    private static string Counts(CollectionRun run)
+    private static string Counts(OperationsCollectionRun run)
     {
         if (run.Done is not int done)
         {
             return "";
         }
         var text = FrenchText.Integer(done) + (run.Targets is int targets ? "/" + FrenchText.Integer(targets) : "");
-        text += run.Family == CollectionFamily.Directory ? (done > 1 ? " objets AD" : " objet AD") : (done > 1 ? " postes" : " poste");
+        text += run.Family == OperationsCollectionFamily.Directory ? (done > 1 ? " objets AD" : " objet AD") : (done > 1 ? " postes" : " poste");
         if (run.Failed is int failed && failed > 0)
         {
             text += ", " + FrenchText.Integer(failed) + (failed > 1 ? " non confirmés" : " non confirmé");
@@ -426,22 +426,22 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         return text;
     }
 
-    private static string StatusLabel(CollectionStatus status) => status switch
+    private static string StatusLabel(OperationsCollectionStatus status) => status switch
     {
-        CollectionStatus.Success => "réussi",
-        CollectionStatus.Partial => "partiel",
-        CollectionStatus.Cancelled => "arrêté",
+        OperationsCollectionStatus.Success => "réussi",
+        OperationsCollectionStatus.Partial => "partiel",
+        OperationsCollectionStatus.Cancelled => "arrêté",
         _ => "en échec",
     };
 
-    private static string TypeOf(CollectionFamily family) => family switch
+    private static string TypeOf(OperationsCollectionFamily family) => family switch
     {
-        CollectionFamily.Directory => "Objets AD",
-        CollectionFamily.Presence => "Ping",
+        OperationsCollectionFamily.Directory => "Objets AD",
+        OperationsCollectionFamily.Presence => "Ping",
         _ => "WMI",
     };
 
-    private static string OuText(CollectionRun run) => run.ScopeName + (run.Subtree ? " et sous-OU" : "");
+    private static string OuText(OperationsCollectionRun run) => run.ScopeName + (run.Subtree ? " et sous-OU" : "");
 
     private string LocalText(DateTimeOffset at)
     {
@@ -469,10 +469,10 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             .ToList();
         int Active(string dn) => directory.Computers.Count(c => !AdValues.IsDisabled(c.UserAccountControl) && DistinguishedName.IsWithin(c.DistinguishedName, dn, true));
         DateTimeOffset Ago(int minutes) => reference - TimeSpan.FromMinutes(minutes);
-        var runs = new List<CollectionRun>();
+        var runs = new List<OperationsCollectionRun>();
         var underPostes = directory.Computers.Count(c => DistinguishedName.IsWithin(c.DistinguishedName, postesDn, true))
             + directory.OrganizationalUnits.Count(o => DistinguishedName.IsWithin(o.DistinguishedName, postesDn, true));
-        runs.Add(new CollectionRun(CollectionFamily.Directory, postesDn, "Postes", true, Ago(12), CollectionStatus.Success, underPostes, null, null, Ago(12), null));
+        runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Directory, postesDn, "Postes", true, Ago(12), OperationsCollectionStatus.Success, underPostes, null, null, Ago(12), null));
 
         // Presence (ping) and inventory (WMI) runs per site; the ones named by the fictitious journal keep its dates and counts.
         var presence = random.Fork("presence");
@@ -487,31 +487,31 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             switch (name)
             {
                 case "Paris":
-                    runs.Add(new CollectionRun(CollectionFamily.Presence, dn, name, true, Ago(28), CollectionStatus.Success, total, total, 0, Ago(28), null));
-                    runs.Add(Partial(CollectionFamily.Inventory, dn, name, Ago(1560), total, Math.Min(15, total), NoWmi(Math.Min(15, total))));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Presence, dn, name, true, Ago(28), OperationsCollectionStatus.Success, total, total, 0, Ago(28), null));
+                    runs.Add(Partial(OperationsCollectionFamily.Inventory, dn, name, Ago(1560), total, Math.Min(15, total), NoWmi(Math.Min(15, total))));
                     break;
                 case "Lyon":
-                    runs.Add(new CollectionRun(CollectionFamily.Presence, dn, name, true, Ago(302), CollectionStatus.Success, total, total, 0, Ago(302), null));
-                    runs.Add(Partial(CollectionFamily.Inventory, dn, name, Ago(55), total, Math.Min(8, total), NoWmi(Math.Min(8, total))));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Presence, dn, name, true, Ago(302), OperationsCollectionStatus.Success, total, total, 0, Ago(302), null));
+                    runs.Add(Partial(OperationsCollectionFamily.Inventory, dn, name, Ago(55), total, Math.Min(8, total), NoWmi(Math.Min(8, total))));
                     break;
                 case "Marseille":
-                    runs.Add(Partial(CollectionFamily.Presence, dn, name, Ago(1680), total, Math.Min(3, total), "Sondes refusées pour " + FrenchText.Count(Math.Min(3, total), "poste", "postes") + " (pare-feu du site)."));
+                    runs.Add(Partial(OperationsCollectionFamily.Presence, dn, name, Ago(1680), total, Math.Min(3, total), "Sondes refusées pour " + FrenchText.Count(Math.Min(3, total), "poste", "postes") + " (pare-feu du site)."));
                     var mrs = inventory.Next(2600, 3400);
-                    runs.Add(new CollectionRun(CollectionFamily.Inventory, dn, name, true, Ago(mrs), CollectionStatus.Success, total, total, 0, Ago(mrs), null));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Inventory, dn, name, true, Ago(mrs), OperationsCollectionStatus.Success, total, total, 0, Ago(mrs), null));
                     break;
                 case "Lille":
                     var lil = presence.Next(90, 400);
-                    runs.Add(new CollectionRun(CollectionFamily.Presence, dn, name, true, Ago(lil), CollectionStatus.Success, total, total, 0, Ago(lil), null));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Presence, dn, name, true, Ago(lil), OperationsCollectionStatus.Success, total, total, 0, Ago(lil), null));
                     var lilInv = inventory.Next(3600, 4300);
-                    runs.Add(new CollectionRun(CollectionFamily.Inventory, dn, name, true, Ago(lilInv), CollectionStatus.Success, total, total, 0, Ago(lilInv), null));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Inventory, dn, name, true, Ago(lilInv), OperationsCollectionStatus.Success, total, total, 0, Ago(lilInv), null));
                     break;
                 default:
                     var bdx = presence.Next(1200, 1500);
-                    runs.Add(new CollectionRun(CollectionFamily.Presence, dn, name, true, Ago(bdx), CollectionStatus.Success, total, total, 0, Ago(bdx), null));
+                    runs.Add(new OperationsCollectionRun(OperationsCollectionFamily.Presence, dn, name, true, Ago(bdx), OperationsCollectionStatus.Success, total, total, 0, Ago(bdx), null));
                     // The interrupted survey of the screen: inventory of Bordeaux, stopped by the closing of the application.
                     var done = Math.Max(1, total * 7 / 12);
                     var lastSuccess = Ago(inventory.Next(11_000, 12_500));
-                    var run = new CollectionRun(CollectionFamily.Inventory, dn, name, true, interruptedAt, CollectionStatus.Error, done, total, 0, lastSuccess,
+                    var run = new OperationsCollectionRun(OperationsCollectionFamily.Inventory, dn, name, true, interruptedAt, OperationsCollectionStatus.Error, done, total, 0, lastSuccess,
                         "Interrompu" + FrenchText.Colon + "application fermée pendant le relevé (" + FrenchText.Integer(done) + " postes lus sur " + FrenchText.Integer(total) + ").");
                     runs.Add(run);
                     interrupted = new Derived.InterruptedRun(run);
@@ -519,7 +519,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
             }
         }
         var interruptedRun = interrupted?.Run
-            ?? new CollectionRun(CollectionFamily.Inventory, postesDn, "Postes", true, interruptedAt, CollectionStatus.Error, 0, 0, 0, null, null);
+            ?? new OperationsCollectionRun(OperationsCollectionFamily.Inventory, postesDn, "Postes", true, interruptedAt, OperationsCollectionStatus.Error, 0, 0, 0, null, null);
 
         // The probes always in error of the presence model: WMI targets in progressive recovery (healthy sources are not listed).
         var names = world.Presence.ErrorProbes
@@ -532,8 +532,8 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         return new Derived([.. runs], interruptedRun, interruptedAt, providers, History(world, random.Fork("history")));
     }
 
-    private static CollectionRun Partial(CollectionFamily family, string dn, string name, DateTimeOffset at, int total, int failed, string reason) =>
-        new(family, dn, name, true, at, failed > 0 ? CollectionStatus.Partial : CollectionStatus.Success, total, total, failed, at, failed > 0 ? reason : null);
+    private static OperationsCollectionRun Partial(OperationsCollectionFamily family, string dn, string name, DateTimeOffset at, int total, int failed, string reason) =>
+        new(family, dn, name, true, at, failed > 0 ? OperationsCollectionStatus.Partial : OperationsCollectionStatus.Success, total, total, failed, at, failed > 0 ? reason : null);
 
     private static string NoWmi(int failed) => FrenchText.Count(failed, "poste sans réponse WMI", "postes sans réponse WMI") + " (éteints ou filtrés).";
 
@@ -583,20 +583,20 @@ public sealed class SimulatedOperationsReader : IOperationsReader
     }
 
     private sealed record Derived(
-        ImmutableArray<CollectionRun> Runs,
-        CollectionRun Interrupted,
+        ImmutableArray<OperationsCollectionRun> Runs,
+        OperationsCollectionRun Interrupted,
         DateTimeOffset InterruptedAt,
         ImmutableArray<ProviderState> Providers,
         ImmutableArray<OperationSample> History)
     {
-        public sealed record InterruptedRun(CollectionRun Run);
+        public sealed record InterruptedRun(OperationsCollectionRun Run);
     }
 
     /// <summary>A resumed survey: cumulative end of each workstation (ms from the start), the silent one, its stop and its end.</summary>
-    private sealed class Survey(string id, CollectionRun run, int[] steps, int silent, int unreachable, DateTimeOffset startedAt, long startTimestamp)
+    private sealed class Survey(string id, OperationsCollectionRun run, int[] steps, int silent, int unreachable, DateTimeOffset startedAt, long startTimestamp)
     {
         public string Id { get; } = id;
-        public CollectionRun Run { get; } = run;
+        public OperationsCollectionRun Run { get; } = run;
         public int[] Steps { get; } = steps;
         public int Silent { get; } = silent;
         public int Unreachable { get; } = unreachable;
@@ -608,7 +608,7 @@ public sealed class SimulatedOperationsReader : IOperationsReader
         public int DoneAtStop { get; set; }
         public int Done { get; set; }
         public int Failed { get; set; }
-        public CollectionStatus Status { get; set; }
+        public OperationsCollectionStatus Status { get; set; }
         public DateTimeOffset? EndedAt { get; set; }
 
         public int FailedBy(int done) => Silent >= 0 && Silent < done ? 1 : 0;

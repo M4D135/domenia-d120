@@ -57,7 +57,7 @@ public enum IdentityCoherence
 /// One explainable fact: value, state, source and limit (New-DomeniaFact, AUD-002). Id is a stable key for the facts the page
 /// places on its own (expiry, adName, dnsForward, dnsReverse, reported), null for the others: the page never matches a label.
 /// </summary>
-public sealed record AuditFact(string Label, string Value, FactState State, string StateLabel, string? Source, string? Limit, string? Id = null);
+public sealed record AuditFact(string Label, string Value, AuditFactState State, string StateLabel, string? Source, string? Limit, string? Id = null);
 
 public sealed record AuditAvailability(bool Allowed, string? Reason);
 
@@ -322,7 +322,7 @@ public sealed record AuditGpoRow(
     string Expected,
     GpoOutcome Outcome,
     string Result,
-    FactState ResultState,
+    AuditFactState ResultState,
     string Proof,
     string GpoStatus,
     Tone Tone);
@@ -334,7 +334,7 @@ public sealed record AuditGpo(
     ImmutableArray<AuditFact> Facts,
     bool LinksRead,
     bool AppliedProven,
-    FactState RsopState,
+    AuditFactState RsopState,
     string? Computer,
     string Summary,
     DateTimeOffset? LinksReadAt,

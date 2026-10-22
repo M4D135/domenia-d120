@@ -587,8 +587,8 @@ public sealed class TestPosteHost : IPosteSecretWindow, IPosteToolLauncher, IPos
     public Task<ToolLaunch> OpenSuiteAsync(SuiteRequest request, CancellationToken cancellationToken) =>
         Task.FromResult(new ToolLaunch(false, request.Simulated, request.Tool, request.Label, request.Label, "Test : rien n’est lancé.", []));
 
-    public Task<ExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken) =>
-        Task.FromResult(new ExportResult(true, [.. request.Files.Select(f => request.SuggestedName + "-" + f.Part)], "Test : enregistré en mémoire."));
+    public Task<PosteExportResult> SaveAsync(ExportRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(new PosteExportResult(true, [.. request.Files.Select(f => request.SuggestedName + "-" + f.Part)], "Test : enregistré en mémoire."));
 }
 
 /// <summary>The simulated bridge of <see cref="SimulatedBridge"/>, with the test host discovered as a screen reader.</summary>

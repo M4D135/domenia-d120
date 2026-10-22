@@ -14,7 +14,7 @@ namespace Domenia.Core;
 public sealed record InterfaceFigures(string? WebView, string? Theme, double? InterfaceP50Ms, double? InterfaceP95Ms, int? InterfaceSamples);
 
 /// <summary>One file of the diagnostic dossier (ZIP).</summary>
-public sealed record DossierFile(string Name, string Text);
+public sealed record DiagnosticDossierFile(string Name, string Text);
 
 /// <summary>Identity of the process and folders of its profile, replaced by pseudonyms in an anonymised dossier.</summary>
 public sealed record LocalIdentity(string Domain, string User, string Machine, string? UserProfile, string? LocalAppData)
@@ -218,7 +218,7 @@ public static partial class OperationsDiagnostics
     /// account, domain, NetBIOS name, root DN, controller; the profile folders become %USERPROFILE% and %LOCALAPPDATA%; the free
     /// details of the directory checks (examples of users, workstations, groups) are left out.
     /// </summary>
-    public static ImmutableArray<DossierFile> Dossier(
+    public static ImmutableArray<DiagnosticDossierFile> Dossier(
         DateTimeOffset at,
         ModeDecision decision,
         SessionSnapshot? session,
@@ -234,7 +234,7 @@ public static partial class OperationsDiagnostics
         Dossier(at, decision, session, page, memoryMb, tasksOpen, receiptsPending, receiptsPersistent, preferencesPersistent, writeKinds, check, anonymize, LocalIdentity.Current);
 
     /// <summary>Same as above with the identity of the process given (tests).</summary>
-    public static ImmutableArray<DossierFile> Dossier(
+    public static ImmutableArray<DiagnosticDossierFile> Dossier(
         DateTimeOffset at,
         ModeDecision decision,
         SessionSnapshot? session,
@@ -383,10 +383,10 @@ public static partial class OperationsDiagnostics
             "");
         return
         [
-            new DossierFile("runtime.json", runtime.ToString()),
-            new DossierFile("configuration-expurgee.json", configuration),
-            new DossierFile("verification.csv", csv.ToString()),
-            new DossierFile("LISEZMOI.txt", readme),
+            new DiagnosticDossierFile("runtime.json", runtime.ToString()),
+            new DiagnosticDossierFile("configuration-expurgee.json", configuration),
+            new DiagnosticDossierFile("verification.csv", csv.ToString()),
+            new DiagnosticDossierFile("LISEZMOI.txt", readme),
         ];
     }
 

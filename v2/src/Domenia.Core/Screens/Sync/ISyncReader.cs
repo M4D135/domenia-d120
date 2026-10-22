@@ -61,7 +61,7 @@ public interface ISyncReader : IScreenReader
     Task<GapReadResult> ReadGapsAsync(Action<SyncProgress> progress, CancellationToken cancellationToken);
 
     /// <summary>Compares two snapshots of the same domain and scope, in the base (Domenia 1 SnapshotCompare).</summary>
-    Task<SnapshotComparison> CompareSnapshotsAsync(string beforeId, string afterId, CancellationToken cancellationToken);
+    Task<SyncSnapshotComparison> CompareSnapshotsAsync(string beforeId, string afterId, CancellationToken cancellationToken);
 
     /// <summary>Stored park survey and its coverage (Domenia 1 ParkState), read from the base.</summary>
     Task<ParkState> ParkAsync(CancellationToken cancellationToken);
