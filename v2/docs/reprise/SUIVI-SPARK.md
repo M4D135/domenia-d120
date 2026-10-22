@@ -19,7 +19,7 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:14. Ce fic
 |---|---|---|---|---|
 | 01-e2e | running | 2 |  | relance : la première tentative n’avait rien produit |
 | 02-ad-accueil-rechercher | pending | 1 |  | relance : la première tentative n’avait rien produit |
-| 03-ad-fiche-comptes | verifying | 1 |  |  |
+| 03-ad-fiche-comptes | pending | 1 | FAIL | relance après échec de vérification |
 | 04-ad-relations-poste | verifying | 1 |  |  |
 | 05-ad-requetes-audit-schema | pending | 0 |  |  |
 | 06-store-synchro | pending | 0 |  |  |
