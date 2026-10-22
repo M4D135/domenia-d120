@@ -6,9 +6,9 @@ namespace Domenia.Ad;
 
 /// <summary>
 /// The directory source of the directory mode (Active Directory of the domain of the computer, Windows session). Nothing is read
-/// in the constructor. The first call of the session connects once (RootDSE, domain object, account of the session: bounded,
-/// never retried in a loop); afterwards the session is answered from memory. The directory picture is read on an explicit
-/// request (« Actualiser » of the home page): users, groups, OUs and computers of the domain, paged, 50 000 per kind at most;
+/// in the constructor or in local session reads. The first explicit network operation connects once (RootDSE, domain object,
+/// account of the session: bounded, never retried in a loop). The directory picture is read on an explicit
+/// request (« Actualiser » of the home page): users, groups, OUs and computers of the selected branch, paged, 50 000 per kind at most;
 /// workstation measures (presence, light inventory) only on the working OU, never on the domain root. Read only by
 /// construction: the write executors of Domenia.Ad are the only writers, through <see cref="Connection"/>.
 /// </summary>
@@ -57,6 +57,17 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
 
     public TimeProvider Clock { get; }
 
+    internal long Epoch
+    {
+        get
+        {
+            lock (gate)
+            {
+                return epoch;
+            }
+        }
+    }
+
     /// <summary>Local time zone of the session (dates shown and typed by the operator).</summary>
     public TimeZoneInfo Zone => Clock.LocalTimeZone;
 
@@ -97,17 +108,9 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         }
     }
 
-    public async Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken)
+    public Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            // The session itself connects once only (first call, or after Reset); afterwards it is answered from memory.
-            await EnsureConnectedAsync(retry: false, cancellationToken).ConfigureAwait(false);
-        }
-        catch (DomeniaOperationException)
-        {
-            // The session says « not connected » with its reason; nothing else is attempted until the next explicit gesture.
-        }
+        cancellationToken.ThrowIfCancellationRequested();
         lock (gate)
         {
             var directory = state?.Directory;
@@ -115,7 +118,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             var login = account?.Login ?? accountLogin();
             if (domain is null)
             {
-                return new SessionSnapshot(
+                return Task.FromResult(new SessionSnapshot(
                     ConnectionState.Disconnected,
                     joinedDomain is null ? null : new DomainIdentity(joinedDomain, null, null),
                     null,
@@ -125,10 +128,10 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                     new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, failure ?? "Droits évalués à la connexion à l’annuaire."),
                     false,
                     store,
-                    epoch);
+                    epoch));
             }
             var controller = ControllerName is { } server ? new ControllerIdentity(server, domain.Controllers.FirstOrDefault(c => string.Equals(c.DnsName, server, StringComparison.OrdinalIgnoreCase))?.Site) : null;
-            return new SessionSnapshot(
+            return Task.FromResult(new SessionSnapshot(
                 ConnectionState.Connected,
                 new DomainIdentity(domain.DnsName, domain.NetbiosName, domain.RootDn),
                 controller,
@@ -138,26 +141,33 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                 rights ?? new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Droits déduits des groupes à la connexion."),
                 false,
                 store,
-                epoch);
+                epoch));
         }
     }
 
-    public async Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
+    public Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
     {
-        var known = await DomainAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         lock (gate)
         {
-            return state ??= Empty(known);
+            var known = domain ?? throw new DomeniaOperationException(AdErrors.NotConnected, failure ?? AdErrors.NotConnectedMessage);
+            return Task.FromResult(state ??= Empty(known));
         }
     }
 
     public async Task<DirectoryState> RefreshAsync(MeasureFamily family, ScopeSelection? scope, CancellationToken cancellationToken)
     {
-        var known = await DomainAsync(cancellationToken).ConfigureAwait(false);
-        if (family is MeasureFamily.Presence or MeasureFamily.Inventory)
+        if (family == MeasureFamily.LocalComputation)
         {
-            ScopeRules.EnsureNotDomainRoot(scope, known.RootDn);
+            return await ReadLocalAsync(cancellationToken).ConfigureAwait(false);
         }
+        // Refuse a missing branch even before connecting; all network measurements need an explicit branch.
+        if (scope is null)
+        {
+            throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
+        }
+        var known = await DomainAsync(cancellationToken).ConfigureAwait(false);
+        AdDirectoryReader.EnsureScope(scope, known.RootDn);
         await refreshing.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -165,7 +175,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             {
                 case MeasureFamily.Directory:
                     {
-                        var snapshot = await AdDirectoryReader.ReadSnapshotAsync(Connection, known, known.RootDn, MaxObjectsPerKind, Clock, cancellationToken).ConfigureAwait(false);
+                        var snapshot = await AdDirectoryReader.ReadSnapshotAsync(Connection, known, scope, MaxObjectsPerKind, Clock, cancellationToken).ConfigureAwait(false);
                         lock (gate)
                         {
                             var current = state ?? Empty(known);
@@ -211,6 +221,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             rights = null;
             failure = null;
             failedAt = null;
+            state = null;
             epoch++;
         }
     }
@@ -322,7 +333,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         {
             throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Relisez d’abord l’annuaire" + FrenchText.Colon + "aucun poste connu dans l’OU de travail.");
         }
-        var targets = current.Directory.Computers.Where(c => InScope(c.DistinguishedName, scope) && !AdValues.IsDisabled(c.UserAccountControl)).ToList();
+        var targets = current.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)).ToList();
         var previous = current.Observations.Workstations.ToDictionary(w => w.ComputerGuid);
         var now = Clock.GetUtcNow();
         var results = new WorkstationObservation[targets.Count];
@@ -372,14 +383,6 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             };
             return state;
         }
-    }
-
-    private static bool InScope(string dn, ScopeSelection scope)
-    {
-        var parent = DistinguishedName.Parent(dn);
-        return scope.Subtree
-            ? dn.EndsWith("," + scope.Dn, StringComparison.OrdinalIgnoreCase)
-            : parent is not null && string.Equals(parent, scope.Dn, StringComparison.OrdinalIgnoreCase);
     }
 
     private ImmutableArray<JournalEntry> Add(ImmutableArray<JournalEntry> journal, string label, Tone tone) =>

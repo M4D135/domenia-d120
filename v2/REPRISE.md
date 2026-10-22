@@ -1,9 +1,22 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 18 h, Claude Code (crédit presque épuisé) : état figé pour la relève**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **23/10/2026, Codex : reprise active, premier lot de garde LDAP compilé**.
 
-## 0. À lire en premier (22/10, 18 h, Claude Code ; étapes 1 et 2 faites le 22/10 au soir)
+## 0. Reprise active — Codex, 23/10/2026
+
+- Demande actuelle : exécuter `docs/reprise/PROMPT-CODEX.md` jusqu’à la release `v2.0.0` ; aucune release finale publiée à ce stade.
+- Démon `_pilotage/spark/auto.py`, processus OpenCode Domenia et vérifications automatiques résiduelles arrêtés. Aucun service LLM du Spark arrêté ou installé.
+- Inventaire : six branches `spark/*` existent, la tâche 07 n’a pas commencé. Seuls 03 (comptes/LDAP, 1 142 lignes applicatives environ) et 04 (CIM, 1 547 lignes environ) ont du code. 01/02 : notes ; 05/06 : aucun code. Aucune fusion globale : les brouillons ne sont pas qualifiés.
+- Sauvegarde Git autonome vérifiée des six branches et de `v2-spark` : `/Users/david/Documents/Codex/2026-10-23/go-x20/work/domenia-reprise-20261023/spark.bundle`. Tous ces arbres étaient propres après arrêt. Ne pas les supprimer.
+- VM vérifiée : alias `domenia-vm`, invité `FILPRO-W11B`, console Administrateur active, 17,6 Gio libres. Session conservée.
+- Première correction du socle : relecture LDAP limitée au DN et à la profondeur choisis ; refus racine/hors domaine/DN invalide ; `session.info`, lecture locale et index local d’OU sans réseau ; index d’OU indépendant de l’image de la branche et invalidé au changement de session ; SID et date WMI mal formés traités comme illisibles.
+- Validation de ce lot : `vm.sh main build --config both`, Debug et Release **0 erreur, 0 avertissement**. Dix tests `AdBoundaryTests` ajoutés et compilés, **pas encore exécutés** (recette après développement). Aucune écriture AD effectuée.
+- Catalogue constaté : **993 entrées : 483 faites, 216 améliorées, 69 partielles, 224 à faire, 1 abandonnée**. Aucun statut requalifié sur la seule base d’une compilation.
+- Suite : terminer la revue des deux brouillons, brancher les lecteurs/écritures réels et SQLite, traiter les branchements et le catalogue ; ensuite tests C#, E2E simulation et labo limité à `OU=Domenia-Tests`, puis packs, SHA-256 et release.
+
+### Historique de la relève du 22/10 (conservé ; les constats ci-dessus priment)
+
 
 - **Étape 3 en cours (22/10 au soir, Claude Code) : E2E simulation 71 → 80 → 124 réussis sur 137** (2e passe : 12 échecs,
   1 ignoré ; rapport local du Mac seulement). Corrigé, commité, poussé :

@@ -98,7 +98,7 @@ public sealed class WmiWorkstationProbe : IWorkstationProbe
     /// <summary>A DMTF date (« 20261021162600.500000+120 ») in UTC, or null when it cannot be read.</summary>
     internal static DateTimeOffset? ParseDmtf(string? text)
     {
-        if (text is null || text.Length < 25
+        if (text is null || text.Length != 25 || text[14] != '.'
             || !DateTime.TryParseExact(text[..14], "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var local)
             || !int.TryParse(text.AsSpan(15, 6), NumberStyles.None, CultureInfo.InvariantCulture, out var microseconds)
             || text[21] is not ('+' or '-')
@@ -108,7 +108,14 @@ public sealed class WmiWorkstationProbe : IWorkstationProbe
             return null;
         }
         var offset = TimeSpan.FromMinutes(text[21] == '-' ? -minutes : minutes);
-        return new DateTimeOffset(local.AddTicks(microseconds * 10L), offset).ToUniversalTime();
+        try
+        {
+            return new DateTimeOffset(local.AddTicks(microseconds * 10L), offset).ToUniversalTime();
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Which measure state an exception of a WMI read means; null for an exception that is not a WMI outcome.</summary>

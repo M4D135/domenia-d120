@@ -62,26 +62,36 @@ public static class AdDirectoryReader
     }
 
     /// <summary>
-    /// The directory picture under <paramref name="baseDn"/> (subtree): one paged search per kind, at most
+    /// The directory picture inside the explicitly selected branch: one paged search per kind, at most
     /// <paramref name="maxObjectsPerKind"/> objects each. Complete only when no kind reached its bound and every entry was
     /// converted. <see cref="DirectorySnapshot.ReadAt"/> is the start of the read (the picture is at least that fresh).
     /// </summary>
-    public static async Task<DirectorySnapshot> ReadSnapshotAsync(IAdConnection connection, DomainInfo domain, string baseDn, int maxObjectsPerKind, TimeProvider clock, CancellationToken cancellationToken)
+    public static async Task<DirectorySnapshot> ReadSnapshotAsync(IAdConnection connection, DomainInfo domain, ScopeSelection scope, int maxObjectsPerKind, TimeProvider clock, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(domain);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseDn);
+        EnsureScope(scope, domain.RootDn);
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxObjectsPerKind);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(maxObjectsPerKind, MaxObjectsPerKindLimit);
         var readAt = clock.GetUtcNow();
         // One kind after the other: a single connection, never several large searches at once on the controller.
-        var ous = await ReadKindAsync(connection, baseDn, AdDirectoryMapper.OuFilter, AdDirectoryMapper.OuAttributes, maxObjectsPerKind, AdDirectoryMapper.Ou, cancellationToken).ConfigureAwait(false);
-        var users = await ReadKindAsync(connection, baseDn, AdDirectoryMapper.UserFilter, AdDirectoryMapper.UserAttributes, maxObjectsPerKind, AdDirectoryMapper.User, cancellationToken).ConfigureAwait(false);
-        var computers = await ReadKindAsync(connection, baseDn, AdDirectoryMapper.ComputerFilter, AdDirectoryMapper.ComputerAttributes, maxObjectsPerKind, AdDirectoryMapper.Computer, cancellationToken).ConfigureAwait(false);
-        var groups = await ReadKindAsync(connection, baseDn, AdDirectoryMapper.GroupFilter, AdDirectoryMapper.GroupAttributes, maxObjectsPerKind, AdDirectoryMapper.Group, cancellationToken).ConfigureAwait(false);
+        var ous = await ReadKindAsync(connection, scope, AdDirectoryMapper.OuFilter, AdDirectoryMapper.OuAttributes, maxObjectsPerKind, AdDirectoryMapper.Ou, cancellationToken).ConfigureAwait(false);
+        var users = await ReadKindAsync(connection, scope, AdDirectoryMapper.UserFilter, AdDirectoryMapper.UserAttributes, maxObjectsPerKind, AdDirectoryMapper.User, cancellationToken).ConfigureAwait(false);
+        var computers = await ReadKindAsync(connection, scope, AdDirectoryMapper.ComputerFilter, AdDirectoryMapper.ComputerAttributes, maxObjectsPerKind, AdDirectoryMapper.Computer, cancellationToken).ConfigureAwait(false);
+        var groups = await ReadKindAsync(connection, scope, AdDirectoryMapper.GroupFilter, AdDirectoryMapper.GroupAttributes, maxObjectsPerKind, AdDirectoryMapper.Group, cancellationToken).ConfigureAwait(false);
         var complete = ous.Complete && users.Complete && computers.Complete && groups.Complete;
         return new DirectorySnapshot(domain, readAt, complete, ous.Items, users.Items, computers.Items, groups.Items);
+    }
+
+    /// <summary>Rejects a missing, malformed, foreign or domain-wide branch before any object search.</summary>
+    internal static void EnsureScope(ScopeSelection? scope, string rootDn)
+    {
+        ScopeRules.EnsureNotDomainRoot(scope, rootDn);
+        if (!ScopeRules.Contains(new ScopeSelection(rootDn, rootDn, true), scope!.Dn))
+        {
+            throw new DomeniaOperationException(DomeniaErrors.ScopeOutsideDomain, DomeniaErrors.ScopeOutsideDomainMessage);
+        }
     }
 
     /// <summary>
@@ -195,11 +205,11 @@ public static class AdDirectoryReader
         return [.. found.Select(e => e.DistinguishedName).OrderBy(dn => dn, StringComparer.OrdinalIgnoreCase)];
     }
 
-    private static async Task<(ImmutableArray<T> Items, bool Complete)> ReadKindAsync<T>(IAdConnection connection, string baseDn, string filter, IReadOnlyList<string> attributes, int max, Func<AdEntry, T?> map, CancellationToken cancellationToken)
+    private static async Task<(ImmutableArray<T> Items, bool Complete)> ReadKindAsync<T>(IAdConnection connection, ScopeSelection scope, string filter, IReadOnlyList<string> attributes, int max, Func<AdEntry, T?> map, CancellationToken cancellationToken)
         where T : class
     {
         // One more than the bound: reaching it proves that objects were left out, never a guess.
-        var request = new AdSearchRequest(baseDn, filter, AdSearchScope.Subtree, attributes)
+        var request = new AdSearchRequest(scope.Dn, filter, scope.Subtree ? AdSearchScope.Subtree : AdSearchScope.OneLevel, attributes)
         {
             PageSize = PageSize,
             SizeLimit = max + 1,

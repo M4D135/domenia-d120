@@ -142,7 +142,22 @@ public sealed class AdEntry
     public Guid? Guid(string name) => Bytes(name) is { Length: 16 } bytes ? new Guid(bytes) : null;
 
     /// <summary>objectSid as « S-1-5-21-… ».</summary>
-    public string? Sid(string name) => Bytes(name) is { Length: >= 8 } bytes ? new SecurityIdentifier(bytes, 0).Value : null;
+    public string? Sid(string name)
+    {
+        if (Bytes(name) is not { Length: >= 8 } bytes)
+        {
+            return null;
+        }
+        try
+        {
+            return new SecurityIdentifier(bytes, 0).Value;
+        }
+        catch (ArgumentException)
+        {
+            // Unreadable identity: the mapper leaves this object out and the snapshot is marked incomplete.
+            return null;
+        }
+    }
 
     /// <summary>A generalized time (whenCreated, whenChanged: « 20261021162600.0Z »), in UTC.</summary>
     public DateTimeOffset? Time(string name)
