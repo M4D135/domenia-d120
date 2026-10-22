@@ -1,0 +1,22 @@
+{
+  "ecran": "shell",
+  "date": "2026-10-22",
+  "fait": [
+    "TRV-001", "TRV-002", "TRV-005", "TRV-007", "TRV-008", "TRV-010", "TRV-011", "TRV-047", "TRV-048", "TRV-049",
+    "TRV-050", "TRV-052", "TRV-053", "TRV-054", "TRV-055", "TRV-056", "TRV-057", "TRV-058", "TRV-059", "TRV-061",
+    "TRV-063", "TRV-064", "TRV-065", "TRV-092", "TRV-093", "TRV-094", "TRV-167", "TRV-169", "TRV-170", "TRV-171",
+    "TRV-173", "TRV-174", "TRV-175", "TRV-176", "TRV-180", "TRV-242", "TRV-243", "TRV-244", "TRV-245", "TRV-246",
+    "TRV-293", "TRV-295", "TRV-296", "TRV-298", "TRV-299", "TRV-300", "TRV-306", "TRV-307", "TRV-308", "TRV-310",
+    "TRV-311", "TRV-312"
+  ],
+  "ameliore": [
+    "TRV-003", "TRV-004", "TRV-006", "TRV-009", "TRV-051", "TRV-060", "TRV-062", "TRV-066", "TRV-095", "TRV-166",
+    "TRV-168", "TRV-172", "TRV-177", "TRV-178", "TRV-179", "TRV-284", "TRV-294", "TRV-297", "TRV-309"
+  ],
+  "partiel": [
+    { "id": "TRV-067", "reste": "Contrat Domenia.Automation/1, validation de la ligne de commande et aperçu en place (shell.automation.contract, shell.automation.preview) ; reste l’entrée en ligne de commande de Domenia.exe (Program.cs, fichier partagé) et la lecture de la base SQLite locale de Domenia 1 (Domenia.Store, schéma 11)." },
+    { "id": "TRV-068", "reste": "Règles du dossier de diagnostic écrites (dossier daté jamais réutilisé, empreintes SHA-256, écriture à côté puis renommage) ; reste la commande « dossier » de la ligne de commande, qui attend Program.cs et la base locale." },
+    { "id": "TRV-069", "reste": "Codes de sortie, bornes, refus des partages, lecteurs mappés et liens, et champs secrets exclus en place dans ShellAutomation et ShellLocalFiles ; reste la vérification de l’empreinte des modules contre le manifeste du pack au lancement en ligne de commande (avec Program.cs)." },
+    { "id": "TRV-313", "reste": "Disposition par tableau enregistrée dans les préférences du moteur (shell.boards) avec ses cinq versions restaurables, liste simple de la version 1 reprise ; reste la reprise des clés Dashboard.<Board>.Layout et Widgets.<Board> de la base SQLite de Domenia 1, quand Domenia.Store lira le schéma 11." }
+  ]
+}

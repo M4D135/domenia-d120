@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : aide-mémoire des raccourcis depuis la palette",
+  "description": "Ouvre la palette au clavier (Ctrl K), lance « Afficher les raccourcis clavier », vérifie le dialogue intégré à la page et ses rubriques, puis le referme avec Échap en rendant le focus.",
+  "modes": ["simulation"],
+  "start": "accueil",
+  "steps": [
+    { "do": "press", "key": "Control+K", "title": "Ouvrir la palette" },
+    { "do": "type", "selector": ".palette-backdrop .palette input", "text": "raccourcis" },
+    { "do": "wait", "contains": "raccourcis", "within": ".palette-backdrop .results" },
+    { "do": "press", "key": "Enter", "title": "Lancer la commande" },
+    { "do": "expect", "selector": ".k-dlg[role=dialog]", "title": "Le dialogue intégré est ouvert" },
+    { "do": "expect", "contains": "Raccourcis clavier", "within": ".k-dlg" },
+    { "do": "expect", "contains": "Ctrl", "within": ".k-dlg", "title": "Les combinaisons sont listées" },
+    { "do": "shot", "name": "raccourcis", "selector": ".k-dlg" },
+    { "do": "press", "key": "Escape", "title": "Fermer le dialogue" },
+    { "do": "expect", "selector": ".k-dlg", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

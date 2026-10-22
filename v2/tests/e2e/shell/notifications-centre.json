@@ -1,0 +1,22 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : bannière d’erreur INC et centre de notifications",
+  "description": "Depuis l’onglet Notifications de l’écran « Aide et interface », affiche une erreur d’exemple avec code INC et détail, vérifie la bannière gardée jusqu’à fermeture, puis la retrouve dans le centre de notifications (cloche) avec « Copier pour le support ».",
+  "modes": ["simulation"],
+  "start": "shell?onglet=notifications",
+  "steps": [
+    { "do": "click", "text": "Erreur INC avec détail", "within": ".main", "title": "Afficher une erreur d’exemple" },
+    { "do": "wait", "contains": "INC-4F2A", "within": ".toasts", "title": "La bannière affiche le code INC" },
+    { "do": "expect", "contains": "Voir le détail", "within": ".toasts .sh-note", "title": "Le détail est replié dans la bannière" },
+    { "do": "wait", "ms": 6000, "title": "Une erreur reste affichée au-delà de 5 secondes" },
+    { "do": "expect", "contains": "INC-4F2A", "within": ".toasts", "title": "La bannière d’erreur est toujours là" },
+    { "do": "click", "selector": ".sh-slot-bell .notif", "title": "Ouvrir le centre de notifications" },
+    { "do": "expect", "selector": ".sh-pop[data-pop=\"centre\"]", "title": "Le centre est ouvert" },
+    { "do": "expect", "contains": "INC-4F2A", "within": ".sh-pop[data-pop=\"centre\"]", "title": "Le message est gardé dans le centre" },
+    { "do": "expect", "contains": "Copier pour le support", "within": ".sh-pop[data-pop=\"centre\"]" },
+    { "do": "shot", "name": "centre-notifications", "selector": ".sh-pop[data-pop=\"centre\"]" },
+    { "do": "press", "key": "Escape", "title": "Fermer le centre" },
+    { "do": "expect", "selector": ".sh-pop[data-pop=\"centre\"]", "absent": true },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Coque : ouvrir un écran depuis la palette de commandes",
+  "description": "Ouvre la palette par la barre du haut, filtre « audit », vérifie que la commande est décrite dans le volet de détail, l’ouvre avec Entrée et contrôle que l’écran Audit AD est affiché sans lecture réseau ni erreur.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "accueil",
+  "steps": [
+    {
+      "do": "click",
+      "selector": ".search-trigger",
+      "title": "Ouvrir la palette depuis la barre du haut"
+    },
+    {
+      "do": "expect",
+      "selector": ".palette-backdrop .palette input",
+      "title": "La palette est ouverte, le champ a le focus"
+    },
+    {
+      "do": "type",
+      "selector": ".palette-backdrop .palette input",
+      "text": "audit"
+    },
+    {
+      "do": "wait",
+      "contains": "Audit AD",
+      "within": ".palette-backdrop .results",
+      "title": "L’écran Audit AD est proposé"
+    },
+    {
+      "do": "expect",
+      "contains": "rien n’est lu",
+      "within": ".palette-backdrop .pal-detail",
+      "title": "Le volet de détail dit l’effet de la commande"
+    },
+    {
+      "do": "shot",
+      "name": "palette-audit",
+      "selector": ".palette-backdrop .palette"
+    },
+    {
+      "do": "press",
+      "key": "Enter",
+      "title": "Ouvrir l’écran choisi"
+    },
+    {
+      "do": "wait",
+      "selector": ".main[data-page=\"audit\"]",
+      "title": "L’écran Audit AD est affiché"
+    },
+    {
+      "do": "expect",
+      "selector": ".palette-backdrop",
+      "property": "hidden",
+      "equals": true,
+      "title": "La palette se referme"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

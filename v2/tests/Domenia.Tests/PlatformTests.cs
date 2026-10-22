@@ -103,6 +103,15 @@ internal static class PlatformTests
         ("directory.ou.search", OperationClass.LocalRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
+        ("shell.activity", OperationClass.LocalRead),
+        ("shell.automation.contract", OperationClass.Local),
+        ("shell.automation.preview", OperationClass.LocalRead),
+        ("shell.demo.coverage", OperationClass.LocalRead),
+        ("shell.fault", OperationClass.LocalWrite),
+        ("shell.interface.get", OperationClass.LocalRead),
+        ("shell.interface.set", OperationClass.LocalWrite),
+        ("shell.lookup", OperationClass.LocalRead),
+        ("shell.lookup.verify", OperationClass.LocalRead),
         ("write.execute", OperationClass.Write),
         ("write.receipts.get", OperationClass.LocalRead),
         ("write.receipts.list", OperationClass.LocalRead),
@@ -125,7 +134,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "DashboardOperations", "DirectoryTreeOperations", "SessionOperations", "ShellOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");
