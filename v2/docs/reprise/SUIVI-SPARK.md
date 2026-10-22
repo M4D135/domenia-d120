@@ -1,6 +1,6 @@
 # Suivi du Spark autonome (Domenia 2)
 
-Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:10. Ce fichier sert à la relève si Claude Code n'est plus disponible.
+Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:13. Ce fichier sert à la relève si Claude Code n'est plus disponible.
 
 - Chaque tâche (`_pilotage/spark/tasks/<id>.md`) tourne dans OpenCode avec le modèle local du Spark :
   - arbre `../Domenia-D120-team/sp-<id>`, branche `spark/<id>`, poussée sur GitHub ;
@@ -17,10 +17,10 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 23:10. Ce fic
 
 | Tâche | État | Essais | Vérification | Note |
 |---|---|---|---|---|
-| 01-e2e | pending | 1 |  | relance : la première tentative n’avait rien produit |
-| 02-ad-accueil-rechercher | pending | 1 |  | relance : la première tentative n’avait rien produit |
-| 03-ad-fiche-comptes | running | 1 |  |  |
-| 04-ad-relations-poste | running | 1 |  |  |
-| 05-ad-requetes-audit-schema | delegue | 0 |  | confiée à OpenCode (API Claude), branche gui/05-ad-requetes-audit-schema |
-| 06-store-synchro | delegue | 0 |  | confiée à OpenCode (API Claude), branche gui/06-store-synchro |
-| 07-ops-assist-param | delegue | 0 |  | confiée à OpenCode (API Claude), branche gui/07-ops-assist-param |
+| 01-e2e | merged | 1 | PASS | fusionnée dans v2-spark |
+| 02-ad-accueil-rechercher | merged | 1 | PASS | fusionnée dans v2-spark |
+| 03-ad-fiche-comptes | verifying | 1 |  |  |
+| 04-ad-relations-poste | ended | 1 |  |  |
+| 05-ad-requetes-audit-schema | pending | 0 |  |  |
+| 06-store-synchro | pending | 0 |  |  |
+| 07-ops-assist-param | pending | 0 |  |  |
