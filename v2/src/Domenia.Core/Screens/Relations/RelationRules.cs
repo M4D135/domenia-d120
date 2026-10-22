@@ -544,12 +544,13 @@ public static partial class RelationRules
 
     /// <summary>
     /// Text filter (user, workstation, source, details, label) and badge chips of « Toutes les associations » (Domenia 1
-    /// Test-DomeniaRelationMatchesFilter), accent and case insensitive.
+    /// Test-DomeniaRelationMatchesFilter), accent and case insensitive. A row keeps its nature: the chip « Contradictoire »
+    /// selects the rows in contradiction, whatever their nature; several chips add up.
     /// </summary>
     public static bool MatchesFilter(RelationRow row, string? text, IReadOnlyCollection<RelationBadge>? badges)
     {
         ArgumentNullException.ThrowIfNull(row);
-        if (badges is { Count: > 0 } && !badges.Contains(row.Badge))
+        if (badges is { Count: > 0 } && !badges.Contains(row.Badge) && !(row.Contradicted && badges.Contains(RelationBadge.Contradictory)))
         {
             return false;
         }

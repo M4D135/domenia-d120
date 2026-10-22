@@ -343,7 +343,7 @@ internal static class RelationsTests
         var bridge = new SimulatedBridge();
         var overview = SimulatedBridge.Json(await bridge.CallAsync("relations.overview"));
         Check.True(Names(overview).SequenceEqual(["storeLabel", "simulated", "total", "users", "computers", "badges", "contradictions", "unverified", "sessionOnly",
-            "lastImport", "restore", "activity", "journalEntries", "summary"]), "propriétés de relations.overview : " + string.Join(",", Names(overview)));
+            "lastImport", "restore", "activity", "journalEntries", "summary", "pending"]), "propriétés de relations.overview : " + string.Join(",", Names(overview)));
         Check.Equal(7, overview.GetProperty("badges").GetArrayLength(), "sept qualifications");
         Check.Equal(14, overview.GetProperty("activity").GetArrayLength(), "14 jours");
         Check.True(overview.GetProperty("contradictions").GetInt32() >= 9, "au moins les neuf postes contradictoires du monde");
@@ -407,7 +407,8 @@ internal static class RelationsTests
             ("relations.orphans.check", OperationClass.NetworkRead), ("relations.compare", OperationClass.LocalRead), ("relations.sweep.plan", OperationClass.LocalRead),
             ("relations.associate.plan", OperationClass.LocalRead), ("relations.remove.plan", OperationClass.LocalRead), ("relations.restore.plan", OperationClass.LocalRead),
             ("relations.import.plan", OperationClass.LocalRead), ("relations.import.undo.plan", OperationClass.LocalRead), ("relations.orphans.plan", OperationClass.LocalRead),
-            ("relations.observations.plan", OperationClass.LocalRead),
+            ("relations.observations.plan", OperationClass.LocalRead), ("relations.observations.pending", OperationClass.LocalRead),
+            ("relations.sweep.forget.plan", OperationClass.LocalRead), ("relations.export.save", OperationClass.LocalWrite), ("relations.export.open", OperationClass.Local),
         ];
         foreach (var (name, operationClass) in expected)
         {
@@ -436,7 +437,7 @@ internal static class RelationsTests
         var directory = bridge.Source.CurrentDirectory;
         var julien = directory.Users.Single(u => u.SamAccountName == "j.martin");
         var target = directory.Computers.First(c => c.Name.StartsWith("PC-LYO-", StringComparison.Ordinal));
-        var planned = SimulatedBridge.Json(await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, target = target.DistinguishedName })));
+        var planned = SimulatedBridge.Json(await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = target.DistinguishedName, targetGuid = target.ObjectGuid.ToString("D") })));
         var plan = planned.GetProperty("plan");
         Check.Equal(RelationChange.Kind, plan.GetProperty("kind").GetString(), "type d’écriture");
         Check.Equal("relations", plan.GetProperty("target").GetProperty("kind").GetString(), "cible : le magasin local");
@@ -453,8 +454,12 @@ internal static class RelationsTests
         Check.Equal("added", journal.GetProperty("entries")[0].GetProperty("action").GetString(), "journalisée");
         var again = await bridge.CallAsync("write.execute", Args(new { planId = plan.GetProperty("id").GetString(), token = planned.GetProperty("token").GetString(), typedName = (string?)null }));
         Check.Equal(WriteErrors.TokenUsed, again.Error?.Code, "jamais rejouée");
-        var same = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, target = julien.DistinguishedName }));
+        var same = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = julien.DistinguishedName, targetGuid = julien.ObjectGuid.ToString("D") }));
         Check.Equal(RelationErrors.SameKind, same.Error?.Code, "types opposés exigés");
+        var recreated = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = target.DistinguishedName, targetGuid = Guid.NewGuid().ToString("D") }));
+        Check.Equal(WriteErrors.TargetUnknown, recreated.Error?.Code, "un DN donné depuis à un autre objet (autre GUID) est refusé");
+        var noGuid = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, target = target.DistinguishedName }));
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, noGuid.Error?.Code, "GUID affiché exigé");
     }
 
     [Test]
@@ -542,8 +547,10 @@ internal static class RelationsTests
     public static async Task Detection_shows_the_perimeter_then_probes_only_it()
     {
         var bridge = new SimulatedBridge();
-        var julien = bridge.Source.CurrentDirectory.Users.Single(u => u.SamAccountName == "j.martin").DistinguishedName;
-        var collect = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, scope = "candidates", ouDn = (string?)null, computers = Array.Empty<string>(), limit = 20, kerberos = true })));
+        var user = bridge.Source.CurrentDirectory.Users.Single(u => u.SamAccountName == "j.martin");
+        var julien = user.DistinguishedName;
+        var guid = user.ObjectGuid.ToString("D");
+        var collect = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid, login = "j.martin", scope = "candidates", ouDn = (string?)null, computers = Array.Empty<string>(), limit = 20, kerberos = true })));
         Check.Equal("collect", collect.GetProperty("phase").GetString(), "phase 1");
         Check.True(collect.GetProperty("attempts").EnumerateArray().Any(a => a.GetProperty("status").GetString() == "NON_DEMANDE"), "aucun poste contacté");
         var plan = collect.GetProperty("plan");
@@ -559,8 +566,16 @@ internal static class RelationsTests
             Check.Equal("verified", (await ExecuteAsync(bridge, save)).GetProperty("verification").GetString(), "consoles enregistrées");
         }
         var root = bridge.Source.World.Directory.Domain.RootDn;
-        var refused = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, scope = "ou", ouDn = root, computers = Array.Empty<string>(), limit = 20, kerberos = false })));
+        var refused = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid, login = "j.martin", scope = "ou", ouDn = root, computers = Array.Empty<string>(), limit = 20, kerberos = false })));
         Check.False(refused.GetProperty("plan").GetProperty("allowed").GetBoolean(), "racine du domaine jamais substituée");
+        var again = await bridge.CallAsync("relations.detect.run", Args(new { planId = plan.GetProperty("id").GetString() }));
+        Check.Equal(RelationErrors.PlanExpired, again.Error?.Code, "un périmètre confirmé n’est sondé qu’une fois");
+        var recreated = await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid = Guid.NewGuid().ToString("D"), login = "j.martin", scope = "candidates", ouDn = (string?)null, computers = Array.Empty<string>(), limit = 20, kerberos = false }));
+        Check.Equal(RelationErrors.IdentityChanged, recreated.Error?.Code, "compte recréé : arrêt");
+        var renamed = await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid, login = "j.martin.ancien", scope = "candidates", ouDn = (string?)null, computers = Array.Empty<string>(), limit = 20, kerberos = false }));
+        Check.Equal(RelationErrors.IdentityChanged, renamed.Error?.Code, "compte renommé : arrêt");
+        var listed = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.collect", Args(new { dn = julien, guid, login = "j.martin", scope = "loaded", ouDn = (string?)null, computers = new[] { "PC-PAR-0012", "PC-INCONNU-99" }, limit = 20, kerberos = false })));
+        Check.Equal(1, listed.GetProperty("plan").GetProperty("targets").GetArrayLength(), "liste chargée : seuls les noms connus de l’index local");
     }
 
     [Test]
@@ -590,5 +605,222 @@ internal static class RelationsTests
         Check.True(ReferenceEquals(mine, relations[0]) || relations[0] == mine, "le bon lien");
         ImmutableArray<RelationRow> none = [];
         Check.Equal(7, RelationProjection.Badges(none).Length, "sept facettes, zéros compris");
+    }
+
+    // ------------------------------------------------------------------ round 2: batches, identity, probe loop, exports, reset
+
+    private static RelationDetectionPlan Plan(params string[] computers) =>
+        new("p", true, "candidates", "postes connus", null, 50, computers.Length, false,
+            [.. computers.Select((c, i) => new RelationPlanTarget(Fixtures.IdOf("probe-" + c).ToString("D"), c, "CN=" + c + ",OU=Postes,DC=test,DC=local", "test"))],
+            "", "", "", null);
+
+    [Test]
+    public static async Task Probe_loop_stops_at_the_first_rejected_credentials()
+    {
+        var read = new List<string>();
+        var run = await RelationProbeLoop.RunAsync(Plan("PC1", "PC2", "PC3"),
+            (t, _) => { read.Add(t.Computer); return Task.FromResult(t.Computer == "PC2" ? new RelationConsoleOutcome("AUTH_REJETEE", "Identifiants rejetés", "0x8007052E", null, 10) : new RelationConsoleOutcome("LU", "Aucun compte", "", null, 10)); },
+            null, null, CancellationToken.None, CancellationToken.None);
+        Check.True(read.SequenceEqual(["PC1", "PC2"]), "aucun poste contacté après le premier rejet");
+        Check.True(run.AuthRejected, "rejet signalé");
+        Check.Equal("PC2", run.RejectedOn, "poste du rejet");
+        Check.True(run.Within, "liste sondée incluse dans le plan");
+        Check.False(run.Complete, "résultat partiel");
+        Check.True(run.Counters.Stopped, "compteurs arrêtés");
+    }
+
+    [Test]
+    public static async Task Probe_loop_pings_by_batches_and_honours_a_stop()
+    {
+        var read = new List<string>();
+        var pinged = 0;
+        var run = await RelationProbeLoop.RunAsync(Plan("PC1", "PC2", "PC3"),
+            (t, _) => { read.Add(t.Computer); return Task.FromResult(new RelationConsoleOutcome("CONFIRME", "Confirmée", "", @"TEST\u", 5)); },
+            (t, _) => { Interlocked.Increment(ref pinged); return Task.FromResult(t.Computer != "PC2"); }, null, CancellationToken.None, CancellationToken.None);
+        Check.Equal(3, pinged, "ping de chaque poste du plan");
+        Check.True(read.SequenceEqual(["PC1", "PC3"]), "session demandée aux seuls postes qui répondent");
+        Check.Equal(1, run.PingFailures, "un poste muet");
+        Check.Equal(1, run.Counters.Unreachable, "compté injoignable");
+        using var stop = new CancellationTokenSource();
+        await stop.CancelAsync();
+        var stopped = await RelationProbeLoop.RunAsync(Plan("PC1"), (_, _) => Task.FromResult(new RelationConsoleOutcome("LU", "", "", null, 1)), null, null, stop.Token, CancellationToken.None);
+        Check.True(stopped.Counters.Stopped && stopped.Probed.Length == 0, "arrêt demandé : rien de contacté, résultat partiel déclaré");
+    }
+
+    [Test]
+    public static void Apply_refuses_an_association_changed_meanwhile()
+    {
+        var relation = Link(RelationKind.Console, userGuid: UserA, computerGuid: Pc1);
+        var store = ImmutableDictionary.CreateRange(StringComparer.Ordinal, [KeyValuePair.Create(RelationRules.Key(relation), relation)]);
+        var draft = RelationChange.Draft("Retirer", "Retrait", "r", "x", true, [new RelationChangeItem(RelationChangeOperation.Remove, relation, null, null, null)], [], RelationChange.RemoveReversibility(), Now, Zone);
+        var plan = WritePlans.Seal(draft, WritePlans.NewId(), "op", AppMode.Simulation, Now, Zone);
+        var changed = store.SetItem(RelationRules.Key(relation), relation with { Details = "modifiée ailleurs" });
+        var error = Check.Throws<DomeniaOperationException>(() => RelationChange.Apply(plan, changed, _ => null, _ => (null, null), Now, () => "id"), "retrait d’une association modifiée");
+        Check.Equal(WriteErrors.Stale, error.Code, "write.stale");
+        var applied = RelationChange.Apply(plan, store, _ => null, _ => (null, null), Now, () => "id");
+        Check.Equal(1, applied.Applied, "même empreinte : retrait appliqué");
+    }
+
+    [Test]
+    public static void Contradicted_rows_keep_their_nature()
+    {
+        var declared = Link(RelationKind.Assignment, userGuid: UserA, computerGuid: Pc1);
+        var observed = Link(RelationKind.Console, user: "autre", userGuid: UserB, computerGuid: Pc1);
+        var contradicted = RelationProjection.ContradictedKeys([declared, observed]);
+        var lookup = new NoLookup();
+        var rows = new[] { declared, observed }.Select(r => RelationProjection.Row(r, lookup, contradicted.Contains(RelationRules.Key(r)), RelationPersistence.Stored, Now, Zone)).ToImmutableArray();
+        Check.Equal(RelationBadge.Declared, rows[0].Badge, "l’affectation reste déclarée");
+        Check.Equal(RelationBadge.Observed, rows[1].Badge, "la session reste observée");
+        Check.True(rows.All(r => r.Contradicted), "marque de contradiction");
+        Check.Contains("Contradiction", rows[0].Rule, "règle de la contradiction dite à côté de la nature");
+        var badges = RelationProjection.Badges(rows);
+        Check.Equal(2, badges.Single(b => b.Badge == RelationBadge.Contradictory).Value, "facette des contradictions");
+        Check.Equal(2, badges.Where(b => b.Badge != RelationBadge.Contradictory).Sum(b => b.Value), "la somme des natures reste le total");
+        Check.True(RelationRules.MatchesFilter(rows[1], null, [RelationBadge.Contradictory]), "la facette Contradictoire garde les lignes contredites");
+    }
+
+    private sealed class NoLookup : IRelationDirectoryLookup
+    {
+        public RelationObject? User(Guid? guid, string login) => null;
+
+        public RelationObject? Computer(Guid? guid, string name) => null;
+    }
+
+    [Test]
+    public static async Task Import_staging_is_bounded_and_expires()
+    {
+        var bridge = new SimulatedBridge();
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, (await bridge.CallAsync("relations.import.stage", Args(new { id = new string('a', 32), part = 0, parts = 65, text = "x" }))).Error?.Code, "64 parties au plus");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, (await bridge.CallAsync("relations.import.stage", Args(new { id = new string('a', 32), part = 0, parts = 1, text = new string('x', 600_001) }))).Error?.Code, "600 000 caractères par partie");
+        foreach (var c in "bcdef")
+        {
+            await bridge.CallAsync("relations.import.stage", Args(new { id = new string(c, 32), part = 0, parts = 1, text = "UserLogin;Computer\nj.martin;PC-PAR-0012\n" }));
+        }
+        var evicted = await bridge.CallAsync("relations.import.preview", Args(new { id = new string('b', 32), adapter = "csv", fileName = "a.csv" }));
+        Check.Equal(RelationErrors.ImportIncomplete, evicted.Error?.Code, "4 fichiers à la fois : le plus ancien est écarté");
+        bridge.Clock.Advance(TimeSpan.FromMinutes(11));
+        var expired = await bridge.CallAsync("relations.import.preview", Args(new { id = new string('f', 32), adapter = "csv", fileName = "a.csv" }));
+        Check.Equal(RelationErrors.ImportIncomplete, expired.Error?.Code, "texte gardé 10 minutes au plus");
+    }
+
+    [Test]
+    public static async Task Session_observations_are_saved_by_batches_of_64()
+    {
+        var bridge = new SimulatedBridge();
+        var estimate = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.estimate", Args(new { days = 7, maxEvents = 20_000 })));
+        var harvest = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.run", Args(new { estimateId = estimate.GetProperty("id").GetString() })));
+        var fresh = harvest.GetProperty("newCount").GetInt32();
+        Check.True(fresh > WritePlans.MaxChanges, "la moisson apporte plus de 64 nouveaux couples (postes sans association) : " + fresh);
+        var pending = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
+        Check.Equal(fresh, pending.GetProperty("total").GetInt32(), "nouveaux couples en mémoire pour la session");
+        Check.True(pending.GetProperty("sets").EnumerateArray().Any(s => s.GetProperty("resultId").GetString() == harvest.GetProperty("resultId").GetString()), "la moisson est listée");
+        var first = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = RelationChange.SessionResultId, keys = Array.Empty<string>() })));
+        Check.Equal(WritePlans.MaxChanges, first.GetProperty("plan").GetProperty("changes").GetArrayLength(), "un lot de 64");
+        Check.True(first.GetProperty("plan").GetProperty("risks").EnumerateArray().Any(r => r.GetProperty("text").GetString()!.Contains("resteront", StringComparison.Ordinal)), "le reste est annoncé");
+        Check.Equal("verified", (await ExecuteAsync(bridge, first)).GetProperty("verification").GetString(), "premier lot relu");
+        var after = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
+        Check.Equal(fresh - WritePlans.MaxChanges, after.GetProperty("total").GetInt32(), "64 de moins en mémoire");
+        var second = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = harvest.GetProperty("resultId").GetString(), keys = Array.Empty<string>() })));
+        Check.True(second.GetProperty("plan").GetProperty("changes").GetArrayLength() > 0, "le lot suivant part avec le même résultat");
+        var keys = second.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]).ToHashSet(StringComparer.Ordinal);
+        var firstKeys = first.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]);
+        Check.False(firstKeys.Any(keys.Contains), "aucune observation enregistrée deux fois");
+    }
+
+    [Test]
+    public static async Task Observe_service_keeps_only_accounts_of_the_directory()
+    {
+        var bridge = new SimulatedBridge();
+        var reader = bridge.Context.Readers.Require<IRelationsReader>();
+        var accepted = await reader.ObserveAsync(new RelationObservationRequest("PC-PAR-0042", @"EXAMPLE\j.martin", "Console CIM/DCOM", Now, null), CancellationToken.None);
+        Check.True(accepted.Accepted, "compte AD qualifié : gardé pour la session : " + accepted.Reason);
+        var local = await reader.ObserveAsync(new RelationObservationRequest("PC-PAR-0042", @".\Administrateur", "Console CIM/DCOM", Now, null), CancellationToken.None);
+        Check.False(local.Accepted, "compte local jamais réinterprété");
+        var bare = await reader.ObserveAsync(new RelationObservationRequest("PC-PAR-0042", "j.martin", "Console CIM/DCOM", Now, null), CancellationToken.None);
+        Check.False(bare.Accepted, "nom nu jamais réinterprété");
+        var other = await reader.ObserveAsync(new RelationObservationRequest("PC-PAR-0042", @"AUTRE\j.martin", "Console CIM/DCOM", Now, null), CancellationToken.None);
+        Check.False(other.Accepted, "autre domaine refusé");
+        var list = SimulatedBridge.Json(await bridge.CallAsync("relations.list"));
+        Check.True(list.GetProperty("rows").EnumerateArray().Any(r => r.GetProperty("key").GetString() == accepted.Key && r.GetProperty("persistence").GetString() == "session"), "visible « Session uniquement »");
+    }
+
+    [Test]
+    public static async Task Sweep_queue_reset_and_loaded_list()
+    {
+        var bridge = new SimulatedBridge();
+        var plan = SimulatedBridge.Json(await bridge.CallAsync("relations.sweep.plan", Args(new { limit = 10 })));
+        Check.True(plan.GetProperty("allowed").GetBoolean(), "file de l’OU de travail");
+        Check.Contains("Ping groupé", plan.GetProperty("text").GetString(), "ping par lots annoncé");
+        var run = SimulatedBridge.Json(await bridge.CallAsync("relations.detect.run", Args(new { planId = plan.GetProperty("id").GetString() })));
+        Check.Equal("sweep", run.GetProperty("phase").GetString(), "relevé");
+        var next = SimulatedBridge.Json(await bridge.CallAsync("relations.sweep.plan", Args(new { limit = 10 })));
+        // The workstations whose console was read (not those that did not answer the ping) are not asked again.
+        var read = run.GetProperty("attempts").EnumerateArray().Where(a => a.GetProperty("method").GetString() == "Console CIM/DCOM").Select(a => a.GetProperty("target").GetString()).ToHashSet();
+        Check.True(read.Count > 0, "consoles lues");
+        Check.False(next.GetProperty("targets").EnumerateArray().Any(t => read.Contains(t.GetProperty("computer").GetString())), "un poste relevé et non réauthentifié n’est pas redemandé");
+        var forget = SimulatedBridge.Json(await bridge.CallAsync("relations.sweep.forget.plan"));
+        Check.Equal(RelationSweepReset.Kind, forget.GetProperty("plan").GetProperty("kind").GetString(), "type d’écriture");
+        Check.Equal("verified", (await ExecuteAsync(bridge, forget)).GetProperty("verification").GetString(), "mémoire des relevés vidée et relue");
+        var fresh = SimulatedBridge.Json(await bridge.CallAsync("relations.sweep.plan", Args(new { limit = 10 })));
+        Check.True(fresh.GetProperty("targets").EnumerateArray().All(t => t.GetProperty("source").GetString() == "Jamais relevé"), "après l’effacement, jamais relevés d’abord");
+        Check.Equal(WriteErrors.NothingToDo, (await bridge.CallAsync("relations.sweep.forget.plan")).Error?.Code, "rien à oublier");
+        var listed = SimulatedBridge.Json(await bridge.CallAsync("relations.sweep.plan", Args(new { limit = 10, computers = new[] { "PC-PAR-0012", "PC-LYO-0006" } })));
+        Check.Equal("loaded", listed.GetProperty("scope").GetString(), "liste chargée");
+        Check.True(listed.GetProperty("targets").GetArrayLength() <= 2, "jamais plus que la liste");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, (await bridge.CallAsync("relations.sweep.plan", Args(new { limit = 10, computers = new[] { "PC PAR 0012" } }))).Error?.Code, "nom de poste contrôlé");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => bridge.Context.Readers.Require<IRelationsReader>().SweepPlanAsync(
+            new RelationSweepRequest(10, new ScopeSelection(bridge.Source.World.Directory.Domain.RootDn, "domaine", true), []), CancellationToken.None), "racine du domaine refusée");
+    }
+
+    [Test]
+    public static async Task Export_is_received_in_parts_and_opened_only_when_written()
+    {
+        var bridge = new SimulatedBridge();
+        var id = new string('e', 32);
+        var part = SimulatedBridge.Json(await bridge.CallAsync("relations.export.save", Args(new { id, part = 0, parts = 2, subject = "toutes", text = "Utilisateur;Poste\r\n" })));
+        Check.False(part.GetProperty("complete").GetBoolean(), "première partie gardée");
+        var done = SimulatedBridge.Json(await bridge.CallAsync("relations.export.save", Args(new { id, part = 1, parts = 2, subject = "toutes", text = "j.martin;PC-PAR-0012\r\n" })));
+        var result = done.GetProperty("result");
+        Check.Equal(1, result.GetProperty("rows").GetInt32(), "une ligne de données");
+        Check.False(result.GetProperty("saved").GetBoolean(), "reçus en mémoire (tests) : rien n’est écrit");
+        Check.Contains("Domenia-Relations-toutes-", result.GetProperty("fileName").GetString(), "nom daté");
+        var open = SimulatedBridge.Json(await bridge.CallAsync("relations.export.open", Args(new { fileName = result.GetProperty("fileName").GetString() })));
+        Check.False(open.GetProperty("opened").GetBoolean(), "un fichier non écrit n’est jamais ouvert");
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, (await bridge.CallAsync("relations.export.save", Args(new { id, part = 0, parts = 1, subject = "autre", text = "x" }))).Error?.Code, "liste fermée");
+    }
+
+    [Test]
+    public static async Task Comparison_compares_the_company_and_writes_a_complete_ticket()
+    {
+        var bridge = new SimulatedBridge();
+        var julien = bridge.Source.CurrentDirectory.Users.Single(u => u.SamAccountName == "j.martin");
+        var compare = SimulatedBridge.Json(await bridge.CallAsync("relations.compare", Args(new { dn = julien.DistinguishedName, other = "adm-j.martin" })));
+        var company = compare.GetProperty("attributes").EnumerateArray().Single(a => a.GetProperty("attribute").GetString() == "company");
+        Check.Equal("Société", company.GetProperty("label").GetString(), "société comparée");
+        var ticket = compare.GetProperty("ticket").GetString()!;
+        Check.Contains("Comparaison des droits AD (lecture seule)", ticket, "titre du ticket");
+        Check.Contains(julien.DistinguishedName, ticket, "DN du premier compte");
+        Check.Contains(compare.GetProperty("right").GetProperty("dn").GetString()!, ticket, "DN du second compte");
+        foreach (var group in compare.GetProperty("groups").EnumerateArray())
+        {
+            Check.Contains(group.GetProperty("dn").GetString()!, ticket, "chaque groupe avec son DN");
+        }
+    }
+
+    [Test]
+    public static async Task Undo_and_restore_follow_the_store_as_it_is()
+    {
+        var bridge = new SimulatedBridge();
+        var undo = SimulatedBridge.Json(await bridge.CallAsync("relations.import.undo.plan", Args(new { batch = (string?)null })));
+        var first = undo.GetProperty("plan").GetProperty("changes")[0].GetProperty("beforeValue").GetString()!;
+        var row = SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray().Single(r => r.GetProperty("key").GetString() == first[65..]);
+        var removal = SimulatedBridge.Json(await bridge.CallAsync("relations.remove.plan", Args(new { key = row.GetProperty("key").GetString(), fingerprint = row.GetProperty("fingerprint").GetString() })));
+        Check.Equal("applied", (await ExecuteAsync(bridge, removal)).GetProperty("result").GetString(), "une ligne du lot retirée à part");
+        var receipt = await ExecuteAsync(bridge, undo);
+        Check.Equal("applied", receipt.GetProperty("result").GetString(), "le reste du lot est retiré, la ligne déjà retirée comptée comme faite");
+        var restore = SimulatedBridge.Json(await bridge.CallAsync("relations.restore.plan", Args(new { entry = (string?)null })));
+        var again = SimulatedBridge.Json(await bridge.CallAsync("relations.restore.plan", Args(new { entry = (string?)null })));
+        Check.Equal("applied", (await ExecuteAsync(bridge, restore)).GetProperty("result").GetString(), "restauration");
+        Check.Equal("noChange", (await ExecuteAsync(bridge, again)).GetProperty("result").GetString(), "la même restauration une seconde fois : déjà faite, rien d’écrit");
     }
 }

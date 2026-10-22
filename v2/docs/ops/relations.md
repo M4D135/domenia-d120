@@ -13,12 +13,25 @@ compilé dans la VM (0 avertissement), tests écrits et non exécutés (décisio
 | Une association est locale à Domenia (« AD jamais modifié ») | Magasin local des associations : mémoire de la simulation aujourd’hui, base locale en vague 3. Aucune opération de cet écran n’écrit Active Directory. |
 | Une relation = un utilisateur, un poste, une nature de preuve | `RelationRules.Key` et `Same` (GUID décisif des deux côtés, sinon identifiant et premier label DNS). La limite d’une ligne par poste de Domenia 1 est levée : plusieurs relations par poste coexistent (amélioration de REL-024). |
 | Une observation ne devient jamais une affectation | Natures distinctes (`assignment`, `console`, `remoteSession`, `history`, `imported`, `hint`, `unknown`) ; une affectation déclarée n’est jamais remplacée, l’historique ne contredit jamais une affectation. |
-| Badges explicables, jamais de pourcentage | `RelationRules.BadgeOf` : Déclaré, Observé, Historique, Importé, Indice, Contradictoire, À vérifier, chacun avec sa règle et sa provenance. |
+| Badges explicables, jamais de pourcentage | `RelationRules.BadgeOf` : Déclaré, Observé, Historique, Importé, Indice, À vérifier, chacun avec sa règle et sa provenance. Une association contredite **garde sa nature** et porte en plus la marque « Contradiction » (`contradicted`, règle ajoutée à `rule`) : amélioration de Domenia 1, où la nature disparaissait derrière « Contradictoire ». La facette « Contradictoire » compte les associations contredites, à part des natures (dont la somme reste le total). |
 | Identité par GUID (point 9) | Un lien porteur de GUID n’appartient qu’à cet objet ; même nom autre GUID ou lien antérieur à la création = autre détenteur ; sans GUID = « identité non vérifiable ». |
 | Aucune sonde sans geste explicite | Chaque lecture réseau part d’un clic ; la détection montre la liste exacte des postes avant tout contact (D047) ; le domaine entier n’est jamais substitué. |
 | Écritures confirmées, journalisées, restaurables | Toute modification du magasin est un **plan** (`relations.*.plan`, une lecture) exécuté par `write.execute` : préconditions relues (empreinte de chaque association, contrôle optimiste REL-012), reçu avant l’envoi, relecture, journal local. Jamais rejoué. |
-| 64 changements par enregistrement (REL-011, REL-014) | `WritePlans.MaxChanges` = 64 ; au-delà, refus `relation.tooMany` avant tout plan. Un seul enregistrement à la fois : le canal unique du circuit. |
+| 64 changements par enregistrement (REL-011, REL-014) | `WritePlans.MaxChanges` = 64 ; au-delà, refus `relation.tooMany` avant tout plan. Un seul enregistrement à la fois : le canal unique du circuit. Les observations (détection, lecture de session, relevé, moisson, observation versée par un autre écran) restent **en mémoire pour la session** (« Session uniquement ») et s’enregistrent **par lots de 64** : `relations.observations.plan` sans clé prend les 64 suivantes non enregistrées et annonce le reste dans ses risques ; la page enchaîne les lots (« Tout enregistrer, lot par lot »), chaque lot étant un plan confirmé et tracé par un reçu (§ 1.1). |
+| Identité revérifiée (REL-002, REL-019) | La page envoie le GUID qu’elle a affiché : `relations.associate.plan` (`subjectGuid`, `targetGuid`) refuse un objet dont le GUID a changé (`write.targetUnknown`), `relations.detect.collect` (`guid`, `login`) s’arrête sur un compte recréé ou renommé (`relation.identityChanged`). |
 | Sources protégées (REL-043) | `Manual`, `Saisie manuelle`, `Import CSV`, `Import GLPI`, `Import osquery` : jamais proposées par le contrôle des orphelines, jamais remplacées par une détection. |
+
+### 1.1 Mémorisation automatique de Domenia 1 et circuit des écritures
+
+Dans Domenia 1, le compte console d’un relevé (REL-018), d’une console en direct (REL-017) ou d’une moisson (REL-030) devenait
+une association enregistrée automatiquement, en arrière-plan, par lots de 64 (REL-014). Domenia 2 garde la mémoire et les
+lots, mais **chaque lot est un plan** du circuit des écritures : les règles de la plateforme n’admettent aucune écriture hors
+de `write.execute` (`PLATFORM.md` § 3.2, `AdmissionGuards`, décision du 22/10 « Écritures en simulation » et consigne
+« écritures toujours planifiées, confirmées, tracées par un reçu »), et la classe `LocalWrite` est réservée aux préférences.
+Rien n’est perdu : les observations sont visibles tout de suite (« Session uniquement »), comptées dans le bandeau
+« Observations en mémoire » de l’écran, et « Tout enregistrer, lot par lot » enchaîne les plans sans autre saisie qu’une
+confirmation par lot. **Écart à faire valider par David** : une mémorisation sans confirmation exigerait une décision écrite
+dans `DECISIONS.md`.
 
 ## 2. Récapitulatif des opérations
 
@@ -29,7 +42,7 @@ compilé dans la VM (0 avertissement), tests écrits et non exécutés (décisio
 | `relations.subject` | `LocalRead` | `{ ref }` (DN, identifiant ou nom de poste, 2 048 caractères au plus) | `RelationSubjectView` |
 | `relations.subjects.search` | `LocalRead` | `{ text }` (100 caractères au plus ; vide = suggestions) | `RelationSubjectMatches` |
 | `relations.targets.search` | `NetworkRead` (servie en simulation) | `{ dn, text }` (2 caractères au moins) | `RelationTargetSearch` |
-| `relations.detect.collect` | `NetworkRead` (servie) | `{ dn, scope, ouDn, computers, limit, kerberos }` | `RelationDetection` (phase `collect`, avec `plan`) |
+| `relations.detect.collect` | `NetworkRead` (servie) | `{ dn, guid, login, scope, ouDn, computers, limit, kerberos }` (`guid` au format D, `login` affiché ; `computers` : 50 noms de postes ou DN au plus) | `RelationDetection` (phase `collect`, avec `plan`) |
 | `relations.detect.run` | `NetworkRead` (servie) | `{ planId }` | `RelationDetection` (phase `probe` ou `sweep`) ; événements `relations.detect.run:progress` |
 | `relations.detect.stop` | `Local` | `{ planId }` | `{ stopping, message }` |
 | `relations.computer.read` | `NetworkRead` (servie) | `{ dn }` | `RelationComputerReading` |
@@ -40,14 +53,18 @@ compilé dans la VM (0 avertissement), tests écrits et non exécutés (décisio
 | `relations.import.preview` | `LocalRead` | `{ id, adapter (csv, glpi, osquery), fileName }` | `RelationImportPreview` |
 | `relations.orphans.check` | `NetworkRead` (servie) | aucun | `RelationOrphanCheck` |
 | `relations.compare` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn, other }` | `UserGroupComparison` |
-| `relations.sweep.plan` | `LocalRead` | `{ limit (1..50) }` | `RelationDetectionPlan` (périmètre « sweep ») |
-| `relations.associate.plan` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn, target }` | `{ plan, token }` (§ 12.1 d’OPERATIONS.md) |
+| `relations.sweep.plan` | `LocalRead` | `{ limit (1..50), computers? }` (sans liste : file de l’OU de travail ; avec : 50 noms ou DN d’une liste chargée) | `RelationDetectionPlan` (périmètre `sweep` ou `loaded`) |
+| `relations.sweep.forget.plan` | `LocalRead` | aucun | `{ plan, token }` (type `relations.sweepReset`) |
+| `relations.observations.pending` | `LocalRead` | aucun | `RelationPendingObservations` |
+| `relations.export.save` | `LocalWrite` | `{ id, part, parts, subject, text }` (`subject` : `toutes`, `sujet`, `selection`, `moisson`, `orphelines`, `import` ; parties de 600 000 caractères, 64 au plus, 16 Mo en tout) | `RelationExportAnswer` |
+| `relations.export.open` | `Local` | `{ fileName }` (export de cette session) | `{ opened, message }` |
+| `relations.associate.plan` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn, subjectGuid, target, targetGuid }` (GUID affichés, format D) | `{ plan, token }` (§ 12.1 d’OPERATIONS.md) |
 | `relations.remove.plan` | `LocalRead` | `{ key, fingerprint }` | `{ plan, token }` |
 | `relations.restore.plan` | `LocalRead` | `{ entry }` (32 hexadécimaux ou `null` = la plus récente) | `{ plan, token }` |
 | `relations.import.plan` | `LocalRead` | `{ previewId }` | `{ plan, token }` |
 | `relations.import.undo.plan` | `LocalRead` | `{ batch }` (identifiant de lot ou `null` = le plus récent) | `{ plan, token }` |
 | `relations.orphans.plan` | `LocalRead` | `{ checkId, keys }` (1 à 64 clés) | `{ plan, token }` |
-| `relations.observations.plan` | `LocalRead` | `{ resultId, keys }` (0 à 64 clés ; 0 = toutes, 64 au plus) | `{ plan, token }` |
+| `relations.observations.plan` | `LocalRead` | `{ resultId, keys }` (0 à 64 clés ; 0 = les 64 suivantes non enregistrées, le reste annoncé dans les risques) | `{ plan, token }` |
 
 Identifiants (`planId`, `estimateId`, `id`, `previewId`, `checkId`, `resultId`, `entry`) : 32 caractères hexadécimaux
 minuscules ; sinon `arguments.invalid` (« « planId » doit être un identifiant de 32 caractères hexadécimaux. »).
@@ -82,7 +99,9 @@ nuls sont écrits. Énumérations : `kind` ∈ `assignment|console|remoteSessio
 (sept compteurs dans l’ordre des facettes, zéros compris), `contradictions` (postes), `unverified`, `sessionOnly`,
 `lastImport` (`batchId`, `fileName`, `source`, `importedAt`, `count`, `tip`) ou `null`, `restore` (`entryId`, `label`
 « Restaurer jdupont → PC01 », `tip`, `removedAt`, `userLogin`, `computer`) ou `null`, `activity` (14 jours :
-`date`, `label`, `observed`, `history`), `journalEntries`, `summary`.
+`date`, `label`, `observed`, `history`), `journalEntries`, `summary`, `pending` (`RelationPendingObservations`, § 3.6).
+Les six natures de `badges` totalisent `total` ; l’entrée `contradictory` compte les associations contredites (qui gardent
+leur nature) et `contradictions` les postes concernés.
 
 ### 3.3 `relations.subject`
 
@@ -94,20 +113,27 @@ nuls sont écrits. Énumérations : `kind` ∈ `assignment|console|remoteSessio
 `logons` (30 au plus : sessions observées, à distance, relevés d’historique et `lastLogonTimestamp`), `graph`
 (`nodes` : `id`, `kind`, `label`, `sub`, `dn`, `depth` 0 à 2, `primary`, `exists`, `tone`, `links` ; `edges` : `from`, `to`,
 `badge` le plus fort, `count`, `when`, `contradicted`, `label` ; `truncated` quand le deuxième cercle est borné à
-24 nœuds, 5 par nœud), `counts`, `context`, `restore`. Erreur propre : `relation.unknown`.
+24 nœuds, 5 par nœud), `counts`, `context`, `restore` (la dernière suppression **de ce sujet** seulement ; celle du magasin entier reste dans
+`relations.overview`). Erreur propre : `relation.unknown`.
 
 ### 3.4 Détection (`relations.detect.*`)
 
-1. `collect` (geste « Lire l’annuaire ») : compte relu, associations connues (50 au plus), postes dont il est `managedBy`,
+1. `collect` (geste « Lire l’annuaire ») : compte relu (même GUID et même identifiant que le sujet affiché, sinon
+   `relation.identityChanged` avant toute autre lecture), associations connues (50 au plus), postes dont il est `managedBy`,
    postes qui le mentionnent (description, emplacement), indices Kerberos 4768 sur 7 jours si `kerberos` (adresses,
    jamais associées). Périmètre `scope` : `candidates` (postes connus et candidats AD), `ou` (`ouDn`, l’OU de travail par
-   défaut, jamais la racine), `loaded` (`computers` : 50 DN au plus, liste chargée d’un autre écran). Réponse : `attempts`
+   défaut ou une OU choisie dans l’arborescence, jamais la racine), `loaded` (`computers` : 50 noms de postes ou DN au plus,
+   liste chargée : postes affichés dans « Toutes les associations » ou liste reçue d’un autre écran par l’adresse
+   `#/relations?…&liste=PC-PAR-0042,PC-PAR-0043`, résolus dans l’index local seulement). Réponse : `attempts`
    (`method`, `status` OK/VIDE/A_REVOIR/CONFIRME/LU/REFUSE/AUTH_REJETEE/DELAI/ERREUR/NON_DEMANDE…, `statusLabel`, `tone`,
    `target`, `detail`, `durationMs`, `resource`), `candidates` (`origins`, `why`, `associable`, `blocker` : une adresse ou
    un nom partiel n’est jamais associable), `hints`, `plan` (`id`, `allowed`, `scopeLabel`, `limit`, `eligible`,
    `truncated`, `targets`, `text`, `reason`, `zeroMeaning`). Aucun poste contacté.
 2. `run` (geste « Lancer la détection ») : lecture de la console (Win32_ComputerSystem, CIM/DCOM, 4 s) des **seules** cibles
-   du plan confirmé, une détection à la fois (`relation.probeBusy`). Chaque poste pousse `relations.detect.run:progress`
+   du plan confirmé, une détection à la fois (`relation.probeBusy`), **une seule fois par périmètre** (le relancer répond
+   `relation.planExpired`), arrêt au **premier refus d’identifiants** (`AUTH_REJETEE` : aucun autre poste contacté avec ce
+   compte). La boucle est une règle de Core partagée par les sources (`RelationProbeLoop`) ; un relevé fait d’abord un **ping
+   groupé par lots de 8** et ne demande la session qu’aux postes qui répondent. Chaque poste pousse `relations.detect.run:progress`
    (`planId`, `counters`, `computer`, `status`, `statusLabel`, `tone`, `currentUser`). Le résultat dit `within` (liste
    sondée incluse dans le plan), `complete`, `counters` (`planned`, `queried`, `confirmed`, `noSession`, `refused`,
    `unreachable`, `stopped`, `text`), `savable` et `resultId` (observations gardées pour
@@ -120,6 +146,8 @@ nuls sont écrits. Énumérations : `kind` ∈ `assignment|console|remoteSessio
   `reason` du contrôle d’identité D049, `source`, `kind`, `badge`, `observedAt`) ou `null`, `savable`, `resultId`.
 - `relations.harvest.estimate` puis `relations.harvest.run` : couples (`key`, `userLogin`, `computer`, `firstSeen`,
   `lastSeen`, `events`, `eventIds`, `known`), `events`, `truncated`, `machineAccountsIgnored`, `unresolved`, `resultId`.
+  Les couples **absents** du magasin rejoignent les observations de la session (Domenia 1 Add-UserMachineLinkIfMissing, un
+  couple connu n’est jamais écrasé) ; la mémoire des relevés apprend la dernière ouverture de chaque poste (ParkState).
 - `relations.journal` : `entries` (500 au plus, plus récentes d’abord : `action`, `actionLabel`, `tone`, `at`,
   `declarant`, `note`, `userLogin`, `computer`, `kind`, `badgeLabel`, `source`, `restorable`, `restoredBy`),
   `restorable` (toutes les suppressions encore restaurables), `note`.
@@ -134,8 +162,26 @@ nuls sont écrits. Énumérations : `kind` ∈ `assignment|console|remoteSessio
   `groups`), `attributes` (Service, Fonction, Bureau, Responsable : `left`, `right`, `same`), `groups` (`dn`, `name`,
   `category` `onlyLeft|onlyRight|common`, `categoryLabel`, `leftOrigin`/`rightOrigin` `none|direct|nested|primary`, `path`,
   `depth`, `primary`, `privileged`, `alert`), `counts`, `limits`, `summary`, `note`, `ticket` (texte prêt à coller),
-  `readAt`. Erreurs : `relation.notAUser`, `relation.compareUnresolved` (second compte introuvable, d’un autre domaine ou
-  ambigu, avec la raison).
+  `readAt`. Attributs comparés : Service, Fonction, **Société** (`company`), Bureau, Responsable. Erreurs :
+  `relation.notAUser`, `relation.compareUnresolved` (second compte introuvable, d’un autre domaine ou ambigu, avec la raison).
+
+### 3.6 Observations en mémoire, exports, service partagé
+
+- `RelationPendingObservations` : `total` (observations de la session pas encore enregistrées), `batches` (plans de 64
+  nécessaires), `sets` (`resultId` — 32 zéros pour la session entière —, `origin`, `total`, `remaining`, `batches`,
+  `sources` : `source`, `count`, `expiresAt`), `text`. Un résultat dont on enregistre les lots voit sa durée de vie prolongée.
+- `RelationExportAnswer` : `id`, `received`, `parts`, `complete`, `result` (avec la dernière partie : `saved`, `fileName`
+  « Domenia-Relations-<liste>-AAAAMMJJ-HHmmss.csv », `folder`, `rows`, `bytes`, `sha256`, `message`, `at`). Le CSV vient de la
+  grille du kit (colonnes visibles, formules neutralisées, colonnes d’action et secrètes exclues), écrit en UTF-8 avec BOM dans
+  `%LOCALAPPDATA%\Domenia\Exports` (`Exports-simulation` en simulation), jamais écrasé ; en capture et en E2E, rien n’est
+  écrit (`saved` = `false`). `relations.export.open` n’ouvre qu’un fichier écrit pendant la session (Domenia 1
+  BtnOpenLinksCsv).
+- **Service partagé** `IRelationsReader.ObserveAsync(RelationObservationRequest)` (REL-017, Domenia 1
+  Merge-DomeniaLiveLinkMemory) : un autre module du moteur (console en direct de l’écran Poste) y verse le compte console
+  qu’il a lu (`computer`, `account` « DOMAINE\compte », `source`, `observedAt`, `detail`). Accepté seulement pour un compte
+  de l’annuaire du domaine, qualifié par son domaine, sur un poste connu ; un compte local, d’un autre domaine ou un nom nu est
+  refusé avec la raison. L’observation reste « Session uniquement » jusqu’à son plan. Aucune opération du pont ne l’expose :
+  une page ne peut pas fabriquer une observation.
 
 ## 4. Erreurs propres
 
@@ -152,6 +198,8 @@ nuls sont écrits. Énumérations : `kind` ∈ `assignment|console|remoteSessio
 | `relation.importTooLarge`, `relation.importIncomplete`, `relation.importEmpty` | Fichier d’import trop gros, incomplet, vide ou illisible. |
 | `relation.nothingToRestore`, `relation.alreadyExists`, `relation.noBatch` | Rien à restaurer, association déjà présente, aucun lot d’import. |
 | `relation.notAUser`, `relation.compareUnresolved` | Comparaison sur un objet qui n’est pas un utilisateur ; second compte non résolu. |
+| `relation.identityChanged` | Le compte relu n’est plus celui affiché (GUID différent : recréé ; identifiant différent : renommé). |
+| `relations.exportFailed`, `relations.exportTooLarge` | CSV non écrit (droits, disque, lien), ou plus de 16 Mo. |
 | `write.targetUnknown`, `write.stale`, `write.nothingToDo` | Codes du circuit : association introuvable, modifiée ailleurs depuis son affichage, rien à écrire. |
 
 ## 5. Simulation
@@ -167,7 +215,11 @@ session) a un poste principal déclaré observé il y a 47 minutes, un portable 
 collègue relevé sur son poste. Le journal contient l’import, des déclarations récentes, une suppression restaurable et une
 suppression déjà restaurée. Les lectures réseau répondent de façon déterministe : consoles d’après la présence relevée et le
 magasin (refus 5 %, aucun compte 19 %), indices Kerberos par utilisateur, couples de moisson par poste. Délais
-`latency/screen/relations/…` et `latency/screen/write/relations/…`, aucun avec `SimulationLatency.None`.
+`latency/screen/relations/…` et `latency/screen/write/relations/…`, aucun avec `SimulationLatency.None`. La moisson voit
+aussi les postes actifs sans association (utilisateur habituel du même site, parfois un collègue : sous-suite
+`harvest/<jours>/free`), ce qui donne plus de 64 nouveaux couples sur 7 jours et rend visibles les lots successifs. Le ping
+d’un relevé répond d’après la présence relevée du poste. « Oublier les relevés » (`SimulatedRelationSweepResetExecutor`) vide
+la mémoire des relevés de la session.
 
 ## 6. Mode annuaire (vague 3)
 
@@ -215,7 +267,7 @@ d’authentification, TRV-206) : aucune nouvelle requête, demande d’un autre
 | Console d’un poste (REL-021, « Lire la session ») | CIM sur DCOM : `Win32_ComputerSystem` (`UserName`, `Name`), une session par poste, pas de repli WinRM, ni tâche, ni registre | 4 s par poste, 50 postes, budget 120 s, nom reçu différent du nom AD = rejeté, arrêt au premier rejet d’identifiants |
 | Indices Kerberos (REL-022) | `Get-WinEvent` équivalent (EventLog API) sur le contrôleur de la session, XPath `EventID=4768`, `TargetSid`, `Status=0x0`, 7 jours | 100 événements, un seul contrôleur, bail d’authentification |
 | Moisson (REL-030) | Journal Sécurité du contrôleur : 4768, 4769, 4624 ; comptes machines (`$`) ignorés | 1 à 30 jours (7), 200 à 20 000 événements (5 000), estimation confirmée avant |
-| Relevé incrémentiel (REL-031) | Console des postes de l’OU de travail, jamais relevés puis plus anciens ; poste non réauthentifié (`lastLogonTimestamp`) depuis son relevé non redemandé ; ping par lots avant la session | 50 postes par relevé, budget, report au relevé suivant |
+| Relevé incrémentiel (REL-031) | Console des postes de l’OU de travail (ou d’une liste chargée), jamais relevés puis plus anciens ; poste non réauthentifié (`lastLogonTimestamp`) depuis son relevé non redemandé ; ping ICMP par lots de 8 avant la session (`RelationProbeLoop`) | 50 postes par relevé, budget, report au relevé suivant ; « Oublier les relevés » après sauvegarde vérifiée de la base (`RelationSweepReset`, FI-13) |
 
 ### 6.4 Budgets et classes
 
@@ -229,24 +281,38 @@ l’affichage d’une page, un défilement ou un rendu (D048). Les durées et vo
 
 `web/js/pages/relations.js` et `web/js/pages/relations/*.js` (`model`, `graph`, `subject`, `all`, `compare`, `journal`,
 `panels`), feuille `web/css/pages/relations.css` (toutes les règles sous `[data-page="relations"]`, y compris le contenu
-des panneaux, qui porte `data-page="relations"`). Paramètres d’adresse : `onglet`, `sujet`, `vue`, `panneau`, `a`, `b`
-(en-tête de `relations.js`). Les écritures passent toutes par `runWrite` (`web/js/write-flow.js`). L’aperçu dans un
-navigateur (`mock.js`) ne sert pas encore ces opérations (fichier partagé non modifié) : la page y affiche ses erreurs.
+des panneaux, qui porte `data-page="relations"`). Paramètres d’adresse : `onglet`, `sujet`, `vue`, `panneau`, `a`, `b`,
+`filtre=contradictoire`, `liste` (en-tête de `relations.js`). Les écritures passent toutes par `runWrite`
+(`web/js/write-flow.js`) ; les panneaux de travail sont **ancrés** (non modaux) : le panneau du plan s’ouvre par-dessus et
+le panneau de travail continue après le reçu (association enregistrée ou refusée, lot suivant, orphelines retirées). Les
+étapes de l’association suivent `associationStep` (`model.js`, miroir de `RelationRules.Step` et `Refusal`) : un geste refusé
+est dit en une phrase. Les dates de preuve sont relatives sur deux jours, absolues au-delà. L’aperçu dans un navigateur
+(`mock.js`, fichier partagé) ne sert pas encore ces opérations : la page y affiche ses erreurs (demande au propriétaire du
+fichier). Changement de session (REL-047) : la session de Domenia 2 ne change pas pendant l’exécution (un compte par
+processus) et le moteur garde un état par source ; la page écoute l’événement `session.changed` (quand le pont le publiera)
+et compare `session.info` à chaque retour au premier plan : sujet, panneau, recherches, comparaison et observations de
+l’ancienne session sont écartés avec un message, rien n’est enregistré ni retiré.
 
 ### 7.1 Reste à faire (statut `docs/status/relations.json`)
 
-- REL-013 : lecture et migration de la table SQLite `user_machine_links` de Domenia 1 (mode annuaire, § 6.1).
-- REL-029 : demande d’un autre compte pour la ressource refusée ; l’écran Accès n’existe pas encore. La détection
-  et le relevé comptent et disent les refus, sans jamais les rejouer.
-- REL-031 : « Oublier les relevés » après sauvegarde vérifiée, ping par lots avant session (mode annuaire).
-- REL-047 : réinitialisation pendant l’affichage sur un changement de session (événement du pont à venir).
-- FIC-004 : attribut `company` (Société), absent du modèle d’annuaire de Domenia 2.
+- REL-013 : lecture et migration de la table SQLite `user_machine_links` de Domenia 1 (mode annuaire, § 6.1, avec
+  `Domenia.Store`).
+- REL-029 : la demande d’un autre compte suppose un canal d’identifiants commun à tous les écrans (invite Windows,
+  `SecureString` jusqu’à l’API), qui n’existe pas encore dans Domenia 2. Fait ici : arrêt au premier refus d’identifiants,
+  ressources refusées nommées et copiables dans la carte « Reprise d’accès », jamais rejouées.
 
 ## 8. Tests écrits (exécutés à la fin, dans la VM)
 
-`tests/Domenia.Tests/RelationsTests.cs` : règles (nature, clés, égalité, upsert, principal, badges, contradictions,
+`tests/Domenia.Tests/RelationsTests.cs` : boucle de sonde (arrêt au premier refus d’identifiants, ping par lots, arrêt
+demandé), application défensive (`write.stale`), nature gardée des lignes contredites, bornes de la mise en attente de
+l’import (64 parties, 600 000 caractères, 4 fichiers, 10 minutes), lots de 64 des observations de la session, service
+partagé d’observation, file du relevé (non réauthentifié écarté, racine refusée, liste chargée) et « Oublier les relevés »,
+exports par parties, société et ticket complet de la comparaison, annulation d’import et restauration sur un magasin
+modifié, GUID revérifiés (association, détection), périmètre sondé une fois ; règles (nature, clés, égalité, upsert, principal, badges, contradictions,
 synthèse, identité, sources protégées, orphelines, filtre, états de l’association, identité de compte, candidats,
 périmètre, compteurs), import (CSV, GLPI, osquery, identité, dates, priorité, lot, statuts), comparaison (groupes directs,
 imbriqués, principal, boucles, privilèges, ticket), projection, pont (formes JSON, arguments, admission, classes), circuit
 (association, retrait, restauration, import et annulation, orphelines, observations : reçu `applied`/`verified`, journal,
-contrôle optimiste, plan exécuté une fois). Scénarios E2E : `tests/e2e/relations/*.json`.
+contrôle optimiste, plan exécuté une fois). Scénarios E2E : `tests/e2e/relations/*.json` (sujet et vues, association avec
+l’état « Enregistrée », retrait depuis la liste, détection, lecture de session, moisson et lots, relevé et effacement,
+orphelines, import et annulation, comparaison, journal).

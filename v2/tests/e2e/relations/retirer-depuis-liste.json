@@ -1,0 +1,67 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : retirer une association depuis la liste du sujet",
+  "description": "Vue liste de j.martin : le bouton visible « Retirer l’association » d’une ligne prépare le plan (empreinte relue), confirme l’écriture simulée et vérifie le reçu ; la suppression est journalisée et restaurable.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "relations?sujet=j.martin&vue=liste",
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-row-act=\"remove\"]",
+      "title": "Les actions visibles de la liste sont affichées"
+    },
+    {
+      "do": "shot",
+      "name": "liste-actions",
+      "selector": ".rel-rel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-row-act=\"remove\"]",
+      "nth": 0,
+      "title": "Retirer la première association"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Le plan de retrait est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-receipt-title",
+      "timeoutMs": 20000,
+      "title": "Le reçu est affiché"
+    },
+    {
+      "do": "press",
+      "key": "Escape",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "expect",
+      "contains": "Sujet",
+      "title": "L’opérateur reste sur l’onglet Sujet",
+      "within": "[role=\"tab\"][aria-selected=\"true\"]"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-restore",
+      "title": "La suppression de ce sujet est proposée à la restauration"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

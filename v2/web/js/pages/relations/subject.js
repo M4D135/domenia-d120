@@ -1,14 +1,15 @@
 // Utilisateurs et postes · « Sujet » tab: subject picker (local index, never the network), landing with suggestions, and
 // the view of one user or workstation: identity, primary relation, separate statements (declared, observed, history,
-// clues), relations as an animated graph, a list or a chronology, recent logons and the rules of the badges shown.
+// clues), relations as an animated graph, a list or a chronology (each with its visible actions), recent logons and the
+// rules of the badges shown.
 import { glyph } from '../../kit/glyphs.js';
 import { createGrid } from '../../kit/grid.js';
 import { timeline, bindTimeline } from '../../kit/timeline.js';
 import { debounce, uid } from '../../kit/util.js';
-import { applyVars, inkFollow, reveal, relTime, formatDateTime } from '../../ui.js';
+import { applyVars, inkFollow, reveal, formatDateTime } from '../../ui.js';
 import { renderGraph, graphLegend } from './graph.js';
 import {
-  BADGES, BADGE_OPTIONS, badge, dot, avatar, when, esc, int, nouns, NBSP, errText, empty, sk,
+  BADGES, BADGE_ORDER, BADGE_OPTIONS, badge, qualification, dot, avatar, esc, int, nouns, NBSP, errText, empty, sk, dateText,
 } from './model.js';
 
 const VIEWS = [
@@ -46,10 +47,26 @@ function optionMarkup(m, i, active) {
     ${reason}<span class="rel-opt-links" data-tip="Associations mémorisées">${glyph('link')}${int(m.links)}</span></li>`;
 }
 
+/** Local date of a proof (« 08/10 09:15 », the year when it is not the current one) with the full date in the tip. */
+export function dateCell(value, row) {
+  return row.whenText ? `<time class="rel-when" datetime="${esc(value)}" data-tip="${esc(formatDateTime(value) ?? '')}">${esc(row.whenText)}</time>` : '<span class="rel-none" aria-label="non renseigné">—</span>';
+}
+
+/** Visible actions of one association: see the other end, then save it (session) or remove it (stored). */
+function rowActions(row, other) {
+  const key = `data-key="${esc(row.key)}"`;
+  const see = other ? `<button class="rel-act" type="button" data-row-act="see" ${key} data-tip="Voir les relations de ${esc(other)}" aria-label="Voir les relations de ${esc(other)}">${glyph('link')}</button>` : '';
+  const write = row.persistence === 'session'
+    ? `<button class="rel-act wr" type="button" data-row-act="save" ${key} data-tip="Enregistrer l’observation (plan, confirmation, reçu)" aria-label="Enregistrer l’observation">${glyph('check')}</button>`
+    : `<button class="rel-act danger" type="button" data-row-act="remove" ${key} data-tip="Retirer l’association (plan, confirmation, reçu ; restaurable)" aria-label="Retirer l’association">${glyph('trash')}</button>`;
+  return `<span class="rel-acts">${see}${write}</span>`;
+}
+
 /**
  * Creates the « Sujet » tab in panel.
  * @param {HTMLElement} panel
- * @param {object} app  Controller of the screen (relations.js): ctx, select(ref), openPanel(name), plan(op, args), removeRow(row), saveSession(row).
+ * @param {object} app  Controller of the screen (relations.js): ctx, select(ref), clear(), openPanel(name), plan(op, args),
+ *   rowMenu(row, mode), openFiche(target), compareWith(subject), restore(entryId), remember(change), recent().
  */
 export function createSubjectTab(panel, app) {
   const pickerId = uid('relpick');
@@ -58,6 +75,7 @@ export function createSubjectTab(panel, app) {
   let grid = null;
   let graphCtl = null;
   let ink = null;
+  let activeCol = null;
   const stops = [];
 
   panel.innerHTML = `<div class="rel-sub">
@@ -147,7 +165,8 @@ export function createSubjectTab(panel, app) {
       <section class="card rel-landing-hero reveal">${empty('link', 'Choisissez un utilisateur ou un poste',
         'Ses associations s’affichent ici dans les deux sens : affectation déclarée, sessions observées, historique et indices, chacun avec sa source et sa date. Rien n’est lu sur le réseau pour les afficher.',
         `<button class="btn primary" type="button" data-focus-picker>${glyph('search')}Rechercher un sujet</button>`)}
-        <ul class="rel-landing-legend" aria-label="Lecture des badges">${['declared', 'observed', 'history', 'imported', 'hint', 'contradictory'].map((b, j) => `<li data-j="${j}">${badge(b)}<span>${esc(BADGES[b].tip)}</span></li>`).join('')}</ul></section>
+        <ul class="rel-landing-legend" aria-label="Lecture des badges">${BADGE_ORDER.map((b, j) => `<li data-j="${j}">${b === 'contradictory'
+          ? `<span class="rel-contra-mark lg">${glyph('alert')}<span>Contradiction</span></span>` : badge(b)}<span>${esc(BADGES[b].tip)}</span></li>`).join('')}</ul></section>
       <section class="rel-suggest" aria-label="Suggestions">${[0, 1, 2, 3].map(() => `<div class="card rel-suggest-card">${sk('w40')}${sk('w70')}${sk('w55')}</div>`).join('')}</section>
     </div>`;
     body.querySelector('[data-focus-picker]').addEventListener('click', () => input.focus());
@@ -186,6 +205,7 @@ export function createSubjectTab(panel, app) {
 
   function loading(ref) {
     teardownView();
+    data = null;
     body.innerHTML = `<div class="rel-subject" aria-busy="true">
       <aside class="card rel-id">${sk('rel-sk-avatar')}${sk('w70')}${sk('w40')}${sk('w85')}${sk('rel-sk-block')}${sk('w85')}${sk('w70')}</aside>
       <section class="card rel-rel">${sk('w40')}<div class="rel-sk-graph skeleton"></div></section>
@@ -197,6 +217,7 @@ export function createSubjectTab(panel, app) {
 
   function failed(ref, err) {
     teardownView();
+    data = null;
     body.innerHTML = `<section class="card rel-error" role="alert">${empty('alert', 'Relations non lues', errText(err),
       `<button class="btn" type="button" data-retry>${glyph('refresh')}Réessayer</button><button class="btn ghost" type="button" data-clear>${glyph('x')}Changer de sujet</button>`)}</section>`;
     body.querySelector('[data-retry]').addEventListener('click', () => app.select(ref));
@@ -211,19 +232,27 @@ export function createSubjectTab(panel, app) {
     return `<div class="rel-primary" data-badge="${esc(p.badge)}">
       <span class="rel-primary-k">${label}${badge(p.badge, { size: 'sm' })}</span>
       <button class="rel-primary-name" type="button" ${p.dn ? `data-ref="${esc(p.dn)}"` : 'disabled'} data-tip="Voir ses relations">${avatar(kind === 'user' ? 'computer' : 'user', p.name, 'md')}<span><b>${esc(p.name)}</b>${p.login !== p.name ? `<span class="mono">${esc(p.login)}</span>` : ''}</span>${glyph('chevronRight')}</button>
-      <p class="rel-primary-why">${esc(p.reason)}${p.whenText ? ` · ${esc(p.whenText)}` : ''}</p></div>`;
+      <p class="rel-primary-why">${esc(p.reason)}${p.when ? ` · ${esc(dateText(p.when, { time: true }) ?? '')}` : ''}</p></div>`;
   }
 
   function factsMarkup(lines) {
     return `<ul class="rel-facts">${lines.map((l, j) => `<li data-badge="${esc(l.badge)}" data-j="${j}">${dot(l.badge)}<div><b>${esc(l.fact)}</b><span>${esc(l.value)}</span></div></li>`).join('')}</ul>`;
   }
 
-  function countsMarkup(c) {
+  /** Counts of the subject by nature (the contradiction is a mark counted apart, with the natures it touches). */
+  function countsMarkup(res) {
+    const c = res.counts;
     const items = [
       ['declared', c.declared, 'déclarée', 'déclarées'], ['observed', c.observed, 'observée', 'observées'], ['history', c.history, 'historique', 'historiques'],
-      ['imported', c.imported, 'importée', 'importées'], ['hint', c.hints, 'indice', 'indices'], ['contradictory', c.contradicted, 'contradictoire', 'contradictoires'],
+      ['imported', c.imported, 'importée', 'importées'], ['hint', c.hints, 'indice', 'indices'],
     ].filter((x) => x[1] > 0);
     const extra = [];
+    if (c.contradicted > 0) {
+      const touched = new Map();
+      for (const row of res.associations.filter((r) => r.contradicted)) touched.set(row.badge, (touched.get(row.badge) ?? 0) + 1);
+      const detail = [...touched.entries()].map(([b, n]) => `${int(n)} ${(BADGES[b]?.label ?? '').toLowerCase()}${n > 1 ? 's' : ''}`).join(', ');
+      extra.push(`<span class="rel-count contra" data-tip="${esc(BADGES.contradictory.tip)}">${glyph('alert')}<b>${int(c.contradicted)}</b>en contradiction${detail ? ` (${esc(detail)})` : ''}</span>`);
+    }
     if (c.unverified > 0) extra.push(`<span class="chip warn" data-tip="Associations sans GUID enregistré : identité non vérifiable.">${glyph('info')}${esc(nouns(c.unverified, 'non vérifiable', 'non vérifiables'))}</span>`);
     if (c.sessionOnly > 0) extra.push(`<span class="chip info" data-tip="Observations de cette session, pas encore enregistrées.">${glyph('clock')}${esc(nouns(c.sessionOnly, 'de session', 'de session'))}</span>`);
     return `<div class="rel-counts">${items.map(([b, n, one, many], j) => `<span class="rel-count" data-badge="${b}" data-j="${j}">${dot(b)}<b>${int(n)}</b>${esc(n > 1 ? many : one)}</span>`).join('')}${extra.join('')}</div>`;
@@ -235,7 +264,7 @@ export function createSubjectTab(panel, app) {
     const s = res.subject;
     const isUser = s.kind === 'user';
     const dir = res.direction;
-    const lastLogon = s.lastLogon ? `<span class="chip" data-tip="${esc(`Dernière authentification connue de l’annuaire : ${formatDateTime(s.lastLogon) ?? ''} (lastLogonTimestamp, à 14 jours près)`)}">${glyph('clock')}${esc(relTime(s.lastLogon) ?? '')}</span>` : '';
+    const lastLogon = s.lastLogon ? `<span class="chip rel-chip-logon" data-tip="${esc(`Dernière authentification connue de l’annuaire : ${formatDateTime(s.lastLogon) ?? ''} (lastLogonTimestamp, à 14 jours près)`)}">${glyph('clock')}<span class="rel-chip-k">Dernière authentification</span>${esc(dateText(s.lastLogon) ?? '')}</span>` : '';
     body.innerHTML = `<div class="rel-subject" data-kind="${esc(s.kind)}">
       <aside class="card rel-id spot reveal" aria-label="Identité du sujet">
         <span class="rel-id-glow" aria-hidden="true"></span>
@@ -258,9 +287,9 @@ export function createSubjectTab(panel, app) {
           <div class="head-titles"><h3>Relations</h3><span class="head-sub">${esc(res.context)}</span></div>
           <div class="meta"><div class="segmented rel-views" role="group" aria-label="Présentation des relations"><span class="thumb" aria-hidden="true"></span>
             ${VIEWS.map((v) => `<button type="button" data-view="${v.id}" aria-pressed="${v.id === view}">${glyph(v.icon)}<span>${esc(v.label)}</span></button>`).join('')}</div></div></div>
-        ${countsMarkup(res.counts)}
+        ${countsMarkup(res)}
         <div class="rel-view" data-view-host></div>
-        ${res.restore ? `<div class="rel-restore"><span>${glyph('undo')}Dernière suppression locale, toutes associations confondues${NBSP}: ${esc(res.restore.userLogin)} → ${esc(res.restore.computer)}</span><button class="btn sm" type="button" data-act="restore" data-tip="${esc(res.restore.tip)}">${glyph('undo')}${esc(res.restore.label)}</button></div>` : ''}
+        ${res.restore ? `<div class="rel-restore"><span>${glyph('undo')}Suppression locale de ce sujet${NBSP}: ${esc(res.restore.userLogin)} → ${esc(res.restore.computer)} · ${esc(dateText(res.restore.removedAt, { time: true }) ?? '')}</span><button class="btn sm" type="button" data-act="restore" data-tip="${esc(res.restore.tip)}">${glyph('undo')}${esc(res.restore.label)}<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button></div>` : ''}
       </section>
       <section class="card rel-logons reveal" aria-label="Dernières ouvertures de session">
         <div class="card-head"><span class="card-icon">${glyph('clock')}</span><div class="head-titles"><h3>Dernières ouvertures de session</h3>
@@ -286,10 +315,10 @@ export function createSubjectTab(panel, app) {
     body.querySelector('.rel-id-actions').addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest('[data-act]') : null;
       if (!b) return;
-      if (b.dataset.act === 'add') app.openPanel(isUser ? 'rechercher' : 'rechercher');
+      if (b.dataset.act === 'add') app.openPanel('rechercher');
       if (b.dataset.act === 'detect') app.openPanel(isUser ? 'detecter' : 'session');
       if (b.dataset.act === 'compare') app.compareWith(s);
-      if (b.dataset.act === 'fiche') app.openFiche(s.dn);
+      if (b.dataset.act === 'fiche') app.openFiche({ dn: s.dn, name: s.login });
     });
     body.querySelector('[data-act="restore"]')?.addEventListener('click', () => app.restore(res.restore.entryId));
     body.querySelector('.rel-primary-name[data-ref]')?.addEventListener('click', (e) => app.select(e.currentTarget.dataset.ref));
@@ -302,18 +331,20 @@ export function createSubjectTab(panel, app) {
     return `<ol class="rel-logon-list">${logons.map((l, j) => `<li data-badge="${esc(l.badge)}" data-j="${j}">
       <span class="rel-logon-mark">${glyph(l.kind === 'history' ? 'history' : l.kind === 'hint' ? 'shield' : 'eye')}</span>
       <div class="rel-logon-text" data-tip="${esc(`${l.text} · ${l.source}`)}"><b>${esc(l.text)}</b><span>${esc(l.source)}</span></div>
-      <time datetime="${esc(l.when)}" data-tip="${esc(formatDateTime(l.when) ?? '')}">${esc(l.whenText)}</time></li>`).join('')}</ol>`;
+      <time datetime="${esc(l.when)}" data-tip="${esc(formatDateTime(l.when) ?? '')}">${esc(dateText(l.when, { time: true }) ?? l.whenText)}</time></li>`).join('')}</ol>`;
   }
 
   function whyMarkup(res) {
     const present = new Map();
     for (const row of res.associations) {
-      if (!present.has(row.badge)) present.set(row.badge, { n: 0, rule: row.rule });
-      present.get(row.badge).n += 1;
+      if (!present.has(row.badge)) present.set(row.badge, 0);
+      present.set(row.badge, present.get(row.badge) + 1);
     }
+    const contradicted = res.associations.filter((r) => r.contradicted).length;
+    if (contradicted) present.set('contradictory', contradicted);
     if (!present.size) return `<p class="rel-quiet">${glyph('info')}Aucune association, donc aucun badge à expliquer.</p>`;
-    return `<ul class="rel-why-list">${[...present.entries()].sort((a, b) => Object.keys(BADGES).indexOf(a[0]) - Object.keys(BADGES).indexOf(b[0]))
-      .map(([b, v], j) => `<li data-j="${j}">${badge(b)}<span class="rel-why-n">${int(v.n)}</span><p>${esc(BADGES[b]?.tip ?? v.rule)}</p></li>`).join('')}</ul>`;
+    return `<ul class="rel-why-list">${[...present.entries()].sort((a, b) => BADGE_ORDER.indexOf(a[0]) - BADGE_ORDER.indexOf(b[0]))
+      .map(([b, n], j) => `<li data-j="${j}">${b === 'contradictory' ? `<span class="rel-contra-mark">${glyph('alert')}<span>Contradiction</span></span>` : badge(b)}<span class="rel-why-n">${int(n)}</span><p>${esc(BADGES[b]?.tip ?? '')}</p></li>`).join('')}</ul>`;
   }
 
   function setView(id, user) {
@@ -323,6 +354,15 @@ export function createSubjectTab(panel, app) {
     ink?.update();
     if (user) app.remember({ vue: id });
     paintView();
+  }
+
+  /** The associations between the subject and one object of the graph (both directions). */
+  function associationsWith(node) {
+    if (!data || !node) return [];
+    const isUser = data.subject.kind === 'user';
+    return data.associations.filter((r) => (isUser
+      ? (node.dn && r.computerDn ? r.computerDn.toLowerCase() === node.dn.toLowerCase() : r.computer === node.label)
+      : (node.dn && r.userDn ? r.userDn.toLowerCase() === node.dn.toLowerCase() : r.userLogin === node.sub)));
   }
 
   function paintView() {
@@ -343,13 +383,29 @@ export function createSubjectTab(panel, app) {
       graphCtl = renderGraph(host.querySelector('.rel-graph-host'), data.graph, {
         label: `Relations de ${data.subject.name}`,
         onOpen: (node) => app.select(node.dn),
+        associationsOf: associationsWith,
+        onFiche: (node) => app.openFiche({ dn: node.dn, name: node.kind === 'user' ? node.sub : node.label }),
+        onRemove: (row) => app.plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint }),
+        onSave: (row) => app.plan('relations.observations.plan', { resultId: '0'.repeat(32), keys: [row.key] }),
+        onShowList: () => setView('liste', true),
       });
-      host.querySelector('.rel-graph-foot').innerHTML = graphLegend(data.graph);
+      host.querySelector('.rel-graph-foot').innerHTML = graphLegend(data.graph, data.counts);
       applyVars(host);
     } else if (view === 'liste') {
       host.innerHTML = '<div class="rel-grid-host"></div>';
-      grid = createGrid(host.querySelector('.rel-grid-host'), listOptions());
+      const gridHost = host.querySelector('.rel-grid-host');
+      grid = createGrid(gridHost, listOptions());
       grid.setRows(data.associations);
+      // The column of a double click or of Entrée decides what opens (cells carry data-cell, the grid gives only the row).
+      gridHost.addEventListener('dblclick', (e) => { activeCol = e.target instanceof Element ? e.target.closest('.k-gc')?.querySelector('[data-cell]')?.dataset.cell ?? null : null; }, true);
+      gridHost.addEventListener('keydown', (e) => { if (e.key === 'Enter') activeCol = gridHost.querySelector('.k-gc.is-act [data-cell]')?.dataset.cell ?? null; }, true);
+      gridHost.addEventListener('click', (e) => {
+        const b = e.target instanceof Element ? e.target.closest('[data-row-act]') : null;
+        if (!b) return;
+        e.stopPropagation();
+        const row = data.associations.find((r) => r.key === b.dataset.key);
+        if (row) rowAction(b.dataset.rowAct, row);
+      });
     } else {
       host.innerHTML = timeline(data.logons.map((l) => ({
         when: l.when, title: l.text, text: l.source, tone: l.tone, icon: l.kind === 'history' ? 'history' : l.kind === 'hint' ? 'shield' : 'eye',
@@ -359,33 +415,47 @@ export function createSubjectTab(panel, app) {
     }
   }
 
+  function rowAction(act, row) {
+    const isUser = data.subject.kind === 'user';
+    if (act === 'see') app.select(isUser ? row.computerDn ?? row.computer : row.userDn ?? row.userLogin);
+    else if (act === 'save') app.plan('relations.observations.plan', { resultId: '0'.repeat(32), keys: [row.key] });
+    else if (act === 'remove') app.plan('relations.remove.plan', { key: row.key, fingerprint: row.fingerprint });
+  }
+
   function listOptions() {
     const isUser = data.subject.kind === 'user';
     return {
-      key: `relations.sujet.${isUser ? 'user' : 'computer'}`,
+      key: `relations.sujet.v2.${isUser ? 'user' : 'computer'}`,
       label: `Associations de ${data.subject.name}`,
       rowId: (r) => r.key,
       selection: 'single',
       height: `${Math.min(460, 58 + data.associations.length * 40)}px`,
       columns: [
         {
-          id: 'other', label: isUser ? 'Poste' : 'Utilisateur', required: true, width: 220,
+          id: 'other', label: isUser ? 'Poste' : 'Utilisateur', required: true, width: 160,
           get: (r) => (isUser ? r.computer : r.userName ?? r.userLogin),
-          html: (v, r) => `<span class="rel-cell-id">${avatar(isUser ? 'computer' : 'user', v, 'xs')}<span>${esc(v)}${!isUser && r.userName ? `<small class="mono">${esc(r.userLogin)}</small>` : ''}</span></span>`,
+          html: (v, r) => `<span class="rel-cell-id" data-cell="other">${avatar(isUser ? 'computer' : 'user', v, 'xs')}<span>${esc(v)}${!isUser && r.userName ? `<small class="mono">${esc(r.userLogin)}</small>` : ''}</span></span>`,
         },
-        { id: 'badge', label: 'Qualification', type: 'enum', options: BADGE_OPTIONS, width: 150, html: (v, r) => badge(v, { size: 'sm', tip: r.rule }) },
-        { id: 'when', label: 'Date', type: 'date', width: 130 },
-        { id: 'source', label: 'Source', width: 190 },
-        { id: 'persistence', label: 'Persistance', type: 'enum', options: PERSISTENCE, width: 150 },
-        { id: 'identity', label: 'Identité', type: 'enum', options: IDENTITY, width: 140, tip: 'GUID enregistré : même objet, même après renommage.' },
+        { id: 'badge', label: 'Qualification', type: 'enum', options: BADGE_OPTIONS, width: 150, html: (v, r) => qualification(r) },
+        { id: 'when', label: 'Date', type: 'date', width: 112, html: (v, r) => dateCell(v, r), csv: (v) => formatDateTime(v) ?? '' },
+        { id: 'source', label: 'Source', width: 144, html: (v) => `<span class="rel-src" data-tip="${esc(v)}">${esc(v)}</span>` },
+        { id: 'identity', label: 'Identité', type: 'enum', options: IDENTITY, width: 108, tip: 'GUID enregistré : même objet, même après renommage.' },
+        { id: 'actions', label: 'Actions', width: 96, sortable: false, filterable: false, secret: true, get: () => '', html: (v, r) => rowActions(r, isUser ? r.computer : r.userLogin) },
+        { id: 'persistence', label: 'Persistance', type: 'enum', options: PERSISTENCE, width: 150, hidden: true },
         { id: 'details', label: 'Détails', width: 280, hidden: true },
         { id: 'declarant', label: 'Déclarant', mono: true, hidden: true },
         { id: 'computerDn', label: 'DN du poste', mono: true, hidden: true },
         { id: 'userDn', label: 'DN de l’utilisateur', mono: true, hidden: true },
       ],
       empty: { icon: 'link', title: 'Aucune association', text: data.direction.emptyHint },
-      onActivate: (row) => { const dn = isUser ? row.computerDn : row.userDn; if (dn) app.select(dn); },
-      contextMenu: ({ row }) => app.rowMenu(row, isUser ? 'computer' : 'user'),
+      // Double click on the other end opens its fiche (Domenia 1 REL-051); elsewhere, or Entrée, shows its relations.
+      onActivate: (row) => {
+        const col = activeCol;
+        activeCol = null;
+        if (col === 'other') app.openFiche(isUser ? { dn: row.computerDn, name: row.computer } : { dn: row.userDn, name: row.userLogin });
+        else rowAction('see', row);
+      },
+      contextMenu: ({ row }) => (row ? app.rowMenu(row, isUser ? 'computer' : 'user') : []),
     };
   }
 

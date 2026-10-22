@@ -23,6 +23,9 @@ const FILTERS = [
 export function createJournalTab(panel, app) {
   let data = null;
   let filter = 'all';
+  // The page scrolls, not the list (no nested scroll bars): 60 lines first, then 60 more on request.
+  const STEP = 60;
+  let limit = STEP;
   const stops = [];
   panel.innerHTML = `<div class="rel-jrn">
     <section class="card rel-jrn-main reveal" aria-label="Journal local">
@@ -41,6 +44,7 @@ export function createJournalTab(panel, app) {
     const b = e.target instanceof Element ? e.target.closest('[data-filter]') : null;
     if (!b) return;
     filter = b.dataset.filter;
+    limit = STEP;
     panel.querySelectorAll('[data-filter]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.filter === filter)));
     paint();
   });
@@ -49,7 +53,8 @@ export function createJournalTab(panel, app) {
     if (!data) return;
     const listHost = panel.querySelector('.rel-jrn-list');
     listHost.removeAttribute('aria-busy');
-    const entries = data.entries.filter((e) => filter === 'all' || e.action === filter);
+    const all = data.entries.filter((e) => filter === 'all' || e.action === filter);
+    const entries = all.slice(0, limit);
     listHost.innerHTML = entries.length ? timeline(entries.map((e) => ({
       when: e.at,
       title: `${e.actionLabel} · ${e.userLogin} → ${e.computer}`,
@@ -60,6 +65,9 @@ export function createJournalTab(panel, app) {
       meta: e.source,
       html: `<div class="rel-jrn-tags">${badge(BADGE_OF_KIND[e.kind] ?? 'toCheck', { size: 'sm', label: e.badgeLabel })}${e.restorable ? `<button class="btn xs" type="button" data-restore="${esc(e.id)}">${glyph('undo')}Restaurer</button>` : ''}${e.restoredBy ? `<span class="rel-tag ok">${glyph('check')}Restaurée</span>` : ''}</div>`,
     })), { label: 'Journal des associations' }) : empty('history', 'Rien à afficher', 'Aucune ligne du journal ne correspond à ce filtre.');
+    if (all.length > entries.length) {
+      listHost.insertAdjacentHTML('beforeend', `<div class="rel-jrn-more"><button class="btn ghost sm" type="button" data-more>${glyph('chevronDown')}Afficher ${int(Math.min(STEP, all.length - entries.length))} lignes de plus</button><span>${esc(`${int(entries.length)} sur ${int(all.length)}`)}</span></div>`);
+    }
     bindTimeline(listHost);
     const rest = panel.querySelector('.rel-jrn-rest');
     rest.innerHTML = data.restorable.length
@@ -72,7 +80,9 @@ export function createJournalTab(panel, app) {
   }
 
   panel.addEventListener('click', (e) => {
-    const b = e.target instanceof Element ? e.target.closest('[data-restore]') : null;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t?.closest('[data-more]')) { limit += STEP; paint(); return; }
+    const b = t?.closest('[data-restore]');
     if (b) app.restore(b.dataset.restore);
   });
 
@@ -88,7 +98,6 @@ export function createJournalTab(panel, app) {
       listHost.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
       panel.querySelector('.rel-jrn-rest').innerHTML = '';
       panel.querySelector('.rel-jrn-sub').textContent = `Journal non lu${NBSP}: réessayez.`;
-      void int;
     },
     destroy() { stops.forEach((fn) => fn()); },
   };

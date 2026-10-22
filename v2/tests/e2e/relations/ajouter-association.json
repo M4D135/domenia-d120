@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Utilisateurs et postes : associer un poste à l’utilisateur",
-  "description": "Depuis le sujet j.martin, ouvre « Ajouter une association », cherche un poste de Lille, le choisit, prépare le plan (relecture de la cible), confirme l’écriture simulée et vérifie le reçu. Active Directory n’est jamais modifié : l’association est une donnée locale.",
+  "description": "Depuis le sujet j.martin, ouvre « Ajouter une association », cherche un poste de Lille, le choisit, prépare le plan (relecture de la cible), confirme l’écriture simulée et vérifie le reçu, puis l’état « Enregistrée » du panneau resté ouvert. Active Directory n’est jamais modifié : l’association est une donnée locale.",
   "modes": [
     "simulation"
   ],
@@ -92,6 +92,24 @@
       "do": "shot",
       "name": "ajout-recu",
       "selector": ".wf-receipt"
+    },
+    {
+      "do": "press",
+      "key": "Escape",
+      "title": "Fermer le panneau du reçu"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-confirm-card.saved",
+      "within": ".rel-panel",
+      "title": "Le panneau d’ajout, resté ouvert, montre l’association enregistrée"
+    },
+    {
+      "do": "expect",
+      "selector": ".rel-steps li.done",
+      "within": ".rel-panel",
+      "count": 4,
+      "title": "Les étapes Recherche, Choix, Confirmation et Vérification sont faites"
     },
     {
       "do": "journal",

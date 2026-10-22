@@ -1,7 +1,14 @@
 namespace Domenia.Core;
 
-/// <summary>Perimeter of a detection (Domenia 1 D047): known candidates, a list loaded elsewhere, or an explicit OU.</summary>
-public sealed record RelationDetectionRequest(string Dn, string Scope, string? OuDn, IReadOnlyList<string> Computers, int Limit, bool Kerberos);
+/// <summary>
+/// Perimeter of a detection (Domenia 1 D047): known candidates, a list loaded elsewhere (names or DNs of workstations), or an
+/// explicit OU. <see cref="SubjectGuid"/> and <see cref="SubjectLogin"/> are the identity the page showed: the account read
+/// again must still be that object with that identifier (Domenia 1 REL-019: recreated or renamed account, stop).
+/// </summary>
+public sealed record RelationDetectionRequest(string Dn, Guid SubjectGuid, string SubjectLogin, string Scope, string? OuDn, IReadOnlyList<string> Computers, int Limit, bool Kerberos);
+
+/// <summary>Perimeter of a relevé: the priority queue of the working OU, or a list loaded elsewhere (Domenia 1: rows shown in Rechercher).</summary>
+public sealed record RelationSweepRequest(int Limit, ScopeSelection Scope, IReadOnlyList<string> Computers);
 
 /// <summary>Text of an import file, sent by the page in parts and joined in memory (never written to disk).</summary>
 public sealed record RelationImportRequest(string Id, RelationImportAdapter Adapter, string FileName, string Text);
@@ -13,7 +20,7 @@ public sealed record RelationImportRequest(string Id, RelationImportAdapter Adap
 /// <list type="bullet">
 /// <item>local reads, no network in any mode: <see cref="OverviewAsync"/>, <see cref="ListAsync"/>, <see cref="SubjectAsync"/>,
 /// <see cref="SubjectsAsync"/>, <see cref="JournalAsync"/>, <see cref="ImportPreviewAsync"/>, <see cref="HarvestEstimateAsync"/>,
-/// <see cref="SweepPlanAsync"/>;</item>
+/// <see cref="SweepPlanAsync"/>, <see cref="PendingAsync"/>, <see cref="ObserveAsync"/> (session memory only);</item>
 /// <item>network reads in directory mode, after an explicit gesture and bounded: <see cref="TargetsAsync"/> (LDAP),
 /// <see cref="CollectAsync"/> (LDAP and controller journal), <see cref="ProbeAsync"/> (CIM/DCOM of the confirmed workstations
 /// only), <see cref="ComputerSessionAsync"/> (CIM/DCOM of one workstation), <see cref="HarvestAsync"/> (controller journal),
@@ -67,6 +74,20 @@ public interface IRelationsReader : IScreenReader
     /// <summary>Groups and organisation attributes of two users (the second named by identifier, DOMAINE\compte, UPN or DN).</summary>
     Task<UserGroupComparison> CompareAsync(string leftDn, string right, CancellationToken cancellationToken);
 
-    /// <summary>Incremental relevé of the working OU: workstations never read first, then the oldest readings, bounded.</summary>
-    Task<RelationDetectionPlan> SweepPlanAsync(int limit, ScopeSelection scope, CancellationToken cancellationToken);
+    /// <summary>
+    /// Incremental relevé: workstations of the working OU never read first, then the oldest readings, bounded; or the workstations
+    /// of a list loaded elsewhere (names or DNs, 50 at most), in their order.
+    /// </summary>
+    Task<RelationDetectionPlan> SweepPlanAsync(RelationSweepRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Observations kept by the engine and not saved yet, by result and by source (saved by batches of 64).</summary>
+    Task<RelationPendingObservations> PendingAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Shared service for the other screens (Domenia 1 REL-017, Merge-DomeniaLiveLinkMemory): a console account read elsewhere
+    /// joins the observations of the session (« Session uniquement ») when the account is an AD user of the domain with a DN
+    /// and the workstation is found; a local account, another domain or a bare name is refused with the reason. Nothing is
+    /// saved: the operator saves it through a plan of the write circuit.
+    /// </summary>
+    Task<RelationObservationReceipt> ObserveAsync(RelationObservationRequest request, CancellationToken cancellationToken);
 }

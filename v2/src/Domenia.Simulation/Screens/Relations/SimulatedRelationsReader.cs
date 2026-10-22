@@ -16,6 +16,11 @@ internal sealed class SimulatedProbePlan
     public RelationDetectionPlan Plan { get; set; } = null!;
 
     public ImmutableArray<RelationCandidate> Candidates { get; init; } = [];
+
+    private int used;
+
+    /// <summary>Marks the plan as run: a confirmed perimeter is probed once, never again without a new read (relation.planExpired).</summary>
+    public bool TryUse() => Interlocked.Exchange(ref used, 1) == 0;
 }
 
 /// <summary>Observations of a read kept by the engine, named by the plans of the write circuit.</summary>
@@ -50,6 +55,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
 {
     private const int SubjectLimit = 30;
     private const int TargetLimit = 50;
+    private const string SimulatedCompany = "Example";
 
     private readonly SimulatedDirectorySource source;
 
@@ -92,7 +98,8 @@ public sealed class SimulatedRelationsReader : IRelationsReader
             RelationProjection.Restore(RelationRules.Restorable(state.Journal).FirstOrDefault(), state.Now, state.Zone),
             RelationProjection.Activity(stored.Concat(state.Session), state.Now, state.Zone),
             state.Journal.Count,
-            summary);
+            summary,
+            Pending(state));
     }
 
     public async Task<RelationList> ListAsync(CancellationToken cancellationToken)
@@ -114,8 +121,11 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         var lookup = state.Lookup();
         var subject = lookup.Find(reference) ?? throw new DomeniaOperationException(RelationErrors.Unknown, RelationErrors.UnknownMessage);
         var stored = state.Store.Values.ToList();
+        // Only a removal of this subject is offered beside its relations; the last removal of the whole store stays in the
+        // header and the journal.
+        var restore = RelationRules.Restorable(state.Journal).FirstOrDefault(e => RelationProjection.SubjectRelations([e.Relation], subject).Length > 0);
         return RelationProjection.Subject(subject, RelationRules.Path(subject.Dn, source.World.Directory.Domain.DnsName), stored, state.Session, stored, lookup,
-            RelationRules.Restorable(state.Journal).FirstOrDefault(), state.Now, state.Zone);
+            restore, state.Now, state.Zone);
     }
 
     public async Task<RelationSubjectMatches> SubjectsAsync(string text, CancellationToken cancellationToken)
@@ -231,6 +241,18 @@ public sealed class SimulatedRelationsReader : IRelationsReader
                 "La détection des postes concerne un utilisateur" + C + "pour un poste, lisez sa session. Aucun poste contacté.");
         }
         await WaitAsync("network", 380, 820, cancellationToken).ConfigureAwait(false);
+        // The account read again must be the object the page showed (Domenia 1 REL-019): another GUID is a recreated account,
+        // another identifier a renamed one. The detection stops before anything else is read.
+        if (subject.Guid != request.SubjectGuid)
+        {
+            throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Compte recréé depuis son affichage" + C
+                + "le DN désigne maintenant un autre objet (GUID différent). Rechargez le sujet ; aucun poste contacté.");
+        }
+        if (!string.Equals(RelationRules.LoginKey(subject.Login), RelationRules.LoginKey(request.SubjectLogin), StringComparison.Ordinal))
+        {
+            throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Compte renommé depuis son affichage (" + request.SubjectLogin + " → " + subject.Login + ")" + C
+                + "rechargez le sujet ; aucun poste contacté.");
+        }
         var random = source.ScreenStream("relations").Fork("collect/" + subject.Guid.ToString("D"));
         var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
         long elapsed = 0;
@@ -240,7 +262,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
             var (label, tone) = RelationRules.AttemptStatus(status);
             attempts.Add(new RelationAttempt(method, status, label, tone, target, detail, elapsed, resource));
         }
-        Attempt("Compte sélectionné", "OK", subject.Login, "Compte relu sur " + Controller + ".");
+        Attempt("Compte sélectionné", "OK", subject.Login, "Compte relu sur " + Controller + C + "même GUID et même identifiant que le sujet affiché.", "Annuaire · " + Controller);
         var proofs = new List<RelationProof>();
         var known = RelationProjection.SubjectRelations(state.Store.Values, subject).ToList();
         var observedAt = new Dictionary<string, (DateTimeOffset? When, string Source)>(StringComparer.OrdinalIgnoreCase);
@@ -314,7 +336,8 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         }
         else if (request.Scope == "loaded")
         {
-            perimeter = request.Computers.Select(dn => lookup.Find(dn)).Where(o => o is { Kind: RelationSubjectKind.Computer })
+            // Names or DNs of the list loaded elsewhere, resolved in the local index only; an unknown name is left out.
+            perimeter = request.Computers.Select(reference => lookup.Find(reference)).Where(o => o is { Kind: RelationSubjectKind.Computer })
                 .Select(o => new RelationPlanCandidate(o!.Guid, o.Name, o.Dn, domain.RootDn, "Liste chargée"));
         }
         else
@@ -354,129 +377,130 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         }
         try
         {
+            // A confirmed perimeter is probed once: running the same plan again would contact the workstations again without a
+            // new read of the directory (Domenia 1 D047).
+            if (!holder.TryUse())
+            {
+                throw new DomeniaOperationException(RelationErrors.PlanExpired, "Périmètre déjà sondé" + C
+                    + "relisez l’annuaire pour préparer un nouveau périmètre. Aucun poste contacté en plus.");
+            }
             var lookup = state.Lookup();
             var domain = lookup.Directory.Domain;
-            var counters = RelationRules.NewCounters(plan.Targets.Length);
+            var sweep = holder.Mode == "sweep";
             var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
             var candidates = holder.Candidates.Where(c => c.Guid is not null).ToDictionary(c => c.Guid!, StringComparer.OrdinalIgnoreCase);
-            var probed = new List<string>();
             var observations = ImmutableDictionary.CreateBuilder<string, StoredRelation>(StringComparer.Ordinal);
+            var observedUsers = new Dictionary<string, RelationObject>(StringComparer.OrdinalIgnoreCase);
             long elapsed = 0;
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(stop, cancellationToken);
-            foreach (var target in plan.Targets)
+
+            async Task<RelationConsoleOutcome> ReadAsync(RelationPlanTarget target, CancellationToken token)
             {
-                if (stop.IsCancellationRequested)
-                {
-                    counters = RelationRules.Count(counters, RelationProbeOutcome.Stopped);
-                    break;
-                }
-                try
-                {
-                    await WaitAsync("probe", 160, 380, linked.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
-                    counters = RelationRules.Count(counters, RelationProbeOutcome.Stopped);
-                    break;
-                }
+                await WaitAsync("probe", 160, 380, token).ConfigureAwait(false);
                 var computer = lookup.Find(target.Dn);
-                probed.Add(target.Guid);
                 var now = WritePlans.TruncateToSecond(state.Now);
-                SimulatedRelationProbes.ConsoleReading reading = computer is null || computer.Guid.ToString("D") != target.Guid
-                    ? new SimulatedRelationProbes.ConsoleReading("ERREUR", "Objet AD résolu différent de celui confirmé (GUID)" + C + "poste non sondé.", null, null, 0)
-                    : SimulatedRelationProbes.Console(state, computer, lookup);
-                var status = reading.Status;
-                string label;
-                RelationObject? observedUser = null;
+                if (computer is null || computer.Guid.ToString("D") != target.Guid)
+                {
+                    return new RelationConsoleOutcome("ERREUR", "Lecture non confirmée", "Objet AD résolu différent de celui confirmé (GUID)" + C + "poste non sondé.", null, 0);
+                }
+                var reading = SimulatedRelationProbes.Console(state, computer, lookup);
+                state.Read(computer.Guid, now);
                 if (reading.Account is not null && reading.User is not null)
                 {
-                    if (holder.Mode == "sweep")
+                    if (sweep)
                     {
-                        status = "CONFIRME";
-                        observedUser = reading.User;
-                        label = "Compte console relevé";
+                        observedUsers[target.Guid] = reading.User;
+                        return new RelationConsoleOutcome("CONFIRME", "Compte console relevé", reading.Detail, reading.Account, reading.DurationMs);
                     }
-                    else
+                    var subject = holder.Subject!;
+                    var match = RelationRules.MatchAccount(new RelationAccountTarget(subject.Login, domain.NetbiosName, domain.DnsName, null, subject.Upn), reading.Account, null, target.Computer);
+                    if (match.Match)
                     {
-                        var subject = holder.Subject!;
-                        var match = RelationRules.MatchAccount(new RelationAccountTarget(subject.Login, domain.NetbiosName, domain.DnsName, null, subject.Upn), reading.Account, null, target.Computer);
-                        if (match.Match)
-                        {
-                            status = "CONFIRME";
-                            observedUser = subject;
-                            label = "Console confirmée";
-                        }
-                        else
-                        {
-                            label = "Autre compte console";
-                        }
+                        observedUsers[target.Guid] = subject;
+                        return new RelationConsoleOutcome("CONFIRME", "Console confirmée", reading.Detail, reading.Account, reading.DurationMs);
                     }
+                    return new RelationConsoleOutcome(reading.Status, "Autre compte console", reading.Detail, reading.Account, reading.DurationMs);
                 }
-                else
+                var label = reading.Status switch
                 {
-                    label = status switch
-                    {
-                        "REFUSE" => "Lecture refusée",
-                        "DELAI" => "Délai dépassé",
-                        "ERREUR" => "Lecture non confirmée",
-                        _ => "Aucun compte console",
-                    };
-                }
-                if (computer is not null)
-                {
-                    state.Read(computer.Guid, now);
-                }
-                if (RelationRules.Outcome(status) is { } outcome)
-                {
-                    counters = RelationRules.Count(counters, outcome);
-                }
-                elapsed += reading.DurationMs;
-                var (statusLabel, tone) = RelationRules.AttemptStatus(status);
-                attempts.Add(new RelationAttempt("Console CIM/DCOM", status, statusLabel, tone, target.Computer, label + ". " + reading.Detail, elapsed, "Postes"));
-                var confirmed = observedUser is not null;
+                    "REFUSE" => "Lecture refusée",
+                    "AUTH_REJETEE" => "Identifiants rejetés",
+                    "DELAI" => "Délai dépassé",
+                    "ERREUR" => "Lecture non confirmée",
+                    _ => "Aucun compte console",
+                };
+                return new RelationConsoleOutcome(reading.Status, label, reading.Detail, null, reading.DurationMs);
+            }
+
+            // Relevé: a ping by batches first (Domenia 1 REL-031); a workstation that does not answer is not asked for its session.
+            async Task<bool> PingAsync(RelationPlanTarget target, CancellationToken token)
+            {
+                await WaitAsync("ping", 20, 90, token).ConfigureAwait(false);
+                var guid = Guid.Parse(target.Guid);
+                var observation = source.World.Observations.Workstations.FirstOrDefault(o => o.ComputerGuid == guid);
+                var computer = lookup.Find(target.Dn);
+                return computer is { Enabled: true } && !(observation is not null && observation.Presence.HasReading && observation.Presence.Answered == false);
+            }
+
+            void OnStep(RelationProbeStep step)
+            {
+                var target = step.Target;
+                var outcome = step.Outcome;
+                elapsed += outcome.DurationMs;
+                var (statusLabel, tone) = RelationRules.AttemptStatus(outcome.Status);
+                attempts.Add(new RelationAttempt(step.PingFailed ? "Ping groupé" : "Console CIM/DCOM", outcome.Status, statusLabel, tone, target.Computer,
+                    outcome.Label + ". " + outcome.Detail, elapsed, step.PingFailed ? "Réseau · ICMP" : "Poste · " + target.Computer));
+                var confirmed = outcome.Status == "CONFIRME" && observedUsers.ContainsKey(target.Guid);
                 var badge = confirmed ? RelationRules.BadgeOf(RelationKind.Console) : RelationRules.BadgeOf(RelationKind.Hint);
+                var now = WritePlans.TruncateToSecond(state.Now);
                 candidates.TryGetValue(target.Guid, out var previous);
                 candidates[target.Guid] = new RelationCandidate(target.Guid, target.Computer, target.Dn, previous?.Origins ?? target.Source,
-                    previous?.Why ?? "Périmètre confirmé" + C + target.Source + ".", true, null, badge.Badge, badge.Label, badge.Tone, label,
-                    reading.Account, now, RelationRules.WhenText(now, state.Now, state.Zone), confirmed, previous?.Known ?? false, previous?.AlreadyLinked ?? false);
-                if (confirmed && computer is not null)
+                    previous?.Why ?? "Périmètre confirmé" + C + target.Source + ".", true, null, badge.Badge, badge.Label, badge.Tone, outcome.Label,
+                    outcome.Account, now, RelationRules.WhenText(now, state.Now, state.Zone), confirmed, previous?.Known ?? false, previous?.AlreadyLinked ?? false);
+                if (confirmed && lookup.Find(target.Dn) is { } computer)
                 {
-                    var relation = new StoredRelation(observedUser!.Login, observedUser.Guid, observedUser.Dn, computer.Name, computer.Guid, computer.Dn, RelationKind.Console,
+                    var user = observedUsers[target.Guid];
+                    var relation = new StoredRelation(user.Login, user.Guid, user.Dn, computer.Name, computer.Guid, computer.Dn, RelationKind.Console,
                         RelationRules.ConsoleSource, now, "Lecture de la console à cette date ; sessions RDP non recensées. Aucun ancien lien supprimé.", true, null, null);
                     observations[RelationRules.Key(relation)] = relation;
                 }
-                progress?.Report(new RelationProbeProgress(planId, counters, target.Computer, status, label, tone, reading.Account));
+                progress?.Report(new RelationProbeProgress(planId, step.Counters, target.Computer, outcome.Status, outcome.Label, tone, outcome.Account));
             }
+
+            var run = await RelationProbeLoop.RunAsync(plan, ReadAsync, sweep ? PingAsync : (Func<RelationPlanTarget, CancellationToken, Task<bool>>?)null, OnStep, stop, cancellationToken).ConfigureAwait(false);
+            var counters = run.Counters;
             var found = observations.ToImmutable();
             state.Observe(found.Values);
-            var resultId = state.Remember(new SimulatedObservationSet { Origin = holder.Mode == "sweep" ? "Relevé du parc" : "Détection", Relations = found });
-            var planned = plan.Targets.Select(t => t.Guid).ToList();
-            var within = RelationRules.WithinPlan(planned, probed);
-            var complete = RelationRules.MatchesPlan(planned, probed) && counters.Refused + counters.Unreachable == 0;
-            var message = counters.Stopped
-                ? "Arrêt demandé" + C + "résultat partiel. Les liens enregistrés sont conservés ; " + counters.Text + "."
-                : "Détection terminée" + C + counters.Text + ".";
-            if (!counters.Stopped && !complete)
+            var resultId = state.Remember(new SimulatedObservationSet { Origin = sweep ? "Relevé du parc" : "Détection", Relations = found });
+            var message = run.AuthRejected
+                ? "Identifiants rejetés par " + run.RejectedOn + C + "relevé arrêté au premier refus, aucun autre poste contacté avec ce compte ; " + counters.Text + "."
+                : counters.Stopped
+                    ? "Arrêt demandé" + C + "résultat partiel. Les liens enregistrés sont conservés ; " + counters.Text + "."
+                    : (sweep ? "Relevé terminé" : "Détection terminée") + C + counters.Text + ".";
+            if (!counters.Stopped && !run.Complete)
             {
                 message += " Liste confirmée interrogée en partie seulement (limite, délai ou refus).";
             }
-            if (counters.Confirmed == 0 && holder.Mode != "sweep")
+            if (run.PingFailures > 0)
+            {
+                message += " " + FrenchText.Count(run.PingFailures, "poste n’a pas répondu au ping", "postes n’ont pas répondu au ping") + C + "session non demandée.";
+            }
+            if (counters.Confirmed == 0 && !sweep)
             {
                 message += " " + plan.ZeroMeaning;
             }
             if (found.Count > 0)
             {
-                message += " " + FrenchText.Count(found.Count, "observation visible", "observations visibles") + " pour la session ; « Enregistrer » les garde, sans retirer aucune association.";
+                message += " " + FrenchText.Count(found.Count, "observation visible", "observations visibles") + " pour la session ; « Enregistrer » les garde par lots de 64, sans retirer aucune association.";
             }
             if (counters.Refused > 0)
             {
-                message += " Accès refusé sur au moins un poste" + C + "choisissez un autre compte dans Accès ; rien n’est rejoué automatiquement.";
+                message += " Accès refusé sur au moins un poste" + C + "rien n’est rejoué automatiquement ; relancez avec un compte autorisé.";
             }
             var stored = state.Store;
             var savable = found.Values.Count(r => !stored.TryGetValue(RelationRules.Key(r), out var known) || RelationRules.Fingerprint(known) != RelationRules.Fingerprint(r));
-            return new RelationDetection(resultId, holder.Mode == "sweep" ? "sweep" : "probe", holder.Subject is null ? null : SubjectOf(holder.Subject), attempts.ToImmutable(),
+            return new RelationDetection(resultId, sweep ? "sweep" : "probe", holder.Subject is null ? null : SubjectOf(holder.Subject), attempts.ToImmutable(),
                 [.. candidates.Values.OrderByDescending(c => c.Confirmed).ThenByDescending(c => c.Known).ThenBy(c => c.Computer, StringComparer.Ordinal)],
-                [], plan, counters, counters.Stopped || !complete, within, complete, savable, message);
+                [], plan, counters, counters.Stopped || !run.Complete, run.Within, run.Complete, savable, message);
         }
         finally
         {
@@ -564,26 +588,36 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         var lookup = state.Lookup();
         var (couples, events, truncated, machines, unresolved) = SimulatedRelationProbes.Harvest(state, lookup, estimate.Days, estimate.MaxEvents);
         var stored = state.Store.Values.ToList();
+        var pairs = stored.Where(r => r.UserGuid is not null && r.ComputerGuid is not null).Select(r => (r.UserGuid!.Value, r.ComputerGuid!.Value)).ToHashSet();
         var observations = ImmutableDictionary.CreateBuilder<string, StoredRelation>(StringComparer.Ordinal);
         var rows = ImmutableArray.CreateBuilder<RelationHarvestCouple>();
         foreach (var couple in couples)
         {
-            var known = stored.Any(r => r.UserGuid == couple.User.Guid && r.ComputerGuid == couple.Computer.Guid);
+            // The relevé memory of the parc learns the last logon of each workstation (Domenia 1 Complete-DomeniaLogonHarvestUi).
+            state.Read(couple.Computer.Guid, couple.Last);
+            var known = pairs.Contains((couple.User.Guid, couple.Computer.Guid));
             var relation = new StoredRelation(couple.User.Login, couple.User.Guid, couple.User.Dn, couple.Computer.Name, couple.Computer.Guid, couple.Computer.Dn,
                 RelationKind.History, RelationRules.HarvestSource, couple.Last,
                 FrenchText.Count(couple.Events, "événement", "événements") + " (" + couple.EventIds + ") du " + (RelationRules.WhenText(couple.First, state.Now, state.Zone) ?? "")
                 + " au " + (RelationRules.WhenText(couple.Last, state.Now, state.Zone) ?? "") + " sur " + estimate.Controller + ".", true, null, null);
             var key = RelationRules.Key(relation);
-            observations[key] = relation;
+            if (!known)
+            {
+                // Only the missing couples join the memory (Domenia 1 Add-UserMachineLinkIfMissing): a known one is never overwritten.
+                observations[key] = relation;
+            }
             rows.Add(new RelationHarvestCouple(key, couple.User.Login, couple.User.Name, couple.User.Dn, couple.Computer.Name, couple.Computer.Dn, couple.First, couple.Last,
                 RelationRules.WhenText(couple.Last, state.Now, state.Zone) ?? "", couple.Events, couple.EventIds, known));
         }
-        var resultId = state.Remember(new SimulatedObservationSet { Origin = "Moisson du journal", Relations = observations.ToImmutable() });
+        var fresh = observations.ToImmutable();
+        state.Observe(fresh.Values);
+        var resultId = state.Remember(new SimulatedObservationSet { Origin = "Moisson du journal", Relations = fresh });
         var all = rows.ToImmutable();
         var newCount = all.Count(r => !r.Known);
         var message = FrenchText.Count(events, "événement lu", "événements lus") + " sur " + estimate.Controller + C + FrenchText.Count(all.Length, "couple utilisateur-poste", "couples utilisateur-poste")
             + ", dont " + FrenchText.Count(newCount, "nouveau", "nouveaux") + ". " + FrenchText.Count(machines, "événement de compte machine ignoré", "événements de comptes machines ignorés")
-            + ", " + FrenchText.Count(unresolved, "compte introuvable", "comptes introuvables") + " dans l’annuaire. Aucun poste contacté ; rien n’est encore enregistré.";
+            + ", " + FrenchText.Count(unresolved, "compte introuvable", "comptes introuvables") + " dans l’annuaire. Aucun poste contacté. Les nouveaux couples sont en mémoire pour la session"
+            + C + "« Enregistrer » les garde par lots de " + FrenchText.Integer(WritePlans.MaxChanges) + ", chaque lot confirmé et tracé par un reçu.";
         if (truncated)
         {
             message += " Limite de " + FrenchText.Integer(estimate.MaxEvents) + " événements atteinte" + C + "les couples les plus récents sont gardés.";
@@ -799,47 +833,159 @@ public sealed class SimulatedRelationsReader : IRelationsReader
             throw new DomeniaOperationException(RelationErrors.CompareUnresolved, reason);
         }
         await WaitAsync("network", 260, 640, cancellationToken).ConfigureAwait(false);
-        return UserGroupComparer.Compare(left, other, directory, WritePlans.TruncateToSecond(source.Clock.GetUtcNow()), source.World.TimeZone);
+        // The generated directory holds no company: every account of the simulation belongs to « Example », as the Fiche shows it.
+        return UserGroupComparer.Compare(left, other, directory, WritePlans.TruncateToSecond(source.Clock.GetUtcNow()), source.World.TimeZone,
+            companyOf: static _ => SimulatedCompany);
     }
 
-    public async Task<RelationDetectionPlan> SweepPlanAsync(int limit, ScopeSelection scope, CancellationToken cancellationToken)
+    public async Task<RelationDetectionPlan> SweepPlanAsync(RelationSweepRequest request, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(request);
+        var scope = request.Scope;
         ScopeRules.EnsureNotDomainRoot(scope, source.World.Directory.Domain.RootDn);
         await WaitAsync("read", 60, 160, cancellationToken).ConfigureAwait(false);
         var state = State;
         var lookup = state.Lookup();
         var root = lookup.Directory.Domain.RootDn;
-        var lastConsole = state.Store.Values.Where(r => r.Kind is RelationKind.Console && r.ComputerGuid is not null)
+        var forgotten = state.ReadingsForgottenAt;
+        var lastConsole = state.Store.Values.Where(r => r.Kind is RelationKind.Console && r.ComputerGuid is not null && r.When is not null && (forgotten is null || r.When > forgotten))
             .GroupBy(r => r.ComputerGuid!.Value).ToDictionary(g => g.Key, g => g.Max(r => r.When));
-        var skipped = 0;
-        var queue = new List<(RelationPlanCandidate Candidate, int Order, DateTimeOffset? At)>();
-        foreach (var computer in lookup.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)))
+        DateTimeOffset? LastOf(Guid guid)
         {
-            var last = state.LastReading(computer.ObjectGuid) ?? lastConsole.GetValueOrDefault(computer.ObjectGuid);
-            var logon = AdValues.FromFileTime(computer.LastLogonTimestamp);
-            if (last is DateTimeOffset reading && (logon is null || logon <= reading))
-            {
-                // Not authenticated again since the last relevé: not asked again (Domenia 1 REL-031).
-                skipped++;
-                continue;
-            }
-            var reason = last is DateTimeOffset at
-                ? "Relevé du " + (RelationRules.WhenText(at, state.Now, state.Zone) ?? "") + ", réauthentifié depuis"
-                : "Jamais relevé";
-            queue.Add((new RelationPlanCandidate(computer.ObjectGuid, computer.Name, computer.DistinguishedName, root, reason), last is null ? 0 : 1, last));
+            var reading = state.LastReading(guid);
+            var console = lastConsole.GetValueOrDefault(guid);
+            return reading is null ? console : console is null || reading > console ? reading : console;
         }
-        var ordered = queue.OrderBy(q => q.Order).ThenBy(q => q.At).ThenBy(q => q.Candidate.Computer, StringComparer.Ordinal).Select(q => q.Candidate).ToList();
         var holder = new SimulatedProbePlan { Mode = "sweep", Subject = null, Kerberos = false };
         var id = state.Remember(holder);
-        var plan = RelationRules.DetectionPlan("sweep", scope.Dn, root, ordered, limit, id, state.Now + SimulatedRelationState.ResultLifetime);
-        if (plan.Allowed && skipped > 0)
+        var expires = state.Now + SimulatedRelationState.ResultLifetime;
+        RelationDetectionPlan plan;
+        if (request.Computers.Count > 0)
         {
-            plan = plan with { Text = plan.Text + " " + FrenchText.Count(skipped, "poste non réauthentifié", "postes non réauthentifiés") + " depuis son dernier relevé" + C + "non redemandé" + (skipped > 1 ? "s." : ".") };
+            // List loaded elsewhere (Domenia 1: the rows shown in Rechercher): its workstations, in its order, never more.
+            var listed = request.Computers.Select(reference => lookup.Find(reference)).Where(o => o is { Kind: RelationSubjectKind.Computer, Enabled: true })
+                .Select(o => new RelationPlanCandidate(o!.Guid, o.Name, o.Dn, root, LastOf(o.Guid) is DateTimeOffset at
+                    ? "Liste chargée · relevé du " + (RelationRules.WhenText(at, state.Now, state.Zone) ?? "")
+                    : "Liste chargée · jamais relevé"))
+                .ToList();
+            plan = RelationRules.DetectionPlan("loaded", null, root, listed, request.Limit, id, expires);
+            var missing = request.Computers.Count - listed.Count;
+            if (plan.Allowed && missing > 0)
+            {
+                plan = plan with { Text = plan.Text + " " + FrenchText.Count(missing, "nom de la liste écarté", "noms de la liste écartés") + C + "inconnu de l’index local ou compte désactivé." };
+            }
+        }
+        else
+        {
+            var skipped = 0;
+            var queue = new List<(RelationPlanCandidate Candidate, int Order, DateTimeOffset? At)>();
+            foreach (var computer in lookup.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)))
+            {
+                var last = LastOf(computer.ObjectGuid);
+                var logon = AdValues.FromFileTime(computer.LastLogonTimestamp);
+                if (last is DateTimeOffset reading && (logon is null || logon <= reading))
+                {
+                    // Not authenticated again since the last relevé: not asked again (Domenia 1 REL-031).
+                    skipped++;
+                    continue;
+                }
+                var reason = last is DateTimeOffset at
+                    ? "Relevé du " + (RelationRules.WhenText(at, state.Now, state.Zone) ?? "") + ", réauthentifié depuis"
+                    : "Jamais relevé";
+                queue.Add((new RelationPlanCandidate(computer.ObjectGuid, computer.Name, computer.DistinguishedName, root, reason), last is null ? 0 : 1, last));
+            }
+            var ordered = queue.OrderBy(q => q.Order).ThenBy(q => q.At).ThenBy(q => q.Candidate.Computer, StringComparer.Ordinal).Select(q => q.Candidate).ToList();
+            plan = RelationRules.DetectionPlan("sweep", scope.Dn, root, ordered, request.Limit, id, expires);
+            if (plan.Allowed && skipped > 0)
+            {
+                plan = plan with { Text = plan.Text + " " + FrenchText.Count(skipped, "poste non réauthentifié", "postes non réauthentifiés") + " depuis son dernier relevé" + C + "non redemandé" + (skipped > 1 ? "s." : ".") };
+            }
+        }
+        if (plan.Allowed)
+        {
+            plan = plan with { Text = plan.Text + " Ping groupé par lots de " + FrenchText.Integer(RelationProbeLoop.PingBatchSize) + " avant toute lecture de session." };
         }
         holder.Plan = plan;
         return plan;
     }
+
+    public async Task<RelationPendingObservations> PendingAsync(CancellationToken cancellationToken)
+    {
+        await WaitAsync("read", 20, 60, cancellationToken).ConfigureAwait(false);
+        return Pending(State);
+    }
+
+    public async Task<RelationObservationReceipt> ObserveAsync(RelationObservationRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await WaitAsync("read", 10, 40, cancellationToken).ConfigureAwait(false);
+        var state = State;
+        var lookup = state.Lookup();
+        var computer = lookup.Find(request.Computer);
+        if (computer is not { Kind: RelationSubjectKind.Computer })
+        {
+            return new RelationObservationReceipt(false, null, "Poste introuvable dans l’index local" + C + "observation ignorée.");
+        }
+        var domain = lookup.Directory.Domain;
+        var (authority, login, _) = RelationRules.ParseAccount(request.Account);
+        var user = login.Length == 0 ? null : lookup.UserByLogin(login);
+        if (user is null || user.Dn.Length == 0)
+        {
+            return new RelationObservationReceipt(false, null, "Compte " + FrenchText.Quote(request.Account) + " absent de l’annuaire" + C
+                + "un compte local ou un nom nu n’est jamais réinterprété. Observation ignorée.");
+        }
+        var match = RelationRules.MatchAccount(new RelationAccountTarget(user.Login, domain.NetbiosName, domain.DnsName, user.Sid, user.Upn), request.Account, null, computer.Name);
+        if (!match.Match || authority.Length == 0)
+        {
+            return new RelationObservationReceipt(false, null, match.Match ? "Compte non qualifié par son domaine" + C + "observation ignorée." : match.Reason + " Observation ignorée.");
+        }
+        var origin = string.IsNullOrWhiteSpace(request.Source) ? RelationRules.ConsoleSource : RelationRules.Flat(request.Source, 80);
+        var kind = RelationRules.KindOf(origin) == RelationKind.RemoteSession ? RelationKind.RemoteSession : RelationKind.Console;
+        var relation = new StoredRelation(user.Login, user.Guid, user.Dn, computer.Name, computer.Guid, computer.Dn, kind, origin, WritePlans.TruncateToSecond(request.ObservedAt),
+            RelationRules.Flat(request.Detail ?? "Observation versée par un autre écran ; aucun ancien lien supprimé.", 200), true, null, null);
+        state.Observe([relation]);
+        state.Read(computer.Guid, relation.When!.Value);
+        return new RelationObservationReceipt(true, RelationRules.Key(relation), user.Login + " → " + computer.Name + " gardée pour la session (« Session uniquement »)" + C
+            + "enregistrez-la depuis Utilisateurs et postes pour la conserver.");
+    }
+
+    /// <summary>
+    /// Observations not saved yet: the observations of the session as a whole, then every read whose observations are still
+    /// pending (a harvest, a relevé, a detection), by source; 64 per plan.
+    /// </summary>
+    internal static RelationPendingObservations Pending(SimulatedRelationState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var session = state.Session;
+        var stored = state.Store;
+        var unsaved = session.Where(r => !stored.TryGetValue(RelationRules.Key(r), out var known) || RelationRules.Fingerprint(known) != RelationRules.Fingerprint(r)).ToList();
+        var sets = ImmutableArray.CreateBuilder<RelationPendingSet>();
+        if (unsaved.Count > 0)
+        {
+            sets.Add(new RelationPendingSet(RelationChange.SessionResultId, "Observations de la session", unsaved.Count, unsaved.Count, BatchesOf(unsaved.Count), PendingSources(unsaved), null));
+        }
+        var keys = unsaved.Select(RelationRules.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var (id, set, expires) in state.ObservationSets())
+        {
+            var remaining = set.Relations.Where(p => keys.Contains(p.Key)).Select(p => p.Value).ToList();
+            if (remaining.Count > 0)
+            {
+                sets.Add(new RelationPendingSet(id, set.Origin, set.Relations.Count, remaining.Count, BatchesOf(remaining.Count), PendingSources(remaining), expires));
+            }
+        }
+        var batches = BatchesOf(unsaved.Count);
+        var text = unsaved.Count == 0
+            ? "Aucune observation en attente" + C + "tout ce qui a été lu est enregistré."
+            : FrenchText.Count(unsaved.Count, "observation en mémoire", "observations en mémoire") + " pour cette session, pas encore enregistrée" + (unsaved.Count > 1 ? "s" : "") + C
+                + FrenchText.Count(batches, "lot", "lots") + " de " + FrenchText.Integer(WritePlans.MaxChanges) + " au plus, chacun confirmé et tracé par un reçu.";
+        return new RelationPendingObservations(unsaved.Count, batches, sets.ToImmutable(), text);
+    }
+
+    private static int BatchesOf(int count) => (count + WritePlans.MaxChanges - 1) / WritePlans.MaxChanges;
+
+    private static ImmutableArray<RelationPendingSource> PendingSources(IEnumerable<StoredRelation> relations) =>
+        [.. relations.GroupBy(r => r.Source, StringComparer.Ordinal).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new RelationPendingSource(g.Key, g.Count()))];
 
     // ------------------------------------------------------------------ helpers
 

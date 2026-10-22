@@ -113,6 +113,7 @@ internal sealed class SimulatedRelationState
     private readonly Dictionary<string, (StoredRelation Record, string? Note, string? Restores)> pending = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (DateTimeOffset Expires, object Value)> results = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, DateTimeOffset> sweepReadings = [];
+    private DateTimeOffset? readingsForgottenAt;
     private (DirectorySnapshot Snapshot, SimulatedRelationLookup Lookup)? lookup;
     private string? probing;
 
@@ -224,18 +225,47 @@ internal sealed class SimulatedRelationState
         return id;
     }
 
-    /// <summary>A result kept by <see cref="Remember"/>; relation.expired when unknown, expired or of another type.</summary>
-    public T Recall<T>(string id) where T : class
+    /// <summary>
+    /// A result kept by <see cref="Remember"/>; relation.expired when unknown, expired or of another type. With
+    /// <paramref name="extend"/>, its lifetime starts again (observations saved batch after batch never expire halfway).
+    /// </summary>
+    public T Recall<T>(string id, bool extend = false) where T : class
     {
         ArgumentNullException.ThrowIfNull(id);
+        var now = Now;
         lock (gate)
         {
-            if (results.TryGetValue(id, out var entry) && entry.Expires > Now && entry.Value is T value)
+            if (results.TryGetValue(id, out var entry) && entry.Expires > now && entry.Value is T value)
             {
+                if (extend)
+                {
+                    results[id] = (now + ResultLifetime, entry.Value);
+                }
                 return value;
             }
         }
         throw new DomeniaOperationException(RelationErrors.Expired, RelationErrors.ExpiredMessage);
+    }
+
+    /// <summary>The observation sets still kept (not expired), with their expiry, most recent first.</summary>
+    public ImmutableArray<(string Id, SimulatedObservationSet Set, DateTimeOffset Expires)> ObservationSets()
+    {
+        var now = Now;
+        lock (gate)
+        {
+            return [.. results.Where(r => r.Value.Expires > now && r.Value.Value is SimulatedObservationSet)
+                .OrderByDescending(r => r.Value.Expires)
+                .Select(r => (r.Key, (SimulatedObservationSet)r.Value.Value, r.Value.Expires))];
+        }
+    }
+
+    /// <summary>Keys of the observations of the session not saved yet.</summary>
+    public ImmutableHashSet<string> SessionKeys()
+    {
+        lock (gate)
+        {
+            return session.Keys.ToImmutableHashSet(StringComparer.Ordinal);
+        }
     }
 
     /// <summary>Keeps a record drafted for a plan, found again by its fingerprint at execution.</summary>
@@ -267,8 +297,9 @@ internal sealed class SimulatedRelationState
     }
 
     /// <summary>
-    /// Applies a confirmed plan to the store (preconditions already checked by the circuit): one journal line per change, the
-    /// observations saved leave the session list.
+    /// Applies a confirmed plan to the store: the preconditions are checked again under the same lock as the change (another
+    /// instance may have changed the store since the circuit checked them), then one journal line per change; the
+    /// observations saved leave the session list. A stale plan throws write.stale and changes nothing.
     /// </summary>
     public RelationChangeResult Commit(WritePlan plan)
     {
@@ -277,6 +308,11 @@ internal sealed class SimulatedRelationState
         lock (gate)
         {
             var current = store ??= seed.Value.Store;
+            var check = RelationChange.Check(plan, current, pending.ContainsKey);
+            if (!check.Current)
+            {
+                throw new DomeniaOperationException(WriteErrors.Stale, check.Detail);
+            }
             var result = RelationChange.Apply(plan, current,
                 fingerprint => pending.TryGetValue(fingerprint, out var held) ? held.Record : null,
                 fingerprint => pending.TryGetValue(fingerprint, out var held) ? (held.Note, held.Restores) : (null, null),
@@ -301,17 +337,24 @@ internal sealed class SimulatedRelationState
         }
     }
 
-    /// <summary>Adds observations of the session (shown as « Session uniquement » until saved).</summary>
-    public void Observe(IEnumerable<StoredRelation> observations)
+    /// <summary>Adds observations of the session (shown as « Session uniquement » until saved); returns how many keys were new.</summary>
+    public int Observe(IEnumerable<StoredRelation> observations)
     {
         ArgumentNullException.ThrowIfNull(observations);
+        var added = 0;
         lock (gate)
         {
             foreach (var observation in observations)
             {
-                session[RelationRules.Key(observation)] = observation;
+                var key = RelationRules.Key(observation);
+                if (!session.ContainsKey(key))
+                {
+                    added++;
+                }
+                session[key] = observation;
             }
         }
+        return added;
     }
 
     /// <summary>Marks a probe as running; false when another one already runs (one detection at a time).</summary>
@@ -339,7 +382,7 @@ internal sealed class SimulatedRelationState
         }
     }
 
-    /// <summary>Last console reading of a workstation by a relevé of this session.</summary>
+    /// <summary>Last console reading of a workstation by a relevé, a session read or a harvest of this session.</summary>
     public DateTimeOffset? LastReading(Guid computer)
     {
         lock (gate)
@@ -348,11 +391,68 @@ internal sealed class SimulatedRelationState
         }
     }
 
+    /// <summary>Records a reading of the parc (Domenia 1 ParkState); an older date never replaces a newer one.</summary>
     public void Read(Guid computer, DateTimeOffset at)
     {
         lock (gate)
         {
-            sweepReadings[computer] = at;
+            if (!sweepReadings.TryGetValue(computer, out var known) || known < at)
+            {
+                sweepReadings[computer] = at;
+            }
         }
+    }
+
+    /// <summary>
+    /// Instant of the last « Oublier les relevés »: console relations stored before it no longer count as relevés (the parc
+    /// memory of Domenia 1 is separate from the associations).
+    /// </summary>
+    public DateTimeOffset? ReadingsForgottenAt
+    {
+        get
+        {
+            lock (gate)
+            {
+                return readingsForgottenAt;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The relevé memory as the sweep sees it: readings of the session, and console relations of the store not older than the
+    /// last reset. Returns the count, a fingerprint of the readings and the oldest date.
+    /// </summary>
+    public (int Count, string Fingerprint, DateTimeOffset? Oldest) Readings()
+    {
+        var stored = Store;
+        lock (gate)
+        {
+            var all = new Dictionary<Guid, DateTimeOffset>(sweepReadings);
+            foreach (var relation in stored.Values.Where(r => r.Kind == RelationKind.Console && r.ComputerGuid is not null && r.When is not null
+                && (readingsForgottenAt is null || r.When > readingsForgottenAt)))
+            {
+                var guid = relation.ComputerGuid!.Value;
+                if (!all.TryGetValue(guid, out var known) || known < relation.When!.Value)
+                {
+                    all[guid] = relation.When!.Value;
+                }
+            }
+            var text = string.Join(";", all.OrderBy(p => p.Key).Select(p => p.Key.ToString("N") + "=" + p.Value.UtcTicks.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            var print = Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)));
+            return (all.Count, print, all.Count == 0 ? null : all.Values.Min());
+        }
+    }
+
+    /// <summary>Empties the relevé memory (« Oublier les relevés »); returns how many readings were forgotten.</summary>
+    public int ForgetReadings()
+    {
+        var (count, _, _) = Readings();
+        lock (gate)
+        {
+            sweepReadings.Clear();
+            readingsForgottenAt = Now;
+            version++;
+        }
+        return count;
     }
 }

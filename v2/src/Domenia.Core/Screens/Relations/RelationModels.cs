@@ -144,7 +144,11 @@ public sealed record RelationImportBatch(string BatchId, string FileName, string
 /// <summary>A local removal that « Restaurer » can put back (Domenia 1 CO-28: the button names it).</summary>
 public sealed record RelationRestoreCandidate(string EntryId, string Label, string Tip, DateTimeOffset RemovedAt, string UserLogin, string Computer);
 
-/// <summary>Result of relations.overview: figures of the whole store.</summary>
+/// <summary>
+/// Result of relations.overview: figures of the whole store. <see cref="Badges"/> counts the natures (their sum is the total)
+/// and, apart, the associations in contradiction (an association keeps its nature and carries the contradiction as a mark);
+/// <see cref="Contradictions"/> counts the workstations concerned.
+/// </summary>
 public sealed record RelationsOverview(
     string StoreLabel,
     bool Simulated,
@@ -159,7 +163,37 @@ public sealed record RelationsOverview(
     RelationRestoreCandidate? Restore,
     ImmutableArray<RelationDayCount> Activity,
     int JournalEntries,
-    string Summary);
+    string Summary,
+    RelationPendingObservations Pending);
+
+/// <summary>Number of pending observations of one source (« Journal du contrôleur 4624/4768/4769 » : 312).</summary>
+public sealed record RelationPendingSource(string Source, int Count);
+
+/// <summary>
+/// Observations kept by the engine and not saved yet (Domenia 1 REL-014 « n lien(s) en mémoire »): the observations of the
+/// session (<see cref="RelationChange.SessionResultId"/>) or the result of one read. They are saved by batches of 64, one plan
+/// of the write circuit per batch: <see cref="Batches"/> plans are still needed.
+/// </summary>
+public sealed record RelationPendingSet(
+    string ResultId,
+    string Origin,
+    int Total,
+    int Remaining,
+    int Batches,
+    ImmutableArray<RelationPendingSource> Sources,
+    DateTimeOffset? ExpiresAt);
+
+/// <summary>Result of relations.observations.pending, also carried by relations.overview.</summary>
+public sealed record RelationPendingObservations(int Total, int Batches, ImmutableArray<RelationPendingSet> Sets, string Text);
+
+/// <summary>
+/// An observation read by another screen (console of the live view of Poste, Domenia 1 Merge-DomeniaLiveLinkMemory), handed to
+/// the session memory of the relations: kept « Session uniquement », saved only by a plan of the write circuit.
+/// </summary>
+public sealed record RelationObservationRequest(string Computer, string Account, string Source, DateTimeOffset ObservedAt, string? Detail);
+
+/// <summary>Answer of <see cref="IRelationsReader.ObserveAsync"/>: kept for the session or refused, with the reason.</summary>
+public sealed record RelationObservationReceipt(bool Accepted, string? Key, string Reason);
 
 /// <summary>Result of relations.list: every association, with the facets of « Toutes les associations ».</summary>
 public sealed record RelationList(

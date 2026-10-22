@@ -125,6 +125,36 @@ internal static class SimulatedRelationProbes
                 }
             }
         }
+        // Workstations without any association: the journal still sees who logs on there (usual user of the same site, sometimes
+        // a colleague on a shared workstation). These couples are the new ones a harvest brings.
+        var free = state.Source.ScreenStream("relations").Fork("harvest/" + days.ToString(CultureInfo.InvariantCulture) + "/free");
+        var linked = byComputer.Select(g => g.Key).ToHashSet();
+        var bySite = lookup.Users.Where(u => u.Enabled && u.Dn.Contains(",OU=Utilisateurs,", StringComparison.OrdinalIgnoreCase))
+            .GroupBy(u => SiteOf(u.Dn, "Utilisateurs"), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Key.Length > 0)
+            .ToDictionary(g => g.Key, g => g.OrderBy(u => u.Login, StringComparer.Ordinal).ToList(), StringComparer.OrdinalIgnoreCase);
+        foreach (var computer in lookup.Computers.Where(c => c.Enabled && !linked.Contains(c.Guid) && c.Dn.Contains(",OU=Postes,", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(c => c.Name, StringComparer.Ordinal))
+        {
+            if (!bySite.TryGetValue(SiteOf(computer.Dn, "Postes"), out var people) || people.Count == 0 || free.Next(100) < 22)
+            {
+                continue;
+            }
+            var users = free.Next(100) < 24 ? 2 : 1;
+            for (var n = 0; n < users; n++)
+            {
+                var user = people[free.Next(people.Count)];
+                if (couples.Any(c => c.User.Guid == user.Guid && c.Computer.Guid == computer.Guid))
+                {
+                    continue;
+                }
+                var active = Math.Max(1, days * free.Next(30, 100) / 100);
+                var events = active * free.Next(2, 6);
+                var last = WritePlans.TruncateToSecond(now - free.Between(TimeSpan.FromMinutes(20), TimeSpan.FromDays(Math.Min(days, 4))));
+                var first = WritePlans.TruncateToSecond(last - free.Between(TimeSpan.FromHours(1), TimeSpan.FromDays(Math.Max(1, days - 1))));
+                couples.Add(new HarvestCouple(user, computer, first, last, events, events > 6 ? "4624, 4768, 4769" : "4624, 4768"));
+            }
+        }
         var ordered = couples.OrderByDescending(c => c.Last).ToList();
         var total = ordered.Sum(c => c.Events);
         var kept = new List<HarvestCouple>();
@@ -141,5 +171,18 @@ internal static class SimulatedRelationProbes
         var machines = byComputer.Count * Math.Max(1, days) * 2;
         var unresolved = random.Next(2, 9);
         return ([.. kept], Math.Min(total, maxEvents), total > maxEvents, machines, unresolved);
+    }
+
+    /// <summary>Site of an object from its DN: the OU just under « OU=<paramref name="branch"/> » (« Paris »), or an empty text.</summary>
+    private static string SiteOf(string dn, string branch)
+    {
+        var marker = ",OU=" + branch + ",";
+        var at = dn.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (at <= 0)
+        {
+            return "";
+        }
+        var start = dn.LastIndexOf(",OU=", at - 1, StringComparison.OrdinalIgnoreCase);
+        return start < 0 ? "" : dn[(start + 4)..at];
     }
 }

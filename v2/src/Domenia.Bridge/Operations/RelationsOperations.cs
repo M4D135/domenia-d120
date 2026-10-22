@@ -25,7 +25,7 @@ public sealed partial class RelationsOperations : IOperationModule
     private static readonly string[] SubjectArguments = ["ref"];
     private static readonly string[] SearchArguments = ["text"];
     private static readonly string[] TargetArguments = ["dn", "text"];
-    private static readonly string[] CollectArguments = ["dn", "scope", "ouDn", "computers", "limit", "kerberos"];
+    private static readonly string[] CollectArguments = ["dn", "guid", "login", "scope", "ouDn", "computers", "limit", "kerberos"];
     private static readonly string[] PlanIdArguments = ["planId"];
     private static readonly string[] DnArguments = ["dn"];
     private static readonly string[] HarvestEstimateArguments = ["days", "maxEvents"];
@@ -33,8 +33,10 @@ public sealed partial class RelationsOperations : IOperationModule
     private static readonly string[] StageArguments = ["id", "part", "parts", "text"];
     private static readonly string[] PreviewArguments = ["id", "adapter", "fileName"];
     private static readonly string[] CompareArguments = ["dn", "other"];
-    private static readonly string[] SweepArguments = ["limit"];
-    private static readonly string[] AssociateArguments = ["dn", "target"];
+    private static readonly string[] SweepArguments = ["limit", "computers"];
+    private static readonly string[] AssociateArguments = ["dn", "subjectGuid", "target", "targetGuid"];
+    private static readonly string[] ExportArguments = ["id", "part", "parts", "subject", "text"];
+    private static readonly string[] OpenArguments = ["fileName"];
     private static readonly string[] RemoveArguments = ["key", "fingerprint"];
     private static readonly string[] RestoreArguments = ["entry"];
     private static readonly string[] ImportPlanArguments = ["previewId"];
@@ -53,6 +55,7 @@ public sealed partial class RelationsOperations : IOperationModule
         var scope = WorkingScope.From(context);
         var probes = RelationProbeControl.From(context);
         var staging = RelationImportStaging.From(context);
+        var exports = RelationExports.From(context);
         // Reads that the simulation serves from memory and that directory mode makes on the controller after a gesture.
         var freshRead = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
         return
@@ -107,6 +110,12 @@ public sealed partial class RelationsOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, CollectArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
+                var guid = ObjectGuid(values, "guid");
+                var login = BridgeArguments.GetString(values, "login").Trim();
+                if (login.Length is 0 or > 256)
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("login") + " doit être l’identifiant affiché du sujet, 256 caractères au plus.");
+                }
                 var perimeter = BridgeArguments.GetString(values, "scope");
                 if (perimeter is not ("candidates" or "ou" or "loaded"))
                 {
@@ -122,14 +131,10 @@ public sealed partial class RelationsOperations : IOperationModule
                     var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
                     ouDn = (await scope.CurrentAsync(session, ct).ConfigureAwait(false))?.Dn;
                 }
-                var computers = Strings(values, "computers", 0, 50, MaxReferenceLength, required: false);
-                foreach (var computer in computers)
-                {
-                    BridgeArguments.RequireDistinguishedName(computer, "computers");
-                }
+                var computers = Computers(values);
                 var limit = Integer(values, "limit", 1, 50);
                 var kerberos = BridgeArguments.GetBoolean(values, "kerberos");
-                return await readers.Require<IRelationsReader>().CollectAsync(new RelationDetectionRequest(dn, perimeter, ouDn, computers, limit, kerberos), ct).ConfigureAwait(false);
+                return await readers.Require<IRelationsReader>().CollectAsync(new RelationDetectionRequest(dn, guid, login, perimeter, ouDn, computers, limit, kerberos), ct).ConfigureAwait(false);
             }, "Phase 1 d’une détection : compte relu, associations connues, indices AD, indices Kerberos facultatifs, puis périmètre exact à confirmer. Aucun poste contacté.",
                 ServedInSimulation: true),
 
@@ -237,20 +242,66 @@ public sealed partial class RelationsOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, SweepArguments);
                 var limit = Integer(values, "limit", 1, 50);
+                var computers = Computers(values);
                 var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
                 var current = await scope.CurrentAsync(session, ct).ConfigureAwait(false)
                     ?? throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
-                return await readers.Require<IRelationsReader>().SweepPlanAsync(limit, current, ct).ConfigureAwait(false);
-            }, "File du relevé incrémentiel des consoles de l’OU de travail : jamais relevés d’abord, puis les plus anciens ; aucun poste contacté."),
+                return await readers.Require<IRelationsReader>().SweepPlanAsync(new RelationSweepRequest(limit, current, computers), ct).ConfigureAwait(false);
+            }, "File du relevé incrémentiel : postes de l’OU de travail jamais relevés d’abord, puis les plus anciens, ou postes d’une liste chargée ; aucun poste contacté."),
+
+            new OperationDefinition("relations.sweep.forget.plan", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                var draft = await writers.Require<IRelationSweepResetExecutor>().PlanSweepResetAsync(ct).ConfigureAwait(false);
+                return await circuit.PlanAsync(draft, ct).ConfigureAwait(false);
+            }, "Plan de « Oublier les relevés » : la mémoire des relevés du parc est vidée ; aucune association ni objet de l’annuaire modifié."),
+
+            new OperationDefinition("relations.observations.pending", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return await readers.Require<IRelationsReader>().PendingAsync(ct).ConfigureAwait(false);
+            }, "Observations gardées par le moteur et pas encore enregistrées, par lecture et par source (lots de 64)."),
+
+            new OperationDefinition("relations.export.save", OperationClass.LocalWrite, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ExportArguments);
+                var id = Id(values, "id");
+                var parts = Integer(values, "parts", 1, RelationExports.MaxParts);
+                var part = Integer(values, "part", 0, parts - 1);
+                var subject = BridgeArguments.GetString(values, "subject");
+                if (!RelationExports.Subjects.Contains(subject, StringComparer.Ordinal))
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("subject") + " vaut " + string.Join(", ", RelationExports.Subjects) + ".");
+                }
+                var text = BridgeArguments.GetString(values, "text");
+                if (text.Length > RelationExports.MaxPartCharacters)
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("text") + " doit faire au plus " + FrenchText.Integer(RelationExports.MaxPartCharacters) + " caractères par partie.");
+                }
+                return await exports.AddAsync(id, part, parts, subject, text, ct).ConfigureAwait(false);
+            }, "Enregistre une liste des associations en CSV (UTF-8 avec BOM) dans le dossier des exports, reçue par parties ; aucun envoi."),
+
+            new OperationDefinition("relations.export.open", OperationClass.Local, (args, _, _) =>
+            {
+                var values = BridgeArguments.ReadObject(args, OpenArguments);
+                var name = BridgeArguments.GetString(values, "fileName");
+                if (name.Length is 0 or > 200)
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("fileName") + " doit nommer un export de cette session.");
+                }
+                return Task.FromResult<object?>(exports.Open(name));
+            }, "Ouvre un CSV exporté pendant cette session avec l’application associée de Windows (« Ouvrir le CSV »)."),
 
             new OperationDefinition("relations.associate.plan", freshRead, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, AssociateArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
+                var subjectGuid = ObjectGuid(values, "subjectGuid");
                 var target = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "target"), "target");
-                var draft = await writers.Require<IRelationChangeExecutor>().PlanAssociationAsync(dn, target, ct).ConfigureAwait(false);
+                var targetGuid = ObjectGuid(values, "targetGuid");
+                var draft = await writers.Require<IRelationChangeExecutor>().PlanAssociationAsync(dn, subjectGuid, target, targetGuid, ct).ConfigureAwait(false);
                 return await circuit.PlanAsync(draft, ct).ConfigureAwait(false);
-            }, "Plan d’une association déclarée : sujet et cible relus, types opposés ; association locale, Active Directory non modifié."),
+            }, "Plan d’une association déclarée : sujet et cible relus, GUID comparés à ceux affichés, types opposés ; association locale, Active Directory non modifié."),
 
             new OperationDefinition("relations.remove.plan", OperationClass.LocalRead, async (args, _, ct) =>
             {
@@ -343,6 +394,33 @@ public sealed partial class RelationsOperations : IOperationModule
         return IsHex(id, 32) ? id : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un identifiant de 32 caractères hexadécimaux.");
     }
 
+    /// <summary>GUID of a directory object shown by the page, in the « D » form (32 hexadecimal digits and 4 hyphens).</summary>
+    private static Guid ObjectGuid(IReadOnlyDictionary<string, JsonElement> values, string name)
+    {
+        var text = BridgeArguments.GetString(values, name);
+        return Guid.TryParseExact(text, "D", out var guid) && guid != Guid.Empty
+            ? guid
+            : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être le GUID affiché de l’objet (forme 00000000-0000-0000-0000-000000000000).");
+    }
+
+    /// <summary>Workstations of a list loaded elsewhere: 50 names (« PC-PAR-0042 ») or DNs at most.</summary>
+    private static IReadOnlyList<string> Computers(IReadOnlyDictionary<string, JsonElement> values)
+    {
+        var computers = Strings(values, "computers", 0, 50, MaxReferenceLength, required: false);
+        foreach (var computer in computers)
+        {
+            if (computer.Contains('=', StringComparison.Ordinal))
+            {
+                BridgeArguments.RequireDistinguishedName(computer, "computers");
+            }
+            else if (!ComputerNamePattern().IsMatch(computer))
+            {
+                throw BridgeArguments.Invalid(FrenchText.Quote("computers") + " doit contenir des noms de postes ou des DN.");
+            }
+        }
+        return computers;
+    }
+
     private static string Key(string key, string name) =>
         key.Length is > 0 and <= MaxKeyLength && key.Count(c => c == '|') == 2
             ? key
@@ -395,6 +473,9 @@ public sealed partial class RelationsOperations : IOperationModule
 
     [GeneratedRegex(@"^\d{8}T\d{9}Z-[0-9a-f]{8}$", RegexOptions.CultureInvariant)]
     private static partial Regex BatchPattern();
+
+    [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$", RegexOptions.CultureInvariant)]
+    private static partial Regex ComputerNamePattern();
 
     /// <summary>Pushes the progress of a probe to the page (« relations.detect.run:progress »), in order, on the calling thread.</summary>
     private sealed class Publisher(BridgeContext bridge) : IProgress<RelationProbeProgress>

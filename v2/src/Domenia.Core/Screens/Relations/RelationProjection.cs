@@ -95,7 +95,13 @@ public static class RelationProjection
         // A name met on another object never lends its directory data to the link.
         var sameUser = user is not null && (relation.UserGuid is null || relation.UserGuid == user.Guid);
         var sameComputer = computer is not null && (relation.ComputerGuid is null || relation.ComputerGuid == computer.Guid);
-        var badge = RelationRules.BadgeOf(relation.Kind, contradicted);
+        // The badge keeps the nature of the proof; a contradiction is a mark beside it, never a replacement (« tout s’améliore »).
+        var badge = RelationRules.BadgeOf(relation.Kind);
+        var rule = badge.Rule;
+        if (contradicted)
+        {
+            rule += " Contradiction" + C + RelationRules.BadgeOf(relation.Kind, true).Rule;
+        }
         var provenance = relation.Source;
         var whenText = RelationRules.WhenText(relation.When, now, zone);
         if (whenText is not null)
@@ -116,7 +122,7 @@ public static class RelationProjection
             badge.Badge,
             badge.Label,
             badge.Tone,
-            badge.Rule + " Provenance" + C + provenance + ".",
+            rule + " Provenance" + C + provenance + ".",
             relation.Source,
             relation.When,
             whenText,
@@ -132,11 +138,16 @@ public static class RelationProjection
             relation.Declarant);
     }
 
-    /// <summary>Count per badge, in the fixed order of the facets (zero counts kept).</summary>
+    /// <summary>
+    /// Count per badge, in the fixed order of the facets (zero counts kept): the natures (their sum is the number of rows) and,
+    /// apart, the rows in contradiction (« Contradictoire »), which keep their nature.
+    /// </summary>
     public static ImmutableArray<RelationBadgeCount> Badges(IEnumerable<RelationRow> rows)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        var counts = rows.GroupBy(r => r.Badge).ToDictionary(g => g.Key, g => g.Count());
+        var list = rows as IReadOnlyCollection<RelationRow> ?? [.. rows];
+        var counts = list.GroupBy(r => r.Badge).ToDictionary(g => g.Key, g => g.Count());
+        counts[RelationBadge.Contradictory] = list.Count(r => r.Contradicted);
         return [.. BadgeOrder.Select(b => new RelationBadgeCount(b, RelationRules.BadgeLabel(b), RelationRules.BadgeTone(b), counts.GetValueOrDefault(b)))];
     }
 
@@ -287,10 +298,14 @@ public static class RelationProjection
         {
             var otherIsComputer = subject.Kind == RelationSubjectKind.User;
             var other = otherIsComputer ? lookup.Computer(primaryRelation.ComputerGuid, primaryRelation.Computer) : lookup.User(primaryRelation.UserGuid, primaryRelation.UserLogin);
-            var badge = RelationRules.BadgeOf(primaryRelation.Kind, contradicted.Contains(RelationRules.Key(primaryRelation)));
+            var badge = RelationRules.BadgeOf(primaryRelation.Kind);
             var reason = primaryRelation.Kind == RelationKind.Assignment
                 ? "Affectation déclarée" + C + "elle passe avant toute observation."
                 : "Aucune affectation déclarée" + C + "relation la plus récente (" + RelationRules.Phrase(primaryRelation.Kind) + ").";
+            if (contradicted.Contains(RelationRules.Key(primaryRelation)))
+            {
+                reason += " Une session observée d’un autre compte la contredit" + C + "les deux restent visibles.";
+            }
             primary = new RelationPrimary(
                 otherIsComputer ? primaryRelation.Computer : other?.Name ?? primaryRelation.UserLogin,
                 otherIsComputer ? primaryRelation.Computer : primaryRelation.UserLogin,
@@ -415,9 +430,9 @@ public static class RelationProjection
         }
         RelationGraphEdge EdgeOf(string from, string to, IReadOnlyList<StoredRelation> group)
         {
-            var best = group.OrderByDescending(r => RelationRules.Strength(RelationRules.BadgeOf(r.Kind, contradicted.Contains(RelationRules.Key(r))).Badge)).ThenByDescending(r => r.When).First();
+            var best = group.OrderByDescending(r => RelationRules.Strength(RelationRules.BadgeOf(r.Kind).Badge)).ThenByDescending(r => r.When).First();
             var isContradicted = group.Any(r => contradicted.Contains(RelationRules.Key(r)));
-            var badge = RelationRules.BadgeOf(best.Kind, isContradicted);
+            var badge = RelationRules.BadgeOf(best.Kind);
             var last = group.Max(r => r.When);
             var label = string.Join(" · ", group.Select(r => RelationRules.BadgeOf(r.Kind).Label).Distinct(StringComparer.Ordinal));
             return new RelationGraphEdge(from, to, badge.Badge, badge.Label, badge.Tone, group.Count, last, RelationRules.WhenText(last, now, zone), isContradicted, label);

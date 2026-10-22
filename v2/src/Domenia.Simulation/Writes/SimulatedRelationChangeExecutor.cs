@@ -29,16 +29,25 @@ public sealed class SimulatedRelationChangeExecutor : IRelationChangeExecutor
 
     private static string C => FrenchText.Colon;
 
-    public async Task<WritePlanDraft> PlanAssociationAsync(string subjectDn, string targetDn, CancellationToken cancellationToken)
+    public async Task<WritePlanDraft> PlanAssociationAsync(string subjectDn, Guid subjectGuid, string targetDn, Guid targetGuid, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(subjectDn);
         ArgumentNullException.ThrowIfNull(targetDn);
         await WaitAsync("plan", 120, 260, cancellationToken).ConfigureAwait(false);
         var state = State;
         var lookup = state.Lookup();
-        // Subject and target are read again: an object deleted, moved or recreated since the search is refused.
+        // Subject and target are read again: an object deleted, moved or recreated since the search is refused. The GUID shown by
+        // the page decides: a DN given since to another object (recreated account or workstation) never passes.
         var subject = lookup.Find(subjectDn) ?? throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Le sujet n’existe plus dans l’annuaire fictif" + C + "aucune écriture préparée.");
         var target = lookup.Find(targetDn) ?? throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "La cible n’existe plus dans l’annuaire fictif" + C + "aucune écriture préparée.");
+        if (subject.Guid != subjectGuid)
+        {
+            throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Sujet " + subject.Login + C + RelationErrors.ObjectReplaced);
+        }
+        if (target.Guid != targetGuid)
+        {
+            throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Cible " + target.Login + C + RelationErrors.ObjectReplaced);
+        }
         if (subject.Kind == target.Kind)
         {
             throw WriteErrors.Refusal(RelationErrors.SameKind, RelationErrors.SameKindMessage);
@@ -259,9 +268,19 @@ public sealed class SimulatedRelationChangeExecutor : IRelationChangeExecutor
         var state = State;
         var set = resultId == RelationChange.SessionResultId
             ? new SimulatedObservationSet { Origin = "Observations de la session", Relations = state.Session.ToImmutableDictionary(RelationRules.Key, StringComparer.Ordinal) }
-            : state.Recall<SimulatedObservationSet>(resultId);
+            : state.Recall<SimulatedObservationSet>(resultId, extend: true);
         var store = state.Store;
-        var chosen = (keys.Count == 0 ? set.Relations.Keys.Take(WritePlans.MaxChanges) : keys.Distinct(StringComparer.Ordinal)).ToList();
+        // Without keys: the observations of the set not saved yet, most recent first, 64 at most; the following ones stay for the
+        // next plan (Domenia 1 REL-014: the rest of a partial batch leaves with the next one).
+        bool Unsaved(StoredRelation observation)
+        {
+            var (refresh, existing, _) = RelationRules.Upsert(store.Values, observation);
+            return !(refresh && existing is not null && RelationRules.Fingerprint(existing) == RelationRules.Fingerprint(observation));
+        }
+        var waiting = keys.Count == 0
+            ? set.Relations.Where(p => Unsaved(p.Value)).OrderByDescending(p => p.Value.When).ThenBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key).ToList()
+            : new List<string>();
+        var chosen = keys.Count == 0 ? waiting.Take(WritePlans.MaxChanges).ToList() : keys.Distinct(StringComparer.Ordinal).ToList();
         var items = new List<RelationChangeItem>();
         foreach (var key in chosen)
         {
@@ -289,6 +308,12 @@ public sealed class SimulatedRelationChangeExecutor : IRelationChangeExecutor
         }
         var protectedDeclared = items.Count(i => store.Values.Any(r => r.ComputerGuid == i.After!.ComputerGuid && r.Kind == RelationKind.Assignment && r.UserGuid != i.After.UserGuid));
         var risks = new List<WriteRisk>();
+        var left = Math.Max(0, waiting.Count - chosen.Count);
+        if (left > 0)
+        {
+            risks.Add(new WriteRisk(Tone.Info, FrenchText.Count(left, "observation restera", "observations resteront") + " en mémoire après ce lot de " + FrenchText.Integer(WritePlans.MaxChanges)
+                + C + "« Enregistrer la suite » prépare le lot suivant, à confirmer à son tour."));
+        }
         if (protectedDeclared > 0)
         {
             risks.Add(new WriteRisk(Tone.Info, FrenchText.Count(protectedDeclared, "poste a", "postes ont") + " une affectation déclarée à un autre compte" + C

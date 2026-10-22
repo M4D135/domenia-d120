@@ -124,8 +124,13 @@ public static partial class UserGroupComparer
         };
     }
 
-    /// <summary>Compares two users read in <paramref name="directory"/>; <paramref name="readAt"/> dates the ticket text.</summary>
-    public static UserGroupComparison Compare(DirectoryUser left, DirectoryUser right, DirectorySnapshot directory, DateTimeOffset readAt, TimeZoneInfo zone, int maxDepth = MaxDepth, int maxGroups = MaxGroups)
+    /// <summary>
+    /// Compares two users read in <paramref name="directory"/>; <paramref name="readAt"/> dates the ticket text.
+    /// <paramref name="companyOf"/> reads the company attribute (« Société », Domenia 1 Compare-DomeniaUserAccess) where the
+    /// source holds it; without it, the company is compared as unknown on both sides.
+    /// </summary>
+    public static UserGroupComparison Compare(DirectoryUser left, DirectoryUser right, DirectorySnapshot directory, DateTimeOffset readAt, TimeZoneInfo zone, int maxDepth = MaxDepth, int maxGroups = MaxGroups,
+        Func<DirectoryUser, string?>? companyOf = null)
     {
         ArgumentNullException.ThrowIfNull(left);
         ArgumentNullException.ThrowIfNull(right);
@@ -188,6 +193,7 @@ public static partial class UserGroupComparer
         var attributes = ImmutableArray.Create(
             Attribute("department", "Service", left.Department, right.Department),
             Attribute("title", "Fonction", left.Title, right.Title),
+            Attribute("company", "Société", companyOf?.Invoke(left), companyOf?.Invoke(right)),
             Attribute("physicalDeliveryOfficeName", "Bureau", left.Office, right.Office),
             Attribute("manager", "Responsable", ManagerName(left.ManagerDn, directory), ManagerName(right.ManagerDn, directory)));
 

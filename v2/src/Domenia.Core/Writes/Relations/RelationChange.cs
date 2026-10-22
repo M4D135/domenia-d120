@@ -11,8 +11,11 @@ namespace Domenia.Core;
 /// </summary>
 public interface IRelationChangeExecutor : IWriteExecutor
 {
-    /// <summary>Declared association between the subject and a target of the opposite type, both read again (REL-002, REL-016, REL-026).</summary>
-    Task<WritePlanDraft> PlanAssociationAsync(string subjectDn, string targetDn, CancellationToken cancellationToken);
+    /// <summary>
+    /// Declared association between the subject and a target of the opposite type, both read again (REL-002, REL-016, REL-026):
+    /// each object must still carry the GUID the page showed, so a DN given since to a recreated object is refused.
+    /// </summary>
+    Task<WritePlanDraft> PlanAssociationAsync(string subjectDn, Guid subjectGuid, string targetDn, Guid targetGuid, CancellationToken cancellationToken);
 
     /// <summary>Removal of one stored association, named by its key and the fingerprint the page showed (REL-008, REL-012).</summary>
     Task<WritePlanDraft> PlanRemovalAsync(string key, string fingerprint, CancellationToken cancellationToken);
@@ -31,7 +34,8 @@ public interface IRelationChangeExecutor : IWriteExecutor
 
     /// <summary>
     /// Observations of a detection, a session read, a relevé or a harvest kept by the engine (the page names them, never sends
-    /// them), 64 at most (REL-017, REL-018, REL-024, REL-030).
+    /// them), 64 at most (REL-017, REL-018, REL-024, REL-030). Without keys, the next 64 observations not saved yet: the plan
+    /// says how many remain, and the same call saves the following batch (Domenia 1 REL-014).
     /// </summary>
     Task<WritePlanDraft> PlanObservationsAsync(string resultId, IReadOnlyList<string> keys, CancellationToken cancellationToken);
 }
@@ -230,7 +234,9 @@ public static class RelationChange
 
     /// <summary>
     /// Applies a plan whose preconditions were just checked: adds, replaces and removes the associations, and writes one
-    /// journal line per change (« Ajoutée », « Restaurée », « Mise à jour », « Retirée »).
+    /// journal line per change (« Ajoutée », « Restaurée », « Mise à jour », « Retirée »). Defensive on its own: an association
+    /// to remove whose fingerprint is no longer the planned one, or a key to add or replace that now holds another association,
+    /// stops the whole plan (write.stale) before anything changes, even if a check ran just before.
     /// </summary>
     public static RelationChangeResult Apply(WritePlan plan, ImmutableDictionary<string, StoredRelation> store, Func<string, StoredRelation?> record,
         Func<string, (string? Note, string? RestoresEntry)> notes, DateTimeOffset now, Func<string> newId)
@@ -240,6 +246,21 @@ public static class RelationChange
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(notes);
         ArgumentNullException.ThrowIfNull(newId);
+        foreach (var change in plan.Changes)
+        {
+            var before = Parse(change.BeforeValue);
+            var after = Parse(change.AfterValue);
+            string? PrintOf(string key) => store.TryGetValue(key, out var held) ? RelationRules.Fingerprint(held) : null;
+            var conflict = change.Kind == WriteChangeKind.Remove
+                ? before is { } gone && PrintOf(gone.Key) is { } print && print != gone.Fingerprint
+                : (after is { } target && PrintOf(target.Key) is { } present && present != target.Fingerprint && present != before?.Fingerprint)
+                    || (before is { } old && after is { } fresh && old.Key != fresh.Key && PrintOf(old.Key) is { } previous && previous != old.Fingerprint);
+            if (conflict)
+            {
+                throw new DomeniaOperationException(WriteErrors.Stale, "Association " + change.Label + " modifiée ailleurs au moment de l’écriture" + C
+                    + "rien n’a été modifié. Rechargez les associations puis préparez de nouveau l’écriture.");
+            }
+        }
         var builder = store.ToBuilder();
         var journal = ImmutableArray.CreateBuilder<RelationJournalRecord>();
         var applied = 0;
@@ -389,6 +410,11 @@ public static class RelationErrors
     public const string ProtectedMessage = "Association déclarée ou importée : un nettoyage automatique ne la retire jamais. Retirez-la explicitement depuis la liste si elle est fausse.";
 
     public const string CompareUnresolved = "relation.compareUnresolved";
+
+    public const string IdentityChanged = "relation.identityChanged";
+    public const string IdentityChangedMessage = "Le compte affiché n’est plus le même objet dans l’annuaire (recréé ou renommé depuis son affichage) : rechargez le sujet. Aucun poste contacté.";
+
+    public const string ObjectReplaced = "Objet recréé ou remplacé depuis son affichage (GUID différent) : rechargez la page puis choisissez de nouveau. Aucune écriture préparée.";
 
     public const string NotAUser = "relation.notAUser";
     public const string NotAUserMessage = "La comparaison porte sur deux comptes utilisateurs : rien n’a été lu.";

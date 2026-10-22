@@ -1,15 +1,20 @@
-// Utilisateurs et postes · side panels: « Ajouter » (manual search of a target, detection of the workstations of a user,
-// session of a workstation), import with preview, orphan check, harvest of the controller journal, relevé of the working OU
-// and the precautions of the screen. Every network read starts on an explicit click; a detection shows the exact list of
-// workstations before contacting any; every change is a plan of the write circuit, opened once the panel is closed (one
-// modal panel at a time). Content carries data-page="relations" so the page stylesheet scopes it (docs/KIT.md § 3).
+// Utilisateurs et postes · work panels, docked beside the page: « Ajouter » (manual search of a target with the steps of the
+// association, detection of the workstations of a user, session of a workstation), import with preview, orphan check,
+// harvest of the controller journal, relevé of the parc, and the precautions of the screen. Docked (not modal): the plan of a
+// write opens over them, and they carry on after its receipt (association saved or refused, next batch of observations,
+// orphans removed). Every network read starts on an explicit click; a detection shows the exact list of workstations before
+// contacting any; every change is a plan of the write circuit. Content carries data-page="relations" so the page stylesheet
+// scopes it (docs/KIT.md § 3).
 import { openDrawer } from '../../kit/drawer.js';
 import { createGrid } from '../../kit/grid.js';
+import { createTree } from '../../kit/tree.js';
 import { glyph } from '../../kit/glyphs.js';
-import { uid } from '../../kit/util.js';
+import { uid, writeClipboard } from '../../kit/util.js';
 import { onEvent } from '../../bridge.js';
-import { applyVars, announce, countUp, progressTo, formatDateTime, inkFollow } from '../../ui.js';
-import { badge, avatar, esc, int, nouns, NBSP, errText, tonePill, empty, sk } from './model.js';
+import { applyVars, announce, countUp, progressTo, formatDateTime, inkFollow, toast } from '../../ui.js';
+import {
+  badge, avatar, esc, int, nouns, NBSP, errText, tonePill, empty, sk, dateText, associationStep,
+} from './model.js';
 
 const KIND_TAG = {
   network: `<span class="rel-kind net" data-tip="Lecture réseau : part seulement sur ce clic">${glyph('wifi')}réseau</span>`,
@@ -20,7 +25,12 @@ function shell(inner) {
   return `<div class="rel-panel" data-page="relations">${inner}</div>`;
 }
 
-/** Resolves once the drawer is really open (a request waits while another modal panel is open). */
+/** A work panel: docked beside the page, so the write circuit (a modal panel) opens over it and it survives the receipt. */
+function workDrawer(options) {
+  return openDrawer({ ...options, modal: false });
+}
+
+/** Resolves once the drawer is really open. */
 function whenOpen(ctl) {
   return new Promise((resolve) => {
     let done = false;
@@ -64,32 +74,70 @@ const ORPHAN_STEPS = [
 ];
 const HARVEST_STEPS = [
   ['Impact estimé', 'Nombre d’événements et durée estimés, avant toute lecture du journal.'],
-  ['Couples lus', 'Utilisateur → poste trouvés, déjà connus signalés : rien n’est encore enregistré.'],
-  ['Enregistrement', 'Plan relu, confirmation et reçu ; une association existante n’est jamais écrasée.'],
+  ['Couples lus', 'Utilisateur → poste trouvés, déjà connus signalés : les nouveaux restent en mémoire pour la session.'],
+  ['Enregistrement par lots', 'Lots de 64, chacun relu, confirmé et tracé par un reçu ; une association existante n’est jamais écrasée.'],
 ];
 const DETECT_STEPS = [
-  ['Lecture de l’annuaire', 'Compte relu, associations connues, managedBy et mentions du compte : aucun poste contacté.'],
+  ['Lecture de l’annuaire', 'Compte relu (même GUID, même identifiant), associations connues, managedBy et mentions du compte : aucun poste contacté.'],
   ['Postes à interroger', 'La liste exacte du périmètre, 50 postes au plus, avant toute sonde.'],
-  ['Détection et résultat', 'Console de chaque poste, compteurs en direct, puis enregistrement des consoles confirmées sur votre confirmation.'],
+  ['Détection et résultat', 'Console de chaque poste, compteurs en direct, arrêt au premier refus d’identifiants, puis enregistrement des consoles confirmées sur votre confirmation.'],
 ];
 const SWEEP_STEPS = [
   ['Postes à relever', 'La liste exacte des postes, avant tout contact.'],
-  ['Relevé', 'Console de chaque poste, compteurs en direct, arrêt possible à tout moment.'],
-  ['Enregistrement', 'Les consoles confirmées, par plan, confirmation et reçu.'],
+  ['Ping puis relevé', 'Ping groupé par lots de 8, puis la console des seuls postes qui répondent ; compteurs en direct, arrêt possible à tout moment.'],
+  ['Enregistrement par lots', 'Les consoles relevées, par lots de 64 : plan, confirmation et reçu.'],
 ];
 
-/** REL-029: refused workstations are said, never retried; another account is the operator’s explicit choice. */
-function refusalNote(res) {
-  const refused = res?.counters?.refused ?? 0;
-  if (!refused) return '';
-  return `<p class="rel-note warn rel-refused">${glyph('lock')}<span>${nouns(refused, 'poste a refusé', 'postes ont refusé')} la lecture avec le compte de la session : aucune nouvelle tentative. Pour ces postes, ouvrez une session avec un compte autorisé, puis relancez vous-même la détection.</span></p>`;
+/** Remaining observations of one result, read from the engine (they leave the memory as they are saved). */
+async function remainingOf(app, resultId) {
+  try {
+    const pending = await app.ctx.call('relations.observations.pending');
+    return pending.sets.find((s) => s.resultId === resultId)?.remaining ?? 0;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
 }
 
+/** Footer button that saves the observations of a result by batches of 64 (Domenia 1 REL-014), with what remains. */
+function saveButton(remaining, origin) {
+  const batches = Math.ceil(remaining / 64);
+  return remaining > 64
+    ? { id: 'save', label: `Tout enregistrer, lot par lot (${int(batches)})`, icon: 'layers', primary: true, kind: 'write', reason: `${nouns(remaining, 'observation', 'observations')} de ${origin.toLowerCase()} : un plan relu, confirmé et tracé par lot de 64.` }
+    : { id: 'save', label: `Enregistrer ${nouns(remaining, 'observation', 'observations')}`, icon: 'check', primary: true, kind: 'write' };
+}
+
+/**
+ * REL-029: refused or rejected resources are named, counted and never retried. Another account is the operator’s explicit
+ * choice: Domenia uses the account of its session, so the operator relaunches with an authorised account.
+ */
+function refusalCard(res) {
+  const refused = (res?.attempts ?? []).filter((a) => a.status === 'REFUSE' || a.status === 'AUTH_REJETEE');
+  if (!refused.length) return '';
+  const names = refused.map((a) => a.target).filter(Boolean);
+  const rejected = refused.some((a) => a.status === 'AUTH_REJETEE');
+  return `<section class="rel-refused" role="note">
+    <h4>${glyph('lock')}Reprise d’accès · ${esc(nouns(refused.length, 'ressource refusée', 'ressources refusées'))}</h4>
+    <p>${rejected ? 'Les identifiants de la session ont été rejetés : la lecture s’est arrêtée au premier rejet, aucun autre poste n’a été contacté avec ce compte.' : 'Ces postes refusent la lecture au compte de la session.'} Rien n’est rejoué automatiquement${NBSP}: ouvrez Domenia avec un compte autorisé sur ces ressources, puis relancez vous-même la lecture.</p>
+    <ul>${refused.map((a) => `<li>${tonePill(a.tone, a.statusLabel)}<span class="mono">${esc(a.target ?? '—')}</span><span>${esc(a.resource)}</span></li>`).join('')}</ul>
+    ${names.length ? `<button class="btn xs" type="button" data-copy-refused="${esc(names.join('\n'))}">${glyph('copy')}Copier la liste</button>` : ''}
+  </section>`;
+}
+
+function bindRefusal(scope) {
+  scope.querySelectorAll('[data-copy-refused]').forEach((b) => b.addEventListener('click', async () => {
+    const ok = await writeClipboard(b.dataset.copyRefused);
+    toast(ok ? 'Liste des ressources refusées copiée.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
+  }));
+}
+
+/** « Détail des tentatives » (Domenia 1 DgLinkAttempts): method, status, target, duration, detail and resource. */
 function attemptsMarkup(attempts) {
   if (!attempts?.length) return '';
   return `<details class="rel-attempts"><summary>${glyph('sliders')}Détail des tentatives (${int(attempts.length)})</summary>
-    <ol>${attempts.map((a, j) => `<li data-j="${Math.min(j, 20)}">${tonePill(a.tone, a.statusLabel)}<div><b>${esc(a.method)}</b>${a.target ? `<span class="mono">${esc(a.target)}</span>` : ''}<p>${esc(a.detail)}</p></div>
-      <span class="rel-att-ms">${int(a.durationMs)}${NBSP}ms</span></li>`).join('')}</ol></details>`;
+    <table class="rel-att-table"><thead><tr><th scope="col">Méthode</th><th scope="col">Statut</th><th scope="col">Cible</th><th scope="col">Ressource</th><th scope="col">Durée</th></tr></thead>
+    <tbody>${attempts.map((a) => `<tr><th scope="row">${esc(a.method)}<small>${esc(a.detail)}</small></th><td>${tonePill(a.tone, a.statusLabel)}</td>
+      <td class="mono">${esc(a.target ?? '—')}</td><td>${esc(a.resource)}</td><td class="num">${int(a.durationMs)}${NBSP}ms</td></tr>`).join('')}</tbody></table></details>`;
 }
 
 // ====================================================================================================== Ajouter
@@ -104,10 +152,10 @@ function attemptsMarkup(attempts) {
 export function openAddPanel(app, subject, mode) {
   const isUser = subject.kind === 'user';
   const modes = isUser
-    ? [{ id: 'detecter', label: 'Détecter les postes', icon: 'wifi' }, { id: 'rechercher', label: 'Rechercher un poste', icon: 'search' }]
-    : [{ id: 'session', label: 'Lire la session', icon: 'monitor' }, { id: 'rechercher', label: 'Rechercher un utilisateur', icon: 'search' }];
+    ? [{ id: 'rechercher', label: 'Rechercher un poste', icon: 'search' }, { id: 'detecter', label: 'Détecter les postes', icon: 'wifi' }]
+    : [{ id: 'rechercher', label: 'Rechercher un utilisateur', icon: 'search' }, { id: 'session', label: 'Lire la session', icon: 'monitor' }];
   let current = modes.some((m) => m.id === mode) ? mode : modes[0].id;
-  const ctl = openDrawer({
+  const ctl = workDrawer({
     title: 'Ajouter une association', subtitle: `${isUser ? 'Utilisateur' : 'Poste'} · ${subject.login}`, icon: 'link',
     key: 'relations.ajouter', width: 620, minWidth: 460, maxWidth: 1000,
     body: shell(`<div class="rel-add">
@@ -118,7 +166,9 @@ export function openAddPanel(app, subject, mode) {
       <div class="rel-add-body"></div></div>`),
     actions: [],
   });
-  let stopProbe = null;
+  let mode$ = null; // controller of the current mode: { state(), stop(), refresh() }
+  ctl.associationState = () => mode$?.state?.() ?? 'idle';
+  ctl.refresh = () => mode$?.refresh?.();
   whenOpen(ctl).then((opened) => {
     if (!opened) return;
     const foot = footer(ctl);
@@ -128,33 +178,41 @@ export function openAddPanel(app, subject, mode) {
     seg.addEventListener('click', (e) => {
       const b = e.target instanceof Element ? e.target.closest('[data-mode]') : null;
       if (!b || b.dataset.mode === current) return;
-      stopProbe?.();
+      const busy = mode$?.state?.();
+      if (busy === 'pending' || busy === 'verifying') {
+        const reason = `Une association attend sa confirmation${NBSP}: confirmez-la ou annulez-la avant de changer de mode.`;
+        toast(reason, { tone: 'warn' }); announce(reason);
+        return;
+      }
+      mode$?.stop?.();
       current = b.dataset.mode;
       seg.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.mode === current)));
       ink.update();
       paint();
     });
-    ctl.closed.then(() => { stopProbe?.(); ink.stop(); });
+    ctl.closed.then(() => { mode$?.stop?.(); ink.stop(); });
     const paint = () => {
-      if (current === 'rechercher') searchMode(app, ctl, host, foot, subject);
-      else if (current === 'detecter') stopProbe = detectMode(app, ctl, host, foot, subject);
-      else sessionMode(app, ctl, host, foot, subject);
+      if (current === 'rechercher') mode$ = searchMode(app, ctl, host, foot, subject);
+      else if (current === 'detecter') mode$ = detectMode(app, ctl, host, foot, subject);
+      else mode$ = sessionMode(app, ctl, host, foot, subject);
     };
     paint();
   });
   return ctl;
 }
 
-const STATES = [
-  { id: 'searching', label: 'Recherche' },
-  { id: 'candidate', label: 'Choix' },
-  { id: 'pending', label: 'Confirmation' },
-  { id: 'saved', label: 'Plan et reçu' },
-];
+const STEPS = ['Recherche', 'Choix', 'Confirmation', 'Vérification', 'Enregistrée'];
+const STEP_AT = { idle: 0, searching: 0, candidate: 1, pending: 2, verifying: 3, saved: 5, failed: 4 };
 
 function stepper(state) {
-  const at = STATES.findIndex((s) => s.id === state);
-  return `<ol class="rel-steps" aria-label="Étapes de l’association">${STATES.map((s, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}" data-j="${i}"${i === at ? ' aria-current="step"' : ''}><span class="rel-step-mark" aria-hidden="true">${i < at ? glyph('check') : i + 1}</span>${esc(s.label)}</li>`).join('')}</ol>`;
+  const at = STEP_AT[state] ?? 0;
+  const failed = state === 'failed';
+  return `<ol class="rel-steps${failed ? ' failed' : ''}" aria-label="Étapes de l’association">${STEPS.map((label, i) => {
+    const done = i < at;
+    const now = i === at || (failed && i === 4);
+    const text = i === 4 && failed ? 'Échec' : label;
+    return `<li class="${done ? 'done' : now ? 'now' : ''}${i === 4 && failed ? ' fail' : ''}" data-j="${i}"${now ? ' aria-current="step"' : ''}><span class="rel-step-mark" aria-hidden="true">${done ? glyph('check') : i === 4 && failed ? glyph('x') : i + 1}</span>${esc(text)}</li>`;
+  }).join('')}</ol>`;
 }
 
 function searchMode(app, ctl, host, foot, subject) {
@@ -165,7 +223,7 @@ function searchMode(app, ctl, host, foot, subject) {
   let chosen = null;
   let request = 0;
   host.innerHTML = `<div class="rel-mode">
-    <div class="rel-steps-host">${stepper('searching')}</div>
+    <div class="rel-steps-host">${stepper('idle')}</div>
     <form class="rel-search" novalidate>
       <label class="visually-hidden" for="${fieldId}">${isUser ? 'Poste à associer' : 'Utilisateur à associer'}</label>
       <span class="rel-search-ico" aria-hidden="true">${glyph('search')}</span>
@@ -175,7 +233,7 @@ function searchMode(app, ctl, host, foot, subject) {
     </form>
     <p class="rel-status" role="status">Recherche dans tout le domaine, sur votre geste${NBSP}; le sujet reste ${esc(subject.login)}.</p>
     <div class="rel-search-hint"><span class="rel-hint-art" aria-hidden="true">${glyph(isUser ? 'monitor' : 'user')}</span>
-      <p>${isUser ? 'Exemples' : 'Exemples'}${NBSP}: <span class="mono">${isUser ? 'PC-PAR-0042' : 'j.martin'}</span>, <span class="mono">${isUser ? 'pt-lyo' : 'martin'}</span>. Deux caractères au moins, puis Entrée. La cible choisie est relue au moment du plan.</p></div>
+      <p>Exemples${NBSP}: <span class="mono">${isUser ? 'PC-PAR-0042' : 'j.martin'}</span>, <span class="mono">${isUser ? 'pt-lyo' : 'martin'}</span>. Deux caractères au moins, puis Entrée. La cible choisie est relue au moment du plan, GUID compris.</p></div>
     <ul class="rel-results" role="listbox" aria-label="${isUser ? 'Postes trouvés' : 'Utilisateurs trouvés'}"></ul>
     <div class="rel-confirm" hidden></div>
   </div>`;
@@ -183,40 +241,105 @@ function searchMode(app, ctl, host, foot, subject) {
   const status = host.querySelector('.rel-status');
   const list = host.querySelector('.rel-results');
   const confirm = host.querySelector('.rel-confirm');
-  const setState = (next) => {
-    state = next;
-    host.querySelector('.rel-steps-host').innerHTML = stepper(next === 'idle' ? 'searching' : next);
+
+  /** Applies one event of the association; a refused one keeps the state and says why (Domenia 1 D045). */
+  function step(event) {
+    const r = associationStep(state, event);
+    if (!r.accepted) {
+      status.textContent = r.reason;
+      status.classList.add('warn');
+      announce(r.reason);
+      return false;
+    }
+    status.classList.remove('warn');
+    state = r.state;
+    host.querySelector('.rel-steps-host').innerHTML = stepper(state);
     applyVars(host);
+    list.classList.toggle('inactive', state === 'idle' && rows.length > 0);
     paintFoot();
-  };
+    return true;
+  }
+
   function paintFoot() {
-    foot.set([
-      { id: 'close', label: 'Fermer', run: () => ctl.close() },
-      { id: 'associate', label: isUser ? 'Associer ce poste' : 'Associer cet utilisateur', icon: 'link', primary: true, kind: 'write',
-        disabled: state !== 'pending', reason: state !== 'pending' ? 'Choisissez d’abord une ligne dans les résultats.' : '', run: associate },
-    ]);
+    const buttons = [{ id: 'close', label: 'Fermer', run: () => ctl.close() }];
+    if (state === 'saved' || state === 'failed') {
+      buttons.push({ id: 'again', label: 'Nouvelle recherche', icon: 'search', run: () => { step('reset'); reset(); input.focus(); } });
+    } else {
+      buttons.push({ id: 'associate', label: isUser ? 'Associer ce poste' : 'Associer cet utilisateur', icon: 'link', primary: true, kind: 'write',
+        disabled: state !== 'pending', reason: state === 'verifying' ? 'Vérification en cours.' : state !== 'pending' ? 'Choisissez d’abord une ligne dans les résultats.' : '', run: associate });
+    }
+    foot.set(buttons);
   }
-  function associate() {
-    if (!chosen) return;
+
+  function reset() {
+    rows = []; chosen = null; list.innerHTML = ''; confirm.hidden = true; list.classList.remove('inactive');
+  }
+
+  function confirmCard(row, outcome = null) {
+    const user = isUser ? subject : row;
+    const computer = isUser ? row : subject;
+    const tail = outcome === 'saved'
+      ? `<p class="rel-confirm-done">${glyph('check')}Association enregistrée, relue et tracée par un reçu. Choisissez une autre ligne pour en ajouter une.</p>`
+      : outcome === 'failed'
+        ? `<p class="rel-confirm-note warn">${glyph('alert')}Association non enregistrée${NBSP}: plan refusé, annulé ou issue à vérifier (voir le panneau du plan et Opérations). Rien n’est rejoué.</p>`
+        : `<p class="rel-confirm-note">${glyph('lock')}Association locale à Domenia${NBSP}: Active Directory n’est pas modifié. Le sujet et la cible sont relus au moment du plan (même GUID), puis vous confirmez.</p>
+          ${row.alreadyLinked ? `<p class="rel-confirm-note warn">${glyph('info')}Une relation existe déjà entre eux${NBSP}: une affectation déclarée s’ajoute à côté, ou met à jour sa date si elle existait.</p>` : ''}
+          <button class="btn xs ghost rel-confirm-cancel" type="button" data-cancel>${glyph('x')}Annuler ce choix</button>`;
+    return `<div class="rel-confirm-card${outcome ? ` ${outcome}` : ''}">
+      <div class="rel-confirm-pair">${avatar('user', user.name, 'md')}<span class="rel-confirm-line" aria-hidden="true"><span></span></span>${avatar('computer', computer.name, 'md')}</div>
+      <p class="rel-confirm-text"><b>${esc(user.login)}</b> → <b>${esc(computer.name)}</b> · ${badge('declared', { size: 'sm' })} (Saisie manuelle)</p>
+      ${tail}
+    </div>`;
+  }
+
+  function showConfirm(row, outcome) {
+    confirm.hidden = false;
+    confirm.innerHTML = confirmCard(row, outcome);
+    confirm.classList.remove('in'); void confirm.offsetWidth; confirm.classList.add('in');
+    confirm.querySelector('[data-cancel]')?.addEventListener('click', () => {
+      if (!step('cancel')) return;
+      chosen = null;
+      confirm.hidden = true;
+      list.querySelectorAll('.rel-result').forEach((x) => { x.classList.remove('chosen'); x.setAttribute('aria-selected', 'false'); });
+      status.textContent = 'Choix annulé : relancez la recherche pour choisir une autre ligne.';
+    });
+  }
+
+  async function associate() {
+    if (!chosen || !step('confirm')) return;
     const target = chosen;
-    ctl.close();
-    app.plan('relations.associate.plan', { dn: subject.dn, target: target.dn }, `${subject.login} → ${target.login}`);
+    status.textContent = 'Vérification du sujet et de la cible dans l’annuaire, puis plan à confirmer…';
+    const receipt = await app.plan('relations.associate.plan', { dn: subject.dn, subjectGuid: subject.guid, target: target.dn, targetGuid: target.guid });
+    if (!ctl.body?.isConnected) return;
+    if (receipt) {
+      step('verified');
+      status.textContent = `Association ${isUser ? subject.login : target.login} → ${isUser ? target.name : subject.name} enregistrée.`;
+      target.alreadyLinked = true;
+      list.querySelector(`.rel-result[data-dn="${CSS.escape(target.dn)}"] .rel-result-tags`)?.insertAdjacentHTML('afterbegin', `<span class="rel-tag ok">${glyph('check')}Associé</span>`);
+      showConfirm(target, 'saved');
+    } else {
+      step('verifyFailed');
+      status.textContent = 'Association non enregistrée : rien n’a été écrit, ou l’issue est à vérifier dans Opérations.';
+      showConfirm(target, 'failed');
+    }
   }
+
   // A new term invalidates the results and the association prepared from them (Domenia 1 REL-001).
   input.addEventListener('input', () => {
     if (!rows.length && !chosen) return;
-    rows = []; chosen = null; list.innerHTML = ''; confirm.hidden = true;
-    setState('idle');
+    if (state === 'pending' || state === 'verifying') return;
+    reset();
+    if (state !== 'idle') step('reset');
     status.textContent = 'Nouveau terme : relancez la recherche.';
   });
   host.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = input.value.trim();
     if (text.length < 2) { status.textContent = 'Saisissez au moins deux caractères.'; input.focus(); return; }
+    if (!step('search')) return;
     const my = ++request;
     chosen = null; confirm.hidden = true;
     host.querySelector('.rel-search-hint')?.remove();
-    setState('searching');
     list.setAttribute('aria-busy', 'true');
     list.innerHTML = [1, 2, 3].map(() => `<li class="rel-result sk-row">${sk('w55')}${sk('w40')}</li>`).join('');
     status.textContent = `Recherche ${isUser ? 'des postes' : 'des utilisateurs'} dans tout le domaine…`;
@@ -230,33 +353,26 @@ function searchMode(app, ctl, host, foot, subject) {
         <span class="rel-result-tags">${r.alreadyLinked ? `<span class="rel-tag ok">${glyph('link')}Déjà associé</span>` : ''}${r.enabled ? '' : `<span class="rel-tag warn">${glyph('power')}Désactivé</span>`}</span>
         <span class="rel-result-radio" aria-hidden="true"></span></li>`).join('');
       applyVars(list);
+      step('results');
       status.textContent = res.message;
-      setState(rows.length ? 'candidate' : 'idle');
       announce(res.message);
     } catch (err) {
       if (my !== request) return;
       list.removeAttribute('aria-busy');
       list.innerHTML = '';
+      step('cancel');
       status.textContent = `Recherche non confirmée${NBSP}: ${errText(err)}`;
-      setState('idle');
     }
   });
   const pick = (li) => {
     const row = rows.find((r) => r.dn === li.dataset.dn);
-    if (!row || state === 'searching') return;
+    if (!row) return;
+    // A refused pick (search under way, association waiting, list no longer active) is said, never silently ignored.
+    if (!step('pick')) return;
     chosen = row;
     list.querySelectorAll('.rel-result').forEach((x) => { const on = x === li; x.classList.toggle('chosen', on); x.setAttribute('aria-selected', String(on)); });
-    const user = isUser ? subject : row;
-    const computer = isUser ? row : subject;
-    confirm.hidden = false;
-    confirm.innerHTML = `<div class="rel-confirm-card">
-      <div class="rel-confirm-pair">${avatar('user', user.name, 'md')}<span class="rel-confirm-line" aria-hidden="true"><span></span></span>${avatar('computer', computer.name, 'md')}</div>
-      <p class="rel-confirm-text"><b>${esc(user.login)}</b> → <b>${esc(computer.name)}</b> · ${badge('declared', { size: 'sm' })} (Saisie manuelle)</p>
-      <p class="rel-confirm-note">${glyph('lock')}Association locale à Domenia${NBSP}: Active Directory n’est pas modifié. Le sujet et la cible sont relus au moment du plan, puis vous confirmez.</p>
-      ${row.alreadyLinked ? `<p class="rel-confirm-note warn">${glyph('info')}Une relation existe déjà entre eux${NBSP}: une affectation déclarée s’ajoute à côté, ou met à jour sa date si elle existait.</p>` : ''}
-    </div>`;
-    confirm.classList.remove('in'); void confirm.offsetWidth; confirm.classList.add('in');
-    setState('pending');
+    status.textContent = `${row.name} choisi${isUser ? '' : 'e'}${NBSP}: vérifiez puis associez.`;
+    showConfirm(row, null);
   };
   list.addEventListener('click', (e) => { const li = e.target instanceof Element ? e.target.closest('.rel-result[data-dn]') : null; if (li) pick(li); });
   list.addEventListener('keydown', (e) => {
@@ -268,6 +384,7 @@ function searchMode(app, ctl, host, foot, subject) {
   });
   paintFoot();
   setTimeout(() => input.focus(), 60);
+  return { state: () => state, stop: () => { request++; } };
 }
 
 // ---------------------------------------------------------------------------------------------- probe (detection, relevé)
@@ -282,7 +399,7 @@ function runProbe(app, host, planId, planned, onDone) {
       <div data-k="confirmed"><b class="num">0</b><span>confirmés</span></div><div data-k="noSession"><b class="num">0</b><span>sans compte</span></div>
       <div data-k="refused"><b class="num">0</b><span>refusés</span></div><div data-k="unreachable"><b class="num">0</b><span>injoignables</span></div>
     </div>
-    <p class="rel-probe-text">Lecture des consoles du périmètre confirmé…</p>
+    <p class="rel-probe-text">Lecture des postes du périmètre confirmé…</p>
     <ol class="rel-probe-feed"></ol></div>`;
   const ring = host.querySelector('.rel-probe-ring');
   const feed = host.querySelector('.rel-probe-feed');
@@ -317,19 +434,49 @@ function candidatesMarkup(candidates, { associate = true } = {}) {
       ${c.blocker ? `<p class="rel-cand-block">${glyph('lock')}${esc(c.blocker)}</p>` : ''}</div>
     <div class="rel-cand-side">${c.status ? `<span class="rel-cand-status">${esc(c.status)}</span>` : ''}${badge(c.badge, { size: 'sm', label: c.badgeLabel })}
       ${c.currentUser ? `<span class="mono rel-cand-user">${esc(c.currentUser)}</span>` : ''}${c.observedText ? `<span class="rel-cand-when">${esc(c.observedText)}</span>` : ''}
-      ${associate && c.associable && c.dn ? `<button class="btn xs" type="button" data-associate="${esc(c.dn)}" data-tip="Préparer son association déclarée">${glyph('link')}Associer</button>` : ''}</div></li>`).join('')}</ul>`;
+      <span class="rel-cand-acts">
+        ${c.dn ? `<button class="btn xs ghost" type="button" data-fiche="${esc(c.dn)}" data-tip="Ouvrir la fiche du poste">${glyph('external')}Fiche</button>` : ''}
+        ${associate && c.associable && c.dn && c.guid ? `<button class="btn xs" type="button" data-associate="${esc(c.dn)}" data-guid="${esc(c.guid)}" data-name="${esc(c.computer)}" data-tip="Préparer son association déclarée (plan, confirmation, reçu)">${glyph('link')}Associer</button>` : ''}
+        ${associate && !c.associable && c.blocker ? `<span class="rel-cand-why" data-tip="${esc(c.blocker)}">${glyph('lock')}Non associable</span>` : ''}
+      </span></div></li>`).join('')}</ul>`;
+}
+
+/** OU picker of a perimeter: the tree of the domain, read one level at a time on opening (never the domain itself). */
+function ouPicker(app, host, onPick) {
+  host.innerHTML = '<div class="rel-ou-tree"></div><p class="rel-ou-chosen" aria-live="polite"></p>';
+  const toNode = (ou) => ({ id: ou.dn, label: ou.name, hint: nouns(ou.counts?.computers ?? 0, 'poste', 'postes'), leaf: !ou.hasChildren, icon: 'ou', data: ou });
+  const tree = createTree(host.querySelector('.rel-ou-tree'), {
+    label: 'Unités d’organisation du domaine',
+    roots: async () => (await app.ctx.call('directory.ou.children', { dn: null })).children.map(toNode),
+    load: async (node) => (await app.ctx.call('directory.ou.children', { dn: node.id })).children.map(toNode),
+    onSelect: (node) => {
+      host.querySelector('.rel-ou-chosen').innerHTML = `${glyph('ou')}OU choisie${NBSP}: <b>${esc(node.data?.path ?? node.label)}</b>`;
+      onPick(node.id, node.data?.path ?? node.label);
+    },
+    height: '240px',
+    searchPlaceholder: 'Chercher une OU déjà ouverte…',
+  });
+  return tree;
 }
 
 function detectMode(app, ctl, host, foot, subject) {
   let stop = null;
+  let tree = null;
+  let chosenOu = null;
+  let resultId = null;
+  let resultSavable = 0;
   const scopeLabel = app.scopeLabel();
+  const loaded = app.loadedComputers();
   host.innerHTML = `<div class="rel-mode rel-detect">
     <section class="rel-step-card">
       <h3><span class="rel-step-n">1</span>Périmètre</h3>
       <div class="rel-radios" role="radiogroup" aria-label="Périmètre de détection">
         <label class="rel-radio"><input class="k-radio" type="radio" name="scope" value="candidates" checked><span><b>Postes connus et candidats de l’annuaire</b><small>Associations mémorisées, managedBy, mentions du compte.</small></span></label>
-        <label class="rel-radio"><input class="k-radio" type="radio" name="scope" value="ou"><span><b>OU de travail${scopeLabel ? ` · ${esc(scopeLabel)}` : ''}</b><small>Postes de l’OU explicite, jamais le domaine entier.</small></span></label>
+        <label class="rel-radio${loaded ? '' : ' off'}"><input class="k-radio" type="radio" name="scope" value="loaded"${loaded ? '' : ' disabled'}><span><b>Machines de la liste chargée</b><small>${loaded ? esc(loaded.label) : 'Aucune liste chargée : filtrez « Toutes les associations » ou venez de Rechercher avec une liste de postes.'}</small></span></label>
+        <label class="rel-radio"><input class="k-radio" type="radio" name="scope" value="ou"><span><b>OU de travail${scopeLabel ? ` · ${esc(scopeLabel)}` : ''}</b><small>Postes de l’OU de travail, jamais le domaine entier.</small></span></label>
+        <label class="rel-radio"><input class="k-radio" type="radio" name="scope" value="other"><span><b>Autre OU explicite</b><small>Choisie dans l’arborescence ; la racine du domaine n’est jamais acceptée.</small></span></label>
       </div>
+      <div class="rel-ou-host" hidden></div>
       <div class="rel-inline">
         <label class="rel-num"><span>Postes au plus</span><input class="input" type="number" name="limit" min="1" max="50" value="20"></label>
         <label class="rel-switch"><input class="switch" type="checkbox" role="switch" name="kerberos"><span>Indices Kerberos du contrôleur (7 jours)</span></label>
@@ -339,7 +486,13 @@ function detectMode(app, ctl, host, foot, subject) {
     <div class="rel-detect-out">${upcoming(DETECT_STEPS, 2)}</div>
   </div>`;
   const out = host.querySelector('.rel-detect-out');
+  const ouHost = host.querySelector('.rel-ou-host');
   applyVars(out);
+  host.querySelectorAll('input[name="scope"]').forEach((r) => r.addEventListener('change', () => {
+    const other = host.querySelector('input[name="scope"]:checked')?.value === 'other';
+    ouHost.hidden = !other;
+    if (other && !tree) tree = ouPicker(app, ouHost, (dn) => { chosenOu = dn; });
+  }));
   const values = () => ({
     scope: host.querySelector('input[name="scope"]:checked')?.value ?? 'candidates',
     limit: Math.max(1, Math.min(50, Number(host.querySelector('input[name="limit"]').value) || 20)),
@@ -350,12 +503,25 @@ function detectMode(app, ctl, host, foot, subject) {
 
   async function collect() {
     const v = values();
+    if (v.scope === 'other' && !chosenOu) {
+      toast('Choisissez d’abord une OU dans l’arborescence.', { tone: 'info' });
+      return;
+    }
     out.innerHTML = `<section class="rel-step-card" aria-busy="true">${sk('w40')}${sk('w85')}${sk('w70')}${sk('w55')}</section>`;
     setFoot([{ id: 'collect', label: 'Lecture de l’annuaire…', icon: 'search', primary: true, disabled: true }]);
+    const args = {
+      dn: subject.dn, guid: subject.guid, login: subject.login,
+      scope: v.scope === 'other' ? 'ou' : v.scope,
+      ouDn: v.scope === 'other' ? chosenOu : null,
+      computers: v.scope === 'loaded' ? (app.loadedComputers()?.names ?? []) : [],
+      limit: v.limit, kerberos: v.kerberos,
+    };
     try {
-      const res = await app.ctx.call('relations.detect.collect', { dn: subject.dn, scope: v.scope, ouDn: null, computers: [], limit: v.limit, kerberos: v.kerberos });
+      const res = await app.ctx.call('relations.detect.collect', args);
+      if (!ctl.body?.isConnected) return;
       showCollect(res);
     } catch (err) {
+      if (!ctl.body?.isConnected) return;
       out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}Détection impossible${NBSP}: ${esc(errText(err))}</p>`;
       setFoot([{ id: 'collect', label: 'Lire l’annuaire', icon: 'search', primary: true, kind: 'network', run: collect }]);
     }
@@ -371,12 +537,12 @@ function detectMode(app, ctl, host, foot, subject) {
         ${attemptsMarkup(res.attempts)}
       </section>
       <section class="rel-step-card rel-plan ${plan.allowed ? '' : 'refused'}">
-        <h3><span class="rel-step-n">3</span>Périmètre à confirmer</h3>
+        <h3><span class="rel-step-n">3</span>Périmètre à confirmer · ${esc(plan.scopeLabel)}</h3>
         ${plan.allowed ? `<p>${esc(plan.text)}</p><ul class="rel-plan-targets">${plan.targets.map((t, j) => `<li data-j="${Math.min(j, 24)}" data-tip="${esc(t.source)}">${glyph('monitor')}${esc(t.computer)}</li>`).join('')}</ul>`
           : `<p class="rel-note warn">${glyph('info')}${esc(plan.reason)} ${esc(plan.zeroMeaning)}</p>`}
       </section>`;
     applyVars(out);
-    bindAssociate(out);
+    bindCandidates(out);
     setFoot(plan.allowed
       ? [{ id: 'run', label: `Lancer la détection (${int(plan.targets.length)})`, icon: 'play', primary: true, kind: 'network', run: () => probe(plan) }]
       : [{ id: 'collect', label: 'Relire l’annuaire', icon: 'refresh', kind: 'network', run: collect }]);
@@ -390,34 +556,57 @@ function detectMode(app, ctl, host, foot, subject) {
     setFoot([{ id: 'stop', label: 'Arrêter', icon: 'pause', danger: true, run: () => { stop?.(); setFoot([{ id: 'stopping', label: 'Arrêt demandé…', disabled: true }]); } }]);
     stop = runProbe(app, probeHost, plan.id, plan.targets.length, (res, err) => {
       stop = null;
+      if (!ctl.body?.isConnected) return;
       if (err) {
         probeHost.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}Détection non terminée${NBSP}: ${esc(errText(err))} Les liens existants sont conservés.</p>`;
         setFoot([{ id: 'collect', label: 'Relire l’annuaire', icon: 'refresh', kind: 'network', run: collect }]);
         return;
       }
+      resultId = res.resultId;
+      resultSavable = res.savable;
       probeHost.innerHTML = `<h3><span class="rel-step-n">4</span>Résultat${res.counters?.stopped ? ' partiel' : ''}</h3><p class="rel-status">${esc(res.message)}</p>
-        ${refusalNote(res)}${candidatesMarkup(res.candidates)}${attemptsMarkup(res.attempts)}`;
+        ${refusalCard(res)}${candidatesMarkup(res.candidates)}${attemptsMarkup(res.attempts)}`;
       applyVars(probeHost);
-      bindAssociate(probeHost);
+      bindCandidates(probeHost);
+      bindRefusal(probeHost);
       announce(res.message);
       app.touch();
-      setFoot(res.savable > 0
-        ? [{ id: 'save', label: `Enregistrer ${nouns(res.savable, 'console confirmée', 'consoles confirmées')}`, icon: 'check', primary: true, kind: 'write', run: () => { ctl.close(); app.plan('relations.observations.plan', { resultId: res.resultId, keys: [] }, 'Consoles confirmées'); } }]
-        : [{ id: 'collect', label: 'Nouvelle détection', icon: 'refresh', kind: 'network', run: collect }]);
+      resultFoot(res.savable);
     });
   }
 
-  function bindAssociate(scope) {
-    scope.querySelectorAll('[data-associate]').forEach((b) => b.addEventListener('click', () => {
-      const dn = b.dataset.associate;
-      ctl.close();
-      app.plan('relations.associate.plan', { dn: subject.dn, target: dn }, `${subject.login} → ${b.closest('.rel-cand')?.querySelector('b')?.textContent ?? ''}`);
-    }));
+  function resultFoot(remaining) {
+    setFoot(remaining > 0
+      ? [{ ...saveButton(remaining, 'la détection'), run: save }, { id: 'collect', label: 'Nouvelle détection', icon: 'refresh', kind: 'network', run: collect }]
+      : [{ id: 'collect', label: 'Nouvelle détection', icon: 'refresh', primary: true, kind: 'network', run: collect }]);
   }
-  return () => stop?.();
+
+  async function save() {
+    if (!resultId) return;
+    await app.saveBatches(resultId, { all: true, origin: 'Détection' });
+  }
+
+  function bindCandidates(scope) {
+    scope.querySelectorAll('[data-associate]').forEach((b) => b.addEventListener('click', async () => {
+      const receipt = await app.plan('relations.associate.plan', { dn: subject.dn, subjectGuid: subject.guid, target: b.dataset.associate, targetGuid: b.dataset.guid });
+      if (receipt && b.isConnected) b.outerHTML = `<span class="rel-tag ok">${glyph('check')}Associé</span>`;
+    }));
+    scope.querySelectorAll('[data-fiche]').forEach((b) => b.addEventListener('click', () => app.openFiche({ dn: b.dataset.fiche })));
+  }
+
+  return {
+    state: () => 'idle',
+    stop: () => stop?.(),
+    refresh: async () => {
+      if (!resultId || !resultSavable || stop) return;
+      const remaining = await remainingOf(app, resultId);
+      if (remaining !== null && ctl.body?.isConnected) { resultSavable = remaining; resultFoot(remaining); }
+    },
+  };
 }
 
 function sessionMode(app, ctl, host, foot, subject) {
+  let resultId = null;
   host.innerHTML = `<div class="rel-mode">
     <section class="rel-step-card">
       <h3>${glyph('monitor')}Session console de ${esc(subject.name)}</h3>
@@ -432,33 +621,51 @@ function sessionMode(app, ctl, host, foot, subject) {
     set([{ id: 'read', label: 'Lecture…', icon: 'monitor', primary: true, disabled: true }]);
     try {
       const res = await app.ctx.call('relations.computer.read', { dn: subject.dn });
+      if (!ctl.body?.isConnected) return;
       const o = res.observed;
+      resultId = res.savable ? res.resultId : null;
       out.innerHTML = `<section class="rel-step-card in rel-session-card${o?.match ? ' ok' : ''}">
         ${o ? `<div class="rel-session-who">${avatar('user', o.userName ?? o.login, 'lg')}<div><span class="rel-k">Compte console</span><b>${esc(o.userName ?? o.login)}</b><span class="mono">${esc(o.account)}</span></div>
           ${badge(o.badge, { label: o.badgeLabel })}</div>
           <p class="rel-session-check ${o.match ? 'ok' : 'warn'}">${glyph(o.match ? 'shield' : 'alert')}${esc(o.reason)}</p>` : ''}
-        <p class="rel-status">${esc(res.message)}</p>${attemptsMarkup(res.attempts)}</section>`;
+        <p class="rel-status">${esc(res.message)}</p>${refusalCard(res)}${attemptsMarkup(res.attempts)}</section>`;
       applyVars(out);
+      bindRefusal(out);
       app.touch();
       announce(res.message);
-      set(res.savable
-        ? [{ id: 'save', label: 'Enregistrer l’observation', icon: 'check', primary: true, kind: 'write', run: () => { ctl.close(); app.plan('relations.observations.plan', { resultId: res.resultId, keys: [] }, 'Session observée'); } },
-          { id: 'again', label: 'Relire', icon: 'refresh', kind: 'network', run: read }]
-        : [{ id: 'again', label: 'Relire', icon: 'refresh', primary: true, kind: 'network', run: read }]);
+      paintFoot(res.savable ? 1 : 0);
     } catch (err) {
+      if (!ctl.body?.isConnected) return;
       out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
       set([{ id: 'read', label: 'Lire la session', icon: 'monitor', primary: true, kind: 'network', run: read }]);
     }
   }
+  function paintFoot(remaining) {
+    set(remaining > 0
+      ? [{ id: 'save', label: 'Enregistrer l’observation', icon: 'check', primary: true, kind: 'write', run: () => app.saveBatches(resultId, { origin: 'Lecture de session' }) },
+        { id: 'again', label: 'Relire', icon: 'refresh', kind: 'network', run: read }]
+      : [{ id: 'again', label: resultId ? 'Relire' : 'Lire de nouveau', icon: 'refresh', primary: true, kind: 'network', run: read }]);
+  }
   set([{ id: 'read', label: 'Lire la session de ce poste', icon: 'monitor', primary: true, kind: 'network', run: read }]);
+  return {
+    state: () => 'idle',
+    refresh: async () => {
+      if (!resultId) return;
+      const remaining = await remainingOf(app, resultId);
+      if (remaining !== null && ctl.body?.isConnected) {
+        if (remaining === 0) out.querySelector('.rel-session-card')?.insertAdjacentHTML('beforeend', `<p class="rel-confirm-done">${glyph('check')}Observation enregistrée, relue et tracée par un reçu.</p>`);
+        paintFoot(remaining);
+      }
+    },
+  };
 }
 
 // ====================================================================================================== Import
 
 const ADAPTERS = [
-  { id: 'csv', label: 'CSV générique', accept: '.csv,text/csv', max: 8 * 1024 * 1024, text: 'Colonnes UserLogin (ou User, Username, SamAccountName) et Computer (ou ComputerName, Hostname), date ISO facultative When.' },
-  { id: 'glpi', label: 'Export GLPI (CSV)', accept: '.csv,text/csv', max: 8 * 1024 * 1024, text: 'Liste des ordinateurs GLPI : Nom, Usager (ou Login), date du dernier inventaire, numéro de série, entité.' },
-  { id: 'osquery', label: 'Résultats osquery (JSON)', accept: '.json,.jsonl,.log,application/json', max: 2 * 1024 * 1024, text: 'Table logged_in_users : journal osqueryd (une ligne JSON par événement) ou tableau d’osqueryi --json avec hostname.' },
+  { id: 'csv', label: 'CSV générique', accept: '.csv,text/csv', max: 8 * 1024 * 1024, maxLabel: `8${NBSP}Mio`, text: 'Colonnes UserLogin (ou User, Username, SamAccountName) et Computer (ou ComputerName, Hostname), date ISO facultative When.' },
+  { id: 'glpi', label: 'Export GLPI (CSV)', accept: '.csv,text/csv', max: 8 * 1024 * 1024, maxLabel: `8${NBSP}Mio`, text: 'Liste des ordinateurs GLPI : Nom, Usager (ou Login), date du dernier inventaire, numéro de série, entité.' },
+  { id: 'osquery', label: 'Résultats osquery (JSON)', accept: '.json,.jsonl,.log,application/json', max: 2 * 1024 * 1024, maxLabel: `2${NBSP}Mio`, text: 'Table logged_in_users : journal osqueryd (une ligne JSON par événement) ou tableau d’osqueryi --json avec hostname.' },
 ];
 const CATEGORIES = [
   { id: 'Valide', tone: 'ok' }, { id: 'Conflit', tone: 'alert' }, { id: 'Rejet', tone: 'alert' }, { id: 'Doublon', tone: 'off' },
@@ -468,7 +675,7 @@ const PART = 500_000;
 
 /** Import of associations with a preview (Domenia 1 CO-08, points 137 and 138). */
 export function openImportPanel(app, lastImport) {
-  const ctl = openDrawer({
+  const ctl = workDrawer({
     title: 'Importer des associations', subtitle: 'Aperçu complet avant tout enregistrement', icon: 'download',
     key: 'relations.import', width: 760, minWidth: 520, maxWidth: 1200,
     body: shell(`<div class="rel-import">
@@ -495,8 +702,9 @@ export function openImportPanel(app, lastImport) {
     const out = root.querySelector('.rel-import-out');
     let file = null;
     let preview = null;
+    let grid = null;
     applyVars(root);
-    root.querySelector('[data-undo]')?.addEventListener('click', () => { ctl.close(); app.undoImport(lastImport.batchId); });
+    root.querySelector('[data-undo]')?.addEventListener('click', () => app.undoImport(lastImport.batchId));
     const adapter = () => ADAPTERS.find((a) => a.id === root.querySelector('input[name="adapter"]:checked')?.value) ?? ADAPTERS[0];
     root.querySelectorAll('input[name="adapter"]').forEach((r) => r.addEventListener('change', () => { input.accept = adapter().accept; preview = null; out.innerHTML = ''; paintFoot(); }));
     const choose = (f) => {
@@ -510,7 +718,7 @@ export function openImportPanel(app, lastImport) {
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); choose(e.dataTransfer?.files?.[0]); });
     function paintFoot() {
-      const buttons = [{ id: 'close', label: 'Annuler', run: () => ctl.close() }];
+      const buttons = [{ id: 'close', label: 'Fermer', run: () => ctl.close() }];
       if (preview) buttons.push({ id: 'import', label: `Importer ${nouns(preview.ready, 'association', 'associations')}`, icon: 'check', primary: true, kind: 'write', disabled: preview.ready === 0, reason: preview.ready === 0 ? 'Aucune ligne valide à importer.' : '', run: doImport });
       else buttons.push({ id: 'preview', label: 'Prévisualiser', icon: 'eye', primary: true, disabled: !file, reason: file ? '' : 'Choisissez d’abord un fichier.', run: doPreview });
       foot.set(buttons);
@@ -518,11 +726,15 @@ export function openImportPanel(app, lastImport) {
     async function doPreview() {
       if (!file) return;
       const a = adapter();
+      // The size is checked before anything is read: a file of hundreds of Mo never freezes the page.
+      if (file.size > a.max) {
+        out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}Fichier trop volumineux pour un aperçu ${esc(a.label)}${NBSP}: ${esc(int(Math.ceil(file.size / 1024)))}${NBSP}Kio, limite ${esc(a.maxLabel)}. Découpez le fichier ou filtrez l’export${NBSP}; rien n’a été lu.</p>`;
+        return;
+      }
       out.innerHTML = `<section class="rel-step-card" aria-busy="true"><div class="rel-bar"><span class="rel-bar-fill"></span></div><p class="rel-status">Lecture du fichier…</p>${sk('w85')}${sk('w70')}</section>`;
-      foot.set([{ id: 'close', label: 'Annuler', run: () => ctl.close() }, { id: 'preview', label: 'Aperçu…', primary: true, disabled: true }]);
+      foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'preview', label: 'Aperçu…', primary: true, disabled: true }]);
       try {
         const text = await file.text();
-        if (text.length > a.max) throw Object.assign(new Error(`Fichier trop volumineux pour un aperçu ${a.label} : ${int(text.length)} caractères, limite ${int(a.max)}. Découpez le fichier ou filtrez l’export.`), { code: 'relation.importTooLarge' });
         const id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
         const parts = Math.max(1, Math.ceil(text.length / PART));
         const bar = out.querySelector('.rel-bar-fill');
@@ -532,6 +744,7 @@ export function openImportPanel(app, lastImport) {
         }
         out.querySelector('.rel-status').textContent = 'Aperçu et vérification dans l’index local, sans accès réseau…';
         preview = await app.ctx.call('relations.import.preview', { id, adapter: a.id, fileName: file.name });
+        if (!ctl.body?.isConnected) return;
         showPreview();
       } catch (err) {
         preview = null;
@@ -548,7 +761,8 @@ export function openImportPanel(app, lastImport) {
         <div class="rel-import-grid"></div></section>`;
       applyVars(out);
       out.querySelectorAll('[data-count]').forEach((el, n) => countUp(el, Number(el.dataset.count), { delay: n * 60 }));
-      const grid = createGrid(out.querySelector('.rel-import-grid'), {
+      grid?.destroy();
+      grid = createGrid(out.querySelector('.rel-import-grid'), {
         key: 'relations.import.apercu', label: 'Aperçu de l’import', rowId: (r) => String(r.record), selection: 'none', height: '360px',
         columns: [
           { id: 'record', label: 'N°', type: 'number', width: 70 },
@@ -557,16 +771,23 @@ export function openImportPanel(app, lastImport) {
           { id: 'category', label: 'Décision', type: 'enum', width: 130, options: CATEGORIES.map((k) => ({ value: k.id, label: k.id, tone: k.tone })) },
           { id: 'reason', label: 'Motif', width: 380 },
         ],
+        onExport: (csv) => app.exportCsv('import', csv),
       });
       grid.setRows(preview.rows);
-      ctl.closed.then(() => grid.destroy());
     }
-    function doImport() {
+    async function doImport() {
       if (!preview) return;
-      const id = preview.id;
-      ctl.close();
-      app.plan('relations.import.plan', { previewId: id }, 'Import');
+      const done = preview;
+      const receipt = await app.plan('relations.import.plan', { previewId: done.id }, `Import · ${done.fileName}`);
+      if (!receipt || !ctl.body?.isConnected) return;
+      preview = null;
+      out.insertAdjacentHTML('afterbegin', `<section class="rel-step-card in rel-import-done"><h3>${glyph('check')}Import enregistré · lot ${esc(done.batchId)}</h3>
+        <p class="rel-status">Les associations du fichier ${esc(done.fileName)} sont enregistrées, relues et tracées par un reçu. « Annuler l’import » retire ce lot, même après un redémarrage.</p>
+        <div class="rel-inline"><button class="btn sm danger" type="button" data-undo-batch="${esc(done.batchId)}">${glyph('undo')}Annuler cet import<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button></div></section>`);
+      out.querySelector('[data-undo-batch]')?.addEventListener('click', (e) => app.undoImport(e.currentTarget.dataset.undoBatch));
+      foot.set([{ id: 'close', label: 'Fermer', primary: true, run: () => ctl.close() }, { id: 'again', label: 'Nouvel import', icon: 'download', run: () => { file = null; input.value = ''; choose(null); } }]);
     }
+    ctl.closed.then(() => grid?.destroy());
     paintFoot();
   });
   return ctl;
@@ -576,7 +797,7 @@ export function openImportPanel(app, lastImport) {
 
 /** Orphan links: checked against the directory, listed with their reason, removed only once confirmed (Domenia 1 UX-40). */
 export function openOrphansPanel(app) {
-  const ctl = openDrawer({
+  const ctl = workDrawer({
     title: 'Associations orphelines', subtitle: 'Compte ou poste absent de l’annuaire', icon: 'trash',
     key: 'relations.orphelines', width: 760, minWidth: 520, maxWidth: 1200,
     body: shell(`<div class="rel-orph">
@@ -593,17 +814,22 @@ export function openOrphansPanel(app) {
     applyVars(out);
     let check = null;
     let grid = null;
+    let removed = 0;
     const paintFoot = (selected = 0) => foot.set(check && check.rows.length
       ? [{ id: 'close', label: 'Fermer', run: () => ctl.close() },
+        { id: 'check', label: 'Contrôler de nouveau', icon: 'refresh', kind: 'network', run },
         { id: 'remove', label: `Retirer ${nouns(selected, 'association', 'associations')}`, icon: 'trash', danger: true, kind: 'write', disabled: selected === 0 || selected > 64,
           reason: selected === 0 ? 'Cochez au moins une association orpheline à retirer.' : selected > 64 ? '64 au plus par retrait.' : '', run: remove }]
-      : [{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'check', label: check ? 'Contrôler de nouveau' : 'Contrôler dans l’annuaire', icon: 'search', primary: true, kind: 'network', run: run }]);
+      : [{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'check', label: check ? 'Contrôler de nouveau' : 'Contrôler dans l’annuaire', icon: 'search', primary: true, kind: 'network', run }]);
     async function run() {
       out.innerHTML = `<section class="rel-step-card" aria-busy="true"><div class="rel-scan" aria-hidden="true"><span></span></div>${sk('w70')}${sk('w85')}</section>`;
       foot.set([{ id: 'check', label: 'Contrôle…', primary: true, disabled: true }]);
+      grid?.destroy(); grid = null;
       try {
         check = await app.ctx.call('relations.orphans.check', {});
-        out.innerHTML = `<section class="rel-step-card in"><p class="rel-status">${esc(check.summary)}</p>${check.rows.length ? '<div class="rel-orph-grid"></div>' : empty('check', 'Aucune orpheline', 'Toutes les associations vérifiées désignent un compte et un poste présents.')}</section>`;
+        if (!ctl.body?.isConnected) return;
+        out.innerHTML = `<section class="rel-step-card in"><p class="rel-status">${esc(check.summary)}</p>${removed ? `<p class="rel-confirm-done">${glyph('check')}${esc(nouns(removed, 'association retirée', 'associations retirées'))} pendant ce panneau, restaurables depuis le journal.</p>` : ''}
+          ${check.rows.length ? '<div class="rel-orph-grid"></div>' : empty('check', 'Aucune orpheline', 'Toutes les associations vérifiées désignent un compte et un poste présents.')}</section>`;
         if (check.rows.length) {
           grid = createGrid(out.querySelector('.rel-orph-grid'), {
             key: 'relations.orphelines', label: 'Associations orphelines', rowId: (r) => r.key, selection: 'multi', height: '420px',
@@ -612,14 +838,14 @@ export function openOrphansPanel(app) {
               { id: 'computer', label: 'Poste', mono: true, width: 140 },
               { id: 'reason', label: 'Motif', width: 320 },
               { id: 'source', label: 'Source', width: 180 },
-              { id: 'when', label: 'Date', type: 'date', width: 130 },
+              { id: 'when', label: 'Date', type: 'date', dateStyle: 'datetime', width: 136 },
             ],
             onSelectionChange: (rows) => paintFoot(rows.length),
+            onExport: (csv) => app.exportCsv('orphelines', csv),
           });
           grid.setRows(check.rows);
           grid.select(check.rows.filter((r) => r.selected).map((r) => r.key));
           paintFoot(check.rows.filter((r) => r.selected).length);
-          ctl.closed.then(() => grid?.destroy());
         } else {
           paintFoot();
         }
@@ -630,13 +856,19 @@ export function openOrphansPanel(app) {
         paintFoot();
       }
     }
-    function remove() {
+    async function remove() {
       const keys = grid ? grid.getSelectedIds() : [];
       if (!keys.length || !check) return;
-      const id = check.id;
-      ctl.close();
-      app.plan('relations.orphans.plan', { checkId: id, keys }, 'Orphelines');
+      const receipt = await app.plan('relations.orphans.plan', { checkId: check.id, keys }, 'Orphelines');
+      if (!receipt || !ctl.body?.isConnected) return;
+      removed += keys.length;
+      // The rows removed leave the list; a new check (a network read) stays the operator’s gesture.
+      check = { ...check, rows: check.rows.filter((r) => !keys.includes(r.key)) };
+      grid?.setRows(check.rows);
+      out.querySelector('.rel-status')?.insertAdjacentHTML('afterend', `<p class="rel-confirm-done">${glyph('check')}${esc(nouns(keys.length, 'association retirée', 'associations retirées'))}, relue${keys.length > 1 ? 's' : ''} et tracée${keys.length > 1 ? 's' : ''} par un reçu. Contrôlez de nouveau pour la suite.</p>`);
+      paintFoot(0);
     }
+    ctl.closed.then(() => grid?.destroy());
     paintFoot();
   });
   return ctl;
@@ -644,11 +876,11 @@ export function openOrphansPanel(app) {
 
 // ====================================================================================================== Moisson
 
-/** Harvest of the controller journal (Domenia 1 REL-030): impact estimated and confirmed, couples saved by a plan. */
+/** Harvest of the controller journal (Domenia 1 REL-030): impact estimated and confirmed, couples saved by batches of 64. */
 export function openHarvestPanel(app) {
-  const ctl = openDrawer({
+  const ctl = workDrawer({
     title: 'Moisson du journal du contrôleur', subtitle: 'Événements 4768, 4769 et 4624, aucun poste contacté', icon: 'history',
-    key: 'relations.moisson', width: 760, minWidth: 520, maxWidth: 1200,
+    key: 'relations.moisson', width: 780, minWidth: 520, maxWidth: 1200,
     body: shell(`<div class="rel-harvest">
       <section class="rel-step-card"><h3><span class="rel-step-n">1</span>Fenêtre et limite</h3>
         <div class="rel-inline">
@@ -659,6 +891,8 @@ export function openHarvestPanel(app) {
       <div class="rel-harvest-out">${upcoming(HARVEST_STEPS, 2)}</div></div>`),
     actions: [],
   });
+  let refresh = null;
+  ctl.refresh = () => refresh?.();
   whenOpen(ctl).then((opened) => {
     if (!opened) return;
     const foot = footer(ctl);
@@ -668,17 +902,24 @@ export function openHarvestPanel(app) {
     let estimate = null;
     let result = null;
     let grid = null;
+    let remaining = 0;
+    let selected = 0;
     const read = () => ({
       days: Math.max(1, Math.min(30, Number(root.querySelector('input[name="days"]').value) || 7)),
       maxEvents: Math.max(200, Math.min(20000, Number(root.querySelector('input[name="max"]').value) || 5000)),
     });
-    root.querySelectorAll('input[type="number"]').forEach((i) => i.addEventListener('input', () => { estimate = null; result = null; out.innerHTML = upcoming(HARVEST_STEPS, 2); applyVars(out); paint(); }));
-    function paint(selected = 0) {
+    root.querySelectorAll('input[type="number"]').forEach((i) => i.addEventListener('input', () => {
+      if (result) return;
+      estimate = null; out.innerHTML = upcoming(HARVEST_STEPS, 2); applyVars(out); paint();
+    }));
+    function paint() {
       if (result) {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() },
-          { id: 'save', label: `Enregistrer ${nouns(selected, 'couple', 'couples')}`, icon: 'check', primary: true, kind: 'write', disabled: selected === 0 || selected > 64, reason: selected > 64 ? '64 au plus par enregistrement.' : 'Cochez les couples à enregistrer.', run: save }]);
+          { id: 'selection', label: `Enregistrer la sélection (${int(selected)})`, icon: 'check', kind: 'write', disabled: selected === 0 || selected > 64,
+            reason: selected > 64 ? '64 au plus par enregistrement : « Tout enregistrer » procède par lots.' : 'Cochez les couples à enregistrer.', run: saveSelection },
+          remaining > 0 ? { ...saveButton(remaining, 'la moisson'), id: 'all', run: saveAll } : { id: 'done', label: 'Tout est enregistré', icon: 'check', disabled: true }]);
       } else if (estimate) {
-        foot.set([{ id: 'close', label: 'Annuler', run: () => ctl.close() }, { id: 'run', label: 'Lancer la moisson', icon: 'play', primary: true, kind: 'network', run }]);
+        foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'run', label: 'Lancer la moisson', icon: 'play', primary: true, kind: 'network', run }]);
       } else {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'estimate', label: 'Estimer l’impact', icon: 'gauge', primary: true, run: estimateIt }]);
       }
@@ -702,25 +943,30 @@ export function openHarvestPanel(app) {
       foot.set([{ id: 'run', label: 'Moisson en cours…', primary: true, disabled: true }]);
       try {
         result = await app.ctx.call('relations.harvest.run', { estimateId: estimate.id });
-        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples lus · rien d’enregistré</h3>
-          <p class="rel-status">${esc(result.message)}</p><div class="rel-harvest-grid"></div></section>`;
+        if (!ctl.body?.isConnected) return;
+        remaining = result.newCount;
+        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples lus · nouveaux en mémoire</h3>
+          <p class="rel-status">${esc(result.message)}</p>
+          <div class="rel-harvest-progress"><div class="rel-bar"><span class="rel-bar-fill"></span></div><span class="rel-harvest-left">${esc(nouns(remaining, 'nouveau couple à enregistrer', 'nouveaux couples à enregistrer'))}</span></div>
+          <div class="rel-harvest-grid"></div></section>`;
         grid = createGrid(out.querySelector('.rel-harvest-grid'), {
           key: 'relations.moisson', label: 'Couples utilisateur-poste du journal', rowId: (r) => r.key, selection: 'multi', height: '380px',
           columns: [
             { id: 'userLogin', label: 'Utilisateur', mono: true, width: 140 },
             { id: 'computer', label: 'Poste', mono: true, width: 130 },
-            { id: 'lastSeen', label: 'Dernier', type: 'date', width: 120 },
+            { id: 'lastSeen', label: 'Dernier', type: 'date', dateStyle: 'datetime', width: 136 },
             { id: 'events', label: 'Événements', type: 'number', width: 110 },
             { id: 'eventIds', label: 'Identifiants', width: 140 },
             { id: 'known', label: 'Déjà connu', type: 'bool', width: 110 },
           ],
-          onSelectionChange: (rows) => paint(rows.length),
+          onSelectionChange: (rows) => { selected = rows.filter((r) => !r.known).length; paint(); },
+          onExport: (csv) => app.exportCsv('moisson', csv),
         });
         grid.setRows(result.couples);
         const fresh = result.couples.filter((c) => !c.known).slice(0, 64).map((c) => c.key);
         grid.select(fresh);
-        paint(fresh.length);
-        ctl.closed.then(() => grid?.destroy());
+        selected = fresh.length;
+        paint();
         app.touch();
         announce(result.message);
       } catch (err) {
@@ -729,13 +975,27 @@ export function openHarvestPanel(app) {
         paint();
       }
     }
-    function save() {
-      const keys = grid ? grid.getSelectedIds() : [];
+    function saveSelection() {
+      const keys = grid ? grid.getSelection().filter((r) => !r.known).map((r) => r.key) : [];
       if (!keys.length || !result) return;
-      const id = result.resultId;
-      ctl.close();
-      app.plan('relations.observations.plan', { resultId: id, keys }, 'Moisson du journal');
+      app.plan('relations.observations.plan', { resultId: result.resultId, keys }, 'Moisson du journal · sélection');
     }
+    function saveAll() {
+      if (!result) return;
+      app.saveBatches(result.resultId, { all: true, origin: 'Moisson du journal' });
+    }
+    refresh = async () => {
+      if (!result) return;
+      const left = await remainingOf(app, result.resultId);
+      if (left === null || !ctl.body?.isConnected) return;
+      remaining = left;
+      const total = Math.max(1, result.newCount);
+      progressTo(out.querySelector('.rel-harvest-progress .rel-bar-fill'), (total - remaining) / total);
+      const text = out.querySelector('.rel-harvest-left');
+      if (text) text.textContent = remaining > 0 ? `${int(total - remaining)} sur ${int(total)} enregistrés · ${nouns(remaining, 'reste', 'restent')} ${int(remaining)}` : `${nouns(total, 'nouveau couple enregistré', 'nouveaux couples enregistrés')}`;
+      paint();
+    };
+    ctl.closed.then(() => grid?.destroy());
     paint();
   });
   return ctl;
@@ -743,38 +1003,49 @@ export function openHarvestPanel(app) {
 
 // ====================================================================================================== Relevé du parc
 
-/** Incremental relevé of the working OU (Domenia 1 REL-031): priority queue shown, then the consoles read on a click. */
+/** Incremental relevé of the parc (Domenia 1 REL-031): priority queue or loaded list, ping by batches, consoles read on a click. */
 export function openSweepPanel(app) {
-  const ctl = openDrawer({
-    title: 'Relevé des consoles de l’OU de travail', subtitle: app.scopeLabel() ? `OU ${app.scopeLabel()}` : 'OU de travail', icon: 'monitor',
-    key: 'relations.releve', width: 680, minWidth: 480, maxWidth: 1100,
+  const loaded = app.loadedComputers();
+  const ctl = workDrawer({
+    title: 'Relevé des consoles du parc', subtitle: app.scopeLabel() ? `OU de travail ${app.scopeLabel()}` : 'OU de travail', icon: 'monitor',
+    key: 'relations.releve', width: 700, minWidth: 480, maxWidth: 1100,
     body: shell(`<div class="rel-sweep">
-      <section class="rel-step-card"><h3><span class="rel-step-n">1</span>File de priorité</h3>
-        <p>Les postes jamais relevés d’abord, puis les relevés les plus anciens${NBSP}; un poste qui ne s’est pas réauthentifié depuis son dernier relevé n’est pas redemandé. Jamais le domaine entier.</p>
-        <div class="rel-inline"><label class="rel-num"><span>Postes au plus</span><input class="input" type="number" name="limit" min="1" max="50" value="20"></label></div></section>
+      <section class="rel-step-card"><h3><span class="rel-step-n">1</span>Périmètre et file de priorité</h3>
+        <div class="rel-radios" role="radiogroup" aria-label="Périmètre du relevé">
+          <label class="rel-radio"><input class="k-radio" type="radio" name="sweep" value="ou" checked><span><b>OU de travail${app.scopeLabel() ? ` · ${esc(app.scopeLabel())}` : ''}</b><small>Jamais relevés d’abord, puis les relevés les plus anciens${NBSP}; un poste non réauthentifié depuis son relevé n’est pas redemandé.</small></span></label>
+          <label class="rel-radio${loaded ? '' : ' off'}"><input class="k-radio" type="radio" name="sweep" value="loaded"${loaded ? '' : ' disabled'}><span><b>Machines de la liste chargée</b><small>${loaded ? esc(loaded.label) : 'Aucune liste chargée : filtrez « Toutes les associations » ou venez de Rechercher avec une liste de postes.'}</small></span></label>
+        </div>
+        <div class="rel-inline"><label class="rel-num"><span>Postes au plus</span><input class="input" type="number" name="limit" min="1" max="50" value="20"></label></div>
+        <p class="rel-note">${glyph('shield')}Jamais le domaine entier${NBSP}; ping groupé par lots de 8 avant toute lecture de session, report au relevé suivant au-delà de la limite.</p></section>
       <div class="rel-sweep-out">${upcoming(SWEEP_STEPS, 2)}</div></div>`),
     actions: [],
   });
   let stop = null;
+  let refresh = null;
+  ctl.refresh = () => refresh?.();
   whenOpen(ctl).then((opened) => {
     if (!opened) return;
     const foot = footer(ctl);
     const out = ctl.body.querySelector('.rel-sweep-out');
+    let resultId = null;
     applyVars(out);
     ctl.closed.then(() => stop?.());
+    const forget = { id: 'forget', label: 'Oublier les relevés…', icon: 'trash', kind: 'write', run: () => app.plan('relations.sweep.forget.plan', {}, 'Mémoire des relevés du parc') };
     const set = (buttons) => foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, ...buttons]);
     async function prepare() {
       const limit = Math.max(1, Math.min(50, Number(ctl.body.querySelector('input[name="limit"]').value) || 20));
+      const scope = ctl.body.querySelector('input[name="sweep"]:checked')?.value ?? 'ou';
       try {
-        const plan = await app.ctx.call('relations.sweep.plan', { limit });
-        out.innerHTML = `<section class="rel-step-card in rel-plan ${plan.allowed ? '' : 'refused'}"><h3><span class="rel-step-n">2</span>Postes à relever</h3>
+        const plan = await app.ctx.call('relations.sweep.plan', { limit, computers: scope === 'loaded' ? (app.loadedComputers()?.names ?? []) : [] });
+        if (!ctl.body?.isConnected) return;
+        out.innerHTML = `<section class="rel-step-card in rel-plan ${plan.allowed ? '' : 'refused'}"><h3><span class="rel-step-n">2</span>Postes à relever · ${esc(plan.scopeLabel)}</h3>
           ${plan.allowed ? `<p>${esc(plan.text)}</p><ul class="rel-plan-targets">${plan.targets.map((t, j) => `<li data-j="${Math.min(j, 24)}" data-tip="${esc(t.source)}">${glyph('monitor')}${esc(t.computer)}</li>`).join('')}</ul>`
             : `<p class="rel-note warn">${glyph('info')}${esc(plan.reason)}</p>`}</section>`;
         applyVars(out);
-        set(plan.allowed ? [{ id: 'run', label: `Lancer le relevé (${int(plan.targets.length)})`, icon: 'play', primary: true, kind: 'network', run: () => run(plan) }] : [{ id: 'prepare', label: 'Préparer la file', icon: 'refresh', run: prepare }]);
+        set(plan.allowed ? [forget, { id: 'run', label: `Lancer le relevé (${int(plan.targets.length)})`, icon: 'play', primary: true, kind: 'network', run: () => run(plan) }] : [forget, { id: 'prepare', label: 'Préparer la file', icon: 'refresh', run: prepare }]);
       } catch (err) {
         out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
-        set([{ id: 'prepare', label: 'Préparer la file', icon: 'refresh', primary: true, run: prepare }]);
+        set([forget, { id: 'prepare', label: 'Préparer la file', icon: 'refresh', primary: true, run: prepare }]);
       }
     }
     function run(plan) {
@@ -784,20 +1055,32 @@ export function openSweepPanel(app) {
       set([{ id: 'stop', label: 'Arrêter', icon: 'pause', danger: true, run: () => { stop?.(); set([{ id: 'stopping', label: 'Arrêt demandé…', disabled: true }]); } }]);
       stop = runProbe(app, probeHost, plan.id, plan.targets.length, (res, err) => {
         stop = null;
+        if (!ctl.body?.isConnected) return;
         if (err) {
           probeHost.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
-          set([{ id: 'prepare', label: 'Préparer la file', icon: 'refresh', run: prepare }]);
+          set([forget, { id: 'prepare', label: 'Préparer la file', icon: 'refresh', run: prepare }]);
           return;
         }
-        probeHost.innerHTML = `<h3><span class="rel-step-n">3</span>Relevé${res.counters?.stopped ? ' partiel' : ''}</h3><p class="rel-status">${esc(res.message)}</p>${refusalNote(res)}${candidatesMarkup(res.candidates, { associate: false })}${attemptsMarkup(res.attempts)}`;
+        resultId = res.resultId;
+        probeHost.innerHTML = `<h3><span class="rel-step-n">3</span>Relevé${res.counters?.stopped ? ' partiel' : ''}</h3><p class="rel-status">${esc(res.message)}</p>${refusalCard(res)}${candidatesMarkup(res.candidates, { associate: false })}${attemptsMarkup(res.attempts)}`;
         applyVars(probeHost);
+        bindRefusal(probeHost);
+        probeHost.querySelectorAll('[data-fiche]').forEach((b) => b.addEventListener('click', () => app.openFiche({ dn: b.dataset.fiche })));
         app.touch();
-        set(res.savable > 0
-          ? [{ id: 'save', label: `Enregistrer ${nouns(res.savable, 'console relevée', 'consoles relevées')}`, icon: 'check', primary: true, kind: 'write', run: () => { ctl.close(); app.plan('relations.observations.plan', { resultId: res.resultId, keys: [] }, 'Relevé du parc'); } }]
-          : [{ id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', run: prepare }]);
+        resultFoot(res.savable);
       });
     }
-    set([{ id: 'prepare', label: 'Préparer la file', icon: 'sliders', primary: true, run: prepare }]);
+    function resultFoot(remaining) {
+      set(remaining > 0
+        ? [{ ...saveButton(remaining, 'le relevé'), run: () => app.saveBatches(resultId, { all: true, origin: 'Relevé du parc' }) }, { id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', run: prepare }]
+        : [forget, { id: 'prepare', label: 'Préparer une nouvelle file', icon: 'refresh', primary: true, run: prepare }]);
+    }
+    refresh = async () => {
+      if (!resultId || stop) return;
+      const remaining = await remainingOf(app, resultId);
+      if (remaining !== null && ctl.body?.isConnected) resultFoot(remaining);
+    };
+    set([forget, { id: 'prepare', label: 'Préparer la file', icon: 'sliders', primary: true, run: prepare }]);
   });
   return ctl;
 }
@@ -809,10 +1092,11 @@ export function openHelpPanel() {
   const items = [
     ['shield', 'Associations locales', 'Une association est une donnée de Domenia : Active Directory n’est jamais modifié, ni par un ajout, ni par un retrait, ni par un import.'],
     ['eye', 'Observer n’est pas affecter', 'Une session observée ne devient jamais une affectation déclarée ; les deux restent visibles côte à côte. Un historique ne contredit jamais une affectation.'],
-    ['alert', 'Contradictions conservées', 'Quand l’affectation déclarée et la session observée désignent des comptes différents, le poste est marqué « Contradictoire » : rien n’est fusionné ni retiré.'],
-    ['key', 'Identité par GUID', 'Un lien porteur de GUID n’appartient qu’à cet objet ; un nom recyclé n’hérite jamais de l’historique d’un autre. Sans GUID, l’identité est dite non vérifiable.'],
-    ['wifi', 'Aucune sonde sans geste', 'La détection lit d’abord l’annuaire, montre la liste exacte des postes, puis seulement « Lancer la détection » contacte les postes, 50 au plus, sans jamais substituer le domaine entier.'],
-    ['edit', 'Chaque changement a son reçu', 'Ajouter, retirer, restaurer, importer, annuler un import, nettoyer : un plan relu, une confirmation, un reçu, une relecture. Jamais rejoué automatiquement.'],
+    ['alert', 'Contradictions conservées', 'Quand l’affectation déclarée et la session observée désignent des comptes différents, les deux gardent leur nature et portent la marque « Contradiction » : rien n’est fusionné ni retiré.'],
+    ['key', 'Identité par GUID', 'Un lien porteur de GUID n’appartient qu’à cet objet ; un nom recyclé n’hérite jamais de l’historique d’un autre. Sans GUID, l’identité est dite non vérifiable. Une association préparée vérifie que le sujet et la cible portent encore le GUID affiché.'],
+    ['wifi', 'Aucune sonde sans geste', 'La détection lit d’abord l’annuaire, montre la liste exacte des postes, puis seulement « Lancer la détection » contacte les postes, 50 au plus, sans jamais substituer le domaine entier ; elle s’arrête au premier refus d’identifiants.'],
+    ['layers', 'Enregistrement par lots', 'Les observations (détection, relevé, moisson) restent en mémoire pour la session ; elles s’enregistrent par lots de 64, chaque lot étant un plan relu, confirmé et tracé par un reçu.'],
+    ['edit', 'Chaque changement a son reçu', 'Ajouter, retirer, restaurer, importer, annuler un import, nettoyer, oublier les relevés : un plan relu, une confirmation, un reçu, une relecture. Jamais rejoué automatiquement.'],
     ['undo', 'Tout se restaure', 'Chaque retrait est journalisé et restaurable ; un import porte un lot qui s’annule même après un redémarrage.'],
   ].map(([i, t, x]) => [i, t, x.replace(/ ([:;!?])/g, `${NBSP}$1`)]);
   return openDrawer({

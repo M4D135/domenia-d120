@@ -1,0 +1,222 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Utilisateurs et postes : parcours illustré des états clés",
+  "description": "Parcours de capture des états que les routes seules n’atteignent pas : périmètre et résultat d’une détection, couples d’une moisson et bandeau des observations en mémoire, plan d’un lot, relevé, orphelines, panneau d’import, lecture de session et associations de la session. Simulation seulement ; aucune écriture confirmée.",
+  "modes": [
+    "simulation"
+  ],
+  "theme": "light",
+  "start": "relations?sujet=j.martin&panneau=detecter",
+  "timeoutMs": 20000,
+  "steps": [
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"collect\"]",
+      "title": "Panneau de détection ouvert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"collect\"]",
+      "title": "Lire l’annuaire"
+    },
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Périmètre à confirmer"
+    },
+    {
+      "do": "shot",
+      "name": "detection-perimetre",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Lancer la détection"
+    },
+    {
+      "do": "wait",
+      "contains": "Résultat",
+      "within": ".rel-panel",
+      "title": "Résultat de la détection"
+    },
+    {
+      "do": "shot",
+      "name": "detection-resultat"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"close\"]",
+      "title": "Fermer le panneau"
+    },
+    {
+      "do": "go",
+      "route": "relations?panneau=moisson",
+      "title": "Moisson du journal"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"estimate\"]",
+      "title": "Estimer l’impact"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Lancer la moisson"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-harvest-grid .k-gr",
+      "title": "Couples lus"
+    },
+    {
+      "do": "shot",
+      "name": "moisson-couples"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"all\"]",
+      "title": "Tout enregistrer, lot par lot"
+    },
+    {
+      "do": "wait",
+      "selector": ".wf-target",
+      "title": "Plan du premier lot"
+    },
+    {
+      "do": "shot",
+      "name": "moisson-plan-lot"
+    },
+    {
+      "do": "click",
+      "text": "Annuler",
+      "within": ".k-drw-layer.modal",
+      "title": "Ne rien écrire"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"close\"]",
+      "title": "Fermer la moisson"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-pending",
+      "title": "Bandeau des observations en mémoire"
+    },
+    {
+      "do": "shot",
+      "name": "bandeau-observations"
+    },
+    {
+      "do": "go",
+      "route": "relations?onglet=toutes",
+      "title": "Toutes les associations, observations de la session comprises"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-all-grid .k-gr",
+      "title": "Associations listées"
+    },
+    {
+      "do": "shot",
+      "name": "toutes-session"
+    },
+    {
+      "do": "go",
+      "route": "relations?panneau=releve",
+      "title": "Relevé du parc"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"prepare\"]",
+      "title": "Préparer la file"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"run\"]",
+      "title": "Lancer le relevé"
+    },
+    {
+      "do": "wait",
+      "contains": "Relevé terminé",
+      "within": ".rel-panel",
+      "timeoutMs": 40000,
+      "title": "Relevé terminé"
+    },
+    {
+      "do": "shot",
+      "name": "releve-resultat",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "go",
+      "route": "relations?panneau=orphelines",
+      "title": "Orphelines"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"check\"]",
+      "title": "Contrôler dans l’annuaire"
+    },
+    {
+      "do": "wait",
+      "selector": "[data-rf=\"remove\"]",
+      "title": "Orphelines listées"
+    },
+    {
+      "do": "shot",
+      "name": "orphelines"
+    },
+    {
+      "do": "go",
+      "route": "relations?sujet=PC-PAR-0012&panneau=session",
+      "title": "Lecture de session d’un poste"
+    },
+    {
+      "do": "click",
+      "selector": "[data-rf=\"read\"]",
+      "title": "Lire la session"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-session-card",
+      "title": "Session lue"
+    },
+    {
+      "do": "click",
+      "selector": ".rel-attempts summary",
+      "title": "Détail des tentatives"
+    },
+    {
+      "do": "shot",
+      "name": "session-poste",
+      "selector": ".rel-panel"
+    },
+    {
+      "do": "go",
+      "route": "relations?sujet=PC-LYO-0006",
+      "title": "Poste contradictoire"
+    },
+    {
+      "do": "click",
+      "selector": ".rel-node.d1",
+      "nth": 0,
+      "title": "Carte d’un nœud du graphe"
+    },
+    {
+      "do": "wait",
+      "selector": ".rel-pop-rows",
+      "title": "Associations du nœud avec leurs actions"
+    },
+    {
+      "do": "shot",
+      "name": "graphe-carte",
+      "selector": ".rel-rel"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
