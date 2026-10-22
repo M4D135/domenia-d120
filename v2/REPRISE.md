@@ -3,7 +3,25 @@
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
 OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 18 h, Claude Code (crédit presque épuisé) : état figé pour la relève**.
 
-## 0. À lire en premier (22/10, 18 h, Claude Code ; étape 1 faite le 22/10 au soir)
+## 0. À lire en premier (22/10, 18 h, Claude Code ; étapes 1 et 2 faites le 22/10 au soir)
+
+- **Étape 2 faite (22/10 au soir, Claude Code)** : suite C# en VM **791 réussis sur 791**, 0 avertissement (Debug et Release).
+  - Requêtes (2 tests) : ils prenaient la première OU par ordre alphabétique (« Comptes de service », sans poste) ; ils
+    prennent l’OU Postes (`RequetesOperationsTests.WorkstationsOuAsync`).
+  - Relations (2 tests) : la graine couvrait presque tous les postes ; 30 % des postes restent sans association semée
+    (`SimulatedRelationSeed.UnassignedShare`), pour l’import et la moisson.
+  - **Choix de la relève appliqué (point 2 ci-dessous)** : mémorisation automatique des observations dans la base locale,
+    par lots de 64, sans confirmation, avec les règles d’un plan (`SaveObservationsAsync`, opération
+    `relations.observations.save` en `LocalWrite`, appelée à la fin de `relations.detect.run`, `relations.computer.read`
+    et `relations.harvest.run`, et par la page après 1,5 s de calme) ; une ligne du journal des associations par
+    changement, une au journal des opérations. `DECISIONS.md`, `ops/relations.md`, `OPERATIONS.md` à jour ; REL-014,
+    017, 018 et 030 à « fait ». `apply_status.py` ne double plus la ligne « partiel » de la légende.
+  - E2E simulation `relations/*` : 9 réussis sur 12 (moisson-enregistrer, releve-ou et parcours-captures passent) ;
+    restent ajouter-association (étape 19), comparer-groupes (étape 2) et session-poste (étape 5), déjà en échec avant.
+  - Commits `a2e8330`, `024adf8`, `8d13e8a` (poussés). Les autres E2E de `docs/reprise/e2e-sim-1-echecs.txt` ne sont pas
+    relancés.
+  - Reste de l’ordre ci-dessous : fin du point 2 (échecs E2E de simulation), puis points 3 à 5. Tests unitaires à écrire :
+    `AdDirectoryMapper`, `AdDirectoryReader.Interval`, `WmiWorkstationProbe.ParseDmtf` et `Classify`.
 
 - **Étape 1 faite (22/10 au soir, Claude Code)** : `v2-wip-annuaire` terminée, compilée et fusionnée dans `v2`.
   - Ajouts : `Domenia.Ad/AdDirectoryReader.cs` (domaine : RootDSE, objet domaine, crossRef, contrôleurs des sites,
@@ -24,7 +42,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
   - **Ne pas relancer de tâches Spark de cette taille.** Faire rédiger directement par le modèle de la relève (API Claude), une tâche à la fois.
 - **Choix faits par Claude sur les 4 questions de la relève**, à appliquer sauf avis contraire de David :
   1. **CPT-017, coffre Windows** : oui, comme Domenia 1 (CredRead, CredWrite, CredDelete), par gestes explicites seulement, indisponible en simulation.
-  2. **Relations, mémorisation** : c'est la base locale, pas l'AD. Mémorisation automatique par lots de 64, comme Domenia 1, sans confirmation, tracée au journal. La tâche s5-relbatch (plan scellé) n'est plus nécessaire.
+  2. **Relations, mémorisation** : c'est la base locale, pas l'AD. Mémorisation automatique par lots de 64, comme Domenia 1, sans confirmation, tracée au journal. La tâche s5-relbatch (plan scellé) n'est plus nécessaire. **Appliqué le 22/10 au soir (étape 2).**
   3. **Exports de fichiers** : créer une classe d'opération `LocalFile` (fichier choisi par l'opérateur, ouverture par Windows), distincte de `LocalWrite`, à documenter dans `PLATFORM.md` et `OPERATIONS.md`.
   4. **Statut `partiel`** : on le garde. L'ajouter à `v2/CLAUDE.md` (cinq statuts).
 - **État Git** :
@@ -33,7 +51,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
   - VM : 20 Go libres, `out\\plateforme` supprimé.
 - **Ordre de reprise conseillé** : § 4 bis « Suite, dans l'ordre », sans le Spark.
   1. ~~Terminer `AdDirectoryReader`, `AdDirectoryMapper` et `WmiWorkstationProbe` dans `v2-wip-annuaire`, compiler, fusionner.~~ Fait.
-  2. Corriger les 4 tests C# restants, puis les échecs E2E de simulation (`docs/reprise/e2e-sim-1-echecs.txt`).
+  2. ~~Corriger les 4 tests C# restants~~ (fait : 791/791), puis les échecs E2E de simulation (`docs/reprise/e2e-sim-1-echecs.txt` ; Relations : 3 restants).
   3. Vrai moteur écran par écran, avec les écritures de Comptes et de la Fiche et la base SQLite.
   4. E2E en mode annuaire sur `cnamts.local` (`OU=Domenia-Tests`).
   5. `vm.sh main publish`, ZIP, release GitHub.
