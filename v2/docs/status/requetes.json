@@ -1,0 +1,98 @@
+{
+  "fait": [
+    "REQ-005",
+    "REQ-006",
+    "REQ-011",
+    "REQ-012",
+    "REQ-018",
+    "REQ-019",
+    "REQ-023",
+    "REQ-024",
+    "REQ-026",
+    "REQ-027",
+    "REQ-028",
+    "REQ-030",
+    "REQ-033",
+    "REQ-035",
+    "REQ-038",
+    "REQ-040",
+    "REQ-043",
+    "REQ-044",
+    "REQ-047",
+    "REQ-050",
+    "REQ-052",
+    "REQ-061",
+    "REQ-062",
+    "REQ-063",
+    "REQ-064",
+    "REQ-065",
+    "REQ-068",
+    "REQ-069"
+  ],
+  "ameliore": [
+    "REQ-001",
+    "REQ-002",
+    "REQ-003",
+    "REQ-004",
+    "REQ-007",
+    "REQ-008",
+    "REQ-009",
+    "REQ-010",
+    "REQ-013",
+    "REQ-014",
+    "REQ-015",
+    "REQ-016",
+    "REQ-017",
+    "REQ-020",
+    "REQ-021",
+    "REQ-022",
+    "REQ-025",
+    "REQ-029",
+    "REQ-031",
+    "REQ-032",
+    "REQ-036",
+    "REQ-037",
+    "REQ-041",
+    "REQ-042",
+    "REQ-045",
+    "REQ-046",
+    "REQ-051",
+    "REQ-053",
+    "REQ-054",
+    "REQ-056",
+    "REQ-057",
+    "REQ-058",
+    "REQ-066",
+    "REQ-067"
+  ],
+  "partiel": [
+    {
+      "id": "REQ-034",
+      "reste": "Révisions, reçus relus et conflits de révision en place, mais stockées dans le document de préférences locales (256 Kio et 1 000 requêtes par domaine) et non dans une base SQLite : à déplacer vers le magasin local Domenia.Store quand il existera (vague 3), avec migration des clés requetes.library.*."
+    },
+    {
+      "id": "REQ-039",
+      "reste": "Le widget (tableau du parc ou fiche d’un poste, cinq visuels) est enregistré et lié à la révision de sa requête (requetes.widget.save / .list / .remove) ; son affichage reste à brancher par l’Accueil et la Fiche (écrans d’autres lots), qui liront requetes.widget.list et évalueront la révision liée."
+    },
+    {
+      "id": "REQ-048",
+      "reste": "La sélection figée des correspondants (GUID, date, empreinte, inconnus exclus) est produite par requetes.search.apply et lisible par requetes.search.selection ; l’écran Rechercher (autre lot) doit encore la lire pour filtrer ses résultats."
+    },
+    {
+      "id": "REQ-049",
+      "reste": "Les SELECT mémorisés alimentent les informations detail:<clé>:exists|count et les verdicts de collection sur les instances ; il manque une vue paginée des lignes mémorisées de chaque poste en dehors du dernier SELECT exécuté."
+    },
+    {
+      "id": "REQ-055",
+      "reste": "Le script PowerShell exporté (commenté, lecture seule, Get-AD* -LDAPFilter, base de recherche) n’évalue que la partie annuaire de la requête ; les conditions relevées (inventaire, sondes, SELECT mémorisés) restent évaluées dans Domenia et sont listées en commentaire."
+    },
+    {
+      "id": "REQ-059",
+      "reste": "Référence intégrée de 30 cmdlets ActiveDirectory et LAPS (synopsis, syntaxe, exemple, lecture ou écriture) au lieu de l’aide des modules installés sur le poste : la lecture de l’aide locale (Get-Help) est à brancher en mode annuaire."
+    },
+    {
+      "id": "REQ-060",
+      "reste": "Une recette « WMI · Classe » évalue les résultats mémorisés du SELECT testé ; la relecture du SELECT sur les postes du périmètre par la collecte confirmée (plan figé) reste à ajouter au lecteur de relevés."
+    }
+  ]
+}

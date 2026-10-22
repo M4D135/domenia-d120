@@ -1,0 +1,30 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : composer un critère et calculer l’aperçu local",
+  "description": "Choisit « Système déclaré dans AD » dans le sélecteur d’informations, saisit Windows 11 avec « contient », ajoute le critère, vérifie que le filtre LDAP suit, calcule l’aperçu local puis filtre les correspondants depuis leur tuile. Aucune lecture réseau.",
+  "modes": ["simulation"],
+  "start": "requetes?cible=computer",
+  "steps": [
+    { "do": "wait", "selector": ".rq-combo input", "title": "Le sélecteur d’informations est prêt" },
+    { "do": "click", "selector": ".rq-combo input" },
+    { "do": "type", "selector": ".rq-combo input", "text": "système déclaré", "clear": true, "title": "Filtrer le catalogue sans accents ni casse" },
+    { "do": "wait", "contains": "Système déclaré dans AD", "within": ".rq-combo-list" },
+    { "do": "press", "key": "Enter", "title": "Choisir l’information au clavier" },
+    { "do": "click", "text": "contient", "within": ".rq-ops" },
+    { "do": "type", "selector": ".rq-value-host input", "text": "Windows 11", "clear": true },
+    { "do": "click", "text": "Ajouter le critère", "within": ".rq-builder" },
+    { "do": "expect", "contains": "Windows 11", "within": ".rq-crit-list", "title": "Le critère est listé" },
+    { "do": "wait", "contains": "operatingSystem=*Windows 11*", "within": ".rq-ldap-hl", "title": "Le filtre LDAP est synchronisé" },
+    { "do": "expect", "contains": "Synchronisé", "within": ".rq-ldap-state" },
+    { "do": "shot", "name": "critere-ajoute", "selector": ".rq-compose" },
+    { "do": "click", "text": "Calculer l’aperçu", "within": ".rq-cmds" },
+    { "do": "wait", "selector": ".rq-kpi[data-kpi=\"match\"] .rq-count", "title": "Les compteurs de l’aperçu sont affichés" },
+    { "do": "expect", "contains": "Population", "within": ".rq-pv-pop" },
+    { "do": "click", "selector": ".rq-kpi[data-kpi=\"match\"] .rq-kpi-go", "title": "Afficher les seuls correspondants" },
+    { "do": "expect", "selector": ".rq-res-filters [aria-pressed=\"true\"]", "count": 1, "title": "Un seul filtre de verdict actif" },
+    { "do": "wait", "contains": "Pourquoi ce résultat", "within": ".rq-detail", "title": "Le détail explique le verdict" },
+    { "do": "shot", "name": "apercu", "selector": ".rq-preview" },
+    { "do": "journal", "pattern": "Requêtes\\s?:\\s?aperçu" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

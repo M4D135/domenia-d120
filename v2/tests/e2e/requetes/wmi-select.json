@@ -1,0 +1,32 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : SELECT WMI testé sur un poste puis recette",
+  "description": "Choisit un poste, lit les classes Win32_Logical* puis le schéma de Win32_LogicalDisk, prépare le SELECT depuis les propriétés cochées, l’analyse, l’exécute après confirmation (lecture du seul poste choisi, servie par l’annuaire fictif) et en fait une recette locale.",
+  "modes": ["simulation"],
+  "start": "requetes?onglet=wmi",
+  "steps": [
+    { "do": "type", "selector": ".rq-wp-find", "text": "PC-PAR-00", "clear": true },
+    { "do": "wait", "selector": ".rq-wp-found [data-n]" },
+    { "do": "click", "selector": ".rq-wp-found [data-n]", "nth": 0, "title": "Choisir le premier poste" },
+    { "do": "wait", "selector": ".rq-pc-card" },
+    { "do": "type", "selector": ".rq-wc-filter", "text": "Win32_Logical*", "clear": true },
+    { "do": "click", "text": "Lire les classes", "within": ".rq-wmi-ns" },
+    { "do": "wait", "contains": "Win32_LogicalDisk", "within": ".rq-wc-list" },
+    { "do": "click", "selector": ".rq-wc-list [data-class=\"Win32_LogicalDisk\"]" },
+    { "do": "click", "text": "Lire le schéma", "within": ".rq-wmi-schema" },
+    { "do": "wait", "selector": ".rq-ws-props input[data-prop]" },
+    { "do": "click", "selector": ".rq-ws-props input[data-prop=\"FreeSpace\"]" },
+    { "do": "click", "text": "Préparer le SELECT", "within": ".rq-wmi-schema" },
+    { "do": "wait", "contains": "FROM Win32_LogicalDisk", "within": ".rq-wr-body", "title": "Analyse locale du SELECT préparé" },
+    { "do": "click", "text": "Exécuter sur le poste…", "within": ".rq-wmi-select" },
+    { "do": "wait", "selector": ".k-dlg", "title": "Confirmation de la lecture distante" },
+    { "do": "click", "text": "Exécuter la lecture", "within": ".k-dlg" },
+    { "do": "wait", "selector": ".rq-wx-grid .k-gr", "title": "Les instances sont lues" },
+    { "do": "shot", "name": "instances", "selector": ".rq-wmi-result" },
+    { "do": "click", "text": "En faire une recette", "within": ".rq-wmi-select" },
+    { "do": "wait", "contains": "Recette locale préparée", "within": ".toasts" },
+    { "do": "expect", "selector": "#rq-tab-creer", "attribute": "aria-selected", "equals": "true", "title": "Retour à « 1. Créer » avec la recette" },
+    { "do": "journal", "contains": "SELECT WMI exécuté" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}
