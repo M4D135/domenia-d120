@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 41, relève OpenCode : les 14 écrans de la vague 2 sont terminés, intégration en cours**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 15 h 10, relève OpenCode : vague 2 intégrée dans `v2` (`c7b9d09`), Debug et Release sans erreur ni avertissement**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,8 +39,8 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **terminés** (§ 4) : les 14 écrans ; **intégration en cours** |
-| Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **terminés** (§ 4) : les 14 écrans |
+| Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | **fait** (`c7b9d09`, § 4) : 14 fusions `--no-ff`, collisions de noms résolues, statuts appliqués (462 faites, 216 améliorées, 90 partielles, 224 à faire, 1 abandonnée), Debug et Release : 0 erreur, 0 avertissement ; branchements de la coque restants (§ 4) |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
 | Pack final et release GitHub | à faire |
@@ -50,22 +50,22 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 Chaque écran a sa branche `v2-page/<id>` et, sur le Mac, un arbre de travail `../Domenia-D120-team/v2-<id>`. Les rapports
 des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-tour<N>.md`.
 
-| Écran (id) | Situation au 22/10, 12 h 10 (branches poussées sur GitHub) | À faire en premier |
+| Écran (id) | Situation au 22/10 (branches poussées sur GitHub, intégrées dans `v2`) | Suite |
 |---|---|---|
-| shell | **Terminé** (`f4a0c5d`, relève OpenCode) : `wip` compilé, tour 1 vérifié point par point, parité refaite, moteur de tableaux complété (TRV-286, 288, 303, 314, 315, 316) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| accueil | **Terminé** (`82087a5`, relève OpenCode) : tour 2 traité (ACC-055, 033, 026, 023, 020, 031, 039, barre du kit, une seule action principale, titres, aperçu), tests et E2E écrits ; partiels restants : vague 3 (Domenia.Store) et atelier de requêtes ; TRV-290 à 292 (collecte par widget) à faire avec l’ordonnanceur | Intégration |
-| rechercher | **Terminé** (`4d6f395`, relève OpenCode) : tour 2 traité (RCH-005, 097, 126, 127, 020, réglages de l’administrateur et de Paramètres par `search.policy`, conteneurs de la racine, notices, une seule action principale), tests et E2E écrits ; partiels : vague 3 (base locale, enregistrement en fichier) et atelier de requêtes | Intégration |
-| fiche | **Terminé** (`4cceb1a`, relève OpenCode) : tour 2 traité (FIC-033 état bloquant, FIC-018 nouveau DN relu par GUID, FIC-007 brouillon Compte et discard, FIC-046 et FIC-037 session par GUID, FIC-048 bandeau, Historique, concurrence de l’aperçu), défauts de design corrigés (une action principale, colonnes des groupes, exemples de la page vide, racine du domaine, couleur des OU, présence propagée, champ DN, sélecteur, insécables) ; `app.js` et `kit/glyphs.js` remis à `84a7ebf` (palette par `ctx.commands.set` du shell) ; tests et E2E écrits ; Debug et Release : 0 erreur, 0 avertissement | Intégration (surcouche de simulation à fusionner avec poste) |
-| comptes | **Terminé** (`2c6fc68`, relève OpenCode) : critique du tour 1 (traitée par `9dedf45`) vérifiée dans le code, parité refaite sur CPT-001 à 021 ; compteur « Accès » de la barre du haut par `ctx.access.report` ; partiels : vague 3 (Domenia.Ad : CPT-007, 008), shell à l’intégration (CPT-001 relecture hors écran, CPT-012 panneau d’aide), coffre Windows (CPT-017, question ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| relations | **Terminé** (`d13f98b`, relève OpenCode) : tour 2 traité (WAPT retiré, REL-050 export d’échange relu par l’import, aperçu d’import, relevé d’une liste sans OU, observations conservées, détection annulable, journal complet, barre de commandes du kit, une seule action principale, vue mise à jour sur place, transitions) ; tests écrits ; partiels : REL-013 (Domenia.Store), REL-029 (brancher sur les demandes d’accès de Comptes à l’intégration), REL-014, 017, 018, 030 (décision ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| poste | **Terminé** (`bc97977`, relève OpenCode) : `wip(poste)` compilé (une correction), tour 1 vérifié dans le code (secrets par fenêtre native, relevés par type, inventaire partiel et réaffiché, renommage du CN seul, redémarrage sans « Maintenant » par défaut, protection « Non lu », BitLocker par GUID complet), WAPT absent de `src` et `web` ; partiels : PST-023 et 066 (vague 3), PST-111 et 113 (écran Requêtes, à brancher à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégration (surcouche partagée avec la Fiche) |
-| assistance | **Terminé** (`fd4c205`, relève OpenCode) : tour 2 traité (refus de l’écran expliqués dans Incidents, commande `Domenia.exe dossier` attachée à la console, contrat d’arrivée `postes=`, capture refusée pendant une lecture, suivi arrêté après trois échecs, bandeau sans lecteur, vues mises à jour sur place, CSS des panneaux préfixée) ; tests et E2E écrits ; partiels : ASS-006 (refus des autres écrans : `BridgeDispatcher` à l’intégration), ASS-012 (lien à poser dans les écrans de liste) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| requetes | **Terminé** (`64b8228`, relève OpenCode) : `wip(requetes)` compilé sans correction, tour 1 vérifié par sondage (bibliothèque en fichier atomique par domaine, widget après revue d’impact, brouillon repris, négations LDAP, exports par le moteur, confirmations WMI, aperçu sur les correspondants, h1), journaux `.tmp-oc` retirés ; partiels déclarés : REQ-034, 039, 048 (stockage Domenia.Store, écrans Accueil/Fiche/Rechercher à brancher) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| audit | **Terminé** (`b64ac93`, relève OpenCode) : `wip(audit)` et la revue de l’agent Spark (`5250fc2`, teinte du critique) compilés, tour 1 vérifié par sondage (garde limitée à l’objet, contrôleurs bornés, « lancer » retiré avant la lecture, CSS conforme) ; réserve : l’agent Spark a lancé une capture dans la VM ; à l’intégration : `mock.js` et `PlatformTests` ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| schema | **Terminé** (`49c3642`, relève OpenCode) : tour 1 (traité par `c592077`) vérifié, transitions mises en conformité ; partiel : MAC-002 (pastille « Compte poste » à poser dans Poste et Intervenir à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| synchro | **Terminé** (`70d8306`, relève OpenCode) : tour 1 (traité par `0ceac1d`) vérifié, une seule action principale ; fichiers partagés `kit/grid.js` et `write-flow.js` à revoir à l’intégration ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| operations | **Terminé** (`cacc514`, relève OpenCode) : tour 1 (traité par `e0385ab` : blocage global des écritures, suivi des lectures, battement de toute l’interface, pseudonymes, classes) vérifié, transitions et typographie corrigées ; partiels déclarés (ordonnanceur, collecte, annulation pré-remplie, coque) ; Debug et Release : 0 erreur, 0 avertissement | Intégration (Ctrl L et panneau de la coque à raccorder à `operations.center`) |
-| parametres | **Terminé** (`c9a12ce`, relève OpenCode) : `wip(parametres)` compilé sans correction, tour 1 vérifié par sondage (app.js rendu au shell, alias des sections, journal, « ouvrir= » consommé, typographie, statuts requalifiés), règles des panneaux préfixées ; 39 partiels (base locale SQLite en vague 3, coque, réglages lus par les autres écrans) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
+| shell | **Terminé** (`f4a0c5d`, relève OpenCode) : `wip` compilé, tour 1 vérifié point par point, parité refaite, moteur de tableaux complété (TRV-286, 288, 303, 314, 315, 316) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| accueil | **Terminé** (`82087a5`, relève OpenCode) : tour 2 traité (ACC-055, 033, 026, 023, 020, 031, 039, barre du kit, une seule action principale, titres, aperçu), tests et E2E écrits ; partiels restants : vague 3 (Domenia.Store) et atelier de requêtes ; TRV-290 à 292 (collecte par widget) à faire avec l’ordonnanceur | Intégré |
+| rechercher | **Terminé** (`4d6f395`, relève OpenCode) : tour 2 traité (RCH-005, 097, 126, 127, 020, réglages de l’administrateur et de Paramètres par `search.policy`, conteneurs de la racine, notices, une seule action principale), tests et E2E écrits ; partiels : vague 3 (base locale, enregistrement en fichier) et atelier de requêtes | Intégré |
+| fiche | **Terminé** (`4cceb1a`, relève OpenCode) : tour 2 traité (FIC-033 état bloquant, FIC-018 nouveau DN relu par GUID, FIC-007 brouillon Compte et discard, FIC-046 et FIC-037 session par GUID, FIC-048 bandeau, Historique, concurrence de l’aperçu), défauts de design corrigés (une action principale, colonnes des groupes, exemples de la page vide, racine du domaine, couleur des OU, présence propagée, champ DN, sélecteur, insécables) ; `app.js` et `kit/glyphs.js` remis à `84a7ebf` (palette par `ctx.commands.set` du shell) ; tests et E2E écrits ; Debug et Release : 0 erreur, 0 avertissement | Intégré (surcouche de simulation fusionnée avec celle du Poste) |
+| comptes | **Terminé** (`2c6fc68`, relève OpenCode) : critique du tour 1 (traitée par `9dedf45`) vérifiée dans le code, parité refaite sur CPT-001 à 021 ; compteur « Accès » de la barre du haut par `ctx.access.report` ; partiels : vague 3 (Domenia.Ad : CPT-007, 008), shell à l’intégration (CPT-001 relecture hors écran, CPT-012 panneau d’aide), coffre Windows (CPT-017, question ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| relations | **Terminé** (`d13f98b`, relève OpenCode) : tour 2 traité (WAPT retiré, REL-050 export d’échange relu par l’import, aperçu d’import, relevé d’une liste sans OU, observations conservées, détection annulable, journal complet, barre de commandes du kit, une seule action principale, vue mise à jour sur place, transitions) ; tests écrits ; partiels : REL-013 (Domenia.Store), REL-029 (brancher sur les demandes d’accès de Comptes à l’intégration), REL-014, 017, 018, 030 (décision ci-dessous) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| poste | **Terminé** (`bc97977`, relève OpenCode) : `wip(poste)` compilé (une correction), tour 1 vérifié dans le code (secrets par fenêtre native, relevés par type, inventaire partiel et réaffiché, renommage du CN seul, redémarrage sans « Maintenant » par défaut, protection « Non lu », BitLocker par GUID complet), WAPT absent de `src` et `web` ; partiels : PST-023 et 066 (vague 3), PST-111 et 113 (écran Requêtes, à brancher à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégré (surcouche fusionnée avec celle de la Fiche) ; PST-111 et 113 à brancher |
+| assistance | **Terminé** (`fd4c205`, relève OpenCode) : tour 2 traité (refus de l’écran expliqués dans Incidents, commande `Domenia.exe dossier` attachée à la console, contrat d’arrivée `postes=`, capture refusée pendant une lecture, suivi arrêté après trois échecs, bandeau sans lecteur, vues mises à jour sur place, CSS des panneaux préfixée) ; tests et E2E écrits ; partiels : ASS-006 (refus des autres écrans : `BridgeDispatcher` à l’intégration), ASS-012 (lien à poser dans les écrans de liste) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| requetes | **Terminé** (`64b8228`, relève OpenCode) : `wip(requetes)` compilé sans correction, tour 1 vérifié par sondage (bibliothèque en fichier atomique par domaine, widget après revue d’impact, brouillon repris, négations LDAP, exports par le moteur, confirmations WMI, aperçu sur les correspondants, h1), journaux `.tmp-oc` retirés ; partiels déclarés : REQ-034, 039, 048 (stockage Domenia.Store, écrans Accueil/Fiche/Rechercher à brancher) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| audit | **Terminé** (`b64ac93`, relève OpenCode) : `wip(audit)` et la revue de l’agent Spark (`5250fc2`, teinte du critique) compilés, tour 1 vérifié par sondage (garde limitée à l’objet, contrôleurs bornés, « lancer » retiré avant la lecture, CSS conforme) ; réserve : l’agent Spark a lancé une capture dans la VM ; `mock.js` et `PlatformTests` complétés à la fusion ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| schema | **Terminé** (`49c3642`, relève OpenCode) : tour 1 (traité par `c592077`) vérifié, transitions mises en conformité ; partiel : MAC-002 (pastille « Compte poste » à poser dans Poste et Intervenir à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| synchro | **Terminé** (`70d8306`, relève OpenCode) : tour 1 (traité par `0ceac1d`) vérifié, une seule action principale ; fichiers partagés `kit/grid.js` et `write-flow.js` à revoir à l’intégration ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
+| operations | **Terminé** (`cacc514`, relève OpenCode) : tour 1 (traité par `e0385ab` : blocage global des écritures, suivi des lectures, battement de toute l’interface, pseudonymes, classes) vérifié, transitions et typographie corrigées ; partiels déclarés (ordonnanceur, collecte, annulation pré-remplie, coque) ; Debug et Release : 0 erreur, 0 avertissement | Intégré ; Ctrl L et panneau de la coque à raccorder à `operations.center` |
+| parametres | **Terminé** (`c9a12ce`, relève OpenCode) : `wip(parametres)` compilé sans correction, tour 1 vérifié par sondage (app.js rendu au shell, alias des sections, journal, « ouvrir= » consommé, typographie, statuts requalifiés), règles des panneaux préfixées ; 39 partiels (base locale SQLite en vague 3, coque, réglages lus par les autres écrans) ; Debug et Release : 0 erreur, 0 avertissement | Intégré |
 
 Questions pour David (la relève ne tranche pas, elle continue) :
 - **CPT-017, coffre Windows** : brancher le Gestionnaire d’identification de Windows (CredRead, CredWrite, CredDelete) pour
@@ -77,15 +77,48 @@ Questions pour David (la relève ne tranche pas, elle continue) :
 - **Relations, classe des exports de fichiers** : `relations.export.save` est `LocalWrite` (réservée aux préférences par
   `PLATFORM.md` § 3.2) et `relations.export.open` est `Local` alors qu’elle ouvre le CSV par l’association de Windows.
   Créer une classe pour les fichiers d’export, ou admettre ces deux usages ?
+- **Catalogue, statut `partiel`** : les fichiers `docs/status/*.json` des écrans classent 90 fonctions en « partiel » (avec
+  ce qui reste à faire). L’intégration a gardé ce statut dans `features.json` et `FEATURES.md` (légende, colonne de la
+  synthèse, « Reste à faire » sous chaque fonction) ; `CLAUDE.md` cite encore quatre statuts et n’a pas été modifié.
+  Garder `partiel` (et l’ajouter à `CLAUDE.md`), ou le ramener à `a-faire` ?
 
-À faire à l’intégration (petits branchements de la coque, `app.js`) : relire `accounts.access.revision` (local, 2 s) pour
-l’emplacement « Accès » hors de l’écran Comptes (CPT-001) ; montrer les trois identités (`accounts.access.state`) dans
-le panneau d’aide avec le raccourci vers Comptes (CPT-012). Relations : brancher les refus de la détection sur les
-demandes d’accès de Comptes (REL-029). Assistance : journaliser les refus de tous les écrans dans `BridgeDispatcher`
-(ASS-006) ; lien « Dossier hors ligne de ces postes » (`#/assistance?postes=…`) dans Rechercher (ASS-012). Comptes machine :
-`mountMachineAccount` dans l’en-tête de Poste et la carte « Se connecter » d’Intervenir (MAC-002).
+**Intégration (22/10, relève OpenCode, `c7b9d09`).** Fusions `--no-ff` dans l’ordre prévu (`9ead13b` à `95b0128`), puis :
+- conflits résolus sans rien perdre : listes de `PlatformTests.cs` (union, 22 modules, 438 opérations avec celles de
+  Rechercher), en-têtes et branchements de `mock.js` (`WRITES` d’Opérations et `WRITE_OPERATIONS` de Comptes),
+  `NOTHING_SENT` exporté avec `write.receiptsPending` (`write-flow.js`), surcouche de simulation (Fiche + `UpdateComputer`
+  et `UpdateGroup` du Poste), `WriteCircuitTests.cs`, définition de `LocalWrite` (`OPERATIONS.md`, `PLATFORM.md` : préférences,
+  reçus, documents de l’opérateur, fichiers propres d’un écran, exports CSV) ;
+- collisions de types entre écrans dans `Domenia.Core` (chaque branche compilait seule) : `ExportResult` partagé
+  (`Platform/ExportResult.cs`) et `PosteExportResult` ; `SupportSecretMask`, `DiagnosticDossierFile`, `AuditRelationKind`,
+  `AuditFactState`, `SyncSnapshotComparison`, `SyncSnapshotList`, `OperationsCollectionRun` (et `RunRow`, `Family`,
+  `Status`), `OperationsJournalView`, `LdapFilterAnalyzer` (Schéma ; masquait le `LdapFilter` de l’atelier de requêtes) ;
+- « account.expiration » (FIC-016) : un seul exécuteur (celui de Comptes), utilisé aussi par la Fiche ;
+  `WriteExecutors.Discover` refuse deux exécuteurs pour un même type ;
+- `PlatformTests` aligné sur le code (`shell.metric`, `shell.ou.resolve`, `accueil.session.details` ; `accueil.board` et
+  `accueil.firstSteps` en `LocalWrite`) ;
+- statuts : le fichier de la page propriétaire l’emporte quand deux écrans citent la même fonction (FIC-004, 013, 016,
+  048) ; PAR-006 et PAR-008 restent `fait` (le reste déclaré par Paramètres est fait par la coque fusionnée) ; PST-001
+  reste `abandonne` ; aucune mention de WAPT dans `v2/src` ni `v2/web`.
 
-Fichiers partagés déjà modifiés par des branches d’écran (avant la relève OpenCode), à revoir à l’intégration :
+Suites de l’intégration (non faites ; branchements dans des fichiers partagés, à faire puis à tester en VM) :
+- coque (`app.js`) : relire `accounts.access.revision` (local, 2 s) pour
+  l’emplacement « Accès » hors de l’écran Comptes (CPT-001) ; montrer les trois identités (`accounts.access.state`) dans
+  le panneau d’aide avec le raccourci vers Comptes (CPT-012). Relations : brancher les refus de la détection sur les
+  demandes d’accès de Comptes (REL-029). Assistance : journaliser les refus de tous les écrans dans `BridgeDispatcher`
+  (ASS-006) ; lien « Dossier hors ligne de ces postes » (`#/assistance?postes=…`) dans Rechercher (ASS-012). Comptes machine :
+  `mountMachineAccount` dans l’en-tête de Poste et la carte « Se connecter » d’Intervenir (MAC-002). Opérations : Ctrl L
+  et panneau « Opérations de la session » de la coque vers `operations.center` (OPE-014, OPE-015). Poste : widgets et
+  atelier de l’écran Requêtes (PST-111, PST-113).
+- réévaluer les partiels dont le reste relevait d’un autre lot désormais fusionné (coque : PAR-004, 005, 007 ; CPT-001,
+  CPT-012 ; OPE-014, 015).
+- doublons fonctionnels Fiche et Comptes (même effet LDAP, deux types d’écriture) : `account.enabled` et
+  `account.enable`/`account.disable`, `password.expire` et `account.mustChangePassword`, `password.reset` et
+  `account.resetPassword` ; `ObjectWrites.Expiration` (Fiche) n’est plus appelée. À unifier après revue.
+- arbres de travail `../Domenia-D120-team/v2-<id>` : propres et poussés ; non retirés, car ils gardent des fichiers ignorés
+  (`CRITIQUE-N.md`, copies des critiques archivées, et `v2-audit/RAPPORT-OC.md`, rapport de l’agent Spark non archivé).
+
+Fichiers partagés modifiés par des branches d’écran, fusionnés (conflits résolus ci-dessus), dont la relecture fonctionnelle
+reste à faire avec les tests en VM :
 `tokens.css` (shell : jetons de contraste WCAG demandés par sa critique), `app.js` (shell ; la fiche n’y touche plus),
 `kit.css`, `kit/menu.js`, `router.js` (fiche : marques de menu et garde de sortie ; `kit/glyphs.js` remis à `84a7ebf`), `Composition.cs`, `Program.cs` (assistance), `kit/grid.js`
 (synchro), `write-flow.js` (comptes, synchro, opérations), `mock.js` et `mock-writes.js` (plusieurs écrans). La relève
@@ -104,13 +137,10 @@ Pour chaque écran, le travail suit la même boucle :
 
 Une nouvelle critique suit : on boucle jusqu'à ce qu'il ne manque plus rien.
 
-**Intégration** : fusionner les branches dans `v2` dans cet ordre :
-shell, accueil, rechercher, fiche, comptes, relations, poste, assistance, requetes, audit, schema, synchro, operations, parametres.
-Ensuite :
-- appliquer `docs/status/*.json` à `features.json` (format à garder : indentation d'un espace, modifications ciblées) et à `FEATURES.md` ;
-- compiler `vm.sh main build` (Debug et Release) ;
-- commiter et pousser ;
-- retirer les arbres de travail.
+**Intégration** (faite le 22/10, voir plus haut) : fusion dans `v2` dans l’ordre shell, accueil, rechercher, fiche,
+comptes, relations, poste, assistance, requetes, audit, schema, synchro, operations, parametres ; statuts appliqués à
+`features.json` et `FEATURES.md` ; `vm.sh main build` Debug et Release ; commit et push. Reste : retirer les arbres de
+travail (après accord, voir les suites).
 
 ## 5. Règles techniques
 
