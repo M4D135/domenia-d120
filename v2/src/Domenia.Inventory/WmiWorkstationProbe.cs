@@ -92,8 +92,7 @@ public sealed class WmiWorkstationProbe : IWorkstationProbe
     }
 
     /// <summary>A host name or an IPv4 address: letters, digits, « - » and « . » only (nothing that changes the WMI path).</summary>
-    internal static bool IsHostName(string host) =>
-        host.Length is > 0 and <= 255 && host.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.');
+    internal static bool IsHostName(string host) => CimQuery.IsHostName(host);
 
     /// <summary>A DMTF date (« 20261021162600.500000+120 ») in UTC, or null when it cannot be read.</summary>
     internal static DateTimeOffset? ParseDmtf(string? text)

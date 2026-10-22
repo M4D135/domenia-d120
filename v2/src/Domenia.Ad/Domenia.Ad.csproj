@@ -2,6 +2,7 @@
   <PropertyGroup><RootNamespace>Domenia.Ad</RootNamespace></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Domenia.Core/Domenia.Core.csproj" />
+    <ProjectReference Include="../Domenia.Inventory/Domenia.Inventory.csproj" />
     <PackageReference Include="System.DirectoryServices" Version="10.0.12" />
     <PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.12" />
   </ItemGroup>

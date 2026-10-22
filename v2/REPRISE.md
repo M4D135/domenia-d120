@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **23/10/2026, Codex : reprise active, premier lot de garde LDAP compilé**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **23/10/2026, Codex : reprise active, lecteurs LDAP et reprise CIM en cours**.
 
 ## 0. Reprise active — Codex, 23/10/2026
 
@@ -13,6 +13,9 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 - Première correction du socle : relecture LDAP limitée au DN et à la profondeur choisis ; refus racine/hors domaine/DN invalide ; `session.info`, lecture locale et index local d’OU sans réseau ; index d’OU indépendant de l’image de la branche et invalidé au changement de session ; SID et date WMI mal formés traités comme illisibles.
 - Validation de ce lot : `vm.sh main build --config both`, Debug et Release **0 erreur, 0 avertissement**. Dix tests `AdBoundaryTests` ajoutés et compilés, **pas encore exécutés** (recette après développement). Aucune écriture AD effectuée.
 - Deuxième lot : `session.connect` (`NetworkRead`, geste explicite dans Comptes) et lecteur réel du schéma `AdSchemaReader` ; partition contrôlée, projections sans valeurs d’objet, pagination, sentinelle de troncature, budget total, catalogue incomplet explicite. Cinq tests supplémentaires écrits et compilés. Debug/Release **0 erreur, 0 avertissement** ; tests et recette AD non exécutés à ce stade.
+- David autorise la poursuite directe avec Codex après interruption du transport Spark (synthèse documentaire sans réponse finale validée), puis demande explicitement une finition détaillée et une recette sur les VM domaine et Domenia.
+- Branche 03 relue : non fusionnée (identité Windows conservée après changement de compte LDAP, mappage SID incomplet, appels Windows incorrects, journal de sécurité non implémenté). Branche 04 : compilation du brouillon réussie dans un lot VM isolé ; récupération sélective des collecteurs CIM, avec correction de la garde WQL/MSI, des plafonds, budgets, annulations, résultats partiels et données absentes. Ce collecteur n’est pas encore branché à tous les lecteurs d’écran ; les sources de registre/WTS restent à développer. Aucun statut du catalogue promu pour ce brouillon.
+- Troisième lot compilé : collecteurs CIM récupérés et corrigés, sélecteur local `AdMachineAccountReader` et essai unique `WmiMachineAccessProbe` branchés par découverte. Mot de passe gardé en `SecureString`, refus du secret absent pour un compte explicite, erreurs d’authentification distinctes. Dix nouveaux tests écrits et compilés (garde WQL/MSI, budgets/annulation, données partielles, provenance locale, compte explicite). `vm.sh main build --config both` : **0 erreur, 0 avertissement**. Tests non exécutés à ce stade ; pas de validation AD réelle revendiquée.
 - Catalogue constaté : **993 entrées : 483 faites, 216 améliorées, 69 partielles, 224 à faire, 1 abandonnée**. Aucun statut requalifié sur la seule base d’une compilation.
 - Suite : terminer la revue des deux brouillons, brancher les lecteurs/écritures réels et SQLite, traiter les branchements et le catalogue ; ensuite tests C#, E2E simulation et labo limité à `OU=Domenia-Tests`, puis packs, SHA-256 et release.
 
