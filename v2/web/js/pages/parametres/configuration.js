@@ -7,8 +7,8 @@ import {
 } from './common.js';
 import { reveal } from '../../ui.js';
 
-const HEAD = { title: 'Configuration', lead: 'Les réglages de l’administrateur, lus dans Domenia.config.json à côté de l’exécutable : valeur en vigueur, défaut et provenance, chacun borné.', icon: 'tools', tone: 'off' };
-const STATES = { read: ['ok', 'Fichier lu', 'check'], absent: ['off', 'Fichier absent : valeurs par défaut', 'info'], invalid: ['alert', 'Fichier illisible : valeurs par défaut', 'alert'] };
+const HEAD = { title: 'Configuration', lead: 'Les réglages de l’administrateur, lus dans Domenia.config.json à côté de l’exécutable : valeur en vigueur, défaut et provenance, chacun borné.', icon: 'tools', tone: 'off' };
+const STATES = { read: ['ok', 'Fichier lu', 'check'], absent: ['off', 'Fichier absent : valeurs par défaut', 'info'], invalid: ['alert', 'Fichier illisible : valeurs par défaut', 'alert'] };
 const SETTING_OF = { Features: 'features', Security: 'security', Remote: 'remote', Async: 'async' };
 const USE_TONES = { applied: 'ok', byConstruction: 'accent', planned: 'off' };
 
@@ -17,7 +17,7 @@ const show = (v) => (v === 'true' ? 'Oui' : v === 'false' ? 'Non' : v);
 function sectionCard(s, onlyFile) {
   const entries = onlyFile ? s.entries.filter((e) => e.source !== 'default') : s.entries;
   const rows = entries.map((e, n) => `<tr data-j="${n}" data-source="${esc(e.source)}">
-      <th scope="row"><b>${esc(e.label)}</b><span class="pr-sub mono">${esc(`${e.section}.${e.key}`)}</span><span class="pr-sub">${esc(e.effect)}</span></th>
+      <th scope="row"><b>${esc(e.label)}</b><span class="pr-sub mono pr-expert-only">${esc(`${e.section}.${e.key}`)}</span><span class="pr-sub">${esc(e.effect)}</span></th>
       <td><span class="pr-value${e.value === 'true' ? ' yes' : e.value === 'false' ? ' no' : ''}">${esc(show(e.value))}</span>${e.value !== e.default ? `<span class="pr-sub">défaut ${esc(show(e.default))}</span>` : ''}</td>
       <td>${pill(tone(e.tone), e.sourceLabel, { size: 'sm' })}${e.bounds ? `<span class="pr-sub">${esc(e.bounds)}</span>` : ''}</td>
       <td>${pill(USE_TONES[e.use] ?? 'off', e.useLabel, { size: 'sm' })}</td></tr>`).join('');
@@ -36,12 +36,13 @@ function markup(v, onlyFile) {
     body: `<div class="pr-verdict" data-tone="${toneName}" data-setting="config"><span class="pr-verdict-ico">${glyph(iconName)}</span><b>${esc(label)}</b><span>${v.problem ? esc(v.problem) : `${int(v.fromFile)} valeur${v.fromFile > 1 ? 's' : ''} venant du fichier`}</span></div>
       <div class="pr-config-tools">${switchLabel('only-file', 'Seulement les valeurs du fichier', onlyFile)}${pill(v.allowExpertProfile ? 'ok' : 'warn', v.allowExpertProfile ? 'Profil Expert autorisé' : 'Profil Expert masqué', { size: 'sm', icon: 'tools' })}</div>
       ${notes(v.notes)}
-      ${v.unknownSections.length ? `<p class="pr-hint">${glyph('info')}<span>Sections conservées, non lues par Domenia 2 : ${esc(v.unknownSections.join(', '))}.</span></p>` : ''}`,
+      ${v.unknownSections.length ? `<p class="pr-hint">${glyph('info')}<span>Sections conservées, non lues par Domenia 2 : ${esc(v.unknownSections.join(', '))}.</span></p>` : ''}`,
   });
   const gui = card({
-    id: 'gui', title: 'Politique des éléments d’interface', sub: 'Section GuiElementPolicy : Default, Disabled ou Hidden', iconName: 'eyeOff',
+    id: 'gui', title: 'Politique des éléments d’interface', sub: 'Section GuiElementPolicy : Default, Disabled ou Hidden', iconName: 'eyeOff',
     body: v.guiPolicy.length
-      ? `<ul class="pr-lines">${v.guiPolicy.map((g) => `<li>${pill(g.valid ? (g.policy === 'Hidden' ? 'warn' : g.policy === 'Disabled' ? 'info' : 'ok') : 'alert', g.policy || 'inconnue', { size: 'sm' })} <span class="mono">${esc(g.element)}</span> · ${esc(g.text)}</li>`).join('')}</ul>`
+      ? `<ul class="pr-gui">${v.guiPolicy.map((g, n) => `<li data-j="${n}">${pill(g.valid ? (g.policy === 'Hidden' ? 'warn' : g.policy === 'Disabled' ? 'info' : 'ok') : 'alert', g.policy || 'inconnue', { size: 'sm' })}<span class="mono">${esc(g.element)}</span><span class="pr-sub">${esc(g.text)}</span></li>`).join('')}</ul>
+        <p class="pr-hint">${glyph('info')}<span>Appliquée dès maintenant aux contrôles de Paramètres qui ont un équivalent dans Domenia 1 ; « Default » n’active jamais ce que les droits ou le mode refusent. Les autres écrans l’appliqueront à leurs contrôles.</span></p>`
       : emptyState('eye', 'Aucune politique', 'Aucun élément n’est grisé ni masqué par l’administrateur. Les droits et la lecture seule restent prioritaires.'),
   });
   return `${sectionHead(HEAD)}<div class="pr-grid">${file}${gui}</div><div class="pr-config-list">${v.sections.map((s) => sectionCard(s, onlyFile)).join('')}</div>`;

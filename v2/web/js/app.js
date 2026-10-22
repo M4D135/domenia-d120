@@ -101,33 +101,6 @@ function setMotion(id) {
   toast(MOTIONS.find((m) => m.id === id)?.label ?? 'Animations', { tone: 'info', life: 2600 });
 }
 
-// ---------- Interface preferences of Paramètres (domenia.ui.v1: zoom, density, profile; PAR-004, PAR-005, PAR-009) ----------
-
-const UI_KEY = 'domenia.ui.v1';
-function loadUi() {
-  let ui = {};
-  try { ui = JSON.parse(localStorage.getItem(UI_KEY) ?? '{}') ?? {}; } catch { ui = {}; }
-  return ui && typeof ui === 'object' ? ui : {};
-}
-function uiZoom(ui) {
-  return Number.isInteger(ui.zoom) && ui.zoom >= 80 && ui.zoom <= 150 ? ui.zoom : 100;
-}
-// The content column zooms (CSS zoom, never a transform); the navigation and the top bar keep their size.
-function applyUi(main) {
-  const ui = loadUi();
-  root.dataset.density = ui.density === 'compact' ? 'compact' : 'confort';
-  root.dataset.profile = ui.profile === 'expert' ? 'expert' : 'essentiel';
-  const zoom = uiZoom(ui);
-  if (main) {
-    if (zoom === 100) main.style.removeProperty('zoom'); else main.style.setProperty('zoom', String(zoom / 100));
-  }
-}
-function saveUi(patch) {
-  const ui = { ...loadUi(), ...patch };
-  try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch { /* private mode: applied for the session only */ }
-  return ui;
-}
-
 // ---------- Shell markup ----------
 
 // aria-label keeps the name when the label is hidden (collapsed rail, narrow window); the shortcut is exposed
@@ -314,20 +287,6 @@ function boot() {
   const nav = shell.querySelector('.nav');
   const main = shell.querySelector('.main');
   const toggle = nav.querySelector('.nav-toggle');
-  applyUi(main);
-  window.addEventListener('domenia:ui-prefs', () => applyUi(main));
-  // Ctrl + wheel zooms the content in the same steps (PAR-009 improvement) instead of the window of WebView2.
-  let zoomStep = 0;
-  window.addEventListener('wheel', (e) => {
-    if (!(e.ctrlKey || e.metaKey) || e.deltaY === 0) return;
-    e.preventDefault();
-    // A touchpad sends many small events: one step every 150 ms at most.
-    if (e.timeStamp - zoomStep < 150) return;
-    zoomStep = e.timeStamp;
-    const now = uiZoom(loadUi());
-    const next = Math.max(80, Math.min(150, now + (e.deltaY < 0 ? 10 : -10)));
-    if (next !== now) { saveUi({ zoom: next }); applyUi(main); }
-  }, { passive: false });
 
   themeInk = inkFollow(host.querySelector('.theme-switch'), 'button', 'button[aria-pressed="true"]');
   applyTheme();
@@ -406,14 +365,6 @@ function boot() {
       app: appInfo,
       showConnection,
       openPalette: () => palette.open(),
-      // Shell preferences for Paramètres: the same functions as the top bar, Ctrl B and the palette.
-      shell: {
-        prefs: () => ({ ...prefs, zoom: uiZoom(loadUi()), density: root.dataset.density, profile: root.dataset.profile, ui: loadUi() }),
-        setTheme,
-        setMotion,
-        setCollapsed: (on) => setCollapsed(on),
-        setUi: (patch) => { const ui = saveUi(patch); applyUi(main); return ui; },
-      },
     }),
   });
 
@@ -443,14 +394,6 @@ function boot() {
     if (mod && !e.altKey && (key === 'k' || key === 'p')) { e.preventDefault(); palette.toggle(); return; }
     if (palette.isOpen()) return;
     if (mod && !e.altKey && key === 'b') { e.preventDefault(); setCollapsed(!prefs.navCollapsed); return; }
-    // Zoom of the content (PAR-009): Ctrl + / Ctrl − / Ctrl 0, by steps of 10 from 80 to 150 %, remembered.
-    if (mod && !e.altKey && ['+', '=', '-', '0'].includes(e.key)) {
-      e.preventDefault();
-      const now = uiZoom(loadUi());
-      const next = e.key === '0' ? 100 : Math.max(80, Math.min(150, now + (e.key === '-' ? -10 : 10)));
-      if (next !== now) { saveUi({ zoom: next }); applyUi(main); toast(`Zoom de l’interface : ${next} %`, { tone: 'info', life: 1800 }); }
-      return;
-    }
     const digit = /^Digit([1-9])$/.exec(e.code);
     if (e.altKey && !mod && digit) {
       const page = PAGES[Number(digit[1]) - 1];

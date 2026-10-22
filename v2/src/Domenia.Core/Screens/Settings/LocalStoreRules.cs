@@ -42,14 +42,26 @@ public sealed record PurgePreview(ImmutableArray<string> Categories, int History
 /// <summary>One cached perimeter as shown (Get-DomeniaCacheCatalogRows).</summary>
 public sealed record CacheCatalogRow(string Scope, string Source, string Controller, string Reader, long Objects, string Observed, string Age, string Usage);
 
-/// <summary>One backup as listed by the page.</summary>
-public sealed record StorageBackupView(string Id, string FileName, DateTimeOffset At, long Bytes, string BytesText, string Sha256Short, bool Verified, string Kind, string KindLabel, bool InRotation, int PreferenceKeys, string Content);
+/// <summary>One backup as listed by the page: proof, last batch, last measure, content and annex of its preferences.</summary>
+public sealed record StorageBackupView(string Id, string FileName, DateTimeOffset At, long Bytes, string BytesText, string Sha256, string Sha256Short, bool Verified, string Kind, string KindLabel, bool InRotation,
+    int PreferenceKeys, bool PreferencesBound, long Revision, DateTimeOffset? LastMeasureAt, string Content);
 
 /// <summary>One tile of the summary band (objects, measures, backups, space).</summary>
 public sealed record StorageTile(string Id, string Label, string Value, string Sub, Tone Tone);
 
-/// <summary>Takeover of the Domenia 1 data, as shown by the page.</summary>
-public sealed record LegacyView(string State, Tone Tone, string Text, string Location, ImmutableArray<LegacyItem> Items, DateTimeOffset? ImportedAt, ImmutableArray<string> Refusals);
+/// <summary>Takeover of the Domenia 1 data, as shown by the page: sources found, the plan, its blockers and the guards.</summary>
+public sealed record LegacyView(
+    string State,
+    Tone Tone,
+    string Text,
+    string Location,
+    LegacyDatabase? Database,
+    ImmutableArray<LegacyFileView> Files,
+    ImmutableArray<LegacyStep> Steps,
+    ImmutableArray<string> Blockers,
+    ImmutableArray<string> Guards,
+    long WriteCount,
+    DateTimeOffset? ImportedAt);
 
 /// <summary>Result of settings.storage.</summary>
 public sealed record StorageView(
@@ -76,10 +88,31 @@ public sealed record StorageView(
     ImmutableArray<string> Never,
     ImmutableArray<CacheCatalogRow> Catalog,
     LegacyView? Legacy,
-    ImmutableArray<LocalStoreExport> Exports);
+    ImmutableArray<LocalStoreExport> Exports,
+    string Scenario,
+    string? ExportName,
+    string? BackupFolder);
 
 /// <summary>One retention family as edited by the page.</summary>
 public sealed record RetentionFamilyView(string Family, string PolicyKey, string Label, int Days, string DaysText, bool Compaction, string Loss);
+
+/// <summary>What the host read about a destination folder (read only: nothing is created nor written).</summary>
+public sealed record DestinationFacts(bool FolderExists, bool LocalFixedDrive, bool ReparsePoint, bool FileExists, long? FreeBytes);
+
+/// <summary>Result of settings.storage.destination.check: the destination admitted or the rule it breaks, with the space of its volume.</summary>
+public sealed record DestinationCheck(bool Ok, string Purpose, string Path, string? Problem, bool FolderExists, bool FileExists, long? FreeBytes, string FreeText, long ReserveBytes, string ReserveText, string Text);
+
+/// <summary>A local folder proposed for a destination (Documents, Bureau, dossier des exports…).</summary>
+public sealed record DestinationFolder(string Id, string Label, string Path);
+
+/// <summary>Result of settings.storage.destinations: the proposed name and the proposed folders.</summary>
+public sealed record DestinationProposal(string FileName, string? BackupFolder, ImmutableArray<DestinationFolder> Folders);
+
+/// <summary>One sub-folder of a local folder (settings.folders.browse).</summary>
+public sealed record FolderEntry(string Name, string Path);
+
+/// <summary>Result of settings.folders.browse: the folder, its parent, its sub-folders (500 at most), or the local drives.</summary>
+public sealed record FolderListing(string? Path, string? Parent, ImmutableArray<FolderEntry> Folders, bool Truncated, string Text);
 
 /// <summary>
 /// Pure rules and wording of the local base (Domenia 1 PAR-010 to PAR-036, points 31 to 40): space, location, writer,
@@ -142,21 +175,21 @@ public static class LocalStoreRules
         if (space.FreeBytes is not long free || space.MeasuredAt is not DateTimeOffset measured)
         {
             return new StorageSpaceView("unknown", Tone.Off, "Non mesuré", null, "non mesuré", null, false, write, suspend, warn, false,
-                "Espace libre du volume de la base" + FrenchText.Colon + "non mesuré dans cette session. Chaque enregistrement contrôle sa propre réserve ; « Mesurer » donne l’état du disque.");
+                "Espace libre du volume de la base" + FrenchText.Colon + "non mesuré dans cette session. Chaque enregistrement contrôle sa propre réserve ; « Mesurer » donne l’état du disque.");
         }
         var stale = now - measured > TimeSpan.FromMinutes(30);
         var when = SettingsFormat.LocalDate(measured, zone);
         var freeText = SettingsFormat.Size(free);
         var (state, tone, label, text) = free < write
-            ? ("critical", Tone.Alert, "Critique", "Espace disque critique" + FrenchText.Colon + freeText + " libres (mesure du " + when + "). Écritures refusées sous " + SettingsFormat.Size(write) + " et nouvelles collectes suspendues. Libérez de la place puis cliquez sur « Mesurer ».")
+            ? ("critical", Tone.Alert, "Critique", "Espace disque critique" + FrenchText.Colon + freeText + " libres (mesure du " + when + "). Écritures refusées sous " + SettingsFormat.Size(write) + " et nouvelles collectes suspendues. Libérez de la place puis cliquez sur « Mesurer ».")
             : free < suspend
-                ? ("suspend", Tone.Alert, "Insuffisant", "Espace disque insuffisant" + FrenchText.Colon + freeText + " libres (mesure du " + when + "). Nouvelles collectes suspendues sous " + SettingsFormat.Size(suspend) + " ; ce qui est déjà collecté continue de s’enregistrer. Libérez de la place puis cliquez sur « Mesurer ».")
+                ? ("suspend", Tone.Alert, "Insuffisant", "Espace disque insuffisant" + FrenchText.Colon + freeText + " libres (mesure du " + when + "). Nouvelles collectes suspendues sous " + SettingsFormat.Size(suspend) + " ; ce qui est déjà collecté continue de s’enregistrer. Libérez de la place puis cliquez sur « Mesurer ».")
                 : free < warn
                     ? ("low", Tone.Warn, "À surveiller", "Espace disque à surveiller" + FrenchText.Colon + freeText + " libres (mesure du " + when + "). Les nouvelles collectes seront suspendues sous " + SettingsFormat.Size(suspend) + ".")
                     : ("ok", Tone.Ok, "Suffisant", "Espace libre du volume de la base" + FrenchText.Colon + freeText + " (mesure du " + when + ").");
         if (stale)
         {
-            text += " Mesure ancienne" + FrenchText.Colon + "cliquez sur « Mesurer » pour l’actualiser.";
+            text += " Mesure ancienne" + FrenchText.Colon + "cliquez sur « Mesurer » pour l’actualiser.";
         }
         return new StorageSpaceView(state, tone, label, free, freeText, measured, stale, write, suspend, warn, state is "critical" or "suspend", text);
     }
@@ -173,7 +206,8 @@ public static class LocalStoreRules
             return new StorageLocationView("Aucune base locale pour ce domaine pour l’instant.", false, "", store.PathLabel, null);
         }
         var head = store.Simulated ? "Base de démonstration" : string.IsNullOrWhiteSpace(store.Domain) ? "Base locale" : "Base du domaine " + store.Domain;
-        var size = SettingsFormat.Size(store.DatabaseBytes + store.WalBytes);
+        // The same total everywhere (tile, location, journal note): the file and its SQLite journal together, said so.
+        var size = SettingsFormat.Size(store.DatabaseBytes + store.WalBytes) + (store.WalBytes > 0 ? " avec son journal" : "");
         string saved;
         var alert = false;
         var alertText = "";
@@ -183,14 +217,14 @@ public static class LocalStoreRules
             if ((now - at).TotalDays > 7)
             {
                 alert = true;
-                alertText = "Dernière sauvegarde il y a plus de 7 jours" + FrenchText.Colon + "pensez à « Sauvegarder maintenant ».";
+                alertText = "Dernière sauvegarde il y a plus de 7 jours" + FrenchText.Colon + "pensez à « Sauvegarder maintenant ».";
             }
         }
         else
         {
             saved = "jamais sauvegardée";
             alert = !store.Simulated;
-            alertText = alert ? "Aucune sauvegarde de cette base" + FrenchText.Colon + "pensez à « Sauvegarder maintenant »." : "";
+            alertText = alert ? "Aucune sauvegarde de cette base" + FrenchText.Colon + "pensez à « Sauvegarder maintenant »." : "";
         }
         return new StorageLocationView(head + " · " + size + " · " + saved, alert, alertText, store.PathLabel, path);
     }
@@ -229,7 +263,7 @@ public static class LocalStoreRules
         if (writer.Suspended)
         {
             return new StorageWriterView("suspended", Tone.Alert,
-                "En mémoire uniquement" + FrenchText.Colon + "enregistrement suspendu après des échecs" + (writer.Fault is { Length: > 0 } fault ? " (" + fault.TrimEnd('.') + ")" : "") + ". Reprise" + FrenchText.Colon + "« Reprendre les sauvegardes ».",
+                "En mémoire uniquement" + FrenchText.Colon + "enregistrement suspendu après des échecs" + (writer.Fault is { Length: > 0 } fault ? " (" + fault.TrimEnd('.') + ")" : "") + ". Reprise" + FrenchText.Colon + "« Reprendre les sauvegardes ».",
                 unsaved, true, null);
         }
         var notSuspended = "Les enregistrements locaux ne sont pas suspendus" + FrenchText.Colon + "rien à reprendre.";
@@ -274,7 +308,7 @@ public static class LocalStoreRules
         }
         else if (job)
         {
-            text = "Étape de maintenance en cours ; les autres actions attendent sa fin.";
+            text = "Étape de maintenance en cours ; les autres actions attendent sa fin.";
         }
         else if (m.Recovery && !m.RecoveryReceipt)
         {
@@ -288,7 +322,7 @@ public static class LocalStoreRules
         }
         else if (m.CanUndo)
         {
-            text = "Base basculée dans cette session" + FrenchText.Colon + "« Revenir à la base précédente » reste possible tant que la nouvelle base n’a reçu aucune écriture. Aucun fichier ne sera supprimé.";
+            text = "Base basculée dans cette session" + FrenchText.Colon + "« Revenir à la base précédente » reste possible tant que la nouvelle base n’a reçu aucune écriture. Aucun fichier ne sera supprimé.";
             tone = Tone.Warn;
         }
         else
@@ -297,16 +331,19 @@ public static class LocalStoreRules
                 ? "Base fictive de la simulation, en mémoire seulement" + FrenchText.Colon + "chaque déplacement ou restauration s’y joue sans toucher au disque."
                 : "La base active reste sur un disque local. Chaque déplacement ou restauration conserve le fichier d’origine.";
         }
-        var move = idle && !m.Locked;
-        var restore = idle && (!m.Locked || (m.Recovery && !m.RecoveryReceipt));
+        // A base proven unreadable only accepts the restore of a verified backup (PAR-021).
+        var unreadable = m.Recovery && !m.RecoveryReceipt;
+        var move = idle && !m.Locked && !unreadable;
+        var restore = idle && (!m.Locked || unreadable);
         var resume = idle && m.Locked && target && (!m.Recovery || m.RecoveryReceipt);
-        var rollback = idle && ((m.Locked && target && !m.Recovery) || (!m.Locked && m.CanUndo));
+        var rollback = idle && !unreadable && ((m.Locked && target && !m.Recovery) || (!m.Locked && m.CanUndo));
         var busy = !hasDatabase ? "Aucune base locale active." : m.Draining ? "Copie en attente." : job ? "Étape de maintenance en cours." : null;
+        var onlyRestore = unreadable ? "Base locale illisible" + FrenchText.Colon + "seule la restauration d’une sauvegarde vérifiée est proposée." : null;
         return new StorageMaintenanceView(move, restore, resume, rollback, text, tone,
-            move ? null : busy ?? "Bascule à terminer d’abord.",
+            move ? null : busy ?? onlyRestore ?? "Bascule à terminer d’abord.",
             restore ? null : busy ?? "Bascule à terminer d’abord.",
             resume ? null : busy ?? "Aucune bascule interrompue" + FrenchText.Colon + "rien à reprendre.",
-            rollback ? null : busy ?? "Aucune bascule de cette session à annuler.");
+            rollback ? null : busy ?? onlyRestore ?? "Aucune bascule de cette session à annuler.");
     }
 
     /// <summary>
@@ -360,9 +397,9 @@ public static class LocalStoreRules
         lines.AddRange(checks.Select(c => c.Label + FrenchText.Colon + c.StatusLabel + (string.IsNullOrWhiteSpace(c.Detail) ? "" : " (" + c.Detail.TrimEnd('.') + ")") + "."));
         if (failed > 0)
         {
-            lines.Add("Restaurez une sauvegarde vérifiée avec « Restaurer une sauvegarde… »" + FrenchText.Colon + "la base actuelle reste en place, sans modification.");
+            lines.Add("Restaurez une sauvegarde vérifiée avec « Restaurer une sauvegarde… »" + FrenchText.Colon + "la base actuelle reste en place, sans modification.");
         }
-        lines.Add("Ce contrôle lit la base sans la modifier ; aucune réparation automatique.");
+        lines.Add("Ce contrôle lit la base sans la modifier ; aucune réparation automatique.");
         return new StorageIntegrityView(verdict, verdictTone, failed, warned, unknown, report.Readable, report.CheckedAt, report.DurationMilliseconds, [.. checks], [.. lines]);
     }
 
@@ -402,7 +439,7 @@ public static class LocalStoreRules
                     x.Label + " (" + FrenchText.Count(x.Probe.Rows, "ligne", "lignes") + ")" + FrenchText.Colon + ms + FrenchText.Nbsp + "ms, " + how);
             })
             .ToImmutableArray();
-        var text = probes.IsEmpty ? "" : "Lectures mesurées sur cette base" + FrenchText.Colon + string.Join(" ; ", probes.Select(p => p.Text)) + ".";
+        var text = probes.IsEmpty ? "" : "Lectures mesurées sur cette base" + FrenchText.Colon + string.Join(" ; ", probes.Select(p => p.Text)) + ".";
         return new StorageUsageView(usage.MeasuredAt, usage.DatabaseBytes, SettingsFormat.Size(usage.DatabaseBytes), usage.WalBytes, SettingsFormat.Size(usage.WalBytes),
             usage.DbstatAvailable, [.. categories], probes, text, usage.DurationMilliseconds);
     }
@@ -419,12 +456,12 @@ public static class LocalStoreRules
         var lines = new List<string>
         {
             "Le stockage local n’est pas illimité" + c + "chaque file, cache et série a une limite, et la base grandit avec ce qui est conservé.",
-            "Mémoire" + c + "file d’écriture de 4" + FrenchText.ThousandsSeparator + "096 changements ou 32" + FrenchText.Nbsp + "Mo au plus (lots de 250 changements ou 4" + FrenchText.Nbsp + "Mo), 256 éléments en attente ; recherches de 20" + FrenchText.ThousandsSeparator + "000 lignes au plus.",
+            "Mémoire" + c + "file d’écriture de 4" + FrenchText.ThousandsSeparator + "096 changements ou 32" + FrenchText.Nbsp + "Mo au plus (lots de 250 changements ou 4" + FrenchText.Nbsp + "Mo), 256 éléments en attente ; recherches de 20" + FrenchText.ThousandsSeparator + "000 lignes au plus.",
             "Moteur" + c + FrenchText.Count(maxConcurrent, "tâche simultanée", "tâches simultanées") + " et " + FrenchText.Integer(maxQueued) + " en attente au plus.",
         };
         lines.Add(usage is not null
             ? "Disque" + c + "base de " + SettingsFormat.Size(usage.DatabaseBytes) + ", journal SQLite de " + SettingsFormat.Size(usage.WalBytes) + ", mesurés le " + SettingsFormat.LocalDate(usage.MeasuredAt, zone) + "."
-            : "Disque" + c + "taille de la base non mesurée dans cette session (« Mesurer »).");
+            : "Disque" + c + "taille de la base non mesurée dans cette session (« Mesurer »).");
         lines.Add("Espace disque" + c + "nouvelles collectes suspendues sous " + SettingsFormat.Size(space?.SuspendBelowBytes ?? SuspendReserve) + " libres, écritures refusées sous "
             + SettingsFormat.Size(space?.WriteReserveBytes ?? WriteReserve) + " (seuils relevés de quatre fois la file en attente).");
         var retention = string.Join(", ", StoragePolicyRules.Families.Select(f =>
@@ -432,8 +469,8 @@ public static class LocalStoreRules
             var days = StoragePolicyRules.DaysOf(policy, f.Family);
             return f.Label + " " + (days > 0 ? FrenchText.Integer(days) + FrenchText.Nbsp + "j" : "sans limite");
         }));
-        lines.Add("Conservation" + c + retention + ". Mesures de performance" + c + "10" + FrenchText.ThousandsSeparator + "000 dernières ; instantanés du parc" + c + "400 jours ; cache de recherche" + c
-            + "20 requêtes par périmètre, chacune de 20" + FrenchText.ThousandsSeparator + "000 lignes et 32" + FrenchText.Nbsp + "Mo au plus ; sauvegardes" + c
+        lines.Add("Conservation" + c + retention + ". Mesures de performance" + c + "10" + FrenchText.ThousandsSeparator + "000 dernières ; instantanés du parc" + c + "400 jours ; cache de recherche" + c
+            + "20 requêtes par périmètre, chacune de 20" + FrenchText.ThousandsSeparator + "000 lignes et 32" + FrenchText.Nbsp + "Mo au plus ; sauvegardes" + c
             + FrenchText.Count(policy.BackupKeep, "copie", "copies") + " manuelles ou automatiques et " + FrenchText.Count(policy.BackupKeep, "copie", "copies") + " avant un geste, toutes vérifiées. Reçus gardés sans limite.");
         if (usage is { Categories.Length: > 0 })
         {
@@ -461,32 +498,76 @@ public static class LocalStoreRules
     [
         "Le journal d’audit, la configuration et les préférences, les associations déclarées et leur historique, et les reçus d’opérations ne sont jamais purgeables.",
         "La purge de l’historique garde l’historique complet d’un poste dont l’association actuelle est déclarée.",
-        "Les métadonnées BitLocker et LAPS (secret_state) ne sont jamais une cible de l’index ; aucun secret n’est jamais stocké.",
-        "Une sauvegarde vérifiée est faite juste avant la purge (amélioration de Domenia 2) ; elle reste hors de la rotation.",
+        "Les métadonnées BitLocker et LAPS (secret_state) ne sont jamais une cible de l’index ; aucun secret n’est jamais stocké.",
+        "Une sauvegarde vérifiée est faite juste avant la purge (amélioration de Domenia 2) ; elle reste hors de la rotation.",
     ];
 
-    /// <summary>Tables of each purgeable category (closed identifiers, never SQL from the page, Get-DomeniaPurgeTargets).</summary>
-    public static ImmutableArray<(string Table, string Action, string Label)> PurgeTargets(string category) => category switch
+    /// <summary>
+    /// Tables of each purgeable category (closed identifiers, never SQL from the page, Get-DomeniaPurgeTargets). <c>Key</c> is the
+    /// key of the rows counted by the inspection (<see cref="LocalStoreTable.Table"/>): the table, or the table and the part of it
+    /// that the category owns (the clocks of the collections and of the directory share one metadata table).
+    /// </summary>
+    public static ImmutableArray<(string Table, string Action, string Label, string Key)> PurgeTargets(string category) => category switch
     {
         "observations" =>
         [
-            ("domenia_observations", "delete", "Mesures par famille"), ("domenia_details", "delete", "Résultats détaillés"), ("presence_cache", "delete", "Présence en cache"),
-            ("park_state", "delete", "État du parc"), ("park_session_cache", "delete", "Cache de session du parc"), ("domenia_domain_metadata", "delete", "Horloges ping et WMI"),
+            ("domenia_observations", "delete", "Mesures par famille", "domenia_observations"), ("domenia_details", "delete", "Résultats détaillés", "domenia_details"),
+            ("presence_cache", "delete", "Présence en cache", "presence_cache"), ("park_state", "delete", "État du parc", "park_state"),
+            ("park_session_cache", "delete", "Cache de session du parc", "park_session_cache"), ("domenia_domain_metadata", "delete", "Horloges ping et WMI", "domenia_domain_metadata.collection"),
         ],
-        "snapshots" => [("adcc_live_queries", "delete", "Instantanés de recherche")],
+        "snapshots" => [("adcc_live_queries", "delete", "Instantanés de recherche", "adcc_live_queries")],
         "history" =>
         [
-            ("user_machine_history", "delete", "Historique des associations (déclarées gardées)"), ("user_scan_history", "delete", "Historique des relevés d’utilisateurs"),
-            ("operation_runs", "delete", "Exécutions d’opérations"), ("fleet_snapshots", "delete", "Instantanés quotidiens du parc"),
+            ("user_machine_history", "delete", "Historique des associations (déclarées gardées)", "user_machine_history"), ("user_scan_history", "delete", "Historique des relevés d’utilisateurs", "user_scan_history"),
+            ("operation_runs", "delete", "Exécutions d’opérations", "operation_runs"), ("fleet_snapshots", "delete", "Instantanés quotidiens du parc", "fleet_snapshots"),
         ],
         "index" =>
         [
-            ("ad_objects", "delete", "Objets de l’annuaire"), ("domenia_directory_data", "delete", "Données d’annuaire"), ("ad_computer_facts", "delete", "Faits des ordinateurs"),
-            ("domenia_provenance", "delete", "Provenance"), ("ad_snapshots", "delete", "Relevés de l’annuaire"), ("domenia_domain_metadata", "delete", "Horloge des lectures AD"),
-            ("sync_state", "reset", "Point de reprise du domaine"),
+            ("ad_objects", "delete", "Objets de l’annuaire", "ad_objects"), ("domenia_directory_data", "delete", "Données d’annuaire", "domenia_directory_data"),
+            ("ad_computer_facts", "delete", "Faits des ordinateurs", "ad_computer_facts"), ("domenia_provenance", "delete", "Provenance", "domenia_provenance"),
+            ("ad_snapshots", "delete", "Relevés de l’annuaire", "ad_snapshots"), ("domenia_domain_metadata", "delete", "Horloge des lectures AD", "domenia_domain_metadata.directory"),
+            ("sync_state", "reset", "Point de reprise du domaine", "sync_state"),
         ],
         _ => throw new ArgumentException("Category not purgeable: " + category, nameof(category)),
     };
+
+    /// <summary>
+    /// Rows a purge of one category removes from each of its tables. All-or-nothing categories empty their tables; the history
+    /// keeps what is younger than its age (exact for the association history, the same share for the other history tables)
+    /// and the full history of a workstation whose association is declared. Without a count per table (an inspection that
+    /// did not count them), the category total is reported on its first table, never invented on the others.
+    /// </summary>
+    public static ImmutableArray<(string Table, string Action, string Label, long Rows)> PurgeTableRows(LocalStoreSnapshot store, string category, int historyDays)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var targets = PurgeTargets(category);
+        var counted = store.Tables.ToDictionary(t => t.Table, t => t.Rows, StringComparer.Ordinal);
+        if (counted.Count == 0)
+        {
+            var total = category == "history" ? HistoryFallback(store, historyDays) : store.Categories.FirstOrDefault(c => c.Id == category)?.Rows ?? 0;
+            return [.. targets.Select((t, n) => (t.Table, t.Action, t.Label, n == 0 ? total : 0L))];
+        }
+        long Count(string key) => counted.TryGetValue(key, out var rows) ? Math.Max(0, rows) : 0;
+        if (category != "history")
+        {
+            // A reset table keeps one row per domain: it is reset, not removed.
+            return [.. targets.Select(t => (t.Table, t.Action, t.Label, t.Action == "reset" ? Math.Min(1L, Count(t.Key)) : Count(t.Key)))];
+        }
+        var history = store.Families.FirstOrDefault(f => f.Family == "linkHistory");
+        var all = history is null ? 0 : history.DayCounts.Sum(x => (long)x);
+        var older = history is null ? 0 : StoragePolicyRules.RowsOlderThan(history, historyDays, compaction: false);
+        var share = all > 0 ? older / (double)all : 0;
+        return [.. targets.Select(t => (t.Table, t.Action, t.Label, t.Table == "user_machine_history" ? older : (long)Math.Round(Count(t.Key) * share)))];
+    }
+
+    private static long HistoryFallback(LocalStoreSnapshot store, int historyDays)
+    {
+        var history = store.Families.FirstOrDefault(f => f.Family == "linkHistory");
+        var older = history is null ? 0 : StoragePolicyRules.RowsOlderThan(history, historyDays, compaction: false);
+        var others = store.Categories.FirstOrDefault(c => c.Id == "history")?.Rows ?? 0;
+        var total = history is null ? 0 : history.DayCounts.Sum(x => (long)x);
+        return older + (total > 0 ? (long)Math.Round((others - total) * (older / (double)total)) : 0);
+    }
 
     /// <summary>Current size of each purge category in the base.</summary>
     public static ImmutableArray<PurgeCategoryView> PurgeView(LocalStoreSnapshot store)
@@ -534,12 +615,7 @@ public static class LocalStoreRules
                 continue;
             }
             categories.Add(entry.Id);
-            var rows = PurgeRows(store, entry.Id, historyDays);
-            var tables = PurgeTargets(entry.Id);
-            for (var n = 0; n < tables.Length; n++)
-            {
-                targets.Add(new PurgeTargetView(entry.Id, tables[n].Label, tables[n].Table, tables[n].Action, n == 0 ? rows : 0));
-            }
+            targets.AddRange(PurgeTableRows(store, entry.Id, historyDays).Select(t => new PurgeTargetView(entry.Id, t.Label, t.Table, t.Action, t.Rows)));
         }
         var cutoff = categories.Contains("history") ? WritePlans.TruncateToSecond(now) - TimeSpan.FromDays(historyDays) : (DateTimeOffset?)null;
         var lines = new List<string>();
@@ -558,20 +634,11 @@ public static class LocalStoreRules
         return new PurgePreview([.. categories], historyDays, cutoff, [.. targets], total, [.. refused], [.. lines], NeverPurged, fingerprint, true, true, true, categories.Count == 0 || total == 0);
     }
 
-    /// <summary>Rows a purge of one category removes (history: only older than the age, declared associations kept).</summary>
+    /// <summary>Rows a purge of one category removes, all tables together (a reset point is not a removed row).</summary>
     public static long PurgeRows(LocalStoreSnapshot store, string category, int historyDays)
     {
         ArgumentNullException.ThrowIfNull(store);
-        if (category == "history")
-        {
-            var history = store.Families.FirstOrDefault(f => f.Family == "linkHistory");
-            var older = history is null ? 0 : StoragePolicyRules.RowsOlderThan(history, historyDays, compaction: false);
-            var others = store.Categories.FirstOrDefault(c => c.Id == "history")?.Rows ?? 0;
-            var total = history is null ? 0 : history.DayCounts.Sum(x => (long)x);
-            // Other history tables (scan history, runs, fleet snapshots) age like the association history.
-            return older + (total > 0 ? (long)Math.Round((others - total) * (older / (double)total)) : 0);
-        }
-        return store.Categories.FirstOrDefault(c => c.Id == category)?.Rows ?? 0;
+        return PurgeTableRows(store, category, historyDays).Where(t => t.Action != "reset").Sum(t => t.Rows);
     }
 
     /// <summary>One readable line per cached perimeter, with the use allowed (Get-DomeniaCacheCatalogRows).</summary>
@@ -621,7 +688,8 @@ public static class LocalStoreRules
         return
         [
             .. store.Backups.OrderByDescending(b => b.At).Select(b => new StorageBackupView(b.Id, b.FileName, b.At, b.Bytes, SettingsFormat.Size(b.Bytes),
-                SettingsFormat.ShortSha(b.Sha256), StoragePolicyRules.IsVerified(b), b.Kind, BackupKindLabel(b.Kind), InRotation(b.Kind), b.PreferenceKeys, Content(b.Counts))),
+                b.Sha256, SettingsFormat.ShortSha(b.Sha256), StoragePolicyRules.IsVerified(b), b.Kind, BackupKindLabel(b.Kind), InRotation(b.Kind), b.PreferenceKeys,
+                BackupPreferencesRules.IsBound(b), b.Revision, b.LastMeasureAt, Content(b.Counts))),
         ];
     }
 
@@ -667,5 +735,87 @@ public static class LocalStoreRules
             return "La base active et ses journaux ne peuvent pas servir de destination.";
         }
         return null;
+    }
+
+    /// <summary>
+    /// Checks a destination with what the host read about it (PAR-016, PAR-035, Domenia 1 Test-MaintWTarget): the path rules,
+    /// then an existing folder on a local fixed drive that is no link or junction, then the reserve of its volume (a move:
+    /// two copies of the base and its journal plus 32 MiB; a copy: one copy plus 32 MiB). A move goes to a new file only; a
+    /// copy replaces the chosen file, which is said. Never creates nor writes anything.
+    /// </summary>
+    public static DestinationCheck CheckDestination(string? destination, string purpose, string activePath, long baseBytes, DestinationFacts facts)
+    {
+        ArgumentNullException.ThrowIfNull(purpose);
+        ArgumentNullException.ThrowIfNull(activePath);
+        ArgumentNullException.ThrowIfNull(facts);
+        var move = purpose == "move";
+        var path = (destination ?? "").Trim();
+        var reserve = move ? CopyReserve(Math.Max(0, baseBytes)) : Math.Max(0, baseBytes) + WriteReserve;
+        var freeText = facts.FreeBytes is long f ? SettingsFormat.Size(f) : "inconnu";
+        DestinationCheck Refuse(string problem) => new(false, purpose, path, problem, facts.FolderExists, facts.FileExists, facts.FreeBytes, freeText, reserve, SettingsFormat.Size(reserve), problem);
+        if (DestinationProblem(path, activePath) is string problem)
+        {
+            return Refuse(problem);
+        }
+        if (!facts.LocalFixedDrive)
+        {
+            return Refuse("Lecteur refusé" + FrenchText.Colon + "un disque local fixe est exigé (ni amovible, ni réseau, ni CD).");
+        }
+        if (!facts.FolderExists)
+        {
+            return Refuse("Dossier absent" + FrenchText.Colon + "choisissez un dossier qui existe ; Domenia ne crée aucun dossier.");
+        }
+        if (facts.ReparsePoint)
+        {
+            return Refuse("Lien ou jonction refusé" + FrenchText.Colon + "choisissez le dossier réel.");
+        }
+        if (move && facts.FileExists)
+        {
+            return Refuse("Un fichier porte déjà ce nom" + FrenchText.Colon + "un déplacement va toujours vers un nouveau fichier.");
+        }
+        if (facts.FreeBytes is long free && free < reserve)
+        {
+            return Refuse("Espace insuffisant sur ce volume" + FrenchText.Colon + SettingsFormat.Size(free) + " libres pour " + SettingsFormat.Size(reserve) + " exigés.");
+        }
+        var text = "Destination admise" + FrenchText.Colon + (facts.FreeBytes is long left ? SettingsFormat.Size(left) + " libres, " : "")
+            + SettingsFormat.Size(reserve) + " réservés" + (move ? " (deux copies et 32" + FrenchText.Nbsp + "Mo de marge)" : " (une copie et 32" + FrenchText.Nbsp + "Mo de marge)") + "."
+            + (!move && facts.FileExists ? " Le fichier existant sera remplacé par la copie vérifiée." : "");
+        return new DestinationCheck(true, purpose, path, null, facts.FolderExists, facts.FileExists, facts.FreeBytes, freeText, reserve, SettingsFormat.Size(reserve), text);
+    }
+
+    /// <summary>
+    /// Checks the path of a backup chosen for a restore (PAR-017): a .db file of a local disk (or of the data folder of this
+    /// account, %LOCALAPPDATA%), never a share, a device path or a relative path. Returns the refusal, or null.
+    /// </summary>
+    public static string? BackupFileProblem(string? path)
+    {
+        var p = (path ?? "").Trim();
+        if (p.Length == 0)
+        {
+            return "Indiquez le fichier .db à restaurer (chemin complet).";
+        }
+        if (p.Length > 260)
+        {
+            return "Chemin trop long" + FrenchText.Colon + "260 caractères au plus.";
+        }
+        if (p.StartsWith(@"\\", StringComparison.Ordinal) || p.StartsWith("//", StringComparison.Ordinal))
+        {
+            return "Sauvegarde sur un partage refusée" + FrenchText.Colon + "copiez-la d’abord sur un disque local.";
+        }
+        var data = p.StartsWith(@"%LOCALAPPDATA%\", StringComparison.OrdinalIgnoreCase);
+        if (!data && (p.Length < 4 || !char.IsAsciiLetter(p[0]) || p[1] != ':' || p[2] != '\\'))
+        {
+            return "Chemin complet attendu, sur un disque local (par exemple D:\\Domenia\\Domenia-20261021-1430.db).";
+        }
+        var rest = data ? p["%LOCALAPPDATA%".Length..] : p[2..];
+        if (rest.IndexOfAny(['<', '>', '"', '|', '?', '*', ':']) >= 0 || p.Any(char.IsControl))
+        {
+            return "Caractères non admis dans le chemin.";
+        }
+        if (p.Contains(@"\..\", StringComparison.Ordinal) || p.Contains(@"\.\", StringComparison.Ordinal) || p.EndsWith(@"\..", StringComparison.Ordinal))
+        {
+            return "Chemin relatif refusé" + FrenchText.Colon + "indiquez le chemin complet.";
+        }
+        return p.EndsWith(".db", StringComparison.OrdinalIgnoreCase) ? null : "La sauvegarde doit être un fichier .db.";
     }
 }

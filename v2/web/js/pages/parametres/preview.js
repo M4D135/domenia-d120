@@ -6,7 +6,7 @@ const COLON = ' : ';
 
 /** Refusal of the browser preview, with the code and the shape of a bridge error. */
 export async function previewCall(op) {
-  const err = new Error(`Aperçu navigateur${COLON}« ${String(op)} » lit ce poste par le moteur de Domenia, absent ici. Ouvrez Domenia.exe pour voir cette partie.`);
+  const err = new Error(`Aperçu navigateur${COLON}« ${String(op)} » lit ce poste par le moteur de Domenia, absent ici. Ouvrez Domenia.exe pour voir cette partie.`);
   err.code = 'preview.engineRequired';
   throw err;
 }

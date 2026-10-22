@@ -57,7 +57,8 @@ public sealed class SimulatedSettingsReader : ISettingsReader
             source.Overlay.Version,
             source.Overlay.ChangedObjects,
             source.PresenceRound,
-            world.ComputeFingerprint());
+            world.ComputeFingerprint(),
+            SettingsFormat.ZoneLabel(world.TimeZone));
         return Task.FromResult<SimulationFacts?>(facts);
     }
 }

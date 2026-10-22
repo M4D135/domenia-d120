@@ -1,12 +1,16 @@
 // Paramètres: hero with the health of the application, a sliding section rail and one section at a time (Apparence,
 // Connexion et périmètre, Données et cache, Budgets réseau, Journaux, Préférences, Configuration, Démonstration, À propos).
-// Contract: docs/ops/parametres.md. The address carries the section (#/parametres?section=donnees&onglet=sauvegardes) and
-// an open state for links and captures (&ouvrir=ou|apercu|plan|import|fenetre|diagnostic). Nothing reads the network:
+// Contract: docs/ops/parametres.md. The address carries the section (#/parametres?section=donnees&onglet=sauvegardes) and an
+// open state for links and captures (&ouvrir=…), consumed once then removed from the address (a reload never opens a plan
+// again). Older names of the sections (stockage, base, index, journal…) lead to their section. Nothing reads the network:
 // every operation of the screen is local (preferences, local base, files of the application).
 import { icon } from '../icons.js';
 import { glyph } from '../kit/glyphs.js';
 import { esc, reveal, relTime, announce, fold, motionReduced } from '../ui.js';
-import { makeCall, paint, syncSegments, int, size, NBSP, reported } from './parametres/common.js';
+import { runWrite } from '../write-flow.js';
+import { makeCall, paint, syncSegments, int, count, NBSP, COLON, reported } from './parametres/common.js';
+import { interfacePrefs, migrateLegacyUi } from './parametres/interface.js';
+import { sectionOf } from './parametres/pure.js';
 
 /** The screen has its own stylesheet (css/pages/parametres.css), loaded by the router. */
 export const stylesheet = true;
@@ -14,35 +18,37 @@ export const stylesheet = true;
 const SECTIONS = [
   { id: 'apparence', label: 'Apparence', desc: 'Thème, animations, zoom, densité', icon: 'sparkles', tone: 'accent', load: () => import('./parametres/apparence.js') },
   { id: 'connexion', label: 'Connexion et périmètre', desc: 'Compte, droits, OU de travail', icon: 'user', tone: 'info', load: () => import('./parametres/connexion.js') },
-  { id: 'donnees', label: 'Données et cache', desc: 'Base locale, sauvegardes, conservation', icon: 'database', tone: 'ok', load: () => import('./parametres/donnees.js') },
-  { id: 'collecte', label: 'Budgets réseau', desc: 'Profil, fraîcheur, fenêtre, plafonds', icon: 'wifi', tone: 'warn', load: () => import('./parametres/collecte.js') },
-  { id: 'journaux', label: 'Journaux', desc: 'Journal technique et opérations', icon: 'file', tone: 'info', load: () => import('./parametres/journaux.js') },
-  { id: 'preferences', label: 'Préférences', desc: 'Exporter, importer, réinitialiser', icon: 'sliders', tone: 'accent', load: () => import('./parametres/preferences.js') },
+  { id: 'donnees', label: 'Données et cache', desc: 'Base locale, sauvegardes, reprise', icon: 'database', tone: 'ok', load: () => import('./parametres/donnees.js') },
+  { id: 'collecte', label: 'Budgets réseau', desc: 'Profil, fraîcheur, fenêtre', icon: 'wifi', tone: 'warn', load: () => import('./parametres/collecte.js') },
+  { id: 'journaux', label: 'Journaux', desc: 'Journal technique, opérations', icon: 'file', tone: 'info', load: () => import('./parametres/journaux.js') },
+  { id: 'preferences', label: 'Préférences', desc: 'Exporter, importer, rétablir', icon: 'sliders', tone: 'accent', load: () => import('./parametres/preferences.js') },
   { id: 'configuration', label: 'Configuration', desc: 'Réglages de l’administrateur', icon: 'tools', tone: 'off', load: () => import('./parametres/configuration.js') },
-  { id: 'demonstration', label: 'Démonstration', desc: 'Mode simulation et garanties', icon: 'play', tone: 'accent', load: () => import('./parametres/demonstration.js') },
-  { id: 'apropos', label: 'À propos', desc: 'Version, compatibilité, composants', icon: 'info', tone: 'info', load: () => import('./parametres/apropos.js') },
+  { id: 'demonstration', label: 'Démonstration', desc: 'Simulation et scénarios', icon: 'play', tone: 'accent', load: () => import('./parametres/demonstration.js') },
+  { id: 'apropos', label: 'À propos', desc: 'Version, compatibilité', icon: 'info', tone: 'info', load: () => import('./parametres/apropos.js') },
 ];
 
 // Settings index of the search box: label, words, section and the row to light up (data-setting).
 const INDEX = [
-  ['Thème clair, sombre ou contraste élevé', 'theme couleurs sombre clair contraste windows', 'apparence', 'theme'],
+  ['Thème clair, sombre ou contraste élevé', 'theme couleurs sombre clair contraste windows ctrl t', 'apparence', 'theme'],
   ['Animations riches, réduites ou suivre Windows', 'animations mouvement réduire', 'apparence', 'motion'],
   ['Zoom de l’interface', 'zoom taille agrandir réduire ctrl molette', 'apparence', 'zoom'],
-  ['Densité des listes', 'densite compact confort lignes', 'apparence', 'density'],
-  ['Profil Essentiel ou Expert', 'profil expert essentiel avance', 'apparence', 'profile'],
+  ['Densité des listes', 'densite compact confort normal lignes', 'apparence', 'density'],
+  ['Profil Essentiel ou Expert', 'profil expert essentiel avance vues techniques', 'apparence', 'profile'],
   ['Menu replié en icônes', 'menu navigation replier ctrl b', 'apparence', 'nav'],
-  ['Panneau d’aide', 'aide panneau help', 'apparence', 'help'],
+  ['Aide et infobulles', 'aide panneau help infobulles f1', 'apparence', 'help'],
+  ['Fenêtre mémorisée', 'fenetre taille position ecran moniteur', 'apparence', 'window'],
   ['Se souvenir de mon identifiant', 'identifiant connexion login coffre', 'connexion', 'remember'],
   ['OU de travail', 'ou perimetre racine domaine scope', 'connexion', 'scope'],
   ['Sauvegarder maintenant', 'sauvegarde backup copie', 'donnees', 'backup'],
   ['Sauvegarde automatique', 'sauvegarde planifiee automatique copies', 'donnees', 'schedule'],
+  ['Reprendre les enregistrements locaux', 'ecrivain suspendu reprendre sauvegardes enregistrement', 'donnees', 'writer'],
   ['Conservation des mesures', 'conservation retention purger anciennes mesures jours', 'donnees', 'retention'],
   ['Purger des données locales', 'purge vider index observations historique', 'donnees', 'purge'],
   ['Mesurer le stockage', 'mesurer taille espace disque usage', 'donnees', 'measure'],
   ['Contrôler l’intégrité de la base', 'integrite controle quick_check sqlite', 'donnees', 'integrity'],
   ['Déplacer ou restaurer la base', 'deplacer restaurer bascule assistant', 'donnees', 'assistant'],
   ['Politique des données locales', 'politique donnees telemetrie emplacement', 'donnees', 'policy'],
-  ['Reprendre les données de Domenia 1', 'reprise migration anciennes donnees domenia 1', 'donnees', 'legacy'],
+  ['Reprendre les données de Domenia 1', 'reprise migration anciennes donnees domenia 1 schema 11', 'donnees', 'legacy'],
   ['Profil de collecte', 'profil reseau lent depannage standard', 'collecte', 'profile'],
   ['Durées de fraîcheur', 'fraicheur reutilisation duree ping inventaire', 'collecte', 'freshness'],
   ['Fenêtre de collecte', 'fenetre horaires heures creuses travaux de fond', 'collecte', 'window'],
@@ -56,23 +62,35 @@ const INDEX = [
   ['Commutateurs de fonctionnalités', 'features commutateurs wake on lan', 'configuration', 'features'],
   ['Réglages de sécurité', 'securite secrets presse-papiers mot de passe', 'configuration', 'security'],
   ['Mode simulation', 'simulation demonstration fictif graine', 'demonstration', 'mode'],
+  ['Scénarios de démonstration', 'scenario panne suspendu bascule illisible disque plein', 'demonstration', 'scenarios'],
   ['Compatibilité du poste', 'compatibilite windows dotnet webview2', 'apropos', 'compatibility'],
   ['Composants livrés', 'composants versions sha-256 licences', 'apropos', 'components'],
 ].map(([label, words, section, setting]) => ({ label, words: fold(`${label} ${words}`), section, setting }));
 
+/**
+ * GuiElementPolicy of Domenia.config.json applied to the controls of this screen (Domenia 1 Apply-DomeniaGuiElementPolicy):
+ * the x:Name of Domenia 1 → the matching control here. « Disabled » greys it with its reason, « Hidden » hides it; « Default »
+ * never enables what the rights or the mode refuse.
+ */
+const GUI_ELEMENTS = {
+  BtnIndexBackup: '[data-act="backup"]', BtnIndexBackupTo: '[data-act="backup-copy"]', BtnIndexCopyPath: '[data-act="copy-path"]', BtnIndexOpenFolder: '[data-act="open-base"]',
+  BtnStorageMove: '[data-act="move"]', BtnStorageRestore: '[data-act="restore"], [data-act^="restore:"]', BtnStorageResume: '[data-act="resume"]', BtnStorageRollback: '[data-act="rollback"]',
+  BtnStoragePurge: '[data-act="purge-apply"]', BtnStoragePurgePreview: '[data-act="purge-preview"]', BtnStorageRetentionApply: '[data-act="retention-apply"]',
+  BtnStorageRetentionPreview: '[data-act="retention-preview"]', BtnStoragePolicySave: '[data-act="retention-save"]', BtnStorageUsage: '[data-act="measure"]', BtnStorageIntegrity: '[data-act="integrity"]',
+  ChkStorageAutoBackup: '[data-toggle="schedule-enabled"]', BtnGuardStoreResume: '[data-act="writer-resume"]', BtnGuardLegacyImport: '[data-act="legacy-preview"], [data-act="legacy-apply"]',
+  CmbSuiteDensity: '[data-seg="density"]', LstUiProfile: '[data-seg="profile"]', BtnThemeToggle: '[data-setting="theme"]', BtnUiZoomIn: '[data-act="zoom-in"]',
+  BtnUiZoomOut: '[data-act="zoom-out"]', BtnUiZoomReset: '[data-act="zoom-reset"]', BtnUxSidebarToggle: '[data-toggle="nav"]', BtnUxHelpToggle: '[data-act="help-open"]',
+  BtnRootOuChoose: '[data-act="choose"]', BtnRootOuReset: '[data-act="default"], [data-act="domain"]', TxtCollectionWindow: '[data-window]', BtnCollectionWindowApply: '[data-act="window-save"]',
+  CmbCollectionProfile: '[data-setting="profile"] .pr-profile', BtnCollectionFreshnessReset: '[data-act="fresh-reset"]', CmbCollectionConcurrency: '[data-select="budget:concurrency"]',
+  CmbCollectionCache: '[data-select="budget:cacheMinutes"]', CmbCollectionWidgetMax: '[data-select="budget:widgetMax"]', CmbCollectionWmiRetries: '[data-select="budget:wmiRetries"]',
+  CmbCollectionWmiRetryDelay: '[data-select="budget:wmiRetryDelay"]', ChkUiLogFollow: '[data-toggle="follow"]', ChkUiLogErrorsOnly: '[data-toggle="errors"]',
+  ChkSuiteLogWrap: '[data-toggle="wrap"]', CmbSuiteLogSize: '[data-select="size"]',
+};
+
 const RING = '<span class="glow-ring hero-ring" aria-hidden="true"></span>';
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
-
-function themeLabel() {
-  const pref = document.documentElement.dataset.themePref;
-  const map = { light: 'Clair', dark: 'Sombre', contrast: 'Contraste élevé', system: 'Suivre Windows' };
-  return map[pref] ?? 'Suivre Windows';
-}
-
-function motionLabel() {
-  const m = document.documentElement.dataset.motion;
-  return m === 'reduced' ? 'animations réduites' : m === 'system' ? 'animations de Windows' : 'animations riches';
-}
+const THEME_LABELS = { light: 'Clair', dark: 'Sombre', contrast: 'Contraste élevé', system: 'Suivre Windows' };
+const MOTION_LABELS = { full: 'animations riches', reduced: 'animations réduites', system: 'animations de Windows' };
 
 function heroMarkup() {
   const nav = SECTIONS.map((s, n) => `<li><button type="button" class="pr-nav-item" data-section="${s.id}" data-j="${n}" aria-current="false">
@@ -88,7 +106,7 @@ function heroMarkup() {
         <div class="pr-hero-main">
           <div class="eyebrow">${icon('settings')}<span>Réglages de Domenia</span></div>
           <h1 class="gradient-text">Paramètres</h1>
-          <p class="lead">Apparence, connexion, base locale, collecte, journaux et préférences : tout ce que Domenia garde sur ce poste, et rien qui parte ailleurs.</p>
+          <p class="lead">Apparence, connexion, base locale, collecte, journaux et préférences${COLON}tout ce que Domenia garde sur ce poste, et rien qui parte ailleurs.</p>
           <div class="chips pr-chips" data-slot="chips"></div>
           <div class="pr-search" role="search">
             <span class="pr-search-box">${glyph('search')}<input type="search" class="input" id="pr-search" placeholder="Rechercher un réglage…" autocomplete="off" spellcheck="false"
@@ -100,9 +118,10 @@ function heroMarkup() {
           ${tile('appearance', 'Apparence', 'sparkles', 'apparence')}
           ${tile('store', 'Base locale', 'database', 'donnees')}
           ${tile('compat', 'Compatibilité', 'shield', 'apropos')}
-          ${tile('journal', 'Journal technique', 'file', 'journaux')}
+          ${tile('journal', 'Journal', 'file', 'journaux')}
         </aside>
       </div>
+      <div class="pr-alert" data-slot="alert" role="status" hidden></div>
     </section>
     <div class="pr-layout">
       <nav class="pr-nav reveal" aria-label="Sections des paramètres"><span class="pr-nav-pill" aria-hidden="true"></span><ul>${nav}</ul></nav>
@@ -113,16 +132,31 @@ function heroMarkup() {
 
 export function render(main, ctx) {
   const call = makeCall(ctx);
-  const st = { alive: true, section: null, mounted: null, token: 0, app: null };
+  migrateLegacyUi();
+  const prefs = interfacePrefs(ctx);
+  const st = { alive: true, section: null, mounted: null, token: 0, app: null, config: null, zoom: null, allowExpert: true };
   const params = ctx.params ?? {};
   main.innerHTML = heroMarkup();
   paint(main);
   const stopReveal = reveal(main);
+  const page = main.querySelector('.pr-page');
   const content = main.querySelector('[data-slot="content"]');
   const nav = main.querySelector('.pr-nav');
   const pill = nav.querySelector('.pr-nav-pill');
 
-  // ----- Hero: chips and health tiles -----
+  // The configuration of the administrator: read once for the screen (expert profile allowed, element policy).
+  const configLoad = call('settings.config').then((c) => { st.config = c; st.allowExpert = c.allowExpertProfile !== false; applyPolicy(); return c; })
+    .catch((err) => { console.error('Configuration illisible pour Paramètres', err); return null; });
+
+  // ----- Interface of the page: density and profile of this screen (its tables and lists, its expert-only parts) -----
+
+  function applyInterface() {
+    const p = prefs.get();
+    page.dataset.density = p.density;
+    page.dataset.profile = prefs.expert(st.allowExpert) ? 'expert' : 'essentiel';
+  }
+
+  // ----- Hero: chips, health tiles and the alert of the base -----
 
   function setTile(id, value, sub, toneName, tip = '') {
     const t = main.querySelector(`[data-pulse="${id}"]`);
@@ -139,8 +173,9 @@ export function render(main, ctx) {
   }
 
   function paintAppearanceTile() {
-    const z = ctx.shell?.prefs?.().zoom ?? 100;
-    setTile('appearance', themeLabel(), `${motionLabel()} · zoom ${z}${NBSP}%`, 'accent');
+    const p = prefs.get();
+    const zoom = st.zoom ?? 100;
+    setTile('appearance', THEME_LABELS[p.theme] ?? 'Suivre Windows', `${MOTION_LABELS[p.motion] ?? 'animations riches'} · zoom ${zoom}${NBSP}%`, 'accent');
   }
 
   function paintChips(app) {
@@ -163,45 +198,81 @@ export function render(main, ctx) {
     b.hidden = false;
     b.textContent = String(text);
     b.dataset.tone = toneName;
+    b.setAttribute('aria-label', toneName === 'alert' ? `${text} erreurs dans cette session` : 'À voir');
     paint(b);
+  }
+
+  // The local save suspended (PAR-010): one notice above the sections, with the action that resumes it.
+  function paintAlert(storage) {
+    const slot = main.querySelector('[data-slot="alert"]');
+    if (!slot) return;
+    const writer = storage?.writer;
+    const space = storage?.space;
+    // A base proven unreadable: the assistant offers the restore alone, in the tone of an alert.
+    const m = storage?.maintenance;
+    const unreadable = m?.tone === 'alert' && m.restore && !m.move && !m.resume;
+    let html = '';
+    if (writer?.canResume) {
+      html = `<span class="pr-alert-ico" data-tone="alert">${glyph('alert')}</span><div><b>Enregistrement local suspendu</b><span>${esc(writer.text)}</span></div>
+        <button type="button" class="btn sm primary" data-alert-act="writer-resume">${glyph('play')}<span>Reprendre les sauvegardes</span></button>`;
+    } else if (unreadable) {
+      html = `<span class="pr-alert-ico" data-tone="alert">${glyph('alert')}</span><div><b>Base locale illisible</b><span>${esc(storage.maintenance.text)}</span></div>
+        <button type="button" class="btn sm primary" data-alert-go="assistant">${glyph('undo')}<span>Restaurer une sauvegarde…</span></button>`;
+    } else if (space?.blocksCollections) {
+      html = `<span class="pr-alert-ico" data-tone="warn">${glyph('disk')}</span><div><b>Espace disque ${esc(space.label.toLowerCase())}</b><span>${esc(space.text)}</span></div>
+        <button type="button" class="btn sm" data-alert-go="diagnostic">${glyph('gauge')}<span>Voir le diagnostic</span></button>`;
+    }
+    slot.hidden = !html;
+    slot.innerHTML = html;
+    if (html) paint(slot);
+  }
+
+  async function loadStorage() {
+    try {
+      const s = await call('settings.storage');
+      if (!st.alive) return;
+      paintAlert(s);
+      if (!s.available) { setTile('store', 'Pas encore branchée', 'mode annuaire de cette version', 'off', s.unavailableReason ?? ''); setBadge('donnees', ''); return; }
+      const last = s.backups?.find((b) => b.verified);
+      const alarm = s.writer?.canResume || s.maintenance?.tone === 'alert';
+      setTile('store', s.simulated ? 'Base fictive' : 'Base du domaine',
+        `${s.tiles?.find((t) => t.id === 'objects')?.value ?? '—'} objets · ${last ? `sauvegardée ${relTime(last.at) ?? ''}` : 'aucune sauvegarde vérifiée'}`,
+        alarm ? 'alert' : s.location?.alert ? 'warn' : 'ok', s.location?.text ?? '');
+      setBadge('donnees', alarm ? '!' : s.location?.alert ? '!' : '', alarm ? 'alert' : 'warn');
+    } catch (err) {
+      tileError('store', err);
+    }
+  }
+
+  function tileError(id, err) {
+    console.error(err);
+    const t = main.querySelector(`[data-pulse="${id}"]`);
+    if (!t || !st.alive) return;
+    t.removeAttribute('aria-busy');
+    t.querySelector('.pr-pulse-v').textContent = '—';
+    t.querySelector('.pr-pulse-s').textContent = reported(err);
+    t.dataset.tone = 'warn';
   }
 
   async function loadPulse() {
     paintAppearanceTile();
-    const jobs = [
-      call('settings.storage').then((s) => {
-        if (!st.alive) return;
-        if (!s.available) { setTile('store', 'Pas encore branchée', 'mode annuaire de cette version', 'off', s.unavailableReason ?? ''); return; }
-        const last = s.backups?.find((b) => b.verified);
-        const parts = (s.location?.text ?? '').split(' · ');
-        setTile('store', parts[1] ?? (s.simulated ? 'Base fictive' : 'Base locale'),
-          last ? `${s.simulated ? 'base fictive · ' : ''}sauvegardée ${relTime(last.at) ?? ''}` : 'aucune sauvegarde vérifiée', s.location?.alert ? 'warn' : 'ok', s.location?.text ?? '');
-        if (s.location?.alert) setBadge('donnees', '!', 'warn');
-      }),
-      call('settings.about').then((a) => {
-        if (!st.alive) return;
-        const c = a.compatibility;
-        // « prévu, jamais testé » → « Prévu » with « jamais testé » before the system in the second line.
-        const [head, ...rest] = c.overallLabel.split(', ');
-        setTile('compat', head.charAt(0).toUpperCase() + head.slice(1), [rest.join(', '), a.identity.operatingSystem].filter(Boolean).join(' · '), c.tone, c.text);
-      }),
-      call('settings.logs').then((l) => {
-        if (!st.alive) return;
-        const errors = l.file.errors;
-        setTile('journal', errors ? `${int(errors)} erreur${errors > 1 ? 's' : ''}` : 'Aucune erreur', l.file.exists ? `${size(l.file.bytes)} · ${int(l.session.length)} opération${l.session.length > 1 ? 's' : ''}` : 'journal pas encore écrit', errors ? 'alert' : 'ok');
-        setBadge('journaux', errors ? errors : '', errors ? 'alert' : 'off');
-      }),
-    ];
-    const ids = ['store', 'compat', 'journal'];
-    await Promise.allSettled(jobs.map((j, n) => j.catch((err) => {
-      console.error(err);
-      const t = main.querySelector(`[data-pulse="${ids[n]}"]`);
-      if (!t || !st.alive) return;
-      t.removeAttribute('aria-busy');
-      t.querySelector('.pr-pulse-v').textContent = '—';
-      t.querySelector('.pr-pulse-s').textContent = reported(err);
-      t.dataset.tone = 'warn';
-    })));
+    call('settings.window').then((w) => { if (!st.alive) return; st.zoom = w.zoom; paintAppearanceTile(); }).catch(() => { /* browser preview: zoom of the page unknown */ });
+    loadStorage();
+    call('settings.about').then((a) => {
+      if (!st.alive) return;
+      const c = a.compatibility;
+      const value = { qualified: 'Qualifié', tested: 'Testé', expected: 'Non qualifié', unsupported: 'Non pris en charge', unknown: 'Inconnue' }[c.overall] ?? 'Inconnue';
+      const sub = c.overall === 'expected' ? 'prévu, jamais testé sur ce poste' : c.overallLabel;
+      setTile('compat', value, `${sub} · ${a.identity.operatingSystem}`, c.tone, c.text);
+    }).catch((err) => tileError('compat', err));
+    call('settings.logs').then((l) => {
+      if (!st.alive) return;
+      const errors = l.file.sessionErrors ?? 0;
+      const earlier = Math.max(0, (l.file.errors ?? 0) - errors);
+      setTile('journal', errors ? count(errors, 'erreur', 'erreurs') : 'Aucune erreur', `cette session${earlier ? ` · ${int(earlier)} plus ancienne${earlier > 1 ? 's' : ''}` : ''} · ${int(l.session.length)} opération${l.session.length > 1 ? 's' : ''}`,
+        errors ? 'alert' : 'ok');
+      setBadge('journaux', errors || '', errors ? 'alert' : 'off');
+    }).catch((err) => tileError('journal', err));
   }
 
   // ----- Section rail -----
@@ -228,15 +299,49 @@ export function render(main, ctx) {
     history.replaceState(null, '', `#/parametres?${q.toString()}`);
   }
 
+  // ----- GuiElementPolicy (PAR-044), applied to whatever a section paints -----
+
+  let policyFrame = 0;
+  function applyPolicy() {
+    const list = st.config?.guiPolicy ?? [];
+    if (!list.length) return;
+    for (const entry of list) {
+      const selector = GUI_ELEMENTS[entry.element];
+      if (!selector || !entry.valid || entry.policy === 'Default') continue;
+      for (const el of content.querySelectorAll(selector)) {
+        if (entry.policy === 'Hidden') {
+          const holder = el.closest('.pr-row') ?? el;
+          holder.hidden = true;
+          holder.dataset.policy = 'hidden';
+        } else if (entry.policy === 'Disabled' && el.dataset.policy !== 'disabled') {
+          el.dataset.policy = 'disabled';
+          if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) el.disabled = true;
+          el.setAttribute('aria-disabled', 'true');
+          el.dataset.tip = `Désactivé par l’administrateur (GuiElementPolicy · ${entry.element}).`;
+        }
+      }
+    }
+  }
+  const policyObserver = new MutationObserver(() => {
+    cancelAnimationFrame(policyFrame);
+    policyFrame = requestAnimationFrame(applyPolicy);
+  });
+  policyObserver.observe(content, { childList: true, subtree: true });
+
   const sctx = {
     ctx,
     call,
     toast: ctx.toast,
-    shell: ctx.shell ?? null,
+    prefs,
     app: () => st.app,
+    config: () => configLoad,
+    expert: () => prefs.expert(st.allowExpert),
+    allowExpert: () => st.allowExpert,
     badge: setBadge,
     tile: setTile,
     refreshAppearanceTile: paintAppearanceTile,
+    setZoom: (zoom) => { st.zoom = zoom; paintAppearanceTile(); },
+    refreshStorage: loadStorage,
     alive: () => st.alive,
     address: (extra) => writeAddress(st.section, extra),
     go: (id, opts) => show(id, opts),
@@ -247,11 +352,13 @@ export function render(main, ctx) {
     const my = ++st.token;
     if (st.section === section.id && !first) {
       if (setting) highlight(setting);
+      if (tab || open) st.mounted?.reveal?.({ tab, open });
       return;
     }
     st.section = section.id;
     markNav(section.id);
-    if (!first) writeAddress(section.id, tab ? { onglet: tab } : {});
+    // The open state of an address is used once: the address keeps the section and the tab only.
+    writeAddress(section.id, tab ? { onglet: tab } : {});
     const leaving = content.firstElementChild;
     if (leaving && !motionReduced()) {
       leaving.classList.add('pr-leave');
@@ -286,7 +393,7 @@ export function render(main, ctx) {
     target.classList.remove('pr-flash');
     void target.offsetWidth;
     target.classList.add('pr-flash');
-    target.querySelector('button, input, select, [tabindex]')?.focus({ preventScroll: true });
+    target.querySelector('button:not([aria-disabled="true"]), input, select, [tabindex="0"]')?.focus({ preventScroll: true });
   }
 
   // ----- Search of a setting -----
@@ -358,6 +465,13 @@ export function render(main, ctx) {
     const t = e.target instanceof Element ? e.target : null;
     const item = t?.closest('.pr-nav-item');
     if (item) { show(item.dataset.section, { focus: false }); return; }
+    const resume = t?.closest('[data-alert-act="writer-resume"]');
+    if (resume) {
+      runWrite({ call }, { plan: 'settings.storage.writerResume.plan', args: {}, onDone: () => { loadStorage(); st.mounted?.reload?.(); } });
+      return;
+    }
+    const goTab = t?.closest('[data-alert-go]');
+    if (goTab) { show('donnees', { tab: goTab.dataset.alertGo }); return; }
     const tile = t?.closest('[data-go-section]');
     if (tile && main.contains(tile)) show(tile.dataset.goSection);
   };
@@ -372,10 +486,7 @@ export function render(main, ctx) {
   };
   main.addEventListener('click', onClick);
   nav.addEventListener('keydown', onNavKey);
-  const onTheme = () => { paintAppearanceTile(); syncSegments(main); };
-  window.addEventListener('domenia:ui-prefs', onTheme);
-  const observer = new MutationObserver(onTheme);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-motion', 'data-theme-pref'] });
+  const offPrefs = prefs.on(() => { applyInterface(); paintAppearanceTile(); syncSegments(main); });
   const ro = 'ResizeObserver' in window ? new ResizeObserver(() => markNav(st.section)) : null;
   ro?.observe(nav);
   const ticker = setInterval(() => {
@@ -384,6 +495,13 @@ export function render(main, ctx) {
       if (text) el.textContent = `${el.dataset.prefix ?? ''}${text}`;
     });
   }, 30_000);
+  // The native zoom changes the width of the page: the zoom shown is read again (Ctrl + wheel of WebView2).
+  let zoomTimer = 0;
+  const onResize = () => {
+    clearTimeout(zoomTimer);
+    zoomTimer = setTimeout(() => call('settings.window').then((w) => { if (st.alive && w.zoom !== st.zoom) { st.zoom = w.zoom; paintAppearanceTile(); st.mounted?.zoomChanged?.(w); } }).catch(() => {}), 300);
+  };
+  window.addEventListener('resize', onResize);
 
   // ----- Start -----
 
@@ -393,22 +511,26 @@ export function render(main, ctx) {
     paintChips(app);
   });
   paintChips(null);
+  applyInterface();
+  configLoad.then(() => { if (st.alive) applyInterface(); });
   loadPulse();
-  const first = SECTIONS.some((s) => s.id === params.section) ? params.section : 'apparence';
+  const first = sectionOf(params.section) ?? 'apparence';
   show(first, { first: true, open: params.ouvrir ?? null, tab: params.onglet ?? null });
 
   return () => {
     st.alive = false;
     st.token++;
     clearInterval(ticker);
+    clearTimeout(zoomTimer);
+    cancelAnimationFrame(policyFrame);
     stopReveal();
-    observer.disconnect();
+    offPrefs();
+    policyObserver.disconnect();
     ro?.disconnect();
     document.removeEventListener('keydown', onKey);
+    window.removeEventListener('resize', onResize);
     main.removeEventListener('click', onClick);
     nav.removeEventListener('keydown', onNavKey);
-    window.removeEventListener('domenia:ui-prefs', onTheme);
     try { st.mounted?.destroy?.(); } catch (err) { console.error(err); }
   };
 }
-

@@ -1,68 +1,132 @@
 {
   "fait": [
-    "PAR-006",
-    "PAR-010",
-    "PAR-011",
-    "PAR-013",
-    "PAR-014",
-    "PAR-018",
-    "PAR-019",
     "PAR-027",
     "PAR-032",
-    "PAR-034",
     "PAR-047"
   ],
   "ameliore": [
     "PAR-001",
     "PAR-002",
     "PAR-003",
-    "PAR-008",
     "PAR-009",
-    "PAR-016",
-    "PAR-017",
-    "PAR-020",
     "PAR-022",
-    "PAR-023",
-    "PAR-024",
-    "PAR-025",
-    "PAR-026",
-    "PAR-028",
     "PAR-029",
-    "PAR-030",
-    "PAR-031",
-    "PAR-033",
-    "PAR-035",
     "PAR-042",
-    "PAR-050"
+    "PAR-050",
+    "PAR-051"
   ],
   "partiel": [
     {
       "id": "PAR-004",
-      "reste": "Densité confort ou compacte enregistrée et appliquée par le shell (data-density sur la racine, aperçu dans la page) ; la grille du kit et les listes des autres écrans doivent lire data-density (demande au kit)."
+      "reste": "Densité compacte, normale ou confort dans le magasin de la coque (domenia.prefs.v1, valeurs alignées sur le lot shell), appliquée aux tableaux et listes de Paramètres ; la grille du kit (createGrid) doit prendre cette densité par défaut pour les listes sans choix propre (demande au kit et à la coque)."
     },
     {
       "id": "PAR-005",
-      "reste": "Profil Essentiel ou Expert enregistré, appliqué par le shell (data-profile) et soumis à UI.AllowExpertProfile ; les éléments experts des autres écrans doivent porter une règle partagée (.expert-only) à ajouter au kit."
+      "reste": "Profil Essentiel ou Expert dans le magasin de la coque, soumis à UI.AllowExpertProfile ; parties expertes de Paramètres (vue brute du journal, empreintes, plans SQLite, noms des réglages, détails des contrôles) masquées en Essentiel et jamais laissées sélectionnées ; les vues Brut, Permissions, WMI, Autodiagnostic, Classe et GUID des autres écrans suivent ctx.expert de la coque."
+    },
+    {
+      "id": "PAR-006",
+      "reste": "Choix « Menu replié en icônes » mémorisé et appliqué par la coque ; le repli temporaire sous 1 280 et le dépliage pour la session relèvent de app.js et layout.css (lot shell)."
     },
     {
       "id": "PAR-007",
-      "reste": "Choix « Panneau d’aide à droite » mémorisé (domenia.ui.v1.helpVisible) ; le panneau d’aide contextuelle du shell n’existe pas encore (app.js, hors lot)."
+      "reste": "Infobulles d’aide (helpTips de la coque) et bouton « Ouvrir l’aide » raccordés à ctx.help ; la colonne de 300, la superposition sous 1 040 et le retour du focus sur « ? » sont ceux du panneau F1 de la coque (lot shell, absent de cette branche avant fusion)."
+    },
+    {
+      "id": "PAR-008",
+      "reste": "Clair, sombre, contraste élevé et suivre Windows par les commandes de la coque ; Ctrl T est un raccourci de la coque (lot shell), listé dans les raccourcis dès que la coque le fournit."
+    },
+    {
+      "id": "PAR-010",
+      "reste": "Écrivain suspendu (trois échecs, manque d’espace), avis sous le bandeau et « Reprendre les sauvegardes » par le circuit, refusé tant qu’un enregistrement est actif ; démontré par le scénario « Enregistrement suspendu ». Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-011",
+      "reste": "Seuils de 32 Mo, 512 Mo et 2 Go relevés de quatre fois la file, état et alerte ; scénario « Disque presque plein ». Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
     },
     {
       "id": "PAR-012",
-      "reste": "Assistant et règles faits : bascule interrompue ou base illisible → seules reprise, retour ou restauration vérifiée sont proposées (simulation) ; la détection au démarrage par lecture du marqueur de redirection demande la base SQLite de Domenia.Store (vague 3)."
+      "reste": "Bascule interrompue ou base illisible : seules reprise, retour ou restauration vérifiée proposées (scénarios « Bascule interrompue » et « Base illisible ») ; la détection au démarrage par lecture du marqueur de redirection attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-013",
+      "reste": "Ligne de l’emplacement, même total partout (base et journal), alerte douce sans sauvegarde ou au-delà de 7 jours. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-014",
+      "reste": "Copie du chemin de la base. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
     },
     {
       "id": "PAR-015",
-      "reste": "Ouverture du dossier par l’Explorateur faite pour les données, journaux, préférences, reçus et profil ; la base fictive de la simulation n’a pas de fichier et la base SQLite du mode annuaire arrive en vague 3 (settings.folderUnavailable dit pourquoi)."
+      "reste": "Ouverture du dossier par l’Explorateur pour les données, journaux, préférences, reçus et profil ; « Ouvrir l’emplacement » de la base grisé avec sa raison tant que la base n’a pas de fichier (base fictive, mode annuaire de cette version)."
+    },
+    {
+      "id": "PAR-016",
+      "reste": "Assistant : destination choisie dans la page (dossiers proposés, explorateur des dossiers locaux, contrôle en direct du disque, du dossier, des liens et de la réserve), copie vérifiée, bascule et retour. L’exécution réelle (vidage de 120 s, test d’écriture réel, copie SQLite) attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-017",
+      "reste": "Restauration d’une sauvegarde du registre, d’une copie publiée ou d’un fichier .db choisi (dossier Backups proposé), aperçu du dernier lot, de la dernière mesure, du contenu et des écarts ; annexe des préférences réappliquée après la bascule vérifiée. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-018",
+      "reste": "« Reprendre la bascule » termine le passage vers la copie désignée par le marqueur relu (scénario « Bascule interrompue »). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-019",
+      "reste": "Retour à la base précédente tant que la nouvelle n’a rien reçu, ou abandon d’une bascule interrompue. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-020",
+      "reste": "Quatre actions suivant l’état de la maintenance, chaque refus expliqué ; base illisible : restauration seule. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
     },
     {
       "id": "PAR-021",
-      "reste": "Règle faite : base déclarée illisible → toute écriture refusée sauf la restauration d’une sauvegarde vérifiée (StorageWritePlans.EnsureWritable, assistant) ; la preuve de corruption (SQLITE_CORRUPT, NOTADB, quick_check) viendra de la base SQLite (vague 3)."
+      "reste": "Base déclarée illisible : toute écriture refusée sauf la restauration d’une sauvegarde vérifiée (scénario « Base illisible », quick_check SQLITE_CORRUPT 11) ; la preuve réelle viendra de la base SQLite (vague 3). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-023",
+      "reste": "Prévisualisation par famille, ce qui part et ce qui reste, empreinte exigée par le plan. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-024",
+      "reste": "Conservation après sauvegarde vérifiée préalable, compaction de l’historique, relecture. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-025",
+      "reste": "Mesure en lecture seule : fichier, journal WAL, total, catégories, lectures types (plans SQLite en Expert). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-026",
+      "reste": "Neuf contrôles, verdict, et en cas de défaut le bouton « Restaurer une sauvegarde… » dans la carte. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-028",
+      "reste": "Reprise de la base de Domenia 1 (schéma 11, révision 1, même domaine, règle par partie), de ses réglages et des fichiers de l’ancienne version (objets.tsv, parc.tsv, recherches.tsv, secrets-etat.tsv, liens) avec les garde-fous de Domenia 1 (128 Mo, 250 000 lignes, lecture sous verrou, quatre tables vides, un seul domaine, doublons refusés), idempotente par marqueur, sauvegarde de migration avant. La lecture réelle des fichiers et de la base attend Domenia.Store. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-030",
+      "reste": "Catalogue du cache par périmètre (source, contrôleur, compte, objets, âge, usage permis). Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-031",
+      "reste": "Purge par catégories fermées, lignes comptées pour chaque table, simulation exigée, nom du domaine saisi, sauvegarde vérifiée avant. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-033",
+      "reste": "Copie vérifiée (quick_check, SHA-256, date de vérification) relue par son nom, rotation. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-034",
+      "reste": "Annexe Domenia.BackupPreferences.1 des préférences approuvées jointe à chaque sauvegarde (même vide), liée au SHA-256 de la copie, exigée par la relecture, réappliquée après une restauration vérifiée (reçu à l’appui), sans identité de connexion ni fenêtre de ce poste. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
+    },
+    {
+      "id": "PAR-035",
+      "reste": "Sauvegarde vérifiée publiée vers un fichier choisi dans la page, nom proposé Domenia-AAAAMMJJ-HHmm.db, copie locale gardée si la publication échoue. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
     },
     {
       "id": "PAR-036",
-      "reste": "Réglage (1 à 720 h, 2 à 30 copies, désactivé par défaut), échéance, prochaine heure et raison du report calculés et affichés ; le déclenchement automatique pendant que Domenia est ouvert (contrôle chaque minute, plan « scheduled ») reste à brancher dans le moteur avec Domenia.Store."
+      "reste": "Réglage, échéance et raison du report affichés ; contrôle chaque minute dans une session persistante, différé pendant un enregistrement, 15 min entre deux essais, arrêté par une date future ; chaque copie planifiée passe par le circuit avec son reçu. Simulation seulement (base fictive en mémoire, par le circuit d’écriture) ; en mode annuaire la base SQLite de Domenia 2 n’est pas encore branchée (Domenia.Store, vague 3) : settings.storeUnavailable."
     },
     {
       "id": "PAR-037",
@@ -78,7 +142,7 @@
     },
     {
       "id": "PAR-040",
-      "reste": "Fenêtre analysée en direct (jetons fautifs nommés), état ouvert ou fermé et prochain changement, éditeur graphique de la semaine (amélioration) ; les travaux de fond des autres écrans doivent la respecter (non raccordé hors de Paramètres)."
+      "reste": "Fenêtre analysée en direct (jetons fautifs nommés), état et prochain changement, éditeur graphique de la semaine aligné sur son échelle ; les travaux de fond des autres écrans doivent la respecter (non raccordé hors de Paramètres)."
     },
     {
       "id": "PAR-041",
@@ -90,7 +154,7 @@
     },
     {
       "id": "PAR-044",
-      "reste": "GuiElementPolicy lue, validée (Default, Disabled, Hidden ; valeur inconnue signalée) et montrée ; l’application aux contrôles des écrans demande une convention partagée du shell et du kit."
+      "reste": "GuiElementPolicy lue, validée et appliquée aux contrôles de Paramètres qui ont un équivalent dans Domenia 1 (Disabled grise avec sa raison, Hidden masque, Default n’active rien) ; les autres écrans l’appliqueront à leurs contrôles (convention partagée à porter dans le kit)."
     },
     {
       "id": "PAR-045",
@@ -102,15 +166,11 @@
     },
     {
       "id": "PAR-048",
-      "reste": "OU de travail mémorisée par domaine (session.setScope), suivie par l’Accueil ; les sections qui la prennent par défaut sont listées dans la page. Chaque écran porté doit la lire comme défaut, et le remplacement confirmé (Remplacer / Conserver) d’une OU propre plus étroite viendra quand une section aura sa propre OU."
+      "reste": "OU de travail mémorisée par domaine (session.setScope), suivie par l’Accueil ; les sections qui la prennent par défaut sont listées. Le remplacement confirmé (Remplacer / Conserver) d’une OU propre plus étroite viendra quand une section aura sa propre OU."
     },
     {
       "id": "PAR-049",
       "reste": "« Se souvenir de mon identifiant » (décoché par défaut, jamais de mot de passe) et « Oublier » faits, refusés en simulation ; le dernier identifiant et le compte du coffre seront écrits par la connexion explicite (vague 3), dans les préférences de Domenia 2 et non plus HKCU."
-    },
-    {
-      "id": "PAR-051",
-      "reste": "Réglages de l’interface (thème, animations, menu, zoom, densité, profil) réappliqués au démarrage sans lecture ni collecte ; la taille, la position et l’état maximisé de la fenêtre relèvent de MainForm (fichier partagé hors lot)."
     }
   ]
 }

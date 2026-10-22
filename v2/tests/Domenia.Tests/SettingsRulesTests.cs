@@ -254,7 +254,7 @@ internal static class SettingsRulesTests
         Check.True(Guid.TryParse(StorageWritePlans.StoreGuid(store.StoreId), out _), "GUID valide");
         Check.Equal(StorageWritePlans.TargetKind, StorageWritePlans.Target(store).Kind, "cible : base locale");
         Check.Equal("Domenia-20261021-182600.db", StorageWritePlans.BackupFileName(TestClock.Reference, TestClock.Paris), "nom en heure locale");
-        var draft = StorageWritePlans.BackupDraft(store, StoragePolicyRules.Default, 2, TestClock.Reference, TestClock.Paris);
+        var draft = StorageWritePlans.BackupDraft(store, StoragePolicyRules.Default, "{}", TestClock.Reference, TestClock.Paris);
         Check.Equal(StorageWritePlans.Backup, draft.Kind, "type");
         Check.False(draft.Confirmation.TypedNameRequired, "sauvegarde : confirmation simple");
         var purge = LocalStoreRules.PurgePlan(store, ["observations"], 730, TestClock.Reference, TestClock.Paris);
@@ -344,31 +344,36 @@ internal static class SettingsRulesTests
             ["settings.collection"] = Json("""{"profile":"slowNetwork"}"""),
         };
         var text = PreferenceTransfer.Export(values, "directory", TestClock.Reference).Text;
-        Func<string, JsonElement, string?> Accept = static (_, _) => null;
 
-        var fresh = PreferenceTransfer.Preview(text, _ => null, Accept);
+        var fresh = PreferenceTransfer.Preview(text, _ => null);
         Check.True(fresh.Valid, "export valide");
         Check.Equal(2, fresh.Changes.Length, "deux ajouts");
         Check.True(fresh.Changes.All(c => c.Kind == "add"), "ajouts");
         Check.Equal(TestClock.Reference, fresh.ExportedAt, "date relue");
         Check.Equal(64, fresh.Fingerprint.Length, "empreinte");
 
-        var same = PreferenceTransfer.Preview(text, k => values.TryGetValue(k, out var v) ? v : null, Accept);
+        var same = PreferenceTransfer.Preview(text, k => values.TryGetValue(k, out var v) ? v : null);
         Check.Equal(0, same.Changes.Length, "rien ne change");
         Check.Equal(2, same.Unchanged, "deux valeurs identiques");
         Check.False(same.Fingerprint == fresh.Fingerprint, "l’état courant entre dans l’empreinte");
-        Check.Equal(fresh.Fingerprint, PreferenceTransfer.Preview(text, _ => null, Accept).Fingerprint, "empreinte stable");
+        Check.Equal(fresh.Fingerprint, PreferenceTransfer.Preview(text, _ => null).Fingerprint, "empreinte stable");
 
-        var refused = PreferenceTransfer.Preview(text, _ => null, (k, _) => k == "settings.collection" ? "profil inconnu." : null);
+        var badProfile = """{"format":"domenia.preferencesExport","version":1,"values":{"dashboard.disabledWidgets":["lockedAccounts"],"settings.collection":{"profile":"turbo"}}}""";
+        var refused = PreferenceTransfer.Preview(badProfile, _ => null);
         Check.Equal(1, refused.Changes.Length, "une valeur admise");
         Check.Contains("settings.collection", refused.Refused.Single(), "refus nommé");
 
         var connection = """{"format":"domenia.preferencesExport","version":1,"values":{"settings.connection":{"rememberLogin":true}}}""";
-        Check.Contains("jamais importée", PreferenceTransfer.Preview(connection, _ => null, Accept).Refused.Single(), "identité de connexion jamais importée");
-        Check.False(PreferenceTransfer.Preview("pas du JSON", _ => null, Accept).Valid, "texte illisible");
-        Check.False(PreferenceTransfer.Preview("""{"format":"autre","version":1,"values":{}}""", _ => null, Accept).Valid, "autre format");
-        Check.False(PreferenceTransfer.Preview("""{"format":"domenia.preferencesExport","version":9,"values":{}}""", _ => null, Accept).Valid, "version inconnue");
-        Check.False(PreferenceTransfer.Preview("", _ => null, Accept).Valid, "texte vide");
+        Check.Contains("jamais importée", PreferenceTransfer.Preview(connection, _ => null).Refused.Single(), "identité de connexion jamais importée");
+        var unknown = """{"format":"domenia.preferencesExport","version":1,"values":{"accounts.secretKey":"x","settings.window":{"x":0}}}""";
+        var unknownPreview = PreferenceTransfer.Preview(unknown, _ => null);
+        Check.Equal(0, unknownPreview.Changes.Length, "rien d’inconnu n’est admis");
+        Check.Contains("clé inconnue", unknownPreview.Refused.First(r => r.StartsWith("accounts.", StringComparison.Ordinal)), "clé inconnue refusée par son nom");
+        Check.Contains("fenêtre de ce poste", unknownPreview.Refused.First(r => r.StartsWith("settings.window", StringComparison.Ordinal)), "fenêtre jamais importée");
+        Check.False(PreferenceTransfer.Preview("pas du JSON", _ => null).Valid, "texte illisible");
+        Check.False(PreferenceTransfer.Preview("""{"format":"autre","version":1,"values":{}}""", _ => null).Valid, "autre format");
+        Check.False(PreferenceTransfer.Preview("""{"format":"domenia.preferencesExport","version":9,"values":{}}""", _ => null).Valid, "version inconnue");
+        Check.False(PreferenceTransfer.Preview("", _ => null).Valid, "texte vide");
         Check.True(PreferenceTransfer.Values(text, ["settings.collection"]).Select(v => v.Key).SequenceEqual(["settings.collection"]), "seules les clés admises sont appliquées");
     }
 

@@ -2,7 +2,7 @@
 // preferences of the workstation (never a password; nothing remembered in simulation) and the working OU, chosen in a tree
 // read level by level (directory.ou.children), with the sections that follow it.
 import {
-  esc, glyph, card, row, facts, notes, sectionHead, toggle, button, paint, skeleton, errorBlock, reported, pill, NBSP, isOff,
+  esc, glyph, card, row, facts, notes, sectionHead, toggle, button, paint, skeleton, errorBlock, reported, pill, int, count, NBSP, isOff,
 } from './common.js';
 import { reveal } from '../../ui.js';
 import { openDrawer } from '../../kit/drawer.js';
@@ -36,7 +36,7 @@ function markup(v) {
   const prefs = card({
     id: 'prefs', title: 'Préférences de connexion', sub: 'Mémorisées sur ce poste, jamais de mot de passe', iconName: 'key',
     body: row({
-      label: 'Se souvenir de mon identifiant', desc: 'Le prochain écran de connexion propose le dernier identifiant ; décocher l’oublie aussi.', setting: 'remember',
+      label: 'Se souvenir de mon identifiant', desc: 'Le prochain écran de connexion propose le dernier identifiant ; décocher l’oublie aussi.', setting: 'remember',
       control: toggle('remember', 'Se souvenir de mon identifiant', p.rememberLogin, { disabled: !p.editable, reason: p.reason ?? '' }),
     })
       + facts([
@@ -97,7 +97,7 @@ export function mount(host, sctx, { open } = {}) {
       const session = await sctx.call('session.setScope', { dn, subtree });
       sctx.ctx.showConnection?.(session);
       window.dispatchEvent(new CustomEvent('domenia:scope-changed', { detail: { scope: session.scope ?? null } }));
-      sctx.toast(`OU de travail : ${session.scope?.label ?? label}${session.scope?.subtree ? ' et ses sous-OU' : ' seule'}. Mémorisée pour ce domaine.`, { tone: 'ok' });
+      sctx.toast(`OU de travail : ${session.scope?.label ?? label}${session.scope?.subtree ? ' et ses sous-OU' : ' seule'}. Mémorisée pour ce domaine.`, { tone: 'ok' });
       await load();
       host.querySelector('[data-card="scope"]')?.classList.add('pr-changed');
     } catch (err) {
@@ -110,14 +110,14 @@ export function mount(host, sctx, { open } = {}) {
     const root = view.domain?.rootDn;
     const body = document.createElement('div');
     body.className = 'pr-ou-picker';
-    body.innerHTML = `<p class="pr-ou-lead">Choisissez l’OU qui sert de défaut aux sections. L’arbre se lit niveau par niveau, à l’ouverture d’une branche ; rien d’autre n’est lu.</p>
+    body.innerHTML = `<p class="pr-ou-lead">Choisissez l’OU qui sert de défaut aux sections. L’arbre se lit niveau par niveau, à l’ouverture d’une branche ; rien d’autre n’est lu.</p>
       <div class="pr-ou-tree"></div>
       <label class="pr-ou-sub"><input type="checkbox" class="switch" role="switch" data-sub${view.scope.subtree ? ' checked' : ''}><span>Sous-OU comprises</span></label>
       <p class="pr-ou-pick" data-pick aria-live="polite">Aucune OU sélectionnée.</p>`;
     let picked = null;
     const toNodes = (list) => list.map((o) => ({
       id: o.dn, label: o.name, leaf: !o.hasChildren, icon: 'ou',
-      hint: `${o.counts.computers ? `${o.counts.computers} postes` : ''}${o.counts.computers && o.counts.users ? ' · ' : ''}${o.counts.users ? `${o.counts.users} comptes` : ''}`,
+      hint: [o.counts.computers ? count(o.counts.computers, 'poste', 'postes') : '', o.counts.users ? count(o.counts.users, 'compte', 'comptes') : ''].filter(Boolean).join(' · '),
       data: o,
     }));
     drawer = openDrawer({
@@ -184,8 +184,8 @@ export function mount(host, sctx, { open } = {}) {
     else if (name === 'default' && view.scope.defaultDn) setScope(view.scope.defaultDn, true, view.scope.defaultLabel);
     else if (name === 'domain') {
       const ok = await confirmDialog({
-        title: 'Prendre tout le domaine ?',
-        message: `Tout le domaine ${view.domain?.dnsName ?? ''} devient l’OU de travail. Les comptes restent lus sur le domaine ; les mesures de postes restent refusées tant qu’aucune OU n’est choisie (jamais tout le domaine).`,
+        title: 'Prendre tout le domaine ?',
+        message: `Tout le domaine ${view.domain?.dnsName ?? ''} devient l’OU de travail. Les comptes restent lus sur le domaine ; les mesures de postes restent refusées tant qu’aucune OU n’est choisie (jamais tout le domaine).`,
         confirmLabel: 'Prendre tout le domaine',
       });
       if (ok && view.domain?.rootDn) setScope(view.domain.rootDn, true, view.domain.dnsName);

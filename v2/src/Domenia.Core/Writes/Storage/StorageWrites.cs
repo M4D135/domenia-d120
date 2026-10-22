@@ -3,16 +3,20 @@ using System.Globalization;
 
 namespace Domenia.Core;
 
-/// <summary>Plan of a verified backup of the local base (PAR-033, PAR-034).</summary>
+/// <summary>
+/// Plan of a verified backup of the local base (PAR-033, PAR-034, PAR-036): <paramref name="annex"/> is the canonical document
+/// of the approved preferences joined to the copy (<see cref="BackupPreferencesRules.Snapshot"/>); <paramref name="series"/> is
+/// « manual » (gesture of the operator) or « scheduled » (automatic backup enabled by the operator).
+/// </summary>
 public interface IStorageBackupExecutor : IWriteExecutor
 {
-    Task<WritePlanDraft> PlanBackupAsync(StoragePolicy policy, int preferenceKeys, CancellationToken cancellationToken);
+    Task<WritePlanDraft> PlanBackupAsync(StoragePolicy policy, string annex, string series, CancellationToken cancellationToken);
 }
 
 /// <summary>Plan of a verified backup published to a file chosen by the operator (PAR-035).</summary>
 public interface IStorageBackupCopyExecutor : IWriteExecutor
 {
-    Task<WritePlanDraft> PlanBackupCopyAsync(string destination, StoragePolicy policy, int preferenceKeys, CancellationToken cancellationToken);
+    Task<WritePlanDraft> PlanBackupCopyAsync(string destination, StoragePolicy policy, string annex, CancellationToken cancellationToken);
 }
 
 /// <summary>Plan of the retention of old measures, bound to the fingerprint of its preview (PAR-024).</summary>
@@ -33,10 +37,15 @@ public interface IStorageMoveExecutor : IWriteExecutor
     Task<WritePlanDraft> PlanMoveAsync(string destination, CancellationToken cancellationToken);
 }
 
-/// <summary>Plan of the restore of a verified backup into a new file (PAR-017).</summary>
+/// <summary>
+/// Plan of the restore of a verified backup into a new file (PAR-017): a backup of the registry of the base, or a .db file
+/// chosen on a local disk (the Backups folder of the base, or a copy published earlier).
+/// </summary>
 public interface IStorageRestoreExecutor : IWriteExecutor
 {
     Task<WritePlanDraft> PlanRestoreAsync(string backupId, CancellationToken cancellationToken);
+
+    Task<WritePlanDraft> PlanRestoreFileAsync(string path, CancellationToken cancellationToken);
 }
 
 /// <summary>Plan of the end of an interrupted switch (PAR-018).</summary>
@@ -60,7 +69,17 @@ public interface IStorageWriterResumeExecutor : IWriteExecutor
 /// <summary>Plan of the takeover of the Domenia 1 data, bound to the fingerprint of its simulation (PAR-028).</summary>
 public interface IStorageLegacyImportExecutor : IWriteExecutor
 {
-    Task<WritePlanDraft> PlanLegacyImportAsync(string fingerprint, CancellationToken cancellationToken);
+    Task<WritePlanDraft> PlanLegacyImportAsync(string domain, string fingerprint, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Plan of a demonstration scenario of the fictitious base (simulation only): a suspended writer, an interrupted switch, a
+/// base proven unreadable, a nearly full disk, or the normal state again. Served by the simulation alone; in directory mode
+/// no executor exists and the plan is refused.
+/// </summary>
+public interface IStorageScenarioExecutor : IWriteExecutor
+{
+    Task<WritePlanDraft> PlanScenarioAsync(string scenario, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -81,7 +100,21 @@ public static class StorageWritePlans
     public const string Rollback = "storage.rollback";
     public const string WriterResume = "storage.writerResume";
     public const string LegacyImport = "storage.legacyImport";
+    public const string Scenario = "storage.scenario";
 
+    /// <summary>Series of a backup made by the operator, and of the automatic backup.</summary>
+    public const string ManualSeries = "manual";
+    public const string ScheduledSeries = "scheduled";
+
+    /// <summary>Demonstration scenarios of the fictitious base (simulation only), with their labels.</summary>
+    public static ImmutableArray<(string Id, string Label, string Text)> Scenarios { get; } =
+    [
+        ("writerSuspended", "Enregistrement suspendu", "Trois échecs d’écriture de suite (disque presque plein)" + FrenchText.Colon + "l’écrivain est suspendu, ce qui est collecté reste en mémoire."),
+        ("switchInterrupted", "Bascule interrompue", "Un déplacement arrêté entre la copie vérifiée et la bascule" + FrenchText.Colon + "seules la reprise et le retour sont proposés."),
+        ("storeUnreadable", "Base illisible", "Contrôle SQLite en échec (SQLITE_CORRUPT 11)" + FrenchText.Colon + "seule la restauration d’une sauvegarde vérifiée est proposée."),
+        ("lowSpace", "Disque presque plein", "Moins de 512" + FrenchText.Nbsp + "Mo libres sur le volume de la base" + FrenchText.Colon + "les nouvelles collectes sont suspendues."),
+        ("normal", "État normal", "Écrivain actif, aucune bascule en attente, base lisible et espace suffisant."),
+    ];
     /// <summary>Error of a preview that no longer matches the base: the plan is refused, nothing is written.</summary>
     public const string PreviewStale = "settings.previewStale";
 
@@ -120,7 +153,7 @@ public static class StorageWritePlans
         }
         if (store.Maintenance.Draining || !string.IsNullOrEmpty(store.Maintenance.Job))
         {
-            throw new DomeniaOperationException(StoreUnavailable, "Étape de maintenance en cours" + FrenchText.Colon + "attendez sa fin ; aucune écriture préparée.");
+            throw new DomeniaOperationException(StoreUnavailable, "Étape de maintenance en cours" + FrenchText.Colon + "attendez sa fin ; aucune écriture préparée.");
         }
         if (!allowRecovery && store.Maintenance.Recovery && !store.Maintenance.RecoveryReceipt)
         {
@@ -134,6 +167,13 @@ public static class StorageWritePlans
         "revision", "Révision de la base", WriteChangeKind.Replace,
         "révision " + FrenchText.Integer(store.Revision), "révision " + FrenchText.Integer(after),
         store.Revision.ToString(CultureInfo.InvariantCulture), after.ToString(CultureInfo.InvariantCulture));
+
+    /// <summary>Name proposed for a copy published to a file (Domenia 1 BtnIndexBackupTo): « Domenia-AAAAMMJJ-HHmm.db » in local time.</summary>
+    public static string ExportFileName(DateTimeOffset now, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        return "Domenia-" + TimeZoneInfo.ConvertTime(now, zone).ToString("yyyyMMdd'-'HHmm", CultureInfo.InvariantCulture) + ".db";
+    }
 
     /// <summary>File name of a new backup: « Domenia-AAAAMMJJ-HHmmss.db » in local time.</summary>
     public static string BackupFileName(DateTimeOffset now, TimeZoneInfo zone, string prefix = "Domenia")
@@ -150,11 +190,19 @@ public static class StorageWritePlans
         return rotation.Count >= keep ? rotation[0] : null;
     }
 
-    /// <summary>Draft of a verified backup (hot copy by the SQLite backup API, quick_check, SHA-256, rotation, preferences).</summary>
-    public static WritePlanDraft BackupDraft(LocalStoreSnapshot store, StoragePolicy policy, int preferenceKeys, DateTimeOffset now, TimeZoneInfo zone)
+    /// <summary>
+    /// Draft of a verified backup (hot copy by the SQLite backup API, quick_check, SHA-256, rotation) with the annex of the
+    /// approved preferences (Domenia.BackupPreferences.1), joined to every backup made from the interface, even empty.
+    /// </summary>
+    public static WritePlanDraft BackupDraft(LocalStoreSnapshot store, StoragePolicy policy, string annex, DateTimeOffset now, TimeZoneInfo zone, string series = ManualSeries)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(annex);
+        if (series is not (ManualSeries or ScheduledSeries))
+        {
+            throw new ArgumentException("Unknown backup series.", nameof(series));
+        }
         EnsureWritable(store);
         if (store.Maintenance.Locked)
         {
@@ -162,12 +210,12 @@ public static class StorageWritePlans
         }
         var file = BackupFileName(now, zone);
         var out1 = RotatedOut(store, policy.BackupKeep);
+        var keys = BackupPreferencesRules.Count(annex);
         var changes = new List<WriteChange>
         {
             new("backup.file", "Nouvelle sauvegarde", WriteChangeKind.Add, null, file + " (" + SettingsFormat.Size(store.DatabaseBytes) + " environ, journal en mode delete)", null, file),
-            new("backup.preferences", "Préférences jointes", WriteChangeKind.Add, null,
-                preferenceKeys > 0 ? "annexe .preferences.json (" + FrenchText.Count(preferenceKeys, "clé approuvée", "clés approuvées") + ", sans identité de connexion)" : "aucune préférence approuvée à joindre",
-                null, preferenceKeys.ToString(CultureInfo.InvariantCulture)),
+            new("backup.series", "Série", WriteChangeKind.Add, null, series == ScheduledSeries ? "sauvegarde automatique (planifiée)" : "sauvegarde manuelle", null, series),
+            new("backup.preferences", "Préférences jointes", WriteChangeKind.Add, null, file[..^3] + ".preferences.json" + FrenchText.Colon + BackupPreferencesRules.Describe(keys) + ".", null, annex),
         };
         if (out1 is not null)
         {
@@ -176,33 +224,38 @@ public static class StorageWritePlans
         }
         var risks = new List<WriteRisk>
         {
-            new(Tone.Info, "L’original est ouvert en lecture seule et n’est jamais modifié ; une copie partielle est supprimée en cas d’échec."),
+            new(Tone.Info, "L’original est ouvert en lecture seule et n’est jamais modifié ; une copie partielle est supprimée en cas d’échec."),
             new(Tone.Info, "La copie compte comme réussie seulement avec son contrôle SQLite (quick_check), son empreinte SHA-256 et sa date de vérification."),
         };
         if (store.Simulated)
         {
             risks.Add(new WriteRisk(Tone.Info, "Simulation" + FrenchText.Colon + "copie fictive en mémoire, aucun fichier n’est écrit sur le disque."));
         }
-        return new WritePlanDraft(Backup, "Sauvegarder la base locale", "Sauvegarde de la base locale",
-            "Copie à chaud cohérente de " + Target(store).Name + ", contrôlée puis rangée dans le dossier Backups.",
+        if (series == ScheduledSeries)
+        {
+            risks.Add(new WriteRisk(Tone.Info, "Sauvegarde automatique activée dans Paramètres" + FrenchText.Colon + "elle part seule, une fois par période, et dit son résultat dans un reçu comme toute écriture."));
+        }
+        return new WritePlanDraft(Backup, series == ScheduledSeries ? "Sauvegarde planifiée de la base locale" : "Sauvegarder la base locale",
+            series == ScheduledSeries ? "Sauvegarde planifiée de la base locale" : "Sauvegarde de la base locale",
+            "Copie à chaud cohérente de " + Target(store).Name + ", contrôlée puis rangée dans le dossier Backups avec l’annexe de ses préférences.",
             Target(store), [.. changes], [.. risks], Simple,
-            new WriteReversibility(true, "Sans effet sur la base", "Une sauvegarde ajoute un fichier ; la base active n’est pas modifiée. Une copie inutile se supprime à la main."),
+            new WriteReversibility(true, "Sans effet sur la base", "Une sauvegarde ajoute un fichier ; la base active n’est pas modifiée. Une copie inutile se supprime à la main."),
             null);
     }
 
     /// <summary>Draft of a backup published to a chosen file (atomic publication; the local verified copy stays if the export fails).</summary>
-    public static WritePlanDraft BackupCopyDraft(LocalStoreSnapshot store, string destination, StoragePolicy policy, int preferenceKeys, DateTimeOffset now, TimeZoneInfo zone)
+    public static WritePlanDraft BackupCopyDraft(LocalStoreSnapshot store, string destination, StoragePolicy policy, string annex, DateTimeOffset now, TimeZoneInfo zone)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(destination);
-        var draft = BackupDraft(store, policy, preferenceKeys, now, zone);
+        var draft = BackupDraft(store, policy, annex, now, zone);
         if (LocalStoreRules.DestinationProblem(destination, store.PathLabel) is string problem)
         {
             throw new DomeniaOperationException(DestinationRefused, problem + " Aucune copie préparée.");
         }
         var path = destination.Trim();
         var changes = draft.Changes.Add(new WriteChange("backup.export", "Copie publiée vers", WriteChangeKind.Add, null, path, null, path));
-        var risks = draft.Risks.Add(new WriteRisk(Tone.Warn, "Le fichier choisi est remplacé s’il existe ; les liens, jonctions et dossiers absents sont refusés à l’écriture."));
+        var risks = draft.Risks.Add(new WriteRisk(Tone.Warn, "Le fichier choisi est remplacé s’il existe ; les liens, jonctions et dossiers absents sont refusés à l’écriture."));
         return draft with
         {
             Kind = BackupCopy,
@@ -224,7 +277,7 @@ public static class StorageWritePlans
         EnsureWritable(store);
         if (!string.Equals(preview.Fingerprint, fingerprint, StringComparison.Ordinal))
         {
-            throw new DomeniaOperationException(PreviewStale, "La base ou la politique a changé depuis la prévisualisation" + FrenchText.Colon + "refaites la prévisualisation ; rien n’a été retiré.");
+            throw new DomeniaOperationException(PreviewStale, "La base ou la politique a changé depuis la prévisualisation" + FrenchText.Colon + "refaites la prévisualisation ; rien n’a été retiré.");
         }
         if (preview.NothingToDo)
         {
@@ -242,13 +295,13 @@ public static class StorageWritePlans
             "Retrait de " + FrenchText.Count(preview.TotalRows, "ligne trop ancienne", "lignes trop anciennes") + " de " + Target(store).Name + ", après une sauvegarde vérifiée.",
             Target(store), [.. changes],
             [
-                new(Tone.Warn, "Les postes concernés perdront leurs derniers états trop anciens (présence, utilisateur, inventaire, sondes) : ils seront à relire."),
-                new(Tone.Info, "Une sauvegarde vérifiée est faite juste avant (copie autonome, quick_check, identité et révision contrôlées) ; elle reste hors rotation."),
-                new(Tone.Info, "Toujours conservés : objets AD, comptes, associations actuelles et déclarées, requêtes, journaux et reçus."),
+                new(Tone.Warn, "Les postes concernés perdront leurs derniers états trop anciens (présence, utilisateur, inventaire, sondes) : ils seront à relire."),
+                new(Tone.Info, "Une sauvegarde vérifiée est faite juste avant (copie autonome, quick_check, identité et révision contrôlées) ; elle reste hors rotation."),
+                new(Tone.Info, "Toujours conservés" + FrenchText.Colon + "objets AD, comptes, associations actuelles et déclarées, requêtes, journaux et reçus."),
                 new(Tone.Info, "La place libérée est réutilisable mais le fichier ne rétrécit pas."),
             ],
             Simple,
-            new WriteReversibility(false, "Retour par la sauvegarde", "Les lignes retirées ne reviennent qu’en restaurant la sauvegarde faite juste avant (« Restaurer une sauvegarde… »)."),
+            new WriteReversibility(false, "Retour par la sauvegarde", "Les lignes retirées ne reviennent qu’en restaurant la sauvegarde faite juste avant (« Restaurer une sauvegarde… »)."),
             null);
     }
 
@@ -262,7 +315,7 @@ public static class StorageWritePlans
         EnsureWritable(store);
         if (!string.Equals(preview.Fingerprint, fingerprint, StringComparison.Ordinal))
         {
-            throw new DomeniaOperationException(PreviewStale, "La base a changé depuis la simulation de la purge" + FrenchText.Colon + "refaites la simulation ; rien n’a été retiré.");
+            throw new DomeniaOperationException(PreviewStale, "La base a changé depuis la simulation de la purge" + FrenchText.Colon + "refaites la simulation ; rien n’a été retiré.");
         }
         if (preview.Refused.Length > 0 || preview.NothingToDo)
         {
@@ -288,8 +341,8 @@ public static class StorageWritePlans
             Target(store), [.. changes],
             [
                 new(Tone.Alert, "Les données retirées ne se reconstruisent qu’avec de nouvelles lectures de l’annuaire et des postes."),
-                new(Tone.Info, "Une sauvegarde vérifiée est faite juste avant (amélioration de Domenia 2) ; elle reste hors rotation."),
-                new(Tone.Info, "Jamais purgés : journal d’audit, configuration et préférences, associations déclarées et leur historique, reçus d’opérations."),
+                new(Tone.Info, "Une sauvegarde vérifiée est faite juste avant (amélioration de Domenia 2) ; elle reste hors rotation."),
+                new(Tone.Info, "Jamais purgés : journal d’audit, configuration et préférences, associations déclarées et leur historique, reçus d’opérations."),
             ],
             new WriteConfirmation(true, domain, "Saisie du nom du domaine exigée" + FrenchText.Colon + "une purge retire des données en nombre."),
             new WriteReversibility(false, "Retour par la sauvegarde", "Les lignes purgées ne reviennent qu’en restaurant la sauvegarde faite juste avant."),
@@ -317,7 +370,7 @@ public static class StorageWritePlans
             throw new DomeniaOperationException(DestinationRefused, "Espace insuffisant sur la destination" + FrenchText.Colon + SettingsFormat.Size(free) + " libres pour " + SettingsFormat.Size(reserve) + " exigés. Aucun déplacement préparé.");
         }
         return new WritePlanDraft(Move, "Déplacer la base locale", "Déplacement de la base locale",
-            "Copie vérifiée de " + Target(store).Name + " vers " + path + ", puis bascule ; le fichier d’origine est gardé en lecture seule.",
+            "Copie vérifiée de " + Target(store).Name + " vers " + path + ", puis bascule ; le fichier d’origine est gardé en lecture seule.",
             Target(store),
             [
                 new("store.path", "Emplacement de la base", WriteChangeKind.Move, store.PathLabel, path, store.PathLabel, path),
@@ -326,10 +379,10 @@ public static class StorageWritePlans
             [
                 new(Tone.Warn, "Les nouvelles collectes sont suspendues le temps d’enregistrer la file (120 s au plus), puis la copie est contrôlée avant la bascule."),
                 new(Tone.Info, "Réserve exigée sur la destination" + FrenchText.Colon + SettingsFormat.Size(reserve) + " (deux copies et 32 Mo de marge)" + (freeBytes is long f ? " ; libre" + FrenchText.Colon + SettingsFormat.Size(f) + "." : " ; espace libre mesuré au moment de la copie.")),
-                new(Tone.Info, "Aucun original n’est écrasé ; une copie non confirmée laisse la session sur la base courante, les deux fichiers gardés."),
+                new(Tone.Info, "Aucun original n’est écrasé ; une copie non confirmée laisse la session sur la base courante, les deux fichiers gardés."),
             ],
             Simple,
-            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible tant que la nouvelle base n’a reçu aucune écriture ; aucun fichier n’est supprimé."),
+            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible tant que la nouvelle base n’a reçu aucune écriture ; aucun fichier n’est supprimé."),
             null);
     }
 
@@ -349,12 +402,21 @@ public static class StorageWritePlans
             throw new DomeniaOperationException(StoreUnavailable, "Cette sauvegarde n’est pas vérifiée (contrôle SQLite, empreinte ou date absents)" + FrenchText.Colon + "aucune restauration préparée.");
         }
         var file = BackupFileName(now, zone, "Domenia-restauree");
+        var annex = BackupPreferencesRules.IsBound(backup) ? backup.Preferences : null;
         var changes = new List<WriteChange>
         {
             RevisionChange(store, backup.Revision),
             new("restore.source", "Sauvegarde restaurée", WriteChangeKind.Replace, null, backup.FileName + " (" + SettingsFormat.Size(backup.Bytes) + ", SHA-256 " + SettingsFormat.ShortSha(backup.Sha256) + ")", null, backup.Id),
             new("store.path", "Base active", WriteChangeKind.Replace, store.PathLabel, file + " (nouveau fichier)", store.PathLabel, file),
+            new("restore.lastBatch", "Dernier lot", WriteChangeKind.Replace, "lot " + FrenchText.Integer(store.Revision), "lot " + FrenchText.Integer(backup.Revision) + " de la sauvegarde", null, null),
+            new("restore.lastMeasure", "Dernière mesure", WriteChangeKind.Replace, null,
+                backup.LastMeasureAt is DateTimeOffset measured ? SettingsFormat.LocalDate(measured, zone) : "aucune mesure dans la sauvegarde", null, null),
         };
+        if (annex is not null)
+        {
+            changes.Add(new WriteChange("restore.preferences", "Préférences jointes", WriteChangeKind.Replace, null,
+                FrenchText.Count(annex.Keys, "clé approuvée réappliquée", "clés approuvées réappliquées") + " après la bascule vérifiée", null, annex.Sha256));
+        }
         void Diff(string attribute, string label, long? before, long? after)
         {
             if (before is long b && after is long a && a != b)
@@ -369,12 +431,14 @@ public static class StorageWritePlans
             "Restauration de " + backup.FileName + " (écrite le " + SettingsFormat.LocalDate(backup.At, zone) + ") dans un nouveau fichier, puis bascule.",
             Target(store), [.. changes],
             [
-                new(Tone.Warn, "Les écritures postérieures à la sauvegarde ne seront plus visibles ; la base active est conservée, intacte."),
-                new(Tone.Info, "La sauvegarde doit passer le schéma, quick_check et l’identité du domaine ; elle n’est jamais modifiée."),
-                new(Tone.Info, backup.PreferenceKeys > 0 ? "Les préférences jointes (" + FrenchText.Count(backup.PreferenceKeys, "clé", "clés") + ") sont réappliquées après la bascule vérifiée." : "Sauvegarde sans annexe de préférences : les données seules sont restaurées."),
+                new(Tone.Warn, "Les écritures postérieures à la sauvegarde ne seront plus visibles ; la base active est conservée, intacte."),
+                new(Tone.Info, "La sauvegarde doit passer le schéma, quick_check et l’identité du domaine ; elle n’est jamais modifiée."),
+                new(Tone.Info, annex is not null
+                    ? "Les préférences jointes (" + FrenchText.Count(annex.Keys, "clé approuvée", "clés approuvées") + ") sont réappliquées après la bascule vérifiée ; ce poste garde son identité de connexion et sa fenêtre."
+                    : "Sauvegarde sans annexe de préférences liée" + FrenchText.Colon + "les données seules sont restaurées."),
             ],
             new WriteConfirmation(true, store.Domain, "Saisie du nom du domaine exigée" + FrenchText.Colon + "la base active change."),
-            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible tant que la base restaurée n’a reçu aucune écriture ; aucun fichier n’est supprimé."),
+            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible tant que la base restaurée n’a reçu aucune écriture ; aucun fichier n’est supprimé."),
             null);
     }
 
@@ -392,9 +456,9 @@ public static class StorageWritePlans
             "Fin du passage vers la copie vérifiée désignée par le marqueur" + FrenchText.Colon + m.TargetPath + ".",
             Target(store),
             [new("store.path", "Base active", WriteChangeKind.Replace, store.PathLabel, m.TargetPath, store.PathLabel, m.TargetPath)],
-            [new(Tone.Info, "L’identité de la copie est revérifiée avant la bascule ; aucun fichier n’est supprimé.")],
+            [new(Tone.Info, "L’identité de la copie est revérifiée avant la bascule ; aucun fichier n’est supprimé.")],
             Simple,
-            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible ensuite tant que la base n’a reçu aucune écriture."),
+            new WriteReversibility(true, "Retour possible", "« Revenir à la base précédente » reste possible ensuite tant que la base n’a reçu aucune écriture."),
             null);
     }
 
@@ -416,9 +480,9 @@ public static class StorageWritePlans
                 RevisionChange(store, store.Revision),
                 new("store.path", "Base active", WriteChangeKind.Replace, store.PathLabel, target, store.PathLabel, target),
             ],
-            [new(Tone.Info, "Refusé si quelque chose est en file ou en cours, ou si la nouvelle base a changé ; aucun fichier n’est supprimé.")],
+            [new(Tone.Info, "Refusé si quelque chose est en file ou en cours, ou si la nouvelle base a changé ; aucun fichier n’est supprimé.")],
             Simple,
-            new WriteReversibility(true, "Fichiers conservés", "Les deux fichiers restent sur le disque ; la base quittée reste disponible pour une restauration."),
+            new WriteReversibility(true, "Fichiers conservés", "Les deux fichiers restent sur le disque ; la base quittée reste disponible pour une restauration."),
             null);
     }
 
@@ -430,24 +494,29 @@ public static class StorageWritePlans
         {
             throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Les enregistrements locaux ne sont pas suspendus" + FrenchText.Colon + "rien à reprendre.");
         }
-        if (store.Writer.Pending < 0)
+        if (store.Writer.Active)
         {
             throw new DomeniaOperationException(StoreUnavailable, "Un enregistrement est encore actif" + FrenchText.Colon + "attendez sa fin.");
         }
         return new WritePlanDraft(WriterResume, "Reprendre les sauvegardes locales", "Reprise des enregistrements locaux",
-            "L’écrivain de la base est réarmé ; " + FrenchText.Count(store.Writer.Pending, "élément en mémoire repart", "éléments en mémoire repartent") + " vers la base.",
+            "L’écrivain de la base est réarmé ; " + FrenchText.Count(store.Writer.Pending, "élément en mémoire repart", "éléments en mémoire repartent") + " vers la base.",
             Target(store),
             [new("writer.state", "Enregistrement local", WriteChangeKind.Replace, "suspendu", "actif", "suspended", "active")],
-            [new(Tone.Info, "Aucune reprise automatique en boucle : un nouvel échec suspend de nouveau l’écrivain et le dit."), new(Tone.Info, "Aucune écriture dans l’annuaire.")],
+            [new(Tone.Info, "Aucune reprise automatique en boucle : un nouvel échec suspend de nouveau l’écrivain et le dit."), new(Tone.Info, "Aucune écriture dans l’annuaire.")],
             Simple,
-            new WriteReversibility(true, "Sans perte", "Rien n’est effacé de la mémoire ; l’écrivain peut être suspendu de nouveau par un échec."),
+            new WriteReversibility(true, "Sans perte", "Rien n’est effacé de la mémoire ; l’écrivain peut être suspendu de nouveau par un échec."),
             null);
     }
 
-    /// <summary>Draft of the takeover of the Domenia 1 data (simulation shown first, idempotent, existing associations never replaced).</summary>
-    public static WritePlanDraft LegacyImportDraft(LocalStoreSnapshot store, string expected, string fingerprint)
+    /// <summary>
+    /// Draft of the takeover of the Domenia 1 data (PAR-028): the plan of <see cref="LegacyRules"/>, shown first by the
+    /// simulation and bound to its fingerprint; refused as a whole by any blocker; idempotent; existing associations never
+    /// replaced; a migration backup before.
+    /// </summary>
+    public static WritePlanDraft LegacyImportDraft(LocalStoreSnapshot store, string domain, string expected, string fingerprint)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(domain);
         ArgumentNullException.ThrowIfNull(expected);
         ArgumentNullException.ThrowIfNull(fingerprint);
         EnsureWritable(store);
@@ -456,33 +525,89 @@ public static class StorageWritePlans
         {
             throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Aucune donnée de Domenia 1 trouvée sur ce poste" + FrenchText.Colon + "rien à reprendre.");
         }
-        if (legacy.Refusals.Length > 0)
-        {
-            throw WriteErrors.Refusal(WriteErrors.NothingToDo, string.Join(" ", legacy.Refusals));
-        }
         if (!string.Equals(expected, fingerprint, StringComparison.Ordinal))
         {
-            throw new DomeniaOperationException(PreviewStale, "Les données ont changé depuis la simulation de la reprise" + FrenchText.Colon + "refaites la simulation ; rien n’a été repris.");
+            throw new DomeniaOperationException(PreviewStale, "Les données ont changé depuis la simulation de la reprise" + FrenchText.Colon + "refaites la simulation ; rien n’a été repris.");
         }
-        var items = legacy.Items.Where(i => !i.Imported && i.Count > 0).ToList();
-        if (items.Count == 0)
+        var plan = LegacyRules.Plan(legacy, domain);
+        if (plan.Blockers.Length > 0)
         {
-            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Données de Domenia 1 déjà reprises" + (legacy.ImportedAt is null ? "" : " (la reprise est idempotente)") + FrenchText.Colon + "rien de nouveau à reprendre.");
+            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Reprise refusée" + FrenchText.Colon + string.Join(" ", plan.Blockers));
+        }
+        if (plan.Already || plan.WriteCount == 0)
+        {
+            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Données de Domenia 1 déjà reprises" + (plan.Already ? " (la reprise est idempotente)" : "") + FrenchText.Colon + "rien de nouveau à reprendre.");
         }
         var changes = new List<WriteChange> { RevisionChange(store, store.Revision + 1) };
-        changes.AddRange(items.Select(i => new WriteChange("legacy." + i.Id, i.Label, WriteChangeKind.Add, null,
-            FrenchText.Integer(i.Count) + " repris" + (i.Detail.Length > 0 ? " (" + i.Detail + ")" : ""), null, i.Count.ToString(CultureInfo.InvariantCulture))));
+        changes.AddRange(plan.Steps.Where(st => st.Action is "import" or "add").Select(st => new WriteChange("legacy." + st.Id, st.Label, WriteChangeKind.Add, null,
+            FrenchText.Integer(st.Rows) + (st.Action == "add" ? " ajoutés" : " repris") + " dans " + st.Target + " (" + st.Source + ")", null, st.Rows.ToString(CultureInfo.InvariantCulture))));
+        changes.Add(new WriteChange("legacy.marker", "Marqueur de reprise", WriteChangeKind.Add, null, "posé" + FrenchText.Colon + "une seconde reprise ne trouvera rien", null, legacy.Marker));
         return new WritePlanDraft(LegacyImport, "Reprendre les données de Domenia 1", "Reprise des données de Domenia 1",
-            "Reprise des données de Domenia 1 de " + legacy.Domain + " dans " + Target(store).Name + ", après une sauvegarde de migration.",
+            "Reprise des données de Domenia 1 de " + legacy.Domain + " dans " + Target(store).Name + " (" + FrenchText.Count(plan.WriteCount, "ligne", "lignes") + "), après une sauvegarde de migration.",
             Target(store), [.. changes],
             [
-                new(Tone.Warn, "Les associations déjà présentes ne sont jamais remplacées ; les doublons sont refusés."),
-                new(Tone.Info, "Les fichiers de Domenia 1 restent en place ; la reprise est idempotente et n’est jamais rejouée automatiquement."),
-                new(Tone.Info, "La colonne de détail libre n’est jamais reprise ; aucun mot de passe ni secret n’existe dans ces données."),
+                new(Tone.Warn, "Les associations déjà présentes ne sont jamais remplacées ; une table déjà alimentée n’est jamais fusionnée."),
+                new(Tone.Info, "La base et les fichiers de Domenia 1 restent en place, intacts ; la reprise est idempotente et n’est jamais rejouée automatiquement."),
+                new(Tone.Info, "Aucun mot de passe ni secret n’existe dans ces données ; la colonne de détail libre n’est jamais reprise."),
             ],
             new WriteConfirmation(true, store.Domain, "Saisie du nom du domaine exigée" + FrenchText.Colon + "la reprise ajoute des données à la base."),
-            new WriteReversibility(false, "Retour par la sauvegarde", "La sauvegarde de migration faite juste avant reste hors rotation ; une restauration revient à l’état précédent."),
+            new WriteReversibility(false, "Retour par la sauvegarde", "La sauvegarde de migration faite juste avant reste hors rotation ; une restauration revient à l’état précédent."),
             null);
+    }
+
+    /// <summary>Draft of a demonstration scenario of the fictitious base (simulation only; nothing real changes).</summary>
+    public static WritePlanDraft ScenarioDraft(LocalStoreSnapshot store, string scenario)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(scenario);
+        var entry = Scenarios.FirstOrDefault(s => s.Id == scenario);
+        if (entry.Id is null)
+        {
+            throw new ArgumentException("Unknown scenario.", nameof(scenario));
+        }
+        if (!store.Available || !store.Simulated)
+        {
+            throw new DomeniaOperationException(StoreUnavailable, "Scénarios de démonstration" + FrenchText.Colon + "seulement sur la base fictive de la simulation.");
+        }
+        var current = ScenarioOf(store);
+        if (current == scenario)
+        {
+            throw WriteErrors.Refusal(WriteErrors.NothingToDo, "La base fictive est déjà dans cet état" + FrenchText.Colon + entry.Label.ToLowerInvariant() + ".");
+        }
+        return new WritePlanDraft(Scenario, "Jouer un scénario de démonstration", "Scénario de démonstration",
+            entry.Text,
+            Target(store),
+            [new("scenario", "État de la base fictive", WriteChangeKind.Replace, Scenarios.First(s => s.Id == current).Label, entry.Label, current, scenario)],
+            [
+                new(Tone.Info, "Simulation" + FrenchText.Colon + "seule la base fictive en mémoire change ; aucun fichier, aucun effet réel."),
+                new(Tone.Info, "« État normal » revient à tout moment à une base saine."),
+            ],
+            Simple,
+            new WriteReversibility(true, "Retour possible", "Le scénario « État normal » rend une base saine ; un nouveau lancement repart de la base générée."),
+            null);
+    }
+
+    /// <summary>The demonstration scenario a snapshot shows (« normal » when nothing is wrong).</summary>
+    public static string ScenarioOf(LocalStoreSnapshot store)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        if (store.Maintenance.Recovery && !store.Maintenance.RecoveryReceipt)
+        {
+            return "storeUnreadable";
+        }
+        if (store.Maintenance.Locked && !string.IsNullOrEmpty(store.Maintenance.TargetPath))
+        {
+            return "switchInterrupted";
+        }
+        if (store.Writer.Suspended)
+        {
+            return "writerSuspended";
+        }
+        if (store.Space.FreeBytes is long free && free < LocalStoreRules.SuspendReserve)
+        {
+            return "lowSpace";
+        }
+        return "normal";
     }
 
     /// <summary>

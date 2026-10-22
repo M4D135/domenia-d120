@@ -2,21 +2,85 @@
   "$schema": "../scenario.schema.json",
   "name": "Paramètres : sauvegarder la base locale par le circuit d’écriture",
   "description": "Dans Données et cache, prépare une sauvegarde vérifiée de la base fictive, lit le plan (cible « base locale », confirmation simple), confirme une fois, puis vérifie le reçu « Appliquée (simulation) » relu après l’écriture et la nouvelle ligne de sauvegarde. Rien n’est écrit sur le disque.",
-  "modes": ["simulation"],
-  "start": "parametres?section=donnees",
+  "modes": [
+    "simulation"
+  ],
+  "start": "parametres?section=donnees&onglet=sauvegardes",
   "steps": [
-    { "do": "wait", "ready": "parametres", "title": "L’écran Paramètres est prêt" },
-    { "do": "click", "selector": "[data-act=\"backup\"]", "title": "Sauvegarder maintenant" },
-    { "do": "wait", "contains": "Sauvegarde de la base locale", "title": "Le plan de la sauvegarde est affiché" },
-    { "do": "expect", "contains": "Nouvelle sauvegarde", "title": "Le changement prévu est nommé" },
-    { "do": "shot", "name": "plan-sauvegarde" },
-    { "do": "click", "text": "Confirmer…", "title": "Confirmer le plan" },
-    { "do": "click", "text": "Confirmer (simulation)", "title": "Confirmer une seule fois" },
-    { "do": "wait", "contains": "Appliquée (simulation)", "timeoutMs": 20000, "title": "Le reçu dit l’écriture appliquée" },
-    { "do": "expect", "contains": "Sauvegarde relue", "title": "La relecture est dite dans le reçu" },
-    { "do": "shot", "name": "recu-sauvegarde" },
-    { "do": "click", "text": "Fermer", "title": "Fermer le reçu" },
-    { "do": "expect", "contains": "Base locale", "within": ".main", "title": "La section est relue après l’écriture" },
-    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-card=\"backup\"]",
+      "title": "L’onglet Sauvegardes est ouvert par l’adresse"
+    },
+    {
+      "do": "click",
+      "selector": "[data-act=\"backup\"]",
+      "title": "Sauvegarder maintenant"
+    },
+    {
+      "do": "wait",
+      "contains": "Sauvegarde de la base locale",
+      "title": "Le plan de la sauvegarde est affiché"
+    },
+    {
+      "do": "expect",
+      "contains": "Préférences jointes",
+      "title": "L’annexe des préférences est dans le plan"
+    },
+    {
+      "do": "expect",
+      "contains": "Nouvelle sauvegarde",
+      "title": "Le changement prévu est nommé"
+    },
+    {
+      "do": "shot",
+      "name": "plan-sauvegarde"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…",
+      "title": "Confirmer le plan"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer une seule fois"
+    },
+    {
+      "do": "wait",
+      "contains": "Appliquée (simulation)",
+      "timeoutMs": 20000,
+      "title": "Le reçu dit l’écriture appliquée"
+    },
+    {
+      "do": "expect",
+      "contains": "Sauvegarde relue",
+      "title": "La relecture est dite dans le reçu"
+    },
+    {
+      "do": "shot",
+      "name": "recu-sauvegarde"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "expect",
+      "contains": "Base locale",
+      "within": ".main",
+      "title": "La section est relue après l’écriture"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
   ]
 }

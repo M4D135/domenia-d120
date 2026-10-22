@@ -74,7 +74,7 @@ public static class ComponentInventory
             else
             {
                 rows.Add(new ComponentRow(label, folder.Id + "/", folder.Id, folder.Bytes, SettingsFormat.Size(folder.Bytes), null, "", false, null, null, licence, provenance,
-                    folder.Id == "web" ? "Fichiers produits par ce dépôt, sans manifeste de livraison : version non reliée aux fichiers." : "Aucun fichier de référence lu : version non affichée.",
+                    folder.Id == "web" ? "Fichiers produits par ce dépôt, sans manifeste de livraison : version non reliée aux fichiers." : "Aucun fichier de référence lu : version non affichée.",
                     label + " · version non reliée au fichier"));
             }
         }
@@ -101,12 +101,12 @@ public static class ComponentInventory
         var bound = false;
         if (sha is null)
         {
-            note = "Empreinte non calculée : aucune version affichée.";
+            note = "Empreinte non calculée : aucune version affichée.";
             version = null;
         }
         else if (string.IsNullOrWhiteSpace(version))
         {
-            note = "Aucune ressource de version dans ce fichier : version non affichée.";
+            note = "Aucune ressource de version dans ce fichier : version non affichée.";
             version = null;
         }
         else

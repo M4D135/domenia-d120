@@ -4,12 +4,19 @@ import { icon } from '../../icons.js';
 import { glyph } from '../../kit/glyphs.js';
 import { pill } from '../../kit/status.js';
 import { esc, errorText, formatNumber, formatDateTime, relTime, applyVars } from '../../ui.js';
+import { size, masonryPlan } from './pure.js';
 
 export { esc, icon, glyph, pill, formatNumber, formatDateTime, relTime };
 
-/** No-break space (before « : », « % », inside « »). */
-export const NBSP = ' ';
+/** No-break space (before « : », « ; », « ? », « ! », « % », inside « »). */
+export const NBSP = '\u00A0';
 export const COLON = `${NBSP}: `;
+
+/** « texte » with the no-break spaces of French typography. */
+export const quote = (text) => `«${NBSP}${text}${NBSP}»`;
+
+/** Keeps a command option or a file name in one piece (« --simulation » never cut after its dashes). */
+export const nobreak = (text) => String(text ?? '').replace(/(^|\s)--(?=\w)/g, '$1\u2011\u2011').replace(/(\w)-(?=\w)/g, '$1\u2011');
 
 /** Tones accepted by the kit (data-tone, pills). */
 const TONES = new Set(['ok', 'warn', 'alert', 'info', 'off', 'accent']);
@@ -22,20 +29,7 @@ export const int = (n) => (Number.isFinite(n) ? formatNumber(n) : '—');
 export const count = (n, one, many) => `${int(n)}${NBSP}${Math.abs(n) >= 2 ? many : one}`;
 
 /** « 41,2 Mo » from bytes (unknown: « inconnu »). */
-export function size(bytes) {
-  if (!Number.isFinite(bytes) || bytes < 0) return 'inconnu';
-  if (bytes < 1024) return `${int(bytes)}${NBSP}o`;
-  const units = ['Ko', 'Mo', 'Go', 'To'];
-  let value = bytes;
-  let unit = 'o';
-  for (const u of units) {
-    value /= 1024;
-    unit = u;
-    if (value < 1024) break;
-  }
-  const rounded = Math.round(value * 10) / 10;
-  return `${formatNumber(rounded, Number.isInteger(rounded) ? 0 : 1)}${NBSP}${unit}`;
-}
+export { size };
 
 /** Local date and time, or « — ». */
 export const when = (iso) => formatDateTime(iso) ?? '—';
@@ -110,10 +104,43 @@ export function notes(lines, cls = '') {
   return `<ul class="pr-notes ${esc(cls)}">${lines.map((l, n) => `<li data-j="${n}">${glyph('info')}<span>${esc(l)}</span></li>`).join('')}</ul>`;
 }
 
-/** Segmented choice (radio group) built on the shared .segmented control; data-value on each button. */
+/**
+ * Segmented choice (radio group) built on the shared .segmented control; data-value on each button. One tab stop (the
+ * checked radio), arrows move and choose (radioKeys), as the APG radio group pattern.
+ */
 export function segmented(name, label, options, value) {
-  return `<div class="segmented pr-seg" role="radiogroup" aria-label="${esc(label)}" data-seg="${esc(name)}"><span class="thumb" aria-hidden="true"></span>${options.map((o) =>
-    `<button type="button" role="radio" aria-checked="${String(o.value) === String(value)}" aria-pressed="${String(o.value) === String(value)}" data-value="${esc(o.value)}"${o.tip ? ` data-tip="${esc(o.tip)}"` : ''}>${o.icon ? glyph(o.icon) : ''}<span>${esc(o.label)}</span></button>`).join('')}</div>`;
+  const any = options.some((o) => String(o.value) === String(value));
+  return `<div class="segmented pr-seg" role="radiogroup" aria-label="${esc(label)}" data-seg="${esc(name)}"><span class="thumb" aria-hidden="true"></span>${options.map((o, n) => {
+    const on = String(o.value) === String(value);
+    return `<button type="button" role="radio" aria-checked="${on}" tabindex="${on || (!any && n === 0) ? 0 : -1}" data-value="${esc(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}${o.tip ? ` data-tip="${esc(o.tip)}"` : ''}>${o.icon ? glyph(o.icon) : ''}<span>${esc(o.label)}</span></button>`;
+  }).join('')}</div>`;
+}
+
+/**
+ * Keyboard of the radio groups of a scope (segments, theme cards, collection profiles): ← → ↑ ↓ move to the next radio and
+ * choose it, Début and Fin the first and the last; the checked radio keeps the only tab stop. Returns true when handled.
+ */
+export function radioKeys(e) {
+  const radio = e.target instanceof Element ? e.target.closest('[role="radio"]') : null;
+  const group = radio?.closest('[role="radiogroup"]');
+  if (!radio || !group) return false;
+  const keys = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 };
+  if (!(e.key in keys) && e.key !== 'Home' && e.key !== 'End') return false;
+  const radios = [...group.querySelectorAll('[role="radio"]')].filter((r) => r.getAttribute('aria-disabled') !== 'true' && !r.disabled);
+  if (!radios.length) return false;
+  e.preventDefault();
+  const at = Math.max(0, radios.indexOf(radio));
+  const next = e.key === 'Home' ? radios[0] : e.key === 'End' ? radios[radios.length - 1] : radios[(at + keys[e.key] + radios.length) % radios.length];
+  next.focus();
+  next.click();
+  return true;
+}
+
+/** Moves the only tab stop of a radio group to its checked radio. */
+export function rovingTabs(group) {
+  const radios = [...group.querySelectorAll('[role="radio"]')];
+  const checked = radios.find((r) => r.getAttribute('aria-checked') === 'true') ?? radios[0];
+  radios.forEach((r) => r.setAttribute('tabindex', r === checked ? '0' : '-1'));
 }
 
 /** Switch (checkbox role="switch"). */
@@ -135,7 +162,7 @@ export function select(name, label, options, value, { disabled = false } = {}) {
 /** Button with icon; data-act carries the action. kind: '' | 'primary' | 'ghost' | 'danger'. */
 export function button(act, label, iconName, { kind = '', disabled = false, reason = '', write = false, extra = '', small = true } = {}) {
   const cls = ['btn', kind, small ? 'sm' : ''].filter(Boolean).join(' ');
-  const mark = write ? `<span class="pr-write-mark" aria-hidden="true" data-tip="Écriture : plan, confirmation, reçu et relecture">${glyph('edit')}</span>` : '';
+  const mark = write ? `<span class="pr-write-mark" aria-hidden="true" data-tip="Écriture : plan, confirmation, reçu et relecture">${glyph('edit')}</span>` : '';
   // A refused action stays focusable and says why (aria-disabled and its tip); the page blocks its clicks.
   return `<button type="button" class="${cls}" data-act="${esc(act)}"${disabled ? ' aria-disabled="true"' : ''}${disabled && reason ? ` data-tip="${esc(reason)}"` : ''}${extra}>${iconName ? glyph(iconName) : ''}<span>${esc(label)}</span>${mark}</button>`;
 }
@@ -195,27 +222,19 @@ export function balance(scope) {
     const children = [...grid.children];
     const isWide = (el) => el.classList.contains('pr-wide') || el.classList.contains('pr-footnote');
     if (children.some((el) => !isWide(el) && el.offsetHeight === 0)) continue;
-    const runs = [];
-    let run = [];
-    for (const el of children) {
-      if (isWide(el)) { if (run.length) runs.push(run); run = []; runs.push(el); } else run.push(el);
-    }
-    if (run.length) runs.push(run);
-    if (!runs.some((r) => Array.isArray(r) && r.length > 2)) { grid.dataset.balanced = 'simple'; continue; }
     const gap = parseFloat(getComputedStyle(grid).rowGap) || 0;
-    const measured = new Map(children.map((el) => [el, el.offsetHeight]));
-    const parts = runs.map((r) => {
-      if (!Array.isArray(r)) return r;
-      if (r.length < 3) return r;
-      const cols = [document.createElement('div'), document.createElement('div')];
-      const heights = [0, 0];
-      for (const card of r) {
-        const k = heights[0] <= heights[1] ? 0 : 1;
-        cols[k].append(card);
-        heights[k] += measured.get(card) + gap;
+    const stacks = masonryPlan(children.map((el) => ({ wide: isWide(el), height: el.offsetHeight })), gap);
+    if (stacks.every((k) => k === null)) { grid.dataset.balanced = 'simple'; continue; }
+    const parts = [];
+    let cols = null;
+    children.forEach((el, n) => {
+      if (stacks[n] === null) { cols = null; parts.push(el); return; }
+      if (!cols) {
+        cols = [document.createElement('div'), document.createElement('div')];
+        cols.forEach((c) => { c.className = 'pr-col'; });
+        parts.push(cols);
       }
-      cols.forEach((c) => { c.className = 'pr-col'; });
-      return cols;
+      cols[stacks[n]].append(el);
     });
     grid.replaceChildren(...parts.flat());
     grid.dataset.balanced = 'cols';
@@ -226,7 +245,7 @@ export function balance(scope) {
 export function syncSegments(scope) {
   for (const seg of scope.querySelectorAll('.pr-seg')) {
     const thumb = seg.querySelector(':scope > .thumb');
-    const on = seg.querySelector('button[aria-pressed="true"]');
+    const on = seg.querySelector('button[aria-checked="true"]');
     if (!thumb) continue;
     if (!on) { thumb.style.setProperty('opacity', '0'); continue; }
     thumb.style.removeProperty('opacity');
@@ -240,9 +259,9 @@ export function syncSegments(scope) {
 export function pressSegment(seg, value) {
   seg.querySelectorAll('button[data-value]').forEach((b) => {
     const on = b.dataset.value === String(value);
-    b.setAttribute('aria-pressed', String(on));
     b.setAttribute('aria-checked', String(on));
   });
+  rovingTabs(seg);
   syncSegments(seg.parentElement ?? seg);
 }
 

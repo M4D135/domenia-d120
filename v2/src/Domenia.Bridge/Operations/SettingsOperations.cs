@@ -19,8 +19,11 @@ public sealed class SettingsOperations : IOperationModule
     public const int DefaultMaxQueued = 32;
 
     public const string SimulationCode = "settings.simulation";
-    public const string SimulationMessage = "Simulation" + FrenchText.Nbsp + ": aucune saisie d’identifiants, rien n’est mémorisé ; ce réglage s’applique en mode annuaire.";
+    public const string SimulationMessage = "Simulation" + FrenchText.Nbsp + ": aucune saisie d’identifiants, rien n’est mémorisé ; ce réglage s’applique en mode annuaire.";
     public const string WindowInvalidCode = "settings.windowInvalid";
+
+    /// <summary>Re-application of the annex of a restore refused (receipt unknown, not a verified restore, annex not bound).</summary>
+    public const string RestorePreferencesCode = "settings.restorePreferences";
 
     private static readonly string[] NoArguments = [];
     private static readonly string[] RememberArguments = ["rememberLogin"];
@@ -32,8 +35,10 @@ public sealed class SettingsOperations : IOperationModule
     private static readonly string[] PurgePlanArguments = ["categories", "historyDays", "fingerprint"];
     private static readonly string[] FingerprintArguments = ["fingerprint"];
     private static readonly string[] DestinationArguments = ["destination"];
-    private static readonly string[] BackupArguments = ["backupId"];
+    private static readonly string[] RestoreArguments = ["backupId", "file"];
     private static readonly string[] ResetArguments = ["group"];
+    private static readonly string[] ScenarioArguments = ["scenario"];
+    private static readonly string[] ReceiptArguments = ["receiptId"];
 
     public string Screen => "settings";
 
@@ -57,7 +62,7 @@ public sealed class SettingsOperations : IOperationModule
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 // The value holds for the session; the operator is told (PLATFORM.md § 5).
-                log.Warning($"Préférence {key} non enregistrée ({ex.GetType().Name}) : elle vaut pour la session.");
+                log.Warning($"Préférence {key} non enregistrée ({ex.GetType().Name}) : elle vaut pour la session.");
                 Note("Préférences non enregistrées" + FrenchText.Colon + label, Tone.Warn);
             }
         }
@@ -69,22 +74,19 @@ public sealed class SettingsOperations : IOperationModule
         // The handlers name their bridge context « _ »: inside them « out _ » would not be a discard.
         StoragePolicy CurrentPolicy() => Policy(out _);
 
-        async Task<int> ApprovedKeysAsync(CancellationToken cancellationToken)
+        Task<string> AnnexAsync(CancellationToken cancellationToken) => SettingsAnnex.SnapshotAsync(context, cancellationToken);
+
+        async Task<string> DomainAsync(CancellationToken cancellationToken)
         {
             var session = await context.Directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
-            var keys = new List<string> { DashboardService.DisabledWidgetsPreference, CollectionSettingsRules.PreferenceKey, StoragePolicyRules.PreferenceKey };
-            if (session.Domain?.RootDn is string root)
-            {
-                try
-                {
-                    keys.Add(WorkingScope.PreferenceKey(root));
-                }
-                catch (FormatException)
-                {
-                    log.Warning("Racine du domaine illisible : clé de l’OU de travail ignorée.");
-                }
-            }
-            return keys.Count(k => preferences.TryGet(k, out _));
+            return session.Domain?.DnsName ?? "";
+        }
+
+        // The automatic backup checks every minute in a persistent session (never in capture, E2E or the tests).
+        var scheduler = StorageBackupScheduler.From(context);
+        if (preferences.Persistent)
+        {
+            scheduler.Start();
         }
 
         async Task<object?> StorageViewAsync(LocalStoreSnapshot? snapshot, CancellationToken cancellationToken)
@@ -97,7 +99,9 @@ public sealed class SettingsOperations : IOperationModule
                 return StorageViewBuilder.Unavailable(policy, unreadable, DefaultMaxConcurrent, DefaultMaxQueued, zone);
             }
             snapshot ??= await reader.LocalStoreAsync(cancellationToken).ConfigureAwait(false);
-            return StorageViewBuilder.Build(snapshot, policy, unreadable, DefaultMaxConcurrent, DefaultMaxQueued, clock.GetUtcNow(), zone, snapshot.Available ? snapshot.PathLabel : null);
+            var run = scheduler.State;
+            return StorageViewBuilder.Build(snapshot, policy, unreadable, DefaultMaxConcurrent, DefaultMaxQueued, clock.GetUtcNow(), zone, snapshot.Available ? snapshot.PathLabel : null,
+                run.LastAttempt, run.LastFailure, run.LastFailureAt);
         }
 
         ISettingsReader Reader() => context.Readers.Find<ISettingsReader>()
@@ -131,9 +135,9 @@ public sealed class SettingsOperations : IOperationModule
                 scopeView,
                 SettingsViewRules.Sections(scope),
                 [
-                    "L’OU de travail est mémorisée par domaine ; seule une OU du domaine courant est admise, vérifiée dans l’index local, jamais par le réseau.",
-                    "Avec tout le domaine comme OU de travail, les mesures de postes restent refusées : jamais tout le domaine.",
-                    "Les sections suivent l’OU de travail ; une OU propre à une section viendra la remplacer, après confirmation dans la page.",
+                    "L’OU de travail est mémorisée par domaine ; seule une OU du domaine courant est admise, vérifiée dans l’index local, jamais par le réseau.",
+                    "Avec tout le domaine comme OU de travail, les mesures de postes restent refusées : jamais tout le domaine.",
+                    "Les sections suivent l’OU de travail ; une OU propre à une section viendra la remplacer, après confirmation dans la page.",
                 ]);
         }
 
@@ -151,7 +155,7 @@ public sealed class SettingsOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await ConnectionViewAsync(cancellationToken).ConfigureAwait(false);
-            }, "Session, compte, préférences de connexion et OU de travail ; aucune lecture réseau."),
+            }, "Session, compte, préférences de connexion et OU de travail ; aucune lecture réseau."),
 
             new OperationDefinition("settings.connection.set", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
             {
@@ -166,10 +170,10 @@ public sealed class SettingsOperations : IOperationModule
                 {
                     var next = remember ? stored with { RememberLogin = true } : stored with { RememberLogin = false, LastLogin = "" };
                     await Store(SettingsViewRules.ConnectionKey, SettingsViewRules.ToJson(next), "préférences de connexion", cancellationToken).ConfigureAwait(false);
-                    Note("Connexion" + FrenchText.Colon + "« se souvenir de mon identifiant » " + (remember ? "activé" : "désactivé, dernier identifiant oublié"));
+                    Note("Connexion" + FrenchText.Colon + "« se souvenir de mon identifiant » " + (remember ? "activé" : "désactivé, dernier identifiant oublié"));
                 }
                 return await ConnectionViewAsync(cancellationToken).ConfigureAwait(false);
-            }, "« Se souvenir de mon identifiant » (jamais de mot de passe) ; refusé en simulation."),
+            }, "« Se souvenir de mon identifiant » (jamais de mot de passe) ; refusé en simulation."),
 
             new OperationDefinition("settings.connection.forget", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
             {
@@ -185,7 +189,7 @@ public sealed class SettingsOperations : IOperationModule
                     Note("Connexion" + FrenchText.Colon + "dernier identifiant et compte du coffre oubliés (le coffre Windows n’est pas modifié)");
                 }
                 return await ConnectionViewAsync(cancellationToken).ConfigureAwait(false);
-            }, "Oublie le dernier identifiant et le nom du compte du coffre ; refusé en simulation."),
+            }, "Oublie le dernier identifiant et le nom du compte du coffre ; refusé en simulation."),
 
             // ----- Collection and network budgets -----
             new OperationDefinition("settings.collection", OperationClass.LocalRead, (args, _, cancellationToken) =>
@@ -308,7 +312,7 @@ public sealed class SettingsOperations : IOperationModule
                     Note("Collecte" + FrenchText.Colon + string.Join(", ", changed.Distinct(StringComparer.Ordinal)));
                 }
                 return CollectionView();
-            }, "Enregistre le profil, les durées, la fenêtre ou les budgets ; une fenêtre invalide n’est jamais enregistrée."),
+            }, "Enregistre le profil, les durées, la fenêtre ou les budgets ; une fenêtre invalide n’est jamais enregistrée."),
 
             new OperationDefinition("settings.collection.window.check", OperationClass.Local, (args, _, _) =>
             {
@@ -338,7 +342,7 @@ public sealed class SettingsOperations : IOperationModule
             {
                 BridgeArguments.RequireNone(args);
                 return await StorageViewAsync(null, cancellationToken).ConfigureAwait(false);
-            }, "État de la base locale : emplacement, espace, sauvegardes, conservation, limites, purge, cache, reprise."),
+            }, "État de la base locale : emplacement, espace, sauvegardes, conservation, limites, purge, cache, reprise."),
 
             new OperationDefinition("settings.storage.measure", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
@@ -359,7 +363,7 @@ public sealed class SettingsOperations : IOperationModule
                     Note("Intégrité de la base locale" + FrenchText.Colon + verdict.Verdict, verdict.Tone == Tone.Alert ? Tone.Alert : verdict.Tone == Tone.Warn ? Tone.Warn : Tone.Info);
                 }
                 return await StorageViewAsync(snapshot, cancellationToken).ConfigureAwait(false);
-            }, "Neuf contrôles d’intégrité en lecture seule ; aucune réparation."),
+            }, "Neuf contrôles d’intégrité en lecture seule ; aucune réparation."),
 
             new OperationDefinition("settings.storage.retention.set", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
             {
@@ -380,7 +384,7 @@ public sealed class SettingsOperations : IOperationModule
                     Note("Conservation enregistrée (rien n’est supprimé)" + FrenchText.Colon + string.Join(", ", StoragePolicyRules.Families.Select(f => f.Label.ToLowerInvariant() + " " + SettingsFormat.Days(StoragePolicyRules.DaysOf(policy, f.Family)))));
                 }
                 return await StorageViewAsync(null, cancellationToken).ConfigureAwait(false);
-            }, "Enregistre la conservation par famille ; ne supprime rien (prévisualisation et confirmation d’abord)."),
+            }, "Enregistre la conservation par famille ; ne supprime rien (prévisualisation et confirmation d’abord)."),
 
             new OperationDefinition("settings.storage.backup.schedule.set", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
             {
@@ -398,7 +402,7 @@ public sealed class SettingsOperations : IOperationModule
                     Note("Sauvegarde automatique" + FrenchText.Colon + (policy.AutomaticBackup ? "toutes les " + FrenchText.Integer(policy.BackupHours) + FrenchText.Nbsp + "h, " + FrenchText.Count(policy.BackupKeep, "copie conservée", "copies conservées") : "désactivée"));
                 }
                 return await StorageViewAsync(null, cancellationToken).ConfigureAwait(false);
-            }, "Sauvegarde automatique pendant que Domenia est ouvert : 1 à 720 h, 2 à 30 copies."),
+            }, "Sauvegarde automatique pendant que Domenia est ouvert : 1 à 720 h, 2 à 30 copies."),
 
             new OperationDefinition("settings.storage.retention.preview", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
@@ -416,22 +420,23 @@ public sealed class SettingsOperations : IOperationModule
                 var snapshot = await Reader().LocalStoreAsync(cancellationToken).ConfigureAwait(false);
                 EnsureStore(snapshot);
                 return LocalStoreRules.PurgePlan(snapshot, categories, days, clock.GetUtcNow(), clock.LocalTimeZone);
-            }, "Simule une purge par catégories fermées : lignes comptées, refus nommés, empreinte exigée par le plan."),
+            }, "Simule une purge par catégories fermées : lignes comptées, refus nommés, empreinte exigée par le plan."),
 
             new OperationDefinition("settings.storage.legacy.preview", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {
                 BridgeArguments.RequireNone(args);
                 var snapshot = await Reader().LocalStoreAsync(cancellationToken).ConfigureAwait(false);
-                return StorageViewBuilder.LegacySimulation(snapshot, clock.LocalTimeZone);
-            }, "Simule la reprise des données de Domenia 1, sans rien écrire."),
+                EnsureStore(snapshot);
+                return StorageViewBuilder.LegacySimulation(snapshot, await DomainAsync(cancellationToken).ConfigureAwait(false), clock.LocalTimeZone);
+            }, "Simule la reprise des données de Domenia 1 (base au schéma 11, réglages, fichiers de l’ancienne version), sans rien écrire."),
 
             // ----- Write plans of the local base (reads; executed by write.execute only) -----
             Plan(context, "settings.storage.backup.plan", NoArguments, async (_, cancellationToken) =>
-                await Writer<IStorageBackupExecutor>().PlanBackupAsync(CurrentPolicy(), await ApprovedKeysAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false),
-                "Plan d’une sauvegarde vérifiée de la base locale."),
+                await Writer<IStorageBackupExecutor>().PlanBackupAsync(CurrentPolicy(), await AnnexAsync(cancellationToken).ConfigureAwait(false), StorageWritePlans.ManualSeries, cancellationToken).ConfigureAwait(false),
+                "Plan d’une sauvegarde vérifiée de la base locale, avec l’annexe de ses préférences approuvées."),
 
             Plan(context, "settings.storage.backupCopy.plan", DestinationArguments, async (values, cancellationToken) =>
-                await Writer<IStorageBackupCopyExecutor>().PlanBackupCopyAsync(Destination(values), CurrentPolicy(), await ApprovedKeysAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false),
+                await Writer<IStorageBackupCopyExecutor>().PlanBackupCopyAsync(Destination(values), CurrentPolicy(), await AnnexAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false),
                 "Plan d’une sauvegarde vérifiée publiée vers un fichier choisi."),
 
             Plan(context, "settings.storage.retention.plan", FingerprintArguments, async (values, cancellationToken) =>
@@ -447,15 +452,28 @@ public sealed class SettingsOperations : IOperationModule
                 await Writer<IStorageMoveExecutor>().PlanMoveAsync(Destination(values), cancellationToken).ConfigureAwait(false),
                 "Plan du déplacement de la base locale vers un fichier local."),
 
-            Plan(context, "settings.storage.restore.plan", BackupArguments, async (values, cancellationToken) =>
+            Plan(context, "settings.storage.restore.plan", RestoreArguments, async (values, cancellationToken) =>
             {
+                if (values.ContainsKey("backupId") == values.ContainsKey("file"))
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("backupId") + " ou " + FrenchText.Quote("file") + " est attendu, pas les deux.");
+                }
+                if (values.ContainsKey("file"))
+                {
+                    var file = BridgeArguments.GetString(values, "file").Trim();
+                    if (LocalStoreRules.BackupFileProblem(file) is string problem)
+                    {
+                        throw new DomeniaOperationException(StorageWritePlans.DestinationRefused, problem + " Aucune restauration préparée.");
+                    }
+                    return await Writer<IStorageRestoreExecutor>().PlanRestoreFileAsync(file, cancellationToken).ConfigureAwait(false);
+                }
                 var id = BridgeArguments.GetString(values, "backupId");
                 if (!WritePlans.IsPlanId(id))
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("backupId") + " doit être un identifiant de sauvegarde (32 caractères hexadécimaux).");
                 }
                 return await Writer<IStorageRestoreExecutor>().PlanRestoreAsync(id, cancellationToken).ConfigureAwait(false);
-            }, "Plan de la restauration d’une sauvegarde vérifiée dans un nouveau fichier."),
+            }, "Plan de la restauration d’une sauvegarde vérifiée (du registre ou d’un fichier .db choisi) dans un nouveau fichier."),
 
             Plan(context, "settings.storage.resume.plan", NoArguments, async (_, cancellationToken) =>
                 await Writer<IStorageResumeExecutor>().PlanResumeAsync(cancellationToken).ConfigureAwait(false),
@@ -470,8 +488,71 @@ public sealed class SettingsOperations : IOperationModule
                 "Plan de la reprise des enregistrements locaux suspendus."),
 
             Plan(context, "settings.storage.legacy.plan", FingerprintArguments, async (values, cancellationToken) =>
-                await Writer<IStorageLegacyImportExecutor>().PlanLegacyImportAsync(Fingerprint(values), cancellationToken).ConfigureAwait(false),
+                await Writer<IStorageLegacyImportExecutor>().PlanLegacyImportAsync(await DomainAsync(cancellationToken).ConfigureAwait(false), Fingerprint(values), cancellationToken).ConfigureAwait(false),
                 "Plan de la reprise des données de Domenia 1, lié à l’empreinte de sa simulation."),
+
+            Plan(context, "settings.demo.scenario.plan", ScenarioArguments, async (values, cancellationToken) =>
+            {
+                var scenario = BridgeArguments.GetString(values, "scenario");
+                if (!StorageWritePlans.Scenarios.Any(s => s.Id == scenario))
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("scenario") + " doit être " + string.Join(", ", StorageWritePlans.Scenarios.Select(s => s.Id)) + ".");
+                }
+                var executor = context.Writers.Find<IStorageScenarioExecutor>()
+                    ?? throw new DomeniaOperationException(SimulationCode, "Scénarios de démonstration" + FrenchText.Colon + "seulement en simulation, sur la base fictive.");
+                return await executor.PlanScenarioAsync(scenario, cancellationToken).ConfigureAwait(false);
+            }, "Plan d’un scénario de démonstration de la base fictive (simulation seulement)."),
+
+            new OperationDefinition("settings.storage.restore.preferences", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ReceiptArguments);
+                var id = BridgeArguments.GetString(values, "receiptId");
+                if (!WritePlans.IsPlanId(id))
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("receiptId") + " doit être un identifiant de reçu (32 caractères hexadécimaux).");
+                }
+                var receipt = await WriteCircuit.From(context).GetAsync(id, cancellationToken).ConfigureAwait(false);
+                if (receipt.Kind != StorageWritePlans.Restore || receipt.Result != WriteResult.Applied || receipt.Verification != VerificationState.Verified)
+                {
+                    throw new DomeniaOperationException(RestorePreferencesCode, "Ce reçu n’est pas une restauration appliquée et vérifiée" + FrenchText.Colon + "aucune préférence réappliquée.");
+                }
+                var snapshot = await Reader().LocalStoreAsync(cancellationToken).ConfigureAwait(false);
+                if (!snapshot.Available || !string.Equals(StorageWritePlans.StoreGuid(snapshot.StoreId), receipt.Target.ObjectGuid, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new DomeniaOperationException(RestorePreferencesCode, "La base active n’est plus celle de la restauration" + FrenchText.Colon + "aucune préférence réappliquée.");
+                }
+                var backupId = receipt.Plan.Changes.FirstOrDefault(c => c.Attribute == "restore.source")?.AfterValue;
+                var expected = receipt.Plan.Changes.FirstOrDefault(c => c.Attribute == "restore.preferences")?.AfterValue;
+                var backup = snapshot.Backups.FirstOrDefault(b => b.Id == backupId);
+                if (expected is null)
+                {
+                    return new PreferenceApplyResult(0, [], [], "Sauvegarde sans annexe de préférences liée" + FrenchText.Colon + "les données seules ont été restaurées.");
+                }
+                if (backup is null || backup.Preferences is not BackupPreferences annex || !BackupPreferencesRules.IsBound(backup) || !string.Equals(annex.Sha256, expected, StringComparison.Ordinal))
+                {
+                    throw new DomeniaOperationException(RestorePreferencesCode, "Annexe des préférences absente ou différente de celle du plan" + FrenchText.Colon + "aucune préférence réappliquée.");
+                }
+                var keys = new List<string>();
+                var failed = new List<string>();
+                foreach (var (key, value) in BackupPreferencesRules.Values(annex.Json))
+                {
+                    try
+                    {
+                        await preferences.SetAsync(key, value, cancellationToken).ConfigureAwait(false);
+                        keys.Add(key);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        log.Warning($"Préférence réappliquée non enregistrée ({ex.GetType().Name}) : elle vaut pour la session.");
+                        keys.Add(key);
+                        failed.Add(key);
+                    }
+                }
+                var summary = "Préférences de la sauvegarde réappliquées" + FrenchText.Colon + FrenchText.Count(keys.Count, "clé approuvée", "clés approuvées")
+                    + " ; identité de connexion et fenêtre de ce poste conservées." + (failed.Count > 0 ? " Non enregistrées sur le disque" + FrenchText.Colon + string.Join(", ", failed) + "." : "");
+                Note(summary, failed.Count > 0 ? Tone.Warn : Tone.Info);
+                return new PreferenceApplyResult(keys.Count, [.. keys], [.. failed], summary);
+            }, "Réapplique l’annexe des préférences d’une restauration appliquée et vérifiée (reçu à l’appui)."),
 
             // ----- Preferences -----
             new OperationDefinition("settings.preferences.reset", OperationClass.LocalWrite, async (args, _, cancellationToken) =>
@@ -480,7 +561,7 @@ public sealed class SettingsOperations : IOperationModule
                 var group = BridgeArguments.GetString(values, "group");
                 string[] groups = group switch
                 {
-                    "all" => ["widgets", "workingScope", "collection", "storage", "connection"],
+                    "all" => ["widgets", "workingScope", "collection", "storage", "connection", "window"],
                     "widgets" or "workingScope" or "collection" or "storage" or "connection" => [group],
                     _ => throw BridgeArguments.Invalid(FrenchText.Quote("group") + " doit être widgets, workingScope, collection, storage, connection ou all."),
                 };
@@ -522,15 +603,22 @@ public sealed class SettingsOperations : IOperationModule
                                 await Store(SettingsViewRules.ConnectionKey, null, "préférences de connexion", cancellationToken).ConfigureAwait(false);
                                 keys.Add(SettingsViewRules.ConnectionKey);
                                 break;
+                            case "window":
+                                // The zoom shown now is set back by the page (host); the window takes its default size at the next start.
+                                await Store(PreferenceApproval.ZoomKey, null, "zoom de l’interface", cancellationToken).ConfigureAwait(false);
+                                await Store(PreferenceApproval.WindowKey, null, "fenêtre mémorisée", cancellationToken).ConfigureAwait(false);
+                                keys.Add(PreferenceApproval.ZoomKey);
+                                keys.Add(PreferenceApproval.WindowKey);
+                                break;
                         }
                     }
                     catch (DomeniaOperationException ex)
                     {
-                        log.Warning($"Réinitialisation du groupe {name} refusée : {ex.Code}.");
-                        failed.Add(PreferenceTransfer.ResetGroups.First(g => g.Id == name).Label + FrenchText.Colon + ex.Message);
+                        log.Warning($"Réinitialisation du groupe {name} refusée : {ex.Code}.");
+                        failed.Add((name == "window" ? "Zoom et fenêtre" : PreferenceTransfer.ResetGroups.First(g => g.Id == name).Label) + FrenchText.Colon + ex.Message);
                     }
                 }
-                var labels = groups.Select(g => PreferenceTransfer.ResetGroups.First(r => r.Id == g).Label.ToLowerInvariant());
+                var labels = groups.Select(g => g == "window" ? "zoom et fenêtre" : PreferenceTransfer.ResetGroups.First(r => r.Id == g).Label.ToLowerInvariant());
                 var summary = "Préférences réinitialisées" + FrenchText.Colon + string.Join(", ", labels) + "." + (failed.Count > 0 ? " Non réinitialisé" + FrenchText.Colon + string.Join(" ", failed) : "");
                 Note(summary, failed.Count > 0 ? Tone.Warn : Tone.Info);
                 return new PreferenceApplyResult(keys.Count, [.. keys], [.. failed], summary);
@@ -631,7 +719,7 @@ public sealed class SettingsOperations : IOperationModule
 
     private static bool[][] ReadGrid(JsonElement grid)
     {
-        const string Message = "« grid » doit être un tableau de 7 jours de 48 demi-heures (booléens).";
+        const string Message = "« grid » doit être un tableau de 7 jours de 48 demi-heures (booléens).";
         if (grid.ValueKind != JsonValueKind.Array || grid.GetArrayLength() != 7)
         {
             throw BridgeArguments.Invalid(Message);

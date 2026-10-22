@@ -41,8 +41,12 @@ public sealed record ConnectionView(
 /// <summary>One line of the technical journal (one record per line; continuation lines of a stack kept with their record).</summary>
 public sealed record LogLine(DateTimeOffset? At, string Level, string Text, ImmutableArray<string> More);
 
-/// <summary>The technical journal file of the host.</summary>
-public sealed record LogFileView(string Label, string? Path, bool Exists, long Bytes, string BytesText, DateTimeOffset? ModifiedAt, bool Truncated, int Records, int Errors, int Warnings);
+/// <summary>
+/// The technical journal file of the host: errors and warnings of the lines read, and those written since the start of this
+/// run (<see cref="SessionStart"/>), which alone light the badge of the page (earlier runs are history, not an alarm).
+/// </summary>
+public sealed record LogFileView(string Label, string? Path, bool Exists, long Bytes, string BytesText, DateTimeOffset? ModifiedAt, bool Truncated, int Records, int Errors, int Warnings,
+    DateTimeOffset? SessionStart, int SessionErrors, int SessionWarnings);
 
 /// <summary>Result of settings.logs: the end of the technical journal and the operations journal of the session.</summary>
 public sealed record LogsView(LogFileView File, ImmutableArray<LogLine> Lines, ImmutableArray<JournalEntry> Session, ImmutableArray<string> Rules);
@@ -132,7 +136,7 @@ public static class SettingsViewRules
             simulated ? "Simulation" + FrenchText.Colon + "aucune saisie d’identifiants, rien n’est mémorisé." : null,
             [
                 "Jamais de mot de passe" + FrenchText.Colon + "seuls l’identifiant et le nom du compte du coffre Windows sont mémorisés.",
-                "« Se souvenir de mon identifiant » est décoché par défaut ; le décocher oublie aussi le dernier identifiant.",
+                "« Se souvenir de mon identifiant » est décoché par défaut ; le décocher oublie aussi le dernier identifiant.",
                 "Le coffre Windows n’est jamais lu au démarrage ni en arrière-plan.",
             ]);
     }
@@ -144,8 +148,8 @@ public static class SettingsViewRules
         SectionScopeView Follow(string id, string name, string detail) => new(id, name, true, label, detail);
         return
         [
-            Follow("accueil", "Accueil", "Mesures des postes dans l’OU de travail ; comptes sur tout le domaine."),
-            Follow("rechercher", "Rechercher", "Périmètre proposé par défaut ; jamais tout le domaine sans garde."),
+            Follow("accueil", "Accueil", "Mesures des postes dans l’OU de travail ; comptes sur tout le domaine."),
+            Follow("rechercher", "Rechercher", "Périmètre proposé par défaut ; jamais tout le domaine sans garde."),
             Follow("relations", "Utilisateurs et postes", "Périmètre des associations par défaut."),
             Follow("synchro", "Base autonome", "OU mise à jour par défaut dans la base locale."),
         ];
@@ -165,9 +169,9 @@ public static class SettingsViewRules
             simulation ? decision.Banner ?? ModeTexts.Banner : null,
             facts,
             [
-                "Aucun accès au réseau : ni LDAP, ni WMI, ni DNS, ni ping ; toute requête de la page vers un autre hôte que domenia.local est refusée.",
-                "La base locale SQLite n’est jamais ouverte : la base montrée est fictive, en mémoire.",
-                "Les écritures ne changent qu’une surcouche en mémoire de l’annuaire fictif, jamais enregistrée ; leurs reçus sont marqués « simulé ».",
+                "Aucun accès au réseau : ni LDAP, ni WMI, ni DNS, ni ping ; toute requête de la page vers un autre hôte que domenia.local est refusée.",
+                "La base locale SQLite n’est jamais ouverte : la base montrée est fictive, en mémoire.",
+                "Les écritures ne changent qu’une surcouche en mémoire de l’annuaire fictif, jamais enregistrée ; leurs reçus sont marqués « simulé ».",
                 "Aucune saisie d’identifiants, aucun coffre, aucun secret.",
                 "Même graine, même date de référence et même fuseau donnent le même annuaire, à l’octet près.",
             ],

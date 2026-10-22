@@ -2,11 +2,11 @@
 // the matrix shipped with the application (never downloaded; « Inconnu » rather than a guess), inventory of the delivered
 // components (a version only when it is bound to the file and its SHA-256), local folders, commitments.
 import {
-  esc, glyph, icon, card, facts, notes, sectionHead, button, paint, skeleton, errorBlock, pill, tone, size,
+  esc, glyph, icon, card, facts, notes, sectionHead, button, paint, skeleton, errorBlock, pill, tone, nobreak, reported,
 } from './common.js';
 import { reveal, copyText } from '../../ui.js';
 
-const HEAD = { title: 'À propos', lead: 'Version, moteurs, compatibilité de ce poste et composants livrés : chaque affirmation repose sur ce qui est lu ici, jamais sur une supposition.', icon: 'info', tone: 'info' };
+const HEAD = { title: 'À propos', lead: 'Version, moteurs, compatibilité de ce poste et composants livrés : chaque affirmation repose sur ce qui est lu ici, jamais sur une supposition.', icon: 'info', tone: 'info' };
 
 function identityCard(v, app) {
   const id = v.identity;
@@ -21,7 +21,7 @@ function identityCard(v, app) {
       ['.NET embarqué', id.runtime, `${id.runtimeIdentifier} · ${id.process64 ? 'processus 64 bits' : 'processus 32 bits'}`],
       ['Moteur web', id.webViewModeLabel, [id.webViewVersion ? `WebView2 ${id.webViewVersion}` : '', chromium ? `Chromium ${chromium}` : ''].filter(Boolean).join(' · ')],
       ['Système', id.operatingSystem],
-      ['Démarrage', id.modeDetail, app?.banner ?? ''],
+      ['Démarrage', nobreak(id.modeDetail), nobreak(app?.banner ?? '')],
     ])}
     <div class="pr-actions">${button('copy-about', 'Copier ces informations', 'copy', { kind: 'ghost' })}</div>
   </section>`;
@@ -35,7 +35,7 @@ function compatibilityCard(c) {
     body: `<div class="pr-verdict" data-tone="${esc(tone(c.tone))}" data-setting="compatibility"><span class="pr-verdict-ico">${glyph(c.overall === 'unsupported' ? 'x' : 'shield')}</span><b>Environnement ${esc(c.overallLabel)}</b><span>${esc(c.text)}</span></div>
       <ul class="pr-compat">${rows}</ul>
       <details class="pr-more"><summary>Environnements documentés, non relevés sur ce poste</summary><ul class="pr-lines">${c.documented.map((d) => `<li>${pill(d.status === 'unsupported' ? 'alert' : 'info', d.status === 'unsupported' ? 'non pris en charge' : 'prévu, jamais testé', { size: 'sm' })} ${esc(d.label)} · ${esc(d.note)}</li>`).join('')}</ul></details>
-      <p class="pr-hint">${glyph('info')}<span>« Qualifié » exige un rapport de qualification lié au ZIP livré ; « Testé » exige une campagne de tests exécutée. Aucun des deux n’est encore revendiqué.</span></p>`,
+      <p class="pr-hint">${glyph('info')}<span>« Qualifié » exige un rapport de qualification lié au ZIP livré ; « Testé » exige une campagne de tests exécutée. Aucun des deux n’est encore revendiqué.</span></p>`,
   });
 }
 
@@ -43,7 +43,7 @@ function componentsCard(k) {
   const rows = k.rows.map((r, n) => `<tr data-j="${n}"><th scope="row"><b>${esc(r.name)}</b><span class="pr-sub mono">${esc(r.path)}</span></th>
       <td>${r.bound ? `<span class="pr-value">${esc(r.version)}</span>` : '<span class="pr-sub">non reliée au fichier</span>'}</td>
       <td class="num">${esc(r.bytesText)}</td>
-      <td>${r.sha256Short ? `<button type="button" class="pr-sha-btn mono" data-copy="${esc(r.sha256)}" data-tip="Copier l’empreinte SHA-256 complète">${esc(r.sha256Short)}</button>` : '—'}</td>
+      <td>${r.sha256Short ? `<button type="button" class="pr-sha-btn mono" data-copy="${esc(r.sha256)}" data-tip="Copier l’empreinte SHA-256 complète" aria-label="Copier l’empreinte SHA-256 de ${esc(r.name)}">${esc(r.sha256Short)}</button>` : '—'}</td>
       <td>${esc(r.licence)}<span class="pr-sub">${esc(r.provenance)}</span></td></tr>`).join('');
   return card({
     id: 'components', title: 'Composants livrés', sub: `${k.summary} Total ${k.totalText}.`, iconName: 'layers', cls: 'pr-wide',
@@ -88,7 +88,7 @@ export function mount(host, sctx) {
     const sha = t?.closest('[data-copy]');
     if (sha) {
       const ok = await copyText(sha.dataset.copy);
-      sctx.toast(ok ? 'Empreinte SHA-256 copiée.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn', life: 2200 });
+      sctx.toast(ok ? 'Empreinte SHA-256 copiée.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn', life: 2200 });
       return;
     }
     const act = t?.closest('[data-act]')?.dataset.act;
@@ -101,9 +101,9 @@ export function mount(host, sctx) {
         id.operatingSystem, view.compatibility.text, ...view.components.rows.map((r) => r.display),
       ];
       const ok = await copyText(lines.join('\n'));
-      sctx.toast(ok ? 'Informations copiées (sans nom de compte ni chemin).' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
+      sctx.toast(ok ? 'Informations copiées (sans nom de compte ni chemin).' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
     } else if (act.startsWith('open:')) {
-      try { await sctx.call('settings.folder.open', { folder: act.slice(5) }); } catch (err) { sctx.toast(err?.message ?? 'Ouverture impossible.', { tone: 'info' }); }
+      try { await sctx.call('settings.folder.open', { folder: act.slice(5) }); } catch (err) { sctx.toast(reported(err, 'Ouverture impossible.'), { tone: 'info' }); }
     }
   };
   host.addEventListener('click', onClick);

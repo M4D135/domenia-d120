@@ -41,9 +41,10 @@ public sealed record PreferenceApplyResult(int Changed, ImmutableArray<string> K
 
 /// <summary>
 /// Export and import of the preferences (improvement of PAR-050, Domenia 1 Domenia.BackupPreferences.1): a JSON document of
-/// the approved keys, never the connection identity nor a secret, bounded (1 MiB, 8 levels, 64 KiB per value). An import is
-/// previewed first and applied only with the fingerprint of its preview (the current values included), so a preview made
-/// on other values is refused. Pure.
+/// the approved keys only (<see cref="PreferenceApproval"/>: closed list, a validator per key), never the connection identity,
+/// the window of this workstation nor a secret, bounded (1 MiB, 8 levels, 64 KiB per value). An import is previewed first and
+/// applied only with the fingerprint of its preview (the current values included), so a preview made on other values is
+/// refused; an unknown key is refused by name, never written. Pure.
 /// </summary>
 public static class PreferenceTransfer
 {
@@ -54,19 +55,16 @@ public static class PreferenceTransfer
     public const int MaxDepth = 8;
     public const int MaxKeys = 512;
 
-    /// <summary>Keys never exported nor imported: the connection identity of this workstation.</summary>
-    public static ImmutableArray<string> ExcludedPrefixes { get; } = ["settings.connection"];
-
     /// <summary>Reset groups of the page: interface (web profile), widgets, working OU, collection, storage, connection, all.</summary>
     public static ImmutableArray<PreferenceResetGroup> ResetGroups { get; } =
     [
-        new("interface", "Interface", "Thème, animations, menu, zoom, densité, profil, panneau d’aide et lecture du journal.", false),
+        new("interface", "Interface", "Thème, animations, menu, densité, profil et infobulles d’aide, zoom à 100" + FrenchText.Nbsp + "%, lecture du journal.", false),
         new("widgets", "Widgets de l’Accueil", "Toutes les mesures de l’Accueil redeviennent actives.", true),
         new("workingScope", "OU de travail", "L’OU de travail revient à celle par défaut de la session.", true),
         new("collection", "Collecte et budgets", "Profil Standard, durées du profil, fenêtre du profil, budgets par défaut.", true),
         new("storage", "Conservation et sauvegardes", "Politique de conservation et sauvegarde automatique par défaut (rien n’est supprimé).", true),
-        new("connection", "Connexion", "« Se souvenir de mon identifiant » décoché, identifiant et compte du coffre oubliés (jamais de mot de passe).", true),
-        new("all", "Tout", "Tous les groupes ci-dessus ; les reçus d’écriture et le journal ne sont jamais touchés.", true),
+        new("connection", "Connexion", "« Se souvenir de mon identifiant » décoché, identifiant et compte du coffre oubliés (jamais de mot de passe).", true),
+        new("all", "Tout", "Tous les groupes ci-dessus et la fenêtre mémorisée ; les reçus d’écriture et le journal ne sont jamais touchés.", true),
     ];
 
     /// <summary>Label of the screen that owns a key (its first segment).</summary>
@@ -89,9 +87,8 @@ public static class PreferenceTransfer
         _ => owner,
     };
 
-    /// <summary>True for a key that may be exported and imported.</summary>
-    public static bool IsTransferable(string key) =>
-        PreferenceKeys.IsValid(key) && !ExcludedPrefixes.Any(p => key == p || key.StartsWith(p + ".", StringComparison.Ordinal));
+    /// <summary>True for a key that may be exported and imported (approved list, never a key of this workstation only).</summary>
+    public static bool IsTransferable(string key) => PreferenceApproval.IsApproved(key);
 
     /// <summary>Keys grouped by owner screen, from the values of a document.</summary>
     public static ImmutableArray<PreferenceOwner> Owners(IReadOnlyDictionary<string, JsonElement> values)
@@ -112,8 +109,8 @@ public static class PreferenceTransfer
     {
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(mode);
-        var excluded = values.Keys.Where(k => !IsTransferable(k)).Order(StringComparer.Ordinal).ToImmutableArray();
-        var kept = values.Where(v => IsTransferable(v.Key)).OrderBy(v => v.Key, StringComparer.Ordinal).ToList();
+        var excluded = values.Where(v => PreferenceApproval.Problem(v.Key, v.Value) is not null).Select(v => v.Key).Order(StringComparer.Ordinal).ToImmutableArray();
+        var kept = PreferenceApproval.Filter(values).ToList();
         using var buffer = new MemoryStream();
         using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }))
         {
@@ -149,13 +146,12 @@ public static class PreferenceTransfer
     }
 
     /// <summary>
-    /// Preview of an import against the current values (<paramref name="current"/>: key → value, absent when not set).
-    /// <paramref name="validate"/> checks the semantics of a known key (null: accepted; text: refusal).
+    /// Preview of an import against the current values (<paramref name="current"/>: key → value, absent when not set). Each key
+    /// goes through <see cref="PreferenceApproval.Problem"/>: local or unknown keys and invalid values are refused by name.
     /// </summary>
-    public static PreferenceImportPreview Preview(string? text, Func<string, JsonElement?> current, Func<string, JsonElement, string?> validate)
+    public static PreferenceImportPreview Preview(string? text, Func<string, JsonElement?> current)
     {
         ArgumentNullException.ThrowIfNull(current);
-        ArgumentNullException.ThrowIfNull(validate);
         static PreferenceImportPreview Invalid(string problem) => new(false, problem, null, null, [], [], 0, false, "");
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -180,7 +176,7 @@ public static class PreferenceTransfer
             if (root.ValueKind != JsonValueKind.Object
                 || !root.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.String || format.GetString() != Format)
             {
-                return Invalid("Format inconnu" + FrenchText.Colon + "« " + Format + " » attendu.");
+                return Invalid("Format inconnu" + FrenchText.Colon + "« " + Format + " » attendu.");
             }
             if (!root.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var v) || v != Version)
             {
@@ -212,22 +208,12 @@ public static class PreferenceTransfer
                     refused.Add("Plus de " + FrenchText.Integer(MaxKeys) + " clés" + FrenchText.Colon + "les suivantes sont ignorées.");
                     break;
                 }
-                if (!PreferenceKeys.IsValid(key))
-                {
-                    refused.Add(key + FrenchText.Colon + "nom de clé invalide.");
-                    continue;
-                }
-                if (!IsTransferable(key))
-                {
-                    refused.Add(key + FrenchText.Colon + "identité de connexion, jamais importée.");
-                    continue;
-                }
                 if (Encoding.UTF8.GetByteCount(property.Value.GetRawText()) > MaxValueBytes || Depth(property.Value) > MaxDepth)
                 {
                     refused.Add(key + FrenchText.Colon + "valeur trop volumineuse ou trop imbriquée.");
                     continue;
                 }
-                if (validate(key, property.Value) is string problem)
+                if (PreferenceApproval.Problem(key, property.Value) is string problem)
                 {
                     refused.Add(key + FrenchText.Colon + problem);
                     continue;

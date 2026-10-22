@@ -96,9 +96,9 @@ public static class CollectionSettingsRules
     /// <summary>Families whose reuse delay is a setting (only those a reader really applies).</summary>
     public static ImmutableArray<FreshnessFamily> Families { get; } =
     [
-        new("presence", "Présence réseau (ping)", 0, Week, "Le dernier ping reste affiché comme récent pendant cette durée ; au-delà il est marqué à relire."),
+        new("presence", "Présence réseau (ping)", 0, Week, "Le dernier ping reste affiché comme récent pendant cette durée ; au-delà il est marqué à relire."),
         new("console", "Utilisateur console", 0, Week, "L’utilisateur console relevé reste récent pendant cette durée. Un relevé relit toujours la console."),
-        new("attributes", "Attributs AD", 0, Week, "Les attributs AD affichés restent récents pendant cette durée ; au-delà la fiche indique « à relire »."),
+        new("attributes", "Attributs AD", 0, Week, "Les attributs AD affichés restent récents pendant cette durée ; au-delà la fiche indique « à relire »."),
         new("inventory", "Inventaire léger WMI", 0, Week, "Un relevé réutilise l’inventaire léger plus récent que cette durée au lieu de le relire."),
         new("staticProbe", "Sondes WMI stables", 0, Week, "Un relevé réutilise le résultat des sondes stables (matériel, BIOS, système) plus récent que cette durée."),
         new("volatileProbe", "Sondes WMI variables", 0, Week, "Un relevé réutilise le résultat des sondes variables (services, réseau, charge, journaux) plus récent que cette durée."),
@@ -107,11 +107,11 @@ public static class CollectionSettingsRules
     /// <summary>The three usage profiles; an unknown identifier falls back to Standard.</summary>
     public static ImmutableArray<CollectionProfile> Profiles { get; } =
     [
-        new(Standard, "Standard", "Réseau local ou rapide : durées habituelles de Domenia, travaux de fond permis à tout moment.", "",
+        new(Standard, "Standard", "Réseau local ou rapide : durées habituelles de Domenia, travaux de fond permis à tout moment.", "",
             Durations(120, 300, 900, 300, 900, 60)),
-        new(SlowNetwork, "Réseau lent ou site distant", "Mesures réutilisées plus longtemps ; travaux de fond limités aux heures creuses.",
+        new(SlowNetwork, "Réseau lent ou site distant", "Mesures réutilisées plus longtemps ; travaux de fond limités aux heures creuses.",
             "lun-ven 00:00-08:00 12:00-14:00 18:00-24:00; sam-dim", Durations(600, 900, 3600, 3600, 14400, 300)),
-        new(Troubleshooting, "Dépannage en direct", "Mesures relues rapidement pendant une intervention ; travaux de fond permis à tout moment.", "",
+        new(Troubleshooting, "Dépannage en direct", "Mesures relues rapidement pendant une intervention ; travaux de fond permis à tout moment.", "",
             Durations(30, 60, 300, 120, 300, 30)),
     ];
 
@@ -122,15 +122,15 @@ public static class CollectionSettingsRules
     public static ImmutableArray<CollectionBudgetDefinition> BudgetDefinitions { get; } =
     [
         new(Concurrency, "Postes lus en même temps", 4, 1, 8, [1, 2, 4, 6, 8], "postes",
-            "Nombre de postes interrogés en parallèle pendant un relevé ; plus bas ménage un réseau lent."),
+            "Nombre de postes interrogés en parallèle pendant un relevé ; plus bas ménage un réseau lent."),
         new(CacheMinutes, "Réutilisation des mesures fraîches", 15, 0, 1440, [0, 5, 15, 60], "min",
-            "Une mesure plus récente que cette durée est réutilisée au lieu d’être relue ; la durée retenue est la plus courte entre le profil et ce réglage, 0 force la relecture."),
+            "Une mesure plus récente que cette durée est réutilisée au lieu d’être relue ; la durée retenue est la plus courte entre le profil et ce réglage, 0 force la relecture."),
         new(MaxTargets, "Plafond d’un relevé de liste", 500, 1, 20000, [100, 250, 500, 1000, 2000, 5000], "postes",
             "Nombre de postes au plus pour un relevé de la liste affichée ou de sa sélection (réglage Park.MaxTargets, désormais réglable ici)."),
         new(WidgetMax, "Plafond des widgets", 0, 0, 100000, [0, 500, 1000, 2000, 5000], "postes",
-            "Nombre de postes au plus pour la collecte d’un widget ; 0 : aucun plafond. La confirmation au-delà de 200 postes reste active même sans plafond."),
+            "Nombre de postes au plus pour la collecte d’un widget ; 0 : aucun plafond. La confirmation au-delà de 200 postes reste active même sans plafond."),
         new(WmiRetries, "Nouveaux essais WMI", 2, 0, 4, [0, 1, 2, 3, 4], "essais",
-            "Nouveaux essais d’une lecture WMI après un incident transitoire seulement ; jamais après un refus, un poste éteint ou une classe absente."),
+            "Nouveaux essais d’une lecture WMI après un incident transitoire seulement ; jamais après un refus, un poste éteint ou une classe absente."),
         new(WmiRetryDelaySeconds, "Premier délai avant un nouvel essai", 30, 10, 120, [10, 30, 60, 120], "s",
             "Délai avant le premier nouvel essai, puis ×4 jusqu’à 5 min."),
     ];
@@ -175,7 +175,7 @@ public static class CollectionSettingsRules
         }
         if (root.ValueKind != JsonValueKind.Object)
         {
-            warnings.Add("Réglages de collecte illisibles : les valeurs par défaut s’appliquent.");
+            warnings.Add("Réglages de collecte illisibles : les valeurs par défaut s’appliquent.");
             return Default;
         }
         var profile = Standard;
@@ -187,7 +187,7 @@ public static class CollectionSettingsRules
             }
             else
             {
-                warnings.Add("Profil de collecte inconnu : le profil Standard s’applique.");
+                warnings.Add("Profil de collecte inconnu : le profil Standard s’applique.");
             }
         }
         var freshness = ImmutableDictionary.CreateBuilder<string, ImmutableDictionary<string, int>>(StringComparer.Ordinal);
@@ -240,7 +240,7 @@ public static class CollectionSettingsRules
                 var text = entry.Value.GetString()!;
                 if (!CollectionWindowRules.Parse(text).Valid)
                 {
-                    warnings.Add("Fenêtre de collecte enregistrée illisible : travaux de fond suspendus jusqu’à correction.");
+                    warnings.Add("Fenêtre de collecte enregistrée illisible : travaux de fond suspendus jusqu’à correction.");
                 }
                 windows[entry.Name] = text.Trim();
             }
@@ -400,10 +400,10 @@ public static class CollectionSettingsRules
             CollectionWindowRules.Sources,
             [.. budgets],
             [
-                "La durée retenue pour une mesure est la plus courte entre le profil et la réutilisation des mesures fraîches ; 0 force la relecture.",
-                "Les réglages sont lus au début de chaque relevé : un relevé en cours garde ceux de son départ.",
+                "La durée retenue pour une mesure est la plus courte entre le profil et la réutilisation des mesures fraîches ; 0 force la relecture.",
+                "Les réglages sont lus au début de chaque relevé : un relevé en cours garde ceux de son départ.",
                 "La confirmation au-delà de 200 postes reste active, même sans plafond des widgets.",
-                "Une fenêtre fermée ne retient que les travaux de fond ; un relevé lancé à la main reste possible et sa confirmation le signale.",
+                "Une fenêtre fermée ne retient que les travaux de fond ; un relevé lancé à la main reste possible et sa confirmation le signale.",
             ],
             [.. warnings]);
     }

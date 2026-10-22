@@ -37,7 +37,7 @@ public static class StoragePolicyRules
         new("inventory", "inventoryDays", "Inventaire", false, "ces postes perdront leur dernier inventaire léger (modèle, mémoire, disque, système)"),
         new("probe", "probeDays", "Sondes", false, "les résultats de sondes WMI correspondants seront à relire sur les postes"),
         new("detail", "detailDays", "Détails", false, "les résultats détaillés (logiciels, instances) seront à relire sur les postes"),
-        new("linkHistory", "linkHistoryDays", "Historique des associations", true, "seules les observations identiques répétées sont retirées ; chaque changement d’utilisateur et la première et la dernière observation de chaque période sont gardés"),
+        new("linkHistory", "linkHistoryDays", "Historique des associations", true, "seules les observations identiques répétées sont retirées ; chaque changement d’utilisateur et la première et la dernière observation de chaque période sont gardés"),
     ];
 
     /// <summary>Days of a family under a policy.</summary>
@@ -147,7 +147,7 @@ public static class StoragePolicyRules
 
     /// <summary>« 30 jours, appliqués après prévisualisation et confirmation ; aucune suppression automatique. » (Get-DomeniaDataRetentionText).</summary>
     public static string RetentionText(int days) =>
-        days <= 0 ? "Sans limite de durée." : FrenchText.Count(days, "jour", "jours") + ", appliqués après prévisualisation et confirmation ; aucune suppression automatique.";
+        days <= 0 ? "Sans limite de durée." : FrenchText.Count(days, "jour", "jours") + ", appliqués après prévisualisation et confirmation ; aucune suppression automatique.";
 
     /// <summary>Cutoff of a family: now minus its days, or null (kept without time limit).</summary>
     public static DateTimeOffset? Cutoff(StoragePolicy policy, string family, DateTimeOffset now)
@@ -204,13 +204,13 @@ public static class StoragePolicyRules
             var what = family.Compaction ? FrenchText.Count(count, "observation répétée", "observations répétées") : FrenchText.Count(count, "mesure", "mesures");
             var text = count <= 0
                 ? family.Label + FrenchText.Colon + "rien d’antérieur au " + date + "."
-                : family.Label + FrenchText.Colon + what + " antérieure" + (count > 1 ? "s" : "") + " au " + date + " à retirer ; " + family.Loss + ".";
+                : family.Label + FrenchText.Colon + what + " antérieure" + (count > 1 ? "s" : "") + " au " + date + " à retirer ; " + family.Loss + ".";
             rows.Add(new RetentionPreviewRow(family.Family, family.Label, days, cutoff, count, family.Compaction, text));
             lines.Add(text);
         }
-        lines.Add("Toujours conservés" + FrenchText.Colon + "objets AD, comptes, associations actuelles et déclarées, requêtes, journaux et reçus ; dates illisibles et tentatives récentes.");
-        lines.Add("Une sauvegarde vérifiée est faite juste avant ; elle reste hors de la rotation planifiée.");
-        lines.Add("La suppression libère de la place réutilisable dans la base ; elle ne réduit pas immédiatement la taille du fichier.");
+        lines.Add("Toujours conservés" + FrenchText.Colon + "objets AD, comptes, associations actuelles et déclarées, requêtes, journaux et reçus ; dates illisibles et tentatives récentes.");
+        lines.Add("Une sauvegarde vérifiée est faite juste avant ; elle reste hors de la rotation planifiée.");
+        lines.Add("La suppression libère de la place réutilisable dans la base ; elle ne réduit pas immédiatement la taille du fichier.");
         var total = rows.Sum(r => r.Rows);
         var fingerprint = Fingerprint("retention", store, rows.Select(r => r.Family + "=" + r.Days.ToString(CultureInfo.InvariantCulture) + ":" + r.Rows.ToString(CultureInfo.InvariantCulture)));
         return new RetentionPreview(policy, at, [.. rows], total, [.. lines], fingerprint, total == 0);
@@ -266,8 +266,8 @@ public static class StoragePolicyRules
         var lines = new List<string>
         {
             policy.AutomaticBackup
-                ? "Sauvegarde automatique" + FrenchText.Colon + "toutes les " + FrenchText.Integer(policy.BackupHours) + FrenchText.Nbsp + "h tant que Domenia est ouvert ; " + FrenchText.Count(policy.BackupKeep, "copie conservée", "copies conservées") + " dans le dossier Backups."
-                : "Sauvegarde automatique" + FrenchText.Colon + "désactivée. « Sauvegarder maintenant » reste disponible.",
+                ? "Sauvegarde automatique" + FrenchText.Colon + "toutes les " + FrenchText.Integer(policy.BackupHours) + FrenchText.Nbsp + "h tant que Domenia est ouvert ; " + FrenchText.Count(policy.BackupKeep, "copie conservée", "copies conservées") + " dans le dossier Backups."
+                : "Sauvegarde automatique" + FrenchText.Colon + "désactivée. « Sauvegarder maintenant » reste disponible.",
         };
         var verified = last is not null && IsVerified(last) ? last : null;
         if (verified is not null)

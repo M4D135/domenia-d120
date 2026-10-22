@@ -1,0 +1,61 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : choisir la destination d’une copie",
+  "description": "Ouvre « Copier une sauvegarde vers… » : un nom de fichier est proposé (Domenia-AAAAMMJJ-HHmm.db), la destination est contrôlée en direct ; un partage est refusé par sa règle, sans rien préparer.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "parametres?section=donnees&onglet=sauvegardes",
+  "steps": [
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "click",
+      "selector": "[data-act=\"backup-copy\"]",
+      "title": "Copier une sauvegarde vers…"
+    },
+    {
+      "do": "wait",
+      "selector": ".k-dlg [data-dest-name]",
+      "title": "Le choix de la destination est ouvert"
+    },
+    {
+      "do": "type",
+      "selector": ".k-dlg [data-dest-folder]",
+      "text": "\\\\serveur\\partage",
+      "clear": true,
+      "title": "Saisir un partage"
+    },
+    {
+      "do": "wait",
+      "contains": "réseau refusée",
+      "within": ".k-dlg [data-dest-check]",
+      "title": "Le partage est refusé, règle nommée"
+    },
+    {
+      "do": "expect",
+      "selector": ".k-dlg .k-dlg-foot [data-id=\"ok\"]",
+      "property": "disabled",
+      "equals": true,
+      "title": "Rien ne peut être préparé"
+    },
+    {
+      "do": "shot",
+      "name": "copie-destination",
+      "selector": ".k-dlg"
+    },
+    {
+      "do": "press",
+      "key": "Escape",
+      "title": "Fermer sans rien préparer"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

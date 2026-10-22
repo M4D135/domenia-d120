@@ -134,4 +134,28 @@ public static class SettingsFormat
         ArgumentNullException.ThrowIfNull(sha256);
         return sha256.Length > 12 ? sha256[..12] + "…" : sha256;
     }
+
+    /// <summary>
+    /// A time zone in plain French (« Paris (UTC+01:00, heure d’été UTC+02:00) »), never the English identifier of Windows
+    /// (« Romance Standard Time »): the city of the usual identifiers, otherwise the display name of the system.
+    /// </summary>
+    public static string ZoneLabel(TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        static string Offset(TimeSpan offset) =>
+            "UTC" + (offset < TimeSpan.Zero ? FrenchText.Minus : "+") + offset.Duration().ToString("hh':'mm", System.Globalization.CultureInfo.InvariantCulture);
+        var city = zone.Id switch
+        {
+            "Romance Standard Time" or "Europe/Paris" => "Paris",
+            "W. Europe Standard Time" or "Europe/Berlin" => "Berlin",
+            "GMT Standard Time" or "Europe/London" => "Londres",
+            "Morocco Standard Time" or "Africa/Casablanca" => "Casablanca",
+            "SA Pacific Standard Time" or "America/Bogota" => "Bogota",
+            "Reunion Standard Time" or "Mauritius Standard Time" or "Indian/Reunion" => "La Réunion",
+            "UTC" or "Etc/UTC" => "Temps universel",
+            _ => null,
+        };
+        var label = city is null ? zone.DisplayName : city + " (" + Offset(zone.BaseUtcOffset) + (zone.SupportsDaylightSavingTime ? ", heure d’été " + Offset(zone.BaseUtcOffset + TimeSpan.FromHours(1)) : "") + ")";
+        return label;
+    }
 }

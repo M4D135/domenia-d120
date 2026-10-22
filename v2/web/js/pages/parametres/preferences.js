@@ -6,27 +6,23 @@ import {
 } from './common.js';
 import { reveal, copyText } from '../../ui.js';
 import { confirmDialog } from '../../kit/dialog.js';
+import { readingPrefs, saveReadingPrefs } from './interface.js';
 
-const HEAD = { title: 'Préférences', lead: 'Ce que Domenia mémorise sur ce poste, écran par écran : exportez-le, importez-le sur un autre poste, ou revenez aux réglages d’origine par groupe.', icon: 'sliders', tone: 'accent' };
+const HEAD = { title: 'Préférences', lead: 'Ce que Domenia mémorise sur ce poste, écran par écran : exportez-le, importez-le sur un autre poste, ou revenez aux réglages d’origine par groupe.', icon: 'sliders', tone: 'accent' };
 const STATES = {
   read: ['ok', 'Lu', 'check'], absent: ['off', 'Pas encore créé', 'info'], memory: ['accent', 'En mémoire', 'sparkles'],
   locked: ['warn', 'Verrouillé', 'lock'], unreadable: ['alert', 'Illisible', 'alert'], unknownFormat: ['alert', 'Format inconnu', 'alert'], tooLarge: ['alert', 'Trop volumineux', 'alert'],
 };
-const UI_DEFAULTS = { zoom: 100, density: 'confort', profile: 'essentiel', helpVisible: false, logWrap: false, logSize: 11 };
-const PREF_KEY = 'domenia.prefs.v1';
-const UI_KEY = 'domenia.ui.v1';
+const UI_DEFAULTS = { theme: 'system', motion: 'full', navCollapsed: false, profile: 'essentiel', density: 'normal', helpTips: true };
+const READING_DEFAULTS = { logWrap: false, logSize: 11 };
+const DENSITY_LABELS = { compact: 'densité compacte', normal: 'densité normale', confortable: 'densité confort' };
 
-function readJson(key) {
-  try { return JSON.parse(localStorage.getItem(key) ?? '{}') ?? {}; } catch { return {}; }
-}
-
-/** The interface part of an export: theme, animations, menu (shell) and the preferences of Paramètres (zoom, density…). */
-function interfacePart() {
-  const p = readJson(PREF_KEY);
-  const ui = readJson(UI_KEY);
-  const out = {};
-  for (const k of ['theme', 'motion', 'navCollapsed']) if (k in p) out[k] = p[k];
-  for (const k of Object.keys(UI_DEFAULTS)) if (k in ui) out[k] = ui[k];
+/** The interface part of an export: the preferences of the shell and the reading options of the journal (never the zoom: engine). */
+function interfacePart(sctx) {
+  const p = sctx.prefs.get();
+  const reading = readingPrefs();
+  const out = { ...p };
+  for (const k of Object.keys(READING_DEFAULTS)) if (k in reading) out[k] = reading[k];
   return out;
 }
 
@@ -35,30 +31,31 @@ function describeInterface(ui) {
   const themes = { light: 'thème clair', dark: 'thème sombre', contrast: 'contraste élevé', system: 'thème de Windows' };
   if (ui.theme) parts.push(themes[ui.theme] ?? ui.theme);
   if (ui.motion) parts.push(ui.motion === 'reduced' ? 'animations réduites' : ui.motion === 'system' ? 'animations de Windows' : 'animations riches');
-  if (Number.isInteger(ui.zoom)) parts.push(`zoom ${ui.zoom}${NBSP}%`);
-  if (ui.density) parts.push(`densité ${ui.density}`);
+  if (ui.density) parts.push(DENSITY_LABELS[ui.density] ?? `densité ${ui.density}`);
   if (ui.profile) parts.push(`profil ${ui.profile === 'expert' ? 'Expert' : 'Essentiel'}`);
   if (typeof ui.navCollapsed === 'boolean') parts.push(ui.navCollapsed ? 'menu replié' : 'menu déplié');
-  return parts.join(', ');
+  if (typeof ui.helpTips === 'boolean') parts.push(ui.helpTips ? 'infobulles affichées' : 'infobulles coupées');
+  return parts.join(', ') || 'aucun réglage reconnu';
 }
 
+/** Applies an imported or default interface part through the store of the shell (unknown values are left out by it). */
 function applyInterface(sctx, ui) {
-  const shell = sctx.shell;
-  const known = ['light', 'dark', 'contrast', 'system'];
-  if (shell) {
-    if (known.includes(ui.theme)) shell.setTheme(ui.theme);
-    if (['full', 'reduced', 'system'].includes(ui.motion)) shell.setMotion(ui.motion);
-    if (typeof ui.navCollapsed === 'boolean') shell.setCollapsed(ui.navCollapsed);
-    const patch = {};
-    for (const k of Object.keys(UI_DEFAULTS)) if (k in ui) patch[k] = ui[k];
-    shell.setUi(patch);
-  } else {
-    try {
-      localStorage.setItem(PREF_KEY, JSON.stringify({ ...readJson(PREF_KEY), theme: ui.theme, motion: ui.motion, navCollapsed: ui.navCollapsed }));
-      localStorage.setItem(UI_KEY, JSON.stringify({ ...readJson(UI_KEY), ...ui }));
-    } catch { /* session only */ }
-  }
+  sctx.prefs.set(ui);
+  const reading = {};
+  if (typeof ui.logWrap === 'boolean') reading.logWrap = ui.logWrap;
+  if ([10, 11, 12, 14, 16, 18].includes(ui.logSize)) reading.logSize = ui.logSize;
+  if (Object.keys(reading).length) saveReadingPrefs(reading);
   sctx.refreshAppearanceTile();
+}
+
+/** The zoom back to 100 % (host); silent when the window cannot be zoomed now (capture, browser preview). */
+async function resetZoom(sctx) {
+  try {
+    const w = await sctx.call('settings.window.zoom.set', { percent: 100 });
+    sctx.setZoom?.(w.zoom);
+  } catch (err) {
+    if (err?.code !== 'preview.engineRequired' && err?.code !== 'settings.windowUnavailable') console.error(err);
+  }
 }
 
 function documentCard(v) {
@@ -67,7 +64,7 @@ function documentCard(v) {
   const owners = v.owners.length
     ? `<ul class="pr-owners">${v.owners.map((o, n) => `<li data-j="${n}"><details><summary><b>${esc(o.label)}</b><span class="pr-owner-n">${count(o.keys, 'clé', 'clés')}</span>${meter((o.keys / max) * 100, `${o.label} : ${o.keys} clés`)}<span class="pr-sub">${esc(size(o.bytes))}</span></summary>
         <ul class="pr-keys-list">${o.names.map((k) => `<li class="mono">${esc(k)}</li>`).join('')}</ul></details></li>`).join('')}</ul>`
-    : '<p class="pr-sub">Aucune préférence mémorisée pour l’instant : tout est à sa valeur d’origine.</p>';
+    : '<p class="pr-sub">Aucune préférence mémorisée pour l’instant : tout est à sa valeur d’origine.</p>';
   return card({
     id: 'document', title: 'Document des préférences', sub: v.persistent ? 'Écrit atomiquement, partagé entre les fenêtres de Domenia' : 'Rien n’est écrit sur le disque dans cette session', iconName: 'file',
     actions: v.persistent ? button('open-data', 'Ouvrir le dossier', 'folder', { kind: 'ghost' }) : '',
@@ -80,7 +77,7 @@ function documentCard(v) {
 function exportCard() {
   return card({
     id: 'export', title: 'Exporter', sub: 'Texte à copier, à importer sur un autre poste', iconName: 'download',
-    body: `<p class="pr-text">Les préférences approuvées des écrans et celles de l’interface (thème, animations, zoom, densité). Jamais l’identité de connexion, jamais un secret.</p>
+    body: `<p class="pr-text">Les préférences approuvées des écrans (widgets, OU de travail, collecte, conservation, zoom) et celles de l’interface (thème, animations, menu, profil, densité). Jamais l’identité de connexion, la fenêtre de ce poste ni un secret.</p>
       <div class="pr-actions" data-setting="export">${button('export', 'Exporter les préférences', 'download', { kind: 'primary' })}</div>
       <div class="pr-export" data-slot="export" hidden></div>`,
   });
@@ -97,7 +94,7 @@ function importCard() {
 
 function resetCard(v) {
   return card({
-    id: 'reset', title: 'Réinitialiser', sub: 'Par groupe ; rien d’autre n’est touché', iconName: 'undo', cls: 'pr-wide',
+    id: 'reset', title: 'Réinitialiser', sub: 'Par groupe ; rien d’autre n’est touché', iconName: 'undo', cls: 'pr-wide',
     body: `<div class="pr-resets" data-setting="reset">${v.resetGroups.map((g, n) => `<div class="pr-reset${g.id === 'all' ? ' all' : ''}" data-j="${n}">
         <span class="pr-reset-ico">${glyph(g.id === 'interface' ? 'sparkles' : g.id === 'widgets' ? 'home' : g.id === 'workingScope' ? 'folder' : g.id === 'collection' ? 'wifi' : g.id === 'storage' ? 'database' : g.id === 'connection' ? 'key' : 'undo')}</span>
         <div><b>${esc(g.label)}</b><span>${esc(g.detail)}</span></div>
@@ -136,13 +133,13 @@ export function mount(host, sctx, { open } = {}) {
     try {
       const out = await sctx.call('settings.preferences.export');
       const doc = JSON.parse(out.text);
-      doc.interface = interfacePart();
+      doc.interface = interfacePart(sctx);
       const text = JSON.stringify(doc, null, 2);
       const slot = host.querySelector('[data-slot="export"]');
       if (!slot) return;
       slot.hidden = false;
       slot.innerHTML = `<textarea class="input mono" rows="8" readonly aria-label="Texte de l’export">${esc(text)}</textarea>
-        <div class="pr-actions">${button('export-copy', 'Copier le texte', 'copy', { kind: 'primary' })}<span class="pr-sub">${esc(`${count(out.keys, 'clé', 'clés')}, ${size(new TextEncoder().encode(text).length)}`)}${out.excluded.length ? ` · ${esc(count(out.excluded.length, 'clé exclue', 'clés exclues'))} (identité de connexion)` : ''}</span></div>`;
+        <div class="pr-actions">${button('export-copy', 'Copier le texte', 'copy', { kind: 'primary' })}<span class="pr-sub">${esc(`${count(out.keys, 'clé', 'clés')}, ${size(new TextEncoder().encode(text).length)}`)}${out.excluded.length ? ` · ${esc(count(out.excluded.length, 'clé exclue', 'clés exclues'))} (identité de connexion, fenêtre de ce poste ou clé inconnue)` : ''}</span></div>`;
       slot.dataset.text = text;
       paint(slot);
     } catch (err) { sctx.toast(reported(err), { tone: 'alert' }); }
@@ -175,7 +172,7 @@ export function mount(host, sctx, { open } = {}) {
       let ui = null;
       try { ui = preview.hasInterface ? JSON.parse(text).interface : null; } catch { ui = null; }
       showPreview(preview, ui);
-      setOff(host.querySelector('[data-act="import-apply"]'), !preview.valid || (!preview.changes.length && !ui), preview.valid ? 'Rien ne change.' : 'Export illisible : rien à importer.');
+      setOff(host.querySelector('[data-act="import-apply"]'), !preview.valid || (!preview.changes.length && !ui), preview.valid ? 'Rien ne change.' : 'Export illisible : rien à importer.');
     } catch (err) { sctx.toast(reported(err), { tone: 'alert' }); } finally { btn.disabled = false; }
   }
 
@@ -202,18 +199,21 @@ export function mount(host, sctx, { open } = {}) {
     const g = view?.resetGroups.find((x) => x.id === group);
     if (!g) return;
     const ok = await confirmDialog({
-      title: `Réinitialiser : ${g.label.toLowerCase()} ?`,
+      title: `Réinitialiser : ${g.label.toLowerCase()} ?`,
       message: `${g.detail} Les reçus d’écriture, le journal et la base locale ne sont jamais touchés.`,
       confirmLabel: 'Réinitialiser', danger: group === 'all',
     });
     if (!ok) return;
     try {
-      if (group === 'interface' || group === 'all') applyInterface(sctx, { theme: 'system', motion: 'full', navCollapsed: false, ...UI_DEFAULTS });
+      if (group === 'interface' || group === 'all') {
+        applyInterface(sctx, { ...UI_DEFAULTS, ...READING_DEFAULTS });
+        await resetZoom(sctx);
+      }
       if (group !== 'interface') {
         const result = await sctx.call('settings.preferences.reset', { group });
         sctx.toast(result.summary, { tone: result.failed.length ? 'warn' : 'ok', life: 5200 });
       } else {
-        sctx.toast('Interface réinitialisée : thème de Windows, animations riches, zoom 100 %, densité confort, profil Essentiel.', { tone: 'ok', life: 5200 });
+        sctx.toast(`Interface réinitialisée${COLON}thème de Windows, animations riches, zoom 100${NBSP}%, densité normale, profil Essentiel, infobulles affichées.`, { tone: 'ok', life: 5200 });
       }
       await load();
     } catch (err) { sctx.toast(reported(err), { tone: 'alert' }); }
@@ -228,7 +228,7 @@ export function mount(host, sctx, { open } = {}) {
     else if (act === 'export-copy') {
       const text = host.querySelector('[data-slot="export"]')?.dataset.text ?? '';
       const ok = await copyText(text);
-      sctx.toast(ok ? 'Export copié dans le presse-papiers.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
+      sctx.toast(ok ? 'Export copié dans le presse-papiers.' : 'Copie impossible : presse-papiers indisponible.', { tone: ok ? 'ok' : 'warn' });
     } else if (act === 'import-preview') doPreview(btn);
     else if (act === 'import-apply') doImport(btn);
     else if (act.startsWith('reset:')) doReset(act.slice(6));
@@ -238,7 +238,7 @@ export function mount(host, sctx, { open } = {}) {
   };
   const onInput = (e) => {
     if (e.target instanceof HTMLTextAreaElement && e.target.matches('[data-import]')) {
-      if (preview) { setOff(host.querySelector('[data-act="import-apply"]'), true, 'Texte modifié : refaites l’aperçu.'); preview = null; }
+      if (preview) { setOff(host.querySelector('[data-act="import-apply"]'), true, 'Texte modifié : refaites l’aperçu.'); preview = null; }
     }
   };
   host.addEventListener('click', onClick);

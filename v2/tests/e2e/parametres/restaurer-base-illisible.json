@@ -1,0 +1,123 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : restaurer une base déclarée illisible",
+  "description": "Joue « Base illisible » (base fictive), contrôle l’intégrité (verdict Défaut, seule la restauration proposée), choisit une sauvegarde vérifiée, confirme avec le nom du domaine et vérifie le reçu relu ; les préférences jointes sont réappliquées.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "parametres?section=demonstration",
+  "steps": [
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "click",
+      "selector": "[data-act=\"scenario:storeUnreadable\"]",
+      "title": "Jouer « Base illisible »"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…",
+      "title": "Confirmer le plan du scénario"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer une seule fois"
+    },
+    {
+      "do": "wait",
+      "contains": "Appliquée (simulation)",
+      "timeoutMs": 20000,
+      "title": "Scénario appliqué"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "go",
+      "route": "parametres?section=donnees&onglet=diagnostic",
+      "title": "Ouvrir le diagnostic"
+    },
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran est prêt"
+    },
+    {
+      "do": "click",
+      "selector": "[data-card=\"integrity\"] [data-act=\"integrity\"]",
+      "title": "Contrôler l’intégrité"
+    },
+    {
+      "do": "wait",
+      "contains": "Défaut",
+      "within": "[data-card=\"integrity\"]",
+      "timeoutMs": 20000,
+      "title": "Verdict Défaut"
+    },
+    {
+      "do": "click",
+      "selector": "[data-card=\"integrity\"] [data-act=\"restore\"]",
+      "title": "Restaurer une sauvegarde…"
+    },
+    {
+      "do": "click",
+      "text": "Préparer la restauration",
+      "within": ".k-dlg",
+      "title": "Choisir la sauvegarde proposée"
+    },
+    {
+      "do": "wait",
+      "contains": "Restauration d’une sauvegarde",
+      "title": "Le plan de la restauration est affiché"
+    },
+    {
+      "do": "expect",
+      "contains": "Dernier lot",
+      "title": "Le dernier lot de la sauvegarde est dit"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer avec le nom…",
+      "title": "Confirmer avec le nom du domaine"
+    },
+    {
+      "do": "type",
+      "selector": ".k-cw-typed input",
+      "text": "example.local",
+      "title": "Saisir le nom du domaine"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer une seule fois"
+    },
+    {
+      "do": "wait",
+      "contains": "Appliquée (simulation)",
+      "timeoutMs": 20000,
+      "title": "Le reçu dit la base restaurée"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "wait",
+      "contains": "Préférences de la sauvegarde réappliquées",
+      "within": ".toasts",
+      "title": "L’annexe des préférences est réappliquée"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
