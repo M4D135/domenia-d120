@@ -10,8 +10,11 @@
     "REL-008",
     "REL-011",
     "REL-012",
+    "REL-014",
     "REL-015",
     "REL-016",
+    "REL-017",
+    "REL-018",
     "REL-019",
     "REL-022",
     "REL-023",
@@ -20,6 +23,7 @@
     "REL-027",
     "REL-028",
     "REL-029",
+    "REL-030",
     "REL-031",
     "REL-032",
     "REL-033",
@@ -57,22 +61,6 @@
     {
       "id": "REL-013",
       "reste": "Lecture et migration de la table SQLite user_machine_links de Domenia 1 (schéma 11) par Domenia.Store, mode annuaire (contrat au § 6.1 de docs/ops/relations.md) ; la simulation lit son magasin en mémoire au premier usage."
-    },
-    {
-      "id": "REL-014",
-      "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
-    },
-    {
-      "id": "REL-017",
-      "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
-    },
-    {
-      "id": "REL-018",
-      "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
-    },
-    {
-      "id": "REL-030",
-      "reste": "Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures."
     }
   ],
   "notes": [

@@ -17,7 +17,7 @@ compilé dans la VM (0 avertissement), tests écrits et non exécutés (décisio
 | Identité par GUID (point 9) | Un lien porteur de GUID n’appartient qu’à cet objet ; même nom autre GUID ou lien antérieur à la création = autre détenteur ; sans GUID = « identité non vérifiable ». |
 | Aucune sonde sans geste explicite | Chaque lecture réseau part d’un clic ; la détection montre la liste exacte des postes avant tout contact (D047) ; le domaine entier n’est jamais substitué. |
 | Écritures confirmées, journalisées, restaurables | Toute modification du magasin est un **plan** (`relations.*.plan`, une lecture) exécuté par `write.execute` : préconditions relues (empreinte de chaque association, contrôle optimiste REL-012), reçu avant l’envoi, relecture, journal local. Jamais rejoué. |
-| 64 changements par enregistrement (REL-011, REL-014) | `WritePlans.MaxChanges` = 64 ; au-delà, refus `relation.tooMany` avant tout plan. Un seul enregistrement à la fois : le canal unique du circuit. Les observations (détection, lecture de session, relevé, moisson, observation versée par un autre écran) restent **en mémoire pour la session** (« Session uniquement ») et s’enregistrent **par lots de 64** : `relations.observations.plan` sans clé prend les 64 suivantes non enregistrées et annonce le reste dans ses risques ; la page enchaîne les lots (« Tout enregistrer, lot par lot »), chaque lot étant un plan confirmé et tracé par un reçu (§ 1.1). |
+| 64 changements par enregistrement (REL-011, REL-014) | `WritePlans.MaxChanges` = 64 ; au-delà, refus `relation.tooMany` avant tout plan. Un seul enregistrement à la fois : le canal unique du circuit. Les observations (détection, lecture de session, relevé, moisson, observation versée par un autre écran) sont **mémorisées automatiquement** dans la base locale, **par lots de 64**, sans confirmation (choix du 22/10, comme Domenia 1 ; `DECISIONS.md`) : `relations.observations.save` (`LocalWrite`), appelée par le moteur à la fin de `relations.detect.run`, `relations.computer.read` et `relations.harvest.run`, et par la page après 1,5 s de calme pour les observations versées par un autre écran. Chaque lot est scellé et appliqué avec les règles d’un plan (une affectation déclarée n’est jamais remplacée, une association modifiée ailleurs n’est jamais écrasée : le lot refusé s’arrête et le reste demeure « Session uniquement ») ; une ligne du journal des associations par changement (« Mémorisation automatique, lot n »), une ligne au journal technique. Active Directory n’est jamais écrit. `relations.observations.plan` reste disponible pour une observation choisie (circuit des écritures, § 1.1). |
 | Identité revérifiée (REL-002, REL-019) | La page envoie le GUID qu’elle a affiché : `relations.associate.plan` (`subjectGuid`, `targetGuid`) refuse un objet dont le GUID a changé (`write.targetUnknown`), `relations.detect.collect` (`guid`, `login`) s’arrête sur un compte recréé ou renommé (`relation.identityChanged`). |
 | Sources protégées (REL-043) | `Manual`, `Saisie manuelle`, `Import CSV`, `Import GLPI`, `Import osquery` : jamais proposées par le contrôle des orphelines, jamais remplacées par une détection. |
 
@@ -64,6 +64,7 @@ jusqu’à la décision (ou une classe dédiée aux fichiers d’export dans `PL
 | `relations.sweep.plan` | `LocalRead` | `{ limit (1..50), computers? }` (sans liste : file de l’OU de travail ; avec : 50 noms ou DN d’une liste chargée) | `RelationDetectionPlan` (périmètre `sweep` ou `loaded`) |
 | `relations.sweep.forget.plan` | `LocalRead` | aucun | `{ plan, token }` (type `relations.sweepReset`) |
 | `relations.observations.pending` | `LocalRead` | aucun | `RelationPendingObservations` |
+| `relations.observations.save` | `LocalWrite` | aucun | `RelationAutoSave` (`saved`, `batches`, `remaining`, `text`) ; mémorisation automatique par lots de 64, sans confirmation ; refus tracé au journal technique, `write.stale` |
 | `relations.export.save` | `LocalWrite` | `{ id, part, parts, subject, text }` (`subject` : `toutes`, `sujet`, `selection`, `moisson`, `orphelines`, `import` ; parties de 600 000 caractères, 64 au plus, 16 Mo en tout) | `RelationExportAnswer` |
 | `relations.export.open` | `Local` | `{ fileName }` (export de cette session) | `{ opened, message }` |
 | `relations.associate.plan` | `LocalRead` en simulation, `NetworkRead` en mode annuaire | `{ dn, subjectGuid, target, targetGuid }` (GUID affichés, format D) | `{ plan, token }` (§ 12.1 d’OPERATIONS.md) |
@@ -150,8 +151,8 @@ leur nature) et `contradictions` les postes concernés.
    groupé par lots de 8** et ne demande la session qu’aux postes qui répondent. Chaque poste pousse `relations.detect.run:progress`
    (`planId`, `counters`, `computer`, `status`, `statusLabel`, `tone`, `currentUser`). Le résultat dit `within` (liste
    sondée incluse dans le plan), `complete`, `counters` (`planned`, `queried`, `confirmed`, `noSession`, `refused`,
-   `unreachable`, `stopped`, `text`), `savable` et `resultId` (observations gardées pour
-   `relations.observations.plan`). Les consoles confirmées sont visibles « Session uniquement » jusqu’à leur plan.
+   `unreachable`, `stopped`, `text`), `savable` et `resultId` (observations de cette lecture). Les consoles confirmées
+   sont mémorisées automatiquement dans la base locale à la fin de l’opération, par lots de 64 (§ 1).
 3. `stop` : arrêt demandé, pas une annulation confirmée ; le poste en cours se termine, résultat partiel déclaré.
 
 ### 3.5 Autres lectures

@@ -5922,7 +5922,7 @@
   ],
   "safeguards": "Un seul enregistrement de liens à la fois (« Attendez son résultat »). Refus sous maintenance. Message « n lien(s) en mémoire, enregistrement en arrière-plan en attente ».",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REL-015",
@@ -5990,7 +5990,7 @@
   ],
   "safeguards": "Seulement si le compte a un DN AD ; compte local ou nom nu jamais réinterprété ; écrivain unique.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REL-018",
@@ -6007,7 +6007,7 @@
   ],
   "safeguards": "Seulement un compte trouvé dans AD ; jamais une affectation déclarée ou importée remplacée ; poste déjà associé au même compte laissé tel quel.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REL-019",
@@ -6253,7 +6253,7 @@
   ],
   "safeguards": "Estimation d'impact confirmée en page ; refus d'identifiants remonté au disjoncteur ; association existante jamais écrasée.",
   "improvement": "",
-  "status": "partiel"
+  "status": "fait"
  },
  {
   "id": "REL-031",

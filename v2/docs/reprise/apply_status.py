@@ -180,7 +180,8 @@ new_table = ('| Page | Préfixe | Fonctions | Faites | Améliorées | Partielles
              '|---|---|---:|---:|---:|---:|---:|---:|\n' + '\n'.join(rows) + '\n')
 md = md[:table.start()] + new_table + md[table.end():]
 
-# Legend.
+# Legend (idempotent: the lines of `partiel` written by earlier runs are replaced, never repeated).
+md = re.sub(r'^\| `partiel` \|[^\n]*\n', '', md, flags=re.M)
 old_abandon = re.search(r'^\| `abandonne` \|[^\n]*$', md, re.M)
 md = (md[:old_abandon.start()]
       + '| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |\n'

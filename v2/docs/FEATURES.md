@@ -10,9 +10,6 @@ Ce catalogue est la liste de contrôle de la réécriture : chaque fonction de D
 | `fait` | Domenia 2 fait déjà ce que faisait Domenia 1 ; vérifié dans `v2/src` ou `v2/web` (la preuve est donnée plus bas). |
 | `ameliore` | Domenia 2 fait la fonction et l'améliore (réservé aux fonctions livrées avec une amélioration de la liste « Nouveautés »). |
 | `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
-| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
-| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
-| `partiel` | Domenia 2 fait une partie de la fonction ; ce qui reste à faire est écrit sous la fonction (« Reste à faire », repris de `docs/status/<page>.json`). |
 | `abandonne` | La fonction n'est pas reprise. Ce statut n'est posé que sur une décision écrite et datée de David : PST-001 (WAPT, décision du 22/10/2026). |
 
 Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préférence), **lecture locale** (base SQLite, fichier, mémoire), **lecture réseau** (annuaire, poste, DNS, contrôleur), **écriture** (annuaire, poste ou base locale). Une fonction qui réunit plusieurs fiches prend la classe la plus engageante.
@@ -34,7 +31,7 @@ Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préfér
 | [Rechercher](#rch) | RCH | 137 | 116 | 14 | 7 | 0 | 0 |
 | [Fiche](#fic) | FIC | 50 | 23 | 27 | 0 | 0 | 0 |
 | [Comptes](#cpt) | CPT | 21 | 11 | 7 | 3 | 0 | 0 |
-| [Utilisateurs et postes](#rel) | REL | 52 | 34 | 13 | 5 | 0 | 0 |
+| [Utilisateurs et postes](#rel) | REL | 52 | 38 | 13 | 1 | 0 | 0 |
 | [Poste](#pst) | PST | 117 | 83 | 31 | 2 | 0 | 1 |
 | [Comptes machine (panneau Compte poste)](#mac) | MAC | 3 | 1 | 2 | 0 | 0 | 0 |
 | [Assistance](#ass) | ASS | 16 | 7 | 9 | 0 | 0 | 0 |
@@ -45,7 +42,7 @@ Classe d'une fonction : **locale** (aucune lecture : règle, affichage, préfér
 | [Opérations](#ope) | OPE | 36 | 21 | 10 | 5 | 0 | 0 |
 | [Paramètres](#par) | PAR | 51 | 7 | 9 | 35 | 0 | 0 |
 | [Transverse : moteur, sécurité, stockage, interface commune](#trv) | TRV | 316 | 66 | 21 | 5 | 224 | 0 |
-| **Total** | | **993** | **479** | **216** | **73** | **224** | **1** |
+| **Total** | | **993** | **483** | **216** | **69** | **224** | **1** |
 
 ## Fonctions déjà faites dans Domenia 2
 
@@ -2781,7 +2778,7 @@ Valide un identifiant/mot de passe dans un runspace d'authentification dédié, 
 
 ## Utilisateurs et postes (REL)
 
-52 fonctions : 34 faites, 13 améliorées, 5 partielles.
+52 fonctions : 38 faites, 13 améliorées, 1 partielle.
 
 ### Association manuelle
 
@@ -2915,9 +2912,7 @@ Les associations poste-utilisateur de la base sont lues par worker au démarrage
 
 #### REL-014 · Enregistrement groupé des associations
 
-> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
-
-`partiel` · écriture
+`fait` · écriture
 
 Les changements d'associations sont comparés à leur dernier état connu et envoyés par lots de 64 au plus. Les observations d'arrière-plan sont regroupées après 1,5 s de calme, et la suite d'un lot partiel part au tour suivant. Un geste explicite de plus de 64 changements est refusé.
 
@@ -2949,9 +2944,7 @@ Depuis un utilisateur ou un poste sélectionné, ouvre le panneau Ajouter de Rel
 
 #### REL-017 · Association mémorisée du compte console
 
-> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
-
-`partiel` · écriture
+`fait` · écriture
 
 Un compte console observé et validé dans AD rejoint les relations du poste (source « Console CIM/DCOM », date UTC) par la règle d'upsert.
 
@@ -2961,9 +2954,7 @@ Un compte console observé et validé dans AD rejoint les relations du poste (so
 
 #### REL-018 · Association console créée par un relevé
 
-> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
-
-`partiel` · écriture
+`fait` · écriture
 
 Le compte console observé par un relevé devient une association utilisateur-poste, enregistrée par lots.
 
@@ -3079,9 +3070,7 @@ Un rejet ou refus de l'annuaire ou d'un poste ouvre une demande d'autre compte p
 
 #### REL-030 · Moisson du journal du contrôleur
 
-> Reste à faire : Décision de David attendue (REPRISE.md § 4) : mémorisation automatique sans confirmation comme Domenia 1, ou un plan confirmé par lot de 64 comme aujourd’hui (ou un plan collectif scellé, TRV-229). Fait : observations visibles tout de suite (« Session uniquement »), comptées, enregistrées lot par lot par le circuit des écritures.
-
-`partiel` · lecture réseau
+`fait` · lecture réseau
 
 Une requête sur le journal Sécurité du DC de la session (événements 4768, 4769, 4624, 7 jours par défaut, 1 à 30 ; 5 000 événements, 200 à 20 000) rend des milliers de couples utilisateur-poste sans contacter de poste ; comptes machines ignorés.
 
