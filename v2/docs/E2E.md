@@ -159,7 +159,7 @@ Conditions de `expect` (et de `wait` sur un élément) :
 | élément | au moins un élément visible correspond |
 | élément + `absent: true` | aucun élément visible ne correspond (une zone `within` absente compte comme absente) |
 | élément + `count: n` | exactement `n` éléments visibles correspondent |
-| `contains` (+ `within`) | le texte visible de la zone (la page entière sans `within`) contient ce texte ; `absent: true` pour l’inverse. Les capitales imposées par le CSS (`text-transform`) ne comptent pas : le texte visible est comparé sans casse, le texte du document avec sa casse exacte |
+| `contains` (+ `within`) | le texte visible de la zone (la page entière sans `within`) contient ce texte ; `absent: true` pour l’inverse. Les capitales imposées par le CSS (`text-transform`) ne comptent pas : le texte visible est comparé sans casse, le texte du document avec sa casse exacte. Le contenu d’une zone de texte (`textarea` visible) et le texte d’un élément SVG comptent ; un trait d’union insécable (U+2011) se lit « - » |
 | élément + `property` + `equals` | la propriété DOM de l’élément unique (ou du `nth`) vaut `equals` (`checked`, `disabled`, `value`, `ariaExpanded`…) |
 | élément + `attribute` + `equals` | l’attribut vaut `equals` (`null` : attribut absent) |
 

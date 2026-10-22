@@ -24,11 +24,15 @@ internal static class PageScripts
         const fold = (s) => norm(s).toLocaleLowerCase('fr');
         // innerText exists on HTML elements only: an SVG element (graph, chart) gives its text content.
         const shownTextOf = (el) => (el instanceof HTMLElement ? el.innerText : el.textContent);
+        // The text of a text area (an export, a command) is its value, absent from innerText: it counts in the zone's text.
+        const areaValues = (el) => (el instanceof HTMLTextAreaElement ? [el] : [...el.querySelectorAll('textarea')].filter(shown)).map((a) => a.value);
         const visibleHas = (el, text) => {
-          const shownText = norm(shownTextOf(el));
+          const values = areaValues(el);
+          const shownText = norm([shownTextOf(el), ...values].join(' '));
           const want = norm(text);
           if (shownText.includes(want)) return true;
-          return fold(shownText).includes(fold(want)) && squash(el.textContent).includes(squash(text));
+          const exact = [el.textContent, ...values].map(squash).join('');
+          return fold(shownText).includes(fold(want)) && exact.includes(squash(text));
         };
         // Displayed, not visibility:hidden, non-empty box. As in Playwright, opacity does not hide: a card waiting for its
         // entrance animation below the fold (.reveal) is there, and scrolling to it plays the animation.
