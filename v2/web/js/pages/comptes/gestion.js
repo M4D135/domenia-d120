@@ -4,7 +4,7 @@
 // on the operator's gesture), accounts.detail (on a double click or Entrée in directory mode). Writes: runWrite (one account) and
 // the batch panel (several), never anything else.
 import { createGrid, createSplit, createFilterBar, glyph, setVars, NBSP } from '../../kit/index.js';
-import { esc, countUp, formatNumber, announce, copyText, toast } from '../../ui.js';
+import { esc, countUp, formatNumber, announce, copyText, toast, reveal } from '../../ui.js';
 import { runWrite } from '../../write-flow.js';
 import { avatar, plural, emptyState, errorSentence, STATUS_ICONS } from './shared.js';
 import { createDetail } from './detail.js';
@@ -107,6 +107,9 @@ export function mountGestion(panel, ctx, page) {
       <div class="cpt-ws-split"></div>
     </section>
   </div>`;
+  // The tab is mounted after the page cascaded its own cards in: its tiles and its workspace are observed here, or they
+  // would stay invisible (.reveal without .in).
+  const stopReveal = reveal(panel);
   panel.querySelectorAll('[data-i]').forEach((el) => setVars(el, { '--i': el.dataset.i }));
 
   const gridHost = document.createElement('div');
@@ -435,6 +438,7 @@ export function mountGestion(panel, ctx, page) {
     reload: () => load({ keep: true }),
     destroy: () => {
       alive = false;
+      stopReveal();
       clearTimeout(activeTimer);
       detail.destroy();
       grid.destroy();

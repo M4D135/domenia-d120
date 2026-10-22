@@ -889,16 +889,21 @@ export function createGrid(host, options) {
     }
   }
 
+  // Last active row told to onActiveChange: a filter may move the active row silently (restoreActive), and a click on that
+  // row must still be told, or the detail beside the grid stays on its empty state.
+  let toldActive = null;
   function setActive(pos, col, { scroll = true } = {}) {
     const n = st.view.length;
     const maxCol = visible().length + lead - 1;
     const p = pos === -1 ? -1 : clamp(pos, 0, Math.max(0, n - 1));
     st.active = { pos: n === 0 && p >= 0 ? -1 : p, col: clamp(col, 0, maxCol) };
-    const before = st.activeId;
     st.activeId = st.active.pos >= 0 ? idAt(st.active.pos) : null;
     if (scroll) ensureVisible(st.active.pos, st.active.col);
     markActive();
-    if (before !== st.activeId) o.onActiveChange?.(st.activeId == null ? null : st.rows[st.index.get(st.activeId)]);
+    if (toldActive !== st.activeId) {
+      toldActive = st.activeId;
+      o.onActiveChange?.(st.activeId == null ? null : st.rows[st.index.get(st.activeId)]);
+    }
   }
 
   function restoreActive() {
