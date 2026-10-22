@@ -6,8 +6,8 @@
   "start": "comptes?vue=droits",
   "steps": [
     { "do": "wait", "selector": ".cpt-req-grid .k-grid", "title": "Table des droits" },
-    { "do": "type", "selector": ".cpt-req-grid .k-gq", "text": "Réinitialiser" },
-    { "do": "click", "text": "Réinitialiser un mot de passe", "within": ".cpt-req-grid" },
+    { "do": "type", "selector": ".cpt-req-grid .k-gq", "text": "Réinitialisation" },
+    { "do": "click", "text": "Réinitialisation d’un mot de passe", "within": ".cpt-req-grid" },
     { "do": "expect", "contains": "Droit étendu", "within": ".cpt-req-detail", "title": "Le droit complet est lisible" },
     { "do": "expect", "selector": ".cpt-tr-list li", "count": 7, "title": "Sept transports, une carte chacun" },
     { "do": "shot", "name": "droits", "selector": ".cpt-droits" },

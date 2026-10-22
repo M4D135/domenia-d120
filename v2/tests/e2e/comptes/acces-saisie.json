@@ -11,7 +11,7 @@
     { "do": "wait", "contains": "Compte actuel conservé", "within": ".toasts" },
     { "do": "wait", "ms": 2500, "title": "Deux relectures de la révision" },
     { "do": "expect", "selector": "#cpt-remote-login", "property": "value", "equals": "EXAMPLE\\saisie-en-cours", "title": "La saisie est intacte (CPT-006, CPT-016)" },
-    { "do": "expect", "selector": ".cpt-access-chip", "attribute": "hidden", "equals": "", "title": "Plus d’accès à revoir : la pastille disparaît" },
+    { "do": "expect", "selector": ".cpt-access-chip", "absent": true, "title": "Plus d’accès à revoir : la pastille disparaît" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]
 }

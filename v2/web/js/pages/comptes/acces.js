@@ -549,7 +549,8 @@ export function mountAcces(panel, ctx, page) {
       try {
         await onSubmit({ login: value, password, body, box, drawer });
       } catch (err) {
-        console.error(err);
+        // A refused context (local account for the directory…) is an answer shown in the panel, not a fault.
+        if (err?.code !== 'accounts.credentialContext') console.error(err);
         if (body.isConnected) box.innerHTML = errorMarkup(err);
       } finally {
         drawer.setBusy(false);
