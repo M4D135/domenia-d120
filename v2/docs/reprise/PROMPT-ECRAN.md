@@ -21,4 +21,7 @@ Tu es dans l'arbre de travail de la branche v2-page/__ID__.
 6. Mets à jour v2/docs/status/__ID__.json, les tests C# et les scénarios E2E JSON (écrits, NON exécutés).
 7. Compile avec « bash v2/tools/vm.sh __ID__ build » jusqu'à 0 erreur et 0 avertissement.
    Pas de capture, pas de lancement, pas de suite de tests (tests en VM à la toute fin).
-8. Commite sur la branche v2-page/__ID__ avec un message en français, puis pousse cette branche.
+8. Une fois le rapport traité, refais toi-même une critique complète de parité :
+   - pour chaque fonction de features.json de la page « __ID__ » (sauf « abandonne »), vérifie qu'elle est réellement et fidèlement réalisée ;
+   - traite ce qui manque encore, puis recompile.
+9. Commite sur la branche v2-page/__ID__ avec un message en français, puis pousse cette branche. Le dernier commit « wip(...) » de la branche peut ne pas compiler : vérifie-le en premier.

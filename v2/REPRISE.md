@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026, vague 2 en cours**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 12 h 10, relève passée à OpenCode en pleine vague 2**.
 
 ## 1. Ce qu'est le projet
 
@@ -50,12 +50,22 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 Chaque écran a sa branche `v2-page/<id>` et, sur le Mac, un arbre de travail `../Domenia-D120-team/v2-<id>`. Les rapports
 des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-tour<N>.md`.
 
-| Écran (id) | Situation au 22/10 midi |
-|---|---|
-| accueil, rechercher, fiche, relations, assistance | Complétés une fois ; critique du tour 2 rendue (`*-tour2.md`), corrections à appliquer |
-| requetes, poste, parametres, shell, audit, operations | Complément du tour 1 interrompu (travail non commité dans les arbres) ; reprendre `*-tour1.md`, puis faire la critique 2 |
-| comptes | Complété (24/31 selon l'agent) ; critique 2 à faire |
-| schema, synchro | Complétés ; critique 2 à faire |
+| Écran (id) | Situation au 22/10, 12 h 10 (branches poussées sur GitHub) | À faire en premier |
+|---|---|---|
+| shell | Complément du tour 1 interrompu : commit `wip(shell)`, possiblement non compilable | Compiler, terminer `shell-tour1.md`, puis critique complète |
+| accueil | Complété une fois ; critique du tour 2 rendue | Traiter `accueil-tour2.md` (13 manques, 9 défauts de design, 13 de code) |
+| rechercher | Complété une fois ; critique du tour 2 rendue | Traiter `rechercher-tour2.md` (6, 10, 12) |
+| fiche | Complété une fois ; critique du tour 2 rendue | Traiter `fiche-tour2.md` (6, 10, 11) |
+| comptes | Complété (24/31 selon l'agent) | Critique complète puis compléments |
+| relations | Complété une fois ; critique du tour 2 rendue | Traiter `relations-tour2.md` (3, 7, 12) |
+| poste | Complément du tour 1 interrompu : commit `wip(poste)` ; WAPT à retirer entièrement | Compiler, terminer `poste-tour1.md`, retirer WAPT, critique complète |
+| assistance | Complété une fois ; critique du tour 2 rendue | Traiter `assistance-tour2.md` (2, 7, 8) |
+| requetes | Complément du tour 1 interrompu : commit `wip(requetes)` | Compiler, terminer `requetes-tour1.md`, critique complète |
+| audit | Complément du tour 1 interrompu : commit `wip(audit)` | Compiler, terminer `audit-tour1.md`, critique complète |
+| schema | Complété (10/11 selon l'agent) | Critique complète puis compléments |
+| synchro | Complété (30/30 selon l'agent) | Critique complète puis compléments |
+| operations | Complément du tour 1 commité en partie (`e0385ab`) | Terminer `operations-tour1.md`, critique complète |
+| parametres | Complément du tour 1 interrompu : commit `wip(parametres)` | Compiler, terminer `parametres-tour1.md`, critique complète |
 
 Pour chaque écran, le travail suit la même boucle :
 1. Lire le rapport critique.
@@ -113,15 +123,20 @@ Ensuite :
 
 ## 7. Reprendre avec OpenCode et l'API Claude
 
-1. Configurer le fournisseur Anthropic dans OpenCode avec la clé d'API de David (hors dépôt).
-2. Depuis la racine du dépôt (branche `v2` à jour : `git pull`), pour un écran :
+1. Configurer le fournisseur Anthropic dans OpenCode avec la clé d'API de David (hors dépôt), puis vérifier avec `opencode models`.
+2. Depuis le dépôt `~/Documents/Projets/Domenia-D120` (branche `v2` à jour), lancer la relève complète : les 14 écrans un par un, puis l'intégration.
 
 ```bash
-cd ../Domenia-D120-team/v2-<id>   # ou : git worktree add -b v2-page/<id> ../Domenia-D120-team/v2-<id> origin/v2-page/<id>
-opencode run --auto -m anthropic/<modèle> "$(cat ../../Domenia-D120/v2/docs/reprise/PROMPT-ECRAN.md | sed 's/__ID__/<id>/g')"
+MODEL=anthropic/<modèle> bash v2/tools/releve.sh
 ```
 
-3. Puis l'intégration, avec `v2/docs/reprise/PROMPT-INTEGRATION.md`.
-4. Puis les vagues 3 et 4 (§ 3), en suivant `DECISIONS.md` et ce document.
+   Ou seulement certains écrans, sans l'intégration :
 
-Mettre à jour ce document (§ 3 et § 4) à chaque étape, puis le pousser.
+```bash
+MODEL=anthropic/<modèle> bash v2/tools/releve.sh poste requetes
+```
+
+   - Journaux : `../Domenia-D120-team/_releve/` (`releve.log`, un journal par écran).
+   - Chaque écran suit `v2/docs/reprise/PROMPT-ECRAN.md` ; l'intégration suit `v2/docs/reprise/PROMPT-INTEGRATION.md`.
+3. Ensuite, les vagues 3 et 4 (§ 3), en suivant `DECISIONS.md` et ce document.
+4. Mettre à jour ce document (§ 3 et § 4) à chaque étape, puis le pousser.
