@@ -399,6 +399,19 @@ internal static class PlatformTests
         ("requetes.wmi.relations", OperationClass.Local),
         ("requetes.wmi.run", OperationClass.NetworkRead),
         ("requetes.wmi.schema", OperationClass.NetworkRead),
+        ("machine.account.forget", OperationClass.Local),
+        ("machine.account.state", OperationClass.LocalRead),
+        ("machine.account.trial", OperationClass.NetworkRead),
+        ("machine.account.use", OperationClass.Local),
+        ("machine.account.watch", OperationClass.Local),
+        ("machine.workstations.search", OperationClass.LocalRead),
+        ("schema.attribute", OperationClass.Local),
+        ("schema.class", OperationClass.Local),
+        ("schema.filter.analyze", OperationClass.Local),
+        ("schema.filter.insert", OperationClass.Local),
+        ("schema.list", OperationClass.Local),
+        ("schema.read", OperationClass.NetworkRead),
+        ("schema.status", OperationClass.Local),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("shell.activity", OperationClass.LocalRead),
@@ -432,7 +445,7 @@ internal static class PlatformTests
     {
         var modules = OperationModules.Discover([BridgeAssembly]);
         string[] names = [.. modules.Select(m => m.GetType().Name)];
-        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AccountsAccessOperations", "AccountsOperations", "AccueilOperations", "AssistanceOperations", "AuditOperations", "DashboardOperations", "DirectoryTreeOperations", "FicheOperations", "PosteOperations", "RelationsOperations", "RequetesOperations", "RequetesWmiOperations", "SearchOperations", "SessionOperations", "ShellOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
+        Check.True(names.SequenceEqual(["AccountUnlockOperations", "AccountsAccessOperations", "AccountsOperations", "AccueilOperations", "AssistanceOperations", "AuditOperations", "DashboardOperations", "DirectoryTreeOperations", "FicheOperations", "MachineOperations", "PosteOperations", "RelationsOperations", "RequetesOperations", "RequetesWmiOperations", "SchemaOperations", "SearchOperations", "SessionOperations", "ShellOperations", "WriteOperations"]), "modules trouvés : " + string.Join(", ", names));
         using var context = Context();
         var registry = OperationModules.CreateRegistry(context, modules);
         Check.Equal(SimulationOperations.Length, registry.Names.Count, "opérations déclarées");

@@ -1,0 +1,30 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes machine : saisir un compte poste, l’essayer, revenir au compte de connexion",
+  "description": "La règle met la session Windows en service ; le panneau « Compte poste » n’accepte aucun mot de passe en simulation et garde le compte en mémoire (niveau 3) ; l’essai sur SRV-FIC-01 lit l’annuaire fictif ; « Revenir au compte de connexion » rend la main à la session Windows.",
+  "modes": ["simulation"],
+  "start": "machine",
+  "steps": [
+    { "do": "expect", "text": "Session Windows", "within": ".mac-level[data-state=active]", "title": "Session Windows en service" },
+    { "do": "expect", "selector": ".mac-rule .mac-level.quiet", "count": 5, "title": "Les niveaux sans compte tiennent sur une ligne" },
+    { "do": "click", "selector": "[data-machine-pill]", "title": "Ouvrir le panneau par la pastille" },
+    { "do": "expect", "selector": ".k-drw .mac-panel", "title": "Panneau dans la page, jamais une fenêtre" },
+    { "do": "expect", "selector": ".mac-password", "property": "disabled", "equals": true, "title": "Aucun mot de passe en simulation" },
+    { "do": "type", "selector": ".mac-account", "text": "EXAMPLE\\Administrateur", "title": "Saisir le compte" },
+    { "do": "press", "key": "Enter", "title": "Utiliser ce compte (Entrée)" },
+    { "do": "wait", "contains": "EXAMPLE\\Administrateur (compte poste saisi, en mémoire seulement)", "within": ".mac-now", "title": "En service, niveau 3" },
+    { "do": "press", "key": "Escape", "title": "Échap ferme le panneau sans rien changer" },
+    { "do": "expect", "selector": ".k-drw", "absent": true },
+    { "do": "expect", "text": "Compte poste saisi", "within": ".mac-level[data-state=active]", "title": "Le niveau 3 est en service" },
+    { "do": "type", "selector": ".mac-search-input", "text": "srv-fic", "title": "Chercher un poste" },
+    { "do": "click", "text": "SRV-FIC-01", "within": ".mac-suggest", "title": "Choisir SRV-FIC-01" },
+    { "do": "wait", "text": "SRV-FIC-01", "within": ".mac-ws" },
+    { "do": "click", "selector": "[data-act=trial]", "title": "Essayer l’accès (lecture légère, sur clic)" },
+    { "do": "wait", "contains": "Accès administrateur OK sur SRV-FIC-01", "within": ".mac-trial-result", "timeoutMs": 15000, "title": "Administrateur du domaine : accès OK" },
+    { "do": "click", "text": "Revenir au compte de connexion", "within": ".mac-hero", "title": "Revenir au compte de connexion" },
+    { "do": "wait", "text": "Session Windows", "within": ".mac-level[data-state=active]", "title": "La session Windows reprend" },
+    { "do": "expect", "selector": ".mac-hero [data-generation]", "attribute": "data-generation", "equals": "2", "title": "Deux changements, deux générations (dans l’infobulle, plus en puce)" },
+    { "do": "journal", "contains": "Compte poste saisi pour la session" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

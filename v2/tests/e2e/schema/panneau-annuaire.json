@@ -1,0 +1,27 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Comptes machine (mode annuaire) : le mot de passe saisi est effacé à la fermeture et après « Utiliser ce compte »",
+  "description": "SE-16 : le champ du mot de passe est vidé par Échap sans rien changer, puis après l’utilisation du compte ; l’affichage 5 s ne laisse rien ; l’adresse essai=1 ne lance aucun essai en mode annuaire.",
+  "modes": ["annuaire"],
+  "start": "machine?poste=PC-PAR-0001&essai=1",
+  "allowConsoleErrors": true,
+  "steps": [
+    { "do": "expect", "selector": ".mac-trial-result .mac-trial", "absent": true, "title": "essai=1 ignoré : aucun essai sans clic" },
+    { "do": "click", "selector": "[data-machine-pill]", "title": "Ouvrir le panneau" },
+    { "do": "type", "selector": ".mac-password", "text": "Essai-123", "title": "Saisir un mot de passe" },
+    { "do": "click", "selector": ".mac-eye", "title": "Afficher 5 secondes" },
+    { "do": "expect", "selector": ".mac-peek.on", "title": "Calque en lecture seule affiché" },
+    { "do": "wait", "selector": ".mac-peek.on", "absent": true, "timeoutMs": 8000, "title": "Masqué après 5 secondes" },
+    { "do": "expect", "selector": ".mac-peek", "property": "textContent", "equals": "", "title": "Le calque est vidé" },
+    { "do": "press", "key": "Escape", "title": "Échap ferme sans rien changer" },
+    { "do": "expect", "selector": ".k-drw", "absent": true },
+    { "do": "click", "selector": "[data-machine-pill]", "title": "Rouvrir le panneau" },
+    { "do": "expect", "selector": ".mac-password", "property": "value", "equals": "", "title": "Mot de passe effacé à la fermeture" },
+    { "do": "type", "selector": ".mac-account", "text": "CNAMTS\\adm-essai", "title": "Saisir le compte" },
+    { "do": "type", "selector": ".mac-password", "text": "Essai-123", "title": "Saisir le mot de passe" },
+    { "do": "press", "key": "Enter", "title": "Utiliser ce compte" },
+    { "do": "wait", "contains": "CNAMTS\\adm-essai (compte poste saisi, en mémoire seulement)", "within": ".mac-now", "title": "Compte en service" },
+    { "do": "expect", "selector": ".mac-password", "property": "value", "equals": "", "title": "Champ vidé après l’utilisation" },
+    { "do": "journal", "contains": "Essai-123", "absent": true }
+  ]
+}

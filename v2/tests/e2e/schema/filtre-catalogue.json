@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Schéma : le filtre du catalogue cherche dans le nom ou la description, comme Domenia 1",
+  "description": "« top » ne retient que la classe top (les classes qui héritent de top ne contiennent pas « top ») ; le résumé du moteur s’affiche ; Échap vide le filtre et rend toute la liste.",
+  "modes": ["simulation"],
+  "start": "schema?lire=1",
+  "steps": [
+    { "do": "wait", "selector": ".sch-hero.compact", "timeoutMs": 15000, "title": "Schéma lu" },
+    { "do": "type", "selector": ".sch-search-input", "text": "top", "title": "Filtrer sur « top »" },
+    { "do": "wait", "contains": "1 classe trouvée.", "within": ".sch-found", "title": "Résumé du moteur" },
+    { "do": "expect", "selector": ".sch-list-pane .k-gr", "count": 1, "title": "Une seule ligne : top" },
+    { "do": "expect", "text": "top", "within": ".sch-list-pane .k-gr", "title": "La classe top" },
+    { "do": "press", "key": "Escape", "title": "Échap vide le filtre" },
+    { "do": "wait", "contains": "47 classes", "within": ".sch-found", "title": "Toute la liste" },
+    { "do": "click", "selector": "[data-kind=attributes]", "title": "Attributs" },
+    { "do": "type", "selector": ".sch-search-input", "text": "Une valeur", "title": "Un texte de la colonne Valeurs" },
+    { "do": "wait", "contains": "0 attribut trouvé.", "within": ".sch-found", "title": "La colonne Valeurs n’est pas filtrée" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

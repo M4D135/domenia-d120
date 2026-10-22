@@ -1,0 +1,27 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Schéma : lire le schéma sur geste, puis ouvrir la classe user",
+  "description": "Avant le geste, rien n’est lu et la carte le dit ; le seul bouton principal « Lire le schéma » est dans l’en-tête ; la lecture remplit la vue d’ensemble et le catalogue ; la classe user montre sa chaîne d’héritage, ses attributs possibles et ce que le filtre recommandé écarte.",
+  "modes": ["simulation"],
+  "start": "schema",
+  "steps": [
+    { "do": "expect", "contains": "Le catalogue apparaîtra ici", "within": ".sch-catalog", "title": "Rien n’est lu au chargement" },
+    { "do": "expect", "contains": "Schéma non lu dans cette session.", "within": ".sch-hero", "title": "Statut de Domenia 1" },
+    { "do": "expect", "selector": ".sch-catalog .btn.primary", "absent": true, "title": "Un seul bouton principal sur l’écran" },
+    { "do": "click", "selector": "[data-hero=read]", "within": ".sch-hero", "title": "Lire le schéma (geste explicite)" },
+    { "do": "wait", "selector": ".sch-hero.compact", "timeoutMs": 15000, "title": "Schéma lu : l’en-tête se resserre" },
+    { "do": "expect", "selector": ".sch-overview .ring", "title": "Vue d’ensemble : anneau des familles de syntaxe" },
+    { "do": "expect", "selector": ".sch-ov-legend li", "count": 9, "title": "Toutes les familles dans la légende" },
+    { "do": "expect", "text": "Classes courantes", "within": ".sch-cat-quick", "title": "Raccourcis vers les classes courantes" },
+    { "do": "click", "text": "user", "within": ".sch-cat-quick", "title": "Ouvrir la classe user" },
+    { "do": "wait", "selector": ".sch-detail.cls", "title": "Détail de la classe" },
+    { "do": "expect", "text": "user", "within": ".sch-dname", "title": "Nom de la classe" },
+    { "do": "expect", "selector": ".sch-chain .sch-node", "count": 4, "title": "top → person → organizationalPerson → user" },
+    { "do": "expect", "selector": ".sch-attrs .k-gr", "title": "Les attributs possibles sont visibles sans défiler" },
+    { "do": "expect", "contains": "(&(objectCategory=person)(objectClass=user))", "within": ".sch-filterbox", "title": "Filtre recommandé" },
+    { "do": "expect", "contains": "écarte computer", "within": ".sch-filterbox", "title": "Ce que le filtre recommandé écarte" },
+    { "do": "shot", "name": "classe-user", "selector": ".sch-catalog" },
+    { "do": "journal", "contains": "Schéma lu : 47 classes, 244 attributs" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -24,6 +24,7 @@ import { createFicheOperations } from './mock-fiche.js';
 import { createAccountsOperations } from './mock-comptes.js';
 import { createAssistanceOperations } from './mock-assistance.js';
 import { createAuditOperations } from './mock-audit.js';
+import { createSchemaOperations } from './mock-schema.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1090,6 +1091,8 @@ const OPERATIONS = {
     readObject, getString, requireDistinguishedName, requireNone, invalid, fail, quote, int, count, sleep, fold, getBoolean,
     sessionInfo: () => sessionInfo(), findOu, isRoot, NBSP, REF, DOMAIN, ROOT_DN,
   }),
+  // Schéma de l’annuaire and Comptes machine (docs/ops/schema.md): mock-schema.js, in the memory of the page.
+  ...createSchemaOperations({ readObject, getString, getOptionalString, requireNone, invalid, fail, quote, int, sleep, log, NBSP }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength
