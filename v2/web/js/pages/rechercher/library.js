@@ -64,7 +64,10 @@ export async function openCatalog(ctx, o) {
     const scopeOu = ou ? `${quote(ou.name)}${ou.subtree ? ', sous-OU incluses' : ', enfants directs'}` : 'aucune OU choisie dans l’arbre';
     detail.innerHTML = `<header><span class="rch-cat-ico ${e.local ? 'local' : 'ad'}">${glyph(e.local ? 'disk' : 'database')}</span><div><h3>${esc(e.name)}</h3><p>${pill(e.local ? 'info' : 'accent', e.local ? 'Base locale et relevés datés' : e.source, { size: 'sm' })} ${pill('off', e.typeLabel, { size: 'sm' })}</p></div></header>
       <p class="rch-cat-desc">${esc(e.description)}</p>
-      <dl class="rch-cat-facts"><dt>Coût</dt><dd>${esc(e.cost)}</dd>${e.ldapFilter ? `<dt>Filtre LDAP</dt><dd><code>${esc(e.ldapFilter)}</code></dd>` : ''}</dl>
+      <dl class="rch-cat-facts"><dt>Source</dt><dd>${esc(e.local ? 'Base locale et relevés datés : aucune lecture de l’annuaire ni des postes' : `${e.source} : lecture de l’annuaire sur votre clic`)}</dd>
+        <dt>Périmètre</dt><dd>${esc(ou ? `${ou.name}${ou.subtree ? ', sous-OU incluses' : ', enfants directs'}` : 'aucune OU choisie : tout le domaine seulement sur choix explicite')}</dd>
+        <dt>Coût</dt><dd>${esc(e.cost)}</dd>${e.ldapFilter ? `<dt>Filtre LDAP</dt><dd><code>${esc(e.ldapFilter)}</code></dd>` : ''}
+        ${e.local ? '<dt>Couverture</dt><dd>Dite avec le résultat : date de la dernière lecture complète qui couvre le périmètre, ou nombre de postes sans aucun relevé récent.</dd>' : ''}</dl>
       <fieldset class="rch-cat-scope"><legend>Périmètre</legend>
         <label><input type="radio" name="rch-cat-scope" value="ou"${st.whole ? '' : ' checked'}${ou ? '' : ' disabled'}><span>Sur l’OU de l’arbre${COLON}${esc(scopeOu)}</span></label>
         <label><input type="radio" name="rch-cat-scope" value="domain"${st.whole || !ou ? ' checked' : ''}><span>Sur tout le domaine${NBSP}— choix secondaire, aucun relevé des postes ne sera proposé sur cette liste</span></label>
@@ -206,7 +209,7 @@ export function openSyntaxHelp(onExample) {
     body: `<div data-page="rechercher" class="rch-help"><table class="table"><thead><tr><th>Pour chercher</th><th>Saisissez</th><th>Ce qui est cherché</th></tr></thead><tbody>
       ${rows.map(([what, ex, how], n) => `<tr data-j="${n}"><td><b>${esc(what)}</b></td><td><button class="chip rch-help-ex" type="button" data-ex="${esc(ex.replace('…', ''))}"${ex.includes('…') ? ' disabled' : ''}><code>${esc(ex)}</code></button></td><td>${esc(how)}</td></tr>`).join('')}
     </tbody></table>
-    <p class="rch-dlg-note">${glyph('info')}Deux caractères au moins. Taper ne lit jamais l’annuaire : seule Entrée ou « Rechercher » l’interroge. Dans les suggestions, <kbd>Ctrl</kbd> <kbd>Entrée</kbd> ouvre directement la fiche.</p></div>`,
+    <p class="rch-dlg-note">${glyph('info')}<span>Deux caractères au moins. Taper ne lit jamais l’annuaire : seule Entrée ou « Rechercher » l’interroge. Dans les suggestions, <kbd>Ctrl</kbd> <kbd>Entrée</kbd> ouvre directement la fiche.</span></p></div>`,
     actions: [{ id: 'close', label: 'Fermer', safe: true, primary: true }],
   });
   dlg.body.querySelectorAll('[data-j]').forEach((x) => x.style.setProperty('--j', x.dataset.j));

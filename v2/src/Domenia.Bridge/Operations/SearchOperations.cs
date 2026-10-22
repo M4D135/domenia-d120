@@ -31,8 +31,13 @@ public sealed partial class SearchOperations : IOperationModule
     private static readonly string[] ArgsDn = ["dn"];
     private static readonly string[] ArgsDnIndex = ["dn", "index"];
     private static readonly string[] ArgsIdFavorite = ["id", "favorite"];
-    private static readonly string[] ArgsModeIdsContext = ["mode", "ids", "context"];
-    private static readonly string[] ArgsSurveyContext = ["scope", "global", "hasTerm", "wholeDomain", "hasFilter", "coversList", "scopeLabel", "subtree", "listLimit"];
+    private static readonly string[] ArgsSurveyPlan = ["mode", "listId", "ids", "scope", "resume"];
+    private static readonly string[] ArgsSurveyRun = ["planId", "typedCount"];
+    private static readonly string[] ArgsRecheck = ["id", "mode", "listId", "onClick"];
+    private static readonly string[] ArgsListIdIds = ["listId", "ids"];
+    private static readonly string[] ArgsListId = ["listId"];
+    private static readonly string[] ArgsListIdOffset = ["listId", "offset"];
+    private static readonly string[] ArgsCounts = ["counts"];
     private static readonly string[] ArgsWorkspace = ["name", "dn", "subtree", "type", "presence", "filter", "limit", "columnSet", "layout"];
     private static readonly string[] ArgsLayout = ["order", "hidden", "widths", "sort", "density"];
     private static readonly string[] ArgsIdDir = ["id", "dir"];
@@ -57,7 +62,7 @@ public sealed partial class SearchOperations : IOperationModule
 
         return
         [
-            new OperationDefinition("search.run", readClass, async (args, _, ct) =>
+            new OperationDefinition("search.run", readClass, async (args, bridge, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, ArgsTextScopeTypeLimitMatch);
                 var text = Text(values, "text", SearchLimits.MaxTextLength);
@@ -68,8 +73,8 @@ public sealed partial class SearchOperations : IOperationModule
                     "contains" => SearchMatchMode.Contains,
                     _ => throw BridgeArguments.Invalid(FrenchText.Quote("match") + " vaut prefix ou contains."),
                 };
-                return await service.RunAsync(text, scope, Type(values), Limit(values), match, ct).ConfigureAwait(false);
-            }, "Recherche de la barre (domaine entier, ou une OU choisie), ou par adresse dans les relevés locaux."),
+                return await service.RunAsync(text, scope, Type(values), Limit(values), match, ct, cached => bridge.Publish("cached", cached)).ConfigureAwait(false);
+            }, "Recherche de la barre (domaine entier, ou une OU choisie), ou par adresse dans les relevés locaux ; une recherche simple publie d’abord les lignes de la base locale."),
 
             new OperationDefinition("search.browse", readClass, async (args, _, ct) =>
             {
@@ -80,15 +85,21 @@ public sealed partial class SearchOperations : IOperationModule
 
             new OperationDefinition("search.containers", readClass, async (args, _, ct) =>
             {
-                BridgeArguments.RequireNone(args);
-                return await service.ContainersAsync(ct).ConfigureAwait(false);
-            }, "Conteneurs de la racine du domaine (Users, Computers, conteneurs système) pour l’arborescence."),
+                var values = args.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null ? new Dictionary<string, JsonElement>() : BridgeArguments.ReadObject(args, ArgsCounts);
+                return await service.ContainersAsync(OptionalBool(values, "counts", false), ct).ConfigureAwait(false);
+            }, "Conteneurs de la racine du domaine (Users, Computers, conteneurs système) pour l’arborescence ; leurs objets ne sont comptés que sur demande."),
 
             new OperationDefinition("search.view", readClass, async (args, _, ct) =>
             {
                 var values = BridgeArguments.ReadObject(args, ArgsIdDnSubtreeWholeDomainLimit);
                 var id = Identifier(values, "id");
-                return await service.ViewAsync(id, OptionalDn(values, "dn"), BridgeArguments.GetBoolean(values, "subtree"), BridgeArguments.GetBoolean(values, "wholeDomain"), Limit(values), ct).ConfigureAwait(false);
+                var dn = OptionalDn(values, "dn");
+                var wholeDomain = BridgeArguments.GetBoolean(values, "wholeDomain");
+                if (dn is null && !wholeDomain)
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("dn") + " est obligatoire sans " + FrenchText.Quote("wholeDomain") + FrenchText.Colon + "tout le domaine est un choix explicite.");
+                }
+                return await service.ViewAsync(id, dn, BridgeArguments.GetBoolean(values, "subtree"), wholeDomain, Limit(values), ct).ConfigureAwait(false);
             }, "Vue prête à l’emploi sur l’OU choisie (ou, explicitement, sur tout le domaine)."),
 
             new OperationDefinition("search.localQuery", OperationClass.LocalRead, async (args, _, ct) =>
@@ -149,17 +160,48 @@ public sealed partial class SearchOperations : IOperationModule
                 return await service.RevalidateAsync(Ids(values, "ids", 1, 500), ct).ConfigureAwait(false);
             }, "Relecture des objets listés (500 au plus) ; une absence ne prouve pas une suppression."),
 
+            new OperationDefinition("search.reconcile", readClass, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ArgsListId);
+                return await service.ReconcileAsync(Hex32(values, "listId"), ct).ConfigureAwait(false);
+            }, "Relit la dernière liste explicite avec son filtre, sa portée et sa taille : nouveaux objets ajoutés, absents à revérifier, jamais supprimés."),
+
+            new OperationDefinition("search.measures", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ArgsListIdOffset);
+                return await service.MeasuresAsync(Hex32(values, "listId"), Int(values, "offset", 0, 0, SearchLimits.MaxLimit), ct).ConfigureAwait(false);
+            }, "Mesures enregistrées des lignes d’une liste, depuis la base locale, par pages de 250."),
+
+            new OperationDefinition("search.preload", readClass, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ArgsId);
+                return await service.PreloadAsync(Id(values, "id"), ct).ConfigureAwait(false);
+            }, "Relit la fiche de la seule ligne sélectionnée, pour l’aperçu et la ligne affichée."),
+
             new OperationDefinition("search.survey.plan", OperationClass.LocalRead, async (args, _, ct) =>
             {
-                var (mode, ids, survey) = Survey(args);
-                return await service.SurveyPlanAsync(mode, ids, survey, ct).ConfigureAwait(false);
-            }, "Cibles exactes et confirmation chiffrée d’un relevé de la liste ; rien n’est lu."),
+                var values = BridgeArguments.ReadObject(args, ArgsSurveyPlan);
+                if (!SearchSurvey.TryParseMode(BridgeArguments.GetString(values, "mode"), out var mode))
+                {
+                    throw BridgeArguments.Invalid(FrenchText.Quote("mode") + " vaut ping, console, analyse, complete ou unaddressed.");
+                }
+                var resume = OptionalBool(values, "resume", false);
+                List<Guid> ids = resume && !values.ContainsKey("ids") ? [] : Ids(values, "ids", 1, MaxIds);
+                var scope = OptionalString(values, "scope") switch
+                {
+                    null or "results" => SurveyScope.Results,
+                    "selection" => SurveyScope.Selection,
+                    _ => throw BridgeArguments.Invalid(FrenchText.Quote("scope") + " vaut results ou selection."),
+                };
+                return await service.SurveyPlanAsync(mode, Hex32(values, "listId"), ids, scope, resume, ct).ConfigureAwait(false);
+            }, "Cibles exactes et confirmation chiffrée d’un relevé des lignes d’une liste ; rien n’est lu, le plan vaut dix minutes pour un seul lancement."),
 
             new OperationDefinition("search.survey.run", OperationClass.NetworkRead, async (args, bridge, ct) =>
             {
-                var (mode, ids, survey) = Survey(args);
-                return await service.SurveyRunAsync(mode, ids, survey, progress => bridge.Publish("progress", progress), ct).ConfigureAwait(false);
-            }, "Relevé de la liste confirmé (ping, utilisateur connecté, matériel), une seule fois, arrêt possible.", ServedInSimulation: true),
+                var values = BridgeArguments.ReadObject(args, ArgsSurveyRun);
+                int? typed = values.TryGetValue("typedCount", out var raw) && raw.ValueKind != JsonValueKind.Null ? Int(values, "typedCount", null, 0, MaxIds) : null;
+                return await service.SurveyRunAsync(Hex32(values, "planId"), typed, progress => bridge.Publish("progress", progress), ct).ConfigureAwait(false);
+            }, "Relevé confirmé d’un plan (ping, utilisateur connecté, matériel), une seule fois, arrêt possible.", ServedInSimulation: true),
 
             new OperationDefinition("search.survey.stop", OperationClass.Local, (args, _, _) =>
             {
@@ -167,23 +209,51 @@ public sealed partial class SearchOperations : IOperationModule
                 return Task.FromResult<object?>(service.Stop(Hex32(values, "runId")));
             }, "Arrêt du relevé en cours ; les mesures reçues sont conservées."),
 
+            new OperationDefinition("search.survey.state", OperationClass.Local, (args, _, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(service.SurveyState());
+            }, "Plan de reprise du relevé interrompu et suspension des vérifications sur sélection."),
+
+            new OperationDefinition("search.survey.forget", OperationClass.Local, (args, _, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(service.ForgetResume());
+            }, "Abandonne le plan de reprise ; les mesures déjà validées restent."),
+
+            new OperationDefinition("search.checks.resume", OperationClass.Local, (args, _, _) =>
+            {
+                BridgeArguments.RequireNone(args);
+                return Task.FromResult<object?>(service.ResumeChecks());
+            }, "Reprend les vérifications sur sélection suspendues après un compte distant refusé."),
+
             new OperationDefinition("search.recheck", OperationClass.NetworkRead, async (args, _, ct) =>
             {
-                var values = BridgeArguments.ReadObject(args, ArgsId);
-                return await service.RecheckAsync(Id(values, "id"), ct).ConfigureAwait(false);
-            }, "Un ping et l’utilisateur connecté du seul poste sélectionné.", ServedInSimulation: true),
+                var values = BridgeArguments.ReadObject(args, ArgsRecheck);
+                var mode = OptionalString(values, "mode") switch
+                {
+                    null or "console" => SurveyMode.Console,
+                    "ping" => SurveyMode.Ping,
+                    _ => throw BridgeArguments.Invalid(FrenchText.Quote("mode") + " vaut ping ou console."),
+                };
+                var listId = OptionalString(values, "listId") is null ? null : Hex32(values, "listId");
+                return await service.RecheckAsync(Id(values, "id"), mode, listId, OptionalBool(values, "onClick", false), ct).ConfigureAwait(false);
+            }, "Un ping (et l’utilisateur connecté) du seul poste sélectionné.", ServedInSimulation: true),
 
             new OperationDefinition("search.netdiag", OperationClass.NetworkRead, async (args, _, ct) =>
             {
-                var values = BridgeArguments.ReadObject(args, ArgsIds);
-                return await service.DiagnoseAsync(Ids(values, "ids", 1, 500), ct).ConfigureAwait(false);
-            }, "Diagnostic réseau groupé (ping puis ports 445, 135, 5985, 5986), 50 postes au plus ; aucun compte envoyé.", ServedInSimulation: true),
+                var values = BridgeArguments.ReadObject(args, ArgsListIdIds);
+                return await service.DiagnoseAsync(Hex32(values, "listId"), Ids(values, "ids", 1, 500), ct).ConfigureAwait(false);
+            }, "Diagnostic réseau groupé des lignes d’une liste (ping puis ports 445, 135, 5985, 5986), 50 postes au plus ; aucun compte envoyé.", ServedInSimulation: true),
 
             new OperationDefinition("search.memory", OperationClass.LocalRead, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
-                return await memory.StateAsync(await DomainAsync(ct).ConfigureAwait(false), ct).ConfigureAwait(false);
-            }, "Recherches et objets récents, favoris d’OU, vues personnelles et favoris de requête du domaine."),
+                // First display of a domain: the saved searches of Domenia 1 become OU favourites once (RCH-004).
+                var reader = context.Readers.Find<ISearchReader>();
+                return await memory.StateAsync(await DomainAsync(ct).ConfigureAwait(false), ct,
+                    reader is null ? null : reader.LegacySavedSearchesAsync).ConfigureAwait(false);
+            }, "Recherches et objets récents, favoris d’OU, vues personnelles et favoris de requête du domaine ; reprise unique des recherches enregistrées de Domenia 1."),
 
             new OperationDefinition("search.recent.add", OperationClass.LocalWrite, async (args, _, ct) =>
             {
@@ -356,31 +426,6 @@ public sealed partial class SearchOperations : IOperationModule
     {
         var text = BridgeArguments.GetString(values, name);
         return IdentifierPattern().IsMatch(text) ? text : throw BridgeArguments.Invalid(FrenchText.Quote(name) + " doit être un identifiant de vue ou de requête.");
-    }
-
-    private static (SurveyMode Mode, List<Guid> Ids, SurveyContext Context) Survey(JsonElement args)
-    {
-        var values = BridgeArguments.ReadObject(args, ArgsModeIdsContext);
-        if (!SearchSurvey.TryParseMode(BridgeArguments.GetString(values, "mode"), out var mode))
-        {
-            throw BridgeArguments.Invalid(FrenchText.Quote("mode") + " vaut ping, console, analyse, complete ou unaddressed.");
-        }
-        var ids = Ids(values, "ids", 1, MaxIds);
-        if (!values.TryGetValue("context", out var raw) || raw.ValueKind != JsonValueKind.Object)
-        {
-            throw BridgeArguments.Invalid(FrenchText.Quote("context") + " est obligatoire et doit être un objet.");
-        }
-        var c = BridgeArguments.ReadObject(raw, ArgsSurveyContext);
-        var scope = BridgeArguments.GetString(c, "scope") switch
-        {
-            "results" => SurveyScope.Results,
-            "selection" => SurveyScope.Selection,
-            _ => throw BridgeArguments.Invalid(FrenchText.Quote("scope") + " vaut results ou selection."),
-        };
-        var context = new SurveyContext(scope, OptionalBool(c, "global", false), OptionalBool(c, "hasTerm", false), OptionalBool(c, "wholeDomain", false),
-            OptionalBool(c, "hasFilter", false), OptionalBool(c, "coversList", false), OptionalText(c, "scopeLabel", 200), OptionalBool(c, "subtree", true),
-            Int(c, "listLimit", 0, 0, SearchLimits.MaxLimit));
-        return (mode, ids, context);
     }
 
     private static SearchWorkspaceDraft Workspace(JsonElement args)

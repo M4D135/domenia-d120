@@ -1,13 +1,14 @@
 // Rechercher · the bar: large field with suggestions (recent entries, then objects of the local base: never a directory
-// request), perimeter chip (Partout / Dans « OU »), type selector, « commence par » or « contient », live analysis of the
-// text and, after a search, the plan the engine applied with the LDAP filter it sends in directory mode. Only Entrée or
-// « Rechercher » interrogate the directory (Domenia 1 RCH-022 to RCH-039).
+// request), perimeter chip (Partout / Dans « OU »), type selector, « commence par » or « contient », row limit, live
+// analysis of the text and, after a search, the plan the engine applied with the LDAP filter it sends in directory mode.
+// Once a list is shown the hero becomes a slim sticky bar: the analysis then shows as chips inside the field. Only Entrée
+// or « Rechercher » interrogate the directory (Domenia 1 RCH-022 to RCH-039, RCH-066).
 import { glyph } from '../../kit/glyphs.js';
 import { openMenu } from '../../kit/menu.js';
 import { highlight, debounce, readLayout, writeLayout } from '../../kit/util.js';
 import { inkFollow, announce } from '../../ui.js';
 import {
-  esc, fold, quote, COLON, NBSP, TYPES, KINDS, analyse, barText, words,
+  esc, fold, quote, int, COLON, NBSP, TYPES, KINDS, analyse, barText, words, DEFAULT_LIMIT, MAX_LIMIT,
 } from './text.js';
 
 const SUGGEST_DELAY = 300;
@@ -18,7 +19,7 @@ const PREF = 'rechercher.bar';
 /**
  * @param {HTMLElement} host
  * @param {{ onSubmit: (s: object) => void, onSuggest: (text: string, type: string) => Promise<any[]>, getRecents: () => any[],
- *   onOpenObject: (dn: string, kind: string) => void, onClearRecents: () => void, onSyntaxHelp: () => void }} o
+ *   onOpenObject: (dn: string, kind: string) => void, onClearRecents: () => void, onSyntaxHelp: () => void, onInput?: (text: string) => void }} o
  */
 export function createBar(host, o) {
   const saved = readLayout(PREF) ?? {};
@@ -27,12 +28,14 @@ export function createBar(host, o) {
     type: TYPES.some((t) => t.id === saved.type) ? saved.type : 'all',
     match: 'prefix',
     typed: saved.typed === true,
+    limit: DEFAULT_LIMIT,
     ou: null,
     items: [],
     active: -1,
     gen: 0,
     open: false,
     busy: false,
+    compact: false,
   };
   host.innerHTML = `<form class="rch-bar" role="search" aria-label="Recherche dans l’annuaire" novalidate>
     <div class="rch-field">
@@ -40,25 +43,28 @@ export function createBar(host, o) {
       <span class="rch-field-ico" aria-hidden="true">${glyph('search')}</span>
       <input class="rch-input" type="text" maxlength="${MAX_TEXT}" autocomplete="off" spellcheck="false" role="combobox"
         aria-expanded="false" aria-controls="rch-sugg" aria-autocomplete="list" aria-describedby="rch-hint" aria-label="Rechercher un compte, un poste, un groupe, une OU, une adresse IP ou MAC">
+      <span class="rch-inline" aria-hidden="true"></span>
       <button class="rch-clear" type="button" aria-label="Effacer la saisie" data-tip="Effacer la saisie" hidden>${glyph('x')}</button>
       <span class="rch-kbd" aria-hidden="true"><kbd>Entrée</kbd></span>
-      <button class="btn primary rch-go" type="submit"><span class="rch-go-ico">${glyph('search')}</span><span>Rechercher</span></button>
+      <button class="btn primary rch-go" type="submit"><span class="rch-go-ico">${glyph('search')}</span><span class="rch-go-t">Rechercher</span></button>
       <div class="rch-sugg" id="rch-sugg" role="listbox" aria-label="Suggestions" hidden></div>
     </div>
     <div class="rch-opts">
       <div class="segmented rch-seg rch-scope" role="group" aria-label="Périmètre de la recherche"><span class="thumb" aria-hidden="true"></span>
-        <button type="button" data-scope="everywhere" aria-pressed="true">${glyph('domain')}<span>Partout</span></button>
+        <button type="button" data-scope="everywhere" aria-pressed="true" data-tip="Tout le domaine">${glyph('domain')}<span>Partout</span></button>
         <button type="button" data-scope="ou" aria-pressed="false" disabled data-tip="Choisissez une OU dans l’arbre">${glyph('ou')}<span class="rch-scope-ou">Dans l’OU</span></button>
       </div>
       <div class="segmented rch-seg rch-types" role="group" aria-label="Type d’objet"><span class="thumb" aria-hidden="true"></span>
-        ${TYPES.map((t) => `<button type="button" data-type="${t.id}" aria-pressed="${t.id === st.type}">${glyph(t.icon)}<span>${esc(t.label)}</span></button>`).join('')}
+        ${TYPES.map((t) => `<button type="button" data-type="${t.id}" aria-pressed="${t.id === st.type}" aria-label="${esc(t.label)}" data-tip="${esc(t.label)}">${glyph(t.icon)}<span>${esc(t.label)}</span></button>`).join('')}
       </div>
       <div class="segmented rch-seg rch-match" role="group" aria-label="Correspondance des mots"><span class="thumb" aria-hidden="true"></span>
         <button type="button" data-match="prefix" aria-pressed="true" data-tip="Début des noms, comptes, courriels et noms DNS (indexé, rapide)">Commence par</button>
         <button type="button" data-match="contains" aria-pressed="false" data-tip="Noms qui contiennent les mots (plus lent : l’annuaire parcourt le périmètre)">Contient</button>
       </div>
+      <label class="rch-limit" data-tip="Nombre de lignes lues au plus (1 à ${int(MAX_LIMIT)}) ; « Charger la suite » lit les suivantes">
+        <span>Limite</span><input class="input mono" type="number" min="1" max="${MAX_LIMIT}" step="1" value="${DEFAULT_LIMIT}" inputmode="numeric" aria-label="Nombre de lignes lues au plus">
+      </label>
       <button class="btn ghost icon sm rch-optmenu" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Options de la recherche" data-tip="Options de la recherche">${glyph('sliders')}</button>
-      <span class="rch-summary" aria-live="off"></span>
     </div>
     <div class="rch-hint" id="rch-hint" aria-live="polite"></div>
   </form>`;
@@ -66,11 +72,12 @@ export function createBar(host, o) {
   const form = /** @type {HTMLFormElement} */ (host.querySelector('.rch-bar'));
   const field = form.querySelector('.rch-field');
   const input = /** @type {HTMLInputElement} */ (form.querySelector('.rch-input'));
+  const inline = form.querySelector('.rch-inline');
   const clear = form.querySelector('.rch-clear');
   const go = form.querySelector('.rch-go');
   const list = form.querySelector('.rch-sugg');
   const hint = form.querySelector('.rch-hint');
-  const summary = form.querySelector('.rch-summary');
+  const limitInput = /** @type {HTMLInputElement} */ (form.querySelector('.rch-limit input'));
   const scopeSeg = form.querySelector('.rch-scope');
   const ouBtn = scopeSeg.querySelector('[data-scope="ou"]');
   const inks = [...form.querySelectorAll('.rch-seg')].map((seg) => inkFollow(seg, 'button', 'button[aria-pressed="true"]'));
@@ -83,9 +90,7 @@ export function createBar(host, o) {
     form.querySelectorAll('[data-type]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.type === st.type)));
     form.querySelectorAll('[data-match]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.match === st.match)));
     inks.forEach((i) => i.update());
-    const text = barText(st.scope === 'ou' ? 'ou' : 'everywhere', st.ou?.name, st.type);
-    input.placeholder = text.placeholder;
-    summary.textContent = text.summary;
+    input.placeholder = barText(st.scope === 'ou' ? 'ou' : 'everywhere', st.ou?.name, st.type).placeholder;
   }
 
   // ---------- Live analysis (no request) ----------
@@ -95,15 +100,24 @@ export function createBar(host, o) {
     clear.hidden = value.length === 0;
     const a = analyse(value, { match: st.match });
     field.classList.toggle('invalid', !a.valid && !a.empty);
+    const plan = engine && engine.text === value.trim() ? engine : null;
     const chips = a.chips.map((c, n) => `<span class="chip rch-tok ${esc(c.tone)}" data-j="${n}">${c.icon ? glyph(c.icon) : ''}${esc(c.label)}</span>`).join('');
     const note = a.valid ? a.notes.join(' ') : a.reason;
-    const plan = engine && engine.text === value.trim() ? engine : null;
-    const filter = plan?.ldap ? `<details class="rch-ldap"><summary>${glyph('hash')}Filtre envoyé en mode annuaire</summary><code>${esc(plan.ldap)}</code></details>` : '';
-    hint.innerHTML = value.trim() || plan
-      ? `<span class="rch-hint-lead">${glyph(a.valid ? 'info' : 'alert')}</span>${chips}<span class="rch-hint-text">${esc(plan?.hint || note)}</span>${filter}`
-      : `<span class="rch-hint-lead">${glyph('sparkles')}</span><span class="rch-hint-text">Nom, compte, poste, groupe, GUID, SID, nom distinctif, adresse IP ou MAC. Syntaxe facultative${COLON}<code>utilisateur:</code> <code>poste:</code> <code>groupe:</code> <code>mail:</code>.</span>
+    const filter = plan?.ldap ? `<details class="rch-ldap"><summary>${glyph('hash')}Filtre LDAP envoyé en mode annuaire</summary><code>${esc(plan.ldap)}</code></details>` : '';
+    if (value.trim() || plan) {
+      // After a search the line says what the engine did with the very text in the field (its plan), then its filter.
+      const lead = plan ? `<span class="rch-hint-k">${glyph('check')}Plan appliqué</span>` : `<span class="rch-hint-lead">${glyph(a.valid ? 'info' : 'alert')}</span>`;
+      hint.innerHTML = `${lead}${chips}<span class="rch-hint-text">${esc(plan?.hint || note)}</span>${filter}`;
+    } else {
+      hint.innerHTML = `<span class="rch-hint-lead">${glyph('sparkles')}</span><span class="rch-hint-text">Nom, compte, poste, groupe, GUID, SID, nom distinctif, adresse IP ou MAC. Syntaxe facultative${COLON}<code>utilisateur:</code> <code>poste:</code> <code>groupe:</code> <code>mail:</code>.</span>
         <button class="rch-hint-help" type="button" data-help>${glyph('info')}Aide sur la syntaxe</button>`;
+    }
     hint.querySelectorAll('[data-j]').forEach((c) => c.style.setProperty('--j', c.dataset.j));
+    // Slim bar: the same analysis as chips inside the field (two at most), the whole sentence on hover.
+    const shown = a.valid ? a.chips.slice(0, 2) : value.trim() ? [{ label: a.reason.split(COLON)[0], tone: 'warn', icon: 'alert' }] : [];
+    inline.innerHTML = shown.map((c) => `<span class="chip rch-tok ${esc(c.tone)}">${c.icon ? glyph(c.icon) : ''}${esc(c.label)}</span>`).join('')
+      + (a.valid && a.chips.length > 2 ? `<span class="chip rch-tok off">+${int(a.chips.length - 2)}</span>` : '');
+    inline.dataset.tip = value.trim() ? (plan?.hint || note) : '';
     return a;
   }
 
@@ -112,7 +126,7 @@ export function createBar(host, o) {
   const kindIcon = (k) => (KINDS[k] ? KINDS[k].icon : 'search');
 
   function itemMarkup(item, n, needle) {
-    const icon = item.source === 'recent' ? (item.kind === 'object' ? 'history' : 'history') : kindIcon(item.objectKind);
+    const icon = item.source === 'recent' ? 'history' : kindIcon(item.objectKind);
     const label = needle ? highlight(item.label, needle) : esc(item.label);
     const action = item.objectKind ? `<kbd class="rch-sg-kbd" data-tip="Ouvrir la fiche (lecture explicite)">Ctrl Entrée</kbd>` : '';
     return `<div class="rch-sg" role="option" id="rch-sg-${n}" data-n="${n}" aria-selected="${n === st.active}" data-j="${Math.min(n, 9)}">`
@@ -128,10 +142,11 @@ export function createBar(host, o) {
     let n = 0;
     const group = (title, items) => (items.length ? `<div class="rch-sg-group" role="presentation">${esc(title)}</div>${items.map((i) => itemMarkup(i, n++, needle)).join('')}` : '');
     list.innerHTML = group('Récents sur ce poste', recents) + group('Base locale · aucune requête d’annuaire', local)
-      + `<div class="rch-sg-foot" role="presentation"><span><kbd>↑</kbd><kbd>↓</kbd> choisir</span><span><kbd>Entrée</kbd> rechercher</span><span><kbd>Échap</kbd> fermer</span></div>`;
+      + `<div class="rch-sg-foot" role="presentation"><span><kbd>↑</kbd><kbd>↓</kbd> choisir</span><span><kbd>Entrée</kbd> rechercher</span><span><kbd>Ctrl</kbd> <kbd>Entrée</kbd> ouvrir la fiche</span><span><kbd>Échap</kbd> fermer</span></div>`;
     list.querySelectorAll('[data-j]').forEach((c) => c.style.setProperty('--j', c.dataset.j));
     if (!st.open) {
       st.open = true;
+      form.classList.add('sugg-open');
       list.hidden = false;
       list.classList.remove('in');
       void list.offsetWidth;
@@ -151,6 +166,7 @@ export function createBar(host, o) {
 
   function closeList() {
     st.open = false;
+    form.classList.remove('sugg-open');
     st.active = -1;
     list.hidden = true;
     input.setAttribute('aria-expanded', 'false');
@@ -225,8 +241,13 @@ export function createBar(host, o) {
     o.onSubmit({ ...state(), typed: true });
   }, TYPED_DELAY);
 
+  function readLimit() {
+    const n = Number.parseInt(limitInput.value, 10);
+    return Number.isFinite(n) ? Math.max(1, Math.min(MAX_LIMIT, n)) : DEFAULT_LIMIT;
+  }
+
   function state() {
-    return { text: input.value.trim(), scope: st.scope === 'ou' && st.ou ? st.ou.dn : null, scopeName: st.ou?.name ?? null, type: st.type, match: st.match };
+    return { text: input.value.trim(), scope: st.scope === 'ou' && st.ou ? st.ou.dn : null, scopeName: st.ou?.name ?? null, type: st.type, match: st.match, limit: (st.limit = readLimit()) };
   }
 
   // ---------- Events ----------
@@ -237,6 +258,7 @@ export function createBar(host, o) {
     paintHint();
     suggest();
     typedSearch();
+    o.onInput?.(input.value.trim());
   });
   input.addEventListener('focus', () => { field.classList.add('focus'); });
   input.addEventListener('blur', () => {
@@ -258,7 +280,7 @@ export function createBar(host, o) {
       if (st.open && st.active >= 0) { e.preventDefault(); pick(st.active, e.ctrlKey || e.metaKey); }
     } else if (e.key === 'Escape') {
       if (st.open) { e.preventDefault(); e.stopPropagation(); closeList(); }
-      else if (input.value) { e.preventDefault(); e.stopPropagation(); input.value = ''; engine = null; paintHint(); }
+      else if (input.value) { e.preventDefault(); e.stopPropagation(); input.value = ''; engine = null; paintHint(); o.onInput?.(''); }
     } else if (e.key === 'Tab') closeList();
   });
   list.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -266,8 +288,13 @@ export function createBar(host, o) {
     const item = e.target instanceof Element ? e.target.closest('.rch-sg') : null;
     if (item) pick(Number(item.dataset.n), e.ctrlKey || e.metaKey || !!e.target.closest('.rch-sg-kbd'));
   });
-  clear.addEventListener('click', () => { input.value = ''; engine = null; paintHint(); closeList(); input.focus(); });
+  clear.addEventListener('click', () => { input.value = ''; engine = null; paintHint(); closeList(); input.focus(); o.onInput?.(''); });
   hint.addEventListener('click', (e) => { if (e.target instanceof Element && e.target.closest('[data-help]')) o.onSyntaxHelp(); });
+  limitInput.addEventListener('change', () => {
+    st.limit = readLimit();
+    limitInput.value = String(st.limit);
+    announce(`Limite de la liste${COLON}${int(st.limit)} lignes. Elle vaut pour la prochaine lecture.`);
+  });
   form.querySelector('.rch-opts').addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('button') : null;
     if (!b || b.disabled) return;
@@ -295,6 +322,9 @@ export function createBar(host, o) {
     setText(text) { input.value = String(text ?? '').slice(0, MAX_TEXT); engine = null; paintHint(); },
     setType(type) { if (TYPES.some((t) => t.id === type)) { st.type = type; paintSegments(); } },
     setMatch(match) { st.match = match === 'contains' ? 'contains' : 'prefix'; paintSegments(); paintHint(); },
+    /** Row limit of the next reads (RCH-066), kept by the history and the views. */
+    setLimit(n) { st.limit = Math.max(1, Math.min(MAX_LIMIT, Number(n) || DEFAULT_LIMIT)); limitInput.value = String(st.limit); },
+    getLimit: () => st.limit,
     /** OU chosen in the tree: the chip « Dans « X » » becomes available (never the root nor another domain). */
     setOu(ou) {
       st.ou = ou && ou.dn ? ou : null;
@@ -311,6 +341,8 @@ export function createBar(host, o) {
       go.classList.toggle('busy', st.busy);
       input.setAttribute('aria-busy', String(st.busy));
     },
+    /** Slim sticky bar once a list is shown: the analysis moves into the field. */
+    setCompact(on) { st.compact = !!on; form.classList.toggle('compact', st.compact); requestAnimationFrame(() => inks.forEach((i) => i.update())); },
     /** Plan the engine applied for the text now in the field (hint and LDAP filter), or null. */
     setEnginePlan(plan, text) {
       engine = plan ? { hint: plan.hint || '', ldap: plan.ldapFilter || '', text: String(text ?? '').trim() } : null;

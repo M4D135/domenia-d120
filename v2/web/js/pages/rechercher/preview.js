@@ -27,13 +27,17 @@ export function createPreview(host, ctx, o) {
       <span class="rch-panel-ico">${glyph('eye')}</span>
       <h2 class="rch-panel-title">Aperçu</h2>
       <span class="rch-prev-state"></span>
+      <button class="btn ghost icon sm rch-prev-reread" type="button" aria-label="Relire la fiche dans l’annuaire" data-tip="Relire la fiche dans l’annuaire (lecture explicite)" hidden>${glyph('refresh')}</button>
       <button class="btn ghost icon sm rch-prev-fold" type="button" aria-expanded="${!st.folded}" aria-label="${st.folded ? 'Déplier l’aperçu' : 'Replier l’aperçu'}" data-tip="${st.folded ? 'Déplier l’aperçu' : 'Replier l’aperçu'}">${glyph('panel')}</button>
     </header>
+    <button class="rch-rail" type="button" aria-label="Afficher l’aperçu"><span class="rch-rail-ico">${glyph('eye')}</span><span class="rch-rail-t">Aperçu</span></button>
     <div class="rch-prev-body" aria-live="polite"></div>
   </div>`;
   const body = host.querySelector('.rch-prev-body');
   const stateEl = host.querySelector('.rch-prev-state');
   const foldBtn = host.querySelector('.rch-prev-fold');
+  const rereadBtn = host.querySelector('.rch-prev-reread');
+  rereadBtn.addEventListener('click', () => { if (st.row) o.onReread?.(st.row); });
   const unbindCopy = bindCopy(body);
   let kv = null;
 
@@ -47,9 +51,11 @@ export function createPreview(host, ctx, o) {
     o.onToggle(on);
   }
   foldBtn.addEventListener('click', () => fold(!st.folded));
+  host.querySelector('.rch-rail').addEventListener('click', () => { if (st.folded) fold(false); o.onRail?.(); });
 
   function paintEmpty() {
     stateEl.innerHTML = '';
+    rereadBtn.hidden = true;
     body.innerHTML = `<div class="rch-prev-empty">
       <span class="rch-prev-art" aria-hidden="true">${glyph('object')}</span>
       <h3>Aucune sélection</h3>
@@ -136,8 +142,8 @@ export function createPreview(host, ctx, o) {
       <div class="rch-obj-tools">
         ${isPc ? `<button class="btn sm" type="button" data-act="recheck"${row.flags.disabled ? ' disabled data-tip="Poste désactivé"' : ' data-tip="Un ping et l’utilisateur connecté de ce seul poste"'}>${glyph('wifi')}Revérifier ce poste<span class="rch-net-dot" aria-hidden="true"></span></button>` : ''}
         ${row.association?.dn ? `<button class="btn sm subtle" type="button" data-act="associated">${glyph('link')}${isPc ? 'Rechercher l’utilisateur' : 'Rechercher le poste'}</button>` : row.kind === 'user' && row.association ? `<button class="btn sm subtle" type="button" data-act="associated">${glyph('link')}Rechercher le poste</button>` : ''}
-        ${row.kind === 'user' && (row.flags.locked || row.flags.lockToCheck) ? `<button class="btn sm danger" type="button" data-act="unlock"${o.readOnly() ? ' disabled data-tip="Lecture seule"' : ' data-tip="Plan, confirmation, reçu puis relecture"'}>${glyph('lock')}Déverrouiller…</button>` : ''}
         <button class="btn sm subtle" type="button" data-act="ticket">${glyph('copy')}Copier pour un ticket</button>
+        ${row.kind === 'user' && (row.flags.locked || row.flags.lockToCheck) ? `<button class="btn sm rch-write" type="button" data-act="unlock"${o.readOnly() ? ' disabled data-tip="Lecture seule"' : ' data-tip="Écriture : plan relu par le moteur, confirmation, reçu, puis relecture"'}>${glyph('lock')}Déverrouiller…<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span></button>` : ''}
       </div>
       <div class="rch-obj-sheet">${facts(row)}<div class="rch-obj-detail" aria-busy="true">${skeleton()}</div></div>
     </article>`;
@@ -226,6 +232,7 @@ export function createPreview(host, ctx, o) {
     st.row = row;
     st.rows = [row];
     const my = ++st.gen;
+    rereadBtn.hidden = false;
     paintRow(row);
     stateEl.innerHTML = pill('info', 'Chargement de la fiche', { size: 'sm', spin: true });
     body.querySelector('.rch-obj')?.classList.add('enter');
@@ -244,6 +251,7 @@ export function createPreview(host, ctx, o) {
       st.row = null;
       st.gen++;
       load.cancel();
+      rereadBtn.hidden = true;
       paintMany(rows);
     },
     /** Refreshes the card after the row changed (survey, recheck), keeping the detail already read. */
@@ -256,6 +264,12 @@ export function createPreview(host, ctx, o) {
       else { const my = ++st.gen; load(row, my); }
     },
     current: () => st.row,
+    /** The fiche of the row was read again in the directory (RCH-129): its time shows in the state pill. */
+    setFresh(row, at, source) {
+      if (!row || st.row?.id !== row.id) return;
+      stateEl.innerHTML = pill('ok', `Relue à ${dateText(at).slice(11)}`, { size: 'sm', tip: `Fiche relue dans ${source} pour cette sélection ; la ligne de la liste suit.` });
+    },
+    setBusy(on) { rereadBtn.classList.toggle('spinning', !!on); rereadBtn.disabled = !!on; },
     folded: () => st.folded,
     destroy() { load.cancel(); kv?.destroy(); unbindCopy(); host.replaceChildren(); },
   };

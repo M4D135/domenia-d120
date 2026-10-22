@@ -1,0 +1,77 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : précédent et suivant sans relecture",
+  "description": "Cherche « martin », puis liste l’OU Paris ; Alt ← rend la liste de « martin » telle qu’elle était, marquée « non relue » avec « Actualiser » ; Alt → revient à Paris ; le menu des étapes liste les deux.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher?q=martin",
+  "steps": [
+    {
+      "do": "wait",
+      "contains": "martin",
+      "within": ".rch-res-title",
+      "title": "La recherche est affichée"
+    },
+    {
+      "do": "click",
+      "text": "Postes",
+      "within": ".rch-side .k-tree",
+      "title": "Lister l’OU Postes"
+    },
+    {
+      "do": "wait",
+      "contains": "Postes",
+      "within": ".rch-res-title",
+      "title": "Le contenu de Postes est affiché"
+    },
+    {
+      "do": "click",
+      "selector": "[data-nav=\"back\"]",
+      "title": "Liste précédente"
+    },
+    {
+      "do": "wait",
+      "contains": "martin",
+      "within": ".rch-res-title",
+      "title": "La liste de « martin » revient"
+    },
+    {
+      "do": "expect",
+      "contains": "non relue",
+      "within": ".rch-notices",
+      "title": "Elle est marquée non relue"
+    },
+    {
+      "do": "click",
+      "selector": "[data-nav=\"forward\"]",
+      "title": "Liste suivante"
+    },
+    {
+      "do": "wait",
+      "contains": "Postes",
+      "within": ".rch-res-title",
+      "title": "Le contenu de Postes revient"
+    },
+    {
+      "do": "click",
+      "selector": "[data-nav=\"list\"]",
+      "title": "Ouvrir le menu des étapes"
+    },
+    {
+      "do": "expect",
+      "contains": "Recherche",
+      "within": ".k-menu",
+      "title": "Les étapes sont listées"
+    },
+    {
+      "do": "press",
+      "key": "Escape"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

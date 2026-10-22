@@ -1,8 +1,9 @@
-// Rechercher · actions on the rows: context menu of Domenia 1 (open, assistance, recheck, associated object, parent OU,
-// copies for a ticket), actions of a multiple selection, surveys of the list (three graduated readings, exact targets and
-// numbered confirmation, progress, stop, outcome pills that filter), the single recheck, the grouped network diagnostic,
-// the comparison of two to eight objects and the unlock of an account through the write circuit.
-// Domenia 1 RCH-002, RCH-062, RCH-076, RCH-078 to RCH-099, RCH-125 to RCH-131.
+// Rechercher · actions on the rows: context menu of Domenia 1 grouped by subject (open, network, copies), actions of a
+// multiple selection, surveys of the list (three graduated readings planned by the engine from the list itself, exact
+// targets and numbered confirmation with profile, budgets and collection window, progress, stop, detailed state, outcome
+// pills that filter, resume plan), the single recheck and the check on click, the grouped network diagnostic, the
+// comparison of two to eight objects and the unlock of an account through the write circuit.
+// Domenia 1 RCH-002, RCH-062, RCH-076, RCH-078 to RCH-099, RCH-117, RCH-125 to RCH-131.
 import { glyph } from '../../kit/glyphs.js';
 import { openMenu } from '../../kit/menu.js';
 import { openDialog } from '../../kit/dialog.js';
@@ -12,26 +13,32 @@ import { writeClipboard } from '../../kit/util.js';
 import { onEvent } from '../../bridge.js';
 import { runWrite } from '../../write-flow.js';
 import { toast, announce, errorText } from '../../ui.js';
-import { esc, int, count, quote, COLON, NBSP, KINDS, ticketText, selectionText, parentDn, dateText } from './text.js';
+import { esc, int, count, quote, COLON, NBSP, KINDS, ticketText, maskSecrets, selectionText, parentDn, dateText, ticketOuPath, associatedAccount } from './text.js';
 
-const MODES = [
+export const MODES = [
   { id: 'ping', label: 'Qui répond ?', icon: 'wifi', detail: 'Un ping par poste, échos envoyés en parallèle. Aucune lecture de session.' },
   { id: 'console', label: 'Qui est connecté ?', icon: 'users', detail: 'Ping puis utilisateur connecté à la console (CIM), quatre postes à la fois.' },
   { id: 'analyse', label: 'Matériel et widgets', icon: 'chip', detail: 'Ping, utilisateur connecté, relevé WMI léger et requêtes des widgets des tableaux de bord.' },
   { id: 'complete', label: 'Relevé complet', icon: 'layers', detail: 'Relevé léger plus correctifs, démarrage, services, TPM, BIOS et numéro de série ; jamais Win32_Product ni les processus.' },
   { id: 'unaddressed', label: 'Postes sans adresse', icon: 'hash', detail: 'Seulement les postes sans adresse connue, laissés après les autres dans un relevé normal.' },
 ];
+export const modeLabel = (id) => MODES.find((m) => m.id === id)?.label ?? 'Relevé';
 
 /**
  * @param {any} ctx
- * @param {any} S  page state: results, preview, side, readOnly(), browse(dn), search(text, opts), recent(row), lastMode
+ * @param {any} S  page state: results, preview, readOnly(), open(row), go(route, row), browse(dn), searchAssociated(row), pin(dn),
+ *   filterPresence(state), lastMode, onRunChange(), onSuspended(reason), resume, setResume(resume)
  */
 export function createActions(ctx, S) {
-  let run = null; // survey in progress: { runId, total, stop }
+  let run = null; // survey in progress: { runId, total, done, mode, stopAsked }
+  let clickGen = 0;
 
   const single = (rows, row) => (rows.length <= 1 ? (row ?? rows[0] ?? null) : null);
   const pcsOf = (rows) => rows.filter((r) => r.kind === 'computer' && !r.flags?.disabled);
   const comparable = (rows) => rows.length >= 2 && rows.length <= 8 && new Set(rows.map((r) => r.kind)).size === 1 && ['computer', 'user'].includes(rows[0].kind);
+  const listId = () => S.results.result()?.listId ?? null;
+  /** A list listed on the whole domain is never surveyed, not even a selection of it (RCH-117): the reason, or ''. */
+  const blocked = () => { const v = S.results.result()?.view; return v && !v.surveyAllowed ? v.reason : ''; };
 
   function copy(text, what) {
     writeClipboard(text).then((ok) => toast(ok ? `${what} copié.` : `Copie impossible${COLON}le presse-papiers est indisponible.`, { tone: ok ? 'ok' : 'warn', life: 2600 }));
@@ -43,8 +50,37 @@ export function createActions(ctx, S) {
     copy(ticketText(rows), rows.length > 1 ? `Texte pour un ticket (${count(rows.length, 'ligne', 'lignes')})` : 'Texte pour un ticket');
   }
 
+  /** Summary of the stored fiche, one property per line, secrets masked (Domenia 1 « résumé de fiche »). */
+  function summaryText(row) {
+    const lines = [
+      [KINDS[row.kind]?.label ?? 'Objet', row.name],
+      ['Nom affiché', row.display],
+      ['Compte', row.kind === 'computer' ? associatedAccount(row) : row.login],
+      [row.kind === 'computer' ? 'Nom DNS' : 'UPN', row.upn],
+      ['Courriel', row.mail],
+      ['État', row.state?.label],
+      ['OU', ticketOuPath(row.dn)],
+      ['Système', row.os],
+      ['Présence', row.presence ? `${row.presence.label}${row.presence.checkedAt ? ` (${dateText(row.presence.checkedAt)})` : ''}` : ''],
+      ['Utilisateur console', row.console?.state === 'seen' ? row.console.user : ''],
+      ['Association', row.association ? `${row.association.label} (${row.association.qualification}, ${row.association.source})` : ''],
+      ['Dernière connexion', row.lastLogon ? `${dateText(row.lastLogon, false)} (à 14 jours près)` : ''],
+      ['Description', row.description],
+    ].filter(([, v]) => v);
+    return maskSecrets(lines.map(([k, v]) => `${k}${COLON}${String(v).replace(/[\r\n\t]+/g, ' ')}`).join('\r\n'));
+  }
+
+  function allValues(row) {
+    const pairs = [['Nom', row.name], ['Type', row.kindLabel], ['Nom affiché', row.display], ['Compte', row.login], ['UPN / DNS', row.upn], ['Courriel', row.mail],
+      ['État', row.state?.label], ['Système', row.os], ['Version', row.osVersion], ['Description', row.description], ['Emplacement', row.container],
+      ['Dernière connexion', row.lastLogon ? dateText(row.lastLogon) : ''], ['Modifié', row.changed ? dateText(row.changed) : ''], ['Créé', row.created ? dateText(row.created) : ''],
+      ['Chemin (DN)', row.dn], ['GUID', row.id]].filter(([, v]) => v);
+    return maskSecrets(pairs.map(([k, v]) => `${k}\t${String(v).replace(/[\r\n\t]+/g, ' ')}`).join('\r\n'));
+  }
+
   // ---------- Context menu and selection bar ----------
 
+  /** Row menu grouped by subject (RCH-076): open, open in, network, copies; the write comes last, marked. */
   function contextMenu({ rows, row }) {
     const list = rows.length ? rows : row ? [row] : [];
     const one = single(list, row);
@@ -52,86 +88,86 @@ export function createActions(ctx, S) {
     const isPc = one?.kind === 'computer';
     const linkable = one && (one.kind === 'user' || isPc);
     const many = 'Une seule ligne à la fois.';
+    const stop = blocked();
     const items = [
       { heading: one ? one.name : selectionText(list.length, list.filter((r) => r.kind === 'computer').length) },
-      { label: one ? `Ouvrir la fiche de ${one.name}` : 'Ouvrir la fiche', icon: 'object', kbd: 'Entrée', disabled: !one, reason: many, run: () => S.open(one) },
-      { label: 'Assistance poste', icon: 'lifebuoy', disabled: !isPc, reason: one ? 'Réservé aux postes.' : many, run: () => S.go('assistance', one) },
-      { label: 'Ouvrir dans Poste', icon: 'monitor', disabled: !isPc, reason: one ? 'Réservé aux postes.' : many, run: () => S.go('poste', one) },
-      { label: 'Utilisateurs et postes', icon: 'link', disabled: !linkable, reason: one ? 'Réservé aux utilisateurs et aux postes.' : many, run: () => S.go('relations', one) },
-      { label: 'Revérifier ce poste (un ping)', icon: 'wifi', kind: 'network', disabled: !isPc || one.flags.disabled, reason: !one ? many : !isPc ? 'Réservé aux postes.' : 'Poste désactivé.', run: () => recheck(one) },
-      { label: isPc ? 'Rechercher l’utilisateur associé' : 'Rechercher le poste associé', icon: 'search', disabled: !one?.association, reason: one ? 'Aucune association mémorisée.' : many, run: () => S.searchAssociated(one) },
-      { label: 'Ouvrir l’OU parente', icon: 'ou', disabled: !one, reason: many, run: () => S.browse(parentDn(one.dn)) },
-      '-',
-      { label: list.length > 1 ? `Copier pour un ticket (${int(list.length)})` : 'Copier pour un ticket', icon: 'copy', disabled: !list.length, reason: 'Aucune ligne.', run: () => copyTicket(list) },
-      { label: 'Copier une valeur', icon: 'copy', disabled: !one, reason: many, items: one ? [
-        { label: 'Le nom', disabled: !one.name, run: () => copy(one.name, 'Nom') },
-        { label: 'Le compte', disabled: !one.login, reason: 'Valeur vide.', run: () => copy(one.login, 'Compte') },
-        { label: 'L’UPN ou le DNS', disabled: !one.upn, reason: 'Valeur vide.', run: () => copy(one.upn, 'UPN ou nom DNS') },
-        { label: 'Le chemin (DN)', run: () => copy(one.dn, 'Chemin LDAP') },
-        { label: 'Le GUID', run: () => copy(one.id, 'GUID') },
+      { label: one ? 'Ouvrir la fiche' : 'Ouvrir la fiche (une ligne)', icon: 'object', kbd: 'Entrée', disabled: !one, reason: many, run: () => S.open(one) },
+      { label: 'Ouvrir dans', icon: 'external', disabled: !one, reason: many, items: one ? [
+        { label: 'Assistance poste (Intervenir)', icon: 'lifebuoy', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('assistance', one) },
+        { label: 'Poste', icon: 'monitor', disabled: !isPc, reason: 'Réservé aux postes.', run: () => S.go('poste', one) },
+        { label: 'Utilisateurs et postes', icon: 'link', disabled: !linkable, reason: 'Réservé aux utilisateurs et aux postes.', run: () => S.go('relations', one) },
+        '-',
+        { label: 'L’OU parente, dans cette liste', icon: 'ou', kind: 'network', run: () => S.browse(parentDn(one.dn)) },
       ] : [] },
+      { label: isPc ? 'Rechercher l’utilisateur associé' : 'Rechercher le poste associé', icon: 'search', disabled: !one?.association, reason: one ? 'Aucune association mémorisée.' : many, run: () => S.searchAssociated(one) },
+      { label: 'Réseau', icon: 'wifi', kind: 'network', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif.', items: [
+        { label: 'Revérifier ce poste (ping et utilisateur)', icon: 'refresh', disabled: !isPc || one.flags.disabled, reason: !one ? many : !isPc ? 'Réservé aux postes.' : 'Poste désactivé.', run: () => recheck(one) },
+        '-',
+        ...MODES.slice(0, 3).map((m) => ({ label: `${m.label}${list.length > 1 ? ` (${int(pcs.length)})` : ''}`, icon: m.icon, run: () => survey(m.id, list, 'selection') })),
+        '-',
+        { label: 'Diagnostic réseau', icon: 'activity', run: () => netdiag(list) },
+      ] },
+      { label: list.length > 1 ? `Comparer (${int(list.length)})` : 'Comparer', icon: 'split', disabled: !comparable(list), reason: 'Deux à huit objets d’un même type (postes ou comptes).', run: () => compare(list) },
       '-',
-      { label: 'Vérifier', icon: 'wifi', kind: 'network', disabled: !pcs.length, reason: 'Aucun poste actif.', items: MODES.slice(0, 3).map((m) => ({ label: `${m.label}`, icon: m.icon, run: () => survey(m.id, list, 'selection') })) },
-      { label: 'Comparer', icon: 'split', disabled: !comparable(list), reason: 'Deux à huit objets d’un même type (postes ou comptes).', run: () => compare(list) },
-      { label: 'Diagnostic réseau', icon: 'activity', kind: 'network', disabled: !pcs.length, reason: 'Aucun poste actif.', run: () => netdiag(list) },
+      { label: 'Copier', icon: 'copy', disabled: !list.length, reason: 'Aucune ligne.', items: [
+        { label: list.length > 1 ? `Pour un ticket (${int(list.length)} lignes)` : 'Pour un ticket', icon: 'copy', run: () => copyTicket(list) },
+        { label: 'Résumé de fiche', icon: 'file', disabled: !one, reason: many, run: () => copy(summaryText(one), 'Résumé de fiche') },
+        '-',
+        { label: 'Le nom', disabled: !one, reason: many, run: () => copy(one.name, 'Nom') },
+        { label: 'Le compte', disabled: !one || !(one.kind === 'computer' ? associatedAccount(one) : one.login), reason: one ? 'Valeur vide.' : many, run: () => copy(one.kind === 'computer' ? associatedAccount(one) : one.login, 'Compte') },
+        { label: 'L’UPN ou le nom DNS', disabled: !one?.upn, reason: one ? 'Valeur vide.' : many, run: () => copy(one.upn, 'UPN ou nom DNS') },
+        { label: 'Le chemin (DN)', disabled: !one, reason: many, run: () => copy(one.dn, 'Chemin LDAP') },
+        { label: 'Le GUID', disabled: !one, reason: many, run: () => copy(one.id, 'GUID') },
+        { label: 'Toutes les valeurs', disabled: !one, reason: many, run: () => copy(allValues(one), 'Valeurs de la ligne') },
+        '-',
+        { label: S.results.scopeMode === 'selected' ? 'Exporter la sélection en CSV…' : 'Exporter la liste affichée en CSV…', icon: 'csv', run: () => S.exportList(S.results.scopeMode) },
+      ] },
       { label: 'Épingler l’OU parente', icon: 'star', disabled: !one, reason: many, run: () => S.pin(parentDn(one.dn)) },
     ];
     if (one?.kind === 'user' && (one.flags.locked || one.flags.lockToCheck)) {
-      items.push('-', { label: 'Déverrouiller le compte…', icon: 'lock', kind: 'write', danger: true, disabled: S.readOnly(), reason: 'Lecture seule.', run: () => unlock(one) });
+      // A write, marked as such (pencil) and last; not destructive: no danger tone (kit § 2.6).
+      items.push('-', { label: 'Déverrouiller le compte…', icon: 'lock', kind: 'write', hint: 'écriture', disabled: S.readOnly(), reason: 'Lecture seule.', run: () => unlock(one) });
     }
     return items;
   }
 
   function selectionActions(rows) {
     const pcs = pcsOf(rows);
+    const stop = blocked();
     return [
-      { label: `Pinger ${pcs.length ? int(pcs.length) : ''}`.trim(), icon: 'wifi', disabled: !pcs.length, reason: 'Aucun poste actif dans la sélection.', run: (sel) => survey('ping', sel, 'selection') },
-      { label: `Qui est connecté${NBSP}?`, icon: 'users', disabled: !pcs.length, reason: 'Aucun poste actif dans la sélection.', run: (sel) => survey('console', sel, 'selection') },
+      { label: `Pinger ${pcs.length ? int(pcs.length) : ''}`.trim(), icon: 'wifi', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => survey('ping', sel, 'selection') },
+      { label: `Qui est connecté${NBSP}?`, icon: 'users', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => survey('console', sel, 'selection') },
       { label: 'Comparer', icon: 'split', disabled: !comparable(rows), reason: 'Deux à huit objets d’un même type.', run: (sel) => compare(sel) },
-      { label: 'Diagnostic réseau', icon: 'activity', disabled: !pcs.length, reason: 'Aucun poste actif dans la sélection.', run: (sel) => netdiag(sel) },
+      { label: 'Diagnostic réseau', icon: 'activity', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la sélection.', run: (sel) => netdiag(sel) },
       { label: 'Copier pour un ticket', icon: 'copy', run: (sel) => copyTicket(sel) },
-      { label: 'Exporter', icon: 'csv', run: () => S.results.grid.exportCsv('selected') },
     ];
   }
 
-  /** « Vérifier la liste ▾ »: the last reading chosen in the session, or the choice of the three graduated readings. */
-  function surveyMenu(anchor) {
+  /** Choices of « Vérifier la liste ▾ »: the graduated readings, the last one of the session marked. */
+  function surveyItems() {
     const r = S.results.result();
     const rows = S.results.grid.getVisibleRows();
     const pcs = pcsOf(rows);
-    openMenu(anchor, [
+    const stop = blocked();
+    return [
       { heading: pcs.length ? `${count(pcs.length, 'poste actif affiché', 'postes actifs affichés')}` : 'Aucun poste actif affiché' },
-      ...MODES.map((m) => ({ label: m.label, icon: m.icon, hint: m.id === S.lastMode ? 'dernier choix' : '', disabled: !pcs.length || (r?.view && !r.view.surveyAllowed), reason: r?.view?.reason || 'Aucun poste actif dans la liste.', run: () => survey(m.id, null, 'list') })),
+      ...MODES.map((m) => ({ label: m.label, icon: m.icon, hint: m.id === S.lastMode && S.chosen ? 'dernier choix' : '', disabled: !pcs.length || !!stop, reason: stop || 'Aucun poste actif dans la liste.', run: () => { S.chosen = true; survey(m.id, null, 'list'); } })),
       '-',
+      { label: 'Relire les mesures enregistrées', icon: 'database', disabled: !r, reason: 'Aucune liste.', run: () => S.rereadMeasures() },
       { label: 'Ce que lit chaque relevé', icon: 'info', run: () => openDialog({ title: 'Relevés de la liste', icon: 'wifi', size: 'md',
-        body: `<ul data-page="rechercher" class="rch-modes">${MODES.map((m) => `<li>${glyph(m.icon)}<span><b>${esc(m.label)}</b><small>${esc(m.detail)}</small></span></li>`).join('')}</ul><p data-page="rechercher" class="rch-dlg-note">Une confirmation chiffrée précède toute lecture ; jamais tout le domaine, 500 postes au plus ; arrêt possible à tout moment.</p>` }) },
-    ], { label: 'Vérifier la liste', placement: 'bottom-start' });
+        body: `<ul data-page="rechercher" class="rch-modes">${MODES.map((m) => `<li>${glyph(m.icon)}<span><b>${esc(m.label)}</b><small>${esc(m.detail)}</small></span></li>`).join('')}</ul><p data-page="rechercher" class="rch-dlg-note">${glyph('info')}Une confirmation chiffrée précède toute lecture ; jamais tout le domaine, 500 postes au plus ; arrêt possible à tout moment.</p>` }) },
+    ];
   }
 
   // ---------- Surveys ----------
 
-  function surveyContext(scope, rows) {
-    const r = S.results.result();
-    const f = S.results.filters();
-    const visible = S.results.grid.getVisibleRows();
-    return {
-      scope: scope === 'list' ? 'results' : 'selection',
-      global: r?.scope.mode === 'global',
-      hasTerm: !!r?.text,
-      wholeDomain: !!(r?.scope.wholeDomain || (r?.view && !r.view.surveyAllowed)),
-      hasFilter: !!(f.quick || f.facets.length || f.presence),
-      coversList: scope !== 'list' && rows.length === visible.length,
-      scopeLabel: r ? (r.scope.mode === 'global' ? r.scope.chip : r.scope.path.split(`${NBSP}› `).at(-1)) : null,
-      subtree: r?.scope.subtree ?? true,
-      listLimit: r?.limitReached ? r.limit : 0,
-    };
-  }
-
-  async function survey(mode, rows, scope) {
-    if (run) { toast('Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin.', { tone: 'warn' }); return; }
+  async function survey(mode, rows, scope, { resume = false } = {}) {
+    if (run) { stopRun(); return; }
+    const id = listId();
+    if (!id) { toast('Aucune liste à relever.', { tone: 'warn' }); return; }
     S.lastMode = mode;
     let list = rows;
-    if (!list) {
+    if (!list && !resume) {
       const visible = S.results.grid.getVisibleRows();
       if (S.results.scopeMode === 'selected') {
         const ids = new Set(visible.map((v) => v.id));
@@ -139,26 +175,29 @@ export function createActions(ctx, S) {
         scope = 'selection';
       } else list = visible;
     }
-    if (!list.length) { toast('Aucune ligne à relever.', { tone: 'warn' }); return; }
-    const context = surveyContext(scope, list);
+    if (!resume && !list.length) { toast('Aucune ligne à relever.', { tone: 'warn' }); return; }
     let plan;
     try {
-      plan = await ctx.call('search.survey.plan', { mode, ids: list.map((x) => x.id).slice(0, 5000), context });
+      plan = await ctx.call('search.survey.plan', resume ? { mode, listId: id, resume: true } : { mode, listId: id, ids: list.map((x) => x.id).slice(0, 5000), scope: scope === 'list' ? 'results' : 'selection' });
     } catch (err) {
       toast(`Relevé impossible${COLON}${errorText(err)}`, { tone: 'alert' });
       return;
     }
-    const ok = await confirmSurvey(plan);
-    if (!ok) return;
-    await execute(mode, plan, context);
+    const typed = await confirmSurvey(plan);
+    if (typed === null) return;
+    await execute(plan, typed);
   }
 
+  /** Confirmation of a plan: three lines, the details of the collection, exact targets, numbered button; null when cancelled. */
   function confirmSurvey(plan) {
     const allowed = plan.admission.allowed;
     const targets = plan.targets;
     const body = `<div data-page="rechercher" class="rch-survey-plan">
       ${allowed ? '' : `<p class="rch-refusal">${glyph('alert')}${esc(plan.admission.reason)}</p>`}
+      ${plan.outsideWindow ? `<p class="rch-window">${glyph('clock')}${esc(plan.details.find((d) => d.startsWith('Hors fenêtre')) ?? '')}</p>` : ''}
       <ol class="rch-survey-lines">${plan.lines.map((l, n) => `<li data-j="${n}"><span class="rch-line-n">${n + 1}</span>${esc(l)}</li>`).join('')}</ol>
+      <details class="rch-survey-details" open><summary>${glyph('sliders')}Profil, budgets et fenêtre de collecte</summary>
+        <ul>${plan.details.filter((d) => !d.startsWith('Hors fenêtre')).map((d) => `<li>${esc(d)}</li>`).join('')}</ul></details>
       <div class="rch-survey-cols">
         <section><h4>${glyph('monitor')}Postes lus <span class="k-badge info">${int(targets.length)}</span></h4>
           <ul class="rch-targets">${targets.slice(0, 500).map((t) => `<li><span>${esc(t.name)}</span>${t.address ? `<small class="mono">${esc(t.address)}</small>` : '<small>sans adresse connue</small>'}</li>`).join('') || '<li class="none">Aucun poste.</li>'}</ul></section>
@@ -166,7 +205,7 @@ export function createActions(ctx, S) {
           <ul class="rch-targets excluded">${plan.excluded.map((x) => `<li><span>${esc(x.name)}</span><small>${esc(x.reason)}</small></li>`).join('') || '<li class="none">Aucune ligne écartée.</li>'}</ul></section>
       </div>
       ${allowed && plan.typedCountRequired ? `<label class="rch-typed">Au-delà de 100 postes, saisissez le nombre de postes pour confirmer${COLON}<input class="input mono" inputmode="numeric" autocomplete="off" aria-label="Nombre de postes à relever"></label>` : ''}
-      <p class="rch-dlg-note">${glyph('info')}Lecture seule : rien n’est modifié sur les postes. Une absence de réponse au ping ne prouve pas qu’un poste est éteint.</p>
+      <p class="rch-dlg-note">${glyph('info')}Lecture seule : rien n’est modifié sur les postes. Une absence de réponse au ping ne prouve pas qu’un poste est éteint. Ce plan vaut dix minutes, pour un seul lancement.</p>
     </div>`;
     const dlg = openDialog({
       title: plan.title, subtitle: `${count(plan.targets.length, 'poste', 'postes')} · ${plan.estimate}`, icon: 'wifi', size: 'lg', body,
@@ -175,84 +214,122 @@ export function createActions(ctx, S) {
         : [{ id: 'cancel', label: 'Fermer', safe: true, primary: true }],
     });
     dlg.body.querySelectorAll('[data-j]').forEach((x) => x.style.setProperty('--j', x.dataset.j));
-    const typed = dlg.body.querySelector('.rch-typed input');
-    typed?.addEventListener('input', () => dlg.setDisabled('go', typed.value.replace(/\s/g, '') !== String(targets.length)));
-    return dlg.result.then((id) => id === 'go');
+    const input = dlg.body.querySelector('.rch-typed input');
+    input?.addEventListener('input', () => dlg.setDisabled('go', input.value.replace(/\s/g, '') !== String(targets.length)));
+    // The typed count goes to the engine, which checks it again before any read.
+    return dlg.result.then((choice) => (choice === 'go' ? (input ? Number.parseInt(input.value.replace(/\s/g, ''), 10) : null) ?? -1 : null))
+      .then((v) => (v === -1 ? undefined : v));
   }
 
-  async function execute(mode, plan, context) {
+  function statusHtml(status) {
+    return status?.lines?.length ? `<ul class="rch-status">${status.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : '';
+  }
+
+  async function execute(plan, typedCount) {
     const ids = plan.targets.map((t) => t.id);
     const total = ids.length;
-    const label = MODES.find((m) => m.id === mode)?.label ?? 'Relevé';
+    const label = plan.modeLabel;
     S.results.updateRows(S.results.rows().filter((x) => ids.includes(x.id)), { pending: true });
-    run = { runId: null, total };
-    let stopAsked = false;
-    const notice = (p, done = false) => S.results.setNotice('survey', {
-      tone: done ? (p.errors ? 'warn' : 'ok') : 'info', icon: done ? 'check' : 'wifi',
+    run = { runId: null, total, done: 0, mode: plan.mode, stopAsked: false };
+    S.onRunChange?.();
+    let last = { done: 0, text: `0/${int(total)}`, status: null };
+    const notice = (p, done = false, result = null) => S.results.setNotice('survey', {
+      tone: done ? (p.errors || result?.stopped ? 'warn' : 'ok') : 'info', icon: done ? (result?.stopped ? 'pause' : 'check') : 'wifi',
       html: `<div class="rch-progress"><div class="rch-progress-top"><b>${esc(label)}</b><span class="num">${esc(p.text)}</span></div>
         <div class="rch-progress-bar${done ? ' done' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${p.done}" aria-label="Relevé de la liste"><span class="rch-progress-fill"></span></div></div>`,
+      more: statusHtml(p.status),
       actions: done
-        ? [{ id: 'online', label: `${int(p.online)} en ligne` }, { id: 'noReply', label: `${int(p.noReply)} sans réponse` }, { id: 'error', label: `${count(p.errors, 'erreur', 'erreurs')}` }]
-        : [{ id: 'stop', label: stopAsked ? 'Arrêt demandé…' : `Arrêter (${int(p.done)}/${int(total)})`, icon: 'pause' }],
+        ? [{ id: 'online', label: `${int(p.online)} en ligne`, pressed: S.results.state.presence === 'online', tip: 'Filtre la liste ; un second clic retire le filtre' },
+          { id: 'noReply', label: `${int(p.noReply)} sans réponse`, pressed: S.results.state.presence === 'noReply', tip: 'Filtre la liste ; un second clic retire le filtre' },
+          { id: 'error', label: count(p.errors, 'erreur', 'erreurs'), pressed: S.results.state.presence === 'error', tip: 'Filtre la liste ; un second clic retire le filtre' }]
+        : [{ id: 'stop', label: run?.stopAsked ? 'Arrêt demandé…' : `Arrêter (${int(p.done)}/${int(total)})`, icon: 'pause' }],
       dismiss: done,
       run: (act) => {
-        if (act === 'stop' && run?.runId && !stopAsked) {
-          stopAsked = true;
-          ctx.call('search.survey.stop', { runId: run.runId }).then((r) => announce(r.message)).catch((err) => console.error(err));
-          notice(p);
-        } else if (['online', 'noReply', 'error'].includes(act)) S.filterPresence(act);
+        if (act === 'stop') stopRun();
+        else if (['online', 'noReply', 'error'].includes(act)) { S.filterPresence(act); notice(p, true, result); }
       },
     });
     const paintBar = (p) => {
       const bar = document.querySelector('.rch-notice[data-id="survey"] .rch-progress-fill');
       bar?.style.setProperty('--p', String(total ? p.done / total : 1));
     };
-    notice({ done: 0, text: `0/${int(total)}`, online: 0, noReply: 0, errors: 0 });
+    notice({ done: 0, text: `0/${int(total)}`, online: 0, noReply: 0, errors: 0, status: null });
     const off = onEvent('search.survey.run:progress', (p) => {
       if (!run) return;
       if (!run.runId) run.runId = p.runId;
       if (p.runId !== run.runId) return;
+      run.done = p.done;
       const changed = p.batch.map((b) => {
         const row = S.results.rows().find((x) => x.id === b.id);
         return row ? { ...row, presence: b.presence, console: b.console ?? row.console, _pending: false } : null;
       }).filter(Boolean);
       if (changed.length) S.results.updateRows(changed);
+      last = p;
       notice(p);
       paintBar(p);
+      S.onRunChange?.();
     });
     try {
-      const result = await ctx.call('search.survey.run', { mode, ids, context });
+      const result = await ctx.call('search.survey.run', { planId: plan.planId, typedCount: typedCount ?? null });
       S.results.updateRows(result.rows);
       S.preview.update(result.rows.find((x) => x.id === S.preview.current()?.id));
-      const p = { done: result.done, text: result.text, online: result.online, noReply: result.noReply, errors: result.errors };
-      notice(p, true);
+      const p = { done: result.done, text: result.text, online: result.online, noReply: result.noReply, errors: result.errors, status: result.status };
+      notice(p, true, result);
       paintBar(p);
+      S.setResume?.(result.resume ?? null);
+      if (result.status?.suspended) S.onSuspended?.();
       toast(`${label}${COLON}${result.text}`, { tone: result.stopped || result.errors ? 'warn' : 'ok', life: 6000 });
     } catch (err) {
-      S.results.setNotice('survey', { tone: 'alert', icon: 'alert', html: `Relevé non lancé${COLON}${esc(errorText(err))}`, dismiss: true });
+      S.results.setNotice('survey', { tone: 'alert', icon: 'alert', html: `Relevé non lancé${COLON}${esc(errorText(err))}`, more: statusHtml(last.status), dismiss: true });
       S.results.updateRows(S.results.rows().filter((x) => ids.includes(x.id)).map((x) => ({ ...x, _pending: false })));
     } finally {
       off();
       run = null;
+      S.onRunChange?.();
     }
   }
 
-  async function recheck(row) {
+  function stopRun() {
+    if (!run) return;
+    if (!run.runId || run.stopAsked) { announce('Arrêt déjà demandé : le lot en cours se termine.'); return; }
+    run.stopAsked = true;
+    ctx.call('search.survey.stop', { runId: run.runId }).then((r) => announce(r.message)).catch((err) => console.error(err));
+    S.onRunChange?.();
+  }
+
+  /** One ping and the console user of one workstation (explicit), or the check on click (silent unless it fails). */
+  async function recheck(row, { mode = 'console', onClick = false } = {}) {
     S.results.updateRows([row], { pending: true });
     try {
-      const fresh = await ctx.call('search.recheck', { id: row.id });
+      const fresh = await ctx.call('search.recheck', { id: row.id, mode, listId: listId(), onClick });
       S.results.updateRows([fresh]);
       S.preview.update(fresh);
-      toast(`${fresh.name}${COLON}${fresh.presence?.label ?? 'relevé fait'}${fresh.console?.state === 'seen' ? ` · ${fresh.console.user}` : ''}`, { tone: fresh.presence?.state === 'online' ? 'ok' : 'warn' });
+      if (!onClick) toast(`${fresh.name}${COLON}${fresh.presence?.label ?? 'relevé fait'}${fresh.console?.state === 'seen' ? ` · ${fresh.console.user}` : ''}`, { tone: fresh.presence?.state === 'online' ? 'ok' : 'warn' });
+      else announce(`${fresh.name}${COLON}${fresh.presence?.label ?? 'relevé fait'}.`);
+      if (fresh.console?.state === 'denied') S.onSuspended?.();
     } catch (err) {
       S.results.updateRows([{ ...row, _pending: false }]);
+      if (err?.code === 'search.checksSuspended') { S.onSuspended?.(err.message); return; }
       toast(`Revérification impossible${COLON}${errorText(err)}`, { tone: 'alert' });
     }
+  }
+
+  /** « Vérifier au clic » (RCH-078): one intention 180 ms after the click, the newest click only. */
+  function checkOnClick(row, withConsole) {
+    const my = ++clickGen;
+    setTimeout(() => {
+      if (my !== clickGen || run) return;
+      const sel = S.results.grid.getSelection();
+      if (sel.length !== 1 || sel[0].id !== row.id || blocked()) return;
+      recheck(row, { mode: withConsole ? 'console' : 'ping', onClick: true });
+    }, 180);
   }
 
   // ---------- Network diagnostic ----------
 
   async function netdiag(rows) {
+    const stop = blocked();
+    if (stop) { toast(stop, { tone: 'warn' }); return; }
     const pcs = pcsOf(rows);
     const others = rows.length - pcs.length;
     const head = pcs.slice(0, 50);
@@ -266,7 +343,7 @@ export function createActions(ctx, S) {
     if (ok !== 'go') return;
     const drawer = openDrawer({ title: 'Diagnostic réseau', subtitle: 'Lecture en cours…', icon: 'activity', width: 820, key: 'rechercher.diag', body: `<div data-page="rechercher" class="rch-diag" aria-busy="true">${'<span class="skeleton sk sk-line w85"></span>'.repeat(6)}</div>` });
     try {
-      const res = await ctx.call('search.netdiag', { ids: head.map((r) => r.id) });
+      const res = await ctx.call('search.netdiag', { listId: listId(), ids: head.map((r) => r.id) });
       const portHead = ['445 SMB', '135 RPC', '5985 WinRM', '5986 WinRM HTTPS'];
       drawer.setTitle('Diagnostic réseau', res.summary);
       drawer.body.innerHTML = `<div data-page="rechercher" class="rch-diag">
@@ -334,7 +411,10 @@ export function createActions(ctx, S) {
     }
   }
 
-  return { contextMenu, selectionActions, surveyMenu, survey, recheck, netdiag, compare, copyTicket, unlock, busy: () => !!run };
+  return {
+    contextMenu, selectionActions, surveyItems, survey, stopRun, recheck, checkOnClick, netdiag, compare, copyTicket, unlock, blocked,
+    busy: () => !!run, runState: () => (run ? { done: run.done, total: run.total, stopAsked: run.stopAsked, mode: run.mode } : null),
+  };
 }
 
 export { quote };

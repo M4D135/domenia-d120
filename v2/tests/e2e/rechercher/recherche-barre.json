@@ -1,23 +1,104 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Rechercher : un nom depuis la barre, puis l’aperçu",
-  "description": "Part de l’écran vide (rien n’est lu avant le geste), saisit « martin » dans la grande barre, valide par Entrée, vérifie le titre, le classement et la fraîcheur, sélectionne Martine Dufour et contrôle l’aperçu latéral lu dans la base locale.",
-  "modes": ["simulation"],
+  "description": "Part de l’écran vide (rien n’est lu avant le geste), saisit « martin » dans la grande barre, valide par Entrée, vérifie la barre compacte et son plan, le titre, le classement et la fraîcheur, sélectionne Martine Dufour et contrôle l’aperçu latéral lu dans la base locale.",
+  "modes": [
+    "simulation"
+  ],
   "start": "rechercher",
   "steps": [
-    { "do": "expect", "contains": "Que cherchez-vous", "within": ".rch-results", "title": "Rien n’est lu avant le geste : la rampe de lancement est affichée" },
-    { "do": "click", "selector": ".rch-input", "title": "Placer le curseur dans la barre de recherche" },
-    { "do": "type", "selector": ".rch-input", "text": "martin" },
-    { "do": "press", "key": "Enter", "title": "Lancer la recherche" },
-    { "do": "wait", "contains": "martin", "within": ".rch-res-title", "title": "Le titre reprend le texte cherché" },
-    { "do": "expect", "contains": "Filtre envoyé en mode annuaire", "within": ".rch-bar-host", "title": "Le filtre du mode annuaire est montré sous la barre" },
-    { "do": "wait", "contains": "Martine Dufour", "within": ".rch-results .k-gbody", "title": "Les comptes trouvés sont listés" },
-    { "do": "expect", "contains": "Annuaire lu", "within": ".rch-res-fresh", "title": "La fraîcheur de la lecture est affichée" },
-    { "do": "click", "text": "Martine Dufour", "within": ".rch-results .k-gbody", "title": "Sélectionner Martine Dufour" },
-    { "do": "wait", "contains": "Martine Dufour", "within": ".rch-preview", "title": "L’aperçu présente l’objet sélectionné" },
-    { "do": "expect", "contains": "Ouvrir la fiche", "within": ".rch-preview", "title": "Les destinations sont proposées" },
-    { "do": "expect", "contains": "L’essentiel", "within": ".rch-preview", "title": "L’essentiel de la fiche enregistrée est affiché" },
-    { "do": "shot", "name": "apercu-martine" },
-    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+    {
+      "do": "expect",
+      "contains": "Que cherchez-vous",
+      "within": ".rch-results",
+      "title": "Rien n’est lu avant le geste : la rampe de lancement est affichée"
+    },
+    {
+      "do": "click",
+      "selector": ".rch-input",
+      "title": "Placer le curseur dans la barre de recherche"
+    },
+    {
+      "do": "type",
+      "selector": ".rch-input",
+      "text": "martin"
+    },
+    {
+      "do": "press",
+      "key": "Enter",
+      "title": "Lancer la recherche"
+    },
+    {
+      "do": "wait",
+      "contains": "martin",
+      "within": ".rch-res-title",
+      "title": "Le titre reprend le texte cherché"
+    },
+    {
+      "do": "click",
+      "selector": ".rch-input",
+      "title": "Revenir dans la barre devenue compacte"
+    },
+    {
+      "do": "press",
+      "key": "Escape",
+      "title": "Fermer les suggestions : le plan appliqué s’affiche sous le champ"
+    },
+    {
+      "do": "expect",
+      "contains": "Filtre LDAP envoyé en mode annuaire",
+      "within": ".rch-bar-host",
+      "title": "Le filtre du mode annuaire reste montré"
+    },
+    {
+      "do": "press",
+      "key": "Tab",
+      "title": "Quitter la barre"
+    },
+    {
+      "do": "wait",
+      "contains": "Martine Dufour",
+      "within": ".rch-results .k-gbody",
+      "title": "Les comptes trouvés sont listés"
+    },
+    {
+      "do": "expect",
+      "contains": "Annuaire lu",
+      "within": ".rch-res-fresh",
+      "title": "La fraîcheur de la lecture est affichée"
+    },
+    {
+      "do": "click",
+      "text": "Martine Dufour",
+      "within": ".rch-results .k-gbody",
+      "title": "Sélectionner Martine Dufour"
+    },
+    {
+      "do": "wait",
+      "contains": "Martine Dufour",
+      "within": ".rch-preview",
+      "title": "L’aperçu présente l’objet sélectionné"
+    },
+    {
+      "do": "expect",
+      "contains": "Ouvrir la fiche",
+      "within": ".rch-preview",
+      "title": "Les destinations sont proposées"
+    },
+    {
+      "do": "expect",
+      "contains": "L’essentiel",
+      "within": ".rch-preview",
+      "title": "L’essentiel de la fiche enregistrée est affiché"
+    },
+    {
+      "do": "shot",
+      "name": "apercu-martine"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
   ]
 }

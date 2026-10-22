@@ -21,6 +21,10 @@ public static class SearchErrors
     public const string SurveyRefused = "search.surveyRefused";
     public const string SurveyBusy = "search.surveyBusy";
     public const string SurveyBusyMessage = "Un relevé de la liste est déjà en cours" + FrenchText.Colon + "arrêtez-le ou attendez sa fin.";
+    public const string SurveyPlanUnknown = "search.surveyPlanUnknown";
+    public const string SurveyPlanUnknownMessage = "Plan de relevé inconnu, déjà utilisé ou expiré" + FrenchText.Colon + "rien n’est lu. Relancez la confirmation.";
+    public const string SurveyTypedCount = "search.surveyTypedCount";
+    public const string ChecksSuspended = "search.checksSuspended";
     public const string NotWorkstation = "search.notWorkstation";
     public const string NotWorkstationMessage = "Cette ligne n’est pas un poste actif" + FrenchText.Colon + "aucune sonde n’est envoyée.";
 }
@@ -34,8 +38,11 @@ public sealed record SearchRevalidation(ImmutableArray<SearchRow> Rows, Immutabl
 /// <summary>Answer of search.survey.stop.</summary>
 public sealed record SurveyStop(bool Stopped, string Message);
 
-/// <summary>Context of a survey sent by the page: what list the targets come from (Domenia 1 Get-DomeniaParkListContext).</summary>
-public sealed record SurveyContext(SurveyScope Scope, bool Global, bool HasSearchTerm, bool WholeDomain, bool HasFilter, bool SelectionCoversList, string? ScopeLabel, bool Subtree, int ListLimit);
+/// <summary>Surveys of the session: the resume plan of an interrupted survey and the suspension of the selection checks (RCH-082).</summary>
+public sealed record SearchSurveyState(SurveyResume? Resume, bool ChecksSuspended, string SuspendedReason);
+
+/// <summary>Rows of the local base shown while the directory read of a simple search goes on (event « search.run:cached », RCH-055).</summary>
+public sealed record SearchCached(string Text, ImmutableArray<SearchRow> Rows, string SourceLabel, DateTimeOffset ReadAt);
 
 /// <summary>
 /// Engine service of the search screen, shared by its module: runs the reads through the reader of the mode, keeps the lists
@@ -45,14 +52,21 @@ public sealed record SurveyContext(SurveyScope Scope, bool Global, bool HasSearc
 public sealed class SearchService : IDisposable
 {
     private const int MaxLists = 24;
+    private const int MaxPlans = 16;
     private const int PingBatch = 32;
     private const int Concurrency = 4;
+    private const int MeasuresPage = 250;
+    private const string ProfileKey = "collection.profile";
+    private static readonly TimeSpan PlanLifetime = TimeSpan.FromMinutes(10);
 
     private readonly EngineContext context;
     private readonly Lock gate = new();
     private readonly Dictionary<string, ListState> lists = new(StringComparer.Ordinal);
     private readonly Queue<string> order = new();
     private readonly ConcurrentDictionary<string, CancellationTokenSource> runs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, PendingSurvey> plans = new(StringComparer.Ordinal);
+    private ResumeState? resumeState;
+    private string? checksSuspended;
     private int surveyCount;
     private int surveyRunning;
 
@@ -72,7 +86,8 @@ public sealed class SearchService : IDisposable
     private TimeZoneInfo Zone => context.Clock.LocalTimeZone;
 
     /// <summary>search.run: the bar (global, or one OU chosen by its chip), or an address of the local readings.</summary>
-    public async Task<SearchResult> RunAsync(string text, string? scopeDn, SearchTypeFilter type, int limit, SearchMatchMode match, CancellationToken cancellationToken)
+    public async Task<SearchResult> RunAsync(string text, string? scopeDn, SearchTypeFilter type, int limit, SearchMatchMode match, CancellationToken cancellationToken,
+        Action<SearchCached>? onCached = null)
     {
         var (root, dns) = await DomainAsync(cancellationToken).ConfigureAwait(false);
         var plan = SearchText.Plan(text, type, match);
@@ -105,6 +120,16 @@ public sealed class SearchService : IDisposable
         }
         var scope = SearchLists.Scope(true, baseDn, root, dns, true);
         var list = Register(new ListState(SearchListKind.Search, plan, type, baseDn, true, null, text.Trim(), match, scope, null));
+        if (onCached is not null && SearchText.IsSimple(plan))
+        {
+            // A simple search shows the rows of the local base at once, marked with their date; the directory rows replace them.
+            var cached = await reader.CachedAsync(new SearchQuery(SearchListKind.Search, plan, type, baseDn, true, null, null, new HashSet<string>(StringComparer.Ordinal), limit), cancellationToken)
+                .ConfigureAwait(false);
+            if (!cached.Rows.IsEmpty)
+            {
+                onCached(new SearchCached(text.Trim(), cached.Rows, cached.SourceLabel, cached.ReadAt));
+            }
+        }
         var found = await ReadAsync(list, reader, limit, appended: false, cancellationToken).ConfigureAwait(false);
         Journal("Recherche " + FrenchText.Quote(SearchMemoryRules.Flat(text, 60)) + FrenchText.Colon + FrenchText.Count(found.Loaded, "résultat", "résultats") + (found.LimitReached ? " (liste limitée)" : ""), Tone.Info);
         return found;
@@ -115,7 +140,7 @@ public sealed class SearchService : IDisposable
     {
         var (root, dns) = await DomainAsync(cancellationToken).ConfigureAwait(false);
         var reader = context.Readers.Require<ISearchReader>();
-        var containers = await reader.ContainersAsync(cancellationToken).ConfigureAwait(false);
+        var containers = await reader.ContainersAsync(false, cancellationToken).ConfigureAwait(false);
         var container = containers.FirstOrDefault(c => SearchLists.IsRoot(c.Dn, dn));
         var baseDn = SearchLists.IsRoot(dn, root) ? root : container?.Dn ?? await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);
         var whole = SearchLists.IsRoot(baseDn, root);
@@ -131,7 +156,12 @@ public sealed class SearchService : IDisposable
         var reader = context.Readers.Require<ISearchReader>();
         var view = SearchViews.All(context.Clock.GetUtcNow()).FirstOrDefault(v => v.Id == viewId)
             ?? throw new DomeniaOperationException(SearchErrors.ViewUnknown, SearchErrors.ViewUnknownMessage);
-        var baseDn = wholeDomain || dn is null || SearchLists.IsRoot(dn, root) ? root : await RequireOuAsync(dn, root, cancellationToken).ConfigureAwait(false);
+        if (!wholeDomain && (dn is null || SearchLists.IsRoot(dn, root)))
+        {
+            // The whole domain is an explicit choice (wholeDomain), never the silent fallback of a missing OU.
+            throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Arguments invalides" + FrenchText.Colon + "choisissez une OU, ou demandez explicitement tout le domaine.");
+        }
+        var baseDn = wholeDomain || SearchLists.IsRoot(dn!, root) ? root : await RequireOuAsync(dn!, root, cancellationToken).ConfigureAwait(false);
         var whole = SearchLists.IsRoot(baseDn, root);
         var depth = whole || subtree;
         const string survey = "Vue sur tout le domaine" + FrenchText.Colon + "aucun relevé des postes (ping, détection, analyse) n’est proposé sur cette liste.";
@@ -165,15 +195,7 @@ public sealed class SearchService : IDisposable
     /// <summary>search.more: the following rows of a list only (MO-07), up to <paramref name="target"/> rows in all.</summary>
     public async Task<SearchResult> MoreAsync(string listId, int target, CancellationToken cancellationToken)
     {
-        ListState? state;
-        lock (gate)
-        {
-            lists.TryGetValue(listId, out state);
-        }
-        if (state is null)
-        {
-            throw new DomeniaOperationException(SearchErrors.ListUnknown, SearchErrors.ListUnknownMessage);
-        }
+        var state = RequireList(listId);
         if (!state.LimitReached)
         {
             throw new DomeniaOperationException(SearchErrors.ListComplete, "Liste complète" + FrenchText.Colon + "aucune suite à charger.");
@@ -183,26 +205,136 @@ public sealed class SearchService : IDisposable
             throw new DomeniaOperationException(SearchErrors.ListComplete, "Taille demandée hors des bornes" + FrenchText.Colon + "de " + FrenchText.Integer(state.Loaded + 1) + " à " + FrenchText.Integer(SearchLimits.MaxLimit) + " lignes.");
         }
         var reader = context.Readers.Require<ISearchReader>();
-        switch (state.Kind)
+        // Every kind of list takes the same busy mark: two « Charger la suite » close together never read twice.
+        return await WithBusyAsync(state, async () =>
         {
-            case SearchListKind.Address when state.Address is SearchAddress address:
+            switch (state.Kind)
+            {
+                case SearchListKind.Address when state.Address is SearchAddress address:
+                    {
+                        var page = await reader.FindAddressAsync(address, target, cancellationToken).ConfigureAwait(false);
+                        var known = KnownOf(state);
+                        return Complete(state, page with { Rows = [.. page.Rows.Where(r => !known.Contains(r.Id))] }, target, appended: true);
+                    }
+                case SearchListKind.LocalQuery:
+                    {
+                        var (page, totals) = await reader.LocalQueryAsync(state.ViewId!, state.BaseDn, state.Subtree, state.Verdict ?? "match", target, cancellationToken).ConfigureAwait(false);
+                        var known = KnownOf(state);
+                        return Complete(state, page with { Rows = [.. page.Rows.Where(r => !known.Contains(r.Id))] }, target, appended: true) with { Verdicts = totals };
+                    }
+                default:
+                    return await ReadCoreAsync(state, reader, target, appended: true, cancellationToken).ConfigureAwait(false);
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// search.reconcile: the list read again with its own filter, perimeter, type and size (RCH-047). New objects of the
+    /// perimeter are added, objects moved out of it keep their row (followed by their GUID), objects not found again are
+    /// to be checked again: never removed, never a proof of deletion (RCH-048). A checkpoint of the read is kept.
+    /// </summary>
+    public async Task<SearchReconcile> ReconcileAsync(string listId, CancellationToken cancellationToken)
+    {
+        var state = RequireList(listId);
+        var reader = context.Readers.Require<ISearchReader>();
+        return await WithBusyAsync(state, async () =>
+        {
+            var known = KnownOf(state);
+            var take = Math.Clamp(Math.Max(state.Loaded, state.Limit), 1, SearchLimits.MaxLimit);
+            SearchPage page;
+            switch (state.Kind)
+            {
+                case SearchListKind.Address when state.Address is SearchAddress address:
+                    page = await reader.FindAddressAsync(address, take, cancellationToken).ConfigureAwait(false);
+                    break;
+                case SearchListKind.LocalQuery:
+                    (page, _) = await reader.LocalQueryAsync(state.ViewId!, state.BaseDn, state.Subtree, state.Verdict ?? "match", take, cancellationToken).ConfigureAwait(false);
+                    break;
+                default:
+                    page = await reader.FindAsync(new SearchQuery(state.Kind, state.Plan, state.Type, state.BaseDn, state.Subtree, state.ViewId, null,
+                        new HashSet<string>(StringComparer.Ordinal), take), cancellationToken).ConfigureAwait(false);
+                    break;
+            }
+            var fresh = state.Kind == SearchListKind.Search
+                ? [.. page.Rows.Select(r => r with { Rank = SearchMatcher.Rank(r, state.Text) })]
+                : page.Rows;
+            var freshIds = fresh.Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var added = fresh.Where(r => !known.Contains(r.Id)).Select(r => r.Id).ToImmutableArray();
+            var gone = known.Where(id => !freshIds.Contains(id)).ToList();
+            ImmutableArray<SearchRow> moved = [];
+            ImmutableArray<string> missing = [];
+            // Only a read that came back complete can say an object left the perimeter; beyond its size nothing is judged.
+            if (!page.More && gone.Count > 0)
+            {
+                moved = await reader.RereadAsync([.. gone.Take(500).Select(Guid.Parse)], cancellationToken).ConfigureAwait(false);
+                var found = moved.Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                missing = [.. gone.Take(500).Where(id => !found.Contains(id))];
+            }
+            int sequence;
+            int loaded;
+            lock (gate)
+            {
+                foreach (var id in added)
                 {
-                    var page = await reader.FindAddressAsync(address, target, cancellationToken).ConfigureAwait(false);
-                    return Complete(state, page with { Rows = [.. page.Rows.Where(r => !state.Known.Contains(r.Id))] }, target, appended: true);
+                    if (state.Known.Add(id))
+                    {
+                        state.Order.Add(id);
+                    }
                 }
-            case SearchListKind.LocalQuery:
-                {
-                    var (page, totals) = await reader.LocalQueryAsync(state.ViewId!, state.BaseDn, state.Subtree, state.Verdict ?? "match", target, cancellationToken).ConfigureAwait(false);
-                    return Complete(state, page with { Rows = [.. page.Rows.Where(r => !state.Known.Contains(r.Id))] }, target, appended: true) with { Verdicts = totals };
-                }
-            default:
-                return await ReadAsync(state, reader, target, appended: true, cancellationToken).ConfigureAwait(false);
+                state.Loaded += added.Length;
+                state.Checkpoint++;
+                sequence = state.Checkpoint;
+                loaded = state.Loaded;
+            }
+            var checkpoint = "Point de reprise" + FrenchText.Colon + page.SourceLabel + ", lecture n°" + FrenchText.Nbsp + FrenchText.Integer(sequence) + " du " + SearchDetails.When(page.ReadAt, Zone);
+            var parts = new List<string> { FrenchText.Count(fresh.Length, "objet relu", "objets relus") };
+            if (!added.IsEmpty)
+            {
+                parts.Add(FrenchText.Count(added.Length, "nouvel objet", "nouveaux objets") + " dans le périmètre");
+            }
+            if (!moved.IsEmpty)
+            {
+                parts.Add(FrenchText.Count(moved.Length, "objet sorti", "objets sortis") + " du périmètre ou du filtre, " + (moved.Length > 1 ? "suivis" : "suivi") + " par " + (moved.Length > 1 ? "leur" : "son") + " identifiant");
+            }
+            if (!missing.IsEmpty)
+            {
+                parts.Add(FrenchText.Count(missing.Length, "objet à revérifier", "objets à revérifier") + " (une absence ne prouve pas une suppression)");
+            }
+            var summary = "Liste revérifiée à " + SearchDetails.When(page.ReadAt, Zone)[11..] + FrenchText.Colon + string.Join(" · ", parts) + ".";
+            Journal("Revérification de la liste" + FrenchText.Colon + string.Join(" · ", parts), added.IsEmpty && missing.IsEmpty ? Tone.Info : Tone.Warn);
+            return new SearchReconcile(state.Id, [.. fresh, .. moved], added, [.. moved.Select(r => r.Id)], missing, loaded, checkpoint, page.ReadAt, summary);
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>search.measures: stored measures of the rows of a list, from the local base, by pages of 250 (RCH-083).</summary>
+    public async Task<SearchMeasures> MeasuresAsync(string listId, int offset, CancellationToken cancellationToken)
+    {
+        var state = RequireList(listId);
+        List<string> order;
+        lock (gate)
+        {
+            order = [.. state.Order];
         }
+        var ids = order.Skip(Math.Max(0, offset)).Take(MeasuresPage).Select(Guid.Parse).ToList();
+        var rows = ids.Count == 0 ? [] : await context.Readers.Require<ISearchReader>().LocalRowsAsync(ids, cancellationToken).ConfigureAwait(false);
+        var next = offset + MeasuresPage < order.Count ? offset + MeasuresPage : (int?)null;
+        return new SearchMeasures(rows, offset, next, order.Count, context.Clock.GetUtcNow());
+    }
+
+    /// <summary>search.preload: the fiche of the single row selected read again (RCH-129), to refresh its row (RCH-077).</summary>
+    public async Task<SearchPreload> PreloadAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var rows = await context.Readers.Require<ISearchReader>().RereadAsync([id], cancellationToken).ConfigureAwait(false);
+        if (rows.Length != 1)
+        {
+            throw new DomeniaOperationException(SearchErrors.ObjectUnknown, "Objet introuvable à la relecture" + FrenchText.Colon + "il a pu être déplacé, supprimé ou masqué pour ce compte.");
+        }
+        return new SearchPreload(rows[0], context.Mode == AppMode.Simulation ? "Annuaire fictif" : "Annuaire en direct", context.Clock.GetUtcNow());
     }
 
     /// <summary>search.containers: containers of the domain root for the tree (Users, Computers, system containers folded apart).</summary>
-    public Task<ImmutableArray<SearchContainer>> ContainersAsync(CancellationToken cancellationToken) =>
-        context.Readers.Require<ISearchReader>().ContainersAsync(cancellationToken);
+    public Task<ImmutableArray<SearchContainer>> ContainersAsync(bool counts, CancellationToken cancellationToken) =>
+        context.Readers.Require<ISearchReader>().ContainersAsync(counts, cancellationToken);
 
     /// <summary>search.suggest: objects of the local base for the field (8 at most), never a directory request.</summary>
     public Task<ImmutableArray<SearchSuggestion>> SuggestAsync(string text, SearchTypeFilter type, CancellationToken cancellationToken) =>
@@ -264,60 +396,154 @@ public sealed class SearchService : IDisposable
         return new SearchRevalidation(rows, missing, at, summary);
     }
 
-    /// <summary>search.survey.plan: the exact targets and the three-line confirmation, before anything is read.</summary>
-    public async Task<SurveyPlan> SurveyPlanAsync(SurveyMode mode, IReadOnlyList<Guid> ids, SurveyContext survey, CancellationToken cancellationToken)
+    /// <summary>
+    /// search.survey.plan: the exact targets and the confirmation, before anything is read. The context is derived by the
+    /// engine from the list itself (kind, perimeter, text, view, rows given), never taken from the page: every target must be
+    /// a row of the list, a view or query listed on the whole domain is never surveyed (RCH-117), the whole root list or a
+    /// global search without a term is refused (RCH-090). The plan is kept ten minutes for one run.
+    /// </summary>
+    public async Task<SurveyPlan> SurveyPlanAsync(SurveyMode mode, string listId, IReadOnlyList<Guid> ids, SurveyScope scope, bool resuming, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ids);
-        ArgumentNullException.ThrowIfNull(survey);
-        var (targets, excluded) = await TargetsAsync(mode, ids, cancellationToken).ConfigureAwait(false);
-        var admission = SearchSurvey.Admit(targets.Length, SearchSurvey.MaxTargets, survey.Global, survey.HasSearchTerm, survey.WholeDomain, survey.HasFilter,
-            survey.Scope == SurveyScope.Selection, survey.SelectionCoversList);
-        var (title, target, lines, confirm, seconds) = SearchSurvey.Confirmation(mode, targets.Length, survey.Scope, survey.ScopeLabel, survey.Subtree, excluded.Length, survey.ListLimit);
-        return new SurveyPlan(mode, SearchSurvey.ModeLabel(mode), admission, title, target, lines, confirm, seconds, SearchSurvey.Duration(seconds), targets, excluded,
-            targets.Length > SearchSurvey.TypedCountThreshold);
+        var state = RequireList(listId);
+        ResumeState? pending;
+        lock (gate)
+        {
+            pending = resumeState;
+        }
+        IReadOnlyList<Guid> chosen = ids;
+        if (resuming)
+        {
+            if (pending is null || !string.Equals(pending.ListId, listId, StringComparison.Ordinal))
+            {
+                throw new DomeniaOperationException(SearchErrors.SurveyRefused, "Aucun relevé interrompu à reprendre sur cette liste" + FrenchText.Colon + "rien n’est lu.");
+            }
+            mode = pending.Mode;
+            chosen = [.. pending.Remaining.Select(t => Guid.Parse(t.Id))];
+        }
+        var distinct = chosen.Distinct().ToList();
+        var known = KnownOf(state);
+        var outside = distinct.Count(i => !known.Contains(i.ToString("D")));
+        if (outside > 0)
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, FrenchText.Count(outside, "ligne demandée n’appartient", "lignes demandées n’appartiennent")
+                + " pas à la liste affichée" + FrenchText.Colon + "rien n’est relevé.");
+        }
+        var (targets, excluded) = await TargetsAsync(mode, distinct, cancellationToken).ConfigureAwait(false);
+        var covers = distinct.Count >= known.Count;
+        var admission = state.View is { SurveyAllowed: false } view
+            ? new SurveyAdmission(false, "wholeDomainView", view.Reason, SearchSurvey.MaxTargets)
+            : SearchSurvey.Admit(targets.Length, SearchSurvey.MaxTargets, state.Scope.Mode == "global", !string.IsNullOrWhiteSpace(state.Text), state.Scope.WholeDomain,
+                hasFilter: !covers, scope == SurveyScope.Selection, covers);
+        var scopeLabel = state.Scope.Mode == "global" ? state.Scope.Chip : state.Scope.WholeDomain ? "tout le domaine" : SearchTexts.Leaf(state.BaseDn);
+        var (title, target, lines, confirm, seconds) = SearchSurvey.Confirmation(mode, targets.Length, resuming ? SurveyScope.Selection : scope, scopeLabel, state.Subtree, excluded.Length,
+            state.LimitReached ? state.Limit : 0, Concurrency);
+        var profile = ProfileOf();
+        var now = context.Clock.GetUtcNow();
+        var open = SearchSurvey.WindowOpen(profile, TimeZoneInfo.ConvertTime(now, Zone).DateTime);
+        var details = SearchSurvey.Details(mode, profile, open, pending is null ? null : Resume(pending), resuming, Concurrency);
+        if (resuming)
+        {
+            title = "Reprendre le relevé" + FrenchText.Colon + SearchSurvey.ModeLabel(mode);
+        }
+        var planId = NewId();
+        var expires = now + PlanLifetime;
+        var typed = targets.Length > SearchSurvey.TypedCountThreshold;
+        lock (gate)
+        {
+            foreach (var old in plans.Where(p => p.Value.ExpiresAt <= now).Select(p => p.Key).ToList())
+            {
+                plans.Remove(old);
+            }
+            while (plans.Count >= MaxPlans)
+            {
+                plans.Remove(plans.MinBy(p => p.Value.ExpiresAt).Key);
+            }
+            plans[planId] = new PendingSurvey(planId, mode, listId, targets, typed, admission, expires, profile);
+        }
+        return new SurveyPlan(planId, mode, SearchSurvey.ModeLabel(mode), admission, title, target, lines, details, !open, confirm, seconds, SearchSurvey.Duration(seconds),
+            targets, excluded, typed, resuming, expires);
     }
 
     /// <summary>
-    /// search.survey.run: reads the targets once each (echoes by batches of 32, other reads four workstations at a time),
-    /// publishes the progress after each batch, and stops at the operator’s request: what was read is kept, nothing is replayed.
+    /// search.survey.run: runs a plan once (it is consumed, valid ten minutes; above 100 workstations the typed count is checked
+    /// again here). Echoes go by batches of 32, other reads four workstations at a time; the progress and the detailed state
+    /// are published after each batch; the operator may stop it: what was read is kept, the rest becomes the resume plan,
+    /// nothing is replayed.
     /// </summary>
-    public async Task<SurveyResult> SurveyRunAsync(SurveyMode mode, IReadOnlyList<Guid> ids, SurveyContext survey, Action<SurveyProgress> publish, CancellationToken cancellationToken)
+    public async Task<SurveyResult> SurveyRunAsync(string planId, int? typedCount, Action<SurveyProgress> publish, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(ids);
-        ArgumentNullException.ThrowIfNull(survey);
+        ArgumentNullException.ThrowIfNull(planId);
         ArgumentNullException.ThrowIfNull(publish);
-        var (targets, _) = await TargetsAsync(mode, ids, cancellationToken).ConfigureAwait(false);
-        var admission = SearchSurvey.Admit(targets.Length, SearchSurvey.MaxTargets, survey.Global, survey.HasSearchTerm, survey.WholeDomain, survey.HasFilter,
-            survey.Scope == SurveyScope.Selection, survey.SelectionCoversList);
-        if (!admission.Allowed)
+        PendingSurvey? taken;
+        var opened = context.Clock.GetUtcNow();
+        lock (gate)
         {
-            throw new DomeniaOperationException(SearchErrors.SurveyRefused, admission.Reason);
+            taken = plans.Remove(planId, out var found) && found.ExpiresAt > opened ? found : null;
+        }
+        if (taken is null)
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyPlanUnknown, SearchErrors.SurveyPlanUnknownMessage);
+        }
+        PendingSurvey plan = taken;
+        if (!plan.Admission.Allowed)
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, plan.Admission.Reason);
+        }
+        var targets = plan.Targets;
+        if (plan.TypedRequired && typedCount != targets.Length)
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyTypedCount, "Nombre saisi différent du nombre de postes (" + FrenchText.Integer(targets.Length) + ")"
+                + FrenchText.Colon + "rien n’est lu. Confirmez de nouveau.");
         }
         if (Interlocked.CompareExchange(ref surveyRunning, 1, 0) != 0)
         {
             throw new DomeniaOperationException(SearchErrors.SurveyBusy, SearchErrors.SurveyBusyMessage);
         }
+        var mode = plan.Mode;
         var reader = context.Readers.Require<ISearchReader>();
         var runId = NewId();
         var run = Interlocked.Increment(ref surveyCount);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         runs[runId] = stop;
+        lock (gate)
+        {
+            // A new survey replaces the resume plan of the interrupted one (Domenia 1: one resume plan at a time).
+            resumeState = null;
+        }
         var started = context.Clock.GetUtcNow();
-        int done = 0, online = 0, noReply = 0, errors = 0;
+        var clock = context.Clock.GetTimestamp();
+        int done = 0, online = 0, noReply = 0, errors = 0, slow = 0, suspended = 0, reachable = 0, avoided = 0;
         var stopped = false;
         var read = new List<Guid>(targets.Length);
+        int Elapsed() => (int)context.Clock.GetElapsedTime(clock).TotalSeconds;
+        SurveyStatus StatusOf(bool finished, int remaining) => SearchSurvey.Status(mode, done, targets.Length, Elapsed(), slow, suspended, reachable, avoided, remaining, plan.Profile, finished);
+        async Task<(SurveyOutcome Outcome, bool Slow)> ProbeOneAsync(SurveyTarget target)
+        {
+            var at = context.Clock.GetTimestamp();
+            var outcome = await reader.ProbeAsync(Guid.Parse(target.Id), mode, run, TimeSpan.FromSeconds(plan.Profile.InventorySeconds), stop.Token).ConfigureAwait(false);
+            return (outcome, context.Clock.GetElapsedTime(at) > TimeSpan.FromSeconds(SearchSurvey.SlowProbeSeconds));
+        }
         try
         {
-            publish(new SurveyProgress(runId, 0, targets.Length, 0, 0, 0, SearchSurvey.Progress(0, targets.Length, 0, 0, 0, false, false), []));
+            publish(new SurveyProgress(runId, 0, targets.Length, 0, 0, 0, SearchSurvey.Progress(0, targets.Length, 0, 0, 0, false, false), [], StatusOf(false, targets.Length)));
             var size = mode == SurveyMode.Ping ? PingBatch : Concurrency;
             foreach (var batch in targets.Chunk(size))
             {
                 stop.Token.ThrowIfCancellationRequested();
-                var outcomes = await Task.WhenAll(batch.Select(t => reader.ProbeAsync(Guid.Parse(t.Id), mode, run, stop.Token))).ConfigureAwait(false);
-                foreach (var outcome in outcomes)
+                var results = await Task.WhenAll(batch.Select(ProbeOneAsync)).ConfigureAwait(false);
+                foreach (var (outcome, late) in results)
                 {
                     done++;
                     read.Add(Guid.Parse(outcome.Id));
+                    slow += late ? 1 : 0;
+                    avoided += outcome.InventoryReused ? 1 : 0;
+                    reachable += outcome.Console is { State: "seen" or "none" } ? 1 : 0;
+                    if (outcome.Denied)
+                    {
+                        suspended++;
+                        Suspend(outcome.Name);
+                    }
                     switch (outcome.Kind)
                     {
                         case "online":
@@ -331,7 +557,8 @@ public sealed class SearchService : IDisposable
                             break;
                     }
                 }
-                publish(new SurveyProgress(runId, done, targets.Length, online, noReply, errors, SearchSurvey.Progress(done, targets.Length, online, noReply, errors, false, false), [.. outcomes]));
+                publish(new SurveyProgress(runId, done, targets.Length, online, noReply, errors, SearchSurvey.Progress(done, targets.Length, online, noReply, errors, false, false),
+                    [.. results.Select(r => r.Outcome)], StatusOf(false, targets.Length - done)));
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -344,6 +571,21 @@ public sealed class SearchService : IDisposable
             runs.TryRemove(runId, out _);
             Volatile.Write(ref surveyRunning, 0);
         }
+        SurveyResume? resume = null;
+        if (stopped)
+        {
+            var seen = read.Select(g => g.ToString("D")).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var remaining = targets.Where(t => !seen.Contains(t.Id)).ToImmutableArray();
+            if (!remaining.IsEmpty)
+            {
+                var kept = new ResumeState(plan.ListId, mode, remaining, targets.Length, context.Clock.GetUtcNow());
+                lock (gate)
+                {
+                    resumeState = kept;
+                }
+                resume = Resume(kept);
+            }
+        }
         var rows = read.Count > 0 ? await reader.RereadAsync(read, cancellationToken).ConfigureAwait(false) : [];
         var text = SearchSurvey.Progress(done, targets.Length, online, noReply, errors, completed: true, stopped);
         var detail = "Relevé " + FrenchText.Quote(SearchSurvey.ModeLabel(mode)) + FrenchText.Colon + text + ". "
@@ -351,7 +593,8 @@ public sealed class SearchService : IDisposable
             + "Une absence de réponse au ping ne prouve pas qu’un poste est éteint.";
         Journal("Relevé de la liste (" + SearchSurvey.ModeLabel(mode) + ")" + FrenchText.Colon + text, stopped || errors > 0 ? Tone.Warn : Tone.Ok);
         context.Log.Info($"Relevé de la liste terminé : {done}/{targets.Length} postes, {online} en ligne, {noReply} sans réponse, {errors} erreurs{(stopped ? ", arrêté" : "")}.");
-        return new SurveyResult(runId, mode, done, targets.Length, online, noReply, errors, stopped, text, detail, rows, started, context.Clock.GetUtcNow());
+        return new SurveyResult(runId, mode, done, targets.Length, online, noReply, errors, stopped, text, detail, rows, started, context.Clock.GetUtcNow(),
+            StatusOf(true, resume?.Remaining ?? 0), resume);
     }
 
     /// <summary>search.survey.stop: asks the survey to stop after the batch in progress.</summary>
@@ -372,27 +615,103 @@ public sealed class SearchService : IDisposable
         return new SurveyStop(false, "Aucun relevé en cours sous cet identifiant.");
     }
 
-    /// <summary>search.recheck: one ping and the console user of the single workstation selected (RCH-079), one attempt.</summary>
-    public async Task<SearchRow> RecheckAsync(Guid id, CancellationToken cancellationToken)
+    /// <summary>search.survey.state: resume plan of the session and suspension of the selection checks.</summary>
+    public SearchSurveyState SurveyState()
     {
+        lock (gate)
+        {
+            return new SearchSurveyState(resumeState is null ? null : Resume(resumeState), checksSuspended is not null, checksSuspended ?? "");
+        }
+    }
+
+    /// <summary>search.survey.forget: abandons the resume plan; the measures already validated stay.</summary>
+    public SearchSurveyState ForgetResume()
+    {
+        lock (gate)
+        {
+            resumeState = null;
+        }
+        Journal("Plan de reprise abandonné" + FrenchText.Colon + "les mesures déjà validées restent.", Tone.Info);
+        return SurveyState();
+    }
+
+    /// <summary>search.checks.resume: the operator lifts the suspension of the selection checks (RCH-082).</summary>
+    public SearchSurveyState ResumeChecks()
+    {
+        lock (gate)
+        {
+            checksSuspended = null;
+        }
+        Journal("Vérifications sur sélection reprises", Tone.Info);
+        return SurveyState();
+    }
+
+    /// <summary>
+    /// search.recheck: one ping (and the console user unless <paramref name="mode"/> is a ping) of the single workstation
+    /// selected (RCH-079, RCH-078), one attempt. A row of a list listed on the whole domain is never probed; a check started
+    /// by a click is refused while the selection checks are suspended after a rejected account (RCH-082).
+    /// </summary>
+    public async Task<SearchRow> RecheckAsync(Guid id, SurveyMode mode, string? listId, bool onClick, CancellationToken cancellationToken)
+    {
+        if (listId is not null)
+        {
+            var state = RequireList(listId);
+            if (state.View is { SurveyAllowed: false } view)
+            {
+                throw new DomeniaOperationException(SearchErrors.SurveyRefused, view.Reason);
+            }
+            if (!KnownOf(state).Contains(id.ToString("D")))
+            {
+                throw new DomeniaOperationException(SearchErrors.SurveyRefused, "Cette ligne n’appartient pas à la liste affichée" + FrenchText.Colon + "aucune sonde n’est envoyée.");
+            }
+        }
+        if (onClick)
+        {
+            string? reason;
+            lock (gate)
+            {
+                reason = checksSuspended;
+            }
+            if (reason is not null)
+            {
+                throw new DomeniaOperationException(SearchErrors.ChecksSuspended, reason);
+            }
+        }
         var reader = context.Readers.Require<ISearchReader>();
         var rows = await reader.LocalRowsAsync([id], cancellationToken).ConfigureAwait(false);
         if (rows.Length != 1 || rows[0].Kind != SearchObjectKind.Computer || rows[0].Flags.Disabled)
         {
             throw new DomeniaOperationException(SearchErrors.NotWorkstation, SearchErrors.NotWorkstationMessage);
         }
-        var outcome = await reader.ProbeAsync(id, SurveyMode.Console, Interlocked.Increment(ref surveyCount), cancellationToken).ConfigureAwait(false);
+        var outcome = await reader.ProbeAsync(id, mode == SurveyMode.Ping ? SurveyMode.Ping : SurveyMode.Console, Interlocked.Increment(ref surveyCount), TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+        if (outcome.Denied)
+        {
+            Suspend(outcome.Name);
+        }
         Journal("Revérification de " + rows[0].Name + FrenchText.Colon + outcome.Presence.Label, outcome.Kind == "online" ? Tone.Ok : Tone.Warn);
         var reread = await reader.RereadAsync([id], cancellationToken).ConfigureAwait(false);
         return reread.Length == 1 ? reread[0] : rows[0];
     }
 
-    /// <summary>search.netdiag: echo then four TCP ports, workstation after workstation, 50 at most (RCH-131); no account sent.</summary>
-    public async Task<NetworkDiagnostic> DiagnoseAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    /// <summary>
+    /// search.netdiag: echo then four TCP ports, workstation after workstation, 50 at most (RCH-131); no account sent. Rows of
+    /// the list only, never on a list listed on the whole domain.
+    /// </summary>
+    public async Task<NetworkDiagnostic> DiagnoseAsync(string listId, IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ids);
-        var reader = context.Readers.Require<ISearchReader>();
+        var state = RequireList(listId);
+        if (state.View is { SurveyAllowed: false } view)
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, view.Reason);
+        }
+        var known = KnownOf(state);
         var distinct = ids.Distinct().ToList();
+        if (distinct.Any(i => !known.Contains(i.ToString("D"))))
+        {
+            throw new DomeniaOperationException(SearchErrors.SurveyRefused, "Des lignes demandées n’appartiennent pas à la liste affichée" + FrenchText.Colon + "rien n’est envoyé.");
+        }
+        var reader = context.Readers.Require<ISearchReader>();
         var rows = await reader.LocalRowsAsync(distinct, cancellationToken).ConfigureAwait(false);
         var excluded = new List<SurveyExcluded>();
         var targets = new List<SearchRow>();
@@ -493,7 +812,19 @@ public sealed class SearchService : IDisposable
         return (targets.ToImmutable(), excluded.ToImmutable());
     }
 
-    private async Task<SearchResult> ReadAsync(ListState state, ISearchReader reader, int target, bool appended, CancellationToken cancellationToken)
+    private Task<SearchResult> ReadAsync(ListState state, ISearchReader reader, int target, bool appended, CancellationToken cancellationToken) =>
+        WithBusyAsync(state, () => ReadCoreAsync(state, reader, target, appended, cancellationToken));
+
+    private async Task<SearchResult> ReadCoreAsync(ListState state, ISearchReader reader, int target, bool appended, CancellationToken cancellationToken)
+    {
+        var take = Math.Max(1, target - state.Loaded);
+        var query = new SearchQuery(state.Kind, state.Plan, state.Type, state.BaseDn, state.Subtree, state.ViewId, state.LastKey, KnownOf(state), take);
+        var page = await reader.FindAsync(query, cancellationToken).ConfigureAwait(false);
+        return Complete(state, page, target, appended);
+    }
+
+    /// <summary>One read at a time per list (« Charger la suite », revérification): a second one is refused, never queued.</summary>
+    private static async Task<T> WithBusyAsync<T>(ListState state, Func<Task<T>> read)
     {
         if (Interlocked.CompareExchange(ref state.Busy, 1, 0) != 0)
         {
@@ -501,10 +832,7 @@ public sealed class SearchService : IDisposable
         }
         try
         {
-            var take = Math.Max(1, target - state.Loaded);
-            var query = new SearchQuery(state.Kind, state.Plan, state.Type, state.BaseDn, state.Subtree, state.ViewId, state.LastKey, state.Known.ToHashSet(StringComparer.OrdinalIgnoreCase), take);
-            var page = await reader.FindAsync(query, cancellationToken).ConfigureAwait(false);
-            return Complete(state, page, target, appended);
+            return await read().ConfigureAwait(false);
         }
         finally
         {
@@ -512,10 +840,62 @@ public sealed class SearchService : IDisposable
         }
     }
 
+    /// <summary>Copy of the identifiers already given by a list, taken under the lock (Complete adds to it).</summary>
+    private HashSet<string> KnownOf(ListState state)
+    {
+        lock (gate)
+        {
+            return state.Known.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private ListState RequireList(string listId)
+    {
+        lock (gate)
+        {
+            return lists.TryGetValue(listId, out var state)
+                ? state
+                : throw new DomeniaOperationException(SearchErrors.ListUnknown, SearchErrors.ListUnknownMessage);
+        }
+    }
+
+    /// <summary>A remote account rejected by a workstation suspends the checks started by a click on a row (RCH-082).</summary>
+    private void Suspend(string workstation)
+    {
+        var reason = "Vérifications sur sélection suspendues" + FrenchText.Colon + "le poste " + workstation + " a rejeté le compte distant. Reprenez-les après vérification du compte.";
+        lock (gate)
+        {
+            if (checksSuspended is not null)
+            {
+                return;
+            }
+            checksSuspended = reason;
+        }
+        Journal(reason, Tone.Warn);
+    }
+
+    /// <summary>Collection profile chosen in the preferences (« collection.profile »), Standard otherwise.</summary>
+    private SurveyProfile ProfileOf()
+    {
+        if (context.Preferences.TryGet(ProfileKey, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            return SearchSurvey.Profile(value.GetString());
+        }
+        return SearchSurvey.Profile(null);
+    }
+
+    private static SurveyResume Resume(ResumeState state) => new(state.ListId, state.Mode, SearchSurvey.ModeLabel(state.Mode), state.Remaining.Length, state.Total, state.StoppedAt,
+        "Relevé " + FrenchText.Quote(SearchSurvey.ModeLabel(state.Mode)) + " interrompu" + FrenchText.Colon + FrenchText.Count(state.Remaining.Length, "poste restant", "postes restants")
+        + " sur " + FrenchText.Integer(state.Total) + ".");
+
     /// <summary>Records a page in its list and builds the answer (rows of this page only when appended).</summary>
     private SearchResult Complete(ListState state, SearchPage page, int target, bool appended)
     {
-        var rows = page.Rows.Where(r => !state.Known.Contains(r.Id)).ToList();
+        List<SearchRow> rows;
+        lock (gate)
+        {
+            rows = [.. page.Rows.Where(r => !state.Known.Contains(r.Id))];
+        }
         var ranked = state.Kind == SearchListKind.Search
             ? rows.Select(r => r with { Rank = SearchMatcher.Rank(r, state.Text) }).OrderBy(r => r.Rank).ThenBy(r => FrenchText.Fold(r.Name), StringComparer.Ordinal).ToImmutableArray()
             : [.. rows];
@@ -523,7 +903,10 @@ public sealed class SearchService : IDisposable
         {
             foreach (var row in ranked)
             {
-                state.Known.Add(row.Id);
+                if (state.Known.Add(row.Id))
+                {
+                    state.Order.Add(row.Id);
+                }
             }
             state.Loaded += ranked.Length;
             state.Limit = Math.Max(state.Limit, target);
@@ -580,6 +963,13 @@ public sealed class SearchService : IDisposable
 
     private void Journal(string label, Tone tone) => context.Journal.Add(new JournalEntry(context.Clock.GetUtcNow(), label, tone));
 
+    /// <summary>A survey planned and not yet run: its targets, admission and profile, valid until <see cref="ExpiresAt"/>.</summary>
+    private sealed record PendingSurvey(string PlanId, SurveyMode Mode, string ListId, ImmutableArray<SurveyTarget> Targets, bool TypedRequired, SurveyAdmission Admission,
+        DateTimeOffset ExpiresAt, SurveyProfile Profile);
+
+    /// <summary>Remaining targets of the survey stopped by the operator (plan de reprise of the session).</summary>
+    private sealed record ResumeState(string ListId, SurveyMode Mode, ImmutableArray<SurveyTarget> Remaining, int Total, DateTimeOffset StoppedAt);
+
     private static string NewId() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
 
     /// <summary>A list kept for its continuation: what produced it, what was given, where the next page starts.</summary>
@@ -602,6 +992,8 @@ public sealed class SearchService : IDisposable
         public SearchAddress? Address { get; init; }
         public string? Verdict { get; init; }
         public HashSet<string> Known { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<string> Order { get; } = [];
+        public int Checkpoint { get; set; }
         public int Loaded { get; set; }
         public int Limit { get; set; }
         public bool LimitReached { get; set; }

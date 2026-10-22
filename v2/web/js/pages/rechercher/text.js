@@ -195,7 +195,7 @@ export function analyse(text, { match = 'prefix', minimum = MIN_CHARS } = {}) {
     if (list.length > 4) { res.reason = 'Saisissez de un à quatre mots pour chercher les noms qui les contiennent.'; res.kind = 'refused'; return res; }
     if (list.some((w) => w.replace(/\*/g, '').length < 2)) { res.reason = 'Chaque mot doit compter au moins 2 caractères pour chercher les noms qui le contiennent.'; res.kind = 'refused'; return res; }
     res.valid = true; res.kind = 'contains';
-    res.chips.push({ label: 'Contient', tone: 'accent', icon: 'search' }, ...list.map((w) => ({ label: w, tone: 'off' })));
+    res.chips.push(...list.map((w) => ({ label: `contient ${quote(w)}`, tone: 'accent', icon: 'search' })));
     res.notes.push('Noms, noms affichés, comptes et noms DNS qui contiennent ces mots : plus lent, l’annuaire parcourt tous les noms du périmètre.');
     return res;
   }
@@ -221,11 +221,12 @@ export function analyse(text, { match = 'prefix', minimum = MIN_CHARS } = {}) {
   const kinds = new Set(syntax.tokens.filter((t) => t.kind !== 'Mail').map((t) => t.kind));
   if (kinds.size > 1) res.notes.push('Plusieurs types demandés : chaque jeton est cherché dans son type.');
   const free = syntax.tokens.length ? syntax.free : words(v);
-  if (syntax.tokens.length && free.length) res.chips.push({ label: `texte${COLON}${free.join(' ')}`, tone: 'off' });
+  if (syntax.tokens.length && free.length) res.chips.push({ label: `et le texte ${quote(free.join(' '))}`, tone: 'off' });
   if (!syntax.tokens.length) {
     const ws = words(v);
     if (!ws.some((w) => w.replace(/\*/g, '').length >= minimum)) { res.reason = `Saisissez au moins ${int(minimum)} caractères${COLON}une recherche plus courte parcourrait tout le domaine.`; res.kind = 'short'; return res; }
-    res.chips.push(...ws.slice(0, 6).map((w) => ({ label: w.includes('*') ? `${w} (joker)` : `${w}…`, tone: w.startsWith('*') ? 'warn' : 'off' })));
+    // Each word says what is done with it: « commence par « martin » », « motif « PC-*-01 » » (never a bare « martin… »).
+    res.chips.push(...ws.slice(0, 6).map((w) => ({ label: w.includes('*') ? `motif ${quote(w)}` : `commence par ${quote(w)}`, tone: w.startsWith('*') ? 'warn' : 'off' })));
     if (ws.length > 1) res.notes.push('Chaque mot doit figurer au début d’un nom, d’un compte, d’un nom affiché, d’un courriel ou d’un nom DNS.');
   }
   if (words(v).some((w) => w.startsWith('*'))) res.notes.push('Joker en tête : recherche par sous-chaîne, sans index. Elle peut être longue sur un grand domaine ; préférez le début du nom.');
@@ -243,7 +244,6 @@ export function barText(choice, ouName, type) {
   const noun = entry.noun;
   return {
     placeholder: `${noun[0].toUpperCase()}${noun.slice(1)}, ${where}…`,
-    summary: `Recherche · ${chip} · ${typeLabel(entry.id)} · Aucun filtre de liste`,
     chip,
   };
 }
@@ -310,18 +310,56 @@ export function scopeSummary({ mode, visible, loaded, selected, selectedHidden =
   return `${t} · ${note}`;
 }
 
-/** Empty state of the list (Domenia 1 Get-DomeniaEmptyState): what was (not) read, one next step, never a claim of absence. */
-export function emptyState(kind, { query = '', scope = '' } = {}) {
+/**
+ * Empty state of the list (Domenia 1 Get-DomeniaEmptyState, RCH-051): one zone says why the list is empty — nothing asked,
+ * no result in the perimeter, a local filter, a refused, partial or sourceless read, a list of another origin — with a hint
+ * on the perimeter, type, completeness and limit, and the next steps (run only on a click). Never a claim of absence.
+ */
+export function emptyState(kind, { query = '', scope = '', type = 'all', limit = 0, complete = true, global = false, ou = false, match = 'prefix', message = '' } = {}) {
   const scopePart = scope ? ` (${scope})` : '';
+  const hint = [scope ? `Périmètre${COLON}${scope}.` : '', type !== 'all' ? `Type retenu${COLON}${typeLabel(type)}.` : '', complete ? '' : `Liste limitée à ${int(limit)} lignes.`].filter(Boolean).join(' ');
   switch (kind) {
-    case 'refused': return { icon: 'lock', title: 'Lecture refusée', text: `La lecture a été refusée pour ce compte${scopePart}${COLON}le contenu réel est inconnu.` };
-    case 'nosource': return { icon: 'wifiOff', title: 'Aucune source disponible', text: `Aucune source n’a répondu pour cette vue${scopePart}${COLON}rien n’a pu être lu, l’état réel est inconnu.` };
-    case 'noresult': return {
-      icon: 'search', title: 'Aucun résultat',
-      text: `${query ? `Aucun résultat pour ${quote(query)}` : 'Aucun résultat'} dans le périmètre interrogé${scopePart}. Un objet hors de ce périmètre, ou masqué pour ce compte, ne peut pas apparaître ici.`,
-    };
-    default: return { icon: 'search', title: 'Rien n’a encore été interrogé', text: 'L’affichage vide ne renseigne pas sur l’état réel : saisissez un nom, choisissez une OU ou une requête prête.' };
+    case 'refused': return { icon: 'lock', tone: 'alert', title: 'Lecture refusée', text: `La lecture a été refusée pour ce compte${scopePart}${COLON}le contenu réel est inconnu.${message ? ` ${message}` : ''}`, hint,
+      actions: [{ id: 'retry', label: 'Relire', icon: 'refresh', kind: 'network' }] };
+    case 'partial': return { icon: 'alert', tone: 'warn', title: 'Lecture partielle', text: `La lecture s’est arrêtée avant la fin${scopePart}${COLON}la liste est incomplète, un objet absent peut exister.${message ? ` ${message}` : ''}`, hint,
+      actions: [{ id: 'retry', label: 'Relire les sources', icon: 'refresh', kind: 'network', primary: true }] };
+    case 'nosource': return { icon: 'wifiOff', tone: 'warn', title: 'Aucune source disponible', text: message || `Aucune source n’a répondu pour cette vue${scopePart}${COLON}rien n’a pu être lu, l’état réel est inconnu.`, hint,
+      actions: [{ id: 'retry', label: 'Relire les sources', icon: 'refresh', kind: 'network' }] };
+    case 'error': return { icon: 'alert', tone: 'alert', title: 'Lecture en erreur', text: message || 'La lecture a échoué : rien n’est affiché, l’état réel est inconnu.', hint,
+      actions: [{ id: 'retry', label: 'Réessayer', icon: 'refresh', kind: 'network', primary: true }] };
+    case 'filter': return { icon: 'filter', tone: 'info', title: 'Filtre de la liste trop étroit', text: 'Les lignes chargées existent, mais aucune ne passe les filtres de la liste. Rien n’a été relu.', hint,
+      actions: [{ id: 'clearFilters', label: 'Effacer les filtres', icon: 'x', primary: true }] };
+    case 'origin': return { icon: 'history', tone: 'info', title: 'Liste de l’historique', text: 'Cette étape de l’historique était vide quand elle a été lue ; elle n’est pas relue sans votre geste.', hint,
+      actions: [{ id: 'retry', label: 'Actualiser', icon: 'refresh', kind: 'network', primary: true }] };
+    case 'noresult': {
+      const actions = [];
+      if (ou) actions.push({ id: 'everywhere', label: 'Élargir à « Partout »', icon: 'domain', kind: 'network', primary: true });
+      if (match !== 'contains' && query && !query.includes('*')) actions.push({ id: 'contains', label: `Chercher les noms qui contiennent ${quote(query)}`, icon: 'search', kind: 'network', primary: !ou });
+      if (type !== 'all') actions.push({ id: 'allTypes', label: 'Tous les types', icon: 'layers', kind: 'network' });
+      actions.push({ id: 'retry', label: 'Relire', icon: 'refresh', kind: 'network' });
+      if (query) actions.push({ id: 'clear', label: 'Effacer la recherche', icon: 'x' });
+      return {
+        icon: 'search', tone: 'info', title: 'Aucun résultat',
+        text: `${query ? `Aucun résultat pour ${quote(query)}` : 'Aucun objet'} dans le périmètre interrogé${scopePart}. Un objet hors de ce périmètre, ou masqué pour ce compte, ne peut pas apparaître ici.`,
+        hint: global && !ou ? `${hint} Recherche sur tout le domaine.`.trim() : hint, actions,
+      };
+    }
+    default: return { icon: 'search', tone: 'info', title: 'Rien n’a encore été interrogé', text: 'L’affichage vide ne renseigne pas sur l’état réel : saisissez un nom, choisissez une OU ou une requête prête.', hint: '', actions: [] };
   }
+}
+
+/** Account associated to a workstation, as the « Compte » column shows it (« cmartin » from « Camille Martin (cmartin) »). */
+export function associatedAccount(row) {
+  const label = row?.association?.label ?? '';
+  const m = /\(([^()]+)\)\s*$/.exec(label);
+  return m ? m[1] : '';
+}
+
+/** Neutralises a CSV cell as the kit does (Domenia 1 TRV-054) and quotes it when needed. */
+export function csvCell(value) {
+  let s = String(value ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 /** Tone of a presence key. */
@@ -335,4 +373,49 @@ export function dateText(iso, withTime = true) {
   const p = (n) => String(n).padStart(2, '0');
   const day = `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
   return withTime ? `${day} ${p(d.getHours())}:${p(d.getMinutes())}` : day;
+}
+
+/**
+ * The association shown in one cell goes back to three columns in an export (Domenia 1 Expand-DomeniaResultExportColumns):
+ * « Source lien » and « Qualification » are added after it from the rows themselves, never from a hidden separator.
+ */
+export function expandAssociationColumns(csv, rows) {
+  const parsed = parseCsv(csv.replace(/^﻿/, ''));
+  if (!parsed.length) return csv;
+  const head = parsed[0];
+  const at = head.indexOf('Association mémorisée');
+  if (at < 0) return csv;
+  const addSource = !head.includes('Source lien');
+  const addQual = !head.includes('Qualification');
+  if (!addSource && !addQual) return csv;
+  const out = parsed.map((cells, n) => {
+    const r = n === 0 ? null : rows[n - 1];
+    const extra = [];
+    if (addSource) extra.push(n === 0 ? 'Source lien' : r?.association?.source ?? '');
+    if (addQual) extra.push(n === 0 ? 'Qualification' : r?.association?.qualification ?? '');
+    const next = cells.slice();
+    next.splice(at + 1, 0, ...extra);
+    return next;
+  });
+  const cell = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s) && !s.startsWith("'")) s = `'${s}`; return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  return `﻿${out.map((cells) => cells.map(cell).join(';')).join('\r\n')}`;
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let quoted = false;
+  for (let n = 0; n < text.length; n++) {
+    const c = text[n];
+    if (quoted) {
+      if (c === '"' && text[n + 1] === '"') { cur += '"'; n++; } else if (c === '"') quoted = false; else cur += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ';') { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[n + 1] === '\n') n++;
+      row.push(cur); rows.push(row); row = []; cur = '';
+    } else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
 }

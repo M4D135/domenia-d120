@@ -1,11 +1,54 @@
 using System.Text.Json;
+using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Simulation;
 
 namespace Domenia.Tests;
 
 /// <summary>Contract of the search.* operations over the simulated directory (example.local), through the real bridge.</summary>
 internal static class SearchOperationsTests
 {
+    /// <summary>
+    /// Operations of the search module with their class in simulation: PlatformTests composes the closed registry from the
+    /// list of each module, so a screen never edits the list of another one.
+    /// </summary>
+    public static readonly (string Name, OperationClass Class)[] Operations =
+    [
+        ("search.browse", OperationClass.LocalRead),
+        ("search.catalog", OperationClass.LocalRead),
+        ("search.checks.resume", OperationClass.Local),
+        ("search.compare", OperationClass.LocalRead),
+        ("search.containers", OperationClass.LocalRead),
+        ("search.dns.reverse", OperationClass.NetworkRead),
+        ("search.favorite.move", OperationClass.LocalWrite),
+        ("search.favorite.pin", OperationClass.LocalWrite),
+        ("search.favorite.unpin", OperationClass.LocalWrite),
+        ("search.localQuery", OperationClass.LocalRead),
+        ("search.measures", OperationClass.LocalRead),
+        ("search.memory", OperationClass.LocalRead),
+        ("search.more", OperationClass.LocalRead),
+        ("search.netdiag", OperationClass.NetworkRead),
+        ("search.preload", OperationClass.LocalRead),
+        ("search.preview", OperationClass.LocalRead),
+        ("search.query.favorite", OperationClass.LocalWrite),
+        ("search.recent.add", OperationClass.LocalWrite),
+        ("search.recent.clear", OperationClass.LocalWrite),
+        ("search.recheck", OperationClass.NetworkRead),
+        ("search.reconcile", OperationClass.LocalRead),
+        ("search.revalidate", OperationClass.LocalRead),
+        ("search.run", OperationClass.LocalRead),
+        ("search.suggest", OperationClass.LocalRead),
+        ("search.survey.forget", OperationClass.Local),
+        ("search.survey.plan", OperationClass.LocalRead),
+        ("search.survey.run", OperationClass.NetworkRead),
+        ("search.survey.state", OperationClass.Local),
+        ("search.survey.stop", OperationClass.Local),
+        ("search.view", OperationClass.LocalRead),
+        ("search.workspace.remove", OperationClass.LocalWrite),
+        ("search.workspace.save", OperationClass.LocalWrite),
+        ("search.workspace.undo", OperationClass.LocalWrite),
+    ];
+
     private const string Root = "DC=example,DC=local";
     private const string Postes = "OU=Postes," + Root;
     private const string Paris = "OU=Paris,OU=Postes," + Root;
@@ -160,36 +203,142 @@ internal static class SearchOperationsTests
     }
 
     [Test]
-    public static async Task Surveys_are_planned_confirmed_and_never_cover_the_whole_domain_by_stealth()
+    public static async Task Surveys_are_planned_from_the_list_confirmed_once_and_never_cover_the_whole_domain_by_stealth()
     {
         var bridge = new SimulatedBridge();
-        var computers = Ids(await Ok(bridge, "search.browse", Args(new { dn = Paris, subtree = true, type = "computers", limit = 3 })));
-        var selection = new { scope = "selection", global = false, hasTerm = false, wholeDomain = false, hasFilter = false, coversList = false, scopeLabel = "Paris", subtree = true, listLimit = 3 };
-        var plan = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", ids = computers, context = selection }));
-        Check.True(plan.GetProperty("admission").GetProperty("allowed").GetBoolean(), "sélection admise");
+        var paris = await Ok(bridge, "search.browse", Args(new { dn = Paris, subtree = true, type = "computers", limit = 3 }));
+        var listId = paris.GetProperty("listId").GetString()!;
+        var computers = Ids(paris);
+        var plan = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId, ids = computers, scope = "selection" }));
+        Check.True(plan.GetProperty("admission").GetProperty("allowed").GetBoolean(), "lignes de l’OU admises");
+        Check.Equal(32, plan.GetProperty("planId").GetString()!.Length, "plan identifié");
+        Check.True(plan.GetProperty("details").GetArrayLength() >= 3, "profil, budget et fenêtre annoncés");
+        Check.Contains("Fenêtre de collecte", string.Join(" ", plan.GetProperty("details").EnumerateArray().Select(d => d.GetString())), "fenêtre de collecte");
         string[] targets = [.. plan.GetProperty("targets").EnumerateArray().Select(t => t.GetProperty("id").GetString()!)];
         Check.Equal(computers.Length, targets.Length + plan.GetProperty("excluded").GetArrayLength(), "chaque ligne ciblée ou écartée avec sa raison");
         Check.True(targets.Length > 0, "au moins un poste actif");
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.survey.plan", Args(new { mode = "scan", listId, ids = computers })), "mode inconnu");
 
-        var global = new { scope = "results", global = true, hasTerm = false, wholeDomain = true, hasFilter = false, coversList = true, scopeLabel = "Partout", subtree = true, listLimit = 100 };
-        var refusedPlan = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", ids = computers, context = global }));
-        Check.False(refusedPlan.GetProperty("admission").GetProperty("allowed").GetBoolean(), "recherche globale sans terme refusée");
-        Check.Equal("globalWithoutTerm", refusedPlan.GetProperty("admission").GetProperty("code").GetString(), "motif");
-        Check.Equal(SearchErrors.SurveyRefused, await Refused(bridge, "search.survey.run", Args(new { mode = "ping", ids = computers, context = global })), "relevé refusé");
-        Check.Equal("arguments.invalid", await Refused(bridge, "search.survey.plan", Args(new { mode = "scan", ids = computers, context = selection })), "mode inconnu");
-
-        var run = await Ok(bridge, "search.survey.run", Args(new { mode = "ping", ids = computers, context = selection }));
+        var planId = plan.GetProperty("planId").GetString()!;
+        var run = await Ok(bridge, "search.survey.run", Args(new { planId }));
         Check.Equal(targets.Length, run.GetProperty("total").GetInt32(), "postes relevés");
         Check.Equal(targets.Length, run.GetProperty("done").GetInt32(), "relevé terminé");
         Check.False(run.GetProperty("stopped").GetBoolean(), "non arrêté");
+        Check.True(run.GetProperty("status").GetProperty("lines").GetArrayLength() >= 6, "détail de l’état du relevé");
         Check.True(bridge.Events.Any(e => e.Operation == "search.survey.run:progress"), "progression publiée");
+        Check.Equal(SearchErrors.SurveyPlanUnknown, await Refused(bridge, "search.survey.run", Args(new { planId })), "un plan ne sert qu’une fois");
 
         var user = Ids(await Ok(bridge, "search.run", Args(new { text = "martin", type = "users" })))[0];
         Check.Equal(SearchErrors.NotWorkstation, await Refused(bridge, "search.recheck", Args(new { id = user })), "aucune sonde vers un compte");
-        var recheck = await Ok(bridge, "search.recheck", Args(new { id = targets[0] }));
+        var recheck = await Ok(bridge, "search.recheck", Args(new { id = targets[0], listId }));
         Check.Equal(targets[0], recheck.GetProperty("id").GetString(), "un seul poste");
-        var diagnostic = await Ok(bridge, "search.netdiag", Args(new { ids = targets }));
+        var ping = await Ok(bridge, "search.recheck", Args(new { id = targets[0], mode = "ping", listId, onClick = true }));
+        Check.Equal(targets[0], ping.GetProperty("id").GetString(), "vérification au clic");
+        var diagnostic = await Ok(bridge, "search.netdiag", Args(new { listId, ids = targets }));
         Check.Equal(targets.Length, diagnostic.GetProperty("lines").GetArrayLength(), "une ligne par poste actif");
+    }
+
+    [Test]
+    public static async Task A_forged_survey_is_refused_by_the_engine()
+    {
+        var bridge = new SimulatedBridge();
+        var paris = await Ok(bridge, "search.browse", Args(new { dn = Paris, subtree = true, type = "computers", limit = 3 }));
+        var parisId = paris.GetProperty("listId").GetString()!;
+        // Rows of another list: the engine checks every target against the list, the page cannot add any GUID.
+        var lyon = Ids(await Ok(bridge, "search.browse", Args(new { dn = "OU=Lyon,OU=Postes," + Root, subtree = true, type = "computers", limit = 2 })));
+        Check.Equal(SearchErrors.SurveyRefused, await Refused(bridge, "search.survey.plan", Args(new { mode = "ping", listId = parisId, ids = lyon })), "GUID hors de la liste");
+        Check.Equal(SearchErrors.ListUnknown, await Refused(bridge, "search.survey.plan", Args(new { mode = "ping", listId = new string('a', 32), ids = lyon })), "liste inconnue");
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.survey.plan", Args(new { mode = "ping", listId = parisId, ids = lyon, context = new { global = false } })),
+            "aucun contexte accepté de la page");
+
+        // A ready-made view listed on the whole domain: never surveyed, not even a partial selection of it (RCH-117).
+        var view = await Ok(bridge, "search.view", Args(new { id = "stalecomputers", wholeDomain = true, subtree = true, limit = 20 }));
+        var viewId = view.GetProperty("listId").GetString()!;
+        var some = Ids(view).Take(2).ToArray();
+        var refused = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = viewId, ids = some, scope = "selection" }));
+        Check.False(refused.GetProperty("admission").GetProperty("allowed").GetBoolean(), "vue sur tout le domaine refusée");
+        Check.Equal("wholeDomainView", refused.GetProperty("admission").GetProperty("code").GetString(), "motif");
+        Check.Equal(SearchErrors.SurveyRefused, await Refused(bridge, "search.survey.run", Args(new { planId = refused.GetProperty("planId").GetString() })), "lancement refusé");
+        Check.Equal(SearchErrors.SurveyRefused, await Refused(bridge, "search.netdiag", Args(new { listId = viewId, ids = some })), "diagnostic refusé");
+        Check.Equal(SearchErrors.SurveyRefused, await Refused(bridge, "search.recheck", Args(new { id = some[0], listId = viewId })), "revérification refusée");
+
+        // The whole list of the root, without any filter: refused (RCH-090); a filtered part of it is its own filter.
+        var root = await Ok(bridge, "search.browse", Args(new { dn = Root, subtree = true, type = "computers", limit = 40 }));
+        var rootId = root.GetProperty("listId").GetString()!;
+        var all = Ids(root);
+        var whole = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = rootId, ids = all, scope = "results" }));
+        Check.Equal("domainRoot", whole.GetProperty("admission").GetProperty("code").GetString(), "racine sans filtre refusée");
+        var part = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = rootId, ids = all.Take(5).ToArray(), scope = "results" }));
+        Check.True(part.GetProperty("admission").GetProperty("allowed").GetBoolean(), "partie filtrée admise");
+
+        // Above 100 workstations the typed count is checked again by the engine, and the plan expires after ten minutes.
+        var big = await Ok(bridge, "search.browse", Args(new { dn = Postes, subtree = true, type = "computers", limit = 300 }));
+        var bigId = big.GetProperty("listId").GetString()!;
+        var many = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = bigId, ids = Ids(big), scope = "results" }));
+        Check.True(many.GetProperty("typedCountRequired").GetBoolean(), "saisie du nombre exigée");
+        Check.Equal(SearchErrors.SurveyTypedCount, await Refused(bridge, "search.survey.run", Args(new { planId = many.GetProperty("planId").GetString(), typedCount = 3 })), "nombre saisi faux");
+        var later = await Ok(bridge, "search.survey.plan", Args(new { mode = "ping", listId = parisId, ids = Ids(paris), scope = "results" }));
+        bridge.Clock.Advance(TimeSpan.FromMinutes(11));
+        Check.Equal(SearchErrors.SurveyPlanUnknown, await Refused(bridge, "search.survey.run", Args(new { planId = later.GetProperty("planId").GetString() })), "plan expiré");
+    }
+
+    [Test]
+    public static async Task A_view_needs_an_ou_or_the_explicit_whole_domain()
+    {
+        var bridge = new SimulatedBridge();
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.view", Args(new { id = "lockedusers", subtree = true, wholeDomain = false, limit = 10 })), "ni OU ni domaine entier");
+        Check.Equal("arguments.invalid", await Refused(bridge, "search.view", Args(new { id = "lockedusers", dn = Root, subtree = true, wholeDomain = false, limit = 10 })), "la racine sans choix explicite");
+        var whole = await Ok(bridge, "search.view", Args(new { id = "lockedusers", subtree = true, wholeDomain = true, limit = 10 }));
+        Check.True(whole.GetProperty("scope").GetProperty("wholeDomain").GetBoolean(), "domaine entier explicite");
+        Check.False(whole.GetProperty("view").GetProperty("surveyAllowed").GetBoolean(), "aucun relevé proposé");
+    }
+
+    [Test]
+    public static async Task Two_continuations_of_an_address_list_never_read_twice()
+    {
+        var bridge = new SimulatedBridge(SimulationLatency.Realistic);
+        var parc = await Ok(bridge, "search.browse", Args(new { dn = Postes, subtree = true, type = "computers", limit = 2000 }));
+        var shared = parc.GetProperty("rows").EnumerateArray()
+            .Select(r => r.GetProperty("address").ValueKind == JsonValueKind.Object ? r.GetProperty("address").GetProperty("ip").GetString() : null)
+            .OfType<string>().GroupBy(ip => ip).FirstOrDefault(g => g.Count() > 1)?.Key;
+        Check.True(shared is not null, "adresse partagée par deux postes (réutilisation DHCP)");
+        var first = await Ok(bridge, "search.run", Args(new { text = shared, limit = 1 }));
+        Check.True(first.GetProperty("limitReached").GetBoolean(), "liste d’adresse limitée");
+        var listId = first.GetProperty("listId").GetString();
+        var both = await Task.WhenAll(bridge.CallAsync("search.more", Args(new { listId, limit = 2 })), bridge.CallAsync("search.more", Args(new { listId, limit = 2 })));
+        Check.Equal(1, both.Count(r => r.Error is null), "une seule suite lue");
+        Check.Equal(SearchErrors.ListBusy, both.First(r => r.Error is not null).Error!.Code, "la seconde est refusée, jamais mise en file");
+    }
+
+    [Test]
+    public static async Task Reconcile_adds_new_objects_and_never_removes_rows()
+    {
+        var bridge = new SimulatedBridge();
+        var paris = await Ok(bridge, "search.browse", Args(new { dn = Paris, subtree = true, type = "computers", limit = 5 }));
+        var listId = paris.GetProperty("listId").GetString()!;
+        var again = await Ok(bridge, "search.reconcile", Args(new { listId }));
+        Check.True(Names(again).SequenceEqual(["listId", "rows", "added", "moved", "missing", "loaded", "checkpoint", "readAt", "summary"]), "propriétés : " + string.Join(",", Names(again)));
+        Check.Equal(0, again.GetProperty("added").GetArrayLength(), "rien de nouveau");
+        Check.Equal(0, again.GetProperty("missing").GetArrayLength(), "aucun absent");
+        Check.Contains("Point de reprise", again.GetProperty("checkpoint").GetString(), "point de reprise tenu");
+        var measures = await Ok(bridge, "search.measures", Args(new { listId, offset = 0 }));
+        Check.Equal(paris.GetProperty("rows").GetArrayLength(), measures.GetProperty("rows").GetArrayLength(), "mesures de la liste");
+        Check.Equal(JsonValueKind.Null, measures.GetProperty("next").ValueKind, "une seule page");
+        var preload = await Ok(bridge, "search.preload", Args(new { id = Ids(paris)[0] }));
+        Check.Equal(Ids(paris)[0], preload.GetProperty("row").GetProperty("id").GetString(), "fiche relue");
+        Check.Equal(0, bridge.Source.PresenceRound, "aucune manche de présence");
+    }
+
+    [Test]
+    public static async Task Local_queries_show_the_signal_first_with_their_coverage()
+    {
+        var bridge = new SimulatedBridge();
+        var all = await Ok(bridge, "search.localQuery", Args(new { id = "local.lowdisk", dn = Root, subtree = true, verdict = "all", limit = 50 }));
+        var verdicts = all.GetProperty("verdicts");
+        var match = verdicts.GetProperty("match").GetInt32();
+        string[] labels = [.. all.GetProperty("rows").EnumerateArray().Select(r => r.GetProperty("verdict").GetString()!.Split(" · ")[0])];
+        Check.True(labels.Take(Math.Min(match, labels.Length)).All(l => l == "Correspond"), "les correspondants d’abord");
+        Check.True(verdicts.GetProperty("coverage").GetString()!.Length > 0, "couverture du périmètre dite");
     }
 
     [Test]
@@ -197,9 +346,15 @@ internal static class SearchOperationsTests
     {
         var bridge = new SimulatedBridge();
         var empty = await Ok(bridge, "search.memory");
-        Check.True(Names(empty).SequenceEqual(["recents", "favorites", "workspaces", "queryFavorites", "undo", "maxFavorites", "maxWorkspaces", "persistent", "warning"]),
+        Check.True(Names(empty).SequenceEqual(["recents", "favorites", "workspaces", "queryFavorites", "undo", "maxFavorites", "maxWorkspaces", "persistent", "warning", "imported"]),
             "propriétés : " + string.Join(",", Names(empty)));
         Check.Equal(0, empty.GetProperty("recents").GetArrayLength(), "aucune recherche récente");
+        // RCH-004: the two OU searches of Domenia 1 became favourites once (the text search on the whole domain is left out).
+        Check.Equal(2, empty.GetProperty("imported").GetInt32(), "recherches de Domenia 1 reprises");
+        Check.Equal(2, empty.GetProperty("favorites").GetArrayLength(), "favoris repris");
+        var again = await Ok(bridge, "search.memory");
+        Check.Equal(0, again.GetProperty("imported").GetInt32(), "reprise unique");
+        var baseline = again.GetProperty("favorites").GetArrayLength();
 
         _ = await Ok(bridge, "search.recent.add", Args(new { kind = "search", text = "martin" }));
         var twice = await Ok(bridge, "search.recent.add", Args(new { kind = "search", text = "MARTIN" }));
@@ -209,12 +364,12 @@ internal static class SearchOperationsTests
         Check.Equal(0, cleared.GetProperty("recents").GetArrayLength(), "récents effacés");
 
         var pinned = await Ok(bridge, "search.favorite.pin", Args(new { dn = Paris, subtree = true, type = "computers" }));
-        Check.Equal(1, pinned.GetProperty("favorites").GetArrayLength(), "OU épinglée");
-        Check.Equal("Paris", pinned.GetProperty("favorites")[0].GetProperty("name").GetString(), "nom de l’OU");
+        Check.Equal(baseline + 1, pinned.GetProperty("favorites").GetArrayLength(), "OU épinglée");
+        Check.Equal("Paris", pinned.GetProperty("favorites")[baseline].GetProperty("name").GetString(), "nom de l’OU");
         Check.Equal("search.favoriteRefused", await Refused(bridge, "search.favorite.pin", Args(new { dn = Root, subtree = true })), "domaine entier");
         Check.Equal("search.favoriteRefused", await Refused(bridge, "search.favorite.pin", Args(new { dn = "OU=Nulle," + Root, subtree = true })), "OU inconnue");
         var unpinned = await Ok(bridge, "search.favorite.unpin", Args(new { dn = Paris }));
-        Check.Equal(0, unpinned.GetProperty("favorites").GetArrayLength(), "favori retiré");
+        Check.Equal(baseline, unpinned.GetProperty("favorites").GetArrayLength(), "favori retiré");
 
         var draft = new { name = "Postes de Paris", dn = Paris, subtree = true, type = "computers", presence = "online", filter = "pc", limit = 200, columnSet = "computers", layout = (object?)null };
         var saved = await Ok(bridge, "search.workspace.save", Args(draft));
@@ -237,6 +392,9 @@ internal static class SearchOperationsTests
         var bridge = new SimulatedBridge();
         var containers = await Ok(bridge, "search.containers");
         Check.True(containers.EnumerateArray().Any(c => c.GetProperty("name").GetString() == "Users" && !c.GetProperty("system").GetBoolean()), "conteneur Users");
+        Check.True(containers.EnumerateArray().All(c => c.GetProperty("objects").GetInt32() == -1), "aucun comptage sans demande");
+        var counted = await Ok(bridge, "search.containers", Args(new { counts = true }));
+        Check.True(counted.EnumerateArray().Any(c => c.GetProperty("objects").GetInt32() > 0), "comptage sur demande");
         var suggestions = await Ok(bridge, "search.suggest", Args(new { text = "mar" }));
         Check.True(suggestions.GetArrayLength() <= SearchLimits.Suggestions, "huit suggestions au plus");
         Check.Equal("arguments.invalid", await Refused(bridge, "search.containers", Args(new { dn = Root })), "aucun argument");

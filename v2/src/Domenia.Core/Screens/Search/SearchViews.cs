@@ -17,7 +17,7 @@ public sealed record SearchLocalVerdict(string Verdict, string Value);
 /// Local query on the workstations of the local base (RCH-122): evaluated on the readings, Correspondants, Inconnus (no
 /// reading of less than 30 days, never guessed) or Non correspondants. No directory read, no ping, no survey.
 /// </summary>
-public sealed record SearchLocalQuery(string Id, string Name, string Category, string Description, Func<DirectoryComputer, WorkstationObservation?, DateTimeOffset, SearchLocalVerdict> Evaluate);
+public sealed record SearchLocalQuery(string Id, string Name, string Category, string Description, Func<DirectoryComputer, WorkstationObservation?, DateTimeOffset, TimeZoneInfo, SearchLocalVerdict> Evaluate);
 
 /// <summary>Ready-made views and delivered local queries of the search screen.</summary>
 public static class SearchViews
@@ -102,42 +102,42 @@ public static class SearchViews
     [
         new("local.nolaps", "Postes sans LAPS visible", "Sécurité des postes",
             "Postes sans date d’expiration LAPS lisible (ms-Mcs-AdmPwdExpirationTime, msLAPS-PasswordExpirationTime). Aucun mot de passe n’est lu.",
-            (c, _, _) => c.Laps == LapsKind.None || c.LapsExpiration is null ? new(Match, "Aucune expiration LAPS lisible") : new(NoMatch, c.Laps == LapsKind.Windows ? "LAPS Windows" : "LAPS hérité")),
+            (c, _, _, _) => c.Laps == LapsKind.None || c.LapsExpiration is null ? new(Match, "Aucune expiration LAPS lisible") : new(NoMatch, c.Laps == LapsKind.Windows ? "LAPS Windows" : "LAPS hérité")),
         new("local.lapsexpired", "Mot de passe LAPS expiré", "Sécurité des postes",
             "Date d’expiration LAPS passée" + FrenchText.Colon + "le mot de passe aurait dû être renouvelé par le poste. Aucun mot de passe n’est lu.",
-            (c, _, now) => AdValues.FromFileTime(c.LapsExpiration) is DateTimeOffset at
-                ? at <= now ? new(Match, "Expiré le " + Day(at)) : new(NoMatch, "Valable jusqu’au " + Day(at))
+            (c, _, now, zone) => AdValues.FromFileTime(c.LapsExpiration) is DateTimeOffset at
+                ? at <= now ? new(Match, "Expiré le " + Day(at, zone)) : new(NoMatch, "Valable jusqu’au " + Day(at, zone))
                 : new(Unknown, "Aucune expiration LAPS lisible")),
         new("local.lowdisk", "Disque C presque plein (moins de 10 % libre)", "Matériel",
             "Relevé d’inventaire de moins de 30 jours. Un disque de taille nulle ou illisible est inconnu, jamais plein.",
-            (_, o, now) => Disk(o, now, 10)),
+            (_, o, now, _) => Disk(o, now, 10)),
         new("local.disk20", "Disque C sous 20 % libre", "Matériel",
             "Relevé d’inventaire de moins de 30 jours" + FrenchText.Colon + "moins de 20 % libre sur C:.",
-            (_, o, now) => Disk(o, now, 20)),
+            (_, o, now, _) => Disk(o, now, 20)),
         new("local.uptime", "Sans redémarrage depuis 30 jours", "Matériel",
             "Dernier démarrage relevé par l’inventaire de moins de 30 jours.",
-            (_, o, now) => Inventory(o, now) is InventoryMeasure i && i.LastBootAt is DateTimeOffset boot
-                ? now - boot >= TimeSpan.FromDays(30) ? new(Match, "Démarré le " + Day(boot)) : new(NoMatch, "Démarré le " + Day(boot))
+            (_, o, now, zone) => Inventory(o, now) is InventoryMeasure i && i.LastBootAt is DateTimeOffset boot
+                ? now - boot >= TimeSpan.FromDays(30) ? new(Match, "Démarré le " + Day(boot, zone)) : new(NoMatch, "Démarré le " + Day(boot, zone))
                 : new(Unknown, "Aucun relevé d’inventaire récent")),
         new("local.ram8", "Mémoire de 8 Go ou moins", "Matériel",
             "Mémoire relevée par l’inventaire de moins de 30 jours.",
-            (_, o, now) => Inventory(o, now) is InventoryMeasure i && i.MemoryBytes is long bytes && bytes > 0
+            (_, o, now, _) => Inventory(o, now) is InventoryMeasure i && i.MemoryBytes is long bytes && bytes > 0
                 ? bytes <= 8L << 30 ? new(Match, Gib(bytes)) : new(NoMatch, Gib(bytes))
                 : new(Unknown, "Aucun relevé d’inventaire récent")),
         new("local.win10", "Windows 10 hors LTSC", "Systèmes",
             "Système déclaré dans l’annuaire (operatingSystem)" + FrenchText.Colon + "Windows 10 hors éditions LTSC, LTSB et IoT.",
-            (c, _, _) => c.OperatingSystem is null ? new(Unknown, "Système non renseigné")
+            (c, _, _, _) => c.OperatingSystem is null ? new(Unknown, "Système non renseigné")
                 : c.OperatingSystem.Contains("Windows 10", StringComparison.OrdinalIgnoreCase) && !c.OperatingSystem.Contains("LTS", StringComparison.OrdinalIgnoreCase)
                     && !c.OperatingSystem.Contains("IoT", StringComparison.OrdinalIgnoreCase)
                     ? new(Match, c.OperatingSystem) : new(NoMatch, c.OperatingSystem)),
         new("local.noreply", "Sans réponse au dernier relevé de présence", "Présence",
             "Relevé de présence de moins de 30 jours sans réponse au ping" + FrenchText.Colon + "une absence de réponse ne prouve pas qu’un poste est éteint.",
-            (_, o, now) => o?.Presence is { HasReading: true, CheckedAt: DateTimeOffset at } p && now - at <= Fresh
+            (_, o, now, _) => o?.Presence is { HasReading: true, CheckedAt: DateTimeOffset at } p && now - at <= Fresh
                 ? p.Answered == true ? new(NoMatch, "En ligne") : new(Match, "Sans réponse au ping")
                 : new(Unknown, "Aucun relevé de présence récent")),
         new("local.neverread", "Jamais relevés", "Présence",
             "Postes sans aucun relevé de présence ni d’inventaire enregistré.",
-            (_, o, _) => o is null || (!o.Presence.HasReading && !o.Inventory.HasReading && o.Presence.LastOnlineAt is null)
+            (_, o, _, _) => o is null || (!o.Presence.HasReading && !o.Inventory.HasReading && o.Presence.LastOnlineAt is null)
                 ? new(Match, "Aucun relevé") : new(NoMatch, "Relevé enregistré")),
     ];
 
@@ -174,7 +174,8 @@ public static class SearchViews
 
     private static string Ft(DateTimeOffset at) => AdValues.ToFileTime(at).ToString(CultureInfo.InvariantCulture);
 
-    private static string Day(DateTimeOffset at) => FrenchText.ShortDate(DateOnly.FromDateTime(at.UtcDateTime));
+    /// <summary>Local day of an instant in the zone of the session (never the UTC day: a date near midnight stays right).</summary>
+    private static string Day(DateTimeOffset at, TimeZoneInfo zone) => FrenchText.ShortDate(DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(at, zone).DateTime));
 
     private static string Gib(long bytes) => FrenchText.Integer((long)Math.Round(bytes / (double)(1L << 30))) + FrenchText.Nbsp + "Go";
 }

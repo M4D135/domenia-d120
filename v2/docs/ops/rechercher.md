@@ -6,17 +6,20 @@ Règles pures : `src/Domenia.Core/Screens/Search/` (`SearchText`, `SearchMatcher
 `SearchMemory`. Lecteur : `ISearchReader`, implémenté en simulation par `SimulatedSearchReader`
 (`src/Domenia.Simulation/Screens/`). Parité : `RCH-001` à `RCH-137` (`docs/features.json`). État :
 `docs/status/rechercher.json`. Tests : `tests/Domenia.Tests/SearchRulesTests.cs`, `SearchOperationsTests.cs`,
-scénarios `tests/e2e/rechercher/*.json` (écrits, non exécutés : décision du 21/10).
+`SearchTextVectorsTests.cs` (vecteurs partagés avec la page : `tests/vectors/search-text.json`), tests de la page
+`tests/web/rechercher.test.mjs`, scénarios `tests/e2e/rechercher/*.json` (écrits, non exécutés : décision du 21/10).
+Aperçu dans un navigateur : `web/js/mock-search.js`.
 
 ## 1. Règles communes
 
 - **Classes.** Les lectures de listes (`search.run`, `search.browse`, `search.view`, `search.more`, `search.revalidate`,
-  `search.containers`) sont `LocalRead` en simulation et `NetworkRead` en mode annuaire. Les lectures de la base locale
-  (`search.suggest`, `search.preview`, `search.compare`, `search.localQuery`, `search.catalog`, `search.memory`,
-  `search.survey.plan`) sont `LocalRead` partout. Les sondes sur geste (`search.survey.run`, `search.recheck`,
-  `search.netdiag`, `search.dns.reverse`) sont `NetworkRead` dans les deux modes, servies par l’annuaire fictif
-  (`ServedInSimulation`). La mémoire de l’écran (`search.recent.*`, `search.favorite.*`, `search.workspace.*`,
-  `search.query.favorite`) est `LocalWrite` (préférences locales). `search.survey.stop` est `Local`. **Aucune écriture
+  `search.reconcile`, `search.preload`, `search.containers`) sont `LocalRead` en simulation et `NetworkRead` en mode
+  annuaire. Les lectures de la base locale (`search.suggest`, `search.preview`, `search.compare`, `search.localQuery`,
+  `search.catalog`, `search.memory`, `search.measures`, `search.survey.plan`) sont `LocalRead` partout. Les sondes sur
+  geste (`search.survey.run`, `search.recheck`, `search.netdiag`, `search.dns.reverse`) sont `NetworkRead` dans les deux
+  modes, servies par l’annuaire fictif (`ServedInSimulation`). La mémoire de l’écran (`search.recent.*`,
+  `search.favorite.*`, `search.workspace.*`, `search.query.favorite`) est `LocalWrite` (préférences locales).
+  `search.survey.stop`, `search.survey.state`, `search.survey.forget` et `search.checks.resume` sont `Local`. **Aucune écriture
   d’annuaire** n’appartient au module : le déverrouillage proposé par l’aperçu et le menu passe par
   `accounts.unlock.plan` puis `write.execute` (`WRITES.md`), puis `search.revalidate` relit la ligne.
 - **Lecture seule par défaut, rien sans geste.** Saisir ne lit jamais l’annuaire : la barre analyse le texte côté page
@@ -27,9 +30,14 @@ scénarios `tests/e2e/rechercher/*.json` (écrits, non exécutés : décision du
   256 caractères au plus (100 pour une suggestion), limites de 1 à 20 000 lignes (100 par défaut), identifiants d’objet
   au format GUID `D`, identifiants de liste, de relevé et de vue personnelle en 32 caractères hexadécimaux, 5 000
   identifiants au plus par appel (500 pour une relecture ou un diagnostic, 2 à 8 pour une comparaison).
-- **Listes.** Chaque liste reçoit un `listId` ; le moteur garde les 24 dernières (périmètre, plan, type, dernière clé,
-  identifiants déjà chargés). `search.more` lit **seulement** les lignes suivantes (liste doublée, 20 000 au plus) et
-  écarte toute ligne déjà chargée ; une liste en cours de lecture refuse une seconde lecture (`search.listBusy`).
+- **Listes.** Chaque liste reçoit un `listId` ; le moteur garde les 24 dernières (périmètre, plan, type, vue, texte,
+  dernière clé, identifiants déjà chargés dans leur ordre). `search.more` lit **seulement** les lignes suivantes (liste
+  doublée, 20 000 au plus) et écarte toute ligne déjà chargée ; une liste en cours de lecture (suite, revérification)
+  refuse une seconde lecture (`search.listBusy`), quel que soit son genre (recherche, OU, vue, adresse, requête locale).
+- **Le moteur juge sur la liste, jamais sur la page.** Un relevé, un diagnostic ou une revérification au clic portent sur
+  des lignes **de la liste** (`listId`) : chaque GUID est vérifié parmi les lignes données par le moteur, et le contexte
+  (recherche globale, terme, racine, vue sur tout le domaine, filtre) est déduit de la liste elle-même. La page n’envoie
+  plus aucun « contexte ».
 - **Absence.** Une liste vide ou incomplète ne prouve jamais qu’un objet n’existe pas : `absence` le dit, avec la portée,
   le type retenu et la limite.
 - **Secrets.** Aucun attribut sensible n’est lu ni renvoyé (`unicodePwd`, mots de passe LAPS, clés BitLocker). Les
@@ -50,6 +58,9 @@ scénarios `tests/e2e/rechercher/*.json` (écrits, non exécutés : décision du
 | `search.compareInvalid` | Comparez de deux à huit objets / des objets d’un même type… | Types mélangés, objet inconnu. |
 | `search.surveyRefused` | (motif de l’admission : liste vide, plafond, recherche globale sans terme, racine sans filtre…) | Relevé ou diagnostic refusé avant tout paquet. |
 | `search.surveyBusy` | Un relevé de la liste est déjà en cours : arrêtez-le ou attendez sa fin. | Un seul relevé à la fois. |
+| `search.surveyPlanUnknown` | Plan de relevé inconnu, déjà utilisé ou expiré : rien n’est lu. Relancez la confirmation. | `search.survey.run` sans plan valide (un plan sert une fois, dix minutes). |
+| `search.surveyTypedCount` | Nombre saisi différent du nombre de postes (n) : rien n’est lu. Confirmez de nouveau. | Au-delà de 100 postes, nombre saisi revérifié par le moteur. |
+| `search.checksSuspended` | Vérifications sur sélection suspendues : le poste X a rejeté le compte distant… | Vérification au clic après un compte distant refusé (RCH-082), jusqu’à `search.checks.resume`. |
 | `search.notWorkstation` | Cette ligne n’est pas un poste actif : aucune sonde n’est envoyée. | `search.recheck` sur un compte, un groupe, une OU, un poste désactivé. |
 | `search.favoriteRefused` | (racine, OU hors du domaine ou inconnue localement, 50 favoris, favori absent) | Favori d’OU refusé. |
 | `search.workspaceRefused` | (100 vues, nom déjà pris, bibliothèque trop volumineuse, OU hors du domaine) | Vue personnelle refusée. |
@@ -64,8 +75,8 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 |---|---|---|---|
 | `search.run` | LocalRead / NetworkRead | `text`, `scope?` (DN de l’OU choisie, sous-OU incluses ; absent = domaine entier), `type?` (`all`, `users`, `computers`, `groups`, `ous`), `limit?`, `match?` (`prefix`, `contains`) | `SearchResult` (§ 3). Une adresse IPv4 ou MAC donne `kind = address` (base locale seulement) ; une IPv4 inconnue ajoute `dns` (offre, rien n’est résolu). |
 | `search.browse` | LocalRead / NetworkRead | `dn`, `subtree`, `type?`, `limit?` | `SearchResult` `kind = browse` : contenu de l’OU, sans filtre caché (un terme filtre seulement les lignes chargées, côté page). |
-| `search.containers` | LocalRead / NetworkRead | — | Conteneurs de la racine (`Users`, `Computers`, conteneurs système repliés à part) avec leur nombre d’objets. |
-| `search.view` | LocalRead / NetworkRead | `id`, `dn?`, `subtree`, `wholeDomain`, `limit?` | `SearchResult` `kind = view` : vue prête sur l’OU choisie (OU de travail par défaut) ou, explicitement, sur tout le domaine (jamais relevable). |
+| `search.containers` | LocalRead / NetworkRead | `counts?` (`false` par défaut) | Conteneurs de la racine (`Users`, `Computers`, conteneurs système repliés à part) ; leur nombre d’objets seulement avec `counts: true` (sinon `objects = -1` : en mode annuaire, compter coûte une requête par conteneur). |
+| `search.view` | LocalRead / NetworkRead | `id`, `dn?`, `subtree`, `wholeDomain`, `limit?` | `SearchResult` `kind = view` : vue prête sur l’OU `dn` ou, explicitement (`wholeDomain: true`), sur tout le domaine (jamais relevable). Sans `dn` (ou avec la racine) et sans `wholeDomain` : `arguments.invalid`, jamais un repli silencieux sur tout le domaine. |
 | `search.localQuery` | LocalRead | `id` (`local.*`), `dn`, `subtree`, `verdict?` (`match`, `unknown`, `noMatch`, `all`), `limit?` | `SearchResult` `kind = localQuery` avec `verdicts` (trois totaux, choix affiché) et `verdict` sur chaque ligne. |
 | `search.more` | LocalRead / NetworkRead | `listId`, `limit` | `SearchResult` `appended = true` : lignes nouvelles seulement ; `loaded`, `limit`, `continuation` cumulés. |
 | `search.suggest` | LocalRead | `text`, `type?` | 8 suggestions au plus (objets de la base locale) ; les recherches récentes sont ajoutées par la page. |
@@ -73,13 +84,19 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 | `search.compare` | LocalRead | `ids` (2 à 8) | `SearchComparison` : lignes avec valeur et date par objet, nombres de différences, d’égalités et d’inconnus, résumé. |
 | `search.catalog` | LocalRead | — | 13 vues prêtes (`ad:<id>`) et 9 requêtes locales (`local:<id>`) avec coût, filtre LDAP, favoris. |
 | `search.dns.reverse` | NetworkRead (servie) | `ip` (IPv4) | `{ ip, name, message }` : résolution inverse, 15 s au plus, sur le clic de l’offre. |
-| `search.revalidate` | LocalRead / NetworkRead | `ids` (1 à 500) | `{ rows, missing, checkedAt, summary }` : lignes relues ; une absence n’est jamais présentée comme une suppression. |
-| `search.survey.plan` | LocalRead | `mode`, `ids`, `context` (§ 4) | `SurveyPlan` : admission, titre, trois lignes de confirmation, durée estimée, cibles exactes, lignes écartées et motif, saisie du nombre au-delà de 100 postes. Rien n’est lu. |
-| `search.survey.run` | NetworkRead (servie) | `mode`, `ids`, `context` | `SurveyResult` ; évènements `search.survey.run:progress` après chaque lot (`SurveyProgress` : compteurs et lignes du lot). |
-| `search.survey.stop` | Local | `runId` | `{ stopped, message }` : les mesures reçues sont conservées, rien n’est rejoué. |
-| `search.recheck` | NetworkRead (servie) | `id` | `SearchRow` relue : un ping et l’utilisateur connecté du seul poste. |
-| `search.netdiag` | NetworkRead (servie) | `ids` (1 à 500, 50 postes actifs diagnostiqués au plus) | `NetworkDiagnostic` : ping puis ports 445, 135, 5985, 5986 par poste, lignes écartées, résumé, rapport tabulé. |
-| `search.memory` | LocalRead | — | `SearchMemoryState` (§ 5). |
+| `search.revalidate` | LocalRead / NetworkRead | `ids` (1 à 500) | `{ rows, missing, checkedAt, summary }` : lignes relues (après une écriture, une ligne) ; une absence n’est jamais présentée comme une suppression. |
+| `search.reconcile` | LocalRead / NetworkRead | `listId` | `SearchReconcile` `{ listId, rows, added, moved, missing, loaded, checkpoint, readAt, summary }` : la dernière liste explicite relue avec son filtre, sa portée et sa taille (RCH-047) ; nouveaux objets ajoutés à la liste, objets sortis du périmètre suivis par leur GUID, absents « à revérifier » (jamais retirés), point de reprise tenu (RCH-048). |
+| `search.measures` | LocalRead | `listId`, `offset?` | `{ rows, offset, next, total, readAt }` : mesures enregistrées des lignes de la liste, par pages de 250 (RCH-083). |
+| `search.preload` | LocalRead / NetworkRead | `id` | `{ row, sourceLabel, readAt }` : fiche de la seule ligne cliquée relue (RCH-129) ; la page recopie ses valeurs dans la ligne (RCH-077). |
+| `search.survey.plan` | LocalRead | `mode`, `listId`, `ids`, `scope?` (`results`, `selection`), `resume?` | `SurveyPlan` (§ 4) : `planId`, admission jugée sur la liste, titre, trois lignes, détails (profil, CIM, budgets, fenêtre de collecte, plan de reprise remplacé), `outsideWindow`, cibles exactes, lignes écartées, saisie du nombre au-delà de 100 postes, `expiresAt`. Rien n’est lu. |
+| `search.survey.run` | NetworkRead (servie) | `planId`, `typedCount?` | `SurveyResult` (avec `status` et `resume`) ; évènements `search.survey.run:progress` après chaque lot (`SurveyProgress` : compteurs, lignes du lot, `status`). Un plan ne sert qu’une fois. |
+| `search.survey.stop` | Local | `runId` | `{ stopped, message }` : les mesures reçues sont conservées, le reste devient le plan de reprise, rien n’est rejoué. |
+| `search.survey.state` | Local | — | `{ resume, checksSuspended, suspendedReason }` : plan de reprise de la session et suspension des vérifications au clic. |
+| `search.survey.forget` | Local | — | Même forme : plan de reprise abandonné (les mesures validées restent). |
+| `search.checks.resume` | Local | — | Même forme : vérifications sur sélection reprises. |
+| `search.recheck` | NetworkRead (servie) | `id`, `mode?` (`console` par défaut, `ping`), `listId?`, `onClick?` | `SearchRow` relue : un ping (et l’utilisateur connecté) du seul poste ; refusé sur une liste listée sur tout le domaine, ou au clic pendant une suspension. |
+| `search.netdiag` | NetworkRead (servie) | `listId`, `ids` (1 à 500, 50 postes actifs diagnostiqués au plus) | `NetworkDiagnostic` : lignes de la liste seulement, jamais sur une liste listée sur tout le domaine ; ping puis ports 445, 135, 5985, 5986 par poste, lignes écartées, résumé, rapport tabulé. |
+| `search.memory` | LocalRead | — | `SearchMemoryState` (§ 5) ; au premier affichage d’un domaine, reprise unique des recherches enregistrées de Domenia 1 (RCH-004, `imported`). |
 | `search.recent.add` | LocalWrite | `kind` (`search`, `object`), `text`, `type?`, `dn?` | État de la mémoire. |
 | `search.recent.clear` | LocalWrite | — | État de la mémoire, récents vidés. |
 | `search.favorite.pin` | LocalWrite | `dn`, `name?`, `subtree`, `type?`, `term?` | État ; OU connue localement exigée. |
@@ -96,7 +113,7 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 |---|---|
 | `listId` | Identifiant de la liste (32 hex), pour `search.more`. |
 | `kind` | `search`, `browse`, `view`, `address`, `localQuery`. |
-| `scope` | `{ mode (global, ou), dn, label, path, subtree, wholeDomain, chip }` : portée lisible (« Domaine entier », « Dans cette OU : Paris · Sous-OU incluses »). |
+| `scope` | `{ mode (global, ou), dn, label, path, subtree, wholeDomain, chip }` : portée lisible (« Domaine entier », « Dans cette OU : Paris (dans Postes) · Sous-OU incluses » : le parent distingue les homonymes, RCH-013). |
 | `type`, `text`, `match` | Critères de la lecture. |
 | `plan` | `{ kind, valid, reason, hint, notes, tokens, identifier, address, ldapFilter, costly, freeText }` : ce qui a été cherché, le filtre LDAP du mode annuaire, le coût (joker en tête, « contient »). |
 | `rows` | Lignes (`SearchRow`) : `id`, `kind`, `kindLabel`, `name`, `display`, `login`, `upn`, `mail`, `description`, `dn`, `container`, `state` (`key`, `label`, `tone`), `flags` (désactivé, verrouillé, à vérifier, mot de passe expiré, à changer, sans expiration, inactif, jamais connecté, expirant, expiré, administration…), `os`, `osVersion`, `lastLogon`, `changed`, `created`, `readAt`, `presence`, `console`, `association`, `address`, `group`, `verdict`, `rank`. |
@@ -106,26 +123,50 @@ Plus les codes communs d’`OPERATIONS.md` § 1.4 (`arguments.invalid`, `ou.unkn
 | `offer` | Offre « Chercher aussi les noms qui contiennent … » après 5 résultats ou moins d’un texte simple (rien n’est lu avant le clic). |
 | `dns` | Offre de résolution inverse d’une IPv4 sans relevé local. |
 | `view` | `{ id, name, note, wholeDomain, surveyAllowed, reason }` d’une vue ou d’une requête locale. |
-| `verdicts` | `{ match, unknown, noMatch, shown }` d’une requête locale. |
+| `verdicts` | `{ match, unknown, noMatch, shown, completeAt, coverage }` d’une requête locale : `completeAt` date depuis laquelle tous les postes du périmètre ont un relevé (dernière lecture complète couvrante, RCH-120), `coverage` la phrase qui le dit ou dit pourquoi elle manque. « Tous » liste les correspondants, puis les inconnus, puis les autres. |
 | `sourceLabel`, `readAt`, `appended` | Source (« Annuaire fictif », « Annuaire en direct », « Relevés locaux »), date UTC, page ajoutée. |
 
-Classement d’une recherche (Domenia 1, `Get-DomeniaSearchRank`) : 0 compte, UPN ou courriel exact ; 1 nom exact ;
-2 compte, UPN ou courriel qui commence ; 3 mot exact du nom ; 4 nom qui commence ; 5 mot qui commence ; 6 contenu ;
-7 autre ; puis nom replié (accents, casse).
+Passes d’une recherche (Domenia 1 RCH-024) : identité exacte d’abord (compte, UPN, courriel, nom, nom DNS : jamais
+poussée hors de la liste par des préfixes), puis préfixe des mots dans l’ordre des noms (reprise par clé), puis ANR
+(début d’un mot dans le nom ou le nom affiché) tant qu’il reste de la place. Classement (Domenia 1,
+`Get-DomeniaSearchRank`) : 0 compte, UPN ou courriel exact ; 1 nom exact ; 2 compte, UPN ou courriel qui commence ;
+3 mot exact du nom ; 4 nom qui commence ; 5 mot qui commence ; 6 contenu ; 7 autre ; puis nom replié (accents, casse).
+Une recherche simple (un mot, sans espace, joker ni parenthèse) publie d’abord les lignes de la base locale
+(évènement `search.run:cached` : `{ text, rows, sourceLabel, readAt }`, RCH-055) ; les lignes fraîches les remplacent
+(RCH-058).
 
 ## 4. Relevés de la liste et diagnostic
 
-`context` : `{ scope (results, selection), global, hasTerm, wholeDomain, hasFilter, coversList, scopeLabel, subtree,
-listLimit }`. Modes : `ping` (« Qui répond ? »), `console` (« Qui est connecté ? »), `analyse` (matériel et requêtes
-des widgets), `complete` (relevé léger plus correctifs, démarrage, services, TPM, BIOS, numéro de série ; jamais
-`Win32_Product` ni la liste des processus), `unaddressed` (postes sans adresse connue).
+Modes : `ping` (« Qui répond ? »), `console` (« Qui est connecté ? »), `analyse` (matériel et requêtes des widgets),
+`complete` (relevé léger plus correctifs, démarrage, services, TPM, BIOS, numéro de série ; jamais `Win32_Product` ni la
+liste des processus), `unaddressed` (postes sans adresse connue).
 
-Admission (`SearchSurvey.Admit`, Domenia 1 `Get-DomeniaParkAdmission`) : refus d’une liste vide, au-delà du plafond
-(500 postes par défaut, 5 000 au plus), d’une recherche globale sans terme, d’une liste de la racine sans autre filtre ;
-une sélection partielle est son propre filtre (plafond seulement). Les lignes qui ne sont pas des postes actifs sont
-écartées avec leur motif. Au-delà de 100 postes, la page fait saisir le nombre avant l’envoi. Le relevé part une seule
-fois, s’arrête sur demande et n’est jamais rejoué ; la page filtre ensuite la liste par issue (en ligne, sans réponse,
-erreur) sans nouvelle lecture.
+Le moteur **planifie** sur la liste (`search.survey.plan`) puis **lance un plan** (`search.survey.run`) :
+
+- chaque GUID doit être une ligne donnée par la liste `listId`, sinon `search.surveyRefused` (aucun GUID arbitraire) ;
+- le contexte est déduit de la liste : recherche globale ou non, terme, racine, vue ou requête locale sur tout le
+  domaine ; une liste listée sur tout le domaine (`view.surveyAllowed = false`) n’est **jamais** relevée, même une
+  sélection partielle (code `wholeDomainView`, RCH-117) ; la liste entière de la racine sans filtre est refusée
+  (`domainRoot`), une partie filtrée ou sélectionnée est son propre filtre (plafond seulement, RCH-090) ;
+- admission (`SearchSurvey.Admit`) : liste vide, plafond (500 postes par défaut, 5 000 au plus), recherche globale sans
+  terme ; les lignes qui ne sont pas des postes actifs sont écartées avec leur motif ;
+- confirmation : trois lignes, puis les détails (RCH-091) — profil de collecte (`collection.profile` : `Standard`,
+  `SlowNetwork`, `Troubleshooting` ; Standard par défaut) et ce qu’il réutilise (inventaire léger, sondes stables ;
+  l’utilisateur console est toujours relu), regroupement CIM par poste, budgets (lots de 32 échos, 4 postes à la fois,
+  15 s par poste, une seule tentative), fenêtre de collecte (hors fenêtre, le relevé part seulement sur confirmation),
+  plan de reprise remplacé ;
+- le plan (`planId`) vaut **dix minutes et une seule fois** ; au-delà de 100 postes, le nombre saisi est revérifié par
+  le moteur (`search.surveyTypedCount`) ;
+- pendant le relevé, l’état détaillé (`status`, RCH-099) : résultats validés et attente réelle, sources ralenties (plus de
+  2 s) ou suspendues (compte distant refusé), nouveaux essais (aucun), capacités mémorisées (CIM joignable), requêtes CIM
+  évitées (inventaire réutilisé), plan de reprise ;
+- arrêt sur demande : les mesures reçues restent, les postes restants deviennent le **plan de reprise** de la session
+  (`resume`), repris par `search.survey.plan` avec `resume: true` (nouvelle confirmation) ou abandonné
+  (`search.survey.forget`) ; un nouveau relevé le remplace. Rien n’est jamais rejoué.
+
+La page filtre ensuite la liste par issue (en ligne, sans réponse, erreur ; un second clic retire le filtre, RCH-095)
+sans nouvelle lecture. Un compte distant refusé par un poste suspend les vérifications au clic (RCH-082) jusqu’à
+`search.checks.resume`.
 
 ## 5. Mémoire de l’écran
 
@@ -135,7 +176,10 @@ distingués par l’OU parente en cas d’homonymie), 100 vues personnelles (OU,
 limite, jeu de colonnes, disposition de la grille) avec annulation du dernier retrait, 200 favoris de requête. Un
 échec d’écriture disque est journalisé et rendu dans `warning` ; l’état reste en mémoire.
 `SearchMemoryState` : `recents`, `favorites`, `workspaces`, `queryFavorites`, `undo`, `maxFavorites`, `maxWorkspaces`,
-`persistent`, `warning`.
+`persistent`, `warning`, `imported`. Au premier affichage d’un domaine, les recherches enregistrées de Domenia 1
+(`ISearchReader.LegacySavedSearchesAsync` : fichier de réglages de Domenia 1 avec la base locale en mode annuaire,
+échantillon fixe en simulation) deviennent des favoris d’OU **une seule fois** (`search.legacyImported.<empreinte>`) ;
+une recherche texte sur tout le domaine n’a pas d’OU à épingler ; la liste d’origine n’est jamais modifiée (RCH-004).
 
 ## 6. Simulation
 
@@ -168,8 +212,9 @@ l’interface, annulables, sur le contrôleur lié à la session. Les budgets so
 | `search.browse` | Base = OU, `OneLevel` ou `Subtree`, filtre du type seul. | idem |
 | `search.view` | Filtre de la vue (ex. `(&<personne>(lockoutTime>=1))`, `(&<personne>(userAccountControl:1.2.840.113556.1.4.803:=2))`, `(&(objectCategory=computer)(|(lastLogonTimestamp<=<90 j>)(!(lastLogonTimestamp=*))))`) sur l’OU choisie ; `wholeDomain` seulement sur choix explicite. | idem |
 | `search.more` | Même requête triée par `name` (contrôle de tri serveur 1.2.840.113556.1.4.473), reprise après la dernière clé (`(name>=<dernière clé>)` ajouté en `&`), DN déjà chargés écartés. | lignes suivantes seulement |
-| `search.revalidate` | `(|(objectGUID=…)…)` par paquets de 40 GUID. | 500 objets |
-| `search.containers` | Racine, `OneLevel`, `(objectClass=container)` ; nombre d’objets par conteneur en `OneLevel` (`SizeLimit` 10 000). | 1 + n requêtes |
+| `search.revalidate`, `search.preload` | `(|(objectGUID=…)…)` par paquets de 40 GUID. | 500 objets |
+| `search.reconcile` | La requête de la liste (même filtre, même base, même profondeur), taille = lignes chargées ; point de reprise (contrôleur, `invocationId`, USN) tenu avec la base locale. | taille de la liste |
+| `search.containers` | Racine, `OneLevel`, `(objectClass=container)` ; nombre d’objets par conteneur en `OneLevel` seulement avec `counts: true` (`SizeLimit` 10 000). | 1 (+ n sur demande) requêtes |
 | `search.suggest`, `search.preview`, `search.compare`, `search.localQuery`, `search.run` (adresse) | Base locale seulement (projection des lectures et relevés datés) : aucune requête LDAP. | — |
 
 Attributs lus pour une ligne : `objectClass`, `objectCategory`, `objectGUID`, `objectSid`, `distinguishedName`, `name`,
@@ -190,8 +235,10 @@ Attributs lus pour une ligne : `objectClass`, `objectCategory`, `objectGUID`, `o
 | DNS inverse | `Dns.GetHostEntryAsync` sur l’IPv4 de l’offre | 15 s |
 
 Budgets d’un relevé : 500 postes par défaut (5 000 au plus), 120 s sans progrès, 900 s au total ; la revérification
-automatique de la liste affichée (180 s) est désactivée par défaut et ne relit que l’annuaire (`search.revalidate`),
-jamais les postes. Aucun relevé ne porte sur tout le domaine.
+de la liste affichée (180 s par défaut, 120 à 900 s, la première après un intervalle) est désactivée par défaut et ne
+relit que l’annuaire (`search.reconcile`), jamais les postes. « Vérifier au clic » (désactivé par défaut, mémorisé) envoie
+un ping (et lit l’utilisateur connecté si la sous-option est cochée) au seul poste cliqué, 180 ms après le dernier clic.
+Aucun relevé ne porte sur tout le domaine.
 
 ## 8. Écran
 
@@ -200,10 +247,26 @@ jamais les postes. Aucun relevé ne porte sur tout le domaine.
   compris dans les tiroirs et dialogues, marqués `data-page="rechercher"`).
 - Paramètres de route : `q` ou `ip` (texte cherché), `portee` (DN de l’OU qui borne la recherche), `type`, `match`
   (`contient`), `limite`, `ou` (DN affiché ou périmètre d’une vue), `sousou` (`0` : enfants directs), `vue` (vue prête),
-  `domaine` (`1` : vue sur tout le domaine), `requete` (requête locale), `verdict`, `sel` (`first`, `pc`, `user` ou un
-  GUID), `ouvrir` (`requetes`, `vues`, `syntaxe`, `comparer`, `releve`, `menu`, `diag`, `historique`).
+  `domaine` (`1` : vue ou requête sur tout le domaine), `requete` (requête locale), `verdict`, `sel` (`first`, `pc`,
+  `user`, `locked` ou un GUID), `ouvrir` (`requetes`, `vues`, `syntaxe`, `comparer`, `releve`, `menu`, `diag`,
+  `historique`, `outils`, `suggestions`, `arbre`, `exporter`, `deverrouiller`), `largeur` (captures : l’écran se dispose
+  comme dans une fenêtre de cette largeur, ses points de rupture étant des requêtes de conteneur).
+- Disposition : la grande barre devient une barre fine après la première liste (l’analyse passe en puces dans le champ,
+  le plan appliqué et son filtre LDAP s’affichent sous le champ pendant la saisie) ; l’arbre se replie en rail (de
+  lui-même sur un écran étroit tant que l’opérateur n’a rien choisi) ; l’aperçu est un rail tant que rien n’est
+  sélectionné, et s’ouvre par-dessus la liste sur un écran étroit ; la carte des résultats : historique des listes, titre,
+  périmètre et fraîcheur, barre de commandes (action principale « Vérifier la liste », puis Actualiser, Exporter,
+  Comparer, Revérifier, « Plus »), ligne de la grille (filtre rapide, « Filtres et options », jeux de colonnes), panneau
+  « Filtres et options » replié à chaque ouverture (RCH-071), notices d’une ligne, état vide unique avec ses actions.
+- Colonnes : une colonne dont aucune ligne n’a la donnée n’est pas proposée (type sur une liste d’un seul genre, compte,
+  colonnes de poste, d’association, de groupe : RCH-061) ; le menu de ligne appartient à la page (aucune entrée du kit en
+  double).
 - Clavier : `/` ou `Ctrl F` (barre), `Entrée` (chercher), `Ctrl Entrée` (ouvrir la fiche de la suggestion), `Alt ←` /
   `Alt →` (historique de l’écran, 40 étapes, sans relecture), `F5` (actualiser la liste, lecture annoncée), `Maj F10`
   (menu de la ligne), `Ctrl A` (tout sélectionner).
 - Composants locaux (demandes au kit) : anneau animé de la barre et liste de suggestions, sélecteur de verdict,
-  éventail de sélection multiple, rampe de lancement, tableau de comparaison, tableau de diagnostic, catalogue.
+  éventail de sélection multiple, rampe de lancement, tableau de comparaison, tableau de diagnostic, catalogue, rails
+  des panneaux, état vide à actions. Demandes au kit : option de la grille pour remplacer ses entrées de menu de ligne
+  (aujourd’hui la page intercepte le menu), colonnes exclues du sélecteur, colonnes extensibles ; état déplié de l’arbre
+  et rappel à l’ouverture ou à la fermeture d’une branche (RCH-045) ; opération hôte d’enregistrement de fichier (export
+  CSV en fichier, RCH-069) ; évènement moteur `session.changed` (RCH-136 : la page relit la session au retour du focus).

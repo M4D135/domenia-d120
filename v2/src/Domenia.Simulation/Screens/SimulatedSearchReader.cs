@@ -18,6 +18,7 @@ public sealed class SimulatedSearchReader : ISearchReader
 {
     private const string Source = "Annuaire fictif";
     private const string Readings = "Relevés fictifs";
+    private const string LocalBase = "Base locale (fictive)";
 
     private static readonly FrozenDictionary<string, int> SiteSubnets = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,6 +32,7 @@ public sealed class SimulatedSearchReader : ISearchReader
     private readonly ConcurrentDictionary<Guid, PresenceMeasure> surveyed = new();
     private readonly ConcurrentDictionary<Guid, SearchConsole> consoles = new();
     private readonly ConcurrentDictionary<Guid, DateTimeOffset> addressSeen = new();
+    private readonly ConcurrentDictionary<Guid, DateTimeOffset> inventoried = new();
 
     /// <summary>Found by ScreenReaders.Discover for the simulated source; cheap: nothing is generated here.</summary>
     public SimulatedSearchReader(SimulatedDirectorySource source)
@@ -48,6 +50,25 @@ public sealed class SimulatedSearchReader : ISearchReader
         var kind = query.Kind == SearchListKind.Browse ? "search/browse" : "search/find";
         await source.SimulateScreenLatencyAsync(kind, 40, 180, cancellationToken).ConfigureAwait(false);
         var (state, index, factory, now) = await StateAsync(cancellationToken).ConfigureAwait(false);
+        return Find(query, state, index, factory, now, Source, state.Directory.ReadAt);
+    }
+
+    public async Task<SearchPage> CachedAsync(SearchQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        // The local base of the simulation is the directory as last projected: same objects, dated by the last observation round.
+        var (state, index, factory, now) = await StateAsync(cancellationToken).ConfigureAwait(false);
+        var page = Find(query with { Kind = SearchListKind.Search }, state, index, factory, now, LocalBase, state.Observations.TakenAt ?? state.Directory.ReadAt);
+        return page with { More = false, LastKey = null };
+    }
+
+    /// <summary>
+    /// The passes of a search of the bar (Domenia 1 RCH-024): exact identity first (account, UPN, mail, name, DNS name), then
+    /// the prefix of the words in name order (keyset continuation), then ANR (start of a word inside the name or the display
+    /// name) while room is left. A list of an OU or a view has one pass. Rows already given are skipped.
+    /// </summary>
+    private static SearchPage Find(SearchQuery query, DirectoryState state, CandidateIndex index, SearchRowFactory factory, DateTimeOffset now, string sourceLabel, DateTimeOffset readAt)
+    {
         Func<SearchCandidate, bool> match;
         if (query.Kind == SearchListKind.View)
         {
@@ -62,15 +83,37 @@ public sealed class SimulatedSearchReader : ISearchReader
         var root = state.Directory.Domain.RootDn;
         var listingBase = query.Kind is SearchListKind.Browse or SearchListKind.View;
         var rows = ImmutableArray.CreateBuilder<SearchRow>(Math.Min(query.Take, 512));
+        var given = new HashSet<Guid>();
         var more = false;
         string? last = null;
+        bool Usable(SearchCandidate c) => !given.Contains(c.Id) && !query.Known.Contains(c.Id.ToString("D")) && InScope(c.Dn, query.BaseDn, query.Subtree, root, listingBase);
+        var words = query.Kind == SearchListKind.Search && query.Plan.Kind == SearchPlanKind.Default && query.Plan.Tokens.IsEmpty
+            ? SearchText.Words(query.Plan.FreeText).Select(FrenchText.Fold).Where(w => !w.Contains('*', StringComparison.Ordinal)).ToArray()
+            : [];
+        if (query.After is null && words.Length == 1)
+        {
+            // Exact identity pass: an account typed in full is never pushed out of the list by more prefix matches.
+            var exact = words[0];
+            foreach (var candidate in index.Ordered)
+            {
+                if (rows.Count == query.Take)
+                {
+                    break;
+                }
+                if (SearchMatcher.OfType(candidate, query.Type) && Usable(candidate) && IsExact(candidate, exact))
+                {
+                    rows.Add(factory.Row(candidate.Source));
+                    given.Add(candidate.Id);
+                }
+            }
+        }
         foreach (var candidate in index.Ordered)
         {
             if (query.After is string after && string.CompareOrdinal(candidate.NameKey, after) < 0)
             {
                 continue;
             }
-            if (query.Known.Contains(candidate.Id.ToString("D")) || !InScope(candidate.Dn, query.BaseDn, query.Subtree, root, listingBase) || !match(candidate))
+            if (!Usable(candidate) || !match(candidate))
             {
                 continue;
             }
@@ -80,17 +123,63 @@ public sealed class SimulatedSearchReader : ISearchReader
                 break;
             }
             rows.Add(factory.Row(candidate.Source));
+            given.Add(candidate.Id);
             last = candidate.NameKey;
         }
-        return new SearchPage(rows.ToImmutable(), more, last, state.Directory.ReadAt, Source);
+        if (!more && words.Length > 0)
+        {
+            // ANR pass: the start of a word inside the name or the display name (« dufour » finds « Martine Dufour »).
+            foreach (var candidate in index.Ordered)
+            {
+                if (!SearchMatcher.OfType(candidate, query.Type) || !Usable(candidate) || match(candidate) || !words.All(w => AnrMatches(candidate, w)))
+                {
+                    continue;
+                }
+                if (rows.Count == query.Take)
+                {
+                    more = true;
+                    break;
+                }
+                rows.Add(factory.Row(candidate.Source));
+                given.Add(candidate.Id);
+            }
+        }
+        return new SearchPage(rows.ToImmutable(), more, last, readAt, sourceLabel);
     }
 
-    public async Task<ImmutableArray<SearchContainer>> ContainersAsync(CancellationToken cancellationToken)
+    private static bool IsExact(SearchCandidate candidate, string folded)
+    {
+        var f = candidate.Folded;
+        // name, sAMAccountName, userPrincipalName, mail, dNSHostName (and the account part of the UPN).
+        return f[0] == folded || f[2] == folded || f[6] == folded || f[7] == folded || f[8] == folded
+            || (f[6].Length > 0 && f[6].Split('@')[0] == folded);
+    }
+
+    private static bool AnrMatches(SearchCandidate candidate, string word)
+    {
+        foreach (var value in new[] { candidate.Folded[0], candidate.Folded[3] })
+        {
+            if (value.Length == 0)
+            {
+                continue;
+            }
+            for (var i = 1; i < value.Length; i++)
+            {
+                if ((value[i - 1] == ' ' || value[i - 1] == '-' || value[i - 1] == '.' || value[i - 1] == '_') && value.AsSpan(i).StartsWith(word, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public async Task<ImmutableArray<SearchContainer>> ContainersAsync(bool counts, CancellationToken cancellationToken)
     {
         await source.SimulateScreenLatencyAsync("search/tree", 40, 120, cancellationToken).ConfigureAwait(false);
         var directory = source.CurrentDirectory;
         var root = directory.Domain.RootDn;
-        int Count(string dn) => directory.Users.Count(u => Under(u.DistinguishedName, dn)) + directory.Computers.Count(c => Under(c.DistinguishedName, dn))
+        int Count(string dn) => !counts ? -1 : directory.Users.Count(u => Under(u.DistinguishedName, dn)) + directory.Computers.Count(c => Under(c.DistinguishedName, dn))
             + directory.Groups.Count(g => Under(g.DistinguishedName, dn));
         return [.. directory.Domain.Containers.Select(dn => new SearchContainer(dn, SearchTexts.Leaf(dn), SearchContainers.IsSystem(dn, root), Count(dn)))
             .OrderBy(c => c.System).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)];
@@ -130,8 +219,9 @@ public sealed class SimulatedSearchReader : ISearchReader
         var query = SearchViews.LocalQueries.FirstOrDefault(q => q.Id == queryId)
             ?? throw new DomeniaOperationException(SearchErrors.ViewUnknown, SearchErrors.ViewUnknownMessage);
         var root = state.Directory.Domain.RootDn;
-        int match = 0, unknown = 0, noMatch = 0;
-        var rows = new List<SearchRow>();
+        int match = 0, unknown = 0, noMatch = 0, read = 0, total = 0;
+        DateTimeOffset? oldest = null;
+        var rows = new List<(int Order, SearchRow Row)>();
         foreach (var candidate in index.Ordered)
         {
             if (candidate.Source is not DirectoryComputer computer || AdValues.IsDisabled(computer.UserAccountControl)
@@ -139,22 +229,35 @@ public sealed class SimulatedSearchReader : ISearchReader
             {
                 continue;
             }
-            var result = query.Evaluate(computer, factory.Observation(computer.ObjectGuid), now);
+            var observation = factory.Observation(computer.ObjectGuid);
+            total++;
+            // Coverage (RCH-120): the latest reading of each workstation of the perimeter, dated, within 30 days.
+            var latest = Latest(observation);
+            if (latest is DateTimeOffset at && now - at <= TimeSpan.FromDays(30))
+            {
+                read++;
+                oldest = oldest is null || at < oldest ? at : oldest;
+            }
+            var result = query.Evaluate(computer, observation, now, Zone);
+            int order;
             switch (result.Verdict)
             {
                 case SearchViews.Match:
                     match++;
+                    order = 0;
                     break;
                 case SearchViews.NoMatch:
                     noMatch++;
+                    order = 2;
                     break;
                 default:
                     unknown++;
+                    order = 1;
                     break;
             }
             if (verdict == "all" || verdict == result.Verdict)
             {
-                rows.Add(factory.Computer(computer, 9, SearchViews.VerdictLabel(result.Verdict) + " · " + result.Value));
+                rows.Add((order, factory.Computer(computer, 9, SearchViews.VerdictLabel(result.Verdict) + " · " + result.Value)));
             }
         }
         var shown = verdict switch
@@ -164,9 +267,32 @@ public sealed class SimulatedSearchReader : ISearchReader
             SearchViews.Unknown => "Inconnus",
             _ => "Tous les postes",
         };
+        // « Tous » lists the matching workstations first, then the unknown, then the others: the limit never hides the signal.
+        var ordered = rows.OrderBy(r => r.Order).Select(r => r.Row).ToList();
         var take = Math.Max(1, limit);
-        return (new SearchPage([.. rows.Take(take)], rows.Count > take, null, state.Observations.TakenAt ?? state.Directory.ReadAt, Readings),
-            new SearchVerdictTotals(match, unknown, noMatch, shown));
+        DateTimeOffset? complete = total > 0 && read == total ? oldest : null;
+        var coverage = total == 0
+            ? "Aucun poste actif dans ce périmètre."
+            : complete is DateTimeOffset since
+                ? "Dernière lecture complète couvrant le périmètre" + FrenchText.Colon + "tous les postes relevés depuis le " + SearchDetails.When(since, Zone) + "."
+                : "Aucune lecture complète du périmètre" + FrenchText.Colon + FrenchText.Count(total - read, "poste", "postes") + " sur " + FrenchText.Integer(total)
+                    + " sans aucun relevé (présence ou inventaire) de moins de 30 jours.";
+        return (new SearchPage([.. ordered.Take(take)], ordered.Count > take, null, state.Observations.TakenAt ?? state.Directory.ReadAt, Readings),
+            new SearchVerdictTotals(match, unknown, noMatch, shown, complete, coverage));
+    }
+
+    private static DateTimeOffset? Latest(WorkstationObservation? observation)
+    {
+        if (observation is null)
+        {
+            return null;
+        }
+        DateTimeOffset? at = observation.Presence is { HasReading: true, CheckedAt: DateTimeOffset p } ? p : null;
+        if (observation.Inventory is { HasReading: true, CheckedAt: DateTimeOffset i } && (at is null || i > at))
+        {
+            at = i;
+        }
+        return at;
     }
 
     public async Task<ImmutableArray<SearchSuggestion>> SuggestAsync(string text, SearchTypeFilter type, int max, CancellationToken cancellationToken)
@@ -226,7 +352,7 @@ public sealed class SimulatedSearchReader : ISearchReader
         return derived.Value.Dns.GetValueOrDefault(ipv4);
     }
 
-    public async Task<SurveyOutcome> ProbeAsync(Guid id, SurveyMode mode, int run, CancellationToken cancellationToken)
+    public async Task<SurveyOutcome> ProbeAsync(Guid id, SurveyMode mode, int run, TimeSpan inventoryReuse, CancellationToken cancellationToken)
     {
         var (min, max) = mode switch
         {
@@ -269,16 +395,50 @@ public sealed class SimulatedSearchReader : ISearchReader
         surveyed[id] = measure;
         var presence = SearchTexts.Presence(measure, now);
         SearchConsole? console = null;
+        var reused = false;
+        var denied = false;
         if (presence.State == SearchPresenceState.Online)
         {
             addressSeen[id] = now;
-            if (mode != SurveyMode.Ping)
+            if (mode != SurveyMode.Ping && string.Equals(SiteOf(computer.DistinguishedName), "Quarantaine", StringComparison.OrdinalIgnoreCase))
+            {
+                // Workstations in quarantine refuse the remote account of the simulation: the console is not read.
+                denied = true;
+                console = new SearchConsole("denied", "Compte distant refusé par le poste", null, null, null, now);
+                detail = "Accès refusé (DCOM)" + FrenchText.Colon + "le poste a rejeté le compte distant ; l’utilisateur console n’est pas lu.";
+            }
+            else if (mode != SurveyMode.Ping)
             {
                 console = ConsoleRead(computer, run, now);
                 consoles[id] = console;
             }
+            if (!denied && mode is SurveyMode.Analyse or SurveyMode.Complete)
+            {
+                // A light inventory younger than the profile is kept: no CIM request for it (counted as avoided).
+                var lastInventory = inventoried.TryGetValue(id, out var at) ? at : factory.Observation(id)?.Inventory is { HasReading: true, CheckedAt: DateTimeOffset seen } ? seen : (DateTimeOffset?)null;
+                reused = lastInventory is DateTimeOffset last && inventoryReuse > TimeSpan.Zero && now - last <= inventoryReuse;
+                if (!reused)
+                {
+                    inventoried[id] = now;
+                }
+            }
         }
-        return new SurveyOutcome(id.ToString("D"), computer.Name, SearchSurvey.OutcomeKind(presence.State), presence, console, detail);
+        return new SurveyOutcome(id.ToString("D"), computer.Name, SearchSurvey.OutcomeKind(presence.State), presence, console, detail, reused, denied);
+    }
+
+    public Task<ImmutableArray<SearchLegacySaved>> LegacySavedSearchesAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // A fixed sample of the saved searches a Domenia 1 operator could have: two OU searches (taken over as favourites, the
+        // text going to the local filter) and one text search on the whole domain (no OU to pin: left out).
+        var root = source.CurrentDirectory.Domain.RootDn;
+        ImmutableArray<SearchLegacySaved> saved =
+        [
+            new("ou", "OU=Lyon,OU=Utilisateurs," + root, "Utilisateurs de Lyon", true, SearchTypeFilter.Users, null),
+            new("ou", "OU=Bordeaux,OU=Postes," + root, "Postes de Bordeaux", true, SearchTypeFilter.Computers, "PC-BDX"),
+            new("global", root, null, true, SearchTypeFilter.All, "martin"),
+        ];
+        return Task.FromResult(saved);
     }
 
     public async Task<NetworkDiagnosticLine> DiagnoseAsync(Guid id, CancellationToken cancellationToken)

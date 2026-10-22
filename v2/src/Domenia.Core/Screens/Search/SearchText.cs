@@ -483,6 +483,20 @@ public static partial class SearchText
         return new SearchPlan(SearchPlanKind.Default, true, "", string.Join(' ', notes), notes.ToImmutable(), [], identifier, null, ldap, filter.Costly, value);
     }
 
+    private static readonly char[] SimpleBreaks = [' ', '*', '(', ')', '\t'];
+
+    /// <summary>
+    /// A simple search (Domenia 1 RCH-055): one word typed as is, no space, no wildcard, no parenthesis, no token, no
+    /// identifier. Only such a search shows the rows of the local base while the directory read goes on.
+    /// </summary>
+    public static bool IsSimple(SearchPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        var text = plan.FreeText.Trim();
+        return plan.Valid && plan.Kind == SearchPlanKind.Default && plan.Tokens.IsEmpty && plan.Identifier is null && text.Length > 0
+            && text.IndexOfAny(SimpleBreaks) < 0;
+    }
+
     /// <summary>Plan of an OU list (browse): the type only, no hidden term (the term goes to the visible local filter).</summary>
     public static SearchPlan BrowsePlan(SearchTypeFilter type) =>
         new(SearchPlanKind.Browse, true, "", "Contenu de l’OU, sans filtre caché" + FrenchText.Colon + "un terme saisi filtre seulement les lignes chargées.",

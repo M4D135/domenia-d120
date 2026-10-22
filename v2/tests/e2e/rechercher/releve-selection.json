@@ -1,18 +1,93 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Rechercher : relevé confirmé d’une sélection de postes",
-  "description": "Affiche le contenu de l’OU Paris, sélectionne deux postes, ouvre le menu contextuel et demande un ping de la sélection : la confirmation dit les cibles exactes et la durée estimée ; l’annulation ne lit rien.",
-  "modes": ["simulation"],
+  "description": "Affiche le contenu de l’OU Paris, sélectionne deux postes, ouvre le menu contextuel au clavier, choisit « Réseau › Qui répond ? » : la confirmation du moteur dit les cibles exactes, le profil, le budget et la fenêtre de collecte ; le relevé confirmé met à jour les lignes et ses pastilles de résultat filtrent la liste, un second clic retire le filtre.",
+  "modes": [
+    "simulation"
+  ],
   "start": "rechercher?ou=OU%3DParis%2COU%3DPostes%2CDC%3Dexample%2CDC%3Dlocal",
   "steps": [
-    { "do": "wait", "contains": "PC-PAR-0001", "within": ".rch-results .k-gbody", "title": "Le contenu de Paris est listé" },
-    { "do": "click", "text": "PC-PAR-0001", "within": ".rch-results .k-gbody" },
-    { "do": "press", "key": "Shift+ArrowDown", "title": "Étendre la sélection au poste suivant" },
-    { "do": "expect", "contains": "2 sélectionnées", "within": ".rch-results", "title": "Deux postes sélectionnés" },
-    { "do": "press", "key": "Shift+F10", "title": "Ouvrir le menu contextuel au clavier" },
-    { "do": "wait", "selector": ".k-menu", "title": "Le menu contextuel de Domenia 1 est ouvert" },
-    { "do": "expect", "contains": "Vérifier", "within": ".k-menu" },
-    { "do": "press", "key": "Escape" },
-    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+    {
+      "do": "wait",
+      "contains": "PC-PAR-0001",
+      "within": ".rch-results .k-gbody",
+      "title": "Le contenu de Paris est listé"
+    },
+    {
+      "do": "click",
+      "text": "PC-PAR-0001",
+      "within": ".rch-results .k-gbody"
+    },
+    {
+      "do": "press",
+      "key": "Shift+ArrowDown",
+      "title": "Étendre la sélection au poste suivant"
+    },
+    {
+      "do": "press",
+      "key": "Shift+F10",
+      "title": "Ouvrir le menu de la ligne au clavier"
+    },
+    {
+      "do": "wait",
+      "selector": ".k-menu",
+      "title": "Le menu de la ligne est ouvert"
+    },
+    {
+      "do": "expect",
+      "contains": "Copier",
+      "within": ".k-menu",
+      "title": "Les copies sont regroupées"
+    },
+    {
+      "do": "expect",
+      "text": "Exporter en CSV",
+      "within": ".k-menu",
+      "absent": true,
+      "title": "Aucune entrée du kit en double"
+    },
+    {
+      "do": "click",
+      "text": "Réseau",
+      "within": ".k-menu",
+      "title": "Ouvrir le sous-menu Réseau"
+    },
+    {
+      "do": "click",
+      "text": "Qui répond ? (2)",
+      "title": "Demander un ping des deux postes"
+    },
+    {
+      "do": "wait",
+      "contains": "Profil de collecte",
+      "within": ".k-dlg",
+      "title": "La confirmation dit le profil, le budget et la fenêtre"
+    },
+    {
+      "do": "expect",
+      "contains": "Pinger 2 postes",
+      "within": ".k-dlg",
+      "title": "Bouton chiffré"
+    },
+    {
+      "do": "click",
+      "text": "Pinger 2 postes",
+      "title": "Confirmer le relevé"
+    },
+    {
+      "do": "wait",
+      "contains": "en ligne",
+      "within": ".rch-notice[data-id=\"survey\"]",
+      "title": "Le relevé est terminé, ses pastilles sont proposées"
+    },
+    {
+      "do": "shot",
+      "name": "releve-termine"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
   ]
 }

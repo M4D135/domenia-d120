@@ -44,7 +44,8 @@ public sealed record SearchMemoryState(
     int MaxFavorites,
     int MaxWorkspaces,
     bool Persistent,
-    string? Warning);
+    string? Warning,
+    int Imported = 0);
 
 /// <summary>Request to save a personal view, as the page sends it (validated by <see cref="SearchMemoryRules.Workspace"/>).</summary>
 public sealed record SearchWorkspaceDraft(string Name, string OuDn, bool Subtree, SearchTypeFilter Type, string Presence, string Filter, int Limit, string ColumnSet, SearchLayout? Layout);
@@ -408,18 +409,65 @@ public sealed class SearchMemory : IDisposable
         return context.Shared(static c => new SearchMemory(c.Preferences, c.Journal, c.Clock, c.Log));
     }
 
-    public async Task<SearchMemoryState> StateAsync(DomainIdentity domain, CancellationToken cancellationToken)
+    public async Task<SearchMemoryState> StateAsync(DomainIdentity domain, CancellationToken cancellationToken,
+        Func<CancellationToken, Task<ImmutableArray<SearchLegacySaved>>>? legacy = null)
     {
         var (root, dns, key) = Domain(domain);
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return State(key, root, dns, null);
+            var imported = legacy is null ? 0 : await ImportLegacyOnceAsync(key, root, dns, legacy, cancellationToken).ConfigureAwait(false);
+            return State(key, root, dns, null) with { Imported = imported };
         }
         finally
         {
             gate.Release();
         }
+    }
+
+    /// <summary>
+    /// First display of a domain: the saved searches of Domenia 1 become OU favourites once (RCH-004). A read that fails is
+    /// traced and tried again next time; once done, the flag of the domain stops any further takeover. The source list is
+    /// never modified.
+    /// </summary>
+    private async Task<int> ImportLegacyOnceAsync(string key, string root, string dns, Func<CancellationToken, Task<ImmutableArray<SearchLegacySaved>>> legacy,
+        CancellationToken cancellationToken)
+    {
+        var flag = Key("legacyImported", key);
+        if (preferences.TryGet(flag, out _))
+        {
+            return 0;
+        }
+        ImmutableArray<SearchLegacySaved> saved;
+        try
+        {
+            saved = await legacy(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or DomeniaOperationException)
+        {
+            log.Warning($"Recherches enregistrées de Domenia 1 non lues : {ex.GetType().Name}.");
+            return 0;
+        }
+        var existing = Read<SearchFavorite>(Key("favorites", key));
+        var (favorites, imported) = SearchMemoryRules.ImportLegacy(existing, [.. saved.Select(s => (s.Mode, s.Dn, s.Name, s.Subtree, s.Type, s.Query))], root, dns);
+        try
+        {
+            if (imported > 0)
+            {
+                await preferences.SetAsync(Key("favorites", key), Element(favorites), cancellationToken).ConfigureAwait(false);
+            }
+            await preferences.SetAsync(flag, JsonSerializer.SerializeToElement(true), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.Warning($"Préférences non enregistrées (Rechercher, reprise des recherches de Domenia 1) : {ex.GetType().Name}.");
+        }
+        if (imported > 0)
+        {
+            journal.Add(new JournalEntry(clock.GetUtcNow(), "Recherches enregistrées de Domenia 1 reprises" + FrenchText.Colon + FrenchText.Count(imported, "OU en favori", "OU en favoris")
+                + " (une seule fois ; la liste d’origine est conservée)", Tone.Info));
+        }
+        return imported;
     }
 
     public Task<SearchMemoryState> AddRecentAsync(DomainIdentity domain, string kind, string text, string? type, string? dn, CancellationToken cancellationToken) =>

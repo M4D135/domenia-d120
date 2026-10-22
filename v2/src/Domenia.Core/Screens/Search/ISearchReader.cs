@@ -33,8 +33,18 @@ public interface ISearchReader : IScreenReader
     /// <summary>Global search, OU list or ready-made view (network read in directory mode, after the operator’s gesture).</summary>
     Task<SearchPage> FindAsync(SearchQuery query, CancellationToken cancellationToken);
 
-    /// <summary>Containers of the domain root (CN=Users, CN=Computers, system containers), with the objects they hold.</summary>
-    Task<ImmutableArray<SearchContainer>> ContainersAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Containers of the domain root (CN=Users, CN=Computers, system containers). With <paramref name="counts"/>, the objects
+    /// they hold are counted too (one more read per container in directory mode: only on an explicit request); without, the
+    /// count is -1 (unknown).
+    /// </summary>
+    Task<ImmutableArray<SearchContainer>> ContainersAsync(bool counts, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Rows of the local base for a simple search (RCH-055), shown while the directory read goes on: marked with their
+    /// source and observation date, replaced by the fresh rows (no network).
+    /// </summary>
+    Task<SearchPage> CachedAsync(SearchQuery query, CancellationToken cancellationToken);
 
     /// <summary>Workstations whose stored readings carry this IPv4 or MAC address (local base, no network).</summary>
     Task<SearchPage> FindAddressAsync(SearchAddress address, int limit, CancellationToken cancellationToken);
@@ -60,8 +70,17 @@ public interface ISearchReader : IScreenReader
     /// <summary>Reverse DNS of an IPv4 (network read, explicit gesture only); null when no name is found.</summary>
     Task<string?> ReverseDnsAsync(string ipv4, CancellationToken cancellationToken);
 
-    /// <summary>One workstation of a survey: echo, then console user and inventory per mode (network read, one attempt).</summary>
-    Task<SurveyOutcome> ProbeAsync(Guid id, SurveyMode mode, int run, CancellationToken cancellationToken);
+    /// <summary>
+    /// One workstation of a survey: echo, then console user and inventory per mode (network read, one attempt). A light
+    /// inventory younger than <paramref name="inventoryReuse"/> is kept instead of a CIM request (outcome InventoryReused).
+    /// </summary>
+    Task<SurveyOutcome> ProbeAsync(Guid id, SurveyMode mode, int run, TimeSpan inventoryReuse, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Saved searches of Domenia 1, read once for their takeover as OU favourites (RCH-004): its settings file with the local
+    /// base in directory mode, a fixed sample in simulation. Never written, empty when there is none.
+    /// </summary>
+    Task<ImmutableArray<SearchLegacySaved>> LegacySavedSearchesAsync(CancellationToken cancellationToken);
 
     /// <summary>Network diagnostic of one workstation: echo then TCP ports 445, 135, 5985, 5986 (network read, no account sent).</summary>
     Task<NetworkDiagnosticLine> DiagnoseAsync(Guid id, CancellationToken cancellationToken);

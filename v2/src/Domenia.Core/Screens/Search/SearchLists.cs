@@ -111,7 +111,10 @@ public static class SearchLists
                 : new SearchScopeInfo("global", dn, "Dans " + FrenchText.Quote(name) + " · sous-OU incluses", path, true, false, "Dans " + FrenchText.Quote(name));
         }
         var depth = whole || subtree ? "sous-OU incluses" : "niveau direct";
-        var label = whole ? "Tout le domaine · " + depth : "Dans cette OU" + FrenchText.Colon + name + " · " + (subtree ? "Sous-OU incluses" : "Enfants directs");
+        // The parent names the OU among its homonyms (« Paris (dans Sites) »), Domenia 1 RCH-013.
+        var parts = path.Split(FrenchText.PathSeparator);
+        var parent = parts.Length >= 2 ? parts[^2] : dnsName;
+        var label = whole ? "Tout le domaine · " + depth : "Dans cette OU" + FrenchText.Colon + name + " (dans " + parent + ") · " + (subtree ? "Sous-OU incluses" : "Enfants directs");
         return new SearchScopeInfo("ou", whole ? rootDn : dn, label, path, whole || subtree, whole && subtree, (whole ? "Domaine " : "OU ") + name + " · " + depth);
     }
 

@@ -10,8 +10,10 @@
 // operations (session.setScope, dashboard.widget.setEnabled) keep their choice like the engine keeps
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
+// Search screen (search.*): mock-search.js, in the memory of the page.
 
 import { createWriteOperations } from './mock-writes.js';
+import { createSearchOperations } from './mock-search.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1058,6 +1060,8 @@ const OPERATIONS = {
   ...createWriteOperations({
     readObject, getString, getOptionalString, requireDistinguishedName, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF,
   }),
+  // Search screen (docs/ops/rechercher.md): mock-search.js, in the memory of the page.
+  ...createSearchOperations({ readObject, getString, getOptionalString, requireDistinguishedName, invalid, fail, quote, int, sleep, NBSP, REF }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength

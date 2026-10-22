@@ -1,13 +1,16 @@
 // Rechercher · OU panel on the left: pinned OU favourites above a lazy tree (one level read per opening, F5 to read a
 // branch again), containers of the root with the system containers folded apart, local filter of the branches already
-// read, search of an OU by name in the directory on request, depth switch, tree menu and memory of the tree per domain.
-// Domenia 1 RCH-003 to RCH-021.
+// read, search of an OU by name in the directory on request, depth switch, tree menu, memory of the tree per domain and a
+// rail mode that gives its width to the list. The domain root only serves to navigate: listing the whole domain is an
+// explicit choice of the menu. The restoration of the remembered branches stops at the first gesture of the operator,
+// and an OU absent from its parent read again is never confused with a read that failed (RCH-003 to RCH-021).
 import { glyph } from '../../kit/glyphs.js';
 import { openMenu } from '../../kit/menu.js';
+import { openDialog } from '../../kit/dialog.js';
 import { createTree } from '../../kit/tree.js';
 import { readLayout, writeLayout, writeClipboard, debounce, highlight } from '../../kit/util.js';
 import { announce, toast, errorText } from '../../ui.js';
-import { esc, fold, int, count, quote, COLON, splitDn, leafOf, pathOf, sameDn } from './text.js';
+import { esc, fold, int, count, quote, COLON, splitDn, leafOf, pathOf, parentDn, sameDn } from './text.js';
 
 const MEMORY_MAX = 128;
 const SYSTEM_ID = '#system';
@@ -17,26 +20,36 @@ const SYSTEM_ID = '#system';
  * @param {any} ctx
  * @param {{ root: string, dns: string, onSelect: (node: any, how: string) => void, onBrowse: (dn: string, name: string, subtree: boolean) => void,
  *   onFavorite: (fav: any) => void, onPin: (node: any, pinned: boolean) => void, onUnpin: (dn: string) => void, onMove: (dn: string, index: number) => void,
- *   isPinned: (dn: string) => boolean, onNavigate: (route: string, params: object) => void, readOnly: () => boolean }} o
+ *   isPinned: (dn: string) => boolean, onNavigate: (route: string, params: object) => void, readOnly: () => boolean,
+ *   onRestoreIssue: (issue: {kind: 'absent'|'failed', dn: string, name: string, parent: string, parentName: string, message: string}) => void,
+ *   onFold: (folded: boolean) => void }} o
  */
 export function createSide(host, ctx, o) {
   const memoryKey = `rechercher.tree.${o.root.toLowerCase()}`;
   const memory = readLayout(memoryKey) ?? {};
+  const ui = readLayout('rechercher.tree.ui') ?? {};
   const st = {
     subtree: memory.subtree !== false,
     selected: null,
     favorites: [],
     loaded: new Set(Array.isArray(memory.expanded) ? memory.expanded.filter((d) => typeof d === 'string').slice(0, MEMORY_MAX) : []),
     restoring: false,
+    abort: false,
+    folded: ui.folded === true,
+    auto: typeof ui.folded !== 'boolean',
+    remembered: typeof memory.selected === 'string' ? memory.selected : null,
   };
+  // Outcome of each branch read in this session: 'ok', or the error of a read that did not succeed (never an absence).
+  const reads = new Map();
 
   host.innerHTML = `<div class="rch-side-in">
     <header class="rch-panel-head">
-      <span class="rch-panel-ico">${glyph('tree')}</span>
+      <button class="btn ghost icon sm rch-side-fold" type="button" aria-expanded="${!st.folded}" aria-label="${st.folded ? 'Déplier l’arborescence' : 'Replier l’arborescence'}" data-tip="${st.folded ? 'Déplier l’arborescence' : 'Replier l’arborescence en rail'}">${glyph('tree')}</button>
       <h2 class="rch-panel-title">Arborescence</h2>
       <button class="btn ghost icon sm rch-pin" type="button" aria-pressed="false" aria-label="Épingler cette OU" data-tip="Épingler l’OU choisie" disabled>${glyph('star')}</button>
       <button class="btn ghost icon sm rch-side-menu" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Menu de l’arborescence" data-tip="Profondeur, domaine entier, chemin, actualiser">${glyph('more')}</button>
     </header>
+    <div class="rch-rail" aria-hidden="true"><span class="rch-rail-t">Arborescence</span><span class="rch-rail-n" data-tip="OU favorites">${glyph('star')}<b class="rch-rail-favs">0</b></span></div>
     <section class="rch-favs" aria-label="OU favorites">
       <button class="rch-favs-head" type="button" aria-expanded="true"><span>${glyph('star')}Favoris</span><span class="rch-favs-n">0</span>${glyph('chevronDown', 'rch-favs-chev')}</button>
       <ol class="rch-favs-list" role="list"></ol>
@@ -44,18 +57,19 @@ export function createSide(host, ctx, o) {
     </section>
     <div class="rch-ousearch" hidden>
       <label class="rch-ousearch-field">${glyph('search')}<span class="visually-hidden">Chercher une OU par son nom dans l’annuaire</span>
-        <input type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nom ou chemin d’une OU, dans l’annuaire…"></label>
+        <input type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="Nom ou chemin d’une OU…"></label>
       <button class="btn ghost icon sm rch-ousearch-x" type="button" aria-label="Fermer la recherche d’OU">${glyph('x')}</button>
       <ul class="rch-ousearch-list" role="listbox" aria-label="OU trouvées"></ul>
-      <p class="rch-ousearch-note"></p>
+      <p class="rch-ousearch-note">La recherche lit l’annuaire à chaque pause de la saisie.</p>
     </div>
     <div class="rch-tree"></div>
     <footer class="rch-side-foot">
       <label class="rch-depth" data-tip="Sous-arbre ou enfants directs, pour la liste de l’OU"><input class="switch" type="checkbox" role="switch"${st.subtree ? ' checked' : ''}><span>Inclure les sous-OU</span></label>
-      <button class="btn sm rch-browse" type="button" disabled>${glyph('rows')}<span>Afficher le contenu</span></button>
+      <button class="btn sm rch-browse" type="button" disabled>${glyph('rows')}<span class="rch-browse-t"><span>Afficher le contenu</span><small></small></span><span class="rch-net-dot" aria-hidden="true"></span></button>
     </footer>
   </div>`;
 
+  const foldBtn = host.querySelector('.rch-side-fold');
   const pinBtn = host.querySelector('.rch-pin');
   const menuBtn = host.querySelector('.rch-side-menu');
   const favs = host.querySelector('.rch-favs');
@@ -82,33 +96,40 @@ export function createSide(host, ctx, o) {
     id: e.dn, label: e.name, icon: 'ou', hint: `${star(e.dn)}${hintOf(e.counts)}`, leaf: !e.hasChildren,
     data: { kind: 'ou', dn: e.dn, name: e.name, path: e.path, counts: e.counts },
   });
+  const containerNode = (c) => ({
+    id: c.dn, label: c.name, icon: 'folder', hint: c.objects >= 0 ? int(c.objects) : '', leaf: true,
+    data: { kind: 'container', dn: c.dn, name: c.name, path: pathOf(c.dn, o.dns) },
+  });
 
   async function load(node) {
     const kind = node.data?.kind;
-    if (kind === 'root') {
-      const [ous, containers] = await Promise.all([
-        ctx.call('directory.ou.children', { dn: null }),
-        ctx.call('search.containers').catch((err) => { console.error(err); return []; }),
-      ]);
-      const visible = containers.filter((c) => !c.system).map((c) => ({
-        id: c.dn, label: c.name, icon: 'folder', hint: int(c.objects), leaf: true,
-        data: { kind: 'container', dn: c.dn, name: c.name, path: pathOf(c.dn, o.dns) },
-      }));
-      const system = containers.filter((c) => c.system);
-      const group = system.length ? [{
-        id: SYSTEM_ID, label: 'Conteneurs système', icon: 'layers', hint: int(system.length), selectable: false,
-        data: { kind: 'system' },
-        children: system.map((c) => ({ id: c.dn, label: c.name, icon: 'folder', hint: int(c.objects), leaf: true, data: { kind: 'container', dn: c.dn, name: c.name, path: pathOf(c.dn, o.dns) } })),
-      }] : [];
-      remember(node.id);
-      return [...ous.children.map(ouNode), ...visible, ...group];
+    try {
+      if (kind === 'root') {
+        // Containers come without their counts: counting them would read each one in directory mode (one more request each).
+        const [ous, containers] = await Promise.all([
+          ctx.call('directory.ou.children', { dn: null }),
+          ctx.call('search.containers', {}).catch((err) => { console.error(err); return []; }),
+        ]);
+        const system = containers.filter((c) => c.system);
+        const group = system.length ? [{
+          id: SYSTEM_ID, label: 'Conteneurs système', icon: 'layers', hint: int(system.length), selectable: false,
+          data: { kind: 'system' }, children: system.map(containerNode),
+        }] : [];
+        reads.set(node.id, 'ok');
+        remember(node.id);
+        return [...ous.children.map(ouNode), ...containers.filter((c) => !c.system).map(containerNode), ...group];
+      }
+      if (kind === 'ou') {
+        const res = await ctx.call('directory.ou.children', { dn: node.id });
+        reads.set(node.id, 'ok');
+        remember(node.id);
+        return res.children.map(ouNode);
+      }
+      return [];
+    } catch (err) {
+      reads.set(node.id, errorText(err));
+      throw err;
     }
-    if (kind === 'ou') {
-      const res = await ctx.call('directory.ou.children', { dn: node.id });
-      remember(node.id);
-      return res.children.map(ouNode);
-    }
-    return [];
   }
 
   function remember(dn) {
@@ -118,28 +139,47 @@ export function createSide(host, ctx, o) {
     save();
   }
 
-  const save = debounce(() => writeLayout(memoryKey, { v: 1, selected: st.selected?.data?.dn ?? null, expanded: [...st.loaded], subtree: st.subtree }), 300);
+  const save = debounce(() => writeLayout(memoryKey, { v: 1, selected: st.selected?.data?.dn ?? st.remembered ?? null, expanded: [...st.loaded], subtree: st.subtree }), 300);
 
   const tree = createTree(host.querySelector('.rch-tree'), {
     label: 'Unités d’organisation du domaine',
-    roots: [{ id: o.root, label: o.dns, icon: 'domain', hint: '', data: { kind: 'root', dn: o.root, name: o.dns, path: o.dns } }],
+    // The domain only serves to navigate (kit rule): « Lister tout le domaine » stays an explicit choice of the menu.
+    roots: [{ id: o.root, label: o.dns, icon: 'domain', hint: '', selectable: false, data: { kind: 'root', dn: o.root, name: o.dns, path: o.dns } }],
     load,
     height: 'fill',
-    searchPlaceholder: 'Filtrer les branches déjà lues…',
+    searchPlaceholder: 'Filtrer les branches lues…',
     onSelect: (node, how) => {
       st.selected = node;
+      st.remembered = node?.data?.dn ?? st.remembered;
       paint();
       save();
       o.onSelect(node, how);
     },
-    onActivate: (node) => { if (node.data?.dn) o.onBrowse(node.data.dn, node.data.name, st.subtree); },
+    onActivate: (node) => { if (node.data?.dn && node.data.kind !== 'root') o.onBrowse(node.data.dn, node.data.name, st.subtree); },
     contextMenu: (node) => treeMenu(node),
   });
+
+  // ---------- Rail ----------
+
+  function setFolded(on, user = true, persist = true) {
+    st.folded = on;
+    if (persist) { writeLayout('rechercher.tree.ui', { folded: on }); st.auto = false; }
+    host.classList.toggle('railed', on);
+    foldBtn.setAttribute('aria-expanded', String(!on));
+    const t = on ? 'Déplier l’arborescence' : 'Replier l’arborescence en rail';
+    foldBtn.setAttribute('aria-label', on ? 'Déplier l’arborescence' : 'Replier l’arborescence');
+    foldBtn.dataset.tip = t;
+    o.onFold(on);
+    if (user) announce(on ? 'Arborescence repliée : la liste prend sa largeur.' : 'Arborescence dépliée.');
+  }
+  foldBtn.addEventListener('click', () => setFolded(!st.folded));
+  host.querySelector('.rch-rail').addEventListener('click', () => setFolded(false));
 
   // ---------- Favourites ----------
 
   function paintFavorites() {
     host.querySelector('.rch-favs-n').textContent = int(st.favorites.length);
+    host.querySelector('.rch-rail-favs').textContent = int(st.favorites.length);
     favs.classList.toggle('none', st.favorites.length === 0);
     favList.innerHTML = st.favorites.map((f, n) => `<li class="rch-fav" data-dn="${esc(f.dn)}" data-j="${Math.min(n, 12)}" draggable="true">
       <button class="rch-fav-main" type="button" data-open="${n}" data-tip="${esc(f.path)}${f.subtree ? '' : ' · enfants directs'}${f.type !== 'all' ? ` · ${esc(f.type)}` : ''}">
@@ -189,7 +229,7 @@ export function createSide(host, ctx, o) {
 
   // ---------- Selection, depth, menu ----------
 
-  const usable = (node) => node?.data && ['ou', 'container', 'root'].includes(node.data.kind);
+  const usable = (node) => node?.data && ['ou', 'container'].includes(node.data.kind);
 
   function paint() {
     const node = st.selected;
@@ -201,8 +241,9 @@ export function createSide(host, ctx, o) {
     pinBtn.setAttribute('aria-label', pinned ? 'Retirer cette OU des favoris' : 'Épingler cette OU');
     pinBtn.dataset.tip = !pinnable ? 'Choisissez une OU pour l’épingler' : pinned ? 'Retirer des favoris' : `Épingler ${quote(node.data.name)}`;
     browseBtn.disabled = !usable(node);
-    browseBtn.querySelector('span').textContent = usable(node)
-      ? `Afficher le contenu de ${node.data.kind === 'root' ? 'tout le domaine' : quote(node.data.name)}` : 'Afficher le contenu';
+    // Two lines: the action, then the OU and its depth (the full name always shows, it wraps instead of being cut).
+    browseBtn.querySelector('.rch-browse-t small').textContent = usable(node) ? `${quote(node.data.name)} · ${st.subtree ? 'sous-OU incluses' : 'enfants directs'}` : 'Choisissez une OU dans l’arbre';
+    browseBtn.dataset.tip = usable(node) ? `Lit le contenu de ${quote(node.data.name)} dans l’annuaire (geste explicite)` : '';
   }
 
   pinBtn.addEventListener('click', () => { if (st.selected?.data?.kind === 'ou') o.onPin(st.selected, !o.isPinned(st.selected.data.dn)); });
@@ -210,33 +251,43 @@ export function createSide(host, ctx, o) {
   depth.addEventListener('change', () => {
     st.subtree = depth.checked;
     save();
+    paint();
     announce(st.subtree ? 'Liste de l’OU : sous-OU incluses.' : 'Liste de l’OU : enfants directs seulement.');
   });
 
+  /** Copies a DN; when the clipboard refuses, the DN is shown selected in a dialog to copy by hand (RCH-013). */
   function copyDn(dn, readable) {
     const text = readable ? pathOf(dn, o.dns) : dn;
-    writeClipboard(text).then((ok) => toast(ok ? `${readable ? 'Chemin lisible' : 'Chemin LDAP (DN)'} copié.` : `Copie impossible${COLON}sélectionnez le chemin à la main.`, { tone: ok ? 'ok' : 'warn', life: 2600 }));
+    writeClipboard(text).then((ok) => {
+      if (ok) { toast(`${readable ? 'Chemin lisible' : 'Chemin LDAP (DN)'} copié.`, { tone: 'ok', life: 2600 }); return; }
+      const dlg = openDialog({
+        title: 'Copie impossible', subtitle: 'Le presse-papiers est indisponible', icon: 'copy', size: 'md',
+        body: `<div data-page="rechercher" class="rch-manual"><p>Sélectionnez le chemin puis copiez-le avec <kbd>Ctrl</kbd> <kbd>C</kbd>.</p><textarea class="input mono" readonly rows="3" aria-label="Chemin à copier"></textarea></div>`,
+        actions: [{ id: 'close', label: 'Fermer', safe: true, primary: true }],
+      });
+      const area = dlg.body.querySelector('textarea');
+      area.value = text;
+      requestAnimationFrame(() => { area.focus(); area.select(); });
+    });
   }
 
   function treeMenu(node) {
     const d = node?.data ?? {};
     const isOu = d.kind === 'ou';
-    const has = !!d.dn;
+    const has = !!d.dn && d.kind !== 'root';
     const pinned = isOu && o.isPinned(d.dn);
     return [
       { heading: d.name ?? 'Branche' },
-      { label: 'Afficher le contenu de cette branche', icon: 'rows', kbd: 'Entrée', disabled: !has, reason: 'Choisissez une OU ou un conteneur.', run: () => o.onBrowse(d.dn, d.name, st.subtree) },
-      { label: 'Actualiser l’arborescence', icon: 'refresh', kbd: 'F5', run: () => refreshTree(node) },
+      { label: 'Afficher le contenu de cette branche', icon: 'rows', kbd: 'Entrée', kind: 'network', hint: 'annuaire', disabled: !has, reason: d.kind === 'root' ? 'Le domaine se liste par « Lister tout le domaine ».' : 'Choisissez une OU ou un conteneur.', run: () => o.onBrowse(d.dn, d.name, st.subtree) },
+      { label: 'Actualiser cette branche', icon: 'refresh', kbd: 'F5', run: () => refreshTree(node) },
       '-',
       { label: pinned ? 'Retirer des favoris' : 'Épingler cette OU', icon: 'star', disabled: !isOu, reason: 'Seule une OU s’épingle.', run: () => o.onPin(node, !pinned) },
-      { label: 'Copier le chemin (DN)', icon: 'copy', disabled: !has, reason: 'Aucun chemin.', run: () => copyDn(d.dn, false) },
-      { label: 'Copier le chemin lisible', icon: 'copy', disabled: !has, reason: 'Aucun chemin.', run: () => copyDn(d.dn, true) },
+      { label: 'Copier le chemin (DN)', icon: 'copy', disabled: !d.dn, reason: 'Aucun chemin.', run: () => copyDn(d.dn, false) },
+      { label: 'Copier le chemin lisible', icon: 'copy', disabled: !d.dn, reason: 'Aucun chemin.', run: () => copyDn(d.dn, true) },
       '-',
-      { label: 'Nouveau dans cette branche', icon: 'plus', items: [
-        { label: 'Unité d’organisation…', icon: 'ou', kind: 'write', disabled: !isOu && d.kind !== 'root' || o.readOnly(), reason: o.readOnly() ? 'Lecture seule.' : 'Choisissez une OU.',
-          run: () => o.onNavigate('fiche', { dn: d.dn, open: 'createOu' }) },
-      ] },
       { label: 'Analyser les droits sur cette branche', icon: 'shield', disabled: !has, reason: 'Choisissez une OU.', run: () => o.onNavigate('fiche', { dn: d.dn, open: 'rights' }) },
+      { label: 'Nouvelle unité d’organisation…', icon: 'ou', kind: 'write', hint: 'écriture', disabled: !(isOu || d.kind === 'root') || o.readOnly(), reason: o.readOnly() ? 'Lecture seule.' : 'Choisissez une OU.',
+        run: () => o.onNavigate('fiche', { dn: d.dn, open: 'createOu' }) },
     ];
   }
 
@@ -255,21 +306,22 @@ export function createSide(host, ctx, o) {
     const d = node?.data ?? {};
     openMenu(menuBtn, [
       { heading: 'Profondeur de la liste' },
-      { label: 'Inclure les sous-OU', radio: 'depth', checked: st.subtree, run: () => { st.subtree = true; depth.checked = true; save(); } },
-      { label: 'Enfants directs seulement', radio: 'depth', checked: !st.subtree, run: () => { st.subtree = false; depth.checked = false; save(); } },
+      { label: 'Inclure les sous-OU', radio: 'depth', checked: st.subtree, run: () => { st.subtree = true; depth.checked = true; save(); paint(); } },
+      { label: 'Enfants directs seulement', radio: 'depth', checked: !st.subtree, run: () => { st.subtree = false; depth.checked = false; save(); paint(); } },
       '-',
-      { label: 'Lister tout le domaine', icon: 'domain', run: () => o.onBrowse(o.root, o.dns, true) },
+      { label: 'Lister tout le domaine…', icon: 'domain', kind: 'network', hint: 'annuaire', run: () => o.onBrowse(o.root, o.dns, true) },
       { label: 'Chercher une OU dans l’annuaire…', icon: 'search', run: () => openOuSearch() },
       { label: d.kind === 'ou' && o.isPinned(d.dn) ? 'Retirer des favoris' : 'Épingler l’OU choisie', icon: 'star', disabled: d.kind !== 'ou', reason: 'Choisissez une OU.', run: () => o.onPin(node, !o.isPinned(d.dn)) },
       { label: 'Copier le chemin (DN)', icon: 'copy', disabled: !d.dn, reason: 'Choisissez une OU.', run: () => copyDn(d.dn, false) },
       '-',
-      { label: 'Actualiser l’arborescence', icon: 'refresh', kbd: 'F5', run: () => refreshTree(node) },
+      { label: 'Actualiser l’arborescence', icon: 'refresh', kbd: 'F5', run: () => refreshTree(node ?? { id: o.root, data: { kind: 'root' } }) },
     ], { label: 'Menu de l’arborescence', placement: 'bottom-end' });
   });
 
   // ---------- Search of an OU in the directory (explicit read, directory.ou.search) ----------
 
   function openOuSearch() {
+    if (st.folded) setFolded(false, false);
     ouSearch.hidden = false;
     ouSearch.classList.remove('in');
     void ouSearch.offsetWidth;
@@ -321,40 +373,84 @@ export function createSide(host, ctx, o) {
     return chain;
   }
 
-  /** Opens the tree step by step down to an OU (each missing branch is read once) and selects it. */
+  /**
+   * Opens the tree step by step down to an OU (each missing branch is read once) and selects it. The outcome tells an OU
+   * absent from its parent read again (« absent ») from a read that did not succeed (« failed »: delay, refusal, branch
+   * not read): Domenia 1 RCH-015, a failed read is never an absence.
+   * @returns {Promise<{ok: boolean, kind?: 'absent'|'failed', parent?: string, message?: string}>}
+   */
+  async function locate(dn) {
+    if (!dn) return { ok: false, kind: 'absent', parent: o.root };
+    if (sameDn(dn, o.root)) return { ok: true };
+    const chain = chainOf(dn);
+    for (let n = 0; n < chain.length - 1; n++) {
+      const id = chain[n];
+      if (!tree.pathOf(id).length) return { ok: false, kind: 'absent', parent: n > 0 ? chain[n - 1] : o.root };
+      if (st.abort) return { ok: false, kind: 'failed', parent: id, message: 'restauration interrompue par votre geste' };
+      await tree.expand(id);
+      const outcome = reads.get(id);
+      if (outcome && outcome !== 'ok') return { ok: false, kind: 'failed', parent: id, message: outcome };
+      if (!outcome && id !== o.root && !tree.pathOf(id).length) return { ok: false, kind: 'failed', parent: id, message: 'branche non lue' };
+    }
+    if (!tree.pathOf(dn).length) return { ok: false, kind: 'absent', parent: chain.at(-2) ?? o.root };
+    return { ok: tree.select(dn) };
+  }
+
   async function reveal(dn, notify = false) {
-    if (!dn) return false;
-    if (sameDn(dn, o.root)) { tree.select(o.root); return true; }
-    const ok = await tree.reveal(chainOf(dn)).catch((err) => { console.error(err); return false; });
-    if (ok) {
+    const res = await locate(dn).catch((err) => { console.error(err); return { ok: false, kind: 'failed', parent: parentDn(dn), message: errorText(err) }; });
+    if (res.ok) {
       st.selected = tree.getSelected();
       paint();
       if (notify && st.selected) o.onSelect(st.selected, 'pointer');
     } else if (notify) {
-      toast(`OU ${quote(leafOf(dn))} introuvable dans l’arbre${COLON}elle a pu être déplacée ou supprimée, ou une branche n’a pas pu être lue.`, { tone: 'warn' });
+      toast(res.kind === 'absent'
+        ? `OU ${quote(leafOf(dn))} absente de ${quote(leafOf(res.parent ?? o.root))} relue${COLON}elle a pu être déplacée ou supprimée.`
+        : `OU ${quote(leafOf(dn))} non vérifiée${COLON}la lecture de ${quote(leafOf(res.parent ?? o.root))} n’a pas abouti (${res.message ?? 'délai ou refus'}). Ce n’est pas une absence.`, { tone: 'warn' });
     }
-    return ok;
+    return res.ok;
+  }
+
+  /** Restoration of the remembered OU (once per call): selects it without any list read, or reports why it could not. */
+  async function restoreSelected() {
+    const dn = st.remembered;
+    if (!dn || !dn.toLowerCase().endsWith(o.root.toLowerCase())) return;
+    const res = await locate(dn).catch((err) => ({ ok: false, kind: 'failed', parent: parentDn(dn), message: errorText(err) }));
+    if (res.ok) {
+      st.selected = tree.getSelected();
+      paint();
+      if (st.selected) o.onSelect(st.selected, 'restore');
+      return;
+    }
+    if (st.abort && res.message === 'restauration interrompue par votre geste') return;
+    const parent = res.parent ?? o.root;
+    o.onRestoreIssue({ kind: res.kind ?? 'failed', dn, name: leafOf(dn), parent, parentName: sameDn(parent, o.root) ? o.dns : leafOf(parent), message: res.message ?? '' });
   }
 
   async function start() {
     await tree.expand(o.root);
-    // Restores the remembered branches and OU (Domenia 1 RCH-019); nothing is listed before the operator asks.
+    // Restores the remembered branches and OU (Domenia 1 RCH-019); nothing is listed before the operator asks. The first
+    // click or key press of the operator stops the restoration: he never waits for up to 128 branch reads.
     st.restoring = true;
+    st.abort = false;
+    const stop = (e) => { if (!(e instanceof KeyboardEvent) || !['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) st.abort = true; };
+    document.addEventListener('pointerdown', stop, true);
+    document.addEventListener('keydown', stop, true);
     try {
       for (const dn of [...st.loaded].sort((a, b) => splitDn(a).length - splitDn(b).length)) {
-        if (!dn.toLowerCase().endsWith(o.root.toLowerCase())) continue;
-        await tree.expand(dn).catch(() => {});
+        if (st.abort) break;
+        if (!dn.toLowerCase().endsWith(o.root.toLowerCase()) || !tree.pathOf(dn).length) continue;
+        await tree.expand(dn);
       }
-      if (memory.selected && typeof memory.selected === 'string' && memory.selected.toLowerCase().endsWith(o.root.toLowerCase())) {
-        const ok = await reveal(memory.selected);
-        if (ok && st.selected) o.onSelect(st.selected, 'restore');
-        else if (!ok) o.onSelect(null, 'missing');
-      }
+      if (!st.abort) await restoreSelected();
+      else if (st.remembered) announce('Restauration de l’arborescence interrompue : rien n’est lu sans votre geste.');
     } finally {
       st.restoring = false;
+      document.removeEventListener('pointerdown', stop, true);
+      document.removeEventListener('keydown', stop, true);
     }
   }
 
+  host.classList.toggle('railed', st.folded);
   paint();
   const ready = start().catch((err) => console.error(err));
 
@@ -363,7 +459,32 @@ export function createSide(host, ctx, o) {
     ready,
     reveal,
     get subtree() { return st.subtree; },
+    get folded() { return st.folded; },
+    /** True while the operator never chose to fold or unfold the tree: a narrow screen may fold it for him. */
+    get auto() { return st.auto; },
+    setFolded,
     selected: () => st.selected,
+    /** Restoration of the remembered OU again, once (« Réessayer » of the notice). */
+    retryRestore: () => { st.abort = false; return restoreSelected(); },
+    /** Forgets the remembered OU (« Ignorer » of the notice); the branches and the list stay as they are. */
+    forgetRestore: () => { st.remembered = null; save(); save.flush(); },
+    /** Branches read in this session (the ones a history step reopens without any read). */
+    expandedSnapshot: () => [...reads].filter(([, v]) => v === 'ok').map(([k]) => k),
+    /**
+     * Reopens the branches of a history step that are already read, folds those opened since, selects its OU (RCH-045).
+     * Returns the number of branches not read or no longer under their parent.
+     */
+    applyExpanded(list, selectDn) {
+      const want = new Set(list ?? []);
+      let missing = 0;
+      for (const id of want) {
+        if (tree.pathOf(id).length && reads.get(id) === 'ok') tree.expand(id);
+        else missing++;
+      }
+      for (const [id, v] of reads) if (v === 'ok' && !want.has(id) && id !== o.root) tree.collapse(id);
+      if (selectDn && tree.pathOf(selectDn).length) { tree.select(selectDn); st.selected = tree.getSelected(); paint(); }
+      return missing;
+    },
     /** Favourites of the domain (search.memory), with their distinct labels. */
     setFavorites(list) {
       st.favorites = Array.isArray(list) ? list : [];

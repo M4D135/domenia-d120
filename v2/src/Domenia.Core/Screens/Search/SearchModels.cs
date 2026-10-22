@@ -175,8 +175,37 @@ public sealed record SearchDnsOffer(string Ip, string Label, string Tip);
 /// <summary>Ready-made view behind a list (work views of Domenia 1, D038).</summary>
 public sealed record SearchViewInfo(string Id, string Name, string Note, bool WholeDomain, bool SurveyAllowed, string Reason);
 
-/// <summary>Totals of a local query (Correspondants, Inconnus, Non correspondants).</summary>
-public sealed record SearchVerdictTotals(int Match, int Unknown, int NoMatch, string Shown);
+/// <summary>
+/// Totals of a local query (Correspondants, Inconnus, Non correspondants), and its coverage (RCH-120): the date since which
+/// every workstation of the perimeter has a reading (last complete read covering it), or null with the reason in
+/// <see cref="Coverage"/>.
+/// </summary>
+public sealed record SearchVerdictTotals(int Match, int Unknown, int NoMatch, string Shown, DateTimeOffset? CompleteAt = null, string Coverage = "");
+
+/// <summary>
+/// Last explicit list read again with its own filter, perimeter, type and size (RCH-047, RCH-048): rows read now, objects
+/// new in the perimeter, objects moved out of it (followed by their GUID) and objects not found again (never a proof of
+/// deletion), with the checkpoint of this read.
+/// </summary>
+public sealed record SearchReconcile(
+    string ListId,
+    ImmutableArray<SearchRow> Rows,
+    ImmutableArray<string> Added,
+    ImmutableArray<string> Moved,
+    ImmutableArray<string> Missing,
+    int Loaded,
+    string Checkpoint,
+    DateTimeOffset ReadAt,
+    string Summary);
+
+/// <summary>A saved search of Domenia 1 (bloc Fiabilité retiré), as its settings file keeps it (RCH-004).</summary>
+public sealed record SearchLegacySaved(string Mode, string Dn, string? Name, bool Subtree, SearchTypeFilter Type, string? Query);
+
+/// <summary>Stored measures of a list read again from the local base, by pages of 250 (RCH-083).</summary>
+public sealed record SearchMeasures(ImmutableArray<SearchRow> Rows, int Offset, int? Next, int Total, DateTimeOffset ReadAt);
+
+/// <summary>Fiche of one object read again on its selection (RCH-129), to refresh its row (RCH-077).</summary>
+public sealed record SearchPreload(SearchRow Row, string SourceLabel, DateTimeOffset ReadAt);
 
 /// <summary>Result of every list operation (search.run, search.browse, search.view, search.more, search.localQuery).</summary>
 public sealed record SearchResult(

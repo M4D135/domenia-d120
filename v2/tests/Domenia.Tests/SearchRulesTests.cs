@@ -166,6 +166,31 @@ internal static class SearchRulesTests
     }
 
     [Test]
+    public static void Survey_details_say_profile_budgets_window_and_replaced_plan()
+    {
+        Check.Equal("Standard", SearchSurvey.Profile(null).Id, "profil par défaut");
+        Check.Equal("Standard", SearchSurvey.Profile("inconnu").Id, "profil inconnu : Standard");
+        var slow = SearchSurvey.Profile("SlowNetwork");
+        Check.False(SearchSurvey.WindowOpen(slow, new DateTime(2026, 10, 21, 10, 0, 0)), "réseau lent : fermé un mercredi à 10 h");
+        Check.True(SearchSurvey.WindowOpen(slow, new DateTime(2026, 10, 21, 13, 0, 0)), "ouvert à 13 h");
+        Check.True(SearchSurvey.WindowOpen(slow, new DateTime(2026, 10, 24, 10, 0, 0)), "ouvert le samedi");
+        Check.True(SearchSurvey.WindowOpen(SearchSurvey.Profile(null), new DateTime(2026, 10, 21, 10, 0, 0)), "Standard : à tout moment");
+        var closed = SearchSurvey.Details(SurveyMode.Console, slow, false, null, false);
+        Check.True(closed.Any(l => l.StartsWith("Hors fenêtre de collecte", StringComparison.Ordinal)), "hors fenêtre annoncé");
+        Check.True(closed.Any(l => l.Contains("CIM", StringComparison.Ordinal)), "regroupement CIM annoncé");
+        Check.True(closed.Any(l => l.StartsWith("Budget", StringComparison.Ordinal)), "budgets annoncés");
+        var resume = new SurveyResume(new string('a', 32), SurveyMode.Ping, "Qui répond ?", 36, 48, DateTimeOffset.UnixEpoch, "");
+        Check.True(SearchSurvey.Details(SurveyMode.Ping, SearchSurvey.Profile(null), true, resume, false).Any(l => l.Contains("sera remplacé", StringComparison.Ordinal)), "plan interrompu remplacé");
+        Check.True(SearchSurvey.Details(SurveyMode.Ping, SearchSurvey.Profile(null), true, resume, true).Any(l => l.StartsWith("Reprise", StringComparison.Ordinal)), "reprise annoncée");
+        var status = SearchSurvey.Status(SurveyMode.Analyse, 12, 48, 9, 1, 1, 10, 4, 36, SearchSurvey.Profile(null), finished: true);
+        Check.Equal(7, status.Lines.Length, "sept lignes d’état");
+        Check.Contains("12 sur 48", status.Lines[0], "résultats validés");
+        Check.Contains("rejeté le compte distant", status.Lines[2], "source suspendue");
+        Check.Contains("4", status.Lines[5], "requêtes CIM évitées");
+        Check.Contains("36", status.Lines[6], "plan de reprise");
+    }
+
+    [Test]
     public static void Scope_labels_say_what_is_read()
     {
         var whole = SearchLists.Scope(true, Root, Root, "example.local", true);
@@ -175,6 +200,7 @@ internal static class SearchRulesTests
         Check.Equal("ou", paris.Mode, "mode OU");
         Check.Contains("Paris", paris.Label, "nom de l’OU");
         Check.Contains("Enfants directs", paris.Label, "profondeur");
+        Check.Contains("(dans Postes)", paris.Label, "parent qui distingue les homonymes");
         Check.True(SearchLists.IsRoot("dc=EXAMPLE,dc=local", Root), "racine sans casse");
         Check.False(SearchLists.IsRoot("not a dn", Root), "DN mal formé");
     }
