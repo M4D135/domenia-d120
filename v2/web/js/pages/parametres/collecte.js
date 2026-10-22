@@ -155,7 +155,8 @@ export function mount(host, sctx, { open } = {}) {
   const onKey = (e) => { radioKeys(e); };
   const onClick = (e) => {
     const t = e.target instanceof Element ? e.target : null;
-    const profile = t?.closest('[data-profile]');
+    // The page root also carries data-profile (essentiel / expert): only a profile button counts.
+    const profile = t?.closest('.pr-profile[data-profile]');
     if (profile && view) {
       if (profile.getAttribute('aria-checked') === 'true') return;
       const label = view.profiles.find((p) => p.id === profile.dataset.profile)?.label ?? '';

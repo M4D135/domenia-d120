@@ -73,7 +73,7 @@
     },
     {
       "do": "wait",
-      "contains": "Restauration d’une sauvegarde",
+      "contains": "Restaurer une sauvegarde",
       "title": "Le plan de la restauration est affiché"
     },
     {

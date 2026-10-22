@@ -19,7 +19,7 @@
     },
     {
       "do": "wait",
-      "contains": "Scénario de démonstration",
+      "contains": "Jouer un scénario de démonstration",
       "title": "Le plan du scénario est affiché"
     },
     {
