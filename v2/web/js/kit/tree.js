@@ -444,7 +444,11 @@ export function createTree(host, o) {
   });
 
   bodyEl.addEventListener('pointerdown', (e) => {
-    if (e.target instanceof Element && e.target.closest('.k-ti') && document.activeElement !== scroller) {
+    const row = e.target instanceof Element ? e.target.closest('.k-ti') : null;
+    if (row && document.activeElement !== scroller) {
+      // The row under the pointer becomes active before the focus: a first focus would otherwise make the first row active
+      // and scroll the tree to it, and the click would end on another row (nothing selected in a scrolled tree).
+      if (!activeId && row instanceof HTMLElement && row.dataset.id) activeId = row.dataset.id;
       scroller.focus({ preventScroll: true });
     }
   });
