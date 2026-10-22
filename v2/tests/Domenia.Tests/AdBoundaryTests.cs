@@ -163,18 +163,20 @@ internal static class AdBoundaryTests
         ["ou"] = [name],
     });
 
-    private sealed class RecordingAdConnection : IAdConnection
+    internal sealed class RecordingAdConnection : IAdConnection
     {
         public string Server => "DC1.test.local";
         public List<AdSearchRequest> Searches { get; } = [];
         public IReadOnlyList<AdEntry> Ous { get; set; } = [];
+        public string SchemaContext { get; set; } = "CN=Schema,CN=Configuration," + Fixtures.Root;
+        public Func<AdSearchRequest, IReadOnlyList<AdEntry>>? SearchAnswer { get; set; }
         public int Calls { get; private set; }
 
         public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
-            return Task.FromResult(new AdRootDse(Fixtures.Root, "", "CN=Schema," + Fixtures.Root, Fixtures.Root, Server, null, null, [], null));
+            return Task.FromResult(new AdRootDse(Fixtures.Root, "", SchemaContext, Fixtures.Root, Server, null, null, [], null));
         }
 
         public Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken)
@@ -192,7 +194,7 @@ internal static class AdBoundaryTests
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
             Searches.Add(request);
-            return Task.FromResult<IReadOnlyList<AdEntry>>(request.Filter == AdDirectoryMapper.OuFilter ? Ous : []);
+            return Task.FromResult<IReadOnlyList<AdEntry>>(SearchAnswer?.Invoke(request) ?? (request.Filter == AdDirectoryMapper.OuFilter ? Ous : []));
         }
 
         public Task ModifyAsync(string distinguishedName, IReadOnlyList<AdModification> modifications, CancellationToken cancellationToken) => throw UnexpectedWrite();

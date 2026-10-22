@@ -300,6 +300,12 @@ de l’adresse est introuvable.
 
 ### 17.1 Lecture du schéma (`ISchemaReader` dans `Domenia.Ad`)
 
+Implémentation réelle ajoutée le 23/10/2026 : `Domenia.Ad/Screens/AdSchemaReader.cs`, découverte par la composition.
+Elle applique les bornes et projections ci-dessous, conserve les définitions déjà lues si le budget expire en signalant
+`Truncated`, et propage les refus d’accès. Tests sans annuaire : `AdSchemaReaderTests` (écrits et compilés ; exécution
+prévue à la recette). Le cache disque du schéma reste à brancher avec le stockage ; aucune validation AD réelle annoncée.
+
+
 Port du worker `AdSchemaRead` de Domenia 1 (`Domenia-DirectorySchema.Worker.ps1`), sur `System.DirectoryServices.Protocols`
 (`LdapConnection` vers le contrôleur de la session, Negotiate, signature et chiffrement), avec la garde d’authentification
 (un refus suspend le compte de la ressource Annuaire, jamais un second contrôleur après l’envoi du mot de passe).

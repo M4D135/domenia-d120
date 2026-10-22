@@ -45,6 +45,9 @@ public interface IDirectorySource
     /// <summary>Session state in memory; never reads the network.</summary>
     Task<SessionSnapshot> GetSessionAsync(CancellationToken cancellationToken);
 
+    /// <summary>Explicit connection gesture; the simulation already has its local session.</summary>
+    Task<SessionSnapshot> ConnectAsync(CancellationToken cancellationToken) => GetSessionAsync(cancellationToken);
+
     /// <summary>Last known state (local base in directory mode).</summary>
     Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken);
 

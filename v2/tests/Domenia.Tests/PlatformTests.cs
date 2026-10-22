@@ -438,6 +438,7 @@ internal static class PlatformTests
         ("operations.survey.resume", OperationClass.NetworkRead),
         ("operations.survey.stop", OperationClass.Local),
         ("operations.task.stop", OperationClass.Local),
+        ("session.connect", OperationClass.NetworkRead),
         ("session.info", OperationClass.LocalRead),
         ("session.setScope", OperationClass.LocalWrite),
         ("shell.activity", OperationClass.LocalRead),

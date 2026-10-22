@@ -20,6 +20,13 @@ public sealed class SessionOperations : IOperationModule
         var source = context.Directory;
         return
         [
+            new OperationDefinition("session.connect", OperationClass.NetworkRead, async (args, _, cancellationToken) =>
+            {
+                BridgeArguments.RequireNone(args);
+                await source.ConnectAsync(cancellationToken).ConfigureAwait(false);
+                return await dashboard.GetSessionInfoAsync(cancellationToken).ConfigureAwait(false);
+            }, "Ouvre explicitement la session annuaire avec l’identité Windows, sans lire les objets du domaine.", ServedInSimulation: true),
+
             // LocalRead: the working OU is restored from the preferences file and checked in the local OU index.
             new OperationDefinition("session.info", OperationClass.LocalRead, async (args, _, cancellationToken) =>
             {

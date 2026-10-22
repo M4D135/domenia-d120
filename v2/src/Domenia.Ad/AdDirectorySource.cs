@@ -145,6 +145,12 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         }
     }
 
+    public async Task<SessionSnapshot> ConnectAsync(CancellationToken cancellationToken)
+    {
+        await EnsureConnectedAsync(retry: true, cancellationToken).ConfigureAwait(false);
+        return await GetSessionAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public Task<DirectoryState> ReadLocalAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

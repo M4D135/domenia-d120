@@ -213,6 +213,14 @@ Textes de `modeDetail` :
 
 ---
 
+### Connexion explicite de la session (23/10/2026)
+
+`session.connect` — `NetworkRead`, servie en simulation, aucun argument : ouvre la connexion avec l’identité Windows
+sur un geste explicite, puis renvoie la même forme que `session.info`. La session connectée est réutilisée ; aucun
+inventaire du domaine, mot de passe ou écriture. Le bouton « Continuer avec la session Windows » de Comptes appelle
+cette opération quand le mode annuaire est déconnecté. `session.info` et l’index local d’OU ne font jamais de réseau.
+Une erreur de connexion reste un refus ; aucune relance automatique par le bouton ni par la lecture d’état.
+
 ## 3. `session.info`
 
 État de la session : qui est connecté, à quel domaine et quel contrôleur, sur quel périmètre, avec quels droits

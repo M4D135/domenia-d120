@@ -1070,6 +1070,7 @@ const WRITE_OPERATIONS = WRITES.operations;
 const OPERATIONS = {
   'app.info': appInfo,
   'session.info': sessionInfo,
+  'session.connect': sessionInfo,
   'session.setScope': setScope,
   'dashboard.summary': summary,
   'dashboard.widget.refresh': refresh,

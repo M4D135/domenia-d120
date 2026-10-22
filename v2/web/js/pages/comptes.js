@@ -69,6 +69,7 @@ export function render(main, ctx) {
       </div>
       <div class="cpt-head-scope"><span class="skeleton cpt-sk-chip"></span></div>
       <div class="cpt-head-chips chips"></div>
+      <button class="btn primary" type="button" data-connect-windows hidden>Continuer avec la session Windows</button>
       <button class="cpt-access-chip" type="button" data-access-oldest hidden></button>
     </header>
     <div class="cpt-tabs-host"></div>
@@ -78,12 +79,29 @@ export function render(main, ctx) {
   const simulated = () => app?.mode === 'simulation' || app?.webViewRuntime === 'apercu' || session?.connection?.state === 'simulated';
 
   function paintHead() {
+    main.querySelector('[data-connect-windows]').hidden = simulated() || session?.connection?.state !== 'disconnected';
     const host = main.querySelector('.cpt-head-scope');
     host.innerHTML = scopeChip(scope);
     const chips = main.querySelector('.cpt-head-chips');
     chips.innerHTML = contextChips(session, list, simulated(), tab);
     chips.querySelectorAll('[data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
   }
+
+  main.querySelector('[data-connect-windows]').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      session = await ctx.call('session.connect');
+      if (!alive) return;
+      paintHead();
+      window.dispatchEvent(new CustomEvent('domenia:session-changed'));
+      ctx.toast('Session annuaire ouverte. Choisissez maintenant votre OU de travail.', { tone: 'ok' });
+    } catch (err) {
+      if (alive) ctx.toast(errorSentence(err), { tone: 'alert' });
+    } finally {
+      if (alive) button.disabled = false;
+    }
+  });
 
   async function loadScope() {
     try {
