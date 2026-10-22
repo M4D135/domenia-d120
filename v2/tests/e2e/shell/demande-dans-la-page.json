@@ -9,7 +9,7 @@
     { "do": "wait", "selector": ".sh-request", "title": "La demande s’affiche en haut du contenu" },
     { "do": "expect", "selector": ".sh-request [data-req=\"cancel\"]:focus", "title": "La réponse sûre a le focus" },
     { "do": "expect", "selector": ".shell", "attribute": "inert", "equals": null, "title": "La page n’est pas inerte (aucune fenêtre modale)" },
-    { "do": "expect", "contains": "seules les écritures de cette cible attendent", "within": ".sh-request", "title": "La demande dit ce qui attend" },
+    { "do": "expect", "contains": "Demande en attente · EXEMPLE-0001", "within": ".sh-request", "title": "La demande dit ce qui attend (la note détaillée est masquée dans une fenêtre basse)" },
     { "do": "shot", "name": "demande-posee", "selector": ".shell" },
     { "do": "click", "selector": ".nav-item[data-id=\"accueil\"]", "title": "Changer d’écran pendant l’attente" },
     { "do": "wait", "ready": "accueil", "title": "L’Accueil s’affiche" },

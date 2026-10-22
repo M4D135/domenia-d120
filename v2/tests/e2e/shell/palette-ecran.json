@@ -51,9 +51,7 @@
     },
     {
       "do": "expect",
-      "selector": ".palette-backdrop",
-      "property": "hidden",
-      "equals": true,
+      "selector": ".palette-backdrop", "absent": true,
       "title": "La palette se referme"
     },
     {
