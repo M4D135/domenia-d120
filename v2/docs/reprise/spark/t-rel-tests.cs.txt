@@ -1,0 +1,197 @@
+using System.Collections.Immutable;
+using System.Globalization;
+using System.Text.Json;
+using Domenia.Bridge;
+using Domenia.Core;
+
+namespace Domenia.Tests;
+
+/// <summary>
+/// « Utilisateurs et postes » (docs/ops/relations.md): pure rules of the relations (Domenia 1 Domenia-Relations.Model.ps1),
+/// of the import (Domenia-InventoryImport.Model.ps1) and of the comparison of two users (R40), the projection, and the
+/// operations through the real bridge in simulation, writes included (plan, confirmation, receipt, re-read).
+/// </summary>
+internal static class RelationsTests
+{
+    private static readonly TimeZoneInfo Zone = TestClock.Paris;
+    private static readonly DateTimeOffset Now = TestClock.Reference;
+    private static readonly Guid UserA = Fixtures.IdOf("user-a");
+    private static readonly Guid UserB = Fixtures.IdOf("user-b");
+    private static readonly Guid Pc1 = Fixtures.IdOf("pc-1");
+    private static readonly Guid Pc2 = Fixtures.IdOf("pc-2");
+
+    private static StoredRelation Link(RelationKind kind, string user = "jdupont", Guid? userGuid = null, string computer = "PC01", Guid? computerGuid = null, DateTimeOffset? when = null, string? source = null) =>
+        new(user, userGuid, null, computer, computerGuid, null, kind, source ?? kind switch
+        {
+            RelationKind.Assignment => RelationRules.ManualSource,
+            RelationKind.Console => RelationRules.ConsoleSource,
+            RelationKind.History => "Journal du contrôleur 4624",
+            RelationKind.Imported => "Import GLPI",
+            _ => "Inventaire du poste",
+        }, when ?? Now - TimeSpan.FromDays(1), null, true, null, null);
+
+    private static string Args(object value) => JsonSerializer.Serialize(value);
+
+    private static string[] Names(JsonElement element) => [.. element.EnumerateObject().Select(p => p.Name)];
+
+    // ------------------------------------------------------------------ rules
+
+
+    // ...
+    [Test]
+    public static async Task Import_preview_plan_and_undo()
+    {
+        var bridge = new SimulatedBridge();
+        var directory = bridge.Source.CurrentDirectory;
+        var linked = SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray().Select(r => r.GetProperty("computer").GetString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var free = directory.Computers.Where(c => c.Name.StartsWith("PC-", StringComparison.Ordinal) && !linked.Contains(c.Name) && !AdValues.IsDisabled(c.UserAccountControl)).Take(3).ToList();
+        var people = directory.Users.Where(u => u.Department == "Finances" && !AdValues.IsDisabled(u.UserAccountControl)).Take(3).ToList();
+        var csv = "UserLogin;Computer;When\n" + string.Join("\n", free.Select((c, i) => people[i].SamAccountName + ";" + c.Name + ";2026-10-01T08:00:00Z"))
+            + "\nAUTRE\\x;PC-INCONNU-01;\n10.0.0.1;10.0.0.1;\n";
+        var id = new string('c', 32);
+        var staged = SimulatedBridge.Json(await bridge.CallAsync("relations.import.stage", Args(new { id, part = 0, parts = 1, text = csv })));
+        Check.True(staged.GetProperty("complete").GetBoolean(), "fichier reçu");
+        var preview = SimulatedBridge.Json(await bridge.CallAsync("relations.import.preview", Args(new { id, adapter = "csv", fileName = @"C:\dossier\import.csv" })));
+        Check.Equal("import.csv", preview.GetProperty("fileName").GetString(), "nom sans dossier");
+        Check.Equal(3, preview.GetProperty("ready").GetInt32(), "trois lignes valides");
+        Check.True(preview.GetProperty("counts").GetProperty("reject").GetInt32() >= 1, "rejets comptés");
+        var planned = SimulatedBridge.Json(await bridge.CallAsync("relations.import.plan", Args(new { previewId = preview.GetProperty("id").GetString() })));
+        Check.Equal(3, planned.GetProperty("plan").GetProperty("changes").GetArrayLength(), "trois ajouts");
+        Check.Equal("verified", (await ExecuteAsync(bridge, planned)).GetProperty("verification").GetString(), "import relu");
+        var overview = SimulatedBridge.Json(await bridge.CallAsync("relations.overview"));
+        Check.Equal(preview.GetProperty("batchId").GetString(), overview.GetProperty("lastImport").GetProperty("batchId").GetString(), "dernier lot = celui-ci");
+        var undo = SimulatedBridge.Json(await bridge.CallAsync("relations.import.undo.plan", Args(new { batch = (string?)null })));
+        Check.Equal(3, undo.GetProperty("plan").GetProperty("changes").GetArrayLength(), "trois retraits");
+        Check.Equal("applied", (await ExecuteAsync(bridge, undo)).GetProperty("result").GetString(), "import annulé");
+        Check.Equal(RelationErrors.ImportIncomplete, (await bridge.CallAsync("relations.import.preview", Args(new { id, adapter = "csv", fileName = "import.csv" }))).Error?.Code, "texte lu une seule fois");
+    }
+
+    // ...
+    [Test]
+    public static async Task Session_observations_are_saved_by_batches_of_64()
+    {
+        var bridge = new SimulatedBridge();
+        var estimate = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.estimate", Args(new { days = 7, maxEvents = 20_000 })));
+        var harvest = SimulatedBridge.Json(await bridge.CallAsync("relations.harvest.run", Args(new { estimateId = estimate.GetProperty("id").GetString() })));
+        var fresh = harvest.GetProperty("newCount").GetInt32();
+        Check.True(fresh > WritePlans.MaxChanges, "la moisson apporte plus de 64 nouveaux couples (postes sans association) : " + fresh);
+        var pending = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
+        Check.Equal(fresh, pending.GetProperty("total").GetInt32(), "nouveaux couples en mémoire pour la session");
+        Check.True(pending.GetProperty("sets").EnumerateArray().Any(s => s.GetProperty("resultId").GetString() == harvest.GetProperty("resultId").GetString()), "la moisson est listée");
+        var first = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = RelationChange.SessionResultId, keys = Array.Empty<string>() })));
+        Check.Equal(WritePlans.MaxChanges, first.GetProperty("plan").GetProperty("changes").GetArrayLength(), "un lot de 64");
+        Check.True(first.GetProperty("plan").GetProperty("risks").EnumerateArray().Any(r => r.GetProperty("text").GetString()!.Contains("resteront", StringComparison.Ordinal)), "le reste est annoncé");
+        Check.Equal("verified", (await ExecuteAsync(bridge, first)).GetProperty("verification").GetString(), "premier lot relu");
+        var after = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.pending"));
+        Check.Equal(fresh - WritePlans.MaxChanges, after.GetProperty("total").GetInt32(), "64 de moins en mémoire");
+        var second = SimulatedBridge.Json(await bridge.CallAsync("relations.observations.plan", Args(new { resultId = harvest.GetProperty("resultId").GetString(), keys = Array.Empty<string>() })));
+        Check.True(second.GetProperty("plan").GetProperty("changes").GetArrayLength() > 0, "le lot suivant part avec le même résultat");
+        var keys = second.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]).ToHashSet(StringComparer.Ordinal);
+        var firstKeys = first.GetProperty("plan").GetProperty("changes").EnumerateArray().Select(c => c.GetProperty("afterValue").GetString()![65..]);
+        Check.False(firstKeys.Any(keys.Contains), "aucune observation enregistrée deux fois");
+    }
+
+    private static async Task<JsonElement> ExecuteAsync(SimulatedBridge bridge, JsonElement planned) =>
+        SimulatedBridge.Json(await bridge.CallAsync("write.execute", Args(new
+        {
+            planId = planned.GetProperty("plan").GetProperty("id").GetString(),
+            token = planned.GetProperty("token").GetString(),
+            typedName = (string?)null,
+        })));
+
+    [Test]
+    public static async Task Declared_association_through_the_write_circuit()
+    {
+        var bridge = new SimulatedBridge();
+        var directory = bridge.Source.CurrentDirectory;
+        var julien = directory.Users.Single(u => u.SamAccountName == "j.martin");
+        var target = directory.Computers.First(c => c.Name.StartsWith("PC-LYO-", StringComparison.Ordinal));
+        var planned = SimulatedBridge.Json(await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = target.DistinguishedName, targetGuid = target.ObjectGuid.ToString("D") })));
+        var plan = planned.GetProperty("plan");
+        Check.Equal(RelationChange.Kind, plan.GetProperty("kind").GetString(), "type d’écriture");
+        Check.Equal("relations", plan.GetProperty("target").GetProperty("kind").GetString(), "cible : le magasin local");
+        Check.False(plan.GetProperty("confirmation").GetProperty("typedNameRequired").GetBoolean(), "confirmation simple");
+        Check.Equal("add", plan.GetProperty("changes")[0].GetProperty("kind").GetString(), "ajout");
+        var receipt = await ExecuteAsync(bridge, planned);
+        Check.Equal("applied", receipt.GetProperty("result").GetString(), "appliquée");
+        Check.Equal("verified", receipt.GetProperty("verification").GetString(), "relue");
+        Check.True(receipt.GetProperty("simulated").GetBoolean(), "reçu simulé");
+        var view = SimulatedBridge.Json(await bridge.CallAsync("relations.subject", Args(new { @ref = "j.martin" })));
+        Check.True(view.GetProperty("associations").EnumerateArray().Any(r => r.GetProperty("computer").GetString() == target.Name && r.GetProperty("badge").GetString() == "declared"),
+            "association déclarée visible");
+        var journal = SimulatedBridge.Json(await bridge.CallAsync("relations.journal"));
+        Check.Equal("added", journal.GetProperty("entries")[0].GetProperty("action").GetString(), "journalisée");
+        var again = await bridge.CallAsync("write.execute", Args(new { planId = plan.GetProperty("id").GetString(), token = planned.GetProperty("token").GetString(), typedName = (string?)null }));
+        Check.Equal(WriteErrors.TokenUsed, again.Error?.Code, "jamais rejouée");
+        var same = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = julien.DistinguishedName, targetGuid = julien.ObjectGuid.ToString("D") }));
+        Check.Equal(RelationErrors.SameKind, same.Error?.Code, "types opposés exigés");
+        var recreated = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, subjectGuid = julien.ObjectGuid.ToString("D"), target = target.DistinguishedName, targetGuid = Guid.NewGuid().ToString("D") }));
+        Check.Equal(WriteErrors.TargetUnknown, recreated.Error?.Code, "un DN donné depuis à un autre objet (autre GUID) est refusé");
+        var noGuid = await bridge.CallAsync("relations.associate.plan", Args(new { dn = julien.DistinguishedName, target = target.DistinguishedName }));
+        Check.Equal(DomeniaErrors.ArgumentsInvalid, noGuid.Error?.Code, "GUID affiché exigé");
+    }
+
+    private static RelationDetectionPlan Plan(params string[] computers) =>
+        new("p", true, "candidates", "postes connus", null, 50, computers.Length, false,
+            [.. computers.Select((c, i) => new RelationPlanTarget(Fixtures.IdOf("probe-" + c).ToString("D"), c, "CN=" + c + ",OU=Postes,DC=test,DC=local", "test"))],
+            "", "", "", null);
+
+    [Test]
+    public static async Task Probe_loop_stops_at_the_first_rejected_credentials()
+    {
+        var read = new List<string>();
+        var run = await RelationProbeLoop.RunAsync(Plan("PC1", "PC2", "PC3"),
+            (t, _) => { read.Add(t.Computer); return Task.FromResult(t.Computer == "PC2" ? new RelationConsoleOutcome("AUTH_REJETEE", "Identifiants rejetés", "0x8007052E", null, 10) : new RelationConsoleOutcome("LU", "Aucun compte", "", null, 10)); },
+            null, null, CancellationToken.None, CancellationToken.None);
+        Check.True(read.SequenceEqual(["PC1", "PC2"]), "aucun poste contacté après le premier rejet");
+        Check.True(run.AuthRejected, "rejet signalé");
+        Check.Equal("PC2", run.RejectedOn, "poste du rejet");
+        Check.True(run.Within, "liste sondée incluse dans le plan");
+        Check.False(run.Complete, "résultat partiel");
+        Check.True(run.Counters.Stopped, "compteurs arrêtés");
+    }
+
+    private static string ExchangeCsv(IEnumerable<JsonElement> rows)
+    {
+        static string Cell(string? value)
+        {
+            var s = value ?? "";
+            if (s.Length > 0 && "=+-@\t\r".Contains(s[0], StringComparison.Ordinal))
+            {
+                s = "'" + s;
+            }
+            return s.IndexOfAny([';', '"', '\r', '\n']) >= 0 ? "\"" + s.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : s;
+        }
+        static string? Text(JsonElement row, string name) => row.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        var lines = new List<string> { "UserLogin;UserName;Computer;Kind;Source;VerifiedInAD;When;Details;UserGuid;ComputerGuid;UserDn;ComputerDn;BatchId;Persistence" };
+        foreach (var r in rows)
+        {
+            var when = Text(r, "when") is string w && DateTimeOffset.TryParse(w, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+                ? at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture) : "";
+            lines.Add(string.Join(';', new[]
+            {
+                Text(r, "userLogin"), Text(r, "userName"), Text(r, "computer"), Text(r, "kind"), Text(r, "source"), r.GetProperty("verifiedInAd").GetBoolean() ? "True" : "False",
+                when, Text(r, "details"), Text(r, "userGuid"), Text(r, "computerGuid"), Text(r, "userDn"), Text(r, "computerDn"), Text(r, "batchId"), Text(r, "persistence"),
+            }.Select(Cell)));
+        }
+        return "\uFEFF" + string.Join("\r\n", lines) + "\r\n";
+    }
+
+    private static async Task<List<JsonElement>> StoredRowsAsync(SimulatedBridge bridge) =>
+        [.. SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray()
+            .Where(r => r.GetProperty("persistence").GetString() == "stored"
+                && r.TryGetProperty("userDn", out var u) && u.ValueKind == JsonValueKind.String
+                && r.TryGetProperty("computerDn", out var c) && c.ValueKind == JsonValueKind.String)];
+
+    private static async Task<JsonElement> PreviewAsync(SimulatedBridge bridge, string id, string csv, string fileName)
+    {
+        await bridge.CallAsync("relations.import.stage", Args(new { id, part = 0, parts = 1, text = csv }));
+        return SimulatedBridge.Json(await bridge.CallAsync("relations.import.preview", Args(new { id, adapter = "csv", fileName })));
+    }
+
+    private static async Task<JsonElement> PreviewAsync(SimulatedBridge bridge, string id, string csv, string fileName)
+    {
+        await bridge.CallAsync("relations.import.stage", Args(new { id, part = 0, parts = 1, text = csv }));
+        return SimulatedBridge.Json(await bridge.CallAsync("relations.import.preview", Args(new { id, adapter = "csv", fileName })));
+    }
+}

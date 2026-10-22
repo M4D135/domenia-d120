@@ -1,0 +1,4 @@
+v2/src/Domenia.Ad/Ldap/AdContracts.cs
+v2/src/Domenia.Ad/Domenia.Ad.csproj
+v2/src/Domenia.Core/DomeniaOperationException.cs
+v2/src/Domenia.Ad/Checks/AdDirectoryChecks.cs

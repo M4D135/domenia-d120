@@ -900,12 +900,13 @@ export function render(main, ctx) {
     results.setRevalidate(false);
     // RCH-005 (Domenia 1 Test-DomeniaSearchUsesRootDefault): while no branch nor favourite is chosen, the bar searches in the
     // working OU, with one message; « Partout » stays an explicit choice of the operator.
-    const work = workingOu();
-    if (work) {
-      bar.setOu({ dn: work.dn, name: work.name });
+    // « defaultOu », not « work »: that name is the element of the work area, used below (side fold).
+    const defaultOu = workingOu();
+    if (defaultOu) {
+      bar.setOu({ dn: defaultOu.dn, name: defaultOu.name });
       bar.setScope('ou');
       results.setNotice('defaultScope', { tone: 'info', icon: 'ou', dismiss: true,
-        html: `Périmètre par défaut${COLON}<b>OU ${esc(work.name)}</b>, l’OU de travail${work.subtree ? ' et ses sous-OU' : ''}. «${NBSP}Partout${NBSP}» cherche dans tout le domaine.` });
+        html: `Périmètre par défaut${COLON}<b>OU ${esc(defaultOu.name)}</b>, l’OU de travail${defaultOu.subtree ? ' et ses sous-OU' : ''}. «${NBSP}Partout${NBSP}» cherche dans tout le domaine.` });
     }
     commands = createCommandBar(results.actionsHost, { label: 'Actions de la liste', items: [], size: 'sm', moreLabel: 'Plus d’actions de la liste' });
     const nav = results.navEls;

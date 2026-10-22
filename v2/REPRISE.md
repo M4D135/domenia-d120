@@ -42,7 +42,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **terminés** (§ 4) : les 14 écrans |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | **fait** (`c7b9d09`, § 4) : 14 fusions `--no-ff`, collisions de noms résolues, statuts appliqués (462 faites, 216 améliorées, 90 partielles, 224 à faire, 1 abandonnée), Debug et Release : 0 erreur, 0 avertissement ; branchements de la coque restants (§ 4) |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | **en cours** (§ 4 bis) : source du mode annuaire, connexion LDAP, lecteurs et écritures des comptes, base SQLite (winsqlite3), mesures des postes |
-| Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
+| Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | **en cours** (§ 4 bis) : suite C# 786/791, E2E simulation 71/137 |
 | Pack final et release GitHub | à faire |
 
 ## 4. Vague 2 : état des écrans
@@ -142,23 +142,55 @@ comptes, relations, poste, assistance, requetes, audit, schema, synchro, operati
 `features.json` et `FEATURES.md` ; `vm.sh main build` Debug et Release ; commit et push. Reste : retirer les arbres de
 travail (après accord, voir les suites).
 
-## 4 bis. Vague 3 : mode annuaire (en cours, relève OpenCode, 22/10)
+## 4 bis. Vague 3 et tests en VM : état au passage de relais (OpenCode, 22/10, fin de session)
 
-Demande de David (22/10) : « finis tout le code et tout le dev entièrement, commit, push, puis test VM » et « fais bosser le
-Spark pour économiser tes tokens, tâches multiples ». Le Spark rédige des premiers jets (prompts et réponses dans le dossier
-temporaire de la relève, `spark/*.md`, `*.out`), la relève fixe les contrats, intègre, compile et vérifie.
+Demandes de David (22/10) : « finis tout le code et tout le dev entièrement, commit, push, puis test VM » et « fais bosser le
+Spark pour économiser tes tokens, tâches multiples ». Le Spark rédige des premiers jets ; la relève fixe les contrats,
+relit, compile et vérifie (un jet du Spark n’est jamais une preuve).
 
-- Contrats posés par la relève : `Domenia.Ad/Ldap/AdContracts.cs` (`IAdConnection`, `AdEntry`, `AdErrors`…),
-  `Domenia.Ad/AdDirectorySource.cs` (source du mode annuaire : connexion paresseuse, session, image de l’annuaire relue à la
-  demande, présence et inventaire léger de l’OU de travail), `Domenia.Core/Fleet/IWorkstationProbe.cs`,
-  `Domenia.Ad/Screens/AdDirectoryTreeReader.cs` (arbre des OU). `Composition.cs` crée `AdDirectorySource` en mode annuaire.
-- Premiers jets demandés au Spark : connexion LDAP (System.DirectoryServices.Protocols), lecture du domaine et de l’annuaire
-  (`AdDirectoryReader`, `AdDirectoryMapper`), écritures des comptes (déverrouiller, activer, désactiver, expiration,
-  changement exigé, réinitialisation), base SQLite par `winsqlite3.dll` au schéma 11 de Domenia 1, sonde des postes
-  (ping, WMI léger), portage des lecteurs Schéma, Comptes, Accueil, Comptes machine, puis Fiche et Rechercher.
-- Restent ensuite : lecteurs Audit, Relations, Synchronisation, Poste (WMI complet), Requêtes (collecte), Assistance,
-  Opérations, Paramètres (stockage SQLite), écritures de la Fiche et du Poste en mode annuaire, persistance de l’image de
-  l’annuaire dans la base locale, puis les tests en VM (suite C#, E2E simulation et annuaire sur `cnamts.local`).
+**Branche `v2` (compile, poussée)**
+- Suite C# en VM (lot `vtest`, arbre détaché `../Domenia-D120-team/vtest`) : 739 → 786 réussis sur 791 (`015dfaa`).
+  Corrigé depuis, dans le dernier commit : test intermittent du journal (avis de démarrage de la base locale ajoutés en
+  tâche de fond). Restent 4 échecs, diagnostic confié au Spark (tâches t-rel, t-req) :
+  `RelationsTests.Import_preview_plan_and_undo` et `Session_observations_are_saved_by_batches_of_64` (aucun poste « libre »
+  trouvé dans le monde simulé : vérifier `relations.list` et la graine), `RequetesOperationsTests.Collection_needs_a_plan_bounded_to_an_OU_and_runs_it_once`
+  et `RequetesRound2Tests.The_collection_plan_rereads_the_saved_SELECT_and_counts_its_cost` (toutes les mesures jugées fraîches).
+- E2E simulation (137 scénarios, `015dfaa`) : 71 réussis, 65 en échec, 1 ignoré ; liste : `docs/reprise/e2e-sim-1-echecs.txt`.
+  Cause n° 1 corrigée dans le dernier commit : `rechercher.js` masquait l’élément `work` par `const work = workingOu()`
+  (« reading 'toggle' » dans les 12 scénarios de Rechercher et `shell/vue-experte-ponctuelle`). Pistes pour la suite :
+  `comptes/changer-de-compte` attend encore `EXAMPLE\j.martin` (la session signe `adm-j.martin`) ; « Vérifiée par
+  relecture » et « Confirmer l’écriture » introuvables (Fiche ×4, Synchro ×2 : dialogue du circuit après la fusion de la
+  coque ?) ; journal technique non trouvé par le harnais (Requêtes ×3) ; libellés changés par les tours de critique.
+  Relancer : `bash v2/tools/vm.sh vtest e2e --mode simulation --out DIR` (filtre : `--scenarios 'rechercher/*'`).
+
+**Branche `v2-wip-annuaire` (brouillons du mode annuaire, ne compile pas encore ; ne pas fusionner avant)**
+- `Domenia.Ad/Ldap/AdContracts.cs` (contrat `IAdConnection`, `AdEntry`, `AdErrors`), `Ldap/AdConnection.cs` et
+  `AdConnectionFactory.cs` (jet Spark s2 relu et corrigé : `using` sur des types non jetables, constructeurs de
+  `PageResultRequestControl` et `ModifyDNRequest`, `SendRequest` sans jeton, attribut `supportedControl`, aucune limite de
+  taille côté serveur, localisateur de domaine quand seul le domaine est connu), `AdDirectorySource.cs` (une connexion,
+  aucun nouvel essai pendant 30 s après un échec, la session ne réessaie jamais seule), `Screens/AdDirectoryTreeReader.cs`,
+  et `Composition.cs`, `DossierCommandLine.cs` qui créent `AdDirectorySource(…, new WmiWorkstationProbe())`.
+- Manquent pour compiler : `AdDirectoryReader` et `AdDirectoryMapper` (Spark s3), `WmiWorkstationProbe` (Spark s6).
+
+**Spark** : outils et prompts dans `docs/reprise/spark/` (`ask.sh <tâche>` assemble `common.md`, `<tâche>.md` et les
+fichiers de `<tâche>.files`, puis écrit `<tâche>.out` dans `$TMPDIR/opencode/spark/` ; `extract.py <tâche>` extrait les
+blocs FILE ; `apply_patch.py <tâche> [--apply]` applique les blocs PATCH). Tâches lancées le 22/10 : s1-sqlite (Store par
+`winsqlite3.dll`, schéma 11), s3-reader, s4-adwrites (écritures des comptes), s6-probe, p-accounts, p-accueil, p-search,
+p-fiche (lecteurs du mode annuaire), s5-relbatch (plan collectif scellé des relations), t-rel, t-req. Prompts prêts, non
+relancés : p-schema, p-machine. Si les processus `kbza ask` ont été interrompus avec la session, relancer `ask.sh` (une
+tâche par appel en arrière-plan) : chaque tâche raisonne 40 à 80 k jetons, soit environ une heure.
+
+**Suite, dans l’ordre**
+1. Intégrer s3 et s6, compiler (`vm.sh main build --config Debug`, puis Release), fusionner `v2-wip-annuaire` dans `v2` ;
+   brancher `AdConnection.TechnicalTrace` sur le journal technique.
+2. Appliquer t-rel et t-req (relire chaque bloc), relancer la suite C# jusqu’à 791/791 ; relancer l’E2E simulation et
+   corriger écran par écran.
+3. Intégrer s4 (écritures des comptes), les lecteurs portés (Accueil, Comptes, Rechercher, Fiche), puis s1 (base locale).
+4. s5-relbatch : `saveSealed` à la place de `saveBatches(all)` dans relations.js, les 3 opérations dans `PlatformTests`,
+   REL-014, 017, 018 et 030 à « fait » (`docs/reprise/apply_status.py`).
+5. Restent ensuite : lecteurs Audit, Relations, Synchronisation, Poste (WMI complet), Requêtes (collecte), Assistance,
+   Opérations, Paramètres, Schéma, Comptes machine ; écritures de la Fiche et du Poste ; persistance de l’image de
+   l’annuaire ; E2E en mode annuaire sur `cnamts.local` (`OU=Domenia-Tests`).
 
 ## 5. Règles techniques
 

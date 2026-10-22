@@ -1,0 +1,7 @@
+v2/src/Domenia.Core/Screens/Search/ISearchReader.cs
+v2/src/Domenia.Simulation/Screens/SimulatedSearchReader.cs
+v2/src/Domenia.Core/Screens/Search/SearchModels.cs
+v2/src/Domenia.Ad/AdDirectorySource.cs
+v2/src/Domenia.Ad/Ldap/AdContracts.cs
+v2/src/Domenia.Ad/Screens/AdDirectoryTreeReader.cs
+v2/src/Domenia.Core/Directory/DirectoryModels.cs

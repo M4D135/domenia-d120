@@ -1,0 +1,40 @@
+194:    saveBatches, exportCsv, openExport, onExport: (fn) => { exportListeners.add(fn); return () => exportListeners.delete(fn); },
+195-    recent: readRecent,
+196-    scopeLabel: () => session?.scope?.label ?? '',
+197-    scopeDn: () => session?.scope?.dn ?? null,
+198-    /** Workstations of the list loaded elsewhere (route « liste »), or those shown in « Toutes les associations ». */
+199-    loadedComputers: () => {
+200-      if (handedList.length) return { names: handedList, label: `liste reçue de l’écran précédent (${nouns(handedList.length, 'poste', 'postes')})` };
+201-      const shown = allTab?.visibleComputers() ?? [];
+202-      return shown.length ? { names: shown.slice(0, 50), label: `postes affichés dans « Toutes les associations » (${nouns(Math.min(50, shown.length), 'poste', 'postes')}${shown.length > 50 ? ` sur ${int(shown.length)}` : ''})` } : null;
+203-    },
+204-  };
+205-
+206-  // ---------- URL (kept in sync without rendering the screen again) ----------
+207-  function remember(change) {
+208-    Object.assign(routeParams, change);
+209-    for (const [k, v] of Object.entries(routeParams)) if (v === null || v === undefined || v === '') delete routeParams[k];
+210-    try { history.replaceState(null, '', ctx.link('relations', routeParams)); } catch (err) { console.error(err); }
+211-  }
+212-
+213-  // ---------- Header ----------
+214-  const wantCompact = () => {
+215-    const tab = tabs?.current() ?? (TABS.includes(ctx.params.onglet) ? ctx.params.onglet : 'sujet');
+216-    return !(tab === 'sujet' && !subjectRef);
+217-  };
+218-
+219-  /** Paints the header for the current view; figures count up the first time only, a change of view rises in. */
+220-  function paintHero(force = false) {
+221-    if (!overview) return;
+222-    const mode = wantCompact() ? 'compact' : 'full';
+223-    const key = `${mode}|${overviewStamp}`;
+224-    if (!force && key === heroKey) return;
+--
+377:  async function saveBatches(resultId, { all = false, origin = 'Observations' } = {}) {
+378-    if (saving) { toast('Un enregistrement est déjà en cours : attendez son reçu.', { tone: 'info' }); return 0; }
+379-    saving = true;
+380-    paintPending();
+381-    let saved = 0;
+382-    try {
+383-      for (;;) {
+384-        const receipt = await plan('relations.observations.plan', { resultId, keys: [] }, `${origin} · lot ${saved + 1}${all ? ' · par lots de 64' : ''}`);

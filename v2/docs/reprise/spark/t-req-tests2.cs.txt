@@ -1,0 +1,89 @@
+using System.Collections.Immutable;
+using System.Text;
+using System.Text.Json;
+using Domenia.Bridge;
+using Domenia.Core;
+using Domenia.Core.Queries;
+using Domenia.Core.Queries.Ldap;
+
+namespace Domenia.Tests;
+
+/// <summary>
+/// Second round of the query workshop (critic of 22/10): library in a document of its own (budget, real read-back, atomic
+/// recipe and links, conflicts between instances), impact review required before rebinding widgets, exports prepared by the
+/// engine, drafts resumed with their revision, LDAP negations on absent attributes, in-chain rule, collections, limits,
+/// coherence window, collection costs and SELECT re-read, packs in parts. Written now, run at the end (decision of 21/10).
+/// </summary>
+internal static class RequetesRound2Tests
+{
+    private static string Args(object value) => JsonSerializer.Serialize(value, BridgeJson.Options);
+
+    private static async Task<JsonElement> Ok(SimulatedBridge bridge, string op, string args = "{}") => SimulatedBridge.Json(await bridge.CallAsync(op, args));
+
+    private static async Task<string> Refused(SimulatedBridge bridge, string op, string args)
+    {
+        var response = await bridge.CallAsync(op, args);
+        Check.Equal("error", response.Kind, "refus attendu pour " + op);
+        return response.Error!.Code;
+    }
+
+    private static string RecipeJson(string templateId) =>
+        QueryRecipeJson.Write((QueryTemplates.Find(templateId) ?? throw new TestFailureException("modèle absent : " + templateId)).Recipe);
+
+    private static QueryLibrary Library(IQueryLibraryStore? store = null) =>
+        new(store ?? new MemoryQueryLibraryStore(), new OperationJournal(), TestClock.Fixed(), new RecordingJournal());
+
+    private const string Root = "DC=example,DC=local";
+
+    private static QueryRecipe Recipe(string name, params QueryClause[] clauses) => QueryRecipe.Empty(QueryTarget.Computer) with { Name = name, Clauses = [.. clauses] };
+
+    // ---------- Library: own document, read-back, atomicity, conflicts ----------
+
+
+    // ...
+    [Test]
+    public static async Task The_collection_plan_rereads_the_saved_SELECT_and_counts_its_cost()
+    {
+        var bridge = new SimulatedBridge();
+        var found = await Ok(bridge, "requetes.objects.find", "{\"text\":\"PC-PAR\",\"target\":\"computer\"}");
+        var computer = found[0].GetProperty("id").GetString()!;
+        const string query = "SELECT DeviceID, FreeSpace FROM Win32_LogicalDisk";
+        await Ok(bridge, "requetes.wmi.run", Args(new { computer, @namespace = "root\\cimv2", query, limit = 100 }));
+        var recipe = await Ok(bridge, "requetes.wmi.recipe", Args(new { computer, @namespace = "root\\cimv2", query, limit = 100 }));
+        var tree = await Ok(bridge, "directory.ou.children", "{\"dn\":null}");
+        await Ok(bridge, "requetes.scope.set", Args(new { dn = tree.GetProperty("children")[0].GetProperty("dn").GetString(), subtree = true }));
+        var plan = await Ok(bridge, "requetes.collect.plan", "{\"recipe\":" + recipe.GetProperty("recipe").GetRawText() + "}");
+        Check.True(plan.GetProperty("plan").GetProperty("workload").GetProperty("detailReads").GetInt64() > 0, "SELECT mémorisé relu sur les postes du plan");
+        Check.NotNull(plan.GetProperty("plan").GetProperty("detail").GetProperty("requestKey").GetString(), "définition jointe au plan");
+        Check.True(plan.GetProperty("plan").GetProperty("workload").GetProperty("level").GetString() is "Modéré" or "Élevé", "lecture WMI avancée : coût au moins modéré");
+        var run = await Ok(bridge, "requetes.collect.run", Args(new { ticket = plan.GetProperty("ticket").GetString() }));
+        Check.Contains("Relevé", run.GetProperty("text").GetString(), "relevé fait");
+        var stored = await Ok(bridge, "requetes.details.list", "{\"offset\":0,\"limit\":250}");
+        Check.True(stored.GetProperty("total").GetInt32() > 1, "résultats mémorisés sur plusieurs postes");
+    }
+
+    private static List<QueryRecord> Unmeasured(int count) =>
+        [.. Enumerable.Range(0, count).Select(i =>
+        {
+            var name = "PC-" + i.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
+            var record = new QueryRecord(Fixtures.IdOf(name).ToString("D"), QueryTarget.Computer, name, "CN=" + name + ",OU=Postes,DC=example,DC=local", DirectoryLdapEntry.From(Fixtures.Computer(name), Fixtures.Domain));
+            record.Values["active"] = true;
+            return record;
+        })];
+
+    [Test]
+    public static void The_collection_cost_follows_the_bands_of_Domenia_1()
+    {
+        var compiled = QueryEngine.Compile(Recipe("Disque", new QueryClause("diskFreePercent", QueryOperator.Less, QueryValue.FromNumber(10))));
+        var context = new QueryEvaluationContext(null, TestClock.Reference);
+        string Level(int count) => QueryAnalysis.CollectPlan(compiled, Unmeasured(count), context, TestClock.Reference).Workload.Level;
+        Check.Equal("Faible", Level(100), "100 postes : coût faible (bande de 100 non dépassée)");
+        Check.Equal("Modéré", Level(101), "plus de 100 postes : coût modéré");
+        Check.Equal("Modéré", Level(500), "500 postes : encore modéré");
+        Check.Equal("Élevé", Level(501), "plus de 500 postes : coût élevé");
+        var plan = QueryAnalysis.CollectPlan(compiled, Unmeasured(3), context, TestClock.Reference);
+        Check.Equal(3, plan.Targets.Length, "chaque poste sans relevé est relu");
+        Check.Equal(0L, plan.Workload.DetailReads, "aucune lecture WMI avancée sans SELECT mémorisé");
+        Check.Contains("Durée non estimée", plan.Text, "aucune durée inventée");
+    }
+}

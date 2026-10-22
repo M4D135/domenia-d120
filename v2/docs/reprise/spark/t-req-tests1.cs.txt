@@ -1,0 +1,49 @@
+using System.Text.Json;
+using Domenia.Bridge;
+using Domenia.Core.Queries;
+
+namespace Domenia.Tests;
+
+/// <summary>
+/// Operations of the query workshop through the real bridge over the fictitious directory (docs/ops/requetes.md): catalog,
+/// validation, frozen previews, library with revisions, packs, collection plan, WMI on one workstation, drafts.
+/// </summary>
+internal static class RequetesOperationsTests
+{
+    private static string RecipeJson(string templateId) =>
+        QueryRecipeJson.Write((QueryTemplates.Find(templateId) ?? throw new TestFailureException("modèle absent : " + templateId)).Recipe);
+
+    private static string Args(object value) => JsonSerializer.Serialize(value, BridgeJson.Options);
+
+    private static async Task<JsonElement> Ok(SimulatedBridge bridge, string op, string args = "{}") => SimulatedBridge.Json(await bridge.CallAsync(op, args));
+
+    private static async Task<string> Refused(SimulatedBridge bridge, string op, string args)
+    {
+        var response = await bridge.CallAsync(op, args);
+        Check.Equal("error", response.Kind, "refus attendu pour " + op);
+        return response.Error!.Code;
+    }
+
+    private static async Task<string> FirstOuAsync(SimulatedBridge bridge)
+    {
+        var tree = await Ok(bridge, "directory.ou.children", "{\"dn\":null}");
+        return tree.GetProperty("children")[0].GetProperty("dn").GetString()!;
+    }
+
+
+    // ...
+    [Test]
+    public static async Task Collection_needs_a_plan_bounded_to_an_OU_and_runs_it_once()
+    {
+        var bridge = new SimulatedBridge();
+        Check.Equal("query.collectRefused", await Refused(bridge, "requetes.collect.plan", "{\"recipe\":" + RecipeJson("template.all") + "}"), "annuaire seul : rien à collecter");
+        var ou = await FirstOuAsync(bridge);
+        var scope = await Ok(bridge, "requetes.scope.set", Args(new { dn = ou, subtree = true }));
+        Check.False(scope.GetProperty("scope").GetProperty("wholeDomain").GetBoolean(), "périmètre borné à une OU");
+        var planned = await Ok(bridge, "requetes.collect.plan", "{\"recipe\":" + RecipeJson("template.active.lowdisk") + "}");
+        var ticket = planned.GetProperty("ticket").GetString()!;
+        var run = await Ok(bridge, "requetes.collect.run", Args(new { ticket }));
+        Check.Contains("Relevé", run.GetProperty("text").GetString(), "compte rendu du relevé");
+        Check.Equal("query.collectRefused", await Refused(bridge, "requetes.collect.run", Args(new { ticket })), "un plan ne se rejoue jamais");
+    }
+}

@@ -1,0 +1,70 @@
+109-            }, "Verrouillages du compte (événements 4740 de l’émulateur PDC, filtrés sur son SID), postes à l’origine et refus de Domenia juste avant.", ServedInSimulation: true),
+110-
+111:            new OperationDefinition("accounts.batch.preview", readClass, async (args, _, cancellationToken) =>
+112-            {
+113-                var values = BridgeArguments.ReadObject(args, BatchArguments);
+114-                if (!AccountsBatch.TryParse(BridgeArguments.GetString(values, "action"), out var action))
+115-                {
+116-                    throw BridgeArguments.Invalid(FrenchText.Quote("action") + " doit valoir unlock, enable, disable, mustChange ou expiration.");
+117-                }
+118-                var dns = AccountsArguments.GetDnList(values, "dns", MaxBatchDns);
+119-                var ticket = AccountsArguments.GetTicket(values, "ticket");
+120-                var reader = readers.Require<IAccountsReader>();
+121-                var (now, zone, simulated) = reader.Clock;
+122-                DateOnly? date = null;
+123-                if (action == AccountsBatchAction.Expiration)
+124-                {
+125-                    date = AccountsArguments.GetExpirationDate(values, "date", now, zone);
+126-                }
+127-                else if (values.TryGetValue("date", out var unused) && unused.ValueKind != JsonValueKind.Null)
+128-                {
+129-                    throw BridgeArguments.Invalid(FrenchText.Quote("date") + " n’est admise que pour l’expiration.");
+130-                }
+131-                var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+132-                // The read of the candidates can be stopped by the page (panel closed: accounts.batch.cancel with its ticket).
+133-                using var tracked = ticket is null ? null : seals.Track(ticket);
+--
+148-            }, "Aperçu exact d’une action par lot, scellé par le moteur\u00A0: cibles, exclusions motivées, impact et nombre de comptes à saisir\u00A0; rien n’est écrit."),
+149-
+150:            new OperationDefinition("accounts.batch.cancel", OperationClass.Local, (args, _, _) =>
+151-            {
+152-                var values = BridgeArguments.ReadObject(args, TicketArguments);
+153-                var ticket = AccountsArguments.GetTicket(values, "ticket") ?? throw BridgeArguments.Invalid(FrenchText.Quote("ticket") + " est obligatoire.");
+154-                return Task.FromResult<object?>(new BatchCancel(seals.Cancel(ticket)));
+155-            }, "Arrête la lecture d’un aperçu collectif (panneau fermé)\u00A0; rien n’a été préparé."),
+156-
+157:            new OperationDefinition("accounts.batch.confirm", OperationClass.Local, (args, _, _) =>
+158-            {
+159-                var values = BridgeArguments.ReadObject(args, BatchConfirmArguments);
+160-                var id = AccountsArguments.GetBatchId(values, "id");
+161-                var typed = BridgeArguments.GetOptionalString(values, "typedCount");
+162-                if (typed is { Length: > 12 })
+163-                {
+164-                    throw BridgeArguments.Invalid(FrenchText.Quote("typedCount") + " doit être un nombre de comptes.");
+165-                }
+166-                return Task.FromResult<object?>(seals.Confirm(id, typed));
+167-            }, "Confirme un aperçu collectif scellé\u00A0: le nombre saisi est revérifié par le moteur\u00A0; rien n’est écrit."),
+168-
+169:            new OperationDefinition("accounts.batch.plan", readClass, async (args, _, cancellationToken) =>
+170-            {
+171-                var values = BridgeArguments.ReadObject(args, BatchPlanArguments);
+172-                var id = AccountsArguments.GetBatchId(values, "id");
+173-                var index = AccountsArguments.GetOptionalInt(values, "index", 0, AccountsBatch.Limit) ?? throw BridgeArguments.Invalid(FrenchText.Quote("index") + " est obligatoire.");
+174-                var (action, date, dn, guid, operatorDn) = seals.Issue(id, index);
+175-                var draft = action switch
+176-                {
+177-                    AccountsBatchAction.Unlock => await writers.Require<IAccountUnlockExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+178-                    AccountsBatchAction.Enable => await writers.Require<IAccountEnableExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+179-                    AccountsBatchAction.Disable => await writers.Require<IAccountDisableExecutor>().PlanAsync(dn, operatorDn, cancellationToken).ConfigureAwait(false),
+180-                    AccountsBatchAction.MustChange => await writers.Require<IAccountMustChangePasswordExecutor>().PlanAsync(dn, cancellationToken).ConfigureAwait(false),
+181-                    _ => await writers.Require<IAccountExpirationExecutor>().PlanAsync(dn, date, cancellationToken).ConfigureAwait(false),
+182-                };
+183-                if (!string.Equals(draft.Target.ObjectGuid, guid, StringComparison.OrdinalIgnoreCase))
+184-                {
+185-                    throw new DomeniaOperationException(AccountsBatchSeals.TargetChanged, "Ce nom distinctif désigne un autre compte que dans l’aperçu scellé" + FrenchText.Colon + "aucune écriture préparée.");
+186-                }
+187-                if (draft.Confirmation.TypedNameRequired)
+188-                {
+189-                    throw new DomeniaOperationException(AccountsBatchSeals.TypedNameRequired, "Ce compte exige la saisie de son nom" + FrenchText.Colon + "à traiter seul, aucune écriture préparée dans le lot.");
+190-                }
+191-                return await circuit.PlanAsync(draft, cancellationToken).ConfigureAwait(false);

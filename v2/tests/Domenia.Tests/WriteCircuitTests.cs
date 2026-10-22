@@ -225,7 +225,8 @@ internal static class WriteCircuitTests
         Check.True(stages.SequenceEqual(["Checking", "Sending", "Verifying"]), "étapes : " + string.Join(", ", stages));
 
         // Journal of the session (Accueil, « Dernières opérations »).
-        var line = bridge.Context.Journal.Snapshot()[0];
+        // The startup notices of the local base (Synchronisation) arrive in the background: they are left aside.
+        var line = bridge.Context.Journal.Snapshot().First(e => !e.Label.StartsWith("Base locale · ", StringComparison.Ordinal));
         Check.Contains("Déverrouillage du compte (simulation)", line.Label, "journal : opération simulée");
         Check.Contains("Camille Bernard · relecture conforme", line.Label, "journal : cible et relecture");
         Check.Equal(Tone.Ok, line.Tone, "journal : ton");
@@ -401,7 +402,7 @@ internal static class WriteCircuitTests
         Check.Contains("rien n’a été envoyé", refused.Message, "raison de l’exécuteur");
         Check.Equal(0, executor.Executes, "rien envoyé");
         Check.Equal(0, store.Appends, "aucun reçu sans envoi");
-        Check.Contains("Écriture non envoyée", context.Journal.Snapshot()[0].Label, "journal");
+        Check.Contains("Écriture non envoyée", context.Journal.Snapshot().First(e => !e.Label.StartsWith("Base locale · ", StringComparison.Ordinal)).Label, "journal");
     }
 
     [Test]

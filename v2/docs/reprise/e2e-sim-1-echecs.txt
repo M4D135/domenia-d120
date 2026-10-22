@@ -1,0 +1,78 @@
+accueil/catalogue-widgets | Étape 6 (Cliquer sur [data-fw-menu] dans [data-entry="fleet.presence"]) : élément désactivé : button.btn.ghost.icon « Options du widget Présence réseau ». 
+accueil/choisir-ou | Étape 17 (Le tableau du parc porte sur Lyon) : vérification en échec après 10000 ms ; constaté : texte absent. 
+accueil/tableau-parc | Étape 15 (Le widget est désormais le premier de sa section) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+assistance/atelier-comparer | Étape 3 (Le détail cite son indice) : vérification en échec après 10000 ms ; constaté : texte absent. 
+assistance/dossier-liste-postes | Étape 3 (La commande équivalente cite la liste) : vérification en échec après 10000 ms ; constaté : texte absent. 
+assistance/etat-moteur-incidents | Étape 1 (L’état du moteur s’affiche sans sonde) : délai dépassé après 10000 ms ; constaté : texte absent. 
+audit/copie-export | Étape 6 (Les constats s’exportent en fichier CSV) : vérification en échec après 10000 ms ; constaté : zone .k-menu introuvable ou masquée. 
+audit/gpo-poste | Étape 10 (La colonne du résultat est affichée en deuxième position) : délai dépassé après 20000 ms ; constaté : texte absent. 
+audit/objet-groupes | Étape 8 (Le groupe principal figure dans le graphe) : vérification en échec après 10000 ms ; constaté : texte absent. 
+comptes/acces-saisie | Étape 7 (Plus d’accès à revoir : la pastille disparaît) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+comptes/acces | 1 erreur(s) dans la console de la page (voir la liste ; « allowConsoleErrors » les admet). | console: Error: Un compte local ne peut pas lire l’annuaire, LAPS ou BitLocker. Aucun essai n’a été envoyé.
+    at bridgeError (https://domenia.local/js/bridge.js:14:24)
+comptes/changer-de-compte | Étape 2 (Prérempli avec le compte courant (CPT-007)) : vérification en échec après 15000 ms ; constaté : valeur "EXAMPLE\\adm-j.martin". 
+comptes/droits-detail | Étape 3 (Cliquer sur « Réinitialiser un mot de passe » dans .cpt-req-grid) : aucun élément visible pour « Réinitialiser un mot de passe ». 
+comptes/perimetre | Étape 4 (La carte du périmètre affiche Utilisateurs) : vérification en échec après 10000 ms ; constaté : zone .cpt-scope-card .cpt-scope-name introuvable ou masquée. 
+fiche/deplacer-et-relire | Étape 6 (Attendre : texte « Vérifiée par relecture » présent dans [role=dialog]) : délai dépassé après 20000 ms ; constaté : texte absent. 
+fiche/deverrouiller-et-verrouillages | Étape 3 (Le tableau des verrouillages est lu) : délai dépassé après 20000 ms ; constaté : aucun élément visible. 
+fiche/historique-recu | Étape 4 (Attendre : texte « Vérifiée par relecture » présent dans [role=dialog]) : délai dépassé après 20000 ms ; constaté : texte absent. 
+fiche/modifier-description | Étape 9 (Le reçu dit la relecture après l’écriture) : délai dépassé après 20000 ms ; constaté : texte absent. 
+operations/blocage-global | Étape 2 (Premier affichage de la session : en-tête complet) : vérification en échec après 10000 ms ; constaté : valeur "true". 
+operations/entete-compact | Étape 3 (La phrase d’introduction est repliée) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+operations/taches-panneau-stable | Étape 6 (Total à part) : vérification en échec après 10000 ms ; constaté : texte absent. 
+operations/taches-verification | Étape 3 (Le rapport dit qu’aucune écriture n’a été faite) : vérification en échec après 15000 ms ; constaté : zone .op-check-result introuvable ou masquée. 
+parametres/collecte-fenetre | Étape 9 (La notification confirme l’enregistrement) : vérification en échec après 10000 ms ; constaté : texte absent. 
+parametres/donnees-sauvegarde | Étape 4 (Le plan de la sauvegarde est affiché) : délai dépassé après 10000 ms ; constaté : texte absent. 
+parametres/ecrivain-suspendu | Étape 3 (Le plan du scénario est affiché) : délai dépassé après 10000 ms ; constaté : texte absent. 
+parametres/preferences-reinitialiser | Étape 4 (Le format est nommé) : vérification en échec après 10000 ms ; constaté : texte absent. 
+parametres/restaurer-base-illisible | Étape 13 (Le plan de la restauration est affiché) : délai dépassé après 10000 ms ; constaté : texte absent. 
+poste/inventaire-arret | Étape 4 (Arrêter) : aucun élément visible pour [data-act=stop]. 
+poste/redemarrage-plan | Étape 8 (Le plan du redémarrage est présenté) : délai dépassé après 10000 ms ; constaté : texte absent. 
+poste/service-plan | Étape 2 (Liste lue) : délai dépassé après 20000 ms ; constaté : texte absent. 
+rechercher/adresse-ip | 1 erreur(s) dans la console de la page (voir la liste ; « allowConsoleErrors » les admet). | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/conteneur-racine | Étape 3 (La puce de la barre suit l’arbre) : délai dépassé après 10000 ms ; constaté : texte absent. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/deverrouiller | Étape 1 (La vue sur tout le domaine n’offre aucun relevé) : délai dépassé après 10000 ms ; constaté : texte absent. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/exporter | Étape 1 (Le contenu de Paris est listé) : délai dépassé après 10000 ms ; constaté : zone .rch-results .k-gbody introuvable ou masquée. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/historique | Étape 1 (La recherche est affichée) : délai dépassé après 10000 ms ; constaté : texte absent. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/parcourir-ou | Étape 4 (Sélectionner l’OU Paris) : aucun élément visible pour « Paris ». | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/perimetre-par-defaut | 1 erreur(s) dans la console de la page (voir la liste ; « allowConsoleErrors » les admet). | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/recherche-barre | Étape 1 (Rien n’est lu avant le geste : la rampe de lancement est affichée) : vérification en échec après 10000 ms ; constaté : texte absent. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/releve-selection | Étape 1 (Le contenu de Paris est listé) : délai dépassé après 10000 ms ; constaté : zone .rch-results .k-gbody introuvable ou masquée. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/requete-locale | Étape 1 (La requête locale est appliquée) : délai dépassé après 10000 ms ; constaté : texte absent. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+rechercher/selection-masquee | Étape 1 (Le contenu de Paris est listé) : délai dépassé après 10000 ms ; constaté : zone .rch-results .k-gbody introuvable ou masquée. | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+relations/ajouter-association | Étape 19 (Les étapes Recherche, Choix, Confirmation et Vérification sont faites) : vérification en échec après 10000 ms ; constaté : 5 élément(s) visible(s) (li.done « Recherche » ; li.done « Choix » ; li.done « Confirmation » ; li.done « Vérification »). 
+relations/comparer-groupes | Étape 2 (La colonne des groupes communs est présente) : vérification en échec après 10000 ms ; constaté : texte absent. 
+relations/moisson-enregistrer | Étape 10 (Le reste est annoncé dans le plan) : vérification en échec après 10000 ms ; constaté : texte absent. 
+relations/releve-ou | Étape 8 (Préparer « Oublier les relevés ») : aucun élément visible pour [data-rf="forget"]. 
+relations/session-poste | Étape 5 (La colonne Ressource est affichée) : vérification en échec après 10000 ms ; constaté : texte absent. 
+requetes/apercu-recherche-export | Étape 4 (La valeur interrogée est une colonne visible) : vérification en échec après 10000 ms ; constaté : texte absent. 
+requetes/archive-revue-impact | Étape 20 (Journal technique : contient « archivée ») : aucune ligne correspondante dans le journal technique après 10000 ms. 
+requetes/bibliotheque-revision | Script du harnais en échec dans la page : TypeError: Cannot read properties of null (reading 'dataset') 
+requetes/creer-et-apercu | Étape 20 (Journal technique : contient l’expression « Requêtes\s?:\s?aperçu ») : aucune ligne correspondante dans le journal technique après 10000 ms. 
+requetes/wmi-select | Étape 26 (Journal technique : contient « SELECT WMI exécuté ») : aucune ligne correspondante dans le journal technique après 10000 ms. 
+schema/compte-poste | Étape 2 (Les niveaux sans compte tiennent sur une ligne) : vérification en échec après 10000 ms ; constaté : 7 élément(s) visible(s) (li.mac-level.quiet « 1 Compte local accepté pour ce poste Propre au poste choisi » ; li.mac-level.quiet « 2 Compte temporaire Postes Non configuré » ; li.mac-level.qu 
+schema/filtre-catalogue | Étape 10 (La colonne Valeurs n’est pas filtrée) : délai dépassé après 10000 ms ; constaté : texte absent. 
+schema/lire-schema | Étape 7 (Toutes les familles dans la légende) : vérification en échec après 10000 ms ; constaté : 8 élément(s) visible(s) (li « Texte 131 » ; li « Entier 40 » ; li « Référence (DN) 26 » ; li « Octets 17 »). 
+shell/demande-dans-la-page | Étape 5 (La demande dit ce qui attend) : vérification en échec après 10000 ms ; constaté : texte absent. 
+shell/palette-ecran | Étape 9 (La palette se referme) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+shell/raccourcis | Étape 5 (Le dialogue intégré est ouvert) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+shell/selecteur-objet | Étape 8 (Le choix revérifié est rendu) : délai dépassé après 10000 ms ; constaté : texte absent. 
+shell/selecteur-ou | Étape 10 (Le choix revérifié est rendu) : délai dépassé après 10000 ms ; constaté : texte absent. 
+shell/vue-experte-ponctuelle | 1 erreur(s) dans la console de la page (voir la liste ; « allowConsoleErrors » les admet). | console: TypeError: Cannot read properties of undefined (reading 'toggle')
+    at start (https://domenia.local/js/pages/rechercher.js:983:22)
+synchro/controles-verifier | Étape 1 (La liste des disparitions est lue dans la base) : délai dépassé après 10000 ms ; constaté : texte absent. 
+synchro/cycle-de-vie | Étape 5 (Le panneau de l’Accueil s’ouvre) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+synchro/lecture-ou-enregistrer | Étape 1 (Le titre de l’écran est affiché) : vérification en échec après 10000 ms ; constaté : aucun élément visible. 
+synchro/parc-partage | Étape 8 (Cliquer sur « Confirmer l’écriture ») : aucun élément visible pour « Confirmer l’écriture ». 
+synchro/releves-comparer | Étape 10 (Cliquer sur « Confirmer l’écriture ») : aucun élément visible pour « Confirmer l’écriture ». 
