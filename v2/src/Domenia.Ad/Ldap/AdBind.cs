@@ -41,7 +41,7 @@ internal static partial class AdBind
     /// <summary>
     /// Binds once with <paramref name="password"/> and reads back the identity. <paramref name="server"/> null: the domain locator
     /// of <paramref name="domainDnsName"/>. <paramref name="expectedAuthority"/> is the NetBIOS or DNS name of the domain the
-    /// identity must belong to (case ignored); null skips that check (a workstation trial).
+    /// identity must belong to (case ignored); null omits that check (a workstation trial).
     /// </summary>
     public static async Task<AdBindAnswer> ValidateAsync(
         string? server,

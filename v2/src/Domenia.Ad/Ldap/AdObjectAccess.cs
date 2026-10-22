@@ -144,7 +144,7 @@ internal static class AdObjectAccess
         var result = new List<DirectoryGroup>(wanted.Count);
         for (var start = 0; start < wanted.Count && result.Count < limit; start += 40)
         {
-            var packet = wanted.Skip(start).Take(40).ToList();
+            var packet = wanted.GetRange(start, Math.Min(40, wanted.Count - start));
             var filter = packet.Count == 1
                 ? "(distinguishedName=" + LdapFilterText.Escape(packet[0]) + ")"
                 : "(|" + string.Concat(packet.Select(dn => "(distinguishedName=" + LdapFilterText.Escape(dn) + ")")) + ")";

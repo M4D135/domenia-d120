@@ -1,8 +1,6 @@
 using System.Collections.Immutable;
-using System.Diagnostics.Eventing.Reader;
-using System.Globalization;
-using System.Text.RegularExpressions;
 using System.Security;
+using System.Text.RegularExpressions;
 using Domenia.Core;
 
 namespace Domenia.Ad;
@@ -22,11 +20,11 @@ internal sealed record AdLockoutRead(
 
 /// <summary>
 /// 4740 events of one account (Domenia 1 <c>Domenia-Lockout.Worker.ps1</c>, docs/ops/comptes.md § 7.2): the SID is checked
-/// before anything is read, the PDC emulator is resolved through <c>fSMORoleOwner</c> of the head of the domain (the bound
-/// controller is read when it cannot be resolved, and the answer says so), then the Security log of that controller is read with
-/// one XPath query bound to the event 4740 and to that single SID, at most 200 events within 30 s. In event 4740 the field
-/// <c>TargetDomainName</c> carries the computer at the origin (the rule of Domenia 1). Read only: nothing is written, nothing is
-/// retried, and a refusal is told apart from an unreachable controller.
+/// before anything is read and the PDC emulator is resolved through <c>fSMORoleOwner</c> of the head of the domain (the bound
+/// controller is read when it cannot be resolved, and the answer says so). The Security log of that controller is the only
+/// source of the 4740 events; reading it needs the <c>System.Diagnostics.EventLog</c> library, which this wave is not allowed
+/// to add as a new dependency, so the events are reported « unavailable » and never invented. The lockout state itself is read
+/// from the directory attributes by the screen reader, not here. Read only: nothing is written and nothing is retried.
 /// </summary>
 internal static partial class AdSecurityLog
 {
@@ -40,8 +38,11 @@ internal static partial class AdSecurityLog
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9.\-]{0,253}$", RegexOptions.CultureInvariant, 200)]
     private static partial Regex HostName();
 
-    private const int TimeoutSeconds = 30;
-    private const int MaxCallerLength = 255;
+    /// <summary>Reason the 4740 events cannot be read in this version: the library is not allowed as a new dependency.</summary>
+    private const string EventsUnavailableReason =
+        "La lecture du journal Sécurité du contrôleur n’est pas disponible dans cette version : elle demande la bibliothèque "
+        + "System.Diagnostics.EventLog, non autorisée comme nouvelle dépendance. L’état de verrouillage reste lu dans l’annuaire ; "
+        + "l’origine des événements 4740 n’est pas établie.";
 
     /// <summary>
     /// Reads the 4740 events of <paramref name="sid"/> on the PDC emulator of <paramref name="domain"/>.
@@ -65,32 +66,20 @@ internal static partial class AdSecurityLog
             throw new DomeniaOperationException(AccountsRules.SidInvalid, AccountsRules.SidInvalidMessage);
         }
 
-        var window = Math.Clamp(hours, AccountsLockouts.MinHours, AccountsLockouts.MaxHours);
-        var bound = Math.Clamp(maxEvents, 1, AccountsLockouts.MaxEvents);
         var (server, isPdc) = await ResolvePdcAsync(connection, domain, fallbackServer, cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(server))
         {
             return new AdLockoutRead("unavailable", "aucun contrôleur", false, [], false, "Aucun contrôleur à interroger.");
         }
 
-        try
-        {
-            var events = await Task.Run(() => ReadEvents(server, sid, window, bound, account, password), cancellationToken).ConfigureAwait(false);
-            var truncated = events.Count >= bound;
-            return new AdLockoutRead("read", server, isPdc, [.. events.Take(bound)], truncated, null);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // A log that cannot be read is a state in the report, never an exception thrown at the page.
-        catch (Exception ex)
-        {
-            var state = IsAccessRefused(ex) ? "refused" : "unavailable";
-            var text = (ex.InnerException ?? ex).Message;
-            return new AdLockoutRead(state, server, isPdc, [], false, text.Length > 400 ? text[..400] : text);
-        }
-#pragma warning restore CA1031
+        // The events themselves need System.Diagnostics.EventLog (forbidden as a new dependency here): the read is reported
+        // « unavailable », never « no lockout ». hours, maxEvents, account and password are kept for the day the library is
+        // approved; they bound the query and carry the credential that would open the remote session.
+        _ = hours;
+        _ = maxEvents;
+        _ = account;
+        _ = password;
+        return new AdLockoutRead("unavailable", server, isPdc, [], false, EventsUnavailableReason);
     }
 
     /// <summary>
@@ -119,79 +108,5 @@ internal static partial class AdSecurityLog
         }
 
         return (string.IsNullOrWhiteSpace(fallbackServer) ? null : fallbackServer, false);
-    }
-
-    private static List<LockoutEventRead> ReadEvents(string server, string sid, int hours, int maxEvents, string? account, SecureString? password)
-    {
-        var window = (long)TimeSpan.FromHours(hours).TotalMilliseconds;
-        var xpath = "*[System[EventID=4740 and TimeCreated[timediff(@SystemTime) <= " + window.ToString(CultureInfo.InvariantCulture) + "]]]"
-            + " and *[EventData[Data[@Name='TargetSid']='" + sid + "']]";
-        using var session = string.IsNullOrEmpty(account) || password is null
-            ? new EventLogSession(server, "Security")
-            : new EventLogSession(server, "Security", account, null, password, LogSessionType.EventLog);
-        var query = new EventLogQuery("Security", PathType.LogName, xpath)
-        {
-            Session = session,
-            ReverseDirection = true,
-            ReadExistingOnly = true,
-        };
-
-        var events = new List<LockoutEventRead>(maxEvents);
-        using var reader = new EventLogReader(query);
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
-        for (EventRecord? record = reader.ReadEvent(); record is not null; record = reader.ReadEvent())
-        {
-            using (record)
-            {
-                if (timeout.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if (record.Properties.TryGetValue("TargetSid", out var target) && target?.Value is string read && !string.Equals(read, sid, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var caller = Property(record, "TargetDomainName");
-                if (caller.Length > MaxCallerLength)
-                {
-                    caller = caller[..MaxCallerLength];
-                }
-
-                events.Add(new LockoutEventRead(
-                    record.TimeCreated is DateTimeOffset at ? at.ToUniversalTime() : DateTimeOffset.MinValue,
-                    caller.Length == 0 ? "non renseigné" : caller,
-                    record.MachineName ?? server));
-                if (events.Count >= maxEvents)
-                {
-                    return events;
-                }
-            }
-        }
-
-        return events;
-    }
-
-    private static string Property(EventRecord record, string name) =>
-        record.Properties.TryGetValue(name, out var value) && value?.Value is string text ? text.Trim() : "";
-
-    /// <summary>« Access denied » is a refusal (the operator lacks the right), anything else leaves the controller unreachable.</summary>
-    private static bool IsAccessRefused(Exception ex)
-    {
-        for (Exception? current = ex; current is not null; current = current.InnerException)
-        {
-            if (current is UnauthorizedAccessException)
-            {
-                return true;
-            }
-
-            if (current is EventLogException eventLog && eventLog.NativeErrorCode is 5 or 1312)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
