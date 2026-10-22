@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Requêtes : SELECT WMI testé sur un poste puis recette",
-  "description": "Choisit un poste, lit les classes Win32_Logical* puis le schéma de Win32_LogicalDisk, prépare le SELECT depuis les propriétés cochées, l’analyse, l’exécute après confirmation (lecture du seul poste choisi, servie par l’annuaire fictif) et en fait une recette locale.",
+  "description": "Choisit un poste, confirme une fois la lecture des métadonnées WMI de ce poste, lit les classes Win32_Logical* puis le schéma de Win32_LogicalDisk sans nouvelle confirmation, prépare le SELECT depuis les propriétés cochées, l’analyse, l’exécute après confirmation (lecture du seul poste choisi, servie par l’annuaire fictif) et en fait une recette locale.",
   "modes": ["simulation"],
   "start": "requetes?onglet=wmi",
   "steps": [
@@ -11,9 +11,13 @@
     { "do": "wait", "selector": ".rq-pc-card" },
     { "do": "type", "selector": ".rq-wc-filter", "text": "Win32_Logical*", "clear": true },
     { "do": "click", "text": "Lire les classes", "within": ".rq-wmi-ns" },
+    { "do": "wait", "selector": ".k-dlg", "title": "Confirmation avant la première lecture de métadonnées sur ce poste" },
+    { "do": "expect", "contains": "lecture seule", "within": ".k-dlg" },
+    { "do": "click", "text": "Lire sur ce poste", "within": ".k-dlg" },
     { "do": "wait", "contains": "Win32_LogicalDisk", "within": ".rq-wc-list" },
     { "do": "click", "selector": ".rq-wc-list [data-class=\"Win32_LogicalDisk\"]" },
     { "do": "click", "text": "Lire le schéma", "within": ".rq-wmi-schema" },
+    { "do": "expect", "selector": ".k-dlg", "absent": true, "title": "Pas de nouvelle confirmation pour le même poste dans la session" },
     { "do": "wait", "selector": ".rq-ws-props input[data-prop]" },
     { "do": "click", "selector": ".rq-ws-props input[data-prop=\"FreeSpace\"]" },
     { "do": "click", "text": "Préparer le SELECT", "within": ".rq-wmi-schema" },

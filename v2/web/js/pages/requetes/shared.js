@@ -174,6 +174,7 @@ export async function resolvedCatalog(store, target) {
     const byId = new Map();
     for (const f of data.fields) byId.set(f.id, f);
     for (const f of data.instanceFields ?? []) byId.set(f.id, f);
+    for (const f of data.ldapFields ?? []) byId.set(f.id, f);
     promise.resolved = { data, byId };
   }
   return promise.resolved;
@@ -191,6 +192,23 @@ export function fieldOf(store, id, target = store.recipe.target) {
       operators: ['equal', 'notEqual', 'contains', 'startsWith', 'endsWith', 'greaterOrEqual', 'lessOrEqual', 'isMissing', 'isPresent'] };
   }
   return null;
+}
+
+/** Parts of a distinguished name, top first (RFC 4514 escapes kept): « Paris › Postes ». */
+export function dnParts(dn) {
+  const parts = [];
+  let current = '';
+  for (let i = 0; i < (dn ?? '').length; i += 1) {
+    const c = dn[i];
+    if (c === '\\' && i + 1 < dn.length) { current += c + dn[i + 1]; i += 1; continue; }
+    if (c === ',') { parts.push(current); current = ''; continue; }
+    current += c;
+  }
+  if (current) parts.push(current);
+  return parts.map((p, n) => {
+    const at = p.indexOf('=');
+    return { type: p.slice(0, at).trim().toUpperCase(), value: p.slice(at + 1).trim().replace(/\\(.)/g, '$1'), dn: parts.slice(n).join(',') };
+  });
 }
 
 /** Download-free export: copies a text to the clipboard (the page never writes a file itself). */

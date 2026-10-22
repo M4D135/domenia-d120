@@ -1,12 +1,14 @@
 // « 2. Aperçu »: evaluation of the draft on the local data of the scope, frozen with its definition (requetes.preview).
-// Counters, verdict facets, virtualized result grid, object detail (« Pourquoi ce résultat ? » and local fiche),
-// distribution, coverage, collection of the missing measures, exports and the selection for Recherche.
+// Counters, verdict facets (opened on the matching objects, as Domenia 1), a text search on the name and the DN done by the
+// engine on the whole frozen population, a virtualized grid loaded entirely (local data: exact sorts and filters), the
+// queried values right after the verdict, object detail (« Pourquoi ce résultat ? » and local fiche), distribution,
+// coverage, collection of the missing measures, exports prepared by the engine and the selection for Recherche.
 import {
   esc, glyph, plural, num, key, VERDICTS, verdictPill, emptyState, skLines, vars, dateText, ago, NBSP, pct, nounOf,
 } from './shared.js';
 import { openCoverage, openPlan, openExport, openGroups } from './drawers.js';
 import {
-  createGrid, createFilterBar, createSplit, createTabs, createCommandBar, confirmDialog, writeClipboard,
+  createGrid, createFilterBar, createSplit, createTabs, createCommandBar, confirmDialog, writeClipboard, debounce,
 } from '../../kit/index.js';
 import { countUp, donut, applyVars, reveal, formatNumber, announce } from '../../ui.js';
 
@@ -17,8 +19,15 @@ const KPIS = [
   { id: 'population', label: 'Population', icon: 'layers', tone: 'info', tip: 'Objets évalués après le segment, sur les objets recensés du périmètre.' },
 ];
 
+/** Rows kept in the page at most: beyond, the grid says the list is partial (the base itself stays under 20 000 objects). */
+const MAX_ROWS = 50000;
+const PAGE = 5000;
+
 export function mountPreview(panel, store, api) {
-  const st = { evaluation: null, verdict: 'all', state: 'all', grid: null, split: null, bar: null, detailTabs: null, active: null, loadingPage: 0, rows: [], hasMore: false, detailToken: 0 };
+  const st = {
+    evaluation: null, verdict: 'match', state: 'all', text: '', grid: null, split: null, bar: null, detailTabs: null, active: null, loadingPage: 0, rows: [], total: 0,
+    loadingAll: false, detailToken: 0, cmdbar: null,
+  };
   panel.innerHTML = `<div class="rq-preview">
     <div class="rq-pv-empty"></div>
     <div class="rq-pv-body" hidden>
@@ -33,8 +42,13 @@ export function mountPreview(panel, store, api) {
       </div>
       <div class="rq-kpis"></div>
       <section class="card rq-results spot reveal" aria-labelledby="rq-res-title">
-        <div class="card-head"><span class="card-icon">${glyph('rows')}</span><div class="rq-head-titles"><h3 id="rq-res-title">Résultats</h3><p class="rq-sub rq-res-sub"></p></div></div>
-        <div class="rq-res-filters"></div>
+        <div class="card-head"><span class="card-icon">${glyph('rows')}</span><div class="rq-head-titles"><h3 id="rq-res-title">Résultats</h3><p class="rq-sub rq-res-sub"></p></div>
+          <span class="meta"><button type="button" class="btn xs ghost rq-fold-detail" aria-pressed="false">${glyph('columns')}<span>Masquer le détail</span></button></span></div>
+        <div class="rq-res-tools">
+          <label class="rq-search rq-res-search">${glyph('search')}<input type="search" class="input sm" maxlength="256" autocomplete="off" spellcheck="false"
+            placeholder="Nom ou chemin AD…" aria-label="Chercher par nom ou chemin AD dans tout l’aperçu"></label>
+          <div class="rq-res-filters"></div>
+        </div>
         <div class="rq-res-split"></div>
       </section>
       <div class="grid rq-pv-lower">
@@ -83,8 +97,10 @@ export function mountPreview(panel, store, api) {
 
   function render(evaluation) {
     st.evaluation = evaluation;
-    st.verdict = 'all';
+    st.verdict = evaluation.verdict ?? 'all';
     st.state = 'all';
+    st.text = '';
+    $('.rq-res-search input').value = '';
     const host = $('.rq-pv-empty');
     host.hidden = true;
     host.replaceChildren();
@@ -97,11 +113,12 @@ export function mountPreview(panel, store, api) {
     $('.rq-pv-fresh').innerHTML = `<span class="k-pill info sm">${glyph('clock')}Calculé ${esc(ago(evaluation.evaluatedAt))}</span><span class="k-pill off sm rq-mono">${esc(evaluation.fingerprint.slice(0, 12))}</span>`;
     $('.rq-pv-pop').textContent = evaluation.population.text;
     $('.rq-pv-stale').hidden = true;
+    // The centre says the count and its base in two short lines: never a word wider than the ring.
     $('.rq-pv-ring').innerHTML = donut([
       { value: c.matched, tone: 'ok', key: 'match' },
       { value: c.unknown, tone: 'warn', key: 'unknown' },
       { value: c.noMatch, tone: 'off', key: 'noMatch' },
-    ], { center: `<b class="rq-count" data-to="${c.matched}">0</b><span>${esc(c.matched > 1 ? 'correspondants' : 'correspondant')}</span>`, label: evaluation.summary });
+    ], { center: `<b class="rq-count" data-to="${c.matched}">0</b><span>sur ${esc(formatNumber(c.population))}</span>`, label: evaluation.summary });
     $('.rq-kpis').innerHTML = KPIS.map((k, n) => kpiTile(k, k.id === 'match' ? c.matched : k.id === 'unknown' ? c.unknown : k.id === 'noMatch' ? c.noMatch : c.population,
       k.id === 'population' ? c.total : c.population, n)).join('');
     applyVars(body);
@@ -110,7 +127,7 @@ export function mountPreview(panel, store, api) {
     $('.rq-res-sub').textContent = `${plural(c.population, one, many)} · ${evaluation.summary}`;
     renderCommands();
     renderFilters();
-    renderGrid(evaluation.rows, evaluation.hasMore);
+    renderGrid(evaluation.rows, evaluation.hasMore, evaluation.pageTotal ?? evaluation.rows.length);
     renderGroups();
     renderDefinition();
     stopReveal();
@@ -121,7 +138,8 @@ export function mountPreview(panel, store, api) {
   function renderCommands() {
     const ev = st.evaluation;
     const computer = key(ev.population.target) === 'computer';
-    createCommandBar($('.rq-pv-cmds'), {
+    st.cmdbar?.destroy();
+    st.cmdbar = createCommandBar($('.rq-pv-cmds'), {
       label: 'Actions de l’aperçu',
       size: 'sm',
       items: [
@@ -132,7 +150,8 @@ export function mountPreview(panel, store, api) {
           { label: 'Non correspondants (CSV)', icon: 'csv', run: () => exportRows('noMatch', 'csv') },
           { label: 'Tous les objets (CSV)', icon: 'csv', run: () => exportRows('all', 'csv') },
           '-',
-          { label: 'Correspondants (JSON)', icon: 'file', run: () => exportRows('match', 'json') },
+          { label: 'Correspondants (JSON, relisible par le script PowerShell)', icon: 'file', run: () => exportRows('match', 'json') },
+          { label: 'Tous les objets (JSON)', icon: 'file', run: () => exportRows('all', 'json') },
         ] },
         { id: 'search', label: 'Appliquer aux résultats de Recherche', icon: 'search', run: applySearch },
         { id: 'collect', label: 'Collecter les données manquantes…', icon: 'wifi', kind: 'network', disabled: !computer, reason: 'Seulement pour les postes : les comptes et groupes viennent de l’annuaire.', run: plan },
@@ -162,61 +181,81 @@ export function mountPreview(panel, store, api) {
         if (['match', 'unknown', 'noMatch'].includes(id)) st.verdict = pressed ? id : 'all';
         else st.state = pressed ? id : 'all';
         renderFilters();
-        loadPage(0);
+        loadPage();
       },
     });
   }
 
+  /** Cell of a queried information: highlighted, the value that decides the verdict. */
+  const asked = (text) => `<span class="rq-asked">${esc(text)}</span>`;
+
   function columnsOf(ev) {
     const computer = key(ev.population.target) === 'computer';
     const cols = [
-      { id: 'name', label: 'Nom', required: true, width: 220, get: (r) => r.name },
-      { id: 'verdict', label: 'Verdict', type: 'enum', width: 170, get: (r) => r.verdict,
+      { id: 'name', label: 'Nom', required: true, width: 200, get: (r) => r.name },
+      { id: 'verdict', label: 'Verdict', type: 'enum', width: 158, get: (r) => r.verdict,
         options: [{ value: 'match', label: 'Correspond', tone: 'ok' }, { value: 'unknown', label: 'Inconnu', tone: 'warn' }, { value: 'noMatch', label: 'Ne correspond pas', tone: 'off' }] },
     ];
+    // Headers are uppercase captions: the width follows the label so it reads whole (the grid scrolls sideways if needed).
+    const wide = (label, min = 132) => Math.round(Math.max(min, Math.min(280, 64 + label.length * 8.2)));
+    // The informations the recipe asks for come right after the verdict (the engine orders them by the conditions).
+    for (const c of ev.columns.filter((x) => x.requested)) {
+      if (c.kind === 'number') {
+        cols.push({ id: c.id, label: c.label, type: 'number', width: wide(c.label), tip: `${c.label} : information interrogée par la requête`,
+          get: (r) => (Number.isFinite(r.raw?.[c.id]) ? r.raw[c.id] : null), format: (v, r) => r.values?.[c.id] ?? '—', html: (v, r) => (r.values?.[c.id] ? asked(r.values[c.id]) : '—') });
+      } else {
+        cols.push({ id: c.id, label: c.label, width: wide(c.label), tip: `${c.label} : information interrogée par la requête`,
+          get: (r) => r.values?.[c.id] ?? null, html: (v) => (v ? asked(v) : '—') });
+      }
+    }
     // Groups have no account state: the column and its facets only exist for workstations and accounts.
     if (key(ev.population.target) !== 'group') {
-      cols.push({ id: 'state', label: 'Compte', type: 'enum', width: 130, get: (r) => (r.active === true ? 'active' : r.active === false ? 'disabled' : 'unknown'),
+      cols.push({ id: 'state', label: 'Compte', type: 'enum', width: 118, get: (r) => (r.active === true ? 'active' : r.active === false ? 'disabled' : 'unknown'),
         options: [{ value: 'active', label: 'Actif', tone: 'ok' }, { value: 'disabled', label: 'Désactivé', tone: 'off' }, { value: 'unknown', label: 'État inconnu', tone: 'warn' }] });
     }
     if (computer) {
-      cols.push({ id: 'presence', label: 'Présence', type: 'enum', width: 140, get: (r) => r.presence,
+      cols.push({ id: 'presence', label: 'Présence', type: 'enum', width: 128, get: (r) => r.presence,
         options: [{ value: 'online', label: 'En ligne', tone: 'ok' }, { value: 'offline', label: 'Sans réponse', tone: 'warn' }, { value: 'unchecked', label: 'Non vérifié', tone: 'off' }] });
     }
-    for (const c of ev.columns) {
+    for (const c of ev.columns.filter((x) => !x.requested)) {
       if (c.id === 'active') continue;
       if (c.kind === 'number') {
-        cols.push({ id: c.id, label: c.label, type: 'number', width: 140, tip: c.requested ? 'Information interrogée par la requête' : undefined,
-          get: (r) => (Number.isFinite(r.raw?.[c.id]) ? r.raw[c.id] : null), format: (v, r) => r.values?.[c.id] ?? '—' });
+        cols.push({ id: c.id, label: c.label, type: 'number', width: wide(c.label, 130), get: (r) => (Number.isFinite(r.raw?.[c.id]) ? r.raw[c.id] : null), format: (v, r) => r.values?.[c.id] ?? '—' });
       } else {
-        cols.push({ id: c.id, label: c.label, width: c.id === 'site' ? 150 : 190, tip: c.requested ? 'Information interrogée par la requête' : undefined, get: (r) => r.values?.[c.id] ?? null });
+        cols.push({ id: c.id, label: c.label, width: wide(c.label, c.id === 'site' ? 130 : 170), get: (r) => r.values?.[c.id] ?? null });
       }
     }
     cols.push({ id: 'dn', label: 'Chemin AD', mono: true, width: 360, hidden: true, get: (r) => r.dn });
     return cols;
   }
 
-  function renderGrid(rows, hasMore) {
+  function renderGrid(rows, hasMore, total) {
     const ev = st.evaluation;
+    const my = ++st.loadingPage;
     st.rows = rows;
-    st.hasMore = hasMore;
+    st.total = total;
     if (!st.split) {
       const listNode = document.createElement('div');
       listNode.className = 'rq-res-grid';
       const detailNode = document.createElement('div');
       detailNode.className = 'rq-detail';
-      st.split = createSplit($('.rq-res-split'), { a: listNode, b: detailNode, key: 'requetes.apercu.detail', size: 400, min: 300, max: 760, label: 'Taille du détail de l’objet' });
+      st.split = createSplit($('.rq-res-split'), { a: listNode, b: detailNode, key: 'requetes.apercu.detail.v2', size: 340, min: 280, max: 640, label: 'Taille du détail de l’objet' });
+      paintFold();
     }
     const listHost = $('.rq-res-grid');
+    // The list is as tall as its rows (a few results leave no empty block), between 320 and 540 px.
+    const height = Math.max(320, Math.min(540, 64 + total * 40));
+    $('.rq-res-split').style.setProperty('--rq-res-h', `${height + 20}px`);
     st.grid?.destroy();
     st.grid = createGrid(listHost, {
-      key: `requetes.apercu.${key(ev.population.target)}`,
+      key: `requetes.apercu.v2.${key(ev.population.target)}`,
       label: 'Résultats de l’aperçu',
       columns: columnsOf(ev),
       rowId: (r) => r.id,
       selection: 'single',
-      height: '520px',
-      empty: { icon: 'search', title: 'Aucun objet pour ces filtres', text: 'Changez de verdict ou d’état : les filtres d’affichage ne changent ni la répartition ni les compteurs.' },
+      height: `${height}px`,
+      quickFilter: false,
+      empty: { icon: 'search', title: 'Aucun objet pour ces filtres', text: 'Changez de verdict, d’état ou de texte : les filtres d’affichage ne changent ni la répartition ni les compteurs.' },
       onActiveChange: (row) => { if (row) showDetail(row); },
       onActivate: (row) => openFiche(row),
       contextMenu: ({ row }) => [
@@ -230,33 +269,80 @@ export function mountPreview(panel, store, api) {
         '-',
         { label: 'Actualiser ce poste…', icon: 'wifi', hint: 'réseau', disabled: !row || key(ev.population.target) !== 'computer', reason: 'Seulement pour un poste.', run: () => refreshObject(row) },
       ],
-      onLoadMore: () => loadPage(st.rows.length, true),
     });
-    st.grid.setRows(rows, { hasMore });
-    // The detail opens on the first matching object (or the first object), so the explanation is visible at once.
-    const first = rows.find((r) => r.verdict === 'match') ?? rows[0];
-    if (first) showDetail(first); else renderDetailEmpty();
+    st.grid.setRows(rows, { hasMore: false });
+    summary();
+    // The detail opens on the first object shown, so the explanation is visible at once.
+    if (rows[0]) showDetail(rows[0]); else renderDetailEmpty();
+    if (hasMore) loadRest(rows.length, my);
   }
 
-  async function loadPage(offset, append = false) {
+  function summary() {
+    const ev = st.evaluation;
+    if (!st.bar || !ev) return;
+    const partial = st.rows.length < st.total;
+    st.bar.setSummary(partial
+      ? `→ ${formatNumber(st.rows.length)} lignes chargées sur ${plural(st.total, 'objet', 'objets')}${st.loadingAll ? ' (chargement…)' : ' (liste partielle)'}`
+      : `→ ${plural(st.total, 'objet affiché', 'objets affichés')} sur ${formatNumber(ev.counts.population)}`);
+  }
+
+  /** The rest of a filtered list, page after page: the data are local, so sorts and filters of the grid stay exact. */
+  async function loadRest(from, my) {
+    const ev = st.evaluation;
+    st.loadingAll = true;
+    let offset = from;
+    while (store.alive && my === st.loadingPage && offset < Math.min(st.total, MAX_ROWS)) {
+      summary();
+      const res = await store.call('requetes.preview.page', { evaluationId: ev.id, verdict: st.verdict, state: st.state, text: st.text || null, offset, limit: PAGE });
+      if (!store.alive || my !== st.loadingPage) return;
+      if (res.error) { store.toast(res.message, 'warn'); break; }
+      $('.rq-pv-stale').hidden = !res.data.stale;
+      st.rows = st.rows.concat(res.data.rows);
+      st.grid.appendRows(res.data.rows, { hasMore: false });
+      offset += res.data.rows.length;
+      if (!res.data.hasMore || !res.data.rows.length) break;
+    }
+    st.loadingAll = false;
+    summary();
+  }
+
+  async function loadPage() {
     const ev = st.evaluation;
     if (!ev) return;
     const my = ++st.loadingPage;
-    if (!append) st.grid?.setLoading(true);
-    const res = await store.call('requetes.preview.page', { evaluationId: ev.id, verdict: st.verdict, state: st.state, offset, limit: 2000 });
+    st.grid?.setLoading(true);
+    const res = await store.call('requetes.preview.page', { evaluationId: ev.id, verdict: st.verdict, state: st.state, text: st.text || null, offset: 0, limit: PAGE });
     if (!store.alive || my !== st.loadingPage) return;
-    if (res.error) { st.grid?.setError(res.message, { retry: () => loadPage(offset, append) }); return; }
+    if (res.error) { st.grid?.setError(res.message, { retry: () => loadPage() }); return; }
     const page = res.data;
     $('.rq-pv-stale').hidden = !page.stale;
-    if (append) {
-      st.rows = st.rows.concat(page.rows);
-      st.grid.appendRows(page.rows, { hasMore: page.hasMore });
-    } else {
-      st.rows = page.rows;
-      st.grid.setRows(page.rows, { hasMore: page.hasMore });
-    }
-    st.bar?.setSummary(`→ ${plural(page.total, 'objet affiché', 'objets affichés')} sur ${formatNumber(ev.counts.population)}`);
+    st.rows = page.rows;
+    st.total = page.total;
+    st.grid.setRows(page.rows, { hasMore: false });
+    summary();
+    if (page.hasMore) loadRest(page.rows.length, my);
   }
+
+  const search = debounce(() => {
+    const text = $('.rq-res-search input').value.trim();
+    if (text === st.text) return;
+    st.text = text;
+    loadPage();
+  }, 240);
+  $('.rq-res-search input').addEventListener('input', search);
+  $('.rq-res-search input').addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); e.target.value = ''; search(); search.flush(); } });
+
+  function paintFold() {
+    const folded = st.split?.isFolded() ?? false;
+    const b = $('.rq-fold-detail');
+    b.setAttribute('aria-pressed', String(folded));
+    b.querySelector('span').textContent = folded ? 'Afficher le détail' : 'Masquer le détail';
+  }
+  $('.rq-fold-detail').addEventListener('click', () => {
+    if (!st.split) return;
+    st.split.fold(!st.split.isFolded());
+    paintFold();
+  });
 
   function renderDetailEmpty() {
     const host = $('.rq-detail');
@@ -335,7 +421,7 @@ export function mountPreview(panel, store, api) {
   async function refreshObject(row) {
     const ok = await confirmDialog({
       title: `Actualiser ${row.name} ?`,
-      message: 'Relevé explicite du seul poste choisi (présence, inventaire et sondes de la requête), en lecture seule. Rien n’est écrit.',
+      message: 'Relevé explicite du seul poste choisi (présence, inventaire, sondes et SELECT WMI de la requête), en lecture seule. Rien n’est écrit.',
       confirmLabel: 'Actualiser ce poste',
       icon: 'wifi',
     });
@@ -352,11 +438,13 @@ export function mountPreview(panel, store, api) {
     openExport(store, res.data, { title: 'Export des résultats' });
   }
 
+  /** Domenia 1 freezes the matching objects for Recherche, then opens Rechercher. */
   async function applySearch() {
     const res = await store.call('requetes.search.apply', { evaluationId: st.evaluation.id });
     if (res.error) { store.toast(res.message, 'warn'); return; }
     store.toast(`${plural(res.data.count, 'objet figé', 'objets figés')} pour Recherche (inconnus exclus).`, 'ok');
     store.emit('search', res.data);
+    api.navigate('rechercher', { requete: 'selection', retour: 'requetes' });
   }
 
   function coverage() {
@@ -418,7 +506,7 @@ export function mountPreview(panel, store, api) {
     if (!b) return;
     st.verdict = b.dataset.verdict;
     renderFilters();
-    loadPage(0);
+    loadPage();
     $('.rq-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
@@ -436,8 +524,11 @@ export function mountPreview(panel, store, api) {
     destroy() {
       offs.forEach((off) => off());
       stopReveal();
+      search.cancel();
+      st.loadingPage += 1;
       st.grid?.destroy();
       st.detailTabs?.destroy();
+      st.cmdbar?.destroy();
     },
   };
 }

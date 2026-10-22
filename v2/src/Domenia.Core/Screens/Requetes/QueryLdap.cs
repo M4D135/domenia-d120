@@ -51,7 +51,21 @@ public static class QueryLdap
     }
 
     // One clause translated: the exact filter (null when computed locally) and its superset for the directory (null = no constraint).
-    private sealed record Part(LdapFilter? Exact, LdapFilter? Upper, LdapFilter? Lower, bool Residual);
+    // Definite: the local verdict equals the LDAP verdict for every object, absent attribute included (an information whose
+    // absence stays « unknown » locally is not definite: under a negation its exact filter would select other objects).
+    private sealed record Part(LdapFilter? Exact, LdapFilter? Upper, LdapFilter? Lower, bool Residual, bool Definite = true);
+
+    /// <summary>
+    /// True when an information is the plain copy of a text attribute kept by Domenia (name, operatingSystem, description…):
+    /// an absent value is then an empty attribute, a known fact, evaluated like LDAP (the item is FALSE, its negation TRUE),
+    /// never a missing measure. Readings, probes and computed informations keep « unknown » for a missing value.
+    /// </summary>
+    public static bool AbsentIsFalse(QueryField field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        return field.Source == QuerySource.Ad && field.Kind == QueryFieldKind.Text && field.LdapAttribute is { } name && !name.Contains(',', StringComparison.Ordinal)
+            && LdapSchema.Find(name) is { ReadByDomenia: true, Syntax: LdapSyntax.CaseIgnore or LdapSyntax.Dn };
+    }
 
     /// <summary>LDAP form of a recipe whose parameters are resolved, with dates converted at <paramref name="now"/>.</summary>
     public static LdapTranslation Translate(QueryRecipe resolved, DateTimeOffset now)
@@ -145,7 +159,7 @@ public static class QueryLdap
             var lowers = parts.Select(p => p.Lower).OfType<LdapFilter>().ToList();
             lower = lowers.Count == 0 ? null : Group(kind, lowers);
         }
-        return new Part(exact, upper, lower, parts.Any(p => p.Residual));
+        return new Part(exact, upper, lower, parts.Any(p => p.Residual), parts.All(p => p.Definite));
     }
 
     private static LdapFilter Group(LdapFilterKind kind, IEnumerable<LdapFilter> items)
@@ -162,8 +176,14 @@ public static class QueryLdap
                 return Clause(node.Clause!, recipe, now, residual, notes);
             case QueryNodeKind.Not:
                 var child = Node(node.Children[0], recipe, now, residual, notes);
-                // Upper of NOT x = objects where x is not surely TRUE; lower = objects where x is surely FALSE.
-                return new Part(child.Exact is { } e ? LdapFilter.Not(e) : null, child.Lower is { } l ? LdapFilter.Not(l) : null, child.Upper is { } u ? LdapFilter.Not(u) : null, child.Residual);
+                // Upper of NOT x = objects where x is not surely TRUE; lower = objects where x is surely FALSE. The exact filter of
+                // NOT x is kept only when x is definite: otherwise an object locally « unknown » would be TRUE for the controller.
+                var exactNot = child.Exact is { } e && child.Definite ? LdapFilter.Not(e) : null;
+                if (child.Exact is not null && !child.Definite)
+                {
+                    residual.Add("Groupe NON évalué localement : une information absente y reste inconnue, alors que le contrôleur la compterait vraie");
+                }
+                return new Part(exactNot, child.Lower is { } l ? LdapFilter.Not(l) : null, child.Upper is { } u ? LdapFilter.Not(u) : null, child.Residual || exactNot is null && child.Exact is not null, child.Definite);
             case QueryNodeKind.Collection:
                 residual.Add(QueryAnalysis.NodeLabel(node, recipe.Target, recipe.ReadDefinition));
                 return new Part(null, null, null, true);
@@ -178,8 +198,8 @@ public static class QueryLdap
         }
     }
 
-    private static Part Exact(LdapFilter filter, string? presence = null) =>
-        new(filter, presence is null ? filter : LdapFilter.Or([filter, LdapFilter.Not(LdapFilter.Present(presence))]), filter, false);
+    private static Part Exact(LdapFilter filter, string? presence = null, bool definite = true) =>
+        new(filter, presence is null ? filter : LdapFilter.Or([filter, LdapFilter.Not(LdapFilter.Present(presence))]), filter, false, definite);
 
     private static Part Local(QueryClause clause, QueryRecipe recipe, List<string> residual, LdapFilter? upper = null)
     {
@@ -196,6 +216,19 @@ public static class QueryLdap
     private static LdapFilter Eq(string attribute, string value) => LdapFilter.Item(LdapFilterKind.Equality, attribute, value);
 
     private static Part Clause(QueryClause clause, QueryRecipe recipe, DateTimeOffset now, List<string> residual, SortedSet<string> notes)
+    {
+        var part = ClauseCore(clause, recipe, now, residual, notes);
+        // « est différent de » is a negation: on an information that stays unknown when absent, the LDAP filter would also
+        // select the objects without the attribute. Evaluated locally, never claimed exact.
+        if (!part.Definite && part.Exact is not null && clause.Operator == QueryOperator.NotEqual)
+        {
+            residual.Add(QueryFormat.Clause(clause, recipe.Target, recipe.ReadDefinition));
+            return part with { Exact = null, Residual = true };
+        }
+        return part;
+    }
+
+    private static Part ClauseCore(QueryClause clause, QueryRecipe recipe, DateTimeOffset now, List<string> residual, SortedSet<string> notes)
     {
         var field = QueryCatalog.Find(recipe.Target, clause.Field, recipe.ReadDefinition);
         if (field is null)
@@ -303,7 +336,7 @@ public static class QueryLdap
                     var limit = LdapEvaluator.FileTime(now.AddDays(-60));
                     var old = LdapFilter.And([Ge("pwdLastSet", 1), Le("pwdLastSet", limit - 1)]);
                     var recent = Ge("pwdLastSet", limit);
-                    return new Part(value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, LdapFilter.Or([value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, LdapFilter.Not(Ge("pwdLastSet", 1))]), value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, false);
+                    return new Part(value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, LdapFilter.Or([value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, LdapFilter.Not(Ge("pwdLastSet", 1))]), value.Flag ^ (op == QueryOperator.NotEqual) ? old : recent, false, false);
                 }
             case "laps" when op is QueryOperator.Equal or QueryOperator.NotEqual:
                 {
@@ -427,7 +460,7 @@ public static class QueryLdap
             QueryOperator.LessOrEqual => Le(attribute, floor),
             _ => null,
         };
-        return filter is null ? Local(clause, recipe, residual) : Exact(filter, attribute);
+        return filter is null ? Local(clause, recipe, residual) : Exact(filter, attribute, definite: false);
     }
 
     // Days since a date attribute (lastLogonTimestamp, pwdLastSet, whenCreated): « more than N days » is « before now − N days ».
@@ -461,7 +494,7 @@ public static class QueryLdap
             _ => LdapFilter.Item(LdapFilterKind.GreaterOrEqual, attribute, Text(limit, 0)),
         };
         var exact = positive ? LdapFilter.And([set, filter]) : filter;
-        return new Part(exact, LdapFilter.Or([exact, LdapFilter.Not(set)]), exact, false);
+        return new Part(exact, LdapFilter.Or([exact, LdapFilter.Not(set)]), exact, false, false);
     }
 
     /// <summary>Removes nested groups of the same kind and single-child groups: « (&amp;(&amp;(a)(b))(c)) » becomes « (&amp;(a)(b)(c)) ».</summary>
@@ -658,7 +691,7 @@ public static class QueryLdap
         {
             return Leaf(QueryCatalog.LdapPrefix + attribute.Name, QueryOperator.IsMissing, QueryValue.None);
         }
-        if (inner.Kind == LdapFilterKind.Equality && FieldFor(inner.Attribute, target) is { Kind: QueryFieldKind.Text } different)
+        if (inner.Kind == LdapFilterKind.Equality && FieldFor(inner.Attribute, target) is { Kind: QueryFieldKind.Text } different && AbsentIsFalse(different))
         {
             return Leaf(different.Id, QueryOperator.NotEqual, QueryValue.FromText(inner.Text));
         }
@@ -702,7 +735,9 @@ public static class QueryLdap
         {
             return Leaf("adminCount", QueryOperator.Equal, QueryValue.FromBoolean(true));
         }
-        var field = FieldFor(filter.Attribute, target);
+        // A catalog information is used only when its local verdict is the LDAP one, absent attribute included; otherwise the
+        // raw attribute keeps the semantics of the typed filter (a number left unknown when absent would differ under a NOT).
+        var field = FieldFor(filter.Attribute, target) is { } plain && AbsentIsFalse(plain) ? plain : null;
         var attribute = LdapSchema.Find(filter.Attribute);
         if (attribute is null)
         {

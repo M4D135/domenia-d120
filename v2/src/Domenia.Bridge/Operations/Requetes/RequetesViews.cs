@@ -27,7 +27,9 @@ public sealed record QueryPreviewView(
     QueryGroupsView? Groups,
     LdapTranslation Ldap,
     ImmutableArray<string> Warnings,
-    string Summary);
+    string Summary,
+    string Verdict,
+    int PageTotal);
 
 public sealed record QueryPageView(ImmutableArray<QueryRowView> Rows, int Total, int Offset, int Limit, bool HasMore, bool Stale);
 
@@ -46,7 +48,8 @@ public sealed record QueryRevisionView(long Revision, DateTimeOffset SavedAt, st
 
 public sealed record QueryLibraryDetailView(string Id, string Name, string Category, string Source, string Description, long Revision, DateTimeOffset? UpdatedAt, bool Archived,
     QueryRecipe Recipe, ImmutableArray<QueryRevisionView> History, QueryProvenance? Provenance, string ProvenanceText, string Sources, string Collection,
-    ImmutableArray<QueryWidgetLink> Widgets, ImmutableArray<QuerySummaryLine> Summary);
+    ImmutableArray<QueryWidgetLink> Widgets, ImmutableArray<QuerySummaryLine> Summary, ImmutableArray<QueryWidgetLink> ArchivedWidgets, ImmutableArray<QueryConsumerLink> Consumers,
+    string Fingerprint);
 
 /// <summary>One readable element of a definition and its values (summary panels).</summary>
 public sealed record QuerySummaryLine(string Element, ImmutableArray<string> Values);
@@ -61,22 +64,27 @@ internal static class RequetesViews
         [QueryTarget.Group] = ["scope", "groupKind", "members", "description"],
     };
 
+    /// <summary>
+    /// Columns of the results: the informations the recipe asks for first, in the order of its conditions (the value that decides
+    /// the verdict comes right after it), then the standard columns of the target.
+    /// </summary>
     public static ImmutableArray<QueryColumnView> Columns(CompiledQuery query)
     {
         var columns = new List<QueryColumnView>();
         var seen = new HashSet<string>(StringComparer.Ordinal) { "name", "dn" };
+        var order = QueryRecipeWalk.Clauses(query.Resolved).Select(c => c.Field).Concat(query.RequestedFields).Distinct(StringComparer.Ordinal);
+        foreach (var id in order)
+        {
+            if (query.RequestedFields.Contains(id) && seen.Add(id) && QueryCatalog.Find(query.Target, id, query.Resolved.ReadDefinition) is { Source: not (QuerySource.Instance or QuerySource.Ldap) } field)
+            {
+                columns.Add(Column(field, true, false));
+            }
+        }
         foreach (var id in Standard[query.Target])
         {
             if (seen.Add(id) && QueryCatalog.Find(query.Target, id) is { } field)
             {
-                columns.Add(Column(field, query.RequestedFields.Contains(id), false));
-            }
-        }
-        foreach (var id in query.RequestedFields)
-        {
-            if (seen.Add(id) && QueryCatalog.Find(query.Target, id, query.Resolved.ReadDefinition) is { Source: not (QuerySource.Instance or QuerySource.Ldap) } field)
-            {
-                columns.Add(Column(field, true, false));
+                columns.Add(Column(field, false, false));
             }
         }
         return [.. columns];

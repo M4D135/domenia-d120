@@ -1,10 +1,11 @@
 // Domenia 2 · Atelier de requêtes (Domenia 1 lot « requetes », REQ-001 to REQ-069). A guided flow « 1. Créer » →
 // « 2. Aperçu » → « 3. Enregistrer », and the tools around it: library, catalog of the informations, packs, advanced WMI and
 // the cmdlet reference. The draft lives in one store shared by the views; every change is validated by the engine and kept
-// as a local draft. Reads are local; remote reads (collection, WMI) wait for an explicit gesture. Contract:
-// docs/ops/requetes.md. Route parameters: onglet, recette (template or library id), cible, ldap, apercu=1, poste, retour.
+// as a local draft with the revision it comes from. Reads are local; remote reads (collection, WMI) wait for an explicit
+// gesture. Contract: docs/ops/requetes.md. Route parameters: onglet, recette (template or library id), cible, ldap,
+// apercu=1, poste, retour (screen to come back to), retourParams (its route parameters) and retourFocus (id of its control).
 import {
-  esc, glyph, key, plural, TARGETS, createStore, emptyRecipe, formatNumber, ago, vars,
+  esc, glyph, key, plural, TARGETS, createStore, emptyRecipe, formatNumber, ago, vars, dnParts,
 } from './requetes/shared.js';
 import { mountCompose } from './requetes/compose.js';
 import { mountPreview } from './requetes/preview.js';
@@ -14,7 +15,7 @@ import { mountCatalog } from './requetes/catalog.js';
 import { mountShare } from './requetes/share.js';
 import { mountWmi } from './requetes/wmi.js';
 import { mountReference } from './requetes/reference.js';
-import { openCoverage, openPlan, openScope } from './requetes/drawers.js';
+import { openCoverage, openPlan, openScope, openRecent } from './requetes/drawers.js';
 import { createCommandBar, confirmDialog, debounce } from '../kit/index.js';
 import { reveal, inkFollow, announce } from '../ui.js';
 
@@ -36,12 +37,45 @@ const ALL = [...FLOW, ...TOOLS].map((t) => t.id);
 const RING = '<span class="glow-ring" aria-hidden="true"></span>';
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 
+/** Route parameters of the origin screen, passed as « a=1&b=2 » (2 048 characters at most, plain values only; exported for tests/web). */
+export function originParams(raw) {
+  if (typeof raw !== 'string' || !raw || raw.length > 2048) return {};
+  const out = {};
+  for (const pair of raw.split('&')) {
+    const at = pair.indexOf('=');
+    if (at <= 0) continue;
+    try {
+      const name = decodeURIComponent(pair.slice(0, at));
+      if (/^[a-zA-Z][a-zA-Z0-9]{0,31}$/.test(name)) out[name] = decodeURIComponent(pair.slice(at + 1));
+    } catch {
+      // A malformed pair is ignored: the screen opens without it.
+    }
+  }
+  return out;
+}
+
+/** After going back, gives the focus to the control the origin named (once it is rendered, 2 s at most). */
+function restoreFocus(id) {
+  if (typeof id !== 'string' || !/^[A-Za-z][\w-]{0,63}$/.test(id)) return;
+  const started = performance.now();
+  const tick = () => {
+    const el = document.getElementById(id);
+    if (el && typeof el.focus === 'function') { el.focus(); return; }
+    if (performance.now() - started < 2000) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
 export function render(main, ctx) {
   const params = ctx.params ?? {};
   const store = createStore(ctx);
   const views = new Map();
-  const st = { tab: ALL.includes(params.onglet) ? params.onglet : 'creer', ink: null, validateToken: 0, target: key(store.recipe.target) };
-  // « retour » names the screen that opened the workshop (Accueil, Recherche, Fiche…): one gesture brings the operator back.
+  const st = {
+    tab: ALL.includes(params.onglet) ? params.onglet : 'creer', ink: null, validateToken: 0, target: key(store.recipe.target),
+    compact: Boolean(params.recette || params.ldap || params.onglet || params.apercu), draftAt: null, renaming: false,
+  };
+  // « retour » names the screen that opened the workshop (Accueil, Recherche, Fiche…): one gesture brings the operator back to
+  // that screen, its tab (« retourParams ») and the control that had the focus (« retourFocus »).
   const origin = typeof params.retour === 'string' && params.retour !== 'requetes' ? (ctx.pages ?? []).find((p) => p.id === params.retour) : null;
 
   main.innerHTML = `<div class="page rq-page">
@@ -50,9 +84,13 @@ export function render(main, ctx) {
         <div class="rq-hero-main">
           <div class="eyebrow">${glyph('database')}<span>Atelier de requêtes</span><span class="rq-eyebrow-note">Lecture seule · évaluation locale</span>
             ${origin ? `<button type="button" class="btn xs subtle rq-back">${glyph('chevronLeft')}Revenir à l’écran ${esc(origin.label)}</button>` : ''}</div>
-          <label class="visually-hidden" for="rq-name">Nom de la requête</label>
-          <input id="rq-name" class="rq-title-input" type="text" maxlength="120" autocomplete="off" spellcheck="true">
-          <p class="lead rq-lead">Composez une requête en conditions ou en filtre LDAP, vérifiez-la sur les données locales, puis enregistrez-la ou partagez-la.</p>
+          <div class="rq-title-row">
+            <h1 class="rq-title" id="rq-title"><span class="rq-title-text"></span></h1>
+            <label class="visually-hidden" for="rq-name">Nom de la requête</label>
+            <input id="rq-name" class="rq-title-input" type="text" maxlength="120" autocomplete="off" spellcheck="true" hidden>
+            <button type="button" class="btn xs ghost icon rq-rename" aria-label="Renommer la requête" data-tip="Renommer la requête">${glyph('edit')}</button>
+          </div>
+          <p class="lead rq-lead"></p>
           <div class="rq-hero-row">
             <div class="segmented rq-target" role="radiogroup" aria-label="Cible de la requête"><span class="thumb" aria-hidden="true"></span>
               ${TARGETS.map((t) => `<button type="button" role="radio" data-target="${t.id}" aria-checked="false">${glyph(t.icon)}<span>${esc(t.label)}</span><b class="rq-target-n"></b></button>`).join('')}</div>
@@ -79,22 +117,51 @@ export function render(main, ctx) {
   </div>`;
   const $ = (sel) => main.querySelector(sel);
 
-  // ---------- Hero: name, target, scope, commands ----------
+  // ---------- Hero: title (the only h1), target, scope, commands ----------
 
-  main.querySelector('.rq-back')?.addEventListener('click', () => ctx.navigate(origin.id, {}));
+  main.querySelector('.rq-back')?.addEventListener('click', () => {
+    const focus = params.retourFocus;
+    ctx.navigate(origin.id, originParams(params.retourParams));
+    restoreFocus(focus);
+  });
 
   function paintName() {
-    const input = $('#rq-name');
-    if (document.activeElement !== input) input.value = store.recipe.name ?? '';
-    input.classList.toggle('long', input.value.length > 38);
+    const name = store.recipe.name ?? '';
+    $('.rq-title-text').textContent = name;
+    $('.rq-title').classList.toggle('long', name.length > 42);
+    if (!st.renaming) $('#rq-name').value = name;
   }
-  const syncName = debounce(() => {
-    const name = $('#rq-name').value.trim();
-    if (name && name !== store.recipe.name) store.setRecipe({ ...store.recipe, name }, { origin: 'name' });
-  }, 300);
-  $('#rq-name').addEventListener('input', syncName);
-  $('#rq-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } });
-  $('#rq-name').addEventListener('blur', () => { syncName.flush(); if (!$('#rq-name').value.trim()) paintName(); });
+  function startRename() {
+    st.renaming = true;
+    const input = $('#rq-name');
+    input.value = store.recipe.name ?? '';
+    input.hidden = false;
+    $('.rq-title').hidden = true;
+    $('.rq-rename').hidden = true;
+    input.focus();
+    input.select();
+  }
+  function stopRename(commit) {
+    if (!st.renaming) return;
+    const input = $('#rq-name');
+    const name = input.value.trim();
+    st.renaming = false;
+    input.hidden = true;
+    $('.rq-title').hidden = false;
+    $('.rq-rename').hidden = false;
+    if (commit && name && name !== store.recipe.name) {
+      store.setRecipe({ ...store.recipe, name }, { origin: 'name' });
+      announce(`Requête renommée : ${name}.`);
+    }
+    paintName();
+  }
+  $('.rq-rename').addEventListener('click', startRename);
+  $('.rq-title').addEventListener('dblclick', startRename);
+  $('#rq-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); stopRename(true); $('.rq-rename').focus(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stopRename(false); $('.rq-rename').focus(); }
+  });
+  $('#rq-name').addEventListener('blur', () => stopRename(true));
 
   const targetInk = inkFollow($('.rq-target'), '[data-target]', '[aria-checked="true"]');
   function paintTarget() {
@@ -103,7 +170,7 @@ export function render(main, ctx) {
     targetInk.update();
     main.dataset.target = t;
   }
-  main.querySelectorAll('[data-target]').forEach((b) => b.addEventListener('click', async () => {
+  main.querySelectorAll('.rq-target [data-target]').forEach((b) => b.addEventListener('click', async () => {
     const t = b.dataset.target;
     if (t === key(store.recipe.target)) return;
     const r = store.recipe;
@@ -115,6 +182,17 @@ export function render(main, ctx) {
     setRecipe(emptyRecipe(t), { origin: 'target', saved: null });
   }));
 
+  /** Path of an OU as clickable steps, the domain first (same reading as the OU card of the Accueil). */
+  function crumbs(scope, s) {
+    if (!scope?.dn) return '';
+    const parts = dnParts(scope.dn);
+    const domain = parts.filter((p) => p.type === 'DC').map((p) => p.value).join('.') || s.domain?.dnsName || '';
+    const steps = [{ name: domain, root: true }, ...parts.filter((p) => p.type !== 'DC').reverse().map((p) => ({ name: p.value }))];
+    return `<nav class="rq-crumbs-ou" aria-label="Chemin du périmètre"><ol>${steps.map((c, n) => `<li data-j="${n}">${n === steps.length - 1
+      ? `<span class="rq-crumb-ou now" aria-current="location">${esc(c.name)}</span>`
+      : `<button type="button" class="rq-crumb-ou" data-act="scope" data-tip="${esc(c.root ? 'Choisir une OU depuis la racine du domaine' : `Choisir une OU depuis ${c.name}`)}">${esc(c.name)}</button>`}</li>`).join('')}</ol></nav>`;
+  }
+
   function paintScope() {
     const s = store.scope;
     const card = $('.rq-scope-card');
@@ -125,21 +203,28 @@ export function render(main, ctx) {
     const eff = s.effective;
     const counts = s.counts ?? {};
     const b = s.base;
+    const read = b ? `${b.source.replace(/ \(aucune lecture réseau\)$/, '')} · lecture ${ago(b.readAt)} · ${plural(b.objects, 'objet', 'objets')}${b.complete ? '' : ' · lecture partielle'}` : 'Base locale non lue : l’aperçu sera vide.';
     card.innerHTML = `<div class="rq-scope-top"><span class="rq-scope-ico">${glyph('ou')}</span><span class="rq-scope-k" id="rq-scope-k">${s.workshop ? 'Périmètre de l’atelier' : 'OU de travail'}</span>
-        ${s.wholeDomain ? '<span class="k-pill warn sm">Tout le domaine</span>' : ''}</div>
+        ${s.wholeDomain ? '<span class="k-pill warn sm">Tout le domaine</span>' : eff && !eff.subtree ? '<span class="k-pill info sm">Cette OU seulement</span>' : '<span class="k-pill info sm">Sous-OU comprises</span>'}</div>
       <div class="rq-scope-name">${esc(eff?.label ?? s.domain?.dnsName ?? 'Domaine')}</div>
-      <div class="rq-scope-dn rq-mono" data-tip="${esc(eff?.dn ?? '')}">${esc(eff?.dn ?? '')}${eff && !eff.subtree ? ' · sans sous-OU' : ''}</div>
-      <dl class="rq-scope-counts">${TARGETS.map((t, n) => `<div data-i="${n}"><dt>${glyph(t.icon)}${esc(t.label)}</dt><dd>${counts[t.id] !== undefined ? formatNumber(counts[t.id]) : '—'}</dd></div>`).join('')}</dl>
-      ${s.accountsInDomain ? `<p class="rq-scope-accounts">${glyph('users')}Comptes et groupes : tout le domaine ${esc(s.domain?.dnsName ?? '')} (base locale)</p>` : ''}
-      <p class="rq-scope-note">${b ? `${esc(b.source)} · lue ${esc(ago(b.readAt))} · ${plural(b.objects, 'objet', 'objets')}${b.complete ? '' : ' · lecture partielle'}` : 'Base locale non lue : l’aperçu sera vide.'}</p>
-      <button type="button" class="btn sm subtle rq-scope-btn">${glyph('ou')}Changer de périmètre…</button>`;
+      ${crumbs(eff, s)}
+      <div class="rq-scope-foot">
+        ${s.accountsInDomain ? `<span class="chip sm rq-scope-accounts" data-tip="${esc(`Les comptes et les groupes sont lus dans tout le domaine ${s.domain?.dnsName ?? ''}, sur la base locale ; les postes suivent le périmètre.`)}">${glyph('users')}Comptes et groupes : domaine entier</span>` : ''}
+        <span class="rq-scope-note" data-tip="${esc(read)}">${glyph('database')}${esc(read)}</span>
+      </div>
+      <button type="button" class="btn sm subtle rq-scope-btn" data-act="scope" aria-label="Changer de périmètre" data-tip="Changer de périmètre">${glyph('ou')}<span>Changer de périmètre…</span></button>`;
     vars(card);
-    main.querySelectorAll('[data-target]').forEach((btn) => {
+    card.querySelectorAll('[data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
+    main.querySelectorAll('.rq-target [data-target]').forEach((btn) => {
       const n = counts[btn.dataset.target];
       btn.querySelector('.rq-target-n').textContent = n !== undefined ? formatNumber(n) : '';
     });
-    card.querySelector('.rq-scope-btn').addEventListener('click', () => openScope(store, { onChange: () => { card.classList.remove('changed'); void card.offsetWidth; card.classList.add('changed'); } }));
   }
+  $('.rq-scope-card').addEventListener('click', (e) => {
+    if (!(e.target instanceof Element) || !e.target.closest('[data-act="scope"]')) return;
+    const card = $('.rq-scope-card');
+    openScope(store, { onChange: () => { card.classList.remove('changed'); void card.offsetWidth; card.classList.add('changed'); } });
+  });
 
   async function loadScope() {
     const res = await store.call('requetes.scope', undefined);
@@ -153,17 +238,29 @@ export function render(main, ctx) {
     store.emit('scope', store.scope);
   }
 
+  /** The hero folds once the operator works on a query: the work area comes first, the onboarding sentence goes. */
+  function paintHero() {
+    const r = store.recipe;
+    const empty = !(r.clauses?.length) && !r.expression && !store.saved;
+    if (!empty) st.compact = true;
+    const compact = st.compact || !FLOW.some((f) => f.id === st.tab);
+    $('.rq-hero').classList.toggle('compact', compact);
+    $('.rq-lead').textContent = 'Composez une requête en conditions ou en filtre LDAP, vérifiez-la sur les données locales, puis enregistrez-la ou partagez-la.';
+  }
+
   function paintChips() {
     const v = store.validation;
     const s = store.saved;
     const chips = [];
     if (s?.source === 'template') chips.push(`<span class="chip">${glyph('sparkles')}Modèle livré</span>`);
-    else if (s?.source === 'personal') chips.push(`<span class="chip">${glyph('star')}Révision ${esc(String(s.revision))}${s.archived ? ' · archivée' : ''}</span>`);
+    else if (s?.source === 'personal') chips.push(`<span class="chip${s.libraryChanged ? ' warn' : ''}" data-tip="${esc(s.libraryChanged ? `La bibliothèque est passée à la révision ${s.libraryChanged} depuis ce brouillon : l’enregistrement demandera de la relire.` : '')}">${glyph('star')}Révision ${esc(String(s.revision))}${s.archived ? ' · archivée' : ''}${s.libraryChanged ? ' · bibliothèque modifiée' : ''}</span>`);
     else chips.push(`<span class="chip">${glyph('edit')}Brouillon</span>`);
-    if (v?.valid) chips.push(`<span class="chip ok">${glyph('check')}${v.conditionCount ? plural(v.conditionCount, 'condition', 'conditions') : 'Aucune condition'}</span>`);
-    else if (v) chips.push(`<span class="chip warn">${glyph('alert')}À corriger</span>`);
-    if (v?.ldap) chips.push(`<span class="chip">${glyph('hash')}${v.ldap.exact ? 'Filtre LDAP exact' : 'LDAP + conditions locales'}</span>`);
-    if (store.recipe.coherenceHours) chips.push(`<span class="chip">${glyph('clock')}Cohérence ${esc(String(store.recipe.coherenceHours))}${' '}h</span>`);
+    if (st.draftAt) chips.push(`<span class="chip" data-tip="Brouillon de la dernière session, repris tel quel">${glyph('history')}Repris ${esc(ago(st.draftAt))}</span>`);
+    if (v?.valid && v.conditionCount) chips.push(`<span class="chip ok">${glyph('check')}${plural(v.conditionCount, 'condition', 'conditions')}</span>`);
+    else if (v?.valid) chips.push(`<span class="chip warn" data-tip="Sans condition, tous les objets du périmètre correspondent.">${glyph('info')}Aucune condition : tout le périmètre</span>`);
+    else if (v) chips.push(`<span class="chip alert">${glyph('alert')}À corriger</span>`);
+    if (v?.ldap) chips.push(`<span class="chip" data-tip="${esc(v.ldap.exact ? 'Le filtre LDAP sélectionne exactement les mêmes correspondants que l’aperçu.' : 'Le filtre LDAP lit les candidats ; les autres conditions sont évaluées localement.')}">${glyph('hash')}${v.ldap.exact ? 'Filtre LDAP exact' : 'LDAP + conditions locales'}</span>`);
+    if (store.recipe.coherenceHours) chips.push(`<span class="chip">${glyph('clock')}Cohérence ${esc(String(store.recipe.coherenceHours))}${' '}h</span>`);
     if (store.evaluation) chips.push(`<span class="chip info">${glyph('eye')}Aperçu ${esc(ago(store.evaluation.evaluatedAt))}</span>`);
     $('.rq-hero-chips').innerHTML = chips.map((c, n) => c.replace('<span class="chip', `<span data-j="${n}" class="chip`)).join('');
     main.querySelectorAll('.rq-hero-chips [data-j]').forEach((el) => el.style.setProperty('--j', el.dataset.j));
@@ -174,8 +271,9 @@ export function render(main, ctx) {
     items: [
       { id: 'preview', label: 'Calculer l’aperçu', icon: 'play', primary: true, kbd: 'Ctrl Entrée', run: () => runPreview() },
       { id: 'new', label: 'Nouvelle requête', icon: 'plus', run: () => newRecipe() },
-      { id: 'open', label: 'Ouvrir…', icon: 'database', run: () => goto('bibliotheque') },
+      { id: 'open', label: 'Ouvrir…', icon: 'history', kbd: 'Ctrl O', run: () => openRecentDrawer() },
       { id: 'save', label: 'Enregistrer', icon: 'star', kbd: 'Ctrl S', run: () => goto('enregistrer') },
+      { id: 'library', label: 'Bibliothèque complète', icon: 'database', overflow: true, run: () => goto('bibliotheque') },
       { id: 'coverage', label: 'Couverture et dates…', icon: 'gauge', overflow: true, run: () => openCoverage(store, { onApply: applyCoherence, onPlan: plan }) },
       { id: 'collect', label: 'Collecter les données manquantes…', icon: 'wifi', kind: 'network', overflow: true, run: plan },
       { id: 'search-clear', label: 'Retirer la sélection figée de Recherche', icon: 'x', overflow: true, run: clearSearch },
@@ -184,10 +282,10 @@ export function render(main, ctx) {
 
   // ---------- Recipe, validation, draft ----------
 
-  function setRecipe(recipe, { origin = 'load', saved } = {}) {
+  function setRecipe(recipe, { origin: from = 'load', saved } = {}) {
     if (saved !== undefined) store.saved = saved;
-    if (origin === 'load' || origin === 'target') { store.evaluation = null; store.emit('evaluation', null); }
-    store.setRecipe(recipe, { origin });
+    if (from === 'load' || from === 'target') { store.evaluation = null; store.emit('evaluation', null); st.draftAt = null; }
+    store.setRecipe(recipe, { origin: from });
     paintTarget();
     paintName();
     if (saved !== undefined) store.emit('saved', store.saved);
@@ -198,7 +296,7 @@ export function render(main, ctx) {
     const res = await store.call('requetes.validate', { recipe: store.recipe });
     if (!store.alive || my !== st.validateToken) return;
     if (res.error) {
-      store.validation = { valid: false, errors: [res.message], warnings: [], summary: [], parameters: [], conditionCount: 0, ldap: null };
+      store.validation = { valid: false, errors: [res.message], warnings: [], summary: [], parameters: [], conditionCount: 0, ldap: null, outline: [] };
     } else {
       store.validation = res.data;
       if (store.saved?.pendingFingerprint && res.data.fingerprint) {
@@ -209,8 +307,11 @@ export function render(main, ctx) {
     paintChips();
   }, 220);
 
+  /** The draft is kept with the revision it comes from: reopened, an older revision is detected before any save. */
   const keepDraft = debounce(async () => {
-    await store.call('requetes.draft.keep', { recipe: store.recipe });
+    const s = store.saved;
+    const base = s && (s.source === 'personal' || s.source === 'template') ? { id: s.id, source: s.source, revision: s.revision ?? 0, fingerprint: s.fingerprint ?? null } : null;
+    await store.call('requetes.draft.keep', { recipe: store.recipe, base });
   }, 1500);
 
   // ---------- Preview and collection ----------
@@ -222,10 +323,11 @@ export function render(main, ctx) {
       goto('creer');
       return;
     }
+    st.compact = true;
     goto('apercu');
     store.evaluating = true;
     store.emit('evaluating');
-    const res = await store.call('requetes.preview', { recipe: store.recipe });
+    const res = await store.call('requetes.preview', { recipe: store.recipe, limit: 5000, verdict: 'auto' });
     store.evaluating = false;
     if (!store.alive) return;
     if (res.error) { store.emit('evaluation-error', res.message); return; }
@@ -237,12 +339,12 @@ export function render(main, ctx) {
 
   function applyCoherence(hours) {
     store.setRecipe({ ...store.recipe, coherenceHours: hours });
-    store.toast(`Fenêtre de cohérence de ${hours}${' '}h appliquée au brouillon.`, 'ok');
+    store.toast(`Fenêtre de cohérence de ${hours}${' '}h appliquée au brouillon.`, 'ok');
   }
 
-  function plan() {
+  function plan(intro = null) {
     if (key(store.recipe.target) !== 'computer') { store.toast('La collecte ne concerne que les postes.', 'info'); return; }
-    openPlan(store, { onDone: () => { if (store.evaluation) runPreview(); } });
+    openPlan(store, { intro, onDone: () => { if (store.evaluation) runPreview(); } });
   }
 
   async function clearSearch() {
@@ -252,7 +354,7 @@ export function render(main, ctx) {
   }
 
   async function newRecipe() {
-    const dirty = (store.recipe.clauses?.length ?? 0) > 0 && !store.saved;
+    const dirty = ((store.recipe.clauses?.length ?? 0) > 0 || !!store.recipe.expression) && !store.saved;
     if (dirty) {
       const ok = await confirmDialog({ title: 'Nouvelle requête ?', message: 'Le brouillon actuel n’est pas enregistré : il sera remplacé par une requête vide.', confirmLabel: 'Nouvelle requête', icon: 'plus' });
       if (!ok) return;
@@ -262,20 +364,34 @@ export function render(main, ctx) {
     announce('Nouvelle requête vide.');
   }
 
-  /** Loads a library or template detail (requetes.library.get) into the draft. */
+  function savedOf(detail) {
+    return detail.source === 'template'
+      ? { id: detail.id, source: 'template', revision: 0, fingerprint: detail.fingerprint }
+      : { id: detail.id, source: 'personal', revision: detail.revision, archived: detail.archived, category: detail.category, description: detail.description, name: detail.name, fingerprint: detail.fingerprint, pendingFingerprint: true };
+  }
+
+  /** Loads a library or template detail (requetes.library.get) into the draft. Never an archive (« Utiliser » is refused). */
   function load(detail, { preview = false } = {}) {
-    setRecipe(detail.recipe, {
-      origin: 'load',
-      saved: detail.source === 'template'
-        ? { id: detail.id, source: 'template', revision: 0 }
-        : { id: detail.id, source: detail.source === 'archive' ? 'personal' : detail.source, revision: detail.revision, archived: detail.archived, category: detail.category, description: detail.description, name: detail.name, pendingFingerprint: true },
-    });
+    if (detail.archived) { store.toast('Requête archivée : restaurez-la d’abord pour l’utiliser.', 'warn'); return; }
+    setRecipe(detail.recipe, { origin: 'load', saved: savedOf(detail) });
+    st.compact = true;
     store.toast(`« ${detail.name} » chargée dans l’atelier.`, 'ok');
     if (preview) runPreview(); else goto('creer');
   }
 
-  function loadRecipe(recipe, { origin = 'load', saved = null } = {}) {
-    setRecipe(recipe, { origin, saved });
+  function loadRecipe(recipe, { origin: from = 'load', saved = null } = {}) {
+    setRecipe(recipe, { origin: from, saved });
+  }
+
+  async function openRecentDrawer() {
+    openRecent(store, {
+      onPick: async (row) => {
+        const res = await store.call('requetes.library.get', { id: row.id });
+        if (res.error) { store.toast(res.message, 'warn'); return; }
+        load(res.data);
+      },
+      onLibrary: () => goto('bibliotheque'),
+    });
   }
 
   // ---------- Tabs ----------
@@ -284,9 +400,12 @@ export function render(main, ctx) {
     goto: (id) => goto(id),
     runPreview,
     openCoverage: () => openCoverage(store, { onApply: applyCoherence, onPlan: plan }),
+    plan,
     load,
     loadRecipe,
+    rename: () => { window.scrollTo?.({ top: 0 }); main.scrollTo?.({ top: 0, behavior: 'smooth' }); startRename(); },
     useField: (id) => { goto('creer'); views.get('creer')?.useField?.(id); },
+    navigate: (id, p) => ctx.navigate(id, p),
   };
 
   function mount(id) {
@@ -322,6 +441,7 @@ export function render(main, ctx) {
 
   function goto(id, { focus = false } = {}) {
     if (!ALL.includes(id)) return;
+    if (id !== st.tab && st.tab !== 'creer') st.compact = true;
     st.tab = id;
     mount(id);
     main.querySelectorAll('[role="tab"][data-tab]').forEach((b) => {
@@ -334,7 +454,7 @@ export function render(main, ctx) {
       if (on && p.hidden) { p.hidden = false; p.classList.remove('enter'); void p.offsetWidth; p.classList.add('enter'); } else if (!on) p.hidden = true;
     });
     st.ink?.update();
-    $('.rq-hero').classList.toggle('compact', !FLOW.some((f) => f.id === id));
+    paintHero();
     paintFlow();
     if (focus) main.querySelector(`#rq-tab-${id}`)?.focus();
     try {
@@ -347,7 +467,7 @@ export function render(main, ctx) {
 
   main.querySelector('.rq-rail').addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('[data-tab]') : null;
-    if (b) goto(b.dataset.tab);
+    if (b) { st.compact = true; goto(b.dataset.tab); }
   });
   main.querySelector('.rq-rail').addEventListener('keydown', (e) => {
     if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
@@ -362,26 +482,47 @@ export function render(main, ctx) {
   function onKey(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runPreview(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); goto('enregistrer'); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); openRecentDrawer(); }
+    if (e.key === 'F2' && !st.renaming && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) { e.preventDefault(); startRename(); }
   }
   main.addEventListener('keydown', onKey);
 
   const offs = [
-    store.on('recipe', ({ origin }) => {
+    store.on('recipe', ({ origin: from }) => {
       // A new target (button, loaded recipe, LDAP text naming users or groups) reloads the catalogs of the views.
       const target = key(store.recipe.target);
       if (target !== st.target) { st.target = target; store.emit('target', target); }
       validate();
-      if (origin !== 'draft') keepDraft();
+      if (from !== 'draft') keepDraft();
       paintName();
       paintTarget();
       paintChips();
+      paintHero();
     }),
-    store.on('saved', () => { paintChips(); paintFlow(); }),
+    store.on('saved', () => { keepDraft(); paintChips(); paintFlow(); paintHero(); }),
     store.on('validation', paintFlow),
     store.on('scope', paintScope),
   ];
 
   // ---------- Start ----------
+
+  /** The draft of the last session, with the revision it came from compared to the library now. */
+  async function resumeDraft(data) {
+    let saved = null;
+    const base = data.base;
+    if (base?.source === 'personal') {
+      const res = await store.call('requetes.library.get', { id: base.id });
+      if (!res.error && !res.data.archived) {
+        saved = { ...savedOf(res.data), revision: base.revision, fingerprint: base.fingerprint ?? null, pendingFingerprint: !base.fingerprint };
+        if (res.data.revision !== base.revision) saved.libraryChanged = res.data.revision;
+      }
+    } else if (base?.source === 'template') {
+      saved = { id: base.id, source: 'template', revision: 0, fingerprint: base.fingerprint ?? null };
+    }
+    if (!store.alive) return;
+    st.draftAt = data.savedAt ?? null;
+    setRecipe(data.recipe, { origin: 'draft', saved });
+  }
 
   async function start() {
     const target = ['computer', 'user', 'group'].includes(params.cible) ? params.cible : null;
@@ -390,9 +531,9 @@ export function render(main, ctx) {
       const res = await store.call('requetes.library.get', { id: params.recette });
       if (!store.alive) return;
       if (res.error) store.toast(res.message, 'warn');
+      else if (res.data.archived) store.toast('Requête archivée : restaurez-la depuis la bibliothèque pour l’utiliser.', 'warn');
       else {
-        const d = res.data;
-        setRecipe(d.recipe, { origin: 'load', saved: d.source === 'template' ? { id: d.id, source: 'template', revision: 0 } : { id: d.id, source: d.source === 'archive' ? 'personal' : d.source, revision: d.revision, archived: d.archived, category: d.category, description: d.description, name: d.name, pendingFingerprint: true } });
+        setRecipe(res.data.recipe, { origin: 'load', saved: savedOf(res.data) });
         loaded = true;
       }
     }
@@ -406,12 +547,8 @@ export function render(main, ctx) {
     if (!loaded) {
       const res = await store.call('requetes.draft.get', undefined);
       if (!store.alive) return;
-      if (!res.error && res.data?.recipe) {
-        setRecipe(res.data.recipe, { origin: 'draft', saved: null });
-        if (res.data.savedAt) store.toast(`Brouillon repris (${ago(res.data.savedAt)}).`, 'info');
-      } else {
-        setRecipe(store.recipe, { origin: 'draft', saved: null });
-      }
+      if (!res.error && res.data?.recipe) await resumeDraft(res.data);
+      else setRecipe(store.recipe, { origin: 'draft', saved: null });
     }
     if (params.apercu === '1') runPreview();
   }

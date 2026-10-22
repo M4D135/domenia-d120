@@ -1,6 +1,7 @@
 // « 1. Créer »: visual builder (information, condition, typed value with live unit conversion, contextual help), simple
 // criteria in AND / OR, advanced tree (AND / OR / NOT groups, collections of probe instances), parameters, coherence
-// window, and the LDAP text kept in sync with the conditions in both directions. Every change is validated by the engine
+// window, and the LDAP text kept in sync with the conditions in both directions. The raw LDAP attributes of the schema are
+// informations of the builder too (« ldap:<attribut> », LDAP semantics). Every change is validated by the engine
 // (requetes.validate); nothing is read from the directory here.
 import { createFieldCombo } from './combo.js';
 import { createLdapEditor } from './ldap-editor.js';
@@ -16,6 +17,7 @@ const OPERATORS = {
   boolean: ['equal', 'notEqual', 'isMissing', 'isPresent'],
 };
 const NO_VALUE = new Set(['isMissing', 'isPresent']);
+const PRESENCE = new Set(['isMissing', 'isPresent']);
 
 const opsOf = (field) => (field?.operators?.length ? field.operators.map(key) : OPERATORS[key(field?.kind)] ?? OPERATORS.text);
 
@@ -29,7 +31,8 @@ function nodeLabel(node, store) {
   return `${q} de «${NBSP}${fieldOf(store, node.collectionField)?.name ?? node.collectionField}${NBSP}»`;
 }
 
-function walk(node, path = '', depth = 0, out = [], collection = null) {
+/** Every node of a condition tree with its path (« /0/2 »), depth and owning collection (exported for tests/web). */
+export function walk(node, path = '', depth = 0, out = [], collection = null) {
   if (!node) return out;
   out.push({ node, path, depth, collection });
   const k = key(node.kind);
@@ -38,7 +41,8 @@ function walk(node, path = '', depth = 0, out = [], collection = null) {
   return out;
 }
 
-function nodeAt(root, path) {
+/** Node at a path of a tree, with its parent and index (exported for tests/web). */
+export function nodeAt(root, path) {
   if (!path) return { node: root, parent: null, index: -1 };
   let node = root;
   let parent = null;
@@ -52,6 +56,23 @@ function nodeAt(root, path) {
 }
 
 const group = (kind, children = []) => ({ kind, clause: null, children, collectionField: null, quantifier: null });
+
+/**
+ * The group that receives a new element: the selection when it is AND / OR, the inside of NOT / collection (wrapped in an AND
+ * group when needed), else its parent. Mutates the tree given (a copy of the draft). Exported for tests/web.
+ */
+export function targetGroupPath(expr, path) {
+  const { node } = nodeAt(expr, path);
+  const k = key(node?.kind);
+  if (k === 'all' || k === 'any') return path;
+  if (k === 'not' || k === 'collection') {
+    if (!node.children?.length) node.children = [group('all')];
+    const inner = node.children[0];
+    if (!['all', 'any'].includes(key(inner.kind))) node.children = [group('all', [inner])];
+    return `${path}/0`;
+  }
+  return path.split('/').slice(0, -1).join('/');
+}
 
 /** Mounts the « Créer » view; returns a cleanup. */
 export function mountCompose(panel, store, api) {
@@ -105,29 +126,30 @@ export function mountCompose(panel, store, api) {
           <summary><span class="card-icon">${glyph('tree')}</span><span class="rq-fold-title"><b>Conditions avancées</b><span>Groupes ET, OU, NON et conditions sur une même instance de sonde</span></span><span class="rq-fold-badge"></span>${glyph('chevronDown', 'rq-fold-chev')}</summary>
           <div class="rq-fold-body">
             <div class="rq-tree-tools" role="toolbar" aria-label="Arbre de conditions">
-              <button class="btn xs subtle" type="button" data-tree="all">${glyph('plus')}Groupe ET</button>
-              <button class="btn xs subtle" type="button" data-tree="any">${glyph('plus')}Groupe OU</button>
-              <button class="btn xs subtle" type="button" data-tree="not">${glyph('plus')}Groupe NON</button>
-              <button class="btn xs subtle" type="button" data-tree="clause">${glyph('plus')}Critère choisi</button>
-              <span class="rq-tools-sep" aria-hidden="true"></span>
-              <button class="btn xs ghost icon" type="button" data-tree="up" aria-label="Monter" data-tip="Monter">${glyph('arrowUp')}</button>
-              <button class="btn xs ghost icon" type="button" data-tree="down" aria-label="Descendre" data-tip="Descendre">${glyph('arrowDown')}</button>
-              <button class="btn xs ghost" type="button" data-tree="remove">${glyph('trash')}Retirer</button>
-              <button class="btn xs ghost" type="button" data-tree="clear">${glyph('x')}Effacer l’arbre</button>
+              <div class="rq-tree-group" role="group" aria-label="Ajouter"><span class="rq-tree-k">Ajouter</span>
+                <button class="btn xs subtle" type="button" data-tree="all">${glyph('plus')}Groupe ET</button>
+                <button class="btn xs subtle" type="button" data-tree="any">${glyph('plus')}Groupe OU</button>
+                <button class="btn xs subtle" type="button" data-tree="not">${glyph('plus')}Groupe NON</button>
+                <button class="btn xs subtle" type="button" data-tree="clause">${glyph('plus')}Critère choisi</button></div>
+              <div class="rq-tree-group end" role="group" aria-label="Élément sélectionné">
+                <button class="btn xs ghost icon" type="button" data-tree="up" aria-label="Monter" data-tip="Monter">${glyph('arrowUp')}</button>
+                <button class="btn xs ghost icon" type="button" data-tree="down" aria-label="Descendre" data-tip="Descendre">${glyph('arrowDown')}</button>
+                <button class="btn xs ghost" type="button" data-tree="remove">${glyph('trash')}Retirer</button>
+                <button class="btn xs ghost" type="button" data-tree="clear">${glyph('x')}Tout effacer</button></div>
             </div>
             <div class="rq-tree" role="tree" aria-label="Conditions avancées"></div>
             <div class="rq-collection">
               <h4>Condition sur une collection d’instances</h4>
-              <div class="rq-collection-row">
-                <span class="k-select sm"><select class="input rq-coll-probe" aria-label="Collection de la sonde"></select></span>
-                <span class="k-select sm"><select class="input rq-coll-q" aria-label="Quantificateur">
-                  <option value="any">Au moins une instance</option><option value="all">Toutes les instances</option><option value="none">Aucune instance</option></select></span>
-                <button class="btn xs subtle rq-coll-add" type="button">${glyph('plus')}Collection</button>
+              <div class="rq-collection-row coll">
+                <label class="rq-mini-field wide"><span>Collection de la sonde</span><span class="k-select sm"><select class="input rq-coll-probe"></select></span></label>
+                <label class="rq-mini-field"><span>Quantificateur</span><span class="k-select sm"><select class="input rq-coll-q">
+                  <option value="any">Au moins une instance</option><option value="all">Toutes les instances</option><option value="none">Aucune instance</option></select></span></label>
+                <button class="btn xs subtle rq-coll-add" type="button">${glyph('plus')}Ajouter la collection</button>
               </div>
-              <div class="rq-collection-row">
-                <span class="k-select sm"><select class="input rq-inst-field" aria-label="Propriété de l’instance"></select></span>
-                <span class="k-select sm"><select class="input rq-inst-op" aria-label="Condition sur la propriété"></select></span>
-                <input class="input sm rq-inst-val" type="text" maxlength="4096" aria-label="Valeur de la propriété" placeholder="Valeur">
+              <div class="rq-collection-row inst">
+                <label class="rq-mini-field wide"><span>Propriété de l’instance</span><span class="k-select sm"><select class="input rq-inst-field"></select></span></label>
+                <label class="rq-mini-field"><span>Condition</span><span class="k-select sm"><select class="input rq-inst-op"></select></span></label>
+                <label class="rq-mini-field"><span>Valeur</span><input class="input sm rq-inst-val" type="text" maxlength="4096" placeholder="Valeur"></label>
                 <button class="btn xs subtle rq-inst-add" type="button">${glyph('plus')}Critère d’instance</button>
               </div>
               <p class="rq-note">Les propriétés viennent de la même instance de la sonde ; une collection partielle ou non lue reste inconnue.</p>
@@ -142,10 +164,17 @@ export function mountCompose(panel, store, api) {
           <div class="rq-fold-body">
             <div class="rq-param-list"></div>
             <div class="rq-param-new">
-              <input class="input sm rq-param-name" type="text" maxlength="64" placeholder="Nom technique (Seuil)" aria-label="Nom technique du paramètre">
-              <input class="input sm rq-param-label" type="text" maxlength="80" placeholder="Libellé affiché" aria-label="Libellé du paramètre">
-              <button class="btn xs subtle rq-param-add" type="button">${glyph('plus')}Paramétrer le critère sélectionné</button>
-              <button class="btn xs ghost rq-param-freeze" type="button">${glyph('pin')}Fixer les valeurs actuelles</button>
+              <p class="rq-param-from rq-note">${glyph('info')}<span class="rq-param-from-text">Sélectionnez un critère dans « Vos critères » : il devient un paramètre nommé.</span></p>
+              <div class="rq-param-fields">
+                <label class="rq-mini-field"><span>Nom technique</span><input class="input sm rq-param-name" type="text" maxlength="64" placeholder="Seuil"></label>
+                <label class="rq-mini-field"><span>Libellé affiché</span><input class="input sm rq-param-label" type="text" maxlength="80" placeholder="Seuil d’espace libre"></label>
+                <label class="rq-mini-field num" hidden><span>Minimum</span><input class="input sm rq-param-min" type="text" inputmode="decimal" maxlength="32" placeholder="Aucun"></label>
+                <label class="rq-mini-field num" hidden><span>Maximum</span><input class="input sm rq-param-max" type="text" inputmode="decimal" maxlength="32" placeholder="Aucun"></label>
+              </div>
+              <div class="rq-param-acts">
+                <button class="btn xs subtle rq-param-add" type="button">${glyph('plus')}Paramétrer le critère sélectionné</button>
+                <button class="btn xs ghost rq-param-freeze" type="button">${glyph('pin')}Fixer les valeurs actuelles</button>
+              </div>
             </div>
           </div>
         </details>
@@ -201,10 +230,14 @@ export function mountCompose(panel, store, api) {
 
   // ---------- Builder ----------
 
+  /** Comparisons first, then the presence tests in a group of their own: a line break falls between the two, never inside. */
   function renderOps() {
     const ops = opsOf(st.field);
     if (!ops.includes(st.operator)) st.operator = ops[0];
-    $('.rq-ops').innerHTML = ops.map((op) => `<button type="button" role="radio" aria-checked="${op === st.operator}" data-op="${op}" tabindex="${op === st.operator ? 0 : -1}">${esc(OPERATOR_LABEL[op] ?? op)}</button>`).join('');
+    const button = (op) => `<button type="button" role="radio" aria-checked="${op === st.operator}" data-op="${op}" tabindex="${op === st.operator ? 0 : -1}">${esc(OPERATOR_LABEL[op] ?? op)}</button>`;
+    const compare = ops.filter((op) => !PRESENCE.has(op));
+    const presence = ops.filter((op) => PRESENCE.has(op));
+    $('.rq-ops').innerHTML = `<span class="rq-ops-group">${compare.map(button).join('')}</span>${presence.length ? `<span class="rq-ops-group presence">${presence.map(button).join('')}</span>` : ''}`;
   }
 
   function renderValue() {
@@ -353,7 +386,7 @@ export function mountCompose(panel, store, api) {
   function startEditing(index) {
     const clause = store.recipe.clauses[index];
     const f = fieldOf(store, clause.field);
-    if (!f || f.source === 'ldap') { store.toast('Ce critère se modifie dans le texte LDAP.', 'info'); return; }
+    if (!f || clause.field === 'ldap.filter') { store.toast('Ce filtre LDAP brut se modifie dans le texte LDAP, à droite.', 'info'); return; }
     st.editIndex = index;
     st.combo?.setValue(f.id);
     st.field = f;
@@ -441,6 +474,7 @@ export function mountCompose(panel, store, api) {
     } else {
       st.selectedCrit = st.selectedCrit === i ? -1 : i;
       renderCriteria();
+      paintParamSource();
     }
   });
   $('.rq-segment').addEventListener('click', (e) => {
@@ -477,7 +511,7 @@ export function mountCompose(panel, store, api) {
       host.innerHTML = rows.map((x, n) => {
         const k = key(x.node.kind);
         return `<div class="rq-node" role="treeitem" aria-level="${x.depth + 1}" aria-selected="${x.path === st.selectedPath}" tabindex="${x.path === st.selectedPath ? 0 : -1}" data-path="${esc(x.path)}" data-kind="${esc(k)}" data-depth="${x.depth}" data-i="${n}">
-          <span class="rq-node-guide" aria-hidden="true"></span><span class="rq-node-kind">${esc({ all: 'ET', any: 'OU', not: 'NON', collection: 'COLL.', clause: '•' }[k] ?? k)}</span>
+          <span class="rq-node-guide" aria-hidden="true"></span><span class="rq-node-kind">${k === 'clause' ? glyph('filter') : esc({ all: 'ET', any: 'OU', not: 'NON', collection: 'COLL.' }[k] ?? k)}</span>
           <span class="rq-node-label">${esc(nodeLabel(x.node, store))}</span></div>`;
       }).join('');
       vars(host);
@@ -499,20 +533,6 @@ export function mountCompose(panel, store, api) {
       return owner ? { path: owner.path, probe: sel.collection } : null;
     }
     return null;
-  }
-
-  function targetGroupPath(expr, path) {
-    // The group that receives a new element: the selection when it is AND / OR, the inside of NOT / collection, else its parent.
-    const { node } = nodeAt(expr, path);
-    const k = key(node?.kind);
-    if (k === 'all' || k === 'any') return path;
-    if (k === 'not' || k === 'collection') {
-      if (!node.children?.length) node.children = [group('all')];
-      const inner = node.children[0];
-      if (!['all', 'any'].includes(key(inner.kind))) node.children = [group('all', [inner])];
-      return `${path}/0`;
-    }
-    return path.split('/').slice(0, -1).join('/');
   }
 
   function treeAdd(element) {
@@ -635,49 +655,130 @@ export function mountCompose(panel, store, api) {
 
   // ---------- Parameters ----------
 
+  /** Typed number of a bound typed by the operator (« 8 », « 10,5 »), null when empty; NaN when unreadable. */
+  const bound = (text) => (text.trim() ? Number(text.trim().replace(/\s/g, '').replace(',', '.')) : null);
+
+  /** The criterion selected in « Vos critères » becomes the source of a new parameter; numbers take bounds. */
+  function paintParamSource() {
+    const clause = store.recipe.clauses?.[st.selectedCrit];
+    const f = clause ? fieldOf(store, clause.field) : null;
+    $('.rq-param-from-text').textContent = clause
+      ? `Critère choisi : ${clauseText(clause, f)}`
+      : 'Sélectionnez un critère dans « Vos critères » : il devient un paramètre nommé, sa valeur se change ici.';
+    const numeric = key(f?.kind) === 'number';
+    panel.querySelectorAll('.rq-param-new .num').forEach((el) => { el.hidden = !numeric; });
+    $('.rq-param-add').disabled = !clause;
+  }
+
+  function paramInput(d, f, current) {
+    if (key(f?.kind) === 'boolean' || f?.choices?.length) {
+      const choices = f.choices?.length ? f.choices : [{ name: 'Oui', value: true }, { name: 'Non', value: false }];
+      return `<span class="k-select sm"><select class="input rq-param-value" data-name="${esc(d.name)}">${choices.map((c) => `<option value="${esc(String(c.value))}"${String(c.value) === String(current) ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></span>`;
+    }
+    return `<input class="input sm rq-param-value" data-name="${esc(d.name)}" type="text" maxlength="4096" autocomplete="off" spellcheck="false" value="${esc(current === null || current === undefined ? '' : String(current))}">`;
+  }
+
   function renderParams() {
     const rows = store.validation?.parameters ?? [];
     const defs = store.recipe.parameters ?? [];
     panel.querySelector('[data-fold="params"] .rq-fold-badge').innerHTML = defs.length ? `<span class="k-badge accent">${defs.length}</span>` : '';
+    paintParamSource();
     const host = $('.rq-param-list');
     if (!defs.length) {
-      host.innerHTML = `<p class="rq-note">${glyph('info')} Sélectionnez un critère dans « Vos critères », nommez le paramètre, puis « Paramétrer » : sa valeur se change ici sans recréer la requête.</p>`;
+      host.innerHTML = `<p class="rq-note">${glyph('info')}Aucun paramètre : une valeur paramétrée se change sans recréer la requête (et sans toucher à ses autres critères).</p>`;
       return;
     }
-    host.innerHTML = defs.map((d) => {
+    host.innerHTML = defs.map((d, n) => {
       const row = rows.find((x) => x.name === d.name);
       const f = fieldOf(store, d.field);
       const current = store.recipe.parameterValues?.[d.name] ?? d.default;
-      const isDn = d.field === 'dn';
-      let input;
-      if (key(f?.kind) === 'boolean' || f?.choices?.length) {
-        const choices = f.choices?.length ? f.choices : [{ name: 'Oui', value: true }, { name: 'Non', value: false }];
-        input = `<span class="k-select sm"><select class="input rq-param-value" data-name="${esc(d.name)}">${choices.map((c) => `<option value="${esc(String(c.value))}"${String(c.value) === String(current) ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></span>`;
-      } else {
-        input = `<input class="input sm rq-param-value" data-name="${esc(d.name)}" type="text" maxlength="4096" value="${esc(current === null || current === undefined ? '' : String(current))}">`;
-      }
-      return `<div class="rq-param-row"><div class="rq-param-id"><b>${esc(row?.label ?? d.label ?? d.name)}</b><span>${esc(d.name)} · ${esc(f?.name ?? d.field)}</span><small>${esc(row?.hint ?? '')}</small></div>
-        <div class="rq-param-edit">${input}<button type="button" class="btn xs subtle" data-param="apply" data-name="${esc(d.name)}">Appliquer la valeur</button>
-        ${isDn ? `<button type="button" class="btn xs ghost" data-param="scope" data-name="${esc(d.name)}">${glyph('ou')}OU de travail</button>` : ''}
-        <button type="button" class="btn xs ghost icon" data-param="remove" data-name="${esc(d.name)}" aria-label="Retirer le paramètre" data-tip="Retirer">${glyph('x')}</button></div></div>`;
+      const scopeKind = d.field === 'dn' ? 'dn' : d.field === 'site' ? 'site' : null;
+      return `<div class="rq-param-row" data-name="${esc(d.name)}" data-i="${n}">
+        <div class="rq-param-id"><b>${esc(row?.label ?? d.label ?? d.name)}</b><span><span class="rq-mono">${esc(d.name)}</span> · ${esc(f?.name ?? d.field)}</span></div>
+        <div class="rq-param-edit">${paramInput(d, f, current)}
+          <button type="button" class="btn xs subtle" data-param="apply" data-name="${esc(d.name)}">Appliquer la valeur</button>
+          ${scopeKind ? `<button type="button" class="btn xs ghost" data-param="scope" data-name="${esc(d.name)}" data-tip="${esc(scopeKind === 'dn' ? 'Insère le chemin AD de l’OU suivie' : 'Insère le nom de l’OU suivie')}">${glyph('ou')}OU de travail</button>` : ''}
+          <button type="button" class="btn xs ghost icon" data-param="remove" data-name="${esc(d.name)}" aria-label="Retirer le paramètre ${esc(d.name)}" data-tip="Retirer le paramètre">${glyph('x')}</button></div>
+        <p class="rq-param-check" data-check="${esc(d.name)}" aria-live="polite">${esc(row?.hint ?? '')}</p></div>`;
     }).join('');
+    vars(host);
   }
+
+  /**
+   * Live check of a parameter value before « Appliquer » (Domenia 1 LblQueryParameterCheck): numbers converted by the engine
+   * (units included) and checked against the bounds, texts checked for length. Returns the typed value, or undefined.
+   */
+  async function checkParam(name) {
+    const def = (store.recipe.parameters ?? []).find((p) => p.name === name);
+    const input = panel.querySelector(`.rq-param-value[data-name="${CSS.escape(name)}"]`);
+    const out = panel.querySelector(`[data-check="${CSS.escape(name)}"]`);
+    const apply = panel.querySelector(`[data-param="apply"][data-name="${CSS.escape(name)}"]`);
+    if (!def || !input || !out) return undefined;
+    const f = fieldOf(store, def.field);
+    const say = (text, tone) => { out.textContent = text; out.className = `rq-param-check ${tone}`; if (apply) apply.disabled = tone === 'bad'; };
+    if (key(f?.kind) === 'boolean') { say(input.value === 'true' ? 'Valeur retenue : Oui' : 'Valeur retenue : Non', 'ok'); return input.value === 'true'; }
+    if (f?.choices?.length) {
+      const choice = f.choices.find((c) => String(c.value) === input.value);
+      say(`Valeur retenue : ${choice?.name ?? input.value}`, 'ok');
+      return choice ? choice.value : input.value;
+    }
+    const text = input.value;
+    if (!text.trim()) { say('Renseignez une valeur.', 'bad'); return undefined; }
+    if (key(f?.kind) === 'number') {
+      const res = await store.call('requetes.value.preview', { target: store.recipe.target, field: def.field, text });
+      if (!store.alive) return undefined;
+      const p = res.data;
+      if (!p?.valid || !Number.isFinite(p.value)) { say(p?.text || res.message || 'Nombre illisible.', 'bad'); return undefined; }
+      if (def.minimum !== null && def.minimum !== undefined && p.value < def.minimum) { say(`${p.text} : en dessous du minimum (${valueText(def.minimum, f)}).`, 'bad'); return undefined; }
+      if (def.maximum !== null && def.maximum !== undefined && p.value > def.maximum) { say(`${p.text} : au-dessus du maximum (${valueText(def.maximum, f)}).`, 'bad'); return undefined; }
+      say(p.text || `Valeur retenue : ${valueText(p.value, f)}`, 'ok');
+      return p.value;
+    }
+    if (text.length > 4096) { say('Texte limité à 4 096 caractères.', 'bad'); return undefined; }
+    say(`Valeur retenue : ${valueText(text, f)}`, 'ok');
+    return text;
+  }
+  const checkLater = debounce((name) => { checkParam(name); }, 200);
+  $('.rq-param-list').addEventListener('input', (e) => {
+    const input = e.target instanceof HTMLElement ? e.target.closest('.rq-param-value') : null;
+    if (input) checkLater(input.dataset.name);
+  });
+  $('.rq-param-list').addEventListener('change', (e) => {
+    const input = e.target instanceof HTMLElement ? e.target.closest('select.rq-param-value') : null;
+    if (input) checkParam(input.dataset.name);
+  });
 
   $('.rq-param-add').addEventListener('click', () => {
     const name = $('.rq-param-name').value.trim();
     const label = $('.rq-param-label').value.trim();
     const i = st.selectedCrit;
     if (i < 0 || !store.recipe.clauses[i]) { store.toast('Sélectionnez d’abord un critère dans « Vos critères ».', 'warn'); return; }
-    if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name)) { store.toast('Nom technique : une lettre, puis lettres, chiffres ou _ (64 au plus).', 'warn'); return; }
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name)) { store.toast('Nom technique : une lettre, puis lettres, chiffres ou _ (64 au plus).', 'warn'); $('.rq-param-name').focus(); return; }
     if ((store.recipe.parameters ?? []).some((p) => p.name === name)) { store.toast('Ce nom de paramètre existe déjà.', 'warn'); return; }
+    if ((store.recipe.parameters ?? []).length >= 32) { store.toast('32 paramètres au plus par requête.', 'warn'); return; }
     const clause = store.recipe.clauses[i];
     if (NO_VALUE.has(key(clause.operator)) || (clause.value && typeof clause.value === 'object')) { store.toast('Ce critère n’a pas de valeur à paramétrer.', 'warn'); return; }
+    const f = fieldOf(store, clause.field);
+    let minimum = null;
+    let maximum = null;
+    if (key(f?.kind) === 'number') {
+      minimum = bound($('.rq-param-min').value);
+      maximum = bound($('.rq-param-max').value);
+      if (Number.isNaN(minimum) || Number.isNaN(maximum)) { store.toast('Bornes : nombres décimaux seulement (10 ou 10,5).', 'warn'); return; }
+      if (minimum !== null && maximum !== null && minimum > maximum) { store.toast('Le minimum dépasse le maximum.', 'warn'); return; }
+      if (typeof clause.value === 'number' && ((minimum !== null && clause.value < minimum) || (maximum !== null && clause.value > maximum))) {
+        store.toast('La valeur actuelle du critère sort des bornes choisies.', 'warn');
+        return;
+      }
+    }
     edit((r) => {
-      r.parameters = [...(r.parameters ?? []), { name, field: clause.field, default: clause.value, label: label || null, minimum: null, maximum: null }];
+      r.parameters = [...(r.parameters ?? []), { name, field: clause.field, default: clause.value, label: label || null, minimum, maximum }];
       r.clauses[i] = { ...clause, value: { parameter: name } };
     }, `Paramètre ${name} créé.`);
     $('.rq-param-name').value = '';
     $('.rq-param-label').value = '';
+    $('.rq-param-min').value = '';
+    $('.rq-param-max').value = '';
   });
   $('.rq-param-freeze').addEventListener('click', () => {
     const r = store.recipe;
@@ -693,7 +794,7 @@ export function mountCompose(panel, store, api) {
       x.parameterValues = null;
     }, 'Valeurs des paramètres fixées.');
   });
-  $('.rq-param-list').addEventListener('click', (e) => {
+  $('.rq-param-list').addEventListener('click', async (e) => {
     const b = e.target instanceof Element ? e.target.closest('[data-param]') : null;
     if (!b) return;
     const name = b.dataset.name;
@@ -701,21 +802,20 @@ export function mountCompose(panel, store, api) {
     const def = (r.parameters ?? []).find((p) => p.name === name);
     if (!def) return;
     if (b.dataset.param === 'apply') {
-      const input = panel.querySelector(`.rq-param-value[data-name="${CSS.escape(name)}"]`);
-      const f = fieldOf(store, def.field);
-      let value = input.value;
-      if (key(f?.kind) === 'boolean') value = value === 'true';
-      else if (f?.choices?.length) value = f.choices.find((c) => String(c.value) === value)?.value ?? value;
+      const value = await checkParam(name);
+      if (value === undefined) { store.toast('Valeur refusée : voir le contrôle sous le champ.', 'warn'); return; }
       edit((x) => { x.parameterValues = { ...(x.parameterValues ?? {}), [name]: value }; }, `Valeur du paramètre ${name} appliquée.`);
     } else if (b.dataset.param === 'scope') {
       const scope = store.scope?.effective;
       if (!scope || store.scope?.wholeDomain) { store.toast('Aucune OU suivie : le domaine entier ne sert pas de paramètre.', 'warn'); return; }
-      edit((x) => { x.parameterValues = { ...(x.parameterValues ?? {}), [name]: scope.dn }; }, `Paramètre ${name} : ${scope.label}.`);
+      const value = def.field === 'site' ? scope.label : scope.dn;
+      edit((x) => { x.parameterValues = { ...(x.parameterValues ?? {}), [name]: value }; }, `Paramètre ${name} : ${scope.label}.`);
     } else {
       const fix = (c) => (c?.value && typeof c.value === 'object' && c.value.parameter === name ? { ...c, value: def.default } : c);
       const fixNode = (n) => (n ? { ...n, clause: n.clause ? fix(n.clause) : n.clause, children: (n.children ?? []).map(fixNode) } : n);
       edit((x) => {
         x.clauses = x.clauses.map(fix);
+        x.refinements = (x.refinements ?? []).map(fix);
         x.expression = fixNode(x.expression);
         x.parameters = x.parameters.filter((p) => p.name !== name);
         if (x.parameterValues) delete x.parameterValues[name];
@@ -733,7 +833,7 @@ export function mountCompose(panel, store, api) {
   }
   $('.rq-coh-apply').addEventListener('click', () => {
     const h = Number($('.rq-coh-hours').value);
-    if (!(h > 0 && h <= 8760)) { store.toast('Saisissez un écart de plus de 0 et d’au plus 8 760 heures.', 'warn'); return; }
+    if (!(h > 0 && h <= 8760)) { store.toast('Saisissez un écart de plus de 0 et d’au plus 8 760 heures.', 'warn'); return; }
     edit((r) => { r.coherenceHours = h; }, `Fenêtre de cohérence : ${h} heures.`);
   });
   $('.rq-coh-clear').addEventListener('click', () => edit((r) => { r.coherenceHours = null; }, 'Aucune contrainte de cohérence.'));
@@ -823,13 +923,27 @@ export function mountCompose(panel, store, api) {
     const issues = $('.rq-issues');
     const stateEl = $('.rq-sum-state');
     if (!v) { stateEl.innerHTML = '<span class="k-pill info sm"><span class="k-spin"></span>Validation…</span>'; return; }
-    stateEl.innerHTML = v.valid ? '<span class="k-pill ok sm"><span class="k-pill-dot"></span>Critères valides</span>' : '<span class="k-pill alert sm"><span class="k-pill-dot"></span>À corriger</span>';
+    // A valid draft without condition is not « all good »: every object matches, said in the same tone as the warning below.
+    stateEl.innerHTML = !v.valid ? '<span class="k-pill alert sm"><span class="k-pill-dot"></span>À corriger</span>'
+      : v.conditionCount ? '<span class="k-pill ok sm"><span class="k-pill-dot"></span>Critères valides</span>'
+        : '<span class="k-pill warn sm"><span class="k-pill-dot"></span>Sans condition</span>';
     $('.rq-sum-format').textContent = v.valid ? `${v.conditionCount ? plural(v.conditionCount, 'condition', 'conditions') : 'Aucune condition'} · format ${v.format}${v.fingerprint ? ` · empreinte ${v.fingerprint.slice(0, 12)}` : ''}` : 'La requête ne peut pas être évaluée en l’état.';
     issues.innerHTML = [...(v.errors ?? []).map((t) => `<li class="err">${glyph('alert')}${esc(t)}</li>`), ...(v.warnings ?? []).map((t) => `<li class="warn">${glyph('info')}${esc(t)}</li>`)].join('');
-    const outline = (v.summary ?? []).filter((l) => !['Nom', 'Répartition'].includes(l.element)).flatMap((l) => l.values.filter(Boolean).map((val) => ({ element: l.element, val })))
-      .filter((x) => !['Aucune contrainte', 'Aucune', 'Aucun'].includes(x.val));
-    // A label is written once for consecutive lines of the same element (advanced conditions, parameters).
-    $('.rq-outline').innerHTML = outline.map((x, n) => `<li data-i="${n}"${n > 0 && outline[n - 1].element === x.element ? ' class="cont"' : ''}><span>${n > 0 && outline[n - 1].element === x.element ? '' : esc(x.element)}</span><b>${esc(x.val)}</b></li>`).join('');
+    const quiet = ['Aucune contrainte', 'Aucune', 'Aucun'];
+    const items = [];
+    for (const line of v.summary ?? []) {
+      if (['Nom', 'Répartition', 'Cible'].includes(line.element)) continue;
+      if (line.element === 'Conditions avancées') {
+        // The tree keeps its shape: guides and kinds, as in « Conditions avancées » (never ASCII depth marks).
+        if (v.outline?.length) items.push({ element: line.element, tree: v.outline });
+        continue;
+      }
+      line.values.filter((val) => val && !quiet.includes(val)).forEach((val, n) => items.push({ element: line.element, val, cont: n > 0 }));
+    }
+    const kind = (k) => ({ all: 'ET', any: 'OU', not: 'NON', collection: 'COLL.' }[key(k)] ?? '');
+    $('.rq-outline').innerHTML = items.map((x, n) => (x.tree
+      ? `<li data-i="${n}" class="tree"><span>${esc(x.element)}</span><ol class="rq-mini-tree">${x.tree.map((r) => `<li data-depth="${r.depth}" data-kind="${esc(key(r.kind))}"><span class="rq-mt-guide" aria-hidden="true"></span>${kind(r.kind) ? `<span class="rq-mt-kind">${kind(r.kind)}</span>` : `<span class="rq-mt-dot" aria-hidden="true"></span>`}<span class="rq-mt-label">${esc(r.label)}</span></li>`).join('')}</ol></li>`
+      : `<li data-i="${n}"${x.cont ? ' class="cont"' : ''}><span>${x.cont ? '' : esc(x.element)}</span><b>${esc(x.val)}</b></li>`)).join('');
     vars($('.rq-outline'));
     $('.rq-go-preview').disabled = !v.valid;
   }
@@ -856,7 +970,8 @@ export function mountCompose(panel, store, api) {
     try {
       const { data } = await resolvedCatalog(store, target);
       if (!store.alive) return;
-      st.fields = data.fields;
+      // The raw LDAP attributes of the schema are informations of the builder too (their own category, LDAP semantics).
+      st.fields = [...data.fields, ...(data.ldapFields ?? [])];
       st.collections = data.collections ?? [];
       st.instanceFields = data.instanceFields ?? [];
       $('.rq-coll-probe').innerHTML = '';

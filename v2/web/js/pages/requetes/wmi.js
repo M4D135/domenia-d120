@@ -1,11 +1,14 @@
-// « WMI avancé »: one workstation at a time, every remote read after an explicit gesture. Namespaces one level at a time,
-// class definitions, the schema of one class (secret properties left out), a SELECT prepared from the checked properties
-// or typed in a closed grammar, analysed locally, run on the chosen workstation, related instances through declared
-// relations only, and a local recipe made from a tested SELECT. Metadata already read are reused with their date.
+// « WMI avancé »: one workstation at a time, every remote read after an explicit gesture and a confirmation (once per
+// workstation and session for the metadata, every time for a SELECT or a relation). Namespaces one level at a time, class
+// definitions, the schema of one class (secret properties left out), a SELECT prepared from the checked properties or
+// typed in a closed grammar, analysed locally, run on the chosen workstation, related instances through declared relations
+// only, a local recipe made from a tested SELECT, and the results of the SELECT memorised on every workstation (pages of 250).
+// Metadata already read are reused with their date. Until a workstation is chosen, the steps stay folded.
 import {
   esc, glyph, plural, emptyState, skLines, dateText, vars, ago,
 } from './shared.js';
 import { createGrid, confirmDialog, debounce } from '../../kit/index.js';
+import { formatNumber } from '../../ui.js';
 import { reveal } from '../../ui.js';
 
 const ROOT = 'root\\cimv2';
@@ -13,9 +16,9 @@ const ROOT = 'root\\cimv2';
 export function mountWmi(panel, store, api, { computerName = null } = {}) {
   const st = {
     computer: null, ns: ROOT, classes: [], filter: '', className: null, schema: null, checked: new Set(), result: null, related: null,
-    relations: [], grid: null, relGrid: null, activeRow: null, findToken: 0,
+    relations: [], grid: null, relGrid: null, activeRow: null, findToken: 0, confirmed: new Set(), stored: { key: null, offset: 0 },
   };
-  panel.innerHTML = `<div class="rq-wmi">
+  panel.innerHTML = `<div class="rq-wmi" data-stage="pick">
     <div class="rq-wmi-banner" role="note">${glyph('shield')}<p><b>Lecture distante explicite.</b> Chaque bouton marqué ${glyph('wifi')} lit le poste choisi, et lui seul ; aucune écriture, aucune méthode WMI appelée, propriétés de secret écartées.</p></div>
     <div class="grid rq-wmi-top">
       <section class="card span-4 rq-wmi-pc spot reveal" aria-labelledby="rq-wp-title">
@@ -24,6 +27,15 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
         <ul class="rq-t-found rq-wp-found" role="listbox" aria-label="Postes trouvés"></ul>
         <div class="rq-wp-chosen"></div>
       </section>
+      <section class="card span-8 rq-wmi-steps spot reveal" aria-label="Étapes suivantes">
+      <div class="card-head"><span class="card-icon">${glyph('chip')}</span><div class="rq-head-titles"><h3>Ensuite, sur ce seul poste</h3><p class="rq-sub">Chaque lecture distante demande votre accord ; rien n’est écrit.</p></div></div>
+      <ol class="rq-wsteps">
+        <li><span class="rq-flow-n">2</span><div><b>Espace de noms et classe</b><span>Un niveau à la fois, 500 espaces et 2 000 classes au plus.</span></div></li>
+        <li><span class="rq-flow-n">3</span><div><b>Propriétés</b><span>Schéma de la classe, propriétés de secret écartées.</span></div></li>
+        <li><span class="rq-flow-n">4</span><div><b>SELECT WQL</b><span>Grammaire fermée, analysé localement avant toute lecture.</span></div></li>
+        <li><span class="rq-flow-n">5</span><div><b>Instances lues</b><span>Relations déclarées seulement, puis recette sur les résultats mémorisés.</span></div></li>
+      </ol>
+    </section>
       <section class="card span-4 rq-wmi-ns spot reveal" aria-labelledby="rq-wn-title">
         <div class="card-head"><span class="rq-flow-n">2</span><div class="rq-head-titles"><h3 id="rq-wn-title">Espace de noms et classe</h3><p class="rq-sub rq-wn-sub">root\\cimv2 par défaut.</p></div></div>
         <div class="rq-wn-path"></div>
@@ -61,6 +73,13 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
       <div class="rq-wx-grid"><div class="rq-wx-empty">${glyph('chip')}<p><b>Aucune instance lue</b>Préparez un SELECT à partir du schéma ou écrivez-le, analysez-le, puis exécutez-le sur le poste choisi : les instances s’affichent ici, avec les relations déclarées.</p></div></div>
       <div class="rq-wx-rel"></div>
     </section>
+    <section class="card rq-wmi-stored spot reveal" aria-labelledby="rq-wm-title">
+      <div class="card-head"><span class="card-icon">${glyph('database')}</span><div class="rq-head-titles"><h3 id="rq-wm-title">Résultats mémorisés des SELECT</h3>
+        <p class="rq-sub rq-wm-sub">Nombre d’instances gardé pour chaque poste où un SELECT a été exécuté : source des informations « SELECT mémorisé ».</p></div>
+        <span class="meta"><button type="button" class="btn xs subtle rq-wm-refresh">${glyph('refresh')}Actualiser</button></span></div>
+      <div class="rq-wm-defs"></div>
+      <div class="rq-wm-rows"></div>
+    </section>
   </div>`;
   const $ = (sel) => panel.querySelector(sel);
 
@@ -74,6 +93,23 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
   function netDisabled() {
     panel.querySelectorAll('[data-net]').forEach((b) => { b.disabled = !st.computer; b.title = st.computer ? '' : 'Choisissez d’abord un poste'; });
     $('.rq-wq-recipe').disabled = !st.computer;
+    panel.querySelector('.rq-wmi').dataset.stage = st.computer ? 'work' : 'pick';
+  }
+
+  /**
+   * Domenia 1 asks before any remote read of WMI metadata: once per workstation and session here (the SELECT and the
+   * relations still confirm each time), with the reminder of the read-only rule.
+   */
+  async function allowRead(what) {
+    if (st.confirmed.has(st.computer.id)) return true;
+    const ok = await confirmDialog({
+      title: `Lire WMI sur ${st.computer.name} ?`,
+      message: `${what} : lecture distante du seul poste ${st.computer.name}, en lecture seule (aucune méthode WMI appelée, propriétés de secret écartées). Les lectures de métadonnées suivantes sur ce poste ne redemanderont pas pendant cette session.`,
+      confirmLabel: 'Lire sur ce poste',
+      icon: 'wifi',
+    });
+    if (ok) st.confirmed.add(st.computer.id);
+    return ok;
   }
 
   // ---------- 1. Computer ----------
@@ -171,7 +207,7 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
   }
 
   $('.rq-wn-read').addEventListener('click', async () => {
-    if (!needComputer()) return;
+    if (!needComputer() || !(await allowRead(`Espaces de noms enfants de ${st.ns}`))) return;
     const b = $('.rq-wn-read');
     b.classList.add('busy');
     const res = await store.call('requetes.wmi.namespaces', { computer: st.computer.id, namespace: st.ns });
@@ -184,7 +220,7 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
   function renderClasses() {
     const list = $('.rq-wc-list');
     const meta = st.classMeta;
-    $('.rq-wc-meta').textContent = meta ? `${plural(meta.classes.length, 'classe', 'classes')} · lues ${ago(meta.readAt)}${meta.truncated ? ' · tronqué à 2 000' : ''}` : '';
+    $('.rq-wc-meta').textContent = meta ? `${plural(meta.classes.length, 'classe', 'classes')} · lues ${ago(meta.readAt)}${meta.truncated ? ' · tronqué à 2 000' : ''}` : '';
     if (!st.classes.length) { list.innerHTML = meta ? '<li class="rq-note">Aucune classe pour ce filtre.</li>' : ''; return; }
     list.innerHTML = st.classes.slice(0, 600).map((c, n) => `<li role="option" tabindex="-1" data-class="${esc(c.name)}" aria-selected="${c.name === st.className}" data-i="${Math.min(n, 20)}">
       <b>${esc(c.name)}</b><span>${plural(c.properties, 'propriété', 'propriétés')}${c.keys ? ` · ${plural(c.keys, 'clé', 'clés')}` : ''}${c.remark ? ` · ${esc(c.remark)}` : ''}</span></li>`).join('');
@@ -194,6 +230,7 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
   async function readClasses() {
     if (!needComputer()) return;
     st.filter = $('.rq-wc-filter').value.trim();
+    if (!(await allowRead(`Classes de ${st.ns}${st.filter ? ` (filtre ${st.filter})` : ''}`))) return;
     const b = $('.rq-wc-read');
     b.classList.add('busy');
     const res = await store.call('requetes.wmi.classes', { computer: st.computer.id, namespace: st.ns, filter: st.filter || null });
@@ -243,7 +280,7 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
   }
 
   async function readSchema() {
-    if (!needComputer() || !st.className) return;
+    if (!needComputer() || !st.className || !(await allowRead(`Schéma de la classe ${st.className}`))) return;
     const res = await store.call('requetes.wmi.schema', { computer: st.computer.id, namespace: st.ns, className: st.className });
     if (res.error) { store.toast(res.message, 'warn'); return; }
     st.schema = res.data;
@@ -316,6 +353,7 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
     st.result = res.data;
     renderResult();
     analyze();
+    loadStored();
   });
 
   function columnsOf(result) {
@@ -385,9 +423,52 @@ export function mountWmi(panel, store, api, { computerName = null } = {}) {
     api.goto('creer');
   });
 
+  // ---------- Memorised results (no remote read) ----------
+
+  async function loadStored() {
+    const defs = $('.rq-wm-defs');
+    const rowsHost = $('.rq-wm-rows');
+    rowsHost.setAttribute('aria-busy', 'true');
+    const res = await store.call('requetes.details.list', { requestKey: st.stored.key, offset: st.stored.offset, limit: 250 });
+    rowsHost.removeAttribute('aria-busy');
+    if (!store.alive) return;
+    if (res.error) { rowsHost.innerHTML = `<p class="rq-note">${esc(res.message)}</p>`; return; }
+    const d = res.data;
+    defs.innerHTML = d.definitions.length ? `<div class="rq-wm-chips" role="group" aria-label="SELECT mémorisés">
+      <button type="button" class="chip sm" data-key="" aria-pressed="${st.stored.key === null}">Tous les SELECT</button>
+      ${d.definitions.map((x) => `<button type="button" class="chip sm" data-key="${esc(x.requestKey)}" aria-pressed="${st.stored.key === x.requestKey}" data-tip="${esc(x.query ?? `Clé ${x.requestKey.slice(0, 12)}…`)}">${glyph('chip')}${esc(x.className ?? 'SELECT')}<b>${formatNumber(x.computers)}</b></button>`).join('')}</div>` : '';
+    if (!d.rows.length) {
+      rowsHost.innerHTML = `<div class="rq-wx-empty">${glyph('database')}<p><b>Aucun résultat mémorisé</b>Exécutez un SELECT sur un poste (étape 4) ou relevez celui d’une recette enregistrée par « Collecter les données manquantes ».</p></div>`;
+      return;
+    }
+    rowsHost.innerHTML = `<div class="rq-table-wrap"><table class="table rq-table rq-wm-table"><thead><tr><th>Poste</th><th>SELECT</th><th>Instances</th><th>Lecture</th><th>Date</th></tr></thead><tbody>
+      ${d.rows.map((r, n) => `<tr data-i="${Math.min(n, 16)}"><th scope="row">${esc(r.name)}<small class="rq-mono">${esc(r.dn)}</small></th><td>${esc(r.className ?? r.requestKey.slice(0, 12))}</td>
+        <td>${r.success ? (r.complete ? formatNumber(r.count) : `${formatNumber(r.count)} (partiel)`) : '—'}</td>
+        <td>${r.success ? (r.complete ? '<span class="k-pill ok sm">Complète</span>' : '<span class="k-pill warn sm">Incomplète</span>') : '<span class="k-pill alert sm">Erreur</span>'}</td>
+        <td>${esc(dateText(r.at))}</td></tr>`).join('')}</tbody></table></div>
+      <div class="rq-pager"><button type="button" class="btn xs subtle rq-wm-prev"${d.offset ? '' : ' disabled'}>${glyph('chevronLeft')}Postes précédents</button>
+        <span>${formatNumber(d.offset + 1)} à ${formatNumber(d.offset + d.rows.length)} sur ${formatNumber(d.total)}</span>
+        <button type="button" class="btn xs subtle rq-wm-next"${d.hasMore ? '' : ' disabled'}>Postes suivants${glyph('chevronRight')}</button></div>`;
+    vars(rowsHost);
+    $('.rq-wm-sub').textContent = `${plural(d.total, 'résultat mémorisé', 'résultats mémorisés')} · ${plural(d.definitions.length, 'SELECT', 'SELECT')} · pages de 250, aucune lecture distante`;
+  }
+  $('.rq-wm-defs').addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('[data-key]') : null;
+    if (!b) return;
+    st.stored = { key: b.dataset.key || null, offset: 0 };
+    loadStored();
+  });
+  $('.rq-wm-rows').addEventListener('click', (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (t?.closest('.rq-wm-prev')) { st.stored.offset = Math.max(0, st.stored.offset - 250); loadStored(); }
+    if (t?.closest('.rq-wm-next')) { st.stored.offset += 250; loadStored(); }
+  });
+  $('.rq-wm-refresh').addEventListener('click', loadStored);
+
   netDisabled();
   renderNs();
   renderSchema();
+  loadStored();
   const stopReveal = reveal(panel);
   if (computerName) {
     store.call('requetes.objects.find', { text: computerName, target: 'computer' }).then((res) => {

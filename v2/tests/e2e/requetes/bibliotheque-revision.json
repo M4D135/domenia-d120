@@ -1,7 +1,7 @@
 {
   "$schema": "../scenario.schema.json",
   "name": "Requêtes : utiliser un modèle, l’enregistrer puis créer une révision",
-  "description": "Cherche un modèle livré dans la bibliothèque, l’utilise, l’enregistre (copie personnelle, reçu relu, révision 1), le renomme et enregistre une nouvelle révision, puis ouvre l’historique des révisions.",
+  "description": "Cherche un modèle livré dans la bibliothèque, l’utilise, l’enregistre (copie personnelle, reçu relu, révision 1), le renomme depuis le titre de l’écran et enregistre une nouvelle révision, puis ouvre l’historique des révisions.",
   "modes": ["simulation"],
   "start": "requetes?onglet=bibliotheque",
   "steps": [
@@ -15,7 +15,10 @@
     { "do": "click", "selector": "#rq-tab-enregistrer", "title": "Aller à « 3. Enregistrer »" },
     { "do": "click", "text": "Enregistrer", "within": ".rq-identity .rq-save-actions" },
     { "do": "wait", "contains": "révision 1", "within": ".rq-receipt", "title": "Reçu de la première révision" },
-    { "do": "type", "selector": ".rq-save-name", "text": "Revue des postes inactifs", "clear": true },
+    { "do": "click", "selector": ".rq-rename", "title": "Renommer depuis le titre de l’écran (seul h1)" },
+    { "do": "type", "selector": "#rq-name", "text": "Revue des postes inactifs", "clear": true },
+    { "do": "press", "key": "Enter" },
+    { "do": "expect", "contains": "Revue des postes inactifs", "within": "h1.rq-title", "title": "Le titre de l’écran porte le nouveau nom" },
     { "do": "wait", "ms": 600 },
     { "do": "click", "text": "Enregistrer une nouvelle révision", "within": ".rq-identity" },
     { "do": "wait", "contains": "révision 2", "within": ".rq-receipt", "title": "Reçu de la deuxième révision" },

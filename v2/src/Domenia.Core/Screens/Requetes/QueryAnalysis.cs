@@ -21,7 +21,8 @@ public sealed record QueryCollectTarget(string Id, string Name, string Dn, Immut
 public sealed record QueryFieldCount(string Field, string Name, long Missing);
 
 /// <summary>Counted remote work of a plan (Domenia 1 Measure-DomeniaCollectionPlanWorkload); no duration is ever invented.</summary>
-public sealed record QueryCollectWorkload(string Mode, long Targets, long PingReads, long ConsoleReads, long InventoryReads, long ProbeReads, long SlowProbeReads, ImmutableArray<string> SlowProbes, string Level);
+public sealed record QueryCollectWorkload(string Mode, long Targets, long PingReads, long ConsoleReads, long InventoryReads, long ProbeReads, long SlowProbeReads, ImmutableArray<string> SlowProbes, long DetailReads,
+    string Level);
 
 /// <summary>« Collecter seulement les données manquantes » (Domenia 1 New-DomeniaMissingCollectionPlan). Plan only: no network.</summary>
 public sealed record QueryCollectPlan(
@@ -42,7 +43,8 @@ public sealed record QueryCollectPlan(
     int CacheMinutes,
     int ReuseMaxAgeDays,
     QueryCollectWorkload Workload,
-    string Text);
+    string Text,
+    WmiReadDefinition? Detail = null);
 
 /// <summary>One category of a distribution (exact, never sampled).</summary>
 public sealed record QueryGroupCategory(int Rank, string Label, QueryValue Value, long Count, bool Missing, decimal Share);
@@ -324,7 +326,8 @@ public static class QueryAnalysis
     /// <summary>
     /// Plan of the measures to read again (Domenia 1 New-DomeniaMissingCollectionPlan): active computers whose requested
     /// measures are missing, failed, incomplete or too old. Disabled and unknown-state accounts are never targets; local and
-    /// directory informations are never collected; stored WMI SELECT results are only re-read from the workstation fiche.
+    /// directory informations are never collected. The WMI SELECT saved with the recipe (and only that one, never an arbitrary
+    /// WQL) is read again on the planned workstations whose stored result is missing or too old (Domenia 1 widget detail read).
     /// </summary>
     public static QueryCollectPlan CollectPlan(CompiledQuery query, IReadOnlyList<QueryRecord> records, QueryEvaluationContext context, DateTimeOffset now, int cacheMinutes = 15, int reuseMaxAgeDays = 0, int concurrency = 4)
     {
@@ -355,7 +358,7 @@ public static class QueryAnalysis
         }
         var targets = ImmutableArray.CreateBuilder<QueryCollectTarget>();
         var fieldMissing = new Dictionary<string, long>(StringComparer.Ordinal);
-        var families = new Dictionary<string, long>(StringComparer.Ordinal) { ["Presence"] = 0, ["Console"] = 0, ["Inventory"] = 0, ["Probe"] = 0 };
+        var families = new Dictionary<string, long>(StringComparer.Ordinal) { ["Presence"] = 0, ["Console"] = 0, ["Inventory"] = 0, ["Probe"] = 0, ["Detail"] = 0 };
         var probes = new SortedSet<string>(StringComparer.Ordinal);
         long total = 0, reused = 0, disabled = 0, unknownState = 0, notCollectable = 0;
         foreach (var record in records)
@@ -395,7 +398,6 @@ public static class QueryAnalysis
                 if (entry.Family == "Detail")
                 {
                     detailMissing = true;
-                    continue;
                 }
                 missing.Add(entry.Quality);
                 targetFamilies.Add(entry.Family);
@@ -404,16 +406,13 @@ public static class QueryAnalysis
                     missingProbes.Add(probe);
                 }
             }
-            if (detailMissing)
+            if (detailMissing && query.Resolved.ReadDefinition is null)
             {
                 notCollectable++;
             }
             if (missing.Count == 0)
             {
-                if (!detailMissing)
-                {
-                    reused++;
-                }
+                reused++;
                 continue;
             }
             foreach (var id in missing)
@@ -430,15 +429,15 @@ public static class QueryAnalysis
         var counts = fieldMissing.Select(p => new QueryFieldCount(p.Key, QueryCatalog.Find(query.Target, p.Key, query.Resolved.ReadDefinition)?.Name ?? p.Key, p.Value))
             .OrderByDescending(c => c.Missing).ThenBy(c => c.Field, StringComparer.Ordinal).ToImmutableArray();
         var ping = families["Presence"] > 0;
-        var wmi = families["Console"] + families["Inventory"] + families["Probe"] > 0;
+        var wmi = families["Console"] + families["Inventory"] + families["Probe"] + families["Detail"] > 0;
         var list = targets.ToImmutable();
-        var workload = Workload(list, ping, wmi, families["Console"] > 0, families["Inventory"]);
+        var workload = Workload(list, ping, wmi, families["Console"] > 0, families["Inventory"], families["Detail"]);
         var plan = new QueryCollectPlan(list, total, reused, disabled, unknownState, notCollectable, ping, families["Console"] > 0, families["Inventory"] > 0, wmi, [.. probes], counts,
-            [.. requested.Select(r => r.Id)], now, cacheMinutes, reuseMaxAgeDays, workload, "");
+            [.. requested.Select(r => r.Id)], now, cacheMinutes, reuseMaxAgeDays, workload, "", families["Detail"] > 0 ? query.Resolved.ReadDefinition : null);
         return plan with { Text = PlanText(plan, query.Target, concurrency) };
     }
 
-    private static QueryCollectWorkload Workload(ImmutableArray<QueryCollectTarget> targets, bool ping, bool wmi, bool console, long inventory)
+    private static QueryCollectWorkload Workload(ImmutableArray<QueryCollectTarget> targets, bool ping, bool wmi, bool console, long inventory, long details)
     {
         var mode = ping && !wmi ? "Ping" : wmi && !ping ? "Wmi" : "PingWmi";
         var slow = new SortedDictionary<string, string>(StringComparer.Ordinal);
@@ -456,9 +455,11 @@ public static class QueryAnalysis
             }
         }
         var contacts = (long)targets.Length;
-        // Same bands as the ParkSweep impact model (100 and 500 workstations); slow probes raise the level.
-        var level = contacts > 500 || slowReads > 100 ? "Élevé" : contacts > 100 || slowReads > 0 ? "Modéré" : "Faible";
-        return new QueryCollectWorkload(mode, contacts, mode != "Wmi" ? contacts : 0, mode != "Ping" && console ? contacts : 0, inventory, probeReads, slowReads, [.. slow.Values], level);
+        // Same bands as the ParkSweep impact model (100 and 500 workstations); slow probes and advanced WMI reads (one bounded
+        // task per workstation) raise the level.
+        var heavy = slowReads + details;
+        var level = contacts > 500 || heavy > 100 ? "Élevé" : contacts > 100 || heavy > 0 ? "Modéré" : "Faible";
+        return new QueryCollectWorkload(mode, contacts, mode != "Wmi" ? contacts : 0, mode != "Ping" && console ? contacts : 0, inventory, probeReads, slowReads, [.. slow.Values], details, level);
     }
 
     private static string PlanText(QueryCollectPlan plan, QueryTarget target, int concurrency)
@@ -494,6 +495,11 @@ public static class QueryAnalysis
                 var names = plan.ProbeIds.Take(5).Select(id => QueryProbeCatalog.Find(id)?.Name ?? id);
                 reads.Add(FrenchText.Count(plan.ProbeIds.Length, "sonde WMI", "sondes WMI") + " (" + string.Join(" ; ", names) + (plan.ProbeIds.Length > 5 ? " ; …" : "") + ")");
             }
+            if (plan.Detail is { } detail)
+            {
+                reads.Add("le SELECT WMI enregistré avec la requête (" + detail.ClassName + ", " + FrenchText.Count(detail.Limit, "instance", "instances") + " au plus) sur "
+                    + FrenchText.Count(plan.Workload.DetailReads, "poste", "postes"));
+            }
             lines.Add("Lectures prévues : " + string.Join(", ", reads) + ". Lecture seule ; chaque poste ne relit que ses mesures manquantes ou anciennes.");
             var top = plan.FieldCounts.Take(5).Select(c => c.Name + " (" + FrenchText.Integer(c.Missing) + ")").ToList();
             if (top.Count > 0)
@@ -508,6 +514,10 @@ public static class QueryAnalysis
             if (plan.Workload.SlowProbeReads > 0)
             {
                 cost += " dont " + FrenchText.Integer(plan.Workload.SlowProbeReads) + " sur des sondes lentes (" + string.Join(" ; ", plan.Workload.SlowProbes) + ")";
+            }
+            if (plan.Workload.DetailReads > 0)
+            {
+                cost += ", " + FrenchText.Count(plan.Workload.DetailReads, "lecture WMI avancée bornée", "lectures WMI avancées bornées");
             }
             lines.Add(cost + " ; " + FrenchText.Count(concurrency, "poste", "postes") + " au maximum en parallèle. Durée non estimée : aucun relevé comparable n’est chronométré.");
         }

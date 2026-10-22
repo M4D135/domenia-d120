@@ -50,6 +50,7 @@
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .rq-check b { display: block; font-weight: 600; }
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .rq-check small { display: block; color: var(--text-faint); font-size: var(--fs-caption); }
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .input.sm { height: 30px; padding: 0 var(--s2); font-size: var(--fs-small); border-radius: var(--r-sm); }
+:is(.main[data-page="requetes"], .k-drw, .k-dlg) .rq-search > .input.sm { padding-left: 34px; }
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .chip.sm { height: 22px; padding: 0 8px; font-size: var(--fs-caption); }
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .chip svg { width: 13px; height: 13px; flex: none; }
 
@@ -124,8 +125,8 @@
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .rq-mini[data-tone="info"] { --tone: var(--info-mark); }
 @keyframes rq-grow { from { transform: scaleX(0); } }
 @keyframes rq-pop { 0% { transform: scale(.94); opacity: 0; } 60% { transform: scale(1.015); opacity: 1; } }
-@keyframes rq-fade-up { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } }
-@keyframes rq-flash { 0% { filter: brightness(1.35) saturate(1.3); } 100% { filter: none; } }
+@keyframes rq-fade-up { from { opacity: 0; transform: translateY(8px); } }
+@keyframes rq-flash { 0% { opacity: .55; transform: scale(1.012); } 100% { opacity: 1; transform: none; } }
 
 /* Receipts of local writes */
 :is(.main[data-page="requetes"], .k-drw, .k-dlg) .rq-receipt {
@@ -145,46 +146,62 @@
 
 /* ---------- Page and hero ---------- */
 .main[data-page="requetes"] .rq-page { display: grid; gap: var(--s5); }
-.main[data-page="requetes"] .rq-hero { padding: var(--s8) var(--s8) var(--s6); }
-.main[data-page="requetes"] .rq-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: var(--s8); align-items: start; }
-@media (max-width: 1250px) { .main[data-page="requetes"] .rq-hero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } }
+.main[data-page="requetes"] .rq-hero { padding: var(--s6) var(--s8) var(--s5); }
+.main[data-page="requetes"] .rq-hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: var(--s6); align-items: start; }
+@media (max-width: 1250px) { .main[data-page="requetes"] .rq-hero-grid { grid-template-columns: minmax(0, 1fr); gap: var(--s4); } }
 .main[data-page="requetes"] .rq-hero-main { min-width: 0; display: grid; align-content: start; }
 .main[data-page="requetes"] .rq-eyebrow-note { padding-left: var(--s2); margin-left: 2px; color: var(--text-muted); font-weight: 600; border-left: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 240ms; }
 .main[data-page="requetes"] .rq-back { margin-left: var(--s3); animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 320ms; }
 .main[data-page="requetes"] .rq-back svg { width: 14px; height: 14px; animation: none; transition: transform var(--t) var(--ease-spring); }
 .main[data-page="requetes"] .rq-back:hover svg { transform: translateX(-2px); }
-.main[data-page="requetes"] .rq-title-input {
-  width: 100%; min-width: 0; margin: 0 0 0 -4px; padding: 2px 4px 4px; border: 0; border-radius: var(--r-sm); outline: none;
-  font-family: var(--font-display); font-size: clamp(1.75rem, 2.4vw, 2.35rem); font-weight: 700; line-height: 1.15; letter-spacing: -.03em;
-  color: var(--text); background: transparent; text-overflow: ellipsis;
-  box-shadow: inset 0 -2px 0 transparent; animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 120ms;
+/* The title is the only h1 of the screen; renaming swaps it for a field of the same metrics (F2, double click or the pencil). */
+.main[data-page="requetes"] .rq-title-row { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+.main[data-page="requetes"] .rq-title {
+  min-width: 0; margin: 0; font-family: var(--font-display); font-size: clamp(1.6rem, 2.2vw, 2.2rem); font-weight: 700; line-height: 1.15; letter-spacing: -.03em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 120ms; cursor: text;
 }
-.main[data-page="requetes"] .rq-title-input:hover { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--border-strong) 80%, transparent); }
-.main[data-page="requetes"] .rq-title-input:focus { background: color-mix(in srgb, var(--bg-input) 70%, transparent); box-shadow: inset 0 -2px 0 var(--accent), var(--ring); }
-.main[data-page="requetes"] .rq-title-input.long { font-size: clamp(1.35rem, 1.75vw, 1.8rem); }
-.main[data-page="requetes"] .rq-lead { max-width: 76ch; }
-/* On the tool tabs the hero folds to its title, target and commands: the tool comes first. */
-.main[data-page="requetes"] .rq-hero.compact { padding-top: var(--s5); padding-bottom: var(--s5); }
-.main[data-page="requetes"] .rq-hero.compact :is(.rq-lead, .rq-hero-chips, .rq-scope-note, .rq-scope-dn, .rq-scope-counts, .rq-scope-accounts) { display: none; }
+.main[data-page="requetes"] .rq-title.long { font-size: clamp(1.3rem, 1.7vw, 1.75rem); }
+.main[data-page="requetes"] .rq-title-input {
+  flex: 1; min-width: 0; margin: 0 0 0 -6px; padding: 2px 6px 4px; border: 0; border-radius: var(--r-sm); outline: none;
+  font-family: var(--font-display); font-size: clamp(1.4rem, 2vw, 2rem); font-weight: 700; line-height: 1.15; letter-spacing: -.03em;
+  color: var(--text); background: color-mix(in srgb, var(--bg-input) 80%, transparent); box-shadow: inset 0 -2px 0 var(--accent), var(--ring);
+}
+.main[data-page="requetes"] .rq-rename { flex: none; opacity: .55; transition: opacity var(--t-fast), transform var(--t) var(--ease-spring); }
+.main[data-page="requetes"] .rq-title-row:hover .rq-rename, .main[data-page="requetes"] .rq-rename:focus-visible { opacity: 1; transform: rotate(-8deg); }
+.main[data-page="requetes"] .rq-lead { max-width: 76ch; margin-top: var(--s1); }
+/* Once the operator works on a query (or on a tool tab) the hero folds to one band: title, chips, target and commands;
+   the scope card becomes a compact strip. The work area starts high in the window. */
+.main[data-page="requetes"] .rq-hero.compact { padding: var(--s4) var(--s6); }
+.main[data-page="requetes"] .rq-hero.compact .rq-hero-grid { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: var(--s5); align-items: center; }
+.main[data-page="requetes"] .rq-hero.compact :is(.rq-lead, .rq-eyebrow-note, .rq-scope-foot, .rq-scope-top .k-pill) { display: none; }
+.main[data-page="requetes"] .rq-hero.compact .eyebrow { margin-bottom: 2px; }
+.main[data-page="requetes"] .rq-hero.compact .rq-title { font-size: clamp(1.25rem, 1.6vw, 1.6rem); }
 .main[data-page="requetes"] .rq-hero.compact .rq-hero-row { margin-top: var(--s3); }
-.main[data-page="requetes"] .rq-hero.compact .rq-scope-card { padding: var(--s4); }
+.main[data-page="requetes"] .rq-hero.compact .rq-hero-chips { margin-top: var(--s2); }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-card { padding: var(--s3) var(--s4); gap: 4px; }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-name { font-size: 1.1rem; }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-ico { width: 24px; height: 24px; border-radius: 7px; }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-btn { position: absolute; top: var(--s2); right: var(--s2); margin: 0; }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-btn > :not(svg) { display: none; }
+/* Accounts and groups are read in the whole domain: the folded hero keeps saying so next to the OU of the workstations. */
+.main[data-page="requetes"]:is([data-target="user"], [data-target="group"]) .rq-hero.compact .rq-scope-foot { display: flex; }
+.main[data-page="requetes"] .rq-hero.compact .rq-scope-foot .rq-scope-note { display: none; }
 .main[data-page="requetes"] .rq-hero.compact .rq-hero-grid > * { animation: rq-fade-up var(--t-slow) var(--ease-out) both; }
-.main[data-page="requetes"] .rq-scope-accounts { display: flex; align-items: center; gap: 6px; font-size: var(--fs-caption); color: var(--text-muted); }
-.main[data-page="requetes"] .rq-scope-accounts svg { width: 13px; height: 13px; flex: none; color: var(--accent-text); }
-.main[data-page="requetes"] .rq-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); margin-top: var(--s5); }
+@media (max-width: 1250px) { .main[data-page="requetes"] .rq-hero.compact .rq-hero-grid { grid-template-columns: minmax(0, 1fr); } }
+.main[data-page="requetes"] .rq-hero-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s4); margin-top: var(--s4); }
 .main[data-page="requetes"] .rq-cmds { flex: 1 1 380px; min-width: 0; }
 .main[data-page="requetes"] .rq-target button { display: inline-flex; align-items: center; gap: 6px; }
 .main[data-page="requetes"] .rq-target button svg { width: 16px; height: 16px; }
 .main[data-page="requetes"] :is(.segmented) button[aria-checked="true"] { color: var(--text); }
 .main[data-page="requetes"] .rq-target-n:not(:empty) { min-width: 22px; height: 18px; padding: 0 6px; border-radius: var(--r-pill); display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--text-faint); background: color-mix(in srgb, var(--text) 7%, transparent); font-variant-numeric: tabular-nums; }
 .main[data-page="requetes"] .rq-target button[aria-checked="true"] .rq-target-n { color: var(--accent-text); background: var(--accent-soft); }
-.main[data-page="requetes"] .rq-hero-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); min-height: 26px; }
+.main[data-page="requetes"] .rq-hero-chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); min-height: 26px; }
 .main[data-page="requetes"] .rq-hero-chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 60ms + 120ms); }
 
-/* Scope card, beside the title */
+/* Scope card, beside the title: name, path of the OU (as on the Accueil), what the accounts follow, the base read */
 .main[data-page="requetes"] .rq-scope-card {
   position: relative; isolation: isolate; overflow: hidden;
-  display: grid; gap: var(--s2); align-content: start; padding: var(--s5); border-radius: var(--r-lg);
+  display: grid; gap: var(--s2); align-content: start; padding: var(--s4) var(--s5); border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
   box-shadow: var(--shadow-2), inset 0 1px 0 rgba(255, 255, 255, .3);
@@ -196,21 +213,26 @@
     radial-gradient(90% 80% at 0% 100%, color-mix(in srgb, var(--brand-3) 10%, transparent), transparent 60%);
 }
 .main[data-page="requetes"] .rq-scope-card.changed { animation: rq-scope-pop 760ms var(--ease-spring); }
-@keyframes rq-scope-in { from { opacity: 0; transform: translateY(10px) scale(.97); filter: blur(4px); } }
-@keyframes rq-scope-pop { 35% { transform: scale(1.025); filter: brightness(1.08); } }
-.main[data-page="requetes"] .rq-scope-top { display: flex; align-items: center; gap: var(--s2); min-width: 0; }
+@keyframes rq-scope-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+@keyframes rq-scope-pop { 35% { transform: scale(1.025); opacity: .9; } }
+.main[data-page="requetes"] .rq-scope-top { display: flex; align-items: center; gap: var(--s2); min-width: 0; padding-right: 36px; }
 .main[data-page="requetes"] .rq-scope-top .k-pill { margin-left: auto; }
 .main[data-page="requetes"] .rq-scope-ico { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px; color: var(--on-brand); background: var(--brand-gradient); box-shadow: 0 6px 16px var(--accent-glow); }
 .main[data-page="requetes"] .rq-scope-ico svg { width: 17px; height: 17px; }
-.main[data-page="requetes"] .rq-scope-k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
-.main[data-page="requetes"] .rq-scope-name { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; line-height: 1.15; letter-spacing: -.02em; overflow-wrap: anywhere; animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 260ms; }
-.main[data-page="requetes"] .rq-scope-dn { font-size: var(--fs-caption); color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.main[data-page="requetes"] .rq-scope-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin: var(--s2) 0 0; }
-.main[data-page="requetes"] .rq-scope-counts > div { display: grid; gap: 2px; padding: var(--s2); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 70%, transparent); animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms + 300ms); }
-.main[data-page="requetes"] .rq-scope-counts dt { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-faint); }
-.main[data-page="requetes"] .rq-scope-counts dt svg { width: 12px; height: 12px; }
-.main[data-page="requetes"] .rq-scope-counts dd { margin: 0; font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.main[data-page="requetes"] .rq-scope-note { font-size: var(--fs-caption); line-height: 1.5; color: var(--text-muted); }
+.main[data-page="requetes"] .rq-scope-k { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); white-space: nowrap; }
+.main[data-page="requetes"] .rq-scope-name { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; line-height: 1.15; letter-spacing: -.02em; overflow-wrap: anywhere; animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: 260ms; }
+.main[data-page="requetes"] .rq-crumbs-ou ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; font-size: var(--fs-caption); }
+.main[data-page="requetes"] .rq-crumbs-ou li { display: inline-flex; align-items: center; min-width: 0; animation: rq-fade-up var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 60ms + 300ms); }
+.main[data-page="requetes"] .rq-crumbs-ou li + li::before { content: "›"; padding: 0 4px; color: var(--text-faint); }
+.main[data-page="requetes"] .rq-crumb-ou { position: relative; isolation: isolate; padding: 1px 5px; margin: 0 -1px; border: 0; border-radius: var(--r-sm); background: none; color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; transition: transform var(--t) var(--ease-spring); }
+.main[data-page="requetes"] button.rq-crumb-ou::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--accent-soft); opacity: 0; transition: opacity var(--t-fast); }
+.main[data-page="requetes"] button.rq-crumb-ou:hover { transform: translateY(-1px); }
+.main[data-page="requetes"] button.rq-crumb-ou:hover::before { opacity: 1; }
+.main[data-page="requetes"] .rq-crumb-ou.now { color: var(--text); cursor: default; }
+.main[data-page="requetes"] .rq-scope-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s2); }
+.main[data-page="requetes"] .rq-scope-accounts { max-width: 100%; }
+.main[data-page="requetes"] .rq-scope-note { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; font-size: var(--fs-caption); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main[data-page="requetes"] .rq-scope-note svg { width: 13px; height: 13px; flex: none; color: var(--accent-text); }
 .main[data-page="requetes"] .rq-scope-btn { justify-self: start; margin-top: var(--s1); }
 .main[data-page="requetes"] .rq-scope-btn svg { transition: transform var(--t) var(--ease-spring); }
 .main[data-page="requetes"] .rq-scope-btn:hover svg { transform: rotate(-8deg) scale(1.12); }
@@ -218,10 +240,11 @@
 :root[data-theme="contrast"] .main[data-page="requetes"] .rq-scope-card::before { display: none; }
 
 /* ---------- Rail: guided flow and tools ---------- */
+/* Stuck to the very top of the scrolling area, opaque: the content never shows through nor above it. */
 .main[data-page="requetes"] .rq-rail {
-  position: sticky; top: var(--s2); z-index: 6;
+  position: sticky; top: 0; z-index: 6;
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s6); padding: var(--s3) var(--s4);
-  border-radius: var(--r-lg); background: color-mix(in srgb, var(--bg-elevated) 92%, transparent); backdrop-filter: blur(18px) saturate(170%);
+  border-radius: var(--r-lg); background: var(--bg-elevated);
   border: 1px solid color-mix(in srgb, var(--border) 75%, transparent); box-shadow: var(--shadow-2);
 }
 .main[data-page="requetes"] .rq-flow { position: relative; flex: 1 1 520px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); min-width: 0; }
@@ -270,7 +293,7 @@
 /* Panels */
 .main[data-page="requetes"] .rq-panel[hidden] { display: none; }
 .main[data-page="requetes"] .rq-panel.enter { animation: rq-panel-in var(--t-slow) var(--ease-out) both; }
-@keyframes rq-panel-in { from { opacity: 0; transform: translateY(12px); filter: blur(4px); } }
+@keyframes rq-panel-in { from { opacity: 0; transform: translateY(12px); } }
 .main[data-page="requetes"] .rq-col { display: grid; gap: var(--s5); align-content: start; min-width: 0; }
 .main[data-page="requetes"] .rq-head-titles { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .main[data-page="requetes"] .rq-sub { margin: 0; font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.45; text-wrap: pretty; }
@@ -287,7 +310,9 @@
 .main[data-page="requetes"] .rq-step-n { width: 26px; height: 26px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-caption); font-weight: 700; color: var(--accent-text); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 .main[data-page="requetes"] .rq-step-main { display: grid; gap: 6px; min-width: 0; }
 .main[data-page="requetes"] .rq-step-label { font-size: var(--fs-caption); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
-.main[data-page="requetes"] .rq-ops { display: flex; flex-wrap: wrap; gap: 6px; }
+.main[data-page="requetes"] .rq-ops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.main[data-page="requetes"] .rq-ops-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.main[data-page="requetes"] .rq-ops-group.presence { padding-left: 12px; border-left: 1px dashed color-mix(in srgb, var(--border-strong) 80%, transparent); }
 .main[data-page="requetes"] .rq-ops button {
   position: relative; height: 30px; padding: 0 var(--s3); border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--bg-input);
   color: var(--text-muted); font-size: var(--fs-small); font-weight: 600; cursor: pointer; transition: transform var(--t-fast) var(--ease-spring);
@@ -386,7 +411,9 @@
 .main[data-page="requetes"] .rq-fold-chev { width: 18px; height: 18px; flex: none; color: var(--text-faint); transition: transform var(--t) var(--ease-spring); }
 .main[data-page="requetes"] .rq-fold[open] > summary .rq-fold-chev { transform: rotate(180deg); }
 .main[data-page="requetes"] .rq-fold-body { display: grid; gap: var(--s3); margin-top: var(--s4); animation: rq-fade-up var(--t-slow) var(--ease-out); }
-.main[data-page="requetes"] .rq-tree-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.main[data-page="requetes"] .rq-tree-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); }
+.main[data-page="requetes"] .rq-tree-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.main[data-page="requetes"] .rq-tree-k { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-right: 2px; }
 .main[data-page="requetes"] .rq-tools-sep { width: 1px; height: 20px; margin: 0 4px; background: var(--border); }
 .main[data-page="requetes"] .rq-tree { display: grid; gap: 3px; padding: var(--s2); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 60%, transparent); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
 .main[data-page="requetes"] .rq-tree-empty { display: flex; align-items: center; gap: var(--s2); margin: 0; padding: var(--s3); font-size: var(--fs-caption); color: var(--text-muted); }
@@ -406,22 +433,35 @@
 .main[data-page="requetes"] .rq-node-guide { position: absolute; left: calc(var(--depth, 0) * 22px - 6px); top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--border-strong) 70%, transparent); }
 .main[data-page="requetes"] .rq-node[data-depth="0"] .rq-node-guide { display: none; }
 .main[data-page="requetes"] .rq-node-kind { flex: none; min-width: 36px; height: 20px; padding: 0 6px; border-radius: 6px; display: inline-grid; place-items: center; font-size: 10px; font-weight: 800; letter-spacing: .05em; color: color-mix(in srgb, var(--k) 70%, var(--text)); background: color-mix(in srgb, var(--k) 15%, transparent); }
+.main[data-page="requetes"] .rq-node-kind svg { width: 12px; height: 12px; }
+.main[data-page="requetes"] .rq-node[data-kind="clause"] .rq-node-kind { min-width: 24px; color: var(--accent-text); background: var(--accent-soft); }
 .main[data-page="requetes"] .rq-node-label { min-width: 0; overflow-wrap: anywhere; }
-.main[data-page="requetes"] .rq-collection { display: grid; gap: var(--s2); padding-top: var(--s3); border-top: 1px dashed var(--border); }
+.main[data-page="requetes"] .rq-collection { display: grid; gap: var(--s3); padding-top: var(--s3); border-top: 1px dashed var(--border); }
 .main[data-page="requetes"] .rq-collection h4 { font-size: var(--fs-small); }
-.main[data-page="requetes"] .rq-collection-row, .main[data-page="requetes"] .rq-param-new, .main[data-page="requetes"] .rq-coh-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2); }
-.main[data-page="requetes"] .rq-collection-row .k-select { flex: 1 1 180px; }
-.main[data-page="requetes"] .rq-collection-row .input, .main[data-page="requetes"] .rq-param-new .input { flex: 1 1 160px; min-width: 0; }
+.main[data-page="requetes"] .rq-mini-field { display: grid; gap: 4px; min-width: 0; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--text-faint); }
+.main[data-page="requetes"] .rq-mini-field[hidden] { display: none; }
+.main[data-page="requetes"] .rq-mini-field :is(.input, .k-select) { width: 100%; min-width: 0; font-weight: 400; letter-spacing: 0; }
+.main[data-page="requetes"] .rq-collection-row { display: grid; align-items: end; gap: var(--s2); }
+.main[data-page="requetes"] .rq-collection-row.coll { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; }
+.main[data-page="requetes"] .rq-collection-row.inst { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) auto; }
+@media (max-width: 900px) { .main[data-page="requetes"] .rq-collection-row.coll, .main[data-page="requetes"] .rq-collection-row.inst { grid-template-columns: minmax(0, 1fr); } }
+.main[data-page="requetes"] .rq-coh-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2); }
+.main[data-page="requetes"] .rq-param-new { display: grid; gap: var(--s2); padding: var(--s3); border-radius: var(--r); border: 1px dashed color-mix(in srgb, var(--border-strong) 70%, transparent); }
+.main[data-page="requetes"] .rq-param-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s2); }
+.main[data-page="requetes"] .rq-param-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .main[data-page="requetes"] .rq-coh-row .field { flex: 0 1 220px; font-size: var(--fs-caption); }
 .main[data-page="requetes"] .rq-coh-row .field > span { font-weight: 600; color: var(--text-muted); }
 .main[data-page="requetes"] .rq-param-list { display: grid; gap: var(--s2); }
-.main[data-page="requetes"] .rq-param-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--s3); align-items: center; padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 60%, transparent); animation: rq-row-in var(--t-slow) var(--ease-out) both; }
+/* One parameter: its name on top, then the value and its actions on one line, then the live check under them. */
+.main[data-page="requetes"] .rq-param-row { display: grid; gap: 6px; padding: var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 60%, transparent); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); animation: rq-row-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 50ms); }
+.main[data-page="requetes"] .rq-param-check { margin: 0; min-height: 16px; font-size: var(--fs-caption); color: var(--text-faint); }
+.main[data-page="requetes"] .rq-param-check.ok { color: var(--ok); font-weight: 600; }
+.main[data-page="requetes"] .rq-param-check.bad { color: var(--alert); font-weight: 600; animation: k-shake 360ms var(--ease-out); }
 .main[data-page="requetes"] .rq-param-id { display: grid; gap: 1px; min-width: 0; }
 .main[data-page="requetes"] .rq-param-id b { font-size: var(--fs-small); }
 .main[data-page="requetes"] .rq-param-id span, .main[data-page="requetes"] .rq-param-id small { font-size: var(--fs-caption); color: var(--text-faint); overflow-wrap: anywhere; }
 .main[data-page="requetes"] .rq-param-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.main[data-page="requetes"] .rq-param-edit > .input, .main[data-page="requetes"] .rq-param-edit > .k-select { flex: 1 1 140px; min-width: 0; }
-@media (max-width: 760px) { .main[data-page="requetes"] .rq-param-row { grid-template-columns: 1fr; } }
+.main[data-page="requetes"] .rq-param-edit > .input, .main[data-page="requetes"] .rq-param-edit > .k-select { flex: 1 1 220px; min-width: 0; }
 
 /* LDAP editor: a transparent textarea over a highlighted copy with the same metrics */
 .main[data-page="requetes"] .rq-ldap {
@@ -434,7 +474,8 @@
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal;
 }
 .main[data-page="requetes"] .rq-ldap-hl { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--text); }
-.main[data-page="requetes"] .rq-ldap-input { position: relative; display: block; width: 100%; min-height: 140px; max-height: 420px; resize: vertical; overflow: auto; background: transparent; color: transparent; caret-color: var(--accent); outline: none; }
+/* The height follows the text (3 to 14 lines, set by the editor): no empty black area, no resize handle. */
+.main[data-page="requetes"] .rq-ldap-input { position: relative; display: block; width: 100%; height: calc(var(--rows, 3) * 1.6em + 2 * var(--s3)); resize: none; overflow: auto; background: transparent; color: transparent; caret-color: var(--accent); outline: none; }
 .main[data-page="requetes"] .rq-ldap-input::placeholder { color: var(--text-faint); }
 .main[data-page="requetes"] .rq-ldap-input::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); color: transparent; }
 .main[data-page="requetes"] .rq-ldap .l-par { color: var(--text-faint); font-weight: 700; }
@@ -496,7 +537,7 @@
 .main[data-page="requetes"] .rq-pv-ring .ring { width: 150px; height: 150px; }
 .main[data-page="requetes"] .rq-pv-ring .ring circle.seg[data-tone] { stroke: var(--tone); }
 .main[data-page="requetes"] .rq-pv-ring .center b { font-size: 1.9rem; }
-.main[data-page="requetes"] .rq-pv-ring .center span { max-width: 96px; font-size: 10.5px; line-height: 1.2; }
+.main[data-page="requetes"] .rq-pv-ring .center span { max-width: 84px; font-size: 11px; line-height: 1.2; color: var(--text-muted); white-space: nowrap; }
 .main[data-page="requetes"] .rq-pv-main { display: grid; gap: var(--s2); min-width: 0; }
 .main[data-page="requetes"] .rq-pv-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
 .main[data-page="requetes"] .rq-pv-name { font-size: var(--fs-title); line-height: 1.2; letter-spacing: -.02em; overflow-wrap: anywhere; }
@@ -521,7 +562,8 @@
 .main[data-page="requetes"] .rq-kpi-go:focus-visible { outline: none; box-shadow: var(--ring); }
 .main[data-page="requetes"] .rq-results .card-head { margin-bottom: var(--s3); }
 .main[data-page="requetes"] .rq-res-filters { margin-bottom: var(--s3); }
-.main[data-page="requetes"] .rq-res-split, .main[data-page="requetes"] .rq-lib-split { min-height: 560px; }
+.main[data-page="requetes"] .rq-lib-split { min-height: 560px; }
+.main[data-page="requetes"] .rq-res-split { min-height: var(--rq-res-h, 560px); }
 .main[data-page="requetes"] .rq-detail { height: 100%; min-height: 0; overflow: auto; padding: 0 var(--s1) var(--s2) var(--s4); }
 .main[data-page="requetes"] .rq-detail-empty { display: grid; justify-items: center; align-content: center; gap: var(--s3); height: 100%; min-height: 300px; padding: var(--s6); text-align: center; color: var(--text-muted); }
 .main[data-page="requetes"] .rq-detail-empty > svg { width: 40px; height: 40px; padding: 10px; border-radius: 14px; box-sizing: content-box; color: var(--accent); background: var(--accent-soft); animation: k-float 5s var(--ease-in-out) infinite alternate; }
@@ -733,7 +775,7 @@
 .main[data-page="requetes"] .rq-wmi-banner p { margin: 0; color: var(--text-muted); }
 .main[data-page="requetes"] .rq-wmi-banner p svg { width: 14px; height: 14px; vertical-align: -2px; color: var(--rq-probe); }
 .main[data-page="requetes"] .rq-wmi-banner b { color: var(--text); }
-.main[data-page="requetes"] .rq-wmi-top { align-items: stretch; }
+.main[data-page="requetes"] .rq-wmi-top, .main[data-page="requetes"] .rq-wmi > .grid { align-items: start; }
 .main[data-page="requetes"] .rq-wmi-top > .card { display: flex; flex-direction: column; gap: var(--s2); }
 .main[data-page="requetes"] .rq-wmi-top .card-head { margin-bottom: var(--s2); }
 .main[data-page="requetes"] .rq-pc-card { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated)); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
@@ -761,7 +803,7 @@
 .main[data-page="requetes"] .rq-ws-props > li:hover { background: var(--bg-hover); }
 .main[data-page="requetes"] .rq-ws-props b { font-family: var(--font-mono); font-size: var(--fs-small); }
 .main[data-page="requetes"] .rq-ws-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: var(--s2); }
-.main[data-page="requetes"] .rq-ws-empty { display: grid; justify-items: center; gap: var(--s3); padding: var(--s6) var(--s3); text-align: center; color: var(--text-muted); font-size: var(--fs-small); }
+.main[data-page="requetes"] .rq-ws-empty { display: grid; justify-items: center; gap: var(--s2); padding: var(--s3); text-align: center; color: var(--text-muted); font-size: var(--fs-small); }
 .main[data-page="requetes"] .rq-ws-empty > svg { width: 30px; height: 30px; color: var(--rq-probe); animation: k-float 5s var(--ease-in-out) infinite alternate; }
 .main[data-page="requetes"] .rq-ws-empty p { display: grid; gap: 2px; margin: 0; }
 .main[data-page="requetes"] .rq-ws-empty b { font-family: var(--font-mono); color: var(--text); }
@@ -875,3 +917,116 @@
 :root[data-theme="contrast"] .main[data-page="requetes"] :is(.rq-hbar-fill, .rq-kpi-bar > span, .rq-flow-fill) { background: var(--accent); }
 :root[data-theme="contrast"] .main[data-page="requetes"] .rq-ldap-input { caret-color: #ffff00; }
 :root[data-theme="contrast"] .k-drw :is(.rq-frise-seg, .rq-plan-big) { background: var(--accent); color: #000; box-shadow: none; }
+
+/* ---------- Round 2: summary tree, results tools, library, WMI steps and memorised results, drawers ---------- */
+/* Summary: the advanced conditions keep their tree shape (guides and kinds), never ASCII depth marks. */
+.main[data-page="requetes"] .rq-outline li.tree { grid-template-columns: minmax(90px, auto) minmax(0, 1fr); align-items: start; }
+.main[data-page="requetes"] .rq-mini-tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.main[data-page="requetes"] .rq-mini-tree li { position: relative; display: flex; align-items: flex-start; gap: 6px; padding: 2px 0 2px calc(var(--depth, 0) * 16px); font-size: var(--fs-caption); line-height: 1.4; }
+.main[data-page="requetes"] .rq-mt-guide { position: absolute; left: calc(var(--depth, 0) * 16px - 9px); top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--border-strong) 75%, transparent); }
+.main[data-page="requetes"] .rq-mini-tree li[data-depth="0"] .rq-mt-guide { display: none; }
+.main[data-page="requetes"] .rq-mt-kind { flex: none; min-width: 28px; height: 16px; padding: 0 4px; border-radius: 4px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 800; letter-spacing: .05em; color: var(--accent-text); background: var(--accent-soft); }
+.main[data-page="requetes"] .rq-mini-tree li[data-kind="any"] .rq-mt-kind { color: var(--warn); background: var(--warn-soft); }
+.main[data-page="requetes"] .rq-mini-tree li[data-kind="not"] .rq-mt-kind { color: var(--alert); background: var(--alert-soft); }
+.main[data-page="requetes"] .rq-mini-tree li[data-kind="collection"] .rq-mt-kind { color: color-mix(in srgb, var(--rq-probe) 75%, var(--text)); background: color-mix(in srgb, var(--rq-probe) 14%, transparent); }
+.main[data-page="requetes"] .rq-mt-dot { flex: none; width: 6px; height: 6px; margin: 6px 4px 0 2px; border-radius: 50%; background: var(--accent); }
+.main[data-page="requetes"] .rq-mt-label { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+/* Results: the text search of the engine (whole frozen population) beside the verdict facets */
+.main[data-page="requetes"] .rq-res-tools { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: var(--s3); align-items: start; margin-bottom: var(--s3); }
+@media (max-width: 1100px) { .main[data-page="requetes"] .rq-res-tools { grid-template-columns: minmax(0, 1fr); } }
+.main[data-page="requetes"] .rq-res-search .input { height: 34px; }
+.main[data-page="requetes"] .rq-res-filters { margin-bottom: 0; }
+.main[data-page="requetes"] .rq-asked { display: inline-block; align-self: center; max-width: 100%; line-height: 1.45; padding: 1px 7px; border-radius: 6px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-asked { background: #000; color: var(--accent); border: 1px solid currentColor; }
+.main[data-page="requetes"] .rq-fold-detail[aria-pressed="true"] { color: var(--accent-text); }
+
+/* Save: the name is the title of the screen; here it is read and renamed in place */
+.main[data-page="requetes"] .rq-id-name { display: flex; align-items: center; gap: var(--s2); min-width: 0; margin-bottom: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 65%, transparent); }
+.main[data-page="requetes"] .rq-id-k { flex: none; font-size: var(--fs-caption); font-weight: 700; color: var(--text-faint); }
+.main[data-page="requetes"] .rq-id-v { flex: 1; min-width: 0; font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Widgets: a live preview of each widget of the general board, evaluated on the local data */
+.main[data-page="requetes"] .rq-wp { flex: none; width: 112px; min-height: 62px; display: grid; place-items: center; border-radius: var(--r); background: color-mix(in srgb, var(--bg-elevated) 80%, transparent); border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); overflow: hidden; }
+.main[data-page="requetes"] .rq-wp-art { width: 100%; padding: 6px 8px; display: grid; gap: 3px; animation: rq-fade-up var(--t) var(--ease-out) both; }
+.main[data-page="requetes"] .rq-wp-art.icon { place-items: center; color: var(--accent-text); }
+.main[data-page="requetes"] .rq-wp-art.icon svg { width: 22px; height: 22px; }
+.main[data-page="requetes"] .rq-wp-art.err small { font-size: 10px; color: var(--warn); line-height: 1.3; }
+.main[data-page="requetes"] .rq-wp-art.kpi b { font-family: var(--font-display); font-size: 1.35rem; line-height: 1; }
+.main[data-page="requetes"] .rq-wp-art.kpi span { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main[data-page="requetes"] .rq-wp-bar { position: relative; display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--text) 8%, transparent); overflow: hidden; }
+.main[data-page="requetes"] .rq-wp-bar > i { position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: var(--brand-gradient); transform-origin: left center; animation: rq-grow var(--t-chart) var(--ease-out) both; }
+.main[data-page="requetes"] .rq-wp-art.text p { margin: 0; font-size: 11px; line-height: 1.35; font-weight: 600; }
+.main[data-page="requetes"] .rq-wp-art.pie .ring { width: 54px; height: 54px; margin: 0 auto; }
+.main[data-page="requetes"] .rq-wp-art.pie .ring circle.seg[data-tone] { stroke: var(--tone); }
+.main[data-page="requetes"] .rq-wp-art.pie .center b { font-size: .85rem; }
+.main[data-page="requetes"] .rq-wp-art.bars .rq-wp-item { display: grid; grid-template-columns: 1fr; gap: 1px; }
+.main[data-page="requetes"] .rq-wp-art.bars .rq-wp-item i { display: block; height: 5px; width: var(--w, 0%); border-radius: 3px; background: linear-gradient(90deg, var(--brand-1), var(--brand-2)); transform-origin: left center; animation: rq-grow var(--t-chart) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.main[data-page="requetes"] .rq-wp-art.bars small, .main[data-page="requetes"] .rq-wp-art.cols small { display: none; }
+.main[data-page="requetes"] .rq-wp-art.cols { grid-auto-flow: column; align-items: end; height: 54px; gap: 4px; }
+.main[data-page="requetes"] .rq-wp-art.cols .rq-wp-item { height: 100%; display: flex; align-items: flex-end; }
+.main[data-page="requetes"] .rq-wp-art.cols .rq-wp-item i { display: block; width: 100%; height: var(--w, 0%); min-height: 3px; border-radius: 3px 3px 1px 1px; background: linear-gradient(180deg, var(--brand-2), var(--brand-1)); transform-origin: bottom center; animation: rq-rise var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--i, 0) * 60ms); }
+:root[data-theme="contrast"] .main[data-page="requetes"] :is(.rq-wp-bar > i, .rq-wp-art.bars .rq-wp-item i, .rq-wp-art.cols .rq-wp-item i) { background: var(--accent); }
+
+/* Library: the receipt of an archive or a restore, with its undo, above the list */
+.main[data-page="requetes"] .rq-lib-receipt { margin: 0 0 var(--s3); }
+
+/* WMI: until a workstation is chosen, the steps are folded into one card; the stored results come last */
+.main[data-page="requetes"] .rq-wmi[data-stage="pick"] :is(.rq-wmi-ns, .rq-wmi-schema, .rq-wmi-select, .rq-wmi-report, .rq-wmi-result) { display: none; }
+.main[data-page="requetes"] .rq-wmi[data-stage="work"] .rq-wmi-steps { display: none; }
+.main[data-page="requetes"] .rq-wsteps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4) var(--s5); }
+@media (max-width: 900px) { .main[data-page="requetes"] .rq-wsteps { grid-template-columns: minmax(0, 1fr); } }
+.main[data-page="requetes"] .rq-wsteps li { display: flex; align-items: flex-start; gap: var(--s3); animation: rq-fade-up var(--t-slow) var(--ease-out) both; }
+.main[data-page="requetes"] .rq-wsteps li:nth-child(2) { animation-delay: 70ms; } .main[data-page="requetes"] .rq-wsteps li:nth-child(3) { animation-delay: 140ms; } .main[data-page="requetes"] .rq-wsteps li:nth-child(4) { animation-delay: 210ms; }
+.main[data-page="requetes"] .rq-wsteps .rq-flow-n { width: 30px; height: 30px; border-radius: 9px; font-size: var(--fs-small); opacity: .8; }
+.main[data-page="requetes"] .rq-wsteps div { display: grid; gap: 2px; min-width: 0; }
+.main[data-page="requetes"] .rq-wsteps b { font-size: var(--fs-small); }
+.main[data-page="requetes"] .rq-wsteps span { font-size: var(--fs-caption); color: var(--text-muted); line-height: 1.4; }
+.main[data-page="requetes"] .rq-wmi-schema .rq-ws-empty, .main[data-page="requetes"] .rq-wmi-report .rq-wr-body > .rq-note { padding: var(--s3) 0; }
+.main[data-page="requetes"] .rq-wm-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s3); }
+.main[data-page="requetes"] .rq-wm-chips .chip { gap: 6px; }
+.main[data-page="requetes"] .rq-wm-chips .chip b { font-size: 10px; padding: 0 5px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 8%, transparent); }
+.main[data-page="requetes"] .rq-wm-chips .chip[aria-pressed="true"] { color: var(--on-brand); border-color: transparent; background: var(--brand-gradient); }
+.main[data-page="requetes"] .rq-wm-table th small { display: block; font-weight: 400; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 420px; }
+.main[data-page="requetes"] .rq-wmi-stored .rq-pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin-top: var(--s3); font-size: var(--fs-caption); color: var(--text-muted); }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-wm-chips .chip[aria-pressed="true"] { background: var(--accent); color: #000; }
+
+/* Reference: source of the help, copies of the command, the syntax, the help and the example */
+.main[data-page="requetes"] .rq-ref-origin { margin-bottom: var(--s3); }
+.main[data-page="requetes"] .rq-ref-copy { display: flex; flex-wrap: wrap; gap: 6px; }
+.main[data-page="requetes"] .rq-ref-params { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.main[data-page="requetes"] .rq-ref-help { width: 100%; font-size: var(--fs-caption); }
+.main[data-page="requetes"] .rq-ref-help > summary { cursor: pointer; font-weight: 600; color: var(--accent-text); }
+.main[data-page="requetes"] .rq-ref-help .rq-code { margin-top: 6px; max-height: 360px; }
+
+/* Contrast: the kind badge stays readable on the selected node (cyan selection) */
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-node[aria-selected="true"] { background: #000; box-shadow: inset 4px 0 0 var(--accent), 0 0 0 2px var(--accent); }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-node .rq-node-kind { background: #000; color: #fff; border: 1px solid currentColor; }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-node[aria-selected="true"] .rq-node-kind { color: var(--accent); border-color: var(--accent); }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-mt-kind { background: #000; color: #fff; border: 1px solid currentColor; }
+:root[data-theme="contrast"] .main[data-page="requetes"] .rq-ops-group.presence { border-left-color: #fff; }
+
+/* Side panels and dialogs of round 2 */
+.k-drw .rq-plan-intro { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; padding: var(--s3); border-radius: var(--r); background: var(--accent-soft); color: var(--accent-text); font-size: var(--fs-small); font-weight: 600; animation: rq-pop var(--t-slow) var(--ease-spring) both; }
+.k-drw .rq-plan-intro svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.k-drw .rq-export-warn { display: flex; align-items: flex-start; gap: var(--s2); margin: 0; padding: var(--s2) var(--s3); border-radius: var(--r-sm); background: var(--warn-soft); color: var(--warn); font-size: var(--fs-small); font-weight: 600; }
+.k-drw .rq-export-warn svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.k-drw .rq-exp-meta { padding: var(--s2) var(--s3); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 70%, transparent); }
+.k-drw .rq-exp-where.ok { color: var(--ok); }
+.k-drw .rq-exp-where.ok svg { color: var(--ok); }
+.k-drw .rq-recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.k-drw .rq-recent > li { animation: rq-row-in var(--t) var(--ease-out) both; animation-delay: calc(var(--i, 0) * 25ms); }
+.k-drw .rq-recent-item { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--s3); width: 100%; padding: var(--s2) var(--s3); border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-radius: var(--r); background: color-mix(in srgb, var(--bg-sunken) 55%, transparent); color: var(--text); text-align: left; cursor: pointer; transition: transform var(--t) var(--ease-spring); }
+.k-drw .rq-recent-item:hover { transform: translateX(3px); border-color: var(--accent); }
+.k-drw .rq-recent-item:focus-visible { outline: none; box-shadow: var(--ring); }
+.k-drw .rq-recent-ico { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 10px; color: var(--accent-text); background: var(--accent-soft); }
+.k-drw .rq-recent-ico svg { width: 16px; height: 16px; }
+.k-drw .rq-recent-main { display: grid; gap: 1px; min-width: 0; }
+.k-drw .rq-recent-main b { font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-drw .rq-recent-main small { font-size: var(--fs-caption); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-drw .rq-recent-at { font-size: var(--fs-caption); color: var(--text-faint); white-space: nowrap; }
+.k-dlg .rq-impact-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.k-dlg .rq-kind { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 700; color: var(--accent-text); background: var(--accent-soft); white-space: nowrap; }
+.k-dlg .rq-kind[data-kind="orphan"] { color: var(--warn); background: var(--warn-soft); }
+.k-dlg .rq-kind[data-kind="health"] { color: var(--ok); background: var(--ok-soft); }
+.k-dlg .rq-kind[data-kind="view"] { color: var(--info); background: var(--info-soft); }
+:root[data-theme="contrast"] .k-dlg .rq-kind, :root[data-theme="contrast"] .k-drw .rq-plan-intro { background: #000; border: 1px solid currentColor; }

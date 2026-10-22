@@ -80,7 +80,10 @@ internal static class RequetesOperationsTests
         Check.False(detail.GetProperty("stale").GetBoolean(), "aperçu à jour");
         var export = await Ok(bridge, "requetes.preview.export", Args(new { evaluationId = id, verdict = "all", format = "csv" }));
         Check.Equal(population, export.GetProperty("rows").GetInt32(), "export de toute la population");
-        Check.Equal("query.exportUnavailable", await Refused(bridge, "requetes.export.save", Args(new { fileName = "x.csv", content = "a;b" })), "export refusé sans préférences persistantes");
+        var token = export.GetProperty("token").GetString()!;
+        var content = await Ok(bridge, "requetes.export.content", Args(new { token }));
+        Check.Equal(population + 1, content.GetProperty("content").GetString()!.Split("\r\n", StringSplitOptions.RemoveEmptyEntries).Length, "en-tête et une ligne par objet");
+        Check.Equal("query.exportUnavailable", await Refused(bridge, "requetes.export.save", Args(new { token })), "export refusé sans préférences persistantes");
         Check.Equal("query.evaluationUnknown", await Refused(bridge, "requetes.preview.page", Args(new { evaluationId = new string('0', 32) })), "aperçu inconnu");
     }
 
@@ -118,7 +121,7 @@ internal static class RequetesOperationsTests
         var archived = await Ok(bridge, "requetes.library.archive", Args(new { id, expectedRevision = 2 }));
         Check.Equal(3, archived.GetProperty("revision").GetInt64(), "archivage : nouvelle révision");
         Check.Equal(0, (await Ok(bridge, "requetes.library.list", "{\"source\":\"personal\"}")).GetProperty("filtered").GetInt32(), "plus dans « Mes requêtes »");
-        var restored = await Ok(bridge, "requetes.library.restore", Args(new { id, expectedRevision = 3, widgets = Array.Empty<object>() }));
+        var restored = await Ok(bridge, "requetes.library.restore", Args(new { id, expectedRevision = 3, restoreWidgets = true }));
         Check.Equal(4, restored.GetProperty("revision").GetInt64(), "restauration : nouvelle révision");
         var reverted = await Ok(bridge, "requetes.library.revert", Args(new { id, revision = 1, expectedRevision = 4 }));
         Check.Equal(5, reverted.GetProperty("revision").GetInt64(), "révision 1 remise comme révision 5");
@@ -155,7 +158,8 @@ internal static class RequetesOperationsTests
         Check.Equal(1, pack.GetProperty("count").GetInt32(), "une requête exportée");
         Check.Equal(2, pack.GetProperty("nextVersion").GetInt64(), "version suivante proposée");
         var other = new SimulatedBridge();
-        var plan = await Ok(other, "requetes.pack.examine", Args(new { content = pack.GetProperty("content").GetString() }));
+        var packText = (await Ok(bridge, "requetes.export.content", Args(new { token = pack.GetProperty("token").GetString() }))).GetProperty("content").GetString();
+        var plan = await Ok(other, "requetes.pack.examine", Args(new { content = packText }));
         Check.True(plan.GetProperty("verified").GetBoolean(), "intégrité vérifiée");
         var item = plan.GetProperty("items")[0];
         Check.Equal("new", item.GetProperty("status").GetString(), "requête nouvelle dans l’autre bibliothèque");

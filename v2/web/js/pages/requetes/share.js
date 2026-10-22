@@ -1,7 +1,8 @@
-// « Partage »: export of personal recipes as a named, versioned pack (Domenia.QueryPack/3 with a content fingerprint);
-// import examined before any write (provenance, version, integrity, state and differences of every recipe, one choice per
-// recipe), applied with a restore point; history of the imports and restore. Files are read by the page (FileReader) and
-// sent as text: the engine never opens a path given by the page.
+// « Partage »: export of personal recipes as a named, versioned pack (Domenia.QueryPack/3 with a content fingerprint,
+// prepared by the engine, 5 000 recipes and 16 Mio at most; the proposed version moves on once the file is saved); import
+// examined before any write (provenance, version, integrity, state and differences of every recipe, one choice per recipe),
+// applied in one write with a restore point; history of the imports (40 entries) and restore. Files are read by the page
+// (FileReader) and sent as text, in parts beyond one message: the engine never opens a path given by the page.
 import {
   esc, glyph, plural, emptyState, skLines, dateText, vars,
 } from './shared.js';
@@ -13,7 +14,7 @@ const ACTION_LABEL = { ignore: 'Ignorer', create: 'Créer', copy: 'Nouvelle copi
 const STATUS_TONE = { new: 'ok', identical: 'off', conflict: 'warn', archived: 'warn', foreignDomain: 'alert' };
 
 export function mountShare(panel, store) {
-  const st = { personal: [], selected: new Set(), plan: null, choices: {}, busy: false, maxLength: 900000 };
+  const st = { personal: [], selected: new Set(), plan: null, choices: {}, busy: false, maxBytes: 16 * 1024 * 1024, part: 400000 };
   panel.innerHTML = `<div class="grid rq-share">
     <section class="card span-6 rq-pack-export spot reveal" aria-labelledby="rq-px-title">
       <div class="card-head"><span class="card-icon">${glyph('download')}</span><div class="rq-head-titles"><h3 id="rq-px-title">Exporter un pack</h3>
@@ -35,17 +36,17 @@ export function mountShare(panel, store) {
       <label class="rq-drop" tabindex="-1">
         <input type="file" class="rq-pi-file visually-hidden" accept=".json,application/json">
         <span class="rq-drop-art" aria-hidden="true">${glyph('folder')}<i></i><i></i></span>
-        <b>Déposez un fichier de pack ici</b><span>ou <u>choisissez un fichier</u> (JSON, 900 Ko au plus) — Domenia 1 et Domenia 2</span>
+        <b>Déposez un fichier de pack ici</b><span>ou <u>choisissez un fichier</u> (JSON, 16 Mio au plus) — Domenia 1 et Domenia 2</span>
       </label>
       <details class="rq-fold rq-paste"><summary><span class="rq-fold-title"><b>Coller le contenu d’un pack</b></span>${glyph('chevronDown', 'rq-fold-chev')}</summary>
-        <div class="rq-fold-body"><textarea class="input rq-pi-text rq-mono" rows="6" maxlength="900000" spellcheck="false" aria-label="Contenu du pack"></textarea>
+        <div class="rq-fold-body"><textarea class="input rq-pi-text rq-mono" rows="6" spellcheck="false" aria-label="Contenu du pack"></textarea>
           <button type="button" class="btn subtle sm rq-pi-examine">${glyph('search')}Examiner ce contenu</button></div></details>
       <div class="rq-pi-plan" aria-live="polite"></div>
     </section>
 
     <section class="card span-12 rq-pack-history spot reveal" aria-labelledby="rq-ph-title">
       <div class="card-head"><span class="card-icon">${glyph('history')}</span><div class="rq-head-titles"><h3 id="rq-ph-title">Imports restaurables</h3>
-        <p class="rq-sub">Chaque import garde un point de restauration (10 au plus) : définitions remplacées remises, créations retirées.</p></div>
+        <p class="rq-sub">Chaque import garde un point de restauration (journal de 40 entrées) : définitions remplacées remises, créations retirées.</p></div>
         <span class="meta"><button type="button" class="btn xs subtle rq-ph-refresh">${glyph('refresh')}Actualiser</button></span></div>
       <div class="rq-ph-list"></div>
     </section>
@@ -57,7 +58,7 @@ export function mountShare(panel, store) {
   async function loadPersonal() {
     const host = $('.rq-px-list');
     host.innerHTML = `<li>${skLines(80, 60, 70)}</li>`;
-    const res = await store.call('requetes.library.list', { source: 'personal', limit: 500 });
+    const res = await store.call('requetes.library.list', { source: 'personal', limit: 5000 });
     if (!store.alive) return;
     if (res.error) { host.innerHTML = `<li class="rq-note">${esc(res.message)}</li>`; return; }
     st.personal = res.data.rows;
@@ -106,18 +107,21 @@ export function mountShare(panel, store) {
     const name = $('.rq-px-name').value.trim();
     const version = Number($('.rq-px-version').value);
     if (!name) { store.toast('Donnez un nom au pack.', 'warn'); return; }
-    if (!(Number.isInteger(version) && version >= 1)) { store.toast('La version est un entier de 1 à 1 000 000.', 'warn'); return; }
+    if (!(Number.isInteger(version) && version >= 1)) { store.toast('La version est un entier de 1 à 1 000 000.', 'warn'); return; }
     const res = await store.call('requetes.pack.export', { name, version, ids: [...st.selected], origin: $('.rq-px-origin').value.trim() || null });
     if (res.error) { store.toast(res.message, 'warn'); return; }
-    $('.rq-px-version').value = String(res.data.nextVersion);
-    openExport(store, { ...res.data, text: `Pack « ${name} » version ${version} : ${plural(res.data.count, 'requête', 'requêtes')}. La version proposée pour le prochain export passe à ${res.data.nextVersion}.` }, { title: 'Pack prêt' });
+    // The proposed version moves on only when the file is really saved (Domenia 1: after the export).
+    openExport(store, res.data, {
+      title: 'Pack prêt',
+      onSaved: (saved) => { if (saved.nextVersion) { $('.rq-px-version').value = String(saved.nextVersion); store.toast(`Prochaine version proposée : ${saved.nextVersion}.`, 'info'); } },
+    });
   });
 
   // ---------- Import ----------
 
   function readFile(file) {
     if (!file) return;
-    if (file.size > st.maxLength * 2) { store.toast('Fichier trop volumineux pour un pack (900 Ko au plus).', 'warn'); return; }
+    if (file.size > st.maxBytes) { store.toast('Fichier trop volumineux pour un pack (16 Mio au plus).', 'warn'); return; }
     const reader = new FileReader();
     reader.addEventListener('load', () => examine(String(reader.result ?? ''), file.name));
     reader.addEventListener('error', () => store.toast('Lecture du fichier impossible.', 'warn'));
@@ -133,11 +137,25 @@ export function mountShare(panel, store) {
 
   async function examine(content, fileName) {
     const host = $('.rq-pi-plan');
-    const text = content.replace(/^﻿/, '');
+    const text = content.replace(/^\uFEFF/, '');
     if (!text.trim()) { store.toast('Le pack est vide.', 'warn'); return; }
-    if (text.length > st.maxLength) { store.toast('Pack trop volumineux (900 000 caractères au plus).', 'warn'); return; }
-    host.innerHTML = `<div aria-busy="true">${skLines(70, 90, 80)}</div>`;
-    const res = await store.call('requetes.pack.examine', { content: text });
+    if (text.length > st.maxBytes) { store.toast('Pack trop volumineux (16 Mio au plus).', 'warn'); return; }
+    host.innerHTML = `<div aria-busy="true">${skLines(70, 90, 80)}</div><p class="rq-note rq-pi-progress"></p>`;
+    let args = { content: text };
+    if (text.length > st.part) {
+      // Beyond one message of the bridge (1 Mo), the pack goes in ordered parts, then is examined once.
+      const count = Math.ceil(text.length / st.part);
+      let upload = null;
+      for (let index = 0; index < count; index += 1) {
+        host.querySelector('.rq-pi-progress').textContent = `Envoi du pack au moteur : partie ${index + 1} sur ${count}…`;
+        const part = await store.call('requetes.pack.part', { upload, index, count, text: text.slice(index * st.part, (index + 1) * st.part) });
+        if (!store.alive) return;
+        if (part.error) { st.plan = null; host.innerHTML = emptyState('alert', 'Pack refusé', part.message); return; }
+        upload = part.data.upload;
+      }
+      args = { upload };
+    }
+    const res = await store.call('requetes.pack.examine', args);
     if (!store.alive) return;
     if (res.error) { st.plan = null; host.innerHTML = emptyState('alert', 'Pack refusé', res.message); return; }
     st.plan = res.data;

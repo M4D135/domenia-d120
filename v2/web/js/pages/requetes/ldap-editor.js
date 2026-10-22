@@ -1,11 +1,13 @@
 // LDAP text editor of the workshop (local component): a plain textarea for typing, under it a highlighted copy of the same
 // text (groups, attributes, operators, values, wildcards, escapes, matching rules) and the error mark at the position
-// given by the engine. The engine parses (RFC 4515); this only paints.
+// given by the engine. Its height follows the text (3 to 14 lines, no resize handle). The engine parses (RFC 4515); this
+// only paints.
 import { esc } from './shared.js';
 
 let counter = 0;
 
-function paint(text, errorAt) {
+/** Highlighted HTML of an LDAP text (exported for the tests of tests/web). */
+export function paint(text, errorAt) {
   let html = '';
   let i = 0;
   let state = 'start';
@@ -79,7 +81,7 @@ export function createLdapEditor(host, o) {
   host.innerHTML = `<div class="rq-ldap">
     <pre class="rq-ldap-hl" aria-hidden="true"></pre>
     <label class="visually-hidden" for="${id}">${esc(o.label)}</label>
-    <textarea id="${id}" class="rq-ldap-input" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="8192" rows="9"
+    <textarea id="${id}" class="rq-ldap-input" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="8192" rows="3"
       placeholder="${esc(o.placeholder ?? '(&(objectCategory=computer)(operatingSystem=*Windows 11*))')}"></textarea>
   </div>`;
   const root = host.firstElementChild;
@@ -87,7 +89,13 @@ export function createLdapEditor(host, o) {
   const area = root.querySelector('textarea');
   let errorAt = 0;
   let typing = false;
-  const repaint = () => { hl.innerHTML = paint(area.value, errorAt); };
+  const repaint = () => {
+    hl.innerHTML = paint(area.value, errorAt);
+    // Height of the text: wrapped lines counted on the width of the field (about one character per 8 px).
+    const perLine = Math.max(20, Math.floor((area.clientWidth || 480) / 8));
+    const lines = area.value.split('\n').reduce((n, line) => n + Math.max(1, Math.ceil(line.length / perLine)), 0);
+    root.style.setProperty('--rows', String(Math.max(3, Math.min(14, lines + 1))));
+  };
   const sync = () => { hl.scrollTop = area.scrollTop; hl.scrollLeft = area.scrollLeft; };
   area.addEventListener('input', () => { typing = true; errorAt = 0; repaint(); o.onInput(area.value); });
   area.addEventListener('scroll', sync);

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using Domenia.Core;
 using Domenia.Core.Queries;
+using Domenia.Core.Queries.Wmi;
 
 namespace Domenia.Simulation;
 
@@ -127,7 +128,7 @@ internal sealed class SimulatedQueryState
                     continue;
                 }
                 var reachable = !world.Presence.NeverAnswer.Contains(id) && !world.Presence.ErrorProbes.Contains(id) && random.Chance(88);
-                if (request.Presence || request.Inventory || request.Probes.Length > 0 || request.Console)
+                if (request.Presence || request.Inventory || request.Probes.Length > 0 || request.Console || request.DetailReads.Length > 0)
                 {
                     presence[id] = new PresenceMeasure(MeasureState.Known, reachable, now, reachable ? now : observations.GetValueOrDefault(id)?.Presence.LastOnlineAt);
                 }
@@ -175,6 +176,11 @@ internal sealed class SimulatedQueryState
                         }
                     }
                 }
+                foreach (var detail in request.DetailReads)
+                {
+                    // The SELECT saved with the recipe, read again on this workstation only (never an arbitrary WQL).
+                    StoreLocked(id, ReadDetail(id, detail, now));
+                }
             }
             version++;
             return new QueryMeasureResult(request.Computers.Length, answered, failed, disabled, source.Overlay.Version * 1_000_000 + version, now);
@@ -186,14 +192,40 @@ internal sealed class SimulatedQueryState
     {
         lock (gate)
         {
-            if (!details.TryGetValue(computer, out var list))
-            {
-                details[computer] = list = [];
-            }
-            list.RemoveAll(r => r.RequestKey == result.RequestKey);
-            list.Add(result);
+            StoreLocked(computer, result);
             version++;
         }
+    }
+
+    private void StoreLocked(Guid computer, StoredWmiResult result)
+    {
+        if (!details.TryGetValue(computer, out var list))
+        {
+            details[computer] = list = [];
+        }
+        list.RemoveAll(r => r.RequestKey == result.RequestKey);
+        list.Add(result);
+    }
+
+    /// <summary>Stored counts of one saved SELECT on one simulated workstation (an absent class gives a failed reading).</summary>
+    private StoredWmiResult ReadDetail(Guid computer, WmiReadDefinition detail, DateTimeOffset now)
+    {
+        var definition = SimulatedWmiCatalog.Find(detail.Namespace, detail.ClassName);
+        if (definition is null)
+        {
+            return new StoredWmiResult(detail.RequestKey, now, false, 0, false, false);
+        }
+        WqlSelect select;
+        try
+        {
+            select = WqlRules.Parse(detail.CanonicalQuery);
+        }
+        catch (QueryDefinitionException)
+        {
+            return new StoredWmiResult(detail.RequestKey, now, false, 0, false, false);
+        }
+        var count = SimulatedWmiCatalog.Instances(source, computer, definition).Count(i => WqlRules.Matches(select.Where, i));
+        return new StoredWmiResult(detail.RequestKey, now, true, Math.Min(count, detail.Limit), count <= detail.Limit, count > detail.Limit);
     }
 
     public ComputerProfile? Profile(Guid id)

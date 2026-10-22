@@ -404,6 +404,8 @@ public static class QueryErrors
     public const string WidgetInvalid = "query.widgetInvalid";
     public const string ExportTooLarge = "query.exportTooLarge";
     public const string ExportUnavailable = "query.exportUnavailable";
+    public const string ImpactRequired = "query.impactRequired";
+    public const string StoreFailed = "query.storeFailed";
     public const string ScopeChanged = "query.scopeChanged";
     public const string ScopeChangedMessage = "L’OU de travail a changé depuis cet aperçu : relancez l’aperçu sur le nouveau périmètre.";
 }

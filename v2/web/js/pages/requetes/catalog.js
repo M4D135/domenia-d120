@@ -27,15 +27,16 @@ export function mountCatalog(panel, store, api) {
   const $ = (sel) => panel.querySelector(sel);
 
   const fieldColumns = [
-    { id: 'name', label: 'Information', required: true, width: 260, get: (f) => f.name },
-    { id: 'category', label: 'Catégorie', width: 190, get: (f) => f.category },
-    { id: 'source', label: 'Source', type: 'enum', width: 160, get: (f) => key(f.source), options: SOURCE_OPTIONS },
-    { id: 'typeLabel', label: 'Type', width: 120, get: (f) => f.typeLabel },
-    { id: 'unit', label: 'Unité', width: 100, get: (f) => f.unit || null },
-    { id: 'freshness', label: 'Fraîcheur', width: 200, get: (f) => f.freshness },
-    { id: 'cost', label: 'Coût', width: 160, get: (f) => f.cost },
+    { id: 'name', label: 'Information', required: true, width: 340, get: (f) => f.name },
+    { id: 'source', label: 'Source', type: 'enum', width: 150, get: (f) => key(f.source), options: SOURCE_OPTIONS },
+    { id: 'category', label: 'Catégorie', width: 170, get: (f) => f.category },
+    { id: 'unit', label: 'Unité', width: 132, get: (f) => f.unit || null },
+    { id: 'typeLabel', label: 'Type', width: 110, get: (f) => f.typeLabel },
     { id: 'groupable', label: 'Répartition', type: 'bool', width: 110, get: (f) => !!f.groupable },
     { id: 'ldapAttribute', label: 'Attribut LDAP', mono: true, width: 190, get: (f) => f.ldapAttribute ?? null },
+    { id: 'freshness', label: 'Fraîcheur', width: 220, hidden: true, get: (f) => f.freshness },
+    { id: 'cost', label: 'Coût', width: 200, hidden: true, get: (f) => f.cost },
+    { id: 'technical', label: 'Détail technique', mono: true, width: 300, hidden: true, get: (f) => f.technical ?? null },
     { id: 'id', label: 'Identifiant', mono: true, width: 220, hidden: true, get: (f) => f.id },
     { id: 'description', label: 'Description', width: 380, hidden: true, get: (f) => f.description },
   ];
@@ -94,7 +95,7 @@ export function mountCatalog(panel, store, api) {
       selection: 'single',
       height: '560px',
       loading: true,
-      quickPlaceholder: 'Chercher une information (nom, catégorie, description)…',
+      quickPlaceholder: 'Chercher une information…',
       empty: { icon: 'search', title: 'Aucune information', text: 'Aucune information ne correspond à ce texte.' },
       onActiveChange: (f) => showField(f),
       onActivate: (f) => use(f),
@@ -113,8 +114,11 @@ export function mountCatalog(panel, store, api) {
       height: '560px',
       loading: true,
       quickPlaceholder: 'Chercher un attribut…',
-      contextMenu: ({ row }) => [{ label: 'Copier le nom', icon: 'copy', disabled: !row, run: async () => { await writeClipboard(row.name); store.toast('Nom de l’attribut copié.', 'ok'); } }],
-      onActivate: async (a) => { await writeClipboard(a.name); store.toast(`« ${a.name} » copié : collez-le dans le filtre LDAP.`, 'ok'); },
+      contextMenu: ({ row }) => [
+        { label: 'Utiliser cet attribut dans une condition', icon: 'plus', kbd: 'Entrée', disabled: !row, run: () => useAttribute(row) },
+        { label: 'Copier le nom', icon: 'copy', disabled: !row, run: async () => { await writeClipboard(row.name); store.toast('Nom de l’attribut copié.', 'ok'); } },
+      ],
+      onActivate: (a) => useAttribute(a),
     });
     load();
   }
@@ -137,6 +141,13 @@ export function mountCatalog(panel, store, api) {
       console.error(err);
       st.grid?.setError('Le catalogue n’a pas pu être lu.', { retry: load });
     }
+  }
+
+  /** A raw LDAP attribute becomes a condition of the visual builder (any target; LDAP semantics: an absent attribute is false). */
+  function useAttribute(a) {
+    if (!a) return;
+    if (!a.read) store.toast(`« ${a.name} » n’est pas conservé par Domenia : sa condition restera inconnue en local, le contrôleur l’évaluera en mode annuaire.`, 'info');
+    api.useField(`ldap:${a.name}`);
   }
 
   function use(f) {

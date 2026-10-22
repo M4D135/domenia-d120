@@ -1,0 +1,26 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Requêtes : brouillon repris à la réouverture, sans notification",
+  "description": "Compose un critère, quitte l’atelier puis y revient : le brouillon est repris tel quel et signalé par une puce discrète « Repris », sans notification qui recouvre le détail.",
+  "modes": ["simulation"],
+  "start": "requetes?cible=computer",
+  "steps": [
+    { "do": "wait", "selector": ".rq-combo input" },
+    { "do": "click", "selector": ".rq-combo input" },
+    { "do": "type", "selector": ".rq-combo input", "text": "système déclaré", "clear": true },
+    { "do": "wait", "contains": "Système déclaré dans AD", "within": ".rq-combo-list" },
+    { "do": "press", "key": "Enter" },
+    { "do": "click", "text": "contient", "within": ".rq-ops" },
+    { "do": "type", "selector": ".rq-value-host input", "text": "Windows", "clear": true },
+    { "do": "click", "text": "Ajouter le critère", "within": ".rq-builder" },
+    { "do": "expect", "contains": "Windows", "within": ".rq-crit-list" },
+    { "do": "wait", "ms": 2000, "title": "Le brouillon est gardé (1,5 s après la dernière modification)" },
+    { "do": "go", "route": "accueil" },
+    { "do": "wait", "selector": ".main[data-page=\"accueil\"]" },
+    { "do": "go", "route": "requetes" },
+    { "do": "wait", "contains": "Repris", "within": ".rq-hero-chips", "title": "Puce discrète du brouillon repris" },
+    { "do": "expect", "contains": "Windows", "within": ".rq-crit-list", "title": "Les critères du brouillon sont revenus" },
+    { "do": "expect", "contains": "Brouillon repris", "within": ".toasts", "absent": true, "title": "Aucune notification à l’ouverture" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

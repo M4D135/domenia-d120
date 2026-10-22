@@ -226,6 +226,12 @@ public sealed class CompiledQuery
             }
             at = record.Clocks.TryGetValue("ad", out var ad) ? ad : null;
         }
+        else if (field is not null && QueryLdap.AbsentIsFalse(field) && !record.Values.ContainsKey(clause.Field))
+        {
+            value = "Attribut vide dans l’annuaire";
+            state = "Disponible · attribut absent";
+            at = record.Clocks.TryGetValue("ad", out var ad) ? ad : null;
+        }
         else
         {
             value = record.Values.TryGetValue(clause.Field, out var raw) ? QueryFormat.Raw(raw, field) : record.State(clause.Field);
@@ -317,14 +323,14 @@ public static partial class QueryEngine
         }
         if (recipe.CoherenceHours is decimal hours && (hours <= 0 || hours > QueryLimits.MaxCoherenceHours))
         {
-            throw Invalid("fenêtre de cohérence invalide (plus de 0 et au plus 8 760 heures).");
+            throw Invalid("fenêtre de cohérence invalide (plus de 0 et au plus 8 760 heures).");
         }
         FrozenSet<string>? identities = null;
         if (recipe.ObjectIds is { } ids)
         {
             if (ids.Length > QueryLimits.MaxObjectIds)
             {
-                throw Invalid("la sélection accepte au plus 20 000 GUID.");
+                throw Invalid("la sélection accepte au plus 20 000 GUID.");
             }
             var set = new HashSet<string>(StringComparer.Ordinal);
             foreach (var id in ids)
@@ -441,7 +447,7 @@ public static partial class QueryEngine
             }
             else
             {
-                hint = field is not null && field.Choices.Length > 0 ? "Choix parmi " + FrenchText.Count(field.Choices.Length, "valeur connue", "valeurs connues") : "Texte littéral, 4 096 caractères au plus";
+                hint = field is not null && field.Choices.Length > 0 ? "Choix parmi " + FrenchText.Count(field.Choices.Length, "valeur connue", "valeurs connues") : "Texte littéral, 4 096 caractères au plus";
             }
             rows.Add(new QueryParameterRow(definition.Name, string.IsNullOrEmpty(definition.Label) ? definition.Name : definition.Label, definition.Field, field?.Name ?? definition.Field, kind, unit,
                 value, QueryFormat.Value(value, field, bare: true), hint, field?.Choices ?? [], definition.Minimum, definition.Maximum));
@@ -477,7 +483,7 @@ public static partial class QueryEngine
             default:
                 var text = value.Invariant;
                 return text.Length > QueryLimits.MaxTextValue
-                    ? throw new QueryDefinitionException("Le paramètre " + label + " attend un texte de 4 096 caractères maximum.")
+                    ? throw new QueryDefinitionException("Le paramètre " + label + " attend un texte de 4 096 caractères maximum.")
                     : QueryValue.FromText(text);
         }
     }
@@ -579,7 +585,7 @@ public static partial class QueryEngine
                 var literal = value.Invariant;
                 if (literal.Length > QueryLimits.MaxTextValue)
                 {
-                    throw Invalid("texte limité à 4 096 caractères.");
+                    throw Invalid("texte limité à 4 096 caractères.");
                 }
                 if (literal.Length == 0 && clause.Operator is QueryOperator.Contains or QueryOperator.StartsWith or QueryOperator.EndsWith)
                 {
@@ -770,7 +776,7 @@ public static partial class QueryEngine
                 : QueryLdap.ClauseFilter(clause, field.LdapAttribute!);
             return new LdapPredicate(filter);
         }
-        return new ClausePredicate(clause, field, collection is not null);
+        return new ClausePredicate(clause, field, collection is not null, collection is null && QueryLdap.AbsentIsFalse(field));
     }
 }
 
@@ -864,11 +870,26 @@ internal sealed class CollectionPredicate(string probe, CollectionQuantifier qua
     }
 }
 
-/// <summary>One typed condition on a record value (or on an instance property inside a collection).</summary>
-internal sealed class ClausePredicate(QueryClause clause, QueryField field, bool instance) : Predicate
+/// <summary>
+/// One typed condition on a record value (or on an instance property inside a collection). <paramref name="absentIsFalse"/>:
+/// the information is the plain copy of a directory attribute kept by Domenia, so an absent value is an empty attribute, a
+/// known fact (as in LDAP: the item is FALSE, its negation TRUE), never a missing measure.
+/// </summary>
+internal sealed class ClausePredicate(QueryClause clause, QueryField field, bool instance, bool absentIsFalse = false) : Predicate
 {
-    public override MatchState Evaluate(QueryRecord record, QueryEvaluationContext context) =>
-        instance ? MatchState.Unknown : Test(record.Values.TryGetValue(clause.Field, out var value) ? value : null);
+    public override MatchState Evaluate(QueryRecord record, QueryEvaluationContext context)
+    {
+        if (instance)
+        {
+            return MatchState.Unknown;
+        }
+        var value = record.Values.TryGetValue(clause.Field, out var raw) ? raw : null;
+        if (value is null && absentIsFalse && clause.Operator is not (QueryOperator.IsMissing or QueryOperator.IsPresent))
+        {
+            return clause.Operator == QueryOperator.NotEqual ? MatchState.Match : MatchState.NoMatch;
+        }
+        return Test(value);
+    }
 
     public override MatchState EvaluateInstance(ProbeInstance item, QueryEvaluationContext context)
     {

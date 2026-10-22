@@ -523,7 +523,6 @@ public sealed class DirectoryLdapEntry : ILdapEntry
         entry.Set("manager", user.ManagerDn);
         entry.Set("description", user.Description);
         entry.Set("employeeID", user.EmployeeId);
-        entry.Set("company", "Example");
         entry.Set("userAccountControl", user.UserAccountControl);
         entry.Set("msDS-User-Account-Control-Computed", user.ComputedAccountControl);
         entry.Set("lockoutTime", user.LockoutTime);

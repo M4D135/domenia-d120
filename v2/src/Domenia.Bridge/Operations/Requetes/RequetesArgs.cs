@@ -184,11 +184,19 @@ internal static class RequetesArgs
         {
             return QueryErrors.RevisionChanged;
         }
+        if (message.StartsWith(QueryLibrary.ImpactRequiredPrefix, StringComparison.Ordinal))
+        {
+            return QueryErrors.ImpactRequired;
+        }
+        if (message.StartsWith(QueryLibrary.StoreFailedPrefix, StringComparison.Ordinal))
+        {
+            return QueryErrors.StoreFailed;
+        }
         if (message.StartsWith("Un modèle livré", StringComparison.Ordinal))
         {
             return QueryErrors.TemplateReadOnly;
         }
-        if (message.StartsWith("Bibliothèque locale pleine", StringComparison.Ordinal) || message.Contains("1 000 requêtes", StringComparison.Ordinal))
+        if (message.StartsWith("Bibliothèque locale pleine", StringComparison.Ordinal) || message.Contains("5 000 requêtes", StringComparison.Ordinal))
         {
             return QueryErrors.LibraryFull;
         }

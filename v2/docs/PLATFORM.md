@@ -117,7 +117,7 @@ l’opération avec `source.unavailable`, comme `dashboard.summary`.
 | `Local` | état en mémoire | admise |
 | `LocalRead` | base locale, fichiers de l’application, annuaire fictif en mémoire | admise |
 | `NetworkRead` | annuaire, WMI, DNS, ping, après un geste explicite, borné à une OU | admise seulement si `ServedInSimulation` |
-| `LocalWrite` | **préférences locales seulement** (`%LOCALAPPDATA%\Domenia`), jamais l’annuaire ni un poste | admise |
+| `LocalWrite` | **données locales de l’application seulement** (`%LOCALAPPDATA%\Domenia` : préférences, reçus, fichiers propres d’un écran déclarés dans son contrat, comme la bibliothèque et les exports de l’atelier de requêtes, [`ops/requetes.md`](ops/requetes.md)), jamais l’annuaire ni un poste | admise |
 | `Write` | écriture AD ou action distante, **seulement `write.execute`** : plan, confirmation, reçu, relecture ([`WRITES.md`](WRITES.md)) | admise pour `write.execute` seulement, sur la surcouche en mémoire (décision du 21/10) |
 
 La classe déclarée est celle du mode le plus exigeant ; elle peut dépendre du mode (`directory.ou.children` est

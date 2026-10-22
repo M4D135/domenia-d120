@@ -93,7 +93,34 @@ public static partial class QueryScript
             .SelectMany(a => a.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             .Where(a => Ldap.LdapSchema.Find(a) is not null).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
 
-    /// <summary>The whole script (CRLF), ready to be saved with a UTF-8 byte order mark.</summary>
+    /// <summary>Field metadata embedded in the script: kind, absent-is-false (plain directory attribute) and clock of each information.</summary>
+    private static string FieldTable(CompiledQuery query)
+    {
+        var builder = new StringBuilder("{");
+        var first = true;
+        var ids = query.RequestedFields.Concat(QueryRecipeWalk.Clauses(query.Normalized).Select(c => c.Field)).Concat(query.Normalized.Parameters.Select(p => p.Field))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        foreach (var id in ids)
+        {
+            if (QueryCatalog.Find(query.Target, id, query.Resolved.ReadDefinition) is not { } field)
+            {
+                continue;
+            }
+            builder.Append(first ? "" : ",").Append(System.Text.Json.JsonSerializer.Serialize(id)).Append(":{\"Kind\":\"").Append(field.Kind.ToString())
+                .Append("\",\"Plain\":").Append(QueryLdap.AbsentIsFalse(field) ? "true" : "false")
+                .Append(",\"Local\":").Append(field.Source is QuerySource.Ldap or QuerySource.Instance ? "false" : "true")
+                .Append(",\"Clock\":").Append(System.Text.Json.JsonSerializer.Serialize(field.Clock)).Append('}');
+            first = false;
+        }
+        return builder.Append('}').ToString();
+    }
+
+    /// <summary>
+    /// The whole script (CRLF), ready to be saved with a UTF-8 byte order mark (Domenia 1 ConvertTo-DomeniaQueryPowerShell, made
+    /// standalone). Two uses, never run by the export: <c>-RecordsPath</c> evaluates the whole recipe (conditions, tree, segment,
+    /// parameters with <c>-ParameterValues</c>, coherence window) on a Domenia JSON export, three-valued like the workshop;
+    /// <c>-SearchBase</c> reads the directory candidates in read only (Get-AD* -LDAPFilter).
+    /// </summary>
     public static string PowerShell(CompiledQuery query, LdapTranslation ldap, DateTimeOffset exportedAt)
     {
         ArgumentNullException.ThrowIfNull(query);
@@ -107,14 +134,16 @@ public static partial class QueryScript
         }
         lines.Add("#requires -Version 5.1");
         Note("===== Requête Domenia exportée =====");
-        Note("Nom : " + recipe.Name);
-        Note("Identifiant : " + recipe.Id + " · format " + recipe.MinimalFormat() + " · cible : " + QueryTexts.TargetLabel(recipe.Target));
-        Note("Exportée le " + exportedAt.UtcDateTime.ToString("dd'/'MM'/'yyyy HH':'mm", CultureInfo.InvariantCulture) + " UTC. L’export n’a rien exécuté : relisez puis lancez ce script vous-même.");
+        Note("Nom : " + recipe.Name);
+        Note("Identifiant : " + recipe.Id + " · format " + recipe.MinimalFormat() + " · cible : " + QueryTexts.TargetLabel(recipe.Target));
+        Note("Exportée le " + exportedAt.UtcDateTime.ToString("dd'/'MM'/'yyyy HH':'mm", CultureInfo.InvariantCulture) + " UTC. L’export n’a rien exécuté : relisez puis lancez ce script vous-même.");
         lines.Add("#");
-        Note("Ce script lit l’annuaire en lecture seule (" + Cmdlet(recipe.Target) + " -LDAPFilter), n’écrit rien et ne contient ni identifiant ni secret.");
-        Note("Il lit seulement la base indiquée par -SearchBase, dans la limite de -ResultSetSize objets : jamais tout le domaine sans votre choix.");
+        Note("Ce script n’écrit rien et ne contient ni identifiant ni secret. Deux usages :");
+        Note("  1. -RecordsPath : évalue toute la requête (conditions, groupes, segment, paramètres, fenêtre de cohérence) sur un export JSON de Domenia,");
+        Note("     sans aucune connexion. Une information absente, expirée ou incomplète donne Inconnu, jamais Faux ni zéro (sauf un attribut AD vide).");
+        Note("  2. -SearchBase : lit en lecture seule les candidats de l’annuaire (" + Cmdlet(recipe.Target) + " -LDAPFilter), bornés par la base et -ResultSetSize.");
         lines.Add("#");
-        Note("Conditions :");
+        Note("Conditions :");
         foreach (var (element, values) in QueryAnalysis.Summary(recipe))
         {
             if (element is "Nom" or "Cible")
@@ -123,14 +152,14 @@ public static partial class QueryScript
             }
             foreach (var value in values)
             {
-                Note("  " + element + " : " + value);
+                Note("  " + element + " : " + value);
             }
         }
         lines.Add("#");
-        Note("Filtre LDAP envoyé au contrôleur : " + ldap.PreFilter);
+        Note("Filtre LDAP envoyé au contrôleur (usage 2) : " + ldap.PreFilter);
         if (ldap.Residual.Length > 0)
         {
-            Note("Conditions calculées par Domenia, non évaluées par ce script (relevés, sondes, règles locales) :");
+            Note("Conditions que l’usage 2 laisse à Domenia (l’usage 1 les évalue sur l’export) :");
             foreach (var item in ldap.Residual)
             {
                 Note("  - " + item);
@@ -138,57 +167,284 @@ public static partial class QueryScript
         }
         foreach (var note in ldap.Notes)
         {
-            Note("Remarque : " + note);
+            Note("Remarque : " + note);
         }
         lines.Add("#");
-        Note("Informations utilisées et sources :");
+        Note("Informations utilisées et sources :");
         foreach (var id in query.RequestedFields)
         {
             if (QueryCatalog.Find(recipe.Target, id, recipe.ReadDefinition) is { } field)
             {
-                Note("  - " + field.Name + " : " + field.SourceLabel + " · " + field.Freshness);
+                Note("  - " + field.Name + " (" + id + ") : " + field.SourceLabel + " · " + field.Freshness);
             }
         }
         var parameters = QueryEngine.ParameterRows(recipe);
-        Note("Paramètres de la recette (valeurs figées à l’export) :");
+        Note("Paramètres de la recette (modifiables avec -ParameterValues @{ Nom = valeur } pour l’usage 1) :");
         if (parameters.Length == 0)
         {
             Note("  (aucun)");
         }
         foreach (var parameter in parameters)
         {
-            Note("  - " + parameter.Label + " (" + parameter.FieldName + ") = " + parameter.ValueLabel);
+            Note("  - " + parameter.Name + " : " + parameter.Label + " (" + parameter.FieldName + ") = " + parameter.ValueLabel);
         }
         lines.Add("#");
-        Note("Limites :");
-        Note("  - Une information absente du filtre LDAP reste à vérifier dans Domenia : ce script ne rend que les candidats de l’annuaire.");
-        Note("  - Les dates relatives (jours depuis la connexion…) sont converties à l’export : exportez de nouveau pour les recalculer.");
-        Note("  - Lecture seule ; aucune collecte n’est déclenchée.");
+        Note("Limites :");
+        Note("  - Le résultat ne vaut que pour l’instantané fourni : ses dates et son périmètre restent ceux de l’aperçu exporté.");
+        Note("  - Les collections d’instances de sonde et les attributs LDAP bruts ne sont pas dans l’export : leurs conditions restent Inconnues.");
+        Note("  - Les dates relatives du filtre LDAP (usage 2) sont converties à l’export : exportez de nouveau pour les recalculer.");
+        Note("  - 64 conditions et 8 niveaux de groupes au plus ; aucune collecte n’est déclenchée.");
         lines.Add("#");
-        Note("Exemple : .\\requete.ps1 -SearchBase 'OU=Postes,DC=example,DC=local' -Server dc01.example.local");
-        lines.Add("[CmdletBinding()]");
+        Note("Sortie (usage 1) : un objet par objet retenu (Id, Nom, CheminAD, Verdict, Valeurs, Etats). -Selection choisit Match, Unknown, NoMatch ou All.");
+        Note("Exemples : .\\requete.ps1 -RecordsPath .\\export.json -Selection Unknown");
+        Note("           .\\requete.ps1 -SearchBase 'OU=Postes,DC=example,DC=local' -Server dc01.example.local");
+        lines.Add("[CmdletBinding(DefaultParameterSetName = 'Instantane')]");
         lines.Add("param(");
-        lines.Add("    [Parameter(Mandatory = $true)][string]$SearchBase,");
-        lines.Add("    [string]$Server,");
-        lines.Add("    [ValidateRange(1, 200000)][int]$ResultSetSize = 5000,");
+        lines.Add("    [Parameter(ParameterSetName = 'Instantane', Mandatory = $true)][string]$RecordsPath,");
+        lines.Add("    [Parameter(ParameterSetName = 'Objets', Mandatory = $true)][object[]]$Records,");
+        lines.Add("    [Parameter(ParameterSetName = 'Instantane')][Parameter(ParameterSetName = 'Objets')][ValidateSet('Match', 'Unknown', 'NoMatch', 'All')][string]$Selection = 'Match',");
+        lines.Add("    [Parameter(ParameterSetName = 'Instantane')][Parameter(ParameterSetName = 'Objets')][hashtable]$ParameterValues = @{},");
+        lines.Add("    [Parameter(ParameterSetName = 'Annuaire', Mandatory = $true)][string]$SearchBase,");
+        lines.Add("    [Parameter(ParameterSetName = 'Annuaire')][string]$Server,");
+        lines.Add("    [Parameter(ParameterSetName = 'Annuaire')][ValidateRange(1, 200000)][int]$ResultSetSize = 5000,");
         lines.Add("    [switch]$ShowDefinition");
         lines.Add(")");
         lines.Add("$ErrorActionPreference = 'Stop'");
         lines.Add("$definition = '" + AsciiJson(QueryRecipeJson.Write(recipe)).Replace("'", "''", StringComparison.Ordinal) + "'");
-        lines.Add("if ($ShowDefinition) { $definition | ConvertFrom-Json | ConvertTo-Json -Depth 32; return }");
-        lines.Add("Import-Module ActiveDirectory -ErrorAction Stop");
-        lines.Add("$ldapFilter = " + Literal(ldap.PreFilter));
+        lines.Add("$fieldTable = '" + AsciiJson(FieldTable(query)).Replace("'", "''", StringComparison.Ordinal) + "'");
+        lines.Add("$clockList = @(" + string.Join(", ", query.Clocks.Select(c => "'" + c.Replace("'", "''", StringComparison.Ordinal) + "'")) + ")");
+        lines.Add("$recipe = ConvertFrom-Json -InputObject $definition");
+        lines.Add("if ($ShowDefinition) { $recipe | ConvertTo-Json -Depth 32; return }");
+        lines.Add("if ($PSCmdlet.ParameterSetName -eq 'Annuaire') {");
+        lines.Add("    Import-Module ActiveDirectory -ErrorAction Stop");
+        lines.Add("    $ldapFilter = " + Literal(ldap.PreFilter));
         var properties = Properties(query);
-        lines.Add("$properties = @(" + string.Join(", ", properties.Select(p => "'" + p + "'")) + ")");
-        lines.Add("$query = @{ LDAPFilter = $ldapFilter; SearchBase = $SearchBase; SearchScope = 'Subtree'; ResultSetSize = $ResultSetSize; Properties = $properties }");
-        lines.Add("if ($Server) { $query.Server = $Server }");
-        lines.Add(Cmdlet(recipe.Target) + " @query | Select-Object -Property (@('Name', 'DistinguishedName') + $properties)");
+        lines.Add("    $properties = @(" + string.Join(", ", properties.Select(p => "'" + p + "'")) + ")");
+        lines.Add("    $query = @{ LDAPFilter = $ldapFilter; SearchBase = $SearchBase; SearchScope = 'Subtree'; ResultSetSize = $ResultSetSize; Properties = $properties }");
+        lines.Add("    if ($Server) { $query.Server = $Server }");
+        lines.Add("    " + Cmdlet(recipe.Target) + " @query | Select-Object -Property (@('Name', 'DistinguishedName') + $properties)");
+        lines.Add("    return");
+        lines.Add("}");
+        foreach (var line in Evaluator.Replace("\r", "", StringComparison.Ordinal).Split('\n'))
+        {
+            lines.Add(line);
+        }
+        while (lines.Count > 0 && lines[^1].Length == 0)
+        {
+            lines.RemoveAt(lines.Count - 1);
+        }
         return string.Join("\r\n", lines) + "\r\n";
     }
+
+    // Three-valued evaluator of a recipe on exported records (Windows PowerShell 5.1: no ternary, no ??, no typographic
+    // quotes in code). Same rules as Domenia.Core: Kleene logic, absent value unknown except for a plain directory attribute.
+    private const string Evaluator = """
+$meta = ConvertFrom-Json -InputObject $fieldTable
+function Get-DomeniaMember($Object, [string]$Name) {
+    if ($null -eq $Object) { return $null }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+function Get-DomeniaList($Object, [string]$Name) {
+    $value = Get-DomeniaMember $Object $Name
+    if ($null -eq $value) { return ,@() }
+    return ,@($value)
+}
+function ConvertTo-DomeniaTyped($Value, [string]$Kind, [string]$Label) {
+    if ($null -eq $Value) { return $null }
+    if ($Kind -eq 'Number') {
+        if ($Value -is [string]) {
+            $parsed = [decimal]0
+            $text = $Value.Trim().Replace(',', '.')
+            if (-not [decimal]::TryParse($text, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsed)) { throw ('Nombre attendu pour ' + $Label + ' : ' + $Value) }
+            return $parsed
+        }
+        return [decimal]$Value
+    }
+    if ($Kind -eq 'Boolean') {
+        if ($Value -is [bool]) { return $Value }
+        $flag = ([string]$Value).Trim().ToLowerInvariant()
+        if (@('true', 'vrai', 'oui', '1') -contains $flag) { return $true }
+        if (@('false', 'faux', 'non', '0') -contains $flag) { return $false }
+        throw ('Oui ou Non attendu pour ' + $Label + ' : ' + $Value)
+    }
+    return [string]$Value
+}
+function Get-DomeniaKind([string]$Field) {
+    $info = Get-DomeniaMember $meta $Field
+    if ($null -eq $info) { return 'Text' }
+    return [string]$info.Kind
+}
+$known = @{}
+foreach ($parameter in (Get-DomeniaList $recipe 'Parameters')) { $known[[string]$parameter.Name] = $parameter }
+foreach ($key in $ParameterValues.Keys) { if (-not $known.ContainsKey([string]$key)) { throw ('Parametre inconnu pour cette requete : ' + [string]$key) } }
+$effective = @{}
+foreach ($parameter in (Get-DomeniaList $recipe 'Parameters')) {
+    $name = [string]$parameter.Name
+    $value = Get-DomeniaMember $parameter 'Default'
+    $given = Get-DomeniaMember $recipe 'ParameterValues'
+    if ($null -ne (Get-DomeniaMember $given $name)) { $value = Get-DomeniaMember $given $name }
+    if ($ParameterValues.ContainsKey($name)) { $value = $ParameterValues[$name] }
+    $typed = ConvertTo-DomeniaTyped $value (Get-DomeniaKind ([string]$parameter.Field)) $name
+    $minimum = Get-DomeniaMember $parameter 'Minimum'
+    $maximum = Get-DomeniaMember $parameter 'Maximum'
+    if ($null -ne $minimum -and $typed -lt [decimal]$minimum) { throw ('Valeur trop petite pour ' + $name) }
+    if ($null -ne $maximum -and $typed -gt [decimal]$maximum) { throw ('Valeur trop grande pour ' + $name) }
+    $effective[$name] = $typed
+}
+function Resolve-DomeniaValue($Value, [string]$Kind, [string]$Label) {
+    $reference = $null
+    if ($null -ne $Value -and $Value -isnot [string] -and $Value -isnot [bool] -and $Value -isnot [ValueType]) { $reference = Get-DomeniaMember $Value 'Parameter' }
+    if ($null -ne $reference) { return $effective[[string]$reference] }
+    return ConvertTo-DomeniaTyped $Value $Kind $Label
+}
+function Join-DomeniaAll([object[]]$States) {
+    $unknown = $false
+    foreach ($state in $States) { if ($state -eq 'NoMatch') { return 'NoMatch' }; if ($state -eq 'Unknown') { $unknown = $true } }
+    if ($unknown) { return 'Unknown' }
+    return 'Match'
+}
+function Join-DomeniaAny([object[]]$States) {
+    $unknown = $false
+    foreach ($state in $States) { if ($state -eq 'Match') { return 'Match' }; if ($state -eq 'Unknown') { $unknown = $true } }
+    if ($unknown) { return 'Unknown' }
+    return 'NoMatch'
+}
+function Get-DomeniaNegation([string]$State) {
+    if ($State -eq 'Match') { return 'NoMatch' }
+    if ($State -eq 'NoMatch') { return 'Match' }
+    return 'Unknown'
+}
+function Test-DomeniaClause($Clause, $Row) {
+    $field = [string]$Clause.Field
+    $operator = [string]$Clause.Operator
+    $info = Get-DomeniaMember $meta $field
+    if ($null -eq $info -or -not $info.Local) { return 'Unknown' }
+    $value = Get-DomeniaMember (Get-DomeniaMember $Row 'values') $field
+    if ($operator -eq 'IsMissing') { if ($null -eq $value) { return 'Match' }; return 'NoMatch' }
+    if ($operator -eq 'IsPresent') { if ($null -eq $value) { return 'NoMatch' }; return 'Match' }
+    if ($null -eq $value) {
+        if ($info.Plain) { if ($operator -eq 'NotEqual') { return 'Match' }; return 'NoMatch' }
+        return 'Unknown'
+    }
+    $kind = [string]$info.Kind
+    $expected = Resolve-DomeniaValue (Get-DomeniaMember $Clause 'Value') $kind $field
+    if ($null -eq $expected) { return 'Unknown' }
+    $result = $false
+    if ($kind -eq 'Number') {
+        $number = [decimal]$value
+        $limit = [decimal]$expected
+        switch ($operator) {
+            'Equal' { $result = $number -eq $limit }
+            'NotEqual' { $result = $number -ne $limit }
+            'Greater' { $result = $number -gt $limit }
+            'GreaterOrEqual' { $result = $number -ge $limit }
+            'Less' { $result = $number -lt $limit }
+            'LessOrEqual' { $result = $number -le $limit }
+        }
+    } elseif ($kind -eq 'Boolean') {
+        if ($operator -eq 'NotEqual') { $result = ([bool]$value) -ne ([bool]$expected) } else { $result = ([bool]$value) -eq ([bool]$expected) }
+    } else {
+        $text = [string]$value
+        $wanted = [string]$expected
+        switch ($operator) {
+            'Equal' { $result = [string]::Equals($text, $wanted, [StringComparison]::OrdinalIgnoreCase) }
+            'NotEqual' { $result = -not [string]::Equals($text, $wanted, [StringComparison]::OrdinalIgnoreCase) }
+            'Contains' { $result = $text.IndexOf($wanted, [StringComparison]::OrdinalIgnoreCase) -ge 0 }
+            'StartsWith' { $result = $text.StartsWith($wanted, [StringComparison]::OrdinalIgnoreCase) }
+            'EndsWith' { $result = $text.EndsWith($wanted, [StringComparison]::OrdinalIgnoreCase) }
+        }
+    }
+    if ($result) { return 'Match' }
+    return 'NoMatch'
+}
+function Test-DomeniaNode($Node, $Row) {
+    $kind = [string]$Node.Kind
+    if ($kind -eq 'Clause') { return Test-DomeniaClause $Node.Clause $Row }
+    if ($kind -eq 'Collection') { return 'Unknown' }
+    $children = Get-DomeniaList $Node 'Children'
+    if ($kind -eq 'Not') { return Get-DomeniaNegation (Test-DomeniaNode $children[0] $Row) }
+    $states = @(foreach ($child in $children) { Test-DomeniaNode $child $Row })
+    if ($kind -eq 'Any') { return Join-DomeniaAny $states }
+    return Join-DomeniaAll $states
+}
+$selection = @{}
+foreach ($id in (Get-DomeniaList $recipe 'ObjectIds')) { $selection[([guid][string]$id).ToString('D')] = $true }
+function Test-DomeniaPopulation($Row) {
+    if ($selection.Count -gt 0) {
+        $guid = [guid]::Empty
+        if (-not [guid]::TryParse([string](Get-DomeniaMember $Row 'id'), [ref]$guid) -or -not $selection.ContainsKey($guid.ToString('D'))) { return $false }
+    }
+    $segment = Get-DomeniaMember $recipe 'ProbeSelection'
+    if ($null -ne $segment) {
+        $value = Get-DomeniaMember (Get-DomeniaMember $Row 'values') ('probe:' + [string]$segment.Key)
+        if ($null -eq $value) { return $false }
+        $mode = [string]$segment.Mode
+        if ($mode -eq 'Equal' -and -not [string]::Equals([string]$value, [string]$segment.Value, [StringComparison]::OrdinalIgnoreCase)) { return $false }
+        if ($mode -eq 'Range') {
+            $number = [decimal]$value
+            if ($null -ne (Get-DomeniaMember $segment 'Low') -and $number -lt [decimal]$segment.Low) { return $false }
+            if ($null -ne (Get-DomeniaMember $segment 'High') -and $number -ge [decimal]$segment.High) { return $false }
+        }
+        if ($mode -eq 'Other') { foreach ($excluded in (Get-DomeniaList $segment 'Excluded')) { if ([string]::Equals([string]$value, [string]$excluded, [StringComparison]::OrdinalIgnoreCase)) { return $false } } }
+    }
+    foreach ($clause in (Get-DomeniaList $recipe 'Refinements')) { if ((Test-DomeniaClause $clause $Row) -ne 'Match') { return $false } }
+    return $true
+}
+function Get-DomeniaVerdict($Row) {
+    $parts = @()
+    $clauses = Get-DomeniaList $recipe 'Clauses'
+    if ($clauses.Count -gt 0) {
+        $states = @(foreach ($clause in $clauses) { Test-DomeniaClause $clause $Row })
+        if ([string]$recipe.Junction -eq 'Any') { $parts += Join-DomeniaAny $states } else { $parts += Join-DomeniaAll $states }
+    }
+    $tree = Get-DomeniaMember $recipe 'Expression'
+    if ($null -ne $tree) { $parts += Test-DomeniaNode $tree $Row }
+    $verdict = Join-DomeniaAll $parts
+    $hours = Get-DomeniaMember $recipe 'CoherenceHours'
+    if ($null -ne $hours) {
+        $dates = @()
+        foreach ($clock in $clockList) {
+            $at = Get-DomeniaMember (Get-DomeniaMember $Row 'clocks') $clock
+            if ($null -eq $at) { return 'Unknown' }
+            $dates += [DateTimeOffset]::Parse([string]$at, [Globalization.CultureInfo]::InvariantCulture)
+        }
+        if ($dates.Count -gt 1) {
+            $sorted = @($dates | Sort-Object)
+            if (($sorted[$sorted.Count - 1] - $sorted[0]).TotalHours -gt [double]$hours) { return 'Unknown' }
+        }
+    }
+    return $verdict
+}
+if ($PSCmdlet.ParameterSetName -eq 'Instantane') {
+    # Windows PowerShell 5.1 returns a JSON array as one object: it is enumerated explicitly.
+    $parsed = Get-Content -LiteralPath $RecordsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $Records = @(foreach ($item in $parsed) { $item })
+}
+$labels = @{ Match = 'Correspond'; Unknown = 'Inconnu'; NoMatch = 'Ne correspond pas' }
+$counts = @{ Match = 0; Unknown = 0; NoMatch = 0 }
+foreach ($row in @($Records)) {
+    if ($null -eq $row -or -not (Test-DomeniaPopulation $row)) { continue }
+    $state = Get-DomeniaVerdict $row
+    $counts[$state] = $counts[$state] + 1
+    if ($Selection -ne 'All' -and $state -ne $Selection) { continue }
+    [pscustomobject]@{ Id = [string](Get-DomeniaMember $row 'id'); Nom = [string](Get-DomeniaMember $row 'name'); CheminAD = [string](Get-DomeniaMember $row 'dn'); Verdict = $labels[$state]; Valeurs = (Get-DomeniaMember $row 'values'); Etats = (Get-DomeniaMember $row 'states') }
+}
+Write-Verbose ('Correspondants : ' + $counts.Match + ' ; inconnus : ' + $counts.Unknown + ' ; non correspondants : ' + $counts.NoMatch)
+""";
 }
 
-/// <summary>One cmdlet of the ActiveDirectory or LAPS modules (reference only: Domenia never runs them).</summary>
-public sealed record QueryCmdlet(string Name, string Module, bool Write, bool Credential, string Synopsis, string Syntax, string Example);
+/// <summary>
+/// One cmdlet of the ActiveDirectory or LAPS modules (reference only: Domenia never runs them). <see cref="Help"/> is the full help
+/// text, <see cref="Source"/> « builtin » (delivered reference) or « installed » (help file of a module of this computer).
+/// </summary>
+public sealed record QueryCmdlet(string Name, string Module, bool Write, bool Credential, string Synopsis, string Syntax, string Example, string Help = "",
+    IReadOnlyList<string>? Parameters = null, string Source = "builtin")
+{
+    /// <summary>Help text to copy: the full help when known, else synopsis, syntax and example.</summary>
+    public string HelpText => Help.Length > 0 ? Help : Name + "\n\n" + Synopsis + "\n\nSyntaxe\n" + Syntax + "\n\nExemple\n" + Example;
+}
 
 /// <summary>
 /// Built-in reference of the ActiveDirectory and LAPS cmdlets (Domenia 1 hidden « Référence » tab read the installed modules;

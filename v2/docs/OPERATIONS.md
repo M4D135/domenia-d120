@@ -61,7 +61,7 @@ Réponse du moteur, réussite puis échec :
 | `Local` | Calcul ou état en mémoire ; ni disque, ni réseau. |
 | `LocalRead` | Lecture de la base locale ou des fichiers de l’application. |
 | `NetworkRead` | Lecture annuaire, WMI, DNS ou ping, seulement après un geste explicite de l’opérateur, bornée à une OU. |
-| `LocalWrite` | Écriture des **données locales de l’application seulement** : préférences (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation) et reçus d’écriture (`receipts.jsonl`, ou `receipts-simulation.jsonl`, § 12.6), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
+| `LocalWrite` | Écriture des **données locales de l’application seulement** : préférences (`%LOCALAPPDATA%\Domenia\preferences.json`, ou `preferences-simulation.json` en simulation), reçus d’écriture (`receipts.jsonl`, ou `receipts-simulation.jsonl`, § 12.6) et fichiers propres à un écran déclarés dans son contrat (atelier de requêtes : bibliothèque `Requetes\bibliotheque-*.json` et fichiers du dossier `Exports`, [`ops/requetes.md`](ops/requetes.md) § 3.3 et § 3.5), atomique ; jamais l’annuaire, jamais un poste. **Admise en simulation** (§ 1.5). |
 | `Write` | Écriture AD ou action distante, **seulement par `write.execute`** (§ 12) : plan, confirmation, reçu, relecture. **Admise en simulation sur la surcouche en mémoire de l’annuaire fictif, sans effet réel** (§ 1.5, décision du 21/10) ; toute autre opération `Write` est refusée dans les deux modes. |
 
 La classe déclarée est celle du **mode annuaire** (le cas le plus exigeant). En simulation, le même nom d’opération
@@ -122,7 +122,9 @@ testables en simulation, sans effet réel ; `WRITES.md` § 5) ; il refuse toute 
 `simulation.readOnly`, sans appeler le gestionnaire, même si sa déclaration la marque servie ; les classes `Local`,
 `LocalRead` et `LocalWrite` (préférences et reçus de la simulation, jamais l’annuaire) sont admises, et toute classe
 ajoutée plus tard est refusée tant que la garde ne la connaît pas. Une opération `NetworkRead` n’est admise que si sa déclaration la marque servie par l’annuaire fictif
-(`OperationDefinition.ServedInSimulation`, aujourd’hui `dashboard.widget.refresh` et `write.receipts.verify`) ; toute autre (outils
+(`OperationDefinition.ServedInSimulation`, aujourd’hui `dashboard.widget.refresh`, `write.receipts.verify` et les sept lectures
+distantes de l’atelier de requêtes : `requetes.collect.run`, `requetes.collect.object`, `requetes.wmi.namespaces`,
+`requetes.wmi.classes`, `requetes.wmi.schema`, `requetes.wmi.run`, `requetes.wmi.relation`) ; toute autre (outils
 distants à venir) est refusée par défaut, sans appeler le gestionnaire, avec `simulation.unavailable` : « Non
 disponible en simulation : aucune connexion au poste ni à l’annuaire. » (parité avec `DOMENIA_DEMO_WRITE` et
 `DOMENIA_DEMO_UNAVAILABLE` de Domenia 1). Chaque refus du pont (message, opération, admission, arguments) est tracé
@@ -152,6 +154,7 @@ est la seule opération de classe `Write`, admise dans les deux modes.
 | `write.receipts.list` | `LocalRead` | aucun | reçus du mode, à vérifier d’abord (§ 12.4) |
 | `write.receipts.get` | `LocalRead` | `{ id }` | un reçu complet (§ 12.5) |
 | `write.receipts.verify` | `NetworkRead` (servie en simulation) | `{ id }` | le reçu après relecture de son objet (§ 12.5) |
+| `requetes.*` (58 opérations) | toutes classes sauf `Write` | voir le contrat de l’écran | atelier de requêtes : [`ops/requetes.md`](ops/requetes.md) |
 
 ---
 

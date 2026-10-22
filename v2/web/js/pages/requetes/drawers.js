@@ -1,7 +1,7 @@
 // Side panels of the workshop: coverage and dates of the sources, collection plan of the missing measures, export ready
 // to copy or save, complete distribution, OU of the workshop. Every network read waits for an explicit confirmation.
 import {
-  esc, glyph, plural, num, dateText, vars, emptyState, NBSP, skLines,
+  esc, glyph, plural, num, dateText, vars, emptyState, NBSP, skLines, ago, TARGETS, key,
 } from './shared.js';
 import { openDrawer, confirmDialog, createTree, writeClipboard } from '../../kit/index.js';
 import { formatNumber } from '../../ui.js';
@@ -81,7 +81,7 @@ const REUSE = [
 ];
 
 /** « Collecter seulement les données manquantes »: local plan, then the confirmed read of exactly that plan. */
-export async function openPlan(store, { onDone } = {}) {
+export async function openPlan(store, { onDone, intro = null } = {}) {
   let reuse = '15m';
   let token = 0;
   const panel = openDrawer({
@@ -90,7 +90,7 @@ export async function openPlan(store, { onDone } = {}) {
     icon: 'wifi',
     key: 'requetes.plan',
     width: 680,
-    body: `<div class="rq-dr"><label class="rq-reuse"><span>Réutiliser les mesures déjà relevées</span><span class="k-select sm"><select class="input rq-reuse-select" aria-label="Fenêtre de réutilisation des mesures">
+    body: `<div class="rq-dr">${intro ? `<p class="rq-plan-intro">${glyph('sparkles')}<span>${esc(intro)}</span></p>` : ''}<label class="rq-reuse"><span>Réutiliser les mesures déjà relevées</span><span class="k-select sm"><select class="input rq-reuse-select" aria-label="Fenêtre de réutilisation des mesures">
       ${REUSE.map((r) => `<option value="${r.id}"${r.id === reuse ? ' selected' : ''}>${esc(r.label)}</option>`).join('')}</select></span></label>
       <div class="rq-plan-body">${skLines(50, 80, 65, 90)}</div></div>`,
     actions: [{ id: 'close', label: 'Fermer', run: (p) => p.close() }],
@@ -124,6 +124,7 @@ export async function openPlan(store, { onDone } = {}) {
           ${plan.disabled ? `<span class="k-pill off">${plural(plan.disabled, 'désactivé exclu', 'désactivés exclus')}</span>` : ''}
           ${plan.ping ? '<span class="k-pill info">Ping</span>' : ''}${plan.inventory ? '<span class="k-pill info">Inventaire</span>' : ''}${plan.console ? '<span class="k-pill info">Console</span>' : ''}
           ${plan.probeIds.length ? `<span class="k-pill info">${plural(plan.probeIds.length, 'sonde', 'sondes')}</span>` : ''}
+          ${plan.detail ? `<span class="k-pill info" data-tip="${esc(plan.detail.canonicalQuery)}">SELECT ${esc(plan.detail.className)}</span>` : ''}
         </div>
       </div>
       <ul class="rq-plan-lines">${plan.text.split('\n').map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
@@ -156,9 +157,13 @@ export async function openPlan(store, { onDone } = {}) {
   load();
 }
 
-/** Export ready: copy, or save into the Exports folder of the Domenia data (never written by the page itself). */
-export function openExport(store, result, { title = 'Export prêt' } = {}) {
-  const preview = result.content.length > 6000 ? `${result.content.slice(0, 6000)}\n…` : result.content;
+/**
+ * Export ready (prepared by the engine, kept under a token): preview, facts, save into the Exports folder of the Domenia data
+ * (with its metadata), or copy the whole content. The page never writes a file itself.
+ */
+export function openExport(store, result, { title = 'Export prêt', onSaved } = {}) {
+  const preview = result.preview ?? result.content ?? '';
+  const metadata = result.kind === 'results';
   const panel = openDrawer({
     title,
     subtitle: result.fileName,
@@ -167,28 +172,52 @@ export function openExport(store, result, { title = 'Export prêt' } = {}) {
     width: 720,
     body: `<div class="rq-dr">
       <p class="rq-export-text">${esc(result.text ?? '')}</p>
-      <div class="rq-export-facts">${result.rows !== undefined ? `<span class="k-pill info">${plural(result.rows, 'ligne', 'lignes')}</span>` : ''}${result.sha256 ? `<span class="k-pill off rq-mono">SHA-256 ${esc(result.sha256.slice(0, 16))}…</span>` : ''}
-        ${result.count !== undefined ? `<span class="k-pill info">${plural(result.count, 'requête', 'requêtes')}</span>` : ''}</div>
-      <pre class="rq-code">${esc(preview)}</pre>
+      ${result.recomputed ? `<p class="rq-export-warn">${glyph('alert')}<span>${esc(result.recomputed)}</span></p>` : ''}
+      <div class="rq-export-facts">${result.rows !== undefined && result.kind !== 'script' ? `<span class="k-pill info">${plural(result.rows, result.kind === 'pack' ? 'requête' : 'ligne', result.kind === 'pack' ? 'requêtes' : 'lignes')}</span>` : ''}
+        ${result.bytes !== undefined ? `<span class="k-pill off">${esc(sizeText(result.bytes))}</span>` : ''}
+        ${result.sha256 ? `<span class="k-pill off rq-mono">SHA-256 ${esc(result.sha256.slice(0, 16))}…</span>` : ''}
+        ${metadata ? `<span class="k-pill ${result.secretsMasked ? 'warn' : 'ok'}">${glyph('lock')}${result.secretsMasked ? plural(result.secretsMasked, 'valeur secrète masquée', 'valeurs secrètes masquées') : 'Aucune valeur secrète'}</span>` : ''}</div>
+      <pre class="rq-code">${esc(preview)}${result.truncated ? '\n…' : ''}</pre>
+      ${result.truncated ? `<p class="rq-note">${glyph('info')}Extrait des ${num(6000)} premiers caractères : le fichier enregistré et la copie contiennent tout.</p>` : ''}
+      ${metadata ? `<label class="rq-check rq-exp-meta"><input type="checkbox" class="k-checkbox" checked><span><b>Enregistrer aussi les métadonnées</b><small>${esc(result.metadataFileName ?? '')} : population, définition, dates des sources, empreinte</small></span></label>` : ''}
       <div class="rq-dr-actions">
         <button type="button" class="btn primary rq-exp-save">${glyph('download')}Enregistrer dans Exports</button>
         <button type="button" class="btn subtle rq-exp-copy">${glyph('copy')}Copier le contenu</button>
-        ${result.metadata ? `<button type="button" class="btn ghost rq-exp-meta">${glyph('file')}Enregistrer les métadonnées</button>` : ''}
       </div>
-      <p class="rq-note rq-exp-where">${glyph('folder')}Dossier : %LOCALAPPDATA%\\Domenia\\Exports (UTF-8 ; « ; » pour les CSV ; formules neutralisées).</p>
+      <p class="rq-note rq-exp-where">${glyph('folder')}Dossier : %LOCALAPPDATA%\\Domenia\\Exports (UTF-8 ; « ; » pour les CSV ; formules neutralisées ; nombre de lignes revérifié à l’écriture).</p>
     </div>`,
     actions: [{ id: 'close', label: 'Fermer', run: (p) => p.close() }],
   });
   const body = panel.body;
-  async function save(fileName, content, label) {
-    const res = await store.call('requetes.export.save', { fileName, content });
-    if (res.error) { store.toast(res.message, 'warn'); return; }
-    body.querySelector('.rq-exp-where').innerHTML = `${glyph('check')}${esc(label)} enregistré : <span class="rq-mono">${esc(res.data.path)}</span>`;
-    store.toast(`${label} enregistré (${res.data.fileName}).`, 'ok');
-  }
-  body.querySelector('.rq-exp-save').addEventListener('click', () => save(result.fileName, result.content, 'Fichier'));
-  body.querySelector('.rq-exp-copy').addEventListener('click', async () => { await writeClipboard(result.content); store.toast('Contenu copié dans le presse-papiers.', 'ok'); });
-  body.querySelector('.rq-exp-meta')?.addEventListener('click', () => save(result.metadataFileName, result.metadata, 'Métadonnées'));
+  body.querySelector('.rq-exp-save').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    const withMeta = body.querySelector('.rq-exp-meta input')?.checked ?? false;
+    const res = await store.call('requetes.export.save', { token: result.token, metadata: withMeta });
+    if (res.error) { btn.disabled = false; store.toast(res.message, 'warn'); return; }
+    const saved = res.data.saved;
+    body.querySelector('.rq-exp-where').innerHTML = `${glyph('check')}Enregistré : <span class="rq-mono">${esc(saved.path)}</span>${saved.metadataPath ? ` et <span class="rq-mono">${esc(saved.metadataPath.split('\\').pop())}</span>` : ''}`;
+    body.querySelector('.rq-exp-where').classList.add('ok');
+    btn.innerHTML = `${glyph('check')}Enregistré`;
+    store.toast(`Fichier enregistré (${saved.fileName}).`, 'ok');
+    onSaved?.(res.data);
+  });
+  body.querySelector('.rq-exp-copy').addEventListener('click', async () => {
+    let text = result.content;
+    if (typeof text !== 'string') {
+      const res = await store.call('requetes.export.content', { token: result.token });
+      if (res.error) { store.toast(res.message, 'warn'); return; }
+      text = res.data.content;
+    }
+    await writeClipboard(text);
+    store.toast('Contenu copié dans le presse-papiers.', 'ok');
+  });
+}
+
+function sizeText(bytes) {
+  if (bytes < 1024) return `${num(bytes)}${NBSP}o`;
+  if (bytes < 1024 * 1024) return `${formatNumber(bytes / 1024, 1)}${NBSP}Kio`;
+  return `${formatNumber(bytes / (1024 * 1024), 1)}${NBSP}Mio`;
 }
 
 /** Complete distribution, filterable, by pages of 100; « Afficher ces postes » makes a segment of one value. */
@@ -256,9 +285,23 @@ export function openScope(store, { onChange } = {}) {
     </div>`,
     actions: [
       { id: 'follow', label: 'Suivre l’OU de travail', run: async (p) => { await apply(null); p.close(); } },
+      { id: 'domain', label: 'Tout le domaine…', run: async (p) => { if (await wholeDomain()) p.close(); } },
       { id: 'apply', label: 'Choisir cette OU', primary: true, run: async (p) => { if (!chosen) { store.toast('Choisissez une OU dans l’arbre.', 'warn'); return; } await apply(chosen); p.close(); } },
     ],
   });
+  /** The whole domain is never picked by a click in the tree (KIT 1.1): an explicit choice, with its limits said first. */
+  async function wholeDomain() {
+    const ok = await confirmDialog({
+      title: 'Consulter tout le domaine ?',
+      message: 'L’aperçu se calcule localement sur tous les objets du domaine de la base locale. La collecte des postes reste refusée sur tout le domaine : choisissez une OU pour relever des mesures.',
+      confirmLabel: 'Consulter tout le domaine',
+      icon: 'alert',
+    });
+    if (!ok || !rootDn) return false;
+    await apply({ dn: rootDn, name: 'Tout le domaine' });
+    return true;
+  }
+
   async function apply(node) {
     const res = await store.call('requetes.scope.set', { dn: node?.dn ?? null, subtree });
     if (res.error) { store.toast(res.message, 'warn'); return; }
@@ -267,20 +310,75 @@ export function openScope(store, { onChange } = {}) {
     store.toast(node ? `Périmètre de l’atelier : ${node.name}.` : 'Le périmètre suit l’OU de travail.', 'ok');
     onChange?.();
   }
+  let rootDn = null;
   const toNode = (ou) => ({ id: ou.dn, label: ou.name, hint: `${formatNumber(ou.counts.computers)} postes · ${formatNumber(ou.counts.users)} comptes`, leaf: !ou.hasChildren, data: ou });
   const tree = createTree(panel.body.querySelector('.rq-scope-tree'), {
     label: 'Unités d’organisation',
     height: '420px',
     roots: async () => {
       const r = await store.ctx.call('directory.ou.children', { dn: null });
-      return [{ id: r.parent.dn, label: r.parent.name, icon: 'domain', hint: 'Tout le domaine (consultation locale)', children: r.children.map(toNode), data: { dn: r.parent.dn, name: r.parent.name, path: r.parent.path } }];
+      rootDn = r.parent.dn;
+      return [{ id: r.parent.dn, label: r.parent.name, icon: 'domain', hint: 'Domaine : « Tout le domaine… » en bas', selectable: false, children: r.children.map(toNode), data: { dn: r.parent.dn, name: r.parent.name, path: r.parent.path } }];
     },
     load: async (node) => (await store.ctx.call('directory.ou.children', { dn: node.id })).children.map(toNode),
     onSelect: (node) => {
+      if (node.data?.dn === rootDn) return;
       chosen = node.data;
       panel.body.querySelector('.rq-scope-chosen').textContent = `OU choisie : ${node.data.path ?? node.data.name}`;
     },
   });
   panel.body.querySelector('.rq-scope-sub').addEventListener('change', (e) => { subtree = e.target.checked; });
   panel.closed.then(() => tree.destroy());
+}
+
+/**
+ * « Ouvrir » (Domenia 1 « Charger »): the 100 personal recipes revised most recently, filterable without accents, then the
+ * whole library. Choosing one loads it into the draft; nothing is read on the network.
+ */
+export function openRecent(store, { onPick, onLibrary } = {}) {
+  let rows = [];
+  let text = '';
+  const panel = openDrawer({
+    title: 'Ouvrir une requête',
+    subtitle: 'Les 100 requêtes enregistrées les plus récentes',
+    icon: 'history',
+    key: 'requetes.recent',
+    width: 620,
+    body: `<div class="rq-dr"><label class="rq-search">${glyph('search')}<input type="search" class="input" maxlength="120" placeholder="Filtrer par nom ou catégorie…" aria-label="Filtrer les requêtes récentes"></label>
+      <ol class="rq-recent" aria-label="Requêtes récentes">${Array.from({ length: 4 }, () => `<li>${skLines(70, 40)}</li>`).join('')}</ol></div>`,
+    actions: [
+      { id: 'library', label: 'Bibliothèque complète…', run: (p) => { p.close(); onLibrary?.(); } },
+      { id: 'close', label: 'Fermer', run: (p) => p.close() },
+    ],
+  });
+  const list = panel.body.querySelector('.rq-recent');
+  function paint() {
+    const terms = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(Boolean);
+    const shown = rows.filter((r) => terms.every((t) => `${r.name} ${r.category}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(t)));
+    list.innerHTML = shown.length ? shown.map((r, n) => {
+      const target = TARGETS.find((t) => t.id === key(r.target)) ?? TARGETS[0];
+      return `<li data-i="${Math.min(n, 18)}"><button type="button" class="rq-recent-item" data-id="${esc(r.id)}">
+        <span class="rq-recent-ico">${glyph(target.icon)}</span><span class="rq-recent-main"><b>${esc(r.name)}</b><small>${esc(r.category)} · révision ${esc(String(r.revision))}${r.widgets ? ` · ${plural(r.widgets, 'widget', 'widgets')}` : ''}</small></span>
+        <span class="rq-recent-at">${esc(ago(r.updatedAt))}</span></button></li>`;
+    }).join('') : `<li class="rq-note">${glyph('info')}${rows.length ? 'Aucune requête récente ne contient ce texte.' : 'Aucune requête enregistrée pour ce domaine : les modèles livrés sont dans la bibliothèque.'}</li>`;
+    vars(list);
+  }
+  list.addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('[data-id]') : null;
+    if (!b) return;
+    const row = rows.find((r) => r.id === b.dataset.id);
+    panel.close();
+    if (row) onPick?.(row);
+  });
+  let timer = 0;
+  panel.body.querySelector('input').addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(() => { text = e.target.value.trim(); paint(); }, 150); });
+  (async () => {
+    list.setAttribute('aria-busy', 'true');
+    const res = await store.call('requetes.library.list', { source: 'personal', sort: 'recent', limit: 100 });
+    list.removeAttribute('aria-busy');
+    if (!store.alive) return;
+    if (res.error) { list.innerHTML = `<li>${emptyState('alert', 'Bibliothèque indisponible', res.message)}</li>`; return; }
+    rows = res.data.rows;
+    paint();
+  })();
 }

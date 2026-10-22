@@ -80,7 +80,7 @@ public static class LdapSchema
         new("mail", LdapSyntax.CaseIgnore, false, true, "Adresse de messagerie.", "camille.bernard@example.local"),
         new("title", LdapSyntax.CaseIgnore, false, true, "Fonction.", "Chargée de clientèle"),
         new("department", LdapSyntax.CaseIgnore, false, true, "Service.", "Commercial"),
-        new("company", LdapSyntax.CaseIgnore, false, true, "Société.", "Example"),
+        new("company", LdapSyntax.CaseIgnore, false, false, "Société (non conservée par Domenia : indéfinie en local).", "Example"),
         new("physicalDeliveryOfficeName", LdapSyntax.CaseIgnore, false, true, "Bureau.", "Lyon"),
         new("telephoneNumber", LdapSyntax.CaseIgnore, false, true, "Téléphone.", "+33 4 65 71 00 00"),
         new("manager", LdapSyntax.Dn, false, true, "Responsable hiérarchique.", "CN=Julien Martin,OU=Informatique,OU=Paris,OU=Utilisateurs,DC=example,DC=local"),

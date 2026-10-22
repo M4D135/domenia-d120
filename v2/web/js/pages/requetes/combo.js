@@ -1,10 +1,30 @@
 // Field picker of the query builder (local component: the kit has no searchable combobox yet). A text box filters the
-// informations by words (accent and case insensitive) over name, category, source and description; the list is grouped by
-// category, navigable with the keyboard (↑ ↓ Début Fin Entrée Échap), and announces the number of matches.
+// informations by words (accent and case insensitive) over name, category, source, description and technical details
+// (namespace, class, properties, LDAP attribute); the list is grouped by category, the informations used recently first,
+// navigable with the keyboard (↑ ↓ Début Fin Entrée Échap), and announces the number of matches.
 import { esc, glyph, sourcePill } from './shared.js';
 import { fold, announce } from '../../ui.js';
 
 let counter = 0;
+const RECENT_KEY = 'domenia.requetes.champsRecents';
+
+/** Informations chosen recently (a per-viewer convenience: lost without harm when the browser storage is unavailable). */
+function readRecent() {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+    return Array.isArray(list) ? list.filter((x) => typeof x === 'string').slice(0, 6) : [];
+  } catch {
+    return [];
+  }
+}
+
+function keepRecent(id) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([id, ...readRecent().filter((x) => x !== id)].slice(0, 6)));
+  } catch {
+    // Storage refused (private window, policy): the suggestion simply does not come back.
+  }
+}
 
 /**
  * @param {HTMLElement} host
@@ -43,25 +63,29 @@ export function createFieldCombo(host, o) {
     const pool = o.filter ? fields.filter(o.filter) : fields;
     if (!terms.length) return pool;
     return pool.filter((f) => {
-      const hay = fold(`${f.name} ${f.category} ${f.sourceLabel ?? ''} ${f.description ?? ''} ${f.id}`);
+      const hay = fold(`${f.name} ${f.category} ${f.sourceLabel ?? ''} ${f.description ?? ''} ${f.id} ${f.technical ?? ''} ${f.ldapAttribute ?? ''} ${f.probeId ?? ''} ${f.property ?? ''}`);
       return terms.every((t) => hay.includes(t));
     });
   }
 
   function render(text) {
-    shown = filtered(text).slice(0, 400);
+    const list0 = filtered(text);
+    // Without text, the informations used recently come first (then the whole catalog, by category).
+    const recent = text.trim() ? [] : readRecent().map((id) => list0.find((f) => f.id === id)).filter(Boolean);
+    shown = [...recent.map((f) => ({ ...f, recentGroup: true })), ...list0].slice(0, 450);
     let lastCategory = null;
     let html = '';
     shown.forEach((f, n) => {
-      if (f.category !== lastCategory) {
-        lastCategory = f.category;
-        html += `<div class="rq-combo-group" role="presentation">${esc(f.category)}</div>`;
+      const group = f.recentGroup ? 'Récemment utilisées' : f.category;
+      if (group !== lastCategory) {
+        lastCategory = group;
+        html += `<div class="rq-combo-group${f.recentGroup ? ' recent' : ''}" role="presentation">${esc(group)}</div>`;
       }
       html += `<div class="rq-combo-opt" role="option" id="${id}-o${n}" data-n="${n}" aria-selected="${f.id === value}">
         <span class="rq-combo-name">${esc(f.name)}</span><span class="rq-combo-meta">${sourcePill(f.source)}<span class="rq-combo-unit">${esc(f.typeLabel ?? '')}</span></span></div>`;
     });
     list.innerHTML = html || '<p class="rq-combo-none">Aucune information ne correspond : essayez un autre mot.</p>';
-    countEl.textContent = `${shown.length} information${shown.length > 1 ? 's' : ''} sur ${fields.length}`;
+    countEl.textContent = `${list0.length} information${list0.length > 1 ? 's' : ''} sur ${fields.length}`;
     active = Math.max(0, shown.findIndex((f) => f.id === value));
     paintActive();
   }
@@ -87,6 +111,7 @@ export function createFieldCombo(host, o) {
     const f = shown[n];
     if (!f) return;
     value = f.id;
+    keepRecent(f.id);
     setOpen(false);
     showValue();
     announce(`Information choisie : ${f.name}`);

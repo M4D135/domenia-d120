@@ -3,8 +3,15 @@ using Domenia.Core.Queries.Wmi;
 
 namespace Domenia.Core.Queries;
 
-/// <summary>Families a collection reads again (« Collecter seulement les données manquantes », « Actualiser ce poste »).</summary>
-public sealed record QueryMeasureRequest(ImmutableArray<Guid> Computers, bool Presence, bool Console, bool Inventory, ImmutableArray<string> Probes);
+/// <summary>
+/// Families a collection reads again (« Collecter seulement les données manquantes », « Actualiser ce poste »). <see cref="Details"/>:
+/// WMI SELECT saved with a recipe, read again on each workstation (bounded by its own limit; never an arbitrary WQL).
+/// </summary>
+public sealed record QueryMeasureRequest(ImmutableArray<Guid> Computers, bool Presence, bool Console, bool Inventory, ImmutableArray<string> Probes, ImmutableArray<WmiReadDefinition> Details = default)
+{
+    /// <summary>The SELECT definitions to read again (empty when none).</summary>
+    public ImmutableArray<WmiReadDefinition> DetailReads => Details.IsDefault ? [] : Details;
+}
 
 /// <summary>Outcome of one collection: objects read, answered, failed; the dataset version after it.</summary>
 public sealed record QueryMeasureResult(int Requested, int Answered, int Failed, int SkippedDisabled, long Version, DateTimeOffset At);

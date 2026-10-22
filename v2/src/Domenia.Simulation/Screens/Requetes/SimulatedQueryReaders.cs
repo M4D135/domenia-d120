@@ -45,7 +45,6 @@ public sealed class SimulatedQueryWorkshopReader : IQueryWorkshopReader
 public sealed class SimulatedQueryWmiReader : IQueryWmiReader
 {
     private readonly SimulatedDirectorySource source;
-    private readonly Lazy<Catalog> catalog = new(BuildCatalog, LazyThreadSafetyMode.ExecutionAndPublication);
 
     public SimulatedQueryWmiReader(SimulatedDirectorySource source)
     {
@@ -53,9 +52,130 @@ public sealed class SimulatedQueryWmiReader : IQueryWmiReader
         this.source = source;
     }
 
-    private sealed record ClassDef(string Namespace, string Name, string Description, ImmutableArray<WmiPropertyInfo> Properties, string? Remark, string? ProbeId);
+    private string ComputerName(Guid computer) =>
+        source.CurrentDirectory.Computers.FirstOrDefault(c => c.ObjectGuid == computer)?.Name ?? throw new DomeniaOperationException(QueryErrors.WmiUnknownComputer, QueryErrors.WmiUnknownComputerMessage);
 
-    private sealed record Catalog(ImmutableArray<string> Namespaces, ImmutableArray<ClassDef> Classes);
+    private Task Wait(CancellationToken cancellationToken) => source.SimulateScreenLatencyAsync("requetes/wmi", 120, 420, cancellationToken);
+
+    public async Task<WmiNamespaceList> NamespacesAsync(Guid computer, string ns, CancellationToken cancellationToken)
+    {
+        var name = ComputerName(computer);
+        await Wait(cancellationToken).ConfigureAwait(false);
+        var all = SimulatedWmiCatalog.Current.Namespaces;
+        if (!all.Contains(ns, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Espace de noms absent de ce poste : rien n’a été lu.");
+        }
+        var depth = ns.Split('\\').Length;
+        ImmutableArray<string> children = [.. all.Where(n => n.StartsWith(ns + "\\", StringComparison.OrdinalIgnoreCase) && n.Split('\\').Length == depth + 1).Take(500)];
+        return new WmiNamespaceList(name, ns, children, false, source.Clock.GetUtcNow());
+    }
+
+    public async Task<WmiClassList> ClassesAsync(Guid computer, string ns, string? filter, CancellationToken cancellationToken)
+    {
+        var name = ComputerName(computer);
+        await Wait(cancellationToken).ConfigureAwait(false);
+        var prefix = filter?.TrimEnd('*') ?? "";
+        var exact = filter is not null && !filter.EndsWith('*');
+        var classes = SimulatedWmiCatalog.Current.Classes.Where(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase))
+            .Where(c => prefix.Length == 0 || (exact ? string.Equals(c.Name, prefix, StringComparison.OrdinalIgnoreCase) : c.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            .Select(c => new WmiClassInfo(c.Name, c.Properties.Length, c.Properties.Count(p => p.Key), c.Remark)).ToList();
+        return new WmiClassList(name, ns, filter, [.. classes.Take(2000)], classes.Count > 2000, source.Clock.GetUtcNow());
+    }
+
+    public async Task<WmiClassSchema> SchemaAsync(Guid computer, string ns, string className, CancellationToken cancellationToken)
+    {
+        var name = ComputerName(computer);
+        await Wait(cancellationToken).ConfigureAwait(false);
+        var definition = SimulatedWmiCatalog.Current.Classes.FirstOrDefault(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Name, className, StringComparison.OrdinalIgnoreCase))
+            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe absente de cet espace de noms : rien n’a été lu.");
+        var secrets = definition.Properties.Where(p => WqlRules.IsSecret(p.Name)).Select(p => p.Name).ToImmutableArray();
+        return new WmiClassSchema(name, ns, definition.Name, definition.Description, [.. definition.Properties.Where(p => !WqlRules.IsSecret(p.Name)).Take(1024)], secrets, source.Clock.GetUtcNow());
+    }
+
+    public async Task<WmiSelectResult> SelectAsync(Guid computer, string ns, WqlSelect select, int limit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(select);
+        var name = ComputerName(computer);
+        await source.SimulateScreenLatencyAsync("requetes/wmi/select", 260, 900, cancellationToken).ConfigureAwait(false);
+        var definition = SimulatedWmiCatalog.Current.Classes.FirstOrDefault(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Name, select.ClassName, StringComparison.OrdinalIgnoreCase))
+            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe absente de cet espace de noms sur ce poste : rien n’a été lu.");
+        var missing = select.ReferencedProperties.Where(p => definition.Properties.All(x => !string.Equals(x.Name, p, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (missing.Count > 0)
+        {
+            throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Propriétés absentes du schéma du poste : " + string.Join(", ", missing) + ". Rien n’a été lu.");
+        }
+        var key = SimulatedWmiCatalog.KeyOf(definition.Name);
+        var columns = select.Properties.ToList();
+        if (key is not null && !columns.Contains(key, StringComparer.OrdinalIgnoreCase))
+        {
+            columns.Add(key);
+        }
+        var instances = SimulatedWmiCatalog.Instances(source, computer, definition).Where(i => WqlRules.Matches(select.Where, i)).ToList();
+        var rows = instances.Take(limit).Select((values, index) => new WmiInstanceRow(
+            key is not null && values.TryGetValue(key, out var id) && id is not null ? id : index.ToString(CultureInfo.InvariantCulture),
+            columns.ToImmutableDictionary(c => c, c => values.FirstOrDefault(v => string.Equals(v.Key, c, StringComparison.OrdinalIgnoreCase)).Value, StringComparer.OrdinalIgnoreCase))).ToImmutableArray();
+        var at = source.Clock.GetUtcNow();
+        var requestKey = WqlRules.RequestKey(ns, select.CanonicalQuery);
+        SimulatedQueryState.For(source).Store(computer, new StoredWmiResult(requestKey, at, true, rows.Length, instances.Count <= limit, instances.Count > limit));
+        var note = definition.ProbeId is null && instances.Count == 0
+            ? "Aucune instance sur ce poste fictif."
+            : "Instances de l’annuaire fictif : valeurs plausibles, aucun poste réel n’a été contacté.";
+        return new WmiSelectResult(name, computer, ns, definition.Name, select.CanonicalQuery, [.. columns], rows, instances.Count > limit, instances.Count, at, requestKey, note);
+    }
+
+    public async Task<WmiSelectResult> RelatedAsync(Guid computer, string ns, string sourceClass, WmiInstanceRow sourceRow, WmiRelationPreset preset, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sourceRow);
+        ArgumentNullException.ThrowIfNull(preset);
+        var name = ComputerName(computer);
+        await Wait(cancellationToken).ConfigureAwait(false);
+        var target = SimulatedWmiCatalog.Current.Classes.FirstOrDefault(c => string.Equals(c.Name, preset.Result, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase))
+            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe liée absente de ce poste : rien n’a été lu.");
+        var all = SimulatedWmiCatalog.Instances(source, computer, target).ToList();
+        List<IReadOnlyDictionary<string, string?>> related;
+        if (preset.Kind == "Reference")
+        {
+            var value = WqlRules.ReferenceValue(preset, sourceRow.Values.FirstOrDefault(v => string.Equals(v.Key, preset.SourceProperty, StringComparison.OrdinalIgnoreCase)).Value);
+            related = [.. all.Where(i => string.Equals(i.GetValueOrDefault(preset.TargetProperty), value, StringComparison.OrdinalIgnoreCase))];
+        }
+        else
+        {
+            // Declared association: the provider links a few instances; the fictitious catalog keeps the link stable per instance.
+            var random = source.ScreenStream("requetes").Fork("relation/" + computer.ToString("N") + "/" + preset.Id + "/" + sourceRow.Id);
+            related = [.. all.Where(_ => random.Chance(all.Count <= 2 ? 100 : 30)).Take(5)];
+        }
+        var columns = preset.Properties.Length > 0 ? preset.Properties.ToList() : target.Properties.Where(p => p.CimType != "ref").Select(p => p.Name).Take(8).ToList();
+        var key = SimulatedWmiCatalog.KeyOf(target.Name);
+        var rows = related.Select((values, index) => new WmiInstanceRow(key is not null && values.GetValueOrDefault(key) is { } id ? id : index.ToString(CultureInfo.InvariantCulture),
+            columns.ToImmutableDictionary(c => c, c => values.FirstOrDefault(v => string.Equals(v.Key, c, StringComparison.OrdinalIgnoreCase)).Value, StringComparer.OrdinalIgnoreCase))).ToImmutableArray();
+        var canonical = preset.Kind == "Reference"
+            ? "SELECT " + string.Join(", ", columns) + " FROM " + target.Name + " WHERE " + preset.TargetProperty + " = '" + sourceRow.Values.GetValueOrDefault(preset.SourceProperty) + "'"
+            : "ASSOCIATORS OF {" + sourceClass + "." + sourceRow.Id + "} WHERE AssocClass = " + preset.Association;
+        return new WmiSelectResult(name, computer, ns, target.Name, canonical, [.. columns], rows, false, rows.Length, source.Clock.GetUtcNow(), WqlRules.RequestKey(ns, canonical),
+            "Relation déclarée par le fournisseur, lue au moment de la demande (annuaire fictif).");
+    }
+}
+
+/// <summary>
+/// Fictitious WMI catalog shared by the advanced WMI reader and the collection of the workshop: namespaces, class definitions
+/// (the classes of the delivered probe catalog, the declared associations, the account classes and the refused providers) and
+/// the instances of a simulated workstation, drawn from its probe readings. Secret properties never appear.
+/// </summary>
+internal static class SimulatedWmiCatalog
+{
+    internal sealed record ClassDef(string Namespace, string Name, string Description, ImmutableArray<WmiPropertyInfo> Properties, string? Remark, string? ProbeId);
+
+    internal sealed record CatalogData(ImmutableArray<string> Namespaces, ImmutableArray<ClassDef> Classes);
+
+    private static readonly Lazy<CatalogData> Data = new(BuildCatalog, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static CatalogData Current => Data.Value;
+
+    public static string? KeyOf(string className) => Keys.GetValueOrDefault(className);
+
+    public static ClassDef? Find(string ns, string className) =>
+        Current.Classes.FirstOrDefault(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Name, className, StringComparison.OrdinalIgnoreCase));
 
     private static readonly Dictionary<string, string> Keys = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -100,7 +220,7 @@ public sealed class SimulatedQueryWmiReader : IQueryWmiReader
         ["CIM_DataFile"] = "Fichier du disque : classe coûteuse, toujours filtrer par WHERE.",
     };
 
-    private static Catalog BuildCatalog()
+    private static CatalogData BuildCatalog()
     {
         var namespaces = new SortedSet<string>(StringComparer.OrdinalIgnoreCase) { "root", "root\\cimv2", "root\\default", "root\\subscription", "root\\Interop", "root\\cimv2\\power", "root\\cimv2\\mdm" };
         var classes = new Dictionary<string, ClassDef>(StringComparer.OrdinalIgnoreCase);
@@ -150,115 +270,12 @@ public sealed class SimulatedQueryWmiReader : IQueryWmiReader
         Add("root\\cimv2", "Win32_GroupUser", "Association refusée (domaine)", ("GroupComponent", "ref", true), ("PartComponent", "ref", true));
         Add("root\\cimv2", "CIM_LogicalElement", "Abstraite, refusée", ("Name", "string", true));
         Add("root\\cimv2", "Win32_QuickFixEngineering", null, ("HotFixID", "string", true), ("Description", "string", false), ("InstalledOn", "string", false), ("InstalledBy", "string", false));
-        return new Catalog([.. namespaces], [.. classes.Values.OrderBy(c => c.Namespace, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)]);
+        return new CatalogData([.. namespaces], [.. classes.Values.OrderBy(c => c.Namespace, StringComparer.OrdinalIgnoreCase).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase)]);
     }
 
-    private string ComputerName(Guid computer) =>
-        source.CurrentDirectory.Computers.FirstOrDefault(c => c.ObjectGuid == computer)?.Name ?? throw new DomeniaOperationException(QueryErrors.WmiUnknownComputer, QueryErrors.WmiUnknownComputerMessage);
-
-    private Task Wait(CancellationToken cancellationToken) => source.SimulateScreenLatencyAsync("requetes/wmi", 120, 420, cancellationToken);
-
-    public async Task<WmiNamespaceList> NamespacesAsync(Guid computer, string ns, CancellationToken cancellationToken)
-    {
-        var name = ComputerName(computer);
-        await Wait(cancellationToken).ConfigureAwait(false);
-        var all = catalog.Value.Namespaces;
-        if (!all.Contains(ns, StringComparer.OrdinalIgnoreCase))
-        {
-            throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Espace de noms absent de ce poste : rien n’a été lu.");
-        }
-        var depth = ns.Split('\\').Length;
-        ImmutableArray<string> children = [.. all.Where(n => n.StartsWith(ns + "\\", StringComparison.OrdinalIgnoreCase) && n.Split('\\').Length == depth + 1).Take(500)];
-        return new WmiNamespaceList(name, ns, children, false, source.Clock.GetUtcNow());
-    }
-
-    public async Task<WmiClassList> ClassesAsync(Guid computer, string ns, string? filter, CancellationToken cancellationToken)
-    {
-        var name = ComputerName(computer);
-        await Wait(cancellationToken).ConfigureAwait(false);
-        var prefix = filter?.TrimEnd('*') ?? "";
-        var exact = filter is not null && !filter.EndsWith('*');
-        var classes = catalog.Value.Classes.Where(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase))
-            .Where(c => prefix.Length == 0 || (exact ? string.Equals(c.Name, prefix, StringComparison.OrdinalIgnoreCase) : c.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-            .Select(c => new WmiClassInfo(c.Name, c.Properties.Length, c.Properties.Count(p => p.Key), c.Remark)).ToList();
-        return new WmiClassList(name, ns, filter, [.. classes.Take(2000)], classes.Count > 2000, source.Clock.GetUtcNow());
-    }
-
-    public async Task<WmiClassSchema> SchemaAsync(Guid computer, string ns, string className, CancellationToken cancellationToken)
-    {
-        var name = ComputerName(computer);
-        await Wait(cancellationToken).ConfigureAwait(false);
-        var definition = catalog.Value.Classes.FirstOrDefault(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Name, className, StringComparison.OrdinalIgnoreCase))
-            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe absente de cet espace de noms : rien n’a été lu.");
-        var secrets = definition.Properties.Where(p => WqlRules.IsSecret(p.Name)).Select(p => p.Name).ToImmutableArray();
-        return new WmiClassSchema(name, ns, definition.Name, definition.Description, [.. definition.Properties.Where(p => !WqlRules.IsSecret(p.Name)).Take(1024)], secrets, source.Clock.GetUtcNow());
-    }
-
-    public async Task<WmiSelectResult> SelectAsync(Guid computer, string ns, WqlSelect select, int limit, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(select);
-        var name = ComputerName(computer);
-        await source.SimulateScreenLatencyAsync("requetes/wmi/select", 260, 900, cancellationToken).ConfigureAwait(false);
-        var definition = catalog.Value.Classes.FirstOrDefault(c => string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Name, select.ClassName, StringComparison.OrdinalIgnoreCase))
-            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe absente de cet espace de noms sur ce poste : rien n’a été lu.");
-        var missing = select.ReferencedProperties.Where(p => definition.Properties.All(x => !string.Equals(x.Name, p, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (missing.Count > 0)
-        {
-            throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Propriétés absentes du schéma du poste : " + string.Join(", ", missing) + ". Rien n’a été lu.");
-        }
-        var key = Keys.GetValueOrDefault(definition.Name);
-        var columns = select.Properties.ToList();
-        if (key is not null && !columns.Contains(key, StringComparer.OrdinalIgnoreCase))
-        {
-            columns.Add(key);
-        }
-        var instances = Instances(computer, definition).Where(i => WqlRules.Matches(select.Where, i)).ToList();
-        var rows = instances.Take(limit).Select((values, index) => new WmiInstanceRow(
-            key is not null && values.TryGetValue(key, out var id) && id is not null ? id : index.ToString(CultureInfo.InvariantCulture),
-            columns.ToImmutableDictionary(c => c, c => values.FirstOrDefault(v => string.Equals(v.Key, c, StringComparison.OrdinalIgnoreCase)).Value, StringComparer.OrdinalIgnoreCase))).ToImmutableArray();
-        var at = source.Clock.GetUtcNow();
-        var requestKey = WqlRules.RequestKey(ns, select.CanonicalQuery);
-        SimulatedQueryState.For(source).Store(computer, new StoredWmiResult(requestKey, at, true, rows.Length, instances.Count <= limit, instances.Count > limit));
-        var note = definition.ProbeId is null && instances.Count == 0
-            ? "Aucune instance sur ce poste fictif."
-            : "Instances de l’annuaire fictif : valeurs plausibles, aucun poste réel n’a été contacté.";
-        return new WmiSelectResult(name, computer, ns, definition.Name, select.CanonicalQuery, [.. columns], rows, instances.Count > limit, instances.Count, at, requestKey, note);
-    }
-
-    public async Task<WmiSelectResult> RelatedAsync(Guid computer, string ns, string sourceClass, WmiInstanceRow sourceRow, WmiRelationPreset preset, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(sourceRow);
-        ArgumentNullException.ThrowIfNull(preset);
-        var name = ComputerName(computer);
-        await Wait(cancellationToken).ConfigureAwait(false);
-        var target = catalog.Value.Classes.FirstOrDefault(c => string.Equals(c.Name, preset.Result, StringComparison.OrdinalIgnoreCase) && string.Equals(c.Namespace, ns, StringComparison.OrdinalIgnoreCase))
-            ?? throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Classe liée absente de ce poste : rien n’a été lu.");
-        var all = Instances(computer, target).ToList();
-        List<IReadOnlyDictionary<string, string?>> related;
-        if (preset.Kind == "Reference")
-        {
-            var value = WqlRules.ReferenceValue(preset, sourceRow.Values.FirstOrDefault(v => string.Equals(v.Key, preset.SourceProperty, StringComparison.OrdinalIgnoreCase)).Value);
-            related = [.. all.Where(i => string.Equals(i.GetValueOrDefault(preset.TargetProperty), value, StringComparison.OrdinalIgnoreCase))];
-        }
-        else
-        {
-            // Declared association: the provider links a few instances; the fictitious catalog keeps the link stable per instance.
-            var random = source.ScreenStream("requetes").Fork("relation/" + computer.ToString("N") + "/" + preset.Id + "/" + sourceRow.Id);
-            related = [.. all.Where(_ => random.Chance(all.Count <= 2 ? 100 : 30)).Take(5)];
-        }
-        var columns = preset.Properties.Length > 0 ? preset.Properties.ToList() : target.Properties.Where(p => p.CimType != "ref").Select(p => p.Name).Take(8).ToList();
-        var key = Keys.GetValueOrDefault(target.Name);
-        var rows = related.Select((values, index) => new WmiInstanceRow(key is not null && values.GetValueOrDefault(key) is { } id ? id : index.ToString(CultureInfo.InvariantCulture),
-            columns.ToImmutableDictionary(c => c, c => values.FirstOrDefault(v => string.Equals(v.Key, c, StringComparison.OrdinalIgnoreCase)).Value, StringComparer.OrdinalIgnoreCase))).ToImmutableArray();
-        var canonical = preset.Kind == "Reference"
-            ? "SELECT " + string.Join(", ", columns) + " FROM " + target.Name + " WHERE " + preset.TargetProperty + " = '" + sourceRow.Values.GetValueOrDefault(preset.SourceProperty) + "'"
-            : "ASSOCIATORS OF {" + sourceClass + "." + sourceRow.Id + "} WHERE AssocClass = " + preset.Association;
-        return new WmiSelectResult(name, computer, ns, target.Name, canonical, [.. columns], rows, false, rows.Length, source.Clock.GetUtcNow(), WqlRules.RequestKey(ns, canonical),
-            "Relation déclarée par le fournisseur, lue au moment de la demande (annuaire fictif).");
-    }
 
     /// <summary>Instances of a class on a simulated workstation, as text, from the readings of its probes.</summary>
-    private IEnumerable<IReadOnlyDictionary<string, string?>> Instances(Guid computer, ClassDef definition)
+    public static IEnumerable<IReadOnlyDictionary<string, string?>> Instances(SimulatedDirectorySource source, Guid computer, ClassDef definition)
     {
         var state = SimulatedQueryState.For(source);
         var profile = state.Profile(computer);
@@ -291,7 +308,7 @@ public sealed class SimulatedQueryWmiReader : IQueryWmiReader
                 continue;
             }
         }
-        var key = Keys.GetValueOrDefault(definition.Name);
+        var key = KeyOf(definition.Name);
         switch (definition.Name.ToUpperInvariant())
         {
             case "WIN32_PROCESS":
