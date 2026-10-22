@@ -1,0 +1,105 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : reprendre un enregistrement local suspendu",
+  "description": "Joue le scénario de démonstration « Enregistrement suspendu » (base fictive, par le circuit d’écriture), vérifie l’avis sous le bandeau, puis reprend les sauvegardes par son bouton : plan, confirmation, reçu relu, avis retiré.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "parametres?section=demonstration",
+  "steps": [
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "click",
+      "selector": "[data-act=\"scenario:writerSuspended\"]",
+      "title": "Jouer « Enregistrement suspendu »"
+    },
+    {
+      "do": "wait",
+      "contains": "Scénario de démonstration",
+      "title": "Le plan du scénario est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…",
+      "title": "Confirmer le plan"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer une seule fois"
+    },
+    {
+      "do": "wait",
+      "contains": "Appliquée (simulation)",
+      "timeoutMs": 20000,
+      "title": "Le reçu dit le scénario appliqué"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "go",
+      "route": "parametres?section=donnees",
+      "title": "Ouvrir Données et cache"
+    },
+    {
+      "do": "wait",
+      "contains": "Enregistrement local suspendu",
+      "within": "[data-slot=\"alert\"]",
+      "title": "L’avis annonce la suspension"
+    },
+    {
+      "do": "shot",
+      "name": "ecrivain-suspendu"
+    },
+    {
+      "do": "click",
+      "selector": "[data-alert-act=\"writer-resume\"]",
+      "title": "Reprendre les sauvegardes"
+    },
+    {
+      "do": "wait",
+      "contains": "Reprise des enregistrements locaux",
+      "title": "Le plan de la reprise est affiché"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer…",
+      "title": "Confirmer le plan"
+    },
+    {
+      "do": "click",
+      "text": "Confirmer (simulation)",
+      "title": "Confirmer une seule fois"
+    },
+    {
+      "do": "wait",
+      "contains": "Appliquée (simulation)",
+      "timeoutMs": 20000,
+      "title": "Le reçu dit l’écrivain réarmé"
+    },
+    {
+      "do": "click",
+      "text": "Fermer",
+      "title": "Fermer le reçu"
+    },
+    {
+      "do": "wait",
+      "contains": "Enregistrement local suspendu",
+      "within": ".pr-hero",
+      "absent": true,
+      "title": "L’avis est retiré"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

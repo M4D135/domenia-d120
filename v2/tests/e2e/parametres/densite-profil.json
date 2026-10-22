@@ -1,0 +1,99 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : densité et profil Expert",
+  "description": "Choisit la densité compacte puis le profil Expert dans Apparence : l’écran les applique à ses listes et montre ses vues techniques (vue brute du journal) ; le retour au profil Essentiel retire la vue brute, jamais laissée sélectionnée.",
+  "modes": [
+    "simulation",
+    "annuaire"
+  ],
+  "start": "parametres?section=apparence",
+  "steps": [
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "click",
+      "selector": "[data-seg=\"density\"] [data-value=\"compact\"]",
+      "title": "Choisir la densité compacte"
+    },
+    {
+      "do": "expect",
+      "selector": ".pr-page[data-density=\"compact\"]",
+      "title": "L’écran applique la densité compacte"
+    },
+    {
+      "do": "expect",
+      "selector": ".pr-dens[data-density=\"compact\"]",
+      "title": "L’aperçu suit"
+    },
+    {
+      "do": "click",
+      "selector": "[data-seg=\"profile\"] [data-value=\"expert\"]",
+      "title": "Choisir le profil Expert"
+    },
+    {
+      "do": "expect",
+      "selector": ".pr-page[data-profile=\"expert\"]",
+      "title": "Vues techniques affichées"
+    },
+    {
+      "do": "click",
+      "selector": "[data-section=\"journaux\"]",
+      "title": "Ouvrir les journaux"
+    },
+    {
+      "do": "wait",
+      "selector": "[data-seg=\"view\"]",
+      "title": "Le choix de la vue brute est proposé en Expert"
+    },
+    {
+      "do": "click",
+      "selector": "[data-seg=\"view\"] [data-value=\"raw\"]",
+      "title": "Choisir la vue brute"
+    },
+    {
+      "do": "expect",
+      "selector": ".pr-log.raw",
+      "title": "Vue brute affichée"
+    },
+    {
+      "do": "click",
+      "selector": "[data-section=\"apparence\"]",
+      "title": "Revenir à Apparence"
+    },
+    {
+      "do": "click",
+      "selector": "[data-seg=\"profile\"] [data-value=\"essentiel\"]",
+      "title": "Revenir au profil Essentiel"
+    },
+    {
+      "do": "click",
+      "selector": "[data-section=\"journaux\"]",
+      "title": "Rouvrir les journaux"
+    },
+    {
+      "do": "wait",
+      "selector": ".pr-log",
+      "title": "Le journal est affiché"
+    },
+    {
+      "do": "expect",
+      "selector": ".pr-log.raw",
+      "absent": true,
+      "title": "La vue brute n’est pas restée sélectionnée"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-seg=\"view\"]",
+      "absent": true,
+      "title": "Le choix de la vue brute est retiré en Essentiel"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Paramètres : ancienne adresse de la base locale",
+  "description": "Ouvre #/parametres?section=stockage (Ctrl I de la coque, liens des guides) : la section Données et cache s’ouvre, jamais Apparence par défaut ; « journal » mène de même aux Journaux.",
+  "modes": [
+    "simulation",
+    "annuaire"
+  ],
+  "start": "parametres?section=stockage",
+  "steps": [
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran Paramètres est prêt"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-section=\"donnees\"][aria-current=\"page\"]",
+      "title": "La section Données et cache est active"
+    },
+    {
+      "do": "expect",
+      "contains": "Données et cache",
+      "within": ".pr-content",
+      "title": "Le titre de la section est affiché"
+    },
+    {
+      "do": "go",
+      "route": "parametres?section=journal",
+      "title": "Ouvrir l’adresse « journal »"
+    },
+    {
+      "do": "wait",
+      "ready": "parametres",
+      "title": "L’écran est prêt de nouveau"
+    },
+    {
+      "do": "expect",
+      "selector": "[data-section=\"journaux\"][aria-current=\"page\"]",
+      "title": "La section Journaux est active"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
