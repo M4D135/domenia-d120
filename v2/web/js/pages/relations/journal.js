@@ -1,5 +1,5 @@
 // Utilisateurs et postes · « Journal »: the local journal of the associations (Domenia 1 REL-010: additions, removals,
-// restorations, updates), and every removal that can still be restored (improvement of REL-009: the whole list, not only
+// restorations, updates, conflicts, each with its filter), and every removal that can still be restored (improvement of REL-009: the whole list, not only
 // the last one). Restoring is a plan of the write circuit, one association per click.
 import { glyph } from '../../kit/glyphs.js';
 import { timeline, bindTimeline } from '../../kit/timeline.js';
@@ -13,6 +13,8 @@ const FILTERS = [
   { id: 'added', label: 'Ajouts' },
   { id: 'removed', label: 'Retraits' },
   { id: 'restored', label: 'Restaurations' },
+  { id: 'refreshed', label: 'Mises à jour' },
+  { id: 'conflict', label: 'Conflits' },
 ];
 
 /**
@@ -26,6 +28,7 @@ export function createJournalTab(panel, app) {
   // The page scrolls, not the list (no nested scroll bars): 60 lines first, then 60 more on request.
   const STEP = 60;
   let limit = STEP;
+  let restLimit = STEP;
   const stops = [];
   panel.innerHTML = `<div class="rel-jrn">
     <section class="card rel-jrn-main reveal" aria-label="Journal local">
@@ -69,12 +72,17 @@ export function createJournalTab(panel, app) {
       listHost.insertAdjacentHTML('beforeend', `<div class="rel-jrn-more"><button class="btn ghost sm" type="button" data-more>${glyph('chevronDown')}Afficher ${int(Math.min(STEP, all.length - entries.length))} lignes de plus</button><span>${esc(`${int(entries.length)} sur ${int(all.length)}`)}</span></div>`);
     }
     bindTimeline(listHost);
+    // The restorable removals follow the same steps as the list (60 first, then 60 more): never an unbounded list.
     const rest = panel.querySelector('.rel-jrn-rest');
+    const restorable = data.restorable.slice(0, restLimit);
     rest.innerHTML = data.restorable.length
-      ? `<ul class="rel-rest-list">${data.restorable.map((r, j) => `<li data-j="${j}"><span class="rel-rest-ico">${glyph('trash')}</span>
+      ? `<ul class="rel-rest-list">${restorable.map((r, j) => `<li data-j="${Math.min(j, 24)}"><span class="rel-rest-ico">${glyph('trash')}</span>
           <div><b>${esc(r.userLogin)} → ${esc(r.computer)}</b><time datetime="${esc(r.removedAt)}">${esc(`Retirée le ${formatDateTime(r.removedAt) ?? ''}`)}</time></div>
           <button class="btn sm" type="button" data-restore="${esc(r.entryId)}" data-tip="${esc(r.tip)}">${glyph('undo')}Restaurer</button></li>`).join('')}</ul>`
       : `<p class="rel-quiet">${glyph('check')}Aucune suppression locale à restaurer.</p>`;
+    if (data.restorable.length > restorable.length) {
+      rest.insertAdjacentHTML('beforeend', `<div class="rel-jrn-more"><button class="btn ghost sm" type="button" data-more-rest>${glyph('chevronDown')}Afficher ${int(Math.min(STEP, data.restorable.length - restorable.length))} de plus</button><span>${esc(`${int(restorable.length)} sur ${int(data.restorable.length)}`)}</span></div>`);
+    }
     rest.insertAdjacentHTML('beforeend', `<p class="rel-jrn-note">${glyph('info')}${esc(data.note)}</p>`);
     applyVars(panel);
   }
@@ -82,6 +90,7 @@ export function createJournalTab(panel, app) {
   panel.addEventListener('click', (e) => {
     const t = e.target instanceof Element ? e.target : null;
     if (t?.closest('[data-more]')) { limit += STEP; paint(); return; }
+    if (t?.closest('[data-more-rest]')) { restLimit += STEP; paint(); return; }
     const b = t?.closest('[data-restore]');
     if (b) app.restore(b.dataset.restore);
   });

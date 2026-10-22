@@ -31,7 +31,15 @@ de `write.execute` (`PLATFORM.md` § 3.2, `AdmissionGuards`, décision du 22/10 
 Rien n’est perdu : les observations sont visibles tout de suite (« Session uniquement »), comptées dans le bandeau
 « Observations en mémoire » de l’écran, et « Tout enregistrer, lot par lot » enchaîne les plans sans autre saisie qu’une
 confirmation par lot. **Écart à faire valider par David** : une mémorisation sans confirmation exigerait une décision écrite
-dans `DECISIONS.md`.
+dans `DECISIONS.md` (question posée dans `REPRISE.md` § 4). En attendant, REL-014, REL-017, REL-018 et REL-030 restent
+« partiels » dans `docs/status/relations.json`.
+
+**Classes des exports (question posée à David, `REPRISE.md` § 4).** `relations.export.save` est déclarée `LocalWrite` alors
+que `PLATFORM.md` § 3.2 réserve cette classe aux préférences : elle écrit un fichier CSV dans le dossier des exports de
+l’opérateur (`%LOCALAPPDATA%\Domenia\Exports`), sans toucher à l’annuaire ni aux associations. `relations.export.open` est
+déclarée `Local` alors qu’elle ouvre ce fichier par l’association de Windows (`Process.Start`, `UseShellExecute`) : elle ne
+lit ni n’écrit rien elle-même, et n’ouvre qu’un fichier écrit pendant la session. Les deux classes restent telles quelles
+jusqu’à la décision (ou une classe dédiée aux fichiers d’export dans `PLATFORM.md`).
 
 ## 2. Récapitulatif des opérations
 
@@ -69,8 +77,14 @@ dans `DECISIONS.md`.
 Identifiants (`planId`, `estimateId`, `id`, `previewId`, `checkId`, `resultId`, `entry`) : 32 caractères hexadécimaux
 minuscules ; sinon `arguments.invalid` (« « planId » doit être un identifiant de 32 caractères hexadécimaux. »).
 `resultId` = 32 zéros désigne les observations de la session non encore enregistrées (lignes « Session uniquement »).
-Les résultats gardés par le moteur (périmètres, observations, aperçus, contrôles, estimations) valent 15 minutes ; au-delà
+Les résultats gardés par le moteur (périmètres, observations, aperçus, contrôles, estimations) valent 15 minutes ; au-delà
 `relation.expired` ou `relation.planExpired`.
+
+**Cible des plans d’association.** Les écritures de relations visent le magasin local entier, pas un objet de l’annuaire :
+le champ « DN » du plan et des détails techniques porte la désignation du magasin (« Mémoire de la simulation ·
+associations utilisateurs-postes », ou le magasin local en mode annuaire), et toutes ces écritures partagent la même cible
+(GUID du magasin). Conséquence du circuit : un reçu à l’issue incertaine bloque toute nouvelle écriture d’association
+(`write.targetPending`) jusqu’à sa relecture (« Relire l’objet » du reçu, `write.receipts.verify`) ; rien n’est jamais rejoué.
 
 Le type d’écriture de tous les plans est **`relations.change`** (`RelationChange.Kind`) ; la cible est le magasin local
 (`WriteTarget.Kind` = `relations`, GUID fixe `6d1b0c2e-5a47-4f3b-9e21-8c0a7d4f2b19`), nommée d’après ce que le plan change
@@ -171,8 +185,12 @@ leur nature) et `contradictions` les postes concernés.
   nécessaires), `sets` (`resultId` — 32 zéros pour la session entière —, `origin`, `total`, `remaining`, `batches`,
   `sources` : `source`, `count`, `expiresAt`), `text`. Un résultat dont on enregistre les lots voit sa durée de vie prolongée.
 - `RelationExportAnswer` : `id`, `received`, `parts`, `complete`, `result` (avec la dernière partie : `saved`, `fileName`
-  « Domenia-Relations-<liste>-AAAAMMJJ-HHmmss.csv », `folder`, `rows`, `bytes`, `sha256`, `message`, `at`). Le CSV vient de la
-  grille du kit (colonnes visibles, formules neutralisées, colonnes d’action et secrètes exclues), écrit en UTF-8 avec BOM dans
+  « Domenia-Relations-<liste>-AAAAMMJJ-HHmmss.csv », `folder`, `rows`, `bytes`, `sha256`, `message`, `at`). Pour « Toutes »,
+  la sélection et le sujet, le CSV est le **fichier d’échange de Domenia 1** (Export-DomeniaLinksCsv, CO-04), construit à
+  partir des lignes et non des colonnes affichées : `UserLogin;UserName;Computer;Kind;Source;VerifiedInAD;When;Details;UserGuid;ComputerGuid;UserDn;ComputerDn;BatchId;Persistence`,
+  dates ISO UTC, formules neutralisées, séparateur « ; » ; l’import le relit (« Déjà connue »). Les autres listes (moisson,
+  orphelines, aperçu d’import) exportent les colonnes de leur grille (formules neutralisées, colonnes d’action et secrètes
+  exclues). Le fichier est écrit en UTF-8 avec BOM dans
   `%LOCALAPPDATA%\Domenia\Exports` (`Exports-simulation` en simulation), jamais écrasé ; en capture et en E2E, rien n’est
   écrit (`saved` = `false`). `relations.export.open` n’ouvre qu’un fichier écrit pendant la session (Domenia 1
   BtnOpenLinksCsv).
@@ -208,7 +226,7 @@ leur nature) et `contradictions` les postes concernés.
 mémoire seulement). Le magasin initial est dérivé du monde généré par le sous-flux `screen/relations`
 (`SimulatedRelationSeed`) : environ 45 % des postes actifs avec une affectation déclarée, 58 % avec une console observée
 dans les 14 derniers jours dont **exactement 9 postes contradictoires** (Camille Bernard comprise), 48 % avec un relevé
-d’historique, un lot d’import GLPI de 24 lignes daté de six jours (« Annuler l’import »), 10 indices WAPT, 12 sessions
+d’historique, un lot d’import GLPI de 24 lignes daté de six jours (« Annuler l’import »), 10 indices d’inventaire du poste, 12 sessions
 distantes de comptes d’administration sur les serveurs, 14 lignes héritées sans GUID (2 pour un nom de poste recyclé),
 11 associations orphelines et 3 affectations déclarées sans objet (protégées). Julien Martin (`j.martin`, compte de la
 session) a un poste principal déclaré observé il y a 47 minutes, un portable observé hier, des relevés anciens et un

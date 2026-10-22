@@ -185,8 +185,8 @@ internal static class SimulatedRelationSeed
         random.Fork("clues").Shuffle(cluePool);
         foreach (var computer in cluePool.Take(Clues))
         {
-            Put(Relation(owners[computer.ObjectGuid], computer, RelationKind.Hint, "Inventaire WAPT", Ago(dates.Between(TimeSpan.FromDays(2), TimeSpan.FromDays(40))),
-                "Utilisateur déclaré dans l’inventaire WAPT du poste ; aucune session observée.", false, null));
+            Put(Relation(owners[computer.ObjectGuid], computer, RelationKind.Hint, "Inventaire du poste", Ago(dates.Between(TimeSpan.FromDays(2), TimeSpan.FromDays(40))),
+                "Utilisateur déclaré dans l’inventaire logiciel du poste ; aucune session observée.", false, null));
         }
 
         // Remote sessions of administration accounts on member servers.

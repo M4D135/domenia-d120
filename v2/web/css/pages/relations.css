@@ -38,12 +38,6 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--b, var(--off-mark)) 20%, transparent);
 }
 [data-page="relations"] .rel-none { color: var(--text-faint); }
-[data-page="relations"] .rel-kind { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; padding: 1px 6px; border-radius: var(--r-pill); font-size: 10.5px; font-weight: 700; letter-spacing: .02em; }
-[data-page="relations"] .rel-kind svg { width: 11px; height: 11px; }
-[data-page="relations"] .rel-kind.net { color: var(--info); background: var(--info-soft); }
-[data-page="relations"] .rel-kind.wr { color: var(--warn); background: var(--warn-soft); }
-[data-page="relations"] .btn.primary .rel-kind { color: var(--on-brand); background: rgba(255, 255, 255, .18); }
-[data-page="relations"] .btn.danger .rel-kind { color: var(--text-on-accent); background: rgba(255, 255, 255, .18); }
 
 /* ---------- Avatars ---------- */
 [data-page="relations"] .rel-avatar {
@@ -94,7 +88,6 @@
 [data-page="relations"] .rel-hero .chips .chip { animation: chip-in var(--t-slow) var(--ease-spring) both; animation-delay: calc(var(--j, 0) * 60ms + 180ms); }
 [data-page="relations"] .rel-hero .chips .chip svg { width: 14px; height: 14px; flex: none; }
 [data-page="relations"] .rel-hero .chip.alert { background: var(--alert-soft); color: var(--alert); border-color: transparent; }
-[data-page="relations"] .rel-hero-actions .btn .rel-kind { margin-left: 0; padding: 2px 4px; }
 /* Changing between the two headers: the new one rises in, nothing else moves */
 [data-page="relations"] .rel-hero.swap > .rel-hero-grid, [data-page="relations"] .rel-hero.swap > .rel-hero-bar { animation: rel-hero-swap var(--t-slow) var(--ease-out) both; }
 @keyframes rel-hero-swap { from { opacity: 0; transform: translateY(8px) scale(.99); filter: blur(3px); } }
@@ -248,7 +241,7 @@
 [data-page="relations"] .rel-suggest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); }
 [data-page="relations"] .rel-suggest-card {
   display: grid; align-content: start; gap: 4px; text-align: left; cursor: pointer; color: var(--text); font: inherit; min-height: 150px;
-  transition: transform var(--t) var(--ease-spring), box-shadow var(--t), border-color var(--t);
+  transition: transform var(--t) var(--ease-spring);
 }
 [data-page="relations"] button.rel-suggest-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); box-shadow: var(--shadow-2); }
 [data-page="relations"] button.rel-suggest-card:focus-visible { outline: none; box-shadow: var(--ring); }
@@ -593,7 +586,7 @@
 [data-page="relations"] .rel-cmp-col-k { font-size: var(--fs-caption); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
 [data-page="relations"] .rel-cmp-col header b { font-family: var(--font-display); font-size: var(--fs-title); color: var(--c); }
 [data-page="relations"] .rel-grp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-[data-page="relations"] .rel-grp { border-radius: var(--r); animation: cascade-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 25ms + 120ms); transition: background var(--t-fast); }
+[data-page="relations"] .rel-grp { border-radius: var(--r); animation: cascade-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 25ms + 120ms); }
 [data-page="relations"] .rel-grp:hover, [data-page="relations"] .rel-grp details[open] { background: var(--bg-hover); }
 [data-page="relations"] .rel-grp summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px var(--s2); align-items: start; padding: 6px var(--s2); cursor: pointer; list-style: none; border-radius: var(--r); }
 [data-page="relations"] .rel-grp summary::-webkit-details-marker { display: none; }
@@ -705,7 +698,7 @@
 [data-page="relations"] .rel-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 340px; overflow: auto; }
 [data-page="relations"] .rel-result {
   position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r);
-  border: 1px solid transparent; cursor: pointer; outline: none; transition: background var(--t-fast), border-color var(--t-fast), transform var(--t) var(--ease-spring);
+  border: 1px solid transparent; cursor: pointer; outline: none; transition: transform var(--t) var(--ease-spring);
   animation: cascade-in var(--t-slow) var(--ease-out) both; animation-delay: calc(var(--j, 0) * 35ms);
 }
 [data-page="relations"] .rel-result:hover, [data-page="relations"] .rel-result:focus-visible { background: var(--bg-hover); }
@@ -735,7 +728,7 @@
 [data-page="relations"] .rel-radios, [data-page="relations"] .rel-adapters { display: grid; gap: var(--s2); }
 [data-page="relations"] .rel-radio, [data-page="relations"] .rel-adapter {
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s3); align-items: start; padding: var(--s3); border-radius: var(--r);
-  border: 1px solid var(--border); background: var(--bg-elevated); cursor: pointer; transition: border-color var(--t-fast), background var(--t-fast);
+ border: 1px solid var(--border); background: var(--bg-elevated); cursor: pointer;
 }
 [data-page="relations"] .rel-radio:has(input:checked), [data-page="relations"] .rel-adapter:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 [data-page="relations"] .rel-radio span, [data-page="relations"] .rel-adapter span { display: grid; gap: 2px; }
@@ -827,7 +820,7 @@
 [data-page="relations"] .rel-drop {
   position: relative; display: grid; justify-items: center; gap: var(--s2); padding: var(--s6) var(--s4); border-radius: var(--r-lg); text-align: center; cursor: pointer;
   border: 2px dashed color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 4%, transparent);
-  transition: border-color var(--t), background var(--t), transform var(--t) var(--ease-spring);
+  transition: transform var(--t) var(--ease-spring);
 }
 [data-page="relations"] .rel-drop:hover, [data-page="relations"] .rel-drop.over { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.01); }
 [data-page="relations"] .rel-drop:focus-within { box-shadow: var(--ring); }
@@ -853,11 +846,6 @@
 [data-page="relations"] .rel-help-ico { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: var(--on-brand); background: var(--brand-gradient); }
 [data-page="relations"] .rel-help-ico svg { width: 17px; height: 17px; }
 [data-page="relations"] .rel-help p { font-size: var(--fs-small); color: var(--text-muted); line-height: 1.5; }
-[data-page="relations"].rel-foot .rel-kind { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill); font-size: 10.5px; font-weight: 700; }
-[data-page="relations"].rel-foot .rel-kind svg { width: 11px; height: 11px; }
-[data-page="relations"].rel-foot .rel-kind.net { color: var(--info); background: var(--info-soft); }
-[data-page="relations"].rel-foot .rel-kind.wr { color: var(--warn); background: var(--warn-soft); }
-[data-page="relations"].rel-foot .btn.primary .rel-kind, [data-page="relations"].rel-foot .btn.danger .rel-kind { color: inherit; background: rgba(255, 255, 255, .2); }
 
 /* ---------- Qualification of a row: the nature, then the contradiction mark and the session tag beside it ---------- */
 [data-page="relations"] .rel-qual { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
@@ -883,7 +871,7 @@
 [data-page="relations"] .rel-acts { display: inline-flex; align-items: center; gap: 4px; }
 [data-page="relations"] .rel-act {
   display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 8px; cursor: pointer; color: var(--text-muted);
-  background: transparent; border: 1px solid transparent; transition: transform var(--t) var(--ease-spring), background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  background: transparent; border: 1px solid transparent; transition: transform var(--t) var(--ease-spring);
 }
 [data-page="relations"] .rel-act svg { width: 15px; height: 15px; }
 [data-page="relations"] .rel-act:hover { transform: translateY(-1px); color: var(--accent-text); background: var(--accent-soft); }

@@ -9,7 +9,7 @@ import { debounce, uid } from '../../kit/util.js';
 import { applyVars, inkFollow, reveal, formatDateTime } from '../../ui.js';
 import { renderGraph, graphLegend } from './graph.js';
 import {
-  BADGES, BADGE_ORDER, BADGE_OPTIONS, badge, qualification, dot, avatar, esc, int, nouns, NBSP, errText, empty, sk, dateText,
+  BADGES, BADGE_ORDER, BADGE_OPTIONS, badge, qualification, dot, avatar, esc, int, nouns, NBSP, errText, empty, sk, dateText, exchangeCsv,
 } from './model.js';
 
 const VIEWS = [
@@ -77,6 +77,8 @@ export function createSubjectTab(panel, app) {
   let ink = null;
   let activeCol = null;
   const stops = [];
+  // One reveal at a time for the body (landing or subject): a new display stops the previous observer, never piles them up.
+  let stopBodyReveal = () => {};
 
   panel.innerHTML = `<div class="rel-sub">
     <div class="rel-sub-bar reveal">${pickerMarkup(pickerId)}<div class="rel-sub-recent" aria-label="Sujets récents"></div></div>
@@ -171,7 +173,8 @@ export function createSubjectTab(panel, app) {
     </div>`;
     body.querySelector('[data-focus-picker]').addEventListener('click', () => input.focus());
     applyVars(body);
-    stops.push(reveal(body));
+    stopBodyReveal();
+    stopBodyReveal = reveal(body);
     try {
       const res = await app.ctx.call('relations.subjects.search', { text: '' });
       if (!app.alive || data) return;
@@ -185,7 +188,9 @@ export function createSubjectTab(panel, app) {
             <span class="rel-suggest-links">${glyph('link')}${esc(nouns(m.links, 'association', 'associations'))}</span></button>`).join('')
         : '';
       applyVars(host);
-      stops.push(reveal(host));
+      const stopHost = reveal(host);
+      const stopBody = stopBodyReveal;
+      stopBodyReveal = () => { stopBody(); stopHost(); };
       host.addEventListener('click', (e) => {
         const b = e.target instanceof Element ? e.target.closest('[data-ref]') : null;
         if (b) app.select(b.dataset.ref);
@@ -258,14 +263,20 @@ export function createSubjectTab(panel, app) {
     return `<div class="rel-counts">${items.map(([b, n, one, many], j) => `<span class="rel-count" data-badge="${b}" data-j="${j}">${dot(b)}<b>${int(n)}</b>${esc(n > 1 ? many : one)}</span>`).join('')}${extra.join('')}</div>`;
   }
 
+  // The same subject read again (after a receipt, or a network read of a panel) is updated in place: no entrance replayed,
+  // the list keeps its selection and its scroll, the graph is drawn again only when it changed.
   function show(res) {
-    teardownView();
+    const again = Boolean(data?.subject?.dn && res?.subject?.dn && data.subject.dn.toLowerCase() === res.subject.dn.toLowerCase());
+    const keptHost = again ? body.querySelector('[data-view-host]') : null;
+    const keepGrid = Boolean(keptHost && view === 'liste' && grid && res.associations.length);
+    const keepGraph = Boolean(keptHost && view === 'graphe' && graphCtl && JSON.stringify(data.graph) === JSON.stringify(res.graph));
+    if (keepGrid || keepGraph) { ink?.stop(); ink = null; } else teardownView();
     data = res;
     const s = res.subject;
     const isUser = s.kind === 'user';
     const dir = res.direction;
     const lastLogon = s.lastLogon ? `<span class="chip rel-chip-logon" data-tip="${esc(`Dernière authentification connue de l’annuaire : ${formatDateTime(s.lastLogon) ?? ''} (lastLogonTimestamp, à 14 jours près)`)}">${glyph('clock')}<span class="rel-chip-k">Dernière authentification</span>${esc(dateText(s.lastLogon) ?? '')}</span>` : '';
-    body.innerHTML = `<div class="rel-subject" data-kind="${esc(s.kind)}">
+    const markup = `<div class="rel-subject" data-kind="${esc(s.kind)}">
       <aside class="card rel-id spot reveal" aria-label="Identité du sujet">
         <span class="rel-id-glow" aria-hidden="true"></span>
         <div class="rel-id-top">${avatar(s.kind, s.name, 'xl')}
@@ -289,7 +300,7 @@ export function createSubjectTab(panel, app) {
             ${VIEWS.map((v) => `<button type="button" data-view="${v.id}" aria-pressed="${v.id === view}">${glyph(v.icon)}<span>${esc(v.label)}</span></button>`).join('')}</div></div></div>
         ${countsMarkup(res)}
         <div class="rel-view" data-view-host></div>
-        ${res.restore ? `<div class="rel-restore"><span>${glyph('undo')}Suppression locale de ce sujet${NBSP}: ${esc(res.restore.userLogin)} → ${esc(res.restore.computer)} · ${esc(dateText(res.restore.removedAt, { time: true }) ?? '')}</span><button class="btn sm" type="button" data-act="restore" data-tip="${esc(res.restore.tip)}">${glyph('undo')}${esc(res.restore.label)}<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button></div>` : ''}
+        ${res.restore ? `<div class="rel-restore"><span>${glyph('undo')}Suppression locale de ce sujet${NBSP}: ${esc(res.restore.userLogin)} → ${esc(res.restore.computer)} · ${esc(dateText(res.restore.removedAt, { time: true }) ?? '')}</span><button class="btn sm" type="button" data-act="restore" data-tip="${esc(res.restore.tip)}">${glyph('undo')}${esc(res.restore.label)}<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button></div>` : ''}
       </section>
       <section class="card rel-logons reveal" aria-label="Dernières ouvertures de session">
         <div class="card-head"><span class="card-icon">${glyph('clock')}</span><div class="head-titles"><h3>Dernières ouvertures de session</h3>
@@ -303,6 +314,8 @@ export function createSubjectTab(panel, app) {
         ${whyMarkup(res)}
       </section>
     </div>`;
+    body.innerHTML = again ? markup.replaceAll(' reveal"', ' revealed"') : markup;
+    if (keepGrid || keepGraph) body.querySelector('[data-view-host]').replaceWith(keptHost);
     applyVars(body);
     bindTimeline(body);
     const seg = body.querySelector('.rel-views');
@@ -322,8 +335,9 @@ export function createSubjectTab(panel, app) {
     });
     body.querySelector('[data-act="restore"]')?.addEventListener('click', () => app.restore(res.restore.entryId));
     body.querySelector('.rel-primary-name[data-ref]')?.addEventListener('click', (e) => app.select(e.currentTarget.dataset.ref));
-    stops.push(reveal(body));
-    paintView();
+    if (!again) { stopBodyReveal(); stopBodyReveal = reveal(body); }
+    if (keepGrid) grid.setRows(res.associations, { keepSelection: true, keepScroll: true });
+    else if (!keepGraph) paintView();
   }
 
   function logonsMarkup(logons) {
@@ -374,7 +388,7 @@ export function createSubjectTab(panel, app) {
     host.innerHTML = '';
     if (!data.associations.length) {
       host.innerHTML = empty('link', data.direction.emptyHint, 'Ajoutez une association déclarée, ou détectez-la : rien n’est sondé sans votre geste.',
-        `<button class="btn primary" type="button" data-empty-add>${glyph('plus')}Ajouter une association</button>`);
+        `<button class="btn subtle" type="button" data-empty-add>${glyph('plus')}Ajouter une association</button>`);
       host.querySelector('[data-empty-add]').addEventListener('click', () => app.openPanel('rechercher'));
       return;
     }
@@ -427,7 +441,7 @@ export function createSubjectTab(panel, app) {
     return {
       key: `relations.sujet.v2.${isUser ? 'user' : 'computer'}`,
       label: `Associations de ${data.subject.name}`,
-      rowId: (r) => r.key,
+      rowId: (r) => `${r.key}|${r.persistence}`,
       selection: 'single',
       height: `${Math.min(460, 58 + data.associations.length * 40)}px`,
       columns: [
@@ -456,6 +470,8 @@ export function createSubjectTab(panel, app) {
         else rowAction('see', row);
       },
       contextMenu: ({ row }) => (row ? app.rowMenu(row, isUser ? 'computer' : 'user') : []),
+      // « Exporter » writes the exchange file of the subject (export subject « sujet »), like « Toutes » (REL-050).
+      onExport: (csv, info) => app.exportCsv('sujet', exchangeCsv(info.scope === 'selected' ? grid.getSelection() : grid.getVisibleRows())),
     };
   }
 
@@ -467,6 +483,7 @@ export function createSubjectTab(panel, app) {
     focusPicker: () => input.focus(),
     destroy() {
       teardownView();
+      stopBodyReveal();
       document.removeEventListener('pointerdown', outside, true);
       search.cancel();
       stops.forEach((fn) => fn());

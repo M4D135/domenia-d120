@@ -1017,7 +1017,7 @@ public static partial class RelationRules
     [GeneratedRegex("console|cim|dcom|explorer|interactive|computersystem|quser|utilisateur courant|winrm", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ConsolePattern();
 
-    [GeneratedRegex("description|kerberos|indice|attribut|inventaire|wapt|glpi|mention", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    [GeneratedRegex("description|kerberos|indice|attribut|inventaire|glpi|mention", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex CluePattern();
 
     [GeneratedRegex(@"(Z|[+-]\d{2}:?\d{2})$", RegexOptions.CultureInvariant)]

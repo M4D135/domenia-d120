@@ -325,9 +325,16 @@ internal sealed class SimulatedRelationState
                 lines = lines.RemoveRange(0, lines.Count - JournalCapacity);
             }
             journal = lines;
+            // Only an observation that was just recorded leaves the memory of the session: a removal of the stored association
+            // never erases a newer unsaved observation of the same key, nor one whose fingerprint differs from what was saved.
             foreach (var line in result.Journal)
             {
-                session.Remove(line.Key);
+                if (line.Action is RelationJournalAction.Added or RelationJournalAction.Refreshed or RelationJournalAction.Restored
+                    && session.TryGetValue(line.Key, out var observed)
+                    && pending.ContainsKey(RelationRules.Fingerprint(observed)))
+                {
+                    session.Remove(line.Key);
+                }
             }
             if (result.Applied > 0)
             {

@@ -16,10 +16,12 @@ import {
   badge, avatar, esc, int, nouns, NBSP, errText, tonePill, empty, sk, dateText, associationStep,
 } from './model.js';
 
+// Marks of the kit command bar (k-cmd-net, k-cmd-mark): the same sign on every screen, with its words for screen readers.
 const KIND_TAG = {
-  network: `<span class="rel-kind net" data-tip="Lecture réseau : part seulement sur ce clic">${glyph('wifi')}réseau</span>`,
-  write: `<span class="rel-kind wr" data-tip="Écriture locale : plan, confirmation et reçu avant tout changement">${glyph('edit')}écriture</span>`,
+  network: `<span class="k-cmd-net" aria-hidden="true"></span><span class="visually-hidden">, lecture réseau sur ce clic</span>`,
+  write: `<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture : plan, confirmation et reçu</span>`,
 };
+const KIND_TIP = { network: 'Lecture réseau : part seulement sur ce clic', write: 'Écriture locale : plan, confirmation et reçu avant tout changement' };
 
 function shell(inner) {
   return `<div class="rel-panel" data-page="relations">${inner}</div>`;
@@ -56,7 +58,7 @@ function footer(ctl) {
     set(buttons) {
       handlers = new Map(buttons.filter((b) => b.run).map((b) => [b.id, b.run]));
       ctl.foot.hidden = buttons.length === 0;
-      ctl.foot.innerHTML = buttons.map((b) => `<button class="btn${b.primary ? ' primary' : ''}${b.danger ? ' danger' : ''}${!b.primary && !b.danger ? ' subtle' : ''}" type="button" data-rf="${esc(b.id)}"${b.disabled ? ' disabled' : ''}${b.reason ? ` data-tip="${esc(b.reason)}"` : ''}>${b.icon ? glyph(b.icon) : ''}${esc(b.label)}${b.kind ? KIND_TAG[b.kind] : ''}</button>`).join('');
+      ctl.foot.innerHTML = buttons.map((b) => `<button class="btn${b.primary ? ' primary' : ''}${b.danger ? ' danger' : ''}${!b.primary && !b.danger ? ' subtle' : ''}" type="button" data-rf="${esc(b.id)}"${b.disabled ? ' disabled' : ''}${b.reason ? ` data-tip="${esc(b.reason)}"` : b.kind ? ` data-tip="${esc(KIND_TIP[b.kind])}"` : ''}>${b.icon ? glyph(b.icon) : ''}${esc(b.label)}${b.kind ? KIND_TAG[b.kind] : ''}</button>`).join('');
       ctl.foot.classList.add('rel-foot');
       ctl.foot.dataset.page = 'relations';
     },
@@ -491,7 +493,7 @@ function detectMode(app, ctl, host, foot, subject) {
   host.querySelectorAll('input[name="scope"]').forEach((r) => r.addEventListener('change', () => {
     const other = host.querySelector('input[name="scope"]:checked')?.value === 'other';
     ouHost.hidden = !other;
-    if (other && !tree) tree = ouPicker(app, ouHost, (dn) => { chosenOu = dn; });
+    if (other && !tree) tree = ouPicker(app, ouHost, (dn) => { chosenOu = dn; forgetPlan(`OU modifiée${NBSP}: lisez de nouveau l’annuaire.`); });
   }));
   const values = () => ({
     scope: host.querySelector('input[name="scope"]:checked')?.value ?? 'candidates',
@@ -499,7 +501,20 @@ function detectMode(app, ctl, host, foot, subject) {
     kerberos: host.querySelector('input[name="kerberos"]').checked,
   });
   const setFoot = (buttons) => foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, ...buttons]);
-  setFoot([{ id: 'collect', label: 'Lire l’annuaire', icon: 'search', primary: true, kind: 'network', run: collect }]);
+  const startFoot = () => setFoot([{ id: 'collect', label: 'Lire l’annuaire', icon: 'search', primary: true, kind: 'network', run: collect }]);
+  startFoot();
+  // A plan is frozen on the choices of step 1 (Domenia 1 BtnRelationPlanCancel): changing the scope, the limit or the Kerberos
+  // option, or « Annuler », forgets it; the next step is « Lire l’annuaire » again, never « Lancer » on a stale plan.
+  let planShown = false;
+  const forgetPlan = (message) => {
+    if (!planShown || stop) return;
+    planShown = false;
+    out.innerHTML = upcoming(DETECT_STEPS, 2);
+    applyVars(out);
+    startFoot();
+    if (message) announce(message);
+  };
+  host.querySelector('.rel-step-card').addEventListener('change', () => forgetPlan(`Périmètre modifié${NBSP}: lisez de nouveau l’annuaire.`));
 
   async function collect() {
     const v = values();
@@ -543,12 +558,16 @@ function detectMode(app, ctl, host, foot, subject) {
       </section>`;
     applyVars(out);
     bindCandidates(out);
+    planShown = true;
     setFoot(plan.allowed
-      ? [{ id: 'run', label: `Lancer la détection (${int(plan.targets.length)})`, icon: 'play', primary: true, kind: 'network', run: () => probe(plan) }]
+      ? [{ id: 'cancel', label: 'Annuler', icon: 'x', run: () => forgetPlan(`Plan oublié${NBSP}: aucun poste n’a été contacté.`) },
+        { id: 'run', label: `Lancer la détection (${int(plan.targets.length)})`, icon: 'play', primary: true, kind: 'network', run: () => probe(plan) }]
       : [{ id: 'collect', label: 'Relire l’annuaire', icon: 'refresh', kind: 'network', run: collect }]);
   }
 
   function probe(plan) {
+    // From here the panel shows a detection (its results stay until « Nouvelle détection »), no longer a plan to confirm.
+    planShown = false;
     const probeHost = document.createElement('section');
     probeHost.className = 'rel-step-card in';
     out.prepend(probeHost);
@@ -783,7 +802,7 @@ export function openImportPanel(app, lastImport) {
       preview = null;
       out.insertAdjacentHTML('afterbegin', `<section class="rel-step-card in rel-import-done"><h3>${glyph('check')}Import enregistré · lot ${esc(done.batchId)}</h3>
         <p class="rel-status">Les associations du fichier ${esc(done.fileName)} sont enregistrées, relues et tracées par un reçu. « Annuler l’import » retire ce lot, même après un redémarrage.</p>
-        <div class="rel-inline"><button class="btn sm danger" type="button" data-undo-batch="${esc(done.batchId)}">${glyph('undo')}Annuler cet import<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button></div></section>`);
+        <div class="rel-inline"><button class="btn sm danger" type="button" data-undo-batch="${esc(done.batchId)}">${glyph('undo')}Annuler cet import${KIND_TAG.write}</button></div></section>`);
       out.querySelector('[data-undo-batch]')?.addEventListener('click', (e) => app.undoImport(e.currentTarget.dataset.undoBatch));
       foot.set([{ id: 'close', label: 'Fermer', primary: true, run: () => ctl.close() }, { id: 'again', label: 'Nouvel import', icon: 'download', run: () => { file = null; input.value = ''; choose(null); } }]);
     }
@@ -975,10 +994,18 @@ export function openHarvestPanel(app) {
         paint();
       }
     }
-    function saveSelection() {
-      const keys = grid ? grid.getSelection().filter((r) => !r.known).map((r) => r.key) : [];
-      if (!keys.length || !result) return;
-      app.plan('relations.observations.plan', { resultId: result.resultId, keys }, 'Moisson du journal · sélection');
+    async function saveSelection() {
+      const chosen = grid ? grid.getSelection().filter((r) => !r.known) : [];
+      if (!chosen.length || !result) return;
+      const receipt = await app.plan('relations.observations.plan', { resultId: result.resultId, keys: chosen.map((r) => r.key) }, 'Moisson du journal · sélection');
+      // The couples recorded leave the selection and read « Déjà connu »: a second click never plans them again.
+      if (grid && receipt && (receipt.result === 'applied' || receipt.result === 'noChange') && ctl.body?.isConnected) {
+        const saved = new Set(chosen.map((r) => r.key));
+        result.couples = result.couples.map((c) => (saved.has(c.key) ? { ...c, known: true } : c));
+        grid.setRows(result.couples, { keepSelection: false, keepScroll: true });
+        selected = 0;
+        paint();
+      }
     }
     function saveAll() {
       if (!result) return;

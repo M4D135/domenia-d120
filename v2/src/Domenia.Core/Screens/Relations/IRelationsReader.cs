@@ -8,7 +8,7 @@ namespace Domenia.Core;
 public sealed record RelationDetectionRequest(string Dn, Guid SubjectGuid, string SubjectLogin, string Scope, string? OuDn, IReadOnlyList<string> Computers, int Limit, bool Kerberos);
 
 /// <summary>Perimeter of a relevé: the priority queue of the working OU, or a list loaded elsewhere (Domenia 1: rows shown in Rechercher).</summary>
-public sealed record RelationSweepRequest(int Limit, ScopeSelection Scope, IReadOnlyList<string> Computers);
+public sealed record RelationSweepRequest(int Limit, ScopeSelection? Scope, IReadOnlyList<string> Computers);
 
 /// <summary>Text of an import file, sent by the page in parts and joined in memory (never written to disk).</summary>
 public sealed record RelationImportRequest(string Id, RelationImportAdapter Adapter, string FileName, string Text);

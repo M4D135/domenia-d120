@@ -243,9 +243,14 @@ public sealed partial class RelationsOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, SweepArguments);
                 var limit = Integer(values, "limit", 1, 50);
                 var computers = Computers(values);
-                var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
-                var current = await scope.CurrentAsync(session, ct).ConfigureAwait(false)
-                    ?? throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
+                // A list loaded elsewhere does not use the working OU: only the queue of the OU needs it (and refuses the root).
+                ScopeSelection? current = null;
+                if (computers.Count == 0)
+                {
+                    var session = await context.Directory.GetSessionAsync(ct).ConfigureAwait(false);
+                    current = await scope.CurrentAsync(session, ct).ConfigureAwait(false)
+                        ?? throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
+                }
                 return await readers.Require<IRelationsReader>().SweepPlanAsync(new RelationSweepRequest(limit, current, computers), ct).ConfigureAwait(false);
             }, "File du relevé incrémentiel : postes de l’OU de travail jamais relevés d’abord, puis les plus anciens, ou postes d’une liste chargée ; aucun poste contacté."),
 

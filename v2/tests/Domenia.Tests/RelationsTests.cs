@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.Json;
 using Domenia.Bridge;
 using Domenia.Core;
@@ -26,7 +27,7 @@ internal static class RelationsTests
             RelationKind.Console => RelationRules.ConsoleSource,
             RelationKind.History => "Journal du contrôleur 4624",
             RelationKind.Imported => "Import GLPI",
-            _ => "Inventaire WAPT",
+            _ => "Inventaire du poste",
         }, when ?? Now - TimeSpan.FromDays(1), null, true, null, null);
 
     private static string Args(object value) => JsonSerializer.Serialize(value);
@@ -787,6 +788,122 @@ internal static class RelationsTests
         var open = SimulatedBridge.Json(await bridge.CallAsync("relations.export.open", Args(new { fileName = result.GetProperty("fileName").GetString() })));
         Check.False(open.GetProperty("opened").GetBoolean(), "un fichier non écrit n’est jamais ouvert");
         Check.Equal(DomeniaErrors.ArgumentsInvalid, (await bridge.CallAsync("relations.export.save", Args(new { id, part = 0, parts = 1, subject = "autre", text = "x" }))).Error?.Code, "liste fermée");
+    }
+
+    /// <summary>Exchange file of the associations, built like relations/model.js (Domenia 1 Export-DomeniaLinksCsv, CO-04).</summary>
+    private static string ExchangeCsv(IEnumerable<JsonElement> rows)
+    {
+        static string Cell(string? value)
+        {
+            var s = value ?? "";
+            if (s.Length > 0 && "=+-@\t\r".Contains(s[0], StringComparison.Ordinal))
+            {
+                s = "'" + s;
+            }
+            return s.IndexOfAny([';', '"', '\r', '\n']) >= 0 ? "\"" + s.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : s;
+        }
+        static string? Text(JsonElement row, string name) => row.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+        var lines = new List<string> { "UserLogin;UserName;Computer;Kind;Source;VerifiedInAD;When;Details;UserGuid;ComputerGuid;UserDn;ComputerDn;BatchId;Persistence" };
+        foreach (var r in rows)
+        {
+            var when = Text(r, "when") is string w && DateTimeOffset.TryParse(w, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+                ? at.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture) : "";
+            lines.Add(string.Join(';', new[]
+            {
+                Text(r, "userLogin"), Text(r, "userName"), Text(r, "computer"), Text(r, "kind"), Text(r, "source"), r.GetProperty("verifiedInAd").GetBoolean() ? "True" : "False",
+                when, Text(r, "details"), Text(r, "userGuid"), Text(r, "computerGuid"), Text(r, "userDn"), Text(r, "computerDn"), Text(r, "batchId"), Text(r, "persistence"),
+            }.Select(Cell)));
+        }
+        return "\uFEFF" + string.Join("\r\n", lines) + "\r\n";
+    }
+
+    private static async Task<List<JsonElement>> StoredRowsAsync(SimulatedBridge bridge) =>
+        [.. SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray()
+            .Where(r => r.GetProperty("persistence").GetString() == "stored"
+                && r.TryGetProperty("userDn", out var u) && u.ValueKind == JsonValueKind.String
+                && r.TryGetProperty("computerDn", out var c) && c.ValueKind == JsonValueKind.String)];
+
+    private static async Task<JsonElement> PreviewAsync(SimulatedBridge bridge, string id, string csv, string fileName)
+    {
+        await bridge.CallAsync("relations.import.stage", Args(new { id, part = 0, parts = 1, text = csv }));
+        return SimulatedBridge.Json(await bridge.CallAsync("relations.import.preview", Args(new { id, adapter = "csv", fileName })));
+    }
+
+    [Test]
+    public static async Task The_exchange_file_is_read_again_by_the_import()
+    {
+        // REL-050: « Exporter » writes the exchange file of Domenia 1; the import reads it again, every line « Déjà connue ».
+        var bridge = new SimulatedBridge();
+        var rows = (await StoredRowsAsync(bridge)).Where(r => r.GetProperty("kind").GetString() == "assignment").Take(6).ToList();
+        Check.True(rows.Count > 0, "affectations déclarées à exporter");
+        var csv = ExchangeCsv(rows);
+        Check.True(csv.Contains("UserLogin;UserName;Computer;", StringComparison.Ordinal) && csv.Contains("Z;", StringComparison.Ordinal), "en-têtes de l’import et dates ISO UTC");
+        var preview = await PreviewAsync(bridge, new string('d', 32), csv, "Domenia-Relations-toutes.csv");
+        Check.Equal(rows.Count, preview.GetProperty("counts").GetProperty("known").GetInt32(), "chaque ligne exportée est « Déjà connue »");
+        Check.Equal(0, preview.GetProperty("ready").GetInt32(), "rien de nouveau à importer");
+    }
+
+    [Test]
+    public static async Task An_import_line_is_known_when_any_relation_of_the_workstation_names_its_account()
+    {
+        // A workstation may carry a declared assignment and an observed console of two accounts: each is « Déjà connue », never a
+        // conflict that would depend on the order of the store.
+        var bridge = new SimulatedBridge();
+        var shared = (await StoredRowsAsync(bridge)).GroupBy(r => r.GetProperty("computer").GetString() ?? "", StringComparer.OrdinalIgnoreCase)
+            .First(g => g.Select(r => r.GetProperty("userLogin").GetString()).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2);
+        var n = 0;
+        foreach (var login in shared.Select(r => r.GetProperty("userLogin").GetString()).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var preview = await PreviewAsync(bridge, (++n).ToString("x32", CultureInfo.InvariantCulture), "UserLogin;Computer\n" + login + ";" + shared.Key + "\n", "poste.csv");
+            var category = preview.GetProperty("rows")[0].GetProperty("category").GetString();
+            Check.Equal("Déjà connue", category, login + " sur " + shared.Key);
+        }
+    }
+
+    [Test]
+    public static async Task A_loaded_list_is_swept_without_a_working_ou()
+    {
+        var bridge = new SimulatedBridge();
+        var reader = bridge.Context.Readers.Require<IRelationsReader>();
+        var plan = await reader.SweepPlanAsync(new RelationSweepRequest(10, null, ["PC-PAR-0012"]), CancellationToken.None);
+        Check.Equal("loaded", plan.Scope, "la liste chargée n’utilise pas l’OU de travail");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => reader.SweepPlanAsync(new RelationSweepRequest(10, null, []), CancellationToken.None), "la file de l’OU exige une OU de travail");
+    }
+
+    [Test]
+    public static async Task Removing_a_stored_association_keeps_a_newer_observation_of_the_same_key()
+    {
+        var bridge = new SimulatedBridge();
+        var reader = bridge.Context.Readers.Require<IRelationsReader>();
+        var stored = (await StoredRowsAsync(bridge)).First(r => r.GetProperty("kind").GetString() == "console");
+        var login = stored.GetProperty("userLogin").GetString()!;
+        var account = "EXAMPLE\\" + login[(login.IndexOf('\\', StringComparison.Ordinal) + 1)..];
+        var observed = await reader.ObserveAsync(new RelationObservationRequest(stored.GetProperty("computer").GetString()!, account, RelationRules.ConsoleSource,
+            DateTimeOffset.Parse(stored.GetProperty("when").GetString()!, CultureInfo.InvariantCulture).AddMinutes(5), null), CancellationToken.None);
+        Check.True(observed.Accepted, observed.Reason);
+        Check.Equal(stored.GetProperty("key").GetString(), observed.Key, "même association, observation plus récente");
+        var planned = SimulatedBridge.Json(await bridge.CallAsync("relations.remove.plan", Args(new { key = observed.Key, fingerprint = stored.GetProperty("fingerprint").GetString() })));
+        Check.Equal("applied", (await ExecuteAsync(bridge, planned)).GetProperty("result").GetString(), "association enregistrée retirée");
+        var rows = SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetProperty("rows").EnumerateArray();
+        Check.True(rows.Any(r => r.GetProperty("key").GetString() == observed.Key && r.GetProperty("persistence").GetString() == "session"),
+            "l’observation de la session, non enregistrée, reste visible");
+    }
+
+    [Test]
+    public static async Task No_text_of_the_screen_names_wapt()
+    {
+        // PST-001 is abandoned (decision of David of 22/10): no source, detail or rule of the simulation names WAPT any more.
+        var bridge = new SimulatedBridge();
+        var texts = new List<string>
+        {
+            SimulatedBridge.Json(await bridge.CallAsync("relations.overview")).GetRawText(),
+            SimulatedBridge.Json(await bridge.CallAsync("relations.list")).GetRawText(),
+        };
+        foreach (var row in (await StoredRowsAsync(bridge)).Where(r => r.GetProperty("kind").GetString() == "hint").Take(3))
+        {
+            texts.Add(SimulatedBridge.Json(await bridge.CallAsync("relations.subject", Args(new { @ref = row.GetProperty("computerDn").GetString() }))).GetRawText());
+        }
+        Check.False(texts.Any(t => t.Contains("WAPT", StringComparison.OrdinalIgnoreCase)), "aucune mention de WAPT");
     }
 
     [Test]

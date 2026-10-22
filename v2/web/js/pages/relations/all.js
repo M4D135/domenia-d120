@@ -9,7 +9,7 @@ import { createCommandBar } from '../../kit/commandbar.js';
 import { writeClipboard } from '../../kit/util.js';
 import { applyVars, toast, formatDateTime } from '../../ui.js';
 import { dateCell } from './subject.js';
-import { BADGES, BADGE_ORDER, BADGE_OPTIONS, qualification, avatar, esc, int, nouns, NBSP, errText, sk, dateText } from './model.js';
+import { BADGES, BADGE_ORDER, BADGE_OPTIONS, qualification, avatar, esc, int, nouns, NBSP, errText, sk, dateText, exchangeCsv } from './model.js';
 
 const IDENTITY = [
   { value: 'same', label: 'Vérifiée', tone: 'ok' },
@@ -110,8 +110,9 @@ export function createAllTab(panel, app, o = {}) {
           run: () => app.plan('relations.observations.plan', { resultId: SESSION_RESULT, keys: session.slice(0, 64).map((r) => r.key) }) }] : []),
       ];
     },
-    // The CSV of the kit (visible columns, formulas neutralised) goes to a file of the exports folder (Domenia 1 REL-050).
-    onExport: (csv, info) => app.exportCsv(info.scope === 'selected' ? 'selection' : 'toutes', csv),
+    // The exchange file of Domenia 1 (REL-050, CO-04), built from the rows shown or selected, goes to the exports folder and
+    // is read again by the import (« Déjà connue »).
+    onExport: (csv, info) => app.exportCsv(info.scope === 'selected' ? 'selection' : 'toutes', exchangeCsv(info.scope === 'selected' ? grid.getSelection() : grid.getVisibleRows())),
   });
   gridHost.addEventListener('dblclick', (e) => { activeCol = e.target instanceof Element ? e.target.closest('.k-gc')?.querySelector('[data-cell]')?.dataset.cell ?? null : null; }, true);
   gridHost.addEventListener('keydown', (e) => { if (e.key === 'Enter') activeCol = gridHost.querySelector('.k-gc.is-act [data-cell]')?.dataset.cell ?? null; }, true);

@@ -12,6 +12,7 @@
 // filtre=contradictoire · liste=<noms de postes séparés par des virgules, 50 au plus> (liste chargée d’un autre écran).
 import { glyph } from '../kit/glyphs.js';
 import { createTabs } from '../kit/tabs.js';
+import { createCommandBar } from '../kit/commandbar.js';
 import { writeClipboard } from '../kit/util.js';
 import { onEvent } from '../bridge.js';
 import { runWrite } from '../write-flow.js';
@@ -30,7 +31,10 @@ export const stylesheet = true;
 
 const TABS = ['sujet', 'toutes', 'comparer', 'journal'];
 const SESSION_RESULT = '0'.repeat(32);
-const RECENT_KEY = 'domenia.relations.recent.v1';
+// Recent subjects of this screen, kept apart for the simulation and the directory (a fictitious name never shows in
+// directory mode, nor the other way round).
+let recentMode = 'annuaire';
+const recentKey = () => `domenia.relations.recent.v2.${recentMode}`;
 const PART = 500_000;
 const ORBS = '<div class="orbs" aria-hidden="true"><span class="orb a"></span><span class="orb b"></span><span class="orb c"></span></div>';
 const SUBJECT_PANELS = ['ajouter', 'rechercher', 'detecter', 'session'];
@@ -38,13 +42,13 @@ const PAGE_PANELS = ['import', 'orphelines', 'moisson', 'releve', 'aide'];
 
 function readRecent() {
   try {
-    const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
+    const list = JSON.parse(localStorage.getItem(recentKey()) ?? '[]');
     return Array.isArray(list) ? list.filter((x) => x && typeof x.dn === 'string' && typeof x.login === 'string').slice(0, 6) : [];
   } catch { return []; }
 }
 
 function writeRecent(list) {
-  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, 6))); } catch { /* private mode: keep nothing */ }
+  try { localStorage.setItem(recentKey(), JSON.stringify(list.slice(0, 6))); } catch { /* private mode: keep nothing */ }
 }
 
 function newId() {
@@ -86,15 +90,17 @@ function heroChips(o, { compact }) {
   return chips.map((c, n) => c.replace('class="chip', `data-j="${n}" class="chip`)).join('');
 }
 
-function heroActions({ compact }) {
-  const size = compact ? ' sm' : '';
-  return `<button class="btn primary${size}" type="button" data-hero="pick">${glyph('search')}Choisir un sujet</button>
-    <button class="btn${size}" type="button" data-hero="import">${glyph('download')}Importer</button>
-    <button class="btn${size}" type="button" data-hero="harvest" data-tip="Moisson du journal du contrôleur : lecture réseau, sur ce clic">${glyph('history')}Moisson<span class="rel-kind net" aria-hidden="true">${glyph('wifi')}</span></button>
-    <button class="btn${size}" type="button" data-hero="sweep" data-tip="Relevé des consoles : lecture réseau, sur ce clic">${glyph('monitor')}Relevé<span class="rel-kind net" aria-hidden="true">${glyph('wifi')}</span></button>
-    <button class="btn ghost${size}" type="button" data-hero="orphans" data-tip="Associations dont le compte ou le poste n’est plus dans l’annuaire">${glyph('trash')}Orphelines</button>
-    <button class="btn ghost icon${size}" type="button" data-hero="help" aria-label="Précautions des relations" data-tip="Précautions des relations">${glyph('info')}</button>`;
-}
+// The actions of the header are a command bar of the kit (one Tab stop, arrows, « Plus » when the width runs out): the
+// network reads carry the network mark of every screen, said to screen readers too. The single primary action of the screen
+// lives in the work area (« Rechercher un sujet », then « Ajouter une association »).
+const heroCommands = (act) => [
+  { id: 'pick', label: 'Choisir un sujet', icon: 'search', pinned: true, run: () => act('pick') },
+  { id: 'import', label: 'Importer', icon: 'download', run: () => act('import') },
+  { id: 'harvest', label: 'Moisson', icon: 'history', kind: 'network', run: () => act('harvest') },
+  { id: 'sweep', label: 'Relevé', icon: 'monitor', kind: 'network', run: () => act('sweep') },
+  { id: 'orphans', label: 'Orphelines', icon: 'trash', run: () => act('orphans') },
+  { id: 'help', label: 'Précautions des relations', icon: 'info', iconOnly: true, pinned: true, run: () => act('help') },
+];
 
 function fullHeroMarkup(o, sim) {
   const { natures, contradicted } = figures(o);
@@ -109,7 +115,7 @@ function fullHeroMarkup(o, sim) {
       <h1 class="gradient-text">Utilisateurs et postes</h1>
       <p class="lead">Qui utilise quel poste, et comment on le sait${NBSP}: affectation déclarée, session observée, historique ou indice, chacun avec sa source et sa date. Associations locales à Domenia${NBSP}: Active Directory n’est jamais modifié.</p>
       <div class="chips">${heroChips(o, { compact: false })}</div>
-      <div class="hero-row rel-hero-actions">${heroActions({ compact: false })}</div>
+      <div class="hero-row rel-hero-actions"></div>
     </div>
     <aside class="rel-mix" aria-label="Répartition des natures de preuve">
       <div class="rel-mix-top">${donut(segments, { total: o.total, center: `<b class="num" data-count="${o.total}">0</b><span>associations</span>`, label: o.summary, size: 'rel-ring' })}
@@ -133,7 +139,7 @@ function compactHeroMarkup(o) {
       <p class="rel-hero-stats"><span>${esc(nouns(o.total, 'association', 'associations'))}</span><span>${esc(nouns(o.users, 'utilisateur', 'utilisateurs'))}</span><span>${esc(nouns(o.computers, 'poste', 'postes'))}</span></p>
     </div>
     <div class="chips rel-hero-flags">${heroChips(o, { compact: true })}</div>
-    <div class="rel-hero-actions">${heroActions({ compact: true })}</div>
+    <div class="rel-hero-actions"></div>
   </div>`;
 }
 
@@ -146,8 +152,8 @@ function pendingMarkup(p) {
       <span>${sources.map((s) => `<span class="rel-pending-src">${esc(s.source)} · ${int(s.count)}</span>`).join('')}${(session?.sources.length ?? 0) > 4 ? `<span class="rel-pending-src">…</span>` : ''}</span>
       <small>${esc(nouns(p.batches, 'lot', 'lots'))} de 64 au plus${NBSP}: chaque lot est un plan relu, confirmé et tracé par un reçu. Rien n’est enregistré sans votre confirmation.</small></div>
     <div class="rel-pending-actions">
-      <button class="btn sm" type="button" data-pending="next">${glyph('check')}Enregistrer ${p.total > 64 ? 'les 64 premières' : p.total > 1 ? `les ${int(p.total)}` : 'l’observation'}<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button>
-      ${p.batches > 1 ? `<button class="btn primary sm" type="button" data-pending="all">${glyph('layers')}Tout enregistrer, lot par lot (${int(p.batches)})<span class="rel-kind wr" aria-hidden="true">${glyph('edit')}</span></button>` : ''}
+      <button class="btn sm" type="button" data-pending="next">${glyph('check')}Enregistrer ${p.total > 64 ? 'les 64 premières' : p.total > 1 ? `les ${int(p.total)}` : 'l’observation'}<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button>
+      ${p.batches > 1 ? `<button class="btn subtle sm" type="button" data-pending="all">${glyph('layers')}Tout enregistrer, lot par lot (${int(p.batches)})<span class="k-cmd-mark" aria-hidden="true">${glyph('edit')}</span><span class="visually-hidden">, écriture</span></button>` : ''}
     </div>
   </section>`;
 }
@@ -164,6 +170,7 @@ export function render(main, ctx) {
   let overview = null;
   let session = null;
   let heroMode = null;
+  let heroBar = null;
   let heroKey = '';
   let overviewStamp = 0;
   let subjectRef = cleanRef(ctx.params.sujet ?? ctx.params.dn);
@@ -226,6 +233,8 @@ export function render(main, ctx) {
     const body = hero.querySelector('.rel-hero-grid, .rel-hero-bar');
     const markup = mode === 'compact' ? compactHeroMarkup(overview) : fullHeroMarkup(overview, app.simulated);
     if (body) body.outerHTML = markup; else hero.insertAdjacentHTML('beforeend', markup);
+    heroBar?.destroy?.();
+    heroBar = createCommandBar(hero.querySelector('.rel-hero-actions'), { label: 'Actions des associations', items: heroCommands(heroAct), size: mode === 'compact' ? 'sm' : 'md' });
     applyVars(hero);
     hero.querySelectorAll('[data-count]').forEach((el) => {
       if (first || force) countUp(el, Number(el.dataset.count), { delay: 200 });
@@ -557,8 +566,10 @@ export function render(main, ctx) {
       return;
     }
     const b = t?.closest('[data-hero]');
-    if (!b) return;
-    const act = b.dataset.hero;
+    if (b) heroAct(b.dataset.hero);
+  });
+
+  function heroAct(act) {
     if (act === 'pick') { tabs?.select('sujet'); setTimeout(() => subjectTab?.focusPicker(), 60); }
     else if (act === 'import') openPanel('import');
     else if (act === 'harvest') openPanel('moisson');
@@ -567,12 +578,13 @@ export function render(main, ctx) {
     else if (act === 'help') openPanel('aide');
     else if (act === 'contra') showContradictions();
     else if (act === 'pending') page.querySelector('.rel-pending')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  });
+  }
 
   // ---------- Start ----------
   (async () => {
     const info = await Promise.resolve(ctx.app).catch(() => null);
     app.simulated = info?.mode === 'simulation' || info?.webViewRuntime === 'apercu';
+    recentMode = app.simulated ? 'simulation' : 'annuaire';
     try { session = await ctx.call('session.info'); } catch (err) { console.error(err); }
     if (!app.alive) return;
     buildTabs();
@@ -596,6 +608,7 @@ export function render(main, ctx) {
 
   return () => {
     app.alive = false;
+    heroBar?.destroy?.();
     stops.forEach((fn) => fn());
     work?.ctl.close();
     tabs?.destroy();

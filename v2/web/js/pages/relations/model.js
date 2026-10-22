@@ -104,6 +104,30 @@ export function loadedList(value) {
 /** Readable pair « j.martin → PC-PAR-0042 ». */
 export const pair = (user, computer) => `${user} → ${computer}`;
 
+// Exchange file of the associations (Domenia 1 Export-DomeniaLinksCsv, CO-04): built from the rows, never from the visible
+// columns. The field names stay those of the import (UserLogin, Computer… read by RelationImport.CsvRow), dates are ISO
+// UTC, GUIDs and DNs travel, formula-looking cells are neutralised (TRV-054), separator « ; » and BOM like the kit exports.
+const EXCHANGE = [
+  ['UserLogin', (r) => r.userLogin], ['UserName', (r) => r.userName], ['Computer', (r) => r.computer], ['Kind', (r) => r.kind],
+  ['Source', (r) => r.source], ['VerifiedInAD', (r) => (r.verifiedInAd ? 'True' : 'False')],
+  ['When', (r) => { const t = r.when ? Date.parse(r.when) : NaN; return Number.isFinite(t) ? new Date(t).toISOString() : ''; }],
+  ['Details', (r) => r.details], ['UserGuid', (r) => r.userGuid], ['ComputerGuid', (r) => r.computerGuid], ['UserDn', (r) => r.userDn],
+  ['ComputerDn', (r) => r.computerDn], ['BatchId', (r) => r.batchId], ['Persistence', (r) => r.persistence],
+];
+
+const exchangeCell = (v) => {
+  let s = String(v ?? '');
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+/** CSV of the associations that the import of Domenia (and of Domenia 1) reads again, one line per row given. */
+export function exchangeCsv(rows) {
+  const lines = [EXCHANGE.map(([name]) => name).join(';')];
+  for (const r of rows) lines.push(EXCHANGE.map(([, get]) => exchangeCell(get(r))).join(';'));
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
+}
+
 /** Status pill of an attempt or a candidate (tone of the contract). */
 export function tonePill(tone, label) {
   const t = ['ok', 'warn', 'alert', 'info', 'off'].includes(tone) ? tone : 'off';

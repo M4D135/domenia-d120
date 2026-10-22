@@ -721,8 +721,15 @@ public sealed class SimulatedRelationsReader : IRelationsReader
                 ComputerKey: both ? RelationRules.ComputerKey(computer) : "", UserKey: both ? RelationRules.LoginKey(user) : "", Ticks: when.Utc?.UtcTicks ?? 0L);
         }).ToList();
         var decisions = RelationImport.Priority([.. prepared.Select(p => (p.Record.Record, p.ComputerKey, p.UserKey, p.Ticks))]);
+        // A workstation may carry several relations (declared assignment, observed console, history): the line of the file is
+        // « Déjà connue » when any of them names its account, and compared with the primary relation otherwise (never with an
+        // arbitrary one, which made the status depend on the order of the store).
         var storedByComputer = state.Store.Values.GroupBy(r => r.ComputerGuid?.ToString("D") ?? "name:" + RelationRules.ComputerKey(r.Computer), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First().UserLogin, StringComparer.OrdinalIgnoreCase);
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        string? StoredLoginFor(string user, List<StoredRelation>? relations) =>
+            relations is null ? null
+                : relations.FirstOrDefault(r => string.Equals(RelationRules.LoginKey(r.UserLogin), RelationRules.LoginKey(user), StringComparison.OrdinalIgnoreCase))?.UserLogin
+                    ?? RelationRules.Primary(relations)?.UserLogin;
         var operatorLogin = source.World.Session.Account.Login;
         var rows = ImmutableArray.CreateBuilder<RelationImportRow>();
         var importable = ImmutableArray.CreateBuilder<StoredRelation>();
@@ -738,8 +745,8 @@ public sealed class SimulatedRelationsReader : IRelationsReader
             {
                 userEntry = lookup.UserByLogin(p.User);
                 computerEntry = lookup.ComputerByName(p.Computer);
-                storedLogin = storedByComputer.GetValueOrDefault(computerEntry?.Guid.ToString("D") ?? "name:" + RelationRules.ComputerKey(p.Computer))
-                    ?? storedByComputer.GetValueOrDefault("name:" + RelationRules.ComputerKey(p.Computer));
+                storedLogin = StoredLoginFor(p.User, storedByComputer.GetValueOrDefault(computerEntry?.Guid.ToString("D") ?? "name:" + RelationRules.ComputerKey(p.Computer)))
+                    ?? StoredLoginFor(p.User, storedByComputer.GetValueOrDefault("name:" + RelationRules.ComputerKey(p.Computer)));
             }
             var status = RelationImport.Status(p.User, p.Computer, storedLogin, true, userEntry is not null, computerEntry is not null, "", ready, p.Reject,
                 decision.Kind == "Conflit" ? decision.Reason : "", decision.Kind is "Doublon" or "Remplacée" ? decision.Reason : "");
@@ -841,8 +848,13 @@ public sealed class SimulatedRelationsReader : IRelationsReader
     public async Task<RelationDetectionPlan> SweepPlanAsync(RelationSweepRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var scope = request.Scope;
-        ScopeRules.EnsureNotDomainRoot(scope, source.World.Directory.Domain.RootDn);
+        // The queue of the working OU refuses the root of the domain; a loaded list (Rechercher) does not use the OU at all.
+        var scope = request.Computers.Count > 0 ? null
+            : request.Scope ?? throw new DomeniaOperationException(DomeniaErrors.ScopeTooWide, DomeniaErrors.ScopeTooWideMessage);
+        if (scope is not null)
+        {
+            ScopeRules.EnsureNotDomainRoot(scope, source.World.Directory.Domain.RootDn);
+        }
         await WaitAsync("read", 60, 160, cancellationToken).ConfigureAwait(false);
         var state = State;
         var lookup = state.Lookup();
@@ -879,7 +891,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
         {
             var skipped = 0;
             var queue = new List<(RelationPlanCandidate Candidate, int Order, DateTimeOffset? At)>();
-            foreach (var computer in lookup.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)))
+            foreach (var computer in lookup.Directory.Computers.Where(c => ScopeRules.Contains(scope!, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)))
             {
                 var last = LastOf(computer.ObjectGuid);
                 var logon = AdValues.FromFileTime(computer.LastLogonTimestamp);
@@ -895,7 +907,7 @@ public sealed class SimulatedRelationsReader : IRelationsReader
                 queue.Add((new RelationPlanCandidate(computer.ObjectGuid, computer.Name, computer.DistinguishedName, root, reason), last is null ? 0 : 1, last));
             }
             var ordered = queue.OrderBy(q => q.Order).ThenBy(q => q.At).ThenBy(q => q.Candidate.Computer, StringComparer.Ordinal).Select(q => q.Candidate).ToList();
-            plan = RelationRules.DetectionPlan("sweep", scope.Dn, root, ordered, request.Limit, id, expires);
+            plan = RelationRules.DetectionPlan("sweep", scope!.Dn, root, ordered, request.Limit, id, expires);
             if (plan.Allowed && skipped > 0)
             {
                 plan = plan with { Text = plan.Text + " " + FrenchText.Count(skipped, "poste non réauthentifié", "postes non réauthentifiés") + " depuis son dernier relevé" + C + "non redemandé" + (skipped > 1 ? "s." : ".") };
@@ -991,8 +1003,12 @@ public sealed class SimulatedRelationsReader : IRelationsReader
 
     private (ImmutableArray<RelationRow> Rows, ImmutableHashSet<string> Contradicted) Rows(SimulatedRelationState state, SimulatedRelationLookup lookup)
     {
-        var stored = state.Store.Values.ToList();
-        var session = state.Session.Where(s => !stored.Any(r => RelationRules.Same(r, s))).ToList();
+        // One lookup per observation (the store is keyed by relation): an observation is hidden only when the same relation is
+        // stored with the same fingerprint, the rule of the pending observations; a newer one stays visible and counted.
+        var store = state.Store;
+        var stored = store.Values.ToList();
+        var session = state.Session.Where(s => !(store.TryGetValue(RelationRules.Key(s), out var known)
+            && string.Equals(RelationRules.Fingerprint(known), RelationRules.Fingerprint(s), StringComparison.Ordinal))).ToList();
         var contradicted = RelationProjection.ContradictedKeys(stored.Concat(session));
         var rows = stored.Select(r => RelationProjection.Row(r, lookup, contradicted.Contains(RelationRules.Key(r)), RelationPersistence.Stored, state.Now, state.Zone))
             .Concat(session.Select(r => RelationProjection.Row(r, lookup, contradicted.Contains(RelationRules.Key(r)), RelationPersistence.Session, state.Now, state.Zone)))
