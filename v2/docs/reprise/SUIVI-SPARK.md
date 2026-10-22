@@ -17,7 +17,7 @@ Mis à jour automatiquement par `_pilotage/spark/auto.py` le 22/10 20:15. Ce fic
 
 | Tâche | État | Essais | Vérification | Note |
 |---|---|---|---|---|
-| 01-e2e | pending | 0 |  |  |
+| 01-e2e | running | 1 |  |  |
 | 02-ad-accueil-rechercher | pending | 0 |  |  |
 | 03-ad-fiche-comptes | pending | 0 |  |  |
 | 04-ad-relations-poste | pending | 0 |  |  |
