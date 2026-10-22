@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 36, relève OpenCode en cours (vague 2, écrans un par un : shell à operations terminés, reste parametres)**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 41, relève OpenCode : les 14 écrans de la vague 2 sont terminés, intégration en cours**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes, relations, poste, assistance, requetes, audit, schema, synchro et operations terminés ; reste parametres |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **terminés** (§ 4) : les 14 écrans ; **intégration en cours** |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -65,7 +65,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | schema | **Terminé** (`49c3642`, relève OpenCode) : tour 1 (traité par `c592077`) vérifié, transitions mises en conformité ; partiel : MAC-002 (pastille « Compte poste » à poser dans Poste et Intervenir à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | synchro | **Terminé** (`70d8306`, relève OpenCode) : tour 1 (traité par `0ceac1d`) vérifié, une seule action principale ; fichiers partagés `kit/grid.js` et `write-flow.js` à revoir à l’intégration ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | operations | **Terminé** (`cacc514`, relève OpenCode) : tour 1 (traité par `e0385ab` : blocage global des écritures, suivi des lectures, battement de toute l’interface, pseudonymes, classes) vérifié, transitions et typographie corrigées ; partiels déclarés (ordonnanceur, collecte, annulation pré-remplie, coque) ; Debug et Release : 0 erreur, 0 avertissement | Intégration (Ctrl L et panneau de la coque à raccorder à `operations.center`) |
-| parametres | Complément du tour 1 interrompu : commit `wip(parametres)` | Compiler, terminer `parametres-tour1.md`, critique complète |
+| parametres | **Terminé** (`c9a12ce`, relève OpenCode) : `wip(parametres)` compilé sans correction, tour 1 vérifié par sondage (app.js rendu au shell, alias des sections, journal, « ouvrir= » consommé, typographie, statuts requalifiés), règles des panneaux préfixées ; 39 partiels (base locale SQLite en vague 3, coque, réglages lus par les autres écrans) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 
 Questions pour David (la relève ne tranche pas, elle continue) :
 - **CPT-017, coffre Windows** : brancher le Gestionnaire d’identification de Windows (CredRead, CredWrite, CredDelete) pour
