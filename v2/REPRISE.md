@@ -5,6 +5,21 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. À lire en premier (22/10, 18 h, Claude Code ; étapes 1 et 2 faites le 22/10 au soir)
 
+- **Étape 3 en cours (22/10 au soir, Claude Code) : E2E simulation 71 → 80 → 124 réussis sur 137** (2e passe : 12 échecs,
+  1 ignoré ; rapport local du Mac seulement). Corrigé, commité, poussé :
+  - harnais : casse imposée par le CSS ignorée (texte du document exigé avec sa casse), texte SVG et `textarea` lus,
+    U+2011 lu « - », départ sans `hashchange` (script `Start`), démarrage sans élément racine ; `E2E.md` à jour ;
+  - produit : focus du catalogue et des poignées (Accueil), refus de contexte sans erreur de console (Comptes), profil
+    de collecte envoyé par erreur à chaque clic (Paramètres), arbre du kit défilé (clic perdu), menus qui suivent leur
+    bouton au défilement, notifications au-dessus du pied des panneaux, requête locale de l’adresse sur l’OU de travail
+    et phrase de sélection après un filtre (Rechercher), lignes du journal technique de Requêtes (comptes et
+    identifiants seulement) ;
+  - scénarios périmés : libellés, confirmation « Confirmer (simulation) », `adm-j.martin`, éléments masqués vérifiés
+    par `absent`, grilles virtualisées.
+  - Restent (2e passe, avant les derniers commits) : comptes/droits-detail (étape 4), comptes/perimetre (étape 7),
+    fiche/deplacer-et-relire, fiche/historique-recu, synchro/controles-verifier (étape 11) ; les autres échecs de la
+    2e passe sont corrigés après elle, à relancer.
+
 - **Étape 2 faite (22/10 au soir, Claude Code)** : suite C# en VM **791 réussis sur 791**, 0 avertissement (Debug et Release).
   - Requêtes (2 tests) : ils prenaient la première OU par ordre alphabétique (« Comptes de service », sans poste) ; ils
     prennent l’OU Postes (`RequetesOperationsTests.WorkstationsOuAsync`).
