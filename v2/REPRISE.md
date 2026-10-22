@@ -1,7 +1,7 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 31, relève OpenCode en cours (vague 2, écrans un par un : shell à audit et schema terminés)**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 14 h 34, relève OpenCode en cours (vague 2, écrans un par un : shell à schema et synchro terminés)**.
 
 ## 1. Ce qu'est le projet
 
@@ -39,7 +39,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 | Catalogue des 993 fonctions | fait (`6fc1c37`) |
 | Vague 1 : kit de composants, plateforme (modules auto-découverts, préférences, OU de travail, compilation par lot) | fait (`47acdf9`) |
 | Vague 2, socle : circuit des écritures, harnais E2E, capture en session de bureau | fait (`84a7ebf`) |
-| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes, relations, poste, assistance, requetes, audit et schema terminés |
+| **Vague 2, écrans** : 14 branches `v2-page/<écran>` (poussées sur GitHub) | **en cours** (§ 4) : shell, accueil, rechercher, fiche, comptes, relations, poste, assistance, requetes, audit, schema et synchro terminés ; restent operations et parametres |
 | Vague 2, intégration : fusion des 14 branches dans `v2`, statuts du catalogue | à faire |
 | Vague 3 : vrai moteur (LDAP lecture et écriture, inventaire WMI/CIM/ping, base SQLite compatible Domenia 1, ordonnanceur à budgets, garde d'authentification, journal technique, démarrage) | à faire |
 | Vague 4 : tests complets en VM (suites C#, scénarios E2E sur la session de bureau visible, vrai AD du labo, écritures dans `OU=Domenia-Tests`), corrections | à faire |
@@ -63,7 +63,7 @@ des critiques indépendants sont archivés dans `v2/docs/reprise/critiques/<id>-
 | requetes | **Terminé** (`64b8228`, relève OpenCode) : `wip(requetes)` compilé sans correction, tour 1 vérifié par sondage (bibliothèque en fichier atomique par domaine, widget après revue d’impact, brouillon repris, négations LDAP, exports par le moteur, confirmations WMI, aperçu sur les correspondants, h1), journaux `.tmp-oc` retirés ; partiels déclarés : REQ-034, 039, 048 (stockage Domenia.Store, écrans Accueil/Fiche/Rechercher à brancher) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | audit | **Terminé** (`b64ac93`, relève OpenCode) : `wip(audit)` et la revue de l’agent Spark (`5250fc2`, teinte du critique) compilés, tour 1 vérifié par sondage (garde limitée à l’objet, contrôleurs bornés, « lancer » retiré avant la lecture, CSS conforme) ; réserve : l’agent Spark a lancé une capture dans la VM ; à l’intégration : `mock.js` et `PlatformTests` ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | schema | **Terminé** (`49c3642`, relève OpenCode) : tour 1 (traité par `c592077`) vérifié, transitions mises en conformité ; partiel : MAC-002 (pastille « Compte poste » à poser dans Poste et Intervenir à l’intégration) ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
-| synchro | Complété (30/30 selon l'agent) | Critique complète puis compléments |
+| synchro | **Terminé** (`70d8306`, relève OpenCode) : tour 1 (traité par `0ceac1d`) vérifié, une seule action principale ; fichiers partagés `kit/grid.js` et `write-flow.js` à revoir à l’intégration ; Debug et Release : 0 erreur, 0 avertissement | Intégration |
 | operations | Complément du tour 1 commité en partie (`e0385ab`) | Terminer `operations-tour1.md`, critique complète |
 | parametres | Complément du tour 1 interrompu : commit `wip(parametres)` | Compiler, terminer `parametres-tour1.md`, critique complète |
 
