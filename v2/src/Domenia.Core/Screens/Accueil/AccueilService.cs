@@ -114,7 +114,7 @@ public sealed partial class AccueilService : IDisposable
         var revision = Interlocked.Increment(ref revisionCounter).ToString("x8", CultureInfo.InvariantCulture) + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
         // Freshness of the branch for the header (ACC-020): the last complete AD read covering it, never the global date of the
         // base; a partial read never replaces that date.
-        var freshness = CollectionClocks.Directory(input.Facts.Runs, new StoreStatus(state.Directory.ReadAt, state.Directory.ObjectCount, state.Directory.Complete), scope, domainDn, Now, Zone);
+        var freshness = CollectionClocks.Directory(input.Facts.Runs, new StoreStatus(state.Directory.ReadAt, state.Directory.ObjectCount, state.Directory.CoversScope(scope)), scope, domainDn, Now, Zone);
         computation = computation with { Board = computation.Board with { Revision = revision, Directory = freshness }, Explanation = computation.Explanation with { Revision = revision } };
         watch.Stop();
         var newDay = false;
@@ -365,7 +365,7 @@ public sealed partial class AccueilService : IDisposable
         var runs = AllRuns(facts);
         var now = Now;
         var zone = Zone;
-        var store = new StoreStatus(state.Directory.ReadAt, state.Directory.ObjectCount, state.Directory.Complete);
+        var store = new StoreStatus(state.Directory.ReadAt, state.Directory.ObjectCount, state.Directory.CoversScope(scope));
         var directory = CollectionClocks.Directory(runs, store, scope, domainDn, now, zone);
         var computers = state.Directory.Computers.Where(c => !AdValues.IsDisabled(c.UserAccountControl) && ScopeRules.Contains(scope, c.DistinguishedName)).ToList();
         var observations = state.Observations.Workstations.ToDictionary(o => o.ComputerGuid);

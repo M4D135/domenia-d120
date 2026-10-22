@@ -588,7 +588,7 @@ public static class AccountsRules
             }
         }
         return [.. tops.Values.OrderByDescending(e => e.Counts.Users).ThenBy(e => e.Path, StringComparer.Ordinal).Take(6)
-            .Select(e => new AccountsScopeSuggestion(e.Dn, e.Name, e.Path, e.Counts.Users))];
+            .Select(e => new AccountsScopeSuggestion(e.Dn, e.Name, e.Path, e.Counts.Users!.Value))];
     }
 
     private static OuEntry? TopOu(string dn, OrganizationalUnitTree tree)

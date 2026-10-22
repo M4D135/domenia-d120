@@ -79,7 +79,7 @@ public sealed class AdDirectoryTreeReader : IDirectoryTreeReader, IOrganizationa
             var entries = await source.Connection.SearchAsync(new AdSearchRequest(domain.RootDn, "(objectClass=organizationalUnit)", AdSearchScope.Subtree, AdDirectoryMapper.OuAttributes) { SizeLimit = AdDirectorySource.MaxObjectsPerKind + 1 }, cancellationToken).ConfigureAwait(false);
             var ous = entries.Take(AdDirectorySource.MaxObjectsPerKind).Select(AdDirectoryMapper.Ou).OfType<DirectoryOu>().ToArray();
             var basis = new DirectorySnapshot(domain, source.Clock.GetUtcNow(), entries.Count <= AdDirectorySource.MaxObjectsPerKind && ous.Length == entries.Count, [.. ous], [], [], []);
-            var tree = OrganizationalUnitTree.Build(basis);
+            var tree = OrganizationalUnitTree.Build(basis, objectsRead: false);
             lock (gate)
             {
                 built = (epoch, tree);

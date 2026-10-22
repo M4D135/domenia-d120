@@ -2,8 +2,8 @@ using System.Collections.Immutable;
 
 namespace Domenia.Core;
 
-/// <summary>Objects of an OU and of its sub-OUs, enabled or not (docs/OPERATIONS.md § 9).</summary>
-public sealed record OuCounts(int Users, int Computers, int Groups);
+/// <summary>Objects of an OU and of its sub-OUs, enabled or not; null when not read exhaustively (docs/OPERATIONS.md § 9).</summary>
+public sealed record OuCounts(int? Users, int? Computers, int? Groups);
 
 /// <summary>
 /// One OU of the tree. <see cref="Path"/> is the readable path from the domain (« example.local › Postes › Paris »);

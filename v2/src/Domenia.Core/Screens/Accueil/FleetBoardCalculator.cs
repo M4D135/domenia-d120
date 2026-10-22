@@ -99,6 +99,11 @@ public static class FleetBoardCalculator
         {
             var scope = input.Scope;
             var directory = input.State.Directory;
+            if (!directory.IncludesScope(scope))
+            {
+                throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable,
+                    "Cette OU n’est pas couverte par le relevé disponible. Utilisez « Mettre à jour la base locale de l’OU » pour calculer son tableau de bord.");
+            }
             boardPolicy = HealthRules.Resolve(input.Book, ScopeRules.IsDomainRoot(scope, input.DomainDn) ? "" : scope.Dn).Policy;
             var limits = boardPolicy.Thresholds;
             var observations = new Dictionary<Guid, WorkstationObservation>();
@@ -534,7 +539,7 @@ public static class FleetBoardCalculator
             if (partialBase)
             {
                 var h = new RuleHits();
-                Point("index.partial", "warn", "Base locale incomplète : dernière lecture arrêtée à sa limite. Les chiffres peuvent être sous-estimés : utilisez « Mettre à jour la base locale de l’OU ».", h);
+                Point("index.partial", "warn", "Base locale partielle : le relevé ne garantit pas l’exhaustivité de cette OU. Les chiffres portent sur les objets connus : utilisez « Mettre à jour la base locale de l’OU ».", h);
             }
             Simple("pwdold", "warn", n => Plural(n, "poste avec un mot de passe machine", "postes avec un mot de passe machine") + " de plus de " + FrenchText.Integer(limits.PasswordDays) + " jours.");
             Simple("laps.none", "warn", n => Plural(n, "poste sans expiration LAPS visible.", "postes sans expiration LAPS visible."));

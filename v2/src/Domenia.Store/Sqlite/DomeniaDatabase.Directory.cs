@@ -154,7 +154,7 @@ public sealed partial class DomeniaDatabase
         }
         db.Commit();
         // Retained objects can predate the last pass; the union is never presented as a complete fresh census.
-        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable());
+        return new DirectorySnapshot(header.Domain, header.ReadAt, false, ous.ToImmutable(), users.ToImmutable(), computers.ToImmutable(), groups.ToImmutable()) { Coverage = header.Scope };
     }, cancellationToken);
 
     private void EnsureBackup(SqliteDatabase db, CancellationToken token)

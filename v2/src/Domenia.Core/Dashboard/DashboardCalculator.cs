@@ -157,6 +157,16 @@ public static class DashboardCalculator
             {
                 return Disabled(definition, scopeLabel);
             }
+            var requested = definition.Scope == WidgetScope.Domain
+                ? new ScopeSelection(snapshot.Domain.RootDn, snapshot.Domain.DnsName, true) : input.Scope;
+            if (definition.Scope == WidgetScope.Domain && !snapshot.CoversScope(requested))
+            {
+                return NotMeasured(definition, scopeLabel, "Le relevé disponible ne couvre pas tous les comptes du domaine. Aucun total n’est déduit des seuls objets connus.");
+            }
+            if (definition.Scope == WidgetScope.WorkingOu && !snapshot.IncludesScope(requested))
+            {
+                return NotMeasured(definition, scopeLabel, "Cette OU n’est pas couverte par le relevé disponible. Mettez à jour sa base locale pour calculer ses indicateurs.");
+            }
             return definition.Id switch
             {
                 WidgetCatalog.WorkstationsOnline => WorkstationsOnline(definition, scopeLabel),
@@ -195,8 +205,10 @@ public static class DashboardCalculator
 
         private DashboardWidget Measured(WidgetDefinition definition, string scopeLabel, Tone tone, DateTimeOffset measuredAt, string detail, object data)
         {
+            var partial = definition.Scope == WidgetScope.WorkingOu && !snapshot.Complete;
+            if (partial) { detail += " Relevé partiel : chiffres limités aux objets connus, sans total garanti pour l’OU."; }
             var stale = now - measuredAt > policy.StaleAfter;
-            return new DashboardWidget(definition.Id, definition.Kind, definition.Title, scopeLabel, true, stale ? Tone.Off : tone, measuredAt, stale, detail, data);
+            return new DashboardWidget(definition.Id, definition.Kind, definition.Title, scopeLabel, true, stale || partial ? Tone.Off : tone, measuredAt, stale, detail, data);
         }
 
         private bool IsRecent(DateTimeOffset? at) => at is DateTimeOffset a && now - a < policy.ObservationMaxAge;

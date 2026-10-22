@@ -35,7 +35,7 @@ public sealed class OrganizationalUnitTree
     /// <summary>Number of OUs in the tree.</summary>
     public int Count => nodes.Count;
 
-    public static OrganizationalUnitTree Build(DirectorySnapshot snapshot)
+    public static OrganizationalUnitTree Build(DirectorySnapshot snapshot, bool objectsRead = true)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         var domain = snapshot.Domain;
@@ -80,6 +80,10 @@ public sealed class OrganizationalUnitTree
         foreach (var group in snapshot.Groups)
         {
             CountIn(nodes, group.DistinguishedName, rootNames.Length, static n => n.Groups++);
+        }
+        foreach (var node in nodes.Values)
+        {
+            node.CountsKnown = objectsRead && snapshot.CoversScope(new ScopeSelection(node.Dn, node.Name, true));
         }
         return new OrganizationalUnitTree(root, rootKey, nodes);
     }
@@ -145,7 +149,7 @@ public sealed class OrganizationalUnitTree
         TryParse(dn, out var names) && nodes.TryGetValue(DistinguishedName.Format(names), out var node) ? node : null;
 
     private OuEntry Entry(Node node) =>
-        new(node.Dn, node.Name, node.Path, children.ContainsKey(node.Key), new OuCounts(node.Users, node.Computers, node.Groups));
+        new(node.Dn, node.Name, node.Path, children.ContainsKey(node.Key), new OuCounts(node.CountsKnown ? node.Users : null, node.CountsKnown ? node.Computers : null, node.CountsKnown ? node.Groups : null));
 
     private static void CountIn(Dictionary<string, Node> nodes, string dn, int rootLength, Action<Node> add)
     {
@@ -190,6 +194,7 @@ public sealed class OrganizationalUnitTree
         public string FoldedName { get; } = FrenchText.Fold(name);
         public string FoldedPath { get; } = FrenchText.Fold(path);
         public string ParentKey { get; set; } = "";
+        public bool CountsKnown { get; set; }
         public int Users { get; set; }
         public int Computers { get; set; }
         public int Groups { get; set; }

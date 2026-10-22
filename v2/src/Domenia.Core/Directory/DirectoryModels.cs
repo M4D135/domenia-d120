@@ -129,6 +129,18 @@ public sealed record DirectorySnapshot(
     ImmutableArray<DirectoryComputer> Computers,
     ImmutableArray<DirectoryGroup> Groups)
 {
+    /// <summary>The branch actually read; null retains the historical full-domain snapshot format.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ScopeSelection? Coverage { get; init; }
+
+    /// <summary>Whether the recorded branch includes the requested branch and its depth, independently of truncation.</summary>
+    public bool IncludesScope(ScopeSelection requested) => Coverage is null
+        || ScopeRules.SameScope(Coverage, requested)
+        || (Coverage.Subtree && (ScopeRules.SameScope(Coverage, requested with { Subtree = true }) || ScopeRules.Contains(Coverage, requested.Dn)));
+
+    /// <summary>A complete read of an OU is never a complete census of its parent or of the domain.</summary>
+    public bool CoversScope(ScopeSelection requested) => Complete && IncludesScope(requested);
+
     /// <summary>Directory objects counted by the local base: OUs, users, computers and groups.</summary>
     public int ObjectCount => OrganizationalUnits.Length + Users.Length + Computers.Length + Groups.Length;
 }

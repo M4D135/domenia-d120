@@ -46,6 +46,7 @@ internal static class AdBoundaryTests
             var selected = new ScopeSelection(Fixtures.Postes, "Postes", subtree);
             var snapshot = await AdDirectoryReader.ReadSnapshotAsync(connection, Fixtures.Domain, selected, 10, TestClock.Fixed(), CancellationToken.None);
             Check.True(snapshot.Complete, "lecture vide complète");
+            Check.Equal(selected, snapshot.Coverage, "périmètre explicite du relevé");
             Check.Equal(4, connection.Searches.Count, "quatre classes d’objets");
             foreach (var search in connection.Searches)
             {

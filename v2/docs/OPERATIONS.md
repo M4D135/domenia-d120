@@ -1330,3 +1330,7 @@ Précisions de `arguments.invalid` propres au circuit : « « planId » doit êt
 hexadécimaux). », « « token » doit être un jeton de confirmation. », « « typedName » doit être un texte ou null. »,
 « « typedName » doit faire au plus 256 caractères. », « « id » doit être un identifiant de reçu (32 caractères
 hexadécimaux). ».
+
+### Précision du 23 octobre 2026 — couverture réelle
+
+Les compteurs `directory.ou.*.counts` peuvent être `null` : la navigation LDAP ne lit que les OU et ne déduit aucun zéro pour leurs objets. Un relevé complet est complet pour sa branche et sa profondeur seulement ; les trois indicateurs de comptes du domaine restent non mesurés sans census exhaustif du domaine. Les chiffres de parc issus d’un cache partiel l’annoncent, sans bilan sain ni garantie d’exhaustivité.
