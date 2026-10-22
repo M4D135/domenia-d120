@@ -8,7 +8,7 @@
     { "do": "press", "key": "Control+K", "title": "Ouvrir la palette" },
     { "do": "type", "selector": ".palette-backdrop .palette input", "text": "raccourcis" },
     { "do": "wait", "contains": "raccourcis", "within": ".palette-backdrop .results" },
-    { "do": "press", "key": "Enter", "title": "Lancer la commande" },
+    { "do": "click", "text": "Afficher les raccourcis clavier", "within": ".palette-backdrop .results", "title": "Lancer la commande (l’écran Aide et interface vient en premier, dans « Aller à »)" },
     { "do": "expect", "selector": ".k-dlg[role=dialog]", "title": "Le dialogue intégré est ouvert" },
     { "do": "expect", "contains": "Raccourcis clavier", "within": ".k-dlg" },
     { "do": "expect", "contains": "Ctrl", "within": ".k-dlg", "title": "Les combinaisons sont listées" },

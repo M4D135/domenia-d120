@@ -14,7 +14,7 @@
     { "do": "wait", "contains": "47 classes", "within": ".sch-found", "title": "Toute la liste" },
     { "do": "click", "selector": "[data-kind=attributes]", "title": "Attributs" },
     { "do": "type", "selector": ".sch-search-input", "text": "Une valeur", "title": "Un texte de la colonne Valeurs" },
-    { "do": "wait", "contains": "0 attribut trouvé.", "within": ".sch-found", "title": "La colonne Valeurs n’est pas filtrée" },
+    { "do": "wait", "contains": "1 attribut trouvé.", "within": ".sch-found", "title": "La colonne Valeurs n’est pas filtrée : seule la description de isSingleValued correspond" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
   ]
 }
