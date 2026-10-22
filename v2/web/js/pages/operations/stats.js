@@ -54,7 +54,7 @@ const COLUMNS = [
   { id: 'averageBytes', label: 'Réseau (estimé)', type: 'number', width: 140, align: 'end', format: bytes, tip: 'Volume moyen reçu par une lecture distante ou une écriture, estimé d’après la taille de sa réponse.', csv: (v) => (Number.isFinite(v) ? String(Math.round(v)) : '') },
   { id: 'bytesPerSecond', label: 'Débit', type: 'number', width: 122, align: 'end', format: bandwidth, csv: (v) => (Number.isFinite(v) ? String(Math.round(v)) : '') },
   { id: 'fallbackPercent', label: '% de repli', type: 'number', width: 116, align: 'end', format: (v) => (Number.isFinite(v) ? `${v.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}${NBSP}%` : '—'), tip: 'Transports de repli sur les tentatives distantes : Domenia 2 n’en utilise aucun.', csv: (v) => (Number.isFinite(v) ? String(v).replace('.', ',') : '') },
-  { id: 'remoteAttempts', label: 'Tentatives distantes', type: 'number', width: 160, align: 'end', format: (v) => (v > 0 ? int(v) : '—'), tip: 'Requêtes parties vers l’annuaire ou un poste ; jamais de nouvelle tentative automatique.' },
+  { id: 'remoteAttempts', label: 'Tentatives distantes', type: 'number', width: 160, align: 'end', format: (v) => (v > 0 ? int(v) : '—'), tip: 'Requêtes parties vers l’annuaire ou un poste ; jamais de nouvelle tentative automatique.' },
   { id: 'lastRun', label: 'Dernière', type: 'date', width: 108 },
 ];
 

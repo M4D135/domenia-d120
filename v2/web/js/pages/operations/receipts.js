@@ -533,7 +533,7 @@ function detailMarkup(detail, demo) {
     <section class="op-proof" aria-labelledby="${id}-p">
       <span class="op-proof-ico" aria-hidden="true">${glyph('shield')}</span>
       <div><h4 id="${id}-p">Preuve attendue · ${esc(rule.proof)}</h4><p>${esc(rule.check)}</p>
-        <small>Le code de retour de la requête n’est jamais une preuve${NBSP}: seule la relecture de l’objet sur le contrôleur fait foi.${rule.partial ? ' Une relecture conforme ne prouve pas la cause : jamais plus que « partiel ».' : ''}</small></div>
+        <small>Le code de retour de la requête n’est jamais une preuve${NBSP}: seule la relecture de l’objet sur le contrôleur fait foi.${rule.partial ? ' Une relecture conforme ne prouve pas la cause : jamais plus que « partiel ».' : ''}</small></div>
     </section>
     ${changes ? `<section class="op-dt-block"><h4>Changement${(r.plan?.changes?.length ?? 0) > 1 ? 's' : ''} du plan</h4><div class="op-diff">${changes}</div></section>` : ''}
     ${trail ? `<section class="op-dt-block"><h4>Étapes du reçu</h4><ol class="op-trail">${trail}</ol></section>` : ''}
