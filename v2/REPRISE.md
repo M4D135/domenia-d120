@@ -1,7 +1,30 @@
 # Domenia 2 — document de reprise
 
 Ce document permet de reprendre le chantier si Claude Code n'est plus disponible (panne de jetons), par exemple avec
-OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 15 h 10, relève OpenCode : vague 2 intégrée dans `v2` (`c7b9d09`), Debug et Release sans erreur ni avertissement**.
+OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape importante. Dernière mise à jour : **22/10/2026 vers 18 h, Claude Code (crédit presque épuisé) : état figé pour la relève**.
+
+## 0. À lire en premier (22/10, 18 h, Claude Code)
+
+- **Spark arrêté** : les 14 tâches `ask.sh` lancées par la relève sont stoppées (17 h 55).
+  - Neuf attendaient depuis 30 à 80 minutes sans rien recevoir.
+  - s1-sqlite, s3-reader et s4-adwrites tournaient en boucle de raisonnement (135 000 à 167 000 jetons, aucune sortie), s6-probe aussi sans sortie.
+  - Seule s2-ldap avait répondu (déjà intégrée dans `v2-wip-annuaire`), copie dans `../Domenia-D120-team/_pilotage/s2-ldap.out`.
+  - **Ne pas relancer de tâches Spark de cette taille.** Faire rédiger directement par le modèle de la relève (API Claude), une tâche à la fois.
+- **Choix faits par Claude sur les 4 questions de la relève**, à appliquer sauf avis contraire de David :
+  1. **CPT-017, coffre Windows** : oui, comme Domenia 1 (CredRead, CredWrite, CredDelete), par gestes explicites seulement, indisponible en simulation.
+  2. **Relations, mémorisation** : c'est la base locale, pas l'AD. Mémorisation automatique par lots de 64, comme Domenia 1, sans confirmation, tracée au journal. La tâche s5-relbatch (plan scellé) n'est plus nécessaire.
+  3. **Exports de fichiers** : créer une classe d'opération `LocalFile` (fichier choisi par l'opérateur, ouverture par Windows), distincte de `LocalWrite`, à documenter dans `PLATFORM.md` et `OPERATIONS.md`.
+  4. **Statut `partiel`** : on le garde. L'ajouter à `v2/CLAUDE.md` (cinq statuts).
+- **État Git** :
+  - `v2` = `6b4fcba` (poussé, compile) ;
+  - `v2-wip-annuaire` = `c25b8bc` (poussé, ne compile pas encore) ;
+  - VM : 20 Go libres, `out\\plateforme` supprimé.
+- **Ordre de reprise conseillé** : § 4 bis « Suite, dans l'ordre », sans le Spark.
+  1. Terminer `AdDirectoryReader`, `AdDirectoryMapper` et `WmiWorkstationProbe` dans `v2-wip-annuaire`, compiler, fusionner.
+  2. Corriger les 4 tests C# restants, puis les échecs E2E de simulation (`docs/reprise/e2e-sim-1-echecs.txt`).
+  3. Vrai moteur écran par écran, avec les écritures de Comptes et de la Fiche et la base SQLite.
+  4. E2E en mode annuaire sur `cnamts.local` (`OU=Domenia-Tests`).
+  5. `vm.sh main publish`, ZIP, release GitHub.
 
 ## 1. Ce qu'est le projet
 
