@@ -49,9 +49,10 @@ export function receiptHref(id) {
  * for it), executes it once, shows the receipt and toasts it. Resolves with the receipt (write.execute), or null when the
  * operator cancels or the engine refuses before sending. Never resent automatically.
  * @param {{ call: (op: string, args?: object) => Promise<any> }} ctx  Context of the screen (ctx.call of the router).
- * @param {{ plan: string, args: object, subtitle?: string, onDone?: (receipt: any) => void }} options
+ * @param {{ plan: string, args: object, subtitle?: string, onDone?: (receipt: any) => void, onClosed?: () => void }} options
  *   plan: the « <screen>.<verb>.plan » operation (a read), args: its arguments; onDone: called once with the receipt
- *   (the screen reads its data again).
+ *   (the screen reads its data again); onClosed: called once when the panel closes (a screen that must change its address
+ *   after the write waits for it, or the hashchange would close the receipt before it is read).
  * @returns {Promise<any|null>}
  */
 export function runWrite(ctx, options) {
@@ -202,6 +203,7 @@ class WriteFlow {
   closed() {
     clearInterval(this.timer);
     this.detached = true;
+    this.options.onClosed?.();
     // A write under way still ends with its receipt and its toast; anything else ends with nothing sent.
     if (!this.locked) this.finish(null);
   }

@@ -490,14 +490,17 @@ async function runAction(S, id, arg) {
         note: 'Le DN et le GUID de l’objet sont capturés maintenant et revérifiés par le plan puis avant l’envoi.',
       });
       if (!target) return;
-      // After a move applied (or already done), the fiche follows the object to its new DN, read again by its GUID.
+      // After a move applied (or already done), the fiche follows the object to its new DN, read again by its GUID, once the
+      // receipt panel is closed: opening the new address at once (hashchange) would close the receipt before it is read.
+      let moved = '';
       await write(S.ctx, 'fiche.move.plan', { dn, target: target.dn, guid }, {
         subtitle,
         onDone: (receipt) => {
-          const moved = receipt && (receipt.result === 'applied' || receipt.result === 'noChange') ? movedDn(dn, target.dn) : '';
-          if (moved && moved.toLowerCase() !== dn.toLowerCase()) S.open(moved, { guid });
+          const to = receipt && (receipt.result === 'applied' || receipt.result === 'noChange') ? movedDn(dn, target.dn) : '';
+          if (to && to.toLowerCase() !== dn.toLowerCase()) moved = to;
           else S.reload({ quiet: true, reread: true });
         },
+        onClosed: () => { if (moved) S.open(moved, { guid }); },
       });
       return;
     }

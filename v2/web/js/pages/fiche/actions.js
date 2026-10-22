@@ -190,10 +190,10 @@ export function pickOu(ctx, o) {
 
 /**
  * Runs one write of the fiche through the circuit (plan, confirmation, receipt, re-read). Resolves with the receipt or null.
- * @param {any} ctx @param {string} plan @param {object} args @param {{ subtitle?: string, onDone?: (r: any) => void }} [o]
+ * @param {any} ctx @param {string} plan @param {object} args @param {{ subtitle?: string, onDone?: (r: any) => void, onClosed?: () => void }} [o]
  */
 export function write(ctx, plan, args, o = {}) {
-  return runWrite(ctx, { plan, args, subtitle: o.subtitle, onDone: o.onDone });
+  return runWrite(ctx, { plan, args, subtitle: o.subtitle, onDone: o.onDone, onClosed: o.onClosed });
 }
 
 /** Text of an amount with a non-breaking space (« 3 groupes »). */

@@ -16,7 +16,7 @@
     { "do": "click", "selector": ".fi-history .fi-note", "title": "Clic hors des filtres" },
     { "do": "expect", "selector": ".fi-history-kinds [data-kind=\"all\"]", "attribute": "aria-pressed", "equals": "true", "title": "Le filtre reste « Tout »" },
     { "do": "click", "selector": "[data-receipt]", "within": ".fi-history", "nth": 0, "title": "Voir le reçu" },
-    { "do": "wait", "contains": "Reçu d’écriture", "within": ".k-drw", "timeoutMs": 20000, "title": "Le reçu s’ouvre" },
+    { "do": "wait", "contains": "Appliquée (simulation)", "within": ".k-drw .wf-receipt", "timeoutMs": 20000, "title": "Le reçu s’ouvre" },
     { "do": "shot", "name": "historique-recu", "selector": ".k-drw" },
     { "do": "click", "text": "Fermer", "within": ".k-drw" },
     { "do": "journal", "contains": "[ERREUR]", "absent": true }
