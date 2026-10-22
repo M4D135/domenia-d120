@@ -64,7 +64,7 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 - **Choix faits par Claude sur les 4 questions de la relève**, à appliquer sauf avis contraire de David :
   1. **CPT-017, coffre Windows** : oui, comme Domenia 1 (CredRead, CredWrite, CredDelete), par gestes explicites seulement, indisponible en simulation.
   2. **Relations, mémorisation** : c'est la base locale, pas l'AD. Mémorisation automatique par lots de 64, comme Domenia 1, sans confirmation, tracée au journal. La tâche s5-relbatch (plan scellé) n'est plus nécessaire. **Appliqué le 22/10 au soir (étape 2).**
-  3. **Exports de fichiers** : créer une classe d'opération `LocalFile` (fichier choisi par l'opérateur, ouverture par Windows), distincte de `LocalWrite`, à documenter dans `PLATFORM.md` et `OPERATIONS.md`.
+  3. **Exports de fichiers** : on garde la décision déjà inscrite dans `DECISIONS.md` (22/10) : écrire est `LocalWrite`, ouvrir est `Local`. Pas de classe `LocalFile`.
   4. **Statut `partiel`** : on le garde. L'ajouter à `v2/CLAUDE.md` (cinq statuts).
 - **État Git** :
   - `v2` = fusion de `v2-wip-annuaire` (poussé, compile) ;
