@@ -133,7 +133,7 @@ public sealed partial class AccueilService
             wantPresence = mode is "presence" or "inventory" or "all";
             wantInventory = mode is "inventory" or "all";
         }
-        if (wantDirectory && !simulation)
+        if (wantDirectory && !simulation && context.Directory is not IDirectoryRefreshPreparation { CanPrepareDirectoryRefresh: true })
         {
             // Domenia 1 (FI-13): a verified backup of the local base comes before every AD read; without it, no AD read.
             throw new DomeniaOperationException(RefreshBackupUnavailable, RefreshBackupUnavailableMessage);
@@ -326,6 +326,8 @@ public sealed partial class AccueilService
         var presenceStarted = false;
         var inventoryOnline = 0;
         var inventoryContacted = 0;
+        var inventorySucceeded = 0;
+        var inventoryFailed = 0;
         var outcome = "success";
         try
         {
@@ -354,8 +356,17 @@ public sealed partial class AccueilService
                     switch (stage.Id)
                     {
                         case "backup":
-                            // Planned only in simulation (PlanRefreshAsync refuses an AD read without a verified backup in directory mode).
-                            Record(state, stage, "na", "Sans objet en simulation" + FrenchText.Colon + "aucune base locale n’est ouverte, rien à sauvegarder.", started, Now, progress, i, stages.Length);
+                            if (context.Directory.Kind == DirectorySourceKind.Simulation)
+                            {
+                                Record(state, stage, "na", "Sans objet en simulation" + FrenchText.Colon + "aucune base locale n’est ouverte, rien à sauvegarder.", started, Now, progress, i, stages.Length);
+                            }
+                            else
+                            {
+                                var preparation = context.Directory as IDirectoryRefreshPreparation
+                                    ?? throw new DomeniaOperationException(RefreshBackupUnavailable, RefreshBackupUnavailableMessage);
+                                var backup = await preparation.PrepareDirectoryRefreshAsync(token).ConfigureAwait(false);
+                                Record(state, stage, "done", "Sauvegarde locale vérifiée · SHA-256 " + backup.Sha256, started, Now, progress, i, stages.Length);
+                            }
                             break;
                         case "directory":
                             directoryStarted = true;
@@ -434,9 +445,25 @@ public sealed partial class AccueilService
                             }
                             inventoryDone = true;
                             var reusedNow = onlineIds.Count - toRead.Count;
+                            var measuredById = latestState.Observations.Workstations.ToDictionary(o => o.ComputerGuid);
+                            var computersById = latestState.Directory.Computers.ToDictionary(c => c.ObjectGuid);
+                            ProbeReadings afterProbes;
+                            lock (gate) { afterProbes = probes; }
+                            var usable = toRead.Count(id => measuredById.TryGetValue(id, out var observation) && observation.Inventory.HasReading
+                                && observation.Inventory.CheckedAt >= started && plan.Probes.All(probeId =>
+                                    ProbeCatalog.Find(probeId)?.SkipOnDc == true && computersById.TryGetValue(id, out var c) && (c.UserAccountControl & 8192) != 0
+                                    || afterProbes.ByProbe.TryGetValue(probeId, out var byId) && byId.TryGetValue(id, out var reading)
+                                        && reading.State == MeasureState.Known && reading.Error is null && reading.At >= started));
+                            inventorySucceeded = reusedNow + usable;
+                            inventoryFailed = toRead.Count - usable;
+                            if (inventoryFailed > 0)
+                            {
+                                outcome = "partial";
+                                probeText += " · " + FleetBoardCalculator.Plural(inventoryFailed, "poste avec une lecture incomplète ou refusée", "postes avec une lecture incomplète ou refusée");
+                            }
                             var detail = onlineIds.Count == 0
                                 ? "Aucun poste n’a répondu au ping" + FrenchText.Colon + "aucune lecture WMI."
-                                : "Inventaire relu sur " + FleetBoardCalculator.Plural(toRead.Count, "poste ayant répondu au ping", "postes ayant répondu au ping")
+                                : "Inventaire relu sur " + FleetBoardCalculator.Plural(usable, "poste ayant répondu au ping", "postes ayant répondu au ping")
                                   + (reusedNow > 0 ? " · " + FleetBoardCalculator.Plural(reusedNow, "déjà à jour, non contacté", "déjà à jour, non contactés") : "") + probeText;
                             Record(state, stage, "done", detail, started, Now, progress, i, stages.Length);
                             break;
@@ -504,9 +531,9 @@ public sealed partial class AccueilService
                 }
                 if (inventoryStarted)
                 {
-                    var status = inventoryDone ? CollectionStatus.Success : state.Stopping ? CollectionStatus.Cancelled : CollectionStatus.Error;
+                    var status = inventoryDone ? inventoryFailed > 0 ? CollectionStatus.Partial : CollectionStatus.Success : state.Stopping ? CollectionStatus.Cancelled : CollectionStatus.Error;
                     recorded.Add(CollectionClocks.Create(CollectionFamily.Inventory, domainDn, plan.Scope.Dn, plan.Scope.Subtree, status, collectStart, finished,
-                        status == CollectionStatus.Cancelled ? "Relevé arrêté." : null, inventoryOnline, inventoryDone ? inventoryOnline : null, inventoryDone ? inventoryOnline : null, inventoryDone ? 0 : null, null, finished));
+                        status == CollectionStatus.Cancelled ? "Relevé arrêté." : inventoryFailed > 0 ? "Certaines lectures sont incomplètes ou refusées." : null, inventoryOnline, inventoryDone ? inventoryOnline : null, inventoryDone ? inventorySucceeded : null, inventoryDone ? inventoryFailed : null, null, finished));
                 }
             }
             lock (gate)

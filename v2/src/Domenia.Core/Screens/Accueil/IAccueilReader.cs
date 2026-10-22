@@ -55,6 +55,9 @@ public interface IAccueilReader : IScreenReader
     /// <summary>Local facts of the fleet (local base): never the network.</summary>
     Task<AccueilFacts> FactsAsync(CancellationToken cancellationToken);
 
+    /// <summary>Previously committed probe values; never starts a workstation read.</summary>
+    Task<ProbeReadings> StoredProbesAsync(CancellationToken cancellationToken) => Task.FromResult(ProbeReadings.Empty);
+
     /// <summary>Daily local snapshots of the fleet figures of an OU, oldest first (fleet_snapshots of the local base).</summary>
     Task<ImmutableArray<FleetSnapshot>> HistoryAsync(ScopeSelection scope, CancellationToken cancellationToken);
 

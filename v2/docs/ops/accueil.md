@@ -416,3 +416,21 @@ mêmes : seules les sources changent. « Collecter seulement ce qui manque » (A
 Lecture seule par défaut ; aucune lecture réseau sans geste explicite (actualisation confirmée, lecture BitLocker) ;
 jamais tout le domaine (`scope.tooWide`) ; plan figé, utilisé une fois, jamais rejoué ; aucune écriture dans l’annuaire
 (préférences locales seulement) ; aucune clé BitLocker ni mot de passe LAPS lus ; aucun secret dans le journal.
+
+
+## Reprise du mode annuaire — 23 octobre 2026
+
+`AdAccueilReader` sert désormais les faits locaux, les instantanés quotidiens Domenia 1, les sondes du catalogue,
+la lecture d’inventaire ciblée et la présence BitLocker. `IPreparedDirectoryCache` fournit la sauvegarde vérifiée
+avant la lecture des objets AD : une base sans cette capacité reste refusée. Le reçu local précède la publication.
+Les mesures sont conservées dans la projection additive v2 de SQLite, sans modifier les anciennes observations
+Domenia 1 ; leur import et leur projection historique complète restent à terminer. Les instantanés sans couverture
+historique gardent un score inconnu. Les comptes de lecture refusés ou incomplets ne deviennent pas des succès.
+
+Les sondes WMI partagent un budget de 60 secondes par poste (6 postes en parallèle) ; l’inventaire léger partage son
+budget entre système, ordinateur, disque système et BIOS. Aucun nouveau ping dans l’étape d’inventaire du plan.
+Une interruption conserve les mesures des postes déjà terminés. La présence BitLocker lit uniquement le DN et la date
+de création des objets de récupération, avec une borne de 100 000 objets et 180 secondes. La profondeur directe est
+respectée en lisant les enfants des seuls ordinateurs directement rattachés à l’OU.
+
+État de validation : code et tests compilés dans la VM ; exécution fonctionnelle réservée à la recette finale.

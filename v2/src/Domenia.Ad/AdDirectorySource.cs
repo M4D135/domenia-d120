@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Principal;
 using Domenia.Core;
+using Domenia.Core.Accueil;
 
 namespace Domenia.Ad;
 
@@ -12,7 +13,7 @@ namespace Domenia.Ad;
 /// workstation measures (presence, light inventory) only on the working OU, never on the domain root. Read only by
 /// construction: the write executors of Domenia.Ad are the only writers, through <see cref="Connection"/>.
 /// </summary>
-public sealed class AdDirectorySource : IDirectorySource, IDisposable
+public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IDisposable
 {
     public const int MaxObjectsPerKind = 50_000;
 
@@ -30,6 +31,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     private readonly SemaphoreSlim connecting = new(1, 1);
     private readonly SemaphoreSlim refreshing = new(1, 1);
     private readonly SemaphoreSlim loadingLocal = new(1, 1);
+    private readonly SemaphoreSlim savingFleet = new(1, 1);
+    private CachedFleet fleet = CachedFleet.Empty("session");
     private bool localLoaded;
     private readonly Lock gate = new();
     private DomainInfo? domain;
@@ -61,6 +64,42 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
     public TimeProvider Clock { get; }
 
     public IDirectoryCache? LocalStore { get; }
+
+    public bool CanPrepareDirectoryRefresh => LocalStore is IPreparedDirectoryCache;
+
+    public async Task<DirectoryBackupReceipt> PrepareDirectoryRefreshAsync(CancellationToken cancellationToken)
+    {
+        if (LocalStore is not IPreparedDirectoryCache cache)
+        { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Sauvegarde locale vérifiée indisponible : aucune relecture AD lancée."); }
+        try { return await cache.PrepareAsync(cancellationToken).ConfigureAwait(false); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Sauvegarde locale non vérifiée ou espace disque insuffisant : aucune relecture AD lancée."); }
+    }
+
+    internal CachedFleet FleetDetails { get { lock (gate) { return fleet; } } }
+
+    internal async Task<CachedFleet> SaveFleetAsync(FleetCachePatch patch, long generation, CancellationToken token)
+    {
+        await savingFleet.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            CachedFleet before;
+            lock (gate)
+            {
+                if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée pendant le relevé : publication annulée."); }
+                before = fleet;
+            }
+            var saved = LocalStore is IAccueilCache cache ? await cache.SaveFleetAsync(patch, token).ConfigureAwait(false) : before.Merge(patch);
+            lock (gate)
+            {
+                if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée pendant l’enregistrement : publication annulée."); }
+                fleet = saved;
+                if (state is not null) { state = state with { Observations = saved.Observations }; }
+                return saved;
+            }
+        }
+        finally { savingFleet.Release(); }
+    }
 
     internal long Epoch
     {
@@ -175,12 +214,16 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         try
         {
             lock (gate) { if (localLoaded) { return; } }
+            var generation = Epoch;
             var loaded = await LocalStore.ReadAsync(token).ConfigureAwait(false);
+            var readings = LocalStore is IAccueilCache cache ? await cache.ReadFleetAsync(token).ConfigureAwait(false) : CachedFleet.Empty("session");
             lock (gate)
             {
+                if (epoch != generation) { return; }
+                fleet = readings;
                 if (loaded is not null && state is null)
                 {
-                    state = Empty(domain ?? loaded.Domain) with { Directory = domain is null ? loaded : loaded with { Domain = domain } };
+                    state = Empty(domain ?? loaded.Domain) with { Directory = domain is null ? loaded : loaded with { Domain = domain }, Observations = readings.Observations };
                 }
                 localLoaded = true;
             }
@@ -201,6 +244,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         }
         var known = await DomainAsync(cancellationToken).ConfigureAwait(false);
         AdDirectoryReader.EnsureScope(scope, known.RootDn);
+        await LoadLocalAsync(cancellationToken).ConfigureAwait(false);
         await refreshing.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -209,6 +253,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
                 case MeasureFamily.Directory:
                     {
                         var generation = Epoch;
+                        if (CanPrepareDirectoryRefresh) { await PrepareDirectoryRefreshAsync(cancellationToken).ConfigureAwait(false); }
                         var snapshot = await AdDirectoryReader.ReadSnapshotAsync(Connection, known, scope, MaxObjectsPerKind, Clock, cancellationToken).ConfigureAwait(false);
                         if (Epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "La session a changé pendant la lecture ; recommencez le geste."); }
                         if (LocalStore is not null) { await LocalStore.SaveAsync(snapshot, scope, ControllerName, cancellationToken).ConfigureAwait(false); }
@@ -247,6 +292,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         connecting.Dispose();
         refreshing.Dispose();
         loadingLocal.Dispose();
+        savingFleet.Dispose();
     }
 
     /// <summary>Forgets the connection state so that the next call connects again (« Reconnecter », account changed).</summary>
@@ -261,6 +307,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
             failedAt = null;
             state = null;
             localLoaded = false;
+            fleet = CachedFleet.Empty("session");
             epoch++;
         }
     }
@@ -356,70 +403,86 @@ public sealed class AdDirectorySource : IDirectorySource, IDisposable
         return (new AccountIdentity(login, entry.String("displayName"), entry.String("givenName"), entry.DistinguishedName), new RightsInfo(level, SessionTexts.RightsLabel(level), true, detail));
     }
 
-    /// <summary>Presence (ping) or light inventory of the computers of the working OU, a few at a time.</summary>
-    private async Task<DirectoryState> MeasureAsync(DomainInfo known, ScopeSelection scope, bool inventory, CancellationToken cancellationToken)
+    /// <summary>The exact targets of the confirmed refresh: no additional ping and no expansion of its set.</summary>
+    internal async Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken token)
     {
-        if (probe is null)
-        {
-            throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Mesure des postes indisponible dans cette version" + FrenchText.Colon + "aucun poste contacté.");
-        }
+        var known = await DomainAsync(token).ConfigureAwait(false);
+        AdDirectoryReader.EnsureScope(scope, known.RootDn);
+        await LoadLocalAsync(token).ConfigureAwait(false);
+        await refreshing.WaitAsync(token).ConfigureAwait(false);
+        try { return await MeasureAsync(known, scope, true, token, targets).ConfigureAwait(false); }
+        finally { refreshing.Release(); }
+    }
+
+    /// <summary>Completed readings are committed together, including when the remaining targets were cancelled.</summary>
+    private async Task<DirectoryState> MeasureAsync(DomainInfo known, ScopeSelection scope, bool inventory, CancellationToken cancellationToken, IReadOnlySet<Guid>? exactTargets = null)
+    {
+        if (probe is null) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Collecteur de postes indisponible : aucun poste contacté."); }
         DirectoryState current;
-        lock (gate)
-        {
-            current = state ?? Empty(known);
-        }
+        lock (gate) { current = state ?? Empty(known); }
+        var generation = Epoch;
         if (current.Directory.Computers.IsDefaultOrEmpty)
-        {
-            throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Relisez d’abord l’annuaire" + FrenchText.Colon + "aucun poste connu dans l’OU de travail.");
-        }
-        var targets = current.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)).ToList();
+        { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Relisez d’abord l’annuaire : aucun poste connu dans l’OU de travail."); }
         var previous = current.Observations.Workstations.ToDictionary(w => w.ComputerGuid);
-        var now = Clock.GetUtcNow();
-        var results = new WorkstationObservation[targets.Count];
+        var targets = current.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)
+            && (exactTargets is null || exactTargets.Contains(c.ObjectGuid) && previous.TryGetValue(c.ObjectGuid, out var o) && o.Presence.HasReading && o.Presence.Answered == true)).ToArray();
+        var results = new WorkstationObservation?[targets.Length];
+        var facts = new System.Collections.Concurrent.ConcurrentDictionary<Guid, MachineFacts>();
         using var limit = new SemaphoreSlim(inventory ? InventoryParallel : PingParallel);
         var tasks = targets.Select(async (computer, index) =>
         {
             await limit.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                if (Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
                 var host = computer.DnsHostName ?? computer.Name;
                 previous.TryGetValue(computer.ObjectGuid, out var before);
                 var presence = before?.Presence ?? PresenceMeasure.Unread;
-                var inventoryMeasure = before?.Inventory ?? InventoryMeasure.Unread;
-                if (!inventory || presence.Answered != true)
+                var measured = before?.Inventory ?? InventoryMeasure.Unread;
+                if (!inventory || exactTargets is null && presence.Answered != true)
                 {
                     var answered = await probe.PingAsync(host, PingTimeout, cancellationToken).ConfigureAwait(false);
-                    presence = new PresenceMeasure(MeasureState.Known, answered, now, answered ? now : presence.LastOnlineAt);
+                    var at = Clock.GetUtcNow();
+                    presence = new PresenceMeasure(MeasureState.Known, answered, at, answered ? at : presence.LastOnlineAt);
+                    results[index] = new(computer.ObjectGuid, presence, measured);
                 }
-                if (inventory && presence.Answered == true)
+                if (inventory && presence.HasReading && presence.Answered == true)
                 {
-                    inventoryMeasure = await probe.ReadInventoryAsync(host, InventoryTimeout, cancellationToken).ConfigureAwait(false);
+                    if (probe is IWorkstationFactsProbe detailed)
+                    {
+                        var read = await detailed.ReadFactsAsync(host, InventoryTimeout, cancellationToken).ConfigureAwait(false);
+                        measured = read.Inventory;
+                        facts[computer.ObjectGuid] = read.Facts;
+                    }
+                    else
+                    {
+                        measured = await probe.ReadInventoryAsync(host, InventoryTimeout, cancellationToken).ConfigureAwait(false);
+                        facts[computer.ObjectGuid] = new(null, null, null, null, measured.State, measured.CheckedAt, measured.HasReading ? null : "Inventaire non lu.");
+                    }
                 }
-                results[index] = new WorkstationObservation(computer.ObjectGuid, presence, inventoryMeasure);
+                results[index] = new(computer.ObjectGuid, presence, measured);
             }
-            finally
-            {
-                limit.Release();
-            }
-        });
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+            finally { limit.Release(); }
+        }).ToArray();
+        var interrupted = false;
+        try { await Task.WhenAll(tasks).ConfigureAwait(false); }
+        catch (OperationCanceledException) { interrupted = true; }
+        var completed = results.OfType<WorkstationObservation>().ToImmutableArray();
+        if (!completed.IsEmpty)
+        {
+            var patch = FleetCachePatch.Empty with { Observations = new(Clock.GetUtcNow(), completed), Machines = facts.ToImmutableDictionary() };
+            // A cancelled network read must still acknowledge its completed local measurements. SQLite remains bounded.
+            await SaveFleetAsync(patch, generation, CancellationToken.None).ConfigureAwait(false);
+        }
         lock (gate)
         {
+            if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "La session a changé pendant le relevé."); }
             var latest = state ?? Empty(known);
-            var merged = latest.Observations.Workstations.ToDictionary(w => w.ComputerGuid);
-            foreach (var result in results)
-            {
-                merged[result.ComputerGuid] = result;
-            }
-            var answered = results.Count(r => r.Presence.Answered == true);
-            var label = inventory
-                ? "Inventaire léger" + FrenchText.Colon + FrenchText.Count(results.Count(r => r.Inventory.HasReading), "poste lu", "postes lus") + " sur " + FrenchText.Integer(results.Length) + " (OU " + scope.Label + ")."
-                : "Présence mesurée" + FrenchText.Colon + FrenchText.Count(answered, "poste répond", "postes répondent") + " sur " + FrenchText.Integer(results.Length) + " (OU " + scope.Label + ").";
-            state = latest with
-            {
-                Observations = new FleetObservations(now, [.. merged.Values]),
-                Journal = Add(latest.Journal, label, Tone.Info),
-            };
+            var count = inventory ? facts.Values.Count(f => f.WmiState == MeasureState.Known) : completed.Count(o => o.Presence.Answered == true);
+            var label = (inventory ? "Inventaire léger" : "Présence mesurée") + FrenchText.Colon + FrenchText.Integer(count) + " sur " + FrenchText.Integer(completed.Length)
+                + " (OU " + scope.Label + ")" + (interrupted ? " · collecte interrompue, relevés terminés conservés." : ".");
+            state = latest with { Observations = fleet.Observations, Journal = Add(latest.Journal, label, interrupted ? Tone.Warn : Tone.Info) };
+            if (interrupted) { throw new OperationCanceledException(cancellationToken); }
             return state;
         }
     }

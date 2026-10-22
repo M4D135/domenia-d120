@@ -3,7 +3,8 @@ using System.Management;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using Domenia.Core;
-using WmiEnumerationOptions = System.Management.EnumerationOptions;
+using Domenia.Core.Accueil;
+using Domenia.Core.Poste;
 
 namespace Domenia.Inventory;
 
@@ -14,7 +15,7 @@ namespace Domenia.Inventory;
 /// change. Every read is bounded (connection, each query and the whole read); a refusal is told apart from an error, and an
 /// unanswered read is « not read », never a verdict. Never called on the UI thread (the source measures off it).
 /// </summary>
-public sealed class WmiWorkstationProbe : IWorkstationProbe
+public sealed class WmiWorkstationProbe : IWorkstationFactsProbe
 {
     private static readonly TimeSpan MinTimeout = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan MaxPingTimeout = TimeSpan.FromSeconds(10);
@@ -59,36 +60,76 @@ public sealed class WmiWorkstationProbe : IWorkstationProbe
         }
     }
 
-    public async Task<InventoryMeasure> ReadInventoryAsync(string host, TimeSpan timeout, CancellationToken cancellationToken)
+    internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
+
+    public async Task<InventoryMeasure> ReadInventoryAsync(string host, TimeSpan timeout, CancellationToken cancellationToken) =>
+        (await ReadFactsAsync(host, timeout, cancellationToken).ConfigureAwait(false)).Inventory;
+
+    public async Task<WorkstationInventoryRead> ReadFactsAsync(string host, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(host);
-        if (!IsHostName(host))
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsHostName(host)) { return Unread("Nom de poste invalide."); }
+        var budget = Bound(timeout, MaxInventoryTimeout);
+        var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var gate = new object();
+        var snapshot = Unread("Inventaire non lu.");
+        var reading = Task.Run(() =>
         {
-            journal?.Warning("Inventaire non lu : nom de poste invalide.");
-            return Failed(MeasureState.NotRead);
-        }
-        var bound = Bound(timeout, MaxInventoryTimeout);
-        var reading = Task.Run(() => Read(host, bound, cancellationToken), cancellationToken);
-        try
-        {
-            return await reading.WaitAsync(bound + GiveUpMargin, clock, cancellationToken).ConfigureAwait(false);
-        }
+            var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token);
+            var readings = new Dictionary<string, CimReading>(StringComparer.Ordinal);
+            void Read(string id, string query)
+            {
+                if (stop.IsCancellationRequested) { return; }
+                readings[id] = session.Read(id, @"root\cimv2", query, 1, TimeSpan.FromSeconds(12));
+                lock (gate) { snapshot = Project(readings, clock.GetUtcNow()); }
+            }
+            Read("system", "SELECT Caption, BuildNumber, LastBootUpTime, SystemDrive FROM Win32_OperatingSystem");
+            Read("computer", "SELECT Model, Manufacturer, TotalPhysicalMemory, UserName FROM Win32_ComputerSystem");
+            var drive = readings.GetValueOrDefault("system")?.Instances.FirstOrDefault()?.Text("SystemDrive");
+            drive = drive is { Length: 2 } && char.IsAsciiLetter(drive[0]) && drive[1] == ':' ? drive : "C:";
+            Read("disk", "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID=" + CimQuery.Literal(drive));
+            Read("bios", "SELECT SMBIOSBIOSVersion FROM Win32_BIOS");
+            lock (gate) { return snapshot; }
+        }, CancellationToken.None);
+        try { return await reading.WaitAsync(budget + GiveUpMargin, clock, cancellationToken).ConfigureAwait(false); }
         catch (TimeoutException)
         {
-            // The WMI calls end by their own delays; their outcome is still traced, never left unobserved.
-            _ = reading.ContinueWith(
-                t => journal?.Info("Inventaire de " + host + " abandonné, fin tardive : " + t.Exception?.GetBaseException().GetType().Name + "."),
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-            journal?.Info("Inventaire de " + host + " : délai dépassé.");
-            return Failed(MeasureState.NotRead);
+            stop.Cancel();
+            lock (gate)
+            {
+                return snapshot with { Inventory = snapshot.Inventory with { State = MeasureState.Incomplete }, Facts = snapshot.Facts with { WmiState = MeasureState.Incomplete, WmiError = "Budget de lecture atteint ; mesures terminées conservées." } };
+            }
         }
-        catch (Exception ex) when (Classify(ex) is MeasureState state)
+        catch (OperationCanceledException) { stop.Cancel(); throw; }
+        finally
         {
-            journal?.Info("Inventaire de " + host + " : " + (state == MeasureState.Refused ? "accès refusé" : state == MeasureState.NotRead ? "poste injoignable par WMI" : "erreur WMI") + " (" + ex.GetType().Name + ", 0x" + ex.HResult.ToString("X8", CultureInfo.InvariantCulture) + ").");
-            return Failed(state);
+            if (reading.IsCompleted) { stop.Dispose(); }
+            else { _ = reading.ContinueWith(t => { _ = t.Exception; stop.Dispose(); }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default); }
         }
+    }
+
+    private WorkstationInventoryRead Unread(string error) => new(Failed(MeasureState.NotRead), new(null, null, null, null, MeasureState.NotRead, clock.GetUtcNow(), error));
+
+    internal static WorkstationInventoryRead Project(IReadOnlyDictionary<string, CimReading> readings, DateTimeOffset at)
+    {
+        WmiInstance? Row(string key) => readings.GetValueOrDefault(key)?.Instances.FirstOrDefault();
+        var system = Row("system");
+        var computer = Row("computer");
+        var disk = Row("disk");
+        var bios = Row("bios");
+        var failures = readings.Values.Where(r => r.Status is not SourceStatus.Ok and not SourceStatus.Empty).ToArray();
+        var state = failures.Any(r => r.Status == SourceStatus.Refused) ? MeasureState.Refused
+            : readings.Values.Any(r => r.Status == SourceStatus.Error) ? MeasureState.Error
+            : readings.Count < 4 || failures.Length > 0 || system is null || computer is null ? MeasureState.Incomplete : MeasureState.Known;
+        var size = disk?.Number("Size");
+        var free = disk?.Number("FreeSpace");
+        if (size is not > 0) { size = null; free = null; }
+        if (free < 0 || free > size) { free = null; }
+        var inventory = new InventoryMeasure(state, at, size, free, system?.Dmtf("LastBootUpTime"), computer?.Text("Model"), computer?.Number("TotalPhysicalMemory"), system?.Text("Caption"), system?.Text("BuildNumber"));
+        var consoleKnown = readings.GetValueOrDefault("computer")?.Status == SourceStatus.Ok && computer is not null;
+        var biosText = bios?.Text("SMBIOSBIOSVersion");
+        var error = failures.Length > 0 ? string.Join(" ; ", failures.Select(f => f.Category + " : " + f.Detail)) : state == MeasureState.Known ? null : "Inventaire incomplet.";
+        return new(inventory, new(computer?.Text("UserName"), consoleKnown ? at : null, biosText, biosText is null ? null : at, state, at, error));
     }
 
     /// <summary>A host name or an IPv4 address: letters, digits, « - » and « . » only (nothing that changes the WMI path).</summary>
@@ -134,72 +175,4 @@ public sealed class WmiWorkstationProbe : IWorkstationProbe
 
     private InventoryMeasure Failed(MeasureState state) => new(state, clock.GetUtcNow(), null, null, null, null, null, null, null);
 
-    /// <summary>The synchronous WMI read (off the UI thread): one connection, three SELECT queries, each with its delay.</summary>
-    private InventoryMeasure Read(string host, TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        var options = new ConnectionOptions
-        {
-            Impersonation = ImpersonationLevel.Impersonate,
-            Authentication = AuthenticationLevel.PacketPrivacy,
-            EnablePrivileges = false,
-            Timeout = timeout,
-        };
-        var scope = new ManagementScope(@"\\" + host + @"\root\cimv2", options);
-        scope.Connect();
-        cancellationToken.ThrowIfCancellationRequested();
-        var system = QueryOne(scope, "SELECT Caption, BuildNumber, LastBootUpTime, SystemDrive FROM Win32_OperatingSystem", timeout);
-        cancellationToken.ThrowIfCancellationRequested();
-        var computer = QueryOne(scope, "SELECT Model, TotalPhysicalMemory FROM Win32_ComputerSystem", timeout);
-        cancellationToken.ThrowIfCancellationRequested();
-        var drive = Text(system, "SystemDrive") is { Length: 2 } letter && char.IsAsciiLetter(letter[0]) && letter[1] == ':' ? letter : "C:";
-        var disk = QueryOne(scope, "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID='" + drive + "'", timeout);
-        var size = Number(disk, "Size");
-        // A size of 0 or unreadable is « no reading », never a full disk.
-        var (diskSize, diskFree) = size is > 0 ? (size, Number(disk, "FreeSpace")) : ((long?)null, (long?)null);
-        return new InventoryMeasure(
-            system is null ? MeasureState.Incomplete : MeasureState.Known,
-            clock.GetUtcNow(),
-            diskSize,
-            diskFree,
-            ParseDmtf(Text(system, "LastBootUpTime")),
-            Text(computer, "Model"),
-            Number(computer, "TotalPhysicalMemory"),
-            Text(system, "Caption"),
-            Text(system, "BuildNumber"));
-    }
-
-    /// <summary>The properties of the first instance of a SELECT query, copied out of the WMI objects (all disposed here).</summary>
-    private static Dictionary<string, object?>? QueryOne(ManagementScope scope, string query, TimeSpan timeout)
-    {
-        var enumeration = new WmiEnumerationOptions { Timeout = timeout, ReturnImmediately = true, Rewindable = false };
-        using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery(query), enumeration);
-        using var results = searcher.Get();
-        foreach (var item in results)
-        {
-            using (item)
-            {
-                var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                foreach (var property in item.Properties)
-                {
-                    values[property.Name] = property.Value;
-                }
-                return values;
-            }
-        }
-        return null;
-    }
-
-    private static string? Text(Dictionary<string, object?>? values, string name) =>
-        values is not null && values.TryGetValue(name, out var value) && value is string text && !string.IsNullOrWhiteSpace(text) ? text.Trim() : null;
-
-    private static long? Number(Dictionary<string, object?>? values, string name) =>
-        values is null || !values.TryGetValue(name, out var value) ? null : value switch
-        {
-            ulong u when u <= long.MaxValue => (long)u,
-            long l when l >= 0 => l,
-            uint u => u,
-            int i when i >= 0 => i,
-            string s when long.TryParse(s, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) => parsed,
-            _ => null,
-        };
 }

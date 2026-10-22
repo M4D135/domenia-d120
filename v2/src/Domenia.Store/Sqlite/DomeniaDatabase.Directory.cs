@@ -14,7 +14,7 @@ public sealed partial class DomeniaDatabase
 {
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, MaxDepth = 40 };
     private sealed record StoredObject(Guid Guid, string Kind, string Dn, string Json);
-    private sealed record StoredDirectoryHeader(DomainInfo Domain, ScopeSelection Scope, DateTimeOffset ReadAt, bool Complete);
+    private sealed record StoredDirectoryHeader(DomainInfo Domain, ScopeSelection Scope, DateTimeOffset ReadAt, bool Complete, string? Controller = null);
 
     /// <summary>Immutable, hashed JSONL stage; one transaction; a replay returns the original receipt.</summary>
     public async Task<DirectoryCommitReceipt> SaveDirectoryAsync(string batchId, DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken)
@@ -34,7 +34,7 @@ public sealed partial class DomeniaDatabase
         {
             throw new InvalidDataException("Lot hors périmètre ou identités dupliquées : aucune écriture.");
         }
-        var header = new StoredDirectoryHeader(snapshot.Domain, scope, snapshot.ReadAt, snapshot.Complete);
+        var header = new StoredDirectoryHeader(snapshot.Domain, scope, snapshot.ReadAt, snapshot.Complete, controller);
         var payload = JsonSerializer.Serialize(header, Json) + "\n" + string.Join("\n", objects.Select(o => JsonSerializer.Serialize(o, Json))) + "\n";
         var bytes = Encoding.UTF8.GetBytes(payload);
         var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
@@ -159,8 +159,9 @@ public sealed partial class DomeniaDatabase
 
     private void EnsureBackup(SqliteDatabase db, CancellationToken token)
     {
-        if (lastBackup is { } saved && clock.GetUtcNow() - saved.At < TimeSpan.FromMinutes(30) && File.Exists(saved.Path))
+        if (lastBackup is { } saved && clock.GetUtcNow() >= saved.At && clock.GetUtcNow() - saved.At < TimeSpan.FromMinutes(30) && File.Exists(saved.Path))
         {
+            CompatibleDirectoryCache.ValidateLocalPath(saved.Path);
             using var file = File.OpenRead(saved.Path);
             if (Convert.ToHexStringLower(SHA256.HashData(file)) == saved.Sha256) { return; }
         }
@@ -209,7 +210,7 @@ public sealed partial class DomeniaDatabase
         var old = db.Query("SELECT payload,field_times FROM domenia_directory_data WHERE object_guid=?1;", guid).SingleOrDefault();
         var record = old is null ? new JsonObject() : JsonNode.Parse((string)old["payload"]!) as JsonObject ?? throw new InvalidDataException("Projection historique illisible.");
         var times = old is null ? new JsonObject() : JsonNode.Parse((string)old["field_times"]!) as JsonObject ?? throw new InvalidDataException("Dates des champs historiques illisibles.");
-        var sources = record["FieldSources"] as JsonObject ?? new JsonObject();
+        var sources = record["FieldSources"] is null ? new JsonObject() : record["FieldSources"] as JsonObject ?? throw new InvalidDataException("Provenance des champs historiques illisible.");
         var fields = new JsonObject
         {
             ["Type"] = row.Type == IndexObjectType.User ? "Utilisateur" : "Machine", ["Name"] = row.Name, ["Login"] = row.Login, ["Upn"] = row.Upn,

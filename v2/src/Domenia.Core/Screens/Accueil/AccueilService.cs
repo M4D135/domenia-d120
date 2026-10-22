@@ -96,6 +96,7 @@ public sealed partial class AccueilService : IDisposable
         var watch = Stopwatch.StartNew();
         var state = await context.Directory.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
         var facts = await reader.FactsAsync(cancellationToken).ConfigureAwait(false);
+        var storedProbes = await reader.StoredProbesAsync(cancellationToken).ConfigureAwait(false);
         var history = await HistoryAsync(reader, scope, cancellationToken).ConfigureAwait(false);
         var items = LayoutItems();
         var policyBook = HealthBook(domainDn);
@@ -104,6 +105,7 @@ public sealed partial class AccueilService : IDisposable
         lock (gate)
         {
             presence = BitLockerFor(scope) ?? StoredBitLocker(facts, scope);
+            probes = probes.Merge(storedProbes);
             readings = probes;
         }
         var input = new FleetBoardInput(state, scope, domainDn, session.Domain?.DnsName ?? domainDn, policyBook, facts with { Runs = AllRuns(facts) }, presence, readings,

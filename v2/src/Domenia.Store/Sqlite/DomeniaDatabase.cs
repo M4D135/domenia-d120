@@ -59,6 +59,27 @@ public sealed partial class DomeniaDatabase
         return Inspect(db);
     }, cancellationToken);
 
+    /// <summary>Revalidates a recent backup and free space before an explicit network refresh.</summary>
+    public async Task<DatabaseBackup> PrepareReadAsync(CancellationToken cancellationToken)
+    {
+        await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                CompatibleDirectoryCache.ValidateLocalPath(Path);
+                var drive = new DriveInfo(System.IO.Path.GetPathRoot(Path)!);
+                if (drive.AvailableFreeSpace < 512L * 1024 * 1024)
+                { throw new IOException("Moins de 512 Mio libres pour la base locale : relecture refusée."); }
+                using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
+                CheckIdentity(db, allowLegacy: false);
+                EnsureBackup(db, cancellationToken);
+                return lastBackup!;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        finally { writer.Release(); }
+    }
+
     public async Task<DatabaseBackup> BackupAsync(CancellationToken cancellationToken)
     {
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -66,6 +87,7 @@ public sealed partial class DomeniaDatabase
         {
             return await Task.Run(() =>
             {
+                CompatibleDirectoryCache.ValidateLocalPath(Path);
                 using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
                 CheckIdentity(db, allowLegacy: true);
                 return lastBackup = Backup(db, cancellationToken);

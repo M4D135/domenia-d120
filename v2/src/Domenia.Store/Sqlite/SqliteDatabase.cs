@@ -193,33 +193,61 @@ internal sealed class SqliteDatabase : IDisposable
     {
         private const string Library = "winsqlite3.dll";
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] internal delegate int Progress(IntPtr context);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_open_v2([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out IntPtr db, int flags, IntPtr vfs);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_close_v2(IntPtr db);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_busy_timeout(IntPtr db, int ms);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern void sqlite3_progress_handler(IntPtr db, int instructions, Progress callback, IntPtr context);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_prepare_v2(IntPtr db, IntPtr sql, int bytes, out IntPtr statement, out IntPtr tail);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_exec(IntPtr db, [MarshalAs(UnmanagedType.LPUTF8Str)] string sql, IntPtr callback, IntPtr context, out IntPtr error);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern void sqlite3_free(IntPtr pointer);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_step(IntPtr statement);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_finalize(IntPtr statement);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_parameter_count(IntPtr statement);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_null(IntPtr statement, int index);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_int64(IntPtr statement, int index, long value);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_double(IntPtr statement, int index, double value);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_text(IntPtr statement, int index, [MarshalAs(UnmanagedType.LPUTF8Str)] string value, int bytes, IntPtr destructor);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_bind_blob(IntPtr statement, int index, byte[] value, int bytes, IntPtr destructor);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_column_count(IntPtr statement);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_column_type(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr sqlite3_column_name(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr sqlite3_column_text(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr sqlite3_column_blob(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_column_bytes(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern long sqlite3_column_int64(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern double sqlite3_column_double(IntPtr statement, int column);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_changes(IntPtr db);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_errcode(IntPtr db);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern IntPtr sqlite3_backup_init(IntPtr destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string destinationName, IntPtr source, [MarshalAs(UnmanagedType.LPUTF8Str)] string sourceName);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_backup_step(IntPtr backup, int pages);
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl)] internal static extern int sqlite3_backup_finish(IntPtr backup);
     }
 }

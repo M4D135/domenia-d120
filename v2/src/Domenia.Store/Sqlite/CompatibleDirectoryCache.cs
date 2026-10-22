@@ -1,18 +1,32 @@
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Domenia.Core;
+using Domenia.Core.Accueil;
 
 namespace Domenia.Store;
 
 /// <summary>Deferred local discovery of the Domenia 1 layout. No disk or network in the constructor.</summary>
-public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IDirectoryCache
+public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache
 {
     private readonly SemaphoreSlim loading = new(1, 1);
     private SqliteDirectoryCache? cache;
 
+    public async Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadFleetHistoryAsync(scope, cancellationToken).ConfigureAwait(false);
+
     public async Task<DirectorySnapshot?> ReadAsync(CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<CachedFleet> ReadFleetAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadFleetAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<CachedFleet> SaveFleetAsync(FleetCachePatch patch, CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).SaveFleetAsync(patch, cancellationToken).ConfigureAwait(false);
+
+    public async Task<DirectoryBackupReceipt> PrepareAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).PrepareAsync(cancellationToken).ConfigureAwait(false);
 
     public async Task SaveAsync(DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).SaveAsync(snapshot, scope, controller, cancellationToken).ConfigureAwait(false);

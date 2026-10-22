@@ -8,6 +8,7 @@ public sealed partial class DomeniaDatabase
 {
     public Task<ImmutableArray<IndexRecord>> ReadIndexAsync(CancellationToken cancellationToken) => Task.Run(() =>
     {
+        CompatibleDirectoryCache.ValidateLocalPath(Path);
         using var db = new SqliteDatabase(Path, readOnly: true, cancellationToken: cancellationToken);
         CheckIdentity(db, allowLegacy: true);
         db.Begin(write: false);
@@ -19,6 +20,7 @@ public sealed partial class DomeniaDatabase
     /// <summary>The count, sort and page use the same read transaction, including Domenia 1 rows.</summary>
     public Task<IndexSearchPage> SearchIndexAsync(IndexQuery query, CancellationToken cancellationToken) => Task.Run(() =>
     {
+        CompatibleDirectoryCache.ValidateLocalPath(Path);
         if (!InDomain(query.Scope.Dn)) { throw new InvalidDataException("Périmètre local hors domaine."); }
         try
         {
