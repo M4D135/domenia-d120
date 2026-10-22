@@ -11,9 +11,11 @@
 // preferences-simulation.json: here in the browser storage of the preview, one JSON document replaced at once.
 // Write circuit (accounts.unlock.plan, write.execute, write.receipts.*): mock-writes.js, in the memory of the page.
 // Accueil (accueil.*): mock-accueil.js, a short fixture of the OU « Postes » of the simulation.
+// Search screen (search.*): mock-search.js, in the memory of the page.
 
 import { createWriteOperations } from './mock-writes.js';
 import { createAccueilOperations } from './mock-accueil.js';
+import { createSearchOperations } from './mock-search.js';
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -1065,6 +1067,8 @@ const OPERATIONS = {
   ...createAccueilOperations({
     readObject, getString, getOptionalString, requireNone, invalid, fail, quote, int, sleep, log, NBSP, REF, DOMAIN, ROOT_DN, scope: () => ({ ...state.scope }),
   }),
+  // Search screen (docs/ops/rechercher.md): mock-search.js, in the memory of the page.
+  ...createSearchOperations({ readObject, getString, getOptionalString, requireDistinguishedName, invalid, fail, quote, int, sleep, NBSP, REF }),
 };
 
 const MAX_MESSAGE_LENGTH = 1_048_576; // BridgeDispatcher.MaxMessageLength

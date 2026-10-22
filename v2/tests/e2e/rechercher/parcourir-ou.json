@@ -1,0 +1,20 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : parcourir une OU de l’arbre et charger la suite",
+  "description": "Sélectionne l’OU Postes dans l’arbre, la déplie au clavier, affiche le contenu de Paris (sous-OU incluses), vérifie le fil d’Ariane et la limite de 100 lignes, puis charge seulement les lignes suivantes.",
+  "modes": ["simulation"],
+  "start": "rechercher",
+  "steps": [
+    { "do": "wait", "text": "Postes", "within": ".rch-side .k-tree", "title": "L’arborescence du domaine est lue" },
+    { "do": "click", "text": "Postes", "within": ".rch-side .k-tree", "title": "Sélectionner l’OU Postes" },
+    { "do": "press", "key": "ArrowRight", "title": "Déplier Postes au clavier" },
+    { "do": "click", "text": "Paris", "within": ".rch-side .k-tree", "title": "Sélectionner l’OU Paris" },
+    { "do": "wait", "text": "Paris", "within": ".rch-res-title", "title": "Le contenu de Paris est affiché" },
+    { "do": "expect", "contains": "Postes", "within": ".rch-res-crumbs", "title": "Le fil d’Ariane situe l’OU" },
+    { "do": "expect", "contains": "limitée à 100", "within": ".rch-counter", "title": "La limite de la liste est dite" },
+    { "do": "click", "selector": ".rch-more-next", "title": "Charger seulement les lignes suivantes" },
+    { "do": "wait", "contains": "Liste complète", "within": ".rch-counter", "title": "La liste est complète, sans relecture des lignes déjà chargées" },
+    { "do": "shot", "name": "contenu-paris" },
+    { "do": "journal", "contains": "[ERREUR]", "absent": true }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "../scenario.schema.json",
+  "name": "Rechercher : exporter la liste avec sa confirmation",
+  "description": "Liste l’OU Paris (100 lignes sur 186), ouvre « Exporter » : la confirmation rappelle la portée, ce qui est exclu et que la liste est limitée à 100 lignes ; l’annulation ne copie rien.",
+  "modes": [
+    "simulation"
+  ],
+  "start": "rechercher?ou=OU%3DParis%2COU%3DPostes%2CDC%3Dexample%2CDC%3Dlocal",
+  "steps": [
+    {
+      "do": "wait",
+      "contains": "PC-PAR-0001",
+      "within": ".rch-results .k-gbody",
+      "title": "Le contenu de Paris est listé"
+    },
+    {
+      "do": "click",
+      "text": "Exporter",
+      "within": ".rch-cmdrow",
+      "title": "Ouvrir le menu Exporter"
+    },
+    {
+      "do": "click",
+      "text": "Liste affichée (100)…",
+      "title": "Exporter la liste affichée"
+    },
+    {
+      "do": "wait",
+      "contains": "Complétude",
+      "within": ".k-dlg",
+      "title": "La confirmation dit la complétude"
+    },
+    {
+      "do": "expect",
+      "contains": "limitée à 100",
+      "within": ".k-dlg",
+      "title": "La limite de la liste est rappelée"
+    },
+    {
+      "do": "shot",
+      "name": "confirmation-export"
+    },
+    {
+      "do": "click",
+      "text": "Annuler",
+      "within": ".k-dlg"
+    },
+    {
+      "do": "journal",
+      "contains": "[ERREUR]",
+      "absent": true
+    }
+  ]
+}
