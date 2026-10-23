@@ -12,7 +12,8 @@ internal static class AdRelationPassMemoryTests
     private static WmiWorkstationReader Inventory(Func<IReadOnlyList<WmiInstance>> answer, Func<RegistryRequest, RegistryReply>? registry = null) => new(TestClock.Fixed())
     {
         SessionFactory = (host, budget, token) => new(host, budget, TestClock.Fixed(), cancellationToken: token)
-        { ReadOverride = (_, query, _) => query.Contains("Win32_ComputerSystem", StringComparison.Ordinal) ? answer() : [], RegistryOverride = (r, _) => registry?.Invoke(r) ?? new(2, null) },
+        { ReadOverride = (_, query, _) => query.Contains("Win32_ComputerSystem", StringComparison.Ordinal) ? answer() : [], RegistryOverride = (r, _) => registry?.Invoke(r) ?? new(2, null),
+            UserRegistryOverride = (_, _) => new(2, null) },
     };
     private static void Directory(AdBoundaryTests.RecordingAdConnection ldap)
     {

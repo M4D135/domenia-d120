@@ -594,3 +594,12 @@ Seize processus Explorer au plus sont examinés avec leurs PID et dates de créa
 La réponse est limitée à 64 Kio et dix-sept candidats (console plus processus), sans doublon de console/PID/propriété, avec nom Windows et dates vérifiés. La console porte sa date de lecture, sans SID de jeton inventé ; le propriétaire Explorer reste un indice historique dont la date de connexion est inconnue. Son SID est comparé à AD. La console WinRM confirmée rejoint les observations et passages partagés, sans remplacer une affectation déclarée.
 
 Six tests ajoutés couvrent la nature des preuves, contrat et limites, options désactivées, fermeture incertaine, rejet d’identité et intégration au lecteur AD. Debug/Release compilés en VM sans erreur ni avertissement ; tests et recette native toujours différés à la fin du développement.
+
+
+## 41. Repli LogonUI par registre distant (23/10/2026)
+
+Cette source respecte `Remote.UseRemoteRegistry`, indépendamment de CIM. Le compte machine sélectionné est conservé pendant la lecture RPC ; un compte explicite incomplet n’est jamais remplacé par la session Windows. Trois valeurs sont admises : le nom Windows actif et les deux noms LogonUI. La clef est ouverte en lecture seule, sans modification de service ou de configuration. Le nom actif est vérifié avant puis après les deux valeurs, dans le budget de trois secondes.
+
+La taille et le type sont demandés avant allocation, limités à 2 Kio. Le lecteur traite le contenu comme de l’UTF-16 borné, même sans NUL final ; il refuse les caractères de contrôle et les identités de plus de 320 caractères, sans expansion de `REG_EXPAND_SZ`. Une croissance entre les deux appels n’entraîne pas de nouvel essai. Ce traitement suit le contrat documenté de [RegQueryValueExW](https://learn.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regqueryvalueexw).
+
+Un refus sur une valeur demeure visible même si l’autre nom a été reçu. Un rejet d’identifiants arrête la lecture et écarte les candidats avant toute publication. Les noms gardent leur domaine et passent dans la validation AD commune ; ils restent des indices historiques sans SID ni date de connexion inventés. Sept tests ajoutés couvrent options, identité avant/après, refus, limites UTF-16 et intégration AD. Deux doubles de tests ont été complétés pour exclure toute connexion réelle pendant les futurs tests. Debug/Release compilés en VM sans erreur ni avertissement ; tests non exécutés.

@@ -32,7 +32,7 @@ internal static class AdPosteLastUserTests
     private static WmiWorkstationReader Reader(Func<string, IReadOnlyList<WmiInstance>> read, Func<RegistryRequest, RegistryReply>? registry = null) => new(TestClock.Fixed())
     {
         SessionFactory = (host, budget, token) => new(host, budget, TestClock.Fixed(), cancellationToken: token)
-        { ReadOverride = (_, query, _) => read(query), RegistryOverride = (request, _) => registry?.Invoke(request) ?? new(2, null) },
+        { ReadOverride = (_, query, _) => read(query), RegistryOverride = (request, _) => registry?.Invoke(request) ?? new(2, null), UserRegistryOverride = (_, _) => new(2, null) },
     };
 
     [Test]

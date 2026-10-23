@@ -4,7 +4,7 @@ using Domenia.Core.Poste;
 
 namespace Domenia.Inventory;
 
-public enum UserDetectionSource { Console, LogonUi, Profiles, Security, WinRm }
+public enum UserDetectionSource { Console, LogonUi, Profiles, Security, WinRm, RemoteRegistry }
 public sealed record WorkstationUserCandidate(string? Account, string? Sid, DateTimeOffset? EvidenceAt, string Origin)
 {
     public bool CurrentConsole { get; init; }
@@ -21,7 +21,7 @@ public sealed partial class WmiWorkstationReader
     /// <summary>One closed CIM source, at most three seconds, without scripts, profile mounting or service changes.</summary>
     public async Task<WorkstationUserReading> ReadUserSourceAsync(string host, UserDetectionSource kind, CancellationToken token, RemoteProbeCredential? credential = null)
     {
-        if (!CimQuery.IsHostName(host) || kind is not (UserDetectionSource.Console or UserDetectionSource.LogonUi or UserDetectionSource.Profiles or UserDetectionSource.WinRm)) { throw new ArgumentException("Source de détection CIM invalide."); }
+        if (!CimQuery.IsHostName(host) || kind is not (UserDetectionSource.Console or UserDetectionSource.LogonUi or UserDetectionSource.Profiles or UserDetectionSource.WinRm or UserDetectionSource.RemoteRegistry)) { throw new ArgumentException("Source de détection invalide."); }
         var budget = TimeSpan.FromSeconds(3);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         var began = clock.GetTimestamp();
@@ -29,7 +29,12 @@ public sealed partial class WmiWorkstationReader
         try { work = WmiReadWorkers.Start(credential, owned =>
         {
             using var session = Session(host, budget, stop.Token, owned);
-            return kind == UserDetectionSource.WinRm ? session.ReadWinRmUserIdentity() : ReadUserSource(session, kind, clock.GetUtcNow());
+            return kind switch
+            {
+                UserDetectionSource.WinRm => session.ReadWinRmUserIdentity(),
+                UserDetectionSource.RemoteRegistry => session.ReadRemoteRegistryUserIdentity(),
+                _ => ReadUserSource(session, kind, clock.GetUtcNow()),
+            };
         }, token); }
         catch { stop.Dispose(); throw; }
         try { return await work.WaitAsync(budget, clock, token).ConfigureAwait(false); }

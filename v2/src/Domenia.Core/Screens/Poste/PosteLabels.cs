@@ -282,6 +282,7 @@ public static class PosteLabels
         InventoryTransport.ScheduledTask => "Tâche planifiée",
         InventoryTransport.NetApi => "NetAPI (RPC)",
         InventoryTransport.EventLog => "Journal Windows (RPC)",
+        InventoryTransport.RemoteRegistry => "Registre distant (RPC)",
         _ => "Local",
     };
 

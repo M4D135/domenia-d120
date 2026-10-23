@@ -31,6 +31,7 @@ public enum InventoryTransport
     Local,
     NetApi,
     EventLog,
+    RemoteRegistry,
 }
 
 /// <summary>Access report line of one source (Domenia 1 DgInventoryAccess).</summary>

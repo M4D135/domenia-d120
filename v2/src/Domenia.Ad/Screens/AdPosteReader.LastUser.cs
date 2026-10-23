@@ -16,6 +16,7 @@ public sealed partial class AdPosteReader
         UserDetectionSource.LogonUi => "LogonUI (dernier nom affiché)",
         UserDetectionSource.Security => "Journal Sécurité 4624 (optionnel)",
         UserDetectionSource.WinRm => "WinRM · console et propriétaires Explorer",
+        UserDetectionSource.RemoteRegistry => "Registre distant · LogonUI",
         _ => "Profils CIM par SID",
     };
 
@@ -51,7 +52,8 @@ public sealed partial class AdPosteReader
             { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS incohérents ; aucun contact distant."); }
             using var machine = await AdWorkstationAccess.AcquireAsync(source, host, stop.Token).ConfigureAwait(false);
             var reader = InventoryReader(machine);
-            UserDetectionSource[] methods = [UserDetectionSource.Console, UserDetectionSource.LogonUi, UserDetectionSource.WinRm, UserDetectionSource.Profiles, UserDetectionSource.Security];
+            UserDetectionSource[] methods = [UserDetectionSource.Console, UserDetectionSource.LogonUi, UserDetectionSource.WinRm,
+                UserDetectionSource.RemoteRegistry, UserDetectionSource.Profiles, UserDetectionSource.Security];
             for (var index = 0; index < methods.Length; index++)
             {
                 var kind = methods[index];
