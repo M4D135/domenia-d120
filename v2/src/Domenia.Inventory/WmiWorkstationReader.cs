@@ -42,6 +42,9 @@ public enum WorkstationReading
 
     /// <summary>Windows Update alone (correctifs and the state of the update source).</summary>
     Updates,
+
+    /// <summary>Five-check quick diagnosis, twenty seconds including the identity read.</summary>
+    QuickDiagnostic,
 }
 
 /// <summary>
@@ -196,6 +199,7 @@ public sealed partial class WmiWorkstationReader
         WorkstationReading.Services => CimBudgets.Services,
         WorkstationReading.Processes => CimBudgets.Processes,
         WorkstationReading.Events => CimBudgets.Events,
+        WorkstationReading.QuickDiagnostic => CimBudgets.QuickDiagnostic,
         _ => CimBudgets.QuickInventory,
     };
 
@@ -252,6 +256,12 @@ public sealed partial class WmiWorkstationReader
     /// <summary>The sources of one scope, in reading order (Domenia 1 worker order, quick first and deep last).</summary>
     private static List<Step> Steps(WorkstationReading reading) => reading switch
     {
+        WorkstationReading.QuickDiagnostic =>
+        [
+            new(InventoryCategories.System, "Système et dernier démarrage", static (session, current, access, _) => ReadDiagnosticSystem(session, current, access)),
+            new(InventoryCategories.Volumes, "Volume C:", static (session, current, access, _) => ReadDiagnosticDisk(session, current, access)),
+            new(InventoryCategories.Services, "Services de gestion", static (session, current, access, _) => ReadDiagnosticServices(session, current, access)),
+        ],
         WorkstationReading.Survey or WorkstationReading.SurveyComplete =>
         [
             new(InventoryCategories.System, "Système", static (session, current, access, token) => ReadSystem(session, current, access, token)),

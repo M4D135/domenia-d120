@@ -116,7 +116,7 @@ public sealed partial class CimSession
             && r.Text("Log") is { } log && preset.Logs.Contains(log, StringComparer.OrdinalIgnoreCase)
             && r.Text("Provider") is { } provider && preset.Providers.Contains(provider, StringComparer.OrdinalIgnoreCase)
             && r.Int("Level") is >= 0 and <= 5 && UtcDate(r.Text("At")) is { } at && at >= query.Start && at <= query.End
-            && r.Text("Message") is { Length: <= 500 }).OrderByDescending(r => UtcDate(r.Text("At"))).Take(query.MaxEvents).ToArray();
+            && r.Raw("Message") is string { Length: <= 500 }).OrderByDescending(r => UtcDate(r.Text("At"))).Take(query.MaxEvents).ToArray();
         var answered = readings.Any(r => r.Answered);
         var partial = raw.Length != valid.Length || readings.Any(r => r.Status is not (SourceStatus.Ok or SourceStatus.Empty));
         var status = answered ? partial ? SourceStatus.Partial : valid.Length > 0 ? SourceStatus.Ok : SourceStatus.Empty

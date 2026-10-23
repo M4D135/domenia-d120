@@ -491,6 +491,7 @@ public static class PosteDiagnostics
                     value += FrenchText.Colon + PosteText.Flat(entry.Detail, 160);
                 }
             }
+            if (entry?.Status == SourceStatus.Partial) { limit += " Lecture partielle : les éléments manquants restent inconnus."; }
             counts[state] = counts.GetValueOrDefault(state) + 1;
             facts.Add(PosteText.Fact(plan.Label, value, state, plan.Source + (reader.Length > 0 ? ", lu par " + reader : ""), limit, hint, now));
         }
@@ -501,6 +502,7 @@ public static class PosteDiagnostics
         var summary = FrenchText.Count(counts.GetValueOrDefault(FactState.Observed), "constaté", "constatés") + ", " + FrenchText.Count(counts.GetValueOrDefault(FactState.Refused), "refusé", "refusés") + ", "
             + FrenchText.Count(counts.GetValueOrDefault(FactState.Unavailable), "indisponible", "indisponibles") + ", " + FrenchText.Count(counts.GetValueOrDefault(FactState.Unknown) + counts.GetValueOrDefault(FactState.Estimated), "non concluant", "non concluants")
             + " sur " + FrenchText.Integer(QuickPlan.Length) + " contrôles.";
-        return new QuickDiagResult(computer, now, facts.ToImmutable(), summary, counts.GetValueOrDefault(FactState.Observed) == QuickPlan.Length, overrun, duration, QuickCostText, QuickFallback);
+        return new QuickDiagResult(computer, now, facts.ToImmutable(), summary, counts.GetValueOrDefault(FactState.Observed) == QuickPlan.Length
+            && new[] { raw.System, raw.LastBoot, raw.DiskC, raw.Ports, raw.Services }.All(r => r?.Status is SourceStatus.Ok or SourceStatus.Empty), overrun, duration, QuickCostText, QuickFallback);
     }
 }

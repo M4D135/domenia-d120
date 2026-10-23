@@ -8,8 +8,8 @@ namespace Domenia.Tests;
 internal static class WorkstationEventsTests
 {
     private static EventQuery Query(string id = "Startup", int count = 10) => PosteEvents.Query(PosteEvents.Preset(id)!, 24, count, Fixtures.Now);
-    private static object Event(int id = 6005, string provider = "EventLog", string log = "System", string? date = null) =>
-        new { Id = id, Provider = provider, Log = log, Level = 4, At = date ?? Fixtures.Now.AddHours(-1).ToString("o"), Machine = "PC1.test.local", Message = "Service démarré" };
+    private static object Event(int id = 6005, string provider = "EventLog", string log = "System", string? date = null, string message = "Service démarré") =>
+        new { Id = id, Provider = provider, Log = log, Level = 4, At = date ?? Fixtures.Now.AddHours(-1).ToString("o"), Machine = "PC1.test.local", Message = message };
     private static string Payload(object[] rows, object[]? access = null, string computer = "PC1") => JsonSerializer.Serialize(new
     {
         Format = "Domenia.EventsRead/1", Computer = computer,
@@ -21,6 +21,7 @@ internal static class WorkstationEventsTests
     {
         var query = Query();
         Check.Equal(SourceStatus.Ok, CimSession.ParseEvents(Payload([Event()]), "PC1.test.local", query).Status, "événement exact retenu");
+        Check.Equal(SourceStatus.Ok, CimSession.ParseEvents(Payload([Event(message: "")]), "PC1", query).Status, "message vide admis, métadonnées conservées");
         foreach (var invalid in new[] { Event(provider: "Other"), Event(date: Fixtures.Now.AddHours(-25).ToString("o")), Event(date: "2026-10-21T15:00:00") })
         {
             var result = CimSession.ParseEvents(Payload([invalid]), "PC1.test.local", query);

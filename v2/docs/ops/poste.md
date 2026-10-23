@@ -398,3 +398,14 @@ WinRM utilise le shell fermé existant et Get-WinEvent avec filtres à la source
 Budget de 30 s pour la collecte, fermeture ciblée incluse dans le budget du shell. Les événements déjà reçus sont conservés si la suite est arrêtée ; un plafond, un journal non lu ou une fermeture incertaine ne prouve pas l’absence d’événements. Un refus ne devient pas une lecture partielle exploitable au seul motif que la fermeture n’est pas confirmée. Cinq tests ajoutés et compilés seulement ; qualification dans la VM à effectuer lors de la recette finale.
 
 Référence : [Get-WinEvent et ses filtres Windows PowerShell](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-5.1).
+
+
+## 21. Diagnostic rapide et triage réels (23/10/2026)
+
+Le diagnostic rapide borne l’ensemble du geste à vingt secondes, vérification de l’objet AD comprise. Les trois connexions TCP (135, 445, 5985) sont parallèles, sans données applicatives, et bornées au timeout configuré ou deux secondes. Une ouverture TCP ne prouve ni un protocole fonctionnel ni un droit. Une interruption garde le port inconnu ; silence et fermeture ne prouvent pas que Windows est arrêté.
+
+Quatre requêtes CIM suffisent : identité Windows, OS/dernier démarrage en une lecture, volume C: exact, quatre services de gestion. Aucun inventaire complet, registre, logiciel, shell ou repli intrusif. Le nom de compte Windows est confirmé avant affichage. Volume dupliqué/inattendu, état de service absent et liste partielle sont signalés ; un refus n’invente pas quatre services non installés. Le résumé ne peut plus être complet au seul motif que chaque source partielle a fourni une valeur.
+
+Le triage de lenteur utilise le relevé court de système, mémoire, volumes, CPU et deux échantillons de processus. Les autres sources restent non lues. Une liste de processus partielle ne donne pas une charge totale. Ce geste ne remplace pas le dernier inventaire détaillé. Les événements dont le message est vide conservent leurs métadonnées au lieu d’être écartés.
+
+Quatre tests ajoutés et une assertion d’événement complétée, compilés seulement ; qualification native toujours prévue à la recette finale.
