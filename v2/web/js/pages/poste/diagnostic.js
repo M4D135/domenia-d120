@@ -225,10 +225,11 @@ function wmi(host, state) {
   let last = null;
   host.innerHTML = `<div class="grid ps-grid ps-wmi">
     <section class="card ps-card span-4 reveal">${cardHead('database', 'Espaces et classes', 'Aucune méthode invoquée ; classes du fournisseur MSI bloquées', `<button class="btn sm" type="button" data-act="ns">${ico('refresh')}Charger</button>`)}
-      <div class="ps-wmi-ns" data-slot="ns">${empty({ icon: 'database', title: 'Espaces de noms non lus', text: 'Le chargement interroge le poste (ping d’abord).' })}</div>
+      <div class="ps-wmi-ns" data-slot="ns">${empty({ icon: 'database', title: 'Espaces de noms non lus', text: 'Le chargement interroge le poste à votre demande, pendant 30 s au plus.' })}</div>
       <label class="ps-search sm"><span class="visually-hidden">Filtrer les classes</span>${ico('filter')}<input class="input" type="search" data-filter placeholder="Filtrer les classes…" autocomplete="off"></label>
+      <p class="ps-faint" data-slot="classes-status" role="status"></p>
       <ul class="ps-wmi-classes" data-slot="classes"></ul></section>
-    <section class="card ps-card span-8 reveal">${cardHead('terminal', 'Requête', '<span data-slot="query">SELECT * FROM … (WHERE facultatif, 1 à 500 instances, 25 par défaut)</span>', `<button class="btn ghost sm" type="button" data-act="copy" disabled>${ico('copy')}Copier</button><button class="btn ghost sm" type="button" data-act="export" disabled>${ico('csv')}Exporter</button>`)}
+    <section class="card ps-card span-8 reveal">${cardHead('terminal', 'Requête', '<span data-slot="query">Propriétés du schéma · WHERE facultatif · 1 à 500 instances, 25 par défaut · 45 s au plus</span>', `<button class="btn ghost sm" type="button" data-act="copy" disabled>${ico('copy')}Copier</button><button class="btn ghost sm" type="button" data-act="export" disabled>${ico('csv')}Exporter</button>`)}
       <form class="ps-wmi-form" data-form><input class="input mono" data-cls placeholder="Classe (ex. Win32_OperatingSystem)" aria-label="Classe" value="Win32_OperatingSystem">
         <input class="input mono" data-where placeholder="WHERE facultatif (ex. State='Running')" aria-label="Filtre WHERE" maxlength="2048">
         <input class="input" type="number" min="1" max="500" value="25" data-limit aria-label="Limite">
@@ -247,7 +248,7 @@ function wmi(host, state) {
       const r = await state.call('poste.wmi.namespaces', { dn: state.dn, parent });
       if (!alive) return;
       slot.removeAttribute('aria-busy');
-      slot.innerHTML = `<p class="ps-faint">${esc(r.status)}</p><div class="ps-wmi-nslist">${r.namespaces.map((n) => `<button class="chip${n.path.toLowerCase() === ns.toLowerCase() ? ' info' : ''}" type="button" data-ns="${esc(n.path)}" data-has="${n.hasChildren ? 1 : 0}">${esc(n.path)}</button>`).join('')}</div>`;
+      slot.innerHTML = `<p class="ps-faint">${esc(r.status)}</p><div class="ps-wmi-nslist">${r.namespaces.map((n) => `<button class="chip${n.path.toLowerCase() === ns.toLowerCase() ? ' info' : ''}" type="button" data-ns="${esc(n.path)}" data-has="${n.hasChildren !== false ? 1 : 0}">${esc(n.path)}</button>`).join('')}</div>`;
       await loadClasses(ns);
     } catch (err) {
       if (alive) { slot.removeAttribute('aria-busy'); slot.innerHTML = failure(err, { retry: 'ns' }); }
@@ -259,6 +260,7 @@ function wmi(host, state) {
       const r = await state.call('poste.wmi.classes', { dn: state.dn, ns: path });
       if (!alive) return;
       classes = r.classes;
+      host.querySelector('[data-slot="classes-status"]').textContent = r.status;
       paintClasses();
     } catch (err) {
       if (alive) host.querySelector('[data-slot="classes"]').innerHTML = `<li>${failure(err, { retry: null })}</li>`;
@@ -278,7 +280,7 @@ function wmi(host, state) {
       gridHost.removeAttribute('aria-busy');
       host.querySelector('[data-slot="query"]').textContent = `${r.query} · ${r.status}`;
       host.querySelector('[data-slot="schema"]').innerHTML = r.schema.length
-        ? `<details class="ps-more"><summary>Schéma (${int(r.schema.length)} propriétés)</summary><ul class="ps-schema">${r.schema.map((p) => `<li><span class="mono">${esc(p.name)}</span><span>${esc(p.type)}</span>${p.key ? chip('info', 'clé') : ''}</li>`).join('')}</ul></details>` : '';
+        ? `<details class="ps-more"><summary>Schéma (${int(r.schema.length)} propriétés)</summary><ul class="ps-schema">${r.schema.map((p) => `<li><span class="mono">${esc(p.name)}</span><span${p.qualifiers ? ` data-tip="${esc(`Qualificatifs : ${p.qualifiers}`)}"` : ''}>${esc(p.type)}</span>${p.key ? chip('info', 'clé') : ''}</li>`).join('')}</ul></details>` : '';
       grid?.destroy();
       gridHost.innerHTML = '';
       grid = createGrid(gridHost, {
@@ -287,11 +289,11 @@ function wmi(host, state) {
         rowId: (row) => row.__i,
         // CIM dates (LastBootUpTime, InstallDate…) are shown in local time, the raw value in the tip, the copy and the export.
         columns: r.schema.map((p, n) => ({
-          id: `c${n}`, label: p.name, width: p.type === 'datetime' ? 190 : 170, mono: p.type !== 'string' && p.type !== 'datetime', get: (row) => row[`c${n}`],
+          id: `c${n}`, label: p.name, width: p.type.toLowerCase() === 'datetime' ? 190 : 170, mono: p.type.toLowerCase() !== 'string' && p.type.toLowerCase() !== 'datetime', get: (row) => row[`c${n}`],
           html: (v) => { const at = cimDate(v); return at ? `<span data-tip="${esc(`Valeur brute : ${v}`)}">${esc(formatDateTime(at) ?? v)}</span>` : esc(v); },
           csv: (v) => String(v ?? ''),
         })),
-        empty: { icon: 'database', title: 'Aucune instance', text: r.status },
+        empty: { icon: 'database', title: r.noInstancesConfirmed === false ? 'Lecture non concluante' : 'Aucune instance', text: r.status },
       });
       grid.setRows(r.instances.map((inst, i) => Object.fromEntries([['__i', String(i)], ...inst.map((v, n) => [`c${n}`, v ?? ''])])));
       fitGrid(grid, r.instances.length, { max: 420 });

@@ -16,7 +16,7 @@ public sealed record DetectionAttempt(int Order, string Method, string Status, s
 public sealed record LastUserDetection(string Computer, DateTimeOffset At, ImmutableArray<DetectionAttempt> Attempts, UserRef? Candidate, bool Verified, string Verdict, PosteAssociation Association, int BudgetSeconds);
 
 /// <summary>A WMI namespace with whether it has children (root and its direct children are listed).</summary>
-public sealed record WmiNamespace(string Name, string Path, bool HasChildren);
+public sealed record WmiNamespace(string Name, string Path, bool? HasChildren);
 
 public sealed record WmiNamespaces(string Computer, string Parent, ImmutableArray<WmiNamespace> Namespaces, string Status);
 
@@ -28,7 +28,11 @@ public sealed record WmiClasses(string Computer, string Namespace, ImmutableArra
 public sealed record WmiProperty(string Name, string Type, bool Key, string Qualifiers);
 
 /// <summary>Result of poste.wmi.query: schema, instances (strings), limit, and the computer that answered (named in exports).</summary>
-public sealed record WmiQueryResult(string Computer, string Namespace, string Class, string? Where, int Limit, bool Truncated, ImmutableArray<WmiProperty> Schema, ImmutableArray<ImmutableArray<string?>> Instances, string Status, string Query, int DurationMs);
+public sealed record WmiQueryResult(string Computer, string Namespace, string Class, string? Where, int Limit, bool Truncated, ImmutableArray<WmiProperty> Schema, ImmutableArray<ImmutableArray<string?>> Instances, string Status, string Query, int DurationMs)
+{
+    /// <summary>False when an empty result cannot prove absence (refusal, interruption, partial read). Null for legacy readers.</summary>
+    public bool? NoInstancesConfirmed { get; init; }
+}
 
 /// <summary>Validated WMI request (Assert-DomeniaWmiReadQuery): SELECT only, no method, MSI provider classes blocked.</summary>
 public sealed record WmiRequest(string Namespace, string Class, string? Where, int Limit);

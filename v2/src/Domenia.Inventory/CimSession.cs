@@ -110,7 +110,7 @@ public sealed partial class CimSession : IDisposable
     /// contact); <paramref name="maxItems"/> caps the instances, and reaching the cap is reported as a partial answer.
     /// This method never throws for a workstation reason: it answers with a status. It does throw on cancellation.
     /// </summary>
-    public CimReading Read(string category, string namespaceName, string wql, int maxItems, TimeSpan? timeout = null)
+    public CimReading Read(string category, string namespaceName, string wql, int maxItems, TimeSpan? timeout = null, Action<WmiInstance>? received = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(category);
@@ -150,18 +150,21 @@ public sealed partial class CimSession : IDisposable
             var begin = clock.GetTimestamp();
             var rows = ReadOverride?.Invoke(namespaceName, wql, perQuery) ?? (Transport == InventoryTransport.WinRm ? WinRm.Query(namespaceName, wql, perQuery) : Query(namespaceName, wql, perQuery));
             var truncated = false;
+            long bytes = 0;
             foreach (var row in rows)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (OutOfBudget || clock.GetElapsedTime(begin) >= perQuery) { throw new TimeoutException(); }
-                if (instances.Count == maxItems) { truncated = true; break; }
+                if (instances.Count == maxItems || !WithinLimits(row, ref bytes)) { truncated = true; break; }
                 instances.Add(row);
+                received?.Invoke(row);
             }
             cancellationToken.ThrowIfCancellationRequested();
             if (OutOfBudget || clock.GetElapsedTime(begin) >= perQuery) { throw new TimeoutException(); }
-            var status = instances.Count == 0 ? SourceStatus.Empty : truncated ? SourceStatus.Partial : SourceStatus.Ok;
+            var status = truncated ? SourceStatus.Partial : instances.Count == 0 ? SourceStatus.Empty : SourceStatus.Ok;
             var detail = instances.Count switch
             {
+                0 when truncated => "première instance hors limites ; aucune absence confirmée",
                 0 => "aucune instance",
                 var count when truncated => FrenchText.Integer(count) + " instances (plafond atteint)",
                 var count => FrenchText.Count(count, "instance lue", "instances lues"),
@@ -173,6 +176,31 @@ public sealed partial class CimSession : IDisposable
             if (WindowsAuthenticationErrors.IsRejected(ex.HResult)) { authenticationRefused = true; }
             journal?.Info("Lecture CIM de " + Host + " (" + category + ") : " + Detail(ex, outcome) + ".");
             return new CimReading(category, instances.Count > 0 ? SourceStatus.Partial : outcome, Detail(ex, outcome), Elapsed(), instances.ToArray()) { AuthenticationRejected = authenticationRefused };
+        }
+    }
+
+    private static bool WithinLimits(WmiInstance row, ref long bytes)
+    {
+        var names = row.Names.Take(129).ToArray();
+        if (names.Length > 128) { return false; }
+        foreach (var name in names)
+        {
+            bytes += name.Length * sizeof(char);
+            if (!Scalar(row.Raw(name), ref bytes) || bytes > 8_388_608) { return false; }
+        }
+        return true;
+        static bool Scalar(object? value, ref long size, bool arrayAllowed = true)
+        {
+            if (value is null) { return true; }
+            if (value is string text) { size += text.Length * sizeof(char); return text.Length <= 32768; }
+            if (value is Array array)
+            {
+                if (!arrayAllowed || array.Length > 2048 || array.Rank != 1) { return false; }
+                foreach (var item in array) { if (!Scalar(item, ref size, false)) { return false; } }
+                return true;
+            }
+            size += 16;
+            return value is bool or char or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
         }
     }
 
@@ -215,6 +243,7 @@ public sealed partial class CimSession : IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var started = clock.GetTimestamp();
+        var requested = Domenia.Core.Queries.Wmi.WqlRules.Parse(wql).Properties.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var options = new ConnectionOptions
         {
             Impersonation = ImpersonationLevel.Impersonate,
@@ -242,7 +271,7 @@ public sealed partial class CimSession : IDisposable
                     cancellationToken.ThrowIfCancellationRequested();
                     if (OutOfBudget) { throw new TimeoutException(); }
                     var values = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var property in item.Properties) { values[property.Name] = property.Value; }
+                    foreach (var property in item.Properties) { if (requested.Contains(property.Name)) { values[property.Name] = property.Value; } }
                     yield return new WmiInstance(values);
                 }
             }

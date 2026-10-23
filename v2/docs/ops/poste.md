@@ -409,3 +409,16 @@ Quatre requêtes CIM suffisent : identité Windows, OS/dernier démarrage en une
 Le triage de lenteur utilise le relevé court de système, mémoire, volumes, CPU et deux échantillons de processus. Les autres sources restent non lues. Une liste de processus partielle ne donne pas une charge totale. Ce geste ne remplace pas le dernier inventaire détaillé. Les événements dont le message est vide conservent leurs métadonnées au lieu d’être écartés.
 
 Quatre tests ajoutés et une assertion d’événement complétée, compilés seulement ; qualification native toujours prévue à la recette finale.
+
+
+## 22. Explorateur WMI réel (23/10/2026)
+
+Trois chemins de métadonnées fermés lisent les espaces directs, les définitions de classes et le schéma d’une classe. DCOM utilise les métadonnées WMI et Get de ManagementClass, jamais GetInstances pour le schéma. WinRM utilise un script fermé Get-CimClass ; seuls les noms validés entrent comme paramètres. Aucune valeur de propriété ni valeur arbitraire de qualificatif n’est lue dans le schéma : nom, type, clé et noms des qualificatifs seulement. Définitions liées au nom du poste, à l’espace et à la classe, JSON borné, listes plafonnées à 256 espaces, 4 096 classes et 512 propriétés. Les définitions ambiguës sont écartées.
+
+Avant les contacts, le SELECT demandé est validé par la grammaire commune, incluant MSI, secrets et énumérations générales de comptes. La requête réelle projette les colonnes non sensibles du schéma, avec priorité aux clés et au filtre ; aucune étoile n’est envoyée. Plafonds : 64 propriétés, 500 lignes, 2 048 caractères par valeur et 2 Mio affichables ; les limites sont annoncées dans le résultat. CommandLine, Command, arguments et désinstallation sont exclus de cette projection automatique ; un filtre sur ces valeurs est refusé. Objets imbriqués exclus, tableaux bornés. Les lignes reçues sont publiées au fil de la lecture pour être conservées après arrêt.
+
+La couche CIM borne aussi les valeurs brutes : 128 propriétés, 32 768 caractères par chaîne, 2 048 éléments scalaires par tableau et 8 Mio par lecture. Une première valeur hors limites produit un résultat partiel, jamais une absence. DCOM ne copie que les propriétés demandées, comme le transport WinRM. Les gardes du chemin général restent inchangées pour les classes système : seules les opérations internes de métadonnées peuvent interroger __Namespace ou meta_class.
+
+Les gestes complets sont limités à 30 s pour les listes et 45 s pour une requête, vérification AD comprise. Les enfants d’un espace restent inconnus jusqu’à leur ouverture, sans exploration récursive implicite. Le statut de lecture des classes est affiché, les types natifs conservent le rendu de date, les qualificatifs sont consultables et une réponse vide refusée/interrompue s’intitule « Lecture non concluante ».
+
+Six tests ajoutés et compilés seulement. Les API natives DCOM/WinRM et le parcours visuel seront vérifiés lors de la recette finale. Références : [métadonnées WMI](https://learn.microsoft.com/en-us/windows/win32/wmisdk/retrieving-a-class), [Get-CimClass](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-cimclass), [énumération des espaces CIM](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-ciminstance).
