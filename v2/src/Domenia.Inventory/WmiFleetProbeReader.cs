@@ -24,7 +24,7 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
         try { reading = WmiReadWorkers.Start(credential, owned =>
         {
             var host = computer.DnsHostName ?? computer.Name;
-            var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token, credential: owned);
+            using var session = SessionFactory?.Invoke(host, CimBudgets.Probes, stop.Token) ?? new CimSession(host, CimBudgets.Probes, clock, cancellationToken: stop.Token, credential: owned);
             CimReading? identity = null;
             if (definitions.Any(d => !d.SkipOnDc || (computer.UserAccountControl & 8192) == 0))
             { identity = session.Read("identity", @"root\cimv2", "SELECT Name FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(4)); }

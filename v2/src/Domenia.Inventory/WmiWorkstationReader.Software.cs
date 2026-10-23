@@ -27,7 +27,7 @@ public sealed partial class WmiWorkstationReader
         {
             work = WmiReadWorkers.Start(credential, owned =>
             {
-                var session = Session(host, budget, stop.Token, owned);
+                using var session = Session(host, budget, stop.Token, owned);
                 var identity = session.Read(InventoryCategories.System, Cimv2, "SELECT Name FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(3));
                 var result = latest with { ReportedName = identity.Instances.FirstOrDefault()?.Text("Name"), AuthenticationRejected = identity.AuthenticationRejected };
                 return CollectSoftware(session, result, request, true, stop.Token, value => Volatile.Write(ref latest, value));

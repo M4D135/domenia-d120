@@ -78,7 +78,7 @@ public sealed class WmiWorkstationProbe : ICredentialWorkstationFactsProbe
         Task<WorkstationInventoryRead> reading;
         try { reading = WmiReadWorkers.Start(credential, owned =>
         {
-            var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token, owned);
+            using var session = SessionFactory?.Invoke(host, budget, stop.Token) ?? new CimSession(host, budget, clock, journal, stop.Token, owned);
             var readings = new Dictionary<string, CimReading>(StringComparer.Ordinal);
             void Read(string id, string query)
             {

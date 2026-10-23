@@ -18,7 +18,7 @@ public sealed class WmiLogonSessionsReader(TimeProvider clock)
         var bounded = budget > TimeSpan.FromSeconds(5) ? TimeSpan.FromSeconds(5) : budget;
         var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         Task<WindowsSessionsRead> worker;
-        try { worker = WmiReadWorkers.Start(credential, owned => Read(new CimSession(host, bounded, clock, cancellationToken: stop.Token, credential: owned)), stop.Token); }
+        try { worker = WmiReadWorkers.Start(credential, owned => { using var session = new CimSession(host, bounded, clock, cancellationToken: stop.Token, credential: owned); return Read(session); }, stop.Token); }
         catch { stop.Dispose(); throw; }
         try { return await worker.WaitAsync(bounded, clock, token).ConfigureAwait(false); }
         catch (TimeoutException) { stop.Cancel(); return new(SourceStatus.Interrupted, [], 0, clock.GetUtcNow(), "Budget du repli CIM atteint ; sessions non établies."); }

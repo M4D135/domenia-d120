@@ -80,15 +80,17 @@ public sealed partial class WmiWorkstationReader
         "SELECT ProcessId, Name, CreationDate, KernelModeTime, UserModeTime, WorkingSetSize FROM Win32_Process WHERE ProcessId <> 0";
 
     private readonly TimeProvider clock;
+    private readonly InventoryTransport transport;
     private readonly ITechnicalJournal? journal;
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
-    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential);
+    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, transport);
 
     /// <summary>Contacts nothing: a workstation is only reached by an explicit read.</summary>
-    public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null)
+    public WmiWorkstationReader(TimeProvider clock, ITechnicalJournal? journal = null, bool useWinRm = false)
     {
         ArgumentNullException.ThrowIfNull(clock);
         this.clock = clock;
+        transport = useWinRm ? InventoryTransport.WinRm : InventoryTransport.Dcom;
         this.journal = journal;
     }
 
@@ -108,7 +110,7 @@ public sealed partial class WmiWorkstationReader
         var budget = Budget(reading);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var workToken = stop.Token;
-        var latest = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, InventoryTransport.Dcom);
+        var latest = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, transport);
         Task<InventorySnapshot> work;
         try { work = WmiReadWorkers.Start(credential, owned => Read(host, reading, progress, workToken, value => Volatile.Write(ref latest, value), owned), workToken); }
         catch { stop.Dispose(); throw; }
@@ -151,7 +153,7 @@ public sealed partial class WmiWorkstationReader
         Task<ConsoleAccountReading> work;
         try { work = WmiReadWorkers.Start(credential, owned =>
         {
-            var session = Session(host, CimBudgets.ConsoleSession, workToken, owned);
+            using var session = Session(host, CimBudgets.ConsoleSession, workToken, owned);
             var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 1, CimBudgets.ConsoleSession);
             var instance = reading.Instances.FirstOrDefault();
             return new ConsoleAccountReading(host, reading.Status, instance?.Text("UserName"), instance?.Text("Name")) { AuthenticationRejected = reading.AuthenticationRejected };
@@ -211,21 +213,21 @@ public sealed partial class WmiWorkstationReader
     private InventorySnapshot Unread(string host, WorkstationReading reading, string detail)
     {
         var access = Categories(reading)
-            .Select(category => new SourceAccess(category, SourceStatus.Error, detail, 0, 0, InventoryTransport.Dcom))
+            .Select(category => new SourceAccess(category, SourceStatus.Error, detail, 0, 0, transport))
             .ToImmutableArray();
-        return Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, InventoryTransport.Dcom) with { Access = access };
+        return Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, transport) with { Access = access };
     }
 
     private static InventorySnapshot Interrupted(InventorySnapshot snapshot, WorkstationReading reading, string detail) => snapshot with
     {
         Access = [.. snapshot.Access, .. Categories(reading).Except(snapshot.Access.Select(a => a.Category), StringComparer.Ordinal)
-            .Select(category => new SourceAccess(category, SourceStatus.Interrupted, detail, 0, 0, InventoryTransport.Dcom))],
+            .Select(category => new SourceAccess(category, SourceStatus.Interrupted, detail, 0, 0, snapshot.Transport))],
     };
 
     private InventorySnapshot Read(string host, WorkstationReading reading, IProgress<PosteProgress>? progress, CancellationToken cancellationToken, Action<InventorySnapshot> publish, RemoteProbeCredential? credential)
     {
         var started = clock.GetTimestamp();
-        var session = Session(host, Budget(reading), cancellationToken, credential);
+        using var session = Session(host, Budget(reading), cancellationToken, credential);
         var access = new List<SourceAccess>();
         var snapshot = Empty(host, clock.GetUtcNow(), reading == WorkstationReading.Full, session.Transport);
         var plan = Steps(reading);

@@ -106,16 +106,19 @@ public sealed partial class CimSession
 
     internal RegistryReading ReadRegistry(RegistryRequest request, TimeSpan? timeout = null)
     {
+        ObjectDisposedException.ThrowIf(disposed, this);
         var begin = clock.GetTimestamp();
         int Duration() => (int)clock.GetElapsedTime(begin).TotalMilliseconds;
         if (!InventoryRegistry.Allowed(request)) { return new(SourceStatus.Error, false, null, "Lecture de registre hors du contrat d’inventaire refusée avant contact.", 0); }
+        if (Transport == InventoryTransport.WinRm && System.Net.IPAddress.TryParse(Host, out _))
+        { return new(SourceStatus.Unavailable, false, null, "WinRM Kerberos demande un nom de poste ; aucun contact par adresse IP.", 0); }
         if (authenticationRefused) { return new(SourceStatus.Refused, false, null, "Authentification déjà refusée ; aucun nouvel essai.", 0) { AuthenticationRejected = true }; }
         if (OutOfBudget || cancellationToken.IsCancellationRequested) { return new(SourceStatus.Interrupted, false, null, "Budget de lecture atteint.", 0); }
         var allowed = Bound(timeout ?? TimeSpan.FromSeconds(3));
         if (allowed > Remaining) { allowed = Remaining; }
         try
         {
-            var reply = RegistryOverride?.Invoke(request, allowed) ?? RegistryQuery(request, allowed);
+            var reply = RegistryOverride?.Invoke(request, allowed) ?? (Transport == InventoryTransport.WinRm ? WinRm.ReadRegistry(request, allowed) : RegistryQuery(request, allowed));
             cancellationToken.ThrowIfCancellationRequested();
             if (OutOfBudget || clock.GetElapsedTime(begin) >= allowed) { throw new TimeoutException(); }
             if (reply.Code is 2 or 3) { return new(SourceStatus.Empty, false, null, "Clé ou valeur absente.", Duration()); }

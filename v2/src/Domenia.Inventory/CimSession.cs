@@ -24,7 +24,7 @@ public sealed record CimReading(string Category, SourceStatus Status, string Det
 }
 
 /// <summary>
-/// Read-only CIM session of one workstation (CIM over DCOM, Windows session of the operator, Kerberos, packet privacy), as
+/// Read-only CIM session of one workstation (DCOM with packet privacy, or native WinRM with Kerberos), as
 /// <see cref="WmiWorkstationProbe"/> opens it. Three things make it safe to point at a real machine:
 /// <list type="bullet">
 /// <item>only plain SELECT projections leave the query path — <see cref="CimQuery.IsReadOnlySelect"/> refuses anything else,
@@ -35,21 +35,26 @@ public sealed record CimReading(string Category, SourceStatus Status, string Det
 /// (timeout) or error, each with its French wording for the access report.</item>
 /// </list>
 /// Synchronous by design: it is called from a worker thread by <see cref="WmiWorkstationReader"/>, never on the UI thread.
-/// Scopes are opened per read and never kept, so no WMI object outlives the read that created it.
+/// DCOM scopes are opened per query. A WinRM connection is owned until the bounded reading finishes.
 /// </summary>
-public sealed partial class CimSession
+public sealed partial class CimSession : IDisposable
 {
     private readonly TimeProvider clock;
     private readonly ITechnicalJournal? journal;
     private readonly long started;
     private readonly CancellationToken cancellationToken;
     private bool authenticationRefused;
+    private WsmanReadChannel? wsman;
+    private bool disposed;
+    private WsmanReadChannel WinRm => wsman ??= new(Host, credential, clock, cancellationToken);
+
+    public void Dispose() { wsman?.Dispose(); wsman = null; disposed = true; }
     private readonly RemoteProbeCredential? credential;
     internal Func<string, string, TimeSpan, IEnumerable<WmiInstance>>? ReadOverride { get; init; }
 
     /// <param name="host">NetBIOS or DNS name of the workstation; nothing is contacted before the first read.</param>
     /// <param name="budget">Ceiling of the whole reading, clamped to <see cref="CimBudgets.Bound"/>.</param>
-    public CimSession(string host, TimeSpan budget, TimeProvider clock, ITechnicalJournal? journal = null, CancellationToken cancellationToken = default, RemoteProbeCredential? credential = null)
+    public CimSession(string host, TimeSpan budget, TimeProvider clock, ITechnicalJournal? journal = null, CancellationToken cancellationToken = default, RemoteProbeCredential? credential = null, InventoryTransport transport = InventoryTransport.Dcom)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(clock);
@@ -58,6 +63,8 @@ public sealed partial class CimSession
             throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Nom de poste invalide : aucun poste contacté.");
         }
 
+        if (transport is not (InventoryTransport.Dcom or InventoryTransport.WinRm)) { throw new ArgumentException("Transport CIM non pris en charge.", nameof(transport)); }
+        Transport = transport;
         Host = host;
         this.clock = clock;
         this.journal = journal;
@@ -79,8 +86,8 @@ public sealed partial class CimSession
     /// <summary>Ceiling granted to the whole reading.</summary>
     public TimeSpan Budget { get; }
 
-    /// <summary>Transport this session can use (CIM over DCOM only; WinRM is a separate decision, docs/ops/poste.md § 8.2).</summary>
-    public InventoryTransport Transport => InventoryTransport.Dcom;
+    /// <summary>Transport explicitly selected by the caller; no authentication or transport fallback occurs here.</summary>
+    public InventoryTransport Transport { get; }
 
     /// <summary>True once the budget is spent: the sources not read yet are said, not guessed.</summary>
     public bool OutOfBudget => Remaining == TimeSpan.Zero;
@@ -102,6 +109,7 @@ public sealed partial class CimSession
     /// </summary>
     public CimReading Read(string category, string namespaceName, string wql, int maxItems, TimeSpan? timeout = null)
     {
+        ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(category);
         ArgumentNullException.ThrowIfNull(namespaceName);
         ArgumentNullException.ThrowIfNull(wql);
@@ -113,6 +121,9 @@ public sealed partial class CimSession
             journal?.Warning("Requête CIM refusée par la garde de lecture seule (" + category + ") : rien n’a été envoyé.");
             return new CimReading(category, SourceStatus.Error, "requête refusée par la garde de lecture seule", Elapsed(), []);
         }
+
+        if (Transport == InventoryTransport.WinRm && System.Net.IPAddress.TryParse(Host, out _))
+        { return new(category, SourceStatus.Unavailable, "WinRM Kerberos demande le nom DNS ou NetBIOS ; aucun contact par adresse IP.", 0, []); }
 
         if (maxItems is <= 0 or > 20_000)
         {
@@ -132,7 +143,7 @@ public sealed partial class CimSession
         try
         {
             var begin = clock.GetTimestamp();
-            var rows = ReadOverride is null ? Query(namespaceName, wql, perQuery) : ReadOverride(namespaceName, wql, perQuery);
+            var rows = ReadOverride?.Invoke(namespaceName, wql, perQuery) ?? (Transport == InventoryTransport.WinRm ? WinRm.Query(namespaceName, wql, perQuery) : Query(namespaceName, wql, perQuery));
             var truncated = false;
             foreach (var row in rows)
             {
@@ -178,6 +189,7 @@ public sealed partial class CimSession
         System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x800706BA) or unchecked((int)0x800706BE) or unchecked((int)0x80070035) } => SourceStatus.Unreachable,
         System.Runtime.InteropServices.COMException => SourceStatus.Error,
         TimeoutException => SourceStatus.Interrupted,
+        System.Xml.XmlException => SourceStatus.Error,
         _ => null,
     };
 
