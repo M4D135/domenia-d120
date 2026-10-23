@@ -116,6 +116,29 @@ internal static class CredentialVaultTests
     }
 
     private static SecureString Secret(char value) { var result = new SecureString(); result.AppendChar(value); result.MakeReadOnly(); return result; }
+
+    [Test]
+    public static async Task Real_reset_and_workstation_operations_reject_even_a_null_web_password_before_readers_or_writers()
+    {
+        var source = new UnavailableDirectorySource("cnamts.local", () => "CNAMTS\\Alice");
+        var decision = ModeResolver.Resolve([], null, () => new DomainJoinInfo(DomainJoinState.Joined, "cnamts.local"));
+        using var context = new EngineContext(decision, source, new MemoryPreferenceStore(), TestClock.Fixed(), new RecordingJournal());
+        var registry = OperationModules.CreateRegistry(context, OperationModules.Discover([typeof(AccountsOperations).Assembly]));
+        var responses = new List<BridgeResponse>();
+        var dispatcher = new BridgeDispatcher(registry, responses.Add, AdmissionGuards.For(AppMode.Directory));
+        foreach (var password in new string?[] { null, "fictitious-test-input" })
+        {
+            foreach (var op in new[] { "machine.account.use", "machine.account.trial", "accounts.password.plan" })
+            {
+                object args = op == "accounts.password.plan"
+                    ? new { dn = "CN=Alice,OU=Domenia-Tests,DC=cnamts,DC=local", password, mustChange = true, unlock = false }
+                    : new { account = "CNAMTS\\Alice", target = "PC-01", password };
+                await dispatcher.HandleAsync(JsonSerializer.Serialize(new { id = Guid.NewGuid().ToString("N"), op, args }), CancellationToken.None);
+                Check.Equal(DomeniaErrors.ArgumentsInvalid, responses[^1].Error?.Code, "secret web refusé avant tout lecteur, exécuteur ou fenêtre : " + op);
+            }
+        }
+        Check.Equal(0L, MachineAccountService.From(context).Generation, "aucun compte poste modifié");
+    }
     private sealed class Clock : TimeProvider
     {
         internal DateTimeOffset Now { get; set; } = TestClock.Reference;

@@ -25,7 +25,7 @@ public sealed class AccountsOperations : IOperationModule
     private static readonly string[] BatchPlanArguments = ["id", "index"];
     private static readonly string[] TicketArguments = ["ticket"];
     private static readonly string[] ExpirationArguments = ["dn", "date"];
-    private static readonly string[] PasswordArguments = ["dn", "password", "mustChange", "unlock"];
+    private static readonly string[] PasswordArguments = ["dn", "password", "mustChange", "unlock", "generate", "theme"];
 
     public string Screen => "accounts";
 
@@ -40,6 +40,27 @@ public sealed class AccountsOperations : IOperationModule
         var seals = AccountsBatchSeals.From(context);
         var access = AccountAccess.From(context);
         var readClass = context.Mode == AppMode.Simulation ? OperationClass.LocalRead : OperationClass.NetworkRead;
+        async Task<SecureString> AskResetPasswordAsync(IReadOnlyDictionary<string, JsonElement> values, string dn, CancellationToken token)
+        {
+            var window = readers.Require<IFichePasswordWindow>();
+            var session = await source.GetSessionAsync(token).ConfigureAwait(false);
+            var detail = await readers.Require<IAccountsReader>().DetailAsync(dn, session.Account.Dn, token).ConfigureAwait(false);
+            if (!detail.Actions.ResetPassword.Available)
+            { throw new DomeniaOperationException(AccountWrites.ProtectedAccount, detail.Actions.ResetPassword.Reason ?? "Réinitialisation indisponible pour ce compte."); }
+            var configuration = readers.Find<IFicheSettingsReader>() is { } settings
+                ? await settings.ReadAsync(token).ConfigureAwait(false) : FicheConfiguration.Absent;
+            var policy = FicheSecurityPolicy.From(configuration, context.Mode);
+            var generate = values.ContainsKey("generate") && BridgeArguments.GetBoolean(values, "generate");
+            var theme = BridgeArguments.GetOptionalString(values, "theme") is "light" ? "light"
+                : BridgeArguments.GetOptionalString(values, "theme") is "contrast" ? "contrast" : "dark";
+            using var answer = await window.AskAsync(new(detail.Account.Name, detail.Account.Sam, detail.State.Privileged, generate,
+                policy.GeneratedPasswordLength, policy.ClipboardClearSeconds, theme), token).ConfigureAwait(false)
+                ?? throw FicheErrors.Error(FicheErrors.Cancelled, "Saisie fermée : aucun plan ni écriture préparés.");
+            token.ThrowIfCancellationRequested();
+            if ((await source.GetSessionAsync(token).ConfigureAwait(false)).Epoch != session.Epoch)
+            { throw new DomeniaOperationException(AccountAccess.EpochChanged, "La session a changé pendant la saisie ; aucun plan préparé."); }
+            return answer.Password.Copy();
+        }
         return
         [
             new OperationDefinition("accounts.list", readClass, async (args, _, cancellationToken) =>
@@ -236,8 +257,11 @@ public sealed class AccountsOperations : IOperationModule
                 var values = BridgeArguments.ReadObject(args, PasswordArguments);
                 var dn = BridgeArguments.RequireDistinguishedName(BridgeArguments.GetString(values, "dn"), "dn");
                 var options = new PasswordResetOptions(BridgeArguments.GetBoolean(values, "mustChange"), BridgeArguments.GetBoolean(values, "unlock"));
+                if (context.Mode != AppMode.Simulation && values.ContainsKey("password"))
+                { throw BridgeArguments.Invalid("Le mot de passe de réinitialisation doit être saisi dans la fenêtre native."); }
                 var executor = writers.Require<IAccountPasswordResetExecutor>();
-                using var password = AccountsArguments.GetPassword(values, "password");
+                using var password = context.Mode == AppMode.Simulation ? AccountsArguments.GetPassword(values, "password")
+                    : await AskResetPasswordAsync(values, dn, cancellationToken).ConfigureAwait(false);
                 var draft = await executor.PlanAsync(dn, options, password, cancellationToken).ConfigureAwait(false);
                 var planned = await circuit.PlanAsync(draft, cancellationToken).ConfigureAwait(false);
                 // The executor keeps its own read-only copy for this plan only; ours is disposed here.

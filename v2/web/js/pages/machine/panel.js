@@ -99,6 +99,16 @@ export function openMachineAccountPanel(ctx, o) {
 
   const account = /** @type {HTMLInputElement} */ (body.querySelector('.mac-account'));
   const password = /** @type {HTMLInputElement} */ (body.querySelector('.mac-password'));
+  if (!simulated) {
+    password.disabled = true;
+    body.querySelector('.mac-secret').hidden = true;
+    body.querySelector(`label[for="${id}-p"]`).hidden = true;
+    body.querySelector(`#${id}-ph`).textContent = 'Le mot de passe sera demandé dans une fenêtre native à chaque chargement ou essai explicite.';
+  }
+  const credentialArgs = (name) => simulated ? { account: name, password: null, target } : {
+    account: name, target,
+    theme: document.documentElement.dataset.theme === 'light' ? 'light' : document.documentElement.dataset.theme === 'contrast' ? 'contrast' : 'dark',
+  };
   const peek = /** @type {HTMLElement} */ (body.querySelector('.mac-peek'));
   const eye = /** @type {HTMLButtonElement} */ (body.querySelector('.mac-eye'));
   const message = /** @type {HTMLElement} */ (body.querySelector('.mac-msg'));
@@ -160,14 +170,14 @@ export function openMachineAccountPanel(ctx, o) {
     busy = true;
     panel.setBusy(true);
     try {
-      const next = await ctx.call('machine.account.use', { account: name, password: simulated ? null : password.value, target });
+      const next = await ctx.call('machine.account.use', credentialArgs(name));
       hidePeek();
       password.value = '';
       setMessage('Compte poste chargé en mémoire uniquement, jamais enregistré.', 'ok');
       refresh(next);
       toast('Compte poste chargé en mémoire uniquement, jamais enregistré.', { tone: 'ok' });
     } catch (err) {
-      setMessage(errText(err, 'Compte poste non utilisé.'), 'alert');
+      setMessage(errText(err, 'Compte poste non utilisé.'), err?.code === 'machine.cancelled' ? 'warn' : 'alert');
       (err?.code === 'machine.passwordMissing' ? password : account).focus();
     } finally {
       busy = false;
@@ -202,7 +212,7 @@ export function openMachineAccountPanel(ctx, o) {
     panel.setBusy(true);
     trialHost.innerHTML = `<div class="mac-trial running"><span class="k-spin" aria-hidden="true"></span><span>Essai en cours sur ${esc(target)} avec ${esc(name)}…</span></div>`;
     try {
-      const r = await ctx.call('machine.account.trial', { target, account: name, password: simulated ? null : password.value });
+      const r = await ctx.call('machine.account.trial', credentialArgs(name));
       trialHost.innerHTML = `<div class="mac-trial ${esc(r.trial.tone)}">${glyph(r.trial.success ? 'check' : 'alert')}<span>${esc(r.trial.text)}${r.trial.simulated ? ` <em>Essai simulé${NBSP}: aucun poste contacté, mot de passe non vérifié.</em>` : ''}</span></div>`;
       refresh(r.state);
       announce(r.trial.text);

@@ -260,6 +260,7 @@ export function createDetail(host, ctx, o) {
   }
 
   function password(panel, d) {
+    const native = !(o.simulated?.() ?? d.simulated ?? true);
     const p = d.passwordInfo;
     const acc = d.account;
     const locked = acc.lock !== 'unlocked';
@@ -280,7 +281,8 @@ export function createDetail(host, ctx, o) {
       </div>
       <form class="cpt-pwd" novalidate autocomplete="off">
         <h3>${glyph('key')}Réinitialiser le mot de passe</h3>
-        <div class="cpt-pwd-grid">
+        ${native ? `<p class="k-hint">Le nouveau mot de passe et sa confirmation sont saisis dans une fenêtre native. Vous pourrez aussi y générer un mot de passe.</p>
+          <button class="btn sm" type="button" data-native-generate>${glyph('sparkles')}Générer dans la fenêtre sécurisée…</button>` : `        <div class="cpt-pwd-grid">
           <div class="k-field"><label for="cpt-pwd-new">Nouveau mot de passe</label>
             <div class="cpt-pwd-input"><input class="input mono" id="cpt-pwd-new" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" data-pwd="new">
               <button class="btn ghost icon sm" type="button" data-reveal aria-label="Afficher le mot de passe quelques secondes" aria-pressed="false">${glyph('eye')}</button></div></div>
@@ -295,11 +297,12 @@ export function createDetail(host, ctx, o) {
         </div>
         <ul class="cpt-pwd-rules" aria-label="Règles du mot de passe"></ul>
         ${complexity ? '' : `<p class="cpt-pwd-note">${glyph('info')}Le domaine n’exige pas la complexité (pwdProperties)${NBSP}: seule la longueur est vérifiée ici, le contrôleur décide du reste.</p>`}
+`}
         <div class="cpt-pwd-options">
           <label class="k-check-row" data-tip="${esc(defaults.source)}"><input class="k-checkbox" type="checkbox" data-must ${defaults.mustChange ? 'checked' : ''}><span>Changement obligatoire à la prochaine connexion</span></label>
           <label class="k-check-row${locked ? '' : ' off'}"${locked ? '' : ' data-tip="Le compte n’est pas verrouillé."'}><input class="k-checkbox" type="checkbox" data-unlock ${locked ? 'checked' : 'disabled'}><span>Déverrouiller ensuite${locked ? '' : ' (compte non verrouillé)'}</span></label>
         </div>
-        <p class="cpt-pwd-note">${glyph('shield')}Le mot de passe ne quitte la page qu’à «${NBSP}Préparer${NBSP}»${NBSP}: il est alors gardé en mémoire protégée pour ce seul plan, jamais dans le plan, le reçu ni le journal. Affiché, il se masque de lui-même après ${formatNumber(defaults.revealSeconds)}${NBSP}s. Le contrôleur vérifie aussi l’historique (${formatNumber(d.policy.passwordHistory)}).</p>
+        <p class="cpt-pwd-note">${glyph('shield')}${native ? 'Le mot de passe reste dans la fenêtre native puis dans la mémoire protégée du plan. Il ne passe pas par la page web.' : `Le mot de passe ne quitte la page qu’à «${NBSP}Préparer${NBSP}»${NBSP}: il est alors gardé en mémoire protégée pour ce seul plan, jamais dans le plan, le reçu ni le journal. Affiché, il se masque de lui-même après ${formatNumber(defaults.revealSeconds)}${NBSP}s.`} Le contrôleur vérifie aussi l’historique (${formatNumber(d.policy.passwordHistory)}).</p>
         <div class="cpt-pwd-foot">
           <button class="btn" type="button" data-must-only ${mustReason ? `disabled data-tip="${esc(mustReason)}"` : ''}>${glyph('refresh')}Imposer un changement seulement…${WRITE_MARK}</button>
           <button class="btn primary" type="submit" ${resetReason ? `disabled data-tip="${esc(resetReason)}"` : ''}>${glyph('key')}Préparer la réinitialisation…${WRITE_MARK}</button>
@@ -310,6 +313,19 @@ export function createDetail(host, ctx, o) {
     const ring = panel.querySelector('.cpt-pwd-ring .arc');
     if (ring) setVars(ring, { '--p': String((p.percent ?? 0) / 100) });
     const form = panel.querySelector('.cpt-pwd');
+    if (native) {
+      const prepare = (generate) => write('password', {
+        mustChange: panel.querySelector('[data-must]').checked,
+        unlock: panel.querySelector('[data-unlock]').checked,
+        generate,
+        theme: document.documentElement.dataset.theme === 'light' ? 'light' : document.documentElement.dataset.theme === 'contrast' ? 'contrast' : 'dark',
+      });
+      panel.querySelector('[data-must-only]').addEventListener('click', () => write('mustChange'));
+      panel.querySelector('[data-native-generate]').addEventListener('click', () => { if (!resetReason) prepare(true); });
+      panel.querySelector('[data-native-generate]').disabled = Boolean(resetReason);
+      form.addEventListener('submit', (event) => { event.preventDefault(); if (!resetReason) prepare(false); });
+      return;
+    }
     const inputNew = panel.querySelector('[data-pwd="new"]');
     const inputConfirm = panel.querySelector('[data-pwd="confirm"]');
     const rules = panel.querySelector('.cpt-pwd-rules');

@@ -565,14 +565,14 @@ public sealed class MachineAccountService : IDisposable
 
     private static string CredentialNote(bool simulation) => simulation
         ? "Simulation : aucun mot de passe n’est demandé. Le compte est gardé par son nom, en mémoire, pour essayer la règle et l’essai d’accès sur l’annuaire fictif."
-        : "Le mot de passe part au moteur dans le message de la page, puis devient aussitôt une SecureString en lecture seule, gardée en mémoire jusqu’à l’API Windows : le champ est vidé, rien n’est journalisé, renvoyé ni enregistré.";
+        : "Le mot de passe est saisi dans une fenêtre native et gardé en SecureString en lecture seule jusqu’à l’API Windows. Il ne passe pas par la page et reste en mémoire pour cette session seulement.";
 
     private static ImmutableArray<string> Safeguards(bool simulation)
     {
         var list = new List<string>
         {
             "Le compte poste vaut pour cette session : jamais enregistré sur le disque, jamais journalisé.",
-            "Le mot de passe quitte la page dans un seul message, devient aussitôt une SecureString en lecture seule jusqu’à l’API Windows, et n’est ni affiché, ni renvoyé à la page, ni passé en ligne de commande.",
+            "En mode annuaire, le mot de passe reste dans la fenêtre native puis en SecureString jusqu’à l’API Windows ; il ne passe ni par la page ni par la ligne de commande.",
             "Fermer le panneau, Échap ou un clic à côté ne changent rien : un mot de passe saisi sans " + FrenchText.Quote("Utiliser ce compte") + " est effacé.",
             "Chaque changement de compte ouvre une nouvelle génération : une opération lancée avec l’ancien compte s’arrête au lieu de mélanger deux comptes.",
             "L’essai d’accès lit seulement le système du poste choisi, sur votre clic : un seul poste, aucun balayage, aucune autre méthode.",

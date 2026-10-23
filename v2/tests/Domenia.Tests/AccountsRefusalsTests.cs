@@ -135,7 +135,7 @@ internal static class AccountsRefusalsTests
             Args(new { id = "d", op = "accounts.disable.plan", args = new { dn = Dn } }),
             Args(new { id = "m", op = "accounts.mustChange.plan", args = new { dn = Dn } }),
             Args(new { id = "x", op = "accounts.expiration.plan", args = new { dn = Dn, date = "2027-01-31" } }),
-            Args(new { id = "p", op = "accounts.password.plan", args = new { dn = Dn, password = "Vélo-Bleu-2026!", mustChange = true, unlock = false } }),
+            Args(new { id = "p", op = "accounts.password.plan", args = new { dn = Dn, generate = false, mustChange = true, unlock = false } }),
             Args(new { id = "l", op = "accounts.list", args = new { } }),
             Args(new { id = "b", op = "accounts.batch.preview", args = new { action = "unlock", dns = new[] { Dn } } }),
         ];

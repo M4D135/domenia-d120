@@ -14,8 +14,8 @@ namespace Domenia.Bridge;
 public sealed class MachineOperations : IOperationModule
 {
     private static readonly string[] TargetArguments = ["target"];
-    private static readonly string[] UseArguments = ["account", "password", "target"];
-    private static readonly string[] TrialArguments = ["target", "account", "password"];
+    private static readonly string[] UseArguments = ["account", "password", "target", "theme"];
+    private static readonly string[] TrialArguments = ["target", "account", "password", "theme"];
     private static readonly string[] SearchArguments = ["text"];
     private static readonly string[] WatchArguments = ["since", "target"];
 
@@ -32,6 +32,22 @@ public sealed class MachineOperations : IOperationModule
         ArgumentNullException.ThrowIfNull(context);
         var service = MachineAccountService.From(context);
         var simulation = context.Mode == AppMode.Simulation;
+        async Task<SecureString> NativeSecretAsync(IReadOnlyDictionary<string, JsonElement> values, string account, string? target, string title, CancellationToken token)
+        {
+            var session = await context.Directory.GetSessionAsync(token).ConfigureAwait(false);
+            var check = CredentialRules.CheckContext(CredentialRules.Remote, account, target,
+                new[] { session.Domain?.DnsName, session.Domain?.NetbiosName }.OfType<string>().ToArray());
+            if (!check.Valid) { throw new DomeniaOperationException(AccountAccess.ContextRefused, check.Reason); }
+            var theme = BridgeArguments.GetOptionalString(values, "theme") is "light" ? "light" : BridgeArguments.GetOptionalString(values, "theme") is "contrast" ? "contrast" : "dark";
+            using var answer = await context.Readers.Require<IAccountsCredentialWindow>().AskAsync(new(title, account,
+                target is null ? "Compte des opérations distantes, en mémoire pour cette session." : "Compte des opérations sur " + target + ".",
+                theme, [], false, "Ce compte ponctuel reste en mémoire uniquement. Le chargement ne confirme pas ses droits."), token).ConfigureAwait(false)
+                ?? throw new DomeniaOperationException("machine.cancelled", "Saisie annulée : aucun compte ni essai modifié.");
+            token.ThrowIfCancellationRequested();
+            if ((await context.Directory.GetSessionAsync(token).ConfigureAwait(false)).Epoch != session.Epoch)
+            { throw new DomeniaOperationException(AccountAccess.EpochChanged, "La session a changé pendant la saisie ; aucun compte chargé."); }
+            return answer.Password.Copy();
+        }
         return
         [
             new OperationDefinition("machine.account.state", OperationClass.LocalRead, async (args, _, cancellationToken) =>
@@ -46,7 +62,8 @@ public sealed class MachineOperations : IOperationModule
                 var account = Account(BridgeArguments.GetString(values, "account"));
                 var target = Target(values);
                 var password = BridgeArguments.GetOptionalString(values, "password");
-                var secure = Secret(password, simulation);
+                if (!simulation && values.ContainsKey("password")) { throw BridgeArguments.Invalid("Le mot de passe du compte poste utilise la fenêtre native."); }
+                var secure = simulation ? Secret(password, true) : await NativeSecretAsync(values, account, target, "Charger le compte poste", cancellationToken).ConfigureAwait(false);
                 try
                 {
                     service.UseTyped(account, secure);
@@ -74,6 +91,7 @@ public sealed class MachineOperations : IOperationModule
                 var candidateText = BridgeArguments.GetOptionalString(values, "account");
                 var candidate = candidateText is null ? null : Account(candidateText);
                 var password = BridgeArguments.GetOptionalString(values, "password");
+                if (!simulation && values.ContainsKey("password")) { throw BridgeArguments.Invalid("Le mot de passe du compte poste utilise la fenêtre native."); }
                 if (candidate is null && password is not null)
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("password") + " accompagne seulement un compte à valider.");
@@ -89,7 +107,7 @@ public sealed class MachineOperations : IOperationModule
                 {
                     source = MachineAccountSource.Typed;
                     account = candidate;
-                    secret = Secret(password, simulation);
+                    secret = simulation ? Secret(password, true) : await NativeSecretAsync(values, candidate, target, "Valider le compte sur ce poste", cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {

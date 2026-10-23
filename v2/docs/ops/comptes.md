@@ -461,3 +461,9 @@ Le stockage utilise `CRED_TYPE_GENERIC=1`, `CRED_PERSIST_LOCAL_MACHINE=2`, `Cred
 Sources Windows : [CredReadW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw), [CredWriteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew), [CREDENTIALW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw). Le test natif aller-retour et les captures des fenêtres restent à exécuter pendant la recette finale ; les huit tests de cette étape ne font aucun accès au coffre réel.
 
 La fenêtre de réinitialisation Fiche conserve maintenant sa copie acceptée avant `FormClosed` : effacer les contrôles ne détruit plus la valeur avant le transfert au moteur. Cette copie est transférée une seule fois, ou détruite à la fermeture si elle n’a pas été prise. Les fenêtres de secrets partagent la même gestion d’annulation et d’exclusion mutuelle.
+
+### Autres saisies natives (23/10/2026)
+
+En mode annuaire, `accounts.password.plan` utilise la fenêtre native Fiche après relecture des protections du compte. `generate` ouvre directement le générateur ; `mustChange`, `unlock` et `theme` sont les seuls choix supplémentaires envoyés par la page. Le secret ne rejoint jamais le pont. Annulation ou changement de session pendant la saisie ne prépare aucun plan.
+
+`machine.account.use` et `.trial` demandent également leur secret dans une fenêtre native (sans coffre pour ce compte ponctuel). Le champ `password`, même nul, est refusé en mode annuaire. Le contrat simulé reste inchangé. La recette des fenêtres reste différée à la validation finale.
