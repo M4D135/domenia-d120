@@ -431,4 +431,10 @@ Le journal 4740 passe par `wevtapi.dll` de Windows, sans dépendance ajoutée : 
 
 Sources Windows : [schéma 4740](https://learn.microsoft.com/previous-versions/windows/it-pro/windows-10/security/threat-protection/auditing/event-4740), [session distante](https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtopensession), [annulation](https://learn.microsoft.com/en-us/windows/win32/api/winevt/nf-winevt-evtcancel). Le schéma 4740 version 0 place bien le poste à l’origine dans `TargetDomainName` ; un champ `CallerComputerName` explicite est prioritaire s’il existe.
 
-Les comptes secondaires, la bascule de session, le coffre, les écritures LDAP et le lecteur Fiche complet restent à raccorder ; cette étape ne les déclare pas terminés. La recette native du journal sur la VM domaine reste à exécuter lors de la validation finale.
+Les comptes secondaires, la bascule de session, le coffre, et les écritures LDAP restent à raccorder ; cette étape ne les déclare pas terminés. La recette native du journal sur la VM domaine reste à exécuter lors de la validation finale.
+
+### Identité LDAP (23/10/2026)
+
+Une connexion explicite possède une copie du compte et du `SecureString`. Les connexions aux autres contrôleurs possèdent chacune leur propre copie, libérée à la fermeture. Un identifiant ou secret vide est refusé sans utilisation implicite du compte Windows. Le compte authentifié est résolu par UPN exact ou par domaine/SAM ; le SID du bureau ne sert que pour une connexion Windows. Un objet ambigu, étranger ou incohérent empêche la publication. Les droits restent inconnus tant qu’ils ne sont pas mesurés sur l’objet ; négociation signée/chiffrée ne signifie pas Kerberos prouvé. Une réinitialisation invalide les résultats encore en vol.
+
+Les copies utilisent `NetworkCredential.SecurePassword` (copie à l’entrée et à la sortie, libération du secret remplacé : [source .NET](https://github.com/dotnet/runtime/blob/main/src/libraries/System.Net.Primitives/src/System/Net/NetworkCredential.cs)). Le mot de passe n’est ni journalisé ni converti en chaîne applicative. La bascule et les comptes secondaires seront raccordés séparément avant la recette finale.

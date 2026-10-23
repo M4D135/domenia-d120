@@ -53,7 +53,14 @@ public sealed class AdConnection : IAdConnection
     public AdConnection(AdConnectionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        this.options = options;
+        if (options.Credential is { } supplied)
+        {
+            using var password = supplied.SecurePassword;
+            if (string.IsNullOrWhiteSpace(supplied.UserName) || password.Length == 0)
+            { throw new DomeniaOperationException(AdErrors.Credentials, "Compte explicite incomplet : aucune connexion ni repli sur la session Windows."); }
+            this.options = options with { Credential = new System.Net.NetworkCredential(supplied.UserName, password, supplied.Domain) };
+        }
+        else { this.options = options; }
     }
 
     /// <summary>Receives technical traces such as « LDAP search : code 49 ». Never contains a DN or a value.</summary>
@@ -63,18 +70,31 @@ public sealed class AdConnection : IAdConnection
     public string? Server => _server;
 
     /// <summary>Independent connection to a known domain controller, retaining this session's exact identity.</summary>
-    internal AdConnection ForServer(string server) => new(options with { Server = server, ConnectTimeout = TimeSpan.FromSeconds(8) });
+    internal AdConnection ForServer(string server)
+    {
+        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return new(options with { Server = server, ConnectTimeout = TimeSpan.FromSeconds(8) }); }
+    }
 
     internal bool UsesWindowsIdentity => options.Credential is null;
 
+    internal string? ExplicitLogin => options.Credential is { } credential
+        ? string.IsNullOrEmpty(credential.Domain) || credential.UserName.Contains('\\') || credential.UserName.Contains('@')
+            ? credential.UserName : credential.Domain + "\\" + credential.UserName : null;
+
     /// <summary>A caller-owned secure copy for another Windows protocol of this same connection identity.</summary>
     internal (string? User, string? Domain, System.Security.SecureString? Password) CopyCredential()
+    {
+        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return CopyCredentialCore(); }
+    }
+
+    private (string? User, string? Domain, System.Security.SecureString? Password) CopyCredentialCore()
     {
         var credential = options.Credential;
         if (credential is null) { return (null, null, null); }
         var user = credential.UserName;
         var domain = credential.Domain;
         var parsed = CredentialRules.Parse(user);
+        if (parsed.Form == AccountNameForm.Upn) { domain = ""; }
         if (parsed.Form == AccountNameForm.DownLevel)
         {
             if (!string.IsNullOrEmpty(domain) && !domain.Equals(parsed.Authority, StringComparison.OrdinalIgnoreCase))
@@ -392,6 +412,8 @@ public sealed class AdConnection : IAdConnection
             _server = null;
 
             connection?.Dispose();
+            // NetworkCredential disposes its internal SecureString when its secure property is cleared.
+            if (options.Credential is { } credential) { credential.SecurePassword = null; }
             _gate.Dispose();
         }
     }

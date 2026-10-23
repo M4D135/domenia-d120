@@ -37,6 +37,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     private readonly Lock gate = new();
     private DomainInfo? domain;
     private AccountIdentity? account;
+    private string? accountSid;
+    private DateTimeOffset? sessionStartedAt;
     private RightsInfo? rights;
     private string? failure;
     private string failureCode = AdErrors.NotConnected;
@@ -64,6 +66,9 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     public TimeProvider Clock { get; }
 
     public IDirectoryCache? LocalStore { get; }
+
+    internal string? SessionSid { get { lock (gate) { return accountSid; } } }
+    internal DateTimeOffset? SessionStartedAt { get { lock (gate) { return sessionStartedAt; } } }
 
     public bool CanPrepareDirectoryRefresh => LocalStore is IPreparedDirectoryCache;
 
@@ -159,7 +164,11 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         {
             var directory = state?.Directory;
             var store = directory is null || directory.ReadAt == DateTimeOffset.MinValue ? new StoreStatus(null, 0, false) : new StoreStatus(directory.ReadAt, directory.ObjectCount, directory.Complete);
-            var login = account?.Login ?? accountLogin();
+            var explicitLogin = (Connection as AdConnection)?.ExplicitLogin;
+            var login = account?.Login ?? explicitLogin ?? accountLogin();
+            var authentication = explicitLogin is null
+                ? new AuthenticationInfo(AuthenticationMethod.WindowsSession, null, domain is null ? "Session Windows" : "Session Windows (négociation, signée et chiffrée)")
+                : new AuthenticationInfo(AuthenticationMethod.ExplicitCredentials, null, domain is null ? "Compte explicite" : "Compte explicite (négociation, signée et chiffrée)");
             if (domain is null)
             {
                 return new SessionSnapshot(
@@ -167,7 +176,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                     directory is not null ? new DomainIdentity(directory.Domain.DnsName, directory.Domain.NetbiosName, directory.Domain.RootDn) : joinedDomain is null ? null : new DomainIdentity(joinedDomain, null, null),
                     null,
                     account ?? new AccountIdentity(login, null, null, null),
-                    new AuthenticationInfo(AuthenticationMethod.WindowsSession, null, "Session Windows"),
+                    authentication,
                     null,
                     new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, failure ?? "Droits évalués à la connexion à l’annuaire."),
                     false,
@@ -180,9 +189,9 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                 new DomainIdentity(domain.DnsName, domain.NetbiosName, domain.RootDn),
                 controller,
                 account ?? new AccountIdentity(login, null, null, null),
-                new AuthenticationInfo(AuthenticationMethod.WindowsSession, AuthenticationProtocol.Kerberos, "Session Windows (Kerberos, signée et chiffrée)"),
+                authentication,
                 null,
-                rights ?? new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Droits déduits des groupes à la connexion."),
+                rights ?? new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Droits non mesurés ; vérification nécessaire sur chaque objet."),
                 false,
                 store,
                 epoch);
@@ -352,6 +361,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         {
             domain = null;
             account = null;
+            accountSid = null;
+            sessionStartedAt = null;
             rights = null;
             failure = null;
             failedAt = null;
@@ -394,15 +405,19 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                     throw new DomeniaOperationException(failureCode, failure ?? AdErrors.NotConnectedMessage);
                 }
             }
+            var generation = Epoch;
             try
             {
                 var read = await AdDirectoryReader.ReadDomainAsync(Connection, cancellationToken).ConfigureAwait(false);
-                var (identity, level) = await ReadAccountAsync(read, cancellationToken).ConfigureAwait(false);
+                var resolved = await ReadAccountAsync(read, cancellationToken).ConfigureAwait(false);
                 lock (gate)
                 {
+                    if (epoch != generation) { throw new DomeniaOperationException(AdErrors.NotConnected, "Session modifiée pendant la connexion : résultat écarté."); }
                     domain = read;
-                    account = identity;
-                    rights = level;
+                    account = resolved.Identity;
+                    accountSid = resolved.Sid;
+                    rights = resolved.Rights;
+                    sessionStartedAt = Clock.GetUtcNow();
                     failure = null;
                     failedAt = null;
                     epoch++;
@@ -412,9 +427,12 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
             {
                 lock (gate)
                 {
-                    failure = ex.Message;
-                    failureCode = ex.Code;
-                    failedAt = Clock.GetUtcNow();
+                    if (epoch == generation)
+                    {
+                        failure = ex.Message;
+                        failureCode = ex.Code;
+                        failedAt = Clock.GetUtcNow();
+                    }
                 }
                 throw;
             }
@@ -426,31 +444,16 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     }
 
     /// <summary>The account of the Windows session in the directory (by its SID) and the rights estimated from its groups.</summary>
-    private async Task<(AccountIdentity Identity, RightsInfo Rights)> ReadAccountAsync(DomainInfo known, CancellationToken cancellationToken)
+    private async Task<AdSessionIdentity> ReadAccountAsync(DomainInfo known, CancellationToken cancellationToken)
     {
-        var login = accountLogin();
-        string? sid;
-        using (var identity = WindowsIdentity.GetCurrent())
+        var explicitLogin = (Connection as AdConnection)?.ExplicitLogin;
+        string? sid = null;
+        if (explicitLogin is null)
         {
+            using var identity = WindowsIdentity.GetCurrent();
             sid = identity.User?.Value;
         }
-        if (sid is null)
-        {
-            return (new AccountIdentity(login, null, null, null), new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Compte de la session sans SID lisible."));
-        }
-        var found = await Connection.SearchAsync(new AdSearchRequest(known.RootDn, "(objectSid=" + sid + ")", AdSearchScope.Subtree, ["displayName", "givenName", "distinguishedName", "adminCount", "memberOf"]) { SizeLimit = 1 }, cancellationToken).ConfigureAwait(false);
-        if (found.Count == 0)
-        {
-            return (new AccountIdentity(login, null, null, null), new RightsInfo(RightsLevel.Unknown, SessionTexts.RightsLabel(RightsLevel.Unknown), true, "Compte de la session absent de ce domaine (compte local ou d’un autre domaine)."));
-        }
-        var entry = found[0];
-        var groups = entry.Strings("memberOf");
-        var admin = entry.Int("adminCount") == 1
-            || groups.Any(g => g.StartsWith("CN=Domain Admins,", StringComparison.OrdinalIgnoreCase) || g.StartsWith("CN=Admins du domaine,", StringComparison.OrdinalIgnoreCase)
-                || g.StartsWith("CN=Enterprise Admins,", StringComparison.OrdinalIgnoreCase) || g.StartsWith("CN=Administrateurs de l’entreprise,", StringComparison.OrdinalIgnoreCase));
-        var level = admin ? RightsLevel.Admin : groups.Count > 0 ? RightsLevel.Delegated : RightsLevel.Read;
-        var detail = admin ? "Compte protégé (adminCount) ou membre d’un groupe d’administration du domaine." : FrenchText.Count(groups.Count, "groupe direct", "groupes directs") + " ; droits réels vérifiés à chaque écriture.";
-        return (new AccountIdentity(login, entry.String("displayName"), entry.String("givenName"), entry.DistinguishedName), new RightsInfo(level, SessionTexts.RightsLabel(level), true, detail));
+        return await AdSessionIdentity.ReadAsync(Connection, known, explicitLogin ?? accountLogin(), sid, explicitLogin is not null, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The exact targets of the confirmed refresh: no additional ping and no expansion of its set.</summary>
