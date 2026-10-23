@@ -89,6 +89,23 @@ internal sealed partial class WsmanReadChannel : IDisposable
         finally { Release(enumerator); }
     }
 
+    internal void Identify(TimeSpan timeout)
+    {
+        try { CheckIdentify((string)Session(timeout).Identify(0)); }
+        catch (COMException ex) { throw Fault(ex); }
+    }
+
+    internal static void CheckIdentify(string xml)
+    {
+        var root = ParseXml(xml);
+        var ns = root.Name.NamespaceName;
+        if (root.Name.LocalName != "IdentifyResponse" || ns is not ("http://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd" or "https://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd"))
+        { throw new XmlException("Réponse Identify inattendue."); }
+        var protocols = root.Elements().Where(e => e.Name.LocalName == "ProtocolVersion" && e.Name.NamespaceName == ns).ToArray();
+        if (protocols.Length != 1 || protocols[0].HasElements || protocols[0].Value is not ("http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd" or "https://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"))
+        { throw new XmlException("Version WS-Management non reconnue."); }
+    }
+
     internal RegistryReply ReadRegistry(RegistryRequest request, TimeSpan timeout)
     {
         if (!InventoryRegistry.Allowed(request)) { throw new ArgumentException("Lecture WinRM du registre hors contrat."); }

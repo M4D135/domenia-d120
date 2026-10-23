@@ -45,6 +45,9 @@ public enum WorkstationReading
 
     /// <summary>Five-check quick diagnosis, twenty seconds including the identity read.</summary>
     QuickDiagnostic,
+
+    /// <summary>Full diagnosis: identity, OS and declared system volume, reboot indicators; 45 s global ceiling.</summary>
+    Diagnostic,
 }
 
 /// <summary>
@@ -200,6 +203,7 @@ public sealed partial class WmiWorkstationReader
         WorkstationReading.Processes => CimBudgets.Processes,
         WorkstationReading.Events => CimBudgets.Events,
         WorkstationReading.QuickDiagnostic => CimBudgets.QuickDiagnostic,
+        WorkstationReading.Diagnostic => TimeSpan.FromSeconds(PosteDiagnostics.BudgetSeconds),
         _ => CimBudgets.QuickInventory,
     };
 
@@ -242,6 +246,8 @@ public sealed partial class WmiWorkstationReader
         var plan = Steps(reading);
         for (var index = 0; index < plan.Count; index++)
         {
+            if (reading == WorkstationReading.Diagnostic && index > 0 && !string.Equals(host.Split('.')[0], snapshot.ReportedName, StringComparison.OrdinalIgnoreCase))
+            { return snapshot.WithStatus(Categories(reading).Skip(1), SourceStatus.Unavailable, "Identité Windows non confirmée ; sources restantes non contactées."); }
             if (cancellationToken.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, "lecture arrêtée ou budget atteint"); }
             progress?.Report(new PosteProgress(index, plan.Count, plan[index].Label));
             try { snapshot = plan[index].Run(session, snapshot, access, cancellationToken); }
@@ -256,6 +262,12 @@ public sealed partial class WmiWorkstationReader
     /// <summary>The sources of one scope, in reading order (Domenia 1 worker order, quick first and deep last).</summary>
     private static List<Step> Steps(WorkstationReading reading) => reading switch
     {
+        WorkstationReading.Diagnostic =>
+        [
+            new(InventoryCategories.System, "Système", static (session, current, access, _) => ReadDiagnosticSystem(session, current, access, true)),
+            new(InventoryCategories.Volumes, "Volume système", static (session, current, access, _) => ReadDiagnosticDisk(session, current, access, current.Os?.SystemDrive)),
+            new(InventoryCategories.Reboot, "Redémarrage en attente", static (session, current, access, token) => ReadReboot(session, current, access, token)),
+        ],
         WorkstationReading.QuickDiagnostic =>
         [
             new(InventoryCategories.System, "Système et dernier démarrage", static (session, current, access, _) => ReadDiagnosticSystem(session, current, access)),

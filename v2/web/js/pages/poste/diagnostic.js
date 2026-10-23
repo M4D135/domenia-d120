@@ -31,8 +31,8 @@ export function renderDiagnostic(panel, state) {
   return () => { off(); offRun(); tabs.destroy(); };
 }
 
-const SEVERITY = { passed: { tone: 'ok', icon: 'check', label: 'Réussi' }, failed: { tone: 'alert', icon: 'x', label: 'Échec' }, information: { tone: 'info', icon: 'info', label: 'Information' }, notTried: { tone: 'off', icon: 'minus', label: 'Non tenté' } };
-const LAYER = { passed: { tone: 'ok', label: 'Réussi' }, failed: { tone: 'alert', label: 'Échec' }, partial: { tone: 'warn', label: 'Partiel' }, notTried: { tone: 'off', label: 'Non tenté' } };
+const SEVERITY = { passed: { tone: 'ok', icon: 'check', label: 'Réussi' }, failed: { tone: 'alert', icon: 'x', label: 'Échec' }, information: { tone: 'info', icon: 'info', label: 'Information' }, notTried: { tone: 'off', icon: 'minus', label: 'Non tenté' }, inconclusive: { tone: 'warn', icon: 'info', label: 'Non concluant' } };
+const LAYER = { passed: { tone: 'ok', label: 'Réussi' }, failed: { tone: 'alert', label: 'Échec' }, partial: { tone: 'warn', label: 'Partiel' }, notTried: { tone: 'off', label: 'Non tenté' }, inconclusive: { tone: 'warn', label: 'Non concluant' } };
 
 // ---------- Network diagnosis ----------
 
@@ -41,7 +41,7 @@ function network(host, state) {
   let report = '';
   host.innerHTML = `<div class="grid ps-grid">
     <section class="card ps-card span-12 reveal">${cardHead('wifi', 'Diagnostic du poste', 'Résolution DNS, ping, ports 135, 445, 3389, 5985, 5986, session CIM, partage C$, WinRM, transports de repli, système et disque', `<button class="btn primary" type="button" data-act="run">${ico('activity')}Lancer le diagnostic</button><button class="btn ghost" type="button" data-act="stop" hidden>${ico('pause')}Arrêter</button><button class="btn ghost" type="button" data-act="copy" disabled data-tip="Copier le rapport avec les codes bruts, pour un collègue">${ico('copy')}Copier pour un collègue</button>`)}
-      <div data-slot="body">${empty({ icon: 'activity', title: 'Aucun contrôle exécuté', text: 'Contrôles non modifiants, budget de 45 s ; les tests lents sont ignorés si les ports ne répondent pas.', action: { id: 'run', label: 'Lancer le diagnostic', icon: 'activity' } })}</div></section></div>`;
+      <div data-slot="body">${empty({ icon: 'activity', title: 'Aucun contrôle exécuté', text: 'Contrôles en lecture seule, budget global de 45 s ; un port ouvert ne prouve ni un protocole fonctionnel ni un droit.', action: { id: 'run', label: 'Lancer le diagnostic', icon: 'activity' } })}</div></section></div>`;
   const body = host.querySelector('[data-slot="body"]');
   async function run() {
     body.setAttribute('aria-busy', 'true');
@@ -56,8 +56,9 @@ function network(host, state) {
       report = r.report;
       host.querySelector('[data-act="copy"]').disabled = false;
       body.removeAttribute('aria-busy');
-      body.innerHTML = `<div class="ps-verdict-hero" data-tone="${r.failed ? (r.reachable ? 'warn' : 'alert') : 'ok'}">${ico(r.failed ? (r.reachable ? 'eye' : 'wifiOff') : 'check')}<p>${esc(r.verdict)}</p></div>
-        <div class="ps-counters">${[['passed', r.passed], ['failed', r.failed], ['information', r.information], ['notTried', r.notTried]].map(([k, v]) => `<span class="ps-counter" data-tone="${v === 0 && k !== 'passed' ? 'off' : SEVERITY[k].tone}"><b>${int(v)}</b>${esc(SEVERITY[k].label)}</span>`).join('')}
+      const conclusive = !r.inconclusive && r.layers.some((l) => l.step === 4 && l.state === 'passed');
+      body.innerHTML = `<div class="ps-verdict-hero" data-tone="${!conclusive && !r.failed ? 'off' : r.failed ? (r.reachable ? 'warn' : 'alert') : 'ok'}">${ico(!conclusive && !r.failed ? 'info' : r.failed ? (r.reachable ? 'eye' : 'wifiOff') : 'check')}<p>${esc(r.verdict)}</p></div>
+        <div class="ps-counters">${[['passed', r.passed], ['failed', r.failed], ['information', r.information], ['notTried', r.notTried], ['inconclusive', r.inconclusive ?? 0]].map(([k, v]) => `<span class="ps-counter" data-tone="${v === 0 && k !== 'passed' ? 'off' : SEVERITY[k].tone}"><b>${int(v)}</b>${esc(SEVERITY[k].label)}</span>`).join('')}
           <span class="ps-counter" data-tone="info"><b>${esc((r.durationMs / 1000).toFixed(1).replace('.', ','))}${NBSP}s</b>sur ${int(r.budgetSeconds)}${NBSP}s</span></div>
         <ol class="ps-layers" aria-label="Couches réseau">${r.layers.map((l) => `<li data-tone="${LAYER[l.state].tone}"${r.blockingStep === l.step ? ' data-blocking="1"' : ''}><span class="ps-layer-n">${int(l.step)}</span><div><b>${esc(l.label)}</b><span>${esc(LAYER[l.state].label)}${l.detail ? ` · ${esc(l.detail)}` : ''}</span></div>${r.blockingStep === l.step ? `<span class="chip alert">Étape bloquante</span>` : ''}</li>`).join('')}</ol>
         <ul class="ps-diag-rows">${r.rows.map((x) => `<li data-tone="${SEVERITY[x.severity].tone}"><span class="ps-diag-mark" aria-hidden="true">${ico(SEVERITY[x.severity].icon)}</span><div class="ps-diag-main"><b>${esc(x.label ?? x.check)}</b><span>${esc(x.detail)}</span>${x.remedy ? `<em>${ico('zap')}${esc(x.remedy)}</em>` : ''}</div>

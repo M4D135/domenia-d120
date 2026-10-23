@@ -9,6 +9,7 @@ public enum DiagSeverity
     Failed,
     Information,
     NotTried,
+    Inconclusive,
 }
 
 /// <summary>State of a network layer of the diagnosis (Domenia 1 point 90).</summary>
@@ -18,6 +19,7 @@ public enum LayerState
     Failed,
     Partial,
     NotTried,
+    Inconclusive,
 }
 
 /// <summary>One raw check of the worker: name, code (OK, ERREUR, REFUSE, INJOIGNABLE, INDISPONIBLE, IGNORE), method, duration, detail.</summary>
@@ -43,7 +45,10 @@ public sealed record DiagnosticResult(
     ImmutableArray<DiagRow> Rows,
     string Report,
     int DurationMs,
-    int BudgetSeconds);
+    int BudgetSeconds)
+{
+    public int Inconclusive { get; init; }
+}
 
 /// <summary>One planned check of the quick diagnosis, with its source and its own time-out.</summary>
 public sealed record QuickCheckPlan(string Id, string Label, string Source, int TimeoutSeconds);
@@ -131,6 +136,7 @@ public static class PosteDiagnostics
             "INDISPONIBLE" => "Non installé",
             "IGNORE" => "Non tenté",
             "INFO" => "Information",
+            "INCONNU" => "Non concluant",
             _ => code,
         };
     }
@@ -151,6 +157,7 @@ public static class PosteDiagnostics
         {
             return DiagSeverity.NotTried;
         }
+        if (code == "INCONNU") { return DiagSeverity.Inconclusive; }
         var name = check.Trim();
         foreach (var prefix in new[] { "WinRM", "Transport PsExec", "Transport Task Scheduler" })
         {
@@ -183,7 +190,7 @@ public static class PosteDiagnostics
             "TCP 445" => "Port SMB fermé ou filtré : ni C$, ni ADMIN$, ni PsExec.",
             "TCP 3389" => "Bureau à distance fermé : service TermService arrêté ou règle de pare-feu absente.",
             "Redemarrage en attente" => "Un redémarrage est attendu par le système : proposez-le à l’utilisateur.",
-            "Disque systeme" => "Libérez de l’espace sur C: avant d’installer des mises à jour.",
+            "Disque systeme" => "Vérifiez l’espace libre du volume système indiqué dans le contrôle.",
             _ => "Relisez le détail de la ligne et le journal technique avant de conclure.",
         };
     }
@@ -199,7 +206,7 @@ public static class PosteDiagnostics
                 return LayerState.NotTried;
             }
             var code = found.Status.Trim().ToUpperInvariant();
-            return code == "OK" ? LayerState.Passed : code is "IGNORE" or "INDISPONIBLE" or "" ? LayerState.NotTried : LayerState.Failed;
+            return code == "OK" ? LayerState.Passed : code is "IGNORE" or "INDISPONIBLE" or "" ? LayerState.NotTried : code == "INCONNU" ? LayerState.Inconclusive : LayerState.Failed;
         }
         DiagCheck? Find(string name) => rows.FirstOrDefault(r => string.Equals(r.Check, name, StringComparison.Ordinal));
         var dns = Find("Resolution DNS");
@@ -210,25 +217,27 @@ public static class PosteDiagnostics
         var share = Find("Partage C$");
         var dnsState = StateOf(dns);
         var pingState = StateOf(ping);
-        var tcpState = tcp.Count == 0 ? LayerState.NotTried : open.Count > 0 ? LayerState.Passed : LayerState.Failed;
+        var tcpState = tcp.Count == 0 || tcp.All(r => StateOf(r) == LayerState.NotTried) ? LayerState.NotTried : open.Count > 0 ? LayerState.Passed
+            : tcp.Any(r => StateOf(r) == LayerState.Failed) ? LayerState.Failed : LayerState.Inconclusive;
         var cimState = StateOf(cim);
         var shareState = StateOf(share);
         var protocol = cimState switch
         {
             LayerState.Passed => LayerState.Passed,
             LayerState.Failed => LayerState.Failed,
-            _ => shareState == LayerState.Passed ? LayerState.Partial : shareState == LayerState.Failed ? LayerState.Failed : LayerState.NotTried,
+            _ => shareState == LayerState.Passed ? LayerState.Partial : shareState == LayerState.Failed ? LayerState.Failed
+                : cimState == LayerState.Inconclusive || shareState == LayerState.Inconclusive ? LayerState.Inconclusive : LayerState.NotTried,
         };
         string DetailOf(DiagCheck? r) => r is null ? "" : PosteText.Flat(r.Detail, 120);
         var layers = ImmutableArray.Create(
             new DiagLayer(1, "Résolution du nom", dnsState, DetailOf(dns)),
             new DiagLayer(2, "Réponse ICMP (ping)", pingState, DetailOf(ping)),
-            new DiagLayer(3, "Transport TCP", tcpState, open.Count > 0 ? "ports ouverts : " + string.Join(", ", open) : tcp.Count > 0 ? "aucun port de gestion ne répond" : ""),
+            new DiagLayer(3, "Transport TCP", tcpState, open.Count > 0 ? "ports ouverts : " + string.Join(", ", open) : tcpState == LayerState.Failed ? "aucune connexion TCP établie dans les contrôles exécutés" : "Aucune ouverture de port confirmée."),
             new DiagLayer(4, "Protocole utile (CIM, C$)", protocol, cim is not null ? DetailOf(cim) : DetailOf(share)));
         var reachable = tcpState == LayerState.Passed || protocol is LayerState.Passed or LayerState.Partial;
         var blocking = 0;
         var sentence = "";
-        if (dnsState == LayerState.Failed)
+        if (dnsState == LayerState.Failed && !reachable)
         {
             blocking = 1;
             sentence = "La connexion échoue à la résolution du nom : aucune adresse n’est connue pour ce poste.";
@@ -258,7 +267,7 @@ public static class PosteDiagnostics
         }
         else if (!reachable)
         {
-            sentence = "Étape bloquante inconnue : aucun port ni protocole n’a été testé.";
+            sentence = "Étape bloquante inconnue : aucune lecture de port ou de protocole concluante.";
         }
         return (layers, blocking, reachable, sentence);
     }
@@ -282,11 +291,11 @@ public static class PosteDiagnostics
         var failed = rows.Where(r => r.Severity == DiagSeverity.Failed).ToList();
         var points = new List<string>();
         var dnsFailed = failed.Any(r => r.Check == "Resolution DNS");
-        if (dnsFailed || (failed.Any(r => r.Check == "Ping") && !reachable))
+        if (!reachable && dnsFailed)
         {
-            points.Add(subject + (dnsFailed ? " ne répond pas : son nom ne se résout pas." : " ne répond pas : aucun ping."));
+            points.Add("Disponibilité de " + subject + " non établie : résolution du nom en échec.");
         }
-        else
+        else if (reachable || rows.Any(r => r.Check == "Ping" && r.Severity == DiagSeverity.Passed))
         {
             var positives = new List<string>();
             if (rows.Any(r => r.Check == "Partage C$" && r.Severity == DiagSeverity.Passed))
@@ -299,11 +308,12 @@ public static class PosteDiagnostics
             }
             if (rows.Any(r => r.Check.StartsWith("TCP 3389", StringComparison.Ordinal) && r.Severity == DiagSeverity.Passed))
             {
-                positives.Add("Bureau à distance ouvert");
+                positives.Add("port 3389 ouvert");
             }
             var head = subject + " répond" + (failed.Any(r => r.Check == "Ping") ? " sans ping (ICMP filtré)" : "") + (positives.Count > 0 ? FrenchText.Colon + string.Join(", ", positives) : "");
             points.Add(head + ".");
         }
+        else { points.Add("Disponibilité de " + subject + " non établie par les contrôles reçus."); }
         if (sentence.Length > 0)
         {
             points.Add(sentence);
@@ -320,15 +330,15 @@ public static class PosteDiagnostics
             var fallbacks = optional.Except(winrm).ToList();
             if (winrm.Any(r => !r.Check.StartsWith("TCP 5986", StringComparison.Ordinal)))
             {
-                points.Add("WinRM fermé : normal tant que le parc n’utilise pas WinRM.");
+                points.Add("Au moins un contrôle WinRM n’a pas abouti ; voir son statut de transport ou d’accès.");
             }
             else if (winrm.Count > 0)
             {
-                points.Add("WinRM HTTPS (5986) non configuré : WinRM HTTP répond.");
+                points.Add("Le port WinRM HTTPS (5986) n’a pas répondu au contrôle.");
             }
             if (fallbacks.Count > 0)
             {
-                points.Add((fallbacks.Count == 1 ? "Repli indisponible : " : "Replis indisponibles : ") + string.Join(", ", fallbacks.Take(3).Select(r => FallbackLabel(r.Check))) + ".");
+                points.Add("Contrôles de repli non concluants : " + string.Join(", ", fallbacks.Take(3).Select(r => FallbackLabel(r.Check))) + ".");
             }
         }
         var verdict = string.Join(" ", points);
@@ -336,7 +346,7 @@ public static class PosteDiagnostics
             + string.Join(Environment.NewLine, rows.Select(r => r.Check + "\t" + r.Status + "\t" + r.StatusLabel + "\t" + r.Method + "\t" + r.DurationMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms\t" + PosteText.Flat(r.Detail, 200)));
         return new DiagnosticResult(computer, at, verdict,
             rows.Count(r => r.Severity == DiagSeverity.Passed), failed.Count, optional.Count, rows.Count(r => r.Severity == DiagSeverity.NotTried),
-            blocking, reachable, layers, rows, report, durationMs, BudgetSeconds);
+            blocking, reachable, layers, rows, report, durationMs, BudgetSeconds) { Inconclusive = rows.Count(r => r.Severity == DiagSeverity.Inconclusive) };
     }
 
     /// <summary>
