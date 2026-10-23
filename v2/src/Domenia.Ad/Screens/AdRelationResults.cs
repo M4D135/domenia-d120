@@ -17,6 +17,7 @@ internal sealed class AdRelationResults(AdDirectorySource source)
     private readonly Lock gate = new();
     private readonly Dictionary<string, (DateTimeOffset Expires, object Value)> results = new(StringComparer.Ordinal);
     private long epoch = source.Epoch;
+    private bool probing;
     internal static AdRelationResults For(AdDirectorySource source) => Instances.GetValue(source, static s => new(s));
     internal T Remember<T>(Func<string, T> create, long expectedEpoch) where T : class
     {
@@ -41,6 +42,27 @@ internal sealed class AdRelationResults(AdDirectorySource source)
                 : throw new DomeniaOperationException(RelationErrors.Expired, "Résultat absent, expiré ou d’une autre session ; relancez l’aperçu.");
         }
     }
+    internal T Take<T>(string id, long expectedEpoch) where T : class
+    {
+        lock (gate)
+        {
+            var value = Recall<T>(id, expectedEpoch); results.Remove(id); return value;
+        }
+    }
+    internal string RememberObservations(string origin, ImmutableDictionary<string, StoredRelation> observations, long expectedEpoch)
+    {
+        try { return Remember(id => new AdRelationObservationSet(id, origin, observations), expectedEpoch).Id; }
+        catch (DomeniaOperationException ex) when (ex.Code == RelationErrors.Expired)
+        {
+            // A full preview pool must not hide a completed native read. The producer has already queued its evidence.
+            return RelationChange.SessionResultId;
+        }
+    }
+    internal bool BeginProbe(long expectedEpoch)
+    {
+        lock (gate) { Purge(expectedEpoch); if (probing) { return false; } probing = true; return true; }
+    }
+    internal void EndProbe() { lock (gate) { probing = false; } }
     internal ImmutableArray<(AdRelationObservationSet Set, DateTimeOffset Expires)> ObservationSets(long expectedEpoch)
     {
         lock (gate) { Purge(expectedEpoch); return [.. results.Values.Where(r => r.Value is AdRelationObservationSet).Select(r => ((AdRelationObservationSet)r.Value, r.Expires))]; }

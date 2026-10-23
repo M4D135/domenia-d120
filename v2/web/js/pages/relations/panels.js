@@ -71,7 +71,7 @@ function upcoming(steps, start) {
 }
 
 const ORPHAN_STEPS = [
-  ['Orphelines trouvées', 'Compte ou poste absent, avec le motif et la source ; les 64 premières sont cochées, les sources protégées écartées.'],
+  ['Liens à examiner', 'Compte ou poste non retrouvé avec le compte de lecture, motif et source affichés ; sources protégées écartées, retrait par lots de 64 après examen.'],
   ['Retrait confirmé', 'Plan relu, confirmation et reçu ; chaque retrait reste restaurable depuis le journal.'],
 ];
 const HARVEST_STEPS = [
@@ -82,7 +82,7 @@ const HARVEST_STEPS = [
 const DETECT_STEPS = [
   ['Lecture de l’annuaire', 'Compte relu (même GUID, même identifiant), associations connues, managedBy et mentions du compte : aucun poste contacté.'],
   ['Postes à interroger', 'La liste exacte du périmètre, 50 postes au plus, avant toute sonde.'],
-  ['Détection et résultat', 'Console de chaque poste, compteurs en direct, arrêt au premier refus d’identifiants, puis enregistrement des consoles confirmées sur votre confirmation.'],
+  ['Détection et résultat', 'Console de chaque poste, compteurs en direct, arrêt au premier refus d’identifiants, puis mémorisation automatique des observations confirmées dans la base locale.'],
 ];
 const SWEEP_STEPS = [
   ['Postes à relever', 'La liste exacte des postes, avant tout contact.'],

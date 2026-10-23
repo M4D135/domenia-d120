@@ -532,6 +532,9 @@ public sealed partial class RelationsOperations : IOperationModule
     /// </summary>
     private static void ReportRefusals(EngineContext context, RelationDetection detection)
     {
+        // Native readers register the exact LDAP/remote lease and account key at the failure. Reclassifying their
+        // displayed attempts here would turn an LDAP refusal into a workstation refusal and could pause another account.
+        if (context.Mode == AppMode.Directory) { return; }
         var refused = detection.Attempts.Where(a => a.Target is not null
             && (string.Equals(a.Status, "REFUSE", StringComparison.OrdinalIgnoreCase) || string.Equals(a.Status, RelationProbeLoop.AuthRejected, StringComparison.OrdinalIgnoreCase))).ToList();
         if (refused.Count == 0)

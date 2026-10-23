@@ -25,10 +25,14 @@ public sealed partial class AdRelationsReader
         {
             var shared = AdRelationSession.For(source);
             if (shared.ValidationError(relation) is { } invalid) { throw new DomeniaOperationException(RelationErrors.IdentityChanged, invalid); }
-            var held = AdRelationResults.For(source).Remember(id => new AdRelationObservationSet(id, "Lecture de session",
-                ImmutableDictionary.CreateRange(StringComparer.Ordinal, [KeyValuePair.Create(RelationRules.Key(relation), relation)])), local.Epoch);
             var receipt = shared.ObserveValidated(relation, local.Epoch);
-            resultId = held.Id; savable = receipt.Accepted;
+            if (receipt.Accepted)
+            {
+                resultId = AdRelationResults.For(source).RememberObservations("Lecture de session",
+                    ImmutableDictionary.CreateRange(StringComparer.Ordinal, [KeyValuePair.Create(RelationRules.Key(relation), relation)]), local.Epoch);
+                if (resultId == RelationChange.SessionResultId) { message += " Aperçus individuels pleins ; observation regroupée avec les attentes de la session."; }
+            }
+            savable = receipt.Accepted;
             message += " " + receipt.Reason;
         }
         var pc = read.Computer;
@@ -38,7 +42,8 @@ public sealed partial class AdRelationsReader
     }
 
     /// <summary>One console only. Historical logon names, profile folders and fallback transports cannot supply this result.</summary>
-    private async Task<ConsoleResult> ReadConsoleAsync(DomainInfo domain, RelationObject expected, long epoch, CancellationToken cancellationToken)
+    private async Task<ConsoleResult> ReadConsoleAsync(DomainInfo domain, RelationObject expected, long epoch, CancellationToken cancellationToken,
+        AdReadAccess? sharedDirectory = null, string? expectedHost = null)
     {
         var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
         var computer = expected; RelationObservedAccount? observed = null; StoredRelation? relation = null;
@@ -52,7 +57,8 @@ public sealed partial class AdRelationsReader
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, elapsed.Token);
         try
         {
-            using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, null, budget.Token).ConfigureAwait(false);
+            using var ownedDirectory = sharedDirectory is null ? await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, null, budget.Token).ConfigureAwait(false) : null;
+            var directory = sharedDirectory ?? ownedDirectory!;
             var first = await AdRelationDirectory.ExactAsync(directory, domain, expected.Dn, expected.Guid, false, budget.Token).ConfigureAwait(false);
             if (first.Object.Kind != RelationSubjectKind.Computer || first.Object.Sid != expected.Sid || first.Object.Created != expected.Created
                 || !string.Equals(first.Object.Login, expected.Login, StringComparison.OrdinalIgnoreCase))
@@ -61,7 +67,8 @@ public sealed partial class AdRelationsReader
             var machineIdentity = AdDirectoryMapper.Computer(first.Entry)!;
             var host = machineIdentity.DnsHostName;
             if (host is null || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(machineIdentity) is null
-                || computer.Created == DateTimeOffset.MinValue || computer.Created > source.Clock.GetUtcNow())
+                || computer.Created == DateTimeOffset.MinValue || computer.Created > source.Clock.GetUtcNow()
+                || expectedHost is not null && !host.Equals(expectedHost, StringComparison.OrdinalIgnoreCase))
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Identité Windows ou date de création du poste incohérente ; aucun contact distant."); }
             using var machine = await AdWorkstationAccess.AcquireAsync(source, host, budget.Token).ConfigureAwait(false);
             directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(epoch);

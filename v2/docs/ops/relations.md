@@ -465,3 +465,14 @@ Sept tests ciblés couvrent les preuves courantes, les réponses incomplètes, l
 Seul un relevé unique, daté après la création du poste, lié au GUID, au nom Windows et au DN courant, avec statut de lecture complète, peut éviter une nouvelle console lorsque l’index ne montre aucune authentification ultérieure. Une date inconnue, un refus, un doublon, un ancien GUID, une base partiellement lisible ou un nom historique ne suppriment pas de cible. La portée locale et les limites restent affichées ; zéro candidat ne prouve aucune absence dans AD.
 
 Six tests sont ajoutés pour la compatibilité en lecture seule, les cellules et volumes bornés, les domaines, les priorités, les listes exactes et les identités ambiguës. Compilation Debug/Release en VM ; exécution réservée à la recette finale. La persistance des nouveaux passages, leur effacement avec sauvegarde, la sonde et la collecte/moisson restent à raccorder avant exposition du lecteur.
+
+
+## 22. Exécution native du périmètre confirmé (23/10/2026)
+
+`ProbeAsync` consomme le plan conservé par le moteur, une fois seulement. Une seconde sonde concurrente est refusée sans consommer son plan. Le périmètre reste limité aux GUID/DN/DNS affichés ; DNS changé, objet déplacé/recréé ou compte recherché modifié ne provoquent aucune substitution. Les sélections de compte sont vérifiées avant le geste et pendant la file. Un bail LDAP unique couvre le geste, notamment pour ne pas retomber sur la session Windows après consommation d’un compte à usage unique.
+
+Le relevé prépare ses pings ICMP par lots de huit, puis lit les consoles successivement avec les contrôles du § 20, sous budget global de 120 secondes. Silence ICMP signifie console non demandée, sans verdict d’arrêt du poste. Le premier rejet d’identifiants arrête la file ; un arrêt opérateur laisse les observations terminées dans la mémoire commune et renvoie un résultat partiel, que le pont peut mémoriser. Les constats non qualifiés ne produisent pas de relation.
+
+Les résultats détaillés restent bornés ; si d’autres aperçus remplissent le magasin pendant la sonde, ses observations rejoignent explicitement les attentes communes au lieu de masquer une lecture déjà effectuée. Les refus natifs sont enregistrés par le lecteur qui connaît l’identité authentifiée et le canal réel. Le pont conserve sa projection de refus pour la simulation seulement, afin de ne pas transformer un refus LDAP en pause du mauvais compte distant.
+
+Sept tests supplémentaires couvrent périmètre, compteurs, ping sans réponse, arrêt, rejet d’identifiants, DNS modifié, concurrence, expiration, rejeu et saturation des aperçus. Ils sont compilés, pas exécutés ; Debug et Release en VM : zéro avertissement, zéro erreur. Restent la collecte et la moisson, le stockage/effacement des nouveaux passages dans park_state et les autres producteurs de console partagée avant la recette complète.
