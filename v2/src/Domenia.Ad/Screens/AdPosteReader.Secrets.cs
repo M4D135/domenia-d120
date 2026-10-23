@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Domenia.Core;
+using Domenia.Core.Accueil;
 using Domenia.Core.Poste;
 
 namespace Domenia.Ad;
@@ -17,6 +18,14 @@ public sealed partial class AdPosteReader
     };
 
     private static bool HasClass(AdEntry entry, string name) => entry.Strings("objectClass").Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    private async Task SaveSecretMetadataAsync(LocalPoste local, AdReadAccess access, WorkstationSecretMetadata metadata)
+    {
+        access.EnsureCurrent(); EnsureEpoch(local.Epoch); PosteSecretCache.Validate(metadata, source.Clock.GetUtcNow());
+        await source.SaveFleetAsync(FleetCachePatch.Empty with
+        { WorkstationSecrets = ImmutableDictionary<Guid, WorkstationSecretMetadata>.Empty.Add(local.Computer.ObjectGuid, metadata) }, local.Epoch, CancellationToken.None).ConfigureAwait(false);
+        access.EnsureCurrent(); EnsureEpoch(local.Epoch);
+    }
 
     private async Task<AdEntry> SecretComputerAsync(LocalPoste local, AdReadAccess access, IReadOnlyList<string> attributes, CancellationToken token)
     {
@@ -51,7 +60,9 @@ public sealed partial class AdPosteReader
                     tone: raw == 0 || expiration < now ? Tone.Warn : Tone.Info),
                 PosteText.Fact("Mot de passe", "Non demandé", FactState.Unknown, "Lecture des métadonnées seulement", "La révélation est un geste distinct dans la fenêtre sécurisée.", at: now),
             ];
-            access.EnsureCurrent();
+            await SaveSecretMetadataAsync(local, access, new(null, null,
+                new(now, windows ? LapsKind.Windows : legacy ? LapsKind.Legacy : LapsKind.None, expiration is not null || raw == 0 ? raw : null,
+                    windows || legacy ? FactState.Observed : FactState.Unknown))).ConfigureAwait(false);
             return new(local.Computer.Name, now, LapsState.Unconfirmed, "Lecture du mot de passe non tentée",
                 "Métadonnées seulement. « Révéler » demande une valeur au contrôleur ; une expiration absente ne prouve pas l’absence de LAPS.",
                 Tone.Info, true, false, access.Account, facts);
@@ -81,16 +92,20 @@ public sealed partial class AdPosteReader
         var local = await LocalAsync(dn, budget.Token).ConfigureAwait(false);
         using var access = await AdReadAccess.AcquireAsync(source, CredentialRules.BitLocker, dn, budget.Token).ConfigureAwait(false);
         var now = source.Clock.GetUtcNow();
+        var confirmed = false;
         try
         {
             await SecretComputerAsync(local, access, ["objectGUID", "objectClass"], budget.Token).ConfigureAwait(false);
+            confirmed = true;
             var rows = await access.SearchAsync(SecretQuery(dn, "(objectClass=msFVE-RecoveryInformation)", AdSearchScope.OneLevel, RecoveryMetadata, PosteSecrets.BitLockerCap + 1), budget.Token).ConfigureAwait(false);
             var projected = rows.Take(PosteSecrets.BitLockerCap).Select(e => RecoveryInfo(e, dn, source.Zone)).ToArray();
             var repeated = projected.OfType<BitLockerKeyInfo>().GroupBy(k => k.KeyGuid, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var keys = projected.OfType<BitLockerKeyInfo>().Where(k => !repeated.Contains(k.KeyGuid)).OrderByDescending(k => k.CreatedAt).ThenBy(k => k.KeyGuid, StringComparer.Ordinal).ToImmutableArray();
             var incomplete = rows.Count > PosteSecrets.BitLockerCap || projected.Any(k => k is null) || repeated.Count > 0;
             await SecretComputerAsync(local, access, ["objectGUID", "objectClass"], budget.Token).ConfigureAwait(false);
-            access.EnsureCurrent();
+            var dates = keys.Select(k => k.CreatedAt).OfType<DateTimeOffset>().Where(at => at <= now).ToArray();
+            await SaveSecretMetadataAsync(local, access, new(new(now, incomplete ? keys.IsEmpty ? FactState.Unknown : FactState.Estimated : FactState.Observed,
+                incomplete && keys.IsEmpty ? null : keys.Length, dates.Length > 0 ? dates.Max() : null), null, null)).ConfigureAwait(false);
             return new(local.Computer.Name, now, FactState.Observed,
                 (incomplete ? "Liste partielle : limite atteinte ou identités illisibles/ambiguës écartées. " : "")
                 + (keys.IsEmpty ? "Aucun objet de récupération visible avec ce compte ; cela ne prouve pas l’absence de clés." : FrenchText.Count(keys.Length, "objet de récupération visible", "objets de récupération visibles") + "; aucune clé demandée."),
@@ -100,6 +115,7 @@ public sealed partial class AdPosteReader
         }
         catch (DomeniaOperationException ex) when (ex.Code is AdErrors.Credentials or AdErrors.AccessDenied)
         {
+            if (confirmed) { await SaveSecretMetadataAsync(local, access, new(new(now, FactState.Refused, null, null), null, null)).ConfigureAwait(false); }
             return new(local.Computer.Name, now, FactState.Refused, "Lecture refusée ; aucune conclusion sur la présence de clés.", [],
                 PosteSecrets.ColumnHeader(true, false), access.Account, true, []);
         }

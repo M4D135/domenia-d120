@@ -42,7 +42,8 @@ internal static class AdPosteSecretsTests
         Check.Equal(LapsState.Unconfirmed, view.State, "aucun état disponible avant lecture du mot de passe");
         Check.True(view.CanReveal, "geste explicite proposé sans prélecture secrète");
         Check.True(ldap.Searches.All(q => q.Attributes.All(a => a is "objectGUID" or "objectClass" or "msLAPS-PasswordExpirationTime" or "ms-Mcs-AdmPwdExpirationTime")), "projection fermée sans secret");
-        Check.Equal(0, cache.FleetWrites, "aucune valeur de secret enregistrée");
+        Check.Equal(1, cache.FleetWrites, "métadonnées enregistrées seules");
+        Check.NotNull(cache.Fleet.WorkstationSecrets[pc.ObjectGuid].Laps, "expiration datée liée au GUID");
     }
 
     [Test]
@@ -57,7 +58,8 @@ internal static class AdPosteSecretsTests
         Check.Equal(257, query.SizeLimit, "une ligne de garde détecte le dépassement de 256");
         Check.True(query.BinaryAttributes.Contains("msFVE-RecoveryGuid"), "GUID demandé sous forme binaire");
         Check.False(ldap.Searches.Any(q => q.Attributes.Contains("msFVE-RecoveryPassword")), "aucun mot de passe demandé");
-        Check.Equal(0, cache.FleetWrites, "lecture non persistée avec un contenu secret");
+        Check.Equal(1, cache.FleetWrites, "tentative enregistrée sans secret");
+        Check.Null(cache.Fleet.WorkstationSecrets[pc.ObjectGuid].BitLocker!.Keys, "ambiguïté non transformée en zéro");
     }
 
     [Test]

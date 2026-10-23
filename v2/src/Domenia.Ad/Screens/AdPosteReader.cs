@@ -131,10 +131,23 @@ public sealed partial class AdPosteReader
             "Base locale (relevé daté)", inv.Access.Count(a => a.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial), inv.Access.Count(a => a.Status == SourceStatus.Refused), inv.DurationMs, PosteLabels.TransportLabel(inv.Transport));
         var header = PosteHeaderRules.Header(computer, PosteHeaderRules.Badge(Presence(local), source.Zone, now), association, summary,
             local.Directory.ReadAt == DateTimeOffset.MinValue ? null : local.Directory.ReadAt);
-        var metadata = local.Fleet.Facts.BitLocker.Where(b => b.Machines.ContainsKey(computer.Guid)).OrderByDescending(b => b.At).FirstOrDefault();
+        var metadata = local.Fleet.Facts.BitLocker.Where(b => b.Machines.ContainsKey(computer.Guid) && local.Computer.WhenCreated != DateTimeOffset.MinValue
+            && b.At >= local.Computer.WhenCreated && b.At <= now.AddMinutes(2)).OrderByDescending(b => b.At).FirstOrDefault();
         var count = metadata?.Machines.GetValueOrDefault(computer.Guid)?.Keys;
-        var secrets = new SecretsSummary(count is null ? "Présence des clés BitLocker non lue pour ce poste ; aucune clé demandée." : FrenchText.Count(count.Value, "objet de récupération visible", "objets de récupération visibles"),
-            count, metadata?.At, computer.LapsKind, computer.LapsExpiration, computer.LapsExpiration < now, "Compte de lecture à confirmer au geste", "Métadonnées locales seulement", false, false);
+        var at = metadata?.At;
+        var known = PosteSecretCache.Applicable(local.Fleet.WorkstationSecrets.GetValueOrDefault(computer.Guid), local.Computer.WhenCreated, now);
+        var retained = known?.BitLocker is { Keys: > 0 } visible ? visible : known?.LastPositive ?? known?.BitLocker;
+        var useRetained = retained is not null && (at is null || retained.At >= at);
+        if (useRetained) { count = retained!.Keys; at = retained.At; }
+        var historic = useRetained && known?.LastPositive is not null && known.BitLocker?.Keys is not > 0;
+        var objectAt = local.Directory.ObjectReadAt?.GetValueOrDefault(computer.Guid, local.Directory.ReadAt) ?? local.Directory.ReadAt;
+        var laps = known?.Laps is { } freshLaps && freshLaps.At >= objectAt ? freshLaps : null;
+        var lapsExpiration = laps is null ? computer.LapsExpiration : AdValues.FromFileTime(laps.Expiration);
+        var lapsKind = laps?.Kind switch { LapsKind.Windows => "Windows LAPS", LapsKind.Legacy => "LAPS historique", LapsKind.None => "LAPS non déterminé", _ => computer.LapsKind };
+        var secrets = new SecretsSummary(count is null ? "Présence des clés BitLocker non lue pour ce poste ; aucune clé demandée." : FrenchText.Count(count.Value, "objet de récupération visible", "objets de récupération visibles")
+                + (historic ? " lors du dernier constat positif conservé ; la lecture suivante n’a pas confirmé cette présence." : " lors du relevé daté ; aucune clé demandée."),
+            count, at, lapsKind, lapsExpiration, laps?.Expiration == 0 || lapsExpiration < now, "Compte de lecture à confirmer au geste", "Métadonnées locales seulement",
+            known?.BitLocker?.State == FactState.Refused, laps?.State == FactState.Refused);
         var notes = ImmutableArray.CreateBuilder<PosteFact>();
         if (local.Fleet.Inventories.ContainsKey(computer.Guid) && inv is null)
         { notes.Add(PosteText.Fact("Inventaire écarté", "Identité ou date incompatible avec le compte ordinateur", FactState.Unknown, "Base locale", "Relancez un relevé ; le contenu incompatible n’est pas affiché.", tone: Tone.Warn)); }

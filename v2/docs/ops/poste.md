@@ -491,3 +491,11 @@ Le bail temporaire est indexé par la ressource LAPS ou BitLocker et le DN canon
 La page distingue désormais valeur invisible, refus de lecture et refus de déchiffrement, et laisse proposer un autre compte après ces réponses. Après validation, elle invite à relancer le geste ; aucune lecture ni révélation automatique. Les demandes d’accès des autres postes restent en attente.
 
 Cinq tests de ciblage, périmètre, oubli, pause et absence d’hôte ajoutés et compilés seulement. Debug/Release sans avertissement ; fenêtre et trois thèmes à qualifier dans la recette finale. Session Administrateur console 1 toujours active revérifiée, aucune fermeture de bureau.
+
+## 29. Métadonnées de secrets datées dans SQLite (23/10/2026)
+
+Les lectures de métadonnées LAPS et de liste BitLocker enregistrent uniquement des dates, états, types et nombres sous le GUID ordinateur. La dernière tentative BitLocker et le dernier constat positif sont distincts ; une lecture vide/refusée conserve la présence précédemment observée avec sa date d’origine. Les lectures arrivées en retard ne remplacent pas les plus récentes. LAPS et BitLocker fusionnent indépendamment. Une tentative refusée n’est enregistrée qu’après confirmation du GUID du parent.
+
+La base refuse GUID étranger/inconnu, dates futures, nombres incohérents et faux zéros associés à un état non lu. Les métadonnées antérieures à la création actuelle du poste, ou sans date de création fiable, ne sont pas réattribuées dans sa console. L’ouverture reste locale et signale explicitement un ancien constat positif que la lecture suivante n’a pas confirmé. Une relecture AD plus récente des expirations prime sur les métadonnées LAPS plus anciennes.
+
+Sept tests ajoutés et deux adaptés, compilés seulement : fusion datée, lecture vide/refusée, identité temporelle, validation, transaction SQLite et ouverture sans LDAP. Debug/Release sans avertissement. L’index réseau de toute l’OU et la reprise des anciennes données D1 restent à terminer ; `secret_state` D1 est conservé intact et n’est pas attribué automatiquement par simple homonymie (il ne porte pas le GUID du poste).
