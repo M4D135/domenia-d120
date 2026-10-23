@@ -5,6 +5,8 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+- Vingt-cinquième lot : la Fiche conserve désormais les attributs binaires personnalisés en octets, selon les syntaxes du schéma LDAP. Catalogue binaire borné et mémorisé par connexion, partition et doublons contrôlés, aucune extension de la liste explicite d’attributs ni lecture de secret. Trois tests ajoutés et compilés seulement ; Debug/Release **0 erreur, 0 avertissement**, preuve `docs/reprise/rapports/build-codex-schema-binaire-2026-10-23.txt`. L’éditeur brut réel reste à raccorder avec validation du schéma avant écriture.
+
 - Demande actuelle : exécuter `docs/reprise/PROMPT-CODEX.md` jusqu’à la release `v2.0.0` ; aucune release finale publiée à ce stade.
 - Démon `_pilotage/spark/auto.py`, processus OpenCode Domenia et vérifications automatiques résiduelles arrêtés. Aucun service LLM du Spark arrêté ou installé.
 - Inventaire : six branches `spark/*` existent, la tâche 07 n’a pas commencé. Seuls 03 (comptes/LDAP, 1 142 lignes applicatives environ) et 04 (CIM, 1 547 lignes environ) ont du code. 01/02 : notes ; 05/06 : aucun code. Aucune fusion globale : les brouillons ne sont pas qualifiés.

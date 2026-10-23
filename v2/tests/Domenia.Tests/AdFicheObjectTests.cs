@@ -9,6 +9,22 @@ internal static class AdFicheObjectTests
     private const string Dn = "CN=Compte,OU=Postes,DC=test,DC=local";
 
     [Test]
+    public static async Task Fiche_passes_only_requested_schema_binary_names_to_its_value_read()
+    {
+        using var ldap = new AdBoundaryTests.RecordingAdConnection
+        {
+            BinaryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "customBinary", "otherBinary", "unicodePwd" },
+            SearchAnswer = q => q.Scope != AdSearchScope.Base ? [] : [Entry(q.Attributes.Contains("allowedAttributes")
+                ? new() { ["allowedAttributes"] = ["customBinary", "unicodePwd"] } : new() { ["customBinary"] = [new byte[] { 0, 255, 128 }] })],
+        };
+        using var source = new AdDirectorySource("test.local", () => "test", TestClock.Fixed(), connection: ldap);
+        var read = await new AdFicheObjects(source).ReadAsync(Dn, CancellationToken.None);
+        Check.Equal("00FF80", read.Entry.First("customBinary"), "valeur hexadécimale exacte");
+        var query = ldap.Searches.Last();
+        Check.True(query.BinaryAttributes.SetEquals(["customBinary"]), "seul le champ binaire demandé et non sensible");
+    }
+
+    [Test]
     public static async Task Fiche_reads_use_safe_schema_names_and_do_not_expand_members_on_open()
     {
         using var ldap = new AdBoundaryTests.RecordingAdConnection

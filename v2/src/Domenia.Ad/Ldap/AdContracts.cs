@@ -38,6 +38,9 @@ public sealed record AdSearchRequest(string BaseDn, string Filter, AdSearchScope
 
     /// <summary>Requests only owner and DACL with the AD SD_FLAGS control; never the audit SACL.</summary>
     public bool ReadOwnerAndDacl { get; init; }
+
+    /// <summary>Schema-confirmed binary fields of this explicit request; cannot widen the requested attribute list.</summary>
+    public IReadOnlySet<string> BinaryAttributes { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>How a modification changes an attribute.</summary>

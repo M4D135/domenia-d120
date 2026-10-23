@@ -164,7 +164,7 @@ internal static class AdBoundaryTests
         ["ou"] = [name],
     });
 
-    internal sealed class RecordingAdConnection : IAdConnection
+    internal sealed class RecordingAdConnection : IAdConnection, IAdBinarySchemaProvider
     {
         public string Server => "DC1.test.local";
         public List<AdSearchRequest> Searches { get; } = [];
@@ -172,6 +172,8 @@ internal static class AdBoundaryTests
         public string SchemaContext { get; set; } = "CN=Schema,CN=Configuration," + Fixtures.Root;
         public Func<AdSearchRequest, IReadOnlyList<AdEntry>>? SearchAnswer { get; set; }
         public int Calls { get; private set; }
+        internal IReadOnlySet<string> BinaryNames { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public Task<IReadOnlySet<string>> ReadBinaryAttributesAsync(CancellationToken cancellationToken) => Task.FromResult(BinaryNames);
 
         public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken)
         {

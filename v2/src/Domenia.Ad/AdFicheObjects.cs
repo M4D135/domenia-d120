@@ -67,11 +67,17 @@ internal sealed class AdFicheObjects(AdDirectorySource source)
     {
         try
         {
-            var result = await source.Connection.SearchAsync(new(dn, "(objectClass=*)", AdSearchScope.Base, attributes)
+            var connection = source.Connection;
+            var binary = connection is IAdBinarySchemaProvider provider
+                ? await provider.ReadBinaryAttributesAsync(token).ConfigureAwait(false) : null;
+            var selectedBinary = attributes.Select(a => AdAttributeRange.TryParse(a, out var range) ? range!.Attribute : a)
+                .Where(a => binary?.Contains(a) == true).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var result = await connection.SearchAsync(new(dn, "(objectClass=*)", AdSearchScope.Base, attributes)
             {
                 PageSize = 1, SizeLimit = 2, Timeout = TimeSpan.FromSeconds(10), Budget = TimeSpan.FromSeconds(10),
                 ExpandRanges = expand, MaxRangeValues = expand && attributes.Contains("allowedAttributes") ? 4096 : 50_000,
                 ReadOwnerAndDacl = attributes.Contains("nTSecurityDescriptor", StringComparer.OrdinalIgnoreCase),
+                BinaryAttributes = selectedBinary,
             }, token).ConfigureAwait(false);
             if (result.Count > 1 || result.Any(e => !FicheValues.SameDn(e.DistinguishedName, dn) || e.Guid("objectGUID") is not { } id || id == Guid.Empty))
             { throw AdAttributeRange.Incomplete(); }

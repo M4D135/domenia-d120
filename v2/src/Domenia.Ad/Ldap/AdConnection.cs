@@ -9,7 +9,7 @@ namespace Domenia.Ad;
 /// The constructor does not connect; the first operation opens and binds the connection once.
 /// Read failures and proven write refusals have stable codes. A lost mutation response keeps an unknown outcome.
 /// </summary>
-public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
+public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection, IAdBinarySchemaProvider
 {
     private static readonly string[] RootDseAttributes =
     [
@@ -150,6 +150,8 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
     {
         if (request.Attributes.Count == 0 || request.Attributes.Count > 4096
             || request.Attributes.Any(name => !SafeReadAttribute(name))
+            || request.BinaryAttributes.Count > 4096 || request.BinaryAttributes.Any(name => !SafeReadAttribute(name)
+                || !request.Attributes.Any(a => (AdAttributeRange.TryParse(a, out var r) ? r!.Attribute : a).Equals(name, StringComparison.OrdinalIgnoreCase)))
             || request.MaxRangeValues is < 1 or > 50_000 || request.Budget <= TimeSpan.Zero || request.Budget > TimeSpan.FromMinutes(10)
             || request.ReadOwnerAndDacl && !request.Attributes.Contains("nTSecurityDescriptor", StringComparer.OrdinalIgnoreCase))
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Attributs ou limites de lecture LDAP non autorisés."); }
@@ -217,7 +219,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
                         continue;
                     }
 
-                    results.Add(await MaterializeEntryAsync(connection, entry, timeout, cancellationToken, request.ExpandRanges, request.MaxRangeValues).ConfigureAwait(false));
+                    results.Add(await MaterializeEntryAsync(connection, entry, timeout, cancellationToken, request.ExpandRanges, request.MaxRangeValues, request.BinaryAttributes).ConfigureAwait(false));
                     total++;
 
                     if (request.SizeLimit > 0 && total >= request.SizeLimit)
@@ -620,7 +622,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
         return new AdWriteOutcomeUnknownException();
     }
 
-    internal static AdEntry ReadEntry(SearchResultEntry entry)
+    internal static AdEntry ReadEntry(SearchResultEntry entry, IReadOnlySet<string>? binaryAttributes = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         var bag = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
@@ -630,15 +632,15 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
             var name = attribute.Name;
             if (!SafeReadAttribute(name)) { throw AdAttributeRange.Incomplete(); }
             var plain = AdAttributeRange.TryParse(name, out var range) ? range!.Attribute : name;
-            bag.Add(name, attribute.GetValues(IsBinaryAttribute(plain) ? typeof(byte[]) : typeof(string)));
+            bag.Add(name, attribute.GetValues(IsBinaryAttribute(plain) || binaryAttributes?.Contains(plain) == true ? typeof(byte[]) : typeof(string)));
         }
         return new(entry.DistinguishedName, bag);
     }
 
     private static async Task<AdEntry> MaterializeEntryAsync(LdapConnection connection, SearchResultEntry entry,
-        TimeSpan timeout, CancellationToken token, bool expand = true, int maximum = 50_000)
+        TimeSpan timeout, CancellationToken token, bool expand = true, int maximum = 50_000, IReadOnlySet<string>? binaryAttributes = null)
     {
-        var raw = ReadEntry(entry);
+        var raw = ReadEntry(entry, binaryAttributes);
         if (!expand) { return raw; }
         var bag = new Dictionary<string, IReadOnlyList<object>>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in raw.AttributeNames)
@@ -661,7 +663,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
                     [requested, "objectGUID", "uSNChanged"], timeout);
                 var response = await SendRequestAsync<SearchResponse>(connection, request, timeout, "range", token).ConfigureAwait(false);
                 if (response.Entries.Count != 1) { throw AdAttributeRange.Incomplete(); }
-                var next = ReadEntry(response.Entries[0]);
+                var next = ReadEntry(response.Entries[0], binaryAttributes);
                 if (!FicheValues.SameDn(raw.DistinguishedName, next.DistinguishedName) || next.Guid("objectGUID") != guid || next.Long("uSNChanged") != usn)
                 { throw AdAttributeRange.Incomplete(); }
                 var names = next.AttributeNames.Where(n => AdAttributeRange.TryParse(n, out var r) && r!.Attribute.Equals(range.Attribute, StringComparison.OrdinalIgnoreCase)).ToArray();

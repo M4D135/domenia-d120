@@ -10,6 +10,36 @@ namespace Domenia.Tests;
 internal static class AdTransportTests
 {
     [Test]
+    public static void Schema_binary_hints_preserve_custom_octets_and_cannot_request_extra_or_secret_fields()
+    {
+        var entry = (SearchResultEntry)Activator.CreateInstance(typeof(SearchResultEntry), BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null, args: [Fixtures.Postes], culture: CultureInfo.InvariantCulture)!;
+        ((IDictionary)entry.Attributes).Add("customBinary", new DirectoryAttribute("customBinary", new byte[] { 0, 255, 128, 0, 1 }));
+        var hints = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "customBinary" };
+        var read = AdConnection.ReadEntry(entry, hints);
+        Check.True(read.Bytes("customBinary")!.SequenceEqual(new byte[] { 0, 255, 128, 0, 1 }), "octets non UTF-8 conservés sans remplacement");
+        AdConnection.ValidateReadRequest(new(Fixtures.Postes, "(objectClass=*)", AdSearchScope.Base, ["customBinary"]) { BinaryAttributes = hints });
+        Check.Throws<DomeniaOperationException>(() => AdConnection.ValidateReadRequest(new(Fixtures.Postes, "(objectClass=*)", AdSearchScope.Base, ["description"]) { BinaryAttributes = hints }), "indice ne peut pas étendre la requête");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.ValidateReadRequest(new(Fixtures.Postes, "(objectClass=*)", AdSearchScope.Base, ["unicodePwd"]) { BinaryAttributes = new HashSet<string> { "unicodePwd" } }), "secret toujours interdit");
+    }
+
+    [Test]
+    public static void Binary_schema_results_are_bounded_local_to_the_schema_and_exclude_secret_names()
+    {
+        const string schema = "CN=Schema,CN=Configuration," + Fixtures.Root;
+        AdEntry Definition(string name, string syntax, string parent = schema) => new("CN=" + name + "," + parent,
+            new Dictionary<string, IReadOnlyList<object>> { ["lDAPDisplayName"] = [name], ["attributeSyntax"] = [syntax] });
+        var custom = Definition("customBinary", "2.5.5.10");
+        var names = AdConnection.BinarySchemaNames([custom, Definition("unicodePwd", "2.5.5.10"), Definition("descriptor", "2.5.5.15"), Definition("sidField", "2.5.5.17")], schema);
+        Check.True(names.Contains("CUSTOMBINARY") && names.Contains("descriptor") && names.Contains("sidField"), "trois syntaxes binaires confirmées");
+        Check.False(names.Contains("unicodePwd"), "valeur sensible jamais demandée");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.BinarySchemaNames([Definition("x", "2.5.5.12")], schema), "syntaxe étrangère au filtre");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.BinarySchemaNames([Definition("x", "2.5.5.10", Fixtures.Root)], schema), "objet hors schéma");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.BinarySchemaNames([custom, custom], schema), "doublon refusé");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.BinarySchemaNames(Enumerable.Repeat(custom, 2001).ToArray(), schema), "troncature refusée");
+    }
+
+    [Test]
     public static async Task Password_UTF16_buffers_are_quoted_then_erased_even_when_the_send_fails()
     {
         using var password = PasswordSecrets.FromText("Été-🦊-2026!");
