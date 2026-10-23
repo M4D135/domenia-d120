@@ -10,6 +10,19 @@ namespace Domenia.Tests;
 internal static class AdTransportTests
 {
     [Test]
+    public static void A_transport_failure_after_a_mutation_is_never_a_proven_directory_refusal()
+    {
+        foreach (var failure in new Exception[] { new LdapException(81, "diagnostic privé"), new TimeoutException("diagnostic privé"), new ObjectDisposedException("diagnostic privé"), new DirectoryOperationException("diagnostic privé") })
+        {
+            var result = AdConnection.MapMutationFailure("modify", failure);
+            Check.True(result is AdWriteOutcomeUnknownException, "issue inconnue sans réponse LDAP définitive");
+            Check.False(result is DomeniaOperationException, "le circuit ne doit pas conclure non appliqué");
+            Check.False(result.ToString().Contains("diagnostic privé", StringComparison.Ordinal), "diagnostic brut absent des journaux");
+            Check.Null(result.InnerException, "aucun diagnostic indirect");
+        }
+    }
+
+    [Test]
     public static void Another_Windows_protocol_gets_the_selected_credential_and_an_independent_secure_copy()
     {
         using var secret = new System.Security.SecureString();

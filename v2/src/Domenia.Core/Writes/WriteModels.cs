@@ -105,7 +105,11 @@ public sealed record WritePlanDraft(
     ImmutableArray<WriteRisk> Risks,
     WriteConfirmation Confirmation,
     WriteReversibility Reversibility,
-    string? Controller);
+    string? Controller)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public WritePlanOrigin? Origin { get; init; }
+}
 
 /// <summary>
 /// Immutable write plan (Domenia 1 TRV-213, TRV-227): the exact target, the ordered changes, the destination controller, the

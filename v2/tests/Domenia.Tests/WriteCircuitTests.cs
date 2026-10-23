@@ -128,6 +128,57 @@ internal static class WriteCircuitTests
         return (context, WriteCircuit.From(context), executor, clock);
     }
 
+    [Test]
+    public static async Task A_new_login_even_to_the_same_account_invalidates_an_old_confirmation()
+    {
+        var store = new MemoryReceiptStore();
+        var (context, circuit, executor, _) = FakeCircuit(store);
+        using var owned = context;
+        var source = (SimulatedDirectorySource)context.Directory;
+        var user = source.CurrentDirectory.Users.Single(u => u.SamAccountName == "adm-j.martin");
+        await ReopenAsync(source, user);
+        var planned = await circuit.PlanAsync(FakeWriteExecutor.Draft(), CancellationToken.None);
+        await ReopenAsync(source, user);
+        var refusal = await Check.ThrowsAsync<DomeniaOperationException>(() => circuit.ExecuteAsync(planned.Plan.Id, planned.Token, null, null, CancellationToken.None), "ancienne session");
+        Check.Equal(WriteErrors.Stale, refusal.Code, "confirmation caduque même pour le même login");
+        Check.Equal(0, executor.Checks + executor.Executes, "aucun accès à la cible");
+        Check.Equal(0, store.Appends, "aucun reçu d’envoi");
+        Check.False(circuit.InFlight, "verrou de session libéré après refus");
+    }
+
+    [Test]
+    public static async Task A_draft_read_in_an_old_session_and_a_switch_during_precheck_both_send_nothing()
+    {
+        var store = new MemoryReceiptStore();
+        var (context, circuit, executor, _) = FakeCircuit(store);
+        using var owned = context;
+        var source = (SimulatedDirectorySource)context.Directory;
+        var origin = WritePlanOrigin.From(await source.GetSessionAsync(CancellationToken.None));
+        var user = source.CurrentDirectory.Users.Single(u => u.SamAccountName == "adm-j.martin");
+        await ReopenAsync(source, user);
+        var draft = FakeWriteExecutor.Draft() with { Origin = origin };
+        var old = await Check.ThrowsAsync<DomeniaOperationException>(() => circuit.PlanAsync(draft, CancellationToken.None), "lecture antérieure à la connexion");
+        Check.Equal(WriteErrors.Stale, old.Code, "brouillon périmé");
+        var planned = await circuit.PlanAsync(FakeWriteExecutor.Draft(), CancellationToken.None);
+        executor.OnCheck = _ =>
+        {
+            Check.True(circuit.InFlight, "la vérification est déjà une écriture en cours");
+            ReopenAsync(source, user).GetAwaiter().GetResult();
+            return WritePrecheck.Valid("Objet inchangé");
+        };
+        var refusal = await Check.ThrowsAsync<DomeniaOperationException>(() => circuit.ExecuteAsync(planned.Plan.Id, planned.Token, null, null, CancellationToken.None), "session changée pendant la relecture");
+        Check.Equal(WriteErrors.Stale, refusal.Code, "refus avant le reçu et l’envoi");
+        Check.Equal(0, store.Appends + executor.Executes, "aucun envoi");
+        Check.False(circuit.InFlight, "fin du traitement");
+    }
+
+    private static async Task ReopenAsync(SimulatedDirectorySource source, DirectoryUser user)
+    {
+        using var password = new System.Security.SecureString(); password.AppendChar('x');
+        var answer = await new SimulatedAccountsReader(source).OpenSessionAsync(new(source.CurrentDirectory.Domain.NetbiosName + "\\" + user.SamAccountName, CredentialRules.Directory, null), password, CancellationToken.None);
+        Check.True(answer.Answer.Success, "reconnexion simulée réussie");
+    }
+
     // ---------------------------------------------------------------- the example: unlock, end to end
 
     [Test]

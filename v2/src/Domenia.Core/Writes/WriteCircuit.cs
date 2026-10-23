@@ -37,6 +37,9 @@ public sealed class WriteCircuit : IDisposable
     private readonly ConfirmationTokens tokens = new();
     private readonly Lock gate = new();
     private readonly Dictionary<string, WritePlan> plans = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WritePlanOrigin> origins = new(StringComparer.Ordinal);
+    private int inFlight;
+    public bool InFlight => Volatile.Read(ref inFlight) != 0;
     // Versions written (or attempted) during this session: they hold even when the disk refused them, and the latest wins.
     private readonly ConcurrentDictionary<string, WriteReceipt> session = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim writeGate = new(1, 1);
@@ -87,6 +90,8 @@ public sealed class WriteCircuit : IDisposable
             throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
         }
         var account = await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (draft.Origin is { } origin && !origin.Matches(account))
+        { throw WriteErrors.Refusal(WriteErrors.Stale, "La session a changé depuis la lecture de l’objet ; préparez un nouveau plan."); }
         await EnsureWritesFreeAsync(draft.Target.ObjectGuid, WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
         var now = clock.GetUtcNow();
         var plan = WritePlans.Seal(draft, WritePlans.NewId(), account.Account.Login, mode, now, clock.LocalTimeZone);
@@ -95,6 +100,7 @@ public sealed class WriteCircuit : IDisposable
         {
             PurgeLocked(now);
             plans[plan.Id] = plan;
+            origins[plan.Id] = draft.Origin ?? WritePlanOrigin.From(account);
         }
         log.Info($"Plan d’écriture {plan.Kind} préparé ({plan.Changes.Length} changement(s), confirmation {(plan.Confirmation.TypedNameRequired ? "par saisie du nom" : "simple")}).");
         return new PlannedWrite(plan, token);
@@ -151,10 +157,12 @@ public sealed class WriteCircuit : IDisposable
         await writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            Volatile.Write(ref inFlight, 1);
             return await RunAsync(plan, progress, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
+            Volatile.Write(ref inFlight, 0);
             writeGate.Release();
         }
     }
@@ -250,6 +258,12 @@ public sealed class WriteCircuit : IDisposable
 
     private async Task<ReceiptView> RunAsync(WritePlan plan, Action<WriteStage>? progress, CancellationToken cancellationToken)
     {
+        WritePlanOrigin? origin;
+        lock (gate) { origins.TryGetValue(plan.Id, out origin); }
+        var expected = await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (origin is null || !origin.Matches(expected))
+        { throw WriteErrors.Refusal(WriteErrors.Stale, "Ce plan appartient à une autre session ; aucune écriture envoyée."); }
+        using var lease = (directory as IDirectoryWriteLeaseSource)?.AcquireWriteLease(expected);
         await EnsureWritesFreeAsync(plan.Target.ObjectGuid, WriteErrors.ReceiptUnavailableMessage, cancellationToken).ConfigureAwait(false);
         var executor = writers.ForKind(plan.Kind)
             ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
@@ -262,6 +276,8 @@ public sealed class WriteCircuit : IDisposable
             log.Info($"Écriture {plan.Kind} non envoyée : préconditions changées depuis le plan.");
             throw new DomeniaOperationException(WriteErrors.Stale, precheck.Detail);
         }
+        if (!origin.Matches(await directory.GetSessionAsync(cancellationToken).ConfigureAwait(false)))
+        { throw WriteErrors.Refusal(WriteErrors.Stale, "La session a changé pendant les préconditions ; aucune écriture envoyée."); }
 
         // The receipt is durable BEFORE the request leaves (TRV-281): without it, nothing is sent.
         var receipt = WriteReceipts.Sent(plan, WritePlans.NewId(), clock.GetUtcNow(), new ReceiptDetail("Préconditions", precheck.Detail));
@@ -458,10 +474,12 @@ public sealed class WriteCircuit : IDisposable
         foreach (var id in plans.Where(p => now >= p.Value.ExpiresAt + WritePlans.Lifetime).Select(p => p.Key).ToList())
         {
             plans.Remove(id);
+            origins.Remove(id);
         }
         while (plans.Count >= PlanCapacity)
         {
-            plans.Remove(plans.MinBy(p => p.Value.CreatedAt).Key);
+            var oldest = plans.MinBy(p => p.Value.CreatedAt).Key;
+            plans.Remove(oldest); origins.Remove(oldest);
         }
     }
 }

@@ -28,6 +28,7 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     private readonly SimulatedDirectoryOverlay overlay = new();
     // Account of the session after « Changer de compte » (Comptes screen, CPT-007); null: the generated session account.
     private (AccountIdentity Account, RightsInfo Rights)? switched;
+    private long sessionEpoch;
 
     public SimulatedDirectorySource(SimulationOptions options, TimeProvider timeProvider)
     {
@@ -133,7 +134,7 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         {
             lock (gate)
             {
-                return switched is { } s ? World.Session with { Account = s.Account, Rights = s.Rights } : World.Session;
+                return switched is { } s ? World.Session with { Account = s.Account, Rights = s.Rights, Epoch = sessionEpoch } : World.Session;
             }
         }
     }
@@ -153,6 +154,7 @@ public sealed class SimulatedDirectorySource : IDirectorySource
         lock (gate)
         {
             switched = (identity, rights);
+            sessionEpoch++;
         }
         return identity;
     }

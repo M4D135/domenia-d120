@@ -9,6 +9,25 @@ namespace Domenia.Tests;
 internal static class AdAccountsAccessTests
 {
     [Test]
+    public static async Task A_write_lease_keeps_its_connection_until_the_readback_and_cannot_be_released_twice()
+    {
+        using var source = Source(out var previous);
+        var session = await source.GetSessionAsync(CancellationToken.None);
+        var lease = source.AcquireWriteLease(session);
+        using var next = new Connection("Bob", 1002);
+        var refused = Check.Throws<DomeniaOperationException>(() => source.AdoptConnection(next, Fixtures.Domain, Identity("Bob", 1002), source.Epoch, false), "bascule pendant l’écriture");
+        Check.Equal(AccountAccess.WritePending, refused.Code, "écriture en cours");
+        Check.Throws<DomeniaOperationException>(() => source.Reset(), "réinitialisation pendant l’écriture");
+        Check.False(previous.Disposed, "connexion de l’écriture toujours ouverte");
+        lease.Dispose(); lease.Dispose();
+        using (source.AcquireWriteLease(session))
+        { Check.Throws<DomeniaOperationException>(() => source.Reset(), "la double libération ne désactive pas le bail suivant"); }
+        source.AdoptConnection(next, Fixtures.Domain, Identity("Bob", 1002), source.Epoch, false);
+        Check.True(previous.Disposed, "connexion remplacée après relecture");
+        Check.Throws<DomeniaOperationException>(() => source.AcquireWriteLease(session), "ancienne époque refusée");
+    }
+
+    [Test]
     public static async Task Switching_authenticates_once_then_adopts_the_exact_account_and_disposes_the_previous_connection()
     {
         using var source = Source(out var previous);

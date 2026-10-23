@@ -263,3 +263,9 @@ composition.
 - Mode écriture global de Domenia 1 (TRV-186) : remplacé ici par la confirmation de chaque écriture ; à confirmer par David.
 - Exécuteurs réels dans `Domenia.Ad` (vague 3), puis essais réels dans `OU=Domenia-Tests` du labo (décision du 21/10,
   vague 4).
+
+## 10. Session et résultat de transport (23 octobre 2026)
+
+Le brouillon réel porte l’origine de sa lecture en mémoire seulement. Le circuit refuse de le sceller ou de l’envoyer si l’époque, le domaine, le compte ou le mode d’authentification ont changé. Même une reconnexion du même compte invalide les anciens plans. Pendant préconditions, envoi et relecture, un bail de la source AD empêche la bascule et la réinitialisation de la connexion. Un traitement en préconditions est déjà signalé comme une écriture en cours aux accès.
+
+Seule une réponse LDAP d’échec définitive permet de conclure à un refus du contrôleur. Une coupure, un délai client ou une fermeture après envoi conserve une issue inconnue, sans diagnostic serveur brut et sans répétition automatique. La relecture et le reçu restent obligatoires. Quatre tests de ces gardes sont écrits et compilés ; leur exécution reste prévue à la recette finale.

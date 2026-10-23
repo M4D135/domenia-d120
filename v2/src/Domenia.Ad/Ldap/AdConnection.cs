@@ -590,6 +590,7 @@ public sealed class AdConnection : IAdConnection
             if (response is null)
             {
                 RaiseTrace(operation, -1);
+                if (IsMutation(operation)) { throw new AdWriteOutcomeUnknownException(); }
                 throw new DomeniaOperationException(AdErrors.Failed, AdErrors.FailedMessage);
             }
 
@@ -602,9 +603,21 @@ public sealed class AdConnection : IAdConnection
 #pragma warning disable CA1031 // Convert unexpected platform failures to a stable DomeniaOperationException.
         catch (Exception ex)
         {
-            throw MapFailure(operation, ex);
+            throw IsMutation(operation) ? MapMutationFailure(operation, ex) : MapFailure(operation, ex);
         }
 #pragma warning restore CA1031
+    }
+
+    private static bool IsMutation(string operation) => operation is "modify" or "rename" or "add" or "delete";
+
+    internal static Exception MapMutationFailure(string operation, Exception failure)
+    {
+        if (failure is AdWriteOutcomeUnknownException) { return failure; }
+        if (failure is DirectoryOperationException { Response: { ResultCode: not ResultCode.Success } })
+        { return MapFailure(operation, failure); }
+        RaiseTrace(operation, GetErrorCode(failure));
+        // A client timeout, lost connection, disposal or an exception without a server response proves no outcome.
+        return new AdWriteOutcomeUnknownException();
     }
 
     internal static AdEntry ReadEntry(SearchResultEntry entry)

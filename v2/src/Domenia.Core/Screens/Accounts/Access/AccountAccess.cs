@@ -119,7 +119,8 @@ public sealed partial class AccountAccess : IDisposable
             {
                 try
                 {
-                    return (await WriteCircuit.From(c).ListAsync(ct).ConfigureAwait(false)).Pending;
+                    var circuit = WriteCircuit.From(c);
+                    return circuit.InFlight ? 1 : (await circuit.ListAsync(ct).ConfigureAwait(false)).Pending;
                 }
                 catch (DomeniaOperationException)
                 {

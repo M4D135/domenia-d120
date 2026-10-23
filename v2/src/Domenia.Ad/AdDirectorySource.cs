@@ -13,7 +13,7 @@ namespace Domenia.Ad;
 /// workstation measures (presence, light inventory) only on the working OU, never on the domain root. Read only by
 /// construction: the write executors of Domenia.Ad are the only writers, through <see cref="Connection"/>.
 /// </summary>
-public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IAccountContextSource, IDisposable
+public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPreparation, IAccountContextSource, IDirectoryWriteLeaseSource, IDisposable
 {
     public const int MaxObjectsPerKind = 50_000;
 
@@ -47,6 +47,23 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     private long epoch;
     private bool disposed;
     private string? connectionLogin;
+    private int writeLeases;
+    public IDisposable AcquireWriteLease(SessionSnapshot expected)
+    {
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (epoch != expected.Epoch || account is { } current && current.Login != expected.Account.Login)
+            { throw WriteErrors.Refusal(WriteErrors.Stale, "Session modifiée avant les préconditions ; aucune écriture envoyée."); }
+            writeLeases++;
+            return new WriteLease(this);
+        }
+    }
+    private sealed class WriteLease(AdDirectorySource source) : IDisposable
+    {
+        private AdDirectorySource? owner = source;
+        public void Dispose() { if (Interlocked.Exchange(ref owner, null) is { } active) { lock (active.gate) { active.writeLeases--; } } }
+    }
     internal EngineContext? AccountContext { get; private set; }
     public void BindAccountContext(EngineContext context)
     {
@@ -99,6 +116,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
+            if (writeLeases != 0) { throw new DomeniaOperationException(AccountAccess.WritePending, "Une écriture est en cours ; la connexion actuelle est conservée."); }
             if (epoch != expectedEpoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée pendant la validation : connexion écartée."); }
             var before = domain ?? state?.Directory.Domain;
             if (before is not null && (!DistinguishedName.AreEqual(before.RootDn, known.RootDn) || before.DomainSid != known.DomainSid)
@@ -429,6 +447,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     {
         lock (gate)
         {
+            if (writeLeases != 0) { throw new DomeniaOperationException(AccountAccess.WritePending, "Une écriture est en cours ; la session actuelle est conservée."); }
             domain = null;
             account = null;
             accountSid = null;
