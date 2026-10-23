@@ -443,3 +443,14 @@ Les plages memberOf sont lues jusqu’à 2 000 valeurs, avec continuité, même 
 Les appartenances retournées restent des lectures successives, pas une preuve de permissions effectives. Délais, références non lues, limites de volume et groupes principaux inconnus sont conservés dans les limites du résultat et son ticket. Un refus d’accès arrête la comparaison ; il ne devient pas une liste vide. Aucun de ces instantanés partiels n’écrase l’index SQLite. La société réelle est comparée. Les responsables de même libellé sont comparés par DN et départagés visuellement quand leurs noms coïncident.
 
 Six tests couvrent parcours et société, identités, limites de nombre/profondeur/filtres Unicode, versions, plages et délais/refus. Compilés uniquement, sans exécution ni recette AD à ce stade.
+
+
+## 20. Console native et observations partagées (23/10/2026)
+
+`ComputerSessionAsync` lit uniquement `Win32_ComputerSystem.Name/UserName`, en CIM/DCOM (quatre secondes), sans repli registre, profil, tâche ou WinRM. Le réglage désactivant CIM reste applicable. Le poste doit être présent sans ambiguïté dans l’index ; son GUID, SID, SAM et sa création sont relus dans AD avant le contact, puis son DNS et son identité sont recontrôlés avant publication. Le budget global est de 25 secondes. Un changement d’époque, de compte ou d’identité écarte le résultat.
+
+Un champ UserName absent, zéro ou plusieurs instances, une réponse partielle, un refus et une expiration ne constituent jamais une console vide. Un nom de compte qualifié est résolu exactement (SAM de domaine ou UPN complet) avec sentinelle d’ambiguïté. Le compte AD doit être antérieur à l’observation ; le SID du jeton n’étant pas lu, le résultat ne prétend pas à cette preuve. Aucune session RDP ni affectation déclarée n’est déduite.
+
+Les résultats qualifiés rejoignent la file native commune ; le pont demande leur mémorisation locale automatique, avec journal, comme prévu au § 12. La vue des attentes expose aussi chaque résultat ; une erreur de stockage garde la file. Après relecture SQLite, les résultats entièrement acquittés libèrent leur place. Les textes reçus par `ObserveAsync` ne créent jamais une observation réseau : seul un constat natif déjà présent, avec mêmes identités, source et date, est acquitté sans modifier son contenu.
+
+Sept tests ciblés couvrent les preuves courantes, les réponses incomplètes, les comptes locaux/homonymes, les UPN distincts du SAM, les identités remplacées, les refus et les observations falsifiées. Ils sont compilés, **pas encore exécutés**. Validation Debug/Release en VM : zéro avertissement, zéro erreur. Le lecteur attend encore collecte, sondes/relevés et moisson avant exposition du contrat complet.

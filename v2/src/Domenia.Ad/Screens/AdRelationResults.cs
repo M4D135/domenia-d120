@@ -39,6 +39,27 @@ internal sealed class AdRelationResults(AdDirectorySource source)
                 : throw new DomeniaOperationException(RelationErrors.Expired, "Résultat absent, expiré ou d’une autre session ; relancez l’aperçu.");
         }
     }
+    internal ImmutableArray<(AdRelationObservationSet Set, DateTimeOffset Expires)> ObservationSets(long expectedEpoch)
+    {
+        lock (gate) { Purge(expectedEpoch); return [.. results.Values.Where(r => r.Value is AdRelationObservationSet).Select(r => ((AdRelationObservationSet)r.Value, r.Expires))]; }
+    }
+    internal void ForgetSavedObservations(RelationCacheSnapshot stored, long expectedEpoch)
+    {
+        if (stored.Truncated || stored.Rejected > 0) { return; }
+        lock (gate)
+        {
+            Purge(expectedEpoch);
+            foreach (var pair in results.Where(r => r.Value.Value is AdRelationObservationSet).ToArray())
+            {
+                try
+                {
+                    var set = (AdRelationObservationSet)pair.Value.Value;
+                    if (AdRelationSession.PrepareItems(stored, set.Relations.Values).Length == 0) { results.Remove(pair.Key); }
+                }
+                catch (DomeniaOperationException) { /* Ambiguous storage is not an acknowledgement. */ }
+            }
+        }
+    }
     private void Purge(long expectedEpoch)
     {
         if (epoch != source.Epoch) { results.Clear(); epoch = source.Epoch; }

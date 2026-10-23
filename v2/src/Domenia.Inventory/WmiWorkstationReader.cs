@@ -91,7 +91,7 @@ public sealed partial class WmiWorkstationReader
     private readonly bool registryEnabled;
     private readonly ITechnicalJournal? journal;
     internal Func<string, TimeSpan, CancellationToken, CimSession>? SessionFactory { get; init; }
-    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, transport)
+    private CimSession Session(string host, TimeSpan budget, CancellationToken token, RemoteProbeCredential? credential, InventoryTransport? requiredTransport = null) => SessionFactory?.Invoke(host, budget, token) ?? new CimSession(host, budget, clock, journal, token, credential, requiredTransport ?? transport)
         { ReadsEnabled = readsEnabled, RegistryEnabled = registryEnabled };
 
     /// <summary>Contacts nothing: a workstation is only reached by an explicit read.</summary>
@@ -151,7 +151,7 @@ public sealed partial class WmiWorkstationReader
     /// workstation calls itself is returned with the account: the caller refuses the reading when it differs from the
     /// name of the directory.
     /// </summary>
-    public async Task<ConsoleAccountReading?> ReadConsoleAccountAsync(string host, CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
+    public async Task<ConsoleAccountReading?> ReadConsoleAccountAsync(string host, CancellationToken cancellationToken, RemoteProbeCredential? credential = null, bool dcomOnly = false)
     {
         ArgumentNullException.ThrowIfNull(host);
         if (!CimQuery.IsHostName(host))
@@ -164,21 +164,29 @@ public sealed partial class WmiWorkstationReader
         Task<ConsoleAccountReading> work;
         try { work = WmiReadWorkers.Start(credential, owned =>
         {
-            using var session = Session(host, CimBudgets.ConsoleSession, workToken, owned);
-            var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 1, CimBudgets.ConsoleSession);
-            var instance = reading.Instances.FirstOrDefault();
-            return new ConsoleAccountReading(host, reading.Status, instance?.Text("UserName"), instance?.Text("Name")) { AuthenticationRejected = reading.AuthenticationRejected };
+            using var session = Session(host, CimBudgets.ConsoleSession, workToken, owned, dcomOnly ? InventoryTransport.Dcom : null);
+            var reading = session.Read(InventoryCategories.System, Cimv2, "SELECT Name, UserName FROM Win32_ComputerSystem", 2, CimBudgets.ConsoleSession);
+            var instance = reading.Items == 1 ? reading.Instances[0] : null;
+            var complete = reading.Status == SourceStatus.Ok && instance is not null
+                && instance.Names.Contains("UserName", StringComparer.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(instance.Text("Name"));
+            var status = complete ? instance!.Text("UserName") is null ? SourceStatus.Empty : SourceStatus.Ok
+                : reading.Answered ? SourceStatus.Partial : reading.Status;
+            return new ConsoleAccountReading(host, status, complete ? instance!.Text("UserName") : null, instance?.Text("Name"))
+            {
+                AuthenticationRejected = reading.AuthenticationRejected, ObservedAt = clock.GetUtcNow(),
+                Detail = complete ? "Console lue ; SID du jeton et sessions RDP non recensés." : "Console non déterminée : " + reading.Detail,
+            };
         }, workToken); }
         catch { stop.Dispose(); throw; }
         try
         {
-            return await work.WaitAsync(CimBudgets.ConsoleSession + CimBudgets.GiveUpMargin, clock, cancellationToken).ConfigureAwait(false);
+            return await work.WaitAsync(CimBudgets.ConsoleSession, clock, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException)
         {
             stop.Cancel();
             _ = work.ContinueWith(static t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-            journal?.Info("Session de " + host + " non lue : délai dépassé.");
+            journal?.Info("Session console non lue : délai dépassé ou arrêt.");
             return new ConsoleAccountReading(host, SourceStatus.Interrupted, null, null);
         }
         finally { DisposeAfter(work, stop); }
@@ -987,6 +995,8 @@ public sealed partial class WmiWorkstationReader
 public sealed record ConsoleAccountReading(string Host, SourceStatus Status, string? ConsoleUser, string? ReportedName)
 {
     public bool AuthenticationRejected { get; init; }
+    public DateTimeOffset? ObservedAt { get; init; }
+    public string Detail { get; init; } = "Lecture de console interrompue ou indisponible.";
     /// <summary>True when the workstation answered with a console account.</summary>
     public bool Answered => (Status is SourceStatus.Ok or SourceStatus.Partial) && !string.IsNullOrWhiteSpace(ConsoleUser);
 }

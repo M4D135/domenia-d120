@@ -101,7 +101,7 @@ public sealed partial class AdRelationsReader(AdDirectorySource source)
     public async Task<RelationPendingObservations> PendingAsync(CancellationToken cancellationToken) =>
         Pending(await LocalAsync(cancellationToken, withJournal: false).ConfigureAwait(false));
 
-    private static RelationPendingObservations Pending(LocalRelations local)
+    private RelationPendingObservations Pending(LocalRelations local)
     {
         StoredRelation[] pending; string? issue = null;
         try
@@ -114,6 +114,14 @@ public sealed partial class AdRelationsReader(AdDirectorySource source)
         var batches = (pending.Length + WritePlans.MaxChanges - 1) / WritePlans.MaxChanges;
         ImmutableArray<RelationPendingSet> sets = pending.Length == 0 ? [] : [new(RelationChange.SessionResultId, "Observations natives de la session", local.Session.Length, pending.Length, batches,
             [.. pending.GroupBy(r => r.Source, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => new RelationPendingSource(g.Key, g.Count()))], null)];
+        var keys = pending.Select(RelationRules.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var (set, expires) in AdRelationResults.For(source).ObservationSets(local.Epoch))
+        {
+            var remaining = set.Relations.Where(p => keys.Contains(p.Key)).Select(p => p.Value).ToArray();
+            if (remaining.Length == 0) { continue; }
+            sets = sets.Add(new(set.Id, set.Origin, set.Relations.Count, remaining.Length, (remaining.Length + WritePlans.MaxChanges - 1) / WritePlans.MaxChanges,
+                [.. remaining.GroupBy(r => r.Source, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => new RelationPendingSource(g.Key, g.Count()))], expires));
+        }
         return new(pending.Length, batches, sets, (pending.Length == 0 ? "Aucune observation native en attente."
             : FrenchText.Count(pending.Length, "observation native en attente", "observations natives en attente") + " de mémorisation locale, par lots de 64.")
             + (issue is null ? "" : " " + issue));

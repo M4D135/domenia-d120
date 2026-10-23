@@ -94,7 +94,9 @@ const SWEEP_STEPS = [
 async function remainingOf(app, resultId) {
   try {
     const pending = await app.ctx.call('relations.observations.pending');
-    return pending.sets.find((s) => s.resultId === resultId)?.remaining ?? 0;
+    const found = pending.sets.find((s) => s.resultId === resultId);
+    // An expired result while observations remain is not proof of a successful save.
+    return found ? found.remaining : pending.total === 0 ? 0 : null;
   } catch (err) {
     console.error(err);
     return null;
@@ -634,7 +636,7 @@ function sessionMode(app, ctl, host, foot, subject) {
     <section class="rel-step-card">
       <h3>${glyph('monitor')}Session console de ${esc(subject.name)}</h3>
       <p>Lit l’utilisateur console du poste (Win32_ComputerSystem par CIM/DCOM, 4${NBSP}s), puis contrôle son identité${NBSP}: un compte local, d’un autre domaine ou non qualifié n’est jamais le compte AD.</p>
-      <p class="rel-note">${glyph('shield')}Geste explicite${NBSP}: une seule lecture, aucun rejeu. Rien n’est enregistré sans votre confirmation.</p>
+      <p class="rel-note">${glyph('shield')}Une lecture de console, puis vérification dans l’annuaire. Les observations confirmées sont mémorisées dans la base locale avec leur date et leur source ; les affectations existantes sont conservées.</p>
     </section>
     <div class="rel-session-out"></div></div>`;
   const out = host.querySelector('.rel-session-out');

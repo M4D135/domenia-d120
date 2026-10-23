@@ -114,6 +114,7 @@ internal sealed class AdRelationSession
             }
             var reread = await writer.ReadRelationsAsync(token).ConfigureAwait(false);
             pending = reread.Truncated || reread.Rejected > 0 ? Snapshot(expectedEpoch).Length : PrepareItems(reread, Snapshot(expectedEpoch)).Length;
+            AdRelationResults.For(source).ForgetSavedObservations(reread, expectedEpoch);
         }
         catch (OperationCanceledException)
         { stopped = "Mémorisation interrompue ; les observations non acquittées restent dans la session pour une prochaine tentative."; pending = Snapshot(expectedEpoch).Length; }
