@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Domenia.Core.Queries;
 
 namespace Domenia.Core.Accueil;
 
@@ -80,4 +81,8 @@ public interface IAccueilReader : IScreenReader
     /// OU; never the domain root. Returns the new local state; the other workstations keep their earlier reading and its date.
     /// </summary>
     Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken);
+    /// <summary>Confirmed plan only: exact identities and connection generation, never expands to new objects of the OU.</summary>
+    Task<DirectoryState> ReadPresenceAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken cancellationToken);
+    Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken cancellationToken);
+
 }

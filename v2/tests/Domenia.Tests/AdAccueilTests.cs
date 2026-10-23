@@ -3,6 +3,7 @@ using Domenia.Ad;
 using Domenia.Core;
 using Domenia.Core.Accueil;
 using Domenia.Core.Poste;
+using QueryComputerIdentity = Domenia.Core.Queries.QueryComputerIdentity;
 using Domenia.Inventory;
 using ProbeCatalog = Domenia.Core.Accueil.ProbeCatalog;
 using ProbeReading = Domenia.Core.Accueil.ProbeReading;
@@ -91,12 +92,41 @@ internal static class AdAccueilTests
         cache.Fleet = cache.Fleet.Merge(FleetCachePatch.Empty with { Observations = new(Fixtures.Now, [.. all.Select(c => Fixtures.Observe(c, Fixtures.Presence(c != offline, TimeSpan.Zero)))]) });
         var probe = new CountingProbe();
         using var ldap = new AdBoundaryTests.RecordingAdConnection();
+        ldap.SearchAnswer = q => q.Filter == "(objectClass=computer)" && all.FirstOrDefault(c => DistinguishedName.AreEqual(c.DistinguishedName, q.BaseDn)) is { } pc
+            ? [AdPosteNetworkTests.Entry(pc)] : [];
         using var source = new AdDirectorySource("test.local", () => "test", TestClock.Fixed(), probe, ldap, cache);
         await source.ReadLocalAsync(CancellationToken.None);
         await new AdAccueilReader(source).ReadInventoryAsync(Scope, all.Select(c => c.ObjectGuid).ToHashSet(), CancellationToken.None);
         Check.True(probe.Inventory.SequenceEqual(new[] { online.DnsHostName! }), "cible précise");
         Check.Equal(0, probe.Pings, "aucun second ping");
         Check.True(cache.Fleet.Observations.Workstations.Single(o => o.ComputerGuid == online.ObjectGuid).Inventory.HasReading, "inventaire durable avant publication");
+    }
+
+    [Test]
+    public static async Task Frozen_presence_includes_a_never_probed_target_and_rejects_identity_drift_before_ICMP()
+    {
+        var selected = Fixtures.Computer("NEVER"); var added = Fixtures.Computer("NEW");
+        var cache = new FleetCache(Fixtures.Snapshot(computers: [selected, added]));
+        var probe = new CountingProbe();
+        using var ldap = new AdBoundaryTests.RecordingAdConnection();
+        DirectoryComputer live = selected;
+        ldap.SearchAnswer = q => q.Filter == "(objectClass=computer)" && DistinguishedName.AreEqual(q.BaseDn, selected.DistinguishedName) ? [AdPosteNetworkTests.Entry(live)] : [];
+        using var source = new AdDirectorySource("test.local", () => "test", TestClock.Fixed(), probe, ldap, cache);
+        await source.ReadLocalAsync(CancellationToken.None);
+        var epoch = source.Epoch;
+        var identities = ImmutableDictionary<Guid, QueryComputerIdentity>.Empty.Add(selected.ObjectGuid, QueryComputerIdentity.Of(selected));
+        var reader = new AdAccueilReader(source);
+        await reader.ReadPresenceAsync(Scope, identities, epoch, CancellationToken.None);
+        Check.Equal(1, probe.Pings, "un poste jamais pingé est éligible, le nouveau poste non sélectionné est exclu");
+        Check.Equal(0, probe.Inventory.Count, "le ping seul ne lit pas CIM");
+        Check.True(cache.Fleet.Observations.Workstations.Single(o => o.ComputerGuid == selected.ObjectGuid).Presence.HasReading, "ping enregistré après qualification finale");
+        live = selected with { DnsHostName = "autre.test.local" };
+        await Check.ThrowsAsync<DomeniaOperationException>(() => reader.ReadPresenceAsync(Scope, identities, epoch, CancellationToken.None), "changement DNS réel après préparation refuse le contact");
+        Check.Equal(1, probe.Pings, "aucun second ICMP après substitution");
+        var replaced = identities.SetItem(selected.ObjectGuid, identities[selected.ObjectGuid] with { Created = selected.WhenCreated.AddSeconds(1) });
+        var beforeLdap = ldap.Searches.Count;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => reader.ReadPresenceAsync(Scope, replaced, epoch, CancellationToken.None), "réincarnation locale refuse avant la qualification réseau");
+        Check.Equal(beforeLdap, ldap.Searches.Count, "aucun LDAP si le plan ne correspond plus à la base");
     }
 
     [Test]

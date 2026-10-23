@@ -104,12 +104,13 @@ export function createHealth(host, env) {
 
   // ---------------------------------------------------------------- engine figures
 
-  function load(silent = false) {
+  function load(silent = false, periodic = false) {
     const call = silent ? env.silent : ctx.call;
     return Promise.allSettled([call('operations.health'), call('operations.engine')]).then(([h, e]) => {
       if (!alive) return;
       if (h.status === 'fulfilled') paintHealth(h.value); else failCards(['categories', 'slow', 'save'], h.reason);
       if (e.status === 'fulfilled') paintEngine(e.value); else failCards(['engine'], e.reason);
+      if (periodic && (h.status === 'rejected' || e.status === 'rejected')) throw h.reason ?? e.reason;
     });
   }
 
@@ -193,7 +194,7 @@ export function createHealth(host, env) {
   load(false);
   drawPulse(pulse.state());
   return {
-    refresh: (silent = true) => load(silent),
+    refresh: (silent = true, periodic = false) => load(silent, periodic),
     beat: (state) => drawPulse(state),
     destroy() { alive = false; },
   };

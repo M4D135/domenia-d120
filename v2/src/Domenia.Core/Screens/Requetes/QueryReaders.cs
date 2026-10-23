@@ -11,6 +11,17 @@ public sealed record QueryMeasureRequest(ImmutableArray<Guid> Computers, bool Pr
 {
     /// <summary>The SELECT definitions to read again (empty when none).</summary>
     public ImmutableArray<WmiReadDefinition> DetailReads => Details.IsDefault ? [] : Details;
+    public ImmutableDictionary<Guid, QueryComputerIdentity>? ExpectedIdentities { get; init; }
+    public long? ExpectedEpoch { get; init; }
+}
+
+/// <summary>Identity selected when an explicit plan is prepared; no later object sharing its GUID may be silently substituted.</summary>
+public sealed record QueryComputerIdentity(Guid Guid, string Dn, DateTimeOffset Created, string? Sid, string? Host, string? Account, int UserAccountControl)
+{
+    public static QueryComputerIdentity Of(DirectoryComputer computer) => new(computer.ObjectGuid, computer.DistinguishedName, computer.WhenCreated, computer.Sid, computer.DnsHostName, computer.SamAccountName, computer.UserAccountControl);
+    public bool Matches(DirectoryComputer actual) => actual.ObjectGuid == Guid && actual.WhenCreated == Created && actual.Sid == Sid && actual.UserAccountControl == UserAccountControl
+        && DistinguishedName.AreEqual(actual.DistinguishedName, Dn) && string.Equals(actual.DnsHostName, Host, StringComparison.OrdinalIgnoreCase)
+        && string.Equals(actual.SamAccountName, Account, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>Outcome of one collection: objects read, answered, failed; the dataset version after it.</summary>

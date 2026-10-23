@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Security.Principal;
 using Domenia.Core;
 using Domenia.Core.Accueil;
+using Domenia.Core.Queries;
 
 namespace Domenia.Ad;
 
@@ -591,18 +592,48 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
         finally { refreshing.Release(); }
     }
 
+    internal Task<DirectoryState> ReadPresenceAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        ReadFrozenMeasuresAsync(scope, targets, expectedEpoch, false, token);
+
+    internal Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        ReadFrozenMeasuresAsync(scope, targets, expectedEpoch, true, token);
+
+    private async Task<DirectoryState> ReadFrozenMeasuresAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, bool inventory, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        // Copy the caller's selection before the first await; subsequent mutations cannot enlarge the confirmed population.
+        var frozen = targets.ToImmutableDictionary();
+        var known = await DomainAsync(token).ConfigureAwait(false);
+        AdDirectoryReader.EnsureScope(scope, known.RootDn);
+        await LoadLocalAsync(token).ConfigureAwait(false);
+        await refreshing.WaitAsync(token).ConfigureAwait(false);
+        try { return await MeasureAsync(known, scope, inventory, token, frozen.Keys.ToHashSet(), frozen, expectedEpoch).ConfigureAwait(false); }
+        finally { refreshing.Release(); }
+    }
+
     /// <summary>Completed readings are committed together, including when the remaining targets were cancelled.</summary>
-    private async Task<DirectoryState> MeasureAsync(DomainInfo known, ScopeSelection scope, bool inventory, CancellationToken cancellationToken, IReadOnlySet<Guid>? exactTargets = null)
+    private async Task<DirectoryState> MeasureAsync(DomainInfo known, ScopeSelection scope, bool inventory, CancellationToken cancellationToken, IReadOnlySet<Guid>? exactTargets = null, IReadOnlyDictionary<Guid, QueryComputerIdentity>? expectedIdentities = null, long? expectedEpoch = null)
     {
         if (probe is null) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Collecteur de postes indisponible : aucun poste contacté."); }
-        DirectoryState current;
-        lock (gate) { current = state ?? Empty(known); }
-        var generation = Epoch;
+        DirectoryState current; long generation;
+        lock (gate)
+        {
+            current = state ?? Empty(known); generation = epoch;
+            if (expectedEpoch is not null && expectedEpoch != generation)
+            { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée depuis le plan ; aucun poste contacté."); }
+            if (expectedIdentities is not null)
+            {
+                var actual = current.Directory.Computers.ToDictionary(c => c.ObjectGuid);
+                if (expectedIdentities.Any(pair => !actual.TryGetValue(pair.Key, out var computer) || !pair.Value.Matches(computer)
+                    || !ScopeRules.Contains(scope, computer.DistinguishedName)))
+                { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Population confirmée modifiée ; préparez un nouveau relevé. Aucun poste contacté."); }
+            }
+        }
         if (current.Directory.Computers.IsDefaultOrEmpty)
         { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Relisez d’abord l’annuaire : aucun poste connu dans l’OU de travail."); }
         var previous = current.Observations.Workstations.ToDictionary(w => w.ComputerGuid);
         var targets = current.Directory.Computers.Where(c => ScopeRules.Contains(scope, c.DistinguishedName) && !AdValues.IsDisabled(c.UserAccountControl)
-            && (exactTargets is null || exactTargets.Contains(c.ObjectGuid) && previous.TryGetValue(c.ObjectGuid, out var o) && o.Presence.HasReading && o.Presence.Answered == true)).ToArray();
+            && (exactTargets is null || exactTargets.Contains(c.ObjectGuid) && (!inventory || previous.TryGetValue(c.ObjectGuid, out var o) && o.Presence.HasReading && o.Presence.Answered == true))).ToArray();
         var results = new WorkstationObservation?[targets.Length];
         var facts = new System.Collections.Concurrent.ConcurrentDictionary<Guid, MachineFacts>();
         using var limit = new SemaphoreSlim(inventory ? InventoryParallel : PingParallel);
@@ -612,6 +643,19 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
             try
             {
                 if (Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
+                // Ping only needs the selected directory lease; never acquire a machine password for ICMP.
+                using var directory = exactTargets is not null
+                    ? await AdReadAccess.AcquireAsync(this, CredentialRules.Directory, computer.DistinguishedName, cancellationToken).ConfigureAwait(false) : null;
+                async Task ConfirmDirectory()
+                {
+                    if (directory is null) { return; }
+                    var actual = await AdQueryAccess.QualifyAsync(this, directory, computer, cancellationToken).ConfigureAwait(false);
+                    if (!QueryComputerIdentity.Of(computer).Matches(actual) || AdValues.IsDisabled(actual.UserAccountControl))
+                    { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité ou activation du poste modifiée depuis le plan ; résultat écarté."); }
+                    directory.EnsureCurrent();
+                    if (Epoch != generation) { throw new OperationCanceledException("La session a changé.", cancellationToken); }
+                }
+                await ConfirmDirectory().ConfigureAwait(false);
                 var host = computer.DnsHostName ?? computer.Name;
                 previous.TryGetValue(computer.ObjectGuid, out var before);
                 var presence = before?.Presence ?? PresenceMeasure.Unread;
@@ -621,7 +665,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                     var answered = await probe.PingAsync(host, PingTimeout, cancellationToken).ConfigureAwait(false);
                     var at = Clock.GetUtcNow();
                     presence = new PresenceMeasure(MeasureState.Known, answered, at, answered ? at : presence.LastOnlineAt);
-                    results[index] = new(computer.ObjectGuid, presence, measured);
+                    if (exactTargets is null) { results[index] = new(computer.ObjectGuid, presence, measured); }
                 }
                 if (inventory && presence.HasReading && presence.Answered == true)
                 {
@@ -654,6 +698,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                         facts[computer.ObjectGuid] = new(null, null, null, null, measured.State, measured.CheckedAt, measured.HasReading ? null : "Inventaire non lu.");
                     }
                 }
+                await ConfirmDirectory().ConfigureAwait(false);
                 results[index] = new(computer.ObjectGuid, presence, measured);
             }
             catch (DomeniaOperationException ex) when (ex.Code is MachineErrors.AccountPaused or AccountAccess.ContextRefused or "machine.busy")
@@ -664,6 +709,11 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
                 var presence = previous.GetValueOrDefault(computer.ObjectGuid)?.Presence ?? PresenceMeasure.Unread;
                 results[index] = new(computer.ObjectGuid, presence, new(status, at, null, null, null, null, null, null, null));
                 facts[computer.ObjectGuid] = new(null, null, null, null, status, at, refused ? "Compte en pause ou contexte refusé ; aucun essai envoyé." : "Lectures précédentes encore en cours ; aucun essai envoyé.");
+            }
+            catch
+            {
+                if (exactTargets is not null) { results[index] = null; facts.TryRemove(computer.ObjectGuid, out _); }
+                throw;
             }
             finally { limit.Release(); }
         }).ToArray();

@@ -8,7 +8,7 @@ public sealed partial class AdDirectorySource
     private bool localMaintenance;
 
     /// <summary>Serializes destructive local storage work with publication and replaces every cached projection afterwards.</summary>
-    internal async Task<T> RunLocalMaintenanceAsync<T>(Func<CancellationToken, Task<T>> mutation, CancellationToken cancellationToken)
+    internal async Task<T> RunLocalMaintenanceAsync<T>(Func<CancellationToken, Task<T>> mutation, CancellationToken cancellationToken, long? expectedEpoch = null)
     {
         ArgumentNullException.ThrowIfNull(mutation);
         if (LocalStore is null) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Stockage local indisponible."); }
@@ -26,6 +26,8 @@ public sealed partial class AdDirectorySource
                     lock (gate)
                     {
                         ObjectDisposedException.ThrowIf(disposed, this);
+                        if (expectedEpoch is { } expected && epoch != expected)
+                        { throw WriteErrors.Refusal(WriteErrors.Stale, "Session modifiée pendant l’attente de maintenance ; aucune mutation locale."); }
                         localMaintenance = true; writeLeases++;
                         generation = ++epoch;
                         localLoaded = false; state = null; fleet = CachedFleet.Empty("session");

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Domenia.Core;
 using Domenia.Core.Poste;
+using Domenia.Core.Queries;
 using Domenia.Inventory;
 
 namespace Domenia.Ad;
@@ -20,10 +21,13 @@ public sealed partial class AdRelationsReader
     internal Task<RelationComputerReading> ComputerSessionAsync(string dn, Guid? expectedGuid, CancellationToken cancellationToken) =>
         ComputerSessionCoreAsync(dn, expectedGuid, null, TimeSpan.FromSeconds(25), cancellationToken);
 
+    internal Task<RelationComputerReading> ComputerSessionAsync(QueryComputerIdentity expected, CancellationToken cancellationToken) =>
+        ComputerSessionCoreAsync(expected.Dn, expected.Guid, null, TimeSpan.FromSeconds(25), cancellationToken, expected);
+
     private delegate Task<ConsoleAccountReading?> NativeConsoleRead(WmiWorkstationReader reader, AdWorkstationAccess access, string host, CancellationToken token);
 
     private async Task<RelationComputerReading> ComputerSessionCoreAsync(string dn, Guid? expectedGuid, NativeConsoleRead? nativeRead,
-        TimeSpan duration, CancellationToken cancellationToken)
+        TimeSpan duration, CancellationToken cancellationToken, QueryComputerIdentity? planned = null)
     {
         var epoch = source.Epoch;
         var state = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false); EnsureEpoch(epoch);
@@ -35,7 +39,7 @@ public sealed partial class AdRelationsReader
         if (expectedGuid is { } id && expected.Guid != id)
         { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Le GUID du poste a changé depuis son affichage ; aucun contact envoyé."); }
         var memory = await AdRelationPassMemory.BeginAsync(source, local.Directory.Domain.RootDn, local.Epoch, cancellationToken).ConfigureAwait(false);
-        var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken, nativeRead: nativeRead, duration: duration).ConfigureAwait(false);
+        var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken, nativeRead: nativeRead, duration: duration, planned: planned).ConfigureAwait(false);
         EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
         var resultId = ""; var message = read.Message; var savable = false;
         if (read.Relation is { } relation)
@@ -62,7 +66,7 @@ public sealed partial class AdRelationsReader
 
     /// <summary>One console only. Historical logon names, profile folders and fallback transports cannot supply this result.</summary>
     private async Task<ConsoleResult> ReadConsoleAsync(DomainInfo domain, RelationObject expected, long epoch, CancellationToken cancellationToken,
-        AdReadAccess? sharedDirectory = null, string? expectedHost = null, NativeConsoleRead? nativeRead = null, TimeSpan? duration = null)
+        AdReadAccess? sharedDirectory = null, string? expectedHost = null, NativeConsoleRead? nativeRead = null, TimeSpan? duration = null, QueryComputerIdentity? planned = null)
     {
         var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
         var computer = expected; RelationObservedAccount? observed = null; StoredRelation? relation = null;
@@ -85,6 +89,8 @@ public sealed partial class AdRelationsReader
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Identité du poste modifiée depuis son affichage ; relisez sa fiche."); }
             computer = first.Object;
             var machineIdentity = AdDirectoryMapper.Computer(first.Entry)!;
+            if (planned is not null && !planned.Matches(machineIdentity))
+            { throw WriteErrors.Refusal(WriteErrors.Stale, "Identité différente du plan confirmé ; aucun contact distant."); }
             var host = machineIdentity.DnsHostName;
             if (host is null || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(machineIdentity) is null
                 || computer.Created == DateTimeOffset.MinValue || computer.Created > source.Clock.GetUtcNow()

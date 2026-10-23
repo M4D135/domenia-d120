@@ -225,6 +225,32 @@ public sealed class SimulatedDirectorySource : IDirectorySource
     /// <summary>Last known state as the session sees it (writes of the session applied).</summary>
     private DirectoryState Current() => WithOverlay(Base());
 
+    /// <summary>Exact population of an Accueil plan: the other observations keep their prior dates.</summary>
+    internal async Task<DirectoryState> RefreshFrozenAsync(ScopeSelection scope,
+        IReadOnlyDictionary<Guid, Domenia.Core.Queries.QueryComputerIdentity> targets, long expectedEpoch, bool inventory, CancellationToken token)
+    {
+        var generated = World;
+        ScopeRules.EnsureNotDomainRoot(scope, generated.Directory.Domain.RootDn);
+        await DelayAsync("refresh", ref refreshDraws, 400, 900, token).ConfigureAwait(false);
+        var now = timeProvider.GetUtcNow();
+        lock (gate)
+        {
+            if (CurrentSession.Epoch != expectedEpoch) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Session simulée modifiée depuis le plan."); }
+            var state = current ?? generated.InitialState;
+            var actual = WithOverlay(state).Directory.Computers.ToDictionary(c => c.ObjectGuid);
+            if (targets.Any(t => !actual.TryGetValue(t.Key, out var pc) || !t.Value.Matches(pc) || !ScopeRules.Contains(scope, pc.DistinguishedName)))
+            { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité simulée modifiée depuis le plan ; aucune mesure."); }
+            var wanted = targets.Keys.Where(id => !AdValues.IsDisabled(actual[id].UserAccountControl)).ToHashSet();
+            var measured = inventory ? RereadInventory(state.Observations, now) : PresenceRounds.Apply(generated.Presence, state.Observations, ++round, now);
+            var previous = state.Observations.Workstations.ToDictionary(o => o.ComputerGuid);
+            state = state with { Observations = measured with { Workstations = [.. measured.Workstations.Select(o => wanted.Contains(o.ComputerGuid)
+                && (!inventory || previous.TryGetValue(o.ComputerGuid, out var old) && old.Presence.HasReading && old.Presence.Answered == true)
+                ? o : previous.GetValueOrDefault(o.ComputerGuid, o))] } };
+            current = state;
+            return WithOverlay(state);
+        }
+    }
+
     /// <summary>Last known state of the generated directory, before the overlay.</summary>
     private DirectoryState Base()
     {

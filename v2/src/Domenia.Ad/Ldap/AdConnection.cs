@@ -24,6 +24,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
         "currentTime",
         "isSynchronized",
         "highestCommittedUSN",
+        "dsServiceName",
     ];
 
     private static readonly HashSet<string> BinaryAttributes = new(StringComparer.OrdinalIgnoreCase)
@@ -584,6 +585,7 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
         {
             IsSynchronized = bool.TryParse(adEntry.String("isSynchronized"), out var synchronized) ? synchronized : null,
             HighestCommittedUsn = adEntry.Long("highestCommittedUSN") is >= 0 and var usn ? usn : null,
+            DsServiceName = adEntry.String("dsServiceName"),
         };
 
     private static async Task<T> SendRequestAsync<T>(

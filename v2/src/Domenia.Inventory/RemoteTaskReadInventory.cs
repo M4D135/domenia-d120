@@ -24,7 +24,7 @@ internal static class RemoteTaskReadInventory
         .. kind == RemoteTaskReadKind.Diagnostic ? [] : new TaskCimQuery[]
         {
             new(InventoryCategories.System, Cim, "Win32_SystemEnclosure", "SerialNumber,ChassisTypes", "", 4),
-            new(InventoryCategories.Bios, Cim, "Win32_BIOS", "Manufacturer,BIOSVersion,SMBIOSBIOSVersion,ReleaseDate", "", 1),
+            new(InventoryCategories.Bios, Cim, "Win32_BIOS", "Manufacturer,BIOSVersion,SMBIOSBIOSVersion,ReleaseDate,SerialNumber", "", 1),
             new(InventoryCategories.Processor, Cim, "Win32_Processor", "Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed,LoadPercentage,Architecture,VirtualizationFirmwareEnabled", "", 16),
             new(InventoryCategories.Memory, Cim, "Win32_PhysicalMemory", "DeviceLocator,Capacity,Speed,Manufacturer,PartNumber", "", 64),
             new(InventoryCategories.Memory, Cim, "Win32_PhysicalMemoryArray", "Use,MemoryDevices,MaxCapacityEx", "", 8),
@@ -158,6 +158,12 @@ public sealed partial class WmiWorkstationReader
         {
             snapshot = ReadSystem(session, snapshot, access, CancellationToken.None);
             snapshot = ReadBios(session, snapshot, access, CancellationToken.None);
+            // Domenia 1's local fallback reports the BIOS serial, also when the enclosure provider is absent.
+            // A partial/refused BIOS source must not fill an unknown identity field from an unqualified row.
+            var bios = replies.Single(r => r.Query.Class == "Win32_BIOS");
+            if (snapshot.System is { SerialNumber: null } system && bios is { Code: 0, Truncated: false }
+                && bios.Rows.Count == 1 && bios.Rows[0].Text("SerialNumber") is { Length: > 0 } serial)
+            { snapshot = snapshot with { System = system with { SerialNumber = serial } }; }
             snapshot = ReadProcessors(session, snapshot, access, CancellationToken.None);
             snapshot = ReadMemory(session, snapshot, access, CancellationToken.None);
             snapshot = ReadVolumes(session, snapshot, access, CancellationToken.None);

@@ -84,7 +84,7 @@ export function createRuns(host, env) {
     if (b && !b.disabled) act(b.dataset.runAct, b);
   });
 
-  function load(silent = false) {
+  function load(silent = false, periodic = false) {
     const call = silent ? env.silent : ctx.call;
     return call('operations.runs').then((next) => {
       if (!alive) return;
@@ -101,6 +101,7 @@ export function createRuns(host, env) {
         card.innerHTML = errorBox(errorText(err, 'Relevés illisibles.'));
       });
       grid.setError(errorText(err, 'Relevés illisibles.'), { retry: () => load(false) });
+      if (periodic) throw err;
     });
   }
 
@@ -169,7 +170,7 @@ export function createRuns(host, env) {
 
   load(false);
   return {
-    refresh: (silent = true) => load(silent),
+    refresh: (silent = true, periodic = false) => load(silent, periodic),
     running: () => view?.current?.open === true || view?.active?.some((batch) => batch.open) === true,
     resume: () => act('resume', null),
     destroy() { alive = false; grid.destroy(); filters.destroy?.(); },

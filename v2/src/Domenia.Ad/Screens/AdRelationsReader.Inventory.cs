@@ -70,7 +70,7 @@ public sealed partial class AdRelationsReader
         try
         {
             result = await ComputerSessionCoreAsync(expected.DistinguishedName, expected.ObjectGuid, Read,
-                WmiWorkstationReader.Budget(scope) + TimeSpan.FromSeconds(afterRead is null ? 20 : 65), token).ConfigureAwait(false);
+                WmiWorkstationReader.Budget(scope) + TimeSpan.FromSeconds(afterRead is null ? 20 : 65), token, Domenia.Core.Queries.QueryComputerIdentity.Of(expected)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested && captured is not null)
         {

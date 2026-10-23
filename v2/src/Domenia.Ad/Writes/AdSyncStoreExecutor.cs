@@ -109,7 +109,9 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         var draft = SyncStoreChange.Draft(title, label, notice, target, head, binding.Concat(effects),
             [new(Tone.Info, "Sauvegarde complète vérifiée avant la transaction, puis relecture de toutes les données modifiées et du reçu.")],
             SyncStoreChange.BackedUp("La copie antérieure est conservée dans Backups."), null) with { Origin = WritePlanOrigin.From(session) };
-        drafts.Add(draft, new(change, session.Epoch, session.Account.Login));
+        // The sealed draft already carries the payload fingerprint; retain only its spool identity until sending.
+        var retained = attribute == SyncStoreChange.BatchAttribute ? change with { Rows = [], Absences = [], ResolvedGaps = [] } : change;
+        drafts.Add(draft, new(retained, session.Epoch, session.Account.Login));
         return draft;
     }
 
@@ -142,18 +144,20 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
     {
         var pending = Find(plan);
         if (pending is null) { return WritePrecheck.Stale("Plan absent, expiré ou connexion modifiée ; aucune écriture."); }
-        await ValidateBatchAsync(pending.Change, cancellationToken).ConfigureAwait(false);
-        return await Store.CheckSyncChangeAsync(pending.Change, cancellationToken).ConfigureAwait(false);
+        var change = await ResolveBatchAsync(pending.Change, cancellationToken).ConfigureAwait(false);
+        return await Store.CheckSyncChangeAsync(change, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task ValidateBatchAsync(SyncLocalChange change, CancellationToken token)
+    private async Task<SyncLocalChange> ResolveBatchAsync(SyncLocalChange change, CancellationToken token)
     {
-        if (SyncStoreChange.Head(change.Plan) is not { Operation: SyncStoreOperation.Batch } head) { return; }
+        if (SyncStoreChange.Head(change.Plan) is not { Operation: SyncStoreOperation.Batch } head) { return change; }
         var batch = await AdSyncState.For(source).ReadAsync(head.Id, token).ConfigureAwait(false);
         var reread = change with { StoreId = batch.StoreId, ExpectedRevision = batch.Revision, BeforeSha256 = batch.BeforeSha256,
             Rows = batch.Rows, Coverage = batch.Coverage, Absences = batch.Absences, ResolvedGaps = batch.ResolvedGaps };
-        if (SyncLocalIdentity.PayloadFingerprint(reread) != SyncLocalIdentity.PayloadFingerprint(change))
+        if (reread.StoreId != change.StoreId || reread.ExpectedRevision != change.ExpectedRevision || reread.BeforeSha256 != change.BeforeSha256
+            || SyncLocalIdentity.PayloadFingerprint(reread) != change.Plan.Changes.Single(x => x.Attribute == SyncLocalIdentity.PayloadAttribute).AfterValue)
         { throw WriteErrors.Refusal(WriteErrors.Stale, "Le lot temporaire diffère du plan confirmé ; aucune écriture."); }
+        return reread;
     }
 
     public async Task<WriteOutcome> ExecuteAsync(WritePlan plan, CancellationToken cancellationToken)
@@ -161,8 +165,8 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         var pending = Find(plan) ?? throw WriteErrors.Refusal(WriteErrors.Stale, "Plan absent, expiré ou connexion modifiée ; aucune écriture.");
         try
         {
-            await ValidateBatchAsync(pending.Change, cancellationToken).ConfigureAwait(false);
-            var receipt = await Store.ApplySyncChangeAsync(pending.Change, cancellationToken).ConfigureAwait(false);
+            var change = await ResolveBatchAsync(pending.Change, cancellationToken).ConfigureAwait(false);
+            var receipt = await source.RunLocalMaintenanceAsync(token => Store.ApplySyncChangeAsync(change, token), cancellationToken, pending.Epoch).ConfigureAwait(false);
             var head = SyncStoreChange.Head(plan);
             if (head?.Operation == SyncStoreOperation.Batch)
             {

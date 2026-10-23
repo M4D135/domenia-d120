@@ -146,7 +146,7 @@ export function createReceipts(host, env) {
     return silent ? silentCall('operations.receipts') : ctx.call('operations.receipts');
   }
 
-  function load(silent = false) {
+  function load(silent = false, periodic = false) {
     if (!silent) grid.setLoading(true);
     return fetchList(silent).then((list) => {
       if (!alive) return;
@@ -180,6 +180,7 @@ export function createReceipts(host, env) {
       summaryBox.dataset.tone = 'alert';
       env.onCounts({ pending: 0, total: 0, unreadable: 0, readable: false });
       grid.setError(errorText(err, 'Reçus illisibles pour l’instant.'), { retry: () => load(false) });
+      if (periodic) throw err;
     });
   }
 
@@ -448,7 +449,7 @@ export function createReceipts(host, env) {
   loadRules();
 
   return {
-    refresh: (silent = true) => load(silent),
+    refresh: (silent = true, periodic = false) => load(silent, periodic),
     select: (id) => select(id, true),
     showPending: () => { pressed = new Set(['aVerifier']); paint(); },
     openReview: () => {

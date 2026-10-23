@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using Domenia.Core;
 using Domenia.Core.Accueil;
+using QueryComputerIdentity = Domenia.Core.Queries.QueryComputerIdentity;
 
 namespace Domenia.Simulation;
 
@@ -116,6 +117,12 @@ public sealed class SimulatedAccueilReader : IAccueilReader
 
     public Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken) =>
         source.RefreshInventoryAsync(scope, targets, cancellationToken);
+
+    public Task<DirectoryState> ReadPresenceAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        source.RefreshFrozenAsync(scope, targets, expectedEpoch, false, token);
+
+    public Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        source.RefreshFrozenAsync(scope, targets, expectedEpoch, true, token);
 
     // ---------------------------------------------------------------- facts
 

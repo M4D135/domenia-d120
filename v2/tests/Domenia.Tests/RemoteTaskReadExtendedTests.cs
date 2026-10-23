@@ -72,6 +72,23 @@ internal static class RemoteTaskReadExtendedTests
     }
 
     [Test]
+    public static async Task Task_inventory_preserves_Domenia1_BIOS_serial_without_inventing_a_refused_value()
+    {
+        using var folder = new TemporaryFolder(); var (db, _) = await RemoteTaskReadTests.Open(folder);
+        var plan = Plan(db, RemoteTaskReadKind.InventoryFull);
+        var root = JsonNode.Parse(InventoryJson(plan))!.AsObject();
+        var bios = root["Payload"]!["Sources"]!.AsArray().Single(n => (string?)n!["Class"] == "Win32_BIOS")!;
+        var row = new JsonObject();
+        foreach (var field in RemoteTaskReadInventory.Queries(plan.Kind).Single(q => q.Class == "Win32_BIOS").Properties) { row[field] = null; }
+        row["SerialNumber"] = "BIOS-SERIAL-01"; bios["Rows"] = new JsonArray(row);
+        Check.Equal("BIOS-SERIAL-01", RemoteTaskReadProgram.ParseResult(root.ToJsonString(), plan, Fixtures.Now).Inventory!.System!.SerialNumber, "numéro BIOS quand le châssis ne répond pas");
+        bios["Code"] = unchecked((int)0x80070005);
+        Check.Null(RemoteTaskReadProgram.ParseResult(root.ToJsonString(), plan, Fixtures.Now).Inventory!.System!.SerialNumber, "source refusée ne qualifie pas le numéro");
+        bios["Code"] = 0; bios["Truncated"] = true;
+        Check.Null(RemoteTaskReadProgram.ParseResult(root.ToJsonString(), plan, Fixtures.Now).Inventory!.System!.SerialNumber, "source tronquée ne qualifie pas le numéro");
+    }
+
+    [Test]
     public static async Task Task_payload_rejects_wrong_kind_identity_DC_duplicate_missing_and_unbounded_fields()
     {
         using var folder = new TemporaryFolder(); var (db, _) = await RemoteTaskReadTests.Open(folder); var plan = Plan(db, RemoteTaskReadKind.Diagnostic);

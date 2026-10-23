@@ -167,7 +167,7 @@ export function render(main, ctx) {
 
   // ---------------------------------------------------------------- head of the screen
 
-  function loadOverview(silent = false) {
+  function loadOverview(silent = false, periodic = false) {
     const read = silent ? silentCall('operations.overview') : ctx.call('operations.overview');
     return read.then((o) => {
       if (!alive) return;
@@ -184,6 +184,7 @@ export function render(main, ctx) {
       const host = main.querySelector('[data-slot="circuit"]');
       blocks.delete(host);
       host.innerHTML = `<div class="op-error" role="alert">${glyph('alert')}<span>${esc(errorText(err, 'Tête de l’écran illisible.'))}</span></div>`;
+      if (periodic) throw err;
     });
   }
 
@@ -341,7 +342,7 @@ export function render(main, ctx) {
 
   // ---------------------------------------------------------------- activity
 
-  function pollActivity(first = false) {
+  function pollActivity(first = false, periodic = false) {
     if (demo) {
       activity = sampleActivity();
       afterActivity();
@@ -354,6 +355,7 @@ export function render(main, ctx) {
       afterActivity();
     }).catch((err) => {
       if (first) console.error(err);
+      if (periodic) throw err;
     });
   }
 
@@ -446,16 +448,20 @@ export function render(main, ctx) {
   pollActivity(true);
   loadOffer();
 
-  timers.push(setInterval(() => { if (alive && !document.hidden && !demo) pollActivity(); }, ACTIVITY_MS));
-  timers.push(setInterval(() => { if (alive && !document.hidden) { loadOverview(true); if (tabs.current() === 'recus') modules.recus?.refresh(true); } }, OVERVIEW_MS));
-  timers.push(setInterval(() => { if (alive && !document.hidden && tabs.current() === 'sante') modules.sante?.refresh(true); }, HEALTH_MS));
+  timers.push(ctx.pulse.every('activity', ACTIVITY_MS, () => alive && !demo ? pollActivity(false, true) : undefined));
+  timers.push(ctx.pulse.every('overview', OVERVIEW_MS, async () => {
+    if (!alive) return;
+    await loadOverview(true, true);
+    if (tabs.current() === 'recus') await modules.recus?.refresh(true, true);
+  }));
+  timers.push(ctx.pulse.every('health', HEALTH_MS, () => alive && tabs.current() === 'sante' ? modules.sante?.refresh(true, true) : undefined));
   let runsTick = 0;
-  timers.push(setInterval(() => {
-    if (!alive || document.hidden || tabs.current() !== 'releves') return;
+  timers.push(ctx.pulse.every('runs', RUNS_LIVE_MS, () => {
+    if (!alive || tabs.current() !== 'releves') return;
     runsTick += RUNS_LIVE_MS;
-    if (modules.releves?.running() || runsTick >= RUNS_MS) { runsTick = 0; modules.releves?.refresh(true); }
-  }, RUNS_LIVE_MS));
-  timers.push(setInterval(() => { if (alive) touchDates(main); }, 30_000));
+    if (modules.releves?.running() || runsTick >= RUNS_MS) { runsTick = 0; return modules.releves?.refresh(true, true); }
+  }));
+  timers.push(ctx.pulse.every('relative-dates', 30_000, () => { if (alive) touchDates(main); }));
 
   // Open states asked by the address (captures): the review dialog of a sample receipt, the panel of a task. The marker keeps the
   // readiness signal back until they are open, so the image never shows them half drawn.
@@ -463,8 +469,8 @@ export function render(main, ctx) {
     const marker = main.querySelector('.op-auto');
     marker.setAttribute('aria-busy', 'true');
     const began = performance.now();
-    const watch = setInterval(() => {
-      if (!alive) { clearInterval(watch); return; }
+    const watch = ctx.pulse.every('open-state', 250, () => {
+      if (!alive) { watch(); return; }
       let done = false;
       if (params.ouvrir === 'revue' && modules.recus) done = !!modules.recus.openReview();
       else if ((params.ouvrir === 'tache' || params.tache) && modules.taches && activity) done = !!modules.taches.openTrace(params.tache);
@@ -472,16 +478,16 @@ export function render(main, ctx) {
       else if (params.ouvrir === 'verification' && modules.diagnostic && overview) { done = true; if (overview.simulation) modules.diagnostic.runQuick(); }
       else if (params.ouvrir === 'apercu' && modules.diagnostic) { done = true; modules.diagnostic.preview(); }
       if (done || performance.now() - began > 8000) {
-        clearInterval(watch);
+        watch();
         setTimeout(() => marker.removeAttribute('aria-busy'), 700);
       }
-    }, 250);
+    });
     timers.push(watch);
   }
 
   return () => {
     alive = false;
-    timers.forEach((t) => clearInterval(t));
+    timers.forEach((stop) => stop());
     unsubscribe();
     stopReveal();
     tabs.destroy();

@@ -680,9 +680,8 @@ public sealed class OperationsOperations : IOperationModule
                 lines.Add(new BlockerLine(Tone.Info, "Boutons clés indisponibles dans ce mode (" + string.Join(", ", missing) + ")" + FrenchText.Colon
                     + "leur écriture n’est pas encore servie ; ils restent grisés avec cette raison en infobulle.", "Règles du circuit", "operations?onglet=recus"));
             }
-            lines.Add(new BlockerLine(Tone.Info, "Boutons LAPS et BitLocker" + FrenchText.Colon + "lectures de secrets pas encore servies dans cette version ; aucun secret n’est jamais affiché, copié ni exporté par Opérations.", null, null));
-            lines.Add(new BlockerLine(Tone.Info, "Identité des lectures LAPS et BitLocker" + FrenchText.Colon + "compte de la session (" + session.Account.Login
-                + "), sans autre identité ni élévation ; un refus de droits ne suspend que la lecture concernée.", null, null));
+            lines.Add(new BlockerLine(Tone.Info, "Lectures LAPS et BitLocker" + FrenchText.Colon + "à demander sur la fiche du poste ; aucun secret n’est affiché, copié ni exporté par Opérations.", null, null));
+            lines.Add(new BlockerLine(Tone.Info, "Identité des lectures LAPS et BitLocker" + FrenchText.Colon + "compte sélectionné et droits revérifiés à chaque geste ; aucun succès déduit de ce bilan local.", null, null));
             if (!lines.Any(x => x.Tone is Tone.Warn or Tone.Alert))
             {
                 lines.Insert(0, new BlockerLine(Tone.Ok, "Aucun blocage commun observé. Un droit précis reste vérifié par la ressource lors de l’action" + FrenchText.Colon + "consultez son infobulle ou son message.", null, null));
@@ -691,15 +690,16 @@ public sealed class OperationsOperations : IOperationModule
                 ?
                 [
                     "Aucune connexion" + FrenchText.Colon + "annuaire fictif en mémoire, aucune requête LDAP, WMI ni ping ne part.",
-                    "WinRM, PsExec et tâches planifiées distantes" + FrenchText.Colon + "non utilisés par Domenia 2.",
+                    "WinRM, PsExec et tâches planifiées distantes" + FrenchText.Colon + "non utilisés en simulation.",
                     "Aucun service installé, aucun port ouvert, aucun envoi vers Internet ; aucun réglage de Windows n’est modifié.",
                 ]
                 :
                 [
-                    "LDAP (System.DirectoryServices)" + FrenchText.Colon + "authentification intégrée de la session Windows, lectures bornées à une OU après votre geste.",
-                    "WMI/CIM par DCOM et ping" + FrenchText.Colon + "relevés des postes après confirmation (collecte à venir, vague 3).",
-                    "WinRM, PsExec et tâches planifiées distantes" + FrenchText.Colon + "non utilisés par Domenia 2.",
-                    "Aucun service installé, aucun port ouvert, aucun envoi vers Internet ; aucun réglage de Windows n’est modifié.",
+                    "LDAP signé et chiffré" + FrenchText.Colon + "compte sélectionné, lectures bornées après votre geste.",
+                    "WMI/CIM par DCOM ou WinRM selon configuration, et ping" + FrenchText.Colon + "relevés bornés des postes choisis.",
+                    "Tâche SYSTEM unique et ADMIN$" + FrenchText.Colon + "repli sur un poste après une autorisation de lecture distincte, consommée une fois ; artefacts journalisés et nettoyage vérifié.",
+                    "PsExec" + FrenchText.Colon + "aucun exécutable approuvé configuré ; transport indisponible.",
+                    "Ce bilan ne lance aucune sonde, aucun service ni tâche et ne change aucun réglage de Windows.",
                 ];
             return new BlockerReport(Now, [.. lines], transports, "Ce bilan lit uniquement les états de la session" + FrenchText.Colon + "il ne teste ni ne modifie aucun droit.");
         }

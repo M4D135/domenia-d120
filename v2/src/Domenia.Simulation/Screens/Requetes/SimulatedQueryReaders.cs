@@ -30,6 +30,11 @@ public sealed class SimulatedQueryWorkshopReader : IQueryWorkshopReader
     public async Task<QueryMeasureResult> MeasureAsync(QueryMeasureRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
+        if (request.ExpectedEpoch is { } epoch && epoch != session.Epoch) { throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Session modifiée depuis le plan."); }
+        if (request.ExpectedIdentities is { } identities && request.Computers.Any(id => source.CurrentDirectory.Computers.FirstOrDefault(c => c.ObjectGuid == id) is not { } pc
+            || !identities.TryGetValue(id, out var expected) || !expected.Matches(pc)))
+        { throw new DomeniaOperationException(QueryErrors.WmiInvalid, "Identité différente du plan ; aucune collecte simulée."); }
         // About 40 ms per workstation, four in parallel, bounded.
         var spread = Math.Min(2600, 300 + request.Computers.Length * 10);
         await source.SimulateScreenLatencyAsync("requetes/measure", 400, spread + 400, cancellationToken).ConfigureAwait(false);

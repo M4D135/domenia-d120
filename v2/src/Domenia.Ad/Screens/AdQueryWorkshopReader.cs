@@ -53,12 +53,19 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
         var probes = request.Probes.Select(p => QueryProbeCatalog.Find(p) ?? throw new QueryDefinitionException("Sonde inconnue ; aucun contact.")).ToArray();
         foreach (var detail in request.DetailReads) { WqlRules.CheckReadDefinition(detail); _ = WmiWorkstationReader.CheckWorkshopSelect(detail.Namespace, WqlRules.Parse(detail.CanonicalQuery), detail.Limit); }
         var epoch = source.Epoch;
+        if (request.ExpectedEpoch is { } expectedEpoch && epoch != expectedEpoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée depuis le plan ; aucun contact."); }
+        void ConfirmExpected(DirectoryComputer pc)
+        {
+            if (request.ExpectedIdentities is { } identities && (!identities.TryGetValue(pc.ObjectGuid, out var identity) || !identity.Matches(pc)))
+            { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité différente de celle du plan ; aucun contact avec ce poste."); }
+        }
         var local = (await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false)).Directory;
         var computers = request.Computers.Select(g => local.Computers.SingleOrDefault(c => c.ObjectGuid == g) ?? throw new QueryDefinitionException("Poste inconnu ; aucun contact.")).ToArray();
+        foreach (var pc in computers) { ConfirmExpected(pc); }
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(4), source.Clock);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
         var answered = 0; var failed = 0; var disabled = 0;
-        var wmi = new AdQueryWmiReader(source) { InventoryReaderOverride = InventoryReaderOverride };
+        var wmi = new AdQueryWmiReader(source) { InventoryReaderOverride = InventoryReaderOverride, ExpectedIdentity = ConfirmExpected };
         foreach (var pc in computers)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -71,6 +78,7 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
                 if (request.Presence)
                 {
                     using var access = await AdQueryAccess.OpenAsync(source, pc.ObjectGuid, stop.Token).ConfigureAwait(false);
+                    ConfirmExpected(access.Computer);
                     bool online;
                     if (PingOverride is { } ping) { online = await ping(access.Computer.DnsHostName!, stop.Token).ConfigureAwait(false); }
                     else { using var native = new Ping(); online = (await native.SendPingAsync(access.Computer.DnsHostName!, TimeSpan.FromSeconds(1), null, null, stop.Token).ConfigureAwait(false)).Status == IPStatus.Success; }
@@ -86,7 +94,7 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
                 }
                 else if (request.Console)
                 {
-                    var reading = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }.ComputerSessionAsync(pc.DistinguishedName, pc.ObjectGuid, stop.Token).ConfigureAwait(false);
+                    var reading = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }.ComputerSessionAsync(QueryComputerIdentity.Of(pc), stop.Token).ConfigureAwait(false);
                     ok &= reading.ConsoleReadAt is not null;
                 }
                 foreach (var probe in probes)

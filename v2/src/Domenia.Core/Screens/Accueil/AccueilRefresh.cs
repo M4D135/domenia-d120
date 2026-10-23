@@ -110,7 +110,7 @@ public sealed partial class AccueilService
             var unfinished = previous.Stages.Where(st => st.State is not ("done" or "na")).Select(st => st.Id).ToHashSet(StringComparer.Ordinal);
             wantDirectory = unfinished.Contains("backup") || unfinished.Contains("directory") || unfinished.Contains("commit");
             wantPresence = unfinished.Contains("presence");
-            wantInventory = unfinished.Contains("inventory");
+            wantInventory = unfinished.Contains("inventory") || unfinished.Contains("queries");
             if (!wantDirectory && !wantPresence && !wantInventory)
             {
                 throw new DomeniaOperationException(RefreshNothingToResume, RefreshNothingToResumeMessage);
@@ -140,6 +140,7 @@ public sealed partial class AccueilService
         }
         var state = await context.Directory.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
         var active = state.Directory.Computers.Where(c => !AdValues.IsDisabled(c.UserAccountControl) && ScopeRules.Contains(scope, c.DistinguishedName)).ToList();
+        var frozenTargets = await FreezeRefreshTargetsAsync(active, cancellationToken).ConfigureAwait(false);
         var observations = state.Observations.Workstations.ToDictionary(o => o.ComputerGuid);
         var onlineIds = active.Where(c => observations.TryGetValue(c.ObjectGuid, out var o) && o.Presence is { Answered: true } p && p.CheckedAt is not null
             && (onlineSince is null || p.CheckedAt >= onlineSince)).Select(c => c.ObjectGuid).ToList();
@@ -149,10 +150,13 @@ public sealed partial class AccueilService
         var warnings = new List<string>();
         // Probe plan frozen at the click: the active probe widgets of the board (paused ones left out, decision of 14/10/2026).
         var probeIds = items.Where(i => i.Source == FleetWidgetSource.Probe && !i.Paused).Select(i => i.Key).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray();
-        var queries = items.Count(i => i.Source == FleetWidgetSource.Query && !i.Paused);
-        if (wantInventory && queries > 0)
+        var queryWork = wantInventory ? await PrepareQueryRefreshAsync(items, state, scope, domainDn, cancellationToken).ConfigureAwait(false) : null;
+        if (queryWork is not null)
         {
-            throw new DomeniaOperationException(RefreshQueryMissing, RefreshQueryMissingMessage);
+            warnings.Add(FleetBoardCalculator.Plural(queryWork.Queries.Length, "révision de requête figée", "révisions de requêtes figées")
+                + " : après l’inventaire, lecture des informations manquantes (console, sondes ou SELECT bornés), uniquement sur les identités du plan ayant répondu au ping. Budget supplémentaire maximal de 10 min ; aucun second ping.");
+            foreach (var query in queryWork.Queries)
+            { warnings.Add(query.Recipe.Name + " · révision " + FrenchText.Integer(query.Revision) + " · empreinte " + query.Fingerprint[..12]); }
         }
         if (wantInventory && probeIds.Any(id => ProbeCatalog.Find(id)?.Slow == true))
         {
@@ -195,6 +199,10 @@ public sealed partial class AccueilService
                 + " ; seulement ce qui manque ou date de plus de " + FrenchText.Integer(RefreshRules.ReuseDays) + " jours"
                 + (probeIds.Length > 0 ? " ; " + FleetBoardCalculator.Plural(probeIds.Length, "sonde de widget lue", "sondes de widgets lues") : "") + "."));
         }
+        if (queryWork is not null)
+        {
+            stages.Add(new RefreshStage("queries", "Informations des requêtes liées", "Révisions figées des widgets et alertes ; seulement les sources manquantes des postes du plan en ligne. Budget supplémentaire maximal : 10 min."));
+        }
         // Estimate (improvement of ACC-001): budgets of Domenia 1, ping in batches of 64 with 800 ms each (Get-ReachableSet),
         // WMI reads Async.MaxThreads (6) at a time, about three seconds per workstation plus one per widget probe.
         var seconds = 0;
@@ -230,8 +238,12 @@ public sealed partial class AccueilService
             foreach (var expired in plans.Where(p => p.Value.ExpiresAt < now).Select(p => p.Key).ToList())
             {
                 plans.Remove(expired);
+                queryRefreshPlans.Remove(expired);
+                refreshTargets.Remove(expired);
             }
             plans[plan.Id] = plan;
+            refreshTargets[plan.Id] = frozenTargets;
+            if (queryWork is not null) { queryRefreshPlans[plan.Id] = queryWork; }
         }
         return plan;
     }
@@ -278,12 +290,16 @@ public sealed partial class AccueilService
     {
         ArgumentNullException.ThrowIfNull(progress);
         RefreshPlan? plan;
+        RefreshQueryWork? queryWork;
+        RefreshTargets? frozenTargets;
         var now = Now;
         lock (gate)
         {
             plans.Remove(planId, out plan);
+            queryRefreshPlans.Remove(planId, out queryWork);
+            refreshTargets.Remove(planId, out frozenTargets);
         }
-        if (plan is null)
+        if (plan is null || frozenTargets is null)
         {
             throw new DomeniaOperationException(RefreshPlanUnknown, RefreshPlanUnknownMessage);
         }
@@ -298,6 +314,12 @@ public sealed partial class AccueilService
         }
         // Every check runs again at the confirmation (Invoke-DomeniaOuRefresh): the plan is already spent, nothing is replayed.
         EnsureAdmitted();
+        if (plan.Stages.Any(s => s.Id == "queries"))
+        {
+            if (queryWork is null) { throw new DomeniaOperationException(RefreshPlanUnknown, RefreshPlanUnknownMessage); }
+            await ConfirmRefreshQueryStoreAsync(queryWork, cancellationToken).ConfigureAwait(false);
+        }
+        await ConfirmRefreshTargetsAsync(frozenTargets, cancellationToken).ConfigureAwait(false);
         LoadPersisted(domainDn);
         var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var state = new RunState(plan, linked) { StartedAt = now, Forced = force };
@@ -402,12 +424,18 @@ public sealed partial class AccueilService
                             presenceStarted = true;
                             collectionApproved = true;
                             collectionStarted ??= started;
-                            latestState = await dashboard.MeasureAsync(MeasureFamily.Presence, token).ConfigureAwait(false);
-                            RecordOperationsPresence(state.Id, latestState, started);
+                            await ConfirmRefreshTargetsAsync(frozenTargets, token).ConfigureAwait(false);
+                            latestState = await dashboard.MeasureAsync((_, t) => Reader.ReadPresenceAsync(plan.Scope, frozenTargets.Identities, frozenTargets.Epoch, t), token).ConfigureAwait(false);
+                            RecordOperationsPresence(state.Id, FrozenObservationState(latestState, frozenTargets), started);
                             presenceDone = true;
-                            var (online, noAnswer, unchecked_) = CountPresence(latestState, plan.Scope, started);
+                            var (online, noAnswer, unchecked_) = CountPresence(FrozenObservationState(latestState, frozenTargets), plan.Scope, started);
                             Record(state, stage, "done", FleetBoardCalculator.Plural(online, "poste en ligne", "postes en ligne") + " sur " + FrenchText.Integer(online + noAnswer + unchecked_)
                                 + " · " + FrenchText.Integer(noAnswer) + " sans réponse" + (unchecked_ > 0 ? " · " + FleetBoardCalculator.Plural(unchecked_, "non vérifié (sonde en erreur)", "non vérifiés (sonde en erreur)") : ""), started, Now, progress, i, stages.Length);
+                            break;
+                        case "queries":
+                            var queryText = await CollectRefreshQueriesAsync(queryWork ?? throw new DomeniaOperationException(RefreshPlanUnknown, RefreshPlanUnknownMessage),
+                                plan, force, domainDn, plan.OnlineSince ?? collectionStarted ?? started, token).ConfigureAwait(false);
+                            Record(state, stage, "done", queryText, started, Now, progress, i, stages.Length);
                             break;
                         case "inventory":
                             inventoryStarted = true;
@@ -416,7 +444,8 @@ public sealed partial class AccueilService
                             // ACC-004: WMI only on the workstations that answered the ping of this refresh (or of the interrupted one a
                             // resume completes). ACC-038: of those, only the ones whose inventory or a probe of the plan is missing.
                             var before = latestState ?? await context.Directory.ReadLocalAsync(token).ConfigureAwait(false);
-                            var onlineIds = OnlineIds(before, plan.Scope, plan.OnlineSince ?? collectionStarted ?? started);
+                            await ConfirmRefreshTargetsAsync(frozenTargets, token).ConfigureAwait(false);
+                            var onlineIds = OnlineIds(before, plan.Scope, plan.OnlineSince ?? collectionStarted ?? started).Where(frozenTargets.Identities.ContainsKey).ToList();
                             ProbeReadings known;
                             lock (gate)
                             {
@@ -429,9 +458,10 @@ public sealed partial class AccueilService
                             var probeText = "";
                             if (toRead.Count > 0)
                             {
-                                latestState = await dashboard.MeasureAsync((_, t) => Reader.ReadInventoryAsync(plan.Scope, toRead, t), token).ConfigureAwait(false);
+                                latestState = await dashboard.MeasureAsync((_, t) => Reader.ReadInventoryAsync(plan.Scope, frozenTargets.Identities.Where(p => toRead.Contains(p.Key)).ToImmutableDictionary(), frozenTargets.Epoch, t), token).ConfigureAwait(false);
                                 if (plan.Probes.Length > 0)
                                 {
+                                    await ConfirmRefreshTargetsAsync(frozenTargets, token).ConfigureAwait(false);
                                     var readings = await Reader.CollectProbesAsync(plan.Probes, plan.Scope, toRead, token).ConfigureAwait(false);
                                     lock (gate)
                                     {
@@ -457,7 +487,7 @@ public sealed partial class AccueilService
                                         && reading.State == MeasureState.Known && reading.Error is null && reading.At >= started));
                             inventorySucceeded = reusedNow + usable;
                             inventoryFailed = toRead.Count - usable;
-                            RecordOperationsInventory(state.Id, latestState, started, inventoryOnline);
+                            RecordOperationsInventory(state.Id, FrozenObservationState(latestState, frozenTargets), started, inventoryOnline);
                             if (inventoryFailed > 0)
                             {
                                 outcome = "partial";
@@ -521,7 +551,7 @@ public sealed partial class AccueilService
             if (collectionApproved && collectionStarted is DateTimeOffset collectStart)
             {
                 var targets = plan.Targets;
-                long failed = latestState is null ? 0 : CountPresence(latestState, plan.Scope, collectStart).Unchecked;
+                long failed = latestState is null ? 0 : CountPresence(FrozenObservationState(latestState, frozenTargets), plan.Scope, collectStart).Unchecked;
                 var done = (long)targets;
                 if (presenceStarted)
                 {

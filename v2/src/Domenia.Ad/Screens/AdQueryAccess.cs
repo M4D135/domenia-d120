@@ -30,7 +30,7 @@ internal sealed class AdQueryAccess(AdDirectorySource source, DirectoryComputer 
         catch { machine?.Dispose(); ldap.Dispose(); throw; }
     }
 
-    private static async Task<DirectoryComputer> QualifyAsync(AdDirectorySource source, AdReadAccess ldap, DirectoryComputer expected, CancellationToken token)
+    internal static async Task<DirectoryComputer> QualifyAsync(AdDirectorySource source, AdReadAccess ldap, DirectoryComputer expected, CancellationToken token)
     {
         var rows = await ldap.SearchAsync(new(expected.DistinguishedName, "(objectClass=computer)", AdSearchScope.Base,
             [.. AdDirectoryMapper.ComputerAttributes, "objectClass"])

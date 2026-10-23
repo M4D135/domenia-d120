@@ -214,7 +214,7 @@ export function createTasks(host, env) {
       el.textContent = `${duration(base + extra)} (en cours)`;
     });
   }
-  const ticker = setInterval(() => { if (alive) tick(); }, 1000);
+  const ticker = ctx.pulse.every('task-durations', 1000, () => { if (alive) tick(); });
 
   // ---------------------------------------------------------------- actions
 
@@ -312,7 +312,7 @@ export function createTasks(host, env) {
     openTrace: (id) => openTrace(id ?? snapshot?.recent?.find((r) => r.listed)?.id ?? snapshot?.open?.[0]?.id),
     destroy() {
       alive = false;
-      clearInterval(ticker);
+      ticker();
       drawer?.close();
       grid.destroy();
       filters.destroy?.();

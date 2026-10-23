@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Domenia.Core;
 using Domenia.Core.Accueil;
+using QueryComputerIdentity = Domenia.Core.Queries.QueryComputerIdentity;
 using Domenia.Inventory;
 
 namespace Domenia.Ad;
@@ -37,6 +38,12 @@ public sealed class AdAccueilReader : IAccueilReader
     public Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlySet<Guid> targets, CancellationToken cancellationToken) =>
         source.ReadInventoryAsync(scope, targets, cancellationToken);
 
+    public Task<DirectoryState> ReadPresenceAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        source.ReadPresenceAsync(scope, targets, expectedEpoch, token);
+
+    public Task<DirectoryState> ReadInventoryAsync(ScopeSelection scope, IReadOnlyDictionary<Guid, QueryComputerIdentity> targets, long expectedEpoch, CancellationToken token) =>
+        source.ReadInventoryAsync(scope, targets, expectedEpoch, token);
+
     public async Task<ProbeReadings> CollectProbesAsync(ImmutableArray<string> probeIds, ScopeSelection scope, IReadOnlyCollection<Guid> online, CancellationToken cancellationToken)
     {
         if (probeIds.IsDefault || probeIds.Length > 128 || probeIds.Any(id => ProbeCatalog.Find(id) is null))
@@ -62,11 +69,14 @@ public sealed class AdAccueilReader : IAccueilReader
                         id => new ProbeReading(MeasureState.NotRead, source.Clock.GetUtcNow(), [], "Sonde exclue sur les contrôleurs de domaine."));
                     return;
                 }
-                using var access = ProbeOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName ?? computer.Name, cancellationToken).ConfigureAwait(false) : null;
-                var readings = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken, access!.Credential, access.Settings)).ConfigureAwait(false);
+                using var access = ProbeOverride is null ? await AdQueryAccess.OpenAsync(source, computer.ObjectGuid, cancellationToken).ConfigureAwait(false) : null;
+                if (access is not null && !QueryComputerIdentity.Of(computer).Matches(access.Computer))
+                { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Identité du poste modifiée avant les sondes ; aucune collecte."); }
+                var readings = await (ProbeOverride?.Invoke(computer, probeIds, cancellationToken) ?? probes.ReadAsync(computer, probeIds, cancellationToken, access!.Machine.Credential, access.Machine.Settings)).ConfigureAwait(false);
                 access?.EnsureCurrent();
                 if (readings.Values.Any(r => r.State == MeasureState.Refused || r.AuthenticationRejected))
-                { access?.Refused(computer.Name, "Sondes du parc", readings.Values.Any(r => r.AuthenticationRejected)); }
+                { access?.Machine.Refused(computer.Name, "Sondes du parc", readings.Values.Any(r => r.AuthenticationRejected)); }
+                if (access is not null) { await access.ConfirmDirectoryAsync(cancellationToken).ConfigureAwait(false); }
                 completed[computer.ObjectGuid] = readings;
             }
             catch (DomeniaOperationException ex) when (ex.Code is MachineErrors.AccountPaused or AccountAccess.ContextRefused or "machine.busy")

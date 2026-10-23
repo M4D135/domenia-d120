@@ -70,6 +70,7 @@ internal static class TestRunner
 {
     private static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--native-acceptance") { return await NativeAcceptance.RunAsync(args).ConfigureAwait(false); }
         var filter = args.Length > 0 ? args[0] : null;
         var tests = typeof(TestRunner).Assembly.GetTypes()
             .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)

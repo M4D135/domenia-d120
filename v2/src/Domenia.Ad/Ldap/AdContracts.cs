@@ -68,6 +68,7 @@ public sealed record AdRootDse(
 {
     public bool? IsSynchronized { get; init; }
     public long? HighestCommittedUsn { get; init; }
+    public string? DsServiceName { get; init; }
 }
 
 /// <summary>

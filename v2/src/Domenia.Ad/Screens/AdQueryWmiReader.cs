@@ -10,6 +10,7 @@ namespace Domenia.Ad;
 public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryWmiReader
 {
     internal Func<PosteConfiguration, WmiWorkstationReader>? InventoryReaderOverride { get; init; }
+    internal Action<DirectoryComputer>? ExpectedIdentity { get; init; }
     private WmiWorkstationReader Reader(AdQueryAccess access) => InventoryReaderOverride?.Invoke(access.Machine.Settings) ?? access.Machine.InventoryReader();
 
     private async Task<(DirectoryComputer Computer, WorkstationWmiReading Read)> MetadataAsync(Guid guid, WmiMetadataKind kind, string ns, string? name, CancellationToken token)
@@ -63,6 +64,7 @@ public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryW
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(65), source.Clock);
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(token, deadline.Token);
         using var access = await AdQueryAccess.OpenAsync(source, guid, stop.Token).ConfigureAwait(false);
+        ExpectedIdentity?.Invoke(access.Computer);
         onEngaged?.Invoke(access.Computer);
         var read = await Reader(access).ReadWorkshopSelectAsync(access.Computer.DnsHostName!, ns, checkedPlan, limit, stop.Token, access.Machine.Credential).ConfigureAwait(false);
         CheckStatus(access, read.Status, read.AuthenticationRejected, read.Detail);

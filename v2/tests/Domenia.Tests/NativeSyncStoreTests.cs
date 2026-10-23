@@ -194,6 +194,33 @@ internal static class NativeSyncStoreTests
         Check.Equal(0, (await setup.Cache.ReadSyncStateAsync(None)).Snapshots.Length, "aucun effet tardif");
     }
 
+    [Test]
+    public static async Task A_stored_sync_batch_reloads_the_loaded_directory_and_fences_older_collectors()
+    {
+        using var setup = new Setup();
+        var database = await setup.Cache.DatabaseAsync(None); await database.InitializeAsync(None);
+        await database.SaveDirectoryAsync(WritePlans.NewId(), Fixtures.Snapshot(computers: [Fixtures.Computer("PC1")]), new(Fixtures.Postes, "Postes", true), "DC01", None);
+        _ = await setup.Source.ReadLocalAsync(None);
+        var oldEpoch = setup.Source.Epoch;
+        await setup.StoreBatch([Row("PC2")], null);
+        var loaded = await setup.Source.ReadLocalAsync(None);
+        Check.True(loaded.Directory.Computers.Any(x => x.Name == "PC2"), "projection relue après transaction d’index");
+        Check.True(setup.Source.Epoch != oldEpoch, "ancienne publication invalidée");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Source.SaveFleetAsync(Domenia.Core.Accueil.FleetCachePatch.Empty, oldEpoch, None), "ancienne collecte ne réintroduit pas ses données");
+    }
+
+    [Test]
+    public static async Task A_maintenance_reservation_rechecks_the_expected_epoch_before_any_mutation()
+    {
+        using var setup = new Setup();
+        var oldEpoch = setup.Source.Epoch; setup.Source.Reset();
+        var current = setup.Source.Epoch; var mutations = 0;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => setup.Source.RunLocalMaintenanceAsync(_ =>
+        { mutations++; return Task.FromResult(true); }, None, oldEpoch), "session différente au point réel de mutation");
+        Check.Equal(0, mutations, "délégué jamais appelé"); Check.Equal(current, setup.Source.Epoch, "refus sans seconde invalidation");
+        Check.False(Directory.Exists(setup.User), "base froide toujours absente");
+    }
+
     private static IndexRecord Row(string name) => new(Guid.NewGuid(), IndexObjectType.Computer, name, name + "$", name + ".test.local", null, null, "Windows", true,
         "CN=" + name + "," + Fixtures.Postes, Fixtures.Now, 12, null, LapsKind.None, null, Fixtures.Now);
 
