@@ -145,6 +145,17 @@ public sealed partial class WmiWorkstationReader
     }
 
     /// <summary>
+    /// A shared caller owns its waiting and cancellation. This task ends only when the native worker really ends,
+    /// so a cancelled group cannot admit a replacement while a native call still holds its credential.
+    /// </summary>
+    public Task<InventorySnapshot> ReadSharedAsync(string host, WorkstationReading reading, IProgress<PosteProgress>? progress,
+        CancellationToken cancellationToken, RemoteProbeCredential? credential = null)
+    {
+        if (!CimQuery.IsHostName(host)) { throw new ArgumentException("Invalid workstation host.", nameof(host)); }
+        return WmiReadWorkers.Start(credential, owned => Read(host, reading, progress, cancellationToken, _ => { }, owned), cancellationToken);
+    }
+
+    /// <summary>
     /// The account at the console of one workstation (REL-021, « Lire la session de ce poste »): one instance of
     /// <c>Win32_ComputerSystem</c>, read once, in 4 s, with no fallback and no scheduled task. Null when the name cannot
     /// even be used; otherwise the status says whether the workstation answered, refused or stayed silent. The name the
@@ -259,8 +270,8 @@ public sealed partial class WmiWorkstationReader
             if (cancellationToken.IsCancellationRequested || session.OutOfBudget) { return Interrupted(snapshot, reading, "lecture arrêtée ou budget atteint"); }
             progress?.Report(new PosteProgress(index, plan.Count, plan[index].Label));
             try { snapshot = plan[index].Run(session, snapshot, access, cancellationToken); }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return Interrupted(snapshot, reading, "lecture arrêtée"); }
-            snapshot = snapshot with { DurationMs = (int)clock.GetElapsedTime(started).TotalMilliseconds, Access = [.. access] };
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { return Interrupted(snapshot with { CimQueriesIssued = session.QueriesIssued }, reading, "lecture arrêtée"); }
+            snapshot = snapshot with { DurationMs = (int)clock.GetElapsedTime(started).TotalMilliseconds, Access = [.. access], CimQueriesIssued = session.QueriesIssued };
             publish(snapshot);
         }
         progress?.Report(new PosteProgress(plan.Count, plan.Count, "Lecture terminée"));

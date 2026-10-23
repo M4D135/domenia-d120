@@ -51,9 +51,18 @@ public sealed partial class DomeniaDatabase
                 var details = row["details"] as string ?? "";
                 string? depth = details.Split(';').FirstOrDefault(x => x.StartsWith("depth=", StringComparison.Ordinal))?[6..];
                 if (depth is not ("Subtree" or "OneLevel")) { depth = null; }
-                scopes.Add(new(key, dn, at, depth, key.StartsWith("attempt:", StringComparison.OrdinalIgnoreCase) || details.Contains(";partial", StringComparison.Ordinal),
-                    checked((int)((long?)row["item_count"] ?? 0)), row["server"] as string, (long?)row["highest_usn"] ?? 0, null, details.Split(';').FirstOrDefault(x => x.StartsWith("cut=", StringComparison.Ordinal))?[4..] is { Length: > 0 } cut ? cut : null,
-                    long.TryParse(details.Split(';').FirstOrDefault(x => x.StartsWith("limit=", StringComparison.Ordinal))?[6..], NumberStyles.None, CultureInfo.InvariantCulture, out var limit) ? limit : 0));
+                var invocationText = details.Split(';').FirstOrDefault(x => x.StartsWith("invocation=", StringComparison.Ordinal))?[11..];
+                var invocation = Guid.TryParse(invocationText, out var instance) && instance != Guid.Empty ? instance.ToString("D") : null;
+                var reader = details.Split(';').FirstOrDefault(x => x.StartsWith("reader=", StringComparison.Ordinal))?[7..];
+                var countText = details.Split(';').FirstOrDefault(x => x.StartsWith("checkpoint-count=", StringComparison.Ordinal))?[17..];
+                scopes.Add(new SyncStateEntry(key, dn, at, depth, key.StartsWith("attempt:", StringComparison.OrdinalIgnoreCase) || details.Contains(";partial", StringComparison.Ordinal),
+                    checked((int)((long?)row["item_count"] ?? 0)), row["server"] as string, (long?)row["highest_usn"] ?? 0, invocation, details.Split(';').FirstOrDefault(x => x.StartsWith("cut=", StringComparison.Ordinal))?[4..] is { Length: > 0 } cut ? cut : null,
+                    long.TryParse(details.Split(';').FirstOrDefault(x => x.StartsWith("limit=", StringComparison.Ordinal))?[6..], NumberStyles.None, CultureInfo.InvariantCulture, out var limit) ? limit : 0)
+                {
+                    ReaderFingerprint = reader is { Length: 64 } && reader.All(char.IsAsciiHexDigit) ? reader : null,
+                    CheckpointItems = int.TryParse(countText, NumberStyles.None, CultureInfo.InvariantCulture, out var checkpointCount) && checkpointCount is >= 0 and <= SyncRowsLimit ? checkpointCount : null,
+                    Incremental = details.Split(';').Contains("incremental", StringComparer.Ordinal),
+                });
             }
         }
         var absences = ImmutableArray.CreateBuilder<AbsenceRecord>();

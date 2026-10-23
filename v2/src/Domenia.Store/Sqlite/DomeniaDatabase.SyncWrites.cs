@@ -50,6 +50,13 @@ public sealed partial class DomeniaDatabase
                 // A legacy trigger could mutate an unrelated table without appearing in the sync projection.
                 if ((long)db.Scalar("SELECT count(*) FROM sqlite_master WHERE type='trigger';")! != 0)
                 { throw WriteErrors.Refusal(WriteErrors.Stale, "Déclencheur SQLite non qualifié ; la base est conservée sans modification."); }
+                if (change.Coverage is { Usn: > 0 } checkpoint)
+                {
+                    var ids = state.Rows.Select(x => x.ObjectGuid).ToHashSet();
+                    ids.UnionWith(change.Rows.Select(x => x.ObjectGuid));
+                    if (ids.Count != checkpoint.CheckpointItems)
+                    { throw WriteErrors.Refusal(WriteErrors.Stale, "Nombre d’identités du repère différent du contenu à enregistrer."); }
+                }
                 var revision = checked(state.Revision + 1);
                 if (change.ResetPark)
                 {
@@ -60,10 +67,11 @@ public sealed partial class DomeniaDatabase
                     if (db.Execute("DELETE FROM park_state;") != park.Total) { throw new InvalidDataException("Nombre de relevés effacés incohérent."); }
                     db.Execute("UPDATE domenia_v2_sweep_state SET generation=?1 WHERE id=1;", park.Generation + 1);
                 }
+                var previousRows = state.Rows.ToDictionary(x => x.ObjectGuid);
                 foreach (var row in change.Rows)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var old = state.Rows.FirstOrDefault(x => x.ObjectGuid == row.ObjectGuid);
+                    var old = previousRows.GetValueOrDefault(row.ObjectGuid);
                     if (old is not null && old.ObservedAt > row.ObservedAt) { throw WriteErrors.Refusal(WriteErrors.Stale, "Une observation plus récente doit être conservée."); }
                     WriteIndex(db, row, change.Coverage?.Server ?? change.Plan.Controller, revision);
                 }
@@ -76,7 +84,10 @@ public sealed partial class DomeniaDatabase
                 if (change.Coverage is { } coverage)
                 {
                     db.Execute("INSERT INTO sync_state(scope,server,base_dn,highest_usn,last_sync,item_count,details) VALUES(?1,?2,?3,?4,?5,?6,?7) ON CONFLICT(scope) DO UPDATE SET server=excluded.server,base_dn=excluded.base_dn,highest_usn=excluded.highest_usn,last_sync=excluded.last_sync,item_count=excluded.item_count,details=excluded.details;",
-                        coverage.Key, coverage.Server, coverage.BaseDn, coverage.Usn, Stamp(coverage.LastSync), coverage.Items, "depth=" + coverage.Depth + (coverage.Partial ? ";partial" : ";full") + ";cut=" + coverage.CutReason + ";limit=" + coverage.CutLimit.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        coverage.Key, coverage.Server, coverage.BaseDn, coverage.Usn, Stamp(coverage.LastSync), coverage.Items, "depth=" + coverage.Depth + (coverage.Partial ? ";partial" : ";full") + ";cut=" + coverage.CutReason + ";limit=" + coverage.CutLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + ";invocation=" + coverage.InvocationId + ";reader=" + coverage.ReaderFingerprint
+                        + ";checkpoint-count=" + coverage.CheckpointItems?.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        + (coverage.Incremental ? ";incremental" : ""));
                 }
                 if (change.Capture is { } capture)
                 {
@@ -94,13 +105,16 @@ public sealed partial class DomeniaDatabase
                 }
                 db.Execute("UPDATE domenia_store_state SET revision=?1 WHERE id=1;", revision);
                 var after = ReadSyncState(db);
+                var afterRows = after.Rows.ToDictionary(x => x.ObjectGuid);
+                var afterAbsences = after.Absences.ToDictionary(x => x.ObjectGuid);
+                var afterGaps = after.Gaps.Select(x => x.ObjectGuid).ToHashSet();
                 foreach (var row in change.Rows)
-                { if (after.Rows.SingleOrDefault(x => x.ObjectGuid == row.ObjectGuid) != row) { throw new InvalidDataException("Relecture des lignes avant commit incohérente."); } }
+                { if (afterRows.GetValueOrDefault(row.ObjectGuid) != row) { throw new InvalidDataException("Relecture des lignes avant commit incohérente."); } }
                 if (change.Capture is { } proof && !after.Snapshots.Any(x => x.Id == proof.Id && x.RowsSha256 == proof.RowsSha256)
                     || change.DeleteSnapshot is { } gone && after.Snapshots.Any(x => x.Id == gone)) { throw new InvalidDataException("Relecture du relevé incohérente."); }
                 foreach (var absence in change.Absences)
-                { if (after.Absences.SingleOrDefault(x => x.ObjectGuid == absence.ObjectGuid) != absence) { throw new InvalidDataException("Relecture des disparitions incohérente."); } }
-                if (change.ResolvedGaps.Any(id => after.Gaps.Any(x => x.ObjectGuid == id))
+                { if (afterAbsences.GetValueOrDefault(absence.ObjectGuid) != absence) { throw new InvalidDataException("Relecture des disparitions incohérente."); } }
+                if (change.ResolvedGaps.Any(afterGaps.Contains)
                     || change.Coverage is { } expectedCoverage && after.Scopes.SingleOrDefault(x => x.Key == expectedCoverage.Key) != expectedCoverage
                     || change.ResetPark && (after.Park?.Total != 0 || after.Park.Generation != state.Park!.Generation + 1))
                 { throw new InvalidDataException("Relecture de la couverture, du recensement ou du parc incohérente."); }
@@ -149,7 +163,13 @@ public sealed partial class DomeniaDatabase
             || change.ResolvedGaps.Any(x => x == Guid.Empty))
         { throw new InvalidDataException("Identité ou date du lot local invalide."); }
         if (change.Coverage is { } coverage && (!InDomain(coverage.BaseDn) || coverage.Depth is not ("Subtree" or "OneLevel") || coverage.LastSync > clock.GetUtcNow().AddMinutes(2)
-            || coverage.InvocationId is not null || coverage.Usn != 0 || coverage.Items != change.Rows.Length
+            || coverage.Usn < 0 || coverage.Items != change.Rows.Length
+            || coverage.Usn == 0 && (coverage.InvocationId is not null || coverage.ReaderFingerprint is not null || coverage.CheckpointItems is not null)
+            || coverage.Usn > 0 && (coverage.Key != "directory" || coverage.Partial || coverage.Depth != "Subtree" || !DistinguishedName.AreEqual(coverage.BaseDn, DomainDn)
+                || !Guid.TryParse(coverage.InvocationId, out var invocation) || invocation == Guid.Empty || string.IsNullOrWhiteSpace(coverage.Server)
+                || coverage.ReaderFingerprint is not { Length: 64 } reader || reader.Any(c => !char.IsAsciiHexDigit(c))
+                || coverage.CheckpointItems is not > 0 or > SyncRowsLimit)
+            || coverage.Incremental && !DistinguishedName.AreEqual(coverage.BaseDn, DomainDn)
             || coverage.Partial != coverage.Key.StartsWith("attempt:", StringComparison.Ordinal)
             || coverage.Partial && change.Absences.Any(x => x.Status == AbsenceStatus.NotSeen)
             || coverage.CutReason?.Any(c => !char.IsAsciiLetter(c)) == true || coverage.CutLimit < 0))

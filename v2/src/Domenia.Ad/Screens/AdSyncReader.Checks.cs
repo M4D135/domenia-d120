@@ -21,7 +21,7 @@ public sealed partial class AdSyncReader
         var kept = outcomes.Select(x => x.Outcome.Keep).OfType<IndexRecord>().ToImmutableArray();
         var batch = new AdSyncBatch(WritePlans.NewId(), "Vérification des disparitions", epoch, at, at.AddMinutes(15), kept, null, changed, []);
         batch = batch.AtBase(local);
-        State.Hold(batch);
+        await State.HoldAsync(batch, cancellationToken).ConfigureAwait(false);
         return new(batch.Id, selection.Length, SyncAbsences.Counts(resolutions), DeletedProbe.NotRequested,
             "Objets supprimés non interrogés ; une absence ne prouve aucune suppression.", server, at, resolutions,
             "Vérification par GUID terminée. Les objets retrouvés peuvent être réintégrés ; les autres restent non confirmés.", true, batch.Expires);
@@ -43,7 +43,7 @@ public sealed partial class AdSyncReader
         var resolved = outcomes.Where(x => x.Outcome.LeavesList).Select(x => x.Original.ObjectGuid).ToImmutableArray();
         var batch = new AdSyncBatch(WritePlans.NewId(), "Identités manquantes du recensement", epoch, at, at.AddMinutes(15), kept, null, [], resolved);
         batch = batch.AtBase(local);
-        State.Hold(batch);
+        await State.HoldAsync(batch, cancellationToken).ConfigureAwait(false);
         var gone = resolutions.Count(x => x.Status == "notFound");
         return new(batch.Id, selection.Length, kept.Length, gone, selection.Length - kept.Length - gone, resolutions,
             "Lecture ciblée terminée ; aucun résultat n’est enregistré sans confirmation du plan.", kept.Length + resolved.Length > 0, batch.Expires);

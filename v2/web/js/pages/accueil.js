@@ -625,10 +625,10 @@ export function render(main, ctx) {
   let ink = null;
   let navInk = null;
   let detailsAsked = false;
-  let ticker = 0;
+  let ticker = null;
   let board = null;
   let refresh = null;
-  let liveTimer = 0;
+  let liveTimer = null;
   let boardTimer = 0;
 
   // A measure of the top widgets (ping, inventory, directory) changes the local state the fleet board is computed from: the
@@ -1414,8 +1414,8 @@ export function render(main, ctx) {
       onRunning: (on) => {
         st.refreshing = on;
         // During a collection the board is computed again from the measures already recorded, every 15 s at most (ACC-037).
-        clearInterval(liveTimer);
-        liveTimer = on ? setInterval(() => { if (st.alive && !document.hidden) board?.load(); }, 15_000) : 0;
+        liveTimer?.();
+        liveTimer = on ? ctx.pulse.every('board.collecting', 15_000, () => st.alive ? board?.load({ periodic: true }) : undefined) : null;
       },
       onFinished: () => {
         reload({ silent: true }).catch((err) => ctx.toast(reported(err), { tone: 'alert' }));
@@ -1543,12 +1543,12 @@ export function render(main, ctx) {
   main.addEventListener('change', onChange);
   window.addEventListener('domenia:refresh-home', onRefreshHome);
   window.addEventListener('domenia:object-selected', onObject);
-  ticker = setInterval(() => {
+  ticker = ctx.pulse.every('relative-dates', 30_000, () => {
     main.querySelectorAll('[data-rel]').forEach((el) => {
       const text = relTime(el.dataset.rel);
       if (text) el.textContent = `${el.dataset.prefix ?? ''}${text}`;
     });
-  }, 30_000);
+  });
 
   start();
 
@@ -1556,8 +1556,8 @@ export function render(main, ctx) {
     clearTimeout(boardTimer);
     st.alive = false;
     queryWidgets?.destroy();
-    clearInterval(ticker);
-    clearInterval(liveTimer);
+    ticker?.();
+    liveTimer?.();
     main.removeEventListener('click', onClick);
     main.removeEventListener('change', onChange);
     window.removeEventListener('domenia:refresh-home', onRefreshHome);

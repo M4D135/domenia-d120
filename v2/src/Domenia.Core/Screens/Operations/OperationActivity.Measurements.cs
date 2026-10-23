@@ -3,6 +3,17 @@ namespace Domenia.Core;
 public sealed partial class OperationActivity
 {
     private long inventoriesReused;
+    private long sharedInventories;
+    private long sharedCimQueriesAvoided;
+    public long SharedInventories => Interlocked.Read(ref sharedInventories);
+    public long SharedCimQueriesAvoided => Interlocked.Read(ref sharedCimQueriesAvoided);
+    public void RecordSharedInventory(int queriesIssued)
+    {
+        if (queriesIssued < 0) { throw new ArgumentOutOfRangeException(nameof(queriesIssued)); }
+        Interlocked.Increment(ref sharedInventories);
+        Interlocked.Add(ref sharedCimQueriesAvoided, queriesIssued);
+    }
+
 
     /// <summary>One complete inventory skipped because an admissible fresh inventory was retained; not a count of WQL statements.</summary>
     public void RecordInventoryReused() => Interlocked.Increment(ref inventoriesReused);

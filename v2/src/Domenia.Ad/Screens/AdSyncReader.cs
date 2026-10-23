@@ -4,7 +4,7 @@ using Domenia.Core;
 
 namespace Domenia.Ad;
 
-/// <summary>Explicit bounded LDAP reads, held in memory until the operator confirms their local storage plan.</summary>
+/// <summary>Explicit bounded LDAP reads, held in a verified local spool until the operator confirms their local storage plan.</summary>
 public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
 {
     private ISyncLocalStore Store => source.LocalStore as ISyncLocalStore ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Stockage de synchronisation indisponible.");
@@ -38,7 +38,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
         lock (State.Gate)
         {
             State.Purge(); running = State.Running;
-            pending = State.Batches.Values.OrderByDescending(x => x.At).Select(x => new SyncPendingBatch(x.Id, "index", x.Label, x.Rows.Length, x.At, x.Expires)).FirstOrDefault();
+            pending = State.Batches.Values.Select(x => x.Header).OrderByDescending(x => x.At).Select(x => new SyncPendingBatch(x.Id, "index", x.Label, x.Rows, x.At, x.Expires)).FirstOrDefault();
         }
         var park = await ParkAsync(cancellationToken).ConfigureAwait(false);
         return new(scope, "Base SQLite locale", false, local.Revision, rows.Length, tiles, coverage,
@@ -106,7 +106,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
         var limits = SyncCoverageRules.Limits(request.MaxObjects ?? request.Settings.MaxObjects, request.BudgetSeconds is { } seconds ? checked(seconds * 1000) : request.Settings.BudgetMs);
         var known = local.Rows.Count(x => ScopeRules.Contains(new(scope.Dn, scope.Label, scope.Subtree), x.Dn));
         var mode = request.Target == SyncTarget.Ou ? SyncReadMode.Ou : SyncReadMode.Full;
-        var ready = session.Connection == ConnectionState.Connected && source.LocalStore is IPreparedDirectoryCache;
+        var ready = session.Connection == ConnectionState.Connected && source.LocalStore is IPreparedDirectoryCache and ISyncBatchSpool;
         var estimate = new SyncEstimate(WritePlans.NewId(), request.Target, scope, mode, mode == SyncReadMode.Ou ? "Lecture de l’OU choisie" : "Lecture complète du domaine",
             "Aucun repère USN certifié pour cette connexion : lecture complète explicitement confirmée.", known, known, 0,
             "Durée non estimée sans mesure antérieure ; aucune lecture réseau pour cette estimation.", limits.MaxObjects, Math.Min(limits.BudgetMs, 7_200_000), limits.TimeoutSeconds,
@@ -176,7 +176,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
             var batch = new AdSyncBatch(WritePlans.NewId(), "Lecture de " + estimate.Scope.Label, epoch, at, at.AddMinutes(15), built,
                 new(key, estimate.Scope.Dn, at, estimate.Scope.Subtree ? "Subtree" : "OneLevel", !complete, built.Length, access.Controller, 0, null, cut?.Reason, cut?.Limit ?? 0), absences, []);
             batch = batch.AtBase(local);
-            State.Hold(batch);
+            await State.HoldAsync(batch, cancellationToken).ConfigureAwait(false);
             var sha = SyncReconcile.Fingerprint(built);
             var result = new SyncReadResult(run.Id, batch.Id, estimate.Target, estimate.Scope, estimate.Mode, estimate.ModeLabel, complete, cut, access.Controller ?? "Non établi", null, 0, at,
                 checked((int)watch.ElapsedMilliseconds), built.Length, built.Count(x => x.Type == IndexObjectType.User), built.Count(x => x.Type == IndexObjectType.Computer), counts, reconciliation.Samples,
@@ -214,5 +214,5 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
     {
         lock (State.Gate) { if (State.Running?.RunId != runId || State.Stop is null) { return new(false, "Aucune lecture correspondante en cours."); } State.Stop.Cancel(); State.Running = State.Running with { Stopping = true }; return new(true, "Arrêt demandé ; le résultat confirmera la portée réellement lue."); }
     }
-    public SyncDiscard DiscardRead(string batchId) { lock (State.Gate) { var removed = State.Batches.Remove(batchId); return new(removed, removed ? "Lecture ignorée ; base inchangée." : "Lecture déjà absente."); } }
+    public SyncDiscard DiscardRead(string batchId) { lock (State.Gate) { var removed = State.Remove(batchId); return new(removed, removed ? "Lecture ignorée ; base inchangée." : "Lecture déjà absente."); } }
 }

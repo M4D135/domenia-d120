@@ -142,8 +142,8 @@ export function createRuns(host, env) {
         const state = await ctx.call('operations.survey.resume', { remaining: offer.remaining, ...(offer.resumeToken ? { token: offer.resumeToken } : {}) });
         toast(`Relevé repris${NBSP}: ${state.type} · ${state.scopeName}, ${count(Math.max(0, state.total - state.done), 'poste', 'postes')} à lire.`, { tone: 'info' });
       } else if (what === 'stop') {
-        const state = await ctx.call('operations.survey.stop');
-        if (state) toast(`Arrêt demandé${NBSP}: les mesures reçues sont gardées, les postes restants seront proposés de nouveau.`, { tone: 'warn', life: 6000 });
+        const state = await ctx.call('operations.survey.stop', { id: button?.dataset.runId });
+        if (state) toast(`Arrêt demandé${NBSP}: les mesures reçues sont conservées ; aucune nouvelle collecte ne sera lancée.`, { tone: 'warn', life: 6000 });
       } else if (what === 'forget' && offer?.resumable) {
         const ok = await confirmDialog({
           title: 'Abandonner le relevé interrompu ?',
@@ -170,7 +170,7 @@ export function createRuns(host, env) {
   load(false);
   return {
     refresh: (silent = true) => load(silent),
-    running: () => view?.current?.open === true,
+    running: () => view?.current?.open === true || view?.active?.some((batch) => batch.open) === true,
     resume: () => act('resume', null),
     destroy() { alive = false; grid.destroy(); filters.destroy?.(); },
   };
@@ -183,7 +183,10 @@ function ring(p) {
 }
 
 function currentMarkup(view) {
-  const s = view.current;
+  const active = (view.active ?? []).filter((batch) => batch.open);
+  if (active.length > 1) return active.map((batch) => currentMarkup({ ...view, active: [], current: batch }))
+    .join('<div class="op-sec"><h3>Autre lot en cours</h3></div>');
+  const s = active[0] ?? view.current;
   if (!view.available) {
     return `${cardHead('wifi', 'Relevé en cours', '')}${emptyState('wifi', 'Relevés non branchés', view.note)}`;
   }
@@ -193,20 +196,22 @@ function currentMarkup(view) {
       : '';
     return `${cardHead('wifi', 'Relevé en cours', 'Actualisation d’OU ou relevé de liste')}${emptyState('check', 'Aucun relevé en cours', 'Un relevé lancé depuis un écran apparaît ici avec sa progression et son arrêt.')}${ended}`;
   }
-  const p = s.total ? s.done / s.total : 0;
+  const measured = s.done >= 0 && s.total >= 0;
+  const p = measured && s.total ? s.done / s.total : 0;
+  const unit = s.family === 'directory' ? 'objets' : 'postes';
   const order = [['preparing', 'Préparation'], ['readingDirectory', 'Lecture AD'], ['confirming', 'À confirmer'], ['running', 'En cours'], ['saving', 'Enregistrement']];
   const at = s.phase === 'stopping' ? 3 : order.findIndex(([code]) => code === s.phase);
   const steps = order.map(([code, label], n) => `<li data-state="${n < at ? 'done' : n === at ? 'current' : 'todo'}" data-i="${n}"><span class="op-batch-dot" aria-hidden="true">${n < at ? glyph('check') : ''}</span><span>${esc(label)}</span></li>`).join('');
   const counters = [['Non confirmés', s.failed], ['Erreurs de ping', s.pingErrors], ['En cours', s.inFlight], ['Enregistrements en attente', s.pendingSaves], ['Non relus faute de capacité', s.skipped]]
-    .map(([label, value]) => `<li data-zero="${Number(value ?? 0) === 0}"><b>${esc(int(value ?? 0))}</b><span>${esc(label)}</span></li>`).join('');
+    .map(([label, value]) => `<li data-zero="${Number(value ?? 0) === 0}"><b>${esc(Number.isFinite(value) && value >= 0 ? int(value) : 'Non mesuré')}</b><span>${esc(label)}</span></li>`).join('');
   return `${cardHead('wifi', 'Relevé en cours', `${s.type} · ${s.scopeName}`, pill(s.stopRequested ? 'warn' : 'info', s.phaseLabel, { spin: !s.stopRequested, size: 'sm' }))}
     <div class="op-batch op-survey-batch"><ol class="op-batch-steps" aria-label="Phases du relevé">${steps}</ol><ul class="op-batch-counters" aria-label="Compteurs du relevé">${counters}</ul></div>
     <div class="op-survey">
-      <div class="op-survey-ring" data-phase="${esc(s.phase)}">${ring(p)}<div class="op-survey-center"><b>${int(s.done)}<small>/${int(s.total)}</small></b><span>postes</span></div></div>
+      <div class="op-survey-ring" data-phase="${esc(s.phase)}">${ring(p)}<div class="op-survey-center"><b>${measured ? int(s.done) + '<small>/' + int(s.total) + '</small>' : '—'}</b><span>${measured ? unit : 'non mesuré'}</span></div></div>
       <div class="op-survey-text">
         <p>${esc(s.status)}</p>
-        <dl class="op-facts compact"><div><dt>Lancé le</dt><dd>${esc(fullDate(s.startedAt))}</dd></div><div><dt>Postes du lot</dt><dd>${int(s.total)}</dd></div></dl>
-        <div class="op-survey-actions"><button class="btn subtle sm" type="button" data-run-act="stop"${s.stopRequested ? ' disabled' : ''}>${glyph('pause')}${s.stopRequested ? 'Arrêt demandé' : 'Arrêter le relevé'}</button></div>
+        <dl class="op-facts compact"><div><dt>Lancé le</dt><dd>${esc(fullDate(s.startedAt))}</dd></div><div><dt>${s.family === 'directory' ? 'Objets' : 'Postes'} du lot</dt><dd>${s.total >= 0 ? int(s.total) : 'Non mesuré'}</dd></div></dl>
+        <div class="op-survey-actions"><button class="btn subtle sm" type="button" data-run-act="stop" data-run-id="${esc(s.id)}"${s.stopRequested ? ' disabled' : ''}>${glyph('pause')}${s.stopRequested ? 'Arrêt demandé' : 'Arrêter le relevé'}</button></div>
       </div>
     </div>`;
 }

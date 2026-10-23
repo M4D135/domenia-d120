@@ -18,6 +18,7 @@ import './shell/store.test.mjs';
 import './shell/summary.test.mjs';
 import './shell/tasks.test.mjs';
 import './shell/appearance.test.mjs';
+import './shell/pulse.test.mjs';
 
 const report = await run();
 const out = document.getElementById('out');

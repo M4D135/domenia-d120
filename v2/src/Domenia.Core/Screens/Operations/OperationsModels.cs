@@ -115,7 +115,11 @@ public sealed record CollectionRunsView(
     SurveyState? Current,
     SurveyOffer? Offer,
     string CurrentText,
-    string Note);
+    string Note)
+{
+    /// <summary>All active batches, including an OU refresh running alongside a list survey.</summary>
+    public ImmutableArray<SurveyState> Active { get; init; } = [];
+}
 
 /// <summary>Status of one check of the application (Domenia 1 Add-Check: OK or ERREUR; Domenia 2 adds « à savoir » and « sans objet »).</summary>
 public enum CheckStatus

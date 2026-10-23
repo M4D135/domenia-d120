@@ -403,6 +403,7 @@ public sealed partial class AccueilService
                             collectionApproved = true;
                             collectionStarted ??= started;
                             latestState = await dashboard.MeasureAsync(MeasureFamily.Presence, token).ConfigureAwait(false);
+                            RecordOperationsPresence(state.Id, latestState, started);
                             presenceDone = true;
                             var (online, noAnswer, unchecked_) = CountPresence(latestState, plan.Scope, started);
                             Record(state, stage, "done", FleetBoardCalculator.Plural(online, "poste en ligne", "postes en ligne") + " sur " + FrenchText.Integer(online + noAnswer + unchecked_)
@@ -456,6 +457,7 @@ public sealed partial class AccueilService
                                         && reading.State == MeasureState.Known && reading.Error is null && reading.At >= started));
                             inventorySucceeded = reusedNow + usable;
                             inventoryFailed = toRead.Count - usable;
+                            RecordOperationsInventory(state.Id, latestState, started, inventoryOnline);
                             if (inventoryFailed > 0)
                             {
                                 outcome = "partial";
@@ -543,6 +545,7 @@ public sealed partial class AccueilService
             }
             if (recorded.Count > 0)
             {
+                MarkOperationsSaving(state.Id);
                 await PersistRunsAsync(domainDn, cancellationToken).ConfigureAwait(false);
             }
             state.Runs.AddRange(CollectionClocks.Rows(recorded));

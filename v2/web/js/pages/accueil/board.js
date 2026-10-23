@@ -46,7 +46,7 @@ export function createBoard(host, o) {
   const sigs = new Map(); // item id → signature of what its card shows (unchanged cards are left alone)
   let stopReveal = () => {};
   let seq = 0;
-  let sinceTimer = 0;
+  let sinceTimer = null;
 
   host.innerHTML = `<div class="fw-bar reveal">
       <div class="fw-pop" aria-live="polite">${skStack('sk-line w55', 'sk-line w40')}</div>
@@ -86,7 +86,8 @@ export function createBoard(host, o) {
 
   // ---------- Loading ----------
 
-  async function load({ quiet = true } = {}) {
+  async function load({ quiet = true, periodic = false } = {}) {
+    if (periodic && st.loading) return;
     const my = ++st.token;
     setLoading(true);
     o.onState?.('running');
@@ -105,6 +106,7 @@ export function createBoard(host, o) {
       st.error = err;
       paintError(err);
       o.onState?.('error', null, err);
+      if (periodic) throw err;
     } finally {
       if (my === st.token && st.alive) setLoading(false);
     }
@@ -118,10 +120,10 @@ export function createBoard(host, o) {
     host.classList.toggle('updating', on && Boolean(st.board));
     syncBar();
     bar.setBusy('recompute', on);
-    clearInterval(sinceTimer);
-    sinceTimer = 0;
+    sinceTimer?.();
+    sinceTimer = null;
     paintSince();
-    if (on) sinceTimer = setInterval(paintSince, 1000);
+    if (on) sinceTimer = ctx.pulse.every('board.elapsed', 1000, paintSince);
   }
 
   function paintSince() {
@@ -756,7 +758,7 @@ export function createBoard(host, o) {
     destroy() {
       st.alive = false;
       stopReveal();
-      clearInterval(sinceTimer);
+      sinceTimer?.();
       bar.destroy();
     },
   };

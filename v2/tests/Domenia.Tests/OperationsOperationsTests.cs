@@ -236,7 +236,7 @@ internal static class OperationsOperationsTests
     {
         var bridge = new SimulatedBridge();
         var runs = SimulatedBridge.Json(await bridge.CallAsync("operations.runs"));
-        Check.True(Names(runs).SequenceEqual(["generatedAt", "available", "rows", "current", "offer", "currentText", "note"]), "champs des relevés");
+        Check.True(Names(runs).SequenceEqual(["generatedAt", "available", "rows", "current", "offer", "currentText", "note", "active"]), "champs des relevés");
         var rows = runs.GetProperty("rows").EnumerateArray().ToList();
         Check.Equal(11, rows.Count, "une ligne par famille et par OU : 1 lecture d’objets, 5 sites × ping et WMI");
         Check.True(rows.Zip(rows.Skip(1)).All(p => string.CompareOrdinal(p.First.GetProperty("attemptAt").GetString(), p.Second.GetProperty("attemptAt").GetString()) >= 0), "le plus récent en haut");

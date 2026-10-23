@@ -44,6 +44,7 @@ public sealed partial class CimSession : IDisposable
     private readonly long started;
     private readonly CancellationToken cancellationToken;
     private bool authenticationRefused;
+    internal int QueriesIssued { get; private set; }
     internal bool AuthenticationRejected => authenticationRefused;
     private WsmanReadChannel? wsman;
     private bool disposed;
@@ -148,6 +149,7 @@ public sealed partial class CimSession : IDisposable
         try
         {
             var begin = clock.GetTimestamp();
+            QueriesIssued++;
             var rows = ReadOverride?.Invoke(namespaceName, wql, perQuery) ?? (Transport == InventoryTransport.WinRm ? WinRm.Query(namespaceName, wql, perQuery) : Query(namespaceName, wql, perQuery));
             var truncated = false;
             long bytes = 0;

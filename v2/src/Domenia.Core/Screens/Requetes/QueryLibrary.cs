@@ -850,7 +850,7 @@ public sealed class QueryLibrary : IDisposable
     /// Declares (or renews) a consumer of a saved recipe for another screen: a favourite of Recherche or a health rule, bound to
     /// the current revision. Listed by the impact review; never changes the recipe.
     /// </summary>
-    public async Task<QueryConsumerLink> BindConsumerAsync(string rootDn, string kind, string id, string recipeId, string title, string? scope, CancellationToken cancellationToken)
+    public async Task<QueryConsumerLink> BindConsumerAsync(string rootDn, string kind, string id, string recipeId, string title, string? scope, CancellationToken cancellationToken, long? boundRevision = null, string? expectedFingerprint = null)
     {
         if (kind is not ("search" or "health") || id.Length is 0 or > 64 || !id.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '_' or '-'))
         {
@@ -864,8 +864,15 @@ public sealed class QueryLibrary : IDisposable
         var (link, _) = await MutateAsync(RootKey(rootDn), state =>
         {
             var record = state.Records.FirstOrDefault(r => r.Id == recipeId && !r.Archived) ?? throw new QueryDefinitionException(QueryErrors.NotFoundMessage);
+            var revision = boundRevision ?? record.Revision;
+            if (boundRevision is not null)
+            {
+                var frozen = RevisionRecipe(record, revision);
+                if (frozen is null || QueryEngine.Compile(frozen).Fingerprint != expectedFingerprint)
+                { throw new QueryDefinitionException("La révision figée de la requête n’est plus confirmée : aucune nouvelle liaison."); }
+            }
             var at = state.Consumers.FindIndex(c => c.Kind == kind && c.Id == id);
-            var bound = new QueryConsumerLink(kind, id, recipeId, record.Revision, title.Trim(), scope, now);
+            var bound = new QueryConsumerLink(kind, id, recipeId, revision, title.Trim(), scope, now);
             if (at >= 0)
             {
                 state.Consumers[at] = bound;

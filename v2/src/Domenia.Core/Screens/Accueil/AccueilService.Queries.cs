@@ -3,7 +3,10 @@ using Domenia.Core.Queries;
 
 namespace Domenia.Core.Accueil;
 
-public sealed record FleetQueryCatalogItem(string Id, string Name, string Target, long Revision, string Fingerprint, string Visual, string? WidgetId, long? BoundRevision);
+public sealed record FleetQueryCatalogItem(string Id, string Name, string Target, long Revision, string Fingerprint, string Visual, string? WidgetId, long? BoundRevision)
+{
+    public bool HealthEligible { get; init; }
+}
 public sealed record FleetQueryBinding(FleetLayoutItem Item, QueryStoreReceipt Receipt);
 
 public sealed partial class AccueilService
@@ -30,7 +33,7 @@ public sealed partial class AccueilService
             {
                 var link = content.Widgets.FirstOrDefault(w => w.RecipeId == r.Id && w.Board == "fleet");
                 return new FleetQueryCatalogItem(r.Id, r.Name, QueryTexts.TargetLabel(r.Recipe.Target), r.Revision, r.Fingerprint,
-                    r.Recipe.GroupBy is null ? "Kpi" : "Pie", link?.Id, link?.BoundRevision);
+                    r.Recipe.GroupBy is null ? "Kpi" : "Pie", link?.Id, link?.BoundRevision) { HealthEligible = r.Recipe.Target == QueryTarget.Computer };
             }).ToImmutableArray();
             return result with { QueriesAvailable = true, Queries = entries,
                 QueriesText = "Requêtes locales du domaine. Ajouter lie la révision affichée ; aucune collecte réseau ne démarre."

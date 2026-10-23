@@ -64,7 +64,7 @@ export function render(main, ctx) {
   let memory = { recents: [], favorites: [], workspaces: [], queryFavorites: [], maxWorkspaces: 100 };
   let catalogCache = null;
   let generation = 0;
-  let revalidate = { on: false, timer: 0, interval: 180 };
+  let revalidate = { on: false, timer: null, interval: 180 };
   let clickCheck = readLayout('rechercher.clic') ?? { ping: false, console: false };
   let resume = null;
   let cleared = false;
@@ -139,16 +139,17 @@ export function render(main, ctx) {
     return items.filter((c) => actionMode(c.id) !== 'hidden').map((c) => (actionMode(c.id) === 'disabled' ? { ...c, disabled: true, reason: DISABLED_BY_ADMIN } : c));
   }
 
-  const listCheck = { on: true, timer: 0 };
+  const listCheck = { on: true, timer: null };
   function stopListCheck() {
-    clearInterval(listCheck.timer);
+    listCheck.timer?.();
     timers.delete(listCheck.timer);
-    listCheck.timer = 0;
+    listCheck.timer = null;
   }
   function startListCheck() {
     stopListCheck();
     if (!policy.revalidateListed || !listCheck.on || !results?.result()) return;
-    listCheck.timer = setInterval(() => { if (document.visibilityState === 'visible') checkListed(); }, Math.max(30, Math.min(600, policy.revalidateSeconds)) * 1000);
+    listCheck.timer = ctx.pulse.every('search.list-check', Math.max(30, Math.min(600, policy.revalidateSeconds)) * 1000, checkListed, { background: true,
+      onError: (_error, failures) => { console.warn('Revérification périodique des objets non faite.'); if (failures >= 3) setListCheck(false); } });
     timers.add(listCheck.timer);
   }
   /** Reads again the objects listed in their own perimeter: moves and renames under the same GUID; an absence is never a deletion. */
@@ -168,7 +169,7 @@ export function render(main, ctx) {
         run: (act) => { if (act === 'off') setListCheck(false); },
       });
     } catch (err) {
-      console.error(err);
+      throw err; // The shared pulse counts failures and stops after three; it never starts a second concurrent read.
     }
   }
   function setListCheck(on) {
@@ -456,19 +457,21 @@ export function render(main, ctx) {
       paintCommands();
     } catch (err) {
       const minutes = Math.round(revalidate.interval / 60);
-      results.setNotice('reval', { tone: 'warn', icon: 'alert', html: `Revérification non faite${COLON}${esc(errorText(err))}${revalidate.on ? ` Nouvel essai dans ${count(minutes, 'minute', 'minutes')}.` : ''}`, dismiss: true });
+      results.setNotice('reval', { tone: 'warn', icon: 'alert', html: `Revérification non faite${COLON}${esc(errorText(err))}${revalidate.on ? ` Revérification périodique active (${count(minutes, 'minute', 'minutes')}) ; elle s’arrête après trois échecs.` : ''}`, dismiss: true });
+      if (silent) throw err;
     }
   }
 
   function setRevalidate(on, interval = revalidate.interval) {
     revalidate.on = on;
     revalidate.interval = INTERVALS.includes(interval) ? interval : 180;
-    clearInterval(revalidate.timer);
+    revalidate.timer?.();
     timers.delete(revalidate.timer);
-    revalidate.timer = 0;
+    revalidate.timer = null;
     if (on) {
       // Only the visible list, only while the page is shown, never during a survey: never a hidden sweep.
-      revalidate.timer = setInterval(() => { if (document.visibilityState === 'visible' && results?.result()) revalidateNow(true); }, revalidate.interval * 1000);
+      revalidate.timer = ctx.pulse.every('search.reconcile', revalidate.interval * 1000, () => results?.result() ? revalidateNow(true) : undefined, { background: true,
+        onError: (_error, failures) => { console.warn('Revérification périodique de la liste non faite.'); if (failures >= 3) { setRevalidate(false); announce('Revérification périodique arrêtée après trois échecs ; relancez-la explicitement.'); } } });
       timers.add(revalidate.timer);
     }
     const label = `Toutes les ${revalidate.interval < 60 ? `${revalidate.interval} s` : `${Math.round(revalidate.interval / 60)}${NBSP}minutes`}`;
@@ -1160,8 +1163,8 @@ export function render(main, ctx) {
     document.removeEventListener('visibilitychange', onVisible);
     window.removeEventListener('focus', checkSession);
     offs.forEach((off) => off());
-    for (const t of timers) clearInterval(t);
-    clearInterval(revalidate.timer);
+    for (const stop of timers) stop();
+    revalidate.timer?.();
     clearTimeout(preloadTimer);
     paintCommandsSoon.cancel?.();
     stopReveal?.();

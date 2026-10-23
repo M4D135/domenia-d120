@@ -54,7 +54,7 @@ public sealed partial class DomeniaDatabase
             using var budget = StorageWriteBudgetScope.Enter(Path, () => CheckWriterSpace(bytes));
             sendStarted = true;
             var result = await send(token).ConfigureAwait(false);
-            lock (health.Gate) { health.Failures = 0; health.SavedAt = clock.GetUtcNow(); health.Fault = null; health.Version++; }
+            lock (health.Gate) { health.Failures = 0; health.SavedAt = clock.GetUtcNow(); health.Fault = health.Held.Count > 0 ? "Des lots antérieurs restent en mémoire pour examen ou reprise explicite ; ils ne sont pas rejoués automatiquement." : null; health.Version++; }
             return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

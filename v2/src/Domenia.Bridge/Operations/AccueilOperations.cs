@@ -83,10 +83,19 @@ public sealed class AccueilOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, ["id", "revision"]);
                 var id = BridgeArguments.GetString(values, "id");
-                if (!values.TryGetValue("revision", out var number) || !number.TryGetInt64(out var revision) || revision < 1
+                if (!values.TryGetValue("revision", out var number) || number.ValueKind != JsonValueKind.Number || !number.TryGetInt64(out var revision) || revision < 1
                     || id.Length != 32 || !id.All(char.IsAsciiHexDigitLower)) { throw BridgeArguments.Invalid("Requête ou révision invalide."); }
                 return await service.BindQueryAsync(id, revision, ct).ConfigureAwait(false);
             }, "Lie la révision affichée d’une requête au tableau ; écriture locale, aucune collecte."),
+
+            new OperationDefinition("accueil.health.query", OperationClass.LocalRead, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ["id", "revision"]);
+                var id = BridgeArguments.GetString(values, "id");
+                if (!values.TryGetValue("revision", out var number) || number.ValueKind != JsonValueKind.Number || !number.TryGetInt64(out var revision) || revision < 1
+                    || id.Length != 32 || !id.All(char.IsAsciiHexDigitLower)) { throw BridgeArguments.Invalid("Requête ou révision invalide."); }
+                return await service.FreezeHealthQueryAsync(id, revision, ct).ConfigureAwait(false);
+            }, "Fige une requête sur les postes et son empreinte pour une alerte locale ; aucune collecte."),
 
             new OperationDefinition("accueil.probe", OperationClass.Local, (args, _, _) =>
             {

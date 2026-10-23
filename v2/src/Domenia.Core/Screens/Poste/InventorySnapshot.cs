@@ -228,6 +228,10 @@ public sealed record InventorySnapshot(
     ImmutableArray<CertificateEntry> Certificates,
     ImmutableArray<ConnectionEntry> Connections)
 {
+    /// <summary>Actual projected CIM read attempts in this in-memory result, never inferred from cached inventory age.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int CimQueriesIssued { get; init; }
+
     /// <summary>Machine identity returned by CIM, separate from the requested DNS target.</summary>
     [global::System.Text.Json.Serialization.JsonIgnore(Condition = global::System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? ReportedName { get; init; }

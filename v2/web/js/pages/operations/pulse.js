@@ -7,7 +7,7 @@
 // « Traitement des résultats dans l’interface » category, the slowness of the interface and one line of the technical journal per
 // stall. Local measure of the page, not a test of the network.
 //
-// The shell may start it at boot (`startPulse()` is idempotent); Opérations starts it on its first display otherwise.
+// The shell starts it with the common scheduler; later startPulse() calls return that same instance.
 import { call as bridgeCall } from '../../bridge.js';
 
 const BEAT_MS = 1000;
@@ -31,12 +31,13 @@ export const WORK_LABELS = {
 let instance = null;
 
 /** The heartbeat of the interface, started once for the session. */
-export function startPulse() {
-  if (!instance) instance = createPulse();
+export function startPulse(scheduler) {
+  if (!instance) instance = createPulse(scheduler);
   return instance;
 }
 
-function createPulse() {
+function createPulse(scheduler) {
+  if (!scheduler?.every) throw new Error('Battement commun non initialisé par la coque.');
   const samples = [];
   const work = [];
   const longTasks = [];
@@ -44,7 +45,6 @@ function createPulse() {
   const listeners = new Set();
   const pendingRenders = [];
   let pendingStall = null;
-  let expected = performance.now() + BEAT_MS;
   let lastExplained = 0;
   let longTaskCount = 0;
   let reporting = true;
@@ -87,10 +87,8 @@ function createPulse() {
     }).observe(main, { childList: true });
   }
 
-  setInterval(() => {
-    const now = performance.now();
-    const late = Math.max(0, now - expected);
-    expected = now + BEAT_MS;
+  scheduler.every('shell.interface-measure', BEAT_MS, ({ due, now }) => {
+    const late = Math.max(0, now - due);
     samples.push(late);
     while (samples.length > KEEP) samples.shift();
     if (late >= STALL_MS && now - lastExplained >= EXPLAIN_EVERY_MS) {
@@ -110,10 +108,10 @@ function createPulse() {
     }
     const current = state();
     listeners.forEach((fn) => { try { fn(current); } catch (err) { console.error(err); } });
-  }, BEAT_MS);
+  });
 
   // Reports to the engine, silently (no busy line, no readiness signal held), only when there is something new.
-  setInterval(() => {
+  scheduler.every('shell.interface-report', REPORT_EVERY_MS, async () => {
     if (!reporting || (!pendingRenders.length && !pendingStall) || document.hidden) return;
     const renders = pendingRenders.splice(0, MAX_REPORT);
     const s = pendingStall;
@@ -124,11 +122,12 @@ function createPulse() {
       workMs: s.culprits[0] ? Math.round(s.culprits[0].ms) : null,
       longTaskMs: s.longTaskMs != null ? Math.round(s.longTaskMs) : null,
     } : null;
-    bridgeCall('operations.interface.report', { renders, stall }).catch((err) => {
+    await bridgeCall('operations.interface.report', { renders, stall }).catch((err) => {
       // An engine without this operation (older build, browser preview without it): the measure stays local, said once.
       if (err?.code === 'operation.unknown' || err?.code === 'arguments.invalid') { reporting = false; console.warn('Mesures de l’interface gardées dans la page', err?.code); }
+      throw err;
     });
-  }, REPORT_EVERY_MS);
+  });
 
   function percentile(sorted, p) {
     if (!sorted.length) return null;

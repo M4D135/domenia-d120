@@ -348,13 +348,15 @@ function batchMarkup(p) {
   const steps = (p.steps ?? []).map((s, n) => `<li data-state="${esc(s.state)}" data-i="${n}"><span class="op-batch-dot" aria-hidden="true">${s.state === 'done' ? glyph('check') : ''}</span><span>${esc(s.label)}</span></li>`).join('');
   const counters = [
     ['Non confirmés', p.failed], ['Erreurs de ping', p.pingErrors], ['En cours', p.inFlight], ['Enregistrements en attente', p.pendingSaves], ['Non relus faute de capacité', p.skipped],
-  ].map(([label, value]) => `<li data-zero="${Number(value) === 0}"><b>${esc(int(value ?? 0))}</b><span>${esc(label)}</span></li>`).join('');
+  ].map(([label, value]) => `<li data-zero="${Number(value) === 0}"><b>${esc(Number.isFinite(value) && value >= 0 ? int(value) : 'Non mesuré')}</b><span>${esc(label)}</span></li>`).join('');
   return `<div class="op-batch" data-sig="${esc(batchSig(p))}"><ol class="op-batch-steps" aria-label="Phases du lot">${steps}</ol><ul class="op-batch-counters" aria-label="Compteurs du lot">${counters}</ul></div>`;
 }
 
 function taskCard(t, n) {
+  const measured = t.progress && t.progress.done >= 0 && t.progress.total >= 0;
   const progress = t.progress
-    ? `<div class="op-task-bar determinate" role="progressbar" aria-label="${esc(t.label)}" aria-valuemin="0" aria-valuemax="${t.progress.total}" aria-valuenow="${t.progress.done}"><i data-p="${t.progress.total ? (t.progress.done / t.progress.total).toFixed(3) : '0'}"></i></div>
+    ? `${measured ? `<div class="op-task-bar determinate" role="progressbar" aria-label="${esc(t.label)}" aria-valuemin="0" aria-valuemax="${t.progress.total}" aria-valuenow="${t.progress.done}"><i data-p="${t.progress.total ? (t.progress.done / t.progress.total).toFixed(3) : '0'}"></i></div>`
+      : '<div class="op-task-bar indeterminate" aria-hidden="true"><i></i></div>'}
        <span class="op-task-progress">${esc(t.progress.header)}</span>${batchMarkup(t.progress)}`
     : '<div class="op-task-bar indeterminate" aria-hidden="true"><i></i></div>';
   return `<article class="op-task" data-id="${esc(t.id)}" data-kind="${esc(t.kind)}" data-state="${esc(t.state)}" data-i="${n}" tabindex="0" aria-label="${esc(`${t.label}, ${t.stateLabel}`)}">

@@ -43,7 +43,10 @@ public sealed record HealthThresholds(int StaleDays, int PasswordDays, int Uptim
 }
 
 /// <summary>Custom alert on a workstation measure (DiskFree, UptimeDays, MemoryUsed), at most 32 (point 75).</summary>
-public sealed record CustomHealthRule(string Id, string Name, string Measure, string Operator, double Threshold, string Severity, bool Enabled);
+public sealed record CustomHealthRule(string Id, string Name, string Measure, string Operator, double Threshold, string Severity, bool Enabled)
+{
+    public HealthQueryBinding? Query { get; init; }
+}
 
 /// <summary>Temporary suspension of one check, with its reason (3 to 240 characters) and its UTC end (point 77).</summary>
 public sealed record HealthSuspension(string RuleId, string Reason, DateTimeOffset UntilUtc);
@@ -237,7 +240,8 @@ public static class HealthRules
         {
             var max = rule.Measure == "UptimeDays" ? 3650 : 100;
             var valid = IsCustomId(rule.Id) && seen.Add(rule.Id) && rule.Name.Length is >= 1 and <= 100 && !rule.Name.Any(char.IsControl)
-                && rule.Measure is "DiskFree" or "UptimeDays" or "MemoryUsed" && rule.Operator is "LessThan" or "GreaterThan"
+                && (rule.Measure == "Query" ? rule.Operator == "Matches" && HealthQueryRules.Valid(rule.Query)
+                    : rule.Query is null && (rule.Measure is "DiskFree" or "UptimeDays" or "MemoryUsed") && (rule.Operator is "LessThan" or "GreaterThan"))
                 && rule.Severity is "Warn" or "Alert" && !double.IsNaN(rule.Threshold) && !double.IsInfinity(rule.Threshold)
                 && rule.Threshold >= 0 && rule.Threshold <= max;
             if (!valid)

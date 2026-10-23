@@ -42,6 +42,8 @@ import { beginTask, runningTasks, stopFirstTask, elapsedText } from './shell/tas
 import { installSheets } from './shell/sheets.js';
 import { startPulse } from './pages/operations/pulse.js';
 import { installJournalHealth } from './shell/journal-health.js';
+import { pulse } from './shell/pulse.js';
+import { installWindowActivity } from './shell/window-activity.js';
 
 const root = document.documentElement;
 const NBSP = ' ';
@@ -504,7 +506,8 @@ function boot() {
   // CPT-007: « Changer de compte » (Comptes) announces the new session; the top bar reads it again (badge, account, rights).
   window.addEventListener('domenia:session-changed', () => { quietCall('session.info').then(showConnection).catch((err) => console.error(err)); refreshActivity().catch(() => {}); });
   // OPE-030: the heartbeat of the interface runs from the start of the application, not only once Opérations is shown.
-  startPulse();
+  installWindowActivity();
+  startPulse(pulse);
   trackedCall('shell.interface.get').then((snapshot) => {
     const first = !snapshot?.interface || !Object.keys(snapshot.interface).length;
     adoptEngine(snapshot, true);
@@ -798,13 +801,13 @@ function boot() {
   // Task strip (TRV-049, TRV-053): label of the first task, its progress (ring filled when known, turning otherwise), the
   // elapsed time and « Annuler » when its screen can stop it; hidden but reserved when nothing runs.
   const strip = topbar.querySelector('.sh-strip');
-  let stripTimer = 0;
+  let stripTimer = null;
   const paintStrip = () => {
     const list = runningTasks();
     const first = list[0];
     strip.classList.toggle('on', !!first);
-    clearInterval(stripTimer);
-    stripTimer = 0;
+    stripTimer?.();
+    stripTimer = null;
     if (!first) { strip.querySelector('.sh-strip-label').textContent = ''; return; }
     const more = list.length > 1 ? ` (+${list.length - 1})` : '';
     strip.querySelector('.sh-strip-label').textContent = `${first.stopping ? 'Arrêt demandé · ' : ''}${first.label}${more}`;
@@ -816,7 +819,7 @@ function boot() {
     cancel.classList.toggle('on', first.cancellable && !first.stopping);
     const tick = () => { strip.querySelector('.sh-strip-time').textContent = elapsedText(Date.now() - first.started); };
     tick();
-    stripTimer = setInterval(tick, 1000);
+    stripTimer = pulse.every('shell.activity-time', 1000, tick);
   };
   on('tasks', paintStrip);
   paintStrip();
@@ -839,19 +842,18 @@ function boot() {
 
   // CPT-001: the slot follows accounts.access.revision (local, names and counts only) every 2 s on every screen; the Comptes
   // screen reports it itself while it is shown. Three failures in a row stop the follow-up (preview without the operation).
-  let accessFailures = 0;
-  const accessTimer = setInterval(() => {
+  pulse.every('shell.accounts-access', 2000, async () => {
     if (document.hidden || router?.current?.() === 'comptes') return;
-    quietCall('accounts.access.revision').then((r) => {
-      accessFailures = 0;
+    const r = await quietCall('accounts.access.revision');
+    if (r) {
       const pending = Math.max(0, Number(r?.pending) || 0);
       const label = pending === 1 ? '1 accès à revoir' : `${pending} accès à revoir`;
       const detail = pending ? `${label}${r.oldestPendingLabel ? ` · plus ancien${NBSP}: ${r.oldestPendingLabel}` : ''}` : '';
       if (state.access?.suspended === pending && (state.access?.detail ?? '') === detail) return;
       state.access = { suspended: pending, detail: detail.slice(0, 160) };
       emit('access', state.access);
-    }).catch(() => { accessFailures += 1; if (accessFailures >= 3) clearInterval(accessTimer); });
-  }, 2000);
+    }
+  });
 
   // ---------- Help ----------
 
@@ -1220,7 +1222,8 @@ function boot() {
     context: (page) => {
       // A fresh registry per mounted screen: its commands, target, scope, unsaved input and expert view never leak to the
       // next screen.
-      const screen = { id: page.id, commands: [], selectionType: '', machineRows: 0, scope: '', expert: null };
+      for (const stop of screenOf.current?.timers ?? []) stop();
+      const screen = { id: page.id, commands: [], selectionType: '', machineRows: 0, scope: '', expert: null, timers: new Set() };
       screenOf.current = screen;
       state.target = null;
       state.dirty = null;
@@ -1232,6 +1235,15 @@ function boot() {
         page,
         pages: PAGES,
         call: trackedCall,
+        pulse: {
+          every: (name, interval, run, options) => {
+            if (!live()) return () => {};
+            const stop = pulse.every(`page.${page.id}.${name}`, interval, (tick) => live() ? run(tick) : undefined, options);
+            const release = () => { stop(); screen.timers.delete(release); };
+            screen.timers.add(release);
+            return release;
+          },
+        },
         go: (id, params2) => router.go(id, params2),
         toast: (message, o) => notify(message, o ?? {})?.el ?? null,
         notify,

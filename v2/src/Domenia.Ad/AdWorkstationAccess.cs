@@ -9,6 +9,7 @@ internal sealed class AdWorkstationAccess(AdDirectorySource source, RemoteProbeC
     MachineAccountService? service, long generation, string? place, string? key) : IDisposable
 {
     internal RemoteProbeCredential Credential { get; } = credential;
+    internal string SharingGeneration => epoch + ":" + generation + ":" + Credential.Session + ":" + (key ?? Credential.Account);
     internal PosteConfiguration Settings { get; private init; } = PosteConfiguration.Defaults;
     internal WmiWorkstationReader InventoryReader() => new(source.Clock, configuration: Settings);
 

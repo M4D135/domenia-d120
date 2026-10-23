@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using Domenia.Core.Queries;
 
 namespace Domenia.Core.Accueil;
 
@@ -93,6 +94,15 @@ public static class FleetBoardCalculator
         private readonly HashSet<Guid> assessedIds = new();
         private readonly Dictionary<string, FleetEntry> entries = new(StringComparer.Ordinal);
         private readonly List<FleetHint> hints = [];
+        private readonly Dictionary<HealthQueryBinding, ImmutableDictionary<Guid, MatchState>> queryStates = new();
+        private MatchState QueryState(CustomHealthRule rule, Machine machine)
+        {
+            if (rule.Query is not { } binding) { return MatchState.Unknown; }
+            if (!queryStates.TryGetValue(binding, out var states))
+            { states = HealthQueryRules.Evaluate(binding, input.Queries, input.Scope, now); queryStates[binding] = states; }
+            return states.GetValueOrDefault(machine.Guid, MatchState.Unknown);
+        }
+
         private HealthPolicy boardPolicy = HealthPolicy.Default;
 
         public FleetComputation Run()
@@ -480,7 +490,8 @@ public static class FleetBoardCalculator
                 foreach (var rule in m.Policy.CustomRules)
                 {
                     double? value = rule.Measure switch { "DiskFree" => m.DiskFree, "UptimeDays" => m.UptimeDays, _ => null };
-                    if (value is double v && (rule.Operator == "LessThan" ? v < rule.Threshold : v > rule.Threshold))
+                    if (rule.Measure == "Query" ? QueryState(rule, m) == MatchState.Match
+                        : value is double v && (rule.Operator == "LessThan" ? v < rule.Threshold : v > rule.Threshold))
                     {
                         Hit(rule.Id, m);
                     }
@@ -869,7 +880,7 @@ public static class FleetBoardCalculator
             bool On(string id) => HealthRules.IsEnabled(p, id, now);
             var customOn = p.CustomRules.Where(r => On(r.Id)).ToList();
             var enabledCount = ScoredRules.Count(On) + customOn.Count;
-            var known = enabledCount > 0 && !customOn.Any(r => r.Measure == "MemoryUsed");
+            var known = enabledCount > 0 && !customOn.Any(r => r.Measure == "MemoryUsed" || r.Measure == "Query" && QueryState(r, m) == MatchState.Unknown);
             if (On("eos.ended") || On("eos.soon"))
             {
                 known &= m.Release.Build.Length > 0 && m.OsKnown;
@@ -1025,7 +1036,8 @@ public static class FleetBoardCalculator
                 maskedAll.UnionWith(maskedSet);
                 var count = id is "created" or "disabled" or "unreachable" or "wmi.failed" ? 0 : hitSet.Count;
                 var exclusive = hitSet.Count(g => flagged.GetValueOrDefault(g) == 1);
-                int? eligibleCount = eligible.TryGetValue(id, out var e) ? e : custom is not null && measures.TryGetValue(custom.Measure, out var me) ? me : null;
+                int? eligibleCount = custom is { Measure: "Query" } ? active.Count(m => QueryState(custom, m) != MatchState.Unknown)
+                    : eligible.TryGetValue(id, out var e) ? e : custom is not null && measures.TryGetValue(custom.Measure, out var me) ? me : null;
                 var isRule = HealthRules.IsKnownRule(id) || custom is not null;
                 var fleetRule = custom is not null || HealthRules.Catalog.Any(r => r.Id == id && r.Fleet);
                 var eligibleText = !isRule ? "Diagnostic de la vue" : eligibleCount is int ec ? FrenchText.Integer(ec) + " / " + FrenchText.Integer(total) : "Non mesuré sur le parc";
@@ -1078,7 +1090,7 @@ public static class FleetBoardCalculator
                 Func<Machine, bool>? hasData = hasDataFor.GetValueOrDefault(id);
                 if (hasData is null && custom is not null)
                 {
-                    hasData = custom.Measure switch { "DiskFree" => m => m.DiskFree is not null, "UptimeDays" => m => m.UptimeDays is not null, _ => null };
+                    hasData = custom.Measure switch { "DiskFree" => m => m.DiskFree is not null, "UptimeDays" => m => m.UptimeDays is not null, "Query" => m => QueryState(custom, m) != MatchState.Unknown, _ => null };
                 }
                 var lacking = isRule && fleetRule && hasData is { } test ? active.Where(m => !test(m)).ToList() : new List<Machine>();
                 Set(missingKey, lacking);
@@ -1140,6 +1152,12 @@ public static class FleetBoardCalculator
                 ? "Lancez « Mettre à jour la base locale de l’OU » depuis le menu de « Tout actualiser » pour actualiser explicitement la lecture de cette OU."
                 : "Lancez explicitement le relevé ping puis WMI de l’OU depuis le menu de « Tout actualiser » ; rien n’est collecté depuis cette fenêtre.";
             _ = inventories;
+            if (custom is { Measure: "Query", Query: { } binding })
+            {
+                source = binding.Problem ?? "Requête locale figée · révision " + binding.Revision + " · empreinte " + binding.Fingerprint[..Math.Min(12, binding.Fingerprint.Length)];
+                observed = "Chaque information conserve sa propre date dans l’instantané local ; aucune collecte à l’évaluation.";
+                collection = "Ouvrez la révision dans l’atelier pour consulter les informations manquantes. Une requête absente, archivée ou non relue reste inconnue.";
+            }
             return new FleetEvidence(source, observed, value, rule, collection);
         }
 

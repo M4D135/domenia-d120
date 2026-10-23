@@ -1,6 +1,7 @@
 import { quietCall } from './store.js';
 import { notify } from './notify.js';
 import { icon } from '../icons.js';
+import { pulse } from './pulse.js';
 
 // Memory-only host status, no log contents or remote contact. A healthy writer stays unobtrusive.
 export function installJournalHealth(topbar, navigate) {
@@ -26,11 +27,8 @@ export function installJournalHealth(topbar, navigate) {
       const key = `${status.state}|${status.dropped}`;
       if (impaired && key !== last) notify(`${label}. ${status.problem ?? ''} ${status.dropped ? `${status.dropped} ligne(s) perdue(s).` : ''}`.trim(), { tone: 'warn', key: 'technical-journal-health' });
       last = key;
-    } catch { /* A host absent in a browser preview is not an invented disk failure. */ }
-    finally { busy = false; }
+    } finally { busy = false; }
   }
-  const timer = setInterval(read, 10_000);
-  const first = setTimeout(read, 1200);
-  document.addEventListener('visibilitychange', read);
-  window.addEventListener('pagehide', () => { stopped = true; clearInterval(timer); clearTimeout(first); document.removeEventListener('visibilitychange', read); }, { once: true });
+  const stop = pulse.every('shell.journal-health', 10_000, read, { firstDelay: 1200 });
+  window.addEventListener('pagehide', () => { stopped = true; stop(); }, { once: true });
 }

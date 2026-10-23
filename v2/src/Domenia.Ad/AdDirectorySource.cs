@@ -469,6 +469,7 @@ public sealed partial class AdDirectorySource : IDirectorySource, IDirectoryRefr
             disposed = true;
             epoch++;
         }
+        AdSyncState.Release(this);
         Connection.Dispose();
         connecting.Dispose();
         refreshing.Dispose();

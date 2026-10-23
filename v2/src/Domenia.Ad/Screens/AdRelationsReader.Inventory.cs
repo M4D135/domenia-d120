@@ -19,9 +19,27 @@ public sealed partial class AdRelationsReader
         var epoch = source.Epoch; InventorySnapshot? captured = null;
         async Task<ConsoleAccountReading?> Read(WmiWorkstationReader reader, AdWorkstationAccess access, string host, CancellationToken stop)
         {
+            access.EnsureCurrent(); EnsureEpoch(epoch);
             if (beforeRead is not null) { await beforeRead(host, stop).ConfigureAwait(false); access.EnsureCurrent(); EnsureEpoch(epoch); }
-            captured = injected is null ? await reader.ReadAsync(host, scope, progress, stop, access.Credential).ConfigureAwait(false)
-                : await injected(host, stop).ConfigureAwait(false);
+            if (injected is null && beforeRead is null && afterRead is null)
+            {
+                var key = new InventoryReadKey(expected.ObjectGuid, expected.DistinguishedName.ToUpperInvariant(), expected.WhenCreated,
+                    host.ToUpperInvariant(), scope, access.SharingGeneration, access.Settings.UseCim, access.Settings.UseRemoteRegistry, access.Settings.Options.UseWinRm);
+                var shared = await SharedInventoryReads.For(source).ReadAsync(key,
+                    (updates, cancellation) =>
+                    {
+                        access.EnsureCurrent(); EnsureEpoch(epoch);
+                        return reader.ReadSharedAsync(host, scope, updates, cancellation, access.Credential);
+                    }, progress, stop).ConfigureAwait(false);
+                captured = shared.Value;
+                if (shared.Shared && source.AccountContext is { } telemetry) { OperationActivity.From(telemetry).RecordSharedInventory(captured.CimQueriesIssued); }
+            }
+            else
+            {
+                // Consent-bearing SYSTEM fallbacks, injected readers and callbacks remain exclusive to their caller.
+                captured = injected is null ? await reader.ReadAsync(host, scope, progress, stop, access.Credential).ConfigureAwait(false)
+                    : await injected(host, stop).ConfigureAwait(false);
+            }
             access.EnsureCurrent(); EnsureEpoch(epoch);
             if (afterRead is not null) { captured = await afterRead(captured, access, stop).ConfigureAwait(false); access.EnsureCurrent(); EnsureEpoch(epoch); }
             if (captured.CollectedAt < expected.WhenCreated || captured.CollectedAt > source.Clock.GetUtcNow())

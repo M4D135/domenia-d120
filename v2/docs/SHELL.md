@@ -262,3 +262,20 @@ actualisation les redessine sans rejouer l’entrée. Une série dont toutes les
 tuiles calmes avec une phrase (`zeroText` de l’entrée), jamais en graphique vide. Une date des données en avance de moins
 de 5 minutes sur l’horloge de la page (écart d’horloge entre le moteur et WebView2) se lit « à l’instant » ; au-delà,
 « non daté ».
+
+
+## 17. Battement partagé et repos de fenêtre
+
+`ctx.pulse.every(nom, intervalleMs, rappel, options)` inscrit un rappel périodique de la page et renvoie sa fonction de
+libération. La coque libère aussi les abonnements de l’ancienne page au montage suivant. Un seul réveil physique dessert
+ces abonnés ; un rappel asynchrone ne se superpose jamais à lui-même. Trois échecs consécutifs arrêtent cet abonnement,
+avec diagnostic, jusqu’à une nouvelle inscription explicite. Les options sont `background`, `firstDelay` et `onError`.
+
+L’hôte transmet son état par `shell.window.activity` : visibilité, activation et envoi d’écriture en cours. Masquer ou
+réduire la fenêtre suspend ces rappels ; le retour visible rattrape une seule fois le rendu. Les abonnements de fond
+attendent aussi que la fenêtre soit active et qu’aucune écriture ne soit en cours, puis attendent un intervalle complet.
+L’activation ne déclenche donc pas une lecture réseau. Les commandes explicites et les travaux du moteur continuent.
+
+Le temps de la barre d’activité, le suivi local des accès et du journal, les mesures de réactivité et les revérifications
+périodiques de Rechercher utilisent ce battement. Les autres minuteries d’écran restent à migrer avant de déclarer la
+fabrique et la politique de repos généralisées ; les contrats TRV-131 et TRV-132 ne sont pas déclarés entièrement validés.

@@ -161,8 +161,35 @@ internal static class NativeStorageWriterTests
             await Check.ThrowsAsync<IOException>(() => setup.Database.SaveFleetAsync(setup.Patch, None), "lot gardé sans identité de base qualifiée");
             Check.Equal(1, (await setup.Reader.LocalStoreAsync(None)).Writer.Pending, "données conservées pour examen");
             setup.Database.FreeSpaceProbe = () => long.MaxValue;
-            await Check.ThrowsAsync<InvalidDataException>(() => setup.Plan(), "reprise non qualifiée refusée explicitement");
+            var plan = await setup.Plan();
+            Check.True(plan.Summary.Contains("examen", StringComparison.Ordinal), "sort du lot explicitement annoncé");
+            await setup.Executor.ExecuteAsync(plan, None);
+            var rearmed = await setup.Reader.LocalStoreAsync(None);
+            Check.False(rearmed.Writer.Suspended, "réarmement possible sans comparer un schéma non qualifié");
+            Check.Equal(1, rearmed.Writer.Pending, "lot toujours conservé, jamais abandonné implicitement");
+            Check.Equal(0, (await setup.Cache.ReadFleetAsync(None)).Observations.Workstations.Length, "aucun rejeu du lot non qualifié");
+            Check.Equal(VerificationState.Verified, (await setup.Executor.VerifyAsync(plan, None)).State, "preuve du réarmement seul");
         }
+    }
+
+    [Test]
+    public static async Task An_ambiguous_send_can_rearm_without_replaying_or_discarding_its_collected_payload()
+    {
+        using var setup = new Setup(); await setup.Initialize();
+        var checks = 0; setup.Database.FreeSpaceProbe = () => ++checks >= 3 ? 1 : long.MaxValue;
+        await Check.ThrowsAsync<IOException>(() => setup.Database.SaveFleetAsync(setup.Patch, None), "envoi interrompu avant sa confirmation");
+        setup.Database.FreeSpaceProbe = () => long.MaxValue;
+        var plan = await setup.Plan();
+        Check.True(plan.Summary.Contains("1 lot restera en mémoire pour examen", StringComparison.Ordinal), "conséquence exacte annoncée");
+        await setup.Executor.ExecuteAsync(plan, None);
+        var held = await setup.Reader.LocalStoreAsync(None);
+        Check.False(held.Writer.Suspended, "nouveaux enregistrements admis"); Check.Equal(1, held.Writer.Pending, "ancien contenu conservé");
+        Check.Equal(0, (await setup.Cache.ReadFleetAsync(None)).Observations.Workstations.Length, "lot ambigu jamais rejoué");
+        Check.Equal(VerificationState.Verified, (await setup.Executor.VerifyAsync(plan, None)).State, "preuve précise du réarmement sans rejeu");
+        await setup.Database.SaveFleetAsync(setup.Patch, None);
+        var after = await setup.Reader.LocalStoreAsync(None);
+        Check.Equal(1, after.Writer.Pending, "nouvelle sauvegarde ne jette pas le lot pour examen");
+        Check.True(after.Writer.Fault?.Contains("examen", StringComparison.Ordinal) == true, "avertissement visible malgré nouvel enregistrement réussi");
     }
 
     private sealed class Setup : IDisposable

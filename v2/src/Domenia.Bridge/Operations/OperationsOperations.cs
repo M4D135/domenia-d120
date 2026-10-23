@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Domenia.Core;
+using Domenia.Core.Accueil;
 
 namespace Domenia.Bridge;
 
@@ -171,8 +172,10 @@ public sealed class OperationsOperations : IOperationModule
 
             new OperationDefinition("operations.survey.stop", OperationClass.Local, (args, _, _) =>
             {
-                BridgeArguments.RequireNone(args);
-                return Task.FromResult<object?>(desk.Reader().StopSurvey());
+                var values = BridgeArguments.ReadObject(args, ["id"]);
+                var id = BridgeArguments.GetString(values, "id");
+                if (id.Length is < 1 or > 58) { throw BridgeArguments.Invalid("Identifiant du relevé requis."); }
+                return Task.FromResult<object?>(desk.StopBatch(id));
             }, "Arrête le relevé en cours ; les mesures reçues sont gardées."),
 
             // LocalWrite: forgets the local plan of the interrupted survey; the measures already read stay.
@@ -415,22 +418,37 @@ public sealed class OperationsOperations : IOperationModule
 
         public ActivitySnapshot Activity()
         {
-            var survey = FindReader()?.CurrentSurvey();
-            return activity.Snapshot(survey is { Open: true } s ? [BatchRow(s)] : []);
+            return activity.Snapshot([.. ActiveBatches().Select(BatchRow)]);
+        }
+
+        private ImmutableArray<SurveyState> ActiveBatches()
+        {
+            var values = new List<SurveyState>();
+            if (FindReader()?.CurrentSurvey() is { Open: true } survey) { values.Add(survey); }
+            if (AccueilService.From(context).OperationsRefresh() is { Open: true } home) { values.Add(home); }
+            return [.. values];
+        }
+
+        public SurveyState StopBatch(string id)
+        {
+            SurveyState state;
+            if (id.StartsWith("accueil-", StringComparison.Ordinal)) { state = AccueilService.From(context).StopOperationsRefresh(id); }
+            else
+            {
+                var reader = FindReader();
+                if (reader?.CurrentSurvey() is not { Open: true } running || !string.Equals(running.Id, id, StringComparison.Ordinal))
+                { throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage); }
+                state = reader.StopSurvey() ?? throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
+            }
+            context.Journal.Add(new JournalEntry(Now, "Arrêt demandé" + FrenchText.Colon + state.Type + " de l’OU " + state.ScopeName, Tone.Warn));
+            return state;
         }
 
         public ActivityRow Stop(string id)
         {
             if (id.StartsWith("batch:", StringComparison.Ordinal) && id.Length <= 64)
             {
-                // The right to stop is checked again on the real batch (Domenia 1 OPE-016): a row of an older batch never stops a new one.
-                var reader = FindReader();
-                if (reader?.CurrentSurvey() is not { Open: true } running || !string.Equals(running.Id, id["batch:".Length..], StringComparison.Ordinal))
-                {
-                    throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
-                }
-                var state = reader.StopSurvey() ?? throw new DomeniaOperationException(OperationActivity.TaskUnknown, OperationActivity.TaskUnknownMessage);
-                context.Journal.Add(new JournalEntry(Now, "Arrêt demandé" + FrenchText.Colon + "relevé " + state.Type + " de l’OU " + state.ScopeName, Tone.Warn));
+                var state = StopBatch(id["batch:".Length..]);
                 return BatchRow(state);
             }
             if (id.Length != 32 || !id.All(char.IsAsciiHexDigitLower))
@@ -478,7 +496,8 @@ public sealed class OperationsOperations : IOperationModule
             var collection = new List<string>(activity.ClassLines())
             {
                 "Inventaires CIM réutilisés" + FrenchText.Colon + FrenchText.Integer(activity.InventoriesReused) + " relevés complets évités grâce à une mesure récente admissible (ce nombre n’est pas un compte de requêtes WQL).",
-                "Demandes réseau identiques : aucun partage automatique entre opérateurs ou identités ; les lectures restent isolées.",
+                "Lectures CIM identiques partagées" + FrenchText.Colon + FrenchText.Integer(activity.SharedInventories) + " résultats reçus ; "
+                    + FrenchText.Integer(activity.SharedCimQueriesAvoided) + " projections CIM évitées. Même session, génération du compte, objet, transport et périmètre uniquement ; aucun repli SYSTEM partagé.",
                 reader?.CollectionProfile ?? ("Collecte sur les postes" + FrenchText.Colon + "lecteur indisponible dans ce contexte."),
             };
             var (localSave, tone) = LocalSave(zone);
@@ -595,7 +614,10 @@ public sealed class OperationsOperations : IOperationModule
                 return new CollectionRunsView(Now, false, [], null, null, "Aucun relevé en cours.",
                     "Relevés des postes et base locale non branchés dans cette version (Domenia.Inventory et Domenia.Store, vague 3)" + FrenchText.Colon + "rien n’est lu.");
             }
-            return await reader.RunsAsync(ct).ConfigureAwait(false);
+            var runs = await reader.RunsAsync(ct).ConfigureAwait(false);
+            var active = ActiveBatches();
+            return runs with { Active = active, Current = active.FirstOrDefault() ?? runs.Current,
+                CurrentText = active.IsEmpty ? runs.CurrentText : FrenchText.Count(active.Length, "lot en cours", "lots en cours") };
         }
 
         public async Task<BlockerReport> BlockersAsync(CancellationToken ct)
@@ -833,7 +855,7 @@ public sealed class OperationsOperations : IOperationModule
             var label = "Lot " + s.Type + " · " + s.ScopeName;
             var header = s.Type + " · " + (s.Phase is SurveyPhase.Preparing or SurveyPhase.ReadingDirectory or SurveyPhase.Confirming
                 ? s.PhaseLabel.ToLowerInvariant()
-                : FrenchText.Integer(s.Done) + "/" + FrenchText.Integer(s.Total));
+                : s.Done < 0 || s.Total < 0 ? "progression non mesurée" : FrenchText.Integer(s.Done) + "/" + FrenchText.Integer(s.Total));
             var reference = ActivityRules.Reference(s.Id.Replace("-", "", StringComparison.Ordinal).PadRight(8, '0'));
             ImmutableArray<TaskPhaseRow> phases =
             [

@@ -72,6 +72,10 @@ internal sealed partial class MainForm : Form
             await InitializeWebViewAsync().ConfigureAwait(true);
         };
         FormClosing += CheckClosing;
+        Activated += (_, _) => { windowActive = true; PublishWindowActivity(); };
+        Deactivate += (_, _) => { windowActive = false; PublishWindowActivity(); };
+        Resize += (_, _) => PublishWindowActivity();
+        VisibleChanged += (_, _) => PublishWindowActivity();
         FormClosed += (_, _) =>
         {
             lifetime.Cancel();
@@ -181,6 +185,7 @@ internal sealed partial class MainForm : Form
         };
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.WebMessageReceived += OnWebMessageReceived;
+        core.NavigationCompleted += (_, _) => PublishWindowActivity(force: true);
         if (e2e is not null)
         {
             // The profile folder was deleted before the start; whatever could not be deleted is cleared here.
@@ -337,6 +342,7 @@ internal sealed partial class MainForm : Form
             {
                 if (!IsDisposed && webView.CoreWebView2 is not null)
                 {
+                    PublishWindowActivity();
                     webView.CoreWebView2.PostWebMessageAsJson(json);
                 }
             });

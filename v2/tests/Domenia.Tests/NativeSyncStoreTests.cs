@@ -222,7 +222,7 @@ internal static class NativeSyncStoreTests
         {
             var local = await Cache.ReadSyncStateAsync(None);
             var batch = new AdSyncBatch(WritePlans.NewId(), "Lecture explicite", Source.Epoch, Fixtures.Now, Fixtures.Now.AddMinutes(15), rows, coverage, [], []).AtBase(local);
-            AdSyncState.For(Source).Hold(batch); return batch;
+            await AdSyncState.For(Source).HoldAsync(batch, None); return batch;
         }
         internal async Task StoreBatch(ImmutableArray<IndexRecord> rows, SyncStateEntry? coverage)
         {

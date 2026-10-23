@@ -20,6 +20,10 @@ public sealed record SyncStateEntry(
     string? CutReason,
     long CutLimit)
 {
+    /// <summary>Native checkpoint binds the reader and the size of the retained index; older markers leave these unknown.</summary>
+    public string? ReaderFingerprint { get; init; }
+    public int? CheckpointItems { get; init; }
+    public bool Incremental { get; init; }
     public const string DirectoryKey = "directory";
     public const string AttemptPrefix = "attempt:";
 

@@ -100,7 +100,8 @@ public sealed partial class AccueilService : IDisposable
         var history = await HistoryAsync(reader, scope, cancellationToken).ConfigureAwait(false);
         var items = LayoutItems();
         var policyBook = HealthBook(domainDn);
-        var querySnapshot = items.Any(i => i.Source == FleetWidgetSource.Query)
+        var querySnapshot = items.Any(i => i.Source == FleetWidgetSource.Query) || policyBook.Default.CustomRules.Any(r => r.Measure == "Query")
+            || policyBook.Scopes.Any(s => s.Overrides.CustomRules is { } rules && rules.Any(r => r.Measure == "Query"))
             ? await ReadQueriesAsync(cancellationToken).ConfigureAwait(false) : null;
         // Every board count and drill-down uses the directory/observation snapshot captured by the query reader.
         if (querySnapshot?.Dataset is { } queryData) { state = state with { Directory = queryData.Directory, Observations = queryData.Observations }; }
@@ -113,7 +114,7 @@ public sealed partial class AccueilService : IDisposable
             readings = probes;
         }
         var input = new FleetBoardInput(state, scope, domainDn, session.Domain?.DnsName ?? domainDn, policyBook, facts with { Runs = AllRuns(facts) }, presence, readings,
-            items, history, Now, Zone);
+            items, history, Now, Zone, Queries: querySnapshot);
         var computation = FleetBoardCalculator.Compute(input);
         computation = FleetQueryWidgets.Apply(computation, input, querySnapshot, cancellationToken);
         var revision = Interlocked.Increment(ref revisionCounter).ToString("x8", CultureInfo.InvariantCulture) + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
@@ -575,7 +576,7 @@ public sealed partial class AccueilService : IDisposable
             origins.First(o => o.Kind == "Contrôle" && o.Id == r.Id).Origin, HealthRules.Suspension(resolved.Policy, r.Id, now))).ToImmutableArray();
         var scopes = HealthRules.EditorScopes(policyBook, ScopeRules.IsDomainRoot(scope, domainDn) ? null : scope.Dn);
         return new HealthPolicyView(target.Length == 0 ? null : target, HealthRules.ScopeLabel(target, domainDn), resolved.Local, resolved.Policy, origins, scopes, rules,
-            HealthRules.Thresholds, HealthRules.SuspensionHours, HealthRules.MaxCustomRules, false);
+            HealthRules.Thresholds, HealthRules.SuspensionHours, HealthRules.MaxCustomRules, queryLibrary is not null);
     }
 
     /// <summary>accueil.health.save: saves the policy of a scope, only its differences for an OU (LocalWrite).</summary>
@@ -584,8 +585,15 @@ public sealed partial class AccueilService : IDisposable
         ArgumentNullException.ThrowIfNull(policy);
         var (_, _, domainDn) = await ScopeAsync(cancellationToken).ConfigureAwait(false);
         var target = NormalizeScope(scopeDn, domainDn);
-        var next = HealthRules.SetScopePolicy(HealthBook(domainDn), target, policy, Now);
-        await SaveBookAsync(next, cancellationToken).ConfigureAwait(false);
+        await healthWrites.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var next = HealthRules.SetScopePolicy(HealthBook(domainDn), target, policy, Now);
+            await BindHealthQueriesAsync(domainDn, target, policy, cancellationToken).ConfigureAwait(false);
+            await SaveBookAsync(next, cancellationToken).ConfigureAwait(false);
+            await ReleaseObsoleteHealthQueriesAsync(domainDn, target, policy, cancellationToken).ConfigureAwait(false);
+        }
+        finally { healthWrites.Release(); }
         context.Journal.Add(new JournalEntry(Now, "Règles de santé enregistrées" + FrenchText.Colon + HealthRules.ScopeLabel(target, domainDn), Tone.Info));
         return await HealthPolicyAsync(target.Length == 0 ? null : target, cancellationToken).ConfigureAwait(false);
     }
@@ -595,8 +603,14 @@ public sealed partial class AccueilService : IDisposable
     {
         var (_, _, domainDn) = await ScopeAsync(cancellationToken).ConfigureAwait(false);
         var target = NormalizeScope(scopeDn, domainDn);
-        var next = HealthRules.RemoveScope(HealthBook(domainDn), target);
-        await SaveBookAsync(next, cancellationToken).ConfigureAwait(false);
+        await healthWrites.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var next = HealthRules.RemoveScope(HealthBook(domainDn), target);
+            await SaveBookAsync(next, cancellationToken).ConfigureAwait(false);
+            await ReleaseObsoleteHealthQueriesAsync(domainDn, target, HealthPolicy.Default, cancellationToken).ConfigureAwait(false);
+        }
+        finally { healthWrites.Release(); }
         context.Journal.Add(new JournalEntry(Now, "Règles héritées rétablies" + FrenchText.Colon + HealthRules.ScopeLabel(target, domainDn), Tone.Info));
         return await HealthPolicyAsync(target, cancellationToken).ConfigureAwait(false);
     }
@@ -669,12 +683,19 @@ public sealed partial class AccueilService : IDisposable
 
     private async Task SaveBookAsync(HealthPolicyBook next, CancellationToken cancellationToken)
     {
-        lock (gate)
+        await persist.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
         {
-            book = next;
-            latest = null;
+            await context.Preferences.SetAsync("accueil.health." + DomainHash(next.DomainDn), HealthPolicyJson.Write(next), cancellationToken).ConfigureAwait(false);
+            lock (gate) { book = next; latest = null; localWriteFailures = 0; }
         }
-        await RememberAsync("accueil.health." + DomainHash(next.DomainDn), HealthPolicyJson.Write(next), cancellationToken).ConfigureAwait(false);
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            lock (gate) { localWriteFailures++; }
+            context.Log.Warning("Règles de santé non enregistrées : " + ex.GetType().Name + ".");
+            throw new DomeniaOperationException(HealthRules.InvalidCode, "Les règles de santé n’ont pas été enregistrées. Votre brouillon est conservé ; aucune nouvelle politique appliquée.");
+        }
+        finally { persist.Release(); }
     }
 
     // ---------------------------------------------------------------- BitLocker presence (ACC-057)

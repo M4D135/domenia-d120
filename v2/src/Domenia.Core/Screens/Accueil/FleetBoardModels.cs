@@ -206,4 +206,5 @@ public sealed record FleetBoardInput(
     ImmutableArray<FleetSnapshot> History,
     DateTimeOffset Now,
     TimeZoneInfo Zone,
-    int ObservationMaxAgeDays = 30);
+    int ObservationMaxAgeDays = 30,
+    FleetQuerySnapshot? Queries = null);

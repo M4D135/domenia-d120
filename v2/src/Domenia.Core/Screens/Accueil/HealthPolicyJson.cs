@@ -12,7 +12,7 @@ namespace Domenia.Core.Accueil;
 public static class HealthPolicyJson
 {
     private static readonly string[] PolicyNames = ["thresholds", "disabledRules", "customRules", "suspensions"];
-    private static readonly string[] CustomNames = ["id", "name", "measure", "operator", "threshold", "severity", "enabled"];
+    private static readonly string[] CustomNames = ["id", "name", "measure", "operator", "threshold", "severity", "enabled", "query"];
     private static readonly string[] SuspensionNames = ["ruleId", "reason", "untilUtc", "hours", "endNow"];
 
     /// <summary>Preference value of a book (version 1).</summary>
@@ -200,17 +200,14 @@ public static class HealthPolicyJson
         {
             id = "custom." + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
         }
-        if (Text("measure") == "Query")
-        {
-            throw HealthRules.Invalid("Alerte sur requête enregistrée : la bibliothèque de l’atelier de requêtes n’est pas encore disponible dans cette version.");
-        }
         var threshold = x.TryGetProperty("threshold", out var th) && th.ValueKind == JsonValueKind.Number ? th.GetDouble() : double.NaN;
         var enabled = !x.TryGetProperty("enabled", out var en) || en.ValueKind != JsonValueKind.False;
         if (x.TryGetProperty("enabled", out var check) && check.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
         {
             throw HealthRules.Invalid("Activation de règle personnalisée invalide.");
         }
-        return new CustomHealthRule(id, Text("name").Trim(), Text("measure"), Text("operator"), threshold, Text("severity").Length > 0 ? Text("severity") : "Warn", enabled);
+        return new CustomHealthRule(id, Text("name").Trim(), Text("measure"), Text("operator"), threshold, Text("severity").Length > 0 ? Text("severity") : "Warn", enabled)
+        { Query = x.TryGetProperty("query", out var q) && q.ValueKind != JsonValueKind.Null ? HealthQueryRules.Read(q) : null };
     }
 
     private static HealthSuspension StrictSuspension(JsonElement x, DateTimeOffset now)
@@ -289,6 +286,15 @@ public static class HealthPolicyJson
         }
         catch (DomeniaOperationException)
         {
+            // A damaged frozen query must stay unknown, never disappear from the health denominator silently.
+            if (x.ValueKind == JsonValueKind.Object && x.TryGetProperty("measure", out var measure) && measure.ValueKind == JsonValueKind.String && measure.GetString() == "Query")
+            {
+                var id = x.TryGetProperty("id", out var storedId) && storedId.ValueKind == JsonValueKind.String ? storedId.GetString()! : "";
+                if (!HealthRules.IsCustomId(id)) { id = "custom." + Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(x.GetRawText())))[..32]; }
+                var enabled = !x.TryGetProperty("enabled", out var on) || on.ValueKind != JsonValueKind.False;
+                return new CustomHealthRule(id, "Référence de requête illisible — à rétablir", "Query", "Matches", 0, "Warn", enabled)
+                { Query = new HealthQueryBinding("", 0, "", "") { Problem = "Référence ou empreinte illisible : résultat inconnu, aucune collecte. Retirez ou recréez cette alerte." } };
+            }
             return null;
         }
     }
@@ -316,6 +322,7 @@ public static class HealthPolicyJson
         ["threshold"] = r.Threshold,
         ["severity"] = r.Severity,
         ["enabled"] = r.Enabled,
+        ["query"] = HealthQueryRules.Write(r.Query),
     };
 
     private static Dictionary<string, object?> SuspensionValue(HealthSuspension s) => new()

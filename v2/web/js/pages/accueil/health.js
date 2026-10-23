@@ -179,9 +179,9 @@ export function openHealthRules(o) {
 
   function alertsPanel(panel) {
     const list = draft.customRules;
-    panel.innerHTML = `<p class="hr-lead">Alertes personnelles sur les mesures relevées par WMI (${formatNumber(view.maxCustomRules)} au plus). ${view.queryAlertsAvailable ? '' : 'Les alertes sur requête enregistrée arriveront avec l’atelier de requêtes.'}</p>
+    panel.innerHTML = `<p class="hr-lead">Alertes personnelles sur les mesures relevées par WMI (${formatNumber(view.maxCustomRules)} au plus). ${view.queryAlertsAvailable ? 'Les requêtes sont évaluées localement à leur révision figée, sans collecte.' : 'Bibliothèque de requêtes indisponible dans cette session.'}</p>
       ${list.length ? `<ul class="hr-alerts">${list.map((r, n) => `<li data-j="${n}"><label class="hr-switch"><input class="switch" type="checkbox" role="switch" data-hr-alert-on="${n}"${r.enabled ? ' checked' : ''} aria-label="Activer ${esc(r.name)}"></label>
-        <div class="hr-t"><h4>${esc(r.name)}</h4><p>${esc(MEASURES[r.measure] ?? r.measure)} ${esc(OPERATORS[r.operator] ?? r.operator)} ${formatNumber(r.threshold)}</p></div>
+        <div class="hr-t"><h4>${esc(r.name)}</h4><p>${r.measure === 'Query' ? r.query?.problem ? esc(r.query.problem) : `Requête · révision ${formatNumber(r.query?.revision)} · empreinte ${esc(r.query?.fingerprint?.slice(0, 12) ?? 'inconnue')}` : `${esc(MEASURES[r.measure] ?? r.measure)} ${esc(OPERATORS[r.operator] ?? r.operator)} ${formatNumber(r.threshold)}`}</p></div>
         ${pill(r.severity === 'Alert' ? 'alert' : 'warn', SEVERITY[r.severity] ?? r.severity, { size: 'sm' })}
         <button class="btn ghost icon sm" type="button" data-hr-alert-drop="${n}" aria-label="Supprimer l’alerte ${esc(r.name)}" data-tip="Supprimer">${glyph('trash')}</button></li>`).join('')}</ul>` : '<p class="faint">Aucune alerte personnelle.</p>'}
       <form class="k-form hr-alert-form"><h4 class="hr-form-title">Nouvelle alerte</h4>
@@ -211,6 +211,38 @@ export function openHealthRules(o) {
       },
     });
     forms.push(f);
+    if (view.queryAlertsAvailable) queryAlerts(panel);
+  }
+
+  function queryAlerts(panel) {
+    const box = document.createElement('section');
+    box.innerHTML = `<h4 class="hr-form-title">Alerte sur une requête enregistrée</h4><p class="hr-lead">Un poste correspondant sera signalé. Un résultat inconnu reste incomplet ; aucune donnée manquante n’est collectée.</p><button class="btn sm" type="button" data-query-load>Lire la bibliothèque locale</button>`;
+    panel.append(box);
+    box.querySelector('[data-query-load]').addEventListener('click', async (event) => {
+      const load = event.currentTarget; load.disabled = true;
+      try {
+        const catalog = await ctx.call('accueil.widgets.catalog');
+        if (!box.isConnected) return;
+        const choices = (catalog.queries ?? []).filter((q) => q.healthEligible);
+        if (!choices.length) { box.innerHTML = `<p class="hr-lead">${esc(catalog.queriesAvailable ? 'Aucune requête sur les postes disponible. Enregistrez-en une dans l’atelier.' : catalog.queriesText)}</p>`; return; }
+        box.innerHTML = `<label>Requête<select class="input" data-query-choice>${choices.map((q, i) => `<option value="${i}">${esc(q.name)} · révision ${formatNumber(q.revision)}</option>`).join('')}</select></label>
+          <label>Niveau<select class="input" data-query-severity><option value="Warn">À surveiller</option><option value="Alert">Critique</option></select></label>
+          <button class="btn sm primary" type="button" data-query-freeze>Ajouter à cette révision</button>`;
+        box.querySelector('[data-query-freeze]').addEventListener('click', async (click) => {
+          if (draft.customRules.length >= view.maxCustomRules) { ctx.toast('Limite des alertes atteinte.', { tone: 'warn' }); return; }
+          const add = click.currentTarget; add.disabled = true;
+          const choice = choices[Number(box.querySelector('[data-query-choice]').value)];
+          try {
+            const query = await ctx.call('accueil.health.query', { id: choice.id, revision: choice.revision });
+            if (!box.isConnected) return;
+            draft.customRules.push({ name: choice.name.slice(0, 80), measure: 'Query', operator: 'Matches', threshold: 0,
+              severity: box.querySelector('[data-query-severity]').value, enabled: true, query });
+            markDirty(); alertsPanel(panel);
+            ctx.toast('Révision figée ajoutée au brouillon. Enregistrez pour appliquer cette alerte.', { tone: 'info' });
+          } catch (err) { add.disabled = false; ctx.toast(reported(err), { tone: 'warn' }); }
+        });
+      } catch (err) { load.disabled = false; ctx.toast(reported(err), { tone: 'warn' }); }
+    });
   }
 
   function originPanel(panel) {
@@ -297,7 +329,7 @@ export function openHealthRules(o) {
       const policy = {
         thresholds: draft.thresholds,
         disabledRules: draft.disabledRules,
-        customRules: draft.customRules.map((r) => (r.id ? r : { name: r.name, measure: r.measure, operator: r.operator, threshold: r.threshold, severity: r.severity, enabled: r.enabled })),
+        customRules: draft.customRules.map((r) => (r.id ? r : { name: r.name, measure: r.measure, operator: r.operator, threshold: r.threshold, severity: r.severity, enabled: r.enabled, query: r.query ?? null })),
         suspensions: draft.suspensions,
       };
       view = await ctx.call('accueil.health.save', { ...(view.scopeDn ? { dn: view.scopeDn } : {}), policy });
