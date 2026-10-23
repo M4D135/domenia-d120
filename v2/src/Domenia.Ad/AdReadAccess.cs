@@ -96,6 +96,14 @@ internal sealed class AdReadAccess : IDisposable
         throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité native du lecteur LDAP indisponible.");
     }
 
+    internal void ReportNativeRefusal(bool authentication)
+    {
+        EnsureCurrent();
+        if (source.AccountContext is { } context)
+        { AccountAccess.From(context).RegisterRefusal(scope, "Lecture du journal Sécurité du contrôleur", target,
+            authentication ? "badCredentials" : "accessDenied", AccountKey, true); }
+    }
+
     internal async Task<IReadOnlyList<AdEntry>> SearchAsync(AdSearchRequest request, CancellationToken token)
     {
         AdFicheObjects.ValidateDn(request.BaseDn); AdFicheObjects.EnsureDomain(request.BaseDn, root);

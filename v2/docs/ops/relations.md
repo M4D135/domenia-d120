@@ -487,3 +487,16 @@ Un contrôleur DNS explicite, une fenêtre UTC de 30 jours au plus et 20 000 év
 Deux travailleurs natifs au plus, sans file d’attente ; budgets de 15 secondes pour un SID et 60 secondes pour une moisson, volume de champs limité à 16 Mio. Annulation et échecs tardifs conservent les événements qualifiés. L’attente peut se terminer avant le natif, mais ses handles et sa copie de secret restent détenus jusqu’à sa fin réelle. Le compte explicite utilise Kerberos et ne retombe jamais sur la session Windows ; refus de droits et refus d’identité sont distincts. Le code SSPI SEC_E_LOGON_DENIED est reconnu par le garde commun.
 
 La référence WindowsDesktop est déjà installée dans la VM et restaurée hors ligne. Huit tests couvrent requêtes, projection, sources incohérentes, limites, identifiants contradictoires, refus, annulation et absence de repli de compte. Ils sont compilés seulement : la qualification des sélecteurs natifs et de l’accès au contrôleur reste à faire lors de la recette finale.
+
+
+## 24. Collecte native des candidats avant sonde (23/10/2026)
+
+La collecte contrôle le GUID et le SAM du sujet avant toute autre recherche, puis son identité avant publication. Un seul bail du compte annuaire sélectionné couvre le geste, sous budget global de 60 secondes. Les cinquante premiers liens historiques sont recherchés par leur GUID ; un nom héritant d’un ancien GUID ne devient jamais son remplaçant. Un ancien lien sans GUID peut fournir un candidat actuel résolu sans modifier l’association d’origine.
+
+Les sources managedBy et description/emplacement lisent chacune 100 résultats plus sentinelle, pages de 40, huit secondes serveur/dix secondes client. Les valeurs du filtre sont échappées et chaque retour vérifié. Les identités incohérentes, futures, désactivées, contrôleurs et doublons contradictoires sont exclus. Plusieurs sources du même GUID sont réunies ; un changement de DN, SID, création, SAM ou DNS interdit de choisir arbitrairement une version. Les lectures ciblées ne remplacent pas l’index local.
+
+Le périmètre reste candidats, liste chargée ou OU explicitement choisie. Une liste ne se rabat ni sur les candidats ni sur une OU ; une OU refuse racine, conteneur et domaine étranger avant tout réseau. Le plan conserve au plus cinquante GUID/DN/DNS ainsi que les versions de sélection des comptes, pour quinze minutes. Les limites et omissions sont annoncées. Aucun poste n’est contacté et aucune association enregistrée à cette étape.
+
+L’option Kerberos utilise le lecteur du § 23, cent événements 4768 sur le SID du sujet et sept jours, sur le contrôleur de la session. Les adresses sont dédupliquées avec leur date historique, sans DNS inverse ni relation automatique. Un refus annuaire ou journal, ou un délai de collecte, conserve les indices terminés mais ne fournit aucun plan exécutable. Les refus du journal sont affectés au compte et au canal réellement employés.
+
+Huit tests couvrent le sujet remplacé/renommé, la fusion des indices, les limites et exclusions, les périmètres, les conflits d’identité, les indices Kerberos, les interruptions et les GUID historiques. Compilations Debug/Release en VM sans avertissement ni erreur ; tests et recette native réservés à la validation finale.
