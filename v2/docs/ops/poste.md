@@ -387,3 +387,14 @@ Ping : un écho ICMP d’une seconde, présence enregistrée avant affichage ; e
 Logiciels : portées réelles du collecteur, rapport de refus et résultat de session conservé. Services et état courant ne remplacent pas l’inventaire détaillé. Services partiels : aucun profil complet ni absence inventée. Processus : identité minimale et nombre de processeurs logiques lus avant les deux échantillons ; sans date de création, le PID ne prouve pas la continuité du processus. Une mesure inexistante reste inconnue, pas à 0 %. Les sessions utilisent WTS, puis le repli CIM non intrusif déjà documenté dans le budget commun de cinq secondes, sous le même compte.
 
 Six tests de frontière et de projection écrits et compilés seulement. Le lecteur complet n’est pas encore exposé : événements, diagnostics, secrets, associations, sondes et repli avec autorisation restent à raccorder. Recette native et suites de tests prévues en fin de développement.
+
+
+## 20. Événements par préréglage (23/10/2026)
+
+La lecture réelle vérifie d’abord l’identité Windows, puis applique le préréglage compilé, ses journaux, fournisseurs et identifiants, la fenêtre UTC de 1 à 720 heures et le plafond de 1 à 200 événements. Aucun code ni filtre libre ne vient de l’interface. Les messages sont aplatis et limités à 500 caractères ; aucune structure XML brute n’est exportée. L’émetteur est demandé explicitement pour distinguer poste et événement général. Le CN d’affichage n’est pas utilisé comme nom Windows pour cette attribution.
+
+WinRM utilise le shell fermé existant et Get-WinEvent avec filtres à la source, une sentinelle et un rapport par journal ; GroupPolicy Operational est inclus. L’absence de correspondance est distincte d’un refus. Identité du shell, format, journaux distincts, nombres, UTC et volume JSON sont contrôlés avant publication. Un élément hors sélection rend le bilan incomplet. DCOM utilise Win32_NTLogEvent pour System et Application ; les journaux opérationnels demandent WinRM et restent explicitement non lus lorsque ce transport n’est pas sélectionné. Aucun changement implicite de transport.
+
+Budget de 30 s pour la collecte, fermeture ciblée incluse dans le budget du shell. Les événements déjà reçus sont conservés si la suite est arrêtée ; un plafond, un journal non lu ou une fermeture incertaine ne prouve pas l’absence d’événements. Un refus ne devient pas une lecture partielle exploitable au seul motif que la fermeture n’est pas confirmée. Cinq tests ajoutés et compilés seulement ; qualification dans la VM à effectuer lors de la recette finale.
+
+Référence : [Get-WinEvent et ses filtres Windows PowerShell](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-5.1).

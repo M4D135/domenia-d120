@@ -119,8 +119,10 @@ public static class PosteEvents
             var target = PosteText.ShortName(computer);
             foreach (var record in events!.OrderByDescending(e => e.At))
             {
-                if (preset is null || !preset.EventIds.Contains(record.Id))
+                if (preset is null || !preset.EventIds.Contains(record.Id) || !preset.Logs.Contains(record.Log, StringComparer.OrdinalIgnoreCase)
+                    || !preset.Providers.Contains(record.Provider, StringComparer.OrdinalIgnoreCase) || record.At < query.Start || record.At > query.End)
                 {
+                    partial = true;
                     continue;
                 }
                 if (rows.Count >= query.MaxEvents)

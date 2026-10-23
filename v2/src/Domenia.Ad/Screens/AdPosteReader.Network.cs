@@ -222,6 +222,23 @@ public sealed partial class AdPosteReader
             "Aucune mesure exploitable : " + PosteLabels.SourceStatusLabel(status) + ".", [fact]);
     }
 
+    public async Task<EventsResult> EventsAsync(string dn, string preset, int hours, int maxEvents, CancellationToken cancellationToken)
+    {
+        var definition = PosteEvents.Preset(preset) ?? throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Préréglage d’événements inconnu.");
+        var query = PosteEvents.Query(definition, hours, maxEvents, source.Clock.GetUtcNow());
+        var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
+        using var access = await AdWorkstationAccess.AcquireAsync(source, local.Computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
+        EnsureEpoch(local.Epoch);
+        var read = await InventoryReader(access).ReadEventsAsync(local.Computer.DnsHostName!, query, cancellationToken, access.Credential).ConfigureAwait(false);
+        access.EnsureCurrent(); EnsureEpoch(local.Epoch);
+        if (read.Status == SourceStatus.Refused || read.AuthenticationRejected) { access.Refused(local.Computer.DnsHostName!, "Événements", read.AuthenticationRejected); }
+        if (read.ReportedName is not null) { ConfirmIdentity(local.Computer, read.ReportedName); }
+        var result = PosteEvents.Interpret(WorkstationIdentity.ExpectedName(local.Computer)!, query, read.Status, read.Events,
+            read.Status == SourceStatus.Partial, access.Credential.Account, source.Zone);
+        return result with { Computer = local.Computer.Name, Facts = result.Facts.Add(PosteText.Fact("Source", PosteLabels.SourceStatusLabel(read.Status),
+            ReadState(read.Status), "Journaux Windows", read.Detail, at: read.At)) };
+    }
+
     public async Task<SessionsResult> SessionsAsync(string dn, CancellationToken cancellationToken)
     {
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
