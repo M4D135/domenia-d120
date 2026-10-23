@@ -8,7 +8,7 @@ namespace Domenia.Tests;
 
 internal static class AdRelationDirectoryTests
 {
-    private static AdEntry User(DirectoryUser user)
+    internal static AdEntry User(DirectoryUser user)
     {
         var sid = new SecurityIdentifier(user.Sid); var bytes = new byte[sid.BinaryLength]; sid.GetBinaryForm(bytes, 0);
         return new(user.DistinguishedName, new Dictionary<string, IReadOnlyList<object>>
@@ -18,7 +18,7 @@ internal static class AdRelationDirectoryTests
             ["whenCreated"] = [user.WhenCreated.UtcDateTime.ToString("yyyyMMddHHmmss.0'Z'", CultureInfo.InvariantCulture)],
         });
     }
-    private static async Task<(DomeniaDatabase Db, AdDirectorySource Source, AdBoundaryTests.RecordingAdConnection Ldap)> Open(TemporaryFolder folder)
+    internal static async Task<(DomeniaDatabase Db, AdDirectorySource Source, AdBoundaryTests.RecordingAdConnection Ldap)> Open(TemporaryFolder folder)
     {
         var db = new DomeniaDatabase(folder.File("declarations.db"), Fixtures.Root, TestClock.Fixed()); var cache = new SqliteDirectoryCache(db);
         await cache.SaveObjectsAsync(Fixtures.Snapshot(users: [Fixtures.User("alice")], computers: [Fixtures.Computer("PC1")]), null, CancellationToken.None);

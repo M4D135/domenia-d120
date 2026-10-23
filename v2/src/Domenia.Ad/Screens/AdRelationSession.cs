@@ -27,22 +27,7 @@ internal sealed class AdRelationSession
         lock (gate)
         {
             EnsureEpoch(expectedEpoch);
-            if (relation.Kind is not (RelationKind.Console or RelationKind.RemoteSession or RelationKind.History or RelationKind.Hint)
-                || relation.UserGuid is null || relation.ComputerGuid is null || relation.UserGuid == Guid.Empty || relation.ComputerGuid == Guid.Empty
-                || !relation.VerifiedInAd || relation.UserDn is null || relation.ComputerDn is null
-                || relation.UserLogin.Length is 0 or > 320 || relation.Computer.Length is 0 or > 255 || relation.Source.Length is 0 or > 512
-                || relation.Details?.Length > 16_384 || relation.When == DateTimeOffset.MinValue || relation.When > source.Clock.GetUtcNow().AddMinutes(2)
-                || relation.Kind is RelationKind.Console or RelationKind.RemoteSession && relation.When is null
-                || relation.BatchId is not null || relation.Declarant is not null)
-            { return new(false, null, "Observation non qualifiée ou hors contrat ; aucune association déduite."); }
-            var domain = source.CurrentDirectory?.Domain;
-            try
-            {
-                if (domain is null || !ScopeRules.Contains(new(domain.RootDn, "", true), relation.UserDn)
-                    || !ScopeRules.Contains(new(domain.RootDn, "", true), relation.ComputerDn))
-                { return new(false, null, "Observation étrangère au domaine courant ; aucune association mémorisée."); }
-            }
-            catch (FormatException) { return new(false, null, "DN de l’observation invalide."); }
+            if (ValidationError(relation) is { } invalid) { return new(false, null, invalid); }
             var key = RelationRules.Key(relation);
             if (observations.TryGetValue(key, out var previous) && previous.When is { } date && (relation.When is null || date > relation.When))
             { return new(false, key, "Observation plus ancienne que celle déjà reçue ; constat récent conservé."); }
@@ -51,6 +36,27 @@ internal sealed class AdRelationSession
             observations[key] = relation;
             return new(true, key, "Observation qualifiée conservée dans la session, en attente du stockage local.");
         }
+    }
+
+    internal string? ValidationError(StoredRelation relation)
+    {
+        if (relation.Kind is not (RelationKind.Console or RelationKind.RemoteSession or RelationKind.History or RelationKind.Hint)
+            || relation.UserGuid is null || relation.ComputerGuid is null || relation.UserGuid == Guid.Empty || relation.ComputerGuid == Guid.Empty
+            || !relation.VerifiedInAd || relation.UserDn is null || relation.ComputerDn is null
+            || relation.UserLogin.Length is 0 or > 320 || relation.Computer.Length is 0 or > 255 || relation.Source.Length is 0 or > 512
+            || relation.Details?.Length > 16_384 || relation.When == DateTimeOffset.MinValue || relation.When > source.Clock.GetUtcNow().AddMinutes(2)
+            || relation.Kind is RelationKind.Console or RelationKind.RemoteSession && relation.When is null
+            || relation.BatchId is not null || relation.Declarant is not null)
+        { return "Observation non qualifiée ou hors contrat ; aucune association déduite."; }
+        var domain = source.CurrentDirectory?.Domain;
+        try
+        {
+            if (domain is null || !ScopeRules.Contains(new(domain.RootDn, "", true), relation.UserDn)
+                || !ScopeRules.Contains(new(domain.RootDn, "", true), relation.ComputerDn))
+            { return "Observation étrangère au domaine courant ; aucune association mémorisée."; }
+        }
+        catch (FormatException) { return "DN de l’observation invalide."; }
+        return null;
     }
 
     internal async Task<RelationAutoSave> SaveAsync(long expectedEpoch, CancellationToken token)

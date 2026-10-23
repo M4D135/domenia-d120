@@ -3,11 +3,10 @@ using Domenia.Core;
 
 namespace Domenia.Ad;
 
-// Discovery will expose the complete IRelationChangeExecutor once all preparation gestures are implemented.
-public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) : IWriteExecutor, IWritePlanBinder, IDisposable
+public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) : IRelationChangeExecutor, IWritePlanBinder, IDisposable
 {
     private sealed record Prepared(string StoreId, WritePlanOrigin Origin, string Operator, ImmutableArray<CachedRelation> Expected,
-        ImmutableArray<RelationChangeItem> Items, DateTimeOffset Expires);
+        ImmutableArray<RelationChangeItem> Items, ImmutableArray<StoredRelation> ExpectedAbsent, DateTimeOffset Expires);
     private sealed record Bound(Prepared Data, WritePlan Plan);
     private sealed record Local(RelationCacheSnapshot Stored, SessionSnapshot Session, IRelationLocalWriter Writer);
     private readonly Lock gate = new();
@@ -33,7 +32,7 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
     private static string TargetDn(RelationCacheSnapshot data) => "Base locale Domenia · " + data.DomainDn + " · " + data.StoreId;
 
     private WritePlanDraft Hold(Local local, string title, string label, string summary, string targetName, IReadOnlyList<RelationChangeItem> items,
-        IEnumerable<WriteRisk> risks, WriteReversibility reversibility)
+        IEnumerable<WriteRisk> risks, WriteReversibility reversibility, ImmutableArray<StoredRelation> expectedAbsent = default)
     {
         var touched = items.SelectMany(i => new[] { i.Before, i.After }).OfType<StoredRelation>().Select(RelationRules.Key).ToHashSet(StringComparer.Ordinal);
         var expected = local.Stored.Rows.Where(r => touched.Contains(RelationRules.Key(r.Relation))).ToImmutableArray();
@@ -46,7 +45,8 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
             Purge();
             if (source.Epoch != local.Session.Epoch) { throw WriteErrors.Refusal(WriteErrors.Stale, "Préparation d’une ancienne session écartée."); }
             if (drafts.Count + bound.Count >= WriteCircuit.PlanCapacity) { throw WriteErrors.Refusal(WriteErrors.Stale, "Trop de plans locaux en attente ; terminez les confirmations ouvertes ou attendez leur expiration."); }
-            drafts.Add(draft, new(local.Stored.StoreId, draft.Origin, local.Session.Account.Login, expected, [.. items], source.Clock.GetUtcNow() + WritePlans.Lifetime));
+            drafts.Add(draft, new(local.Stored.StoreId, draft.Origin, local.Session.Account.Login, expected, [.. items], expectedAbsent.IsDefault ? [] : expectedAbsent,
+                source.Clock.GetUtcNow() + WritePlans.Lifetime));
         }
         return draft;
     }
@@ -86,6 +86,7 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
             using var lease = source.AcquireWriteLease(session); var held = Recall(plan, session);
             if (source.LocalStore is not IRelationLocalWriter writer) { return WritePrecheck.Stale("Base locale indisponible."); }
             await AdRelationDirectory.ValidateAssignmentsAsync(source, held.Data.Items, cancellationToken).ConfigureAwait(false);
+            await ValidateAbsenceAsync(held.Data.ExpectedAbsent, cancellationToken).ConfigureAwait(false);
             return await writer.CheckRelationsAsync(Request(held), cancellationToken).ConfigureAwait(false);
         }
         catch (DomeniaOperationException ex) { return WritePrecheck.Stale(ex.Message); }
@@ -95,11 +96,16 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
     {
         var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
         using var lease = source.AcquireWriteLease(session); var held = Recall(plan, session);
-        if (source.LocalStore is not IRelationLocalWriter writer) { throw WriteErrors.Refusal(WriteErrors.Stale, "Base locale indisponible."); }
-        await AdRelationDirectory.ValidateAssignmentsAsync(source, held.Data.Items, cancellationToken).ConfigureAwait(false);
-        var result = await writer.ApplyRelationsAsync(Request(held), cancellationToken).ConfigureAwait(false);
-        return new(result.Applied > 0 ? WriteResult.Applied : WriteResult.NoChange,
-            FrenchText.Count(result.Applied, "association modifiée", "associations modifiées") + ". " + result.Notice);
+        try
+        {
+            if (source.LocalStore is not IRelationLocalWriter writer) { throw WriteErrors.Refusal(WriteErrors.Stale, "Base locale indisponible."); }
+            await AdRelationDirectory.ValidateAssignmentsAsync(source, held.Data.Items, cancellationToken).ConfigureAwait(false);
+            await ValidateAbsenceAsync(held.Data.ExpectedAbsent, cancellationToken).ConfigureAwait(false);
+            var result = await writer.ApplyRelationsAsync(Request(held), cancellationToken).ConfigureAwait(false);
+            return new(result.Applied > 0 ? WriteResult.Applied : WriteResult.NoChange,
+                FrenchText.Count(result.Applied, "association modifiée", "associations modifiées") + ". " + result.Notice);
+        }
+        finally { lock (gate) { bound.Remove(plan.Id); } }
     }
 
     public async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)

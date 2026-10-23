@@ -46,7 +46,7 @@ public sealed partial class AdRelationsReader
         if (records.Count == 0) { throw new DomeniaOperationException(RelationErrors.ImportEmpty, RelationErrors.ImportEmptyMessage); }
         var prepared = records.Take(RelationImport.PreviewRecords).Select(record =>
         {
-            var reject = record.Reject;
+            var reject = RelationRules.Flat(record.Reject, 512);
             if (record.User.Length > 320 || record.Computer.Length > 255 || record.User.Any(char.IsControl) || record.Computer.Any(char.IsControl))
             { reject = "Identité trop longue ou contenant un caractère de contrôle."; }
             if (reject.Length == 0) { reject = RelationImport.Identity(record.User, record.Computer, local.Directory.Domain.DnsName, local.Directory.Domain.NetbiosName); }
