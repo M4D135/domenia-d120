@@ -5,8 +5,9 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepCache
 {
+    public Task<RelationSweepCacheSnapshot> ReadRelationSweepsAsync(CancellationToken cancellationToken) => Database.ReadRelationSweepsAsync(cancellationToken);
     public Task<WritePrecheck> CheckRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken) => Database.CheckRelationsAsync(request, cancellationToken);
     public async Task<RelationStoreResult> ApplyRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken)
     {

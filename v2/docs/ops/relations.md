@@ -454,3 +454,14 @@ Un champ UserName absent, zéro ou plusieurs instances, une réponse partielle, 
 Les résultats qualifiés rejoignent la file native commune ; le pont demande leur mémorisation locale automatique, avec journal, comme prévu au § 12. La vue des attentes expose aussi chaque résultat ; une erreur de stockage garde la file. Après relecture SQLite, les résultats entièrement acquittés libèrent leur place. Les textes reçus par `ObserveAsync` ne créent jamais une observation réseau : seul un constat natif déjà présent, avec mêmes identités, source et date, est acquitté sans modifier son contenu.
 
 Sept tests ciblés couvrent les preuves courantes, les réponses incomplètes, les comptes locaux/homonymes, les UPN distincts du SAM, les identités remplacées, les refus et les observations falsifiées. Ils sont compilés, **pas encore exécutés**. Validation Debug/Release en VM : zéro avertissement, zéro erreur. Le lecteur attend encore collecte, sondes/relevés et moisson avant exposition du contrat complet.
+
+
+## 21. Mémoire D1 des relevés et préparation locale (23/10/2026)
+
+`IRelationSweepCache` lit `park_state` sans création ni migration. Clé physique, statut, compte, compteur de tentatives et colonnes supplémentaires participent à l’empreinte. La lecture est paginée sous transaction cohérente, limitée à 50 000 lignes, 16 Mio au total et 32 Kio par ligne ; types invalides, GUID incohérents, DN étrangers et dates non qualifiées restent dans le fichier sans être réinterprétés. Les champs GUID et DN, s’ils existent, restent optionnels : aucun GUID n’est déduit d’un nom D1.
+
+`SweepPlanAsync` prépare uniquement une liste locale, avec au plus 50 cibles, les GUID/DN/DNS détenus par le moteur et les versions des sélections de comptes. Une liste chargée garde son ordre et ne bascule jamais vers une OU. Une file d’OU refuse la racine du domaine, les conteneurs et les domaines étrangers ; profondeur demandée conservée, machines désactivées, contrôleurs et noms incohérents écartés. Les postes sans relevé rattaché à leur GUID passent d’abord, puis les plus anciens.
+
+Seul un relevé unique, daté après la création du poste, lié au GUID, au nom Windows et au DN courant, avec statut de lecture complète, peut éviter une nouvelle console lorsque l’index ne montre aucune authentification ultérieure. Une date inconnue, un refus, un doublon, un ancien GUID, une base partiellement lisible ou un nom historique ne suppriment pas de cible. La portée locale et les limites restent affichées ; zéro candidat ne prouve aucune absence dans AD.
+
+Six tests sont ajoutés pour la compatibilité en lecture seule, les cellules et volumes bornés, les domaines, les priorités, les listes exactes et les identités ambiguës. Compilation Debug/Release en VM ; exécution réservée à la recette finale. La persistance des nouveaux passages, leur effacement avec sauvegarde, la sonde et la collecte/moisson restent à raccorder avant exposition du lecteur.

@@ -7,6 +7,8 @@ namespace Domenia.Ad;
 internal sealed record AdRelationImportPreview(RelationImportPreview Preview, ImmutableArray<StoredRelation> Importable, string StoreId);
 internal sealed record AdRelationOrphanCheck(string Id, string StoreId, ImmutableDictionary<string, (string Fingerprint, string Reason)> Rows);
 internal sealed record AdRelationObservationSet(string Id, string Origin, ImmutableDictionary<string, StoredRelation> Relations);
+internal sealed record AdRelationProbePlan(RelationDetectionPlan Plan, string Mode, RelationObject? Subject, ImmutableArray<RelationCandidate> Candidates,
+    ImmutableDictionary<Guid, RelationObject> Targets, ImmutableDictionary<Guid, string> Hosts, long AccessVersion, long MachineGeneration);
 
 /// <summary>Bounded results held by the native engine. Browser identifiers never supply the records of a write.</summary>
 internal sealed class AdRelationResults(AdDirectorySource source)
