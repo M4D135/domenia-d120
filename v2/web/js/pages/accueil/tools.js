@@ -183,8 +183,13 @@ export function openCatalog(o) {
   }
 
   function queriesPanel(panel) {
-    panel.innerHTML = `<div class="acc-empty wide">${glyph('database')}<h3>Requêtes enregistrées</h3><p>${esc(catalog.queriesText)}</p>`
-      + `<button class="btn sm" type="button" data-cat-queries>${glyph('external')}Ouvrir l’atelier de requêtes</button></div>`;
+    const queries = catalog.queries ?? [];
+    panel.innerHTML = `<p class="cat-lead">${esc(catalog.queriesText)}</p><div class="cat-list">${queries.map((q) => {
+      const on = q.widgetId && added('query', q.widgetId);
+      return `<article class="cat-item"><div class="cat-text"><h4>${esc(q.name)}</h4><p>${esc(q.target)} · Révision ${formatNumber(q.revision)} · Empreinte ${esc(q.fingerprint.slice(0, 12))}</p></div>`
+        + `<button class="btn sm${on ? ' ghost' : ' primary'}" type="button" data-query-add="${esc(q.id)}"${on ? ' disabled' : ''}>${glyph(on ? 'check' : 'plus')}${on ? 'Affiché' : 'Ajouter'}</button></article>`;
+    }).join('')}</div><button class="btn sm" type="button" data-cat-queries>${glyph('external')}Ouvrir l’atelier de requêtes</button>`;
+    paint(panel);
   }
 
   async function load() {
@@ -211,6 +216,22 @@ export function openCatalog(o) {
     if (!t) return;
     if (t.closest('[data-acc-retry]')) { load(); return; }
     if (t.closest('[data-cat-queries]')) { drawer.close(); ctx.go('requetes'); return; }
+    const queryAdd = t.closest('[data-query-add]');
+    if (queryAdd) {
+      if (queryAdd.disabled) return;
+      const query = catalog.queries?.find((q) => q.id === queryAdd.dataset.queryAdd);
+      if (!query || full()) { ctx.toast('Le tableau est complet ; retirez un widget avant d’en ajouter.', { tone: 'warn' }); return; }
+      queryAdd.disabled = true;
+      try {
+        const saved = await ctx.call('accueil.query.bind', { id: query.id, revision: query.revision });
+        await board.add([saved.item]);
+        if (!board.has('query', saved.item.key)) throw new Error('Lien enregistré dans la bibliothèque ; disposition non enregistrée. Réessayez l’ajout.');
+        query.widgetId = saved.item.key;
+        queryAdd.textContent = 'Affiché';
+        ctx.toast(saved.receipt.text, { tone: saved.receipt.readBack ? 'ok' : 'warn' });
+      } catch (err) { queryAdd.disabled = false; ctx.toast(reported(err), { tone: 'warn' }); }
+      return;
+    }
     const probe = t.closest('[data-cat-probe]');
     if (probe) { o.onProbe(probe.dataset.catProbe); return; }
     const add = t.closest('[data-cat-add]');

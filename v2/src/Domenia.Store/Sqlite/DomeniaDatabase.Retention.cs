@@ -44,7 +44,7 @@ public sealed partial class DomeniaDatabase
             : WritePrecheck.Stale("Mesures modifiées depuis le plan ; refaites la prévisualisation.");
     }, cancellationToken);
 
-    public async Task<WriteOutcome> ApplyStorageRetentionAsync(WritePlan plan, CancellationToken cancellationToken)
+    private async Task<WriteOutcome> ApplyStorageRetentionCoreAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ValidateRetentionPlan(plan, true);
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);

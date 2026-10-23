@@ -21,6 +21,48 @@ internal static class SelfTests
 
     public static int Run()
     {
+        Test("Journal : rotation sans perte ni reprise des anciennes lignes", () =>
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "DomeniaE2E-journal-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            try
+            {
+                var path = Path.Combine(folder, "journal.log");
+                File.WriteAllText(path, "Ancienne session\n");
+                var tail = JournalTail.FromPath(path);
+                File.AppendAllText(path, "Avant rotation\n");
+                Check(tail.Lines().SequenceEqual(["Avant rotation"]), "ancienne session exclue");
+                File.AppendAllText(path, "Juste avant\n");
+                File.Move(path, path + ".1");
+                File.WriteAllText(path, "Après rotation\nPartiel");
+                Check(tail.Lines().SequenceEqual(["Avant rotation", "Juste avant", "Après rotation"]), "fin de l’archive et début du nouveau journal gardés");
+                File.AppendAllText(path, " complété\n");
+                Check(tail.Lines().SequenceEqual(["Avant rotation", "Juste avant", "Après rotation", "Partiel complété"]), "ligne partielle reçue une seule fois après sa fin");
+                Check(tail.IntegrityError is null, "frontière vérifiée");
+                File.WriteAllText(path, "Remplacement inconnu\n");
+                _ = tail.Lines();
+                Check(tail.IntegrityError is not null, "preuve perdue ne devient pas un test réussi");
+            }
+            finally { Directory.Delete(folder, true); }
+        });
+        Test("Saisie native : contrat fermé et mode annuaire obligatoire", () =>
+        {
+            ScenarioDocument Fixture(string mode, string name, string? text = null) => new()
+            {
+                Name = "Compte synthétique", Modes = [mode], Steps = [new() { Do = "credential", Name = name, Text = text }],
+            };
+            foreach (var name in new[] { "cancel", "use" })
+            {
+                var accepted = ScenarioLoader.Validate(Fixture("annuaire", name), "native.json", "schema/native");
+                Check(accepted.Steps.Single().Action == StepAction.Credential, "action native reconnue");
+            }
+            foreach (var rejected in new[] { Fixture("simulation", "cancel"), Fixture("annuaire", "auth"), Fixture("annuaire", "use", "secret fourni") })
+            {
+                try { _ = ScenarioLoader.Validate(rejected, "native.json", "schema/native"); }
+                catch (ScenarioException) { continue; }
+                throw new InvalidOperationException("Contrat natif ouvert à une entrée interdite.");
+            }
+        });
         Test("E2E : sans option, rien n’est demandé et la ligne reste intacte", () =>
         {
             var r = E2eArguments.Parse(["--simulation", "x"], "1");

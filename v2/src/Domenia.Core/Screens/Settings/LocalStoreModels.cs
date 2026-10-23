@@ -68,7 +68,10 @@ public sealed record LocalStoreSpace(long? FreeBytes, DateTimeOffset? MeasuredAt
 /// State of the single writer of the base (Domenia 1 persistence state): <see cref="Active"/> while a batch is being saved,
 /// <see cref="Suspended"/> after three failures or a lack of space (Fail-DomeniaStorageWork), with what is still in memory.
 /// </summary>
-public sealed record LocalStoreWriter(bool Unavailable, bool Suspended, bool Active, int Pending, long QueuedChanges, long QueuedBytes, int Failures, int Conflicts, DateTimeOffset? LastSavedAt, string? Fault);
+public sealed record LocalStoreWriter(bool Unavailable, bool Suspended, bool Active, int Pending, long QueuedChanges, long QueuedBytes, int Failures, int Conflicts, DateTimeOffset? LastSavedAt, string? Fault)
+{
+    public bool ManualRetry { get; init; }
+}
 
 /// <summary>Rows of one table of the base (closed identifiers of the purge targets), as the last inspection counted them.</summary>
 public sealed record LocalStoreTable(string Table, long Rows);
@@ -118,7 +121,10 @@ public sealed record LegacyDatabase(string Name, string Path, string? SchemaVers
 /// recherches.tsv, secrets-etat.tsv or the workstation-user links. <see cref="Locked"/>: read under a shared lock (nobody
 /// could write it during the read); <see cref="Domains"/>: domains of its DN column (objects only).
 /// </summary>
-public sealed record LegacyFile(string Kind, string Path, long Bytes, long Rows, int Rejected, int Duplicates, string Sha256, ImmutableArray<string> Domains, bool Locked);
+public sealed record LegacyFile(string Kind, string Path, long Bytes, long Rows, int Rejected, int Duplicates, string Sha256, ImmutableArray<string> Domains, bool Locked)
+{
+    public long? ImportRows { get; init; }
+}
 
 /// <summary>
 /// Data of Domenia 1 found on this workstation for the takeover (PAR-028, ARCHITECTURE.md § 6): its local base (schema 11),

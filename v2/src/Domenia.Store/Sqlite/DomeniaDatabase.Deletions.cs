@@ -15,7 +15,7 @@ public sealed partial class DomeniaDatabase
         return new DirectoryDeletionLinks(links.Keys.Length, links.Unresolved);
     }, token);
 
-    public async Task<DirectoryDeletionLinks> ApplyDeletionAsync(WriteTarget target, DateTimeOffset observedAt, CancellationToken token)
+    private async Task<DirectoryDeletionLinks> ApplyDeletionCoreAsync(WriteTarget target, DateTimeOffset observedAt, CancellationToken token)
     {
         ValidateDeletedTarget(target);
         if (observedAt == DateTimeOffset.MinValue || observedAt > clock.GetUtcNow().AddMinutes(2)) { throw new InvalidDataException("Date de disparition invalide."); }

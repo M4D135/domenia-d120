@@ -490,7 +490,7 @@ public static class StorageWritePlans
     public static WritePlanDraft WriterResumeDraft(LocalStoreSnapshot store)
     {
         ArgumentNullException.ThrowIfNull(store);
-        if (!store.Available || !store.Writer.Suspended)
+        if (!store.Available || !store.Writer.Suspended && !(store.Writer.ManualRetry && store.Writer.Pending > 0))
         {
             throw WriteErrors.Refusal(WriteErrors.NothingToDo, "Les enregistrements locaux ne sont pas suspendus" + FrenchText.Colon + "rien à reprendre.");
         }

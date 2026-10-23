@@ -144,7 +144,7 @@ public sealed partial class DomeniaDatabase
             ? [new(System.IO.Path.GetFileName(backup.Path), System.IO.Path.GetFileName(backup.Path), backup.At, backup.Bytes, backup.Sha256, true, backup.At, "gesture", revision, new(null, null, null, null, null, null), null, null)] : [];
         backups = backups.AddRange(registered);
         return new LocalStoreSnapshot(exists && (failure is null || corrupt), false, DomainDn, Path, StoreId, revision, schema, bytes, wal, lastWrite, counts, categories, tables,
-            families, backups, space, new(failure is not null, false, writer.CurrentCount == 0, 0, 0, 0, 0, 0, lastWrite, failure),
+            families, backups, ActualWriterSpace(space), ActualWriterState(failure is not null),
             new(false, false, null, corrupt, false, null, false, null), usage, report, scopes, legacy, [], failure, failure is null ? null : now) { NativePurgeTargets = nativePurge };
     }, cancellationToken);
 }

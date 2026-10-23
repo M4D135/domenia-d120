@@ -1,0 +1,25 @@
+vm.sh : lot spark-native, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\spark-native\v2
+Arborescence : C:\DomeniaDev\src\spark-native\v2 (lot spark-native)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.E2E\bin\x64\Debug\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Core\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Bridge\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Simulation\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Engine -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Engine\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Inventory\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Inventory.dll
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\DomeniaDatabase.Writer.cs(60,62): error CS8121: An expression of type 'IOException' cannot be handled by a pattern of type 'InvalidDataException'. [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+  Domenia.Ad -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Ad.dll
+
+Build FAILED.
+
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Sqlite\DomeniaDatabase.Writer.cs(60,62): error CS8121: An expression of type 'IOException' cannot be handled by a pattern of type 'InvalidDataException'. [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\Domenia.Store.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+FileLogger wrote to: C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+
+Time Elapsed 00:00:26.57
+Compilation Debug interrompue (code 1). Journal : C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+vm.sh : compilation Debug en échec (lot spark-native).

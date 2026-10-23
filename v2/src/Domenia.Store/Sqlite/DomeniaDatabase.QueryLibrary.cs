@@ -21,7 +21,7 @@ public sealed partial class DomeniaDatabase
         var (document, _) = ReadQueryLibrary(db, rootKey); db.Commit(); return document;
     }, cancellationToken);
 
-    public async Task<QueryStoreWrite?> UpdateQueryLibraryAsync(string rootKey, Func<byte[]?, QueryStoreUpdate?> update, CancellationToken cancellationToken)
+    private async Task<QueryStoreWrite?> UpdateQueryLibraryCoreAsync(string rootKey, Func<byte[]?, QueryStoreUpdate?> update, CancellationToken cancellationToken)
     {
         CheckQueryRoot(rootKey); ArgumentNullException.ThrowIfNull(update);
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -39,6 +39,7 @@ public sealed partial class DomeniaDatabase
                 var next = update(before?.ToArray());
                 if (next is null) { db.Commit(); return (QueryStoreWrite?)null; }
                 CheckQueryDocument(rootKey, next.Document);
+                CheckWriterSpace(next.Document.LongLength + (next.KeepPrevious ? before?.LongLength ?? 0 : 0));
                 var text = new UTF8Encoding(false, true).GetString(next.Document);
                 var sha = QueryHash(text);
                 db.Execute("CREATE TABLE IF NOT EXISTS domenia_v2_query_library(domain_key TEXT PRIMARY KEY NOT NULL,document TEXT NOT NULL,sha256 TEXT NOT NULL,legacy_sha256 TEXT NOT NULL,revision INTEGER NOT NULL);");

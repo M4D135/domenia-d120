@@ -72,13 +72,13 @@ internal static class SettingsCompletionTests
         Check.Equal("entier", midway[0].Text, "enregistrement entier gardé");
 
         var many = new StringBuilder();
-        for (var n = 0; n < 650; n++)
+        for (var n = 0; n < TechnicalLogTail.MaxRecords + 50; n++)
         {
             many.Append("2026-10-22T08:00:00Z [INFO] ligne ").Append(n.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
         }
         var tail = TechnicalLogTail.Parse(many.ToString(), startsMidway: false, out var cutMany);
-        Check.True(cutMany, "plus de 600 : coupé");
-        Check.Equal(TechnicalLogTail.MaxRecords, tail.Length, "600 enregistrements au plus");
+        Check.True(cutMany, "plus de 5 000 : coupé");
+        Check.Equal(TechnicalLogTail.MaxRecords, tail.Length, "5 000 enregistrements au plus");
         Check.Equal("ligne 50", tail[0].Text, "les plus récents gardés");
 
         var since = TechnicalLogTail.Since(lines, new DateTimeOffset(2026, 10, 22, 8, 0, 1, 400, TimeSpan.Zero));

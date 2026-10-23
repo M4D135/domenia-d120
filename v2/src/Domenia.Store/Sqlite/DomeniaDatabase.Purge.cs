@@ -46,7 +46,7 @@ public sealed partial class DomeniaDatabase
             : WritePrecheck.Stale("Données modifiées depuis le plan ; refaites la simulation.");
     }, cancellationToken);
 
-    public async Task<WriteOutcome> ApplyStoragePurgeAsync(WritePlan plan, CancellationToken cancellationToken)
+    private async Task<WriteOutcome> ApplyStoragePurgeCoreAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ValidatePurgePlan(plan, true);
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);

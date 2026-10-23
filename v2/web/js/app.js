@@ -41,6 +41,7 @@ import { createBoard } from './shell/board.js';
 import { beginTask, runningTasks, stopFirstTask, elapsedText } from './shell/tasks.js';
 import { installSheets } from './shell/sheets.js';
 import { startPulse } from './pages/operations/pulse.js';
+import { installJournalHealth } from './shell/journal-health.js';
 
 const root = document.documentElement;
 const NBSP = ' ';
@@ -682,6 +683,7 @@ function boot() {
   const openCentreAt = (tab = 'notifications') => openCentre(anchorOf('.notif'), tab);
   setCentreOpener((tab) => openCentreAt(tab));
   setNavigator((id, params) => router.go(id, params));
+  installJournalHealth(topbar, (id, params) => router.go(id, params));
 
   const sessionAnchor = () => {
     const live = anchorOf('.live');

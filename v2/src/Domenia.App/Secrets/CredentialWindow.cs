@@ -46,7 +46,12 @@ internal sealed class CredentialWindow : Form
         secret.BorderStyle = BorderStyle.FixedSingle; secret.Font = new Font("Consolas", 12F); secret.AccessibleName = "Mot de passe";
         secret.TabIndex = 0; reveal.TabIndex = 1;
         row.Controls.Add(secret, 0, 0); row.Controls.Add(reveal, 1, 0); layout.Controls.Add(row);
-        layout.Controls.Add(TextLine("La saisie reste dans cette fenêtre. Aucun mot de passe n’est transmis à la page web ni au journal."));
+        var caps = new Label { AutoSize = true, MinimumSize = new Size(0, 24), ForeColor = foreground, AccessibleName = "État du verrouillage majuscule", Margin = new Padding(0, 0, 0, 6) };
+        layout.Controls.Add(caps);
+        void UpdateCaps() => caps.Text = Control.IsKeyLocked(Keys.CapsLock) ? "Verr. Maj activé : les lettres sont saisies en majuscules." : "";
+        secret.KeyUp += (_, _) => UpdateCaps(); secret.Enter += (_, _) => UpdateCaps();
+        login.KeyUp += (_, _) => UpdateCaps(); Activated += (_, _) => UpdateCaps();
+        layout.Controls.Add(TextLine("La saisie reste dans cette fenêtre. Aucun mot de passe n’est transmis à la page web ni au journal. Masquez-le avant de valider."));
         var canStore = !request.CanEditLogin && vault.Available && !request.VaultTargets.IsEmpty;
         var load = new Button { Text = "Utiliser le coffre Windows", AutoSize = true, Enabled = canStore && request.CanUseVault, Margin = new Padding(0, 0, 0, 10) };
         layout.Controls.Add(load);
@@ -63,16 +68,16 @@ internal sealed class CredentialWindow : Form
             button.Padding = new Padding(8, 4, 8, 4); button.FlatAppearance.BorderColor = contrast ? SystemColors.WindowText : muted;
         }
         Controls.Add(layout); AcceptButton = accept; CancelButton = cancel; accept.Enabled = false;
-        void CheckInput() => accept.Enabled = secret.SecretLength > 0 && (!request.CanEditLogin || CredentialRules.IsWellFormed(login.Text));
+        void CheckInput() => accept.Enabled = !secret.Revealed && secret.SecretLength > 0 && (!request.CanEditLogin || CredentialRules.IsWellFormed(login.Text));
         secret.SecretChanged += (_, _) => CheckInput();
         login.TextChanged += (_, _) => CheckInput();
         reveal.Click += (_, _) =>
         {
             secret.Revealed = !secret.Revealed; reveal.Text = secret.Revealed ? "Masquer" : "Afficher";
-            conceal.Stop(); if (secret.Revealed) { conceal.Start(); } secret.Focus();
+            conceal.Stop(); if (secret.Revealed) { conceal.Start(); } CheckInput(); secret.Focus();
         };
-        conceal.Tick += (_, _) => { conceal.Stop(); secret.Revealed = false; reveal.Text = "Afficher"; };
-        Deactivate += (_, _) => { conceal.Stop(); secret.Revealed = false; reveal.Text = "Afficher"; };
+        conceal.Tick += (_, _) => { conceal.Stop(); secret.Revealed = false; reveal.Text = "Afficher"; CheckInput(); };
+        Deactivate += (_, _) => { conceal.Stop(); secret.Revealed = false; reveal.Text = "Afficher"; CheckInput(); };
         load.Click += (_, _) =>
         {
             try
@@ -80,7 +85,7 @@ internal sealed class CredentialWindow : Form
                 using var stored = vault.Read(request.VaultTargets[0]);
                 if (stored is null) { status.Text = "Aucun mot de passe mémorisé pour ce compte et cet usage."; return; }
                 if (stored.Length > CredentialRules.MaxPasswordLength) { status.Text = "Le secret mémorisé dépasse la limite de saisie de cette version."; return; }
-                secret.Assign(stored); secret.Revealed = false;
+                secret.Assign(stored); secret.Revealed = false; reveal.Text = "Afficher"; conceal.Stop(); CheckInput();
                 status.Text = "Mot de passe chargé. Cliquez sur Valider pour effectuer un seul essai d’authentification.";
                 secret.Focus();
             }
@@ -92,7 +97,7 @@ internal sealed class CredentialWindow : Form
             accepted?.Dispose(); accepted = new(secret.CopySecret(), remember.Enabled && remember.Checked, request.CanEditLogin ? login.Text.Trim() : request.Login);
             DialogResult = DialogResult.OK; Close();
         };
-        Shown += (_, _) => { if (request.CanEditLogin) { login.Focus(); login.SelectAll(); } else { secret.Focus(); } };
+        Shown += (_, _) => { UpdateCaps(); if (request.CanEditLogin) { login.Focus(); login.SelectAll(); } else { secret.Focus(); } };
         FormClosed += (_, _) => { conceal.Stop(); secret.Wipe(); };
     }
 

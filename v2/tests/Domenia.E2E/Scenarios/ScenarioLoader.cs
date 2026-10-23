@@ -114,6 +114,7 @@ internal static partial class ScenarioLoader
         [StepAction.Shot] = ["name", "selector", "within", "nth"],
         [StepAction.Scroll] = ["deltaY", "selector", "within", "nth"],
         [StepAction.Journal] = ["contains", "pattern", "absent"],
+        [StepAction.Credential] = ["name"],
     };
 
     public static Scenario Load(string path, string id)
@@ -201,6 +202,8 @@ internal static partial class ScenarioLoader
                 throw new ScenarioException($"étape {n + 1} ({document.Steps[n]?.Do ?? "?"}) : {ex.Message}");
             }
         }
+        if (steps.Any(s => s.Action == StepAction.Credential) && modes.Contains(RunMode.Simulation))
+        { throw new ScenarioException("« credential » est réservé au mode annuaire et au compte poste synthétique."); }
         return new Scenario(id, file, name, description, modes, start, document.Theme, document.Motion, document.AllowConsoleErrors ?? false, steps);
     }
 
@@ -218,8 +221,9 @@ internal static partial class ScenarioLoader
             "shot" => StepAction.Shot,
             "scroll" => StepAction.Scroll,
             "journal" => StepAction.Journal,
+            "credential" => StepAction.Credential,
             null => throw new ScenarioException("champ « do » obligatoire"),
-            _ => throw new ScenarioException($"action « {s.Do} » inconnue (go, click, hover, type, press, expect, wait, shot, scroll, journal)"),
+            _ => throw new ScenarioException($"action « {s.Do} » inconnue (go, click, hover, type, press, expect, wait, shot, scroll, journal, credential)"),
         };
         var present = Present(s);
         var allowed = Allowed[action];
@@ -250,6 +254,9 @@ internal static partial class ScenarioLoader
         string? ready = null;
         switch (action)
         {
+            case StepAction.Credential:
+                if (s.Name is not ("cancel" or "use")) { throw new ScenarioException("« credential » exige name=cancel ou use ; secret synthétique fixe, aucune authentification."); }
+                break;
             case StepAction.Go:
                 route = s.Route ?? throw new ScenarioException("« route » obligatoire");
                 if (!RoutePattern().IsMatch(route))

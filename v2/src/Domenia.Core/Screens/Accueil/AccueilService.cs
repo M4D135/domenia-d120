@@ -100,6 +100,10 @@ public sealed partial class AccueilService : IDisposable
         var history = await HistoryAsync(reader, scope, cancellationToken).ConfigureAwait(false);
         var items = LayoutItems();
         var policyBook = HealthBook(domainDn);
+        var querySnapshot = items.Any(i => i.Source == FleetWidgetSource.Query)
+            ? await ReadQueriesAsync(cancellationToken).ConfigureAwait(false) : null;
+        // Every board count and drill-down uses the directory/observation snapshot captured by the query reader.
+        if (querySnapshot?.Dataset is { } queryData) { state = state with { Directory = queryData.Directory, Observations = queryData.Observations }; }
         BitLockerPresence? presence;
         ProbeReadings readings;
         lock (gate)
@@ -111,6 +115,7 @@ public sealed partial class AccueilService : IDisposable
         var input = new FleetBoardInput(state, scope, domainDn, session.Domain?.DnsName ?? domainDn, policyBook, facts with { Runs = AllRuns(facts) }, presence, readings,
             items, history, Now, Zone);
         var computation = FleetBoardCalculator.Compute(input);
+        computation = FleetQueryWidgets.Apply(computation, input, querySnapshot, cancellationToken);
         var revision = Interlocked.Increment(ref revisionCounter).ToString("x8", CultureInfo.InvariantCulture) + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(4));
         // Freshness of the branch for the header (ACC-020): the last complete AD read covering it, never the global date of the
         // base; a partial read never replaces that date.
@@ -224,7 +229,7 @@ public sealed partial class AccueilService : IDisposable
             new ProbeView(p.Id, p.Name, p.Category, p.Mode, p.Transform, ProbeCatalog.Visuals(p), ProbeCatalog.Visuals(p).Contains(p.Visual) ? p.Visual : ProbeCatalog.Visuals(p)[0],
                 p.Slow, p.SkipOnDc, p.Origin, ProbeCatalog.Contract(p).Summary))])).ToImmutableArray();
         return new WidgetCatalogView(groups, FleetCatalog.VisualNames, FleetCatalog.SizeNames, FleetCatalog.Presets, probeGroups, ProbeCatalog.All.Length, false,
-            "« Mes requêtes » : la bibliothèque de l’atelier de requêtes n’est pas encore disponible dans cette version ; aucun widget de requête ne peut être ajouté pour l’instant.");
+            "Bibliothèque non lue pour cette session. Ouvrez le catalogue pour lire les requêtes enregistrées.");
     }
 
     /// <summary>accueil.probe: contract, check and isolation of one probe (ACC-063).</summary>

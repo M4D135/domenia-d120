@@ -7,7 +7,7 @@ using Domenia.Store;
 namespace Domenia.Tests;
 
 /// <summary>Durable receipts in JSON Lines (FileReceiptStore): atomic appends, versions folded, torn and unreadable lines.</summary>
-internal static class ReceiptStoreTests
+internal static partial class ReceiptStoreTests
 {
     private const string LinePrefix = "{\"format\":\"domenia.receipt\",\"version\":1,\"receipt\":{";
 
@@ -60,10 +60,10 @@ internal static class ReceiptStoreTests
         await first.AppendAsync(a, CancellationToken.None);
         Check.Equal(1, (await first.ReadAllAsync(CancellationToken.None)).Receipts.Length, "première instance");
         var b = Receipt(FakeWriteExecutor.OtherGuid);
-        await second.AppendAsync(b, CancellationToken.None);
         await second.AppendAsync(Completed(a), CancellationToken.None);
+        await second.AppendAsync(b, CancellationToken.None);
         var seen = await first.ReadAllAsync(CancellationToken.None);
-        Check.Equal(2, seen.Receipts.Length, "lecture incrémentale : l’ajout de l’autre instance est vu");
+        Check.Equal(2, seen.Receipts.Length, "l’ajout de l’autre instance est vu");
         Check.Equal(3, seen.Receipts.Single(r => r.Id == a.Id).Version, "version de l’autre instance");
     }
 
@@ -78,9 +78,10 @@ internal static class ReceiptStoreTests
         await File.AppendAllTextAsync(path, LinePrefix + "\"id\":\"coupé", Encoding.UTF8);
         var waiting = await store.ReadAllAsync(CancellationToken.None);
         Check.Equal(1, waiting.Receipts.Length, "la ligne coupée attend : rien de perdu");
-        Check.Equal(0, waiting.Unreadable, "une ligne sans fin n’est pas encore illisible");
+        Check.Equal(1, waiting.Unreadable, "une ligne coupée peut contenir un envoi : état incertain dès cette lecture");
         var next = Receipt(FakeWriteExecutor.OtherGuid);
-        await store.AppendAsync(next, CancellationToken.None);
+        // A completion must still be retained after corruption, even though no new send is admissible.
+        await store.AppendAsync(Completed(next), CancellationToken.None);
         var log = await store.ReadAllAsync(CancellationToken.None);
         Check.Equal(2, log.Receipts.Length, "le reçu ajouté après la coupure est lu");
         Check.True(log.Receipts.Any(r => r.Id == next.Id), "jamais avalé par la ligne coupée");
@@ -118,13 +119,19 @@ internal static class ReceiptStoreTests
         using var store = new FileReceiptStore(path, new RecordingJournal());
         var a = Receipt();
         await store.AppendAsync(a, CancellationToken.None);
-        await store.AppendAsync(Receipt(FakeWriteExecutor.OtherGuid), CancellationToken.None);
+        await File.AppendAllTextAsync(path, Encoding.UTF8.GetString(FileReceiptStore.Serialize(Receipt(FakeWriteExecutor.OtherGuid))), new UTF8Encoding(false));
         Check.Equal(2, (await store.ReadAllAsync(CancellationToken.None)).Receipts.Length, "deux reçus");
         await File.WriteAllBytesAsync(path, FileReceiptStore.Serialize(a));
         var log = await store.ReadAllAsync(CancellationToken.None);
-        Check.Equal(a.Id, log.Receipts.Single().Id, "relu depuis le début");
+        Check.True(log.Receipts.Any(r => r.Id == a.Id), "reçu encore présent relu");
+        Check.Equal(2, log.Receipts.Length, "reçu disparu conservé comme preuve connue");
+        Check.True(log.Unreadable > 0, "réduction non expliquée ne débloque aucune écriture");
         File.Delete(path);
-        Check.Equal(0, (await store.ReadAllAsync(CancellationToken.None)).Receipts.Length, "fichier absent : aucun reçu");
+        var missing = await store.ReadAllAsync(CancellationToken.None);
+        Check.Equal(2, missing.Receipts.Length, "preuves antérieures conservées en cas de disparition");
+        Check.True(missing.Unreadable > 0, "journal manquant n’est pas un journal sain");
+        using var cold = new FileReceiptStore(path, new RecordingJournal());
+        Check.True((await cold.ReadAllAsync(CancellationToken.None)).Unreadable > 0, "témoin durable de disparition après redémarrage");
     }
 
     [Test]

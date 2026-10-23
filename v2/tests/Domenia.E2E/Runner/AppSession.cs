@@ -47,6 +47,8 @@ internal sealed class AppSession : IAsyncDisposable
 
     public bool Exited => process is null || process.HasExited;
 
+    public int ProcessId => process is { HasExited: false } child ? child.Id : throw new SessionException("Processus piloté absent.");
+
     /// <summary>Step number console messages are attributed to (0 = start).</summary>
     public int CurrentStep
     {
@@ -299,61 +301,5 @@ internal sealed class AppSession : IAsyncDisposable
         }
         process?.Dispose();
         http.Dispose();
-    }
-}
-
-/// <summary>
-/// Lines appended to the technical journal of Domenia (%LOCALAPPDATA%\Domenia\logs\domenia.log) since the harness started
-/// the process: same account, read only, shared reading (Domenia keeps appending).
-/// </summary>
-internal sealed class JournalTail
-{
-    private readonly long offset;
-
-    private JournalTail(string? path, long offset)
-    {
-        Path = path;
-        this.offset = offset;
-    }
-
-    public string? Path { get; }
-
-    public static string? DefaultPath()
-    {
-        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return System.IO.Path.IsPathFullyQualified(root) ? System.IO.Path.Combine(root, "Domenia", "logs", "domenia.log") : null;
-    }
-
-    public static JournalTail FromNow()
-    {
-        var path = DefaultPath();
-        var length = path is not null && File.Exists(path) ? new FileInfo(path).Length : 0;
-        return new JournalTail(path, length);
-    }
-
-    /// <summary>Every line written since the start of the run (a journal replaced meanwhile is read from its beginning).</summary>
-    public IReadOnlyList<string> Lines()
-    {
-        if (Path is null || !File.Exists(Path))
-        {
-            return [];
-        }
-        try
-        {
-            using var stream = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            var from = stream.Length >= offset ? offset : 0;
-            stream.Seek(from, SeekOrigin.Begin);
-            using var reader = new StreamReader(stream, new UTF8Encoding(false), detectEncodingFromByteOrderMarks: true);
-            var text = reader.ReadToEnd();
-            return text.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToList();
-        }
-        catch (IOException)
-        {
-            return [];
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return [];
-        }
     }
 }

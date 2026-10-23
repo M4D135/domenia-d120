@@ -45,7 +45,7 @@ public sealed partial class DomeniaDatabase
         return result.ToImmutable();
     }, token);
 
-    public async Task<FicheLocalRead> SaveFicheAsync(FicheLocalRead fiche, CancellationToken token)
+    private async Task<FicheLocalRead> SaveFicheCoreAsync(FicheLocalRead fiche, CancellationToken token)
     {
         ValidateFiche(fiche);
         fiche = fiche with { Entry = fiche.Entry with { Attributes = fiche.Entry.Attributes.WithComparers(StringComparer.OrdinalIgnoreCase) } };

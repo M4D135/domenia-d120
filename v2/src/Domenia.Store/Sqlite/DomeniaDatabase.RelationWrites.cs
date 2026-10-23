@@ -23,7 +23,7 @@ public sealed partial class DomeniaDatabase
         db.Commit(); return result;
     }, token);
 
-    public async Task<RelationStoreResult> ApplyRelationsAsync(RelationStoreWrite request, CancellationToken token)
+    private async Task<RelationStoreResult> ApplyRelationsCoreAsync(RelationStoreWrite request, CancellationToken token)
     {
         ValidateRelationWrite(request);
         await writer.WaitAsync(token).ConfigureAwait(false);

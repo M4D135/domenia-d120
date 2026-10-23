@@ -12,7 +12,7 @@ public sealed partial class DomeniaDatabase
     private const string RemoteReads = "domenia_v2_remote_reads";
     private static string RemoteHash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
 
-    public async Task<RemoteTaskReadRecord> PrepareTaskReadAsync(RemoteTaskReadPlan plan, CancellationToken token)
+    private async Task<RemoteTaskReadRecord> PrepareTaskReadCoreAsync(RemoteTaskReadPlan plan, CancellationToken token)
     {
         RemoteTaskReadRules.Validate(plan, clock.GetUtcNow());
         if (plan.StoreId != StoreId || !InDomain(plan.ComputerDn)) { throw new InvalidDataException("Plan d’une autre base ou d’un autre domaine."); }
@@ -54,7 +54,7 @@ public sealed partial class DomeniaDatabase
         finally { writer.Release(); }
     }
 
-    public async Task<RemoteTaskReadRecord> CompleteTaskReadAsync(Guid id, long expectedRevision, RemoteTaskReadCompletion completion, CancellationToken token)
+    private async Task<RemoteTaskReadRecord> CompleteTaskReadCoreAsync(Guid id, long expectedRevision, RemoteTaskReadCompletion completion, CancellationToken token)
     {
         if (id == Guid.Empty || expectedRevision < 1) { throw new ArgumentException("Identité du reçu invalide."); }
         await writer.WaitAsync(token).ConfigureAwait(false);

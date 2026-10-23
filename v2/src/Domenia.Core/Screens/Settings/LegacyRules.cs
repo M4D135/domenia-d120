@@ -243,7 +243,8 @@ public static class LegacyRules
                     steps.Add(new LegacyStep("file." + file.Kind, file.Path, label, target, "ignore", 0, "Reprise identique déjà appliquée" + FrenchText.Colon + "rien à écrire."));
                     continue;
                 }
-                if (file.Rows <= 0)
+                var importRows = file.ImportRows ?? file.Rows;
+                if (importRows <= 0)
                 {
                     steps.Add(new LegacyStep("file." + file.Kind, file.Path, label, target, "ignore", 0, "Source vide" + FrenchText.Colon + "rien à reprendre."));
                     continue;
@@ -254,8 +255,8 @@ public static class LegacyRules
                     continue;
                 }
                 steps.Add(target == "user_machine_links"
-                    ? new LegacyStep("file." + file.Kind, file.Path, label, target, "add", file.Rows, "Un lien par poste, le plus récent ; les associations existantes sont conservées, aucun détail libre repris.")
-                    : new LegacyStep("file." + file.Kind, file.Path, label, target, "import", file.Rows, FrenchText.Count(file.Rows, "ligne reprise", "lignes reprises") + " dans une table vide ; fichier historique conservé."));
+                    ? new LegacyStep("file." + file.Kind, file.Path, label, target, "add", importRows, "Un lien par poste, le plus récent ; les associations existantes sont conservées, aucun détail libre repris.")
+                    : new LegacyStep("file." + file.Kind, file.Path, label, target, "import", importRows, FrenchText.Count(importRows, "ligne reprise", "lignes reprises") + " dans une table vide ; fichier historique conservé."));
             }
             var rejected = files.Sum(f => (long)f.Rejected);
             lines.Add("Fichiers de l’ancienne version" + FrenchText.Colon + string.Join(", ", files.Select(f => FileLabel(f.Kind).ToLowerInvariant() + " " + FrenchText.Integer(f.Rows))) + ". Lignes invalides ignorées" + FrenchText.Colon + FrenchText.Integer(rejected) + ".");

@@ -21,4 +21,3 @@ export async function grantFallback(state) {
     return false;
   }
 }
-

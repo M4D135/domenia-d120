@@ -18,7 +18,7 @@ public sealed partial class DomeniaDatabase
         return result;
     }, cancellationToken);
 
-    public async Task<CachedFleet> SaveFleetAsync(FleetCachePatch patch, CancellationToken cancellationToken)
+    private async Task<CachedFleet> SaveFleetCoreAsync(FleetCachePatch patch, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(patch);
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);

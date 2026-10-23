@@ -63,7 +63,7 @@ public sealed partial class DomeniaDatabase
         return WritePrecheck.Valid("Base, révision et destination relues ; aucune copie lancée.");
     }, cancellationToken);
 
-    public async Task<WriteOutcome> ApplyStorageBackupAsync(WritePlan plan, CancellationToken cancellationToken)
+    private async Task<WriteOutcome> ApplyStorageBackupCoreAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ValidateStorageBackupPlan(plan, requireCurrent: true);
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);

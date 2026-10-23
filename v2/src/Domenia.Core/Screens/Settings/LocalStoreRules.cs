@@ -264,9 +264,17 @@ public static class LocalStoreRules
         {
             return new StorageWriterView("suspended", Tone.Alert,
                 "En mémoire uniquement" + FrenchText.Colon + "enregistrement suspendu après des échecs" + (writer.Fault is { Length: > 0 } fault ? " (" + fault.TrimEnd('.') + ")" : "") + ". Reprise" + FrenchText.Colon + "« Reprendre les sauvegardes ».",
-                unsaved, true, null);
+                unsaved, !writer.Active, writer.Active ? "Attendez la fin de l’enregistrement actif." : null);
         }
         var notSuspended = "Les enregistrements locaux ne sont pas suspendus" + FrenchText.Colon + "rien à reprendre.";
+        if (writer.ManualRetry && (writer.Failures > 0 || writer.Pending > 0 || writer.Conflicts > 0))
+        {
+            var retry = writer.Pending > 0 && !writer.Active;
+            var text = writer.Fault ?? (writer.Active ? "Enregistrement local en cours." : writer.Pending > 0 ? "Lots conservés dans cette session, en attente d’une reprise explicite." : "Enregistrements locaux disponibles.");
+            if (writer.Conflicts > 0) { text += " " + FrenchText.Count(writer.Conflicts, "conflit de stockage observé", "conflits de stockage observés") + "."; }
+            return new StorageWriterView(writer.Failures > 0 ? "failures" : "pending", Tone.Warn,
+                text + " Aucun nouvel envoi automatique.", unsaved, retry, retry ? null : writer.Active ? "Attendez la fin de l’enregistrement actif." : "Aucun lot réessayable en mémoire.");
+        }
         if (writer.Conflicts > 0)
         {
             return new StorageWriterView("conflicts", Tone.Warn, "En mémoire" + FrenchText.Colon + FrenchText.Count(writer.Conflicts, "association modifiée ailleurs, non enregistrée", "associations modifiées ailleurs, non enregistrées") + ". Rechargez les associations.", unsaved, false, notSuspended);

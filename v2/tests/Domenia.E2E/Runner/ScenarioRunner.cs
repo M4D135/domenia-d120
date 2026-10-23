@@ -130,6 +130,11 @@ internal sealed partial class ScenarioRunner(RunOptions options, RunReport repor
             result.Verdict = Verdicts.Failed;
             result.Error = $"Domenia s’est terminé avec le code {code} (erreur imprévue : voir le journal technique).";
         }
+        if (result.Verdict == Verdicts.Passed && journal.IntegrityError is { } journalError)
+        {
+            result.Verdict = Verdicts.Failed;
+            result.Error = journalError;
+        }
         result.DurationMs = clock.ElapsedMilliseconds;
         return result;
     }
@@ -187,6 +192,15 @@ internal sealed partial class ScenarioRunner(RunOptions options, RunReport repor
         var timeout = TimeSpan.FromMilliseconds(step.TimeoutMs);
         switch (step.Action)
         {
+            case StepAction.Credential:
+                if (options.Mode != RunMode.Annuaire) { throw new StepFailure("Saisie native réservée au mode annuaire."); }
+                async Task CheckNativeIsolation(CancellationToken token)
+                {
+                    var isolated = await page.CallAsync(PageScripts.NativeSecretAbsent, JsonValue.Create(NativeCredentialDriver.SyntheticSecret), token).ConfigureAwait(false);
+                    if (isolated.ValueKind != JsonValueKind.True) { throw new StepFailure("Le secret synthétique a quitté la saisie native pour la page."); }
+                }
+                await NativeCredentialDriver.CheckAsync(session.ProcessId, step.Name == "use", timeout, CheckNativeIsolation, cancellationToken).ConfigureAwait(false);
+                return null;
             case StepAction.Go:
                 await page.CallAsync(PageScripts.Go, JsonValue.Create(step.Route), cancellationToken).ConfigureAwait(false);
                 var screen = Step.ScreenOf(step.Route!);

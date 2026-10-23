@@ -17,7 +17,7 @@ public sealed partial class DomeniaDatabase
     private sealed record StoredDirectoryHeader(DomainInfo Domain, ScopeSelection Scope, DateTimeOffset ReadAt, bool Complete, string? Controller = null, [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool PointRead = false);
 
     /// <summary>Immutable, hashed JSONL stage; one transaction; a replay returns the original receipt.</summary>
-    public async Task<DirectoryCommitReceipt> SaveDirectoryAsync(string batchId, DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken, bool preserveCoverage = false)
+    private async Task<DirectoryCommitReceipt> SaveDirectoryCoreAsync(string batchId, DirectorySnapshot snapshot, ScopeSelection scope, string? controller, CancellationToken cancellationToken, bool preserveCoverage = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(scope);

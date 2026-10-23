@@ -12,6 +12,14 @@ namespace Domenia.E2E.Driver;
 /// </summary>
 internal static class PageScripts
 {
+    /// <summary>Checks even hidden DOM and input values; the only argument is the harness's synthetic canary.</summary>
+    public const string NativeSecretAbsent = """
+        (secret) => !document.documentElement.outerHTML.includes(secret)
+          && !Array.from(document.querySelectorAll('input,textarea')).some(el => String(el.value).includes(secret))
+          && !Array.from(document.querySelectorAll('*')).some(el => el.shadowRoot && (
+            el.shadowRoot.innerHTML.includes(secret) || Array.from(el.shadowRoot.querySelectorAll('input,textarea')).some(input => String(input.value).includes(secret))))
+        """;
+
     private static readonly JsonSerializerOptions ArgumentOptions = new() { Encoder = JavaScriptEncoder.Default, WriteIndented = false };
 
     /// <summary>Shared helpers, placed at the top of each function body (compile-time constant).</summary>

@@ -88,7 +88,20 @@ environnement (donc de celui des processus du navigateur qu’il lance) :
 
 Chaque neutralisation est journalisée (`ATTENTION`) avec le **nom** de la variable, jamais sa valeur.
 
-### 2.4 Limites assumées
+### 2.4 Saisie native du compte poste
+
+L’action fermée `credential` (`name: cancel` ou `use`) vérifie la véritable fenêtre « Charger le compte poste » du
+seul processus enfant piloté. Elle exige une saisie vide, entre un secret synthétique fixe par messages clavier natifs,
+contrôle les puces, la révélation, la validation désactivée pendant celle-ci et le remasquage automatique, puis annule
+ou charge ce compte en mémoire. Elle ne valide aucun accès réseau, n’utilise pas le coffre et n’accepte aucun secret,
+titre de fenêtre ou processus venant du scénario. Un échec ferme uniquement cette fenêtre. Les captures après l’étape
+portent sur la page, une fois la fenêtre fermée ; aucune valeur native lue n’est incluse dans les erreurs.
+
+Le scénario `schema/panneau-annuaire` remplace les anciennes attentes d’un mot de passe dans le DOM : il garde les
+contrôles d’annulation, réouverture vide et chargement, puis oublie le compte ponctuel. Les règles natives elles-mêmes
+restent à qualifier lors de la recette finale ; cette modification n’annonce pas un scénario réussi.
+
+### 2.5 Limites assumées
 
 - Le protocole DevTools n’a pas d’authentification : pendant une exécution, tout processus **local** du poste peut s’y
   connecter. Le mode E2E est réservé aux postes de test (VM du labo) ; il exige deux gestes explicites et se signale dans

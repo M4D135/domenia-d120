@@ -6,17 +6,17 @@ namespace Domenia.Core;
 
 /// <summary>
 /// Reading of the end of the technical journal (Domenia 1 Apply-DomeniaExperienceLogReading): one record per line
-/// « 2026-10-22T08:15:02Z [ERREUR] texte », continuation lines (a stack) kept with their record, 600 records at most from the
+/// « 2026-10-22T08:15:02Z [ERREUR] texte », continuation lines (a stack) kept with their record, 5 000 records at most from the
 /// end, a first partial line dropped when the reading started in the middle of the file, and the errors of the session
 /// counted apart from those of earlier runs. Pure: the host reads the bytes, these rules only parse.
 /// </summary>
 public static partial class TechnicalLogTail
 {
     /// <summary>Most of the journal read from its end.</summary>
-    public const int TailBytes = 262_144;
+    public const int TailBytes = 2 * 1024 * 1024;
 
     /// <summary>Most records returned.</summary>
-    public const int MaxRecords = 600;
+    public const int MaxRecords = 5000;
 
     /// <summary>Most continuation lines kept with one record.</summary>
     public const int MaxContinuation = 40;
@@ -26,7 +26,7 @@ public static partial class TechnicalLogTail
 
     /// <summary>
     /// Records of a text, oldest first. <paramref name="startsMidway"/>: the text starts in the middle of the file, its first
-    /// line is partial and dropped. <paramref name="cut"/> tells when older records were left out (more than 600).
+    /// line is partial and dropped. <paramref name="cut"/> tells when older records were left out (more than 5 000).
     /// </summary>
     public static ImmutableArray<LogLine> Parse(string text, bool startsMidway, out bool cut)
     {

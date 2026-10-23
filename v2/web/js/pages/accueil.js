@@ -1148,7 +1148,16 @@ export function render(main, ctx) {
     openTargets({ ctx, revision: revision ?? b.revision, key, label, scope: st.session?.scope ?? null, onReplaced: () => board.load({ quiet: false }) });
   }
 
-  function onBoardAction(id) {
+  async function onBoardAction(id) {
+    if (id.startsWith('queryConfirm:')) {
+      const [, recipeId, revision] = id.split(':');
+      try {
+        const saved = await ctx.call('accueil.query.bind', { id: recipeId, revision: Number(revision) });
+        ctx.toast(saved.receipt.text, { tone: saved.receipt.readBack ? 'ok' : 'warn' });
+        await board.load();
+      } catch (err) { ctx.toast(reported(err), { tone: 'warn' }); }
+      return;
+    }
     if (id === 'collect') { refresh?.plan('inventory'); return; }
     if (id === 'bitlocker') readBitLocker();
   }

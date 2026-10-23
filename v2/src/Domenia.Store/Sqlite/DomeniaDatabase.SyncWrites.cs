@@ -16,7 +16,7 @@ public sealed partial class DomeniaDatabase
             ? WritePrecheck.Valid("Base et aperçu de synchronisation inchangés.") : WritePrecheck.Stale("Base modifiée depuis l’aperçu : préparez un nouveau plan.");
     }
 
-    public async Task<SyncStorageReceipt> ApplySyncChangeAsync(SyncLocalChange change, CancellationToken cancellationToken)
+    private async Task<SyncStorageReceipt> ApplySyncChangeCoreAsync(SyncLocalChange change, CancellationToken cancellationToken)
     {
         ValidateSyncChange(change);
         var serialized = JsonSerializer.Serialize(change, Json);

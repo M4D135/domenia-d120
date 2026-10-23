@@ -2,11 +2,12 @@
 // Domenia 1 (follow, errors only, wrap, text size; wrap and size remembered), the raw view of the Expert profile, literal
 // search, copy with names masked (preview before copying), and the operations journal of the session. Display only: every
 // level stays recorded. « Effacer l’affichage » keeps a stable mark (time and text of the last line seen), never a position
-// in the sliding window of the 600 last records.
+// in the sliding window of the 5 000 last records.
 import {
   esc, glyph, card, notes, sectionHead, switchLabel, select, segmented, button, paint, pressSegment, radioKeys, skeleton, errorBlock, reported, pill, int, count, size, when, NBSP, COLON,
 } from './common.js';
 import { reveal, copyText } from '../../ui.js';
+import { quietCall } from '../../shell/store.js';
 import { timeline, bindTimeline } from '../../kit/timeline.js';
 import { openDialog } from '../../kit/dialog.js';
 import { readingPrefs, saveReadingPrefs } from './interface.js';
@@ -28,6 +29,7 @@ export function mount(host, sctx) {
   let timer = 0;
   let mark = null;
   let found = -1;
+  let health = null;
   const reading = readingPrefs();
   const state = {
     follow: true,
@@ -65,7 +67,9 @@ export function mount(host, sctx) {
     meta.innerHTML = `<span>${glyph('file')}<span class="mono">${esc(f.label)}</span></span><span>${esc(f.exists ? size(f.bytes) : 'pas encore écrit')}</span><span>${int(list.length)} affichées sur ${int(f.records)}</span>
       ${session ? pill('alert', `${count(session, 'erreur', 'erreurs')} dans cette session`, { size: 'sm' }) : pill('ok', 'Aucune erreur dans cette session', { size: 'sm' })}
       ${earlier ? pill('off', `${count(earlier, 'erreur plus ancienne', 'erreurs plus anciennes')}`, { size: 'sm', tip: 'Lancements précédents : de l’historique, pas une alarme' }) : ''}
-      ${f.warnings ? pill('warn', count(f.warnings, 'alerte', 'alertes'), { size: 'sm' }) : ''}${f.truncated ? pill('off', 'Fin du fichier seulement', { size: 'sm', tip: '256 Ko lus depuis la fin' }) : ''}
+      ${f.warnings ? pill('warn', count(f.warnings, 'alerte', 'alertes'), { size: 'sm' }) : ''}${f.truncated ? pill('off', 'Fin du fichier seulement', { size: 'sm', tip: '2 Mio et 5 000 entrées lus au plus depuis la fin' }) : ''}
+      ${health?.state === 'unavailable' ? pill('alert', 'Journal indisponible', { size: 'sm' }) : health?.state === 'fallback' ? pill('warn', 'Journal de secours', { size: 'sm' }) : ''}
+      ${health?.pending ? pill('off', `${int(health.pending)} lignes en attente`, { size: 'sm' }) : ''}${health?.dropped ? pill('alert', `${int(health.dropped)} lignes perdues`, { size: 'sm' }) : ''}
       ${mark ? `<button type="button" class="btn sm ghost" data-act="unclear">${glyph('undo')}<span>Tout réafficher</span></button>` : ''}`;
     paint(meta);
   }
@@ -137,7 +141,8 @@ export function mount(host, sctx) {
 
   async function load({ quiet = false } = {}) {
     try {
-      const next = await sctx.call('settings.logs');
+      const [next, status] = await Promise.all([sctx.call('settings.logs'), quietCall('shell.journal.status').catch(() => null)]);
+      health = status;
       if (!alive) return;
       const first = !view;
       view = next;
@@ -180,7 +185,7 @@ export function mount(host, sctx) {
   async function copy() {
     const text = visible().map(lineText).join('\n');
     const body = `<label class="pr-check pr-mask"><input type="checkbox" class="k-checkbox" data-mask checked><span>Masquer les noms (DN, comptes, UPN, adresses, noms DNS)</span></label>
-      <p class="pr-sub">Masquage au mieux${COLON}relisez avant d’envoyer. Aucun secret n’est jamais écrit dans ce journal.</p>
+      <p class="pr-sub">Masquage au mieux${COLON}relisez avant d’envoyer. Les secrets reconnus sont masqués ; les noms internes demandent votre vérification.</p>
       <pre class="pr-copy-preview" data-preview></pre>`;
     const d = openDialog({ title: 'Copier le journal affiché', icon: 'copy', size: 'lg', body, actions: [{ id: 'cancel', label: 'Annuler', safe: true }, { id: 'ok', label: 'Copier', primary: true }] });
     // The dialog lives in <body>, outside the screen: its body carries data-page so that the rules of the screen apply.

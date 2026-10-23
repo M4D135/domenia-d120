@@ -18,6 +18,7 @@ internal enum StepAction
     Shot,
     Scroll,
     Journal,
+    Credential,
 }
 
 /// <summary>Mode Domenia is started in: simulation (--simulation) or annuaire (joined workstation, integrated auth).</summary>

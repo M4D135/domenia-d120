@@ -26,7 +26,9 @@ internal static class NativeStorageLegacyTests
         using var setup = new Setup(); await setup.Initialize(); setup.WriteAll();
         using (var db = new SqliteDatabase(setup.Database.Path, false))
         { db.Execute("INSERT INTO user_machine_links(computer_key,user_login,computer,source) VALUES('pc1','declared','PC1','Saisie manuelle');"); }
-        var preview = StorageViewBuilder.LegacySimulation(await setup.Reader.LocalStoreAsync(None), "test.local", TimeZoneInfo.Utc);
+        var sources = await setup.Reader.LocalStoreAsync(None);
+        Check.Equal(2L, sources.Legacy.Files.Single(x => x.Kind == "Liens").Rows, "deux liens reconnus, dont un déjà présent");
+        var preview = StorageViewBuilder.LegacySimulation(sources, "test.local", TimeZoneInfo.Utc);
         Check.Equal(5L, preview.WriteCount, "quatre sources et seulement le lien absent");
         var plan = await setup.Plan(preview);
         Check.True((await setup.Executor.CheckAsync(plan, None)).Current, "sources et cible inchangées");

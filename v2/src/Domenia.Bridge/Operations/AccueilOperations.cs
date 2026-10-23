@@ -33,6 +33,7 @@ public sealed class AccueilOperations : IOperationModule
     {
         ArgumentNullException.ThrowIfNull(context);
         var service = AccueilService.From(context);
+        service.AttachQueryLibrary(Operations.Requetes.RequetesServices.Library(context));
         return
         [
             // ---------------------------------------------------------------- board, exact sets, layout, catalogs
@@ -72,11 +73,20 @@ public sealed class AccueilOperations : IOperationModule
                 return await service.ResetLayoutAsync(BridgeArguments.GetOptionalString(values, "preset"), ct).ConfigureAwait(false);
             }, "Rétablit la disposition livrée ou applique une disposition prédéfinie."),
 
-            new OperationDefinition("accueil.widgets.catalog", OperationClass.Local, (args, _, _) =>
+            new OperationDefinition("accueil.widgets.catalog", OperationClass.LocalRead, async (args, _, ct) =>
             {
                 BridgeArguments.RequireNone(args);
-                return Task.FromResult<object?>(AccueilService.Catalog());
+                return await service.CatalogAsync(ct).ConfigureAwait(false);
             }, "Catalogue des widgets du parc et des sondes WMI."),
+
+            new OperationDefinition("accueil.query.bind", OperationClass.LocalWrite, async (args, _, ct) =>
+            {
+                var values = BridgeArguments.ReadObject(args, ["id", "revision"]);
+                var id = BridgeArguments.GetString(values, "id");
+                if (!values.TryGetValue("revision", out var number) || !number.TryGetInt64(out var revision) || revision < 1
+                    || id.Length != 32 || !id.All(char.IsAsciiHexDigitLower)) { throw BridgeArguments.Invalid("Requête ou révision invalide."); }
+                return await service.BindQueryAsync(id, revision, ct).ConfigureAwait(false);
+            }, "Lie la révision affichée d’une requête au tableau ; écriture locale, aucune collecte."),
 
             new OperationDefinition("accueil.probe", OperationClass.Local, (args, _, _) =>
             {

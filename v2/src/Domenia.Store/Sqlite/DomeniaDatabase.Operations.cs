@@ -26,7 +26,7 @@ public sealed partial class DomeniaDatabase
         var result = WithLegacyOperations(db, ReadOperations(db)); db.Commit(); return result;
     }, cancellationToken);
 
-    public async Task<OperationsLocalState> UpdateOperationsAsync(long expectedRevision, OperationsLocalState next, CancellationToken cancellationToken)
+    private async Task<OperationsLocalState> UpdateOperationsCoreAsync(long expectedRevision, OperationsLocalState next, CancellationToken cancellationToken)
     {
         OperationsPersistence.Validate(next);
         if (next.StoreId != StoreId || !DistinguishedName.AreEqual(next.DomainDn, DomainDn) || next.Revision != expectedRevision + 1)

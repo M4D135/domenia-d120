@@ -44,7 +44,7 @@ public sealed partial class DomeniaDatabase
             : WritePrecheck.Stale("Sources historiques ou base modifiées depuis le plan ; refaites la simulation.");
     }, token);
 
-    internal async Task<WriteOutcome> ApplyStorageLegacyAsync(IReadOnlyList<string> roots, WritePlan plan, CancellationToken token)
+    private async Task<WriteOutcome> ApplyStorageLegacyCoreAsync(IReadOnlyList<string> roots, WritePlan plan, CancellationToken token)
     {
         ValidateLegacyPlan(plan, true);
         await writer.WaitAsync(token).ConfigureAwait(false);
@@ -63,6 +63,7 @@ public sealed partial class DomeniaDatabase
             if (!MatchesLegacyPlan(plan, ReadLegacyInventory(read, token), sources))
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Sources historiques ou base modifiées depuis le plan."); }
         }
+        CheckWriterSpace(sources.Files.Sum(x => x.Info.Bytes));
         _ = Initialize(token);
         using var db = new SqliteDatabase(Path, false, cancellationToken: token);
         CheckIdentity(db, false);

@@ -182,8 +182,8 @@ public sealed class SettingsHostOperations : IOperationModule
                 return new LogsView(file, lines, context.Journal.Snapshot(),
                 [
                     "Affichage seulement : tous les niveaux restent enregistrés dans le journal, quels que soient les filtres.",
-                    "Le journal ne reçoit jamais une saisie de la page ni un secret ; la copie peut contenir des noms (masquage proposé).",
-                    "Domenia lit la fin du fichier (256 Ko au plus) ; le fichier entier reste dans le dossier des journaux.",
+                    "Les secrets reconnus sont masqués avant écriture ; la copie peut contenir des noms (masquage proposé).",
+                    "Domenia lit la fin du fichier (2 Mio et 5 000 entrées au plus) ; le fichier entier reste dans le dossier des journaux.",
                     "La pastille de l’écran ne compte que les erreurs de cette session ; celles des lancements précédents restent lisibles ici.",
                 ]);
             }, "Fin du journal technique et journal des opérations de la session ; lecture seule."),

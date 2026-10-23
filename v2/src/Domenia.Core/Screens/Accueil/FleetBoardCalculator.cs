@@ -699,7 +699,7 @@ public static class FleetBoardCalculator
             foreach (var item in input.Layout.Where(i => i.Source == FleetWidgetSource.Query).GroupBy(i => i.Key).Select(g => g.First()))
             {
                 entries["query:" + item.Key] = new FleetEntry("query:" + item.Key, item.Title ?? "Requête enregistrée", item.Group, FleetDataKind.Distribution, "Requête absente", null, null,
-                    "Requête absente de la bibliothèque : l’atelier de requêtes n’est pas encore disponible dans cette version. Retirez ce widget ou attendez l’atelier ; rien n’est calculé.",
+                    "Bibliothèque non lue : le lien reste conservé. Relisez le catalogue ou retirez explicitement ce widget.",
                     Tone.Off, null, "Bibliothèque non lue", [], [], null, null, null, false);
             }
 

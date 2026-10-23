@@ -18,7 +18,7 @@ public sealed partial class DomeniaDatabase
         var result = ReadQueryResults(db); db.Commit(); return result;
     }, cancellationToken);
 
-    public async Task<QueryStoredReadings> SaveQueryResultsAsync(QueryComputerReadings readings, CancellationToken cancellationToken)
+    private async Task<QueryStoredReadings> SaveQueryResultsCoreAsync(QueryComputerReadings readings, CancellationToken cancellationToken)
     {
         QueryReadingRules.Validate(readings, clock.GetUtcNow());
         if (!InDomain(readings.Dn)) { throw new InvalidDataException("Résultat de requête hors domaine."); }

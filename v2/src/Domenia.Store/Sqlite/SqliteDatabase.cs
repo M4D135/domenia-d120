@@ -9,6 +9,7 @@ namespace Domenia.Store;
 internal sealed class SqliteDatabase : IDisposable
 {
     private IntPtr handle;
+    private readonly string path;
     private readonly CancellationToken cancellationToken;
     private readonly Native.Progress progress;
     private bool transaction;
@@ -16,6 +17,7 @@ internal sealed class SqliteDatabase : IDisposable
 
     public SqliteDatabase(string path, bool readOnly, int busyTimeoutMs = 2500, CancellationToken cancellationToken = default)
     {
+        this.path = path;
         this.cancellationToken = cancellationToken;
         progress = _ => cancellationToken.IsCancellationRequested ? 1 : 0;
         if (!readOnly) { storageWriter = StorageWriteFence.Writer(path, cancellationToken); }
@@ -81,15 +83,20 @@ internal sealed class SqliteDatabase : IDisposable
     public void Begin(bool write = true)
     {
         if (transaction) { throw new InvalidOperationException("Transaction déjà ouverte."); }
+        if (write) { StorageWriteBudgetScope.Check(path); }
         Script(write ? "BEGIN IMMEDIATE;" : "BEGIN;");
         transaction = true;
+        if (write) { StorageReplayScope.Check(path, this); }
     }
 
     public void Commit()
     {
         if (!transaction) { throw new InvalidOperationException("Aucune transaction."); }
+        StorageWriteBudgetScope.Check(path);
+        StorageReplayScope.BeforeCommit(path, this);
         Script("COMMIT;");
         transaction = false;
+        StorageReplayScope.Committed(path);
     }
 
     public void Rollback()

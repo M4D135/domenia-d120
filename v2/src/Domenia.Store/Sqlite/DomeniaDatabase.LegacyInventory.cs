@@ -30,7 +30,7 @@ public sealed partial class DomeniaDatabase
 
     private LocalStoreSnapshot WithLegacySources(LocalStoreSnapshot snapshot, LegacyImportFiles sources, LegacyInventory? inventory)
     {
-        var files = sources.Files.Select(f => f.Info with { Rows = f.Info.Kind == "Liens" && inventory is not null
+        var files = sources.Files.Select(f => f.Info with { ImportRows = f.Info.Kind == "Liens" && inventory is not null
             ? f.Rows.LongCount(r => !inventory.LinkedComputers.Contains(r.Key)) : f.Rows.Length }).ToImmutableArray();
         return snapshot with { Revision = inventory?.Revision ?? snapshot.Revision, Legacy = snapshot.Legacy with
         {

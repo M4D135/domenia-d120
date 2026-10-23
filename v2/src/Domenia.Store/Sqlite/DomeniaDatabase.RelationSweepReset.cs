@@ -17,7 +17,7 @@ public sealed partial class DomeniaDatabase
         db.Commit(); return check;
     }, token);
 
-    public async Task<RelationSweepResetResult> ResetRelationSweepsAsync(RelationSweepResetWrite request, CancellationToken token)
+    private async Task<RelationSweepResetResult> ResetRelationSweepsCoreAsync(RelationSweepResetWrite request, CancellationToken token)
     {
         ValidateSweepReset(request); await writer.WaitAsync(token).ConfigureAwait(false);
         try { return await Task.Run(() => ResetSweeps(request, token), token).ConfigureAwait(false); }

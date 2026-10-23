@@ -69,7 +69,10 @@ internal static partial class ShellStaticChecksTests
             // Secure windows of the host: a secret is typed or shown there, never in the page (OPERATIONS.md § 1.2).
             ["src/Domenia.App/Poste/SecretWindowForm.cs"] = [": Form"],
             ["src/Domenia.App/Secrets/PasswordWindow.cs"] = [": Form"],
-            ["src/Domenia.App/Secrets/HostPasswordWindow.cs"] = [".ShowDialog("],
+            ["src/Domenia.App/Secrets/CredentialWindow.cs"] = [": Form"],
+            ["src/Domenia.App/Secrets/NativeSecretDialog.cs"] = [": Form", ".ShowDialog("],
+            // Closing unresolved native operations requires the operator's explicit choice before the host is disposed.
+            ["src/Domenia.App/MainForm.Closing.cs"] = ["MessageBox"],
             // « Enregistrer sous » of the exports of the Poste screen (poste.export.save: the file chosen by the operator).
             ["src/Domenia.App/Poste/PosteHostServices.cs"] = ["SaveFileDialog", ".ShowDialog("],
         };

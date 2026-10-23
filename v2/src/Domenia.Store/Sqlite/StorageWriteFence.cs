@@ -6,10 +6,16 @@ namespace Domenia.Store;
 /// <summary>Cooperative D2 connection barrier; the switch additionally holds a real OS deny-write handle on the database.</summary>
 internal static class StorageWriteFence
 {
+    private sealed class MemoryLease : IDisposable { public void Dispose() { } }
+    private static readonly IDisposable InMemory = new MemoryLease();
+
     internal static string Marker(string path) => path + ".domenia-readonly";
 
     internal static IDisposable Writer(string path, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        // SQLite :memory: is private to this connection and has no path or external writer to fence.
+        if (string.Equals(path, ":memory:", StringComparison.Ordinal)) { return InMemory; }
         var lease = Open(path, exclusive: false, token);
         try
         {

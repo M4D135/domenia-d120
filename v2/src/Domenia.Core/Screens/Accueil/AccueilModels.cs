@@ -151,7 +151,10 @@ public sealed record WidgetCatalogView(
     ImmutableArray<ProbeCategoryView> Probes,
     int ProbeCount,
     bool QueriesAvailable,
-    string QueriesText);
+    string QueriesText)
+{
+    public ImmutableArray<FleetQueryCatalogItem> Queries { get; init; } = [];
+}
 
 /// <summary>Result of accueil.layout.* : the layout and whether it differs from the delivered one.</summary>
 public sealed record FleetLayoutView(ImmutableArray<FleetLayoutItem> Items, bool Customized, int Max);

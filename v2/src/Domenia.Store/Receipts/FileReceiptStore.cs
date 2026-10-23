@@ -15,14 +15,13 @@ namespace Domenia.Store;
 /// Each line is one version of a receipt: <c>{"format":"domenia.receipt","version":1,"receipt":{…}}</c>, 64 KiB at most.
 /// Appends are atomic: under a lock shared by every Domenia process of the machine, the whole line is written by one call on a
 /// write-through stream and flushed to the disk; a line torn by a crash (no final line feed) is closed by the next append, so
-/// it never swallows the next record. Reads are incremental (only the bytes added since the last read) and fold the versions
-/// by identifier, the latest winning. A line that cannot be read is counted and traced, never fatal: the only line a crash can
-/// tear is the last one being written, and the version 1 of a receipt (written before sending) is complete before anything is
-/// sent. A file that cannot be read for now (locked, access denied, larger than 64 MiB) raises <see cref="IOException"/>: the
-/// circuit then refuses new writes (fail closed).
+/// it never swallows the next record. Reads fold bounded active and archived files afresh, including replacements with the
+/// same length or timestamp. Torn, inconsistent or missing known records remain uncertain evidence and prevent new sends.
+/// A file that cannot be read (locked, access denied, redirected, or total size above 64 MiB) raises <see cref="IOException"/>.
+/// Completed receipts are archived before atomic compaction; unresolved receipts are never removed.
 /// </para>
 /// </summary>
-public sealed class FileReceiptStore : IReceiptStore, IDisposable
+public sealed partial class FileReceiptStore : IReceiptStore, IDisposable
 {
     public const string DirectoryFileName = "receipts.jsonl";
     public const string SimulationFileName = "receipts-simulation.jsonl";
@@ -32,7 +31,7 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
     /// <summary>Longest record line, line feed included.</summary>
     public const int MaxLineBytes = 65_536;
 
-    /// <summary>Larger files are not read and not extended (compaction comes with the Opérations screen, Domenia 1 TRV-283).</summary>
+    /// <summary>Bounded total read budget for the active log and its archives; a larger journal requires manual review.</summary>
     public const long MaxFileBytes = 64L * 1024 * 1024;
 
     /// <summary>Longest wait for the lock held by another instance appending to the same file.</summary>
@@ -44,10 +43,8 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
     private readonly string lockName;
     private readonly ITechnicalJournal log;
     private readonly SemaphoreSlim gate = new(1, 1);
-    // Incremental reading: bytes already folded, latest version of each receipt, lines that could not be read.
-    private readonly Dictionary<string, WriteReceipt> latest = new(StringComparer.Ordinal);
-    private long offset;
-    private int unreadable;
+    // A missing record remains evidence in this instance; deletion must not turn a pending write into a healthy state.
+    private readonly Dictionary<string, WriteReceipt> known = new(StringComparer.Ordinal);
     private int unreadableTraced;
 
     public FileReceiptStore(string path, ITechnicalJournal log)
@@ -59,7 +56,8 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
             // Never relative to the current folder, which may be the share or key the pack runs from.
             throw new ArgumentException("The receipts path must be absolute.", nameof(path));
         }
-        this.path = path;
+        this.path = Path.GetFullPath(path);
+        ValidateReceiptPath(this.path);
         this.log = log;
         lockName = LockNameFor(path);
     }
@@ -81,15 +79,15 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
     {
         ArgumentNullException.ThrowIfNull(receipt);
         var line = Serialize(receipt);
-        if (line.Length > MaxLineBytes)
+        if (line.Length > MaxLineBytes || Parse(line.AsMemory(0, line.Length - 1)) is null)
         {
-            throw new IOException("The receipt is larger than the longest record line.");
+            throw new IOException("The receipt is invalid or larger than the longest record line.");
         }
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             // One thread from start to end (the machine-wide lock belongs to the thread that took it), never the caller's.
-            await Task.Run(() => Append(line), CancellationToken.None).ConfigureAwait(false);
+            await Task.Run(() => Append(receipt, line), CancellationToken.None).ConfigureAwait(false);
         }
         finally
         {
@@ -144,6 +142,7 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
             {
                 return null;
             }
+            if (DuplicateReceiptProperties(root)) { return null; }
             var receipt = body.Deserialize<WriteReceipt>(Json);
             return receipt is null ? null : Normalize(receipt);
         }
@@ -158,9 +157,9 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
         }
     }
 
-    private void Append(byte[] line)
+    private void Append(WriteReceipt receipt, byte[] line)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        ProtectReceiptRoot();
         using var machineLock = new Mutex(initiallyOwned: false, lockName);
         if (!Acquire(machineLock))
         {
@@ -168,25 +167,41 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
         }
         try
         {
-            using var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.WriteThrough);
-            if (stream.Length + line.Length > MaxFileBytes)
+            ValidateReceiptPath(path);
+            // The last admission and the first durable receipt share one machine-wide critical section.
+            // Another application instance cannot both observe an empty pending set and send a second write.
+            if (receipt.Version == 1)
             {
-                throw new IOException("The receipts file reached its largest size.");
+                var before = ReadReceiptsLocked();
+                if (before.Unreadable != 0 || before.Receipts.Any(r => WriteReceipts.IsPending(r) || r.Id == receipt.Id))
+                { throw new IOException("Reçus incertains, illisibles ou identifiant déjà utilisé ; aucun nouvel envoi autorisé."); }
             }
-            if (stream.Length > 0)
+            if (!File.Exists(path) && File.Exists(MarkerPath))
+            { throw new IOException("Journal des reçus disparu ; aucun nouveau reçu ne peut remplacer les preuves antérieures."); }
+            using (var stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.WriteThrough))
             {
-                stream.Seek(-1, SeekOrigin.End);
-                if (stream.ReadByte() != '\n')
+                ProtectReceiptFile(path);
+                if (stream.Length + line.Length > MaxFileBytes)
                 {
-                    // A line torn by a crash during an earlier append: closed here, so it never swallows this record.
-                    stream.Seek(0, SeekOrigin.End);
-                    stream.WriteByte((byte)'\n');
-                    log.Warning($"Reçus {Path.GetFileName(path)} : dernière ligne interrompue fermée avant l’ajout.");
+                    throw new IOException("The receipts file reached its largest size.");
                 }
+                if (stream.Length > 0)
+                {
+                    stream.Seek(-1, SeekOrigin.End);
+                    if (stream.ReadByte() != '\n')
+                    {
+                        // A line torn by a crash during an earlier append: closed here, so it never swallows this record.
+                        stream.Seek(0, SeekOrigin.End);
+                        stream.WriteByte((byte)'\n');
+                        log.Warning($"Reçus {Path.GetFileName(path)} : dernière ligne interrompue fermée avant l’ajout.");
+                    }
+                }
+                stream.Seek(0, SeekOrigin.End);
+                stream.Write(line);
+                stream.Flush(flushToDisk: true);
+                EnsureReceiptMarker();
             }
-            stream.Seek(0, SeekOrigin.End);
-            stream.Write(line);
-            stream.Flush(flushToDisk: true);
+            CompactReceipts();
         }
         finally
         {
@@ -209,104 +224,40 @@ public sealed class FileReceiptStore : IReceiptStore, IDisposable
         }
     }
 
-    private ReceiptLog Read()
-    {
-        var info = new FileInfo(path);
-        if (!info.Exists)
-        {
-            Reset();
-            return new ReceiptLog([], 0);
-        }
-        if (info.Length > MaxFileBytes)
-        {
-            log.Warning($"Reçus {Path.GetFileName(path)} non lus : fichier de plus de 64 Mio, aucune écriture n’est admise.");
-            throw new IOException("The receipts file is larger than the largest readable size.");
-        }
-        if (info.Length < offset)
-        {
-            // Replaced or cut by hand: read again from the start, nothing is assumed from before.
-            log.Warning($"Reçus {Path.GetFileName(path)} raccourcis depuis la dernière lecture : relus depuis le début.");
-            Reset();
-        }
-        byte[] added;
-        try
-        {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            stream.Seek(offset, SeekOrigin.Begin);
-            added = new byte[stream.Length - offset];
-            stream.ReadExactly(added);
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-        {
-            Reset();
-            return new ReceiptLog([], 0);
-        }
-        var consumed = 0;
-        var bytes = added.AsMemory();
-        while (consumed < bytes.Length)
-        {
-            var end = bytes.Span[consumed..].IndexOf((byte)'\n');
-            if (end < 0)
-            {
-                // Incomplete last line (being written, or torn): left for a later read.
-                break;
-            }
-            var line = bytes.Slice(consumed, end);
-            consumed += end + 1;
-            if (line.Length > 0 && line.Span[^1] == (byte)'\r')
-            {
-                line = line[..^1];
-            }
-            if (line.IsEmpty)
-            {
-                continue;
-            }
-            if (line.Length >= MaxLineBytes || Parse(line) is not { } receipt)
-            {
-                unreadable++;
-                continue;
-            }
-            if (!latest.TryGetValue(receipt.Id, out var known) || known.Version <= receipt.Version)
-            {
-                latest[receipt.Id] = receipt;
-            }
-        }
-        offset += consumed;
-        if (unreadable > unreadableTraced)
-        {
-            log.Warning($"Reçus {Path.GetFileName(path)} : {unreadable} enregistrement(s) illisible(s) ignoré(s).");
-            unreadableTraced = unreadable;
-        }
-        return new ReceiptLog([.. latest.Values], unreadable);
-    }
-
-    private void Reset()
-    {
-        latest.Clear();
-        offset = 0;
-        unreadable = 0;
-        unreadableTraced = 0;
-    }
-
     /// <summary>A receipt read back: identity and plan required, missing arrays as empty ones; anything else is unreadable.</summary>
     private static WriteReceipt? Normalize(WriteReceipt receipt)
     {
         var plan = receipt.Plan;
         if (!WritePlans.IsPlanId(receipt.Id) || receipt.Version < 1 || plan is null || plan.Target is null
-            || string.IsNullOrEmpty(plan.Kind) || string.IsNullOrEmpty(plan.Target.ObjectGuid) || string.IsNullOrEmpty(receipt.Operator)
-            || string.IsNullOrEmpty(receipt.Mode) || plan.Confirmation is null || plan.Reversibility is null)
-        {
-            return null;
-        }
+            || !WritePlans.IsPlanId(plan.Id) || string.IsNullOrEmpty(plan.Kind) || !Guid.TryParse(plan.Target.ObjectGuid, out var target) || target == Guid.Empty
+            || string.IsNullOrEmpty(receipt.Operator) || receipt.Operator != plan.Operator || receipt.Mode != plan.Mode || receipt.Simulated != plan.Simulated
+            || plan.Confirmation is null || plan.Reversibility is null || plan.Changes.IsDefaultOrEmpty || plan.Changes.Length > WritePlans.MaxChanges
+            || plan.Changes.Any(c => c is null || string.IsNullOrWhiteSpace(c.Attribute) || !Enum.IsDefined(c.Kind))
+            || string.IsNullOrWhiteSpace(plan.Target.Dn) || string.IsNullOrWhiteSpace(plan.Target.Kind) || string.IsNullOrWhiteSpace(plan.Target.Name)
+            || string.IsNullOrWhiteSpace(plan.Title) || string.IsNullOrWhiteSpace(plan.Label) || string.IsNullOrWhiteSpace(plan.Summary) || string.IsNullOrWhiteSpace(plan.Mode)
+            || plan.ExpiresAt <= plan.CreatedAt || plan.Confirmation.TypedNameRequired && string.IsNullOrEmpty(plan.Confirmation.TypedName)
+            || !plan.Risks.IsDefault && plan.Risks.Any(r => r is null || r.Text is null || !Enum.IsDefined(r.Tone))
+            || !receipt.Details.IsDefault && receipt.Details.Any(d => d is null || d.Label is null || d.Value is null)
+            || plan.Fingerprint is not { Length: 64 } || !plan.Fingerprint.All(char.IsAsciiHexDigit) || !WritePlans.IsIntact(plan)
+            || receipt.SentAt < plan.CreatedAt || receipt.At < receipt.SentAt || receipt.CompletedAt < receipt.SentAt || receipt.VerifiedAt < receipt.SentAt
+            || !Enum.IsDefined(receipt.Result) || !Enum.IsDefined(receipt.Verification))
+        { return null; }
         return receipt with
         {
             Details = receipt.Details.IsDefault ? ImmutableArray<ReceiptDetail>.Empty : receipt.Details,
-            Plan = plan with
-            {
-                Changes = plan.Changes.IsDefault ? ImmutableArray<WriteChange>.Empty : plan.Changes,
-                Risks = plan.Risks.IsDefault ? ImmutableArray<WriteRisk>.Empty : plan.Risks,
-            },
+            Plan = plan with { Risks = plan.Risks.IsDefault ? ImmutableArray<WriteRisk>.Empty : plan.Risks },
         };
+    }
+
+    private static bool DuplicateReceiptProperties(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var properties = element.EnumerateObject().ToArray();
+            return properties.Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != properties.Length
+                || properties.Any(p => DuplicateReceiptProperties(p.Value));
+        }
+        return element.ValueKind == JsonValueKind.Array && element.EnumerateArray().Any(DuplicateReceiptProperties);
     }
 
     private static JsonSerializerOptions CreateJson()

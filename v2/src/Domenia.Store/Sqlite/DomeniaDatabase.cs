@@ -43,7 +43,7 @@ public sealed partial class DomeniaDatabase
     public string DomainDn { get; }
     public string StoreId { get; }
 
-    public async Task<DatabaseInspection> InitializeAsync(CancellationToken cancellationToken)
+    private async Task<DatabaseInspection> InitializeCoreAsync(CancellationToken cancellationToken)
     {
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
         try { return await Task.Run(() => Initialize(cancellationToken), cancellationToken).ConfigureAwait(false); }
@@ -60,7 +60,7 @@ public sealed partial class DomeniaDatabase
     }, cancellationToken);
 
     /// <summary>Revalidates a recent backup and free space before an explicit network refresh.</summary>
-    public async Task<DatabaseBackup> PrepareReadAsync(CancellationToken cancellationToken)
+    private async Task<DatabaseBackup> PrepareReadCoreAsync(CancellationToken cancellationToken)
     {
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -80,7 +80,7 @@ public sealed partial class DomeniaDatabase
         finally { writer.Release(); }
     }
 
-    public async Task<DatabaseBackup> BackupAsync(CancellationToken cancellationToken)
+    private async Task<DatabaseBackup> BackupCoreAsync(CancellationToken cancellationToken)
     {
         await writer.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -230,6 +230,7 @@ public sealed partial class DomeniaDatabase
 
     private DatabaseBackup Backup(SqliteDatabase source, CancellationToken token)
     {
+        CheckWriterSpace(File.Exists(Path) ? new FileInfo(Path).Length : 0);
         var folder = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Path)!, "Backups");
         Directory.CreateDirectory(folder);
         var target = System.IO.Path.Combine(folder, System.IO.Path.GetFileNameWithoutExtension(Path) + "-" + clock.GetUtcNow().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N") + ".db");

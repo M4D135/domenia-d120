@@ -28,7 +28,7 @@
       "additionalProperties": false,
       "required": ["do"],
       "properties": {
-        "do": { "enum": ["go", "click", "hover", "type", "press", "expect", "wait", "shot", "scroll", "journal"] },
+        "do": { "enum": ["go", "click", "hover", "type", "press", "expect", "wait", "shot", "scroll", "journal", "credential"] },
         "title": { "type": "string", "maxLength": 200, "description": "Description de l’étape dans le rapport." },
         "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 120000 },
         "selector": { "type": "string", "maxLength": 300, "description": "Sélecteur CSS de l’élément (ou du champ pour type)." },
