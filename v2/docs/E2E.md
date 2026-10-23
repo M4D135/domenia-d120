@@ -62,9 +62,13 @@ deux scénarios de l’Accueil livrés avec le harnais ont servi une fois à **v
   ni modifiés.
 - **Préférences du moteur en mémoire** (`MemoryPreferenceStore`, comme en capture) : `preferences.json` et
   `preferences-simulation.json` ne sont ni lus ni écrits ; un scénario qui coupe un widget ne laisse rien derrière lui.
+- **Reçus** : en simulation, ils restent en mémoire. En annuaire, les écritures réelles conservent leurs reçus sur
+  disque dans `%LOCALAPPDATA%\Domenia\E2E\receipts-annuaire.jsonl`, séparément du journal opérateur. Ce fichier
+  n’est jamais vidé au début d’un scénario : toute issue incertaine doit être examinée avant de poursuivre.
+  L’absence du dossier durable interdit les écritures réelles ; aucun repli en mémoire n’est admis.
 - **Titre** : « Domenia — Simulation — pilotage E2E » (ou « Domenia — pilotage E2E ») : la fenêtre pilotée se signale.
 - **Aucune boîte de dialogue** sur une erreur fatale (personne ne la fermerait) : la trace va au journal technique et
-  Domenia se termine avec le code 2. Sans le mode E2E, le code de sortie reste 0 comme avant.
+  Domenia se termine avec le code 2. Un échec fatal ou du contrôle préalable donne également un code non nul hors E2E.
 - **Journal technique** : « Préférences en mémoire seulement (mode E2E) … » puis « Mode E2E actif : protocole DevTools de
   WebView2 ouvert sur 127.0.0.1:<n> pour le harnais de tests, profil WebView2-E2E-Simulation vidé au démarrage,
   préférences en mémoire seulement. »

@@ -287,12 +287,25 @@ internal static class SettingsCompletionTests
         var gone = WindowRules.Fit(saved!, [primary], primary);
         Check.Equal(new WindowPlacement(260, 70, 1400, 900, true), gone, "moniteur disparu : centrée sur l’écran principal, agrandie");
         var edge = WindowRules.Fit(new WindowPlacement(1800, 100, 1400, 900, false), [primary], primary);
-        Check.Equal(new WindowPlacement(1800, 100, 1400, 900, false), edge, "bande de titre visible : place gardée");
+        Check.Equal(new WindowPlacement(520, 100, 1400, 900, false), edge, "bande visible : toute la fenêtre ramenée dans l’écran");
         var big = WindowRules.Fit(new WindowPlacement(0, 0, 4000, 3000, false), [primary], primary);
         Check.Equal(1920, big.Width, "largeur ramenée à l’écran");
         Check.Contains("par défaut", WindowRules.Describe(null), "aucune fenêtre mémorisée");
         Check.Contains("agrandie", WindowRules.Describe(gone), "état dit");
         Check.Equal("Paris (UTC+01:00, heure d’été UTC+02:00)", SettingsFormat.ZoneLabel(TestClock.Paris), "fuseau en français, jamais l’identifiant de Windows");
+    }
+
+    [Test]
+    public static void Saved_window_handles_small_screens_layout_gaps_and_extreme_coordinates()
+    {
+        Check.Null(WindowRules.ReadPlacement(Json("""{"x":-2147483648,"y":0,"width":1400,"height":900}""")), "coordonnée malformée écartée sans débordement");
+        var small = new ScreenArea(0, 0, 800, 560);
+        Check.Equal(new WindowPlacement(0, 0, 800, 560, false), WindowRules.Fit(new(0, 0, 1440, 900, false), [small], small), "petit écran : dimensions bornées");
+        var primary = new ScreenArea(0, 0, 1920, 1040); var upper = new ScreenArea(1920, -1080, 1920, 1040);
+        var gap = WindowRules.Fit(new(2400, 500, 1000, 700, false), [primary, upper], primary);
+        Check.Equal(new WindowPlacement(460, 170, 1000, 700, false), gap, "trou de disposition en L : retour centré");
+        var minimum = WindowRules.Fit(new(0, 0, 400, 300, false), [small], small);
+        Check.Equal(640, minimum.Width, "minimum utilisable"); Check.Equal(420, minimum.Height, "hauteur minimum");
     }
 
     // ---------- Writer and scenarios (pure) ----------

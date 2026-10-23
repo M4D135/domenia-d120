@@ -143,16 +143,23 @@ public sealed partial class AdPosteReader
     {
         ArgumentNullException.ThrowIfNull(policy);
         var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
+        TaskFallback? fallback = null;
         var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }
-            .InventoryAsync(local.Computer, deep ? WorkstationReading.Full : WorkstationReading.Quick, progress, cancellationToken).ConfigureAwait(false);
+            .InventoryAsync(local.Computer, deep ? WorkstationReading.Full : WorkstationReading.Quick, progress, cancellationToken, afterRead: async (direct, machine, stop) =>
+            {
+                if (!NeedsTaskFallback(direct) || direct.ReportedName is not null && !WorkstationIdentity.Matches(local.Computer, direct.ReportedName) || stop.IsCancellationRequested) { return direct; }
+                fallback = await ReadTaskFallbackAsync(local, machine, deep ? RemoteTaskReadKind.InventoryFull : RemoteTaskReadKind.InventoryQuick, null,
+                    direct.Access.Any(a => a.AuthenticationRejected), stop).ConfigureAwait(false);
+                return fallback.Result?.Inventory is { } read ? MergeTaskInventory(direct, read) : direct;
+            }).ConfigureAwait(false);
         var value = qualified.Value;
         var confirmed = WorkstationIdentity.Matches(local.Computer, value.ReportedName);
         if (confirmed) { await source.SaveFleetAsync(AdSearchReader.MapInventory(local.Computer.ObjectGuid, value), local.Epoch, CancellationToken.None).ConfigureAwait(false); }
         var now = source.Clock.GetUtcNow();
         var board = PosteBoardBuilder.Build(Computer(local, Names(local.Directory)), value, policy, now, source.Zone);
         return InventoryRows.Build(value, board, confirmed ? "Relevé réel de cette session" : "Identité non confirmée ; aucune donnée enregistrée", now, source.Zone,
-            qualified.Notice + (value.Interrupted ? " Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : "")) with
-        { NoticeTone = qualified.Denied || !confirmed ? Tone.Warn : Tone.Info };
+            qualified.Notice + (fallback is null ? "" : " " + fallback.Notice) + (value.Interrupted ? " Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : ""), fallback?.Action) with
+        { NoticeTone = qualified.Denied || !confirmed || fallback?.Result is { CleanupConfirmed: false } ? Tone.Warn : Tone.Info };
     }
 
     public async Task<PosteLive> LiveAsync(string dn, CancellationToken cancellationToken)
@@ -204,6 +211,21 @@ public sealed partial class AdPosteReader
         var read = await InventoryReader(access).ReadSoftwareAsync(local.Computer.DnsHostName!, request, cancellationToken, access.Credential).ConfigureAwait(false);
         access.EnsureCurrent(); EnsureEpoch(local.Epoch);
         if (read.AuthenticationRejected || read.Access.Any(a => a.Status == SourceStatus.Refused)) { access.Refused(local.Computer.DnsHostName!, "Logiciels", read.AuthenticationRejected); }
+        TaskFallback? fallback = null;
+        if ((!read.Complete || read.ReportedName is null) && !read.AuthenticationRejected
+            && (read.ReportedName is null || WorkstationIdentity.Matches(local.Computer, read.ReportedName)) && !cancellationToken.IsCancellationRequested)
+        {
+            fallback = await ReadTaskFallbackAsync(local, access, RemoteTaskReadKind.Software, request, false, cancellationToken).ConfigureAwait(false);
+            if (fallback.Result?.Software is { } extra)
+            {
+                var replace = extra.Access.Where(a => a.Status is SourceStatus.Ok or SourceStatus.Empty
+                    || a.Status == SourceStatus.Partial && !read.Access.Any(old => old.Scope == a.Scope && old.Status is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Partial))
+                    .Where(a => !read.Access.Any(old => old.Scope == a.Scope && old.Status is SourceStatus.Ok or SourceStatus.Empty)).Select(a => a.Scope).ToHashSet(StringComparer.Ordinal);
+                read = read with { ReportedName = extra.ReportedName, CollectedAt = extra.CollectedAt,
+                    Entries = [.. read.Entries.Where(e => !replace.Contains(e.Scope)), .. extra.Entries.Where(e => replace.Contains(e.Scope))],
+                    Access = [.. read.Access.Where(a => !replace.Contains(a.Scope)), .. extra.Access.Where(a => replace.Contains(a.Scope))] };
+            }
+        }
         if (read.ReportedName is not null) { ConfirmIdentity(local.Computer, read.ReportedName); }
         else
         {
@@ -214,7 +236,8 @@ public sealed partial class AdPosteReader
         var rows = PosteSoftware.Rows(read.Entries);
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(read.CollectedAt, source.Zone).DateTime);
         var result = new SoftwareResult(local.Computer.Name, read.CollectedAt, "Relevé réel de cette session", "Portées et refus détaillés ci-dessous ; les noms identiques ne sont pas fusionnés.",
-            read.ReportedName is not null && read.Complete, rows.Length, rows, read.Access, PosteSoftware.AccessSummary(read.Access), PosteSoftware.NotCovered(read.Access, request), PosteSoftware.Columns(rows), PosteSoftware.Board(rows, today), []);
+            read.ReportedName is not null && read.Complete, rows.Length, rows, read.Access, PosteSoftware.AccessSummary(read.Access), PosteSoftware.NotCovered(read.Access, request), PosteSoftware.Columns(rows), PosteSoftware.Board(rows, today), [])
+            { Notice = fallback?.Notice, NoticeAction = fallback?.Action };
         Recent(local.Computer.ObjectGuid, local.Epoch, new(read.CollectedAt, Software: result));
         return result;
     }

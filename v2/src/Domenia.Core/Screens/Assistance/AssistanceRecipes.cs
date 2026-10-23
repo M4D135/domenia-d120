@@ -75,10 +75,11 @@ public sealed record StepState(StepPhase Phase, bool CanRun, bool CanOpen, strin
 public static class AssistanceRecipes
 {
     private const string ReachReads = "Réponse au ping et ouverture des ports d’administration du poste.";
-    private const string ReachCost = "Lecture réseau du poste, quelques secondes.";
+    private const string FallbackCost = " Repli par tâche SYSTEM seulement si déjà autorisé pour ce poste dans la page Poste ; jusqu’à 45 secondes supplémentaires, arrêt et nettoyage vérifiés séparément.";
+    private const string ReachCost = "Lecture réseau et CIM du poste, budget de 45 secondes." + FallbackCost;
     private const string CimCost = "Lecture CIM du poste, 10 à 60 secondes ; droits d’administration du poste.";
     private const string GroupsCost = "Lectures LDAP bornées, 10 secondes au plus.";
-    private const string RegistryCost = "Lecture du registre du poste ; droits d’administration du poste.";
+    private const string RegistryCost = "Lecture du registre du poste ; droits d’administration du poste." + FallbackCost;
     private const string LockoutReads = "Journal Sécurité de l’émulateur PDC : événements 4740 de ce seul compte, 7 jours, 200 au plus.";
     private const string LockoutCost = "Une lecture du journal du contrôleur ; droit de lecture du journal Sécurité requis.";
 
@@ -154,17 +155,17 @@ public static class AssistanceRecipes
             Reach("Réseau du poste", "Une latence réseau ou des ports filtrés ralentissent l’ouverture de session et les partages."),
             new("inventory", "Mémoire, disques et démarrage", AssistanceSubject.Computer, "inventory", Inventory,
                 "Inventaire rapide : mémoire, processeur, disques et durée depuis le dernier démarrage.",
-                "Peu de mémoire libre, un disque plein ou des semaines sans redémarrage expliquent souvent la lenteur.", CimCost, Privileged: true),
+                "Peu de mémoire libre, un disque plein ou des semaines sans redémarrage expliquent souvent la lenteur.", CimCost + FallbackCost, Privileged: true),
             new("sessions", "Sessions ouvertes", AssistanceSubject.Computer, "sessions", Sessions, "Sessions console et RDP du poste, sans fermeture.",
                 "Plusieurs sessions ou une session déconnectée occupent la mémoire.", "Une lecture des sessions du poste.", Optional: true),
             new("deep", "Inventaire complet", AssistanceSubject.Computer, "inventoryDeep", Inventory, "Inventaire complet : lectures supplémentaires du poste.",
-                "Approfondir seulement si l’inventaire rapide n’explique pas la lenteur.", "Plus long que l’inventaire rapide ; droits d’administration du poste.",
+                "Approfondir seulement si l’inventaire rapide n’explique pas la lenteur.", "Plus long que l’inventaire rapide ; droits d’administration du poste." + FallbackCost,
                 Optional: true, Privileged: true),
         ]),
         new("disk", "Manque d’espace", "Le poste signale un disque plein ou une application refuse d’enregistrer.", "disk", false,
         [
             new("inventory", "Espace des disques", AssistanceSubject.Computer, "inventory", Inventory, "Inventaire rapide : disques logiques, taille et espace libre.",
-                "Mesurer l’espace restant et le disque concerné avant toute action.", CimCost, Privileged: true),
+                "Mesurer l’espace restant et le disque concerné avant toute action.", CimCost + FallbackCost, Privileged: true),
             new("sessions", "Sessions et profils ouverts", AssistanceSubject.Computer, "sessions", Sessions, "Sessions console et RDP du poste, sans fermeture.",
                 "Des sessions inactives gardent des profils et des fichiers temporaires.", "Une lecture des sessions du poste.", Optional: true),
             new("software", "Logiciels installés", AssistanceSubject.Computer, "software", Software, "Logiciels installés lus dans le registre, sans effet de bord MSI.",

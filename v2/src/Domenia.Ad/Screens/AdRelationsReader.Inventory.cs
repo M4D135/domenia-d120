@@ -10,7 +10,8 @@ public sealed partial class AdRelationsReader
 
     /// <summary>Reuse the console pipeline around one native inventory, preserving its completed payload on operator cancellation.</summary>
     internal async Task<QualifiedInventory> InventoryAsync(DirectoryComputer expected, WorkstationReading scope, IProgress<PosteProgress>? progress,
-        CancellationToken token, Func<string, CancellationToken, Task<InventorySnapshot>>? injected = null, Func<string, CancellationToken, Task>? beforeRead = null)
+        CancellationToken token, Func<string, CancellationToken, Task<InventorySnapshot>>? injected = null, Func<string, CancellationToken, Task>? beforeRead = null,
+        Func<InventorySnapshot, AdWorkstationAccess, CancellationToken, Task<InventorySnapshot>>? afterRead = null)
     {
         ArgumentNullException.ThrowIfNull(expected);
         if (scope is not (WorkstationReading.Survey or WorkstationReading.SurveyComplete or WorkstationReading.Quick or WorkstationReading.Full or WorkstationReading.Live))
@@ -22,6 +23,7 @@ public sealed partial class AdRelationsReader
             captured = injected is null ? await reader.ReadAsync(host, scope, progress, stop, access.Credential).ConfigureAwait(false)
                 : await injected(host, stop).ConfigureAwait(false);
             access.EnsureCurrent(); EnsureEpoch(epoch);
+            if (afterRead is not null) { captured = await afterRead(captured, access, stop).ConfigureAwait(false); access.EnsureCurrent(); EnsureEpoch(epoch); }
             if (captured.CollectedAt < expected.WhenCreated || captured.CollectedAt > source.Clock.GetUtcNow())
             { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Date d’inventaire antérieure à l’objet ou future ; données écartées."); }
             if (captured.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected))
@@ -50,7 +52,7 @@ public sealed partial class AdRelationsReader
         try
         {
             result = await ComputerSessionCoreAsync(expected.DistinguishedName, expected.ObjectGuid, Read,
-                WmiWorkstationReader.Budget(scope) + TimeSpan.FromSeconds(20), token).ConfigureAwait(false);
+                WmiWorkstationReader.Budget(scope) + TimeSpan.FromSeconds(afterRead is null ? 20 : 65), token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested && captured is not null)
         {

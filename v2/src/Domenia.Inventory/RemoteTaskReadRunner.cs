@@ -9,7 +9,11 @@ using Domenia.Core.Poste;
 
 namespace Domenia.Inventory;
 
-public sealed record RemoteTaskReadResult(Guid OperationId, WorkstationUserReading Reading, bool CleanupConfirmed, bool WorkerPending, string Notice);
+public sealed record RemoteTaskReadResult(Guid OperationId, WorkstationUserReading Reading, bool CleanupConfirmed, bool WorkerPending, string Notice)
+{
+    public InventorySnapshot? Inventory { get; init; }
+    public WorkstationSoftwareReading? Software { get; init; }
+}
 
 /// <summary>A prepared, one-use read with its own worker/credential lifetime, durable claim, and unconditional scoped cleanup.</summary>
 public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
@@ -19,8 +23,9 @@ public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
     internal Func<RemoteTaskReadPlan, RemoteProbeCredential?, IRemoteTaskReadBackend>? BackendOverride { get; init; }
     internal static readonly TimeSpan Budget = TimeSpan.FromSeconds(35);
 
-    public static RemoteTaskReadPlan PreparePlan(DirectoryComputer computer, string storeId, string account, DateTimeOffset now)
-        => RemoteTaskReadProgram.Plan(computer, storeId, account, now);
+    public static RemoteTaskReadPlan PreparePlan(DirectoryComputer computer, string storeId, string account, DateTimeOffset now,
+        RemoteTaskReadKind kind = RemoteTaskReadKind.UserIdentity, SoftwareRequest? software = null)
+        => RemoteTaskReadProgram.Plan(computer, storeId, account, now, kind, software);
 
     public async Task<RemoteTaskReadResult> RunAsync(RemoteTaskReadPlan plan, IRemoteTaskReadJournal journal, RemoteProbeCredential? credential,
         Func<CancellationToken, Task<bool>> authorizeArtifacts, CancellationToken cancellationToken)
@@ -32,8 +37,7 @@ public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
         if (credential is { Session: false } && (credential.Password is null || !CredentialRules.IsWellFormed(credential.Account)))
         { throw new DomeniaOperationException(MachineErrors.PasswordMissing, "Compte de lecture incomplet ; aucun contact."); }
         cancellationToken.ThrowIfCancellationRequested();
-        if (!Hosts.TryAdd(plan.Host, 0)) { throw Busy(); }
-        if (!Slots.Wait(0)) { Hosts.TryRemove(plan.Host, out _); throw Busy(); }
+        Admit(plan.Host);
         RemoteProbeCredential? owned = null; CancellationTokenSource? timeout = null; CancellationTokenSource? stop = null;
         Task<RemoteTaskReadResult> work;
         try
@@ -67,6 +71,7 @@ public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
     {
         RemoteTaskReadRecord? record = null; IRemoteTaskReadBackend? backend = null;
         var claimed = false; var cleanup = new RemoteTaskReadCleanup(true, true, "Aucun artefact tenté.");
+        InventorySnapshot? inventory = null; WorkstationSoftwareReading? software = null;
         var reading = Empty(SourceStatus.Error, "Lecture non aboutie."); var notice = ""; var received = false;
         var elapsed = Stopwatch.StartNew(); var executionId = Guid.NewGuid();
         try
@@ -86,12 +91,12 @@ public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
             {
                 token.ThrowIfCancellationRequested();
                 var json = backend.ReadResult();
-                if (json is not null) { reading = RemoteTaskReadProgram.Parse(json, plan, clock.GetUtcNow()); received = true; break; }
+                if (json is not null) { var parsed = RemoteTaskReadProgram.ParseResult(json, plan, clock.GetUtcNow()); reading = parsed.Reading; inventory = parsed.Inventory; software = parsed.Software; received = true; break; }
                 if (backend.Finished)
                 {
                     // The atomic rename may have completed immediately before the state read.
                     json = backend.ReadResult();
-                    if (json is not null) { reading = RemoteTaskReadProgram.Parse(json, plan, clock.GetUtcNow()); received = true; }
+                    if (json is not null) { var parsed = RemoteTaskReadProgram.ParseResult(json, plan, clock.GetUtcNow()); reading = parsed.Reading; inventory = parsed.Inventory; software = parsed.Software; received = true; }
                     else { reading = Empty(SourceStatus.Error, "Tâche terminée sans résultat lié à cette lecture."); }
                     break;
                 }
@@ -140,8 +145,7 @@ public sealed partial class RemoteTaskReadRunner(TimeProvider clock)
         }
         var clean = claimed && cleanup.Stopped && cleanup.Removed && notice.Length == 0;
         var detail = reading.Access.Detail + " " + cleanup.Detail;
-        if (!clean && reading.Access.Status is SourceStatus.Ok or SourceStatus.Empty) { reading = reading with { Access = reading.Access with { Status = SourceStatus.Partial } }; }
-        return new(plan.Id, reading with { Access = reading.Access with { Detail = detail, DurationMs = (int)Math.Min(elapsed.ElapsedMilliseconds, int.MaxValue) } }, clean, false, notice);
+        return new(plan.Id, reading with { Access = reading.Access with { Detail = detail, DurationMs = (int)Math.Min(elapsed.ElapsedMilliseconds, int.MaxValue) } }, clean, false, notice) { Inventory = inventory is null ? null : inventory with { DurationMs = (int)Math.Min(elapsed.ElapsedMilliseconds, int.MaxValue) }, Software = software };
     }
 
     private static WorkstationUserReading Empty(SourceStatus status, string detail) => new(null, new("TaskFallback", status, detail, 0, 0, InventoryTransport.ScheduledTask), []);

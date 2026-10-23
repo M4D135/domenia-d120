@@ -168,6 +168,8 @@ internal static class HostWindow
         var fit = WindowRules.Fit(placement, screens, new ScreenArea(primary.X, primary.Y, primary.Width, primary.Height));
         target.WindowState = FormWindowState.Normal;
         target.StartPosition = FormStartPosition.Manual;
+        // WinForms otherwise expands a valid fitted rectangle beyond a small monitor's working area.
+        target.MinimumSize = new Size(Math.Min(WindowRules.MinWidth, fit.Width), Math.Min(WindowRules.MinHeight, fit.Height));
         target.Bounds = new Rectangle(fit.X, fit.Y, fit.Width, fit.Height);
         if (fit.Maximized)
         {

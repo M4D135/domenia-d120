@@ -420,6 +420,27 @@ internal static class PosteOperationsTests
     }
 
     [Test]
+    public static async Task Unreadable_receipts_refuse_both_poste_authorizations_even_without_a_known_target()
+    {
+        var bridge = new SimulatedBridge(receipts: new UnreadablePosteReceipts());
+        var computer = Workstations(bridge).First();
+        foreach (var kind in new[] { "intervention", "readFallback" })
+        {
+            var result = await bridge.CallAsync("poste.consent.grant", Args(new { dn = computer.DistinguishedName, kind, minutes = 5 }));
+            Check.Equal(PosteErrors.Pending, result.Error?.Code, "reçu illisible sans cible connue interdit l’accord " + kind);
+        }
+        var history = SimulatedBridge.Json(await bridge.CallAsync("poste.consent.history"));
+        Check.True(history.EnumerateArray().All(h => h.GetProperty("action").GetString() == "Refusée"), "aucune autorisation accordée");
+    }
+
+    private sealed class UnreadablePosteReceipts : IReceiptStore
+    {
+        public bool Persistent => true;
+        public Task AppendAsync(WriteReceipt receipt, CancellationToken cancellationToken) => throw new InvalidOperationException("Aucun envoi attendu.");
+        public Task<ReceiptLog> ReadAllAsync(CancellationToken cancellationToken) => Task.FromResult(new ReceiptLog([], 1));
+    }
+
+    [Test]
     public static async Task Immediate_restart_runs_once_with_the_typed_name_and_a_receipt()
     {
         var bridge = new SimulatedBridge();

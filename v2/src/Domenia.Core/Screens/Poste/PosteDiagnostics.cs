@@ -48,6 +48,8 @@ public sealed record DiagnosticResult(
     int BudgetSeconds)
 {
     public int Inconclusive { get; init; }
+    public string? Notice { get; init; }
+    public string? NoticeAction { get; init; }
 }
 
 /// <summary>One planned check of the quick diagnosis, with its source and its own time-out.</summary>

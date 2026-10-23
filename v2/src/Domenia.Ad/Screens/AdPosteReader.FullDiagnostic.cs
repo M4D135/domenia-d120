@@ -41,6 +41,21 @@ public sealed partial class AdPosteReader
         var system = inventory?.Access.FirstOrDefault(a => a.Category == InventoryCategories.System);
         Add(new("Session CIM", rejected ? "REFUSE" : foreign ? "ERREUR" : confirmed ? "OK" : busy ? "INCONNU" : Code(system?.Status), transport, system?.DurationMs ?? 0,
             foreign ? "Le nom Windows ne correspond pas au compte AD ; autres accès authentifiés suspendus." : confirmed ? "Nom Windows relu et conforme au compte ordinateur ; les autres sources sont qualifiées séparément." : busy ? "Des lectures natives précédentes se terminent encore ; aucun nouvel essai envoyé." : system?.Detail ?? "Non tenté : arrêt avant la lecture CIM."));
+        TaskFallback? fallback = null;
+        if (inventory is not null && NeedsTaskFallback(inventory) && !rejected && !foreign && !busy && !stop.IsCancellationRequested)
+        {
+            fallback = await ReadTaskFallbackAsync(local, access, RemoteTaskReadKind.Diagnostic, null, false, cancellationToken).ConfigureAwait(false);
+            if (fallback.Result is { } result)
+            {
+                Add(new("Lecture SYSTEM", Code(result.Reading.Access.Status), "Tâche planifiée ponctuelle", result.Reading.Access.DurationMs, fallback.Notice));
+                if (result.Inventory is { } extra)
+                {
+                    inventory = MergeTaskInventory(inventory, extra); confirmed = WorkstationIdentity.Matches(local.Computer, inventory.ReportedName);
+                    transport = "Sources directes et tâche SYSTEM (détail par contrôle)";
+                    system = inventory.Access.FirstOrDefault(a => a.Category == InventoryCategories.System);
+                }
+            }
+        }
         if (confirmed && inventory is not null)
         {
             Add(new("Systeme", inventory.Os is { Caption.Length: > 0, Version.Length: > 0 } ? "OK" : Code(system?.Status, complete: false), transport, 0,
@@ -85,7 +100,8 @@ public sealed partial class AdPosteReader
         Add(new("Transport PsExec", "IGNORE", "Outil externe", 0, access.Settings.UsePsExecFallback
             ? "Aucun exécutable PsExec approuvé configuré dans cette session ; aucun service distant installé." : "Repli PsExec désactivé par la configuration."));
         EnsureEpoch(local.Epoch); access.EnsureCurrent();
-        return PosteDiagnostics.Verdict(local.Computer.Name, checks, source.Clock.GetUtcNow(), (int)source.Clock.GetElapsedTime(began).TotalMilliseconds, source.Zone);
+        return PosteDiagnostics.Verdict(local.Computer.Name, checks, source.Clock.GetUtcNow(), (int)source.Clock.GetElapsedTime(began).TotalMilliseconds, source.Zone) with
+            { Notice = fallback?.Notice, NoticeAction = fallback?.Action, BudgetSeconds = PosteDiagnostics.BudgetSeconds + (fallback?.Result is null ? 0 : 45) };
     }
 
     private static string Code(SourceStatus? status, bool complete = true) => status switch

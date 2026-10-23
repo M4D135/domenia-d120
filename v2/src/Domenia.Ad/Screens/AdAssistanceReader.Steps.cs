@@ -66,24 +66,25 @@ public sealed partial class AdAssistanceReader
                     var identity = await audit.MachineIdentityAsync(target, cancellationToken).ConfigureAwait(false); Refused(identity.Reported.State == ReadState.Refused);
                     reading = Result(action, identity.ReadAt, identity.Reported.State == ReadState.Read ? Tone.Info : Tone.Warn, "Identités DNS et Windows consultées.",
                         [new("Windows", identity.Reported.ComputerName ?? "Non lu", Tone.Off), new("Domaine Windows", identity.Reported.Domain ?? "Non lu", Tone.Off)],
-                        [.. identity.Resolution.Addresses.Select(ip => new StepItem(ip, "Réponse DNS", Tone.Info))], identity.Reported.Message ?? identity.Resolution.Message ?? "Un nom DNS seul n’est pas une preuve d’identité Windows."); break;
+                        [.. identity.Resolution.Addresses.Select(ip => new StepItem(ip, "Réponse DNS", Tone.Info))], identity.Reported.Message ?? identity.Resolution.Message ?? "Un nom DNS seul n’est pas une preuve d’identité Windows.",
+                        identity.Resolution.Addresses.Concat(new[] { identity.Reported.ComputerName, identity.Reported.Domain }.OfType<string>()).Select(n => new KnownName(n, "Objet", "Identifiant"))); break;
                 case "diagnostics":
                     var diagnostic = await poste.DiagnosticAsync(subject.Dn, null, cancellationToken).ConfigureAwait(false);
                     reading = Result(action, diagnostic.At, diagnostic.Failed > 0 || diagnostic.Inconclusive > 0 || diagnostic.NotTried > 0 ? Tone.Warn : Tone.Info, diagnostic.Verdict, [],
-                        [.. diagnostic.Rows.Select(r => new StepItem(r.Label, r.StatusLabel + " · " + r.Detail, r.Status == "OK" ? Tone.Info : Tone.Warn))], "Lecture ponctuelle ; aucun service, port ou pare-feu modifié."); break;
+                        [.. diagnostic.Rows.Select(r => new StepItem(r.Label, r.StatusLabel + " · " + r.Detail, r.Status == "OK" ? Tone.Info : Tone.Warn))], diagnostic.Notice ?? "Lecture ponctuelle ; aucun service, port ou pare-feu modifié."); break;
                 case "inventory": case "inventoryDeep":
                     var inventory = await poste.InventoryAsync(subject.Dn, action.Id == "inventoryDeep", PosteHealthPolicy.Default, null, cancellationToken).ConfigureAwait(false);
                     Refused(inventory.Access.Length > 0 && inventory.Access.All(a => a.Status == SourceStatus.Refused));
-                    Failed(!inventory.Access.Any(a => a.Status is SourceStatus.Ok or SourceStatus.Empty) && inventory.Rows.IsEmpty, "Aucune source d’inventaire lue ; aucun résultat disponible.");
+                    Failed(!inventory.Access.Any(a => a.Status is SourceStatus.Ok or SourceStatus.Empty) && inventory.Rows.IsEmpty, inventory.Notice ?? "Aucune source d’inventaire lue ; aucun résultat disponible.");
                     reading = Result(action, inventory.CollectedAt, inventory.Partial ? Tone.Warn : Tone.Info, inventory.Summary,
                         [.. inventory.Access.Select(a => new StepFact(a.Category, a.StatusLabel, a.Tone))], [.. inventory.Rows.Select(r => new StepItem(r.Label, r.Value, Tone.Off))],
                         inventory.Notice ?? "Valeurs reçues pendant ce relevé ; sources non lues laissées inconnues."); break;
                 case "software":
                     var software = await poste.SoftwareAsync(subject.Dn, new(false, false, false), cancellationToken).ConfigureAwait(false);
                     Refused(software.Access.Length > 0 && software.Access.All(a => a.Status == SourceStatus.Refused));
-                    Failed(!software.Access.Any(a => a.Status is SourceStatus.Ok or SourceStatus.Empty) && software.Rows.IsEmpty, "Aucune source logicielle lue ; zéro logiciel ne peut pas être conclu.");
+                    Failed(!software.Access.Any(a => a.Status is SourceStatus.Ok or SourceStatus.Empty) && software.Rows.IsEmpty, software.Notice ?? "Aucune source logicielle lue ; zéro logiciel ne peut pas être conclu.");
                     reading = Result(action, software.ReadAt ?? Now, software.Complete ? Tone.Info : Tone.Warn, software.AccessSummary, [],
-                        [.. software.Rows.Select(s => new StepItem(s.Name, s.Version, Tone.Off))], software.NotCovered ?? "Logiciels machine seulement ; aucune classe MSI réparatrice ni désinstallation exécutée."); break;
+                        [.. software.Rows.Select(s => new StepItem(s.Name, s.Version, Tone.Off))], software.Notice ?? software.NotCovered ?? "Logiciels machine seulement ; aucune classe MSI réparatrice ni désinstallation exécutée."); break;
                 case "sessions":
                     var sessions = await poste.SessionsAsync(subject.Dn, cancellationToken).ConfigureAwait(false);
                     Refused(sessions.ReadState == FactState.Refused);

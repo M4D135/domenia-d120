@@ -4,8 +4,9 @@
 // charts; columns never read are not offered), services (read, filter, start / restart / stop through the write circuit
 // from the bar of the selected service), processes (processor share measured between two reads) and Windows sessions
 // (consultation only, card of the account). Every network read starts from a button.
-import { createTabs, createGrid, writeClipboard, openMenu, confirmDialog } from '../../kit/index.js';
+import { createTabs, createGrid, writeClipboard, openMenu } from '../../kit/index.js';
 import { runWrite } from '../../write-flow.js';
+import { grantFallback } from './read-fallback.js';
 import {
   esc, ico, rel, facts, cardHead, empty, failure, chip, meter, paintMeters, donut, paintDonuts, progressMarkup, setProgress,
   NBSP, int, count, size, pct, errorText, skLines, fitGrid, saveExport,
@@ -32,26 +33,6 @@ export function renderInventory(panel, state) {
   const off = state.on('tab', ({ view, tab }) => { if (view === 'inventaire' && renderers[tab]) tabs.select(tab); });
   const offRun = state.on('run', (r) => { if (r.what === 'inventory') tabs.select('materiel'); });
   return () => { off(); offRun(); tabs.destroy(); };
-}
-
-/** Grants the single fallback read (CIM refused), after the operator confirms it; true when granted. */
-async function grantFallback(state) {
-  const ok = await confirmDialog({
-    title: 'Autoriser une seule lecture de repli ?',
-    message: `CIM refuse la lecture de ${state.data.computer.name}. Une seule lecture, sur ce poste seulement, pourra passer par une tâche planifiée unique, créée puis supprimée : elle laisse une trace sur le poste. Rien n’est lancé avant votre prochain geste.`,
-    confirmLabel: 'Autoriser une lecture',
-  });
-  if (!ok) return false;
-  try {
-    const r = await state.call('poste.consent.grant', { dn: state.dn, kind: 'readFallback', minutes: 5 });
-    state.data.consent = r.consent;
-    state.emit('consent', r.consent);
-    toast('Lecture de repli autorisée pour la prochaine lecture refusée par CIM (5 min).', { tone: 'info' });
-    return true;
-  } catch (err) {
-    toast(errorText(err), { tone: 'alert' });
-    return false;
-  }
 }
 
 // ---------- Hardware and system ----------
@@ -188,7 +169,7 @@ function hardware(host, state) {
     else if (act === 'deep') run(true);
     else if (act === 'retry') run(false);
     else if (act === 'stop') state.stop('inventory');
-    else if (act === 'fallback') grantFallback(state).then((ok) => { if (ok && alive) run(result?.deep ?? false); });
+    else if (act === 'fallback') grantFallback(state);
     else if (act === 'more') {
       openMenu(t, [
         { label: 'Exporter (lignes et détail par source)', icon: 'csv', disabled: !result, reason: 'Aucun inventaire à exporter.', run: exportRows },
@@ -230,6 +211,8 @@ function software(host, state) {
   let select = null;
   let scope = '';
   let view = 'liste';
+  let loading = false;
+  let options = { perUser: false, store: false, updates: false };
   host.innerHTML = `<div class="grid ps-grid">
     <section class="card ps-card span-12 reveal" data-slot="head"></section>
     <div class="span-12 ps-soft-board" data-slot="board" hidden></div>
@@ -249,11 +232,12 @@ function software(host, state) {
   const paintHead = (busy = false) => {
     host.querySelector('[data-slot="head"]').innerHTML = `<div class="ps-inv-bar"><div class="ps-inv-title"><span class="ps-card-icon">${ico('layers')}</span>
       <div><h3>${result ? esc(result.origin) : 'Logiciels'}</h3><p class="ps-card-sub">${result ? esc(result.accessSummary) : 'Liste tirée de l’inventaire, puis lue sur le poste à la demande ; jamais Win32_Product.'}</p></div></div>
-      <div class="ps-inv-actions"><label class="ps-check-opt"><input type="checkbox" data-opt="perUser"> Profils</label><label class="ps-check-opt"><input type="checkbox" data-opt="store"> Store</label>
-        <label class="ps-check-opt"><input type="checkbox" data-opt="updates"> Mises à jour</label>
+      <div class="ps-inv-actions"><label class="ps-check-opt"><input type="checkbox" data-opt="perUser"${options.perUser ? ' checked' : ''}${busy ? ' disabled' : ''}> Profils</label><label class="ps-check-opt"><input type="checkbox" data-opt="store"${options.store ? ' checked' : ''}${busy ? ' disabled' : ''}> Store</label>
+        <label class="ps-check-opt"><input type="checkbox" data-opt="updates"${options.updates ? ' checked' : ''}${busy ? ' disabled' : ''}> Mises à jour</label>
         <button class="btn primary" type="button" data-act="load"${busy ? ' disabled' : ''}>${ico('refresh')}Charger les logiciels</button>
         <div class="segmented ps-seg" role="group" aria-label="Affichage"><button type="button" data-view="liste" aria-pressed="${view === 'liste'}">Liste</button><button type="button" data-view="synthese" aria-pressed="${view === 'synthese'}">Synthèse</button></div>
         <button class="btn ghost icon" type="button" data-act="export" aria-label="Copier ou exporter" data-tip="Copier ou exporter la liste"${result ? '' : ' disabled'}>${ico('csv')}</button></div></div>
+      ${result?.notice ? `<p class="ps-badge-line" data-tone="warn"><span>${esc(result.notice)}</span>${result.noticeAction === 'readFallback' ? `<button class="btn sm" type="button" data-act="fallback"${busy ? ' disabled' : ''}>${ico('shield')}Autoriser une lecture de repli…</button>` : ''}</p>` : ''}
       ${busy ? progressMarkup() : ''}`;
   };
   const filterRows = () => (result?.rows ?? []).filter((r) => (!scope || r.scope === scope) && (!select || (select.field === 'publisher' ? (r.publisher ?? 'Éditeur non renseigné') === select.value : select.field === 'architecture' ? r.architecture === select.value : select.field === 'scope' ? r.scope === select.value : r.name === select.value)));
@@ -296,9 +280,12 @@ function software(host, state) {
     }
   }
   async function load() {
+    if (loading) return;
+    loading = true;
+    options = Object.fromEntries([...host.querySelectorAll('[data-opt]')].map((i) => [i.dataset.opt, i.checked]));
+    const opts = options;
     paintHead(true);
     grid.setLoading(true);
-    const opts = Object.fromEntries([...host.querySelectorAll('[data-opt]')].map((i) => [i.dataset.opt, i.checked]));
     try {
       const r = await state.call('poste.software', { dn: state.dn, perUser: opts.perUser, store: opts.store, updates: opts.updates });
       if (!alive) return;
@@ -311,11 +298,11 @@ function software(host, state) {
       if (!alive) return;
       paintHead();
       if (err?.code === 'poste.cimRefused') {
-        grid.setError(errorText(err), { retry: async () => { if (await grantFallback(state)) load(); } });
+        grid.setError(errorText(err), { retry: () => grantFallback(state) });
       } else {
         grid.setError(errorText(err), { retry: load });
       }
-    }
+    } finally { loading = false; if (alive) paintHead(); }
   }
   paintHead();
   cached();
@@ -337,6 +324,7 @@ function software(host, state) {
     }
     const act = t.dataset.act;
     if (act === 'load') load();
+    else if (act === 'fallback') grantFallback(state);
     else if (act === 'unselect') { select = null; paint(); }
     else if (act === 'export') {
       // The file is named after its provenance: the last inventory or a reading of the workstation (Domenia 1 PST-047).

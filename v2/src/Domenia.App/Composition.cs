@@ -3,6 +3,7 @@ using System.Reflection;
 using Domenia.Ad;
 using Domenia.Bridge;
 using Domenia.Core;
+using Domenia.Core.Poste;
 using Domenia.Inventory;
 using Domenia.Simulation;
 using Domenia.Store;
@@ -31,6 +32,7 @@ internal sealed class Composition : IDisposable
 
     public OperationRegistry Registry { get; }
     public WriteCircuit Writes => WriteCircuit.From(context);
+    public IPosteTaskReadJournalReader? PosteTaskJournal => context.Readers.Find<IPosteTaskReadJournalReader>();
 
     public Func<OperationDefinition, BridgeError?> Admission { get; }
 
@@ -93,22 +95,11 @@ internal sealed class Composition : IDisposable
     }
 
     /// <summary>
-    /// Durable write receipts of the mode (docs/WRITES.md § 4). Capture and E2E modes keep them in memory only: the images and
-    /// the scenarios never depend on (nor add to) the operator's receipts.
+    /// Durable receipts in directory mode, including isolated E2E journals. Only simulation may keep them in memory.
     /// </summary>
     private static IReceiptStore CreateReceipts(AppMode mode, bool memoryOnly, ITechnicalJournal log)
     {
-        if (memoryOnly)
-        {
-            log.Info("Reçus d’écriture en mémoire seulement (capture ou E2E) : ceux de l’opérateur ne sont ni lus ni modifiés.");
-            return new MemoryReceiptStore();
-        }
-        if (AppPaths.Receipts(mode) is not string path)
-        {
-            log.Warning("Dossier de données introuvable : reçus d’écriture en mémoire pour cette session.");
-            return new MemoryReceiptStore();
-        }
-        return new FileReceiptStore(path, log);
+        return ReceiptStorePolicy.Create(mode, memoryOnly, AppPaths.UserData, log);
     }
 
     /// <summary>

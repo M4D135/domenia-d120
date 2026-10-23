@@ -158,6 +158,7 @@ public sealed partial class PosteOperations
     /// <summary>True when a receipt of this mode is still « à vérifier » for the workstation (by GUID).</summary>
     private static async Task<bool> PendingWriteAsync(EngineContext context, Guid computer, CancellationToken cancellationToken)
     {
+        if (WriteCircuit.From(context).InFlight) { return true; }
         ReceiptLog log;
         try
         {
@@ -167,6 +168,11 @@ public sealed partial class PosteOperations
         {
             // Receipts unreadable for now: nothing is granted while an uncertain write cannot be ruled out (fail closed).
             context.Log.Warning($"Reçus illisibles avant une autorisation du poste : {ex.GetType().Name}.");
+            return true;
+        }
+        if (log.Unreadable > 0)
+        {
+            context.Log.Warning("Autorisation du poste refusée : des reçus sont illisibles, leur cible ne peut pas être exclue.");
             return true;
         }
         var id = computer.ToString("D");

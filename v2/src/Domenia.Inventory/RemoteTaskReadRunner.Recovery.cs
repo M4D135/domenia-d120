@@ -18,8 +18,7 @@ public sealed partial class RemoteTaskReadRunner
         if (credential is { Session: false } && (credential.Password is null || !CredentialRules.IsWellFormed(credential.Account)))
         { throw new DomeniaOperationException(MachineErrors.PasswordMissing, "Compte de nettoyage incomplet ; aucun contact."); }
         cancellationToken.ThrowIfCancellationRequested();
-        if (!Hosts.TryAdd(plan.Host, 0)) { throw Busy(); }
-        if (!Slots.Wait(0)) { Hosts.TryRemove(plan.Host, out _); throw Busy(); }
+        Admit(plan.Host);
         RemoteProbeCredential? owned = null; CancellationTokenSource? timeout = null; CancellationTokenSource? stop = null;
         Task<RemoteTaskCleanupResult> work;
         try

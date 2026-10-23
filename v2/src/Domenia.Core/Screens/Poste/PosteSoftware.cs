@@ -56,7 +56,11 @@ public sealed record SoftwareResult(
     string? NotCovered,
     SoftwareColumns Columns,
     SoftwareBoard Board,
-    ImmutableArray<PosteFact> Facts);
+    ImmutableArray<PosteFact> Facts)
+{
+    public string? Notice { get; init; }
+    public string? NoticeAction { get; init; }
+}
 
 /// <summary>An admitted source of the software inventory (Domenia 1 Get-DomeniaSoftwareSources): never an MSI provider class.</summary>
 public sealed record SoftwareSource(string Id, string Label, string Scope, string Transport);

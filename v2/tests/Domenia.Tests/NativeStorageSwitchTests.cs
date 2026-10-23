@@ -1,5 +1,6 @@
 using Domenia.Core;
 using Domenia.Core.Accueil;
+using Domenia.Core.Poste;
 using Domenia.Store;
 
 namespace Domenia.Tests;
@@ -107,13 +108,27 @@ internal static class NativeStorageSwitchTests
     }
 
     [Test]
-    public static async Task Unfinished_remote_tasks_prevent_move_or_restore_of_their_backup()
+    public static async Task Remote_receipts_stay_historical_and_pending_backup_cannot_be_restored()
     {
         using var setup = new Setup(); await setup.Initialize();
-        using (var db = new SqliteDatabase(setup.Database.Path, false))
-        { db.Script("CREATE TABLE domenia_v2_remote_reads(pending INTEGER NOT NULL); INSERT INTO domenia_v2_remote_reads VALUES(1);"); }
-        await ExpectFailure(() => setup.Move(), "nettoyage distant encore requis");
-        Check.True(!File.Exists(setup.Destination), "aucune nouvelle base ne peut perdre le nettoyage");
+        var pc = Fixtures.Computer("PC1");
+        await setup.Cache.SaveObjectsAsync(Fixtures.Snapshot(computers: [pc]), null, None);
+        var task = new RemoteTaskReadPlan(Guid.NewGuid(), setup.Database.StoreId, pc.ObjectGuid, pc.DistinguishedName,
+            pc.DnsHostName!, pc.WhenCreated, Fixtures.Now, @"TEST\operator", RemoteTaskReadKind.UserIdentity, new('a', 64), new('b', 64));
+        await setup.Database.PrepareTaskReadAsync(task, None);
+        await ExpectFailure(() => setup.Move(), "nettoyage distant requis interdit déplacement");
+        var pendingBackup = await setup.Database.BackupAsync(None);
+        var completion = new RemoteTaskReadCompletion(Fixtures.Now, true, true, true, "Arrêt et nettoyage confirmés.");
+        await setup.Database.CompleteTaskReadAsync(task.Id, 1, completion, None);
+        await ExpectFailure(() => setup.Cache.PrepareStorageRestoreAsync(pendingBackup.Path, false, None), "copie avec tâche encore pendante refusée");
+        await setup.Cache.ApplyStorageSwitchAsync(await setup.Move(), None);
+        var moved = await setup.Cache.DatabaseAsync(None);
+        var historical = await moved.ReadTaskReadAsync(task.Id, None);
+        Check.NotNull(historical, "reçu terminé conservé après déplacement");
+        Check.Equal(setup.Database.StoreId, historical!.Plan.StoreId, "provenance originale conservée");
+        Check.Equal(0, (await moved.PendingTaskReadsAsync(None)).Length, "historique ne redevient pas travail en attente");
+        await ExpectFailure(() => moved.PrepareTaskReadAsync(task, None), "ancien plan non réactivable");
+        await ExpectFailure(() => moved.CompleteTaskReadAsync(task.Id, historical.Revision, completion, None), "même réessai exact reste historique en lecture seule");
     }
 
     private static WritePlan Seal(WritePlanDraft draft) => WritePlans.Seal(draft, WritePlans.NewId(), "test", AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);

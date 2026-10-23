@@ -41,13 +41,15 @@ internal sealed partial class MainForm : Form
     {
         ArgumentNullException.ThrowIfNull(composition);
         closingWrites = composition.Writes;
+        closingTaskJournal = composition.PosteTaskJournal;
         mode = composition.Decision.Mode;
         this.capture = capture;
         this.e2e = e2e is { Enabled: true } ? e2e : null;
         // « Domenia — Simulation » stays visible even if the page fails to load; a driven window says so.
         Text = composition.WindowTitle + (this.e2e is null ? "" : E2eTexts.WindowTitleSuffix);
-        MinimumSize = new Size(1024, 680);
-        Size = new Size(1440, 900);
+        var workArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1440, 900);
+        MinimumSize = new Size(Math.Min(WindowRules.MinWidth, workArea.Width), Math.Min(WindowRules.MinHeight, workArea.Height));
+        Size = new Size(Math.Min(1440, workArea.Width), Math.Min(900, workArea.Height));
         StartPosition = FormStartPosition.CenterScreen;
         Controls.Add(webView);
         dispatcher = new BridgeDispatcher(composition.Registry, PostToPage, composition.Admission);

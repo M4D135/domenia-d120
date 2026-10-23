@@ -23,8 +23,8 @@ public static class WindowRules
     public const int ZoomStep = 10;
 
     /// <summary>Smallest window of Domenia (MainForm.MinimumSize).</summary>
-    public const int MinWidth = 1024;
-    public const int MinHeight = 680;
+    public const int MinWidth = 640;
+    public const int MinHeight = 420;
 
     /// <summary>Part of the title bar that must stay on a screen for the window to be reachable.</summary>
     public const int VisibleStrip = 120;
@@ -54,7 +54,7 @@ public static class WindowRules
         var width = Number(root, "width");
         var height = Number(root, "height");
         if (x is null || y is null || width is null || height is null || width < MinWidth / 2 || height < MinHeight / 2 || width > 32_768 || height > 32_768
-            || Math.Abs(x.Value) > 65_536 || Math.Abs(y.Value) > 65_536)
+            || Math.Abs((long)x.Value) > 65_536 || Math.Abs((long)y.Value) > 65_536)
         {
             return null;
         }
@@ -77,8 +77,8 @@ public static class WindowRules
     }
 
     /// <summary>
-    /// Where the window goes back (Restore-DomeniaWindowGeometry): the remembered place when a strip of its title bar is still
-    /// on a working area, its size brought into that area; otherwise (monitor removed, resolution changed) centered on the
+    /// Where the window goes back: the screen containing its title bar, with the whole window brought into that area;
+    /// otherwise (monitor removed, resolution changed, a gap in an L-shaped layout) centered on the
     /// primary screen. The maximized state is kept.
     /// </summary>
     public static WindowPlacement Fit(WindowPlacement saved, IReadOnlyList<ScreenArea> areas, ScreenArea primary)
@@ -106,8 +106,8 @@ public static class WindowRules
         {
             return new WindowPlacement(target.X + (target.Width - width) / 2, target.Y + (target.Height - height) / 2, width, height, saved.Maximized);
         }
-        var x = Math.Clamp(saved.X, target.X - width + VisibleStrip, target.X + target.Width - VisibleStrip);
-        var y = Math.Clamp(saved.Y, target.Y, target.Y + target.Height - TitleHeight);
+        var x = Math.Clamp(saved.X, target.X, target.X + target.Width - width);
+        var y = Math.Clamp(saved.Y, target.Y, target.Y + target.Height - height);
         return new WindowPlacement(x, y, width, height, saved.Maximized);
     }
 

@@ -147,6 +147,7 @@ public sealed partial class AdPosteReader
                         token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
                         await ConfirmParent(token).ConfigureAwait(false);
                         token.ThrowIfCancellationRequested(); directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);
+                        await EnsureTaskWriteStateAsync(local.Computer.ObjectGuid, token).ConfigureAwait(false);
                         return posteSession.ConsumeReadFallback(dn, "détection du dernier utilisateur", source.Clock.GetUtcNow(), local.Computer.ObjectGuid);
                     }, fallbackToken).ConfigureAwait(false);
                     directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(local.Epoch);

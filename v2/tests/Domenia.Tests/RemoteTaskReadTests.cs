@@ -87,7 +87,7 @@ internal static class RemoteTaskReadTests
     {
         using var folder = new TemporaryFolder(); var (db, plan) = await Open(folder); var backend = new Backend(plan) { CleanupResult = new(true, false, "Fichier non supprimé.") };
         var result = await new RemoteTaskReadRunner(TestClock.Fixed()) { BackendOverride = (_, _) => backend }.RunAsync(plan, new SqliteDirectoryCache(db), null, _ => Task.FromResult(true), CancellationToken.None);
-        Check.Equal(SourceStatus.Partial, result.Reading.Access.Status, "réponse partielle à cause du nettoyage"); Check.Equal(1, result.Reading.Candidates.Length, "résultat reçu conservé");
+        Check.Equal(SourceStatus.Ok, result.Reading.Access.Status, "résultat indépendant du nettoyage"); Check.False(result.CleanupConfirmed, "nettoyage explicitement non confirmé"); Check.Equal(1, result.Reading.Candidates.Length, "résultat reçu conservé");
         var saved = await db.ReadTaskReadAsync(plan.Id, CancellationToken.None);
         Check.True(saved!.Completion!.ResultReceived, "réception indépendante du nettoyage"); Check.True(saved.CleanupRequired, "attente conservée");
         await Check.ThrowsAsync<InvalidDataException>(() => db.PrepareTaskReadAsync(plan with { Id = Guid.NewGuid() }, CancellationToken.None), "autre tâche sur le poste bloquée");

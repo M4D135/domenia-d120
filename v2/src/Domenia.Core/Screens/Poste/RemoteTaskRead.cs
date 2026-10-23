@@ -2,12 +2,13 @@ using System.Collections.Immutable;
 
 namespace Domenia.Core.Poste;
 
-public enum RemoteTaskReadKind { UserIdentity }
+public enum RemoteTaskReadKind { UserIdentity, InventoryQuick, InventoryFull, Software, Diagnostic }
 
 /// <summary>Durable identity of one consented native read, recorded before creating any remote artifact; contains no credential.</summary>
 public sealed record RemoteTaskReadPlan(Guid Id, string StoreId, Guid ComputerGuid, string ComputerDn, string Host,
     DateTimeOffset ComputerCreated, DateTimeOffset PreparedAt, string Account, RemoteTaskReadKind Kind, string Nonce, string ScriptSha256)
 {
+    public SoftwareRequest? Software { get; init; }
     public string TaskName => "Domenia2-Read-" + Id.ToString("N");
     public string DirectoryName => TaskName;
 }
@@ -35,6 +36,7 @@ public sealed record RemoteTaskPending(Guid Id, DateTimeOffset PreparedAt, strin
 public interface IPosteTaskReadJournalReader : IScreenReader
 {
     Task<ImmutableArray<RemoteTaskPending>> PendingTaskReadsAsync(string computerDn, CancellationToken cancellationToken);
+    Task<int> PendingTaskReadCountAsync(CancellationToken cancellationToken);
 }
 
 public interface IRemoteTaskReadJournal
@@ -57,7 +59,8 @@ public static class RemoteTaskReadRules
             || !Text(plan.ComputerDn, 4096) || !Text(plan.Account, 320) || !CredentialRules.IsWellFormed(plan.Account)
             || !Text(plan.Host, 253) || !plan.Host.Contains('.') || plan.Host.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('.' or '-' or '_'))
             || System.Net.IPAddress.TryParse(plan.Host, out _) || plan.Host.Split('.').Any(p => p.Length is < 1 or > 63)
-            || !Enum.IsDefined(plan.Kind) || plan.ComputerCreated == DateTimeOffset.MinValue || plan.PreparedAt < plan.ComputerCreated || plan.PreparedAt > now.AddMinutes(2))
+            || !Enum.IsDefined(plan.Kind) || (plan.Kind == RemoteTaskReadKind.Software) != (plan.Software is not null)
+            || plan.ComputerCreated == DateTimeOffset.MinValue || plan.PreparedAt < plan.ComputerCreated || plan.PreparedAt > now.AddMinutes(2))
         { throw new InvalidDataException("Plan de lecture distante hors contrat ; aucun artefact à créer."); }
         try { if (DistinguishedName.Parse(plan.ComputerDn).Length < 2) { throw new FormatException(); } }
         catch (FormatException ex) { throw new InvalidDataException("DN de lecture distante invalide.", ex); }

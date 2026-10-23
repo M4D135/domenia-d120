@@ -1,0 +1,35 @@
+vm.sh : lot spark-native, build — VM réservée.
+sync ok -> C:\DomeniaDev\src\spark-native\v2
+Arborescence : C:\DomeniaDev\src\spark-native\v2 (lot spark-native)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Domenia.E2E -> C:\DomeniaDev\src\spark-native\v2\tests\Domenia.E2E\bin\x64\Debug\net10.0-windows\win-x64\Domenia.E2E.dll
+  Domenia.Core -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Core\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Core.dll
+  Domenia.Bridge -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Bridge\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Bridge.dll
+  Domenia.Simulation -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Simulation\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Simulation.dll
+  Domenia.Store -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Store\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Store.dll
+  Domenia.Engine -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Engine\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Engine.dll
+  Domenia.Inventory -> C:\DomeniaDev\src\spark-native\v2\src\Domenia.Inventory\bin\x64\Debug\net10.0-windows\win-x64\Domenia.Inventory.dll
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(103,167): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,40): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,40): error CS1513: } expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,73): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,73): error CS1513: } expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,160): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+
+Build FAILED.
+
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(103,167): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,40): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,40): error CS1513: } expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,73): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,73): error CS1513: } expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Screens\AdPosteReader.FullDiagnostic.cs(104,160): error CS1002: ; expected [C:\DomeniaDev\src\spark-native\v2\src\Domenia.Ad\Domenia.Ad.csproj]
+    0 Warning(s)
+    6 Error(s)
+
+FileLogger wrote to: C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+
+Time Elapsed 00:00:17.58
+Compilation Debug interrompue (code 1). Journal : C:\DomeniaDev\build-logs\spark-native\build-Debug.log
+vm.sh : compilation Debug en échec (lot spark-native).

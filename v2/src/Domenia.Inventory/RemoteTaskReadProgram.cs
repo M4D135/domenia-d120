@@ -11,7 +11,7 @@ namespace Domenia.Inventory;
 /// <summary>Closed task program: no script, path, argument or executable supplied by the bridge.</summary>
 internal static class RemoteTaskReadProgram
 {
-    internal const int MaximumOutput = 131_072;
+    internal const int MaximumOutput = 1_048_576;
     internal const string Executable = @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe";
     internal const string TaskAcl = "D:P(A;;FA;;;SY)(A;;FA;;;BA)";
     internal const string DirectoryAcl = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
@@ -19,12 +19,13 @@ internal static class RemoteTaskReadProgram
     internal static string Marker(RemoteTaskReadPlan plan) => "Domenia.RemoteRead/1:" + plan.Id.ToString("N") + ":" + plan.Nonce;
     internal static string Hash(string script) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(script)));
 
-    internal static RemoteTaskReadPlan Plan(DirectoryComputer computer, string storeId, string account, DateTimeOffset now)
+    internal static RemoteTaskReadPlan Plan(DirectoryComputer computer, string storeId, string account, DateTimeOffset now,
+        RemoteTaskReadKind kind = RemoteTaskReadKind.UserIdentity, SoftwareRequest? software = null)
     {
         if (WorkstationIdentity.ExpectedName(computer) is null || (computer.UserAccountControl & AdValues.ServerTrustAccount) != 0)
         { throw new InvalidDataException("Identité machine incompatible avec une lecture par tâche."); }
         var plan = new RemoteTaskReadPlan(Guid.NewGuid(), storeId, computer.ObjectGuid, computer.DistinguishedName, computer.DnsHostName!,
-            computer.WhenCreated, now, account, RemoteTaskReadKind.UserIdentity, Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32)), new('0', 64));
+            computer.WhenCreated, now, account, kind, Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32)), new('0', 64)) { Software = software };
         RemoteTaskReadRules.Validate(plan, now);
         return plan with { ScriptSha256 = Hash(Script(plan)) };
     }
@@ -32,9 +33,14 @@ internal static class RemoteTaskReadProgram
     internal static string Script(RemoteTaskReadPlan plan)
     {
         RemoteTaskReadRules.Validate(plan, plan.PreparedAt);
-        if (plan.Kind != RemoteTaskReadKind.UserIdentity) { throw new ArgumentOutOfRangeException(nameof(plan)); }
+        var body = plan.Kind switch
+        {
+            RemoteTaskReadKind.UserIdentity => WsmanReadChannel.UserIdentityBody,
+            RemoteTaskReadKind.Software => RemoteTaskReadSoftware.Body(plan.Software!),
+            _ => RemoteTaskReadInventory.Body(plan.Kind),
+        };
         // All substituted strings have closed ASCII grammars validated above. No operator or AD display text enters PowerShell.
-        return """
+        var script = """
             $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
             """ + "\nif([Environment]::MachineName -ine '" + plan.Host.Split('.')[0] + "'){exit 80}\n"
             + "$domeniaFolder=Join-Path ([Environment]::GetFolderPath('Windows')) 'Temp\\" + plan.DirectoryName + "'\n"
@@ -48,7 +54,7 @@ internal static class RemoteTaskReadProgram
             if([IO.File]::ReadAllText($domeniaManifest) -cne $domeniaMarker){exit 83}
             $domeniaRole=@(Get-CimInstance -ClassName Win32_ComputerSystem -Property Name,DomainRole -OperationTimeoutSec 2 -ErrorAction Stop)
             if($domeniaRole.Count -ne 1 -or $domeniaRole[0].Name -ine [Environment]::MachineName -or $null -eq $domeniaRole[0].DomainRole -or [int]$domeniaRole[0].DomainRole -gt 3){exit 84}
-            """ + "\n" + WsmanReadChannel.UserIdentityBody + "\n"
+            """ + "\n" + body + "\n"
             + "$domeniaEnvelope=[pscustomobject]@{Format='Domenia.RemoteRead/1';Id='" + plan.Id.ToString("N") + "';Nonce='" + plan.Nonce + "';Payload=$domeniaResult}\n"
             + """
             $domeniaBytes=[Text.UTF8Encoding]::new($false).GetBytes(($domeniaEnvelope | ConvertTo-Json -Depth 6 -Compress))
@@ -60,6 +66,10 @@ internal static class RemoteTaskReadProgram
             [IO.File]::Move($domeniaTemp,$domeniaOutput)
             exit 0
             """;
+        // Historical UserIdentity bytes remain unchanged so their pending cleanup stays provable.
+        return plan.Kind == RemoteTaskReadKind.UserIdentity ? script : script.Replace("ConvertTo-Json -Depth 6", "ConvertTo-Json -Depth 8", StringComparison.Ordinal)
+            .Replace("-gt 131072", "-gt 1048576", StringComparison.Ordinal)
+            .Replace("-or [int]$domeniaRole[0].DomainRole -gt 3", "-or [int]$domeniaRole[0].DomainRole -lt 0 -or [int]$domeniaRole[0].DomainRole -gt 3", StringComparison.Ordinal);
     }
 
     internal static string Arguments(RemoteTaskReadPlan plan) => "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(Script(plan)));
@@ -101,9 +111,27 @@ internal static class RemoteTaskReadProgram
         catch (XmlException) { return false; }
     }
 
+    internal sealed record Parsed(WorkstationUserReading Reading, InventorySnapshot? Inventory = null, WorkstationSoftwareReading? Software = null);
+    internal static Parsed ParseResult(string json, RemoteTaskReadPlan plan, DateTimeOffset now)
+    {
+        if (plan.Kind == RemoteTaskReadKind.UserIdentity) { return new(Parse(json, plan, now)); }
+        if (Encoding.UTF8.GetByteCount(json) > MaximumOutput) { throw new JsonException(); }
+        using var doc = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 10 }); var root = doc.RootElement;
+        RemoteTaskReadJson.Object(root, "Format", "Id", "Nonce", "Payload");
+        if (RemoteTaskReadJson.Text(root, "Format") != "Domenia.RemoteRead/1" || RemoteTaskReadJson.Text(root, "Id") != plan.Id.ToString("N")
+            || RemoteTaskReadJson.Text(root, "Nonce") != plan.Nonce) { throw new JsonException(); }
+        var payload = root.GetProperty("Payload");
+        var inventory = plan.Kind == RemoteTaskReadKind.Software ? null : RemoteTaskReadInventory.Parse(payload, plan, now);
+        var software = plan.Kind == RemoteTaskReadKind.Software ? RemoteTaskReadSoftware.Parse(payload, plan, now) : null;
+        var statuses = inventory?.Access.Select(a => a.Status).ToArray() ?? software!.Access.Select(a => a.Status).ToArray();
+        var status = statuses.All(s => s is SourceStatus.Ok or SourceStatus.Empty or SourceStatus.Skipped) ? SourceStatus.Ok : SourceStatus.Partial;
+        return new(new(plan.Host.Split('.')[0], new("TaskFallback", status, "Programme ponctuel sous SYSTEM ; consulter chaque source et le nettoyage séparément.", 0,
+            inventory?.Access.Sum(a => a.Items) ?? software!.Entries.Length, InventoryTransport.ScheduledTask), []), inventory, software);
+    }
+
     internal static WorkstationUserReading Parse(string json, RemoteTaskReadPlan plan, DateTimeOffset now)
     {
-        if (Encoding.UTF8.GetByteCount(json) > MaximumOutput) { throw new JsonException(); }
+        if (plan.Kind != RemoteTaskReadKind.UserIdentity || Encoding.UTF8.GetByteCount(json) > 131_072) { throw new JsonException(); }
         using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 8 }); var root = document.RootElement;
         if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 4
             || root.EnumerateObject().Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count() != 4

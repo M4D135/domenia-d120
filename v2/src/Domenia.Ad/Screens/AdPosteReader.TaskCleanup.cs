@@ -7,6 +7,8 @@ namespace Domenia.Ad;
 
 public sealed partial class AdPosteReader : IPosteTaskReadJournalReader
 {
+    public async Task<int> PendingTaskReadCountAsync(CancellationToken cancellationToken) => source.LocalStore is IRemoteTaskReadJournal journal
+        ? (await journal.PendingTaskReadsAsync(cancellationToken).ConfigureAwait(false)).Length : throw new InvalidDataException("Journal des lectures distantes indisponible ; état de nettoyage inconnu.");
     private static bool ConfirmedTaskWorkstation(AdEntry entry) => entry.Raw("userAccountControl").Count == 1
         && entry.Long("userAccountControl") is >= 0 and <= uint.MaxValue and var flags && (flags & AdValues.ServerTrustAccount) == 0;
 
