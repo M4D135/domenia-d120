@@ -87,6 +87,10 @@ public interface IPasswordResetExecutor : IWriteExecutor
     /// <summary>Drafts the reset (<paramref name="generated"/>: the password comes from the generator of the window, read once).</summary>
     Task<WritePlanDraft> PlanAsync(string dn, bool mustChange, bool unlock, bool generated, int length, FicheSecurityPolicy policy, CancellationToken cancellationToken);
 
+    /// <summary>Native planner can validate the actual secret against effective AD policy before showing the plan.</summary>
+    Task<WritePlanDraft> PlanAsync(string dn, bool mustChange, bool unlock, bool generated, SecureString password, FicheSecurityPolicy policy, CancellationToken cancellationToken) =>
+        PlanAsync(dn, mustChange, unlock, generated, password.Length, policy, cancellationToken);
+
     /// <summary>Keeps the new password of one sealed plan until it runs or expires; the executor owns (and disposes) it from now on.</summary>
     void Hold(string planId, DateTimeOffset expiresAt, SecureString password);
 }

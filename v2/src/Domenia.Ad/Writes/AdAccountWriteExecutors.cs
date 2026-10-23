@@ -101,7 +101,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
 
     private protected async Task<DirectoryUser?> ReadAtDnAsync(string dn, CancellationToken token)
     {
-        var entry = await new AdFicheObjects(Source).ReadExactAsync(dn, AdDirectoryMapper.UserAttributes, TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
+        var entry = await new AdFicheObjects(Source).ReadExactAsync(dn, [.. AdDirectoryMapper.UserAttributes, "isCriticalSystemObject"], TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
         return entry is null ? null : Project(entry);
     }
 
@@ -110,8 +110,10 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         var classes = entry.Strings("objectClass");
         if (!classes.Contains("user", StringComparer.OrdinalIgnoreCase) || classes.Any(c => c.Equals("computer", StringComparison.OrdinalIgnoreCase)
             || c.Equals("msDS-ManagedServiceAccount", StringComparison.OrdinalIgnoreCase) || c.Equals("msDS-GroupManagedServiceAccount", StringComparison.OrdinalIgnoreCase))) { return null; }
-        if (entry.Int("userAccountControl") is null || entry.Guid("objectGUID") is not { } id || id == Guid.Empty || entry.Long(Attribute) is null || Kind == AccountPasswordReset.Kind && entry.Long("lockoutTime") is null)
+        if (entry.Int("userAccountControl") is null || entry.Guid("objectGUID") is not { } id || id == Guid.Empty || entry.Long(Attribute) is null || (Kind is AccountPasswordReset.Kind or ObjectWrites.ResetPasswordKind) && entry.Long("lockoutTime") is null)
         { throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Un attribut nécessaire du compte est illisible ; aucune valeur absente n’est interprétée comme zéro."); }
+        if (Kind == ObjectWrites.ResetPasswordKind && string.Equals(entry.String("isCriticalSystemObject"), "TRUE", StringComparison.OrdinalIgnoreCase))
+        { throw FicheErrors.Error(FicheErrors.Protected, "Objet système protégé ; aucune réinitialisation depuis la Fiche."); }
         return AdDirectoryMapper.User(entry) ?? throw AdAttributeRange.Incomplete();
     }
 

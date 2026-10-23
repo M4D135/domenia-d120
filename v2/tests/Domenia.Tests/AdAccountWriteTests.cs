@@ -183,6 +183,90 @@ internal static class AdAccountWriteTests
         }
     }
 
+    [Test]
+    public static async Task Fiche_and_accounts_password_writers_are_distinct_and_share_the_secure_reset_path()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+        var fiche = writers.Require<IPasswordResetExecutor>();
+        var accounts = writers.Require<IAccountPasswordResetExecutor>();
+        Check.False(ReferenceEquals(fiche, accounts), "deux contrats et mémoires de secrets distincts");
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        var draft = await fiche.PlanAsync(Dn, true, true, false, password, FicheSecurityPolicy.Default, CancellationToken.None);
+        var plan = Seal(draft);
+        Check.Equal(ObjectWrites.ResetPasswordKind, plan.Kind, "type de reçu propre à la Fiche");
+        Check.True(plan.Confirmation.TypedNameRequired && plan.Confirmation.TypedName == "compte", "confirmation nominative même pour un compte standard");
+        fiche.Hold(plan.Id, plan.ExpiresAt, password);
+        await fiche.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await ((IWriteOutcomeVerifier)fiche).VerifyOutcomeAsync(plan, WriteResult.Applied, CancellationToken.None)).State, "acceptation et relecture");
+        Check.False(System.Text.Json.JsonSerializer.Serialize(plan).Contains("Vélo", StringComparison.Ordinal), "secret absent du plan");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => fiche.ExecuteAsync(plan, CancellationToken.None), "secret déjà consommé");
+        Check.Equal(1, ldap.Writes, "un seul envoi");
+    }
+
+    [Test]
+    public static async Task Fiche_reset_without_forced_change_still_seals_pwdLastSet_and_refuses_a_later_password()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var writer = new AdFichePasswordResetExecutor(source);
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        var plan = Seal(await writer.PlanAsync(Dn, false, false, false, password, FicheSecurityPolicy.Default, CancellationToken.None));
+        var stamp = plan.Changes.Single(c => c.Attribute == "pwdLastSet");
+        Check.True(stamp.BeforeValue is not null && stamp.AfterValue is null, "ancien horodatage conservé et nouvelle date pilotée par AD");
+        writer.Hold(plan.Id, plan.ExpiresAt, password);
+        ldap.Values["pwdLastSet"] = [AccountWrites.Raw(AdValues.ToFileTime(Fixtures.Now))];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "mot de passe changé depuis la préparation");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(plan, CancellationToken.None), "secret non envoyé");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static async Task Fiche_reset_validates_the_real_secret_before_the_plan_and_refuses_system_objects()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var writer = new AdFichePasswordResetExecutor(source);
+        using var weak = PasswordSecrets.FromText("aaaaaaaaaaaaaa");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, true, false, false, weak, FicheSecurityPolicy.Default, CancellationToken.None), "complexité refusée avant confirmation");
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        ldap.Values["isCriticalSystemObject"] = ["TRUE"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, true, false, false, password, FicheSecurityPolicy.Default, CancellationToken.None), "système protégé");
+        ldap.Values.Remove("isCriticalSystemObject"); ldap.Values.Remove("lockoutTime");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Dn, true, false, false, password, FicheSecurityPolicy.Default, CancellationToken.None), "verrouillage non lu ne vaut pas zéro");
+        Check.Equal(0, ldap.Writes, "aucun envoi");
+    }
+
+    [Test]
+    public static async Task Fiche_reset_keeps_an_unknown_response_pending_even_when_password_flags_already_matched()
+    {
+        using var ldap = new Connection { LoseAnswer = true }; using var source = Source(ldap);
+        ldap.Values["pwdLastSet"] = ["0"];
+        using var writer = new AdFichePasswordResetExecutor(source);
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        using var context = new EngineContext(ModeResolver.Resolve([], "0", () => throw new InvalidOperationException()), source,
+            new MemoryPreferenceStore(), TestClock.Fixed(), new RecordingJournal(), writers: WriteExecutors.From([writer]));
+        var circuit = WriteCircuit.From(context);
+        var planned = await circuit.PlanAsync(await writer.PlanAsync(Dn, true, false, false, password, FicheSecurityPolicy.Default, CancellationToken.None), CancellationToken.None);
+        writer.Hold(planned.Plan.Id, planned.Plan.ExpiresAt, password);
+        var receipt = await circuit.ExecuteAsync(planned.Plan.Id, planned.Token, "compte", null, CancellationToken.None);
+        Check.True(receipt.Pending && receipt.Verification == VerificationState.Unknown, "issue inconnue conservée");
+        Check.Equal(VerificationState.Unknown, (await circuit.VerifyAsync(receipt.Id, CancellationToken.None)).Verification, "aucune preuve créée par une seconde lecture");
+        Check.Equal(1, ldap.Writes, "aucun renvoi");
+    }
+
+    [Test]
+    public static async Task Reset_does_not_claim_an_effective_forced_change_when_password_never_expires()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var writer = new AdFichePasswordResetExecutor(source);
+        ldap.Values["userAccountControl"] = ["66048"];
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        var plan = Seal(await writer.PlanAsync(Dn, true, false, false, password, FicheSecurityPolicy.Default, CancellationToken.None));
+        writer.Hold(plan.Id, plan.ExpiresAt, password);
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Mismatch, (await writer.VerifyOutcomeAsync(plan, WriteResult.Applied, CancellationToken.None)).State, "pwdLastSet zéro ne suffit pas");
+        Check.Equal("66048", (string)ldap.Values["userAccountControl"][0], "aucune option non confirmée changée");
+    }
+
     private static WritePlan Seal(WritePlanDraft draft) => WritePlans.Seal(draft, WritePlans.NewId(), Login, AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);
     private static AdDirectorySource Source(Connection ldap, string operatorDn = OperatorDn)
     {

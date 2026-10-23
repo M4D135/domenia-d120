@@ -798,7 +798,7 @@ public sealed class FicheOperations : IOperationModule
                     ?? throw FicheErrors.Error(FicheErrors.Cancelled, "Fenêtre sécurisée fermée sans mot de passe" + FrenchText.Colon + "rien n’a été préparé ni envoyé.");
                 try
                 {
-                    var planned = await PlanAsync(executor.PlanAsync(dn, mustChange, unlock, answer.Generated, answer.Password.Length, policy, ct), ct).ConfigureAwait(false);
+                    var planned = await PlanAsync(executor.PlanAsync(dn, mustChange, unlock, answer.Generated, answer.Password, policy, ct), ct).ConfigureAwait(false);
                     // From now on the executor owns the secret: taken once at the execution of this plan, disposed after, or at expiry.
                     executor.Hold(planned.Plan.Id, planned.Plan.ExpiresAt, answer.Password.Copy());
                     return planned;
