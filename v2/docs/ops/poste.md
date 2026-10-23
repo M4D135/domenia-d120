@@ -558,3 +558,12 @@ Une lecture WTS conserve le même bail annuaire du contrôle initial au contrôl
 Le résultat est enregistré avant accusé, avec la dernière liste complète conservée séparément. Un défaut d’enregistrement est affiché explicitement. L’ouverture locale expose ces lectures sans nouveau contact réseau. L’écran permet de choisir la dernière tentative ou la dernière liste complète datée ; un échec de commande laisse l’ancienne lecture visible. L’identité transmise à la fiche conserve le domaine, et un nom non qualifié n’est pas navigable. Les éléments non lus, même sans ligne retournée, ne deviennent pas un total nul.
 
 Cinq tests ajoutés couvrent persistance et réouverture, historique après refus, modification du parent pendant WTS, refus LDAP final, comptes homonymes et nombre d’éléments non lus. Debug/Release compilés en VM sans erreur ni avertissement. Tests et validation visuelle différés à la recette finale.
+
+
+## 37. Sessions héritées de Domenia 1 (23/10/2026)
+
+La lecture locale recherche seulement le détail `Sessions/WTS` du GUID concerné, avec deux résultats au maximum pour détecter des versions ambiguës. Le DN et le nom Windows doivent correspondre ; les dates doivent porter un fuseau et ne pas précéder la création du compte. Taille des champs contrôlée dans SQLite avant transfert, JSON limité à 2 Mio et seize niveaux, 512 lignes au plus ; propriétés ou identifiants dupliqués refusés. Aucune migration ni écriture des détails d’origine.
+
+La date native `ObservedUtc` doit correspondre au dernier succès. `LogonTicks` est un FILETIME, `IdleTicks` une durée ; valeurs absentes restent inconnues. Un compte partiellement lu demeure visible comme non lu. Une liste absente ne devient jamais une liste vide. Le dernier échec générique D1 ne permet pas de déduire un rejet d’authentification et reste séparé de la dernière liste complète.
+
+L’ouverture de Poste combine cet historique avec les données V2 par leurs dates et leur GUID, sans contact réseau. Un nouveau refus natif conserve la dernière liste complète D1 dans le cache V2 ; le détail original demeure intact. Sept tests ajoutés et compilés en VM sans erreur ni avertissement ; tests non exécutés.

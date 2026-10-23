@@ -272,6 +272,7 @@ public sealed partial class AdPosteReader
     public async Task<SessionsResult> SessionsAsync(string dn, CancellationToken cancellationToken)
     {
         var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
+        var previous = await StoredSessionsAsync(local, cancellationToken).ConfigureAwait(false);
         using var elapsed = new CancellationTokenSource(TimeSpan.FromSeconds(25), source.Clock);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, elapsed.Token);
         // A one-shot LDAP identity belongs to this entire gesture, including the final parent check.
@@ -320,7 +321,7 @@ public sealed partial class AdPosteReader
         var memory = new WorkstationSessionMemory(WorkstationIdentity.ExpectedName(local.Computer)!, attempt, attempt.Complete ? attempt : null);
         PosteSessionCache.Validate(memory, source.Clock.GetUtcNow());
         if (attempt.At < local.Computer.WhenCreated) { throw new InvalidDataException("Lecture de sessions antérieure au compte ordinateur."); }
-        var previous = PosteSessionCache.Applicable(source.FleetDetails.WorkstationSessions.GetValueOrDefault(local.Computer.ObjectGuid), local.Computer.WhenCreated, source.Clock.GetUtcNow());
+        memory = PosteSessionCache.Merge(previous.Memory, memory);
         var notice = source.LocalStore is IAccueilCache ? "Lecture enregistrée dans la base locale." : "Lecture conservée dans cette session ; base locale indisponible.";
         try
         {
@@ -330,7 +331,6 @@ public sealed partial class AdPosteReader
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            memory = PosteSessionCache.Merge(previous, memory);
             notice = "Lecture reçue, mais enregistrement local non confirmé ; la base antérieure reste disponible.";
         }
         EnsureEpoch(local.Epoch);

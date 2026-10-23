@@ -11,6 +11,13 @@ public sealed record WorkstationSessionRead(DateTimeOffset At, SourceStatus Stat
     public bool Complete => Status is SourceStatus.Ok or SourceStatus.Empty && Unread == 0;
 }
 public sealed record WorkstationSessionMemory(string Computer, WorkstationSessionRead Latest, WorkstationSessionRead? LastComplete);
+public sealed record LegacySessionCacheRead(WorkstationSessionMemory? Memory, string? Notice);
+
+/// <summary>Read the original D1 Sessions/WTS detail for one GUID; no migration, refresh or write.</summary>
+public interface ILegacySessionCache
+{
+    Task<LegacySessionCacheRead> ReadLegacySessionsAsync(DirectoryComputer computer, CancellationToken cancellationToken);
+}
 
 public static class PosteSessionCache
 {

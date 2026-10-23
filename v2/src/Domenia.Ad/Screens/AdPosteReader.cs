@@ -171,6 +171,9 @@ public sealed partial class AdPosteReader
             count, at, lapsKind, lapsExpiration, laps?.Expiration == 0 || lapsExpiration < now, "Compte de lecture à confirmer au geste", "Métadonnées locales seulement",
             known?.BitLocker?.State == FactState.Refused, laps?.State == FactState.Refused);
         var notes = ImmutableArray.CreateBuilder<PosteFact>();
+        var sessions = await StoredSessionsAsync(local, cancellationToken).ConfigureAwait(false);
+        if (sessions.Memory is null && sessions.Notice is { } sessionNotice)
+        { notes.Add(PosteText.Fact("Historique des sessions", sessionNotice, FactState.Unknown, "Base locale", tone: Tone.Warn)); }
         if (local.Fleet.Inventories.ContainsKey(computer.Guid) && inv is null)
         { notes.Add(PosteText.Fact("Inventaire écarté", "Identité ou date incompatible avec le compte ordinateur", FactState.Unknown, "Base locale", "Relancez un relevé ; le contenu incompatible n’est pas affiché.", tone: Tone.Warn)); }
         if (configuration.State == ConfigurationFileState.Invalid || !configuration.Warnings.IsEmpty)
@@ -180,8 +183,7 @@ public sealed partial class AdPosteReader
             inv is null ? "Aucun inventaire validé pour ce poste ; un inventaire rapide nécessite un geste explicite." : null,
             secrets, consent, Options, false, false, notes.ToImmutable())
         {
-            CachedSessions = PosteSessionCache.Applicable(local.Fleet.WorkstationSessions.GetValueOrDefault(computer.Guid), local.Computer.WhenCreated, now) is { } sessions
-                ? PosteSessions.Stored(sessions, source.Zone) : null,
+            CachedSessions = sessions.Memory is { } memory ? PosteSessions.Stored(memory, source.Zone) with { CacheNotice = sessions.Notice } : null,
         };
     }
 
