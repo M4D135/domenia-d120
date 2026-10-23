@@ -85,6 +85,7 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
             var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
             using var lease = source.AcquireWriteLease(session); var held = Recall(plan, session);
             if (source.LocalStore is not IRelationLocalWriter writer) { return WritePrecheck.Stale("Base locale indisponible."); }
+            await AdRelationDirectory.ValidateAssignmentsAsync(source, held.Data.Items, cancellationToken).ConfigureAwait(false);
             return await writer.CheckRelationsAsync(Request(held), cancellationToken).ConfigureAwait(false);
         }
         catch (DomeniaOperationException ex) { return WritePrecheck.Stale(ex.Message); }
@@ -95,6 +96,7 @@ public sealed partial class AdRelationChangeExecutor(AdDirectorySource source) :
         var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
         using var lease = source.AcquireWriteLease(session); var held = Recall(plan, session);
         if (source.LocalStore is not IRelationLocalWriter writer) { throw WriteErrors.Refusal(WriteErrors.Stale, "Base locale indisponible."); }
+        await AdRelationDirectory.ValidateAssignmentsAsync(source, held.Data.Items, cancellationToken).ConfigureAwait(false);
         var result = await writer.ApplyRelationsAsync(Request(held), cancellationToken).ConfigureAwait(false);
         return new(result.Applied > 0 ? WriteResult.Applied : WriteResult.NoChange,
             FrenchText.Count(result.Applied, "association modifiée", "associations modifiées") + ". " + result.Notice);
