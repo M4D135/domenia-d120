@@ -86,7 +86,7 @@ public sealed partial class AdSearchReader
                 if (seen is not null)
                 {
                     denied = seen.Status == SourceStatus.Refused;
-                    if (seen.Status is SourceStatus.Ok or SourceStatus.Empty && string.Equals(seen.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+                    if (seen.Status is SourceStatus.Ok or SourceStatus.Empty && WorkstationIdentity.Matches(computer, seen.ReportedName))
                     {
                         var facts = new MachineFacts(seen.ConsoleUser, source.Clock.GetUtcNow(), null, null, MeasureState.Known, source.Clock.GetUtcNow(), null);
                         await source.SaveFleetAsync(FleetCachePatch.Empty with { Machines = ImmutableDictionary<Guid, MachineFacts>.Empty.Add(id, facts) }, generation, CancellationToken.None).ConfigureAwait(false);
@@ -101,7 +101,7 @@ public sealed partial class AdSearchReader
                     : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken, access!.Credential).ConfigureAwait(false);
                 access?.EnsureCurrent();
                 if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Relevé du poste", reading.Access.Any(a => a.AuthenticationRejected)); }
-                if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+                if (!WorkstationIdentity.Matches(computer, reading.ReportedName))
                 { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité CIM absente ou différente du compte ordinateur : inventaire non associé à cet objet AD."); }
                 var mapped = MapInventory(id, reading);
                 await source.SaveFleetAsync(mapped, generation, CancellationToken.None).ConfigureAwait(false);

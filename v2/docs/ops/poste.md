@@ -367,3 +367,12 @@ Le contexte de compte transmet désormais la sélection WinRM/DCOM et `Remote.Us
 Le redémarrage garde un délai de 60 à 3 600 s ; le timeout TCP, 200 à 5 000 ms. Le réveil exige `Features.WakeOnLan=true` et, dans V2, une liste explicite `WakeOnLan.AllowedNetworks` (128 réseaux IPv4 canoniques au plus, /8 à /30). Un réseau invalide ou non aligné n’est pas élargi ; activer le réveil sans périmètre ne permet aucun envoi. Les chemins et empreintes de suite utilisent les clés réelles D1 `Suite.PestoPath`, `Suite.PestoSha256`, `Suite.FilProPath`, `Suite.FilProSha256`. Chemin absolu d’exécutable et SHA-256 doivent tous deux être déclarés ; le lanceur reste responsable de la vérification réelle au clic.
 
 Six tests de configuration et de blocage avant contact ajoutés et compilés seulement. Les options de la console Poste seront exposées lors de son raccordement complet ; aucune recette native revendiquée à ce stade.
+
+
+## 18. Socle local et identité du poste (23/10/2026)
+
+La liste, l’ouverture de console, les inventaires/logiciels conservés et la recherche de comptes/groupes n’effectuent aucun contact LDAP ni machine. L’inventaire doit appartenir au GUID et dater d’après la création de l’objet. Son nom Windows est comparé au compte machine et au DNS cohérents : renommer le CN seul ne change pas Windows et ne doit pas invalider ce relevé. La même règle est partagée avec Fiche, Rechercher et les sondes du parc.
+
+Le site n’est plus deviné à partir de l’OU. L’absence de métadonnées LAPS ne prouve pas l’absence de LAPS. Le gestionnaire déclaré et un nom de console observé restent des indices distincts ; aucun GUID utilisateur n’est déduit du seul nom. La recherche d’un compte refuse une autorité étrangère et les ambiguïtés. Les associations D1 doivent encore être qualifiées et raccordées ; elles ne sont pas présentées comme absentes.
+
+Quatre tests ajoutés et compilés seulement. Le lecteur réel reste hors découverte automatique tant que le contrat réseau complet n’est pas implémenté ; aucune promotion du catalogue à ce stade.

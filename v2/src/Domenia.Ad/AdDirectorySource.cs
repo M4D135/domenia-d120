@@ -633,7 +633,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
                         if (read.Inventory.State == MeasureState.Refused) { access.Refused(host, "Inventaire léger", read.AuthenticationRejected); }
                         if (read.ReportedName is null && read.Inventory.State == MeasureState.NotRead)
                         { measured = read.Inventory; facts[computer.ObjectGuid] = read.Facts; }
-                        else if (!string.Equals(read.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+                        else if (!WorkstationIdentity.Matches(computer, read.ReportedName))
                         {
                             measured = new(MeasureState.Incomplete, Clock.GetUtcNow(), null, null, null, null, null, null, null);
                             facts[computer.ObjectGuid] = new(null, null, null, null, MeasureState.Incomplete, Clock.GetUtcNow(), "Identité CIM non confirmée ; mesures non associées au poste.");

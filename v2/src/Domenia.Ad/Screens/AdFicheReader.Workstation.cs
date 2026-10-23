@@ -117,7 +117,7 @@ public sealed partial class AdFicheReader
             : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, WorkstationReading.Triage, null, cancellationToken, access!.Credential).ConfigureAwait(false);
         access?.EnsureCurrent();
         if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Inventaire de la fiche", reading.Access.Any(a => a.AuthenticationRejected)); }
-        if (!string.Equals(reading.ReportedName, computer.Name, StringComparison.OrdinalIgnoreCase))
+        if (!WorkstationIdentity.Matches(computer, reading.ReportedName))
         { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité CIM absente ou différente du compte ordinateur : inventaire non associé."); }
         await source.SaveFleetAsync(AdSearchReader.MapInventory(computer.ObjectGuid, reading), epoch, CancellationToken.None).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();

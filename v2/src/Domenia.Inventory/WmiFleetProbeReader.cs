@@ -31,7 +31,7 @@ public sealed class WmiFleetProbeReader(TimeProvider clock)
             CimReading? identity = null;
             if (definitions.Any(d => !d.SkipOnDc || (computer.UserAccountControl & 8192) == 0))
             { identity = session.Read("identity", @"root\cimv2", "SELECT Name FROM Win32_ComputerSystem", 1, TimeSpan.FromSeconds(4)); }
-            var confirmed = identity?.Status == SourceStatus.Ok && string.Equals(identity.Instances.FirstOrDefault()?.Text("Name"), computer.Name, StringComparison.OrdinalIgnoreCase);
+            var confirmed = identity?.Status == SourceStatus.Ok && WorkstationIdentity.Matches(computer, identity.Instances.FirstOrDefault()?.Text("Name"));
             foreach (var definition in definitions)
             {
                 if (stop.IsCancellationRequested) { break; }
