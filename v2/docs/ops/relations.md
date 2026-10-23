@@ -513,3 +513,16 @@ Ces couples restent des historiques : la relecture AD ne prouve pas le GUID du p
 Seuls les nouveaux couples rejoignent la mémoire commune puis le circuit local automatique. Les couples déjà présents sont conservés quelle que soit leur nature ; une console qualifiée reçue pendant la moisson prend priorité sur son historique en attente. Le magasin revérifie l’absence de couple sous transaction SQLite et refuse un ajout devenu caduc ou contradictoire dans le même lot. Les sources historiques autres que la moisson restent indépendantes. L’interface ne prétend plus qu’un couple a été enregistré lorsque le résultat est vide, ni qu’une observation non acceptée par la mémoire est enregistrable.
 
 Sept tests de moisson, un test du contrôle transactionnel et un test du rattachement des refus au bail annuaire ont été ajoutés. Debug et Release compilés dans la VM, zéro avertissement et erreur. Tests et interface modifiée restent à exécuter lors de la recette finale ; aucune lecture réelle du journal AD annoncée à ce stade.
+
+
+## 26. Persistance native des passages dans park_state (23/10/2026)
+
+Chaque sonde/relevé conserve ses seuls passages terminés : GUID, DN, nom Windows, date de fin, statut, compte éventuel et compteur. Le ping muet est PING_MUET, sans session vide déduite. Un arrêt opérateur permet de mémoriser les passages terminés. Si le magasin refuse la mise à jour, le résultat le signale et les observations de relations restent indépendantes, sans rejeu immédiat.
+
+Le magasin limite les lots à cinquante identités distinctes. Il relit sous transaction immédiate, ajoute GUID/DN sans remplacer les lignes D1 et sauvegarde avant cette migration. Une ligne héritée sans GUID garde sa clé et son contenu ; le nouveau GUID utilise une clé secondaire si nécessaire. Les mises à jour par GUID gardent la clé d’origine et les extensions. Dates plus anciennes ou égales ignorées, compteurs plafonnés à Int32.MaxValue. Les statuts reçus sont fermés ; noms, DN, dates et types sont bornés.
+
+Le reçu durable associe l’identifiant de lot à l’empreinte exacte de son contenu et à sa génération. Un même identifiant ne compte jamais une seconde tentative ; un autre contenu portant cet identifiant est refusé. Une nouvelle génération après effacement bloque les anciens passages encore en cours. Même après effacement des lignes, la relecture d’un reçu ancien ne les réintroduit pas. Le bouton d’effacement sera raccordé à cette génération par son exécuteur natif.
+
+La relecture avant commit vérifie les champs modifiés, les clés, les extensions préservées, le nombre de lignes, la génération et l’empreinte complète des lignes non concernées. Un déclencheur qui altère une extension annule le lot et son reçu. Toute mémoire tronquée, cellule invalide ou GUID de cible ambigu bloque l’écriture ; rien n’est éliminé pour forcer le passage.
+
+Six tests du magasin couvrent compatibilité D1, sauvegarde, dates/compteurs, concurrence, reçus/générations, déclencheurs et requêtes invalides. Un nouveau test de sonde vérifie qu’un effacement pendant le réseau ne rétablit pas l’ancienne mémoire et ne perd pas la relation qualifiée ; un test existant vérifie aussi les trois statuts console/console vide/ping muet persistés. Compilation Debug/Release en VM sans avertissement ni erreur ; tests à exécuter en recette finale.

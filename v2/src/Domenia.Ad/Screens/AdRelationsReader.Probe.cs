@@ -33,6 +33,19 @@ public sealed partial class AdRelationsReader
             var observations = ImmutableDictionary.CreateBuilder<string, StoredRelation>(StringComparer.Ordinal);
             var readings = new Dictionary<string, ConsoleResult>(StringComparer.OrdinalIgnoreCase);
             string? interrupted = null; string? memoryIssue = null;
+            RelationSweepCacheSnapshot? sweepMemory = null;
+            var passes = ImmutableArray.CreateBuilder<RelationSweepUpdate>();
+            var sweepWriter = source.LocalStore as IRelationSweepWriter;
+            try
+            {
+                if (sweepWriter is not null) { sweepMemory = await sweepWriter.ReadRelationSweepsAsync(cancellationToken).ConfigureAwait(false); }
+                else { memoryIssue = "Stockage des passages indisponible ; les lectures restent affichées mais la file du parc ne sera pas actualisée."; }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { memoryIssue = "Mémoire des passages illisible ; les lectures seront affichées sans actualiser la file du parc."; }
+            if (sweepMemory is not null && !DistinguishedName.AreEqual(sweepMemory.DomainDn, local.Directory.Domain.RootDn))
+            { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Mémoire des passages d’un autre domaine ; aucune sonde."); }
+            EnsureEpoch(epoch);
             // One selected LDAP lease for the complete gesture; a consumed one-shot never falls back on the next computer.
             AdReadAccess? acquired = null;
             try { if (!stopRun.IsCancellationRequested) { acquired = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, null, lifetime.Token).ConfigureAwait(false); } }
@@ -119,10 +132,25 @@ public sealed partial class AdRelationsReader
                 candidates[target.Guid] = new(target.Guid, target.Computer, target.Dn, previous?.Origins ?? target.Source,
                     previous?.Why ?? target.Source, confirmed, confirmed ? null : outcome.Detail, badge.Badge, badge.Label, badge.Tone,
                     outcome.Label, outcome.Account, at, RelationRules.WhenText(at, source.Clock.GetUtcNow(), source.Zone), confirmed, previous?.Known ?? false, previous?.AlreadyLinked ?? false);
+                var status = step.PingFailed ? "PING_MUET" : outcome.Status is "CONFIRME" or "LU" or "REFUSE" or "AUTH_REJETEE" or "DELAI" ? outcome.Status : "ERREUR";
+                passes.Add(new(Guid.Parse(target.Guid), target.Dn, target.Computer, source.Clock.GetUtcNow(), status, outcome.Account));
                 progress?.Report(new(planId, step.Counters, target.Computer, outcome.Status, outcome.Label, label.Tone, outcome.Account));
             }
             var run = await RelationProbeLoop.RunAsync(plan, Read, sweep ? Ping : null, Step, stopRun.Token, cancellationToken).ConfigureAwait(false);
             EnsureEpoch(epoch); cancellationToken.ThrowIfCancellationRequested();
+            string? passMessage = null;
+            if (passes.Count > 0 && sweepMemory is not null && sweepWriter is not null)
+            {
+                try
+                {
+                    var session = await source.GetSessionAsync(cancellationToken).ConfigureAwait(false); EnsureEpoch(epoch);
+                    using var writeLease = source.AcquireWriteLease(session);
+                    var saved = await sweepWriter.ApplyRelationSweepsAsync(new(sweepMemory.StoreId, WritePlans.NewId(), sweepMemory.Generation, passes.ToImmutable()), cancellationToken).ConfigureAwait(false);
+                    EnsureEpoch(epoch); passMessage = saved.Detail;
+                }
+                catch (Exception ex) when (ex is DomeniaOperationException or IOException or UnauthorizedAccessException or InvalidDataException)
+                { memoryIssue = "Passages non confirmés dans la mémoire du parc (écriture refusée ou mémoire effacée entre-temps) ; aucun rejeu. Les observations de relations restent indépendantes."; }
+            }
             var found = observations.ToImmutable();
             var resultId = results.RememberObservations(sweep ? "Relevé du parc" : "Détection", found, epoch);
             var message = (interrupted ?? (run.AuthRejected ? "Relevé arrêté au premier rejet d’identifiants ; aucun autre poste interrogé."
@@ -131,6 +159,7 @@ public sealed partial class AdRelationsReader
             if (run.PingFailures > 0) { message += " " + FrenchText.Count(run.PingFailures, "poste sans réponse ICMP", "postes sans réponse ICMP") + " : console non demandée, état allumé/éteint inconnu."; }
             if (found.Count > 0) { message += " " + FrenchText.Count(found.Count, "observation qualifiée en mémoire", "observations qualifiées en mémoire") + " ; mémorisation locale demandée par le pont, aucune affectation remplacée."; }
             if (memoryIssue is not null) { message += " " + memoryIssue; }
+            if (passMessage is not null) { message += " " + passMessage; }
             if (resultId == RelationChange.SessionResultId) { message += " Aperçus individuels pleins ; observations regroupées avec les attentes de la session."; }
             var subjectView = held.Subject is { } who ? new RelationSubject(who.Kind, who.Dn, who.Guid.ToString("D"), who.Name, who.Login, who.Detail,
                 RelationRules.Path(who.Dn, local.Directory.Domain.DnsName), who.Enabled, who.LastLogon, who.Created) : null;

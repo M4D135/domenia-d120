@@ -49,6 +49,34 @@ internal static class AdRelationProbeTests
         Check.Equal(1, read.Savable, "preuve native qualifiée"); Check.Equal(1, (await reader.PendingAsync(CancellationToken.None)).Sets.Single(s => s.ResultId == read.ResultId).Remaining, "résultat en attente visible");
         await Check.ThrowsAsync<DomeniaOperationException>(() => reader.ProbeAsync(plan.Id!, null, CancellationToken.None, CancellationToken.None), "périmètre consommé non rejoué");
         Check.Equal(2, contacted.Count, "aucun nouvel essai après rejeu"); Check.Equal(5, ldap.Searches.Count, "validations nécessaires uniquement");
+        var passes = await ((IRelationSweepCache)source.LocalStore!).ReadRelationSweepsAsync(CancellationToken.None);
+        Check.Equal(3, passes.Rows.Length, "chaque passage confirmé mémorisé");
+        Check.Equal("PING_MUET", passes.Rows.Single(r => r.Computer == "PC3").Status, "silence ICMP ne devient pas une session vide");
+        Check.True(passes.Rows.All(r => r.Attempts == 1 && r.ComputerGuid is not null), "identités et tentatives sans doublon de rejeu");
+    }
+
+    [Test]
+    public static async Task Clearing_pass_memory_during_a_probe_does_not_resurrect_old_generation_rows_or_discard_qualified_relations()
+    {
+        using var folder = new TemporaryFolder(); var (source, _) = await Open(folder); using var owned = source;
+        var cache = (SqliteDirectoryCache)source.LocalStore!; var snapshot = await cache.ReadRelationSweepsAsync(CancellationToken.None);
+        var pc = Fixtures.Computer("PC3");
+        await cache.ApplyRelationSweepsAsync(new(snapshot.StoreId, WritePlans.NewId(), snapshot.Generation,
+            [new(pc.ObjectGuid, pc.DistinguishedName, "PC3", Fixtures.Now.AddDays(-1), "ERREUR", null)]), CancellationToken.None);
+        var reader = new AdRelationsReader(source)
+        {
+            PingOverride = (_, _) =>
+            {
+                using var sql = new SqliteDatabase(cache.Database.Path, false);
+                sql.Execute("DELETE FROM park_state;"); sql.Execute("UPDATE domenia_v2_sweep_state SET generation=generation+1 WHERE id=1;");
+                return Task.FromResult(true);
+            },
+            InventoryReaderOverride = _ => Inventory(_ => @"TEST\alice"),
+        };
+        var plan = await Plan(reader, "PC1"); var read = await reader.ProbeAsync(plan.Id!, null, CancellationToken.None, CancellationToken.None);
+        Check.True(read.Partial, "mémoire non confirmée annoncée"); Check.Equal(1, read.Savable, "relation qualifiée indépendante de la mémoire du parc");
+        Check.Equal(0L, (await cache.ReadRelationSweepsAsync(CancellationToken.None)).Total, "ancien passage non réintroduit après effacement");
+        Check.Contains("mémoire effacée", read.Message, "raison visible");
     }
 
     [Test]

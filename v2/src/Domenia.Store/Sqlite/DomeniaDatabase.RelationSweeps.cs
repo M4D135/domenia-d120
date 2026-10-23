@@ -23,7 +23,8 @@ public sealed partial class DomeniaDatabase
 
     private RelationSweepCacheSnapshot ReadRelationSweeps(SqliteDatabase db, CancellationToken token)
     {
-        if (!Table(db, "park_state")) { return EmptySweeps(); }
+        var generation = ReadSweepGeneration(db);
+        if (!Table(db, "park_state")) { return EmptySweeps() with { Generation = generation }; }
         var columns = db.Query("PRAGMA table_info(park_state);").Select(r => (string)r["name"]!).Order(StringComparer.Ordinal).ToArray();
         if (columns.Length > 40 || columns.Any(c => c.Length > 128 || c.Any(char.IsControl) || c.Equals("v2_invalid_sweep_cell", StringComparison.OrdinalIgnoreCase))
             || new[] { "computer_key", "computer", "last_probe", "status", "user_login", "attempts" }.Any(c => !columns.Contains(c, StringComparer.OrdinalIgnoreCase)))
@@ -74,8 +75,13 @@ public sealed partial class DomeniaDatabase
                 var date = RelationRules.ParseStoredWhen(Text("last_probe"), clock.LocalTimeZone);
                 if (date == DateTimeOffset.MinValue || date > clock.GetUtcNow().AddMinutes(2)) { date = null; }
                 if (date is null && !string.IsNullOrWhiteSpace(Text("last_probe"))) { uncertain++; }
+                var preserved = row.Where(p => !p.Key.Equals("computer", StringComparison.OrdinalIgnoreCase) && !p.Key.Equals("computer_guid", StringComparison.OrdinalIgnoreCase)
+                    && !p.Key.Equals("computer_dn", StringComparison.OrdinalIgnoreCase) && !p.Key.Equals("last_probe", StringComparison.OrdinalIgnoreCase)
+                    && !p.Key.Equals("status", StringComparison.OrdinalIgnoreCase) && !p.Key.Equals("user_login", StringComparison.OrdinalIgnoreCase) && !p.Key.Equals("attempts", StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase);
                 rows.Add(new(key, Convert.ToHexStringLower(SHA256.HashData(raw)), name, guid, string.IsNullOrWhiteSpace(dn) ? null : dn,
-                    date, Text("status") ?? "", Text("user_login"), checked((int)(long)row["attempts"]!)));
+                    date, Text("status") ?? "", Text("user_login"), checked((int)(long)row["attempts"]!))
+                { PreservedFingerprint = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(preserved))) });
             }
             if (bytes > 16L * 1024 * 1024) { break; }
         }
@@ -84,6 +90,15 @@ public sealed partial class DomeniaDatabase
             + (rejected > 0 ? FrenchText.Count(rejected, "ligne invalide conservée dans la base", "lignes invalides conservées dans la base") + ". " : "")
             + (uncertain > 0 ? FrenchText.Count(uncertain, "date non qualifiée", "dates non qualifiées") + ". " : "")
             + (truncated ? "Lecture partielle : 50 000 lignes ou 16 Mio au plus. " : "")
-            + "Aucun GUID déduit d’un ancien nom de poste.");
+            + "Aucun GUID déduit d’un ancien nom de poste.") { Generation = generation };
+    }
+
+    private static long ReadSweepGeneration(SqliteDatabase db)
+    {
+        if (!Table(db, "domenia_v2_sweep_state")) { return 0; }
+        var rows = db.Query("SELECT id,generation FROM domenia_v2_sweep_state LIMIT 2;");
+        if (rows.Count != 1 || rows[0]["id"] is not long id || id != 1 || rows[0]["generation"] is not long generation || generation < 0)
+        { throw new InvalidDataException("Génération de la mémoire des relevés illisible ; aucune écriture."); }
+        return generation;
     }
 }

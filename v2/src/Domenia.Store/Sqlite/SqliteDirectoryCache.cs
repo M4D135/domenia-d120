@@ -5,8 +5,16 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepCache
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepWriter
 {
+    public Task<WritePrecheck> CheckRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken) => Database.CheckRelationSweepsAsync(request, cancellationToken);
+    public async Task<RelationSweepWriteResult> ApplyRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken)
+    {
+        var check = await Database.CheckRelationSweepsAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.ApplyRelationSweepsAsync(request, cancellationToken).ConfigureAwait(false);
+    }
     public Task<RelationSweepCacheSnapshot> ReadRelationSweepsAsync(CancellationToken cancellationToken) => Database.ReadRelationSweepsAsync(cancellationToken);
     public Task<WritePrecheck> CheckRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken) => Database.CheckRelationsAsync(request, cancellationToken);
     public async Task<RelationStoreResult> ApplyRelationsAsync(RelationStoreWrite request, CancellationToken cancellationToken)
