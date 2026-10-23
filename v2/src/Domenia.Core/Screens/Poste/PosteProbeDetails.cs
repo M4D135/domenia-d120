@@ -19,13 +19,17 @@ public static class PosteProbeDetails
         ArgumentNullException.ThrowIfNull(zone);
         var status = store.Probes.FirstOrDefault(p => p.ProbeId == probe.Id) ?? new ProbeStatus(probe.Id, ProbeState.NotRead, null, null, null, 0);
         var columns = probe.Properties;
-        var all = store.Data is null || status.State is not (ProbeState.Read or ProbeState.Partial) ? [] : Rows(probe, store.Data, columns).ToList();
+        var exact = store.Values.GetValueOrDefault(probe.Id);
+        var all = exact is not null ? exact.Rows.Select(row => row.Select(PosteProbeCache.Display).ToArray()).ToList()
+            : store.Data is null || status.State is not (ProbeState.Read or ProbeState.Partial) ? [] : Rows(probe, store.Data, columns).ToList();
         var pages = Math.Max(1, (int)Math.Ceiling(all.Count / (double)PageSize));
         var current = Math.Clamp(page, 1, pages);
         var shown = all.Skip((current - 1) * PageSize).Take(PageSize).Select(r => r.ToImmutableArray()).ToImmutableArray();
         var provenance = status.LastSuccess is DateTimeOffset at
             ? "Dernière réussite le " + PosteText.LocalDateTime(at, zone) + " (" + PosteText.Age(at, now) + ")" + (status.LastAttempt is DateTimeOffset attempt && attempt > at ? " · dernière tentative le " + PosteText.LocalDateTime(attempt, zone) : "") + " · " + probe.Namespace + "\\" + probe.Class
             : status.LastAttempt is DateTimeOffset tried ? "Dernière tentative le " + PosteText.LocalDateTime(tried, zone) + " sans réussite · " + probe.Namespace + "\\" + probe.Class : "Jamais relevée pour ce poste";
+        if (exact is not null)
+        { provenance = "Données " + (exact.Complete ? "complètes" : "partielles") + " du " + PosteText.LocalDateTime(exact.At, zone) + " · " + provenance; }
         var reading = PosteReadings.Catalog.FirstOrDefault(r => r.Probes.Contains(probe.Id)).Id;
         var interpreted = reading is null
             ? ImmutableArray<PosteFact>.Empty
@@ -55,14 +59,14 @@ public static class PosteProbeDetails
             "disk.physical" => d.PhysicalDisks.Select(p => new Dictionary<string, string?> { ["FriendlyName"] = p.Name, ["DeviceId"] = p.Id, ["MediaType"] = N(p.MediaType), ["BusType"] = N(p.BusType), ["HealthStatus"] = N(p.Health), ["Size"] = N(p.SizeBytes) }),
             "disk.reliability" => d.PhysicalDisks.Select(p => new Dictionary<string, string?> { ["DeviceId"] = p.Id, ["Temperature"] = N(p.TemperatureCelsius), ["Wear"] = N(p.WearPercent), ["PowerOnHours"] = N(p.PowerOnHours), ["ReadErrorsUncorrected"] = N(p.UncorrectedErrors) }),
             "hw.batteries" => d.Batteries.Select(b => new Dictionary<string, string?> { ["Name"] = b.Name, ["EstimatedChargeRemaining"] = N(b.ChargePercent), ["BatteryStatus"] = N(b.Status) }),
-            "hw.batterystatic" => d.Batteries.Select(b => new Dictionary<string, string?> { ["DeviceName"] = b.Name, ["DesignedCapacity"] = N(b.DesignedCapacity), ["InstanceName"] = "ACPI\\PNP0C0A\\1_0" }),
-            "hw.batteryfullcharge" => d.Batteries.Select(b => new Dictionary<string, string?> { ["FullChargedCapacity"] = N(b.FullChargeCapacity), ["InstanceName"] = "ACPI\\PNP0C0A\\1_0" }),
-            "hw.batterycycles" => d.Batteries.Select(b => new Dictionary<string, string?> { ["CycleCount"] = N(b.Cycles), ["InstanceName"] = "ACPI\\PNP0C0A\\1_0" }),
+            "hw.batterystatic" => d.Batteries.Select(b => new Dictionary<string, string?> { ["DeviceName"] = b.Name, ["DesignedCapacity"] = N(b.DesignedCapacity) }),
+            "hw.batteryfullcharge" => d.Batteries.Select(b => new Dictionary<string, string?> { ["FullChargedCapacity"] = N(b.FullChargeCapacity) }),
+            "hw.batterycycles" => d.Batteries.Select(b => new Dictionary<string, string?> { ["CycleCount"] = N(b.Cycles) }),
             "hw.biosdetails" => d.Bios is { } bios ? [new() { ["SMBIOSBIOSVersion"] = bios.Version, ["Manufacturer"] = bios.Manufacturer, ["ReleaseDate"] = D(bios.ReleaseDate), ["SerialNumber"] = d.System?.SerialNumber }] : [],
-            "hw.computersystem" => d.System is { } s ? [new() { ["Model"] = s.Model, ["Manufacturer"] = s.Manufacturer, ["NumberOfLogicalProcessors"] = N(s.LogicalProcessors), ["TotalPhysicalMemory"] = N(s.TotalPhysicalMemory), ["PCSystemTypeEx"] = N(s.PcSystemType), ["HypervisorPresent"] = B(s.Hypervisor is not null) }] : [],
-            "hw.processors" => d.Processors.Select((p, i) => new Dictionary<string, string?> { ["Name"] = p.Name, ["DeviceID"] = "CPU" + i.ToString(CultureInfo.InvariantCulture), ["NumberOfCores"] = N(p.Cores), ["NumberOfLogicalProcessors"] = N(p.LogicalProcessors), ["MaxClockSpeed"] = N(p.MaxClockMhz), ["VirtualizationFirmwareEnabled"] = B(p.VirtualizationFirmware), ["LoadPercentage"] = N(p.LoadPercent) }),
-            "hw.monitors" => d.Displays.Select(m => new Dictionary<string, string?> { ["UserFriendlyName"] = m.Name, ["ManufacturerName"] = m.Manufacturer, ["ProductCodeID"] = m.Product, ["SerialNumberID"] = m.Serial, ["YearOfManufacture"] = N(m.Year), ["Active"] = "True" }),
-            "hw.monitorconnections" => d.Displays.Select(m => new Dictionary<string, string?> { ["VideoOutputTechnology"] = m.Connection, ["Active"] = "True" }),
+            "hw.computersystem" => d.System is { } s ? [new() { ["Model"] = s.Model, ["Manufacturer"] = s.Manufacturer, ["NumberOfLogicalProcessors"] = N(s.LogicalProcessors), ["TotalPhysicalMemory"] = N(s.TotalPhysicalMemory), ["PCSystemTypeEx"] = N(s.PcSystemType), ["HypervisorPresent"] = B(s.Hypervisor is null ? null : true) }] : [],
+            "hw.processors" => d.Processors.Select((p, i) => new Dictionary<string, string?> { ["Name"] = p.Name, ["NumberOfCores"] = N(p.Cores), ["NumberOfLogicalProcessors"] = N(p.LogicalProcessors), ["MaxClockSpeed"] = N(p.MaxClockMhz), ["VirtualizationFirmwareEnabled"] = B(p.VirtualizationFirmware), ["LoadPercentage"] = N(p.LoadPercent) }),
+            "hw.monitors" => d.Displays.Select(m => new Dictionary<string, string?> { ["UserFriendlyName"] = m.Name, ["ManufacturerName"] = m.Manufacturer, ["ProductCodeID"] = m.Product, ["SerialNumberID"] = m.Serial, ["YearOfManufacture"] = N(m.Year) }),
+            "hw.monitorconnections" => d.Displays.Select(m => new Dictionary<string, string?> { ["VideoOutputTechnology"] = m.Connection }),
             "net.interfaces" => d.Network.Select(n => new Dictionary<string, string?> { ["Name"] = n.Name, ["NetConnectionStatus"] = N(n.Status), ["PhysicalAdapter"] = B(n.Physical), ["MACAddress"] = n.Mac, ["Speed"] = N(n.SpeedBitsPerSecond) }),
             "net.configurations" => d.Network.Where(n => n.Ipv4.Length > 0).Select(n => new Dictionary<string, string?> { ["Description"] = n.Name, ["MACAddress"] = n.Mac, ["IPAddress"] = string.Join(", ", n.Ipv4), ["DefaultIPGateway"] = n.Gateway, ["DNSServerSearchOrder"] = string.Join(", ", n.Dns), ["DHCPEnabled"] = B(n.Dhcp) }),
             "soft.printerdetails" => d.Printers.Select(p => new Dictionary<string, string?> { ["Name"] = p.Name, ["DriverName"] = p.Driver, ["PortName"] = p.Port, ["WorkOffline"] = B(p.Offline), ["Default"] = B(p.Default), ["Network"] = B(p.Network) }),

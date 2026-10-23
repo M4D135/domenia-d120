@@ -57,7 +57,7 @@ public static class PosteReadings
             {
                 var info = ProbeCatalog.Find(p);
                 var status = statuses.GetValueOrDefault(p) ?? new ProbeStatus(p, ProbeState.NotRead, null, null, null, 0);
-                return new ReadingProbe(p, info?.Name ?? p, status.State, ProbeStateLabel(status.State), status.LastSuccess, status.LastAttempt, status.Error);
+                return new ReadingProbe(p, info?.Name ?? p, status.State, ProbeStateLabel(status.State), status.DataAt ?? status.LastSuccess, status.LastAttempt, status.Error);
             }).ToImmutableArray();
             var read = probeViews.Where(p => p.State is ProbeState.Read or ProbeState.Partial).ToList();
             DateTimeOffset? at = read.Count == 0 ? null : read.Min(p => p.LastSuccess);
@@ -65,7 +65,9 @@ public static class PosteReadings
             VolumeForecast? forecast = null;
             BiosCompare? bios = null;
             var data = store.Data;
-            if (read.Count == 0 || data is null)
+            // Native column payloads are interpreted together only when every contributing probe is complete.
+            // The raw detail remains available for partial reads, without inventing absence in unread providers.
+            if (read.Count == 0 || data is null || store.Values.Count > 0 && probeViews.Any(p => p.State != ProbeState.Read || store.Values.GetValueOrDefault(p.Id)?.Complete != true))
             {
                 foreach (var p in probeViews)
                 {
@@ -154,6 +156,8 @@ public static class PosteReadings
                 label = "Lu " + PosteText.Age(seen, now);
                 fresh++;
             }
+            if (store.Values.Count > 0 && probeViews.Any(p => p.State != ProbeState.Read || store.Values.GetValueOrDefault(p.Id)?.Complete != true))
+            { state = at is null ? Tone.Off : Tone.Warn; label = at is null ? "Non lu" : "Couverture partielle · " + PosteText.Age(at.Value, now); }
             views.Add(new ReadingView(id, title, icon, state, label, at, StaleAfterSeconds, facts.ToImmutable(), probeViews, forecast, bios));
         }
         var summary = FrenchText.Count(fresh, "lecture récente", "lectures récentes") + ", " + FrenchText.Count(aging, "vieillissante", "vieillissantes") + ", "
@@ -163,6 +167,8 @@ public static class PosteReadings
 
     private static PosteFact SourceFact(ReadingProbe probe, string source) => probe.State switch
     {
+        ProbeState.Read => PosteText.Fact(probe.Name, "Relevé conservé", FactState.Observed, source, "Détail disponible ; les autres sondes sont nécessaires au bilan complet.", at: probe.LastSuccess),
+        ProbeState.Partial => PosteText.Fact(probe.Name, "Relevé partiel conservé", FactState.Estimated, source, "Les lignes reçues restent consultables ; aucune absence déduite de ce relevé incomplet.", at: probe.LastSuccess),
         ProbeState.Refused => PosteText.Fact(probe.Name, "Lecture refusée", FactState.Refused, source, "Un refus ne dit rien de l’état du poste.", at: probe.LastAttempt),
         ProbeState.Absent => PosteText.Fact(probe.Name, "Fournisseur absent sur ce poste", FactState.Unavailable, source, "Classe ou espace de noms absent : ce n’est ni un état sain ni une panne.", at: probe.LastAttempt),
         ProbeState.Failed => PosteText.Fact(probe.Name, "Lecture en échec" + (probe.Error is null ? "" : FrenchText.Colon + PosteText.Flat(probe.Error, 120)), FactState.Unavailable, source, "Aucune conclusion.", at: probe.LastAttempt),
@@ -508,12 +514,14 @@ public static class PosteReadings
     private static void Services(InventorySnapshot d, DateTimeOffset at, ImmutableArray<PosteFact>.Builder facts)
     {
         var rows = PosteServices.Rows(d.Services);
-        foreach (var line in PosteServices.CompareProfile(rows).Where(l => l.Tone != Tone.Ok))
+        var complete = d.StatusOf(InventoryCategories.Services) is SourceStatus.Ok or SourceStatus.Empty;
+        foreach (var line in (complete ? PosteServices.CompareProfile(rows) : []).Where(l => l.Tone != Tone.Ok))
         {
             facts.Add(PosteText.Fact(line.Name, line.Text + " " + line.Reason, FactState.Observed, "Win32_Service", "Un écart est une piste, aucun service n’est modifié.", at: at, tone: line.Tone));
         }
         var expectedOk = PosteServices.Profile.Length - facts.Count;
-        facts.Insert(0, PosteText.Fact("Profil attendu (15 services)", FrenchText.Count(expectedOk, "conforme", "conformes") + " sur " + FrenchText.Integer(PosteServices.Profile.Length), FactState.Observed, "Win32_Service", "Services attendus sur un poste du domaine.", at: at, tone: expectedOk == PosteServices.Profile.Length ? Tone.Ok : Tone.Warn));
+        if (!complete) { facts.Add(PosteText.Fact("Profil attendu", "Liste de services incomplète ; conformité non établie", FactState.Unknown, "Win32_Service", "Les services non reçus ne sont pas déclarés absents.", at: at)); }
+        else { facts.Insert(0, PosteText.Fact("Profil attendu (15 services)", FrenchText.Count(expectedOk, "conforme", "conformes") + " sur " + FrenchText.Integer(PosteServices.Profile.Length), FactState.Observed, "Win32_Service", "Services attendus sur un poste du domaine.", at: at, tone: expectedOk == PosteServices.Profile.Length ? Tone.Ok : Tone.Warn)); }
         foreach (var row in rows.Where(r => r.AutoStopped).Take(10))
         {
             facts.Add(PosteText.Fact(row.DisplayName, "Automatique arrêté" + (row.ExitCode is int code and not 0 ? " (code " + code.ToString(CultureInfo.InvariantCulture) + ")" : ""), FactState.Observed, "Win32_Service", "Code 1077 normal pour un démarrage sur déclencheur.", at: at, tone: Tone.Warn));

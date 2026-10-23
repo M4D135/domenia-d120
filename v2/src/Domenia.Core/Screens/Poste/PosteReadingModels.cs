@@ -14,7 +14,13 @@ public enum ProbeState
     NotRead,
 }
 
-public sealed record ProbeStatus(string ProbeId, ProbeState State, DateTimeOffset? LastSuccess, DateTimeOffset? LastAttempt, string? Error, int Rows);
+public sealed record ProbeStatus(string ProbeId, ProbeState State, DateTimeOffset? LastSuccess, DateTimeOffset? LastAttempt, string? Error, int Rows)
+{
+    public DateTimeOffset? DataAt { get; init; }
+}
+
+/// <summary>Exact catalog columns, primitive JSON cells only; no invented instance identifiers or flattened arrays.</summary>
+public sealed record ProbeValues(DateTimeOffset At, bool Complete, ImmutableArray<ImmutableArray<System.Text.Json.JsonElement>> Rows);
 
 /// <summary>One stored sample of a volume (Domenia 1 disk.volumes history: one every 6 h, 60 at most, 400 days).</summary>
 public sealed record VolumeSample(DateTimeOffset At, long SizeBytes, long FreeBytes);
@@ -33,7 +39,13 @@ public sealed record ProbeStore(
     ImmutableArray<VolumeSample> SystemVolumeHistory,
     ImmutableArray<MonitorChange> MonitorHistory,
     ImmutableArray<string> DockHints,
-    DateTimeOffset? CollectedAt);
+    DateTimeOffset? CollectedAt)
+{
+    public string? ReportedName { get; init; }
+    public ImmutableDictionary<string, ProbeValues> Values { get; init; } = ImmutableDictionary<string, ProbeValues>.Empty;
+    public string? MonitorSignature { get; init; }
+    public DateTimeOffset? MonitorAt { get; init; }
+}
 
 public sealed record ReadingProbe(string Id, string Name, ProbeState State, string StateLabel, DateTimeOffset? LastSuccess, DateTimeOffset? LastAttempt, string? Error);
 
