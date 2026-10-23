@@ -45,6 +45,8 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
     private DateTimeOffset? failedAt;
     private DirectoryState? state;
     private long epoch;
+    private bool disposed;
+    private string? connectionLogin;
 
     public AdDirectorySource(string? joinedDomain, Func<string> accountLogin, TimeProvider clock, IWorkstationProbe? probe = null, IAdConnection? connection = null, IDirectoryCache? localStore = null)
     {
@@ -55,13 +57,54 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         this.probe = probe;
         Clock = clock;
         LocalStore = localStore;
-        Connection = connection ?? AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain));
+        this.connection = connection ?? AdConnectionFactory.Create(new AdConnectionOptions(null, joinedDomain));
+        connectionLogin = (this.connection as AdConnection)?.ExplicitLogin;
     }
 
     public DirectorySourceKind Kind => DirectorySourceKind.ActiveDirectory;
 
     /// <summary>The LDAP connection of the session (opened on first use).</summary>
-    public IAdConnection Connection { get; }
+    private IAdConnection connection;
+    public IAdConnection Connection { get { lock (gate) { return connection; } } }
+
+    internal DomainInfo? KnownDomain { get { lock (gate) { return domain ?? state?.Directory.Domain; } } }
+    internal string? JoinedDomain => joinedDomain;
+    internal bool IsExplicitSession { get { lock (gate) { return connectionLogin is not null; } } }
+
+    /// <summary>Adopts an already authenticated connection atomically; a late result can never replace a newer session.</summary>
+    internal void AdoptConnection(IAdConnection candidate, DomainInfo known, AdSessionIdentity identity, long expectedEpoch, bool correction)
+    {
+        IAdConnection previous;
+        lock (gate)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            if (epoch != expectedEpoch) { throw new DomeniaOperationException(AccountAccess.EpochChanged, "Session modifiée pendant la validation : connexion écartée."); }
+            var before = domain ?? state?.Directory.Domain;
+            if (before is not null && (!DistinguishedName.AreEqual(before.RootDn, known.RootDn) || before.DomainSid != known.DomainSid)
+                || before is null && joinedDomain is not null && !joinedDomain.Equals(known.DnsName, StringComparison.OrdinalIgnoreCase)
+                || identity.Sid is null || identity.Identity.Dn is null
+                || correction && (accountSid is null || accountSid != identity.Sid))
+            { throw new DomeniaOperationException(AdErrors.Credentials, "Domaine ou identité de connexion non confirmé : session conservée."); }
+            previous = connection;
+            connection = candidate;
+            connectionLogin = identity.Identity.Login;
+            domain = known;
+            account = identity.Identity;
+            accountSid = identity.Sid;
+            rights = identity.Rights;
+            failure = null;
+            failedAt = null;
+            if (!correction)
+            {
+                sessionStartedAt = Clock.GetUtcNow();
+                state = null;
+                localLoaded = false;
+                fleet = CachedFleet.Empty("session");
+            }
+            epoch++;
+        }
+        previous.Dispose();
+    }
 
     public TimeProvider Clock { get; }
 
@@ -164,7 +207,7 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
         {
             var directory = state?.Directory;
             var store = directory is null || directory.ReadAt == DateTimeOffset.MinValue ? new StoreStatus(null, 0, false) : new StoreStatus(directory.ReadAt, directory.ObjectCount, directory.Complete);
-            var explicitLogin = (Connection as AdConnection)?.ExplicitLogin;
+            var explicitLogin = connectionLogin;
             var login = account?.Login ?? explicitLogin ?? accountLogin();
             var authentication = explicitLogin is null
                 ? new AuthenticationInfo(AuthenticationMethod.WindowsSession, null, domain is null ? "Session Windows" : "Session Windows (négociation, signée et chiffrée)")
@@ -347,6 +390,12 @@ public sealed class AdDirectorySource : IDirectorySource, IDirectoryRefreshPrepa
 
     public void Dispose()
     {
+        lock (gate)
+        {
+            if (disposed) { return; }
+            disposed = true;
+            epoch++;
+        }
         Connection.Dispose();
         connecting.Dispose();
         refreshing.Dispose();

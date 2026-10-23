@@ -41,6 +41,8 @@ public sealed class AdConnection : IAdConnection
     };
 
     private readonly AdConnectionOptions options;
+    private readonly System.Security.SecureString? trackedSecret;
+    internal IDisposable? TrackedCredential { get; }
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _sync = new();
 
@@ -59,6 +61,8 @@ public sealed class AdConnection : IAdConnection
             if (string.IsNullOrWhiteSpace(supplied.UserName) || password.Length == 0)
             { throw new DomeniaOperationException(AdErrors.Credentials, "Compte explicite incomplet : aucune connexion ni repli sur la session Windows."); }
             this.options = options with { Credential = new System.Net.NetworkCredential(supplied.UserName, password, supplied.Domain) };
+            trackedSecret = this.options.Credential.SecurePassword;
+            TrackedCredential = SecureCredentialCopies.Track(trackedSecret);
         }
         else { this.options = options; }
     }
@@ -82,15 +86,15 @@ public sealed class AdConnection : IAdConnection
             ? credential.UserName : credential.Domain + "\\" + credential.UserName : null;
 
     /// <summary>A caller-owned secure copy for another Windows protocol of this same connection identity.</summary>
-    internal (string? User, string? Domain, System.Security.SecureString? Password) CopyCredential()
+    internal AdCredentialCopy CopyCredential(bool tracked = true)
     {
-        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return CopyCredentialCore(); }
+        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return CopyCredentialCore(tracked); }
     }
 
-    private (string? User, string? Domain, System.Security.SecureString? Password) CopyCredentialCore()
+    private AdCredentialCopy CopyCredentialCore(bool tracked)
     {
         var credential = options.Credential;
-        if (credential is null) { return (null, null, null); }
+        if (credential is null) { return new(null, null, null, tracked); }
         var user = credential.UserName;
         var domain = credential.Domain;
         var parsed = CredentialRules.Parse(user);
@@ -104,7 +108,7 @@ public sealed class AdConnection : IAdConnection
         }
         var password = credential.SecurePassword;
         password.MakeReadOnly();
-        return (user, domain, password);
+        return new(user, domain, password, tracked);
     }
 
     /// <inheritdoc />
@@ -413,6 +417,8 @@ public sealed class AdConnection : IAdConnection
 
             connection?.Dispose();
             // NetworkCredential disposes its internal SecureString when its secure property is cleared.
+            TrackedCredential?.Dispose();
+            trackedSecret?.Dispose();
             if (options.Credential is { } credential) { credential.SecurePassword = null; }
             _gate.Dispose();
         }
@@ -778,9 +784,19 @@ public sealed class AdConnection : IAdConnection
             return new DomeniaOperationException(AdErrors.NotConnected, AdErrors.NotConnectedMessage);
         }
 
+        if (code == 49)
+        {
+            var result = new DomeniaOperationException(AdErrors.Credentials, AdErrors.CredentialsMessage);
+            result.Data["authenticationKind"] = AdAuthenticationErrors.Kind(ex switch
+            {
+                LdapException ldap => ldap.ServerErrorMessage,
+                DirectoryOperationException directory => directory.Response?.ErrorMessage,
+                _ => null,
+            });
+            return result;
+        }
         return code switch
         {
-            49 => new DomeniaOperationException(AdErrors.Credentials, AdErrors.CredentialsMessage),
             50 => new DomeniaOperationException(AdErrors.AccessDenied, AdErrors.AccessDeniedMessage),
             32 => new DomeniaOperationException(AdErrors.NoSuchObject, AdErrors.NoSuchObjectMessage),
             51 or 52 or 81 or 91 => new DomeniaOperationException(AdErrors.Unavailable, AdErrors.UnavailableMessage),

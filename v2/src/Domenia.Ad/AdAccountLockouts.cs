@@ -36,7 +36,7 @@ internal sealed class AdAccountLockouts(AdDirectorySource source)
             if (source.Connection is not AdConnection actual)
             { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité du transport Windows non disponible pour lire le journal."); }
             var credential = actual.CopyCredential();
-            using (credential.Password)
+            using (credential)
             {
                 var to = source.Clock.GetUtcNow();
                 var result = await new WindowsLockoutReader(source.Clock).ReadAsync(server, user.Sid, pdc, to.AddHours(-hours), to,

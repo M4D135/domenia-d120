@@ -46,7 +46,7 @@ public sealed class AccountAccess : IDisposable
     /// <summary>Refusal kinds of an authentication: they pause the account (the access denied of a right does not).</summary>
     private static readonly HashSet<string> AuthenticationKinds = new(StringComparer.Ordinal)
     {
-        "logonFailure", "badCredentials", "locked", "passwordExpired", "mustChange", "disabled", "accountExpired",
+        "logonFailure", "badCredentials", "locked", "passwordExpired", "mustChange", "disabled", "accountExpired", "restricted",
     };
 
     private readonly IDirectorySource directory;
@@ -274,7 +274,7 @@ public sealed class AccountAccess : IDisposable
                 EnsureEpochLocked(startEpoch, copy);
                 if (secondary.Remove(usage, out var previous))
                 {
-                    previous.Secret.Dispose();
+                    previous.Dispose();
                 }
                 secondary[usage] = new Held(identity, copy, now, result.Controller);
                 foreach (var resource in CredentialRules.ResourcesOf(usage))
@@ -282,7 +282,7 @@ public sealed class AccountAccess : IDisposable
                     if (temporary.Remove(resource, out var replaced))
                     {
                         faults.Remove(Key(session, replaced.Login, null));
-                        replaced.Secret.Dispose();
+                        replaced.Dispose();
                     }
                     foreach (var key in pending.Where(p => p.Value.Scope == resource).Select(p => p.Key).ToList())
                     {
@@ -311,7 +311,7 @@ public sealed class AccountAccess : IDisposable
             if (removed)
             {
                 faults.Remove(Key(session, previous!.Login, null));
-                previous.Secret.Dispose();
+                previous.Dispose();
                 AccountChangedLocked();
             }
         }
@@ -359,7 +359,7 @@ public sealed class AccountAccess : IDisposable
                 if (temporary.Remove(key, out var replaced))
                 {
                     faults.Remove(Key(session, replaced.Login, scopeTarget));
-                    replaced.Secret.Dispose();
+                    replaced.Dispose();
                 }
                 temporary[key] = new Temporary(identity, scopeTarget, copy, CredentialRules.NewLease(key, identity, leaseMode, minutes, epoch, now));
                 foreach (var stale in pending.Where(p => p.Value.Scope == request.Scope).Select(p => p.Key).ToList())
@@ -414,13 +414,13 @@ public sealed class AccountAccess : IDisposable
             if (key.StartsWith("temporary:", StringComparison.Ordinal) && temporary.Remove(key["temporary:".Length..], out var gone))
             {
                 faults.Remove(Key(session, gone.Login, gone.Target));
-                gone.Secret.Dispose();
+                gone.Dispose();
                 label = CredentialRules.ScopeLabel(key["temporary:".Length..]);
             }
             else if (key.StartsWith("secondary:", StringComparison.Ordinal) && CredentialRules.TryParseUsage(key["secondary:".Length..], out var usage) && secondary.Remove(usage, out var held))
             {
                 faults.Remove(Key(session, held.Login, null));
-                held.Secret.Dispose();
+                held.Dispose();
                 label = CredentialRules.UsageLabel(usage);
             }
             if (label is not null)
@@ -451,7 +451,7 @@ public sealed class AccountAccess : IDisposable
             foreach (var item in temporary.Values)
             {
                 faults.Remove(Key(session, item.Login, item.Target));
-                item.Secret.Dispose();
+                item.Dispose();
             }
             temporary.Clear();
             if (count > 0)
@@ -812,12 +812,12 @@ public sealed class AccountAccess : IDisposable
         {
             foreach (var held in secondary.Values)
             {
-                held.Secret.Dispose();
+                held.Dispose();
             }
             secondary.Clear();
             foreach (var item in temporary.Values)
             {
-                item.Secret.Dispose();
+                item.Dispose();
             }
             temporary.Clear();
             running?.Cancel.Dispose();
@@ -850,12 +850,12 @@ public sealed class AccountAccess : IDisposable
     {
         foreach (var held in secondary.Values)
         {
-            held.Secret.Dispose();
+            held.Dispose();
         }
         secondary.Clear();
         foreach (var item in temporary.Values)
         {
-            item.Secret.Dispose();
+            item.Dispose();
         }
         temporary.Clear();
         pending.Clear();
@@ -1076,7 +1076,7 @@ public sealed class AccountAccess : IDisposable
         {
             if (temporary.Remove(key, out var gone))
             {
-                gone.Secret.Dispose();
+                gone.Dispose();
                 AccountChangedLocked();
                 journal.Add(new JournalEntry(now, "Compte temporaire expiré et oublié" + FrenchText.Colon + CredentialRules.ScopeLabel(key), Tone.Info));
             }
@@ -1442,9 +1442,17 @@ public sealed class AccountAccess : IDisposable
         }
     }
 
-    private sealed record Held(string Login, SecureString Secret, DateTimeOffset ActivatedAt, string? Controller);
+    private sealed record Held(string Login, SecureString Secret, DateTimeOffset ActivatedAt, string? Controller) : IDisposable
+    {
+        private readonly IDisposable tracked = SecureCredentialCopies.Track(Secret);
+        public void Dispose() { tracked.Dispose(); Secret.Dispose(); }
+    }
 
-    private sealed record Temporary(string Login, string? Target, SecureString Secret, CredentialLease Lease);
+    private sealed record Temporary(string Login, string? Target, SecureString Secret, CredentialLease Lease) : IDisposable
+    {
+        private readonly IDisposable tracked = SecureCredentialCopies.Track(Secret);
+        public void Dispose() { tracked.Dispose(); Secret.Dispose(); }
+    }
 
     private sealed record Fault(string Scope, DateTimeOffset At);
 

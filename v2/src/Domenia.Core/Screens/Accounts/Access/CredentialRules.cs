@@ -271,6 +271,8 @@ public static class CredentialRules
             "mustChange" => ("Mot de passe à changer avant la connexion.", Change),
             "disabled" => ("Compte désactivé.", "Demandez sa réactivation puis réessayez."),
             "accountExpired" => ("Compte expiré.", "Demandez la prolongation de sa date d’expiration puis réessayez."),
+            "restricted" => ("Connexion interdite par une restriction du compte.", "Vérifiez ses horaires et les postes autorisés avant un nouvel essai."),
+            "accessDenied" => ("Authentification ou lecture refusée.", "Les droits requis pour cet accès ne sont pas accordés."),
             "locked" => ("Compte verrouillé.", "Demandez son déverrouillage puis réessayez."),
             "unreachable" => ("Contrôleur de domaine injoignable.", "Vérifiez le réseau, le DNS ou le VPN, puis réessayez."),
             "workstationUnreachable" => ("Poste injoignable.", "Vérifiez que le poste est allumé et répond, puis réessayez."),

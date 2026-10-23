@@ -149,7 +149,11 @@ public sealed record MachineTypedAccount(string Account, DateTimeOffset Since, b
 /// What one light read on one workstation answered (Domenia 1 LiveConsole: Outcome, error text, category of
 /// Get-DomeniaErrorDecision, caption of Win32_OperatingSystem).
 /// </summary>
-public sealed record MachineTrialObservation(string Outcome, string? ErrorText, string? Category, string? Caption, MachineWorkstation? Workstation);
+public sealed record MachineTrialObservation(string Outcome, string? ErrorText, string? Category, string? Caption, MachineWorkstation? Workstation)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ConfirmedComputerName { get; init; }
+}
 
 /// <summary>Verdict of an access trial (Domenia 1 Get-DomeniaRemoteAccessTrialVerdict).</summary>
 public enum MachineTrialVerdict

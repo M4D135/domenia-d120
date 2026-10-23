@@ -21,11 +21,12 @@ internal static class AdTransportTests
         Check.Equal("alice", first.User, "identité sélectionnée");
         Check.Equal("TEST", first.Domain, "autorité du compte");
         Check.True(first.Password!.IsReadOnly(), "copie en lecture seule");
-        first.Password.Dispose();
+        first.Dispose();
         var second = connection.CopyCredential();
-        using (second.Password) { Check.Equal(1, second.Password!.Length, "la copie précédente ne détruit pas le secret de connexion"); }
+        using (second) { Check.Equal(1, second.Password!.Length, "la copie précédente ne détruit pas le secret de connexion"); }
         using var windows = new AdConnection(new("dc.test.local", "test.local"));
-        Check.Null(windows.CopyCredential().Password, "contexte Windows sans mot de passe");
+        using var windowsCopy = windows.CopyCredential();
+        Check.Null(windowsCopy.Password, "contexte Windows sans mot de passe");
     }
 
     [Test]

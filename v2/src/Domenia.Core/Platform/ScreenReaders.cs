@@ -10,7 +10,7 @@ namespace Domenia.Core;
 /// <see cref="IDirectorySource"/>). Readers for another source type are ignored. Constructors must stay cheap: nothing is
 /// read before the first call of a handler.
 /// </summary>
-public sealed class ScreenReaders
+public sealed class ScreenReaders : IDisposable
 {
     private readonly FrozenDictionary<Type, IScreenReader> readers;
 
@@ -73,6 +73,11 @@ public sealed class ScreenReaders
     /// </summary>
     public T Require<T>() where T : class, IScreenReader =>
         Find<T>() ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
+
+    public void Dispose()
+    {
+        foreach (var reader in readers.Values.Distinct(ReferenceEqualityComparer.Instance).OfType<IDisposable>()) { reader.Dispose(); }
+    }
 
     private static IEnumerable<Type> ExportedTypes(Assembly assembly)
     {

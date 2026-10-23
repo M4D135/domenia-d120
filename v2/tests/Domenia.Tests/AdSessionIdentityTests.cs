@@ -47,7 +47,7 @@ internal static class AdSessionIdentityTests
         using var otherDc = original.ForServer("dc2.test.local");
         original.Dispose();
         var copy = otherDc.CopyCredential();
-        using (copy.Password) { Check.Equal(1, copy.Password!.Length, "fermeture d’un contrôleur sans effacer l’autre"); }
+        using (copy) { Check.Equal(1, copy.Password!.Length, "fermeture d’un contrôleur sans effacer l’autre"); }
         Check.Equal(1, secret.Length, "secret original toujours détenu par son appelant");
     }
 

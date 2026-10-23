@@ -13,18 +13,26 @@ namespace Domenia.Inventory;
 /// <summary>One bounded, SID-filtered read of Security/4740 through the native Windows Event Log API.</summary>
 public sealed class WindowsLockoutReader(TimeProvider clock)
 {
+    private static readonly SemaphoreSlim Workers = new(4, 4);
+
     public async Task<LockoutEventsRead> ReadAsync(string server, string sid, bool pdc, DateTimeOffset from, DateTimeOffset to,
         int maximum, string? user, string? domain, SecureString? password, CancellationToken cancellationToken)
     {
         var xpath = Query(sid, from, to);
         if (!CimQuery.IsHostName(server) || maximum is < 1 or > 500 || (user is null) != (password is null))
         { throw new ArgumentException("Cible, limite ou compte du journal invalide."); }
-        var secret = password?.Copy();
+        if (!await Workers.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        { return new(LockoutReadState.Unavailable, server, pdc, [], false); }
+        SecureString? secret;
+        try { secret = password?.Copy(); }
+        catch { Workers.Release(); throw; }
+        var tracked = SecureCredentialCopies.Track(secret);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = stop.Token;
         var worker = Task.Run(() =>
         {
             using (secret)
+            using (tracked)
             {
                 try { return Read(server, sid, pdc, from, to, maximum, xpath, user, domain, secret, token); }
                 catch (Win32Exception ex)
@@ -46,7 +54,7 @@ public sealed class WindowsLockoutReader(TimeProvider clock)
         finally
         {
             // The worker owns handles and its secure copy until the native call actually returns.
-            _ = worker.ContinueWith(t => { _ = t.Exception; stop.Dispose(); }, CancellationToken.None,
+            _ = worker.ContinueWith(t => { _ = t.Exception; stop.Dispose(); Workers.Release(); }, CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
     }

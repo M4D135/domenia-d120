@@ -12,9 +12,10 @@ public sealed class AdMachineAccountReader(AdDirectorySource source) : IMachineA
         cancellationToken.ThrowIfCancellationRequested();
         var directory = source.CurrentDirectory;
         if (directory is null) { return Task.FromResult<MachineWorkstation?>(null); }
-        var key = MachineAccountRules.MachineKey(computer.Trim());
-        var candidates = directory.Computers.Where(c => string.Equals(c.DnsHostName, computer.Trim(), StringComparison.OrdinalIgnoreCase)
-            || (key is not null && string.Equals(c.Name, key, StringComparison.OrdinalIgnoreCase))).Take(2).ToArray();
+        var requested = computer.Trim().TrimEnd('.');
+        var key = MachineAccountRules.MachineKey(requested);
+        var candidates = directory.Computers.Where(c => string.Equals(c.DnsHostName, requested, StringComparison.OrdinalIgnoreCase)
+            || (!requested.Contains('.') && key is not null && string.Equals(c.Name, key, StringComparison.OrdinalIgnoreCase))).Take(2).ToArray();
         return Task.FromResult(candidates.Length == 1 ? View(directory, candidates[0]) : null);
     }
 

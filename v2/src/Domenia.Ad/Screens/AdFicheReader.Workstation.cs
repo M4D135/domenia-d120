@@ -79,7 +79,7 @@ public sealed partial class AdFicheReader
         if (source.Connection is not AdConnection actual) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Compte Windows du transport indisponible."); }
         var credential = actual.CopyCredential();
         WindowsSessionsRead read;
-        using (credential.Password)
+        using (credential)
         { read = await new WindowsSessionsReader(source.Clock).ReadAsync(computer.DnsHostName!, credential.User, credential.Domain, credential.Password, cancellationToken).ConfigureAwait(false); }
         EnsureEpoch(epoch);
         var rows = read.Sessions.Where(s => !string.IsNullOrEmpty(s.User)).Select(s => new FicheSessionRow(string.IsNullOrEmpty(s.Domain) ? s.User! : s.Domain + "\\" + s.User,

@@ -27,6 +27,7 @@ public sealed class WindowsSessionsReader(TimeProvider clock)
         SecureString? secret;
         try { secret = password?.Copy(); }
         catch { Workers.Release(); throw; }
+        var tracked = SecureCredentialCopies.Track(secret);
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = stop.Token;
         var worker = Task.Run(() =>
@@ -34,6 +35,7 @@ public sealed class WindowsSessionsReader(TimeProvider clock)
             try
             {
                 using (secret)
+                using (tracked)
                 {
                     if (secret is null) { return Read(host, token); }
                     var pointer = Marshal.SecureStringToGlobalAllocUnicode(secret);
