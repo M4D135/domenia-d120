@@ -79,6 +79,15 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
         lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return new(options with { Server = server, ConnectTimeout = connectTimeout ?? TimeSpan.FromSeconds(8) }); }
     }
 
+    internal AdConnection ForRead(System.Net.NetworkCredential? selected = null)
+    {
+        lock (_sync)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return new(options with { Server = _server ?? options.Server, Credential = selected ?? options.Credential, ConnectTimeout = TimeSpan.FromSeconds(8) });
+        }
+    }
+
     internal bool UsesWindowsIdentity => options.Credential is null;
 
     internal string? ExplicitLogin => options.Credential is { } credential

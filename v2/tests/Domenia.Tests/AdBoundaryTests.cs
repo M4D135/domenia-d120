@@ -169,6 +169,7 @@ internal static class AdBoundaryTests
         public string Server => "DC1.test.local";
         public List<AdSearchRequest> Searches { get; } = [];
         public IReadOnlyList<AdEntry> Ous { get; set; } = [];
+        public string RootContext { get; set; } = Fixtures.Root;
         public string ConfigurationContext { get; set; } = "";
         public string SchemaContext { get; set; } = "CN=Schema,CN=Configuration," + Fixtures.Root;
         public Func<AdSearchRequest, IReadOnlyList<AdEntry>>? SearchAnswer { get; set; }
@@ -180,7 +181,7 @@ internal static class AdBoundaryTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
-            return Task.FromResult(new AdRootDse(Fixtures.Root, ConfigurationContext, SchemaContext, Fixtures.Root, Server, null, null, [], null));
+            return Task.FromResult(new AdRootDse(RootContext, ConfigurationContext, SchemaContext, Fixtures.Root, Server, null, null, [], null));
         }
 
         public Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken)
