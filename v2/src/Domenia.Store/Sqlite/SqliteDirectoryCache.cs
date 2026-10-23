@@ -5,8 +5,18 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Initializes or migrates on the first explicit stored read, with the native store's backup rules.</summary>
-public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepWriter, Domenia.Core.Poste.ILegacySessionCache
+public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepWriter, Domenia.Core.Poste.ILegacySessionCache, Domenia.Core.Poste.IRemoteTaskReadJournal
 {
+    public async Task<Domenia.Core.Poste.RemoteTaskReadRecord> PrepareTaskReadAsync(Domenia.Core.Poste.RemoteTaskReadPlan plan, CancellationToken cancellationToken)
+    { await Database.InitializeAsync(cancellationToken).ConfigureAwait(false); return await Database.PrepareTaskReadAsync(plan, cancellationToken).ConfigureAwait(false); }
+    public async Task<Domenia.Core.Poste.RemoteTaskReadRecord> CompleteTaskReadAsync(Guid id, long expectedRevision, Domenia.Core.Poste.RemoteTaskReadCompletion completion, CancellationToken cancellationToken)
+    {
+        if (await Database.ReadTaskReadAsync(id, cancellationToken).ConfigureAwait(false) is null) { throw new InvalidDataException("Lecture distante non préparée ; base non créée."); }
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.CompleteTaskReadAsync(id, expectedRevision, completion, cancellationToken).ConfigureAwait(false);
+    }
+    public Task<Domenia.Core.Poste.RemoteTaskReadRecord?> ReadTaskReadAsync(Guid id, CancellationToken cancellationToken) => Database.ReadTaskReadAsync(id, cancellationToken);
+    public Task<ImmutableArray<Domenia.Core.Poste.RemoteTaskReadRecord>> PendingTaskReadsAsync(CancellationToken cancellationToken) => Database.PendingTaskReadsAsync(cancellationToken);
     public Task<Domenia.Core.Poste.LegacySessionCacheRead> ReadLegacySessionsAsync(DirectoryComputer computer, CancellationToken cancellationToken) => Database.ReadLegacySessionsAsync(computer, cancellationToken);
     public Task<WritePrecheck> CheckRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken) => Database.CheckRelationSweepsAsync(request, cancellationToken);
     public Task<WritePrecheck> CheckRelationSweepResetAsync(RelationSweepResetWrite request, CancellationToken cancellationToken) => Database.CheckRelationSweepResetAsync(request, cancellationToken);
