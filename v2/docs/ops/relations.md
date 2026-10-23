@@ -399,3 +399,15 @@ Le circuit appelle une liaison locale facultative après scellement et avant ém
 La cible technique scelle le domaine et l’identifiant de la base. Une relecture de reçu après redémarrage ne nécessite pas les brouillons et ne peut conclure depuis une autre base. Un retrait ne devient conforme que si la clé est absente, y compris lorsqu’une autre version serait revenue. La voie d’exécution exige toujours la préparation liée et la session correspondante, en plus du jeton à usage unique du circuit. Aucun geste de ce lot ne contacte LDAP.
 
 Sept tests ajoutés : circuit complet avec reçu, concurrence sur colonne D1 invisible, plans non liés/copiés/expirés/ancienne session, relecture sans mémoire et autre base, restauration, lots bornés et doublons. Compilés seulement ; exécution réservée à la recette finale. L’exécuteur ne déclare pas encore le contrat complet IRelationChangeExecutor avant implémentation de ses autres gestes.
+
+## 16. Import natif depuis les fichiers d’inventaire (23/10/2026)
+
+Les trois adaptateurs CSV, GLPI et osquery préparent leur aperçu depuis le fichier choisi et l’index local, sans LDAP. Les limites existantes restent appliquées : texte 8 Mio CSV / 2 Mio JSON, 20 000 enregistrements lus, 1 000 affichés, 64 importables par confirmation. Une base partiellement lisible ne permet pas d’établir les conflits et bloque l’aperçu. L’index peut être incomplet : les identités inconnues ou ambiguës ne sont pas importées, sans les présenter comme supprimées d’AD.
+
+Les identités qualifiées sont résolues intégralement avant normalisation : préfixe UPN différent du SAM accepté seulement par l’UPN exact, DNS par le nom réellement indexé, autorité étrangère refusée. La priorité des lignes utilise ensuite les GUID lorsqu’ils sont connus. Une ancienne association d’un autre GUID utilisateur n’est pas déclarée connue sur le seul login réattribué. La source du format prime toujours sur une colonne Source et les ajouts restent des liens importés, jamais des affectations déclarées.
+
+Le moteur conserve les lignes importables, identifiées par un résultat aléatoire, avec la base précise et la session ; 16 résultats au plus, durée 15 minutes. Le navigateur transmet uniquement cet identifiant au plan. Les identités locales sont relues ; les postes associés depuis l’aperçu sont laissés de côté avec une note. Le stockage revérifie dans sa transaction qu’aucune autre association du poste n’est apparue après le plan. Les restaurations historiques restent distinctes de cette règle d’import.
+
+Une date sans décalage au passage d’heure ambigu ou inexistant ne reçoit plus un instant arbitraire. Les dates futures non admises sont écartées avant sélection du dernier relevé osquery ; une date réelle n’est donc pas supplantée par une date future invalidée ensuite. La date d’import, lorsqu’utilisée, est explicitée dans les détails.
+
+Six tests ajoutés couvrent les identités/alias, les sources, import et annulation, conflits concurrents, expiration/session, limites, dates et trois adaptateurs. Compilés uniquement. La recette native et l’exposition du lecteur complet restent à faire.

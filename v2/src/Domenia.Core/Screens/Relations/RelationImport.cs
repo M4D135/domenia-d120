@@ -73,6 +73,10 @@ public static partial class RelationImport
 
     public static RelationAdapterInfo Adapter(RelationImportAdapter id) => Adapters.First(a => a.Id == id);
 
+    /// <summary>Exact known GUID, or the legacy Windows name only when no GUID was stored.</summary>
+    public static bool SameComputer(StoredRelation relation, Guid? guid, string name) => relation.ComputerGuid is { } id
+        ? guid == id : RelationRules.ComputerKey(relation.Computer) == RelationRules.ComputerKey(name);
+
     // ------------------------------------------------------------------ CSV
 
     /// <summary>

@@ -153,6 +153,13 @@ public sealed partial class DomeniaDatabase
         var actual = current.Rows.Where(r => keys.Contains(RelationRules.Key(r.Relation))).ToArray();
         if (actual.GroupBy(r => RelationRules.Key(r.Relation), StringComparer.Ordinal).Any(g => g.Count() > 1))
         { return WritePrecheck.Stale("Plusieurs lignes physiques représentent la même association ; aucun choix arbitraire."); }
+        foreach (var item in request.Items.Where(i => i.Operation == RelationChangeOperation.Add && i.RestoresEntry is null && i.After?.Kind == RelationKind.Imported))
+        {
+            var added = item.After!;
+            if (current.Rows.Any(r => RelationImport.SameComputer(r.Relation, added.ComputerGuid, added.Computer)
+                && RelationRules.Fingerprint(r.Relation) != RelationRules.Fingerprint(added)))
+            { return WritePrecheck.Stale("Un poste de l’import est désormais associé ; préparez un nouvel aperçu. Aucune association remplacée."); }
+        }
         // Physical compare-and-swap also detects legacy confidence/date formatting changes hidden by the typed view.
         foreach (var expected in request.Expected)
         {

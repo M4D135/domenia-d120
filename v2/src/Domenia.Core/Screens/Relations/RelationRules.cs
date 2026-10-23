@@ -400,10 +400,7 @@ public static partial class RelationRules
         if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
         {
             var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
-            if (zone.IsInvalidTime(unspecified))
-            {
-                unspecified = unspecified.AddHours(1);
-            }
+            if (zone.IsInvalidTime(unspecified) || zone.IsAmbiguousTime(unspecified)) { return null; }
             return new DateTimeOffset(unspecified, zone.GetUtcOffset(unspecified)).ToUniversalTime();
         }
         return null;
