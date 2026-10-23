@@ -281,3 +281,27 @@ l’autre en Debug et en Release, 0 erreur et 0 avertissement chacun ; puis les 
 affiché « VM occupée (… plateforme build), attente… » et n’a commencé qu’à la fin du premier. Un fichier présent
 seulement dans la VM a disparu à la synchronisation suivante, `bin` et `Domenia.sln` sont restés. Publication du pack du
 lot dans `C:\DomeniaDev\out\plateforme\Domenia` et captures rapatriées sur le Mac (`CAPTURE.md` § 11).
+
+## 7. Cohérence du pack et contrôle avant lancement
+
+La publication inscrit `DomeniaPackageManifest=required` dans l’assemblage et produit
+`package-manifest.json` après la copie du runtime WebView2 local. Le manifeste contient les chemins relatifs,
+tailles et SHA-256 de tous les fichiers livrés, y compris les runtimes .NET et WebView2. Il est borné à 2 Mio
+et 4 096 fichiers (D2 embarque ses runtimes), sans chemin ambigu, redirection ni doublon. Une différence
+d’octets est refusée, y compris les fins de ligne ; le pack ZIP ne nécessite aucune conversion de texte.
+Une compilation de développement ordinaire reste identifiable et peut fonctionner sans manifeste ;
+supprimer celui d’un exécutable publié ne désactive pas la vérification.
+
+Avant toute composition de session, le programme refuse un marqueur `.update.pending` ou
+`Support/.update.pending`, vérifie les fichiers et les composants indispensables, puis garde ouverts en
+lecture partagée `.lifecycle.lock` et les fichiers contrôlés jusqu’à sa fermeture. Un outil de mise à jour
+doit prendre ce verrou en exclusif avant de modifier le dossier. Les fichiers runtime supplémentaires
+sont refusés ; seule la configuration opérateur `Domenia.config.json` reste modifiable. Préférences,
+reçus et profils restent dans les emplacements de données prévus, hors du paquet.
+
+`Domenia.exe --check-only` (alias `-CheckOnly`, option seule) vérifie un paquet sans fenêtre, profil ni
+session annuaire ; sortie 0 si conforme, 2 sinon, diagnostic UTF-8 sur la sortie d’erreur. La publication
+exécute ce contrôle local avant de créer le ZIP. Les échecs au démarrage normal sont également journalisés.
+Ce contrôle établit la cohérence des fichiers ; le manifeste n’est pas signé et ne prouve pas l’identité
+de l’éditeur. Les tests de refus et de verrouillage sont écrits ; leur qualification et celle du pack
+réel restent dans la phase finale de validation en VM.

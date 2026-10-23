@@ -12,6 +12,8 @@ public sealed record SyncLocalState(string StoreId, string DomainDn, long Revisi
     ImmutableArray<SyncStorageReceipt> Receipts, DateTimeOffset? BackupAt)
 {
     public RelationSweepCacheSnapshot? Park { get; init; }
+    public int UnidentifiedLegacyObjects { get; init; }
+    public string? LegacyArchiveFingerprint { get; init; }
 }
 
 /// <summary>A closed local mutation bound to the exact reviewed base and to a sealed operator plan.</summary>
@@ -44,7 +46,7 @@ public static class SyncLocalIdentity
     public static string Target(string storeId, string domainDn) => "DomeniaSync:" + storeId + ":" + domainDn;
     public static string Fingerprint(SyncLocalState state) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
     {
-        state.StoreId, state.DomainDn, state.Revision, state.Available,
+        state.StoreId, state.DomainDn, state.Revision, state.Available, state.UnidentifiedLegacyObjects, state.LegacyArchiveFingerprint,
         Park = state.Park is { } park ? new { park.Fingerprint, park.Generation, park.Total, park.Rejected, park.Truncated } : null,
         Rows = state.Rows.OrderBy(x => x.ObjectGuid), Scopes = state.Scopes.OrderBy(x => x.Key, StringComparer.Ordinal),
         Absences = state.Absences.OrderBy(x => x.ObjectGuid), Gaps = state.Gaps.OrderBy(x => x.ObjectGuid),

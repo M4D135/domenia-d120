@@ -33,6 +33,8 @@ public sealed partial class DomeniaDatabase
             string? Association(IndexRecord row) => links.FirstOrDefault(l => string.Equals(l["computer_guid"] as string, row.ObjectGuid.ToString("D"), StringComparison.OrdinalIgnoreCase)
                 || string.Equals(l["computer"] as string, row.Name, StringComparison.OrdinalIgnoreCase))?["user_login"] as string;
             var result = SyncIndex.Page(rows, query, Association, revision);
+            var legacy = ReadUnidentifiedIndex(db, query.Scope);
+            if (legacy.Count > 0) { result = result with { Message = result.Message + " " + LegacyIndexNotice(legacy.Count) }; }
             db.Commit();
             return result;
         }
@@ -42,7 +44,7 @@ public sealed partial class DomeniaDatabase
     private ImmutableArray<IndexRecord> IndexRows(SqliteDatabase db, ScopeSelection? scope)
     {
         var facts = Table(db, "ad_computer_facts");
-        var sql = "SELECT a.object_guid,a.object_type,a.name,a.login,a.upn,a.display_name,a.description,a.extra,a.state,a.distinguished_name,a.when_changed,a.usn_changed,a.last_logon,a.synced_at,"
+        var sql = "SELECT a.object_key,a.object_guid,a.object_type,a.name,a.login,a.upn,a.display_name,a.description,a.extra,a.state,a.distinguished_name,a.when_changed,a.usn_changed,a.last_logon,a.synced_at,"
             + (facts ? "f.laps_kind,f.laps_expiry FROM ad_objects a LEFT JOIN ad_computer_facts f ON f.object_guid=a.object_guid" : "NULL AS laps_kind,NULL AS laps_expiry FROM ad_objects a")
             + " WHERE a.object_type IN ('Utilisateur','Machine')";
         object?[] parameters = [];
@@ -57,6 +59,7 @@ public sealed partial class DomeniaDatabase
         {
             string? Text(string key) => row[key] as string;
             var dn = Text("distinguished_name");
+            if (string.IsNullOrEmpty(Text("object_guid")) && InDomain(dn) && string.Equals(Text("object_key"), Text("object_type") + "|" + dn, StringComparison.OrdinalIgnoreCase)) { continue; }
             if (!Guid.TryParse(Text("object_guid"), out var id) || id == Guid.Empty || !InDomain(dn) || !identities.Add(id))
             {
                 throw new InvalidDataException("Identité illisible ou dupliquée dans l’index local : relisez son contrôle d’intégrité.");
@@ -82,7 +85,7 @@ public sealed partial class DomeniaDatabase
     {
         if (string.IsNullOrWhiteSpace(value)) { return null; }
         if (value.Contains('T', StringComparison.Ordinal) && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var iso)) { return iso; }
-        if (DateTime.TryParseExact(value, ["dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "yyyy-MM-dd HH:mm:ss"], CultureInfo.GetCultureInfo("fr-FR"), DateTimeStyles.None, out var date))
+        if (DateTime.TryParseExact(value, ["dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd/MM/yyyy", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd"], CultureInfo.GetCultureInfo("fr-FR"), DateTimeStyles.None, out var date))
         {
             return clock.LocalTimeZone.IsInvalidTime(date) ? null : new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(date, clock.LocalTimeZone), TimeSpan.Zero);
         }

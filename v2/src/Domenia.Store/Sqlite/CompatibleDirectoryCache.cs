@@ -81,7 +81,7 @@ public sealed partial class CompatibleDirectoryCache(string appFolder, string us
                 var labels = joinedDomain.Split('.');
                 if (labels.Any(l => l.Length is 0 or > 63 || !l.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))) { throw new InvalidDataException("Nom de domaine invalide pour le stockage local."); }
                 var domainDn = string.Join(',', labels.Select(l => "DC=" + l));
-                var path = ResolvePath(appFolder, userFolder, domainDn, isolated);
+                var path = ReadSwitchState()?.ActivePath ?? ResolvePath(appFolder, userFolder, domainDn, isolated);
                 return new SqliteDirectoryCache(new DomeniaDatabase(path, domainDn, clock));
             }, token).ConfigureAwait(false);
         }

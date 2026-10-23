@@ -136,7 +136,10 @@ public sealed record LegacySource(
     ImmutableDictionary<string, long> TargetRows,
     string Marker,
     string? AppliedMarker,
-    DateTimeOffset? ImportedAt);
+    DateTimeOffset? ImportedAt)
+{
+    public string? ReadProblem { get; init; }
+}
 
 /// <summary>
 /// Snapshot of the local base of the mode, as the reader of the screen sees it. In simulation it is a fictitious base kept in

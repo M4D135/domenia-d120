@@ -19,6 +19,7 @@
     <Compile Include="../../src/Domenia.App/Capture/CaptureArguments.cs" Link="Linked/CaptureArguments.cs" />
     <Compile Include="../../src/Domenia.App/Capture/CaptureSequence.cs" Link="Linked/CaptureSequence.cs" />
     <Compile Include="../../src/Domenia.App/AccueilHostFiles.cs" Link="Linked/AccueilHostFiles.cs" />
+    <Compile Include="../../src/Domenia.App/PackageIntegrity.cs" Link="Linked/PackageIntegrity.cs" />
     <Using Include="System.Drawing" />
   </ItemGroup>
 </Project>

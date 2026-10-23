@@ -58,7 +58,7 @@ public sealed partial class DomeniaDatabase
 
     private OperationsLocalState EmptyOperations() => new(StoreId, DomainDn, 0, [], [], null);
     private static string OperationsHash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-    private OperationsLocalState ReadOperations(SqliteDatabase db)
+    private OperationsLocalState ReadOperations(SqliteDatabase db, string? expectedStoreId = null)
     {
         if (!Table(db, "domenia_v2_operations")) { return EmptyOperations(); }
         var rows = db.Query("SELECT revision,CASE WHEN length(CAST(payload AS BLOB))<=8388608 THEN payload END AS payload,sha256 FROM domenia_v2_operations WHERE id=1;");
@@ -67,7 +67,7 @@ public sealed partial class DomeniaDatabase
         if (row["payload"] is not string payload || OperationsHash(payload) != row["sha256"] as string)
         { throw new InvalidDataException("Journal d’opérations altéré ou hors limites."); }
         var result = JsonSerializer.Deserialize<OperationsLocalState>(payload, Json) ?? throw new InvalidDataException("Journal vide.");
-        if (result.StoreId != StoreId || !DistinguishedName.AreEqual(result.DomainDn, DomainDn) || result.Revision != (long?)row["revision"])
+        if (result.StoreId != (expectedStoreId ?? StoreId) || !DistinguishedName.AreEqual(result.DomainDn, DomainDn) || result.Revision != (long?)row["revision"])
         { throw new InvalidDataException("Identité du journal d’opérations incohérente."); }
         OperationsPersistence.Validate(result); return result;
     }

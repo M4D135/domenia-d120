@@ -66,6 +66,7 @@ public sealed partial class DomeniaDatabase
                 using var db = new SqliteDatabase(Path, false, cancellationToken: token); CheckIdentity(db, false); EnsureBackup(db, token);
                 db.Script("PRAGMA synchronous=FULL;"); db.Begin(); CheckIdentity(db, false);
                 var old = ReadTaskRead(db, id) ?? throw new InvalidDataException("Lecture distante non préparée ; reçu sans autorité.");
+                if (old.Plan.StoreId != StoreId) { throw new InvalidDataException("Reçu historique d’un autre emplacement ; aucune écriture ou reprise autorisée."); }
                 if (old.Completion == completion) { db.Commit(); return old; }
                 if (old.Revision != expectedRevision || old.Revision == long.MaxValue || !old.CleanupRequired)
                 { throw new InvalidDataException("Reçu périmé ou lecture déjà nettoyée ; état conservé."); }
@@ -130,7 +131,7 @@ public sealed partial class DomeniaDatabase
         if (row["plan"] is not string json || RemoteHash(json) != row["plan_hash"] as string) { throw new InvalidDataException("Plan distant illisible ou altéré."); }
         var plan = JsonSerializer.Deserialize<RemoteTaskReadPlan>(json, Json) ?? throw new InvalidDataException("Plan distant absent.");
         RemoteTaskReadRules.Validate(plan, clock.GetUtcNow());
-        if (plan.Id != id || plan.StoreId != StoreId || !InDomain(plan.ComputerDn) || plan.ComputerGuid.ToString("D") != row["computer_guid"] as string
+        if (plan.Id != id || plan.StoreId != StoreId && !HistoricalStore(db, plan.StoreId) || !InDomain(plan.ComputerDn) || plan.ComputerGuid.ToString("D") != row["computer_guid"] as string
             || plan.Host != row["host"] as string || row["revision"] is not long revision || revision < 1)
         { throw new InvalidDataException("Identité du journal de lecture incompatible."); }
         RemoteTaskReadCompletion? completion = null;
@@ -142,6 +143,7 @@ public sealed partial class DomeniaDatabase
         }
         else if ((long)row["has_completion"]! != 0) { throw new InvalidDataException("Reçu incomplet ou hors limites."); }
         var record = new RemoteTaskReadRecord(plan, revision, completion);
+        if (plan.StoreId != StoreId && record.CleanupRequired) { throw new InvalidDataException("Lecture distante non terminée dans un magasin historique ; aucun nettoyage sous une nouvelle identité."); }
         if (row["pending"] is not long pending || pending != (record.CleanupRequired ? 1 : 0)) { throw new InvalidDataException("État de nettoyage contradictoire."); }
         return record;
     }

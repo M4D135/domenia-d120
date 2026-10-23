@@ -211,6 +211,25 @@ internal static class AdQueryNativeTests
     }
 
     [Test]
+    public static async Task Workshop_probe_failure_invalidates_session_verdict_even_when_storage_fails()
+    {
+        var pc = Fixtures.Computer("PC1"); var cache = new QueryCache(Fixtures.Snapshot(computers: [pc]));
+        await cache.SaveQueryResultsAsync(Reading(pc), CancellationToken.None);
+        using var ldap = new AdBoundaryTests.RecordingAdConnection { SearchAnswer = q => q.BaseDn == pc.DistinguishedName ? [AdPosteNetworkTests.Entry(pc)] : [] };
+        using var source = new AdDirectorySource("test.local", () => @"TEST\operator", TestClock.Fixed(), connection: ldap, localStore: cache);
+        var reader = new AdQueryWorkshopReader(source) { InventoryReaderOverride = _ => Native(_ => [Row(("Name", "OTHER"))]) };
+        var before = await reader.DatasetAsync(CancellationToken.None); cache.FailWrites = true;
+        var result = await reader.MeasureAsync(new([pc.ObjectGuid], false, false, false, ["hw.model"]), CancellationToken.None);
+        Check.Equal(1, result.Failed, "échec Windows conservé dans le bilan malgré le disque");
+        var after = await reader.DatasetAsync(CancellationToken.None);
+        Check.True(after.Probes[pc.ObjectGuid].Single().Error is not null, "ancien verdict sonde invalidé en mémoire");
+        Check.False(after.Probes[pc.ObjectGuid].Single().CountComplete, "ancien compte jamais annoncé complet après échec");
+        Check.True(cache.Stored.Computers.Single().Probes.Single().CountComplete, "ancien disque conservé dans le défaut simulé");
+        Check.True(cache.LastWriteCancelable, "persistance bornée");
+        Check.True(before.Version != after.Version, "version locale modifiée sans persistance");
+    }
+
+    [Test]
     public static void Workshop_relation_paths_refuse_foreign_hosts_namespaces_and_multiple_keys()
     {
         Check.NotNull(WorkshopRelationPath.Parse("Win32_LogicalDisk.DeviceID=\"C:\"", "pc1.test.local", @"root\cimv2"), "chemin local accepté");

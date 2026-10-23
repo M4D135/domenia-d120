@@ -51,6 +51,7 @@ public sealed class AdSyncStoreExecutor(AdDirectorySource source) : ISyncStoreEx
         var local = await Store.ReadSyncStateAsync(cancellationToken).ConfigureAwait(false);
         if (!SyncLocations.InScope(scope.Dn, local.DomainDn) || scope.IsDomain != DistinguishedName.AreEqual(scope.Dn, local.DomainDn))
         { throw new DomeniaOperationException(SyncErrors.OutsideDomain, "Périmètre du relevé hors domaine ou ambigu."); }
+        if (local.UnidentifiedLegacyObjects > 0) { throw WriteErrors.Refusal(WriteErrors.Stale, "Des objets historiques sans GUID doivent être relus dans l’annuaire avant de capturer un relevé."); }
         if (local.Snapshots.Length >= SyncSnapshots.MaxPerDomain) { throw new DomeniaOperationException(SyncErrors.SnapshotLimit, SyncErrors.SnapshotLimitMessage); }
         var selection = new ScopeSelection(scope.Dn, scope.Label, scope.Subtree);
         var lines = local.Rows.Where(x => ScopeRules.Contains(selection, x.Dn)).Select(SnapshotLine.From).ToImmutableArray();

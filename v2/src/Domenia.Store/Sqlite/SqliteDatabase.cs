@@ -12,12 +12,16 @@ internal sealed class SqliteDatabase : IDisposable
     private readonly CancellationToken cancellationToken;
     private readonly Native.Progress progress;
     private bool transaction;
+    private IDisposable? storageWriter;
 
     public SqliteDatabase(string path, bool readOnly, int busyTimeoutMs = 2500, CancellationToken cancellationToken = default)
     {
         this.cancellationToken = cancellationToken;
         progress = _ => cancellationToken.IsCancellationRequested ? 1 : 0;
-        var code = Native.sqlite3_open_v2(path, out handle, (readOnly ? 1 : 2 | 4) | 65536, IntPtr.Zero);
+        if (!readOnly) { storageWriter = StorageWriteFence.Writer(path, cancellationToken); }
+        int code;
+        try { code = Native.sqlite3_open_v2(path, out handle, (readOnly ? 1 : 2 | 4) | 65536, IntPtr.Zero); }
+        catch { storageWriter?.Dispose(); storageWriter = null; throw; }
         if (code != 0)
         {
             Dispose();
@@ -178,11 +182,12 @@ internal sealed class SqliteDatabase : IDisposable
 
     public void Dispose()
     {
-        if (handle == IntPtr.Zero) { return; }
+        if (handle == IntPtr.Zero) { storageWriter?.Dispose(); storageWriter = null; return; }
         // close_v2 rolls back an uncommitted transaction and releases the connection after its statements.
         Native.sqlite3_close_v2(handle);
         handle = IntPtr.Zero;
         GC.KeepAlive(progress);
+        storageWriter?.Dispose(); storageWriter = null;
     }
 
     private sealed class Statement(IntPtr handle) : IDisposable

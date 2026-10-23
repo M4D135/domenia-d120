@@ -25,4 +25,7 @@
   <ItemGroup>
     <Content Include="../../web/**/*" LinkBase="web" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup Condition="'$(DomeniaRequirePackageManifest)' == 'true'">
+    <AssemblyMetadata Include="DomeniaPackageManifest" Value="required" />
+  </ItemGroup>
 </Project>

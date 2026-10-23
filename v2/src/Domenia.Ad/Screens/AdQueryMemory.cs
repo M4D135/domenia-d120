@@ -23,10 +23,12 @@ internal sealed class AdQueryMemory(AdDirectorySource source)
     { if (failureEpoch != expected) { failures.Clear(); failureEpoch = expected; failureRevision = 0; } }
 
     /// <summary>A failed attempt invalidates the session verdict before any fallible disk operation.</summary>
-    internal QueryComputerReadings? Invalidate(DirectoryComputer computer, string requestKey, long expected)
+    internal QueryComputerReadings? Invalidate(DirectoryComputer computer, string requestKey, long expected) =>
+        Invalidate(computer, [], [new(requestKey, source.Clock.GetUtcNow(), false, 0, false, false)], expected);
+
+    internal QueryComputerReadings? Invalidate(DirectoryComputer computer, ImmutableArray<ProbeReading> probes, ImmutableArray<StoredWmiResult> details, long expected)
     {
-        var failure = new QueryComputerReadings(computer.ObjectGuid, computer.DistinguishedName, computer.WhenCreated, [],
-            [new(requestKey, source.Clock.GetUtcNow(), false, 0, false, false)]);
+        var failure = new QueryComputerReadings(computer.ObjectGuid, computer.DistinguishedName, computer.WhenCreated, probes, details);
         lock (failureGate)
         {
             // Session changes must neither install an old failure nor replace the exception that caused it.
@@ -52,7 +54,8 @@ internal sealed class AdQueryMemory(AdDirectorySource source)
                 {
                     // A failed session attempt wins even if a stored clock is slightly ahead. Only a later
                     // successful save through this session explicitly clears the failure overlay.
-                    var retained = old with { Details = [.. old.Details.Where(d => !failure.Details.Any(f => f.RequestKey == d.RequestKey))] };
+                    var retained = old with { Details = [.. old.Details.Where(d => !failure.Details.Any(f => f.RequestKey == d.RequestKey))],
+                        Probes = [.. old.Probes.Where(p => !failure.Probes.Any(f => f.ProbeId == p.ProbeId))] };
                     computers[failure.Computer] = QueryReadingRules.Merge(retained, failure);
                 }
                 // A failure of an old DN or incarnation is never transferred to a new identity.
@@ -70,10 +73,34 @@ internal sealed class AdQueryMemory(AdDirectorySource source)
                 && DistinguishedName.AreEqual(p.Value.Dn, next.Dn)).ToArray())
             {
                 var remaining = failed.Details.Where(d => !next.Details.Any(n => n.RequestKey == d.RequestKey && n.Success && n.At >= d.At)).ToImmutableArray();
-                if (remaining.Length == failed.Details.Length) { continue; }
-                if (remaining.IsEmpty) { failures.Remove(identity); } else { failures[identity] = failed with { Details = remaining }; }
+                var probes = failed.Probes.Where(p => !next.Probes.Any(n => n.ProbeId == p.ProbeId && n.Error is null && n.CheckedAt >= p.CheckedAt)).ToImmutableArray();
+                if (remaining.Length == failed.Details.Length && probes.Length == failed.Probes.Length) { continue; }
+                if (remaining.IsEmpty && probes.IsEmpty) { failures.Remove(identity); } else { failures[identity] = failed with { Details = remaining, Probes = probes }; }
                 failureRevision++;
             }
+        }
+    }
+
+    internal async Task PersistFailureAsync(QueryComputerReadings? failure, Exception original)
+    {
+        if (failure is null || source.LocalStore is not IQueryResultsStore store) { return; }
+        using var persistence = new CancellationTokenSource(TimeSpan.FromSeconds(2), source.Clock);
+        try
+        {
+            var write = store.SaveQueryResultsAsync(failure, persistence.Token);
+            _ = write.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            await write.WaitAsync(persistence.Token).ConfigureAwait(false);
+        }
+        catch (Exception storageError)
+        {
+            original.Data["query.invalidation"] = "Échec invalidé pour cette session ; persistance non confirmée (" + storageError.GetType().Name + ").";
+            try
+            {
+                source.AccountContext?.Log.Warning("Requêtes : invalidation locale non persistée (" + storageError.GetType().Name + ") ; l’erreur initiale est conservée.");
+                source.AccountContext?.Journal.Add(new(source.Clock.GetUtcNow(), "Requêtes : dernier échec conservé en mémoire ; la base locale n’a pas confirmé son enregistrement.", Tone.Warn));
+            }
+            catch (Exception diagnosticError) { original.Data["query.invalidation.diagnostic"] = diagnosticError.GetType().Name; }
         }
     }
 

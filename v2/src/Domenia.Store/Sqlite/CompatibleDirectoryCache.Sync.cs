@@ -7,7 +7,7 @@ public sealed partial class CompatibleDirectoryCache : ILocalStoreInspection, IS
     public async Task<WriteVerification> VerifySyncChangeAsync(WritePlan plan, CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).VerifySyncChangeAsync(plan, cancellationToken).ConfigureAwait(false);
     public async Task<LocalStoreSnapshot> InspectLocalStoreAsync(bool measure, bool integrity, CancellationToken cancellationToken) =>
-        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).InspectLocalStoreAsync(measure, integrity, cancellationToken).ConfigureAwait(false);
+        await WithLegacySourcesAsync(WithSwitchState(await (await CacheAsync(cancellationToken).ConfigureAwait(false)).InspectLocalStoreAsync(measure, integrity, cancellationToken).ConfigureAwait(false)), cancellationToken).ConfigureAwait(false);
     public async Task<SyncLocalState> ReadSyncStateAsync(CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadSyncStateAsync(cancellationToken).ConfigureAwait(false);
     public async Task<IndexSearchPage> SearchSyncIndexAsync(IndexQuery query, CancellationToken cancellationToken) =>

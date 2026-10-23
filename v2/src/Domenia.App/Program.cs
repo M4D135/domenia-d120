@@ -1,4 +1,5 @@
 using System.Text;
+using System.Reflection;
 using Domenia.Ad;
 using Domenia.App.Capture;
 using Domenia.App.E2e;
@@ -22,6 +23,9 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        using var package = CheckPackage(args, out var checkOnly);
+        if (package is null) { return 2; }
+        if (checkOnly) { return 0; }
         // Last resort traces: a crash or a forgotten task never leaves the journal empty.
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
@@ -80,8 +84,39 @@ internal static class Program
             Fail("Échec du démarrage.", ex);
         }
 #pragma warning restore CA1031
-        // Without --capture the exit code stays 0, as before the option existed; an E2E run that failed ends with 2.
-        return capture?.Finish() ?? (e2e is not null && Volatile.Read(ref failed) != 0 ? E2eArguments.FailureCode : 0);
+        // Keep a failure raised by the native close guard, even if the UI itself completed normally.
+        var captureCode = capture?.Finish() ?? 0;
+        return Volatile.Read(ref failed) != 0 || Environment.ExitCode != 0 ? E2eArguments.FailureCode : captureCode;
+    }
+
+    private static PackageIntegrity? CheckPackage(string[] args, out bool checkOnly)
+    {
+        checkOnly = args.Any(x => x.Equals("--check-only", StringComparison.OrdinalIgnoreCase) || x.Equals("-CheckOnly", StringComparison.OrdinalIgnoreCase));
+        var unattended = checkOnly || args.Any(x => x.Equals("--capture", StringComparison.OrdinalIgnoreCase) || x.Equals("--e2e-port", StringComparison.OrdinalIgnoreCase)) || OfflineDossierCommand.IsRequested(args);
+#pragma warning disable CA1031 // Startup boundary: refuse safely before the UI or any native session exists.
+        try
+        {
+            if (!OperatingSystem.IsWindows() || !Environment.Is64BitProcess) { throw new InvalidOperationException("Domenia exige Windows 64 bits."); }
+            if (checkOnly && args.Length != 1) { throw new ArgumentException("Utilisez --check-only seul pour vérifier le paquet sans ouvrir de session."); }
+            var required = typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Any(x => x.Key == "DomeniaPackageManifest" && x.Value == "required");
+            var started = System.Diagnostics.Stopwatch.GetTimestamp();
+            var result = PackageIntegrity.Open(AppContext.BaseDirectory, required || checkOnly);
+            var message = result.Packaged
+                ? $"Paquet vérifié : {result.FilesChecked} fichiers, {System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms. Empreintes de cohérence, sans preuve de signature de l’éditeur."
+                : "Exécution depuis une compilation de développement, sans manifeste de paquet.";
+            if (checkOnly) { WriteStandardError(message); } else { TechnicalLog.Info(message); }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            var message = "Domenia | Démarrage refusé\n" + ex.Message;
+            WriteStandardError(message);
+            if (!checkOnly) { TechnicalLog.Error("Contrôle préalable du paquet refusé.", ex); }
+            if (!unattended) { MessageBox.Show(message, "Domenia | Démarrage", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            return null;
+        }
+#pragma warning restore CA1031
     }
 
     /// <summary>

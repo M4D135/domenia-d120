@@ -35,6 +35,21 @@ internal static class NativeStoragePurgeTests
     }
 
     [Test]
+    public static async Task Native_history_purge_recognizes_snapshot_day_without_inventing_invalid_dates()
+    {
+        using var setup = new Setup(); await setup.Initialize();
+        using (var db = new SqliteDatabase(setup.Database.Path, false))
+        {
+            db.Execute("INSERT INTO fleet_snapshots(scope_key,snapshot_day,scope_dn) VALUES('old','2020-01-01',?1);", Fixtures.Root);
+            db.Execute("INSERT INTO fleet_snapshots(scope_key,snapshot_day,scope_dn) VALUES('invalid','2020-99-99',?1);", Fixtures.Root);
+        }
+        var plan = await setup.Plan(["history"]); await setup.Executor.ExecuteAsync(plan, None);
+        using var check = new SqliteDatabase(setup.Database.Path, true);
+        Check.Equal(1L, (long)check.Scalar("SELECT count(*) FROM fleet_snapshots;")!, "date invalide conservée, journée ancienne purgée");
+        Check.Equal("invalid", check.Scalar("SELECT scope_key FROM fleet_snapshots;") as string, "aucune date inventée");
+    }
+
+    [Test]
     public static async Task Index_purge_clears_native_and_legacy_projections_but_keeps_secrets_associations_and_receipts()
     {
         using var setup = new Setup(); await setup.Initialize();

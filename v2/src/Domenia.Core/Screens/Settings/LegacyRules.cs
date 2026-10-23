@@ -123,6 +123,8 @@ public static class LegacyRules
         var steps = new List<LegacyStep>();
         var blockers = new List<string>();
         var lines = new List<string>();
+        if (source.ReadProblem is { Length: > 0 } problem)
+        { return new LegacyPlan([], [problem], 0, false, false, ["Lecture des sources historiques interrompue : " + problem]); }
         if (!source.Found)
         {
             lines.Add("Aucune donnée de Domenia 1 trouvée sur ce poste" + FrenchText.Colon + "rien à reprendre.");
@@ -203,10 +205,10 @@ public static class LegacyRules
                     blockers.Add("Fichier " + name + " en cours d’écriture" + FrenchText.Colon + "il n’a pas pu être lu sous un verrou partagé ; refaites la simulation.");
                 }
             }
-            var domains = files.Where(f => string.Equals(f.Kind, "Objets", StringComparison.OrdinalIgnoreCase)).SelectMany(f => f.Domains).Select(Normalize).Where(d => d.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            var domains = files.SelectMany(f => f.Domains).Select(Normalize).Where(d => d.Length > 0).Distinct(StringComparer.Ordinal).ToList();
             if (domains.Count > 1)
             {
-                blockers.Add("Plusieurs domaines dans les objets historiques" + FrenchText.Colon + "reprise refusée.");
+                blockers.Add("Plusieurs domaines dans les identités historiques" + FrenchText.Colon + "reprise refusée.");
             }
             else if (!already)
             {
@@ -252,7 +254,7 @@ public static class LegacyRules
                     continue;
                 }
                 steps.Add(target == "user_machine_links"
-                    ? new LegacyStep("file." + file.Kind, file.Path, label, target, "add", file.Rows, "Un lien par poste, le plus récent ; les associations existantes sont conservées, la source d’origine reste dans le détail.")
+                    ? new LegacyStep("file." + file.Kind, file.Path, label, target, "add", file.Rows, "Un lien par poste, le plus récent ; les associations existantes sont conservées, aucun détail libre repris.")
                     : new LegacyStep("file." + file.Kind, file.Path, label, target, "import", file.Rows, FrenchText.Count(file.Rows, "ligne reprise", "lignes reprises") + " dans une table vide ; fichier historique conservé."));
             }
             var rejected = files.Sum(f => (long)f.Rejected);

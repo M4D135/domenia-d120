@@ -94,27 +94,33 @@ public sealed class AdQueryWorkshopReader(AdDirectorySource source) : IQueryWork
                     if (probe.SkipOnDc && (pc.UserAccountControl & AdValues.ServerTrustAccount) != 0)
                     { await AdQueryMemory.For(source).SaveAsync(pc, [new(probe.Id, source.Clock.GetUtcNow(), null, true, false, null, false, [])], [], epoch, stop.Token).ConfigureAwait(false); continue; }
                     var query = WqlRules.Parse("SELECT " + string.Join(", ", probe.Properties) + " FROM " + probe.Class + (probe.Filter.Length == 0 ? "" : " WHERE " + probe.Filter));
-                    var (_, read) = await wmi.ReadAsync(pc.ObjectGuid, probe.Namespace, query, probe.Mode == "First" ? 1 : 500, stop.Token).ConfigureAwait(false);
+                    var (engaged, read) = await wmi.ReadAsync(pc.ObjectGuid, probe.Namespace, query, probe.Mode == "First" ? 1 : 500, stop.Token, actual =>
+                    {
+                        if (actual.WhenCreated != pc.WhenCreated || !DistinguishedName.AreEqual(actual.DistinguishedName, pc.DistinguishedName))
+                        { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Poste déplacé ou recréé depuis la préparation de la collecte."); }
+                    }).ConfigureAwait(false);
                     var instances = read.Rows.Select((r, i) => new ProbeInstance(i.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         probe.Properties.ToImmutableDictionary(p => p, p => r.Raw(p), StringComparer.OrdinalIgnoreCase), ImmutableArray<string>.Empty)).ToImmutableArray();
                     // A first-instance probe intentionally stops at one item; its value is usable, never a complete collection count.
                     var truncated = !read.Complete && probe.Mode != "First";
                     var stored = new QueryProbeReading(probe.Id, read.At, null, false, truncated, instances.Length, read.Complete, instances);
-                    await AdQueryMemory.For(source).SaveAsync(pc, [stored], [], epoch, stop.Token).ConfigureAwait(false); ok &= !truncated;
+                    await AdQueryMemory.For(source).SaveAsync(engaged, [stored], [], epoch, stop.Token).ConfigureAwait(false); ok &= !truncated;
                 }
                 foreach (var detail in request.DetailReads)
                 { var result = await wmi.SelectAsync(pc.ObjectGuid, detail.Namespace, WqlRules.Parse(detail.CanonicalQuery), detail.Limit, stop.Token).ConfigureAwait(false); ok &= !result.Truncated; }
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested) { ok = false; }
-            catch (Exception ex) when (ex is DomeniaOperationException or QueryDefinitionException or PingException or IOException)
+            catch (Exception ex) when (ex is DomeniaOperationException or QueryDefinitionException or PingException or IOException or OperationCanceledException)
             {
                 if (source.Epoch != epoch) { throw; }
                 ok = false;
                 // A fresh failed attempt supersedes old successful criteria; it must not silently renew their age.
                 var at = source.Clock.GetUtcNow();
-                await AdQueryMemory.For(source).SaveAsync(pc,
+                var memory = AdQueryMemory.For(source);
+                var failure = memory.Invalidate(pc,
                     [.. probes.Select(p => new QueryProbeReading(p.Id, at, "Collecte interrompue ou source non lue ; relancer explicitement.", false, false, null, false, []))],
-                    [.. request.DetailReads.Select(d => new StoredWmiResult(d.RequestKey, at, false, 0, false, false))], epoch, CancellationToken.None).ConfigureAwait(false);
+                    [.. request.DetailReads.Select(d => new StoredWmiResult(d.RequestKey, at, false, 0, false, false))], epoch);
+                await memory.PersistFailureAsync(failure, ex).ConfigureAwait(false);
+                if (cancellationToken.IsCancellationRequested) { throw; }
             }
             if (ok) { answered++; } else { failed++; }
         }

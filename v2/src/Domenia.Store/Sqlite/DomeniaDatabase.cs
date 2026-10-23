@@ -155,7 +155,7 @@ public sealed partial class DomeniaDatabase
         if (!IsCurrent(db)) { throw new InvalidDataException("Schéma incomplet : mise à niveau annulée."); }
     }
 
-    private void CheckIdentity(SqliteDatabase db, bool allowLegacy)
+    private void CheckIdentity(SqliteDatabase db, bool allowLegacy, string? expectedStoreId = null)
     {
         if (!Table(db, "schema_info")) { throw new InvalidDataException("Version de base inconnue : aucune modification."); }
         var header = db.Query("SELECT key,value FROM schema_info WHERE key IN ('schema_version','domenia_schema');");
@@ -172,7 +172,7 @@ public sealed partial class DomeniaDatabase
             if (states.Count > 1) { throw new InvalidDataException("Identité de stockage ambiguë."); }
             if (states.Count == 1)
             {
-                if (!string.Equals((string?)states[0]["domain_dn"], DomainDn, StringComparison.OrdinalIgnoreCase) || (string?)states[0]["store_id"] != StoreId)
+                if (!string.Equals((string?)states[0]["domain_dn"], DomainDn, StringComparison.OrdinalIgnoreCase) || (string?)states[0]["store_id"] != (expectedStoreId ?? StoreId))
                 {
                     throw new InvalidDataException("Cette base appartient à un autre domaine ou emplacement : utilisez l’assistant de restauration.");
                 }

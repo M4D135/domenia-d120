@@ -72,12 +72,25 @@ if ($Test) {
 if ($Publish) {
     $out = Join-Path $outBase 'Domenia'
     if (Test-Path $out) { Remove-Item -Recurse -Force $out }
-    & $dotnet publish src\Domenia.App\Domenia.App.csproj -c Release -o $out -nologo -v:minimal -p:PublishReadyToRun=false
+    & $dotnet publish src\Domenia.App\Domenia.App.csproj -c Release -o $out -nologo -v:minimal -p:PublishReadyToRun=false -p:DomeniaRequirePackageManifest=true
     if ($LASTEXITCODE) { exit $LASTEXITCODE }
     $wv = Join-Path $out 'runtime\webview2'
     New-Item -ItemType Directory -Force -Path $wv | Out-Null
     $src = Get-ChildItem -Recurse -Filter msedgewebview2.exe -Path 'C:\DomeniaDev\cache\webview2\runtime' | Select-Object -First 1
+    if (-not $src) { throw 'Runtime WebView2 fixe absent du cache local ; aucun téléchargement automatique.' }
     Copy-Item -Recurse -Force (Join-Path $src.DirectoryName '*') $wv
+    # Exact bytes, including the fixed browser and .NET runtime. The manifest detects mixed versions; it is not signed.
+    [IO.File]::WriteAllBytes((Join-Path $out '.lifecycle.lock'), [byte[]]@())
+    $components = @(Get-ChildItem -LiteralPath $out -Recurse -File | Where-Object { $_.Name -ne '.lifecycle.lock' } | Sort-Object FullName | ForEach-Object {
+        if (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw 'Composant du paquet redirigé.' }
+        [ordered]@{ path = $_.FullName.Substring($out.Length + 1).Replace('\', '/'); length = $_.Length; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+    })
+    if ($components.Count -lt 10 -or $components.Count -gt 4096) { throw 'Nombre de composants du paquet hors limites.' }
+    $manifest = [ordered]@{ format = 1; files = $components } | ConvertTo-Json -Depth 4
+    [IO.File]::WriteAllText((Join-Path $out 'package-manifest.json'), $manifest, (New-Object Text.UTF8Encoding $false))
+    # This is a local packaging preflight, not a functional test suite or a network recipe.
+    $check = Start-Process -FilePath (Join-Path $out 'Domenia.exe') -ArgumentList '--check-only' -Wait -PassThru -NoNewWindow
+    if ($check.ExitCode -ne 0) { throw "Contrôle du paquet refusé (code $($check.ExitCode))." }
     "Pack : $out ($([math]::Round(((Get-ChildItem -Recurse $out | Measure-Object Length -Sum).Sum/1MB),1)) Mo)"
     if ($Zip) {
         # The archive operators download: one Domenia folder at its root.

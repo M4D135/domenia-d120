@@ -118,7 +118,8 @@ public sealed partial class DomeniaDatabase
             { receipts.Add(JsonSerializer.Deserialize<SyncStorageReceipt>(row["payload"] as string ?? throw new InvalidDataException("Reçu trop volumineux."), Json) ?? throw new InvalidDataException("Reçu illisible.")); }
         }
         var revision = Table(db, "domenia_store_state") ? (long?)db.Scalar("SELECT revision FROM domenia_store_state WHERE id=1;") ?? 0 : 0;
-        return new(StoreId, DomainDn, revision, true, rows, scopes.ToImmutable(), absences.ToImmutable(), gaps.ToImmutable(), snapshots.ToImmutable(), receipts.ToImmutable(), lastBackup?.At) { Park = ReadRelationSweeps(db, CancellationToken.None) };
+        var legacy = ReadUnidentifiedIndex(db, null);
+        return new(StoreId, DomainDn, revision, true, rows, scopes.ToImmutable(), absences.ToImmutable(), gaps.ToImmutable(), snapshots.ToImmutable(), receipts.ToImmutable(), lastBackup?.At) { Park = ReadRelationSweeps(db, CancellationToken.None), UnidentifiedLegacyObjects = legacy.Count, LegacyArchiveFingerprint = legacy.Fingerprint };
     }
 
     private static string LegacySnapshotHash(SqliteDatabase db, string id)

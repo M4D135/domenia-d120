@@ -94,28 +94,7 @@ public sealed partial class AdQueryWmiReader(AdDirectorySource source) : IQueryW
             if (source.Epoch == epoch && engaged is not null)
             {
                 var failure = AdQueryMemory.For(source).Invalidate(engaged, key, epoch);
-                if (failure is not null && source.LocalStore is IQueryResultsStore store)
-                {
-                    using var persistence = new CancellationTokenSource(TimeSpan.FromSeconds(2), source.Clock);
-                    try
-                    {
-                        // The store checks this engaged GUID/DN/creation atomically; never substitute the current cache object.
-                        var write = store.SaveQueryResultsAsync(failure, persistence.Token);
-                        _ = write.ContinueWith(t => { _ = t.Exception; }, CancellationToken.None,
-                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-                        await write.WaitAsync(persistence.Token).ConfigureAwait(false);
-                    }
-                    catch (Exception storageError)
-                    {
-                        ex.Data["query.invalidation"] = "Échec invalidé pour cette session ; persistance non confirmée (" + storageError.GetType().Name + ").";
-                        try
-                        {
-                            source.AccountContext?.Log.Warning("Requêtes : invalidation locale non persistée (" + storageError.GetType().Name + ") ; l’erreur initiale est conservée.");
-                            source.AccountContext?.Journal.Add(new(source.Clock.GetUtcNow(), "Requêtes : dernier échec conservé en mémoire ; la base locale n’a pas confirmé son enregistrement.", Tone.Warn));
-                        }
-                        catch (Exception diagnosticError) { ex.Data["query.invalidation.diagnostic"] = diagnosticError.GetType().Name; }
-                    }
-                }
+                await AdQueryMemory.For(source).PersistFailureAsync(failure, ex).ConfigureAwait(false);
             }
             throw;
         }

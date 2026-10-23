@@ -43,7 +43,7 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
         var park = await ParkAsync(cancellationToken).ConfigureAwait(false);
         return new(scope, "Base SQLite locale", false, local.Revision, rows.Length, tiles, coverage,
             SyncCoverageRules.Freshness(rows.Length, coverage, null, census, now, source.Zone), census, null, scopes,
-            SyncCoverageRules.Notices(rows.Length, null, null, now, settings.StartupDeltaMaxAgeMinutes), null,
+            LegacyNotices(local, SyncCoverageRules.Notices(rows.Length, null, null, now, settings.StartupDeltaMaxAgeMinutes)), null,
             new(limits.MaxObjects, limits.BudgetMs, SyncText.Duration(limits.BudgetMs), limits.TimeoutSeconds, settings.FullRebuildDays, settings.StartupDeltaMaxAgeMinutes,
                 SyncIndex.DefaultPageSize, SyncIndex.MaxPageSize, SyncAbsences.CheckLimit, SyncSnapshots.MaxPerDomain, SyncSnapshots.MaxObjects, settings.Source),
             SyncCoverageRules.Readiness(running is not null, false, storage.Refusal), running, pending, local.Receipts, Backup(local), park.Coverage,
@@ -54,8 +54,11 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
     public async Task<ImmutableArray<SyncNotice>> StartupNoticesAsync(SyncSettings settings, CancellationToken cancellationToken)
     {
         var local = await Store.ReadSyncStateAsync(cancellationToken).ConfigureAwait(false);
-        return SyncCoverageRules.Notices(local.Rows.Length, null, null, source.Clock.GetUtcNow(), settings.StartupDeltaMaxAgeMinutes);
+        return LegacyNotices(local, SyncCoverageRules.Notices(local.Rows.Length, null, null, source.Clock.GetUtcNow(), settings.StartupDeltaMaxAgeMinutes));
     }
+    private static ImmutableArray<SyncNotice> LegacyNotices(SyncLocalState local, ImmutableArray<SyncNotice> notices) => local.UnidentifiedLegacyObjects == 0 ? notices
+        : notices.Add(new(Tone.Warn, FrenchText.Integer(local.UnidentifiedLegacyObjects) + " objets historiques conservés sans GUID : absents des totaux tant que leurs identités n’ont pas été relues dans l’annuaire. Aucun GUID inventé."));
+
     public Task<IndexSearchPage> SearchAsync(IndexQuery query, CancellationToken cancellationToken) => Store.SearchSyncIndexAsync(query, cancellationToken);
     public async Task<ImmutableArray<IndexHit>> ExportRowsAsync(IndexQuery query, int max, CancellationToken cancellationToken)
     {
