@@ -148,6 +148,7 @@ public sealed partial class DomeniaDatabase
         db.Execute("INSERT OR IGNORE INTO domenia_store_state(id,store_id,domain_dn,revision) VALUES(1,?1,?2,0);", StoreId, DomainDn);
         // Additional typed projections do not change or reinterpret Domenia 1 payloads.
         db.Script("CREATE TABLE IF NOT EXISTS domenia_v2_objects(object_guid TEXT PRIMARY KEY,kind TEXT NOT NULL,dn TEXT NOT NULL,payload TEXT NOT NULL,observed_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS domenia_v2_metadata(key TEXT PRIMARY KEY,payload TEXT NOT NULL); CREATE TABLE IF NOT EXISTS domenia_v2_batches(batch_id TEXT PRIMARY KEY,sha256 TEXT NOT NULL,revision INTEGER NOT NULL,committed_at TEXT NOT NULL,items INTEGER NOT NULL);");
+        db.Script("CREATE TABLE IF NOT EXISTS domenia_v2_fiches(object_guid TEXT PRIMARY KEY,dn_key TEXT NOT NULL,payload TEXT NOT NULL,summary TEXT NOT NULL,summary_sha256 TEXT NOT NULL,sha256 TEXT NOT NULL,observed_at TEXT NOT NULL); CREATE INDEX IF NOT EXISTS idx_domenia_v2_fiches_dn ON domenia_v2_fiches(dn_key,observed_at);");
         db.Execute("INSERT OR REPLACE INTO schema_info(key,value) VALUES('domenia_schema','1');");
         CheckIdentity(db, allowLegacy: false);
         if (!IsCurrent(db)) { throw new InvalidDataException("Schéma incomplet : mise à niveau annulée."); }
@@ -203,7 +204,9 @@ public sealed partial class DomeniaDatabase
 
     private static bool IsCurrent(SqliteDatabase db)
     {
-        if ((string?)db.Scalar("SELECT value FROM schema_info WHERE key='domenia_schema';") != "1" || !Table(db, "domenia_v2_objects") || !Table(db, "domenia_v2_batches") || !Table(db, "domenia_v2_metadata")) { return false; }
+        if ((string?)db.Scalar("SELECT value FROM schema_info WHERE key='domenia_schema';") != "1" || !Table(db, "domenia_v2_objects") || !Table(db, "domenia_v2_batches") || !Table(db, "domenia_v2_metadata") || !Table(db, "domenia_v2_fiches")) { return false; }
+        var ficheColumns = db.Query("PRAGMA table_info(domenia_v2_fiches);").Select(c => (string)c["name"]!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (new[] { "object_guid", "dn_key", "payload", "summary", "summary_sha256", "sha256", "observed_at" }.Any(c => !ficheColumns.Contains(c))) { return false; }
         using var expected = new SqliteDatabase(":memory:", readOnly: false);
         expected.Script(Schema.Value);
         foreach (var row in expected.Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"))

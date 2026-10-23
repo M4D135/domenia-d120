@@ -8,6 +8,14 @@ public sealed record FicheRead(FicheEntry Entry, DateTimeOffset ReadAt, string? 
 /// <summary>Projection of one object kept in the local base (FIC-030): shown at once, replaced by the directory read.</summary>
 public sealed record FicheLocalRead(FicheEntry Entry, DateTimeOffset ReadAt);
 
+/// <summary>Durable fiche projections. Reads never create a base, connect or synthesize missing attributes.</summary>
+public interface IFicheCache
+{
+    Task<FicheLocalRead?> ReadFicheAsync(string dn, CancellationToken cancellationToken);
+    Task<ImmutableArray<FicheSummary>> ReadFicheIndexAsync(CancellationToken cancellationToken);
+    Task<FicheLocalRead> SaveFicheAsync(FicheLocalRead fiche, CancellationToken cancellationToken);
+}
+
 /// <summary>Direct children of an OU or a container, bounded (2 000), with the reason of a partial read.</summary>
 public sealed record FicheChildren(string Dn, ImmutableArray<string> Dns, bool Complete, string? Note);
 

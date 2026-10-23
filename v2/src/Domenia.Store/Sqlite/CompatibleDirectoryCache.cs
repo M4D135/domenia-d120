@@ -8,10 +8,17 @@ using Domenia.Core.Accueil;
 namespace Domenia.Store;
 
 /// <summary>Deferred local discovery of the Domenia 1 layout. No disk or network in the constructor.</summary>
-public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, ILegacySearchCache
+public sealed class CompatibleDirectoryCache(string appFolder, string userFolder, string joinedDomain, TimeProvider clock, bool isolated = false) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, ILegacySearchCache, IFicheCache
 {
     private readonly SemaphoreSlim loading = new(1, 1);
     private SqliteDirectoryCache? cache;
+
+    public async Task<FicheLocalRead?> ReadFicheAsync(string dn, CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadFicheAsync(dn, cancellationToken).ConfigureAwait(false);
+    public async Task<ImmutableArray<FicheSummary>> ReadFicheIndexAsync(CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadFicheIndexAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<FicheLocalRead> SaveFicheAsync(FicheLocalRead fiche, CancellationToken cancellationToken) =>
+        await (await CacheAsync(cancellationToken).ConfigureAwait(false)).SaveFicheAsync(fiche, cancellationToken).ConfigureAwait(false);
 
     public async Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) =>
         await (await CacheAsync(cancellationToken).ConfigureAwait(false)).ReadFleetHistoryAsync(scope, cancellationToken).ConfigureAwait(false);

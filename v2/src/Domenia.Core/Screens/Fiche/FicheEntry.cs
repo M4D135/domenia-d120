@@ -98,7 +98,16 @@ public sealed record FicheSummary(
     string? Sid = null,
     int? GroupType = null,
     int? AdminCount = null,
-    string? Upn = null);
+    string? Upn = null)
+{
+    public static FicheSummary From(FicheEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return new(entry.Dn, entry.First("displayName") ?? entry.Name, entry.Kind, entry.First("sAMAccountName"),
+            entry.First("description") ?? entry.First("mail"), entry.Int32("userAccountControl") is { } uac && AdValues.IsDisabled(uac),
+            entry.ObjectGuid, entry.First("objectSid"), entry.Int32("groupType"), entry.Int32("adminCount"), entry.First("userPrincipalName"));
+    }
+}
 
 /// <summary>Encodings of the values of a fiche (pure, independent of the culture).</summary>
 public static class FicheValues
