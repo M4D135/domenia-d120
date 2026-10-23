@@ -287,3 +287,11 @@ L’encodage est UTF-16 entre guillemets, transmis comme octets au protocole LDA
 `IWriteOutcomeVerifier` reçoit le résultat d’envoi du reçu, y compris lors d’une relecture ultérieure. Pour une réinitialisation acceptée, la relecture des options et dates complète cette preuve. Sans réponse d’acceptation, ces seules valeurs ne prouvent jamais le secret : le reçu reste inconnu et demande une revue manuelle, sans réessai. Les mots de passe préparés sont limités à 64, expirent au plus tard après cinq minutes et ne peuvent plus être déposés après fermeture du service.
 
 Cinq tests supplémentaires et un test étendu couvrent secret unique, stratégie devenue plus stricte, contrôle absent, conservation de l’incertitude, encodage, nettoyage après échec et bornes de conservation. Compilation VM Debug/Release sans erreur ni avertissement ; exécution et recette AD finales encore à faire.
+
+## 13. Champs et options de Fiche réels (23 octobre 2026)
+
+`object.update`, `account.enabled`, `account.options` et `password.expire` disposent de leurs exécuteurs AD propres. Les champs ordinaires sont regroupés dans une requête Modify, par retrait de l’ancienne valeur exacte et ajout de la nouvelle. Une valeur concurrente ne doit pas être écrasée ; ce comportement reste à qualifier dans le labo. Les listes à plusieurs valeurs sont refusées par ces éditeurs de champs. `pwdLastSet` emploie sa remise à zéro dédiée après relecture, sans comparaison atomique annoncée.
+
+Pour `manager` et `managedBy`, la préparation lit l’objet référencé et son DN canonique. `WriteChange.ReferenceGuid`, présent seulement quand nécessaire, est conservé dans le plan et le reçu, couvert par l’empreinte et revérifié avant l’envoi. La valeur DN est écrite sous sa forme GUID pour ne pas suivre un objet recréé sous le même nom. L’absence de ce champ conserve le JSON et l’empreinte historiques des anciens plans et de la simulation.
+
+Les comptes système, services gérés, compte opérateur à désactiver et contrôleurs de domaine sont protégés. Une protection devenue plus forte impose une nouvelle confirmation ; les valeurs nécessaires illisibles sont refusées. La relecture par GUID actualise le cache brut quand disponible. Cinq tests sont ajoutés et compilés seulement ; recette native et AD finale encore à faire.

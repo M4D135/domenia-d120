@@ -97,6 +97,8 @@ public static class WritePlans
                 writer.WriteString("kind", change.Kind.ToString());
                 writer.WriteString("beforeValue", change.BeforeValue);
                 writer.WriteString("afterValue", change.AfterValue);
+                // Omitted for legacy/simulation plans: their durable fingerprints remain valid.
+                if (change.ReferenceGuid is not null) { writer.WriteString("referenceGuid", change.ReferenceGuid); }
                 writer.WriteEndObject();
             }
             writer.WriteEndArray();

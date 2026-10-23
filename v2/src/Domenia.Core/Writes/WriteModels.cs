@@ -76,7 +76,12 @@ public sealed record WriteChange(
     string? Before,
     string? After,
     string? BeforeValue,
-    string? AfterValue);
+    string? AfterValue)
+{
+    /// <summary>Identity of a referenced object (manager, member or destination), when a real plan depends on it.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReferenceGuid { get; init; }
+}
 
 /// <summary>A risk or a point to check before confirming, with its tone (warn, alert or info).</summary>
 public sealed record WriteRisk(Tone Tone, string Text);
