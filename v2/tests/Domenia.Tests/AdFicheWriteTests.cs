@@ -2,6 +2,7 @@ using System.Security.Principal;
 using System.Text.Json;
 using Domenia.Ad;
 using Domenia.Core;
+using Domenia.Core.Poste;
 using Domenia.Core.Queries.Ldap;
 
 namespace Domenia.Tests;
@@ -345,6 +346,57 @@ internal static class AdFicheWriteTests
         await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "compte à privilèges");
         ldap.Objects[Manager].Remove("adminCount"); ldap.Objects[Manager]["isCriticalSystemObject"] = ["TRUE"];
         await Check.ThrowsAsync<DomeniaOperationException>(() => writer.PlanAsync(Manager, FicheSecurityPolicy.Default, CancellationToken.None), "objet système");
+        Check.Equal(0, ldap.Writes, "aucune mutation");
+    }
+
+    [Test]
+    public static async Task Poste_profile_preserves_omitted_fields_clears_explicit_fields_and_binds_the_manager_GUID()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Dn]["location"] = ["Ancien bureau"];
+        using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+        var writer = writers.Require<IPosteProfileExecutor>();
+        var plan = Seal(await writer.PlanAsync(Dn, null, "", Manager.ToLowerInvariant(), CancellationToken.None));
+        Check.False(plan.Changes.Any(c => c.Attribute == "description"), "champ omis conservé");
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes.Single(c => c.Attribute == "managedBy").ReferenceGuid, "gestionnaire scellé");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "postcondition réelle");
+        var local = source.CurrentDirectory!.Computers.Single();
+        Check.Equal("Ancienne", local.Description, "description intacte"); Check.Null(local.Location, "champ explicitement vidé");
+        Check.Equal(Manager, local.ManagedByDn, "projection locale actualisée");
+    }
+
+    [Test]
+    public static async Task Poste_state_uses_the_account_name_for_confirmation_even_when_the_CN_differs()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"];
+        ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"]; ldap.Objects[Dn]["adminCount"] = ["1"];
+        var writer = new AdPosteAccountStateExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, false, CancellationToken.None));
+        Check.Equal("PC-ORIG", plan.Confirmation.TypedName, "nom de compte sans dollar, pas le CN");
+        Check.True((await writer.CheckAsync(plan, CancellationToken.None)).Current, "confirmation de Poste admise");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal("4098", (string)ldap.Objects[Dn]["userAccountControl"][0], "seul le bit de désactivation");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "état relu");
+    }
+
+    [Test]
+    public static async Task Poste_state_and_profile_refuse_concurrent_flags_and_recreated_references()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        var state = new AdPosteAccountStateExecutor(source);
+        var plan = Seal(await state.PlanAsync(Dn, false, CancellationToken.None));
+        ldap.Objects[Dn]["userAccountControl"] = ["69632"];
+        Check.False((await state.CheckAsync(plan, CancellationToken.None)).Current, "option concurrente non écrasée");
+        var profile = new AdPosteProfileExecutor(source);
+        var profilePlan = Seal(await profile.PlanAsync(Dn, "Description", null, Manager, CancellationToken.None));
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await profile.CheckAsync(profilePlan, CancellationToken.None)).Current, "gestionnaire recréé");
+        ldap.Objects[Dn]["userAccountControl"] = ["8192"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => state.PlanAsync(Dn, false, CancellationToken.None), "contrôleur du domaine");
         Check.Equal(0, ldap.Writes, "aucune mutation");
     }
 

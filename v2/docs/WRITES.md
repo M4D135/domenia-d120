@@ -331,3 +331,9 @@ Six tests écrits et compilés couvrent homonymes, enfants apparus, politique, p
 `password.reset` partage désormais le socle natif de réinitialisation de Comptes tout en conservant son propre contrat, ses reçus, sa mémoire de secrets et sa confirmation nominative systématique. La surcharge native du plan reçoit le `SecureString` de la fenêtre sécurisée pour vérifier la stratégie effective avant de présenter le plan ; aucun secret n’est transmis au JavaScript. La simulation conserve son ancien plan par la surcharge par défaut de l’interface.
 
 Le plan annuaire conserve toujours l’ancien `pwdLastSet`, même lorsque le changement à la prochaine connexion est décoché. Le transport, l’historique exigé, la stratégie revérifiée avant envoi, l’usage unique du secret et la conservation d’une issue inconnue sont communs aux deux écrans. Les objets système restent refusés depuis Fiche. Une option « n’expire jamais » empêche de conclure qu’un changement imposé est effectif ; aucun bit UAC non confirmé n’est modifié pour contourner cette situation. Cinq tests supplémentaires sont écrits et compilés seulement ; recette AD et exécution finales encore à faire.
+
+## 20. État et profil de Poste réels (23 octobre 2026)
+
+`poste.accountState` et `poste.profile` utilisent les mêmes gardes de session, GUID, valeurs concurrentes et relecture que Fiche, avec leurs plans propres. Le profil conserve les champs omis et efface les champs explicitement vides ; `managedBy` doit désigner un utilisateur ou groupe du domaine, relu et scellé par GUID. L’état du compte ne modifie que le bit de désactivation, par retrait de la valeur exacte puis ajout du résultat confirmé.
+
+La confirmation de Poste porte sur `sAMAccountName` sans `$`, même si le CN a déjà été renommé. Les contrôleurs du domaine sont refusés. La relecture actualise le cache brut et l’index typé. Trois tests supplémentaires sont écrits et compilés seulement ; qualification AD finale encore à faire.

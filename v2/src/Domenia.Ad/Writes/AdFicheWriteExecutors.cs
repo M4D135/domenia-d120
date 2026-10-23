@@ -153,6 +153,8 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
 
     private protected virtual Task ValidateCurrentAsync(WritePlan plan, FicheEntry? current, SessionSnapshot session, CancellationToken token) => Task.CompletedTask;
 
+    private protected virtual string ConfirmationName(FicheEntry entry) => ObjectWrites.TypedName(entry);
+
     private protected virtual void Protect(FicheEntry entry, SessionSnapshot session, WritePlan? plan)
     {
         if (entry.First("objectSid") is { } sid && sid.EndsWith("-502", StringComparison.Ordinal)
@@ -162,7 +164,7 @@ public abstract class AdFicheWriteExecutor(AdDirectorySource source) : IWriteExe
             || c.Equals("msDS-GroupManagedServiceAccount", StringComparison.OrdinalIgnoreCase)))
         { throw FicheErrors.Error(FicheErrors.Protected, "Compte de service géré ; cette modification n’est pas proposée."); }
         if (plan is not null && entry.Int32("adminCount") == 1
-            && (!plan.Confirmation.TypedNameRequired || plan.Confirmation.TypedName != ObjectWrites.TypedName(entry)))
+            && (!plan.Confirmation.TypedNameRequired || plan.Confirmation.TypedName != ConfirmationName(entry)))
         { throw WriteErrors.Refusal(WriteErrors.Stale, "Protection ou nom du compte modifié ; confirmation à préparer de nouveau."); }
     }
 
