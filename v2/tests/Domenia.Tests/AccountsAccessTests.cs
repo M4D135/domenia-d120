@@ -292,6 +292,19 @@ internal static class AccountsAccessTests
     }
 
     [Test]
+    public static void Held_passwords_have_a_capacity_and_cannot_outlive_a_five_minute_plan()
+    {
+        var clock = TestClock.Fixed();
+        using var secrets = new PasswordSecrets(clock);
+        using var secret = Secret("Vélo-Bleu-2026!");
+        for (var i = 0; i < 64; i++) { secrets.Hold(i.ToString(System.Globalization.CultureInfo.InvariantCulture), clock.GetUtcNow() + TimeSpan.FromDays(1), secret); }
+        Check.Equal(64, secrets.Count, "capacité bornée");
+        Check.Throws<DomeniaOperationException>(() => secrets.Hold("over", clock.GetUtcNow() + TimeSpan.FromMinutes(5), secret), "pas de copie supplémentaire");
+        clock.Advance(TimeSpan.FromMinutes(6));
+        Check.Equal(0, secrets.Count, "échéance longue ramenée à celle d’un plan");
+    }
+
+    [Test]
     public static void Password_secrets_are_purged_by_their_timer_and_with_the_executors()
     {
         var clock = TestClock.Fixed();
@@ -305,6 +318,7 @@ internal static class AccountsAccessTests
         Check.Equal(0, secrets.Count, "détruit avec l’exécuteur");
         secrets.Dispose();
         Check.True(true, "une seconde libération est sans effet");
+        Check.Throws<ObjectDisposedException>(() => secrets.Hold("late", clock.GetUtcNow() + TimeSpan.FromMinutes(5), secret), "aucune copie détenue après fermeture");
     }
 
     [Test]

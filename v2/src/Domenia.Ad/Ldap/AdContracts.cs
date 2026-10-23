@@ -77,8 +77,8 @@ public sealed record AdConnectionOptions(string? Server, string? DomainDnsName)
 
 /// <summary>
 /// The only door of Domenia.Ad to the directory: searches, reads and the few writes of the write executors. Thread safe;
-/// the connection is opened (and bound) on the first call, never in the constructor. Every failure is a
-/// <see cref="Core.DomeniaOperationException"/> with a code of <see cref="AdErrors"/> and a French message without secret.
+/// the connection is opened (and bound) on the first call, never in the constructor. Read failures and proven write refusals
+/// use stable codes without secrets. A mutation without a definitive response throws AdWriteOutcomeUnknownException.
 /// </summary>
 public interface IAdConnection : IDisposable
 {

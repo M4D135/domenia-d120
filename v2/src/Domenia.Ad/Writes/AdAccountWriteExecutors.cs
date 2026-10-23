@@ -13,8 +13,12 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
     private protected abstract bool IsDone(WritePlan plan, DirectoryUser user);
     private protected abstract WriteVerification VerifyUser(WritePlan plan, DirectoryUser? user);
 
+    private protected Task<WritePlanDraft> PrepareAsync(string dn,
+        Func<DirectoryUser, DomainInfo, SessionSnapshot, WritePlanDraft> draft, CancellationToken token) =>
+        PrepareAsync(dn, (user, domain, session) => Task.FromResult(draft(user, domain, session)), token);
+
     private protected async Task<WritePlanDraft> PrepareAsync(string dn,
-        Func<DirectoryUser, DomainInfo, SessionSnapshot, WritePlanDraft> draft, CancellationToken token)
+        Func<DirectoryUser, DomainInfo, SessionSnapshot, Task<WritePlanDraft>> draft, CancellationToken token)
     {
         AdFicheObjects.ValidateDn(dn);
         var domain = await Source.DomainAsync(token).ConfigureAwait(false);
@@ -23,7 +27,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         var user = await ReadAtDnAsync(dn, token).ConfigureAwait(false)
             ?? throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Ce nom ne désigne aucun compte utilisateur ; aucune écriture préparée.");
         AccountWrites.EnsureNotSystem(user);
-        return draft(user, domain, session) with { Origin = WritePlanOrigin.From(session) };
+        return (await draft(user, domain, session).ConfigureAwait(false)) with { Origin = WritePlanOrigin.From(session) };
     }
 
     public async Task<WritePrecheck> CheckAsync(WritePlan plan, CancellationToken cancellationToken)
@@ -36,7 +40,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         return CheckCurrent(plan, user, session);
     }
 
-    public async Task<WriteOutcome> ExecuteAsync(WritePlan plan, CancellationToken cancellationToken)
+    public virtual async Task<WriteOutcome> ExecuteAsync(WritePlan plan, CancellationToken cancellationToken)
     {
         ValidatePlan(plan);
         var session = await Source.GetSessionAsync(cancellationToken).ConfigureAwait(false);
@@ -65,7 +69,11 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         return new(WriteResult.Applied, "Modification acceptée par " + plan.Controller + " ; résultat à confirmer par relecture.");
     }
 
-    public async Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken)
+    public Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken) =>
+        ReadAndVerifyAsync(plan, VerifyUser, cancellationToken);
+
+    private protected async Task<WriteVerification> ReadAndVerifyAsync(WritePlan plan,
+        Func<WritePlan, DirectoryUser?, WriteVerification> verify, CancellationToken cancellationToken)
     {
         ValidatePlan(plan);
         var domain = await Source.DomainAsync(cancellationToken).ConfigureAwait(false);
@@ -78,7 +86,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         if (rows.Count > 1 || rows.Any(e => e.Guid("objectGUID") != id || !ScopeRules.Contains(new(domain.RootDn, "", true), e.DistinguishedName)))
         { throw AdAttributeRange.Incomplete(); }
         var user = rows.Count == 0 ? null : Project(rows[0]);
-        var verification = VerifyUser(plan, user);
+        var verification = verify(plan, user);
         if (user is not null)
         {
             try
@@ -91,7 +99,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         return verification;
     }
 
-    private async Task<DirectoryUser?> ReadAtDnAsync(string dn, CancellationToken token)
+    private protected async Task<DirectoryUser?> ReadAtDnAsync(string dn, CancellationToken token)
     {
         var entry = await new AdFicheObjects(Source).ReadExactAsync(dn, AdDirectoryMapper.UserAttributes, TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
         return entry is null ? null : Project(entry);
@@ -102,12 +110,12 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         var classes = entry.Strings("objectClass");
         if (!classes.Contains("user", StringComparer.OrdinalIgnoreCase) || classes.Any(c => c.Equals("computer", StringComparison.OrdinalIgnoreCase)
             || c.Equals("msDS-ManagedServiceAccount", StringComparison.OrdinalIgnoreCase) || c.Equals("msDS-GroupManagedServiceAccount", StringComparison.OrdinalIgnoreCase))) { return null; }
-        if (entry.Int("userAccountControl") is null || entry.Guid("objectGUID") is not { } id || id == Guid.Empty || entry.Long(Attribute) is null)
+        if (entry.Int("userAccountControl") is null || entry.Guid("objectGUID") is not { } id || id == Guid.Empty || entry.Long(Attribute) is null || Kind == AccountPasswordReset.Kind && entry.Long("lockoutTime") is null)
         { throw WriteErrors.Refusal(WriteErrors.TargetUnknown, "Un attribut nécessaire du compte est illisible ; aucune valeur absente n’est interprétée comme zéro."); }
         return AdDirectoryMapper.User(entry) ?? throw AdAttributeRange.Incomplete();
     }
 
-    private WritePrecheck CheckCurrent(WritePlan plan, DirectoryUser? user, SessionSnapshot session)
+    private protected WritePrecheck CheckCurrent(WritePlan plan, DirectoryUser? user, SessionSnapshot session)
     {
         if (!string.Equals(plan.Operator, session.Account.Login, StringComparison.OrdinalIgnoreCase))
         { return WritePrecheck.Stale("Le compte opérateur diffère de celui du plan ; rien n’a été envoyé."); }
@@ -124,7 +132,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         return CheckUser(plan, user);
     }
 
-    private void ValidatePlan(WritePlan plan)
+    private protected virtual void ValidatePlan(WritePlan plan)
     {
         if (plan.Kind != Kind || plan.Mode != AppInfoBuilder.DirectoryModeText || plan.Simulated || !WritePlans.IsIntact(plan) || plan.Changes.Length != 1
             || plan.Changes[0].Attribute != Attribute || !Guid.TryParseExact(plan.Target.ObjectGuid, "D", out var guid) || guid == Guid.Empty
@@ -140,7 +148,7 @@ public abstract class AdAccountWriteExecutor(AdDirectorySource source) : IWriteE
         { throw WriteErrors.Refusal(WriteErrors.PlanChanged, "Seule la remise à zéro est autorisée pour cet attribut."); }
     }
 
-    private void EnsureController(WritePlan plan)
+    private protected void EnsureController(WritePlan plan)
     {
         if (string.IsNullOrWhiteSpace(plan.Controller) || !string.Equals(plan.Controller, Source.ControllerName, StringComparison.OrdinalIgnoreCase))
         { throw WriteErrors.Refusal(WriteErrors.Stale, "Contrôleur différent de celui du plan ; aucune écriture envoyée."); }

@@ -32,6 +32,12 @@ public interface IWriteExecutor
     Task<WriteVerification> VerifyAsync(WritePlan plan, CancellationToken cancellationToken);
 }
 
+/// <summary>For writes of unreadable secrets: distinguishes an acknowledged request from an uncertain transport result.</summary>
+public interface IWriteOutcomeVerifier
+{
+    Task<WriteVerification> VerifyOutcomeAsync(WritePlan plan, WriteResult result, CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Write executors usable with the directory source of the session, found by reflection like the screen readers (no central
 /// list): a public, non-abstract class implementing one or more interfaces derived from <see cref="IWriteExecutor"/>, with

@@ -123,6 +123,66 @@ internal static class AdAccountWriteTests
         Check.Equal(VerificationState.Unknown, (await unlock.VerifyAsync(unlockPlan, CancellationToken.None)).State, "état calculé inconnu");
     }
 
+    [Test]
+    public static async Task Password_reset_requires_its_held_secret_and_the_effective_policy_then_sends_once()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var executor = new AdAccountPasswordResetExecutor(source);
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        var draft = await executor.PlanAsync(Dn, new(true, true), password, CancellationToken.None);
+        var plan = Seal(draft);
+        Check.False((await executor.CheckAsync(plan, CancellationToken.None)).Current, "secret pas encore confié au plan");
+        executor.Hold(plan.Id, plan.ExpiresAt, password);
+        Check.True((await executor.CheckAsync(plan, CancellationToken.None)).Current, "secret détenu");
+        var json = System.Text.Json.JsonSerializer.Serialize(plan);
+        Check.False(json.Contains("Vélo", StringComparison.Ordinal), "aucun secret dans le plan");
+        Check.Equal(WriteResult.Applied, (await executor.ExecuteAsync(plan, CancellationToken.None)).Result, "acceptation LDAP");
+        Check.Equal(VerificationState.Verified, (await executor.VerifyOutcomeAsync(plan, WriteResult.Applied, CancellationToken.None)).State, "acceptation et relecture");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.ExecuteAsync(plan, CancellationToken.None), "secret à usage unique");
+        Check.Equal(1, ldap.Writes, "un seul envoi");
+    }
+
+    [Test]
+    public static async Task Password_policy_or_history_control_unavailable_refuses_the_reset_without_sending()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        using var executor = new AdAccountPasswordResetExecutor(source);
+        using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+        ldap.PasswordSupported = false;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.PlanAsync(Dn, new(true, false), password, CancellationToken.None), "pas de repli sans historique");
+        ldap.PasswordSupported = true; ldap.PolicyMinLength = 30;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.PlanAsync(Dn, new(true, false), password, CancellationToken.None), "stratégie effective plus stricte");
+        ldap.PolicyMinLength = 8;
+        var plan = Seal(await executor.PlanAsync(Dn, new(true, false), password, CancellationToken.None));
+        executor.Hold(plan.Id, plan.ExpiresAt, password);
+        ldap.PolicyMinLength = 30;
+        await Check.ThrowsAsync<DomeniaOperationException>(() => executor.ExecuteAsync(plan, CancellationToken.None), "stratégie modifiée depuis le plan");
+        Check.Equal(0, ldap.Writes, "aucun secret envoyé");
+    }
+
+    [Test]
+    public static async Task Password_transport_uncertainty_cannot_be_settled_by_flags_that_already_matched()
+    {
+        foreach (var loseAnswer in new[] { false, true })
+        {
+            using var ldap = new Connection { LoseAnswer = loseAnswer }; using var source = Source(ldap);
+            ldap.Values["pwdLastSet"] = ["0"];
+            using var executor = new AdAccountPasswordResetExecutor(source);
+            using var password = PasswordSecrets.FromText("Vélo-Bleu-2026!");
+            using var context = new EngineContext(ModeResolver.Resolve([], "0", () => throw new InvalidOperationException()), source,
+                new MemoryPreferenceStore(), TestClock.Fixed(), new RecordingJournal(), writers: WriteExecutors.From([executor]));
+            var circuit = WriteCircuit.From(context);
+            var planned = await circuit.PlanAsync(await executor.PlanAsync(Dn, new(true, false), password, CancellationToken.None), CancellationToken.None);
+            executor.Hold(planned.Plan.Id, planned.Plan.ExpiresAt, password);
+            var receipt = await circuit.ExecuteAsync(planned.Plan.Id, planned.Token, null, null, CancellationToken.None);
+            Check.Equal(loseAnswer ? VerificationState.Unknown : VerificationState.Verified, receipt.Verification, "les mêmes drapeaux ne prouvent pas la même issue");
+            Check.Equal(loseAnswer, receipt.Pending, "issue incertaine conservée");
+            var reread = await circuit.VerifyAsync(receipt.Id, CancellationToken.None);
+            Check.Equal(receipt.Verification, reread.Verification, "relecture du reçu conserve la preuve de réponse ou son absence");
+            Check.Equal(1, ldap.Writes, "aucun nouvel essai");
+        }
+    }
+
     private static WritePlan Seal(WritePlanDraft draft) => WritePlans.Seal(draft, WritePlans.NewId(), Login, AppMode.Directory, Fixtures.Now, TimeZoneInfo.Utc);
     private static AdDirectorySource Source(Connection ldap, string operatorDn = OperatorDn)
     {
@@ -133,7 +193,7 @@ internal static class AdAccountWriteTests
     }
     private static byte[] Sid(string text) { var sid = new SecurityIdentifier(text); var data = new byte[sid.BinaryLength]; sid.GetBinaryForm(data, 0); return data; }
 
-    private sealed class Connection : IAdConnection
+    private sealed class Connection : IAdConnection, IAdPasswordConnection
     {
         internal Guid Id { get; } = Fixtures.IdOf("account-write");
         internal Dictionary<string, IReadOnlyList<object>> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -152,11 +212,20 @@ internal static class AdAccountWriteTests
             Values["lockoutTime"] = [AccountWrites.Raw(AdValues.ToFileTime(Fixtures.Now.AddMinutes(-1)))]; Values["msDS-User-Account-Control-Computed"] = ["16"];
             Values["accountExpires"] = ["0"]; Values["uSNChanged"] = ["1"];
         }
-        public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken) => throw new InvalidOperationException("connexion déjà adoptée");
+        internal bool PasswordSupported { get; set; } = true;
+        internal int PolicyMinLength { get; set; } = 8;
+        public Task<AdRootDse> RootDseAsync(CancellationToken cancellationToken) => Task.FromResult(new AdRootDse(Fixtures.Root, "", "", Fixtures.Root, Server, null, null,
+            PasswordSupported ? ["1.2.840.113556.1.4.2239"] : [], null));
         public Task<AdEntry?> ReadAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken) => throw new InvalidOperationException();
         public Task<IReadOnlyList<AdEntry>> SearchAsync(AdSearchRequest request, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested(); Searches.Add(request);
+            if (request.Scope == AdSearchScope.Base && request.BaseDn == Fixtures.Root)
+            {
+                return Task.FromResult<IReadOnlyList<AdEntry>>([AdFicheReaderTests.Entry(Fixtures.Root, "domainDNS", new()
+                { ["maxPwdAge"] = ["-77760000000000"], ["minPwdLength"] = [PolicyMinLength.ToString(System.Globalization.CultureInfo.InvariantCulture)],
+                    ["pwdHistoryLength"] = ["24"], ["pwdProperties"] = ["1"], ["lockoutThreshold"] = ["5"], ["lockoutDuration"] = ["-18000000000"] })]);
+            }
             return Task.FromResult<IReadOnlyList<AdEntry>>(request.Scope == AdSearchScope.Base && request.BaseDn == Dn || request.Filter == AdObjectAccess.GuidFilter(Id)
                 ? [new(Dn, Values)] : []);
         }
@@ -181,6 +250,16 @@ internal static class AdAccountWriteTests
             }
             foreach (var pair in next) { Values[pair.Key] = pair.Value; }
             if (modifications.Any(m => m.Attribute == "lockoutTime")) { Values["msDS-User-Account-Control-Computed"] = ["0"]; }
+            if (LoseAnswer) { throw new AdWriteOutcomeUnknownException(); }
+            return Task.CompletedTask;
+        }
+        public Task ResetPasswordAsync(Guid objectGuid, System.Security.SecureString password, bool mustChange, bool unlock, CancellationToken cancellationToken)
+        {
+            Check.Equal(Id, objectGuid, "mot de passe ciblé par GUID");
+            Check.True(password.Length > 0, "secret natif encore détenu pendant l’envoi");
+            Writes++; LastTarget = "<GUID=" + Id.ToString("D") + ">";
+            Values["pwdLastSet"] = [mustChange ? "0" : AccountWrites.Raw(AdValues.ToFileTime(Fixtures.Now))];
+            if (unlock) { Values["lockoutTime"] = ["0"]; Values["msDS-User-Account-Control-Computed"] = ["0"]; }
             if (LoseAnswer) { throw new AdWriteOutcomeUnknownException(); }
             return Task.CompletedTask;
         }

@@ -348,17 +348,20 @@ public sealed class PasswordSecrets : IDisposable
     {
         ArgumentException.ThrowIfNullOrEmpty(planId);
         ArgumentNullException.ThrowIfNull(password);
-        var copy = password.Copy();
-        copy.MakeReadOnly();
         lock (gate)
         {
-            Purge(clock.GetUtcNow());
-            if (held.Remove(planId, out var previous))
-            {
-                previous.Secret.Dispose();
-            }
-            held[planId] = (expiresAt, copy);
-            ScheduleLocked(clock.GetUtcNow());
+            ObjectDisposedException.ThrowIf(disposed, this);
+            var now = clock.GetUtcNow();
+            Purge(now);
+            if (expiresAt <= now) { return; }
+            if (held.Count >= 64 && !held.ContainsKey(planId))
+            { throw WriteErrors.Refusal(WriteErrors.Stale, "Trop de mots de passe préparés ; laissez expirer les anciens plans."); }
+            var copy = password.Copy();
+            copy.MakeReadOnly();
+            if (held.Remove(planId, out var previous)) { previous.Secret.Dispose(); }
+            var maximum = now + WritePlans.Lifetime;
+            held[planId] = (expiresAt < maximum ? expiresAt : maximum, copy);
+            ScheduleLocked(now);
         }
     }
 

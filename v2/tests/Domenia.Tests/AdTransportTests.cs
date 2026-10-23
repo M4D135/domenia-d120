@@ -10,6 +10,33 @@ namespace Domenia.Tests;
 internal static class AdTransportTests
 {
     [Test]
+    public static async Task Password_UTF16_buffers_are_quoted_then_erased_even_when_the_send_fails()
+    {
+        using var password = PasswordSecrets.FromText("Été-🦊-2026!");
+        foreach (var fail in new[] { false, true })
+        {
+            byte[]? held = null;
+            ModifyRequest? seen = null;
+            var task = AdConnection.WithPasswordRequestAsync(Fixtures.IdOf("reset"), password, true, true,
+                AdConnection.PasswordPolicyControl(["1.2.840.113556.1.4.2239"]), (request, token) =>
+                {
+                    seen = request; held = (byte[])request.Modifications[0][0];
+                    Check.True(held.SequenceEqual(System.Text.Encoding.Unicode.GetBytes("\"Été-🦊-2026!\"")), "octets UTF-16 entre guillemets, sans double encodage BER");
+                    Check.Equal(3, request.Modifications.Count, "secret et deux options dans la même requête");
+                    Check.Equal("0", request.Modifications[1][0], "changement imposé");
+                    Check.True(request.Controls[0].IsCritical, "stratégie obligatoire");
+                    Check.True(request.Controls[0].GetValue().SequenceEqual(new byte[] { 0x30, 0x03, 0x02, 0x01, 0x01 }), "historique et âge minimal exigés");
+                    return fail ? Task.FromException(new AdWriteOutcomeUnknownException()) : Task.CompletedTask;
+                }, CancellationToken.None);
+            if (fail) { await Check.ThrowsAsync<AdWriteOutcomeUnknownException>(() => task, "réponse perdue"); } else { await task; }
+            Check.True(held!.All(b => b == 0), "tampon effacé après retour réel");
+            Check.Equal(0, seen!.Modifications.Count, "références du message libérées");
+        }
+        Check.Equal("1.2.840.113556.1.4.2066", AdConnection.PasswordPolicyControl(["1.2.840.113556.1.4.2066"]), "ancien contrôle documenté");
+        Check.Throws<DomeniaOperationException>(() => AdConnection.PasswordPolicyControl([]), "aucun repli sans stratégie");
+    }
+
+    [Test]
     public static void A_transport_failure_after_a_mutation_is_never_a_proven_directory_refusal()
     {
         foreach (var failure in new Exception[] { new LdapException(81, "diagnostic privé"), new TimeoutException("diagnostic privé"), new ObjectDisposedException("diagnostic privé"), new DirectoryOperationException("diagnostic privé") })

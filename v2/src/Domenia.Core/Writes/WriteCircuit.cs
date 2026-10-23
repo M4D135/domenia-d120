@@ -200,7 +200,7 @@ public sealed class WriteCircuit : IDisposable
                 ?? throw WriteErrors.Refusal(WriteErrors.ReceiptUnknown, WriteErrors.ReceiptUnknownMessage);
             var executor = writers.ForKind(receipt.Plan.Kind)
                 ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, DomeniaErrors.SourceUnavailableMessage);
-            var verification = await ReadBackAsync(executor, receipt.Plan, cancellationToken).ConfigureAwait(false);
+            var verification = await ReadBackAsync(executor, receipt.Plan, receipt.Result, cancellationToken).ConfigureAwait(false);
             var next = WriteReceipts.Verified(receipt, verification, clock.GetUtcNow());
             await KeepAsync(next).ConfigureAwait(false);
             Note(next.Plan, Outcome(next), WriteReceipts.ToneOf(next), prefix: "Relecture du reçu");
@@ -325,7 +325,7 @@ public sealed class WriteCircuit : IDisposable
         await KeepAsync(receipt).ConfigureAwait(false);
 
         progress?.Invoke(WriteStage.Verifying);
-        var verification = await ReadBackAsync(executor, plan, cancellationToken).ConfigureAwait(false);
+        var verification = await ReadBackAsync(executor, plan, receipt.Result, cancellationToken).ConfigureAwait(false);
         receipt = WriteReceipts.Verified(receipt, verification, clock.GetUtcNow());
         await KeepAsync(receipt).ConfigureAwait(false);
 
@@ -335,11 +335,13 @@ public sealed class WriteCircuit : IDisposable
     }
 
     /// <summary>Re-read of the target: any failure is an unknown verification, never an exception for the caller.</summary>
-    private async Task<WriteVerification> ReadBackAsync(IWriteExecutor executor, WritePlan plan, CancellationToken cancellationToken)
+    private async Task<WriteVerification> ReadBackAsync(IWriteExecutor executor, WritePlan plan, WriteResult result, CancellationToken cancellationToken)
     {
         try
         {
-            return await executor.VerifyAsync(plan, cancellationToken).ConfigureAwait(false);
+            return executor is IWriteOutcomeVerifier aware
+                ? await aware.VerifyOutcomeAsync(plan, result, cancellationToken).ConfigureAwait(false)
+                : await executor.VerifyAsync(plan, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

@@ -7,9 +7,9 @@ namespace Domenia.Ad;
 /// <summary>
 /// LDAP connection to Active Directory using System.DirectoryServices.Protocols.
 /// The constructor does not connect; the first operation opens and binds the connection once.
-/// All failures are converted to <see cref="DomeniaOperationException"/> with stable codes from <see cref="AdErrors"/>.
+/// Read failures and proven write refusals have stable codes. A lost mutation response keeps an unknown outcome.
 /// </summary>
-public sealed class AdConnection : IAdConnection
+public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection
 {
     private static readonly string[] RootDseAttributes =
     [
