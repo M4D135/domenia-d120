@@ -125,13 +125,15 @@ public sealed partial class AdPosteReader
     {
         ArgumentNullException.ThrowIfNull(policy);
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        var value = await ReadAsync(local, deep ? WorkstationReading.Full : WorkstationReading.Quick, progress, cancellationToken).ConfigureAwait(false);
+        var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }
+            .InventoryAsync(local.Computer, deep ? WorkstationReading.Full : WorkstationReading.Quick, progress, cancellationToken).ConfigureAwait(false);
+        var value = qualified.Value;
         var confirmed = WorkstationIdentity.Matches(local.Computer, value.ReportedName);
         if (confirmed) { await source.SaveFleetAsync(AdSearchReader.MapInventory(local.Computer.ObjectGuid, value), local.Epoch, CancellationToken.None).ConfigureAwait(false); }
         var now = source.Clock.GetUtcNow();
         var board = PosteBoardBuilder.Build(Computer(local, Names(local.Directory)), value, policy, now, source.Zone);
         return InventoryRows.Build(value, board, confirmed ? "Relevé réel de cette session" : "Identité non confirmée ; aucune donnée enregistrée", now, source.Zone,
-            value.Interrupted ? "Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : null);
+            qualified.Notice + (value.Interrupted ? " Lecture arrêtée ; seules les sources déjà lues et l’identité confirmée sont conservées." : ""));
     }
 
     public async Task<PosteLive> LiveAsync(string dn, CancellationToken cancellationToken)
@@ -139,7 +141,9 @@ public sealed partial class AdPosteReader
         var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
         var presence = await PingAsync(local, cancellationToken).ConfigureAwait(false);
         // ICMP can be filtered independently of CIM; silence is not a reason to fabricate an offline state.
-        var value = await ReadAsync(local, WorkstationReading.Live, null, cancellationToken).ConfigureAwait(false);
+        var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }
+            .InventoryAsync(local.Computer, WorkstationReading.Live, null, cancellationToken).ConfigureAwait(false);
+        var value = qualified.Value;
         var now = value.CollectedAt;
         var boot = value.Os?.LastBoot is { } at && at <= now ? at : (DateTimeOffset?)null;
         var system = value.StatusOf(InventoryCategories.System);
@@ -153,7 +157,9 @@ public sealed partial class AdPosteReader
             PosteText.Fact("Présence", presence.Answered == true ? "Répond au ping" : presence.Answered == false ? "Ne répond pas au ping" : "Inconnue", presence.Answered is null ? FactState.Unknown : FactState.Observed, presence.Source, at: presence.CheckedAt),
             PosteText.Fact("Durée de fonctionnement", boot is null ? "Non lue" : PosteText.Duration(now - boot.Value), boot is null ? FactState.Unknown : FactState.Observed, "Win32_OperatingSystem", "Heure déclarée par Windows.", at: now),
             PosteText.Fact("Utilisateur connecté", consoleText, user is not null || consoleKnown ? FactState.Observed : ReadState(system), "Win32_ComputerSystem", "Nom de console ; aucun GUID utilisateur déduit du seul nom.", at: value.Console?.At),
-            PosteText.Fact("Sessions", sessions.StatusText, sessions.ReadState, "Sessions CIM", sessions.Partial ? "Lecture partielle ; total inconnu." : null, at: now));
+            PosteText.Fact("Sessions", sessions.StatusText, sessions.ReadState, "Sessions CIM", sessions.Partial ? "Lecture partielle ; total inconnu." : null, at: now),
+            PosteText.Fact("Relations", value.Console is null ? "Console non qualifiée" : "Console observée", value.Console is null ? FactState.Unknown : FactState.Observed,
+                "Console et annuaire", qualified.Notice, at: value.Console?.At));
         var live = new PosteLive(presence, boot, boot is null ? null : PosteText.Duration(now - boot.Value), user, consoleText, count, sessions.StatusText, now, facts);
         if (WorkstationIdentity.Matches(local.Computer, value.ReportedName))
         {

@@ -564,3 +564,14 @@ L’inventaire porte une observation de console distincte du statut global « Sy
 Le cache et le direct Poste utilisent cette observation. Les anciens instantanés sans ce champ ne rafraîchissent pas la date et ne vident pas le compte conservé. Une source système écartée supprime aussi sa preuve de console, tandis qu’un refus distinct de l’OS ou d’une autre source n’efface pas une console effectivement lue. Cette preuve de lecture n’est pas à elle seule une association AD : sa qualification et mémorisation communes restent à raccorder.
 
 Six tests couvrent champs invalides, null réel/date, instances multiples, source OS refusée, retrait sélectif des sources et compatibilité du cache ancien. Compilations Debug/Release en VM sans erreur ni avertissement ; tests non exécutés à ce stade.
+
+
+## 31. Associations issues des inventaires (23/10/2026)
+
+Les inventaires de Rechercher, l’inventaire et le direct Poste utilisent maintenant la même chaîne de qualification que la console unitaire. L’inventaire natif fournit lui-même le champ de console ; aucune seconde requête CIM n’est envoyée. Un seul bail annuaire couvre les contrôles du parent et la résolution exacte du compte, avec le compte machine sélectionné pour toute la collecte. Le budget conserve celui du type d’inventaire et ajoute vingt secondes au maximum pour les validations.
+
+La génération de park_state est prise avant le réseau. Une console qualifiée rejoint les observations communes puis leur stockage local ; l’effacement concurrent du parc empêche le retour du passage sans perdre la relation indépendante. Parent recréé, date incohérente ou identité Windows différente bloquent sa publication. Un refus de validation conserve les autres données reçues, mais retire la preuve de console afin de ne pas vider ou rafraîchir un ancien constat. Une lecture de console terminée peut rester qualifiable même si une autre source d’inventaire échoue ensuite.
+
+À l’arrêt opérateur, aucun LDAP final supplémentaire n’est envoyé. Les sources d’inventaire déjà reçues restent disponibles ; la console non validée et sa relation ne sont pas publiées. L’interface conserve le libellé court des sessions et place le détail de qualification dans un constat séparé.
+
+Sept tests couvrent l’absence de double CIM, les deux écrans, l’arrêt, le parent recréé, l’effacement concurrent et le refus AD tardif. Leur exécution demeure réservée à la recette finale.

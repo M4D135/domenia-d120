@@ -17,9 +17,17 @@ public sealed partial class AdRelationsReader
     public Task<RelationComputerReading> ComputerSessionAsync(string dn, CancellationToken cancellationToken) =>
         ComputerSessionAsync(dn, null, cancellationToken);
 
-    internal async Task<RelationComputerReading> ComputerSessionAsync(string dn, Guid? expectedGuid, CancellationToken cancellationToken)
+    internal Task<RelationComputerReading> ComputerSessionAsync(string dn, Guid? expectedGuid, CancellationToken cancellationToken) =>
+        ComputerSessionCoreAsync(dn, expectedGuid, null, TimeSpan.FromSeconds(25), cancellationToken);
+
+    private delegate Task<ConsoleAccountReading?> NativeConsoleRead(WmiWorkstationReader reader, AdWorkstationAccess access, string host, CancellationToken token);
+
+    private async Task<RelationComputerReading> ComputerSessionCoreAsync(string dn, Guid? expectedGuid, NativeConsoleRead? nativeRead,
+        TimeSpan duration, CancellationToken cancellationToken)
     {
-        var local = await LocalAsync(cancellationToken, withJournal: false).ConfigureAwait(false);
+        var epoch = source.Epoch;
+        var state = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false); EnsureEpoch(epoch);
+        var local = (state.Directory, Lookup: AdRelationLookup.For(state.Directory), Epoch: epoch);
         AdRelationDirectory.ValidateDn(dn, local.Directory.Domain);
         var expected = local.Lookup.Find(dn);
         if (expected is not { Kind: RelationSubjectKind.Computer })
@@ -27,7 +35,7 @@ public sealed partial class AdRelationsReader
         if (expectedGuid is { } id && expected.Guid != id)
         { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Le GUID du poste a changé depuis son affichage ; aucun contact envoyé."); }
         var memory = await AdRelationPassMemory.BeginAsync(source, local.Directory.Domain.RootDn, local.Epoch, cancellationToken).ConfigureAwait(false);
-        var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken).ConfigureAwait(false);
+        var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken, nativeRead: nativeRead, duration: duration).ConfigureAwait(false);
         EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
         var resultId = ""; var message = read.Message; var savable = false;
         if (read.Relation is { } relation)
@@ -54,7 +62,7 @@ public sealed partial class AdRelationsReader
 
     /// <summary>One console only. Historical logon names, profile folders and fallback transports cannot supply this result.</summary>
     private async Task<ConsoleResult> ReadConsoleAsync(DomainInfo domain, RelationObject expected, long epoch, CancellationToken cancellationToken,
-        AdReadAccess? sharedDirectory = null, string? expectedHost = null)
+        AdReadAccess? sharedDirectory = null, string? expectedHost = null, NativeConsoleRead? nativeRead = null, TimeSpan? duration = null)
     {
         var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
         var computer = expected; RelationObservedAccount? observed = null; StoredRelation? relation = null;
@@ -65,7 +73,7 @@ public sealed partial class AdRelationsReader
             var label = RelationRules.AttemptStatus(state);
             attempts.Add(new(method, state, label.Label, label.Tone, computer.Name, detail, duration, resource));
         }
-        using var elapsed = new CancellationTokenSource(TimeSpan.FromSeconds(25), source.Clock);
+        using var elapsed = new CancellationTokenSource(duration ?? TimeSpan.FromSeconds(25), source.Clock);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, elapsed.Token);
         try
         {
@@ -86,7 +94,8 @@ public sealed partial class AdRelationsReader
             directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(epoch);
             var began = source.Clock.GetTimestamp();
             var reader = InventoryReaderOverride?.Invoke(machine.Settings) ?? machine.InventoryReader();
-            var reading = await reader.ReadConsoleAccountAsync(host, budget.Token, machine.Credential, dcomOnly: true).ConfigureAwait(false);
+            var reading = nativeRead is null ? await reader.ReadConsoleAccountAsync(host, budget.Token, machine.Credential, dcomOnly: true).ConfigureAwait(false)
+                : await nativeRead(reader, machine, host, budget.Token).ConfigureAwait(false);
             directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(epoch); budget.Token.ThrowIfCancellationRequested();
             if (reading?.Status == SourceStatus.Refused || reading?.AuthenticationRejected == true)
             { machine.Refused(host, "Lecture de la console", reading.AuthenticationRejected); }
@@ -95,7 +104,7 @@ public sealed partial class AdRelationsReader
                 SourceStatus.Ok => "LU", SourceStatus.Empty => "VIDE", SourceStatus.Partial => "A_REVOIR", SourceStatus.Refused => "REFUSE",
                 SourceStatus.Interrupted => "ARRETE", SourceStatus.Skipped => "IGNORE", _ => "NON_EFFECTUE",
             };
-            Attempt("Console CIM/DCOM", status, reading?.Detail ?? "Lecture indisponible.", "Postes", (long)source.Clock.GetElapsedTime(began).TotalMilliseconds);
+            Attempt(nativeRead is null ? "Console CIM/DCOM" : "Console de l’inventaire", status, reading?.Detail ?? "Lecture indisponible.", "Postes", (long)source.Clock.GetElapsedTime(began).TotalMilliseconds);
             if (reading is null || reading.AuthenticationRejected || reading.Status is not (SourceStatus.Ok or SourceStatus.Empty))
             { return new(computer, attempts.ToImmutable(), null, null, status, message); }
             if (!WorkstationIdentity.Matches(machineIdentity, reading.ReportedName))
@@ -127,7 +136,8 @@ public sealed partial class AdRelationsReader
                 if (user is not null)
                 {
                     relation = new(user.Login, user.Guid, user.Dn, computer.Name, computer.Guid, computer.Dn, RelationKind.Console, RelationRules.ConsoleSource, at,
-                        "Console lue par CIM/DCOM à cette date ; SID du jeton non lu, sessions RDP non recensées. Identités AD vérifiées ; aucune affectation déduite.", true, null, null);
+                        (nativeRead is null ? "Console lue par CIM/DCOM" : "Console reçue dans l’inventaire CIM")
+                            + " à cette date ; SID du jeton non lu, sessions RDP non recensées. Identités AD vérifiées ; aucune affectation déduite.", true, null, null);
                     message = "Console observée : " + user.Login + " sur " + computer.Name + ". SID du jeton non lu ; aucune affectation déclarée remplacée.";
                 }
                 else { message = reason + " Associations existantes conservées."; }

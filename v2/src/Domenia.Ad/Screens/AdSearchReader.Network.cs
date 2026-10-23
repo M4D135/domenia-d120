@@ -97,18 +97,18 @@ public sealed partial class AdSearchReader
             }
             else
             {
-                using var access = InventoryOverride is null ? await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false) : null;
-                var reading = InventoryOverride is { } injected ? await injected(computer.DnsHostName!, cancellationToken).ConfigureAwait(false)
-                    : await access!.InventoryReader().ReadAsync(computer.DnsHostName!, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey, null, cancellationToken, access!.Credential).ConfigureAwait(false);
-                access?.EnsureCurrent();
-                if (reading.Access.Any(a => a.Status == SourceStatus.Refused || a.AuthenticationRejected)) { access?.Refused(computer.Name, "Relevé du poste", reading.Access.Any(a => a.AuthenticationRejected)); }
+                var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = ConsoleReaderOverride }
+                    .InventoryAsync(computer, mode == SurveyMode.Complete ? WorkstationReading.SurveyComplete : WorkstationReading.Survey,
+                        null, cancellationToken, InventoryOverride).ConfigureAwait(false);
+                var reading = qualified.Value;
+                detail = qualified.Notice;
                 if (!WorkstationIdentity.Matches(computer, reading.ReportedName))
                 { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Identité CIM absente ou différente du compte ordinateur : inventaire non associé à cet objet AD."); }
                 var mapped = MapInventory(id, reading);
                 await source.SaveFleetAsync(mapped, generation, CancellationToken.None).ConfigureAwait(false);
-                denied = reading.Access.Any(a => a.Status == SourceStatus.Refused);
+                denied = qualified.Denied;
                 if (reading.Interrupted || reading.Access.Any(a => a.Status is SourceStatus.Partial or SourceStatus.Error or SourceStatus.Unreachable or SourceStatus.Refused))
-                { detail = "Relevé partiel : les sources non lues restent inconnues ; les mesures terminées sont conservées."; }
+                { detail += " Relevé partiel : les sources non lues restent inconnues ; les mesures terminées sont conservées."; }
                 cancellationToken.ThrowIfCancellationRequested();
             }
             var local = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
