@@ -409,7 +409,11 @@ public sealed record RelationComputerReading(
     ImmutableArray<RelationAttempt> Attempts,
     RelationObservedAccount? Observed,
     bool Savable,
-    string Message);
+    string Message)
+{
+    /// <summary>Native console read time, only after the computer identity was checked again; null is not an empty console.</summary>
+    public DateTimeOffset? ConsoleReadAt { get; init; }
+}
 
 /// <summary>Impact of a harvest of the controller journal, confirmed by the operator before it runs (Domenia 1 REL-030).</summary>
 public sealed record RelationHarvestEstimate(

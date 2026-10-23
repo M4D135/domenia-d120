@@ -9,15 +9,23 @@ public sealed partial class AdRelationsReader
 {
     internal Func<PosteConfiguration, WmiWorkstationReader>? InventoryReaderOverride { get; init; }
     private sealed record ConsoleResult(RelationObject Computer, ImmutableArray<RelationAttempt> Attempts, RelationObservedAccount? Observed,
-        StoredRelation? Relation, string Status, string Message);
+        StoredRelation? Relation, string Status, string Message)
+    {
+        internal DateTimeOffset? VerifiedAt { get; init; }
+    }
 
-    public async Task<RelationComputerReading> ComputerSessionAsync(string dn, CancellationToken cancellationToken)
+    public Task<RelationComputerReading> ComputerSessionAsync(string dn, CancellationToken cancellationToken) =>
+        ComputerSessionAsync(dn, null, cancellationToken);
+
+    internal async Task<RelationComputerReading> ComputerSessionAsync(string dn, Guid? expectedGuid, CancellationToken cancellationToken)
     {
         var local = await LocalAsync(cancellationToken, withJournal: false).ConfigureAwait(false);
         AdRelationDirectory.ValidateDn(dn, local.Directory.Domain);
         var expected = local.Lookup.Find(dn);
         if (expected is not { Kind: RelationSubjectKind.Computer })
         { throw new DomeniaOperationException(RelationErrors.NotRelationObject, "Poste absent ou ambigu dans l’index ; relisez sa fiche avant de demander sa console."); }
+        if (expectedGuid is { } id && expected.Guid != id)
+        { throw new DomeniaOperationException(RelationErrors.IdentityChanged, "Le GUID du poste a changé depuis son affichage ; aucun contact envoyé."); }
         var memory = await AdRelationPassMemory.BeginAsync(source, local.Directory.Domain.RootDn, local.Epoch, cancellationToken).ConfigureAwait(false);
         var read = await ReadConsoleAsync(local.Directory.Domain, expected, local.Epoch, cancellationToken).ConfigureAwait(false);
         EnsureEpoch(local.Epoch); cancellationToken.ThrowIfCancellationRequested();
@@ -41,7 +49,7 @@ public sealed partial class AdRelationsReader
             AdRelationPassMemory.Status(read.Status, read.Relation is not null), read.Observed?.Account), cancellationToken).ConfigureAwait(false);
         var subject = new RelationSubject(pc.Kind, pc.Dn, pc.Guid.ToString("D"), pc.Name, pc.Login, pc.Detail,
             RelationRules.Path(pc.Dn, local.Directory.Domain.DnsName), pc.Enabled, pc.LastLogon, pc.Created);
-        return new(resultId, subject, read.Attempts, read.Observed, savable, message);
+        return new(resultId, subject, read.Attempts, read.Observed, savable, message) { ConsoleReadAt = read.VerifiedAt };
     }
 
     /// <summary>One console only. Historical logon names, profile folders and fallback transports cannot supply this result.</summary>
@@ -50,6 +58,7 @@ public sealed partial class AdRelationsReader
     {
         var attempts = ImmutableArray.CreateBuilder<RelationAttempt>();
         var computer = expected; RelationObservedAccount? observed = null; StoredRelation? relation = null;
+        DateTimeOffset? verifiedAt = null;
         var status = "NON_EFFECTUE"; var message = "Console non déterminée ; associations existantes conservées.";
         void Attempt(string method, string state, string detail, string resource, long duration = 0)
         {
@@ -131,6 +140,7 @@ public sealed partial class AdRelationsReader
                 || !string.Equals(last.Entry.String("dNSHostName"), host, StringComparison.OrdinalIgnoreCase))
             { throw WriteErrors.Refusal(WriteErrors.Stale, "Identité du poste modifiée pendant la lecture ; aucun résultat publié."); }
             directory.EnsureCurrent(); machine.EnsureCurrent(); EnsureEpoch(epoch); budget.Token.ThrowIfCancellationRequested();
+            verifiedAt = at;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         { relation = null; observed = null; status = "ARRETE"; message = "Budget de lecture atteint ; aucun résultat sans vérification finale."; Attempt("Validation finale", status, message, "Annuaire"); }
@@ -142,7 +152,7 @@ public sealed partial class AdRelationsReader
             Attempt("Lecture et validation", status, message, "Annuaire");
         }
         EnsureEpoch(epoch); cancellationToken.ThrowIfCancellationRequested();
-        return new(computer, attempts.ToImmutable(), observed, relation, status, message);
+        return new(computer, attempts.ToImmutable(), observed, relation, status, message) { VerifiedAt = verifiedAt };
     }
 
     public async Task<RelationObservationReceipt> ObserveAsync(RelationObservationRequest request, CancellationToken cancellationToken)

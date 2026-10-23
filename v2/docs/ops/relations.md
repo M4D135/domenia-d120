@@ -546,3 +546,12 @@ Le lecteur AD implémente maintenant le contrat complet de l’écran. Navigatio
 Un historique LogonUI ou de profil ne constitue pas une console actuelle. Une console locale non résolue reste à relire, même si un utilisateur historique est trouvé ensuite. Une console réellement vide est validée par une seconde lecture de l’identité AD du poste, y compris lorsqu’aucun historique n’est trouvé. Seul un champ UserName explicitement null signifie vide : champ absent, nombre, tableau, texte blanc, caractères de contrôle ou valeur excessive restent partiels. La date courante est prise à la fin de la lecture native.
 
 Sept tests supplémentaires vérifient découverte du contrat, navigation sans réseau, dates/compteurs, effacement pendant lecture, échec local, séparation historique/console vide et champs mal formés. Un test du dernier utilisateur vérifie aussi le passage partagé. Compilations Debug/Release en VM sans erreur ni avertissement ; suites non exécutées à ce stade. L’harmonisation des producteurs Rechercher et des inventaires/sessions de Poste se poursuit.
+
+
+## 29. Console de Rechercher et identité de la ligne (23/10/2026)
+
+Les relevés de console de Rechercher utilisent le lecteur de Relations. Ils exigent le GUID de la ligne affichée avant de contacter le poste, relisent son identité AD avant et après CIM et résolvent le compte observé sans homonymie. Le même résultat alimente les faits de console, park_state et la mémorisation locale des associations qualifiées ; aucun second appel CIM n’est ajouté.
+
+La date native de console n’est exposée qu’après validation finale. Un champ illisible, un refus tardif ou un poste recréé ne deviennent jamais une console vide et ne rafraîchissent pas l’ancienne date. Un compte étranger reste un texte observé sans relation de domaine. Le ping terminé reste conservé indépendamment d’un rejet ultérieur de l’inventaire ou de la console.
+
+Sept tests vérifient ce partage, console vide réelle, compte étranger, champs invalides/refus, changement de parent, GUID attendu et refus AD après une lecture vide. Debug/Release compilés en VM sans avertissement ni erreur, tests non exécutés. Les inventaires complets et autres lectures de sessions restent le raccordement suivant.

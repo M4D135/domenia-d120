@@ -13,6 +13,7 @@ public sealed partial class AdSearchReader
 {
     internal Func<string, CancellationToken, Task<InventorySnapshot>>? InventoryOverride { get; init; }
     internal Func<string, CancellationToken, Task<PresenceMeasure>>? EchoOverride { get; init; }
+    internal Func<PosteConfiguration, WmiWorkstationReader>? ConsoleReaderOverride { get; init; }
 
     public async Task<string?> ReverseDnsAsync(string ipv4, CancellationToken cancellationToken)
     {
@@ -78,20 +79,20 @@ public sealed partial class AdSearchReader
                 && source.Clock.GetUtcNow() >= at && source.Clock.GetUtcNow() - at <= inventoryReuse;
             if (mode is SurveyMode.Console or SurveyMode.Unaddressed || reused)
             {
-                using var access = await AdWorkstationAccess.AcquireAsync(source, computer.DnsHostName!, cancellationToken).ConfigureAwait(false);
-                var seen = await access.InventoryReader().ReadConsoleAccountAsync(computer.DnsHostName!, cancellationToken, access.Credential).ConfigureAwait(false);
-                access.EnsureCurrent();
-                if (seen?.Status == SourceStatus.Refused) { access.Refused(computer.Name, "Lecture de la console", seen.AuthenticationRejected); }
-                cancellationToken.ThrowIfCancellationRequested();
-                if (seen is not null)
+                var native = new AdRelationsReader(source) { InventoryReaderOverride = ConsoleReaderOverride };
+                var seen = await native.ComputerSessionAsync(computer.DistinguishedName, id, cancellationToken).ConfigureAwait(false);
+                if (source.Epoch != generation) { throw Invalid("Session modifiée pendant la lecture de console."); }
+                denied = seen.Attempts.Any(a => a.Status is "REFUSE" or "AUTH_REJETEE");
+                detail = seen.Message;
+                if (seen.ConsoleReadAt is { } observedAt)
                 {
-                    denied = seen.Status == SourceStatus.Refused;
-                    if (seen.Status is SourceStatus.Ok or SourceStatus.Empty && WorkstationIdentity.Matches(computer, seen.ReportedName))
-                    {
-                        var facts = new MachineFacts(seen.ConsoleUser, source.Clock.GetUtcNow(), null, null, MeasureState.Known, source.Clock.GetUtcNow(), null);
-                        await source.SaveFleetAsync(FleetCachePatch.Empty with { Machines = ImmutableDictionary<Guid, MachineFacts>.Empty.Add(id, facts) }, generation, CancellationToken.None).ConfigureAwait(false);
-                    }
-                    else { detail = denied ? "Compte distant refusé : utilisateur de la console non lu." : "Lecture de la console incomplète ou indisponible."; }
+                    var facts = new MachineFacts(seen.Observed?.Account, observedAt, null, null, MeasureState.Known, observedAt, null);
+                    await source.SaveFleetAsync(FleetCachePatch.Empty with { Machines = ImmutableDictionary<Guid, MachineFacts>.Empty.Add(id, facts) }, generation, cancellationToken).ConfigureAwait(false);
+                }
+                if (seen.Savable)
+                {
+                    var saved = await AdRelationSession.For(source).SaveAsync(generation, cancellationToken).ConfigureAwait(false);
+                    detail += " " + saved.Text;
                 }
             }
             else
@@ -112,7 +113,7 @@ public sealed partial class AdSearchReader
             }
             var local = await source.ReadLocalAsync(cancellationToken).ConfigureAwait(false);
             console = new Enrichment(local.Directory, source.FleetDetails).Console(id);
-            if (denied) { console = new("denied", "Compte distant refusé par le poste", null, null, null, source.Clock.GetUtcNow()); }
+            if (denied) { console = new("denied", "Lecture ou validation refusée avec le compte sélectionné", null, null, null, source.Clock.GetUtcNow()); }
         }
         var shown = SearchTexts.Presence(presence, source.Clock.GetUtcNow());
         return new(id.ToString("D"), computer.Name, SearchSurvey.OutcomeKind(shown.State), shown, console, detail, reused, denied);
