@@ -178,7 +178,7 @@ public static partial class FicheAttributeRules
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(zone);
         var rows = entry.Attributes
-            .Where(p => !IsSensitive(p.Key))
+            .Where(p => !IsSensitive(p.Key) && !p.Key.StartsWith("__", StringComparison.Ordinal))
             .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
             .Select(p =>
             {
