@@ -74,9 +74,9 @@ public sealed partial class AdConnection : IAdConnection, IAdPasswordConnection,
     public string? Server => _server;
 
     /// <summary>Independent connection to a known domain controller, retaining this session's exact identity.</summary>
-    internal AdConnection ForServer(string server)
+    internal AdConnection ForServer(string server, TimeSpan? connectTimeout = null)
     {
-        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return new(options with { Server = server, ConnectTimeout = TimeSpan.FromSeconds(8) }); }
+        lock (_sync) { ObjectDisposedException.ThrowIf(_disposed, this); return new(options with { Server = server, ConnectTimeout = connectTimeout ?? TimeSpan.FromSeconds(8) }); }
     }
 
     internal bool UsesWindowsIdentity => options.Credential is null;

@@ -422,3 +422,12 @@ La couche CIM borne aussi les valeurs brutes : 128 propriétés, 32 768 caractè
 Les gestes complets sont limités à 30 s pour les listes et 45 s pour une requête, vérification AD comprise. Les enfants d’un espace restent inconnus jusqu’à leur ouverture, sans exploration récursive implicite. Le statut de lecture des classes est affiché, les types natifs conservent le rendu de date, les qualificatifs sont consultables et une réponse vide refusée/interrompue s’intitule « Lecture non concluante ».
 
 Six tests ajoutés et compilés seulement. Les API natives DCOM/WinRM et le parcours visuel seront vérifiés lors de la recette finale. Références : [métadonnées WMI](https://learn.microsoft.com/en-us/windows/win32/wmisdk/retrieving-a-class), [Get-CimClass](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-cimclass), [énumération des espaces CIM](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-ciminstance).
+
+
+## 23. Dernière connexion par contrôleur (23/10/2026)
+
+La lecture relit le GUID de l’objet ordinateur, puis recherche ce GUID exact sur chaque contrôleur connu, avec l’identité de la connexion AD. Elle ne contacte pas Windows : une absence de DNS du poste ne bloque donc pas son historique AD. Au plus cinquante contrôleurs, quatre lectures simultanées et cinq secondes par contrôleur. Les contrôleurs au-delà de la limite restent dans le dénominateur de couverture.
+
+Une valeur zéro signifie seulement qu’aucune connexion n’est enregistrée sur ce contrôleur. Attribut absent ou illisible, date antérieure au compte ou future, objet absent, identité différente et contrôleur non lu ne donnent pas une absence de connexion. La date maximale ne porte que sur les lectures concluantes ; un contrôleur non lu peut en connaître une plus récente. lastLogonTimestamp reste une estimation répliquée, sans preuve de présence actuelle.
+
+Un rejet d’authentification suspend les contacts en attente et est enregistré dans l’état d’accès. Aucun autre compte n’est essayé. L’arrêt conserve les dates déjà reçues, et les autres lignes restent inconnues. Un changement de session invalide la publication. Quatre tests écrits et compilés seulement ; recette native prévue en fin de développement.

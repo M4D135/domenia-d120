@@ -10,7 +10,7 @@ namespace Domenia.Tests;
 
 internal static class AdPosteNetworkTests
 {
-    private sealed class Cache(DirectorySnapshot directory) : IObjectDirectoryCache, IAccueilCache
+    internal sealed class Cache(DirectorySnapshot directory) : IObjectDirectoryCache, IAccueilCache
     {
         public CachedFleet Fleet { get; private set; } = CachedFleet.Empty("test");
         public int FleetWrites { get; private set; }
@@ -23,14 +23,14 @@ internal static class AdPosteNetworkTests
         public Task<ImmutableArray<FleetSnapshot>> ReadFleetHistoryAsync(ScopeSelection scope, CancellationToken cancellationToken) => Task.FromResult(ImmutableArray<FleetSnapshot>.Empty);
     }
 
-    private static AdEntry Entry(DirectoryComputer pc)
+    internal static AdEntry Entry(DirectoryComputer pc)
     {
         var sid = new SecurityIdentifier(pc.Sid); var bytes = new byte[sid.BinaryLength]; sid.GetBinaryForm(bytes, 0);
         return new(pc.DistinguishedName, new Dictionary<string, IReadOnlyList<object>>
         {
             ["objectGUID"] = [pc.ObjectGuid.ToByteArray()], ["objectSid"] = [bytes], ["objectClass"] = ["top", "user", "computer"],
             ["name"] = [pc.Name], ["sAMAccountName"] = [pc.SamAccountName], ["dNSHostName"] = [pc.DnsHostName!],
-            ["whenCreated"] = [pc.WhenCreated], ["userAccountControl"] = [pc.UserAccountControl],
+            ["whenCreated"] = [pc.WhenCreated.UtcDateTime.ToString("yyyyMMddHHmmss.0'Z'", System.Globalization.CultureInfo.InvariantCulture)], ["userAccountControl"] = [pc.UserAccountControl],
         });
     }
 

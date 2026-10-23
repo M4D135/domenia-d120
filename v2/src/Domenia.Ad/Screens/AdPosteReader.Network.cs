@@ -39,14 +39,14 @@ public sealed partial class AdPosteReader
         }
     }
 
-    private async Task<LocalPoste> NetworkAsync(string dn, CancellationToken token)
+    private async Task<LocalPoste> NetworkAsync(string dn, CancellationToken token, bool machine = true)
     {
         var local = await LocalAsync(dn, token).ConfigureAwait(false);
         var entry = await new AdFicheObjects(source).ReadExactAsync(dn, AdDirectoryMapper.ComputerAttributes, TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
         var computer = entry is not null && entry.Strings("objectClass").Contains("computer", StringComparer.OrdinalIgnoreCase) ? AdDirectoryMapper.Computer(entry) : null;
         if (computer is null || computer.ObjectGuid != local.Computer.ObjectGuid)
         { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Le compte ordinateur a disparu ou changé d’identité ; aucun contact machine envoyé."); }
-        if (computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(computer) is null)
+        if (machine && (computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(computer) is null))
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS absents, invalides ou incohérents ; aucun contact distant."); }
         EnsureEpoch(local.Epoch);
         // ReadExactAsync expands membership ranges; this is not a truncated object projection.
