@@ -5,6 +5,8 @@ OpenCode et une clé de l'API Claude. Il est tenu à jour à chaque étape impor
 
 ## 0. Reprise active — Codex, 23/10/2026
 
+- Trente-troisième lot : `poste.group` réel. Plan du poste et GUID du groupe scellés ; appartenance vérifiée par filtre exact, y compris au-delà des tranches. Une seule valeur GUID ajoutée ou retirée, protection du groupe revérifiée et confirmation nominative si `adminCount=1`. Les cinq écritures LDAP de Poste disposent maintenant d’exécuteurs réels. Deux tests ajoutés et compilés seulement ; Debug/Release **0 erreur, 0 avertissement**, preuve `docs/reprise/rapports/build-codex-poste-groupes-2026-10-23.txt`.
+
 - Trente-deuxième lot : renommage CN et déplacement des postes réels. ModifyDN cible les GUID du poste et du parent ; nom de compte conservé, collisions de tout type refusées, homonymes signalés et emplacement complet relu. Les appartenances tronquées ne remplacent plus un index typé par une fausse liste complète. Trois tests ajoutés et compilés seulement ; Debug/Release **0 erreur, 0 avertissement**, preuve `docs/reprise/rapports/build-codex-poste-emplacement-2026-10-23.txt`.
 
 - Trente et unième lot : `poste.accountState` et `poste.profile` réels, sur le même socle LDAP que Fiche. Profil : champ omis conservé, champ vide effacé, gestionnaire utilisateur/groupe canonisé et scellé par GUID. Activation : seul le bit confirmé change, comparaison de la valeur UAC exacte. Confirmation du poste par son compte sans `$`, y compris si son CN diffère ; contrôleurs du domaine refusés. Relecture conservée dans l’index typé et la fiche brute. Trois tests ajoutés et compilés seulement ; Debug/Release **0 erreur, 0 avertissement**, preuve `docs/reprise/rapports/build-codex-poste-profil-2026-10-23.txt`.

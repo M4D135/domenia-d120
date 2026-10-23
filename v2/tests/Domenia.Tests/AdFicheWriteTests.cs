@@ -463,6 +463,59 @@ internal static class AdFicheWriteTests
         Check.Equal(0, source.CurrentDirectory?.Computers.Length ?? 0, "aucune fausse liste complète publiée");
     }
 
+    [Test]
+    public static async Task Poste_group_changes_one_GUID_member_beyond_the_initial_range_and_is_idempotent()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var members = Enumerable.Range(0, 3000).Select(n => (object)("CN=Membre-" + n + "," + Fixtures.People)).ToList();
+        members[2000] = Dn; ldap.Objects[Manager]["member"] = members.ToArray();
+        // memberOf deliberately has no selected group: the direct membership query must decide.
+        using var writers = WriteExecutors.Discover(source, [typeof(AdDirectorySource).Assembly]);
+        var writer = writers.Require<IPosteGroupExecutor>();
+        var plan = Seal(await writer.PlanAsync(Dn, Manager, false, CancellationToken.None));
+        Check.Equal(ldap.Id(Manager).ToString("D"), plan.Changes[0].ReferenceGuid, "groupe scellé");
+        await writer.ExecuteAsync(plan, CancellationToken.None);
+        Check.Equal(1, ldap.Changes.Count, "une seule valeur modifiée");
+        Check.Equal("<GUID=" + ldap.Id(Dn).ToString("D") + ">", (string)ldap.Changes[0].Values.Single(), "poste identifié par GUID");
+        Check.True(ldap.Objects[Manager]["member"].SequenceEqual(members.Where(m => !Equals(m, Dn))), "les 2 999 autres membres conservés");
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(plan, CancellationToken.None)).State, "absence exacte relue");
+        Check.Equal(WriteResult.NoChange, (await writer.ExecuteAsync(plan, CancellationToken.None)).Result, "aucun second retrait");
+        var add = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        await writer.ExecuteAsync(add, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(add, CancellationToken.None)).State, "ajout relu");
+        Check.Equal(2, ldap.Writes, "exactement un retrait et un ajout");
+    }
+
+    [Test]
+    public static async Task Poste_group_rechecks_group_identity_protection_and_computer_identity()
+    {
+        using var ldap = new Connection(); using var source = Source(ldap);
+        ldap.Objects[Dn]["objectClass"] = ["top", "computer"]; ldap.Objects[Dn]["userAccountControl"] = ["4096"]; ldap.Objects[Dn]["sAMAccountName"] = ["PC-ORIG$"];
+        ldap.Objects[Manager]["objectClass"] = ["top", "group"]; ldap.Objects[Manager]["groupType"] = ["-2147483646"];
+        var writer = new AdPosteGroupExecutor(source);
+        var plan = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        var groupId = ldap.Objects[Manager]["objectGUID"];
+        ldap.Objects[Manager]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "groupe homonyme recréé");
+        ldap.Objects[Manager]["objectGUID"] = groupId; ldap.Objects[Manager]["adminCount"] = ["1"];
+        Check.False((await writer.CheckAsync(plan, CancellationToken.None)).Current, "protection nouvelle exige un nouveau plan");
+        var protectedPlan = Seal(await writer.PlanAsync(Dn, Manager, true, CancellationToken.None));
+        Check.True(protectedPlan.Confirmation.TypedNameRequired, "confirmation du groupe protégé");
+        Check.Equal("PC-ORIG", protectedPlan.Confirmation.TypedName, "confirmation du compte ordinateur et non du CN");
+        var computerId = ldap.Objects[Dn]["objectGUID"];
+        ldap.Objects[Dn]["objectGUID"] = [Guid.NewGuid().ToByteArray()];
+        Check.False((await writer.CheckAsync(protectedPlan, CancellationToken.None)).Current, "poste homonyme recréé");
+        ldap.Objects[Dn]["objectGUID"] = computerId;
+        ldap.Objects[Manager]["isCriticalSystemObject"] = ["TRUE"];
+        await Check.ThrowsAsync<DomeniaOperationException>(() => writer.ExecuteAsync(protectedPlan, CancellationToken.None), "groupe système protégé");
+        Check.Equal(0, ldap.Writes, "aucun envoi sur un plan périmé");
+        ldap.Objects[Manager].Remove("isCriticalSystemObject");
+        await writer.ExecuteAsync(protectedPlan, CancellationToken.None);
+        Check.Equal(VerificationState.Verified, (await writer.VerifyAsync(protectedPlan, CancellationToken.None)).State, "appartenance autorisée explicitement confirmée");
+    }
+
     private static AdEntry Schema(string name, string syntax, int om, Dictionary<string, IReadOnlyList<object>>? extras = null)
     {
         var fields = extras ?? new(StringComparer.OrdinalIgnoreCase);
