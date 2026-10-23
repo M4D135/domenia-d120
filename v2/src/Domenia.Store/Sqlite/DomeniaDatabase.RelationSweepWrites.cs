@@ -140,12 +140,20 @@ public sealed partial class DomeniaDatabase
         var columns = db.Query("PRAGMA table_info(park_state);").Select(r => (string)r["name"]!).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (!columns.Contains("computer_guid")) { db.Execute("ALTER TABLE park_state ADD COLUMN computer_guid TEXT;"); }
         if (!columns.Contains("computer_dn")) { db.Execute("ALTER TABLE park_state ADD COLUMN computer_dn TEXT;"); }
+        EnsureSweepLedger(db);
+    }
+
+    private static void EnsureSweepLedger(SqliteDatabase db)
+    {
         if (!Table(db, "domenia_v2_sweep_state"))
         {
             db.Execute("CREATE TABLE domenia_v2_sweep_state(id INTEGER PRIMARY KEY CHECK(id=1),generation INTEGER NOT NULL CHECK(generation>=0));");
             db.Execute("INSERT INTO domenia_v2_sweep_state(id,generation) VALUES(1,0);");
         }
         db.Execute("CREATE TABLE IF NOT EXISTS domenia_v2_sweep_writes(id TEXT PRIMARY KEY,request_sha256 TEXT NOT NULL,operation TEXT NOT NULL,generation INTEGER NOT NULL,updated INTEGER NOT NULL,ignored INTEGER NOT NULL,revision INTEGER NOT NULL);");
+        var columns = db.Query("PRAGMA table_info(domenia_v2_sweep_writes);").Select(r => (string)r["name"]!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!columns.Contains("backup_path")) { db.Execute("ALTER TABLE domenia_v2_sweep_writes ADD COLUMN backup_path TEXT;"); }
+        if (!columns.Contains("backup_sha256")) { db.Execute("ALTER TABLE domenia_v2_sweep_writes ADD COLUMN backup_sha256 TEXT;"); }
     }
 
     private static string NewSweepKey(RelationSweepUpdate value, HashSet<string> occupied)

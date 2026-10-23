@@ -25,6 +25,8 @@ public static class RelationSweepReset
     /// <summary>Identity of the relevé memory as the target of a plan (it is not a directory object).</summary>
     public static readonly Guid MemoryGuid = new("3f7c2a91-0b6e-4d58-a1c4-92e5d0b7f613");
 
+    public static string StoreTarget(string storeId, string domainDn) => "Base locale Domenia · " + domainDn + " · " + storeId + " · Relevés du parc";
+
     private static string C => FrenchText.Colon;
 
     /// <summary>Raw value of the memory in a plan: number of workstations read and the fingerprint of the readings.</summary>

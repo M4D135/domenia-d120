@@ -526,3 +526,14 @@ Le reçu durable associe l’identifiant de lot à l’empreinte exacte de son c
 La relecture avant commit vérifie les champs modifiés, les clés, les extensions préservées, le nombre de lignes, la génération et l’empreinte complète des lignes non concernées. Un déclencheur qui altère une extension annule le lot et son reçu. Toute mémoire tronquée, cellule invalide ou GUID de cible ambigu bloque l’écriture ; rien n’est éliminé pour forcer le passage.
 
 Six tests du magasin couvrent compatibilité D1, sauvegarde, dates/compteurs, concurrence, reçus/générations, déclencheurs et requêtes invalides. Un nouveau test de sonde vérifie qu’un effacement pendant le réseau ne rétablit pas l’ancienne mémoire et ne perd pas la relation qualifiée ; un test existant vérifie aussi les trois statuts console/console vide/ping muet persistés. Compilation Debug/Release en VM sans avertissement ni erreur ; tests à exécuter en recette finale.
+
+
+## 27. Effacement natif des relevés avec sauvegarde (23/10/2026)
+
+Le bouton prépare un plan du circuit commun, lié à la base exacte, à l’empreinte physique de tous les relevés, à leur génération et à la session. Une mémoire tronquée, ambiguë ou illisible bloque la préparation. La confirmation expire après cinq minutes ; une copie de brouillon, une autre session ou un plan non lié sont refusés. Les associations et l’annuaire ne font pas partie de cet effacement.
+
+Avant suppression, le magasin produit une sauvegarde SQLite vérifiée avec SHA-256. Il compare son contenu à celui relu sous transaction immédiate ; toute différence annule l’opération. Seul park_state est vidé, sans migration inutile des colonnes héritées. Le compteur de génération avance même si la mémoire est devenue vide, afin qu’un ancien passage encore en cours ne la recrée pas. Le reçu durable conserve la base, le plan, la génération et les références de sauvegarde ; son rejeu ne supprime jamais les nouveaux relevés arrivés après le commit.
+
+La postcondition relit la mémoire et contrôle le nombre exact de modifications de la connexion. [SQLite total_changes](https://sqlite.org/c3ref/total_changes.html) inclut les modifications des déclencheurs et des actions de clés étrangères ; un effet supplémentaire fait annuler relevés, génération et reçu dans la même transaction. La vérification finale ne dépend pas de la préparation en mémoire et reste possible avec un nouvel exécuteur.
+
+Huit tests couvrent sauvegarde/colonnes D1, empreinte des valeurs brutes, conflits, générations, reçus, déclencheurs, confirmation et consommation des plans. Ils sont compilés uniquement ; exécution et recette native restent réservées à la fin du développement.

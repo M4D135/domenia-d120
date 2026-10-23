@@ -17,6 +17,8 @@ public sealed record RelationSweepCacheSnapshot(string StoreId, string DomainDn,
 public sealed record RelationSweepUpdate(Guid ComputerGuid, string ComputerDn, string Computer, DateTimeOffset At, string Status, string? UserLogin);
 public sealed record RelationSweepWrite(string StoreId, string BatchId, long Generation, ImmutableArray<RelationSweepUpdate> Updates);
 public sealed record RelationSweepWriteResult(int Updated, int Ignored, long Generation, long Revision, bool AlreadyRecorded, string Detail);
+public sealed record RelationSweepResetWrite(string StoreId, WritePlan Plan, long Generation);
+public sealed record RelationSweepResetResult(int Forgotten, long Generation, long Revision, bool AlreadyApplied, string BackupPath, string BackupSha256);
 
 /// <summary>Read-only, bounded compatibility view of the D1 sweep memory. Opening a view never migrates the base.</summary>
 public interface IRelationSweepCache
@@ -29,4 +31,6 @@ public interface IRelationSweepWriter : IRelationSweepCache
 {
     Task<WritePrecheck> CheckRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken);
     Task<RelationSweepWriteResult> ApplyRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken);
+    Task<WritePrecheck> CheckRelationSweepResetAsync(RelationSweepResetWrite request, CancellationToken cancellationToken);
+    Task<RelationSweepResetResult> ResetRelationSweepsAsync(RelationSweepResetWrite request, CancellationToken cancellationToken);
 }

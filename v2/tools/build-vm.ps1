@@ -55,8 +55,15 @@ if ($missing.Count -gt 0) {
     "Projet(s) absent(s) de la solution (fichier illisible ?) : $(($missing | ForEach-Object { $_.Name }) -join ', ')"
     exit 1
 }
-& $dotnet build Domenia.sln -c $Configuration -nologo -clp:NoSummary -v:minimal
-if ($LASTEXITCODE) { exit $LASTEXITCODE }
+$logDirectory = Join-Path 'C:\DomeniaDev\build-logs' $(if ($lot) { $lot } else { 'historical' })
+New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
+$buildLog = Join-Path $logDirectory ("build-$Configuration.log")
+& $dotnet build Domenia.sln -c $Configuration -nologo -v:minimal "-flp:LogFile=$buildLog;Verbosity=normal;Encoding=UTF-8"
+$buildExit = $LASTEXITCODE
+if ($buildExit) {
+    "Compilation $Configuration interrompue (code $buildExit). Journal : $buildLog"
+    exit $buildExit
+}
 "Compilation $Configuration réussie."
 if ($Test) {
     & (Join-Path $root "tests\Domenia.Tests\bin\x64\$Configuration\net10.0-windows\win-x64\Domenia.Tests.exe")

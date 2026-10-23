@@ -8,6 +8,14 @@ namespace Domenia.Store;
 public sealed class SqliteDirectoryCache(DomeniaDatabase database) : IPreparedDirectoryCache, IAccueilCache, IObjectDirectoryCache, IFicheCache, IDirectoryDeletionCache, IRelationLocalWriter, IRelationSweepWriter
 {
     public Task<WritePrecheck> CheckRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken) => Database.CheckRelationSweepsAsync(request, cancellationToken);
+    public Task<WritePrecheck> CheckRelationSweepResetAsync(RelationSweepResetWrite request, CancellationToken cancellationToken) => Database.CheckRelationSweepResetAsync(request, cancellationToken);
+    public async Task<RelationSweepResetResult> ResetRelationSweepsAsync(RelationSweepResetWrite request, CancellationToken cancellationToken)
+    {
+        var check = await Database.CheckRelationSweepResetAsync(request, cancellationToken).ConfigureAwait(false);
+        if (!check.Current) { throw WriteErrors.Refusal(WriteErrors.Stale, check.Detail); }
+        await Database.InitializeAsync(cancellationToken).ConfigureAwait(false);
+        return await Database.ResetRelationSweepsAsync(request, cancellationToken).ConfigureAwait(false);
+    }
     public async Task<RelationSweepWriteResult> ApplyRelationSweepsAsync(RelationSweepWrite request, CancellationToken cancellationToken)
     {
         var check = await Database.CheckRelationSweepsAsync(request, cancellationToken).ConfigureAwait(false);
