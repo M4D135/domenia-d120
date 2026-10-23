@@ -160,6 +160,15 @@ public sealed partial class DomeniaDatabase
                 && RelationRules.Fingerprint(r.Relation) != RelationRules.Fingerprint(added)))
             { return WritePrecheck.Stale("Un poste de l’import est désormais associé ; préparez un nouvel aperçu. Aucune association remplacée."); }
         }
+        foreach (var item in request.Items.Where(i => i.Operation == RelationChangeOperation.Add && i.RestoresEntry is null
+            && i.After is { Kind: RelationKind.History, Source: RelationRules.HarvestSource }))
+        {
+            var added = item.After!;
+            if (current.Rows.Select(r => r.Relation).Concat(request.Items.Select(i => i.After).OfType<StoredRelation>())
+                .Any(r => added.UserGuid is not null && added.ComputerGuid is not null && r.UserGuid == added.UserGuid && r.ComputerGuid == added.ComputerGuid
+                    && RelationRules.Fingerprint(r) != RelationRules.Fingerprint(added)))
+            { return WritePrecheck.Stale("Un couple de la moisson est désormais connu ; aucun historique ajouté ou remplacé. Actualisez les attentes."); }
+        }
         // Physical compare-and-swap also detects legacy confidence/date formatting changes hidden by the typed view.
         foreach (var expected in request.Expected)
         {

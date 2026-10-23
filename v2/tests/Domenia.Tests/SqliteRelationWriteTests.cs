@@ -24,6 +24,22 @@ internal static class SqliteRelationWriteTests
             [.. read.Rows.Where(r => keys.Contains(RelationRules.Key(r.Relation)))], [.. items]);
     }
     private static Task<RelationStoreResult> Apply(DomeniaDatabase db, RelationStoreWrite request) => db.ApplyRelationsAsync(request, CancellationToken.None);
+
+    [Test]
+    public static async Task Native_harvest_additions_recheck_pair_absence_under_the_SQLite_transaction()
+    {
+        using var folder = new TemporaryFolder(); var db = await Open(folder);
+        var history = Relation(kind: RelationKind.History) with { Source = RelationRules.HarvestSource };
+        var waiting = await Prepare(db, Add(history));
+        await Apply(db, await Prepare(db, Add(Relation())));
+        Check.False((await db.CheckRelationsAsync(waiting, CancellationToken.None)).Current, "affectation apparue depuis la moisson");
+        await Check.ThrowsAsync<DomeniaOperationException>(() => Apply(db, waiting), "aucun historique ajouté après confirmation devenue caduque");
+        Check.Equal(1, (await db.ReadRelationsAsync(CancellationToken.None)).Rows.Length, "association concurrente seule conservée");
+        var another = history with { Computer = "PC2", ComputerGuid = Fixtures.Computer("PC2").ObjectGuid, ComputerDn = Fixtures.Computer("PC2").DistinguishedName };
+        var conflicting = await Prepare(db, Add(another), Add(another with { Kind = RelationKind.Console, Source = "Console CIM/DCOM" }));
+        await Check.ThrowsAsync<DomeniaOperationException>(() => Apply(db, conflicting), "même couple contradictoire dans un lot");
+        Check.Equal(1, (await db.ReadRelationsAsync(CancellationToken.None)).Rows.Length, "lot contradictoire atomiquement refusé");
+    }
     private static async Task<DomeniaDatabase> Open(TemporaryFolder folder)
     {
         var db = new DomeniaDatabase(folder.File("relations.db"), Fixtures.Root, TestClock.Fixed());

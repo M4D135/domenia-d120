@@ -422,7 +422,10 @@ public sealed record RelationHarvestEstimate(
     int EstimatedEvents,
     int EstimatedSeconds,
     string Text,
-    DateTimeOffset ExpiresAt);
+    DateTimeOffset ExpiresAt)
+{
+    public bool EstimateKnown { get; init; } = true;
+}
 
 public sealed record RelationHarvestCouple(
     string Key,
@@ -436,7 +439,10 @@ public sealed record RelationHarvestCouple(
     string LastText,
     int Events,
     string EventIds,
-    bool Known);
+    bool Known)
+{
+    public bool CanSave { get; init; } = true;
+}
 
 /// <summary>Result of relations.harvest.run: user/workstation couples read in the controller journal, nothing saved yet.</summary>
 public sealed record RelationHarvest(
@@ -450,7 +456,13 @@ public sealed record RelationHarvest(
     int NewCount,
     int KnownCount,
     string Controller,
-    string Message);
+    string Message)
+{
+    public ImmutableArray<RelationHint> Hints { get; init; } = [];
+    public int Rejected { get; init; }
+    public int Ignored { get; init; }
+    public bool AuthenticationRejected { get; init; }
+}
 
 public sealed record RelationJournalEntry(
     string Id,

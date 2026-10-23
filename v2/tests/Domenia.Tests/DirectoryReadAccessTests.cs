@@ -60,6 +60,24 @@ internal static class DirectoryReadAccessTests
     private static AdSearchRequest Query => new(Fixtures.Postes, "(objectClass=computer)", AdSearchScope.OneLevel, ["objectGUID"]) { SizeLimit = 1 };
 
     [Test]
+    public static async Task A_native_journal_refusal_is_attributed_to_its_LDAP_lease_without_confusing_permissions_and_authentication()
+    {
+        foreach (var authentication in new[] { false, true })
+        {
+            var (source, context, ldap) = Source(); using var owned = source; using var owner = context;
+            using var read = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, null, CancellationToken.None);
+            read.ReportNativeRefusal(authentication); read.EnsureCurrent();
+            Check.Equal(1, AccountAccess.From(context).Refusals().Length, "refus natif enregistré une seule fois");
+            if (authentication)
+            {
+                var error = await Check.ThrowsAsync<DomeniaOperationException>(() => read.SearchAsync(Query, CancellationToken.None), "compte en pause avant contact");
+                Check.Equal(MachineErrors.AccountPaused, error.Code, "rejet d’identité et non simple permission"); Check.Equal(0, ldap.Calls, "aucun essai LDAP après rejet journal");
+            }
+            else { await read.SearchAsync(Query, CancellationToken.None); Check.True(ldap.Calls > 0, "permission journal manquante ne devient pas un mauvais mot de passe LDAP"); }
+        }
+    }
+
+    [Test]
     public static async Task A_foreign_LDAP_controller_never_serves_object_reads_even_after_a_repeated_attempt()
     {
         var (source, context, ldap) = Source(); using var owned = source; using var owner = context;

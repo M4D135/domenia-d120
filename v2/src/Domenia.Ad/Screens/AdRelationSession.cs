@@ -127,10 +127,15 @@ internal sealed class AdRelationSession
     /// <summary>Only exact GUID keys may refresh an automatic observation; legacy names and declarations remain separate.</summary>
     internal static ImmutableArray<RelationChangeItem> PrepareItems(RelationCacheSnapshot current, IEnumerable<StoredRelation> session)
     {
+        var pending = session.ToArray();
+        var knownPairs = current.Rows.Select(r => r.Relation).Concat(pending.Where(r => r.Kind != RelationKind.History || r.Source != RelationRules.HarvestSource))
+            .Where(r => r.UserGuid is not null && r.ComputerGuid is not null).Select(r => (r.UserGuid!.Value, r.ComputerGuid!.Value)).ToHashSet();
         var groups = current.Rows.GroupBy(r => RelationRules.Key(r.Relation), StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
         var result = ImmutableArray.CreateBuilder<RelationChangeItem>();
-        foreach (var observation in session.OrderByDescending(r => r.When).ThenBy(RelationRules.Key, StringComparer.Ordinal))
+        foreach (var observation in pending.OrderByDescending(r => r.When).ThenBy(RelationRules.Key, StringComparer.Ordinal))
         {
+            if (observation.Kind == RelationKind.History && observation.Source == RelationRules.HarvestSource && observation.UserGuid is { } user && observation.ComputerGuid is { } computer
+                && knownPairs.Contains((user, computer))) { continue; }
             var key = RelationRules.Key(observation);
             var matching = groups.GetValueOrDefault(key, []);
             if (matching.Length > 1) { throw WriteErrors.Refusal(WriteErrors.Stale, "Association ambiguë ; mémorisation automatique suspendue."); }

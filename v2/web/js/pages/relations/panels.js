@@ -945,7 +945,7 @@ export function openHarvestPanel(app) {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() },
           { id: 'selection', label: `Enregistrer la sélection (${int(selected)})`, icon: 'check', kind: 'write', disabled: selected === 0 || selected > 64,
             reason: selected > 64 ? '64 au plus par enregistrement : « Tout enregistrer » procède par lots.' : 'Cochez les couples à enregistrer.', run: saveSelection },
-          remaining > 0 ? { ...saveButton(remaining, 'la moisson'), id: 'all', run: saveAll } : { id: 'done', label: 'Tout est mémorisé', icon: 'check', disabled: true }]);
+          remaining > 0 ? { ...saveButton(remaining, 'la moisson'), id: 'all', run: saveAll } : { id: 'done', label: result.newCount > 0 ? 'Aucun couple en attente' : 'Aucun nouveau couple', icon: 'check', disabled: true }]);
       } else if (estimate) {
         foot.set([{ id: 'close', label: 'Fermer', run: () => ctl.close() }, { id: 'run', label: 'Lancer la moisson', icon: 'play', primary: true, kind: 'network', run }]);
       } else {
@@ -955,10 +955,10 @@ export function openHarvestPanel(app) {
     async function estimateIt() {
       try {
         estimate = await app.ctx.call('relations.harvest.estimate', read());
-        out.innerHTML = `<section class="rel-step-card in rel-estimate"><h3><span class="rel-step-n">2</span>Impact estimé · à confirmer</h3>
-          <div class="rel-import-kpis"><div class="rel-ikpi" data-tone="info"><b class="num">${int(estimate.estimatedEvents)}</b><span>événements</span></div>
-            <div class="rel-ikpi" data-tone="info"><b class="num">${int(estimate.estimatedSeconds)}${NBSP}s</b><span>estimées</span></div>
-            <div class="rel-ikpi" data-tone="off"><b class="num">${int(estimate.computers)}</b><span>postes concernés</span></div></div>
+        out.innerHTML = `<section class="rel-step-card in rel-estimate"><h3><span class="rel-step-n">2</span>${estimate.estimateKnown === false ? 'Périmètre et budget' : 'Impact estimé'} · à confirmer</h3>
+          <div class="rel-import-kpis"><div class="rel-ikpi" data-tone="info"><b class="num">${estimate.estimateKnown === false ? 'Non mesuré' : int(estimate.estimatedEvents)}</b><span>événements</span></div>
+            <div class="rel-ikpi" data-tone="info"><b class="num">${int(estimate.estimatedSeconds)}${NBSP}s</b><span>${estimate.estimateKnown === false ? 'budget maximal' : 'estimées'}</span></div>
+            <div class="rel-ikpi" data-tone="off"><b class="num">${int(estimate.computers)}</b><span>${estimate.estimateKnown === false ? 'postes indexés localement' : 'postes concernés'}</span></div></div>
           <p class="rel-status">${esc(estimate.text)}</p></section>`;
       } catch (err) {
         out.innerHTML = `<p class="rel-note warn" role="alert">${glyph('alert')}${esc(errText(err))}</p>`;
@@ -973,8 +973,9 @@ export function openHarvestPanel(app) {
         result = await app.ctx.call('relations.harvest.run', { estimateId: estimate.id });
         if (!ctl.body?.isConnected) return;
         remaining = result.newCount;
-        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples lus · nouveaux mémorisés</h3>
+        out.querySelector('.rel-harvest-run').outerHTML = `<section class="rel-step-card in"><h3><span class="rel-step-n">3</span>Couples historiques du journal</h3>
           <p class="rel-status">${esc(result.message)}</p>
+          ${result.hints?.length ? `<details class="rel-hints"><summary>${glyph('key')}Adresses indicatives · aucune association automatique</summary><ul>${result.hints.map((h) => `<li><span class="mono">${esc(h.address)}</span><span>${esc(h.detail)}</span><time>${esc(formatDateTime(h.observedAt) ?? '')}</time></li>`).join('')}</ul></details>` : ''}
           <div class="rel-harvest-progress"><div class="rel-bar"><span class="rel-bar-fill"></span></div><span class="rel-harvest-left">${esc(nouns(remaining, 'nouveau couple', 'nouveaux couples'))}</span></div>
           <div class="rel-harvest-grid"></div></section>`;
         grid = createGrid(out.querySelector('.rel-harvest-grid'), {
@@ -987,7 +988,7 @@ export function openHarvestPanel(app) {
             { id: 'eventIds', label: 'Identifiants', width: 140 },
             { id: 'known', label: 'Déjà connu', type: 'bool', width: 110 },
           ],
-          onSelectionChange: (rows) => { selected = rows.filter((r) => !r.known).length; paint(); },
+          onSelectionChange: (rows) => { selected = rows.filter((r) => !r.known && r.canSave !== false).length; paint(); },
           onExport: (csv) => app.exportCsv('moisson', csv),
         });
         grid.setRows(result.couples);
@@ -1003,7 +1004,7 @@ export function openHarvestPanel(app) {
       }
     }
     async function saveSelection() {
-      const chosen = grid ? grid.getSelection().filter((r) => !r.known) : [];
+      const chosen = grid ? grid.getSelection().filter((r) => !r.known && r.canSave !== false) : [];
       if (!chosen.length || !result) return;
       const receipt = await app.plan('relations.observations.plan', { resultId: result.resultId, keys: chosen.map((r) => r.key) }, 'Moisson du journal · sélection');
       // The couples recorded leave the selection and read « Déjà connu »: a second click never plans them again.
@@ -1024,10 +1025,16 @@ export function openHarvestPanel(app) {
       const left = await remainingOf(app, result.resultId);
       if (left === null || !ctl.body?.isConnected) return;
       remaining = left;
-      const total = Math.max(1, result.newCount);
-      progressTo(out.querySelector('.rel-harvest-progress .rel-bar-fill'), (total - remaining) / total);
+      const total = result.newCount;
+      progressTo(out.querySelector('.rel-harvest-progress .rel-bar-fill'), total > 0 ? (total - remaining) / total : 0);
       const text = out.querySelector('.rel-harvest-left');
-      if (text) text.textContent = remaining > 0 ? `${int(total - remaining)} sur ${int(total)} mémorisés · ${nouns(remaining, 'reste', 'restent')} ${int(remaining)}` : `${nouns(total, 'nouveau couple mémorisé', 'nouveaux couples mémorisés')} automatiquement`;
+      if (text) text.textContent = remaining > 0 ? `${int(total - remaining)} sur ${int(total)} traités · ${nouns(remaining, 'reste', 'restent')} ${int(remaining)}`
+        : total > 0 ? 'Aucun nouveau couple en attente ; les liens déjà connus sont conservés.' : 'Aucun nouveau couple à mémoriser.';
+      if (remaining === 0 && total > 0 && grid) {
+        result.couples = result.couples.map((r) => r.canSave !== false ? { ...r, known: true, canSave: false } : r);
+        grid.setRows(result.couples, { keepSelection: false, keepScroll: true });
+        selected = 0;
+      }
       paint();
     };
     ctl.closed.then(() => grid?.destroy());
