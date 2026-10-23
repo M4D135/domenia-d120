@@ -95,6 +95,7 @@ public sealed class WriteCircuit : IDisposable
         await EnsureWritesFreeAsync(draft.Target.ObjectGuid, WriteErrors.ReceiptsUnreadableMessage, cancellationToken).ConfigureAwait(false);
         var now = clock.GetUtcNow();
         var plan = WritePlans.Seal(draft, WritePlans.NewId(), account.Account.Login, mode, now, clock.LocalTimeZone);
+        if (writers.ForKind(draft.Kind) is IWritePlanBinder binder) { binder.Bind(draft, plan); }
         var token = tokens.Issue(plan.Id, plan.Fingerprint, plan.ExpiresAt, now);
         lock (gate)
         {
