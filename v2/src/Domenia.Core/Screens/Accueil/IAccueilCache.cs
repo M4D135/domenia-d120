@@ -10,6 +10,7 @@ public sealed record CachedFleet(FleetObservations Observations, AccueilFacts Fa
     public ImmutableDictionary<Guid, InventorySnapshot> Inventories { get; init; } = ImmutableDictionary<Guid, InventorySnapshot>.Empty;
     public ImmutableDictionary<Guid, ProbeStore> WorkstationProbes { get; init; } = ImmutableDictionary<Guid, ProbeStore>.Empty;
     public ImmutableDictionary<Guid, WorkstationSecretMetadata> WorkstationSecrets { get; init; } = ImmutableDictionary<Guid, WorkstationSecretMetadata>.Empty;
+    public ImmutableDictionary<Guid, WorkstationSessionMemory> WorkstationSessions { get; init; } = ImmutableDictionary<Guid, WorkstationSessionMemory>.Empty;
 
     public static CachedFleet Empty(string storeId) => new(FleetObservations.Empty, AccueilFacts.Empty(storeId), ProbeReadings.Empty);
 
@@ -62,8 +63,10 @@ public sealed record CachedFleet(FleetObservations Observations, AccueilFacts Fa
         { detailed = detailed.SetItem(id, PosteProbeCache.Merge(detailed.GetValueOrDefault(id), next)); }
         var secrets = WorkstationSecrets;
         foreach (var (id, next) in patch.WorkstationSecrets) { secrets = secrets.SetItem(id, PosteSecretCache.Merge(secrets.GetValueOrDefault(id), next)); }
+        var sessions = WorkstationSessions;
+        foreach (var (id, next) in patch.WorkstationSessions) { sessions = sessions.SetItem(id, PosteSessionCache.Merge(sessions.GetValueOrDefault(id), next)); }
         return new(new(at, [.. observations.Values]), Facts with { Machines = machines, BitLocker = [.. bitlocker] }, Probes.Merge(patch.Probes))
-        { Addresses = addresses, Inventories = inventories, WorkstationProbes = detailed, WorkstationSecrets = secrets };
+        { Addresses = addresses, Inventories = inventories, WorkstationProbes = detailed, WorkstationSecrets = secrets, WorkstationSessions = sessions };
     }
 }
 
@@ -73,6 +76,7 @@ public sealed record FleetCachePatch(FleetObservations Observations, ImmutableDi
     public ImmutableDictionary<Guid, InventorySnapshot> Inventories { get; init; } = ImmutableDictionary<Guid, InventorySnapshot>.Empty;
     public ImmutableDictionary<Guid, ProbeStore> WorkstationProbes { get; init; } = ImmutableDictionary<Guid, ProbeStore>.Empty;
     public ImmutableDictionary<Guid, WorkstationSecretMetadata> WorkstationSecrets { get; init; } = ImmutableDictionary<Guid, WorkstationSecretMetadata>.Empty;
+    public ImmutableDictionary<Guid, WorkstationSessionMemory> WorkstationSessions { get; init; } = ImmutableDictionary<Guid, WorkstationSessionMemory>.Empty;
 
     public static FleetCachePatch Empty { get; } = new(FleetObservations.Empty, ImmutableDictionary<Guid, MachineFacts>.Empty, [], ProbeReadings.Empty);
 }

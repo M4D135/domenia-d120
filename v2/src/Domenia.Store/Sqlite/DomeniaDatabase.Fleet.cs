@@ -37,7 +37,7 @@ public sealed partial class DomeniaDatabase
                 var identities = db.Query("SELECT object_guid,dn FROM domenia_v2_objects WHERE kind='computer';")
                     .ToDictionary(r => Guid.Parse((string)r["object_guid"]!), r => (string)r["dn"]!);
                 var ids = patch.Observations.Workstations.Select(o => o.ComputerGuid).Concat(patch.Machines.Keys)
-                    .Concat(patch.Addresses.Keys).Concat(patch.Inventories.Keys).Concat(patch.WorkstationProbes.Keys).Concat(patch.WorkstationSecrets.Keys)
+                    .Concat(patch.Addresses.Keys).Concat(patch.Inventories.Keys).Concat(patch.WorkstationProbes.Keys).Concat(patch.WorkstationSecrets.Keys).Concat(patch.WorkstationSessions.Keys)
                     .Concat(patch.Probes.ByProbe.Values.SelectMany(p => p.Keys)).Concat(patch.BitLocker.SelectMany(p => p.Machines.Keys));
                 if (ids.Any(id => !identities.TryGetValue(id, out var dn) || !InDomain(dn)))
                 { throw new InvalidDataException("Relevé d’un poste inconnu ou d’un autre domaine : aucune écriture."); }
@@ -62,6 +62,7 @@ public sealed partial class DomeniaDatabase
                 if (patch.Probes.ByProbe.Keys.Any(id => ProbeCatalog.Find(id) is null)) { throw new InvalidDataException("Sonde non reconnue."); }
                 foreach (var detail in patch.WorkstationProbes.Values) { Domenia.Core.Poste.PosteProbeCache.Validate(detail, clock.GetUtcNow()); }
                 foreach (var metadata in patch.WorkstationSecrets.Values) { Domenia.Core.Poste.PosteSecretCache.Validate(metadata, clock.GetUtcNow()); }
+                foreach (var sessions in patch.WorkstationSessions.Values) { Domenia.Core.Poste.PosteSessionCache.Validate(sessions, clock.GetUtcNow()); }
                 var merged = ReadFleet(db).Merge(patch);
                 var payload = JsonSerializer.Serialize(merged, Json);
                 db.Execute("INSERT INTO domenia_v2_metadata(key,payload) VALUES('fleet',?1) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload;", payload);

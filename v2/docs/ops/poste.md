@@ -540,3 +540,12 @@ Les gestes réseau de Poste valident désormais leur cible avec le compte annuai
 L’inventaire et le direct utilisent une seule acquisition annuaire pour toute leur chaîne de console : une identité à usage unique n’est pas consommée par un contrôle préliminaire puis remplacée au geste suivant. Le ping du direct se déroule dans cette chaîne et utilise le DNS fraîchement relu. Les règles de qualification, conservation des données partielles et mémorisation sont décrites dans `relations.md` §28 à §31.
 
 Cinq tests ajoutés couvrent pause avant contact, refus partagé, identités ambiguës ou incohérentes, parent absent/contrôleur étranger et cible DNS du rappel avant inventaire. Un test d’inventaire vérifie aussi l’unique liaison RootDSE. Debug/Release compilés en VM sans erreur ni avertissement ; tests non exécutés.
+
+
+## 35. Mémoire des sessions datées (23/10/2026)
+
+Le cache local conserve par GUID la dernière tentative et la dernière liste complète, séparément. Un refus ou une lecture partielle ne signifie jamais zéro session et ne remplace pas la dernière liste complète. Une réponse plus ancienne ou de même date conserve le constat déjà connu. Les lectures antérieures à la création du compte ordinateur ne s’appliquent pas à son identité actuelle.
+
+Chaque lecture est limitée à 512 lignes et l’ensemble à 2 Mio. Identifiants dupliqués, lignes nulles, dates futures, durées négatives, champs démesurés ou caractères de contrôle sont refusés, ainsi que les états prétendant une liste complète malgré des éléments non lus. Les écritures vérifient le GUID dans la base du domaine. Les détails D1 `Sessions/WTS` restent intacts : ce nouveau stockage ne les remplace pas et leur lecture compatible reste à raccorder.
+
+Cinq tests couvrent refus/succès, ordre temporel, limites, identité après recréation, réouverture SQLite et préservation D1. Debug/Release compilés sans erreur ni avertissement ; tests non exécutés. Raccordement du lecteur WTS et affichage local en cours.
