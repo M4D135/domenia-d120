@@ -39,6 +39,36 @@ public static class SyncPark
         return computer.Trim().ToUpperInvariant();
     }
 
+    /// <summary>Prefix that marks a stored line as an observation of another console (shared survey), never an AD identity.</summary>
+    public const string SharedPrefix = "PARTAGE_";
+
+    /// <summary>
+    /// Status of a stored line (Domenia 1 park_state.status and its shared TSV): the words of the engine are French, the English
+    /// spellings stay understood. Case and surrounding spaces are ignored; one <see cref="SharedPrefix"/> is removed only at the
+    /// start, so a repeated or misplaced prefix never becomes a certain status. An empty, null or unknown value is an error.
+    /// </summary>
+    public static ParkStatus StoredStatus(string? value)
+    {
+        var token = value?.Trim();
+        if (string.IsNullOrEmpty(token))
+        {
+            return ParkStatus.Error;
+        }
+        if (token.StartsWith(SharedPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            token = token[SharedPrefix.Length..].Trim();
+        }
+        return token.ToUpperInvariant() switch
+        {
+            "CONFIRME" or "CONFIRMED" or "SESSION" => ParkStatus.Session,
+            "LU" or "EMPTY" => ParkStatus.Empty,
+            "PING_MUET" or "UNREACHABLE" => ParkStatus.Unreachable,
+            "REFUSE" or "AUTH_REJETEE" or "REFUSED" => ParkStatus.Refused,
+            "DELAI" or "ERREUR" => ParkStatus.Error,
+            _ => ParkStatus.Error,
+        };
+    }
+
     public static string StatusLabel(ParkStatus status) => status switch
     {
         ParkStatus.Session => "Session ouverte",

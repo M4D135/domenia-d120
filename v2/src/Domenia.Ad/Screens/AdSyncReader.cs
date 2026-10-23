@@ -86,8 +86,12 @@ public sealed partial class AdSyncReader(AdDirectorySource source) : ISyncReader
         if (source.LocalStore is not IRelationSweepCache reader) { throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Relevé du parc indisponible."); }
         var stored = await reader.ReadRelationSweepsAsync(cancellationToken).ConfigureAwait(false);
         if (stored.Truncated || stored.Rejected > 0 || stored.UncertainDates > 0) { throw new InvalidDataException(stored.Notice); }
-        var rows = stored.Rows.Select(x => new ParkEntry(x.Computer, x.At ?? DateTimeOffset.MinValue, x.Status.ToLowerInvariant() switch
-        { "confirmed" or "session" => ParkStatus.Session, "empty" => ParkStatus.Empty, "unreachable" => ParkStatus.Unreachable, "refused" => ParkStatus.Refused, _ => ParkStatus.Error }, x.UserLogin, x.Attempts, null)).ToImmutableArray();
+        // A line without a real date stays uncertain: it is never shown as a dated observation, even when the storage counted none.
+        foreach (var row in stored.Rows)
+        {
+            if (row.At is not { } at) { throw new InvalidDataException("Relevé du parc " + row.Computer + " sans date réelle ; aucune observation certaine fabriquée."); }
+        }
+        var rows = stored.Rows.Select(x => new ParkEntry(x.Computer, x.At!.Value, SyncPark.StoredStatus(x.Status), x.UserLogin, x.Attempts, null)).ToImmutableArray();
         return new(SyncPark.Coverage(rows, -1, -1, source.Clock.GetUtcNow()), [.. rows.Select(SyncPark.Row)],
             new(false, null, null, "Aucun fichier partagé configuré dans ce lecteur ; relevé local conservé.", false), stored.Generation, 0, null, source.Clock.GetUtcNow());
     }
