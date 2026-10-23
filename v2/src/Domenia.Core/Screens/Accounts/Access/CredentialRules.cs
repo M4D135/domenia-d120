@@ -17,6 +17,20 @@ public static class CredentialRules
     public const string BitLocker = "ReadBitLocker";
     public const string RemoteLocalPrefix = "RemoteLocal|";
     public const string DirectoryOperationPrefix = "AD:";
+    public const int MaxTargetSecretAccounts = 32;
+
+    public static bool IsSecretTargetKey(string key) => key.StartsWith(Laps + "|", StringComparison.Ordinal) || key.StartsWith(BitLocker + "|", StringComparison.Ordinal);
+
+    public static string? SecretTargetKey(string scope, string? dn)
+    {
+        if (scope is not (Laps or BitLocker) || string.IsNullOrWhiteSpace(dn) || dn.Length > 4096) { return null; }
+        try
+        {
+            var names = DistinguishedName.Parse(dn);
+            return names.Length > 1 ? scope + "|" + DistinguishedName.Format(names).ToUpperInvariant() : null;
+        }
+        catch (FormatException) { return null; }
+    }
 
     /// <summary>Lease of a temporary account (Security.AlternateCredentialIdleMinutes).</summary>
     public const int DefaultLeaseMinutes = 30;
@@ -175,6 +189,12 @@ public static class CredentialRules
     public static string ScopeLabel(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
+        if (IsSecretTargetKey(key))
+        {
+            var split = key.IndexOf('|');
+            try { var names = DistinguishedName.Parse(key[(split + 1)..]); return names.IsEmpty ? "Secrets du poste" : ScopeLabel(key[..split]) + " · " + names[0].Value; }
+            catch (FormatException) { return "Secrets du poste"; }
+        }
         if (key.StartsWith(RemoteLocalPrefix, StringComparison.Ordinal))
         {
             return "Poste " + key[RemoteLocalPrefix.Length..] + " (compte local)";
@@ -397,8 +417,9 @@ public static class CredentialRules
     public static string KindLabel(string kind) => kind switch
     {
         "accessDenied" => "Accès refusé",
-        "logonFailure" => "Identifiants refusés",
-        "unconfirmed" => "Aucune valeur visible, publication ou droits à vérifier",
+        "logonFailure" or "badCredentials" => "Identifiants refusés",
+        "unconfirmed" or "possible" => "Aucune valeur visible, publication ou droits à vérifier",
+        "decryptionDenied" => "Déchiffrement refusé",
         _ => "Refus",
     };
 

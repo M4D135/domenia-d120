@@ -569,7 +569,7 @@ public sealed partial class SimulatedPosteReader
     /// Proposal of another account for a refused secret resource (PST-060, PST-062): the fictitious Windows prompt accepts it,
     /// the refusal remembered for this workstation and this resource is lifted. No password is ever asked or kept here.
     /// </summary>
-    public async Task<OtherAccountResult> UseOtherAccountAsync(string dn, string resource, CancellationToken cancellationToken)
+    public async Task<OtherAccountResult> UseOtherAccountAsync(string dn, string resource, CancellationToken cancellationToken, string theme = "dark")
     {
         ArgumentNullException.ThrowIfNull(dn);
         if (resource is not ("laps" or "bitlocker"))

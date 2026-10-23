@@ -112,7 +112,7 @@ public sealed class AccountsAccessOperations : IOperationModule
             {
                 var values = BridgeArguments.ReadObject(args, KeyArguments);
                 var key = BridgeArguments.GetString(values, "key");
-                if (key.Length is 0 or > 300 || key.Any(char.IsControl))
+                if (key.Length is 0 or > 4300 || key.Any(char.IsControl))
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("key") + " doit désigner un compte en mémoire.");
                 }

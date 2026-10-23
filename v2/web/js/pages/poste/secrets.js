@@ -117,6 +117,8 @@ export function renderSecrets(panel, state) {
 
   // ---------- LAPS ----------
 
+  const accountIssue = (err) => ['ad.credentials', 'ad.accessDenied', 'machine.accountPaused', 'poste.refused', 'poste.lapsDecryptDenied'].includes(err?.code);
+
   const paintLaps = () => {
     const host = slot('laps');
     if (!host) return;
@@ -125,8 +127,8 @@ export function renderSecrets(panel, state) {
     const head = cardHead('lock', 'Mot de passe LAPS', esc(s.lapsKind), v ? `<button class="btn ghost sm" type="button" data-act="laps"${local.lapsBusy ? ' disabled' : ''}>${ico('refresh')}Relire</button>` : '', v?.tone ?? 'info');
     if (local.shown?.kind === 'laps') { host.innerHTML = head + shownMarkup('laps'); paintRing(host); return; }
     if (local.lapsBusy) { host.innerHTML = `${head}<div class="ps-sk-stack" aria-busy="true"><span class="skeleton ps-sk w70"></span><span class="skeleton ps-sk w85"></span><span class="skeleton ps-sk w55"></span></div>`; return; }
-    if (local.lapsError) { host.innerHTML = head + failure(local.lapsError, { retry: 'laps' }); return; }
-    const other = (v?.offerOtherAccount || s.lapsDenied) ? `<div class="ps-other"><p class="ps-note warn">${ico('user')}Lecture refusée pour ${esc(v?.identity ?? s.identity)}${NBSP}: un autre compte peut être proposé (invite Windows), pour LAPS sur ce poste seulement.</p>
+    if (local.lapsError) { host.innerHTML = head + failure(local.lapsError, { retry: 'laps' }) + (accountIssue(local.lapsError) ? '<button class="btn sm" type="button" data-act="other" data-resource="laps">Proposer un autre compte</button>' : ''); return; }
+    const other = (v?.offerOtherAccount || s.lapsDenied) ? `<div class="ps-other"><p class="ps-note warn">${ico('user')}Valeur non visible ou accès refusé pour ${esc(v?.identity ?? s.identity)}${NBSP}: un autre compte peut être proposé, pour LAPS sur ce poste seulement.</p>
         <button class="btn sm" type="button" data-act="other" data-resource="laps">${ico('user')}Proposer un autre compte</button></div>` : '';
     if (!v) {
       const exp = s.lapsExpiration ? `<p class="ps-note${s.lapsExpired ? ' warn' : ''}">${ico('clock')}Expiration ${s.lapsExpired ? 'dépassée' : 'prévue'} ${rel(s.lapsExpiration)} (annuaire).</p>` : '';
@@ -171,6 +173,7 @@ export function renderSecrets(panel, state) {
       shown('laps', r);
     } catch (err) {
       local.busy = null;
+      if (accountIssue(err) && local.laps) local.laps = { ...local.laps, canReveal: false, offerOtherAccount: true, tone: 'warn', stateLabel: err.code === 'poste.lapsDecryptDenied' ? 'Déchiffrement refusé' : 'Lecture non aboutie', message: errorText(err) };
       toast(errorText(err), { tone: 'alert' });
       paintLaps();
     }
@@ -195,8 +198,8 @@ export function renderSecrets(panel, state) {
       list ? `<button class="btn ghost sm" type="button" data-act="keys"${local.keysBusy ? ' disabled' : ''}>${ico('refresh')}Relire</button>` : '', list?.readState === 'refused' ? 'warn' : 'info');
     if (local.shown?.kind === 'bitlocker') { host.innerHTML = head + shownMarkup('bitlocker'); paintRing(host); return; }
     if (local.keysBusy) { host.innerHTML = `${head}<div class="ps-sk-stack" aria-busy="true"><span class="skeleton ps-sk w85"></span><span class="skeleton ps-sk w70"></span><span class="skeleton ps-sk w85"></span></div>`; return; }
-    if (local.keysError) { host.innerHTML = head + failure(local.keysError, { retry: 'keys' }); return; }
-    const other = `<div class="ps-other"><p class="ps-note warn">${ico('user')}Lecture refusée pour ce compte${NBSP}: un autre compte peut être proposé (invite Windows), pour BitLocker sur ce poste seulement.</p>
+    if (local.keysError) { host.innerHTML = head + failure(local.keysError, { retry: 'keys' }) + (accountIssue(local.keysError) ? '<button class="btn sm" type="button" data-act="other" data-resource="bitlocker">Proposer un autre compte</button>' : ''); return; }
+    const other = `<div class="ps-other"><p class="ps-note warn">${ico('user')}Valeur non visible ou accès refusé pour ce compte${NBSP}: un autre compte peut être proposé, pour BitLocker sur ce poste seulement.</p>
       <button class="btn sm" type="button" data-act="other" data-resource="bitlocker">${ico('user')}Proposer un autre compte</button></div>`;
     if (!list) {
       host.innerHTML = `${head}<div class="ps-secret-idle"><div class="ps-vault" aria-hidden="true">${ico('shield')}</div>
@@ -253,6 +256,7 @@ export function renderSecrets(panel, state) {
       shown('bitlocker', r);
     } catch (err) {
       local.busy = null;
+      if (accountIssue(err) && local.keys) local.keys = { ...local.keys, offerOtherAccount: true };
       toast(errorText(err), { tone: 'alert' });
       paintKeys();
     }
@@ -261,16 +265,17 @@ export function renderSecrets(panel, state) {
   const otherAccount = async (resource) => {
     const ok = await confirmDialog({
       title: 'Proposer un autre compte ?',
-      message: `Windows demandera un autre compte pour la lecture ${resource === 'laps' ? 'LAPS' : 'BitLocker'} de ${state.data.computer.name}. Son mot de passe est saisi dans l’invite Windows et n’est jamais vu ni gardé par Domenia. Le refus mémorisé n’est levé que pour cette ressource.`,
+      message: `Une fenêtre sécurisée demandera un autre compte pour la lecture ${resource === 'laps' ? 'LAPS' : 'BitLocker'} de ${state.data.computer.name}. Le compte restera en mémoire pour ce poste et cette ressource, pendant 30 minutes d’inactivité. Le mot de passe ne passe jamais par cette page. Aucune révélation ne sera relancée automatiquement.`,
       confirmLabel: 'Proposer un autre compte',
     });
     if (!ok || !alive) return;
     try {
-      const r = await state.call('poste.account.other', { dn: state.dn, resource });
+      const r = await state.call('poste.account.other', { dn: state.dn, resource, theme: document.documentElement.dataset.theme ?? 'dark' });
       toast(r.text, { tone: r.accepted ? 'ok' : 'info', life: 7000 });
       if (r.accepted) {
+        if (resource === 'laps') { local.laps = null; local.lapsError = null; } else { local.keys = null; local.keysError = null; }
         await state.reload();
-        if (resource === 'laps') readLaps(); else readKeys();
+        if (alive) { if (resource === 'laps') paintLaps(); else paintKeys(); }
       }
     } catch (err) {
       toast(errorText(err), { tone: 'alert' });

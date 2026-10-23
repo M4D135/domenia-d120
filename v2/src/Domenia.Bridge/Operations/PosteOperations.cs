@@ -395,13 +395,15 @@ public sealed partial class PosteOperations : IOperationModule
 
             Network("poste.account.other", async (args, _, ct) =>
             {
-                var dn = Dn(args, ["resource"]);
+                var dn = Dn(args, ["resource", "theme"]);
                 var resource = BridgeArguments.GetString(dn.Values, "resource");
                 if (resource is not ("laps" or "bitlocker"))
                 {
                     throw BridgeArguments.Invalid(FrenchText.Quote("resource") + " doit valoir laps ou bitlocker.");
                 }
-                var result = await Reader().UseOtherAccountAsync(dn.Dn, resource, ct).ConfigureAwait(false);
+                var theme = BridgeArguments.GetOptionalString(dn.Values, "theme") ?? "dark";
+                if (theme is not ("dark" or "light" or "contrast")) { throw BridgeArguments.Invalid("Thème de saisie inconnu."); }
+                var result = await Reader().UseOtherAccountAsync(dn.Dn, resource, ct, theme).ConfigureAwait(false);
                 Journal("Autre compte " + (result.Accepted ? "accepté pour " : "non proposé pour ") + (resource == "laps" ? "LAPS" : "BitLocker") + FrenchText.Colon + result.Computer, result.Accepted ? Tone.Ok : Tone.Info);
                 return result;
             }, "Propose un autre compte pour une ressource de secret refusée (invite Windows) : le refus est levé pour cette seule ressource ; aucun mot de passe."),

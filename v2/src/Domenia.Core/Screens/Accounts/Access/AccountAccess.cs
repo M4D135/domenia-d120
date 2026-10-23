@@ -285,10 +285,13 @@ public sealed partial class AccountAccess : IDisposable
                 secondary[usage] = new Held(identity, copy, now, result.Controller);
                 foreach (var resource in CredentialRules.ResourcesOf(usage))
                 {
-                    if (temporary.Remove(resource, out var replaced))
+                    foreach (var temporaryKey in temporary.Keys.Where(k => k == resource || k.StartsWith(resource + "|", StringComparison.Ordinal)).ToArray())
                     {
-                        faults.Remove(Key(session, replaced.Login, null));
-                        replaced.Dispose();
+                        if (temporary.Remove(temporaryKey, out var replaced))
+                        {
+                            faults.Remove(Key(session, replaced.Login, null));
+                            replaced.Dispose();
+                        }
                     }
                     foreach (var key in pending.Where(p => p.Value.Scope == resource).Select(p => p.Key).ToList())
                     {
@@ -334,7 +337,7 @@ public sealed partial class AccountAccess : IDisposable
     /// The identifier is remembered for that resource (RemoteLocal:&lt;poste&gt; for a local account, never the Postes account).
     /// Nothing is replayed: the operator starts the action again himself.
     /// </summary>
-    public async Task<AccessChange> RecoverAsync(string requestId, string login, SecureString password, LeaseMode leaseMode, int minutes, string? target, CancellationToken cancellationToken)
+    public async Task<AccessChange> RecoverAsync(string requestId, string login, SecureString password, LeaseMode leaseMode, int minutes, string? target, CancellationToken cancellationToken, bool targetOnly = false)
     {
         ArgumentNullException.ThrowIfNull(requestId);
         ArgumentNullException.ThrowIfNull(login);
@@ -348,27 +351,45 @@ public sealed partial class AccountAccess : IDisposable
                 ?? throw new DomeniaOperationException(RequestUnknown, "Cet accès n’est plus en attente" + FrenchText.Colon + "rien n’a été changé.");
         }
         var startEpoch = Epoch();
+        var startSelection = SelectionVersion;
         var scopeTarget = request.Scope == CredentialRules.Remote ? target ?? request.Target : null;
-        var result = await ValidateAsync("Autre compte pour " + request.ScopeLabel, "recover", new CredentialRequest(login, request.Scope, scopeTarget), password, cancellationToken).ConfigureAwait(false);
+        string? scopedKey = null;
+        if (targetOnly)
+        {
+            scopedKey = CredentialRules.SecretTargetKey(request.Scope, target);
+            var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
+            if (scopedKey is null || target is null || CredentialRules.SecretTargetKey(request.Scope, request.Target) != scopedKey
+                || session.Domain?.RootDn is not { } root || !ScopeRules.Contains(new(root, "Domaine", true), target))
+            { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte temporaire limité à un poste du domaine et à sa demande d’accès exacte."); }
+            scopeTarget = target;
+            lock (gate)
+            {
+                if (!temporary.ContainsKey(scopedKey) && temporary.Keys.Count(CredentialRules.IsSecretTargetKey) >= CredentialRules.MaxTargetSecretAccounts)
+                { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Trente-deux comptes de secrets ciblés sont déjà en mémoire ; oubliez-en un dans Comptes avant une nouvelle saisie."); }
+            }
+        }
+        var result = await ValidateAsync("Autre compte pour " + request.ScopeLabel, "recover", new CredentialRequest(login, request.Scope, targetOnly ? null : scopeTarget), password, cancellationToken).ConfigureAwait(false);
         if (result.Success)
         {
             var session = await SessionAsync(cancellationToken).ConfigureAwait(false);
             var identity = result.Identity ?? login.Trim();
             var now = clock.GetUtcNow();
             var local = request.Scope == CredentialRules.Remote && scopeTarget is not null && CredentialRules.IsLocalAccount(login, scopeTarget);
-            var key = local ? CredentialRules.RemoteLocalPrefix + CredentialRules.MachineKey(scopeTarget).ToUpperInvariant() : request.Scope;
+            var key = scopedKey ?? (local ? CredentialRules.RemoteLocalPrefix + CredentialRules.MachineKey(scopeTarget).ToUpperInvariant() : request.Scope);
             var copy = password.Copy();
             copy.MakeReadOnly();
             lock (gate)
             {
                 EnsureEpochLocked(startEpoch, copy);
+                if (generation != startSelection)
+                { copy.Dispose(); throw new DomeniaOperationException(EpochChanged, "Compte modifié pendant la validation ; compte temporaire non installé."); }
                 if (temporary.Remove(key, out var replaced))
                 {
                     faults.Remove(Key(session, replaced.Login, scopeTarget));
                     replaced.Dispose();
                 }
                 temporary[key] = new Temporary(identity, scopeTarget, copy, CredentialRules.NewLease(key, identity, leaseMode, minutes, epoch, now));
-                foreach (var stale in pending.Where(p => p.Value.Scope == request.Scope).Select(p => p.Key).ToList())
+                foreach (var stale in pending.Where(p => p.Value.Scope == request.Scope && (!targetOnly || CredentialRules.SecretTargetKey(request.Scope, p.Value.Target) == scopedKey)).Select(p => p.Key).ToList())
                 {
                     pending.Remove(stale);
                 }
@@ -813,6 +834,8 @@ public sealed partial class AccountAccess : IDisposable
                 var (credential, _) = WorkstationCredentialLocked(session, target, now);
                 return credential.Session ? null : credential;
             }
+            if (CredentialRules.SecretTargetKey(scope, target) is { } targeted && temporary.TryGetValue(targeted, out var scoped))
+            { return UseLocked(targeted, scoped, now); }
             if (temporary.TryGetValue(scope, out var temp))
             {
                 return UseLocked(scope, temp, now);
@@ -1214,6 +1237,8 @@ public sealed partial class AccountAccess : IDisposable
     /// <summary>Key of the account a resource uses now (for a refusal that did not name its account).</summary>
     private string KeyInUseLocked(SessionSnapshot session, string scope, string? target)
     {
+        if (CredentialRules.SecretTargetKey(scope, target) is { } targeted && temporary.TryGetValue(targeted, out var scoped))
+        { return Key(session, scoped.Login, null); }
         if (scope == CredentialRules.Remote || scope.StartsWith(CredentialRules.RemoteLocalPrefix, StringComparison.Ordinal))
         {
             var localKey = target is null ? null : CredentialRules.RemoteLocalPrefix + CredentialRules.MachineKey(target).ToUpperInvariant();
@@ -1281,6 +1306,11 @@ public sealed partial class AccountAccess : IDisposable
             rows.Add(Row(CredentialRules.ScopeLabel(key), key, temp.Login, Key(session, temp.Login, temp.Target), "compte local temporaire de ce poste", new AccessRowAction("forget", "Oublier", "temporary:" + key)));
         }
         var secrets = secondary.GetValueOrDefault(AccessUsage.Secrets);
+        foreach (var key in temporary.Keys.Where(CredentialRules.IsSecretTargetKey).Order(StringComparer.Ordinal))
+        {
+            var temp = temporary[key];
+            rows.Add(Row(CredentialRules.ScopeLabel(key), key, temp.Login, Key(session, temp.Login, null), "compte temporaire limité à cette ressource et à ce poste", new AccessRowAction("forget", "Oublier", "temporary:" + key)));
+        }
         foreach (var (label, key) in new[] { ("Secrets" + FrenchText.Colon + "LAPS", CredentialRules.Laps), ("Secrets" + FrenchText.Colon + "BitLocker", CredentialRules.BitLocker) })
         {
             string account;

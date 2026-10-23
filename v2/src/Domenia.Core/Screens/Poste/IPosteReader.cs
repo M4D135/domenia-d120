@@ -101,7 +101,7 @@ public interface IPosteReader : IScreenReader
     /// Proposes another account for a refused secret resource (« laps » or « bitlocker », PST-060, PST-062): accepted, the
     /// refusal remembered for the workstation is lifted for that resource. Simulation: a fictitious account, no password.
     /// </summary>
-    Task<OtherAccountResult> UseOtherAccountAsync(string dn, string resource, CancellationToken cancellationToken);
+    Task<OtherAccountResult> UseOtherAccountAsync(string dn, string resource, CancellationToken cancellationToken, string theme = "dark");
 
     /// <summary>
     /// Non-secret index of the secrets of the working OU (PST-066): BitLocker presence (number of recovery objects, never a key)

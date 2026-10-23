@@ -34,8 +34,10 @@ internal sealed class CredentialWindow : Form
         };
         layout.Controls.Add(TextLine(request.Title, true));
         layout.Controls.Add(TextLine(request.Purpose));
-        var login = new TextBox { Text = request.Login, ReadOnly = true, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Consolas", 11F), BackColor = background, ForeColor = foreground, AccessibleName = "Compte choisi", TabStop = false, Margin = new Padding(0, 0, 0, 16) };
+        if (request.CanEditLogin) { layout.Controls.Add(new Label { Text = "&Compte (DOMAINE\\compte ou compte@domaine)", AutoSize = true, ForeColor = foreground, Margin = new Padding(0, 0, 0, 6) }); }
+        var login = new TextBox { Text = request.Login, ReadOnly = !request.CanEditLogin, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle,
+            Font = new Font("Consolas", 11F), BackColor = background, ForeColor = foreground, AccessibleName = "Compte choisi", TabStop = request.CanEditLogin,
+            MaxLength = CredentialRules.MaxLoginLength, Margin = new Padding(0, 0, 0, 16) };
         layout.Controls.Add(login);
         layout.Controls.Add(new Label { Text = "&Mot de passe", AutoSize = true, ForeColor = foreground, Margin = new Padding(0, 0, 0, 6) });
         var row = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 12) };
@@ -45,7 +47,7 @@ internal sealed class CredentialWindow : Form
         secret.TabIndex = 0; reveal.TabIndex = 1;
         row.Controls.Add(secret, 0, 0); row.Controls.Add(reveal, 1, 0); layout.Controls.Add(row);
         layout.Controls.Add(TextLine("La saisie reste dans cette fenêtre. Aucun mot de passe n’est transmis à la page web ni au journal."));
-        var canStore = vault.Available && !request.VaultTargets.IsEmpty;
+        var canStore = !request.CanEditLogin && vault.Available && !request.VaultTargets.IsEmpty;
         var load = new Button { Text = "Utiliser le coffre Windows", AutoSize = true, Enabled = canStore && request.CanUseVault, Margin = new Padding(0, 0, 0, 10) };
         layout.Controls.Add(load);
         remember.Enabled = canStore; remember.ForeColor = foreground; remember.Margin = new Padding(0, 0, 0, 12); layout.Controls.Add(remember);
@@ -61,7 +63,9 @@ internal sealed class CredentialWindow : Form
             button.Padding = new Padding(8, 4, 8, 4); button.FlatAppearance.BorderColor = contrast ? SystemColors.WindowText : muted;
         }
         Controls.Add(layout); AcceptButton = accept; CancelButton = cancel; accept.Enabled = false;
-        secret.SecretChanged += (_, _) => { accept.Enabled = secret.SecretLength > 0; };
+        void CheckInput() => accept.Enabled = secret.SecretLength > 0 && (!request.CanEditLogin || CredentialRules.IsWellFormed(login.Text));
+        secret.SecretChanged += (_, _) => CheckInput();
+        login.TextChanged += (_, _) => CheckInput();
         reveal.Click += (_, _) =>
         {
             secret.Revealed = !secret.Revealed; reveal.Text = secret.Revealed ? "Masquer" : "Afficher";
@@ -84,11 +88,11 @@ internal sealed class CredentialWindow : Form
         };
         accept.Click += (_, _) =>
         {
-            if (secret.SecretLength == 0) { return; }
-            accepted?.Dispose(); accepted = new(secret.CopySecret(), remember.Enabled && remember.Checked);
+            CheckInput(); if (!accept.Enabled) { return; }
+            accepted?.Dispose(); accepted = new(secret.CopySecret(), remember.Enabled && remember.Checked, request.CanEditLogin ? login.Text.Trim() : request.Login);
             DialogResult = DialogResult.OK; Close();
         };
-        Shown += (_, _) => secret.Focus();
+        Shown += (_, _) => { if (request.CanEditLogin) { login.Focus(); login.SelectAll(); } else { secret.Focus(); } };
         FormClosed += (_, _) => { conceal.Stop(); secret.Wipe(); };
     }
 

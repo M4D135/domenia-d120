@@ -4,13 +4,17 @@ using System.Security;
 namespace Domenia.Core;
 
 public sealed record CredentialWindowRequest(string Title, string Login, string Purpose, string Theme,
-    ImmutableArray<CredentialVaultTarget> VaultTargets, bool CanUseVault, string? VaultReason);
+    ImmutableArray<CredentialVaultTarget> VaultTargets, bool CanUseVault, string? VaultReason)
+{
+    public bool CanEditLogin { get; init; }
+}
 
 /// <summary>Owned native entry, never serialized to the web view.</summary>
-public sealed class CredentialWindowEntry(SecureString password, bool remember) : IDisposable
+public sealed class CredentialWindowEntry(SecureString password, bool remember, string? login = null) : IDisposable
 {
     public SecureString Password { get; } = password;
     public bool Remember { get; } = remember;
+    public string? Login { get; } = login;
     public void Dispose() => Password.Dispose();
 }
 

@@ -19,6 +19,7 @@ public sealed class AccountReadLease : IDisposable
 
 public sealed partial class AccountAccess
 {
+    public long SelectionVersion { get { lock (gate) { return generation; } } }
     /// <summary>Atomic copy + generation. Reading a passive label never enters this method or consumes a lease.</summary>
     public async Task<AccountReadLease> AcquireDirectoryReadAsync(string scope, string? target, CancellationToken token)
     {

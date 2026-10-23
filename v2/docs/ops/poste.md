@@ -481,3 +481,13 @@ Le déchiffrement natif utilise [NCryptUnprotectSecret](https://learn.microsoft.
 Deux travailleurs natifs au maximum, sans file ; attente limitée à quinze secondes dans un geste global de trente-cinq secondes. L’API non annulable conserve sa copie jusqu’à son retour réel. Après abandon de l’attente, tout résultat tardif est libéré ; tampons natifs et tableaux de traitement sont nettoyés. Le mot de passe traité est transféré au propriétaire de la fenêtre sans chaîne managée supplémentaire. Les chaînes LDAP et les copies WinForms restent soumises aux limites du runtime décrites au §26.
 
 Huit tests écrits et compilés seulement : Unicode, JSON ambigu/incomplet, tailles et dates, choix Windows/historique, absence de repli, compte du déchiffrement et recréation du poste. Debug/Release sans avertissement ; NCrypt, ouverture de session et LAPS réel restent à qualifier dans les VM lors de la recette finale.
+
+## 28. Autre compte de secret, limité au poste (23/10/2026)
+
+Le bouton propose une saisie native du compte et du mot de passe, dans le thème courant. La fenêtre doit être disponible avant tout contact LDAP. Les identités locales et les comptes hors contexte sont refusés avant validation ; une seule validation est effectuée. Annuler ou changer de session/compte pendant la saisie conserve la sélection précédente. Aucun coffre n’est écrit par ce geste.
+
+Le bail temporaire est indexé par la ressource LAPS ou BitLocker et le DN canonique du poste, avec trente minutes d’inactivité. Il ne remplace ni les choix d’autres postes ni la ressource voisine. Les lectures gardent leur contrôle du GUID ordinateur. Trente-deux comptes ciblés au maximum, tous visibles et oubliables dans Comptes. Les pauses suivent l’identité réellement sélectionnée ; aucun compte suivant n’est essayé après rejet. Un nouveau choix global du compte Secrets remplace explicitement ces choix ciblés.
+
+La page distingue désormais valeur invisible, refus de lecture et refus de déchiffrement, et laisse proposer un autre compte après ces réponses. Après validation, elle invite à relancer le geste ; aucune lecture ni révélation automatique. Les demandes d’accès des autres postes restent en attente.
+
+Cinq tests de ciblage, périmètre, oubli, pause et absence d’hôte ajoutés et compilés seulement. Debug/Release sans avertissement ; fenêtre et trois thèmes à qualifier dans la recette finale. Session Administrateur console 1 toujours active revérifiée, aucune fermeture de bureau.
