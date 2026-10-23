@@ -531,3 +531,12 @@ Six tests ajoutés et compilés seulement, dont ouverture sans LDAP, identité a
 ## 33. Dernier utilisateur : mémorisation locale (23/10/2026)
 
 Après vérification de l’utilisateur et relecture du parent, la détection verse une observation par GUID au service partagé des relations puis tente sa mémorisation locale autorisée. Le verdict distingue enregistrement, attente ou interruption. Les dates de la source sont conservées ; LogonUI ne reçoit pas une fausse date de connexion. Déclarations et anciens liens sans GUID restent intacts. Une panne locale ne transforme pas l’observation confirmée en affectation ni ne lance une boucle réseau. Voir `relations.md` §12. Le lecteur Poste complet et sa recette native restent en cours.
+
+
+## 34. Bail annuaire de la validation préalable (23/10/2026)
+
+Les gestes réseau de Poste valident désormais leur cible avec le compte annuaire sélectionné et son garde commun. RootDSE doit appartenir au domaine actif ; un rejet d’identifiants est enregistré et bloque le contact suivant, sans reprise avec une autre identité. La lecture exacte du parent est limitée à deux résultats et dix secondes. GUID, SID, date de création, DN et unicité sont contrôlés avant tout accès machine. L’expansion des appartenances reste active pour ne pas remplacer le cache par une projection tronquée.
+
+L’inventaire et le direct utilisent une seule acquisition annuaire pour toute leur chaîne de console : une identité à usage unique n’est pas consommée par un contrôle préliminaire puis remplacée au geste suivant. Le ping du direct se déroule dans cette chaîne et utilise le DNS fraîchement relu. Les règles de qualification, conservation des données partielles et mémorisation sont décrites dans `relations.md` §28 à §31.
+
+Cinq tests ajoutés couvrent pause avant contact, refus partagé, identités ambiguës ou incohérentes, parent absent/contrôleur étranger et cible DNS du rappel avant inventaire. Un test d’inventaire vérifie aussi l’unique liaison RootDSE. Debug/Release compilés en VM sans erreur ni avertissement ; tests non exécutés.

@@ -54,7 +54,10 @@ internal static class AdInventoryRelationTests
     {
         using var folder = new TemporaryFolder(); var (db, source, ldap) = await AdRelationDirectoryTests.Open(folder); using var owned = source; Directory(ldap);
         var reader = new AdPosteReader(source) { InventoryReaderOverride = _ => Native(() => [Row(("Name", "PC1"), ("UserName", @"TEST\alice"))]) };
+        var callsBefore = ldap.Calls;
         await reader.InventoryAsync(Fixtures.Computer("PC1").DistinguishedName, false, PosteHealthPolicy.Default, null, CancellationToken.None);
+        Check.Equal(3, ldap.Searches.Count, "un seul contrôle avant la collecte et son contrôle final");
+        Check.Equal(4, ldap.Calls - callsBefore, "une seule liaison RootDSE pour tout le geste");
         Check.Equal(1L, (await db.ReadRelationsAsync(CancellationToken.None)).Total, "association issue du poste");
         Check.Equal(1L, (await db.ReadRelationSweepsAsync(CancellationToken.None)).Total, "passage issu du même inventaire");
         Check.Equal(@"TEST\alice", source.FleetDetails.Facts.Machines[Fixtures.Computer("PC1").ObjectGuid].ConsoleUser!, "fait partagé");
@@ -74,6 +77,19 @@ internal static class AdInventoryRelationTests
         Check.Equal(1, ldap.Searches.Count, "seule la lecture initiale avait été faite");
         Check.Equal(0L, (await db.ReadRelationsAsync(CancellationToken.None)).Total, "pas de lien après arrêt");
         Check.Equal(0L, (await db.ReadRelationSweepsAsync(CancellationToken.None)).Total, "pas de passage final après arrêt");
+    }
+
+    [Test]
+    public static async Task The_pre_inventory_callback_uses_the_fresh_DNS_target_and_does_not_acquire_a_second_LDAP_lease()
+    {
+        using var folder = new TemporaryFolder(); var (_, source, ldap) = await AdRelationDirectoryTests.Open(folder); using var owned = source;
+        var pc = Fixtures.Computer("PC1"); var updated = pc with { DnsHostName = "PC1.new.test.local" };
+        ldap.SearchAnswer = q => q.BaseDn == pc.DistinguishedName ? [AdPosteNetworkTests.Entry(updated)] : [AdRelationDirectoryTests.User(Fixtures.User("alice"))];
+        var callsBefore = ldap.Calls; var seen = "";
+        var reader = new AdRelationsReader(source) { InventoryReaderOverride = _ => Native(() => [Row(("Name", "PC1"), ("UserName", @"TEST\alice"))]) };
+        await reader.InventoryAsync(pc, WorkstationReading.Survey, null, CancellationToken.None, beforeRead: (host, _) => { seen = host; return Task.CompletedTask; });
+        Check.Equal(updated.DnsHostName!, seen, "cible issue de la relecture AD avant le ping");
+        Check.Equal(4, ldap.Calls - callsBefore, "RootDSE une fois, trois lectures objet");
     }
 
     [Test]

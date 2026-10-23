@@ -43,15 +43,27 @@ public sealed partial class AdPosteReader
     private async Task<LocalPoste> NetworkAsync(string dn, CancellationToken token, bool machine = true)
     {
         var local = await LocalAsync(dn, token).ConfigureAwait(false);
-        var entry = await new AdFicheObjects(source).ReadExactAsync(dn, AdDirectoryMapper.ComputerAttributes, TimeSpan.FromSeconds(10), token).ConfigureAwait(false);
+        using var elapsed = new CancellationTokenSource(TimeSpan.FromSeconds(10), source.Clock);
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(token, elapsed.Token);
+        using var directory = await AdReadAccess.AcquireAsync(source, CredentialRules.Directory, dn, budget.Token).ConfigureAwait(false);
+        IReadOnlyList<AdEntry> rows;
+        try
+        {
+            rows = await directory.SearchAsync(new(dn, "(objectClass=computer)", AdSearchScope.Base, [.. AdDirectoryMapper.ComputerAttributes, "objectClass"])
+            { PageSize = 1, SizeLimit = 2, Timeout = TimeSpan.FromSeconds(8), Budget = TimeSpan.FromSeconds(10), ExpandRanges = true, MaxRangeValues = 50_000 }, budget.Token).ConfigureAwait(false);
+        }
+        catch (DomeniaOperationException ex) when (ex.Code == AdErrors.NoSuchObject) { rows = []; }
+        var entry = rows.Count == 1 && DistinguishedName.AreEqual(rows[0].DistinguishedName, dn) ? rows[0] : null;
         var computer = entry is not null && entry.Strings("objectClass").Contains("computer", StringComparer.OrdinalIgnoreCase) ? AdDirectoryMapper.Computer(entry) : null;
-        if (computer is null || computer.ObjectGuid != local.Computer.ObjectGuid)
+        if (computer is null || computer.ObjectGuid != local.Computer.ObjectGuid || computer.Sid != local.Computer.Sid || computer.WhenCreated != local.Computer.WhenCreated
+            || computer.WhenCreated == DateTimeOffset.MinValue || computer.WhenCreated > source.Clock.GetUtcNow())
         { throw new DomeniaOperationException(PosteErrors.ComputerUnknown, "Le compte ordinateur a disparu ou changé d’identité ; aucun contact machine envoyé."); }
         if (machine && (computer.DnsHostName is not { } host || !CimQuery.IsHostName(host) || WorkstationIdentity.ExpectedName(computer) is null))
         { throw new DomeniaOperationException(DomeniaErrors.ArgumentsInvalid, "Compte machine et nom DNS absents, invalides ou incohérents ; aucun contact distant."); }
-        EnsureEpoch(local.Epoch);
-        // ReadExactAsync expands membership ranges; this is not a truncated object projection.
-        await source.RememberObjectsAsync(new(local.Directory.Domain, source.Clock.GetUtcNow(), false, [], [], [computer], []), local.Epoch, token).ConfigureAwait(false);
+        directory.EnsureCurrent(); EnsureEpoch(local.Epoch); budget.Token.ThrowIfCancellationRequested();
+        // The selected LDAP lease expands memberships before this projection can replace the local computer object.
+        await source.RememberObjectsAsync(new(local.Directory.Domain, source.Clock.GetUtcNow(), false, [], [], [computer], []), local.Epoch, budget.Token).ConfigureAwait(false);
+        directory.EnsureCurrent(); EnsureEpoch(local.Epoch);
         return local with { Computer = computer };
     }
 
@@ -124,7 +136,7 @@ public sealed partial class AdPosteReader
     public async Task<InventoryResult> InventoryAsync(string dn, bool deep, PosteHealthPolicy policy, IProgress<PosteProgress>? progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(policy);
-        var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
+        var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
         var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }
             .InventoryAsync(local.Computer, deep ? WorkstationReading.Full : WorkstationReading.Quick, progress, cancellationToken).ConfigureAwait(false);
         var value = qualified.Value;
@@ -138,11 +150,16 @@ public sealed partial class AdPosteReader
 
     public async Task<PosteLive> LiveAsync(string dn, CancellationToken cancellationToken)
     {
-        var local = await NetworkAsync(dn, cancellationToken).ConfigureAwait(false);
-        var presence = await PingAsync(local, cancellationToken).ConfigureAwait(false);
-        // ICMP can be filtered independently of CIM; silence is not a reason to fabricate an offline state.
+        var local = await LocalAsync(dn, cancellationToken).ConfigureAwait(false);
+        PresenceReading? measured = null;
+        // The fresh DNS target and the whole inventory share one LDAP lease, including a one-shot identity.
         var qualified = await new AdRelationsReader(source) { InventoryReaderOverride = InventoryReaderOverride }
-            .InventoryAsync(local.Computer, WorkstationReading.Live, null, cancellationToken).ConfigureAwait(false);
+            .InventoryAsync(local.Computer, WorkstationReading.Live, null, cancellationToken, beforeRead: async (host, stop) =>
+            {
+                measured = await PingAsync(local with { Computer = local.Computer with { DnsHostName = host } }, stop).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        var presence = measured ?? throw new DomeniaOperationException(DomeniaErrors.SourceUnavailable, "Présence non mesurée dans ce geste.");
+        // ICMP can be filtered independently of CIM; its silence does not fabricate an offline state.
         var value = qualified.Value;
         var now = value.CollectedAt;
         var boot = value.Os?.LastBoot is { } at && at <= now ? at : (DateTimeOffset?)null;

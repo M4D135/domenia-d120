@@ -10,7 +10,7 @@ public sealed partial class AdRelationsReader
 
     /// <summary>Reuse the console pipeline around one native inventory, preserving its completed payload on operator cancellation.</summary>
     internal async Task<QualifiedInventory> InventoryAsync(DirectoryComputer expected, WorkstationReading scope, IProgress<PosteProgress>? progress,
-        CancellationToken token, Func<string, CancellationToken, Task<InventorySnapshot>>? injected = null)
+        CancellationToken token, Func<string, CancellationToken, Task<InventorySnapshot>>? injected = null, Func<string, CancellationToken, Task>? beforeRead = null)
     {
         ArgumentNullException.ThrowIfNull(expected);
         if (scope is not (WorkstationReading.Survey or WorkstationReading.SurveyComplete or WorkstationReading.Quick or WorkstationReading.Full or WorkstationReading.Live))
@@ -18,6 +18,7 @@ public sealed partial class AdRelationsReader
         var epoch = source.Epoch; InventorySnapshot? captured = null;
         async Task<ConsoleAccountReading?> Read(WmiWorkstationReader reader, AdWorkstationAccess access, string host, CancellationToken stop)
         {
+            if (beforeRead is not null) { await beforeRead(host, stop).ConfigureAwait(false); access.EnsureCurrent(); EnsureEpoch(epoch); }
             captured = injected is null ? await reader.ReadAsync(host, scope, progress, stop, access.Credential).ConfigureAwait(false)
                 : await injected(host, stop).ConfigureAwait(false);
             access.EnsureCurrent(); EnsureEpoch(epoch);
